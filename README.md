@@ -11,6 +11,8 @@
 ## 문서
 
 - [프로젝트 기획서](docs/PROJECT_PLAN.md)
+- [구현 설계 문서 안내](docs/implementation/README.md)
+- [월드 생성 및 체육관 도시 배치](docs/implementation/WORLD_GENERATION.md)
 
 ## 현재 저장소 범위
 
