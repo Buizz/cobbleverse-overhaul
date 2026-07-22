@@ -1,0 +1,43 @@
+# Operating system
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# Java / Gradle build output
+.gradle/
+build/
+out/
+classes/
+
+# Minecraft development/runtime data
+run/
+.minecraft/
+logs/
+crash-reports/
+saves/
+screenshots/
+backups/
+
+# Downloaded mod binaries and generated packages
+mods/*.jar
+*.mrpack
+*.zip
+
+# Local environment and secrets
+.env
+.env.*
+*.local
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.log

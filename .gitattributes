@@ -1,0 +1,20 @@
+# Normalize text files for consistent diffs across operating systems.
+* text=auto eol=lf
+
+# Windows command files conventionally use CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Common binary assets used by Minecraft/modpack projects.
+*.jar binary
+*.zip binary
+*.mrpack binary
+*.nbt binary
+*.schem binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ogg binary
+*.wav binary
