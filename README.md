@@ -15,10 +15,11 @@
 - [선택 아키텍처와 비교 기록](docs/implementation/WORLD_ARCHITECTURE_OPTIONS.md)
 - [세대 월드 8지역 및 체육관 도시 생성](docs/implementation/WORLD_GENERATION.md)
 - [도시 포맷과 세대별 특수 시설](docs/implementation/CITY_FACILITIES.md)
+- [Cobbleverse Battle AI 프로젝트](projects/cobbleverse-battle-ai/README.md)
 
 ## 현재 저장소 범위
 
-현재는 기획 문서만 관리합니다. 구현을 시작하기 전까지 모드 소스, 설정 오버레이, 구조물 및 리소스 디렉터리는 만들지 않습니다.
+현재는 기획 문서와 플랫폼 독립 전투 AI의 초기 프로젝트 골격을 관리합니다. Minecraft·Cobblemon 연동 모드, 설정 오버레이, 구조물 및 리소스는 대상 버전을 확정한 뒤 추가합니다.
 
 향후 구현 단계에서는 필요에 따라 다음 영역을 추가할 예정입니다.
 
