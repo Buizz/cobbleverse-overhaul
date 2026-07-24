@@ -1,6 +1,6 @@
-# Cobbleverse Expansion
+# Cobbleverse Adventure
 
-코블버스의 지역 탐험, 체육관 진행, 경제, 트레이너 보상 및 멀티플레이 챔피언 시스템을 확장하기 위한 프로젝트입니다.
+`Cobbleverse Adventure(코블버스 어드벤처)`는 세대별 어드벤처 월드와 PC 기반 개인 농장을 결합해 포켓몬 본가식 모험을 구현하는 코블버스 확장 프로젝트입니다.
 
 > 현재 상태: **기획 단계**
 >
@@ -12,7 +12,9 @@
 
 - [프로젝트 기획서](docs/PROJECT_PLAN.md)
 - [구현 설계 문서 안내](docs/implementation/README.md)
-- [월드 생성 및 체육관 도시 배치](docs/implementation/WORLD_GENERATION.md)
+- [선택 아키텍처와 비교 기록](docs/implementation/WORLD_ARCHITECTURE_OPTIONS.md)
+- [세대 월드 8지역 및 체육관 도시 생성](docs/implementation/WORLD_GENERATION.md)
+- [도시 포맷과 세대별 특수 시설](docs/implementation/CITY_FACILITIES.md)
 
 ## 현재 저장소 범위
 

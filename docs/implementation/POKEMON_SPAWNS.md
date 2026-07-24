@@ -56,7 +56,7 @@ Cobblemon의 자연 스폰은 `data/cobblemon/spawn_pool_world` 아래의 포켓
   "pokemon": "squirtle",
   "condition": {
     "dimensions": [
-      "cobbleverse_overhaul:generation_1"
+      "cobbleverse_adventure:generation_1"
     ],
     "biomes": [
       "#cobblemon:is_freshwater"
