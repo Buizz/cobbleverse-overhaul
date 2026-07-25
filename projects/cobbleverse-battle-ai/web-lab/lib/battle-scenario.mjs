@@ -14,8 +14,14 @@ const AI_STRATEGIES = new Set([
   "balanced",
   "aggressive",
   "defensive",
+  "ace_check",
+  "reckless_ace",
+  "setup",
+  "hazard",
+  "tempo",
   "unpredictable",
 ]);
+const AI_STRATEGY_LABEL = Array.from(AI_STRATEGIES).join(", ");
 
 function issue(path, code, message) {
   return { path, code, message };
@@ -302,7 +308,7 @@ export function createBattleScenario(raw, trainers, itemResolver = null) {
         issue(
           `aiProfiles.${index}.strategy`,
           "unsupported",
-          "AI 성향은 balanced, aggressive, defensive, unpredictable 중 하나여야 합니다.",
+          `AI 성향은 ${AI_STRATEGY_LABEL} 중 하나여야 합니다.`,
         ),
       );
     }

@@ -325,7 +325,6 @@ function isSelfSacrificeCandidate(candidate) {
   const moveId = cleanId(candidate.id ?? candidate.moveId ?? candidate.name);
   return (
     SELF_SACRIFICE_MOVE_IDS.has(moveId) ||
-    candidateTagSet(candidate).has("riskynuke") ||
     candidate.selfSacrifice === true ||
     candidate.selfKo === true
   );
@@ -687,6 +686,21 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
             ),
           );
         }
+        if (
+          moveId === "stealthrock" &&
+          Number(enriched.turn ?? 1) <= 2 &&
+          livingOpponents >= 4
+        ) {
+          adjustments.push(
+            scoreAdjustment(
+              "rule.entry_hazard.early_stealth_rock",
+              "초반 스텔스록",
+              livingOpponents,
+              42,
+              "초반 스텔스록은 남은 파티 전체의 교체와 기띠/멀티스케일 자원을 압박하므로 크게 높게 봤습니다.",
+            ),
+          );
+        }
       } else {
         adjustments.push(
           scoreAdjustment(
@@ -698,6 +712,139 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
           ),
         );
       }
+    }
+  }
+
+  if (moveId === "saltcure") {
+    const opponentVolatiles = new Set(
+      Object.keys(enriched.opponentVolatiles ?? {}).map(cleanId),
+    );
+    if (opponentVolatiles.has("saltcure")) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.salt_cure.already_active",
+          "소금절이 중복",
+          true,
+          -45,
+          "상대가 이미 소금절이 상태라 재사용 가치를 낮췄습니다.",
+        ),
+      );
+    } else if (!enriched.immediateKoAvailable) {
+      const residualDamage = finiteNumber(
+        enriched.saltCureResidualDamage,
+        ratioValue(enriched.opponentMaxHp, enriched.opponentHp, 0) / 8,
+      );
+      const survivalTurns = Math.max(
+        1,
+        Math.min(
+          6,
+          ratioValue(
+            enriched.expectedSurvivalTurns,
+            enriched.survivalTurns,
+            enriched.turnsCanSurvive,
+            1,
+          ),
+        ),
+      );
+      const stealthRockLayers = Number(enriched.opponentHazards?.stealthrock ?? 0);
+      const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
+      const earlyRockStillPreferred =
+        stealthRockLayers <= 0 &&
+        Number(enriched.turn ?? 1) <= 2 &&
+        livingOpponents >= 4;
+      const dotValue = Math.min(
+        95,
+        Math.round(Math.max(0, residualDamage) * survivalTurns * 0.55 * 100) / 100,
+      );
+      const weight = earlyRockStillPreferred ? Math.min(34, 22 + dotValue) : 22 + dotValue;
+      adjustments.push(
+        scoreAdjustment(
+          "rule.salt_cure.persistent_pressure",
+          "소금절이 지속 압박",
+          `${Math.round(residualDamage)} x ${survivalTurns}`,
+          Math.round(weight * 100) / 100,
+          earlyRockStillPreferred
+            ? "소금절이는 지속 피해 가치가 크지만 초반 스텔스록이 아직 없어 보너스를 보수적으로 제한했습니다."
+            : `소금절이는 예상 생존 ${survivalTurns}턴 동안 누적 피해를 만들 수 있어 도트 기대값을 반영했습니다.`,
+        ),
+      );
+    }
+  }
+
+  const opponentStatus = cleanId(enriched.opponentStatus ?? enriched.targetStatus);
+  const residualStatuses = [];
+  const pushResidualStatus = (status, chance = 100) => {
+    const id = cleanId(status);
+    if (!["tox", "toxic", "badlypoisoned", "psn", "poison", "brn", "burn"].includes(id)) return;
+    residualStatuses.push({
+      status: id,
+      chance: Math.max(0, Math.min(100, Number(chance ?? 100))),
+    });
+  };
+  if (Array.isArray(enriched.statusResidualCandidates)) {
+    for (const entry of enriched.statusResidualCandidates) {
+      pushResidualStatus(entry.status, entry.chance ?? 100);
+    }
+  } else {
+    pushResidualStatus(enriched.status, 100);
+    for (const secondary of enriched.secondaries ?? []) {
+      pushResidualStatus(secondary.status, secondary.chance ?? 100);
+    }
+  }
+  if (
+    residualStatuses.length > 0 &&
+    !opponentStatus &&
+    enriched.statusBlocked !== true
+  ) {
+    const opponentMaxHp = ratioValue(enriched.opponentMaxHp, enriched.opponentHp, 0);
+    const survivalTurns = Math.max(
+      1,
+      Math.min(
+        6,
+        ratioValue(
+          enriched.expectedSurvivalTurns,
+          enriched.survivalTurns,
+          enriched.turnsCanSurvive,
+          1,
+        ),
+      ),
+    );
+    const best = residualStatuses.reduce(
+      (bestEntry, entry) => {
+        const statusId = cleanId(entry.status);
+        const chance = entry.chance / 100;
+        const toxic =
+          statusId === "tox" ||
+          statusId === "toxic" ||
+          statusId === "badlypoisoned";
+        const poison = statusId === "psn" || statusId === "poison";
+        const burn = statusId === "brn" || statusId === "burn";
+        const residual =
+          toxic
+            ? (opponentMaxHp / 16) * ((survivalTurns * (survivalTurns + 1)) / 2)
+            : poison
+              ? (opponentMaxHp / 8) * survivalTurns
+              : burn
+                ? (opponentMaxHp / 16) * survivalTurns
+                : 0;
+        const utility = burn ? 10 * survivalTurns : toxic ? 4 * survivalTurns : 0;
+        const value = Math.min(95, (residual * 0.5 + utility) * chance);
+        return value > bestEntry.value
+          ? { status: statusId, chance: entry.chance, value }
+          : bestEntry;
+      },
+      { status: "", chance: 0, value: 0 },
+    );
+    if (best.value > 0) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.status_residual.expected_value",
+          "상태이상 지속 기대값",
+          `${best.status} ${best.chance}% x ${survivalTurns}`,
+          Math.round(best.value * 100) / 100,
+          `독/맹독/화상은 예상 생존 ${survivalTurns}턴 동안 누적 피해를 만들 수 있어 성공 확률을 곱해 반영했습니다.`,
+        ),
+      );
     }
   }
 
@@ -1534,6 +1681,21 @@ export function aiDecisionReason(strategy = "balanced", gimmick = "") {
   }
   if (strategy === "defensive") {
     return "방어 성향으로 명중 안정성, 회복, 변화기 가치를 함께 비교했습니다.";
+  }
+  if (strategy === "ace_check") {
+    return "에이스 견제 성향으로 상대 핵심 자원 억제와 복수 처리 가치를 높게 비교했습니다.";
+  }
+  if (strategy === "reckless_ace") {
+    return "저돌적 에이스 성향으로 즉시 돌파와 에이스 전개 기회를 높게 평가했습니다.";
+  }
+  if (strategy === "setup") {
+    return "랭크업 전개 성향으로 안전한 강화와 스윕 기회를 우선 비교했습니다.";
+  }
+  if (strategy === "hazard") {
+    return "판 장악 성향으로 설치물과 교체 압박 가치를 높게 평가했습니다.";
+  }
+  if (strategy === "tempo") {
+    return "템포/피벗 성향으로 유리 대면 연결과 속도 주도권을 높게 평가했습니다.";
   }
   if (strategy === "unpredictable") {
     return "예측 방지 성향으로 상위 후보 안에서 시드 기반 선택을 분산했습니다.";

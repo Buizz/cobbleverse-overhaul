@@ -8,6 +8,7 @@ import {
 import { resolveNativeMaxMove } from "./native-max-moves.mjs";
 import {
   analyzeTeamProfile,
+  aiDecisionReason,
   createAiRng,
   scoreAiMoveCandidate,
   selectAiGimmick,
@@ -71,6 +72,27 @@ const SELF_DESTRUCT_MOVES = new Set([
   "explosion",
   "mistyexplosion",
   "selfdestruct",
+]);
+const AI_RECOVERY_MOVES = new Set([
+  "recover",
+  "roost",
+  "softboiled",
+  "slackoff",
+  "morningsun",
+  "synthesis",
+  "moonlight",
+  "rest",
+  "wish",
+]);
+const AI_PROTECTIVE_MOVES = new Set([
+  "protect",
+  "detect",
+  "kingsshield",
+  "spikyshield",
+  "banefulbunker",
+  "burningbulwark",
+  "obstruct",
+  "silktrap",
 ]);
 const IMPLEMENTED_ABILITIES = new Set([
   "adaptability",
@@ -927,6 +949,10 @@ export function createSimpleBattle(setup) {
       type: "switch",
       side: sideIndex,
       pokemon: side.team[0].name,
+      slot: 1,
+      remainingHp: side.team[0].hp,
+      maximumHp: side.team[0].stats.hp,
+      status: side.team[0].status,
     })),
     futureAttacks: [],
     lastSuccessfulMove: null,
@@ -6157,6 +6183,10 @@ function advanceFaintedSides(state) {
         type: "switch",
         side: sideIndex,
         pokemon: side.team[next].name,
+        slot: next + 1,
+        remainingHp: side.team[next].hp,
+        maximumHp: side.team[next].stats.hp,
+        status: side.team[next].status,
         automatic: true,
         selection: "matchup_score",
       });
@@ -6949,6 +6979,33 @@ function fieldSwitchSynergy(state, sideIndex, pokemon, opponent) {
   };
 }
 
+function aiMoveIdSet(pokemon) {
+  return new Set(pokemon.moves.map((move) => cleanId(move.id)));
+}
+
+function aiSustainTurnBonus(pokemon) {
+  const moveIds = aiMoveIdSet(pokemon);
+  let bonus = 0;
+  if ([...AI_RECOVERY_MOVES].some((id) => moveIds.has(id))) bonus += 1.25;
+  if ([...AI_PROTECTIVE_MOVES].some((id) => moveIds.has(id))) bonus += 0.75;
+  if (moveIds.has("substitute")) bonus += 0.5;
+  if (pokemon.volatiles?.substitute?.hp > 0) bonus += 0.5;
+  return bonus;
+}
+
+function estimatedSurvivalTurns(pokemon, incomingDamage) {
+  const damage = Math.max(1, Number(incomingDamage) || 1);
+  const rawTurns = pokemon.hp / damage;
+  return Math.round(Math.min(6, rawTurns + aiSustainTurnBonus(pokemon)) * 100) / 100;
+}
+
+function saltCureResidualDamage(target) {
+  const divisor = target.types.some((type) => ["Water", "Steel"].includes(type))
+    ? 4
+    : 8;
+  return Math.max(1, Math.floor(target.stats.hp / divisor));
+}
+
 function automaticMoveCandidates(
   state,
   sideIndex,
@@ -6964,6 +7021,9 @@ function automaticMoveCandidates(
       Number(state.sides[defenderSide]?.conditions?.[id]?.layers ?? 0),
     ]),
   );
+  const livingOpponents = state.sides[defenderSide].team.filter(
+    (member) => !member.fainted && member.hp > 0,
+  ).length;
   const opponentBestDamage = defender.moves.reduce((best, move) => {
     const range = calculateDamageRange(defender, pokemon, move);
     const accuracy = move.accuracy === true ? 1 : move.accuracy / 100;
@@ -6971,6 +7031,7 @@ function automaticMoveCandidates(
   }, 0);
   const incomingDamageRatio =
     pokemon.hp > 0 ? opponentBestDamage / pokemon.hp : 1;
+  const survivalTurns = estimatedSurvivalTurns(pokemon, opponentBestDamage);
   const activeRoleProfile = analyzeTeamProfile([
     {
       ...pokemon,
@@ -7034,6 +7095,28 @@ function automaticMoveCandidates(
           );
         return sum + (status + boosts) * chance;
       }, 0);
+      const statusResidualCandidates = [
+        ...(move.status &&
+        canReceiveStatus(defender, move.status, state, defenderSide, sideIndex)
+          ? [{ status: move.status, chance: 100 }]
+          : []),
+        ...move.secondaries
+          .filter(
+            (effect) =>
+              effect.status &&
+              canReceiveStatus(
+                defender,
+                effect.status,
+                state,
+                defenderSide,
+                sideIndex,
+              ),
+          )
+          .map((effect) => ({ status: effect.status, chance: effect.chance })),
+      ];
+      const statusBlocked =
+        Boolean(move.status) &&
+        !canReceiveStatus(defender, move.status, state, defenderSide, sideIndex);
       const tacticalValue =
         majorStatusValue +
         selfBoostValue +
@@ -7050,6 +7133,16 @@ function automaticMoveCandidates(
         incomingDamageRatio,
         opponentHp: defender.hp,
         opponentHazards,
+        opponentVolatiles: defender.volatiles ?? {},
+        opponentStatus: defender.status,
+        statusBlocked,
+        statusResidualCandidates,
+        livingOpponents,
+        turn: state.turn + 1,
+        expectedSurvivalTurns: survivalTurns,
+        sustainTurnBonus: aiSustainTurnBonus(pokemon),
+        saltCureResidualDamage: saltCureResidualDamage(defender),
+        opponentMaxHp: defender.stats.hp,
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
@@ -7080,6 +7173,16 @@ function automaticMoveCandidates(
         incomingDamageRatio,
         opponentHp: defender.hp,
         opponentHazards,
+        opponentVolatiles: defender.volatiles ?? {},
+        opponentStatus: defender.status,
+        statusBlocked,
+        statusResidualCandidates,
+        livingOpponents,
+        turn: state.turn + 1,
+        expectedSurvivalTurns: survivalTurns,
+        sustainTurnBonus: aiSustainTurnBonus(pokemon),
+        saltCureResidualDamage: saltCureResidualDamage(defender),
+        opponentMaxHp: defender.stats.hp,
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
@@ -7125,7 +7228,7 @@ function canUseDynamaxFallback(side) {
   );
 }
 
-export function chooseSimpleAiCommand(
+function chooseSimpleAiDecision(
   state,
   sideIndex,
   difficulty = "standard",
@@ -7167,15 +7270,28 @@ export function chooseSimpleAiCommand(
     alreadyUsed: side.usedGimmicks,
   }).id;
   return {
-    move: selectedMove?.slot ?? automaticMoveSlot(
-      state,
-      sideIndex,
-      difficulty,
-      strategy,
-      moveCandidates,
-    ),
-    ...(gimmick ? { gimmick } : {}),
+    command: {
+      move: selectedMove?.slot ?? automaticMoveSlot(
+        state,
+        sideIndex,
+        difficulty,
+        strategy,
+        moveCandidates,
+      ),
+      ...(gimmick ? { gimmick } : {}),
+    },
+    selectedMove,
+    moveCandidates,
   };
+}
+
+export function chooseSimpleAiCommand(
+  state,
+  sideIndex,
+  difficulty = "standard",
+  strategy = "balanced",
+) {
+  return chooseSimpleAiDecision(state, sideIndex, difficulty, strategy).command;
 }
 
 export function runSimpleBattle(setup, options = {}) {
@@ -7189,19 +7305,15 @@ export function runSimpleBattle(setup, options = {}) {
   while (state.status === "running" && state.turn < maxTurns) {
     const decisions = state.sides.map((_, sideIndex) => {
       const profile = aiProfiles[sideIndex];
-      const command = chooseSimpleAiCommand(
+      const decision = chooseSimpleAiDecision(
         state,
         sideIndex,
         profile.difficulty,
         profile.strategy,
       );
+      const command = decision.command;
       const active = activePokemon(state, sideIndex);
-      const candidates = automaticMoveCandidates(
-        state,
-        sideIndex,
-        profile.strategy,
-        profile.difficulty,
-      ).map((candidate) => ({
+      const candidates = decision.moveCandidates.map((candidate) => ({
         ...toAiActionCandidate(
           {
             ...candidate,
@@ -7214,7 +7326,7 @@ export function runSimpleBattle(setup, options = {}) {
           },
         ),
         score: Math.round(candidate.score * 100) / 100,
-        selected: candidate.slot === command.move,
+        selected: candidate.slot === decision.selectedMove?.slot,
       }));
       return {
         command,
@@ -7229,16 +7341,7 @@ export function runSimpleBattle(setup, options = {}) {
           chosenAction:
             candidates.find((candidate) => candidate.selected)?.name ?? "",
           gimmick: command.gimmick ?? "",
-          reason:
-            command.gimmick === "dynamax"
-              ? "엔트리의 다이맥스 강제 지시에 따라 이 턴에 다이맥스를 사용합니다."
-              : profile.strategy === "aggressive"
-              ? "공격 성향이 기대 피해량을 가장 크게 평가했습니다."
-              : profile.strategy === "defensive"
-                ? "안정 성향이 명중 안정성과 변화기의 가치를 함께 평가했습니다."
-                : profile.strategy === "unpredictable"
-                  ? "변칙 성향이 상위 후보 중 시드 기반 선택을 수행했습니다."
-                  : "균형 성향이 피해량, 명중률, 우선도를 종합했습니다.",
+          reason: aiDecisionReason(profile.strategy, command.gimmick ?? ""),
           candidates,
           aiModel: "common-battle-ai",
         },

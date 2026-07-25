@@ -1646,6 +1646,70 @@ test("scores recovery and setup as real AI actions", () => {
   );
 });
 
+test("AI trace marks the same top-scored move used for command selection", () => {
+  const state = runSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "SaltSetter",
+              stats: { ...pokemon().stats, hp: 400, attack: 120, defence: 160 },
+              moves: [
+                {
+                  id: "saltcure",
+                  name: "Salt Cure",
+                  type: "Rock",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 15,
+                },
+                {
+                  id: "earthquake",
+                  name: "Earthquake",
+                  type: "Ground",
+                  category: "Physical",
+                  power: 100,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Target",
+          team: [
+            pokemon({
+              name: "Porygon2",
+              stats: { ...pokemon().stats, hp: 374, defence: 130, speed: 40 },
+              moves: [
+                {
+                  id: "weakhit",
+                  name: "Weak Hit",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 35,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+    { maxTurns: 1, difficulty: "expert" },
+  );
+  const trace = state.aiTrace.find((entry) => entry.side === 0);
+  const selected = trace.candidates.find((candidate) => candidate.selected);
+  const topScore = Math.max(...trace.candidates.map((candidate) => candidate.score));
+
+  assert.equal(selected.score, topScore);
+});
+
 test("applies weather and terrain damage modifiers", () => {
   const attacker = pokemon({ types: ["Water"] });
   const defender = pokemon({ types: ["Normal"] });

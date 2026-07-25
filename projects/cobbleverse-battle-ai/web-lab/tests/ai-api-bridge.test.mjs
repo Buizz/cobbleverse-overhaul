@@ -346,6 +346,178 @@ test("applies RunAndBun-inspired setup and hazard scoring rules", () => {
   );
 });
 
+test("values early Stealth Rock above first Salt Cure pressure", () => {
+  const stealthRock = {
+    slot: 1,
+    id: "stealthrock",
+    name: "Stealth Rock",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 20,
+    actsBeforeOpponent: true,
+    livingOpponents: 6,
+    turn: 1,
+  };
+  const saltCure = {
+    slot: 2,
+    id: "saltcure",
+    name: "Salt Cure",
+    category: "Physical",
+    power: 40,
+    accuracy: 100,
+    expectedDamage: 52.5,
+    opponentHp: 374,
+    opponentVolatiles: {},
+    opponentHazards: {},
+    livingOpponents: 6,
+    turn: 1,
+    saltCureResidualDamage: 46,
+    expectedSurvivalTurns: 2,
+  };
+  const curedSaltCure = {
+    ...saltCure,
+    opponentVolatiles: { saltcure: { id: "saltcure" } },
+  };
+  const earthquake = {
+    slot: 3,
+    id: "earthquake",
+    name: "Earthquake",
+    category: "Physical",
+    power: 100,
+    accuracy: 100,
+    expectedDamage: 86,
+    opponentHp: 374,
+  };
+  const saltCureAfterRocks = {
+    ...saltCure,
+    opponentHazards: { stealthrock: 1 },
+    turn: 2,
+  };
+
+  assert.ok(
+    scoreAiMoveCandidate(saltCure, "expert", "balanced") >
+      scoreAiMoveCandidate({ ...saltCure, id: "rockthrow" }, "expert", "balanced"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(stealthRock, "expert", "balanced") >
+      scoreAiMoveCandidate(saltCure, "expert", "balanced"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(saltCureAfterRocks, "expert", "balanced") >
+      scoreAiMoveCandidate(earthquake, "expert", "balanced"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(curedSaltCure, "expert", "balanced") <
+      scoreAiMoveCandidate(saltCure, "expert", "balanced"),
+  );
+
+  const trace = createAiMoveTrace({
+    turn: 1,
+    side: 0,
+    sideName: "AI",
+    species: "Garganacl",
+    difficulty: "expert",
+    strategy: "balanced",
+    selected: stealthRock,
+    candidates: [stealthRock, saltCure],
+  });
+  const selected = trace.candidates.find((candidate) => candidate.selected);
+  const salt = trace.candidates.find((candidate) => candidate.id === "saltcure");
+  assert.ok(
+    selected.reasons.some(
+      (reason) => reason.code === "rule.entry_hazard.early_stealth_rock",
+    ),
+  );
+  assert.ok(
+    salt.reasons.some(
+      (reason) => reason.code === "rule.salt_cure.persistent_pressure",
+    ),
+  );
+});
+
+test("scores poison and burn residual damage by survival turns and status chance", () => {
+  const toxic = {
+    slot: 1,
+    id: "toxic",
+    name: "Toxic",
+    category: "Status",
+    power: 0,
+    accuracy: 90,
+    status: "tox",
+    opponentHp: 300,
+    opponentMaxHp: 300,
+    expectedSurvivalTurns: 4,
+  };
+  const shortLivedToxic = {
+    ...toxic,
+    expectedSurvivalTurns: 1,
+  };
+  const poisonedTarget = {
+    ...toxic,
+    opponentStatus: "psn",
+  };
+  const scald = {
+    slot: 2,
+    id: "scald",
+    name: "Scald",
+    category: "Special",
+    power: 80,
+    accuracy: 100,
+    expectedDamage: 62,
+    opponentHp: 300,
+    opponentMaxHp: 300,
+    expectedSurvivalTurns: 3,
+    secondaries: [{ chance: 30, status: "brn" }],
+  };
+  const surf = {
+    slot: 3,
+    id: "surf",
+    name: "Surf",
+    category: "Special",
+    power: 90,
+    accuracy: 100,
+    expectedDamage: 70,
+    opponentHp: 300,
+    opponentMaxHp: 300,
+    expectedSurvivalTurns: 3,
+  };
+
+  assert.ok(
+    scoreAiMoveCandidate(toxic, "expert", "balanced") >
+      scoreAiMoveCandidate(shortLivedToxic, "expert", "balanced"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(poisonedTarget, "expert", "balanced") <
+      scoreAiMoveCandidate(toxic, "expert", "balanced"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(scald, "expert", "balanced") >
+      scoreAiMoveCandidate(surf, "expert", "balanced") - 8,
+  );
+
+  const trace = createAiMoveTrace({
+    turn: 3,
+    side: 0,
+    sideName: "AI",
+    species: "Toxapex",
+    difficulty: "expert",
+    strategy: "balanced",
+    selected: toxic,
+    candidates: [toxic, scald],
+  });
+  assert.ok(
+    trace.candidates[0].reasons.some(
+      (reason) => reason.code === "rule.status_residual.expected_value",
+    ),
+  );
+  assert.ok(
+    trace.candidates[1].reasons.some(
+      (reason) => reason.code === "rule.status_residual.expected_value",
+    ),
+  );
+});
+
 test("scores Trick Room for surviving setters with slow ace support", () => {
   const trickRoom = {
     slot: 1,
@@ -562,6 +734,38 @@ test("penalizes self-sacrifice moves unless damage and expendable role justify t
       (reason) => reason.code === "rule.self_sacrifice.resource_cost",
     ),
   );
+});
+
+test("does not treat risky high-power attacks as self-sacrifice moves", () => {
+  const earthquake = {
+    slot: 1,
+    id: "earthquake",
+    name: "Earthquake",
+    category: "Physical",
+    power: 100,
+    accuracy: 100,
+    expectedDamage: 86,
+    opponentHp: 374,
+  };
+  const trace = createAiMoveTrace({
+    turn: 1,
+    side: 0,
+    sideName: "AI",
+    species: "Garganacl",
+    difficulty: "expert",
+    strategy: "balanced",
+    selected: earthquake,
+    candidates: [earthquake],
+  });
+  const candidate = trace.candidates[0];
+
+  assert.equal(
+    candidate.reasons.some(
+      (reason) => reason.code === "rule.self_sacrifice.resource_cost",
+    ),
+    false,
+  );
+  assert.ok(scoreAiMoveCandidate(earthquake, "expert", "balanced") > 0);
 });
 
 test("applies RunAndBun-inspired lethal, repeated, and Dynamax switch penalties", () => {

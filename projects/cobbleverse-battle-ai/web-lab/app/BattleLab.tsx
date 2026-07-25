@@ -175,7 +175,16 @@ type BattleEngineChoice = "showdown" | "cobbleverse";
 type BattleType = "single" | "double" | "triple";
 type BattleGimmickRules = "gen8" | "gen9" | "all";
 type AiDifficulty = "novice" | "standard" | "advanced" | "expert" | "cheater";
-type AiStrategy = "balanced" | "aggressive" | "defensive" | "unpredictable";
+type AiStrategy =
+  | "balanced"
+  | "aggressive"
+  | "defensive"
+  | "ace_check"
+  | "reckless_ace"
+  | "setup"
+  | "hazard"
+  | "tempo"
+  | "unpredictable";
 type AiProfile = { difficulty: AiDifficulty; strategy: AiStrategy };
 
 type BattleScenario = {
@@ -196,6 +205,17 @@ type BattleScenario = {
     team: Pokemon[];
   }>;
 };
+
+const aiStrategyOptions: Array<{ value: AiStrategy; label: string }> = [
+  { value: "balanced", label: "균형형" },
+  { value: "aggressive", label: "공격형" },
+  { value: "defensive", label: "방어형" },
+  { value: "ace_check", label: "에이스 견제형" },
+  { value: "reckless_ace", label: "저돌적 에이스형" },
+  { value: "setup", label: "랭크업 전개형" },
+  { value: "hazard", label: "판 장악형" },
+  { value: "tempo", label: "템포/피벗형" },
+];
 
 type ScenarioResponse =
   | { ok: true; scenario: BattleScenario }
@@ -1831,10 +1851,11 @@ function AiProfileControls({
             })
           }
         >
-          <option value="balanced">균형형</option>
-          <option value="aggressive">공격형</option>
-          <option value="defensive">안정형</option>
-          <option value="unpredictable">변칙형</option>
+          {aiStrategyOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
       </label>
     </div>
@@ -4050,6 +4071,8 @@ export function BattleLab() {
     useState<BattleGimmickRules>("gen9");
   const [aiDifficulty, setAiDifficulty] =
     useState<AiDifficulty>("standard");
+  const [pveOpponentStrategy, setPveOpponentStrategy] =
+    useState<AiStrategy>("balanced");
   const [eveAiProfiles, setEveAiProfiles] = useState<[AiProfile, AiProfile]>([
     { difficulty: "standard", strategy: "balanced" },
     { difficulty: "standard", strategy: "aggressive" },
@@ -4159,10 +4182,16 @@ export function BattleLab() {
           setGimmickRules(stored.scenario.gimmickRules ?? "gen9");
           setAiDifficulty(stored.scenario.aiDifficulty);
           if (stored.scenario.aiProfiles?.length === 2) {
-            setEveAiProfiles([
-              stored.scenario.aiProfiles[0],
-              stored.scenario.aiProfiles[1],
-            ]);
+            if (stored.scenario.mode === "eve") {
+              setEveAiProfiles([
+                stored.scenario.aiProfiles[0],
+                stored.scenario.aiProfiles[1],
+              ]);
+            } else {
+              setPveOpponentStrategy(
+                stored.scenario.aiProfiles[1]?.strategy ?? "balanced",
+              );
+            }
           }
           setPartySource(stored.scenario.sides[0]?.source ?? "custom");
           if (stored.scenario.mode === "pve") {
@@ -4446,7 +4475,13 @@ export function BattleLab() {
             aiDifficulty,
             aiProfiles: [
               { difficulty: aiDifficulty, strategy: "balanced" },
-              { difficulty: aiDifficulty, strategy: "balanced" },
+              {
+                difficulty: aiDifficulty,
+                strategy:
+                  battleEngine === "cobbleverse"
+                    ? pveOpponentStrategy
+                    : "balanced",
+              },
             ],
             sides: [
               partySource === "preset"
@@ -4983,30 +5018,56 @@ export function BattleLab() {
           </small>
         </label>
         {mode === "pve" ? (
-          <label>
-            <span>AI 수준</span>
-            <select
-              aria-label="AI 수준"
-              value={aiDifficulty}
-              onChange={(event) => {
-                setAiDifficulty(event.target.value as AiDifficulty);
-                setScenario(null);
-                setBattle(null);
-              }}
-            >
-              <option value="novice">초급 · 공격 위주와 의도적인 실수</option>
-              <option value="standard">보통 · 기본 평가</option>
-              <option value="advanced">상급 · 강한 행동 우선</option>
-              <option value="expert">전문가 · 최선 행동 집중</option>
-              <option value="cheater" disabled>
-                치터 · 상대 행동 열람 (프로토콜 준비 중)
-              </option>
-            </select>
-            <small>
-              현재는 초기 휴리스틱 프로필이며 전략 탐색이 구현되면서 단계별로
-              확장됩니다.
-            </small>
-          </label>
+          <>
+            <label>
+              <span>AI 수준</span>
+              <select
+                aria-label="AI 수준"
+                value={aiDifficulty}
+                onChange={(event) => {
+                  setAiDifficulty(event.target.value as AiDifficulty);
+                  setScenario(null);
+                  setBattle(null);
+                }}
+              >
+                <option value="novice">초급 · 공격 위주와 의도적인 실수</option>
+                <option value="standard">보통 · 기본 평가</option>
+                <option value="advanced">상급 · 강한 행동 우선</option>
+                <option value="expert">전문가 · 최선 행동 집중</option>
+                <option value="cheater" disabled>
+                  치터 · 상대 행동 열람 (프로토콜 준비 중)
+                </option>
+              </select>
+              <small>
+                현재는 초기 휴리스틱 프로필이며 전략 탐색이 구현되면서 단계별로
+                확장됩니다.
+              </small>
+            </label>
+            {battleEngine === "cobbleverse" ? (
+              <label>
+                <span>상대 AI 성향</span>
+                <select
+                  aria-label="상대 AI 성향"
+                  value={pveOpponentStrategy}
+                  onChange={(event) => {
+                    setPveOpponentStrategy(event.target.value as AiStrategy);
+                    setScenario(null);
+                    setBattle(null);
+                    setInteractiveBattle(null);
+                  }}
+                >
+                  {aiStrategyOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  자체 엔진 PvE에서 상대 트레이너의 행동 평가 가중치를 정합니다.
+                </small>
+              </label>
+            ) : null}
+          </>
         ) : null}
         <label>
           <span>배틀 엔진</span>

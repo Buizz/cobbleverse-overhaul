@@ -166,8 +166,8 @@ test("preserves the selected AI difficulty and battle engine", () => {
       battleEngine: "cobbleverse",
       aiDifficulty: "expert",
       aiProfiles: [
-        { difficulty: "expert", strategy: "aggressive" },
-        { difficulty: "novice", strategy: "unpredictable" },
+        { difficulty: "expert", strategy: "ace_check" },
+        { difficulty: "novice", strategy: "tempo" },
       ],
       sides: [
         { source: "preset", trainerId: "kanto_brock" },
@@ -182,8 +182,8 @@ test("preserves the selected AI difficulty and battle engine", () => {
   assert.equal(result.scenario.gimmickRules, "all");
   assert.equal(result.scenario.aiDifficulty, "expert");
   assert.deepEqual(result.scenario.aiProfiles, [
-    { difficulty: "expert", strategy: "aggressive" },
-    { difficulty: "novice", strategy: "unpredictable" },
+    { difficulty: "expert", strategy: "ace_check" },
+    { difficulty: "novice", strategy: "tempo" },
   ]);
 });
 

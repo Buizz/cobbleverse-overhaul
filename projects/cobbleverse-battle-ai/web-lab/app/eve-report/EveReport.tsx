@@ -15,7 +15,16 @@ const EVE_HISTORY_LIMIT = 20;
 
 type AiProfile = {
   difficulty: "novice" | "standard" | "advanced" | "expert" | "cheater";
-  strategy: "balanced" | "aggressive" | "defensive" | "unpredictable";
+  strategy:
+    | "balanced"
+    | "aggressive"
+    | "defensive"
+    | "ace_check"
+    | "reckless_ace"
+    | "setup"
+    | "hazard"
+    | "tempo"
+    | "unpredictable";
 };
 
 type AiDecisionReason = {
@@ -98,6 +107,8 @@ type BattleEvent = {
   actor?: string;
   detail?: string;
   condition?: string;
+  layers?: number;
+  duration?: number;
   source?: string;
   target?: string;
 };
@@ -113,6 +124,20 @@ type Battle = {
   engine: { id: string; version: string; format: string; controller: string };
   settings?: { aiProfiles?: AiProfile[] };
   warnings: Array<{ message: string }>;
+  finalState?: {
+    sides: Array<{
+      name?: string;
+      active?: number;
+      team: Array<{
+        name?: string;
+        species?: string;
+        hp?: number;
+        maxHp?: number;
+        fainted?: boolean;
+        status?: string;
+      }>;
+    }>;
+  };
   aiTrace?: AiTrace[];
   events: BattleEvent[];
   log: string[];
@@ -142,10 +167,24 @@ const strategyNames: Record<string, string> = {
   balanced: "균형",
   aggressive: "공격",
   defensive: "방어",
+  ace_check: "에이스 견제",
+  reckless_ace: "저돌적 에이스",
+  setup: "랭크업 전개",
+  hazard: "판 장악",
+  tempo: "템포/피벗",
   unpredictable: "변칙",
 };
 
-const strategyValues = Object.keys(strategyNames) as AiProfile["strategy"][];
+const strategyValues = [
+  "balanced",
+  "aggressive",
+  "defensive",
+  "ace_check",
+  "reckless_ace",
+  "setup",
+  "hazard",
+  "tempo",
+] as AiProfile["strategy"][];
 
 type SweepScore = {
   strategy: AiProfile["strategy"];
@@ -297,6 +336,20 @@ function eventLine(
   if (event.type === "miss") return `  · ${actor}의 공격은 빗나갔다`;
   if (event.type === "status") return `  · ${actor} 상태 이상: ${event.detail}`;
   if (event.type === "status_cured") return `  · ${actor} 상태 회복: ${event.detail}`;
+  if (event.type === "field_started") {
+    const layerText =
+      Number.isFinite(event.layers) && Number(event.layers) > 0
+        ? ` ${event.layers}층`
+        : "";
+    const durationText =
+      Number.isFinite(event.duration) && Number(event.duration) > 0
+        ? ` ${event.duration}턴`
+        : "";
+    return `  · ${move || event.detail} 시작${layerText}${durationText}`;
+  }
+  if (event.type === "field_ended") {
+    return `  · ${move || event.detail} 종료`;
+  }
   if (event.type === "win") return `- 전투 종료: ${actorName(event.actor)} 승리`;
   return `  · ${event.type}${event.detail ? ` | ${event.detail}` : ""}${hp ? ` | HP ${hp}` : ""}`;
 }
@@ -321,11 +374,18 @@ function hpSnapshot(
 
   return report.scenario.sides.map((side, sideIndex) => {
     const prefix = sideIndex === 0 ? "1P" : "2P";
+    const finalTeam = report.battle.finalState?.sides?.[sideIndex]?.team ?? [];
     const entries = side.team
       .slice(0, 6)
-      .map((pokemon) => {
+      .map((pokemon, pokemonIndex) => {
         const name = localSpecies(localization, pokemon.species);
-        return `${name} ${hpBySide[sideIndex].get(name) ?? "?"}`;
+        const finalPokemon = finalTeam[pokemonIndex];
+        const fallbackHp =
+          finalPokemon &&
+          Number.isFinite(finalPokemon.maxHp)
+            ? `${finalPokemon.maxHp}/${finalPokemon.maxHp}`
+            : "";
+        return `${name} ${hpBySide[sideIndex].get(name) || fallbackHp || "?"}`;
       })
       .join(", ");
     return `${prefix} [${entries}]`;

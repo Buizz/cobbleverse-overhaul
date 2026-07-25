@@ -368,7 +368,8 @@ export function mapNativeEvent(event) {
             ? "field_started"
             : "field_ended",
         detail: event.effect ?? "",
-        condition: String(event.layers ?? event.duration ?? ""),
+        layers: event.layers,
+        duration: event.duration,
       },
     ];
   }
@@ -413,6 +414,20 @@ export function runNativeScenarioBattle(scenario, options = {}) {
     aiProfiles: scenario.aiProfiles,
   });
   const events = state.events.flatMap(mapNativeEvent);
+  const finalState = {
+    sides: state.sides.map((side) => ({
+      name: side.name,
+      active: side.active,
+      team: side.team.map((pokemon) => ({
+        name: pokemon.name,
+        species: pokemon.id || pokemon.name,
+        hp: pokemon.hp,
+        maxHp: pokemon.stats.hp,
+        fainted: pokemon.fainted,
+        status: pokemon.status,
+      })),
+    })),
+  };
   return {
     battleId: `${scenario.scenarioId}-native-battle`,
     scenarioId: scenario.scenarioId,
@@ -447,6 +462,7 @@ export function runNativeScenarioBattle(scenario, options = {}) {
           "자체 엔진은 현재 포켓몬·기술 원본 데이터만 Showdown 카탈로그에서 읽으며, 전투 판정은 Cobbleverse 엔진이 수행합니다.",
       },
     ],
+    finalState,
     aiTrace: state.aiTrace,
     events,
     log: state.events.map((event) => JSON.stringify(event)),

@@ -91,6 +91,39 @@ test("runs the selected native engine and records AI settings", () => {
   );
 });
 
+test("includes HP on initial native switch events and separates side-condition layers", () => {
+  const battle = runNativeScenarioBattle(
+    {
+      ...scenario,
+      sides: [
+        {
+          ...scenario.sides[0],
+          team: [
+            {
+              ...scenario.sides[0].team[0],
+              moveset: ["stealthrock"],
+            },
+          ],
+        },
+        scenario.sides[1],
+      ],
+    },
+    { maxTurns: 1 },
+  );
+  const initialSwitch = battle.events.find(
+    (event) => event.turn === 0 && event.type === "switch" && event.actor === "p1a: Pikachu",
+  );
+  const rocks = battle.events.find(
+    (event) => event.type === "field_started" && event.detail === "stealthrock",
+  );
+
+  assert.match(initialSwitch.condition, /^\d+\/\d+/);
+  assert.equal(rocks.layers, 1);
+  assert.equal(rocks.condition, undefined);
+  assert.ok(battle.finalState.sides[0].team[0].maxHp > 0);
+  assert.ok(battle.finalState.sides[1].team[0].maxHp > 0);
+});
+
 test("preserves native damage and heal causes for Showdown-like logs", () => {
   assert.deepEqual(
     mapNativeEvent({
@@ -209,6 +242,10 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
     ...scenario,
     scenarioId: "native-pve-test",
     mode: "pve",
+    aiProfiles: [
+      { difficulty: "expert", strategy: "balanced" },
+      { difficulty: "expert", strategy: "hazard" },
+    ],
     sides: [
       {
         ...scenario.sides[0],
@@ -248,6 +285,7 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
   assert.equal(switched.turns, 1);
   assert.equal(switched.request.active.species, "Charmander");
   assert.equal(switched.aiTrace.length, 1);
+  assert.equal(switched.aiTrace[0].strategy, "hazard");
   assert.ok(
     switched.aiTrace[0].candidates.some((candidate) =>
       candidate.reasons.some((reason) => reason.code.startsWith("damage.")),
