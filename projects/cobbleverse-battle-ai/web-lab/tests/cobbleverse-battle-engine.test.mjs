@@ -1460,6 +1460,80 @@ test("treats an entry Dynamax flag as a forced AI command", () => {
   assert.equal(later.gimmick, undefined);
 });
 
+test("treats Gigantamax as a distinct Dynamax mode and lets Urshifu G-Max moves bypass Protect", () => {
+  const state = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                id: "urshifurapidstrike",
+                name: "Urshifu-Rapid-Strike",
+                types: ["Fighting", "Water"],
+                stats: { ...pokemon().stats, attack: 180, speed: 120 },
+                gimmicks: { canDynamax: true },
+                moves: [
+                  {
+                    id: "surgingstrikes",
+                    name: "Surging Strikes",
+                    type: "Water",
+                    category: "Physical",
+                    power: 25,
+                    accuracy: true,
+                    pp: 5,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "Shield",
+                stats: { ...pokemon().stats, hp: 300, speed: 200 },
+                moves: [
+                  {
+                    id: "protect",
+                    name: "Protect",
+                    type: "Normal",
+                    category: "Status",
+                    accuracy: true,
+                    priority: 4,
+                    pp: 10,
+                  },
+                ],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1, gimmick: "gigantamax" }, { move: 1 }],
+  );
+
+  assert.equal(state.sides[0].team[0].dynamaxMode, "gigantamax");
+  assert.equal(state.sides[0].usedGimmicks.dynamax, true);
+  assert.equal(state.sides[0].usedGimmicks.gigantamax, true);
+  assert.ok(
+    state.events.some(
+      (event) => event.type === "move" && event.move === "G-Max Rapid Flow",
+    ),
+  );
+  assert.ok(
+    state.events.some(
+      (event) => event.type === "damage" && event.pokemon === "Shield",
+    ),
+  );
+  assert.ok(
+    !state.events.some(
+      (event) => event.type === "move_blocked" && event.pokemon === "Shield",
+    ),
+  );
+});
+
 test("delays forced Dynamax for a safe setup turn without Max Knuckle", () => {
   const state = createSimpleBattle(
     setup({
@@ -2704,6 +2778,7 @@ test("reserves and consumes each side gimmick resource explicitly", () => {
     { move: 1 },
   ]);
   assert.equal(state.sides[0].gimmickResources.mega, "consumed");
+  assert.equal(state.sides[0].gimmickResources.dynamax, "available");
   assert.equal(state.sides[0].usedGimmicks.mega, true);
   assert.ok(
     state.events.some(
@@ -2932,7 +3007,7 @@ test("ends Dynamax immediately when the active Pokémon switches out", () => {
     }),
   );
   state = resolveSimpleTurn(state, [
-    { move: 1, gimmick: "dynamax" },
+    { move: 1, gimmick: "gigantamax" },
     { move: 1 },
   ]);
   assert.equal(state.sides[0].team[0].stats.hp, 240);
@@ -3027,6 +3102,72 @@ test("Dynamax Max Move effects replace the source move side effects", () => {
         event.pokemon === "Urshifu-Rapid-Strike" &&
         ["def", "spd"].includes(event.stat) &&
         event.amount < 0,
+    ),
+    false,
+  );
+});
+
+test("does not apply Max Move boosts when the attack has no effect", () => {
+  const state = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                id: "urshifurapidstrike",
+                name: "Urshifu-Rapid-Strike",
+                types: ["Fighting", "Water"],
+                stats: { ...pokemon().stats, attack: 150, speed: 120 },
+                gimmicks: { canDynamax: true },
+                moves: [
+                  {
+                    id: "closecombat",
+                    name: "Close Combat",
+                    type: "Fighting",
+                    category: "Physical",
+                    power: 120,
+                    accuracy: 100,
+                    pp: 5,
+                    selfBoosts: { defence: -1, specialDefence: -1 },
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "GhostTarget",
+                types: ["Ghost", "Psychic"],
+                stats: { ...pokemon().stats, hp: 240, defence: 130, speed: 40 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1, gimmick: "dynamax" }, { move: 1 }],
+  );
+
+  const user = state.sides[0].team[0];
+  assert.equal(user.boosts.attack, 0);
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.type === "damage" &&
+        event.move === "Max Knuckle" &&
+        event.effectiveness === 0,
+    ),
+  );
+  assert.equal(
+    state.events.some(
+      (event) =>
+        event.type === "stat_change" &&
+        event.pokemon === "Urshifu-Rapid-Strike" &&
+        event.source === "Max Knuckle",
     ),
     false,
   );
@@ -4876,6 +5017,257 @@ test("doubles physical Attack for Huge Power and Pure Power", () => {
   assert.equal(suppressed.maximum, ordinary.maximum);
 });
 
+test("boosts contact move damage for Tough Claws", () => {
+  const target = pokemon({
+    name: "Target",
+    types: ["Normal"],
+    stats: { ...pokemon().stats, hp: 300, defence: 120 },
+  });
+  const contactMove = {
+    id: "dragonclaw",
+    name: "Dragon Claw",
+    type: "Dragon",
+    category: "Physical",
+    power: 80,
+    accuracy: 100,
+    pp: 15,
+    contact: true,
+  };
+  const nonContactMove = {
+    ...contactMove,
+    id: "earthquake",
+    name: "Earthquake",
+    type: "Ground",
+    contact: false,
+  };
+  const ordinary = pokemon({
+    name: "Ordinary",
+    ability: "intimidate",
+    stats: { ...pokemon().stats, attack: 130 },
+  });
+  const toughClaws = pokemon({
+    name: "ToughClaws",
+    ability: "toughclaws",
+    stats: { ...pokemon().stats, attack: 130 },
+  });
+
+  const ordinaryContact = calculateDamageRange(ordinary, target, contactMove);
+  const toughContact = calculateDamageRange(toughClaws, target, contactMove);
+  const ordinaryNonContact = calculateDamageRange(ordinary, target, nonContactMove);
+  const toughNonContact = calculateDamageRange(toughClaws, target, nonContactMove);
+
+  assert.ok(toughContact.maximum > ordinaryContact.maximum * 1.2);
+  assert.equal(toughNonContact.maximum, ordinaryNonContact.maximum);
+});
+
+test("supports common trainer abilities required by strict native scenarios", () => {
+  const passiveMove = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+
+  const downloadState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Porygon2",
+              ability: "download",
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "DownloadTarget",
+              stats: { ...pokemon().stats, defence: 70, specialDefence: 120 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  assert.equal(downloadState.sides[0].team[0].boosts.attack, 1);
+
+  const speedBoostState = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Blaziken",
+                ability: "speedboost",
+                stats: { ...pokemon().stats, speed: 80 },
+                moves: [passiveMove],
+              }),
+            ],
+          },
+          { name: "AI", team: [pokemon({ moves: [passiveMove] })] },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(speedBoostState.sides[0].team[0].boosts.speed, 1);
+
+  const punch = {
+    id: "machpunch",
+    name: "Mach Punch",
+    type: "Fighting",
+    category: "Physical",
+    power: 40,
+    accuracy: true,
+    pp: 30,
+    contact: true,
+  };
+  const ghostTarget = pokemon({
+    name: "GhostTarget",
+    types: ["Ghost"],
+    stats: { ...pokemon().stats, hp: 200, defence: 100 },
+  });
+  assert.equal(
+    calculateDamageRange(pokemon({ ability: "mindseye" }), ghostTarget, punch)
+      .effectiveness,
+    1,
+  );
+  assert.equal(
+    calculateDamageRange(pokemon({ ability: "technician" }), pokemon(), punch)
+      .abilityModifier,
+    1.5,
+  );
+
+  const sturdyState = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Attacker",
+                stats: { ...pokemon().stats, attack: 300, speed: 160 },
+                moves: [
+                  {
+                    id: "superhit",
+                    name: "Super Hit",
+                    type: "Normal",
+                    category: "Physical",
+                    power: 250,
+                    accuracy: true,
+                    pp: 5,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "SturdyTarget",
+                ability: "sturdy",
+                stats: { ...pokemon().stats, hp: 120, defence: 40, speed: 40 },
+                moves: [passiveMove],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(sturdyState.sides[1].team[0].hp, 1);
+
+  const teravoltState = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Zekrom",
+                ability: "teravolt",
+                stats: { ...pokemon().stats, attack: 300, speed: 160 },
+                moves: [
+                  {
+                    id: "fusionbolt",
+                    name: "Fusion Bolt",
+                    type: "Electric",
+                    category: "Physical",
+                    power: 250,
+                    accuracy: true,
+                    pp: 5,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "SturdyTarget",
+                ability: "sturdy",
+                stats: { ...pokemon().stats, hp: 120, defence: 40, speed: 40 },
+                moves: [passiveMove],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(teravoltState.sides[1].team[0].fainted, true);
+
+  assert.doesNotThrow(() =>
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({ ability: "unseenfist" }),
+              pokemon({ ability: "pickpocket" }),
+              pokemon({ ability: "lightmetal" }),
+              pokemon({ ability: "technician" }),
+              pokemon({ ability: "mindseye" }),
+              pokemon({ ability: "teravolt" }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({ ability: "download" }),
+              pokemon({ ability: "sturdy" }),
+              pokemon({ ability: "speedboost" }),
+              pokemon({ ability: "unseenfist" }),
+              pokemon({ ability: "pickpocket" }),
+              pokemon({ ability: "lightmetal" }),
+            ],
+          },
+        ],
+      }),
+    ),
+  );
+});
+
 test("rejects unsupported abilities in strict validation mode", () => {
   assert.throws(
     () =>
@@ -4898,6 +5290,134 @@ test("rejects unsupported abilities in strict validation mode", () => {
       ),
     /Unsupported ability.*notarealability/,
   );
+});
+
+test("boosts Calyrex rider abilities after scoring a knockout", () => {
+  const cases = [
+    {
+      ability: "asonespectrier",
+      move: {
+        id: "astralbarrage",
+        name: "Astral Barrage",
+        type: "Ghost",
+        category: "Special",
+        power: 120,
+        accuracy: true,
+        pp: 5,
+      },
+      stat: "specialAttack",
+      eventStat: "spa",
+    },
+    {
+      ability: "asoneglastrier",
+      move: {
+        id: "glaciallance",
+        name: "Glacial Lance",
+        type: "Ice",
+        category: "Physical",
+        power: 120,
+        accuracy: true,
+        pp: 5,
+      },
+      stat: "attack",
+      eventStat: "atk",
+    },
+    {
+      ability: "chillingneigh",
+      move: {
+        id: "iciclecrash",
+        name: "Icicle Crash",
+        type: "Ice",
+        category: "Physical",
+        power: 120,
+        accuracy: true,
+        pp: 10,
+      },
+      stat: "attack",
+      eventStat: "atk",
+    },
+    {
+      ability: "grimneigh",
+      move: {
+        id: "shadowball",
+        name: "Shadow Ball",
+        type: "Ghost",
+        category: "Special",
+        power: 120,
+        accuracy: true,
+        pp: 15,
+      },
+      stat: "specialAttack",
+      eventStat: "spa",
+    },
+  ];
+
+  for (const entry of cases) {
+    const state = resolveSimpleTurn(
+      createSimpleBattle(
+        setup({
+          strictAbilityValidation: true,
+          sides: [
+            {
+              name: "Player",
+              team: [
+                pokemon({
+                  name: `Sweeper-${entry.ability}`,
+                  ability: entry.ability,
+                  stats: {
+                    ...pokemon().stats,
+                    attack: 220,
+                    specialAttack: 220,
+                    speed: 160,
+                  },
+                  moves: [entry.move],
+                }),
+              ],
+            },
+            {
+              name: "AI",
+              team: [
+                pokemon({
+                  name: "KnockoutTarget",
+                  types: ["Psychic"],
+                  stats: {
+                    ...pokemon().stats,
+                    hp: 40,
+                    defence: 40,
+                    specialDefence: 40,
+                    speed: 40,
+                  },
+                }),
+              ],
+            },
+          ],
+        }),
+      ),
+      [{ move: 1 }, { move: 1 }],
+    );
+
+    const sweeper = state.sides[0].team[0];
+    assert.equal(state.sides[1].team[0].fainted, true);
+    assert.equal(sweeper.boosts[entry.stat], 1);
+    assert.ok(
+      state.events.some(
+        (event) =>
+          event.type === "ability_activate" &&
+          event.pokemon === sweeper.name &&
+          event.ability === entry.ability,
+      ),
+    );
+    assert.ok(
+      state.events.some(
+        (event) =>
+          event.type === "stat_change" &&
+          event.pokemon === sweeper.name &&
+          event.stat === entry.eventStat &&
+          event.amount === 1 &&
+          event.source === entry.ability,
+      ),
+    );
+  }
 });
 
 test("applies simple status immunity abilities", () => {

@@ -5,7 +5,10 @@ import {
   resolveDynamicPostHit,
   SUPPORTED_DYNAMIC_POWER_MOVES,
 } from "./native-dynamic-power.mjs";
-import { resolveNativeMaxMove } from "./native-max-moves.mjs";
+import {
+  isNativeGigantamaxSpecies,
+  resolveNativeMaxMove,
+} from "./native-max-moves.mjs";
 import {
   analyzeTeamProfile,
   aiDecisionReason,
@@ -21,7 +24,7 @@ const ENGINE_VERSION = "0.9.6";
 const DEFAULT_MAX_TURNS = 200;
 const DEFAULT_FIELD_DURATION = 5;
 const GIMMICK_KINDS = ["mega", "zmove", "dynamax", "terastallize"];
-const PRE_MOVE_GIMMICKS = new Set(["mega", "dynamax", "terastallize"]);
+const PRE_MOVE_GIMMICKS = new Set(["mega", "dynamax", "gigantamax", "terastallize"]);
 const SIDE_CONDITION_DURATIONS = {
   auroraveil: 5,
   craftyshield: 1,
@@ -100,6 +103,11 @@ const AI_PROTECTIVE_MOVES = new Set([
 ]);
 const IMPLEMENTED_ABILITIES = new Set([
   "adaptability",
+  "asoneglastrier",
+  "asonespectrier",
+  "chillingneigh",
+  "download",
+  "grimneigh",
   "guts",
   "hugepower",
   "immunity",
@@ -107,8 +115,11 @@ const IMPLEMENTED_ABILITIES = new Set([
   "intimidate",
   "levitate",
   "limber",
+  "lightmetal",
+  "mindseye",
   "multiscale",
   "owntempo",
+  "pickpocket",
   "minus",
   "plus",
   "pressure",
@@ -116,12 +127,19 @@ const IMPLEMENTED_ABILITIES = new Set([
   "shadowshield",
   "simple",
   "skilllink",
+  "speedboost",
+  "sturdy",
+  "technician",
+  "teravolt",
   "thickfat",
+  "toughclaws",
+  "unseenfist",
   "vitalspirit",
   "waterveil",
 ]);
 const INTENTIONAL_NO_EFFECT_ABILITIES = new Set([
   "runaway",
+  "unnerve",
 ]);
 const SUPPORTED_ABILITIES = new Set([
   ...IMPLEMENTED_ABILITIES,
@@ -418,6 +436,7 @@ function normalizeMove(move, path) {
         ? true
         : Math.max(0, Math.min(100, Number(move?.accuracy ?? 100))),
     priority: Number(move?.priority ?? 0),
+    contact: makesContact(move),
     maxPp: Math.max(1, Number(move?.pp ?? move?.maxPp ?? 1)),
     pp: Math.max(1, Number(move?.pp ?? move?.maxPp ?? 1)),
     target,
@@ -512,6 +531,9 @@ function normalizePokemon(pokemon, path) {
         gimmicks.forceDynamax === true ||
         gimmicks.dynamax === true ||
         gimmicks.gmax === true,
+      canGigantamax:
+        gimmicks.canGigantamax === true ||
+        isNativeGigantamaxSpecies(pokemon?.id ?? pokemon?.name),
       gigantamax: gimmicks.gigantamax === true || gimmicks.gmax === true,
       teraType: String(
         gimmicks.teraType ??
@@ -630,8 +652,26 @@ export function typeMultiplier(attackType, defenderTypes) {
   );
 }
 
-function moveEffectiveness(move, defenderTypes) {
+function moveEffectiveness(move, defenderTypes, attacker = null, defender = null) {
+  if (
+    move.type === "Ground" &&
+    activeAbility(defender) === "levitate" &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    return 0;
+  }
   let effectiveness = typeMultiplier(move.type, defenderTypes);
+  if (
+    effectiveness === 0 &&
+    activeAbility(attacker) === "mindseye" &&
+    ["Normal", "Fighting"].includes(move.type) &&
+    defenderTypes.includes("Ghost")
+  ) {
+    effectiveness = defenderTypes.reduce((result, defenceType) => {
+      if (defenceType === "Ghost") return result;
+      return result * (TYPE_CHART[move.type]?.[defenceType] ?? 1);
+    }, 1);
+  }
   if (cleanId(move.id) === "freezedry" && defenderTypes.includes("Water")) {
     effectiveness *= 4;
   }
@@ -654,12 +694,25 @@ function doublesPhysicalAttack(ability) {
   return ["hugepower", "purepower"].includes(cleanId(ability));
 }
 
+function ignoresDefenderAbility(attacker) {
+  return ["teravolt"].includes(cleanId(activeAbility(attacker)));
+}
+
+function makesContact(move) {
+  return Boolean(
+    move?.contact === true ||
+      move?.makesContact === true ||
+      move?.flags?.contact === true,
+  );
+}
+
 function statusBlockedByAbility(pokemon, status) {
   const ability = activeAbility(pokemon);
   return Boolean(STATUS_IMMUNITY_ABILITIES[status]?.has(ability));
 }
 
-function abilityDamageModifier(defender, move) {
+function abilityDamageModifier(defender, move, attacker = null) {
+  if (ignoresDefenderAbility(attacker)) return 1;
   const ability = activeAbility(defender);
   if (
     (ability === "multiscale" || ability === "shadowshield") &&
@@ -774,6 +827,14 @@ function effectiveSpeed(pokemon, state = null, sideIndex = null) {
   return Math.floor(speed);
 }
 
+function effectiveWeightPokemon(pokemon) {
+  if (activeAbility(pokemon) !== "lightmetal") return pokemon;
+  return {
+    ...pokemon,
+    weightKg: Math.max(0.1, Number(pokemon.weightKg ?? 100) / 2),
+  };
+}
+
 function damageBase(attacker, defender, move, options = {}) {
   const physical = move.category === "Physical";
   const attack = effectiveStat(
@@ -812,7 +873,7 @@ function fieldDamageModifier(
   move,
   critical = false,
 ) {
-  let modifier = abilityDamageModifier(defender, move);
+  let modifier = abilityDamageModifier(defender, move, attacker);
   if (!state) return modifier;
   const weather = cleanId(state.field?.weather?.id);
   if (weather === "sunnyday" || weather === "desolateland") {
@@ -880,9 +941,16 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
         ? 2
         : 1.5
     : 1;
-  const effectiveness = moveEffectiveness(move, defender.types);
+  const effectiveness = moveEffectiveness(move, defender.types, attacker, defender);
   const base = damageBase(attacker, defender, move, context);
   const itemModifier = attacker.item === "lifeorb" ? 1.3 : 1;
+  let abilityModifier = 1;
+  if (activeAbility(attacker) === "toughclaws" && makesContact(move)) {
+    abilityModifier *= 1.3;
+  }
+  if (activeAbility(attacker) === "technician" && move.power > 0 && move.power <= 60) {
+    abilityModifier *= 1.5;
+  }
   const fieldModifier = fieldDamageModifier(
     context.state,
     context.attackerSide,
@@ -903,6 +971,7 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
                 stab *
                 effectiveness *
                 itemModifier *
+                abilityModifier *
                 fieldModifier *
                 0.85,
             ),
@@ -913,12 +982,18 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
         : Math.max(
             1,
             Math.floor(
-              base * stab * effectiveness * itemModifier * fieldModifier,
+              base *
+                stab *
+                effectiveness *
+                itemModifier *
+                abilityModifier *
+                fieldModifier,
             ),
           ),
     stab,
     effectiveness,
     itemModifier,
+    abilityModifier,
     fieldModifier,
   };
 }
@@ -978,10 +1053,26 @@ function activePokemon(state, sideIndex) {
 function applyEntryAbilities(state, sideIndex, pokemon) {
   if (!pokemon || pokemon.fainted) return;
   const ability = activeAbility(pokemon);
-  if (ability !== "intimidate") return;
   const targetSide = sideIndex === 0 ? 1 : 0;
   const target = activePokemon(state, targetSide);
   if (!target || target.fainted) return;
+  if (ability === "download") {
+    const defence = effectiveStat(target, "defence");
+    const specialDefence = effectiveStat(target, "specialDefence");
+    const boosts = defence < specialDefence ? { attack: 1 } : { specialAttack: 1 };
+    state.events.push({
+      turn: state.turn,
+      type: "ability_activate",
+      side: sideIndex,
+      pokemon: pokemon.name,
+      ability,
+      targetSide,
+      target: target.name,
+    });
+    applyBoosts(state, sideIndex, pokemon, boosts, ability);
+    return;
+  }
+  if (ability !== "intimidate") return;
   state.events.push({
     turn: state.turn,
     type: "ability_activate",
@@ -992,6 +1083,34 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
     target: target.name,
   });
   applyBoosts(state, targetSide, target, { attack: -1 }, ability);
+}
+
+function knockoutAbilityBoosts(ability) {
+  const id = cleanId(ability);
+  if (id === "chillingneigh" || id === "asoneglastrier") {
+    return { attack: 1 };
+  }
+  if (id === "grimneigh" || id === "asonespectrier") {
+    return { specialAttack: 1 };
+  }
+  return null;
+}
+
+function applyKnockoutAbility(state, sideIndex, pokemon, defeatedPokemon) {
+  if (!pokemon || pokemon.fainted || !defeatedPokemon?.fainted) return false;
+  const ability = activeAbility(pokemon);
+  const boosts = knockoutAbilityBoosts(ability);
+  if (!boosts) return false;
+  state.events.push({
+    turn: state.turn,
+    type: "ability_activate",
+    side: sideIndex,
+    pokemon: pokemon.name,
+    ability,
+    targetSide: sideIndex === 0 ? 1 : 0,
+    target: defeatedPokemon.name,
+  });
+  return applyBoosts(state, sideIndex, pokemon, boosts, ability);
 }
 
 function usableMove(pokemon, requestedSlot) {
@@ -1255,11 +1374,17 @@ function validateGimmickRequest(action) {
     action.zMove = crystal.move;
   }
 
-  if (action.gimmick === "dynamax") {
+  if (action.gimmick === "dynamax" || action.gimmick === "gigantamax") {
     if (pokemon.megaEvolved) return "dynamax_blocked_by_mega";
     if (gimmicks.canDynamax !== true) return "dynamax_unavailable";
-    action.dynamaxMode =
-      gimmicks.gigantamax === true ? "gigantamax" : "dynamax";
+    if (
+      action.gimmick === "gigantamax" &&
+      gimmicks.gigantamax !== true &&
+      gimmicks.canGigantamax !== true
+    ) {
+      return "gigantamax_unavailable";
+    }
+    action.dynamaxMode = action.gimmick === "gigantamax" ? "gigantamax" : "dynamax";
   }
 
   if (action.gimmick === "terastallize") {
@@ -1287,10 +1412,15 @@ function canMegaEvolvePokemon(pokemon) {
   return !stone.evolves || speciesIds.has(stone.evolves);
 }
 
+function gimmickResource(gimmick) {
+  return gimmick === "gigantamax" ? "dynamax" : gimmick;
+}
+
 function reserveGimmick(state, action) {
   const gimmick = action.gimmick;
+  const resource = gimmickResource(gimmick);
   if (!gimmick) return;
-  if (!GIMMICK_KINDS.includes(gimmick)) {
+  if (!GIMMICK_KINDS.includes(resource)) {
     rejectGimmick(state, action, "unsupported_gimmick");
     return;
   }
@@ -1303,7 +1433,7 @@ function reserveGimmick(state, action) {
     return;
   }
   const side = state.sides[action.side];
-  if (side.gimmickResources[gimmick] !== "available") {
+  if (side.gimmickResources[resource] !== "available") {
     rejectGimmick(state, action, "resource_unavailable");
     return;
   }
@@ -1312,7 +1442,7 @@ function reserveGimmick(state, action) {
     rejectGimmick(state, action, validationError);
     return;
   }
-  side.gimmickResources[gimmick] = "reserved";
+  side.gimmickResources[resource] = "reserved";
   action.gimmickReserved = true;
   state.events.push({
     turn: state.turn,
@@ -1329,8 +1459,12 @@ function reserveGimmick(state, action) {
 function consumeGimmick(state, action) {
   if (!action.gimmickReserved || !action.gimmick) return;
   const side = state.sides[action.side];
-  side.gimmickResources[action.gimmick] = "consumed";
-  side.usedGimmicks[action.gimmick] = true;
+  const resource = gimmickResource(action.gimmick);
+  side.gimmickResources[resource] = "consumed";
+  side.usedGimmicks[resource] = true;
+  if (action.gimmick === "gigantamax") {
+    side.usedGimmicks.gigantamax = true;
+  }
   action.gimmickReserved = false;
   state.events.push({
     turn: state.turn,
@@ -1344,8 +1478,9 @@ function consumeGimmick(state, action) {
 function releaseGimmick(state, action, reason) {
   if (!action.gimmickReserved || !action.gimmick) return;
   const side = state.sides[action.side];
-  if (side.gimmickResources[action.gimmick] === "reserved") {
-    side.gimmickResources[action.gimmick] = "available";
+  const resource = gimmickResource(action.gimmick);
+  if (side.gimmickResources[resource] === "reserved") {
+    side.gimmickResources[resource] = "available";
   }
   action.gimmickReserved = false;
   state.events.push({
@@ -1417,7 +1552,7 @@ function activatePreMoveGimmick(state, action) {
       }
     }
     pokemon.megaEvolved = true;
-  } else if (action.gimmick === "dynamax") {
+  } else if (action.gimmick === "dynamax" || action.gimmick === "gigantamax") {
     pokemon.hp *= 2;
     pokemon.stats.hp *= 2;
     pokemon.dynamaxTurns = 3;
@@ -1722,6 +1857,7 @@ function transformGimmickMove(state, action, move) {
       status: "",
       selfStatus: "",
       volatileStatus: maxMove.volatileStatus ?? "",
+      bypassProtect: maxMove.bypassProtect === true,
       boosts: maxMove.boosts ?? {},
       selfBoosts: maxMove.selfBoosts ?? {},
       heal: null,
@@ -3882,7 +4018,9 @@ function executeMove(state, action, rng) {
   if (
     defender.volatiles?.protect &&
     move.target !== "self" &&
-    cleanId(move.id) !== "hyperspacefury"
+    cleanId(move.id) !== "hyperspacefury" &&
+    move.bypassProtect !== true &&
+    !(activeAbility(attacker) === "unseenfist" && makesContact(move))
   ) {
     const protectSource = defender.volatiles.protect.source || "protect";
     const protectSourceId = cleanId(protectSource);
@@ -5660,11 +5798,11 @@ function executeMove(state, action, rng) {
       state,
       attackerSide: action.side,
       defenderSide,
-      attacker,
-      defender,
+      attacker: effectiveWeightPokemon(attacker),
+      defender: effectiveWeightPokemon(defender),
       attackerSpeed: effectiveSpeed(attacker, state, action.side),
       defenderSpeed: effectiveSpeed(defender, state, defenderSide),
-      effectiveness: moveEffectiveness(move, defender.types),
+      effectiveness: moveEffectiveness(move, defender.types, attacker, defender),
       hit,
       rng,
     });
@@ -5735,7 +5873,9 @@ function executeMove(state, action, rng) {
       critical,
     });
     const fixedEffectiveness =
-      fixedDamage === null ? null : moveEffectiveness(chargedHitMove, defender.types);
+      fixedDamage === null
+        ? null
+        : moveEffectiveness(chargedHitMove, defender.types, attacker, defender);
     const randomFactor = fixedDamage === null ? 0.85 + rng.next() * 0.15 : 1;
     const criticalModifier = critical ? 1.5 : 1;
     let damage =
@@ -5758,6 +5898,7 @@ function executeMove(state, action, rng) {
                   range.stab *
                   range.effectiveness *
                   range.itemModifier *
+                  range.abilityModifier *
                   range.fieldModifier *
                   criticalModifier *
                   randomFactor,
@@ -5776,6 +5917,22 @@ function executeMove(state, action, rng) {
         side: defenderSide,
         pokemon: defender.name,
         source: cleanId(move.id) === "falseswipe" ? move.name : "endure",
+        remainingHp: defender.hp,
+      });
+    }
+    if (
+      damage >= defender.hp &&
+      defender.hp >= defender.stats.hp &&
+      activeAbility(defender) === "sturdy" &&
+      !ignoresDefenderAbility(attacker)
+    ) {
+      damage = defender.hp - 1;
+      state.events.push({
+        turn: state.turn,
+        type: "damage_prevented",
+        side: defenderSide,
+        pokemon: defender.name,
+        source: "sturdy",
         remainingHp: defender.hp,
       });
     }
@@ -5885,6 +6042,28 @@ function executeMove(state, action, rng) {
         hit,
         hits: requestedHits,
       });
+      if (
+        damage > 0 &&
+        defender.hp > 0 &&
+        activeAbility(defender) === "pickpocket" &&
+        !ignoresDefenderAbility(attacker) &&
+        makesContact(move) &&
+        !defender.item &&
+        attacker.item
+      ) {
+        defender.item = attacker.item;
+        attacker.item = "";
+        state.events.push({
+          turn: state.turn,
+          type: "item_stolen",
+          side: defenderSide,
+          pokemon: defender.name,
+          targetSide: action.side,
+          target: attacker.name,
+          item: defender.item,
+          source: "pickpocket",
+        });
+      }
     }
   }
   if (requestedHits > 1 && landedHits > 0) {
@@ -6189,7 +6368,7 @@ function executeMove(state, action, rng) {
       move.name,
     );
   }
-  if (!defender.fainted && Object.keys(move.selfBoosts).length) {
+  if (totalDamage > 0 && !defender.fainted && Object.keys(move.selfBoosts).length) {
     applyBoosts(
       state,
       action.side,
@@ -6203,6 +6382,9 @@ function executeMove(state, action, rng) {
   const defenderFainted = markFainted(state, defenderSide, defender);
   if (defenderFainted && cleanId(move.id) === "fellstinger" && !attacker.fainted) {
     applyBoosts(state, action.side, attacker, { attack: 3 }, move.name);
+  }
+  if (defenderFainted && !attacker.fainted) {
+    applyKnockoutAbility(state, action.side, attacker, defender);
   }
   if (
     defenderFainted &&
@@ -6399,6 +6581,7 @@ function applyFutureAttacks(state) {
                   range.stab *
                   range.effectiveness *
                   range.itemModifier *
+                  range.abilityModifier *
                   range.fieldModifier,
               ),
             ),
@@ -6535,6 +6718,16 @@ function applyEndTurnEffects(state) {
         Math.max(1, Math.floor(pokemon.stats.hp / 16)),
         pokemon.volatiles.aquaring.source || "Aqua Ring",
       );
+    }
+    if (activeAbility(pokemon) === "speedboost") {
+      state.events.push({
+        turn: state.turn,
+        type: "ability_activate",
+        side: sideIndex,
+        pokemon: pokemon.name,
+        ability: "speedboost",
+      });
+      applyBoosts(state, sideIndex, pokemon, { speed: 1 }, "speedboost");
     }
     if (pokemon.volatiles?.leechseed) {
       const applied = Math.min(
@@ -7126,6 +7319,7 @@ function aiDisplayMoveData(pokemon, move) {
     status: "",
     selfStatus: "",
     volatileStatus: maxMove.volatileStatus ?? "",
+    bypassProtect: maxMove.bypassProtect === true,
     boosts: maxMove.boosts ?? {},
     selfBoosts: maxMove.selfBoosts ?? {},
     heal: null,
@@ -7415,6 +7609,7 @@ function chooseSimpleAiDecision(
       gimmicks: {
         dynamax:
           pokemon.gimmicks?.forceDynamax === true || dynamaxFallback,
+        gigantamax: pokemon.gimmicks?.gigantamax === true,
       },
     },
     selectedMove: chosenMove,

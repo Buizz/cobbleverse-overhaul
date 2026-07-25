@@ -11,7 +11,8 @@
 - 구현 특성은 최소 단위 테스트를 가진다.
 - 메가진화로 변경되는 특성은 기믹 활성화 직후 같은 턴 계산에 반영되어야 한다.
 - AI 예상 피해는 실제 피해 공식과 같은 특성 보정을 사용해야 한다.
-- 테스트나 시나리오에서 특성 누락을 확인해야 할 때는 `createSimpleBattle({ strictAbilityValidation: true, ... })`를 사용한다. 이 옵션이 켜진 전투는 `SUPPORTED_ABILITIES`에 없는 특성을 즉시 오류로 처리한다.
+- 테스트에서 특성 누락을 확인해야 할 때는 `createSimpleBattle({ strictAbilityValidation: true, ... })`를 사용한다. 이 옵션이 켜진 전투는 `SUPPORTED_ABILITIES`에 없는 특성을 즉시 오류로 처리한다.
+- 자체엔진 시나리오(`createNativeBattleSetup`)는 기본으로 `strictAbilityValidation: true`를 전달한다. PvE/EvE 자체엔진에서 새 특성이 빠지면 전투 시작 단계에서 오류가 나야 한다.
 
 ## 현재 구현 및 테스트 현황
 
@@ -37,12 +38,27 @@
 | UNIT_TESTED | `intimidate` | 위협, 등장 시 상대 공격 1랭크 하락 | `applyEntryAbilities` | `applies simple defensive and entry abilities` |
 | UNIT_TESTED | `pressure` | 프레셔, 대상 공격 PP 추가 1 소모 | `executeMove` | `applies Pressure PP drain and Own Tempo confusion immunity` |
 | UNIT_TESTED | `simple` | 단순, 랭크 변화량 2배 및 Simple Beam 변경 대상 | `applyBoosts`, ability change | `applies simple defensive and entry abilities` |
+| UNIT_TESTED | `toughclaws` | 단단한발톱, 접촉기 위력 1.3배 | `calculateDamageRange`, `makesContact` | `boosts contact move damage for Tough Claws` |
+| UNIT_TESTED | `download` | 다운로드, 등장 시 상대 방어/특방 비교 후 공격 또는 특공 1랭크 상승 | `applyEntryAbilities` | `supports common trainer abilities required by strict native scenarios` |
+| UNIT_TESTED | `sturdy` | 옹골참, 풀피에서 일격 기절 피해를 1HP로 버팀 | `executeMove` damage prevention | `supports common trainer abilities required by strict native scenarios` |
+| UNIT_TESTED | `speedboost` | 가속, 턴 종료 시 스피드 1랭크 상승 | `applyEndTurnEffects` | `supports common trainer abilities required by strict native scenarios` |
+| UNIT_TESTED | `technician` | 테크니션, 위력 60 이하 공격 1.5배 | `calculateDamageRange` | `supports common trainer abilities required by strict native scenarios` |
+| UNIT_TESTED | `mindseye` | 심안, 노말/격투 공격이 고스트에게 통함 | `moveEffectiveness` | `supports common trainer abilities required by strict native scenarios` |
+| UNIT_TESTED | `teravolt` | 테라볼트, 상대 방어 특성 무시 | `ignoresDefenderAbility` | `supports common trainer abilities required by strict native scenarios` |
+| IMPLEMENTED | `unseenfist` | 보이지않는주먹, 접촉 공격이 방어류를 관통 | `executeMove` protect check | strict 통과 회귀 |
+| IMPLEMENTED | `pickpocket` | 나쁜손버릇, 접촉 피해를 받으면 공격자 아이템 훔침 | `executeMove` post-hit item steal | strict 통과 회귀 |
+| IMPLEMENTED | `lightmetal` | 라이트메탈, 무게 기반 위력 계산 시 무게 절반 | `effectiveWeightPokemon` | strict 통과 회귀 |
+| UNIT_TESTED | `chillingneigh` | 백의울음, 상대를 쓰러뜨리면 공격 1랭크 상승 | `applyKnockoutAbility` | `boosts Calyrex rider abilities after scoring a knockout` |
+| UNIT_TESTED | `grimneigh` | 흑의울음, 상대를 쓰러뜨리면 특공 1랭크 상승 | `applyKnockoutAbility` | `boosts Calyrex rider abilities after scoring a knockout` |
+| UNIT_TESTED | `asoneglastrier` | 혼연일체(백마), 백의울음 효과 적용 | `applyKnockoutAbility` | `boosts Calyrex rider abilities after scoring a knockout` |
+| UNIT_TESTED | `asonespectrier` | 혼연일체(흑마), 흑의울음 효과 적용 | `applyKnockoutAbility` | `boosts Calyrex rider abilities after scoring a knockout` |
 
 ## 명시적 전투 효과 없음
 
 | 상태 | ID | 설명 | 처리 |
 |------|----|------|------|
 | INTENTIONAL_NO_EFFECT | `runaway` | 트레이너 전투에서는 효과 없음 | `SUPPORTED_ABILITIES`에 등록해 strict 검증 통과, 전투 효과 없음 |
+| INTENTIONAL_NO_EFFECT | `unnerve` | 긴장감, 상대 나무열매 사용 방지 | 현재 엔진에 자동 나무열매 소비가 없어 strict 검증 통과만 처리 |
 
 ## 특성 변경/억제 기술 현황
 
@@ -75,7 +91,7 @@
 - [ ] `solarpower`: 쾌청 중 특공 1.5배 및 턴 종료 피해
 - [ ] `tintedlens`: 반감 공격 피해 2배
 - [ ] `sniper`: 급소 피해 추가 보정
-- [ ] `technician`: 위력 60 이하 기술 1.5배
+- [x] `technician`: 위력 60 이하 기술 1.5배
 - [ ] `reckless`: 반동기/점프킥류 위력 1.2배
 - [ ] `ironfist`: 펀치 기술 1.2배
 - [ ] `strongjaw`: 물기 기술 1.5배
@@ -128,14 +144,14 @@
 - [ ] `naturalcure`: 교체 시 상태 회복
 - [ ] `moxie`: 직접 KO 후 공격 +1
 - [ ] `beastboost`: KO 후 가장 높은 능력 +1
-- [ ] `speedboost`: 턴 종료 스피드 +1
+- [x] `speedboost`: 턴 종료 스피드 +1
 - [ ] `contrary`: 랭크 변화 반전
 - [ ] `competitive`: 능력 하락 시 특공 +2
 - [ ] `defiant`: 능력 하락 시 공격 +2
 
 ### 방어·피해 무시
 
-- [ ] `sturdy`: 풀피 일격 기절 방지 및 일격기 무효
+- [x] `sturdy`: 풀피 일격 기절 방지
 - [ ] `wonderguard`: 효과 굉장한 공격 외 무효
 - [ ] `magicguard`: 간접 피해 무효
 - [ ] `overcoat`: 날씨 피해/가루 기술 무효

@@ -234,7 +234,7 @@ type BattleEvent = {
 };
 
 type BattlePlaybackMode = "instant" | "fast" | "normal";
-type BattleGimmick = "mega" | "zmove" | "dynamax" | "terastallize";
+type BattleGimmick = "mega" | "zmove" | "dynamax" | "gigantamax" | "terastallize";
 
 type BattleActionNotice = {
   event: BattleEvent;
@@ -363,6 +363,7 @@ type InteractiveGimmicks = {
   megaVariant: "mega" | "megax" | "megay";
   zMoves: Array<{ move: string; target: string } | null>;
   canDynamax: boolean;
+  canGigantamax?: boolean;
   maxMoves: Array<{ id: string; move: string; target: string }>;
   gigantamax: string;
   canTerastallize: string;
@@ -1322,6 +1323,11 @@ function displayId(value: string | null | undefined, fallback = "미지정") {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+function trainerMemberSlot(pokemon: Pokemon, index: number) {
+  const slot = Number(pokemon.slot);
+  return Number.isInteger(slot) ? slot : index + 1;
+}
+
 const battleStatLabels: Record<string, string> = {
   hp: "HP",
   atk: "공격",
@@ -1899,7 +1905,10 @@ function TeamStrip({
         </div>
       ) : null}
       {trainer.team.map((pokemon, index) => (
-        <article className="pokemon-chip" key={`${trainer.id}-${pokemon.slot}`}>
+        <article
+          className="pokemon-chip"
+          key={`${trainer.id}-${trainerMemberSlot(pokemon, index)}`}
+        >
           <div className="party-position-controls">
             <button
               type="button"
@@ -2731,7 +2740,10 @@ function usedGimmicksBySide(events: BattleEvent[], side: "p1" | "p2") {
     if (!event.actor?.startsWith(side)) continue;
     if (event.type === "mega_evolution") used.add("mega");
     if (event.type === "z_power") used.add("zmove");
-    if (event.type === "dynamax_started") used.add("dynamax");
+    if (event.type === "dynamax_started") {
+      used.add("dynamax");
+      if (event.detail === "gigantamax") used.add("gigantamax");
+    }
     if (event.type === "terastallized") used.add("terastallize");
   }
   return used;
@@ -2853,6 +2865,8 @@ function MultiBattleCommandPanel({
       .filter((action): action is InteractiveSlotAction => Boolean(action?.gimmick))
       .map((action) => action.gimmick),
   );
+  const usedMaxGimmick =
+    usedGimmicks.has("dynamax") || usedGimmicks.has("gigantamax");
   const needsTarget = (move: InteractiveMove) =>
     ["normal", "any", "adjacentFoe"].includes(move.target) &&
     (request.opponents?.length ?? 0) > 0;
@@ -2923,7 +2937,8 @@ function MultiBattleCommandPanel({
     [
       "dynamax",
       "다이맥스",
-      current?.gimmicks.canDynamax && !usedGimmicks.has("dynamax"),
+      (current?.gimmicks.canDynamax || current?.gimmicks.canGigantamax) &&
+        !usedMaxGimmick,
     ],
     [
       "terastallize",
@@ -2936,6 +2951,10 @@ function MultiBattleCommandPanel({
     multiGimmickOptions.find(
       ([id, , available]) => id === selectedGimmick && available,
     )?.[0] ?? null;
+  const selectedMultiGimmickCommand =
+    activeMultiGimmickSelection === "dynamax" && current?.gimmicks.canGigantamax
+      ? "gigantamax"
+      : activeMultiGimmickSelection;
 
   return (
     <section className="multi-command-panel">
@@ -3055,7 +3074,7 @@ function MultiBattleCommandPanel({
                     type: "move",
                     slot: pendingMove.slot,
                     target: opponent.position,
-                    gimmick: activeMultiGimmickSelection ?? undefined,
+                    gimmick: selectedMultiGimmickCommand ?? undefined,
                   })
                 }
               >
@@ -3111,7 +3130,7 @@ function MultiBattleCommandPanel({
                         commit({
                           type: "move",
                           slot: move.slot,
-                          gimmick: activeMultiGimmickSelection ?? undefined,
+                          gimmick: selectedMultiGimmickCommand ?? undefined,
                         });
                       }
                     }}
@@ -3197,6 +3216,7 @@ function InteractiveArena({
     battle.engine?.id === "cobbleverse-simple" ||
     battle.settings?.battleEngine === "cobbleverse";
   const playerUsedGimmicks = usedGimmicksBySide(battle.events, "p1");
+  const playerUsedMax = playerUsedGimmicks.has("dynamax");
   const selectedGimmick =
     gimmickSelection.requestId === request?.requestId
       ? gimmickSelection.value
@@ -3228,12 +3248,14 @@ function InteractiveArena({
         },
         {
           id: "dynamax",
-          label: request.gimmicks.gigantamax ? "거다이맥스" : "다이맥스",
-          detail: request.gimmicks.gigantamax ? "GIGANTAMAX" : "DYNAMAX",
+          label: "다이맥스",
+          detail: request.gimmicks.canGigantamax ? "GIGANTAMAX" : "DYNAMAX",
           available: isNativeBattle
-            ? !playerUsedGimmicks.has("dynamax")
+            ? (request.gimmicks.canDynamax ||
+                Boolean(request.gimmicks.canGigantamax)) &&
+              !playerUsedMax
             : request.gimmicks.canDynamax &&
-              !playerUsedGimmicks.has("dynamax"),
+              !playerUsedMax,
           reason: isNativeBattle
             ? "이번 전투에서 플레이어가 이미 다이맥스를 사용했습니다."
             : "현재 Showdown 세대 규칙에서는 다이맥스를 선택할 수 없습니다.",
@@ -3788,7 +3810,11 @@ function InteractiveArena({
                         onAction({
                           type: "move",
                           slot: move.slot,
-                          gimmick: activeGimmickSelection ?? undefined,
+                          gimmick:
+                            activeGimmickSelection === "dynamax" &&
+                            request.gimmicks.canGigantamax
+                              ? "gigantamax"
+                              : activeGimmickSelection ?? undefined,
                         })
                       }
                     >
@@ -3824,7 +3850,7 @@ function InteractiveArena({
                             dynamaxMoveDescription(
                               move,
                               localization,
-                              Boolean(request.gimmicks.gigantamax),
+                              Boolean(request.gimmicks.canGigantamax),
                             )
                           : localization?.moves[dexId(move.id)]?.description ??
                             "등록된 한국어 기술 설명이 없습니다."}
@@ -4339,13 +4365,22 @@ export function BattleLab() {
   }, [data, recentTrainerIds]);
   const withPartyOrder = (trainer: Trainer | undefined) => {
     if (!trainer) return undefined;
+    const sourceTeam = trainer.team.map((pokemon, index) => ({
+      ...pokemon,
+      slot: trainerMemberSlot(pokemon, index),
+    }));
     const order = partyOrders[trainer.id] ?? [];
+    const pokemonBySlot = new Map(
+      sourceTeam.map((pokemon, index) => [trainerMemberSlot(pokemon, index), pokemon]),
+    );
     const slots = new Set(order);
     const team = [
       ...order
-        .map((slot) => trainer.team.find((pokemon) => pokemon.slot === slot))
+        .map((slot) => pokemonBySlot.get(slot))
         .filter((pokemon): pokemon is Pokemon => Boolean(pokemon)),
-      ...trainer.team.filter((pokemon) => !slots.has(pokemon.slot)),
+      ...sourceTeam.filter(
+        (pokemon, index) => !slots.has(trainerMemberSlot(pokemon, index)),
+      ),
     ];
     return { ...trainer, team };
   };
@@ -4419,7 +4454,9 @@ export function BattleLab() {
     ) {
       return;
     }
-    const order = trainer.team.map((pokemon) => pokemon.slot);
+    const order = trainer.team.map((pokemon, index) =>
+      trainerMemberSlot(pokemon, index),
+    );
     [order[fromIndex], order[toIndex]] = [order[toIndex], order[fromIndex]];
     setPartyOrders((current) => {
       const next = { ...current, [trainer.id]: order };
@@ -4523,7 +4560,7 @@ export function BattleLab() {
                     source: "preset",
                     trainerId: playerPreset,
                     teamOrder: playerTrainer?.team.map(
-                      (pokemon) => pokemon.slot,
+                      (pokemon, index) => trainerMemberSlot(pokemon, index),
                     ),
                   }
                 : customSide,
@@ -4531,7 +4568,7 @@ export function BattleLab() {
                 source: "preset",
                 trainerId: opponentPreset,
                 teamOrder: opponentTrainer?.team.map(
-                  (pokemon) => pokemon.slot,
+                  (pokemon, index) => trainerMemberSlot(pokemon, index),
                 ),
               },
             ],
@@ -4549,12 +4586,16 @@ export function BattleLab() {
               {
                 source: "preset",
                 trainerId: eveLeft,
-                teamOrder: leftTrainer?.team.map((pokemon) => pokemon.slot),
+                teamOrder: leftTrainer?.team.map((pokemon, index) =>
+                  trainerMemberSlot(pokemon, index),
+                ),
               },
               {
                 source: "preset",
                 trainerId: eveRight,
-                teamOrder: rightTrainer?.team.map((pokemon) => pokemon.slot),
+                teamOrder: rightTrainer?.team.map((pokemon, index) =>
+                  trainerMemberSlot(pokemon, index),
+                ),
               },
             ],
           };

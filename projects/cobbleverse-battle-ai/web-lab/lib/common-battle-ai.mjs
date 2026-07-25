@@ -1975,7 +1975,9 @@ export function selectAiGimmick({
   if (
     !alreadyUsed.dynamax &&
     active.canDynamax &&
-    (forceDynamax || configured?.gimmicks?.dynamax)
+    (forceDynamax ||
+      configured?.gimmicks?.dynamax ||
+      configured?.gimmicks?.gigantamax)
   ) {
     const candidate = scoreAiDynamaxCandidate({
       active,
@@ -1985,7 +1987,11 @@ export function selectAiGimmick({
       forceDynamax,
     });
     if (candidate.score >= DYNAMAX_SCORE_THRESHOLD) {
-      return { id: "dynamax", showdownSuffix: " dynamax", candidate };
+      return {
+        id: configured?.gimmicks?.gigantamax ? "gigantamax" : "dynamax",
+        showdownSuffix: " dynamax",
+        candidate,
+      };
     }
   }
   if (

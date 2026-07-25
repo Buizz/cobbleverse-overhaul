@@ -11,7 +11,10 @@ import {
   createNativeBattleSetup,
   mapNativeEvent,
 } from "./native-scenario-runner.mjs";
-import { resolveNativeMaxMove } from "./native-max-moves.mjs";
+import {
+  isNativeGigantamaxSpecies,
+  resolveNativeMaxMove,
+} from "./native-max-moves.mjs";
 import {
   scoreAiMoveCandidate,
   toAiActionCandidate,
@@ -161,7 +164,9 @@ function aiDecision(state, command, profile = {}) {
     chosenAction: selected?.name ?? "기술 선택",
     gimmick: command.gimmick ?? "",
     reason:
-      command.gimmick === "dynamax"
+      command.gimmick === "gigantamax"
+        ? "엔트리의 거다이맥스 지시와 전용기 가치를 반영해 이 턴에 거다이맥스를 사용합니다."
+        : command.gimmick === "dynamax"
         ? "엔트리의 다이맥스 강제 지시에 따라 이 턴에 다이맥스를 사용합니다."
         : "Cobbleverse 엔진이 예상 피해량과 KO 가능성뿐 아니라 회복, 상태이상, 랭크 변화의 전술 가치도 함께 비교했습니다.",
     candidates,
@@ -188,6 +193,10 @@ function snapshot(session) {
   const latestDecision = session.aiTrace.at(-1) ?? null;
   const usedGimmicks = playerSide.usedGimmicks ?? {};
   const playerDynamaxed = player.dynamaxTurns > 0;
+  const playerHasGimmickForm =
+    player.megaEvolved === true ||
+    playerDynamaxed ||
+    player.terastallized === true;
   const megaStone = player.gimmicks?.megaStone;
   const playerSpeciesIds = new Set([cleanId(player.id), cleanId(player.name)]);
   const canMegaEvolve =
@@ -209,10 +218,12 @@ function snapshot(session) {
     };
   });
   // Cobblemon의 플레이어는 엔트리 플래그와 무관하게 전투당 한 번
-  // 다이맥스를 직접 선택할 수 있다. 엔트리의 dynamax/gmax 값은
-  // 컴퓨터 AI의 강제 발동 지시와 거다이맥스 개체 판정에만 사용한다.
+  // 다이맥스를 직접 선택할 수 있다. 거다이맥스 버튼은 엔트리 설정이
+  // 아니라 실제 종이 거다이맥스 가능한지로 판정한다.
   const canDynamax = player.megaEvolved !== true;
-  const gigantamax = player.gimmicks?.gigantamax === true;
+  const gigantamax =
+    player.gimmicks?.canGigantamax === true || isNativeGigantamaxSpecies(player);
+  const canGigantamax = canDynamax && gigantamax;
   const configuredTeraType = player.configuredTeraType || "";
 
   return {
@@ -250,19 +261,34 @@ function snapshot(session) {
             canMegaEvo:
               !requiresReplacement &&
               !playerDynamaxed &&
+              player.terastallized !== true &&
               !usedGimmicks.mega &&
               canMegaEvolve,
             megaVariant: "mega",
             zMoves:
-              requiresReplacement || usedGimmicks.zmove ? [] : zMoves,
+              requiresReplacement || playerHasGimmickForm || usedGimmicks.zmove
+                ? []
+                : zMoves,
             canDynamax:
-              !requiresReplacement && !usedGimmicks.dynamax && canDynamax,
+              !requiresReplacement &&
+              !usedGimmicks.dynamax &&
+              canDynamax &&
+              !gigantamax,
+            canGigantamax:
+              !requiresReplacement &&
+              !usedGimmicks.dynamax &&
+              canGigantamax,
             maxMoves:
               requiresReplacement ||
               (!playerDynamaxed && (usedGimmicks.dynamax || !canDynamax))
               ? []
               : player.moves.map((move) => {
-                  const maxMove = resolveNativeMaxMove(player, move);
+                  const maxMove = resolveNativeMaxMove(
+                    canGigantamax
+                      ? { ...player, dynamaxMode: "gigantamax" }
+                      : player,
+                    move,
+                  );
                   return {
                     id: maxMove.id,
                     move: maxMove.name,
@@ -273,6 +299,7 @@ function snapshot(session) {
             canTerastallize:
               requiresReplacement ||
               playerDynamaxed ||
+              player.megaEvolved === true ||
               usedGimmicks.terastallize ||
               !configuredTeraType
               ? ""

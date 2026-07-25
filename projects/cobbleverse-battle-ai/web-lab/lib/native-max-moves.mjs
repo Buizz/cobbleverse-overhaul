@@ -72,11 +72,17 @@ const GMAX_MOVE_BY_SPECIES = {
   alcremie: { id: "gmaxfinale", name: "G-Max Finale", type: "fairy" },
   copperajah: { id: "gmaxsteelsurge", name: "G-Max Steelsurge", type: "steel" },
   duraludon: { id: "gmaxdepletion", name: "G-Max Depletion", type: "dragon" },
-  urshifu: { id: "gmaxoneblow", name: "G-Max One Blow", type: "dark" },
+  urshifu: {
+    id: "gmaxoneblow",
+    name: "G-Max One Blow",
+    type: "dark",
+    bypassProtect: true,
+  },
   urshifurapidstrike: {
     id: "gmaxrapidflow",
     name: "G-Max Rapid Flow",
     type: "water",
+    bypassProtect: true,
   },
 };
 
@@ -93,6 +99,27 @@ function withMaxMoveEffects(move) {
   };
 }
 
+function gmaxMoveForSpecies(speciesId) {
+  const species = cleanId(speciesId);
+  return (
+    GMAX_MOVE_BY_SPECIES[species] ??
+    (species.endsWith("gmax")
+      ? GMAX_MOVE_BY_SPECIES[species.slice(0, -"gmax".length)]
+      : null) ??
+    (species.startsWith("urshifurapidstrike")
+      ? GMAX_MOVE_BY_SPECIES.urshifurapidstrike
+      : null)
+  );
+}
+
+export function isNativeGigantamaxSpecies(pokemonOrSpecies) {
+  const species =
+    typeof pokemonOrSpecies === "object"
+      ? pokemonOrSpecies?.id || pokemonOrSpecies?.name
+      : pokemonOrSpecies;
+  return Boolean(gmaxMoveForSpecies(species));
+}
+
 export function resolveNativeMaxMove(pokemon, move) {
   if (move?.category === "Status") {
     return { id: "maxguard", name: "Max Guard", volatileStatus: "protect" };
@@ -103,14 +130,9 @@ export function resolveNativeMaxMove(pokemon, move) {
     pokemon?.dynamaxMode === "gigantamax" ||
     pokemon?.gimmicks?.gigantamax === true;
   if (gigantamax) {
-    const species = cleanId(pokemon?.id || pokemon?.name);
-    const gmaxMove =
-      GMAX_MOVE_BY_SPECIES[species] ??
-      (species.startsWith("urshifurapidstrike")
-        ? GMAX_MOVE_BY_SPECIES.urshifurapidstrike
-        : null);
+    const gmaxMove = gmaxMoveForSpecies(pokemon?.id || pokemon?.name);
     if (gmaxMove?.type === type) {
-      return withMaxMoveEffects({ id: gmaxMove.id, name: gmaxMove.name });
+      return withMaxMoveEffects(gmaxMove);
     }
   }
 

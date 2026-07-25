@@ -274,6 +274,8 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
         team: [
           {
             ...scenario.sides[0].team[0],
+            species: "raichu",
+            moveset: ["thunderbolt", "quickattack"],
             gimmicks: { dynamax: false },
           },
           {
@@ -329,7 +331,7 @@ test("keeps native player moves displayed as Max Moves while Dynamax is active",
         team: [
           {
             ...scenario.sides[0].team[0],
-            species: "pikachu",
+            species: "raichu",
             level: 50,
             moveset: ["thunderbolt", "quickattack"],
           },
@@ -380,7 +382,7 @@ test("maps original moves to standard and Gigantamax move identities", () => {
       { id: "pikachu", gimmicks: { gigantamax: true } },
       { type: "Electric", category: "Physical" },
     ),
-    { id: "gmaxvoltcrash", name: "G-Max Volt Crash" },
+    { id: "gmaxvoltcrash", name: "G-Max Volt Crash", type: "electric" },
   );
   assert.deepEqual(
     resolveNativeMaxMove(
@@ -391,10 +393,81 @@ test("maps original moves to standard and Gigantamax move identities", () => {
   );
   assert.deepEqual(
     resolveNativeMaxMove(
+      { id: "urshifu-rapidstrike", gimmicks: { gigantamax: true } },
+      { type: "Water", category: "Physical" },
+    ),
+    {
+      id: "gmaxrapidflow",
+      name: "G-Max Rapid Flow",
+      type: "water",
+      bypassProtect: true,
+    },
+  );
+  assert.deepEqual(
+    resolveNativeMaxMove(
       { id: "pikachu", gimmicks: { gigantamax: true } },
       { type: "Normal", category: "Status" },
     ),
     { id: "maxguard", name: "Max Guard", volatileStatus: "protect" },
+  );
+});
+
+test("offers Urshifu Gigantamax through Max controls in native PvE", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-player-gigantamax-urshifu",
+    mode: "pve",
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "urshifu-rapidstrike",
+            resolvedSpecies: "Urshifu-Rapid-Strike",
+            level: 50,
+            ability: "unseenfist",
+            gimmicks: {},
+            moveset: ["surgingstrikes", "closecombat"],
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "blissey",
+            level: 50,
+            moveset: ["protect"],
+          },
+        ],
+      },
+    ],
+  };
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  assert.equal(started.request.gimmicks.canDynamax, false);
+  assert.equal(started.request.gimmicks.canGigantamax, true);
+  assert.equal(started.request.gimmicks.gigantamax, "gigantamax");
+  assert.equal(started.request.gimmicks.maxMoves[0].id, "gmaxrapidflow");
+
+  const next = chooseNativeInteractiveBattleAction(started.sessionId, {
+    type: "move",
+    slot: 1,
+    gimmick: "gigantamax",
+  });
+  assert.ok(
+    next.events.some(
+      (event) =>
+        event.type === "dynamax_started" && event.detail === "gigantamax",
+    ),
+  );
+  assert.ok(
+    next.events.some(
+      (event) => event.type === "move" && event.detail === "G-Max Rapid Flow",
+    ),
   );
 });
 
@@ -433,6 +506,52 @@ test("forces the computer to Dynamax when its entry requests it", () => {
   assert.equal(battle.aiTrace[0].gimmick, "dynamax");
 });
 
+test("forces the computer to Gigantamax when its entry requests G-Max", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-ai-forced-gigantamax",
+    mode: "pve",
+    sides: [
+      scenario.sides[0],
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "urshifu-rapidstrike",
+            resolvedSpecies: "Urshifu-Rapid-Strike",
+            ability: "unseenfist",
+            moveset: ["surgingstrikes"],
+            gimmicks: { dynamax: true, gmax: true },
+          },
+        ],
+      },
+    ],
+  };
+
+  let battle = startNativeInteractiveBattle(battleScenario);
+  battle = chooseNativeInteractiveBattleAction(battle.sessionId, {
+    type: "move",
+    slot: 1,
+  });
+
+  assert.equal(battle.aiTrace[0].gimmick, "gigantamax");
+  assert.ok(
+    battle.events.some(
+      (event) =>
+        event.type === "dynamax_started" &&
+        event.actor.startsWith("p2") &&
+        event.detail === "gigantamax",
+    ),
+  );
+  assert.ok(
+    battle.events.some(
+      (event) => event.type === "move" && event.detail === "G-Max Rapid Flow",
+    ),
+  );
+});
+
 test("offers each Cobbleverse gimmick only from its configured Pokémon data", () => {
   const cases = [
     {
@@ -461,13 +580,24 @@ test("offers each Cobbleverse gimmick only from its configured Pokémon data", (
       gimmick: "dynamax",
       eventType: "dynamax_started",
       member: {
+        species: "raichu",
+        heldItem: "",
+        moveset: ["thunderbolt"],
+        gimmicks: { dynamax: true, gmax: false },
+      },
+      available: (request) => request.gimmicks.canDynamax,
+    },
+    {
+      gimmick: "gigantamax",
+      eventType: "dynamax_started",
+      member: {
         species: "charizard",
         heldItem: "",
         moveset: ["flamethrower"],
         gimmicks: { dynamax: true, gmax: true },
       },
       available: (request) =>
-        request.gimmicks.canDynamax &&
+        request.gimmicks.canGigantamax &&
         request.gimmicks.gigantamax === "gigantamax",
     },
     {
@@ -544,7 +674,15 @@ test("hides Dynamax choices after native player Mega Evolution", () => {
             species: "charizard",
             heldItem: "mega_showdown:charizardite_x",
             moveset: ["flamethrower"],
-            gimmicks: { mega: true },
+            gimmicks: { mega: true, tera: "fire" },
+          },
+          {
+            ...scenario.sides[0].team[0],
+            slot: 2,
+            species: "raichu",
+            heldItem: "",
+            moveset: ["thunderbolt"],
+            gimmicks: { dynamax: true },
           },
         ],
       },
@@ -563,7 +701,9 @@ test("hides Dynamax choices after native player Mega Evolution", () => {
 
   const started = startNativeInteractiveBattle(battleScenario);
   assert.equal(started.request.gimmicks.canMegaEvo, true);
-  assert.equal(started.request.gimmicks.canDynamax, true);
+  assert.equal(started.request.gimmicks.canDynamax, false);
+  assert.equal(started.request.gimmicks.canGigantamax, true);
+  assert.equal(started.request.gimmicks.canTerastallize, "fire");
 
   const mega = chooseNativeInteractiveBattleAction(started.sessionId, {
     type: "move",
@@ -571,8 +711,19 @@ test("hides Dynamax choices after native player Mega Evolution", () => {
     gimmick: "mega",
   });
   assert.ok(mega.events.some((event) => event.type === "mega_evolution"));
+  assert.equal(mega.request.gimmicks.canMegaEvo, false);
   assert.equal(mega.request.gimmicks.canDynamax, false);
   assert.deepEqual(mega.request.gimmicks.maxMoves, []);
+  assert.deepEqual(mega.request.gimmicks.zMoves, []);
+  assert.equal(mega.request.gimmicks.canTerastallize, "");
+
+  const switched = chooseNativeInteractiveBattleAction(mega.sessionId, {
+    type: "switch",
+    slot: 2,
+  });
+  assert.equal(switched.request.active.species, "Raichu");
+  assert.equal(switched.request.gimmicks.canDynamax, true);
+  assert.ok(switched.request.gimmicks.maxMoves[0]);
 });
 
 test("waits for the player to choose a replacement after fainting", () => {
@@ -595,7 +746,7 @@ test("waits for the player to choose a replacement after fainting", () => {
           {
             ...scenario.sides[0].team[0],
             slot: 2,
-            species: "pikachu",
+            species: "raichu",
             level: 50,
             moveset: ["thunderbolt"],
           },
@@ -625,7 +776,7 @@ test("waits for the player to choose a replacement after fainting", () => {
   assert.equal(fainted.request.active.condition.fainted, true);
   assert.deepEqual(
     fainted.request.switches.map((pokemon) => pokemon.species),
-    ["Pikachu"],
+    ["Raichu"],
   );
 
   const turnBeforeReplacement = fainted.turns;
@@ -636,7 +787,7 @@ test("waits for the player to choose a replacement after fainting", () => {
   });
   assert.equal(replaced.turns, turnBeforeReplacement);
   assert.equal(replaced.request.kind, "move");
-  assert.equal(replaced.request.active.species, "Pikachu");
+  assert.equal(replaced.request.active.species, "Raichu");
   assert.equal(replaced.events.length, eventsBeforeReplacement + 1);
   assert.equal(replaced.events.at(-1).type, "switch");
   assert.match(replaced.events.at(-1).condition ?? "", /^[1-9]\d*\/[1-9]\d*/);

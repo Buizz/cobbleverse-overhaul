@@ -106,6 +106,97 @@ test("applies a preset team order to the scenario and lead slot", () => {
   );
 });
 
+test("applies preset team order when source slots are string values", () => {
+  const brock = index.trainers.find((trainer) => trainer.id === "kanto_brock");
+  const trainer = {
+    ...brock,
+    id: "test_string_slot_trainer",
+    team: brock.team.map((member) => ({
+      ...member,
+      slot: String(member.slot),
+    })),
+  };
+  const reversedOrder = [...trainer.team].reverse().map((member) => member.slot);
+  const result = createBattleScenario(
+    {
+      mode: "pve",
+      seed: 1234,
+      sides: [
+        {
+          source: "custom",
+          team: [
+            {
+              species: "pikachu",
+              level: 50,
+              moves: ["thunderbolt"],
+            },
+          ],
+        },
+        {
+          source: "preset",
+          trainerId: trainer.id,
+          teamOrder: reversedOrder,
+        },
+      ],
+    },
+    [...index.trainers, trainer],
+    itemResolver,
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(
+    result.scenario.sides[1].team[0].species,
+    brock.team.at(-1).species,
+  );
+});
+
+test("preserves a generated preset team order when revalidating a scenario", () => {
+  const brock = index.trainers.find((trainer) => trainer.id === "kanto_brock");
+  const reversedOrder = [...brock.team].reverse().map((member) => member.slot);
+  const generated = createBattleScenario(
+    {
+      mode: "pve",
+      seed: 1234,
+      sides: [
+        {
+          source: "custom",
+          team: [
+            {
+              species: "pikachu",
+              level: 50,
+              moves: ["thunderbolt"],
+            },
+          ],
+        },
+        {
+          source: "preset",
+          trainerId: "kanto_brock",
+          teamOrder: reversedOrder,
+        },
+      ],
+    },
+    index.trainers,
+    itemResolver,
+  );
+  assert.equal(generated.ok, true);
+
+  const revalidated = createBattleScenario(
+    generated.scenario,
+    index.trainers,
+    itemResolver,
+  );
+
+  assert.equal(revalidated.ok, true);
+  assert.equal(
+    revalidated.scenario.sides[1].team[0].species,
+    generated.scenario.sides[1].team[0].species,
+  );
+  assert.notEqual(
+    revalidated.scenario.sides[1].team[0].species,
+    brock.team[0].species,
+  );
+});
+
 test("rejects incomplete custom party members", () => {
   const result = createBattleScenario(
     {

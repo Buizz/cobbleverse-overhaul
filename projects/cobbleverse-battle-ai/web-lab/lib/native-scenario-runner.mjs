@@ -1,5 +1,6 @@
 import { Dex } from "@pkmn/sim";
 import { runSimpleBattle } from "./cobbleverse-battle-engine.mjs";
+import { isNativeGigantamaxSpecies } from "./native-max-moves.mjs";
 import { resolveShowdownMemberSpecies } from "./showdown-species.mjs";
 
 function statValue(base, level, iv, ev, isHp = false) {
@@ -197,6 +198,7 @@ function hydrateMember(member, path) {
       canDynamax: true,
       forceDynamax:
         member.gimmicks?.dynamax === true || member.gimmicks?.gmax === true,
+      canGigantamax: isNativeGigantamaxSpecies(species.id),
       gigantamax: member.gimmicks?.gmax === true,
       teraType: member.gimmicks?.tera ?? species.types[0] ?? "Normal",
     },
@@ -217,6 +219,7 @@ function hydrateMember(member, path) {
 export function createNativeBattleSetup(scenario) {
   return {
     seed: scenario.seed,
+    strictAbilityValidation: true,
     gimmickProfile:
       scenario.gimmickRules === "all"
         ? "cobbleverse_all"
@@ -258,6 +261,7 @@ export function mapNativeEvent(event) {
       mega: "mega_evolution",
       zmove: "z_power",
       dynamax: "dynamax_started",
+      gigantamax: "dynamax_started",
       terastallize: "terastallized",
     }[event.gimmick];
     return [
@@ -267,7 +271,7 @@ export function mapNativeEvent(event) {
         detail:
           event.gimmick === "terastallize"
             ? event.teraType ?? ""
-            : event.gimmick === "dynamax"
+            : event.gimmick === "dynamax" || event.gimmick === "gigantamax"
               ? event.dynamaxMode ?? ""
               : event.gimmick === "mega"
                 ? displayValue(event.megaForm)

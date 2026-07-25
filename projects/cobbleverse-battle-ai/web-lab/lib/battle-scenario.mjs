@@ -79,6 +79,57 @@ function normalizeMember(raw, slot, itemResolver) {
   };
 }
 
+function memberOrderSlot(member, index) {
+  const slot = Number(member?.slot);
+  return Number.isInteger(slot) ? slot : index + 1;
+}
+
+function comparableId(value) {
+  return cleanText(value)
+    .toLowerCase()
+    .replace(/^cobblemon:/, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function memberSpeciesKeys(member) {
+  return new Set(
+    [member?.resolvedSpecies, member?.species]
+      .map(comparableId)
+      .filter(Boolean),
+  );
+}
+
+function memberMoveKey(member) {
+  return normalizeMoveList(member?.moveset ?? member?.moves)
+    .map(comparableId)
+    .join(",");
+}
+
+function samePresetMember(left, right) {
+  const leftSpecies = memberSpeciesKeys(left);
+  const rightSpecies = memberSpeciesKeys(right);
+  const speciesMatches = [...leftSpecies].some((species) => rightSpecies.has(species));
+  if (!speciesMatches) return false;
+  const leftMoves = memberMoveKey(left);
+  const rightMoves = memberMoveKey(right);
+  return !leftMoves || !rightMoves || leftMoves === rightMoves;
+}
+
+function orderedPresetTeamFromScenarioTeam(rawTeam, sourceTeam) {
+  if (!Array.isArray(rawTeam) || rawTeam.length === 0) return [];
+  const usedIndexes = new Set();
+  const ordered = [];
+  for (const rawMember of rawTeam) {
+    const sourceIndex = sourceTeam.findIndex(
+      (member, index) => !usedIndexes.has(index) && samePresetMember(rawMember, member),
+    );
+    if (sourceIndex < 0) continue;
+    usedIndexes.add(sourceIndex);
+    ordered.push(sourceTeam[sourceIndex]);
+  }
+  return ordered;
+}
+
 function validateMember(member, path) {
   const issues = [];
   if (!member.species) {
@@ -143,6 +194,12 @@ function normalizePresetSide(raw, path, trainerById, itemResolver) {
     };
   }
 
+  const sourceTeam = Array.isArray(trainer.team)
+    ? trainer.team.map((member, index) => ({
+        ...member,
+        slot: memberOrderSlot(member, index),
+      }))
+    : [];
   const requestedOrder = Array.isArray(raw?.teamOrder)
     ? raw.teamOrder
         .map(Number)
@@ -151,13 +208,25 @@ function normalizePresetSide(raw, path, trainerById, itemResolver) {
             Number.isInteger(slot) && slots.indexOf(slot) === index,
         )
     : [];
+  const memberBySlot = new Map(
+    sourceTeam.map((member, index) => [memberOrderSlot(member, index), member]),
+  );
   const requestedSlots = new Set(requestedOrder);
-  const orderedTeam = [
-    ...requestedOrder
-      .map((slot) => trainer.team.find((member) => member.slot === slot))
-      .filter(Boolean),
-    ...trainer.team.filter((member) => !requestedSlots.has(member.slot)),
-  ];
+  const orderedByTeam = orderedPresetTeamFromScenarioTeam(raw?.team, sourceTeam);
+  const orderedTeam =
+    requestedOrder.length > 0
+      ? [
+          ...requestedOrder
+            .map((slot) => memberBySlot.get(slot))
+            .filter(Boolean),
+          ...sourceTeam.filter(
+            (member, index) => !requestedSlots.has(memberOrderSlot(member, index)),
+          ),
+        ]
+      : [
+          ...orderedByTeam,
+          ...sourceTeam.filter((member) => !orderedByTeam.includes(member)),
+        ];
   const team = orderedTeam
     .slice(0, 6)
     .map((member, index) => normalizeMember(member, index + 1, itemResolver));
