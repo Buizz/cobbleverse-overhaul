@@ -1,0 +1,107 @@
+{
+  "name": "Scientist Rodney",
+  "team": [
+    {
+      "species": "rotom",
+      "gender": "GENDERLESS",
+      "level": 48,
+      "nature": "rash",
+      "ability": "levitate",
+      "moveset": [
+        "thundershock",
+        "ominouswind",
+        "substitute",
+        "electroball"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "aspects": [
+        "fan-appliance"
+      ]
+    },
+    {
+      "species": "rotom",
+      "gender": "GENDERLESS",
+      "level": 45,
+      "nature": "hasty",
+      "ability": "levitate",
+      "moveset": [
+        "blizzard",
+        "electroball",
+        "astonish",
+        "charge"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "aspects": [
+        "frost-appliance"
+      ]
+    },
+    {
+      "species": "rotom",
+      "gender": "GENDERLESS",
+      "level": 45,
+      "nature": "hasty",
+      "ability": "levitate",
+      "moveset": [
+        "leafstorm",
+        "thundershock",
+        "electroball",
+        "substitute"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "aspects": [
+        "mow"
+      ]
+      
+    },
+    {
+      "species": "rotom",
+      "gender": "GENDERLESS",
+      "level": 45,
+      "nature": "relaxed",
+      "ability": "levitate",
+      "moveset": [
+        "hydropump",
+        "electroball",
+        "shockwave",
+        "astonish"
+
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "aspects": [
+        "wash-appliance"
+      ]
+    }
+  ]
+}

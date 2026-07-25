@@ -1,0 +1,45 @@
+{
+  "name": "Camilla",
+  "identity": "Champion Camilla",
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "team": [
+    {
+      "species": "eternatus",
+      "gender": "unkmown",
+      "level": 125,
+      "nature": "modest",
+      "ability": "pressure",
+      "moveset": [
+        "dynamaxcannon",
+        "sludgewave",
+        "flamethrower",
+        "dragonpulse"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spd": 31,
+        "spe": 31,
+        "spa": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 128,
+        "special_defence": 128
+      },
+      "heldItem": [
+        "leftovers",
+        "mega_showdown:max_mushroom"
+      ],
+      "aspects": [
+        "eternamax"
+      ]
+    }
+  ]
+}

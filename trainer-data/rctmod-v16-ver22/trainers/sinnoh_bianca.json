@@ -1,0 +1,192 @@
+{
+  "name": "Bianca",
+  "team": [
+    {
+      "species": "vanilluxe",
+      "level": 90,
+      "gender": "MALE",
+      "nature": "careful",
+      "ability": "snowwarning",
+      "moveset": [
+        "auroraveil",
+        "iceshard",
+        "explosion",
+        "mirrorcoat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 100,
+        "special_defence": 156
+      },
+      "heldItem": "cobblemon:icy_rock"
+    },
+    {
+      "species": "walrein",
+      "level": 90,
+      "gender": "MALE",
+      "nature": "bold",
+      "ability": "thickfat",
+      "moveset": [
+        "hydropump",
+        "blizzard",
+        "protect",
+        "rest"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 188,
+        "defence": 100,
+        "special_attack": 70,
+        "special_defence": 148,
+        "speed": 4
+      },
+      "heldItem": "cobblemon:leftovers",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "rotom",
+      "level": 90,
+      "gender": "UNKNOWN",
+      "nature": "calm",
+      "ability": "levitate",
+      "moveset": [
+        "blizzard",
+        "discharge",
+        "willowisp",
+        "hex"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "special_attack": 252
+      },
+      "heldItem": "cobblemon:sitrus_berry",
+      "aspects": [
+        "frost"
+      ]
+    },
+    {
+      "species": "darmanitan",
+      "level": 90,
+      "gender": "FEMALE",
+      "nature": "jolly",
+      "ability": "gorillatactics",
+      "moveset": [
+        "superpower",
+        "iciclecrash",
+        "earthquake",
+        "flareblitz"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "cobblemon:choice_scarf",
+      "aspects": [
+        "standard-mode",
+        "galarian"
+      ]
+    },
+    {
+      "species": "froslass",
+      "level": 90,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "snowcloak",
+      "moveset": [
+        "confuseray",
+        "blizzard",
+        "shadowball",
+        "thunderbolt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": [
+        "mega_showdown:icium_z",
+        "ice_gem"
+      ]
+    },
+    {
+      "species": "kyurem",
+      "level": 90,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "teravolt",
+      "moveset": [
+        "freezeshock",
+        "fusionbolt",
+        "outrage",
+        "rocktomb"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": [
+        "mega_showdown:icium_z",
+        "ice_gem"
+      ],
+      "aspects": [
+        "black-fusion"
+      ]
+    }
+  ],
+  "ai": {
+    "type": "rct"
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

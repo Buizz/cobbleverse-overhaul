@@ -1,0 +1,71 @@
+{
+  "name": "Ruin Mamoac Benjamin",
+  "team": [
+    {
+      "species": "geodude",
+      "gender": "FEMALE",
+      "level": 40,
+      "nature": "calm",
+      "ability": "rockhead",
+      "moveset": [
+        "earthquake",
+        "rockblast",
+        "rollout",
+        "selfdestruct"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "graveler",
+      "gender": "FEMALE",
+      "level": 42,
+      "nature": "gentle",
+      "ability": "rockhead",
+      "moveset": [
+        "earthquake",
+        "rockblast",
+        "rockthrow",
+        "selfdestruct"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "golem",
+      "gender": "MALE",
+      "level": 45,
+      "nature": "docile",
+      "ability": "rockhead",
+      "moveset": [
+        "earthquake",
+        "rockblast",
+        "rockthrow",
+        "explosion"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

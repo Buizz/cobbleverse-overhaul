@@ -1,0 +1,145 @@
+{
+  "name": "Dragon Tamer Ramiro",
+  "team": [
+    {
+      "species": "exeggutor",
+      "gender": "FEMALE",
+      "level": 93,
+      "nature": "timid",
+      "ability": "frisk",
+      "moveset": [
+        "dragonhammer",
+        "woodhammer",
+        "reflect",
+        "hypnosis"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 30,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "spd": 4,
+        "spe": 252
+      },
+      "heldItem": "focus_sash",
+      "aspects": [
+        "alolan"
+      ]
+    },
+    {
+      "species": "baxcalibur",
+      "gender": "MALE",
+      "level": 93,
+      "nature": "modest",
+      "ability": "thermalexchange",
+      "moveset": [
+        "breakingswipe",
+        "dragontail",
+        "iciclecrash",
+        "icebeam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 30,
+        "def": 31,
+        "spa": 30,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 4,
+        "spa": 252
+      },
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "dragapult",
+      "gender": "FEMALE",
+      "level": 90,
+      "nature": "modest",
+      "ability": "clearbody",
+      "moveset": [
+        "dragonbreath",
+        "dragonpulse",
+        "dragonrush",
+        "suckerpunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 4,
+        "spa": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "goodra",
+      "gender": "MALE",
+      "level": 92,
+      "nature": "modest",
+      "ability": "gooey",
+      "moveset": [
+        "surf",
+        "dragonpulse",
+        "flashcannon",
+        "thunder"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 4
+      },
+      "heldItem": "assault_vest",
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "dragonite",
+      "gender": "MALE",
+      "level": 92,
+      "nature": "modest",
+      "ability": "multiscale",
+      "moveset": [
+        "hurricane",
+        "thunder",
+        "hydropump",
+        "icebeam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 4,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "lum_berry"
+    }
+  ]
+}

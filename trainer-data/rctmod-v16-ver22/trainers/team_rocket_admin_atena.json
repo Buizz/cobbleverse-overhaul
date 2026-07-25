@@ -1,0 +1,155 @@
+{
+  "name": "Atena",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 2
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 2
+    }
+  ],
+  "team": [
+    {
+      "species": "arbok",
+      "gender": "MALE",
+      "level": 79,
+      "nature": "jolly",
+      "ability": "intimidate",
+      "moveset": [
+        "gunkshot",
+        "earthquake",
+        "suckerpunch",
+        "switcheroo"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "choice_band"
+    },
+    {
+      "species": "vileplume",
+      "gender": "MALE",
+      "level": 80,
+      "nature": "bold",
+      "ability": "effectspore",
+      "moveset": [
+        "gigadrain",
+        "strengthsap",
+        "sludgebomb",
+        "sleeppowder"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spd": 6,
+        "hp": 252,
+        "def": 252
+      },
+      "heldItem": "black_sludge"
+    },
+    {
+      "species": "muk",
+      "gender": "MALE",
+      "level": 79,
+      "nature": "careful",
+      "ability": "stickyhold",
+      "moveset": [
+        "rest",
+        "sleeptalk",
+        "curse",
+        "poisonjab"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 6,
+        "spd": 252
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "hypno",
+      "gender": "MALE",
+      "level": 80,
+      "nature": "jolly",
+      "ability": "insomnia",
+      "moveset": [
+        "hypnosis",
+        "bellydrum",
+        "zenheadbutt",
+        "drainpunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spd": 4,
+        "spe": 252,
+        "atk": 252
+      },
+      "heldItem": "scope_lens"
+    },
+    {
+      "species": "honchkrow",
+      "gender": "MALE",
+      "level": 78,
+      "nature": "jolly",
+      "ability": "moxie",
+      "moveset": [
+        "bravebird",
+        "suckerpunch",
+        "superpower",
+        "taunt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spe": 252,
+        "atk": 252,
+        "def": 6
+      },
+      "heldItem": "focus_sash"
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+{
+  "name": "Agatha",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "golurk",
+      "gender": "GENDERLESS",
+      "level": 60,
+      "nature": "adamant",
+      "ability": "ironfist",
+      "moveset": [
+        "shadowpunch",
+        "hammerarm",
+        "highhorsepower",
+        "icepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "defence": 6
+      },
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "spiritomb",
+      "gender": "FEMALE",
+      "level": 60,
+      "nature": "calm",
+      "ability": "infiltrator",
+      "moveset": [
+        "shadowsneak",
+        "darkpulse",
+        "willowisp",
+        "curse"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "special_defence": 6,
+        "defence": 252
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "gholdengo",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "timid",
+      "ability": "goodasgold",
+      "moveset": [
+        "makeitrain",
+        "shadowball",
+        "thunderbolt",
+        "nastyplot"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "air_balloon"
+    },
+    {
+      "species": "blacephalon",
+      "gender": "GENDERLESS",
+      "level": 60,
+      "nature": "timid",
+      "ability": "beastboost",
+      "moveset": [
+        "mindblown",
+        "shadowball",
+        "fireblast",
+        "psyshock"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "spa": 252,
+        "speed": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "mimikyu",
+      "gender": "FEMALE",
+      "level": 60,
+      "nature": "jolly",
+      "ability": "disguise",
+      "moveset": [
+        "playrough",
+        "shadowclaw",
+        "shadowsneak",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": [
+        "mega_showdown:ghostium_z",
+        "ghost_gem"
+      ]
+    },
+    {
+      "species": "gengar",
+      "gender": "FEMALE",
+      "level": 60,
+      "nature": "timid",
+      "ability": "cursedbody",
+      "moveset": [
+        "shadowball",
+        "sludgebomb",
+        "focusblast",
+        "icywind"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "mega_showdown:gengarite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true
+    }
+  }
+}

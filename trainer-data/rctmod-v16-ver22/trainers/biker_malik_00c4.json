@@ -1,0 +1,49 @@
+{
+  "name": "Biker Malik",
+  "team": [
+    {
+      "species": "arbok",
+      "gender": "MALE",
+      "level": 57,
+      "nature": "quiet",
+      "ability": "shedskin",
+      "moveset": [
+        "bite",
+        "mudbomb",
+        "belch",
+        "gastroacid"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "roserade",
+      "gender": "MALE",
+      "level": 57,
+      "nature": "brave",
+      "ability": "poisontouch",
+      "moveset": [
+        "screech",
+        "gigadrain",
+        "sludgebomb",
+        "disable"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

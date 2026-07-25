@@ -1,0 +1,180 @@
+{
+  "name": "Giovanni",
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleFormat": "GEN_9_DOUBLES",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "rhyperior",
+      "gender": "MALE",
+      "level": 55,
+      "nature": "adamant",
+      "ability": "solidrock",
+      "moveset": [
+        "megahorn",
+        "stoneedge",
+        "earthquake",
+        "ironhead"
+      ],
+      "ivs": {
+        "hp": 20,
+        "atk": 20,
+        "def": 20,
+        "spa": 20,
+        "spd": 20,
+        "spe": 20
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 6
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "excadrill",
+      "gender": "MALE",
+      "level": 55,
+      "nature": "jolly",
+      "ability": "moldbreaker",
+      "moveset": [
+        "ironhead",
+        "earthquake",
+        "shadowclaw",
+        "xscissor"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "speed": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "clodsire",
+      "gender": "MALE",
+      "level": 55,
+      "nature": "impish",
+      "ability": "waterabsorb",
+      "moveset": [
+        "poisonjab",
+        "toxicspikes",
+        "recover",
+        "muddywater"
+      ],
+      "ivs": {
+        "hp": 31,
+        "def": 31,
+        "spd": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 6,
+        "special_defence": 252
+      },
+      "heldItem": "black_sludge"
+    },
+    {
+      "species": "nidoking",
+      "gender": "MALE",
+      "level": 55,
+      "nature": "adamant",
+      "ability": "sheerforce",
+      "moveset": [
+        "poisonjab",
+        "firepunch",
+        "thunderpunch",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "speed": 6
+      },
+      "heldItem": "expert_belt"
+    },
+    {
+      "species": "ursaluna",
+      "gender": "MALE",
+      "level": 55,
+      "nature": "adamant",
+      "ability": "guts",
+      "moveset": [
+        "facade",
+        "earthquake",
+        "icepunch",
+        "stoneedge"
+      ],
+      "ivs": {
+        "hp": 20,
+        "atk": 20,
+        "def": 20,
+        "spa": 20,
+        "spd": 20,
+        "spe": 20
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "defence": 6
+      },
+      "heldItem": "flame_orb"
+    },
+    {
+      "species": "tyranitar",
+      "gender": "MALE",
+      "level": 55,
+      "nature": "rash",
+      "ability": "sandstream",
+      "moveset": [
+        "stoneedge",
+        "crunch",
+        "earthquake",
+        "ironhead"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "defence": 6
+      },
+      "heldItem": "mega_showdown:tyranitarite"
+    }
+  ]
+}

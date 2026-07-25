@@ -1,0 +1,169 @@
+{
+  "name": "Aaron",
+  "team": [
+    {
+      "species": "smeargle",
+      "level": 120,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "technician",
+      "moveset": [
+        "populationbomb",
+        "surgingstrikes",
+        "spore",
+        "shellsmash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "toucannon",
+      "level": 110,
+      "gender": "MALE",
+      "nature": "hardy",
+      "ability": "keeneye",
+      "moveset": [
+        "beakblast",
+        "rockblast",
+        "bulletseed",
+        "knockoff"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "speed": 4
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "wigglytuff",
+      "level": 120,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "cutecharm",
+      "moveset": [
+        "perishsong",
+        "hypervoice",
+        "dazzlinggleam",
+        "psychic"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "special_attack": 252
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "lickilicky",
+      "level": 120,
+      "gender": "FEMALE",
+      "nature": "jolly",
+      "ability": "owntempo",
+      "moveset": [
+        "bellydrum",
+        "powerwhip",
+        "explosion",
+        "bodypress"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252
+      },
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "kangaskhan",
+      "level": 120,
+      "gender": "FEMALE",
+      "nature": "docile",
+      "ability": "scrappy",
+      "moveset": [
+        "poweruppunch",
+        "suckerpunch",
+        "doubleedge",
+        "trailblaze"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252
+      },
+      "heldItem": "mega_showdown:kangaskhanite"
+    },
+    {
+      "species": "slaking",
+      "level": 120,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "speedboost",
+      "moveset": [
+        "doubleedge",
+        "shadowclaw",
+        "hammerarm",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 128,
+        "attack": 252,
+        "special_defence": 128
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

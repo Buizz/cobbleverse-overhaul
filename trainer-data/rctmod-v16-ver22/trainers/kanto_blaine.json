@@ -1,0 +1,185 @@
+{
+  "name": "Blaine",
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "torkoal",
+      "gender": "MALE",
+      "level": 50,
+      "nature": "bold",
+      "ability": "drought",
+      "moveset": [
+        "stealthrock",
+        "lavaplume",
+        "overheat",
+        "irondefense"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 252,
+        "def": 252,
+        "special_defence": 6
+      },
+      "heldItem": "heat_rock"
+    },
+    {
+      "species": "ninetales",
+      "gender": "FEMALE",
+      "level": 50,
+      "nature": "timid",
+      "ability": "drought",
+      "moveset": [
+        "flamethrower",
+        "extrasensory",
+        "solarbeam",
+        "confuseray"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "turtonator",
+      "gender": "MALE",
+      "level": 50,
+      "nature": "impish",
+      "ability": "shellarmor",
+      "moveset": [
+        "flamethrower",
+        "bodypress",
+        "rockslide",
+        "rest"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 100,
+        "special_defence": 152
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "magmortar",
+      "gender": "MALE",
+      "level": 50,
+      "nature": "modest",
+      "ability": "flamebody",
+      "moveset": [
+        "flamethrower",
+        "thunderbolt",
+        "psychic",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10,
+        "attack": 10
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 252,
+        "spe": 6
+      },
+      "heldItem": "wise_glasses"
+    },
+    {
+      "species": "arcanine",
+      "gender": "MALE",
+      "level": 50,
+      "nature": "adamant",
+      "ability": "rockhead",
+      "moveset": [
+        "flareblitz",
+        "extremespeed",
+        "headsmash",
+        "wildcharge"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 31,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 252,
+        "spe": 6,
+        "attack": 252
+      },
+      "heldItem": "assault_vest",
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "blaziken",
+      "gender": "MALE",
+      "level": 50,
+      "nature": "adamant",
+      "ability": "speedboost",
+      "moveset": [
+        "blazekick",
+        "bulkup",
+        "doublekick",
+        "detect"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "mega_showdown:blazikenite"
+    }
+  ]
+}

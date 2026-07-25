@@ -1,0 +1,176 @@
+{
+  "name": "Gardenia",
+  "team": [
+    {
+      "species": "amoonguss",
+      "level": 75,
+      "gender": "FEMALE",
+      "nature": "serious",
+      "ability": "effectspore",
+      "moveset": [
+        "spore",
+        "sludgebomb",
+        "clearsmog",
+        "energyball"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "heldItem": "black_sludge"
+    },
+    {
+      "species": "ludicolo",
+      "level": 75,
+      "gender": "MALE",
+      "nature": "calm",
+      "ability": "swiftswim",
+      "moveset": [
+        "raindance",
+        "surf",
+        "icebeam",
+        "gigadrain"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 128,
+        "special_defence": 128
+      },
+      "aspects": [
+        "mow"
+      ],
+      "heldItem": "damp_rock"
+    },
+    {
+      "species": "ferrothorn",
+      "level": 75,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "hospitality",
+      "moveset": [
+        "gyroball",
+        "bulletseed",
+        "toxic",
+        "leechseed"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 116,
+        "special_defence": 140
+      },
+      "heldItem": "rocky_helmet",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "tsareena",
+      "level": 75,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "queenlymajesty",
+      "moveset": [
+        "powerwhip",
+        "highjumpkick",
+        "tripleaxel",
+        "playrough"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "meowscarada",
+      "level": 75,
+      "gender": "FEMALE",
+      "nature": "naive",
+      "ability": "protean",
+      "moveset": [
+        "flowertrick",
+        "knockoff",
+        "powergem",
+        "playrough"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "ogerpon",
+      "level": 75,
+      "gender": "FEMALE",
+      "nature": "jolly",
+      "ability": "moldbreaker",
+      "moveset": [
+        "hornleech",
+        "ivycudgel",
+        "swordsdance",
+        "playrough"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "mega_showdown:hearthflame_mask"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "ogerpon"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

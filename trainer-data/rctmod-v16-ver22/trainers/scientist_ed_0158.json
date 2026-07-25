@@ -1,0 +1,71 @@
+{
+  "name": "Scientist Ed",
+  "team": [
+    {
+      "species": "kabutops",
+      "gender": "FEMALE",
+      "level": 44,
+      "nature": "brave",
+      "ability": "battlearmor",
+      "moveset": [
+        "aquajet",
+        "protect",
+        "ancientpower",
+        "nightslash"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "heliolisk",
+      "gender": "FEMALE",
+      "level": 45,
+      "nature": "bashful",
+      "ability": "dryskin",
+      "moveset": [
+        "thunderbolt",
+        "hypervoice",
+        "grassknot",
+        "voltswitch"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "archeops",
+      "gender": "FEMALE",
+      "level": 44,
+      "nature": "quirky",
+      "ability": "defeatist",
+      "moveset": [
+        "acrobatics",
+        "rockslide",
+        "supersonic",
+        "zenheadbutt"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

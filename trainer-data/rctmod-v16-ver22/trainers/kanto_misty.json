@@ -1,0 +1,183 @@
+{
+  "name": "Misty",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "horsea",
+      "gender": "MALE",
+      "level": 25,
+      "nature": "modest",
+      "ability": "sniper",
+      "moveset": [
+        "waterpulse",
+        "smokescreen",
+        "twister",
+        "focusenergy"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "heldItem": "focus_sash",
+      "evs": {
+        "defence": 50,
+        "special_attack": 50,
+        "special_defence": 50,
+        "speed": 50
+      }
+    },
+    {
+      "species": "starmie",
+      "gender": "GENDERLESS",
+      "level": 25,
+      "nature": "timid",
+      "ability": "naturalcure",
+      "moveset": [
+        "bubblebeam",
+        "psybeam",
+        "rapidspin",
+        "swift"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 50,
+        "attack": 50,
+        "special_attack": 50,
+        "speed": 50
+      }
+    },
+    {
+      "species": "psyduck",
+      "gender": "MALE",
+      "level": 25,
+      "nature": "bold",
+      "ability": "cloudnine",
+      "moveset": [
+        "watergun",
+        "confusion",
+        "aquatail",
+        "zenheadbutt"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 50,
+        "defence": 50,
+        "special_attack": 100
+      }
+    },
+    {
+      "species": "brionne",
+      "gender": "FEMALE",
+      "level": 25,
+      "nature": "calm",
+      "ability": "owntempo",
+      "moveset": [
+        "waterpulse",
+        "mudshot",
+        "supersonic",
+        "round"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 50,
+        "special_attack": 100,
+        "special_defence": 50
+      }
+    },
+    {
+      "species": "quagsire",
+      "level": 25,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "unaware",
+      "moveset": [
+        "mudslap",
+        "rocktomb",
+        "bodyslam",
+        "haze"
+      ],
+      "heldItem": "oran_berry",
+      "evs": {
+        "hp": 100,
+        "attack": 50,
+        "special_attack": 50
+      },
+      "ivs": {
+        "hp": 10,
+        "attack": 10,
+        "defence": 10,
+        "special_attack": 10,
+        "special_defence": 10,
+        "speed": 10
+      }
+    },
+    {
+      "species": "lapras",
+      "level": 25,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "waterabsorb",
+      "moveset": [
+        "waterpulse",
+        "iceshard",
+        "lifedew",
+        "sing"
+      ],
+      "heldItem": "bright_powder",
+      "evs": {
+        "hp": 100,
+        "attack": 25,
+        "defence": 25,
+        "special_attack": 25,
+        "special_defence": 25
+      },
+      "ivs": {
+        "hp": 10,
+        "attack": 10,
+        "defence": 10,
+        "special_attack": 10,
+        "special_defence": 10,
+        "speed": 10
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  }
+}

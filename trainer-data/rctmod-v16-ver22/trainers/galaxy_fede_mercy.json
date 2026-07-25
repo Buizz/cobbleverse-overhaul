@@ -1,0 +1,29 @@
+{
+  "name": "Fede_Mercy",
+  "team": [
+    {
+      "species": "trevenant",
+      "shiny": "true",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "gentle",
+      "ability": "naturalcure",
+      "moveset": [
+        "ingrain",
+        "destinybond",
+        "woodhammer",
+        "forestscurse"
+      ],
+      "ivs": {
+        "hp": 30,
+        "atk": 30,
+        "def": 30,
+        "spa": 30,
+        "spd": 30,
+        "spe": 30
+      },
+      "evs": {},
+      "heldItem": "miracle_seed" 
+    }
+  ]
+}

@@ -1,0 +1,196 @@
+{
+  "name": "Norman",
+  "team": [
+    {
+      "species": "watchog",
+      "level": 40,
+      "gender": "FEMALE",
+      "nature": "quiet",
+      "ability": "analytic",
+      "moveset": [
+        "hyperfang",
+        "superfang",
+        "confuseray",
+        "crunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 152,
+        "spa": 100,
+        "spd": 0,
+        "spe": 0
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "cinccino",
+      "level": 41,
+      "gender": "FEMALE",
+      "nature": "jolly",
+      "ability": "technician",
+      "moveset": [
+        "tailslap",
+        "tidyup",
+        "bulletseed",
+        "rockblast"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "loaded_dice"
+    },
+    {
+      "species": "sawsbuck",
+      "level": 42,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "serenegrace",
+      "moveset": [
+        "headbutt",
+        "hornleech",
+        "zenheadbutt",
+        "bodyslam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 156,
+        "atk": 148,
+        "def": 0,
+        "spa": 0,
+        "spd": 204,
+        "spe": 0
+      },
+      "heldItem": "protective_pads"
+    },
+    {
+      "species": "dudunsparce",
+      "level": 44,
+      "gender": "MALE",
+      "nature": "calm",
+      "ability": "serenegrace",
+      "moveset": [
+        "boomburst",
+        "glare",
+        "flamethrower",
+        "icebeam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 0,
+        "def": 124,
+        "spa": 116,
+        "spd": 12,
+        "spe": 252
+      },
+      "heldItem": "sitrus_berry",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "bouffalant",
+      "level": 43,
+      "gender": "MALE",
+      "nature": "careful",
+      "ability": "sapsipper",
+      "moveset": [
+        "swordsdance",
+        "headcharge",
+        "wildcharge",
+        "throatchop"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 196,
+        "atk": 252,
+        "def": 4,
+        "spa": 4,
+        "spd": 52,
+        "spe": 0
+      },
+      "heldItem": [
+        "mega_showdown:normalium_z",
+        "normal_gem"
+      ]
+    },
+    {
+      "species": "kangaskhan",
+      "level": 45,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "earlybird",
+      "moveset": [
+        "poweruppunch",
+        "doubleedge",
+        "crunch",
+        "icepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "def": 6
+      },
+      "heldItem": "mega_showdown:kangaskhanite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

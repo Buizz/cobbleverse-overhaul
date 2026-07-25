@@ -1,0 +1,49 @@
+{
+  "name": "Gentleman Arthur",
+  "team": [
+    {
+      "species": "nidorino",
+      "gender": "MALE",
+      "level": 26,
+      "nature": "quiet",
+      "ability": "poisontouch",
+      "moveset": [
+        "doublekick",
+        "poisonsting",
+        "furyattack",
+        "hornattack"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "cacnea",
+      "gender": "MALE",
+      "level": 25,
+      "nature": "mild",
+      "ability": "sandveil",
+      "moveset": [
+        "needlearm",
+        "feintattack",
+        "absorb",
+        "poisonsting"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

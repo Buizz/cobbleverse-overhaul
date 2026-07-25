@@ -1,0 +1,5035 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-24T15:10:33.1322691Z",
+  "source": "trainer-data/catalogs/cobblemon-items.json",
+  "itemCount": 255,
+  "items": [
+    {
+      "id": "cobblemon:ability_shield",
+      "namespace": "cobblemon",
+      "path": "ability_shield",
+      "englishName": "Ability Shield",
+      "koreanName": "특성가드",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:absorb_bulb",
+      "namespace": "cobblemon",
+      "path": "absorb_bulb",
+      "englishName": "Absorb Bulb",
+      "koreanName": "구근",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:aguav_berry",
+      "namespace": "cobblemon",
+      "path": "aguav_berry",
+      "englishName": "Aguav Berry",
+      "koreanName": "아바열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:green_group3",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/lime",
+        "cobblemon:berries/hp_recovery",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/nature_recovery",
+        "cobblemon:bitter_15",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:air_balloon",
+      "namespace": "cobblemon",
+      "path": "air_balloon",
+      "englishName": "Air Balloon",
+      "koreanName": "풍선",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:apicot_berry",
+      "namespace": "cobblemon",
+      "path": "apicot_berry",
+      "englishName": "Apicot Berry",
+      "koreanName": "규살열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:blue_group3",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/blue",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:dry_30",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_30",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:aspear_berry",
+      "namespace": "cobblemon",
+      "path": "aspear_berry",
+      "englishName": "Aspear Berry",
+      "koreanName": "배리열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group1",
+        "cobblecuisine:not_blue_group1",
+        "cobblecuisine:not_green_group1",
+        "cobblecuisine:not_pink_group1",
+        "cobblecuisine:not_purple_group1",
+        "cobblecuisine:not_red_group1",
+        "cobblecuisine:yellow_group1",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/yellow",
+        "cobblemon:berries/status_recovery",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:assault_vest",
+      "namespace": "cobblemon",
+      "path": "assault_vest",
+      "englishName": "Assault Vest",
+      "koreanName": "돌격조끼",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:babiri_berry",
+      "namespace": "cobblemon",
+      "path": "babiri_berry",
+      "englishName": "Babiri Berry",
+      "koreanName": "바리비열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:green_group2",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/lime",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:spicy_25",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:big_root",
+      "namespace": "cobblemon",
+      "path": "big_root",
+      "englishName": "",
+      "koreanName": "",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "c:foods/vegetable",
+        "cobblemon:held/is_held_item",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/effect_seasoning",
+        "cobblemon:recipe_filters/tea_seasoning"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:binding_band",
+      "namespace": "cobblemon",
+      "path": "binding_band",
+      "englishName": "Binding Band",
+      "koreanName": "조임밴드",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:black_belt",
+      "namespace": "cobblemon",
+      "path": "black_belt",
+      "englishName": "Black Belt",
+      "koreanName": "검은띠",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:black_glasses",
+      "namespace": "cobblemon",
+      "path": "black_glasses",
+      "englishName": "Black Glasses",
+      "koreanName": "검은안경",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/visibility/face"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:black_sludge",
+      "namespace": "cobblemon",
+      "path": "black_sludge",
+      "englishName": "Black Sludge",
+      "koreanName": "검은진흙",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:blunder_policy",
+      "namespace": "cobblemon",
+      "path": "blunder_policy",
+      "englishName": "Blunder Policy",
+      "koreanName": "허탕보험",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:bright_powder",
+      "namespace": "cobblemon",
+      "path": "bright_powder",
+      "englishName": "Bright Powder",
+      "koreanName": "반짝가루",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:pokedex_screen"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:bug_gem",
+      "namespace": "cobblemon",
+      "path": "bug_gem",
+      "englishName": "Bug Gem",
+      "koreanName": "벌레주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:cell_battery",
+      "namespace": "cobblemon",
+      "path": "cell_battery",
+      "englishName": "Cell Battery",
+      "koreanName": "충전지",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:charcoal_stick",
+      "namespace": "cobblemon",
+      "path": "charcoal_stick",
+      "englishName": "Charcoal Stick",
+      "koreanName": "목탄",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:charti_berry",
+      "namespace": "cobblemon",
+      "path": "charti_berry",
+      "englishName": "Charti Berry",
+      "koreanName": "루미열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/brown",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:dry_20",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:cheri_berry",
+      "namespace": "cobblemon",
+      "path": "cheri_berry",
+      "englishName": "Cheri Berry",
+      "koreanName": "버치열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group1",
+        "cobblecuisine:not_blue_group1",
+        "cobblecuisine:not_green_group1",
+        "cobblecuisine:not_pink_group1",
+        "cobblecuisine:not_purple_group1",
+        "cobblecuisine:not_yellow_group1",
+        "cobblecuisine:red_group1",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/red",
+        "cobblemon:berries/status_recovery",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:spicy_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:chesto_berry",
+      "namespace": "cobblemon",
+      "path": "chesto_berry",
+      "englishName": "Chesto Berry",
+      "koreanName": "유루열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group1",
+        "cobblecuisine:not_blue_group1",
+        "cobblecuisine:not_green_group1",
+        "cobblecuisine:not_pink_group1",
+        "cobblecuisine:not_red_group1",
+        "cobblecuisine:not_yellow_group1",
+        "cobblecuisine:purple_group1",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/blue",
+        "cobblemon:berries/status_recovery",
+        "cobblemon:dry_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:chilan_berry",
+      "namespace": "cobblemon",
+      "path": "chilan_berry",
+      "englishName": "Chilan Berry",
+      "koreanName": "카리열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/yellow",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:dry_25",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:choice_band",
+      "namespace": "cobblemon",
+      "path": "choice_band",
+      "englishName": "Choice Band",
+      "koreanName": "구애머리띠",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/visibility/hat"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:choice_scarf",
+      "namespace": "cobblemon",
+      "path": "choice_scarf",
+      "englishName": "Choice Scarf",
+      "koreanName": "구애스카프",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:choice_specs",
+      "namespace": "cobblemon",
+      "path": "choice_specs",
+      "englishName": "Choice Specs",
+      "koreanName": "구애안경",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/visibility/face"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:chople_berry",
+      "namespace": "cobblemon",
+      "path": "chople_berry",
+      "englishName": "Chople Berry",
+      "koreanName": "로플열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblecuisine:red_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/red",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:spicy_15",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:cleanse_tag",
+      "namespace": "cobblemon",
+      "path": "cleanse_tag",
+      "englishName": "Cleanse Tag",
+      "koreanName": "순결의부적",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:clear_amulet",
+      "namespace": "cobblemon",
+      "path": "clear_amulet",
+      "englishName": "Clear Amulet",
+      "koreanName": "클리어참",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:coba_berry",
+      "namespace": "cobblemon",
+      "path": "coba_berry",
+      "englishName": "Coba Berry",
+      "koreanName": "바코열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:blue_group2",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/light_blue",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:bitter_15",
+        "cobblemon:dry_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:spicy_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:colbur_berry",
+      "namespace": "cobblemon",
+      "path": "colbur_berry",
+      "englishName": "Colbur Berry",
+      "koreanName": "마코열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblecuisine:purple_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/magenta",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:bitter_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:covert_cloak",
+      "namespace": "cobblemon",
+      "path": "covert_cloak",
+      "englishName": "Covert Cloak",
+      "koreanName": "은밀망토",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:custap_berry",
+      "namespace": "cobblemon",
+      "path": "custap_berry",
+      "englishName": "Custap Berry",
+      "koreanName": "애슈열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblecuisine:red_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/orange",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sweet_40",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:damp_rock",
+      "namespace": "cobblemon",
+      "path": "damp_rock",
+      "englishName": "Damp Rock",
+      "koreanName": "축축한바위",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:dark_gem",
+      "namespace": "cobblemon",
+      "path": "dark_gem",
+      "englishName": "Dark Gem",
+      "koreanName": "악주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:deep_sea_scale",
+      "namespace": "cobblemon",
+      "path": "deep_sea_scale",
+      "englishName": "Deep Sea Scale",
+      "koreanName": "심해의비늘",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:deep_seas",
+        "cobblemon:evolution_items",
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:deep_sea_tooth",
+      "namespace": "cobblemon",
+      "path": "deep_sea_tooth",
+      "englishName": "Deep Sea Tooth",
+      "koreanName": "심해의이빨",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:deep_seas",
+        "cobblemon:evolution_items",
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:destiny_knot",
+      "namespace": "cobblemon",
+      "path": "destiny_knot",
+      "englishName": "Destiny Knot",
+      "koreanName": "빨간실",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/destiny_knot",
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:dragon_fang",
+      "namespace": "cobblemon",
+      "path": "dragon_fang",
+      "englishName": "Dragon Fang",
+      "koreanName": "용의이빨",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:dragon_gem",
+      "namespace": "cobblemon",
+      "path": "dragon_gem",
+      "englishName": "Dragon Gem",
+      "koreanName": "드래곤주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:eggant_berry",
+      "namespace": "cobblemon",
+      "path": "eggant_berry",
+      "englishName": "Eggant Berry",
+      "koreanName": "에건트열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/blue",
+        "cobblemon:berries/status_recovery",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:recipe_filters/poke_puff_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:eject_button",
+      "namespace": "cobblemon",
+      "path": "eject_button",
+      "englishName": "Eject Button",
+      "koreanName": "탈출버튼",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:eject_pack",
+      "namespace": "cobblemon",
+      "path": "eject_pack",
+      "englishName": "Eject Pack",
+      "koreanName": "탈출팩",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:electric_gem",
+      "namespace": "cobblemon",
+      "path": "electric_gem",
+      "englishName": "Electric Gem",
+      "koreanName": "전기주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:electric_seed",
+      "namespace": "cobblemon",
+      "path": "electric_seed",
+      "englishName": "Electric Seed",
+      "koreanName": "일렉트릭시드",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "c:seeds",
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/terrain_seeds",
+        "cobblemon:plants",
+        "cobblemon:seeds",
+        "quark:seed_pouch_holdable"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:enigma_berry",
+      "namespace": "cobblemon",
+      "path": "enigma_berry",
+      "englishName": "Enigma Berry",
+      "koreanName": "의문열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblecuisine:purple_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/white",
+        "cobblemon:berries/hp_recovery",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:spicy_40",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:everstone",
+      "namespace": "cobblemon",
+      "path": "everstone",
+      "englishName": "Everstone",
+      "koreanName": "변함없는돌",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/everstone",
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:eviolite",
+      "namespace": "cobblemon",
+      "path": "eviolite",
+      "englishName": "Eviolite",
+      "koreanName": "진화의휘석",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:exp_share",
+      "namespace": "cobblemon",
+      "path": "exp_share",
+      "englishName": "Exp. Share",
+      "koreanName": "학습장치",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/experience_share",
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/visibility/hat"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:expert_belt",
+      "namespace": "cobblemon",
+      "path": "expert_belt",
+      "englishName": "Expert Belt",
+      "koreanName": "달인의띠",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:fairy_feather",
+      "namespace": "cobblemon",
+      "path": "fairy_feather",
+      "englishName": "Fairy Feather",
+      "koreanName": "요정의깃털",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:fairy_gem",
+      "namespace": "cobblemon",
+      "path": "fairy_gem",
+      "englishName": "Fairy Gem",
+      "koreanName": "페어리주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:fighting_gem",
+      "namespace": "cobblemon",
+      "path": "fighting_gem",
+      "englishName": "Fighting Gem",
+      "koreanName": "격투주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:figy_berry",
+      "namespace": "cobblemon",
+      "path": "figy_berry",
+      "englishName": "Figy Berry",
+      "koreanName": "무화열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblecuisine:red_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/orange",
+        "cobblemon:berries/hp_recovery",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/nature_recovery",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:spicy_15",
+        "cobblemon:super_potion_ingredients",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:fire_gem",
+      "namespace": "cobblemon",
+      "path": "fire_gem",
+      "englishName": "Fire Gem",
+      "koreanName": "불꽃주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:flame_orb",
+      "namespace": "cobblemon",
+      "path": "flame_orb",
+      "englishName": "Flame Orb",
+      "koreanName": "화염구슬",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:float_stone",
+      "namespace": "cobblemon",
+      "path": "float_stone",
+      "englishName": "Float Stone",
+      "koreanName": "가벼운돌",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:flying_gem",
+      "namespace": "cobblemon",
+      "path": "flying_gem",
+      "englishName": "Flying Gem",
+      "koreanName": "비행주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:focus_band",
+      "namespace": "cobblemon",
+      "path": "focus_band",
+      "englishName": "Focus Band",
+      "koreanName": "기합의머리띠",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/visibility/hat"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:focus_sash",
+      "namespace": "cobblemon",
+      "path": "focus_sash",
+      "englishName": "Focus Sash",
+      "koreanName": "기합의띠",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:ganlon_berry",
+      "namespace": "cobblemon",
+      "path": "ganlon_berry",
+      "englishName": "Ganlon Berry",
+      "koreanName": "용아열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblecuisine:purple_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/blue",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:bitter_30",
+        "cobblemon:dry_30",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:ghost_gem",
+      "namespace": "cobblemon",
+      "path": "ghost_gem",
+      "englishName": "Ghost Gem",
+      "koreanName": "고스트주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:grass_gem",
+      "namespace": "cobblemon",
+      "path": "grass_gem",
+      "englishName": "Grass Gem",
+      "koreanName": "풀주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:grassy_seed",
+      "namespace": "cobblemon",
+      "path": "grassy_seed",
+      "englishName": "Grassy Seed",
+      "koreanName": "그래스시드",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "c:seeds",
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/terrain_seeds",
+        "cobblemon:plants",
+        "cobblemon:seeds",
+        "quark:seed_pouch_holdable"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:grip_claw",
+      "namespace": "cobblemon",
+      "path": "grip_claw",
+      "englishName": "Grip Claw",
+      "koreanName": "끈기갈고리손톱",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:ground_gem",
+      "namespace": "cobblemon",
+      "path": "ground_gem",
+      "englishName": "Ground Gem",
+      "koreanName": "땅주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:haban_berry",
+      "namespace": "cobblemon",
+      "path": "haban_berry",
+      "englishName": "Haban Berry",
+      "koreanName": "하반열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblecuisine:red_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/red",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:bitter_20",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:hard_stone",
+      "namespace": "cobblemon",
+      "path": "hard_stone",
+      "englishName": "Hard Stone",
+      "koreanName": "딱딱한돌",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:heat_rock",
+      "namespace": "cobblemon",
+      "path": "heat_rock",
+      "englishName": "Heat Rock",
+      "koreanName": "뜨거운바위",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:heavy_duty_boots",
+      "namespace": "cobblemon",
+      "path": "heavy_duty_boots",
+      "englishName": "Heavy-Duty Boots",
+      "koreanName": "통굽부츠",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:iapapa_berry",
+      "namespace": "cobblemon",
+      "path": "iapapa_berry",
+      "englishName": "Iapapa Berry",
+      "koreanName": "파야열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:yellow_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/yellow",
+        "cobblemon:berries/hp_recovery",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/nature_recovery",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_15",
+        "cobblemon:super_potion_ingredients",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:ice_gem",
+      "namespace": "cobblemon",
+      "path": "ice_gem",
+      "englishName": "Ice Gem",
+      "koreanName": "얼음주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:icy_rock",
+      "namespace": "cobblemon",
+      "path": "icy_rock",
+      "englishName": "Icy Rock",
+      "koreanName": "차가운바위",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:iron_ball",
+      "namespace": "cobblemon",
+      "path": "iron_ball",
+      "englishName": "Iron Ball",
+      "koreanName": "검은철구",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:jaboca_berry",
+      "namespace": "cobblemon",
+      "path": "jaboca_berry",
+      "englishName": "Jaboca Berry",
+      "koreanName": "자보열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:yellow_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/yellow",
+        "cobblemon:berries/damaging",
+        "cobblemon:berries/filling",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:bitter_40",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:kasib_berry",
+      "namespace": "cobblemon",
+      "path": "kasib_berry",
+      "englishName": "Kasib Berry",
+      "koreanName": "수불열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblecuisine:purple_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/purple",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sweet_20",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:kebia_berry",
+      "namespace": "cobblemon",
+      "path": "kebia_berry",
+      "englishName": "Kebia Berry",
+      "koreanName": "으름열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:green_group2",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/green",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:dry_15",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:kee_berry",
+      "namespace": "cobblemon",
+      "path": "kee_berry",
+      "englishName": "Kee Berry",
+      "koreanName": "악키열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:yellow_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/pink",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_30",
+        "cobblemon:spicy_30",
+        "cobblemon:sweet_30",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:kings_rock",
+      "namespace": "cobblemon",
+      "path": "kings_rock",
+      "englishName": "Kings Rock",
+      "koreanName": "왕의징표석",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:evolution_items",
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/visibility/hat"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:lagging_tail",
+      "namespace": "cobblemon",
+      "path": "lagging_tail",
+      "englishName": "Lagging Tail",
+      "koreanName": "느림보꼬리",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:lansat_berry",
+      "namespace": "cobblemon",
+      "path": "lansat_berry",
+      "englishName": "Lansat Berry",
+      "koreanName": "랑사열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblecuisine:red_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/red",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:bitter_30",
+        "cobblemon:dry_30",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_30",
+        "cobblemon:spicy_30",
+        "cobblemon:sweet_30",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:leftovers",
+      "namespace": "cobblemon",
+      "path": "leftovers",
+      "englishName": "Leftovers",
+      "koreanName": "먹다남은음식",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:leppa_berry",
+      "namespace": "cobblemon",
+      "path": "leppa_berry",
+      "englishName": "Leppa Berry",
+      "koreanName": "과사열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group1",
+        "cobblecuisine:not_blue_group1",
+        "cobblecuisine:not_green_group1",
+        "cobblecuisine:not_pink_group1",
+        "cobblecuisine:not_purple_group1",
+        "cobblecuisine:not_yellow_group1",
+        "cobblecuisine:red_group1",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/red",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/pp_recovery",
+        "cobblemon:bitter_10",
+        "cobblemon:dry_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_10",
+        "cobblemon:spicy_10",
+        "cobblemon:sweet_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:liechi_berry",
+      "namespace": "cobblemon",
+      "path": "liechi_berry",
+      "englishName": "Liechi Berry",
+      "koreanName": "치리열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblecuisine:red_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/orange",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:bitter_30",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:spicy_30",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:life_orb",
+      "namespace": "cobblemon",
+      "path": "life_orb",
+      "englishName": "Life Orb",
+      "koreanName": "생명의구슬",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:light_ball",
+      "namespace": "cobblemon",
+      "path": "light_ball",
+      "englishName": "Light Ball",
+      "koreanName": "전기구슬",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:light_clay",
+      "namespace": "cobblemon",
+      "path": "light_clay",
+      "englishName": "Light Clay",
+      "koreanName": "빛의점토",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:loaded_dice",
+      "namespace": "cobblemon",
+      "path": "loaded_dice",
+      "englishName": "Loaded Dice",
+      "koreanName": "속임수주사위",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:lucky_egg",
+      "namespace": "cobblemon",
+      "path": "lucky_egg",
+      "englishName": "Lucky Egg",
+      "koreanName": "행복의알",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/lucky_egg"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:lum_berry",
+      "namespace": "cobblemon",
+      "path": "lum_berry",
+      "englishName": "Lum Berry",
+      "koreanName": "리샘열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:green_group2",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/green",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/status_recovery",
+        "cobblemon:bitter_10",
+        "cobblemon:dry_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_10",
+        "cobblemon:spicy_10",
+        "cobblemon:sweet_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:luminous_moss",
+      "namespace": "cobblemon",
+      "path": "luminous_moss",
+      "englishName": "Luminous Moss",
+      "koreanName": "빛이끼",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:magnet",
+      "namespace": "cobblemon",
+      "path": "magnet",
+      "englishName": "Magnet",
+      "koreanName": "자석",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:mago_berry",
+      "namespace": "cobblemon",
+      "path": "mago_berry",
+      "englishName": "Mago Berry",
+      "koreanName": "마고열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblecuisine:pink_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/pink",
+        "cobblemon:berries/hp_recovery",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/nature_recovery",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:super_potion_ingredients",
+        "cobblemon:sweet_15",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:maranga_berry",
+      "namespace": "cobblemon",
+      "path": "maranga_berry",
+      "englishName": "Maranga Berry",
+      "koreanName": "타라프열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:blue_group3",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/yellow",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:bitter_10",
+        "cobblemon:bitter_30",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:medicinal_leek",
+      "namespace": "cobblemon",
+      "path": "medicinal_leek",
+      "englishName": "Medicinal Leek",
+      "koreanName": "약초",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "c:crops/leek",
+        "c:foods",
+        "c:foods/vegetable",
+        "cobblemon:held/is_held_item",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/nutrition_seasoning",
+        "cobblemon:sandwich_veggies"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:mental_herb",
+      "namespace": "cobblemon",
+      "path": "mental_herb",
+      "englishName": "Mental Herb",
+      "koreanName": "멘탈허브",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:held/is_held_item",
+        "cobblemon:herbs",
+        "cobblemon:plants"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:metal_coat",
+      "namespace": "cobblemon",
+      "path": "metal_coat",
+      "englishName": "Metal Coat",
+      "koreanName": "금속코트",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:evolution_items",
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:metal_powder",
+      "namespace": "cobblemon",
+      "path": "metal_powder",
+      "englishName": "Metal Powder",
+      "koreanName": "금속파우더",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:metronome",
+      "namespace": "cobblemon",
+      "path": "metronome",
+      "englishName": "Metronome",
+      "koreanName": "메트로놈",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:micle_berry",
+      "namespace": "cobblemon",
+      "path": "micle_berry",
+      "englishName": "Micle Berry",
+      "koreanName": "미클열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:green_group3",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/lime",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:dry_40",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:miracle_seed",
+      "namespace": "cobblemon",
+      "path": "miracle_seed",
+      "englishName": "Miracle Seed",
+      "koreanName": "기적의씨",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:mirror_herb",
+      "namespace": "cobblemon",
+      "path": "mirror_herb",
+      "englishName": "Mirror Herb",
+      "koreanName": "흉내허브",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:held/is_held_item",
+        "cobblemon:herbs",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/effect_seasoning",
+        "cobblemon:recipe_filters/tea_seasoning"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:misty_seed",
+      "namespace": "cobblemon",
+      "path": "misty_seed",
+      "englishName": "Misty Seed",
+      "koreanName": "미스트시드",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "c:seeds",
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/terrain_seeds",
+        "cobblemon:plants",
+        "cobblemon:seeds",
+        "quark:seed_pouch_holdable"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:muscle_band",
+      "namespace": "cobblemon",
+      "path": "muscle_band",
+      "englishName": "Muscle Band",
+      "koreanName": "힘의머리띠",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/visibility/hat"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:mystic_water",
+      "namespace": "cobblemon",
+      "path": "mystic_water",
+      "englishName": "Mystic Water",
+      "koreanName": "신비의물방울",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:never_melt_ice",
+      "namespace": "cobblemon",
+      "path": "never_melt_ice",
+      "englishName": "Never-Melt Ice",
+      "koreanName": "녹지않는얼음",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:normal_gem",
+      "namespace": "cobblemon",
+      "path": "normal_gem",
+      "englishName": "Normal Gem",
+      "koreanName": "노말주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:occa_berry",
+      "namespace": "cobblemon",
+      "path": "occa_berry",
+      "englishName": "Occa Berry",
+      "koreanName": "오카열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblecuisine:red_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/orange",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:spicy_15",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:oran_berry",
+      "namespace": "cobblemon",
+      "path": "oran_berry",
+      "englishName": "Oran Berry",
+      "koreanName": "오랭열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:blue_group1",
+        "cobblecuisine:group1",
+        "cobblecuisine:not_green_group1",
+        "cobblecuisine:not_pink_group1",
+        "cobblecuisine:not_purple_group1",
+        "cobblecuisine:not_red_group1",
+        "cobblecuisine:not_yellow_group1",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/light_blue",
+        "cobblemon:berries/hp_recovery",
+        "cobblemon:bitter_10",
+        "cobblemon:dry_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_10",
+        "cobblemon:spicy_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:passho_berry",
+      "namespace": "cobblemon",
+      "path": "passho_berry",
+      "englishName": "Passho Berry",
+      "koreanName": "꼬시개열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:blue_group2",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/blue",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:dry_15",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:payapa_berry",
+      "namespace": "cobblemon",
+      "path": "payapa_berry",
+      "englishName": "Payapa Berry",
+      "koreanName": "야파열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblecuisine:purple_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/magenta",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:bitter_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_15",
+        "cobblemon:sweet_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:pecha_berry",
+      "namespace": "cobblemon",
+      "path": "pecha_berry",
+      "englishName": "Pecha Berry",
+      "koreanName": "복슝열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group1",
+        "cobblecuisine:not_blue_group1",
+        "cobblecuisine:not_green_group1",
+        "cobblecuisine:not_purple_group1",
+        "cobblecuisine:not_red_group1",
+        "cobblecuisine:not_yellow_group1",
+        "cobblecuisine:pink_group1",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/pink",
+        "cobblemon:berries/status_recovery",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sweet_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:persim_berry",
+      "namespace": "cobblemon",
+      "path": "persim_berry",
+      "englishName": "Persim Berry",
+      "koreanName": "시몬열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblecuisine:pink_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/pink",
+        "cobblemon:berries/status_recovery",
+        "cobblemon:dry_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_10",
+        "cobblemon:spicy_10",
+        "cobblemon:sweet_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:petaya_berry",
+      "namespace": "cobblemon",
+      "path": "petaya_berry",
+      "englishName": "Petaya Berry",
+      "koreanName": "야타비열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblecuisine:pink_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/orange",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_30",
+        "cobblemon:spicy_30",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:poison_barb",
+      "namespace": "cobblemon",
+      "path": "poison_barb",
+      "englishName": "Poison Barb",
+      "koreanName": "독바늘",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:poison_gem",
+      "namespace": "cobblemon",
+      "path": "poison_gem",
+      "englishName": "Poison Gem",
+      "koreanName": "독주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:power_anklet",
+      "namespace": "cobblemon",
+      "path": "power_anklet",
+      "englishName": "Power Anklet",
+      "koreanName": "파워앵클릿",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/power_anklet"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:power_band",
+      "namespace": "cobblemon",
+      "path": "power_band",
+      "englishName": "Power Band",
+      "koreanName": "파워밴드",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/power_band"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:power_belt",
+      "namespace": "cobblemon",
+      "path": "power_belt",
+      "englishName": "Power Belt",
+      "koreanName": "파워벨트",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/power_belt"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:power_bracer",
+      "namespace": "cobblemon",
+      "path": "power_bracer",
+      "englishName": "Power Bracer",
+      "koreanName": "파워리스트",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/power_bracer"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:power_herb",
+      "namespace": "cobblemon",
+      "path": "power_herb",
+      "englishName": "Power Herb",
+      "koreanName": "파워풀허브",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:held/is_held_item",
+        "cobblemon:herbs",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/effect_seasoning",
+        "cobblemon:recipe_filters/tea_seasoning"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:power_lens",
+      "namespace": "cobblemon",
+      "path": "power_lens",
+      "englishName": "Power Lens",
+      "koreanName": "파워렌즈",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/power_lens"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:power_weight",
+      "namespace": "cobblemon",
+      "path": "power_weight",
+      "englishName": "Power Weight",
+      "koreanName": "파워웨이트",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/power_weight"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:protective_pads",
+      "namespace": "cobblemon",
+      "path": "protective_pads",
+      "englishName": "Protective Pads",
+      "koreanName": "방호패드",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:psychic_gem",
+      "namespace": "cobblemon",
+      "path": "psychic_gem",
+      "englishName": "Psychic Gem",
+      "koreanName": "에스퍼주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:psychic_seed",
+      "namespace": "cobblemon",
+      "path": "psychic_seed",
+      "englishName": "Psychic Seed",
+      "koreanName": "사이코시드",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "c:seeds",
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/terrain_seeds",
+        "cobblemon:plants",
+        "cobblemon:seeds",
+        "quark:seed_pouch_holdable"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:punching_glove",
+      "namespace": "cobblemon",
+      "path": "punching_glove",
+      "englishName": "Punching Glove",
+      "koreanName": "펀치글러브",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:quick_claw",
+      "namespace": "cobblemon",
+      "path": "quick_claw",
+      "englishName": "Quick Claw",
+      "koreanName": "선제공격손톱",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:quick_powder",
+      "namespace": "cobblemon",
+      "path": "quick_powder",
+      "englishName": "Quick Powder",
+      "koreanName": "스피드파우더",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:rawst_berry",
+      "namespace": "cobblemon",
+      "path": "rawst_berry",
+      "englishName": "Rawst Berry",
+      "koreanName": "복분열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:green_group1",
+        "cobblecuisine:group1",
+        "cobblecuisine:not_blue_group1",
+        "cobblecuisine:not_pink_group1",
+        "cobblecuisine:not_purple_group1",
+        "cobblecuisine:not_red_group1",
+        "cobblecuisine:not_yellow_group1",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/cyan",
+        "cobblemon:berries/status_recovery",
+        "cobblemon:bitter_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:razor_claw",
+      "namespace": "cobblemon",
+      "path": "razor_claw",
+      "englishName": "Razor Claw",
+      "koreanName": "예리한손톱",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:evolution_items",
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:razor_fang",
+      "namespace": "cobblemon",
+      "path": "razor_fang",
+      "englishName": "Razor Fang",
+      "koreanName": "예리한이빨",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:evolution_items",
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:red_card",
+      "namespace": "cobblemon",
+      "path": "red_card",
+      "englishName": "Red Card",
+      "koreanName": "레드카드",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:rindo_berry",
+      "namespace": "cobblemon",
+      "path": "rindo_berry",
+      "englishName": "Rindo Berry",
+      "koreanName": "린드열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:green_group2",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/lime",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:bitter_15",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:spicy_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:ring_target",
+      "namespace": "cobblemon",
+      "path": "ring_target",
+      "englishName": "Ring Target",
+      "koreanName": "겨냥표적",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:rock_gem",
+      "namespace": "cobblemon",
+      "path": "rock_gem",
+      "englishName": "Rock Gem",
+      "koreanName": "바위주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:rocky_helmet",
+      "namespace": "cobblemon",
+      "path": "rocky_helmet",
+      "englishName": "Rocky Helmet",
+      "koreanName": "울퉁불퉁멧",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/visibility/hat"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:room_service",
+      "namespace": "cobblemon",
+      "path": "room_service",
+      "englishName": "Room Service",
+      "koreanName": "룸서비스",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:roseli_berry",
+      "namespace": "cobblemon",
+      "path": "roseli_berry",
+      "englishName": "Roseli Berry",
+      "koreanName": "로셀열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblecuisine:pink_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/red",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:dry_10",
+        "cobblemon:dry_25",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:rowap_berry",
+      "namespace": "cobblemon",
+      "path": "rowap_berry",
+      "englishName": "Rowap Berry",
+      "koreanName": "애터열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:blue_group3",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/cyan",
+        "cobblemon:berries/damaging",
+        "cobblemon:berries/filling",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_40",
+        "cobblemon:spicy_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:safety_goggles",
+      "namespace": "cobblemon",
+      "path": "safety_goggles",
+      "englishName": "Safety Goggles",
+      "koreanName": "방진고글",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/visibility/face"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:salac_berry",
+      "namespace": "cobblemon",
+      "path": "salac_berry",
+      "englishName": "Salac Berry",
+      "koreanName": "캄라열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:green_group3",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/green",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_30",
+        "cobblemon:sweet_30",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:scope_lens",
+      "namespace": "cobblemon",
+      "path": "scope_lens",
+      "englishName": "Scope Lens",
+      "koreanName": "초점렌즈",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:sharp_beak",
+      "namespace": "cobblemon",
+      "path": "sharp_beak",
+      "englishName": "Sharp Beak",
+      "koreanName": "예리한부리",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:shed_shell",
+      "namespace": "cobblemon",
+      "path": "shed_shell",
+      "englishName": "Shed Shell",
+      "koreanName": "아름다운허물",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:shell_bell",
+      "namespace": "cobblemon",
+      "path": "shell_bell",
+      "englishName": "Shell Bell",
+      "koreanName": "조개껍질방울",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:shuca_berry",
+      "namespace": "cobblemon",
+      "path": "shuca_berry",
+      "englishName": "Shuca Berry",
+      "koreanName": "슈캐열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/brown",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sweet_15",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:silk_scarf",
+      "namespace": "cobblemon",
+      "path": "silk_scarf",
+      "englishName": "Silk Scarf",
+      "koreanName": "실크스카프",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:silver_powder",
+      "namespace": "cobblemon",
+      "path": "silver_powder",
+      "englishName": "Silver Powder",
+      "koreanName": "은빛가루",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:sitrus_berry",
+      "namespace": "cobblemon",
+      "path": "sitrus_berry",
+      "englishName": "Sitrus Berry",
+      "koreanName": "자뭉열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/yellow",
+        "cobblemon:berries/hp_recovery",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:bitter_10",
+        "cobblemon:dry_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_10",
+        "cobblemon:sweet_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:smoke_ball",
+      "namespace": "cobblemon",
+      "path": "smoke_ball",
+      "englishName": "Smoke Ball",
+      "koreanName": "연막탄",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:smooth_rock",
+      "namespace": "cobblemon",
+      "path": "smooth_rock",
+      "englishName": "Smooth Rock",
+      "koreanName": "보송보송바위",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:soft_sand",
+      "namespace": "cobblemon",
+      "path": "soft_sand",
+      "englishName": "Soft Sand",
+      "koreanName": "부드러운모래",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:spell_tag",
+      "namespace": "cobblemon",
+      "path": "spell_tag",
+      "englishName": "Spell Tag",
+      "koreanName": "저주의부적",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:starf_berry",
+      "namespace": "cobblemon",
+      "path": "starf_berry",
+      "englishName": "Starf Berry",
+      "koreanName": "스타열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:green_group3",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_purple_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/green",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/stat_buff",
+        "cobblemon:bitter_30",
+        "cobblemon:dry_30",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_30",
+        "cobblemon:spicy_30",
+        "cobblemon:sweet_30",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:steel_gem",
+      "namespace": "cobblemon",
+      "path": "steel_gem",
+      "englishName": "Steel Gem",
+      "koreanName": "강철주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:sticky_barb",
+      "namespace": "cobblemon",
+      "path": "sticky_barb",
+      "englishName": "Sticky Barb",
+      "koreanName": "끈적끈적바늘",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:tanga_berry",
+      "namespace": "cobblemon",
+      "path": "tanga_berry",
+      "englishName": "Tanga Berry",
+      "koreanName": "리체열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:green_group2",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/green",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:spicy_20",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:terrain_extender",
+      "namespace": "cobblemon",
+      "path": "terrain_extender",
+      "englishName": "Terrain Extender",
+      "koreanName": "그라운드코트",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:throat_spray",
+      "namespace": "cobblemon",
+      "path": "throat_spray",
+      "englishName": "Throat Spray",
+      "koreanName": "목스프레이",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:touga_berry",
+      "namespace": "cobblemon",
+      "path": "touga_berry",
+      "englishName": "Touga Berry",
+      "koreanName": "매운열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/red",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/status_recovery",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:recipe_filters/poke_puff_seasoning",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:toxic_orb",
+      "namespace": "cobblemon",
+      "path": "toxic_orb",
+      "englishName": "Toxic Orb",
+      "koreanName": "맹독구슬",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:twisted_spoon",
+      "namespace": "cobblemon",
+      "path": "twisted_spoon",
+      "englishName": "Twisted Spoon",
+      "koreanName": "휘어진스푼",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:utility_umbrella",
+      "namespace": "cobblemon",
+      "path": "utility_umbrella",
+      "englishName": "Utility Umbrella",
+      "koreanName": "만능우산",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:wacan_berry",
+      "namespace": "cobblemon",
+      "path": "wacan_berry",
+      "englishName": "Wacan Berry",
+      "koreanName": "초나열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_blue_group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/yellow",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sweet_15",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:water_gem",
+      "namespace": "cobblemon",
+      "path": "water_gem",
+      "englishName": "Water Gem",
+      "koreanName": "물주얼",
+      "battleCategory": "gem",
+      "battleUsable": true,
+      "tags": [
+        "c:gems",
+        "cobblemon:held/is_held_item",
+        "cobblemon:type_gems"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:weakness_policy",
+      "namespace": "cobblemon",
+      "path": "weakness_policy",
+      "englishName": "Weakness Policy",
+      "koreanName": "약점보험",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:white_herb",
+      "namespace": "cobblemon",
+      "path": "white_herb",
+      "englishName": "White Herb",
+      "koreanName": "하양허브",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:held/is_held_item",
+        "cobblemon:herbs",
+        "cobblemon:plants"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:wide_lens",
+      "namespace": "cobblemon",
+      "path": "wide_lens",
+      "englishName": "Wide Lens",
+      "koreanName": "광각렌즈",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:wiki_berry",
+      "namespace": "cobblemon",
+      "path": "wiki_berry",
+      "englishName": "Wiki Berry",
+      "koreanName": "위키열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:group3",
+        "cobblecuisine:not_blue_group3",
+        "cobblecuisine:not_green_group3",
+        "cobblecuisine:not_pink_group3",
+        "cobblecuisine:not_red_group3",
+        "cobblecuisine:not_yellow_group3",
+        "cobblecuisine:purple_group3",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/purple",
+        "cobblemon:berries/hp_recovery",
+        "cobblemon:berries/mutation_result",
+        "cobblemon:berries/nature_recovery",
+        "cobblemon:dry_15",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:super_potion_ingredients",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:wise_glasses",
+      "namespace": "cobblemon",
+      "path": "wise_glasses",
+      "englishName": "Wise Glasses",
+      "koreanName": "박식안경",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item",
+        "cobblemon:held/visibility/face"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:yache_berry",
+      "namespace": "cobblemon",
+      "path": "yache_berry",
+      "englishName": "Yache Berry",
+      "koreanName": "플카열매",
+      "battleCategory": "berry",
+      "battleUsable": true,
+      "tags": [
+        "c:crops",
+        "cobblecuisine:blue_group2",
+        "cobblecuisine:group2",
+        "cobblecuisine:not_green_group2",
+        "cobblecuisine:not_pink_group2",
+        "cobblecuisine:not_purple_group2",
+        "cobblecuisine:not_red_group2",
+        "cobblecuisine:not_yellow_group2",
+        "cobblemon:berries",
+        "cobblemon:berries/colour/cyan",
+        "cobblemon:berries/damage_reduction",
+        "cobblemon:berries/filling",
+        "cobblemon:dry_10",
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_pvp_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:plants",
+        "cobblemon:poke_food",
+        "cobblemon:recipe_filters/bait_seasoning",
+        "cobblemon:recipe_filters/colour_seasoning",
+        "cobblemon:recipe_filters/flavour_seasoning",
+        "cobblemon:sour_15",
+        "cobblemon:spicy_10",
+        "minecraft:fox_food"
+      ],
+      "sourceJars": [
+        "cobblecuisine-2.0.1-1.7-rc1.jar",
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "cobblemon:zoom_lens",
+      "namespace": "cobblemon",
+      "path": "zoom_lens",
+      "englishName": "Zoom Lens",
+      "koreanName": "포커스렌즈",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:absolite",
+      "namespace": "mega_showdown",
+      "path": "absolite",
+      "englishName": "Absolite",
+      "koreanName": "앱솔나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:aerodactylite",
+      "namespace": "mega_showdown",
+      "path": "aerodactylite",
+      "englishName": "Aerodactylite",
+      "koreanName": "프테라나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:aggronite",
+      "namespace": "mega_showdown",
+      "path": "aggronite",
+      "englishName": "Aggronite",
+      "koreanName": "보스로라나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:alakazite",
+      "namespace": "mega_showdown",
+      "path": "alakazite",
+      "englishName": "Alakazite",
+      "koreanName": "후딘나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:aloraichium_z",
+      "namespace": "mega_showdown",
+      "path": "aloraichium_z",
+      "englishName": "Aloraichium-Z",
+      "koreanName": "알로라이Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:altarianite",
+      "namespace": "mega_showdown",
+      "path": "altarianite",
+      "englishName": "Altarianite",
+      "koreanName": "파비코리나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:ampharosite",
+      "namespace": "mega_showdown",
+      "path": "ampharosite",
+      "englishName": "Ampharosite",
+      "koreanName": "전룡나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:audinite",
+      "namespace": "mega_showdown",
+      "path": "audinite",
+      "englishName": "Audinite",
+      "koreanName": "다부니나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:banettite",
+      "namespace": "mega_showdown",
+      "path": "banettite",
+      "englishName": "Banettite",
+      "koreanName": "다크펫나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:beedrillite",
+      "namespace": "mega_showdown",
+      "path": "beedrillite",
+      "englishName": "Beedrillite",
+      "koreanName": "독침붕나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:blastoisinite",
+      "namespace": "mega_showdown",
+      "path": "blastoisinite",
+      "englishName": "Blastoisinite",
+      "koreanName": "거북왕나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:blazikenite",
+      "namespace": "mega_showdown",
+      "path": "blazikenite",
+      "englishName": "Blazikenite",
+      "koreanName": "번치코나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:buginium_z",
+      "namespace": "mega_showdown",
+      "path": "buginium_z",
+      "englishName": "Buginium-Z",
+      "koreanName": "벌레Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:cameruptite",
+      "namespace": "mega_showdown",
+      "path": "cameruptite",
+      "englishName": "Cameruptite",
+      "koreanName": "폭타나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:charizardite_x",
+      "namespace": "mega_showdown",
+      "path": "charizardite_x",
+      "englishName": "Charizardite X",
+      "koreanName": "리자몽나이트 X",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:charizardite_y",
+      "namespace": "mega_showdown",
+      "path": "charizardite_y",
+      "englishName": "Charizardite Y",
+      "koreanName": "리자몽나이트 Y",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:darkinium_z",
+      "namespace": "mega_showdown",
+      "path": "darkinium_z",
+      "englishName": "Darkinium-Z",
+      "koreanName": "악Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:decidium_z",
+      "namespace": "mega_showdown",
+      "path": "decidium_z",
+      "englishName": "Decidium-Z",
+      "koreanName": "모크나이퍼Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:diancite",
+      "namespace": "mega_showdown",
+      "path": "diancite",
+      "englishName": "Diancite",
+      "koreanName": "디안시나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:dragonium_z",
+      "namespace": "mega_showdown",
+      "path": "dragonium_z",
+      "englishName": "Dragonium-Z",
+      "koreanName": "드래곤Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:eevium_z",
+      "namespace": "mega_showdown",
+      "path": "eevium_z",
+      "englishName": "Eevium-Z",
+      "koreanName": "이브이Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:electrium_z",
+      "namespace": "mega_showdown",
+      "path": "electrium_z",
+      "englishName": "Electrium-Z",
+      "koreanName": "전기Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:fairium_z",
+      "namespace": "mega_showdown",
+      "path": "fairium_z",
+      "englishName": "Fairium-Z",
+      "koreanName": "페어리Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:fightinium_z",
+      "namespace": "mega_showdown",
+      "path": "fightinium_z",
+      "englishName": "Fightinium-Z",
+      "koreanName": "격투Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:firium_z",
+      "namespace": "mega_showdown",
+      "path": "firium_z",
+      "englishName": "Firium-Z",
+      "koreanName": "불꽃Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:flyinium_z",
+      "namespace": "mega_showdown",
+      "path": "flyinium_z",
+      "englishName": "Flyinium-Z",
+      "koreanName": "비행Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:galladite",
+      "namespace": "mega_showdown",
+      "path": "galladite",
+      "englishName": "Galladite",
+      "koreanName": "엘레이드나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:garchompite",
+      "namespace": "mega_showdown",
+      "path": "garchompite",
+      "englishName": "Garchompite",
+      "koreanName": "한카리아스나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:gardevoirite",
+      "namespace": "mega_showdown",
+      "path": "gardevoirite",
+      "englishName": "Gardevoirite",
+      "koreanName": "가디안나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:gengarite",
+      "namespace": "mega_showdown",
+      "path": "gengarite",
+      "englishName": "Gengarite",
+      "koreanName": "팬텀나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:ghostium_z",
+      "namespace": "mega_showdown",
+      "path": "ghostium_z",
+      "englishName": "Ghostium-Z",
+      "koreanName": "고스트Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:glalitite",
+      "namespace": "mega_showdown",
+      "path": "glalitite",
+      "englishName": "Glalitite",
+      "koreanName": "얼음귀신나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:grassium_z",
+      "namespace": "mega_showdown",
+      "path": "grassium_z",
+      "englishName": "Grassium-Z",
+      "koreanName": "풀Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:groundium_z",
+      "namespace": "mega_showdown",
+      "path": "groundium_z",
+      "englishName": "Groundium-Z",
+      "koreanName": "땅Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:gyaradosite",
+      "namespace": "mega_showdown",
+      "path": "gyaradosite",
+      "englishName": "Gyaradosite",
+      "koreanName": "갸라도스나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:heracronite",
+      "namespace": "mega_showdown",
+      "path": "heracronite",
+      "englishName": "Heracronite",
+      "koreanName": "헤라크로스나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:houndoominite",
+      "namespace": "mega_showdown",
+      "path": "houndoominite",
+      "englishName": "Houndoominite",
+      "koreanName": "헬가나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:icium_z",
+      "namespace": "mega_showdown",
+      "path": "icium_z",
+      "englishName": "Icium-Z",
+      "koreanName": "얼음Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:incinium_z",
+      "namespace": "mega_showdown",
+      "path": "incinium_z",
+      "englishName": "Incinium-Z",
+      "koreanName": "어흥염Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:kangaskhanite",
+      "namespace": "mega_showdown",
+      "path": "kangaskhanite",
+      "englishName": "Kangaskhanite",
+      "koreanName": "캥카나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:kommonium_z",
+      "namespace": "mega_showdown",
+      "path": "kommonium_z",
+      "englishName": "Kommonium-Z",
+      "koreanName": "짜랑고우거Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:latiasite",
+      "namespace": "mega_showdown",
+      "path": "latiasite",
+      "englishName": "Latiasite",
+      "koreanName": "라티아스나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:latiosite",
+      "namespace": "mega_showdown",
+      "path": "latiosite",
+      "englishName": "Latiosite",
+      "koreanName": "라티오스나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:lopunnite",
+      "namespace": "mega_showdown",
+      "path": "lopunnite",
+      "englishName": "Lopunnite",
+      "koreanName": "이어롭나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:lucarionite",
+      "namespace": "mega_showdown",
+      "path": "lucarionite",
+      "englishName": "Lucarionite",
+      "koreanName": "루카리오나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:lunalium_z",
+      "namespace": "mega_showdown",
+      "path": "lunalium_z",
+      "englishName": "Lunalium-Z",
+      "koreanName": "루나아라Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:lycanium_z",
+      "namespace": "mega_showdown",
+      "path": "lycanium_z",
+      "englishName": "Lycanium-Z",
+      "koreanName": "루가루암Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:manectite",
+      "namespace": "mega_showdown",
+      "path": "manectite",
+      "englishName": "Manectite",
+      "koreanName": "썬더볼트나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:marshadium_z",
+      "namespace": "mega_showdown",
+      "path": "marshadium_z",
+      "englishName": "Marshadium-Z",
+      "koreanName": "마샤도Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:mawilite",
+      "namespace": "mega_showdown",
+      "path": "mawilite",
+      "englishName": "Mawilite",
+      "koreanName": "입치트나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:medichamite",
+      "namespace": "mega_showdown",
+      "path": "medichamite",
+      "englishName": "Medichamite",
+      "koreanName": "요가램나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:metagrossite",
+      "namespace": "mega_showdown",
+      "path": "metagrossite",
+      "englishName": "Metagrossite",
+      "koreanName": "메타그로스나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:mewnium_z",
+      "namespace": "mega_showdown",
+      "path": "mewnium_z",
+      "englishName": "Mewnium-Z",
+      "koreanName": "뮤Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:mewtwonite_x",
+      "namespace": "mega_showdown",
+      "path": "mewtwonite_x",
+      "englishName": "Mewtwonite X",
+      "koreanName": "뮤츠나이트 X",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:mewtwonite_y",
+      "namespace": "mega_showdown",
+      "path": "mewtwonite_y",
+      "englishName": "Mewtwonite Y",
+      "koreanName": "뮤츠나이트 Y",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:mimikium_z",
+      "namespace": "mega_showdown",
+      "path": "mimikium_z",
+      "englishName": "Mimikium-Z",
+      "koreanName": "따라큐Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:normalium_z",
+      "namespace": "mega_showdown",
+      "path": "normalium_z",
+      "englishName": "Normalium-Z",
+      "koreanName": "노말Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:pidgeotite",
+      "namespace": "mega_showdown",
+      "path": "pidgeotite",
+      "englishName": "Pidgeotite",
+      "koreanName": "피죤투나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:pikanium_z",
+      "namespace": "mega_showdown",
+      "path": "pikanium_z",
+      "englishName": "Pikanium-Z",
+      "koreanName": "피카츄Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:pikashunium_z",
+      "namespace": "mega_showdown",
+      "path": "pikashunium_z",
+      "englishName": "Pikashunium-Z",
+      "koreanName": "지우피카Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:pinsirite",
+      "namespace": "mega_showdown",
+      "path": "pinsirite",
+      "englishName": "Pinsirite",
+      "koreanName": "쁘사이저나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:poisonium_z",
+      "namespace": "mega_showdown",
+      "path": "poisonium_z",
+      "englishName": "Poisonium-Z",
+      "koreanName": "독Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:primarium_z",
+      "namespace": "mega_showdown",
+      "path": "primarium_z",
+      "englishName": "Primarium-Z",
+      "koreanName": "누리레느Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:psychium_z",
+      "namespace": "mega_showdown",
+      "path": "psychium_z",
+      "englishName": "Psychium-Z",
+      "koreanName": "에스퍼Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:rockium_z",
+      "namespace": "mega_showdown",
+      "path": "rockium_z",
+      "englishName": "Rockium-Z",
+      "koreanName": "바위Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:sablenite",
+      "namespace": "mega_showdown",
+      "path": "sablenite",
+      "englishName": "Sablenite",
+      "koreanName": "깜까미나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:salamencite",
+      "namespace": "mega_showdown",
+      "path": "salamencite",
+      "englishName": "Salamencite",
+      "koreanName": "보만다나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:sceptilite",
+      "namespace": "mega_showdown",
+      "path": "sceptilite",
+      "englishName": "Sceptilite",
+      "koreanName": "나무킹나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:scizorite",
+      "namespace": "mega_showdown",
+      "path": "scizorite",
+      "englishName": "Scizorite",
+      "koreanName": "핫삼나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:sharpedonite",
+      "namespace": "mega_showdown",
+      "path": "sharpedonite",
+      "englishName": "Sharpedonite",
+      "koreanName": "샤크니아나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:slowbronite",
+      "namespace": "mega_showdown",
+      "path": "slowbronite",
+      "englishName": "Slowbronite",
+      "koreanName": "야도란나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:snorlium_z",
+      "namespace": "mega_showdown",
+      "path": "snorlium_z",
+      "englishName": "Snorlium-Z",
+      "koreanName": "잠만보Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:solganium_z",
+      "namespace": "mega_showdown",
+      "path": "solganium_z",
+      "englishName": "Solganium-Z",
+      "koreanName": "솔가레오Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:steelium_z",
+      "namespace": "mega_showdown",
+      "path": "steelium_z",
+      "englishName": "Steelium-Z",
+      "koreanName": "강철Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:steelixite",
+      "namespace": "mega_showdown",
+      "path": "steelixite",
+      "englishName": "Steelixite",
+      "koreanName": "강철톤나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:swampertite",
+      "namespace": "mega_showdown",
+      "path": "swampertite",
+      "englishName": "Swampertite",
+      "koreanName": "대짱이나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:tapunium_z",
+      "namespace": "mega_showdown",
+      "path": "tapunium_z",
+      "englishName": "Tapunium-Z",
+      "koreanName": "카푸Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:tyranitarite",
+      "namespace": "mega_showdown",
+      "path": "tyranitarite",
+      "englishName": "Tyranitarite",
+      "koreanName": "마기라스나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:ultranecrozium_z",
+      "namespace": "mega_showdown",
+      "path": "ultranecrozium_z",
+      "englishName": "Ultranecrozium-Z",
+      "koreanName": "울트라네크로Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:venusaurite",
+      "namespace": "mega_showdown",
+      "path": "venusaurite",
+      "englishName": "Venusaurite",
+      "koreanName": "이상해꽃나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:mega_stone"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "mega_showdown:waterium_z",
+      "namespace": "mega_showdown",
+      "path": "waterium_z",
+      "englishName": "Waterium-Z",
+      "koreanName": "물Z",
+      "battleCategory": "z",
+      "battleUsable": true,
+      "tags": [
+        "mega_showdown:z_crystal"
+      ],
+      "sourceJars": [
+        "mega_showdown-neoforge-1.6.12+1.7.3+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "minecraft:bone",
+      "namespace": "minecraft",
+      "path": "bone",
+      "englishName": "",
+      "koreanName": "",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "minecraft:snowball",
+      "namespace": "minecraft",
+      "path": "snowball",
+      "englishName": "",
+      "koreanName": "",
+      "battleCategory": "held",
+      "battleUsable": true,
+      "tags": [
+        "cobblemon:held/consumed_in_npc_battle",
+        "cobblemon:held/consumed_in_wild_battle",
+        "cobblemon:held/is_held_item"
+      ],
+      "sourceJars": [
+        "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    }
+  ]
+}

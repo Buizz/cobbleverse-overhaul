@@ -1,0 +1,177 @@
+{
+  "name": "Fiammetta",
+  "team": [
+    {
+      "species": "ninetales",
+      "level": 35,
+      "gender": "FEMALE",
+      "nature": "calm",
+      "ability": "drought",
+      "moveset": [
+        "solarbeam",
+        "fireblast",
+        "extrasensory",
+        "willowisp"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "special_attack": 252,
+        "speed": 252
+      },
+      "heldItem": "heat_rock"
+    },
+    {
+      "species": "rapidash",
+      "level": 38,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "flamebody",
+      "moveset": [
+        "smartstrike",
+        "flareblitz",
+        "poisonjab",
+        "solarblade"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "infernape",
+      "level": 40,
+      "gender": "MALE",
+      "nature": "timid",
+      "ability": "ironfist",
+      "moveset": [
+        "machpunch",
+        "firepunch",
+        "thunderpunch",
+        "drainpunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "punching_glove"
+    },
+    {
+      "species": "houndoom",
+      "level": 38,
+      "gender": "MALE",
+      "nature": "timid",
+      "ability": "unnerve",
+      "moveset": [
+        "flamethrower",
+        "darkpulse",
+        "sludgebomb",
+        "hypervoice"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "special_attack": 252,
+        "speed": 252
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "magmortar",
+      "level": 40,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "flamebody",
+      "moveset": [
+        "fireblast",
+        "psychic",
+        "thunderbolt",
+        "scorchingsands"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 6,
+        "special_attack": 252
+      },
+      "heldItem": [
+        "mega_showdown:firium_z",
+        "fire_gem"
+      ]
+    },
+    {
+      "species": "camerupt",
+      "level": 40,
+      "gender": "MALE",
+      "nature": "modest",
+      "ability": "solidrock",
+      "moveset": [
+        "earthpower",
+        "amnesia",
+        "lavaplume",
+        "flashcannon"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 6,
+        "special_attack": 252
+      },
+      "heldItem": "mega_showdown:cameruptite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

@@ -1,0 +1,200 @@
+{
+  "name": "Marzia",
+  "team": [
+    {
+      "species": "lunatone",
+      "level": 80,
+      "gender": "UNKNOWN",
+      "nature": "careful",
+      "ability": "levitate",
+      "moveset": [
+        "powergem",
+        "moonblast",
+        "trickroom",
+        "stealthrock"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 0,
+        "def": 52,
+        "spa": 4,
+        "spd": 84,
+        "spe": 116
+      },
+      "heldItem": "weakness_policy"
+    },
+    {
+      "species": "claydol",
+      "level": 80,
+      "gender": "UNKNOWN",
+      "nature": "bold",
+      "ability": "levitate",
+      "moveset": [
+        "cosmicpower",
+        "reflect",
+        "lightscreen",
+        "earthpower"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 0,
+        "def": 0,
+        "spa": 4,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "farigiraf",
+      "level": 80,
+      "gender": "MALE",
+      "nature": "modest",
+      "ability": "sapsipper",
+      "moveset": [
+        "nastyplot",
+        "twinbeam",
+        "shadowball",
+        "grassknot"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 132,
+        "spa": 124,
+        "spd": 0,
+        "spe": 252
+      },
+      "heldItem": "covert_cloak"
+    },
+    {
+      "species": "gothitelle",
+      "level": 80,
+      "gender": "FEMALE",
+      "nature": "calm",
+      "ability": "shadowtag",
+      "moveset": [
+        "storedpower",
+        "calmmind",
+        "rest",
+        "terablast"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 0,
+        "def": 68,
+        "spa": 4,
+        "spd": 180,
+        "spe": 4
+      },
+      "heldItem": "leftovers",
+      "gimmicks": {
+        "tera": "steel"
+      }
+    },
+    {
+      "species": "gardevoir",
+      "level": 80,
+      "gender": "MALE",
+      "nature": "modest",
+      "ability": "trace",
+      "moveset": [
+        "hypervoice",
+        "psyshock",
+        "taunt",
+        "mysticalfire"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 60,
+        "atk": 0,
+        "def": 4,
+        "spa": 4,
+        "spd": 252,
+        "spe": 188
+      },
+      "heldItem": "mega_showdown:gardevoirite"
+    },
+    {
+      "species": "hoopa",
+      "level": 80,
+      "gender": "UNKNOWN",
+      "nature": "adamant",
+      "ability": "magician",
+      "moveset": [
+        "hyperspacefury",
+        "gunkshot",
+        "icepunch",
+        "firepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 4,
+        "def": 252
+      },
+      "heldItem": "sitrus_berry",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      },
+      "aspects": [
+        "unbound"
+      ]
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "gothitelle"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

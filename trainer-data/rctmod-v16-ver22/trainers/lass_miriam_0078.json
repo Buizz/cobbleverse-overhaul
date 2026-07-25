@@ -1,0 +1,49 @@
+{
+  "name": "Lass Miriam",
+  "team": [
+    {
+      "species": "applin",
+      "gender": "FEMALE",
+      "level": 14,
+      "nature": "bold",
+      "ability": "ripen",
+      "moveset": [
+        "astonish",
+        "withdraw",
+        "megadrain",
+        "dragonbreath"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    },
+    {
+      "species": "carbink",
+      "gender": "FEMALE",
+      "level": 15,
+      "nature": "mild",
+      "ability": "clearbody",
+      "moveset": [
+        "smackdown",
+        "rockthrow",
+        "tackle",
+        "flail"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    }
+  ]
+}

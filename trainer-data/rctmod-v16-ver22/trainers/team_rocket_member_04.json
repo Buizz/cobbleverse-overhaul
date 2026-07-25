@@ -1,0 +1,86 @@
+{
+  "name": "Team Rocket Grunt",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 1
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "weezing",
+      "gender": "MALE",
+      "level": 43,
+      "nature": "jolly",
+      "ability": "levitate",
+      "moveset": [
+        "sludge",
+        "assurance",
+        "heatwave",
+        "clearsmog"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "golbat",
+      "gender": "MALE",
+      "level": 44,
+      "nature": "quiet",
+      "ability": "infiltrator",
+      "moveset": [
+        "venoshock",
+        "bite",
+        "poisonfang",
+        "aircutter"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "arbok",
+      "gender": "MALE",
+      "level": 44,
+      "nature": "brave",
+      "ability": "shedskin",
+      "moveset": [
+        "mudbomb",
+        "sludgebomb",
+        "bite",
+        "thunderfang"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

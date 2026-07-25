@@ -1,0 +1,116 @@
+{
+  "name": "Crush Girl Sharon",
+  "team": [
+    {
+      "species": "infernape",
+      "gender": "MALE",
+      "level": 92,
+      "nature": "adamant",
+      "ability": "blaze",
+      "moveset": [
+        "flareblitz",
+        "acrobatics",
+        "firespin",
+        "closecombat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spd": 4
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "gallade",
+      "gender": "MALE",
+      "level": 92,
+      "nature": "jolly",
+      "ability": "steadfast",
+      "moveset": [
+        "psychocut",
+        "sacredsword",
+        "swordsdance",
+        "nightslash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "darmanitan",
+      "gender": "FEMALE",
+      "level": 93,
+      "nature": "jolly",
+      "ability": "zenmode",
+      "moveset": [
+        "flareblitz",
+        "iciclecrash",
+        "uturn",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "charcoal_stick",
+      "aspects": [
+        "galarian"
+      ]
+    },
+    {
+      "species": "nidoking",
+      "gender": "MALE",
+      "level": 91,
+      "nature": "timid",
+      "ability": "sheerforce",
+      "moveset": [
+        "earthpower",
+        "sludgewave",
+        "icebeam",
+        "flamethrower"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 4,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    }
+  ]
+}

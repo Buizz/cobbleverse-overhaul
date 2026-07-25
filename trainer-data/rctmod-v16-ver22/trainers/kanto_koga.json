@@ -1,0 +1,188 @@
+{
+  "name": "Koga",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "dustox",
+      "gender": "MALE",
+      "level": 40,
+      "nature": "calm",
+      "ability": "shielddust",
+      "moveset": [
+        "bugbuzz",
+        "psybeam",
+        "lightscreen",
+        "venoshock"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "crobat",
+      "gender": "MALE",
+      "level": 40,
+      "nature": "jolly",
+      "ability": "levitate",
+      "moveset": [
+        "aerialace",
+        "poisonfang",
+        "confuseray",
+        "uturn"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "spa": 0,
+        "spe": 252,
+        "attack": 150
+      },
+      "heldItem": "sharp_beak"
+    },
+    {
+      "species": "roserade",
+      "gender": "FEMALE",
+      "level": 40,
+      "nature": "modest",
+      "ability": "naturalcure",
+      "moveset": [
+        "gigadrain",
+        "energyball",
+        "sludgebomb",
+        "growth"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "spa": 100,
+        "spe": 252
+      }
+    },
+    {
+      "species": "weezing",
+      "gender": "MALE",
+      "level": 40,
+      "nature": "bold",
+      "ability": "levitate",
+      "moveset": [
+        "clearsmog",
+        "strangesteam",
+        "selfdestruct",
+        "defog"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 25,
+        "attack": 25,
+        "defence": 50,
+        "special_defence": 50
+      },
+      "heldItem": "sitrus_berry",
+      "aspects": [
+        "galarian"
+      ]
+    },
+    {
+      "species": "muk",
+      "gender": "MALE",
+      "level": 40,
+      "nature": "adamant",
+      "ability": "poisontouch",
+      "moveset": [
+        "poisonfang",
+        "crunch",
+        "protect",
+        "poisongas"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 100,
+        "special_defence": 100
+      },
+      "heldItem": "black_sludge",
+      "aspects": [
+        "alolan"
+      ]
+    },
+    {
+      "species": "sneasler",
+      "level": 40,
+      "gender": "MALE",
+      "nature": "jolly",
+      "ability": "poisontouch",
+      "moveset": [
+        "fakeout",
+        "direclaw",
+        "brickbreak",
+        "honeclaws"
+      ],
+      "heldItem": "black_belt",
+      "evs": {
+        "attack": 252,
+        "speed": 252,
+        "hp": 6
+      },
+      "ivs": {
+        "hp": 20,
+        "attack": 20,
+        "defence": 20,
+        "special_attack": 20,
+        "special_defence": 20,
+        "speed": 20
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  }
+}

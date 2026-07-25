@@ -1,0 +1,111 @@
+{
+  "name": "Swimmer♀ Tisha",
+  "team": [
+    {
+      "species": "pelipper",
+      "gender": "FEMALE",
+      "level": 91,
+      "nature": "bold",
+      "ability": "drizzle",
+      "moveset": [
+        "scald",
+        "hurricane",
+        "icebeam",
+        "uturn"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 30,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 248,
+        "def": 252,
+        "spa": 8
+      },
+      "heldItem": "damp_rock"
+    },
+    {
+      "species": "golduck",
+      "gender": "MALE",
+      "level": 92,
+      "nature": "timid",
+      "ability": "swiftswim",
+      "moveset": [
+        "hydropump",
+        "nastyplot",
+        "synchronoise",
+        "icebeam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "spd": 4,
+        "spe": 252
+      },
+      "heldItem": "psychic_gem"
+    },
+    {
+      "species": "vaporeon",
+      "gender": "MALE",
+      "level": 91,
+      "nature": "modest",
+      "ability": "hydration",
+      "moveset": [
+        "acidarmor",
+        "icebeam",
+        "rest",
+        "scald"
+      ],
+      "ivs": {
+        "hp": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 252,
+        "spd": 4
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "tentacruel",
+      "gender": "MALE",
+      "level": 93,
+      "nature": "timid",
+      "ability": "liquidooze",
+      "moveset": [
+        "surf",
+        "watergun",
+        "hydropump",
+        "sludgewave"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 30,
+        "def": 30,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 4,
+        "spa": 252,
+        "spe": 252
+      }
+    }
+  ]
+}

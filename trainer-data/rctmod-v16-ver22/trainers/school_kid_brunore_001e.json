@@ -1,0 +1,26 @@
+{
+  "name": "School Kid BrunoRe",
+  "team": [
+    {
+      "species": "lechonk",
+      "gender": "FEMALE",
+      "level": 5,
+      "nature": "docile",
+      "ability": "aromaveil",
+      "moveset": [
+        "tackle",
+        "tailwhip",
+        "disarmingvoice"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

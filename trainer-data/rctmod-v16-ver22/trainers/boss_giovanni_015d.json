@@ -1,0 +1,124 @@
+{
+  "name": "Boss Giovanni",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 3
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 2
+    }
+  ],
+  "team": [
+    {
+      "species": "hippowdon",
+      "gender": "FEMALE",
+      "level": 54,
+      "nature": "adamant",
+      "ability": "sandstream",
+      "moveset": [
+        "earthquake",
+        "rockslide",
+        "stealthrock",
+        "roar"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spe": 6
+      }
+    },
+    {
+      "species": "gliscor",
+      "gender": "MALE",
+      "level": 54,
+      "nature": "quirky",
+      "ability": "sandveil",
+      "moveset": [
+        "xscissor",
+        "uturn",
+        "thunderfang",
+        "acrobatics"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      }
+    },
+    {
+      "species": "krookodile",
+      "gender": "MALE",
+      "level": 56,
+      "nature": "sassy",
+      "ability": "intimidate",
+      "moveset": [
+        "earthquake",
+        "foulplay",
+        "dig",
+        "crunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      }
+    },
+    {
+      "species": "garchomp",
+      "gender": "FEMALE",
+      "level": 56,
+      "nature": "jolly",
+      "ability": "sandveil",
+      "moveset": [
+        "earthquake",
+        "scaleshot",
+        "rockslide",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      }
+    }
+  ]
+}

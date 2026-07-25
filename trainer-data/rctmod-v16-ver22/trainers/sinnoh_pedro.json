@@ -1,0 +1,164 @@
+{
+  "name": "Pedro",
+  "team": [
+    {
+      "species": "gigalith",
+      "level": 75,
+      "gender": "MALE",
+      "nature": "relaxed",
+      "ability": "sandstream",
+      "moveset": [
+        "stoneedge",
+        "heavyslam",
+        "stealthrock",
+        "curse"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "heldItem": "smooth_rock"
+    },
+    {
+      "species": "garganacl",
+      "level": 75,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "sturdy",
+      "moveset": [
+        "saltcure",
+        "irondefense",
+        "rockslide",
+        "bodypress"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "heldItem": "leftovers",
+      "evs": {
+        "hp": 252,
+        "defence": 252
+      }
+    },
+    {
+      "species": "lycanroc",
+      "level": 75,
+      "gender": "MALE",
+      "nature": "jolly",
+      "ability": "sandrush",
+      "moveset": [
+        "accelerock",
+        "closecombat",
+        "crunch",
+        "playrough"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "stakataka",
+      "level": 75,
+      "gender": "MALE",
+      "nature": "timid",
+      "ability": "strongjaw",
+      "moveset": [
+        "stoneedge",
+        "ironhead",
+        "trickroom",
+        "icespinner"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "heldItem": "sitrus_berry",
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "tyranitar",
+      "level": 75,
+      "gender": "MALE",
+      "nature": "hasty",
+      "ability": "sandstream",
+      "moveset": [
+        "stoneedge",
+        "crunch",
+        "taunt",
+        "outrage"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "rhyperior",
+      "level": 75,
+      "gender": "FEMALE",
+      "nature": "impish",
+      "ability": "solidrock",
+      "moveset": [
+        "earthpower",
+        "rockwrecker",
+        "thunderpunch",
+        "icepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "assault_vest"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleFormat": "GEN_9_DOUBLES"
+}

@@ -1,0 +1,181 @@
+{
+  "name": "Ester",
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "team": [
+    {
+      "species": "grimmsnarl",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "impish",
+      "ability": "prankster",
+      "moveset": [
+        "lightscreen",
+        "reflect",
+        "spiritbreak",
+        "partingshot"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 6,
+        "defence": 252
+      },
+      "heldItem": "light_clay"
+    },
+    {
+      "species": "gyarados",
+      "gender": "FEMALE",
+      "level": 65,
+      "nature": "adamant",
+      "ability": "intimidate",
+      "moveset": [
+        "earthquake",
+        "waterfall",
+        "dragondance",
+        "crunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spe": 252,
+        "hp": 6,
+        "attack": 252
+      },
+      "heldItem": "mega_showdown:gyaradosite"
+    },
+    {
+      "species": "incineroar",
+      "gender": "MALE",
+      "level": 63,
+      "nature": "adamant",
+      "ability": "cursedbody",
+      "moveset": [
+        "darkestlariat",
+        "flareblitz",
+        "fakeout",
+        "partingshot"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spe": 252,
+        "attack": 252,
+        "defence": 4
+      },
+      "heldItem": [
+        "mega_showdown:incinium_z",
+        "dark_gem"
+      ]
+    },
+    {
+      "species": "archaludon",
+      "gender": "MALE",
+      "level": 65,
+      "nature": "modest",
+      "ability": "sturdy",
+      "moveset": [
+        "dracometeor",
+        "steelbeam",
+        "thunderwave",
+        "darkpulse"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "hp": 6,
+        "speed": 252
+      },
+      "heldItem": "custap_berry"
+    },
+    {
+      "species": "melmetal",
+      "shiny": "true",
+      "gender": "UNKNOWN",
+      "level": 65,
+      "nature": "impish",
+      "ability": "ironfist",
+      "moveset": [
+        "doubleironbash",
+        "highhorsepower",
+        "firepunch",
+        "icepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 228,
+        "attack": 214,
+        "defence": 28
+      },
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "yveltal",
+      "gender": "UNKNOWN",
+      "level": 70,
+      "nature": "modest",
+      "ability": "darkaura",
+      "moveset": [
+        "oblivionwing",
+        "uturn",
+        "darkpulse",
+        "taunt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "hp": 6,
+        "speed": 252
+      },
+      "heldItem": "focus_sash"
+    }
+  ]
+}

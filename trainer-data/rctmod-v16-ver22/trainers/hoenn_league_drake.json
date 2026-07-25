@@ -1,0 +1,198 @@
+{
+  "name": "Drake",
+  "team": [
+    {
+      "species": "garganacl",
+      "level": 60,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "sturdy",
+      "moveset": [
+        "saltcure",
+        "stealthrock",
+        "earthquake",
+        "explosion"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252
+      },
+      "heldItem": "custap_berry"
+    },
+    {
+      "species": "weavile",
+      "level": 62,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "pickpocket",
+      "moveset": [
+        "nightslash",
+        "icespinner",
+        "poisonjab",
+        "fakeout"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "life_orb",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "scizor",
+      "level": 70,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "lightmetal",
+      "moveset": [
+        "swordsdance",
+        "ironhead",
+        "bulletpunch",
+        "bugbite"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "special_defence": 6
+      },
+      "heldItem": "mega_showdown:scizorite"
+    },
+    {
+      "species": "ursaluna",
+      "level": 70,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "mindseye",
+      "moveset": [
+        "earthpower",
+        "bloodmoon",
+        "moonblast",
+        "vacuumwave"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 244,
+        "defence": 4,
+        "special_attack": 252,
+        "special_defence": 4,
+        "speed": 4
+      },
+      "heldItem": "assault_vest",
+      "aspects": [
+        "bloodmoon"
+      ]
+    },
+    {
+      "species": "zekrom",
+      "level": 65,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "teravolt",
+      "moveset": [
+        "boltstrike",
+        "outrage",
+        "honeclaws",
+        "dualwingbeat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "calyrex",
+      "level": 65,
+      "gender": "UNKNOWN",
+      "nature": "timid",
+      "ability": "asonespectrier",
+      "moveset": [
+        "astralbarrage",
+        "gigadrain",
+        "nastyplot",
+        "psyshock"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "special_attack": 252,
+        "speed": 252
+      },
+      "heldItem": "focus_sash",
+      "aspects": [
+        "shadow-rider"
+      ],
+      "gimmicks": {
+        "tera": "fairy"
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES",
+  "bag": [
+    {
+      "item": "full_restore",
+      "quantity": 2
+    },
+    {
+      "item": "full_heal",
+      "quantity": 1
+    }
+  ]
+}

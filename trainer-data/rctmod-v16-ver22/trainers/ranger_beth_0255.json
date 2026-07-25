@@ -1,0 +1,86 @@
+{
+  "name": "Ranger Beth",
+  "team": [
+    {
+      "species": "scizor",
+      "gender": "MALE",
+      "level": 91,
+      "nature": "adamant",
+      "ability": "technician",
+      "moveset": [
+        "bulletpunch",
+        "uturn",
+        "rocksmash",
+        "dualwingbeat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 30,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "def": 4
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "haxorus",
+      "gender": "FEMALE",
+      "level": 93,
+      "nature": "jolly",
+      "ability": "moldbreaker",
+      "moveset": [
+        "swordsdance",
+        "scaleshot",
+        "poisonjab",
+        "closecombat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 4,
+        "spa": 252
+      },
+      "heldItem": "lum_berry"
+    },
+    {
+      "species": "golem",
+      "gender": "MALE",
+      "level": 90,
+      "nature": "adamant",
+      "ability": "sturdy",
+      "moveset": [
+        "headlongrush",
+        "stoneedge",
+        "suckerpunch",
+        "explosion"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "def": 4
+      },
+      "heldItem": "custap_berry"
+    }
+  ]
+}

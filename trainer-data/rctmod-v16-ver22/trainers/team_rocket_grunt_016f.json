@@ -1,0 +1,71 @@
+{
+  "name": "Team Rocket Grunt",
+  "team": [
+    {
+      "species": "seviper",
+      "gender": "MALE",
+      "level": 43,
+      "nature": "docile",
+      "ability": "technician",
+      "moveset": [
+        "furyswipes",
+        "bite",
+        "feintattack",
+        "slash"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "sandslash",
+      "gender": "MALE",
+      "level": 43,
+      "nature": "naughty",
+      "ability": "sandveil",
+      "moveset": [
+        "slash",
+        "dig",
+        "gyroball",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "skuntank",
+      "gender": "FEMALE",
+      "level": 42,
+      "nature": "modest",
+      "ability": "aftermath",
+      "moveset": [
+        "nightslash",
+        "poisonjab",
+        "venomdrench",
+        "suckerpunch"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

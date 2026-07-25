@@ -1,0 +1,162 @@
+{
+  "name": "Petra",
+  "team": [
+    {
+      "species": "dachsbun",
+      "level": 20,
+      "gender": "MALE",
+      "nature": "jolly",
+      "ability": "wellbakedbody",
+      "moveset": [
+        "playrough",
+        "bodypress",
+        "crunch",
+        "facade"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "heldItem": "assault_vest",
+      "gimmicks": {
+        "tera": "steel"
+      }
+    },
+    {
+      "species": "azumarill",
+      "level": 22,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "hugepower",
+      "moveset": [
+        "aquajet",
+        "drainingkiss",
+        "bellydrum",
+        "scald"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "heldItem": "oran_berry"
+    },
+    {
+      "species": "kirlia",
+      "level": 23,
+      "gender": "FEMALE",
+      "nature": "timid",
+      "ability": "trace",
+      "moveset": [
+        "psychic",
+        "drainingkiss",
+        "trick",
+        "expandingforce"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "florges",
+      "level": 22,
+      "gender": "FEMALE",
+      "nature": "relaxed",
+      "ability": "flowerveil",
+      "moveset": [
+        "moonblast",
+        "dazzlinggleam",
+        "drainingkiss",
+        "energyball"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "aspects": [
+        "flower-orange"
+      ],
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "alcremie",
+      "level": 25,
+      "gender": "FEMALE",
+      "nature": "timid",
+      "ability": "sweetveil",
+      "moveset": [
+        "dazzlinggleam",
+        "drainingkiss",
+        "energyball",
+        "psychic"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "aspects": [
+        "cream-vanilla",
+        "decoration-love"
+      ],
+      "gimmicks": {
+        "gmax": true,
+        "dynamax": true
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "mawile",
+      "level": 25,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "intimidate",
+      "moveset": [
+        "playrough",
+        "ironhead",
+        "irondefense",
+        "stoneedge"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "heldItem": "mega_showdown:mawilite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "dachsbun"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES",
+  "battleRules": {
+    "maxItemUses": 0
+  }
+}

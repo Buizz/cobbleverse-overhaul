@@ -1,0 +1,49 @@
+{
+  "name": "Hiker Alan",
+  "team": [
+    {
+      "species": "larvitar",
+      "gender": "FEMALE",
+      "level": 31,
+      "nature": "mild",
+      "ability": "guts",
+      "moveset": [
+        "magnitude",
+        "sandstorm",
+        "screech",
+        "rockslide"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "bronzor",
+      "gender": "FEMALE",
+      "level": 32,
+      "nature": "relaxed",
+      "ability": "heatproof",
+      "moveset": [
+        "payback",
+        "futuresight",
+        "metalsound",
+        "confusion"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

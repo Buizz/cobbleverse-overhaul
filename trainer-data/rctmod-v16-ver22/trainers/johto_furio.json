@@ -1,0 +1,190 @@
+{
+  "name": "Furio",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "conkeldurr",
+      "gender": "MALE",
+      "level": 85,
+      "nature": "adamant",
+      "ability": "ironfist",
+      "moveset": [
+        "drainpunch",
+        "firepunch",
+        "icepunch",
+        "thunderpunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 220,
+        "atk": 252,
+        "special_defence": 38
+      },
+      "heldItem": "black_belt"
+    },
+    {
+      "species": "pangoro",
+      "gender": "MALE",
+      "level": 85,
+      "nature": "jolly",
+      "ability": "scrappy",
+      "moveset": [
+        "knockoff",
+        "closecombat",
+        "gunkshot",
+        "partingshot"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "hp": 6,
+        "speed": 252
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "ironhands",
+      "gender": "MALE",
+      "level": 85,
+      "nature": "impish",
+      "ability": "quarkdrive",
+      "moveset": [
+        "drainpunch",
+        "wildcharge",
+        "earthquake",
+        "fakeout"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 92,
+        "atk": 4,
+        "spd": 236,
+        "defence": 178
+      },
+      "heldItem": "mega_showdown:booster_energy"
+    },
+    {
+      "species": "zapdos",
+      "gender": "GENDERLESS",
+      "level": 85,
+      "nature": "jolly",
+      "ability": "defiant",
+      "moveset": [
+        "thunderouskick",
+        "knockoff",
+        "brickbreak",
+        "dualwingbeat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "spe": 252,
+        "hp": 6
+      },
+      "heldItem": "focus_sash",
+      "aspects": [
+        "galarian"
+      ]
+    },
+    {
+      "species": "lucario",
+      "gender": "MALE",
+      "level": 85,
+      "nature": "timid",
+      "ability": "innerfocus",
+      "moveset": [
+        "shadowball",
+        "flashcannon",
+        "nastyplot",
+        "vacuumwave"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spe": 252,
+        "hp": 6,
+        "special_attack": 252
+      },
+      "heldItem": "mega_showdown:lucarionite"
+    },
+    {
+      "species": "machamp",
+      "level": 85,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "noguard",
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "special_defence": 6
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "moveset": [
+        "dynamicpunch",
+        "darkestlariat",
+        "stoneedge",
+        "bulletpunch"
+      ],
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      },
+      "heldItem": "assault_vest"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true
+    }
+  }
+}

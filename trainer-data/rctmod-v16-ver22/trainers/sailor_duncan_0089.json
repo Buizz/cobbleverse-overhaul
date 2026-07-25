@@ -1,0 +1,71 @@
+{
+  "name": "Sailor Duncan",
+  "team": [
+    {
+      "species": "lombre",
+      "gender": "MALE",
+      "level": 27,
+      "nature": "lonely",
+      "ability": "swiftswim",
+      "moveset": [
+        "aurorabeam",
+        "fakeout",
+        "watersport",
+        "bubblebeam"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "pelipper",
+      "gender": "MALE",
+      "level": 26,
+      "nature": "brave",
+      "ability": "keeneye",
+      "moveset": [
+        "airslash",
+        "aircutter",
+        "payback",
+        "waterpulse"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "carvanha",
+      "gender": "MALE",
+      "level": 28,
+      "nature": "naive",
+      "ability": "roughskin",
+      "moveset": [
+        "assurance",
+        "screech",
+        "swagger",
+        "icefang"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

@@ -1,0 +1,189 @@
+{
+  "name": "Lyris",
+  "team": [
+    {
+      "species": "rayquaza",
+      "level": 100,
+      "gender": "UNKNOWN",
+      "nature": "jolly",
+      "ability": "airlock",
+      "heldItem": "leftovers",
+      "moveset": [
+        "dragondance",
+        "dragonascent",
+        "earthquake",
+        "terablast"
+      ],
+      "evs": {
+        "atk": 252,
+        "spe": 252,
+        "hp": 6
+      },
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 0,
+        "spd": 31,
+        "spe": 31
+      },
+      "gimmicks": {
+        "tera": "steel"
+      }
+    },
+    {
+      "species": "dialga",
+      "level": 100,
+      "gender": "UNKNOWN",
+      "nature": "modest",
+      "ability": "pressure",
+      "heldItem": "life_orb",
+      "moveset": [
+        "dracometeor",
+        "flashcannon",
+        "earthpower",
+        "thunderbolt"
+      ],
+      "evs": {
+        "spa": 252,
+        "spe": 252,
+        "hp": 6
+      },
+      "ivs": {
+        "hp": 31,
+        "atk": 0,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      }
+    },
+    {
+      "species": "salamence",
+      "level": 100,
+      "gender": "MALE",
+      "nature": "jolly",
+      "ability": "intimidate",
+      "heldItem": "mega_showdown:salamencite",
+      "moveset": [
+        "dragondance",
+        "doubleedge",
+        "earthquake",
+        "roost"
+      ],
+      "evs": {
+        "atk": 252,
+        "spe": 252,
+        "hp": 6
+      },
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 0,
+        "spd": 31,
+        "spe": 31
+      }
+    },
+    {
+      "species": "kommoo",
+      "level": 100,
+      "gender": "MALE",
+      "nature": "timid",
+      "ability": "soundproof",
+      "heldItem": [
+        "mega_showdown:kommonium_z",
+        "dragon_gem"
+      ],
+      "moveset": [
+        "clangingscales",
+        "focusblast",
+        "flamethrower",
+        "flashcannon"
+      ],
+      "evs": {
+        "spa": 252,
+        "spe": 252,
+        "hp": 6
+      },
+      "ivs": {
+        "hp": 31,
+        "atk": 0,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      }
+    },
+    {
+      "species": "garchomp",
+      "level": 100,
+      "gender": "FEMALE",
+      "nature": "jolly",
+      "ability": "roughskin",
+      "heldItem": "rocky_helmet",
+      "moveset": [
+        "earthquake",
+        "dragonclaw",
+        "swordsdance",
+        "stoneedge"
+      ],
+      "evs": {
+        "atk": 252,
+        "spe": 252,
+        "hp": 6
+      },
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 0,
+        "spd": 31,
+        "spe": 31
+      }
+    },
+    {
+      "species": "dragapult",
+      "level": 100,
+      "gender": "FEMALE",
+      "nature": "jolly",
+      "ability": "infiltrator",
+      "heldItem": "choice_band",
+      "moveset": [
+        "dragondarts",
+        "phantomforce",
+        "uturn",
+        "suckerpunch"
+      ],
+      "evs": {
+        "atk": 252,
+        "spe": 252,
+        "hp": 6
+      },
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 0,
+        "spd": 31,
+        "spe": 31
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES",
+  "battleRules": {
+    "maxItemUses": 3
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 3
+    }
+  ]
+}

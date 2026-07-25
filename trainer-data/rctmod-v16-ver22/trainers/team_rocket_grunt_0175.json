@@ -1,0 +1,50 @@
+{
+  "name": "Team Rocket Grunt",
+  "team": [
+    {
+      "species": "marowak",
+      "gender": "MALE",
+      "level": 46,
+      "nature": "quirky",
+      "ability": "battlearmor",
+      "moveset": [
+        "falseswipe",
+        "thrash",
+        "fling",
+        "stompingtantrum"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "venomoth",
+      "gender": "MALE",
+      "level": 47,
+      "nature": "careful",
+      "ability": "tintedlens",
+      "moveset": [
+        "silverwind",
+        "zenheadbutt",
+        "leechlife",
+        "confusion"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "aspect": "flying"
+    }
+  ]
+}

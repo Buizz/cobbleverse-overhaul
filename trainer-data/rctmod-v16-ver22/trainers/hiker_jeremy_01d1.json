@@ -1,0 +1,49 @@
+{
+  "name": "Hiker Jeremy",
+  "team": [
+    {
+      "species": "machop",
+      "gender": "FEMALE",
+      "level": 30,
+      "nature": "hasty",
+      "ability": "guts",
+      "moveset": [
+        "revenge",
+        "knockoff",
+        "vitalthrow",
+        "wakeupslap"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "quagsire",
+      "gender": "FEMALE",
+      "level": 30,
+      "nature": "brave",
+      "ability": "waterabsorb",
+      "moveset": [
+        "watergun",
+        "mudshot",
+        "mudbomb",
+        "slam"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

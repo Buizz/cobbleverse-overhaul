@@ -1,0 +1,52 @@
+{
+  "name": "Camper Flint",
+  "team": [
+    {
+      "species": "farfetchd",
+      "gender": "MALE",
+      "level": 18,
+      "nature": "bashful",
+      "ability": "steadfast",
+      "moveset": [
+        "peck",
+        "leer",
+        "furycutter",
+        "rocksmash"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {},
+      "aspects": [
+        "galarian"
+      ]
+    },
+    {
+      "species": "diglett",
+      "gender": "MALE",
+      "level": 20,
+      "nature": "lonely",
+      "ability": "arenatrap",
+      "moveset": [
+        "magnitude",
+        "bulldoze",
+        "suckerpunch",
+        "mudslap"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    }
+  ]
+}

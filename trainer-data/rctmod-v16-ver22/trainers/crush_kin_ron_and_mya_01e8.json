@@ -1,0 +1,52 @@
+{
+  "name": "Crush Kin Ron \u0026 Mya",
+  "battleFormat": "GEN_9_DOUBLES",
+  "team": [
+    {
+      "species": "grapploct",
+      "gender": "MALE",
+      "level": 58,
+      "nature": "lax",
+      "ability": "vitalspirit",
+      "moveset": [
+        "crosschop",
+        "shadowpunch",
+        "lowkick",
+        "ragefist"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "heldItem": "black_belt"
+    },
+    {
+      "species": "sirfetchd",
+      "gender": "MALE",
+      "level": 58,
+      "nature": "naive",
+      "ability": "sharpness",
+      "moveset": [
+        "brickbreak",
+        "swordsdance",
+        "slam",
+        "leafblade"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "heldItem": "black_belt"
+    }
+  ]
+}

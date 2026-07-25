@@ -1,0 +1,192 @@
+{
+  "name": "Terrie",
+  "team": [
+    {
+      "species": "swampert",
+      "level": 120,
+      "gender": "MALE",
+      "nature": "bold",
+      "ability": "torrent",
+      "moveset": [
+        "stealthrock",
+        "yawn",
+        "flipturn",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 244,
+        "atk": 0,
+        "def": 236,
+        "spa": 28,
+        "spd": 0,
+        "spe": 0
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "sceptile",
+      "level": 120,
+      "gender": "MALE",
+      "nature": "careful",
+      "ability": "unburden",
+      "moveset": [
+        "leafblade",
+        "endeavor",
+        "quickattack",
+        "shedtail"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 252,
+        "def": 4,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "granbull",
+      "level": 120,
+      "gender": "MALE",
+      "nature": "hasty",
+      "ability": "intimidate",
+      "moveset": [
+        "metronome"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 152,
+        "spa": 100,
+        "spd": 0,
+        "spe": 0
+      },
+      "heldItem": "metronome"
+    },
+    {
+      "species": "hypno",
+      "level": 120,
+      "gender": "FEMALE",
+      "nature": "careful",
+      "ability": "innerfocus",
+      "moveset": [
+        "hypnosis",
+        "psychic",
+        "confuseray",
+        "nastyplot"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 0,
+        "def": 0,
+        "spa": 252,
+        "spd": 0,
+        "spe": 252
+      },
+      "heldItem": "wide_lens"
+    },
+    {
+      "species": "delibird",
+      "level": 120,
+      "gender": "MALE",
+      "nature": "quiet",
+      "ability": "insomnia",
+      "moveset": [
+        "icywind",
+        "iceshard",
+        "destinybond",
+        "counter"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "kricketune",
+      "level": 120,
+      "gender": "FEMALE",
+      "nature": "timid",
+      "ability": "technician",
+      "moveset": [
+        "fellstinger",
+        "aerialace",
+        "trailblaze",
+        "pounce"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleFormat": "GEN_9_DOUBLES"
+}

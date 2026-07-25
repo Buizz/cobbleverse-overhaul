@@ -1,0 +1,191 @@
+{
+  "name": "Ace Trainer Symes",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 5
+  },
+  "bag": [
+    {
+      "item": "cobblemon:hyper_potion",
+      "quantity": 2
+    }
+  ],
+  "team": [
+    {
+      "species": "rillaboom",
+      "gender": "FEMALE",
+      "level": 94,
+      "nature": "jolly",
+      "ability": "grassysurge",
+      "moveset": [
+        "grassyglide",
+        "uturn",
+        "knockoff",
+        "woodhammer"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "spd": 4,
+        "spe": 252
+      },
+      "heldItem": "terrain_extender"
+    },
+    {
+      "species": "dragonite",
+      "gender": "MALE",
+      "level": 93,
+      "nature": "jolly",
+      "ability": "multiscale",
+      "moveset": [
+        "dualwingbeat",
+        "dragondance",
+        "firepunch",
+        "icepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "lum_berry"
+    },
+    {
+      "species": "rotom",
+      "gender": "GENDERLESS",
+      "level": 93,
+      "nature": "lax",
+      "ability": "levitate",
+      "moveset": [
+        "thundershock",
+        "electroball",
+        "substitute",
+        "airslash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 4,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "magnet",
+      "aspects": [
+        "sevii"
+      ]
+    },
+    {
+      "species": "alcremie",
+      "gender": "FEMALE",
+      "level": 95,
+      "nature": "bold",
+      "ability": "sweetveil",
+      "moveset": [
+        "calmmind",
+        "moonblast",
+        "mysticalfire",
+        "acidarmor"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 252,
+        "spa": 4
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "samurott",
+      "gender": "FEMALE",
+      "level": 95,
+      "nature": "jolly",
+      "ability": "sharpness",
+      "moveset": [
+        "shellsmash",
+        "ceaselessedge",
+        "razorshell",
+        "megahorn"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "white_herb",
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "decidueye",
+      "gender": "FEMALE",
+      "level": 94,
+      "nature": "adamant",
+      "ability": "reckless",
+      "moveset": [
+        "highjumpkick",
+        "grassyglide",
+        "swordsdance",
+        "knockoff"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "focus_sash",
+      "aspects": [
+        "hisuian"
+      ]
+    }
+  ]
+}

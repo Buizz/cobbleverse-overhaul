@@ -1,0 +1,190 @@
+{
+  "name": "Lance",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "haxorus",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "adamant",
+      "ability": "moldbreaker",
+      "moveset": [
+        "outrage",
+        "ironhead",
+        "earthquake",
+        "dragondance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "naganadel",
+      "shiny": "true",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "timid",
+      "ability": "beastboost",
+      "moveset": [
+        "sludgewave",
+        "dracometeor",
+        "heatwave",
+        "airslash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spe": 252,
+        "special_attack": 252,
+        "defence": 4
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "goodra",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "relaxed",
+      "ability": "gooey",
+      "moveset": [
+        "bodypress",
+        "shelter",
+        "heavyslam",
+        "icebeam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 236,
+        "special_defence": 20
+      },
+      "heldItem": "leftovers",
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "baxcalibur",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "adamant",
+      "ability": "thermalexchange",
+      "moveset": [
+        "iciclespear",
+        "scaleshot",
+        "swordsdance",
+        "iceshard"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "attack": 252
+      },
+      "heldItem": "loaded_dice"
+    },
+    {
+      "species": "dragonite",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "adamant",
+      "ability": "multiscale",
+      "moveset": [
+        "dragonclaw",
+        "firepunch",
+        "extremespeed",
+        "dragondance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "defence": 6
+      },
+      "gimmicks": {
+        "tera": "normal"
+      },
+      "heldItem": "shell_bell"
+    },
+    {
+      "species": "charizard",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "jolly",
+      "ability": "blaze",
+      "moveset": [
+        "flareblitz",
+        "dragonclaw",
+        "earthquake",
+        "flamecharge"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "spe": 252,
+        "hp": 6
+      },
+      "heldItem": "mega_showdown:charizardite_x"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "dragonite"
+    }
+  }
+}

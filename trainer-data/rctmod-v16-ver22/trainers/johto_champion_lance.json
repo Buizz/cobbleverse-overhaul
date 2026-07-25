@@ -1,0 +1,199 @@
+{
+  "name": "Lance",
+  "battleRules": {
+    "maxItemUses": 1
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "dragonite",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "modest",
+      "ability": "multiscale",
+      "moveset": [
+        "dracometeor",
+        "flamethrower",
+        "airslash",
+        "icebeam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "zamega:dragoninite"
+    },
+    {
+      "species": "naganadel",
+      "shiny": "true",
+      "gender": "GENDERLESS",
+      "level": 100,
+      "nature": "timid",
+      "ability": "beastboost",
+      "moveset": [
+        "sludgewave",
+        "dracometeor",
+        "heatwave",
+        "snarl"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "special_attack": 252
+      },
+      "aspects": [
+        "mega"
+      ],
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "archaludon",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "impish",
+      "ability": "stamina",
+      "moveset": [
+        "bodypress",
+        "irondefense",
+        "stealthrock",
+        "dragontail"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 156,
+        "special_defence": 100
+      },
+      "heldItem": "leftovers",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "kommoo",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "hasty",
+      "ability": "overcoat",
+      "moveset": [
+        "clangingscales",
+        "drainpunch",
+        "poisonjab",
+        "rockslide"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": [
+        "mega_showdown:kommonium_z",
+        "dragon_gem"
+      ]
+    },
+    {
+      "species": "miraidon",
+      "gender": "GENDERLESS",
+      "level": 100,
+      "nature": "modest",
+      "ability": "hadronengine",
+      "moveset": [
+        "electrodrift",
+        "dragonpulse",
+        "flashcannon",
+        "voltswitch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spd": 4,
+        "defence": 4,
+        "special_attack": 196,
+        "speed": 52
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "koraidon",
+      "gender": "GENDERLESS",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "orichalcumpulse",
+      "moveset": [
+        "flareblitz",
+        "closecombat",
+        "dragonclaw",
+        "flamecharge"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "hp": 6,
+        "speed": 252
+      },
+      "gimmicks": {
+        "tera": "fire"
+      },
+      "heldItem": "life_orb"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "koraidon"
+    }
+  }
+}

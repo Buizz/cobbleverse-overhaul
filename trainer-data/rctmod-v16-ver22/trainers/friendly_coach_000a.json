@@ -1,0 +1,71 @@
+{
+  "name": "Friendly Coach",
+  "team": [
+    {
+      "species": "vaporeon",
+      "gender": "MALE",
+      "level": 20,
+      "nature": "gentle",
+      "ability": "waterabsorb",
+      "moveset": [
+        "waterpulse",
+        "watergun",
+        "bite",
+        "haze"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "umbreon",
+      "gender": "MALE",
+      "level": 15,
+      "nature": "rash",
+      "ability": "synchronize",
+      "moveset": [
+        "feintattack",
+        "confuseray",
+        "doubleedge",
+        "pursuit"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "flareon",
+      "gender": "FEMALE",
+      "level": 15,
+      "nature": "serious",
+      "ability": "flashfire",
+      "moveset": [
+        "ember",
+        "smog",
+        "covet",
+        "tackle"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

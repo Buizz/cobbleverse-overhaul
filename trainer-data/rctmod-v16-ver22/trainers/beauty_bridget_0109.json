@@ -1,0 +1,93 @@
+{
+  "name": "Beauty Bridget",
+  "team": [
+    {
+      "species": "oddish",
+      "gender": "FEMALE",
+      "level": 37,
+      "nature": "calm",
+      "ability": "chlorophyll",
+      "moveset": [
+        "sludge",
+        "moonlight",
+        "gigadrain",
+        "toxic"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "bellsprout",
+      "gender": "FEMALE",
+      "level": 37,
+      "nature": "serious",
+      "ability": "chlorophyll",
+      "moveset": [
+        "sludge",
+        "megadrain",
+        "knockoff",
+        "gastroacid"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "lilligant",
+      "gender": "FEMALE",
+      "level": 37,
+      "nature": "timid",
+      "ability": "owntempo",
+      "moveset": [
+        "sunnyday",
+        "energyball",
+        "synthesis",
+        "petaldance"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "roselia",
+      "gender": "FEMALE",
+      "level": 38,
+      "nature": "naughty",
+      "ability": "poisontouch",
+      "moveset": [
+        "toxicspikes",
+        "sleeppowder",
+        "ingrain",
+        "petalblizzard"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

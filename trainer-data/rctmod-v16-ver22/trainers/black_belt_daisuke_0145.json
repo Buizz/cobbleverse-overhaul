@@ -1,0 +1,74 @@
+{
+  "name": "Black Belt Daisuke",
+  "team": [
+    {
+      "species": "machoke",
+      "gender": "FEMALE",
+      "level": 80,
+      "nature": "naughty",
+      "ability": "noguard",
+      "moveset": [
+        "bulkup",
+        "crosschop",
+        "scaryface",
+        "dynamicpunch"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "heldItem": "black_belt"
+    },
+    {
+      "species": "conkeldurr",
+      "gender": "FEMALE",
+      "level": 80,
+      "nature": "serious",
+      "ability": "sheerforce",
+      "moveset": [
+        "hammerarm",
+        "stoneedge",
+        "focuspunch",
+        "superpower"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "heldItem": "black_belt"
+    },
+    {
+      "species": "hariyama",
+      "gender": "MALE",
+      "level": 81,
+      "nature": "impish",
+      "ability": "thickfat",
+      "moveset": [
+        "closecombat",
+        "heavyslam",
+        "forcepalm",
+        "focuspunch"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "heldItem": "black_belt"
+    }
+  ]
+}

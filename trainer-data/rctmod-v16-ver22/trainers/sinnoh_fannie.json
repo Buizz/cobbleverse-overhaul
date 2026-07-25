@@ -1,0 +1,197 @@
+{
+  "name": "Fannie",
+  "team": [
+    {
+      "species": "weavile",
+      "level": 85,
+      "gender": "FEMALE",
+      "nature": "naughty",
+      "ability": "pickpocket",
+      "moveset": [
+        "fakeout",
+        "swordsdance",
+        "iciclecrash",
+        "nightslash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "darkrai",
+      "level": 85,
+      "gender": "UNKNOWN",
+      "nature": "modest",
+      "ability": "baddreams",
+      "moveset": [
+        "hypnosis",
+        "darkpulse",
+        "nastyplot",
+        "psychic"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 0,
+        "def": 0,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": [
+        "mega_showdown:darkinium_z",
+        "dark_gem"
+      ]
+    },
+    {
+      "species": "greninja",
+      "level": 85,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "beastboost",
+      "moveset": [
+        "watershuriken",
+        "icebeam",
+        "darkpulse",
+        "sludgewave"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 1,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "roaringmoon",
+      "level": 85,
+      "gender": "UNKNOWN",
+      "nature": "jolly",
+      "ability": "protosynthesis",
+      "moveset": [
+        "jawlock",
+        "acrobatics",
+        "dragondance",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 128,
+        "atk": 128,
+        "def": 0,
+        "spe": 252
+      },
+      "heldItem": "mega_showdown:booster_energy",
+      "gimmicks": {
+        "tera": "flying"
+      }
+    },
+    {
+      "species": "gyarados",
+      "level": 85,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "intimidate",
+      "moveset": [
+        "waterfall",
+        "crunch",
+        "dragondance",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "mega_showdown:gyaradosite"
+    },
+    {
+      "species": "giratina",
+      "level": 85,
+      "gender": "UNKNOWN",
+      "nature": "bashful",
+      "ability": "levitate",
+      "moveset": [
+        "dracometeor",
+        "ironhead",
+        "shadowsneak",
+        "poltergeist"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 0,
+        "spe": 4
+      },
+      "heldItem": "sitrus_berry",
+      "aspects": [
+        "origin-forme"
+      ],
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "roaringmoon"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

@@ -1,0 +1,169 @@
+{
+  "name": "Erika",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "eldegoss",
+      "gender": "FEMALE",
+      "level": 35,
+      "nature": "bold",
+      "ability": "cottondown",
+      "moveset": [
+        "cottonspore",
+        "megadrain",
+        "leechseed",
+        "bulletseed"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      }
+    },
+    {
+      "species": "jumpluff",
+      "gender": "FEMALE",
+      "level": 35,
+      "nature": "timid",
+      "ability": "chlorophyll",
+      "moveset": [
+        "sleeppowder",
+        "fairywind",
+        "bulletseed",
+        "tailwind"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "def": 4,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "oran_berry"
+    },
+    {
+      "species": "ludicolo",
+      "gender": "FEMALE",
+      "level": 35,
+      "nature": "modest",
+      "ability": "owntempo",
+      "moveset": [
+        "waterpulse",
+        "megadrain",
+        "bubblebeam",
+        "raindance"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 252,
+        "def": 4,
+        "spa": 252
+      },
+      "heldItem": "mystic_water"
+    },
+    {
+      "species": "vileplume",
+      "gender": "FEMALE",
+      "level": 35,
+      "nature": "modest",
+      "ability": "chlorophyll",
+      "moveset": [
+        "gigadrain",
+        "sleeppowder",
+        "poisonpowder",
+        "dazzlinggleam"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 31,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "def": 4,
+        "spa": 252,
+        "spe": 252
+      }
+    },
+    {
+      "species": "ivysaur",
+      "level": 35,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "overgrow",
+      "ivs": {
+        "hp": 10,
+        "attack": 10,
+        "defence": 10,
+        "special_attack": 10,
+        "special_defence": 10,
+        "speed": 10
+      },
+      "moveset": [
+        "razorleaf",
+        "sleeppowder",
+        "venoshock",
+        "takedown"
+      ]
+    },
+    {
+      "species": "scovillain",
+      "level": 35,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "chlorophyll",
+      "ivs": {
+        "hp": 10,
+        "attack": 10,
+        "defence": 10,
+        "special_attack": 10,
+        "special_defence": 10,
+        "speed": 10
+      },
+      "moveset": [
+        "firefang",
+        "flamecharge",
+        "bulletseed",
+        "growth"
+      ],
+      "heldItem": "charcoal"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  }
+}

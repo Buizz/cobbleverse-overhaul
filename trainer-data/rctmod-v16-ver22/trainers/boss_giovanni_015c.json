@@ -1,0 +1,124 @@
+{
+  "name": "Boss Giovanni",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 3
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 2
+    }
+  ],
+  "team": [
+    {
+      "species": "nidoking",
+      "gender": "MALE",
+      "level": 45,
+      "nature": "timid",
+      "ability": "sheerforce",
+      "moveset": [
+        "earthpower",
+        "icebeam",
+        "sludgebomb",
+        "thunderbolt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 4,
+        "spa": 252,
+        "spe": 252
+      }
+    },
+    {
+      "species": "honchkrow",
+      "gender": "FEMALE",
+      "level": 45,
+      "nature": "jolly",
+      "ability": "superluck",
+      "moveset": [
+        "nightslash",
+        "suckerpunch",
+        "drillpeck",
+        "heatwave"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      }
+    },
+    {
+      "species": "persian",
+      "gender": "MALE",
+      "level": 42,
+      "nature": "jolly",
+      "ability": "limber",
+      "moveset": [
+        "bite",
+        "powergem",
+        "furyswipes",
+        "feintattack"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      }
+    },
+    {
+      "species": "kangaskhan",
+      "gender": "FEMALE",
+      "level": 46,
+      "nature": "jolly",
+      "ability": "innerfocus",
+      "moveset": [
+        "fakeout",
+        "bodyslam",
+        "crunch",
+        "poweruppunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 4,
+        "spa": 252
+      }
+    }
+  ]
+}

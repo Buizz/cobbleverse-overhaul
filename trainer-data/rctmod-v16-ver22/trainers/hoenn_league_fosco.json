@@ -1,0 +1,164 @@
+{
+  "name": "Fosco",
+  "team": [
+    {
+      "species": "ninetales",
+      "level": 60,
+      "gender": "FEMALE",
+      "nature": "timid",
+      "ability": "drought",
+      "moveset": [
+        "willowisp",
+        "extrasensory",
+        "flamethrower",
+        "solarbeam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "special_attack": 252,
+        "speed": 252
+      },
+      "heldItem": "heat_rock"
+    },
+    {
+      "species": "cherrim",
+      "level": 60,
+      "gender": "FEMALE",
+      "nature": "naive",
+      "ability": "flowergift",
+      "moveset": [
+        "growth",
+        "morningsun",
+        "solarbeam",
+        "sleeppowder"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "heliolisk",
+      "level": 61,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "solarpower",
+      "moveset": [
+        "solarbeam",
+        "thunderbolt",
+        "voltswitch",
+        "weatherball"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "urshifu",
+      "level": 63,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "unseenfist",
+      "moveset": [
+        "wickedblow",
+        "suckerpunch",
+        "closecombat",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "hooh",
+      "level": 65,
+      "gender": "UNKNOWN",
+      "nature": "impish",
+      "ability": "regenerator",
+      "moveset": [
+        "sacredfire",
+        "earthquake",
+        "bravebird",
+        "sunnyday"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 252,
+        "spd": 4
+      },
+      "heldItem": "heavy_duty_boots"
+    },
+    {
+      "species": "ceruledge",
+      "level": 65,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "weakarmor",
+      "moveset": [
+        "swordsdance",
+        "shadowsneak",
+        "bitterblade",
+        "poltergeist"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "focus_sash"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleFormat": "GEN_9_DOUBLES"
+}

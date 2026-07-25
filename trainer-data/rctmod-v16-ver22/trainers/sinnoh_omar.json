@@ -1,0 +1,186 @@
+{
+  "name": "Omar",
+  "team": [
+    {
+      "species": "skarmory",
+      "level": 80,
+      "gender": "FEMALE",
+      "nature": "serious",
+      "ability": "sturdy",
+      "moveset": [
+        "stealthrock",
+        "spikes",
+        "roost",
+        "whirlwind"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "heldItem": "rocky_helmet"
+    },
+    {
+      "species": "bronzong",
+      "level": 80,
+      "gender": "MALE",
+      "nature": "modest",
+      "ability": "levitate",
+      "moveset": [
+        "shadowball",
+        "powergem",
+        "psychic",
+        "trickroom"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 128,
+        "special_defence": 128
+      },
+      "heldItem": "terrain_extender",
+      "aspects": [
+        "alolan"
+      ]
+    },
+    {
+      "species": "archaludon",
+      "level": 80,
+      "gender": "MALE",
+      "nature": "modest",
+      "ability": "sturdy",
+      "moveset": [
+        "dracometeor",
+        "flashcannon",
+        "thunderbolt",
+        "darkpulse"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 4,
+        "special_attack": 252
+      },
+      "heldItem": "white_herb"
+    },
+    {
+      "species": "corviknight",
+      "level": 80,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "mirrorarmor",
+      "moveset": [
+        "bravebird",
+        "whirlwind",
+        "roost",
+        "bodypress"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 6,
+        "defence": 252
+      },
+      "heldItem": "rocky_helmet"
+    },
+    {
+      "species": "kingambit",
+      "level": 80,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "supremeoverlord",
+      "moveset": [
+        "kowtowcleave",
+        "ironhead",
+        "suckerpunch",
+        "brickbreak"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "life_orb",
+      "gimmicks": {
+        "tera": "fighting",
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "zamazenta",
+      "level": 80,
+      "gender": "UNKNOWN",
+      "nature": "impish",
+      "ability": "intrepidsword",
+      "moveset": [
+        "behemothbash",
+        "bodypress",
+        "irondefense",
+        "crunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 36,
+        "speed": 52,
+        "defence": 76,
+        "special_defence": 92
+      },
+      "heldItem": "mega_showdown:rusted_shield",
+      "aspects": [
+        "crowned"
+      ]
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "kingambit"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

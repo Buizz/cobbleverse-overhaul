@@ -1,0 +1,48 @@
+{
+  "name": "Biker Virgil",
+  "team": [
+    {
+      "species": "klinklang",
+      "gender": "GENDERLESS",
+      "level": 54,
+      "nature": "bashful",
+      "ability": "clearbody",
+      "moveset": [
+        "smokescreen",
+        "geargrind",
+        "wildcharge",
+        "shiftgear"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "bouffalant",
+      "gender": "MALE",
+      "level": 55,
+      "nature": "adamant",
+      "ability": "reckless",
+      "moveset": [
+        "smokescreen",
+        "headcharge",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

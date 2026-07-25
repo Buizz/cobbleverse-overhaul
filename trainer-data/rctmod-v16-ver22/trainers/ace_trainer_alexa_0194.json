@@ -1,0 +1,152 @@
+{
+  "name": "Ace Trainer Alexa",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 5
+  },
+  "bag": [
+    {
+      "item": "cobblemon:hyper_potion",
+      "quantity": 2
+    }
+  ],
+  "team": [
+    {
+      "species": "clefable",
+      "gender": "MALE",
+      "level": 83,
+      "nature": "modest",
+      "ability": "magicguard",
+      "moveset": [
+        "moonblast",
+        "fireblast",
+        "thunderbolt",
+        "stealthrock"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 252,
+        "spe": 6
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "wigglytuff",
+      "gender": "MALE",
+      "level": 83,
+      "nature": "bashful",
+      "ability": "sheerforce",
+      "moveset": [
+        "moonblast",
+        "flamethrower",
+        "thunderbolt",
+        "hypervoice"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "spe": 40
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "chansey",
+      "gender": "FEMALE",
+      "level": 83,
+      "nature": "bold",
+      "ability": "naturalcure",
+      "moveset": [
+        "wish",
+        "toxic",
+        "seismictoss",
+        "protect"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 252
+      },
+      "heldItem": "eviolite"
+    },
+    {
+      "species": "komala",
+      "gender": "MALE",
+      "level": 83,
+      "nature": "adamant",
+      "ability": "comatose",
+      "moveset": [
+        "frustration",
+        "knockoff",
+        "uturn",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spe": 6
+      },
+      "heldItem": "choice_band"
+    },
+    {
+      "species": "blissey",
+      "gender": "FEMALE",
+      "level": 84,
+      "nature": "gentle",
+      "ability": "serenegrace",
+      "moveset": [
+        "eggbomb",
+        "doubleslap",
+        "healpulse",
+        "charm"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 252
+      },
+      "heldItem": "leftovers"
+    }
+  ]
+}

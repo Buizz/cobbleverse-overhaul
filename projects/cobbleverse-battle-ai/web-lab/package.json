@@ -1,0 +1,47 @@
+{
+  "name": "cobbleverse-battle-lab",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "sync:trainers": "node scripts/sync-trainers.mjs",
+    "audit:species": "node scripts/audit-species-forms.mjs",
+    "audit:mechanics": "node scripts/audit-native-mechanics.mjs",
+    "mechanics:backlog": "npm run audit:mechanics && node scripts/report-native-move-backlog.mjs",
+    "sync:localization": "node scripts/sync-cobblemon-localization.mjs",
+    "predev": "npm run sync:trainers && npm run audit:species && npm run audit:mechanics",
+    "dev": "vinext dev",
+    "build": "npm run sync:trainers && npm run audit:species && npm run audit:mechanics && vinext build",
+    "prestart": "npm run sync:trainers && npm run audit:species && npm run audit:mechanics",
+    "start": "vinext start",
+    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/trainer-adapter.test.mjs tests/battle-scenario.test.mjs tests/battle-formats.test.mjs tests/battle-status.test.mjs tests/showdown-battle-runner.test.mjs tests/showdown-species.test.mjs tests/interactive-battle-session.test.mjs tests/localization-catalog.test.mjs tests/editor-catalog.test.mjs tests/cobbleverse-battle-engine.test.mjs tests/native-scenario-runner.test.mjs tests/native-mechanics-coverage.test.mjs tests/native-dynamic-power.test.mjs",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+  },
+  "dependencies": {
+    "@pkmn/sim": "0.10.11",
+    "next": "16.2.6",
+    "pretendard": "^1.3.9",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.37.1",
+    "@tailwindcss/postcss": "4.2.1",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-rsc": "0.5.26",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
+    "react-server-dom-webpack": "19.2.6",
+    "tailwindcss": "4.2.1",
+    "typescript": "5.9.3",
+    "vinext": "0.0.50",
+    "vite": "8.0.13",
+    "wrangler": "4.92.0"
+  },
+  "type": "module"
+}

@@ -1,0 +1,184 @@
+{
+  "name": "Ace Trainer Janny",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 5
+  },
+  "bag": [
+    {
+      "item": "cobblemon:hyper_potion",
+      "quantity": 2
+    }
+  ],
+  "team": [
+    {
+      "species": "pelipper",
+      "gender": "FEMALE",
+      "level": 95,
+      "nature": "calm",
+      "ability": "drizzle",
+      "moveset": [
+        "scald",
+        "roost",
+        "uturn",
+        "hurricane"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 248,
+        "def": 8,
+        "spe": 252
+      },
+      "heldItem": "damp_rock"
+    },
+    {
+      "species": "ferrothorn",
+      "gender": "FEMALE",
+      "level": 93,
+      "nature": "impish",
+      "ability": "ironbarbs",
+      "moveset": [
+        "powerwhip",
+        "bodypress",
+        "knockoff",
+        "thunderwave"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 248,
+        "def": 252,
+        "spd": 8
+      },
+      "heldItem": "rocky_helmet"
+    },
+    {
+      "species": "toxicroak",
+      "gender": "MALE",
+      "level": 93,
+      "nature": "modest",
+      "ability": "anticipation",
+      "moveset": [
+        "toxic",
+        "sludgebomb",
+        "belch",
+        "poisonjab"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "articuno",
+      "gender": "GENDERLESS",
+      "level": 95,
+      "nature": "timid",
+      "ability": "competitive",
+      "moveset": [
+        "hurricane",
+        "freezingglare",
+        "weatherball",
+        "uturn"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 4,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "weakness_policy",
+      "aspects": [
+        "galarian"
+      ]
+    },
+    {
+      "species": "barraskewda",
+      "gender": "MALE",
+      "level": 93,
+      "nature": "adamant",
+      "ability": "swiftswim",
+      "moveset": [
+        "liquidation",
+        "closecombat",
+        "aquajet",
+        "flipturn"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "water_gem"
+    },
+    {
+      "species": "sudowoodo",
+      "gender": "MALE",
+      "level": 95,
+      "nature": "timid",
+      "ability": "rockhead",
+      "moveset": [
+        "lowkick",
+        "headsmash",
+        "faketears",
+        "hammerarm"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 4,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "leftovers"
+    }
+  ]
+}

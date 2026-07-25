@@ -1,0 +1,182 @@
+{
+  "name": "Team Rocket General Archer",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.25
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 3
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 3
+    }
+  ],
+  "team": [
+    {
+      "species": "houndoom",
+      "gender": "MALE",
+      "level": 80,
+      "nature": "adamant",
+      "ability": "earlybird",
+      "moveset": [
+        "thunderfang",
+        "flamethrower",
+        "crunch",
+        "incinerate"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "muk",
+      "gender": "MALE",
+      "level": 77,
+      "nature": "careful",
+      "ability": "stench",
+      "moveset": [
+        "belch",
+        "sludgebomb",
+        "mudshot",
+        "sludge"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "oran_berry"
+    },
+    {
+      "species": "magmortar",
+      "gender": "FEMALE",
+      "level": 80,
+      "nature": "quirky",
+      "ability": "flamebody",
+      "moveset": [
+        "lavaplume",
+        "feintattack",
+        "clearsmog",
+        "lowkick"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "weezing",
+      "gender": "MALE",
+      "level": 80,
+      "nature": "jolly",
+      "ability": "neutralizinggas",
+      "moveset": [
+        "destinybond",
+        "sludgebomb",
+        "assurance",
+        "heatwave"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "probopass",
+      "gender": "MALE",
+      "level": 78,
+      "nature": "relaxed",
+      "ability": "sturdy",
+      "moveset": [
+        "earthpower",
+        "discharge",
+        "magnetbomb",
+        "powergem"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "berry_juice"
+    },
+    {
+      "species": "golbat",
+      "gender": "MALE",
+      "level": 79,
+      "nature": "relaxed",
+      "ability": "innerfocus",
+      "moveset": [
+        "aircutter",
+        "venoshock",
+        "bite",
+        "leechlife"
+      ],
+      "ivs": {
+        "hp": 25,
+        "atk": 25,
+        "def": 25,
+        "spa": 25,
+        "spd": 25,
+        "spe": 25
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "berry_juice"
+    }
+  ]
+}

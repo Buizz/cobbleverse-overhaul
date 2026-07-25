@@ -1,0 +1,73 @@
+{
+  "name": "Bobbo",
+  "team": [
+    {
+      "species": "sunflora",
+      "gender": "MALE",
+      "level": 25,
+      "nature": "bashful",
+      "ability": "chlorophyll",
+      "moveset": [
+        "petaldance",
+        "gigadrain",
+        "absorb",
+        "razorleaf"
+      ],
+      "ivs": {
+        "hp": 11,
+        "atk": 11,
+        "def": 11,
+        "spa": 11,
+        "spd": 11,
+        "spe": 11
+      },
+      "evs": {},
+      "heldItem": "miracle_seed" 
+    },
+    {
+      "species": "appletun",
+      "gender": "MALE",
+      "level": 22,
+      "nature": "calm",
+      "ability": "gluttony",
+      "moveset": [
+        "appleacid",
+        "bulletseed",
+        "recover",
+        "protect"
+      ],
+      "ivs": {
+        "hp": 11,
+        "atk": 11,
+        "def": 11,
+        "spa": 11,
+        "spd": 11,
+        "spe": 11
+      },
+      "evs": {}
+      
+    },
+    {
+      "species": "exeggutor",
+      "gender": "MALE",
+      "level": 21,
+      "nature": "lonely",
+      "ability": "chlorophyll",
+      "moveset": [
+        "eggbomb",
+        "woodhammer",
+        "absorb",
+        "leafstorm"
+      ],
+      "ivs": {
+        "hp": 11,
+        "atk": 11,
+        "def": 11,
+        "spa": 11,
+        "spd": 11,
+        "spe": 11
+      },
+      "evs": {}
+    }
+  ]
+}

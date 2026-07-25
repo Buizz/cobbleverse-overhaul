@@ -1,0 +1,194 @@
+{
+  "name": "Pino",
+  "battleRules": {
+    "maxItemUses": 1
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "indeedee",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "timid",
+      "ability": "psychicsurge",
+      "moveset": [
+        "expandingforce",
+        "dazzlinggleam",
+        "mysticalfire",
+        "shadowball"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "defence": 4,
+        "speed": 252
+      },
+      "heldItem": "terrain_extender"
+    },
+    {
+      "species": "slowbro",
+      "gender": "FEMALE",
+      "level": 100,
+      "nature": "quiet",
+      "ability": "quickdraw",
+      "moveset": [
+        "psyshock",
+        "shellsidearm",
+        "flamethrower",
+        "icebeam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 244,
+        "spa": 252,
+        "special_defence": 12
+      },
+      "heldItem": "assault_vest",
+      "aspects": [
+        "galarian"
+      ]
+    },
+    {
+      "species": "rabsca",
+      "gender": "FEMALE",
+      "level": 100,
+      "nature": "bold",
+      "ability": "synchronize",
+      "moveset": [
+        "revivalblessing",
+        "psychic",
+        "memento",
+        "confuseray"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 6
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "hatterene",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "modest",
+      "ability": "magicbounce",
+      "moveset": [
+        "psyshock",
+        "drainingkiss",
+        "calmmind",
+        "mysticalfire"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 252,
+        "defence": 6
+      },
+      "heldItem": "leftovers",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      }
+    },
+    {
+      "species": "gallade",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "sharpness",
+      "moveset": [
+        "closecombat",
+        "icepunch",
+        "earthquake",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 4,
+        "speed": 252
+      },
+      "heldItem": "mega_showdown:galladite"
+    },
+    {
+      "species": "lunala",
+      "gender": "GENDERLESS",
+      "level": 100,
+      "nature": "modest",
+      "ability": "shadowshield",
+      "moveset": [
+        "moongeistbeam",
+        "terablast",
+        "calmmind",
+        "moonlight"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 52,
+        "spa": 252,
+        "spe": 114,
+        "defence": 92
+      },
+      "heldItem": "leftovers",
+      "gimmicks": {
+        "tera": "fairy"
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "lunala"
+    }
+  }
+}

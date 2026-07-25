@@ -1,0 +1,188 @@
+{
+  "name": "Frida",
+  "team": [
+    {
+      "species": "garchomp",
+      "level": 62,
+      "gender": "MALE",
+      "nature": "jolly",
+      "ability": "roughskin",
+      "moveset": [
+        "earthquake",
+        "dragonclaw",
+        "rockslide",
+        "protect"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "pachirisu",
+      "level": 60,
+      "gender": "FEMALE",
+      "nature": "impish",
+      "ability": "voltabsorb",
+      "moveset": [
+        "nuzzle",
+        "superfang",
+        "followme",
+        "protect"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 0,
+        "def": 252,
+        "spd": 4,
+        "spe": 0
+      },
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "talonflame",
+      "level": 63,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "galewings",
+      "moveset": [
+        "bravebird",
+        "overheat",
+        "taunt",
+        "quickguard"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 92,
+        "spe": 164
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "gothitelle",
+      "level": 62,
+      "gender": "MALE",
+      "nature": "brave",
+      "ability": "shadowtag",
+      "moveset": [
+        "psyshock",
+        "thunderwave",
+        "protect",
+        "tickle"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 0,
+        "def": 172,
+        "spa": 76,
+        "spd": 4,
+        "spe": 4
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "gardevoir",
+      "level": 64,
+      "gender": "MALE",
+      "nature": "hasty",
+      "ability": "telepathy",
+      "moveset": [
+        "dazzlinggleam",
+        "psychic",
+        "moonblast",
+        "taunt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 0,
+        "def": 44,
+        "spa": 4,
+        "spd": 204,
+        "spe": 252
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "tinglu",
+      "level": 65,
+      "gender": "UNKNOWN",
+      "nature": "adamant",
+      "ability": "vesselofruin",
+      "moveset": [
+        "earthquake",
+        "rockslide",
+        "ruination",
+        "protect"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "sitrus_berry"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleFormat": "GEN_9_DOUBLES"
+}

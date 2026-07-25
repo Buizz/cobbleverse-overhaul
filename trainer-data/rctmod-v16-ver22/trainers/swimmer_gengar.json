@@ -1,0 +1,97 @@
+{
+  "name": "Gengar",
+  "team": [
+    {
+      "species": "gengar",
+      "gender": "FEMALE",
+      "level": 52,
+      "nature": "modest",
+      "ability": "cursedbody",
+      "moveset": [
+        "shadowball",
+        "gigadrain",
+        "confuseray",
+        "suckerpunch"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {},
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "gardevoir",
+      "gender": "FEMALE",
+      "level": 49,
+      "nature": "calm",
+      "ability": "trace",
+      "moveset": [
+        "moonblast",
+        "aurasphere",
+        "thunderpunch",
+        "drainingkiss"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {},
+      "heldItem": "choice_specs"
+    },
+    {
+      "species": "decidueye",
+      "gender": "MALE",
+      "level": 50,
+      "nature": "quirky",
+      "ability": "overgrow",
+      "moveset": [
+        "leafblade",
+        "poltergeist",
+        "solarbeam",
+        "featherdance"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {},
+      "heldItem": "power_herb"
+    },
+    {
+      "species": "pachirisu",
+      "gender": "MALE",
+      "level": 49,
+      "nature": "gentle",
+      "ability": "pickup",
+      "moveset": [
+        "thunder",
+        "aerialace",
+        "spark",
+        "quickattack"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {},
+      "heldItem": "focus_sash"
+    }
+  ]
+}

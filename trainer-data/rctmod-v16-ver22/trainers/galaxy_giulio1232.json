@@ -1,0 +1,71 @@
+{
+  "name": "Giulio1232",
+  "team": [
+    {
+      "species": "lucario",
+      "gender": "MALE",
+      "level": 31,
+      "nature": "calm",
+      "ability": "steadfast",
+      "moveset": [
+        "forcepalm",
+        "aurasphere",
+        "metalclaw",
+        "calmmind"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {}
+    },
+    {
+      "species": "greninja",
+      "gender": "MALE",
+      "level": 36,
+      "nature": "naughty",
+      "ability": "torrent",
+      "moveset": [
+        "waterpulse",
+        "shadowsneak",
+        "nightslash",
+        "feintattack"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {}
+    },
+    {
+      "species": "feraligatr",
+      "gender": "MALE",
+      "level": 36,
+      "nature": "naughty",
+      "ability": "torrent",
+      "moveset": [
+        "crunch",
+        "bite",
+        "icefang",
+        "watergun"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {}
+    }
+  ]
+}

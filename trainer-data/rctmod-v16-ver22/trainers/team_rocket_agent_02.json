@@ -1,0 +1,86 @@
+{
+  "name": "Team Rocket Agent",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 1
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "weezing",
+      "gender": "MALE",
+      "level": 49,
+      "nature": "jolly",
+      "ability": "levitate",
+      "moveset": [
+        "sludge",
+        "assurance",
+        "heatwave",
+        "clearsmog"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "hypno",
+      "gender": "FEMALE",
+      "level": 48,
+      "nature": "timid",
+      "ability": "insomnia",
+      "moveset": [
+        "hypnosis",
+        "psychic",
+        "zenheadbutt",
+        "psyshock"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "raticate",
+      "gender": "MALE",
+      "level": 49,
+      "nature": "sassy",
+      "ability": "hustle",
+      "moveset": [
+        "crunch",
+        "bite",
+        "quickattack",
+        "suckerpunch"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

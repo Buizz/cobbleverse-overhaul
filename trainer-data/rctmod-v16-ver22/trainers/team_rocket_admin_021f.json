@@ -1,0 +1,77 @@
+{
+  "name": "Team Rocket Admin",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.25
+    }
+  },
+  "team": [
+    {
+      "species": "carnivine",
+      "gender": "MALE",
+      "level": 52,
+      "nature": "timid",
+      "ability": "levitate",
+      "moveset": [
+        "vinewhip",
+        "leaftornado",
+        "crunch",
+        "bite"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "cacnea",
+      "gender": "MALE",
+      "level": 53,
+      "nature": "relaxed",
+      "ability": "sandveil",
+      "moveset": [
+        "energyball",
+        "absorb",
+        "feintattack",
+        "cottonspore"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "mimejr",
+      "gender": "MALE",
+      "level": 54,
+      "nature": "brave",
+      "ability": "filter",
+      "moveset": [
+        "barrier",
+        "teeterdance",
+        "psychic",
+        "confusion"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

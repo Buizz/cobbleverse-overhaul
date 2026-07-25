@@ -1,0 +1,52 @@
+{
+  "name": "Team Rocket Grunt",
+  "team": [
+    {
+      "species": "rattata",
+      "gender": "MALE",
+      "level": 16,
+      "nature": "bashful",
+      "ability": "hustle",
+      "moveset": [
+        "quickattack",
+        "focusenergy",
+        "hyperfang",
+        "pursuit"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "aspects": [
+        "alolan"
+      ]
+    },
+    {
+      "species": "arbok",
+      "gender": "MALE",
+      "level": 17,
+      "nature": "sassy",
+      "ability": "shedskin",
+      "moveset": [
+        "acid",
+        "acidspray",
+        "bite",
+        "belch"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

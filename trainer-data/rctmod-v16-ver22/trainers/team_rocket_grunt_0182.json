@@ -1,0 +1,49 @@
+{
+  "name": "Team Rocket Grunt",
+  "team": [
+    {
+      "species": "aggron",
+      "gender": "MALE",
+      "level": 47,
+      "nature": "adamant",
+      "ability": "rockhead",
+      "moveset": [
+        "metalsound",
+        "irontail",
+        "irondefense",
+        "doubleedge"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "skuntank",
+      "gender": "FEMALE",
+      "level": 46,
+      "nature": "naive",
+      "ability": "aftermath",
+      "moveset": [
+        "venomdrench",
+        "suckerpunch",
+        "belch",
+        "explosion"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

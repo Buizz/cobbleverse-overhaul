@@ -1,0 +1,27 @@
+{
+  "name": "Friendly Anastasia",
+  "team": [
+    {
+      "species": "umbreon",
+      "gender": "FEMALE",
+      "level": 8,
+      "nature": "docile",
+      "ability": "synchronize",
+      "moveset": [
+        "bite",
+        "pursuit",
+        "tackle",
+        "charm"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

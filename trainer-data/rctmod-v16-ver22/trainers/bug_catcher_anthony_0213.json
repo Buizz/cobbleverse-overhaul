@@ -1,0 +1,48 @@
+{
+  "name": "Bug Catcher Anthony",
+  "team": [
+    {
+      "species": "butterfree",
+      "gender": "FEMALE",
+      "level": 11,
+      "nature": "sassy",
+      "ability": "compoundeyes",
+      "moveset": [
+        "confusion",
+        "stringshot",
+        "tackle",
+        "bugbite"
+      ],
+      "ivs": {
+        "hp": 1,
+        "atk": 1,
+        "def": 1,
+        "spa": 1,
+        "spd": 1,
+        "spe": 1
+      },
+      "evs": {}
+    },
+    {
+      "species": "surskit",
+      "gender": "FEMALE",
+      "level": 7,
+      "nature": "bold",
+      "ability": "swiftswim",
+      "moveset": [
+        "bubble",
+        "signalbeam",
+        "quickattack"
+      ],
+      "ivs": {
+        "hp": 1,
+        "atk": 1,
+        "def": 1,
+        "spa": 1,
+        "spd": 1,
+        "spe": 1
+      },
+      "evs": {}
+    }
+  ]
+}

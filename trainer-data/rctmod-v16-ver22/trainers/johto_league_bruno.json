@@ -1,0 +1,196 @@
+{
+  "name": "Bruno",
+  "battleRules": {
+    "maxItemUses": 1
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "cobalion",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "timid",
+      "ability": "justified",
+      "moveset": [
+        "closecombat",
+        "taunt",
+        "thunderwave",
+        "stealthrock"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spe": 252,
+        "defence": 6
+      },
+      "heldItem": "rocky_helmet"
+    },
+    {
+      "species": "machamp",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "noguard",
+      "moveset": [
+        "dynamicpunch",
+        "firepunch",
+        "stoneedge",
+        "bulletpunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "assault_vest",
+      "gimmicks": {
+        "tera": "rock"
+      }
+    },
+    {
+      "species": "pawmot",
+      "gender": "FEMALE",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "ironfist",
+      "moveset": [
+        "doubleshock",
+        "nuzzle",
+        "closecombat",
+        "revivalblessing"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "ironvaliant",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "timid",
+      "ability": "quarkdrive",
+      "moveset": [
+        "moonblast",
+        "psychic",
+        "energyball",
+        "shadowball"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "special_attack": 252,
+        "speed": 252
+      },
+      "heldItem": "mega_showdown:booster_energy"
+    },
+    {
+      "species": "urshifu",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "unseenfist",
+      "moveset": [
+        "surgingstrikes",
+        "closecombat",
+        "icepunch",
+        "bulkup"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "aspects": [
+        "rapid_strike-style"
+      ],
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      },
+      "heldItem": "punching_glove"
+    },
+    {
+      "species": "marshadow",
+      "gender": "GENDERLESS",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "technician",
+      "moveset": [
+        "spectralthief",
+        "lowkick",
+        "shadowsneak",
+        "bulkup"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "attack": 252
+      },
+      "heldItem": [
+        "mega_showdown:marshadium_z",
+        "ghost_gem"
+      ]
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "machamp"
+    }
+  }
+}

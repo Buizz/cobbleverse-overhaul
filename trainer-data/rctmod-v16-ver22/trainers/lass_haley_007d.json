@@ -1,0 +1,74 @@
+{
+  "name": "Lass Haley",
+  "team": [
+    {
+      "species": "illumise",
+      "gender": "FEMALE",
+      "level": 19,
+      "nature": "bold",
+      "ability": "tintedlens",
+      "moveset": [
+        "charm",
+        "quickattack",
+        "bugbite",
+        "moonlight"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    },
+    {
+      "species": "slowpoke",
+      "gender": "MALE",
+      "level": 19,
+      "nature": "docile",
+      "ability": "owntempo",
+      "moveset": [
+        "yawn",
+        "confusion",
+        "disable",
+        "waterpulse"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {},
+      "aspects": [
+        "galarian"
+      ]
+    },
+    {
+      "species": "hatenna",
+      "gender": "FEMALE",
+      "level": 18,
+      "nature": "quiet",
+      "ability": "healer",
+      "moveset": [
+        "confusion",
+        "lifedew",
+        "disarmingvoice",
+        "aromaticmist"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    }
+  ]
+}

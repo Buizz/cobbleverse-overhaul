@@ -1,0 +1,195 @@
+{
+  "name": "Sandra",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "garchomp",
+      "gender": "FEMALE",
+      "level": 90,
+      "nature": "adamant",
+      "ability": "roughskin",
+      "moveset": [
+        "dragonclaw",
+        "earthquake",
+        "firefang",
+        "stoneedge"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "duraludon",
+      "gender": "MALE",
+      "level": 90,
+      "nature": "bold",
+      "ability": "lightmetal",
+      "moveset": [
+        "flashcannon",
+        "dragonpulse",
+        "bodypress",
+        "irondefense"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spe": 4,
+        "defence": 172,
+        "special_defence": 68
+      },
+      "heldItem": "wiki_berry",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      }
+    },
+    {
+      "species": "walkingwake",
+      "gender": "GENDERLESS",
+      "level": 90,
+      "nature": "timid",
+      "ability": "protosynthesis",
+      "moveset": [
+        "dracometeor",
+        "hydrosteam",
+        "flamethrower",
+        "aquajet"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 18,
+        "spe": 252,
+        "special_attack": 240
+      },
+      "heldItem": "mega_showdown:booster_energy"
+    },
+    {
+      "species": "baxcalibur",
+      "gender": "FEMALE",
+      "level": 90,
+      "nature": "adamant",
+      "ability": "thermalexchange",
+      "moveset": [
+        "glaiverush",
+        "terablast",
+        "earthquake",
+        "iceshard"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 180,
+        "spd": 44,
+        "attack": 204,
+        "defence": 4,
+        "speed": 76
+      },
+      "heldItem": "assault_vest",
+      "gimmicks": {
+        "tera": "steel"
+      }
+    },
+    {
+      "species": "latias",
+      "gender": "GENDERLESS",
+      "level": 90,
+      "nature": "timid",
+      "ability": "levitate",
+      "moveset": [
+        "psyshock",
+        "thunderbolt",
+        "calmmind",
+        "shadowball"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "salamence",
+      "gender": "FEMALE",
+      "level": 90,
+      "nature": "adamant",
+      "ability": "intimidate",
+      "moveset": [
+        "doubleedge",
+        "earthquake",
+        "roost",
+        "dragondance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 212,
+        "atk": 52,
+        "defence": 4,
+        "special_defence": 140,
+        "speed": 100
+      },
+      "heldItem": "mega_showdown:salamencite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "baxcalibur"
+    }
+  }
+}

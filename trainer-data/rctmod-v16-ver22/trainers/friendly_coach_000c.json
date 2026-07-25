@@ -1,0 +1,71 @@
+{
+  "name": "Friendly Coach",
+  "team": [
+    {
+      "species": "jolteon",
+      "gender": "MALE",
+      "level": 20,
+      "nature": "lonely",
+      "ability": "voltabsorb",
+      "moveset": [
+        "thunderwave",
+        "quickattack",
+        "thundershock",
+        "bite"
+      ],
+      "ivs": {
+        "hp": 7,
+        "atk": 7,
+        "def": 7,
+        "spa": 7,
+        "spd": 7,
+        "spe": 7
+      },
+      "evs": {}
+    },
+    {
+      "species": "espeon",
+      "gender": "FEMALE",
+      "level": 21,
+      "nature": "serious",
+      "ability": "synchronize",
+      "moveset": [
+        "confusion",
+        "covet",
+        "quickattack",
+        "swift"
+      ],
+      "ivs": {
+        "hp": 7,
+        "atk": 7,
+        "def": 7,
+        "spa": 7,
+        "spd": 7,
+        "spe": 7
+      },
+      "evs": {}
+    },
+    {
+      "species": "glaceon",
+      "gender": "MALE",
+      "level": 18,
+      "nature": "adamant",
+      "ability": "snowcloak",
+      "moveset": [
+        "iceshard",
+        "icywind",
+        "takedown",
+        "tackle"
+      ],
+      "ivs": {
+        "hp": 7,
+        "atk": 7,
+        "def": 7,
+        "spa": 7,
+        "spd": 7,
+        "spe": 7
+      },
+      "evs": {}
+    }
+  ]
+}

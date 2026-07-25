@@ -1,0 +1,71 @@
+{
+  "name": "Mario",
+  "team": [
+    {
+      "species": "goodra",
+      "gender": "FEMALE",
+      "level": 27,
+      "nature": "relaxed",
+      "ability": "hydration",
+      "moveset": [
+        "waterpulse",
+        "dragonbreath",
+        "acidspray",
+        "protect"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {}
+    },
+    {
+      "species": "greninja",
+      "gender": "MALE",
+      "level": 27,
+      "nature": "naughty",
+      "ability": "torrent",
+      "moveset": [
+        "waterpulse",
+        "shadowsneak",
+        "nightslash",
+        "feintattack"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {}
+    },
+    {
+      "species": "eelektross",
+      "gender": "MALE",
+      "level": 29,
+      "nature": "naughty",
+      "ability": "levitate",
+      "moveset": [
+        "wildcharge",
+        "acid",
+        "crunch",
+        "discharge"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {}
+    }
+  ]
+}

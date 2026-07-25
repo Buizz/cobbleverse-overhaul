@@ -1,0 +1,89 @@
+{
+  "name": "Friendly Coach",
+  "team": [
+    {
+      "species": "bidoof",
+      "gender": "MALE",
+      "level": 5,
+      "nature": "impish",
+      "ability": "unaware",
+      "moveset": [
+        "defensecurl",
+        "tackle",
+        "growl"
+      ],
+      "ivs": {
+        "hp": 4,
+        "atk": 4,
+        "def": 4,
+        "spa": 4,
+        "spd": 4,
+        "spe": 4
+      },
+      "evs": {}
+    },
+    {
+      "species": "shinx",
+      "gender": "FEMALE",
+      "level": 5,
+      "nature": "docile",
+      "ability": "rivalry",
+      "moveset": [
+        "thundershock",
+        "tackle",
+        "leer"
+      ],
+      "ivs": {
+        "hp": 4,
+        "atk": 4,
+        "def": 4,
+        "spa": 4,
+        "spd": 4,
+        "spe": 4
+      },
+      "evs": {}
+    },
+    {
+      "species": "kricketot",
+      "gender": "FEMALE",
+      "level": 5,
+      "nature": "hardy",
+      "ability": "shedskin",
+      "moveset": [
+        "tackle",
+        "growl",
+        "bide"
+      ],
+      "ivs": {
+        "hp": 4,
+        "atk": 4,
+        "def": 4,
+        "spa": 4,
+        "spd": 4,
+        "spe": 4
+      },
+      "evs": {}
+    },
+    {
+      "species": "zigzagoon",
+      "gender": "MALE",
+      "level": 5,
+      "nature": "serious",
+      "ability": "gluttony",
+      "moveset": [
+        "sandattack",
+        "tackle",
+        "growl"
+      ],
+      "ivs": {
+        "hp": 4,
+        "atk": 4,
+        "def": 4,
+        "spa": 4,
+        "spd": 4,
+        "spe": 4
+      },
+      "evs": {}
+    }
+  ]
+}

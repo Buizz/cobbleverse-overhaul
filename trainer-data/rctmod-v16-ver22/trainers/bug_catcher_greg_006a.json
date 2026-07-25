@@ -1,0 +1,91 @@
+{
+  "name": "Bug Catcher Greg",
+  "team": [
+    {
+      "species": "nincada",
+      "gender": "FEMALE",
+      "level": 11,
+      "nature": "bashful",
+      "ability": "compoundeyes",
+      "moveset": [
+        "scratch",
+        "harden",
+        "absorb"
+      ],
+      "ivs": {
+        "hp": 1,
+        "atk": 1,
+        "def": 1,
+        "spa": 1,
+        "spd": 1,
+        "spe": 1
+      },
+      "evs": {}
+    },
+    {
+      "species": "sizzlipede",
+      "gender": "FEMALE",
+      "level": 11,
+      "nature": "sassy",
+      "ability": "flashfire",
+      "moveset": [
+        "ember",
+        "wrap",
+        "bite"
+      ],
+      "ivs": {
+        "hp": 1,
+        "atk": 1,
+        "def": 1,
+        "spa": 1,
+        "spd": 1,
+        "spe": 1
+      },
+      "evs": {}
+    },
+    {
+      "species": "pinsir",
+      "gender": "MALE",
+      "level": 10,
+      "nature": "careful",
+      "ability": "hypercutter",
+      "moveset": [
+        "seismictoss",
+        "focusenergy",
+        "revenge",
+        "visegrip"
+      ],
+      "ivs": {
+        "hp": 1,
+        "atk": 1,
+        "def": 1,
+        "spa": 1,
+        "spd": 1,
+        "spe": 1
+      },
+      "evs": {}
+    },
+    {
+      "species": "joltik",
+      "gender": "FEMALE",
+      "level": 11,
+      "nature": "serious",
+      "ability": "compoundeyes",
+      "moveset": [
+        "megadrain",
+        "spiderweb",
+        "thunderwave",
+        "screech"
+      ],
+      "ivs": {
+        "hp": 1,
+        "atk": 1,
+        "def": 1,
+        "spa": 1,
+        "spd": 1,
+        "spe": 1
+      },
+      "evs": {}
+    }
+  ]
+}

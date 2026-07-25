@@ -1,0 +1,140 @@
+{
+  "name": "Biker Ruben",
+  "team": [
+    {
+      "species": "meloetta",
+      "gender": "MALE",
+      "level": 92,
+      "nature": "adamant",
+      "ability": "serenegrace",
+      "moveset": [
+        "closecombat",
+        "hypervoice",
+        "sing",
+        "roleplay"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "spd": 4,
+        "spe": 252
+      },
+      "heldItem": "shell_bell"
+    },
+    {
+      "species": "excadrill",
+      "gender": "MALE",
+      "level": 93,
+      "nature": "adamant",
+      "ability": "sandrush",
+      "moveset": [
+        "earthquake",
+        "ironhead",
+        "stoneedge",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "spd": 4,
+        "spe": 252
+      },
+      "heldItem": "air_balloon"
+    },
+    {
+      "species": "gigalith",
+      "gender": "MALE",
+      "level": 92,
+      "nature": "careful",
+      "ability": "sandforce",
+      "moveset": [
+        "earthquake",
+        "stoneedge",
+        "explosion",
+        "bodypress"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spd": 4
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "roserade",
+      "gender": "MALE",
+      "level": 92,
+      "nature": "timid",
+      "ability": "technician",
+      "moveset": [
+        "gigadrain",
+        "weatherball",
+        "hiddenpower",
+        "sleeppowder"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 30,
+        "def": 31,
+        "spa": 30,
+        "spd": 31,
+        "spe": 30
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "lum_berry"
+    },
+    {
+      "species": "lopunny",
+      "gender": "FEMALE",
+      "level": 93,
+      "nature": "jolly",
+      "ability": "limber",
+      "moveset": [
+        "fakeout",
+        "return",
+        "closecombat",
+        "tripleaxel"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    }
+  ]
+}

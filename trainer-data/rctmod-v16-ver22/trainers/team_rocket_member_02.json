@@ -1,0 +1,86 @@
+{
+  "name": "Team Rocket Grunt",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 1
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "raticate",
+      "gender": "MALE",
+      "level": 44,
+      "nature": "sassy",
+      "ability": "hustle",
+      "moveset": [
+        "crunch",
+        "bite",
+        "quickattack",
+        "suckerpunch"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "magneton",
+      "gender": "MALE",
+      "level": 43,
+      "nature": "bashful",
+      "ability": "analytic",
+      "moveset": [
+        "magnetbomb",
+        "discharge",
+        "flashcannon",
+        "thundershock"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "mightyena",
+      "gender": "FEMALE",
+      "level": 44,
+      "nature": "quirky",
+      "ability": "intimidate",
+      "moveset": [
+        "crunch",
+        "thief",
+        "playrough",
+        "thunderfang"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

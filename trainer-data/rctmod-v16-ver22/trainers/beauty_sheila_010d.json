@@ -1,0 +1,86 @@
+{
+  "name": "Beauty Sheila",
+  "team": [
+    {
+      "species": "goodra",
+      "gender": "FEMALE",
+      "level": 90,
+      "nature": "adamant",
+      "ability": "sapsipper",
+      "moveset": [
+        "dragonhammer",
+        "firepunch",
+        "drainpunch",
+        "powerwhip"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spd": 4
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "bouffalant",
+      "gender": "FEMALE",
+      "level": 92,
+      "nature": "adamant",
+      "ability": "sapsipper",
+      "moveset": [
+        "headcharge",
+        "highhorsepower",
+        "zenheadbutt",
+        "closecombat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spe": 4
+      },
+      "heldItem": "normal_gem"
+    },
+    {
+      "species": "eelektross",
+      "gender": "FEMALE",
+      "level": 88,
+      "nature": "timid",
+      "ability": "levitate",
+      "moveset": [
+        "acid",
+        "zapcannon",
+        "iondeluge",
+        "wildcharge"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "magnet"
+    }
+  ]
+}

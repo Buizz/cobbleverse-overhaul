@@ -1,0 +1,70 @@
+{
+  "name": "Lass Anne",
+  "team": [
+    {
+      "species": "togepi",
+      "gender": "FEMALE",
+      "level": 89,
+      "nature": "bashful",
+      "ability": "serenegrace",
+      "moveset": [
+        "aurasphere",
+        "ancientpower",
+        "lifedew",
+        "airslash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {},
+      "heldItem": "shell_bell"
+    },
+    {
+      "species": "clefable",
+      "gender": "FEMALE",
+      "level": 93,
+      "nature": "brave",
+      "ability": "cutecharm",
+      "moveset": [
+        "disarmingvoice",
+        "moonblast",
+        "meteormash",
+        "sing"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {},
+      "heldItem": "shell_bell"
+    },
+    {
+      "species": "alcremie",
+      "gender": "FEMALE",
+      "level": 93,
+      "nature": "bold",
+      "ability": "sweetveil",
+      "moveset": [
+        "drainingkiss",
+        "mistyterrain",
+        "recover",
+        "tackle"
+      ],
+      "ivs": {
+        "atk": 31,
+        "spa": 31,
+        "spe": 31
+      },
+      "evs": {}
+    }
+  ]
+}

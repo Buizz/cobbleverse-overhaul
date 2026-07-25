@@ -1,0 +1,191 @@
+{
+  "name": "Adriano",
+  "team": [
+    {
+      "species": "pelipper",
+      "level": 55,
+      "gender": "FEMALE",
+      "nature": "timid",
+      "ability": "drizzle",
+      "moveset": [
+        "knockoff",
+        "uturn",
+        "weatherball",
+        "hurricane"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 4,
+        "spa": 0,
+        "spd": 252,
+        "spe": 252
+      },
+      "heldItem": "damp_rock"
+    },
+    {
+      "species": "basculegion",
+      "level": 58,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "swiftswim",
+      "moveset": [
+        "zenheadbutt",
+        "aquajet",
+        "wavecrash",
+        "lastrespects"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 28,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 228,
+        "spe": 0
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "primarina",
+      "level": 57,
+      "gender": "MALE",
+      "nature": "modest",
+      "ability": "torrent",
+      "moveset": [
+        "sparklingaria",
+        "moonblast",
+        "energyball",
+        "aquajet"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 96,
+        "def": 156,
+        "spa": 252,
+        "spd": 4
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "ironbundle",
+      "level": 58,
+      "gender": "UNKNOWN",
+      "nature": "modest",
+      "ability": "quarkdrive",
+      "moveset": [
+        "hydropump",
+        "freezedry",
+        "icywind",
+        "terablast"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "mega_showdown:booster_energy",
+      "gimmicks": {
+        "tera": "fire"
+      }
+    },
+    {
+      "species": "dondozo",
+      "level": 59,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "unaware",
+      "moveset": [
+        "protect",
+        "fissure",
+        "wavecrash",
+        "yawn"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 0,
+        "def": 6,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "leftovers",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "starmie",
+      "level": 60,
+      "gender": "UNKNOWN",
+      "nature": "adamant",
+      "ability": "naturalcure",
+      "moveset": [
+        "liquidation",
+        "aquajet",
+        "icespinner",
+        "zenheadbutt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "zamega:starminite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "ironbundle"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

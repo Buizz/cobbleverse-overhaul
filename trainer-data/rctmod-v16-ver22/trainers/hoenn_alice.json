@@ -1,0 +1,202 @@
+{
+  "name": "Alice",
+  "team": [
+    {
+      "species": "dragalge",
+      "level": 45,
+      "gender": "FEMALE",
+      "nature": "timid",
+      "ability": "poisonpoint",
+      "moveset": [
+        "toxicspikes",
+        "sludgewave",
+        "thunderbolt",
+        "toxic"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 0,
+        "def": 0,
+        "spa": 252,
+        "spd": 0,
+        "spe": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "haxorus",
+      "level": 46,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "moldbreaker",
+      "moveset": [
+        "outrage",
+        "earthquake",
+        "dragondance",
+        "closecombat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 252,
+        "def": 4,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": [
+        "mega_showdown:dragonium_z",
+        "dragon_gem"
+      ]
+    },
+    {
+      "species": "gougingfire",
+      "level": 48,
+      "gender": "UNKNOWN",
+      "nature": "impish",
+      "ability": "protosynthesis",
+      "moveset": [
+        "flareblitz",
+        "burningbulwark",
+        "dragondance",
+        "scaleshot"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "def": 4,
+        "spa": 0,
+        "spe": 0
+      },
+      "heldItem": "leftovers",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "baxcalibur",
+      "level": 47,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "thermalexchange",
+      "moveset": [
+        "iciclecrash",
+        "earthquake",
+        "iceshard",
+        "glaiverush"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 132,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 124,
+        "spe": 0
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "dragonite",
+      "level": 49,
+      "gender": "FEMALE",
+      "nature": "naughty",
+      "ability": "multiscale",
+      "moveset": [
+        "ironhead",
+        "extremespeed",
+        "scaleshot",
+        "dragondance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 244,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 12,
+        "spe": 0
+      },
+      "heldItem": "leftovers",
+      "gimmicks": {
+        "tera": "steel"
+      }
+    },
+    {
+      "species": "altaria",
+      "level": 50,
+      "gender": "FEMALE",
+      "nature": "bold",
+      "ability": "cloudnine",
+      "moveset": [
+        "hypervoice",
+        "flamethrower",
+        "cottonguard",
+        "roost"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 244,
+        "atk": 0,
+        "def": 220,
+        "spa": 28,
+        "spd": 12,
+        "spe": 4
+      },
+      "heldItem": "mega_showdown:altarianite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "dragonite"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

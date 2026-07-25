@@ -1,0 +1,171 @@
+{
+  "name": "Vulcano",
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "team": [
+    {
+      "species": "regirock",
+      "gender": "UNKNOWN",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "clearbody",
+      "moveset": [
+        "stoneedge",
+        "icepunch",
+        "drainpunch",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spd": 31,
+        "spe": 31,
+        "spa": 31
+      },
+      "evs": {
+        "atk": 252,
+        "hp": 252,
+        "special_defence": 4
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "registeel",
+      "gender": "UNKNOWN",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "clearbody",
+      "moveset": [
+        "ironhead",
+        "shadowclaw",
+        "irondefense",
+        "bodypress"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spd": 31,
+        "spe": 31,
+        "spa": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 128,
+        "spd": 128
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "regice",
+      "gender": "UNKNOWN",
+      "level": 100,
+      "nature": "bold",
+      "ability": "snowwarning",
+      "moveset": [
+        "blizzard",
+        "thunderbolt",
+        "flashcannon",
+        "auroraveil"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spd": 31,
+        "spe": 31,
+        "spa": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spd": 128,
+        "attack": 128
+      },
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "regieleki",
+      "gender": "UNKNOWN",
+      "level": 100,
+      "nature": "modest",
+      "ability": "noguard",
+      "moveset": [
+        "zapcannon",
+        "focusblast",
+        "hurricane",
+        "explosion"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spd": 31,
+        "spe": 31,
+        "spa": 31
+      },
+      "evs": {
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "air_balloon"
+    },
+    {
+      "species": "regidrago",
+      "gender": "UNKNOWN",
+      "level": 100,
+      "nature": "timid",
+      "ability": "dragonsmaw",
+      "moveset": [
+        "dragonenergy",
+        "ancientpower",
+        "darkpulse",
+        "dragoncheer"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spd": 31,
+        "spe": 31,
+        "spa": 31
+      },
+      "evs": {
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "regigigas",
+      "gender": "UNKNOWN",
+      "level": 110,
+      "nature": "jolly",
+      "ability": "unaware",
+      "moveset": [
+        "bodyslam",
+        "brickbreak",
+        "knockoff",
+        "zenheadbutt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spd": 31,
+        "spe": 31,
+        "spa": 31
+      },
+      "evs": {
+        "hp": 4,
+        "spe": 252,
+        "attack": 252
+      },
+      "heldItem": "clear_amulet"
+    }
+  ]
+}

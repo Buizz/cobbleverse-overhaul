@@ -1,0 +1,50 @@
+{
+  "name": "Morn27015",
+  "team": [
+    {
+      "species": "mimikyu",
+      "gender": "MALE",
+      "level": 29,
+      "nature": "rash",
+      "ability": "disguise",
+      "moveset": [
+        "mimic",
+        "feintattack",
+        "woodhammer",
+        "astonish"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "heldItem": "spell_tag" 
+    },
+    {
+      "species": "pikachu",
+      "gender": "FEMALE",
+      "level": 25,
+      "nature": "sassy",
+      "ability": "static",
+      "moveset": [
+        "thundershock",
+        "spark",
+        "quickattack",
+        "tailwhip"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

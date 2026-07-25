@@ -1,0 +1,186 @@
+{
+  "name": "Jasmine",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "steelix",
+      "gender": "FEMALE",
+      "level": 85,
+      "nature": "relaxed",
+      "ability": "sturdy",
+      "moveset": [
+        "sandstorm",
+        "stealthrock",
+        "ironhead",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 104,
+        "special_defence": 152
+      },
+      "heldItem": "smooth_rock"
+    },
+    {
+      "species": "empoleon",
+      "gender": "MALE",
+      "level": 85,
+      "nature": "calm",
+      "ability": "competitive",
+      "moveset": [
+        "hydropump",
+        "icebeam",
+        "vacuumwave",
+        "yawn"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spd": 4,
+        "atk": 252
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "orthworm",
+      "gender": "FEMALE",
+      "level": 85,
+      "nature": "relaxed",
+      "ability": "eartheater",
+      "moveset": [
+        "ironhead",
+        "bodypress",
+        "irondefense",
+        "shedtail"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 252,
+        "spd": 4
+      },
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "copperajah",
+      "gender": "MALE",
+      "level": 85,
+      "nature": "adamant",
+      "ability": "heavymetal",
+      "moveset": [
+        "ironhead",
+        "heatcrash",
+        "powerwhip",
+        "playrough"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "spd": 252,
+        "hp": 4
+      },
+      "heldItem": "assault_vest",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      }
+    },
+    {
+      "species": "magearna",
+      "gender": "GENDERLESS",
+      "level": 85,
+      "nature": "timid",
+      "ability": "soulheart",
+      "moveset": [
+        "fleurcannon",
+        "flashcannon",
+        "shadowball",
+        "voltswitch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 252,
+        "spe": 4
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "metagross",
+      "level": 85,
+      "gender": "GENDERLESS",
+      "nature": "adamant",
+      "ability": "clearbody",
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "moveset": [
+        "psychicfangs",
+        "bulletpunch",
+        "earthquake",
+        "icepunch"
+      ],
+      "heldItem": "mega_showdown:metagrossite",
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true
+    }
+  }
+}

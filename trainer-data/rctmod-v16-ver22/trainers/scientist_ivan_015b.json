@@ -1,0 +1,49 @@
+{
+  "name": "Scientist Ivan",
+  "team": [
+    {
+      "species": "rampardos",
+      "gender": "FEMALE",
+      "level": 71,
+      "nature": "jolly",
+      "ability": "forecast",
+      "moveset": [
+        "zenheadbutt",
+        "ancientpower",
+        "slam",
+        "headsmash"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "bronzong",
+      "gender": "GENDERLESS",
+      "level": 70,
+      "nature": "relaxed",
+      "ability": "levitate",
+      "moveset": [
+        "extrasensory",
+        "payback",
+        "healblock",
+        "heavyslam"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

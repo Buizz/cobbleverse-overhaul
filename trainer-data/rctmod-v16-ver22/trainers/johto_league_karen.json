@@ -1,0 +1,190 @@
+{
+  "name": "Karen",
+  "battleRules": {
+    "maxItemUses": 1
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "incineroar",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "intimidate",
+      "moveset": [
+        "flareblitz",
+        "darkestlariat",
+        "closecombat",
+        "partingshot"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 244,
+        "spd": 196,
+        "def": 4,
+        "attack": 36,
+        "speed": 28
+      },
+      "heldItem": [
+        "mega_showdown:incinium_z",
+        "dark_gem"
+      ]
+    },
+    {
+      "species": "wochien",
+      "gender": "GENDERLESS",
+      "level": 100,
+      "nature": "relaxed",
+      "ability": "tabletsofruin",
+      "moveset": [
+        "leechseed",
+        "gigadrain",
+        "ruination",
+        "substitute"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 236,
+        "spe": 4,
+        "special_attack": 4,
+        "special_defence": 12
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "chienpao",
+      "gender": "GENDERLESS",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "swordofruin",
+      "moveset": [
+        "iciclecrash",
+        "sacredsword",
+        "swordsdance",
+        "suckerpunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spe": 252,
+        "defence": 4,
+        "attack": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "tinglu",
+      "gender": "GENDERLESS",
+      "level": 100,
+      "nature": "impish",
+      "ability": "vesselofruin",
+      "moveset": [
+        "stealthrock",
+        "whirlwind",
+        "earthquake",
+        "ruination"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 76,
+        "spd": 228,
+        "atk": 180,
+        "defence": 4
+      },
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "chiyu",
+      "gender": "GENDERLESS",
+      "level": 100,
+      "nature": "timid",
+      "ability": "beadsofruin",
+      "moveset": [
+        "overheat",
+        "lavaplume",
+        "darkpulse",
+        "psychic"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "speed": 252
+      },
+      "heldItem": "choice_specs"
+    },
+    {
+      "species": "malamar",
+      "gender": "FEMALE",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "contrary",
+      "moveset": [
+        "superpower",
+        "knockoff",
+        "foulplay",
+        "psychocut"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 6,
+        "speed": 252
+      },
+      "heldItem": "zamega:malamarite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  }
+}

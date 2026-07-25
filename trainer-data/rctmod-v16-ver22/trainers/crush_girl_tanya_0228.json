@@ -1,0 +1,115 @@
+{
+  "name": "Crush Girl Tanya",
+  "team": [
+    {
+      "species": "scrafty",
+      "gender": "MALE",
+      "level": 91,
+      "nature": "adamant",
+      "ability": "shedskin",
+      "moveset": [
+        "focuspunch",
+        "highjumpkick",
+        "crunch",
+        "headsmash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "bewear",
+      "gender": "FEMALE",
+      "level": 91,
+      "nature": "adamant",
+      "ability": "fluffy",
+      "moveset": [
+        "closecombat",
+        "doubleedge",
+        "darkestlariat",
+        "drainpunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spe": 4
+      },
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "ursaring",
+      "gender": "FEMALE",
+      "level": 93,
+      "nature": "adamant",
+      "ability": "guts",
+      "moveset": [
+        "drainpunch",
+        "shadowpunch",
+        "shadowsneak",
+        "playrough"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spe": 4
+      },
+      "heldItem": "flame_orb",
+      "aspects": [
+        "sevii"
+      ]
+    },
+    {
+      "species": "tauros",
+      "gender": "MALE",
+      "level": 91,
+      "nature": "jolly",
+      "ability": "sheerforce",
+      "moveset": [
+        "headcharge",
+        "ironhead",
+        "closecombat",
+        "throatchop"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    }
+  ]
+}

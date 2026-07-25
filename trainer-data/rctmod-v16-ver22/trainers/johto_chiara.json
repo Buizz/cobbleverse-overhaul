@@ -1,0 +1,196 @@
+{
+  "name": "Chiara",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "smeargle",
+      "gender": "FEMALE",
+      "level": 80,
+      "nature": "jolly",
+      "ability": "technician",
+      "moveset": [
+        "populationbomb",
+        "burningbulwark",
+        "spore",
+        "nuzzle"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "attack": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "porygon2",
+      "gender": "GENDERLESS",
+      "level": 80,
+      "nature": "brave",
+      "ability": "download",
+      "moveset": [
+        "triattack",
+        "icebeam",
+        "recover",
+        "thunderwave"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 6
+      },
+      "heldItem": "eviolite"
+    },
+    {
+      "species": "miltank",
+      "gender": "FEMALE",
+      "level": 80,
+      "nature": "impish",
+      "ability": "thickfat",
+      "moveset": [
+        "doubleedge",
+        "icepunch",
+        "playrough",
+        "milkdrink"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 132,
+        "defence": 124
+      },
+      "heldItem": "leftovers",
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "ursaluna",
+      "gender": "MALE",
+      "level": 80,
+      "nature": "modest",
+      "ability": "mindseye",
+      "moveset": [
+        "bloodmoon",
+        "hypervoice",
+        "earthpower",
+        "vacuumwave"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 244,
+        "def": 12,
+        "special_defence": 252
+      },
+      "heldItem": "assault_vest",
+      "aspects": [
+        "bloodmoon"
+      ]
+    },
+    {
+      "species": "snorlax",
+      "level": 80,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "thickfat",
+      "moveset": [
+        "bodyslam",
+        "heatcrash",
+        "recycle",
+        "ironhead"
+      ],
+      "aspects": [
+        "bloodmoon"
+      ],
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      },
+      "evs": {
+        "hp": 228,
+        "attack": 12,
+        "defence": 252,
+        "special_defence": 16
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "heldItem": "figy_berry"
+    },
+    {
+      "species": "lopunny",
+      "level": 80,
+      "gender": "FEMALE",
+      "nature": "adamant",
+      "ability": "cutecharm",
+      "moveset": [
+        "quickattack",
+        "highjumpkick",
+        "icepunch",
+        "gigaimpact"
+      ],
+      "heldItem": "mega_showdown:lopunnite",
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true
+    }
+  }
+}

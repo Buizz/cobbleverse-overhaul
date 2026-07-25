@@ -1,0 +1,49 @@
+{
+  "name": "Cue Ball Isaiah",
+  "team": [
+    {
+      "species": "dudunsparce",
+      "gender": "FEMALE",
+      "level": 55,
+      "nature": "relaxed",
+      "ability": "serenegrace",
+      "moveset": [
+        "rollout",
+        "ancientpower",
+        "hurricane",
+        "doubleedge"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "slaking",
+      "gender": "MALE",
+      "level": 55,
+      "nature": "brave",
+      "ability": "truant",
+      "moveset": [
+        "playrough",
+        "throatchop",
+        "covet",
+        "megakick"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

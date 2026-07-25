@@ -1,0 +1,89 @@
+{
+  "name": "Biker Goon",
+  "team": [
+    {
+      "species": "avalugg",
+      "gender": "MALE",
+      "level": 91,
+      "nature": "adamant",
+      "ability": "technician",
+      "moveset": [
+        "rockblast",
+        "iciclespear",
+        "headlongrush",
+        "iceshard"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "def": 4
+      },
+      "heldItem": "focus_sash",
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "togekiss",
+      "gender": "MALE",
+      "level": 92,
+      "nature": "modest",
+      "ability": "hustle",
+      "moveset": [
+        "aurasphere",
+        "ancientpower",
+        "airslash",
+        "wish"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 4,
+        "spa": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "sharpedo",
+      "gender": "MALE",
+      "level": 91,
+      "nature": "jolly",
+      "ability": "speedboost",
+      "moveset": [
+        "protect",
+        "liquidation",
+        "crunch",
+        "closecombat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    }
+  ]
+}

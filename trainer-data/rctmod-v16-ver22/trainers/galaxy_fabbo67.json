@@ -1,0 +1,71 @@
+{
+  "name": "Fabbo67",
+  "team": [
+    {
+      "species": "growlithe",
+      "gender": "FEMALE",
+      "level": 27,
+      "nature": "mild",
+      "ability": "flashfire",
+      "moveset": [
+        "ember",
+        "flamewheel",
+        "bite",
+        "firefang"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {}
+    },
+    {
+      "species": "lycanroc",
+      "gender": "MALE",
+      "level": 25,
+      "nature": "quiet",
+      "ability": "sandrush",
+      "moveset": [
+        "rocktomb",
+        "bite",
+        "accelerock",
+        "suckerpunch"
+      ],
+      "ivs": {
+        "hp": 11,
+        "atk": 11,
+        "def": 11,
+        "spa": 11,
+        "spd": 11,
+        "spe": 11
+      },
+      "evs": {}
+    },
+    {
+      "species": "yamper",
+      "gender": "MALE",
+      "level": 24,
+      "nature": "quirky",
+      "ability": "ballfetch",
+      "moveset": [
+        "spark",
+        "bite",
+        "nuzzle",
+        "roar"
+      ],
+      "ivs": {
+        "hp": 13,
+        "atk": 13,
+        "def": 13,
+        "spa": 13,
+        "spd": 13,
+        "spe": 13
+      },
+      "evs": {}
+    }
+  ]
+}

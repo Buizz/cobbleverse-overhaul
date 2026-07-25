@@ -1,0 +1,86 @@
+{
+  "name": "Team Rocket Agent",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 1
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "arbok",
+      "gender": "MALE",
+      "level": 44,
+      "nature": "brave",
+      "ability": "shedskin",
+      "moveset": [
+        "mudbomb",
+        "sludgebomb",
+        "bite",
+        "thunderfang"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "noctowl",
+      "gender": "MALE",
+      "level": 49,
+      "nature": "brave",
+      "ability": "tintedlens",
+      "moveset": [
+        "airslash",
+        "moonblast",
+        "extrasensory",
+        "confusion"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "raticate",
+      "gender": "MALE",
+      "level": 48,
+      "nature": "sassy",
+      "ability": "hustle",
+      "moveset": [
+        "crunch",
+        "bite",
+        "quickattack",
+        "suckerpunch"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

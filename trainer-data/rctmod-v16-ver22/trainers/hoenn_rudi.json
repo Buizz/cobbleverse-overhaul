@@ -1,0 +1,187 @@
+{
+  "name": "Rudi",
+  "team": [
+    {
+      "species": "medicham",
+      "level": 25,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "purepower",
+      "moveset": [
+        "closecombat",
+        "thunderpunch",
+        "firepunch",
+        "zenheadbutt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "attack": 252,
+        "speed": 252,
+        "hp": 6
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "sawk",
+      "level": 28,
+      "gender": "MALE",
+      "nature": "jolly",
+      "ability": "sturdy",
+      "moveset": [
+        "reversal",
+        "stoneedge",
+        "poisonjab",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "cobblemon:black_belt"
+    },
+    {
+      "species": "breloom",
+      "level": 27,
+      "gender": "FEMALE",
+      "nature": "naive",
+      "ability": "effectspore",
+      "moveset": [
+        "closecombat",
+        "leafstorm",
+        "superpower",
+        "spore"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "sirfetchd",
+      "level": 28,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "scrappy",
+      "moveset": [
+        "closecombat",
+        "swordsdance",
+        "detect",
+        "bravebird"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": [
+        "mega_showdown:fightinium_z",
+        "fighting_gem"
+      ]
+    },
+    {
+      "species": "emboar",
+      "level": 27,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "sharpness",
+      "moveset": [
+        "closecombat",
+        "trailblaze",
+        "flamecharge",
+        "firepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "defence": 6
+      },
+      "heldItem": "zamega:emboarite"
+    },
+    {
+      "species": "machamp",
+      "level": 30,
+      "gender": "MALE",
+      "nature": "careful",
+      "ability": "noguard",
+      "moveset": [
+        "dynamicpunch",
+        "icepunch",
+        "bulkup",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "mega_showdown:max_mushroom",
+      "gimmicks": {
+        "gmax": true,
+        "dynamax": true
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES",
+  "battleRules": {
+    "maxItemUses": 0
+  }
+}

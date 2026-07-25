@@ -1,0 +1,49 @@
+{
+  "name": "Picnicker Missy",
+  "team": [
+    {
+      "species": "palpitoad",
+      "gender": "MALE",
+      "level": 64,
+      "nature": "calm",
+      "ability": "hydration",
+      "moveset": [
+        "flail",
+        "echoedvoice",
+        "hydropump",
+        "hypervoice"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    },
+    {
+      "species": "reuniclus",
+      "gender": "MALE",
+      "level": 64,
+      "nature": "timid",
+      "ability": "overcoat",
+      "moveset": [
+        "confusion",
+        "psybeam",
+        "rollout",
+        "psyshock"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    }
+  ]
+}

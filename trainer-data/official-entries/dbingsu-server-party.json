@@ -1,0 +1,185 @@
+{
+  "name": "DBingsu 공식 엔트리",
+  "entry": {
+    "type": "official-player",
+    "priority": 1000,
+    "label": "공식 엔트리",
+    "source": "Cobbleverse Server",
+    "owner": "DBingsu",
+    "ownerUuid": "27ca4a38-944e-4928-bf4e-6b8634ed8d62",
+    "snapshotDate": "2026-07-25"
+  },
+  "battleRules": {
+    "maxItemUses": 0
+  },
+  "bag": [],
+  "team": [
+    {
+      "species": "porygon2",
+      "level": 100,
+      "nature": "modest",
+      "ability": "download",
+      "heldItem": "cobblemon:eviolite",
+      "moveset": [
+        "trickroom",
+        "icebeam",
+        "psybeam",
+        "thunderbolt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "attack": 4,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "special_attack": 252,
+        "special_defence": 6
+      }
+    },
+    {
+      "species": "mawile",
+      "gender": "FEMALE",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "intimidate",
+      "heldItem": "mega_showdown:mawilite",
+      "moveset": [
+        "playrough",
+        "ironhead",
+        "suckerpunch",
+        "irondefense"
+      ],
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "special_defence": 6
+      }
+    },
+    {
+      "species": "urshifu-rapidstrike",
+      "gender": "FEMALE",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "unseenfist",
+      "heldItem": "cobblemon:focus_band",
+      "moveset": [
+        "surgingstrikes",
+        "closecombat",
+        "aquajet",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 23,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 10,
+        "attack": 252,
+        "speed": 248
+      }
+    },
+    {
+      "species": "snorlax",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "impish",
+      "ability": "thickfat",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": [
+        "heatcrash",
+        "hammerarm",
+        "curse",
+        "rest"
+      ],
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 6
+      }
+    },
+    {
+      "species": "magnezone",
+      "level": 100,
+      "nature": "modest",
+      "ability": "sturdy",
+      "heldItem": "cobblemon:terrain_extender",
+      "moveset": [
+        "flashcannon",
+        "lightscreen",
+        "electricterrain",
+        "thunderbolt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "attack": 15,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 6,
+        "special_attack": 252
+      }
+    },
+    {
+      "species": "blaziken",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "speedboost",
+      "heldItem": "cobblemon:focus_sash",
+      "moveset": [
+        "flareblitz",
+        "closecombat",
+        "swordsdance",
+        "bravebird"
+      ],
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 10,
+        "attack": 252,
+        "speed": 248
+      }
+    }
+  ],
+  "ai": {
+    "type": "cobbleverse",
+    "data": {
+      "canTera": false,
+      "officialEntry": true
+    }
+  }
+}

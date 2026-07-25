@@ -1,0 +1,196 @@
+{
+  "name": "Lorelei",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "ninetales",
+      "gender": "FEMALE",
+      "level": 60,
+      "nature": "timid",
+      "ability": "snowwarning",
+      "moveset": [
+        "auroraveil",
+        "freezedry",
+        "moonblast",
+        "encore"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 50,
+        "spa": 6,
+        "spe": 252,
+        "attack": 0,
+        "defence": 100,
+        "special_defence": 100
+      },
+      "heldItem": "light_clay",
+      "aspects": [
+        "alolan"
+      ]
+    },
+    {
+      "species": "cloyster",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "jolly",
+      "ability": "skilllink",
+      "moveset": [
+        "waterfall",
+        "iciclespear",
+        "rockblast",
+        "shellsmash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "kings_rock"
+    },
+    {
+      "species": "mamoswine",
+      "gender": "FEMALE",
+      "level": 60,
+      "nature": "adamant",
+      "ability": "thickfat",
+      "moveset": [
+        "highhorsepower",
+        "rockslide",
+        "iceshard",
+        "fissure"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "defence": 6
+      },
+      "heldItem": "sitrus_berry",
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "weavile",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "jolly",
+      "ability": "pressure",
+      "moveset": [
+        "tripleaxel",
+        "iceshard",
+        "nightslash",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "attack": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "lapras",
+      "gender": "FEMALE",
+      "level": 60,
+      "nature": "adamant",
+      "ability": "shellarmor",
+      "moveset": [
+        "freezedry",
+        "sparklingaria",
+        "thunder",
+        "sheercold"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "special_defence": 252,
+        "defence": 6
+      },
+      "heldItem": "leftovers",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      }
+    },
+    {
+      "species": "froslass",
+      "gender": "FEMALE",
+      "level": 60,
+      "nature": "timid",
+      "ability": "cursedbody",
+      "moveset": [
+        "blizzard",
+        "shadowball",
+        "thunderbolt",
+        "willowisp"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "mega_showdown:froslassite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "mamoswine"
+    }
+  }
+}

@@ -1,0 +1,177 @@
+{
+  "name": "Lt. Surge",
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "magnemite",
+      "gender": "MALE",
+      "level": 30,
+      "nature": "modest",
+      "ability": "sturdy",
+      "moveset": [
+        "chargebeam",
+        "magnetrise",
+        "gyroball",
+        "thunderwave"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 100,
+        "spa": 100,
+        "spe": 4
+      }
+    },
+    {
+      "species": "dedenne",
+      "gender": "MALE",
+      "level": 30,
+      "nature": "timid",
+      "ability": "cheekpouch",
+      "moveset": [
+        "charm",
+        "swift",
+        "nuzzle",
+        "thundershock"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 50,
+        "special_attack": 50,
+        "speed": 50
+      }
+    },
+    {
+      "species": "electabuzz",
+      "gender": "MALE",
+      "level": 30,
+      "nature": "hasty",
+      "ability": "static",
+      "moveset": [
+        "shockwave",
+        "swift",
+        "voltswitch",
+        "quickattack"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {
+        "hp": 100,
+        "atk": 100,
+        "spa": 100,
+        "spe": 40
+      },
+      "heldItem": "quick_claw"
+    },
+    {
+      "species": "voltorb",
+      "gender": "MALE",
+      "level": 30,
+      "nature": "jolly",
+      "ability": "soundproof",
+      "moveset": [
+        "chargebeam",
+        "bulletseed",
+        "rollout",
+        "swift"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 20,
+        "spd": 20,
+        "spe": 20
+      },
+      "evs": {
+        "hp": 50,
+        "atk": 50,
+        "spe": 252
+      },
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "blitzle",
+      "level": 30,
+      "gender": "MALE",
+      "nature": "jolly",
+      "ability": "lightningrod",
+      "ivs": {
+        "hp": 10,
+        "attack": 10,
+        "defence": 10,
+        "special_attack": 10,
+        "special_defence": 10,
+        "speed": 10
+      },
+      "moveset": [
+        "flamecharge",
+        "spark",
+        "quickattack",
+        "voltswitch"
+      ]
+    },
+    {
+      "species": "raichu",
+      "level": 30,
+      "gender": "MALE",
+      "nature": "timid",
+      "ability": "static",
+      "evs": {
+        "hp": 4,
+        "special_attack": 252,
+        "speed": 252
+      },
+      "ivs": {
+        "hp": 20,
+        "attack": 20,
+        "defence": 20,
+        "special_attack": 20,
+        "special_defence": 20,
+        "speed": 20
+      },
+      "moveset": [
+        "quickattack",
+        "chargebeam",
+        "irontail",
+        "thunderwave"
+      ],
+      "heldItem": "wise_glasses"
+    }
+  ]
+}

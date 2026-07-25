@@ -1,0 +1,108 @@
+{
+  "name": "Friendly Coach",
+  "team": [
+    {
+      "species": "lechonk",
+      "gender": "MALE",
+      "level": 2,
+      "nature": "jolly",
+      "ability": "gluttony",
+      "moveset": [
+        "disarmingvoice",
+        "tailwhip",
+        "tackle"
+      ],
+      "ivs": {
+        "hp": 3,
+        "atk": 3,
+        "def": 3,
+        "spa": 3,
+        "spd": 3,
+        "spe": 3
+      },
+      "evs": {
+        "hp": 2,
+        "atk": 20,
+        "spe": 20
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "cleffa",
+      "gender": "FEMALE",
+      "level": 5,
+      "nature": "jolly",
+      "ability": "cutecharm",
+      "moveset": [
+        "sing",
+        "pound",
+        "copycat"
+      ],
+      "ivs": {
+        "hp": 3,
+        "atk": 3,
+        "def": 3,
+        "spa": 3,
+        "spd": 3,
+        "spe": 3
+      },
+      "evs": {
+        "hp": 2,
+        "atk": 20,
+        "spe": 20
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "caterpie",
+      "gender": "MALE",
+      "level": 5,
+      "nature": "rash",
+      "ability": "shielddust",
+      "moveset": [
+        "tackle",
+        "stringshot"
+      ],
+      "ivs": {
+        "hp": 3,
+        "atk": 3,
+        "def": 3,
+        "spa": 3,
+        "spd": 3,
+        "spe": 3
+      },
+      "evs": {
+        "hp": 2,
+        "atk": 20,
+        "spe": 20
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "zubat",
+      "gender": "FEMALE",
+      "level": 5,
+      "nature": "naive",
+      "ability": "innerfocus",
+      "moveset": [
+        "astonish",
+        "supersonic",
+        "absorb"
+      ],
+      "ivs": {
+        "hp": 3,
+        "atk": 3,
+        "def": 3,
+        "spa": 3,
+        "spd": 3,
+        "spe": 3
+      },
+      "evs": {
+        "hp": 2,
+        "atk": 20,
+        "spe": 20
+      },
+      "heldItem": "choice_scarf"
+    }
+  ]
+}

@@ -1,0 +1,179 @@
+{
+  "name": "Sabrina",
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "mrmime",
+      "level": 45,
+      "gender": "MALE",
+      "nature": "calm",
+      "ability": "filter",
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 4
+      },
+      "ivs": {
+        "hp": 10,
+        "attack": 10,
+        "defence": 10,
+        "special_attack": 10,
+        "special_defence": 10,
+        "speed": 10
+      },
+      "moveset": [
+        "psychic",
+        "lightscreen",
+        "reflect",
+        "encore"
+      ],
+      "heldItem": "light_clay"
+    },
+    {
+      "species": "exeggutor",
+      "level": 45,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "harvest",
+      "evs": {
+        "hp": 252,
+        "defence": 128,
+        "special_defence": 128
+      },
+      "ivs": {
+        "hp": 20,
+        "defence": 20,
+        "special_defence": 20
+      },
+      "moveset": [
+        "psyshock",
+        "seedbomb",
+        "leechseed",
+        "hypnosis"
+      ],
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "bronzong",
+      "level": 45,
+      "gender": "GENDERLESS",
+      "nature": "impish",
+      "ability": "heatproof",
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 4
+      },
+      "ivs": {
+        "hp": 10,
+        "attack": 10,
+        "defence": 10,
+        "special_attack": 10,
+        "special_defence": 10,
+        "speed": 10
+      },
+      "moveset": [
+        "gyroball",
+        "psychic",
+        "stealthrock",
+        "ancientpower"
+      ],
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "jynx",
+      "level": 45,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "oblivious",
+      "evs": {
+        "special_attack": 252,
+        "special_defence": 4,
+        "speed": 252
+      },
+      "ivs": {
+        "hp": 10,
+        "attack": 10,
+        "defence": 10,
+        "special_attack": 10,
+        "special_defence": 10,
+        "speed": 10
+      },
+      "moveset": [
+        "lovelykiss",
+        "icebeam",
+        "psychic",
+        "iceshard"
+      ],
+      "heldItem": "wise_glasses"
+    },
+    {
+      "species": "gardevoir",
+      "level": 45,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "synchronize",
+      "evs": {
+        "hp": 4,
+        "special_attack": 252,
+        "speed": 252
+      },
+      "ivs": {
+        "hp": 10,
+        "attack": 10,
+        "defence": 10,
+        "special_attack": 10,
+        "special_defence": 10,
+        "speed": 10
+      },
+      "moveset": [
+        "drainingkiss",
+        "psychic",
+        "calmmind",
+        "energyball"
+      ],
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "alakazam",
+      "level": 45,
+      "gender": "FEMALE",
+      "nature": "timid",
+      "ability": "synchronize",
+      "evs": {
+        "hp": 4,
+        "special_attack": 252,
+        "speed": 252
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "moveset": [
+        "psychic",
+        "shadowball",
+        "chargebeam",
+        "psyshock"
+      ],
+      "heldItem": "mega_showdown:alakazite"
+    }
+  ]
+}

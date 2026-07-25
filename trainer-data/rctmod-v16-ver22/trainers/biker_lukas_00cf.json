@@ -1,0 +1,68 @@
+{
+  "name": "Biker Lukas",
+  "team": [
+    {
+      "species": "toxicroak",
+      "gender": "MALE",
+      "level": 57,
+      "nature": "lonely",
+      "ability": "dryskin",
+      "moveset": [
+        "smokescreen",
+        "drainpunch",
+        "poisonjab",
+        "suckerpunch"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "dragalge",
+      "gender": "MALE",
+      "level": 57,
+      "nature": "naive",
+      "ability": "poisontouch",
+      "moveset": [
+        "smokescreen",
+        "sludgebomb",
+        "dragonpulse"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "weezing",
+      "gender": "MALE",
+      "level": 57,
+      "nature": "jolly",
+      "ability": "neutralizinggas",
+      "moveset": [
+        "smokescreen",
+        "explosion"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

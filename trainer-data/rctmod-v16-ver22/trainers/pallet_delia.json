@@ -1,0 +1,47 @@
+{
+  "name": "Delia",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 2
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "mrmime",
+      "gender": "MALE",
+      "level": 25,
+      "nature": "brave",
+      "ability": "filter",
+      "moveset": [
+        "protect",
+        "pound",
+        "psychic",
+        "shadowball"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "atk": 252
+      },
+      "heldItem": "leftovers"
+    }
+  ]
+}

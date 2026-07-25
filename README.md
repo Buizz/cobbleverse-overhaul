@@ -16,16 +16,18 @@
 - [세대 월드 8지역 및 체육관 도시 생성](docs/implementation/WORLD_GENERATION.md)
 - [도시 포맷과 세대별 특수 시설](docs/implementation/CITY_FACILITIES.md)
 - [Cobbleverse Battle AI 프로젝트](projects/cobbleverse-battle-ai/README.md)
+- [트레이너 JSON 예제 데이터](trainer-data/README.md)
 
 ## 현재 저장소 범위
 
-현재는 기획 문서와 플랫폼 독립 전투 AI의 초기 프로젝트 골격을 관리합니다. Minecraft·Cobblemon 연동 모드, 설정 오버레이, 구조물 및 리소스는 대상 버전을 확정한 뒤 추가합니다.
+현재는 기획 문서, 플랫폼 독립 전투 AI의 초기 프로젝트 골격과 트레이너 JSON 예제 데이터를 관리합니다. Minecraft·Cobblemon 연동 모드, 설정 오버레이, 구조물 및 리소스는 대상 버전을 확정한 뒤 추가합니다.
 
 향후 구현 단계에서는 필요에 따라 다음 영역을 추가할 예정입니다.
 
 ```text
 core/               확장 코어 모드 소스
 content/            트레이너·진행·보상 등 데이터
+trainer-data/       외부 트레이너 JSON 원본 예제
 config-overrides/   기존 모드 설정 변경분
 structures/         체육관 도시 구조물 원본
 resources/          텍스처·번역·사운드 등 자체 리소스

@@ -1,0 +1,164 @@
+{
+  "name": "Rocco",
+  "battleFormat": "GEN_9_SINGLES",
+  "team": [
+    {
+      "species": "claydol",
+      "gender": "GENDERLESS",
+      "level": 70,
+      "nature": "impish",
+      "ability": "levitate",
+      "moveset": [
+        "lightscreen",
+        "reflect",
+        "explosion",
+        "gyroball"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 128,
+        "special_defence": 128
+      },
+      "heldItem": "light_clay"
+    },
+    {
+      "species": "metagross",
+      "gender": "GENDERLESS",
+      "level": 80,
+      "nature": "adamant",
+      "ability": "clearbody",
+      "moveset": [
+        "psychicfangs",
+        "meteormash",
+        "earthquake",
+        "icepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spe": 6,
+        "special_defence": 0
+      },
+      "heldItem": "weakness_policy"
+    },
+    {
+      "species": "groudon",
+      "gender": "GENDERLESS",
+      "level": 75,
+      "nature": "jolly",
+      "ability": "desolateland",
+      "moveset": [
+        "precipiceblades",
+        "firepunch",
+        "dragonclaw",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 124,
+        "def": 4,
+        "spd": 4,
+        "attack": 220,
+        "speed": 156
+      },
+      "aspects": [
+        "primal"
+      ],
+      "heldItem": [
+        "mega_showdown:red_orb"
+      ]
+    },
+    {
+      "species": "kyogre",
+      "gender": "GENDERLESS",
+      "level": 75,
+      "nature": "bold",
+      "ability": "primordialsea",
+      "moveset": [
+        "originpulse",
+        "icebeam",
+        "thunder",
+        "calmmind"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 148,
+        "special_attack": 108
+      },
+      "aspects": [
+        "primal"
+      ],
+      "heldItem": [
+        "mega_showdown:blue_orb"
+      ]
+    },
+    {
+      "species": "rayquaza",
+      "shiny": "true",
+      "gender": "GENDERLESS",
+      "level": 77,
+      "nature": "adamant",
+      "ability": "deltastream",
+      "moveset": [
+        "dragonascent",
+        "dragondance",
+        "extremespeed",
+        "overheat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "hp": 6,
+        "speed": 252
+      },
+      "aspects": [
+        "mega"
+      ],
+      "heldItem": "life_orb"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "name": "Vale_Fragola",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 3
+  },
+  "bag": [
+    {
+      "item": "cobblemon:remedy",
+      "quantity": 3
+    }
+  ],
+  "team": [
+    {
+      "species": "cubchoo",
+      "gender": "MALE",
+      "level": 40,
+      "nature": "lonely",
+      "ability": "snowcloak",
+      "moveset": [
+        "frostbreath",
+        "rest",
+        "icywind",
+        "slash"
+      ],
+      "ivs": {
+        "hp": 26,
+        "atk": 26,
+        "def": 26,
+        "spa": 26,
+        "spd": 26,
+        "spe": 26
+      },
+      "evs": {
+        "hp": 230,
+        "spa": 230,
+        "spe": 6
+      },
+      "heldItem": "shell_bell"
+    },
+    {
+      "species": "vanillish",
+      "gender": "MALE",
+      "level": 45,
+      "nature": "brave",
+      "ability": "icebody",
+      "moveset": [
+        "avalanche",
+        "iciclespear",
+        "mirrorshot",
+        "astonish"
+      ],
+      "ivs": {
+        "hp": 26,
+        "atk": 26,
+        "def": 26,
+        "spa": 26,
+        "spd": 26,
+        "spe": 26
+      },
+      "evs": {
+        "hp": 4,
+        "spe": 40
+      },
+      "heldItem": "never_melt_ice"
+    }
+  ]
+}

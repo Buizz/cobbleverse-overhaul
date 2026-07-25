@@ -1,0 +1,158 @@
+{
+  "name": "Ace Trainer George",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 5
+  },
+  "bag": [
+    {
+      "item": "cobblemon:hyper_potion",
+      "quantity": 2
+    }
+  ],
+  "team": [
+    {
+      "species": "exeggutor",
+      "gender": "FEMALE",
+      "level": 83,
+      "nature": "modest",
+      "ability": "chlorophyll",
+      "moveset": [
+        "sleeppowder",
+        "gigadrain",
+        "dragonpulse",
+        "flamethrower"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 252,
+        "spe": 6
+      },
+      "heldItem": "miracle_seed",
+      "aspects": [
+        "alolan"
+      ]
+    },
+    {
+      "species": "donphan",
+      "gender": "FEMALE",
+      "level": 84,
+      "nature": "adamant",
+      "ability": "technician",
+      "moveset": [
+        "bonemerang",
+        "iceshard",
+        "rockblast",
+        "knockoff"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spe": 6
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "cloyster",
+      "gender": "MALE",
+      "level": 84,
+      "nature": "jolly",
+      "ability": "skilllink",
+      "moveset": [
+        "rockblast",
+        "iciclespear",
+        "liquidation",
+        "shellsmash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "white_herb"
+    },
+    {
+      "species": "darmanitan",
+      "gender": "FEMALE",
+      "level": 84,
+      "nature": "hardy",
+      "ability": "sheerforce",
+      "moveset": [
+        "flareblitz",
+        "workup",
+        "superpower",
+        "knockoff"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "pinsir",
+      "gender": "FEMALE",
+      "level": 84,
+      "nature": "jolly",
+      "ability": "moldbreaker",
+      "moveset": [
+        "quickattack",
+        "xscissor",
+        "doubleedge",
+        "closecombat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    }
+  ]
+}

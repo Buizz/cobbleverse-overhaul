@@ -1,0 +1,52 @@
+{
+  "name": "Leader Max",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 6
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 6
+    }
+  ],
+  "team": [
+    {
+      "species": "groudon",
+      "gender": "GENDERLESS",
+      "level": 75,
+      "nature": "careful",
+      "ability": "drought",
+      "moveset": [
+        "firepunch",
+        "precipiceblades",
+        "thunderwave",
+        "stoneedge"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 4,
+        "spd": 252
+      },
+      "heldItem": [
+        "mega_showdown:red_orb"
+      ],
+      "aspects": [
+        "primal"
+      ]
+    }
+  ]
+}

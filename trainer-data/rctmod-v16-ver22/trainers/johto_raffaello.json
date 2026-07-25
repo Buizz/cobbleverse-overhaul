@@ -1,0 +1,189 @@
+{
+  "name": "Raffaello",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "galvantula",
+      "gender": "FEMALE",
+      "level": 75,
+      "nature": "timid",
+      "ability": "compoundeyes",
+      "moveset": [
+        "stickyweb",
+        "thunder",
+        "bugbuzz",
+        "thunderwave"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spe": 252,
+        "spa": 252,
+        "hp": 6
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "vivillon",
+      "gender": "FEMALE",
+      "level": 75,
+      "nature": "timid",
+      "ability": "compoundeyes",
+      "moveset": [
+        "sleeppowder",
+        "quiverdance",
+        "hurricane",
+        "substitute"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "pheromosa",
+      "gender": "GENDERLESS",
+      "level": 75,
+      "nature": "naive",
+      "ability": "beastboost",
+      "moveset": [
+        "highjumpkick",
+        "uturn",
+        "icebeam",
+        "drillrun"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "spe": 252,
+        "atk": 252
+      },
+      "heldItem": [
+        "mega_showdown:fightinium_z",
+        "fighting_gem"
+      ]
+    },
+    {
+      "species": "araquanid",
+      "gender": "MALE",
+      "level": 75,
+      "nature": "adamant",
+      "ability": "waterbubble",
+      "moveset": [
+        "liquidation",
+        "leechlife",
+        "mirrorcoat",
+        "poisonjab"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 6,
+        "atk": 252,
+        "hp": 252
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "centiskorch",
+      "level": 75,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "flashfire",
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "special_defence": 6
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "moveset": [
+        "firelash",
+        "leechlife",
+        "powerwhip",
+        "stoneedge"
+      ],
+      "heldItem": "sitrus_berry",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      }
+    },
+    {
+      "species": "scizor",
+      "level": 75,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "technician",
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "special_defence": 6
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "moveset": [
+        "bulletpunch",
+        "bugbite",
+        "closecombat",
+        "swordsdance"
+      ],
+      "heldItem": "mega_showdown:scizorite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true
+    }
+  }
+}

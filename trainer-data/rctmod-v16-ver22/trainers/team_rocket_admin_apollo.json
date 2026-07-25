@@ -1,0 +1,195 @@
+{
+  "name": "Apollo",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 4
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 4
+    }
+  ],
+  "team": [
+    {
+      "species": "clodsire",
+      "gender": "MALE",
+      "level": 65,
+      "nature": "calm",
+      "ability": "waterabsorb",
+      "moveset": [
+        "earthpower",
+        "sludgebomb",
+        "recover",
+        "toxic"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 252,
+        "spd": 252,
+        "hp": 6
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "sharpedo",
+      "gender": "MALE",
+      "level": 65,
+      "nature": "jolly",
+      "ability": "strongjaw",
+      "moveset": [
+        "protect",
+        "psychicfangs",
+        "crunch",
+        "poisonfang"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": ["mega_showdown:sharpedonite"],
+      "gimmicks": {
+      "dynamax": false,
+      "gmax": false,
+      "mega": true
+      }
+    },
+    {
+      "species": "glimmora",
+      "gender": "FEMALE",
+      "level": 64,
+      "nature": "jolly",
+      "ability": "toxicdebris",
+      "moveset": [
+        "sludgebomb",
+        "earthpower",
+        "dazzlinggleam",
+        "energyball"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": [
+        "life_orb"
+      ]
+    },
+    {
+      "species": "gastrodon",
+      "gender": "FEMALE",
+      "level": 64,
+      "nature": "modest",
+      "ability": "stormdrain",
+      "moveset": [
+        "earthpower",
+        "surf",
+        "sludgebomb",
+        "scald"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spd": 6,
+        "hp": 252,
+        "spa": 252
+      },
+      "heldItem": [
+        "leftovers"
+      ]
+    },
+    {
+      "species": "hippowdon",
+      "gender": "MALE",
+      "level": 65,
+      "nature": "jolly",
+      "ability": "sandstream",
+      "moveset": [
+        "earthquake",
+        "stoneedge",
+        "muddywater",
+        "crunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": [
+        "leftovers"
+      ]
+    },
+    {
+    "species": "drapion",
+    "gender": "MALE",
+    "level": 66,
+    "nature": "adamant",
+    "ability": "sniper",
+    "moveset": [
+      "earthquake",
+      "swordsdance",
+      "poisonjab",
+      "nightslash"
+    ],
+    "ivs": {
+      "hp": 31,
+      "atk": 31,
+      "def": 31,
+      "spa": 31,
+      "spd": 31,
+      "spe": 31
+    },
+    "evs": {
+      "hp": 4,
+      "atk": 252,
+      "spe": 252
+    },
+    "heldItem": [
+      "leftovers"
+  ]
+  }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "name": "Team Rocket Grunt",
+  "team": [
+    {
+      "species": "crawdaunt",
+      "gender": "MALE",
+      "level": 47,
+      "nature": "docile",
+      "ability": "battlearmor",
+      "moveset": [
+        "scaryface",
+        "crabhammer",
+        "crunch",
+        "aquajet"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "mightyena",
+      "gender": "FEMALE",
+      "level": 46,
+      "nature": "lonely",
+      "ability": "strongjaw",
+      "moveset": [
+        "smokescreen",
+        "crunch",
+        "icefang",
+        "firefang"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "drapion",
+      "gender": "MALE",
+      "level": 47,
+      "nature": "naughty",
+      "ability": "sniper",
+      "moveset": [
+        "wingattack",
+        "crunch",
+        "poisonjab",
+        "aquatail"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    }
+  ]
+}

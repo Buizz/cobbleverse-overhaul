@@ -1,0 +1,73 @@
+{
+  "name": "Edo_Leone",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 2
+  },
+  "bag": [
+    {
+      "item": "cobblemon:hyper_potion",
+      "quantity": 2
+    }
+  ],
+  "team": [
+    {
+      "species": "sirfetchd",
+      "gender": "MALE",
+      "level": 50,
+      "nature": "modest",
+      "ability": "steadfast",
+      "moveset": [
+        "firstimpression",
+        "brickbreak",
+        "furycutter",
+        "leer"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 252,
+        "spe": 6
+      },
+      "heldItem": "medicinal_leek"
+    },
+    {
+      "species": "snorlax",
+      "gender": "MALE",
+      "level": 48,
+      "nature": "naughty",
+      "ability": "immunity",
+      "moveset": [
+        "rest",
+        "tackle",
+        "rollout",
+        "bodyslam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "spe": 40
+      },
+      "heldItem": "chesto_berry"
+    }
+  ]
+}

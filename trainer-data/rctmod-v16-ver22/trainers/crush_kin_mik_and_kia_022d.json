@@ -1,0 +1,114 @@
+{
+  "name": "Crush Kin Mik \u0026 Kia",
+  "battleFormat": "GEN_9_DOUBLES",
+  "team": [
+    {
+      "species": "infernape",
+      "gender": "FEMALE",
+      "level": 92,
+      "nature": "jolly",
+      "ability": "blaze",
+      "moveset": [
+        "fakeout",
+        "pyroball",
+        "closecombat",
+        "thunderpunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 30,
+        "def": 31,
+        "spa": 30,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "medicham",
+      "gender": "FEMALE",
+      "level": 92,
+      "nature": "naughty",
+      "ability": "purepower",
+      "moveset": [
+        "axekick",
+        "forcepalm",
+        "psybeam",
+        "icepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "spd": 4
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "metagross",
+      "gender": "GENDERLESS",
+      "level": 92,
+      "nature": "jolly",
+      "ability": "clearbody",
+      "moveset": [
+        "meteormash",
+        "zenheadbutt",
+        "icepunch",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "lycanroc",
+      "gender": "FEMALE",
+      "level": 92,
+      "nature": "jolly",
+      "ability": "toughclaws",
+      "moveset": [
+        "stoneedge",
+        "closecombat",
+        "accelerock",
+        "psychicfangs"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    }
+  ]
+}

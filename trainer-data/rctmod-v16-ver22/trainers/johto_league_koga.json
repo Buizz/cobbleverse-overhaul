@@ -1,0 +1,193 @@
+{
+  "name": "Koga",
+  "battleRules": {
+    "maxItemUses": 1
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "glimmora",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "timid",
+      "ability": "toxicdebris",
+      "moveset": [
+        "stealthrock",
+        "toxicspikes",
+        "earthpower",
+        "toxic"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 6,
+        "speed": 252
+      },
+      "heldItem": "sitrus_berry"
+    },
+    {
+      "species": "muk",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "brave",
+      "ability": "poisontouch",
+      "moveset": [
+        "knockoff",
+        "poisonjab",
+        "shadowsneak",
+        "drainpunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 244,
+        "atk": 180,
+        "special_defence": 84
+      },
+      "heldItem": "assault_vest",
+      "aspects": [
+        "mega"
+      ]
+    },
+    {
+      "species": "sneasler",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "unburden",
+      "moveset": [
+        "direclaw",
+        "firepunch",
+        "closecombat",
+        "acrobatics"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "hp": 6,
+        "speed": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "ironmoth",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "timid",
+      "ability": "quarkdrive",
+      "moveset": [
+        "fierydance",
+        "sludgewave",
+        "energyball",
+        "dazzlinggleam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "mega_showdown:booster_energy",
+      "gimmicks": {
+        "tera": "steel"
+      }
+    },
+    {
+      "species": "pecharunt",
+      "gender": "GENDERLESS",
+      "level": 100,
+      "nature": "calm",
+      "ability": "poisonpuppeteer",
+      "moveset": [
+        "malignantchain",
+        "hex",
+        "recover",
+        "partingshot"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "def": 252,
+        "spd": 252
+      },
+      "heldItem": "maranga_berry"
+    },
+    {
+      "species": "venusaur",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "calm",
+      "ability": "overgrow",
+      "moveset": [
+        "gigadrain",
+        "sludgebomb",
+        "leechseed",
+        "earthpower"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spd": 92,
+        "defence": 164
+      },
+      "heldItem": "leftovers",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "ironmoth"
+    }
+  }
+}

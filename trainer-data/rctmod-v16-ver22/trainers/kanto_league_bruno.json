@@ -1,0 +1,187 @@
+{
+  "name": "Bruno",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "breloom",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "jolly",
+      "ability": "technician",
+      "moveset": [
+        "machpunch",
+        "spore",
+        "bulletseed",
+        "rocktomb"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "annihilape",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "adamant",
+      "ability": "defiant",
+      "moveset": [
+        "ragefist",
+        "drainpunch",
+        "stealthrock",
+        "knockoff"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "special_defence": 116,
+        "defence": 140
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "machamp",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "adamant",
+      "ability": "noguard",
+      "moveset": [
+        "dynamicpunch",
+        "knockoff",
+        "bulletpunch",
+        "icepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252
+      },
+      "heldItem": "assault_vest"
+    },
+    {
+      "species": "gallade",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "jolly",
+      "ability": "sharpness",
+      "moveset": [
+        "psychocut",
+        "sacredsword",
+        "leafblade",
+        "shadowsneak"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": [
+        "mega_showdown:fightinium_z",
+        "fighting_gem"
+      ]
+    },
+    {
+      "species": "urshifu",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "adamant",
+      "ability": "unseenfist",
+      "moveset": [
+        "surgingstrikes",
+        "drainpunch",
+        "bulkup",
+        "aquajet"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "punching_glove",
+      "aspects": [
+        "rapid_strike-style"
+      ]
+    },
+    {
+      "species": "heracross",
+      "gender": "MALE",
+      "level": 60,
+      "nature": "adamant",
+      "ability": "innerfocus",
+      "moveset": [
+        "pinmissile",
+        "rockblast",
+        "bulletseed",
+        "closecombat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "defence": 6
+      },
+      "heldItem": "mega_showdown:heracronite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  }
+}

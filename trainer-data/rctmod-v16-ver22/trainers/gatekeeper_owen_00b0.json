@@ -1,0 +1,174 @@
+{
+  "name": "Gatekeeper Owen",
+  "team": [
+    {
+      "species": "meloetta",
+      "gender": "GENDERLESS",
+      "level": 92,
+      "nature": "jolly",
+      "ability": "serenegrace",
+      "moveset": [
+        "uturn",
+        "bodyslam",
+        "closecombat",
+        "rockslide"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "def": 4,
+        "spe": 252
+      },
+      "heldItem": "life_orb",
+      "aspects": [
+        "pirouette"
+      ]
+    },
+    {
+      "species": "mew",
+      "gender": "GENDERLESS",
+      "level": 93,
+      "nature": "timid",
+      "ability": "synchronize",
+      "moveset": [
+        "psychic",
+        "flamethrower",
+        "aurasphere",
+        "icebeam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 4,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "psychic_gem"
+    },
+    {
+      "species": "kingler",
+      "gender": "FEMALE",
+      "level": 92,
+      "nature": "jolly",
+      "ability": "hypercutter",
+      "moveset": [
+        "crabhammer",
+        "ironhead",
+        "aquajet",
+        "closecombat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "volcanion",
+      "gender": "GENDERLESS",
+      "level": 93,
+      "nature": "quiet",
+      "ability": "waterabsorb",
+      "moveset": [
+        "hydropump",
+        "incinerate",
+        "overheat",
+        "scald"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 244,
+        "atk": 12,
+        "spa": 252
+      },
+      "heldItem": "leftovers",
+      "aspects": [
+        "origin"
+      ]
+    },
+    {
+      "species": "alakazam",
+      "gender": "FEMALE",
+      "level": 93,
+      "nature": "lax",
+      "ability": "synchronize",
+      "moveset": [
+        "psyshock",
+        "telekinesis",
+        "futuresight",
+        "reflect"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 252,
+        "spd": 4
+      }
+    },
+    {
+      "species": "archaludon",
+      "gender": "FEMALE",
+      "level": 93,
+      "nature": "timid",
+      "ability": "stamina",
+      "moveset": [
+        "metalclaw",
+        "dragonclaw",
+        "dragontail",
+        "breakingswipe"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "spd": 4,
+        "spe": 252
+      },
+      "heldItem": "life_orb",
+      "aspects": [
+        "sevii"
+      ]
+    }
+  ]
+}

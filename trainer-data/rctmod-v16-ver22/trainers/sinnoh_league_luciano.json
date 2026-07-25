@@ -1,0 +1,121 @@
+{
+  "name": "Luciano",
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  },
+  "team": [
+    {
+      "species": "arceus",
+      "gender": "MALE",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "magicguard",
+      "moveset": [
+        "extremespeed",
+        "earthquake",
+        "shadowclaw",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 52,
+        "spe": 4,
+        "attack": 252
+      },
+      "heldItem": "life_orb"
+    },
+    {
+      "species": "ditto",
+      "gender": "GENDERLESS",
+      "level": 110,
+      "nature": "serious",
+      "ability": "imposter",
+      "moveset": [
+        "transform"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spd": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 128,
+        "special_defence": 128
+      },
+      "heldItem": "choice_scarf"
+    },
+    {
+      "species": "zygarde",
+      "gender": "UNKNNWN",
+      "level": 100,
+      "nature": "timid",
+      "ability": "aurabreak",
+      "moveset": [
+        "coreenforcer",
+        "thousandwaves",
+        "sludgewave",
+        "extremespeed"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spd": 31,
+        "spe": 31,
+        "spa": 31
+      },
+      "evs": {
+        "hp": 252,
+        "special_attack": 252
+      },
+      "heldItem": "zamega:zygardite",
+      "aspects": [
+        "complete-percent",
+        "mega"
+      ]
+    },
+    {
+      "species": "necrozma",
+      "gender": "UNKNNWN",
+      "level": 110,
+      "nature": "jolly",
+      "ability": "prismarmor",
+      "moveset": [
+        "photongeyser",
+        "outrage",
+        "earthquake",
+        "sunsteelstrike"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spd": 31,
+        "spe": 31,
+        "spa": 31
+      },
+      "evs": {
+        "hp": 20,
+        "atk": 252,
+        "spe": 228,
+        "defence": 4,
+        "special_defence": 4
+      },
+      "heldItem": "ultranecrozium_z",
+      "aspects": [
+        "ultra-fusion"
+      ]
+    }
+  ]
+}

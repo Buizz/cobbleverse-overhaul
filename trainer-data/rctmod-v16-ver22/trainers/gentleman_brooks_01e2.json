@@ -1,0 +1,74 @@
+{
+  "name": "Gentleman Brooks",
+  "team": [
+    {
+      "species": "dartrix",
+      "gender": "FEMALE",
+      "level": 90,
+      "nature": "modest",
+      "ability": "tintedlens",
+      "moveset": [
+        "shadowsneak",
+        "grasspledge",
+        "airslash",
+        "hiddenpower"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 30,
+        "def": 31,
+        "spa": 30,
+        "spd": 31,
+        "spe": 30
+      },
+      "evs": {},
+      "heldItem": "miracle_seed"
+    },
+    {
+      "species": "meowscarada",
+      "gender": "FEMALE",
+      "level": 92,
+      "nature": "timid",
+      "ability": "overgrow",
+      "moveset": [
+        "energyball",
+        "seedbomb",
+        "leafstorm",
+        "bite"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 30,
+        "def": 31,
+        "spa": 30,
+        "spd": 31,
+        "spe": 30
+      },
+      "evs": {},
+      "heldItem": "miracle_seed"
+    },
+    {
+      "species": "wigglytuff",
+      "gender": "MALE",
+      "level": 90,
+      "nature": "modest",
+      "ability": "sheerforce",
+      "moveset": [
+        "drainingkiss",
+        "shockwave",
+        "round",
+        "incinerate"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {},
+      "heldItem": "life_orb"
+    }
+  ]
+}

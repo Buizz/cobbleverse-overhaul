@@ -1,0 +1,197 @@
+{
+  "name": "Alfredo",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "vanilluxe",
+      "gender": "MALE",
+      "level": 90,
+      "nature": "calm",
+      "ability": "snowwarning",
+      "moveset": [
+        "auroraveil",
+        "explosion",
+        "sheercold",
+        "blizzard"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spe": 252,
+        "atk": 252,
+        "hp": 4
+      },
+      "heldItem": "icy_rock"
+    },
+    {
+      "species": "arctovish",
+      "gender": "MALE",
+      "level": 90,
+      "nature": "adamant",
+      "ability": "slushrush",
+      "moveset": [
+        "fishiousrend",
+        "iciclespear",
+        "ironhead",
+        "freezedry"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "attack": 252,
+        "speed": 252
+      },
+      "heldItem": "weakness_policy"
+    },
+    {
+      "species": "mamoswine",
+      "gender": "MALE",
+      "level": 90,
+      "nature": "adamant",
+      "ability": "thickfat",
+      "moveset": [
+        "earthquake",
+        "iceshard",
+        "knockoff",
+        "terablast"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spd": 4,
+        "atk": 252,
+        "hp": 28,
+        "defence": 84,
+        "speed": 140
+      },
+      "heldItem": "assault_vest",
+      "gimmicks": {
+        "tera": "fairy"
+      }
+    },
+    {
+      "species": "articuno",
+      "gender": "GENDERLESS",
+      "level": 90,
+      "nature": "modest",
+      "ability": "snowcloak",
+      "moveset": [
+        "freezedry",
+        "blizzard",
+        "hurricane",
+        "substitute"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "def": 252,
+        "hp": 4
+      },
+      "heldItem": "bright_powder"
+    },
+    {
+      "species": "darmanitan",
+      "gender": "MALE",
+      "level": 90,
+      "nature": "adamant",
+      "ability": "gorillatactics",
+      "moveset": [
+        "iciclecrash",
+        "flareblitz",
+        "uturn",
+        "zenheadbutt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "attack": 252
+      },
+      "heldItem": "choice_scarf",
+      "aspects": [
+        "standard-mode",
+        "galarian"
+      ]
+    },
+    {
+      "species": "glastrier",
+      "level": 90,
+      "gender": "GENDERLESS",
+      "nature": "adamant",
+      "ability": "chillingneigh",
+      "evs": {
+        "hp": 204,
+        "attack": 252,
+        "special_defence": 4,
+        "speed": 44
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "moveset": [
+        "iciclespear",
+        "closecombat",
+        "highhorsepower",
+        "swordsdance"
+      ],
+      "heldItem": "cobblemon:custap_berry",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "mamoswine"
+    }
+  }
+}

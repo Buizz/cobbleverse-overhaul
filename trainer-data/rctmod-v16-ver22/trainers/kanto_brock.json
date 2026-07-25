@@ -1,0 +1,168 @@
+{
+  "name": "Brock",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "geodude",
+      "gender": "MALE",
+      "level": 20,
+      "nature": "bashful",
+      "ability": "sturdy",
+      "moveset": [
+        "tackle",
+        "rollout",
+        "protect",
+        "bulldoze"
+      ],
+      "ivs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spa": 0,
+        "spd": 0,
+        "spe": 0
+      },
+      "evs": {
+        "hp": 50,
+        "spe": 50
+      }
+    },
+    {
+      "species": "kabuto",
+      "gender": "MALE",
+      "level": 20,
+      "nature": "adamant",
+      "ability": "swiftswim",
+      "moveset": [
+        "scratch",
+        "harden",
+        "mudslap",
+        "waterpulse"
+      ],
+      "ivs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spa": 0,
+        "spd": 0,
+        "spe": 0
+      },
+      "evs": {
+        "hp": 50,
+        "spe": 50
+      }
+    },
+    {
+      "species": "lileep",
+      "gender": "MALE",
+      "level": 20,
+      "nature": "calm",
+      "ability": "storm_drain",
+      "moveset": [
+        "absorb",
+        "acid",
+        "ingrain",
+        "tackle"
+      ],
+      "ivs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spa": 0,
+        "spd": 0,
+        "spe": 0
+      },
+      "evs": {
+        "hp": 100
+      }
+    },
+    {
+      "species": "bonsly",
+      "gender": "FEMALE",
+      "level": 20,
+      "nature": "careful",
+      "ability": "sturdy",
+      "moveset": [
+        "rockthrow",
+        "block",
+        "rocktomb",
+        "mimic"
+      ],
+      "ivs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spa": 0,
+        "spd": 0,
+        "spe": 0
+      },
+      "evs": {
+        "hp": 100
+      }
+    },
+    {
+      "species": "cranidos",
+      "level": 20,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "moldbreaker",
+      "moveset": [
+        "headbutt",
+        "rocksmash",
+        "rocktomb",
+        "focusenergy"
+      ],
+      "heldItem": "oran_berry",
+      "evs": {
+        "hp": 100
+      },
+      "ivs": {
+        "hp": 0,
+        "attack": 0,
+        "defence": 0,
+        "special_attack": 0,
+        "special_defence": 0,
+        "speed": 0
+      }
+    },
+    {
+      "species": "onix",
+      "level": 20,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "rockhead",
+      "moveset": [
+        "rocktomb",
+        "fissure",
+        "bind",
+        "rockthrow"
+      ],
+      "heldItem": "grib_claw",
+      "evs": {
+        "hp": 100
+      },
+      "ivs": {
+        "hp": 0,
+        "attack": 0,
+        "defence": 0,
+        "special_attack": 0,
+        "special_defence": 0,
+        "speed": 0
+      }
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": false
+    }
+  }
+}

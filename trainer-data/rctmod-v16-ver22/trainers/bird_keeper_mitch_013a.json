@@ -1,0 +1,93 @@
+{
+  "name": "Bird Keeper Mitch",
+  "team": [
+    {
+      "species": "blaziken",
+      "gender": "FEMALE",
+      "level": 56,
+      "nature": "sassy",
+      "ability": "reckless",
+      "moveset": [
+        "triplearrows",
+        "bravebird",
+        "skyuppercut",
+        "flareblitz"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "hawlucha",
+      "gender": "MALE",
+      "level": 56,
+      "nature": "impish",
+      "ability": "unburden",
+      "moveset": [
+        "skydrop",
+        "wingattack",
+        "highjumpkick",
+        "aerialace"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "altaria",
+      "gender": "FEMALE",
+      "level": 55,
+      "nature": "careful",
+      "ability": "naturalcure",
+      "moveset": [
+        "cottonguard",
+        "dragonclaw",
+        "perishsong",
+        "moonblast"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    },
+    {
+      "species": "dartrix",
+      "gender": "FEMALE",
+      "level": 55,
+      "nature": "mild",
+      "ability": "overgrow",
+      "moveset": [
+        "leafblade",
+        "featherdance",
+        "bravebird",
+        "nastyplot"
+      ],
+      "ivs": {
+        "hp": 10,
+        "atk": 10,
+        "def": 10,
+        "spa": 10,
+        "spd": 10,
+        "spe": 10
+      },
+      "evs": {}
+    }
+  ]
+}

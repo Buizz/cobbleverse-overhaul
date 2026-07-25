@@ -1,0 +1,49 @@
+{
+  "name": "Lass Sally",
+  "team": [
+    {
+      "species": "budew",
+      "gender": "FEMALE",
+      "level": 12,
+      "nature": "timid",
+      "ability": "naturalcure",
+      "moveset": [
+        "absorb",
+        "stunspore",
+        "megadrain",
+        "worryseed"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    },
+    {
+      "species": "flabebe",
+      "gender": "FEMALE",
+      "level": 13,
+      "nature": "rash",
+      "ability": "naturalcure",
+      "moveset": [
+        "tackle",
+        "vinewhip",
+        "fairywind",
+        "luckychant"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    }
+  ]
+}

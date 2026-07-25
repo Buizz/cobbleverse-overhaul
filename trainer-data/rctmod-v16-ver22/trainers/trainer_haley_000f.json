@@ -1,0 +1,128 @@
+{
+  "name": "Trainer Haley",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 2
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 2
+    }
+  ],
+  "team": [
+    {
+      "species": "magnezone",
+      "gender": "GENDERLESS",
+      "level": 44,
+      "nature": "timid",
+      "ability": "sturdy",
+      "moveset": [
+        "voltswitch",
+        "flashcannon",
+        "hiddenpower",
+        "thunderbolt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "air_balloon"
+    },
+    {
+      "species": "hawlucha",
+      "gender": "MALE",
+      "level": 44,
+      "nature": "jolly",
+      "ability": "unburden",
+      "moveset": [
+        "skyattack",
+        "acrobatics",
+        "closecombat",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "power_herb"
+    },
+    {
+      "species": "magmortar",
+      "gender": "FEMALE",
+      "level": 44,
+      "nature": "timid",
+      "ability": "flamebody",
+      "moveset": [
+        "meteorbeam",
+        "flamethrower",
+        "steameruption",
+        "thunderbolt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "power_herb"
+    },
+    {
+      "species": "starmie",
+      "gender": "GENDERLESS",
+      "level": 44,
+      "nature": "timid",
+      "ability": "analytic",
+      "moveset": [
+        "meteorbeam",
+        "surf",
+        "icebeam",
+        "psyshock"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "power_herb"
+    }
+  ]
+}

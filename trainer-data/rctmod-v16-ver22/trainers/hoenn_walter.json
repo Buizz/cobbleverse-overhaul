@@ -1,0 +1,199 @@
+{
+  "name": "Walter",
+  "team": [
+    {
+      "species": "pincurchin",
+      "level": 30,
+      "gender": "FEMALE",
+      "nature": "bold",
+      "ability": "electricsurge",
+      "moveset": [
+        "toxicspikes",
+        "discharge",
+        "memento",
+        "surf"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 0,
+        "def": 20,
+        "spa": 236,
+        "spd": 0,
+        "spe": 0
+      },
+      "heldItem": "terrain_extender"
+    },
+    {
+      "species": "lanturn",
+      "level": 31,
+      "gender": "FEMALE",
+      "nature": "modest",
+      "ability": "waterabsorb",
+      "moveset": [
+        "hydropump",
+        "confuseray",
+        "icebeam",
+        "flipturn"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 0,
+        "def": 0,
+        "spa": 104,
+        "spd": 0,
+        "spe": 152
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "magnezone",
+      "level": 32,
+      "gender": "UNKNOWN",
+      "nature": "modest",
+      "ability": "sturdy",
+      "moveset": [
+        "thunderbolt",
+        "flashcannon",
+        "voltswitch",
+        "metalsound"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 0,
+        "def": 4,
+        "spa": 252,
+        "spd": 0
+      },
+      "heldItem": "air_balloon",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "electrode",
+      "level": 33,
+      "gender": "UNKNOWN",
+      "nature": "hardy",
+      "ability": "aftermath",
+      "moveset": [
+        "chloroblast",
+        "explosion",
+        "voltswitch",
+        "leechseed"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spa": 4,
+        "spd": 252,
+        "spe": 252
+      },
+      "heldItem": "life_orb",
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "electivire",
+      "level": 34,
+      "gender": "MALE",
+      "nature": "gentle",
+      "ability": "vitalspirit",
+      "moveset": [
+        "supercellslam",
+        "terablast",
+        "bulkup",
+        "brickbreak"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "life_orb",
+      "gimmicks": {
+        "tera": "flying"
+      }
+    },
+    {
+      "species": "raichu",
+      "level": 35,
+      "gender": "MALE",
+      "nature": "timid",
+      "ability": "static",
+      "moveset": [
+        "zapcannon",
+        "focusblast",
+        "grassknot",
+        "alluringvoice"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "zamega:raichunitey"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "electivire"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

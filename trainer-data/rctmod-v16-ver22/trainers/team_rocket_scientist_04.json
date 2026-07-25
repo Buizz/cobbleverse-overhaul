@@ -1,0 +1,112 @@
+{
+  "name": "Team Rocket Scientist",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 1
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "aerodactyl",
+      "gender": "MALE",
+      "level": 55,
+      "nature": "calm",
+      "ability": "rockhead",
+      "moveset": [
+        "ironhead",
+        "ancientpower",
+        "wingattack",
+        "rockslide"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "porygonz",
+      "gender": "GENDERLESS",
+      "level": 53,
+      "nature": "quiet",
+      "ability": "download",
+      "moveset": [
+        "psybeam",
+        "thundershock",
+        "triattack",
+        "discharge"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "omastar",
+      "gender": "MALE",
+      "level": 55,
+      "nature": "calm",
+      "ability": "shellarmor",
+      "moveset": [
+        "crunch",
+        "ancientpower",
+        "watergun",
+        "mudshot"
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {}
+    },
+    {
+      "species": "rotom",
+      "gender": "GENDERLESS",
+      "level": 45,
+      "nature": "relaxed",
+      "ability": "levitate",
+      "moveset": [
+        "hydropump",
+        "electroball",
+        "shockwave",
+        "astonish"
+
+      ],
+      "ivs": {
+        "hp": 15,
+        "atk": 15,
+        "def": 15,
+        "spa": 15,
+        "spd": 15,
+        "spe": 15
+      },
+      "evs": {},
+      "aspects": [
+        "wash-appliance"
+      ]
+    }
+  ]
+}

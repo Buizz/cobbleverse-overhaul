@@ -1,0 +1,183 @@
+{
+  "name": "Giovanni",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleFormat": "GEN_9_DOUBLES",
+  "battleRules": {
+    "maxItemUses": 4
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 4
+    }
+  ],
+  "team": [
+    {
+      "species": "rhyperior",
+      "gender": "MALE",
+      "level": 69,
+      "nature": "careful",
+      "ability": "solidrock",
+      "moveset": [
+        "megahorn",
+        "thunderfang",
+        "earthquake",
+        "stoneedge"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 252,
+        "spe": 6
+      },
+      "heldItem": "rocky_helmet"
+    },
+    {
+      "species": "tyranitar",
+      "gender": "MALE",
+      "level": 69,
+      "nature": "adamant",
+      "ability": "sandveil",
+      "moveset": [
+        "thunderfang",
+        "darkpulse",
+        "rockthrow",
+        "icefang"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "dragon_fang"
+    },
+    {
+      "species": "persian",
+      "gender": "MALE",
+      "level": 68,
+      "nature": "mild",
+      "ability": "limber",
+      "moveset": [
+        "feintattack",
+        "playrough",
+        "captivate",
+        "nightslash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "quick_claw"
+    },
+    {
+      "species": "nidoking",
+      "gender": "MALE",
+      "level": 69,
+      "nature": "lax",
+      "ability": "rivalry",
+      "moveset": [
+        "megahorn",
+        "toxic",
+        "earthpower",
+        "thrash"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 4,
+        "spd": 252
+      },
+      "heldItem": "choice_specs"
+    },
+    {
+      "species": "nidoqueen",
+      "gender": "FEMALE",
+      "level": 69,
+      "nature": "rash",
+      "ability": "rivalry",
+      "moveset": [
+        "toxic",
+        "crunch",
+        "earthpower",
+        "bodyslam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "power_herb"
+    },
+    {
+      "species": "mewtwo",
+      "gender": "GENDERLESS",
+      "level": 70,
+      "nature": "timid",
+      "ability": "pressure",
+      "moveset": [
+        "expandingforce",
+        "psystrike",
+        "aurasphere",
+        "flamethrower"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "power_herb"
+    }
+  ]
+}

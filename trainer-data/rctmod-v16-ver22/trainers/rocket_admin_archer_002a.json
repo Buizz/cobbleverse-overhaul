@@ -1,0 +1,184 @@
+{
+  "name": "Rocket Admin Archer",
+  "ai": {
+    "type": "rct",
+    "data": {
+      "maxSelectMargin": 0.15
+    }
+  },
+  "battleRules": {
+    "maxItemUses": 2
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 2
+    }
+  ],
+  "team": [
+    {
+      "species": "aerodactyl",
+      "gender": "FEMALE",
+      "level": 85,
+      "nature": "jolly",
+      "ability": "rockhead",
+      "moveset": [
+        "bravebird",
+        "stoneedge",
+        "earthquake",
+        "firefang"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spe": 252
+      },
+      "heldItem": "sharp_beak"
+    },
+    {
+      "species": "latios",
+      "gender": "MALE",
+      "level": 85,
+      "nature": "timid",
+      "ability": "levitate",
+      "moveset": [
+        "confusion",
+        "dragonpulse",
+        "zenheadbutt",
+        "psychic"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "focus_sash",
+      "aspect": "flying"
+    },
+    {
+      "species": "latias",
+      "gender": "FEMALE",
+      "level": 85,
+      "nature": "timid",
+      "ability": "levitate",
+      "moveset": [
+        "thunderbolt",
+        "icebeam",
+        "calmmind",
+        "psyshock"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "spa": 4,
+        "spe": 252
+      },
+      "heldItem": "leftovers",
+      "aspect": "flying"
+    },
+    {
+      "species": "houndoom",
+      "gender": "FEMALE",
+      "level": 85,
+      "nature": "timid",
+      "ability": "flashfire",
+      "moveset": [
+        "fierywrath",
+        "flamethrower",
+        "solarbeam",
+        "sludgebomb"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "expert_belt"
+    },
+    {
+      "species": "mismagius",
+      "gender": "FEMALE",
+      "level": 85,
+      "nature": "timid",
+      "ability": "levitate",
+      "moveset": [
+        "shadowball",
+        "moonblast",
+        "mysticalfire",
+        "thunderbolt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "ghost_gem"
+    },
+    {
+      "species": "heatran",
+      "gender": "MALE",
+      "level": 85,
+      "nature": "timid",
+      "ability": "flashfire",
+      "moveset": [
+        "protect",
+        "flamethrower",
+        "flashcannon",
+        "earthquake"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "air_balloon"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "name": "Sailor Trevor",
+  "team": [
+    {
+      "species": "cramorant",
+      "gender": "FEMALE",
+      "level": 89,
+      "nature": "timid",
+      "ability": "gulpmissile",
+      "moveset": [
+        "surf",
+        "uturn",
+        "airslash",
+        "safeguard"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {},
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "wailord",
+      "gender": "MALE",
+      "level": 90,
+      "nature": "sassy",
+      "ability": "oblivious",
+      "moveset": [
+        "dive",
+        "waterspout",
+        "waterpulse",
+        "whirlpool"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {}
+    }
+  ]
+}

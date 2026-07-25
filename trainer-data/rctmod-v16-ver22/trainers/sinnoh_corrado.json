@@ -1,0 +1,210 @@
+{
+  "name": "Corrado",
+  "team": [
+    {
+      "species": "pikachu",
+      "level": 90,
+      "gender": "MALE",
+      "nature": "docile",
+      "ability": "static",
+      "moveset": [
+        "volttackle",
+        "trailblaze",
+        "surf",
+        "thunderbolt"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 128,
+        "spa": 128,
+        "spe": 252
+      },
+      "heldItem": "cobblemon:light_ball"
+    },
+    {
+      "species": "aerodactyl",
+      "level": 90,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "rockhead",
+      "moveset": [
+        "stoneedge",
+        "ironhead",
+        "earthquake",
+        "dualwingbeat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 0,
+        "spe": 252
+      },
+      "heldItem": "mega_showdown:aerodactylite"
+    },
+    {
+      "species": "snorlax",
+      "level": 90,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "thickfat",
+      "moveset": [
+        "gigaimpact",
+        "earthquake",
+        "yawn",
+        "firepunch"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 180,
+        "spd": 76
+      },
+      "heldItem": "sitrus_berry",
+      "gimmicks": {
+        "gmax": true,
+        "dynamax": true
+      }
+    },
+    {
+      "species": "articuno",
+      "level": 90,
+      "gender": "UNKNOWN",
+      "nature": "naughty",
+      "ability": "competitive",
+      "moveset": [
+        "recover",
+        "calmmind",
+        "airslash",
+        "freezingglare"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 76,
+        "atk": 0,
+        "def": 4,
+        "spa": 4,
+        "spd": 228,
+        "spe": 196
+      },
+      "heldItem": "weakness_policy",
+      "aspects": [
+        "galarian"
+      ]
+    },
+    {
+      "species": "venusaur",
+      "level": 90,
+      "gender": "MALE",
+      "nature": "modest",
+      "ability": "overgrow",
+      "moveset": [
+        "gigadrain",
+        "sludgebomb",
+        "earthpower",
+        "terablast"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 44,
+        "atk": 0,
+        "def": 0,
+        "spa": 0,
+        "spd": 212,
+        "spe": 252
+      },
+      "heldItem": "leftovers",
+      "gimmicks": {
+        "tera": "rock"
+      }
+    },
+    {
+      "species": "zacian",
+      "level": 90,
+      "gender": "UNKNOWN",
+      "nature": "adamant",
+      "ability": "intrepidsword",
+      "moveset": [
+        "playrough",
+        "swordsdance",
+        "behemothblade",
+        "closecombat"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 188,
+        "atk": 140,
+        "def": 4,
+        "spa": 4,
+        "spd": 172,
+        "spe": 0
+      },
+      "heldItem": [
+        "mega_showdown:fairium_z",
+        "fairy_gem"
+      ],
+      "aspects": [
+        "crowned"
+      ]
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "venusaur"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES",
+  "bag": [
+    {
+      "item": "full_restore",
+      "quantity": 2
+    }
+  ]
+}

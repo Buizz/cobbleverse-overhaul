@@ -1,0 +1,49 @@
+{
+  "name": "Friendly Coach",
+  "team": [
+    {
+      "species": "rattata",
+      "gender": "MALE",
+      "level": 15,
+      "nature": "gentle",
+      "ability": "guts",
+      "moveset": [
+        "bite",
+        "quickattack",
+        "tailwhip",
+        "tackle"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    },
+    {
+      "species": "raticate",
+      "gender": "MALE",
+      "level": 20,
+      "nature": "jolly",
+      "ability": "guts",
+      "moveset": [
+        "pursuit",
+        "bite",
+        "swordsdance",
+        "assurance"
+      ],
+      "ivs": {
+        "hp": 5,
+        "atk": 5,
+        "def": 5,
+        "spa": 5,
+        "spd": 5,
+        "spe": 5
+      },
+      "evs": {}
+    }
+  ]
+}

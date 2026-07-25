@@ -1,0 +1,202 @@
+{
+  "name": "Ferruccio",
+  "team": [
+    {
+      "species": "hippowdon",
+      "level": 85,
+      "gender": "FEMALE",
+      "nature": "quirky",
+      "ability": "sandstream",
+      "moveset": [
+        "stealthrock",
+        "yawn",
+        "earthquake",
+        "whirlwind"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 244,
+        "atk": 0,
+        "def": 108,
+        "spa": 156,
+        "spd": 0,
+        "spe": 0
+      },
+      "heldItem": "cobblemon:smooth_rock"
+    },
+    {
+      "species": "garchomp",
+      "level": 85,
+      "gender": "MALE",
+      "nature": "jolly",
+      "ability": "roughskin",
+      "moveset": [
+        "earthquake",
+        "outrage",
+        "crunch",
+        "rockslide"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 100,
+        "spa": 152,
+        "spd": 0,
+        "spe": 0
+      },
+      "heldItem": "mega_showdown:garchompite"
+    },
+    {
+      "species": "torterra",
+      "level": 85,
+      "gender": "MALE",
+      "nature": "impish",
+      "ability": "shellarmor",
+      "moveset": [
+        "shellsmash",
+        "earthquake",
+        "headlongrush",
+        "woodhammer"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 4,
+        "atk": 252,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "cobblemon:white_herb",
+      "gimmicks": {
+        "tera": "water"
+      }
+    },
+    {
+      "species": "clodsire",
+      "level": 85,
+      "gender": "FEMALE",
+      "nature": "careful",
+      "ability": "unaware",
+      "moveset": [
+        "earthquake",
+        "toxicspikes",
+        "recover",
+        "toxic"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 0,
+        "def": 100,
+        "spd": 156,
+        "spe": 0
+      },
+      "heldItem": "cobblemon:leftovers"
+    },
+    {
+      "species": "greattusk",
+      "level": 85,
+      "gender": "UNKNOWN",
+      "nature": "brave",
+      "ability": "protosynthesis",
+      "moveset": [
+        "headlongrush",
+        "closecombat",
+        "icespinner",
+        "rapidspin"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 132,
+        "atk": 124,
+        "def": 0,
+        "spa": 0,
+        "spd": 252,
+        "spe": 0
+      },
+      "heldItem": "cobblemon:sitrus_berry",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "landorus",
+      "level": 85,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "intimidate",
+      "moveset": [
+        "earthquake",
+        "crunch",
+        "uturn",
+        "rocktomb"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 212,
+        "atk": 36,
+        "def": 4,
+        "spa": 252,
+        "spd": 4,
+        "spe": 0
+      },
+      "heldItem": "cobblemon:assault_vest",
+      "aspects": [
+        "therian-forme"
+      ]
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "torterra"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}

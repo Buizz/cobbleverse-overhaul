@@ -1,0 +1,194 @@
+{
+  "name": "Angelo",
+  "battleRules": {
+    "maxItemUses": 99
+  },
+  "bag": [
+    {
+      "item": "cobblemon:full_restore",
+      "quantity": 1
+    }
+  ],
+  "team": [
+    {
+      "species": "aegislash",
+      "gender": "MALE",
+      "level": 80,
+      "nature": "adamant",
+      "ability": "stancechange",
+      "moveset": [
+        "poltergeist",
+        "steelbeam",
+        "sacredsword",
+        "kingsshield"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "def": 6,
+        "atk": 252
+      },
+      "heldItem": [
+        "mega_showdown:ghostium_z",
+        "ghost_gem"
+      ]
+    },
+    {
+      "species": "zoroark",
+      "gender": "MALE",
+      "level": 80,
+      "nature": "timid",
+      "ability": "illusion",
+      "moveset": [
+        "bittermalice",
+        "hypervoice",
+        "nastyplot",
+        "curse"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spe": 252,
+        "special_attack": 252
+      },
+      "heldItem": "focus_sash",
+      "aspects": [
+        "hisuian"
+      ]
+    },
+    {
+      "species": "houndstone",
+      "gender": "MALE",
+      "level": 80,
+      "nature": "impish",
+      "ability": "fluffy",
+      "moveset": [
+        "playrough",
+        "bodypress",
+        "yawn",
+        "protect"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spd": 6,
+        "hp": 252,
+        "defence": 252
+      },
+      "heldItem": "leftovers"
+    },
+    {
+      "species": "gengar",
+      "gender": "MALE",
+      "level": 80,
+      "nature": "modest",
+      "ability": "cursedbody",
+      "moveset": [
+        "shadowball",
+        "sludgewave",
+        "hyperbeam",
+        "dazzlinggleam"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "spa": 252,
+        "spe": 252,
+        "hp": 6
+      },
+      "heldItem": "spell_tag",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      }
+    },
+    {
+      "species": "sableye",
+      "gender": "MALE",
+      "level": 80,
+      "nature": "bold",
+      "ability": "prankster",
+      "moveset": [
+        "darkpulse",
+        "willowisp",
+        "recover",
+        "calmmind"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "def": 188,
+        "hp": 252,
+        "special_defence": 70
+      },
+      "heldItem": "mega_showdown:sablenite"
+    },
+    {
+      "species": "fluttermane",
+      "level": 80,
+      "gender": "GENDERLESS",
+      "nature": "timid",
+      "ability": "protosynthesis",
+      "evs": {
+        "hp": 132,
+        "defence": 252,
+        "special_attack": 100,
+        "special_defence": 4,
+        "speed": 20
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "moveset": [
+        "moonblast",
+        "shadowball",
+        "mysticalfire",
+        "psyshock"
+      ],
+      "heldItem": "mega_showdown:booster_energy"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true
+    }
+  }
+}

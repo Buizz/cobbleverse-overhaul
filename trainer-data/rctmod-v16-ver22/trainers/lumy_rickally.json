@@ -1,0 +1,71 @@
+{
+  "name": "RickAlly",
+  "team": [
+    {
+      "species": "serperior",
+      "gender": "MALE",
+      "level": 36,
+      "nature": "bashful",
+      "ability": "overgrow",
+      "moveset": [
+        "magicalleaf",
+        "leaftornado",
+        "megadrain",
+        "tackle"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {}
+    },
+    {
+      "species": "krookodile",
+      "gender": "MALE",
+      "level": 36,
+      "nature": "impish",
+      "ability": "moxie",
+      "moveset": [
+        "dig",
+        "crunch",
+        "foulplay",
+        "retaliate"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {}
+    },
+    {
+      "species": "luxray",
+      "gender": "MALE",
+      "level": 37,
+      "nature": "lonely",
+      "ability": "intimidate",
+      "moveset": [
+        "thundershock",
+        "spark",
+        "bite",
+        "voltswitch"
+      ],
+      "ivs": {
+        "hp": 12,
+        "atk": 12,
+        "def": 12,
+        "spa": 12,
+        "spd": 12,
+        "spe": 12
+      },
+      "evs": {}
+    }
+  ]
+}

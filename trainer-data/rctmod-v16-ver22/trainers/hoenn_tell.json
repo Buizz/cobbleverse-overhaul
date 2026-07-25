@@ -1,0 +1,194 @@
+{
+  "name": "Tell",
+  "team": [
+    {
+      "species": "sableye",
+      "level": 50,
+      "gender": "FEMALE",
+      "nature": "serious",
+      "ability": "prankster",
+      "moveset": [
+        "willowisp",
+        "knockoff",
+        "curse",
+        "metalburst"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 252,
+        "def": 4,
+        "spa": 0,
+        "spd": 0,
+        "spe": 0
+      },
+      "heldItem": "focus_sash"
+    },
+    {
+      "species": "gholdengo",
+      "level": 53,
+      "gender": "UNKNOWN",
+      "nature": "modest",
+      "ability": "goodasgold",
+      "moveset": [
+        "makeitrain",
+        "shadowball",
+        "nastyplot",
+        "recover"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "spa": 252,
+        "spe": 252
+      },
+      "heldItem": "covert_cloak"
+    },
+    {
+      "species": "dusknoir",
+      "level": 52,
+      "gender": "FEMALE",
+      "nature": "impish",
+      "ability": "pressure",
+      "moveset": [
+        "brickbreak",
+        "phantomforce",
+        "firepunch",
+        "shadowsneak"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 252,
+        "atk": 6,
+        "def": 252,
+        "spd": 0,
+        "spe": 0
+      },
+      "heldItem": "rocky_helmet",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": false
+      }
+    },
+    {
+      "species": "blacephalon",
+      "level": 52,
+      "gender": "UNKNOWN",
+      "nature": "modest",
+      "ability": "beastboost",
+      "moveset": [
+        "fireblast",
+        "shadowball",
+        "terablast",
+        "mindblown"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spa": 4,
+        "spd": 252,
+        "spe": 252
+      },
+      "heldItem": "shell_bell",
+      "gimmicks": {
+        "tera": "fairy"
+      }
+    },
+    {
+      "species": "fluttermane",
+      "level": 54,
+      "gender": "UNKNOWN",
+      "nature": "modest",
+      "ability": "protosynthesis",
+      "moveset": [
+        "shadowball",
+        "calmmind",
+        "taunt",
+        "drainingkiss"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 84,
+        "atk": 0,
+        "def": 148,
+        "spa": 4,
+        "spd": 76,
+        "spe": 196
+      },
+      "heldItem": "mega_showdown:booster_energy"
+    },
+    {
+      "species": "banette",
+      "level": 55,
+      "gender": "MALE",
+      "nature": "adamant",
+      "ability": "insomnia",
+      "moveset": [
+        "shadowclaw",
+        "gunkshot",
+        "shadowsneak",
+        "swordsdance"
+      ],
+      "ivs": {
+        "hp": 31,
+        "atk": 31,
+        "def": 31,
+        "spa": 31,
+        "spd": 31,
+        "spe": 31
+      },
+      "evs": {
+        "hp": 6,
+        "atk": 252,
+        "spd": 0,
+        "spe": 252
+      },
+      "heldItem": "mega_showdown:banettite"
+    }
+  ],
+  "ai": {
+    "type": "rb",
+    "data": {
+      "canTera": true,
+      "teraTarget": "blacephalon"
+    }
+  },
+  "battleFormat": "GEN_9_SINGLES"
+}
