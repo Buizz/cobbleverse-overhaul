@@ -1,0 +1,4 @@
+kind,id,name,description,source_note
+ability,download,,,수동 보강이 필요할 때만 작성
+item,leftovers,,턴 종료 시 HP를 조금 회복합니다.,코블몬 lang에 설명이 없을 때 보강
+item,eviolite,,진화할 수 있는 포켓몬이 지니면 방어와 특수방어가 올라갑니다.,코블몬 lang에 설명이 없을 때 보강

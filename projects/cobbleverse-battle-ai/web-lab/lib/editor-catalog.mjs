@@ -4,6 +4,18 @@ function localizedEntry(catalog, group, id) {
   return catalog?.[group]?.[id] ?? {};
 }
 
+function i18nEntry(catalog, group, id) {
+  const key = Dex.toID(id);
+  return (
+    catalog?.[group]?.[key] ??
+    catalog?.[group]?.[id] ??
+    Object.entries(catalog?.[group] ?? {}).find(
+      ([entryId]) => Dex.toID(entryId) === key,
+    )?.[1] ??
+    {}
+  );
+}
+
 function generationForNumber(number) {
   if (number <= 151) return 1;
   if (number <= 251) return 2;
@@ -16,7 +28,7 @@ function generationForNumber(number) {
   return 9;
 }
 
-export function createEditorCatalog(localization, itemCatalog) {
+export function createEditorCatalog(localization, itemCatalog, i18nCatalog = null) {
   const species = [];
   const seenSpecies = new Set();
   for (const localizedId of Object.keys(localization?.species ?? {})) {
@@ -24,11 +36,12 @@ export function createEditorCatalog(localization, itemCatalog) {
     if (!entry.exists || entry.num <= 0 || seenSpecies.has(entry.id)) continue;
     seenSpecies.add(entry.id);
     const localized = localizedEntry(localization, "species", localizedId);
+    const i18n = i18nEntry(i18nCatalog, "species", entry.id);
     species.push({
       id: entry.id,
-      name: localized.name || entry.name,
+      name: i18n.name || localized.name || entry.name,
       englishName: entry.name,
-      description: localized.description || "",
+      description: i18n.description || localized.description || "",
       number: entry.num,
       generation: entry.gen || generationForNumber(entry.num),
       types: entry.types,
@@ -45,11 +58,13 @@ export function createEditorCatalog(localization, itemCatalog) {
   )) {
     const entry = Dex.moves.get(localizedId);
     if (!entry.exists || entry.isNonstandard === "CAP") continue;
+    const i18n = i18nEntry(i18nCatalog, "moves", entry.id);
     moves.push({
       id: entry.id,
-      name: localized.name || entry.name,
+      name: i18n.name || localized.name || entry.name,
       englishName: entry.name,
-      description: localized.description || entry.shortDesc || entry.desc || "",
+      description:
+        i18n.description || localized.description || entry.shortDesc || entry.desc || "",
       type: entry.type,
       category: entry.category,
       power: entry.basePower,
@@ -63,21 +78,34 @@ export function createEditorCatalog(localization, itemCatalog) {
   const abilities = Dex.abilities
     .all()
     .filter((entry) => entry.exists && !entry.isNonstandard)
-    .map((entry) => ({
-      id: entry.id,
-      name: entry.name,
-      description: entry.shortDesc || entry.desc || "",
-      generation: entry.gen,
-    }));
+    .map((entry) => {
+      const i18n = i18nEntry(i18nCatalog, "abilities", entry.id);
+      return {
+        id: entry.id,
+        name: i18n.name || entry.name,
+        englishName: entry.name,
+        description: i18n.description || entry.shortDesc || entry.desc || "",
+        generation: entry.gen,
+      };
+    });
 
   const items = (itemCatalog?.items ?? []).map((item) => {
     const showdown = Dex.items.get(item.path);
+    const i18n =
+      i18nCatalog?.items?.[item.id] ??
+      i18nCatalog?.items?.[item.path] ??
+      i18nEntry(i18nCatalog, "items", item.path);
     return {
       id: item.id,
       shortId: item.path,
-      name: item.koreanName || item.englishName || showdown.name || item.path,
+      name:
+        i18n.name ||
+        item.koreanName ||
+        item.englishName ||
+        showdown.name ||
+        item.path,
       englishName: item.englishName || showdown.name || item.path,
-      description: showdown.shortDesc || showdown.desc || "",
+      description: i18n.description || showdown.shortDesc || showdown.desc || "",
       namespace: item.namespace,
       category: item.battleCategory,
       battleUsable: item.battleUsable === true,

@@ -48,7 +48,7 @@ function cleanCondition(condition) {
   };
 }
 
-function publicPokemon(pokemon, slot) {
+function publicPokemon(pokemon, slot, configured = null) {
   const details = String(pokemon?.details ?? "");
   const species = details.split(",")[0] || `Slot ${slot}`;
   const dexSpecies = Dex.species.get(species);
@@ -57,6 +57,17 @@ function publicPokemon(pokemon, slot) {
     slot,
     ident: String(pokemon?.ident ?? ""),
     species,
+    ability: String(pokemon?.ability ?? configured?.ability ?? "") || null,
+    item:
+      String(pokemon?.item ?? pokemon?.heldItem ?? configured?.heldItem ?? "") ||
+      null,
+    heldItem:
+      String(pokemon?.heldItem ?? pokemon?.item ?? configured?.heldItem ?? "") ||
+      null,
+    stats:
+      pokemon?.stats && typeof pokemon.stats === "object"
+        ? { ...pokemon.stats }
+        : null,
     types: terastallized
       ? [terastallized]
       : dexSpecies.exists
@@ -170,11 +181,39 @@ function publicActiveRequest(activeRequest, activePokemon, opponentSpecies = "")
   };
 }
 
-function publicRequest(request, opponentSpecies = [], aiTrace = []) {
+function configuredPokemonForSpecies(team, species) {
+  const targetId = Dex.toID(species);
+  return (
+    team.find((pokemon) => Dex.toID(pokemon.resolvedSpecies ?? pokemon.species) === targetId) ??
+    team.find((pokemon) => Dex.toID(pokemon.species) === targetId) ??
+    null
+  );
+}
+
+function publicConfiguredPokemonDetails(pokemon) {
+  if (!pokemon) return {};
+  return {
+    level: pokemon.level,
+    gender: pokemon.gender,
+    nature: pokemon.nature,
+    ability: pokemon.ability,
+    heldItem: pokemon.heldItem,
+    item: pokemon.heldItem,
+    aspects: pokemon.aspects,
+    gimmicks: pokemon.gimmicks,
+    moveset: pokemon.moveset,
+    ivs: pokemon.ivs,
+    evs: pokemon.evs,
+  };
+}
+
+function publicRequest(request, opponentSpecies = [], aiTrace = [], scenario = null) {
   if (!request) return null;
+  const configuredPlayerTeam = scenario?.sides?.[0]?.team ?? [];
+  const configuredOpponentTeam = scenario?.sides?.[1]?.team ?? [];
   const team = Array.isArray(request.side?.pokemon)
     ? request.side.pokemon.map((pokemon, index) =>
-        publicPokemon(pokemon, index + 1),
+        publicPokemon(pokemon, index + 1, configuredPlayerTeam[index]),
       )
     : [];
   const forceSwitch = Array.isArray(request.forceSwitch)
@@ -226,11 +265,17 @@ function publicRequest(request, opponentSpecies = [], aiTrace = []) {
       position: index + 1,
       species,
       types: Dex.species.get(species).types,
+      ...publicConfiguredPokemonDetails(
+        configuredPokemonForSpecies(configuredOpponentTeam, species),
+      ),
     })),
     opponent: opponentSpecies[0]
       ? {
           species: opponentSpecies[0],
           types: Dex.species.get(opponentSpecies[0]).types,
+          ...publicConfiguredPokemonDetails(
+            configuredPokemonForSpecies(configuredOpponentTeam, opponentSpecies[0]),
+          ),
           moves: opponentDecision?.candidates ?? [],
           decision: opponentDecision
             ? {
@@ -667,14 +712,12 @@ function sessionSnapshot(session, replay) {
     sides: session.scenario.sides.map((side) => ({
       name: side.name,
       team: side.team.map((member) => ({
-        slot: member.slot,
-        species: member.species,
-        level: member.level,
+        ...member,
       })),
     })),
     request: finished
       ? null
-      : publicRequest(replay.request, opponentSpecies, replay.aiTrace),
+      : publicRequest(replay.request, opponentSpecies, replay.aiTrace, session.scenario),
     aiTrace: replay.aiTrace,
     warnings: session.warnings,
     error: replay.error,

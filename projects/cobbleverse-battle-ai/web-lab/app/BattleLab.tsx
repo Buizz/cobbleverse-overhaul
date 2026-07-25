@@ -100,6 +100,7 @@ type CatalogMove = {
 type CatalogAbility = {
   id: string;
   name: string;
+  englishName?: string;
   description: string;
   generation: number;
 };
@@ -253,6 +254,10 @@ type InteractivePokemon = {
   slot: number;
   ident: string;
   species: string;
+  ability?: string | null;
+  item?: string | null;
+  heldItem?: string | null;
+  stats?: Record<string, number> | null;
   types: string[];
   teraType: string;
   terastallized: string;
@@ -355,7 +360,16 @@ type InteractiveBattle = {
   aiTrace: AiTraceEntry[];
   sides: Array<{
     name: string;
-    team: Array<{ slot: number; species: string; level: number }>;
+    team: Array<
+      Pokemon & {
+        ident?: string;
+        types?: string[];
+        item?: string | null;
+        stats?: Record<string, number> | null;
+        condition?: InteractivePokemon["condition"];
+        active?: boolean;
+      }
+    >;
   }>;
   request: null | {
     requestId: number;
@@ -378,10 +392,17 @@ type InteractiveBattle = {
       position: number;
       species: string;
       types: string[];
+    } & Partial<Pokemon> & {
+      item?: string | null;
+      stats?: Record<string, number> | null;
     }>;
     opponent: null | {
       species: string;
       types: string[];
+      ability?: string | null;
+      item?: string | null;
+      heldItem?: string | null;
+      stats?: Record<string, number> | null;
       moves: NonNullable<AiTraceEntry["candidates"]>;
       decision: null | {
         strategy?: string;
@@ -1262,6 +1283,272 @@ function displayId(value: string | null | undefined, fallback = "미지정") {
     .replace(/^cobblemon:/, "")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+const battleStatLabels: Record<string, string> = {
+  hp: "HP",
+  atk: "공격",
+  attack: "공격",
+  defence: "방어",
+  defense: "방어",
+  def: "방어",
+  spa: "특수공격",
+  specialAttack: "특수공격",
+  specialattack: "특수공격",
+  spd: "특수방어",
+  specialDefence: "특수방어",
+  specialDefense: "특수방어",
+  specialdefence: "특수방어",
+  specialdefense: "특수방어",
+  spe: "스피드",
+  speed: "스피드",
+};
+
+function catalogAbility(
+  catalog: BattleCatalog | null,
+  value: string | null | undefined,
+) {
+  const key = dexId(value);
+  return (
+    catalog?.abilities.find((entry) => dexId(entry.id) === key) ?? null
+  );
+}
+
+function localizedAbilityInfo(
+  catalog: BattleCatalog | null,
+  value: string | null | undefined,
+) {
+  const entry = catalogAbility(catalog, value);
+  return {
+    name: entry?.name ?? displayId(value),
+    description:
+      entry?.description ??
+      "아직 카탈로그에 특성 설명이 없습니다.",
+  };
+}
+
+function catalogItem(
+  catalog: BattleCatalog | null,
+  value: string | null | undefined,
+) {
+  const key = dexId(value);
+  return (
+    catalog?.items.find(
+      (entry) => dexId(entry.id) === key || dexId(entry.shortId) === key,
+    ) ?? null
+  );
+}
+
+function localizedItemInfo(
+  catalog: BattleCatalog | null,
+  value: string | null | undefined,
+) {
+  const entry = catalogItem(catalog, value);
+  return {
+    name: entry?.name ?? displayId(value, "없음"),
+    description:
+      entry?.description ??
+      "아직 카탈로그에 도구 설명이 없습니다.",
+  };
+}
+
+function normalizedBattleStatKey(stat: string) {
+  const key = stat.toLowerCase();
+  if (["atk", "attack"].includes(key)) return "attack";
+  if (["def", "defence", "defense"].includes(key)) return "defence";
+  if (["spa", "specialattack"].includes(key)) return "specialAttack";
+  if (["spd", "specialdefence", "specialdefense"].includes(key)) {
+    return "specialDefence";
+  }
+  if (["spe", "speed"].includes(key)) return "speed";
+  if (key === "hp") return "hp";
+  return stat;
+}
+
+function rankMultiplier(rank: number) {
+  if (rank >= 0) return (2 + rank) / 2;
+  return 2 / (2 - rank);
+}
+
+function rankedBattleStats(
+  stats: Record<string, number> | null | undefined,
+  ranks: Array<[string, number]>,
+) {
+  if (!stats) return null;
+  const rankByStat = new Map(
+    ranks.map(([stat, rank]) => [normalizedBattleStatKey(stat), rank]),
+  );
+  return Object.fromEntries(
+    Object.entries(stats).map(([stat, value]) => {
+      const normalized = normalizedBattleStatKey(stat);
+      const rank = rankByStat.get(normalized) ?? 0;
+      if (normalized === "hp" || rank === 0) return [stat, value];
+      return [stat, Math.max(1, Math.floor(value * rankMultiplier(rank)))];
+    }),
+  );
+}
+
+function activeScenarioPokemon(
+  battle: InteractiveBattle,
+  sideIndex: 0 | 1,
+  species: string | null | undefined,
+  active: InteractivePokemon | null | undefined,
+) {
+  const team = battle.sides[sideIndex]?.team ?? [];
+  const activeSlot = active?.slot;
+  if (activeSlot) {
+    const bySlot = team.find((pokemon) => pokemon.slot === activeSlot);
+    if (bySlot) return bySlot;
+  }
+  const speciesId = dexId(species);
+  return (
+    team.find(
+      (pokemon) =>
+        dexId(pokemon.resolvedSpecies ?? pokemon.species) === speciesId ||
+        dexId(pokemon.species) === speciesId,
+    ) ?? null
+  );
+}
+
+function mergedPokemonInfo({
+  battle,
+  sideIndex,
+  species,
+  active,
+  opponent,
+}: {
+  battle: InteractiveBattle;
+  sideIndex: 0 | 1;
+  species: string | null | undefined;
+  active?: InteractivePokemon | null;
+  opponent?: NonNullable<NonNullable<InteractiveBattle["request"]>["opponent"]> | null;
+}) {
+  const configured = activeScenarioPokemon(battle, sideIndex, species, active);
+  return {
+    species:
+      species ??
+      active?.species ??
+      opponent?.species ??
+      configured?.resolvedSpecies ??
+      configured?.species ??
+      "",
+    ability:
+      active?.ability ??
+      opponent?.ability ??
+      configured?.ability ??
+      null,
+    heldItem:
+      active?.heldItem ??
+      active?.item ??
+      opponent?.heldItem ??
+      opponent?.item ??
+      configured?.heldItem ??
+      configured?.item ??
+      null,
+    stats:
+      active?.stats ??
+      opponent?.stats ??
+      configured?.stats ??
+      null,
+    condition: active?.condition ?? configured?.condition ?? null,
+  };
+}
+
+function PokemonInfoPanel({
+  sideLabel,
+  info,
+  ranks,
+  catalog,
+  localization,
+}: {
+  sideLabel: string;
+  info: ReturnType<typeof mergedPokemonInfo>;
+  ranks: Array<[string, number]>;
+  catalog: BattleCatalog | null;
+  localization: LocalizationCatalog | null;
+}) {
+  const ability = localizedAbilityInfo(catalog, info.ability);
+  const item = localizedItemInfo(catalog, info.heldItem);
+  const stats = info.stats ? Object.entries(info.stats) : [];
+  const adjustedStats = rankedBattleStats(info.stats, ranks);
+  const adjustedStatEntries = adjustedStats ? Object.entries(adjustedStats) : [];
+  return (
+    <article className="battle-info-card">
+      <header>
+        <span>{sideLabel}</span>
+        <strong>{localizedSpecies(localization, info.species)}</strong>
+      </header>
+      <dl className="battle-info-meta">
+        <div>
+          <dt>특성</dt>
+          <dd>{ability.name}</dd>
+        </div>
+        <div>
+          <dt>도구</dt>
+          <dd>{item.name}</dd>
+        </div>
+        <div>
+          <dt>현재 HP</dt>
+          <dd>
+            {info.condition?.current !== null && info.condition?.maximum !== null
+              ? `${info.condition?.current}/${info.condition?.maximum}`
+              : info.condition?.text ?? "-"}
+          </dd>
+        </div>
+      </dl>
+      <div className="battle-info-description">
+        <b>특성 설명</b>
+        <p>{ability.description}</p>
+      </div>
+      <div className="battle-info-description">
+        <b>도구 설명</b>
+        <p>{item.description}</p>
+      </div>
+      <div className="battle-info-stats">
+        <b>기본 실능력치</b>
+        {stats.length ? (
+          <div>
+            {stats.map(([stat, value]) => (
+              <span key={stat}>
+                <small>{battleStatLabels[stat] ?? stat}</small>
+                <strong>{value}</strong>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p>
+            Showdown 공개 요청에 능력치가 없으면 설정값만 표시됩니다. 자체엔진은
+            실제 계산 능력치를 제공합니다.
+          </p>
+        )}
+      </div>
+      {adjustedStatEntries.length ? (
+        <div className="battle-info-stats adjusted">
+          <b>랭크 반영 전투값</b>
+          <div>
+            {adjustedStatEntries.map(([stat, value]) => {
+              const normalized = normalizedBattleStatKey(stat);
+              const rank = new Map(
+                ranks.map(([rankStat, rankValue]) => [
+                  normalizedBattleStatKey(rankStat),
+                  rankValue,
+                ]),
+              ).get(normalized) ?? 0;
+              return (
+                <span className={rank !== 0 ? "changed" : ""} key={stat}>
+                  <small>
+                    {battleStatLabels[stat] ?? battleStatLabels[normalized] ?? stat}
+                    {rank ? ` ${rank > 0 ? "+" : ""}${rank}` : ""}
+                  </small>
+                  <strong>{value}</strong>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
 }
 
 function TrainerPicker({
@@ -2807,6 +3094,7 @@ function InteractiveArena({
   onPlaybackModeChange,
   onClose,
   localization,
+  catalog,
 }: {
   battle: InteractiveBattle;
   busy: boolean;
@@ -2821,9 +3109,11 @@ function InteractiveArena({
   onPlaybackModeChange: (mode: BattlePlaybackMode) => void;
   onClose: () => void;
   localization: LocalizationCatalog | null;
+  catalog: BattleCatalog | null;
 }) {
   const [logTab, setLogTab] = useState<"battle" | "ai">("battle");
   const [showAiIntent, setShowAiIntent] = useState(false);
+  const [showPokemonInfo, setShowPokemonInfo] = useState(false);
   const [gimmickSelection, setGimmickSelection] = useState<{
     requestId: number;
     value: BattleGimmick | null;
@@ -2986,6 +3276,18 @@ function InteractiveArena({
     request?.opponents?.length
       ? request.opponents
       : [{ position: 1, species: opponentName, types: request?.opponent?.types ?? [] }];
+  const playerInfo = mergedPokemonInfo({
+    battle,
+    sideIndex: 0,
+    species: playerDisplaySpecies,
+    active,
+  });
+  const opponentInfo = mergedPokemonInfo({
+    battle,
+    sideIndex: 1,
+    species: opponentName,
+    opponent: request?.opponent,
+  });
 
   return (
     <section className="interactive-arena" aria-label="직접 조작 배틀">
@@ -2997,6 +3299,13 @@ function InteractiveArena({
           </h2>
         </div>
         <div className="arena-header-tools">
+          <button
+            className={showPokemonInfo ? "active" : ""}
+            onClick={() => setShowPokemonInfo((value) => !value)}
+            type="button"
+          >
+            정보
+          </button>
           <div
             className="battle-speed-control"
             role="group"
@@ -3282,6 +3591,25 @@ function InteractiveArena({
           })}
         </div>
       </div>
+
+      {showPokemonInfo ? (
+        <section className="battle-info-panel" aria-label="현재 포켓몬 상세 정보">
+          <PokemonInfoPanel
+            sideLabel="PLAYER"
+            info={playerInfo}
+            ranks={playerRanks}
+            catalog={catalog}
+            localization={localization}
+          />
+          <PokemonInfoPanel
+            sideLabel="OPPONENT"
+            info={opponentInfo}
+            ranks={opponentRanks}
+            catalog={catalog}
+            localization={localization}
+          />
+        </section>
+      ) : null}
 
       {finished ? (
         <div className="battle-finish-card">
@@ -4977,6 +5305,7 @@ export function BattleLab() {
           onPlaybackModeChange={setPlaybackMode}
           onClose={closeInteractive}
           localization={localization}
+          catalog={catalog}
         />
       ) : null}
 

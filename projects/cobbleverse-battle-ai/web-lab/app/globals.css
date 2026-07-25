@@ -1939,6 +1939,127 @@ button {
   margin: 0;
 }
 
+.arena-header-tools > button.active {
+  border-color: #6cf1e5;
+  color: #06131f;
+  background: #6cf1e5;
+}
+
+.battle-info-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 1280px;
+  margin: 10px auto 0;
+}
+
+.battle-info-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #314865;
+  color: #e8f2ff;
+  background: #0c1828;
+}
+
+.battle-info-card header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #253951;
+}
+
+.battle-info-card header span {
+  color: #8fa3bf;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.battle-info-card header strong {
+  font-size: 1.1rem;
+}
+
+.battle-info-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.battle-info-meta div,
+.battle-info-stats span {
+  padding: 7px;
+  border: 1px solid #2b405d;
+  background: #091522;
+}
+
+.battle-info-meta dt,
+.battle-info-stats small {
+  color: #8fa3bf;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.battle-info-meta dd {
+  margin: 3px 0 0;
+  font-weight: 900;
+}
+
+.battle-info-description {
+  display: grid;
+  gap: 4px;
+}
+
+.battle-info-description b,
+.battle-info-stats > b {
+  color: #6cf1e5;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
+.battle-info-description p,
+.battle-info-stats p {
+  margin: 0;
+  color: #b9c8da;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.battle-info-stats {
+  display: grid;
+  gap: 6px;
+}
+
+.battle-info-stats > div {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.battle-info-stats span {
+  display: grid;
+  gap: 3px;
+  text-align: center;
+}
+
+.battle-info-stats span strong {
+  font-size: 1rem;
+}
+
+.battle-info-stats.adjusted span.changed {
+  border-color: #6cf1e5;
+  background: rgb(108 241 229 / 10%);
+}
+
+.battle-info-stats.adjusted span.changed small {
+  color: #6cf1e5;
+}
+
 .status-badge {
   display: inline-flex;
   min-width: 44px;

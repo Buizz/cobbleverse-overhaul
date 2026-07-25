@@ -44,6 +44,10 @@ function publicPokemon(pokemon, slot, active, side) {
     slot,
     ident: `p${side + 1}a: ${pokemon.name}`,
     species: pokemon.name,
+    ability: pokemon.ability || null,
+    item: pokemon.item || null,
+    heldItem: pokemon.item || null,
+    stats: { ...pokemon.stats },
     types: pokemon.types,
     teraType: pokemon.teraType ?? "",
     terastallized: pokemon.terastallized ? pokemon.teraType : "",
@@ -180,11 +184,11 @@ function snapshot(session) {
     sides: [
       {
         name: playerSide.name,
-        team: playerTeam.map(({ slot, species }) => ({ slot, species })),
+        team: playerTeam,
       },
       {
         name: opponentSide.name,
-        team: opponentTeam.map(({ slot, species }) => ({ slot, species })),
+        team: opponentTeam,
       },
     ],
     request: running
