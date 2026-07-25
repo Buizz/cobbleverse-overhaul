@@ -3731,6 +3731,40 @@ button {
   color: #718098;
 }
 
+.ai-log-panel article ol {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-log-panel article li {
+  display: grid;
+  gap: 4px;
+  padding: 7px 9px;
+  border: 1px solid #26334a;
+  background: #0b1426;
+}
+
+.ai-log-panel article li > span {
+  width: fit-content;
+  padding: 3px 5px;
+  border: 1px solid #344159;
+  color: var(--cyan);
+  font: 700 8px/1 ui-monospace, monospace;
+}
+
+.ai-log-panel article li > strong {
+  color: #e9eef7;
+  font-size: 11px;
+}
+
+.ai-log-panel article li > small {
+  color: #9ba8bb;
+  line-height: 1.35;
+}
+
 .ai-log-empty {
   display: grid;
   max-width: 620px;

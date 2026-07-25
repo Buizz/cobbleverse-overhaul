@@ -431,6 +431,11 @@ function turnPlainText(
         lines.push(
           `    ${marker} ${label} | 점수 ${Number(candidate.score ?? 0).toFixed(2)}`,
         );
+        for (const reason of (candidate.reasons ?? []).slice(0, candidate.selected ? 3 : 1)) {
+          const weight =
+            typeof reason.weight === "number" ? ` ${reason.weight >= 0 ? "+" : ""}${reason.weight}` : "";
+          lines.push(`      - ${reason.label}${weight}: ${reason.message}`);
+        }
       }
     }
   }
@@ -542,6 +547,13 @@ function compactReportForStorage(report: ReportData): ReportData {
           power: candidate.power,
           score: candidate.score,
           selected: candidate.selected,
+          reasons: candidate.reasons?.slice(0, candidate.selected ? 3 : 1).map((reason) => ({
+            code: reason.code,
+            label: reason.label,
+            value: reason.value,
+            weight: reason.weight,
+            message: reason.message,
+          })),
         })),
       })),
     },

@@ -571,6 +571,40 @@ test("scores Trick Room for surviving setters with slow ace support", () => {
   );
 });
 
+test("does not turn Trick Room slow ace plan into a negative bonus", () => {
+  const trickRoom = {
+    slot: 1,
+    id: "trickroom",
+    name: "Trick Room",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    priority: -7,
+    hpPercent: 0.35,
+    incomingDamageRatio: 0.55,
+    trickRoomAdvantage: -20,
+    slowAceCount: 2,
+    canSurviveToSetRoom: true,
+  };
+
+  const trace = createAiMoveTrace({
+    turn: 2,
+    side: 1,
+    sideName: "AI",
+    species: "Porygon2",
+    difficulty: "expert",
+    strategy: "balanced",
+    selected: trickRoom,
+    candidates: [trickRoom],
+  });
+  const reason = trace.candidates[0].reasons.find(
+    (entry) => entry.code === "rule.trick_room.slow_ace_plan",
+  );
+
+  assert.ok(reason);
+  assert.ok(reason.weight > 0);
+});
+
 test("applies RunAndBun-inspired switch matchup scoring rules", () => {
   const boostedCurrentMonSwitch = {
     slot: 2,

@@ -163,6 +163,28 @@ test("preserves native damage and heal causes for Showdown-like logs", () => {
     "",
   );
 
+  assert.deepEqual(
+    mapNativeEvent({
+      turn: 1,
+      type: "damage",
+      side: 1,
+      pokemon: "Mega Mawile",
+      source: "Attacker",
+      move: "Dragon Claw",
+      damage: 0,
+      remainingHp: 200,
+      maximumHp: 200,
+      effectiveness: 0,
+    }),
+    [
+      {
+        turn: 1,
+        type: "immune",
+        actor: "p2a: Mega Mawile",
+      },
+    ],
+  );
+
   assert.equal(
     mapNativeEvent({
       turn: 1,
@@ -293,6 +315,56 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
   );
   assert.ok(switched.events.some((event) => event.type === "switch"));
   assert.ok(switched.events.some((event) => event.type === "move"));
+});
+
+test("keeps native player moves displayed as Max Moves while Dynamax is active", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-player-dynamax-display",
+    mode: "pve",
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "pikachu",
+            level: 50,
+            moveset: ["thunderbolt", "quickattack"],
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "blissey",
+            level: 50,
+            moveset: ["pound"],
+          },
+        ],
+      },
+    ],
+  };
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  const next = chooseNativeInteractiveBattleAction(started.sessionId, {
+    type: "move",
+    slot: 1,
+    gimmick: "dynamax",
+  });
+
+  assert.equal(next.status, "awaiting_choice");
+  assert.equal(next.request.gimmicks.canMegaEvo, false);
+  assert.equal(next.request.gimmicks.canDynamax, false);
+  assert.equal(next.request.gimmicks.canTerastallize, "");
+  assert.equal(next.request.moves[0].id, "maxlightning");
+  assert.equal(next.request.moves[0].name, "Max Lightning");
+  assert.equal(next.request.moves[1].id, "maxstrike");
+  assert.equal(next.request.moves[1].name, "Max Strike");
+  assert.equal(next.request.gimmicks.maxMoves[0].id, "maxlightning");
 });
 
 test("maps original moves to standard and Gigantamax move identities", () => {
@@ -454,6 +526,53 @@ test("offers each Cobbleverse gimmick only from its configured Pokémon data", (
       `${entry.gimmick} should emit ${entry.eventType}`,
     );
   }
+});
+
+test("hides Dynamax choices after native player Mega Evolution", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-mega-blocks-dynamax",
+    mode: "pve",
+    gimmickRules: "all",
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "charizard",
+            heldItem: "mega_showdown:charizardite_x",
+            moveset: ["flamethrower"],
+            gimmicks: { mega: true },
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "shuckle",
+            moveset: ["withdraw"],
+          },
+        ],
+      },
+    ],
+  };
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  assert.equal(started.request.gimmicks.canMegaEvo, true);
+  assert.equal(started.request.gimmicks.canDynamax, true);
+
+  const mega = chooseNativeInteractiveBattleAction(started.sessionId, {
+    type: "move",
+    slot: 1,
+    gimmick: "mega",
+  });
+  assert.ok(mega.events.some((event) => event.type === "mega_evolution"));
+  assert.equal(mega.request.gimmicks.canDynamax, false);
+  assert.deepEqual(mega.request.gimmicks.maxMoves, []);
 });
 
 test("waits for the player to choose a replacement after fainting", () => {

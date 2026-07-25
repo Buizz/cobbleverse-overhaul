@@ -2563,6 +2563,111 @@ test("resolves fixed multi-hit moves and guaranteed critical hits per hit", () =
   );
 });
 
+test("applies Loaded Dice to variable multi-hit moves", () => {
+  const base = setup({
+    seed: 42,
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({
+            name: "DiceUser",
+            item: "loadeddice",
+            stats: { ...pokemon().stats, attack: 80, speed: 150 },
+            moves: [
+              {
+                id: "bulletseed",
+                name: "Bullet Seed",
+                type: "Grass",
+                category: "Physical",
+                power: 25,
+                accuracy: true,
+                pp: 30,
+                multihit: [2, 5],
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "DiceTarget",
+            stats: { ...pokemon().stats, hp: 800, defence: 160, speed: 20 },
+          }),
+        ],
+      },
+    ],
+  });
+  for (let seed = 1; seed <= 12; seed += 1) {
+    const state = resolveSimpleTurn(
+      createSimpleBattle({ ...base, seed }),
+      [{ move: 1 }, { move: 1 }],
+    );
+    const hits = state.events.find((event) => event.type === "multi_hit")?.hits;
+    assert.ok(hits === 4 || hits === 5, `Loaded Dice should roll 4-5 hits, got ${hits}`);
+  }
+});
+
+test("does not treat immune zero-damage hits as landed damage", () => {
+  const state = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "NormalAttacker",
+                stats: { ...pokemon().stats, attack: 120, speed: 150 },
+                moves: [
+                  {
+                    id: "doubleslap",
+                    name: "Double Slap",
+                    type: "Normal",
+                    category: "Physical",
+                    power: 15,
+                    accuracy: true,
+                    pp: 10,
+                    multihit: [2, 5],
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "GhostTarget",
+                types: ["Ghost"],
+                stats: { ...pokemon().stats, hp: 200, speed: 20 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+
+  assert.equal(state.sides[1].team[0].hp, 200);
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.type === "damage" &&
+        event.pokemon === "GhostTarget" &&
+        event.damage === 0 &&
+        event.effectiveness === 0,
+    ),
+  );
+  assert.equal(
+    state.events.some((event) => event.type === "multi_hit"),
+    false,
+  );
+});
+
 test("reserves and consumes each side gimmick resource explicitly", () => {
   let state = createSimpleBattle(
     setup({
@@ -2970,6 +3075,118 @@ test("rejects Mega Evolution and Z-Power without a compatible held item", () => 
     ),
   );
   assert.equal(state.sides[0].gimmickResources.zmove, "available");
+});
+
+test("blocks Mega Evolution and Dynamax from stacking", () => {
+  const battleSetup = setup({
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({
+            id: "mawile",
+            name: "Mawile",
+            item: "mawilite",
+            gimmicks: {
+              forceDynamax: true,
+              megaStone: {
+                item: "mawilite",
+                evolves: "mawile",
+                form: "Mega Mawile",
+                ability: "hugepower",
+              },
+            },
+            moves: [
+              {
+                id: "ironhead",
+                name: "Iron Head",
+                type: "Steel",
+                category: "Physical",
+                power: 80,
+                accuracy: true,
+                pp: 15,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Dummy",
+            moves: [
+              {
+                id: "splash",
+                name: "Splash",
+                type: "Normal",
+                category: "Status",
+                accuracy: true,
+                pp: 40,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  const megaState = resolveSimpleTurn(createSimpleBattle(battleSetup), [
+    { move: 1, gimmick: "mega" },
+    { move: 1 },
+  ]);
+  assert.equal(megaState.sides[0].team[0].megaEvolved, true);
+  assert.equal(
+    chooseSimpleAiCommand(megaState, 0, "expert", "balanced").gimmick,
+    undefined,
+  );
+
+  const dynamaxAttempt = resolveSimpleTurn(megaState, [
+    { move: 1, gimmick: "dynamax" },
+    { move: 1 },
+  ]);
+  assert.equal(dynamaxAttempt.sides[0].team[0].dynamaxTurns, 0);
+  assert.ok(
+    dynamaxAttempt.events.some(
+      (event) =>
+        event.type === "gimmick_rejected" &&
+        event.gimmick === "dynamax" &&
+        event.reason === "dynamax_blocked_by_mega",
+    ),
+  );
+
+  const dynamaxState = resolveSimpleTurn(createSimpleBattle(battleSetup), [
+    { move: 1, gimmick: "dynamax" },
+    { move: 1 },
+  ]);
+  assert.equal(dynamaxState.sides[0].team[0].dynamaxTurns, 2);
+  const megaAttempt = resolveSimpleTurn(dynamaxState, [
+    { move: 1, gimmick: "mega" },
+    { move: 1 },
+  ]);
+  assert.notEqual(megaAttempt.sides[0].team[0].megaEvolved, true);
+  assert.ok(
+    megaAttempt.events.some(
+      (event) =>
+        event.type === "gimmick_rejected" &&
+        event.gimmick === "mega" &&
+        event.reason === "mega_blocked_by_dynamax",
+    ),
+  );
+
+  const teraAttempt = resolveSimpleTurn(dynamaxState, [
+    { move: 1, gimmick: "terastallize" },
+    { move: 1 },
+  ]);
+  assert.notEqual(teraAttempt.sides[0].team[0].terastallized, true);
+  assert.ok(
+    teraAttempt.events.some(
+      (event) =>
+        event.type === "gimmick_rejected" &&
+        event.gimmick === "terastallize" &&
+        event.reason === "tera_blocked_by_dynamax",
+    ),
+  );
 });
 
 test("uses the configured Tera Type and rejects a command-side override", () => {
@@ -7603,6 +7820,214 @@ test("supports called moves, redirection markers, perish song, beak blast, and p
   );
 });
 
+test("enforces forced move locks from rampage moves, rolling moves, and choice items", () => {
+  const outrageBase = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Rampager",
+              stats: { ...pokemon().stats, attack: 120, speed: 160 },
+              moves: [
+                {
+                  id: "outrage",
+                  name: "Outrage",
+                  type: "Dragon",
+                  category: "Physical",
+                  power: 120,
+                  accuracy: true,
+                  pp: 10,
+                },
+                {
+                  id: "thunderbolt",
+                  name: "Thunderbolt",
+                  type: "Electric",
+                  category: "Special",
+                  power: 90,
+                  accuracy: true,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "Target",
+              stats: { ...pokemon().stats, hp: 600, defence: 160, speed: 40 },
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const afterOutrage = resolveSimpleTurn(outrageBase, [{ move: 1 }, { move: 1 }]);
+  assert.equal(afterOutrage.sides[0].team[0].lockedMove.id, "outrage");
+  assert.ok(
+    [2, 3].includes(afterOutrage.sides[0].team[0].lockedMove.maximum),
+    `Outrage lock should last 2-3 turns, got ${afterOutrage.sides[0].team[0].lockedMove.maximum}`,
+  );
+  assert.equal(chooseSimpleAiCommand(afterOutrage, 0, "expert", "balanced").move, 1);
+  const forcedOutrage = resolveSimpleTurn(afterOutrage, [{ move: 2 }, { move: 1 }]);
+  assert.ok(
+    forcedOutrage.events.some(
+      (event) =>
+        event.turn === 2 &&
+        event.type === "move" &&
+        event.pokemon === "Rampager" &&
+        event.move === "Outrage",
+    ),
+  );
+  assert.ok(
+    !forcedOutrage.events.some(
+      (event) =>
+        event.turn === 2 &&
+        event.type === "move" &&
+        event.pokemon === "Rampager" &&
+        event.move === "Thunderbolt",
+    ),
+  );
+
+  const rolloutBase = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Roller",
+              stats: { ...pokemon().stats, attack: 120, speed: 160 },
+              moves: [
+                {
+                  id: "rollout",
+                  name: "Rollout",
+                  type: "Rock",
+                  category: "Physical",
+                  power: 30,
+                  accuracy: true,
+                  pp: 20,
+                },
+              ],
+            }),
+            pokemon({ name: "Reserve" }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "TrainingDummy",
+              stats: { ...pokemon().stats, hp: 600, defence: 160, speed: 40 },
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const afterRollout = resolveSimpleTurn(rolloutBase, [{ move: 1 }, { move: 1 }]);
+  assert.throws(
+    () => resolveSimpleTurn(afterRollout, [{ switch: 2 }, { move: 1 }]),
+    /cannot switch while locked into Rollout/,
+  );
+
+  const choiceBase = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "ChoiceUser",
+              item: "choiceband",
+              stats: { ...pokemon().stats, attack: 120, speed: 160 },
+              moves: [
+                {
+                  id: "slash",
+                  name: "Slash",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 70,
+                  accuracy: true,
+                  pp: 20,
+                },
+                {
+                  id: "ember",
+                  name: "Ember",
+                  type: "Fire",
+                  category: "Special",
+                  power: 40,
+                  accuracy: true,
+                  pp: 25,
+                },
+              ],
+            }),
+            pokemon({ name: "ChoiceReserve" }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "ChoiceTarget",
+              stats: { ...pokemon().stats, hp: 600, defence: 160, speed: 40 },
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const afterChoice = resolveSimpleTurn(choiceBase, [{ move: 1 }, { move: 1 }]);
+  assert.equal(afterChoice.sides[0].team[0].choiceLock.id, "slash");
+  assert.equal(chooseSimpleAiCommand(afterChoice, 0, "expert", "balanced").move, 1);
+  const forcedChoice = resolveSimpleTurn(afterChoice, [{ move: 2 }, { move: 1 }]);
+  assert.ok(
+    forcedChoice.events.some(
+      (event) =>
+        event.turn === 2 &&
+        event.type === "move" &&
+        event.pokemon === "ChoiceUser" &&
+        event.move === "Slash",
+    ),
+  );
+  const switchedChoice = resolveSimpleTurn(forcedChoice, [{ switch: 2 }, { move: 1 }]);
+  assert.equal(switchedChoice.sides[0].active, 1);
+  assert.equal(switchedChoice.sides[0].team[0].choiceLock, null);
+});
+
 test("allows a player Dynamax command independently of the entry AI flag", () => {
   const state = resolveSimpleTurn(
     createSimpleBattle(
@@ -7630,6 +8055,63 @@ test("allows a player Dynamax command independently of the entry AI flag", () =>
         event.dynamaxMode === "dynamax",
     ),
   );
+});
+
+test("records Max Move candidates while a Pokémon remains Dynamaxed", () => {
+  const state = runSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "PlayerMon",
+              stats: { ...pokemon().stats, hp: 400, specialAttack: 100, speed: 80 },
+              gimmicks: { canDynamax: true, forceDynamax: true },
+              moves: [
+                {
+                  id: "thunderbolt",
+                  name: "Thunderbolt",
+                  type: "Electric",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "AiMon",
+              stats: { ...pokemon().stats, hp: 400, specialAttack: 80, speed: 60 },
+              moves: [
+                {
+                  id: "watergun",
+                  name: "Water Gun",
+                  type: "Water",
+                  category: "Special",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 25,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+    { maxTurns: 2, aiProfiles: [{ difficulty: "expert", strategy: "balanced" }] },
+  );
+
+  const secondTurnTrace = state.aiTrace.find(
+    (trace) => trace.turn === 2 && trace.side === 0,
+  );
+  assert.equal(secondTurnTrace.candidates[0].id, "maxlightning");
+  assert.equal(secondTurnTrace.candidates[0].name, "Max Lightning");
 });
 
 test("makes self-destructing moves faint the user after activation", () => {

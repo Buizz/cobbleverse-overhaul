@@ -68,10 +68,27 @@ function effectivenessLabel(value) {
   return "neutral";
 }
 
+function publicMoveData(pokemon, move) {
+  if (pokemon.dynamaxTurns <= 0) return move;
+  const maxMove = resolveNativeMaxMove(pokemon, move);
+  const isStatus = move.category === "Status";
+  return {
+    ...move,
+    id: maxMove.id,
+    name: maxMove.name,
+    accuracy: true,
+    priority: 0,
+    power: isStatus ? 0 : Math.max(90, Math.min(150, move.power * 1.35)),
+    target: isStatus ? "self" : move.target,
+  };
+}
+
 function publicMoves(active, opponent, difficulty = "standard", strategy = "balanced") {
   return active.moves.map((move, index) => {
-    const range = calculateDamageRange(active, opponent, move);
-    const accuracy = move.accuracy === true ? 1 : Number(move.accuracy ?? 100) / 100;
+    const displayMove = publicMoveData(active, move);
+    const range = calculateDamageRange(active, opponent, displayMove);
+    const accuracy =
+      displayMove.accuracy === true ? 1 : Number(displayMove.accuracy ?? 100) / 100;
     const expectedDamage = ((range.minimum + range.maximum) / 2) * accuracy;
     const koChance =
       range.maximum < opponent.hp
@@ -81,19 +98,19 @@ function publicMoves(active, opponent, difficulty = "standard", strategy = "bala
           : "possible";
     return {
       slot: index + 1,
-      id: move.id,
-      name: move.name,
+      id: displayMove.id,
+      name: displayMove.name,
       pp: move.pp,
       maxPp: move.maxPp,
       target: "normal",
       disabled: move.pp <= 0,
-      type: move.type,
-      category: move.category,
-      power: move.power,
-      accuracy: move.accuracy,
-      priority: move.priority,
+      type: displayMove.type,
+      category: displayMove.category,
+      power: displayMove.power,
+      accuracy: displayMove.accuracy,
+      priority: displayMove.priority,
       effectiveness:
-        move.category === "Status"
+        displayMove.category === "Status"
           ? "not_applicable"
           : effectivenessLabel(range.effectiveness),
       expectedDamage,
@@ -101,7 +118,7 @@ function publicMoves(active, opponent, difficulty = "standard", strategy = "bala
       score: Math.round(
         scoreAiMoveCandidate(
           {
-            ...move,
+            ...displayMove,
             expectedDamage,
             koChance,
           },
@@ -170,6 +187,7 @@ function snapshot(session) {
     playerSide.team.some((pokemon) => !pokemon.fainted);
   const latestDecision = session.aiTrace.at(-1) ?? null;
   const usedGimmicks = playerSide.usedGimmicks ?? {};
+  const playerDynamaxed = player.dynamaxTurns > 0;
   const megaStone = player.gimmicks?.megaStone;
   const playerSpeciesIds = new Set([cleanId(player.id), cleanId(player.name)]);
   const canMegaEvolve =
@@ -193,7 +211,7 @@ function snapshot(session) {
   // Cobblemon의 플레이어는 엔트리 플래그와 무관하게 전투당 한 번
   // 다이맥스를 직접 선택할 수 있다. 엔트리의 dynamax/gmax 값은
   // 컴퓨터 AI의 강제 발동 지시와 거다이맥스 개체 판정에만 사용한다.
-  const canDynamax = true;
+  const canDynamax = player.megaEvolved !== true;
   const gigantamax = player.gimmicks?.gigantamax === true;
   const configuredTeraType = player.configuredTeraType || "";
 
@@ -230,14 +248,18 @@ function snapshot(session) {
           moves: requiresReplacement ? [] : publicMoves(player, opponent),
           gimmicks: {
             canMegaEvo:
-              !requiresReplacement && !usedGimmicks.mega && canMegaEvolve,
+              !requiresReplacement &&
+              !playerDynamaxed &&
+              !usedGimmicks.mega &&
+              canMegaEvolve,
             megaVariant: "mega",
             zMoves:
               requiresReplacement || usedGimmicks.zmove ? [] : zMoves,
             canDynamax:
               !requiresReplacement && !usedGimmicks.dynamax && canDynamax,
             maxMoves:
-              requiresReplacement || usedGimmicks.dynamax || !canDynamax
+              requiresReplacement ||
+              (!playerDynamaxed && (usedGimmicks.dynamax || !canDynamax))
               ? []
               : player.moves.map((move) => {
                   const maxMove = resolveNativeMaxMove(player, move);
@@ -250,6 +272,7 @@ function snapshot(session) {
             gigantamax: gigantamax ? "gigantamax" : "",
             canTerastallize:
               requiresReplacement ||
+              playerDynamaxed ||
               usedGimmicks.terastallize ||
               !configuredTeraType
               ? ""

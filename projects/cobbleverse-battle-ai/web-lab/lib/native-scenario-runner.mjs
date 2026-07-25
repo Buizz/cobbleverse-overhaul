@@ -287,6 +287,9 @@ export function mapNativeEvent(event) {
           : event.effectiveness < 1
             ? "resisted"
             : null;
+    if (event.effectiveness === 0) {
+      return effectiveness ? [{ ...base, type: effectiveness }] : [];
+    }
     return [
       ...(effectiveness ? [{ ...base, type: effectiveness }] : []),
       {

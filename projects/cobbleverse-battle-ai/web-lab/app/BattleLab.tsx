@@ -325,6 +325,14 @@ type AiTraceEntry = {
     accuracy: number | true;
     priority: number;
     selected: boolean;
+    score?: number;
+    reasons?: Array<{
+      code: string;
+      label: string;
+      value?: number | string | boolean;
+      weight?: number;
+      message: string;
+    }>;
   }>;
 };
 
@@ -4012,6 +4020,32 @@ function InteractiveArena({
                       {entry.strategy ? `전략 ${entry.strategy}` : "전략 미지정"}
                       {entry.score == null ? "" : ` · 평가 ${entry.score}`}
                     </small>
+                    {entry.candidates && entry.candidates.length > 0 ? (
+                      <ol>
+                        {entry.candidates.slice(0, 4).map((candidate) => (
+                          <li key={`${candidate.slot}-${candidate.id}`}>
+                            <span>{candidate.selected ? "선택" : "후보"}</span>
+                            <strong>
+                              {candidate.name}
+                              {candidate.score == null
+                                ? ""
+                                : ` · ${Number(candidate.score).toFixed(2)}`}
+                            </strong>
+                            {(candidate.reasons ?? [])
+                              .slice(0, candidate.selected ? 3 : 1)
+                              .map((reason) => (
+                                <small key={`${candidate.id}-${reason.code}`}>
+                                  {reason.label}
+                                  {typeof reason.weight === "number"
+                                    ? ` ${reason.weight >= 0 ? "+" : ""}${reason.weight}`
+                                    : ""}
+                                  : {reason.message}
+                                </small>
+                              ))}
+                          </li>
+                        ))}
+                      </ol>
+                    ) : null}
                   </div>
                 </article>
               ))

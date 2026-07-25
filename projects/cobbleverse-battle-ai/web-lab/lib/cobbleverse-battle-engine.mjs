@@ -73,6 +73,10 @@ const SELF_DESTRUCT_MOVES = new Set([
   "mistyexplosion",
   "selfdestruct",
 ]);
+const ROLLING_LOCK_MOVES = new Set(["iceball", "rollout"]);
+const RAMPAGE_LOCK_MOVES = new Set(["outrage", "petaldance", "thrash"]);
+const CHOICE_LOCK_ITEMS = new Set(["choiceband", "choicescarf", "choicespecs"]);
+const LOADED_DICE_ITEMS = new Set(["loadeddice"]);
 const AI_RECOVERY_MOVES = new Set([
   "recover",
   "roost",
@@ -557,6 +561,7 @@ function normalizePokemon(pokemon, path) {
       count: 0,
     },
     lockedMove: null,
+    choiceLock: null,
     chargingMove: null,
     volatiles: {},
     boosts: Object.fromEntries(BOOST_STATS.map((stat) => [stat, 0])),
@@ -1031,19 +1036,49 @@ function lockedMoveSelection(pokemon) {
       (move) => cleanId(move.id) === encoreMove && move.pp > 0,
     );
     if (encoreIndex >= 0) {
-      return { move: pokemon.moves[encoreIndex], slot: encoreIndex + 1 };
+      return {
+        move: pokemon.moves[encoreIndex],
+        slot: encoreIndex + 1,
+        lockSource: "encore",
+        preventsSwitch: false,
+        noPpCost: false,
+      };
     }
     delete pokemon.volatiles.encore;
   }
-  if (!pokemon.lockedMove?.id) return null;
-  const index = pokemon.moves.findIndex(
-    (move) => cleanId(move.id) === cleanId(pokemon.lockedMove.id),
-  );
-  if (index < 0) {
-    pokemon.lockedMove = null;
-    return null;
+  if (pokemon.lockedMove?.id) {
+    const index = pokemon.moves.findIndex(
+      (move) => cleanId(move.id) === cleanId(pokemon.lockedMove.id) && move.pp > 0,
+    );
+    if (index < 0) {
+      pokemon.lockedMove = null;
+      return null;
+    }
+    return {
+      move: pokemon.moves[index],
+      slot: index + 1,
+      lockSource: pokemon.lockedMove.kind ?? "move",
+      preventsSwitch: true,
+      noPpCost: true,
+    };
   }
-  return { move: pokemon.moves[index], slot: index + 1 };
+  if (CHOICE_LOCK_ITEMS.has(cleanId(pokemon.item)) && pokemon.choiceLock?.id) {
+    const index = pokemon.moves.findIndex(
+      (move) => cleanId(move.id) === cleanId(pokemon.choiceLock.id) && move.pp > 0,
+    );
+    if (index < 0) return null;
+    return {
+      move: pokemon.moves[index],
+      slot: index + 1,
+      lockSource: "choice",
+      preventsSwitch: false,
+      noPpCost: false,
+    };
+  }
+  if (!CHOICE_LOCK_ITEMS.has(cleanId(pokemon.item))) {
+    pokemon.choiceLock = null;
+  }
+  return null;
 }
 
 function chargingMoveSelection(pokemon) {
@@ -1069,6 +1104,8 @@ function buildActions(state, commands, rng) {
           pokemon,
           selected: chargingSelection,
           locked: true,
+          lockSource: "charging",
+          noPpCost: true,
           chargingRelease: true,
           gimmick: "",
           teraType: "",
@@ -1077,8 +1114,14 @@ function buildActions(state, commands, rng) {
           tie: rng.next(),
         };
       }
+      const lockedSelection = lockedMoveSelection(pokemon);
       const switchSlot = Number(commands[side]?.switch);
       if (Number.isInteger(switchSlot)) {
+        if (lockedSelection?.preventsSwitch) {
+          throw new Error(
+            `Side ${side + 1} cannot switch while locked into ${lockedSelection.move.name}`,
+          );
+        }
         const target = state.sides[side].team[switchSlot - 1];
         if (!target || target.fainted || switchSlot - 1 === state.sides[side].active) {
           throw new Error(`Side ${side + 1} cannot switch to slot ${switchSlot}`);
@@ -1097,7 +1140,6 @@ function buildActions(state, commands, rng) {
           tie: rng.next(),
         };
       }
-      const lockedSelection = lockedMoveSelection(pokemon);
       const selected =
         lockedSelection ??
         usableMoveRespectingVolatiles(pokemon, commands[side]?.move);
@@ -1107,6 +1149,8 @@ function buildActions(state, commands, rng) {
         pokemon,
         selected,
         locked: Boolean(lockedSelection),
+        lockSource: lockedSelection?.lockSource ?? "",
+        noPpCost: Boolean(lockedSelection?.noPpCost),
         gimmick: lockedSelection
           ? ""
           : String(commands[side]?.gimmick ?? ""),
@@ -1184,6 +1228,7 @@ function validateGimmickRequest(action) {
   const gimmicks = pokemon.gimmicks ?? {};
 
   if (action.gimmick === "mega") {
+    if (pokemon.dynamaxTurns > 0) return "mega_blocked_by_dynamax";
     const stone = gimmicks.megaStone;
     if (!stone || !stone.item || stone.item !== pokemon.item) {
       return "mega_stone_required";
@@ -1211,12 +1256,14 @@ function validateGimmickRequest(action) {
   }
 
   if (action.gimmick === "dynamax") {
+    if (pokemon.megaEvolved) return "dynamax_blocked_by_mega";
     if (gimmicks.canDynamax !== true) return "dynamax_unavailable";
     action.dynamaxMode =
       gimmicks.gigantamax === true ? "gigantamax" : "dynamax";
   }
 
   if (action.gimmick === "terastallize") {
+    if (pokemon.dynamaxTurns > 0) return "tera_blocked_by_dynamax";
     const configuredType = String(
       pokemon.configuredTeraType ?? gimmicks.teraType ?? "",
     ).trim();
@@ -1501,6 +1548,7 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
   );
   outgoing.consecutiveMove = { id: "", count: 0 };
   outgoing.lockedMove = null;
+  outgoing.choiceLock = null;
   outgoing.chargingMove = null;
   outgoing.volatiles = {};
   if (outgoing.status === "tox") {
@@ -3206,6 +3254,7 @@ function markFainted(state, side, pokemon) {
   state.sides[side].lastFaintedTurn = state.turn;
   pokemon.consecutiveMove = { id: "", count: 0 };
   pokemon.lockedMove = null;
+  pokemon.choiceLock = null;
   pokemon.chargingMove = null;
   pokemon.volatiles = {};
   state.events.push({
@@ -3247,6 +3296,9 @@ function hitCountForMove(move, attacker, rng) {
   const maximum = Math.max(minimum, Math.floor(move.multihit[1] ?? minimum));
   if (activeAbility(attacker) === "skilllink") return maximum;
   if (minimum === maximum) return minimum;
+  if (minimum === 2 && maximum === 5 && LOADED_DICE_ITEMS.has(cleanId(attacker.item))) {
+    return rng.next() < 0.5 ? 4 : 5;
+  }
   if (minimum === 2 && maximum === 5) {
     const roll = rng.next();
     if (roll < 3 / 8) return 2;
@@ -3305,9 +3357,11 @@ function fixedDamageAmount(move, attacker, defender) {
   return null;
 }
 
-function recordMoveResult(state, side, pokemon, move, slot, succeeded) {
+function recordMoveResult(state, side, pokemon, move, slot, succeeded, rng = null) {
   const moveId = cleanId(move?.id);
-  const rollingMove = moveId === "rollout" || moveId === "iceball";
+  const rollingMove = ROLLING_LOCK_MOVES.has(moveId);
+  const rampageMove = RAMPAGE_LOCK_MOVES.has(moveId);
+  const repeatedLockMove = rollingMove || rampageMove;
   pokemon.lastMoveSucceeded = Boolean(succeeded);
   if (succeeded && move) {
     pokemon.lastMove = clone(move);
@@ -3322,7 +3376,22 @@ function recordMoveResult(state, side, pokemon, move, slot, succeeded) {
   if (pokemon.fainted) {
     pokemon.consecutiveMove = { id: "", count: 0 };
     pokemon.lockedMove = null;
+    pokemon.choiceLock = null;
     return;
+  }
+  if (!CHOICE_LOCK_ITEMS.has(cleanId(pokemon.item))) {
+    pokemon.choiceLock = null;
+  } else if (
+    succeeded &&
+    moveId &&
+    moveId !== "struggle" &&
+    !pokemon.choiceLock?.id
+  ) {
+    pokemon.choiceLock = {
+      id: moveId,
+      slot,
+      item: cleanId(pokemon.item),
+    };
   }
   if (
     succeeded &&
@@ -3335,10 +3404,20 @@ function recordMoveResult(state, side, pokemon, move, slot, succeeded) {
   } else {
     pokemon.consecutiveMove = { id: "", count: 0 };
   }
-  if (!rollingMove) return;
+  if (!repeatedLockMove) return;
 
-  if (succeeded && pokemon.consecutiveMove.count < 5) {
-    pokemon.lockedMove = { id: moveId, slot };
+  const maximum =
+    rollingMove
+      ? 5
+      : Number(pokemon.lockedMove?.maximum) ||
+        2 + Math.floor((rng?.next?.() ?? 0) * 2);
+  if (succeeded && pokemon.consecutiveMove.count < maximum) {
+    pokemon.lockedMove = {
+      id: moveId,
+      slot,
+      kind: rollingMove ? "rolling" : "rampage",
+      maximum,
+    };
     state.events.push({
       turn: state.turn,
       type: "move_lock",
@@ -3346,7 +3425,7 @@ function recordMoveResult(state, side, pokemon, move, slot, succeeded) {
       pokemon: pokemon.name,
       move: move.name,
       count: pokemon.consecutiveMove.count,
-      maximum: 5,
+      maximum,
     });
     return;
   }
@@ -3355,6 +3434,9 @@ function recordMoveResult(state, side, pokemon, move, slot, succeeded) {
   pokemon.lockedMove = null;
   if (succeeded) {
     pokemon.consecutiveMove = { id: "", count: 0 };
+    if (rampageMove) {
+      applyVolatileStatus(state, side, pokemon, "confusion", move.name);
+    }
   }
   if (hadLock || !succeeded) {
     state.events.push({
@@ -3392,9 +3474,9 @@ function executeMove(state, action, rng) {
   ) {
     return false;
   }
-  if (!action.locked) sourceMove.pp -= 1;
+  if (!action.noPpCost) sourceMove.pp -= 1;
   if (
-    !action.locked &&
+    !action.noPpCost &&
     activeAbility(defender) === "pressure" &&
     sourceMove.pp > 0 &&
     !["self", "allyside"].includes(cleanId(sourceMove.target))
@@ -5697,6 +5779,28 @@ function executeMove(state, action, rng) {
         remainingHp: defender.hp,
       });
     }
+    const hitEffectiveness =
+      fixedDamage === null ? range.effectiveness : fixedEffectiveness;
+    if (hitEffectiveness === 0) {
+      state.events.push({
+        turn: state.turn,
+        type: "damage",
+        side: defenderSide,
+        pokemon: defender.name,
+        source: attacker.name,
+        move: move.name,
+        damage: 0,
+        remainingHp: defender.hp,
+        maximumHp: defender.stats.hp,
+        stab: range.stab,
+        effectiveness: 0,
+        randomFactor: Math.round(randomFactor * 10_000) / 10_000,
+        critical: false,
+        hit,
+        hits: requestedHits,
+      });
+      break;
+    }
     let appliedDamage = damage;
     const substitute = defender.volatiles?.substitute;
     const substituteBlockedHit = Boolean(
@@ -5783,7 +5887,7 @@ function executeMove(state, action, rng) {
       });
     }
   }
-  if (requestedHits > 1) {
+  if (requestedHits > 1 && landedHits > 0) {
     state.events.push({
       turn: state.turn,
       type: "multi_hit",
@@ -6754,6 +6858,7 @@ export function resolveSimpleTurn(previousState, commands) {
         action.selected?.move,
         action.selected?.slot,
         succeeded,
+        rng,
       );
       releaseGimmick(state, action, "action_not_executed");
     }
@@ -7006,6 +7111,44 @@ function saltCureResidualDamage(target) {
   return Math.max(1, Math.floor(target.stats.hp / divisor));
 }
 
+function aiDisplayMoveData(pokemon, move) {
+  if (pokemon.dynamaxTurns <= 0) return move;
+  const maxMove = resolveNativeMaxMove(pokemon, move);
+  const isStatus = move.category === "Status";
+  return {
+    ...move,
+    id: maxMove.id,
+    name: maxMove.name,
+    accuracy: true,
+    priority: 0,
+    power: isStatus ? 0 : Math.max(90, Math.min(150, move.power * 1.35)),
+    target: isStatus ? "self" : move.target,
+    status: "",
+    selfStatus: "",
+    volatileStatus: maxMove.volatileStatus ?? "",
+    boosts: maxMove.boosts ?? {},
+    selfBoosts: maxMove.selfBoosts ?? {},
+    heal: null,
+    drain: null,
+    recoil: null,
+    weather: maxMove.weather ?? "",
+    terrain: maxMove.terrain ?? "",
+    pseudoWeather: maxMove.pseudoWeather ?? "",
+    sideCondition: maxMove.sideCondition ?? "",
+    slotCondition: "",
+    multihit: null,
+    multiaccuracy: false,
+    willCrit: false,
+    selfSwitch: false,
+    forceSwitch: false,
+    fixedDamage: null,
+    dynamicDamage: false,
+    dynamicPower: false,
+    secondaries: [],
+    selfDestruct: false,
+  };
+}
+
 function automaticMoveCandidates(
   state,
   sideIndex,
@@ -7049,8 +7192,10 @@ function automaticMoveCandidates(
   );
   return pokemon.moves
     .map((move, index) => {
-      const range = calculateDamageRange(pokemon, defender, move);
-      const accuracy = move.accuracy === true ? 1 : move.accuracy / 100;
+      const displayMove = aiDisplayMoveData(pokemon, move);
+      const range = calculateDamageRange(pokemon, defender, displayMove);
+      const accuracy =
+        displayMove.accuracy === true ? 1 : displayMove.accuracy / 100;
       const statusWeights = {
         slp: 48,
         tox: 42,
@@ -7060,25 +7205,25 @@ function automaticMoveCandidates(
         frz: 55,
       };
       const majorStatusValue =
-        move.status && canReceiveStatus(defender, move.status)
-          ? statusWeights[move.status] ?? 18
+        displayMove.status && canReceiveStatus(defender, displayMove.status)
+          ? statusWeights[displayMove.status] ?? 18
           : 0;
-      const selfBoostValue = Object.values(move.selfBoosts).reduce(
+      const selfBoostValue = Object.values(displayMove.selfBoosts).reduce(
         (sum, amount) => sum + Math.max(0, amount) * 15,
         0,
       );
-      const targetDropValue = Object.values(move.boosts).reduce(
+      const targetDropValue = Object.values(displayMove.boosts).reduce(
         (sum, amount) => sum + Math.max(0, -amount) * 13,
         0,
       );
       const missingHp = Math.max(0, pokemon.stats.hp - pokemon.hp);
-      const recoveryValue = move.heal
+      const recoveryValue = displayMove.heal
         ? Math.min(
             missingHp,
-            fractionAmount(pokemon.stats.hp, move.heal),
+            fractionAmount(pokemon.stats.hp, displayMove.heal),
           ) * 0.75
         : 0;
-      const secondaryValue = move.secondaries.reduce((sum, effect) => {
+      const secondaryValue = displayMove.secondaries.reduce((sum, effect) => {
         const chance = effect.chance / 100;
         const status =
           effect.status && canReceiveStatus(defender, effect.status)
@@ -7096,11 +7241,11 @@ function automaticMoveCandidates(
         return sum + (status + boosts) * chance;
       }, 0);
       const statusResidualCandidates = [
-        ...(move.status &&
-        canReceiveStatus(defender, move.status, state, defenderSide, sideIndex)
-          ? [{ status: move.status, chance: 100 }]
+        ...(displayMove.status &&
+        canReceiveStatus(defender, displayMove.status, state, defenderSide, sideIndex)
+          ? [{ status: displayMove.status, chance: 100 }]
           : []),
-        ...move.secondaries
+        ...displayMove.secondaries
           .filter(
             (effect) =>
               effect.status &&
@@ -7115,8 +7260,8 @@ function automaticMoveCandidates(
           .map((effect) => ({ status: effect.status, chance: effect.chance })),
       ];
       const statusBlocked =
-        Boolean(move.status) &&
-        !canReceiveStatus(defender, move.status, state, defenderSide, sideIndex);
+        Boolean(displayMove.status) &&
+        !canReceiveStatus(defender, displayMove.status, state, defenderSide, sideIndex);
       const tacticalValue =
         majorStatusValue +
         selfBoostValue +
@@ -7126,7 +7271,7 @@ function automaticMoveCandidates(
       const expectedDamage =
         ((range.minimum + range.maximum) / 2) * accuracy;
       const baseCandidate = {
-        ...move,
+        ...displayMove,
         expectedDamage,
         tacticalValue,
         hpPercent: pokemon.hp / pokemon.stats.hp,
@@ -7146,7 +7291,7 @@ function automaticMoveCandidates(
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
-        selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(move.id)),
+        selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(displayMove.id)),
         koChance:
           range.maximum < defender.hp
             ? "none"
@@ -7156,13 +7301,13 @@ function automaticMoveCandidates(
       };
       return {
         slot: index + 1,
-        id: move.id,
-        name: move.name,
-        type: move.type,
-        category: move.category,
-        power: move.power,
-        accuracy: move.accuracy,
-        priority: move.priority,
+        id: displayMove.id,
+        name: displayMove.name,
+        type: displayMove.type,
+        category: displayMove.category,
+        power: displayMove.power,
+        accuracy: displayMove.accuracy,
+        priority: displayMove.priority,
         hpPercent: pokemon.hp / pokemon.stats.hp,
         incomingDamageRatio,
         opponentHp: defender.hp,
@@ -7186,7 +7331,7 @@ function automaticMoveCandidates(
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
-        selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(move.id)),
+        selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(displayMove.id)),
         koChance: baseCandidate.koChance,
         pp: move.pp,
       };
@@ -7202,6 +7347,8 @@ export function automaticMoveSlot(
   strategy = "balanced",
   candidates = automaticMoveCandidates(state, sideIndex, strategy, difficulty),
 ) {
+  const lockedSelection = lockedMoveSelection(activePokemon(state, sideIndex));
+  if (lockedSelection) return lockedSelection.slot;
   const selected = selectAiMoveCandidate(
     candidates,
     {
@@ -7236,6 +7383,7 @@ function chooseSimpleAiDecision(
 ) {
   const side = state.sides[sideIndex];
   const pokemon = activePokemon(state, sideIndex);
+  const lockedSelection = lockedMoveSelection(pokemon);
   const moveCandidates = automaticMoveCandidates(
     state,
     sideIndex,
@@ -7247,16 +7395,21 @@ function chooseSimpleAiDecision(
     strategy,
     rng: createAiRng(state.seed, sideIndex, state.turn * 17),
   });
+  const forcedMove =
+    lockedSelection &&
+    moveCandidates.find((candidate) => candidate.slot === lockedSelection.slot);
+  const chosenMove = forcedMove ?? selectedMove;
   const dynamaxFallback =
     canUseDynamaxFallback(side) && !canMegaEvolvePokemon(pokemon);
   const gimmick = selectAiGimmick({
     active: {
       canDynamax:
         side.gimmickResources.dynamax === "available" &&
-        pokemon.dynamaxTurns <= 0,
+        pokemon.dynamaxTurns <= 0 &&
+        pokemon.megaEvolved !== true,
       hpPercent: pokemon.hp / pokemon.stats.hp,
-      incomingDamageRatio: selectedMove?.incomingDamageRatio,
-      opponentHp: selectedMove?.opponentHp,
+      incomingDamageRatio: chosenMove?.incomingDamageRatio,
+      opponentHp: chosenMove?.opponentHp,
     },
     configured: {
       gimmicks: {
@@ -7264,23 +7417,23 @@ function chooseSimpleAiDecision(
           pokemon.gimmicks?.forceDynamax === true || dynamaxFallback,
       },
     },
-    selectedMove,
+    selectedMove: chosenMove,
     moveCandidates,
     forceDynamax: pokemon.gimmicks?.forceDynamax === true,
     alreadyUsed: side.usedGimmicks,
   }).id;
   return {
     command: {
-      move: selectedMove?.slot ?? automaticMoveSlot(
+      move: chosenMove?.slot ?? automaticMoveSlot(
         state,
         sideIndex,
         difficulty,
         strategy,
         moveCandidates,
       ),
-      ...(gimmick ? { gimmick } : {}),
+      ...(gimmick && !lockedSelection ? { gimmick } : {}),
     },
-    selectedMove,
+    selectedMove: chosenMove,
     moveCandidates,
   };
 }

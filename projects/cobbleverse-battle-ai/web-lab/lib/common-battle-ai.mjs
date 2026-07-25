@@ -879,9 +879,10 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         ),
       );
     } else if (advantage > 0 || slowAceCount > 0) {
+      const speedAdvantageBonus = Math.max(0, Math.min(60, advantage * 22));
       const bonus =
         55 +
-        Math.min(60, advantage * 22) +
+        speedAdvantageBonus +
         Math.min(48, slowAceCount * 18) +
         (enriched.activeIsSlower === true ? 18 : 0) +
         (hpPercent <= 0.45 ? 18 : 0);
