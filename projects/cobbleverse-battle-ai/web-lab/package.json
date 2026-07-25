@@ -11,13 +11,14 @@
     "audit:mechanics": "node scripts/audit-native-mechanics.mjs",
     "mechanics:backlog": "npm run audit:mechanics && node scripts/report-native-move-backlog.mjs",
     "sync:localization": "node scripts/sync-cobblemon-localization.mjs",
-    "sync:i18n": "node scripts/sync-pokemon-i18n.mjs",
+    "sync:i18n": "node ../tools/sync-pokemon-i18n.mjs",
+    "sync:ai-moves": "npm run sync:i18n && node ../tools/classify-ai-moves.mjs",
     "predev": "npm run sync:trainers && npm run sync:i18n && npm run audit:species && npm run audit:mechanics",
     "dev": "vinext dev",
     "build": "npm run sync:trainers && npm run sync:i18n && npm run audit:species && npm run audit:mechanics && vinext build",
     "prestart": "npm run sync:trainers && npm run sync:i18n && npm run audit:species && npm run audit:mechanics",
     "start": "vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/trainer-adapter.test.mjs tests/battle-scenario.test.mjs tests/battle-formats.test.mjs tests/battle-status.test.mjs tests/showdown-battle-runner.test.mjs tests/showdown-species.test.mjs tests/interactive-battle-session.test.mjs tests/localization-catalog.test.mjs tests/editor-catalog.test.mjs tests/cobbleverse-battle-engine.test.mjs tests/native-scenario-runner.test.mjs tests/native-mechanics-coverage.test.mjs tests/native-dynamic-power.test.mjs",
+    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/trainer-adapter.test.mjs tests/battle-scenario.test.mjs tests/battle-formats.test.mjs tests/battle-status.test.mjs tests/showdown-battle-runner.test.mjs tests/showdown-species.test.mjs tests/interactive-battle-session.test.mjs tests/localization-catalog.test.mjs tests/editor-catalog.test.mjs tests/cobbleverse-battle-engine.test.mjs tests/native-scenario-runner.test.mjs tests/native-mechanics-coverage.test.mjs tests/native-dynamic-power.test.mjs tests/ai-move-classification.test.mjs tests/ai-api-bridge.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
   "dependencies": {

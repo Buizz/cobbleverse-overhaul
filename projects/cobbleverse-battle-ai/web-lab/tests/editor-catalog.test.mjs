@@ -18,7 +18,7 @@ const itemCatalog = JSON.parse(
 );
 const i18nCatalog = JSON.parse(
   await readFile(
-    new URL("../public/data/pokemon-i18n-ko.json", import.meta.url),
+    new URL("../../data/i18n/pokemon-i18n-ko.json", import.meta.url),
     "utf8",
   ),
 );

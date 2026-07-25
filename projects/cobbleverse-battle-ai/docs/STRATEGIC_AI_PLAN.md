@@ -75,6 +75,28 @@ TeamRoleProfile
 
 포켓몬 한 마리가 `ACE + SETUP_SWEEPER`, `WALL + PIVOT`처럼 여러 역할을 가질 수 있다. 역할과 희생 가능성은 전투 중 다시 계산한다.
 
+### 3.1 기술 역할 카탈로그
+
+AI가 역할별 행동 가치를 계산하려면 기술 자체에도 전술 태그가 필요하다.
+기술 역할 분류의 원천 데이터는 웹 실험실 내부가 아니라 프로젝트 전역 데이터로 관리한다.
+
+- 원천 CSV: `projects/cobbleverse-battle-ai/data/ai/ai-move-role-classification.csv`
+- 원천 JSON: `projects/cobbleverse-battle-ai/data/ai/ai-move-role-classification.json`
+
+CSV는 사람이 검토·보정하기 위한 표이고, JSON은 전역 AI 엔진이 계속 읽는 실행 데이터다.
+웹 실험실에서 이 분류가 필요할 때도 `web-lab/public`에 별도 복사본을 두지 않고, `web-lab/lib/ai-api-bridge`를 통해 전역 JSON을 읽는다. 이 bridge는 웹 상태를 `ai-api` 관측 모델에 가깝게 변환하는 얇은 경계 계층이며, 실제 Cobblemon/Minecraft 어댑터와는 분리한다.
+
+초기 태그는 다음 역할 가중치에 사용한다.
+
+- `HAZARD_SET`, `HAZARD_REMOVE`: 판깔이·판 장악형
+- `SETUP_BOOST`: 에이스·랭크업 스위퍼
+- `RECOVERY`, `PROTECT_SCOUT`: 막이·방어형
+- `PIVOT`: 피벗·템포형
+- `DISRUPT`, `FORCE_SWITCH`, `STATUS_SPREAD`, `SPEED_CONTROL`: 에이스 견제·상대 전개 방해
+- `PRIORITY`, `FINISHER`, `ACE_DAMAGE`, `ACE_COVERAGE`: 에이스·복수 처리 담당
+
+기술 분류는 `web-lab`의 `npm run sync:ai-moves`로 갱신할 수 있지만, 실제 생성 스크립트는 프로젝트 전역 `tools`에 둔다. 이 명령은 코블몬 한국어 카탈로그를 갱신한 뒤 전역 AI 데이터를 생성한다.
+
 팀 전체 분석은 단일 종합 점수에 머물지 않는다. 공격·방어·속도 제어·역할 범위·에이스 의존도와 전략별 적합도를 분리하고, 후보 팀과 전략 타입 조합을 대표 상대군과 가상 평가한다.
 
 ## 4 승률 가치 함수

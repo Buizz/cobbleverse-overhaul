@@ -8,8 +8,8 @@ const namedRoots = {
   editor: "G:\\2026 MineCraft\\코블버스\\호연엔트리",
 };
 const defaultRoots = [namedRoots.server, namedRoots.editor];
-const outputPath = join(projectRoot, "public", "data", "pokemon-i18n-ko.json");
-const overridePath = join(projectRoot, "trainer-data", "catalogs", "pokemon-i18n-ko-overrides.csv");
+const outputPath = join(projectRoot, "data", "i18n", "pokemon-i18n-ko.json");
+const overridePath = join(projectRoot, "data", "i18n", "pokemon-i18n-ko-overrides.csv");
 
 const args = process.argv.slice(2);
 const roots = args.length
@@ -207,7 +207,7 @@ function applyOverrides(target) {
     if (entry.name) target[kind][id].name = entry.name;
     if (entry.description) target[kind][id].description = entry.description;
     target.rawKeys[kind][id] ??= {};
-    target.rawKeys[kind][id].override = "trainer-data/catalogs/pokemon-i18n-ko-overrides.csv";
+    target.rawKeys[kind][id].override = "data/i18n/pokemon-i18n-ko-overrides.csv";
   }
 }
 

@@ -1,0 +1,936 @@
+id,nameKo,nameEn,type,category,power,accuracy,priority,target,tags,tagLabels,lead,ace,setupSweeper,wall,pivot,hazardControl,revengeKiller,disruptor,support,descriptionKo,reason
+10000000voltthunderbolt,1000만볼트,"10,000,000 Volt Thunderbolt",Electric,Special,195,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,모자를 쓴 피카츄가 Z파워로 파워업한 전격을 쏜다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+absorb,흡수,Absorb,Grass,Special,20,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.6,0.3,0,0,0,0,0,0,양분을 흡수하여 공격한다. 상대에게 입힌 데미지의 절반에 해당하는 HP를 회복할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+accelerock,액셀록,Accelerock,Rock,Physical,40,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,1.8,0.5,0,0,0,3.2,0,0,재빠른 스피드로 상대에게 부딪쳐서 공격한다. 반드시 선제공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+acid,용해액,Acid,Poison,Special,40,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,강한 산을 상대에게 끼얹어 공격한다. 상대의 특수방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+acidarmor,녹기,Acid Armor,Poison,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,세포의 변화로 액체가 되어 자신의 방어를 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+aciddownpour,애시드포이즌딜리트,Acid Downpour,Poison,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 독의 늪을 만들어 전력으로 상대를 가라앉힌다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+acidspray,애시드봄,Acid Spray,Poison,Special,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,상대를 녹이는 액체를 토해내서 공격한다. 상대의 특수방어를 크게 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+acrobatics,애크러뱃,Acrobatics,Flying,Physical,55,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.2,0.7,0,0,0,0,0,0,경쾌하게 상대를 공격한다. 자신이 도구를 지니고 있지 않을 때 큰 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+acupressure,경혈찌르기,Acupressure,Normal,Status,,필중,0,adjacentAllyOrSelf,,,0,0,0,0,0,0,0,0,0.8,경혈을 눌러 몸을 활성화시킨다. 능력 중 하나를 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+aerialace,제비반환,Aerial Ace,Flying,Physical,60,필중,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,재빠른 움직임으로 상대를 농락해 벤다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+aeroblast,에어로블라스트,Aeroblast,Flying,Special,100,95,0,any,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,공기의 소용돌이를 발사하여 공격한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+afteryou,당신먼저,After You,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대의 행동을 도와서 자신이 행동한 뒤에 바로 움직일 수 있도록 한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+agility,고속이동,Agility,Psychic,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,힘을 빼고 몸을 가볍게 해서 고속으로 움직인다. 자신의 스피드를 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+aircutter,에어커터,Air Cutter,Flying,Special,60,95,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,날카로운 바람으로 상대를 베어 공격한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+airslash,에어슬래시,Air Slash,Flying,Special,75,95,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,하늘까지 베어 가르는 공기의 칼날로 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+alloutpummeling,전력무쌍격렬권,All-Out Pummeling,Fighting,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 만든 에너지 구슬을 전력으로 상대에게 부딪친다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+alluringvoice,매혹의보이스,Alluring Voice,Fairy,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,천사와도 같은 노랫소리로 상대를 공격한다. 그 턴에 능력이 올라간 포켓몬을 혼란 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+allyswitch,사이드체인지,Ally Switch,Psychic,Status,,필중,2,self,PRIORITY|FINISHER|TEAM_SUPPORT,선공기|마무리|팀 지원,0,0.8,0,1,0,0,3.6,0,3.5,이상한 힘으로 순간이동하여 자신과 같은 편의 위치를 바꾼다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 아군 지원 가치가 높은 기술입니다.
+amnesia,망각술,Amnesia,Psychic,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,머리를 비워서 순간적으로 무언가를 잊어버림으로써 자신의 특수방어를 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+anchorshot,앵커샷,Anchor Shot,Steel,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,앵커를 상대에게 휘감아서 공격한다. 상대는 도망칠 수 없게 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+ancientpower,원시의힘,Ancient Power,Rock,Special,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,원시의 힘으로 공격한다. 자신의 모든 능력이 오를 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+appleacid,사과산,Apple Acid,Grass,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,새콤한 사과에서 만들어 낸 산성 액체로 공격한다. 상대의 특수방어를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+aquacutter,아쿠아커터,Aqua Cutter,Water,Physical,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,압력을 가한 물을 칼날처럼 분사해서 상대를 베어 가른다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+aquajet,아쿠아제트,Aqua Jet,Water,Physical,40,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,1.8,0.5,0,0,0,3.2,0,0,눈에 보이지 않는 굉장한 속도로 상대에게 돌진한다. 반드시 선제공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+aquaring,아쿠아링,Aqua Ring,Water,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,자신의 몸 주변을 물로 만든 베일로 덮는다. 매 턴 HP를 회복한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+aquastep,아쿠아스텝,Aqua Step,Water,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,물 흐르듯 민첩하고 경쾌한 발재간으로 상대를 농락하며 데미지를 준다. 자신의 스피드를 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+aquatail,아쿠아테일,Aqua Tail,Water,Physical,90,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,세차게 날뛰는 거친 파도와 같이 큰 꼬리를 흔들어서 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+armorcannon,아머캐논,Armor Cannon,Fire,Special,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,자신의 갑옷을 활활 타오르는 탄환으로 발사해서 공격한다. 자신의 방어와 특수방어가 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+armthrust,손바닥치기,Arm Thrust,Fighting,Physical,15,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.6,0.2,0,0,0,0,0,0,펼친 양손으로 상대를 번갈아 쳐서 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+aromatherapy,아로마테라피,Aromatherapy,Grass,Status,,필중,0,allyTeam,TEAM_SUPPORT,팀 지원,0,0,0,1,0,0,0,0,3.5,기분 좋은 평온한 향기를 맡게 하여 같은 편 모두의 상태 이상을 회복한다.,아군 지원 가치가 높은 기술입니다.
+aromaticmist,아로마미스트,Aromatic Mist,Fairy,Status,,필중,0,adjacentAlly,,,0,0,0,0,0,0,0,0,0.8,신비한 아로마 향으로 같은 편의 특수방어를 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+assist,조수,Assist,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,서둘러서 같은 편의 도움을 받아 같은 편 포켓몬이 기억하고 있는 기술 중 하나를 쓴다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+assurance,승부굳히기,Assurance,Dark,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,그 턴에 상대가 이미 데미지를 입었다면 기술의 위력은 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+astonish,놀래키기,Astonish,Ghost,Physical,30,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.8,0.4,0,0,0,0,0,0,큰 소리 등으로 불시에 놀래켜서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+astralbarrage,아스트랄비트,Astral Barrage,Ghost,Special,120,100,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,수많은 작은 영체를 상대에게 부딪쳐서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+attackorder,공격지령,Attack Order,Bug,Physical,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,부하를 불러내어 상대를 향해서 공격시킨다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+attract,헤롱헤롱,Attract,Normal,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,수컷은 암컷을 암컷은 수컷을 유혹하여 헤롱헤롱하게 만든다. 상대가 기술을 쓰기 어려워진다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+aurasphere,파동탄,Aura Sphere,Fighting,Special,80,필중,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,몸속에서 파동의 힘을 끌어내 상대에게 쏜다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+aurawheel,오라휠,Aura Wheel,Electric,Physical,110,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.8,1.4,0,0,0,0,0,0,볼주머니에 저장해둔 에너지로 공격하고 자신의 스피드를 올린다. 모르페코의 모습에 따라 타입이 바뀐다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+aurorabeam,오로라빔,Aurora Beam,Ice,Special,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,무지개색의 빔을 상대에게 발사하여 공격한다. 공격을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+auroraveil,오로라베일,Aurora Veil,Ice,Status,,필중,0,allySide,SCREEN_SUPPORT,벽/장막,2.2,0,0,1.5,0,0,0,0,3.5,5턴 동안 물리와 특수 기술의 데미지를 약하게 한다. 싸라기눈일 때만 쓸 수 있다.,팀 전체 생존 또는 상태 방어를 지원합니다.
+autotomize,바디퍼지,Autotomize,Steel,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,몸의 쓸모없는 부분을 깎는다. 자신의 스피드를 크게 올리고 체중도 가벼워진다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+avalanche,눈사태,Avalanche,Ice,Physical,60,100,-4,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,상대로부터 기술을 받으면 그 상대에 대해서 기술의 위력이 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+axekick,발꿈치찍기,Axe Kick,Fighting,Physical,120,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,발꿈치를 들어 올린 뒤 내리찍어 공격한다. 상대를 혼란시킬 때가 있다. 빗나가면 자신이 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+babydolleyes,초롱초롱눈동자,Baby-Doll Eyes,Fairy,Status,,100,1,normal,PRIORITY|FINISHER|DISRUPT,선공기|마무리|방해,0,0.8,0,0.8,0,0,3.2,1.8,0,초롱초롱한 눈동자로 상대를 바라보며 공격을 떨어뜨린다. 반드시 선제공격할 수 있다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+baddybad,아그아그존,Baddy Bad,Dark,Special,80,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,악함을 어필해서 공격한다. 상대의 물리공격을 약하게 만드는 이상한 장막을 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+banefulbunker,토치카,Baneful Bunker,Poison,Status,,필중,4,self,PRIORITY|FINISHER|PROTECT_SCOUT,선공기|마무리|방어/정찰,0,0.8,0,2,0,0,4.4,0.8,1.4,상대의 공격을 막음과 동시에 접촉한 상대에게 독을 퍼뜨린다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 방어/정찰로 턴 종료 효과와 상대 행동 확인 가치가 있습니다.
+barbbarrage,독침천발,Barb Barrage,Poison,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,무수히 많은 독침으로 공격한다. 상대를 독 상태로 만들 때가 있다. 상대가 상태 이상인 경우 위력이 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+barrage,구슬던지기,Barrage,Normal,Physical,15,85,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.3,0.2,0,0,0,0,0,0,둥근 것을 상대에게 내던져서 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+barrier,배리어,Barrier,Psychic,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,튼튼한 장막을 만들어 자신의 방어를 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+batonpass,배턴터치,Baton Pass,Normal,Status,,필중,0,self,PIVOT,피벗/교체 연결,1.5,0.4,0,0,4.5,0,0,0,0,교대 포켓몬과 바뀐다. 능력 변화는 바뀐 포켓몬이 그대로 이어받는다.,공격/보조 후 유리 대면으로 연결하는 피벗 기술입니다.
+beakblast,부리캐논,Beak Blast,Flying,Physical,100,100,-3,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,먼저 부리를 가열시킨 다음 공격을 날린다. 가열 중에 만지면 화상을 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+beatup,집단구타,Beat Up,Dark,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,같은 편 전원이 공격한다. 동료 포켓몬이 많을수록 기술의 공격 횟수가 증가한다.,
+behemothbash,거수탄,Behemoth Bash,Steel,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,거대한 방패가 되어 부딪친다. 상대가 다이맥스 중이면 데미지가 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+behemothblade,거수참,Behemoth Blade,Steel,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,거대한 검이 되어 베어버린다. 상대가 다이맥스 중이면 데미지가 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+belch,트림,Belch,Poison,Special,120,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,상대를 향해 트림을 하여 데미지를 준다. 나무열매를 먹지 않으면 쓸 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+bellydrum,배북,Belly Drum,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,자신의 HP를 최대 HP의 절반만큼 감소시켜 자신의 공격을 최대로 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+bestow,기프트패스,Bestow,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대가 도구를 지니고 있지 않을 때 자신이 지니고 있는 도구를 상대에게 건넨다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+bide,참기,Bide,Normal,Physical,,필중,1,self,PRIORITY|FINISHER,선공기|마무리,0,0.8,0,0,0,0,3.2,0,0,2턴 동안 공격을 견뎌 입은 데미지를 2배로 만들어 상대에게 돌려준다.,선공기라 복수 처리와 마무리 가치가 큽니다.
+bind,조이기,Bind,Normal,Physical,15,85,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.3,0.2,0,0,0,0,0,0,긴 몸이나 덩굴 등을 써서 4-5턴 동안 상대를 조여 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bite,물기,Bite,Dark,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,날카롭고 뾰족한 이빨로 물어서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bitterblade,원념의칼,Bitter Blade,Fire,Physical,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,현세의 미련을 칼끝에 담아 베어 버린다. 입힌 데미지의 절반에 해당하는 HP를 회복할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bittermalice,천추지한,Bitter Malice,Ghost,Special,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,등골이 서늘해지는 원념으로 공격해서 상대의 공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+blackholeeclipse,블랙홀이클립스,Black Hole Eclipse,Dark,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 어둠의 에너지를 모아 전력으로 상대를 끌어당긴다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+blastburn,블라스트번,Blast Burn,Fire,Special,150,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,폭발하는 불꽃으로 상대를 태워서 공격한다. 다음 턴은 움직일 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+blazekick,블레이즈킥,Blaze Kick,Fire,Physical,85,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,공격한 상대를 화상 상태로 만들 때가 있다. 급소에도 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+blazingtorque,Blazing Torque,Blazing Torque,Fire,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,30% chance to burn the target.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bleakwindstorm,찬바람폭풍,Bleakwind Storm,Flying,Special,100,80,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,심신을 모두 떨게 만드는 차갑고도 거친 바람으로 공격한다. 상대의 스피드를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+blizzard,눈보라,Blizzard,Ice,Special,110,70,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.8,1.4,0,0,0,0,0,0,세찬 눈보라를 상대에게 내뿜어 공격한다. 얼음 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+block,블록,Block,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,양팔을 벌려 막아서서 상대의 도주로를 가로막아 도망칠 수 없게 한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+bloodmoon,블러드문,Blood Moon,Normal,Special,140,100,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.9,1.5,0,0,0,0,0,0,피와 같이 붉은 보름달에서 혼신의 기백을 발사한다. 이 기술은 2회 연속으로 쓸 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+bloomdoom,블룸샤인엑스트라,Bloom Doom,Grass,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 화초들의 에너지를 빌려 전력으로 상대를 공격한다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+blueflare,푸른불꽃,Blue Flare,Fire,Special,130,85,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,아름다우면서도 격렬한 푸른불꽃으로 상대를 둘러싸서 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+bodypress,바디프레스,Body Press,Fighting,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,몸을 부딪쳐서 공격한다. 방어가 높을수록 주는 데미지가 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bodyslam,누르기,Body Slam,Normal,Physical,85,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.4,1.1,0,0,0,0,0,0,몸 전체로 상대를 덮쳐눌러 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+boltbeak,전격부리,Bolt Beak,Electric,Physical,85,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,전기를 두른 부리로 찌른다. 상대보다 먼저 공격하면 기술의 위력은 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+boltstrike,뇌격,Bolt Strike,Electric,Physical,130,85,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,방대한 전기를 몸에 둘러 상대에게 돌진해서 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+boneclub,뼈다귀치기,Bone Club,Ground,Physical,65,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,손에 들고 있는 뼈로 상대를 세게 때려서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bonemerang,뼈다귀부메랑,Bonemerang,Ground,Physical,50,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,손에 들고 있는 뼈를 상대에게 날려서 날아갈 때와 돌아올 때 2회 연속 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bonerush,본러쉬,Bone Rush,Ground,Physical,25,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.7,0.3,0,0,0,0,0,0,단단한 뼈로 상대를 세게 때려서 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+boomburst,폭음파,Boomburst,Normal,Special,140,100,0,allAdjacent,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.9,1.5,0,0,0,0,0,0,무시무시한 폭음의 파괴력으로 주위에 있는 포켓몬을 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+bounce,뛰어오르기,Bounce,Flying,Physical,85,85,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,하늘 높이 뛰어올라 2턴째에 상대를 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bouncybubble,생생버블,Bouncy Bubble,Water,Special,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,물덩어리를 부딪쳐서 공격한다. 물을 흡수하여 데미지의 절반만큼 HP를 회복한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+branchpoke,가지찌르기,Branch Poke,Grass,Physical,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,날카롭고 뾰족한 가지로 상대를 찔러서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bravebird,브레이브버드,Brave Bird,Flying,Physical,120,100,0,any,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,날개를 접어 저공비행으로 돌격한다. 자신도 상당한 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+breakingswipe,와이드브레이커,Breaking Swipe,Dragon,Physical,60,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,강인한 꼬리를 세차게 휘둘러서 상대를 공격한다. 상대의 공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+breakneckblitz,울트라대시어택,Breakneck Blitz,Normal,Physical,1,필중,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0,0,0,0,0,0,0,0,Z파워로 기세를 몰아 전력으로 상대에게 부딪친다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+brickbreak,깨트리기,Brick Break,Fighting,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,수도로 기세 좋게 내려쳐서 상대를 공격한다. 빛의장막이나 리플렉터 등도 파괴할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+brine,소금물,Brine,Water,Special,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,상대가 HP의 절반 정도 상처를 입고 있으면 기술의 위력이 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+brutalswing,세차게휘두르기,Brutal Swing,Dark,Physical,60,100,0,allAdjacent,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,자신의 몸을 세차게 휘둘러서 상대에게 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bubble,거품,Bubble,Water,Special,40,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,매우 많은 거품을 상대에게 내뿜어 공격한다. 상대의 스피드를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bubblebeam,거품광선,Bubble Beam,Water,Special,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,거품을 기세 좋게 상대에게 발사하여 공격한다. 스피드를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bugbite,벌레먹기,Bug Bite,Bug,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,물어서 공격한다. 상대가 나무열매를 지니고 있을 때 먹어서 나무열매의 효과를 받을 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bugbuzz,벌레의야단법석,Bug Buzz,Bug,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,진동으로 음파를 일으켜서 공격한다. 상대의 특수방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+bulkup,벌크업,Bulk Up,Fighting,Status,,필중,0,self,SETUP_BOOST,랭크업/전개,0,2,4,1,0,0,0,0,0,몸에 힘을 담아 근육을 두껍게 해서 자신의 공격과 방어를 올린다.,랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+bulldoze,땅고르기,Bulldoze,Ground,Physical,60,100,0,allAdjacent,ACE_DAMAGE|ACE_COVERAGE|SPEED_CONTROL,에이스 주력 공격|에이스 견제폭|속도 제어,0,1.3,0.8,0,0,0,1.2,1.8,2.3,땅을 힘껏 밟아 자신의 주위에 있는 포켓몬을 공격한다. 상대의 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+bulletpunch,불릿펀치,Bullet Punch,Steel,Physical,40,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,1.8,0.5,0,0,0,3.2,0,0,탄환처럼 빠르고 단단한 펀치를 상대에게 날린다. 반드시 선제공격을 할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+bulletseed,씨기관총,Bullet Seed,Grass,Physical,25,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.7,0.3,0,0,0,0,0,0,씨앗을 기세 좋게 상대에게 발사하여 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+burningbulwark,화염의수호,Burning Bulwark,Fire,Status,,필중,4,self,PRIORITY|FINISHER,선공기|마무리,0,0.8,0,0,0,0,4.4,0,0,상대의 공격을 초고열의 털로 방어하는 동시에 접촉한 상대를 화상 상태로 만든다.,선공기라 복수 처리와 마무리 가치가 큽니다.
+burningjealousy,질투의불꽃,Burning Jealousy,Fire,Special,70,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,질투의 에너지로 상대를 공격한다. 그 턴에 능력이 올라간 포켓몬을 화상 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+burnup,불사르기,Burn Up,Fire,Special,130,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,전신의 불꽃을 모두 태워서 큰 데미지를 준다. 자신의 불꽃타입이 없어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+buzzybuzz,찌릿찌릿일렉,Buzzy Buzz,Electric,Special,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,전기를 상대에게 날려서 공격한다. 상대를 마비 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+calmmind,명상,Calm Mind,Psychic,Status,,필중,0,self,SETUP_BOOST,랭크업/전개,0,2,4,1,0,0,0,0,0,조용히 정신을 통일하고 마음을 가라앉혀서 자신의 특수공격과 특수방어를 올린다.,랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+camouflage,보호색,Camouflage,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,"물가나 풀밭, 동굴 등 있는 장소에 맞춰서 자신의 타입을 바꾼다.",변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+captivate,유혹,Captivate,Normal,Status,,100,0,allAdjacentFoes,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,수컷은 암컷을 암컷은 수컷을 유혹하여 상대의 특수공격을 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+catastropika,필살피카슛,Catastropika,Electric,Physical,210,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워로 최대 전력을 몸에 두른 피카츄가 전력으로 상대에게 덤벼든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+ceaselessedge,비검천중파,Ceaseless Edge,Dark,Physical,65,90,0,normal,ACE_DAMAGE|ACE_COVERAGE|HAZARD_SET|HAZARD_REMOVE,에이스 주력 공격|에이스 견제폭|판 설치|판 제거,3,1.4,0.8,0.8,0,5,0,0,2,조개껍질 검으로 급소를 노려 공격한다. 조개껍질 파편은 압정이 되어 상대의 발밑에 흩어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 설치물로 교체 누적 피해/압박을 만듭니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+celebrate,축하,Celebrate,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,포켓몬이 매우 행복한 당신을 축하해 준다!,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+charge,충전,Charge,Electric,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,다음 턴에 쓸 전기타입 기술의 위력을 올린다. 자신의 특수방어도 올라간다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+chargebeam,차지빔,Charge Beam,Electric,Special,50,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,전격의 다발을 상대에게 발사한다. 전기를 모아서 자신의 특수공격을 올릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+charm,애교부리기,Charm,Fairy,Status,,100,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,귀엽게 바라보고 방심을 유도하여 상대의 공격을 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+chatter,수다,Chatter,Flying,Special,65,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,매우 시끄럽고 수다스러운 음파로 상대를 공격한다. 상대를 혼란시킨다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+chillingwater,찬물끼얹기,Chilling Water,Water,Special,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,상대의 기운이 빠질 정도로 차가운 물을 끼얹어서 공격한다. 상대의 공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+chillyreception,썰렁개그,Chilly Reception,Ice,Status,,필중,0,all,PIVOT|FIELD_CONTROL,피벗/교체 연결|날씨/필드/룸,3.3,0.4,0,0,4.5,0.8,0,0,3,자리를 얼어붙게 만드는 개그를 하고 교대 포켓몬과 교체한다. 5턴 동안 눈을 내리게 한다.,공격/보조 후 유리 대면으로 연결하는 피벗 기술입니다. / 날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+chipaway,야금야금,Chip Away,Normal,Physical,70,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.2,0.9,0,0,0,0,0,0,틈을 보며 착실하게 공격한다. 상대의 능력 변화에 관계없이 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+chloroblast,클로로블라스트,Chloroblast,Grass,Special,150,95,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,엽록소를 모은 뒤 발사하여 공격한다. 자신도 데미지를 받는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+circlethrow,배대뒤치기,Circle Throw,Fighting,Physical,60,90,-6,normal,ACE_DAMAGE|ACE_COVERAGE|FORCE_SWITCH,에이스 주력 공격|에이스 견제폭|강제 교체,0,1.3,0.8,2,0,1.5,0,3.8,0,상대를 내던져서 교대할 포켓몬을 끌어낸다. 야생의 경우에는 배틀이 끝난다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 강제 교체로 랭크업을 끊고 설치물 피해를 누적시킵니다.
+clamp,껍질끼우기,Clamp,Water,Physical,35,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.9,0.4,0,0,0,0,0,0,매우 튼튼하고 두꺼운 껍질에 4-5턴 동안 상대를 끼워서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+clangingscales,스케일노이즈,Clanging Scales,Dragon,Special,110,100,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.8,1.4,0,0,0,0,0,0,전신의 비늘을 비벼서 큰 소리를 내 공격한다. 공격 후 자신의 방어가 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+clangoroussoul,소울비트,Clangorous Soul,Dragon,Status,,100,0,self,,,0,0,0,0,0,0,0,0,0.8,자신의 HP를 조금 깎아서 모든 능력을 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+clangoroussoulblaze,브레이징소울비트,Clangorous Soulblaze,Dragon,Special,185,필중,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워를 얻은 짜랑고우거가 전력으로 상대를 공격한다. 추가로 자신의 능력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+clearsmog,클리어스모그,Clear Smog,Poison,Special,50,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE|DISRUPT,에이스 주력 공격|에이스 견제폭|방해,1.2,1.1,0.6,1,0,0,0,4,0,특수한 진흙 덩어리를 상대에게 내던져서 공격한다. 능력 변화를 원래대로 돌린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 상대 전개/회복/보조 기술을 방해하는 핵심 기술입니다.
+closecombat,인파이트,Close Combat,Fighting,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,방어를 포기하고 상대 쪽으로 깊숙이 돌격한다. 자신의 방어와 특수방어가 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+coaching,코칭,Coaching,Fighting,Status,,필중,0,adjacentAlly,,,0,0,0,0,0,0,0,0,0.8,적절한 지도를 통해서 같은 편 전원의 공격과 방어를 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+coil,똬리틀기,Coil,Poison,Status,,필중,0,self,SETUP_BOOST,랭크업/전개,0,2,4,0,0,0,0,0,0,똬리를 틀어서 집중한다. 자신의 공격과 방어와 명중률을 올린다.,랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+collisioncourse,액셀브레이크,Collision Course,Fighting,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,변형하며 거칠게 낙하한 다음 고대의 대폭발을 일으킨다. 약점인 상대에게는 위력이 더욱 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+combattorque,Combat Torque,Combat Torque,Fighting,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,30% chance to paralyze the target.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+cometpunch,연속펀치,Comet Punch,Normal,Physical,18,85,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.3,0.2,0,0,0,0,0,0,노도 같은 펀치로 상대를 세게 때려서 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+comeuppance,앙갚음,Comeuppance,Dark,Physical,,100,0,scripted,,,0,0,0,0,0,0,0,0,0,기술을 쓰기 전에 마지막으로 받은 기술의 데미지를 늘려서 기술을 쓴 상대에게 돌려준다.,
+confide,비밀이야기,Confide,Normal,Status,,필중,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,비밀 이야기를 해서 상대의 집중력을 잃게 하여 특수공격을 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+confuseray,이상한빛,Confuse Ray,Ghost,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,이상한 빛을 상대에게 비춰 당황하게 한다. 상대를 혼란시킨다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+confusion,염동력,Confusion,Psychic,Special,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,약한 염동력을 상대에게 보내어 공격한다. 상대를 혼란시킬 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+constrict,휘감기,Constrict,Normal,Physical,10,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.2,0.1,0,0,0,0,0,0,촉수나 덩굴 등을 휘감아서 공격한다. 상대의 스피드를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+continentalcrush,월즈엔드폴,Continental Crush,Rock,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 큰 바위산을 불러내 전력으로 상대에게 부딪친다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+conversion,텍스처,Conversion,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,자신의 타입을 배운 기술 중 가장 위에 있는 기술과 같은 타입으로 바꾼다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+conversion2,텍스처2,Conversion 2,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대가 마지막으로 쓴 기술에 저항할 수 있도록 자신의 타입을 변화시킨다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+copycat,흉내쟁이,Copycat,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,직전에 나온 기술을 흉내 내어 같은 기술을 쓴다. 기술이 나오지 않았으면 실패한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+coreenforcer,코어퍼니셔,Core Enforcer,Dragon,Special,100,100,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,데미지를 준 상대가 이미 행동을 끝냈다면 상대의 특성을 없애버린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+corkscrewcrash,초월나선연격,Corkscrew Crash,Steel,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 고속 회전을 하여 전력으로 상대에게 부딪친다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+corrosivegas,부식가스,Corrosive Gas,Poison,Status,,100,0,allAdjacent,,,0,0,0,0,0,0,0,0,0.8,주위에 있는 모든 것을 강력한 산성 가스로 뒤덮어서 지니고 있는 도구를 녹여버린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+cosmicpower,코스믹파워,Cosmic Power,Psychic,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,우주로부터 신비한 힘을 손에 넣음으로써 자신의 방어와 특수방어를 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+cottonguard,코튼가드,Cotton Guard,Grass,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,푹신푹신한 솜털로 자신의 몸을 둘러싸서 지킨다. 방어를 매우 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+cottonspore,목화포자,Cotton Spore,Grass,Status,,100,0,allAdjacentFoes,DISRUPT|SPEED_CONTROL,방해|속도 제어,0,0,0,0.8,0,0,1.2,3.6,2.3,솜처럼 폭신폭신한 포자를 착 달라붙게 해서 상대의 스피드를 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+counter,카운터,Counter,Fighting,Physical,,100,-5,scripted,,,0,0,0,0,0,0,0,0,0,상대로부터 받은 물리공격의 데미지를 2배로 만들어 같은 상대에게 돌려준다.,
+courtchange,코트체인지,Court Change,Normal,Status,,100,0,all,HAZARD_REMOVE,판 제거,0,0,0,0.8,0,4.5,0,0,2,이상한 힘으로 서로의 필드 효과를 교체한다.,설치물 제거 또는 필드 정리 가치가 있습니다.
+covet,탐내기,Covet,Normal,Physical,60,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1,0.8,0,0,0,0,0,0,귀엽게 애교 부리며 상대에게 다가가 지니고 있는 도구를 뺏는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+crabhammer,집게해머,Crabhammer,Water,Physical,100,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,큰 집게를 상대에게 내리쳐서 공격한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+craftyshield,트릭가드,Crafty Shield,Fairy,Status,,필중,3,allySide,PRIORITY|FINISHER,선공기|마무리,0,0.8,0,0,0,0,4,0,0,이상한 힘을 사용하여 같은 편을 공격하는 변화 기술을 막는다. 데미지 기술은 받는다.,선공기라 복수 처리와 마무리 가치가 큽니다.
+crosschop,크로스촙,Cross Chop,Fighting,Physical,100,80,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,양손으로 당수를 상대에게 힘껏 쳐서 공격한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+crosspoison,크로스포이즌,Cross Poison,Poison,Physical,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,독 칼날로 상대를 베어 가른다. 독 상태로 만들 때가 있고 급소에도 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+crunch,깨물어부수기,Crunch,Dark,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,날카로운 이빨로 상대를 깨물어 부숴서 공격한다. 상대의 방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+crushclaw,브레이크클로,Crush Claw,Normal,Physical,75,95,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.3,0.9,0,0,0,0,0,0,단단하고 날카로운 손톱으로 베어 갈라서 공격한다. 상대의 방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+crushgrip,묵사발,Crush Grip,Normal,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,굉장한 힘으로 상대를 묵사발로 만든다. 상대의 HP가 남아 있을수록 위력이 올라간다.,
+curse,저주,Curse,Ghost,Status,,필중,0,normal,SETUP_BOOST,랭크업/전개,0,2,4,1,0,0,0,0,0,기술을 쓰는 포켓몬이 고스트타입일 때와 그 이외의 타입일 때는 효과가 다르다.,랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+cut,풀베기,Cut,Normal,Physical,50,95,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.8,0.6,0,0,0,0,0,0,낫이나 발톱 등으로 상대를 베어 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+darkestlariat,DD래리어트,Darkest Lariat,Dark,Physical,85,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,양팔을 돌려 상대에게 부딪친다. 상대의 능력 변화에 상관없이 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+darkpulse,악의파동,Dark Pulse,Dark,Special,80,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,몸에서 악의로 가득한 무서운 오라를 발한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+darkvoid,다크홀,Dark Void,Dark,Status,,50,0,allAdjacentFoes,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,암흑의 세계로 끌고 가서 떨어뜨려 상대를 잠듦 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+dazzlinggleam,매지컬샤인,Dazzling Gleam,Fairy,Special,80,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,강력한 빛을 내어 상대에게 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+decorate,데코레이션,Decorate,Fairy,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,데코레이션을 해서 상대의 공격과 특수공격을 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+defendorder,방어지령,Defend Order,Bug,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,부하를 불러내어 자신의 몸을 뒤덮게 한다. 방어와 특수방어를 올릴 수 있다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+defensecurl,웅크리기,Defense Curl,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,몸을 둥글게 웅크려서 자신의 방어를 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+defog,안개제거,Defog,Flying,Status,,필중,0,normal,HAZARD_REMOVE,판 제거,0,0,0,0.8,0,4.5,0,0,2,강한 바람으로 상대의 리플렉터나 빛의장막 등을 제거한다. 회피율도 떨어뜨린다.,설치물 제거 또는 필드 정리 가치가 있습니다.
+destinybond,길동무,Destiny Bond,Ghost,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,기술을 쓴 뒤 상대의 공격으로 기절했을 때 공격 상대도 기절하게 한다. 연속으로 쓰면 실패한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+detect,판별,Detect,Fighting,Status,,필중,4,self,PRIORITY|FINISHER|PROTECT_SCOUT,선공기|마무리|방어/정찰,0,0.8,0,2,0,0,4.4,0.8,1.4,상대의 공격을 전혀 받지 않는다. 연속으로 쓰면 실패하기 쉽다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 방어/정찰로 턴 종료 효과와 상대 행동 확인 가치가 있습니다.
+devastatingdrake,얼티메이트드래곤번,Devastating Drake,Dragon,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 오라를 실체화시켜 전력으로 상대를 공격한다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+diamondstorm,다이아스톰,Diamond Storm,Rock,Physical,100,95,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE|SETUP_BOOST,에이스 주력 공격|고위험 고화력|에이스 견제폭|랭크업/전개,0,4.7,5,0,0,0,0,0,0,다이아 폭풍을 일으켜 데미지를 준다. 자신의 방어를 크게 올릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다. / 랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+dig,구멍파기,Dig,Ground,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,1턴째에 파고들어 2턴째에 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+direclaw,페이탈클로,Dire Claw,Poison,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,"치명적인 손톱으로 급소를 노려 공격한다. 상대를 독, 마비, 잠듦 중 하나의 상태로 만들 때가 있다.",공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+disable,사슬묶기,Disable,Normal,Status,,100,0,normal,DISRUPT,방해,1.2,0,0,1,0,0,0,4,0,상대의 움직임을 막아 바로 전에 쓴 기술을 4턴 동안 사용할 수 없게 만든다.,상대 전개/회복/보조 기술을 방해하는 핵심 기술입니다.
+disarmingvoice,차밍보이스,Disarming Voice,Fairy,Special,40,필중,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,매혹적인 울음소리를 내어 상대에게 정신적 데미지를 준다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+discharge,방전,Discharge,Electric,Special,80,100,0,allAdjacent,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,눈부신 전격으로 자신의 주위에 있는 포켓몬을 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dive,다이빙,Dive,Water,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,1턴째에 잠수했다가 2턴째에 떠올라 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dizzypunch,잼잼펀치,Dizzy Punch,Normal,Physical,70,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.2,0.9,0,0,0,0,0,0,리드미컬한 펀치를 날려 상대를 공격한다. 혼란시킬 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+doodle,베껴그리기,Doodle,Normal,Status,,100,0,adjacentFoe,,,0,0,0,0,0,0,0,0,0.8,상대의 본질을 꿰뚫어 보고 베껴서 자신과 같은 편을 상대와 같은 특성으로 바꾼다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+doomdesire,파멸의소원,Doom Desire,Steel,Special,140,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,기술을 사용한 2턴 뒤에 무수한 빛의 다발이 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+doubleedge,이판사판태클,Double-Edge,Normal,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.7,1.5,0,0,0,0,0,0,목숨을 걸고 상대에게 돌진하여 공격을 한다. 자신도 상당한 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+doublehit,더블어택,Double Hit,Normal,Physical,35,90,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.6,0.4,0,0,0,0,0,0,꼬리 등을 써서 상대를 때려 공격한다. 2회 연속으로 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+doubleironbash,더블펀처,Double Iron Bash,Steel,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,가슴의 너트를 축으로 회전시켜 2번 연속 팔로 힘껏 친다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+doublekick,두번치기,Double Kick,Fighting,Physical,30,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.8,0.4,0,0,0,0,0,0,2개의 다리로 상대를 걷어차서 공격한다. 2회 연속으로 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+doubleshock,전광쌍격,Double Shock,Electric,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,전신의 전기를 모두 방출해서 큰 데미지를 준다. 자신의 전기타입이 없어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+doubleslap,연속뺨치기,Double Slap,Normal,Physical,15,85,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.3,0.2,0,0,0,0,0,0,연속 뺨치기로 상대를 때려서 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+doubleteam,그림자분신,Double Team,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,재빠른 움직임으로 분신을 만들어 상대를 혼란시켜 회피율을 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+dracometeor,용성군,Draco Meteor,Dragon,Special,130,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,천공에서 운석을 상대에게 떨어뜨린다. 사용하면 반동으로 자신의 특수공격이 크게 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+dragonascent,화룡점정,Dragon Ascent,Flying,Physical,120,100,0,any,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,넓은 하늘에서 급속으로 강하하여 상대를 공격한다. 자신의 방어와 특수방어가 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+dragonbreath,용의숨결,Dragon Breath,Dragon,Special,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,굉장한 숨결을 상대에게 내뿜어 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dragoncheer,드래곤옐,Dragon Cheer,Dragon,Status,,필중,0,adjacentAlly,,,0,0,0,0,0,0,0,0,0.8,용의 북돋움으로 사기를 높여서 같은 편의 기술이 급소에 맞기 쉬워진다. 드래곤타입이면 더욱더 사기가 북돋는다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+dragonclaw,드래곤클로,Dragon Claw,Dragon,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,날카롭고 뾰족한 거대한 발톱으로 상대를 베어 갈라서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dragondance,용의춤,Dragon Dance,Dragon,Status,,필중,0,self,SETUP_BOOST,랭크업/전개,0,2,4,0,0,0,0,0,0,신비롭고 힘센 춤을 격렬하게 춘다. 자신의 공격과 스피드를 올린다.,랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+dragondarts,드래곤애로,Dragon Darts,Dragon,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,드라꼰으로 2번 공격한다. 상대가 2마리일 때는 각각 1번씩 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dragonenergy,드래곤에너지,Dragon Energy,Dragon,Special,150,100,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,생명력을 파워로 바꿔서 상대를 공격한다. 자신의 HP가 적을수록 기술의 위력이 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+dragonhammer,드래곤해머,Dragon Hammer,Dragon,Physical,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,몸을 해머처럼 써서 상대를 덮쳐 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dragonpulse,용의파동,Dragon Pulse,Dragon,Special,85,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,큰 입으로 충격파를 일으켜서 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dragonrage,용의분노,Dragon Rage,Dragon,Special,,100,0,normal,,,0,0,0,0,0,0,0,0,0,분노의 충격파를 상대에게 부딪쳐서 공격한다. 언제나 40의 데미지를 준다.,
+dragonrush,드래곤다이브,Dragon Rush,Dragon,Physical,100,75,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,굉장한 살기로 위압하면서 몸통박치기한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+dragontail,드래곤테일,Dragon Tail,Dragon,Physical,60,90,-6,normal,ACE_DAMAGE|ACE_COVERAGE|FORCE_SWITCH,에이스 주력 공격|에이스 견제폭|강제 교체,0,1.3,0.8,2,0,1.5,0,3.8,0,상대를 튕겨내서 교대할 포켓몬을 끌어낸다. 야생의 경우에는 배틀이 끝난다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 강제 교체로 랭크업을 끊고 설치물 피해를 누적시킵니다.
+drainingkiss,드레인키스,Draining Kiss,Fairy,Special,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,키스로 상대의 HP를 흡수한다. 준 데미지의 반 이상 HP를 회복한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+drainpunch,드레인펀치,Drain Punch,Fighting,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,주먹으로 상대의 힘을 흡수한다. 입힌 데미지의 절반에 해당하는 HP를 회복할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dreameater,꿈먹기,Dream Eater,Psychic,Special,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,잠자고 있는 상대의 꿈을 먹어 공격한다. 데미지의 절반을 HP로 회복한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+drillpeck,회전부리,Drill Peck,Flying,Physical,80,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,회전하면서 뾰족한 부리를 상대에게 꿰찔러 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+drillrun,드릴라이너,Drill Run,Ground,Physical,80,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,드릴처럼 몸을 회전시켜서 상대에게 몸통박치기한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+drumbeating,드럼어택,Drum Beating,Grass,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,드럼의 뿌리를 연주로 조종해서 공격하는 것으로 상대의 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dualchop,더블촙,Dual Chop,Dragon,Physical,40,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,몸의 단단한 부분으로 상대를 때려 공격한다. 2회 연속으로 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dualwingbeat,더블윙,Dual Wingbeat,Flying,Physical,40,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,날개를 상대에게 부딪쳐서 공격한다. 2회 연속으로 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+dynamaxcannon,다이맥스포,Dynamax Cannon,Dragon,Special,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,코어에서 빔을 발사해서 공격한다. 상대가 다이맥스 중이면 데미지가 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+dynamicpunch,폭발펀치,Dynamic Punch,Fighting,Physical,100,50,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,혼신의 힘으로 펀치를 날려서 공격한다. 상대를 반드시 혼란시킨다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+earthpower,대지의힘,Earth Power,Ground,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,상대의 발밑에 대지의 힘을 방출한다. 상대의 특수방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+earthquake,지진,Earthquake,Ground,Physical,100,100,0,allAdjacent,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,지진의 충격으로 자신의 주위에 있는 포켓몬을 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+echoedvoice,에코보이스,Echoed Voice,Normal,Special,40,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.7,0.5,0,0,0,0,0,0,울리는 목소리로 상대를 공격한다. 매 턴 누군가 이 기술을 계속해서 쓰면 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+eerieimpulse,괴전파,Eerie Impulse,Electric,Status,,100,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,몸에서 발생시킨 괴전파를 상대에게 쏘아 특수공격을 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+eeriespell,섬뜩한주문,Eerie Spell,Psychic,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,강력한 사이코 파워로 공격한다. 상대가 마지막으로 사용한 기술의 PP를 3만큼 줄인다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+eggbomb,알폭탄,Egg Bomb,Normal,Physical,100,75,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.4,1.3,0,0,0,0,0,0,큰 알을 온 힘을 다해 상대에게 내던져서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+electricterrain,일렉트릭필드,Electric Terrain,Electric,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,5턴 동안 일렉트릭필드로 만든다. 땅에 있는 포켓몬은 잠들지 않는다. 전기타입의 위력이 올라간다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+electrify,송전,Electrify,Electric,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대가 기술을 쓰기 전에 송전하면 그 턴에 상대가 사용하는 기술은 전기타입이 된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+electroball,일렉트릭볼,Electro Ball,Electric,Special,,100,0,normal,,,0,0,0,0,0,0,0,0,0,전기 덩어리를 상대에게 부딪쳐서 공격한다. 상대보다 스피드가 빠를수록 위력이 올라간다.,
+electrodrift,라이트닝드라이브,Electro Drift,Electric,Special,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,변형하며 초고속으로 달려서 미지의 전격으로 상대를 관통한다. 약점인 상대에게는 위력이 더욱 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+electroshot,일렉트로빔,Electro Shot,Electric,Special,130,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,1턴째에 전기를 모아서 특수공격을 올리고 2턴째에 고압의 전기를 발사한다. 비가 오는 날씨일 때는 바로 발사할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+electroweb,일렉트릭네트,Electroweb,Electric,Special,55,95,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE|SPEED_CONTROL,에이스 주력 공격|에이스 견제폭|속도 제어,0,1.2,0.7,0,0,0,1.2,1.8,2.3,전기 네트로 상대를 붙잡아서 공격한다. 상대의 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+embargo,금제,Embargo,Dark,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,지니게 한 도구를 5턴 동안 쓸 수 없게 한다. 트레이너도 그 포켓몬에게는 도구를 쓸 수 없다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+ember,불꽃세례,Ember,Fire,Special,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,작은 불꽃을 상대에게 발사하여 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+encore,앙코르,Encore,Normal,Status,,100,0,normal,DISRUPT,방해,1.2,0,0,1,0,0,0,4,0,상대에게 앵콜시킨 기술을 3번 연속으로 쓰게 한다.,상대 전개/회복/보조 기술을 방해하는 핵심 기술입니다.
+endeavor,죽기살기,Endeavor,Normal,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,상대의 HP가 자신의 HP와 같아지도록 데미지를 준다.,
+endure,버티기,Endure,Normal,Status,,필중,4,self,PRIORITY|FINISHER,선공기|마무리,0,0.8,0,0,0,0,4.4,0,0,공격을 받아도 HP를 반드시 1만큼은 남긴다. 연속으로 쓰면 실패하기 쉽다.,선공기라 복수 처리와 마무리 가치가 큽니다.
+energyball,에너지볼,Energy Ball,Grass,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,자연으로부터 모은 생명의 힘을 발사한다. 상대의 특수방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+entrainment,동료만들기,Entrainment,Normal,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,이상한 리듬으로 춤춘다. 움직임을 흉내 내게 해서 자신과 상대의 특성을 똑같게 만든다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+eruption,분화,Eruption,Fire,Special,150,100,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,분노를 폭발시켜 상대를 공격한다. 자신의 HP가 적을수록 기술의 위력이 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+esperwing,오라윙,Esper Wing,Psychic,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,오라로 강화한 날개로 베어 가른다. 급소에 맞기 쉽다. 자신의 스피드를 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+eternabeam,무한다이빔,Eternabeam,Dragon,Special,160,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,본래의 모습이 된 무한다이노 최대의 공격. 다음 턴은 움직일 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+expandingforce,와이드포스,Expanding Force,Psychic,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,사이코 파워로 상대를 공격한다. 사이코필드일 때는 위력이 오르며 모든 상대에게 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+explosion,대폭발,Explosion,Normal,Physical,250,100,0,allAdjacent,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.9,1.5,0,0,0,0,0,0,큰 폭발로 자신의 주위에 있는 포켓몬을 공격한다. 쓰고 나서는 기절한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+extrasensory,신통력,Extrasensory,Psychic,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,보이지 않는 이상한 힘을 보내어 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+extremeevoboost,나인이볼부스트,Extreme Evoboost,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,Z파워를 얻은 이브이가 진화한 동료들의 힘을 빌려 능력을 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+extremespeed,신속,Extreme Speed,Normal,Physical,80,100,2,normal,ACE_DAMAGE|PRIORITY|FINISHER,에이스 주력 공격|선공기|마무리,0,2.1,1,0,0,0,3.6,0,0,눈에 보이지 않는 굉장한 속도로 상대에게 돌진하여 공격한다. 반드시 선제공격을 할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+facade,객기,Facade,Normal,Physical,70,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.2,0.9,0,0,0,0,0,0,"자신이 독, 마비, 화상 상태일 때 날리면 기술의 위력이 2배가 된다.",공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+fairylock,페어리록,Fairy Lock,Fairy,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,록을 걸어 다음 턴의 모든 포켓몬을 도망가지 못하게 한다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+fairywind,요정의바람,Fairy Wind,Fairy,Special,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,요정의 바람을 일으켜 상대에게 몰아쳐서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+fakeout,속이기,Fake Out,Normal,Physical,40,100,3,normal,ACE_DAMAGE|PRIORITY|FINISHER,에이스 주력 공격|선공기|마무리,0,1.5,0.5,0,0,0,4,0,0,선제공격으로 상대를 풀죽게 한다. 배틀에 나가서 바로 쓰지 않으면 성공할 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+faketears,거짓울음,Fake Tears,Dark,Status,,100,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,우는 척을 하며 눈물을 흘린다. 난처하게 만들어 상대의 특수방어를 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+falsesurrender,사죄의찌르기,False Surrender,Dark,Physical,80,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,고개를 숙이는 척하면서 흐트러진 머리카락으로 찌른다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+falseswipe,칼등치기,False Swipe,Normal,Physical,40,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.7,0.5,0,0,0,0,0,0,상대의 HP가 반드시 1만 남도록 조절하여 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+featherdance,깃털댄스,Feather Dance,Flying,Status,,100,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,깃털을 흩뿌려 상대의 몸에 휘감는다. 상대의 공격을 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+feint,페인트,Feint,Normal,Physical,30,100,2,normal,ACE_DAMAGE|PRIORITY|FINISHER,에이스 주력 공격|선공기|마무리,0,1.3,0.4,0,0,0,3.6,0,0,방어나 판별 등을 하고 있는 상대에게 공격할 수 있다. 방어 효과를 해제시킨다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+feintattack,속여때리기,Feint Attack,Dark,Physical,60,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,슬금슬금 상대에게 다가가 방심한 틈을 타서 세게 때린다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+fellstinger,마지막일침,Fell Stinger,Bug,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,이 기술을 사용하여 상대를 쓰러뜨리면 공격이 매우 크게 오른다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+ficklebeam,변덕레이저,Fickle Beam,Dragon,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,광선을 발사해서 공격한다. 가끔 다른 머리도 협력해서 레이저를 발사하여 위력이 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+fierydance,불꽃춤,Fiery Dance,Fire,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,불꽃을 두른 날개를 쳐서 공격한다. 자신의 특수공격이 오를 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+fierywrath,타오르는분노,Fiery Wrath,Dark,Special,90,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,분노를 불꽃 같은 오라로 바꿔서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+filletaway,제살깎기,Fillet Away,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,"자신의 HP를 깎아서 자신의 공격, 특수공격, 스피드를 크게 올린다.",변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+finalgambit,목숨걸기,Final Gambit,Fighting,Special,,100,0,normal,,,0,0,0,0,0,0,0,0,0,목숨을 걸고 상대를 공격한다. 자신은 기절하게 되지만 상대에게 HP만큼의 데미지를 준다.,
+fireblast,불대문자,Fire Blast,Fire,Special,110,85,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.8,1.4,0,0,0,0,0,0,큰 대자의 불꽃으로 상대를 불태운다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+firefang,불꽃엄니,Fire Fang,Fire,Physical,65,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,불꽃을 두른 이빨로 문다. 상대를 풀죽게 하거나 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+firelash,불꽃채찍,Fire Lash,Fire,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,불타는 채찍으로 상대를 친다. 공격을 받은 상대는 방어가 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+firepledge,불꽃의맹세,Fire Pledge,Fire,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,불꽃기둥으로 공격한다. 풀과 조합하면 위력이 올라가고 주위가 불바다가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+firepunch,불꽃펀치,Fire Punch,Fire,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,불꽃을 담은 펀치로 상대를 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+firespin,회오리불꽃,Fire Spin,Fire,Special,35,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.9,0.4,0,0,0,0,0,0,세차게 소용돌이치는 불꽃 속에 4-5턴 동안 상대를 가두어 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+firstimpression,만나자마자,First Impression,Bug,Physical,90,100,2,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,2.6,1.1,0,0,0,3.6,0,0,위력이 높은 기술이지만 배틀에 나가서 바로 쓰지 않으면 성공할 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+fishiousrend,아가미물기,Fishious Rend,Water,Physical,85,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,단단한 아가미로 문다. 상대보다 먼저 공격하면 기술의 위력은 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+fissure,땅가르기,Fissure,Ground,Physical,,30,0,normal,,,0,0,0,0,0,0,0,0,0,땅이 갈라진 곳에 상대를 떨어뜨려 공격한다. 맞으면 일격에 기절한다.,
+flail,바둥바둥,Flail,Normal,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,바둥바둥 난동 부려서 공격한다. 자신의 HP가 적을수록 기술의 위력이 올라간다.,
+flameburst,불꽃튀기기,Flame Burst,Fire,Special,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,맞으면 튀는 불꽃으로 상대를 공격한다. 튕긴 불꽃은 옆의 상대에게도 쏟아진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+flamecharge,니트로차지,Flame Charge,Fire,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,불꽃을 둘러 상대를 공격한다. 힘을 모아서 자신의 스피드를 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+flamethrower,화염방사,Flamethrower,Fire,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,세찬 불꽃을 상대에게 발사하여 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+flamewheel,화염바퀴,Flame Wheel,Fire,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,불꽃을 둘러 상대에게 돌진하여 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+flareblitz,플레어드라이브,Flare Blitz,Fire,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,불꽃을 두르고 돌진한다. 자신도 상당한 데미지를 입는다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+flash,플래시,Flash,Normal,Status,,100,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,눈이 부신 빛으로 상대의 명중률을 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+flashcannon,러스터캐논,Flash Cannon,Steel,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,몸의 빛을 한곳에 모아서 힘을 방출한다. 상대의 특수방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+flatter,부추기기,Flatter,Dark,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대를 부추겨서 혼란시킨다. 동시에 상대의 특수공격도 올라가 버린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+fleurcannon,플뢰르캐논,Fleur Cannon,Fairy,Special,130,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,강력한 빔을 발산한 후 자신의 특수공격이 크게 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+fling,내던지기,Fling,Dark,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,지니게 한 도구를 재빠르게 내던져서 공격한다. 도구에 따라 위력과 효과가 바뀐다.,
+flipturn,퀵턴,Flip Turn,Water,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE|PIVOT,에이스 주력 공격|에이스 견제폭|피벗/교체 연결,1.5,1.7,0.8,0,4.5,0,0,0,0,공격한 뒤 굉장한 스피드로 돌아와서 교대 포켓몬과 교체한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 공격/보조 후 유리 대면으로 연결하는 피벗 기술입니다.
+floatyfall,둥실둥실폴,Floaty Fall,Flying,Physical,90,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,두둥실 떠오른 다음 단숨에 급강하해서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+floralhealing,플라워힐,Floral Healing,Fairy,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,최대 HP의 절반만큼 상대의 HP를 회복한다. 그래스필드일 때 효과가 올라간다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+flowershield,플라워가드,Flower Shield,Fairy,Status,,필중,0,all,,,0,0,0,0,0,0,0,0,0.8,이상한 힘을 사용하여 배틀에 나와 있는 모든 풀타입 포켓몬의 방어를 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+flowertrick,트릭플라워,Flower Trick,Grass,Physical,70,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,숨겨진 장치가 있는 꽃다발을 상대에게 던져서 공격한다. 반드시 명중하며 급소에 맞는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+fly,공중날기,Fly,Flying,Physical,90,95,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,1턴째에 하늘을 날아 2턴째에 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+flyingpress,플라잉프레스,Flying Press,Fighting,Physical,100,95,0,any,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,공중에서 상대에게 다이브한다. 이 기술은 격투타입임과 동시에 비행타입이기도 하다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+focusblast,기합구슬,Focus Blast,Fighting,Special,120,70,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,기합을 높여서 혼신의 힘을 방출한다. 상대의 특수방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+focusenergy,기충전,Focus Energy,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,깊게 숨을 들이마셔 기합을 넣는다. 자신의 공격이 급소에 맞기 쉬워진다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+focuspunch,힘껏펀치,Focus Punch,Fighting,Physical,150,100,-3,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,정신력을 높여 펀치를 날린다. 기술을 쓰기 전에 공격을 받으면 실패한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+followme,날따름,Follow Me,Normal,Status,,필중,2,self,PRIORITY|FINISHER|TEAM_SUPPORT,선공기|마무리|팀 지원,0,0.8,0,1,0,0,3.6,0,3.5,자신에게 주목시켜 상대로부터의 공격을 모두 자신에게 향하게 한다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 아군 지원 가치가 높은 기술입니다.
+forcepalm,발경,Force Palm,Fighting,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,상대의 몸에 충격파를 부딪쳐 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+foresight,꿰뚫어보기,Foresight,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,고스트타입에 효과가 없는 기술이나 회피율이 높은 상대라 할지라도 공격이 맞게 된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+forestscurse,숲의저주,Forest's Curse,Grass,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대에게 숲의 저주를 건다. 저주에 걸린 상대는 타입에 풀타입이 추가된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+foulplay,속임수,Foul Play,Dark,Physical,95,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.9,1.2,0,0,0,0,0,0,상대의 힘을 이용한다. 싸우고 있는 상대의 공격이 높을수록 데미지가 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+freezedry,프리즈드라이,Freeze-Dry,Ice,Special,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,상대를 급격히 차갑게 하여 얼음 상태로 만들 때가 있다. 물타입 포켓몬에게도 효과가 굉장해진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+freezeshock,프리즈볼트,Freeze Shock,Ice,Physical,140,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,전기를 두른 얼음덩어리로 2턴째에 상대를 내리친다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+freezingglare,얼어붙는시선,Freezing Glare,Psychic,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,두 눈에서 사이코 파워를 발사해서 공격한다. 얼음 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+freezyfrost,꽁꽁프로스트,Freezy Frost,Ice,Special,100,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,차갑게 얼어붙은 흑안개의 결정으로 공격한다. 전원의 능력 변화를 원래대로 돌린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+frenzyplant,하드플랜트,Frenzy Plant,Grass,Special,150,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,큰 나무로 상대를 힘껏 쳐서 공격한다. 다음 턴은 움직일 수 없게 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+frostbreath,얼음숨결,Frost Breath,Ice,Special,60,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,차가운 숨결을 상대에게 내뿜어 공격한다. 반드시 급소에 맞는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+frustration,화풀이,Frustration,Normal,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,불만을 풀기 위해 전력으로 상대를 공격한다. 친밀하지 않을수록 위력이 올라간다.,
+furyattack,마구찌르기,Fury Attack,Normal,Physical,15,85,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.3,0.2,0,0,0,0,0,0,뿔이나 부리로 상대를 찔러서 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+furycutter,연속자르기,Fury Cutter,Bug,Physical,40,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,낫이나 발톱 등으로 상대를 베어 공격한다. 연속으로 맞히면 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+furyswipes,마구할퀴기,Fury Swipes,Normal,Physical,18,80,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.3,0.2,0,0,0,0,0,0,손톱이나 낫 등으로 상대를 할퀴어서 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+fusionbolt,크로스썬더,Fusion Bolt,Electric,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,거대한 천둥을 내리친다. 거대한 불꽃의 영향을 받아 기술의 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+fusionflare,크로스플레임,Fusion Flare,Fire,Special,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,거대한 불꽃을 내리친다. 거대한 천둥의 영향을 받아 기술의 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+futuresight,미래예지,Future Sight,Psychic,Special,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,기술을 사용한 2턴 뒤에 상대에게 염동력의 덩어리를 보내어 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+gastroacid,위액,Gastro Acid,Poison,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대의 몸에 위액을 내뱉는다. 달라붙은 위액은 상대의 특성 효과를 지운다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+geargrind,기어소서,Gear Grind,Steel,Physical,50,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,강철의 기어를 상대에게 던져서 공격한다. 2회 연속으로 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gearup,어시스트기어,Gear Up,Steel,Status,,필중,0,allySide,,,0,0,0,0,0,0,0,0,0.8,기어를 넣는 것으로 특성 플러스와 마이너스의 공격과 특수공격이 올라간다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+genesissupernova,오리진즈슈퍼노바,Genesis Supernova,Psychic,Special,185,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워를 얻은 뮤가 전력으로 상대를 공격한다. 발밑이 사이코필드가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+geomancy,지오컨트롤,Geomancy,Fairy,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,"1턴째에 에너지를 흡수하여 2턴째에 특수공격, 특수방어, 스피드를 크게 올린다.",변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+gigadrain,기가드레인,Giga Drain,Grass,Special,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,양분을 흡수하여 공격한다. 입힌 데미지의 절반에 해당하는 HP를 회복할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gigaimpact,기가임팩트,Giga Impact,Normal,Physical,150,90,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.9,1.5,0,0,0,0,0,0,가진 힘을 모두 사용해서 상대에게 돌격한다. 다음 턴은 움직일 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+gigatonhammer,거대해머,Gigaton Hammer,Steel,Physical,160,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,거대한 해머를 온몸으로 휘둘러서 공격한다. 이 기술은 2회 연속으로 쓸 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+gigavolthavoc,스파킹기가볼트,Gigavolt Havoc,Electric,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 비축한 강한 전기를 전력으로 상대에게 부딪친다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+glaciallance,블리자드랜스,Glacial Lance,Ice,Physical,120,100,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,눈보라를 두른 얼음의 창을 상대에게 던져서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+glaciate,얼어붙은세계,Glaciate,Ice,Special,65,95,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,차가운 냉기를 상대에게 내뿜어 공격한다. 상대의 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+glaiverush,대검돌격,Glaive Rush,Dragon,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,몸을 내던지는 무모한 돌격. 상대의 다음 턴 공격이 반드시 명중하고 데미지를 2배로 입게 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+glare,뱀눈초리,Glare,Normal,Status,,100,0,normal,STATUS_SPREAD|SPEED_CONTROL,상태이상|속도 제어,0,0,0,2.2,0,0,1.2,4.2,4.1,배의 무늬로 겁을 주어 상대를 마비 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+glitzyglow,콸콸오라,Glitzy Glow,Psychic,Special,80,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,염동력을 한가득 날린다. 상대의 특수공격을 약하게 만드는 이상한 장막을 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxbefuddle,거다이고혹,G-Max Befuddle,Bug,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,"상대를 잠듦, 마비, 독 중 하나의 상태로 만든다.",공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxcannonade,거다이포격,G-Max Cannonade,Water,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,물 타입이 아닌 포켓몬에게 4턴 간 지속 대미지를 입힌다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxcentiferno,거다이백화,G-Max Centiferno,Fire,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대 전원을 회오리불꽃 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxchistrike,거다이회심격,G-Max Chi Strike,Fighting,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,아군의 급소율을 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxcuddle,거다이포옹,G-Max Cuddle,Normal,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE,에이스 주력 공격,0,0.2,0.1,0,0,0,0,0,0,성별이 다른 상대 포켓몬 전원을 헤롱헤롱 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxdepletion,거다이감쇠,G-Max Depletion,Dragon,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,마지막으로 사용한 기술의 PP를 줄인다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxdrumsolo,거다이난타,G-Max Drum Solo,Grass,Physical,160,필중,0,adjacentFoe,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,상대의 특성을 무시하고 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+gmaxfinale,거다이단원,G-Max Finale,Fairy,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,아군 전원의 HP를 1/6만큼 회복시킨다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxfireball,거다이화염구,G-Max Fireball,Fire,Physical,160,필중,0,adjacentFoe,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,상대의 특성을 무시하고 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+gmaxfoamburst,거다이포말,G-Max Foam Burst,Water,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대 전원의 스피드를 2랭크 낮춘다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxgoldrush,거다이금화,G-Max Gold Rush,Normal,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE,에이스 주력 공격,0,0.2,0.1,0,0,0,0,0,0,인접한 모든 적을 혼란 상태로 만들고 돈을 추가로 얻는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxgravitas,거다이천도,G-Max Gravitas,Psychic,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,"5턴 동안 비행타입 및 부유 특성 포켓몬이 땅타입 기술에 맞게 되고, 모든 포켓몬이 공중에 떠오르는 기술을 사용할 수 없게 한다.",공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxhydrosnipe,거다이저격,G-Max Hydrosnipe,Water,Physical,160,필중,0,adjacentFoe,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,상대의 특성을 무시하고 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+gmaxmalodor,거다이악취,G-Max Malodor,Poison,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대 포켓몬 전원을 독 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxmeltdown,거다이융격,G-Max Meltdown,Steel,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대가 같은 기술을 2회 연속으로 쓰지 못하게 한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxoneblow,거다이일격,G-Max One Blow,Dark,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대의 방어와 다이월 등의 기술을 무시하고 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxrapidflow,거다이연격,G-Max Rapid Flow,Water,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대의 방어와 다이월 등의 기술을 무시하고 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxreplenish,거다이재생,G-Max Replenish,Normal,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE,에이스 주력 공격,0,0.2,0.1,0,0,0,0,0,0,같은 편 포켓몬이 배틀 중에 먹은 나무열매를 재생한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxresonance,거다이선율,G-Max Resonance,Ice,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,5턴간 아군의 피해를 절반으로 줄이는 오로라베일을 설치한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxsandblast,거다이사진,G-Max Sandblast,Ground,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,4~5턴간 상대 전원을 모래에 가둬 매 턴 최대 HP의 1/6만큼 데미지를 주고 교체할 수 없게 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxsmite,거다이천벌,G-Max Smite,Fairy,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대 전체를 혼란 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxsnooze,거다이수마,G-Max Snooze,Dark,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대 전원을 각 대상마다 50% 확률로 1턴 후 잠듦 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxsteelsurge,거다이강철진,G-Max Steelsurge,Steel,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE|HAZARD_REMOVE,에이스 주력 공격|에이스 견제폭|판 제거,0,0.5,0.1,0.8,0,4.5,0,0,2,상대 진영에 강철타입 상성에 따라 위력이 달라지는 함정을 설치한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+gmaxstonesurge,거다이암진,G-Max Stonesurge,Water,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE|HAZARD_REMOVE,에이스 주력 공격|에이스 견제폭|판 제거,0,0.5,0.1,0.8,0,4.5,0,0,2,상대의 주변에 무수히 많은 바위를 띄워서 교체해서 나온 포켓몬에게 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+gmaxstunshock,거다이감전,G-Max Stun Shock,Electric,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대 포켓몬을 마비 또는 독 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxsweetness,거다이감로,G-Max Sweetness,Grass,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,아군 전원의 상태이상을 회복한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxtartness,거다이산격,G-Max Tartness,Grass,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,100% 확률로 상대 전원의 회피율을 1랭크 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxterror,거다이환영,G-Max Terror,Ghost,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대는 도망칠 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxvinelash,거다이편달,G-Max Vine Lash,Grass,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,풀 타입이 아닌 포켓몬에게 4턴 간 지속 대미지를 입힌다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxvolcalith,거다이분석,G-Max Volcalith,Rock,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,바위 타입이 아닌 상대 전원에게 매 턴 전체 체력의 1/6을 깎는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxvoltcrash,거다이만뢰,G-Max Volt Crash,Electric,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,상대 포켓몬 전원을 마비 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxwildfire,거다이옥염,G-Max Wildfire,Fire,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,4턴 간 불꽃타입이 아닌 포켓몬에게 최대 HP의 1/6만큼 지속 피해를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gmaxwindrage,거다이풍격,G-Max Wind Rage,Flying,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE|HAZARD_REMOVE,에이스 주력 공격|에이스 견제폭|판 제거,0,0.5,0.1,0.8,0,4.5,0,0,2,상대의 필드 설치기를 모두 제거한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+grassknot,풀묶기,Grass Knot,Grass,Special,,100,0,normal,,,0,0,0,0,0,0,0,0,0,풀을 휘감아서 상대를 쓰러뜨린다. 상대가 무거울수록 위력이 올라간다.,
+grasspledge,풀의맹세,Grass Pledge,Grass,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,풀기둥으로 공격한다. 물과 조합하면 위력이 올라가고 주변이 습지초원이 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+grasswhistle,풀피리,Grass Whistle,Grass,Status,,55,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,기분 좋은 피리 소리를 들려주어 상대를 잠듦 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+grassyglide,그래스슬라이더,Grassy Glide,Grass,Physical,55,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.2,0.7,0,0,0,0,0,0,지면에 미끄러지듯 상대를 공격한다. 그래스필드일 때 반드시 선제공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+grassyterrain,그래스필드,Grassy Terrain,Grass,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,5턴 동안 그래스필드로 만든다. 땅에 있으면 매 턴 회복한다. 풀타입의 위력이 올라간다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+gravapple,G의힘,Grav Apple,Grass,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,높은 곳에서 사과를 떨어뜨려서 데미지를 준다. 상대의 방어를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gravity,중력,Gravity,Psychic,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,5턴 동안 부유나 비행타입에 땅타입의 기술이 맞게 된다. 공중으로 나는 기술도 사용할 수 없다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+growl,울음소리,Growl,Normal,Status,,100,0,allAdjacentFoes,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,귀여운 울음소리를 들려주고 관심을 끌어 방심한 사이에 상대의 공격을 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+growth,성장,Growth,Normal,Status,,필중,0,self,SETUP_BOOST,랭크업/전개,0,2,4,0,0,0,0,0,0,몸을 일시에 크게 성장시켜 공격과 특수공격을 올린다.,랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+grudge,원념,Grudge,Ghost,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,상대의 기술로 기절하면 원념을 담아 그 기술의 PP를 0으로 만든다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+guardianofalola,알로라의수호자,Guardian of Alola,Fairy,Special,,필중,0,normal,,,0,0,0,0,0,0,0,0,0,Z파워로 알로라의 힘을 얻은 토속신포켓몬 전력의 공격. 상대의 남은 HP를 많이 줄인다.,
+guardsplit,가드셰어,Guard Split,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,초능력으로 자신과 상대의 방어와 특수방어를 더해서 반으로 나눈다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+guardswap,가드스왑,Guard Swap,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,초능력으로 자신과 상대의 방어와 특수방어의 능력 변화를 교체한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+guillotine,가위자르기,Guillotine,Normal,Physical,,30,0,normal,,,0,0,0,0,0,0,0,0,0,큰 집게로 상대를 베어 갈라 공격한다. 맞으면 일격에 기절한다.,
+gunkshot,더스트슈트,Gunk Shot,Poison,Physical,120,80,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,더러운 쓰레기를 상대에게 부딪쳐서 공격한다. 독 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+gust,바람일으키기,Gust,Flying,Special,40,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,날개로 일으킨 격한 바람을 상대에게 부딪쳐서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+gyroball,자이로볼,Gyro Ball,Steel,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,몸을 고속으로 회전시켜 몸통박치기한다. 상대보다 스피드가 낮을수록 위력은 올라간다.,
+hail,싸라기눈,Hail,Ice,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,5턴 동안 싸라기눈을 내리게 해서 얼음타입이 아닌 포켓몬 모두에게 데미지를 준다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+hammerarm,암해머,Hammer Arm,Fighting,Physical,100,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,강하고 무거운 주먹을 휘둘러 데미지를 준다. 자신의 스피드가 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+happyhour,해피타임,Happy Hour,Normal,Status,,필중,0,allySide,,,0,0,0,0,0,0,0,0,0.8,해피타임 기술을 쓰면 배틀 후에 받을 수 있는 돈이 배가 된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+harden,단단해지기,Harden,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,전신에 힘을 담아 몸을 단단하게 해서 자신의 방어를 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+hardpress,하드프레스,Hard Press,Steel,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,팔이나 집게로 상대를 압박한다. 상대의 HP가 남아 있을수록 위력이 올라간다.,
+haze,흑안개,Haze,Ice,Status,,필중,0,all,DISRUPT,방해,1.2,0,0,1,0,0,0,4,0,흑안개를 뿜어 배틀에 참가 중인 포켓몬 전원의 능력 변화를 원래대로 돌린다.,상대 전개/회복/보조 기술을 방해하는 핵심 기술입니다.
+headbutt,박치기,Headbutt,Normal,Physical,70,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.2,0.9,0,0,0,0,0,0,머리를 내밀어 곧장 돌진하여 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+headcharge,아프로브레이크,Head Charge,Normal,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.7,1.5,0,0,0,0,0,0,굉장한 아프로 머리로 상대에게 돌진하여 공격한다. 자신도 조금 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+headlongrush,들이받기,Headlong Rush,Ground,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,온 힘을 다한 몸통박치기를 날린다. 자신의 방어력이 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+headsmash,양날박치기,Head Smash,Rock,Physical,150,80,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,목숨을 걸고 혼신의 힘으로 상대에게 박치기를 한다. 자신도 굉장한 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+healbell,치료방울,Heal Bell,Normal,Status,,필중,0,allyTeam,TEAM_SUPPORT,팀 지원,0,0,0,1,0,0,0,0,3.5,기분 좋은 방울소리를 들려주어 같은 편 전원의 상태 이상을 회복한다.,아군 지원 가치가 높은 기술입니다.
+healblock,회복봉인,Heal Block,Psychic,Status,,100,0,allAdjacentFoes,,,0,0,0,0,0,0,0,0,0.8,"5턴 동안 기술이나 특성, 지니고 있는 도구에 의한 HP 회복을 할 수 없게 한다.",변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+healingwish,치유소원,Healing Wish,Psychic,Status,,필중,0,self,HAZARD_REMOVE,판 제거,0,0,0,0.8,0,4.5,0,0,2,자신은 기절하지만 교대하여 나오는 포켓몬의 상태 이상과 HP를 회복한다.,설치물 제거 또는 필드 정리 가치가 있습니다.
+healorder,회복지령,Heal Order,Bug,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,부하를 불러내어 상처를 회복한다. 최대 HP의 절반만큼 자신의 HP를 회복한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+healpulse,치유파동,Heal Pulse,Psychic,Status,,필중,0,any,,,0,0,0,0,0,0,0,0,0.8,치유파동을 날려서 최대 HP의 절반만큼 상대의 HP를 회복한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+heartstamp,하트스탬프,Heart Stamp,Psychic,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,귀여운 모습으로 방심시켜서 강렬한 일격을 날린다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+heartswap,하트스왑,Heart Swap,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,초능력으로 자신과 상대에 걸려 있는 능력 변화를 교체한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+heatcrash,히트스탬프,Heat Crash,Fire,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,불타는 몸으로 상대에게 부딪쳐서 공격한다. 자신이 상대보다 무거울수록 위력이 올라간다.,
+heatwave,열풍,Heat Wave,Fire,Special,95,90,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.9,1.2,0,0,0,0,0,0,뜨거운 숨결을 상대에게 내뿜어 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+heavyslam,헤비봄버,Heavy Slam,Steel,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,무거운 몸으로 상대에게 부딪쳐 공격한다. 자신이 상대보다 무거울수록 위력이 올라간다.,
+helpinghand,도우미,Helping Hand,Normal,Status,,필중,5,adjacentAlly,PRIORITY|FINISHER|TEAM_SUPPORT,선공기|마무리|팀 지원,0,0.8,0,1,0,0,4.8,0,3.5,동료를 돕는다. 도움받은 포켓몬이 쓰는 기술의 위력은 여느 때보다 커진다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 아군 지원 가치가 높은 기술입니다.
+hex,병상첨병,Hex,Ghost,Special,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,엎친 데 덮친 격으로 공격한다. 상태 이상인 상대에게 큰 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+hiddenpower,잠재파워,Hidden Power,Normal,Special,60,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1,0.8,0,0,0,0,0,0,기술을 쓴 포켓몬에 따라 기술의 타입이 바뀐다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+highhorsepower,10만마력,High Horsepower,Ground,Physical,95,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.9,1.2,0,0,0,0,0,0,온몸을 써서 상대에게 맹렬히 어택한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+highjumpkick,무릎차기,High Jump Kick,Fighting,Physical,130,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,점프해서 무릎차기로 상대를 공격한다. 빗나가면 자신이 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+holdback,적당히손봐주기,Hold Back,Normal,Physical,40,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.7,0.5,0,0,0,0,0,0,적당히 공격하여 상대의 HP를 반드시 1은 남긴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+holdhands,손에손잡기,Hold Hands,Normal,Status,,필중,0,adjacentAlly,,,0,0,0,0,0,0,0,0,0.8,같은 편 포켓몬끼리 손에 손을 잡는다. 굉장히 행복한 기분이 들게 된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+honeclaws,손톱갈기,Hone Claws,Dark,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,손톱을 갈아 날카롭게 한다. 자신의 공격과 명중률을 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+hornattack,뿔찌르기,Horn Attack,Normal,Physical,65,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.1,0.8,0,0,0,0,0,0,날카롭고 뾰족한 뿔로 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+horndrill,뿔드릴,Horn Drill,Normal,Physical,,30,0,normal,,,0,0,0,0,0,0,0,0,0,회전하는 뿔을 상대에게 꿰찔러서 공격한다. 맞으면 일격에 기절한다.,
+hornleech,우드혼,Horn Leech,Grass,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,뿔을 꿰찔러서 상대의 양분을 흡수한다. 입힌 데미지의 절반에 해당하는 HP를 회복할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+howl,멀리짖기,Howl,Normal,Status,,필중,0,allies,,,0,0,0,0,0,0,0,0,0.8,큰 소리로 짖고 기합을 높여 자신과 같은 편의 공격을 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+hurricane,폭풍,Hurricane,Flying,Special,110,70,0,any,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.8,1.4,0,0,0,0,0,0,강렬한 바람으로 상대를 둘러싸서 공격한다. 상대를 혼란시킬 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+hydrocannon,하이드로캐논,Hydro Cannon,Water,Special,150,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,물의 대포를 상대에게 발사해서 공격한다. 다음 턴은 움직일 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+hydropump,하이드로펌프,Hydro Pump,Water,Special,110,80,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.8,1.4,0,0,0,0,0,0,대량의 물을 세찬 기세로 상대에게 발사하여 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+hydrosteam,하이드로스팀,Hydro Steam,Water,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,펄펄 끓는 물을 기세 좋게 뿜어낸다. 햇살이 강할 때 기술의 위력이 1.5배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+hydrovortex,슈퍼아쿠아토네이도,Hydro Vortex,Water,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 큰 바다회오리를 만들어 전력으로 상대를 집어삼킨다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+hyperbeam,파괴광선,Hyper Beam,Normal,Special,150,90,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.9,1.5,0,0,0,0,0,0,강한 광선을 상대에게 발사하여 공격한다. 다음 턴은 움직일 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+hyperdrill,하이퍼드릴,Hyper Drill,Normal,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.4,1.3,0,0,0,0,0,0,뽀족한 신체 부위를 급속도로 회전시켜 관통한다. 방어나 판별 등도 무시할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+hyperfang,필살앞니,Hyper Fang,Normal,Physical,80,90,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.3,1,0,0,0,0,0,0,날카로운 앞니로 강하게 물어서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+hyperspacefury,이차원러시,Hyperspace Fury,Dark,Physical,100,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,많은 팔로 방어와 판별 등을 무시하는 연속 공격이다. 자신의 방어가 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+hyperspacehole,다른차원홀,Hyperspace Hole,Psychic,Special,80,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,다른차원홀로 갑자기 상대 바로 옆에 나타나 공격한다. 방어나 판별 등도 무시할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+hypervoice,하이퍼보이스,Hyper Voice,Normal,Special,90,100,0,allAdjacentFoes,ACE_DAMAGE,에이스 주력 공격,0,1.5,1.1,0,0,0,0,0,0,시끄럽게 울리는 큰 진동을 상대에게 전달하여 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+hypnosis,최면술,Hypnosis,Psychic,Status,,60,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,졸음을 유도하는 암시를 걸어서 상대를 잠듦 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+iceball,아이스볼,Ice Ball,Ice,Physical,30,90,0,normal,ACE_DAMAGE|ACE_COVERAGE|LOCK_IN,에이스 주력 공격|에이스 견제폭|강제 연속/구속,0,1.3,0.4,-1,0,0,0,0,0,5턴 동안 상대를 공격한다. 기술이 맞을 때마다 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 연속 사용/행동 고정 리스크가 있어 안정성 평가는 낮게 봅니다.
+icebeam,냉동빔,Ice Beam,Ice,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,냉동빔을 상대에게 발사하여 공격한다. 얼음 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+iceburn,콜드플레어,Ice Burn,Ice,Special,140,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,모든 것을 얼려버리는 격렬한 냉기로 2턴째에 상대를 둘러싼다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+icefang,얼음엄니,Ice Fang,Ice,Physical,65,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,냉기를 품은 이빨로 문다. 상대를 풀죽게 하거나 얼음 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+icehammer,아이스해머,Ice Hammer,Ice,Physical,100,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,강하고 무거운 주먹을 휘둘러 데미지를 준다. 자신의 스피드가 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+icepunch,냉동펀치,Ice Punch,Ice,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,냉기를 담은 펀치로 상대를 공격한다. 얼음 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+iceshard,얼음뭉치,Ice Shard,Ice,Physical,40,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,1.8,0.5,0,0,0,3.2,0,0,얼음덩어리를 순식간에 만들어 상대에게 빠르게 쏜다. 반드시 선제공격을 할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+icespinner,아이스스피너,Ice Spinner,Ice,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,발에 얇은 얼음을 두르고 빙글빙글 회전하며 부딪친다. 회전 운동에 의해 필드가 파괴된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+iciclecrash,고드름떨구기,Icicle Crash,Ice,Physical,85,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,큰 고드름을 격렬하게 부딪쳐서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+iciclespear,고드름침,Icicle Spear,Ice,Physical,25,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.7,0.3,0,0,0,0,0,0,날카로운 고드름을 상대에게 발사하여 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+icywind,얼어붙은바람,Icy Wind,Ice,Special,55,95,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE|SPEED_CONTROL,에이스 주력 공격|에이스 견제폭|속도 제어,0,1.2,0.7,0,0,0,1.2,1.8,2.3,차가운 냉기를 상대에게 내뿜어 공격한다. 상대의 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+imprison,봉인,Imprison,Psychic,Status,,필중,0,self,DISRUPT,방해,1.2,0,0,1,0,0,0,4,0,상대가 자신과 같은 기술을 배웠다면 상대만 그 기술을 사용할 수 없게 한다.,상대 전개/회복/보조 기술을 방해하는 핵심 기술입니다.
+incinerate,불태우기,Incinerate,Fire,Special,60,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,불꽃으로 상대를 공격한다. 상대가 나무열매 등을 지니고 있을 때 불태워서 쓸 수 없게 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+infernalparade,백귀야행,Infernal Parade,Ghost,Special,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,무수히 많은 불덩이로 공격한다. 상대를 화상 상태로 만들 때가 있다. 상대가 상태 이상인 경우 위력이 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+inferno,연옥,Inferno,Fire,Special,100,50,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,격렬한 불꽃으로 상대를 둘러싸 공격한다. 화상 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+infernooverdrive,다이내믹풀플레임,Inferno Overdrive,Fire,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 활활 타는 불꽃을 뱉어내 전력으로 상대에게 부딪친다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+infestation,엉겨붙기,Infestation,Bug,Special,20,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.6,0.3,0,0,0,0,0,0,4-5턴 동안 상대에게 엉겨 붙어서 공격한다. 그동안 상대는 도망갈 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+ingrain,뿌리박기,Ingrain,Grass,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,대지에 뿌리를 박아 매 턴마다 자신의 HP를 회복한다. 뿌리 박고 있으므로 교체할 수 없다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+instruct,지휘,Instruct,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대에게 지시하여 상대가 쓴 기술을 다시 한번 쓰게 할 수 있다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+iondeluge,플라스마샤워,Ion Deluge,Electric,Status,,필중,1,all,PRIORITY|FINISHER|FIELD_CONTROL,선공기|마무리|날씨/필드/룸,1.8,0.8,0,0,0,0.8,3.2,0,3,전기를 띤 입자를 확산시켜 노말타입 기술을 전기타입으로 바꿔버린다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+irondefense,철벽,Iron Defense,Steel,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,피부를 쇠처럼 단단하게 만듦으로써 자신의 방어를 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+ironhead,아이언헤드,Iron Head,Steel,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,강철과 같은 단단한 머리로 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+irontail,아이언테일,Iron Tail,Steel,Physical,100,75,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,단단한 꼬리로 상대를 힘껏 쳐서 공격한다. 상대의 방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+ivycudgel,덩굴방망이,Ivy Cudgel,Grass,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,덩굴을 휘감은 방망이로 때린다. 쓰고 있는 가면에 따라 타입이 바뀐다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+jawlock,물고버티기,Jaw Lock,Dark,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,어느 한쪽이 기절할 때까지 교체할 수 없게 된다. 한쪽의 포켓몬이 없어지면 효과가 사라진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+jetpunch,제트펀치,Jet Punch,Water,Physical,60,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,2.1,0.8,0,0,0,3.2,0,0,거센 물살을 주먹에 둘러 눈에 보이지 않는 속도로 펀치를 날린다. 반드시 선제공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+judgment,심판의뭉치,Judgment,Normal,Special,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.4,1.3,0,0,0,0,0,0,무수한 광탄을 상대에게 방출한다. 자신이 가지고 있는 플레이트에 따라 타입이 바뀐다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+jumpkick,점프킥,Jump Kick,Fighting,Physical,100,95,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,높이 점프해서 킥으로 상대를 공격한다. 빗나가면 자신이 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+junglehealing,정글힐,Jungle Healing,Grass,Status,,필중,0,allies,,,0,0,0,0,0,0,0,0,0.8,정글과 하나가 되어 자신과 배틀에 나와 있는 같은 편의 HP와 모든 상태를 회복한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+karatechop,태권당수,Karate Chop,Fighting,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,날카로운 당수로 상대를 때려서 공격한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+kinesis,숟가락휘기,Kinesis,Psychic,Status,,80,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,숟가락을 휘어서 주의를 끌어 상대의 명중률을 낮춘다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+kingsshield,킹실드,King's Shield,Steel,Status,,필중,4,self,PRIORITY|FINISHER|PROTECT_SCOUT,선공기|마무리|방어/정찰,0,0.8,0,2,0,0,4.4,0.8,1.4,상대의 공격을 막음과 동시에 방어 태세를 갖춘다. 접촉한 상대의 공격을 떨어뜨린다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 방어/정찰로 턴 종료 효과와 상대 행동 확인 가치가 있습니다.
+knockoff,탁쳐서떨구기,Knock Off,Dark,Physical,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,상대의 지닌 물건을 탁 쳐서 떨어뜨려 배틀이 끝날 때까지 사용할 수 없게 한다. 물건을 가진 상대에게는 데미지를 더 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+kowtowcleave,도각참,Kowtow Cleave,Dark,Physical,85,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,머리를 조아려 상대를 방심하게 만든 뒤에 베어 버린다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+landswrath,그라운드포스,Land's Wrath,Ground,Physical,90,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,대지의 힘을 모으고 그 힘을 상대에게 집중시켜서 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+laserfocus,예민해지기,Laser Focus,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,정신을 집중해서 다음 공격을 반드시 급소에 맞춘다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+lashout,분풀이,Lash Out,Dark,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,상대에 대한 울분이 담긴 공격을 한다. 그 턴에 능력이 떨어져 있으면 기술의 위력이 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+lastresort,비장의무기,Last Resort,Normal,Physical,140,100,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.9,1.5,0,0,0,0,0,0,배틀 중에 기억하고 있는 기술을 모두 사용하면 그때부터 쓸 수 있는 필살기이다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+lastrespects,성묘,Last Respects,Ghost,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,동료의 한을 풀어 주기 위해 공격한다. 쓰러진 같은 편 포켓몬이 많을수록 기술의 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+lavaplume,분연,Lava Plume,Fire,Special,80,100,0,allAdjacent,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,새빨간 불꽃으로 자신의 주위에 있는 포켓몬을 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+leafage,나뭇잎,Leafage,Grass,Physical,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,잎을 상대에 맞춰 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+leafblade,리프블레이드,Leaf Blade,Grass,Physical,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,잎사귀를 칼처럼 이용해 상대를 베어 공격한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+leafstorm,리프스톰,Leaf Storm,Grass,Special,130,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,뾰족한 잎사귀로 상대에게 돌풍을 일으킨다. 사용하면 반동으로 자신의 특수공격이 크게 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+leaftornado,그래스믹서,Leaf Tornado,Grass,Special,65,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,날카로운 잎사귀로 상대를 둘러싸서 공격한다. 명중률을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+leechlife,흡혈,Leech Life,Bug,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,피를 빨아서 상대를 공격한다. 준 데미지의 절반을 HP로 회복한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+leechseed,씨뿌리기,Leech Seed,Grass,Status,,90,0,normal,,,0,0,0,0,0,0,0,0,0.8,씨가 뿌려진 상대의 HP를 매 턴 조금씩 흡수하여 자신의 HP를 회복한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+leer,째려보기,Leer,Normal,Status,,100,0,allAdjacentFoes,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,날카로운 눈초리로 겁을 주어 상대의 방어를 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+letssnuggleforever,투닥투닥프렌드타임,Let's Snuggle Forever,Fairy,Physical,190,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워를 얻은 따라큐가 전력으로 투닥투닥 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+lick,핥기,Lick,Ghost,Physical,30,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.8,0.4,0,0,0,0,0,0,긴 혀로 상대를 핥아서 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+lifedew,생명의물방울,Life Dew,Water,Status,,필중,0,allies,RECOVERY|TEAM_SUPPORT,회복|팀 지원,0,-0.4,0,5,0,0,0,0,5,신비한 물을 흩뿌려서 자신과 배틀에 나와 있는 같은 편의 HP를 회복한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다. / 아군 지원 가치가 높은 기술입니다.
+lightofruin,파멸의빛,Light of Ruin,Fairy,Special,140,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,영원의 꽃의 파워를 빌려서 강력한 광선을 쏜다. 자신도 상당한 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+lightscreen,빛의장막,Light Screen,Psychic,Status,,필중,0,allySide,SCREEN_SUPPORT,벽/장막,2.2,0,0,1.5,0,0,0,0,3.5,5턴 동안 이상한 장막을 쳐서 상대로부터 받는 특수공격의 데미지를 약하게 한다.,팀 전체 생존 또는 상태 방어를 지원합니다.
+lightthatburnsthesky,하늘을태우는멸망의빛,Light That Burns the Sky,Psychic,Special,200,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,네크로즈마가 상대의 특성 효과를 무시하고 공격과 특수공격 중 높은 쪽으로 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+liquidation,아쿠아브레이크,Liquidation,Water,Physical,85,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,물의 힘으로 상대에게 부딪쳐서 공격한다. 상대의 방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+lockon,록온,Lock-On,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,조준을 잘 맞춰 다음 공격이 반드시 상대에게 명중하도록 한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+lovelykiss,악마의키스,Lovely Kiss,Normal,Status,,75,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,무서운 얼굴로 키스한다. 상대를 잠듦 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+lowkick,안다리걸기,Low Kick,Fighting,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,발을 강하게 걸고 상대를 넘어뜨려 공격한다. 상대가 무거울수록 위력이 올라간다.,
+lowsweep,로킥,Low Sweep,Fighting,Physical,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,재빠른 움직임으로 상대의 다리를 노려 공격한다. 상대의 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+luckychant,주술,Lucky Chant,Normal,Status,,필중,0,allySide,,,0,0,0,0,0,0,0,0,0.8,하늘을 향해 기도를 올려 5턴 동안 상대의 공격을 급소에 맞지 않게 한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+luminacrash,루미나콜리전,Lumina Crash,Psychic,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,정신에도 작용하는 기묘한 빛을 발산해서 공격한다. 상대의 특수방어를 크게 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+lunarblessing,초승달의기도,Lunar Blessing,Psychic,Status,,필중,0,allies,,,0,0,0,0,0,0,0,0,0.8,초승달에 기도를 하여 자신과 배틀에 나와있는 같은 편의 전체 HP의 ¼을 회복하고 모든 상태를 회복한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+lunardance,초승달춤,Lunar Dance,Psychic,Status,,필중,0,self,HAZARD_REMOVE,판 제거,0,0,0,0.8,0,4.5,0,0,2,자신은 기절하지만 교대하여 나오는 포켓몬의 모든 상태를 회복한다.,설치물 제거 또는 필드 정리 가치가 있습니다.
+lunge,덤벼들기,Lunge,Bug,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,전력으로 상대에게 덤벼들며 공격한다. 상대의 공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+lusterpurge,라스트퍼지,Luster Purge,Psychic,Special,95,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.9,1.2,0,0,0,0,0,0,눈부신 빛을 발산하여 공격한다. 상대의 특수방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+machpunch,마하펀치,Mach Punch,Fighting,Physical,40,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,1.8,0.5,0,0,0,3.2,0,0,눈에 보이지 않는 굉장한 속도로 펀치를 날린다. 반드시 선제공격을 할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+magicalleaf,매지컬리프,Magical Leaf,Grass,Special,60,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,상대를 추적하는 이상한 잎사귀를 흩뿌린다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+magicaltorque,Magical Torque,Magical Torque,Fairy,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,30% chance to confuse the target.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+magiccoat,매직코트,Magic Coat,Psychic,Status,,필중,4,self,PRIORITY|FINISHER,선공기|마무리,0,0.8,0,0,0,0,4.4,0,0,상대가 상태 이상이 되는 기술이나 씨뿌리기 등을 썼을 때 되받아친다.,선공기라 복수 처리와 마무리 가치가 큽니다.
+magicpowder,마법가루,Magic Powder,Psychic,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,마법가루를 날려서 상대를 에스퍼타입으로 바꾼다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+magicroom,매직룸,Magic Room,Psychic,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,이상한 공간을 만든다. 5턴 동안 모든 포켓몬의 도구의 효과가 사라진다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+magmastorm,마그마스톰,Magma Storm,Fire,Special,100,75,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,세차게 타오르는 불꽃 속에 4-5턴 동안 상대를 가두어 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+magnetbomb,마그넷봄,Magnet Bomb,Steel,Physical,60,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,상대에게 달라붙는 강철의 폭탄을 발사한다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+magneticflux,자기장조작,Magnetic Flux,Electric,Status,,필중,0,allySide,,,0,0,0,0,0,0,0,0,0.8,"자기장 조작으로 인해 특성 플러스와 마이너스의 방어, 특수방어가 오른다.",변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+magnetrise,전자부유,Magnet Rise,Electric,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,전기로 만든 자력의 힘으로 허공에 뜬다. 5턴 동안 부유할 수 있다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+magnitude,매그니튜드,Magnitude,Ground,Physical,,100,0,allAdjacent,,,0,0,0,0,0,0,0,0,0,땅을 흔들어서 자신의 주위에 있는 포켓몬을 공격한다. 기술의 위력이 여러모로 바뀐다.,
+makeitrain,골드러시,Make It Rain,Steel,Special,120,100,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,대량의 코인을 날려서 공격한다. 자신의 특수공격이 떨어진다. 배틀 후에 돈을 받을 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+maliciousmoonsault,하이퍼다크크러셔,Malicious Moonsault,Dark,Physical,180,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워로 강한 육체를 얻은 어흥염이 전력으로 상대에게 부딪쳐 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+malignantchain,악독사슬,Malignant Chain,Poison,Special,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,독으로 된 사슬로 상대를 휘감은 뒤 독소를 흘려보내어 해치운다. 맹독 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+matblock,마룻바닥세워막기,Mat Block,Fighting,Status,,필중,0,allySide,,,0,0,0,0,0,0,0,0,0.8,뒤집어 세운 마룻바닥을 방패로 하여 자신과 같은 편으로 향하는 기술 데미지를 막는다. 변화 기술은 막을 수 없다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+matchagotcha,휘적휘적포,Matcha Gotcha,Grass,Special,80,90,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,휘저은 차를 대포처럼 발사해 준 데미지의 절반을 HP로 회복한다. 화상 상태로 만들 때도 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxairstream,다이제트,Max Airstream,Flying,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 비행타입의 공격. 같은 편의 스피드를 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxdarkness,다이아크,Max Darkness,Dark,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 악타입의 공격. 상대의 특수방어를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxflare,다이번,Max Flare,Fire,Physical,100,필중,0,adjacentFoe,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 불꽃타입의 공격. 5턴 동안 햇살을 강하게 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+maxflutterby,다이웜,Max Flutterby,Bug,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 벌레타입의 공격. 상대의 특수공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxgeyser,다이스트림,Max Geyser,Water,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 물타입의 공격. 5턴 동안 비를 내리게 한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxguard,다이월,Max Guard,Normal,Status,,필중,4,self,PRIORITY|FINISHER,선공기|마무리,0,0.8,0,0,0,0,4.4,0,0,상대의 공격을 전혀 받지 않는다. 연속으로 쓰면 실패하기 쉽다.,선공기라 복수 처리와 마무리 가치가 큽니다.
+maxhailstorm,다이아이스,Max Hailstorm,Ice,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 얼음타입의 공격. 5턴 동안 싸라기눈을 내리게 한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxknuckle,다이너클,Max Knuckle,Fighting,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 격투타입의 공격. 같은 편의 공격을 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxlightning,다이썬더,Max Lightning,Electric,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 전기타입의 공격. 5턴 동안 일렉트릭필드로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxmindstorm,다이사이코,Max Mindstorm,Psychic,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 에스퍼타입의 공격. 5턴 동안 사이코필드로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxooze,다이애시드,Max Ooze,Poison,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 독타입의 공격. 같은 편의 특수공격을 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxovergrowth,다이그래스,Max Overgrowth,Grass,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 풀타입의 공격. 5턴 동안 그래스필드로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxphantasm,다이할로우,Max Phantasm,Ghost,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 고스트타입의 공격. 상대의 방어를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxquake,다이어스,Max Quake,Ground,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 땅타입의 공격. 같은 편의 특수방어를 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxrockfall,다이록,Max Rockfall,Rock,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 바위타입의 공격. 5턴 동안 날씨를 모래바람으로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxstarfall,다이페어리,Max Starfall,Fairy,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 페어리타입의 공격. 5턴 동안 미스트필드로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxsteelspike,다이스틸,Max Steelspike,Steel,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 강철타입의 공격. 같은 편의 방어를 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxstrike,다이어택,Max Strike,Normal,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE,에이스 주력 공격,0,0.2,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 노말타입의 공격. 상대의 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+maxwyrmwind,다이드라군,Max Wyrmwind,Dragon,Physical,10,필중,0,adjacentFoe,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,다이맥스한 포켓몬이 날리는 드래곤타입의 공격. 상대의 공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+meanlook,검은눈빛,Mean Look,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,빨려 들어갈 것 같은 까만 눈빛으로 가만히 응시하여 상대를 배틀에서 도망갈 수 없게 한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+meditate,요가포즈,Meditate,Psychic,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,잠들어 있는 힘을 몸속에서 끌어내어 자신의 공격을 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+mefirst,선취,Me First,Normal,Status,,필중,0,adjacentFoe,,,0,0,0,0,0,0,0,0,0.8,위력을 올려 상대가 쓰려고 하는 기술을 먼저 쓴다. 먼저 쓰지 않으면 실패한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+megadrain,메가드레인,Mega Drain,Grass,Special,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,양분을 흡수하여 공격한다. 상대에게 입힌 데미지의 절반에 해당하는 HP를 회복할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+megahorn,메가혼,Megahorn,Bug,Physical,120,85,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,단단하고 훌륭한 뿔로 마음껏 상대를 꿰찔러서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+megakick,메가톤킥,Mega Kick,Normal,Physical,120,75,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.7,1.5,0,0,0,0,0,0,굉장한 힘을 담은 킥으로 상대를 걷어차서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+megapunch,메가톤펀치,Mega Punch,Normal,Physical,80,85,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.3,1,0,0,0,0,0,0,힘을 담은 펀치로 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+memento,추억의선물,Memento,Dark,Status,,100,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,자신은 기절하게 되지만 그 대신 상대의 공격과 특수공격을 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+menacingmoonrazemaelstrom,문라이트블래스터,Menacing Moonraze Maelstrom,Ghost,Special,200,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워를 얻은 루나아라가 전력으로 공격한다. 상대의 특성 효과를 무시할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+metalburst,메탈버스트,Metal Burst,Steel,Physical,,100,0,scripted,,,0,0,0,0,0,0,0,0,0,기술을 쓰기 전에 마지막으로 받은 기술의 데미지를 늘려서 기술을 쓴 상대에게 돌려준다.,
+metalclaw,메탈클로,Metal Claw,Steel,Physical,50,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,강철의 발톱으로 상대를 베어 갈라 공격한다. 자신의 공격이 올라갈 때도 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+metalsound,금속음,Metal Sound,Steel,Status,,85,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,금속을 긁을 때 나는 듯한 싫은 소리를 들려준다. 상대의 특수방어를 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+meteorassault,스타어설트,Meteor Assault,Fighting,Physical,150,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,굵은 줄기를 휘둘러서 공격한다. 단 자신도 비틀거리기 때문에 다음 턴은 움직일 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+meteorbeam,메테오빔,Meteor Beam,Rock,Special,120,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,1턴째에 우주의 힘을 모아서 특수공격을 올리고 2턴째에 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+meteormash,코멧펀치,Meteor Mash,Steel,Physical,90,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,혜성과 같은 펀치를 날려서 상대를 공격한다. 자신의 공격이 올라갈 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+metronome,손가락흔들기,Metronome,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,손가락을 흔들어 자신의 뇌를 자극해서 모든 기술 중 어느 하나를 날린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+mightycleave,파워풀에지,Mighty Cleave,Rock,Physical,95,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.9,1.2,0,0,0,0,0,0,머리에 축적된 빛으로 절단한다. 기술 방어를 무시하고 공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+milkdrink,우유마시기,Milk Drink,Normal,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,자신의 최대 HP 절반을 회복한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+mimic,흉내내기,Mimic,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대가 마지막에 사용한 기술을 배틀을 하는 동안 자신의 기술로 만들 수 있다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+mindblown,깜짝헤드,Mind Blown,Fire,Special,150,100,0,allAdjacent,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,자신의 머리를 폭발시켜 주위의 모든 것을 공격한다. 자신도 데미지를 받는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+mindreader,마음의눈,Mind Reader,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대의 움직임을 마음으로 읽고 다음 공격이 반드시 상대에게 명중되게 한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+minimize,작아지기,Minimize,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,몸을 축소하여 작게 보임으로써 자신의 회피율을 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+miracleeye,미라클아이,Miracle Eye,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,악타입에 효과가 없는 기술이나 회피율이 높은 상대라 할지라도 공격이 맞게 된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+mirrorcoat,미러코트,Mirror Coat,Psychic,Special,,100,-5,scripted,,,0,0,0,0,0,0,0,0,0,상대에게 받은 특수공격의 데미지를 2배로 만들어 그 상대에게 돌려준다.,
+mirrormove,따라하기,Mirror Move,Flying,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대가 사용한 기술을 흉내 내어 자신도 똑같은 기술을 쓴다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+mirrorshot,미러샷,Mirror Shot,Steel,Special,65,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,갈고닦은 몸에서 섬광의 힘을 상대에게 쏜다. 명중률을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+mist,흰안개,Mist,Ice,Status,,필중,0,allySide,SCREEN_SUPPORT,벽/장막,2.2,0,0,1.5,0,0,0,0,3.5,하얀 안개로 몸을 덮는다. 5턴 동안 상대에 의해 능력이 떨어지지 않게 된다.,팀 전체 생존 또는 상태 방어를 지원합니다.
+mistball,미스트볼,Mist Ball,Psychic,Special,95,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.9,1.2,0,0,0,0,0,0,안개의 깃털로 둘러싸 공격한다. 상대의 특수공격을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+mistyexplosion,미스트버스트,Misty Explosion,Fairy,Special,100,100,0,allAdjacent,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,자신의 주위에 있는 모두를 공격하지만 사용하면 기절한다. 미스트필드일 때 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+mistyterrain,미스트필드,Misty Terrain,Fairy,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,5턴 동안 땅에 있으면 상태 이상이 되지 않고 드래곤타입 기술의 데미지도 절반이 된다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+moonblast,문포스,Moonblast,Fairy,Special,95,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.9,1.2,0,0,0,0,0,0,달의 파워를 빌려서 상대를 공격한다. 상대의 특수공격을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+moongeistbeam,섀도레이,Moongeist Beam,Ghost,Special,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,괴상한 광선을 쏘아 공격한다. 상대의 특성을 무시하고 공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+moonlight,달빛,Moonlight,Fairy,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,자신의 HP를 회복한다. 날씨에 따라 회복량이 변한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+morningsun,아침햇살,Morning Sun,Normal,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,자신의 HP를 회복한다. 날씨에 따라 회복량이 변한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+mortalspin,킬러스핀,Mortal Spin,Poison,Physical,30,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE|HAZARD_REMOVE,에이스 주력 공격|에이스 견제폭|판 제거,0,0.8,0.4,0.8,0,4.5,0,0,2,"회전해서 상대를 공격한다. 조이기, 김밥말이, 씨뿌리기 등의 효과를 날려 버린다. 상대를 독 상태로 만든다.",공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+mountaingale,빙산바람,Mountain Gale,Ice,Physical,100,85,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,빙산처럼 커다란 얼음덩어리를 부딪쳐서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+mudbomb,진흙폭탄,Mud Bomb,Ground,Special,65,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,단단한 진흙구슬을 상대에게 발사하여 공격한다. 명중률을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+muddywater,탁류,Muddy Water,Water,Special,90,85,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,탁해진 물을 상대에게 발사하여 공격한다. 명중률을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+mudshot,머드샷,Mud Shot,Ground,Special,55,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.2,0.7,0,0,0,0,0,0,진흙 덩어리를 상대에게 내던져서 공격한다. 동시에 상대의 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+mudslap,진흙뿌리기,Mud-Slap,Ground,Special,20,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.6,0.3,0,0,0,0,0,0,상대의 얼굴 등에 진흙을 내던져서 공격한다. 명중률을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+mudsport,흙놀이,Mud Sport,Ground,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,주위를 진흙투성이로 만든다. 5턴 동안 전기타입의 기술을 약하게 한다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+multiattack,멀티어택,Multi-Attack,Normal,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.7,1.5,0,0,0,0,0,0,높은 에너지를 둘러싸 상대에게 부딪쳐 공격한다. 메모리에 따라 타입이 바뀐다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+mysticalfire,매지컬플레임,Mystical Fire,Fire,Special,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,입에서 내뱉는 아주 뜨거운 불꽃으로 공격한다. 상대의 특수공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+mysticalpower,신비의힘,Mystical Power,Psychic,Special,70,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,신비의 힘으로 상대를 공격한다. 자신의 특수공격이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+nastyplot,나쁜음모,Nasty Plot,Dark,Status,,필중,0,self,SETUP_BOOST,랭크업/전개,0,2,4,0,0,0,0,0,0,나쁜 일을 생각해서 머리를 활성화시킨다. 자신의 특수공격을 크게 올린다.,랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+naturalgift,자연의은혜,Natural Gift,Normal,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,나무열매에서 힘을 얻어 공격한다. 지니게 한 나무열매에 따라 기술의 타입과 위력이 바뀐다.,
+naturepower,자연의힘,Nature Power,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,자연의 힘으로 공격한다. 사용하는 장소에 따라 나오는 기술이 변화한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+naturesmadness,자연의분노,Nature's Madness,Fairy,Special,,90,0,normal,,,0,0,0,0,0,0,0,0,0,자연의 분노를 상대에게 부딪친다. 상대의 HP는 절반이 된다.,
+needlearm,바늘팔,Needle Arm,Grass,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,바늘팔을 세차게 흔들어 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+neverendingnightmare,무한암야로의유인,Never-Ending Nightmare,Ghost,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 불러낸 강한 원념이 전력으로 상대에게 쏟아진다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+nightdaze,나이트버스트,Night Daze,Dark,Special,85,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,암흑의 충격파를 날려서 상대를 공격한다. 명중률을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+nightmare,악몽,Nightmare,Ghost,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,잠듦 상태의 상대에게 악몽을 꾸게 하여 매 턴 조금씩 HP를 떨어뜨려 간다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+nightshade,나이트헤드,Night Shade,Ghost,Special,,100,0,normal,,,0,0,0,0,0,0,0,0,0,무시무시한 환상을 보게 해서 자신의 레벨과 똑같은 만큼의 데미지를 상대에게 준다.,
+nightslash,깜짝베기,Night Slash,Dark,Physical,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,순간적으로 틈을 노려 상대를 베어 버린다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+nihillight,Nihil Light,Nihil Light,Dragon,Special,100,100,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+nobleroar,부르짖기,Noble Roar,Normal,Status,,100,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,우렁차게 부르짖어서 상대를 위협하여 상대의 공격과 특수공격을 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+noretreat,배수의진,No Retreat,Fighting,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,자신의 모든 능력이 올라가지만 교체하거나 도망칠 수 없게 된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+noxioustorque,Noxious Torque,Noxious Torque,Poison,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,30% chance to poison the target.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+nuzzle,볼부비부비,Nuzzle,Electric,Physical,20,100,0,normal,ACE_DAMAGE|ACE_COVERAGE|STATUS_SPREAD,에이스 주력 공격|에이스 견제폭|상태이상,0,0.6,0.3,2.2,0,0,0,2.4,1.8,전기가 흐르는 볼을 비벼서 공격한다. 상대를 마비 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+oblivionwing,데스윙,Oblivion Wing,Flying,Special,80,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,조준한 상대로부터 HP를 흡수한다. 준 데미지의 반 이상 HP를 회복한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+obstruct,블로킹,Obstruct,Dark,Status,,100,4,self,PRIORITY|FINISHER,선공기|마무리,0,0.8,0,0,0,0,4.4,0,0,상대의 공격을 전혀 받지 않는다. 연속으로 쓰면 실패하기 쉽다. 접촉한 상대의 방어를 크게 떨어뜨린다.,선공기라 복수 처리와 마무리 가치가 큽니다.
+oceanicoperetta,바다의심포니,Oceanic Operetta,Water,Special,195,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워로 대량의 물을 부른 누리레느가 전력으로 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+octazooka,대포무노포,Octazooka,Water,Special,65,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,상대의 얼굴 등에 먹물을 내뿜어 공격한다. 명중률을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+octolock,문어굳히기,Octolock,Fighting,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대를 도망칠 수 없게 한다. 굳히기에 당한 상대는 매 턴 방어와 특수방어가 떨어진다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+odorsleuth,냄새구별,Odor Sleuth,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,고스트타입에 효과가 없는 기술이나 회피율이 높은 상대라 할지라도 공격이 맞게 된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+ominouswind,괴상한바람,Ominous Wind,Ghost,Special,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,소름이 끼칠 만한 돌풍으로 상대를 공격한다. 자신의 모든 능력이 올라갈 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+orderup,한판내기,Order Up,Dragon,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,멋들어진 몸놀림으로 공격한다. 입속에 싸리용이 있으면 싸리용의 모습에 따라 능력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+originpulse,근원의파동,Origin Pulse,Water,Special,110,85,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.8,1.4,0,0,0,0,0,0,파랗게 빛나는 무수한 광선으로 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+outrage,역린,Outrage,Dragon,Physical,120,100,0,randomNormal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE|LOCK_IN,에이스 주력 공격|고위험 고화력|에이스 견제폭|강제 연속/구속,0,3.5,1.5,-1,0,0,0,0,0,2-3턴 동안 마구 난동 부려서 공격한다. 난동 부린 뒤에는 혼란에 빠진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다. / 연속 사용/행동 고정 리스크가 있어 안정성 평가는 낮게 봅니다.
+overdrive,오버드라이브,Overdrive,Electric,Special,80,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,기타나 베이스를 쳐서 큰 울림과 강한 진동을 상대에게 전달하여 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+overheat,오버히트,Overheat,Fire,Special,130,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,풀 파워로 상대를 공격한다. 쓰면 반동으로 자신의 특수공격이 크게 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+painsplit,아픔나누기,Pain Split,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,자신의 HP와 상대의 HP를 합친 것을 자신과 상대가 사이좋게 나눈다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+paraboliccharge,파라볼라차지,Parabolic Charge,Electric,Special,65,100,0,allAdjacent,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,주위에 있는 모든 포켓몬에게 데미지를 준다. 준 데미지의 절반을 자신이 회복한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+partingshot,막말내뱉기,Parting Shot,Dark,Status,,100,0,normal,PIVOT,피벗/교체 연결,1.5,0.4,0,0,4.5,0,0,0,0,막말을 내뱉어 상대를 위협하여 공격과 특수공격을 떨어뜨린 후 교대 포켓몬과 교체한다.,공격/보조 후 유리 대면으로 연결하는 피벗 기술입니다.
+payback,보복,Payback,Dark,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,모아서 공격한다. 상대보다 나중에 공격할 수 있으면 기술의 위력은 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+payday,고양이돈받기,Pay Day,Normal,Physical,40,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.7,0.5,0,0,0,0,0,0,상대의 몸에 돈을 세게 던져서 공격한다. 배틀 후에 돈을 받을 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+peck,쪼기,Peck,Flying,Physical,35,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.9,0.4,0,0,0,0,0,0,날카롭고 뾰족한 부리나 뿔로 상대를 쪼아서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+perishsong,멸망의노래,Perish Song,Normal,Status,,필중,0,all,,,0,0,0,0,0,0,0,0,0.8,노래를 들은 포켓몬은 3턴이 지나면 기절한다. 교체되면 효과가 없어진다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+petalblizzard,꽃보라,Petal Blizzard,Grass,Physical,90,100,0,allAdjacent,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,세찬 꽃보라를 일으켜서 주위에 있는 포켓몬을 공격하여 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+petaldance,꽃잎댄스,Petal Dance,Grass,Special,120,100,0,randomNormal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE|LOCK_IN,에이스 주력 공격|고위험 고화력|에이스 견제폭|강제 연속/구속,0,3.5,1.5,-1,0,0,0,0,0,2-3턴 동안 꽃을 흩뿌려서 상대를 공격한다. 흩뿌린 뒤에는 혼란에 빠진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다. / 연속 사용/행동 고정 리스크가 있어 안정성 평가는 낮게 봅니다.
+phantomforce,고스트다이브,Phantom Force,Ghost,Physical,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,1턴째에 어디론가 사라져서 2턴째에 상대를 공격한다. 기술 방어를 무시하고 공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+photongeyser,포톤가이저,Photon Geyser,Psychic,Special,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,빛의 기둥으로 공격한다. 공격과 특수공격을 비교해서 높은 쪽으로 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+pikapapow,피카피카썬더,Pika Papow,Electric,Special,,필중,0,normal,,,0,0,0,0,0,0,0,0,0,트레이너를 좋아하는 피카츄의 마음이 강할수록 위력이 올라가는 전격. 반드시 명중한다.,
+pinmissile,바늘미사일,Pin Missile,Bug,Physical,25,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.7,0.3,0,0,0,0,0,0,날카로운 침을 상대에게 발사해서 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+plasmafists,플라스마피스트,Plasma Fists,Electric,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE|FIELD_CONTROL,에이스 주력 공격|고위험 고화력|에이스 견제폭|날씨/필드/룸,1.8,2.7,1.3,0,0,0.8,0,0,3,전기를 두른 주먹으로 공격한다. 노말타입 기술을 전기타입으로 바꿔버린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다. / 날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+playnice,친해지기,Play Nice,Normal,Status,,필중,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,상대와 친해져서 싸울 마음을 잃게 하여 상대의 공격을 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+playrough,치근거리기,Play Rough,Fairy,Physical,90,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,상대에게 치근거리며 공격한다. 상대의 공격을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+pluck,쪼아대기,Pluck,Flying,Physical,60,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,부리로 공격한다. 상대가 나무열매를 지니고 있을 때 먹어서 나무열매의 효과를 받을 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+poisonfang,맹독엄니,Poison Fang,Poison,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,독이 있는 이빨로 상대를 물어서 공격한다. 맹독을 주입할 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+poisongas,독가스,Poison Gas,Poison,Status,,90,0,allAdjacentFoes,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,독가스를 상대의 얼굴에 내뿜어 독 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+poisonjab,독찌르기,Poison Jab,Poison,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,독에 물든 촉수나 팔로 상대를 꿰찌른다. 독 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+poisonpowder,독가루,Poison Powder,Poison,Status,,75,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,독이 있는 가루를 많이 흩뿌려서 상대를 독 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+poisonsting,독침,Poison Sting,Poison,Physical,15,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.6,0.2,0,0,0,0,0,0,독이 있는 침을 상대에게 꿰찔러서 공격한다. 독 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+poisontail,포이즌테일,Poison Tail,Poison,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,꼬리로 때린다. 독 상태로 만들 때가 있고 급소에도 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+pollenpuff,꽃가루경단,Pollen Puff,Bug,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,상대에게는 폭발하는 경단을 사용하여 공격한다. 같은 편에게는 회복하는 경단을 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+poltergeist,폴터가이스트,Poltergeist,Ghost,Physical,110,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.8,1.4,0,0,0,0,0,0,상대의 지닌 물건을 조종해서 공격한다. 상대가 도구를 지니고 있지 않으면 실패한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+populationbomb,찍찍베기,Population Bomb,Normal,Physical,20,90,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.3,0.3,0,0,0,0,0,0,여기저기서 동료들을 모아서 화려한 콤비네이션으로 공격한다. 1~10회 연속으로 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+pounce,달려들기,Pounce,Bug,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,상대에게 달려들어 공격한다. 상대의 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+pound,막치기,Pound,Normal,Physical,40,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.7,0.5,0,0,0,0,0,0,긴 꼬리나 손 등을 사용하여 상대를 때려서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+powder,분진,Powder,Bug,Status,,100,1,normal,PRIORITY|FINISHER,선공기|마무리,0,0.8,0,0,0,0,3.2,0,0,분진을 뒤집어쓴 상대가 불꽃 기술을 쓰면 폭발하여 데미지를 준다.,선공기라 복수 처리와 마무리 가치가 큽니다.
+powdersnow,눈싸라기,Powder Snow,Ice,Special,40,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,차가운 가랑눈을 상대에게 내뿜어 공격한다. 얼음 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+powergem,파워젬,Power Gem,Rock,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,보석처럼 반짝이는 빛을 발사하여 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+powershift,파워시프트,Power Shift,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,자신의 공격력과 방어력을 바꾼다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+powersplit,파워셰어,Power Split,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,초능력으로 자신과 상대의 공격과 특수공격을 더해서 반으로 나눈다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+powerswap,파워스왑,Power Swap,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,초능력으로 자신과 상대의 공격과 특수공격의 능력 변화를 교체한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+powertrick,파워트릭,Power Trick,Psychic,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,초능력으로 자신의 공격과 방어의 힘을 교환한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+powertrip,기어오르기,Power Trip,Dark,Physical,20,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.6,0.3,0,0,0,0,0,0,자신의 강함을 뻐기고 공격한다. 자신의 능력이 올라가 있는 만큼 위력이 오른다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+poweruppunch,그로우펀치,Power-Up Punch,Fighting,Physical,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,반복하여 때리면 점점 주먹이 단단해진다. 상대를 때리면 공격이 오른다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+powerwhip,파워휩,Power Whip,Grass,Physical,120,85,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,덩굴이나 촉수를 세차게 흔들어 상대를 힘껏 쳐서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+precipiceblades,단애의칼,Precipice Blades,Ground,Physical,120,85,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,대지의 힘을 칼날로 바꿔 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+present,프레젠트,Present,Normal,Physical,,90,0,normal,,,0,0,0,0,0,0,0,0,0,덫을 설치한 상자를 상대에게 건네어 공격한다. HP가 회복돼버릴 때도 있다.,
+prismaticlaser,프리즘레이저,Prismatic Laser,Psychic,Special,160,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,프리즘의 힘으로 강력한 광선을 발사한다. 다음 턴은 움직일 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+protect,방어,Protect,Normal,Status,,필중,4,self,PRIORITY|FINISHER|PROTECT_SCOUT,선공기|마무리|방어/정찰,0,0.8,0,2,0,0,4.4,0.8,1.4,상대의 공격을 전혀 받지 않는다. 연속으로 쓰면 실패하기 쉽다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 방어/정찰로 턴 종료 효과와 상대 행동 확인 가치가 있습니다.
+psybeam,환상빔,Psybeam,Psychic,Special,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,이상한 광선을 상대에게 발사하여 공격한다. 혼란시킬 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+psyblade,사이코블레이드,Psyblade,Psychic,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,실체가 없는 칼날로 상대를 베어 가른다. 일렉트릭필드 위에 있을 때 기술의 위력이 1.5배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+psychic,사이코키네시스,Psychic,Psychic,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,강한 염동력을 상대에게 보내어 공격한다. 상대의 특수방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+psychicfangs,사이코팽,Psychic Fangs,Psychic,Physical,85,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,사이코 파워로 물어서 상대를 공격한다. 빛의장막이나 리플렉터도 파괴할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+psychicnoise,사이코노이즈,Psychic Noise,Psychic,Special,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,불쾌한 음파를 상대에게 날려서 공격한다. 2턴 동안 상대는 기술이나 특성 또는 지니고 있는 도구로 HP를 회복할 수 없게 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+psychicterrain,사이코필드,Psychic Terrain,Psychic,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,5턴 동안 땅에 있으면 선제공격을 받지 않는다. 에스퍼타입의 위력이 올라간다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+psychoboost,사이코부스트,Psycho Boost,Psychic,Special,140,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,풀 파워로 상대를 공격한다. 쓰면 반동으로 자신의 특수공격이 크게 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+psychocut,사이코커터,Psycho Cut,Psychic,Physical,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,실체화시킨 마음의 칼날로 상대를 베어 가른다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+psychoshift,사이코시프트,Psycho Shift,Psychic,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,초능력으로 암시를 걸어서 자신에게 걸려 있는 상태 이상을 상대에게 옮긴다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+psychup,자기암시,Psych Up,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,자신에게 암시를 걸어서 능력 변화 상태를 상대와 똑같은 상태로 만든다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+psyshieldbash,배리어러시,Psyshield Bash,Psychic,Physical,70,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,사념의 에너지를 두른 채로 상대에 부딪힌다. 자신의 방어력이 오를 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+psyshock,사이코쇼크,Psyshock,Psychic,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,이상한 염력파를 실체화하여 상대를 공격한다. 물리적인 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+psystrike,사이코브레이크,Psystrike,Psychic,Special,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,이상한 염력파를 실체화하여 상대를 공격한다. 물리적인 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+psywave,사이코웨이브,Psywave,Psychic,Special,,100,0,normal,,,0,0,0,0,0,0,0,0,0,이상한 염력파를 상대에게 발사하여 공격한다. 사용할 때마다 데미지가 바뀐다.,
+pulverizingpancake,진심의공격,Pulverizing Pancake,Normal,Physical,210,필중,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.9,1.5,0,0,0,0,0,0,Z파워로 진심을 낸 잠만보가 거대한 몸을 움직여서 전력으로 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+punishment,혼내기,Punishment,Dark,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,능력 변화로 상대가 파워업한 만큼 기술의 위력이 올라간다.,
+purify,정화,Purify,Poison,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대의 상태 이상을 회복한다. 회복하면 자신은 HP를 회복할 수 있다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+pursuit,따라가때리기,Pursuit,Dark,Physical,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,상대 포켓몬이 교체될 때 기술을 쓰면 2배의 위력으로 공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+pyroball,화염볼,Pyro Ball,Fire,Physical,120,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,작은 돌을 태운 불꽃의 공으로 상대를 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+quash,순서미루기,Quash,Dark,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대를 억눌러서 행동의 순서를 마지막으로 만든다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+quickattack,전광석화,Quick Attack,Normal,Physical,40,100,1,normal,ACE_DAMAGE|PRIORITY|FINISHER,에이스 주력 공격|선공기|마무리,0,1.5,0.5,0,0,0,3.2,0,0,눈에 보이지 않는 굉장한 속도로 상대에게 돌진한다. 반드시 선제공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+quickguard,퍼스트가드,Quick Guard,Fighting,Status,,필중,3,allySide,PRIORITY|FINISHER|PROTECT_SCOUT,선공기|마무리|방어/정찰,0,0.8,0,2,0,0,4,0.8,1.4,자신과 같은 편을 상대의 선제공격으로부터 지킨다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 방어/정찰로 턴 종료 효과와 상대 행동 확인 가치가 있습니다.
+quiverdance,나비춤,Quiver Dance,Bug,Status,,필중,0,self,SETUP_BOOST,랭크업/전개,0,2,4,0,0,0,0,0,0,신비롭고 아름다운 춤을 경쾌하게 춘다. 자신의 특수공격과 특수방어와 스피드를 올린다.,랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+rage,분노,Rage,Normal,Physical,20,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.3,0.3,0,0,0,0,0,0,기술을 썼을 때 공격을 받으면 분노의 힘으로 공격이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+ragefist,분노의주먹,Rage Fist,Ghost,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,분노를 에너지로 바꿔서 공격한다. 받은 공격의 횟수가 많을수록 기술의 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+ragepowder,분노가루,Rage Powder,Bug,Status,,필중,2,self,PRIORITY|FINISHER|TEAM_SUPPORT,선공기|마무리|팀 지원,0,0.8,0,1,0,0,3.6,0,3.5,안절부절못하게 하는 가루를 자신에게 뿌려서 주의를 끈다. 상대의 공격은 모두 자신에게 향한다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 아군 지원 가치가 높은 기술입니다.
+ragingbull,레이징불,Raging Bull,Normal,Physical,90,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.5,1.1,0,0,0,0,0,0,분노해 날뛰는 성난소의 맹렬한 태클. 폼에 따라 기술의 타입이 달라지고 빛의장막이나 리플렉터 등도 파괴할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+ragingfury,대격분,Raging Fury,Fire,Physical,120,100,0,randomNormal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE|LOCK_IN,에이스 주력 공격|고위험 고화력|에이스 견제폭|강제 연속/구속,0,3.5,1.5,-1,0,0,0,0,0,2~3턴 동안 불꽃을 마구 뿜어 대며 난동을 부린다. 난동 부린 뒤에는 혼란에 빠진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다. / 연속 사용/행동 고정 리스크가 있어 안정성 평가는 낮게 봅니다.
+raindance,비바라기,Rain Dance,Water,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,5턴 동안 비를 내리게 해서 물타입 기술의 위력을 올린다. 불꽃타입의 위력은 떨어진다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+rapidspin,고속스핀,Rapid Spin,Normal,Physical,50,100,0,normal,ACE_DAMAGE|HAZARD_REMOVE,에이스 주력 공격|판 제거,0,0.8,0.6,0.8,0,4.5,0,0,2,"회전해서 상대를 공격한다. 조이기, 김밥말이, 씨뿌리기 등을 날려버린다. 자신의 스피드도 오른다.",공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+razorleaf,잎날가르기,Razor Leaf,Grass,Physical,55,95,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.2,0.7,0,0,0,0,0,0,잎사귀를 날려 상대를 베어 공격한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+razorshell,셸블레이드,Razor Shell,Water,Physical,75,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,날카로운 조개껍질로 베어 공격한다. 상대의 방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+razorwind,칼바람,Razor Wind,Normal,Special,80,100,0,allAdjacentFoes,ACE_DAMAGE,에이스 주력 공격,0,1.3,1,0,0,0,0,0,0,바람의 칼날을 만들어 2턴째에 상대를 공격한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+recover,HP회복,Recover,Normal,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,세포를 재생시켜 자신의 최대 HP의 절반만큼 HP를 회복한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+recycle,리사이클,Recycle,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,배틀 중에 사용하여 없어진 자신의 지닌 물건을 재생시켜 사용할 수 있게 한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+reflect,리플렉터,Reflect,Psychic,Status,,필중,0,allySide,SCREEN_SUPPORT,벽/장막,2.2,0,0,1.5,0,0,0,0,3.5,5턴 동안 이상한 장막을 쳐서 상대로부터 받는 물리공격의 데미지를 약하게 한다.,팀 전체 생존 또는 상태 방어를 지원합니다.
+reflecttype,미러타입,Reflect Type,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대의 타입을 반사해서 자신도 똑같은 타입이 된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+refresh,리프레시,Refresh,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,"몸을 쉬게 하여 자신이 입은 독, 마비, 화상의 상태 이상을 치료한다.",변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+relicsong,옛노래,Relic Song,Normal,Special,75,100,0,allAdjacentFoes,ACE_DAMAGE,에이스 주력 공격,0,1.3,0.9,0,0,0,0,0,0,옛 노래를 상대에게 들려주고 마음에 호소하여 공격한다. 잠듦 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+rest,잠자기,Rest,Psychic,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,2턴 동안 계속 잠잔다. 자신의 HP와 상태 이상을 모두 회복한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+retaliate,원수갚기,Retaliate,Normal,Physical,70,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.2,0.9,0,0,0,0,0,0,쓰러진 같은 편의 원수를 갚는다. 앞 턴에서 같은 편이 쓰러지면 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+return,은혜갚기,Return,Normal,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,트레이너를 위해 전력으로 상대를 공격한다. 친밀할수록 위력이 올라간다.,
+revelationdance,잠재댄스,Revelation Dance,Normal,Special,90,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.5,1.1,0,0,0,0,0,0,전력으로 춤추며 공격한다. 이 기술의 타입은 자신의 타입과 같아진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+revenge,리벤지,Revenge,Fighting,Physical,60,100,-4,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,상대에게 기술을 받으면 그 상대에게 주는 데미지가 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+reversal,기사회생,Reversal,Fighting,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,힘을 쥐어짜서 공격한다. 자신의 HP가 적을수록 기술의 위력이 올라간다.,
+revivalblessing,회생의기도,Revival Blessing,Normal,Status,,필중,0,self,PIVOT,피벗/교체 연결,1.5,0.4,0,0,4.5,0,0,0,0,자애로운 마음으로 기도를 하여 기절한 교대 포켓몬을 HP가 절반인 상태로 부활시킨다.,공격/보조 후 유리 대면으로 연결하는 피벗 기술입니다.
+risingvoltage,라이징볼트,Rising Voltage,Electric,Special,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,지면에서 올라오는 전격으로 공격한다. 상대가 일렉트릭필드 위에 있을 때 기술의 위력이 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+roar,울부짖기,Roar,Normal,Status,,필중,-6,normal,FORCE_SWITCH,강제 교체,0,0,0,2,0,1.5,0,3.8,0,상대를 도망가게 해서 교대할 포켓몬을 끌어낸다. 야생의 경우에는 배틀이 끝난다.,강제 교체로 랭크업을 끊고 설치물 피해를 누적시킵니다.
+roaroftime,시간의포효,Roar of Time,Dragon,Special,150,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,시간이 뒤틀릴 정도의 힘을 사용해서 상대를 공격한다. 다음 턴은 움직일 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+rockblast,록블라스트,Rock Blast,Rock,Physical,25,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.7,0.3,0,0,0,0,0,0,단단한 암석을 상대에게 발사하여 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+rockclimb,록클라임,Rock Climb,Normal,Physical,90,85,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.5,1.1,0,0,0,0,0,0,굉장한 기세로 상대에게 돌진하여 공격한다. 상대를 혼란시킬 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+rockpolish,록커트,Rock Polish,Rock,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,자신의 몸을 갈아 공기의 저항을 적게 한다. 스피드를 크게 올릴 수 있다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+rockslide,스톤샤워,Rock Slide,Rock,Physical,75,90,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,큰 바위를 세차게 부딪쳐서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+rocksmash,바위깨기,Rock Smash,Fighting,Physical,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,펀치로 공격한다. 상대의 방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+rockthrow,돌떨구기,Rock Throw,Rock,Physical,50,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,작은 바위를 들어올려 상대에게 내던져서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+rocktomb,암석봉인,Rock Tomb,Rock,Physical,60,95,0,normal,ACE_DAMAGE|ACE_COVERAGE|SPEED_CONTROL,에이스 주력 공격|에이스 견제폭|속도 제어,0,1.3,0.8,0,0,0,1.2,1.8,2.3,암석을 내던져서 공격한다. 상대의 움직임을 봉인함으로써 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+rockwrecker,암석포,Rock Wrecker,Rock,Physical,150,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,거대한 바위를 상대에게 발사하여 공격한다. 다음 턴은 움직일 수 없게 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+roleplay,역할,Role Play,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대의 역할을 하여 자신도 상대와 같은 특성으로 변화한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+rollingkick,돌려차기,Rolling Kick,Fighting,Physical,60,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,몸을 재빨리 회전시키며 걷어차서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+rollout,구르기,Rollout,Rock,Physical,30,90,0,normal,ACE_DAMAGE|ACE_COVERAGE|LOCK_IN,에이스 주력 공격|에이스 견제폭|강제 연속/구속,0,1.3,0.4,-1,0,0,0,0,0,5턴 동안 구르기를 반복하여 공격한다. 기술이 맞을 때마다 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 연속 사용/행동 고정 리스크가 있어 안정성 평가는 낮게 봅니다.
+roost,날개쉬기,Roost,Flying,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,땅에 내려와 몸을 쉬게 한다. 최대 HP의 절반만큼 HP를 회복한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+rototiller,일구기,Rototiller,Ground,Status,,필중,0,all,,,0,0,0,0,0,0,0,0,0.8,땅을 일구어 초목이 자라기 쉽게 한다. 풀타입의 공격과 특수공격이 오른다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+round,돌림노래,Round,Normal,Special,60,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1,0.8,0,0,0,0,0,0,노래로 상대를 공격한다. 함께 돌림노래를 하면 계속해서 쓸 수 있고 위력도 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+ruination,카타스트로피,Ruination,Dark,Special,,90,0,normal,,,0,0,0,0,0,0,0,0,0,파멸적인 재앙에 휩쓸리게 하여 상대의 HP를 절반으로 만든다.,
+sacredfire,성스러운불꽃,Sacred Fire,Fire,Physical,100,95,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,신비한 불꽃으로 상대를 태워서 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+sacredsword,성스러운칼,Sacred Sword,Fighting,Physical,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,긴 뿔로 베어 공격한다. 상대의 능력 변화에 관계없이 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+safeguard,신비의부적,Safeguard,Normal,Status,,필중,0,allySide,SCREEN_SUPPORT,벽/장막,2.2,0,0,1.5,0,0,0,0,3.5,5턴 동안 이상한 힘의 보호를 받아 상태 이상이 되지 않는다.,팀 전체 생존 또는 상태 방어를 지원합니다.
+saltcure,소금절이,Salt Cure,Rock,Physical,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,상대를 소금절이 상태로 만들어 매 턴 데미지를 준다. 강철타입이나 물타입에게 더 고통스럽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+sandattack,모래뿌리기,Sand Attack,Ground,Status,,100,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,상대의 얼굴에 모래를 뿌려서 명중률을 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+sandsearstorm,열사의폭풍,Sandsear Storm,Ground,Special,100,80,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,뜨겁게 달궈진 모래와 강렬한 바람으로 상대를 둘러싸서 공격한다. 상대를 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+sandstorm,모래바람,Sandstorm,Rock,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,"5턴 동안 모래바람을 일으켜 바위 땅, 강철타입 이외의 상대에게 데미지를 준다. 바위타입의 특수방어가 올라간다.",날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+sandtomb,모래지옥,Sand Tomb,Ground,Physical,35,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.9,0.4,0,0,0,0,0,0,세차게 불어대는 모래바람 속에 4-5턴 동안 상대를 가두어 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+sappyseed,쑥쑥봄버,Sappy Seed,Grass,Physical,100,90,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,거대한 덩굴을 자라게 하고 씨를 흩뿌려서 공격한다. 씨는 매 턴 상대의 HP를 흡수한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+savagespinout,절대포식회전참,Savage Spin-Out,Bug,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 뱉어낸 실이 전력으로 상대를 붙들어 맨다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+scald,열탕,Scald,Water,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,뜨겁게 끓어오르는 물을 상대에게 발사해서 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+scaleshot,스케일샷,Scale Shot,Dragon,Physical,25,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.7,0.3,0,0,0,0,0,0,비늘을 쏘아서 공격한다. 2-5회 동안 연속으로 쓴다. 스피드가 올라가지만 방어가 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+scaryface,겁나는얼굴,Scary Face,Normal,Status,,100,0,normal,DISRUPT|SPEED_CONTROL,방해|속도 제어,0,0,0,0.8,0,0,1.2,3.6,2.3,무서운 얼굴로 노려보고 겁주어 상대의 스피드를 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+scorchingsands,열사의대지,Scorching Sands,Ground,Special,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,뜨겁게 달궈진 모래를 상대에게 부딪쳐서 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+scratch,할퀴기,Scratch,Normal,Physical,40,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.7,0.5,0,0,0,0,0,0,단단하고 뾰족한 날카로운 손톱으로 상대를 할퀴어서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+screech,싫은소리,Screech,Normal,Status,,85,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,그만 귀를 막아버리고 싶은 싫은 소리를 내어 상대의 방어를 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+searingshot,화염탄,Searing Shot,Fire,Special,100,100,0,allAdjacent,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,새빨간 불꽃으로 자신의 주위에 있는 포켓몬을 공격한다. 화상 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+searingsunrazesmash,선샤인스매셔,Searing Sunraze Smash,Steel,Physical,200,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워를 얻은 솔가레오가 전력으로 공격한다. 상대의 특성 효과를 무시할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+secretpower,비밀의힘,Secret Power,Normal,Physical,70,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.2,0.9,0,0,0,0,0,0,사용하는 장소에 따라 추가 효과가 변화하는 공격이다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+secretsword,신비의칼,Secret Sword,Fighting,Special,85,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,긴 뿔로 베어 공격한다. 뿔이 머금은 이상한 힘은 물리적인 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+seedbomb,씨폭탄,Seed Bomb,Grass,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,단단한 껍질을 가지고 있는 큰 씨앗을 위에서 힘껏 내던져 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+seedflare,시드플레어,Seed Flare,Grass,Special,120,85,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,몸속에서 충격파를 발생시킨다. 상대의 특수방어를 크게 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+seismictoss,지구던지기,Seismic Toss,Fighting,Physical,,100,0,normal,,,0,0,0,0,0,0,0,0,0,인력을 사용해 내던진다. 자신의 레벨과 똑같은 데미지를 상대에게 준다.,
+selfdestruct,자폭,Self-Destruct,Normal,Physical,200,100,0,allAdjacent,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.9,1.5,0,0,0,0,0,0,폭발을 일으켜서 자신의 주위에 있는 포켓몬을 공격한다. 쓰고 나서 기절하게 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+shadowball,섀도볼,Shadow Ball,Ghost,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,까만 그림자의 덩어리를 내던져서 공격한다. 상대의 특수방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+shadowbone,섀도본,Shadow Bone,Ghost,Physical,85,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,영혼이 머물고 있는 뼈로 상대를 세게 때려서 공격한다. 상대의 방어를 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+shadowclaw,섀도클로,Shadow Claw,Ghost,Physical,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,그림자로 만든 날카로운 발톱으로 상대를 베어 가른다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+shadowforce,섀도다이브,Shadow Force,Ghost,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,1턴째에 모습을 감춰 2턴째에 상대를 공격한다. 방어하고 있어도 공격은 맞는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+shadowpunch,섀도펀치,Shadow Punch,Ghost,Physical,60,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,그림자에 섞여 펀치를 날린다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+shadowsneak,야습,Shadow Sneak,Ghost,Physical,40,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,1.8,0.5,0,0,0,3.2,0,0,그림자를 늘려 상대의 배후에서 공격한다. 반드시 선제공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+sharpen,각지기,Sharpen,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,몸의 각을 늘려서 더욱 각지게 하여 자신의 공격을 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+shatteredpsyche,맥시멈사이브레이커,Shattered Psyche,Psychic,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 상대를 조종해 전력으로 매서운 맛을 보여준다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+shedtail,꼬리자르기,Shed Tail,Normal,Status,,필중,0,self,PIVOT,피벗/교체 연결,1.5,0.4,0,0,4.5,0,0,0,0,"사용자 HP의 절반을 깎아서 대타가 되는 분신을 만든 다음, 교대 포켓몬과 교체한다.",공격/보조 후 유리 대면으로 연결하는 피벗 기술입니다.
+sheercold,절대영도,Sheer Cold,Ice,Special,,30,0,normal,,,0,0,0,0,0,0,0,0,0,상대를 일격에 기절시킨다. 얼음타입 이외의 포켓몬이 사용하면 잘 맞지 않는다.,
+shellsidearm,셸암즈,Shell Side Arm,Poison,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,물리와 특수 중 더 많은 데미지를 줄 수 있는 능력으로 공격한다. 독 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+shellsmash,껍질깨기,Shell Smash,Normal,Status,,필중,0,self,SETUP_BOOST|DISRUPT,랭크업/전개|방해,0,2,4,0.8,0,0,0,1.8,0,"껍질을 깨서 자신의 방어와 특수방어를 떨어뜨리지만 공격과 특수공격, 스피드를 크게 올린다.",랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다. / 상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+shelltrap,트랩셸,Shell Trap,Fire,Special,150,100,-3,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,껍질의 트랩을 설치한다. 상대가 물리 기술을 쓰면 폭발해서 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+shelter,농성,Shelter,Steel,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,피부를 강철 방패처럼 단단하게 만들어서 자신의 방어를 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+shiftgear,기어체인지,Shift Gear,Steel,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,톱니바퀴를 돌려서 자신의 공격을 올리는 것뿐만 아니라 스피드도 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+shockwave,전격파,Shock Wave,Electric,Special,60,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,전격을 재빠르게 상대에게 날린다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+shoreup,모래모으기,Shore Up,Ground,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,자신의 최대 HP 절반을 회복한다. 모래바람일 때는 많이 회복한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+signalbeam,시그널빔,Signal Beam,Bug,Special,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,이상한 빛을 발사해서 공격한다. 상대를 혼란시킬 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+silktrap,스레드트랩,Silk Trap,Bug,Status,,필중,4,self,PRIORITY|FINISHER|PROTECT_SCOUT,선공기|마무리|방어/정찰,0,0.8,0,2,0,0,4.4,0.8,1.4,실로 함정을 만들어 둘러친다. 상대의 공격을 막음과 동시에 접촉한 상대의 스피드를 떨어뜨린다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 방어/정찰로 턴 종료 효과와 상대 행동 확인 가치가 있습니다.
+silverwind,은빛바람,Silver Wind,Bug,Special,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,바람에 날개 가루를 날려서 상대를 공격한다. 자신의 모든 능력이 올라갈 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+simplebeam,심플빔,Simple Beam,Normal,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,수수께끼의 염력파를 상대에게 보낸다. 염력파를 받은 상대는 특성이 단순으로 바뀐다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+sing,노래하기,Sing,Normal,Status,,55,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,기분 좋은 예쁜 노랫소리를 들려주고 상대를 잠듦 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+sinisterarrowraid,섀도애로우즈스트라이크,Sinister Arrow Raid,Ghost,Physical,180,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워로 무수한 화살을 만들어낸 모크나이퍼가 전력으로 상대를 꿰뚫는 공격이다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+sizzlyslide,이글이글번,Sizzly Slide,Fire,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,불꽃을 두른 몸으로 기세 좋게 상대에게 부딪친다. 상대를 화상 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+sketch,스케치,Sketch,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대가 쓴 기술을 자신의 것으로 만든다. 한 번 사용하면 스케치는 사라진다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+skillswap,스킬스왑,Skill Swap,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,초능력으로 자신의 특성과 상대의 특성을 바꾼다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+skittersmack,엄습하는일격,Skitter Smack,Bug,Physical,70,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,배후에서 엄습해서 공격한다. 상대의 특수공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+skullbash,로케트박치기,Skull Bash,Normal,Physical,130,100,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.9,1.5,0,0,0,0,0,0,1턴째에 머리를 움츠려 방어를 올린다. 2턴째에 상대를 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+skyattack,불새,Sky Attack,Flying,Physical,140,90,0,any,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,2턴째에 상대를 공격한다. 가끔 풀죽게 만든다. 급소에도 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+skydrop,프리폴,Sky Drop,Flying,Physical,60,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,1턴째에 상대를 하늘로 끌고 가서 2턴째에 떨어뜨려 공격한다. 끌려간 상대는 움직일 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+skyuppercut,스카이어퍼,Sky Uppercut,Fighting,Physical,85,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.7,1.1,0,0,0,0,0,0,하늘을 향하는 듯한 높은 업퍼로 상대를 밀어올려 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+slackoff,게으름피우기,Slack Off,Normal,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,게으름 피우며 쉰다. 자신의 HP를 최대 HP의 절반만큼 회복한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+slam,힘껏치기,Slam,Normal,Physical,80,75,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.3,1,0,0,0,0,0,0,긴 꼬리나 덩굴 등을 사용해 상대를 힘껏 쳐서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+slash,베어가르기,Slash,Normal,Physical,70,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.2,0.9,0,0,0,0,0,0,발톱이나 낫 등으로 상대를 베어 갈라서 공격한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+sleeppowder,수면가루,Sleep Powder,Grass,Status,,75,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,잠이 오는 가루를 많이 흩뿌려서 상대를 잠듦 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+sleeptalk,잠꼬대,Sleep Talk,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,자신이 배운 기술 중 하나를 무작위로 날린다. 자신이 잠들어 있을 때만 쓸 수 있다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+sludge,오물공격,Sludge,Poison,Special,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,더러운 오물을 상대에게 내던져서 공격한다. 독 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+sludgebomb,오물폭탄,Sludge Bomb,Poison,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,더러운 오물을 상대에게 내던져서 공격한다. 독 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+sludgewave,오물웨이브,Sludge Wave,Poison,Special,95,100,0,allAdjacent,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.9,1.2,0,0,0,0,0,0,오물 파도로 자신의 주위에 있는 포켓몬을 공격한다. 독 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+smackdown,떨어뜨리기,Smack Down,Rock,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,돌이나 구슬을 던져서 날고 있는 상대를 공격한다. 맞은 상대는 땅에 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+smartstrike,스마트혼,Smart Strike,Steel,Physical,70,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,뾰족한 뿔로 상대를 꿰찔러서 공격한다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+smellingsalts,정신차리기,Smelling Salts,Normal,Physical,70,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.2,0.9,0,0,0,0,0,0,마비 상태의 상대에게는 위력이 2배가 되지만 대신 상대의 마비가 풀린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+smog,스모그,Smog,Poison,Special,30,70,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.8,0.4,0,0,0,0,0,0,더러운 가스를 상대에게 내뿜어 공격한다. 독 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+smokescreen,연막,Smokescreen,Normal,Status,,100,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,연기나 먹물을 내뿜어 상대의 명중률을 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+snaptrap,집게덫,Snap Trap,Grass,Physical,35,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.9,0.4,0,0,0,0,0,0,집게덫으로 붙잡은 뒤 4-5턴 동안 상대를 끼워서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+snarl,바크아웃,Snarl,Dark,Special,55,95,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.2,0.7,0,0,0,0,0,0,호되게 호통을 쳐서 상대의 특수공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+snatch,가로채기,Snatch,Dark,Status,,필중,4,self,PRIORITY|FINISHER,선공기|마무리,0,0.8,0,0,0,0,4.4,0,0,상대가 사용하려고 한 회복 기술이나 능력 변화의 기술을 빼앗아 자신에게 쓴다.,선공기라 복수 처리와 마무리 가치가 큽니다.
+snipeshot,노려맞히기,Snipe Shot,Water,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,상대의 기술을 끌어모으는 특성이나 기술의 영향을 무시하고 선택한 상대를 공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+snore,코골기,Snore,Normal,Special,50,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.8,0.6,0,0,0,0,0,0,자신이 잠들어 있을 때 소음을 내어 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+snowscape,설경,Snowscape,Ice,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,5턴 동안 눈을 내리게 한다. 얼음타입의 방어가 올라간다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+soak,물붓기,Soak,Water,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,많은 물을 끼얹어서 상대를 물타입으로 바꾼다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+softboiled,알낳기,Soft-Boiled,Normal,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,자신의 최대 HP 절반을 회복한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+solarbeam,솔라빔,Solar Beam,Grass,Special,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,1턴째에 빛을 가득 모아 2턴째에 빛의 다발을 발사하여 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+solarblade,솔라블레이드,Solar Blade,Grass,Physical,125,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.1,1.5,0,0,0,0,0,0,1턴째에 빛을 가득 모아 2턴째에 그 힘을 검에 담아 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+sonicboom,소닉붐,Sonic Boom,Normal,Special,,90,0,normal,,,0,0,0,0,0,0,0,0,0,충격파를 상대에 부딪쳐서 공격한다. 언제나 20의 데미지를 준다.,
+soulstealing7starstrike,칠성탈혼퇴,Soul-Stealing 7-Star Strike,Ghost,Physical,195,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워를 얻은 마샤도가 펀치와 킥의 연속기술을 전력으로 상대에게 퍼붓는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+spacialrend,공간절단,Spacial Rend,Dragon,Special,100,95,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,주위의 공간과 더불어 상대를 찢어서 데미지를 준다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+spark,스파크,Spark,Electric,Physical,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,전기를 둘러 상대에게 돌진하여 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+sparklingaria,물거품아리아,Sparkling Aria,Water,Special,90,100,0,allAdjacent,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,노래 부르는 것으로 많은 벌룬을 방출한다. 기술에 맞으면 화상이 낫는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+sparklyswirl,반짝반짝스톰,Sparkly Swirl,Fairy,Special,120,85,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,숨 막힐 듯 진한 향기의 회오리로 상대를 휘감아 공격한다. 같은 편의 상태 이상을 회복한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+spectralthief,섀도스틸,Spectral Thief,Ghost,Physical,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,상대의 그림자에 숨어들어 상대의 능력이 올라가는 것을 뺏어 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+speedswap,스피드스웹,Speed Swap,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대의 스피드와 자신의 스피드를 교체한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+spicyextract,하바네로엑기스,Spicy Extract,Grass,Status,,필중,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,어마어마하게 매운 엑기스를 발사한다. 상대의 공격이 크게 오르고 방어는 크게 떨어진다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+spiderweb,거미집,Spider Web,Bug,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,끈적끈적하고 가는 실을 칭칭 휘감아 상대를 배틀에서 도망칠 수 없게 한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+spikecannon,가시대포,Spike Cannon,Normal,Physical,20,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.3,0.3,0,0,0,0,0,0,날카로운 침을 상대에게 발사해서 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+spikes,압정뿌리기,Spikes,Ground,Status,,필중,0,foeSide,HAZARD_SET|HAZARD_REMOVE,판 설치|판 제거,3,0,0,0.8,0,5,0,0,2,상대의 발밑에 압정을 뿌린다. 교체된 상대 포켓몬에게 데미지를 준다.,설치물로 교체 누적 피해/압박을 만듭니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+spikyshield,니들가드,Spiky Shield,Grass,Status,,필중,4,self,PRIORITY|FINISHER|PROTECT_SCOUT,선공기|마무리|방어/정찰,0,0.8,0,2,0,0,4.4,0.8,1.4,상대의 공격을 막음과 동시에 접촉한 상대의 체력을 떨어뜨린다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 방어/정찰로 턴 종료 효과와 상대 행동 확인 가치가 있습니다.
+spinout,휠스핀,Spin Out,Steel,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,발에 부하를 걸어 격렬하게 회전하며 데미지를 준다. 자신의 스피드가 크게 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+spiritbreak,소울크래시,Spirit Break,Fairy,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,맞으면 기가 꺾여버릴 것 같은 기세로 공격한다. 상대의 특수공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+spiritshackle,그림자꿰매기,Spirit Shackle,Ghost,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,공격과 동시에 상대의 그림자를 꿰매 도망칠 수 없게 한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+spite,원한,Spite,Ghost,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대가 마지막으로 사용한 기술에 원한을 품어 그 기술의 PP를 4만큼 줄인다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+spitup,토해내기,Spit Up,Normal,Special,,100,0,normal,,,0,0,0,0,0,0,0,0,0,비축된 힘을 상대에게 부딪쳐서 공격한다. 비축된 만큼 위력이 올라간다.,
+splash,튀어오르기,Splash,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,공격도 하지 않고 팔딱팔딱 튈 뿐 아무 일도 일어나지 않는다...,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+splinteredstormshards,레이디얼에지스톰,Splintered Stormshards,Rock,Physical,190,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워를 얻은 루가루암이 전력으로 공격한다. 추가로 필드 상태를 없앤다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+splishysplash,참방참방서핑,Splishy Splash,Water,Special,90,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,커다란 파도에 전기를 날리고 상대에게 부딪쳐서 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+spore,버섯포자,Spore,Grass,Status,,100,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,최면 효과가 있는 포자를 훌훌 흩뿌려서 상대를 잠듦 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+spotlight,스포트라이트,Spotlight,Normal,Status,,필중,3,normal,PRIORITY|FINISHER,선공기|마무리,0,0.8,0,0,0,0,4,0,0,포켓몬에게 스포트라이트를 비춰 그 턴에서 그 포켓몬만 공격할 수 있게 한다.,선공기라 복수 처리와 마무리 가치가 큽니다.
+springtidestorm,봄의폭풍,Springtide Storm,Fairy,Special,100,80,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,애증 섞인 강렬한 바람으로 상대를 둘러싸서 공격한다. 상대의 공격을 떨어뜨릴 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+stealthrock,스텔스록,Stealth Rock,Rock,Status,,필중,0,foeSide,HAZARD_SET|HAZARD_REMOVE,판 설치|판 제거,3.5,0,0,0.8,0,5,0,0,2,상대의 주위에 무수한 바위를 띄워 교체해서 나온 상대 포켓몬에게 데미지를 준다.,스텔스록 설치 기술입니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+steameruption,스팀버스트,Steam Eruption,Water,Special,110,95,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.8,1.4,0,0,0,0,0,0,상대에게 굉장히 뜨거운 증기를 뿜는다. 상대는 화상을 입기도 한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+steamroller,하드롤러,Steamroller,Bug,Physical,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,둥글게 뭉친 몸을 회전하여 상대를 뭉개 버린다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+steelbeam,철제광선,Steel Beam,Steel,Special,140,95,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,전신에서 끌어모은 강철을 빔으로 바꿔 세차게 발사한다. 자신도 데미지를 받는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+steelroller,아이언롤러,Steel Roller,Steel,Physical,130,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,필드를 파괴하면서 공격한다. 필드가 어떤 상태로든 변해 있지 않은 경우 기술은 실패한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+steelwing,강철날개,Steel Wing,Steel,Physical,70,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,단단한 날개를 상대에게 부딪쳐서 공격한다. 자신의 방어가 올라갈 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+stickyweb,끈적끈적네트,Sticky Web,Bug,Status,,필중,0,foeSide,HAZARD_SET|HAZARD_REMOVE,판 설치|판 제거,3,0,0,0.8,0,5,0,0,2,상대의 주위에 끈적끈적한 네트를 둘러 펼쳐 교체되어 나온 상대의 스피드를 떨어뜨린다.,설치물로 교체 누적 피해/압박을 만듭니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+stockpile,비축하기,Stockpile,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,힘을 비축해서 자신의 방어와 특수방어를 올린다. 최대 3회까지 비축할 수 있다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+stokedsparksurfer,라이트닝서프라이드,Stoked Sparksurfer,Electric,Special,175,필중,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,Z파워를 얻은 알로라지방의 라이츄가 전력으로 공격한다. 상대를 마비 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+stomp,짓밟기,Stomp,Normal,Physical,65,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.1,0.8,0,0,0,0,0,0,큰 발로 상대를 짓밟아서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+stompingtantrum,분함의발구르기,Stomping Tantrum,Ground,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,분함을 발판 삼아 공격한다. 앞 턴에서 기술이 빗나갔다면 위력이 배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+stoneaxe,암석액스,Stone Axe,Rock,Physical,65,90,0,normal,ACE_DAMAGE|ACE_COVERAGE|HAZARD_SET|HAZARD_REMOVE,에이스 주력 공격|에이스 견제폭|판 설치|판 제거,3,1.4,0.8,0.8,0,5,0,0,2,암석 도끼로 공격한다. 흩어진 암석 파편은 상대의 주위에 떠다니게 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 설치물로 교체 누적 피해/압박을 만듭니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+stoneedge,스톤에지,Stone Edge,Rock,Physical,100,80,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,뾰족한 바위를 상대에게 꿰찔러서 공격한다. 급소에 맞기 쉽다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+storedpower,어시스트파워,Stored Power,Psychic,Special,20,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.6,0.3,0,0,0,0,0,0,축적된 파워로 상대를 공격한다. 자신의 능력이 올라가 있는 만큼 위력이 오른다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+stormthrow,업어후리기,Storm Throw,Fighting,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,강렬한 일격을 상대에게 날린다. 공격은 반드시 급소에 맞는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+strangesteam,원더스팀,Strange Steam,Fairy,Special,90,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,연기를 분출해서 상대를 공격한다. 혼란시킬 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+strength,괴력,Strength,Normal,Physical,80,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.3,1,0,0,0,0,0,0,혼신의 힘으로 상대를 세게 때려서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+strengthsap,힘흡수,Strength Sap,Grass,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대 공격력과 동일하게 자신의 HP를 회복한다. 그리고 상대의 공격을 떨어뜨린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+stringshot,실뿜기,String Shot,Bug,Status,,95,0,allAdjacentFoes,DISRUPT|SPEED_CONTROL,방해|속도 제어,0,0,0,0.8,0,0,1.2,3.6,2.3,입에서 뿜어낸 실을 휘감아서 상대의 스피드를 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+struggle,발버둥,Struggle,Normal,Physical,50,필중,0,randomNormal,ACE_DAMAGE,에이스 주력 공격,0,0.8,0.6,0,0,0,0,0,0,자신의 PP가 떨어지면 발버둥 쳐 상대를 공격한다. 자신도 조금 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+strugglebug,벌레의저항,Struggle Bug,Bug,Special,50,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,저항해서 상대를 공격한다. 상대의 특수공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+stuffcheeks,볼가득넣기,Stuff Cheeks,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,지니고 있는 나무열매를 먹고 방어를 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+stunspore,저리가루,Stun Spore,Grass,Status,,75,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,저리가루를 많이 흩뿌려서 상대를 마비 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+submission,지옥의바퀴,Submission,Fighting,Physical,80,80,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,땅에 자신과 함께 상대를 내던져 공격한다. 자신도 조금 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+substitute,대타출동,Substitute,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,자신의 HP를 조금 깎아서 분신을 만든다. 분신은 자신의 대타가 된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+subzeroslammer,레이징지오프리즈,Subzero Slammer,Ice,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 기온을 급격하게 떨어뜨려 전력으로 상대를 얼린다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+suckerpunch,기습,Sucker Punch,Dark,Physical,70,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,2.3,0.9,0,0,0,3.2,0,0,상대보다 먼저 공격할 수 있다. 상대가 쓴 기술이 공격기술이 아니면 실패한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+sunnyday,쾌청,Sunny Day,Fire,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,5턴 동안 햇살을 강하게 해서 불꽃타입 기술의 위력을 올린다. 물타입의 위력은 떨어진다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+sunsteelstrike,메테오드라이브,Sunsteel Strike,Steel,Physical,100,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,유성 같은 기세로 돌진한다. 상대의 특성을 무시하고 공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+supercellslam,썬더다이브,Supercell Slam,Electric,Physical,100,95,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,몸에 전기를 두르고 상대를 덮친다. 빗나가면 자신이 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+superfang,분노의앞니,Super Fang,Normal,Physical,,90,0,normal,,,0,0,0,0,0,0,0,0,0,날카로운 앞니로 강하게 물어서 공격한다. 상대의 HP는 절반이 된다.,
+superpower,엄청난힘,Superpower,Fighting,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,엄청난 힘을 발휘하여 상대를 공격한다. 자신의 공격과 방어가 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+supersonic,초음파,Supersonic,Normal,Status,,55,0,normal,,,0,0,0,0,0,0,0,0,0.8,특수한 음파를 몸에서 발산하여 상대를 혼란시킨다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+supersonicskystrike,파이널다이브클래시,Supersonic Skystrike,Flying,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 기세 좋게 날아올라 상대를 향해 전력으로 낙하한다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+surf,파도타기,Surf,Water,Special,90,100,0,allAdjacent,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,큰 파도로 자신의 주위에 있는 포켓몬을 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+surgingstrikes,수류연타,Surging Strikes,Water,Physical,25,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.7,0.3,0,0,0,0,0,0,물의 태세가 극에 달하여 물 흐르듯 3회의 연격을 날린다. 반드시 급소에 맞는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+swagger,뽐내기,Swagger,Normal,Status,,85,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대를 화내게 해서 혼란시킨다. 분노로 상대의 공격은 크게 올라가 버린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+swallow,꿀꺽,Swallow,Normal,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,비축된 힘을 꿀꺽해서 자신의 HP를 회복한다. 비축된 만큼 회복한다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+sweetkiss,천사의키스,Sweet Kiss,Fairy,Status,,75,0,normal,,,0,0,0,0,0,0,0,0,0.8,천사처럼 귀엽게 키스하여 상대를 혼란시킨다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+sweetscent,달콤한향기,Sweet Scent,Normal,Status,,100,0,allAdjacentFoes,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,향기로 상대의 회피율을 크게 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+swift,스피드스타,Swift,Normal,Special,60,필중,0,allAdjacentFoes,ACE_DAMAGE,에이스 주력 공격,0,1,0.8,0,0,0,0,0,0,별 모양의 빛을 발사해서 상대를 공격한다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+switcheroo,바꿔치기,Switcheroo,Dark,Status,,100,0,normal,DISRUPT,방해,1.2,0,0,1,0,0,0,4,0,눈에 보이지 않는 속도로 자신과 상대가 지닌 물건을 교환한다.,상대 전개/회복/보조 기술을 방해하는 핵심 기술입니다.
+swordsdance,칼춤,Swords Dance,Normal,Status,,필중,0,self,SETUP_BOOST,랭크업/전개,0,2,4,0,0,0,0,0,0,싸움의 춤을 격렬하게 춰서 기세를 높인다. 자신의 공격을 크게 올린다.,랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+synchronoise,싱크로노이즈,Synchronoise,Psychic,Special,120,100,0,allAdjacent,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,이상한 전파로 주위에 있는 자신과 같은 타입의 포켓몬에게 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+synthesis,광합성,Synthesis,Grass,Status,,필중,0,self,RECOVERY,회복,0,-0.4,0,4,0,0,0,0,1.5,자신의 HP를 회복한다. 날씨에 따라 회복량이 변한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다.
+syrupbomb,시럽봄,Syrup Bomb,Grass,Special,60,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,끈적끈적한 물엿을 폭발시킨다. 상대를 물엿범벅 상태로 만들어서 3턴 동안 계속 스피드를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+tachyoncutter,타키온커터,Tachyon Cutter,Steel,Special,50,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,입자로 된 칼날을 연이어 발사해서 2회 연속으로 데미지를 준다. 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+tackle,몸통박치기,Tackle,Normal,Physical,40,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.7,0.5,0,0,0,0,0,0,상대를 향해서 몸 전체를 부딪쳐가며 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+tailglow,반딧불,Tail Glow,Bug,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,깜빡거리는 빛을 바라보고 자신의 정신을 통일하여 특수공격을 매우 크게 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+tailslap,스위프뺨치기,Tail Slap,Normal,Physical,25,85,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.4,0.3,0,0,0,0,0,0,단단한 꼬리로 상대를 때려서 공격한다. 2-5회 동안 연속으로 쓴다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+tailwhip,꼬리흔들기,Tail Whip,Normal,Status,,100,0,allAdjacentFoes,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,꼬리를 좌우로 귀엽게 흔들어 방심을 유도한다. 상대의 방어를 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+tailwind,순풍,Tailwind,Flying,Status,,필중,0,allySide,FIELD_CONTROL|SPEED_CONTROL,날씨/필드/룸|속도 제어,1.8,0,0,0,0,0.8,1.2,1.8,5,세차게 불어대는 바람의 소용돌이를 만들어 4턴 동안 같은 편 모두의 스피드를 올린다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+takedown,돌진,Take Down,Normal,Physical,90,85,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.5,1.1,0,0,0,0,0,0,굉장한 기세로 상대에게 부딪쳐 공격한다. 자신도 조금 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+takeheart,브레이브차지,Take Heart,Psychic,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,기운을 고조시켜서 자신의 상태 이상을 회복하고 특수공격과 특수방어를 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+tarshot,타르숏,Tar Shot,Rock,Status,,100,0,normal,DISRUPT|SPEED_CONTROL,방해|속도 제어,0,0,0,0.8,0,0,1.2,3.6,2.3,끈적끈적한 타르를 날려서 상대의 스피드를 떨어뜨린다. 상대는 불꽃이 약점이 된다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+taunt,도발,Taunt,Dark,Status,,100,0,normal,DISRUPT,방해,1.2,0,0,1,0,0,0,4,0,상대를 화나게 한다. 3턴 동안 상대는 데미지를 주는 기술밖에 쓸 수 없게 된다.,상대 전개/회복/보조 기술을 방해하는 핵심 기술입니다.
+tearfullook,눈물그렁그렁,Tearful Look,Normal,Status,,필중,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,눈물을 그렁그렁거려 상대의 전의를 상실하게 한다. 상대의 공격과 특수공격이 떨어진다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+teatime,다과회,Teatime,Normal,Status,,필중,0,all,,,0,0,0,0,0,0,0,0,0.8,다과회를 열어서 배틀에 나와 있는 포켓몬이 각각 지니고 있는 나무열매를 먹는다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+technoblast,테크노버스터,Techno Blast,Normal,Special,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.7,1.5,0,0,0,0,0,0,광탄을 상대에게 방출한다. 자신이 지니고 있는 카세트에 의해 타입이 바뀐다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+tectonicrage,라이징랜드오버,Tectonic Rage,Ground,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 땅 깊숙이 파고들어 전력으로 상대에게 부딪친다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+teeterdance,흔들흔들댄스,Teeter Dance,Normal,Status,,100,0,allAdjacent,,,0,0,0,0,0,0,0,0,0.8,흔들흔들 댄스를 춰서 주위에 있는 포켓몬을 혼란 상태로 만든다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+telekinesis,텔레키네시스,Telekinesis,Psychic,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,초능력으로 상대를 띄운다. 3턴 동안 공격이 상대에게 맞기 쉬워진다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+teleport,순간이동,Teleport,Psychic,Status,,필중,-6,self,PIVOT,피벗/교체 연결,1.5,0.4,0,0,4.5,0,0,0,0,교대할 포켓몬이 있을 때 사용하면 교체한다. 야생 포켓몬은 도망가 버린다.,공격/보조 후 유리 대면으로 연결하는 피벗 기술입니다.
+temperflare,열불내기,Temper Flare,Fire,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,자포자기하는 자세로 공격한다. 앞 턴에서 기술이 빗나갔다면 위력이 배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+terablast,테라버스트,Tera Blast,Normal,Special,80,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.3,1,0,0,0,0,0,0,"테라스탈 중이면, 테라스탈타입의 에너지를 방출해서 공격한다. 공격과 특수공격을 비교해서 높은 쪽으로 데미지를 준다.",공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+terastarstorm,테라클러스터,Tera Starstorm,Normal,Special,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE,에이스 주력 공격|고위험 고화력,0,2.7,1.5,0,0,0,0,0,0,결정의 힘을 내리쬐어 적을 없애 버린다. 테라파고스가 스텔라폼일 때 사용하면 모든 상대에게 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+terrainpulse,대지의파동,Terrain Pulse,Normal,Special,50,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.8,0.6,0,0,0,0,0,0,필드의 힘을 빌려서 공격한다. 사용했을 때의 필드 상태에 따라서 기술 타입과 위력이 바뀐다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thief,도둑질,Thief,Dark,Physical,60,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,공격과 동시에 도구를 훔친다. 자신이 도구를 지니고 있을 경우에는 훔칠 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thousandarrows,사우전드애로,Thousand Arrows,Ground,Physical,90,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,떠 있는 포켓몬도 맞힐 수 있다. 떠 있던 상대는 맞아서 땅에 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thousandwaves,사우전드웨이브,Thousand Waves,Ground,Physical,90,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,땅 위를 뻗어 나가는 파도로 공격한다. 파도에 휩쓸린 상대는 전투에서 도망칠 수 없게 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thrash,난동부리기,Thrash,Normal,Physical,120,100,0,randomNormal,ACE_DAMAGE|RISKY_NUKE|LOCK_IN,에이스 주력 공격|고위험 고화력|강제 연속/구속,0,3.2,1.5,-1,0,0,0,0,0,2-3턴 동안 마구 난동 부려서 상대를 공격한다. 난동 부린 뒤에는 혼란에 빠진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다. / 연속 사용/행동 고정 리스크가 있어 안정성 평가는 낮게 봅니다.
+throatchop,지옥찌르기,Throat Chop,Dark,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,이 기술에 맞은 상대는 지옥의 고통 때문에 2턴 동안 소리 기술을 낼 수 없다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thunder,번개,Thunder,Electric,Special,110,70,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.8,1.4,0,0,0,0,0,0,강한 번개를 상대에게 떨어뜨려 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+thunderbolt,10만볼트,Thunderbolt,Electric,Special,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,강한 전격을 상대에게 날려서 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thundercage,썬더프리즌,Thunder Cage,Electric,Special,80,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,전기가 흐르는 우리 안에 4-5턴 동안 상대를 가두어 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thunderclap,질풍신뢰,Thunderclap,Electric,Special,70,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,2.3,0.9,0,0,0,3.2,0,0,상대보다 먼저 전격을 퍼붓는다. 상대가 쓴 기술이 공격 기술이 아니면 실패한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+thunderfang,번개엄니,Thunder Fang,Electric,Physical,65,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,전기를 모은 이빨로 문다. 상대를 풀죽게 하거나 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thunderouskick,천둥차기,Thunderous Kick,Fighting,Physical,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,번개 같은 움직임으로 상대를 농락하며 킥을 날린다. 상대의 방어를 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thunderpunch,번개펀치,Thunder Punch,Electric,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,전격을 담은 펀치로 상대를 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thundershock,전기쇼크,Thunder Shock,Electric,Special,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,전기 자극을 상대에게 날려서 공격한다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+thunderwave,전기자석파,Thunder Wave,Electric,Status,,90,0,normal,STATUS_SPREAD|SPEED_CONTROL,상태이상|속도 제어,0,0,0,2.2,0,0,1.2,4.2,4.1,약한 전격을 날려서 상대를 마비 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+tickle,간지르기,Tickle,Normal,Status,,100,0,normal,DISRUPT,방해,0,0,0,0.8,0,0,0,1.8,0,몸을 간질여 웃게 만들어서 상대의 공격과 방어를 떨어뜨린다.,상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다.
+tidyup,정리정돈,Tidy Up,Normal,Status,,필중,0,self,HAZARD_REMOVE,판 제거,0,0,0,0.8,0,4.5,0,0,2,"압정뿌리기, 스텔스록, 끈적끈적네트, 독압정, 대타출동을 모두 정리한다. 자신의 공격과 스피드가 올라간다.",설치물 제거 또는 필드 정리 가치가 있습니다.
+topsyturvy,뒤집어엎기,Topsy-Turvy,Dark,Status,,필중,0,normal,DISRUPT,방해,1.2,0,0,1,0,0,0,4,0,상대에게 걸려 있는 모든 능력 변화를 뒤집어서 반대로 만든다.,상대 전개/회복/보조 기술을 방해하는 핵심 기술입니다.
+torchsong,플레어송,Torch Song,Fire,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,활활 타오르는 불꽃을 노래하듯 뿜어서 상대를 태워 버린다. 자신의 특수공격을 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+torment,트집,Torment,Dark,Status,,100,0,normal,DISRUPT,방해,1.2,0,0,1,0,0,0,4,0,상대에게 트집을 잡아서 똑같은 기술을 2회 연속으로 쓸 수 없게 한다.,상대 전개/회복/보조 기술을 방해하는 핵심 기술입니다.
+toxic,맹독,Toxic,Poison,Status,,90,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,상대를 맹독의 상태로 만든다. 턴이 진행될수록 독의 데미지가 증가한다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+toxicspikes,독압정,Toxic Spikes,Poison,Status,,필중,0,foeSide,HAZARD_SET|HAZARD_REMOVE,판 설치|판 제거,3,0,0,0.8,0,5,0,0,2,상대의 발밑에 독 압정을 뿌린다. 교체로 나온 상대 포켓몬에게 독을 퍼지게 한다.,설치물로 교체 누적 피해/압박을 만듭니다. / 설치물 제거 또는 필드 정리 가치가 있습니다.
+toxicthread,독실,Toxic Thread,Poison,Status,,100,0,normal,STATUS_SPREAD|DISRUPT|SPEED_CONTROL,상태이상|방해|속도 제어,0,0,0,3,0,0,1.2,5,4.1,독이 섞인 실을 뿜어낸다. 상대를 독 상태로 만들고 스피드를 떨어뜨린다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다. / 상대 능력치를 낮춰 현재 대면 또는 후속 대면을 안정화합니다. / 속도 제어로 선공권과 마무리 구도를 만듭니다.
+trailblaze,개척하기,Trailblaze,Grass,Physical,50,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,풀숲에서 튀어나오듯이 공격한다. 경쾌한 발재간으로 자신의 스피드를 올린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+transform,변신,Transform,Normal,Status,,필중,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대 포켓몬으로 변신하여 상대와 완전히 똑같은 기술을 사용할 수 있다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+triattack,트라이어택,Tri Attack,Normal,Special,80,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,1.3,1,0,0,0,0,0,0,"3개의 광선으로 공격한다. 마비, 화상 또는 얼음 상태 중 어느 하나로 만들 때가 있다.",공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+trick,트릭,Trick,Psychic,Status,,100,0,normal,DISRUPT,방해,1.2,0,0,1,0,0,0,4,0,상대의 빈틈을 노려 자신과 상대가 지닌 물건을 바꿔치기한다.,상대 전개/회복/보조 기술을 방해하는 핵심 기술입니다.
+trickortreat,핼러윈,Trick-or-Treat,Ghost,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,상대를 핼러윈으로 초대한다. 상대 타입에 고스트타입이 추가된다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+trickroom,트릭룸,Trick Room,Psychic,Status,,필중,-7,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,이상한 공간을 만든다. 5턴 동안 느린 포켓몬부터 행동할 수 있다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+triplearrows,3연화살,Triple Arrows,Fighting,Physical,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,발 기술을 사용하고 3개의 화살을 동시에 발사한다. 급소에 맞기 쉬우며 상대의 방어를 떨어뜨릴때가 있다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+tripleaxel,트리플악셀,Triple Axel,Ice,Physical,20,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.6,0.3,0,0,0,0,0,0,3회 연속으로 킥을 날려 공격한다. 기술이 맞을 때마다 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+tripledive,트리플다이브,Triple Dive,Water,Physical,30,95,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.8,0.4,0,0,0,0,0,0,호흡이 척척 맞게 다이빙해서 상대에게 물보라를 끼얹는다. 3회 연속으로 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+triplekick,트리플킥,Triple Kick,Fighting,Physical,10,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.5,0.1,0,0,0,0,0,0,3회 연속으로 킥을 날려 공격한다. 기술이 맞을 때마다 위력이 올라간다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+tropkick,트로피컬킥,Trop Kick,Grass,Physical,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,남쪽 나라에서 유래된 뜨거운 킥을 상대에게 날린다. 상대의 공격을 떨어뜨린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+trumpcard,마지막수단,Trump Card,Normal,Special,,필중,0,normal,,,0,0,0,0,0,0,0,0,0,마지막수단의 남은 PP가 적으면 적을수록 기술의 위력이 올라간다.,
+twinbeam,트윈빔,Twin Beam,Psychic,Special,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,두 눈에서 불가사의한 광선을 발사해서 공격한다. 2회 연속으로 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+twineedle,더블니들,Twineedle,Bug,Physical,25,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.7,0.3,0,0,0,0,0,0,2개의 침을 상대에게 꿰찔러 2회 연속으로 데미지를 준다. 독 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+twinkletackle,러블리스타임팩트,Twinkle Tackle,Fairy,Physical,1,필중,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.3,0,0,0,0,0,0,0,Z파워로 매혹의 공간을 만들어 전력으로 상대를 가지고 논다. 원래 기술에 따라 위력이 변한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+twister,회오리,Twister,Dragon,Special,40,100,0,allAdjacentFoes,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,회오리를 일으켜 상대를 끌어들여 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+upperhand,기선제압,Upper Hand,Fighting,Physical,65,100,3,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,2.2,0.8,0,0,0,4,0,0,움직임에 반응하여 손바닥으로 밀쳐서 상대를 풀죽게 한다. 상대가 쓴 기술이 선제공격 기술이 아니면 실패한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+uproar,소란피기,Uproar,Normal,Special,90,100,0,randomNormal,ACE_DAMAGE,에이스 주력 공격,0,1.5,1.1,0,0,0,0,0,0,3턴 동안 소란 피워 공격한다. 그동안은 아무도 잠들지 않게 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+uturn,유턴,U-turn,Bug,Physical,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE|PIVOT,에이스 주력 공격|에이스 견제폭|피벗/교체 연결,1.5,1.9,0.9,0,4.5,0,0,0,0,공격한 뒤 굉장한 스피드로 돌아와서 교대 포켓몬과 교체한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 공격/보조 후 유리 대면으로 연결하는 피벗 기술입니다.
+vacuumwave,진공파,Vacuum Wave,Fighting,Special,40,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,1.8,0.5,0,0,0,3.2,0,0,주먹을 흔들어 진공의 파도를 일으킨다. 반드시 선제공격을 할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+vcreate,V제너레이트,V-create,Fire,Physical,180,95,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,"작열하는 불꽃을 이마에서 발생시켜 이판사판으로 몸통박치기한다. 방어, 특수방어, 스피드가 떨어진다.",공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+veeveevolley,브이브이브레이크,Veevee Volley,Normal,Physical,,필중,0,normal,,,0,0,0,0,0,0,0,0,0,트레이너를 좋아하는 이브이의 마음이 강할수록 위력이 올라가는 몸통박치기. 반드시 명중한다.,
+venomdrench,베놈트랩,Venom Drench,Poison,Status,,100,0,allAdjacentFoes,,,0,0,0,0,0,0,0,0,0.8,"특수한 독액을 끼얹는다. 독 상태인 상대는 공격, 특수공격, 스피드가 떨어진다.",변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+venoshock,베놈쇼크,Venoshock,Poison,Special,65,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.4,0.8,0,0,0,0,0,0,특수한 독액을 끼얹는다. 독 상태의 상대에게는 위력이 2배가 된다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+victorydance,승리의춤,Victory Dance,Fighting,Status,,필중,0,self,SETUP_BOOST,랭크업/전개,0,2,4,0,0,0,0,0,0,"승리를 부르는 춤을 격렬하게 춘다. 자신의 공격, 방어, 스피드를 올린다.",랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+vinewhip,덩굴채찍,Vine Whip,Grass,Physical,45,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.1,0.6,0,0,0,0,0,0,채찍처럼 휘어지는 가늘고 긴 덩굴로 상대를 힘껏 쳐서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+visegrip,찝기,Vise Grip,Normal,Physical,55,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.9,0.7,0,0,0,0,0,0,상대를 양쪽에서 집어서 데미지를 준다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+vitalthrow,받아던지기,Vital Throw,Fighting,Physical,70,필중,-1,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,상대보다 나중에 공격한다. 그 대신 자신의 공격은 반드시 명중한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+voltswitch,볼트체인지,Volt Switch,Electric,Special,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE|PIVOT,에이스 주력 공격|에이스 견제폭|피벗/교체 연결,1.5,1.9,0.9,0,4.5,0,0,0,0,공격한 뒤 굉장한 스피드로 돌아와서 교대 포켓몬과 교체한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 공격/보조 후 유리 대면으로 연결하는 피벗 기술입니다.
+volttackle,볼트태클,Volt Tackle,Electric,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,전기를 한데 모아 돌진한다. 자신도 상당한 데미지를 입는다. 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+wakeupslap,잠깨움뺨치기,Wake-Up Slap,Fighting,Physical,70,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.5,0.9,0,0,0,0,0,0,잠듦 상태의 상대에게 큰 데미지를 준다. 대신 상대는 잠에서 깬다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+waterfall,폭포오르기,Waterfall,Water,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,굉장한 기세로 상대에게 돌진한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+watergun,물대포,Water Gun,Water,Special,40,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1,0.5,0,0,0,0,0,0,물을 기세 좋게 상대에게 발사하여 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+waterpledge,물의맹세,Water Pledge,Water,Special,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,물기둥으로 공격한다. 불꽃과 조합하면 위력이 올라가고 하늘에 무지개가 걸린다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+waterpulse,물의파동,Water Pulse,Water,Special,60,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,물의 진동을 상대에게 가하여 공격한다. 상대를 혼란시킬 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+watershuriken,물수리검,Water Shuriken,Water,Special,15,100,1,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,1.4,0.2,0,0,0,3.2,0,0,점액으로 만든 수리검을 2-5회 동안 연속으로 던진다. 반드시 선제공격할 수 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.
+watersport,물놀이,Water Sport,Water,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,주위를 물로 흠뻑 젖게 만든다. 5턴 동안 불꽃타입의 기술을 약하게 한다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+waterspout,해수스파우팅,Water Spout,Water,Special,150,100,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3.2,1.5,0,0,0,0,0,0,바닷물을 내뿜어 공격한다. 자신의 HP가 적을수록 기술의 위력이 떨어진다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+wavecrash,웨이브태클,Wave Crash,Water,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,물을 두르고 온몸으로 상대에게 부딪친다. 자신도 상당한 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+weatherball,웨더볼,Weather Ball,Normal,Special,50,100,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.8,0.6,0,0,0,0,0,0,사용했을 때의 날씨에 따라서 기술 타입과 위력이 바뀐다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+whirlpool,바다회오리,Whirlpool,Water,Special,35,85,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,0.9,0.4,0,0,0,0,0,0,세차게 소용돌이치는 물속에 4-5턴 동안 상대를 가두어 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+whirlwind,날려버리기,Whirlwind,Normal,Status,,필중,-6,normal,FORCE_SWITCH,강제 교체,0,0,0,2,0,1.5,0,3.8,0,상대를 날려버려서 교대할 포켓몬을 끌어낸다. 야생의 경우에는 배틀이 끝난다.,강제 교체로 랭크업을 끊고 설치물 피해를 누적시킵니다.
+wickedblow,암흑강타,Wicked Blow,Dark,Physical,75,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,0.9,0,0,0,0,0,0,악의 태세가 극에 달하여 강렬한 일격을 날린다. 반드시 급소에 맞는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+wickedtorque,Wicked Torque,Wicked Torque,Dark,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,10% chance to cause the target to fall asleep.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+wideguard,와이드가드,Wide Guard,Rock,Status,,필중,3,allySide,PRIORITY|FINISHER|PROTECT_SCOUT,선공기|마무리|방어/정찰,0,0.8,0,2,0,0,4,0.8,1.4,같은 편 전원에게 향하는 공격을 1턴 동안 막는다.,선공기라 복수 처리와 마무리 가치가 큽니다. / 방어/정찰로 턴 종료 효과와 상대 행동 확인 가치가 있습니다.
+wildboltstorm,번개폭풍,Wildbolt Storm,Electric,Special,100,80,0,allAdjacentFoes,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,2.7,1.3,0,0,0,0,0,0,폭풍을 일으키고 뇌운을 불러서 번개와 바람으로 매섭게 공격한다. 상대를 마비 상태로 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+wildcharge,와일드볼트,Wild Charge,Electric,Physical,90,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.8,1.1,0,0,0,0,0,0,전기를 두르고 상대에게 부딪쳐 공격한다. 자신도 조금 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+willowisp,도깨비불,Will-O-Wisp,Fire,Status,,85,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,으스스하고 괴상한 불꽃을 쏘아 상대를 화상 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+wingattack,날개치기,Wing Attack,Flying,Physical,60,100,0,any,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.3,0.8,0,0,0,0,0,0,크게 펼친 훌륭한 날개를 상대에게 부딪쳐서 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+wish,희망사항,Wish,Normal,Status,,필중,0,self,RECOVERY|TEAM_SUPPORT,회복|팀 지원,0,-0.4,0,5,0,0,0,0,5,다음 턴에 자신 또는 교체한 포켓몬의 HP를 최대 HP의 절반만큼 회복한다.,체력 회복으로 막이/장기전 자원 가치가 높습니다. / 아군 지원 가치가 높은 기술입니다.
+withdraw,껍질에숨기,Withdraw,Water,Status,,필중,0,self,,,0,0,0,0,0,0,0,0,0.8,껍질에 숨어 몸을 보호하여 자신의 방어를 올린다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+wonderroom,원더룸,Wonder Room,Psychic,Status,,필중,0,all,FIELD_CONTROL,날씨/필드/룸,1.8,0,0,0,0,0.8,0,0,3,이상한 공간을 만든다. 5턴 동안 모든 포켓몬의 방어와 특수방어가 바뀐다.,날씨/필드/룸/순풍 등 전장 조건을 바꿉니다.
+woodhammer,우드해머,Wood Hammer,Grass,Physical,120,100,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,단단한 몸통을 상대에게 부딪쳐서 공격한다. 자신도 상당한 데미지를 입는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+workup,분발,Work Up,Normal,Status,,필중,0,self,SETUP_BOOST,랭크업/전개,0,2,4,0,0,0,0,0,0,스스로 분발해서 공격과 특수공격을 올린다.,랭크업으로 에이스 전개 또는 장기 돌파 조건을 만듭니다.
+worryseed,고민씨,Worry Seed,Grass,Status,,100,0,normal,,,0,0,0,0,0,0,0,0,0.8,마음을 괴롭히는 씨앗을 심는다. 상대를 잠잘 수 없게 해서 특성을 불면으로 만든다.,변화기이므로 세부 효과 미분류 상태에서는 지원 후보로 보류합니다.
+wrap,김밥말이,Wrap,Normal,Physical,15,90,0,normal,ACE_DAMAGE,에이스 주력 공격,0,0.3,0.2,0,0,0,0,0,0,긴 몸이나 덩굴 등을 사용해 4-5턴 동안 상대를 휘감아 공격한다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+wringout,쥐어짜기,Wring Out,Normal,Special,,100,0,normal,,,0,0,0,0,0,0,0,0,0,강하게 조여 공격을 한다. 상대의 HP가 많이 남아 있을수록 위력이 올라간다.,
+xscissor,시저크로스,X-Scissor,Bug,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,낫이나 발톱을 가위처럼 교차시키면서 상대를 베어 가른다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+yawn,하품,Yawn,Normal,Status,,필중,0,normal,STATUS_SPREAD,상태이상,0,0,0,2.2,0,0,0,2.4,1.8,큰 하품으로 졸음을 유도한다. 다음 턴에 상대를 잠듦 상태로 만든다.,상태이상으로 상대 기능을 낮추거나 교체를 압박합니다.
+zapcannon,전자포,Zap Cannon,Electric,Special,120,50,0,normal,ACE_DAMAGE|RISKY_NUKE|ACE_COVERAGE,에이스 주력 공격|고위험 고화력|에이스 견제폭,0,3,1.5,0,0,0,0,0,0,대포처럼 전기를 발사해서 공격한다. 상대를 마비 상태로 만든다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 고위력 기술이라 돌파 가치가 높습니다.
+zenheadbutt,사념의박치기,Zen Headbutt,Psychic,Physical,80,90,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,사념의 힘을 이마에 모아서 공격한다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+zingzap,찌리리따끔따끔,Zing Zap,Electric,Physical,80,100,0,normal,ACE_DAMAGE|ACE_COVERAGE,에이스 주력 공격|에이스 견제폭,0,1.6,1,0,0,0,0,0,0,상대에게 부딪쳐 강력한 전기를 날려서 찌리리따끔따끔하게 만든다. 상대를 풀죽게 만들 때가 있다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다.
+zippyzap,파찌파찌액셀,Zippy Zap,Electric,Physical,80,100,2,normal,ACE_DAMAGE|ACE_COVERAGE|PRIORITY|FINISHER,에이스 주력 공격|에이스 견제폭|선공기|마무리,0,2.4,1,0,0,0,3.6,0,0,맹렬한 속도의 전격 공격. 반드시 선제공격할 수 있고 급소에 맞는다.,공격 기술이라 에이스/스위퍼의 직접 피해 후보입니다. / 선공기라 복수 처리와 마무리 가치가 큽니다.

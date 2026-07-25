@@ -14,9 +14,13 @@ Cobbleverse Adventure의 트레이너 전투 AI를 새로 설계하기 위한 Ja
 |------|------|
 | `ai-api` | 플랫폼 독립 행동·관측·승률·전략 평가와 선택 계약 |
 | `ai-engine` | 결정론적 후보 필터, 승률 기준선, 전략 카탈로그와 가중 선택 |
-| `web-lab` | 트레이너 JSON 정규화, PvE·EvE UI, Showdown 호환 실행기와 최소 자체 전투 엔진 |
+| `data` | AI·전투 엔진이 공통으로 사용하는 기술 역할 분류, 다국어 카탈로그 등 원천 데이터 |
+| `tools` | 전역 `data`를 생성·갱신하는 개발 도구 |
+| `web-lab` | 트레이너 JSON 정규화, PvE·EvE UI, Showdown 호환 실행기와 최소 자체 전투 엔진을 확인하는 테스트 화면 |
 
 Cobblemon, RCT API, Fabric과 NeoForge 의존성은 아직 추가하지 않았다. 실제 게임 객체를 AI 모델로 변환하는 `cobblemon-adapter`와 선택된 행동을 실행하는 플랫폼 모듈은 대상 버전을 확정한 뒤 추가한다.
+
+`web-lab`은 제품 코드가 아니라 관찰용 실험실이다. 웹 화면에서 전역 AI 데이터나 `ai-api`에 가까운 관측 모델이 필요할 때는 `web-lab/lib/ai-api-bridge`만 통과한다. 이 경계 밖의 UI·Next.js API·Showdown 디버깅 코드는 `ai-api`, `ai-engine`, `data`의 설계를 오염시키면 안 된다.
 
 ## 원칙
 
@@ -28,6 +32,7 @@ Cobblemon, RCT API, Fabric과 NeoForge 의존성은 아직 추가하지 않았�
 - 플레이어 클라이언트 계산은 싱글플레이·웹 실험실·공개 정보 보조 기능으로 제한한다.
 - 같은 입력과 설정은 항상 같은 선택과 판단 근거를 만든다.
 - 실제 전투 로그와 가상 시뮬레이션이 같은 코어 계약을 사용한다.
+- 웹 실험실은 공통 데이터와 AI 계약을 검증하기 위한 소비자일 뿐, AI 원천 데이터의 소유자가 아니다.
 
 ## 테스트
 
