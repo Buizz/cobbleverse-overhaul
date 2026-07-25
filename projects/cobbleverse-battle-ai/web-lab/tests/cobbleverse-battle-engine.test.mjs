@@ -6644,3 +6644,102 @@ test("makes self-destructing moves faint the user after activation", () => {
     ),
   );
 });
+
+test("applies Salt Cure residual damage with Water and Steel bonus", () => {
+  const baseBattle = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Garganacl",
+              stats: { ...pokemon().stats, attack: 160, speed: 160 },
+              moves: [
+                {
+                  id: "saltcure",
+                  name: "Salt Cure",
+                  type: "Rock",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: true,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "SteelTarget",
+              types: ["Steel"],
+              stats: { ...pokemon().stats, hp: 200, speed: 40 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const steelHit = resolveSimpleTurn(baseBattle, [{ move: 1 }, { move: 1 }]);
+  const steelResidual = steelHit.events.find(
+    (event) =>
+      event.type === "damage" &&
+      event.pokemon === "SteelTarget" &&
+      event.cause === "volatile" &&
+      event.source === "Salt Cure",
+  );
+
+  assert.equal(steelHit.sides[1].team[0].volatiles.saltcure.id, "saltcure");
+  assert.equal(steelResidual.damage, 50);
+
+  const normalHit = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Garganacl",
+                stats: { ...pokemon().stats, attack: 160, speed: 160 },
+                moves: [
+                  {
+                    id: "saltcure",
+                    name: "Salt Cure",
+                    type: "Rock",
+                    category: "Physical",
+                    power: 40,
+                    accuracy: true,
+                    pp: 15,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "NormalTarget",
+                types: ["Normal"],
+                stats: { ...pokemon().stats, hp: 200, speed: 40 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  const normalResidual = normalHit.events.find(
+    (event) =>
+      event.type === "damage" &&
+      event.pokemon === "NormalTarget" &&
+      event.cause === "volatile" &&
+      event.source === "Salt Cure",
+  );
+
+  assert.equal(normalResidual.damage, 25);
+});

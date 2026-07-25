@@ -4757,15 +4757,6 @@ export function BattleLab() {
                 minimumTeamSize={requiredMemberCount}
                 selectedTrainer={opponentTrainer}
               />
-              <AiProfileControls
-                side="A"
-                profile={eveAiProfiles[0]}
-                onChange={(profile) => {
-                  setEveAiProfiles([profile, eveAiProfiles[1]]);
-                  setScenario(null);
-                  setBattle(null);
-                }}
-              />
               <TeamStrip
                 trainer={opponentTrainer}
                 emptyText="상대 트레이너를 선택하면 최대 6마리의 파티가 표시됩니다."
@@ -4805,10 +4796,10 @@ export function BattleLab() {
                 selectedTrainer={leftTrainer}
               />
               <AiProfileControls
-                side="B"
-                profile={eveAiProfiles[1]}
+                side="A"
+                profile={eveAiProfiles[0]}
                 onChange={(profile) => {
-                  setEveAiProfiles([eveAiProfiles[0], profile]);
+                  setEveAiProfiles([profile, eveAiProfiles[1]]);
                   setScenario(null);
                   setBattle(null);
                 }}
@@ -4836,6 +4827,15 @@ export function BattleLab() {
                 recentIds={recentTrainerIds}
                 minimumTeamSize={requiredMemberCount}
                 selectedTrainer={rightTrainer}
+              />
+              <AiProfileControls
+                side="B"
+                profile={eveAiProfiles[1]}
+                onChange={(profile) => {
+                  setEveAiProfiles([eveAiProfiles[0], profile]);
+                  setScenario(null);
+                  setBattle(null);
+                }}
               />
               <TeamStrip
                 trainer={rightTrainer}

@@ -6,6 +6,11 @@ import {
   SUPPORTED_DYNAMIC_POWER_MOVES,
 } from "./native-dynamic-power.mjs";
 import { resolveNativeMaxMove } from "./native-max-moves.mjs";
+import {
+  createAiRng,
+  scoreAiMoveCandidate,
+  selectAiMoveCandidate,
+} from "./common-battle-ai.mjs";
 
 const ENGINE_VERSION = "0.9.6";
 const DEFAULT_MAX_TURNS = 200;
@@ -5684,6 +5689,9 @@ function executeMove(state, action, rng) {
   if (landedHits > 0 && cleanId(move.id) === "upperhand") {
     applyVolatileStatus(state, defenderSide, defender, "flinch", move.name);
   }
+  if (landedHits > 0 && cleanId(move.id) === "saltcure" && !defender.fainted) {
+    applyVolatileStatus(state, defenderSide, defender, "saltcure", move.name);
+  }
   if (
     landedHits > 0 &&
     move.volatileStatus &&
@@ -6272,6 +6280,31 @@ function applyEndTurnEffects(state) {
       });
       if (markFainted(state, sideIndex, pokemon)) continue;
     }
+    if (pokemon.volatiles?.saltcure) {
+      const saltCureDivisor = pokemon.types.some((type) =>
+        ["Water", "Steel"].includes(type),
+      )
+        ? 4
+        : 8;
+      const applied = Math.min(
+        pokemon.hp,
+        Math.max(1, Math.floor(pokemon.stats.hp / saltCureDivisor)),
+      );
+      pokemon.hp -= applied;
+      state.events.push({
+        turn: state.turn,
+        type: "damage",
+        side: sideIndex,
+        pokemon: pokemon.name,
+        source: pokemon.volatiles.saltcure.source || "Salt Cure",
+        cause: "volatile",
+        damage: applied,
+        remainingHp: pokemon.hp,
+        maximumHp: pokemon.stats.hp,
+        effectiveness: 1,
+      });
+      if (markFainted(state, sideIndex, pokemon)) continue;
+    }
     if (pokemon.volatiles?.octolock) {
       applyBoosts(
         state,
@@ -6516,7 +6549,12 @@ export function resolveSimpleTurn(previousState, commands) {
   return state;
 }
 
-function automaticMoveCandidates(state, sideIndex, strategy = "balanced") {
+function automaticMoveCandidates(
+  state,
+  sideIndex,
+  strategy = "balanced",
+  difficulty = "standard",
+) {
   const pokemon = activePokemon(state, sideIndex);
   const defender = activePokemon(state, sideIndex === 0 ? 1 : 0);
   return pokemon.moves
@@ -6573,35 +6611,32 @@ function automaticMoveCandidates(state, sideIndex, strategy = "balanced") {
         targetDropValue +
         recoveryValue +
         secondaryValue;
-      const statusWeight =
-        strategy === "defensive"
-          ? 1.25
-          : strategy === "aggressive"
-            ? 0.65
-            : 1;
-      const powerWeight =
-        strategy === "aggressive"
-          ? 1.2
-          : strategy === "defensive"
-            ? 0.82
-            : 1;
       const expectedDamage =
         ((range.minimum + range.maximum) / 2) * accuracy;
-      const koBonus =
-        range.maximum >= defender.hp
-          ? range.minimum >= defender.hp
-            ? 55
-            : 25
-          : 0;
       return {
         slot: index + 1,
         id: move.id,
         name: move.name,
-        score:
-          expectedDamage * powerWeight +
-          move.priority * 8 +
-          tacticalValue * statusWeight +
-          koBonus,
+        type: move.type,
+        category: move.category,
+        power: move.power,
+        accuracy: move.accuracy,
+        priority: move.priority,
+        score: scoreAiMoveCandidate(
+          {
+            ...move,
+            expectedDamage,
+            tacticalValue,
+            koChance:
+              range.maximum < defender.hp
+                ? "none"
+                : range.minimum >= defender.hp
+                  ? "guaranteed"
+                  : "possible",
+          },
+          difficulty,
+          strategy,
+        ),
         expectedDamage,
         tacticalValue,
         koChance:
@@ -6623,21 +6658,15 @@ export function automaticMoveSlot(
   difficulty,
   strategy = "balanced",
 ) {
-  const available = automaticMoveCandidates(state, sideIndex, strategy);
-  if (available.length === 0) return 1;
-
-  const deterministicIndex =
-    (state.seed + state.turn * 17 + sideIndex * 31) >>> 0;
-  if (difficulty === "novice") {
-    return available[deterministicIndex % available.length].slot;
-  }
-  if (strategy === "unpredictable" && available.length > 1) {
-    return available[deterministicIndex % Math.min(3, available.length)].slot;
-  }
-  if (difficulty === "standard" && available.length > 1) {
-    return available[deterministicIndex % 3 === 0 ? 1 : 0].slot;
-  }
-  return available[0].slot;
+  const selected = selectAiMoveCandidate(
+    automaticMoveCandidates(state, sideIndex, strategy, difficulty),
+    {
+      difficulty,
+      strategy,
+      rng: createAiRng(state.seed, sideIndex, state.turn * 17),
+    },
+  );
+  return selected?.slot ?? 1;
 }
 
 export function chooseSimpleAiCommand(
@@ -6680,6 +6709,7 @@ export function runSimpleBattle(setup, options = {}) {
         state,
         sideIndex,
         profile.strategy,
+        profile.difficulty,
       ).map((candidate) => ({
         ...candidate,
         score: Math.round(candidate.score * 100) / 100,
@@ -6709,6 +6739,7 @@ export function runSimpleBattle(setup, options = {}) {
                   ? "변칙 성향이 상위 후보 중 시드 기반 선택을 수행했습니다."
                   : "균형 성향이 피해량, 명중률, 우선도를 종합했습니다.",
           candidates,
+          aiModel: "common-battle-ai",
         },
       };
     });

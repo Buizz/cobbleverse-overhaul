@@ -1,5 +1,12 @@
 import { BattleStreams, Dex } from "@pkmn/sim";
 
+import {
+  createAiMoveTrace,
+  createAiRng,
+  scoreAiMoveCandidate,
+  selectAiMoveCandidate,
+} from "./common-battle-ai.mjs";
+
 class SinglesConfiguredPlayerAI extends BattleStreams.BattlePlayer {
   constructor(
     stream,
@@ -9,7 +16,7 @@ class SinglesConfiguredPlayerAI extends BattleStreams.BattlePlayer {
     options = {},
   ) {
     super(stream);
-    this.state = (Number(seed) ^ 0x9e3779b9) >>> 0;
+    this.rng = createAiRng(seed, options.side ?? 0);
     this.difficulty = difficulty;
     this.configuredTeam = configuredTeam;
     this.strategy = options.strategy ?? "balanced";
@@ -20,56 +27,58 @@ class SinglesConfiguredPlayerAI extends BattleStreams.BattlePlayer {
   }
 
   nextIndex(length) {
-    this.state ^= this.state << 13;
-    this.state ^= this.state >>> 17;
-    this.state ^= this.state << 5;
-    this.state >>>= 0;
-    return length > 0 ? this.state % length : 0;
+    return this.rng.nextIndex(length);
   }
 
   moveScore(candidate) {
-    const move = Dex.moves.get(candidate.id);
-    if (!move.exists) return 0;
-    const accuracy = move.accuracy === true ? 1 : move.accuracy / 100;
-    const priorityWeight =
-      this.difficulty === "expert" || this.difficulty === "cheater" ? 12 : 5;
-    const statusValue =
-      move.category === "Status"
-        ? this.strategy === "defensive"
-          ? 38
-          : this.strategy === "balanced"
-            ? 12
-            : 4
-        : 0;
-    const powerWeight =
-      this.strategy === "aggressive"
-        ? 1.2
-        : this.strategy === "defensive"
-          ? 0.82
-          : 1;
-    const accuracyWeight = this.strategy === "defensive" ? accuracy * accuracy : accuracy;
-    return (
-      move.basePower * powerWeight * accuracyWeight +
-      move.priority * priorityWeight +
-      statusValue
+    return scoreAiMoveCandidate(
+      this.hydrateMoveCandidate(candidate),
+      this.difficulty,
+      this.strategy,
     );
   }
 
+  hydrateMoveCandidate(candidate) {
+    const move = Dex.moves.get(candidate.id);
+    return {
+      ...candidate,
+      name: move.exists ? move.name : candidate.id,
+      type: move.exists ? move.type : "Normal",
+      category: move.exists ? move.category : "Status",
+      power: move.exists ? move.basePower : 0,
+      accuracy: move.exists ? move.accuracy : true,
+      priority: move.exists ? move.priority : 0,
+    };
+  }
+
   chooseMove(available) {
-    if (this.difficulty === "novice") {
-      return available[this.nextIndex(available.length)];
-    }
-    const ranked = [...available].sort(
-      (left, right) =>
-        this.moveScore(right) - this.moveScore(left) || left.slot - right.slot,
+    return selectAiMoveCandidate(
+      available.map((candidate) => this.hydrateMoveCandidate(candidate)),
+      {
+        difficulty: this.difficulty,
+        strategy: this.strategy,
+        rng: this.rng,
+      },
     );
-    if (this.strategy === "unpredictable" && ranked.length > 1) {
-      return ranked[this.nextIndex(Math.min(3, ranked.length))];
-    }
-    if (this.difficulty === "standard" && ranked.length > 1) {
-      return ranked[this.nextIndex(4) === 0 ? 1 : 0];
-    }
-    return ranked[0];
+  }
+
+  recordCommonMoveDecision(species, available, selected, gimmick = "") {
+    this.decision += 1;
+    this.trace.push(
+      createAiMoveTrace({
+        turn: this.decision,
+        side: this.side,
+        sideName: this.sideName,
+        species,
+        difficulty: this.difficulty,
+        strategy: this.strategy,
+        candidates: available.map((candidate) =>
+          this.hydrateMoveCandidate(candidate),
+        ),
+        selected,
+        gimmick,
+      }),
+    );
   }
 
   recordMoveDecision(species, available, selected, gimmick = "") {
@@ -189,7 +198,7 @@ class SinglesConfiguredPlayerAI extends BattleStreams.BattlePlayer {
     const gimmick = this.gimmickSuffix(active, selected.slot, activeSlot);
     const species =
       String(team.find((pokemon) => pokemon.active)?.details ?? "").split(",")[0];
-    this.recordMoveDecision(species, available, selected, gimmick);
+    this.recordCommonMoveDecision(species, available, selected, gimmick);
     this.choose(`move ${selected.slot}${gimmick}`);
   }
 }
@@ -283,7 +292,7 @@ class MultiConfiguredPlayerAI extends SinglesConfiguredPlayerAI {
       if (gimmick) gimmickChosen = true;
       const activePokemon = team.filter((pokemon) => pokemon.active)[activeIndex];
       const species = String(activePokemon?.details ?? "").split(",")[0];
-      this.recordMoveDecision(species, available, selected, gimmick);
+      this.recordCommonMoveDecision(species, available, selected, gimmick);
       return `move ${selected.slot}${gimmick}${this.targetSuffix(
         selected,
         activeIndex,
