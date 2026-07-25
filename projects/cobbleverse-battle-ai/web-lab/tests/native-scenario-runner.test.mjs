@@ -143,6 +143,64 @@ test("preserves native damage and heal causes for Showdown-like logs", () => {
     })[0].source,
     "item: Leftovers",
   );
+
+  assert.deepEqual(
+    mapNativeEvent({
+      turn: 1,
+      type: "cant_move",
+      side: 1,
+      pokemon: "Target",
+      status: "flinch",
+      source: "flinch",
+    }),
+    [
+      {
+        turn: 1,
+        type: "cant_move",
+        actor: "p2a: Target",
+        detail: "풀죽어서 행동할 수 없다.",
+        condition: "flinch",
+      },
+    ],
+  );
+});
+
+test("shows a readable flinch message for native Fake Out", () => {
+  const battle = runNativeScenarioBattle({
+    ...scenario,
+    seed: 1,
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "meowth",
+            moveset: ["fakeout"],
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "squirtle",
+            moveset: ["tackle"],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.ok(
+    battle.events.some(
+      (event) =>
+        event.type === "cant_move" &&
+        event.detail === "풀죽어서 행동할 수 없다." &&
+        event.condition === "flinch",
+    ),
+  );
 });
 
 test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
@@ -424,4 +482,6 @@ test("waits for the player to choose a replacement after fainting", () => {
   assert.equal(replaced.request.active.species, "Pikachu");
   assert.equal(replaced.events.length, eventsBeforeReplacement + 1);
   assert.equal(replaced.events.at(-1).type, "switch");
+  assert.match(replaced.events.at(-1).condition ?? "", /^[1-9]\d*\/[1-9]\d*/);
+  assert.notEqual(replaced.events.at(-1).condition, "0 fnt");
 });

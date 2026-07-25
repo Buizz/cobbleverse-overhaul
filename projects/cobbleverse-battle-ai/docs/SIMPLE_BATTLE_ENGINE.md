@@ -67,6 +67,10 @@ PokeMathMax, Minecraft와 Cobblemon 런타임을 사용하지 않는 첫 독립 
 `unsupported_effect` 이벤트를 남긴다. 구현되지 않은 규칙을 정상 적용된
 것처럼 보이게 하지 않는 정책은 유지한다.
 
+테스트나 밸런스 검증 시에는 `createSimpleBattle({ strictMoveEffectValidation: true, ... })`를
+사용한다. 이 옵션이 켜진 전투는 `unsupported_effect`가 발생하는 즉시
+오류를 던져, 미구현 기술 효과를 정상 결과로 오해하지 않게 한다.
+
 ## 입력 경계
 
 엔진은 종족 ID를 보고 능력치를 추측하지 않는다. 호출자가 레벨, 타입, 최종

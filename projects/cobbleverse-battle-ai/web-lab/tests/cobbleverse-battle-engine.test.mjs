@@ -1460,6 +1460,98 @@ test("treats an entry Dynamax flag as a forced AI command", () => {
   assert.equal(later.gimmick, undefined);
 });
 
+test("delays forced Dynamax for a safe setup turn without Max Knuckle", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "PassiveTarget",
+              stats: { ...pokemon().stats, attack: 30 },
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "SetupDynamax",
+              gimmicks: { forceDynamax: true },
+              moves: [
+                {
+                  id: "swordsdance",
+                  name: "Swords Dance",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 20,
+                  selfBoosts: { atk: 2 },
+                },
+                {
+                  id: "slash",
+                  name: "Slash",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 20,
+                  accuracy: 100,
+                  pp: 20,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  const command = chooseSimpleAiCommand(state, 1, "expert", "setup");
+  assert.equal(command.move, 1);
+  assert.equal(command.gimmick, undefined);
+});
+
+test("lets a non-Mega fallback use Dynamax after the configured Dynamax Pokémon faints", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Player", team: [pokemon({ name: "PlayerMon" })] },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "FaintedDynamax",
+              gimmicks: { dynamax: true },
+            }),
+            pokemon({
+              name: "BackupDynamax",
+            }),
+            pokemon({
+              name: "MegaBackup",
+              item: "testite",
+              gimmicks: {
+                megaStone: {
+                  item: "testite",
+                  evolves: "testmon",
+                  form: "Testmon-Mega",
+                },
+              },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[1].team[0].fainted = true;
+  state.sides[1].team[0].hp = 0;
+
+  state.sides[1].active = 1;
+  assert.equal(chooseSimpleAiCommand(state, 1, "expert", "balanced").gimmick, "dynamax");
+
+  state.sides[1].active = 2;
+  assert.equal(chooseSimpleAiCommand(state, 1, "expert", "balanced").gimmick, undefined);
+});
+
 test("scores recovery and setup as real AI actions", () => {
   const state = createSimpleBattle(
     setup({
@@ -2535,6 +2627,8 @@ test("supports first-turn Fake Out flinch and later failure", () => {
     { move: 1 },
     { move: 1 },
   ]);
+  assert.equal(state.sides[0].team[0].hp, 120);
+  assert.equal(state.sides[1].team[0].moves[0].pp, 35);
   assert.ok(
     state.events.some(
       (event) =>
@@ -2552,6 +2646,41 @@ test("supports first-turn Fake Out flinch and later failure", () => {
         event.type === "move_failed" &&
         event.move === "Fake Out",
     ),
+  );
+});
+
+test("rejects unsupported move effects in strict validation mode", () => {
+  const state = createSimpleBattle(
+    setup({
+      strictMoveEffectValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "UnsupportedUser",
+              stats: { ...pokemon().stats, speed: 160 },
+              moves: [
+                {
+                  id: "unknownnativeeffect",
+                  name: "Unknown Native Effect",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        { name: "AI", team: [pokemon({ name: "Target" })] },
+      ],
+    }),
+  );
+
+  assert.throws(
+    () => resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]),
+    /Unsupported move effect.*Unknown Native Effect/,
   );
 });
 

@@ -481,8 +481,11 @@ function normalizePokemon(pokemon, path) {
             }
           : null,
       canDynamax: true,
-      forceDynamax: gimmicks.forceDynamax === true,
-      gigantamax: gimmicks.gigantamax === true,
+      forceDynamax:
+        gimmicks.forceDynamax === true ||
+        gimmicks.dynamax === true ||
+        gimmicks.gmax === true,
+      gigantamax: gimmicks.gigantamax === true || gimmicks.gmax === true,
       teraType: String(
         gimmicks.teraType ??
           gimmicks.tera ??
@@ -916,6 +919,7 @@ export function createSimpleBattle(setup) {
     manualFaintSwitchSides: Array.isArray(setup.manualFaintSwitchSides)
       ? setup.manualFaintSwitchSides.map(Number).filter(Number.isInteger)
       : [],
+    strictMoveEffectValidation: setup.strictMoveEffectValidation === true,
     sides,
     events: sides.map((side, sideIndex) => ({
       turn: 0,
@@ -1202,6 +1206,13 @@ function validateGimmickRequest(action) {
   return "";
 }
 
+function canMegaEvolvePokemon(pokemon) {
+  const stone = pokemon?.gimmicks?.megaStone;
+  if (!stone || !stone.item || stone.item !== pokemon?.item) return false;
+  const speciesIds = new Set([cleanId(pokemon.id), cleanId(pokemon.name)]);
+  return !stone.evolves || speciesIds.has(stone.evolves);
+}
+
 function reserveGimmick(state, action) {
   const gimmick = action.gimmick;
   if (!gimmick) return;
@@ -1476,6 +1487,9 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
     side: sideIndex,
     pokemon: side.team[side.active].name,
     slot: switchSlot,
+    remainingHp: side.team[side.active].hp,
+    maximumHp: side.team[side.active].stats.hp,
+    status: side.team[side.active].status,
     automatic: Boolean(options.automatic),
     forced: Boolean(options.forced) || undefined,
     source: options.source,
@@ -6153,16 +6167,21 @@ export function replaceFaintedPokemon(previousState, sideIndex, switchSlot) {
     throw new Error(`Side ${sideIndex + 1} cannot switch to slot ${switchSlot}`);
   }
   side.active = targetIndex;
+  target.activeTurns = 0;
   state.events.push({
     turn: state.turn,
     type: "switch",
     side: sideIndex,
     pokemon: target.name,
     slot: Number(switchSlot),
+    remainingHp: target.hp,
+    maximumHp: target.stats.hp,
+    status: target.status,
     automatic: false,
     forced: true,
   });
   applyEntryHazards(state, sideIndex, target);
+  applyEntryAbilities(state, sideIndex, target);
   advanceFaintedSides(state);
   return state;
 }
@@ -6681,6 +6700,16 @@ export function resolveSimpleTurn(previousState, commands) {
   }
   delete state.currentActions;
   delete state.turnMoves;
+  if (state.strictMoveEffectValidation) {
+    const unsupported = state.events.find(
+      (event) => event.turn === state.turn && event.type === "unsupported_effect",
+    );
+    if (unsupported) {
+      throw new Error(
+        `Unsupported move effect in cobbleverse-simple strict validation: ${unsupported.move} - ${unsupported.reason}`,
+      );
+    }
+  }
   applyEndTurnEffects(state);
   advanceTimedEffects(state, rng);
   expireDynamax(state);
@@ -6703,6 +6732,13 @@ function automaticMoveCandidates(
 ) {
   const pokemon = activePokemon(state, sideIndex);
   const defender = activePokemon(state, sideIndex === 0 ? 1 : 0);
+  const opponentBestDamage = defender.moves.reduce((best, move) => {
+    const range = calculateDamageRange(defender, pokemon, move);
+    const accuracy = move.accuracy === true ? 1 : move.accuracy / 100;
+    return Math.max(best, ((range.minimum + range.maximum) / 2) * accuracy);
+  }, 0);
+  const incomingDamageRatio =
+    pokemon.hp > 0 ? opponentBestDamage / pokemon.hp : 1;
   return pokemon.moves
     .map((move, index) => {
       const range = calculateDamageRange(pokemon, defender, move);
@@ -6768,11 +6804,17 @@ function automaticMoveCandidates(
         power: move.power,
         accuracy: move.accuracy,
         priority: move.priority,
+        hpPercent: pokemon.hp / pokemon.stats.hp,
+        incomingDamageRatio,
+        opponentHp: defender.hp,
         score: scoreAiMoveCandidate(
           {
             ...move,
             expectedDamage,
             tacticalValue,
+            hpPercent: pokemon.hp / pokemon.stats.hp,
+            incomingDamageRatio,
+            opponentHp: defender.hp,
             koChance:
               range.maximum < defender.hp
                 ? "none"
@@ -6785,6 +6827,9 @@ function automaticMoveCandidates(
         ),
         expectedDamage,
         tacticalValue,
+        hpPercent: pokemon.hp / pokemon.stats.hp,
+        incomingDamageRatio,
+        opponentHp: defender.hp,
         koChance:
           range.maximum < defender.hp
             ? "none"
@@ -6803,9 +6848,10 @@ export function automaticMoveSlot(
   sideIndex,
   difficulty,
   strategy = "balanced",
+  candidates = automaticMoveCandidates(state, sideIndex, strategy, difficulty),
 ) {
   const selected = selectAiMoveCandidate(
-    automaticMoveCandidates(state, sideIndex, strategy, difficulty),
+    candidates,
     {
       difficulty,
       strategy,
@@ -6813,6 +6859,15 @@ export function automaticMoveSlot(
     },
   );
   return selected?.slot ?? 1;
+}
+
+function hasFaintedConfiguredDynamax(side) {
+  return side.team.some(
+    (pokemon) =>
+      pokemon.fainted &&
+      (pokemon.gimmicks?.forceDynamax === true ||
+        pokemon.gimmicks?.gigantamax === true),
+  );
 }
 
 export function chooseSimpleAiCommand(
@@ -6823,22 +6878,47 @@ export function chooseSimpleAiCommand(
 ) {
   const side = state.sides[sideIndex];
   const pokemon = activePokemon(state, sideIndex);
+  const moveCandidates = automaticMoveCandidates(
+    state,
+    sideIndex,
+    strategy,
+    difficulty,
+  );
+  const selectedMove = selectAiMoveCandidate(moveCandidates, {
+    difficulty,
+    strategy,
+    rng: createAiRng(state.seed, sideIndex, state.turn * 17),
+  });
+  const dynamaxFallback =
+    hasFaintedConfiguredDynamax(side) && !canMegaEvolvePokemon(pokemon);
   const gimmick = selectAiGimmick({
     active: {
       canDynamax:
         side.gimmickResources.dynamax === "available" &&
         pokemon.dynamaxTurns <= 0,
+      hpPercent: pokemon.hp / pokemon.stats.hp,
+      incomingDamageRatio: selectedMove?.incomingDamageRatio,
+      opponentHp: selectedMove?.opponentHp,
     },
     configured: {
       gimmicks: {
-        dynamax: pokemon.gimmicks?.forceDynamax === true,
+        dynamax:
+          pokemon.gimmicks?.forceDynamax === true || dynamaxFallback,
       },
     },
+    selectedMove,
+    moveCandidates,
     forceDynamax: pokemon.gimmicks?.forceDynamax === true,
     alreadyUsed: side.usedGimmicks,
   }).id;
   return {
-    move: automaticMoveSlot(state, sideIndex, difficulty, strategy),
+    move: selectedMove?.slot ?? automaticMoveSlot(
+      state,
+      sideIndex,
+      difficulty,
+      strategy,
+      moveCandidates,
+    ),
     ...(gimmick ? { gimmick } : {}),
   };
 }

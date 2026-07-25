@@ -244,7 +244,11 @@ export function mapNativeEvent(event) {
     return [{ ...base, label: `Turn ${event.turn}` }];
   }
   if (event.type === "switch") {
-    return [{ ...base, detail: event.pokemon ?? "" }];
+    const condition =
+      Number.isFinite(event.remainingHp) && Number.isFinite(event.maximumHp)
+        ? `${event.remainingHp}/${event.maximumHp}${event.status ? ` ${event.status}` : ""}`
+        : "";
+    return [{ ...base, detail: event.pokemon ?? "", condition }];
   }
   if (event.type === "move") {
     return [{ ...base, detail: event.move ?? "" }];
@@ -312,7 +316,16 @@ export function mapNativeEvent(event) {
     return [{ ...base, detail: event.status ?? "" }];
   }
   if (event.type === "cant_move") {
-    return [{ ...base, detail: event.status ?? "" }];
+    const statusMessages = {
+      flinch: "풀죽어서 행동할 수 없다.",
+    };
+    return [
+      {
+        ...base,
+        detail: statusMessages[event.status] ?? event.status ?? "",
+        condition: event.status ?? "",
+      },
+    ];
   }
   if (event.type === "stat_change") {
     return [

@@ -15,6 +15,11 @@ import {
 import {
   createAiMoveTrace,
   createAiSwitchTrace,
+  scoreAiDynamaxCandidate,
+  scoreAiSwitchCandidate,
+  moveRoleValue,
+  scoreAiMoveCandidate,
+  selectAiMoveCandidate,
 } from "../lib/common-battle-ai.mjs";
 
 test("loads shared AI move role catalog through the web bridge", async () => {
@@ -124,6 +129,317 @@ test("records normalized AI action candidates with decision reasons", () => {
   assert.equal(selected.expectedDamage.value, 96);
   assert.ok(selected.reasons.some((reason) => reason.code === "damage.expected"));
   assert.ok(selected.reasons.some((reason) => reason.code === "ko.possible"));
+});
+
+test("weights move role classification according to AI strategy", () => {
+  const swordsDance = {
+    slot: 1,
+    id: "swordsdance",
+    name: "Swords Dance",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 20,
+  };
+  const tackle = {
+    slot: 2,
+    id: "tackle",
+    name: "Tackle",
+    category: "Physical",
+    power: 20,
+    accuracy: 100,
+    pp: 35,
+  };
+  const stealthRock = {
+    slot: 3,
+    id: "stealthrock",
+    name: "Stealth Rock",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 20,
+  };
+
+  assert.ok(moveRoleValue(swordsDance, "setup") > moveRoleValue(tackle, "setup"));
+  assert.ok(moveRoleValue(stealthRock, "hazard") > moveRoleValue(swordsDance, "hazard"));
+  assert.ok(
+    scoreAiMoveCandidate(swordsDance, "expert", "setup") >
+      scoreAiMoveCandidate(tackle, "expert", "setup"),
+  );
+  assert.equal(
+    selectAiMoveCandidate([tackle, swordsDance], {
+      difficulty: "expert",
+      strategy: "setup",
+    }).id,
+    "swordsdance",
+  );
+
+  const trace = createAiMoveTrace({
+    turn: 1,
+    side: 0,
+    sideName: "AI",
+    species: "Scizor",
+    difficulty: "expert",
+    strategy: "setup",
+    selected: { slot: 1 },
+    candidates: [swordsDance, tackle],
+  });
+  const selected = trace.candidates.find((candidate) => candidate.selected);
+  assert.ok(selected.roleValue > 0);
+  assert.ok(selected.reasons.some((reason) => reason.code === "role.strategy_fit"));
+});
+
+test("applies RunAndBun-inspired setup and hazard scoring rules", () => {
+  const haze = {
+    slot: 1,
+    id: "haze",
+    name: "Haze",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 30,
+    setupThreatTier: "tier_3",
+  };
+  const recover = {
+    slot: 2,
+    id: "recover",
+    name: "Recover",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 10,
+    setupThreatTier: "tier_3",
+  };
+  const stealthRock = {
+    slot: 3,
+    id: "stealthrock",
+    name: "Stealth Rock",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 20,
+    actsBeforeOpponent: true,
+    livingOpponents: 5,
+  };
+
+  assert.ok(
+    scoreAiMoveCandidate(haze, "expert", "ace_check") >
+      scoreAiMoveCandidate(recover, "expert", "ace_check"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(stealthRock, "expert", "hazard") >
+      scoreAiMoveCandidate(recover, "expert", "hazard"),
+  );
+
+  const selected = selectAiMoveCandidate([recover, haze], {
+    difficulty: "expert",
+    strategy: "ace_check",
+  });
+  assert.equal(selected.id, "haze");
+
+  const trace = createAiMoveTrace({
+    turn: 4,
+    side: 1,
+    sideName: "AI",
+    species: "Toxapex",
+    difficulty: "expert",
+    strategy: "ace_check",
+    selected: { slot: 1 },
+    candidates: [haze, recover],
+  });
+  const chosen = trace.candidates.find((candidate) => candidate.selected);
+  assert.ok(
+    chosen.reasons.some((reason) => reason.code === "rule.setup_disruption.boost_reset"),
+  );
+});
+
+test("applies RunAndBun-inspired switch matchup scoring rules", () => {
+  const boostedCurrentMonSwitch = {
+    slot: 2,
+    name: "Slow wall",
+    hpPercent: 0.8,
+    expectedDamage: 10,
+    currentIncomingDamageRatio: 0.3,
+    targetIncomingDamageRatio: 0.25,
+    currentOutgoingDamageRatio: 0.55,
+    targetOutgoingDamageRatio: 0.3,
+    currentPositiveBoosts: 2,
+  };
+  const safeCounter = {
+    slot: 3,
+    name: "Priority check",
+    hpPercent: 0.8,
+    expectedDamage: 10,
+    currentIncomingDamageRatio: 0.9,
+    targetIncomingDamageRatio: 0.4,
+    currentOutgoingDamageRatio: 0.2,
+    targetOutgoingDamageRatio: 0.95,
+    speedAdvantage: true,
+    currentStatus: "par",
+  };
+
+  assert.ok(
+    scoreAiSwitchCandidate(safeCounter) >
+      scoreAiSwitchCandidate(boostedCurrentMonSwitch),
+  );
+
+  const trace = createAiSwitchTrace({
+    turn: 6,
+    side: 1,
+    sideName: "AI",
+    species: "Raichu",
+    selected: { slot: 3 },
+    candidates: [boostedCurrentMonSwitch, safeCounter],
+  });
+  const selected = trace.candidates.find((candidate) => candidate.selected);
+  assert.ok(
+    selected.reasons.some((reason) => reason.code === "rule.switch.defensive_improvement"),
+  );
+  assert.ok(
+    selected.reasons.some((reason) => reason.code === "rule.switch.safe_counter_ko"),
+  );
+});
+
+test("applies RunAndBun-inspired recovery, pivot, and immediate KO rules", () => {
+  const finishingMove = {
+    slot: 1,
+    id: "quickattack",
+    name: "Quick Attack",
+    category: "Physical",
+    power: 40,
+    accuracy: 100,
+    priority: 1,
+    expectedDamage: 40,
+    koChance: "guaranteed",
+    safeImmediateKoAvailable: true,
+  };
+  const recover = {
+    slot: 2,
+    id: "recover",
+    name: "Recover",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    hpPercent: 0.8,
+    safeImmediateKoAvailable: true,
+  };
+  const partingShot = {
+    slot: 3,
+    id: "partingshot",
+    name: "Parting Shot",
+    category: "Status",
+    power: 0,
+    accuracy: 100,
+    actsBeforeOpponent: true,
+    hasLivingBench: true,
+  };
+
+  assert.ok(
+    scoreAiMoveCandidate(finishingMove, "expert", "aggressive") >
+      scoreAiMoveCandidate(recover, "expert", "defensive"),
+  );
+  assert.ok(scoreAiMoveCandidate(partingShot, "expert", "tempo") > 0);
+
+  const trace = createAiMoveTrace({
+    turn: 5,
+    side: 1,
+    sideName: "AI",
+    species: "Incineroar",
+    difficulty: "expert",
+    strategy: "tempo",
+    selected: { slot: 3 },
+    candidates: [finishingMove, recover, partingShot],
+  });
+  const pivot = trace.candidates.find((candidate) => candidate.slot === 3);
+  const recovery = trace.candidates.find((candidate) => candidate.slot === 2);
+  assert.ok(pivot.reasons.some((reason) => reason.code === "rule.pivot.safe_pivot"));
+  assert.ok(
+    recovery.reasons.some((reason) => reason.code === "rule.immediate_ko_dominance"),
+  );
+});
+
+test("applies RunAndBun-inspired lethal, repeated, and Dynamax switch penalties", () => {
+  const riskySwitch = {
+    slot: 2,
+    name: "Glass counter",
+    hpPercent: 0.45,
+    expectedDamage: 20,
+    targetIncomingDamageRatio: 0.7,
+    switchedLastTurn: true,
+    immediateReturn: true,
+    dynamaxActive: true,
+    dynamaxRemainingTurns: 2,
+    safeImmediateKoAvailable: true,
+  };
+  const stableSwitch = {
+    slot: 3,
+    name: "Stable wall",
+    hpPercent: 0.9,
+    expectedDamage: 10,
+    targetIncomingDamageRatio: 0.2,
+  };
+
+  assert.ok(scoreAiSwitchCandidate(stableSwitch) > scoreAiSwitchCandidate(riskySwitch));
+
+  const trace = createAiSwitchTrace({
+    turn: 7,
+    side: 1,
+    sideName: "AI",
+    species: "Dragonite",
+    selected: { slot: 2 },
+    candidates: [riskySwitch, stableSwitch],
+  });
+  const risky = trace.candidates.find((candidate) => candidate.slot === 2);
+  assert.ok(risky.reasons.some((reason) => reason.code === "rule.switch.lethal_switch_in"));
+  assert.ok(risky.reasons.some((reason) => reason.code === "rule.switch.repeated_switch"));
+  assert.ok(risky.reasons.some((reason) => reason.code === "rule.switch.dynamax_turn_cost"));
+  assert.ok(risky.reasons.some((reason) => reason.code === "rule.switch.guaranteed_ko_penalty"));
+});
+
+test("scores Dynamax activation against setup opportunity cost", () => {
+  const setupMove = {
+    slot: 1,
+    id: "swordsdance",
+    name: "Swords Dance",
+    category: "Status",
+    hpPercent: 0.9,
+    incomingDamageRatio: 0.12,
+  };
+  const normalAttack = {
+    slot: 2,
+    id: "slash",
+    name: "Slash",
+    type: "Normal",
+    category: "Physical",
+    power: 70,
+    expectedDamage: 35,
+  };
+  const delayed = scoreAiDynamaxCandidate({
+    active: { canDynamax: true, hpPercent: 0.9, incomingDamageRatio: 0.12 },
+    configured: { gimmicks: { dynamax: true } },
+    selectedMove: setupMove,
+    moveCandidates: [setupMove, normalAttack],
+    forceDynamax: true,
+  });
+  assert.ok(delayed.score < 12);
+  assert.ok(
+    delayed.reasons.some((reason) => reason.code === "gimmick.dynamax.delay_for_setup"),
+  );
+
+  const withMaxKnuckle = scoreAiDynamaxCandidate({
+    active: { canDynamax: true, hpPercent: 0.9, incomingDamageRatio: 0.12 },
+    configured: { gimmicks: { dynamax: true } },
+    selectedMove: normalAttack,
+    moveCandidates: [
+      setupMove,
+      { ...normalAttack, id: "brickbreak", type: "Fighting" },
+    ],
+    forceDynamax: true,
+  });
+  assert.ok(withMaxKnuckle.score >= 12);
+  assert.ok(
+    withMaxKnuckle.reasons.some((reason) => reason.code === "gimmick.dynamax.max_knuckle"),
+  );
 });
 
 test("records normalized AI switch candidates with decision reasons", () => {

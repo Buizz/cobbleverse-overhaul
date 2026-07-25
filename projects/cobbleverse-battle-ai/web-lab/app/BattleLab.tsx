@@ -2664,7 +2664,9 @@ function latestConditionBySide(events: BattleEvent[], side: "p1" | "p2") {
   let condition = "";
   for (const event of events) {
     if (!event.actor?.startsWith(side)) continue;
-    if (event.type === "damage" || event.type === "heal") {
+    if (event.type === "switch" && event.condition) {
+      condition = event.condition;
+    } else if (event.type === "damage" || event.type === "heal") {
       condition = event.condition ?? condition;
     } else if (event.type === "faint") {
       condition = "0 fnt";
