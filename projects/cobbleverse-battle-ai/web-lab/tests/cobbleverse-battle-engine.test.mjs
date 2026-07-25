@@ -2254,6 +2254,85 @@ test("recalculates move order after a pre-move Mega activation", () => {
   assert.equal(next.sides[0].team[0].stats.speed, 110);
 });
 
+test("applies Mega Evolution type changes before damage is resolved", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Charizard",
+              types: ["Fire", "Flying"],
+              item: "charizarditex",
+              gimmicks: {
+                megaStone: {
+                  item: "charizarditex",
+                  evolves: "testmon",
+                  form: "Charizard-Mega-X",
+                  types: ["Fire", "Dragon"],
+                },
+              },
+              moves: [
+                {
+                  id: "dragonclaw",
+                  name: "Dragon Claw",
+                  type: "Dragon",
+                  category: "Physical",
+                  power: 80,
+                  accuracy: true,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "NeutralTarget",
+              types: ["Normal"],
+              stats: { ...pokemon().stats, hp: 240, speed: 40 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const next = resolveSimpleTurn(state, [
+    { move: 1, gimmick: "mega" },
+    { move: 1 },
+  ]);
+  const nonMegaRange = calculateDamageRange(
+    pokemon({
+      name: "Charizard",
+      types: ["Fire", "Flying"],
+      moves: state.sides[0].team[0].moves,
+    }),
+    state.sides[1].team[0],
+    state.sides[0].team[0].moves[0],
+  );
+  const megaRange = calculateDamageRange(
+    next.sides[0].team[0],
+    next.sides[1].team[0],
+    next.sides[0].team[0].moves[0],
+  );
+
+  assert.deepEqual(next.sides[0].team[0].types, ["Fire", "Dragon"]);
+  assert.deepEqual(next.sides[0].team[0].originalTypes, ["Fire", "Dragon"]);
+  assert.ok(
+    next.events.some(
+      (event) =>
+        event.type === "gimmick_activated" &&
+        event.megaForm === "Charizard-Mega-X",
+    ),
+  );
+  assert.equal(nonMegaRange.stab, 1);
+  assert.equal(megaRange.stab, 1.5);
+  assert.ok(megaRange.maximum > nonMegaRange.maximum);
+});
+
 test("releases a reserved Z-Power resource when the user cannot act", () => {
   const state = createSimpleBattle(
     setup({
@@ -3989,6 +4068,427 @@ test("supports ability-changing utility moves", () => {
     [{ move: 1 }, { move: 1 }],
   );
   assert.equal(rolePlayed.sides[0].team[0].ability, "adaptability");
+});
+
+test("doubles physical Attack for Huge Power and Pure Power", () => {
+  const target = pokemon({
+    name: "Target",
+    types: ["Normal"],
+    stats: { ...pokemon().stats, hp: 300, defence: 120 },
+  });
+  const playRough = {
+    id: "playrough",
+    name: "Play Rough",
+    type: "Fairy",
+    category: "Physical",
+    power: 90,
+    accuracy: 100,
+    pp: 10,
+  };
+  const megaMawile = pokemon({
+    name: "Mega Mawile",
+    types: ["Steel", "Fairy"],
+    ability: "hugepower",
+    stats: { ...pokemon().stats, attack: 105 },
+  });
+  const ordinaryMawile = pokemon({
+    name: "Mawile",
+    types: ["Steel", "Fairy"],
+    ability: "intimidate",
+    stats: { ...pokemon().stats, attack: 105 },
+  });
+  const purePowerUser = pokemon({
+    name: "PurePowerUser",
+    types: ["Fairy"],
+    ability: "purepower",
+    stats: { ...pokemon().stats, attack: 105 },
+  });
+  const suppressedMegaMawile = {
+    ...megaMawile,
+    volatiles: { gastroacid: { id: "gastroacid" } },
+  };
+
+  const ordinary = calculateDamageRange(ordinaryMawile, target, playRough);
+  const hugePower = calculateDamageRange(megaMawile, target, playRough);
+  const purePower = calculateDamageRange(purePowerUser, target, playRough);
+  const suppressed = calculateDamageRange(suppressedMegaMawile, target, playRough);
+
+  assert.ok(hugePower.maximum > ordinary.maximum * 1.8);
+  assert.ok(purePower.maximum > ordinary.maximum * 1.8);
+  assert.equal(suppressed.maximum, ordinary.maximum);
+});
+
+test("rejects unsupported abilities in strict validation mode", () => {
+  assert.throws(
+    () =>
+      createSimpleBattle(
+        setup({
+          strictAbilityValidation: true,
+          sides: [
+            { name: "Player", team: [pokemon({ name: "MysteryMon" })] },
+            {
+              name: "AI",
+              team: [
+                pokemon({
+                  name: "UnknownAbilityMon",
+                  ability: "notarealability",
+                }),
+              ],
+            },
+          ],
+        }),
+      ),
+    /Unsupported ability.*notarealability/,
+  );
+});
+
+test("applies simple status immunity abilities", () => {
+  const cases = [
+    {
+      ability: "limber",
+      status: "par",
+      move: {
+        id: "thunderwave",
+        name: "Thunder Wave",
+        type: "Electric",
+        category: "Status",
+        accuracy: true,
+        pp: 20,
+        status: "par",
+      },
+    },
+    {
+      ability: "waterveil",
+      status: "brn",
+      move: {
+        id: "willowisp",
+        name: "Will-O-Wisp",
+        type: "Fire",
+        category: "Status",
+        accuracy: true,
+        pp: 15,
+        status: "brn",
+      },
+    },
+    {
+      ability: "immunity",
+      status: "tox",
+      move: {
+        id: "toxic",
+        name: "Toxic",
+        type: "Poison",
+        category: "Status",
+        accuracy: true,
+        pp: 10,
+        status: "tox",
+      },
+    },
+    {
+      ability: "insomnia",
+      status: "slp",
+      move: {
+        id: "sleeppowder",
+        name: "Sleep Powder",
+        type: "Grass",
+        category: "Status",
+        accuracy: true,
+        pp: 15,
+        status: "slp",
+      },
+    },
+    {
+      ability: "vitalspirit",
+      status: "slp",
+      move: {
+        id: "sleeppowder",
+        name: "Sleep Powder",
+        type: "Grass",
+        category: "Status",
+        accuracy: true,
+        pp: 15,
+        status: "slp",
+      },
+    },
+  ];
+
+  for (const entry of cases) {
+    const state = resolveSimpleTurn(
+      createSimpleBattle(
+        setup({
+          strictAbilityValidation: true,
+          sides: [
+            {
+              name: "Player",
+              team: [
+                pokemon({
+                  name: "StatusUser",
+                  stats: { ...pokemon().stats, speed: 160 },
+                  moves: [entry.move],
+                }),
+              ],
+            },
+            {
+              name: "AI",
+              team: [
+                pokemon({
+                  name: "ImmuneTarget",
+                  ability: entry.ability,
+                  stats: { ...pokemon().stats, speed: 40 },
+                }),
+              ],
+            },
+          ],
+        }),
+      ),
+      [{ move: 1 }, { move: 1 }],
+    );
+    assert.equal(
+      state.sides[1].team[0].status,
+      "",
+      `${entry.ability} should block ${entry.status}`,
+    );
+  }
+});
+
+test("applies simple defensive and entry abilities", () => {
+  const iceBeam = {
+    id: "icebeam",
+    name: "Ice Beam",
+    type: "Ice",
+    category: "Special",
+    power: 90,
+    accuracy: 100,
+    pp: 10,
+  };
+  const baseRange = calculateDamageRange(
+    pokemon({ stats: { ...pokemon().stats, specialAttack: 140 } }),
+    pokemon({ hp: 200, stats: { ...pokemon().stats, hp: 200 } }),
+    iceBeam,
+  );
+  const thickFatRange = calculateDamageRange(
+    pokemon({ stats: { ...pokemon().stats, specialAttack: 140 } }),
+    pokemon({
+      ability: "thickfat",
+      hp: 200,
+      stats: { ...pokemon().stats, hp: 200 },
+    }),
+    iceBeam,
+  );
+  const multiscaleRange = calculateDamageRange(
+    pokemon({ stats: { ...pokemon().stats, attack: 140 } }),
+    pokemon({
+      ability: "multiscale",
+      hp: 200,
+      stats: { ...pokemon().stats, hp: 200 },
+    }),
+    {
+      id: "closecombat",
+      name: "Close Combat",
+      type: "Fighting",
+      category: "Physical",
+      power: 120,
+      accuracy: 100,
+      pp: 5,
+    },
+  );
+  const chippedMultiscaleRange = calculateDamageRange(
+    pokemon({ stats: { ...pokemon().stats, attack: 140 } }),
+    pokemon({
+      ability: "multiscale",
+      hp: 199,
+      stats: { ...pokemon().stats, hp: 200 },
+    }),
+    {
+      id: "closecombat",
+      name: "Close Combat",
+      type: "Fighting",
+      category: "Physical",
+      power: 120,
+      accuracy: 100,
+      pp: 5,
+    },
+  );
+  const shadowShieldRange = calculateDamageRange(
+    pokemon({ stats: { ...pokemon().stats, attack: 140 } }),
+    pokemon({
+      ability: "shadowshield",
+      hp: 200,
+      stats: { ...pokemon().stats, hp: 200 },
+    }),
+    {
+      id: "closecombat",
+      name: "Close Combat",
+      type: "Fighting",
+      category: "Physical",
+      power: 120,
+      accuracy: 100,
+      pp: 5,
+    },
+  );
+
+  assert.ok(thickFatRange.maximum < baseRange.maximum);
+  assert.ok(multiscaleRange.maximum < chippedMultiscaleRange.maximum);
+  assert.equal(shadowShieldRange.maximum, multiscaleRange.maximum);
+
+  const entryState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Lead",
+              ability: "intimidate",
+            }),
+          ],
+        },
+        { name: "AI", team: [pokemon({ name: "PhysicalTarget" })] },
+      ],
+    }),
+  );
+  assert.equal(entryState.sides[1].team[0].boosts.attack, -1);
+  assert.ok(
+    entryState.events.some(
+      (event) =>
+        event.type === "ability_activate" &&
+        event.ability === "intimidate" &&
+        event.target === "PhysicalTarget",
+    ),
+  );
+
+  const simpleState = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Debuffer",
+                stats: { ...pokemon().stats, speed: 160 },
+                moves: [
+                  {
+                    id: "growl",
+                    name: "Growl",
+                    type: "Normal",
+                    category: "Status",
+                    accuracy: true,
+                    pp: 40,
+                    boosts: { atk: -1 },
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "SimpleTarget",
+                ability: "simple",
+                stats: { ...pokemon().stats, speed: 40 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(simpleState.sides[1].team[0].boosts.attack, -2);
+});
+
+test("applies Pressure PP drain and Own Tempo confusion immunity", () => {
+  const pressured = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Attacker",
+                stats: { ...pokemon().stats, speed: 160 },
+                moves: [
+                  {
+                    id: "slash",
+                    name: "Slash",
+                    type: "Normal",
+                    category: "Physical",
+                    power: 70,
+                    accuracy: true,
+                    pp: 10,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "PressureWall",
+                ability: "pressure",
+                stats: { ...pokemon().stats, speed: 40 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(pressured.sides[0].team[0].moves[0].pp, 8);
+  assert.ok(
+    pressured.events.some(
+      (event) => event.type === "pp_reduced" && event.source === "pressure",
+    ),
+  );
+
+  const confused = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Confuser",
+                stats: { ...pokemon().stats, speed: 160 },
+                moves: [
+                  {
+                    id: "confuseray",
+                    name: "Confuse Ray",
+                    type: "Ghost",
+                    category: "Status",
+                    accuracy: true,
+                    pp: 10,
+                    volatileStatus: "confusion",
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "SteadyTarget",
+                ability: "owntempo",
+                stats: { ...pokemon().stats, speed: 40 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(confused.sides[1].team[0].volatiles.confusion, undefined);
 });
 
 test("supports Ingrain, Wish, Heal Pulse, and Charge utility flow", () => {

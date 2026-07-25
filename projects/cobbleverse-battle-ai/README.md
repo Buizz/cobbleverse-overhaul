@@ -63,6 +63,7 @@ npm test
 - [팀 역할·승리 조건 기반 전략 AI](docs/STRATEGIC_AI_PLAN.md)
 - [전략 아키타입·팀 분석·상위 3개 전략 선택](docs/STRATEGY_ARCHETYPES_AND_TEAM_ANALYSIS.md)
 - [AI 관측 모델과 행동 후보 평가 구현](docs/AI_OBSERVATION_ACTION_IMPLEMENTATION.md)
+- [자체 엔진 특성 구현 체크리스트](docs/ABILITY_IMPLEMENTATION_CHECKLIST.md)
 - [팀 프리뷰·전투 상태 승률 및 자기대전 가치 학습](docs/WIN_PROBABILITY_MODEL.md)
 - [포켓몬 배틀 AI 선행 연구와 공개 구현 조사](docs/RESEARCH_REFERENCES.md)
 

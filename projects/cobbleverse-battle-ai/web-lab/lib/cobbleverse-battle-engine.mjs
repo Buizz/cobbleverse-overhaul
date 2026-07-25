@@ -71,6 +71,42 @@ const SELF_DESTRUCT_MOVES = new Set([
   "mistyexplosion",
   "selfdestruct",
 ]);
+const IMPLEMENTED_ABILITIES = new Set([
+  "adaptability",
+  "guts",
+  "hugepower",
+  "immunity",
+  "insomnia",
+  "intimidate",
+  "levitate",
+  "limber",
+  "multiscale",
+  "owntempo",
+  "minus",
+  "plus",
+  "pressure",
+  "purepower",
+  "shadowshield",
+  "simple",
+  "skilllink",
+  "thickfat",
+  "vitalspirit",
+  "waterveil",
+]);
+const INTENTIONAL_NO_EFFECT_ABILITIES = new Set([
+  "runaway",
+]);
+const SUPPORTED_ABILITIES = new Set([
+  ...IMPLEMENTED_ABILITIES,
+  ...INTENTIONAL_NO_EFFECT_ABILITIES,
+]);
+const STATUS_IMMUNITY_ABILITIES = {
+  brn: new Set(["waterveil"]),
+  par: new Set(["limber"]),
+  psn: new Set(["immunity"]),
+  tox: new Set(["immunity"]),
+  slp: new Set(["insomnia", "vitalspirit"]),
+};
 
 const TRAPPING_VOLATILES = new Set([
   "block",
@@ -583,6 +619,54 @@ function activeAbility(pokemon) {
   return pokemon.volatiles?.gastroacid ? "" : pokemon.ability;
 }
 
+function doublesPhysicalAttack(ability) {
+  return ["hugepower", "purepower"].includes(cleanId(ability));
+}
+
+function statusBlockedByAbility(pokemon, status) {
+  const ability = activeAbility(pokemon);
+  return Boolean(STATUS_IMMUNITY_ABILITIES[status]?.has(ability));
+}
+
+function abilityDamageModifier(defender, move) {
+  const ability = activeAbility(defender);
+  if (
+    (ability === "multiscale" || ability === "shadowshield") &&
+    defender.hp >= defender.stats.hp
+  ) {
+    return 0.5;
+  }
+  if (ability === "thickfat" && (move.type === "Fire" || move.type === "Ice")) {
+    return 0.5;
+  }
+  return 1;
+}
+
+function validateSupportedAbilities(sides) {
+  const unsupported = [];
+  for (const [sideIndex, side] of sides.entries()) {
+    for (const [pokemonIndex, pokemon] of side.team.entries()) {
+      const ability = cleanId(pokemon.ability);
+      if (ability && !SUPPORTED_ABILITIES.has(ability)) {
+        unsupported.push(
+          `sides[${sideIndex}].team[${pokemonIndex}] ${pokemon.name}: ${ability}`,
+        );
+      }
+      const megaAbility = cleanId(pokemon.gimmicks?.megaStone?.ability);
+      if (megaAbility && !SUPPORTED_ABILITIES.has(megaAbility)) {
+        unsupported.push(
+          `sides[${sideIndex}].team[${pokemonIndex}] ${pokemon.name} mega ability: ${megaAbility}`,
+        );
+      }
+    }
+  }
+  if (unsupported.length > 0) {
+    throw new Error(
+      `Unsupported ability in cobbleverse-simple strict validation: ${unsupported.join("; ")}`,
+    );
+  }
+}
+
 function effectiveStat(pokemon, stat, options = {}) {
   let stage = pokemon.boosts?.[stat] ?? 0;
   if (options.ignoreNegative && stage < 0) stage = 0;
@@ -590,6 +674,7 @@ function effectiveStat(pokemon, stat, options = {}) {
   let value = pokemon.stats[stat] * stageMultiplier(stage);
   if (stat === "attack") {
     if (pokemon.status === "brn" && activeAbility(pokemon) !== "guts") value *= 0.5;
+    if (doublesPhysicalAttack(activeAbility(pokemon))) value *= 2;
     if (pokemon.item === "choiceband") value *= 1.5;
   }
   if (stat === "specialAttack" && pokemon.item === "choicespecs") value *= 1.5;
@@ -696,8 +781,8 @@ function fieldDamageModifier(
   move,
   critical = false,
 ) {
-  if (!state) return 1;
-  let modifier = 1;
+  let modifier = abilityDamageModifier(defender, move);
+  if (!state) return modifier;
   const weather = cleanId(state.field?.weather?.id);
   if (weather === "sunnyday" || weather === "desolateland") {
     if (move.type === "Fire") modifier *= 1.5;
@@ -730,7 +815,6 @@ function fieldDamageModifier(
   if (defender.volatiles?.tarshot && move.type === "Fire") {
     modifier *= 2;
   }
-
   if (!critical && Number.isInteger(defenderSide)) {
     if (hasSideCondition(state, defenderSide, "auroraveil")) {
       modifier *= 0.5;
@@ -813,7 +897,10 @@ export function createSimpleBattle(setup) {
     throw new Error("A simple battle requires exactly two sides");
   }
   const sides = setup.sides.map(normalizeSide);
-  return {
+  if (setup.strictAbilityValidation === true) {
+    validateSupportedAbilities(sides);
+  }
+  const state = {
     engine: { id: ENGINE_ID, version: ENGINE_VERSION },
     seed: Number(setup.seed ?? 0) >>> 0,
     rngState: null,
@@ -841,11 +928,34 @@ export function createSimpleBattle(setup) {
     aiTrace: [],
     warnings: [],
   };
+  for (let sideIndex = 0; sideIndex < state.sides.length; sideIndex += 1) {
+    applyEntryAbilities(state, sideIndex, activePokemon(state, sideIndex));
+  }
+  return state;
 }
 
 function activePokemon(state, sideIndex) {
   const side = state.sides[sideIndex];
   return side.team[side.active];
+}
+
+function applyEntryAbilities(state, sideIndex, pokemon) {
+  if (!pokemon || pokemon.fainted) return;
+  const ability = activeAbility(pokemon);
+  if (ability !== "intimidate") return;
+  const targetSide = sideIndex === 0 ? 1 : 0;
+  const target = activePokemon(state, targetSide);
+  if (!target || target.fainted) return;
+  state.events.push({
+    turn: state.turn,
+    type: "ability_activate",
+    side: sideIndex,
+    pokemon: pokemon.name,
+    ability,
+    targetSide,
+    target: target.name,
+  });
+  applyBoosts(state, targetSide, target, { attack: -1 }, ability);
 }
 
 function usableMove(pokemon, requestedSlot) {
@@ -1372,6 +1482,7 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
     selection: options.selection,
   });
   applyEntryHazards(state, sideIndex, side.team[side.active]);
+  applyEntryAbilities(state, sideIndex, side.team[side.active]);
 }
 
 function executeSwitch(state, action) {
@@ -1770,6 +1881,7 @@ function canReceiveStatus(
   }
   if (status === "brn" && pokemon.types.includes("Fire")) return false;
   if (status === "par" && pokemon.types.includes("Electric")) return false;
+  if (statusBlockedByAbility(pokemon, status)) return false;
   if (
     (status === "psn" || status === "tox") &&
     (pokemon.types.includes("Poison") || pokemon.types.includes("Steel"))
@@ -2015,6 +2127,9 @@ function volatileDuration(id) {
 function applyVolatileStatus(state, side, pokemon, id, source, sourceSide = null) {
   const normalized = cleanId(id);
   if (!normalized || pokemon.fainted || pokemon.volatiles[normalized]) {
+    return false;
+  }
+  if (normalized === "confusion" && activeAbility(pokemon) === "owntempo") {
     return false;
   }
   const turns = volatileDuration(normalized);
@@ -2681,8 +2796,9 @@ function applyBoosts(state, side, pokemon, boosts, source) {
   let changed = false;
   for (const [stat, amount] of Object.entries(boosts ?? {})) {
     if (!BOOST_STATS.includes(stat) || !Number.isFinite(amount)) continue;
+    const modifiedAmount = activeAbility(pokemon) === "simple" ? amount * 2 : amount;
     const previous = pokemon.boosts[stat] ?? 0;
-    const next = Math.max(-6, Math.min(6, previous + amount));
+    const next = Math.max(-6, Math.min(6, previous + modifiedAmount));
     const applied = next - previous;
     if (applied === 0) continue;
     pokemon.boosts[stat] = next;
@@ -3207,6 +3323,25 @@ function executeMove(state, action, rng) {
     return false;
   }
   if (!action.locked) sourceMove.pp -= 1;
+  if (
+    !action.locked &&
+    activeAbility(defender) === "pressure" &&
+    sourceMove.pp > 0 &&
+    !["self", "allyside"].includes(cleanId(sourceMove.target))
+  ) {
+    sourceMove.pp -= 1;
+    state.events.push({
+      turn: state.turn,
+      type: "pp_reduced",
+      side: action.side,
+      pokemon: attacker.name,
+      move: sourceMove.name,
+      moveId: sourceMove.id,
+      amount: 1,
+      remainingPp: sourceMove.pp,
+      source: "pressure",
+    });
+  }
   if (sourceMoveId === "snore" && attacker.status !== "slp") {
     state.events.push({
       turn: state.turn,
