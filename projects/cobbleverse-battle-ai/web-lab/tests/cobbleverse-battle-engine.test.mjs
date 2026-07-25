@@ -1552,6 +1552,56 @@ test("lets a non-Mega fallback use Dynamax after the configured Dynamax Pokémon
   assert.equal(chooseSimpleAiCommand(state, 1, "expert", "balanced").gimmick, undefined);
 });
 
+test("does not use fallback Dynamax while another configured Dynamax Pokémon is alive", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "PlayerMon",
+              stats: { ...pokemon().stats, attack: 220 },
+              moves: [
+                {
+                  id: "megaton",
+                  name: "Megaton",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 160,
+                  accuracy: 100,
+                  pp: 5,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "FaintedDynamax",
+              gimmicks: { dynamax: true },
+            }),
+            pokemon({
+              name: "LivingDynamax",
+              gimmicks: { dynamax: true },
+            }),
+            pokemon({
+              name: "PikachuFallback",
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[1].team[0].fainted = true;
+  state.sides[1].team[0].hp = 0;
+  state.sides[1].active = 2;
+
+  assert.equal(chooseSimpleAiCommand(state, 1, "expert", "balanced").gimmick, undefined);
+});
+
 test("scores recovery and setup as real AI actions", () => {
   const state = createSimpleBattle(
     setup({
@@ -2175,6 +2225,226 @@ test("sets entry hazards and applies them to the next switch-in", () => {
   );
 });
 
+test("AI avoids selecting already maxed entry hazards", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "HazardSetter",
+              stats: { ...pokemon().stats, speed: 150, attack: 130 },
+              moves: [
+                {
+                  id: "stealthrock",
+                  name: "Stealth Rock",
+                  type: "Rock",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 20,
+                  target: "foeSide",
+                  sideCondition: "stealthrock",
+                },
+                {
+                  id: "rockslide",
+                  name: "Rock Slide",
+                  type: "Rock",
+                  category: "Physical",
+                  power: 75,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Player",
+          team: [pokemon({ name: "Target" })],
+        },
+      ],
+    }),
+  );
+  state.sides[1].conditions.stealthrock = { id: "stealthrock", layers: 1 };
+
+  const command = chooseSimpleAiCommand(state, 0, "expert", "hazard");
+
+  assert.equal(command.move, 2);
+});
+
+test("AI values Trick Room when slow attackers can sweep after the setter survives", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "Porygon2",
+              stats: {
+                ...pokemon().stats,
+                hp: 220,
+                defence: 140,
+                specialDefence: 140,
+                specialAttack: 75,
+                speed: 55,
+              },
+              moves: [
+                {
+                  id: "trickroom",
+                  name: "Trick Room",
+                  type: "Psychic",
+                  category: "Status",
+                  accuracy: true,
+                  priority: -7,
+                  pp: 5,
+                  target: "all",
+                  pseudoWeather: "trickroom",
+                },
+                {
+                  id: "icebeam",
+                  name: "Ice Beam",
+                  type: "Ice",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+            pokemon({
+              name: "Mawile",
+              species: "Mawile",
+              ability: "hugepower",
+              stats: { ...pokemon().stats, attack: 120, speed: 50 },
+              moves: [
+                {
+                  id: "playrough",
+                  name: "Play Rough",
+                  type: "Fairy",
+                  category: "Physical",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "FastTarget",
+              stats: { ...pokemon().stats, hp: 280, attack: 80, speed: 170 },
+              moves: [
+                {
+                  id: "quickhit",
+                  name: "Quick Hit",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 45,
+                  accuracy: 100,
+                  pp: 30,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  const command = chooseSimpleAiCommand(state, 0, "expert", "balanced");
+
+  assert.equal(command.move, 1);
+});
+
+test("automatic replacement prefers Pokemon that benefit from active weather", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Attacker",
+              stats: { ...pokemon().stats, attack: 220, speed: 200 },
+              moves: [
+                {
+                  id: "knockout",
+                  name: "Knock Out",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 160,
+                  accuracy: 100,
+                  pp: 5,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "FaintedLead",
+              stats: { ...pokemon().stats, hp: 60, defence: 40, speed: 40 },
+            }),
+            pokemon({
+              name: "RainSweeper",
+              ability: "swiftswim",
+              types: ["Water"],
+              stats: { ...pokemon().stats, attack: 85, speed: 80 },
+              moves: [
+                {
+                  id: "aquajetless",
+                  name: "Water Hit",
+                  type: "Water",
+                  category: "Physical",
+                  power: 45,
+                  accuracy: 100,
+                  pp: 20,
+                },
+              ],
+            }),
+            pokemon({
+              name: "NeutralPower",
+              stats: { ...pokemon().stats, attack: 110, speed: 90 },
+              moves: [
+                {
+                  id: "slash",
+                  name: "Slash",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 70,
+                  accuracy: 100,
+                  pp: 20,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.field.weather = { id: "raindance", turns: 5 };
+
+  const next = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+
+  assert.equal(next.sides[1].active, 1);
+  assert.ok(
+    next.events.some(
+      (event) =>
+        event.type === "switch" &&
+        event.side === 1 &&
+        event.pokemon === "RainSweeper" &&
+        event.automatic === true,
+    ),
+  );
+});
+
 test("resolves fixed multi-hit moves and guaranteed critical hits per hit", () => {
   const state = createSimpleBattle(
     setup({
@@ -2512,6 +2782,84 @@ test("ends Dynamax immediately when the active Pokémon switches out", () => {
         event.pokemon === "DynamaxUser" &&
         event.reason === "switch",
     ),
+  );
+});
+
+test("Dynamax Max Move effects replace the source move side effects", () => {
+  const state = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                id: "urshifurapidstrike",
+                name: "Urshifu-Rapid-Strike",
+                types: ["Fighting", "Water"],
+                stats: { ...pokemon().stats, attack: 150, speed: 120 },
+                gimmicks: { canDynamax: true, gigantamax: true },
+                moves: [
+                  {
+                    id: "closecombat",
+                    name: "Close Combat",
+                    type: "Fighting",
+                    category: "Physical",
+                    power: 120,
+                    accuracy: 100,
+                    pp: 5,
+                    selfBoosts: { defence: -1, specialDefence: -1 },
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "Target",
+                stats: { ...pokemon().stats, hp: 240, defence: 130, speed: 40 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1, gimmick: "dynamax" }, { move: 1 }],
+  );
+
+  const user = state.sides[0].team[0];
+  assert.equal(user.boosts.attack, 1);
+  assert.equal(user.boosts.defence, 0);
+  assert.equal(user.boosts.specialDefence, 0);
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.type === "move" &&
+        event.side === 0 &&
+        event.move === "Max Knuckle",
+    ),
+  );
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.type === "stat_change" &&
+        event.pokemon === "Urshifu-Rapid-Strike" &&
+        event.stat === "atk" &&
+        event.amount === 1 &&
+        event.source === "Max Knuckle",
+    ),
+  );
+  assert.equal(
+    state.events.some(
+      (event) =>
+        event.type === "stat_change" &&
+        event.pokemon === "Urshifu-Rapid-Strike" &&
+        ["def", "spd"].includes(event.stat) &&
+        event.amount < 0,
+    ),
+    false,
   );
 });
 

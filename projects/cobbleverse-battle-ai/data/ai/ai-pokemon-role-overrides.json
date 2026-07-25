@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "description": "Species-level AI role priors. These are soft bonuses added after move-role and stat inference.",
+  "roles": {
+    "aerodactyl": {
+      "roleScores": { "lead": 2.5, "hazardControl": 1.5, "revengeKiller": 1.5 },
+      "reasons": ["고속 선봉/스텔스록 역할로 자주 쓰이는 포켓몬입니다."]
+    },
+    "archaludon": {
+      "roleScores": { "ace": 1.8, "wall": 1.2, "setupSweeper": 1 },
+      "reasons": ["높은 화력과 내구를 함께 가진 돌파 자원으로 봅니다."]
+    },
+    "baxcalibur": {
+      "roleScores": { "ace": 2.8, "setupSweeper": 2.2 },
+      "reasons": ["랭크업 후 마무리하는 물리 에이스 성향이 강합니다."]
+    },
+    "blaziken": {
+      "roleScores": { "ace": 2.6, "setupSweeper": 2.2, "revengeKiller": 1.3 },
+      "reasons": ["가속 기반 스위퍼/마무리 역할로 자주 쓰입니다."]
+    },
+    "blissey": {
+      "roleScores": { "wall": 3.8, "support": 2 },
+      "reasons": ["특수 막이와 장기전 지원 역할이 강한 포켓몬입니다."]
+    },
+    "claydol": {
+      "roleScores": { "hazardControl": 2.5, "support": 1.4, "wall": 1 },
+      "reasons": ["설치물 제거와 보조 운영 역할로 평가합니다."]
+    },
+    "corviknight": {
+      "roleScores": { "wall": 3, "pivot": 2.5, "hazardControl": 1.5 },
+      "reasons": ["막이, 피벗, 판 제거를 겸하는 방어 코어 후보입니다."]
+    },
+    "crobat": {
+      "roleScores": { "pivot": 2.4, "revengeKiller": 2, "disruptor": 1.4 },
+      "reasons": ["고속 피벗과 방해 역할을 기대할 수 있습니다."]
+    },
+    "dragonite": {
+      "roleScores": { "ace": 2.8, "setupSweeper": 2.3, "revengeKiller": 1 },
+      "reasons": ["랭크업 에이스와 선공 마무리 역할이 강합니다."]
+    },
+    "ferrothorn": {
+      "roleScores": { "wall": 3, "hazardControl": 2.5, "support": 1.5 },
+      "reasons": ["막이와 설치물 운용 역할이 강한 포켓몬입니다."]
+    },
+    "garchomp": {
+      "roleScores": { "ace": 2.5, "setupSweeper": 2, "hazardControl": 1.2 },
+      "reasons": ["물리 에이스, 랭크업 스위퍼, 선봉 설치 역할을 모두 기대할 수 있습니다."]
+    },
+    "garganacl": {
+      "roleScores": { "wall": 3.2, "support": 1.8, "hazardControl": 1.4, "disruptor": 1 },
+      "reasons": ["고내구와 소금절이 압박, 설치물 운용을 겸하는 장기전 자원입니다."]
+    },
+    "gengar": {
+      "roleScores": { "ace": 2.3, "revengeKiller": 2, "disruptor": 1.5 },
+      "reasons": ["빠른 특수 공격수이면서 방해 기술 가치도 있는 포켓몬입니다."]
+    },
+    "gliscor": {
+      "roleScores": { "wall": 2.8, "pivot": 1.8, "hazardControl": 1.2 },
+      "reasons": ["물리 막이와 장기전 피벗 역할이 강합니다."]
+    },
+    "golem": {
+      "roleScores": { "lead": 2, "hazardControl": 1.8, "support": 1 },
+      "reasons": ["선봉 설치와 튼튼한 초반 교환 역할로 평가합니다."]
+    },
+    "greninja": {
+      "roleScores": { "ace": 2.4, "revengeKiller": 2.2, "pivot": 1.3 },
+      "reasons": ["빠른 공격수와 마무리 역할이 강합니다."]
+    },
+    "mawile": {
+      "roleScores": { "ace": 2.2, "wall": 1.2, "disruptor": 1 },
+      "reasons": ["메가진화 또는 위협 기반 물리 압박 자원으로 평가합니다."]
+    },
+    "metagross": {
+      "roleScores": { "ace": 2.6, "wall": 1.5, "revengeKiller": 1 },
+      "reasons": ["높은 화력과 내구를 가진 물리 돌파 자원입니다."]
+    },
+    "mimikyu": {
+      "roleScores": { "setupSweeper": 2.4, "revengeKiller": 1.8, "ace": 1.6 },
+      "reasons": ["탈 기반 랭크업과 마무리 역할을 기대합니다."]
+    },
+    "muk": {
+      "roleScores": { "wall": 2.2, "disruptor": 1.5, "support": 1 },
+      "reasons": ["상태 이상과 내구 기반 교체 받이 역할로 평가합니다."]
+    },
+    "pelipper": {
+      "roleScores": { "support": 2.5, "pivot": 1.8, "hazardControl": 1 },
+      "reasons": ["날씨 지원과 피벗 역할을 기대할 수 있습니다."]
+    },
+    "porygon2": {
+      "roleScores": { "wall": 3.5, "support": 1.8, "disruptor": 1 },
+      "reasons": ["진화의휘석 기반 막이와 상태 지원 역할이 강합니다."]
+    },
+    "shedinja": {
+      "roleScores": { "disruptor": 2.2, "support": 1.5 },
+      "reasons": ["특수한 내성 구조로 상대 선택을 제한하는 역할입니다."]
+    },
+    "scizor": {
+      "roleScores": { "ace": 2.2, "revengeKiller": 2.1, "pivot": 1.7, "setupSweeper": 1.5 },
+      "reasons": ["선공기와 유턴, 랭크업을 통해 마무리와 피벗 역할을 겸합니다."]
+    },
+    "skarmory": {
+      "roleScores": { "wall": 3.2, "hazardControl": 2.4, "support": 1.5 },
+      "reasons": ["물리 막이와 설치물 운용 역할이 강합니다."]
+    },
+    "snorlax": {
+      "roleScores": { "wall": 3, "setupSweeper": 1.5, "ace": 1 },
+      "reasons": ["특수 내구와 축적 운영을 기대할 수 있는 장기전 자원입니다."]
+    },
+    "toxapex": {
+      "roleScores": { "wall": 3.8, "support": 2, "disruptor": 1.8 },
+      "reasons": ["막이, 상태 이상, 랭크업 억제 역할이 강합니다."]
+    },
+    "tyranitar": {
+      "roleScores": { "ace": 2.2, "wall": 1.8, "support": 1.5 },
+      "reasons": ["모래날림 지원과 높은 종합 능력치 기반 돌파 역할을 봅니다."]
+    },
+    "ursaluna": {
+      "roleScores": { "ace": 2.8, "wall": 1.4, "setupSweeper": 1.2 },
+      "reasons": ["높은 물리 화력으로 느린 돌파와 트릭룸 수혜 역할이 강합니다."]
+    },
+    "ursalunabloodmoon": {
+      "roleScores": { "ace": 2.7, "wall": 1.5, "setupSweeper": 1 },
+      "reasons": ["높은 특수 화력과 내구로 느린 돌파 역할을 기대합니다."]
+    },
+    "urshifurapidstrike": {
+      "roleScores": { "ace": 3, "disruptor": 1.4, "revengeKiller": 1.2 },
+      "reasons": ["연속타와 높은 물리 압박으로 막이 돌파 역할이 강합니다."]
+    },
+    "weavile": {
+      "roleScores": { "revengeKiller": 2.8, "ace": 2, "disruptor": 1 },
+      "reasons": ["고속 물리 마무리와 상대 에이스 견제 역할이 강합니다."]
+    },
+    "weezing": {
+      "roleScores": { "wall": 2.5, "disruptor": 2, "support": 1.3 },
+      "reasons": ["물리 교체 받이와 방해 역할로 평가합니다."]
+    },
+    "zekrom": {
+      "roleScores": { "ace": 3.4, "setupSweeper": 2, "disruptor": 1 },
+      "reasons": ["높은 물리 화력과 랭크업 압박을 가진 핵심 돌파 자원입니다."]
+    },
+    "calyrexshadow": {
+      "roleScores": { "ace": 3.3, "revengeKiller": 2.3, "setupSweeper": 1.4 },
+      "reasons": ["초고속 특수 에이스와 마무리 역할이 매우 강합니다."]
+    },
+    "calyrexshadowrider": {
+      "roleScores": { "ace": 3.3, "revengeKiller": 2.3, "setupSweeper": 1.4 },
+      "reasons": ["초고속 특수 에이스와 마무리 역할이 매우 강합니다."]
+    },
+    "magnezone": {
+      "roleScores": { "ace": 2.2, "support": 1.2, "disruptor": 1 },
+      "reasons": ["강한 특수 화력과 강철 견제 역할을 기대할 수 있습니다."]
+    }
+  }
+}

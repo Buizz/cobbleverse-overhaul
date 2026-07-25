@@ -19,6 +19,27 @@ const MAX_MOVE_BY_TYPE = {
   fairy: { id: "maxstarfall", name: "Max Starfall" },
 };
 
+const MAX_MOVE_EFFECTS = {
+  maxstrike: { boosts: { speed: -1 } },
+  maxflare: { weather: "sunnyday" },
+  maxgeyser: { weather: "raindance" },
+  maxlightning: { terrain: "electricterrain" },
+  maxovergrowth: { terrain: "grassyterrain" },
+  maxhailstorm: { weather: "snow" },
+  maxknuckle: { selfBoosts: { attack: 1 } },
+  maxooze: { selfBoosts: { specialAttack: 1 } },
+  maxquake: { selfBoosts: { specialDefence: 1 } },
+  maxairstream: { selfBoosts: { speed: 1 } },
+  maxmindstorm: { terrain: "psychicterrain" },
+  maxflutterby: { boosts: { specialAttack: -1 } },
+  maxrockfall: { weather: "sandstorm" },
+  maxphantasm: { boosts: { defence: -1 } },
+  maxwyrmwind: { boosts: { attack: -1 } },
+  maxdarkness: { boosts: { specialDefence: -1 } },
+  maxsteelspike: { selfBoosts: { defence: 1 } },
+  maxstarfall: { terrain: "mistyterrain" },
+};
+
 const GMAX_MOVE_BY_SPECIES = {
   venusaur: { id: "gmaxvinelash", name: "G-Max Vine Lash", type: "grass" },
   charizard: { id: "gmaxwildfire", name: "G-Max Wildfire", type: "fire" },
@@ -65,9 +86,16 @@ function cleanId(value) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+function withMaxMoveEffects(move) {
+  return {
+    ...move,
+    ...(MAX_MOVE_EFFECTS[move.id] ?? {}),
+  };
+}
+
 export function resolveNativeMaxMove(pokemon, move) {
   if (move?.category === "Status") {
-    return { id: "maxguard", name: "Max Guard" };
+    return { id: "maxguard", name: "Max Guard", volatileStatus: "protect" };
   }
 
   const type = cleanId(move?.type);
@@ -82,9 +110,9 @@ export function resolveNativeMaxMove(pokemon, move) {
         ? GMAX_MOVE_BY_SPECIES.urshifurapidstrike
         : null);
     if (gmaxMove?.type === type) {
-      return { id: gmaxMove.id, name: gmaxMove.name };
+      return withMaxMoveEffects({ id: gmaxMove.id, name: gmaxMove.name });
     }
   }
 
-  return MAX_MOVE_BY_TYPE[type] ?? MAX_MOVE_BY_TYPE.normal;
+  return withMaxMoveEffects(MAX_MOVE_BY_TYPE[type] ?? MAX_MOVE_BY_TYPE.normal);
 }

@@ -3,10 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+import {
+  analyzeTeamProfile,
+  teamRoleLabel,
+} from "../../lib/common-battle-ai.mjs";
 import { localizedSpeciesName } from "../../lib/species-localization.mjs";
 
 const EVE_REPORT_KEY = "cobbleverse-battle-lab:eve-report";
 const EVE_HISTORY_KEY = "cobbleverse-battle-lab:eve-history";
+const EVE_HISTORY_LIMIT = 20;
 
 type AiProfile = {
   difficulty: "novice" | "standard" | "advanced" | "expert" | "cheater";
@@ -33,7 +38,33 @@ type Scenario = {
   sides: Array<{
     name: string;
     trainerId: string | null;
-    team: Array<{ slot: number; species: string; level: number }>;
+    team: Array<{
+      slot: number;
+      species: string;
+      name?: string;
+      level: number;
+      types?: string[];
+      ability?: string;
+      item?: string;
+      heldItem?: string;
+      gimmicks?: Record<string, unknown>;
+      moves?: Array<
+        | string
+        | {
+            id?: string;
+            moveId?: string;
+            name?: string;
+            move?: string;
+            power?: number;
+            category?: string;
+            type?: string;
+            priority?: number;
+          }
+      >;
+      stats?: Record<string, number>;
+      baseStats?: Record<string, number>;
+      baseStatsRaw?: Record<string, number>;
+    }>;
   }>;
 };
 
@@ -346,18 +377,159 @@ function turnPlainText(
   return `${lines.join("\n")}\n\n----------------------------------------------------`;
 }
 
+function roleNameList(entry: ReturnType<typeof analyzeTeamProfile>["roles"][number]) {
+  const labels = entry.roles.slice(0, 2).map((role) => teamRoleLabel(role.role));
+  return labels.length > 0 ? labels.join(" / ") : teamRoleLabel(entry.primaryRole);
+}
+
+function roleSpeciesName(
+  localization: LocalizationCatalog | null,
+  species: string | undefined,
+) {
+  return localSpecies(localization, species);
+}
+
+function roleSummaryLine(
+  localization: LocalizationCatalog | null,
+  entry: ReturnType<typeof analyzeTeamProfile>["roles"][number],
+) {
+  const name = roleSpeciesName(localization, entry.species);
+  const score = entry.roles[0]?.score ?? 0;
+  const reason = entry.reasons[0] ? ` - ${entry.reasons[0]}` : "";
+  const warnings =
+    entry.warnings?.length > 0 ? ` [확인: ${entry.warnings.join(", ")}]` : "";
+  return `  - ${entry.slot}. ${name}: ${roleNameList(entry)} (${score.toFixed(1)})${reason}${warnings}`;
+}
+
+function roleNameSummary(
+  localization: LocalizationCatalog | null,
+  entries: ReturnType<typeof analyzeTeamProfile>["roles"],
+) {
+  if (entries.length === 0) return "없음";
+  return entries
+    .map((entry) => roleSpeciesName(localization, entry.species))
+    .join(", ");
+}
+
+function teamRolePlainText(
+  report: ReportData,
+  localization: LocalizationCatalog | null,
+) {
+  const lines = ["AI 팀 역할 분석"];
+  for (const [sideIndex, side] of report.scenario.sides.entries()) {
+    const profile = analyzeTeamProfile(side.team);
+    lines.push(`${sideIndex + 1}P ${side.name}`);
+    for (const entry of profile.roles.slice(0, 6)) {
+      lines.push(roleSummaryLine(localization, entry));
+    }
+    lines.push(
+      `  에이스 후보: ${roleNameSummary(localization, profile.aceCandidates)}`,
+    );
+    lines.push(
+      `  막이 코어: ${roleNameSummary(localization, profile.defensiveCore)}`,
+    );
+    lines.push(
+      `  판 관리: 설치 ${roleNameSummary(
+        localization,
+        profile.hazardPlan.setters,
+      )} / 제거 ${roleNameSummary(localization, profile.hazardPlan.removers)}`,
+    );
+    if (profile.vulnerabilities.length > 0) {
+      lines.push(`  주의: ${profile.vulnerabilities.join(" / ")}`);
+    }
+  }
+  return `${lines.join("\n")}\n\n----------------------------------------------------`;
+}
+
 function battlePlainText(
   report: ReportData,
   localization: LocalizationCatalog | null,
 ) {
   const traceMap = traceByTurnAndSide(report);
-  return Array.from({ length: report.battle.turns }, (_, index) =>
+  const turnLog = Array.from({ length: report.battle.turns }, (_, index) =>
     turnPlainText(report, index + 1, localization, traceMap),
   ).join("\n\n");
+  return `${teamRolePlainText(report, localization)}\n\n${turnLog}`;
 }
 
 function historyId(report: ReportData) {
   return `${report.battle.battleId}:${report.savedAt}`;
+}
+
+function winnerSummary(report: ReportData) {
+  const winner = report.battle.winner;
+  if (!winner) return { side: "DRAW", label: "무승부" };
+  const sideIndex = report.scenario.sides.findIndex((side) => side.name === winner);
+  if (sideIndex < 0) return { side: "WIN", label: `${winner} 승리` };
+  return {
+    side: `${sideIndex + 1}P`,
+    label: `${sideIndex + 1}P 승리 · ${winner}`,
+  };
+}
+
+function compactReportForStorage(report: ReportData): ReportData {
+  return {
+    ...report,
+    battle: {
+      ...report.battle,
+      log: [],
+      aiTrace: report.battle.aiTrace?.map((trace) => ({
+        ...trace,
+        candidates: trace.candidates.slice(0, 6).map((candidate) => ({
+          slot: candidate.slot,
+          id: candidate.id,
+          name: candidate.name,
+          power: candidate.power,
+          score: candidate.score,
+          selected: candidate.selected,
+        })),
+      })),
+    },
+  };
+}
+
+function compactHistoryForStorage(history: ReportData[]) {
+  const seen = new Set<string>();
+  const compacted: ReportData[] = [];
+  for (const entry of history) {
+    const id = historyId(entry);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    compacted.push(compactReportForStorage(entry));
+    if (compacted.length >= EVE_HISTORY_LIMIT) break;
+  }
+  return compacted;
+}
+
+function trySetStorageItem(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function persistEveStorage(history: ReportData[], latest?: ReportData) {
+  const compactLatest = latest ? compactReportForStorage(latest) : null;
+  if (compactLatest) {
+    if (!trySetStorageItem(EVE_REPORT_KEY, JSON.stringify(compactLatest))) {
+      localStorage.removeItem(EVE_REPORT_KEY);
+    }
+  }
+
+  let nextHistory = compactHistoryForStorage(history);
+  while (nextHistory.length > 0) {
+    if (trySetStorageItem(EVE_HISTORY_KEY, JSON.stringify(nextHistory))) {
+      return {
+        history: nextHistory,
+        trimmed: nextHistory.length < Math.min(history.length, EVE_HISTORY_LIMIT),
+      };
+    }
+    nextHistory = nextHistory.slice(0, -1);
+  }
+  localStorage.removeItem(EVE_HISTORY_KEY);
+  return { history: [], trimmed: history.length > 0 };
 }
 
 export default function EveReport() {
@@ -399,12 +571,15 @@ export default function EveReport() {
         setError("저장된 EVE 리포트를 읽지 못했습니다.");
       }
       if (restored.length > 0) {
-        const nextHistory = restored.slice(0, 50);
+        const nextHistory = compactHistoryForStorage(restored);
         setHistory(nextHistory);
         setSelectedId(historyId(nextHistory[0]));
         setSeed(nextHistory[0].scenario.seed);
         setProfiles([...profilesOf(nextHistory[0])]);
-        localStorage.setItem(EVE_HISTORY_KEY, JSON.stringify(nextHistory));
+        const stored = persistEveStorage(nextHistory, nextHistory[0]);
+        if (stored.trimmed) {
+          setError("저장 공간이 부족해 오래된 EvE 전적 일부를 정리했습니다.");
+        }
       }
     }, 0);
     fetch("/data/cobblemon-ko-kr.json")
@@ -421,14 +596,16 @@ export default function EveReport() {
   };
 
   const saveRun = (next: ReportData) => {
-    localStorage.setItem(EVE_REPORT_KEY, JSON.stringify(next));
     setHistory((current) => {
       const nextHistory = [
         next,
         ...current.filter((entry) => historyId(entry) !== historyId(next)),
-      ].slice(0, 50);
-      localStorage.setItem(EVE_HISTORY_KEY, JSON.stringify(nextHistory));
-      return nextHistory;
+      ];
+      const stored = persistEveStorage(nextHistory, next);
+      if (stored.trimmed) {
+        setError("저장 공간이 부족해 오래된 EvE 전적 일부를 정리했습니다.");
+      }
+      return stored.history;
     });
     selectReport(next);
   };
@@ -439,11 +616,13 @@ export default function EveReport() {
 
   const deleteHistory = (entry: ReportData) => {
     const nextHistory = history.filter((item) => historyId(item) !== historyId(entry));
-    setHistory(nextHistory);
-    localStorage.setItem(EVE_HISTORY_KEY, JSON.stringify(nextHistory));
     if (historyId(entry) === historyId(selected) && nextHistory[0]) {
-      localStorage.setItem(EVE_REPORT_KEY, JSON.stringify(nextHistory[0]));
+      const stored = persistEveStorage(nextHistory, nextHistory[0]);
+      setHistory(stored.history);
       selectReport(nextHistory[0]);
+    } else {
+      const stored = persistEveStorage(nextHistory, selected ?? nextHistory[0]);
+      setHistory(stored.history);
     }
     if (nextHistory.length === 0) {
       localStorage.removeItem(EVE_REPORT_KEY);
@@ -588,12 +767,15 @@ export default function EveReport() {
         ...history.filter(
           (entry) => !reports.some((report) => historyId(report) === historyId(entry)),
         ),
-      ].slice(0, 50);
-      setHistory(nextHistory);
-      localStorage.setItem(EVE_HISTORY_KEY, JSON.stringify(nextHistory));
-      if (reports.at(-1)) {
-        localStorage.setItem(EVE_REPORT_KEY, JSON.stringify(reports.at(-1)));
-        selectReport(reports.at(-1)!);
+      ];
+      const latestReport = reports.at(-1);
+      const stored = persistEveStorage(nextHistory, latestReport);
+      setHistory(stored.history);
+      if (stored.trimmed) {
+        setError("저장 공간이 부족해 오래된 EvE 전적 일부를 정리했습니다.");
+      }
+      if (latestReport) {
+        selectReport(latestReport);
       }
       setSweepResult({
         baseSeed,
@@ -806,6 +988,7 @@ export default function EveReport() {
             {history.map((entry, index) => {
               const active = historyId(entry) === historyId(selected);
               const entryProfiles = profilesOf(entry);
+              const winner = winnerSummary(entry);
               return (
                 <div
                   key={historyId(entry)}
@@ -816,7 +999,10 @@ export default function EveReport() {
                     onClick={() => selectHistory(entry)}
                   >
                     <span>#{history.length - index}</span>
-                    <strong>{entry.battle.winner ?? "무승부"}</strong>
+                    <strong className="eve-history-winner">
+                      <b>{winner.side}</b>
+                      {winner.label}
+                    </strong>
                     <small>
                       seed {entry.scenario.seed} · {entry.battle.turns}턴 ·{" "}
                       {strategyNames[entryProfiles[0]?.strategy]} vs{" "}

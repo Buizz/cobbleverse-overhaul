@@ -263,7 +263,7 @@ test("maps original moves to standard and Gigantamax move identities", () => {
       { id: "pikachu", gimmicks: { gigantamax: false } },
       { type: "Electric", category: "Special" },
     ),
-    { id: "maxlightning", name: "Max Lightning" },
+    { id: "maxlightning", name: "Max Lightning", terrain: "electricterrain" },
   );
   assert.deepEqual(
     resolveNativeMaxMove(
@@ -277,14 +277,14 @@ test("maps original moves to standard and Gigantamax move identities", () => {
       { id: "pikachu", gimmicks: { gigantamax: true } },
       { type: "Water", category: "Special" },
     ),
-    { id: "maxgeyser", name: "Max Geyser" },
+    { id: "maxgeyser", name: "Max Geyser", weather: "raindance" },
   );
   assert.deepEqual(
     resolveNativeMaxMove(
       { id: "pikachu", gimmicks: { gigantamax: true } },
       { type: "Normal", category: "Status" },
     ),
-    { id: "maxguard", name: "Max Guard" },
+    { id: "maxguard", name: "Max Guard", volatileStatus: "protect" },
   );
 });
 

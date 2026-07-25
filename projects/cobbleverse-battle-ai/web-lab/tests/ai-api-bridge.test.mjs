@@ -13,6 +13,7 @@ import {
   toAiApiObservationDraft,
 } from "../lib/ai-api-bridge/observation-adapter.mjs";
 import {
+  analyzeTeamProfile,
   createAiMoveTrace,
   createAiSwitchTrace,
   scoreAiDynamaxCandidate,
@@ -20,12 +21,97 @@ import {
   moveRoleValue,
   scoreAiMoveCandidate,
   selectAiMoveCandidate,
+  teamRoleLabel,
 } from "../lib/common-battle-ai.mjs";
 
 test("loads shared AI move role catalog through the web bridge", async () => {
   const catalog = await loadMoveRoleCatalog();
   assert.ok(getMoveRoleEntry(catalog, "Stealth Rock").tags.includes("HAZARD_SET"));
   assert.ok(getMoveRoleScore(catalog, "Swords Dance", "setupSweeper") >= 4);
+});
+
+test("analyzes team member roles from moves and stats", () => {
+  const report = analyzeTeamProfile([
+    {
+      slot: 1,
+      species: "Garchomp",
+      stats: { attack: 130, speed: 102, hp: 183, defense: 115, specialDefense: 105 },
+      moves: ["Swords Dance", "Earthquake", "Stealth Rock", "Dragon Claw"],
+    },
+    {
+      slot: 2,
+      species: "Corviknight",
+      stats: { hp: 205, defense: 150, specialDefense: 105 },
+      moves: ["Roost", "U-turn", "Defog", "Body Press"],
+    },
+    {
+      slot: 3,
+      species: "Scizor",
+      stats: { attack: 150, speed: 85 },
+      moves: ["Bullet Punch", "U-turn", "Swords Dance"],
+    },
+  ]);
+
+  const chomp = report.roles.find((entry) => entry.species === "Garchomp");
+  const corviknight = report.roles.find((entry) => entry.species === "Corviknight");
+  const scizor = report.roles.find((entry) => entry.species === "Scizor");
+  assert.ok(chomp.roles.some((role) => role.role === "setupSweeper"));
+  assert.ok(report.hazardPlan.setters.some((entry) => entry.species === "Garchomp"));
+  assert.ok(corviknight.roles.some((role) => role.role === "wall"));
+  assert.ok(corviknight.roles.some((role) => role.role === "pivot"));
+  assert.ok(scizor.roles.some((role) => role.role === "revengeKiller"));
+  assert.equal(teamRoleLabel("ace"), "에이스");
+});
+
+test("uses species role priors as soft bonuses in team analysis", () => {
+  const report = analyzeTeamProfile([
+    {
+      slot: 1,
+      species: "Porygon2",
+      moves: ["Tackle"],
+    },
+    {
+      slot: 2,
+      species: "Aerodactyl",
+      moves: ["Wing Attack"],
+    },
+  ]);
+
+  const porygon2 = report.roles.find((entry) => entry.species === "Porygon2");
+  const aerodactyl = report.roles.find((entry) => entry.species === "Aerodactyl");
+  assert.ok(porygon2.roles.some((role) => role.role === "wall"));
+  assert.ok(aerodactyl.roles.some((role) => role.role === "lead"));
+  assert.ok(
+    porygon2.reasons.some((reason) => reason.startsWith("포켓몬 기본 역할:")),
+  );
+});
+
+test("analyzes team roles from scenario moveset fields", () => {
+  const report = analyzeTeamProfile([
+    {
+      slot: 1,
+      species: "Garganacl",
+      moveset: ["stealthrock", "saltcure", "earthquake", "explosion"],
+    },
+    {
+      slot: 2,
+      species: "Zekrom",
+      moveset: ["dragondance", "boltstrike", "outrage"],
+    },
+    {
+      slot: 3,
+      species: "Calyrex-Shadow",
+      moveset: ["nastyplot", "astralbarrage"],
+    },
+  ]);
+
+  const garganacl = report.roles.find((entry) => entry.species === "Garganacl");
+  const zekrom = report.roles.find((entry) => entry.species === "Zekrom");
+  const calyrex = report.roles.find((entry) => entry.species === "Calyrex-Shadow");
+  assert.ok(garganacl.roles.some((role) => role.role === "hazardControl"));
+  assert.ok(zekrom.roles.some((role) => role.role === "ace"));
+  assert.ok(calyrex.roles.some((role) => role.role === "revengeKiller"));
+  assert.equal(zekrom.warnings.includes("기술 정보 없음"), false);
 });
 
 test("converts web battle state into an ai-api-like observation draft", () => {
@@ -230,6 +316,13 @@ test("applies RunAndBun-inspired setup and hazard scoring rules", () => {
     scoreAiMoveCandidate(stealthRock, "expert", "hazard") >
       scoreAiMoveCandidate(recover, "expert", "hazard"),
   );
+  assert.ok(
+    scoreAiMoveCandidate(
+      { ...stealthRock, opponentHazards: { stealthrock: 1 } },
+      "expert",
+      "hazard",
+    ) < scoreAiMoveCandidate(recover, "expert", "hazard"),
+  );
 
   const selected = selectAiMoveCandidate([recover, haze], {
     difficulty: "expert",
@@ -250,6 +343,59 @@ test("applies RunAndBun-inspired setup and hazard scoring rules", () => {
   const chosen = trace.candidates.find((candidate) => candidate.selected);
   assert.ok(
     chosen.reasons.some((reason) => reason.code === "rule.setup_disruption.boost_reset"),
+  );
+});
+
+test("scores Trick Room for surviving setters with slow ace support", () => {
+  const trickRoom = {
+    slot: 1,
+    id: "trickroom",
+    name: "Trick Room",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    priority: -7,
+    hpPercent: 0.35,
+    incomingDamageRatio: 0.55,
+    trickRoomAdvantage: 4,
+    slowAceCount: 2,
+    canSurviveToSetRoom: true,
+  };
+  const iceBeam = {
+    slot: 2,
+    id: "icebeam",
+    name: "Ice Beam",
+    category: "Special",
+    power: 90,
+    accuracy: 100,
+    expectedDamage: 42,
+  };
+
+  assert.ok(
+    scoreAiMoveCandidate(trickRoom, "expert", "balanced") >
+      scoreAiMoveCandidate(iceBeam, "expert", "balanced"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(
+      { ...trickRoom, trickRoomActive: true },
+      "expert",
+      "balanced",
+    ) < scoreAiMoveCandidate(iceBeam, "expert", "balanced"),
+  );
+
+  const trace = createAiMoveTrace({
+    turn: 2,
+    side: 1,
+    sideName: "AI",
+    species: "Porygon2",
+    difficulty: "expert",
+    strategy: "balanced",
+    selected: trickRoom,
+    candidates: [trickRoom, iceBeam],
+  });
+  const selected = trace.candidates.find((candidate) => candidate.selected);
+  assert.ok(
+    selected.reasons.some((reason) => reason.code === "rule.trick_room.slow_ace_plan"),
   );
 });
 
@@ -358,6 +504,66 @@ test("applies RunAndBun-inspired recovery, pivot, and immediate KO rules", () =>
   );
 });
 
+test("penalizes self-sacrifice moves unless damage and expendable role justify them", () => {
+  const explosionFromAce = {
+    slot: 1,
+    id: "explosion",
+    name: "Explosion",
+    category: "Physical",
+    power: 250,
+    accuracy: 100,
+    expectedDamage: 180,
+    opponentHp: 300,
+    activeRoleScore: 11,
+    koChance: "none",
+  };
+  const bodySlam = {
+    slot: 2,
+    id: "bodyslam",
+    name: "Body Slam",
+    category: "Physical",
+    power: 85,
+    accuracy: 100,
+    expectedDamage: 85,
+    opponentHp: 300,
+    activeRoleScore: 11,
+    koChance: "none",
+  };
+  const finishingExplosion = {
+    ...explosionFromAce,
+    expectedDamage: 120,
+    opponentHp: 100,
+    activeRoleScore: 0,
+    koChance: "guaranteed",
+  };
+
+  assert.ok(
+    scoreAiMoveCandidate(bodySlam, "expert", "balanced") >
+      scoreAiMoveCandidate(explosionFromAce, "expert", "balanced"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(finishingExplosion, "expert", "balanced") >
+      scoreAiMoveCandidate(bodySlam, "expert", "balanced"),
+  );
+
+  const trace = createAiMoveTrace({
+    turn: 3,
+    side: 0,
+    sideName: "AI",
+    species: "Electrode",
+    difficulty: "expert",
+    strategy: "balanced",
+    selected: bodySlam,
+    candidates: [explosionFromAce, bodySlam],
+  });
+  const explosion = trace.candidates.find((candidate) => candidate.id === "explosion");
+  assert.ok(
+    explosion.reasons.some(
+      (reason) => reason.code === "rule.self_sacrifice.resource_cost",
+    ),
+  );
+});
+
 test("applies RunAndBun-inspired lethal, repeated, and Dynamax switch penalties", () => {
   const riskySwitch = {
     slot: 2,
@@ -394,6 +600,37 @@ test("applies RunAndBun-inspired lethal, repeated, and Dynamax switch penalties"
   assert.ok(risky.reasons.some((reason) => reason.code === "rule.switch.repeated_switch"));
   assert.ok(risky.reasons.some((reason) => reason.code === "rule.switch.dynamax_turn_cost"));
   assert.ok(risky.reasons.some((reason) => reason.code === "rule.switch.guaranteed_ko_penalty"));
+});
+
+test("adds switch score for field and weather synergy", () => {
+  const rainAbuser = {
+    slot: 2,
+    name: "Swift Swim attacker",
+    hpPercent: 0.8,
+    expectedDamage: 45,
+    fieldSynergyValue: 42,
+    fieldSynergyLabel: "raindance",
+    fieldSynergyReason: "비에서 쓱쓱으로 스피드가 크게 올라갑니다.",
+  };
+  const neutralAttacker = {
+    slot: 3,
+    name: "Neutral attacker",
+    hpPercent: 0.8,
+    expectedDamage: 70,
+  };
+
+  assert.ok(scoreAiSwitchCandidate(rainAbuser) > scoreAiSwitchCandidate(neutralAttacker));
+
+  const trace = createAiSwitchTrace({
+    turn: 8,
+    side: 1,
+    sideName: "AI",
+    species: "Porygon2",
+    selected: { slot: 2 },
+    candidates: [rainAbuser, neutralAttacker],
+  });
+  const selected = trace.candidates.find((candidate) => candidate.selected);
+  assert.ok(selected.reasons.some((reason) => reason.code === "rule.switch.field_synergy"));
 });
 
 test("scores Dynamax activation against setup opportunity cost", () => {

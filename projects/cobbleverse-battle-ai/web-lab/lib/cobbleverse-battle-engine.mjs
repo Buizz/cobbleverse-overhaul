@@ -7,6 +7,7 @@ import {
 } from "./native-dynamic-power.mjs";
 import { resolveNativeMaxMove } from "./native-max-moves.mjs";
 import {
+  analyzeTeamProfile,
   createAiRng,
   scoreAiMoveCandidate,
   selectAiGimmick,
@@ -1631,14 +1632,43 @@ function transformGimmickMove(state, action, move) {
   }
   if (pokemon.dynamaxTurns > 0) {
     const maxMove = resolveNativeMaxMove(pokemon, move);
+    const isStatus = move.category === "Status";
     return {
       ...move,
       id: maxMove.id,
       name: maxMove.name,
+      accuracy: true,
+      priority: 0,
       power:
-        move.category === "Status"
-          ? move.power
+        isStatus
+          ? 0
           : Math.max(90, Math.min(150, move.power * 1.35)),
+      target: isStatus ? "self" : move.target,
+      critRatio: 1,
+      status: "",
+      selfStatus: "",
+      volatileStatus: maxMove.volatileStatus ?? "",
+      boosts: maxMove.boosts ?? {},
+      selfBoosts: maxMove.selfBoosts ?? {},
+      heal: null,
+      drain: null,
+      recoil: null,
+      weather: maxMove.weather ?? "",
+      terrain: maxMove.terrain ?? "",
+      pseudoWeather: maxMove.pseudoWeather ?? "",
+      sideCondition: maxMove.sideCondition ?? "",
+      slotCondition: "",
+      multihit: null,
+      multiaccuracy: false,
+      willCrit: false,
+      selfSwitch: false,
+      forceSwitch: false,
+      fixedDamage: null,
+      dynamicDamage: false,
+      dynamicPower: false,
+      secondaries: [],
+      sourceMoveId: move.id,
+      isMaxMove: true,
     };
   }
   if (move.category === "Status") return move;
@@ -6101,6 +6131,7 @@ function bestFaintReplacement(state, sideIndex) {
         name: pokemon.name,
         expectedDamage: bestDamage,
         hpPercent: pokemon.hp / pokemon.stats.hp,
+        ...fieldSwitchSynergy(state, sideIndex, pokemon, opponent),
       };
     })
     .filter(Boolean),
@@ -6724,6 +6755,200 @@ export function resolveSimpleTurn(previousState, commands) {
   return state;
 }
 
+function strongestMovePower(pokemon) {
+  return Math.max(
+    0,
+    ...pokemon.moves
+      .filter((move) => move.category !== "Status")
+      .map((move) => Number(move.power ?? 0)),
+  );
+}
+
+function offensiveStat(pokemon) {
+  return Math.max(
+    effectiveStat(pokemon, "attack"),
+    effectiveStat(pokemon, "specialAttack"),
+  );
+}
+
+function trickRoomThreatValue(state, sideIndex, pokemon, opposingSpeed) {
+  if (!pokemon || pokemon.fainted || pokemon.hp <= 0) return 0;
+  const speed = effectiveSpeed(pokemon, state, sideIndex);
+  const role = analyzeTeamProfile([pokemon]).roles[0];
+  const aceScore = Math.max(
+    Number(role?.roleScores?.ace ?? 0),
+    Number(role?.roleScores?.setupSweeper ?? 0),
+  );
+  const offense = offensiveStat(pokemon);
+  const power = strongestMovePower(pokemon);
+  const slowBonus = speed < opposingSpeed ? 1 : speed <= 70 ? 0.6 : 0;
+  if (slowBonus <= 0) return 0;
+  return slowBonus * (aceScore + offense / 80 + power / 70);
+}
+
+function averageAliveSpeed(state, sideIndex) {
+  const alive = state.sides[sideIndex].team.filter(
+    (pokemon) => !pokemon.fainted && pokemon.hp > 0,
+  );
+  if (alive.length === 0) return 0;
+  return (
+    alive.reduce(
+      (sum, pokemon) => sum + effectiveSpeed(pokemon, state, sideIndex),
+      0,
+    ) / alive.length
+  );
+}
+
+function trickRoomContext(
+  state,
+  sideIndex,
+  defenderSide,
+  pokemon,
+  defender,
+  incomingDamageRatio,
+) {
+  const activeSpeed = effectiveSpeed(pokemon, state, sideIndex);
+  const defenderSpeed = effectiveSpeed(defender, state, defenderSide);
+  const ownThreatValue = state.sides[sideIndex].team.reduce(
+    (sum, member) =>
+      sum + trickRoomThreatValue(state, sideIndex, member, defenderSpeed),
+    0,
+  );
+  const opponentThreatValue = state.sides[defenderSide].team.reduce(
+    (sum, member) =>
+      sum + trickRoomThreatValue(state, defenderSide, member, activeSpeed),
+    0,
+  );
+  const slowAceCount = state.sides[sideIndex].team.filter(
+    (member) =>
+      trickRoomThreatValue(state, sideIndex, member, defenderSpeed) >= 3.5,
+  ).length;
+  return {
+    trickRoomActive: Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0,
+    trickRoomAdvantage:
+      Math.round((ownThreatValue - opponentThreatValue) * 100) / 100,
+    slowAceCount,
+    activeIsSlower: activeSpeed < defenderSpeed,
+    activeIsFaster: activeSpeed > defenderSpeed,
+    canSurviveToSetRoom: incomingDamageRatio < 1,
+    ownAverageSpeed: Math.round(averageAliveSpeed(state, sideIndex) * 100) / 100,
+    opponentAverageSpeed:
+      Math.round(averageAliveSpeed(state, defenderSide) * 100) / 100,
+  };
+}
+
+function hasMoveType(pokemon, type) {
+  const wanted = cleanId(type);
+  return pokemon.moves.some(
+    (move) => move.category !== "Status" && cleanId(move.type) === wanted,
+  );
+}
+
+function fieldSwitchSynergy(state, sideIndex, pokemon, opponent) {
+  const weather = cleanId(state.field?.weather?.id);
+  const terrain = cleanId(state.field?.terrain?.id);
+  const trickRoomActive =
+    Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0;
+  const opponentSpeed = effectiveSpeed(opponent, state, sideIndex === 0 ? 1 : 0);
+  const speed = effectiveSpeed(pokemon, state, sideIndex);
+  let value = 0;
+  const reasons = [];
+
+  if (trickRoomActive) {
+    const threat = trickRoomThreatValue(state, sideIndex, pokemon, opponentSpeed);
+    if (threat >= 3.5) {
+      value += Math.min(55, 18 + threat * 8);
+      reasons.push("트릭룸에서 느린 공격 자원이 선공권을 얻습니다.");
+    } else if (speed > opponentSpeed) {
+      value -= 18;
+      reasons.push("트릭룸에서는 빠른 포켓몬의 선공권 가치가 낮아집니다.");
+    }
+  }
+
+  if (["raindance", "primordialsea"].includes(weather)) {
+    if (cleanId(pokemon.ability) === "swiftswim") {
+      value += 34;
+      reasons.push("비에서 쓱쓱으로 스피드가 크게 올라갑니다.");
+    }
+    if (["raindish", "dryskin"].includes(cleanId(pokemon.ability))) {
+      value += 14;
+      reasons.push("비에서 회복/유지력 이득을 얻습니다.");
+    }
+    if (pokemon.types.includes("Water") || hasMoveType(pokemon, "Water")) {
+      value += 16;
+      reasons.push("비에서 물 타입 공격 압박이 강해집니다.");
+    }
+    if (pokemon.types.includes("Fire") || hasMoveType(pokemon, "Fire")) {
+      value -= 10;
+      reasons.push("비에서 불꽃 타입 공격 가치가 낮아집니다.");
+    }
+  }
+
+  if (["sunnyday", "desolateland"].includes(weather)) {
+    if (cleanId(pokemon.ability) === "chlorophyll") {
+      value += 34;
+      reasons.push("쾌청에서 엽록소로 스피드가 크게 올라갑니다.");
+    }
+    if (cleanId(pokemon.ability) === "solarpower") {
+      value += 18;
+      reasons.push("쾌청에서 선파워 화력 이득을 얻습니다.");
+    }
+    if (pokemon.types.includes("Fire") || hasMoveType(pokemon, "Fire")) {
+      value += 16;
+      reasons.push("쾌청에서 불꽃 타입 공격 압박이 강해집니다.");
+    }
+    if (pokemon.types.includes("Water") || hasMoveType(pokemon, "Water")) {
+      value -= 10;
+      reasons.push("쾌청에서 물 타입 공격 가치가 낮아집니다.");
+    }
+  }
+
+  if (weather === "sandstorm") {
+    if (cleanId(pokemon.ability) === "sandrush") {
+      value += 32;
+      reasons.push("모래바람에서 모래헤치기로 스피드가 크게 올라갑니다.");
+    }
+    if (["sandforce", "sandveil"].includes(cleanId(pokemon.ability))) {
+      value += 14;
+      reasons.push("모래바람 특성 이득을 얻습니다.");
+    }
+    if (pokemon.types.includes("Rock")) {
+      value += 12;
+      reasons.push("모래바람에서 바위 타입 특수내구 이득이 있습니다.");
+    }
+  }
+
+  if (["snow", "hail"].includes(weather)) {
+    if (cleanId(pokemon.ability) === "slushrush") {
+      value += 32;
+      reasons.push("눈/싸라기눈에서 눈치우기로 스피드가 크게 올라갑니다.");
+    }
+    if (pokemon.types.includes("Ice") || hasMoveType(pokemon, "Ice")) {
+      value += 10;
+      reasons.push("눈/싸라기눈과 얼음 타입 운영 궁합이 있습니다.");
+    }
+  }
+
+  const terrainBoosts = {
+    electricterrain: "Electric",
+    grassyterrain: "Grass",
+    psychicterrain: "Psychic",
+    mistyterrain: "Fairy",
+  };
+  const terrainType = terrainBoosts[terrain];
+  if (terrainType && (pokemon.types.includes(terrainType) || hasMoveType(pokemon, terrainType))) {
+    value += terrain === "mistyterrain" ? 8 : 12;
+    reasons.push(`${terrainType} 타입 필드 효과를 활용할 수 있습니다.`);
+  }
+
+  return {
+    fieldSynergyValue: Math.round(value * 100) / 100,
+    fieldSynergyLabel:
+      trickRoomActive ? "trickroom" : weather || terrain || "",
+    fieldSynergyReason: reasons[0] ?? "",
+  };
+}
+
 function automaticMoveCandidates(
   state,
   sideIndex,
@@ -6731,7 +6956,14 @@ function automaticMoveCandidates(
   difficulty = "standard",
 ) {
   const pokemon = activePokemon(state, sideIndex);
-  const defender = activePokemon(state, sideIndex === 0 ? 1 : 0);
+  const defenderSide = sideIndex === 0 ? 1 : 0;
+  const defender = activePokemon(state, defenderSide);
+  const opponentHazards = Object.fromEntries(
+    ["stealthrock", "spikes", "toxicspikes", "stickyweb"].map((id) => [
+      id,
+      Number(state.sides[defenderSide]?.conditions?.[id]?.layers ?? 0),
+    ]),
+  );
   const opponentBestDamage = defender.moves.reduce((best, move) => {
     const range = calculateDamageRange(defender, pokemon, move);
     const accuracy = move.accuracy === true ? 1 : move.accuracy / 100;
@@ -6739,6 +6971,21 @@ function automaticMoveCandidates(
   }, 0);
   const incomingDamageRatio =
     pokemon.hp > 0 ? opponentBestDamage / pokemon.hp : 1;
+  const activeRoleProfile = analyzeTeamProfile([
+    {
+      ...pokemon,
+      moves: pokemon.moves.filter((move) => !SELF_DESTRUCT_MOVES.has(cleanId(move.id))),
+    },
+  ]).roles[0];
+  const activeRoleScore = activeRoleProfile?.roles[0]?.score ?? 0;
+  const roomContext = trickRoomContext(
+    state,
+    sideIndex,
+    defenderSide,
+    pokemon,
+    defender,
+    incomingDamageRatio,
+  );
   return pokemon.moves
     .map((move, index) => {
       const range = calculateDamageRange(pokemon, defender, move);
@@ -6795,6 +7042,25 @@ function automaticMoveCandidates(
         secondaryValue;
       const expectedDamage =
         ((range.minimum + range.maximum) / 2) * accuracy;
+      const baseCandidate = {
+        ...move,
+        expectedDamage,
+        tacticalValue,
+        hpPercent: pokemon.hp / pokemon.stats.hp,
+        incomingDamageRatio,
+        opponentHp: defender.hp,
+        opponentHazards,
+        ...roomContext,
+        activeRoleScore,
+        activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
+        selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(move.id)),
+        koChance:
+          range.maximum < defender.hp
+            ? "none"
+            : range.minimum >= defender.hp
+              ? "guaranteed"
+              : "possible",
+      };
       return {
         slot: index + 1,
         id: move.id,
@@ -6807,35 +7073,18 @@ function automaticMoveCandidates(
         hpPercent: pokemon.hp / pokemon.stats.hp,
         incomingDamageRatio,
         opponentHp: defender.hp,
-        score: scoreAiMoveCandidate(
-          {
-            ...move,
-            expectedDamage,
-            tacticalValue,
-            hpPercent: pokemon.hp / pokemon.stats.hp,
-            incomingDamageRatio,
-            opponentHp: defender.hp,
-            koChance:
-              range.maximum < defender.hp
-                ? "none"
-                : range.minimum >= defender.hp
-                  ? "guaranteed"
-                  : "possible",
-          },
-          difficulty,
-          strategy,
-        ),
+        score: scoreAiMoveCandidate(baseCandidate, difficulty, strategy),
         expectedDamage,
         tacticalValue,
         hpPercent: pokemon.hp / pokemon.stats.hp,
         incomingDamageRatio,
         opponentHp: defender.hp,
-        koChance:
-          range.maximum < defender.hp
-            ? "none"
-            : range.minimum >= defender.hp
-              ? "guaranteed"
-              : "possible",
+        opponentHazards,
+        ...roomContext,
+        activeRoleScore,
+        activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
+        selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(move.id)),
+        koChance: baseCandidate.koChance,
         pp: move.pp,
       };
     })
@@ -6861,12 +7110,18 @@ export function automaticMoveSlot(
   return selected?.slot ?? 1;
 }
 
-function hasFaintedConfiguredDynamax(side) {
-  return side.team.some(
-    (pokemon) =>
-      pokemon.fainted &&
-      (pokemon.gimmicks?.forceDynamax === true ||
-        pokemon.gimmicks?.gigantamax === true),
+function isConfiguredDynamaxPokemon(pokemon) {
+  return (
+    pokemon?.gimmicks?.forceDynamax === true ||
+    pokemon?.gimmicks?.gigantamax === true
+  );
+}
+
+function canUseDynamaxFallback(side) {
+  const configured = side.team.filter(isConfiguredDynamaxPokemon);
+  return (
+    configured.length > 0 &&
+    configured.every((pokemon) => pokemon.fainted || pokemon.hp <= 0)
   );
 }
 
@@ -6890,7 +7145,7 @@ export function chooseSimpleAiCommand(
     rng: createAiRng(state.seed, sideIndex, state.turn * 17),
   });
   const dynamaxFallback =
-    hasFaintedConfiguredDynamax(side) && !canMegaEvolvePokemon(pokemon);
+    canUseDynamaxFallback(side) && !canMegaEvolvePokemon(pokemon);
   const gimmick = selectAiGimmick({
     active: {
       canDynamax:

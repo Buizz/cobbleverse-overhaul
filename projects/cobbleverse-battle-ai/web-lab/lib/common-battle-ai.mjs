@@ -1,12 +1,5 @@
-import { readFileSync } from "node:fs";
-
-const MOVE_ROLE_CATALOG_URL = new URL(
-  "../../data/ai/ai-move-role-classification.json",
-  import.meta.url,
-);
-const MOVE_ROLE_CATALOG = JSON.parse(
-  readFileSync(MOVE_ROLE_CATALOG_URL, "utf8"),
-);
+import MOVE_ROLE_CATALOG from "../../data/ai/ai-move-role-classification.json" with { type: "json" };
+import POKEMON_ROLE_OVERRIDES from "../../data/ai/ai-pokemon-role-overrides.json" with { type: "json" };
 const DIFFICULTY_LABELS = {
   novice: "초급",
   standard: "보통",
@@ -158,6 +151,11 @@ const RECOVERY_MOVE_IDS = new Set([
   "wish",
 ]);
 const PIVOT_MOVE_IDS = new Set(["partingshot", "uturn", "voltswitch", "flipturn"]);
+const SELF_SACRIFICE_MOVE_IDS = new Set([
+  "explosion",
+  "mistyexplosion",
+  "selfdestruct",
+]);
 const DYNAMAX_SCORE_THRESHOLD = 12;
 
 const AI_SCORING_RULES = [
@@ -323,6 +321,16 @@ function hasFightingAttack(moveCandidates = []) {
   );
 }
 
+function isSelfSacrificeCandidate(candidate) {
+  const moveId = cleanId(candidate.id ?? candidate.moveId ?? candidate.name);
+  return (
+    SELF_SACRIFICE_MOVE_IDS.has(moveId) ||
+    candidateTagSet(candidate).has("riskynuke") ||
+    candidate.selfSacrifice === true ||
+    candidate.selfKo === true
+  );
+}
+
 function canonicalStrategy(strategy) {
   const key = cleanId(strategy);
   return STRATEGY_ALIASES[key] ?? strategy ?? "balanced";
@@ -361,6 +369,222 @@ export function enrichMoveCandidateWithRole(candidate, strategy = "balanced") {
     roleScores,
     roleTags: candidate.roleTags ?? entry?.tags ?? [],
     roleValue,
+  };
+}
+
+export function teamRoleLabel(role) {
+  return ROLE_LABELS[role] ?? role;
+}
+
+function addRoleScore(roleScores, role, value) {
+  roleScores[role] = (Number(roleScores[role]) || 0) + value;
+}
+
+function pokemonMoveIds(member = {}) {
+  return (member.moves ?? member.moveset ?? member.moveSet ?? [])
+    .map((move) =>
+      cleanId(
+        typeof move === "string"
+          ? move
+          : move?.id ?? move?.moveId ?? move?.name ?? move?.move,
+      ),
+    )
+    .filter(Boolean);
+}
+
+function pokemonStat(member = {}, keys = []) {
+  const sources = [member.stats, member.baseStats, member.baseStatsRaw];
+  for (const source of sources) {
+    if (!source) continue;
+    for (const key of keys) {
+      const value = Number(source[key]);
+      if (Number.isFinite(value) && value > 0) return value;
+    }
+  }
+  return 0;
+}
+
+function pokemonDisplayName(member = {}) {
+  return member.name ?? member.species ?? member.id ?? "Unknown";
+}
+
+function pokemonRoleOverride(member = {}) {
+  const roles = POKEMON_ROLE_OVERRIDES.roles ?? {};
+  const candidates = [
+    member.id,
+    member.species,
+    member.resolvedSpecies,
+    member.name,
+    String(member.species ?? "").split("-")[0],
+    String(member.resolvedSpecies ?? "").split("-")[0],
+  ]
+    .map(cleanId)
+    .filter(Boolean);
+  for (const key of candidates) {
+    if (roles[key]) return roles[key];
+  }
+  return null;
+}
+
+function topRoles(roleScores, limit = 4) {
+  return Object.entries(roleScores)
+    .map(([role, score]) => ({ role, score: Math.round(score * 100) / 100 }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, limit);
+}
+
+function analyzeTeamMemberRole(member = {}, index = 0) {
+  const roleScores = Object.fromEntries(Object.keys(ROLE_LABELS).map((role) => [role, 0]));
+  const reasons = [];
+  const warnings = [];
+  const moveIds = pokemonMoveIds(member);
+  const tags = new Set();
+
+  if (moveIds.length === 0) {
+    warnings.push("기술 정보 없음");
+  }
+
+  for (const moveId of moveIds) {
+    const entry = moveRoleEntry(moveId);
+    if (!entry) continue;
+    for (const [role, score] of Object.entries(entry.roleScores ?? {})) {
+      addRoleScore(roleScores, role, Number(score ?? 0));
+    }
+    for (const tag of entry.tags ?? []) tags.add(cleanId(tag));
+  }
+
+  const speciesOverride = pokemonRoleOverride(member);
+  if (speciesOverride) {
+    for (const [role, score] of Object.entries(speciesOverride.roleScores ?? {})) {
+      addRoleScore(roleScores, role, Number(score ?? 0));
+    }
+    for (const reason of speciesOverride.reasons ?? []) {
+      reasons.push(`포켓몬 기본 역할: ${reason}`);
+    }
+  }
+
+  const attack = pokemonStat(member, ["attack", "atk"]);
+  const specialAttack = pokemonStat(member, ["specialAttack", "specialAtk", "spa"]);
+  const speed = pokemonStat(member, ["speed", "spe"]);
+  const hp = pokemonStat(member, ["hp"]);
+  const defense = pokemonStat(member, ["defence", "defense", "def"]);
+  const specialDefense = pokemonStat(member, [
+    "specialDefence",
+    "specialDefense",
+    "specialDef",
+    "spd",
+  ]);
+  const offense = Math.max(attack, specialAttack);
+  const bulk = hp + defense + specialDefense;
+
+  if (offense === 0 && bulk === 0) {
+    warnings.push("능력치 정보 없음");
+  }
+
+  if (index === 0) {
+    addRoleScore(roleScores, "lead", 1.2);
+    reasons.push("선봉 슬롯이라 초반 판 만들기 가능성을 봤습니다.");
+  }
+  if (offense >= 115) {
+    addRoleScore(roleScores, "ace", 2.4);
+    reasons.push("공격 능력치가 높아 에이스/돌파 역할 후보입니다.");
+  }
+  if (speed >= 100) {
+    addRoleScore(roleScores, "revengeKiller", 1.8);
+    addRoleScore(roleScores, "ace", 0.7);
+    reasons.push("스피드가 높아 복수 처리와 마무리 역할을 기대할 수 있습니다.");
+  }
+  if (bulk >= 300) {
+    addRoleScore(roleScores, "wall", 2.2);
+    reasons.push("내구 합이 높아 교체 받이와 장기전 자원으로 봤습니다.");
+  }
+  if (tags.has("setupboost")) {
+    addRoleScore(roleScores, "setupSweeper", 2.5);
+    reasons.push("랭크업 기술을 보유해 전개형 스위퍼 후보입니다.");
+  }
+  if (tags.has("recovery")) {
+    addRoleScore(roleScores, "wall", 1.8);
+    addRoleScore(roleScores, "support", 0.8);
+    reasons.push("회복기를 보유해 막이/유지력 역할 가치가 있습니다.");
+  }
+  if (tags.has("pivot")) {
+    addRoleScore(roleScores, "pivot", 2.2);
+    reasons.push("피벗 기술로 유리 대면을 연결할 수 있습니다.");
+  }
+  if (tags.has("hazardset") || tags.has("hazardremove")) {
+    addRoleScore(roleScores, "hazardControl", 2.2);
+    reasons.push("설치물 설치/제거로 판 관리 역할을 맡을 수 있습니다.");
+  }
+  if (tags.has("priority") || tags.has("finisher")) {
+    addRoleScore(roleScores, "revengeKiller", 1.8);
+    reasons.push("선공기/마무리 태그로 복수 처리 가치가 있습니다.");
+  }
+  if (tags.has("disrupt") || tags.has("setupanswer")) {
+    addRoleScore(roleScores, "disruptor", 1.8);
+    reasons.push("상대 전개를 끊는 방해 기술 가치가 있습니다.");
+  }
+
+  const roles = topRoles(roleScores);
+  return {
+    slot: Number(member.slot ?? index + 1),
+    pokemonId: cleanId(member.id ?? member.species ?? member.name),
+    species: pokemonDisplayName(member),
+    primaryRole: roles[0]?.role ?? "support",
+    roles,
+    roleScores,
+    moveIds,
+    reasons: reasons.slice(0, 4),
+    warnings,
+  };
+}
+
+export function analyzeTeamProfile(team = []) {
+  const roles = team.map((member, index) => analyzeTeamMemberRole(member, index));
+  const byRole = (role) =>
+    roles
+      .filter((entry) => entry.roles.some((candidate) => candidate.role === role))
+      .sort(
+        (left, right) =>
+          Number(right.roleScores[role] ?? 0) - Number(left.roleScores[role] ?? 0),
+      );
+  const aceCandidates = byRole("ace").slice(0, 3);
+  const defensiveCore = byRole("wall").slice(0, 3);
+  const speedControl = [
+    ...new Map(
+      [...byRole("revengeKiller"), ...byRole("pivot")].map((entry) => [
+        entry.slot,
+        entry,
+      ]),
+    ).values(),
+  ].slice(0, 4);
+  const hazardSetters = byRole("hazardControl").filter((entry) =>
+    entry.moveIds.some((moveId) =>
+      (moveRoleEntry(moveId)?.tags ?? []).some((tag) => cleanId(tag) === "hazardset"),
+    ),
+  );
+  const hazardRemovers = byRole("hazardControl").filter((entry) =>
+    entry.moveIds.some((moveId) =>
+      (moveRoleEntry(moveId)?.tags ?? []).some((tag) => cleanId(tag) === "hazardremove"),
+    ),
+  );
+  const setupThreats = byRole("setupSweeper").slice(0, 3);
+  const vulnerabilities = [];
+  if (aceCandidates.length === 0) vulnerabilities.push("명확한 에이스 후보가 약합니다.");
+  if (defensiveCore.length === 0) vulnerabilities.push("안정적인 막이 후보가 부족합니다.");
+  if (hazardRemovers.length === 0) vulnerabilities.push("설치물 제거 수단이 확인되지 않았습니다.");
+
+  return {
+    roles,
+    aceCandidates,
+    defensiveCore,
+    speedControl,
+    hazardPlan: {
+      setters: hazardSetters.slice(0, 3),
+      removers: hazardRemovers.slice(0, 3),
+    },
+    setupThreats,
+    vulnerabilities,
   };
 }
 
@@ -433,7 +657,17 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
           "상대 매직미러에 설치기가 반사될 수 있어 큰 페널티를 반영했습니다.",
         ),
       );
-    } else if (currentLayers < hazardMaximumLayers && !enriched.immediateKoAvailable) {
+    } else if (currentLayers >= hazardMaximumLayers) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.entry_hazard.already_maxed",
+          "이미 설치됨",
+          currentLayers,
+          -180,
+          "이미 최대 층수까지 설치되어 다시 사용해도 실패하므로 점수를 크게 낮췄습니다.",
+        ),
+      );
+    } else if (!enriched.immediateKoAvailable) {
       const incomingRatio = ratioValue(
         enriched.opponentMaxDamageToCurrentHealthRatio,
         enriched.incomingDamageRatio,
@@ -464,6 +698,65 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
           ),
         );
       }
+    }
+  }
+
+  if (moveId === "trickroom") {
+    const activeRoom =
+      enriched.trickRoomActive === true ||
+      Boolean(enriched.field?.pseudoWeather?.trickroom);
+    const canSurviveToSetRoom =
+      enriched.canSurviveToSetRoom ??
+      ratioValue(enriched.incomingDamageRatio, 0) < 1;
+    const slowAceCount = Math.max(0, Number(enriched.slowAceCount ?? 0));
+    const advantage = Number(enriched.trickRoomAdvantage ?? 0);
+    const hpPercent = ratioValue(enriched.hpPercent, enriched.healthRatio, 1);
+    if (activeRoom && !enriched.shouldReverseTrickRoom) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.trick_room.already_active",
+          "트릭룸 유지",
+          true,
+          -160,
+          "트릭룸이 이미 켜져 있어 다시 사용하면 이득을 잃을 수 있으므로 크게 낮췄습니다.",
+        ),
+      );
+    } else if (!canSurviveToSetRoom) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.trick_room.cannot_survive",
+          "설치 전 KO 위험",
+          false,
+          -90,
+          "트릭룸은 우선도가 낮아 이번 턴 공격을 버티지 못하면 설치할 수 없어 점수를 낮췄습니다.",
+        ),
+      );
+    } else if (advantage > 0 || slowAceCount > 0) {
+      const bonus =
+        55 +
+        Math.min(60, advantage * 22) +
+        Math.min(48, slowAceCount * 18) +
+        (enriched.activeIsSlower === true ? 18 : 0) +
+        (hpPercent <= 0.45 ? 18 : 0);
+      adjustments.push(
+        scoreAdjustment(
+          "rule.trick_room.slow_ace_plan",
+          "느린 에이스 전개",
+          slowAceCount,
+          bonus,
+          `남은 느린 에이스 ${slowAceCount}마리가 트릭룸에서 선공권을 얻을 수 있어 전개 가치를 반영했습니다.`,
+        ),
+      );
+    } else if (enriched.activeIsFaster === true || advantage < 0) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.trick_room.bad_speed_context",
+          "속도 역전 손해",
+          advantage,
+          -70,
+          "현재 속도 구조에서는 트릭룸이 상대에게 더 유리할 수 있어 점수를 낮췄습니다.",
+        ),
+      );
     }
   }
 
@@ -578,6 +871,49 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         );
       }
     }
+  }
+
+  if (isSelfSacrificeCandidate(enriched)) {
+    const opponentHp = finiteNumber(enriched.opponentHp);
+    const expectedDamage = finiteNumber(enriched.expectedDamage, 0);
+    const damageRatio =
+      opponentHp && opponentHp > 0 ? expectedDamage / opponentHp : undefined;
+    const meaningfulDamage =
+      enriched.koChance === "guaranteed" ||
+      damageRatio >= 0.6 ||
+      enriched.meaningfulSacrificeDamage === true;
+    const activeRoleScore = finiteNumber(enriched.activeRoleScore, enriched.userRoleScore);
+    const hpPercent = ratioValue(enriched.hpPercent, enriched.healthRatio, 1);
+    const incomingRatio = ratioValue(
+      enriched.currentIncomingDamageRatio,
+      enriched.opponentMaxDamageToCurrentHealthRatio,
+      enriched.incomingDamageRatio,
+    );
+    const expendable =
+      enriched.expendableResource === true ||
+      enriched.roleComplete === true ||
+      (activeRoleScore !== undefined && activeRoleScore <= 4) ||
+      (hpPercent <= 0.25 && incomingRatio >= 0.6);
+    let weight = -220;
+    if (meaningfulDamage) weight += 35;
+    if (enriched.koChance === "guaranteed") weight += 45;
+    if (expendable) weight += 70;
+    if (activeRoleScore >= 10) weight -= 70;
+    else if (activeRoleScore >= 6) weight -= 35;
+    if (!meaningfulDamage) weight -= 60;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.self_sacrifice.resource_cost",
+        "자폭 리스크",
+        damageRatio === undefined ? enriched.koChance ?? false : Math.round(damageRatio * 100),
+        weight,
+        meaningfulDamage && expendable
+          ? "상대에게 유의미한 피해를 주고 현재 포켓몬의 남은 역할 가치가 낮아 자폭 리스크를 제한적으로 허용했습니다."
+          : meaningfulDamage
+            ? "상대에게 피해 가치는 있지만 사용자가 쓰러지는 소모 비용을 크게 반영했습니다."
+            : "사용자가 쓰러지는 기술인데 피해/마무리 가치가 충분하지 않아 크게 낮게 봤습니다.",
+      ),
+    );
   }
 
   if (tier >= 2) {
@@ -844,6 +1180,10 @@ export function switchRuleAdjustments(candidate) {
     candidate.outgoingDamageRatio,
   );
   const forceSwitch = candidate.forceSwitch === true;
+  const fieldSynergyValue = finiteNumber(
+    candidate.fieldSynergyValue,
+    candidate.fieldValue,
+  );
 
   if (currentIncoming !== undefined && targetIncoming !== undefined) {
     const weight = Math.round((currentIncoming - targetIncoming) * 12 * 100) / 100;
@@ -901,6 +1241,23 @@ export function switchRuleAdjustments(candidate) {
         true,
         2,
         "교체 후보가 상대보다 먼저 움직일 수 있어 속도 가치를 반영했습니다.",
+      ),
+    );
+  }
+
+  if (fieldSynergyValue !== undefined && fieldSynergyValue !== 0) {
+    adjustments.push(
+      scoreAdjustment(
+        fieldSynergyValue > 0
+          ? "rule.switch.field_synergy"
+          : "rule.switch.field_mismatch",
+        fieldSynergyValue > 0 ? "필드 활용" : "필드 불리",
+        candidate.fieldSynergyLabel ?? candidate.fieldEffect ?? true,
+        fieldSynergyValue,
+        candidate.fieldSynergyReason ??
+          (fieldSynergyValue > 0
+            ? "현재 필드/날씨/룸 효과를 활용할 수 있어 교체 가치를 높였습니다."
+            : "현재 필드/날씨/룸 효과와 맞지 않아 교체 가치를 낮췄습니다."),
       ),
     );
   }
@@ -1454,7 +1811,8 @@ export function selectAiGimmick({
   }
   if (
     !alreadyUsed.dynamax &&
-    active.canDynamax
+    active.canDynamax &&
+    (forceDynamax || configured?.gimmicks?.dynamax)
   ) {
     const candidate = scoreAiDynamaxCandidate({
       active,

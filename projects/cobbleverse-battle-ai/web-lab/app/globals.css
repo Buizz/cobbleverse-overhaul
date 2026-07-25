@@ -4897,6 +4897,21 @@ body .lab-shell :where(button, input, select, textarea) {
   font-weight: 900;
 }
 
+.eve-history-winner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eve-history-winner b {
+  min-width: 38px;
+  padding: 2px 5px;
+  border: 1px solid rgb(108 241 229 / 42%);
+  color: #6cf1e5;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
 .eve-history-main small {
   color: #8ea2bf;
 }
