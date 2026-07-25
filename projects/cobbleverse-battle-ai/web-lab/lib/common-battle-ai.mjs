@@ -78,6 +78,193 @@ export function rankAiMoveCandidates(
     .sort((left, right) => right.score - left.score || left.slot - right.slot);
 }
 
+function finiteNumber(value, fallback = undefined) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function expectedDamageObservation(candidate) {
+  const damage = finiteNumber(candidate.expectedDamage);
+  if (damage === undefined) return undefined;
+  return {
+    value: damage,
+    unit: "hp",
+  };
+}
+
+function moveDecisionReasons(candidate, difficulty, strategy) {
+  const reasons = [];
+  const expectedDamage = finiteNumber(candidate.expectedDamage);
+  const power = finiteNumber(candidate.power, 0);
+  const priority = finiteNumber(candidate.priority, 0);
+  const tacticalValue = finiteNumber(candidate.tacticalValue, 0);
+
+  if (expectedDamage !== undefined) {
+    reasons.push({
+      code: "damage.expected",
+      label: "예상 피해",
+      value: expectedDamage,
+      message: `예상 피해 ${expectedDamage}를 기준으로 공격 가치를 계산했습니다.`,
+    });
+  } else if (power > 0) {
+    reasons.push({
+      code: "damage.base_power",
+      label: "기본 위력",
+      value: power,
+      message: `기본 위력 ${power}를 피해 기대값의 대체 기준으로 사용했습니다.`,
+    });
+  }
+
+  if (candidate.koChance === "guaranteed") {
+    reasons.push({
+      code: "ko.guaranteed",
+      label: "확정 KO",
+      value: true,
+      weight: 55,
+      message: "현재 계산 기준으로 상대를 확정적으로 쓰러뜨릴 수 있습니다.",
+    });
+  } else if (candidate.koChance === "possible") {
+    reasons.push({
+      code: "ko.possible",
+      label: "KO 가능성",
+      value: true,
+      weight: 25,
+      message: "피해 난수에 따라 상대를 쓰러뜨릴 가능성이 있습니다.",
+    });
+  }
+
+  if (priority !== 0) {
+    reasons.push({
+      code: "speed.priority",
+      label: "우선도",
+      value: priority,
+      message: `우선도 ${priority} 기술이라 행동 순서 가치가 있습니다.`,
+    });
+  }
+
+  if (candidate.category === "Status") {
+    reasons.push({
+      code: "status.move",
+      label: "변화기",
+      value: strategy,
+      message:
+        strategy === "defensive"
+          ? "방어 성향이 변화기 가치를 높게 반영했습니다."
+          : "변화기 전술 가치를 반영했습니다.",
+    });
+  }
+
+  if (tacticalValue !== 0) {
+    reasons.push({
+      code: "tactical.value",
+      label: "전술 가치",
+      value: tacticalValue,
+      message: `기술 역할 분류에서 전술 가치 ${tacticalValue}를 반영했습니다.`,
+    });
+  }
+
+  if (difficulty === "expert" || difficulty === "cheater") {
+    reasons.push({
+      code: "difficulty.priority_weight",
+      label: "고난도 판단",
+      value: difficulty,
+      message: "고난도 프로필이 우선도와 KO 가능성을 더 적극적으로 비교했습니다.",
+    });
+  }
+
+  if (reasons.length === 0) {
+    reasons.push({
+      code: "baseline.score",
+      label: "기본 점수",
+      message: "공통 기준선 점수로 후보를 비교했습니다.",
+    });
+  }
+
+  return reasons;
+}
+
+function switchDecisionReasons(candidate) {
+  const reasons = [];
+  const hpPercent = finiteNumber(candidate.hpPercent);
+  const expectedDamage = finiteNumber(candidate.expectedDamage);
+  const matchupValue = finiteNumber(candidate.matchupValue);
+
+  if (hpPercent !== undefined) {
+    reasons.push({
+      code: "switch.hp_remaining",
+      label: "남은 체력",
+      value: Math.round(hpPercent * 100),
+      message: `남은 체력 ${Math.round(hpPercent * 100)}%를 교체 안정성으로 반영했습니다.`,
+    });
+  }
+  if (expectedDamage !== undefined) {
+    reasons.push({
+      code: "switch.expected_damage",
+      label: "교체 후 공격 기대값",
+      value: expectedDamage,
+      message: `교체 후 기대 피해 ${expectedDamage}를 반영했습니다.`,
+    });
+  }
+  if (matchupValue !== undefined) {
+    reasons.push({
+      code: "switch.matchup",
+      label: "상성 가치",
+      value: matchupValue,
+      message: `상대와의 상성 가치 ${matchupValue}를 반영했습니다.`,
+    });
+  }
+  if (reasons.length === 0) {
+    reasons.push({
+      code: "switch.available",
+      label: "교체 가능",
+      message: "전투 가능한 벤치 후보로 평가했습니다.",
+    });
+  }
+  return reasons;
+}
+
+export function toAiActionCandidate(
+  candidate,
+  {
+    type = candidate.type ?? "move",
+    difficulty = "standard",
+    strategy = "balanced",
+  } = {},
+) {
+  const id =
+    candidate.actionId ??
+    (type === "switch"
+      ? `switch:${candidate.slot}`
+      : `${type}:${candidate.slot ?? candidate.id ?? candidate.name}`);
+  return {
+    ...candidate,
+    id: candidate.id ?? candidate.moveId ?? candidate.switchId ?? id,
+    actionId: id,
+    type,
+    legal: candidate.legal ?? !candidate.disabled,
+    action: {
+      type,
+      slot: candidate.slot,
+      id: candidate.id ?? candidate.moveId ?? candidate.switchId ?? null,
+      label: candidate.name ?? candidate.label ?? null,
+    },
+    expectedDamage: expectedDamageObservation(candidate),
+    koChance: candidate.koChance ?? undefined,
+    survivalRisk: finiteNumber(candidate.survivalRisk),
+    speedRisk: finiteNumber(candidate.speedRisk),
+    statusValue: finiteNumber(candidate.statusValue),
+    setupRisk: finiteNumber(candidate.setupRisk),
+    fieldValue: finiteNumber(candidate.fieldValue),
+    roleValue: finiteNumber(candidate.roleValue),
+    resourceCost: finiteNumber(candidate.resourceCost),
+    score: finiteNumber(candidate.score, 0),
+    reasons:
+      type === "switch"
+        ? switchDecisionReasons(candidate)
+        : moveDecisionReasons(candidate, difficulty, strategy),
+  };
+}
+
 export function selectAiMoveCandidate(
   candidates,
   {
@@ -132,7 +319,7 @@ export function createAiMoveTrace({
 }) {
   const ranked = rankAiMoveCandidates(candidates, difficulty, strategy).map(
     (candidate) => ({
-      ...candidate,
+      ...toAiActionCandidate(candidate, { type: "move", difficulty, strategy }),
       selected: candidate.slot === selected?.slot,
     }),
   );
@@ -212,7 +399,7 @@ export function createAiSwitchTrace({
   selected,
 }) {
   const ranked = rankAiSwitchCandidates(candidates).map((candidate) => ({
-    ...candidate,
+    ...toAiActionCandidate(candidate, { type: "switch", difficulty, strategy }),
     selected: candidate.slot === selected?.slot,
   }));
   return {

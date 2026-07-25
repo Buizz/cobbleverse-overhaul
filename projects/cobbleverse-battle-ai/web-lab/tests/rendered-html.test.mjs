@@ -47,7 +47,7 @@ test("server-renders the separate EVE report route", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /EVE ANALYSIS REPORT/);
-  assert.match(html, /표시할 자동대전 리포트가 없습니다/);
+  assert.match(html, /아직 자동대전 리포트가 없습니다/);
 });
 
 test("serves the scenario creation API from the production worker", async () => {

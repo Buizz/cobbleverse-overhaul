@@ -12,6 +12,10 @@ import {
   mapNativeEvent,
 } from "./native-scenario-runner.mjs";
 import { resolveNativeMaxMove } from "./native-max-moves.mjs";
+import {
+  scoreAiMoveCandidate,
+  toAiActionCandidate,
+} from "./common-battle-ai.mjs";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const sessions = new Map();
@@ -64,9 +68,17 @@ function effectivenessLabel(value) {
   return "neutral";
 }
 
-function publicMoves(active, opponent) {
+function publicMoves(active, opponent, difficulty = "standard", strategy = "balanced") {
   return active.moves.map((move, index) => {
     const range = calculateDamageRange(active, opponent, move);
+    const accuracy = move.accuracy === true ? 1 : Number(move.accuracy ?? 100) / 100;
+    const expectedDamage = ((range.minimum + range.maximum) / 2) * accuracy;
+    const koChance =
+      range.maximum < opponent.hp
+        ? "none"
+        : range.minimum >= opponent.hp
+          ? "guaranteed"
+          : "possible";
     return {
       slot: index + 1,
       id: move.id,
@@ -84,6 +96,19 @@ function publicMoves(active, opponent) {
         move.category === "Status"
           ? "not_applicable"
           : effectivenessLabel(range.effectiveness),
+      expectedDamage,
+      koChance,
+      score: Math.round(
+        scoreAiMoveCandidate(
+          {
+            ...move,
+            expectedDamage,
+            koChance,
+          },
+          difficulty,
+          strategy,
+        ) * 100,
+      ) / 100,
     };
   });
 }
@@ -96,21 +121,26 @@ function availableSwitches(side, sideIndex) {
     .filter((pokemon) => !pokemon.active && !pokemon.condition.fainted);
 }
 
-function aiDecision(state, command) {
+function aiDecision(state, command, profile = {}) {
   const side = state.sides[1];
   const active = side.team[side.active];
   const opponent = state.sides[0].team[state.sides[0].active];
-  const candidates = publicMoves(active, opponent).map((move) => ({
-    ...move,
-    selected: move.slot === command.move,
-  }));
+  const difficulty = profile.difficulty ?? "standard";
+  const strategy = profile.strategy ?? "balanced";
+  const candidates = publicMoves(active, opponent, difficulty, strategy).map(
+    (move) => ({
+      ...toAiActionCandidate(move, { type: "move", difficulty, strategy }),
+      selected: move.slot === command.move,
+    }),
+  );
   const selected = candidates.find((move) => move.selected);
   return {
     turn: state.turn + 1,
     actor: "AI",
     species: active.name,
     kind: "move",
-    strategy: "cobbleverse-damage-baseline",
+    difficulty,
+    strategy,
     chosenAction: selected?.name ?? "기술 선택",
     gimmick: command.gimmick ?? "",
     reason:
@@ -335,7 +365,14 @@ export function chooseNativeInteractiveBattleAction(sessionId, action) {
       session.scenario.aiDifficulty,
     session.scenario.aiProfiles?.[1]?.strategy ?? "balanced",
   );
-  session.aiTrace.push(aiDecision(session.state, aiCommand));
+  session.aiTrace.push(
+    aiDecision(session.state, aiCommand, {
+      difficulty:
+        session.scenario.aiProfiles?.[1]?.difficulty ??
+        session.scenario.aiDifficulty,
+      strategy: session.scenario.aiProfiles?.[1]?.strategy ?? "balanced",
+    }),
+  );
   try {
     session.state = resolveSimpleTurn(session.state, [
       playerCommand(session.state, action),

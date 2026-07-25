@@ -13,6 +13,14 @@ type AiProfile = {
   strategy: "balanced" | "aggressive" | "defensive" | "unpredictable";
 };
 
+type AiDecisionReason = {
+  code: string;
+  label: string;
+  value?: number | string | boolean;
+  weight?: number;
+  message: string;
+};
+
 type Scenario = {
   scenarioId: string;
   mode: "eve";
@@ -36,6 +44,7 @@ type AiCandidate = {
   power?: number;
   score?: number;
   selected: boolean;
+  reasons?: AiDecisionReason[];
 };
 
 type AiTrace = {

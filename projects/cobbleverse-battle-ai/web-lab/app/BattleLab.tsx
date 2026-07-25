@@ -71,6 +71,15 @@ type LocalizationCatalog = {
   moves: Record<string, LocalizationEntry>;
 };
 
+type SharedI18nCatalog = {
+  schemaVersion: number;
+  locale: "ko-KR";
+  species: Record<string, LocalizationEntry>;
+  moves: Record<string, LocalizationEntry>;
+  abilities: Record<string, LocalizationEntry>;
+  items: Record<string, LocalizationEntry & { shortId?: string }>;
+};
+
 type CatalogSpecies = {
   id: string;
   name: string;
@@ -1314,15 +1323,26 @@ function catalogAbility(
   );
 }
 
+function sharedI18nAbility(
+  catalog: SharedI18nCatalog | null,
+  value: string | null | undefined,
+) {
+  const key = dexId(value);
+  return catalog?.abilities?.[key] ?? null;
+}
+
 function localizedAbilityInfo(
   catalog: BattleCatalog | null,
+  sharedI18n: SharedI18nCatalog | null,
   value: string | null | undefined,
 ) {
   const entry = catalogAbility(catalog, value);
+  const fallback = sharedI18nAbility(sharedI18n, value);
   return {
-    name: entry?.name ?? displayId(value),
+    name: entry?.name ?? fallback?.name ?? displayId(value),
     description:
       entry?.description ??
+      fallback?.description ??
       "아직 카탈로그에 특성 설명이 없습니다.",
   };
 }
@@ -1339,15 +1359,33 @@ function catalogItem(
   );
 }
 
+function sharedI18nItem(
+  catalog: SharedI18nCatalog | null,
+  value: string | null | undefined,
+) {
+  const key = dexId(value);
+  if (!key || !catalog?.items) return null;
+  return (
+    catalog.items[key] ??
+    Object.values(catalog.items).find(
+      (entry) => dexId(entry.shortId) === key,
+    ) ??
+    null
+  );
+}
+
 function localizedItemInfo(
   catalog: BattleCatalog | null,
+  sharedI18n: SharedI18nCatalog | null,
   value: string | null | undefined,
 ) {
   const entry = catalogItem(catalog, value);
+  const fallback = sharedI18nItem(sharedI18n, value);
   return {
-    name: entry?.name ?? displayId(value, "없음"),
+    name: entry?.name ?? fallback?.name ?? displayId(value, "없음"),
     description:
       entry?.description ??
+      fallback?.description ??
       "아직 카탈로그에 도구 설명이 없습니다.",
   };
 }
@@ -1459,16 +1497,18 @@ function PokemonInfoPanel({
   info,
   ranks,
   catalog,
+  sharedI18n,
   localization,
 }: {
   sideLabel: string;
   info: ReturnType<typeof mergedPokemonInfo>;
   ranks: Array<[string, number]>;
   catalog: BattleCatalog | null;
+  sharedI18n: SharedI18nCatalog | null;
   localization: LocalizationCatalog | null;
 }) {
-  const ability = localizedAbilityInfo(catalog, info.ability);
-  const item = localizedItemInfo(catalog, info.heldItem);
+  const ability = localizedAbilityInfo(catalog, sharedI18n, info.ability);
+  const item = localizedItemInfo(catalog, sharedI18n, info.heldItem);
   const stats = info.stats ? Object.entries(info.stats) : [];
   const adjustedStats = rankedBattleStats(info.stats, ranks);
   const adjustedStatEntries = adjustedStats ? Object.entries(adjustedStats) : [];
@@ -3095,6 +3135,7 @@ function InteractiveArena({
   onClose,
   localization,
   catalog,
+  sharedI18n,
 }: {
   battle: InteractiveBattle;
   busy: boolean;
@@ -3110,6 +3151,7 @@ function InteractiveArena({
   onClose: () => void;
   localization: LocalizationCatalog | null;
   catalog: BattleCatalog | null;
+  sharedI18n: SharedI18nCatalog | null;
 }) {
   const [logTab, setLogTab] = useState<"battle" | "ai">("battle");
   const [showAiIntent, setShowAiIntent] = useState(false);
@@ -3599,6 +3641,7 @@ function InteractiveArena({
             info={playerInfo}
             ranks={playerRanks}
             catalog={catalog}
+            sharedI18n={sharedI18n}
             localization={localization}
           />
           <PokemonInfoPanel
@@ -3606,6 +3649,7 @@ function InteractiveArena({
             info={opponentInfo}
             ranks={opponentRanks}
             catalog={catalog}
+            sharedI18n={sharedI18n}
             localization={localization}
           />
         </section>
@@ -3978,6 +4022,7 @@ export function BattleLab() {
   const [localization, setLocalization] =
     useState<LocalizationCatalog | null>(null);
   const [catalog, setCatalog] = useState<BattleCatalog | null>(null);
+  const [sharedI18n, setSharedI18n] = useState<SharedI18nCatalog | null>(null);
   const [choiceTarget, setChoiceTarget] = useState<ChoiceTarget | null>(null);
   const [recentTrainerIds, setRecentTrainerIds] = useState<string[]>([]);
   const [partyOrders, setPartyOrders] = useState<Record<string, number[]>>({});
@@ -4043,6 +4088,15 @@ export function BattleLab() {
       })
       .then(setCatalog)
       .catch(() => setCatalog(null));
+    fetch(`/data/pokemon-i18n-ko.json?updated=${Date.now()}`, {
+      cache: "no-store",
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<SharedI18nCatalog>;
+      })
+      .then(setSharedI18n)
+      .catch(() => setSharedI18n(null));
     fetch("/api/local-workspace", { cache: "no-store" })
       .then((response) => response.json() as Promise<LocalWorkspaceResponse>)
       .then((result) => {
@@ -5306,6 +5360,7 @@ export function BattleLab() {
           onClose={closeInteractive}
           localization={localization}
           catalog={catalog}
+          sharedI18n={sharedI18n}
         />
       ) : null}
 

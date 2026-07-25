@@ -12,6 +12,7 @@ import {
   selectAiGimmick,
   selectAiMoveCandidate,
   selectAiSwitchCandidate,
+  toAiActionCandidate,
 } from "./common-battle-ai.mjs";
 
 const ENGINE_VERSION = "0.9.6";
@@ -6731,7 +6732,17 @@ export function runSimpleBattle(setup, options = {}) {
         profile.strategy,
         profile.difficulty,
       ).map((candidate) => ({
-        ...candidate,
+        ...toAiActionCandidate(
+          {
+            ...candidate,
+            score: Math.round(candidate.score * 100) / 100,
+          },
+          {
+            type: "move",
+            difficulty: profile.difficulty,
+            strategy: profile.strategy,
+          },
+        ),
         score: Math.round(candidate.score * 100) / 100,
         selected: candidate.slot === command.move,
       }));

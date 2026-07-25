@@ -84,6 +84,11 @@ test("runs the selected native engine and records AI settings", () => {
   assert.equal(battle.winner, "Red");
   assert.ok(battle.events.some((event) => event.type === "super_effective"));
   assert.ok(battle.events.some((event) => event.type === "win"));
+  assert.ok(
+    battle.aiTrace.every((entry) =>
+      entry.candidates.every((candidate) => Array.isArray(candidate.reasons)),
+    ),
+  );
 });
 
 test("preserves native damage and heal causes for Showdown-like logs", () => {
@@ -185,6 +190,11 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
   assert.equal(switched.turns, 1);
   assert.equal(switched.request.active.species, "Charmander");
   assert.equal(switched.aiTrace.length, 1);
+  assert.ok(
+    switched.aiTrace[0].candidates.some((candidate) =>
+      candidate.reasons.some((reason) => reason.code.startsWith("damage.")),
+    ),
+  );
   assert.ok(switched.events.some((event) => event.type === "switch"));
   assert.ok(switched.events.some((event) => event.type === "move"));
 });

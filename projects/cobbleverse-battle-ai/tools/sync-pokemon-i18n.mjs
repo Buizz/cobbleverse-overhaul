@@ -9,6 +9,7 @@ const namedRoots = {
 };
 const defaultRoots = [namedRoots.server, namedRoots.editor];
 const outputPath = join(projectRoot, "data", "i18n", "pokemon-i18n-ko.json");
+const webCachePath = join(projectRoot, "web-lab", "public", "data", "pokemon-i18n-ko.json");
 const overridePath = join(projectRoot, "data", "i18n", "pokemon-i18n-ko-overrides.csv");
 
 const args = process.argv.slice(2);
@@ -266,12 +267,16 @@ if (Object.keys(catalog.sources).length === 0 && existsSync(outputPath)) {
 }
 
 mkdirSync(dirname(outputPath), { recursive: true });
-writeFileSync(outputPath, `${JSON.stringify(catalog, null, 2)}\n`, "utf8");
+mkdirSync(dirname(webCachePath), { recursive: true });
+const catalogText = `${JSON.stringify(catalog, null, 2)}\n`;
+writeFileSync(outputPath, catalogText, "utf8");
+writeFileSync(webCachePath, catalogText, "utf8");
 
 console.log(
   JSON.stringify(
-    {
+      {
       output: outputPath,
+      webCache: webCachePath,
       overrides: overridePath,
       sources: Object.keys(catalog.sources).length,
       species: Object.keys(catalog.species).length,
