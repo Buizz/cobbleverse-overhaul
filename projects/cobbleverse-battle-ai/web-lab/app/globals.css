@@ -4515,6 +4515,303 @@ body .lab-shell :where(button, input, select, textarea) {
   background: #6cf1e5;
 }
 
+.eve-report-compact {
+  padding: 14px;
+  font-size: 0.9rem;
+}
+
+.eve-report-compact .eve-report-nav {
+  margin-bottom: 8px;
+}
+
+.eve-report-compact .eve-report-nav div {
+  display: flex;
+  gap: 6px;
+}
+
+.eve-compact-top,
+.eve-strategy-strip,
+.eve-analysis-layout {
+  display: grid;
+  gap: 8px;
+}
+
+.eve-compact-top {
+  grid-template-columns: minmax(360px, 1fr) auto;
+  align-items: end;
+  padding: 10px 12px;
+  border: 1px solid #2c405d;
+  background: #0d192a;
+}
+
+.eve-compact-top h1 {
+  margin: 3px 0;
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.eve-compact-top p {
+  margin: 0;
+  color: #9fb1c9;
+}
+
+.eve-run-controls {
+  display: grid;
+  grid-template-columns: 130px repeat(3, auto);
+  gap: 6px;
+  align-items: end;
+}
+
+.eve-run-controls label,
+.eve-strategy-strip label {
+  display: grid;
+  gap: 3px;
+  color: #8ea2c0;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eve-run-controls input,
+.eve-strategy-strip select {
+  min-height: 34px;
+  border: 1px solid #405572;
+  color: #eaf3ff;
+  background: #081421;
+}
+
+.eve-run-controls button,
+.eve-strategy-strip button {
+  min-height: 34px;
+  border: 1px solid #3b506e;
+  color: #e8f2ff;
+  background: #132136;
+}
+
+.eve-strategy-strip {
+  grid-template-columns: 1fr 1fr auto;
+  align-items: stretch;
+  margin-top: 8px;
+}
+
+.eve-strategy-strip article {
+  display: grid;
+  grid-template-columns: 120px 1fr 110px 110px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #283c58;
+  background: #0b1728;
+}
+
+.eve-strategy-strip article > span {
+  overflow: hidden;
+  color: #9fb1c9;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-strategy-strip button {
+  padding: 0 12px;
+  border-color: #6cf1e5;
+  color: #06131f;
+  font-weight: 900;
+  background: #6cf1e5;
+}
+
+.eve-sweep-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid #2a3e5a;
+  background: #0b1728;
+}
+
+.eve-sweep-panel div {
+  display: grid;
+  gap: 3px;
+}
+
+.eve-sweep-panel div span {
+  color: #8ea2bf;
+  font-size: 0.78rem;
+}
+
+.eve-sweep-panel label {
+  display: grid;
+  gap: 3px;
+  color: #8ea2c0;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eve-sweep-panel input {
+  min-height: 34px;
+  border: 1px solid #405572;
+  color: #eaf3ff;
+  background: #081421;
+}
+
+.eve-sweep-panel button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #bcff26;
+  color: #071320;
+  font-weight: 900;
+  background: #bcff26;
+}
+
+.eve-sweep-result {
+  margin-top: 8px;
+  border: 1px solid #2a3e5a;
+  background: #091522;
+}
+
+.eve-sweep-result header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #2a3e5a;
+}
+
+.eve-sweep-result header span {
+  color: #bcff26;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.eve-sweep-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+}
+
+.eve-sweep-grid div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.eve-sweep-grid div strong {
+  flex-basis: 100%;
+}
+
+.eve-sweep-grid div span {
+  padding: 4px 7px;
+  border: 1px solid #314865;
+  color: #dcecff;
+  font-size: 0.76rem;
+  background: #0f1d30;
+}
+
+.eve-analysis-layout {
+  grid-template-columns: 300px minmax(0, 1fr);
+  margin-top: 8px;
+}
+
+.eve-history-panel,
+.eve-plain-log {
+  min-height: 68vh;
+  border: 1px solid #2a3e5a;
+  background: #0b1728;
+}
+
+.eve-history-panel header,
+.eve-plain-log header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid #2a3e5a;
+  background: #101e31;
+}
+
+.eve-history-panel header span,
+.eve-plain-log header span {
+  color: #8fa3bf;
+  font-size: 0.75rem;
+}
+
+.eve-history-list {
+  display: grid;
+  max-height: calc(68vh - 38px);
+  overflow: auto;
+}
+
+.eve-history-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  border-bottom: 1px solid #223650;
+}
+
+.eve-history-entry.active {
+  background: rgb(108 241 229 / 11%);
+  box-shadow: inset 3px 0 0 #6cf1e5;
+}
+
+.eve-history-main {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 3px 8px;
+  padding: 8px 10px;
+  border: 0;
+  color: #dcecff;
+  text-align: left;
+  background: transparent;
+}
+
+.eve-history-main span {
+  grid-row: span 2;
+  color: #6cf1e5;
+  font-weight: 900;
+}
+
+.eve-history-main small {
+  color: #8ea2bf;
+}
+
+.eve-history-delete {
+  border: 0;
+  border-left: 1px solid #223650;
+  color: #ff8c8c;
+  font-size: 0.68rem;
+  font-weight: 900;
+  background: transparent;
+}
+
+.eve-history-delete:hover {
+  color: #071320;
+  background: #ff8c8c;
+}
+
+.eve-plain-log pre {
+  min-height: calc(68vh - 38px);
+  max-height: calc(100vh - 230px);
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  color: #e8f2ff;
+  font-family:
+    "D2Coding",
+    "Cascadia Mono",
+    "Consolas",
+    monospace;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  background: #071320;
+}
+
 @media (max-width: 980px) {
   .eve-rematch-panel {
     grid-template-columns: 1fr 1fr;

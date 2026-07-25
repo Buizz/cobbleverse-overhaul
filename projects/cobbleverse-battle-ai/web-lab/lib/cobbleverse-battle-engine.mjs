@@ -9,7 +9,9 @@ import { resolveNativeMaxMove } from "./native-max-moves.mjs";
 import {
   createAiRng,
   scoreAiMoveCandidate,
+  selectAiGimmick,
   selectAiMoveCandidate,
+  selectAiSwitchCandidate,
 } from "./common-battle-ai.mjs";
 
 const ENGINE_VERSION = "0.9.6";
@@ -5935,7 +5937,8 @@ function executeMove(state, action, rng) {
 function bestFaintReplacement(state, sideIndex) {
   const side = state.sides[sideIndex];
   const opponent = activePokemon(state, sideIndex === 0 ? 1 : 0);
-  return side.team
+  const selected = selectAiSwitchCandidate(
+    side.team
     .map((pokemon, index) => {
       if (pokemon.fainted) return null;
       const bestDamage = pokemon.moves.reduce((best, move) => {
@@ -5944,13 +5947,20 @@ function bestFaintReplacement(state, sideIndex) {
         return Math.max(best, ((range.minimum + range.maximum) / 2) * accuracy);
       }, 0);
       return {
-        index,
-        score: bestDamage + (pokemon.hp / pokemon.stats.hp) * 10,
+        slot: index + 1,
+        name: pokemon.name,
+        expectedDamage: bestDamage,
+        hpPercent: pokemon.hp / pokemon.stats.hp,
       };
     })
-    .filter(Boolean)
-    .sort((left, right) => right.score - left.score || left.index - right.index)[0]
-    ?.index;
+    .filter(Boolean),
+    {
+      difficulty: "expert",
+      strategy: "balanced",
+      rng: createAiRng(state.seed, sideIndex, state.turn * 31),
+    },
+  );
+  return selected ? selected.slot - 1 : undefined;
 }
 
 function advanceFaintedSides(state) {
@@ -6677,13 +6687,23 @@ export function chooseSimpleAiCommand(
 ) {
   const side = state.sides[sideIndex];
   const pokemon = activePokemon(state, sideIndex);
-  const forceDynamax =
-    pokemon.gimmicks?.forceDynamax === true &&
-    side.gimmickResources.dynamax === "available" &&
-    pokemon.dynamaxTurns <= 0;
+  const gimmick = selectAiGimmick({
+    active: {
+      canDynamax:
+        side.gimmickResources.dynamax === "available" &&
+        pokemon.dynamaxTurns <= 0,
+    },
+    configured: {
+      gimmicks: {
+        dynamax: pokemon.gimmicks?.forceDynamax === true,
+      },
+    },
+    forceDynamax: pokemon.gimmicks?.forceDynamax === true,
+    alreadyUsed: side.usedGimmicks,
+  }).id;
   return {
     move: automaticMoveSlot(state, sideIndex, difficulty, strategy),
-    ...(forceDynamax ? { gimmick: "dynamax" } : {}),
+    ...(gimmick ? { gimmick } : {}),
   };
 }
 

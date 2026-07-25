@@ -4,7 +4,10 @@ import {
   createAiMoveTrace,
   createAiRng,
   scoreAiMoveCandidate,
+  selectAiGimmick,
   selectAiMoveCandidate,
+  selectAiSwitchCandidate,
+  selectAiTargetSuffix,
 } from "./common-battle-ai.mjs";
 
 class SinglesConfiguredPlayerAI extends BattleStreams.BattlePlayer {
@@ -121,19 +124,28 @@ class SinglesConfiguredPlayerAI extends BattleStreams.BattlePlayer {
     });
   }
 
+  switchCandidateFromPokemon(pokemon, slot) {
+    const condition = String(pokemon.condition ?? "");
+    const hpText = condition.split(" ")[0];
+    const [hp, maxHp] = hpText.split("/").map(Number);
+    return {
+      pokemon,
+      slot,
+      name: String(pokemon.details ?? "").split(",")[0],
+      hpPercent:
+        Number.isFinite(hp) && Number.isFinite(maxHp) && maxHp > 0
+          ? hp / maxHp
+          : 1,
+    };
+  }
+
   gimmickSuffix(active, slot, teamSlot) {
     const configured = this.configuredTeam[teamSlot - 1];
-    if (active.canMegaEvo) return " mega";
-    if (active.canMegaEvoX) return " megax";
-    if (active.canMegaEvoY) return " megay";
-    if (active.canZMove?.[slot - 1]) return " zmove";
-    if (active.canDynamax && configured?.gimmicks?.dynamax) {
-      return " dynamax";
-    }
-    if (active.canTerastallize && configured?.gimmicks?.tera) {
-      return " terastallize";
-    }
-    return "";
+    return selectAiGimmick({
+      active,
+      configured,
+      moveSlot: slot,
+    }).showdownSuffix;
   }
 
   receiveRequest(request) {
@@ -154,8 +166,15 @@ class SinglesConfiguredPlayerAI extends BattleStreams.BattlePlayer {
         .filter(
           ({ pokemon }) =>
             !pokemon.active && !String(pokemon.condition).endsWith(" fnt"),
+        )
+        .map(({ pokemon, slot }) =>
+          this.switchCandidateFromPokemon(pokemon, slot),
         );
-      const selected = switches[this.nextIndex(switches.length)];
+      const selected = selectAiSwitchCandidate(switches, {
+        difficulty: this.difficulty,
+        strategy: this.strategy,
+        rng: this.rng,
+      });
       this.decision += 1;
       this.trace.push({
         turn: this.decision,
@@ -168,9 +187,9 @@ class SinglesConfiguredPlayerAI extends BattleStreams.BattlePlayer {
         strategy: this.strategy,
         chosenAction: selected ? `슬롯 ${selected.slot} 교체` : "기본 교체",
         reason: "현재 포켓몬이 쓰러져 전투 가능한 벤치 포켓몬을 선택했습니다.",
-        candidates: switches.map(({ pokemon, slot }) => ({
+        candidates: switches.map(({ name, slot }) => ({
           slot,
-          name: String(pokemon.details ?? "").split(",")[0],
+          name,
           selected: slot === selected?.slot,
         })),
       });
@@ -205,23 +224,7 @@ class SinglesConfiguredPlayerAI extends BattleStreams.BattlePlayer {
 
 class MultiConfiguredPlayerAI extends SinglesConfiguredPlayerAI {
   targetSuffix(move, activeIndex, activeCount, team) {
-    if (activeCount < 2) return "";
-    if (["normal", "any", "adjacentFoe"].includes(move.target)) {
-      return ` ${activeCount === 3 ? 2 : 1}`;
-    }
-    if (move.target === "adjacentAlly") {
-      const allyIndex = team.findIndex(
-        (pokemon, index) =>
-          index !== activeIndex &&
-          pokemon.active &&
-          !String(pokemon.condition).endsWith(" fnt"),
-      );
-      return allyIndex >= 0 ? ` -${allyIndex + 1}` : "";
-    }
-    if (move.target === "adjacentAllyOrSelf") {
-      return ` -${activeIndex + 1}`;
-    }
-    return "";
+    return selectAiTargetSuffix(move, activeIndex, activeCount, team);
   }
 
   receiveRequest(request) {
@@ -245,8 +248,15 @@ class MultiConfiguredPlayerAI extends SinglesConfiguredPlayerAI {
               !pokemon.active &&
               !chosen.includes(slot) &&
               !String(pokemon.condition).endsWith(" fnt"),
+          )
+          .map(({ pokemon, slot }) =>
+            this.switchCandidateFromPokemon(pokemon, slot),
           );
-        const selected = available[this.nextIndex(available.length)];
+        const selected = selectAiSwitchCandidate(available, {
+          difficulty: this.difficulty,
+          strategy: this.strategy,
+          rng: this.rng,
+        });
         if (!selected) return "pass";
         chosen.push(selected.slot);
         return `switch ${selected.slot}`;

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { localizedSpeciesName } from "../../lib/species-localization.mjs";
 
 const EVE_REPORT_KEY = "cobbleverse-battle-lab:eve-report";
+const EVE_HISTORY_KEY = "cobbleverse-battle-lab:eve-history";
 
 type AiProfile = {
   difficulty: "novice" | "standard" | "advanced" | "expert" | "cheater";
@@ -32,11 +33,7 @@ type AiCandidate = {
   slot: number;
   id?: string;
   name: string;
-  type?: string;
-  category?: string;
   power?: number;
-  accuracy?: number | true;
-  priority?: number;
   score?: number;
   selected: boolean;
 };
@@ -55,6 +52,16 @@ type AiTrace = {
   candidates: AiCandidate[];
 };
 
+type BattleEvent = {
+  turn: number;
+  type: string;
+  actor?: string;
+  detail?: string;
+  condition?: string;
+  source?: string;
+  target?: string;
+};
+
 type Battle = {
   battleId: string;
   scenarioId: string;
@@ -67,14 +74,7 @@ type Battle = {
   settings?: { aiProfiles?: AiProfile[] };
   warnings: Array<{ message: string }>;
   aiTrace?: AiTrace[];
-  events: Array<{
-    turn: number;
-    type: string;
-    actor?: string;
-    detail?: string;
-    condition?: string;
-    source?: string;
-  }>;
+  events: BattleEvent[];
   log: string[];
 };
 
@@ -99,10 +99,38 @@ const difficultyNames: Record<string, string> = {
 };
 
 const strategyNames: Record<string, string> = {
-  balanced: "균형형",
-  aggressive: "공격형",
-  defensive: "안정형",
-  unpredictable: "변칙형",
+  balanced: "균형",
+  aggressive: "공격",
+  defensive: "방어",
+  unpredictable: "변칙",
+};
+
+const strategyValues = Object.keys(strategyNames) as AiProfile["strategy"][];
+
+type SweepScore = {
+  strategy: AiProfile["strategy"];
+  games: number;
+  wins: number;
+  winRate: number;
+};
+
+type SweepMatchup = {
+  strategyA: AiProfile["strategy"];
+  strategyB: AiProfile["strategy"];
+  games: number;
+  winsA: number;
+  winsB: number;
+};
+
+type SweepResult = {
+  baseSeed: number;
+  rounds: number;
+  totalBattles: number;
+  bestA: SweepScore | null;
+  bestB: SweepScore | null;
+  sideA: SweepScore[];
+  sideB: SweepScore[];
+  matchups: SweepMatchup[];
 };
 
 function id(value: string | undefined) {
@@ -115,53 +143,42 @@ function actorName(value: string | undefined) {
   return String(value ?? "").replace(/^p[12][a-z]?: /, "");
 }
 
-function eventLabel(type: string) {
-  const labels: Record<string, string> = {
-    switch: "교체",
-    move: "기술",
-    damage: "피해",
-    heal: "회복",
-    faint: "기절",
-    status: "상태 이상",
-    status_cured: "상태 회복",
-    super_effective: "효과가 굉장함",
-    resisted: "효과가 별로임",
-    critical: "급소",
-    miss: "빗나감",
-    win: "승리",
-    tie: "무승부",
-  };
-  return labels[type] ?? type;
+function actorSide(value: string | undefined) {
+  if (String(value ?? "").startsWith("p1")) return "1P";
+  if (String(value ?? "").startsWith("p2")) return "2P";
+  return "";
 }
 
-export default function EveReport() {
-  const [report, setReport] = useState<ReportData | null>(null);
-  const [localization, setLocalization] =
-    useState<LocalizationCatalog | null>(null);
-  const [seed, setSeed] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState("");
+function localSpecies(
+  localization: LocalizationCatalog | null,
+  species: string | undefined,
+) {
+  return localizedSpeciesName(localization, actorName(species));
+}
 
-  useEffect(() => {
-    const restoreTimer = window.setTimeout(() => {
-      const stored = localStorage.getItem(EVE_REPORT_KEY);
-      if (!stored) return;
-      try {
-        const parsed = JSON.parse(stored) as ReportData;
-        setReport(parsed);
-        setSeed(parsed.scenario.seed);
-      } catch {
-        setError("저장된 EVE 리포트를 읽지 못했습니다.");
-      }
-    }, 0);
-    fetch("/data/cobblemon-ko-kr.json")
-      .then((response) => response.json() as Promise<LocalizationCatalog>)
-      .then(setLocalization)
-      .catch(() => setLocalization(null));
-    return () => window.clearTimeout(restoreTimer);
-  }, []);
+function localMove(
+  localization: LocalizationCatalog | null,
+  move: string | undefined,
+) {
+  if (!move) return "";
+  return localization?.moves[id(move)]?.name ?? move;
+}
 
-  const profiles = report?.scenario.aiProfiles ??
+function conditionHp(condition: string | undefined) {
+  if (!condition) return "";
+  if (condition.includes(" fnt")) return "0";
+  return condition.split(" ")[0]?.split("/")[0] ?? condition;
+}
+
+function conditionFullHp(condition: string | undefined) {
+  if (!condition) return "";
+  if (condition.includes(" fnt")) return "0";
+  return condition.split(" ")[0] ?? condition;
+}
+
+function profilesOf(report: ReportData | null) {
+  return (
+    report?.scenario.aiProfiles ??
     report?.battle.settings?.aiProfiles ?? [
       {
         difficulty: report?.scenario.aiDifficulty ?? "standard",
@@ -171,251 +188,660 @@ export default function EveReport() {
         difficulty: report?.scenario.aiDifficulty ?? "standard",
         strategy: "balanced",
       },
-    ];
+    ]
+  );
+}
 
-  const tracesBySide = useMemo(
-    () => [
-      report?.battle.aiTrace?.filter((entry) => entry.side === 0) ?? [],
-      report?.battle.aiTrace?.filter((entry) => entry.side === 1) ?? [],
-    ],
-    [report],
+function compactTeamLine(
+  localization: LocalizationCatalog | null,
+  side: Scenario["sides"][number],
+) {
+  return side.team
+    .slice(0, 6)
+    .map((pokemon) => `${localSpecies(localization, pokemon.species)} Lv.${pokemon.level}`)
+    .join(", ");
+}
+
+function traceByTurnAndSide(report: ReportData | null) {
+  const map = new Map<string, AiTrace[]>();
+  for (const trace of report?.battle.aiTrace ?? []) {
+    const key = `${trace.turn}:${trace.side}`;
+    map.set(key, [...(map.get(key) ?? []), trace]);
+  }
+  return map;
+}
+
+function eventLine(
+  event: BattleEvent,
+  localization: LocalizationCatalog | null,
+) {
+  const side = actorSide(event.actor);
+  const actor = localSpecies(localization, event.actor);
+  const move = localMove(localization, event.detail);
+  const hp = conditionHp(event.condition);
+  const source = localMove(localization, event.source);
+
+  if (event.type === "switch") {
+    return `- ${side} ${actor} 등장`;
+  }
+  if (event.type === "move") {
+    return `- ${side} ${actor}의 ${move}!`;
+  }
+  if (event.type === "damage") {
+    return `  · ${actor} 피해${hp ? ` -> HP ${hp}` : ""}${source ? ` | 원인 ${source}` : ""}`;
+  }
+  if (event.type === "heal") {
+    return `  · ${actor} 회복${hp ? ` -> HP ${hp}` : ""}${source ? ` | ${source}` : ""}`;
+  }
+  if (event.type === "faint") {
+    return `  · ${side} ${actor} 기절`;
+  }
+  if (event.type === "mega_evolution") {
+    return `  · ${side} ${actor} 메가진화${event.detail ? ` -> ${event.detail}` : ""}`;
+  }
+  if (event.type === "dynamax_started") {
+    return `  · ${side} ${actor} 다이맥스`;
+  }
+  if (event.type === "terastallized") {
+    return `  · ${side} ${actor} 테라스탈${event.detail ? `(${event.detail})` : ""}`;
+  }
+  if (event.type === "z_power") {
+    return `  · ${side} ${actor} Z파워`;
+  }
+  if (event.type === "stat_up" || event.type === "stat_down") {
+    return `  · ${actor} ${event.detail} 랭크 ${event.type === "stat_up" ? "+" : "-"}${event.condition ?? "1"}`;
+  }
+  if (event.type === "super_effective") return "  · 효과가 굉장했다";
+  if (event.type === "resisted") return "  · 효과가 별로였다";
+  if (event.type === "critical") return "  · 급소에 맞았다";
+  if (event.type === "miss") return `  · ${actor}의 공격은 빗나갔다`;
+  if (event.type === "status") return `  · ${actor} 상태 이상: ${event.detail}`;
+  if (event.type === "status_cured") return `  · ${actor} 상태 회복: ${event.detail}`;
+  if (event.type === "win") return `- 전투 종료: ${actorName(event.actor)} 승리`;
+  return `  · ${event.type}${event.detail ? ` | ${event.detail}` : ""}${hp ? ` | HP ${hp}` : ""}`;
+}
+
+function hpSnapshot(
+  report: ReportData,
+  localization: LocalizationCatalog | null,
+  turn: number,
+) {
+  const hpBySide = report.scenario.sides.map(() => new Map<string, string>());
+  for (const event of report.battle.events) {
+    if (event.turn > turn) continue;
+    const sideLabel = actorSide(event.actor);
+    const sideIndex = sideLabel === "1P" ? 0 : sideLabel === "2P" ? 1 : -1;
+    if (sideIndex < 0) continue;
+    if (!["switch", "damage", "heal", "faint"].includes(event.type)) continue;
+    const name = localSpecies(localization, event.actor);
+    if (!name) continue;
+    const hp = event.type === "faint" ? "0" : conditionFullHp(event.condition);
+    if (hp) hpBySide[sideIndex].set(name, hp);
+  }
+
+  return report.scenario.sides.map((side, sideIndex) => {
+    const prefix = sideIndex === 0 ? "1P" : "2P";
+    const entries = side.team
+      .slice(0, 6)
+      .map((pokemon) => {
+        const name = localSpecies(localization, pokemon.species);
+        return `${name} ${hpBySide[sideIndex].get(name) ?? "?"}`;
+      })
+      .join(", ");
+    return `${prefix} [${entries}]`;
+  });
+}
+
+function turnPlainText(
+  report: ReportData,
+  turn: number,
+  localization: LocalizationCatalog | null,
+  traceMap: Map<string, AiTrace[]>,
+) {
+  const events = report.battle.events.filter((event) => event.turn === turn);
+  const lines = [`${turn}턴`];
+  const firstSwitches = events.filter((event) => event.type === "switch");
+  if (firstSwitches.length > 0) {
+    lines.push(
+      `선봉/교체: ${firstSwitches
+        .map((event) => `${actorSide(event.actor)} ${localSpecies(localization, event.actor || event.detail)}`)
+        .join(" | ")}`,
+    );
+  }
+  for (const event of events.filter((event) => event.type !== "turn")) {
+    lines.push(eventLine(event, localization));
+  }
+  lines.push("남은 엔트리:");
+  lines.push(`  ${hpSnapshot(report, localization, turn).join("\n  ")}`);
+  lines.push("AI 판단 상세:");
+  for (const side of [0, 1]) {
+    const traces = traceMap.get(`${turn}:${side}`) ?? [];
+    lines.push(`  ${side === 0 ? "1P" : "2P"}:`);
+    if (traces.length === 0) {
+      lines.push("    * 판단 로그 없음");
+      continue;
+    }
+    for (const trace of traces) {
+      for (const candidate of trace.candidates.slice(0, 6)) {
+        const marker = candidate.selected ? "*" : " ";
+        const label =
+          trace.kind === "switch"
+            ? `교체 -> ${candidate.name}`
+            : localMove(localization, candidate.id ?? candidate.name);
+        lines.push(
+          `    ${marker} ${label} | 점수 ${Number(candidate.score ?? 0).toFixed(2)}`,
+        );
+      }
+    }
+  }
+  return `${lines.join("\n")}\n\n----------------------------------------------------`;
+}
+
+function battlePlainText(
+  report: ReportData,
+  localization: LocalizationCatalog | null,
+) {
+  const traceMap = traceByTurnAndSide(report);
+  return Array.from({ length: report.battle.turns }, (_, index) =>
+    turnPlainText(report, index + 1, localization, traceMap),
+  ).join("\n\n");
+}
+
+function historyId(report: ReportData) {
+  return `${report.battle.battleId}:${report.savedAt}`;
+}
+
+export default function EveReport() {
+  const [history, setHistory] = useState<ReportData[]>([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [localization, setLocalization] =
+    useState<LocalizationCatalog | null>(null);
+  const [seed, setSeed] = useState(0);
+  const [profiles, setProfiles] = useState<AiProfile[]>([
+    { difficulty: "standard", strategy: "balanced" },
+    { difficulty: "standard", strategy: "aggressive" },
+  ]);
+  const [running, setRunning] = useState(false);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [sweepRounds, setSweepRounds] = useState(3);
+  const [batchStatus, setBatchStatus] = useState("");
+  const [sweepResult, setSweepResult] = useState<SweepResult | null>(null);
+  const [error, setError] = useState("");
+
+  const selected = useMemo(
+    () => history.find((entry) => historyId(entry) === selectedId) ?? history[0] ?? null,
+    [history, selectedId],
   );
 
-  const rerun = async (nextSeed: number) => {
-    if (!report || !Number.isInteger(nextSeed)) return;
+  useEffect(() => {
+    const restoreTimer = window.setTimeout(() => {
+      const storedHistory = localStorage.getItem(EVE_HISTORY_KEY);
+      const storedLatest = localStorage.getItem(EVE_REPORT_KEY);
+      const restored: ReportData[] = [];
+      try {
+        if (storedHistory) restored.push(...(JSON.parse(storedHistory) as ReportData[]));
+        if (storedLatest) {
+          const latest = JSON.parse(storedLatest) as ReportData;
+          if (!restored.some((entry) => entry.battle.battleId === latest.battle.battleId)) {
+            restored.unshift(latest);
+          }
+        }
+      } catch {
+        setError("저장된 EVE 리포트를 읽지 못했습니다.");
+      }
+      if (restored.length > 0) {
+        const nextHistory = restored.slice(0, 50);
+        setHistory(nextHistory);
+        setSelectedId(historyId(nextHistory[0]));
+        setSeed(nextHistory[0].scenario.seed);
+        setProfiles([...profilesOf(nextHistory[0])]);
+        localStorage.setItem(EVE_HISTORY_KEY, JSON.stringify(nextHistory));
+      }
+    }, 0);
+    fetch("/data/cobblemon-ko-kr.json")
+      .then((response) => response.json() as Promise<LocalizationCatalog>)
+      .then(setLocalization)
+      .catch(() => setLocalization(null));
+    return () => window.clearTimeout(restoreTimer);
+  }, []);
+
+  const selectReport = (next: ReportData) => {
+    setSelectedId(historyId(next));
+    setSeed(next.scenario.seed);
+    setProfiles([...profilesOf(next)]);
+  };
+
+  const saveRun = (next: ReportData) => {
+    localStorage.setItem(EVE_REPORT_KEY, JSON.stringify(next));
+    setHistory((current) => {
+      const nextHistory = [
+        next,
+        ...current.filter((entry) => historyId(entry) !== historyId(next)),
+      ].slice(0, 50);
+      localStorage.setItem(EVE_HISTORY_KEY, JSON.stringify(nextHistory));
+      return nextHistory;
+    });
+    selectReport(next);
+  };
+
+  const selectHistory = (entry: ReportData) => {
+    selectReport(entry);
+  };
+
+  const deleteHistory = (entry: ReportData) => {
+    const nextHistory = history.filter((item) => historyId(item) !== historyId(entry));
+    setHistory(nextHistory);
+    localStorage.setItem(EVE_HISTORY_KEY, JSON.stringify(nextHistory));
+    if (historyId(entry) === historyId(selected) && nextHistory[0]) {
+      localStorage.setItem(EVE_REPORT_KEY, JSON.stringify(nextHistory[0]));
+      selectReport(nextHistory[0]);
+    }
+    if (nextHistory.length === 0) {
+      localStorage.removeItem(EVE_REPORT_KEY);
+      setSelectedId("");
+    }
+  };
+
+  const clearHistory = () => {
+    if (!window.confirm("EvE 전적을 모두 삭제할까요?")) return;
+    setHistory([]);
+    setSelectedId("");
+    setSweepResult(null);
+    localStorage.removeItem(EVE_REPORT_KEY);
+    localStorage.removeItem(EVE_HISTORY_KEY);
+  };
+
+  const runBattleScenario = async (scenario: Scenario) => {
+    const response = await fetch("/api/battles", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(scenario),
+    });
+    const result = (await response.json()) as
+      | { ok: true; scenario?: Scenario; battle: Battle }
+      | { ok: false; issues: Array<{ message: string }> };
+    if (!result.ok) {
+      throw new Error(result.issues[0]?.message ?? "대전을 실행하지 못했습니다.");
+    }
+    return {
+      schemaVersion: 1,
+      savedAt: new Date().toISOString(),
+      scenario: result.scenario ?? scenario,
+      battle: result.battle,
+    };
+  };
+
+  const scenarioWith = (nextSeed: number, nextProfiles = profiles) => {
+    if (!selected) return null;
+    return {
+      ...selected.scenario,
+      seed: nextSeed,
+      aiDifficulty: nextProfiles[0]?.difficulty ?? selected.scenario.aiDifficulty,
+      aiProfiles: nextProfiles,
+    };
+  };
+
+  const rerun = async (nextSeed: number, nextProfiles = profiles) => {
+    const scenario = scenarioWith(nextSeed, nextProfiles);
+    if (!scenario || !Number.isInteger(nextSeed)) return;
     setRunning(true);
     setError("");
     try {
-      const response = await fetch("/api/battles", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...report.scenario, seed: nextSeed }),
-      });
-      const result = (await response.json()) as
-        | { ok: true; scenario: Scenario; battle: Battle }
-        | { ok: false; issues: Array<{ message: string }> };
-      if (!result.ok) {
-        setError(result.issues[0]?.message ?? "재대전을 실행하지 못했습니다.");
-        return;
-      }
-      const next = {
-        schemaVersion: 1,
-        savedAt: new Date().toISOString(),
-        scenario: result.scenario,
-        battle: result.battle,
-      };
-      localStorage.setItem(EVE_REPORT_KEY, JSON.stringify(next));
-      setReport(next);
-      setSeed(result.scenario.seed);
-    } catch {
-      setError("전투 API에 연결하지 못했습니다.");
+      saveRun(await runBattleScenario(scenario));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "전투 API에 연결하지 못했습니다.");
     } finally {
       setRunning(false);
     }
   };
 
+  const runStrategySweep = async () => {
+    if (!selected) return;
+    const rounds = Math.max(1, Math.min(20, Math.floor(sweepRounds)));
+    const baseSeed = Number.isInteger(seed) ? seed : selected.scenario.seed;
+    const reports: ReportData[] = [];
+    const sideA = new Map<AiProfile["strategy"], { games: number; wins: number }>();
+    const sideB = new Map<AiProfile["strategy"], { games: number; wins: number }>();
+    const matchups = new Map<string, SweepMatchup>();
+    const totalBattles = strategyValues.length * strategyValues.length * rounds;
+
+    for (const strategy of strategyValues) {
+      sideA.set(strategy, { games: 0, wins: 0 });
+      sideB.set(strategy, { games: 0, wins: 0 });
+    }
+
+    setBatchRunning(true);
+    setBatchStatus(`0/${totalBattles} 전투 실행 중`);
+    setError("");
+    try {
+      let completed = 0;
+      for (const strategyA of strategyValues) {
+        for (const strategyB of strategyValues) {
+          const matchupKey = `${strategyA}:${strategyB}`;
+          matchups.set(matchupKey, {
+            strategyA,
+            strategyB,
+            games: 0,
+            winsA: 0,
+            winsB: 0,
+          });
+          for (let round = 0; round < rounds; round += 1) {
+            const nextProfiles: AiProfile[] = [
+              { ...(profiles[0] ?? { difficulty: "standard" }), strategy: strategyA },
+              { ...(profiles[1] ?? { difficulty: "standard" }), strategy: strategyB },
+            ];
+            const scenario = scenarioWith(baseSeed + round, nextProfiles);
+            if (!scenario) return;
+            const report = await runBattleScenario(scenario);
+            reports.push(report);
+
+            const winner = report.battle.winner;
+            const winnerSide =
+              winner === report.scenario.sides[0].name
+                ? 0
+                : winner === report.scenario.sides[1].name
+                  ? 1
+                  : -1;
+            const scoreA = sideA.get(strategyA);
+            const scoreB = sideB.get(strategyB);
+            const matchup = matchups.get(matchupKey);
+            if (scoreA) scoreA.games += 1;
+            if (scoreB) scoreB.games += 1;
+            if (matchup) matchup.games += 1;
+            if (winnerSide === 0) {
+              if (scoreA) scoreA.wins += 1;
+              if (matchup) matchup.winsA += 1;
+            }
+            if (winnerSide === 1) {
+              if (scoreB) scoreB.wins += 1;
+              if (matchup) matchup.winsB += 1;
+            }
+
+            completed += 1;
+            setBatchStatus(`${completed}/${totalBattles} 전투 실행 중`);
+          }
+        }
+      }
+
+      const toScores = (map: Map<AiProfile["strategy"], { games: number; wins: number }>) =>
+        Array.from(map.entries())
+          .map(([strategy, score]) => ({
+            strategy,
+            games: score.games,
+            wins: score.wins,
+            winRate: score.games > 0 ? score.wins / score.games : 0,
+          }))
+          .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins);
+      const sideAScores = toScores(sideA);
+      const sideBScores = toScores(sideB);
+      const nextHistory = [
+        ...[...reports].reverse(),
+        ...history.filter(
+          (entry) => !reports.some((report) => historyId(report) === historyId(entry)),
+        ),
+      ].slice(0, 50);
+      setHistory(nextHistory);
+      localStorage.setItem(EVE_HISTORY_KEY, JSON.stringify(nextHistory));
+      if (reports.at(-1)) {
+        localStorage.setItem(EVE_REPORT_KEY, JSON.stringify(reports.at(-1)));
+        selectReport(reports.at(-1)!);
+      }
+      setSweepResult({
+        baseSeed,
+        rounds,
+        totalBattles,
+        bestA: sideAScores[0] ?? null,
+        bestB: sideBScores[0] ?? null,
+        sideA: sideAScores,
+        sideB: sideBScores,
+        matchups: Array.from(matchups.values()).sort(
+          (a, b) => b.winsA + b.winsB - (a.winsA + a.winsB),
+        ),
+      });
+      setBatchStatus(`${totalBattles}/${totalBattles} 전투 완료`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "성향 자동 분석을 실행하지 못했습니다.");
+    } finally {
+      setBatchRunning(false);
+    }
+  };
+
   const download = () => {
-    if (!report) return;
-    const blob = new Blob([`${JSON.stringify(report, null, 2)}\n`], {
+    if (!selected) return;
+    const blob = new Blob([`${JSON.stringify(selected, null, 2)}\n`], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${report.battle.battleId}-report.json`;
+    link.download = `${selected.battle.battleId}-report.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
-  if (!report) {
+  const plainLog = useMemo(
+    () => (selected ? battlePlainText(selected, localization) : ""),
+    [selected, localization],
+  );
+
+  if (!selected) {
     return (
       <main className="eve-report-page eve-report-empty">
         <p className="eyebrow">EVE ANALYSIS REPORT</p>
-        <h1>표시할 자동대전 리포트가 없습니다.</h1>
+        <h1>아직 자동대전 리포트가 없습니다.</h1>
         <p>{error || "메인 화면에서 EVE 자동대전을 먼저 실행해 주세요."}</p>
-        <Link href="/">전투 연구실로 돌아가기</Link>
+        <Link href="/">전투 도구로 돌아가기</Link>
       </main>
     );
   }
 
   return (
-    <main className="eve-report-page">
+    <main className="eve-report-page eve-report-compact">
       <nav className="eve-report-nav">
-        <Link href="/">← 전투 연구실</Link>
-        <button onClick={download}>리포트 JSON 다운로드</button>
+        <Link href="/">← 전투 도구</Link>
+        <div>
+          <button onClick={download}>JSON</button>
+          <button onClick={() => navigator.clipboard.writeText(plainLog)}>로그 복사</button>
+          <button onClick={clearHistory}>전적 전체 삭제</button>
+        </div>
       </nav>
 
-      <header className="eve-report-hero">
+      <section className="eve-compact-top">
         <div>
-          <p className="eyebrow">EVE ANALYSIS REPORT</p>
-          <h1>{report.battle.winner ? `${report.battle.winner} 승리` : "무승부"}</h1>
+          <p className="eyebrow">EVE REPORT</p>
+          <h1>
+            {selected.scenario.sides[0].name} vs {selected.scenario.sides[1].name}
+          </h1>
           <p>
-            {report.scenario.sides[0].name} vs {report.scenario.sides[1].name}
+            승자: {selected.battle.winner ?? "무승부"} · {selected.battle.turns}턴 ·
+            seed {selected.scenario.seed} · {selected.battle.engine.id}
           </p>
         </div>
-        <div className="eve-report-score">
-          <strong>{report.battle.turns}</strong>
-          <span>진행 턴</span>
+        <div className="eve-run-controls">
+          <label>
+            seed
+            <input
+              type="number"
+              value={seed}
+              onChange={(event) => setSeed(Number(event.target.value))}
+            />
+          </label>
+          <button disabled={running || batchRunning} onClick={() => rerun(seed)}>
+            같은 조건 재대전
+          </button>
+          <button disabled={running || batchRunning} onClick={() => rerun(selected.scenario.seed + 1)}>
+            다음 시드
+          </button>
+          <button
+            disabled={running || batchRunning}
+            onClick={() =>
+              rerun(Math.floor(1_000_000_000 + Math.random() * 1_000_000_000))
+            }
+          >
+            랜덤 시드
+          </button>
         </div>
-      </header>
-
-      <section className="eve-report-metrics">
-        <article><span>SEED</span><strong>{report.scenario.seed}</strong></article>
-        <article><span>ENGINE</span><strong>{report.battle.engine.id}</strong></article>
-        <article><span>FORMAT</span><strong>{report.battle.engine.format}</strong></article>
-        <article><span>RUNTIME</span><strong>{report.battle.durationMs} ms</strong></article>
       </section>
 
-      <section className="eve-rematch-panel">
-        <div>
-          <p className="eyebrow">REPRODUCIBLE REMATCH</p>
-          <h2>시드를 바꿔 다시 대전</h2>
-          <p>파티와 AI 설정은 유지하고 난수 흐름만 변경합니다.</p>
-        </div>
-        <label>
-          <span>새 시드</span>
-          <input
-            type="number"
-            value={seed}
-            onChange={(event) => setSeed(Number(event.target.value))}
-          />
-        </label>
-        <button onClick={() => setSeed(report.scenario.seed + 1)}>다음 시드</button>
-        <button
-          onClick={() =>
-            setSeed(Math.floor(1_000_000_000 + Math.random() * 1_000_000_000))
-          }
-        >
-          무작위 시드
-        </button>
-        <button className="primary-action" disabled={running} onClick={() => rerun(seed)}>
-          {running ? "재대전 진행 중" : "이 시드로 재대전"}
-        </button>
-      </section>
-      {error ? <p className="eve-report-error">{error}</p> : null}
-
-      <section className="eve-ai-comparison">
-        {report.scenario.sides.map((side, sideIndex) => (
+      <section className="eve-strategy-strip">
+        {selected.scenario.sides.map((side, sideIndex) => (
           <article key={side.name}>
-            <div className="eve-ai-heading">
-              <span>AI {sideIndex === 0 ? "A" : "B"}</span>
-              <div>
-                <h2>{side.name}</h2>
-                <p>
-                  {difficultyNames[profiles[sideIndex]?.difficulty]} ·{" "}
-                  {strategyNames[profiles[sideIndex]?.strategy]}
-                </p>
-              </div>
-            </div>
-            <div className="eve-report-team">
-              {side.team.map((pokemon) => (
-                <div key={pokemon.slot}>
-                  <strong>{localizedSpeciesName(localization, pokemon.species)}</strong>
-                  <span>Lv.{pokemon.level}</span>
-                </div>
-              ))}
-            </div>
-            <dl className="eve-ai-stats">
-              <div><dt>판단 횟수</dt><dd>{tracesBySide[sideIndex].length}</dd></div>
-              <div>
-                <dt>공격 선택</dt>
-                <dd>{tracesBySide[sideIndex].filter((entry) => entry.kind === "move").length}</dd>
-              </div>
-              <div>
-                <dt>교체 선택</dt>
-                <dd>{tracesBySide[sideIndex].filter((entry) => entry.kind === "switch").length}</dd>
-              </div>
-            </dl>
+            <strong>{sideIndex === 0 ? "1P" : "2P"} {side.name}</strong>
+            <span>{compactTeamLine(localization, side)}</span>
+            <label>
+              난이도
+              <select
+                value={profiles[sideIndex]?.difficulty ?? "standard"}
+                onChange={(event) => {
+                  const next = [...profiles];
+                  next[sideIndex] = {
+                    ...(next[sideIndex] ?? { strategy: "balanced" }),
+                    difficulty: event.target.value as AiProfile["difficulty"],
+                  };
+                  setProfiles(next);
+                }}
+              >
+                {Object.entries(difficultyNames).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              성향
+              <select
+                value={profiles[sideIndex]?.strategy ?? "balanced"}
+                onChange={(event) => {
+                  const next = [...profiles];
+                  next[sideIndex] = {
+                    ...(next[sideIndex] ?? { difficulty: "standard" }),
+                    strategy: event.target.value as AiProfile["strategy"],
+                  };
+                  setProfiles(next);
+                }}
+              >
+                {Object.entries(strategyNames).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
           </article>
         ))}
+        <button disabled={running || batchRunning} onClick={() => rerun(selected.scenario.seed, profiles)}>
+          같은 시드로 전략 비교
+        </button>
       </section>
 
-      <section className="eve-report-section">
-        <div className="eve-section-heading">
-          <div>
-            <p className="eyebrow">DECISION EXPLAINABILITY</p>
-            <h2>AI 판단 근거</h2>
-          </div>
-          <p>각 항목을 열면 후보 행동과 평가 점수를 확인할 수 있습니다.</p>
+      <section className="eve-sweep-panel">
+        <div>
+          <strong>성향 자동 분석</strong>
+          <span>
+            1P/2P 성향 조합 {strategyValues.length * strategyValues.length}개를 같은 시드 묶음으로 반복합니다.
+          </span>
         </div>
-        <div className="eve-trace-columns">
-          {report.scenario.sides.map((side, sideIndex) => (
-            <div key={side.name}>
-              <h3>{side.name}</h3>
-              {tracesBySide[sideIndex].length === 0 ? (
-                <p className="eve-empty-copy">이 엔진에서 제공된 판단 로그가 없습니다.</p>
-              ) : (
-                tracesBySide[sideIndex].map((trace, index) => (
-                  <details key={`${trace.turn}-${index}`} className="eve-decision">
-                    <summary>
-                      <span>판단 {index + 1}</span>
-                      <strong>
-                        {localizedSpeciesName(localization, trace.species)} →{" "}
-                        {localization?.moves[id(trace.chosenAction)]?.name ??
-                          trace.chosenAction}
-                      </strong>
-                    </summary>
-                    <p>{trace.reason}</p>
-                    <div className="eve-candidate-table">
-                      {trace.candidates.map((candidate) => (
-                        <div
-                          className={candidate.selected ? "selected" : ""}
-                          key={`${candidate.slot}-${candidate.name}`}
-                        >
-                          <span>{candidate.selected ? "선택" : `#${candidate.slot}`}</span>
-                          <strong>
-                            {localization?.moves[id(candidate.id ?? candidate.name)]?.name ??
-                              candidate.name}
-                          </strong>
-                          <small>
-                            점수 {candidate.score ?? "—"} · 위력 {candidate.power ?? "—"} ·
-                            우선도 {candidate.priority ?? 0}
-                          </small>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                ))
-              )}
+        <label>
+          반복 시드 수
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={sweepRounds}
+            onChange={(event) => setSweepRounds(Number(event.target.value))}
+          />
+        </label>
+        <button disabled={running || batchRunning} onClick={runStrategySweep}>
+          {batchRunning ? batchStatus : "최고 승률 성향 찾기"}
+        </button>
+      </section>
+
+      {sweepResult ? (
+        <section className="eve-sweep-result">
+          <header>
+            <strong>
+              분석 결과 · seed {sweepResult.baseSeed}부터 {sweepResult.rounds}회 반복 · {sweepResult.totalBattles}전
+            </strong>
+            <span>
+              1P 최고 {sweepResult.bestA ? strategyNames[sweepResult.bestA.strategy] : "-"} ·
+              2P 최고 {sweepResult.bestB ? strategyNames[sweepResult.bestB.strategy] : "-"}
+            </span>
+          </header>
+          <div className="eve-sweep-grid">
+            <div>
+              <strong>1P 성향 승률</strong>
+              {sweepResult.sideA.map((score) => (
+                <span key={score.strategy}>
+                  {strategyNames[score.strategy]} {score.wins}/{score.games} ({Math.round(score.winRate * 100)}%)
+                </span>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="eve-report-section">
-        <div className="eve-section-heading">
-          <div>
-            <p className="eyebrow">BATTLE TIMELINE</p>
-            <h2>전투 진행 기록</h2>
+            <div>
+              <strong>2P 성향 승률</strong>
+              {sweepResult.sideB.map((score) => (
+                <span key={score.strategy}>
+                  {strategyNames[score.strategy]} {score.wins}/{score.games} ({Math.round(score.winRate * 100)}%)
+                </span>
+              ))}
+            </div>
           </div>
-          <p>총 {report.battle.events.length}개의 판정 이벤트</p>
-        </div>
-        <div className="eve-event-table">
-          {report.battle.events
-            .filter((event) => event.type !== "turn")
-            .map((event, index) => (
-              <div key={`${event.turn}-${event.type}-${index}`}>
-                <span>T{event.turn}</span>
-                <strong>{eventLabel(event.type)}</strong>
-                <p>
-                  {localizedSpeciesName(localization, actorName(event.actor))}
-                  {event.detail
-                    ? ` · ${
-                        localization?.moves[id(event.detail)]?.name ?? event.detail
-                      }`
-                    : ""}
-                  {event.condition ? ` · ${event.condition}` : ""}
-                  {event.source ? ` · 원인: ${event.source}` : ""}
-                </p>
-              </div>
-            ))}
-        </div>
+        </section>
+      ) : null}
+
+      {error ? <p className="eve-report-error">{error}</p> : null}
+
+      <section className="eve-analysis-layout">
+        <aside className="eve-history-panel">
+          <header>
+            <strong>전체 전적</strong>
+            <span>{history.length}전</span>
+          </header>
+          <div className="eve-history-list">
+            {history.map((entry, index) => {
+              const active = historyId(entry) === historyId(selected);
+              const entryProfiles = profilesOf(entry);
+              return (
+                <div
+                  key={historyId(entry)}
+                  className={`eve-history-entry${active ? " active" : ""}`}
+                >
+                  <button
+                    className="eve-history-main"
+                    onClick={() => selectHistory(entry)}
+                  >
+                    <span>#{history.length - index}</span>
+                    <strong>{entry.battle.winner ?? "무승부"}</strong>
+                    <small>
+                      seed {entry.scenario.seed} · {entry.battle.turns}턴 ·{" "}
+                      {strategyNames[entryProfiles[0]?.strategy]} vs{" "}
+                      {strategyNames[entryProfiles[1]?.strategy]}
+                    </small>
+                  </button>
+                  <button
+                    className="eve-history-delete"
+                    onClick={() => deleteHistory(entry)}
+                  >
+                    삭제
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </aside>
+
+        <section className="eve-plain-log">
+          <header>
+            <strong>대전 과정</strong>
+            <span>
+              {difficultyNames[profilesOf(selected)[0]?.difficulty]} {strategyNames[profilesOf(selected)[0]?.strategy]} vs{" "}
+              {difficultyNames[profilesOf(selected)[1]?.difficulty]} {strategyNames[profilesOf(selected)[1]?.strategy]}
+            </span>
+          </header>
+          <pre>{plainLog}</pre>
+        </section>
       </section>
 
-      {report.battle.warnings.length > 0 ? (
+      {selected.battle.warnings.length > 0 ? (
         <section className="eve-report-warnings">
-          <h2>호환성 및 구현 경고</h2>
-          {report.battle.warnings.map((warning, index) => (
+          <h2>경고</h2>
+          {selected.battle.warnings.map((warning, index) => (
             <p key={index}>{warning.message}</p>
           ))}
         </section>

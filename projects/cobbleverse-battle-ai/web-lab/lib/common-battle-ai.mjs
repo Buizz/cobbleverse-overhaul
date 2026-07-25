@@ -153,3 +153,132 @@ export function createAiMoveTrace({
     difficultyLabel: DIFFICULTY_LABELS[difficulty] ?? difficulty,
   };
 }
+
+export function scoreAiSwitchCandidate(candidate) {
+  const hpPercent = Number.isFinite(Number(candidate.hpPercent))
+    ? Number(candidate.hpPercent)
+    : 0;
+  const expectedDamage = Number.isFinite(Number(candidate.expectedDamage))
+    ? Number(candidate.expectedDamage)
+    : 0;
+  const matchupValue = Number.isFinite(Number(candidate.matchupValue))
+    ? Number(candidate.matchupValue)
+    : 0;
+  return expectedDamage + matchupValue + hpPercent * 10;
+}
+
+export function rankAiSwitchCandidates(candidates) {
+  return candidates
+    .map((candidate) => ({
+      ...candidate,
+      score: Math.round(scoreAiSwitchCandidate(candidate) * 100) / 100,
+    }))
+    .sort((left, right) => right.score - left.score || left.slot - right.slot);
+}
+
+export function selectAiSwitchCandidate(
+  candidates,
+  {
+    difficulty = "standard",
+    strategy = "balanced",
+    rng = createAiRng(0),
+  } = {},
+) {
+  const available = candidates.filter(
+    (candidate) => !candidate.disabled && !candidate.active && !candidate.fainted,
+  );
+  if (available.length === 0) return null;
+  if (difficulty === "novice") {
+    return available[rng.nextIndex(available.length)];
+  }
+  const ranked = rankAiSwitchCandidates(available);
+  if (strategy === "unpredictable" && ranked.length > 1) {
+    return ranked[rng.nextIndex(Math.min(3, ranked.length))];
+  }
+  if (difficulty === "standard" && ranked.length > 1) {
+    return ranked[rng.nextIndex(4) === 0 ? 1 : 0];
+  }
+  return ranked[0];
+}
+
+export function createAiSwitchTrace({
+  turn,
+  side,
+  sideName,
+  species,
+  difficulty = "standard",
+  strategy = "balanced",
+  candidates,
+  selected,
+}) {
+  const ranked = rankAiSwitchCandidates(candidates).map((candidate) => ({
+    ...candidate,
+    selected: candidate.slot === selected?.slot,
+  }));
+  return {
+    turn,
+    side,
+    sideName,
+    species,
+    kind: "switch",
+    difficulty,
+    strategy,
+    chosenAction: selected ? `슬롯 ${selected.slot} 교체` : "기본 교체",
+    reason: "공통 AI가 남은 체력과 공격 기대값을 기준으로 교체 후보를 선택했습니다.",
+    candidates: ranked,
+    aiModel: "common-battle-ai",
+    difficultyLabel: DIFFICULTY_LABELS[difficulty] ?? difficulty,
+  };
+}
+
+export function selectAiGimmick({
+  active = {},
+  configured = {},
+  moveSlot = 1,
+  forceDynamax = false,
+  alreadyUsed = {},
+} = {}) {
+  if (!alreadyUsed.mega) {
+    if (active.canMegaEvo) return { id: "mega", showdownSuffix: " mega" };
+    if (active.canMegaEvoX) return { id: "mega", showdownSuffix: " megax" };
+    if (active.canMegaEvoY) return { id: "mega", showdownSuffix: " megay" };
+  }
+  if (!alreadyUsed.zmove && active.canZMove?.[moveSlot - 1]) {
+    return { id: "zmove", showdownSuffix: " zmove" };
+  }
+  if (
+    !alreadyUsed.dynamax &&
+    active.canDynamax &&
+    (forceDynamax || configured?.gimmicks?.dynamax)
+  ) {
+    return { id: "dynamax", showdownSuffix: " dynamax" };
+  }
+  if (
+    !alreadyUsed.terastallize &&
+    active.canTerastallize &&
+    configured?.gimmicks?.tera
+  ) {
+    return { id: "terastallize", showdownSuffix: " terastallize" };
+  }
+  return { id: "", showdownSuffix: "" };
+}
+
+export function selectAiTargetSuffix(move, activeIndex, activeCount, team = []) {
+  if (activeCount < 2) return "";
+  if (["normal", "any", "adjacentFoe"].includes(move?.target)) {
+    return ` ${activeCount === 3 ? 2 : 1}`;
+  }
+  if (move?.target === "adjacentAlly") {
+    const allyIndex = team.findIndex(
+      (pokemon, index) =>
+        index !== activeIndex &&
+        pokemon.active &&
+        !String(pokemon.condition).endsWith(" fnt"),
+    );
+    return allyIndex >= 0 ? ` -${allyIndex + 1}` : "";
+  }
+  if (move?.target === "adjacentAllyOrSelf") {
+    return ` -${activeIndex + 1}`;
+  }
+  return "";
+}
