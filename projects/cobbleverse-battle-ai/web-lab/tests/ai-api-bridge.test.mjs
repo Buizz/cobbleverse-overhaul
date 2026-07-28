@@ -86,6 +86,70 @@ test("uses species role priors as soft bonuses in team analysis", () => {
   );
 });
 
+test("separates true ace candidates from broad offensive role scores", () => {
+  const report = analyzeTeamProfile([
+    {
+      slot: 1,
+      species: "Porygon2",
+      level: 100,
+      item: "Eviolite",
+      moves: ["Ice Beam", "Thunderbolt", "Trick Room", "Recover"],
+    },
+    {
+      slot: 2,
+      species: "Garganacl",
+      level: 100,
+      moves: ["Stealth Rock", "Salt Cure", "Earthquake", "Explosion"],
+    },
+    {
+      slot: 3,
+      species: "Blaziken",
+      level: 100,
+      moves: ["Swords Dance", "Close Combat", "Flare Blitz", "Protect"],
+    },
+    {
+      slot: 4,
+      species: "Mawile",
+      level: 100,
+      item: "Mawilite",
+      moves: ["Swords Dance", "Play Rough", "Sucker Punch", "Iron Head"],
+    },
+  ]);
+
+  const porygon2 = report.roles.find((entry) => entry.species === "Porygon2");
+  const garganacl = report.roles.find((entry) => entry.species === "Garganacl");
+  assert.equal(porygon2.aceProfile.qualifies, false);
+  assert.equal(garganacl.aceProfile.qualifies, false);
+  assert.equal(porygon2.roles.some((role) => role.role === "ace"), false);
+  assert.equal(garganacl.roles.some((role) => role.role === "ace"), false);
+  assert.deepEqual(
+    report.aceCandidates.map((entry) => entry.species),
+    ["Mawile", "Blaziken"],
+  );
+});
+
+test("honors manually selected ace roles before inferred ace scoring", () => {
+  const report = analyzeTeamProfile([
+    {
+      slot: 1,
+      species: "Porygon2",
+      level: 100,
+      aiRole: "ace",
+      moves: ["Ice Beam", "Recover"],
+    },
+    {
+      slot: 2,
+      species: "Blaziken",
+      level: 100,
+      moves: ["Swords Dance", "Close Combat"],
+    },
+  ]);
+
+  assert.equal(report.aceCandidates[0].species, "Porygon2");
+  assert.equal(report.aceCandidates[0].aceProfile.manual.forced, true);
+  assert.ok(report.aceCandidates[0].roles.some((role) => role.role === "ace"));
+});
+
 test("analyzes team roles from scenario moveset fields", () => {
   const report = analyzeTeamProfile([
     {
@@ -252,6 +316,67 @@ test("weights move role classification according to AI strategy", () => {
     scoreAiMoveCandidate(swordsDance, "expert", "setup") >
       scoreAiMoveCandidate(tackle, "expert", "setup"),
   );
+  assert.ok(
+    scoreAiMoveCandidate(
+      {
+        ...swordsDance,
+        opponentHp: 404,
+        incomingDamageRatio: 0.23,
+        setupCurrentBestDamage: 210,
+        setupBoostedBestDamage: 430,
+        setupDamageImprovement: 220,
+        setupKoBeforeBoost: false,
+        setupKoAfterBoost: true,
+      },
+      "expert",
+      "tempo",
+    ) >
+      scoreAiMoveCandidate(
+        {
+          slot: 3,
+          id: "closecombat",
+          name: "Close Combat",
+          category: "Physical",
+          power: 120,
+          accuracy: 100,
+          expectedDamage: 283,
+          opponentHp: 404,
+          tacticalValue: -30,
+        },
+        "expert",
+        "tempo",
+      ),
+  );
+  const safeFinisher = {
+    slot: 2,
+    id: "surgingstrikes",
+    name: "Surging Strikes",
+    category: "Physical",
+    power: 25,
+    accuracy: 100,
+    expectedDamage: 549,
+    opponentHp: 404,
+    koChance: "guaranteed",
+  };
+  const selfDropFinisher = {
+    slot: 3,
+    id: "closecombat",
+    name: "Close Combat",
+    category: "Physical",
+    power: 120,
+    accuracy: 100,
+    expectedDamage: 563,
+    opponentHp: 404,
+    koChance: "guaranteed",
+    tacticalValue: -30,
+    selfBoosts: { def: -1, spd: -1 },
+    selfDropTotal: 2,
+    safeNoDropKoAvailable: true,
+  };
+  assert.ok(
+    scoreAiMoveCandidate(safeFinisher, "expert", "tempo") >
+      scoreAiMoveCandidate(selfDropFinisher, "expert", "tempo"),
+  );
   assert.equal(
     selectAiMoveCandidate([tackle, swordsDance], {
       difficulty: "expert",
@@ -379,6 +504,15 @@ test("values early Stealth Rock above first Salt Cure pressure", () => {
     ...saltCure,
     opponentVolatiles: { saltcure: { id: "saltcure" } },
   };
+  const porygonSaltCure = {
+    ...saltCure,
+    expectedDamage: 52.5,
+    opponentHp: 374,
+    opponentMaxHp: 374,
+    opponentPrimaryRole: "ace",
+    opponentAceScore: 1.4,
+    opponentAceQualified: false,
+  };
   const earthquake = {
     slot: 3,
     id: "earthquake",
@@ -394,6 +528,68 @@ test("values early Stealth Rock above first Salt Cure pressure", () => {
     opponentHazards: { stealthrock: 1 },
     turn: 2,
   };
+  const lateStealthRock = {
+    ...stealthRock,
+    turn: 3,
+    livingOpponents: 5,
+  };
+  const lateStealthRockIntoFinisher = {
+    ...stealthRock,
+    turn: 2,
+    livingOpponents: 5,
+    immediateKoAvailable: true,
+    safeImmediateKoAvailable: true,
+    opponentHazards: {},
+    hpPercent: 0.49,
+    incomingDamageRatio: 0.2,
+  };
+  const lateEarthquake = {
+    ...earthquake,
+    turn: 3,
+    expectedDamage: 86,
+    opponentHp: 374,
+  };
+  const desperateSaltCure = {
+    ...saltCureAfterRocks,
+    expectedSurvivalTurns: 1,
+    incomingDamageRatio: 0.8,
+    opponentPrimaryRole: "ace",
+  };
+  const boostedThreatSaltCure = {
+    ...saltCure,
+    turn: 1,
+    expectedDamage: 24,
+    opponentHp: 343,
+    opponentMaxHp: 343,
+    saltCureResidualDamage: 43,
+    incomingDamageRatio: 0.23,
+    opponentBoosts: { attack: 2 },
+    opponentPositiveBoosts: 2,
+  };
+  const likelySetupSaltCure = {
+    ...saltCure,
+    turn: 1,
+    expectedDamage: 24,
+    opponentHp: 343,
+    opponentMaxHp: 343,
+    saltCureResidualDamage: 43,
+    incomingDamageRatio: 0.23,
+    opponentSetupMoveCount: 1,
+    opponentSetupMoveIds: ["swordsdance"],
+    opponentSetupFirstTurnLikelihood: 0.82,
+    opponentLikelyFirstTurnSetup: true,
+    opponentSetupThreatTier: 3,
+  };
+  const boostedThreatEarthquake = {
+    ...earthquake,
+    turn: 1,
+    expectedDamage: 79.5,
+    opponentHp: 343,
+    opponentMaxHp: 343,
+    incomingDamageRatio: 0.23,
+    opponentBoosts: { attack: 2 },
+    opponentPositiveBoosts: 2,
+  };
 
   assert.ok(
     scoreAiMoveCandidate(saltCure, "expert", "balanced") >
@@ -404,8 +600,31 @@ test("values early Stealth Rock above first Salt Cure pressure", () => {
       scoreAiMoveCandidate(saltCure, "expert", "balanced"),
   );
   assert.ok(
+    scoreAiMoveCandidate(stealthRock, "expert", "aggressive") >
+      scoreAiMoveCandidate(porygonSaltCure, "expert", "aggressive"),
+  );
+  assert.ok(
     scoreAiMoveCandidate(saltCureAfterRocks, "expert", "balanced") >
       scoreAiMoveCandidate(earthquake, "expert", "balanced"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(lateStealthRock, "expert", "balanced") >
+      scoreAiMoveCandidate(lateEarthquake, "expert", "balanced"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(lateStealthRockIntoFinisher, "expert", "balanced") > 60,
+  );
+  assert.ok(
+    scoreAiMoveCandidate(desperateSaltCure, "expert", "balanced") >
+      scoreAiMoveCandidate(earthquake, "expert", "balanced"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(boostedThreatSaltCure, "expert", "aggressive") >
+      scoreAiMoveCandidate(boostedThreatEarthquake, "expert", "aggressive"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(likelySetupSaltCure, "expert", "balanced") >
+      scoreAiMoveCandidate(stealthRock, "expert", "balanced"),
   );
   assert.ok(
     scoreAiMoveCandidate(curedSaltCure, "expert", "balanced") <
@@ -426,7 +645,7 @@ test("values early Stealth Rock above first Salt Cure pressure", () => {
   const salt = trace.candidates.find((candidate) => candidate.id === "saltcure");
   assert.ok(
     selected.reasons.some(
-      (reason) => reason.code === "rule.entry_hazard.early_stealth_rock",
+      (reason) => reason.code === "rule.entry_hazard.stealth_rock_pressure",
     ),
   );
   assert.ok(

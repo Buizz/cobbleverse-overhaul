@@ -84,6 +84,8 @@ type CatalogSpecies = {
   id: string;
   name: string;
   englishName: string;
+  baseSpecies: string;
+  forme: string;
   description: string;
   number: number;
   generation: number;
@@ -104,6 +106,13 @@ type CatalogMove = {
   pp: number;
   priority: number;
   target: string;
+};
+
+type CatalogLearnMethod = {
+  source: string;
+  generation: number | null;
+  method: string;
+  level: number | null;
 };
 
 type CatalogAbility = {
@@ -131,6 +140,7 @@ type BattleCatalog = {
   moves: CatalogMove[];
   abilities: CatalogAbility[];
   items: CatalogItem[];
+  learnsets?: Record<string, Record<string, CatalogLearnMethod[]>>;
 };
 
 type CatalogChoice =
@@ -464,10 +474,31 @@ type CustomPokemon = {
   level: number;
   ability: string;
   heldItem: string;
+  ivs: Record<string, number>;
+  evs: Record<string, number>;
   dynamax: boolean;
   gmax: boolean;
   tera: string;
   moves: string[];
+};
+
+type SavedCustomEntry = {
+  schemaVersion: 1;
+  id: string;
+  name: string;
+  savedAt: string;
+  updatedAt: string;
+  party: CustomPokemon[];
+};
+
+const pokemonStatKeys = ["hp", "atk", "def", "spa", "spd", "spe"] as const;
+const pokemonStatNames: Record<(typeof pokemonStatKeys)[number], string> = {
+  hp: "HP",
+  atk: "공격",
+  def: "방어",
+  spa: "특공",
+  spd: "특방",
+  spe: "스피드",
 };
 
 type ChoiceTarget =
@@ -495,6 +526,8 @@ const emptyPokemon = (): CustomPokemon => ({
   level: 50,
   ability: "",
   heldItem: "",
+  ivs: Object.fromEntries(pokemonStatKeys.map((key) => [key, 31])),
+  evs: Object.fromEntries(pokemonStatKeys.map((key) => [key, 0])),
   dynamax: false,
   gmax: false,
   tera: "",
@@ -502,10 +535,74 @@ const emptyPokemon = (): CustomPokemon => ({
 });
 
 const initialParty = Array.from({ length: 6 }, emptyPokemon);
+
+function normalizeCustomStats(
+  stats: Partial<Record<string, number>> | undefined,
+  fallback: number,
+  maximum: number,
+) {
+  return Object.fromEntries(
+    pokemonStatKeys.map((key) => {
+      const value = Number(stats?.[key] ?? fallback);
+      return [
+        key,
+        Number.isFinite(value)
+          ? Math.min(maximum, Math.max(0, Math.trunc(value)))
+          : fallback,
+      ];
+    }),
+  );
+}
+
+function normalizeCustomPokemon(pokemon: Partial<CustomPokemon> = {}) {
+  const level = Number(pokemon.level ?? 50);
+  return {
+    species: String(pokemon.species ?? ""),
+    level: Number.isInteger(level) ? Math.min(100, Math.max(1, level)) : 50,
+    ability: String(pokemon.ability ?? ""),
+    heldItem: String(pokemon.heldItem ?? ""),
+    ivs: normalizeCustomStats(pokemon.ivs, 31, 31),
+    evs: normalizeCustomStats(pokemon.evs, 0, 252),
+    dynamax: pokemon.dynamax === true || pokemon.gmax === true,
+    gmax: pokemon.gmax === true,
+    tera: String(pokemon.tera ?? ""),
+    moves: [...(Array.isArray(pokemon.moves) ? pokemon.moves : []), "", "", "", ""]
+      .slice(0, 4)
+      .map((move) => String(move ?? "")),
+  };
+}
+
+function normalizeCustomParty(party: unknown) {
+  const members = Array.isArray(party)
+    ? party.map((pokemon) => normalizeCustomPokemon(pokemon as Partial<CustomPokemon>))
+    : [];
+  return [
+    ...members,
+    ...Array.from({ length: Math.max(0, 6 - members.length) }, emptyPokemon),
+  ].slice(0, 6);
+}
+
+function customPartyMemberCount(party: CustomPokemon[]) {
+  return party.filter((pokemon) => pokemon.species.trim()).length;
+}
+
+function customEntryLabel(
+  party: CustomPokemon[],
+  localization: LocalizationCatalog | null,
+) {
+  const members = party
+    .filter((pokemon) => pokemon.species.trim())
+    .slice(0, 3)
+    .map((pokemon) => localizedSpecies(localization, pokemon.species));
+  if (members.length === 0) return "빈 엔트리";
+  return members.join(", ");
+}
+
 const RECENT_TRAINERS_KEY = "cobbleverse-battle-lab:recent-trainers";
 const LAST_BATTLE_KEY = "cobbleverse-battle-lab:last-battle";
 const EVE_REPORT_KEY = "cobbleverse-battle-lab:eve-report";
 const PARTY_ORDERS_KEY = "cobbleverse-battle-lab:party-orders";
+const CUSTOM_ENTRIES_KEY = "cobbleverse-battle-lab:custom-entries";
 
 const pokemonTypeNames: Record<string, string> = {
   Normal: "노말",
@@ -534,6 +631,34 @@ const moveCategoryNames = {
   Special: "특수",
   Status: "변화",
 } as const;
+
+const learnMethodNames: Record<string, string> = {
+  level: "자력기",
+  machine: "기술머신",
+  tutor: "튜터",
+  egg: "유전기",
+  event: "이벤트",
+  reminder: "기억",
+  transfer: "이전 세대",
+  dream: "드림월드",
+  other: "기타",
+};
+
+function learnMethodLabel(method: CatalogLearnMethod) {
+  const name = learnMethodNames[method.method] ?? learnMethodNames.other;
+  return method.method === "level" && method.level
+    ? `${name} Lv.${method.level}`
+    : name;
+}
+
+function moveLearnMethods(
+  catalog: BattleCatalog,
+  speciesId: string | undefined,
+  moveId: string,
+) {
+  if (!speciesId) return [];
+  return catalog.learnsets?.[dexId(speciesId)]?.[dexId(moveId)] ?? [];
+}
 
 const pokemonTypeGlyphs: Record<string, string> = {
   Normal: "노",
@@ -1701,9 +1826,9 @@ function TrainerPicker({
               </span>
               <span className="entry-trigger-party">
                 {selected.team.slice(0, 6).map((pokemon) => (
-                  <img
+                  <PokemonSprite
                     key={`${selected.id}-${pokemon.slot}`}
-                    src={showdownSpriteUrl(pokemon.resolvedSpecies ?? pokemon.species)}
+                    species={pokemon.resolvedSpecies ?? pokemon.species}
                     alt={localizedSpecies(
                       localization,
                       pokemon.resolvedSpecies ?? pokemon.species,
@@ -1796,11 +1921,9 @@ function TrainerPicker({
                     <span className="entry-choice-party">
                       {trainer.team.slice(0, 6).map((pokemon) => (
                         <span key={`${trainer.id}-${pokemon.slot}`}>
-                          <img
+                          <PokemonSprite
                             loading="lazy"
-                            src={showdownSpriteUrl(
-                              pokemon.resolvedSpecies ?? pokemon.species,
-                            )}
+                            species={pokemon.resolvedSpecies ?? pokemon.species}
                             alt=""
                           />
                           <b>
@@ -1948,6 +2071,81 @@ function TeamStrip({
   );
 }
 
+function CustomEntryManager({
+  entries,
+  selectedEntryId,
+  entryName,
+  party,
+  localization,
+  onNameChange,
+  onSelect,
+  onSave,
+  onNew,
+  onDelete,
+}: {
+  entries: SavedCustomEntry[];
+  selectedEntryId: string;
+  entryName: string;
+  party: CustomPokemon[];
+  localization: LocalizationCatalog | null;
+  onNameChange: (name: string) => void;
+  onSelect: (id: string) => void;
+  onSave: () => void;
+  onNew: () => void;
+  onDelete: (id: string) => void;
+}) {
+  const selectedEntry = entries.find((entry) => entry.id === selectedEntryId);
+  const memberCount = customPartyMemberCount(party);
+
+  return (
+    <div className="custom-entry-manager">
+      <label>
+        <span>저장된 엔트리</span>
+        <select
+          value={selectedEntryId}
+          onChange={(event) => onSelect(event.target.value)}
+        >
+          <option value="">저장된 엔트리 선택</option>
+          {entries.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.name} · {customPartyMemberCount(entry.party)}마리
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>엔트리 이름</span>
+        <input
+          value={entryName}
+          onChange={(event) => onNameChange(event.target.value)}
+          placeholder={customEntryLabel(party, localization)}
+        />
+      </label>
+      <div className="custom-entry-actions">
+        <button type="button" onClick={onSave} disabled={memberCount === 0}>
+          {selectedEntry ? "덮어쓰기" : "저장"}
+        </button>
+        <button type="button" onClick={onNew}>
+          새 엔트리
+        </button>
+        <button
+          type="button"
+          className="danger"
+          onClick={() => selectedEntryId && onDelete(selectedEntryId)}
+          disabled={!selectedEntryId}
+        >
+          삭제
+        </button>
+      </div>
+      <small>
+        {selectedEntry
+          ? `${new Date(selectedEntry.updatedAt).toLocaleString("ko-KR")} 저장`
+          : `${memberCount}/6 슬롯 편집 중`}
+      </small>
+    </div>
+  );
+}
+
 function CustomPartyEditor({
   party,
   onChange,
@@ -1984,10 +2182,43 @@ function CustomPartyEditor({
     );
   };
 
+  const updateStat = (
+    pokemonIndex: number,
+    group: "ivs" | "evs",
+    stat: (typeof pokemonStatKeys)[number],
+    value: number,
+  ) => {
+    const maximum = group === "ivs" ? 31 : 252;
+    onChange(
+      party.map((pokemon, index) =>
+        index === pokemonIndex
+          ? {
+              ...pokemon,
+              [group]: {
+                ...pokemon[group],
+                [stat]: Math.min(maximum, Math.max(0, Math.trunc(value))),
+              },
+            }
+          : pokemon,
+      ),
+    );
+  };
+
   return (
     <div className="custom-grid">
-      {party.map((pokemon, index) => (
-        <article className="custom-card" key={index}>
+      {party.map((pokemon, index) => {
+        const selectedSpecies = catalog?.species.find(
+          (entry) => entry.id === dexId(pokemon.species),
+        );
+        const formOptions = selectedSpecies
+          ? catalog?.species.filter(
+              (entry) =>
+                entry.number === selectedSpecies.number &&
+                entry.id !== selectedSpecies.id,
+            ) ?? []
+          : [];
+        return (
+          <article className="custom-card" key={index}>
           <header>
             <span className="slot-number">{String(index + 1).padStart(2, "0")}</span>
             <strong>
@@ -1996,15 +2227,15 @@ function CustomPartyEditor({
                 : "빈 슬롯"}
             </strong>
             {pokemon.species ? (
-              <img
+              <PokemonSprite
                 className="custom-card-sprite"
-                src={showdownSpriteUrl(pokemon.species)}
+                species={pokemon.species}
                 alt=""
               />
             ) : null}
           </header>
           <div className="custom-fields">
-            <label>
+            <label className="wide">
               포켓몬
               <span className="editor-picker-input">
                 <input
@@ -2022,6 +2253,23 @@ function CustomPartyEditor({
               </span>
             </label>
             <label>
+              폼/모습
+              <select
+                value={pokemon.species}
+                onChange={(event) => update(index, "species", event.target.value)}
+                disabled={!selectedSpecies || formOptions.length === 0}
+              >
+                <option value={pokemon.species}>
+                  {selectedSpecies?.forme || "기본"}
+                </option>
+                {formOptions.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.forme || entry.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
               레벨
               <input
                 type="number"
@@ -2033,7 +2281,7 @@ function CustomPartyEditor({
                 }
               />
             </label>
-            <label>
+            <label className="wide">
               특성
               <span className="editor-picker-input">
                 <input
@@ -2050,7 +2298,7 @@ function CustomPartyEditor({
                 </button>
               </span>
             </label>
-            <label>
+            <label className="wide">
               지닌 도구
               <span className="editor-picker-input">
                 <input
@@ -2081,38 +2329,73 @@ function CustomPartyEditor({
                 ))}
               </select>
             </label>
-            <label>
-              <span>AI 다이맥스 강제</span>
-              <input
-                type="checkbox"
-                checked={pokemon.dynamax}
-                onChange={(event) =>
-                  update(index, "dynamax", event.target.checked)
-                }
-              />
-            </label>
-            <label>
-              <span>거다이맥스 개체</span>
-              <input
-                type="checkbox"
-                checked={pokemon.gmax}
-                onChange={(event) => {
-                  const checked = event.target.checked;
-                  onChange(
-                    party.map((member, memberIndex) =>
-                      memberIndex === index
-                        ? {
-                            ...member,
-                            gmax: checked,
-                            dynamax: checked || member.dynamax,
-                          }
-                        : member,
-                    ),
-                  );
-                }}
-              />
-            </label>
+            <div className="custom-gimmick-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={pokemon.dynamax}
+                  onChange={(event) =>
+                    update(index, "dynamax", event.target.checked)
+                  }
+                />
+                <span>AI 다이맥스 강제</span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={pokemon.gmax}
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    onChange(
+                      party.map((member, memberIndex) =>
+                        memberIndex === index
+                          ? {
+                              ...member,
+                              gmax: checked,
+                              dynamax: checked || member.dynamax,
+                            }
+                          : member,
+                      ),
+                    );
+                  }}
+                />
+                <span>거다이맥스 개체</span>
+              </label>
+            </div>
           </div>
+          <details className="stat-editor">
+            <summary>개체값 / 노력치</summary>
+            <div>
+              {pokemonStatKeys.map((stat) => (
+                <label key={`iv-${stat}`}>
+                  <span>IV {pokemonStatNames[stat]}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="31"
+                    value={pokemon.ivs[stat] ?? 31}
+                    onChange={(event) =>
+                      updateStat(index, "ivs", stat, Number(event.target.value))
+                    }
+                  />
+                </label>
+              ))}
+              {pokemonStatKeys.map((stat) => (
+                <label key={`ev-${stat}`}>
+                  <span>EV {pokemonStatNames[stat]}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="252"
+                    value={pokemon.evs[stat] ?? 0}
+                    onChange={(event) =>
+                      updateStat(index, "evs", stat, Number(event.target.value))
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+          </details>
           <div className="moves-grid">
             {pokemon.moves.map((move, moveIndex) => (
               <div className="move-editor-field" key={moveIndex}>
@@ -2139,8 +2422,9 @@ function CustomPartyEditor({
               </div>
             ))}
           </div>
-        </article>
-      ))}
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -2167,6 +2451,8 @@ function EditorChoiceDialog({
   const species = catalog.species.find(
     (entry) => entry.id === dexId(pokemon.species),
   );
+  const speciesLearnset = species ? catalog.learnsets?.[species.id] ?? {} : {};
+  const hasSpeciesLearnset = Object.keys(speciesLearnset).length > 0;
   const normalizedQuery = query.trim().toLowerCase();
   const matchesQuery = (...values: Array<string | number | undefined>) =>
     !normalizedQuery ||
@@ -2193,17 +2479,34 @@ function EditorChoiceDialog({
       );
     }
     if (target.kind === "move") {
-      return catalog.moves.filter(
-        (entry) =>
+      return catalog.moves
+        .filter((entry) => {
+          const learnMethods = moveLearnMethods(catalog, species?.id, entry.id);
+          const methodLabels = learnMethods.map(learnMethodLabel);
+          return (
           matchesQuery(
             entry.id,
             entry.name,
             entry.englishName,
             entry.description,
+              methodLabels.join(" "),
           ) &&
           (!typeFilter || entry.type === typeFilter) &&
-          (!categoryFilter || entry.category === categoryFilter),
-      );
+            (!categoryFilter || entry.category === categoryFilter) &&
+            (scopeFilter !== "recommended" ||
+              !hasSpeciesLearnset ||
+              learnMethods.length > 0)
+          );
+        })
+        .sort((left, right) => {
+          const leftLearned = moveLearnMethods(catalog, species?.id, left.id).length > 0;
+          const rightLearned = moveLearnMethods(catalog, species?.id, right.id).length > 0;
+          if (leftLearned !== rightLearned) return leftLearned ? -1 : 1;
+          const leftStab = species?.types.includes(left.type) ?? false;
+          const rightStab = species?.types.includes(right.type) ?? false;
+          if (leftStab !== rightStab) return leftStab ? -1 : 1;
+          return String(left.name).localeCompare(String(right.name), "ko");
+        });
     }
     if (target.kind === "ability") {
       const allowed = new Set(species?.abilities ?? []);
@@ -2306,6 +2609,16 @@ function EditorChoiceDialog({
           {target.kind === "move" ? (
             <>
               <select
+                value={scopeFilter}
+                onChange={(event) => setScopeFilter(event.target.value)}
+                aria-label="기술 습득 범위 필터"
+              >
+                <option value="recommended">
+                  {hasSpeciesLearnset ? "현재 포켓몬의 기술" : "추천 기술"}
+                </option>
+                <option value="all">전체 기술</option>
+              </select>
+              <select
                 value={typeFilter}
                 onChange={(event) => setTypeFilter(event.target.value)}
                 aria-label="기술 타입 필터"
@@ -2383,9 +2696,9 @@ function EditorChoiceDialog({
                   key={entry.id}
                   onClick={() => onChoose(entry.id)}
                 >
-                  <img
+                  <PokemonSprite
                     loading="lazy"
-                    src={showdownSpriteUrl(entry.id)}
+                    species={entry.id}
                     alt=""
                   />
                   <span>
@@ -2409,6 +2722,8 @@ function EditorChoiceDialog({
               );
             }
             if (isCatalogMove(entry)) {
+              const learnMethods = moveLearnMethods(catalog, species?.id, entry.id);
+              const isStab = species?.types.includes(entry.type) ?? false;
               return (
                 <button
                   type="button"
@@ -2426,6 +2741,18 @@ function EditorChoiceDialog({
                     {entry.power || "—"} · 명중{" "}
                     {entry.accuracy === true ? "필중" : entry.accuracy} · PP{" "}
                     {entry.pp}
+                  </span>
+                  <span className="catalog-tags">
+                    {learnMethods.slice(0, 4).map((method) => (
+                      <b key={method.source}>{learnMethodLabel(method)}</b>
+                    ))}
+                    {learnMethods.length > 4 ? (
+                      <b>+{learnMethods.length - 4}</b>
+                    ) : null}
+                    {isStab ? <b>타입 일치</b> : null}
+                    {hasSpeciesLearnset && learnMethods.length === 0 ? (
+                      <b>비추천</b>
+                    ) : null}
                   </span>
                   <p>{entry.description || entry.englishName}</p>
                 </button>
@@ -2474,6 +2801,46 @@ function actorName(value: string | undefined) {
 
 function showdownSpriteUrl(species: string, back = false) {
   return `/api/pokemon-sprites?species=${encodeURIComponent(species)}${back ? "&back=1" : ""}`;
+}
+
+function showdownRemoteSpriteUrl(species: string, back = false) {
+  return `${showdownSpriteUrl(species, back)}&remote=1`;
+}
+
+function showdownFallbackSpriteUrl(species: string, back = false) {
+  return `${showdownSpriteUrl(species, back)}&fallback=1`;
+}
+
+function PokemonSprite({
+  species,
+  back = false,
+  alt = "",
+  className,
+  loading,
+}: {
+  species: string;
+  back?: boolean;
+  alt?: string;
+  className?: string;
+  loading?: "eager" | "lazy";
+}) {
+  const remoteUrl = showdownRemoteSpriteUrl(species, back);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const fallback = failedUrl === remoteUrl;
+
+  return (
+    <img
+      className={className}
+      loading={loading}
+      src={
+        fallback
+          ? showdownFallbackSpriteUrl(species, back)
+          : remoteUrl
+      }
+      alt={alt}
+      onError={() => setFailedUrl(remoteUrl)}
+    />
+  );
 }
 
 function conditionPercent(condition: string | undefined) {
@@ -2984,10 +3351,7 @@ function MultiBattleCommandPanel({
               key={`${pokemon?.ident ?? index}-${index}`}
             >
               {pokemon ? (
-                <img
-                  src={showdownSpriteUrl(pokemon.species)}
-                  alt=""
-                />
+                <PokemonSprite species={pokemon.species} alt="" />
               ) : null}
               <div>
                 <b>
@@ -3078,7 +3442,7 @@ function MultiBattleCommandPanel({
                   })
                 }
               >
-                <img src={showdownSpriteUrl(opponent.species)} alt="" />
+                <PokemonSprite species={opponent.species} alt="" />
                 <b>{localizedSpecies(localization, opponent.species)}</b>
                 <span>상대 {opponent.position}번</span>
               </button>
@@ -3154,7 +3518,7 @@ function MultiBattleCommandPanel({
                 disabled={busy || usedSwitches.has(pokemon.slot)}
                 onClick={() => commit({ type: "switch", slot: pokemon.slot })}
               >
-                <img src={showdownSpriteUrl(pokemon.species)} alt="" />
+                <PokemonSprite species={pokemon.species} alt="" />
                 <span>{localizedSpecies(localization, pokemon.species)}</span>
                 <small>교체</small>
               </button>
@@ -3524,8 +3888,8 @@ function InteractiveArena({
                 key={`${pokemon.position}-${pokemon.species}`}
               >
                 {/* Dynamic Showdown sprite URLs are intentionally rendered without Next image optimization. */}
-                <img
-                  src={showdownSpriteUrl(pokemon.species)}
+                <PokemonSprite
+                  species={pokemon.species}
                   alt={`${localizedSpecies(localization, pokemon.species)} 전면 스프라이트`}
                 />
               </div>
@@ -3587,8 +3951,9 @@ function InteractiveArena({
                 key={`${index}-${pokemon.species}`}
               >
                 {/* Dynamic Showdown sprite URLs intentionally skip Next image optimization. */}
-                <img
-                  src={showdownSpriteUrl(pokemon.species, true)}
+                <PokemonSprite
+                  species={pokemon.species}
+                  back
                   alt={`${localizedSpecies(localization, pokemon.species)} 후면 스프라이트`}
                 />
               </div>
@@ -3646,8 +4011,8 @@ function InteractiveArena({
                 title={`${localizedSpecies(localization, pokemon.species)}${isActive ? " · 출전 중" : ""}${statusLabel ? ` · ${statusLabel}` : ""}${fainted ? " · 기절" : ""}`}
               >
                 {/* Dynamic Showdown sprite URLs intentionally skip Next image optimization. */}
-                <img
-                  src={showdownSpriteUrl(pokemon.species)}
+                <PokemonSprite
+                  species={pokemon.species}
                   alt={localizedSpecies(localization, pokemon.species)}
                 />
                 <StatusBadge status={status} compact />
@@ -3676,8 +4041,8 @@ function InteractiveArena({
                 title={`${localizedSpecies(localization, pokemon.species)}${isActive ? " · 출전 중" : ""}${statusLabel ? ` · ${statusLabel}` : ""}${fainted ? " · 기절" : ""}`}
               >
                 {/* Dynamic Showdown sprite URLs intentionally skip Next image optimization. */}
-                <img
-                  src={showdownSpriteUrl(pokemon.species)}
+                <PokemonSprite
+                  species={pokemon.species}
                   alt={localizedSpecies(localization, pokemon.species)}
                 />
                 <StatusBadge status={status} compact />
@@ -3885,10 +4250,7 @@ function InteractiveArena({
                 >
                   <span className="switch-sprite">
                     {/* Dynamic Showdown sprite URLs intentionally skip Next image optimization. */}
-                    <img
-                      src={showdownSpriteUrl(pokemon.species)}
-                      alt=""
-                    />
+                    <PokemonSprite species={pokemon.species} alt="" />
                   </span>
                   <div className="switch-copy">
                     <strong>
@@ -4117,6 +4479,9 @@ export function BattleLab() {
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [workspaceError, setWorkspaceError] = useState("");
   const [customParty, setCustomParty] = useState(initialParty);
+  const [customEntries, setCustomEntries] = useState<SavedCustomEntry[]>([]);
+  const [customEntryName, setCustomEntryName] = useState("");
+  const [selectedCustomEntryId, setSelectedCustomEntryId] = useState("");
   const [playerPreset, setPlayerPreset] = useState("");
   const [opponentPreset, setOpponentPreset] = useState("");
   const [eveLeft, setEveLeft] = useState("");
@@ -4230,6 +4595,27 @@ export function BattleLab() {
             ),
           );
         }
+        const storedCustomEntries = JSON.parse(
+          localStorage.getItem(CUSTOM_ENTRIES_KEY) ?? "[]",
+        );
+        if (Array.isArray(storedCustomEntries)) {
+          setCustomEntries(
+            storedCustomEntries
+              .filter(
+                (entry): entry is Partial<SavedCustomEntry> =>
+                  Boolean(entry) && typeof entry === "object",
+              )
+              .map((entry) => ({
+                schemaVersion: 1,
+                id: String(entry.id ?? `custom-${crypto.randomUUID()}`),
+                name: String(entry.name ?? "저장된 엔트리"),
+                savedAt: String(entry.savedAt ?? new Date().toISOString()),
+                updatedAt: String(entry.updatedAt ?? entry.savedAt ?? new Date().toISOString()),
+                party: normalizeCustomParty(entry.party),
+              }))
+              .filter((entry) => customPartyMemberCount(entry.party) > 0),
+          );
+        }
         const stored = JSON.parse(
           localStorage.getItem(LAST_BATTLE_KEY) ?? "null",
         ) as StoredBattleView | null;
@@ -4264,6 +4650,8 @@ export function BattleLab() {
                   level: pokemon.level,
                   ability: pokemon.ability ?? "",
                   heldItem: pokemon.heldItem ?? "",
+                  ivs: normalizeCustomStats(pokemon.ivs, 31, 31),
+                  evs: normalizeCustomStats(pokemon.evs, 0, 252),
                   dynamax:
                     pokemon.gimmicks?.dynamax === true ||
                     pokemon.gimmicks?.gmax === true,
@@ -4300,6 +4688,7 @@ export function BattleLab() {
         localStorage.removeItem(RECENT_TRAINERS_KEY);
         localStorage.removeItem(LAST_BATTLE_KEY);
         localStorage.removeItem(PARTY_ORDERS_KEY);
+        localStorage.removeItem(CUSTOM_ENTRIES_KEY);
       }
     });
   }, []);
@@ -4479,6 +4868,89 @@ export function BattleLab() {
     }
   };
 
+  const invalidatePreparedBattle = () => {
+    setScenario(null);
+    setBattle(null);
+    setInteractiveBattle(null);
+  };
+
+  const updateCustomParty = (party: CustomPokemon[]) => {
+    setCustomParty(normalizeCustomParty(party));
+    invalidatePreparedBattle();
+  };
+
+  const persistCustomEntries = (entries: SavedCustomEntry[]) => {
+    localStorage.setItem(CUSTOM_ENTRIES_KEY, JSON.stringify(entries));
+  };
+
+  const saveCustomEntry = () => {
+    const normalizedParty = normalizeCustomParty(customParty);
+    const memberCount = customPartyMemberCount(normalizedParty);
+    if (memberCount === 0) {
+      setNotice("저장할 포켓몬을 먼저 입력해주세요.");
+      return;
+    }
+    const now = new Date().toISOString();
+    const name =
+      customEntryName.trim() ||
+      `${customEntryLabel(normalizedParty, localization)} 엔트리`;
+    const id = selectedCustomEntryId || `custom-${Date.now()}`;
+    setCustomEntries((current) => {
+      const existing = current.find((entry) => entry.id === id);
+      const nextEntry: SavedCustomEntry = {
+        schemaVersion: 1,
+        id,
+        name,
+        savedAt: existing?.savedAt ?? now,
+        updatedAt: now,
+        party: normalizedParty,
+      };
+      const next = [
+        nextEntry,
+        ...current.filter((entry) => entry.id !== id),
+      ].slice(0, 24);
+      persistCustomEntries(next);
+      return next;
+    });
+    setSelectedCustomEntryId(id);
+    setCustomEntryName(name);
+    setNotice(`${name} 저장 완료 · ${memberCount}마리`);
+  };
+
+  const loadCustomEntry = (entryId: string) => {
+    setSelectedCustomEntryId(entryId);
+    const entry = customEntries.find((candidate) => candidate.id === entryId);
+    if (!entry) return;
+    setPartySource("custom");
+    setCustomParty(normalizeCustomParty(entry.party));
+    setCustomEntryName(entry.name);
+    invalidatePreparedBattle();
+    setNotice(`${entry.name} 엔트리를 불러왔습니다.`);
+  };
+
+  const createNewCustomEntry = () => {
+    setSelectedCustomEntryId("");
+    setCustomEntryName("");
+    setCustomParty(initialParty.map((pokemon) => ({ ...pokemon, moves: [...pokemon.moves] })));
+    invalidatePreparedBattle();
+    setNotice("새 직접 구성 엔트리를 편집할 수 있습니다.");
+  };
+
+  const deleteCustomEntry = (entryId: string) => {
+    const entry = customEntries.find((candidate) => candidate.id === entryId);
+    if (!entry || !window.confirm(`${entry.name} 엔트리를 삭제할까요?`)) return;
+    setCustomEntries((current) => {
+      const next = current.filter((candidate) => candidate.id !== entryId);
+      persistCustomEntries(next);
+      return next;
+    });
+    if (selectedCustomEntryId === entryId) {
+      setSelectedCustomEntryId("");
+      setCustomEntryName("");
+    }
+    setNotice(`${entry.name} 엔트리를 삭제했습니다.`);
+  };
+
   const chooseCatalogValue = (value: string) => {
     if (!choiceTarget) return;
     setCustomParty((current) =>
@@ -4503,8 +4975,7 @@ export function BattleLab() {
       }),
     );
     setChoiceTarget(null);
-    setScenario(null);
-    setBattle(null);
+    invalidatePreparedBattle();
   };
 
   const prepareTest = async () => {
@@ -4526,6 +4997,8 @@ export function BattleLab() {
         level: pokemon.level,
         ability: pokemon.ability,
         heldItem: pokemon.heldItem,
+        ivs: pokemon.ivs,
+        evs: pokemon.evs,
         gimmicks: {
           dynamax: pokemon.dynamax,
           gmax: pokemon.gmax,
@@ -5217,9 +5690,21 @@ export function BattleLab() {
                       <i style={{ width: `${(customMemberCount / 6) * 100}%` }} />
                     </div>
                   </div>
+                  <CustomEntryManager
+                    entries={customEntries}
+                    selectedEntryId={selectedCustomEntryId}
+                    entryName={customEntryName}
+                    party={customParty}
+                    localization={localization}
+                    onNameChange={setCustomEntryName}
+                    onSelect={loadCustomEntry}
+                    onSave={saveCustomEntry}
+                    onNew={createNewCustomEntry}
+                    onDelete={deleteCustomEntry}
+                  />
                   <CustomPartyEditor
                     party={customParty}
-                    onChange={setCustomParty}
+                    onChange={updateCustomParty}
                     localization={localization}
                     catalog={catalog}
                     onOpenChoice={setChoiceTarget}

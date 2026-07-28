@@ -106,6 +106,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "asoneglastrier",
   "asonespectrier",
   "chillingneigh",
+  "competitive",
   "download",
   "grimneigh",
   "guts",
@@ -113,6 +114,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "immunity",
   "insomnia",
   "intimidate",
+  "intrepidsword",
   "levitate",
   "limber",
   "lightmetal",
@@ -124,10 +126,12 @@ const IMPLEMENTED_ABILITIES = new Set([
   "plus",
   "pressure",
   "purepower",
+  "rockhead",
   "shadowshield",
   "simple",
   "skilllink",
   "speedboost",
+  "static",
   "sturdy",
   "technician",
   "teravolt",
@@ -136,6 +140,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "unseenfist",
   "vitalspirit",
   "waterveil",
+  "overgrow",
 ]);
 const INTENTIONAL_NO_EFFECT_ABILITIES = new Set([
   "runaway",
@@ -423,8 +428,18 @@ function normalizeMove(move, path) {
   const target = String(move?.target ?? "normal");
   const targetsSelf = target === "self";
   const directBoosts = normalizeBoosts(move?.boosts);
+  const directSelfBoosts = normalizeBoosts(move?.selfBoosts);
   const nestedSelfBoosts = normalizeBoosts(move?.self?.boosts);
   const directStatus = cleanId(move?.status);
+  const moveId = cleanId(move?.id ?? move?.name);
+  const forcedMultihit =
+    moveId === "surgingstrikes"
+      ? [3, 3]
+      : Array.isArray(move?.multihit)
+        ? move.multihit.map(Number).slice(0, 2)
+        : Number.isFinite(Number(move?.multihit))
+          ? [Number(move.multihit), Number(move.multihit)]
+          : null;
   return {
     id: String(move?.id ?? "").trim(),
     name: String(move?.name ?? move?.id ?? "").trim(),
@@ -447,6 +462,7 @@ function normalizeMove(move, path) {
     boosts: targetsSelf ? {} : directBoosts,
     selfBoosts: {
       ...(targetsSelf ? directBoosts : {}),
+      ...directSelfBoosts,
       ...nestedSelfBoosts,
     },
     heal: normalizeFraction(move?.heal),
@@ -457,13 +473,9 @@ function normalizeMove(move, path) {
     pseudoWeather: cleanId(move?.pseudoWeather),
     sideCondition: cleanId(move?.sideCondition),
     slotCondition: cleanId(move?.slotCondition),
-    multihit: Array.isArray(move?.multihit)
-      ? move.multihit.map(Number).slice(0, 2)
-      : Number.isFinite(Number(move?.multihit))
-        ? [Number(move.multihit), Number(move.multihit)]
-        : null,
+    multihit: forcedMultihit,
     multiaccuracy: Boolean(move?.multiaccuracy),
-    willCrit: Boolean(move?.willCrit),
+    willCrit: Boolean(move?.willCrit) || moveId === "surgingstrikes",
     selfSwitch: Boolean(move?.selfSwitch),
     forceSwitch: Boolean(move?.forceSwitch),
     fixedDamage: move?.fixedDamage ?? move?.damage ?? null,
@@ -951,6 +963,13 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   if (activeAbility(attacker) === "technician" && move.power > 0 && move.power <= 60) {
     abilityModifier *= 1.5;
   }
+  if (
+    activeAbility(attacker) === "overgrow" &&
+    move.type === "Grass" &&
+    attacker.hp <= Math.floor(attacker.stats.hp / 3)
+  ) {
+    abilityModifier *= 1.5;
+  }
   const fieldModifier = fieldDamageModifier(
     context.state,
     context.attackerSide,
@@ -1053,6 +1072,16 @@ function activePokemon(state, sideIndex) {
 function applyEntryAbilities(state, sideIndex, pokemon) {
   if (!pokemon || pokemon.fainted) return;
   const ability = activeAbility(pokemon);
+  if (ability === "intrepidsword") {
+    state.events.push({
+      turn: state.turn,
+      type: "ability_activate",
+      side: sideIndex,
+      pokemon: pokemon.name,
+      ability,
+    });
+    applyBoosts(state, sideIndex, pokemon, { attack: 1 }, ability);
+  }
   const targetSide = sideIndex === 0 ? 1 : 0;
   const target = activePokemon(state, targetSide);
   if (!target || target.fainted) return;
@@ -1082,7 +1111,7 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
     targetSide,
     target: target.name,
   });
-  applyBoosts(state, targetSide, target, { attack: -1 }, ability);
+  applyBoosts(state, targetSide, target, { attack: -1 }, ability, sideIndex);
 }
 
 function knockoutAbilityBoosts(ability) {
@@ -2276,6 +2305,7 @@ function applyProtectBlockEffect(
       attacker,
       { attack: -1 },
       defender.volatiles.protect.source,
+      defenderSide,
     );
   }
   if (protectSource === "burningbulwark") {
@@ -2319,6 +2349,7 @@ function applyProtectBlockEffect(
       attacker,
       { defence: -2 },
       defender.volatiles.protect.source,
+      defenderSide,
     );
   }
   if (protectSource === "silktrap") {
@@ -2328,6 +2359,7 @@ function applyProtectBlockEffect(
       attacker,
       { speed: -1 },
       defender.volatiles.protect.source,
+      defenderSide,
     );
   }
   return false;
@@ -2844,7 +2876,14 @@ function swapSideConditions(state, leftSide, rightSide, source) {
 function applyStrengthSap(state, attackerSide, attacker, defenderSide, defender, source) {
   const healAmount = Math.max(1, effectiveStat(defender, "attack"));
   const healed = healPokemon(state, attackerSide, attacker, healAmount, source) > 0;
-  const lowered = applyBoosts(state, defenderSide, defender, { attack: -1 }, source);
+  const lowered = applyBoosts(
+    state,
+    defenderSide,
+    defender,
+    { attack: -1 },
+    source,
+    attackerSide,
+  );
   return healed || lowered;
 }
 
@@ -3046,8 +3085,9 @@ function setSideCondition(state, side, pokemon, condition, source) {
   return true;
 }
 
-function applyBoosts(state, side, pokemon, boosts, source) {
+function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
   let changed = false;
+  let loweredByOpponent = false;
   for (const [stat, amount] of Object.entries(boosts ?? {})) {
     if (!BOOST_STATS.includes(stat) || !Number.isFinite(amount)) continue;
     const modifiedAmount = activeAbility(pokemon) === "simple" ? amount * 2 : amount;
@@ -3059,6 +3099,9 @@ function applyBoosts(state, side, pokemon, boosts, source) {
     if (applied < 0) {
       pokemon.turnState ??= {};
       pokemon.turnState.statsLowered = true;
+      loweredByOpponent =
+        loweredByOpponent ||
+        (Number.isInteger(sourceSide) && sourceSide !== side);
     }
     changed = true;
     state.events.push({
@@ -3071,6 +3114,21 @@ function applyBoosts(state, side, pokemon, boosts, source) {
       stage: next,
       source,
     });
+  }
+  if (
+    loweredByOpponent &&
+    activeAbility(pokemon) === "competitive" &&
+    (pokemon.boosts.specialAttack ?? 0) < 6
+  ) {
+    state.events.push({
+      turn: state.turn,
+      type: "ability_activate",
+      side,
+      pokemon: pokemon.name,
+      ability: "competitive",
+      source,
+    });
+    applyBoosts(state, side, pokemon, { specialAttack: 2 }, "competitive");
   }
   return changed;
 }
@@ -3250,6 +3308,7 @@ function applyMoveEffect(
         defender,
         effect.boosts,
         source,
+        attackerSide,
       ) || applied;
   }
   if (Object.keys(effect.selfBoosts ?? {}).length) {
@@ -4817,7 +4876,14 @@ function executeMove(state, action, rng) {
       handled = true;
       applied = clearDefogEffects(state, action.side, defenderSide, attacker, move.name) || applied;
       applied =
-        applyBoosts(state, defenderSide, defender, { evasion: -1 }, move.name) ||
+        applyBoosts(
+          state,
+          defenderSide,
+          defender,
+          { evasion: -1 },
+          move.name,
+          action.side,
+        ) ||
         applied;
     }
     if (cleanId(move.id) === "powerswap") {
@@ -5598,6 +5664,7 @@ function executeMove(state, action, rng) {
           defender,
           move.boosts,
           move.name,
+          action.side,
         ) || applied;
     }
     if (Object.keys(move.selfBoosts).length) {
@@ -6064,6 +6131,34 @@ function executeMove(state, action, rng) {
           source: "pickpocket",
         });
       }
+      if (
+        damage > 0 &&
+        defender.hp > 0 &&
+        activeAbility(defender) === "static" &&
+        !ignoresDefenderAbility(attacker) &&
+        makesContact(move) &&
+        canReceiveStatus(attacker, "par", state, action.side, defenderSide) &&
+        rng.next() < 0.3
+      ) {
+        state.events.push({
+          turn: state.turn,
+          type: "ability_activate",
+          side: defenderSide,
+          pokemon: defender.name,
+          ability: "static",
+          targetSide: action.side,
+          target: attacker.name,
+        });
+        applyStatus(
+          state,
+          action.side,
+          attacker,
+          "par",
+          rng,
+          "static",
+          defenderSide,
+        );
+      }
     }
   }
   if (requestedHits > 1 && landedHits > 0) {
@@ -6086,7 +6181,12 @@ function executeMove(state, action, rng) {
       move.name,
     );
   }
-  if (totalDamage > 0 && move.recoil && !attacker.fainted) {
+  if (
+    totalDamage > 0 &&
+    move.recoil &&
+    activeAbility(attacker) !== "rockhead" &&
+    !attacker.fainted
+  ) {
     const recoil = Math.min(
       attacker.hp,
       fractionAmount(totalDamage, move.recoil),
@@ -7304,6 +7404,223 @@ function saltCureResidualDamage(target) {
   return Math.max(1, Math.floor(target.stats.hp / divisor));
 }
 
+function aiExpectedHitCount(move, attacker) {
+  if (!move.multihit) return 1;
+  const minimum = Math.max(1, Math.floor(move.multihit[0] ?? 1));
+  const maximum = Math.max(minimum, Math.floor(move.multihit[1] ?? minimum));
+  if (activeAbility(attacker) === "skilllink") return maximum;
+  if (minimum === maximum) return minimum;
+  if (minimum === 2 && maximum === 5 && LOADED_DICE_ITEMS.has(cleanId(attacker.item))) {
+    return 4.5;
+  }
+  if (minimum === 2 && maximum === 5) return 3;
+  return (minimum + maximum) / 2;
+}
+
+function aiDamageOutcomeProfile(attacker, defender, move, range) {
+  const hitCount = aiExpectedHitCount(move, attacker);
+  const totalMinimum = range.minimum * hitCount;
+  const totalMaximum = range.maximum * hitCount;
+  const sturdyCanTrigger =
+    activeAbility(defender) === "sturdy" &&
+    defender.hp >= defender.stats.hp &&
+    defender.hp > 1 &&
+    !ignoresDefenderAbility(attacker) &&
+    range.effectiveness !== 0;
+  const sturdyBlocked = sturdyCanTrigger && hitCount <= 1 && totalMaximum >= defender.hp;
+  const breaksSturdy = sturdyCanTrigger && hitCount > 1 && totalMaximum >= defender.hp;
+  const effectiveMaximum = sturdyBlocked ? Math.max(0, defender.hp - 1) : totalMaximum;
+  const effectiveMinimum =
+    sturdyBlocked && totalMinimum >= defender.hp
+      ? Math.max(0, defender.hp - 1)
+      : totalMinimum;
+  return {
+    hitCount,
+    totalMinimum,
+    totalMaximum,
+    effectiveMinimum,
+    effectiveMaximum,
+    sturdyBlocked,
+    breaksSturdy,
+    koChance:
+      effectiveMaximum < defender.hp
+        ? "none"
+        : effectiveMinimum >= defender.hp
+          ? "guaranteed"
+          : "possible",
+  };
+}
+
+function aiExpectedMoveDamage(
+  attacker,
+  defender,
+  move,
+  state,
+  attackerSide,
+  defenderSide,
+) {
+  const critical = Boolean(move.willCrit || attacker.volatiles?.laserfocus);
+  const range = calculateDamageRange(attacker, defender, move, {
+    state,
+    attackerSide,
+    defenderSide,
+    critical,
+  });
+  const criticalModifier = critical && range.effectiveness !== 0 ? 1.5 : 1;
+  return {
+    range,
+    expectedDamage:
+      ((range.minimum + range.maximum) / 2) *
+      aiExpectedHitCount(move, attacker) *
+      criticalModifier,
+  };
+}
+
+function boostedPokemonForAi(pokemon, boosts) {
+  const boosted = clone(pokemon);
+  boosted.boosts = { ...pokemon.boosts };
+  for (const [stat, amount] of Object.entries(boosts ?? {})) {
+    if (!BOOST_STATS.includes(stat) || !Number.isFinite(amount)) continue;
+    const modifiedAmount = activeAbility(pokemon) === "simple" ? amount * 2 : amount;
+    boosted.boosts[stat] = Math.max(
+      -6,
+      Math.min(6, Number(boosted.boosts[stat] ?? 0) + modifiedAmount),
+    );
+  }
+  return boosted;
+}
+
+function aiSetupFollowupValue(
+  pokemon,
+  defender,
+  move,
+  state,
+  sideIndex,
+  defenderSide,
+) {
+  const selfBoosts = move.selfBoosts ?? {};
+  const hasOffensiveBoost = ["attack", "specialAttack", "speed"].some(
+    (stat) => Number(selfBoosts[stat] ?? 0) > 0,
+  );
+  if (!hasOffensiveBoost) return {};
+
+  const damagingMoves = pokemon.moves.filter(
+    (candidate) =>
+      candidate.category !== "Status" &&
+      candidate.power > 0 &&
+      cleanId(candidate.id) !== cleanId(move.id),
+  );
+  if (damagingMoves.length === 0) return {};
+
+  const currentBest = damagingMoves.reduce((best, candidate) => {
+    const displayMove = aiDisplayMoveData(pokemon, candidate);
+    const accuracy = displayMove.accuracy === true ? 1 : displayMove.accuracy / 100;
+    const damage =
+      aiExpectedMoveDamage(pokemon, defender, displayMove, state, sideIndex, defenderSide)
+        .expectedDamage * accuracy;
+    return Math.max(best, damage);
+  }, 0);
+  const boosted = boostedPokemonForAi(pokemon, selfBoosts);
+  const boostedBest = damagingMoves.reduce((best, candidate) => {
+    const displayMove = aiDisplayMoveData(boosted, candidate);
+    const accuracy = displayMove.accuracy === true ? 1 : displayMove.accuracy / 100;
+    const damage =
+      aiExpectedMoveDamage(boosted, defender, displayMove, state, sideIndex, defenderSide)
+        .expectedDamage * accuracy;
+    return Math.max(best, damage);
+  }, 0);
+  const improvement = Math.max(0, boostedBest - currentBest);
+  const koAfterSetup = boostedBest >= defender.hp;
+  const koBeforeSetup = currentBest >= defender.hp;
+  return {
+    setupCurrentBestDamage: Math.round(currentBest * 100) / 100,
+    setupBoostedBestDamage: Math.round(boostedBest * 100) / 100,
+    setupDamageImprovement: Math.round(improvement * 100) / 100,
+    setupKoAfterBoost: koAfterSetup,
+    setupKoBeforeBoost: koBeforeSetup,
+  };
+}
+
+function aiRoleAnalysisMember(pokemon) {
+  const member = { ...pokemon };
+  if (pokemon.baseStats ?? pokemon.baseStatsRaw ?? pokemon.roleStats) {
+    member.stats = pokemon.baseStats ?? pokemon.baseStatsRaw ?? pokemon.roleStats;
+  } else {
+    delete member.stats;
+  }
+  return member;
+}
+
+function isAiSetupBoostMove(move) {
+  const selfBoosts = move.selfBoosts ?? {};
+  return ["attack", "specialAttack", "speed"].some(
+    (stat) => Number(selfBoosts[stat] ?? 0) > 0,
+  );
+}
+
+function aiOpponentSetupThreatProfile({
+  state,
+  sideIndex,
+  defenderSide,
+  attacker,
+  defender,
+  opponentRoleProfile,
+}) {
+  const setupMoves = defender.moves.filter(isAiSetupBoostMove);
+  if (setupMoves.length === 0) {
+    return {
+      opponentSetupMoveCount: 0,
+      opponentSetupFirstTurnLikelihood: 0,
+      opponentLikelyFirstTurnSetup: false,
+      opponentSetupThreatTier: 0,
+    };
+  }
+
+  const bestIncomingDamage = attacker.moves.reduce((best, move) => {
+    if (move.category === "Status" || move.power <= 0) return best;
+    const displayMove = aiDisplayMoveData(attacker, move);
+    const accuracy = displayMove.accuracy === true ? 1 : displayMove.accuracy / 100;
+    const damage =
+      aiExpectedMoveDamage(
+        attacker,
+        defender,
+        displayMove,
+        state,
+        sideIndex,
+        defenderSide,
+      ).expectedDamage * accuracy;
+    return Math.max(best, damage);
+  }, 0);
+  const damageRatio =
+    defender.hp > 0 ? bestIncomingDamage / defender.hp : Number.POSITIVE_INFINITY;
+  const hpPercent = defender.stats.hp > 0 ? defender.hp / defender.stats.hp : 0;
+  const setupRoleScore =
+    opponentRoleProfile?.roles?.find((entry) => entry.role === "setupSweeper")?.score ?? 0;
+  const aceQualified = opponentRoleProfile?.aceProfile?.qualifies === true;
+  const turn = Math.max(1, Number(state.turn ?? 0) + 1);
+
+  let likelihood = 0.25;
+  if (turn <= 2) likelihood += 0.25;
+  if (damageRatio < 0.35) likelihood += 0.25;
+  else if (damageRatio < 0.55) likelihood += 0.18;
+  else if (damageRatio < 0.75) likelihood += 0.08;
+  else if (damageRatio >= 1) likelihood -= 0.4;
+  if (hpPercent >= 0.75) likelihood += 0.12;
+  if (setupRoleScore >= 4) likelihood += 0.16;
+  else if (setupRoleScore > 0) likelihood += 0.08;
+  if (aceQualified) likelihood += 0.08;
+  likelihood = Math.max(0, Math.min(1, Math.round(likelihood * 100) / 100));
+
+  return {
+    opponentSetupMoveCount: setupMoves.length,
+    opponentSetupMoveIds: setupMoves.map((move) => cleanId(move.id ?? move.name)),
+    opponentSetupFirstTurnLikelihood: likelihood,
+    opponentLikelyFirstTurnSetup: likelihood >= 0.65,
+    opponentSetupThreatTier: likelihood >= 0.75 ? 3 : likelihood >= 0.55 ? 2 : 1,
+    opponentSetupPunishUrgency: Math.round((likelihood * Math.max(0, 1 - damageRatio)) * 100) / 100,
+  };
+}
+
 function aiDisplayMoveData(pokemon, move) {
   if (pokemon.dynamaxTurns <= 0) return move;
   const maxMove = resolveNativeMaxMove(pokemon, move);
@@ -7362,20 +7679,41 @@ function automaticMoveCandidates(
     (member) => !member.fainted && member.hp > 0,
   ).length;
   const opponentBestDamage = defender.moves.reduce((best, move) => {
-    const range = calculateDamageRange(defender, pokemon, move);
+    const range = calculateDamageRange(defender, pokemon, move, {
+      state,
+      attackerSide: defenderSide,
+      defenderSide: sideIndex,
+      critical: Boolean(move.willCrit),
+    });
     const accuracy = move.accuracy === true ? 1 : move.accuracy / 100;
-    return Math.max(best, ((range.minimum + range.maximum) / 2) * accuracy);
+    const criticalModifier = move.willCrit && range.effectiveness !== 0 ? 1.5 : 1;
+    return Math.max(
+      best,
+      ((range.minimum + range.maximum) / 2) *
+        aiExpectedHitCount(move, defender) *
+        criticalModifier *
+        accuracy,
+    );
   }, 0);
   const incomingDamageRatio =
     pokemon.hp > 0 ? opponentBestDamage / pokemon.hp : 1;
   const survivalTurns = estimatedSurvivalTurns(pokemon, opponentBestDamage);
   const activeRoleProfile = analyzeTeamProfile([
     {
-      ...pokemon,
+      ...aiRoleAnalysisMember(pokemon),
       moves: pokemon.moves.filter((move) => !SELF_DESTRUCT_MOVES.has(cleanId(move.id))),
     },
   ]).roles[0];
   const activeRoleScore = activeRoleProfile?.roles[0]?.score ?? 0;
+  const opponentRoleProfile = analyzeTeamProfile([aiRoleAnalysisMember(defender)]).roles[0];
+  const opponentSetupThreat = aiOpponentSetupThreatProfile({
+    state,
+    sideIndex,
+    defenderSide,
+    attacker: pokemon,
+    defender,
+    opponentRoleProfile,
+  });
   const roomContext = trickRoomContext(
     state,
     sideIndex,
@@ -7387,7 +7725,21 @@ function automaticMoveCandidates(
   return pokemon.moves
     .map((move, index) => {
       const displayMove = aiDisplayMoveData(pokemon, move);
-      const range = calculateDamageRange(pokemon, defender, displayMove);
+      const damageEstimate = aiExpectedMoveDamage(
+        pokemon,
+        defender,
+        displayMove,
+        state,
+        sideIndex,
+        defenderSide,
+      );
+      const range = damageEstimate.range;
+      const damageOutcome = aiDamageOutcomeProfile(
+        pokemon,
+        defender,
+        displayMove,
+        range,
+      );
       const accuracy =
         displayMove.accuracy === true ? 1 : displayMove.accuracy / 100;
       const statusWeights = {
@@ -7404,6 +7756,14 @@ function automaticMoveCandidates(
           : 0;
       const selfBoostValue = Object.values(displayMove.selfBoosts).reduce(
         (sum, amount) => sum + Math.max(0, amount) * 15,
+        0,
+      );
+      const selfDropTotal = Object.values(displayMove.selfBoosts).reduce(
+        (sum, amount) => sum + Math.max(0, -Number(amount ?? 0)),
+        0,
+      );
+      const selfDropValue = Object.values(displayMove.selfBoosts).reduce(
+        (sum, amount) => sum + Math.min(0, amount) * 15,
         0,
       );
       const targetDropValue = Object.values(displayMove.boosts).reduce(
@@ -7459,11 +7819,22 @@ function automaticMoveCandidates(
       const tacticalValue =
         majorStatusValue +
         selfBoostValue +
+        selfDropValue +
         targetDropValue +
         recoveryValue +
         secondaryValue;
       const expectedDamage =
-        ((range.minimum + range.maximum) / 2) * accuracy;
+        (damageOutcome.sturdyBlocked
+          ? Math.min(damageEstimate.expectedDamage, damageOutcome.effectiveMaximum)
+          : damageEstimate.expectedDamage) * accuracy;
+      const setupFollowup = aiSetupFollowupValue(
+        pokemon,
+        defender,
+        displayMove,
+        state,
+        sideIndex,
+        defenderSide,
+      );
       const baseCandidate = {
         ...displayMove,
         expectedDamage,
@@ -7471,6 +7842,7 @@ function automaticMoveCandidates(
         hpPercent: pokemon.hp / pokemon.stats.hp,
         incomingDamageRatio,
         opponentHp: defender.hp,
+        opponentAbility: activeAbility(defender),
         opponentHazards,
         opponentVolatiles: defender.volatiles ?? {},
         opponentStatus: defender.status,
@@ -7482,16 +7854,31 @@ function automaticMoveCandidates(
         sustainTurnBonus: aiSustainTurnBonus(pokemon),
         saltCureResidualDamage: saltCureResidualDamage(defender),
         opponentMaxHp: defender.stats.hp,
+        opponentPrimaryRole: opponentRoleProfile?.primaryRole ?? "support",
+        opponentAceScore: opponentRoleProfile?.aceScore ?? 0,
+        opponentAceQualified: opponentRoleProfile?.aceProfile?.qualifies === true,
+        opponentBoosts: defender.boosts ?? {},
+        opponentPositiveBoosts: Object.values(defender.boosts ?? {}).reduce(
+          (sum, value) => sum + Math.max(0, Number(value ?? 0)),
+          0,
+        ),
+        ...opponentSetupThreat,
+        ...setupFollowup,
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
         selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(displayMove.id)),
-        koChance:
-          range.maximum < defender.hp
-            ? "none"
-            : range.minimum >= defender.hp
-              ? "guaranteed"
-              : "possible",
+        selfBoosts: displayMove.selfBoosts,
+        selfDropTotal,
+        hasSelfStatDrop: selfDropTotal > 0,
+        hitCount: damageOutcome.hitCount,
+        damageRangeMinimum: damageOutcome.effectiveMinimum,
+        damageRangeMaximum: damageOutcome.effectiveMaximum,
+        rawDamageRangeMinimum: damageOutcome.totalMinimum,
+        rawDamageRangeMaximum: damageOutcome.totalMaximum,
+        sturdyBlocked: damageOutcome.sturdyBlocked,
+        breaksSturdy: damageOutcome.breaksSturdy,
+        koChance: damageOutcome.koChance,
       };
       return {
         slot: index + 1,
@@ -7511,6 +7898,7 @@ function automaticMoveCandidates(
         hpPercent: pokemon.hp / pokemon.stats.hp,
         incomingDamageRatio,
         opponentHp: defender.hp,
+        opponentAbility: activeAbility(defender),
         opponentHazards,
         opponentVolatiles: defender.volatiles ?? {},
         opponentStatus: defender.status,
@@ -7522,15 +7910,55 @@ function automaticMoveCandidates(
         sustainTurnBonus: aiSustainTurnBonus(pokemon),
         saltCureResidualDamage: saltCureResidualDamage(defender),
         opponentMaxHp: defender.stats.hp,
+        opponentPrimaryRole: opponentRoleProfile?.primaryRole ?? "support",
+        opponentAceScore: opponentRoleProfile?.aceScore ?? 0,
+        opponentAceQualified: opponentRoleProfile?.aceProfile?.qualifies === true,
+        opponentBoosts: defender.boosts ?? {},
+        opponentPositiveBoosts: Object.values(defender.boosts ?? {}).reduce(
+          (sum, value) => sum + Math.max(0, Number(value ?? 0)),
+          0,
+        ),
+        ...opponentSetupThreat,
+        ...setupFollowup,
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
         selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(displayMove.id)),
+        selfBoosts: displayMove.selfBoosts,
+        selfDropTotal,
+        hasSelfStatDrop: selfDropTotal > 0,
+        hitCount: damageOutcome.hitCount,
+        damageRangeMinimum: damageOutcome.effectiveMinimum,
+        damageRangeMaximum: damageOutcome.effectiveMaximum,
+        rawDamageRangeMinimum: damageOutcome.totalMinimum,
+        rawDamageRangeMaximum: damageOutcome.totalMaximum,
+        sturdyBlocked: damageOutcome.sturdyBlocked,
+        breaksSturdy: damageOutcome.breaksSturdy,
         koChance: baseCandidate.koChance,
         pp: move.pp,
       };
     })
     .filter((candidate) => candidate.pp > 0)
+    .map((candidate, _, candidates) => {
+      const safeNoDropKoAvailable = candidates.some(
+        (other) =>
+          other.koChance === "guaranteed" &&
+          other.hasSelfStatDrop !== true &&
+          other.selfSacrifice !== true &&
+          other.sturdyBlocked !== true,
+      );
+      const enriched = {
+        ...candidate,
+        safeNoDropKoAvailable:
+          candidate.koChance === "guaranteed" &&
+          candidate.hasSelfStatDrop === true &&
+          safeNoDropKoAvailable,
+      };
+      return {
+        ...enriched,
+        score: scoreAiMoveCandidate(enriched, difficulty, strategy),
+      };
+    })
     .sort((left, right) => right.score - left.score || left.slot - right.slot);
 }
 

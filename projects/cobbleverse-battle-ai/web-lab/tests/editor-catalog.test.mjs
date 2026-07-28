@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { createEditorCatalog } from "../lib/editor-catalog.mjs";
+import { createEditorCatalog, parseLearnSourceCode } from "../lib/editor-catalog.mjs";
+import { readSharedPokemonI18nCatalog } from "../lib/shared-i18n-catalog.mjs";
 
 const localization = JSON.parse(
   await readFile(
@@ -54,4 +55,22 @@ test("builds searchable editor metadata from Showdown and Cobblemon data", () =>
   assert.match(sturdy.description, /일격/);
   assert.equal(mindsEye.name, "심안");
   assert.match(mindsEye.description, /고스트/);
+  assert.equal(catalog.learnsets.pikachu.thunderbolt[0].method, "level");
+  assert.equal(catalog.learnsets.pikachu.thunderbolt[0].level, 36);
+});
+
+test("reads shared Pokemon i18n catalog from module-relative paths", async () => {
+  const catalog = await readSharedPokemonI18nCatalog("Z:/missing-cwd");
+  assert.ok(catalog.species.pikachu);
+});
+
+test("parses Showdown learn source codes for editor badges", () => {
+  assert.deepEqual(parseLearnSourceCode("9L36"), {
+    source: "9L36",
+    generation: 9,
+    method: "level",
+    level: 36,
+  });
+  assert.equal(parseLearnSourceCode("9M").method, "machine");
+  assert.equal(parseLearnSourceCode("9E").method, "egg");
 });

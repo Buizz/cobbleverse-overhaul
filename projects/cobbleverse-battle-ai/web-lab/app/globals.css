@@ -647,7 +647,8 @@ button {
 
 .text-input,
 .select-input,
-.custom-card input {
+.custom-card input,
+.custom-card select {
   min-width: 0;
   height: 42px;
   padding: 0 12px;
@@ -661,7 +662,8 @@ button {
 
 .text-input:focus,
 .select-input:focus,
-.custom-card input:focus {
+.custom-card input:focus,
+.custom-card select:focus {
   border-color: var(--ink);
   box-shadow: 0 0 0 2px rgba(111, 231, 221, 0.34);
 }
@@ -813,6 +815,82 @@ button {
   transition: width 180ms ease;
 }
 
+.custom-entry-manager {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin: 12px 0 16px;
+  padding: 10px;
+  border: 1px solid #d2ccbf;
+  background: #fffefb;
+}
+
+.custom-entry-manager label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.custom-entry-manager label span {
+  color: #6f7a8e;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.custom-entry-manager input,
+.custom-entry-manager select {
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid #bfc6d1;
+  background: #fff;
+  color: #17243a;
+  font-size: 10px;
+}
+
+.custom-entry-actions {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.custom-entry-actions button {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #9ba5b5;
+  background: #16243d;
+  color: #f4f8ff;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.custom-entry-actions button:first-child {
+  border-color: var(--lime);
+  background: var(--lime);
+  color: var(--ink);
+}
+
+.custom-entry-actions button.danger {
+  border-color: #e87979;
+  background: #fff5f5;
+  color: #af3434;
+}
+
+.custom-entry-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.custom-entry-manager > small {
+  grid-column: 1 / -1;
+  color: #737f91;
+  font-size: 9px;
+}
+
 .custom-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -853,7 +931,7 @@ button {
 
 .custom-fields {
   display: grid;
-  grid-template-columns: 1fr 76px;
+  grid-template-columns: minmax(0, 1fr) 86px;
   gap: 8px;
 }
 
@@ -866,21 +944,79 @@ button {
   font-weight: 700;
 }
 
-.custom-fields label:nth-child(3) {
-  grid-column: 1 / 2;
+.custom-fields label.wide,
+.custom-gimmick-row {
+  grid-column: 1 / -1;
 }
 
-.custom-card input {
+.custom-card input,
+.custom-card select {
   width: 100%;
   height: 34px;
   padding-inline: 9px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .editor-picker-input {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 4px;
+}
+
+.custom-gimmick-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.custom-gimmick-row label {
+  flex-direction: row;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid #d1d6df;
+  background: #fff;
+}
+
+.custom-gimmick-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+}
+
+.stat-editor {
+  margin-top: 9px;
+  border: 1px solid #d7dce5;
+  background: #fffdf8;
+}
+
+.stat-editor summary {
+  padding: 8px 10px;
+  color: #33425b;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.stat-editor > div {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(54px, 1fr));
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+
+.stat-editor label {
+  display: grid;
+  gap: 4px;
+  color: #6f7a8e;
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.stat-editor input {
+  height: 28px;
+  padding-inline: 6px;
+  font-size: 10px;
 }
 
 .editor-picker-input button,
@@ -4047,6 +4183,7 @@ button {
 
   .picker,
   .custom-grid,
+  .custom-entry-manager,
   .custom-fields,
   .team-strip,
   .eve-grid .team-strip {
@@ -4055,7 +4192,8 @@ button {
 
   .field-label,
   .result-count,
-  .custom-fields label:nth-child(3) {
+  .custom-fields label.wide,
+  .custom-gimmick-row {
     grid-column: auto;
   }
 

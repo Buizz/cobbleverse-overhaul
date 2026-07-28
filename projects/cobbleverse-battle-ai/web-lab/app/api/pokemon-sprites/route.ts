@@ -26,12 +26,27 @@ export async function GET(request: Request) {
   const requestedSpecies = (url.searchParams.get("species") ?? "").toLowerCase();
   const species = showdownSpriteId(requestedSpecies);
   const back = url.searchParams.get("back") === "1";
+  const remote = url.searchParams.get("remote") === "1";
+  const fallback = url.searchParams.get("fallback") === "1";
+  if (fallback) {
+    return fallbackSprite();
+  }
   if (!VALID_SPRITE_ID.test(species)) {
     return fallbackSprite();
   }
 
   const folder = back ? "gen5-back" : "gen5";
   const upstreamUrl = `${SHOWDOWN_SPRITE_ORIGIN}/sprites/${folder}/${species}.png`;
+  if (remote) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        location: upstreamUrl,
+        "cache-control": "public, max-age=86400, stale-while-revalidate=604800",
+      },
+    });
+  }
+
   try {
     const upstream = await fetch(upstreamUrl, {
       headers: { accept: "image/png,image/*;q=0.8" },

@@ -278,6 +278,22 @@ function setupThreatTier(candidate) {
   return 0;
 }
 
+function positiveBoostTotal(boosts = {}) {
+  if (!boosts || typeof boosts !== "object") return 0;
+  return Object.values(boosts).reduce(
+    (sum, value) => sum + Math.max(0, Number(value ?? 0)),
+    0,
+  );
+}
+
+function negativeBoostTotal(boosts = {}) {
+  if (!boosts || typeof boosts !== "object") return 0;
+  return Object.values(boosts).reduce(
+    (sum, value) => sum + Math.max(0, -Number(value ?? 0)),
+    0,
+  );
+}
+
 function ratioValue(...values) {
   for (const value of values) {
     const number = Number(value);
@@ -433,7 +449,253 @@ function topRoles(roleScores, limit = 4) {
     .slice(0, limit);
 }
 
-function analyzeTeamMemberRole(member = {}, index = 0) {
+function arrayValues(value) {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null) return [];
+  return [value];
+}
+
+function pokemonLevel(member = {}) {
+  const level = Number(member.level ?? member.lvl ?? member.details?.level);
+  return Number.isFinite(level) && level > 0 ? level : 0;
+}
+
+function manualAcePreference(member = {}) {
+  const ai = member.ai ?? member.aiProfile ?? {};
+  const directValues = [
+    member.ace,
+    member.isAce,
+    member.forceAce,
+    member.notAce,
+    member.aiAce,
+    ai.ace,
+    ai.isAce,
+    ai.forceAce,
+    ai.notAce,
+    member.gimmicks?.ace,
+    member.gimmicks?.forceAce,
+  ];
+  const roleValues = [
+    member.role,
+    member.aiRole,
+    ai.role,
+    ...arrayValues(member.roles),
+    ...arrayValues(member.aiRoles),
+    ...arrayValues(ai.roles),
+  ];
+  const blocked =
+    directValues.some((value) => value === false) ||
+    directValues.some((value) =>
+      ["notace", "noace", "nonace", "sacrifice", "expendable"].includes(cleanId(value)),
+    ) ||
+    roleValues.some((value) =>
+      ["notace", "noace", "nonace", "sacrifice", "expendable"].includes(cleanId(value)),
+    );
+  if (blocked) {
+    return { forced: false, blocked: true, priority: 0, reason: "사람 지정: 에이스 제외" };
+  }
+
+  const forced =
+    directValues.some((value) => value === true || Number(value) > 0) ||
+    roleValues.some((value) =>
+      ["ace", "mainace", "primaryace", "coreace"].includes(cleanId(value)),
+    );
+  const priority = Math.max(
+    0,
+    Number(member.acePriority ?? ai.acePriority ?? member.gimmicks?.acePriority ?? 0),
+  );
+  if (forced || priority > 0) {
+    return {
+      forced: true,
+      blocked: false,
+      priority,
+      reason: priority > 0 ? `사람 지정: 에이스 우선도 ${priority}` : "사람 지정: 에이스",
+    };
+  }
+  return { forced: false, blocked: false, priority: 0, reason: "" };
+}
+
+function gimmickAceProfile(member = {}) {
+  const gimmicks = member.gimmicks ?? {};
+  const itemId = cleanId(member.item ?? member.heldItem ?? member.itemId);
+  const nonMegaStoneItems = new Set(["eviolite"]);
+  const mega =
+    gimmicks.mega === true ||
+    gimmicks.megaEvolution === true ||
+    member.canMegaEvo === true ||
+    itemId.includes("mega") ||
+    (itemId.endsWith("ite") && !nonMegaStoneItems.has(itemId));
+  const gigantamax =
+    gimmicks.gigantamax === true ||
+    gimmicks.gmax === true ||
+    member.canGigantamax === true ||
+    member.gigantamax === true;
+  const dynamax =
+    gimmicks.dynamax === true ||
+    gimmicks.forceDynamax === true ||
+    member.canDynamax === true ||
+    member.dynamax === true;
+  const tera =
+    gimmicks.tera === true ||
+    gimmicks.terastallize === true ||
+    Boolean(member.teraType ?? member.teratype);
+  let value = 0;
+  const reasons = [];
+  if (mega) {
+    value += 3.2;
+    reasons.push("메가진화 자원");
+  }
+  if (gigantamax) {
+    value += 2.4;
+    reasons.push("거다이맥스 자원");
+  } else if (dynamax) {
+    value += 1.8;
+    reasons.push("다이맥스 자원");
+  }
+  if (tera) {
+    value += 1;
+    reasons.push("테라스탈 자원");
+  }
+  return { value, reasons };
+}
+
+function computeAceProfile({
+  member = {},
+  roleScores = {},
+  tags = new Set(),
+  stats = {},
+  teamContext = {},
+} = {}) {
+  const manual = manualAcePreference(member);
+  if (manual.blocked) {
+    return {
+      score: -Infinity,
+      qualifies: false,
+      manual,
+      reasons: [manual.reason],
+    };
+  }
+
+  const reasons = [];
+  let score = 0;
+  const offense = Math.max(Number(stats.attack ?? 0), Number(stats.specialAttack ?? 0));
+  const speed = Number(stats.speed ?? 0);
+  const baseTotal = [
+    stats.hp,
+    stats.attack,
+    stats.defense,
+    stats.specialAttack,
+    stats.specialDefense,
+    stats.speed,
+  ].reduce((sum, value) => sum + Math.max(0, Number(value ?? 0)), 0);
+  const rawAce = Math.max(0, Number(roleScores.ace ?? 0));
+  const setupScore = Math.max(0, Number(roleScores.setupSweeper ?? 0));
+  const revengeScore = Math.max(0, Number(roleScores.revengeKiller ?? 0));
+  const defensiveUtility = Math.max(
+    Number(roleScores.wall ?? 0),
+    Number(roleScores.support ?? 0),
+    Number(roleScores.hazardControl ?? 0),
+    Number(roleScores.disruptor ?? 0),
+    Number(roleScores.pivot ?? 0),
+  );
+  const gimmick = gimmickAceProfile(member);
+  const level = pokemonLevel(member);
+  const maxLevel = Number(teamContext.maxLevel ?? 0);
+  const highestLevel = level > 0 && maxLevel > 0 && level >= maxLevel;
+  const levelGap = highestLevel ? level - Number(teamContext.secondMaxLevel ?? level) : 0;
+  const hasSetup = tags.has("setupboost") || setupScore >= 3.5;
+  const hasOffensiveStat = offense >= 115;
+  const hasFastStat = speed >= 100;
+  const hasHighBst = baseTotal >= 570;
+  const hasStrongSpeciesPrior = rawAce >= 2.4;
+
+  if (manual.forced) {
+    score += 100 + manual.priority;
+    reasons.push(manual.reason);
+  }
+  if (rawAce > 0) {
+    const value = Math.min(4.5, rawAce * 0.55);
+    score += value;
+    reasons.push(`공격 역할 성향 ${Math.round(rawAce * 10) / 10}`);
+  }
+  if (offense >= 145) {
+    score += 3.2;
+    reasons.push("매우 높은 공격 능력치");
+  } else if (offense >= 125) {
+    score += 2.3;
+    reasons.push("높은 공격 능력치");
+  } else if (offense >= 115) {
+    score += 1.4;
+    reasons.push("공격 능력치 우수");
+  }
+  if (speed >= 120) {
+    score += 2.2;
+    reasons.push("매우 빠른 스피드");
+  } else if (speed >= 100) {
+    score += 1.4;
+    reasons.push("빠른 스피드");
+  } else if (speed >= 85) {
+    score += 0.6;
+    reasons.push("준수한 스피드");
+  }
+  if (hasSetup) {
+    score += 2.6;
+    reasons.push("랭크업 전개 가능");
+  }
+  if (revengeScore >= 3) {
+    score += 0.8;
+    reasons.push("마무리/복수 처리 성향");
+  }
+  if (baseTotal >= 670) {
+    score += 3;
+    reasons.push("초전설급 종족값");
+  } else if (baseTotal >= 600) {
+    score += 2.2;
+    reasons.push("높은 종족값");
+  } else if (baseTotal >= 570) {
+    score += 1.3;
+    reasons.push("준전설급 종족값");
+  } else if (baseTotal >= 530) {
+    score += 0.7;
+    reasons.push("평균 이상 종족값");
+  }
+  if (highestLevel) {
+    const value = levelGap >= 5 ? 2.4 : 1.1;
+    score += value;
+    reasons.push(levelGap >= 5 ? "파티 내 고레벨 에이스 후보" : "파티 내 최고 레벨");
+  }
+  if (gimmick.value > 0) {
+    score += gimmick.value;
+    reasons.push(...gimmick.reasons);
+  }
+
+  const offensiveAnchor =
+    manual.forced ||
+    gimmick.value > 0 ||
+    hasOffensiveStat ||
+    hasFastStat ||
+    hasSetup ||
+    hasHighBst ||
+    hasStrongSpeciesPrior ||
+    levelGap >= 5;
+  if (!offensiveAnchor && defensiveUtility >= rawAce) {
+    score -= 3.5;
+    reasons.push("방어/지원 성향이 더 강해 에이스 제외 경향");
+  } else if (defensiveUtility >= rawAce + 2 && !manual.forced && gimmick.value <= 0) {
+    score -= 1.5;
+    reasons.push("막이/지원 역할 보존");
+  }
+
+  const qualifies = manual.forced || (score >= 5.8 && offensiveAnchor);
+  return {
+    score: Math.round(score * 100) / 100,
+    qualifies,
+    manual,
+    reasons,
+  };
+}
+
+function analyzeTeamMemberRole(member = {}, index = 0, teamContext = {}) {
   const roleScores = Object.fromEntries(Object.keys(ROLE_LABELS).map((role) => [role, 0]));
   const reasons = [];
   const warnings = [];
@@ -524,14 +786,32 @@ function analyzeTeamMemberRole(member = {}, index = 0) {
     reasons.push("상대 전개를 끊는 방해 기술 가치가 있습니다.");
   }
 
-  const roles = topRoles(roleScores);
+  const aceProfile = computeAceProfile({
+    member,
+    roleScores,
+    tags,
+    stats: { attack, specialAttack, speed, hp, defense, specialDefense },
+    teamContext,
+  });
+  const displayRoleScores = { ...roleScores };
+  if (!aceProfile.qualifies) {
+    displayRoleScores.ace = 0;
+  }
+  if (aceProfile.qualifies && aceProfile.reasons.length > 0) {
+    reasons.unshift(`에이스 판단: ${aceProfile.reasons.slice(0, 3).join(", ")}`);
+  }
+
+  const roles = topRoles(displayRoleScores);
   return {
     slot: Number(member.slot ?? index + 1),
     pokemonId: cleanId(member.id ?? member.species ?? member.name),
     species: pokemonDisplayName(member),
     primaryRole: roles[0]?.role ?? "support",
     roles,
-    roleScores,
+    roleScores: displayRoleScores,
+    rawRoleScores: roleScores,
+    aceScore: aceProfile.score,
+    aceProfile,
     moveIds,
     reasons: reasons.slice(0, 4),
     warnings,
@@ -539,7 +819,16 @@ function analyzeTeamMemberRole(member = {}, index = 0) {
 }
 
 export function analyzeTeamProfile(team = []) {
-  const roles = team.map((member, index) => analyzeTeamMemberRole(member, index));
+  const sortedLevels = team
+    .map((member) => pokemonLevel(member))
+    .filter((level) => level > 0)
+    .sort((left, right) => right - left);
+  const teamContext = {
+    maxLevel: sortedLevels[0] ?? 0,
+    secondMaxLevel:
+      sortedLevels.find((level) => level < (sortedLevels[0] ?? 0)) ?? sortedLevels[0] ?? 0,
+  };
+  const roles = team.map((member, index) => analyzeTeamMemberRole(member, index, teamContext));
   const byRole = (role) =>
     roles
       .filter((entry) => entry.roles.some((candidate) => candidate.role === role))
@@ -547,7 +836,26 @@ export function analyzeTeamProfile(team = []) {
         (left, right) =>
           Number(right.roleScores[role] ?? 0) - Number(left.roleScores[role] ?? 0),
       );
-  const aceCandidates = byRole("ace").slice(0, 3);
+  const qualifiedAceCandidates = roles
+    .filter((entry) => entry.aceProfile?.qualifies)
+    .sort(
+      (left, right) =>
+        Number(right.aceScore ?? 0) - Number(left.aceScore ?? 0) ||
+        Number(right.rawRoleScores?.ace ?? 0) - Number(left.rawRoleScores?.ace ?? 0) ||
+        left.slot - right.slot,
+    );
+  const fallbackAce = roles
+    .filter((entry) => Number.isFinite(Number(entry.aceScore)))
+    .sort(
+      (left, right) =>
+        Number(right.aceScore ?? 0) - Number(left.aceScore ?? 0) || left.slot - right.slot,
+    )[0];
+  const aceCandidates =
+    qualifiedAceCandidates.length > 0
+      ? qualifiedAceCandidates.slice(0, 3)
+      : fallbackAce
+        ? [fallbackAce]
+        : [];
   const defensiveCore = byRole("wall").slice(0, 3);
   const speedControl = [
     ...new Map(
@@ -605,7 +913,13 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
   const isDamage = isDamagingCandidate(enriched);
 
   if (hasSafeImmediateKo && !isSafeFinisher(enriched)) {
-    const weight = isDamage ? -10 : -80;
+    const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
+    const highValueHazard =
+      tags.has("hazardset") &&
+      moveId === "stealthrock" &&
+      livingOpponents >= 3 &&
+      Number(enriched.opponentHazards?.stealthrock ?? 0) <= 0;
+    const weight = highValueHazard ? -12 : isDamage ? -10 : -80;
     adjustments.push(
       scoreAdjustment(
         isDamage
@@ -631,6 +945,34 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         Number(enriched.priority ?? 0) > 0
           ? "우선도기로 상대 랭크업 위협을 확정 KO할 수 있어 보너스를 반영했습니다."
           : "선공 확정 KO로 상대 랭크업 위협을 끊을 수 있어 보너스를 반영했습니다.",
+      ),
+    );
+  }
+
+  const selfDropTotal = finiteNumber(
+    enriched.selfDropTotal,
+    negativeBoostTotal(enriched.selfBoosts ?? enriched.selfBoostStages),
+  );
+  if (selfDropTotal > 0) {
+    const safeNoDropKoAvailable =
+      enriched.safeNoDropKoAvailable === true ||
+      enriched.safeNoDropFinisherAvailable === true;
+    const guaranteedKo = enriched.koChance === "guaranteed";
+    const weight =
+      guaranteedKo && safeNoDropKoAvailable
+        ? -95 - selfDropTotal * 8
+        : -Math.min(30, selfDropTotal * 6);
+    adjustments.push(
+      scoreAdjustment(
+        guaranteedKo && safeNoDropKoAvailable
+          ? "rule.self_drop.safe_ko_alternative"
+          : "rule.self_drop.stat_cost",
+        "자기 능력 하락",
+        selfDropTotal,
+        weight,
+        guaranteedKo && safeNoDropKoAvailable
+          ? "같은 확정 KO를 낼 수 있는 무하락 공격기가 있어, 방어 자원을 깎는 마무리 선택을 크게 낮췄습니다."
+          : "공격 후 자신의 능력치가 떨어지는 비용을 반영했습니다.",
       ),
     );
   }
@@ -666,14 +1008,21 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
           "이미 최대 층수까지 설치되어 다시 사용해도 실패하므로 점수를 크게 낮췄습니다.",
         ),
       );
-    } else if (!enriched.immediateKoAvailable) {
+    } else {
       const incomingRatio = ratioValue(
         enriched.opponentMaxDamageToCurrentHealthRatio,
         enriched.incomingDamageRatio,
       );
       const hpPercent = ratioValue(enriched.hpPercent, 1);
-      if (actsBefore || incomingRatio === undefined || incomingRatio < hpPercent) {
-        const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
+      const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
+      const highValueHazardDespiteKo =
+        enriched.immediateKoAvailable === true &&
+        moveId === "stealthrock" &&
+        livingOpponents >= 3;
+      if (
+        (!enriched.immediateKoAvailable || highValueHazardDespiteKo) &&
+        (actsBefore || incomingRatio === undefined || incomingRatio < hpPercent)
+      ) {
         if (livingOpponents > 1) {
           const bonus = 12 + 2 * Math.min(6, livingOpponents);
           adjustments.push(
@@ -683,6 +1032,23 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
               livingOpponents,
               bonus,
               `남은 상대 ${livingOpponents}마리에 진입 압박을 줄 수 있어 설치기 가치를 반영했습니다.`,
+            ),
+          );
+        }
+        if (moveId === "stealthrock" && livingOpponents >= 3) {
+          const turn = Math.max(1, Number(enriched.turn ?? 1));
+          const remainingValue = Math.min(6, livingOpponents) * 8;
+          const earlyTempoValue = turn <= 2 && livingOpponents >= 4 ? 10 : 0;
+          const stealthRockBonus = 18 + remainingValue + earlyTempoValue;
+          adjustments.push(
+            scoreAdjustment(
+              "rule.entry_hazard.stealth_rock_pressure",
+              "스텔스록 지속 압박",
+              livingOpponents,
+              stealthRockBonus,
+              turn <= 2
+                ? "초반 스텔스록은 상대 파티 전체의 교체와 기띠/멀티스케일 자원을 계속 압박합니다."
+                : "아직 스텔스록이 없어 남은 상대 포켓몬들의 진입 피해 기대값을 계속 높게 봤습니다.",
             ),
           );
         }
@@ -746,22 +1112,80 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
           ),
         ),
       );
+      const opponentHp = finiteNumber(enriched.opponentHp, enriched.opponentMaxHp);
+      const opponentPressureTurns =
+        residualDamage > 0 && opponentHp > 0
+          ? Math.max(1, Math.min(6, Math.ceil(opponentHp / residualDamage)))
+          : survivalTurns;
+      const pressureTurns = Math.max(survivalTurns, opponentPressureTurns);
       const stealthRockLayers = Number(enriched.opponentHazards?.stealthrock ?? 0);
       const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
       const earlyRockStillPreferred =
         stealthRockLayers <= 0 &&
         Number(enriched.turn ?? 1) <= 2 &&
         livingOpponents >= 4;
-      const dotValue = Math.min(
-        95,
-        Math.round(Math.max(0, residualDamage) * survivalTurns * 0.55 * 100) / 100,
+      const opponentIsAce =
+        enriched.opponentAceQualified === true ||
+        Number(enriched.opponentAceScore ?? 0) >= 5.8 ||
+        enriched.opponentIsAce === true;
+      const opponentPositiveBoosts = Math.max(
+        0,
+        Number(enriched.opponentPositiveBoosts ?? 0),
+        positiveBoostTotal(enriched.opponentBoosts),
+        positiveBoostTotal(enriched.targetBoosts),
       );
-      const weight = earlyRockStillPreferred ? Math.min(34, 22 + dotValue) : 22 + dotValue;
+      const opponentSetupThreat = setupThreatTier(enriched);
+      const setupLikelihood = Math.max(
+        0,
+        Math.min(
+          1,
+          ratioValue(
+            enriched.opponentSetupFirstTurnLikelihood,
+            enriched.opponentSetupLikelihood,
+            0,
+          ),
+        ),
+      );
+      const likelyFirstTurnSetup =
+        enriched.opponentLikelyFirstTurnSetup === true ||
+        (Number(enriched.turn ?? 1) <= 2 &&
+          Number(enriched.opponentSetupMoveCount ?? 0) > 0 &&
+          setupLikelihood >= 0.65);
+      const currentIncoming = ratioValue(
+        enriched.currentIncomingDamageRatio,
+        enriched.opponentMaxDamageToCurrentHealthRatio,
+        enriched.incomingDamageRatio,
+      );
+      const urgentPersistentPressure =
+        opponentIsAce ||
+        likelyFirstTurnSetup ||
+        opponentSetupThreat >= 3 ||
+        opponentPositiveBoosts >= 2 ||
+        enriched.opponentCanSweep === true ||
+        enriched.oneMoreTurnUnmanageable === true;
+      const dotValue = Math.min(
+        urgentPersistentPressure ? 185 : 135,
+        Math.round(Math.max(0, residualDamage) * pressureTurns * 0.68 * 100) / 100,
+      );
+      const pressureBonus =
+        (opponentIsAce ? 24 : 0) +
+        (likelyFirstTurnSetup
+          ? 58
+          : opponentSetupThreat >= 3
+            ? 36
+            : opponentSetupThreat >= 2
+              ? 18
+              : 0) +
+        Math.min(36, opponentPositiveBoosts * 12) +
+        (currentIncoming !== undefined && currentIncoming >= 0.5 ? 20 : 0);
+      const weight = earlyRockStillPreferred && !urgentPersistentPressure
+        ? Math.min(34, 22 + dotValue)
+        : 22 + dotValue + pressureBonus;
       adjustments.push(
         scoreAdjustment(
           "rule.salt_cure.persistent_pressure",
           "소금절이 지속 압박",
-          `${Math.round(residualDamage)} x ${survivalTurns}`,
+          `${Math.round(residualDamage)} x ${pressureTurns}`,
           Math.round(weight * 100) / 100,
           earlyRockStillPreferred
             ? "소금절이는 지속 피해 가치가 크지만 초반 스텔스록이 아직 없어 보너스를 보수적으로 제한했습니다."
@@ -951,6 +1375,34 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         );
       }
     }
+    const currentBestDamage = finiteNumber(enriched.setupCurrentBestDamage, 0);
+    const boostedBestDamage = finiteNumber(enriched.setupBoostedBestDamage, 0);
+    const damageImprovement = finiteNumber(
+      enriched.setupDamageImprovement,
+      Math.max(0, boostedBestDamage - currentBestDamage),
+    );
+    const opponentHp = finiteNumber(enriched.opponentHp);
+    if (damageImprovement > 0) {
+      const safeEnough = incomingRatio === undefined || incomingRatio < 0.5;
+      const turnsKoImproved =
+        enriched.setupKoAfterBoost === true &&
+        enriched.setupKoBeforeBoost !== true;
+      const weight =
+        Math.min(120, damageImprovement * 0.55) +
+        (turnsKoImproved ? (safeEnough ? 245 : 105) : 0) +
+        (opponentHp && boostedBestDamage >= opponentHp * 0.75 ? 30 : 0);
+      adjustments.push(
+        scoreAdjustment(
+          "rule.setup.followup_breakthrough",
+          "setup breakthrough",
+          Math.round(boostedBestDamage),
+          Math.round(weight * 100) / 100,
+          turnsKoImproved
+            ? "Setup makes the next attack reach a KO range, so the setup turn is valued highly."
+            : "Setup meaningfully improves the next attack's damage output.",
+        ),
+      );
+    }
   }
 
   if (RECOVERY_MOVE_IDS.has(moveId) || tags.has("recovery")) {
@@ -1060,6 +1512,28 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
           : meaningfulDamage
             ? "상대에게 피해 가치는 있지만 사용자가 쓰러지는 소모 비용을 크게 반영했습니다."
             : "사용자가 쓰러지는 기술인데 피해/마무리 가치가 충분하지 않아 크게 낮게 봤습니다.",
+      ),
+    );
+  }
+
+  if (enriched.sturdyBlocked === true) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.sturdy.single_hit_blocked",
+        "옹골참 단타 저지",
+        cleanId(enriched.opponentAbility ?? "sturdy") || true,
+        -90,
+        "상대 옹골참이 발동하면 단타 공격은 HP 1에서 멈추므로 확정 마무리 가치가 크게 낮아집니다.",
+      ),
+    );
+  } else if (enriched.breaksSturdy === true || enriched.sturdyBreaker === true) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.sturdy.multi_hit_breaker",
+        "옹골참 관통",
+        Number(enriched.hitCount ?? enriched.hits ?? 2),
+        55,
+        "연속타가 옹골참으로 남은 HP 1을 이어서 처리할 수 있어 마무리 가치를 높였습니다.",
       ),
     );
   }

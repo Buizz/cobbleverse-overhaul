@@ -4,6 +4,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $pidFile = Join-Path $projectRoot ".local-server.pid"
 $outputLog = Join-Path $projectRoot ".local-server.log"
@@ -11,9 +14,13 @@ $errorLog = Join-Path $projectRoot ".local-server-error.log"
 $localUrl = "http://localhost:3000"
 
 function Test-LocalPort {
-    $connection = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-    return $null -ne $connection
+    try {
+        $response = Invoke-WebRequest -Uri $localUrl -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+        return $response.Content -like "*Cobbleverse Battle Lab*"
+    }
+    catch {
+        return $false
+    }
 }
 
 function Open-LocalPage {
@@ -23,11 +30,29 @@ function Open-LocalPage {
     [System.Diagnostics.Process]::Start($browserInfo) | Out-Null
 }
 
+function Read-LogTail {
+    param(
+        [string]$Path,
+        [int]$LineCount = 80
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return ""
+    }
+
+    $content = Get-Content -LiteralPath $Path -Tail $LineCount -ErrorAction SilentlyContinue
+    if (-not $content) {
+        return ""
+    }
+
+    return ($content -join [Environment]::NewLine)
+}
+
 if (Test-Path -LiteralPath $pidFile) {
     $savedProcessId = [int](Get-Content -LiteralPath $pidFile -Raw)
     $savedProcess = Get-Process -Id $savedProcessId -ErrorAction SilentlyContinue
     if ($savedProcess -and (Test-LocalPort)) {
-        Write-Host "Cobbleverse Battle Lab이 이미 실행 중입니다."
+        Write-Host "Cobbleverse Battle Lab is already running: $localUrl"
         if (-not $NoBrowser) {
             Open-LocalPage
         }
@@ -38,23 +63,26 @@ if (Test-Path -LiteralPath $pidFile) {
 }
 
 if (Test-LocalPort) {
-    Write-Error "포트 3000을 다른 프로그램이 사용하고 있습니다. 해당 프로그램을 먼저 종료해 주세요."
-    exit 1
+    Write-Host "Cobbleverse Battle Lab is already running: $localUrl"
+    if (-not $NoBrowser) {
+        Open-LocalPage
+    }
+    exit 0
 }
 
 $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
 if (-not $npm) {
-    Write-Error "Node.js와 npm을 찾을 수 없습니다. Node.js 22.13 이상을 설치해 주세요."
+    Write-Error "Could not find npm. Install Node.js 22.13 or newer."
     exit 1
 }
 
 if (-not (Test-Path -LiteralPath (Join-Path $projectRoot "node_modules"))) {
-    Write-Host "처음 실행을 위한 패키지를 설치합니다..."
+    Write-Host "Installing packages for the first run..."
     Push-Location $projectRoot
     try {
         & $npm.Source ci
         if ($LASTEXITCODE -ne 0) {
-            throw "npm ci가 종료 코드 $LASTEXITCODE로 실패했습니다."
+            throw "npm ci failed with exit code $LASTEXITCODE."
         }
     }
     finally {
@@ -77,8 +105,11 @@ $serverProcess = [System.Diagnostics.Process]::Start($serverInfo)
 Set-Content -LiteralPath $pidFile -Value $serverProcess.Id -Encoding ascii
 
 $started = $false
-for ($attempt = 0; $attempt -lt 80; $attempt += 1) {
-    Start-Sleep -Milliseconds 250
+$startupTimeoutSeconds = 90
+$pollIntervalMilliseconds = 500
+$maxAttempts = [Math]::Ceiling(($startupTimeoutSeconds * 1000) / $pollIntervalMilliseconds)
+for ($attempt = 0; $attempt -lt $maxAttempts; $attempt += 1) {
+    Start-Sleep -Milliseconds $pollIntervalMilliseconds
     $serverProcess.Refresh()
     if ($serverProcess.HasExited) {
         break
@@ -91,20 +122,33 @@ for ($attempt = 0; $attempt -lt 80; $attempt += 1) {
 
 if (-not $started) {
     if (-not $serverProcess.HasExited) {
-        & taskkill.exe /PID $serverProcess.Id /T /F | Out-Null
+        try {
+            & taskkill.exe /PID $serverProcess.Id /T /F 2>$null | Out-Null
+        }
+        catch {
+        }
     }
     Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
-    $details = if (Test-Path -LiteralPath $errorLog) {
-        Get-Content -LiteralPath $errorLog -Raw
+    $errorDetails = Read-LogTail -Path $errorLog
+    $outputDetails = Read-LogTail -Path $outputLog
+    $details = @(
+        if ($errorDetails) {
+            "[stderr]"
+            $errorDetails
+        }
+        if ($outputDetails) {
+            "[stdout]"
+            $outputDetails
+        }
+    ) -join [Environment]::NewLine
+    if (-not $details) {
+        $details = "No log output was captured."
     }
-    else {
-        "오류 로그가 없습니다."
-    }
-    Write-Error "로컬 서버가 제한 시간 안에 시작되지 않았습니다.`n$details"
+    Write-Error "Local server did not start within $startupTimeoutSeconds seconds.`n$details"
     exit 1
 }
 
-Write-Host "Cobbleverse Battle Lab을 시작했습니다: $localUrl"
+Write-Host "Cobbleverse Battle Lab started: $localUrl"
 if (-not $NoBrowser) {
     Open-LocalPage
 }

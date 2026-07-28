@@ -52,6 +52,11 @@
 | UNIT_TESTED | `grimneigh` | 흑의울음, 상대를 쓰러뜨리면 특공 1랭크 상승 | `applyKnockoutAbility` | `boosts Calyrex rider abilities after scoring a knockout` |
 | UNIT_TESTED | `asoneglastrier` | 혼연일체(백마), 백의울음 효과 적용 | `applyKnockoutAbility` | `boosts Calyrex rider abilities after scoring a knockout` |
 | UNIT_TESTED | `asonespectrier` | 혼연일체(흑마), 흑의울음 효과 적용 | `applyKnockoutAbility` | `boosts Calyrex rider abilities after scoring a knockout` |
+| UNIT_TESTED | `static` | 정전기, 접촉 피해를 받은 뒤 30%로 공격자를 마비 | `executeMove` post-hit contact reaction | `supports common trainer abilities required by strict native scenarios` |
+| UNIT_TESTED | `rockhead` | 돌머리, 기술 자체 반동 피해 무효 | `executeMove` recoil prevention | `supports common trainer abilities required by strict native scenarios` |
+| UNIT_TESTED | `competitive` | 승기, 상대에 의해 능력치가 내려가면 특공 2랭크 상승 | `applyBoosts` opponent stat-drop reaction | `supports common trainer abilities required by strict native scenarios` |
+| UNIT_TESTED | `overgrow` | 심록, HP 1/3 이하에서 풀 타입 기술 위력 1.5배 | `calculateDamageRange` | `supports common trainer abilities required by strict native scenarios` |
+| UNIT_TESTED | `intrepidsword` | 불요의검, 등장 시 공격 1랭크 상승 | `applyEntryAbilities` | `supports common trainer abilities required by strict native scenarios` |
 
 ## 명시적 전투 효과 없음
 
@@ -83,6 +88,7 @@
 - [x] `shadowshield`: HP 최대일 때 피해 0.5배
 - [x] `thickfat`: 불꽃·얼음 피해 0.5배
 - [x] `simple`: 랭크 변화량 2배
+- [x] `overgrow`: HP 1/3 이하 풀 타입 기술 1.5배
 - [ ] `hustle`: 물리 공격 1.5배, 물리 명중 0.8배
 - [ ] `gorillatactics`: 물리 공격 1.5배 및 기술 고정
 - [ ] `slowstart`: 5턴 동안 공격·스피드 0.5배
@@ -138,7 +144,8 @@
 - [x] `pressure`: 대상 공격 PP 추가 1 소모
 - [x] `plus`: 기어업/자기장조작 대상
 - [x] `minus`: 기어업/자기장조작 대상
-- [ ] `download`: 등장 시 공격 또는 특공 +1
+- [x] `download`: 등장 시 공격 또는 특공 +1
+- [x] `intrepidsword`: 등장 시 공격 +1
 - [ ] `trace`: 등장 시 상대 특성 복사
 - [ ] `regenerator`: 교체 시 HP 1/3 회복
 - [ ] `naturalcure`: 교체 시 상태 회복
@@ -146,13 +153,14 @@
 - [ ] `beastboost`: KO 후 가장 높은 능력 +1
 - [x] `speedboost`: 턴 종료 스피드 +1
 - [ ] `contrary`: 랭크 변화 반전
-- [ ] `competitive`: 능력 하락 시 특공 +2
+- [x] `competitive`: 상대에 의한 능력 하락 시 특공 +2
 - [ ] `defiant`: 능력 하락 시 공격 +2
 
 ### 방어·피해 무시
 
 - [x] `sturdy`: 풀피 일격 기절 방지
 - [ ] `wonderguard`: 효과 굉장한 공격 외 무효
+- [x] `rockhead`: 기술 반동 피해 무효
 - [ ] `magicguard`: 간접 피해 무효
 - [ ] `overcoat`: 날씨 피해/가루 기술 무효
 - [ ] `filter`: 효과 굉장한 피해 감소
@@ -165,7 +173,7 @@
 
 - [ ] `roughskin`: 접촉 피해 반사
 - [ ] `ironbarbs`: 접촉 피해 반사
-- [ ] `static`: 접촉 시 마비 확률
+- [x] `static`: 접촉 피해를 준 공격자 마비 확률
 - [ ] `flamebody`: 접촉 시 화상 확률
 - [ ] `poisontouch`: 접촉 공격 시 독 확률
 - [ ] `effectspore`: 접촉 시 상태 확률

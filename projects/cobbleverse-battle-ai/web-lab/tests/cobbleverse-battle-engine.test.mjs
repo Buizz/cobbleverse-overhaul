@@ -1585,6 +1585,319 @@ test("delays forced Dynamax for a safe setup turn without Max Knuckle", () => {
   assert.equal(command.gimmick, undefined);
 });
 
+test("AI values Swords Dance before Surging Strikes when setup creates a KO line", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            id: "urshifurapidstrike",
+            name: "Urshifu-Rapid-Strike",
+            types: ["Fighting", "Water"],
+            stats: {
+              ...pokemon().stats,
+              hp: 343,
+              attack: 180,
+              defence: 120,
+              specialDefence: 120,
+              speed: 120,
+            },
+            moves: [
+              {
+                id: "closecombat",
+                name: "Close Combat",
+                type: "Fighting",
+                category: "Physical",
+                power: 120,
+                accuracy: 100,
+                pp: 5,
+                selfBoosts: { def: -1, spd: -1 },
+              },
+              {
+                id: "surgingstrikes",
+                name: "Surging Strikes",
+                type: "Water",
+                category: "Physical",
+                power: 25,
+                accuracy: 100,
+                pp: 5,
+              },
+              {
+                id: "swordsdance",
+                name: "Swords Dance",
+                type: "Normal",
+                category: "Status",
+                accuracy: true,
+                pp: 20,
+                selfBoosts: { atk: 2 },
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Target",
+        team: [
+          pokemon({
+            name: "Garganacl",
+            types: ["Rock"],
+            stats: {
+              ...pokemon().stats,
+              hp: 404,
+              defence: 160,
+              specialDefence: 120,
+              speed: 40,
+            },
+            moves: [
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+
+  const command = chooseSimpleAiCommand(state, 0, "expert", "tempo");
+  assert.equal(command.move, 3);
+
+  const battle = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "tempo" }],
+  });
+  const trace = battle.aiTrace.find((entry) => entry.side === 0);
+  const surgingStrikes = trace.candidates.find(
+    (candidate) => candidate.id === "surgingstrikes",
+  );
+  const swordsDance = trace.candidates.find(
+    (candidate) => candidate.id === "swordsdance",
+  );
+
+  assert.ok(surgingStrikes.expectedDamage.value > 150);
+  assert.ok(
+    swordsDance.reasons.some(
+      (reason) => reason.code === "rule.setup.followup_breakthrough",
+    ),
+  );
+});
+
+test("AI prefers multi-hit Surging Strikes over single-hit Close Combat into Sturdy", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            id: "urshifurapidstrike",
+            name: "Urshifu-Rapid-Strike",
+            level: 100,
+            types: ["Fighting", "Water"],
+            hp: 116,
+            boosts: { attack: 2 },
+            stats: {
+              ...pokemon().stats,
+              hp: 343,
+              attack: 900,
+              defence: 120,
+              specialDefence: 120,
+              speed: 120,
+            },
+            moves: [
+              {
+                id: "closecombat",
+                name: "Close Combat",
+                type: "Fighting",
+                category: "Physical",
+                power: 120,
+                accuracy: 100,
+                pp: 5,
+                selfBoosts: { def: -1, spd: -1 },
+              },
+              {
+                id: "surgingstrikes",
+                name: "Surging Strikes",
+                type: "Water",
+                category: "Physical",
+                power: 25,
+                accuracy: 100,
+                pp: 5,
+              },
+              {
+                id: "aquajet",
+                name: "Aqua Jet",
+                type: "Water",
+                category: "Physical",
+                power: 40,
+                accuracy: 100,
+                priority: 1,
+                pp: 20,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Target",
+        team: [
+          pokemon({
+            name: "Garganacl",
+            level: 100,
+            types: ["Rock"],
+            ability: "sturdy",
+            stats: {
+              ...pokemon().stats,
+              hp: 404,
+              defence: 160,
+              specialDefence: 120,
+              speed: 40,
+            },
+            moves: [
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  const state = createSimpleBattle(scenario);
+  const command = chooseSimpleAiCommand(state, 0, "expert", "balanced");
+  assert.equal(command.move, 2);
+
+  const battle = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+  });
+  const trace = battle.aiTrace.find((entry) => entry.side === 0);
+  const closeCombat = trace.candidates.find((candidate) => candidate.id === "closecombat");
+  const surgingStrikes = trace.candidates.find((candidate) => candidate.id === "surgingstrikes");
+  assert.equal(surgingStrikes.selected, true);
+  assert.equal(closeCombat.koChance, "none");
+  assert.equal(surgingStrikes.koChance, "guaranteed");
+  assert.ok(
+    closeCombat.reasons.some(
+      (reason) => reason.code === "rule.sturdy.single_hit_blocked",
+    ),
+  );
+  assert.ok(
+    surgingStrikes.reasons.some(
+      (reason) => reason.code === "rule.sturdy.multi_hit_breaker",
+    ),
+  );
+});
+
+test("AI prefers no-drop Surging Strikes over Close Combat when both are KO moves", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            id: "urshifurapidstrike",
+            name: "Urshifu-Rapid-Strike",
+            level: 100,
+            types: ["Fighting", "Water"],
+            stats: {
+              ...pokemon().stats,
+              hp: 343,
+              attack: 900,
+              defence: 120,
+              specialDefence: 120,
+              speed: 120,
+            },
+            moves: [
+              {
+                id: "closecombat",
+                name: "Close Combat",
+                type: "Fighting",
+                category: "Physical",
+                power: 120,
+                accuracy: 100,
+                pp: 5,
+                selfBoosts: { def: -1, spd: -1 },
+              },
+              {
+                id: "surgingstrikes",
+                name: "Surging Strikes",
+                type: "Water",
+                category: "Physical",
+                power: 25,
+                accuracy: 100,
+                pp: 5,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Target",
+        team: [
+          pokemon({
+            name: "Garganacl",
+            level: 100,
+            types: ["Rock"],
+            stats: {
+              ...pokemon().stats,
+              hp: 404,
+              defence: 160,
+              specialDefence: 120,
+              speed: 40,
+            },
+            moves: [
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  const state = createSimpleBattle(scenario);
+  const command = chooseSimpleAiCommand(state, 0, "expert", "balanced");
+  assert.equal(command.move, 2);
+
+  const battle = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+  });
+  const trace = battle.aiTrace.find((entry) => entry.side === 0);
+  const closeCombat = trace.candidates.find((candidate) => candidate.id === "closecombat");
+  const surgingStrikes = trace.candidates.find((candidate) => candidate.id === "surgingstrikes");
+  assert.equal(closeCombat.koChance, "guaranteed");
+  assert.equal(surgingStrikes.koChance, "guaranteed");
+  assert.equal(surgingStrikes.selected, true);
+  assert.ok(
+    closeCombat.reasons.some(
+      (reason) => reason.code === "rule.self_drop.safe_ko_alternative",
+    ),
+  );
+});
+
 test("lets a non-Mega fallback use Dynamax after the configured Dynamax Pokémon faints", () => {
   const state = createSimpleBattle(
     setup({
@@ -2409,6 +2722,217 @@ test("AI avoids selecting already maxed entry hazards", () => {
   const command = chooseSimpleAiCommand(state, 0, "expert", "hazard");
 
   assert.equal(command.move, 2);
+});
+
+test("AI uses Salt Cure before Stealth Rock into a likely first-turn setup threat", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Garganacl",
+            types: ["Rock"],
+            stats: { ...pokemon().stats, hp: 404, attack: 110, defence: 180, speed: 80 },
+            moves: [
+              {
+                id: "stealthrock",
+                name: "Stealth Rock",
+                type: "Rock",
+                category: "Status",
+                accuracy: true,
+                pp: 20,
+                sideCondition: "stealthrock",
+              },
+              {
+                id: "saltcure",
+                name: "Salt Cure",
+                type: "Rock",
+                category: "Physical",
+                power: 40,
+                accuracy: 100,
+                pp: 15,
+              },
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "SetupThreat",
+        team: [
+          pokemon({
+            name: "SetupSweeper",
+            types: ["Dragon"],
+            stats: {
+              ...pokemon().stats,
+              hp: 420,
+              attack: 170,
+              defence: 180,
+              speed: 120,
+            },
+            moves: [
+              {
+                id: "swordsdance",
+                name: "Swords Dance",
+                type: "Normal",
+                category: "Status",
+                accuracy: true,
+                pp: 20,
+                selfBoosts: { attack: 2 },
+              },
+              {
+                id: "slash",
+                name: "Slash",
+                type: "Normal",
+                category: "Physical",
+                power: 70,
+                accuracy: 100,
+                pp: 20,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  const state = createSimpleBattle(scenario);
+  const command = chooseSimpleAiCommand(state, 0, "expert", "balanced");
+  assert.equal(command.move, 2);
+
+  const battle = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+  });
+  const trace = battle.aiTrace.find((entry) => entry.side === 0);
+  const saltCure = trace.candidates.find((candidate) => candidate.id === "saltcure");
+  const stealthRock = trace.candidates.find((candidate) => candidate.id === "stealthrock");
+  assert.equal(saltCure.selected, true);
+  assert.ok(saltCure.opponentSetupFirstTurnLikelihood >= 0.65);
+  assert.ok(saltCure.score > stealthRock.score);
+});
+
+test("AI keeps Stealth Rock ahead of Salt Cure into Trick Room support", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Garganacl",
+            types: ["Rock"],
+            stats: { ...pokemon().stats, hp: 404, attack: 110, defence: 180, speed: 80 },
+            moves: [
+              {
+                id: "stealthrock",
+                name: "Stealth Rock",
+                type: "Rock",
+                category: "Status",
+                accuracy: true,
+                pp: 20,
+                sideCondition: "stealthrock",
+              },
+              {
+                id: "saltcure",
+                name: "Salt Cure",
+                type: "Rock",
+                category: "Physical",
+                power: 40,
+                accuracy: 100,
+                pp: 15,
+              },
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "TrickRoomSupport",
+        team: [
+          pokemon({
+            name: "Porygon2",
+            item: "eviolite",
+            types: ["Normal"],
+            stats: {
+              ...pokemon().stats,
+              hp: 374,
+              defence: 130,
+              specialAttack: 120,
+              speed: 40,
+            },
+            moves: [
+              {
+                id: "icebeam",
+                name: "Ice Beam",
+                type: "Ice",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 10,
+              },
+              {
+                id: "thunderbolt",
+                name: "Thunderbolt",
+                type: "Electric",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 15,
+              },
+              {
+                id: "trickroom",
+                name: "Trick Room",
+                type: "Psychic",
+                category: "Status",
+                accuracy: true,
+                priority: -7,
+                pp: 5,
+                pseudoWeather: "trickroom",
+              },
+            ],
+          }),
+          pokemon({ name: "Bench1" }),
+          pokemon({ name: "Bench2" }),
+          pokemon({ name: "Bench3" }),
+          pokemon({ name: "Bench4" }),
+          pokemon({ name: "Bench5" }),
+        ],
+      },
+    ],
+  });
+
+  const state = createSimpleBattle(scenario);
+  const command = chooseSimpleAiCommand(state, 0, "expert", "balanced");
+  assert.equal(command.move, 1);
+
+  const battle = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+  });
+  const trace = battle.aiTrace.find((entry) => entry.side === 0);
+  const saltCure = trace.candidates.find((candidate) => candidate.id === "saltcure");
+  const stealthRock = trace.candidates.find((candidate) => candidate.id === "stealthrock");
+  assert.equal(stealthRock.selected, true);
+  assert.equal(saltCure.opponentSetupMoveCount, 0);
+  assert.equal(saltCure.opponentSetupFirstTurnLikelihood, 0);
+  assert.ok(stealthRock.score > saltCure.score);
 });
 
 test("AI values Trick Room when slow attackers can sweep after the setter survives", () => {
@@ -5098,6 +5622,99 @@ test("supports common trainer abilities required by strict native scenarios", ()
   );
   assert.equal(downloadState.sides[0].team[0].boosts.attack, 1);
 
+  const intrepidState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Zacian-Crowned",
+              ability: "intrepidsword",
+            }),
+          ],
+        },
+        { name: "AI", team: [pokemon({ name: "Target" })] },
+      ],
+    }),
+  );
+  assert.equal(intrepidState.sides[0].team[0].boosts.attack, 1);
+
+  const competitiveState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Intimidator",
+              ability: "intimidate",
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "Articuno-Galar",
+              ability: "competitive",
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  assert.equal(competitiveState.sides[1].team[0].boosts.attack, -1);
+  assert.equal(competitiveState.sides[1].team[0].boosts.specialAttack, 2);
+
+  const competitiveMoveDropState = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Growler",
+                stats: { ...pokemon().stats, speed: 160 },
+                moves: [
+                  {
+                    id: "growl",
+                    name: "Growl",
+                    type: "Normal",
+                    category: "Status",
+                    accuracy: true,
+                    pp: 40,
+                    boosts: { attack: -1 },
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "CompetitiveTarget",
+                ability: "competitive",
+                stats: { ...pokemon().stats, speed: 40 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(competitiveMoveDropState.sides[1].team[0].boosts.attack, -1);
+  assert.equal(
+    competitiveMoveDropState.sides[1].team[0].boosts.specialAttack,
+    2,
+  );
+
   const speedBoostState = resolveSimpleTurn(
     createSimpleBattle(
       setup({
@@ -5145,6 +5762,26 @@ test("supports common trainer abilities required by strict native scenarios", ()
   assert.equal(
     calculateDamageRange(pokemon({ ability: "technician" }), pokemon(), punch)
       .abilityModifier,
+    1.5,
+  );
+
+  const overgrowUser = pokemon({
+    ability: "overgrow",
+    types: ["Grass"],
+    hp: 39,
+    stats: { ...pokemon().stats, hp: 120, specialAttack: 140 },
+  });
+  const overgrowGrass = {
+    id: "energyball",
+    name: "Energy Ball",
+    type: "Grass",
+    category: "Special",
+    power: 90,
+    accuracy: true,
+    pp: 10,
+  };
+  assert.equal(
+    calculateDamageRange(overgrowUser, pokemon(), overgrowGrass).abilityModifier,
     1.5,
   );
 
@@ -5235,6 +5872,89 @@ test("supports common trainer abilities required by strict native scenarios", ()
   );
   assert.equal(teravoltState.sides[1].team[0].fainted, true);
 
+  const recoilMove = {
+    id: "headsmash",
+    name: "Head Smash",
+    type: "Rock",
+    category: "Physical",
+    power: 120,
+    accuracy: true,
+    pp: 5,
+    recoil: [1, 2],
+  };
+  const rockHeadState = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Aerodactyl",
+                ability: "rockhead",
+                stats: { ...pokemon().stats, attack: 180, speed: 160 },
+                moves: [recoilMove],
+              }),
+            ],
+          },
+          { name: "AI", team: [pokemon({ name: "RecoilTarget", stats: { ...pokemon().stats, hp: 300, speed: 40 } })] },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.ok(
+    !rockHeadState.events.some(
+      (event) => event.pokemon === "Aerodactyl" && event.cause === "recoil",
+    ),
+  );
+
+  let staticState = null;
+  for (let seed = 1; seed <= 20 && !staticState; seed += 1) {
+    const next = resolveSimpleTurn(
+      createSimpleBattle(
+        setup({
+          seed,
+          strictAbilityValidation: true,
+          sides: [
+            {
+              name: "Player",
+              team: [
+                pokemon({
+                  name: "ContactUser",
+                  stats: { ...pokemon().stats, attack: 140, speed: 160 },
+                  moves: [punch],
+                }),
+              ],
+            },
+            {
+              name: "AI",
+              team: [
+                pokemon({
+                  name: "Pikachu",
+                  ability: "static",
+                  stats: { ...pokemon().stats, hp: 240, speed: 40 },
+                }),
+              ],
+            },
+          ],
+        }),
+      ),
+      [{ move: 1 }, { move: 1 }],
+    );
+    if (next.sides[0].team[0].status === "par") staticState = next;
+  }
+  assert.ok(staticState, "Static should be able to paralyze a contact attacker");
+  assert.ok(
+    staticState.events.some(
+      (event) =>
+        event.type === "ability_activate" &&
+        event.ability === "static" &&
+        event.pokemon === "Pikachu",
+    ),
+  );
+
   assert.doesNotThrow(() =>
     createSimpleBattle(
       setup({
@@ -5249,6 +5969,8 @@ test("supports common trainer abilities required by strict native scenarios", ()
               pokemon({ ability: "technician" }),
               pokemon({ ability: "mindseye" }),
               pokemon({ ability: "teravolt" }),
+              pokemon({ ability: "static" }),
+              pokemon({ ability: "rockhead" }),
             ],
           },
           {
@@ -5257,9 +5979,9 @@ test("supports common trainer abilities required by strict native scenarios", ()
               pokemon({ ability: "download" }),
               pokemon({ ability: "sturdy" }),
               pokemon({ ability: "speedboost" }),
-              pokemon({ ability: "unseenfist" }),
-              pokemon({ ability: "pickpocket" }),
-              pokemon({ ability: "lightmetal" }),
+              pokemon({ ability: "competitive" }),
+              pokemon({ ability: "overgrow" }),
+              pokemon({ ability: "intrepidsword" }),
             ],
           },
         ],
