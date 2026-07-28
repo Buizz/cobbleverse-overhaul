@@ -251,7 +251,19 @@ export function mapNativeEvent(event) {
       Number.isFinite(event.remainingHp) && Number.isFinite(event.maximumHp)
         ? `${event.remainingHp}/${event.maximumHp}${event.status ? ` ${event.status}` : ""}`
         : "";
-    return [{ ...base, detail: event.pokemon ?? "", condition }];
+    return [{
+      ...base,
+      detail: event.pokemon ?? "",
+      condition,
+      fromActor:
+        event.side === 0 || event.side === 1
+          ? `p${event.side + 1}a: ${event.fromPokemon ?? ""}`
+          : "",
+      automatic: event.automatic === true,
+      forced: event.forced === true,
+      selection: event.selection ?? "",
+      source: displayValue(event.source),
+    }];
   }
   if (event.type === "move") {
     return [{ ...base, detail: event.move ?? "" }];
@@ -419,7 +431,13 @@ export function mapNativeEvent(event) {
     event.type === "unsupported_effect" ||
     event.type === "move_failed"
   ) {
-    return [{ ...base, type: "failed", detail: event.move ?? "" }];
+    return [
+      {
+        ...base,
+        type: "failed",
+        detail: event.reason ?? event.move ?? "",
+      },
+    ];
   }
   if (event.type === "no_pp") {
     return [{ ...base, type: "failed", detail: "PP 없음" }];
@@ -490,6 +508,7 @@ export function runNativeScenarioBattle(scenario, options = {}) {
       },
     ],
     finalState,
+    turnSnapshots: state.turnSnapshots,
     aiTrace: state.aiTrace,
     events,
     log: state.events.map((event) => JSON.stringify(event)),

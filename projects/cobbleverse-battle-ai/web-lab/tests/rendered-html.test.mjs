@@ -68,8 +68,8 @@ test("serves the scenario creation API from the production worker", async () => 
     }),
   });
 
-  assert.equal(response.status, 201);
   const body = await response.json();
+  assert.equal(response.status, 201, JSON.stringify(body));
   assert.equal(body.ok, true);
   assert.equal(body.scenario.mode, "eve");
   assert.equal(body.scenario.seed, 77);
@@ -111,4 +111,36 @@ test("runs a complete preset battle through the production worker", async () => 
     { difficulty: "standard", strategy: "defensive" },
   ]);
   assert.ok(body.battle.aiTrace.length > 0);
+});
+
+test("returns exact native turn HP snapshots through the battle API", async () => {
+  const response = await requestWorker("/api/battles", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      mode: "eve",
+      seed: 78,
+      battleEngine: "cobbleverse",
+      aiProfiles: [
+        { difficulty: "expert", strategy: "balanced" },
+        { difficulty: "expert", strategy: "balanced" },
+      ],
+      sides: [
+        { source: "preset", trainerId: "dbingsu-server-party" },
+        { source: "preset", trainerId: "hoenn_league_drake" },
+      ],
+    }),
+  });
+
+  const body = await response.json();
+  assert.equal(response.status, 201, JSON.stringify(body));
+  assert.equal(body.ok, true);
+  assert.equal(body.battle.engine.id, "cobbleverse-simple");
+  assert.equal(body.battle.turnSnapshots.length, body.battle.turns + 1);
+  assert.equal(body.battle.turnSnapshots[0].turn, 0);
+  assert.ok(
+    body.battle.turnSnapshots[0].sides.every((side) =>
+      side.team.every((pokemon) => pokemon.hp === pokemon.maxHp),
+    ),
+  );
 });

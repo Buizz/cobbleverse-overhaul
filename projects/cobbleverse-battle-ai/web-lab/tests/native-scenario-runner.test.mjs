@@ -89,6 +89,12 @@ test("runs the selected native engine and records AI settings", () => {
       entry.candidates.every((candidate) => Array.isArray(candidate.reasons)),
     ),
   );
+  assert.equal(battle.turnSnapshots[0].turn, 0);
+  assert.equal(battle.turnSnapshots.at(-1).turn, battle.turns);
+  assert.equal(
+    battle.turnSnapshots[0].sides[0].team[0].hp,
+    battle.turnSnapshots[0].sides[0].team[0].maxHp,
+  );
 });
 
 test("includes HP on initial native switch events and separates side-condition layers", () => {
@@ -218,6 +224,52 @@ test("preserves native damage and heal causes for Showdown-like logs", () => {
       },
     ],
   );
+});
+
+test("preserves voluntary and faint replacement switch reasons for reports", () => {
+  assert.deepEqual(
+    mapNativeEvent({
+      turn: 3,
+      type: "switch",
+      side: 1,
+      fromPokemon: "Garganacl",
+      pokemon: "Ursaluna-Bloodmoon",
+      remainingHp: 428,
+      maximumHp: 428,
+      automatic: false,
+      selection: "manual_switch",
+    }),
+    [
+      {
+        turn: 3,
+        type: "switch",
+        actor: "p2a: Ursaluna-Bloodmoon",
+        detail: "Ursaluna-Bloodmoon",
+        condition: "428/428",
+        fromActor: "p2a: Garganacl",
+        automatic: false,
+        forced: false,
+        selection: "manual_switch",
+        source: "",
+      },
+    ],
+  );
+
+  const faintReplacement = mapNativeEvent({
+    turn: 4,
+    type: "switch",
+    side: 0,
+    fromPokemon: "Mawile",
+    pokemon: "Blaziken",
+    remainingHp: 303,
+    maximumHp: 303,
+    automatic: true,
+    forced: true,
+    selection: "matchup_score",
+  })[0];
+  assert.equal(faintReplacement.fromActor, "p1a: Mawile");
+  assert.equal(faintReplacement.forced, true);
+  assert.equal(faintReplacement.selection, "matchup_score");
 });
 
 test("shows a readable flinch message for native Fake Out", () => {
@@ -352,6 +404,51 @@ test("shows dynamic power move effectiveness against the current opponent", () =
   const started = startNativeInteractiveBattle(battleScenario);
   assert.equal(started.request.moves[0].power, 40);
   assert.equal(started.request.moves[0].effectiveness, "resisted");
+});
+
+test("disables Blood Moon in the player request after a successful use", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-blood-moon-cooldown",
+    mode: "pve",
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "ursaluna-bloodmoon",
+            moveset: ["bloodmoon", "earthpower"],
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "shuckle",
+            moveset: ["withdraw"],
+          },
+        ],
+      },
+    ],
+  };
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  assert.equal(started.request.moves[0].id, "bloodmoon");
+  assert.equal(started.request.moves[0].disabled, false);
+
+  const afterBloodMoon = chooseNativeInteractiveBattleAction(
+    started.sessionId,
+    {
+      type: "move",
+      slot: 1,
+    },
+  );
+  assert.equal(afterBloodMoon.request.moves[0].disabled, true);
+  assert.equal(afterBloodMoon.request.moves[1].disabled, false);
 });
 
 test("keeps native player moves displayed as Max Moves while Dynamax is active", () => {

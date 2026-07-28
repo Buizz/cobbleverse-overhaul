@@ -254,6 +254,10 @@ type BattleEvent = {
   sourceActor?: string;
   remainingHp?: number;
   maximumHp?: number;
+  fromActor?: string;
+  automatic?: boolean;
+  forced?: boolean;
+  selection?: string;
 };
 
 type BattlePlaybackMode = "instant" | "fast" | "normal";
@@ -965,12 +969,11 @@ function actionNoticeCopy(
       };
     case "switch":
       return {
-        title: `${detail || actor || "새 포켓몬"}${koreanParticle(
-          detail || actor,
-          "이",
-          "가",
-        )} 전투에 나왔습니다.`,
-        detail: "다음 행동을 준비합니다.",
+        title: switchMessage(localization, event),
+        detail:
+          event.selection === "lead"
+            ? "선봉 포켓몬이 전투를 시작합니다."
+            : "교체된 포켓몬이 다음 행동을 준비합니다.",
       };
     case "damage":
       return {
@@ -1107,6 +1110,39 @@ function koreanParticle(
   const code = last.charCodeAt(0);
   if (code < 0xac00 || code > 0xd7a3) return vowelParticle;
   return (code - 0xac00) % 28 === 0 ? vowelParticle : consonantParticle;
+}
+
+function switchMessage(
+  localization: LocalizationCatalog | null,
+  event: BattleEvent,
+) {
+  const incoming =
+    localizedEventDetail(localization, event) ||
+    localizedSpecies(localization, actorName(event.actor)) ||
+    "새 포켓몬";
+  const outgoing = localizedSpecies(
+    localization,
+    actorName(event.fromActor),
+  );
+  const opponent = event.actor?.startsWith("p2") ? "상대 " : "";
+
+  if (event.selection === "lead") {
+    return event.actor?.startsWith("p2")
+      ? `상대 ${incoming}${koreanParticle(incoming, "이", "가")} 선봉으로 나왔다!`
+      : `가랏! ${incoming}!`;
+  }
+  if (
+    event.selection === "faint_replacement" ||
+    (event.forced && event.selection === "matchup_score")
+  ) {
+    return outgoing
+      ? `${opponent}${outgoing}${koreanParticle(outgoing, "이", "가")} 쓰러져 ${incoming}${koreanParticle(incoming, "이", "가")} 대신 출전했다!`
+      : `${opponent}${incoming}${koreanParticle(incoming, "이", "가")} 대신 출전했다!`;
+  }
+  if (outgoing) {
+    return `${opponent}포켓몬 교체: ${outgoing} → ${incoming}`;
+  }
+  return `${opponent}포켓몬을 ${incoming}(으)로 교체했다!`;
 }
 
 const battleDetailNames: Record<string, string> = {
@@ -1263,13 +1299,7 @@ function pokemonBattleMessage(
     case "move":
       return `${actor || "포켓몬"}의 ${detail || "기술"}!`;
     case "switch":
-      return event.actor?.startsWith("p2")
-        ? `상대 ${detail || actorNameValue}${koreanParticle(
-            detail || actorNameValue,
-            "이",
-            "가",
-          )} 나타났다!`
-        : `가랏! ${detail || actorNameValue}!`;
+      return switchMessage(localization, event);
     case "damage":
       return `${subject} ${damageCause(localization, event) ?? ""} 데미지를 입었다!`
         .replace(/\s+/g, " ")
@@ -1367,7 +1397,8 @@ function BattleLogEventLine({
     case "switch":
       return (
         <p>
-          <strong>{actor}</strong> 등장!{condition}
+          <strong>{switchMessage(localization, event)}</strong>
+          {condition}
         </p>
       );
     case "move":
@@ -4578,8 +4609,8 @@ export function BattleLab() {
   const [pveOpponentStrategy, setPveOpponentStrategy] =
     useState<AiStrategy>("balanced");
   const [eveAiProfiles, setEveAiProfiles] = useState<[AiProfile, AiProfile]>([
-    { difficulty: "standard", strategy: "balanced" },
-    { difficulty: "standard", strategy: "aggressive" },
+    { difficulty: "expert", strategy: "balanced" },
+    { difficulty: "expert", strategy: "balanced" },
   ]);
   const [scenario, setScenario] = useState<BattleScenario | null>(null);
   const [scenarioWarnings, setScenarioWarnings] = useState<

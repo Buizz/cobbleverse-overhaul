@@ -931,6 +931,31 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
     enriched.speedAdvantage === true;
   const hasSafeImmediateKo = enriched.safeImmediateKoAvailable === true;
   const isDamage = isDamagingCandidate(enriched);
+  const knockoutBeforeActionProbability = Math.max(
+    0,
+    Math.min(
+      1,
+      finiteNumber(enriched.opponentKnockoutBeforeActionProbability, 0),
+    ),
+  );
+
+  if (isDamage && knockoutBeforeActionProbability >= 0.25) {
+    const weight =
+      knockoutBeforeActionProbability >= 0.75
+        ? -520
+        : knockoutBeforeActionProbability >= 0.5
+          ? -280
+          : -120;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.action.ko_before_acting",
+        "행동 전 기절 위험",
+        knockoutBeforeActionProbability,
+        weight,
+        `상대의 ${enriched.opponentThreateningMoveId || "공격"}에 먼저 쓰러져 이 행동을 실행하지 못할 확률이 ${Math.round(knockoutBeforeActionProbability * 100)}%라 점수를 크게 낮췄습니다.`,
+      ),
+    );
+  }
 
   if (hasSafeImmediateKo && !isSafeFinisher(enriched)) {
     const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
@@ -993,6 +1018,35 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         guaranteedKo && safeNoDropKoAvailable
           ? "같은 확정 KO를 낼 수 있는 무하락 공격기가 있어, 방어 자원을 깎는 마무리 선택을 크게 낮췄습니다."
           : "공격 후 자신의 능력치가 떨어지는 비용을 반영했습니다.",
+      ),
+    );
+  }
+
+  const expectedRecoilDamage = finiteNumber(enriched.expectedRecoilDamage, 0);
+  if (expectedRecoilDamage > 0) {
+    const recoilWouldFaint = enriched.recoilWouldFaint === true;
+    const safeAlternative = enriched.safeNoRecoilKoAvailable === true;
+    const weight =
+      recoilWouldFaint && safeAlternative
+        ? -140
+        : recoilWouldFaint
+          ? -12
+          : -Math.min(36, Math.max(4, expectedRecoilDamage * 0.35));
+    adjustments.push(
+      scoreAdjustment(
+        recoilWouldFaint && safeAlternative
+          ? "rule.recoil.safe_ko_alternative"
+          : recoilWouldFaint
+            ? "rule.recoil.necessary_trade"
+            : "rule.recoil.hp_cost",
+        recoilWouldFaint ? "반동 기절 위험" : "반동 피해",
+        expectedRecoilDamage,
+        weight,
+        recoilWouldFaint && safeAlternative
+          ? "명중률이 충분한 무반동 마무리기가 있어, 자신까지 쓰러지는 공격의 점수를 크게 낮췄습니다."
+          : recoilWouldFaint
+            ? "반동으로 쓰러지지만 신뢰할 만한 무반동 마무리기가 없어 필요한 교환으로 평가했습니다."
+            : "공격 후 받는 예상 반동 피해를 생존 비용으로 반영했습니다.",
       ),
     );
   }
@@ -1357,6 +1411,42 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
       enriched.opponentMaxDamageToCurrentHealthRatio,
       enriched.incomingDamageRatio,
     );
+    const setupIncomingRatio = ratioValue(
+      enriched.setupIncomingDamageRatioAfterBoost,
+      incomingRatio,
+    );
+    const setupFollowupSurvivalProbability = ratioValue(
+      enriched.setupFollowupSurvivalProbability,
+      enriched.setupCanSurviveIncoming === false ? 0 : undefined,
+      1,
+    );
+    const canSurviveSetupTurn =
+      enriched.setupCanSurviveIncoming !== false &&
+      setupFollowupSurvivalProbability >= 0.5;
+    const setupSafetyAssured =
+      canSurviveSetupTurn &&
+      finiteNumber(enriched.setupGuardConsumptionProbability, 0) < 0.25 &&
+      (setupIncomingRatio === undefined || setupIncomingRatio < 0.5);
+    if (enriched.reliableKoAlternative === true && !setupSafetyAssured) {
+      const knockoutBoostAlternative =
+        enriched.knockoutBoostAlternative &&
+        typeof enriched.knockoutBoostAlternative === "object";
+      adjustments.push(
+        scoreAdjustment(
+          knockoutBoostAlternative
+            ? "rule.setup.foregoes_ko_boost"
+            : "rule.setup.foregoes_safe_ko",
+          knockoutBoostAlternative
+            ? "확정 KO와 특성 랭크업 포기"
+            : "안전한 확정 KO 포기",
+          setupIncomingRatio,
+          knockoutBoostAlternative ? -260 : -180,
+          knockoutBoostAlternative
+            ? "현재 상대를 확정 KO하면 위협을 제거하면서 특성으로 랭크도 오르므로, 생존 자원을 소모하는 랭크업보다 우선합니다."
+            : "현재 상대를 확정 KO할 수 있지만 랭크업 중 큰 피해를 받을 수 있어 안전한 마무리를 우선합니다.",
+        ),
+      );
+    }
     if (Number(enriched.turn ?? 2) === 1 && !enriched.opponentActionKnown) {
       adjustments.push(
         scoreAdjustment(
@@ -1368,7 +1458,35 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         ),
       );
     }
-    if (incomingRatio !== undefined) {
+    if (!canSurviveSetupTurn) {
+      const survivalPenalty =
+        setupFollowupSurvivalProbability <= 0.05
+          ? -360
+          : setupFollowupSurvivalProbability < 0.25
+            ? -280
+            : -210;
+      adjustments.push(
+        scoreAdjustment(
+          "rule.setup.cannot_reach_followup",
+          "랭크업 후속 행동 불가",
+          setupFollowupSurvivalProbability,
+          survivalPenalty,
+          finiteNumber(enriched.setupGuardConsumptionProbability, 0) > 0 &&
+            enriched.setupFollowupActsBeforeThreat === false
+            ? `기합의띠나 옹골참으로 이번 턴을 버텨도 다음 턴 상대보다 늦게 행동하므로 강화 공격을 사용하기 전에 쓰러집니다.`
+            : `랭크업 후 다음 행동까지 생존할 확률이 ${Math.round(setupFollowupSurvivalProbability * 100)}%라 전개 투자를 회수하기 어렵습니다.`,
+        ),
+      );
+      adjustments.push(
+        scoreAdjustment(
+          "rule.setup.cannot_survive_turn",
+          "랭크업 후 기절 위험",
+          setupIncomingRatio,
+          -220,
+          `랭크업을 적용해도 상대 최대 피해가 현재 체력의 ${Math.round((setupIncomingRatio ?? 1) * 100)}%라 다음 공격 기회를 얻을 수 없습니다.`,
+        ),
+      );
+    } else if (incomingRatio !== undefined) {
       const bonus =
         incomingRatio <= 0.1
           ? 18
@@ -1401,25 +1519,84 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
       enriched.setupDamageImprovement,
       Math.max(0, boostedBestDamage - currentBestDamage),
     );
+    const effectiveBoostTotal = Math.max(
+      0,
+      finiteNumber(enriched.setupEffectiveBoostTotal, 1),
+    );
+    const newKoTargets = Math.max(0, finiteNumber(enriched.setupNewKoTargets, 0));
+    const futureNewKoTargets = Math.max(
+      0,
+      finiteNumber(enriched.setupFutureNewKoTargets, 0),
+    );
+    const newSpeedAdvantages = Math.max(
+      0,
+      finiteNumber(enriched.setupNewSpeedAdvantages, 0),
+    );
+    const futurePressureGain = Math.max(
+      0,
+      finiteNumber(enriched.setupFuturePressureGain, 0),
+    );
+    const currentPressureGain = Math.max(
+      0,
+      finiteNumber(enriched.setupCurrentPressureGain, 0),
+    );
+    const hasTeamSetupProfile =
+      enriched.setupLivingTargetCount !== undefined ||
+      enriched.setupEffectiveBoostTotal !== undefined;
+    const strategicGain =
+      newKoTargets +
+      newSpeedAdvantages * 0.65 +
+      futurePressureGain +
+      currentPressureGain * 0.6;
     const opponentHp = finiteNumber(enriched.opponentHp);
-    if (damageImprovement > 0) {
+    if (
+      hasTeamSetupProfile &&
+      (enriched.setupBoostAlreadyMaxed === true || effectiveBoostTotal <= 0)
+    ) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.setup.boost_already_maxed",
+          "랭크 상승 한계",
+          effectiveBoostTotal,
+          -260,
+          "현재 랭크에서는 이 기술로 더 오르는 공격·특수공격·스피드가 없어 재사용 가치를 제거했습니다.",
+        ),
+      );
+    } else if (hasTeamSetupProfile && strategicGain <= 0.01) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.setup.no_matchup_gain",
+          "추가 전개 실익 없음",
+          strategicGain,
+          -190,
+          "이번 랭크업으로 현재 상대나 남은 엔트리에서 새 KO권, 피해 압박, 속도 우위를 만들지 못합니다.",
+        ),
+      );
+    } else if (
+      canSurviveSetupTurn &&
+      (hasTeamSetupProfile ? strategicGain > 0.01 : damageImprovement > 0)
+    ) {
       const safeEnough = incomingRatio === undefined || incomingRatio < 0.5;
       const turnsKoImproved =
         enriched.setupKoAfterBoost === true &&
         enriched.setupKoBeforeBoost !== true;
-      const weight =
-        Math.min(120, damageImprovement * 0.55) +
-        (turnsKoImproved ? (safeEnough ? 245 : 105) : 0) +
-        (opponentHp && boostedBestDamage >= opponentHp * 0.75 ? 30 : 0);
+      const weight = hasTeamSetupProfile
+        ? Math.min(120, damageImprovement * 0.55) +
+          Math.min(150, newKoTargets * 55 + futureNewKoTargets * 20) +
+          Math.min(70, futurePressureGain * 45) +
+          Math.min(50, newSpeedAdvantages * 25) +
+          (turnsKoImproved ? (safeEnough ? 55 : 25) : 0) +
+          (opponentHp && boostedBestDamage >= opponentHp * 0.75 ? 30 : 0)
+        : Math.min(120, damageImprovement * 0.55) +
+          (turnsKoImproved ? (safeEnough ? 245 : 105) : 0) +
+          (opponentHp && boostedBestDamage >= opponentHp * 0.75 ? 30 : 0);
       adjustments.push(
         scoreAdjustment(
-          "rule.setup.followup_breakthrough",
-          "setup breakthrough",
-          Math.round(boostedBestDamage),
+          "rule.setup.team_sweep_plan",
+          "팀 단위 전개 가치",
+          Math.round(strategicGain * 100) / 100,
           Math.round(weight * 100) / 100,
-          turnsKoImproved
-            ? "Setup makes the next attack reach a KO range, so the setup turn is valued highly."
-            : "Setup meaningfully improves the next attack's damage output.",
+          `랭크업 후 새 KO권 ${newKoTargets}마리, 뒤쪽 엔트리 압박 증가 ${Math.round(futurePressureGain * 100)}%, 새 속도 우위 ${newSpeedAdvantages}개를 만들 수 있습니다.`,
         ),
       );
     }
@@ -1689,9 +1866,9 @@ export function scoreAiMoveCandidate(
   const ruleValue = moveRuleAdjustmentScore(candidate, strategy);
   const koBonus =
     candidate.koChance === "guaranteed"
-      ? 55
+      ? 55 * accuracy
       : candidate.koChance === "possible"
-        ? 25
+        ? 25 * accuracy
         : 0;
 
   return (
@@ -1844,7 +2021,7 @@ function moveDecisionReasons(candidate, difficulty, strategy) {
   return reasons;
 }
 
-export function switchRuleAdjustments(candidate) {
+export function switchRuleAdjustments(candidate, strategy = "balanced") {
   const adjustments = [];
   const hpPercent = ratioValue(candidate.hpPercent, 0);
   const currentIncoming = ratioValue(
@@ -1925,6 +2102,55 @@ export function switchRuleAdjustments(candidate) {
         true,
         2,
         "교체 후보가 상대보다 먼저 움직일 수 있어 속도 가치를 반영했습니다.",
+      ),
+    );
+  }
+
+  if (!forceSwitch && candidate.survivesSwitchIn === false) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.faints_on_entry_turn",
+        "교체 턴 기절",
+        candidate.switchInExpectedDamage,
+        -240,
+        "교체 직후 상대 공격을 받아 행동 기회 없이 쓰러질 것으로 예상해 크게 낮췄습니다.",
+      ),
+    );
+  } else if (!forceSwitch && candidate.canReachNextAction === false) {
+    const aceScore = Math.max(0, finiteNumber(candidate.targetAceScore, 0));
+    const roleScore = Math.max(0, finiteNumber(candidate.targetRoleScore, 0));
+    const preservationMultiplier =
+      strategy === "ace_check"
+        ? 1.3
+        : strategy === "defensive"
+          ? 1.15
+          : strategy === "reckless_ace"
+            ? 0.8
+            : 1;
+    const preservationCost =
+      (candidate.targetAceQualified === true
+        ? 650 + Math.min(180, aceScore * 10)
+        : 35 + Math.min(60, roleScore * 5)) * preservationMultiplier;
+    const weight = -Math.round((150 + preservationCost) * 100) / 100;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.no_action_opportunity",
+        "반격 불가능한 교체",
+        candidate.hpAfterSwitchIn,
+        weight,
+        candidate.targetAceQualified === true
+          ? "교체 턴에 피해를 받은 뒤 다음 행동 전에 다시 쓰러질 전망이라, 에이스를 아무 행동 없이 소모하는 선택을 크게 낮췄습니다."
+          : "교체 턴에 피해를 받은 뒤 다음 행동 전에 다시 쓰러질 전망이라 희생 교체 비용을 반영했습니다.",
+      ),
+    );
+  } else if (!forceSwitch && candidate.canKoOnNextAction === true) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.next_action_counter_ko",
+        "교체 후 반격 KO",
+        true,
+        24,
+        "교체 턴의 공격을 버틴 뒤 다음 행동권에서 상대를 쓰러뜨릴 수 있어 카운터 투입 가치를 반영했습니다.",
       ),
     );
   }
@@ -2046,13 +2272,67 @@ export function switchRuleAdjustments(candidate) {
     );
   }
 
+  const switchInDamageRatio = Math.max(
+    0,
+    finiteNumber(candidate.switchInDamageRatio, 0),
+  );
+  if (!forceSwitch && switchInDamageRatio > 0) {
+    const weight =
+      -Math.round(Math.min(70, switchInDamageRatio * 55) * 100) / 100;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.incoming_hit_cost",
+        "교체 턴 체력 손실",
+        Math.round(switchInDamageRatio * 100),
+        weight,
+        `교체와 동시에 최대 체력의 약 ${Math.round(switchInDamageRatio * 100)}%를 잃을 것으로 예상해 비용을 반영했습니다.`,
+      ),
+    );
+  }
+
+  if (
+    !forceSwitch &&
+    candidate.currentCanReachAction === true &&
+    candidate.emergencyEscape !== true
+  ) {
+    const currentBestMoveScore = Math.max(
+      0,
+      finiteNumber(candidate.currentBestMoveScore, 0),
+    );
+    const weight =
+      -Math.round(Math.min(24, currentBestMoveScore * 0.06) * 100) / 100;
+    if (weight < 0) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.switch.action_opportunity_cost",
+          "현재 행동권 포기",
+          currentBestMoveScore,
+          weight,
+          "현재 포켓몬이 쓰러지기 전에 행동할 수 있어, 그 행동권을 버리는 교체 비용을 반영했습니다.",
+        ),
+      );
+    }
+  }
+
+  if (!forceSwitch && candidate.safeActionDenialAvailable === true) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.safe_disruption_available",
+        "확정 행동 저지 포기",
+        true,
+        -80,
+        "속이기처럼 상대 행동을 확실히 막는 기술을 사용할 수 있어, 이를 버리고 피해를 받는 교체를 크게 낮췄습니다.",
+      ),
+    );
+  }
+
   if (!forceSwitch && candidate.switchedLastTurn === true) {
     const immediateReturn = candidate.immediateReturn === true;
     const forcedReplacement = candidate.forcedReplacement === true;
     const setupEmergency = setupThreatTier(candidate) >= 3 || candidate.oneMoreTurnUnmanageable === true;
     if (!setupEmergency) {
       const penalty =
-        2 + (immediateReturn ? 4 : 0) + (forcedReplacement ? 24 : 0);
+        2 + (immediateReturn ? 4 : 0) + (forcedReplacement ? 36 : 0);
       adjustments.push(
         scoreAdjustment(
           "rule.switch.repeated_switch",
@@ -2096,12 +2376,12 @@ export function switchRuleAdjustments(candidate) {
   return adjustments;
 }
 
-function switchDecisionReasons(candidate) {
+function switchDecisionReasons(candidate, strategy = "balanced") {
   const reasons = [];
   const hpPercent = finiteNumber(candidate.hpPercent);
   const expectedDamage = finiteNumber(candidate.expectedDamage);
   const matchupValue = finiteNumber(candidate.matchupValue);
-  const switchAdjustments = switchRuleAdjustments(candidate);
+  const switchAdjustments = switchRuleAdjustments(candidate, strategy);
 
   if (hpPercent !== undefined) {
     reasons.push({
@@ -2109,6 +2389,32 @@ function switchDecisionReasons(candidate) {
       label: "남은 체력",
       value: Math.round(hpPercent * 100),
       message: `남은 체력 ${Math.round(hpPercent * 100)}%를 교체 안정성으로 반영했습니다.`,
+    });
+  }
+  const switchInExpectedDamage = finiteNumber(candidate.switchInExpectedDamage);
+  if (switchInExpectedDamage !== undefined) {
+    reasons.push({
+      code: "switch.incoming_hit",
+      label: "교체 턴 예상 피해",
+      value: switchInExpectedDamage,
+      message: `교체와 동시에 받을 상대 공격을 ${switchInExpectedDamage} 피해로 예상했습니다.`,
+    });
+  }
+  if (candidate.projectedBestMoveId) {
+    const projectedRisk = Math.round(
+      Math.max(
+        0,
+        Math.min(
+          1,
+          finiteNumber(candidate.projectedKnockoutBeforeActionProbability, 0),
+        ),
+      ) * 100,
+    );
+    reasons.push({
+      code: "switch.projected_best_action",
+      label: "투입 후 최선 행동",
+      value: candidate.projectedBestMoveId,
+      message: `${candidate.projectedBestMoveName ?? candidate.projectedBestMoveId} 사용을 최선으로 평가했으며, 그 전에 쓰러질 위험은 ${projectedRisk}%입니다.`,
     });
   }
   if (expectedDamage !== undefined) {
@@ -2125,6 +2431,32 @@ function switchDecisionReasons(candidate) {
       label: "상성 가치",
       value: matchupValue,
       message: `상대와의 상성 가치 ${matchupValue}를 반영했습니다.`,
+    });
+  }
+  if (candidate.emergencyEscape === true) {
+    reasons.push({
+      code: "switch.emergency_escape",
+      label: "위기 탈출",
+      value: true,
+      message:
+        "현재 포켓몬은 다음 공격에 쓰러질 위험이 크고 교체 후보는 버틸 수 있어 긴급 교체 가치를 반영했습니다.",
+    });
+  }
+  if (candidate.noEffectiveMoveEscape === true) {
+    reasons.push({
+      code: "switch.no_effective_move",
+      label: "유효타 부족",
+      value: true,
+      message:
+        "현재 포켓몬의 유효타가 부족하고 교체 후보의 반격 기대값이 더 높습니다.",
+    });
+  }
+  if (Number(candidate.hazardDamage ?? 0) > 0) {
+    reasons.push({
+      code: "switch.entry_hazard_damage",
+      label: "교체 피해",
+      value: Number(candidate.hazardDamage),
+      message: `교체하면서 설치물 피해 ${Number(candidate.hazardDamage)}를 받을 것으로 예상합니다.`,
     });
   }
   for (const adjustment of switchAdjustments) {
@@ -2179,7 +2511,7 @@ export function toAiActionCandidate(
     score: finiteNumber(enrichedCandidate.score, 0),
     reasons:
       type === "switch"
-        ? switchDecisionReasons(enrichedCandidate)
+        ? switchDecisionReasons(enrichedCandidate, strategy)
         : moveDecisionReasons(enrichedCandidate, difficulty, strategy),
   };
 }
@@ -2275,7 +2607,7 @@ export function createAiMoveTrace({
   };
 }
 
-export function scoreAiSwitchCandidate(candidate) {
+export function scoreAiSwitchCandidate(candidate, strategy = "balanced") {
   const hpPercent = Number.isFinite(Number(candidate.hpPercent))
     ? Number(candidate.hpPercent)
     : 0;
@@ -2285,18 +2617,18 @@ export function scoreAiSwitchCandidate(candidate) {
   const matchupValue = Number.isFinite(Number(candidate.matchupValue))
     ? Number(candidate.matchupValue)
     : 0;
-  const ruleValue = switchRuleAdjustments(candidate).reduce(
+  const ruleValue = switchRuleAdjustments(candidate, strategy).reduce(
     (sum, adjustment) => sum + Number(adjustment.weight ?? 0),
     0,
   );
   return expectedDamage + matchupValue + hpPercent * 10 + ruleValue;
 }
 
-export function rankAiSwitchCandidates(candidates) {
+export function rankAiSwitchCandidates(candidates, strategy = "balanced") {
   return candidates
     .map((candidate) => ({
       ...candidate,
-      score: Math.round(scoreAiSwitchCandidate(candidate) * 100) / 100,
+      score: Math.round(scoreAiSwitchCandidate(candidate, strategy) * 100) / 100,
     }))
     .sort((left, right) => right.score - left.score || left.slot - right.slot);
 }
@@ -2316,7 +2648,7 @@ export function selectAiSwitchCandidate(
   if (difficulty === "novice") {
     return available[rng.nextIndex(available.length)];
   }
-  const ranked = rankAiSwitchCandidates(available);
+  const ranked = rankAiSwitchCandidates(available, strategy);
   if (strategy === "unpredictable" && ranked.length > 1) {
     return ranked[rng.nextIndex(Math.min(3, ranked.length))];
   }
@@ -2336,7 +2668,7 @@ export function createAiSwitchTrace({
   candidates,
   selected,
 }) {
-  const ranked = rankAiSwitchCandidates(candidates).map((candidate) => ({
+  const ranked = rankAiSwitchCandidates(candidates, strategy).map((candidate) => ({
     ...toAiActionCandidate(candidate, { type: "switch", difficulty, strategy }),
     selected: candidate.slot === selected?.slot,
   }));

@@ -4,6 +4,7 @@ import {
   calculateMovePreview,
   chooseSimpleAiCommand,
   createSimpleBattle,
+  isMoveTemporarilyDisabled,
   replaceFaintedPokemon,
   resolveSimpleTurn,
 } from "./cobbleverse-battle-engine.mjs";
@@ -120,7 +121,10 @@ function publicMoves(
       pp: move.pp,
       maxPp: move.maxPp,
       target: "normal",
-      disabled: move.pp <= 0,
+      disabled:
+        move.pp <= 0 ||
+        (active.dynamaxTurns <= 0 &&
+          isMoveTemporarilyDisabled(active, move)),
       type: displayMove.type,
       category: displayMove.category,
       power: displayMove.power,
@@ -394,7 +398,12 @@ function playerCommand(state, action) {
   if (type === "move") {
     const active = state.sides[0].team[state.sides[0].active];
     const move = active.moves[slot - 1];
-    if (!move || move.pp <= 0) {
+    if (
+      !move ||
+      move.pp <= 0 ||
+      (active.dynamaxTurns <= 0 &&
+        isMoveTemporarilyDisabled(active, move))
+    ) {
       throw new Error("현재 사용할 수 없는 기술입니다.");
     }
     const gimmick = String(action?.gimmick ?? "");

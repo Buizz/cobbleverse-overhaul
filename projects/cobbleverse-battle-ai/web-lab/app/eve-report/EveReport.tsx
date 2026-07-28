@@ -88,6 +88,9 @@ type AiCandidate = {
   };
   power?: number;
   score?: number;
+  koChance?: "none" | "possible" | "guaranteed";
+  damageRangeMinimum?: number;
+  damageRangeMaximum?: number;
   selected: boolean;
   reasons?: AiDecisionReason[];
 };
@@ -116,6 +119,10 @@ type BattleEvent = {
   duration?: number;
   source?: string;
   target?: string;
+  fromActor?: string;
+  automatic?: boolean;
+  forced?: boolean;
+  selection?: string;
 };
 
 type Battle = {
@@ -143,6 +150,18 @@ type Battle = {
       }>;
     }>;
   };
+  turnSnapshots?: Array<{
+    turn: number;
+    sides: Array<{
+      active: number;
+      team: Array<{
+        hp: number;
+        maxHp: number;
+        fainted: boolean;
+        status?: string;
+      }>;
+    }>;
+  }>;
   aiTrace?: AiTrace[];
   events: BattleEvent[];
   log: string[];
@@ -320,11 +339,11 @@ function profilesOf(report: ReportData | null) {
     report?.scenario.aiProfiles ??
     report?.battle.settings?.aiProfiles ?? [
       {
-        difficulty: report?.scenario.aiDifficulty ?? "standard",
+        difficulty: report?.scenario.aiDifficulty ?? "expert",
         strategy: "balanced",
       },
       {
-        difficulty: report?.scenario.aiDifficulty ?? "standard",
+        difficulty: report?.scenario.aiDifficulty ?? "expert",
         strategy: "balanced",
       },
     ]
@@ -361,7 +380,24 @@ function eventLine(
   const source = localMove(localization, event.source);
 
   if (event.type === "switch") {
-    return `- ${side} ${actor} 등장`;
+    const previous = localSpecies(localization, event.fromActor);
+    const transition = previous ? `${previous} → ${actor}` : actor;
+    if (event.selection === "lead") {
+      return `- ${side} 선봉: ${actor}`;
+    }
+    if (
+      event.selection === "faint_replacement" ||
+      (event.forced && event.selection === "matchup_score")
+    ) {
+      return `- ${side} 기절 후 교체: ${transition}`;
+    }
+    if (event.selection === "self_switch") {
+      return `- ${side} ${source || "교체 기술"}로 교체: ${transition}`;
+    }
+    if (event.selection === "force_switch") {
+      return `- ${side} ${source || "강제 교체"}에 의해 교체: ${transition}`;
+    }
+    return `- ${side} 교체: ${transition}`;
   }
   if (event.type === "move") {
     return `- ${side} ${actor}의 ${move}!`;
@@ -425,7 +461,45 @@ function hpSnapshot(
   localization: LocalizationCatalog | null,
   turn: number,
 ) {
-  const hpBySide = report.scenario.sides.map(() => new Map<number, string>());
+  const exactSnapshot = report.battle.turnSnapshots?.find(
+    (snapshot) => snapshot.turn === turn,
+  );
+  if (exactSnapshot) {
+    return report.scenario.sides.map((side, sideIndex) => {
+      const prefix = sideIndex === 0 ? "1P" : "2P";
+      const snapshotTeam = exactSnapshot.sides[sideIndex]?.team ?? [];
+      const entries = side.team
+        .slice(0, 6)
+        .map((pokemon, pokemonIndex) => {
+          const name = localSpecies(localization, pokemon.species);
+          const snapshot = snapshotTeam[pokemonIndex];
+          const hp =
+            snapshot &&
+            Number.isFinite(snapshot.hp) &&
+            Number.isFinite(snapshot.maxHp)
+              ? snapshot.fainted || snapshot.hp <= 0
+                ? "0"
+                : `${snapshot.hp}/${snapshot.maxHp}`
+              : "?";
+          return `${name} ${hp}`;
+        })
+        .join(", ");
+      return `${prefix} [${entries}]`;
+    });
+  }
+
+  const hpBySide = report.scenario.sides.map((side, sideIndex) => {
+    const finalTeam = report.battle.finalState?.sides?.[sideIndex]?.team ?? [];
+    return new Map(
+      side.team.slice(0, 6).map((_, pokemonIndex) => {
+        const maxHp = finalTeam[pokemonIndex]?.maxHp;
+        return [
+          pokemonIndex,
+          Number.isFinite(maxHp) && Number(maxHp) > 0 ? `${maxHp}/${maxHp}` : "?",
+        ] as const;
+      }),
+    );
+  });
   const activeSlots = report.scenario.sides.map(() => 0);
   for (const event of report.battle.events) {
     if (event.turn > turn) continue;
@@ -445,21 +519,11 @@ function hpSnapshot(
 
   return report.scenario.sides.map((side, sideIndex) => {
     const prefix = sideIndex === 0 ? "1P" : "2P";
-    const finalTeam = report.battle.finalState?.sides?.[sideIndex]?.team ?? [];
     const entries = side.team
       .slice(0, 6)
       .map((pokemon, pokemonIndex) => {
         const name = localSpecies(localization, pokemon.species);
-        const finalPokemon = finalTeam[pokemonIndex];
-        const fallbackHp =
-          finalPokemon &&
-          Number.isFinite(finalPokemon.maxHp) &&
-          Number.isFinite(finalPokemon.hp)
-            ? finalPokemon.fainted || Number(finalPokemon.hp) <= 0
-              ? "0"
-              : `${finalPokemon.hp}/${finalPokemon.maxHp}`
-            : "";
-        return `${name} ${hpBySide[sideIndex].get(pokemonIndex) || fallbackHp || "?"}`;
+        return `${name} ${hpBySide[sideIndex].get(pokemonIndex) || "?"}`;
       })
       .join(", ");
     return `${prefix} [${entries}]`;
@@ -474,14 +538,6 @@ function turnPlainText(
 ) {
   const events = report.battle.events.filter((event) => event.turn === turn);
   const lines = [`${turn}턴`];
-  const firstSwitches = events.filter((event) => event.type === "switch");
-  if (firstSwitches.length > 0) {
-    lines.push(
-      `선봉/교체: ${firstSwitches
-        .map((event) => `${actorSide(event.actor)} ${localSpecies(localization, event.actor || event.detail)}`)
-        .join(" | ")}`,
-    );
-  }
   for (const event of events.filter((event) => event.type !== "turn")) {
     lines.push(eventLine(event, localization));
   }
@@ -499,7 +555,7 @@ function turnPlainText(
       for (const candidate of trace.candidates.slice(0, 6)) {
         const marker = candidate.selected ? "*" : " ";
         const label =
-          trace.kind === "switch"
+          candidate.type === "switch" || candidate.action?.type === "switch"
             ? `교체 -> ${candidate.name}`
             : candidate.type === "gimmick" || candidate.action?.type === "gimmick"
               ? candidate.id === "gigantamax"
@@ -508,10 +564,21 @@ function turnPlainText(
                   ? "다이맥스"
                   : candidate.name
               : localMove(localization, candidate.id ?? candidate.name);
+        const damageRange =
+          Number.isFinite(candidate.damageRangeMinimum) &&
+          Number.isFinite(candidate.damageRangeMaximum)
+            ? ` | 피해 범위 ${candidate.damageRangeMinimum}~${candidate.damageRangeMaximum}`
+            : "";
+        const koText =
+          candidate.koChance === "guaranteed"
+            ? " | 확정 KO"
+            : candidate.koChance === "possible"
+              ? " | KO 가능"
+              : "";
         lines.push(
-          `    ${marker} ${label} | 점수 ${Number(candidate.score ?? 0).toFixed(2)}`,
+          `    ${marker} ${label} | 점수 ${Number(candidate.score ?? 0).toFixed(2)}${damageRange}${koText}`,
         );
-        for (const reason of (candidate.reasons ?? []).slice(0, candidate.selected ? 3 : 1)) {
+        for (const reason of (candidate.reasons ?? []).slice(0, candidate.selected ? 3 : 2)) {
           const weight =
             typeof reason.weight === "number" ? ` ${reason.weight >= 0 ? "+" : ""}${reason.weight}` : "";
           lines.push(`      - ${reason.label}${weight}: ${reason.message}`);
@@ -628,8 +695,11 @@ function compactReportForStorage(report: ReportData): ReportData {
           action: candidate.action,
           power: candidate.power,
           score: candidate.score,
+          koChance: candidate.koChance,
+          damageRangeMinimum: candidate.damageRangeMinimum,
+          damageRangeMaximum: candidate.damageRangeMaximum,
           selected: candidate.selected,
-          reasons: candidate.reasons?.slice(0, candidate.selected ? 3 : 1).map((reason) => ({
+          reasons: candidate.reasons?.slice(0, candidate.selected ? 3 : 2).map((reason) => ({
             code: reason.code,
             label: reason.label,
             value: reason.value,
@@ -693,8 +763,8 @@ export default function EveReport() {
     useState<LocalizationCatalog | null>(null);
   const [seed, setSeed] = useState(0);
   const [profiles, setProfiles] = useState<AiProfile[]>([
-    { difficulty: "standard", strategy: "balanced" },
-    { difficulty: "standard", strategy: "aggressive" },
+    { difficulty: "expert", strategy: "balanced" },
+    { difficulty: "expert", strategy: "balanced" },
   ]);
   const [running, setRunning] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
@@ -869,8 +939,8 @@ export default function EveReport() {
           });
           for (let round = 0; round < rounds; round += 1) {
             const nextProfiles: AiProfile[] = [
-              { ...(profiles[0] ?? { difficulty: "standard" }), strategy: strategyA },
-              { ...(profiles[1] ?? { difficulty: "standard" }), strategy: strategyB },
+              { ...(profiles[0] ?? { difficulty: "expert" }), strategy: strategyA },
+              { ...(profiles[1] ?? { difficulty: "expert" }), strategy: strategyB },
             ];
             const scenario = scenarioWith(baseSeed + round, nextProfiles);
             if (!scenario) return;
@@ -1036,7 +1106,7 @@ export default function EveReport() {
             <label>
               난이도
               <select
-                value={profiles[sideIndex]?.difficulty ?? "standard"}
+                value={profiles[sideIndex]?.difficulty ?? "expert"}
                 onChange={(event) => {
                   const next = [...profiles];
                   next[sideIndex] = {
@@ -1058,7 +1128,7 @@ export default function EveReport() {
                 onChange={(event) => {
                   const next = [...profiles];
                   next[sideIndex] = {
-                    ...(next[sideIndex] ?? { difficulty: "standard" }),
+                    ...(next[sideIndex] ?? { difficulty: "expert" }),
                     strategy: event.target.value as AiProfile["strategy"],
                   };
                   setProfiles(next);

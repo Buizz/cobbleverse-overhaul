@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  automaticSwitchCandidates,
   calculateDamageRange,
   chooseSimpleAiCommand,
   createSimpleBattle,
@@ -178,6 +179,99 @@ test("resolves speed order, PP and damage using the same seed", () => {
   );
   assert.equal(first.sides[0].team[0].moves[0].pp, 34);
   assert.ok(first.sides[1].team[0].hp < 120);
+});
+
+test("prevents Blood Moon from being used on consecutive turns", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Bloodmoon Ursaluna",
+              stats: {
+                ...pokemon().stats,
+                hp: 1000,
+                specialAttack: 140,
+                speed: 120,
+              },
+              moves: [
+                {
+                  id: "bloodmoon",
+                  name: "Blood Moon",
+                  type: "Normal",
+                  category: "Special",
+                  power: 140,
+                  accuracy: true,
+                  pp: 5,
+                },
+                {
+                  id: "earthpower",
+                  name: "Earth Power",
+                  type: "Ground",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "Training Dummy",
+              stats: { ...pokemon().stats, hp: 2000, speed: 40 },
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  const afterFirst = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(afterFirst.sides[0].team[0].moves[0].pp, 4);
+  assert.equal(
+    chooseSimpleAiCommand(afterFirst, 0, "expert", "balanced").move,
+    2,
+  );
+
+  const targetHp = afterFirst.sides[1].team[0].hp;
+  const afterBlockedRepeat = resolveSimpleTurn(afterFirst, [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  assert.equal(afterBlockedRepeat.sides[0].team[0].moves[0].pp, 4);
+  assert.equal(afterBlockedRepeat.sides[1].team[0].hp, targetHp);
+  assert.ok(
+    afterBlockedRepeat.events.some(
+      (event) =>
+        event.turn === 2 &&
+        event.type === "move_failed" &&
+        event.moveId === "bloodmoon" &&
+        event.reason === "Blood Moon은(는) 연속해서 사용할 수 없습니다.",
+    ),
+  );
+
+  const afterCooldown = resolveSimpleTurn(afterBlockedRepeat, [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  assert.equal(afterCooldown.sides[0].team[0].moves[0].pp, 3);
+  assert.ok(afterCooldown.sides[1].team[0].hp < targetHp);
 });
 
 test("applies stat-changing status moves to the battle state", () => {
@@ -475,11 +569,13 @@ test("resolves a manual switch before the opponent move", () => {
   assert.equal(next.sides[0].active, 1);
   assert.equal(next.sides[0].team[0].hp, 120);
   assert.ok(next.sides[0].team[1].hp < 120);
-  assert.equal(
-    next.events.find((event) => event.type === "switch" && event.turn === 1)
-      .pokemon,
-    "Reserve",
+  const switchEvent = next.events.find(
+    (event) => event.type === "switch" && event.turn === 1,
   );
+  assert.equal(switchEvent.pokemon, "Reserve");
+  assert.equal(switchEvent.fromPokemon, "Lead");
+  assert.equal(switchEvent.selection, "manual_switch");
+  assert.equal(switchEvent.forced, undefined);
 });
 
 test("switches out after self-switch moves and keeps entry effects active", () => {
@@ -1469,7 +1565,9 @@ test("chooses an AI replacement by matchup instead of party order", () => {
     next.events.some(
       (event) =>
         event.type === "switch" &&
+        event.fromPokemon === "FaintedLead" &&
         event.pokemon === "FireReserve" &&
+        event.forced === true &&
         event.selection === "matchup_score",
     ),
   );
@@ -1771,7 +1869,7 @@ test("AI values Swords Dance before Surging Strikes when setup creates a KO line
   assert.ok(surgingStrikes.expectedDamage.value > 150);
   assert.ok(
     swordsDance.reasons.some(
-      (reason) => reason.code === "rule.setup.followup_breakthrough",
+      (reason) => reason.code === "rule.setup.team_sweep_plan",
     ),
   );
 });
@@ -4234,6 +4332,88 @@ test("supports first-turn Fake Out flinch and later failure", () => {
         event.move === "Fake Out",
     ),
   );
+});
+
+test("keeps Fake Out available after switching in and removes it from later AI choices", () => {
+  const fakeOut = {
+    id: "fakeout",
+    name: "Fake Out",
+    type: "Normal",
+    category: "Physical",
+    power: 200,
+    accuracy: true,
+    priority: 3,
+    pp: 10,
+  };
+  const battleSetup = setup({
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({ name: "Lead" }),
+          pokemon({
+            name: "Flincher",
+            stats: { ...pokemon().stats, speed: 160 },
+            moves: [
+              fakeOut,
+              {
+                id: "tackle",
+                name: "Tackle",
+                type: "Normal",
+                category: "Physical",
+                power: 20,
+                accuracy: 100,
+                pp: 35,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Target",
+            moves: [
+              {
+                id: "tackle",
+                name: "Tackle",
+                type: "Normal",
+                category: "Physical",
+                power: 20,
+                accuracy: 100,
+                pp: 35,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  let state = resolveSimpleTurn(createSimpleBattle(battleSetup), [
+    { switch: 2 },
+    { move: 1 },
+  ]);
+  assert.equal(state.sides[0].team[1].activeTurns, 0);
+
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.turn === 2 &&
+        event.type === "cant_move" &&
+        event.pokemon === "Target" &&
+        event.status === "flinch",
+    ),
+  );
+
+  const aiState = createSimpleBattle(battleSetup);
+  aiState.sides[0].active = 1;
+  aiState.sides[0].team[0].hp = 0;
+  aiState.sides[0].team[0].fainted = true;
+  aiState.sides[0].team[1].activeTurns = 1;
+  assert.equal(chooseSimpleAiCommand(aiState, 0, "expert").move, 2);
 });
 
 test("rejects unsupported move effects in strict validation mode", () => {
@@ -9727,6 +9907,719 @@ test("enforces forced move locks from rampage moves, rolling moves, and choice i
   assert.equal(switchedChoice.sides[0].team[0].choiceLock, null);
 });
 
+test("rejects offensive setup when the boosted user cannot survive the turn", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              id: "scizormega",
+              name: "Mega Scizor",
+              types: ["Bug", "Steel"],
+              weightKg: 125,
+              ability: "technician",
+              stats: {
+                hp: 344,
+                attack: 170,
+                defence: 140,
+                specialAttack: 65,
+                specialDefence: 110,
+                speed: 95,
+              },
+              moves: [
+                {
+                  id: "swordsdance",
+                  name: "Swords Dance",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 20,
+                  target: "self",
+                  boosts: { atk: 2 },
+                },
+                {
+                  id: "bugbite",
+                  name: "Bug Bite",
+                  type: "Bug",
+                  category: "Physical",
+                  power: 60,
+                  accuracy: 100,
+                  pp: 20,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              id: "snorlax",
+              name: "Snorlax",
+              types: ["Normal"],
+              weightKg: 460,
+              stats: {
+                hp: 524,
+                attack: 130,
+                defence: 95,
+                specialAttack: 65,
+                specialDefence: 130,
+                speed: 50,
+              },
+              moves: [
+                {
+                  id: "heatcrash",
+                  name: "Heat Crash",
+                  type: "Fire",
+                  category: "Physical",
+                  power: 0,
+                  accuracy: 100,
+                  pp: 10,
+                  dynamicPower: true,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[0].team[0].hp = 130;
+  state.sides[1].team[0].hp = 269;
+  state.sides[0].gimmickResources.dynamax = "consumed";
+
+  assert.equal(
+    chooseSimpleAiCommand(state, 0, "expert", "aggressive").move,
+    2,
+  );
+});
+
+test("uses low-HP opponents as setup opportunities only when the enemy backline benefits", () => {
+  const setupUser = () =>
+    pokemon({
+      name: "Setup Ace",
+      types: ["Normal"],
+      boosts: { attack: 2 },
+      stats: {
+        ...pokemon().stats,
+        hp: 320,
+        attack: 145,
+        defence: 130,
+        speed: 130,
+      },
+      moves: [
+        {
+          id: "slash",
+          name: "Slash",
+          type: "Normal",
+          category: "Physical",
+          power: 70,
+          accuracy: true,
+          pp: 20,
+        },
+        {
+          id: "swordsdance",
+          name: "Swords Dance",
+          type: "Normal",
+          category: "Status",
+          accuracy: true,
+          pp: 20,
+          selfBoosts: { attack: 2 },
+        },
+      ],
+    });
+  const harmlessLead = () =>
+    pokemon({
+      name: "Harmless Lead",
+      stats: { ...pokemon().stats, hp: 1, defence: 80, speed: 30 },
+      moves: [
+        {
+          id: "splash",
+          name: "Splash",
+          type: "Normal",
+          category: "Status",
+          accuracy: true,
+          pp: 40,
+        },
+      ],
+    });
+
+  const lastOpponentScenario = setup({
+    sides: [
+      { name: "Player", team: [setupUser()] },
+      { name: "Opponent", team: [harmlessLead()] },
+    ],
+  });
+  const lastOpponentState = createSimpleBattle(lastOpponentScenario);
+  lastOpponentState.sides[0].gimmickResources.dynamax = "consumed";
+  assert.equal(
+    chooseSimpleAiCommand(lastOpponentState, 0, "expert", "balanced").move,
+    1,
+  );
+  const lastOpponentBattle = runSimpleBattle(lastOpponentScenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+  });
+  const unnecessarySwordsDance = lastOpponentBattle.aiTrace
+    .find((trace) => trace.side === 0)
+    ?.candidates.find((candidate) => candidate.id === "swordsdance");
+  assert.ok(
+    unnecessarySwordsDance.reasons.some(
+      (reason) => reason.code === "rule.setup.no_matchup_gain",
+    ),
+  );
+
+  const backlineScenario = setup({
+    sides: [
+      { name: "Player", team: [setupUser()] },
+      {
+        name: "Opponent",
+        team: [
+          harmlessLead(),
+          pokemon({
+            name: "Backline Ace",
+            stats: {
+              ...pokemon().stats,
+              hp: 620,
+              attack: 180,
+              defence: 230,
+              specialDefence: 180,
+              speed: 115,
+            },
+          }),
+        ],
+      },
+    ],
+  });
+  const backlineState = createSimpleBattle(backlineScenario);
+  backlineState.sides[0].gimmickResources.dynamax = "consumed";
+  assert.equal(
+    chooseSimpleAiCommand(backlineState, 0, "expert", "balanced").move,
+    2,
+  );
+
+  const battle = runSimpleBattle(backlineScenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+  });
+  const swordsDance = battle.aiTrace
+    .find((trace) => trace.side === 0)
+    ?.candidates.find((candidate) => candidate.id === "swordsdance");
+  assert.equal(swordsDance.setupFutureTargetCount, 1);
+  assert.ok(swordsDance.setupFuturePressureGain > 0);
+  assert.ok(
+    swordsDance.reasons.some(
+      (reason) => reason.code === "rule.setup.team_sweep_plan",
+    ),
+  );
+
+  const safeLowHpState = createSimpleBattle(backlineScenario);
+  safeLowHpState.sides[0].team[0].hp = 1;
+  safeLowHpState.sides[0].gimmickResources.dynamax = "consumed";
+  assert.equal(
+    chooseSimpleAiCommand(safeLowHpState, 0, "expert", "balanced").move,
+    2,
+  );
+
+  const dangerousLowHpScenario = setup({
+    sides: [
+      { name: "Player", team: [setupUser()] },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            name: "Dangerous Lead",
+            stats: { ...pokemon().stats, hp: 1, attack: 120, speed: 30 },
+            moves: [
+              {
+                id: "quickattack",
+                name: "Quick Attack",
+                type: "Normal",
+                category: "Physical",
+                power: 40,
+                accuracy: 100,
+                priority: 1,
+                pp: 30,
+              },
+            ],
+          }),
+          backlineScenario.sides[1].team[1],
+        ],
+      },
+    ],
+  });
+  const dangerousLowHpState = createSimpleBattle(dangerousLowHpScenario);
+  dangerousLowHpState.sides[0].team[0].hp = 1;
+  dangerousLowHpState.sides[0].gimmickResources.dynamax = "consumed";
+  assert.equal(
+    chooseSimpleAiCommand(
+      dangerousLowHpState,
+      0,
+      "expert",
+      "balanced",
+    ).move,
+    1,
+  );
+
+  const dangerousTraceScenario = {
+    ...dangerousLowHpScenario,
+    sides: dangerousLowHpScenario.sides.map((side, sideIndex) => ({
+      ...side,
+      team: side.team.map((member, memberIndex) =>
+        sideIndex === 0 && memberIndex === 0
+          ? { ...member, stats: { ...member.stats, hp: 1 } }
+          : member,
+      ),
+    })),
+  };
+  const dangerousBattle = runSimpleBattle(dangerousTraceScenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+  });
+  const rejectedSetup = dangerousBattle.aiTrace
+    .find((trace) => trace.side === 0)
+    ?.candidates.find((candidate) => candidate.id === "swordsdance");
+  assert.equal(rejectedSetup.setupFollowupSurvivalProbability, 0);
+  assert.ok(
+    rejectedSetup.reasons.some(
+      (reason) => reason.code === "rule.setup.cannot_reach_followup",
+    ),
+  );
+
+  const sashSetupScenario = setup({
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({
+            name: "Focus Sash Sweeper",
+            item: "focussash",
+            ability: "speedboost",
+            stats: {
+              ...pokemon().stats,
+              hp: 300,
+              attack: 145,
+              defence: 90,
+              specialDefence: 90,
+              speed: 100,
+            },
+            moves: [
+              {
+                id: "slash",
+                name: "Slash",
+                type: "Normal",
+                category: "Physical",
+                power: 70,
+                accuracy: 100,
+                pp: 20,
+              },
+              {
+                id: "swordsdance",
+                name: "Swords Dance",
+                type: "Normal",
+                category: "Status",
+                power: 0,
+                accuracy: true,
+                pp: 20,
+                selfBoosts: { attack: 2 },
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            name: "Faster One HP Attacker",
+            stats: {
+              ...pokemon().stats,
+              hp: 1,
+              specialAttack: 800,
+              speed: 200,
+            },
+            moves: [
+              {
+                id: "psychic",
+                name: "Psychic",
+                type: "Psychic",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+          backlineScenario.sides[1].team[1],
+        ],
+      },
+    ],
+  });
+  const sashSetupState = createSimpleBattle(sashSetupScenario);
+  sashSetupState.sides[0].gimmickResources.dynamax = "consumed";
+  const sashBattle = runSimpleBattle(sashSetupScenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+  });
+  const rejectedSashSetup = sashBattle.aiTrace
+    .find((trace) => trace.side === 0)
+    ?.candidates.find((candidate) => candidate.id === "swordsdance");
+  assert.equal(
+    chooseSimpleAiCommand(sashSetupState, 0, "expert", "balanced").move,
+    1,
+    JSON.stringify(rejectedSashSetup),
+  );
+  assert.equal(rejectedSashSetup.setupGuardConsumptionProbability, 1);
+  assert.equal(rejectedSashSetup.setupFollowupActsBeforeThreat, false);
+  assert.equal(rejectedSashSetup.setupFollowupSurvivalProbability, 0);
+});
+
+test("uses priority instead of choosing an attack that cannot act before a KO", () => {
+  const threatenedAttacker = pokemon({
+    name: "Threatened Attacker",
+    stats: {
+      ...pokemon().stats,
+      hp: 80,
+      attack: 180,
+      speed: 40,
+    },
+    moves: [
+      {
+        id: "megapunch",
+        name: "Mega Punch",
+        type: "Normal",
+        category: "Physical",
+        power: 120,
+        accuracy: 100,
+        priority: 0,
+        pp: 10,
+      },
+      {
+        id: "quickattack",
+        name: "Quick Attack",
+        type: "Normal",
+        category: "Physical",
+        power: 40,
+        accuracy: 100,
+        priority: 1,
+        pp: 30,
+      },
+    ],
+  });
+  const fasterThreat = pokemon({
+    name: "Faster Threat",
+    stats: {
+      ...pokemon().stats,
+      hp: 500,
+      attack: 500,
+      speed: 200,
+    },
+    moves: [
+      {
+        id: "bodyslam",
+        name: "Body Slam",
+        type: "Normal",
+        category: "Physical",
+        power: 120,
+        accuracy: 100,
+        priority: 0,
+        pp: 10,
+      },
+    ],
+  });
+  const scenario = setup({
+    sides: [
+      { name: "Player", team: [threatenedAttacker] },
+      { name: "Opponent", team: [fasterThreat] },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  state.sides[0].gimmickResources.dynamax = "consumed";
+
+  assert.equal(
+    chooseSimpleAiCommand(state, 0, "expert", "balanced").move,
+    2,
+  );
+
+  const battle = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [
+      { difficulty: "expert", strategy: "balanced" },
+      { difficulty: "expert", strategy: "balanced" },
+    ],
+  });
+  const trace = battle.aiTrace.find((entry) => entry.side === 0);
+  const delayedAttack = trace?.candidates.find(
+    (candidate) => candidate.id === "megapunch",
+  );
+  const priorityAttack = trace?.candidates.find(
+    (candidate) => candidate.id === "quickattack",
+  );
+  assert.equal(delayedAttack.opponentKnockoutBeforeActionProbability, 1);
+  assert.equal(priorityAttack.opponentKnockoutBeforeActionProbability, 0);
+  assert.ok(
+    delayedAttack.reasons.some(
+      (reason) => reason.code === "rule.action.ko_before_acting",
+    ),
+  );
+});
+
+test("does not suppress a slower attack when Focus Sash guarantees an action", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({
+            name: "Sashed Attacker",
+            item: "focussash",
+            stats: {
+              ...pokemon().stats,
+              hp: 80,
+              attack: 180,
+              speed: 40,
+            },
+            moves: [
+              {
+                id: "megapunch",
+                name: "Mega Punch",
+                type: "Normal",
+                category: "Physical",
+                power: 120,
+                accuracy: 100,
+                priority: 0,
+                pp: 10,
+              },
+              {
+                id: "quickattack",
+                name: "Quick Attack",
+                type: "Normal",
+                category: "Physical",
+                power: 40,
+                accuracy: 100,
+                priority: 1,
+                pp: 30,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            name: "Faster Threat",
+            stats: {
+              ...pokemon().stats,
+              hp: 500,
+              attack: 500,
+              speed: 200,
+            },
+            moves: [
+              {
+                id: "bodyslam",
+                name: "Body Slam",
+                type: "Normal",
+                category: "Physical",
+                power: 120,
+                accuracy: 100,
+                priority: 0,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  state.sides[0].gimmickResources.dynamax = "consumed";
+
+  assert.equal(
+    chooseSimpleAiCommand(state, 0, "expert", "balanced").move,
+    1,
+  );
+});
+
+test("takes a guaranteed KO boost instead of spending Focus Sash on setup", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Calyrex",
+        team: [
+          pokemon({
+            id: "calyrexshadow",
+            name: "Calyrex-Shadow",
+            types: ["Psychic", "Ghost"],
+            item: "focussash",
+            ability: "asonespectrier",
+            stats: {
+              ...pokemon().stats,
+              hp: 342,
+              specialAttack: 400,
+              speed: 200,
+            },
+            moves: [
+              {
+                id: "astralbarrage",
+                name: "Astral Barrage",
+                type: "Ghost",
+                category: "Special",
+                power: 120,
+                accuracy: 100,
+                pp: 5,
+              },
+              {
+                id: "nastyplot",
+                name: "Nasty Plot",
+                type: "Dark",
+                category: "Status",
+                power: 0,
+                accuracy: true,
+                pp: 20,
+                selfBoosts: { specialAttack: 2 },
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Urshifu",
+        team: [
+          pokemon({
+            id: "urshifurapidstrike",
+            name: "Urshifu-Rapid-Strike",
+            types: ["Fighting", "Water"],
+            stats: {
+              ...pokemon().stats,
+              hp: 103,
+              attack: 800,
+              speed: 120,
+            },
+            moves: [
+              {
+                id: "liquidation",
+                name: "G-Max Rapid Flow",
+                type: "Water",
+                category: "Physical",
+                power: 180,
+                accuracy: 100,
+                pp: 5,
+              },
+            ],
+          }),
+          pokemon({
+            name: "Backline Wall",
+            stats: {
+              ...pokemon().stats,
+              hp: 600,
+              specialDefence: 220,
+            },
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  state.sides[0].gimmickResources.dynamax = "consumed";
+  assert.equal(
+    chooseSimpleAiCommand(state, 0, "expert", "tempo").move,
+    1,
+  );
+
+  const battle = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "tempo" }],
+  });
+  const nastyPlot = battle.aiTrace
+    .find((trace) => trace.side === 0)
+    ?.candidates.find((candidate) => candidate.id === "nastyplot");
+  assert.equal(nastyPlot.setupGuardConsumptionProbability, 1);
+  assert.equal(nastyPlot.reliableKoAlternative, true);
+  assert.deepEqual(nastyPlot.knockoutBoostAlternative, { specialAttack: 1 });
+  assert.ok(
+    nastyPlot.reasons.some(
+      (reason) => reason.code === "rule.setup.foregoes_ko_boost",
+    ),
+  );
+});
+
+test("prefers a reliable no-recoil finisher without overvaluing excess damage", () => {
+  const finisherSetup = setup({
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({
+            name: "Finisher",
+            types: ["Fire"],
+            stats: { ...pokemon().stats, attack: 160, speed: 160 },
+            moves: [
+              {
+                id: "flareblitz",
+                name: "Flare Blitz",
+                type: "Fire",
+                category: "Physical",
+                power: 120,
+                accuracy: 100,
+                pp: 15,
+                recoil: [1, 3],
+              },
+              {
+                id: "flamecharge",
+                name: "Flame Charge",
+                type: "Fire",
+                category: "Physical",
+                power: 50,
+                accuracy: 100,
+                pp: 20,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "OneHpTarget",
+            stats: { ...pokemon().stats, hp: 400, speed: 40 },
+          }),
+        ],
+      },
+    ],
+  });
+  const reliableState = createSimpleBattle(finisherSetup);
+  reliableState.sides[0].team[0].hp = 1;
+  reliableState.sides[1].team[0].hp = 1;
+  reliableState.sides[0].gimmickResources.dynamax = "consumed";
+
+  assert.equal(
+    chooseSimpleAiCommand(reliableState, 0, "expert", "balanced").move,
+    2,
+  );
+
+  const inaccurateState = createSimpleBattle(finisherSetup);
+  inaccurateState.sides[0].team[0].hp = 1;
+  inaccurateState.sides[1].team[0].hp = 1;
+  inaccurateState.sides[0].gimmickResources.dynamax = "consumed";
+  inaccurateState.sides[0].team[0].moves[1] = {
+    ...inaccurateState.sides[0].team[0].moves[1],
+    id: "inferno",
+    name: "Inferno",
+    category: "Special",
+    power: 100,
+    accuracy: 50,
+  };
+
+  assert.equal(
+    chooseSimpleAiCommand(inaccurateState, 0, "expert", "balanced").move,
+    1,
+  );
+});
+
 test("allows a player Dynamax command independently of the entry AI flag", () => {
   const state = resolveSimpleTurn(
     createSimpleBattle(
@@ -9964,4 +10857,545 @@ test("applies Salt Cure residual damage with Water and Steel bonus", () => {
   );
 
   assert.equal(normalResidual.damage, 25);
+});
+
+test("AI voluntarily switches to a safe counter and reports switch scores", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({
+            id: "electric-lead",
+            name: "Electric Lead",
+            types: ["Electric"],
+            stats: { ...pokemon().stats, hp: 180, speed: 70 },
+            moves: [
+              {
+                id: "thunderbolt",
+                name: "Thunderbolt",
+                type: "Electric",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 15,
+              },
+            ],
+          }),
+          pokemon({
+            id: "flying-counter",
+            name: "Flying Counter",
+            types: ["Water", "Flying"],
+            stats: {
+              ...pokemon().stats,
+              hp: 240,
+              specialAttack: 180,
+              speed: 140,
+            },
+            moves: [
+              {
+                id: "surf",
+                name: "Surf",
+                type: "Water",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 15,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            id: "ground-threat",
+            name: "Ground Threat",
+            types: ["Ground"],
+            stats: {
+              ...pokemon().stats,
+              hp: 220,
+              attack: 240,
+              specialDefence: 90,
+              speed: 100,
+            },
+            moves: [
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  assert.deepEqual(
+    chooseSimpleAiCommand(state, 0, "expert", "balanced"),
+    { switch: 2 },
+  );
+
+  const battle = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+  });
+  const trace = battle.aiTrace.find((candidate) => candidate.side === 0);
+  const switchCandidate = trace.candidates.find(
+    (candidate) => candidate.type === "switch" && candidate.slot === 2,
+  );
+  assert.equal(trace.kind, "switch");
+  assert.equal(switchCandidate.selected, true);
+  assert.ok(Number.isFinite(switchCandidate.score));
+  assert.ok(
+    switchCandidate.reasons.some(
+      (reason) => reason.code === "switch.emergency_escape",
+    ),
+  );
+});
+
+test("AI does not sacrifice an ace that cannot act after taking the switch-in hit", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({
+            id: "current-wall",
+            name: "Current Wall",
+            types: ["Rock"],
+            stats: {
+              ...pokemon().stats,
+              hp: 300,
+              attack: 120,
+              defence: 150,
+              speed: 30,
+            },
+            moves: [
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+          pokemon({
+            id: "bench-ace",
+            name: "Bench Ace",
+            types: ["Dragon", "Electric"],
+            stats: {
+              ...pokemon().stats,
+              hp: 342,
+              attack: 300,
+              defence: 120,
+              speed: 80,
+            },
+            moves: [
+              {
+                id: "outrage",
+                name: "Outrage",
+                type: "Dragon",
+                category: "Physical",
+                power: 120,
+                accuracy: 100,
+                pp: 10,
+              },
+              {
+                id: "dragondance",
+                name: "Dragon Dance",
+                type: "Dragon",
+                category: "Status",
+                power: 0,
+                accuracy: true,
+                pp: 20,
+                selfBoosts: { attack: 1, speed: 1 },
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            id: "rapid-strike-threat",
+            name: "Rapid Strike Threat",
+            types: ["Water", "Fighting"],
+            stats: {
+              ...pokemon().stats,
+              hp: 343,
+              attack: 650,
+              defence: 100,
+              speed: 100,
+            },
+            moves: [
+              {
+                id: "surgingstrikes",
+                name: "Surging Strikes",
+                type: "Water",
+                category: "Physical",
+                power: 25,
+                accuracy: 100,
+                pp: 5,
+                multihit: 3,
+                willCrit: true,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  state.sides[0].gimmickResources.dynamax = "consumed";
+
+  const command = chooseSimpleAiCommand(state, 0, "expert", "balanced");
+
+  const battle = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [
+      { difficulty: "expert", strategy: "balanced" },
+      { difficulty: "expert", strategy: "balanced" },
+    ],
+  });
+  const aceSwitch = battle.aiTrace
+    .find((trace) => trace.side === 0)
+    ?.candidates.find(
+      (candidate) => candidate.type === "switch" && candidate.slot === 2,
+    );
+  assert.equal(
+    command.switch,
+    undefined,
+    JSON.stringify({ command, aceSwitch }),
+  );
+  assert.equal(aceSwitch.canReachNextAction, false);
+  assert.ok(
+    aceSwitch.reasons.some(
+      (reason) => reason.code === "rule.switch.no_action_opportunity",
+    ),
+  );
+});
+
+test("AI keeps a safe guaranteed KO instead of switching", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Current Attacker",
+              types: ["Grass"],
+              stats: { ...pokemon().stats, attack: 220, speed: 160 },
+              moves: [
+                {
+                  id: "leafblade",
+                  name: "Leaf Blade",
+                  type: "Grass",
+                  category: "Physical",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 15,
+                },
+              ],
+            }),
+            pokemon({
+              name: "Bench Attacker",
+              types: ["Electric"],
+              stats: { ...pokemon().stats, specialAttack: 240, speed: 170 },
+              moves: [
+                {
+                  id: "thunderbolt",
+                  name: "Thunderbolt",
+                  type: "Electric",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Opponent",
+          team: [
+            pokemon({
+              name: "Low HP Water",
+              types: ["Water"],
+              stats: { ...pokemon().stats, hp: 300, speed: 40 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[1].team[0].hp = 1;
+
+  assert.equal(
+    chooseSimpleAiCommand(state, 0, "expert", "balanced").move,
+    1,
+  );
+});
+
+test("AI uses Fake Out instead of immediately switching a fresh replacement into damage", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Snorlax Side",
+          team: [
+            pokemon({
+              name: "Snorlax",
+              types: ["Normal"],
+              weightKg: 460,
+              stats: {
+                hp: 524,
+                attack: 175,
+                defence: 145,
+                specialAttack: 100,
+                specialDefence: 180,
+                speed: 70,
+              },
+              moves: [
+                {
+                  id: "hammerarm",
+                  name: "Hammer Arm",
+                  type: "Fighting",
+                  category: "Physical",
+                  power: 100,
+                  accuracy: 90,
+                  pp: 10,
+                },
+                {
+                  id: "heatcrash",
+                  name: "Heat Crash",
+                  type: "Fire",
+                  category: "Physical",
+                  power: 0,
+                  accuracy: 100,
+                  pp: 10,
+                  dynamicPower: true,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Drake",
+          team: [
+            pokemon({
+              name: "Fainted Ursaluna",
+              hp: 0,
+              fainted: true,
+            }),
+            pokemon({
+              name: "Weavile",
+              types: ["Dark", "Ice"],
+              weightKg: 34,
+              stats: {
+                hp: 282,
+                attack: 220,
+                defence: 120,
+                specialAttack: 80,
+                specialDefence: 130,
+                speed: 240,
+              },
+              moves: [
+                {
+                  id: "fakeout",
+                  name: "Fake Out",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: true,
+                  priority: 3,
+                  pp: 10,
+                  volatileStatus: "flinch",
+                },
+                {
+                  id: "nightslash",
+                  name: "Night Slash",
+                  type: "Dark",
+                  category: "Physical",
+                  power: 70,
+                  accuracy: 100,
+                  pp: 15,
+                },
+              ],
+            }),
+            pokemon({
+              name: "Calyrex-Shadow",
+              types: ["Psychic", "Ghost"],
+              weightKg: 53.6,
+              hp: 342,
+              stats: {
+                hp: 342,
+                attack: 100,
+                defence: 120,
+                specialAttack: 400,
+                specialDefence: 140,
+                speed: 260,
+              },
+              moves: [
+                {
+                  id: "astralbarrage",
+                  name: "Astral Barrage",
+                  type: "Ghost",
+                  category: "Special",
+                  power: 120,
+                  accuracy: 100,
+                  pp: 5,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.turn = 7;
+  state.sides[0].team[0].hp = 316;
+  state.sides[1].active = 1;
+  state.events.push({
+    turn: 7,
+    type: "switch",
+    side: 1,
+    fromPokemon: "Fainted Ursaluna",
+    pokemon: "Weavile",
+    forced: true,
+    selection: "matchup_score",
+  });
+
+  const switchCandidates = automaticSwitchCandidates(
+    state,
+    1,
+    [
+      {
+        id: "fakeout",
+        name: "Fake Out",
+        score: 80,
+        expectedDamage: 40,
+        accuracy: true,
+        actionBeforeThreatProbability: 1,
+        opponentKnockoutBeforeActionProbability: 0,
+        volatileStatus: "flinch",
+      },
+    ],
+    "expert",
+    "balanced",
+  );
+  const calyrexSwitch = switchCandidates.find(
+    (candidate) => candidate.name === "Calyrex-Shadow(으)로 교체",
+  );
+  assert.equal(calyrexSwitch.emergencyEscape, false);
+  assert.equal(calyrexSwitch.safeActionDenialAvailable, true);
+  assert.equal(calyrexSwitch.forcedReplacement, true);
+  assert.ok(calyrexSwitch.switchInDamageRatio > 0);
+  assert.deepEqual(chooseSimpleAiCommand(state, 1, "expert", "balanced"), {
+    move: 1,
+  });
+});
+
+test("AI evaluates guaranteed KO independently for every move candidate", () => {
+  const battle = runSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Attacker",
+          team: [
+            pokemon({
+              name: "Four Move Attacker",
+              types: ["Normal", "Ground"],
+              stats: {
+                ...pokemon().stats,
+                specialAttack: 300,
+                speed: 160,
+              },
+              moves: [
+                {
+                  id: "moonblast",
+                  name: "Moonblast",
+                  type: "Fairy",
+                  category: "Special",
+                  power: 95,
+                  accuracy: 100,
+                  pp: 15,
+                },
+                {
+                  id: "bloodmoon",
+                  name: "Blood Moon",
+                  type: "Normal",
+                  category: "Special",
+                  power: 140,
+                  accuracy: 100,
+                  pp: 5,
+                },
+                {
+                  id: "earthpower",
+                  name: "Earth Power",
+                  type: "Ground",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 10,
+                },
+                {
+                  id: "vacuumwave",
+                  name: "Vacuum Wave",
+                  type: "Fighting",
+                  category: "Special",
+                  power: 40,
+                  accuracy: 100,
+                  priority: 1,
+                  pp: 30,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Low HP Target",
+          team: [
+            pokemon({
+              name: "Low HP Target",
+              stats: {
+                ...pokemon().stats,
+                hp: 40,
+                specialDefence: 80,
+                speed: 40,
+              },
+            }),
+          ],
+        },
+      ],
+    }),
+    {
+      maxTurns: 1,
+      aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+    },
+  );
+  const moveCandidates = battle.aiTrace
+    .find((trace) => trace.side === 0)
+    ?.candidates.filter((candidate) => candidate.type === "move");
+
+  assert.equal(moveCandidates.length, 4);
+  assert.ok(
+    moveCandidates.every((candidate) => candidate.koChance === "guaranteed"),
+  );
+  assert.ok(
+    moveCandidates.every((candidate) =>
+      candidate.reasons.some((reason) => reason.code === "ko.guaranteed"),
+    ),
+  );
 });
