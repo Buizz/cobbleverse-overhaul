@@ -1264,6 +1264,104 @@ test("selects an unforced Dynamax or Gigantamax when the tactical score is high"
   );
 });
 
+test("preserves Dynamax when doubled HP still cannot survive the next attack", () => {
+  const maxKnuckle = {
+    slot: 1,
+    id: "maxknuckle",
+    name: "Max Knuckle",
+    type: "Fighting",
+    category: "Physical",
+    expectedDamage: 30,
+    score: 45,
+    koChance: "none",
+    opponentKnockoutProbability: 1,
+    actionBeforeThreatProbability: 1,
+  };
+  const decision = selectAiGimmick({
+    active: {
+      canDynamax: true,
+      canGigantamax: true,
+      hpPercent: 0.4,
+      incomingDamageRatio: 0.8,
+      opponentHp: 300,
+    },
+    configured: {
+      gimmicks: {
+        dynamax: true,
+        gigantamax: true,
+      },
+    },
+    selectedMove: {
+      slot: 1,
+      id: "closecombat",
+      name: "Close Combat",
+      category: "Physical",
+      expectedDamage: 40,
+      koChance: "none",
+    },
+    moveCandidates: [],
+    dynamaxMove: maxKnuckle,
+    baseMoveForDynamax: {
+      slot: 1,
+      id: "closecombat",
+      name: "Close Combat",
+      score: 40,
+      koChance: "none",
+    },
+    dynamaxMoveCandidates: [maxKnuckle],
+    forceDynamax: true,
+    alreadyUsed: {},
+  });
+
+  assert.equal(decision.id, "");
+  assert.equal(decision.candidate.score, -999);
+  assert.ok(
+    decision.candidate.reasons.some(
+      (reason) =>
+        reason.code === "gimmick.dynamax.cannot_survive_exchange",
+    ),
+  );
+});
+
+test("allows a lethal Max Move to prevent the otherwise fatal counterattack", () => {
+  const maxMove = {
+    slot: 1,
+    id: "maxgeyser",
+    name: "Max Geyser",
+    type: "Water",
+    category: "Physical",
+    expectedDamage: 300,
+    score: 330,
+    koChance: "guaranteed",
+    opponentKnockoutProbability: 1,
+    actionBeforeThreatProbability: 1,
+  };
+  const decision = selectAiGimmick({
+    active: {
+      canDynamax: true,
+      hpPercent: 0.4,
+      incomingDamageRatio: 0.8,
+      opponentHp: 300,
+    },
+    configured: { gimmicks: { dynamax: true } },
+    selectedMove: maxMove,
+    moveCandidates: [maxMove],
+    dynamaxMove: maxMove,
+    baseMoveForDynamax: { ...maxMove, score: 300 },
+    dynamaxMoveCandidates: [maxMove],
+    forceDynamax: true,
+    alreadyUsed: {},
+  });
+
+  assert.equal(decision.id, "dynamax");
+  assert.ok(
+    !decision.candidate.reasons.some(
+      (reason) =>
+        reason.code === "gimmick.dynamax.cannot_survive_exchange",
+    ),
+  );
+});
+
 test("rejects Gigantamax when move conversion loses a multi-hit Sturdy knockout", () => {
   const surgingStrikes = {
     slot: 1,

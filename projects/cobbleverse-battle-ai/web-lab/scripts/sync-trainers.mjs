@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { strFromU8, unzipSync } from "fflate";
 import {
   createCobblemonItemResolver,
   normalizeHeldItem,
@@ -10,17 +11,7 @@ import { resolveShowdownMemberSpecies } from "../lib/showdown-species.mjs";
 const scriptFile = fileURLToPath(import.meta.url);
 const siteRoot = path.resolve(path.dirname(scriptFile), "..");
 const repositoryRoot = path.resolve(siteRoot, "..", "..", "..");
-const trainerSource = path.join(
-  repositoryRoot,
-  "trainer-data",
-  "rctmod-v16-ver22",
-  "trainers",
-);
-const officialTrainerSource = path.join(
-  repositoryRoot,
-  "trainer-data",
-  "official-entries",
-);
+const trainerEntriesSource = path.join(repositoryRoot, "trainer-data", "entries");
 const outputFile = path.join(siteRoot, "public", "data", "trainers.json");
 const itemCatalogSource = path.join(
   repositoryRoot,
@@ -63,8 +54,110 @@ export function normalizeStats(stats) {
   );
 }
 
-export function normalizeTrainer(raw, sourceFile, itemResolver = null) {
-  const id = path.basename(sourceFile, ".json");
+function sourcePath(...parts) {
+  return parts
+    .flatMap((part) => String(part).replaceAll("\\", "/").split("/"))
+    .filter(Boolean)
+    .join("/");
+}
+
+function trainerIdFromSource(sourceFile) {
+  const documentPath = sourceFile.split("!/").at(-1).split("#", 1)[0];
+  return path.posix.basename(documentPath, ".json");
+}
+
+function sourceGroupFromPath(relativePath, archiveEntry = "") {
+  const fileParts = sourcePath(relativePath).split("/");
+  if (fileParts.length > 1) return fileParts[0];
+  const archiveParts = sourcePath(archiveEntry).split("/");
+  return archiveParts.length > 1 ? archiveParts[0] : "ungrouped";
+}
+
+async function listTrainerDataFiles(directory, relativeDirectory = "") {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries.sort((left, right) =>
+    left.name.localeCompare(right.name, "en"),
+  )) {
+    const relativePath = sourcePath(relativeDirectory, entry.name);
+    const absolutePath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listTrainerDataFiles(absolutePath, relativePath)));
+    } else if (/\.(json|zip)$/i.test(entry.name)) {
+      files.push({ absolutePath, relativePath });
+    }
+  }
+  return files;
+}
+
+function trainerDocumentsFromJson(raw, sourceFile, sourceGroup) {
+  const trainers = Array.isArray(raw)
+    ? raw
+    : Array.isArray(raw?.trainers)
+      ? raw.trainers
+      : [raw];
+  return trainers.map((trainer, index) => {
+    if (!trainer || typeof trainer !== "object" || Array.isArray(trainer)) {
+      throw new Error(`Invalid trainer JSON object: ${sourceFile}#${index + 1}`);
+    }
+    return {
+      raw: trainer,
+      sourceFile:
+        trainers.length === 1
+          ? sourceFile
+          : `${sourceFile}#${String(trainer.id ?? index + 1)}`,
+      sourceGroup,
+      id: trainer.id ? String(trainer.id) : null,
+    };
+  });
+}
+
+export async function readTrainerDocuments(directory = trainerEntriesSource) {
+  const files = await listTrainerDataFiles(directory);
+  const documents = [];
+  for (const file of files) {
+    const group = sourceGroupFromPath(file.relativePath);
+    if (file.relativePath.toLowerCase().endsWith(".json")) {
+      const raw = JSON.parse(await readFile(file.absolutePath, "utf8"));
+      documents.push(
+        ...trainerDocumentsFromJson(
+          raw,
+          sourcePath("entries", file.relativePath),
+          group,
+        ),
+      );
+      continue;
+    }
+
+    const archive = unzipSync(new Uint8Array(await readFile(file.absolutePath)));
+    const archiveEntries = Object.entries(archive)
+      .filter(([name]) => name.toLowerCase().endsWith(".json"))
+      .sort(([left], [right]) => left.localeCompare(right, "en"));
+    for (const [archiveEntry, contents] of archiveEntries) {
+      const raw = JSON.parse(strFromU8(contents));
+      const archiveGroup =
+        group === "ungrouped"
+          ? sourceGroupFromPath(file.relativePath, archiveEntry)
+          : group;
+      documents.push(
+        ...trainerDocumentsFromJson(
+          raw,
+          `${sourcePath("entries", file.relativePath)}!/${sourcePath(archiveEntry)}`,
+          archiveGroup,
+        ),
+      );
+    }
+  }
+  return documents;
+}
+
+export function normalizeTrainer(
+  raw,
+  sourceFile,
+  itemResolver = null,
+  metadata = {},
+) {
+  const id = metadata.id ?? trainerIdFromSource(sourceFile);
   const team = Array.isArray(raw.team)
     ? raw.team.map((member, index) => {
         const normalizedItem = normalizeHeldItem(member.heldItem, itemResolver);
@@ -107,6 +200,9 @@ export function normalizeTrainer(raw, sourceFile, itemResolver = null) {
   return {
     id,
     sourceFile,
+    sourceGroup:
+      metadata.sourceGroup ??
+      sourceGroupFromPath(sourceFile.replace(/^entries\//, "")),
     name: String(raw.name ?? id),
     entry: {
       type: String(raw.entry?.type ?? "computer"),
@@ -133,34 +229,32 @@ export function normalizeTrainer(raw, sourceFile, itemResolver = null) {
 export async function buildTrainerIndex() {
   const itemCatalog = JSON.parse(await readFile(itemCatalogSource, "utf8"));
   const itemResolver = createCobblemonItemResolver(itemCatalog);
-  const sourceGroups = [
-    {
-      directory: officialTrainerSource,
-      sourcePrefix: "official-entries",
-    },
-    {
-      directory: trainerSource,
-      sourcePrefix: "rctmod-v16-ver22/trainers",
-    },
-  ];
-  const trainers = [];
-
-  for (const sourceGroup of sourceGroups) {
-    const sourceFiles = (await readdir(sourceGroup.directory))
-      .filter((name) => name.toLowerCase().endsWith(".json"))
-      .sort();
-    for (const sourceFile of sourceFiles) {
-      const raw = JSON.parse(
-        await readFile(path.join(sourceGroup.directory, sourceFile), "utf8"),
-      );
-      trainers.push(
-        normalizeTrainer(
-          raw,
-          `${sourceGroup.sourcePrefix}/${sourceFile}`,
-          itemResolver,
-        ),
-      );
-    }
+  const documents = await readTrainerDocuments();
+  const trainers = documents.map((document) =>
+    normalizeTrainer(document.raw, document.sourceFile, itemResolver, {
+      id: document.id,
+      sourceGroup: document.sourceGroup,
+    }),
+  );
+  const duplicateIds = [...new Set(
+    trainers
+      .filter(
+        (trainer, index) =>
+          trainers.findIndex((candidate) => candidate.id === trainer.id) !== index,
+      )
+      .map((trainer) => trainer.id),
+  )];
+  if (duplicateIds.length) {
+    const details = duplicateIds
+      .map(
+        (id) =>
+          `${id}: ${trainers
+            .filter((trainer) => trainer.id === id)
+            .map((trainer) => trainer.sourceFile)
+            .join(", ")}`,
+      )
+      .join("; ");
+    throw new Error(`Duplicate trainer IDs in trainer-data/entries: ${details}`);
   }
   trainers.sort(
     (left, right) =>
@@ -180,12 +274,10 @@ export async function buildTrainerIndex() {
       ]),
   );
   const payload = {
-    schemaVersion: 2,
-    source: "Cobbleverse official entries + RCT Mod v16 ver22",
-    generatedFrom: [
-      "trainer-data/official-entries",
-      "trainer-data/rctmod-v16-ver22/trainers",
-    ],
+    schemaVersion: 3,
+    source: "Cobbleverse grouped trainer entries",
+    generatedFrom: ["trainer-data/entries"],
+    sourceGroups: [...new Set(trainers.map((trainer) => trainer.sourceGroup))].sort(),
     itemCatalog: {
       source: "trainer-data/catalogs/cobblemon-items.json",
       schemaVersion: itemResolver.catalogVersion,

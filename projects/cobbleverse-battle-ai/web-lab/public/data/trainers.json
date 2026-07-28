@@ -1,25 +1,29 @@
 {
-  "schemaVersion": 2,
-  "source": "Cobbleverse official entries + RCT Mod v16 ver22",
+  "schemaVersion": 3,
+  "source": "Cobbleverse grouped trainer entries",
   "generatedFrom": [
-    "trainer-data/official-entries",
-    "trainer-data/rctmod-v16-ver22/trainers"
+    "trainer-data/entries"
+  ],
+  "sourceGroups": [
+    "custom",
+    "rct"
   ],
   "itemCatalog": {
     "source": "trainer-data/catalogs/cobblemon-items.json",
     "schemaVersion": 1,
     "itemCount": 7615,
     "resolutionCounts": {
-      "not_battle_item": 31,
-      "resolved": 527,
+      "not_battle_item": 33,
+      "resolved": 561,
       "unknown": 3
     }
   },
-  "trainerCount": 211,
+  "trainerCount": 217,
   "trainers": [
     {
       "id": "dbingsu-server-party",
-      "sourceFile": "official-entries/dbingsu-server-party.json",
+      "sourceFile": "entries/custom/dbingsu-server-party.json",
+      "sourceGroup": "custom",
       "name": "DBingsu 공식 엔트리",
       "entry": {
         "type": "official-player",
@@ -362,8 +366,2151 @@
       }
     },
     {
+      "id": "sv9-screens-offense",
+      "sourceFile": "entries/custom/sv9-screens-offense.json",
+      "sourceGroup": "custom",
+      "name": "SV9 스크린 오펜스",
+      "entry": {
+        "type": "computer",
+        "priority": 950,
+        "label": "SV9 OU 실전형",
+        "source": "Cobbleverse curated from SV OU sample archetypes",
+        "owner": "Cobbleverse",
+        "snapshotDate": "2026-07-29"
+      },
+      "battleRules": {
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "deoxys-speed",
+          "resolvedSpecies": "Deoxys-Speed",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Ghost"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "pressure",
+          "heldItem": "cobblemon:light_clay",
+          "heldItemOptions": [
+            "cobblemon:light_clay"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:light_clay",
+              "canonicalId": "cobblemon:light_clay",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:light_clay"
+              ],
+              "item": {
+                "id": "cobblemon:light_clay",
+                "namespace": "cobblemon",
+                "path": "light_clay",
+                "englishName": "Light Clay",
+                "koreanName": "빛의점토",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "reflect",
+            "lightscreen",
+            "taunt",
+            "stealthrock"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 2,
+          "species": "ironvaliant",
+          "resolvedSpecies": "Iron Valiant",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Ghost"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "quarkdrive",
+          "heldItem": "mega_showdown:booster_energy",
+          "heldItemOptions": [
+            "mega_showdown:booster_energy"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "mega_showdown:booster_energy",
+              "canonicalId": "mega_showdown:booster_energy",
+              "status": "not_battle_item",
+              "candidates": [
+                "mega_showdown:booster_energy"
+              ],
+              "item": {
+                "id": "mega_showdown:booster_energy",
+                "namespace": "mega_showdown",
+                "path": "booster_energy",
+                "englishName": "Booster Energy",
+                "koreanName": "부스트에너지",
+                "battleCategory": "unverified",
+                "battleUsable": false
+              }
+            }
+          ],
+          "moveset": [
+            "calmmind",
+            "moonblast",
+            "shadowball",
+            "encore"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "defence": 4,
+            "specialAttack": 252,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 3,
+          "species": "greattusk",
+          "resolvedSpecies": "Great Tusk",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Steel"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "protosynthesis",
+          "heldItem": "mega_showdown:booster_energy",
+          "heldItemOptions": [
+            "mega_showdown:booster_energy"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "mega_showdown:booster_energy",
+              "canonicalId": "mega_showdown:booster_energy",
+              "status": "not_battle_item",
+              "candidates": [
+                "mega_showdown:booster_energy"
+              ],
+              "item": {
+                "id": "mega_showdown:booster_energy",
+                "namespace": "mega_showdown",
+                "path": "booster_energy",
+                "englishName": "Booster Energy",
+                "koreanName": "부스트에너지",
+                "battleCategory": "unverified",
+                "battleUsable": false
+              }
+            }
+          ],
+          "moveset": [
+            "headlongrush",
+            "closecombat",
+            "rapidspin",
+            "knockoff"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 4,
+          "species": "dragonite",
+          "resolvedSpecies": "Dragonite",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Normal"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "adamant",
+          "ability": "multiscale",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "dragondance",
+            "extremespeed",
+            "earthquake",
+            "icespinner"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 5,
+          "species": "glimmora",
+          "resolvedSpecies": "Glimmora",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Ghost"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "toxicdebris",
+          "heldItem": "cobblemon:focus_sash",
+          "heldItemOptions": [
+            "cobblemon:focus_sash"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:focus_sash",
+              "canonicalId": "cobblemon:focus_sash",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:focus_sash"
+              ],
+              "item": {
+                "id": "cobblemon:focus_sash",
+                "namespace": "cobblemon",
+                "path": "focus_sash",
+                "englishName": "Focus Sash",
+                "koreanName": "기합의띠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "spikes",
+            "mortalspin",
+            "powergem",
+            "earthpower"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "defence": 4,
+            "specialAttack": 252,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 6,
+          "species": "kingambit",
+          "resolvedSpecies": "Kingambit",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dark"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "adamant",
+          "ability": "supremeoverlord",
+          "heldItem": "cobblemon:black_glasses",
+          "heldItemOptions": [
+            "cobblemon:black_glasses"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:black_glasses",
+              "canonicalId": "cobblemon:black_glasses",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:black_glasses"
+              ],
+              "item": {
+                "id": "cobblemon:black_glasses",
+                "namespace": "cobblemon",
+                "path": "black_glasses",
+                "englishName": "Black Glasses",
+                "koreanName": "검은안경",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "swordsdance",
+            "kowtowcleave",
+            "suckerpunch",
+            "ironhead"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "attack": 252,
+            "specialDefence": 4
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "canTera": true,
+          "strategy": "setup"
+        }
+      }
+    },
+    {
+      "id": "sv9-modern-bulky-offense",
+      "sourceFile": "entries/custom/sv9-modern-bulky-offense.json",
+      "sourceGroup": "custom",
+      "name": "SV9 모던 벌키 오펜스",
+      "entry": {
+        "type": "computer",
+        "priority": 940,
+        "label": "SV9 OU 실전형",
+        "source": "Cobbleverse curated from SV OU sample archetypes",
+        "owner": "Cobbleverse",
+        "snapshotDate": "2026-07-29"
+      },
+      "battleRules": {
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "garganacl",
+          "resolvedSpecies": "Garganacl",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Water"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "careful",
+          "ability": "purifyingsalt",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "saltcure",
+            "recover",
+            "protect",
+            "bodypress"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 52,
+            "specialDefence": 204
+          }
+        },
+        {
+          "slot": 2,
+          "species": "hatterene",
+          "resolvedSpecies": "Hatterene",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Water"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "bold",
+          "ability": "magicbounce",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "calmmind",
+            "drainingkiss",
+            "mysticalfire",
+            "nuzzle"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 204,
+            "speed": 52
+          }
+        },
+        {
+          "slot": 3,
+          "species": "greattusk",
+          "resolvedSpecies": "Great Tusk",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Steel"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "protosynthesis",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "headlongrush",
+            "rapidspin",
+            "knockoff",
+            "stealthrock"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 4,
+          "species": "darkrai",
+          "resolvedSpecies": "Darkrai",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Poison"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "baddreams",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "nastyplot",
+            "darkpulse",
+            "sludgebomb",
+            "icebeam"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "defence": 4,
+            "specialAttack": 252,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 5,
+          "species": "tornadus-therian",
+          "resolvedSpecies": "Tornadus-Therian",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Steel"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "regenerator",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "hurricane",
+            "knockoff",
+            "uturn",
+            "taunt"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 4,
+            "specialAttack": 252,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 6,
+          "species": "dragonite",
+          "resolvedSpecies": "Dragonite",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Normal"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "adamant",
+          "ability": "multiscale",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "dragondance",
+            "extremespeed",
+            "earthquake",
+            "encore"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "canTera": true,
+          "strategy": "balanced"
+        }
+      }
+    },
+    {
+      "id": "sv9-sand-balance",
+      "sourceFile": "entries/custom/sv9-sand-balance.json",
+      "sourceGroup": "custom",
+      "name": "SV9 모래바람 밸런스",
+      "entry": {
+        "type": "computer",
+        "priority": 930,
+        "label": "SV9 OU 실전형",
+        "source": "Cobbleverse curated from SV OU sample archetypes",
+        "owner": "Cobbleverse",
+        "snapshotDate": "2026-07-29"
+      },
+      "battleRules": {
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "tyranitar",
+          "resolvedSpecies": "Tyranitar",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Fairy"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "careful",
+          "ability": "sandstream",
+          "heldItem": "cobblemon:smooth_rock",
+          "heldItemOptions": [
+            "cobblemon:smooth_rock"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:smooth_rock",
+              "canonicalId": "cobblemon:smooth_rock",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:smooth_rock"
+              ],
+              "item": {
+                "id": "cobblemon:smooth_rock",
+                "namespace": "cobblemon",
+                "path": "smooth_rock",
+                "englishName": "Smooth Rock",
+                "koreanName": "보송보송바위",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "stealthrock",
+            "knockoff",
+            "stoneedge",
+            "thunderwave"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "attack": 4,
+            "specialDefence": 252
+          }
+        },
+        {
+          "slot": 2,
+          "species": "excadrill",
+          "resolvedSpecies": "Excadrill",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Ground"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "sandrush",
+          "heldItem": "cobblemon:air_balloon",
+          "heldItemOptions": [
+            "cobblemon:air_balloon"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:air_balloon",
+              "canonicalId": "cobblemon:air_balloon",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:air_balloon"
+              ],
+              "item": {
+                "id": "cobblemon:air_balloon",
+                "namespace": "cobblemon",
+                "path": "air_balloon",
+                "englishName": "Air Balloon",
+                "koreanName": "풍선",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "swordsdance",
+            "earthquake",
+            "ironhead",
+            "rapidspin"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 3,
+          "species": "hydrapple",
+          "resolvedSpecies": "Hydrapple",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Steel"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "modest",
+          "ability": "regenerator",
+          "heldItem": "cobblemon:assault_vest",
+          "heldItemOptions": [
+            "cobblemon:assault_vest"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:assault_vest",
+              "canonicalId": "cobblemon:assault_vest",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:assault_vest"
+              ],
+              "item": {
+                "id": "cobblemon:assault_vest",
+                "namespace": "cobblemon",
+                "path": "assault_vest",
+                "englishName": "Assault Vest",
+                "koreanName": "돌격조끼",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "gigadrain",
+            "dracometeor",
+            "earthpower",
+            "infestation"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 248,
+            "specialAttack": 252,
+            "specialDefence": 8
+          }
+        },
+        {
+          "slot": 4,
+          "species": "moltres",
+          "resolvedSpecies": "Moltres",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dragon"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "bold",
+          "ability": "flamebody",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "flamethrower",
+            "hurricane",
+            "roost",
+            "uturn"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 248,
+            "defence": 252,
+            "speed": 8
+          }
+        },
+        {
+          "slot": 5,
+          "species": "slowking-galar",
+          "resolvedSpecies": "Slowking-Galar",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Water"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "sassy",
+          "ability": "regenerator",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "sludgebomb",
+            "futuresight",
+            "chillyreception",
+            "slackoff"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 4,
+            "specialDefence": 252
+          }
+        },
+        {
+          "slot": 6,
+          "species": "zamazenta",
+          "resolvedSpecies": "Zamazenta",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Steel"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "dauntlessshield",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "irondefense",
+            "bodypress",
+            "crunch",
+            "substitute"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 4,
+            "speed": 252
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "canTera": true,
+          "strategy": "field-control"
+        }
+      }
+    },
+    {
+      "id": "sv9-hazard-balance",
+      "sourceFile": "entries/custom/sv9-hazard-balance.json",
+      "sourceGroup": "custom",
+      "name": "SV9 해저드 밸런스",
+      "entry": {
+        "type": "computer",
+        "priority": 920,
+        "label": "SV9 실전 테스트",
+        "source": "Cobbleverse curated SV OU archetype",
+        "owner": "Cobbleverse",
+        "snapshotDate": "2026-07-29"
+      },
+      "battleRules": {
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "garganacl",
+          "resolvedSpecies": "Garganacl",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Water"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "impish",
+          "ability": "purifyingsalt",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "stealthrock",
+            "saltcure",
+            "recover",
+            "bodypress"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 156,
+            "specialDefence": 100
+          }
+        },
+        {
+          "slot": 2,
+          "species": "corviknight",
+          "resolvedSpecies": "Corviknight",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dragon"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "impish",
+          "ability": "pressure",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "defog",
+            "roost",
+            "bravebird",
+            "uturn"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 248,
+            "defence": 252,
+            "specialDefence": 8
+          }
+        },
+        {
+          "slot": 3,
+          "species": "rotom-wash",
+          "resolvedSpecies": "Rotom-Wash",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Electric"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "levitate",
+          "heldItem": "cobblemon:choice_scarf",
+          "heldItemOptions": [
+            "cobblemon:choice_scarf"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:choice_scarf",
+              "canonicalId": "cobblemon:choice_scarf",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:choice_scarf"
+              ],
+              "item": {
+                "id": "cobblemon:choice_scarf",
+                "namespace": "cobblemon",
+                "path": "choice_scarf",
+                "englishName": "Choice Scarf",
+                "koreanName": "구애스카프",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "voltswitch",
+            "hydropump",
+            "trick",
+            "thunderbolt"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 4,
+            "specialAttack": 252,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 4,
+          "species": "dragonite",
+          "resolvedSpecies": "Dragonite",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Normal"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "adamant",
+          "ability": "multiscale",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "dragondance",
+            "extremespeed",
+            "earthquake",
+            "icespinner"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 5,
+          "species": "scizor",
+          "resolvedSpecies": "Scizor",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Steel"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "adamant",
+          "ability": "technician",
+          "heldItem": "cobblemon:choice_band",
+          "heldItemOptions": [
+            "cobblemon:choice_band"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:choice_band",
+              "canonicalId": "cobblemon:choice_band",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:choice_band"
+              ],
+              "item": {
+                "id": "cobblemon:choice_band",
+                "namespace": "cobblemon",
+                "path": "choice_band",
+                "englishName": "Choice Band",
+                "koreanName": "구애머리띠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "bulletpunch",
+            "uturn",
+            "closecombat",
+            "knockoff"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 248,
+            "attack": 252,
+            "specialDefence": 8
+          }
+        },
+        {
+          "slot": 6,
+          "species": "hydreigon",
+          "resolvedSpecies": "Hydreigon",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Steel"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "levitate",
+          "heldItem": "cobblemon:life_orb",
+          "heldItemOptions": [
+            "cobblemon:life_orb"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:life_orb",
+              "canonicalId": "cobblemon:life_orb",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:life_orb"
+              ],
+              "item": {
+                "id": "cobblemon:life_orb",
+                "namespace": "cobblemon",
+                "path": "life_orb",
+                "englishName": "Life Orb",
+                "koreanName": "생명의구슬",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "nastyplot",
+            "darkpulse",
+            "dracometeor",
+            "flamethrower"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "specialAttack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "canTera": true,
+          "strategy": "balanced"
+        }
+      }
+    },
+    {
+      "id": "sv9-speed-offense",
+      "sourceFile": "entries/custom/sv9-speed-offense.json",
+      "sourceGroup": "custom",
+      "name": "SV9 고속 오펜스",
+      "entry": {
+        "type": "computer",
+        "priority": 910,
+        "label": "SV9 실전 테스트",
+        "source": "Cobbleverse curated SV OU archetype",
+        "owner": "Cobbleverse",
+        "snapshotDate": "2026-07-29"
+      },
+      "battleRules": {
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "mamoswine",
+          "resolvedSpecies": "Mamoswine",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Ghost"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "thickfat",
+          "heldItem": "cobblemon:focus_sash",
+          "heldItemOptions": [
+            "cobblemon:focus_sash"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:focus_sash",
+              "canonicalId": "cobblemon:focus_sash",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:focus_sash"
+              ],
+              "item": {
+                "id": "cobblemon:focus_sash",
+                "namespace": "cobblemon",
+                "path": "focus_sash",
+                "englishName": "Focus Sash",
+                "koreanName": "기합의띠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "stealthrock",
+            "earthquake",
+            "iciclecrash",
+            "iceshard"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 2,
+          "species": "weavile",
+          "resolvedSpecies": "Weavile",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dark"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "pressure",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "swordsdance",
+            "tripleaxel",
+            "knockoff",
+            "iceshard"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 3,
+          "species": "blaziken",
+          "resolvedSpecies": "Blaziken",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Fire"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "adamant",
+          "ability": "speedboost",
+          "heldItem": "cobblemon:life_orb",
+          "heldItemOptions": [
+            "cobblemon:life_orb"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:life_orb",
+              "canonicalId": "cobblemon:life_orb",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:life_orb"
+              ],
+              "item": {
+                "id": "cobblemon:life_orb",
+                "namespace": "cobblemon",
+                "path": "life_orb",
+                "englishName": "Life Orb",
+                "koreanName": "생명의구슬",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "protect",
+            "swordsdance",
+            "closecombat",
+            "flareblitz"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 4,
+          "species": "salamence",
+          "resolvedSpecies": "Salamence",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Steel"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "intimidate",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "dragondance",
+            "dualwingbeat",
+            "earthquake",
+            "roost"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 5,
+          "species": "magnezone",
+          "resolvedSpecies": "Magnezone",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Flying"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "magnetpull",
+          "heldItem": "cobblemon:air_balloon",
+          "heldItemOptions": [
+            "cobblemon:air_balloon"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:air_balloon",
+              "canonicalId": "cobblemon:air_balloon",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:air_balloon"
+              ],
+              "item": {
+                "id": "cobblemon:air_balloon",
+                "namespace": "cobblemon",
+                "path": "air_balloon",
+                "englishName": "Air Balloon",
+                "koreanName": "풍선",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "thunderbolt",
+            "flashcannon",
+            "voltswitch",
+            "thunderwave"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "specialAttack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 6,
+          "species": "articuno-galar",
+          "resolvedSpecies": "Articuno-Galar",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Fighting"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "competitive",
+          "heldItem": "cobblemon:choice_scarf",
+          "heldItemOptions": [
+            "cobblemon:choice_scarf"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:choice_scarf",
+              "canonicalId": "cobblemon:choice_scarf",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:choice_scarf"
+              ],
+              "item": {
+                "id": "cobblemon:choice_scarf",
+                "namespace": "cobblemon",
+                "path": "choice_scarf",
+                "englishName": "Choice Scarf",
+                "koreanName": "구애스카프",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "freezingglare",
+            "hurricane",
+            "shadowball",
+            "uturn"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "specialAttack": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "canTera": true,
+          "strategy": "aggressive"
+        }
+      }
+    },
+    {
+      "id": "sv9-trick-room-balance",
+      "sourceFile": "entries/custom/sv9-trick-room-balance.json",
+      "sourceGroup": "custom",
+      "name": "SV9 트릭룸 밸런스",
+      "entry": {
+        "type": "computer",
+        "priority": 900,
+        "label": "SV9 실전 테스트",
+        "source": "Cobbleverse curated SV OU archetype",
+        "owner": "Cobbleverse",
+        "snapshotDate": "2026-07-29"
+      },
+      "battleRules": {
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "bronzong",
+          "resolvedSpecies": "Bronzong",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Water"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "sassy",
+          "ability": "levitate",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "trickroom",
+            "stealthrock",
+            "gyroball",
+            "explosion"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 4,
+            "specialDefence": 252
+          }
+        },
+        {
+          "slot": 2,
+          "species": "porygon2",
+          "resolvedSpecies": "Porygon2",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Ghost"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "sassy",
+          "ability": "download",
+          "heldItem": "cobblemon:eviolite",
+          "heldItemOptions": [
+            "cobblemon:eviolite"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:eviolite",
+              "canonicalId": "cobblemon:eviolite",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:eviolite"
+              ],
+              "item": {
+                "id": "cobblemon:eviolite",
+                "namespace": "cobblemon",
+                "path": "eviolite",
+                "englishName": "Eviolite",
+                "koreanName": "진화의휘석",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "trickroom",
+            "recover",
+            "icebeam",
+            "thunderbolt"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 156,
+            "specialDefence": 100
+          }
+        },
+        {
+          "slot": 3,
+          "species": "ursaluna-bloodmoon",
+          "resolvedSpecies": "Ursaluna-Bloodmoon",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Normal"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "quiet",
+          "ability": "mindseye",
+          "heldItem": "cobblemon:life_orb",
+          "heldItemOptions": [
+            "cobblemon:life_orb"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:life_orb",
+              "canonicalId": "cobblemon:life_orb",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:life_orb"
+              ],
+              "item": {
+                "id": "cobblemon:life_orb",
+                "namespace": "cobblemon",
+                "path": "life_orb",
+                "englishName": "Life Orb",
+                "koreanName": "생명의구슬",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "bloodmoon",
+            "earthpower",
+            "moonblast",
+            "vacuumwave"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "specialAttack": 252,
+            "specialDefence": 4
+          }
+        },
+        {
+          "slot": 4,
+          "species": "snorlax",
+          "resolvedSpecies": "Snorlax",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Ghost"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "brave",
+          "ability": "thickfat",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "curse",
+            "bodyslam",
+            "heatcrash",
+            "rest"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "attack": 4,
+            "specialDefence": 252
+          }
+        },
+        {
+          "slot": 5,
+          "species": "conkeldurr",
+          "resolvedSpecies": "Conkeldurr",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Normal"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "brave",
+          "ability": "guts",
+          "heldItem": "cobblemon:flame_orb",
+          "heldItemOptions": [
+            "cobblemon:flame_orb"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:flame_orb",
+              "canonicalId": "cobblemon:flame_orb",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:flame_orb"
+              ],
+              "item": {
+                "id": "cobblemon:flame_orb",
+                "namespace": "cobblemon",
+                "path": "flame_orb",
+                "englishName": "Flame Orb",
+                "koreanName": "화염구슬",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "drainpunch",
+            "facade",
+            "machpunch",
+            "knockoff"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "attack": 252,
+            "specialDefence": 4
+          }
+        },
+        {
+          "slot": 6,
+          "species": "slowbro",
+          "resolvedSpecies": "Slowbro",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Fairy"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "relaxed",
+          "ability": "regenerator",
+          "heldItem": "cobblemon:rocky_helmet",
+          "heldItemOptions": [
+            "cobblemon:rocky_helmet"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:rocky_helmet",
+              "canonicalId": "cobblemon:rocky_helmet",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:rocky_helmet"
+              ],
+              "item": {
+                "id": "cobblemon:rocky_helmet",
+                "namespace": "cobblemon",
+                "path": "rocky_helmet",
+                "englishName": "Rocky Helmet",
+                "koreanName": "울퉁불퉁멧",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "trickroom",
+            "slackoff",
+            "psychic",
+            "flamethrower"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 252,
+            "specialAttack": 4
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "canTera": true,
+          "strategy": "defensive"
+        }
+      }
+    },
+    {
       "id": "sinnoh_league_aaron",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_league_aaron.json",
+      "sourceFile": "entries/rct/sinnoh_league_aaron.json",
+      "sourceGroup": "rct",
       "name": "Aaron",
       "entry": {
         "type": "computer",
@@ -680,7 +2827,8 @@
     },
     {
       "id": "ace_trainer_alexa_0194",
-      "sourceFile": "rctmod-v16-ver22/trainers/ace_trainer_alexa_0194.json",
+      "sourceFile": "entries/rct/ace_trainer_alexa_0194.json",
+      "sourceGroup": "rct",
       "name": "Ace Trainer Alexa",
       "entry": {
         "type": "computer",
@@ -972,7 +3120,8 @@
     },
     {
       "id": "ace_trainer_george_0189",
-      "sourceFile": "rctmod-v16-ver22/trainers/ace_trainer_george_0189.json",
+      "sourceFile": "entries/rct/ace_trainer_george_0189.json",
+      "sourceGroup": "rct",
       "name": "Ace Trainer George",
       "entry": {
         "type": "computer",
@@ -1269,7 +3418,8 @@
     },
     {
       "id": "ace_trainer_janny_00af",
-      "sourceFile": "rctmod-v16-ver22/trainers/ace_trainer_janny_00af.json",
+      "sourceFile": "entries/rct/ace_trainer_janny_00af.json",
+      "sourceGroup": "rct",
       "name": "Ace Trainer Janny",
       "entry": {
         "type": "computer",
@@ -1618,7 +3768,8 @@
     },
     {
       "id": "ace_trainer_runan_007c",
-      "sourceFile": "rctmod-v16-ver22/trainers/ace_trainer_runan_007c.json",
+      "sourceFile": "entries/rct/ace_trainer_runan_007c.json",
+      "sourceGroup": "rct",
       "name": "Ace Trainer Runan",
       "entry": {
         "type": "computer",
@@ -1966,7 +4117,8 @@
     },
     {
       "id": "ace_trainer_symes_0071",
-      "sourceFile": "rctmod-v16-ver22/trainers/ace_trainer_symes_0071.json",
+      "sourceFile": "entries/rct/ace_trainer_symes_0071.json",
+      "sourceGroup": "rct",
       "name": "Ace Trainer Symes",
       "entry": {
         "type": "computer",
@@ -2320,7 +4472,8 @@
     },
     {
       "id": "hoenn_adriano",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_adriano.json",
+      "sourceFile": "entries/rct/hoenn_adriano.json",
+      "sourceGroup": "rct",
       "name": "Adriano",
       "entry": {
         "type": "computer",
@@ -2676,7 +4829,8 @@
     },
     {
       "id": "kanto_league_agatha",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_league_agatha.json",
+      "sourceFile": "entries/rct/kanto_league_agatha.json",
+      "sourceGroup": "rct",
       "name": "Agatha",
       "entry": {
         "type": "computer",
@@ -3041,7 +5195,8 @@
     },
     {
       "id": "johto_alfredo",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_alfredo.json",
+      "sourceFile": "entries/rct/johto_alfredo.json",
+      "sourceGroup": "rct",
       "name": "Alfredo",
       "entry": {
         "type": "computer",
@@ -3401,7 +5556,8 @@
     },
     {
       "id": "hoenn_alice",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_alice.json",
+      "sourceFile": "entries/rct/hoenn_alice.json",
+      "sourceGroup": "rct",
       "name": "Alice",
       "entry": {
         "type": "computer",
@@ -3783,7 +5939,8 @@
     },
     {
       "id": "johto_angelo",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_angelo.json",
+      "sourceFile": "entries/rct/johto_angelo.json",
+      "sourceGroup": "rct",
       "name": "Angelo",
       "entry": {
         "type": "computer",
@@ -4156,7 +6313,8 @@
     },
     {
       "id": "team_rocket_admin_apollo",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_admin_apollo.json",
+      "sourceFile": "entries/rct/team_rocket_admin_apollo.json",
+      "sourceGroup": "rct",
       "name": "Apollo",
       "entry": {
         "type": "computer",
@@ -4508,7 +6666,8 @@
     },
     {
       "id": "pallet_ash",
-      "sourceFile": "rctmod-v16-ver22/trainers/pallet_ash.json",
+      "sourceFile": "entries/rct/pallet_ash.json",
+      "sourceGroup": "rct",
       "name": "Ash",
       "entry": {
         "type": "computer",
@@ -4697,7 +6856,8 @@
     },
     {
       "id": "team_rocket_admin_atena",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_admin_atena.json",
+      "sourceFile": "entries/rct/team_rocket_admin_atena.json",
+      "sourceGroup": "rct",
       "name": "Atena",
       "entry": {
         "type": "computer",
@@ -4992,7 +7152,8 @@
     },
     {
       "id": "beauty_bridget_0109",
-      "sourceFile": "rctmod-v16-ver22/trainers/beauty_bridget_0109.json",
+      "sourceFile": "entries/rct/beauty_bridget_0109.json",
+      "sourceGroup": "rct",
       "name": "Beauty Bridget",
       "entry": {
         "type": "computer",
@@ -5126,7 +7287,8 @@
     },
     {
       "id": "beauty_lola_010c",
-      "sourceFile": "rctmod-v16-ver22/trainers/beauty_lola_010c.json",
+      "sourceFile": "entries/rct/beauty_lola_010c.json",
+      "sourceGroup": "rct",
       "name": "Beauty Lola",
       "entry": {
         "type": "computer",
@@ -5303,7 +7465,8 @@
     },
     {
       "id": "beauty_sheila_010d",
-      "sourceFile": "rctmod-v16-ver22/trainers/beauty_sheila_010d.json",
+      "sourceFile": "entries/rct/beauty_sheila_010d.json",
+      "sourceGroup": "rct",
       "name": "Beauty Sheila",
       "entry": {
         "type": "computer",
@@ -5480,7 +7643,8 @@
     },
     {
       "id": "sinnoh_bianca",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_bianca.json",
+      "sourceFile": "entries/rct/sinnoh_bianca.json",
+      "sourceGroup": "rct",
       "name": "Bianca",
       "entry": {
         "type": "computer",
@@ -5865,7 +8029,8 @@
     },
     {
       "id": "biker_goon_0211",
-      "sourceFile": "rctmod-v16-ver22/trainers/biker_goon_0211.json",
+      "sourceFile": "entries/rct/biker_goon_0211.json",
+      "sourceGroup": "rct",
       "name": "Biker Goon",
       "entry": {
         "type": "computer",
@@ -6044,7 +8209,8 @@
     },
     {
       "id": "biker_hideo_00c9",
-      "sourceFile": "rctmod-v16-ver22/trainers/biker_hideo_00c9.json",
+      "sourceFile": "entries/rct/biker_hideo_00c9.json",
+      "sourceGroup": "rct",
       "name": "Biker Hideo",
       "entry": {
         "type": "computer",
@@ -6329,7 +8495,8 @@
     },
     {
       "id": "biker_jaxon_00cd",
-      "sourceFile": "rctmod-v16-ver22/trainers/biker_jaxon_00cd.json",
+      "sourceFile": "entries/rct/biker_jaxon_00cd.json",
+      "sourceGroup": "rct",
       "name": "Biker Jaxon",
       "entry": {
         "type": "computer",
@@ -6405,7 +8572,8 @@
     },
     {
       "id": "biker_lao_00c7",
-      "sourceFile": "rctmod-v16-ver22/trainers/biker_lao_00c7.json",
+      "sourceFile": "entries/rct/biker_lao_00c7.json",
+      "sourceGroup": "rct",
       "name": "Biker Lao",
       "entry": {
         "type": "computer",
@@ -6584,7 +8752,8 @@
     },
     {
       "id": "biker_lukas_00cf",
-      "sourceFile": "rctmod-v16-ver22/trainers/biker_lukas_00cf.json",
+      "sourceFile": "entries/rct/biker_lukas_00cf.json",
+      "sourceGroup": "rct",
       "name": "Biker Lukas",
       "entry": {
         "type": "computer",
@@ -6686,7 +8855,8 @@
     },
     {
       "id": "biker_malik_00c4",
-      "sourceFile": "rctmod-v16-ver22/trainers/biker_malik_00c4.json",
+      "sourceFile": "entries/rct/biker_malik_00c4.json",
+      "sourceGroup": "rct",
       "name": "Biker Malik",
       "entry": {
         "type": "computer",
@@ -6762,7 +8932,8 @@
     },
     {
       "id": "biker_ruben_00ca",
-      "sourceFile": "rctmod-v16-ver22/trainers/biker_ruben_00ca.json",
+      "sourceFile": "entries/rct/biker_ruben_00ca.json",
+      "sourceGroup": "rct",
       "name": "Biker Ruben",
       "entry": {
         "type": "computer",
@@ -7045,7 +9216,8 @@
     },
     {
       "id": "biker_virgil_01d6",
-      "sourceFile": "rctmod-v16-ver22/trainers/biker_virgil_01d6.json",
+      "sourceFile": "entries/rct/biker_virgil_01d6.json",
+      "sourceGroup": "rct",
       "name": "Biker Virgil",
       "entry": {
         "type": "computer",
@@ -7120,7 +9292,8 @@
     },
     {
       "id": "bird_keeper_mitch_013a",
-      "sourceFile": "rctmod-v16-ver22/trainers/bird_keeper_mitch_013a.json",
+      "sourceFile": "entries/rct/bird_keeper_mitch_013a.json",
+      "sourceGroup": "rct",
       "name": "Bird Keeper Mitch",
       "entry": {
         "type": "computer",
@@ -7254,7 +9427,8 @@
     },
     {
       "id": "black_belt_daisuke_0145",
-      "sourceFile": "rctmod-v16-ver22/trainers/black_belt_daisuke_0145.json",
+      "sourceFile": "entries/rct/black_belt_daisuke_0145.json",
+      "sourceGroup": "rct",
       "name": "Black Belt Daisuke",
       "entry": {
         "type": "computer",
@@ -7419,7 +9593,8 @@
     },
     {
       "id": "black_belt_hitoshi_0141",
-      "sourceFile": "rctmod-v16-ver22/trainers/black_belt_hitoshi_0141.json",
+      "sourceFile": "entries/rct/black_belt_hitoshi_0141.json",
+      "sourceGroup": "rct",
       "name": "Black Belt Hitoshi",
       "entry": {
         "type": "computer",
@@ -7584,7 +9759,8 @@
     },
     {
       "id": "kanto_blaine",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_blaine.json",
+      "sourceFile": "entries/rct/kanto_blaine.json",
+      "sourceGroup": "rct",
       "name": "Blaine",
       "entry": {
         "type": "computer",
@@ -7934,7 +10110,8 @@
     },
     {
       "id": "kanto_champion_blue",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_champion_blue.json",
+      "sourceFile": "entries/rct/kanto_champion_blue.json",
+      "sourceGroup": "rct",
       "name": "Blue",
       "entry": {
         "type": "computer",
@@ -8310,7 +10487,8 @@
     },
     {
       "id": "galaxy_bobbo",
-      "sourceFile": "rctmod-v16-ver22/trainers/galaxy_bobbo.json",
+      "sourceFile": "entries/rct/galaxy_bobbo.json",
+      "sourceGroup": "rct",
       "name": "Bobbo",
       "entry": {
         "type": "computer",
@@ -8435,7 +10613,8 @@
     },
     {
       "id": "boss_giovanni_015c",
-      "sourceFile": "rctmod-v16-ver22/trainers/boss_giovanni_015c.json",
+      "sourceFile": "entries/rct/boss_giovanni_015c.json",
+      "sourceGroup": "rct",
       "name": "Boss Giovanni",
       "entry": {
         "type": "computer",
@@ -8597,7 +10776,8 @@
     },
     {
       "id": "boss_giovanni_015d",
-      "sourceFile": "rctmod-v16-ver22/trainers/boss_giovanni_015d.json",
+      "sourceFile": "entries/rct/boss_giovanni_015d.json",
+      "sourceGroup": "rct",
       "name": "Boss Giovanni",
       "entry": {
         "type": "computer",
@@ -8759,7 +10939,8 @@
     },
     {
       "id": "kanto_brock",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_brock.json",
+      "sourceFile": "entries/rct/kanto_brock.json",
+      "sourceGroup": "rct",
       "name": "Brock",
       "entry": {
         "type": "computer",
@@ -9006,7 +11187,8 @@
     },
     {
       "id": "johto_league_bruno",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_league_bruno.json",
+      "sourceFile": "entries/rct/johto_league_bruno.json",
+      "sourceGroup": "rct",
       "name": "Bruno",
       "entry": {
         "type": "computer",
@@ -9380,7 +11562,8 @@
     },
     {
       "id": "kanto_league_bruno",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_league_bruno.json",
+      "sourceFile": "entries/rct/kanto_league_bruno.json",
+      "sourceGroup": "rct",
       "name": "Bruno",
       "entry": {
         "type": "computer",
@@ -9747,7 +11930,8 @@
     },
     {
       "id": "bug_catcher_anthony_0213",
-      "sourceFile": "rctmod-v16-ver22/trainers/bug_catcher_anthony_0213.json",
+      "sourceFile": "entries/rct/bug_catcher_anthony_0213.json",
+      "sourceGroup": "rct",
       "name": "Bug Catcher Anthony",
       "entry": {
         "type": "computer",
@@ -9822,7 +12006,8 @@
     },
     {
       "id": "bug_catcher_cale_006e",
-      "sourceFile": "rctmod-v16-ver22/trainers/bug_catcher_cale_006e.json",
+      "sourceFile": "entries/rct/bug_catcher_cale_006e.json",
+      "sourceGroup": "rct",
       "name": "Bug Catcher Cale",
       "entry": {
         "type": "computer",
@@ -9956,7 +12141,8 @@
     },
     {
       "id": "bug_catcher_greg_006a",
-      "sourceFile": "rctmod-v16-ver22/trainers/bug_catcher_greg_006a.json",
+      "sourceFile": "entries/rct/bug_catcher_greg_006a.json",
+      "sourceGroup": "rct",
       "name": "Bug Catcher Greg",
       "entry": {
         "type": "computer",
@@ -10088,7 +12274,8 @@
     },
     {
       "id": "bug_catcher_keigo_006f",
-      "sourceFile": "rctmod-v16-ver22/trainers/bug_catcher_keigo_006f.json",
+      "sourceFile": "entries/rct/bug_catcher_keigo_006f.json",
+      "sourceGroup": "rct",
       "name": "Bug Catcher Keigo",
       "entry": {
         "type": "computer",
@@ -10193,7 +12380,8 @@
     },
     {
       "id": "bug_catcher_rick_0066",
-      "sourceFile": "rctmod-v16-ver22/trainers/bug_catcher_rick_0066.json",
+      "sourceFile": "entries/rct/bug_catcher_rick_0066.json",
+      "sourceGroup": "rct",
       "name": "Bug Catcher Rick",
       "entry": {
         "type": "computer",
@@ -10267,7 +12455,8 @@
     },
     {
       "id": "sinnoh_champion_camilla",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_champion_camilla.json",
+      "sourceFile": "entries/rct/sinnoh_champion_camilla.json",
+      "sourceGroup": "rct",
       "name": "Camilla",
       "entry": {
         "type": "computer",
@@ -10363,7 +12552,8 @@
     },
     {
       "id": "camper_drew_0095",
-      "sourceFile": "rctmod-v16-ver22/trainers/camper_drew_0095.json",
+      "sourceFile": "entries/rct/camper_drew_0095.json",
+      "sourceGroup": "rct",
       "name": "Camper Drew",
       "entry": {
         "type": "computer",
@@ -10499,7 +12689,8 @@
     },
     {
       "id": "camper_flint_01d7",
-      "sourceFile": "rctmod-v16-ver22/trainers/camper_flint_01d7.json",
+      "sourceFile": "entries/rct/camper_flint_01d7.json",
+      "sourceGroup": "rct",
       "name": "Camper Flint",
       "entry": {
         "type": "computer",
@@ -10577,7 +12768,8 @@
     },
     {
       "id": "champion_terry_01b6",
-      "sourceFile": "rctmod-v16-ver22/trainers/champion_terry_01b6.json",
+      "sourceFile": "entries/rct/champion_terry_01b6.json",
+      "sourceGroup": "rct",
       "name": "Champion Terry",
       "entry": {
         "type": "computer",
@@ -10925,7 +13117,8 @@
     },
     {
       "id": "champion_terry_01b7",
-      "sourceFile": "rctmod-v16-ver22/trainers/champion_terry_01b7.json",
+      "sourceFile": "entries/rct/champion_terry_01b7.json",
+      "sourceGroup": "rct",
       "name": "Champion Terry",
       "entry": {
         "type": "computer",
@@ -11217,7 +13410,8 @@
     },
     {
       "id": "champion_terry_01b8",
-      "sourceFile": "rctmod-v16-ver22/trainers/champion_terry_01b8.json",
+      "sourceFile": "entries/rct/champion_terry_01b8.json",
+      "sourceGroup": "rct",
       "name": "Champion Terry",
       "entry": {
         "type": "computer",
@@ -11562,7 +13756,8 @@
     },
     {
       "id": "johto_chiara",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_chiara.json",
+      "sourceFile": "entries/rct/johto_chiara.json",
+      "sourceGroup": "rct",
       "name": "Chiara",
       "entry": {
         "type": "computer",
@@ -11920,7 +14115,8 @@
     },
     {
       "id": "sinnoh_corrado",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_corrado.json",
+      "sourceFile": "entries/rct/sinnoh_corrado.json",
+      "sourceGroup": "rct",
       "name": "Corrado",
       "entry": {
         "type": "computer",
@@ -12307,7 +14503,8 @@
     },
     {
       "id": "crush_girl_sharon_0206",
-      "sourceFile": "rctmod-v16-ver22/trainers/crush_girl_sharon_0206.json",
+      "sourceFile": "entries/rct/crush_girl_sharon_0206.json",
+      "sourceGroup": "rct",
       "name": "Crush Girl Sharon",
       "entry": {
         "type": "computer",
@@ -12539,7 +14736,8 @@
     },
     {
       "id": "crush_girl_tanya_0228",
-      "sourceFile": "rctmod-v16-ver22/trainers/crush_girl_tanya_0228.json",
+      "sourceFile": "entries/rct/crush_girl_tanya_0228.json",
+      "sourceGroup": "rct",
       "name": "Crush Girl Tanya",
       "entry": {
         "type": "computer",
@@ -12770,7 +14968,8 @@
     },
     {
       "id": "crush_kin_mik_and_kia_022d",
-      "sourceFile": "rctmod-v16-ver22/trainers/crush_kin_mik_and_kia_022d.json",
+      "sourceFile": "entries/rct/crush_kin_mik_and_kia_022d.json",
+      "sourceGroup": "rct",
       "name": "Crush Kin Mik & Kia",
       "entry": {
         "type": "computer",
@@ -13000,7 +15199,8 @@
     },
     {
       "id": "crush_kin_ron_and_mya_01e8",
-      "sourceFile": "rctmod-v16-ver22/trainers/crush_kin_ron_and_mya_01e8.json",
+      "sourceFile": "entries/rct/crush_kin_ron_and_mya_01e8.json",
+      "sourceGroup": "rct",
       "name": "Crush Kin Ron & Mya",
       "entry": {
         "type": "computer",
@@ -13116,7 +15316,8 @@
     },
     {
       "id": "cue_ball_isaiah_00fd",
-      "sourceFile": "rctmod-v16-ver22/trainers/cue_ball_isaiah_00fd.json",
+      "sourceFile": "entries/rct/cue_ball_isaiah_00fd.json",
+      "sourceGroup": "rct",
       "name": "Cue Ball Isaiah",
       "entry": {
         "type": "computer",
@@ -13192,7 +15393,8 @@
     },
     {
       "id": "pallet_delia",
-      "sourceFile": "rctmod-v16-ver22/trainers/pallet_delia.json",
+      "sourceFile": "entries/rct/pallet_delia.json",
+      "sourceGroup": "rct",
       "name": "Delia",
       "entry": {
         "type": "computer",
@@ -13275,7 +15477,8 @@
     },
     {
       "id": "dragon_tamer_ramiro_0134",
-      "sourceFile": "rctmod-v16-ver22/trainers/dragon_tamer_ramiro_0134.json",
+      "sourceFile": "entries/rct/dragon_tamer_ramiro_0134.json",
+      "sourceGroup": "rct",
       "name": "Dragon Tamer Ramiro",
       "entry": {
         "type": "computer",
@@ -13561,7 +15764,8 @@
     },
     {
       "id": "hoenn_league_drake",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_league_drake.json",
+      "sourceFile": "entries/rct/hoenn_league_drake.json",
+      "sourceGroup": "rct",
       "name": "Drake",
       "entry": {
         "type": "computer",
@@ -13921,7 +16125,8 @@
     },
     {
       "id": "dumbass_creator_0018",
-      "sourceFile": "rctmod-v16-ver22/trainers/dumbass_creator_0018.json",
+      "sourceFile": "entries/rct/dumbass_creator_0018.json",
+      "sourceGroup": "rct",
       "name": "Dumbass Creator",
       "entry": {
         "type": "computer",
@@ -14189,7 +16394,8 @@
     },
     {
       "id": "dumbass_jojo_fan_0042",
-      "sourceFile": "rctmod-v16-ver22/trainers/dumbass_jojo_fan_0042.json",
+      "sourceFile": "entries/rct/dumbass_jojo_fan_0042.json",
+      "sourceGroup": "rct",
       "name": "Dumbass Jojo Fan",
       "entry": {
         "type": "computer",
@@ -14527,7 +16733,8 @@
     },
     {
       "id": "galaxy_dummyh77",
-      "sourceFile": "rctmod-v16-ver22/trainers/galaxy_dummyh77.json",
+      "sourceFile": "entries/rct/galaxy_dummyh77.json",
+      "sourceGroup": "rct",
       "name": "DummyH77",
       "entry": {
         "type": "computer",
@@ -14603,7 +16810,8 @@
     },
     {
       "id": "mod_edo_leone",
-      "sourceFile": "rctmod-v16-ver22/trainers/mod_edo_leone.json",
+      "sourceFile": "entries/rct/mod_edo_leone.json",
+      "sourceGroup": "rct",
       "name": "Edo_Leone",
       "entry": {
         "type": "computer",
@@ -14738,7 +16946,8 @@
     },
     {
       "id": "kanto_erika",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_erika.json",
+      "sourceFile": "entries/rct/kanto_erika.json",
+      "sourceGroup": "rct",
       "name": "Erika",
       "entry": {
         "type": "computer",
@@ -15007,7 +17216,8 @@
     },
     {
       "id": "hoenn_league_ester",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_league_ester.json",
+      "sourceFile": "entries/rct/hoenn_league_ester.json",
+      "sourceGroup": "rct",
       "name": "Ester",
       "entry": {
         "type": "computer",
@@ -15369,7 +17579,8 @@
     },
     {
       "id": "galaxy_fabbo67",
-      "sourceFile": "rctmod-v16-ver22/trainers/galaxy_fabbo67.json",
+      "sourceFile": "entries/rct/galaxy_fabbo67.json",
+      "sourceGroup": "rct",
       "name": "Fabbo67",
       "entry": {
         "type": "computer",
@@ -15474,7 +17685,8 @@
     },
     {
       "id": "sinnoh_fannie",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_fannie.json",
+      "sourceFile": "entries/rct/sinnoh_fannie.json",
+      "sourceGroup": "rct",
       "name": "Fannie",
       "entry": {
         "type": "computer",
@@ -15850,7 +18062,8 @@
     },
     {
       "id": "galaxy_fede_mercy",
-      "sourceFile": "rctmod-v16-ver22/trainers/galaxy_fede_mercy.json",
+      "sourceFile": "entries/rct/galaxy_fede_mercy.json",
+      "sourceGroup": "rct",
       "name": "Fede_Mercy",
       "entry": {
         "type": "computer",
@@ -15917,7 +18130,8 @@
     },
     {
       "id": "sinnoh_ferruccio",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_ferruccio.json",
+      "sourceFile": "entries/rct/sinnoh_ferruccio.json",
+      "sourceGroup": "rct",
       "name": "Ferruccio",
       "entry": {
         "type": "computer",
@@ -16283,7 +18497,8 @@
     },
     {
       "id": "hoenn_fiammetta",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_fiammetta.json",
+      "sourceFile": "entries/rct/hoenn_fiammetta.json",
+      "sourceGroup": "rct",
       "name": "Fiammetta",
       "entry": {
         "type": "computer",
@@ -16642,7 +18857,8 @@
     },
     {
       "id": "fisherman_dale_00df",
-      "sourceFile": "rctmod-v16-ver22/trainers/fisherman_dale_00df.json",
+      "sourceFile": "entries/rct/fisherman_dale_00df.json",
+      "sourceGroup": "rct",
       "name": "Fisherman Dale",
       "entry": {
         "type": "computer",
@@ -16747,7 +18963,8 @@
     },
     {
       "id": "fisherman_wade_02ae",
-      "sourceFile": "rctmod-v16-ver22/trainers/fisherman_wade_02ae.json",
+      "sourceFile": "entries/rct/fisherman_wade_02ae.json",
+      "sourceGroup": "rct",
       "name": "Fisherman Wade",
       "entry": {
         "type": "computer",
@@ -16848,7 +19065,8 @@
     },
     {
       "id": "hoenn_league_fosco",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_league_fosco.json",
+      "sourceFile": "entries/rct/hoenn_league_fosco.json",
+      "sourceGroup": "rct",
       "name": "Fosco",
       "entry": {
         "type": "computer",
@@ -17181,7 +19399,8 @@
     },
     {
       "id": "hoenn_league_frida",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_league_frida.json",
+      "sourceFile": "entries/rct/hoenn_league_frida.json",
+      "sourceGroup": "rct",
       "name": "Frida",
       "entry": {
         "type": "computer",
@@ -17536,7 +19755,8 @@
     },
     {
       "id": "friendly_maniac_0006",
-      "sourceFile": "rctmod-v16-ver22/trainers/friendly_maniac_0006.json",
+      "sourceFile": "entries/rct/friendly_maniac_0006.json",
+      "sourceGroup": "rct",
       "name": "Friendly Anastasia",
       "entry": {
         "type": "computer",
@@ -17583,7 +19803,8 @@
     },
     {
       "id": "friendly_coach_0009",
-      "sourceFile": "rctmod-v16-ver22/trainers/friendly_coach_0009.json",
+      "sourceFile": "entries/rct/friendly_coach_0009.json",
+      "sourceGroup": "rct",
       "name": "Friendly Coach",
       "entry": {
         "type": "computer",
@@ -17683,7 +19904,8 @@
     },
     {
       "id": "friendly_coach_000a",
-      "sourceFile": "rctmod-v16-ver22/trainers/friendly_coach_000a.json",
+      "sourceFile": "entries/rct/friendly_coach_000a.json",
+      "sourceGroup": "rct",
       "name": "Friendly Coach",
       "entry": {
         "type": "computer",
@@ -17788,7 +20010,8 @@
     },
     {
       "id": "friendly_coach_000b",
-      "sourceFile": "rctmod-v16-ver22/trainers/friendly_coach_000b.json",
+      "sourceFile": "entries/rct/friendly_coach_000b.json",
+      "sourceGroup": "rct",
       "name": "Friendly Coach",
       "entry": {
         "type": "computer",
@@ -17864,7 +20087,8 @@
     },
     {
       "id": "friendly_coach_000c",
-      "sourceFile": "rctmod-v16-ver22/trainers/friendly_coach_000c.json",
+      "sourceFile": "entries/rct/friendly_coach_000c.json",
+      "sourceGroup": "rct",
       "name": "Friendly Coach",
       "entry": {
         "type": "computer",
@@ -17969,7 +20193,8 @@
     },
     {
       "id": "friendly_coach_000d",
-      "sourceFile": "rctmod-v16-ver22/trainers/friendly_coach_000d.json",
+      "sourceFile": "entries/rct/friendly_coach_000d.json",
+      "sourceGroup": "rct",
       "name": "Friendly Coach",
       "entry": {
         "type": "computer",
@@ -18099,7 +20324,8 @@
     },
     {
       "id": "friendly_coach_001b",
-      "sourceFile": "rctmod-v16-ver22/trainers/friendly_coach_001b.json",
+      "sourceFile": "entries/rct/friendly_coach_001b.json",
+      "sourceGroup": "rct",
       "name": "Friendly Coach",
       "entry": {
         "type": "computer",
@@ -18324,7 +20550,8 @@
     },
     {
       "id": "expert_lancere_0024",
-      "sourceFile": "rctmod-v16-ver22/trainers/expert_lancere_0024.json",
+      "sourceFile": "entries/rct/expert_lancere_0024.json",
+      "sourceGroup": "rct",
       "name": "Friendly Laurence",
       "entry": {
         "type": "computer",
@@ -18382,7 +20609,8 @@
     },
     {
       "id": "friendly_teacher_0007",
-      "sourceFile": "rctmod-v16-ver22/trainers/friendly_teacher_0007.json",
+      "sourceFile": "entries/rct/friendly_teacher_0007.json",
+      "sourceGroup": "rct",
       "name": "Friendly Teacher",
       "entry": {
         "type": "computer",
@@ -18498,7 +20726,8 @@
     },
     {
       "id": "johto_furio",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_furio.json",
+      "sourceFile": "entries/rct/johto_furio.json",
+      "sourceGroup": "rct",
       "name": "Furio",
       "entry": {
         "type": "computer",
@@ -18852,7 +21081,8 @@
     },
     {
       "id": "gambler_darian_0105",
-      "sourceFile": "rctmod-v16-ver22/trainers/gambler_darian_0105.json",
+      "sourceFile": "entries/rct/gambler_darian_0105.json",
+      "sourceGroup": "rct",
       "name": "Gambler Darian",
       "entry": {
         "type": "computer",
@@ -18928,7 +21158,8 @@
     },
     {
       "id": "sinnoh_gardenia",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_gardenia.json",
+      "sourceFile": "entries/rct/sinnoh_gardenia.json",
+      "sourceGroup": "rct",
       "name": "Gardenia",
       "entry": {
         "type": "computer",
@@ -19270,7 +21501,8 @@
     },
     {
       "id": "gatekeeper_owen_00b0",
-      "sourceFile": "rctmod-v16-ver22/trainers/gatekeeper_owen_00b0.json",
+      "sourceFile": "entries/rct/gatekeeper_owen_00b0.json",
+      "sourceGroup": "rct",
       "name": "Gatekeeper Owen",
       "entry": {
         "type": "computer",
@@ -19591,7 +21823,8 @@
     },
     {
       "id": "swimmer_gengar",
-      "sourceFile": "rctmod-v16-ver22/trainers/swimmer_gengar.json",
+      "sourceFile": "entries/rct/swimmer_gengar.json",
+      "sourceGroup": "rct",
       "name": "Gengar",
       "entry": {
         "type": "computer",
@@ -19805,7 +22038,8 @@
     },
     {
       "id": "gentleman_arthur_01a6",
-      "sourceFile": "rctmod-v16-ver22/trainers/gentleman_arthur_01a6.json",
+      "sourceFile": "entries/rct/gentleman_arthur_01a6.json",
+      "sourceGroup": "rct",
       "name": "Gentleman Arthur",
       "entry": {
         "type": "computer",
@@ -19881,7 +22115,8 @@
     },
     {
       "id": "gentleman_brooks_01e2",
-      "sourceFile": "rctmod-v16-ver22/trainers/gentleman_brooks_01e2.json",
+      "sourceFile": "entries/rct/gentleman_brooks_01e2.json",
+      "sourceGroup": "rct",
       "name": "Gentleman Brooks",
       "entry": {
         "type": "computer",
@@ -20046,7 +22281,8 @@
     },
     {
       "id": "gentleman_komodo_0005",
-      "sourceFile": "rctmod-v16-ver22/trainers/gentleman_komodo_0005.json",
+      "sourceFile": "entries/rct/gentleman_komodo_0005.json",
+      "sourceGroup": "rct",
       "name": "Gentleman Komodo",
       "entry": {
         "type": "computer",
@@ -20092,7 +22328,8 @@
     },
     {
       "id": "boss_giovanni_0045",
-      "sourceFile": "rctmod-v16-ver22/trainers/boss_giovanni_0045.json",
+      "sourceFile": "entries/rct/boss_giovanni_0045.json",
+      "sourceGroup": "rct",
       "name": "Giovanni",
       "entry": {
         "type": "computer",
@@ -20440,7 +22677,8 @@
     },
     {
       "id": "kanto_giovanni",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_giovanni.json",
+      "sourceFile": "entries/rct/kanto_giovanni.json",
+      "sourceGroup": "rct",
       "name": "Giovanni",
       "entry": {
         "type": "computer",
@@ -20785,7 +23023,8 @@
     },
     {
       "id": "team_rocket_giovanni",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_giovanni.json",
+      "sourceFile": "entries/rct/team_rocket_giovanni.json",
+      "sourceGroup": "rct",
       "name": "Giovanni",
       "entry": {
         "type": "computer",
@@ -21155,7 +23394,8 @@
     },
     {
       "id": "galaxy_giulio1232",
-      "sourceFile": "rctmod-v16-ver22/trainers/galaxy_giulio1232.json",
+      "sourceFile": "entries/rct/galaxy_giulio1232.json",
+      "sourceGroup": "rct",
       "name": "Giulio1232",
       "entry": {
         "type": "computer",
@@ -21260,7 +23500,8 @@
     },
     {
       "id": "hiker_alan_00b9",
-      "sourceFile": "rctmod-v16-ver22/trainers/hiker_alan_00b9.json",
+      "sourceFile": "entries/rct/hiker_alan_00b9.json",
+      "sourceGroup": "rct",
       "name": "Hiker Alan",
       "entry": {
         "type": "computer",
@@ -21336,7 +23577,8 @@
     },
     {
       "id": "hiker_jeremy_01d1",
-      "sourceFile": "rctmod-v16-ver22/trainers/hiker_jeremy_01d1.json",
+      "sourceFile": "entries/rct/hiker_jeremy_01d1.json",
+      "sourceGroup": "rct",
       "name": "Hiker Jeremy",
       "entry": {
         "type": "computer",
@@ -21412,7 +23654,8 @@
     },
     {
       "id": "johto_jasmine",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_jasmine.json",
+      "sourceFile": "entries/rct/johto_jasmine.json",
+      "sourceGroup": "rct",
       "name": "Jasmine",
       "entry": {
         "type": "computer",
@@ -21763,7 +24006,8 @@
     },
     {
       "id": "johto_league_karen",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_league_karen.json",
+      "sourceFile": "entries/rct/johto_league_karen.json",
+      "sourceGroup": "rct",
       "name": "Karen",
       "entry": {
         "type": "computer",
@@ -22134,7 +24378,8 @@
     },
     {
       "id": "johto_league_koga",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_league_koga.json",
+      "sourceFile": "entries/rct/johto_league_koga.json",
+      "sourceGroup": "rct",
       "name": "Koga",
       "entry": {
         "type": "computer",
@@ -22490,7 +24735,8 @@
     },
     {
       "id": "kanto_koga",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_koga.json",
+      "sourceFile": "entries/rct/kanto_koga.json",
+      "sourceGroup": "rct",
       "name": "Koga",
       "entry": {
         "type": "computer",
@@ -22823,7 +25069,8 @@
     },
     {
       "id": "galaxy_lami_andre",
-      "sourceFile": "rctmod-v16-ver22/trainers/galaxy_lami_andre.json",
+      "sourceFile": "entries/rct/galaxy_lami_andre.json",
+      "sourceGroup": "rct",
       "name": "Lami_Andre",
       "entry": {
         "type": "computer",
@@ -22948,7 +25195,8 @@
     },
     {
       "id": "johto_champion_lance",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_champion_lance.json",
+      "sourceFile": "entries/rct/johto_champion_lance.json",
+      "sourceGroup": "rct",
       "name": "Lance",
       "entry": {
         "type": "computer",
@@ -23324,7 +25572,8 @@
     },
     {
       "id": "kanto_league_lance",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_league_lance.json",
+      "sourceFile": "entries/rct/kanto_league_lance.json",
+      "sourceGroup": "rct",
       "name": "Lance",
       "entry": {
         "type": "computer",
@@ -23677,7 +25926,8 @@
     },
     {
       "id": "lass_ann_007e",
-      "sourceFile": "rctmod-v16-ver22/trainers/lass_ann_007e.json",
+      "sourceFile": "entries/rct/lass_ann_007e.json",
+      "sourceGroup": "rct",
       "name": "Lass Ann",
       "entry": {
         "type": "computer",
@@ -23793,7 +26043,8 @@
     },
     {
       "id": "lass_anne_0004",
-      "sourceFile": "rctmod-v16-ver22/trainers/lass_anne_0004.json",
+      "sourceFile": "entries/rct/lass_anne_0004.json",
+      "sourceGroup": "rct",
       "name": "Lass Anne",
       "entry": {
         "type": "computer",
@@ -23935,7 +26186,8 @@
     },
     {
       "id": "lass_dalia_0268",
-      "sourceFile": "rctmod-v16-ver22/trainers/lass_dalia_0268.json",
+      "sourceFile": "entries/rct/lass_dalia_0268.json",
+      "sourceGroup": "rct",
       "name": "Lass Dalia",
       "entry": {
         "type": "computer",
@@ -24040,7 +26292,8 @@
     },
     {
       "id": "lass_haley_007d",
-      "sourceFile": "rctmod-v16-ver22/trainers/lass_haley_007d.json",
+      "sourceFile": "entries/rct/lass_haley_007d.json",
+      "sourceGroup": "rct",
       "name": "Lass Haley",
       "entry": {
         "type": "computer",
@@ -24147,7 +26400,8 @@
     },
     {
       "id": "lass_megan_0288",
-      "sourceFile": "rctmod-v16-ver22/trainers/lass_megan_0288.json",
+      "sourceFile": "entries/rct/lass_megan_0288.json",
+      "sourceGroup": "rct",
       "name": "Lass Megan",
       "entry": {
         "type": "computer",
@@ -24314,7 +26568,8 @@
     },
     {
       "id": "lass_megan_0289",
-      "sourceFile": "rctmod-v16-ver22/trainers/lass_megan_0289.json",
+      "sourceFile": "entries/rct/lass_megan_0289.json",
+      "sourceGroup": "rct",
       "name": "Lass Megan",
       "entry": {
         "type": "computer",
@@ -24447,7 +26702,8 @@
     },
     {
       "id": "lass_miriam_0078",
-      "sourceFile": "rctmod-v16-ver22/trainers/lass_miriam_0078.json",
+      "sourceFile": "entries/rct/lass_miriam_0078.json",
+      "sourceGroup": "rct",
       "name": "Lass Miriam",
       "entry": {
         "type": "computer",
@@ -24523,7 +26779,8 @@
     },
     {
       "id": "lass_sally_0075",
-      "sourceFile": "rctmod-v16-ver22/trainers/lass_sally_0075.json",
+      "sourceFile": "entries/rct/lass_sally_0075.json",
+      "sourceGroup": "rct",
       "name": "Lass Sally",
       "entry": {
         "type": "computer",
@@ -24599,7 +26856,8 @@
     },
     {
       "id": "team_aqua_ivan",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_aqua_ivan.json",
+      "sourceFile": "entries/rct/team_aqua_ivan.json",
+      "sourceGroup": "rct",
       "name": "Leader Ivan",
       "entry": {
         "type": "computer",
@@ -24684,7 +26942,8 @@
     },
     {
       "id": "team_magma_max",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_magma_max.json",
+      "sourceFile": "entries/rct/team_magma_max.json",
+      "sourceGroup": "rct",
       "name": "Leader Max",
       "entry": {
         "type": "computer",
@@ -24769,7 +27028,8 @@
     },
     {
       "id": "kanto_league_lorelei",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_league_lorelei.json",
+      "sourceFile": "entries/rct/kanto_league_lorelei.json",
+      "sourceGroup": "rct",
       "name": "Lorelei",
       "entry": {
         "type": "computer",
@@ -25117,7 +27377,8 @@
     },
     {
       "id": "kanto_ltsurge",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_ltsurge.json",
+      "sourceFile": "entries/rct/kanto_ltsurge.json",
+      "sourceGroup": "rct",
       "name": "Lt. Surge",
       "entry": {
         "type": "computer",
@@ -25384,7 +27645,8 @@
     },
     {
       "id": "sinnoh_league_luciano",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_league_luciano.json",
+      "sourceFile": "entries/rct/sinnoh_league_luciano.json",
+      "sourceGroup": "rct",
       "name": "Luciano",
       "entry": {
         "type": "computer",
@@ -25619,7 +27881,8 @@
     },
     {
       "id": "hoenn_lyris",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_lyris.json",
+      "sourceFile": "entries/rct/hoenn_lyris.json",
+      "sourceGroup": "rct",
       "name": "Lyris",
       "entry": {
         "type": "computer",
@@ -25987,7 +28250,8 @@
     },
     {
       "id": "lumy_mario",
-      "sourceFile": "rctmod-v16-ver22/trainers/lumy_mario.json",
+      "sourceFile": "entries/rct/lumy_mario.json",
+      "sourceGroup": "rct",
       "name": "Mario",
       "entry": {
         "type": "computer",
@@ -26092,7 +28356,8 @@
     },
     {
       "id": "sinnoh_marzia",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_marzia.json",
+      "sourceFile": "entries/rct/sinnoh_marzia.json",
+      "sourceGroup": "rct",
       "name": "Marzia",
       "entry": {
         "type": "computer",
@@ -26456,7 +28721,8 @@
     },
     {
       "id": "kanto_misty",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_misty.json",
+      "sourceFile": "entries/rct/kanto_misty.json",
+      "sourceGroup": "rct",
       "name": "Misty",
       "entry": {
         "type": "computer",
@@ -26748,7 +29014,8 @@
     },
     {
       "id": "galaxy_morn27015",
-      "sourceFile": "rctmod-v16-ver22/trainers/galaxy_morn27015.json",
+      "sourceFile": "entries/rct/galaxy_morn27015.json",
+      "sourceGroup": "rct",
       "name": "Morn27015",
       "entry": {
         "type": "computer",
@@ -26844,7 +29111,8 @@
     },
     {
       "id": "mod_nikky",
-      "sourceFile": "rctmod-v16-ver22/trainers/mod_nikky.json",
+      "sourceFile": "entries/rct/mod_nikky.json",
+      "sourceGroup": "rct",
       "name": "Nikky",
       "entry": {
         "type": "computer",
@@ -27031,7 +29299,8 @@
     },
     {
       "id": "hoenn_norman",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_norman.json",
+      "sourceFile": "entries/rct/hoenn_norman.json",
+      "sourceGroup": "rct",
       "name": "Norman",
       "entry": {
         "type": "computer",
@@ -27408,7 +29677,8 @@
     },
     {
       "id": "sinnoh_omar",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_omar.json",
+      "sourceFile": "entries/rct/sinnoh_omar.json",
+      "sourceGroup": "rct",
       "name": "Omar",
       "entry": {
         "type": "computer",
@@ -27759,7 +30029,8 @@
     },
     {
       "id": "galaxy_ominorosso",
-      "sourceFile": "rctmod-v16-ver22/trainers/galaxy_ominorosso.json",
+      "sourceFile": "entries/rct/galaxy_ominorosso.json",
+      "sourceGroup": "rct",
       "name": "OminoRosso",
       "entry": {
         "type": "computer",
@@ -27864,7 +30135,8 @@
     },
     {
       "id": "hoenn_pat",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_pat.json",
+      "sourceFile": "entries/rct/hoenn_pat.json",
+      "sourceGroup": "rct",
       "name": "Pat",
       "entry": {
         "type": "computer",
@@ -27924,7 +30196,8 @@
     },
     {
       "id": "sinnoh_pedro",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_pedro.json",
+      "sourceFile": "entries/rct/sinnoh_pedro.json",
+      "sourceGroup": "rct",
       "name": "Pedro",
       "entry": {
         "type": "computer",
@@ -28257,7 +30530,8 @@
     },
     {
       "id": "hoenn_petra",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_petra.json",
+      "sourceFile": "entries/rct/hoenn_petra.json",
+      "sourceGroup": "rct",
       "name": "Petra",
       "entry": {
         "type": "computer",
@@ -28587,7 +30861,8 @@
     },
     {
       "id": "picnicker_dana_01da",
-      "sourceFile": "rctmod-v16-ver22/trainers/picnicker_dana_01da.json",
+      "sourceFile": "entries/rct/picnicker_dana_01da.json",
+      "sourceGroup": "rct",
       "name": "Picnicker Dana",
       "entry": {
         "type": "computer",
@@ -28692,7 +30967,8 @@
     },
     {
       "id": "picnicker_missy_01d8",
-      "sourceFile": "rctmod-v16-ver22/trainers/picnicker_missy_01d8.json",
+      "sourceFile": "entries/rct/picnicker_missy_01d8.json",
+      "sourceGroup": "rct",
       "name": "Picnicker Missy",
       "entry": {
         "type": "computer",
@@ -28768,7 +31044,8 @@
     },
     {
       "id": "johto_league_pino",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_league_pino.json",
+      "sourceFile": "entries/rct/johto_league_pino.json",
+      "sourceGroup": "rct",
       "name": "Pino",
       "entry": {
         "type": "computer",
@@ -29125,7 +31402,8 @@
     },
     {
       "id": "player_red_0202",
-      "sourceFile": "rctmod-v16-ver22/trainers/player_red_0202.json",
+      "sourceFile": "entries/rct/player_red_0202.json",
+      "sourceGroup": "rct",
       "name": "Player Red",
       "entry": {
         "type": "computer",
@@ -29171,7 +31449,8 @@
     },
     {
       "id": "pokefan_agathare_0021",
-      "sourceFile": "rctmod-v16-ver22/trainers/pokefan_agathare_0021.json",
+      "sourceFile": "entries/rct/pokefan_agathare_0021.json",
+      "sourceGroup": "rct",
       "name": "Pokéfan Laurenzia",
       "entry": {
         "type": "computer",
@@ -29218,7 +31497,8 @@
     },
     {
       "id": "pokefan_agathare_0022",
-      "sourceFile": "rctmod-v16-ver22/trainers/pokefan_agathare_0022.json",
+      "sourceFile": "entries/rct/pokefan_agathare_0022.json",
+      "sourceGroup": "rct",
       "name": "Pokéfan Laurenzia",
       "entry": {
         "type": "computer",
@@ -29265,7 +31545,8 @@
     },
     {
       "id": "prof_prof_oak_01ff",
-      "sourceFile": "rctmod-v16-ver22/trainers/prof_prof_oak_01ff.json",
+      "sourceFile": "entries/rct/prof_prof_oak_01ff.json",
+      "sourceGroup": "rct",
       "name": "Prof. Oak",
       "entry": {
         "type": "computer",
@@ -29310,7 +31591,8 @@
     },
     {
       "id": "psychic_johan_0118",
-      "sourceFile": "rctmod-v16-ver22/trainers/psychic_johan_0118.json",
+      "sourceFile": "entries/rct/psychic_johan_0118.json",
+      "sourceGroup": "rct",
       "name": "Psychic Johan",
       "entry": {
         "type": "computer",
@@ -29415,7 +31697,8 @@
     },
     {
       "id": "johto_raffaello",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_raffaello.json",
+      "sourceFile": "entries/rct/johto_raffaello.json",
+      "sourceGroup": "rct",
       "name": "Raffaello",
       "entry": {
         "type": "computer",
@@ -29784,7 +32067,8 @@
     },
     {
       "id": "ranger_beth_0255",
-      "sourceFile": "rctmod-v16-ver22/trainers/ranger_beth_0255.json",
+      "sourceFile": "entries/rct/ranger_beth_0255.json",
+      "sourceGroup": "rct",
       "name": "Ranger Beth",
       "entry": {
         "type": "computer",
@@ -29961,7 +32245,8 @@
     },
     {
       "id": "rival_red",
-      "sourceFile": "rctmod-v16-ver22/trainers/rival_red.json",
+      "sourceFile": "entries/rct/rival_red.json",
+      "sourceGroup": "rct",
       "name": "Red",
       "entry": {
         "type": "computer",
@@ -30309,7 +32594,8 @@
     },
     {
       "id": "lumy_rickally",
-      "sourceFile": "rctmod-v16-ver22/trainers/lumy_rickally.json",
+      "sourceFile": "entries/rct/lumy_rickally.json",
+      "sourceGroup": "rct",
       "name": "RickAlly",
       "entry": {
         "type": "computer",
@@ -30414,7 +32700,8 @@
     },
     {
       "id": "hoenn_champion_rocco",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_champion_rocco.json",
+      "sourceFile": "entries/rct/hoenn_champion_rocco.json",
+      "sourceGroup": "rct",
       "name": "Rocco",
       "entry": {
         "type": "computer",
@@ -30711,7 +32998,8 @@
     },
     {
       "id": "rocket_admin_archer_002a",
-      "sourceFile": "rctmod-v16-ver22/trainers/rocket_admin_archer_002a.json",
+      "sourceFile": "entries/rct/rocket_admin_archer_002a.json",
+      "sourceGroup": "rct",
       "name": "Rocket Admin Archer",
       "entry": {
         "type": "computer",
@@ -31063,7 +33351,8 @@
     },
     {
       "id": "rocket_admin_ariana_0029",
-      "sourceFile": "rctmod-v16-ver22/trainers/rocket_admin_ariana_0029.json",
+      "sourceFile": "entries/rct/rocket_admin_ariana_0029.json",
+      "sourceGroup": "rct",
       "name": "Rocket Admin Ariana",
       "entry": {
         "type": "computer",
@@ -31357,7 +33646,8 @@
     },
     {
       "id": "hoenn_rudi",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_rudi.json",
+      "sourceFile": "entries/rct/hoenn_rudi.json",
+      "sourceGroup": "rct",
       "name": "Rudi",
       "entry": {
         "type": "computer",
@@ -31724,7 +34014,8 @@
     },
     {
       "id": "ruin_mamoac_benjamin_025b",
-      "sourceFile": "rctmod-v16-ver22/trainers/ruin_mamoac_benjamin_025b.json",
+      "sourceFile": "entries/rct/ruin_mamoac_benjamin_025b.json",
+      "sourceGroup": "rct",
       "name": "Ruin Mamoac Benjamin",
       "entry": {
         "type": "computer",
@@ -31829,7 +34120,8 @@
     },
     {
       "id": "kanto_sabrina",
-      "sourceFile": "rctmod-v16-ver22/trainers/kanto_sabrina.json",
+      "sourceFile": "entries/rct/kanto_sabrina.json",
+      "sourceGroup": "rct",
       "name": "Sabrina",
       "entry": {
         "type": "computer",
@@ -32174,7 +34466,8 @@
     },
     {
       "id": "sailor_duncan_0089",
-      "sourceFile": "rctmod-v16-ver22/trainers/sailor_duncan_0089.json",
+      "sourceFile": "entries/rct/sailor_duncan_0089.json",
+      "sourceGroup": "rct",
       "name": "Sailor Duncan",
       "entry": {
         "type": "computer",
@@ -32279,7 +34572,8 @@
     },
     {
       "id": "sailor_phillip_008c",
-      "sourceFile": "rctmod-v16-ver22/trainers/sailor_phillip_008c.json",
+      "sourceFile": "entries/rct/sailor_phillip_008c.json",
+      "sourceGroup": "rct",
       "name": "Sailor Phillip",
       "entry": {
         "type": "computer",
@@ -32326,7 +34620,8 @@
     },
     {
       "id": "sailor_trevor_0087",
-      "sourceFile": "rctmod-v16-ver22/trainers/sailor_trevor_0087.json",
+      "sourceFile": "entries/rct/sailor_trevor_0087.json",
+      "sourceGroup": "rct",
       "name": "Sailor Trevor",
       "entry": {
         "type": "computer",
@@ -32422,7 +34717,8 @@
     },
     {
       "id": "johto_sandra",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_sandra.json",
+      "sourceFile": "entries/rct/johto_sandra.json",
+      "sourceGroup": "rct",
       "name": "Sandra",
       "entry": {
         "type": "computer",
@@ -32781,7 +35077,8 @@
     },
     {
       "id": "school_kid_brunore_001e",
-      "sourceFile": "rctmod-v16-ver22/trainers/school_kid_brunore_001e.json",
+      "sourceFile": "entries/rct/school_kid_brunore_001e.json",
+      "sourceGroup": "rct",
       "name": "School Kid BrunoRe",
       "entry": {
         "type": "computer",
@@ -32827,7 +35124,8 @@
     },
     {
       "id": "school_kid_brunore_001f",
-      "sourceFile": "rctmod-v16-ver22/trainers/school_kid_brunore_001f.json",
+      "sourceFile": "entries/rct/school_kid_brunore_001f.json",
+      "sourceGroup": "rct",
       "name": "School Kid BrunoRe",
       "entry": {
         "type": "computer",
@@ -32873,7 +35171,8 @@
     },
     {
       "id": "scientist_ed_0158",
-      "sourceFile": "rctmod-v16-ver22/trainers/scientist_ed_0158.json",
+      "sourceFile": "entries/rct/scientist_ed_0158.json",
+      "sourceGroup": "rct",
       "name": "Scientist Ed",
       "entry": {
         "type": "computer",
@@ -32978,7 +35277,8 @@
     },
     {
       "id": "scientist_ivan_015b",
-      "sourceFile": "rctmod-v16-ver22/trainers/scientist_ivan_015b.json",
+      "sourceFile": "entries/rct/scientist_ivan_015b.json",
+      "sourceGroup": "rct",
       "name": "Scientist Ivan",
       "entry": {
         "type": "computer",
@@ -33054,7 +35354,8 @@
     },
     {
       "id": "scientist_rodney_0153",
-      "sourceFile": "rctmod-v16-ver22/trainers/scientist_rodney_0153.json",
+      "sourceFile": "entries/rct/scientist_rodney_0153.json",
+      "sourceGroup": "rct",
       "name": "Scientist Rodney",
       "entry": {
         "type": "computer",
@@ -33196,7 +35497,8 @@
     },
     {
       "id": "super_nerd_aavery_00b2",
-      "sourceFile": "rctmod-v16-ver22/trainers/super_nerd_aavery_00b2.json",
+      "sourceFile": "entries/rct/super_nerd_aavery_00b2.json",
+      "sourceGroup": "rct",
       "name": "Super Nerd Aavery",
       "entry": {
         "type": "computer",
@@ -33330,7 +35632,8 @@
     },
     {
       "id": "swimmerf_tiffany_010e",
-      "sourceFile": "rctmod-v16-ver22/trainers/swimmerf_tiffany_010e.json",
+      "sourceFile": "entries/rct/swimmerf_tiffany_010e.json",
+      "sourceGroup": "rct",
       "name": "Swimmer♀ Giusy",
       "entry": {
         "type": "computer",
@@ -33377,7 +35680,8 @@
     },
     {
       "id": "swimmerf_shirley_0117",
-      "sourceFile": "rctmod-v16-ver22/trainers/swimmerf_shirley_0117.json",
+      "sourceFile": "entries/rct/swimmerf_shirley_0117.json",
+      "sourceGroup": "rct",
       "name": "Swimmer♀ Shirley",
       "entry": {
         "type": "computer",
@@ -33453,7 +35757,8 @@
     },
     {
       "id": "swimmerf_tisha_0231",
-      "sourceFile": "rctmod-v16-ver22/trainers/swimmerf_tisha_0231.json",
+      "sourceFile": "entries/rct/swimmerf_tisha_0231.json",
+      "sourceGroup": "rct",
       "name": "Swimmer♀ Tisha",
       "entry": {
         "type": "computer",
@@ -33662,7 +35967,8 @@
     },
     {
       "id": "swimmerm_jerome_00f7",
-      "sourceFile": "rctmod-v16-ver22/trainers/swimmerm_jerome_00f7.json",
+      "sourceFile": "entries/rct/swimmerm_jerome_00f7.json",
+      "sourceGroup": "rct",
       "name": "Swimmer♂ Jerome",
       "entry": {
         "type": "computer",
@@ -33709,7 +36015,8 @@
     },
     {
       "id": "swimmerm_roland_00f8",
-      "sourceFile": "rctmod-v16-ver22/trainers/swimmerm_roland_00f8.json",
+      "sourceFile": "entries/rct/swimmerm_roland_00f8.json",
+      "sourceGroup": "rct",
       "name": "Swimmer♂ Roland",
       "entry": {
         "type": "computer",
@@ -33785,7 +36092,8 @@
     },
     {
       "id": "tamer_phil_0126",
-      "sourceFile": "rctmod-v16-ver22/trainers/tamer_phil_0126.json",
+      "sourceFile": "entries/rct/tamer_phil_0126.json",
+      "sourceGroup": "rct",
       "name": "Tamer Phil",
       "entry": {
         "type": "computer",
@@ -33861,7 +36169,8 @@
     },
     {
       "id": "team_rocket_admin_021f",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_admin_021f.json",
+      "sourceFile": "entries/rct/team_rocket_admin_021f.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Admin",
       "entry": {
         "type": "computer",
@@ -33971,7 +36280,8 @@
     },
     {
       "id": "team_rocket_admin_0220",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_admin_0220.json",
+      "sourceFile": "entries/rct/team_rocket_admin_0220.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Admin",
       "entry": {
         "type": "computer",
@@ -34080,7 +36390,8 @@
     },
     {
       "id": "team_rocket_agent_01",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_agent_01.json",
+      "sourceFile": "entries/rct/team_rocket_agent_01.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Agent",
       "entry": {
         "type": "computer",
@@ -34197,7 +36508,8 @@
     },
     {
       "id": "team_rocket_agent_02",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_agent_02.json",
+      "sourceFile": "entries/rct/team_rocket_agent_02.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Agent",
       "entry": {
         "type": "computer",
@@ -34314,7 +36626,8 @@
     },
     {
       "id": "team_rocket_agent_03",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_agent_03.json",
+      "sourceFile": "entries/rct/team_rocket_agent_03.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Agent",
       "entry": {
         "type": "computer",
@@ -34431,7 +36744,8 @@
     },
     {
       "id": "team_rocket_agent_04",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_agent_04.json",
+      "sourceFile": "entries/rct/team_rocket_agent_04.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Agent",
       "entry": {
         "type": "computer",
@@ -34548,7 +36862,8 @@
     },
     {
       "id": "team_rocket_admin_archer",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_admin_archer.json",
+      "sourceFile": "entries/rct/team_rocket_admin_archer.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket General Archer",
       "entry": {
         "type": "computer",
@@ -34896,7 +37211,8 @@
     },
     {
       "id": "team_rocket_general_archer",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_general_archer.json",
+      "sourceFile": "entries/rct/team_rocket_general_archer.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket General Archer",
       "entry": {
         "type": "computer",
@@ -35244,7 +37560,8 @@
     },
     {
       "id": "team_rocket_grunt_0162",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_grunt_0162.json",
+      "sourceFile": "entries/rct/team_rocket_grunt_0162.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -35322,7 +37639,8 @@
     },
     {
       "id": "team_rocket_grunt_016b",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_grunt_016b.json",
+      "sourceFile": "entries/rct/team_rocket_grunt_016b.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -35455,7 +37773,8 @@
     },
     {
       "id": "team_rocket_grunt_016f",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_grunt_016f.json",
+      "sourceFile": "entries/rct/team_rocket_grunt_016f.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -35560,7 +37879,8 @@
     },
     {
       "id": "team_rocket_grunt_0173",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_grunt_0173.json",
+      "sourceFile": "entries/rct/team_rocket_grunt_0173.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -35665,7 +37985,8 @@
     },
     {
       "id": "team_rocket_grunt_0175",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_grunt_0175.json",
+      "sourceFile": "entries/rct/team_rocket_grunt_0175.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -35743,7 +38064,8 @@
     },
     {
       "id": "team_rocket_grunt_017e",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_grunt_017e.json",
+      "sourceFile": "entries/rct/team_rocket_grunt_017e.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -35848,7 +38170,8 @@
     },
     {
       "id": "team_rocket_grunt_0182",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_grunt_0182.json",
+      "sourceFile": "entries/rct/team_rocket_grunt_0182.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -35924,7 +38247,8 @@
     },
     {
       "id": "team_rocket_grunt_0183",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_grunt_0183.json",
+      "sourceFile": "entries/rct/team_rocket_grunt_0183.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -36000,7 +38324,8 @@
     },
     {
       "id": "team_rocket_member_01",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_member_01.json",
+      "sourceFile": "entries/rct/team_rocket_member_01.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -36117,7 +38442,8 @@
     },
     {
       "id": "team_rocket_member_02",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_member_02.json",
+      "sourceFile": "entries/rct/team_rocket_member_02.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -36234,7 +38560,8 @@
     },
     {
       "id": "team_rocket_member_03",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_member_03.json",
+      "sourceFile": "entries/rct/team_rocket_member_03.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -36351,7 +38678,8 @@
     },
     {
       "id": "team_rocket_member_04",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_member_04.json",
+      "sourceFile": "entries/rct/team_rocket_member_04.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Grunt",
       "entry": {
         "type": "computer",
@@ -36468,7 +38796,8 @@
     },
     {
       "id": "team_rocket_duo_james",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_duo_james.json",
+      "sourceFile": "entries/rct/team_rocket_duo_james.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket James",
       "entry": {
         "type": "computer",
@@ -36578,7 +38907,8 @@
     },
     {
       "id": "team_rocket_duo_jessie",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_duo_jessie.json",
+      "sourceFile": "entries/rct/team_rocket_duo_jessie.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Jessie",
       "entry": {
         "type": "computer",
@@ -36687,7 +39017,8 @@
     },
     {
       "id": "team_rocket_officer_01",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_officer_01.json",
+      "sourceFile": "entries/rct/team_rocket_officer_01.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Officer",
       "entry": {
         "type": "computer",
@@ -36982,7 +39313,8 @@
     },
     {
       "id": "team_rocket_officer_02",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_officer_02.json",
+      "sourceFile": "entries/rct/team_rocket_officer_02.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Officer",
       "entry": {
         "type": "computer",
@@ -37277,7 +39609,8 @@
     },
     {
       "id": "team_rocket_officer_03",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_officer_03.json",
+      "sourceFile": "entries/rct/team_rocket_officer_03.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Officer",
       "entry": {
         "type": "computer",
@@ -37572,7 +39905,8 @@
     },
     {
       "id": "team_rocket_officer_04",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_officer_04.json",
+      "sourceFile": "entries/rct/team_rocket_officer_04.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Officer",
       "entry": {
         "type": "computer",
@@ -37867,7 +40201,8 @@
     },
     {
       "id": "team_rocket_scientist_01",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_scientist_01.json",
+      "sourceFile": "entries/rct/team_rocket_scientist_01.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Scientist",
       "entry": {
         "type": "computer",
@@ -38015,7 +40350,8 @@
     },
     {
       "id": "team_rocket_scientist_02",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_scientist_02.json",
+      "sourceFile": "entries/rct/team_rocket_scientist_02.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Scientist",
       "entry": {
         "type": "computer",
@@ -38163,7 +40499,8 @@
     },
     {
       "id": "team_rocket_scientist_03",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_scientist_03.json",
+      "sourceFile": "entries/rct/team_rocket_scientist_03.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Scientist",
       "entry": {
         "type": "computer",
@@ -38311,7 +40648,8 @@
     },
     {
       "id": "team_rocket_scientist_04",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_scientist_04.json",
+      "sourceFile": "entries/rct/team_rocket_scientist_04.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Scientist",
       "entry": {
         "type": "computer",
@@ -38459,7 +40797,8 @@
     },
     {
       "id": "team_rocket_scout_01",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_scout_01.json",
+      "sourceFile": "entries/rct/team_rocket_scout_01.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Scout",
       "entry": {
         "type": "computer",
@@ -38661,7 +41000,8 @@
     },
     {
       "id": "team_rocket_scout_02",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_scout_02.json",
+      "sourceFile": "entries/rct/team_rocket_scout_02.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Scout",
       "entry": {
         "type": "computer",
@@ -38863,7 +41203,8 @@
     },
     {
       "id": "team_rocket_scout_03",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_scout_03.json",
+      "sourceFile": "entries/rct/team_rocket_scout_03.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Scout",
       "entry": {
         "type": "computer",
@@ -39045,7 +41386,8 @@
     },
     {
       "id": "team_rocket_scout_04",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_scout_04.json",
+      "sourceFile": "entries/rct/team_rocket_scout_04.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Scout",
       "entry": {
         "type": "computer",
@@ -39227,7 +41569,8 @@
     },
     {
       "id": "team_rocket_spy_01",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_spy_01.json",
+      "sourceFile": "entries/rct/team_rocket_spy_01.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Spy",
       "entry": {
         "type": "computer",
@@ -39402,7 +41745,8 @@
     },
     {
       "id": "team_rocket_spy_02",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_spy_02.json",
+      "sourceFile": "entries/rct/team_rocket_spy_02.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Spy",
       "entry": {
         "type": "computer",
@@ -39577,7 +41921,8 @@
     },
     {
       "id": "team_rocket_spy_03",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_spy_03.json",
+      "sourceFile": "entries/rct/team_rocket_spy_03.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Spy",
       "entry": {
         "type": "computer",
@@ -39752,7 +42097,8 @@
     },
     {
       "id": "team_rocket_spy_04",
-      "sourceFile": "rctmod-v16-ver22/trainers/team_rocket_spy_04.json",
+      "sourceFile": "entries/rct/team_rocket_spy_04.json",
+      "sourceGroup": "rct",
       "name": "Team Rocket Spy",
       "entry": {
         "type": "computer",
@@ -39927,7 +42273,8 @@
     },
     {
       "id": "hoenn_tell",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_tell.json",
+      "sourceFile": "entries/rct/hoenn_tell.json",
+      "sourceGroup": "rct",
       "name": "Tell",
       "entry": {
         "type": "computer",
@@ -40286,7 +42633,8 @@
     },
     {
       "id": "sinnoh_league_terrie",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_league_terrie.json",
+      "sourceFile": "entries/rct/sinnoh_league_terrie.json",
+      "sourceGroup": "rct",
       "name": "Terrie",
       "entry": {
         "type": "computer",
@@ -40625,7 +42973,8 @@
     },
     {
       "id": "old_sage",
-      "sourceFile": "rctmod-v16-ver22/trainers/old_sage.json",
+      "sourceFile": "entries/rct/old_sage.json",
+      "sourceGroup": "rct",
       "name": "The Old Sage",
       "entry": {
         "type": "computer",
@@ -40973,7 +43322,8 @@
     },
     {
       "id": "trainer_haley_000f",
-      "sourceFile": "rctmod-v16-ver22/trainers/trainer_haley_000f.json",
+      "sourceFile": "entries/rct/trainer_haley_000f.json",
+      "sourceGroup": "rct",
       "name": "Trainer Haley",
       "entry": {
         "type": "computer",
@@ -41215,7 +43565,8 @@
     },
     {
       "id": "trainer_may_003d",
-      "sourceFile": "rctmod-v16-ver22/trainers/trainer_may_003d.json",
+      "sourceFile": "entries/rct/trainer_may_003d.json",
+      "sourceGroup": "rct",
       "name": "Trainer May",
       "entry": {
         "type": "computer",
@@ -41511,7 +43862,8 @@
     },
     {
       "id": "mod_vale_fragola",
-      "sourceFile": "rctmod-v16-ver22/trainers/mod_vale_fragola.json",
+      "sourceFile": "entries/rct/mod_vale_fragola.json",
+      "sourceGroup": "rct",
       "name": "Vale_Fragola",
       "entry": {
         "type": "computer",
@@ -41646,7 +43998,8 @@
     },
     {
       "id": "johto_valerio",
-      "sourceFile": "rctmod-v16-ver22/trainers/johto_valerio.json",
+      "sourceFile": "entries/rct/johto_valerio.json",
+      "sourceGroup": "rct",
       "name": "Valerio",
       "entry": {
         "type": "computer",
@@ -41999,7 +44352,8 @@
     },
     {
       "id": "sinnoh_league_vulcano",
-      "sourceFile": "rctmod-v16-ver22/trainers/sinnoh_league_vulcano.json",
+      "sourceFile": "entries/rct/sinnoh_league_vulcano.json",
+      "sourceGroup": "rct",
       "name": "Vulcano",
       "entry": {
         "type": "computer",
@@ -42338,7 +44692,8 @@
     },
     {
       "id": "hoenn_walter",
-      "sourceFile": "rctmod-v16-ver22/trainers/hoenn_walter.json",
+      "sourceFile": "entries/rct/hoenn_walter.json",
+      "sourceGroup": "rct",
       "name": "Walter",
       "entry": {
         "type": "computer",
@@ -42701,7 +45056,8 @@
     },
     {
       "id": "youngster_yasu_0063",
-      "sourceFile": "rctmod-v16-ver22/trainers/youngster_yasu_0063.json",
+      "sourceFile": "entries/rct/youngster_yasu_0063.json",
+      "sourceGroup": "rct",
       "name": "Youngster Yasu",
       "entry": {
         "type": "computer",

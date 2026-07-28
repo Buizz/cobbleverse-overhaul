@@ -9,7 +9,12 @@ import {
 import {
   chooseNativeInteractiveBattleAction,
   clearNativeInteractiveBattleSessions,
+  exportNativeInteractiveBattleSave,
+  loadNativeInteractiveBattleSlot,
+  resumeNativeInteractiveBattle,
+  saveNativeInteractiveBattleSlot,
   startNativeInteractiveBattle,
+  undoNativeInteractiveBattleTurn,
 } from "../lib/native-interactive-battle-session.mjs";
 import { resolveNativeMaxMove } from "../lib/native-max-moves.mjs";
 
@@ -392,6 +397,72 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
   );
 });
 
+test("saves, loads, and rewinds native PvE battle checkpoints", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-pve-checkpoints",
+    mode: "pve",
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "raichu",
+            moveset: ["thunderbolt", "quickattack"],
+          },
+          {
+            ...scenario.sides[0].team[0],
+            slot: 2,
+            species: "charmander",
+            moveset: ["ember", "scratch"],
+          },
+        ],
+      },
+      scenario.sides[1],
+    ],
+  };
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  const savedStart = saveNativeInteractiveBattleSlot(started.sessionId, 1);
+  assert.equal(savedStart.controls.saveSlots[0].turn, 0);
+
+  const switched = chooseNativeInteractiveBattleAction(started.sessionId, {
+    type: "switch",
+    slot: 2,
+  });
+  assert.equal(switched.turns, 1);
+  assert.equal(switched.controls.canUndo, true);
+  const savedTurn = saveNativeInteractiveBattleSlot(started.sessionId, 2);
+  assert.equal(savedTurn.controls.saveSlots[1].turn, 1);
+  const portableSave = exportNativeInteractiveBattleSave(started.sessionId);
+  assert.equal(portableSave.battleEngine, "cobbleverse");
+
+  const loadedStart = loadNativeInteractiveBattleSlot(started.sessionId, 1);
+  assert.equal(loadedStart.turns, 0);
+  assert.equal(loadedStart.request.active.species, "Raichu");
+
+  const loadedTurn = loadNativeInteractiveBattleSlot(started.sessionId, 2);
+  assert.equal(loadedTurn.turns, 1);
+  assert.equal(loadedTurn.request.active.species, "Charmander");
+
+  const rewound = undoNativeInteractiveBattleTurn(started.sessionId);
+  assert.equal(rewound.turns, 0);
+  assert.equal(rewound.request.active.species, "Raichu");
+  assert.equal(rewound.reproduction.turns.length, 0);
+
+  clearNativeInteractiveBattleSessions();
+  const resumed = resumeNativeInteractiveBattle(portableSave);
+  assert.equal(resumed.turns, 1);
+  assert.equal(resumed.request.active.species, "Charmander");
+  assert.equal(resumed.controls.canUndo, true);
+  const resumedRewind = undoNativeInteractiveBattleTurn(resumed.sessionId);
+  assert.equal(resumedRewind.turns, 0);
+  assert.equal(resumedRewind.request.active.species, "Raichu");
+  clearNativeInteractiveBattleSessions();
+});
+
 test("shows dynamic power move effectiveness against the current opponent", () => {
   clearNativeInteractiveBattleSessions();
   const battleScenario = {
@@ -631,7 +702,16 @@ test("forces the computer to Dynamax when its entry requests it", () => {
     scenarioId: "native-ai-forced-dynamax",
     mode: "pve",
     sides: [
-      scenario.sides[0],
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "snorlax",
+            moveset: ["heatcrash", "tackle"],
+          },
+        ],
+      },
       {
         ...scenario.sides[1],
         team: [
@@ -657,6 +737,10 @@ test("forces the computer to Dynamax when its entry requests it", () => {
     ),
   );
   assert.equal(battle.aiTrace[0].gimmick, "dynamax");
+  assert.equal(
+    battle.request.moves.find((move) => move.id === "heatcrash")?.disabled,
+    true,
+  );
 });
 
 test("forces the computer to Gigantamax when its entry requests G-Max", () => {

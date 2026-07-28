@@ -4,7 +4,12 @@ import test from "node:test";
 import {
   chooseInteractiveBattleAction,
   clearInteractiveBattleSessions,
+  exportInteractiveBattleSave,
+  loadInteractiveBattleSlot,
+  resumeInteractiveBattle,
+  saveInteractiveBattleSlot,
   startInteractiveBattle,
+  undoInteractiveBattleTurn,
 } from "../lib/interactive-battle-session.mjs";
 
 const scenario = {
@@ -106,6 +111,51 @@ test("plays an interactive PvE battle through player move choices", async () => 
   assert.equal(battle.winner, "Player");
   assert.ok(battle.events.some((event) => event.type === "move"));
   assert.equal(battle.request, null);
+  clearInteractiveBattleSessions();
+});
+
+test("saves, loads, and rewinds Showdown PvE battle choices", async () => {
+  const checkpointScenario = structuredClone(scenario);
+  checkpointScenario.scenarioId = "interactive-checkpoints";
+  checkpointScenario.sides[1].team[0] = {
+    ...checkpointScenario.sides[1].team[0],
+    species: "blissey",
+    ability: "naturalcure",
+    heldItem: "leftovers",
+    moveset: ["splash"],
+  };
+
+  const started = await startInteractiveBattle(checkpointScenario);
+  const initialTurn = started.turns;
+  const savedStart = await saveInteractiveBattleSlot(started.sessionId, 1);
+  assert.equal(savedStart.controls.saveSlots[0].turn, initialTurn);
+
+  const advanced = await chooseInteractiveBattleAction(started.sessionId, {
+    type: "move",
+    slot: 1,
+  });
+  assert.ok(advanced.turns > 0);
+  assert.equal(advanced.controls.canUndo, true);
+  const savedTurn = await saveInteractiveBattleSlot(started.sessionId, 2);
+  assert.equal(savedTurn.controls.saveSlots[1].turn, advanced.turns);
+  const portableSave = exportInteractiveBattleSave(started.sessionId);
+  assert.equal(portableSave.battleEngine, "showdown");
+
+  const loadedStart = await loadInteractiveBattleSlot(started.sessionId, 1);
+  assert.equal(loadedStart.turns, initialTurn);
+
+  const loadedTurn = await loadInteractiveBattleSlot(started.sessionId, 2);
+  assert.equal(loadedTurn.turns, advanced.turns);
+
+  const rewound = await undoInteractiveBattleTurn(started.sessionId);
+  assert.equal(rewound.turns, initialTurn);
+
+  clearInteractiveBattleSessions();
+  const resumed = await resumeInteractiveBattle(portableSave);
+  assert.equal(resumed.turns, advanced.turns);
+  assert.equal(resumed.controls.canUndo, true);
+  const resumedRewind = await undoInteractiveBattleTurn(resumed.sessionId);
+  assert.equal(resumedRewind.turns, initialTurn);
   clearInteractiveBattleSessions();
 });
 

@@ -6,13 +6,23 @@ import { createCobblemonItemResolver } from "../../../lib/cobblemon-item-catalog
 import { findNativeMoveSupportWarnings } from "../../../lib/native-move-support.mjs";
 import {
   chooseInteractiveBattleAction,
+  exportInteractiveBattleSave,
   forfeitInteractiveBattle,
+  loadInteractiveBattleSlot,
+  resumeInteractiveBattle,
+  saveInteractiveBattleSlot,
   startInteractiveBattle,
+  undoInteractiveBattleTurn,
 } from "../../../lib/interactive-battle-session.mjs";
 import {
   chooseNativeInteractiveBattleAction,
+  exportNativeInteractiveBattleSave,
   forfeitNativeInteractiveBattle,
+  loadNativeInteractiveBattleSlot,
+  resumeNativeInteractiveBattle,
+  saveNativeInteractiveBattleSlot,
   startNativeInteractiveBattle,
+  undoNativeInteractiveBattleTurn,
 } from "../../../lib/native-interactive-battle-session.mjs";
 
 const itemResolver = createCobblemonItemResolver(itemCatalog);
@@ -69,6 +79,48 @@ export async function POST(request: Request) {
       const battle = String(body.sessionId ?? "").startsWith("native-")
         ? chooseNativeInteractiveBattleAction(body.sessionId, body.action)
         : await chooseInteractiveBattleAction(body.sessionId, body.action);
+      return Response.json({ ok: true, battle });
+    }
+    if (body.operation === "save") {
+      const native = String(body.sessionId ?? "").startsWith("native-");
+      const battle = native
+        ? saveNativeInteractiveBattleSlot(body.sessionId, body.slot)
+        : await saveInteractiveBattleSlot(body.sessionId, body.slot);
+      const save = native
+        ? exportNativeInteractiveBattleSave(body.sessionId)
+        : exportInteractiveBattleSave(body.sessionId);
+      return Response.json({ ok: true, battle, save });
+    }
+    if (body.operation === "resume") {
+      const save = body.save as Record<string, unknown> | undefined;
+      const validation = createBattleScenario(
+        save?.scenario,
+        trainerIndex.trainers,
+        itemResolver,
+      );
+      if (!validation.ok) {
+        return Response.json(validation, { status: 422 });
+      }
+      const normalizedSave = {
+        ...save,
+        scenario: validation.scenario,
+      };
+      const battle =
+        save?.battleEngine === "cobbleverse"
+          ? resumeNativeInteractiveBattle(normalizedSave)
+          : await resumeInteractiveBattle(normalizedSave);
+      return Response.json({ ok: true, battle });
+    }
+    if (body.operation === "load") {
+      const battle = String(body.sessionId ?? "").startsWith("native-")
+        ? loadNativeInteractiveBattleSlot(body.sessionId, body.slot)
+        : await loadInteractiveBattleSlot(body.sessionId, body.slot);
+      return Response.json({ ok: true, battle });
+    }
+    if (body.operation === "undo") {
+      const battle = String(body.sessionId ?? "").startsWith("native-")
+        ? undoNativeInteractiveBattleTurn(body.sessionId)
+        : await undoInteractiveBattleTurn(body.sessionId);
       return Response.json({ ok: true, battle });
     }
     if (body.operation === "forfeit") {

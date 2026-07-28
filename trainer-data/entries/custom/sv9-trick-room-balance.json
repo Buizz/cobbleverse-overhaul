@@ -1,0 +1,198 @@
+{
+  "name": "SV9 트릭룸 밸런스",
+  "entry": {
+    "type": "computer",
+    "priority": 900,
+    "label": "SV9 실전 테스트",
+    "source": "Cobbleverse curated SV OU archetype",
+    "owner": "Cobbleverse",
+    "snapshotDate": "2026-07-29"
+  },
+  "battleRules": {
+    "maxItemUses": 0
+  },
+  "bag": [],
+  "team": [
+    {
+      "species": "bronzong",
+      "level": 100,
+      "nature": "sassy",
+      "ability": "levitate",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": [
+        "trickroom",
+        "stealthrock",
+        "gyroball",
+        "explosion"
+      ],
+      "gimmicks": {
+        "tera": "Water"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 0
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 4,
+        "special_defence": 252
+      }
+    },
+    {
+      "species": "porygon2",
+      "level": 100,
+      "nature": "sassy",
+      "ability": "download",
+      "heldItem": "cobblemon:eviolite",
+      "moveset": [
+        "trickroom",
+        "recover",
+        "icebeam",
+        "thunderbolt"
+      ],
+      "gimmicks": {
+        "tera": "Ghost"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 0
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 156,
+        "special_defence": 100
+      }
+    },
+    {
+      "species": "ursaluna-bloodmoon",
+      "level": 100,
+      "nature": "quiet",
+      "ability": "mindseye",
+      "heldItem": "cobblemon:life_orb",
+      "moveset": [
+        "bloodmoon",
+        "earthpower",
+        "moonblast",
+        "vacuumwave"
+      ],
+      "gimmicks": {
+        "tera": "Normal"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 0
+      },
+      "evs": {
+        "hp": 252,
+        "special_attack": 252,
+        "special_defence": 4
+      }
+    },
+    {
+      "species": "snorlax",
+      "level": 100,
+      "nature": "brave",
+      "ability": "thickfat",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": [
+        "curse",
+        "bodyslam",
+        "heatcrash",
+        "rest"
+      ],
+      "gimmicks": {
+        "tera": "Ghost"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 0
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 4,
+        "special_defence": 252
+      }
+    },
+    {
+      "species": "conkeldurr",
+      "level": 100,
+      "nature": "brave",
+      "ability": "guts",
+      "heldItem": "cobblemon:flame_orb",
+      "moveset": [
+        "drainpunch",
+        "facade",
+        "machpunch",
+        "knockoff"
+      ],
+      "gimmicks": {
+        "tera": "Normal"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 0
+      },
+      "evs": {
+        "hp": 252,
+        "attack": 252,
+        "special_defence": 4
+      }
+    },
+    {
+      "species": "slowbro",
+      "level": 100,
+      "nature": "relaxed",
+      "ability": "regenerator",
+      "heldItem": "cobblemon:rocky_helmet",
+      "moveset": [
+        "trickroom",
+        "slackoff",
+        "psychic",
+        "flamethrower"
+      ],
+      "gimmicks": {
+        "tera": "Fairy"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 0
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_attack": 4
+      }
+    }
+  ],
+  "ai": {
+    "type": "cobbleverse",
+    "data": {
+      "canTera": true,
+      "strategy": "defensive"
+    }
+  }
+}

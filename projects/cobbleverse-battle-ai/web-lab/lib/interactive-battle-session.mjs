@@ -12,6 +12,8 @@ import {
 } from "./showdown-battle-runner.mjs";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
+const SAVE_SLOT_COUNT = 5;
+const MAX_CHECKPOINTS = 100;
 const sessions = new Map();
 
 function toGen5Seed(seed, salt = 0) {
@@ -719,11 +721,52 @@ function sessionSnapshot(session, replay) {
       ? null
       : publicRequest(replay.request, opponentSpecies, replay.aiTrace, session.scenario),
     aiTrace: replay.aiTrace,
+    controls: {
+      canUndo: session.history.some(
+        (checkpoint) => checkpoint.turn < turns,
+      ),
+      saveSlots: Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => {
+        const slot = index + 1;
+        const saved = session.saveSlots.get(slot);
+        return {
+          slot,
+          occupied: Boolean(saved),
+          turn: saved?.turn ?? null,
+          savedAt: saved?.savedAt ?? null,
+        };
+      }),
+    },
     warnings: session.warnings,
     error: replay.error,
     events: battleEvents(replay.log),
     log: replay.log,
   };
+}
+
+function requireSaveSlot(slot) {
+  const normalized = Number(slot);
+  if (
+    !Number.isInteger(normalized) ||
+    normalized < 1 ||
+    normalized > SAVE_SLOT_COUNT
+  ) {
+    throw new Error(`저장 슬롯은 1~${SAVE_SLOT_COUNT} 사이여야 합니다.`);
+  }
+  return normalized;
+}
+
+function actionCheckpoint(session) {
+  return {
+    turn: session.currentTurn,
+    actions: structuredClone(session.actions),
+  };
+}
+
+function pushActionCheckpoint(session, checkpoint) {
+  session.history.push(checkpoint);
+  if (session.history.length > MAX_CHECKPOINTS) {
+    session.history.splice(0, session.history.length - MAX_CHECKPOINTS);
+  }
 }
 
 function removeExpiredSessions() {
@@ -747,11 +790,17 @@ export async function startInteractiveBattle(scenario) {
     id: randomUUID(),
     scenario,
     actions: [],
+    currentTurn: 0,
+    history: [],
+    saveSlots: new Map(),
     warnings,
     updatedAt: Date.now(),
   };
   sessions.set(session.id, session);
-  return sessionSnapshot(session, await replayBattle(session));
+  const replay = await replayBattle(session);
+  const result = sessionSnapshot(session, replay);
+  session.currentTurn = result.turns;
+  return result;
 }
 
 export async function chooseInteractiveBattleAction(sessionId, action) {
@@ -760,14 +809,124 @@ export async function chooseInteractiveBattleAction(sessionId, action) {
   if (!session) {
     throw new Error("전투 세션을 찾을 수 없습니다. 전투를 다시 시작해 주세요.");
   }
+  const checkpoint = actionCheckpoint(session);
   session.actions.push(action);
   session.updatedAt = Date.now();
   try {
-    return sessionSnapshot(session, await replayBattle(session));
+    const replay = await replayBattle(session);
+    pushActionCheckpoint(session, checkpoint);
+    const result = sessionSnapshot(session, replay);
+    session.currentTurn = result.turns;
+    return result;
   } catch (error) {
     session.actions.pop();
     throw error;
   }
+}
+
+export async function saveInteractiveBattleSlot(sessionId, slot) {
+  removeExpiredSessions();
+  const session = sessions.get(String(sessionId ?? ""));
+  if (!session) {
+    throw new Error("전투 세션을 찾을 수 없습니다. 전투를 다시 시작해 주세요.");
+  }
+  const normalizedSlot = requireSaveSlot(slot);
+  session.saveSlots.set(normalizedSlot, {
+    turn: session.currentTurn,
+    actions: structuredClone(session.actions),
+    history: structuredClone(session.history),
+    savedAt: new Date().toISOString(),
+  });
+  session.updatedAt = Date.now();
+  return sessionSnapshot(session, await replayBattle(session));
+}
+
+export function exportInteractiveBattleSave(sessionId) {
+  removeExpiredSessions();
+  const session = sessions.get(String(sessionId ?? ""));
+  if (!session) {
+    throw new Error("전투 세션을 찾을 수 없습니다. 전투를 다시 시작해 주세요.");
+  }
+  return {
+    schema: "cobbleverse-pve-battle-save",
+    version: 1,
+    battleEngine: "showdown",
+    scenario: structuredClone(session.scenario),
+    turn: session.currentTurn,
+    savedAt: new Date().toISOString(),
+    payload: {
+      actions: structuredClone(session.actions),
+      history: structuredClone(session.history.slice(-20)),
+    },
+  };
+}
+
+export async function resumeInteractiveBattle(save) {
+  if (
+    save?.schema !== "cobbleverse-pve-battle-save" ||
+    save?.version !== 1 ||
+    save?.battleEngine !== "showdown" ||
+    !save?.scenario ||
+    !Array.isArray(save?.payload?.actions)
+  ) {
+    throw new Error("올바른 Showdown PvE 전투 저장 데이터가 아닙니다.");
+  }
+  removeExpiredSessions();
+  const { warnings } = convertScenarioTeams(save.scenario);
+  const session = {
+    id: randomUUID(),
+    scenario: structuredClone(save.scenario),
+    actions: structuredClone(save.payload.actions),
+    currentTurn: Number(save.turn ?? 0),
+    history: structuredClone(save.payload.history ?? []),
+    saveSlots: new Map(),
+    warnings,
+    updatedAt: Date.now(),
+  };
+  sessions.set(session.id, session);
+  const replay = await replayBattle(session);
+  const result = sessionSnapshot(session, replay);
+  session.currentTurn = result.turns;
+  return result;
+}
+
+export async function loadInteractiveBattleSlot(sessionId, slot) {
+  removeExpiredSessions();
+  const session = sessions.get(String(sessionId ?? ""));
+  if (!session) {
+    throw new Error("전투 세션을 찾을 수 없습니다. 전투를 다시 시작해 주세요.");
+  }
+  const normalizedSlot = requireSaveSlot(slot);
+  const saved = session.saveSlots.get(normalizedSlot);
+  if (!saved) {
+    throw new Error(`${normalizedSlot}번 저장 슬롯이 비어 있습니다.`);
+  }
+  session.actions = structuredClone(saved.actions);
+  session.history = structuredClone(saved.history);
+  session.updatedAt = Date.now();
+  const result = sessionSnapshot(session, await replayBattle(session));
+  session.currentTurn = result.turns;
+  return result;
+}
+
+export async function undoInteractiveBattleTurn(sessionId) {
+  removeExpiredSessions();
+  const session = sessions.get(String(sessionId ?? ""));
+  if (!session) {
+    throw new Error("전투 세션을 찾을 수 없습니다. 전투를 다시 시작해 주세요.");
+  }
+  const checkpointIndex = session.history.findLastIndex(
+    (checkpoint) => checkpoint.turn < session.currentTurn,
+  );
+  if (checkpointIndex < 0) {
+    throw new Error("돌아갈 이전 턴이 없습니다.");
+  }
+  const [checkpoint] = session.history.splice(checkpointIndex);
+  session.actions = structuredClone(checkpoint.actions);
+  session.updatedAt = Date.now();
+  const result = sessionSnapshot(session, await replayBattle(session));
+  session.currentTurn = result.turns;
+  return result;
 }
 
 export async function forfeitInteractiveBattle(sessionId) {

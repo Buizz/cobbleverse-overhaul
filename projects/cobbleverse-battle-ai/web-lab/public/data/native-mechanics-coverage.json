@@ -14,10 +14,10 @@
     }
   ],
   "generatedFrom": "public/data/trainers.json",
-  "trainerCount": 211,
+  "trainerCount": 217,
   "totalMoveCount": 938,
   "currentStandardMoveCount": 685,
-  "trainerUsedMoveCount": 560,
+  "trainerUsedMoveCount": 564,
   "availabilityCounts": {
     "Past": 191,
     "Standard": 685,
@@ -34,7 +34,7 @@
     "UNKNOWN": 0
   },
   "trainerStatusCounts": {
-    "SUPPORTED": 560,
+    "SUPPORTED": 564,
     "PARTIAL": 0,
     "UNSUPPORTED": 0,
     "UNKNOWN": 0
@@ -876,7 +876,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -909,7 +909,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 16,
+      "trainerUsageCount": 19,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -920,7 +920,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 10,
+      "trainerUsageCount": 11,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1036,7 +1036,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 13,
+      "trainerUsageCount": 14,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1168,7 +1168,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 11,
+      "trainerUsageCount": 12,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1238,7 +1238,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 15,
+      "trainerUsageCount": 17,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1360,8 +1360,8 @@
       "name": "Chilly Reception",
       "exists": true,
       "availability": "Standard",
-      "usedByTrainers": false,
-      "trainerUsageCount": 0,
+      "usedByTrainers": true,
+      "trainerUsageCount": 1,
       "requirements": [
         "weather",
         "selfSwitch"
@@ -1467,7 +1467,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 46,
+      "trainerUsageCount": 49,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1785,7 +1785,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 51,
+      "trainerUsageCount": 52,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1820,7 +1820,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 6,
+      "trainerUsageCount": 7,
       "requirements": [
         "volatileStatus"
       ],
@@ -1855,7 +1855,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 13,
+      "trainerUsageCount": 15,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1923,7 +1923,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 1,
+      "trainerUsageCount": 2,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2168,7 +2168,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 9,
+      "trainerUsageCount": 11,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2225,7 +2225,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 14,
+      "trainerUsageCount": 18,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2321,7 +2321,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 10,
+      "trainerUsageCount": 11,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2332,7 +2332,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 16,
+      "trainerUsageCount": 17,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2400,7 +2400,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 6,
+      "trainerUsageCount": 7,
       "requirements": [
         "multihit"
       ],
@@ -2435,7 +2435,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 25,
+      "trainerUsageCount": 28,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2446,7 +2446,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 78,
+      "trainerUsageCount": 84,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2599,7 +2599,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 4,
       "requirements": [
         "volatileStatus"
       ],
@@ -2706,7 +2706,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 16,
+      "trainerUsageCount": 17,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2739,7 +2739,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 9,
+      "trainerUsageCount": 12,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2750,7 +2750,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -3072,7 +3072,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 40,
+      "trainerUsageCount": 43,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -3094,7 +3094,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 18,
+      "trainerUsageCount": 19,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -3116,7 +3116,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 20,
+      "trainerUsageCount": 21,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -3359,7 +3359,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -3479,7 +3479,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -3549,7 +3549,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 20,
+      "trainerUsageCount": 21,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -4201,7 +4201,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 5,
+      "trainerUsageCount": 6,
       "requirements": [
         "dynamicPower"
       ],
@@ -4306,7 +4306,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 4,
+      "trainerUsageCount": 6,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -4409,7 +4409,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 3,
+      "trainerUsageCount": 4,
       "requirements": [
         "dynamicPower"
       ],
@@ -4584,7 +4584,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 9,
+      "trainerUsageCount": 12,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -4606,7 +4606,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 19,
+      "trainerUsageCount": 20,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -4729,7 +4729,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 34,
+      "trainerUsageCount": 36,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -4784,7 +4784,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 14,
+      "trainerUsageCount": 16,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -4795,7 +4795,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 4,
+      "trainerUsageCount": 6,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -4806,7 +4806,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 7,
+      "trainerUsageCount": 8,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -4899,8 +4899,8 @@
       "name": "Infestation",
       "exists": true,
       "availability": "Standard",
-      "usedByTrainers": false,
-      "trainerUsageCount": 0,
+      "usedByTrainers": true,
+      "trainerUsageCount": 1,
       "requirements": [
         "volatileStatus"
       ],
@@ -4950,7 +4950,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 14,
+      "trainerUsageCount": 15,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -4961,7 +4961,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 31,
+      "trainerUsageCount": 33,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -5084,7 +5084,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 27,
+      "trainerUsageCount": 34,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -5095,7 +5095,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 1,
+      "trainerUsageCount": 2,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -5299,7 +5299,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 8,
+      "trainerUsageCount": 9,
       "requirements": [
         "sideCondition"
       ],
@@ -5450,7 +5450,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 4,
+      "trainerUsageCount": 5,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -6189,7 +6189,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 20,
+      "trainerUsageCount": 22,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -6232,8 +6232,8 @@
       "name": "Mortal Spin",
       "exists": true,
       "availability": "Standard",
-      "usedByTrainers": false,
-      "trainerUsageCount": 0,
+      "usedByTrainers": true,
+      "trainerUsageCount": 1,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -6323,7 +6323,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 10,
+      "trainerUsageCount": 11,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -6345,7 +6345,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 13,
+      "trainerUsageCount": 15,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -6507,7 +6507,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 6,
+      "trainerUsageCount": 7,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7023,7 +7023,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 11,
+      "trainerUsageCount": 12,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7150,7 +7150,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 24,
+      "trainerUsageCount": 26,
       "requirements": [
         "volatileStatus"
       ],
@@ -7185,7 +7185,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 31,
+      "trainerUsageCount": 32,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7498,7 +7498,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 4,
+      "trainerUsageCount": 7,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7542,7 +7542,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 10,
+      "trainerUsageCount": 13,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7564,7 +7564,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 10,
+      "trainerUsageCount": 11,
       "requirements": [
         "sideCondition"
       ],
@@ -7610,7 +7610,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 13,
+      "trainerUsageCount": 14,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7858,7 +7858,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 9,
+      "trainerUsageCount": 12,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7941,7 +7941,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 4,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -8180,7 +8180,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 36,
+      "trainerUsageCount": 38,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -8538,8 +8538,8 @@
       "name": "Slack Off",
       "exists": true,
       "availability": "Standard",
-      "usedByTrainers": false,
-      "trainerUsageCount": 0,
+      "usedByTrainers": true,
+      "trainerUsageCount": 2,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -8605,7 +8605,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 32,
+      "trainerUsageCount": 34,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -8927,7 +8927,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 1,
+      "trainerUsageCount": 2,
       "requirements": [
         "sideCondition"
       ],
@@ -9078,7 +9078,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 29,
+      "trainerUsageCount": 35,
       "requirements": [
         "sideCondition"
       ],
@@ -9218,7 +9218,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 36,
+      "trainerUsageCount": 37,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -9354,7 +9354,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 9,
+      "trainerUsageCount": 10,
       "requirements": [
         "volatileStatus"
       ],
@@ -9378,7 +9378,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 36,
+      "trainerUsageCount": 37,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -9567,7 +9567,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 35,
+      "trainerUsageCount": 39,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -9718,7 +9718,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 11,
+      "trainerUsageCount": 13,
       "requirements": [
         "volatileStatus"
       ],
@@ -9930,7 +9930,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 34,
+      "trainerUsageCount": 37,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -10009,7 +10009,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 23,
+      "trainerUsageCount": 25,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -10145,7 +10145,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 1,
+      "trainerUsageCount": 2,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -10167,7 +10167,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 4,
+      "trainerUsageCount": 7,
       "requirements": [
         "pseudoWeather"
       ],
@@ -10191,7 +10191,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 5,
+      "trainerUsageCount": 6,
       "requirements": [
         "multihit",
         "multiaccuracy",
@@ -10328,7 +10328,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 25,
+      "trainerUsageCount": 30,
       "requirements": [
         "selfSwitch"
       ],
@@ -10341,7 +10341,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 4,
+      "trainerUsageCount": 5,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -10442,7 +10442,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 15,
+      "trainerUsageCount": 17,
       "requirements": [
         "selfSwitch"
       ],

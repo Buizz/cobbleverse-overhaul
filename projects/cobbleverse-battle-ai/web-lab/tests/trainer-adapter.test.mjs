@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
+import { strToU8, zipSync } from "fflate";
 
 import {
   buildTrainerIndex,
   normalizeStats,
   normalizeTrainer,
+  readTrainerDocuments,
 } from "../scripts/sync-trainers.mjs";
 import {
   createCobblemonItemResolver,
@@ -40,8 +45,50 @@ test("normalizes a trainer team without mutating the source shape", () => {
   );
 
   assert.equal(trainer.id, "test");
+  assert.equal(trainer.sourceGroup, "ungrouped");
   assert.equal(trainer.team[0].slot, 1);
   assert.equal(trainer.team[0].ivs.attack, 5);
+});
+
+test("reads grouped JSON and ZIP trainer sources recursively", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "cobbleverse-trainers-"));
+  try {
+    await mkdir(path.join(directory, "rct"), { recursive: true });
+    await mkdir(path.join(directory, "custom"), { recursive: true });
+    await writeFile(
+      path.join(directory, "rct", "brock.json"),
+      JSON.stringify({ name: "Brock", team: [{ species: "onix" }] }),
+      "utf8",
+    );
+    await writeFile(
+      path.join(directory, "custom", "entries.zip"),
+      zipSync({
+        "dbingsu.json": strToU8(
+          JSON.stringify({
+            name: "DBingsu",
+            team: [{ species: "porygon2" }],
+          }),
+        ),
+      }),
+    );
+
+    const documents = await readTrainerDocuments(directory);
+    assert.deepEqual(
+      documents.map((document) => ({
+        group: document.sourceGroup,
+        source: document.sourceFile,
+      })),
+      [
+        {
+          group: "custom",
+          source: "entries/custom/entries.zip!/dbingsu.json",
+        },
+        { group: "rct", source: "entries/rct/brock.json" },
+      ],
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("promotes Cobblemon aspects to a resolved Showdown form", () => {
@@ -111,13 +158,19 @@ test("normalizes short item IDs to authoritative Cobblemon registry IDs", () => 
   assert.equal(normalizeHeldItem("missing_item", resolver).heldItemResolution[0].status, "unknown");
 });
 
-test("builds the prioritized official and RCT trainer index", async () => {
+test("builds the prioritized custom and RCT trainer index", async () => {
   const payload = await buildTrainerIndex();
 
-  assert.equal(payload.schemaVersion, 2);
-  assert.equal(payload.trainerCount, 211);
-  assert.equal(payload.trainers.length, 211);
+  assert.equal(payload.schemaVersion, 3);
+  assert.equal(payload.trainerCount, 217);
+  assert.equal(payload.trainers.length, 217);
+  assert.deepEqual(payload.sourceGroups, ["custom", "rct"]);
   assert.equal(payload.trainers[0].id, "dbingsu-server-party");
+  assert.equal(payload.trainers[0].sourceGroup, "custom");
+  assert.equal(
+    payload.trainers.find((trainer) => trainer.id === "kanto_brock").sourceGroup,
+    "rct",
+  );
   assert.equal(payload.trainers[0].entry.type, "official-player");
   assert.equal(payload.trainers[0].entry.priority, 1000);
   assert.ok(payload.trainers.every((trainer) => trainer.team.length > 0));

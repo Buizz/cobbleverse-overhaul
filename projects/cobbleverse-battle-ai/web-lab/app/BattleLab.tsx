@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { strFromU8, unzipSync } from "fflate";
 import {
   BATTLE_STATUSES,
   healthFromCondition,
@@ -11,6 +12,14 @@ import {
   statusFromCondition,
 } from "../lib/battle-status.mjs";
 import { localizedSpeciesName } from "../lib/species-localization.mjs";
+import {
+  deletePersistentBattleSlot,
+  getPersistentBattleSlot,
+  listPersistentBattleSlots,
+  putPersistentBattleSlot,
+  type PersistentBattleSave,
+  type PersistentBattleSlot,
+} from "../lib/browser-battle-saves";
 
 type BattleMode = "pve" | "eve";
 type PartySource = "custom" | "preset";
@@ -39,6 +48,7 @@ type Pokemon = {
 type Trainer = {
   id: string;
   sourceFile: string;
+  sourceGroup: string;
   name: string;
   entry: {
     type: "official-player" | "computer" | string;
@@ -54,6 +64,7 @@ type Trainer = {
 type TrainerIndex = {
   schemaVersion: number;
   source: string;
+  sourceGroups?: string[];
   trainerCount: number;
   trainers: Trainer[];
 };
@@ -436,6 +447,15 @@ type InteractiveBattle = {
   winner: string | null;
   turns: number;
   aiTrace: AiTraceEntry[];
+  controls?: {
+    canUndo: boolean;
+    saveSlots: Array<{
+      slot: number;
+      occupied: boolean;
+      turn: number | null;
+      savedAt: string | null;
+    }>;
+  };
   reproduction?: Record<string, unknown>;
   sides: Array<{
     name: string;
@@ -497,7 +517,11 @@ type InteractiveBattle = {
 };
 
 type InteractiveResponse =
-  | { ok: true; battle: InteractiveBattle }
+  | {
+      ok: true;
+      battle: InteractiveBattle;
+      save?: PersistentBattleSave;
+    }
   | { ok: false; issues: ScenarioIssue[] };
 
 type CustomPokemon = {
@@ -519,6 +543,8 @@ type SavedCustomEntry = {
   name: string;
   savedAt: string;
   updatedAt: string;
+  group?: string;
+  sourcePath?: string;
   party: CustomPokemon[];
 };
 
@@ -611,6 +637,142 @@ function normalizeCustomParty(party: unknown) {
     ...members,
     ...Array.from({ length: Math.max(0, 6 - members.length) }, emptyPokemon),
   ].slice(0, 6);
+}
+
+function importedStatValue(
+  stats: Record<string, unknown> | undefined,
+  aliases: string[],
+  fallback: number,
+) {
+  for (const alias of aliases) {
+    const value = Number(stats?.[alias]);
+    if (Number.isFinite(value)) return value;
+  }
+  return fallback;
+}
+
+function customPokemonFromImportedMember(member: Record<string, unknown>) {
+  const ivs = member.ivs as Record<string, unknown> | undefined;
+  const evs = member.evs as Record<string, unknown> | undefined;
+  const gimmicks =
+    member.gimmicks && typeof member.gimmicks === "object"
+      ? (member.gimmicks as Record<string, unknown>)
+      : {};
+  const moves = Array.isArray(member.moves)
+    ? member.moves
+    : Array.isArray(member.moveset)
+      ? member.moveset
+      : [];
+  return normalizeCustomPokemon({
+    species: String(member.resolvedSpecies ?? member.species ?? ""),
+    level: Number(member.level ?? 50),
+    ability: String(member.ability ?? ""),
+    heldItem: String(member.heldItem ?? member.item ?? ""),
+    ivs: {
+      hp: importedStatValue(ivs, ["hp"], 31),
+      atk: importedStatValue(ivs, ["atk", "attack"], 31),
+      def: importedStatValue(ivs, ["def", "defence", "defense"], 31),
+      spa: importedStatValue(ivs, ["spa", "specialAttack", "special_attack"], 31),
+      spd: importedStatValue(
+        ivs,
+        ["spd", "specialDefence", "specialDefense", "special_defence"],
+        31,
+      ),
+      spe: importedStatValue(ivs, ["spe", "speed"], 31),
+    },
+    evs: {
+      hp: importedStatValue(evs, ["hp"], 0),
+      atk: importedStatValue(evs, ["atk", "attack"], 0),
+      def: importedStatValue(evs, ["def", "defence", "defense"], 0),
+      spa: importedStatValue(evs, ["spa", "specialAttack", "special_attack"], 0),
+      spd: importedStatValue(
+        evs,
+        ["spd", "specialDefence", "specialDefense", "special_defence"],
+        0,
+      ),
+      spe: importedStatValue(evs, ["spe", "speed"], 0),
+    },
+    dynamax:
+      member.dynamax === true ||
+      member.gmax === true ||
+      gimmicks.dynamax === true ||
+      gimmicks.gmax === true,
+    gmax: member.gmax === true || gimmicks.gmax === true,
+    tera: String(member.tera ?? gimmicks.tera ?? ""),
+    moves: moves.map(String),
+  });
+}
+
+function customPartyFromTrainer(trainer: Pick<Trainer, "team">) {
+  return normalizeCustomParty(
+    trainer.team.map((member) =>
+      customPokemonFromImportedMember(member as unknown as Record<string, unknown>),
+    ),
+  );
+}
+
+type ImportedEntryCandidate = {
+  name: string;
+  party: CustomPokemon[];
+  sourcePath: string;
+  group: string;
+};
+
+function importGroup(sourcePath: string) {
+  const normalized = sourcePath.replaceAll("\\", "/");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1).join(" / ") : "가져온 엔트리";
+}
+
+function importedEntryCandidates(
+  value: unknown,
+  sourcePath: string,
+): ImportedEntryCandidate[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) =>
+      importedEntryCandidates(entry, `${sourcePath}#${index + 1}`),
+    );
+  }
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  if (Array.isArray(record.trainers)) {
+    return record.trainers.flatMap((trainer, index) => {
+      const trainerRecord = trainer as Record<string, unknown>;
+      const parentPath = sourcePath.replaceAll("\\", "/").split("/").slice(0, -1);
+      const nestedSource = String(
+        trainerRecord.sourceFile ?? `entry-${index + 1}.json`,
+      );
+      const nestedPath = [...parentPath, nestedSource].filter(Boolean).join("/");
+      return importedEntryCandidates(trainer, nestedPath);
+    });
+  }
+  const members = Array.isArray(record.party)
+    ? record.party
+    : Array.isArray(record.team)
+      ? record.team
+      : null;
+  if (!members) return [];
+  const party = normalizeCustomParty(
+    members.map((member) =>
+      customPokemonFromImportedMember(
+        (member ?? {}) as Record<string, unknown>,
+      ),
+    ),
+  );
+  if (customPartyMemberCount(party) === 0) return [];
+  const fallbackName = sourcePath
+    .replaceAll("\\", "/")
+    .split("/")
+    .at(-1)
+    ?.replace(/\.json$/i, "");
+  return [
+    {
+      name: String(record.name ?? fallbackName ?? "가져온 엔트리"),
+      party,
+      sourcePath,
+      group: importGroup(sourcePath),
+    },
+  ];
 }
 
 function customPartyMemberCount(party: CustomPokemon[]) {
@@ -1888,8 +2050,16 @@ function TrainerPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [sourceGroup, setSourceGroup] = useState("all");
   const [entryType, setEntryType] = useState("all");
   const [teamSize, setTeamSize] = useState(String(minimumTeamSize));
+  const sourceGroups = useMemo(
+    () =>
+      [...new Set(trainers.map((trainer) => trainer.sourceGroup).filter(Boolean))].sort(
+        (left, right) => left.localeCompare(right, "ko"),
+      ),
+    [trainers],
+  );
   const selected =
     selectedTrainer ?? trainers.find((trainer) => trainer.id === value);
   const filtered = useMemo(() => {
@@ -1899,6 +2069,8 @@ function TrainerPicker({
       const searchable = [
         trainer.name,
         trainer.id,
+        trainer.sourceFile,
+        trainer.sourceGroup,
         trainer.entry.label,
         ...trainer.team.flatMap((pokemon) => [
           pokemon.species,
@@ -1910,6 +2082,7 @@ function TrainerPicker({
         .toLowerCase();
       return (
         (!normalized || searchable.includes(normalized)) &&
+        (sourceGroup === "all" || trainer.sourceGroup === sourceGroup) &&
         (entryType === "all" ||
           (entryType === "official" &&
             trainer.entry.type === "official-player") ||
@@ -1918,7 +2091,7 @@ function TrainerPicker({
         trainer.team.length >= requiredSize
       );
     });
-  }, [entryType, localization, query, teamSize, trainers]);
+  }, [entryType, localization, query, sourceGroup, teamSize, trainers]);
 
   return (
     <>
@@ -1938,7 +2111,7 @@ function TrainerPicker({
                   {selected.name}
                 </strong>
                 <small>
-                  {selected.team.length}마리 · {selected.id}
+                  {selected.sourceGroup} · {selected.team.length}마리 · {selected.id}
                 </small>
               </span>
               <span className="entry-trigger-party">
@@ -1989,6 +2162,18 @@ function TrainerPicker({
                 autoFocus
               />
               <select
+                value={sourceGroup}
+                onChange={(event) => setSourceGroup(event.target.value)}
+                aria-label="데이터 폴더 필터"
+              >
+                <option value="all">모든 데이터 폴더</option>
+                {sourceGroups.map((group) => (
+                  <option key={group} value={group}>
+                    {group}
+                  </option>
+                ))}
+              </select>
+              <select
                 value={entryType}
                 onChange={(event) => setEntryType(event.target.value)}
                 aria-label="엔트리 종류 필터"
@@ -2034,7 +2219,9 @@ function TrainerPicker({
                         <em>최근 {recentIndex + 1}</em>
                       ) : null}
                     </span>
-                    <small>{trainer.id}</small>
+                    <small>
+                      {trainer.sourceGroup} · {trainer.id}
+                    </small>
                     <span className="entry-choice-party">
                       {trainer.team.slice(0, 6).map((pokemon) => (
                         <span key={`${trainer.id}-${pokemon.slot}`}>
@@ -2190,6 +2377,7 @@ function TeamStrip({
 
 function CustomEntryManager({
   entries,
+  trainers,
   selectedEntryId,
   entryName,
   party,
@@ -2199,8 +2387,11 @@ function CustomEntryManager({
   onSave,
   onNew,
   onDelete,
+  onCopyTrainer,
+  onImportFiles,
 }: {
   entries: SavedCustomEntry[];
+  trainers: Trainer[];
   selectedEntryId: string;
   entryName: string;
   party: CustomPokemon[];
@@ -2210,12 +2401,89 @@ function CustomEntryManager({
   onSave: () => void;
   onNew: () => void;
   onDelete: (id: string) => void;
+  onCopyTrainer: (trainerId: string) => void;
+  onImportFiles: (files: File[]) => void;
 }) {
   const selectedEntry = entries.find((entry) => entry.id === selectedEntryId);
   const memberCount = customPartyMemberCount(party);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
+  const groupedEntries = useMemo(() => {
+    const groups = new Map<string, SavedCustomEntry[]>();
+    for (const entry of entries) {
+      const group = entry.group?.trim() || "내 저장";
+      groups.set(group, [...(groups.get(group) ?? []), entry]);
+    }
+    return [...groups.entries()].sort(([left], [right]) =>
+      left.localeCompare(right, "ko"),
+    );
+  }, [entries]);
+  const groupedTrainers = useMemo(() => {
+    const groups = new Map<string, Trainer[]>();
+    for (const trainer of trainers) {
+      const group = trainer.sourceGroup?.trim() || "ungrouped";
+      groups.set(group, [...(groups.get(group) ?? []), trainer]);
+    }
+    return [...groups.entries()].sort(([left], [right]) =>
+      left.localeCompare(right, "ko"),
+    );
+  }, [trainers]);
 
   return (
     <div className="custom-entry-manager">
+      <div className="custom-entry-import-row">
+        <label>
+          <span>기존 엔트리에서 구성 가져오기</span>
+          <select
+            value=""
+            onChange={(event) => {
+              if (event.target.value) onCopyTrainer(event.target.value);
+            }}
+          >
+            <option value="">복사할 엔트리 선택</option>
+            {groupedTrainers.map(([group, groupTrainers]) => (
+              <optgroup key={group} label={group}>
+                {groupTrainers.map((trainer) => (
+                  <option key={trainer.id} value={trainer.id}>
+                    {trainer.name} · {trainer.team.length}마리
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+        <div className="custom-entry-import-actions">
+          <button type="button" onClick={() => fileInput.current?.click()}>
+            JSON · ZIP
+          </button>
+          <button type="button" onClick={() => folderInput.current?.click()}>
+            폴더
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".json,.zip,application/json,application/zip"
+            multiple
+            hidden
+            onChange={(event) => {
+              onImportFiles(Array.from(event.target.files ?? []));
+              event.target.value = "";
+            }}
+          />
+          <input
+            ref={folderInput}
+            type="file"
+            accept=".json,application/json"
+            multiple
+            hidden
+            {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+            onChange={(event) => {
+              onImportFiles(Array.from(event.target.files ?? []));
+              event.target.value = "";
+            }}
+          />
+        </div>
+      </div>
       <label>
         <span>저장된 엔트리</span>
         <select
@@ -2223,10 +2491,14 @@ function CustomEntryManager({
           onChange={(event) => onSelect(event.target.value)}
         >
           <option value="">저장된 엔트리 선택</option>
-          {entries.map((entry) => (
-            <option key={entry.id} value={entry.id}>
-              {entry.name} · {customPartyMemberCount(entry.party)}마리
-            </option>
+          {groupedEntries.map(([group, groupEntries]) => (
+            <optgroup key={group} label={group}>
+              {groupEntries.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.name} · {customPartyMemberCount(entry.party)}마리
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </label>
@@ -2260,6 +2532,75 @@ function CustomEntryManager({
           : `${memberCount}/6 슬롯 편집 중`}
       </small>
     </div>
+  );
+}
+
+function PersistentBattleSaves({
+  slots,
+  busy,
+  onResume,
+  onDelete,
+}: {
+  slots: PersistentBattleSlot[];
+  busy: boolean;
+  onResume: (slot: number) => void;
+  onDelete: (slot: number) => void;
+}) {
+  const slotsByNumber = new Map(slots.map((entry) => [entry.slot, entry]));
+  return (
+    <section className="persistent-battle-saves" aria-label="저장된 PvE 전투">
+      <div>
+        <small>PERSISTENT BATTLE SAVES</small>
+        <strong>저장된 전투</strong>
+        <span>브라우저를 닫거나 서버를 다시 시작해도 유지됩니다.</span>
+      </div>
+      <div className="persistent-battle-slot-list">
+        {Array.from({ length: 5 }, (_, index) => {
+          const slot = index + 1;
+          const entry = slotsByNumber.get(slot);
+          const scenario = entry?.save.scenario as BattleScenario | undefined;
+          return (
+            <article key={slot}>
+              <b>슬롯 {slot}</b>
+              {entry ? (
+                <>
+                  <span>
+                    {scenario?.sides?.[0]?.name ?? "플레이어"} vs{" "}
+                    {scenario?.sides?.[1]?.name ?? "AI"}
+                  </span>
+                  <small>
+                    T{entry.save.turn} ·{" "}
+                    {entry.save.battleEngine === "cobbleverse"
+                      ? "자체 엔진"
+                      : "Showdown"}{" "}
+                    · {new Date(entry.save.savedAt).toLocaleString("ko-KR")}
+                  </small>
+                  <div>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => onResume(slot)}
+                    >
+                      계속하기
+                    </button>
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={busy}
+                      onClick={() => onDelete(slot)}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <small>비어 있음</small>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -3668,7 +4009,9 @@ function InteractiveArena({
   playbackMode,
   actionNotice,
   hpPreview,
+  persistentSaveSlots,
   onAction,
+  onSessionOperation,
   onPlaybackModeChange,
   onClose,
   localization,
@@ -3680,11 +4023,16 @@ function InteractiveArena({
   playbackMode: BattlePlaybackMode;
   actionNotice: BattleActionNotice | null;
   hpPreview: BattleHpPreview;
+  persistentSaveSlots: PersistentBattleSlot[];
   onAction: (action: {
     type: "move" | "switch";
     slot: number;
     gimmick?: BattleGimmick;
   } | { type: "multi"; actions: InteractiveSlotAction[] }) => void;
+  onSessionOperation: (
+    operation: "save" | "load" | "undo",
+    slot?: number,
+  ) => Promise<boolean>;
   onPlaybackModeChange: (mode: BattlePlaybackMode) => void;
   onClose: () => void;
   localization: LocalizationCatalog | null;
@@ -3697,6 +4045,8 @@ function InteractiveArena({
   const [reproductionStatus, setReproductionStatus] = useState("");
   const [showAiIntent, setShowAiIntent] = useState(false);
   const [showPokemonInfo, setShowPokemonInfo] = useState(false);
+  const [saveSlot, setSaveSlot] = useState(1);
+  const [sessionControlStatus, setSessionControlStatus] = useState("");
   const [gimmickSelection, setGimmickSelection] = useState<{
     requestId: number;
     value: BattleGimmick | null;
@@ -3730,6 +4080,26 @@ function InteractiveArena({
     URL.revokeObjectURL(url);
     setReproductionStatus("다운로드 완료");
     window.setTimeout(() => setReproductionStatus(""), 1600);
+  };
+  const selectedSaveSlot = persistentSaveSlots.find(
+    (entry) => entry.slot === saveSlot,
+  );
+  const runSessionOperation = async (
+    operation: "save" | "load" | "undo",
+  ) => {
+    const succeeded = await onSessionOperation(
+      operation,
+      operation === "undo" ? undefined : saveSlot,
+    );
+    if (!succeeded) return;
+    setSessionControlStatus(
+      operation === "save"
+        ? `${saveSlot}번 슬롯 저장 완료`
+        : operation === "load"
+          ? `${saveSlot}번 슬롯 불러오기 완료`
+          : "이전 턴으로 이동 완료",
+    );
+    window.setTimeout(() => setSessionControlStatus(""), 1800);
   };
   const active = request?.active;
   const isNativeBattle =
@@ -3914,6 +4284,58 @@ function InteractiveArena({
           </h2>
         </div>
         <div className="arena-header-tools">
+          <div
+            className="battle-save-control"
+            role="group"
+            aria-label="전투 저장과 되돌리기"
+          >
+            <button
+              type="button"
+              disabled={busy || !battle.controls?.canUndo}
+              onClick={() => void runSessionOperation("undo")}
+              title="직전 턴 시작 상태로 돌아갑니다."
+            >
+              이전 턴
+            </button>
+            <select
+              aria-label="전투 저장 슬롯"
+              disabled={busy}
+              value={saveSlot}
+              onChange={(event) => setSaveSlot(Number(event.target.value))}
+            >
+              {Array.from({ length: 5 }, (_, index) => {
+                const slot = index + 1;
+                const entry = persistentSaveSlots.find(
+                  (candidate) => candidate.slot === slot,
+                );
+                return (
+                <option key={slot} value={slot}>
+                  슬롯 {slot}
+                  {entry ? ` · T${entry.save.turn}` : " · 비어 있음"}
+                </option>
+                );
+              })}
+            </select>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void runSessionOperation("save")}
+              title="현재 전투 상태를 선택한 슬롯에 저장합니다."
+            >
+              저장
+            </button>
+            <button
+              type="button"
+              disabled={busy || !selectedSaveSlot}
+              onClick={() => void runSessionOperation("load")}
+              title="선택한 슬롯의 전투 상태를 불러옵니다."
+            >
+              불러오기
+            </button>
+            {sessionControlStatus ? (
+              <span role="status">{sessionControlStatus}</span>
+            ) : null}
+          </div>
           <button
             className={showPokemonInfo ? "active" : ""}
             onClick={() => setShowPokemonInfo((value) => !value)}
@@ -4717,6 +5139,9 @@ export function BattleLab() {
   const [runningBattle, setRunningBattle] = useState(false);
   const [interactiveBattle, setInteractiveBattle] =
     useState<InteractiveBattle | null>(null);
+  const [persistentBattleSlots, setPersistentBattleSlots] = useState<
+    PersistentBattleSlot[]
+  >([]);
   const [interactiveBusy, setInteractiveBusy] = useState(false);
   const [playbackMode, setPlaybackMode] =
     useState<BattlePlaybackMode>("instant");
@@ -4726,6 +5151,9 @@ export function BattleLab() {
   const playbackToken = useRef(0);
 
   useEffect(() => {
+    listPersistentBattleSlots()
+      .then(setPersistentBattleSlots)
+      .catch(() => setNotice("저장된 PvE 전투 슬롯을 읽지 못했습니다."));
     fetch("/data/trainers.json")
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -4820,6 +5248,10 @@ export function BattleLab() {
                 name: String(entry.name ?? "저장된 엔트리"),
                 savedAt: String(entry.savedAt ?? new Date().toISOString()),
                 updatedAt: String(entry.updatedAt ?? entry.savedAt ?? new Date().toISOString()),
+                group: entry.group ? String(entry.group) : undefined,
+                sourcePath: entry.sourcePath
+                  ? String(entry.sourcePath)
+                  : undefined,
                 party: normalizeCustomParty(entry.party),
               }))
               .filter((entry) => customPartyMemberCount(entry.party) > 0),
@@ -4886,8 +5318,6 @@ export function BattleLab() {
           setScenario(stored.scenario);
           if (stored.kind === "automatic") {
             setBattle(stored.battle);
-          } else if (stored.battle.status === "awaiting_choice") {
-            setInteractiveBattle(stored.battle);
           }
           setNotice(
             `마지막 전투를 복원했습니다 · ${new Date(stored.savedAt).toLocaleString("ko-KR")}`,
@@ -5112,12 +5542,14 @@ export function BattleLab() {
         name,
         savedAt: existing?.savedAt ?? now,
         updatedAt: now,
+        group: existing?.group,
+        sourcePath: existing?.sourcePath,
         party: normalizedParty,
       };
       const next = [
         nextEntry,
         ...current.filter((entry) => entry.id !== id),
-      ].slice(0, 24);
+      ].slice(0, 500);
       persistCustomEntries(next);
       return next;
     });
@@ -5158,6 +5590,86 @@ export function BattleLab() {
       setCustomEntryName("");
     }
     setNotice(`${entry.name} 엔트리를 삭제했습니다.`);
+  };
+
+  const copyTrainerToCustomParty = (trainerId: string) => {
+    const trainer = trainerById.get(trainerId);
+    if (!trainer) return;
+    setPartySource("custom");
+    setSelectedCustomEntryId("");
+    setCustomEntryName(`${trainer.name} 복사본`);
+    setCustomParty(customPartyFromTrainer(trainer));
+    invalidatePreparedBattle();
+    setNotice(`${trainer.name} 구성을 직접 편집 화면으로 가져왔습니다.`);
+  };
+
+  const importCustomEntryFiles = async (files: File[]) => {
+    const candidates: ImportedEntryCandidate[] = [];
+    const failures: string[] = [];
+    for (const file of files) {
+      try {
+        if (file.name.toLowerCase().endsWith(".zip")) {
+          const archive = unzipSync(new Uint8Array(await file.arrayBuffer()));
+          for (const [archivePath, bytes] of Object.entries(archive)) {
+            if (!archivePath.toLowerCase().endsWith(".json")) continue;
+            const parsed = JSON.parse(strFromU8(bytes));
+            candidates.push(
+              ...importedEntryCandidates(parsed, `${file.name}/${archivePath}`),
+            );
+          }
+          continue;
+        }
+        if (!file.name.toLowerCase().endsWith(".json")) continue;
+        const sourcePath =
+          (file as File & { webkitRelativePath?: string }).webkitRelativePath ||
+          file.name;
+        candidates.push(
+          ...importedEntryCandidates(JSON.parse(await file.text()), sourcePath),
+        );
+      } catch {
+        failures.push(file.name);
+      }
+    }
+    if (candidates.length === 0) {
+      setNotice(
+        failures.length
+          ? `엔트리를 읽지 못했습니다: ${failures.join(", ")}`
+          : "가져올 수 있는 포켓몬 엔트리가 없습니다.",
+      );
+      return;
+    }
+    const now = new Date().toISOString();
+    const imported = candidates.map<SavedCustomEntry>((candidate) => ({
+      schemaVersion: 1,
+      id: `imported-${crypto.randomUUID()}`,
+      name: candidate.name,
+      savedAt: now,
+      updatedAt: now,
+      group: candidate.group,
+      sourcePath: candidate.sourcePath,
+      party: candidate.party,
+    }));
+    setCustomEntries((current) => {
+      const importedPaths = new Set(imported.map((entry) => entry.sourcePath));
+      const next = [
+        ...imported,
+        ...current.filter(
+          (entry) => !entry.sourcePath || !importedPaths.has(entry.sourcePath),
+        ),
+      ].slice(0, 500);
+      persistCustomEntries(next);
+      return next;
+    });
+    setPartySource("custom");
+    setCustomParty(imported[0].party);
+    setCustomEntryName(imported[0].name);
+    setSelectedCustomEntryId(imported[0].id);
+    invalidatePreparedBattle();
+    setNotice(
+      `${imported.length}개 엔트리를 폴더 그룹과 함께 가져왔습니다.${
+        failures.length ? ` 실패 ${failures.length}개` : ""
+      }`,
+    );
   };
 
   const chooseCatalogValue = (value: string) => {
@@ -5542,6 +6054,148 @@ export function BattleLab() {
     }
   };
 
+  const refreshPersistentBattleSlots = async () => {
+    setPersistentBattleSlots(await listPersistentBattleSlots());
+  };
+
+  const resumePersistentBattle = async (slot: number) => {
+    playbackToken.current += 1;
+    setInteractiveBusy(true);
+    try {
+      const stored = await getPersistentBattleSlot(slot);
+      if (!stored) {
+        setNotice(`${slot}번 전투 저장 슬롯이 비어 있습니다.`);
+        return false;
+      }
+      const response = await fetch("/api/interactive-battles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          operation: "resume",
+          save: stored.save,
+        }),
+      });
+      const result = (await response.json()) as InteractiveResponse;
+      if (!result.ok) {
+        setNotice(
+          result.issues[0]?.message ?? "저장된 PvE 전투를 재개하지 못했습니다.",
+        );
+        return false;
+      }
+      const restoredScenario = stored.save.scenario as BattleScenario;
+      setMode("pve");
+      setSeed(restoredScenario.seed);
+      setLevelMode(restoredScenario.levelMode);
+      setBattleType(restoredScenario.battleType);
+      setBattleEngine(restoredScenario.battleEngine);
+      setGimmickRules(restoredScenario.gimmickRules ?? "gen9");
+      setAiDifficulty(restoredScenario.aiDifficulty);
+      setPveOpponentStrategy(
+        restoredScenario.aiProfiles?.[1]?.strategy ?? "balanced",
+      );
+      const playerSide = restoredScenario.sides[0];
+      const opponentSide = restoredScenario.sides[1];
+      setOpponentPreset(opponentSide?.trainerId ?? "");
+      if (playerSide?.source === "custom") {
+        setPartySource("custom");
+        setCustomParty(
+          normalizeCustomParty(
+            playerSide.team.map((member) =>
+              customPokemonFromImportedMember(
+                member as unknown as Record<string, unknown>,
+              ),
+            ),
+          ),
+        );
+      } else {
+        setPartySource("preset");
+        setPlayerPreset(playerSide?.trainerId ?? "");
+      }
+      setScenario(restoredScenario);
+      setBattle(null);
+      setInteractiveBattle(result.battle);
+      setActionNotice(null);
+      setHpPreview({});
+      storeLastBattle({
+        schemaVersion: 1,
+        savedAt: new Date().toISOString(),
+        kind: "interactive",
+        scenario: restoredScenario,
+        battle: result.battle,
+      });
+      setNotice(`${slot}번 슬롯의 T${stored.save.turn} 전투를 재개했습니다.`);
+      return true;
+    } catch {
+      setNotice("저장된 PvE 전투를 불러오지 못했습니다.");
+      return false;
+    } finally {
+      setInteractiveBusy(false);
+    }
+  };
+
+  const removePersistentBattle = async (slot: number) => {
+    try {
+      await deletePersistentBattleSlot(slot);
+      await refreshPersistentBattleSlots();
+      setNotice(`${slot}번 전투 저장 슬롯을 비웠습니다.`);
+    } catch {
+      setNotice("전투 저장 슬롯을 삭제하지 못했습니다.");
+    }
+  };
+
+  const controlInteractiveSession = async (
+    operation: "save" | "load" | "undo",
+    slot?: number,
+  ) => {
+    if (!interactiveBattle) return false;
+    if (operation === "load" && slot) {
+      return resumePersistentBattle(slot);
+    }
+    playbackToken.current += 1;
+    setInteractiveBusy(true);
+    try {
+      const response = await fetch("/api/interactive-battles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          operation,
+          sessionId: interactiveBattle.sessionId,
+          ...(slot ? { slot } : {}),
+        }),
+      });
+      const result = (await response.json()) as InteractiveResponse;
+      if (!result.ok) {
+        setNotice(
+          result.issues[0]?.message ??
+            "전투 저장 상태를 처리하지 못했습니다.",
+        );
+        return false;
+      }
+      if (operation === "save" && slot && result.save) {
+        await putPersistentBattleSlot(slot, result.save);
+        await refreshPersistentBattleSlots();
+      }
+      setInteractiveBattle(result.battle);
+      setActionNotice(null);
+      setHpPreview({});
+      if (scenario) {
+        storeLastBattle({
+          schemaVersion: 1,
+          savedAt: new Date().toISOString(),
+          kind: "interactive",
+          scenario,
+          battle: result.battle,
+        });
+      }
+      return true;
+    } catch {
+      setNotice("전투 저장 API에 연결하지 못했습니다.");
+      return false;
+    } finally {
+      setInteractiveBusy(false);
+    }
+  };
+
   const closeInteractive = async () => {
     const current = interactiveBattle;
     playbackToken.current += 1;
@@ -5892,6 +6546,13 @@ export function BattleLab() {
             </div>
           </div>
 
+          <PersistentBattleSaves
+            slots={persistentBattleSlots}
+            busy={interactiveBusy}
+            onResume={(slot) => void resumePersistentBattle(slot)}
+            onDelete={(slot) => void removePersistentBattle(slot)}
+          />
+
           <div className="match-column">
             <article className="side-panel player-panel">
               <div className="panel-title">
@@ -5911,6 +6572,7 @@ export function BattleLab() {
                   </div>
                   <CustomEntryManager
                     entries={customEntries}
+                    trainers={sortedTrainers}
                     selectedEntryId={selectedCustomEntryId}
                     entryName={customEntryName}
                     party={customParty}
@@ -5920,6 +6582,8 @@ export function BattleLab() {
                     onSave={saveCustomEntry}
                     onNew={createNewCustomEntry}
                     onDelete={deleteCustomEntry}
+                    onCopyTrainer={copyTrainerToCustomParty}
+                    onImportFiles={importCustomEntryFiles}
                   />
                   <CustomPartyEditor
                     party={customParty}
@@ -6217,7 +6881,9 @@ export function BattleLab() {
           playbackMode={playbackMode}
           actionNotice={actionNotice}
           hpPreview={hpPreview}
+          persistentSaveSlots={persistentBattleSlots}
           onAction={chooseInteractiveAction}
+          onSessionOperation={controlInteractiveSession}
           onPlaybackModeChange={setPlaybackMode}
           onClose={closeInteractive}
           localization={localization}
@@ -6253,15 +6919,31 @@ export function BattleLab() {
               <option value="level-100">100레벨</option>
             </select>
           </label>
-          <label>
-            TEST SEED
-            <input
-              type="number"
-              min="0"
-              max="4294967295"
-              value={seed}
-              onChange={(event) => setSeed(Number(event.target.value))}
-            />
+          <label className="seed-field">
+            <span>TEST SEED</span>
+            <div>
+              <input
+                type="number"
+                min="0"
+                max="4294967295"
+                value={seed}
+                onChange={(event) => setSeed(Number(event.target.value))}
+              />
+              <button
+                type="button"
+                title="새 무작위 시드를 생성합니다."
+                disabled={Boolean(interactiveBattle) || preparing || runningBattle}
+                onClick={() => {
+                  const nextSeed = crypto.getRandomValues(new Uint32Array(1))[0];
+                  setSeed(nextSeed);
+                  setScenario(null);
+                  setBattle(null);
+                  setNotice(`새 테스트 시드 ${nextSeed}를 생성했습니다.`);
+                }}
+              >
+                랜덤
+              </button>
+            </div>
           </label>
           <button className="primary-action" onClick={prepareTest} disabled={preparing}>
             {preparing ? "검증 중" : "시나리오 생성"} <span aria-hidden="true">→</span>

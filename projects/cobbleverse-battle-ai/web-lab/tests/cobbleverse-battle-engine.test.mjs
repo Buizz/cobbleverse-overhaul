@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   automaticSwitchCandidates,
   calculateDamageRange,
+  calculateMovePreview,
+  chooseSimpleAiDecision,
   chooseSimpleAiCommand,
   createSimpleBattle,
   resolveSimpleTurn,
@@ -145,6 +147,93 @@ test("normalizes Heat Stamp and uses weight-based power in battle and AI estimat
     .find((trace) => trace.side === 0)
     ?.candidates.find((candidate) => candidate.id === "heatcrash");
   assert.ok(heatStamp.expectedDamage.value > 0);
+});
+
+test("does not offer weight-based moves against a Dynamaxed target", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Attacker",
+          team: [
+            pokemon({
+              name: "Snorlax",
+              types: ["Normal"],
+              weightKg: 460,
+              stats: { ...pokemon().stats, attack: 180 },
+              moves: [
+                {
+                  id: "heatcrash",
+                  name: "Heat Crash",
+                  type: "Fire",
+                  category: "Physical",
+                  power: 0,
+                  accuracy: true,
+                  pp: 10,
+                  dynamicPower: true,
+                },
+                {
+                  id: "hammerarm",
+                  name: "Hammer Arm",
+                  type: "Fighting",
+                  category: "Physical",
+                  power: 100,
+                  accuracy: 90,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Dynamaxed Target",
+          team: [
+            pokemon({
+              name: "Target",
+              weightKg: 80,
+              stats: { ...pokemon().stats, hp: 300 },
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const attacker = state.sides[0].team[0];
+  const defender = state.sides[1].team[0];
+  defender.dynamaxTurns = 2;
+
+  const preview = calculateMovePreview(attacker, defender, attacker.moves[0], {
+    state,
+    attackerSide: 0,
+    defenderSide: 1,
+  });
+  assert.equal(preview.range.minimum, 0);
+  assert.equal(preview.range.maximum, 0);
+  assert.equal(
+    chooseSimpleAiCommand(state, 0, "expert", "balanced").move,
+    2,
+  );
+
+  const failed = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(
+    failed.events.some(
+      (event) =>
+        event.type === "move_failed" &&
+        event.move === "Heat Crash" &&
+        event.reason ===
+          "Weight-based moves fail against Dynamaxed targets.",
+    ),
+  );
 });
 
 test("resolves speed order, PP and damage using the same seed", () => {
@@ -1400,20 +1489,22 @@ test("AI adapts to repeated Sucker Punch status bait by seed and failure count",
       },
     ],
   });
-  const commandAfterFailures = (seed, failureCount) => {
+  const stateAfterFailures = (seed, failureCount) => {
     let state = createSimpleBattle({ ...scenario, seed });
     for (let index = 0; index < failureCount; index += 1) {
       state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
     }
     state.sides[0].team[0].megaEvolved = true;
     state.sides[0].gimmickResources.dynamax = "consumed";
-    return chooseSimpleAiCommand(
-      state,
+    return state;
+  };
+  const commandAfterFailures = (seed, failureCount) =>
+    chooseSimpleAiCommand(
+      stateAfterFailures(seed, failureCount),
       0,
       "expert",
       "balanced",
     ).move;
-  };
   const seeds = Array.from(
     { length: 80 },
     (_, index) => ((index + 1) * 2_654_435_761) >>> 0,
@@ -1438,6 +1529,25 @@ test("AI adapts to repeated Sucker Punch status bait by seed and failure count",
     commandAfterFailures(20260719, 1),
     commandAfterFailures(20260719, 1),
   );
+  const maxedSetupDecision = chooseSimpleAiDecision(
+    stateAfterFailures(20260719, 4),
+    0,
+    "expert",
+    "balanced",
+  );
+  const suckerPunchAfterFailedSetup =
+    maxedSetupDecision.moveCandidates.find(
+      (candidate) => candidate.id === "suckerpunch",
+    );
+  assert.equal(
+    suckerPunchAfterFailedSetup.conditionalPriorityRepeatFailure,
+    true,
+  );
+  assert.equal(
+    suckerPunchAfterFailedSetup.conditionalPriorityFailureStreak,
+    4,
+  );
+  assert.notEqual(maxedSetupDecision.command.move, 1);
 });
 
 test("AI does not repeat stat boosts that are already maximized", () => {
@@ -2215,6 +2325,96 @@ test("delays forced Dynamax for a safe setup turn without Max Knuckle", () => {
   assert.equal(command.gimmick, undefined);
 });
 
+test("AI preserves forced Gigantamax when doubled HP still loses the exchange", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Gigantamax Venusaur",
+          team: [
+            pokemon({
+              name: "Venusaur",
+              types: ["Grass", "Poison"],
+              stats: {
+                ...pokemon().stats,
+                hp: 312,
+                specialAttack: 400,
+                speed: 80,
+              },
+              moves: [
+                {
+                  id: "sludgebomb",
+                  name: "Sludge Bomb",
+                  type: "Poison",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Low HP Urshifu",
+          team: [
+            pokemon({
+              id: "urshifurapidstrike",
+              name: "Urshifu-Rapid-Strike",
+              types: ["Fighting", "Water"],
+              stats: {
+                ...pokemon().stats,
+                hp: 343,
+                attack: 180,
+                specialDefence: 100,
+                speed: 120,
+              },
+              gimmicks: {
+                canDynamax: true,
+                canGigantamax: true,
+                forceDynamax: true,
+              },
+              moves: [
+                {
+                  id: "closecombat",
+                  name: "Close Combat",
+                  type: "Fighting",
+                  category: "Physical",
+                  power: 120,
+                  accuracy: 100,
+                  pp: 5,
+                  selfBoosts: {
+                    defence: -1,
+                    specialDefence: -1,
+                  },
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[0].team[0].dynamaxTurns = 2;
+  state.sides[1].team[0].hp = 100;
+
+  const decision = chooseSimpleAiDecision(
+    state,
+    1,
+    "expert",
+    "balanced",
+  );
+
+  assert.equal(decision.command.gimmick, undefined);
+  assert.equal(decision.gimmickCandidate.score, -999);
+  assert.ok(
+    decision.gimmickCandidate.reasons.some(
+      (reason) =>
+        reason.code === "gimmick.dynamax.cannot_survive_exchange",
+    ),
+  );
+});
+
 test("AI values Swords Dance before Surging Strikes when setup creates a KO line", () => {
   const scenario = setup({
     sides: [
@@ -2874,10 +3074,190 @@ test("scores recovery and setup as real AI actions", () => {
   );
   state.sides[0].team[0].hp = 20;
 
-  assert.equal(
-    chooseSimpleAiCommand(state, 0, "expert", "defensive").move,
-    2,
+  const recoveryDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "defensive",
   );
+  assert.equal(
+    recoveryDecision.command.move,
+    2,
+    JSON.stringify(recoveryDecision.moveCandidates),
+  );
+});
+
+test("AI rejects recovery when the same-turn incoming damage exceeds healing", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Recover AI",
+          team: [
+            pokemon({
+              name: "Articuno-Galar",
+              types: ["Psychic", "Flying"],
+              hp: 125,
+              stats: {
+                ...pokemon().stats,
+                hp: 340,
+                specialAttack: 120,
+                specialDefence: 100,
+                speed: 95,
+              },
+              moves: [
+                {
+                  id: "recover",
+                  name: "Recover",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 10,
+                  heal: [1, 2],
+                },
+                {
+                  id: "freezingglare",
+                  name: "Freezing Glare",
+                  type: "Psychic",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Opponent",
+          team: [
+            pokemon({
+              name: "Magnezone",
+              types: ["Electric", "Steel"],
+              stats: {
+                ...pokemon().stats,
+                specialAttack: 400,
+                speed: 60,
+              },
+              moves: [
+                {
+                  id: "thunderbolt",
+                  name: "Thunderbolt",
+                  type: "Electric",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[0].team[0].hp = 125;
+
+  const decision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const recover = decision.moveCandidates.find(
+    (candidate) => candidate.id === "recover",
+  );
+
+  assert.ok(
+    recover.recoveryExpectedIncomingDamage > recover.recoveryAmount,
+    JSON.stringify(recover),
+  );
+  assert.ok(recover.recoveryNetHpChange < 0);
+  assert.notEqual(decision.command.move, 1);
+});
+
+test("AI counts the use turn and two sleeping turns when evaluating Rest", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Rest AI",
+          team: [
+            pokemon({
+              name: "Snorlax",
+              hp: 224,
+              stats: {
+                ...pokemon().stats,
+                hp: 524,
+                attack: 150,
+                specialDefence: 100,
+                speed: 30,
+              },
+              moves: [
+                {
+                  id: "rest",
+                  name: "Rest",
+                  type: "Psychic",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 10,
+                },
+                {
+                  id: "bodyslam",
+                  name: "Body Slam",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 85,
+                  accuracy: 100,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Opponent",
+          team: [
+            pokemon({
+              name: "Special Attacker",
+              stats: {
+                ...pokemon().stats,
+                specialAttack: 400,
+                speed: 100,
+              },
+              moves: [
+                {
+                  id: "psychic",
+                  name: "Psychic",
+                  type: "Psychic",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[0].team[0].hp = 224;
+
+  const decision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const rest = decision.moveCandidates.find(
+    (candidate) => candidate.id === "rest",
+  );
+
+  assert.equal(rest.recoveryExposureTurns, 3);
+  assert.ok(rest.recoveryExpectedIncomingDamage > rest.recoveryAmount);
+  assert.ok(rest.recoveryNetHpChange < 0);
+  assert.notEqual(decision.command.move, 1);
 });
 
 test("AI avoids non-urgent Rest into an opposing setup sweeper", () => {

@@ -365,6 +365,13 @@ export function isMoveTemporarilyDisabled(pokemon, move) {
   );
 }
 
+export function isMoveBlockedByDynamaxTarget(move, target) {
+  return (
+    Number(target?.dynamaxTurns ?? 0) > 0 &&
+    DYNAMAX_BLOCKED_WEIGHT_MOVES.has(cleanId(move?.id))
+  );
+}
+
 function cleanDisplayName(value) {
   if (!value) return "";
   if (typeof value === "object") {
@@ -1067,6 +1074,20 @@ export function calculateMovePreview(attacker, defender, move, context = {}) {
     context.attackerSide,
     context.defenderSide,
   );
+  if (isMoveBlockedByDynamaxTarget(estimatedMove, defender)) {
+    return {
+      move: estimatedMove,
+      range: {
+        minimum: 0,
+        maximum: 0,
+        stab: 1,
+        effectiveness: 1,
+        itemModifier: 1,
+        abilityModifier: 1,
+        fieldModifier: 1,
+      },
+    };
+  }
   return {
     move: estimatedMove,
     range: calculateDamageRange(attacker, defender, estimatedMove, context),
@@ -5978,10 +5999,7 @@ function executeMove(state, action, rng) {
     });
     return false;
   }
-  if (
-    defender.dynamaxTurns > 0 &&
-    DYNAMAX_BLOCKED_WEIGHT_MOVES.has(cleanId(move.id))
-  ) {
+  if (isMoveBlockedByDynamaxTarget(move, defender)) {
     state.events.push({
       turn: state.turn,
       type: "move_failed",
@@ -7824,6 +7842,20 @@ function aiExpectedMoveDamage(
     attackerSide,
     defenderSide,
   );
+  if (isMoveBlockedByDynamaxTarget(estimatedMove, defender)) {
+    return {
+      range: {
+        minimum: 0,
+        maximum: 0,
+        stab: 1,
+        effectiveness: 1,
+        itemModifier: 1,
+        abilityModifier: 1,
+        fieldModifier: 1,
+      },
+      expectedDamage: 0,
+    };
+  }
   const fixedDamage = fixedDamageAmount(estimatedMove, attacker, defender);
   if (fixedDamage !== null) {
     const effectiveness = moveEffectiveness(
@@ -8384,9 +8416,9 @@ function automaticMoveCandidates(
       const conditionalPriorityRepeatFailure =
         ["suckerpunch", "thunderclap"].includes(cleanId(displayMove.id)) &&
         conditionalPriorityFailureStreak > 0 &&
-        defender.lastMoveSucceeded === true &&
         (opponentLastDisplayMove?.category === "Status" ||
-          (Number(opponentLastDisplayMove?.power ?? 0) > 0 &&
+          (defender.lastMoveSucceeded === true &&
+            Number(opponentLastDisplayMove?.power ?? 0) > 0 &&
             opponentLastMoveActsFirst));
       const conditionalPriorityRepeatCause =
         opponentLastDisplayMove?.category === "Status"
@@ -8495,12 +8527,23 @@ function automaticMoveCandidates(
         0,
       );
       const missingHp = Math.max(0, pokemon.stats.hp - pokemon.hp);
-      const recoveryValue = displayMove.heal
-        ? Math.min(
-            missingHp,
-            fractionAmount(pokemon.stats.hp, displayMove.heal),
-          ) * 0.75
-        : 0;
+      const isRestMove = cleanId(displayMove.id) === "rest";
+      const recoveryAmount = isRestMove
+        ? missingHp
+        : displayMove.heal
+          ? Math.min(
+              missingHp,
+              fractionAmount(pokemon.stats.hp, displayMove.heal),
+            )
+          : 0;
+      const recoveryValue = recoveryAmount * 0.75;
+      const recoveryExposureTurns = isRestMove ? 3 : recoveryAmount > 0 ? 1 : 0;
+      const recoveryExpectedIncomingDamage =
+        recoveryExposureTurns > 0
+          ? opponentBestDamage * recoveryExposureTurns
+          : 0;
+      const recoveryNetHpChange =
+        recoveryAmount - recoveryExpectedIncomingDamage;
       const secondaryValue = displayMove.secondaries.reduce((sum, effect) => {
         const chance = effect.chance / 100;
         const status =
@@ -8727,6 +8770,14 @@ function automaticMoveCandidates(
           incomingBeforeActionThreat.actionBeforeThreatProbability,
         opponentKnockoutBeforeActionProbability:
           incomingBeforeActionThreat.knockoutBeforeActionProbability,
+        recoveryAmount,
+        recoveryExposureTurns,
+        recoveryExpectedIncomingDamage,
+        recoveryNetHpChange,
+        recoveryBeforeActionKoRisk:
+          recoveryExposureTurns > 0
+            ? incomingBeforeActionThreat.knockoutBeforeActionProbability
+            : 0,
         conditionalPriorityRepeatFailure,
         conditionalPriorityRepeatCause,
         conditionalPriorityFailureStreak,
@@ -8819,6 +8870,14 @@ function automaticMoveCandidates(
           incomingBeforeActionThreat.actionBeforeThreatProbability,
         opponentKnockoutBeforeActionProbability:
           incomingBeforeActionThreat.knockoutBeforeActionProbability,
+        recoveryAmount,
+        recoveryExposureTurns,
+        recoveryExpectedIncomingDamage,
+        recoveryNetHpChange,
+        recoveryBeforeActionKoRisk:
+          recoveryExposureTurns > 0
+            ? incomingBeforeActionThreat.knockoutBeforeActionProbability
+            : 0,
         conditionalPriorityRepeatFailure,
         conditionalPriorityRepeatCause,
         conditionalPriorityFailureStreak,
@@ -8902,9 +8961,17 @@ function automaticMoveCandidates(
           pokemon.dynamaxTurns <= 0 &&
           !dynamaxMode &&
           isMoveTemporarilyDisabled(pokemon, move),
+        targetRestricted:
+          !dynamaxMode &&
+          isMoveBlockedByDynamaxTarget(displayMove, defender),
       };
     })
-    .filter((candidate) => candidate.pp > 0 && !candidate.temporarilyDisabled)
+    .filter(
+      (candidate) =>
+        candidate.pp > 0 &&
+        !candidate.temporarilyDisabled &&
+        !candidate.targetRestricted,
+    )
     .map((candidate, _, candidates) => {
       const candidateAccuracy =
         candidate.accuracy === true ? 1 : Number(candidate.accuracy ?? 100) / 100;

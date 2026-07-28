@@ -1728,6 +1728,68 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         ),
       );
     }
+    const recoveryAmount = finiteNumber(enriched.recoveryAmount);
+    const recoveryExposureTurns = Math.max(
+      1,
+      finiteNumber(enriched.recoveryExposureTurns, moveId === "rest" ? 3 : 1),
+    );
+    const expectedIncomingDamage = finiteNumber(
+      enriched.recoveryExpectedIncomingDamage,
+    );
+    const recoveryNetHpChange = finiteNumber(enriched.recoveryNetHpChange);
+    const beforeActionKoRisk = Math.max(
+      0,
+      Math.min(
+        1,
+        finiteNumber(
+          enriched.recoveryBeforeActionKoRisk,
+          finiteNumber(enriched.opponentKnockoutBeforeActionProbability, 0),
+        ),
+      ),
+    );
+    if (beforeActionKoRisk >= 0.75) {
+      const penalty =
+        beforeActionKoRisk >= 0.85
+          ? -520
+          : -260;
+      adjustments.push(
+        scoreAdjustment(
+          "rule.recovery.ko_before_heal",
+          "회복 전 기절 위험",
+          beforeActionKoRisk,
+          penalty,
+          `상대가 먼저 공격해 회복기를 쓰기 전에 쓰러질 확률이 ${Math.round(beforeActionKoRisk * 100)}%라 회복 선택을 크게 낮췄습니다.`,
+        ),
+      );
+    }
+    if (
+      recoveryAmount !== undefined &&
+      expectedIncomingDamage !== undefined &&
+      recoveryNetHpChange !== undefined &&
+      recoveryNetHpChange < 0
+    ) {
+      const deficit = Math.abs(recoveryNetHpChange);
+      const basePenalty = recoveryExposureTurns >= 3 ? 120 : 80;
+      const penalty = -Math.min(
+        520,
+        basePenalty + deficit * (recoveryExposureTurns >= 3 ? 0.35 : 0.5),
+      );
+      adjustments.push(
+        scoreAdjustment(
+          recoveryExposureTurns >= 3
+            ? "rule.recovery.sleep_turn_damage"
+            : "rule.recovery.negative_exchange",
+          recoveryExposureTurns >= 3
+            ? "수면 중 누적 피해"
+            : "회복보다 큰 피격",
+          `${Math.round(recoveryAmount)} / ${Math.round(expectedIncomingDamage)}`,
+          Math.round(penalty * 100) / 100,
+          recoveryExposureTurns >= 3
+            ? `잠자기로 약 ${Math.round(recoveryAmount)} HP를 회복하지만 사용 턴과 수면 2턴 동안 약 ${Math.round(expectedIncomingDamage)} 피해를 받을 수 있어 점수를 크게 낮췄습니다.`
+            : `약 ${Math.round(recoveryAmount)} HP를 회복해도 같은 턴에 약 ${Math.round(expectedIncomingDamage)} 피해를 받아 순체력이 감소하므로 점수를 낮췄습니다.`,
+        ),
+      );
+    }
     if (!setupRiskRecoveryEmergency && opponentLikelyToSetup(enriched)) {
       const likelihood = opponentSetupLikelihood(enriched);
       const penalty =
@@ -2896,6 +2958,47 @@ export function scoreAiDynamaxCandidate({
           : "AI 설정의 다이맥스 허용을 기본 후보로 반영했습니다.",
       ),
     );
+  }
+
+  const dynamaxIncomingKoProbability = Math.max(
+    0,
+    Math.min(
+      1,
+      finiteNumber(dynamaxMove?.opponentKnockoutProbability, 0),
+    ),
+  );
+  const dynamaxActionBeforeThreatProbability = Math.max(
+    0,
+    Math.min(
+      1,
+      finiteNumber(dynamaxMove?.actionBeforeThreatProbability, 0),
+    ),
+  );
+  const guaranteedKoBeforeThreat =
+    dynamaxMove?.koChance === "guaranteed"
+      ? dynamaxActionBeforeThreatProbability
+      : 0;
+  const dynamaxFatalExchangeProbability =
+    dynamaxIncomingKoProbability * (1 - guaranteedKoBeforeThreat);
+  if (dynamaxMove && dynamaxFatalExchangeProbability >= 0.75) {
+    reasons.push(
+      scoreAdjustment(
+        "gimmick.dynamax.cannot_survive_exchange",
+        "다이맥스 후에도 기절",
+        dynamaxFatalExchangeProbability,
+        -999,
+        `다이맥스로 체력을 늘려도 상대의 다음 공격을 받으면 쓰러질 가능성이 ${Math.round(dynamaxFatalExchangeProbability * 100)}%이며, 먼저 확정 KO로 공격을 차단할 수도 없어 기믹 자원을 보존합니다.`,
+      ),
+    );
+    return {
+      id: active.canGigantamax || configured?.gimmicks?.gigantamax
+        ? "gigantamax"
+        : "dynamax",
+      type: "gimmick",
+      legal: true,
+      score: -999,
+      reasons,
+    };
   }
 
   const incomingRatio = ratioValue(

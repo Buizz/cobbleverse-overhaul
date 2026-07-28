@@ -5,6 +5,7 @@ import {
   chooseSimpleAiDecision,
   createSimpleAiDecisionTrace,
   createSimpleBattle,
+  isMoveBlockedByDynamaxTarget,
   isMoveTemporarilyDisabled,
   replaceFaintedPokemon,
   resolveSimpleTurn,
@@ -22,6 +23,8 @@ import {
 } from "./common-battle-ai.mjs";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
+const SAVE_SLOT_COUNT = 5;
+const MAX_CHECKPOINTS = 100;
 const sessions = new Map();
 
 function cleanId(value) {
@@ -123,6 +126,7 @@ function publicMoves(
       target: "normal",
       disabled:
         move.pp <= 0 ||
+        isMoveBlockedByDynamaxTarget(displayMove, opponent) ||
         (active.dynamaxTurns <= 0 &&
           isMoveTemporarilyDisabled(active, move)),
       type: displayMove.type,
@@ -178,6 +182,53 @@ function reproductionLog(session) {
     events: structuredClone(session.state.events),
     aiTrace: structuredClone(session.aiTrace),
   };
+}
+
+function sessionCheckpoint(session) {
+  return {
+    turn: session.state.turn,
+    state: structuredClone(session.state),
+    aiTrace: structuredClone(session.aiTrace),
+    reproductionFrames: structuredClone(session.reproductionFrames),
+  };
+}
+
+function restoreSessionCheckpoint(session, checkpoint) {
+  session.state = structuredClone(checkpoint.state);
+  session.aiTrace = structuredClone(checkpoint.aiTrace);
+  session.reproductionFrames = structuredClone(checkpoint.reproductionFrames);
+}
+
+function pushSessionCheckpoint(session, checkpoint) {
+  session.history.push(checkpoint);
+  if (session.history.length > MAX_CHECKPOINTS) {
+    session.history.splice(0, session.history.length - MAX_CHECKPOINTS);
+  }
+}
+
+function saveSlotMetadata(session) {
+  return Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => {
+    const slot = index + 1;
+    const saved = session.saveSlots.get(slot);
+    return {
+      slot,
+      occupied: Boolean(saved),
+      turn: saved?.checkpoint.turn ?? null,
+      savedAt: saved?.savedAt ?? null,
+    };
+  });
+}
+
+function requireSaveSlot(slot) {
+  const normalized = Number(slot);
+  if (
+    !Number.isInteger(normalized) ||
+    normalized < 1 ||
+    normalized > SAVE_SLOT_COUNT
+  ) {
+    throw new Error(`저장 슬롯은 1~${SAVE_SLOT_COUNT} 사이여야 합니다.`);
+  }
+  return normalized;
 }
 
 function snapshot(session) {
@@ -349,6 +400,12 @@ function snapshot(session) {
         }
       : null,
     aiTrace: session.aiTrace,
+    controls: {
+      canUndo: session.history.some(
+        (checkpoint) => checkpoint.turn < session.state.turn,
+      ),
+      saveSlots: saveSlotMetadata(session),
+    },
     reproduction: reproductionLog(session),
     warnings: [
       {
@@ -418,6 +475,8 @@ export function startNativeInteractiveBattle(scenario) {
     }),
     aiTrace: [],
     reproductionFrames: [],
+    history: [],
+    saveSlots: new Map(),
     updatedAt: Date.now(),
   };
   sessions.set(session.id, session);
@@ -439,6 +498,7 @@ export function chooseNativeInteractiveBattleAction(sessionId, action) {
       throw new Error("쓰러지지 않은 포켓몬을 선택해 교체해 주세요.");
     }
     const before = diagnosticBattleState(session.state);
+    const checkpoint = sessionCheckpoint(session);
     const eventStart = session.state.events.length;
     session.state = replaceFaintedPokemon(session.state, 0, Number(action?.slot));
     session.reproductionFrames.push({
@@ -452,6 +512,7 @@ export function chooseNativeInteractiveBattleAction(sessionId, action) {
       emittedEvents: structuredClone(session.state.events.slice(eventStart)),
       after: diagnosticBattleState(session.state),
     });
+    pushSessionCheckpoint(session, checkpoint);
     session.updatedAt = Date.now();
     return snapshot(session);
   }
@@ -461,6 +522,7 @@ export function chooseNativeInteractiveBattleAction(sessionId, action) {
   const strategy =
     session.scenario.aiProfiles?.[1]?.strategy ?? "balanced";
   const before = diagnosticBattleState(session.state);
+  const checkpoint = sessionCheckpoint(session);
   const eventStart = session.state.events.length;
   const aiDecision = chooseSimpleAiDecision(
     session.state,
@@ -498,12 +560,111 @@ export function chooseNativeInteractiveBattleAction(sessionId, action) {
       emittedEvents: structuredClone(session.state.events.slice(eventStart)),
       after: diagnosticBattleState(session.state),
     });
+    pushSessionCheckpoint(session, checkpoint);
     session.updatedAt = Date.now();
     return snapshot(session);
   } catch (error) {
     session.aiTrace.pop();
     throw error;
   }
+}
+
+export function saveNativeInteractiveBattleSlot(sessionId, slot) {
+  removeExpiredSessions();
+  const session = sessions.get(String(sessionId ?? ""));
+  if (!session) {
+    throw new Error("자체 엔진 전투 세션을 찾을 수 없습니다. 다시 시작해 주세요.");
+  }
+  const normalizedSlot = requireSaveSlot(slot);
+  session.saveSlots.set(normalizedSlot, {
+    checkpoint: sessionCheckpoint(session),
+    history: structuredClone(session.history),
+    savedAt: new Date().toISOString(),
+  });
+  session.updatedAt = Date.now();
+  return snapshot(session);
+}
+
+export function exportNativeInteractiveBattleSave(sessionId) {
+  removeExpiredSessions();
+  const session = sessions.get(String(sessionId ?? ""));
+  if (!session) {
+    throw new Error("전투 세션을 찾을 수 없습니다. 전투를 다시 시작해 주세요.");
+  }
+  return {
+    schema: "cobbleverse-pve-battle-save",
+    version: 1,
+    battleEngine: "cobbleverse",
+    scenario: structuredClone(session.scenario),
+    turn: session.state.turn,
+    savedAt: new Date().toISOString(),
+    payload: {
+      checkpoint: sessionCheckpoint(session),
+      history: structuredClone(session.history.slice(-20)),
+    },
+  };
+}
+
+export function resumeNativeInteractiveBattle(save) {
+  if (
+    save?.schema !== "cobbleverse-pve-battle-save" ||
+    save?.version !== 1 ||
+    save?.battleEngine !== "cobbleverse" ||
+    !save?.scenario ||
+    !save?.payload?.checkpoint?.state
+  ) {
+    throw new Error("올바른 Cobbleverse PvE 전투 저장 데이터가 아닙니다.");
+  }
+  removeExpiredSessions();
+  const session = {
+    id: `native-${randomUUID()}`,
+    scenario: structuredClone(save.scenario),
+    state: structuredClone(save.payload.checkpoint.state),
+    aiTrace: structuredClone(save.payload.checkpoint.aiTrace ?? []),
+    reproductionFrames: structuredClone(
+      save.payload.checkpoint.reproductionFrames ?? [],
+    ),
+    history: structuredClone(save.payload.history ?? []),
+    saveSlots: new Map(),
+    updatedAt: Date.now(),
+  };
+  sessions.set(session.id, session);
+  return snapshot(session);
+}
+
+export function loadNativeInteractiveBattleSlot(sessionId, slot) {
+  removeExpiredSessions();
+  const session = sessions.get(String(sessionId ?? ""));
+  if (!session) {
+    throw new Error("자체 엔진 전투 세션을 찾을 수 없습니다. 다시 시작해 주세요.");
+  }
+  const normalizedSlot = requireSaveSlot(slot);
+  const saved = session.saveSlots.get(normalizedSlot);
+  if (!saved) {
+    throw new Error(`${normalizedSlot}번 저장 슬롯이 비어 있습니다.`);
+  }
+  restoreSessionCheckpoint(session, saved.checkpoint);
+  session.history = structuredClone(saved.history);
+  session.updatedAt = Date.now();
+  return snapshot(session);
+}
+
+export function undoNativeInteractiveBattleTurn(sessionId) {
+  removeExpiredSessions();
+  const session = sessions.get(String(sessionId ?? ""));
+  if (!session) {
+    throw new Error("자체 엔진 전투 세션을 찾을 수 없습니다. 다시 시작해 주세요.");
+  }
+  const checkpointIndex = session.history.findLastIndex(
+    (checkpoint) => checkpoint.turn < session.state.turn,
+  );
+  if (checkpointIndex < 0) {
+    throw new Error("돌아갈 이전 턴이 없습니다.");
+  }
+  const [checkpoint] = session.history.splice(checkpointIndex);
+  restoreSessionCheckpoint(session, checkpoint);
+  session.updatedAt = Date.now();
+  return snapshot(session);
 }
 
 export function forfeitNativeInteractiveBattle(sessionId) {

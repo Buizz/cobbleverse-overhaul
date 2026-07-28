@@ -1,0 +1,87 @@
+{
+  "name": "SV9 스크린 오펜스",
+  "entry": {
+    "type": "computer",
+    "priority": 950,
+    "label": "SV9 OU 실전형",
+    "source": "Cobbleverse curated from SV OU sample archetypes",
+    "owner": "Cobbleverse",
+    "snapshotDate": "2026-07-29"
+  },
+  "battleRules": {
+    "maxItemUses": 0
+  },
+  "bag": [],
+  "team": [
+    {
+      "species": "deoxys-speed",
+      "level": 100,
+      "nature": "timid",
+      "ability": "pressure",
+      "heldItem": "cobblemon:light_clay",
+      "moveset": ["reflect", "lightscreen", "taunt", "stealthrock"],
+      "gimmicks": {"tera": "Ghost"},
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 252, "special_defence": 4, "speed": 252}
+    },
+    {
+      "species": "ironvaliant",
+      "level": 100,
+      "nature": "timid",
+      "ability": "quarkdrive",
+      "heldItem": "mega_showdown:booster_energy",
+      "moveset": ["calmmind", "moonblast", "shadowball", "encore"],
+      "gimmicks": {"tera": "Ghost"},
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 31},
+      "evs": {"defence": 4, "special_attack": 252, "speed": 252}
+    },
+    {
+      "species": "greattusk",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "protosynthesis",
+      "heldItem": "mega_showdown:booster_energy",
+      "moveset": ["headlongrush", "closecombat", "rapidspin", "knockoff"],
+      "gimmicks": {"tera": "Steel"},
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 31},
+      "evs": {"attack": 252, "special_defence": 4, "speed": 252}
+    },
+    {
+      "species": "dragonite",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "multiscale",
+      "heldItem": "cobblemon:heavy_duty_boots",
+      "moveset": ["dragondance", "extremespeed", "earthquake", "icespinner"],
+      "gimmicks": {"tera": "Normal"},
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 31},
+      "evs": {"attack": 252, "special_defence": 4, "speed": 252}
+    },
+    {
+      "species": "glimmora",
+      "level": 100,
+      "nature": "timid",
+      "ability": "toxicdebris",
+      "heldItem": "cobblemon:focus_sash",
+      "moveset": ["spikes", "mortalspin", "powergem", "earthpower"],
+      "gimmicks": {"tera": "Ghost"},
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 31},
+      "evs": {"defence": 4, "special_attack": 252, "speed": 252}
+    },
+    {
+      "species": "kingambit",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "supremeoverlord",
+      "heldItem": "cobblemon:black_glasses",
+      "moveset": ["swordsdance", "kowtowcleave", "suckerpunch", "ironhead"],
+      "gimmicks": {"tera": "Dark"},
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 252, "attack": 252, "special_defence": 4}
+    }
+  ],
+  "ai": {
+    "type": "cobbleverse",
+    "data": {"canTera": true, "strategy": "setup"}
+  }
+}

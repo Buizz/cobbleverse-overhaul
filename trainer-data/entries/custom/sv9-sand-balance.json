@@ -1,0 +1,87 @@
+{
+  "name": "SV9 모래바람 밸런스",
+  "entry": {
+    "type": "computer",
+    "priority": 930,
+    "label": "SV9 OU 실전형",
+    "source": "Cobbleverse curated from SV OU sample archetypes",
+    "owner": "Cobbleverse",
+    "snapshotDate": "2026-07-29"
+  },
+  "battleRules": {
+    "maxItemUses": 0
+  },
+  "bag": [],
+  "team": [
+    {
+      "species": "tyranitar",
+      "level": 100,
+      "nature": "careful",
+      "ability": "sandstream",
+      "heldItem": "cobblemon:smooth_rock",
+      "moveset": ["stealthrock", "knockoff", "stoneedge", "thunderwave"],
+      "gimmicks": {"tera": "Fairy"},
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 252, "attack": 4, "special_defence": 252}
+    },
+    {
+      "species": "excadrill",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "sandrush",
+      "heldItem": "cobblemon:air_balloon",
+      "moveset": ["swordsdance", "earthquake", "ironhead", "rapidspin"],
+      "gimmicks": {"tera": "Ground"},
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 31},
+      "evs": {"attack": 252, "special_defence": 4, "speed": 252}
+    },
+    {
+      "species": "hydrapple",
+      "level": 100,
+      "nature": "modest",
+      "ability": "regenerator",
+      "heldItem": "cobblemon:assault_vest",
+      "moveset": ["gigadrain", "dracometeor", "earthpower", "infestation"],
+      "gimmicks": {"tera": "Steel"},
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 248, "special_attack": 252, "special_defence": 8}
+    },
+    {
+      "species": "moltres",
+      "level": 100,
+      "nature": "bold",
+      "ability": "flamebody",
+      "heldItem": "cobblemon:heavy_duty_boots",
+      "moveset": ["flamethrower", "hurricane", "roost", "uturn"],
+      "gimmicks": {"tera": "Dragon"},
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 248, "defence": 252, "speed": 8}
+    },
+    {
+      "species": "slowking-galar",
+      "level": 100,
+      "nature": "sassy",
+      "ability": "regenerator",
+      "heldItem": "cobblemon:heavy_duty_boots",
+      "moveset": ["sludgebomb", "futuresight", "chillyreception", "slackoff"],
+      "gimmicks": {"tera": "Water"},
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 0},
+      "evs": {"hp": 252, "defence": 4, "special_defence": 252}
+    },
+    {
+      "species": "zamazenta",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "dauntlessshield",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": ["irondefense", "bodypress", "crunch", "substitute"],
+      "gimmicks": {"tera": "Steel"},
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 252, "defence": 4, "speed": 252}
+    }
+  ],
+  "ai": {
+    "type": "cobbleverse",
+    "data": {"canTera": true, "strategy": "field-control"}
+  }
+}

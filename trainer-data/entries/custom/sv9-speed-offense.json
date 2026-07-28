@@ -1,0 +1,198 @@
+{
+  "name": "SV9 고속 오펜스",
+  "entry": {
+    "type": "computer",
+    "priority": 910,
+    "label": "SV9 실전 테스트",
+    "source": "Cobbleverse curated SV OU archetype",
+    "owner": "Cobbleverse",
+    "snapshotDate": "2026-07-29"
+  },
+  "battleRules": {
+    "maxItemUses": 0
+  },
+  "bag": [],
+  "team": [
+    {
+      "species": "mamoswine",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "thickfat",
+      "heldItem": "cobblemon:focus_sash",
+      "moveset": [
+        "stealthrock",
+        "earthquake",
+        "iciclecrash",
+        "iceshard"
+      ],
+      "gimmicks": {
+        "tera": "Ghost"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "attack": 252,
+        "special_defence": 4,
+        "speed": 252
+      }
+    },
+    {
+      "species": "weavile",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "pressure",
+      "heldItem": "cobblemon:heavy_duty_boots",
+      "moveset": [
+        "swordsdance",
+        "tripleaxel",
+        "knockoff",
+        "iceshard"
+      ],
+      "gimmicks": {
+        "tera": "Dark"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "attack": 252,
+        "special_defence": 4,
+        "speed": 252
+      }
+    },
+    {
+      "species": "blaziken",
+      "level": 100,
+      "nature": "adamant",
+      "ability": "speedboost",
+      "heldItem": "cobblemon:life_orb",
+      "moveset": [
+        "protect",
+        "swordsdance",
+        "closecombat",
+        "flareblitz"
+      ],
+      "gimmicks": {
+        "tera": "Fire"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "attack": 252,
+        "special_defence": 4,
+        "speed": 252
+      }
+    },
+    {
+      "species": "salamence",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "intimidate",
+      "heldItem": "cobblemon:heavy_duty_boots",
+      "moveset": [
+        "dragondance",
+        "dualwingbeat",
+        "earthquake",
+        "roost"
+      ],
+      "gimmicks": {
+        "tera": "Steel"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "attack": 252,
+        "special_defence": 4,
+        "speed": 252
+      }
+    },
+    {
+      "species": "magnezone",
+      "level": 100,
+      "nature": "timid",
+      "ability": "magnetpull",
+      "heldItem": "cobblemon:air_balloon",
+      "moveset": [
+        "thunderbolt",
+        "flashcannon",
+        "voltswitch",
+        "thunderwave"
+      ],
+      "gimmicks": {
+        "tera": "Flying"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "special_attack": 252,
+        "special_defence": 4,
+        "speed": 252
+      }
+    },
+    {
+      "species": "articuno-galar",
+      "level": 100,
+      "nature": "timid",
+      "ability": "competitive",
+      "heldItem": "cobblemon:choice_scarf",
+      "moveset": [
+        "freezingglare",
+        "hurricane",
+        "shadowball",
+        "uturn"
+      ],
+      "gimmicks": {
+        "tera": "Fighting"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "special_attack": 252,
+        "special_defence": 4,
+        "speed": 252
+      }
+    }
+  ],
+  "ai": {
+    "type": "cobbleverse",
+    "data": {
+      "canTera": true,
+      "strategy": "aggressive"
+    }
+  }
+}
