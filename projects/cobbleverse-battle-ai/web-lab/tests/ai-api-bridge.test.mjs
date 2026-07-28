@@ -21,6 +21,7 @@ import {
   moveRoleValue,
   scoreAiMoveCandidate,
   selectAiMoveCandidate,
+  selectAiGimmick,
   teamRoleLabel,
 } from "../lib/common-battle-ai.mjs";
 
@@ -894,6 +895,30 @@ test("applies RunAndBun-inspired recovery, pivot, and immediate KO rules", () =>
     hpPercent: 0.8,
     safeImmediateKoAvailable: true,
   };
+  const restIntoSetup = {
+    slot: 4,
+    id: "rest",
+    name: "Rest",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    roleTags: ["recovery"],
+    hpPercent: 0.87,
+    incomingDamageRatio: 0.35,
+    opponentSetupMoveCount: 1,
+    opponentSetupFirstTurnLikelihood: 0.8,
+    opponentLikelyFirstTurnSetup: true,
+    opponentSetupThreatTier: 3,
+  };
+  const bodySlam = {
+    slot: 5,
+    id: "bodyslam",
+    name: "Body Slam",
+    category: "Physical",
+    power: 85,
+    accuracy: 100,
+    expectedDamage: 70,
+  };
   const partingShot = {
     slot: 3,
     id: "partingshot",
@@ -908,6 +933,10 @@ test("applies RunAndBun-inspired recovery, pivot, and immediate KO rules", () =>
   assert.ok(
     scoreAiMoveCandidate(finishingMove, "expert", "aggressive") >
       scoreAiMoveCandidate(recover, "expert", "defensive"),
+  );
+  assert.ok(
+    scoreAiMoveCandidate(bodySlam, "expert", "balanced") >
+      scoreAiMoveCandidate(restIntoSetup, "expert", "balanced"),
   );
   assert.ok(scoreAiMoveCandidate(partingShot, "expert", "tempo") > 0);
 
@@ -926,6 +955,23 @@ test("applies RunAndBun-inspired recovery, pivot, and immediate KO rules", () =>
   assert.ok(pivot.reasons.some((reason) => reason.code === "rule.pivot.safe_pivot"));
   assert.ok(
     recovery.reasons.some((reason) => reason.code === "rule.immediate_ko_dominance"),
+  );
+
+  const setupTrace = createAiMoveTrace({
+    turn: 12,
+    side: 0,
+    sideName: "AI",
+    species: "Snorlax",
+    difficulty: "expert",
+    strategy: "balanced",
+    selected: bodySlam,
+    candidates: [restIntoSetup, bodySlam],
+  });
+  const riskyRest = setupTrace.candidates.find((candidate) => candidate.slot === 4);
+  assert.ok(
+    riskyRest.reasons.some(
+      (reason) => reason.code === "rule.recovery.free_setup_risk",
+    ),
   );
 });
 
@@ -1133,6 +1179,100 @@ test("scores Dynamax activation against setup opportunity cost", () => {
   assert.ok(withMaxKnuckle.score >= 12);
   assert.ok(
     withMaxKnuckle.reasons.some((reason) => reason.code === "gimmick.dynamax.max_knuckle"),
+  );
+});
+
+test("selects an unforced Dynamax or Gigantamax when the tactical score is high", () => {
+  const selectedMove = {
+    slot: 1,
+    id: "closecombat",
+    name: "Close Combat",
+    type: "Fighting",
+    category: "Physical",
+    power: 120,
+    expectedDamage: 360,
+    opponentHp: 342,
+    incomingDamageRatio: 1.4,
+    koChance: "guaranteed",
+  };
+  const decision = selectAiGimmick({
+    active: {
+      canDynamax: true,
+      canGigantamax: true,
+      hpPercent: 0.18,
+      incomingDamageRatio: 1.4,
+      opponentHp: 342,
+    },
+    configured: { gimmicks: {} },
+    selectedMove,
+    moveCandidates: [
+      selectedMove,
+      { id: "swordsdance", name: "Swords Dance", category: "Status" },
+    ],
+    alreadyUsed: {},
+  });
+
+  assert.equal(decision.id, "gigantamax");
+  assert.ok(decision.candidate.score >= 12);
+  assert.ok(
+    decision.candidate.reasons.some((reason) => reason.code === "gimmick.dynamax.survival"),
+  );
+});
+
+test("rejects Gigantamax when move conversion loses a multi-hit Sturdy knockout", () => {
+  const surgingStrikes = {
+    slot: 1,
+    id: "surgingstrikes",
+    name: "Surging Strikes",
+    type: "Water",
+    category: "Physical",
+    expectedDamage: 549,
+    score: 552.48,
+    hitCount: 3,
+    breaksSturdy: true,
+    koChance: "guaranteed",
+  };
+  const gmaxRapidFlow = {
+    slot: 1,
+    id: "gmaxrapidflow",
+    name: "G-Max Rapid Flow",
+    type: "Water",
+    category: "Physical",
+    expectedDamage: 403,
+    score: 403,
+    hitCount: 1,
+    sturdyBlocked: true,
+    koChance: "none",
+  };
+  const decision = selectAiGimmick({
+    active: {
+      canDynamax: true,
+      canGigantamax: true,
+      hpPercent: 0.34,
+      incomingDamageRatio: 0.7,
+      opponentHp: 404,
+    },
+    configured: { gimmicks: { dynamax: true, gigantamax: true } },
+    selectedMove: surgingStrikes,
+    moveCandidates: [surgingStrikes],
+    dynamaxMove: gmaxRapidFlow,
+    baseMoveForDynamax: surgingStrikes,
+    dynamaxMoveCandidates: [gmaxRapidFlow],
+    forceDynamax: true,
+    alreadyUsed: {},
+  });
+
+  assert.equal(decision.id, "");
+  assert.ok(decision.candidate.score < 12);
+  assert.ok(
+    decision.candidate.reasons.some(
+      (reason) => reason.code === "gimmick.dynamax.loses_multi_hit_breaker",
+    ),
+  );
+  assert.ok(
+    decision.candidate.reasons.some(
+      (reason) => reason.code === "gimmick.dynamax.loses_guaranteed_ko",
+    ),
   );
 });
 

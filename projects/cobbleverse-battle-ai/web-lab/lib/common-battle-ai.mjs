@@ -156,7 +156,7 @@ const SELF_SACRIFICE_MOVE_IDS = new Set([
   "mistyexplosion",
   "selfdestruct",
 ]);
-const DYNAMAX_SCORE_THRESHOLD = 12;
+const DYNAMAX_SCORE_THRESHOLD = 18;
 
 const AI_SCORING_RULES = [
   {
@@ -276,6 +276,26 @@ function setupThreatTier(candidate) {
   if (key === "tier2" || key === "2" || key === "danger") return 2;
   if (key === "tier1" || key === "1") return 1;
   return 0;
+}
+
+function opponentSetupLikelihood(candidate) {
+  const likelihood = ratioValue(
+    candidate.opponentSetupFirstTurnLikelihood,
+    candidate.opponentSetupLikelihood,
+    candidate.setupLikelihood,
+    0,
+  );
+  return Math.max(0, Math.min(1, likelihood ?? 0));
+}
+
+function opponentLikelyToSetup(candidate) {
+  const setupMoveCount = Math.max(0, Number(candidate.opponentSetupMoveCount ?? 0));
+  if (setupMoveCount <= 0) return false;
+  return (
+    candidate.opponentLikelyFirstTurnSetup === true ||
+    opponentSetupLikelihood(candidate) >= 0.55 ||
+    setupThreatTier(candidate) >= 2
+  );
 }
 
 function positiveBoostTotal(boosts = {}) {
@@ -1414,6 +1434,10 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
     );
     const projectedHp =
       incomingRatio === undefined || actsBefore ? hpPercent : hpPercent - incomingRatio;
+    const setupRiskRecoveryEmergency =
+      hpPercent <= 0.45 ||
+      (projectedHp > 0 && projectedHp <= 0.25) ||
+      (incomingRatio !== undefined && incomingRatio >= hpPercent);
     let weight = 0;
     let message = "";
     if (hpPercent <= 0.35) {
@@ -1437,6 +1461,24 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
           hpPercent,
           weight,
           message,
+        ),
+      );
+    }
+    if (!setupRiskRecoveryEmergency && opponentLikelyToSetup(enriched)) {
+      const likelihood = opponentSetupLikelihood(enriched);
+      const penalty =
+        hpPercent >= 0.8
+          ? -95
+          : hpPercent >= 0.65
+            ? -75
+            : -45;
+      adjustments.push(
+        scoreAdjustment(
+          "rule.recovery.free_setup_risk",
+          "무료 랭크업 위험",
+          `${Math.round(hpPercent * 100)}% / ${Math.round(likelihood * 100)}%`,
+          penalty,
+          "회복이 급하지 않은 상황에서 회복기를 쓰면 상대 랭크업 기술에 무료 턴을 줄 위험이 커서 크게 감점했습니다.",
         ),
       );
     }
@@ -1516,7 +1558,17 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
     );
   }
 
-  if (enriched.sturdyBlocked === true) {
+  if (enriched.focusSashBlocked === true) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.focus_sash.single_hit_blocked",
+        "기합의띠 방지",
+        true,
+        -90,
+        "상대 기합의띠가 발동하면 단타 공격은 HP 1에서 멈추므로 확정 마무리 가치를 크게 낮췄습니다.",
+      ),
+    );
+  } else if (enriched.sturdyBlocked === true) {
     adjustments.push(
       scoreAdjustment(
         "rule.sturdy.single_hit_blocked",
@@ -1524,6 +1576,16 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         cleanId(enriched.opponentAbility ?? "sturdy") || true,
         -90,
         "상대 옹골참이 발동하면 단타 공격은 HP 1에서 멈추므로 확정 마무리 가치가 크게 낮아집니다.",
+      ),
+    );
+  } else if (enriched.breaksFocusSash === true) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.focus_sash.multi_hit_breaker",
+        "기합의띠 관통",
+        Number(enriched.hitCount ?? enriched.hits ?? 2),
+        55,
+        "연속타가 기합의띠로 HP 1에 남은 상대를 이어서 처리할 수 있어 마무리 가치를 높였습니다.",
       ),
     );
   } else if (enriched.breaksSturdy === true || enriched.sturdyBreaker === true) {
@@ -2299,6 +2361,9 @@ export function scoreAiDynamaxCandidate({
   configured = {},
   selectedMove = {},
   moveCandidates = [],
+  dynamaxMove = null,
+  baseMoveForDynamax = null,
+  dynamaxMoveCandidates = [],
   forceDynamax = false,
 } = {}) {
   const reasons = [];
@@ -2319,7 +2384,25 @@ export function scoreAiDynamaxCandidate({
       ],
     };
   }
+  if (active.dynamaxReservedForOther === true) {
+    return {
+      id: active.canGigantamax || configured?.gimmicks?.gigantamax ? "gigantamax" : "dynamax",
+      type: "gimmick",
+      legal: true,
+      score: -999,
+      reasons: [
+        scoreAdjustment(
+          "gimmick.dynamax.reserved_for_configured",
+          "지정 대상 보존",
+          true,
+          -999,
+          "엔트리에 지정된 다른 다이맥스 대상이 아직 살아 있어 현재 포켓몬의 다이맥스 사용을 보류했습니다.",
+        ),
+      ],
+    };
+  }
 
+  const evaluatedMove = dynamaxMove ?? selectedMove;
   let score = forceDynamax || configured?.gimmicks?.dynamax ? 18 : 0;
   if (score > 0) {
     reasons.push(
@@ -2370,7 +2453,7 @@ export function scoreAiDynamaxCandidate({
     }
   }
 
-  if (selectedMove.koChance === "guaranteed") {
+  if (evaluatedMove.koChance === "guaranteed") {
     score += 8;
     reasons.push(
       scoreAdjustment(
@@ -2382,20 +2465,26 @@ export function scoreAiDynamaxCandidate({
       ),
     );
   }
-  if (Number(selectedMove.expectedDamage ?? 0) >= Number(active.opponentHp ?? Infinity) * 0.6) {
+  if (Number(evaluatedMove.expectedDamage ?? 0) >= Number(active.opponentHp ?? Infinity) * 0.6) {
     score += 6;
     reasons.push(
       scoreAdjustment(
         "gimmick.dynamax.damage_pressure",
         "피해 압박",
-        selectedMove.expectedDamage,
+        evaluatedMove.expectedDamage,
         6,
-        "선택 기술의 피해 기대값이 높아 다이맥스 화력 가치를 반영했습니다.",
+        `${evaluatedMove.name ?? "맥스기술"}의 피해 기대값이 높아 다이맥스 화력 가치를 반영했습니다.`,
       ),
     );
   }
 
-  if (moveCandidates.length > 0 && hasSetupMove(moveCandidates) && hasFightingAttack(moveCandidates)) {
+  if (
+    (dynamaxMoveCandidates.length > 0
+      ? hasFightingAttack(dynamaxMoveCandidates)
+      : hasFightingAttack(moveCandidates)) &&
+    moveCandidates.length > 0 &&
+    hasSetupMove(moveCandidates)
+  ) {
     score += 8;
     reasons.push(
       scoreAdjustment(
@@ -2406,6 +2495,65 @@ export function scoreAiDynamaxCandidate({
         "격투 공격기가 있어 다이맥스 중에도 다이너클로 공격 상승을 노릴 수 있습니다.",
       ),
     );
+  }
+
+  if (dynamaxMove && baseMoveForDynamax) {
+    const baseScore = Number(baseMoveForDynamax.score ?? 0);
+    const maxScore = Number(dynamaxMove.score ?? 0);
+    const rawDifference = maxScore - baseScore;
+    const scoreDifference = Math.max(-120, Math.min(0, rawDifference * 0.5));
+    score += scoreDifference;
+    reasons.push(
+      scoreAdjustment(
+        "gimmick.dynamax.move_conversion",
+        "맥스기술 변환",
+        rawDifference,
+        scoreDifference,
+        `최선의 일반 행동 ${baseMoveForDynamax.name ?? "원래 기술"}(${baseScore.toFixed(
+          2,
+        )})과 최선의 맥스 행동 ${dynamaxMove.name ?? "맥스기술"}(${maxScore.toFixed(
+          2,
+        )})의 전술 점수 차이를 반영했습니다.`,
+      ),
+    );
+
+    const baseHitCount = Math.max(1, Number(baseMoveForDynamax.hitCount ?? 1));
+    const maxHitCount = Math.max(1, Number(dynamaxMove.hitCount ?? 1));
+    const losesMultiHitBreaker =
+      baseHitCount > maxHitCount &&
+      (baseMoveForDynamax.breaksSturdy === true ||
+        baseMoveForDynamax.breaksFocusSash === true) &&
+      dynamaxMove.koChance !== "guaranteed";
+    if (losesMultiHitBreaker) {
+      score -= 80;
+      reasons.push(
+        scoreAdjustment(
+          "gimmick.dynamax.loses_multi_hit_breaker",
+          "연속타 돌파 상실",
+          `${baseHitCount} -> ${maxHitCount}`,
+          -80,
+          `일반 상태의 ${baseMoveForDynamax.name ?? "원래 기술"} ${baseHitCount}타 대신 ${
+            dynamaxMove.name ?? "맥스기술"
+          } ${maxHitCount}타를 사용하게 되어 옹골참/기합의띠 돌파가 사라집니다.`,
+        ),
+      );
+    }
+
+    if (
+      baseMoveForDynamax.koChance === "guaranteed" &&
+      dynamaxMove.koChance !== "guaranteed"
+    ) {
+      score -= 45;
+      reasons.push(
+        scoreAdjustment(
+          "gimmick.dynamax.loses_guaranteed_ko",
+          "확정 KO 상실",
+          dynamaxMove.koChance ?? "none",
+          -45,
+          "원래 기술의 확정 KO가 맥스기술 변환 후 사라져 다이맥스 사용을 크게 감점했습니다.",
+        ),
+      );
+    }
   }
 
   if (reasons.length === 0) {
@@ -2421,7 +2569,7 @@ export function scoreAiDynamaxCandidate({
   }
 
   return {
-    id: "dynamax",
+    id: active.canGigantamax || configured?.gimmicks?.gigantamax ? "gigantamax" : "dynamax",
     type: "gimmick",
     legal: true,
     score: Math.round(score * 100) / 100,
@@ -2435,9 +2583,13 @@ export function selectAiGimmick({
   moveSlot = 1,
   selectedMove = {},
   moveCandidates = [],
+  dynamaxMove = null,
+  baseMoveForDynamax = null,
+  dynamaxMoveCandidates = [],
   forceDynamax = false,
   alreadyUsed = {},
 } = {}) {
+  let dynamaxCandidate = null;
   if (!alreadyUsed.mega) {
     if (active.canMegaEvo) return { id: "mega", showdownSuffix: " mega" };
     if (active.canMegaEvoX) return { id: "mega", showdownSuffix: " megax" };
@@ -2446,25 +2598,27 @@ export function selectAiGimmick({
   if (!alreadyUsed.zmove && active.canZMove?.[moveSlot - 1]) {
     return { id: "zmove", showdownSuffix: " zmove" };
   }
-  if (
-    !alreadyUsed.dynamax &&
-    active.canDynamax &&
-    (forceDynamax ||
-      configured?.gimmicks?.dynamax ||
-      configured?.gimmicks?.gigantamax)
-  ) {
-    const candidate = scoreAiDynamaxCandidate({
+  if (!alreadyUsed.dynamax && active.canDynamax) {
+    dynamaxCandidate = scoreAiDynamaxCandidate({
       active,
       configured,
       selectedMove,
       moveCandidates,
+      dynamaxMove,
+      baseMoveForDynamax,
+      dynamaxMoveCandidates,
       forceDynamax,
     });
-    if (candidate.score >= DYNAMAX_SCORE_THRESHOLD) {
+    if (dynamaxCandidate.score >= DYNAMAX_SCORE_THRESHOLD) {
+      const useGigantamax =
+        active.canGigantamax === true || configured?.gimmicks?.gigantamax === true;
       return {
-        id: configured?.gimmicks?.gigantamax ? "gigantamax" : "dynamax",
+        id: useGigantamax ? "gigantamax" : "dynamax",
         showdownSuffix: " dynamax",
-        candidate,
+        candidate: {
+          ...dynamaxCandidate,
+          id: useGigantamax ? "gigantamax" : "dynamax",
+        },
       };
     }
   }
@@ -2475,7 +2629,7 @@ export function selectAiGimmick({
   ) {
     return { id: "terastallize", showdownSuffix: " terastallize" };
   }
-  return { id: "", showdownSuffix: "" };
+  return { id: "", showdownSuffix: "", candidate: dynamaxCandidate };
 }
 
 export function selectAiTargetSuffix(move, activeIndex, activeCount, team = []) {

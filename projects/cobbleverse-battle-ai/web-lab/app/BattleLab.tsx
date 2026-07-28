@@ -241,6 +241,8 @@ type BattleEvent = {
   condition?: string;
   source?: string;
   sourceActor?: string;
+  remainingHp?: number;
+  maximumHp?: number;
 };
 
 type BattlePlaybackMode = "instant" | "fast" | "normal";
@@ -696,6 +698,7 @@ const battleEventNames: Record<string, string> = {
   switch: "교체",
   move: "기술 사용",
   damage: "피해",
+  damage_prevented: "피해 방지",
   heal: "회복",
   faint: "쓰러짐",
   status: "상태 이상",
@@ -730,6 +733,7 @@ const playbackEventTypes = new Set([
   "switch",
   "move",
   "damage",
+  "damage_prevented",
   "heal",
   "faint",
   "status",
@@ -966,6 +970,14 @@ function actionNoticeCopy(
           ? `남은 체력은 ${event.condition}입니다.`
           : "체력이 감소했습니다.",
       };
+    case "damage_prevented":
+      return {
+        title: damagePreventionMessage(localization, event),
+        detail: `${damagePreventionCause(
+          localization,
+          event,
+        )} 효과로 쓰러지지 않았습니다.`,
+      };
     case "heal":
       return {
         title: healCause(localization, event)
@@ -1160,6 +1172,47 @@ function damageCause(
   return fixed[effect.value] ?? `${effect.translated}의 효과로`;
 }
 
+function damagePreventionCause(
+  localization: LocalizationCatalog | null,
+  event: BattleEvent,
+) {
+  const rawSource = event.source || event.detail || "";
+  const sourceId = dexId(rawSource);
+  const fixed: Record<string, string> = {
+    sturdy: "옹골참",
+    focussash: "기합의띠",
+    endure: "버티기",
+    falseswipe: "칼등치기",
+  };
+  if (fixed[sourceId]) return fixed[sourceId];
+  const effect = battleEffectName(localization, event.source || event.detail);
+  return effect?.translated || rawSource || "버티는 효과";
+}
+
+function damagePreventionHp(event: BattleEvent) {
+  if (event.condition) return event.condition;
+  if (Number.isFinite(event.remainingHp) && Number.isFinite(event.maximumHp)) {
+    return `${event.remainingHp}/${event.maximumHp}`;
+  }
+  if (Number.isFinite(event.remainingHp)) return String(event.remainingHp);
+  return "1";
+}
+
+function damagePreventionMessage(
+  localization: LocalizationCatalog | null,
+  event: BattleEvent,
+) {
+  const actorNameValue = localizedSpecies(localization, actorName(event.actor));
+  const actor = event.actor?.startsWith("p2")
+    ? `상대 ${actorNameValue}`
+    : actorNameValue;
+  const subject = `${actor || "포켓몬"}${koreanParticle(actor, "은", "는")}`;
+  return `${subject} ${damagePreventionCause(
+    localization,
+    event,
+  )}으로 HP ${damagePreventionHp(event)}만 남기고 버텼다!`;
+}
+
 function healCause(
   localization: LocalizationCatalog | null,
   event: BattleEvent,
@@ -1210,6 +1263,8 @@ function pokemonBattleMessage(
       return `${subject} ${damageCause(localization, event) ?? ""} 데미지를 입었다!`
         .replace(/\s+/g, " ")
         .trim();
+    case "damage_prevented":
+      return damagePreventionMessage(localization, event);
     case "heal":
       return `${actor || "포켓몬"}의 체력이 ${
         healCause(localization, event) ?? ""
@@ -1322,6 +1377,12 @@ function BattleLogEventLine({
               )} 데미지를 입었다.`
             : "의 체력이 줄었다."}
           {condition}
+        </p>
+      );
+    case "damage_prevented":
+      return (
+        <p>
+          {damagePreventionMessage(localization, event)}
         </p>
       );
     case "heal":
@@ -3046,6 +3107,7 @@ function latestBattlingSpeciesBySide(events: BattleEvent[], side: "p1" | "p2") {
       [
         "move",
         "damage",
+        "damage_prevented",
         "heal",
         "faint",
         "status",
@@ -3071,8 +3133,14 @@ function latestConditionBySide(events: BattleEvent[], side: "p1" | "p2") {
     if (!event.actor?.startsWith(side)) continue;
     if (event.type === "switch" && event.condition) {
       condition = event.condition;
-    } else if (event.type === "damage" || event.type === "heal") {
-      condition = event.condition ?? condition;
+    } else if (
+      event.type === "damage" ||
+      event.type === "damage_prevented" ||
+      event.type === "heal"
+    ) {
+      condition =
+        event.condition ??
+        (event.type === "damage_prevented" ? damagePreventionHp(event) : condition);
     } else if (event.type === "faint") {
       condition = "0 fnt";
     }
@@ -5276,6 +5344,7 @@ export function BattleLab() {
               });
             } else if (
               event.type === "damage" ||
+              event.type === "damage_prevented" ||
               event.type === "heal" ||
               event.type === "faint"
             ) {
@@ -5284,7 +5353,10 @@ export function BattleLab() {
                 [side]:
                   event.type === "faint"
                     ? event.condition || "0 fnt"
-                    : event.condition,
+                    : event.condition ||
+                      (event.type === "damage_prevented"
+                        ? damagePreventionHp(event)
+                        : undefined),
               }));
             }
           }

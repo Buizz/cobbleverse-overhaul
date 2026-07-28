@@ -68,6 +68,21 @@ test("calculates HP, speed, weight, status, and rank based power", () => {
     }).power,
     120,
   );
+  assert.deepEqual(
+    [
+      [100, 100],
+      [200, 100],
+      [300, 100],
+      [400, 100],
+      [500, 100],
+    ].map(([attackerWeight, defenderWeight]) =>
+      resolve("heatcrash", 0, {
+        attacker: { weightKg: attackerWeight },
+        defender: { weightKg: defenderWeight },
+      }).power,
+    ),
+    [40, 60, 80, 100, 120],
+  );
   assert.equal(
     resolve("hex", 65, { defender: { status: "brn" } }).power,
     130,

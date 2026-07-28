@@ -75,6 +75,77 @@ test("reports a deterministic damage range with STAB", () => {
   assert.ok(range.maximum >= range.minimum);
 });
 
+test("normalizes Heat Stamp and uses weight-based power in battle and AI estimates", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Heavy",
+        team: [
+          pokemon({
+            name: "Snorlax",
+            types: ["Normal"],
+            weightKg: 500,
+            stats: { ...pokemon().stats, attack: 140 },
+            moves: [
+              {
+                id: "heatstamp",
+                name: "Heat Stamp",
+                type: "Fire",
+                category: "Physical",
+                power: 0,
+                accuracy: true,
+                pp: 10,
+                dynamicPower: true,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Light",
+        team: [
+          pokemon({
+            name: "Target",
+            weightKg: 80,
+            stats: { ...pokemon().stats, hp: 500 },
+            moves: [
+              {
+                id: "splash",
+                name: "Splash",
+                type: "Normal",
+                category: "Status",
+                accuracy: true,
+                pp: 40,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const created = createSimpleBattle(scenario);
+  assert.equal(created.sides[0].team[0].moves[0].id, "heatcrash");
+  const resolved = resolveSimpleTurn(created, [{ move: 1 }, { move: 1 }]);
+  assert.ok(
+    resolved.events.some(
+      (event) =>
+        event.type === "dynamic_power" &&
+        event.move === "Heat Stamp" &&
+        event.power === 120,
+    ),
+  );
+  assert.ok(resolved.sides[1].team[0].hp < 500);
+
+  const battle = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "balanced" }],
+  });
+  const heatStamp = battle.aiTrace
+    .find((trace) => trace.side === 0)
+    ?.candidates.find((candidate) => candidate.id === "heatcrash");
+  assert.ok(heatStamp.expectedDamage.value > 0);
+});
+
 test("resolves speed order, PP and damage using the same seed", () => {
   const battleSetup = setup({
     sides: [
@@ -1701,6 +1772,7 @@ test("AI prefers multi-hit Surging Strikes over single-hit Close Combat into Stu
             name: "Urshifu-Rapid-Strike",
             level: 100,
             types: ["Fighting", "Water"],
+            gimmicks: { gmax: true },
             hp: 116,
             boosts: { attack: 2 },
             stats: {
@@ -1780,6 +1852,7 @@ test("AI prefers multi-hit Surging Strikes over single-hit Close Combat into Stu
   const state = createSimpleBattle(scenario);
   const command = chooseSimpleAiCommand(state, 0, "expert", "balanced");
   assert.equal(command.move, 2);
+  assert.equal(command.gimmick, undefined);
 
   const battle = runSimpleBattle(scenario, {
     maxTurns: 1,
@@ -1788,7 +1861,10 @@ test("AI prefers multi-hit Surging Strikes over single-hit Close Combat into Stu
   const trace = battle.aiTrace.find((entry) => entry.side === 0);
   const closeCombat = trace.candidates.find((candidate) => candidate.id === "closecombat");
   const surgingStrikes = trace.candidates.find((candidate) => candidate.id === "surgingstrikes");
+  const gigantamax = trace.candidates.find((candidate) => candidate.id === "gigantamax");
   assert.equal(surgingStrikes.selected, true);
+  assert.equal(gigantamax.selected, false);
+  assert.ok(gigantamax.score < 12);
   assert.equal(closeCombat.koChance, "none");
   assert.equal(surgingStrikes.koChance, "guaranteed");
   assert.ok(
@@ -1799,6 +1875,11 @@ test("AI prefers multi-hit Surging Strikes over single-hit Close Combat into Stu
   assert.ok(
     surgingStrikes.reasons.some(
       (reason) => reason.code === "rule.sturdy.multi_hit_breaker",
+    ),
+  );
+  assert.ok(
+    gigantamax.reasons.some(
+      (reason) => reason.code === "gimmick.dynamax.loses_multi_hit_breaker",
     ),
   );
 });
@@ -1898,6 +1979,96 @@ test("AI prefers no-drop Surging Strikes over Close Combat when both are KO move
   );
 });
 
+test("Focus Sash prevents a full-HP one-hit knockout and informs AI scoring", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({
+            name: "Mawile",
+            types: ["Steel", "Fairy"],
+            stats: { ...pokemon().stats, attack: 220, speed: 70 },
+            moves: [
+              {
+                id: "suckerpunch",
+                name: "Sucker Punch",
+                type: "Dark",
+                category: "Physical",
+                power: 70,
+                accuracy: true,
+                priority: 1,
+                pp: 5,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Calyrex-Shadow",
+            types: ["Psychic", "Ghost"],
+            item: "Focus Sash",
+            stats: { ...pokemon().stats, hp: 342, defence: 70, speed: 200 },
+            moves: [
+              {
+                id: "astralbarrage",
+                name: "Astral Barrage",
+                type: "Ghost",
+                category: "Special",
+                power: 120,
+                accuracy: true,
+                pp: 5,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const result = resolveSimpleTurn(createSimpleBattle(scenario), [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  const defender = result.sides[1].team[0];
+
+  assert.equal(defender.hp, 1);
+  assert.equal(defender.fainted, false);
+  assert.equal(defender.item, "");
+  assert.ok(
+    result.events.some(
+      (event) =>
+        event.type === "damage_prevented" &&
+        event.pokemon === "Calyrex-Shadow" &&
+        event.source === "Focus Sash",
+    ),
+  );
+  assert.ok(
+    result.events.some(
+      (event) =>
+        event.type === "item_removed" &&
+        event.pokemon === "Calyrex-Shadow" &&
+        event.item === "focussash",
+    ),
+  );
+
+  const traced = runSimpleBattle(scenario, {
+    maxTurns: 1,
+    aiProfiles: [{ difficulty: "expert", strategy: "tempo" }],
+  });
+  const suckerPunch = traced.aiTrace
+    .find((trace) => trace.side === 0)
+    ?.candidates.find((candidate) => candidate.id === "suckerpunch");
+  assert.equal(suckerPunch?.koChance, "none");
+  assert.ok(
+    suckerPunch?.reasons?.some(
+      (reason) => reason.code === "rule.focus_sash.single_hit_blocked",
+    ),
+  );
+});
+
 test("lets a non-Mega fallback use Dynamax after the configured Dynamax Pokémon faints", () => {
   const state = createSimpleBattle(
     setup({
@@ -1936,7 +2107,7 @@ test("lets a non-Mega fallback use Dynamax after the configured Dynamax Pokémon
   assert.equal(chooseSimpleAiCommand(state, 1, "expert", "balanced").gimmick, "dynamax");
 
   state.sides[1].active = 2;
-  assert.equal(chooseSimpleAiCommand(state, 1, "expert", "balanced").gimmick, undefined);
+  assert.equal(chooseSimpleAiCommand(state, 1, "expert", "balanced").gimmick, "mega");
 });
 
 test("does not use fallback Dynamax while another configured Dynamax Pokémon is alive", () => {
@@ -2031,6 +2202,113 @@ test("scores recovery and setup as real AI actions", () => {
     chooseSimpleAiCommand(state, 0, "expert", "defensive").move,
     2,
   );
+});
+
+test("AI avoids non-urgent Rest into an opposing setup sweeper", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Snorlax",
+              types: ["Normal"],
+              hp: 459,
+              stats: {
+                ...pokemon().stats,
+                hp: 524,
+                attack: 130,
+                defence: 95,
+                specialDefence: 160,
+                speed: 30,
+              },
+              moves: [
+                {
+                  id: "rest",
+                  name: "Rest",
+                  type: "Psychic",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 10,
+                },
+                {
+                  id: "curse",
+                  name: "Curse",
+                  type: "Ghost",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 10,
+                  boosts: { atk: 1, def: 1, spe: -1 },
+                  selfBoosts: { attack: 1, defence: 1, speed: -1 },
+                },
+                {
+                  id: "heatstamp",
+                  name: "Heat Stamp",
+                  type: "Fire",
+                  category: "Physical",
+                  power: 80,
+                  accuracy: true,
+                  pp: 10,
+                },
+                {
+                  id: "hammerarm",
+                  name: "Hammer Arm",
+                  type: "Fighting",
+                  category: "Physical",
+                  power: 100,
+                  accuracy: 90,
+                  pp: 10,
+                  selfBoosts: { speed: -1 },
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "Calyrex-Shadow",
+              types: ["Psychic", "Ghost"],
+              stats: {
+                ...pokemon().stats,
+                hp: 342,
+                defence: 100,
+                specialAttack: 220,
+                specialDefence: 120,
+                speed: 200,
+              },
+              boosts: { specialAttack: 1 },
+              moves: [
+                {
+                  id: "nastyplot",
+                  name: "Nasty Plot",
+                  type: "Dark",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 20,
+                  boosts: { spa: 2 },
+                  selfBoosts: { specialAttack: 2 },
+                },
+                {
+                  id: "astralbarrage",
+                  name: "Astral Barrage",
+                  type: "Ghost",
+                  category: "Special",
+                  power: 120,
+                  accuracy: true,
+                  pp: 5,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  assert.notEqual(chooseSimpleAiCommand(state, 0, "expert", "balanced").move, 1);
 });
 
 test("AI trace marks the same top-scored move used for command selection", () => {
@@ -4724,6 +5002,9 @@ test("supports Destiny Bond and Curse battle effects", () => {
     [{ move: 1 }, { move: 1 }],
   );
   assert.equal(ghostCurse.sides[0].team[0].hp, 80);
+  assert.equal(ghostCurse.sides[0].team[0].boosts.attack, 0);
+  assert.equal(ghostCurse.sides[0].team[0].boosts.defence, 0);
+  assert.equal(ghostCurse.sides[0].team[0].boosts.speed, 0);
   assert.equal(ghostCurse.sides[1].team[0].hp, 120);
   assert.equal(ghostCurse.sides[1].team[0].volatiles.curse.id, "curse");
 
@@ -4759,6 +5040,8 @@ test("supports Destiny Bond and Curse battle effects", () => {
   assert.equal(normalCurse.sides[0].team[0].boosts.attack, 1);
   assert.equal(normalCurse.sides[0].team[0].boosts.defence, 1);
   assert.equal(normalCurse.sides[0].team[0].boosts.speed, -1);
+  assert.equal(normalCurse.sides[0].team[0].volatiles.curse, undefined);
+  assert.equal(normalCurse.sides[1].team[0].volatiles.curse, undefined);
 });
 
 test("supports Belch only after the user has eaten a Berry", () => {

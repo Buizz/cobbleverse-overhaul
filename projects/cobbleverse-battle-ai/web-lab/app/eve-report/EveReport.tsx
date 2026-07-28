@@ -81,6 +81,11 @@ type AiCandidate = {
   slot: number;
   id?: string;
   name: string;
+  type?: string;
+  action?: {
+    type?: string;
+    id?: string;
+  };
   power?: number;
   score?: number;
   selected: boolean;
@@ -255,6 +260,61 @@ function conditionFullHp(condition: string | undefined) {
   return condition.split(" ")[0] ?? condition;
 }
 
+function pokemonSnapshotKeys(
+  localization: LocalizationCatalog | null,
+  pokemon: Scenario["sides"][number]["team"][number],
+  finalPokemon?: NonNullable<Battle["finalState"]>["sides"][number]["team"][number],
+) {
+  return new Set(
+    [
+      pokemon.species,
+      pokemon.name,
+      finalPokemon?.species,
+      finalPokemon?.name,
+      localSpecies(localization, pokemon.species),
+      localSpecies(localization, finalPokemon?.species),
+      finalPokemon?.name ? localSpecies(localization, finalPokemon.name) : "",
+    ]
+      .map(id)
+      .filter(Boolean),
+  );
+}
+
+function eventPokemonKeys(
+  localization: LocalizationCatalog | null,
+  event: BattleEvent,
+) {
+  return new Set(
+    [
+      actorName(event.actor),
+      event.detail,
+      event.target,
+      localSpecies(localization, event.actor),
+      event.detail ? localSpecies(localization, event.detail) : "",
+      event.target ? localSpecies(localization, event.target) : "",
+    ]
+      .map(id)
+      .filter(Boolean),
+  );
+}
+
+function eventPokemonSlot(
+  report: ReportData,
+  localization: LocalizationCatalog | null,
+  sideIndex: number,
+  event: BattleEvent,
+) {
+  const finalTeam = report.battle.finalState?.sides?.[sideIndex]?.team ?? [];
+  const eventKeys = eventPokemonKeys(localization, event);
+  if (eventKeys.size === 0) return -1;
+  return report.scenario.sides[sideIndex].team
+    .slice(0, 6)
+    .findIndex((pokemon, pokemonIndex) => {
+      const keys = pokemonSnapshotKeys(localization, pokemon, finalTeam[pokemonIndex]);
+      return [...eventKeys].some((key) => keys.has(key));
+    });
+}
+
 function profilesOf(report: ReportData | null) {
   return (
     report?.scenario.aiProfiles ??
@@ -312,6 +372,12 @@ function eventLine(
   if (event.type === "heal") {
     return `  · ${actor} 회복${hp ? ` -> HP ${hp}` : ""}${source ? ` | ${source}` : ""}`;
   }
+  if (event.type === "damage_prevented") {
+    return `  · ${actor} ${event.detail || source || "damage"}로 버텼다${event.condition ? ` | HP ${event.condition}` : ""}`;
+  }
+  if (event.type === "item_removed") {
+    return `  · ${actor}의 ${event.detail || "item"}이(가) 소모됐다${source ? ` | 원인 ${source}` : ""}`;
+  }
   if (event.type === "faint") {
     return `  · ${side} ${actor} 기절`;
   }
@@ -359,17 +425,22 @@ function hpSnapshot(
   localization: LocalizationCatalog | null,
   turn: number,
 ) {
-  const hpBySide = report.scenario.sides.map(() => new Map<string, string>());
+  const hpBySide = report.scenario.sides.map(() => new Map<number, string>());
+  const activeSlots = report.scenario.sides.map(() => 0);
   for (const event of report.battle.events) {
     if (event.turn > turn) continue;
     const sideLabel = actorSide(event.actor);
     const sideIndex = sideLabel === "1P" ? 0 : sideLabel === "2P" ? 1 : -1;
     if (sideIndex < 0) continue;
     if (!["switch", "damage", "heal", "faint"].includes(event.type)) continue;
-    const name = localSpecies(localization, event.actor);
-    if (!name) continue;
+    const matchedSlot = eventPokemonSlot(report, localization, sideIndex, event);
+    if (event.type === "switch" && matchedSlot >= 0) {
+      activeSlots[sideIndex] = matchedSlot;
+    }
+    const slot = matchedSlot >= 0 ? matchedSlot : activeSlots[sideIndex];
+    if (!Number.isInteger(slot) || slot < 0) continue;
     const hp = event.type === "faint" ? "0" : conditionFullHp(event.condition);
-    if (hp) hpBySide[sideIndex].set(name, hp);
+    if (hp) hpBySide[sideIndex].set(slot, hp);
   }
 
   return report.scenario.sides.map((side, sideIndex) => {
@@ -382,10 +453,13 @@ function hpSnapshot(
         const finalPokemon = finalTeam[pokemonIndex];
         const fallbackHp =
           finalPokemon &&
-          Number.isFinite(finalPokemon.maxHp)
-            ? `${finalPokemon.maxHp}/${finalPokemon.maxHp}`
+          Number.isFinite(finalPokemon.maxHp) &&
+          Number.isFinite(finalPokemon.hp)
+            ? finalPokemon.fainted || Number(finalPokemon.hp) <= 0
+              ? "0"
+              : `${finalPokemon.hp}/${finalPokemon.maxHp}`
             : "";
-        return `${name} ${hpBySide[sideIndex].get(name) || fallbackHp || "?"}`;
+        return `${name} ${hpBySide[sideIndex].get(pokemonIndex) || fallbackHp || "?"}`;
       })
       .join(", ");
     return `${prefix} [${entries}]`;
@@ -427,7 +501,13 @@ function turnPlainText(
         const label =
           trace.kind === "switch"
             ? `교체 -> ${candidate.name}`
-            : localMove(localization, candidate.id ?? candidate.name);
+            : candidate.type === "gimmick" || candidate.action?.type === "gimmick"
+              ? candidate.id === "gigantamax"
+                ? "거다이맥스"
+                : candidate.id === "dynamax"
+                  ? "다이맥스"
+                  : candidate.name
+              : localMove(localization, candidate.id ?? candidate.name);
         lines.push(
           `    ${marker} ${label} | 점수 ${Number(candidate.score ?? 0).toFixed(2)}`,
         );
@@ -544,6 +624,8 @@ function compactReportForStorage(report: ReportData): ReportData {
           slot: candidate.slot,
           id: candidate.id,
           name: candidate.name,
+          type: candidate.type,
+          action: candidate.action,
           power: candidate.power,
           score: candidate.score,
           selected: candidate.selected,

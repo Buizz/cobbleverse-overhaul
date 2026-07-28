@@ -432,8 +432,9 @@ function normalizeMove(move, path) {
   const nestedSelfBoosts = normalizeBoosts(move?.self?.boosts);
   const directStatus = cleanId(move?.status);
   const moveId = cleanId(move?.id ?? move?.name);
+  const canonicalMoveId = moveId === "heatstamp" ? "heatcrash" : moveId;
   const forcedMultihit =
-    moveId === "surgingstrikes"
+    canonicalMoveId === "surgingstrikes"
       ? [3, 3]
       : Array.isArray(move?.multihit)
         ? move.multihit.map(Number).slice(0, 2)
@@ -441,7 +442,10 @@ function normalizeMove(move, path) {
           ? [Number(move.multihit), Number(move.multihit)]
           : null;
   return {
-    id: String(move?.id ?? "").trim(),
+    id:
+      moveId === "heatstamp"
+        ? canonicalMoveId
+        : String(move?.id ?? "").trim(),
     name: String(move?.name ?? move?.id ?? "").trim(),
     type: String(move?.type ?? "Normal"),
     category,
@@ -845,6 +849,30 @@ function effectiveWeightPokemon(pokemon) {
     ...pokemon,
     weightKg: Math.max(0.1, Number(pokemon.weightKg ?? 100) / 2),
   };
+}
+
+function resolveEstimatedMovePower(
+  attacker,
+  defender,
+  move,
+  state,
+  attackerSide,
+  defenderSide,
+) {
+  if (!move.dynamicPower && !SUPPORTED_DYNAMIC_POWER_MOVES.has(cleanId(move.id))) {
+    return move;
+  }
+  const dynamicPower = resolveDynamicPower(move, {
+    state,
+    attackerSide,
+    defenderSide,
+    attacker: effectiveWeightPokemon(attacker),
+    defender: effectiveWeightPokemon(defender),
+    attackerSpeed: effectiveSpeed(attacker, state, attackerSide),
+    defenderSpeed: effectiveSpeed(defender, state, defenderSide),
+    effectiveness: moveEffectiveness(move, defender.types, attacker, defender),
+  });
+  return dynamicPower.supported ? { ...move, power: dynamicPower.power } : move;
 }
 
 function damageBase(attacker, defender, move, options = {}) {
@@ -1797,6 +1825,24 @@ function removeTargetItem(state, sideIndex, pokemon, source) {
   return removedItem;
 }
 
+function consumeHeldItem(state, sideIndex, pokemon, source) {
+  if (!pokemon.item) return "";
+  const consumedItem = pokemon.item;
+  pokemon.item = "";
+  pokemon.consumedItem = consumedItem;
+  pokemon.usedItem = consumedItem;
+  pokemon.lastItem = consumedItem;
+  state.events.push({
+    turn: state.turn,
+    type: "item_removed",
+    side: sideIndex,
+    pokemon: pokemon.name,
+    item: consumedItem,
+    source,
+  });
+  return consumedItem;
+}
+
 function stealTargetItem(state, attackerSide, attacker, defenderSide, defender, source) {
   if (attacker.item || !itemCanBeStolen(defender.item)) return false;
   const stolenItem = removeTargetItem(state, defenderSide, defender, source);
@@ -2519,9 +2565,9 @@ function applySubstitute(state, side, pokemon, source) {
 
 function applyCurse(state, actionSide, attacker, defenderSide, defender, source) {
   if (attacker.types.includes("Ghost")) {
-    if (attacker.hp <= Math.floor(attacker.stats.hp / 2)) return false;
     const cost = Math.floor(attacker.stats.hp / 2);
-    attacker.hp -= cost;
+    const appliedCost = Math.min(attacker.hp, Math.max(1, cost));
+    attacker.hp -= appliedCost;
     state.events.push({
       turn: state.turn,
       type: "damage",
@@ -2529,12 +2575,20 @@ function applyCurse(state, actionSide, attacker, defenderSide, defender, source)
       pokemon: attacker.name,
       source,
       cause: "hp_cost",
-      damage: cost,
+      damage: appliedCost,
       remainingHp: attacker.hp,
       maximumHp: attacker.stats.hp,
       effectiveness: 1,
     });
-    return applyVolatileStatus(state, defenderSide, defender, "curse", source);
+    const cursed = applyVolatileStatus(
+      state,
+      defenderSide,
+      defender,
+      "curse",
+      source,
+    );
+    markFainted(state, actionSide, attacker);
+    return cursed || appliedCost > 0;
   }
   const lowered = applyBoosts(state, actionSide, attacker, { speed: -1 }, source);
   const raised = applyBoosts(
@@ -4428,7 +4482,10 @@ function executeMove(state, action, rng) {
   }
 
   if (
-    (move.category === "Status" || move.power <= 0) &&
+    (move.category === "Status" ||
+      (move.power <= 0 &&
+        !move.dynamicPower &&
+        !SUPPORTED_DYNAMIC_POWER_MOVES.has(cleanId(move.id)))) &&
     fixedDamageAmount(move, attacker, defender) === null
   ) {
     let applied = false;
@@ -5667,7 +5724,7 @@ function executeMove(state, action, rng) {
           action.side,
         ) || applied;
     }
-    if (Object.keys(move.selfBoosts).length) {
+    if (sourceMoveId !== "curse" && Object.keys(move.selfBoosts).length) {
       handled = true;
       applied =
         applyBoosts(
@@ -5678,7 +5735,7 @@ function executeMove(state, action, rng) {
           move.name,
         ) || applied;
     }
-    if (move.volatileStatus) {
+    if (sourceMoveId !== "curse" && move.volatileStatus) {
       handled = true;
       const targetsSelf = move.target === "self";
       applied =
@@ -6000,6 +6057,22 @@ function executeMove(state, action, rng) {
         side: defenderSide,
         pokemon: defender.name,
         source: "sturdy",
+        remainingHp: defender.hp,
+      });
+    }
+    if (
+      damage >= defender.hp &&
+      defender.hp >= defender.stats.hp &&
+      cleanId(defender.item) === "focussash"
+    ) {
+      damage = defender.hp - 1;
+      consumeHeldItem(state, defenderSide, defender, "Focus Sash");
+      state.events.push({
+        turn: state.turn,
+        type: "damage_prevented",
+        side: defenderSide,
+        pokemon: defender.name,
+        source: "Focus Sash",
         remainingHp: defender.hp,
       });
     }
@@ -6528,15 +6601,23 @@ function executeMove(state, action, rng) {
 
 function bestFaintReplacement(state, sideIndex) {
   const side = state.sides[sideIndex];
-  const opponent = activePokemon(state, sideIndex === 0 ? 1 : 0);
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const opponent = activePokemon(state, opponentSide);
   const selected = selectAiSwitchCandidate(
     side.team
     .map((pokemon, index) => {
       if (pokemon.fainted) return null;
       const bestDamage = pokemon.moves.reduce((best, move) => {
-        const range = calculateDamageRange(pokemon, opponent, move);
         const accuracy = move.accuracy === true ? 1 : move.accuracy / 100;
-        return Math.max(best, ((range.minimum + range.maximum) / 2) * accuracy);
+        const expectedDamage = aiExpectedMoveDamage(
+          pokemon,
+          opponent,
+          move,
+          state,
+          sideIndex,
+          opponentSide,
+        ).expectedDamage;
+        return Math.max(best, expectedDamage * accuracy);
       }, 0);
       return {
         slot: index + 1,
@@ -7427,11 +7508,23 @@ function aiDamageOutcomeProfile(attacker, defender, move, range) {
     defender.hp > 1 &&
     !ignoresDefenderAbility(attacker) &&
     range.effectiveness !== 0;
+  const focusSashCanTrigger =
+    cleanId(defender.item) === "focussash" &&
+    defender.hp >= defender.stats.hp &&
+    defender.hp > 1 &&
+    range.effectiveness !== 0;
   const sturdyBlocked = sturdyCanTrigger && hitCount <= 1 && totalMaximum >= defender.hp;
+  const focusSashBlocked =
+    focusSashCanTrigger && hitCount <= 1 && totalMaximum >= defender.hp;
+  const singleHitSurvivalBlocked = sturdyBlocked || focusSashBlocked;
   const breaksSturdy = sturdyCanTrigger && hitCount > 1 && totalMaximum >= defender.hp;
-  const effectiveMaximum = sturdyBlocked ? Math.max(0, defender.hp - 1) : totalMaximum;
+  const breaksFocusSash =
+    focusSashCanTrigger && hitCount > 1 && totalMaximum >= defender.hp;
+  const effectiveMaximum = singleHitSurvivalBlocked
+    ? Math.max(0, defender.hp - 1)
+    : totalMaximum;
   const effectiveMinimum =
-    sturdyBlocked && totalMinimum >= defender.hp
+    singleHitSurvivalBlocked && totalMinimum >= defender.hp
       ? Math.max(0, defender.hp - 1)
       : totalMinimum;
   return {
@@ -7441,7 +7534,10 @@ function aiDamageOutcomeProfile(attacker, defender, move, range) {
     effectiveMinimum,
     effectiveMaximum,
     sturdyBlocked,
+    focusSashBlocked,
+    singleHitSurvivalBlocked,
     breaksSturdy,
+    breaksFocusSash,
     koChance:
       effectiveMaximum < defender.hp
         ? "none"
@@ -7460,7 +7556,15 @@ function aiExpectedMoveDamage(
   defenderSide,
 ) {
   const critical = Boolean(move.willCrit || attacker.volatiles?.laserfocus);
-  const range = calculateDamageRange(attacker, defender, move, {
+  const estimatedMove = resolveEstimatedMovePower(
+    attacker,
+    defender,
+    move,
+    state,
+    attackerSide,
+    defenderSide,
+  );
+  const range = calculateDamageRange(attacker, defender, estimatedMove, {
     state,
     attackerSide,
     defenderSide,
@@ -7621,9 +7725,12 @@ function aiOpponentSetupThreatProfile({
   };
 }
 
-function aiDisplayMoveData(pokemon, move) {
-  if (pokemon.dynamaxTurns <= 0) return move;
-  const maxMove = resolveNativeMaxMove(pokemon, move);
+function aiDisplayMoveData(pokemon, move, dynamaxMode = "") {
+  if (pokemon.dynamaxTurns <= 0 && !dynamaxMode) return move;
+  const maxMovePokemon = dynamaxMode
+    ? { ...pokemon, dynamaxTurns: 3, dynamaxMode }
+    : pokemon;
+  const maxMove = resolveNativeMaxMove(maxMovePokemon, move);
   const isStatus = move.category === "Status";
   return {
     ...move,
@@ -7665,6 +7772,7 @@ function automaticMoveCandidates(
   sideIndex,
   strategy = "balanced",
   difficulty = "standard",
+  dynamaxMode = "",
 ) {
   const pokemon = activePokemon(state, sideIndex);
   const defenderSide = sideIndex === 0 ? 1 : 0;
@@ -7679,20 +7787,17 @@ function automaticMoveCandidates(
     (member) => !member.fainted && member.hp > 0,
   ).length;
   const opponentBestDamage = defender.moves.reduce((best, move) => {
-    const range = calculateDamageRange(defender, pokemon, move, {
-      state,
-      attackerSide: defenderSide,
-      defenderSide: sideIndex,
-      critical: Boolean(move.willCrit),
-    });
     const accuracy = move.accuracy === true ? 1 : move.accuracy / 100;
-    const criticalModifier = move.willCrit && range.effectiveness !== 0 ? 1.5 : 1;
     return Math.max(
       best,
-      ((range.minimum + range.maximum) / 2) *
-        aiExpectedHitCount(move, defender) *
-        criticalModifier *
-        accuracy,
+      aiExpectedMoveDamage(
+        defender,
+        pokemon,
+        move,
+        state,
+        defenderSide,
+        sideIndex,
+      ).expectedDamage * accuracy,
     );
   }, 0);
   const incomingDamageRatio =
@@ -7724,7 +7829,7 @@ function automaticMoveCandidates(
   );
   return pokemon.moves
     .map((move, index) => {
-      const displayMove = aiDisplayMoveData(pokemon, move);
+      const displayMove = aiDisplayMoveData(pokemon, move, dynamaxMode);
       const damageEstimate = aiExpectedMoveDamage(
         pokemon,
         defender,
@@ -7824,7 +7929,7 @@ function automaticMoveCandidates(
         recoveryValue +
         secondaryValue;
       const expectedDamage =
-        (damageOutcome.sturdyBlocked
+        (damageOutcome.singleHitSurvivalBlocked
           ? Math.min(damageEstimate.expectedDamage, damageOutcome.effectiveMaximum)
           : damageEstimate.expectedDamage) * accuracy;
       const setupFollowup = aiSetupFollowupValue(
@@ -7877,7 +7982,10 @@ function automaticMoveCandidates(
         rawDamageRangeMinimum: damageOutcome.totalMinimum,
         rawDamageRangeMaximum: damageOutcome.totalMaximum,
         sturdyBlocked: damageOutcome.sturdyBlocked,
+        focusSashBlocked: damageOutcome.focusSashBlocked,
+        singleHitSurvivalBlocked: damageOutcome.singleHitSurvivalBlocked,
         breaksSturdy: damageOutcome.breaksSturdy,
+        breaksFocusSash: damageOutcome.breaksFocusSash,
         koChance: damageOutcome.koChance,
       };
       return {
@@ -7933,7 +8041,10 @@ function automaticMoveCandidates(
         rawDamageRangeMinimum: damageOutcome.totalMinimum,
         rawDamageRangeMaximum: damageOutcome.totalMaximum,
         sturdyBlocked: damageOutcome.sturdyBlocked,
+        focusSashBlocked: damageOutcome.focusSashBlocked,
+        singleHitSurvivalBlocked: damageOutcome.singleHitSurvivalBlocked,
         breaksSturdy: damageOutcome.breaksSturdy,
+        breaksFocusSash: damageOutcome.breaksFocusSash,
         koChance: baseCandidate.koChance,
         pp: move.pp,
       };
@@ -7945,7 +8056,8 @@ function automaticMoveCandidates(
           other.koChance === "guaranteed" &&
           other.hasSelfStatDrop !== true &&
           other.selfSacrifice !== true &&
-          other.sturdyBlocked !== true,
+          other.sturdyBlocked !== true &&
+          other.focusSashBlocked !== true,
       );
       const enriched = {
         ...candidate,
@@ -7997,6 +8109,16 @@ function canUseDynamaxFallback(side) {
   );
 }
 
+function hasLivingConfiguredDynamaxOther(side, active) {
+  return side.team.some(
+    (pokemon) =>
+      pokemon !== active &&
+      isConfiguredDynamaxPokemon(pokemon) &&
+      !pokemon.fainted &&
+      pokemon.hp > 0,
+  );
+}
+
 function chooseSimpleAiDecision(
   state,
   sideIndex,
@@ -8021,14 +8143,44 @@ function chooseSimpleAiDecision(
     lockedSelection &&
     moveCandidates.find((candidate) => candidate.slot === lockedSelection.slot);
   const chosenMove = forcedMove ?? selectedMove;
+  const canMegaEvo =
+    side.gimmickResources.mega === "available" &&
+    pokemon.megaEvolved !== true &&
+    canMegaEvolvePokemon(pokemon);
   const dynamaxFallback =
-    canUseDynamaxFallback(side) && !canMegaEvolvePokemon(pokemon);
-  const gimmick = selectAiGimmick({
+    canUseDynamaxFallback(side) && !canMegaEvo;
+  const canDynamax =
+    side.gimmickResources.dynamax === "available" &&
+    pokemon.dynamaxTurns <= 0 &&
+    pokemon.megaEvolved !== true;
+  const dynamaxMode = pokemon.gimmicks?.canGigantamax === true
+    ? "gigantamax"
+    : "dynamax";
+  const dynamaxMoveCandidates =
+    canDynamax && !lockedSelection
+      ? automaticMoveCandidates(
+          state,
+          sideIndex,
+          strategy,
+          difficulty,
+          dynamaxMode,
+        )
+      : [];
+  const selectedDynamaxMove =
+    dynamaxMoveCandidates.length > 0
+      ? selectAiMoveCandidate(dynamaxMoveCandidates, {
+          difficulty,
+          strategy,
+          rng: createAiRng(state.seed, sideIndex, state.turn * 19),
+        })
+      : null;
+  const baseMoveForDynamax = selectedDynamaxMove ? chosenMove : null;
+  const gimmickDecision = selectAiGimmick({
     active: {
-      canDynamax:
-        side.gimmickResources.dynamax === "available" &&
-        pokemon.dynamaxTurns <= 0 &&
-        pokemon.megaEvolved !== true,
+      canMegaEvo,
+      canDynamax,
+      canGigantamax: pokemon.gimmicks?.canGigantamax === true,
+      dynamaxReservedForOther: hasLivingConfiguredDynamaxOther(side, pokemon),
       hpPercent: pokemon.hp / pokemon.stats.hp,
       incomingDamageRatio: chosenMove?.incomingDamageRatio,
       opponentHp: chosenMove?.opponentHp,
@@ -8042,12 +8194,20 @@ function chooseSimpleAiDecision(
     },
     selectedMove: chosenMove,
     moveCandidates,
+    dynamaxMove: selectedDynamaxMove,
+    baseMoveForDynamax,
+    dynamaxMoveCandidates,
     forceDynamax: pokemon.gimmicks?.forceDynamax === true,
     alreadyUsed: side.usedGimmicks,
-  }).id;
+  });
+  const gimmick = gimmickDecision.id;
+  const commandMove =
+    gimmick && selectedDynamaxMove
+      ? selectedDynamaxMove
+      : chosenMove;
   return {
     command: {
-      move: chosenMove?.slot ?? automaticMoveSlot(
+      move: commandMove?.slot ?? automaticMoveSlot(
         state,
         sideIndex,
         difficulty,
@@ -8056,8 +8216,13 @@ function chooseSimpleAiDecision(
       ),
       ...(gimmick && !lockedSelection ? { gimmick } : {}),
     },
-    selectedMove: chosenMove,
+    selectedMove: commandMove
+      ? moveCandidates.find((candidate) => candidate.slot === commandMove.slot) ?? chosenMove
+      : chosenMove,
     moveCandidates,
+    dynamaxMoveCandidates,
+    selectedDynamaxMove,
+    gimmickCandidate: gimmickDecision.candidate ?? null,
   };
 }
 
@@ -8089,7 +8254,7 @@ export function runSimpleBattle(setup, options = {}) {
       );
       const command = decision.command;
       const active = activePokemon(state, sideIndex);
-      const candidates = decision.moveCandidates.map((candidate) => ({
+      const moveCandidates = decision.moveCandidates.map((candidate) => ({
         ...toAiActionCandidate(
           {
             ...candidate,
@@ -8104,6 +8269,28 @@ export function runSimpleBattle(setup, options = {}) {
         score: Math.round(candidate.score * 100) / 100,
         selected: candidate.slot === decision.selectedMove?.slot,
       }));
+      const gimmickCandidates = decision.gimmickCandidate
+        ? [
+            {
+              ...toAiActionCandidate(decision.gimmickCandidate, {
+                type: "gimmick",
+                difficulty: profile.difficulty,
+                strategy: profile.strategy,
+              }),
+              id: decision.gimmickCandidate.id,
+              name:
+                decision.gimmickCandidate.id === "gigantamax"
+                  ? "거다이맥스"
+                  : "다이맥스",
+              score: Math.round(Number(decision.gimmickCandidate.score ?? 0) * 100) / 100,
+              reasons: decision.gimmickCandidate.reasons ?? [],
+              selected: command.gimmick === decision.gimmickCandidate.id,
+            },
+          ]
+        : [];
+      const candidates = [...moveCandidates, ...gimmickCandidates].sort(
+        (left, right) => Number(right.score ?? 0) - Number(left.score ?? 0),
+      );
       return {
         command,
         trace: {
@@ -8115,7 +8302,9 @@ export function runSimpleBattle(setup, options = {}) {
           difficulty: profile.difficulty,
           strategy: profile.strategy,
           chosenAction:
-            candidates.find((candidate) => candidate.selected)?.name ?? "",
+            candidates.find((candidate) => candidate.selected)?.name ??
+            moveCandidates.find((candidate) => candidate.selected)?.name ??
+            "",
           gimmick: command.gimmick ?? "",
           reason: aiDecisionReason(profile.strategy, command.gimmick ?? ""),
           candidates,

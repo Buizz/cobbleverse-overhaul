@@ -316,6 +316,26 @@ export function mapNativeEvent(event) {
       },
     ];
   }
+  if (event.type === "damage_prevented") {
+    return [
+      {
+        ...base,
+        detail: displayValue(event.source),
+        condition: Number.isFinite(event.remainingHp)
+          ? String(event.remainingHp)
+          : "",
+      },
+    ];
+  }
+  if (event.type === "item_removed") {
+    return [
+      {
+        ...base,
+        detail: displayValue(event.item),
+        source: displayValue(event.source),
+      },
+    ];
+  }
   if (event.type === "critical") {
     return [{ ...base, type: "critical" }];
   }
