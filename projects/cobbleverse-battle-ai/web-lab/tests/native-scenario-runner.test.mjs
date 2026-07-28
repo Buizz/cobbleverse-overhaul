@@ -369,6 +369,27 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
   );
   assert.ok(switched.events.some((event) => event.type === "switch"));
   assert.ok(switched.events.some((event) => event.type === "move"));
+  assert.equal(
+    switched.reproduction.schema,
+    "cobbleverse-native-pve-reproduction",
+  );
+  assert.equal(switched.reproduction.scenario.scenarioId, "native-pve-test");
+  assert.equal(switched.reproduction.turns.length, 1);
+  assert.deepEqual(switched.reproduction.turns[0].playerCommand, { switch: 2 });
+  assert.deepEqual(
+    switched.reproduction.turns[0].aiCommand,
+    switched.reproduction.turns[0].aiDecision.command,
+  );
+  assert.equal(
+    switched.aiTrace[0].diagnostics.selectionSource,
+    switched.reproduction.turns[0].aiDecision.trace.diagnostics.selectionSource,
+  );
+  assert.equal(
+    switched.aiTrace[0].candidates.find(
+      (candidate) => candidate.selected && candidate.type === "move",
+    )?.slot,
+    switched.reproduction.turns[0].aiCommand.move,
+  );
 });
 
 test("shows dynamic power move effectiveness against the current opponent", () => {

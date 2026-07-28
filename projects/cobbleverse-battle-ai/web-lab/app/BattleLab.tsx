@@ -339,6 +339,19 @@ type AiTraceEntry = {
   gimmick?: string;
   reason?: string;
   score?: number;
+  diagnostics?: {
+    selectionSource?: string;
+    lockedSelection?: {
+      slot: number;
+      moveId: string;
+      source: string;
+      preventsSwitch: boolean;
+    } | null;
+    scoreWinner?: { slot: number; id: string; score: number } | null;
+    chosenMove?: { slot: number; id: string; score: number } | null;
+    chosenSwitch?: { slot: number; id: string; score: number } | null;
+    switchMargin?: number;
+  } | null;
   candidates?: Array<{
     slot: number;
     id: string;
@@ -423,6 +436,7 @@ type InteractiveBattle = {
   winner: string | null;
   turns: number;
   aiTrace: AiTraceEntry[];
+  reproduction?: Record<string, unknown>;
   sides: Array<{
     name: string;
     team: Array<
@@ -3677,7 +3691,10 @@ function InteractiveArena({
   catalog: BattleCatalog | null;
   sharedI18n: SharedI18nCatalog | null;
 }) {
-  const [logTab, setLogTab] = useState<"battle" | "ai">("battle");
+  const [logTab, setLogTab] = useState<"battle" | "ai" | "reproduction">(
+    "battle",
+  );
+  const [reproductionStatus, setReproductionStatus] = useState("");
   const [showAiIntent, setShowAiIntent] = useState(false);
   const [showPokemonInfo, setShowPokemonInfo] = useState(false);
   const [gimmickSelection, setGimmickSelection] = useState<{
@@ -3685,6 +3702,35 @@ function InteractiveArena({
     value: BattleGimmick | null;
   }>({ requestId: -1, value: null });
   const request = battle.request;
+  const reproductionJson = useMemo(
+    () =>
+      JSON.stringify(
+        battle.reproduction ?? {
+          schema: "cobbleverse-interactive-battle-snapshot",
+          version: 1,
+          battle,
+        },
+        null,
+        2,
+      ),
+    [battle],
+  );
+  const copyReproductionLog = async () => {
+    await navigator.clipboard.writeText(reproductionJson);
+    setReproductionStatus("복사 완료");
+    window.setTimeout(() => setReproductionStatus(""), 1600);
+  };
+  const downloadReproductionLog = () => {
+    const blob = new Blob([reproductionJson], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `cobbleverse-reproduction-${battle.scenarioId}-${battle.turns}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setReproductionStatus("다운로드 완료");
+    window.setTimeout(() => setReproductionStatus(""), 1600);
+  };
   const active = request?.active;
   const isNativeBattle =
     battle.engine?.id === "cobbleverse-simple" ||
@@ -4485,6 +4531,15 @@ function InteractiveArena({
             AI 판단 로그
             <span>{battle.aiTrace.length}</span>
           </button>
+          <button
+            role="tab"
+            aria-selected={logTab === "reproduction"}
+            className={logTab === "reproduction" ? "active" : ""}
+            onClick={() => setLogTab("reproduction")}
+          >
+            재현 로그
+            <span>{battle.turns}</span>
+          </button>
         </div>
         {logTab === "battle" ? (
           <div className="plain-battle-log" aria-live="polite">
@@ -4503,7 +4558,7 @@ function InteractiveArena({
               </section>
             ))}
           </div>
-        ) : (
+        ) : logTab === "ai" ? (
           <div className="ai-log-panel">
             {battle.aiTrace.length > 0 ? (
               battle.aiTrace.map((entry, index) => (
@@ -4518,6 +4573,21 @@ function InteractiveArena({
                       {entry.strategy ? `전략 ${entry.strategy}` : "전략 미지정"}
                       {entry.score == null ? "" : ` · 평가 ${entry.score}`}
                     </small>
+                    {entry.diagnostics ? (
+                      <small className="ai-selection-diagnostics">
+                        최종 선택 경로:{" "}
+                        {entry.diagnostics.selectionSource ?? "기록 없음"}
+                        {entry.diagnostics.lockedSelection
+                          ? ` · 강제 기술 ${entry.diagnostics.lockedSelection.moveId} (${entry.diagnostics.lockedSelection.source})`
+                          : ""}
+                        {entry.diagnostics.scoreWinner &&
+                        entry.diagnostics.chosenMove &&
+                        entry.diagnostics.scoreWinner.slot !==
+                          entry.diagnostics.chosenMove.slot
+                          ? ` · 점수 1위 ${entry.diagnostics.scoreWinner.id} → 실행 ${entry.diagnostics.chosenMove.id}`
+                          : ""}
+                      </small>
+                    ) : null}
                     {entry.candidates && entry.candidates.length > 0 ? (
                       <ol>
                         {entry.candidates.slice(0, 4).map((candidate) => (
@@ -4564,6 +4634,32 @@ function InteractiveArena({
               </div>
             )}
           </div>
+        ) : (
+          <section className="reproduction-log-panel">
+            <header>
+              <div>
+                <strong>엔진 재현 데이터</strong>
+                <p>
+                  시나리오, 턴별 전후 상태, 플레이어 입력, 실제 AI 후보와 최종
+                  명령을 포함합니다.
+                </p>
+              </div>
+              <div>
+                <button type="button" onClick={copyReproductionLog}>
+                  JSON 복사
+                </button>
+                <button type="button" onClick={downloadReproductionLog}>
+                  다운로드
+                </button>
+              </div>
+            </header>
+            {reproductionStatus ? (
+              <p className="reproduction-status" role="status">
+                {reproductionStatus}
+              </p>
+            ) : null}
+            <pre>{reproductionJson}</pre>
+          </section>
         )}
       </details>
     </section>

@@ -1206,6 +1206,331 @@ test("handles Protect and Sucker Punch timing rules", () => {
   );
 });
 
+test("AI stops repeating Sucker Punch after a faster priority attack", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Mawile AI",
+        team: [
+          pokemon({
+            id: "mawilemega",
+            name: "Mawile-Mega",
+            types: ["Steel", "Fairy"],
+            ability: "hugepower",
+            stats: {
+              ...pokemon().stats,
+              hp: 304,
+              attack: 210,
+              defence: 160,
+              speed: 50,
+            },
+            moves: [
+              {
+                id: "suckerpunch",
+                name: "Sucker Punch",
+                type: "Dark",
+                category: "Physical",
+                power: 70,
+                accuracy: true,
+                priority: 1,
+                pp: 5,
+              },
+              {
+                id: "playrough",
+                name: "Play Rough",
+                type: "Fairy",
+                category: "Physical",
+                power: 90,
+                accuracy: 90,
+                pp: 10,
+              },
+              {
+                id: "ironhead",
+                name: "Iron Head",
+                type: "Steel",
+                category: "Physical",
+                power: 80,
+                accuracy: 100,
+                pp: 15,
+              },
+              {
+                id: "irondefense",
+                name: "Iron Defense",
+                type: "Steel",
+                category: "Status",
+                accuracy: true,
+                pp: 15,
+                selfBoosts: { defence: 2 },
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Scizor AI",
+        team: [
+          pokemon({
+            id: "scizor",
+            name: "Scizor",
+            types: ["Bug", "Steel"],
+            stats: {
+              ...pokemon().stats,
+              hp: 344,
+              attack: 200,
+              defence: 150,
+              speed: 100,
+            },
+            moves: [
+              {
+                id: "bulletpunch",
+                name: "Bullet Punch",
+                type: "Steel",
+                category: "Physical",
+                power: 40,
+                accuracy: true,
+                priority: 1,
+                pp: 30,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const afterFailedSuckerPunch = resolveSimpleTurn(
+    createSimpleBattle(scenario),
+    [{ move: 1 }, { move: 1 }],
+  );
+
+  assert.ok(
+    afterFailedSuckerPunch.events.some(
+      (event) =>
+        event.type === "move_failed" &&
+        event.pokemon === "Mawile-Mega" &&
+        event.move === "Sucker Punch",
+    ),
+  );
+  assert.notEqual(
+    chooseSimpleAiCommand(
+      afterFailedSuckerPunch,
+      0,
+      "expert",
+      "balanced",
+    ).move,
+    1,
+  );
+});
+
+test("AI adapts to repeated Sucker Punch status bait by seed and failure count", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Mawile AI",
+        team: [
+          pokemon({
+            id: "mawilemega",
+            name: "Mawile-Mega",
+            types: ["Steel", "Fairy"],
+            ability: "hugepower",
+            stats: {
+              ...pokemon().stats,
+              hp: 304,
+              attack: 210,
+              speed: 50,
+            },
+            moves: [
+              {
+                id: "suckerpunch",
+                name: "Sucker Punch",
+                type: "Dark",
+                category: "Physical",
+                power: 70,
+                accuracy: true,
+                priority: 1,
+                pp: 5,
+              },
+              {
+                id: "ironhead",
+                name: "Iron Head",
+                type: "Steel",
+                category: "Physical",
+                power: 80,
+                accuracy: 100,
+                pp: 15,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Calyrex AI",
+        team: [
+          pokemon({
+            id: "calyrexshadow",
+            name: "Calyrex-Shadow",
+            types: ["Psychic", "Ghost"],
+            stats: {
+              ...pokemon().stats,
+              hp: 342,
+              specialAttack: 230,
+              speed: 200,
+            },
+            moves: [
+              {
+                id: "nastyplot",
+                name: "Nasty Plot",
+                type: "Dark",
+                category: "Status",
+                accuracy: true,
+                pp: 20,
+                selfBoosts: { specialAttack: 2 },
+              },
+              {
+                id: "astralbarrage",
+                name: "Astral Barrage",
+                type: "Ghost",
+                category: "Special",
+                power: 120,
+                accuracy: true,
+                pp: 5,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const commandAfterFailures = (seed, failureCount) => {
+    let state = createSimpleBattle({ ...scenario, seed });
+    for (let index = 0; index < failureCount; index += 1) {
+      state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+    }
+    state.sides[0].team[0].megaEvolved = true;
+    state.sides[0].gimmickResources.dynamax = "consumed";
+    return chooseSimpleAiCommand(
+      state,
+      0,
+      "expert",
+      "balanced",
+    ).move;
+  };
+  const seeds = Array.from(
+    { length: 80 },
+    (_, index) => ((index + 1) * 2_654_435_761) >>> 0,
+  );
+  const firstFailureChoices = seeds.map((seed) =>
+    commandAfterFailures(seed, 1),
+  );
+  const thirdFailureChoices = seeds.map((seed) =>
+    commandAfterFailures(seed, 3),
+  );
+  const firstFailureAvoidCount = firstFailureChoices.filter(
+    (move) => move !== 1,
+  ).length;
+  const thirdFailureAvoidCount = thirdFailureChoices.filter(
+    (move) => move !== 1,
+  ).length;
+
+  assert.ok(firstFailureChoices.some((move) => move === 1));
+  assert.ok(firstFailureChoices.some((move) => move !== 1));
+  assert.ok(thirdFailureAvoidCount > firstFailureAvoidCount);
+  assert.equal(
+    commandAfterFailures(20260719, 1),
+    commandAfterFailures(20260719, 1),
+  );
+});
+
+test("AI does not repeat stat boosts that are already maximized", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Mawile AI",
+          team: [
+            pokemon({
+              name: "Mawile-Mega",
+              types: ["Steel", "Fairy"],
+              stats: {
+                ...pokemon().stats,
+                hp: 304,
+                attack: 210,
+              },
+              moves: [
+                {
+                  id: "irondefense",
+                  name: "Iron Defense",
+                  type: "Steel",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 15,
+                  selfBoosts: { defence: 2 },
+                },
+                {
+                  id: "ironhead",
+                  name: "Iron Head",
+                  type: "Steel",
+                  category: "Physical",
+                  power: 80,
+                  accuracy: 100,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Calyrex AI",
+          team: [
+            pokemon({
+              name: "Calyrex-Shadow",
+              types: ["Psychic", "Ghost"],
+              stats: {
+                ...pokemon().stats,
+                hp: 342,
+                specialAttack: 230,
+              },
+              moves: [
+                {
+                  id: "nastyplot",
+                  name: "Nasty Plot",
+                  type: "Dark",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 20,
+                  selfBoosts: { specialAttack: 2 },
+                },
+                {
+                  id: "astralbarrage",
+                  name: "Astral Barrage",
+                  type: "Ghost",
+                  category: "Special",
+                  power: 120,
+                  accuracy: true,
+                  pp: 5,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[0].team[0].boosts.defence = 6;
+  state.sides[1].team[0].boosts.specialAttack = 6;
+  state.sides[0].team[0].megaEvolved = true;
+  state.sides[0].gimmickResources.dynamax = "consumed";
+  state.sides[1].gimmickResources.dynamax = "consumed";
+
+  assert.equal(
+    chooseSimpleAiCommand(state, 0, "expert", "balanced").move,
+    2,
+  );
+  assert.equal(
+    chooseSimpleAiCommand(state, 1, "expert", "balanced").move,
+    2,
+  );
+});
+
 test("removes, steals, and burns consumable held items after hits", () => {
   const thiefState = createSimpleBattle(
     setup({
@@ -1570,6 +1895,127 @@ test("chooses an AI replacement by matchup instead of party order", () => {
         event.forced === true &&
         event.selection === "matchup_score",
     ),
+  );
+});
+
+test("avoids a forced replacement that will faint before its first action", () => {
+  const attackingMove = ({
+    id,
+    name,
+    type,
+    category = "Physical",
+    power,
+    priority = 0,
+  }) => ({
+    id,
+    name,
+    type,
+    category,
+    power,
+    priority,
+    accuracy: true,
+    pp: 10,
+  });
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Mawile-Mega",
+              types: ["Steel", "Fairy"],
+              stats: {
+                ...pokemon().stats,
+                attack: 300,
+                defence: 180,
+                specialDefence: 150,
+                speed: 100,
+              },
+              moves: [
+                attackingMove({
+                  id: "playrough",
+                  name: "Play Rough",
+                  type: "Fairy",
+                  power: 90,
+                }),
+                attackingMove({
+                  id: "suckerpunch",
+                  name: "Sucker Punch",
+                  type: "Dark",
+                  power: 70,
+                  priority: 1,
+                }),
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "FaintedLead",
+              types: ["Dragon"],
+              stats: { ...pokemon().stats, hp: 20, speed: 20 },
+            }),
+            pokemon({
+              name: "Calyrex-Shadow",
+              types: ["Psychic", "Ghost"],
+              stats: {
+                ...pokemon().stats,
+                hp: 80,
+                defence: 60,
+                specialAttack: 260,
+                speed: 200,
+              },
+              moves: [
+                attackingMove({
+                  id: "astralbarrage",
+                  name: "Astral Barrage",
+                  type: "Ghost",
+                  category: "Special",
+                  power: 120,
+                }),
+              ],
+            }),
+            pokemon({
+              name: "Scizor",
+              types: ["Bug", "Steel"],
+              stats: {
+                ...pokemon().stats,
+                hp: 300,
+                attack: 190,
+                defence: 250,
+                specialDefence: 150,
+                speed: 80,
+              },
+              moves: [
+                attackingMove({
+                  id: "ironhead",
+                  name: "Iron Head",
+                  type: "Steel",
+                  power: 80,
+                }),
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  const next = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+
+  assert.equal(next.sides[1].team[0].fainted, true);
+  assert.equal(next.sides[1].team[next.sides[1].active].name, "Scizor");
+  assert.equal(
+    next.events.some(
+      (event) =>
+        event.type === "switch" &&
+        event.fromPokemon === "FaintedLead" &&
+        event.pokemon === "Calyrex-Shadow",
+    ),
+    false,
   );
 });
 
@@ -2180,6 +2626,123 @@ test("Focus Sash prevents a full-HP one-hit knockout and informs AI scoring", ()
       (reason) => reason.code === "rule.focus_sash.single_hit_blocked",
     ),
   );
+});
+
+test("values setup as a probabilistic Sucker Punch bait without assuming certainty", () => {
+  const makeScenario = (includeSuckerPunch) =>
+    setup({
+      sides: [
+        {
+          name: "Setup AI",
+          team: [
+            pokemon({
+              name: "Calyrex-Shadow",
+              types: ["Psychic", "Ghost"],
+              stats: {
+                ...pokemon().stats,
+                hp: 250,
+                defence: 80,
+                specialAttack: 250,
+                speed: 200,
+              },
+              moves: [
+                {
+                  id: "astralbarrage",
+                  name: "Astral Barrage",
+                  type: "Ghost",
+                  category: "Special",
+                  power: 120,
+                  accuracy: true,
+                  pp: 5,
+                },
+                {
+                  id: "nastyplot",
+                  name: "Nasty Plot",
+                  type: "Dark",
+                  category: "Status",
+                  power: 0,
+                  accuracy: true,
+                  pp: 20,
+                  selfBoosts: { specialAttack: 2 },
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Mawile AI",
+          team: [
+            pokemon({
+              name: "Mawile-Mega",
+              types: ["Steel", "Fairy"],
+              stats: {
+                ...pokemon().stats,
+                hp: 150,
+                attack: 220,
+                specialDefence: 70,
+                speed: 50,
+              },
+              moves: [
+                includeSuckerPunch
+                  ? {
+                      id: "suckerpunch",
+                      name: "Sucker Punch",
+                      type: "Dark",
+                      category: "Physical",
+                      power: 70,
+                      accuracy: true,
+                      priority: 1,
+                      pp: 5,
+                    }
+                  : {
+                      id: "growl",
+                      name: "Growl",
+                      type: "Normal",
+                      category: "Status",
+                      power: 0,
+                      accuracy: true,
+                      pp: 40,
+                      boosts: { attack: -1 },
+                    },
+                {
+                  id: "weakironhead",
+                  name: "Weak Iron Head",
+                  type: "Steel",
+                  category: "Physical",
+                  power: 20,
+                  accuracy: true,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    });
+  const traceFor = (scenario) =>
+    runSimpleBattle(scenario, {
+      maxTurns: 1,
+      aiProfiles: [
+        { difficulty: "expert", strategy: "balanced" },
+        { difficulty: "expert", strategy: "balanced" },
+      ],
+    }).aiTrace.find((trace) => trace.side === 0);
+
+  const baitCandidate = traceFor(makeScenario(true)).candidates.find(
+    (candidate) => candidate.id === "nastyplot",
+  );
+  const controlCandidate = traceFor(makeScenario(false)).candidates.find(
+    (candidate) => candidate.id === "nastyplot",
+  );
+  const baitReason = baitCandidate.reasons.find(
+    (reason) => reason.code === "rule.setup.conditional_priority_bait",
+  );
+
+  assert.ok(baitReason);
+  assert.ok(baitReason.weight > 0);
+  assert.ok(baitCandidate.opponentConditionalPriorityLikelihood >= 0.25);
+  assert.ok(baitCandidate.opponentConditionalPriorityLikelihood <= 0.85);
+  assert.ok(baitCandidate.score > controlCandidate.score);
 });
 
 test("lets a non-Mega fallback use Dynamax after the configured Dynamax Pokémon faints", () => {
@@ -4242,6 +4805,113 @@ test("blocks Mega Evolution and Dynamax from stacking", () => {
         event.gimmick === "terastallize" &&
         event.reason === "tera_blocked_by_dynamax",
     ),
+  );
+});
+
+test("keeps the selected priority move when Mega Evolution is chosen", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              id: "mawile",
+              name: "Mawile",
+              types: ["Steel", "Fairy"],
+              item: "mawilite",
+              stats: {
+                ...pokemon().stats,
+                hp: 304,
+                attack: 220,
+                defence: 160,
+                speed: 50,
+              },
+              gimmicks: {
+                megaStone: {
+                  item: "mawilite",
+                  evolves: "mawile",
+                  form: "Mawile-Mega",
+                  ability: "hugepower",
+                },
+              },
+              moves: [
+                {
+                  id: "suckerpunch",
+                  name: "Sucker Punch",
+                  type: "Dark",
+                  category: "Physical",
+                  power: 70,
+                  accuracy: true,
+                  priority: 1,
+                  pp: 5,
+                },
+                {
+                  id: "playrough",
+                  name: "Play Rough",
+                  type: "Fairy",
+                  category: "Physical",
+                  power: 90,
+                  accuracy: 90,
+                  pp: 10,
+                },
+                {
+                  id: "ironhead",
+                  name: "Iron Head",
+                  type: "Steel",
+                  category: "Physical",
+                  power: 80,
+                  accuracy: 100,
+                  pp: 15,
+                },
+                {
+                  id: "irondefense",
+                  name: "Iron Defense",
+                  type: "Steel",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 15,
+                  selfBoosts: { defence: 2 },
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Opponent",
+          team: [
+            pokemon({
+              id: "calyrexshadow",
+              name: "Calyrex-Shadow",
+              types: ["Psychic", "Ghost"],
+              stats: {
+                ...pokemon().stats,
+                hp: 300,
+                defence: 70,
+                specialAttack: 1000,
+                speed: 200,
+              },
+              moves: [
+                {
+                  id: "astralbarrage",
+                  name: "Astral Barrage",
+                  type: "Ghost",
+                  category: "Special",
+                  power: 120,
+                  accuracy: true,
+                  pp: 5,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  assert.deepEqual(
+    chooseSimpleAiCommand(state, 0, "expert", "balanced"),
+    { move: 1, gimmick: "mega" },
   );
 });
 
@@ -11305,6 +11975,138 @@ test("AI uses Fake Out instead of immediately switching a fresh replacement into
   assert.deepEqual(chooseSimpleAiCommand(state, 1, "expert", "balanced"), {
     move: 1,
   });
+});
+
+test("AI recognizes boosted Urshifu pressure before switching in ace Zekrom", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Drake",
+          team: [
+            pokemon({
+              id: "garganacl",
+              name: "Garganacl",
+              types: ["Rock"],
+              stats: {
+                hp: 404,
+                attack: 212,
+                defence: 300,
+                specialAttack: 100,
+                specialDefence: 216,
+                speed: 106,
+              },
+              moves: [
+                {
+                  id: "earthquake",
+                  name: "Earthquake",
+                  type: "Ground",
+                  category: "Physical",
+                  power: 100,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+            pokemon({
+              id: "zekrom",
+              name: "Zekrom",
+              level: 100,
+              types: ["Dragon", "Electric"],
+              stats: {
+                hp: 342,
+                attack: 438,
+                defence: 276,
+                specialAttack: 248,
+                specialDefence: 236,
+                speed: 279,
+              },
+              moves: [
+                {
+                  id: "boltstrike",
+                  name: "Bolt Strike",
+                  type: "Electric",
+                  category: "Physical",
+                  power: 130,
+                  accuracy: 85,
+                  pp: 5,
+                },
+                {
+                  id: "outrage",
+                  name: "Outrage",
+                  type: "Dragon",
+                  category: "Physical",
+                  power: 120,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Urshifu Side",
+          team: [
+            pokemon({
+              id: "urshifurapidstrike",
+              name: "Urshifu-Rapid-Strike",
+              level: 100,
+              types: ["Water", "Fighting"],
+              stats: {
+                hp: 343,
+                attack: 394,
+                defence: 236,
+                specialAttack: 145,
+                specialDefence: 156,
+                speed: 322,
+              },
+              moves: [
+                {
+                  id: "surgingstrikes",
+                  name: "Surging Strikes",
+                  type: "Water",
+                  category: "Physical",
+                  power: 25,
+                  accuracy: 100,
+                  pp: 5,
+                  multihit: [3, 3],
+                  willCrit: true,
+                },
+                {
+                  id: "closecombat",
+                  name: "Close Combat",
+                  type: "Fighting",
+                  category: "Physical",
+                  power: 120,
+                  accuracy: 100,
+                  pp: 5,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[1].team[0].boosts.attack = 2;
+
+  const zekrom = automaticSwitchCandidates(
+    state,
+    0,
+    [],
+    "expert",
+    "balanced",
+  ).find((candidate) => candidate.slot === 2);
+
+  assert.equal(zekrom.opponentOffensiveBoosts, 2);
+  assert.equal(zekrom.targetAceQualified, true);
+  assert.ok(zekrom.switchInDamageRatio >= 0.2);
+  const command = chooseSimpleAiCommand(state, 0, "expert", "balanced");
+  assert.notEqual(
+    command.switch,
+    2,
+    JSON.stringify({ command, zekrom, aiTrace: state.aiTrace }),
+  );
 });
 
 test("AI evaluates guaranteed KO independently for every move candidate", () => {

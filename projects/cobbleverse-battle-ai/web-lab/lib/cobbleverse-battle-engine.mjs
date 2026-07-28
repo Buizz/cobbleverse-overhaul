@@ -6697,28 +6697,127 @@ function bestFaintReplacement(state, sideIndex) {
   const side = state.sides[sideIndex];
   const opponentSide = sideIndex === 0 ? 1 : 0;
   const opponent = activePokemon(state, opponentSide);
+  const teamRoleAnalysis = analyzeTeamProfile(
+    side.team.map((member) => aiRoleAnalysisMember(member)),
+  );
   const selected = selectAiSwitchCandidate(
     side.team
     .map((pokemon, index) => {
-      if (pokemon.fainted) return null;
-      const bestDamage = pokemon.moves.reduce((best, move) => {
-        const accuracy = move.accuracy === true ? 1 : move.accuracy / 100;
-        const expectedDamage = aiExpectedMoveDamage(
-          pokemon,
-          opponent,
-          move,
-          state,
-          sideIndex,
-          opponentSide,
-        ).expectedDamage;
-        return Math.max(best, expectedDamage * accuracy);
-      }, 0);
+      if (pokemon.fainted || pokemon.hp <= 0) return null;
+      const slot = index + 1;
+      const hazardDamage = predictedEntryHazardDamage(
+        state,
+        sideIndex,
+        pokemon,
+      );
+      const hpAfterHazards = Math.max(0, pokemon.hp - hazardDamage);
+      if (hpAfterHazards <= 0) return null;
+      const targetAttack = bestAiAttackProfile(
+        state,
+        sideIndex,
+        pokemon,
+        opponentSide,
+        opponent,
+      );
+      const targetIncoming = bestAiAttackProfile(
+        state,
+        opponentSide,
+        opponent,
+        sideIndex,
+        pokemon,
+      );
+      const projectedMoveCandidates = projectedSwitchMoveCandidates(
+        state,
+        sideIndex,
+        pokemon,
+        opponentSide,
+        opponent,
+        hpAfterHazards,
+        "expert",
+        "balanced",
+      );
+      const projectedBestMove = projectedMoveCandidates[0] ?? null;
+      const projectedExpectedDamage = Number(
+        projectedBestMove?.expectedDamage ?? targetAttack.expectedDamage,
+      );
+      const projectedKnockoutBeforeActionProbability = Number(
+        projectedBestMove?.opponentKnockoutBeforeActionProbability ?? 1,
+      );
+      const targetIncomingRatio =
+        targetIncoming.expectedDamage / pokemon.stats.hp;
+      const targetOutgoingRatio =
+        opponent.hp > 0 ? projectedExpectedDamage / opponent.hp : 0;
+      const targetActsFirst =
+        targetAttack.priority > targetIncoming.priority ||
+        (targetAttack.priority === targetIncoming.priority &&
+          (Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0
+            ? effectiveSpeed(pokemon, state, sideIndex) <
+              effectiveSpeed(opponent, state, opponentSide)
+            : effectiveSpeed(pokemon, state, sideIndex) >
+              effectiveSpeed(opponent, state, opponentSide)));
+      const canReachNextAction =
+        projectedKnockoutBeforeActionProbability < 0.75;
+      const canKoOnNextAction =
+        canReachNextAction &&
+        projectedBestMove?.koChance === "guaranteed";
+      const priorityKo =
+        Number(projectedBestMove?.priority ?? targetAttack.priority) >
+          targetIncoming.priority &&
+        projectedBestMove?.koChance === "guaranteed";
+      const immediateKoBeforeOpponent =
+        canReachNextAction &&
+        projectedBestMove?.koChance === "guaranteed";
+      const targetRoleProfile = teamRoleAnalysis.roles[index];
+      let matchupValue = 0;
+      matchupValue += targetOutgoingRatio * 45;
+      matchupValue -= targetIncomingRatio * 55;
+      matchupValue -= (hazardDamage / pokemon.stats.hp) * 100;
+      if (targetIncoming.expectedDamage === 0) matchupValue += 24;
+      if (canKoOnNextAction) matchupValue += 30;
+      if (!canReachNextAction) matchupValue -= 90;
+      const fieldSynergy = fieldSwitchSynergy(
+        state,
+        sideIndex,
+        pokemon,
+        opponent,
+      );
       return {
-        slot: index + 1,
-        name: pokemon.name,
-        expectedDamage: bestDamage,
-        hpPercent: pokemon.hp / pokemon.stats.hp,
-        ...fieldSwitchSynergy(state, sideIndex, pokemon, opponent),
+        slot,
+        id: pokemon.id,
+        switchId: pokemon.id,
+        name: `${pokemon.name}(으)로 교체`,
+        active: false,
+        fainted: false,
+        forceSwitch: true,
+        hpPercent: hpAfterHazards / pokemon.stats.hp,
+        expectedDamage:
+          Math.min(opponent.hp, projectedExpectedDamage) * 0.4,
+        matchupValue,
+        targetIncomingDamageRatio: targetIncomingRatio,
+        targetOutgoingDamageRatio: targetOutgoingRatio,
+        targetStatus: pokemon.status,
+        speedAdvantage: targetActsFirst,
+        hpAfterSwitchIn: hpAfterHazards,
+        survivesSwitchIn: true,
+        canReachNextAction,
+        canKoOnNextAction,
+        projectedBestMoveId:
+          projectedBestMove?.id ?? targetAttack.moveId,
+        projectedBestMoveName:
+          projectedBestMove?.name ?? targetAttack.moveId,
+        projectedBestMoveScore: projectedBestMove?.score,
+        projectedKnockoutBeforeActionProbability,
+        targetPrimaryRole:
+          targetRoleProfile?.primaryRole ?? "support",
+        targetRoleScore: targetRoleProfile?.roles?.[0]?.score ?? 0,
+        targetAceScore: targetRoleProfile?.aceScore ?? 0,
+        targetAceQualified:
+          targetRoleProfile?.aceProfile?.qualifies === true,
+        priorityKo,
+        immediateKoBeforeOpponent,
+        hazardDamage,
+        hazardDamageRatio: hazardDamage / pokemon.stats.hp,
+        ...fieldSynergy,
       };
     })
     .filter(Boolean),
@@ -8085,6 +8184,154 @@ function automaticMoveCandidates(
       };
     })
     .filter(Boolean);
+  const opponentConditionalPriorityThreat = opponentAttackThreats
+    .filter((threat) =>
+      ["suckerpunch", "thunderclap"].includes(cleanId(threat.moveId)),
+    )
+    .sort(
+      (left, right) =>
+        right.knockoutProbability - left.knockoutProbability ||
+        right.expectedDamage - left.expectedDamage,
+    )[0] ?? null;
+  const currentAttackPressure = pokemon.moves.reduce(
+    (best, move) => {
+      if (move.pp <= 0 || isMoveTemporarilyDisabled(pokemon, move)) {
+        return best;
+      }
+      const displayMove = aiDisplayMoveData(pokemon, move, dynamaxMode);
+      if (displayMove.category === "Status") return best;
+      const accuracy =
+        displayMove.accuracy === true
+          ? 1
+          : Math.max(0, Number(displayMove.accuracy ?? 100) / 100);
+      const estimate = aiExpectedMoveDamage(
+        threatTarget,
+        defender,
+        displayMove,
+        state,
+        sideIndex,
+        defenderSide,
+      );
+      const outcome = aiDamageOutcomeProfile(
+        threatTarget,
+        defender,
+        displayMove,
+        estimate.range,
+      );
+      const knockoutProbability =
+        aiDamageThresholdChance(
+          outcome.effectiveMinimum,
+          outcome.effectiveMaximum,
+          defender.hp,
+        ) * accuracy;
+      const expectedDamage = estimate.expectedDamage * accuracy;
+      return knockoutProbability > best.knockoutProbability ||
+        (knockoutProbability === best.knockoutProbability &&
+          expectedDamage > best.expectedDamage)
+        ? {
+            moveId: displayMove.id,
+            expectedDamage,
+            knockoutProbability,
+          }
+        : best;
+    },
+    {
+      moveId: "",
+      expectedDamage: 0,
+      knockoutProbability: 0,
+    },
+  );
+  const conditionalPriorityFailureCount = state.events.filter(
+    (event) =>
+      event.type === "move_failed" &&
+      event.side === defenderSide &&
+      event.pokemon === defender.name &&
+      ["suckerpunch", "thunderclap"].includes(cleanId(event.move)) &&
+      Number(event.turn) >= Math.max(1, state.turn - 2),
+  ).length;
+  const trickRoomForPrediction =
+    Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0;
+  const defenderNaturallyActsFirst = trickRoomForPrediction
+    ? effectiveSpeed(defender, state, defenderSide) <
+      effectiveSpeed(threatTarget, state, sideIndex)
+    : effectiveSpeed(defender, state, defenderSide) >
+      effectiveSpeed(threatTarget, state, sideIndex);
+  let opponentConditionalPriorityLikelihood = 0;
+  if (opponentConditionalPriorityThreat) {
+    opponentConditionalPriorityLikelihood = 0.18;
+    if (!defenderNaturallyActsFirst) {
+      opponentConditionalPriorityLikelihood += 0.22;
+    }
+    if (currentAttackPressure.knockoutProbability >= 0.75) {
+      opponentConditionalPriorityLikelihood += 0.25;
+    } else if (currentAttackPressure.knockoutProbability > 0) {
+      opponentConditionalPriorityLikelihood += 0.12;
+    }
+    if (opponentConditionalPriorityThreat.knockoutProbability >= 0.75) {
+      opponentConditionalPriorityLikelihood += 0.18;
+    } else if (opponentConditionalPriorityThreat.knockoutProbability > 0) {
+      opponentConditionalPriorityLikelihood += 0.08;
+    }
+    const lastMove = pokemon.moves.find(
+      (move) => cleanId(move.id) === cleanId(pokemon.lastMove?.id),
+    );
+    if (pokemon.lastMoveSucceeded === true && lastMove?.category !== "Status") {
+      opponentConditionalPriorityLikelihood += 0.07;
+    }
+    opponentConditionalPriorityLikelihood -=
+      Math.min(0.3, conditionalPriorityFailureCount * 0.12);
+    opponentConditionalPriorityLikelihood = Math.max(
+      0.08,
+      Math.min(
+        0.85,
+        Math.round(opponentConditionalPriorityLikelihood * 100) / 100,
+      ),
+    );
+  }
+  const opponentLastMove = defender.moves.find(
+    (move) =>
+      cleanId(move.id) === cleanId(defender.lastMove?.id) &&
+      move.pp > 0 &&
+      !isMoveTemporarilyDisabled(defender, move),
+  );
+  const opponentLastDisplayMove = opponentLastMove
+    ? aiDisplayMoveData(defender, opponentLastMove)
+    : null;
+  const conditionalPriorityFailureTurns = new Set(
+    state.events
+      .filter(
+        (event) =>
+          event.type === "move_failed" &&
+          event.side === sideIndex &&
+          event.pokemon === pokemon.name &&
+          ["suckerpunch", "thunderclap"].includes(cleanId(event.move)),
+      )
+      .map((event) => Number(event.turn)),
+  );
+  let conditionalPriorityFailureStreak = 0;
+  for (
+    let turn = state.turn;
+    turn > 0 && conditionalPriorityFailureTurns.has(turn);
+    turn -= 1
+  ) {
+    conditionalPriorityFailureStreak += 1;
+  }
+  const conditionalPriorityAdaptChance =
+    conditionalPriorityFailureStreak >= 4
+      ? 0.95
+      : [0, 0.4, 0.68, 0.86][conditionalPriorityFailureStreak] ?? 0;
+  const conditionalPriorityAdaptRoll =
+    createAiRng(
+      state.seed,
+      sideIndex,
+      state.turn * 131 + conditionalPriorityFailureStreak * 17 + 43,
+    ).nextIndex(10_000) / 10_000;
+  const conditionalPriorityAdapted =
+    conditionalPriorityFailureStreak > 0 &&
+    conditionalPriorityAdaptRoll < conditionalPriorityAdaptChance;
+  const conditionalPriorityAdaptPenalty = conditionalPriorityAdapted
+    ? -2000
+    : -Math.min(220, 40 + conditionalPriorityFailureStreak * 35);
   const opponentBestDamage = opponentAttackThreats.reduce(
     (best, threat) => Math.max(best, threat.expectedDamage),
     0,
@@ -8125,6 +8372,28 @@ function automaticMoveCandidates(
       const defenderSpeed = effectiveSpeed(defender, state, defenderSide);
       const actionOrderTrickRoomActive =
         Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0;
+      const opponentLastMovePriority = Number(
+        opponentLastDisplayMove?.priority ?? 0,
+      );
+      const opponentLastMoveActsFirst =
+        opponentLastMovePriority > movePriority ||
+        (opponentLastMovePriority === movePriority &&
+          (actionOrderTrickRoomActive
+            ? defenderSpeed < attackerSpeed
+            : defenderSpeed > attackerSpeed));
+      const conditionalPriorityRepeatFailure =
+        ["suckerpunch", "thunderclap"].includes(cleanId(displayMove.id)) &&
+        conditionalPriorityFailureStreak > 0 &&
+        defender.lastMoveSucceeded === true &&
+        (opponentLastDisplayMove?.category === "Status" ||
+          (Number(opponentLastDisplayMove?.power ?? 0) > 0 &&
+            opponentLastMoveActsFirst));
+      const conditionalPriorityRepeatCause =
+        opponentLastDisplayMove?.category === "Status"
+          ? "status_move"
+          : conditionalPriorityRepeatFailure
+            ? "already_acted"
+            : "";
       const incomingBeforeActionThreat = opponentAttackThreats.reduce(
         (worst, threat) => {
           let actionBeforeThreatProbability = 0;
@@ -8192,10 +8461,27 @@ function automaticMoveCandidates(
         displayMove.status && canReceiveStatus(defender, displayMove.status)
           ? statusWeights[displayMove.status] ?? 18
           : 0;
-      const selfBoostValue = Object.values(displayMove.selfBoosts).reduce(
-        (sum, amount) => sum + Math.max(0, amount) * 15,
+      const setupPokemon = boostedPokemonForAi(
+        pokemon,
+        displayMove.selfBoosts,
+      );
+      const positiveSelfBoostCount = Object.values(
+        displayMove.selfBoosts,
+      ).reduce(
+        (sum, amount) => sum + (Number(amount ?? 0) > 0 ? 1 : 0),
         0,
       );
+      const effectiveSelfBoostTotal = BOOST_STATS.reduce(
+        (sum, stat) =>
+          sum +
+          Math.max(
+            0,
+            Number(setupPokemon.boosts?.[stat] ?? 0) -
+              Number(pokemon.boosts?.[stat] ?? 0),
+          ),
+        0,
+      );
+      const selfBoostValue = effectiveSelfBoostTotal * 15;
       const selfDropTotal = Object.values(displayMove.selfBoosts).reduce(
         (sum, amount) => sum + Math.max(0, -Number(amount ?? 0)),
         0,
@@ -8283,15 +8569,19 @@ function automaticMoveCandidates(
         sideIndex,
         defenderSide,
       );
-      const setupPokemon = boostedPokemonForAi(
-        pokemon,
-        displayMove.selfBoosts,
-      );
       const setupResidualDamage = aiEndTurnResidualDamage(pokemon, state);
       const setupIncomingThreat = defender.moves.reduce(
         (worst, opponentMove) => {
           const opponentDisplayMove = aiDisplayMoveData(defender, opponentMove);
           if (opponentDisplayMove.category === "Status") return worst;
+          if (
+            displayMove.category === "Status" &&
+            ["suckerpunch", "thunderclap"].includes(
+              cleanId(opponentDisplayMove.id),
+            )
+          ) {
+            return worst;
+          }
           const opponentAccuracy =
             opponentDisplayMove.accuracy === true
               ? 1
@@ -8437,6 +8727,13 @@ function automaticMoveCandidates(
           incomingBeforeActionThreat.actionBeforeThreatProbability,
         opponentKnockoutBeforeActionProbability:
           incomingBeforeActionThreat.knockoutBeforeActionProbability,
+        conditionalPriorityRepeatFailure,
+        conditionalPriorityRepeatCause,
+        conditionalPriorityFailureStreak,
+        conditionalPriorityAdaptChance,
+        conditionalPriorityAdapted,
+        conditionalPriorityAdaptPenalty,
+        opponentLastMoveId: opponentLastDisplayMove?.id ?? "",
         opponentHp: defender.hp,
         opponentAbility: activeAbility(defender),
         opponentHazards,
@@ -8469,11 +8766,23 @@ function automaticMoveCandidates(
         setupFollowupActsBeforeThreat,
         setupCanSurviveIncoming:
           setupFollowupSurvivalProbability >= 0.5,
+        opponentConditionalPriorityMoveId:
+          opponentConditionalPriorityThreat?.moveId ?? "",
+        opponentConditionalPriorityLikelihood,
+        opponentConditionalPriorityKnockoutProbability:
+          opponentConditionalPriorityThreat?.knockoutProbability ?? 0,
+        opponentConditionalPriorityExpectedDamage:
+          opponentConditionalPriorityThreat?.expectedDamage ?? 0,
+        opponentConditionalPriorityFailureCount:
+          conditionalPriorityFailureCount,
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
         selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(displayMove.id)),
         selfBoosts: displayMove.selfBoosts,
+        effectiveSelfBoostTotal,
+        selfBoostAlreadyMaxed:
+          positiveSelfBoostCount > 0 && effectiveSelfBoostTotal <= 0,
         selfDropTotal,
         hasSelfStatDrop: selfDropTotal > 0,
         expectedRecoilDamage,
@@ -8510,6 +8819,13 @@ function automaticMoveCandidates(
           incomingBeforeActionThreat.actionBeforeThreatProbability,
         opponentKnockoutBeforeActionProbability:
           incomingBeforeActionThreat.knockoutBeforeActionProbability,
+        conditionalPriorityRepeatFailure,
+        conditionalPriorityRepeatCause,
+        conditionalPriorityFailureStreak,
+        conditionalPriorityAdaptChance,
+        conditionalPriorityAdapted,
+        conditionalPriorityAdaptPenalty,
+        opponentLastMoveId: opponentLastDisplayMove?.id ?? "",
         opponentHp: defender.hp,
         score: scoreAiMoveCandidate(baseCandidate, difficulty, strategy),
         expectedDamage,
@@ -8548,11 +8864,23 @@ function automaticMoveCandidates(
         setupFollowupActsBeforeThreat,
         setupCanSurviveIncoming:
           setupFollowupSurvivalProbability >= 0.5,
+        opponentConditionalPriorityMoveId:
+          opponentConditionalPriorityThreat?.moveId ?? "",
+        opponentConditionalPriorityLikelihood,
+        opponentConditionalPriorityKnockoutProbability:
+          opponentConditionalPriorityThreat?.knockoutProbability ?? 0,
+        opponentConditionalPriorityExpectedDamage:
+          opponentConditionalPriorityThreat?.expectedDamage ?? 0,
+        opponentConditionalPriorityFailureCount:
+          conditionalPriorityFailureCount,
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
         selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(displayMove.id)),
         selfBoosts: displayMove.selfBoosts,
+        effectiveSelfBoostTotal,
+        selfBoostAlreadyMaxed:
+          positiveSelfBoostCount > 0 && effectiveSelfBoostTotal <= 0,
         selfDropTotal,
         hasSelfStatDrop: selfDropTotal > 0,
         expectedRecoilDamage,
@@ -8888,6 +9216,14 @@ function positiveBoostTotal(pokemon) {
   );
 }
 
+function offensiveBoostTotal(pokemon) {
+  return ["attack", "specialAttack", "speed"].reduce(
+    (sum, stat) =>
+      sum + Math.max(0, Number(pokemon.boosts?.[stat] ?? 0)),
+    0,
+  );
+}
+
 function switchEventOnPreviousTurn(state, sideIndex, pokemon) {
   return state.events.find(
     (event) =>
@@ -9113,8 +9449,11 @@ export function automaticSwitchCandidates(
         currentStatus: current.status,
         targetStatus: pokemon.status,
         currentPositiveBoosts: positiveBoostTotal(current),
+        opponentPositiveBoosts: positiveBoostTotal(opponent),
+        opponentOffensiveBoosts: offensiveBoostTotal(opponent),
         speedAdvantage: targetActsFirst,
         switchInExpectedDamage: targetIncoming.expectedDamage,
+        switchInThreatMoveId: targetIncoming.moveId,
         switchInDamageRatio:
           targetIncoming.expectedDamage / pokemon.stats.hp,
         hpAfterSwitchIn,
@@ -9212,7 +9551,7 @@ function hasLivingConfiguredDynamaxOther(side, active) {
   );
 }
 
-function chooseSimpleAiDecision(
+export function chooseSimpleAiDecision(
   state,
   sideIndex,
   difficulty = "standard",
@@ -9252,7 +9591,15 @@ function chooseSimpleAiDecision(
         strategy,
       )
     : [];
-  const selectedSwitch = switchCandidates[0] ?? null;
+  const tacticallyViableSwitches = switchCandidates.filter(
+    (candidate) =>
+      !(
+        candidate.targetAceQualified === true &&
+        candidate.canReachNextAction === false &&
+        candidate.canKoOnNextAction !== true
+      ),
+  );
+  const selectedSwitch = tacticallyViableSwitches[0] ?? null;
   const switchMargin = {
     novice: Infinity,
     standard: 24,
@@ -9328,8 +9675,10 @@ function chooseSimpleAiDecision(
         candidate: null,
       };
   const gimmick = gimmickDecision.id;
+  const usesDynamaxMove =
+    gimmick === "dynamax" || gimmick === "gigantamax";
   const commandMove =
-    gimmick && selectedDynamaxMove
+    usesDynamaxMove && selectedDynamaxMove
       ? selectedDynamaxMove
       : chosenMove;
   if (shouldSwitch) {
@@ -9342,6 +9691,37 @@ function chooseSimpleAiDecision(
       dynamaxMoveCandidates,
       selectedDynamaxMove,
       gimmickCandidate: gimmickDecision.candidate ?? null,
+      diagnostics: {
+        selectionSource: "switch-score",
+        lockedSelection: lockedSelection
+          ? {
+              slot: lockedSelection.slot,
+              moveId: lockedSelection.move?.id ?? "",
+              source: lockedSelection.lockSource,
+              preventsSwitch: lockedSelection.preventsSwitch,
+            }
+          : null,
+        scoreWinner: selectedMove
+          ? {
+              slot: selectedMove.slot,
+              id: selectedMove.id,
+              score: selectedMove.score,
+            }
+          : null,
+        chosenMove: chosenMove
+          ? {
+              slot: chosenMove.slot,
+              id: chosenMove.id,
+              score: chosenMove.score,
+            }
+          : null,
+        chosenSwitch: {
+          slot: selectedSwitch.slot,
+          id: selectedSwitch.id,
+          score: selectedSwitch.score,
+        },
+        switchMargin,
+      },
     };
   }
   return {
@@ -9364,6 +9744,37 @@ function chooseSimpleAiDecision(
     dynamaxMoveCandidates,
     selectedDynamaxMove,
     gimmickCandidate: gimmickDecision.candidate ?? null,
+    diagnostics: {
+      selectionSource: lockedSelection
+        ? `forced:${lockedSelection.lockSource}`
+        : usesDynamaxMove
+          ? dynamaxMode
+          : "move-score",
+      lockedSelection: lockedSelection
+        ? {
+            slot: lockedSelection.slot,
+            moveId: lockedSelection.move?.id ?? "",
+            source: lockedSelection.lockSource,
+            preventsSwitch: lockedSelection.preventsSwitch,
+          }
+        : null,
+      scoreWinner: selectedMove
+        ? {
+            slot: selectedMove.slot,
+            id: selectedMove.id,
+            score: selectedMove.score,
+          }
+        : null,
+      chosenMove: commandMove
+        ? {
+            slot: commandMove.slot,
+            id: commandMove.id,
+            score: commandMove.score,
+          }
+        : null,
+      chosenSwitch: null,
+      switchMargin,
+    },
   };
 }
 
@@ -9374,6 +9785,100 @@ export function chooseSimpleAiCommand(
   strategy = "balanced",
 ) {
   return chooseSimpleAiDecision(state, sideIndex, difficulty, strategy).command;
+}
+
+export function createSimpleAiDecisionTrace(
+  state,
+  sideIndex,
+  decision,
+  difficulty = "standard",
+  strategy = "balanced",
+) {
+  const command = decision.command;
+  const active = activePokemon(state, sideIndex);
+  const moveCandidates = decision.moveCandidates.map((candidate) => ({
+    ...toAiActionCandidate(
+      {
+        ...candidate,
+        score: Math.round(candidate.score * 100) / 100,
+      },
+      {
+        type: "move",
+        difficulty,
+        strategy,
+      },
+    ),
+    score: Math.round(candidate.score * 100) / 100,
+    selected:
+      Number.isInteger(command.move) &&
+      candidate.slot === command.move,
+  }));
+  const switchCandidates = decision.switchCandidates.map((candidate) => ({
+    ...toAiActionCandidate(
+      {
+        ...candidate,
+        score: Math.round(candidate.score * 100) / 100,
+      },
+      {
+        type: "switch",
+        difficulty,
+        strategy,
+      },
+    ),
+    score: Math.round(candidate.score * 100) / 100,
+    selected:
+      Number.isInteger(command.switch) &&
+      candidate.slot === decision.selectedSwitch?.slot,
+  }));
+  const gimmickCandidates = decision.gimmickCandidate
+    ? [
+        {
+          ...toAiActionCandidate(decision.gimmickCandidate, {
+            type: "gimmick",
+            difficulty,
+            strategy,
+          }),
+          id: decision.gimmickCandidate.id,
+          name:
+            decision.gimmickCandidate.id === "gigantamax"
+              ? "거다이맥스"
+              : "다이맥스",
+          score:
+            Math.round(
+              Number(decision.gimmickCandidate.score ?? 0) * 100,
+            ) / 100,
+          reasons: decision.gimmickCandidate.reasons ?? [],
+          selected: command.gimmick === decision.gimmickCandidate.id,
+        },
+      ]
+    : [];
+  const candidates = [
+    ...moveCandidates,
+    ...switchCandidates,
+    ...gimmickCandidates,
+  ].sort(
+    (left, right) => Number(right.score ?? 0) - Number(left.score ?? 0),
+  );
+  return {
+    turn: state.turn + 1,
+    side: sideIndex,
+    sideName: state.sides[sideIndex].name,
+    actor: sideIndex === 1 ? "AI" : state.sides[sideIndex].name,
+    species: active.name,
+    kind: Number.isInteger(command.switch) ? "switch" : "move",
+    difficulty,
+    strategy,
+    chosenAction:
+      moveCandidates.find((candidate) => candidate.selected)?.name ??
+      switchCandidates.find((candidate) => candidate.selected)?.name ??
+      gimmickCandidates.find((candidate) => candidate.selected)?.name ??
+      "",
+    gimmick: command.gimmick ?? "",
+    reason: aiDecisionReason(strategy, command.gimmick ?? ""),
+    candidates,
+    aiModel: "common-battle-ai",
+    diagnostics: decision.diagnostics ?? null,
+  };
 }
 
 function compactTurnSnapshot(state) {
@@ -9409,87 +9914,15 @@ export function runSimpleBattle(setup, options = {}) {
         profile.difficulty,
         profile.strategy,
       );
-      const command = decision.command;
-      const active = activePokemon(state, sideIndex);
-      const moveCandidates = decision.moveCandidates.map((candidate) => ({
-        ...toAiActionCandidate(
-          {
-            ...candidate,
-            score: Math.round(candidate.score * 100) / 100,
-          },
-          {
-            type: "move",
-            difficulty: profile.difficulty,
-            strategy: profile.strategy,
-          },
-        ),
-        score: Math.round(candidate.score * 100) / 100,
-        selected:
-          Number.isInteger(command.move) &&
-          candidate.slot === decision.selectedMove?.slot,
-      }));
-      const switchCandidates = decision.switchCandidates.map((candidate) => ({
-        ...toAiActionCandidate(
-          {
-            ...candidate,
-            score: Math.round(candidate.score * 100) / 100,
-          },
-          {
-            type: "switch",
-            difficulty: profile.difficulty,
-            strategy: profile.strategy,
-          },
-        ),
-        score: Math.round(candidate.score * 100) / 100,
-        selected:
-          Number.isInteger(command.switch) &&
-          candidate.slot === decision.selectedSwitch?.slot,
-      }));
-      const gimmickCandidates = decision.gimmickCandidate
-        ? [
-            {
-              ...toAiActionCandidate(decision.gimmickCandidate, {
-                type: "gimmick",
-                difficulty: profile.difficulty,
-                strategy: profile.strategy,
-              }),
-              id: decision.gimmickCandidate.id,
-              name:
-                decision.gimmickCandidate.id === "gigantamax"
-                  ? "거다이맥스"
-                  : "다이맥스",
-              score: Math.round(Number(decision.gimmickCandidate.score ?? 0) * 100) / 100,
-              reasons: decision.gimmickCandidate.reasons ?? [],
-              selected: command.gimmick === decision.gimmickCandidate.id,
-            },
-          ]
-        : [];
-      const candidates = [
-        ...moveCandidates,
-        ...switchCandidates,
-        ...gimmickCandidates,
-      ].sort(
-        (left, right) => Number(right.score ?? 0) - Number(left.score ?? 0),
-      );
       return {
-        command,
-        trace: {
-          turn: state.turn + 1,
-          side: sideIndex,
-          sideName: state.sides[sideIndex].name,
-          species: active.name,
-          kind: Number.isInteger(command.switch) ? "switch" : "move",
-          difficulty: profile.difficulty,
-          strategy: profile.strategy,
-          chosenAction:
-            candidates.find((candidate) => candidate.selected)?.name ??
-            moveCandidates.find((candidate) => candidate.selected)?.name ??
-            "",
-          gimmick: command.gimmick ?? "",
-          reason: aiDecisionReason(profile.strategy, command.gimmick ?? ""),
-          candidates,
-          aiModel: "common-battle-ai",
-        },
+        command: decision.command,
+        trace: createSimpleAiDecisionTrace(
+          state,
+          sideIndex,
+          decision,
+          profile.difficulty,
+          profile.strategy,
+        ),
       };
     });
     state.aiTrace.push(...decisions.map((decision) => decision.trace));

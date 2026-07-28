@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import {
   calculateMovePreview,
-  chooseSimpleAiCommand,
+  chooseSimpleAiDecision,
+  createSimpleAiDecisionTrace,
   createSimpleBattle,
   isMoveTemporarilyDisabled,
   replaceFaintedPokemon,
@@ -18,7 +19,6 @@ import {
 } from "./native-max-moves.mjs";
 import {
   scoreAiMoveCandidate,
-  toAiActionCandidate,
 } from "./common-battle-ai.mjs";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
@@ -159,43 +159,24 @@ function availableSwitches(side, sideIndex) {
     .filter((pokemon) => !pokemon.active && !pokemon.condition.fainted);
 }
 
-function aiDecision(state, command, profile = {}) {
-  const side = state.sides[1];
-  const active = side.team[side.active];
-  const opponent = state.sides[0].team[state.sides[0].active];
-  const difficulty = profile.difficulty ?? "standard";
-  const strategy = profile.strategy ?? "balanced";
-  const candidates = publicMoves(
-    active,
-    opponent,
-    difficulty,
-    strategy,
-    state,
-    1,
-    0,
-  ).map(
-    (move) => ({
-      ...toAiActionCandidate(move, { type: "move", difficulty, strategy }),
-      selected: move.slot === command.move,
-    }),
-  );
-  const selected = candidates.find((move) => move.selected);
+function diagnosticBattleState(state) {
+  const battleState = structuredClone(state);
+  delete battleState.events;
+  delete battleState.aiTrace;
+  delete battleState.turnSnapshots;
+  return battleState;
+}
+
+function reproductionLog(session) {
   return {
-    turn: state.turn + 1,
-    actor: "AI",
-    species: active.name,
-    kind: "move",
-    difficulty,
-    strategy,
-    chosenAction: selected?.name ?? "기술 선택",
-    gimmick: command.gimmick ?? "",
-    reason:
-      command.gimmick === "gigantamax"
-        ? "엔트리의 거다이맥스 지시와 전용기 가치를 반영해 이 턴에 거다이맥스를 사용합니다."
-        : command.gimmick === "dynamax"
-        ? "엔트리의 다이맥스 강제 지시에 따라 이 턴에 다이맥스를 사용합니다."
-        : "Cobbleverse 엔진이 예상 피해량과 KO 가능성뿐 아니라 회복, 상태이상, 랭크 변화의 전술 가치도 함께 비교했습니다.",
-    candidates,
+    schema: "cobbleverse-native-pve-reproduction",
+    version: 1,
+    engine: session.state.engine,
+    scenario: structuredClone(session.scenario),
+    currentState: diagnosticBattleState(session.state),
+    turns: structuredClone(session.reproductionFrames),
+    events: structuredClone(session.state.events),
+    aiTrace: structuredClone(session.aiTrace),
   };
 }
 
@@ -368,6 +349,7 @@ function snapshot(session) {
         }
       : null,
     aiTrace: session.aiTrace,
+    reproduction: reproductionLog(session),
     warnings: [
       {
         path: "battleEngine",
@@ -435,6 +417,7 @@ export function startNativeInteractiveBattle(scenario) {
       manualFaintSwitchSides: [0],
     }),
     aiTrace: [],
+    reproductionFrames: [],
     updatedAt: Date.now(),
   };
   sessions.set(session.id, session);
@@ -455,30 +438,66 @@ export function chooseNativeInteractiveBattleAction(sessionId, action) {
     if (String(action?.type ?? "") !== "switch") {
       throw new Error("쓰러지지 않은 포켓몬을 선택해 교체해 주세요.");
     }
+    const before = diagnosticBattleState(session.state);
+    const eventStart = session.state.events.length;
     session.state = replaceFaintedPokemon(session.state, 0, Number(action?.slot));
+    session.reproductionFrames.push({
+      turn: session.state.turn,
+      kind: "forced-replacement",
+      before,
+      playerAction: structuredClone(action),
+      playerCommand: { switch: Number(action?.slot) },
+      aiDecision: null,
+      aiCommand: null,
+      emittedEvents: structuredClone(session.state.events.slice(eventStart)),
+      after: diagnosticBattleState(session.state),
+    });
     session.updatedAt = Date.now();
     return snapshot(session);
   }
-  const aiCommand = chooseSimpleAiCommand(
+  const difficulty =
+    session.scenario.aiProfiles?.[1]?.difficulty ??
+    session.scenario.aiDifficulty;
+  const strategy =
+    session.scenario.aiProfiles?.[1]?.strategy ?? "balanced";
+  const before = diagnosticBattleState(session.state);
+  const eventStart = session.state.events.length;
+  const aiDecision = chooseSimpleAiDecision(
     session.state,
     1,
-    session.scenario.aiProfiles?.[1]?.difficulty ??
-      session.scenario.aiDifficulty,
-    session.scenario.aiProfiles?.[1]?.strategy ?? "balanced",
+    difficulty,
+    strategy,
   );
-  session.aiTrace.push(
-    aiDecision(session.state, aiCommand, {
-      difficulty:
-        session.scenario.aiProfiles?.[1]?.difficulty ??
-        session.scenario.aiDifficulty,
-      strategy: session.scenario.aiProfiles?.[1]?.strategy ?? "balanced",
-    }),
+  const aiCommand = aiDecision.command;
+  const trace = createSimpleAiDecisionTrace(
+    session.state,
+    1,
+    aiDecision,
+    difficulty,
+    strategy,
   );
+  session.aiTrace.push(trace);
   try {
+    const normalizedPlayerCommand = playerCommand(session.state, action);
     session.state = resolveSimpleTurn(session.state, [
-      playerCommand(session.state, action),
+      normalizedPlayerCommand,
       aiCommand,
     ]);
+    session.reproductionFrames.push({
+      turn: session.state.turn,
+      kind: "turn",
+      before,
+      playerAction: structuredClone(action),
+      playerCommand: structuredClone(normalizedPlayerCommand),
+      aiDecision: {
+        command: structuredClone(aiCommand),
+        diagnostics: structuredClone(aiDecision.diagnostics ?? null),
+        trace: structuredClone(trace),
+      },
+      aiCommand: structuredClone(aiCommand),
+      emittedEvents: structuredClone(session.state.events.slice(eventStart)),
+      after: diagnosticBattleState(session.state),
+    });
     session.updatedAt = Date.now();
     return snapshot(session);
   } catch (error) {

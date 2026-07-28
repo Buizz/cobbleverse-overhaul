@@ -872,6 +872,51 @@ test("applies RunAndBun-inspired switch matchup scoring rules", () => {
   );
 });
 
+test("penalizes exposing an ace to a boosted attacker without a counter knockout", () => {
+  const riskyAce = {
+    slot: 2,
+    name: "Zekrom",
+    hpPercent: 0.5,
+    expectedDamage: 90,
+    matchupValue: 85,
+    targetAceQualified: true,
+    targetAceScore: 11,
+    opponentOffensiveBoosts: 2,
+    switchInDamageRatio: 0.5,
+    switchInThreatMoveId: "closecombat",
+    survivesSwitchIn: true,
+    canReachNextAction: true,
+    canKoOnNextAction: false,
+  };
+  const safeCounter = {
+    ...riskyAce,
+    slot: 3,
+    name: "Safe revenge killer",
+    canKoOnNextAction: true,
+  };
+
+  assert.ok(
+    scoreAiSwitchCandidate(safeCounter, "expert", "balanced") >
+      scoreAiSwitchCandidate(riskyAce, "expert", "balanced") + 100,
+  );
+
+  const trace = createAiSwitchTrace({
+    turn: 4,
+    side: 1,
+    sideName: "AI",
+    species: "Garganacl",
+    selected: safeCounter,
+    candidates: [riskyAce, safeCounter],
+  });
+  const risky = trace.candidates.find((candidate) => candidate.slot === 2);
+  assert.ok(
+    risky.reasons.some(
+      (reason) =>
+        reason.code === "rule.switch.boosted_attacker_ace_exposure",
+    ),
+  );
+});
+
 test("applies RunAndBun-inspired recovery, pivot, and immediate KO rules", () => {
   const finishingMove = {
     slot: 1,

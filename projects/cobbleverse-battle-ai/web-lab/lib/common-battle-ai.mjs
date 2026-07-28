@@ -957,6 +957,52 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
     );
   }
 
+  if (
+    ["suckerpunch", "thunderclap"].includes(moveId) &&
+    enriched.conditionalPriorityRepeatFailure === true
+  ) {
+    const repeatedStatusMove =
+      enriched.conditionalPriorityRepeatCause === "status_move";
+    const failureStreak = Math.max(
+      1,
+      finiteNumber(enriched.conditionalPriorityFailureStreak, 1),
+    );
+    const adaptChance = Math.round(
+      Math.max(
+        0,
+        Math.min(
+          1,
+          finiteNumber(enriched.conditionalPriorityAdaptChance, 1),
+        ),
+      ) * 100,
+    );
+    adjustments.push(
+      scoreAdjustment(
+        "rule.conditional_priority.repeat_failure",
+        enriched.conditionalPriorityAdapted === true
+          ? "조건부 선공기 패턴 경계"
+          : "조건부 선공기 재시도",
+        `${failureStreak}회 / ${adaptChance}%`,
+        finiteNumber(enriched.conditionalPriorityAdaptPenalty, -2000),
+        repeatedStatusMove
+          ? `변화기 ${enriched.opponentLastMoveId || ""} 때문에 ${failureStreak}회 연속 실패한 패턴을 ${adaptChance}% 확률로 경계합니다.`
+          : `${enriched.opponentLastMoveId || "상대 선공기"} 때문에 ${failureStreak}회 연속 실패한 패턴을 ${adaptChance}% 확률로 경계합니다.`,
+      ),
+    );
+  }
+
+  if (enriched.selfBoostAlreadyMaxed === true) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.setup.all_boosts_maxed",
+        "상승 랭크 최대",
+        enriched.effectiveSelfBoostTotal ?? 0,
+        -1000,
+        "이 기술로 올릴 수 있는 능력치가 모두 최대 랭크라 반복 사용 가치를 제거했습니다.",
+      ),
+    );
+  }
+
   if (hasSafeImmediateKo && !isSafeFinisher(enriched)) {
     const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
     const highValueHazard =
@@ -1427,6 +1473,47 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
       canSurviveSetupTurn &&
       finiteNumber(enriched.setupGuardConsumptionProbability, 0) < 0.25 &&
       (setupIncomingRatio === undefined || setupIncomingRatio < 0.5);
+    const conditionalPriorityLikelihood = Math.max(
+      0,
+      Math.min(
+        0.85,
+        finiteNumber(enriched.opponentConditionalPriorityLikelihood, 0),
+      ),
+    );
+    const conditionalPriorityKnockoutProbability = Math.max(
+      0,
+      Math.min(
+        1,
+        finiteNumber(
+          enriched.opponentConditionalPriorityKnockoutProbability,
+          0,
+        ),
+      ),
+    );
+    const effectiveBoostAvailable =
+      finiteNumber(
+        enriched.effectiveSelfBoostTotal,
+        enriched.setupEffectiveBoostTotal,
+        1,
+      ) > 0;
+    if (
+      conditionalPriorityLikelihood >= 0.25 &&
+      effectiveBoostAvailable &&
+      canSurviveSetupTurn
+    ) {
+      const baitValue =
+        conditionalPriorityLikelihood *
+        (42 + conditionalPriorityKnockoutProbability * 38);
+      adjustments.push(
+        scoreAdjustment(
+          "rule.setup.conditional_priority_bait",
+          "조건부 선공기 낭비 유도",
+          `${enriched.opponentConditionalPriorityMoveId || "Sucker Punch"} ${Math.round(conditionalPriorityLikelihood * 100)}%`,
+          Math.round(baitValue * 100) / 100,
+          `상대가 ${enriched.opponentConditionalPriorityMoveId || "조건부 선공기"}를 선택할 가능성을 ${Math.round(conditionalPriorityLikelihood * 100)}%로 추정했습니다. 변화기를 쓰면 그 공격은 실패하지만 다른 공격 가능성도 남겨 둔 기대값만 반영했습니다.`,
+        ),
+      );
+    }
     if (enriched.reliableKoAlternative === true && !setupSafetyAssured) {
       const knockoutBoostAlternative =
         enriched.knockoutBoostAlternative &&
@@ -2040,6 +2127,10 @@ export function switchRuleAdjustments(candidate, strategy = "balanced") {
     candidate.targetOutgoingDamageRatio,
     candidate.outgoingDamageRatio,
   );
+  const switchInDamageRatio = Math.max(
+    0,
+    finiteNumber(candidate.switchInDamageRatio, 0),
+  );
   const forceSwitch = candidate.forceSwitch === true;
   const fieldSynergyValue = finiteNumber(
     candidate.fieldSynergyValue,
@@ -2154,6 +2245,29 @@ export function switchRuleAdjustments(candidate, strategy = "balanced") {
       ),
     );
   }
+  if (
+    forceSwitch &&
+    candidate.canReachNextAction === false &&
+    candidate.immediateKoBeforeOpponent !== true &&
+    candidate.priorityKo !== true
+  ) {
+    const aceScore = Math.max(0, finiteNumber(candidate.targetAceScore, 0));
+    const preservationCost =
+      candidate.targetAceQualified === true
+        ? 220 + Math.min(120, aceScore * 8)
+        : 140;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.forced_no_action",
+        "행동 불가능한 강제 출전",
+        candidate.projectedKnockoutBeforeActionProbability,
+        -Math.round(preservationCost * 100) / 100,
+        candidate.targetAceQualified === true
+          ? "강제 출전 직후 상대의 선공 공격에 쓰러져 아무 행동도 못 할 에이스라 다른 생존 후보보다 크게 낮췄습니다."
+          : "강제 출전 직후 상대의 선공 공격에 쓰러져 아무 행동도 못 할 전망이라 다른 생존 후보보다 낮췄습니다.",
+      ),
+    );
+  }
 
   if (fieldSynergyValue !== undefined && fieldSynergyValue !== 0) {
     adjustments.push(
@@ -2204,6 +2318,44 @@ export function switchRuleAdjustments(candidate, strategy = "balanced") {
         positiveBoosts,
         -positiveBoosts * 2,
         `교체하면 현재 쌓은 유리한 랭크 ${positiveBoosts}단계를 잃습니다.`,
+      ),
+    );
+  }
+
+  const opponentOffensiveBoosts = Math.max(
+    0,
+    Number(candidate.opponentOffensiveBoosts ?? 0),
+  );
+  const boostedAceExposure =
+    !forceSwitch &&
+    candidate.targetAceQualified === true &&
+    opponentOffensiveBoosts > 0 &&
+    candidate.canKoOnNextAction !== true &&
+    switchInDamageRatio >= 0.2;
+  if (boostedAceExposure) {
+    const preservationMultiplier =
+      strategy === "ace_check"
+        ? 1.25
+        : strategy === "defensive"
+          ? 1.15
+          : strategy === "reckless_ace"
+            ? 0.75
+            : 1;
+    const weight =
+      -Math.round(
+        Math.min(
+          240,
+          (50 + opponentOffensiveBoosts * 35 + switchInDamageRatio * 100) *
+            preservationMultiplier,
+        ) * 100,
+      ) / 100;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.boosted_attacker_ace_exposure",
+        "랭크업 상대 앞 에이스 노출",
+        `${opponentOffensiveBoosts}랭크 / 피해 ${Math.round(switchInDamageRatio * 100)}%`,
+        weight,
+        `상대가 공격 계열 랭크를 ${opponentOffensiveBoosts}단계 쌓았고 교체 후보가 ${candidate.switchInThreatMoveId || "예상 공격"}에 큰 피해를 받지만 다음 행동에서 KO를 보장하지 못해, 에이스 소모 위험을 크게 반영했습니다.`,
       ),
     );
   }
@@ -2272,10 +2424,6 @@ export function switchRuleAdjustments(candidate, strategy = "balanced") {
     );
   }
 
-  const switchInDamageRatio = Math.max(
-    0,
-    finiteNumber(candidate.switchInDamageRatio, 0),
-  );
   if (!forceSwitch && switchInDamageRatio > 0) {
     const weight =
       -Math.round(Math.min(70, switchInDamageRatio * 55) * 100) / 100;
