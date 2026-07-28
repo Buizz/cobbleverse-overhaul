@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import {
-  calculateDamageRange,
+  calculateMovePreview,
   chooseSimpleAiCommand,
   createSimpleBattle,
   replaceFaintedPokemon,
@@ -86,10 +86,24 @@ function publicMoveData(pokemon, move) {
   };
 }
 
-function publicMoves(active, opponent, difficulty = "standard", strategy = "balanced") {
+function publicMoves(
+  active,
+  opponent,
+  difficulty = "standard",
+  strategy = "balanced",
+  state = null,
+  attackerSide = 0,
+  defenderSide = 1,
+) {
   return active.moves.map((move, index) => {
-    const displayMove = publicMoveData(active, move);
-    const range = calculateDamageRange(active, opponent, displayMove);
+    const selectedMove = publicMoveData(active, move);
+    const preview = calculateMovePreview(active, opponent, selectedMove, {
+      state,
+      attackerSide,
+      defenderSide,
+    });
+    const displayMove = preview.move;
+    const range = preview.range;
     const accuracy =
       displayMove.accuracy === true ? 1 : Number(displayMove.accuracy ?? 100) / 100;
     const expectedDamage = ((range.minimum + range.maximum) / 2) * accuracy;
@@ -147,7 +161,15 @@ function aiDecision(state, command, profile = {}) {
   const opponent = state.sides[0].team[state.sides[0].active];
   const difficulty = profile.difficulty ?? "standard";
   const strategy = profile.strategy ?? "balanced";
-  const candidates = publicMoves(active, opponent, difficulty, strategy).map(
+  const candidates = publicMoves(
+    active,
+    opponent,
+    difficulty,
+    strategy,
+    state,
+    1,
+    0,
+  ).map(
     (move) => ({
       ...toAiActionCandidate(move, { type: "move", difficulty, strategy }),
       selected: move.slot === command.move,
@@ -256,7 +278,17 @@ function snapshot(session) {
           kind: requiresReplacement ? "force_switch" : "move",
           active: playerTeam[playerSide.active],
           team: playerTeam,
-          moves: requiresReplacement ? [] : publicMoves(player, opponent),
+          moves: requiresReplacement
+            ? []
+            : publicMoves(
+                player,
+                opponent,
+                "standard",
+                "balanced",
+                state,
+                0,
+                1,
+              ),
           gimmicks: {
             canMegaEvo:
               !requiresReplacement &&
@@ -310,7 +342,17 @@ function snapshot(session) {
           opponent: {
             species: opponent.name,
             types: opponent.types,
-            moves: latestDecision?.candidates ?? publicMoves(opponent, player),
+            moves:
+              latestDecision?.candidates ??
+              publicMoves(
+                opponent,
+                player,
+                "standard",
+                "balanced",
+                state,
+                1,
+                0,
+              ),
             decision: latestDecision
               ? {
                   strategy: latestDecision.strategy,

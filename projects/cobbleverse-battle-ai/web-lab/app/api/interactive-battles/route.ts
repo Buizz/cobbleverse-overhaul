@@ -1,7 +1,9 @@
 import trainerIndex from "../../../public/data/trainers.json";
 import itemCatalog from "../../../public/data/cobblemon-battle-items.json";
+import nativeMoveCoverage from "../../../public/data/native-mechanics-coverage.json";
 import { createBattleScenario } from "../../../lib/battle-scenario.mjs";
 import { createCobblemonItemResolver } from "../../../lib/cobblemon-item-catalog.mjs";
+import { findNativeMoveSupportWarnings } from "../../../lib/native-move-support.mjs";
 import {
   chooseInteractiveBattleAction,
   forfeitInteractiveBattle,
@@ -51,7 +53,17 @@ export async function POST(request: Request) {
         validation.scenario.battleEngine === "cobbleverse"
           ? startNativeInteractiveBattle(validation.scenario)
           : await startInteractiveBattle(validation.scenario);
-      return Response.json({ ok: true, battle }, { status: 201 });
+      return Response.json(
+        {
+          ok: true,
+          battle,
+          warnings: findNativeMoveSupportWarnings(
+            validation.scenario,
+            nativeMoveCoverage,
+          ),
+        },
+        { status: 201 },
+      );
     }
     if (body.operation === "choose") {
       const battle = String(body.sessionId ?? "").startsWith("native-")

@@ -180,6 +180,13 @@ type ScenarioIssue = {
   message: string;
 };
 
+type NativeMoveSupportWarning = ScenarioIssue & {
+  status: "PARTIAL" | "UNSUPPORTED" | "UNKNOWN";
+  pokemon: string;
+  moveId: string;
+  moveName: string;
+};
+
 type LevelMode = "original" | "level-50" | "level-100";
 type BattleEngineChoice = "showdown" | "cobbleverse";
 type BattleType = "single" | "double" | "triple";
@@ -228,7 +235,11 @@ const aiStrategyOptions: Array<{ value: AiStrategy; label: string }> = [
 ];
 
 type ScenarioResponse =
-  | { ok: true; scenario: BattleScenario }
+  | {
+      ok: true;
+      scenario: BattleScenario;
+      warnings: NativeMoveSupportWarning[];
+    }
   | { ok: false; issues: ScenarioIssue[] };
 
 type BattleEvent = {
@@ -4571,6 +4582,9 @@ export function BattleLab() {
     { difficulty: "standard", strategy: "aggressive" },
   ]);
   const [scenario, setScenario] = useState<BattleScenario | null>(null);
+  const [scenarioWarnings, setScenarioWarnings] = useState<
+    NativeMoveSupportWarning[]
+  >([]);
   const [preparing, setPreparing] = useState(false);
   const [battle, setBattle] = useState<BattleResult | null>(null);
   const [runningBattle, setRunningBattle] = useState(false);
@@ -5143,6 +5157,7 @@ export function BattleLab() {
 
     setPreparing(true);
     setScenario(null);
+    setScenarioWarnings([]);
     setBattle(null);
     setInteractiveBattle(null);
     try {
@@ -5157,7 +5172,12 @@ export function BattleLab() {
         return;
       }
       setScenario(result.scenario);
-      setNotice(`시나리오 ${result.scenario.scenarioId}가 준비되었습니다.`);
+      setScenarioWarnings(result.warnings ?? []);
+      setNotice(
+        result.warnings?.length
+          ? `시나리오가 준비되었지만 자체 엔진 기술 경고가 ${result.warnings.length}건 있습니다.`
+          : `시나리오 ${result.scenario.scenarioId}가 준비되었습니다.`,
+      );
     } catch {
       setNotice("시나리오 API에 연결하지 못했습니다. 로컬 서버 상태를 확인해 주세요.");
     } finally {
@@ -5999,6 +6019,26 @@ export function BattleLab() {
             </div>
           ) : (
             <div className="scenario-matchup">
+              {scenarioWarnings.length > 0 ? (
+                <section className="scenario-move-warnings" aria-label="자체 엔진 기술 지원 경고">
+                  <strong>자체 엔진 기술 경고 {scenarioWarnings.length}건</strong>
+                  <p>실행은 가능하지만 해당 기술의 결과가 실기와 다르거나 효과가 적용되지 않을 수 있습니다.</p>
+                  <ul>
+                    {scenarioWarnings.map((warning) => (
+                      <li key={warning.path}>
+                        <b>
+                          {warning.status === "PARTIAL"
+                            ? "부분 지원"
+                            : warning.status === "UNSUPPORTED"
+                              ? "미지원"
+                              : "미확인"}
+                        </b>
+                        <span>{warning.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
               {scenario.sides.map((side, sideIndex) => (
                 <article key={`${side.name}-${sideIndex}`}>
                   <span>{sideIndex === 0 ? "SIDE A" : "SIDE B"}</span>

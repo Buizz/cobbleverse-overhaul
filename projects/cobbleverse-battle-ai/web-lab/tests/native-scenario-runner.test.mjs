@@ -319,6 +319,41 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
   assert.ok(switched.events.some((event) => event.type === "move"));
 });
 
+test("shows dynamic power move effectiveness against the current opponent", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-dynamic-power-preview",
+    mode: "pve",
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "snorlax",
+            moveset: ["heatcrash"],
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "garganacl",
+            moveset: ["earthquake"],
+          },
+        ],
+      },
+    ],
+  };
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  assert.equal(started.request.moves[0].power, 40);
+  assert.equal(started.request.moves[0].effectiveness, "resisted");
+});
+
 test("keeps native player moves displayed as Max Moves while Dynamax is active", () => {
   clearNativeInteractiveBattleSessions();
   const battleScenario = {

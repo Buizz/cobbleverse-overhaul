@@ -1,7 +1,9 @@
 import trainerIndex from "../../../public/data/trainers.json";
 import itemCatalog from "../../../public/data/cobblemon-battle-items.json";
+import nativeMoveCoverage from "../../../public/data/native-mechanics-coverage.json";
 import { createBattleScenario } from "../../../lib/battle-scenario.mjs";
 import { createCobblemonItemResolver } from "../../../lib/cobblemon-item-catalog.mjs";
+import { findNativeMoveSupportWarnings } from "../../../lib/native-move-support.mjs";
 import { runNativeScenarioBattle } from "../../../lib/native-scenario-runner.mjs";
 import { runAutomaticBattle } from "../../../lib/showdown-battle-runner.mjs";
 
@@ -31,12 +33,23 @@ export async function POST(request: Request) {
   }
 
   try {
+    const moveSupportWarnings = findNativeMoveSupportWarnings(
+      validation.scenario,
+      nativeMoveCoverage,
+    );
     const battle =
       validation.scenario.battleEngine === "cobbleverse"
         ? runNativeScenarioBattle(validation.scenario)
         : await runAutomaticBattle(validation.scenario);
     return Response.json(
-      { ok: true, scenario: validation.scenario, battle },
+      {
+        ok: true,
+        scenario: validation.scenario,
+        battle: {
+          ...battle,
+          warnings: [...(battle.warnings ?? []), ...moveSupportWarnings],
+        },
+      },
       { status: 201 },
     );
   } catch (error) {

@@ -1045,6 +1045,21 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   };
 }
 
+export function calculateMovePreview(attacker, defender, move, context = {}) {
+  const estimatedMove = resolveEstimatedMovePower(
+    attacker,
+    defender,
+    move,
+    context.state,
+    context.attackerSide,
+    context.defenderSide,
+  );
+  return {
+    move: estimatedMove,
+    range: calculateDamageRange(attacker, defender, estimatedMove, context),
+  };
+}
+
 export function createSimpleBattle(setup) {
   if (!Array.isArray(setup?.sides) || setup.sides.length !== 2) {
     throw new Error("A simple battle requires exactly two sides");
@@ -2488,6 +2503,21 @@ function applyVolatileStatus(state, side, pokemon, id, source, sourceSide = null
   return true;
 }
 
+function endVolatileStatus(state, side, pokemon, id, source) {
+  const normalized = cleanId(id);
+  if (!pokemon.volatiles?.[normalized]) return false;
+  delete pokemon.volatiles[normalized];
+  state.events.push({
+    turn: state.turn,
+    type: "volatile_end",
+    side,
+    pokemon: pokemon.name,
+    effect: normalized,
+    source,
+  });
+  return true;
+}
+
 function applyLeechSeed(state, sourceSide, targetSide, target, source) {
   if (target.types.includes("Grass")) return false;
   if (!applyVolatileStatus(state, targetSide, target, "leechseed", source)) {
@@ -3558,7 +3588,7 @@ function hitCountForMove(move, attacker, rng) {
   return minimum + Math.floor(rng.next() * (maximum - minimum + 1));
 }
 
-function fixedDamageAmount(move, attacker, defender) {
+function fixedDamageAmount(move, attacker, defender, rng = null) {
   const moveId = cleanId(move.id);
   const configured = move.fixedDamage;
   if (
@@ -3570,7 +3600,13 @@ function fixedDamageAmount(move, attacker, defender) {
   }
   if (moveId === "dragonrage") return 40;
   if (moveId === "sonicboom") return 20;
-  if (moveId === "psywave") return Math.max(1, attacker.level);
+  if (moveId === "psywave") {
+    const minimum = Math.max(1, Math.floor(attacker.level * 0.5));
+    const maximum = Math.max(minimum, Math.floor(attacker.level * 1.5));
+    return rng?.next
+      ? minimum + Math.floor(rng.next() * (maximum - minimum + 1))
+      : attacker.level;
+  }
   if (["fissure", "guillotine", "horndrill", "sheercold"].includes(moveId)) {
     return defender.hp;
   }
@@ -3742,6 +3778,34 @@ function executeMove(state, action, rng) {
       remainingPp: sourceMove.pp,
       source: "pressure",
     });
+  }
+  const repeatedDestinyBond =
+    sourceMoveId === "destinybond" &&
+    Boolean(attacker.volatiles?.destinybond);
+  endVolatileStatus(
+    state,
+    action.side,
+    attacker,
+    "destinybond",
+    sourceMove.name,
+  );
+  endVolatileStatus(
+    state,
+    action.side,
+    attacker,
+    "grudge",
+    sourceMove.name,
+  );
+  if (repeatedDestinyBond) {
+    state.events.push({
+      turn: state.turn,
+      type: "move_failed",
+      side: action.side,
+      pokemon: attacker.name,
+      move: sourceMove.name,
+      reason: "Destiny Bond cannot succeed on consecutive uses.",
+    });
+    return false;
   }
   if (sourceMoveId === "snore" && attacker.status !== "slp") {
     state.events.push({
@@ -5972,7 +6036,7 @@ function executeMove(state, action, rng) {
         hit,
       });
     }
-    const fixedDamage = fixedDamageAmount(chargedHitMove, attacker, defender);
+    const fixedDamage = fixedDamageAmount(chargedHitMove, attacker, defender, rng);
     const critRatio = move.critRatio + (attacker.volatiles?.focusenergy ? 2 : 0);
     const criticalChance =
       critRatio >= 3 ? 1 : critRatio === 2 ? 1 / 8 : 1 / 24;
@@ -7564,6 +7628,29 @@ function aiExpectedMoveDamage(
     attackerSide,
     defenderSide,
   );
+  const fixedDamage = fixedDamageAmount(estimatedMove, attacker, defender);
+  if (fixedDamage !== null) {
+    const effectiveness = moveEffectiveness(
+      estimatedMove,
+      defender.types,
+      attacker,
+      defender,
+    );
+    const expectedDamage =
+      effectiveness === 0 ? 0 : Math.min(defender.hp, fixedDamage);
+    return {
+      range: {
+        minimum: expectedDamage,
+        maximum: expectedDamage,
+        stab: 1,
+        effectiveness,
+        itemModifier: 1,
+        abilityModifier: 1,
+        fieldModifier: 1,
+      },
+      expectedDamage,
+    };
+  }
   const range = calculateDamageRange(attacker, defender, estimatedMove, {
     state,
     attackerSide,

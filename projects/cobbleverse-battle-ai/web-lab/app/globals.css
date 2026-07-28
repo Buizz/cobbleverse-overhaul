@@ -1533,6 +1533,49 @@ button {
   background: #0b1528;
 }
 
+.scenario-move-warnings {
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border: 1px solid #7d6430;
+  background: #211d16;
+  color: #e8d4a1;
+}
+
+.scenario-move-warnings > strong {
+  display: block;
+  font-size: 12px;
+}
+
+.scenario-move-warnings > p {
+  margin: 6px 0 10px;
+  color: #bfae83;
+  font-size: 10px;
+}
+
+.scenario-move-warnings ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scenario-move-warnings li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  font-size: 10px;
+}
+
+.scenario-move-warnings li b {
+  color: #ffd46a;
+}
+
+.scenario-move-warnings li span {
+  color: #d7c59b;
+}
+
 .scenario-matchup > article {
   padding: 16px;
   border: 1px solid #35425a;

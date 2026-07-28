@@ -843,6 +843,21 @@ test("resolves fixed damage, fractional damage, weather recovery, and no-op move
     77,
   );
 
+  const nightShadeAi = runSimpleBattle(
+    {
+      seed: 1234,
+      sides: nightShadeState.sides.map((side) => ({
+        name: side.name,
+        team: side.team,
+      })),
+    },
+    { maxTurns: 1, difficulty: "expert" },
+  );
+  const nightShadeCandidate = nightShadeAi.aiTrace
+    .find((trace) => trace.side === 0)
+    ?.candidates.find((candidate) => candidate.id === "nightshade");
+  assert.equal(nightShadeCandidate.expectedDamage.value, 77);
+
   const ruinationState = createSimpleBattle(
     setup({
       sides: [
@@ -5044,6 +5059,168 @@ test("supports Destiny Bond and Curse battle effects", () => {
   assert.equal(normalCurse.sides[1].team[0].volatiles.curse, undefined);
 });
 
+test("Destiny Bond expires on the next action and fails on consecutive use", () => {
+  const destinyBond = {
+    id: "destinybond",
+    name: "Destiny Bond",
+    type: "Ghost",
+    category: "Status",
+    accuracy: true,
+    pp: 5,
+    target: "self",
+    volatileStatus: "destinybond",
+  };
+  const first = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "BondUser",
+                stats: { ...pokemon().stats, speed: 160 },
+                moves: [destinyBond],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "Observer",
+                moves: [
+                  {
+                    id: "splash",
+                    name: "Splash",
+                    type: "Normal",
+                    category: "Status",
+                    accuracy: true,
+                    pp: 40,
+                  },
+                ],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(first.sides[0].team[0].volatiles.destinybond.id, "destinybond");
+
+  const repeated = resolveSimpleTurn(first, [{ move: 1 }, { move: 1 }]);
+  assert.equal(repeated.sides[0].team[0].volatiles.destinybond, undefined);
+  assert.ok(
+    repeated.events.some(
+      (event) =>
+        event.turn === 2 &&
+        event.type === "move_failed" &&
+        event.move === "Destiny Bond",
+    ),
+  );
+});
+
+test("Grudge depletes the knockout move PP and expires after the user's next move", () => {
+  const grudge = {
+    id: "grudge",
+    name: "Grudge",
+    type: "Ghost",
+    category: "Status",
+    accuracy: true,
+    pp: 5,
+    target: "self",
+    volatileStatus: "grudge",
+  };
+  const knockout = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "GrudgeUser",
+                stats: { ...pokemon().stats, hp: 80, speed: 160 },
+                moves: [grudge],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "Finisher",
+                stats: { ...pokemon().stats, attack: 240, speed: 40 },
+                moves: [
+                  {
+                    id: "crunch",
+                    name: "Crunch",
+                    type: "Dark",
+                    category: "Physical",
+                    power: 120,
+                    accuracy: true,
+                    pp: 15,
+                  },
+                ],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(knockout.sides[1].team[0].moves[0].pp, 0);
+  assert.ok(
+    knockout.events.some(
+      (event) =>
+        event.type === "pp_depleted" &&
+        event.move === "Crunch" &&
+        event.source === "Grudge",
+    ),
+  );
+
+  const expiryBase = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "GrudgeUser",
+              stats: { ...pokemon().stats, speed: 160 },
+              moves: [
+                grudge,
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+        { name: "AI", team: [pokemon({ name: "Observer" })] },
+      ],
+    }),
+  );
+  const grudged = resolveSimpleTurn(expiryBase, [{ move: 1 }, { move: 1 }]);
+  const expired = resolveSimpleTurn(grudged, [{ move: 2 }, { move: 1 }]);
+  assert.equal(expired.sides[0].team[0].volatiles.grudge, undefined);
+  assert.ok(
+    expired.events.some(
+      (event) =>
+        event.turn === 2 &&
+        event.type === "volatile_end" &&
+        event.effect === "grudge",
+    ),
+  );
+});
+
 test("supports Belch only after the user has eaten a Berry", () => {
   const failed = resolveSimpleTurn(
     createSimpleBattle(
@@ -8953,14 +9130,11 @@ test("supports item exchange, heal blocking, imprison, no-retreat, and special u
     ),
     [{ move: 1 }, { move: 1 }],
   );
-  assert.ok(
-    psywaved.events.some(
-      (event) =>
-        event.type === "damage" &&
-        event.move === "Psywave" &&
-        event.damage === 77,
-    ),
-  );
+  const psywaveDamage = psywaved.events.find(
+    (event) => event.type === "damage" && event.move === "Psywave",
+  )?.damage;
+  assert.ok(psywaveDamage >= 38);
+  assert.ok(psywaveDamage <= 115);
 });
 
 test("supports called moves, redirection markers, perish song, beak blast, and pledge power", () => {

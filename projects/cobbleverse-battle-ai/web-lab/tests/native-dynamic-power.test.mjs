@@ -554,6 +554,8 @@ test("forces Ice Ball while its chain is active", () => {
   assert.deepEqual(state.sides[0].team[0].lockedMove, {
     id: "iceball",
     slot: 1,
+    kind: "rolling",
+    maximum: 5,
   });
 });
 
