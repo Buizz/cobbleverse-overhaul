@@ -116,11 +116,13 @@ const IMPLEMENTED_ABILITIES = new Set([
   "download",
   "drizzle",
   "drought",
+  "electricsurge",
   "flamebody",
   "galewings",
   "goodasgold",
   "grimneigh",
   "guts",
+  "hadronengine",
   "hypercutter",
   "hugepower",
   "immunity",
@@ -136,6 +138,8 @@ const IMPLEMENTED_ABILITIES = new Set([
   "magnetpull",
   "mindseye",
   "multiscale",
+  "beastboost",
+  "overcoat",
   "owntempo",
   "pickpocket",
   "minus",
@@ -167,6 +171,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "vitalspirit",
   "waterveil",
   "overgrow",
+  "orichalcumpulse",
   "armortail",
 ]);
 const INTENTIONAL_NO_EFFECT_ABILITIES = new Set([
@@ -502,6 +507,7 @@ function normalizeMove(move, path) {
         : Math.max(0, Math.min(100, Number(move?.accuracy ?? 100))),
     priority: Number(move?.priority ?? 0),
     contact: makesContact(move),
+    powder: Boolean(move?.powder === true || move?.flags?.powder === true),
     sound: Boolean(move?.sound === true || move?.flags?.sound === true),
     maxPp: Math.max(1, Number(move?.pp ?? move?.maxPp ?? 1)),
     pp: Math.max(1, Number(move?.pp ?? move?.maxPp ?? 1)),
@@ -874,8 +880,24 @@ function effectiveStat(pokemon, stat, options = {}) {
     if (pokemon.status === "brn" && activeAbility(pokemon) !== "guts") value *= 0.5;
     if (doublesPhysicalAttack(activeAbility(pokemon))) value *= 2;
     if (pokemon.item === "choiceband") value *= 1.5;
+    if (
+      activeAbility(pokemon) === "orichalcumpulse" &&
+      ["sunnyday", "desolateland"].includes(
+        cleanId(options.state?.field?.weather?.id),
+      )
+    ) {
+      value *= 4 / 3;
+    }
   }
-  if (stat === "specialAttack" && pokemon.item === "choicespecs") value *= 1.5;
+  if (stat === "specialAttack") {
+    if (pokemon.item === "choicespecs") value *= 1.5;
+    if (
+      activeAbility(pokemon) === "hadronengine" &&
+      cleanId(options.state?.field?.terrain?.id) === "electricterrain"
+    ) {
+      value *= 4 / 3;
+    }
+  }
   if (stat === "specialDefence" && pokemon.item === "assaultvest") value *= 1.5;
   if (stat === "speed") {
     if (pokemon.status === "par") value *= 0.5;
@@ -1317,11 +1339,20 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
   const entryWeather = {
     drizzle: "raindance",
     drought: "sunnyday",
+    orichalcumpulse: "sunnyday",
     sandstream: "sandstorm",
   }[ability];
   if (entryWeather) {
     emitAbilityActivation(state, sideIndex, pokemon, ability);
     setFieldEffect(state, sideIndex, pokemon, "weather", entryWeather, ability);
+  }
+  const entryTerrain = {
+    electricsurge: "electricterrain",
+    hadronengine: "electricterrain",
+  }[ability];
+  if (entryTerrain) {
+    emitAbilityActivation(state, sideIndex, pokemon, ability);
+    setFieldEffect(state, sideIndex, pokemon, "terrain", entryTerrain, ability);
   }
   initializeParadoxAbility(state, sideIndex, pokemon, ability);
   const targetSide = sideIndex === 0 ? 1 : 0;
@@ -1346,7 +1377,13 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
   applyBoosts(state, targetSide, target, { attack: -1 }, ability, sideIndex);
 }
 
-function knockoutAbilityBoosts(ability) {
+function beastBoostStat(pokemon) {
+  if (!pokemon?.stats) return "";
+  return ["attack", "defence", "specialAttack", "specialDefence", "speed"]
+    .sort((left, right) => pokemon.stats[right] - pokemon.stats[left])[0];
+}
+
+function knockoutAbilityBoosts(ability, pokemon = null) {
   const id = cleanId(ability);
   if (id === "chillingneigh" || id === "asoneglastrier") {
     return { attack: 1 };
@@ -1354,13 +1391,17 @@ function knockoutAbilityBoosts(ability) {
   if (id === "grimneigh" || id === "asonespectrier") {
     return { specialAttack: 1 };
   }
+  if (id === "beastboost") {
+    const stat = beastBoostStat(pokemon);
+    return stat ? { [stat]: 1 } : null;
+  }
   return null;
 }
 
 function applyKnockoutAbility(state, sideIndex, pokemon, defeatedPokemon) {
   if (!pokemon || pokemon.fainted || !defeatedPokemon?.fainted) return false;
   const ability = activeAbility(pokemon);
-  const boosts = knockoutAbilityBoosts(ability);
+  const boosts = knockoutAbilityBoosts(ability, pokemon);
   if (!boosts) return false;
   state.events.push({
     turn: state.turn,
@@ -4856,6 +4897,28 @@ function executeMove(state, action, rng) {
       pokemon: defender.name,
       move: move.name,
       source: "goodasgold",
+    });
+    return false;
+  }
+
+  if (
+    move.powder &&
+    move.target !== "self" &&
+    activeAbility(defender) === "overcoat" &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    emitAbilityActivation(state, defenderSide, defender, "overcoat", {
+      targetSide: action.side,
+      target: attacker.name,
+      move: move.name,
+    });
+    state.events.push({
+      turn: state.turn,
+      type: "move_blocked",
+      side: defenderSide,
+      pokemon: defender.name,
+      move: move.name,
+      source: "overcoat",
     });
     return false;
   }
@@ -8848,7 +8911,7 @@ function automaticMoveCandidates(
     defender,
     incomingDamageRatio,
   );
-  const knockoutBoosts = knockoutAbilityBoosts(activeAbility(pokemon));
+  const knockoutBoosts = knockoutAbilityBoosts(activeAbility(pokemon), pokemon);
   return pokemon.moves
     .map((move, index) => {
       const displayMove = aiDisplayMoveData(pokemon, move, dynamaxMode);

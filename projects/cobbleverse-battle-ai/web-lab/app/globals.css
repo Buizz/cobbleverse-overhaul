@@ -8677,6 +8677,7 @@ select:disabled {
   top: auto;
   bottom: 14px;
   left: 14px;
+  width: min(330px, 34%);
 }
 
 .interactive-arena .opponent-combatant .combatant-card {
@@ -8687,7 +8688,7 @@ select:disabled {
 .interactive-arena .player-platform-group {
   top: auto;
   right: auto;
-  bottom: 8px;
+  bottom: 42px;
   left: 17%;
   width: 34%;
   height: 58%;
@@ -8758,6 +8759,7 @@ select:disabled {
 
 @media (max-width: 820px) {
   .interactive-arena .player-platform-group {
+    bottom: 38px;
     left: 4%;
     width: 46%;
   }
@@ -9596,4 +9598,636 @@ select:disabled {
   background: #fff;
   color: #264357;
   font: 750 9px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+/* EvE event replayer */
+.eve-replay-panel {
+  width: min(1800px, calc(100% - 32px));
+  margin: 12px auto;
+  overflow: hidden;
+  border: 1px solid #31536b;
+  border-radius: 4px;
+  background: #071a2c;
+  color: #edf6fb;
+  box-shadow: 0 12px 30px rgba(5, 21, 36, 0.14);
+}
+
+.eve-replay-body {
+  display: grid;
+  grid-template-columns:
+    minmax(210px, 250px)
+    minmax(560px, 1fr)
+    minmax(210px, 250px);
+  min-width: 0;
+  background: #071a2c;
+}
+
+.eve-replay-decision {
+  position: relative;
+  z-index: 7;
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid #31536b;
+  background: #091f32;
+}
+
+.eve-replay-decision.side-b {
+  border-right: 0;
+  border-left: 1px solid #31536b;
+}
+
+.eve-replay-decision > header {
+  display: grid;
+  min-height: 72px;
+  align-content: center;
+  padding: 12px;
+  border-bottom: 1px solid #31536b;
+  background: #0c263b;
+}
+
+.eve-replay-decision > header span {
+  color: #4edbd3;
+  font: 850 8px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eve-replay-decision.side-b > header span {
+  color: #ff697b;
+}
+
+.eve-replay-decision > header strong {
+  overflow: hidden;
+  margin-top: 7px;
+  color: #f5f9fb;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-replay-decision > header small {
+  margin-top: 4px;
+  color: #87a0b1;
+  font: 750 8px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eve-replay-decision > article {
+  padding: 12px;
+  border-bottom: 1px solid #29485e;
+}
+
+.eve-replay-decision-choice {
+  display: grid;
+  min-width: 0;
+}
+
+.eve-replay-decision-choice > span {
+  overflow: hidden;
+  color: #8ca7b8;
+  font-size: 9px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-replay-decision-choice > strong {
+  overflow: hidden;
+  margin-top: 5px;
+  color: #fff;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-replay-decision-choice > small {
+  margin-top: 5px;
+  color: #aee92d;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.eve-replay-decision.side-b .eve-replay-decision-choice > small {
+  color: #ff8795;
+}
+
+.eve-replay-decision-candidates {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.eve-replay-decision-candidates > div {
+  display: grid;
+  gap: 4px;
+  opacity: 0.68;
+}
+
+.eve-replay-decision-candidates > div.selected {
+  opacity: 1;
+}
+
+.eve-replay-decision-candidates > div > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.eve-replay-decision-candidates > div > span strong {
+  overflow: hidden;
+  color: #c9d8e1;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-replay-decision-candidates > div.selected > span strong {
+  color: #fff;
+}
+
+.eve-replay-decision-candidates > div > span b {
+  flex: 0 0 auto;
+  color: #8fa8b8;
+  font: 800 8px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eve-replay-decision-candidates > div > i {
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  background: #1b3a50;
+}
+
+.eve-replay-decision-candidates > div > i b {
+  display: block;
+  height: 100%;
+  background: #43d8d1;
+}
+
+.eve-replay-decision.side-b
+  .eve-replay-decision-candidates
+  > div
+  > i
+  b {
+  background: #ff5e72;
+}
+
+.eve-replay-decision-reasons {
+  display: grid;
+  gap: 7px;
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid #29485e;
+}
+
+.eve-replay-decision-reasons p {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+}
+
+.eve-replay-decision-reasons b {
+  color: #c5d7e1;
+  font-size: 8px;
+}
+
+.eve-replay-decision-reasons span {
+  color: #86a0b1;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.eve-replay-decision-empty {
+  display: grid;
+  min-height: 210px;
+  place-content: center;
+  gap: 7px;
+  padding: 20px;
+  text-align: center;
+}
+
+.eve-replay-decision-empty strong {
+  color: #b9cad4;
+  font: 850 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eve-replay-decision-empty span {
+  color: #718d9f;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.eve-replay-panel > header {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #31536b;
+  background: #071a2c;
+}
+
+.eve-replay-panel > header > div:first-child {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  align-items: center;
+}
+
+.eve-replay-panel > header > div:first-child span {
+  grid-column: 1 / -1;
+  color: #4edbd3;
+  font: 850 8px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eve-replay-panel > header > div:first-child strong {
+  font-size: 15px;
+}
+
+.eve-replay-panel > header > div:first-child small {
+  color: #91a9b8;
+  font-size: 9px;
+}
+
+.eve-replay-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eve-replay-header-controls label {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding-left: 9px;
+  border: 1px solid #385970;
+  border-radius: 3px;
+  color: #90a9b9;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.eve-replay-header-controls select,
+.eve-replay-header-controls button {
+  min-height: 34px;
+  border: 1px solid #385970;
+  border-radius: 3px;
+  background: #102a40;
+  color: #e6f1f7;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.eve-replay-header-controls select {
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+}
+
+.eve-replay-header-controls button {
+  padding: 0 11px;
+  cursor: pointer;
+}
+
+.eve-replay-header-controls button.active {
+  border-color: #aee92d;
+  color: #c8f65c;
+}
+
+.eve-replay-stage {
+  position: relative;
+  min-height: clamp(430px, 52vw, 610px);
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(8, 28, 45, 0.04), rgba(6, 22, 37, 0.2)),
+    url("/images/battle-stadium.webp") center / cover no-repeat;
+}
+
+.eve-replay-stage::after {
+  position: absolute;
+  z-index: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 38%;
+  background: linear-gradient(transparent, rgba(4, 19, 32, 0.25));
+  content: "";
+  pointer-events: none;
+}
+
+.eve-replay-combatant {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  width: 38%;
+  grid-template-columns: minmax(150px, 220px) minmax(150px, 1fr);
+  align-items: end;
+}
+
+.eve-replay-combatant.side-a {
+  bottom: 68px;
+  left: 18px;
+}
+
+.eve-replay-combatant.side-b {
+  top: 18px;
+  right: 18px;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 220px);
+}
+
+.eve-replay-combatant > article {
+  z-index: 3;
+  display: grid;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #20c8e9;
+  border-radius: 3px;
+  background: rgba(5, 23, 40, 0.9);
+  box-shadow: 0 10px 24px rgba(3, 17, 29, 0.22);
+  backdrop-filter: blur(7px);
+}
+
+.eve-replay-combatant.side-b > article {
+  grid-column: 2;
+  grid-row: 1;
+  border-color: #ff596d;
+}
+
+.eve-replay-combatant > article span {
+  color: #91aabd;
+  font: 850 8px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eve-replay-combatant > article strong {
+  overflow: hidden;
+  margin: 6px 0 4px;
+  color: #fff;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-replay-combatant > article small {
+  color: #d2e1ea;
+  font: 750 9px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eve-replay-combatant > article i {
+  display: block;
+  height: 7px;
+  margin-top: 7px;
+  overflow: hidden;
+  background: #1b3448;
+}
+
+.eve-replay-combatant > article i b {
+  display: block;
+  height: 100%;
+  background: #aef13b;
+  transition: width 220ms ease;
+}
+
+.eve-replay-combatant.side-b > article i b {
+  background: #ff596d;
+}
+
+.eve-replay-combatant > img {
+  z-index: 2;
+  width: min(250px, 100%);
+  height: 240px;
+  justify-self: center;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 9px rgba(6, 24, 37, 0.3));
+}
+
+.eve-replay-combatant.side-b > img {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.eve-replay-turn {
+  position: absolute;
+  z-index: 4;
+  top: 16px;
+  left: 50%;
+  display: grid;
+  width: 66px;
+  height: 66px;
+  place-items: center;
+  align-content: center;
+  border: 1px solid #4ddbd4;
+  border-radius: 50%;
+  background: rgba(5, 23, 40, 0.9);
+  transform: translateX(-50%);
+}
+
+.eve-replay-turn span {
+  color: #91aabd;
+  font: 800 7px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eve-replay-turn strong {
+  margin-top: 4px;
+  color: #55e5df;
+  font: 900 15px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eve-replay-message {
+  position: absolute;
+  z-index: 5;
+  right: 18px;
+  bottom: 72px;
+  display: grid;
+  width: min(560px, 48%);
+  min-height: 128px;
+  padding: 13px 15px;
+  align-content: start;
+  border: 1px solid #66849a;
+  border-left: 4px solid #aef13b;
+  border-radius: 3px;
+  background: rgba(5, 23, 40, 0.93);
+  box-shadow: 0 10px 28px rgba(4, 18, 31, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+.eve-replay-message > span {
+  color: #89a3b5;
+  font: 850 8px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eve-replay-message > strong {
+  margin: 7px 0 9px;
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.eve-replay-message > div {
+  display: grid;
+  gap: 3px;
+}
+
+.eve-replay-message small {
+  overflow: hidden;
+  color: #9db2c0;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-replay-parties {
+  position: absolute;
+  z-index: 6;
+  right: 12px;
+  bottom: 10px;
+  left: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.eve-replay-parties > div {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(96, 133, 157, 0.7);
+  border-radius: 3px;
+  background: rgba(5, 23, 40, 0.9);
+}
+
+.eve-replay-parties span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: #1a3449;
+  opacity: 0.62;
+}
+
+.eve-replay-parties span.active {
+  border-color: #4ee3dc;
+  opacity: 1;
+}
+
+.eve-replay-parties > div:last-child span.active {
+  border-color: #ff596d;
+}
+
+.eve-replay-parties img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.eve-replay-controls {
+  display: grid;
+  min-height: 54px;
+  grid-template-columns: 38px 38px 94px 38px minmax(140px, 1fr);
+  gap: 5px;
+  align-items: center;
+  padding: 8px 12px;
+  border-top: 1px solid #31536b;
+  background: #071a2c;
+}
+
+.eve-replay-controls button {
+  min-height: 34px;
+  border: 1px solid #3a5b72;
+  border-radius: 3px;
+  background: #102a40;
+  color: #dce9f0;
+  font-size: 9px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.eve-replay-controls button.primary {
+  border-color: #aee92d;
+  background: #aee92d;
+  color: #10243a;
+}
+
+.eve-replay-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.eve-replay-controls input[type="range"] {
+  width: 100%;
+  accent-color: #aee92d;
+}
+
+@media (max-width: 900px) {
+  .eve-replay-panel {
+    width: calc(100% - 20px);
+  }
+
+  .eve-replay-stage {
+    min-height: 620px;
+  }
+
+  .eve-replay-combatant {
+    width: calc(100% - 30px);
+  }
+
+  .eve-replay-combatant.side-a {
+    bottom: 220px;
+  }
+
+  .eve-replay-message {
+    right: 15px;
+    bottom: 68px;
+    left: 15px;
+    width: auto;
+  }
+
+  .eve-replay-parties {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 1180px) {
+  .eve-replay-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .eve-replay-stage {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .eve-replay-decision {
+    grid-row: 2;
+    min-height: 260px;
+    border-top: 1px solid #31536b;
+  }
+
+  .eve-replay-decision.side-a {
+    grid-column: 1;
+  }
+
+  .eve-replay-decision.side-b {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 720px) {
+  .eve-replay-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .eve-replay-decision.side-a,
+  .eve-replay-decision.side-b {
+    grid-column: 1;
+  }
+
+  .eve-replay-decision.side-a {
+    grid-row: 2;
+  }
+
+  .eve-replay-decision.side-b {
+    grid-row: 3;
+  }
 }

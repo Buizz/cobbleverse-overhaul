@@ -28,6 +28,10 @@ import {
   type PersistentBattleSave,
   type PersistentBattleSlot,
 } from "../lib/browser-battle-saves";
+import {
+  BATTLE_EVENT_NAMES,
+  formatBattleDialogue,
+} from "../lib/battle-dialogue";
 
 type BattleMode = "pve" | "eve";
 type PartySource = "custom" | "preset";
@@ -893,41 +897,7 @@ const effectivenessLabels = {
   unknown: "상성 확인 불가",
 } as const;
 
-const battleEventNames: Record<string, string> = {
-  turn: "턴 시작",
-  switch: "교체",
-  move: "기술 사용",
-  damage: "피해",
-  damage_prevented: "피해 방지",
-  heal: "회복",
-  faint: "쓰러짐",
-  status: "상태 이상",
-  status_cured: "상태 회복",
-  super_effective: "효과가 굉장했다",
-  resisted: "효과가 별로였다",
-  immune: "효과가 없었다",
-  critical: "급소에 맞았다",
-  miss: "공격이 빗나갔다",
-  failed: "기술 실패",
-  stat_up: "능력 상승",
-  stat_down: "능력 하락",
-  stat_set: "능력 변화",
-  ability: "특성 발동",
-  item: "도구 발동",
-  item_consumed: "도구 소모",
-  activated: "효과 발동",
-  cannot_move: "행동 불가",
-  weather: "날씨 변화",
-  field_started: "필드 효과 시작",
-  field_ended: "필드 효과 종료",
-  mega_evolution: "메가진화",
-  z_power: "Z파워",
-  dynamax_started: "다이맥스",
-  dynamax_ended: "다이맥스 종료",
-  terastallized: "테라스탈",
-  win: "승리",
-  tie: "무승부",
-};
+const battleEventNames = BATTLE_EVENT_NAMES;
 
 const playbackEventTypes = new Set([
   "switch",
@@ -1467,103 +1437,29 @@ function pokemonBattleMessage(
     ? `상대 ${actorNameValue}`
     : actorNameValue;
   const subject = `${actor || "포켓몬"}${koreanParticle(actor, "이", "가")}`;
-  const detail =
-    battleDetailNames[event.detail ?? ""] ??
-    localizedEventDetail(localization, event);
-  const statNames: Record<string, string> = {
-    atk: "공격",
-    def: "방어",
-    spa: "특수공격",
-    spd: "특수방어",
-    spe: "스피드",
-    accuracy: "명중률",
-    evasion: "회피율",
-  };
-
-  switch (event.type) {
-    case "move":
-      return `${actor || "포켓몬"}의 ${detail || "기술"}!`;
-    case "switch":
-      return switchMessage(localization, event);
-    case "damage":
-      return `${subject} ${damageCause(localization, event) ?? ""} 데미지를 입었다!`
-        .replace(/\s+/g, " ")
-        .trim();
-    case "damage_prevented":
-      return damagePreventionMessage(localization, event);
-    case "heal":
-      return `${actor || "포켓몬"}의 체력이 ${
-        healCause(localization, event) ?? ""
-      } 회복되었다!`
-        .replace(/\s+/g, " ")
-        .trim();
-    case "faint":
-      return `${subject} 쓰러졌다!`;
-    case "super_effective":
-      return "효과가 굉장했다!";
-    case "resisted":
-      return "효과가 별로인 듯하다...";
-    case "immune":
-      return `${actor || "상대"}에게는 효과가 없는 것 같다...`;
-    case "critical":
-      return "급소에 맞았다!";
-    case "miss":
-      return `${actor || "포켓몬"}의 공격은 빗나갔다!`;
-    case "failed":
-      return "그러나 실패하고 말았다!";
-    case "stat_up":
-      return `${actor || "포켓몬"}의 ${
-        (statNames[event.detail ?? ""] ?? detail) || "능력"
-      }이 올랐다!`;
-    case "stat_down":
-      return `${actor || "포켓몬"}의 ${
-        (statNames[event.detail ?? ""] ?? detail) || "능력"
-      }이 떨어졌다!`;
-    case "stat_set":
-      return `${actor || "포켓몬"}의 ${
-        (statNames[event.detail ?? ""] ?? detail) || "능력"
-      }이 변했다!`;
-    case "ability":
-      return `${actor || "포켓몬"}의 특성 「${detail || "특성"}」!`;
-    case "item":
-      return `${subject} ${detail || "도구"}${koreanParticle(
-        detail,
-        "을",
-        "를",
-      )} 사용했다!`;
-    case "item_consumed":
-      return `${actor || "포켓몬"}의 ${detail || "도구"}이 없어졌다!`;
-    case "activated":
-      return `${actor || "포켓몬"}에게 ${detail || "효과"}가 발동했다!`;
-    case "status":
-      return `${subject} ${detail || event.condition || "상태 이상"} 상태가 되었다!`;
-    case "status_cured":
-      return `${actor || "포켓몬"}의 ${detail || event.condition || "상태 이상"} 상태가 회복되었다!`;
-    case "cannot_move":
-      return `${subject} 움직일 수 없다!`;
-    case "weather":
-      return `${detail || "날씨"}가 전장을 뒤덮었다!`;
-    case "field_started":
-      return `${detail || "필드 효과"}가 시작되었다!`;
-    case "field_ended":
-      return `${detail || "필드 효과"}가 사라졌다!`;
-    case "mega_evolution":
-      return `${actor || "포켓몬"}은(는) ${detail || "메가진화한 모습"}으로 메가진화했다!`;
-    case "z_power":
-      return `${actor || "포켓몬"}을(를) Z파워가 감쌌다!`;
-    case "dynamax_started":
-      return `${actor || "포켓몬"}이(가) ${detail ? "거다이맥스" : "다이맥스"}했다!`;
-    case "dynamax_ended":
-      return `${actor || "포켓몬"}의 다이맥스가 풀렸다!`;
-    case "terastallized":
-      return `${actor || "포켓몬"}이(가) ${detail || "새로운 타입"}으로 테라스탈했다!`;
-    case "win":
-      return `${event.actor || "플레이어"}의 승리!`;
-    case "tie":
-      return "승부가 나지 않았다!";
-    default:
-      return `${detail || event.condition || battleEventNames[event.type] || "전투 상황"}!`;
-  }
+  return formatBattleDialogue(event, {
+    speciesName: (value) => localizedSpecies(localization, value),
+    moveName: (value) => localizedMove(localization, value, value),
+    detailName: () =>
+      battleDetailNames[event.detail ?? ""] ??
+      localizedEventDetail(localization, event),
+    sideLabels: { p1: "", p2: "상대 " },
+    overrides: {
+      switch: () => switchMessage(localization, event),
+      damage: () =>
+        `${subject} ${damageCause(localization, event) ?? ""} 데미지를 입었다!`
+          .replace(/\s+/g, " ")
+          .trim(),
+      damage_prevented: () =>
+        damagePreventionMessage(localization, event),
+      heal: () =>
+        `${actor || "포켓몬"}의 체력이 ${
+          healCause(localization, event) ?? ""
+        } 회복되었다!`
+          .replace(/\s+/g, " ")
+          .trim(),
+    },
+  });
 }
 
 function BattleLogEventLine({
@@ -3930,6 +3826,21 @@ function activeSpeciesBySide(events: BattleEvent[], side: "p1" | "p2") {
   return species;
 }
 
+function activeSpeciesByPosition(
+  events: BattleEvent[],
+  position: string | undefined,
+) {
+  if (!position) return "";
+  let species = "";
+  for (const event of events) {
+    if (!event.actor?.startsWith(`${position}:`)) continue;
+    if (event.type === "switch" || event.type === "mega_evolution") {
+      species = event.detail || actorName(event.actor);
+    }
+  }
+  return species;
+}
+
 function latestBattlingSpeciesBySide(events: BattleEvent[], side: "p1" | "p2") {
   let species = "";
   for (const event of events) {
@@ -4641,8 +4552,10 @@ function InteractiveArena({
     : hpPreview.p2 ?? opponentEvent?.condition ?? latestConditionBySide(battle.events, "p2");
   const opponentHp = conditionPercent(opponentCondition);
   const playerDisplaySpecies =
-    active?.species ||
-    (opponentWon ? latestPlayerSpecies : latestPlayerSpecies || activeSpeciesBySide(battle.events, "p1"));
+    (opponentWon
+      ? latestPlayerSpecies
+      : activeSpeciesBySide(battle.events, "p1") || latestPlayerSpecies) ||
+    active?.species;
   const playerCondition = opponentWon
     ? "0 fnt"
     : hpPreview.p1 ?? active?.condition.text ?? latestConditionBySide(battle.events, "p1");
@@ -4687,12 +4600,25 @@ function InteractiveArena({
   const actionSide = actionNotice?.event.actor?.startsWith("p2")
     ? "opponent"
     : "player";
+  const requestedPlayerFieldPokemon = request?.activeSlots
+    ?.map((slot) => slot.active)
+    .filter((pokemon): pokemon is InteractivePokemon => Boolean(pokemon));
   const playerFieldPokemon =
-    request?.activeSlots
-      ?.map((slot) => slot.active)
-      .filter((pokemon): pokemon is InteractivePokemon => Boolean(pokemon)) ??
+    requestedPlayerFieldPokemon?.map((pokemon, index) => {
+      const position =
+        pokemon.ident?.match(/^(p[12][a-z]?):/)?.[1] ??
+        `p1${String.fromCharCode(97 + index)}`;
+      const currentSpecies =
+        activeSpeciesByPosition(battle.events, position) ||
+        (requestedPlayerFieldPokemon.length === 1
+          ? playerDisplaySpecies
+          : pokemon.species);
+      return currentSpecies === pokemon.species
+        ? pokemon
+        : { ...pokemon, species: currentSpecies };
+    }) ??
     (active
-      ? [active]
+      ? [{ ...active, species: playerDisplaySpecies || active.species }]
       : playerDisplaySpecies
         ? [displayPokemonFromBattleState(playerDisplaySpecies, playerCondition)]
         : []);

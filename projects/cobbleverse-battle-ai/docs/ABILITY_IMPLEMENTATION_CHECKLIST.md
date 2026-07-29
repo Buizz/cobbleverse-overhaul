@@ -74,6 +74,11 @@
 | UNIT_TESTED | `drizzle` | 등장 시 비 시작 | `applyEntryAbilities`, `setFieldEffect` |
 | UNIT_TESTED | `drought` | 등장 시 쾌청 시작 | `applyEntryAbilities`, `setFieldEffect` |
 | UNIT_TESTED | `sandstream` | 등장 시 모래바람 시작 | `applyEntryAbilities`, `setFieldEffect` |
+| UNIT_TESTED | `electricsurge` | 등장 시 일렉트릭필드 시작 | `applyEntryAbilities`, `setFieldEffect` |
+| UNIT_TESTED | `hadronengine` | 등장 시 일렉트릭필드 시작, 필드 중 특수공격 4/3배 | `applyEntryAbilities`, `effectiveStat` |
+| UNIT_TESTED | `orichalcumpulse` | 등장 시 쾌청 시작, 쾌청 중 공격 4/3배 | `applyEntryAbilities`, `effectiveStat` |
+| UNIT_TESTED | `beastboost` | 상대를 쓰러뜨리면 현재 원 능력치 중 가장 높은 능력 +1 | `applyKnockoutAbility` |
+| UNIT_TESTED | `overcoat` | 모래바람 피해와 가루 기술 무효 | `applyEndTurnEffects`, `executeMove` |
 | UNIT_TESTED | `regenerator` | 자발적/기술 교체 시 최대 HP 1/3 회복 | `switchActivePokemon` |
 | UNIT_TESTED | `magnetpull` | 상대 강철 타입의 자발적 교체 차단 | `buildActions`, `chooseSimpleAiDecision` |
 | UNIT_TESTED | `dauntlessshield` | 전투 중 첫 등장에 한 번 방어 +1 | `applyEntryAbilities` |
@@ -189,7 +194,7 @@
 - [x] `regenerator`: 교체 시 HP 1/3 회복
 - [ ] `naturalcure`: 교체 시 상태 회복
 - [ ] `moxie`: 직접 KO 후 공격 +1
-- [ ] `beastboost`: KO 후 가장 높은 능력 +1
+- [x] `beastboost`: KO 후 가장 높은 능력 +1
 - [x] `speedboost`: 턴 종료 스피드 +1
 - [ ] `contrary`: 랭크 변화 반전
 - [x] `competitive`: 상대에 의한 능력 하락 시 특공 +2
@@ -201,7 +206,7 @@
 - [ ] `wonderguard`: 효과 굉장한 공격 외 무효
 - [x] `rockhead`: 기술 반동 피해 무효
 - [ ] `magicguard`: 간접 피해 무효
-- [ ] `overcoat`: 날씨 피해/가루 기술 무효
+- [x] `overcoat`: 날씨 피해/가루 기술 무효
 - [ ] `filter`: 효과 굉장한 피해 감소
 - [ ] `solidrock`: 효과 굉장한 피해 감소
 - [ ] `prismarmor`: 효과 굉장한 피해 감소

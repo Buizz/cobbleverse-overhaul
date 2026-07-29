@@ -7680,6 +7680,220 @@ test("supports common trainer abilities required by strict native scenarios", ()
   );
 });
 
+test("supports terrain, weather, knockout, and powder immunity abilities", () => {
+  const passiveMove = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const specialMove = {
+    id: "dragonpulse",
+    name: "Dragon Pulse",
+    type: "Dragon",
+    category: "Special",
+    power: 85,
+    accuracy: true,
+    pp: 10,
+  };
+  const physicalMove = {
+    id: "bodyslam",
+    name: "Body Slam",
+    type: "Normal",
+    category: "Physical",
+    power: 85,
+    accuracy: true,
+    pp: 15,
+  };
+
+  const electricSurgeState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [pokemon({ name: "Raichu-Mega", ability: "electricsurge" })],
+        },
+        { name: "AI", team: [pokemon()] },
+      ],
+    }),
+  );
+  assert.equal(electricSurgeState.field.terrain.id, "electricterrain");
+
+  const hadronState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Miraidon",
+              ability: "hadronengine",
+              stats: { ...pokemon().stats, specialAttack: 160 },
+              moves: [specialMove],
+            }),
+          ],
+        },
+        { name: "AI", team: [pokemon({ moves: [passiveMove] })] },
+      ],
+    }),
+  );
+  const hadronUser = hadronState.sides[0].team[0];
+  const hadronTarget = hadronState.sides[1].team[0];
+  const hadronDamage = calculateDamageRange(
+    hadronUser,
+    hadronTarget,
+    hadronUser.moves[0],
+    { state: hadronState, attackerSide: 0, defenderSide: 1 },
+  );
+  const ordinarySpecialDamage = calculateDamageRange(
+    { ...hadronUser, ability: "" },
+    hadronTarget,
+    hadronUser.moves[0],
+    { state: hadronState, attackerSide: 0, defenderSide: 1 },
+  );
+  assert.equal(hadronState.field.terrain.id, "electricterrain");
+  assert.ok(hadronDamage.maximum > ordinarySpecialDamage.maximum * 1.3);
+
+  const orichalcumState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Koraidon",
+              ability: "orichalcumpulse",
+              stats: { ...pokemon().stats, attack: 160 },
+              moves: [physicalMove],
+            }),
+          ],
+        },
+        { name: "AI", team: [pokemon({ moves: [passiveMove] })] },
+      ],
+    }),
+  );
+  const orichalcumUser = orichalcumState.sides[0].team[0];
+  const orichalcumTarget = orichalcumState.sides[1].team[0];
+  const orichalcumDamage = calculateDamageRange(
+    orichalcumUser,
+    orichalcumTarget,
+    orichalcumUser.moves[0],
+    { state: orichalcumState, attackerSide: 0, defenderSide: 1 },
+  );
+  const ordinaryPhysicalDamage = calculateDamageRange(
+    { ...orichalcumUser, ability: "" },
+    orichalcumTarget,
+    orichalcumUser.moves[0],
+    { state: orichalcumState, attackerSide: 0, defenderSide: 1 },
+  );
+  assert.equal(orichalcumState.field.weather.id, "sunnyday");
+  assert.ok(orichalcumDamage.maximum > ordinaryPhysicalDamage.maximum * 1.3);
+
+  const beastBoostState = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Naganadel",
+                ability: "beastboost",
+                stats: {
+                  ...pokemon().stats,
+                  specialAttack: 180,
+                  speed: 160,
+                },
+                moves: [{ ...specialMove, power: 250 }],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "KnockoutTarget",
+                stats: { ...pokemon().stats, hp: 80, speed: 40 },
+                moves: [passiveMove],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(beastBoostState.sides[0].team[0].boosts.specialAttack, 1);
+  assert.ok(
+    beastBoostState.events.some(
+      (event) =>
+        event.type === "ability_activate" &&
+        event.ability === "beastboost",
+    ),
+  );
+
+  const overcoatState = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "PowderUser",
+                ability: "sandstream",
+                stats: { ...pokemon().stats, speed: 160 },
+                moves: [
+                  {
+                    id: "spore",
+                    name: "Spore",
+                    type: "Grass",
+                    category: "Status",
+                    accuracy: true,
+                    pp: 15,
+                    status: "slp",
+                    flags: { powder: true },
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "Kommo-o",
+                ability: "overcoat",
+                stats: { ...pokemon().stats, hp: 180, speed: 40 },
+                moves: [passiveMove],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(overcoatState.sides[1].team[0].status, "");
+  assert.equal(overcoatState.sides[1].team[0].hp, 180);
+  assert.ok(
+    overcoatState.events.some(
+      (event) =>
+        event.type === "move_blocked" &&
+        event.source === "overcoat" &&
+        event.pokemon === "Kommo-o",
+    ),
+  );
+});
+
 test("rejects unsupported abilities in strict validation mode", () => {
   assert.throws(
     () =>

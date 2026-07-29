@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import {
@@ -9,6 +9,10 @@ import {
   teamRoleLabel,
 } from "../../lib/common-battle-ai.mjs";
 import { localizedSpeciesName } from "../../lib/species-localization.mjs";
+import {
+  BATTLE_EVENT_NAMES,
+  formatBattleDialogue,
+} from "../../lib/battle-dialogue";
 
 const EVE_REPORT_KEY = "cobbleverse-battle-lab:eve-report";
 const EVE_HISTORY_KEY = "cobbleverse-battle-lab:eve-history";
@@ -268,12 +272,6 @@ function localMove(
   return localization?.moves[id(move)]?.name ?? move;
 }
 
-function conditionHp(condition: string | undefined) {
-  if (!condition) return "";
-  if (condition.includes(" fnt")) return "0";
-  return condition.split(" ")[0]?.split("/")[0] ?? condition;
-}
-
 function conditionFullHp(condition: string | undefined) {
   if (!condition) return "";
   if (condition.includes(" fnt")) return "0";
@@ -392,91 +390,32 @@ function traceByTurnAndSide(report: ReportData | null) {
   return map;
 }
 
+function eveBattleDialogue(
+  event: BattleEvent,
+  localization: LocalizationCatalog | null,
+) {
+  return formatBattleDialogue(event, {
+    speciesName: (value) => localSpecies(localization, value),
+    moveName: (value) => localMove(localization, value),
+    detailName: () => {
+      if (event.type === "move") return localMove(localization, event.detail);
+      if (event.type === "switch") return localSpecies(localization, event.actor);
+      if (event.type === "mega_evolution") {
+        return localSpecies(localization, event.detail || event.actor);
+      }
+      return event.detail ?? "";
+    },
+    sourceName: (value) => localMove(localization, value),
+    sideLabels: { p1: "1P ", p2: "2P " },
+  });
+}
+
 function eventLine(
   event: BattleEvent,
   localization: LocalizationCatalog | null,
 ) {
-  const side = actorSide(event.actor);
-  const actor = localSpecies(localization, event.actor);
-  const move = localMove(localization, event.detail);
-  const hp = conditionHp(event.condition);
-  const source = localMove(localization, event.source);
-
-  if (event.type === "switch") {
-    const previous = localSpecies(localization, event.fromActor);
-    const transition = previous ? `${previous} → ${actor}` : actor;
-    if (event.selection === "lead") {
-      return `- ${side} 선봉: ${actor}`;
-    }
-    if (
-      event.selection === "faint_replacement" ||
-      (event.forced && event.selection === "matchup_score")
-    ) {
-      return `- ${side} 기절 후 교체: ${transition}`;
-    }
-    if (event.selection === "self_switch") {
-      return `- ${side} ${source || "교체 기술"}로 교체: ${transition}`;
-    }
-    if (event.selection === "force_switch") {
-      return `- ${side} ${source || "강제 교체"}에 의해 교체: ${transition}`;
-    }
-    return `- ${side} 교체: ${transition}`;
-  }
-  if (event.type === "move") {
-    return `- ${side} ${actor}의 ${move}!`;
-  }
-  if (event.type === "damage") {
-    return `  · ${actor} 피해${hp ? ` -> HP ${hp}` : ""}${source ? ` | 원인 ${source}` : ""}`;
-  }
-  if (event.type === "heal") {
-    return `  · ${actor} 회복${hp ? ` -> HP ${hp}` : ""}${source ? ` | ${source}` : ""}`;
-  }
-  if (event.type === "damage_prevented") {
-    return `  · ${actor} ${event.detail || source || "damage"}로 버텼다${event.condition ? ` | HP ${event.condition}` : ""}`;
-  }
-  if (event.type === "item_removed") {
-    return `  · ${actor}의 ${event.detail || "item"}이(가) 소모됐다${source ? ` | 원인 ${source}` : ""}`;
-  }
-  if (event.type === "faint") {
-    return `  · ${side} ${actor} 기절`;
-  }
-  if (event.type === "mega_evolution") {
-    return `  · ${side} ${actor} 메가진화${event.detail ? ` -> ${event.detail}` : ""}`;
-  }
-  if (event.type === "dynamax_started") {
-    return `  · ${side} ${actor} 다이맥스`;
-  }
-  if (event.type === "terastallized") {
-    return `  · ${side} ${actor} 테라스탈${event.detail ? `(${event.detail})` : ""}`;
-  }
-  if (event.type === "z_power") {
-    return `  · ${side} ${actor} Z파워`;
-  }
-  if (event.type === "stat_up" || event.type === "stat_down") {
-    return `  · ${actor} ${event.detail} 랭크 ${event.type === "stat_up" ? "+" : "-"}${event.condition ?? "1"}`;
-  }
-  if (event.type === "super_effective") return "  · 효과가 굉장했다";
-  if (event.type === "resisted") return "  · 효과가 별로였다";
-  if (event.type === "critical") return "  · 급소에 맞았다";
-  if (event.type === "miss") return `  · ${actor}의 공격은 빗나갔다`;
-  if (event.type === "status") return `  · ${actor} 상태 이상: ${event.detail}`;
-  if (event.type === "status_cured") return `  · ${actor} 상태 회복: ${event.detail}`;
-  if (event.type === "field_started") {
-    const layerText =
-      Number.isFinite(event.layers) && Number(event.layers) > 0
-        ? ` ${event.layers}층`
-        : "";
-    const durationText =
-      Number.isFinite(event.duration) && Number(event.duration) > 0
-        ? ` ${event.duration}턴`
-        : "";
-    return `  · ${move || event.detail} 시작${layerText}${durationText}`;
-  }
-  if (event.type === "field_ended") {
-    return `  · ${move || event.detail} 종료`;
-  }
-  if (event.type === "win") return `- 전투 종료: ${actorName(event.actor)} 승리`;
-  return `  · ${event.type}${event.detail ? ` | ${event.detail}` : ""}${hp ? ` | HP ${hp}` : ""}`;
+  const message = eveBattleDialogue(event, localization);
+  return `${["switch", "move", "win", "tie"].includes(event.type) ? "-" : "  ·"} ${message}`;
 }
 
 function hpSnapshot(
@@ -777,6 +716,570 @@ function persistEveStorage(history: ReportData[], latest?: ReportData) {
   }
   localStorage.removeItem(EVE_HISTORY_KEY);
   return { history: [], trimmed: history.length > 0 };
+}
+
+type EveReplaySpeed = "slow" | "normal" | "fast";
+
+const EVE_REPLAY_EVENT_TYPES = new Set([
+  ...Object.keys(BATTLE_EVENT_NAMES),
+  "item_removed",
+  "multi_hit",
+  "volatile_start",
+  "volatile_end",
+]);
+
+function eventSideIndex(event: BattleEvent) {
+  if (String(event.actor ?? "").startsWith("p1")) return 0;
+  if (String(event.actor ?? "").startsWith("p2")) return 1;
+  return -1;
+}
+
+function conditionNumbers(condition: string | undefined) {
+  const token = String(condition ?? "").split(" ")[0];
+  if (!token) return null;
+  const [hpValue, maxValue] = token.split("/").map(Number);
+  if (!Number.isFinite(hpValue)) return null;
+  return {
+    hp: Math.max(0, hpValue),
+    maxHp: Number.isFinite(maxValue) ? Math.max(1, maxValue) : null,
+  };
+}
+
+function replaySideState(
+  report: ReportData,
+  localization: LocalizationCatalog | null,
+  visibleEvents: BattleEvent[],
+  sideIndex: number,
+  currentTurn: number,
+) {
+  const team = report.scenario.sides[sideIndex].team.slice(0, 6);
+  const firstSnapshot = report.battle.turnSnapshots?.[0]?.sides?.[sideIndex];
+  const finalTeam = report.battle.finalState?.sides?.[sideIndex]?.team ?? [];
+  const maxHpBySlot = team.map((pokemon, index) =>
+    Math.max(
+      1,
+      Number(
+        firstSnapshot?.team?.[index]?.maxHp ??
+          finalTeam[index]?.maxHp ??
+          pokemon.stats?.hp ??
+          pokemon.baseStats?.hp ??
+          1,
+      ),
+    ),
+  );
+  for (const event of report.battle.events) {
+    const slot = eventPokemonSlot(report, localization, sideIndex, event);
+    if (slot < 0) continue;
+    const condition = conditionNumbers(event.condition);
+    if (condition?.maxHp) {
+      maxHpBySlot[slot] = Math.max(maxHpBySlot[slot], condition.maxHp);
+    }
+  }
+  const hpBySlot = [...maxHpBySlot];
+  let activeIndex = 0;
+  let displaySpecies = team[0]?.species ?? "";
+
+  const previousSnapshot = [...(report.battle.turnSnapshots ?? [])]
+    .reverse()
+    .find((snapshot) => snapshot.turn < currentTurn)?.sides?.[sideIndex];
+  if (previousSnapshot) {
+    activeIndex = Math.max(
+      0,
+      Math.min(team.length - 1, Number(previousSnapshot.active ?? 0)),
+    );
+    previousSnapshot.team.forEach((pokemon, index) => {
+      if (index < hpBySlot.length) hpBySlot[index] = Math.max(0, pokemon.hp);
+    });
+    displaySpecies = team[activeIndex]?.species ?? displaySpecies;
+  }
+
+  for (const event of visibleEvents) {
+    if (event.type === "switch" && eventSideIndex(event) === sideIndex) {
+      const nextSlot = eventPokemonSlot(report, localization, sideIndex, event);
+      if (nextSlot >= 0) activeIndex = nextSlot;
+      displaySpecies = actorName(event.actor) || team[activeIndex]?.species || "";
+    }
+    if (
+      event.type === "mega_evolution" &&
+      eventSideIndex(event) === sideIndex
+    ) {
+      displaySpecies = actorName(event.actor) || displaySpecies;
+    }
+
+    const slot = eventPokemonSlot(report, localization, sideIndex, event);
+    if (slot < 0) continue;
+    if (
+      ["switch", "damage", "damage_prevented", "heal", "faint"].includes(
+        event.type,
+      )
+    ) {
+      const condition = conditionNumbers(event.condition);
+      if (condition) {
+        hpBySlot[slot] = condition.hp;
+        if (condition.maxHp) maxHpBySlot[slot] = condition.maxHp;
+      } else if (event.type === "faint") {
+        hpBySlot[slot] = 0;
+      }
+    }
+  }
+
+  const pokemon = team[activeIndex] ?? team[0];
+  const hp = hpBySlot[activeIndex] ?? 0;
+  const maxHp = maxHpBySlot[activeIndex] ?? 1;
+  return {
+    activeIndex,
+    pokemon,
+    displaySpecies: displaySpecies || pokemon?.species || "",
+    hp,
+    maxHp,
+    hpPercent: Math.max(0, Math.min(100, (hp / maxHp) * 100)),
+  };
+}
+
+function replayDelay(speed: EveReplaySpeed) {
+  if (speed === "slow") return 800;
+  if (speed === "fast") return 180;
+  return 420;
+}
+
+function playReplaySound(context: AudioContext, event: BattleEvent) {
+  const cues: Record<string, [number, OscillatorType, number]> = {
+    switch: [420, "sine", 0.11],
+    move: [520, "square", 0.09],
+    damage: [145, "sawtooth", 0.12],
+    damage_prevented: [310, "triangle", 0.14],
+    heal: [760, "sine", 0.16],
+    super_effective: [660, "square", 0.1],
+    critical: [820, "triangle", 0.12],
+    faint: [110, "sawtooth", 0.24],
+    win: [880, "sine", 0.25],
+  };
+  const cue = cues[event.type];
+  if (!cue) return;
+  const [frequency, type, duration] = cue;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const start = context.currentTime;
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, start);
+  if (event.type === "faint") {
+    oscillator.frequency.exponentialRampToValueAtTime(55, start + duration);
+  } else if (event.type === "heal" || event.type === "win") {
+    oscillator.frequency.exponentialRampToValueAtTime(
+      frequency * 1.35,
+      start + duration,
+    );
+  }
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.055, start + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.02);
+}
+
+function replayCandidateName(
+  candidate: AiCandidate,
+  localization: LocalizationCatalog | null,
+) {
+  const actionType = candidate.action?.type ?? candidate.type;
+  if (actionType === "switch") {
+    return `교체 · ${localSpecies(localization, candidate.id || candidate.name)}`;
+  }
+  if (actionType === "gimmick") return candidate.name;
+  return localMove(localization, candidate.id || candidate.name);
+}
+
+function EveReplayDecisionRail({
+  report,
+  localization,
+  sideIndex,
+  turn,
+  traces,
+}: {
+  report: ReportData;
+  localization: LocalizationCatalog | null;
+  sideIndex: number;
+  turn: number;
+  traces: AiTrace[];
+}) {
+  const side = report.scenario.sides[sideIndex];
+  const visibleTraces = traces.slice(-2);
+
+  return (
+    <aside
+      className={`eve-replay-decision side-${sideIndex === 0 ? "a" : "b"}`}
+      aria-label={`${side.name} AI 판단`}
+    >
+      <header>
+        <span>SIDE {sideIndex === 0 ? "A" : "B"} DECISION</span>
+        <strong>{side.name}</strong>
+        <small>{turn > 0 ? `TURN ${turn}` : "재생 대기"}</small>
+      </header>
+      {visibleTraces.length > 0 ? (
+        visibleTraces.map((trace, traceIndex) => {
+          const selected =
+            trace.candidates.find((candidate) => candidate.selected) ?? null;
+          const maximumScore = Math.max(
+            1,
+            ...trace.candidates.map((candidate) =>
+              Math.max(0, Number(candidate.score ?? 0)),
+            ),
+          );
+          return (
+            <article key={`${trace.turn}-${trace.species}-${traceIndex}`}>
+              <div className="eve-replay-decision-choice">
+                <span>{localSpecies(localization, trace.species)}</span>
+                <strong>
+                  {selected
+                    ? replayCandidateName(selected, localization)
+                    : trace.chosenAction || "선택 기록 없음"}
+                </strong>
+                <small>
+                  {difficultyNames[trace.difficulty] ?? trace.difficulty} ·{" "}
+                  {strategyNames[trace.strategy] ?? trace.strategy}
+                </small>
+              </div>
+              <div className="eve-replay-decision-candidates">
+                {trace.candidates.slice(0, 4).map((candidate, index) => {
+                  const score = Number(candidate.score ?? 0);
+                  return (
+                    <div
+                      className={candidate.selected ? "selected" : ""}
+                      key={`${candidate.slot}-${candidate.id}-${index}`}
+                    >
+                      <span>
+                        <strong>
+                          {replayCandidateName(candidate, localization)}
+                        </strong>
+                        <b>{score.toFixed(1)}</b>
+                      </span>
+                      <i>
+                        <b
+                          style={{
+                            width: `${Math.max(
+                              2,
+                              Math.min(
+                                100,
+                                (Math.max(0, score) / maximumScore) * 100,
+                              ),
+                            )}%`,
+                          }}
+                        />
+                      </i>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="eve-replay-decision-reasons">
+                {(selected?.reasons ?? []).slice(0, 3).map((reason, index) => (
+                  <p key={`${reason.code}-${index}`}>
+                    <b>{reason.label}</b>
+                    <span>{reason.message}</span>
+                  </p>
+                ))}
+                {!selected?.reasons?.length && trace.reason ? (
+                  <p>
+                    <b>판단 근거</b>
+                    <span>{trace.reason}</span>
+                  </p>
+                ) : null}
+              </div>
+            </article>
+          );
+        })
+      ) : (
+        <div className="eve-replay-decision-empty">
+          <strong>{turn > 0 ? "판단 기록 없음" : "READY"}</strong>
+          <span>
+            {turn > 0
+              ? "이 턴에 저장된 AI 후보 정보가 없습니다."
+              : "재생하면 턴별 선택 근거가 표시됩니다."}
+          </span>
+        </div>
+      )}
+    </aside>
+  );
+}
+
+function EveBattleReplay({
+  report,
+  localization,
+}: {
+  report: ReportData;
+  localization: LocalizationCatalog | null;
+}) {
+  const replayEvents = useMemo(
+    () =>
+      report.battle.events.filter(
+        (event) =>
+          event.type !== "turn" && EVE_REPLAY_EVENT_TYPES.has(event.type),
+      ),
+    [report],
+  );
+  const [cursor, setCursor] = useState(-1);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<EveReplaySpeed>("normal");
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const audioContext = useRef<AudioContext | null>(null);
+  const currentEvent = cursor >= 0 ? replayEvents[cursor] : null;
+  const visibleEvents = replayEvents.slice(0, cursor + 1);
+  const currentTurn = currentEvent?.turn ?? 0;
+  const sideStates = [0, 1].map((sideIndex) =>
+    replaySideState(
+      report,
+      localization,
+      visibleEvents,
+      sideIndex,
+      currentTurn,
+    ),
+  );
+  const recentMessages = visibleEvents
+    .filter((event) => event.turn === currentTurn)
+    .slice(-5)
+    .map((event) => eveBattleDialogue(event, localization));
+  const replayTraceMap = useMemo(() => traceByTurnAndSide(report), [report]);
+  const currentTraces = [0, 1].map(
+    (sideIndex) => replayTraceMap.get(`${currentTurn}:${sideIndex}`) ?? [],
+  );
+
+  useEffect(() => {
+    if (!playing) return;
+    if (cursor >= replayEvents.length - 1) return;
+    const timer = window.setTimeout(
+      () => {
+        setCursor((current) => {
+          const next = Math.min(replayEvents.length - 1, current + 1);
+          if (next >= replayEvents.length - 1) setPlaying(false);
+          return next;
+        });
+      },
+      replayDelay(speed),
+    );
+    return () => window.clearTimeout(timer);
+  }, [cursor, playing, replayEvents.length, speed]);
+
+  useEffect(() => {
+    if (!soundEnabled || !currentEvent || !audioContext.current) return;
+    void audioContext.current.resume().then(() => {
+      if (audioContext.current) playReplaySound(audioContext.current, currentEvent);
+    });
+  }, [currentEvent, soundEnabled]);
+
+  useEffect(
+    () => () => {
+      if (audioContext.current) void audioContext.current.close();
+    },
+    [],
+  );
+
+  const toggleSound = () => {
+    if (!soundEnabled && !audioContext.current) {
+      const BrowserAudioContext =
+        window.AudioContext ??
+        (
+          window as typeof window & {
+            webkitAudioContext?: typeof AudioContext;
+          }
+        ).webkitAudioContext;
+      if (BrowserAudioContext) audioContext.current = new BrowserAudioContext();
+    }
+    setSoundEnabled((enabled) => !enabled);
+  };
+
+  const startPlayback = () => {
+    if (replayEvents.length === 0) return;
+    const nextCursor = cursor >= replayEvents.length - 1 ? 0 : cursor + 1;
+    setCursor(nextCursor);
+    setPlaying(nextCursor < replayEvents.length - 1);
+  };
+
+  return (
+    <section className="eve-replay-panel" aria-label="EvE 대전 재생기">
+      <header>
+        <div>
+          <span>BATTLE REPLAYER</span>
+          <strong>EvE 대전 재생</strong>
+          <small>
+            이벤트 {Math.max(0, cursor + 1)}/{replayEvents.length} · 턴{" "}
+            {cursor >= 0 ? currentTurn || "선봉" : "준비"}
+          </small>
+        </div>
+        <div className="eve-replay-header-controls">
+          <label>
+            속도
+            <select
+              value={speed}
+              onChange={(event) => setSpeed(event.target.value as EveReplaySpeed)}
+            >
+              <option value="slow">0.5x</option>
+              <option value="normal">1x</option>
+              <option value="fast">2x</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className={soundEnabled ? "active" : ""}
+            onClick={toggleSound}
+            aria-pressed={soundEnabled}
+          >
+            {soundEnabled ? "사운드 켜짐" : "사운드 꺼짐"}
+          </button>
+        </div>
+      </header>
+
+      <div className="eve-replay-body">
+        <EveReplayDecisionRail
+          report={report}
+          localization={localization}
+          sideIndex={0}
+          turn={currentTurn}
+          traces={currentTraces[0]}
+        />
+        <div className="eve-replay-stage">
+        {sideStates.map((state, sideIndex) => (
+          <div
+            className={`eve-replay-combatant side-${sideIndex === 0 ? "a" : "b"}`}
+            key={sideIndex}
+          >
+            <article>
+              <span>{sideIndex === 0 ? "SIDE A" : "SIDE B"}</span>
+              <strong>
+                {state.pokemon
+                  ? localSpecies(localization, state.displaySpecies)
+                  : "출전 대기"}
+              </strong>
+              <small>
+                {state.hp}/{state.maxHp}
+              </small>
+              <i>
+                <b style={{ width: `${state.hpPercent}%` }} />
+              </i>
+            </article>
+            {state.pokemon ? (
+              <ReportPokemonSprite
+                species={state.displaySpecies}
+                label={localSpecies(localization, state.displaySpecies)}
+              />
+            ) : null}
+          </div>
+        ))}
+
+        <div className="eve-replay-turn">
+          <span>TURN</span>
+          <strong>{cursor >= 0 ? currentTurn || "LEAD" : "READY"}</strong>
+        </div>
+
+        <div className="eve-replay-message">
+          <span>
+            {currentEvent
+              ? BATTLE_EVENT_NAMES[currentEvent.type] ?? currentEvent.type
+              : "전투 준비"}
+          </span>
+          <strong>
+            {currentEvent
+              ? eveBattleDialogue(currentEvent, localization)
+              : "재생 버튼을 누르면 대전이 시작됩니다."}
+          </strong>
+          <div>
+            {recentMessages.slice(-3).map((message, index) => (
+              <small key={`${cursor}-${index}`}>{message}</small>
+            ))}
+          </div>
+        </div>
+
+        <div className="eve-replay-parties">
+          {report.scenario.sides.map((side, sideIndex) => (
+            <div key={side.name}>
+              {side.team.slice(0, 6).map((pokemon, index) => (
+                <span
+                  className={
+                    sideStates[sideIndex].activeIndex === index ? "active" : ""
+                  }
+                  key={pokemon.slot}
+                  title={localSpecies(localization, pokemon.species)}
+                >
+                  <ReportPokemonSprite
+                    species={pokemon.species}
+                    label={localSpecies(localization, pokemon.species)}
+                  />
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+        </div>
+        <EveReplayDecisionRail
+          report={report}
+          localization={localization}
+          sideIndex={1}
+          turn={currentTurn}
+          traces={currentTraces[1]}
+        />
+      </div>
+
+      <footer className="eve-replay-controls">
+        <button
+          type="button"
+          onClick={() => {
+            setPlaying(false);
+            setCursor(-1);
+          }}
+          disabled={cursor < 0}
+          title="처음으로"
+          aria-label="처음으로"
+        >
+          |◀
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setPlaying(false);
+            setCursor((current) => Math.max(-1, current - 1));
+          }}
+          disabled={cursor < 0}
+          title="이전 이벤트"
+          aria-label="이전 이벤트"
+        >
+          ◀
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => (playing ? setPlaying(false) : startPlayback())}
+          disabled={replayEvents.length === 0}
+        >
+          {playing ? "일시정지" : "재생"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setPlaying(false);
+            setCursor((current) =>
+              Math.min(replayEvents.length - 1, current + 1),
+            );
+          }}
+          disabled={cursor >= replayEvents.length - 1}
+          title="다음 이벤트"
+          aria-label="다음 이벤트"
+        >
+          ▶
+        </button>
+        <input
+          type="range"
+          min="-1"
+          max={Math.max(-1, replayEvents.length - 1)}
+          value={cursor}
+          onChange={(event) => {
+            setPlaying(false);
+            setCursor(Number(event.target.value));
+          }}
+          aria-label="재생 위치"
+        />
+      </footer>
+    </section>
+  );
 }
 
 export default function EveReport() {
@@ -1173,6 +1676,12 @@ export default function EveReport() {
           </small>
         </div>
       </section>
+
+      <EveBattleReplay
+        key={selected.battle.battleId}
+        report={selected}
+        localization={localization}
+      />
 
       <section className="eve-strategy-strip">
         {selected.scenario.sides.map((side, sideIndex) => (
