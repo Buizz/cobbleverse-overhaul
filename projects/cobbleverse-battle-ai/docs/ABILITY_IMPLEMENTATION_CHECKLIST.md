@@ -58,12 +58,46 @@
 | UNIT_TESTED | `overgrow` | 심록, HP 1/3 이하에서 풀 타입 기술 위력 1.5배 | `calculateDamageRange` | `supports common trainer abilities required by strict native scenarios` |
 | UNIT_TESTED | `intrepidsword` | 불요의검, 등장 시 공격 1랭크 상승 | `applyEntryAbilities` | `supports common trainer abilities required by strict native scenarios` |
 
+## 2026 실전 파티 특성 구현 묶음
+
+이번에 추가한 SV9 싱글 및 포챔스 샘플에서 사용하는 특성을 자체 엔진에 연결했다.
+
+| 상태 | ID | 적용 규칙 | 엔진 연결점 |
+|------|----|-----------|-------------|
+| UNIT_TESTED | `blaze` | HP 1/3 이하 불꽃 기술 1.5배 | `calculateDamageRange` |
+| UNIT_TESTED | `purifyingsalt` | 주요 상태이상 면역, 고스트 피해 절반 | `canReceiveStatus`, `abilityDamageModifier` |
+| UNIT_TESTED | `supremeoverlord` | 기절한 아군 수에 따라 공격 피해 최대 1.5배 | `calculateDamageRange` |
+| UNIT_TESTED | `protosynthesis` | 쾌청 또는 부스트에너지에서 최고 능력 보정 | `effectiveStat`, `applyEntryAbilities` |
+| UNIT_TESTED | `quarkdrive` | 일렉트릭필드 또는 부스트에너지에서 최고 능력 보정 | `effectiveStat`, `applyEntryAbilities` |
+| UNIT_TESTED | `chlorophyll` | 쾌청 중 스피드 2배 | `effectiveSpeed` |
+| UNIT_TESTED | `sandrush` | 모래바람 중 스피드 2배 | `effectiveSpeed` |
+| UNIT_TESTED | `drizzle` | 등장 시 비 시작 | `applyEntryAbilities`, `setFieldEffect` |
+| UNIT_TESTED | `drought` | 등장 시 쾌청 시작 | `applyEntryAbilities`, `setFieldEffect` |
+| UNIT_TESTED | `sandstream` | 등장 시 모래바람 시작 | `applyEntryAbilities`, `setFieldEffect` |
+| UNIT_TESTED | `regenerator` | 자발적/기술 교체 시 최대 HP 1/3 회복 | `switchActivePokemon` |
+| UNIT_TESTED | `magnetpull` | 상대 강철 타입의 자발적 교체 차단 | `buildActions`, `chooseSimpleAiDecision` |
+| UNIT_TESTED | `dauntlessshield` | 전투 중 첫 등장에 한 번 방어 +1 | `applyEntryAbilities` |
+| UNIT_TESTED | `hypercutter` | 상대가 유발한 공격 하락 차단 | `applyBoosts` |
+| UNIT_TESTED | `roughskin` | 접촉 공격자에게 최대 HP 1/8 피해 | `executeMove` post-hit |
+| UNIT_TESTED | `flamebody` | 접촉 공격자에게 30% 화상 | `executeMove` post-hit |
+| UNIT_TESTED | `stamina` | 피해를 받을 때마다 방어 +1 | `executeMove` post-hit |
+| UNIT_TESTED | `toxicdebris` | 물리 피해를 받으면 상대 필드에 독압정 | `executeMove` post-hit |
+| UNIT_TESTED | `lightningrod` | 전기 기술 무효 및 특공 +1 | `moveEffectiveness`, `executeMove` |
+| UNIT_TESTED | `goodasgold` | 자신을 대상으로 하는 변화기 차단 | `executeMove` status gate |
+| UNIT_TESTED | `magicbounce` | 상태·랭크·설치 변화기를 사용자에게 반사 | `executeMove`, `reflectStatusMove` |
+| UNIT_TESTED | `baddreams` | 잠든 상대에게 턴 종료 최대 HP 1/8 피해 | `applyEndTurnEffects` |
+| UNIT_TESTED | `galewings` | 풀 HP에서 비행 기술 우선도 +1 | `prepareActionOrder`, `aiDisplayMoveData` |
+| UNIT_TESTED | `armortail` | 상대의 우선도 기술 차단 | `executeMove` priority gate |
+| UNIT_TESTED | `liquidvoice` | 소리 기술을 물 타입으로 변환 | `abilityModifiedMove`, AI 피해 미리보기 |
+| FORMAT_LIMITED | `hospitality` | 더블에서 아군 회복 | 현재 자체 엔진이 싱글 전용이므로 strict 검증은 통과하되 발동 대상 없음 |
+
 ## 명시적 전투 효과 없음
 
 | 상태 | ID | 설명 | 처리 |
 |------|----|------|------|
 | INTENTIONAL_NO_EFFECT | `runaway` | 트레이너 전투에서는 효과 없음 | `SUPPORTED_ABILITIES`에 등록해 strict 검증 통과, 전투 효과 없음 |
 | INTENTIONAL_NO_EFFECT | `unnerve` | 긴장감, 상대 나무열매 사용 방지 | 현재 엔진에 자동 나무열매 소비가 없어 strict 검증 통과만 처리 |
+| FORMAT_LIMITED | `hospitality` | 대접, 등장 시 같은 편 아군 회복 | 현재 싱글 전용 자체 엔진에는 회복 대상이 없으므로 strict 검증 통과만 처리 |
 
 ## 특성 변경/억제 기술 현황
 
@@ -89,6 +123,11 @@
 - [x] `thickfat`: 불꽃·얼음 피해 0.5배
 - [x] `simple`: 랭크 변화량 2배
 - [x] `overgrow`: HP 1/3 이하 풀 타입 기술 1.5배
+- [x] `blaze`: HP 1/3 이하 불꽃 타입 기술 1.5배
+- [x] `purifyingsalt`: 고스트 피해 0.5배
+- [x] `supremeoverlord`: 기절한 아군 수에 따른 피해 보정
+- [x] `protosynthesis`: 쾌청/부스트에너지 최고 능력 보정
+- [x] `quarkdrive`: 일렉트릭필드/부스트에너지 최고 능력 보정
 - [ ] `hustle`: 물리 공격 1.5배, 물리 명중 0.8배
 - [ ] `gorillatactics`: 물리 공격 1.5배 및 기술 고정
 - [ ] `slowstart`: 5턴 동안 공격·스피드 0.5배
@@ -118,7 +157,7 @@
 - [ ] `dryskin`: 물 회복, 불꽃 약화/쾌청 피해/비 회복
 - [ ] `voltabsorb`: 전기 기술 무효 및 회복
 - [ ] `motordrive`: 전기 기술 무효 및 스피드 상승
-- [ ] `lightningrod`: 전기 기술 유도/무효 및 특공 상승
+- [x] `lightningrod`: 전기 기술 무효 및 특공 상승. 더블의 대상 유도는 포맷 확장 시 추가
 - [ ] `flashfire`: 불꽃 기술 무효 및 불꽃 위력 강화
 - [ ] `sapsipper`: 풀 기술 무효 및 공격 상승
 - [ ] `heatproof`: 불꽃 피해 및 화상 피해 감소
@@ -126,13 +165,13 @@
 
 ### 날씨·필드
 
-- [ ] `drizzle`: 등장 시 비
-- [ ] `drought`: 등장 시 쾌청
-- [ ] `sandstream`: 등장 시 모래바람
+- [x] `drizzle`: 등장 시 비
+- [x] `drought`: 등장 시 쾌청
+- [x] `sandstream`: 등장 시 모래바람
 - [ ] `snowwarning`: 등장 시 눈
 - [ ] `swiftswim`: 비 중 스피드 2배
-- [ ] `chlorophyll`: 쾌청 중 스피드 2배
-- [ ] `sandrush`: 모래바람 중 스피드 2배
+- [x] `chlorophyll`: 쾌청 중 스피드 2배
+- [x] `sandrush`: 모래바람 중 스피드 2배
 - [ ] `slushrush`: 눈 중 스피드 2배
 - [ ] `sandforce`: 모래바람 중 바위/땅/강철 위력 보정
 - [ ] `icebody`: 눈 중 회복
@@ -147,7 +186,7 @@
 - [x] `download`: 등장 시 공격 또는 특공 +1
 - [x] `intrepidsword`: 등장 시 공격 +1
 - [ ] `trace`: 등장 시 상대 특성 복사
-- [ ] `regenerator`: 교체 시 HP 1/3 회복
+- [x] `regenerator`: 교체 시 HP 1/3 회복
 - [ ] `naturalcure`: 교체 시 상태 회복
 - [ ] `moxie`: 직접 KO 후 공격 +1
 - [ ] `beastboost`: KO 후 가장 높은 능력 +1
@@ -171,10 +210,10 @@
 
 ### 접촉·피격 반응
 
-- [ ] `roughskin`: 접촉 피해 반사
+- [x] `roughskin`: 접촉 피해 반사
 - [ ] `ironbarbs`: 접촉 피해 반사
 - [x] `static`: 접촉 피해를 준 공격자 마비 확률
-- [ ] `flamebody`: 접촉 시 화상 확률
+- [x] `flamebody`: 접촉 시 화상 확률
 - [ ] `poisontouch`: 접촉 공격 시 독 확률
 - [ ] `effectspore`: 접촉 시 상태 확률
 - [ ] `cutecharm`: 접촉 시 헤롱헤롱 확률
@@ -185,11 +224,11 @@
 ### 우선도·행동 제한
 
 - [ ] `prankster`: 변화기 우선도 +1 및 악 타입 상호작용
-- [ ] `galewings`: 풀피 비행 기술 우선도 +1
+- [x] `galewings`: 풀피 비행 기술 우선도 +1
 - [ ] `triage`: 회복기 우선도 +3
 - [ ] `queenlymajesty`: 상대 선공기 차단
 - [ ] `dazzling`: 상대 선공기 차단
-- [ ] `armortail`: 상대 선공기 차단
+- [x] `armortail`: 상대 선공기 차단
 - [ ] `stall`: 행동 순서 후순위
 - [ ] `quickdraw`: 확률 선제 행동
 

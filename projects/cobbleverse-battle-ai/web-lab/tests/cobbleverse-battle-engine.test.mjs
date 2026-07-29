@@ -12581,3 +12581,606 @@ test("AI evaluates guaranteed KO independently for every move candidate", () => 
     ),
   );
 });
+
+test("supports new weather, offensive, defensive, and speed abilities", () => {
+  const rain = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Rain",
+          team: [pokemon({ name: "Pelipper", ability: "drizzle" })],
+        },
+        {
+          name: "Sand",
+          team: [pokemon({ name: "Tyranitar", ability: "sandstream" })],
+        },
+      ],
+    }),
+  );
+  assert.equal(rain.field.weather.id, "sandstorm");
+  assert.ok(
+    rain.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "drizzle",
+    ),
+  );
+  assert.ok(
+    rain.events.some(
+      (event) =>
+        event.type === "ability_activate" && event.ability === "sandstream",
+    ),
+  );
+
+  const baseAttacker = pokemon({
+    types: ["Fire"],
+    stats: { ...pokemon().stats, specialAttack: 150 },
+  });
+  const blazeAttacker = {
+    ...baseAttacker,
+    ability: "blaze",
+    hp: 40,
+  };
+  const defender = pokemon({ types: ["Grass"] });
+  const fireMove = { type: "Fire", category: "Special", power: 80 };
+  assert.ok(
+    calculateDamageRange(blazeAttacker, defender, fireMove).maximum >
+      calculateDamageRange(baseAttacker, defender, fireMove).maximum,
+  );
+
+  const salted = {
+    ...pokemon({ ability: "purifyingsalt", types: ["Psychic"] }),
+    hp: 120,
+    boosts: {},
+    volatiles: {},
+  };
+  const ghostMove = { type: "Ghost", category: "Special", power: 80 };
+  assert.ok(
+    calculateDamageRange(baseAttacker, salted, ghostMove).maximum <
+      calculateDamageRange(
+        baseAttacker,
+        pokemon({ types: ["Psychic"] }),
+        ghostMove,
+      ).maximum,
+  );
+});
+
+test("applies Regenerator and Magnet Pull to manual and AI switching", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Steel",
+          team: [
+            pokemon({ name: "Steel target", types: ["Steel"] }),
+            pokemon({ name: "Bench" }),
+          ],
+        },
+        {
+          name: "Trap",
+          team: [pokemon({ name: "Magnezone", ability: "magnetpull" })],
+        },
+      ],
+    }),
+  );
+  assert.throws(
+    () => resolveSimpleTurn(state, [{ switch: 2 }, { move: 1 }]),
+    /cannot switch while trapped/,
+  );
+
+  const regen = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Regen",
+          team: [
+            pokemon({ name: "Slowking", ability: "regenerator" }),
+            pokemon({ name: "Bench" }),
+          ],
+        },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  regen.sides[0].team[0].hp = 40;
+  const switched = resolveSimpleTurn(regen, [{ switch: 2 }, { move: 1 }]);
+  assert.equal(switched.sides[0].team[0].hp, 80);
+  assert.ok(
+    switched.events.some(
+      (event) =>
+        event.type === "ability_activate" && event.ability === "regenerator",
+    ),
+  );
+});
+
+test("applies one-time entry boosts and Hyper Cutter protection", () => {
+  const shieldState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Shield",
+          team: [pokemon({ name: "Zamazenta", ability: "dauntlessshield" })],
+        },
+        {
+          name: "Target",
+          team: [pokemon()],
+        },
+      ],
+    }),
+  );
+  assert.equal(shieldState.sides[0].team[0].boosts.defence, 1);
+
+  const cutterState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Cutter",
+          team: [pokemon({ name: "Mawile", ability: "hypercutter" })],
+        },
+        {
+          name: "Intimidate",
+          team: [pokemon({ name: "Arcanine", ability: "intimidate" })],
+        },
+      ],
+    }),
+  );
+  assert.equal(cutterState.sides[0].team[0].boosts.attack, 0);
+  assert.ok(
+    cutterState.events.some(
+      (event) =>
+        event.type === "ability_activate" && event.ability === "hypercutter",
+    ),
+  );
+});
+
+test("applies Stamina, Toxic Debris, Rough Skin, and Flame Body after hits", () => {
+  const physicalMove = {
+    id: "scratch",
+    name: "Scratch",
+    type: "Normal",
+    category: "Physical",
+    power: 40,
+    accuracy: true,
+    pp: 35,
+    flags: { contact: true },
+  };
+  const reactionState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Attacker",
+          team: [pokemon({ moves: [physicalMove] })],
+        },
+        {
+          name: "Stamina",
+          team: [pokemon({ ability: "stamina", stats: { ...pokemon().stats, hp: 500 } })],
+        },
+      ],
+    }),
+  );
+  const staminaResult = resolveSimpleTurn(
+    reactionState,
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(staminaResult.sides[1].team[0].boosts.defence, 1);
+
+  const debrisState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Attacker", team: [pokemon({ moves: [physicalMove] })] },
+        {
+          name: "Debris",
+          team: [pokemon({ ability: "toxicdebris", stats: { ...pokemon().stats, hp: 500 } })],
+        },
+      ],
+    }),
+  );
+  const debrisResult = resolveSimpleTurn(
+    debrisState,
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(debrisResult.sides[0].conditions.toxicspikes.layers, 1);
+
+  const skinState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Attacker", team: [pokemon({ moves: [physicalMove] })] },
+        {
+          name: "Skin",
+          team: [pokemon({ ability: "roughskin", stats: { ...pokemon().stats, hp: 500 } })],
+        },
+      ],
+    }),
+  );
+  const skinResult = resolveSimpleTurn(skinState, [{ move: 1 }, { move: 1 }]);
+  assert.ok(
+    skinResult.events.some(
+      (event) => event.type === "damage" && event.source === "roughskin",
+    ),
+  );
+
+  let burned = false;
+  for (let seed = 1; seed <= 50 && !burned; seed += 1) {
+    const flameState = createSimpleBattle({
+      ...setup(),
+      seed,
+      sides: [
+        { name: "Attacker", team: [pokemon({ moves: [physicalMove] })] },
+        {
+          name: "Flame",
+          team: [pokemon({ ability: "flamebody", stats: { ...pokemon().stats, hp: 500 } })],
+        },
+      ],
+    });
+    const result = resolveSimpleTurn(flameState, [{ move: 1 }, { move: 1 }]);
+    burned = result.sides[0].team[0].status === "brn";
+  }
+  assert.equal(burned, true);
+});
+
+test("supports Lightning Rod, Good as Gold, and Magic Bounce", () => {
+  const electricMove = {
+    id: "thunderbolt",
+    name: "Thunderbolt",
+    type: "Electric",
+    category: "Special",
+    power: 90,
+    accuracy: true,
+    pp: 15,
+  };
+  const rodState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Attacker", team: [pokemon({ moves: [electricMove] })] },
+        { name: "Rod", team: [pokemon({ ability: "lightningrod" })] },
+      ],
+    }),
+  );
+  const rodResult = resolveSimpleTurn(rodState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(rodResult.sides[1].team[0].hp, 120);
+  assert.equal(rodResult.sides[1].team[0].boosts.specialAttack, 1);
+
+  const toxic = {
+    id: "toxic",
+    name: "Toxic",
+    type: "Poison",
+    category: "Status",
+    accuracy: true,
+    pp: 10,
+    status: "tox",
+    target: "normal",
+  };
+  const goldState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Attacker", team: [pokemon({ moves: [toxic] })] },
+        { name: "Gold", team: [pokemon({ ability: "goodasgold" })] },
+      ],
+    }),
+  );
+  const goldResult = resolveSimpleTurn(goldState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(goldResult.sides[1].team[0].status, "");
+
+  const bounceState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Attacker", team: [pokemon({ moves: [toxic] })] },
+        { name: "Bounce", team: [pokemon({ ability: "magicbounce" })] },
+      ],
+    }),
+  );
+  const bounceResult = resolveSimpleTurn(
+    bounceState,
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(bounceResult.sides[0].team[0].status, "tox");
+  assert.equal(bounceResult.sides[1].team[0].status, "");
+});
+
+test("supports Bad Dreams and paradox stat boosts", () => {
+  const dreamState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Sleeper",
+          team: [pokemon({ status: "slp" })],
+        },
+        {
+          name: "Darkrai",
+          team: [pokemon({ ability: "baddreams" })],
+        },
+      ],
+    }),
+  );
+  dreamState.sides[0].team[0].status = "slp";
+  dreamState.sides[0].team[0].statusTurns = 2;
+  const dreamResult = resolveSimpleTurn(
+    dreamState,
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.ok(
+    dreamResult.events.some(
+      (event) => event.type === "damage" && event.source === "baddreams",
+    ),
+  );
+
+  const paradoxState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Quark",
+          team: [
+            pokemon({
+              ability: "quarkdrive",
+              item: "boosterenergy",
+              stats: { ...pokemon().stats, specialAttack: 180 },
+              moves: [
+                {
+                  id: "psychic",
+                  name: "Psychic",
+                  type: "Psychic",
+                  category: "Special",
+                  power: 90,
+                  accuracy: true,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  assert.equal(paradoxState.sides[0].team[0].item, "");
+  assert.equal(
+    paradoxState.sides[0].team[0].abilityState.paradoxStat,
+    "specialAttack",
+  );
+});
+
+test("supports Gale Wings, Armor Tail, and Liquid Voice in battle and AI previews", () => {
+  const flyingMove = {
+    id: "acrobatics",
+    name: "Acrobatics",
+    type: "Flying",
+    category: "Physical",
+    power: 55,
+    accuracy: true,
+    pp: 15,
+  };
+  const galeState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Gale",
+          team: [
+            pokemon({
+              name: "Talonflame",
+              ability: "galewings",
+              types: ["Flying"],
+              stats: { ...pokemon().stats, speed: 50 },
+              moves: [flyingMove],
+            }),
+          ],
+        },
+        {
+          name: "Fast",
+          team: [pokemon({ stats: { ...pokemon().stats, speed: 150 } })],
+        },
+      ],
+    }),
+  );
+  const galeResult = resolveSimpleTurn(galeState, [{ move: 1 }, { move: 1 }]);
+  const firstMove = galeResult.events.find((event) => event.type === "move");
+  assert.equal(firstMove.pokemon, "Talonflame");
+
+  const tailState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Priority",
+          team: [
+            pokemon({
+              moves: [{ ...flyingMove, id: "quickattack", type: "Normal", priority: 1 }],
+            }),
+          ],
+        },
+        { name: "Tail", team: [pokemon({ ability: "armortail" })] },
+      ],
+    }),
+  );
+  const tailResult = resolveSimpleTurn(tailState, [{ move: 1 }, { move: 1 }]);
+  assert.ok(
+    tailResult.events.some(
+      (event) => event.type === "move_blocked" && event.source === "armortail",
+    ),
+  );
+
+  const voiceState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Voice",
+          team: [
+            pokemon({
+              ability: "liquidvoice",
+              moves: [
+                {
+                  id: "hypervoice",
+                  name: "Hyper Voice",
+                  type: "Normal",
+                  category: "Special",
+                  power: 90,
+                  accuracy: true,
+                  pp: 10,
+                  flags: { sound: true },
+                },
+              ],
+            }),
+          ],
+        },
+        { name: "Fire", team: [pokemon({ types: ["Fire"] })] },
+      ],
+    }),
+  );
+  const voice = voiceState.sides[0].team[0];
+  const target = voiceState.sides[1].team[0];
+  const preview = calculateMovePreview(voice, target, voice.moves[0], {
+    state: voiceState,
+    attackerSide: 0,
+    defenderSide: 1,
+  });
+  assert.equal(preview.move.type, "Water");
+  assert.equal(preview.range.effectiveness, 2);
+});
+
+test("applies Chlorophyll, Sand Rush, Protosynthesis, and Supreme Overlord", () => {
+  for (const [ability, weather] of [
+    ["chlorophyll", "sunnyday"],
+    ["sandrush", "sandstorm"],
+  ]) {
+    const speedState = createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Weather runner",
+            team: [
+              pokemon({
+                name: ability,
+                ability,
+                stats: { ...pokemon().stats, speed: 60 },
+              }),
+            ],
+          },
+          {
+            name: "Fast target",
+            team: [
+              pokemon({
+                name: "Fast target",
+                stats: { ...pokemon().stats, speed: 100 },
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+    speedState.field.weather = { id: weather, turns: 5 };
+    const result = resolveSimpleTurn(
+      speedState,
+      [{ move: 1 }, { move: 1 }],
+    );
+    assert.equal(
+      result.events.find((event) => event.type === "move").pokemon,
+      ability,
+    );
+  }
+
+  const protoState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Proto",
+          team: [
+            pokemon({
+              ability: "protosynthesis",
+              stats: { ...pokemon().stats, attack: 180 },
+            }),
+          ],
+        },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  protoState.field.weather = { id: "sunnyday", turns: 5 };
+  const proto = protoState.sides[0].team[0];
+  const protoTarget = protoState.sides[1].team[0];
+  const boosted = calculateDamageRange(proto, protoTarget, proto.moves[0], {
+    state: protoState,
+    attackerSide: 0,
+    defenderSide: 1,
+  }).maximum;
+  proto.ability = "";
+  const unboosted = calculateDamageRange(proto, protoTarget, proto.moves[0], {
+    state: protoState,
+    attackerSide: 0,
+    defenderSide: 1,
+  }).maximum;
+  assert.ok(boosted > unboosted);
+
+  const overlordState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Overlord",
+          team: [
+            pokemon({ ability: "supremeoverlord" }),
+            pokemon({ name: "Fainted 1" }),
+            pokemon({ name: "Fainted 2" }),
+          ],
+        },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  overlordState.sides[0].team[1].hp = 0;
+  overlordState.sides[0].team[1].fainted = true;
+  overlordState.sides[0].team[2].hp = 0;
+  overlordState.sides[0].team[2].fainted = true;
+  const overlord = overlordState.sides[0].team[0];
+  const overlordTarget = overlordState.sides[1].team[0];
+  const powered = calculateDamageRange(
+    overlord,
+    overlordTarget,
+    overlord.moves[0],
+    { state: overlordState, attackerSide: 0, defenderSide: 1 },
+  ).maximum;
+  overlord.ability = "";
+  const plain = calculateDamageRange(
+    overlord,
+    overlordTarget,
+    overlord.moves[0],
+    { state: overlordState, attackerSide: 0, defenderSide: 1 },
+  ).maximum;
+  assert.ok(powered > plain);
+});
+
+test("Purifying Salt blocks status and Hospitality is explicit singles-only support", () => {
+  const toxic = {
+    id: "toxic",
+    name: "Toxic",
+    type: "Poison",
+    category: "Status",
+    accuracy: true,
+    pp: 10,
+    status: "tox",
+    target: "normal",
+  };
+  const state = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        { name: "Attacker", team: [pokemon({ moves: [toxic] })] },
+        {
+          name: "Salt",
+          team: [pokemon({ ability: "purifyingsalt", types: ["Rock"] })],
+        },
+      ],
+    }),
+  );
+  const result = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(result.sides[1].team[0].status, "");
+
+  assert.doesNotThrow(() =>
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          { name: "Hospitality", team: [pokemon({ ability: "hospitality" })] },
+          { name: "Target", team: [pokemon()] },
+        ],
+      }),
+    ),
+  );
+});

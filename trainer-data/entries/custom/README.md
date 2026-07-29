@@ -44,38 +44,16 @@ SV 팀은 2026년 7월 13일 갱신된 SV OU 샘플과 2026년 SPL XVII 공개
 - https://www.pokemon.com/us/features/pokemon-champions-how-to-build-a-mega-raichu-x-team
 - https://www.pokemon.com/us/features/pokemon-champions-how-to-build-a-mega-emboar-team
 
-실전 구성을 우선 보존하므로 아직 자체 엔진에서 구현되지 않은 특성도
-포함한다. 엄격 특성 검증에서 발견되는 항목은 후속 특성 구현 체크리스트의
-입력으로 사용한다.
+실전 구성을 우선 보존하며 엄격 특성 검증에서 발견되는 항목은
+`docs/ABILITY_IMPLEMENTATION_CHECKLIST.md`에서 추적한다.
 
-현재 추가 구현이 필요한 대표 특성:
+2026-07-29 기준으로 위 SV9/포챔스 샘플이 요구하는 싱글 전투 특성은
+자체 엔진에 구현했다. `대접(hospitality)`은 더블 아군이 있어야 발동하므로
+현재 싱글 전용 자체 엔진에서는 포맷 제한 특성으로 명시적으로 허용한다.
 
-- 정화의소금(`purifyingsalt`)
-- 자력(`magnetpull`)
-- 재생력(`regenerator`)
-- 쿼크차지(`quarkdrive`)
-- 고대활성(`protosynthesis`)
-- 독치장(`toxicdebris`)
-- 총대장(`supremeoverlord`)
-- 매직미러(`magicbounce`)
-- 나이트메어(`baddreams`)
-- 모래날림(`sandstream`)
-- 모래헤치기(`sandrush`)
-- 불꽃몸(`flamebody`)
-- 불굴의방패(`dauntlessshield`)
+남은 폼 구현 대상:
 
-포챔스 샘플로 추가된 후속 구현 대상:
-
-- 괴력집게(`hypercutter`)
-- 맹화(`blaze`)
-- 테일아머(`armortail`)
-- 까칠한피부(`roughskin`)
-- 엽록소(`chlorophyll`)
-- 피뢰침(`lightningrod`)
-- 지구력(`stamina`)
-- 잔비(`drizzle`)
-- 황금몸(`goodasgold`)
-- 대접(`hospitality`)
-- 질풍날개(`galewings`)
-- 촉촉보이스(`liquidvoice`)
-- 메가염무왕과 메가라이츄 X의 폼, 종족값, 타입과 메가 특성
+- 메가염무왕의 폼, 종족값, 타입과 메가 특성
+- 메가라이츄 X의 폼, 종족값, 타입과 메가 특성
+- 더블 전투 포맷 추가 시 `hospitality`의 아군 회복 및 `lightningrod`의
+  대상 유도
