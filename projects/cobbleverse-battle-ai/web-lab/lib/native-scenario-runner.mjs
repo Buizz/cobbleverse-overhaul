@@ -453,13 +453,15 @@ export function runNativeScenarioBattle(scenario, options = {}) {
     throw new Error("Cobbleverse 자체 엔진은 현재 싱글 배틀만 지원합니다.");
   }
   const startTime = performance.now();
+  const includeDetails = options.includeDetails !== false;
   const state = runSimpleBattle(createNativeBattleSetup(scenario), {
     maxTurns: options.maxTurns,
     difficulty: scenario.aiDifficulty,
     aiProfiles: scenario.aiProfiles,
+    captureAiTrace: includeDetails,
+    captureTurnSnapshots: includeDetails,
   });
-  const events = state.events.flatMap(mapNativeEvent);
-  const finalState = {
+  const finalState = includeDetails ? {
     sides: state.sides.map((side) => ({
       name: side.name,
       active: side.active,
@@ -472,8 +474,8 @@ export function runNativeScenarioBattle(scenario, options = {}) {
         status: pokemon.status,
       })),
     })),
-  };
-  return {
+  } : undefined;
+  const result = {
     battleId: `${scenario.scenarioId}-native-battle`,
     scenarioId: scenario.scenarioId,
     engine: {
@@ -507,10 +509,14 @@ export function runNativeScenarioBattle(scenario, options = {}) {
           "자체 엔진은 현재 포켓몬·기술 원본 데이터만 Showdown 카탈로그에서 읽으며, 전투 판정은 Cobbleverse 엔진이 수행합니다.",
       },
     ],
+  };
+  if (!includeDetails) return result;
+  return {
+    ...result,
     finalState,
     turnSnapshots: state.turnSnapshots,
     aiTrace: state.aiTrace,
-    events,
+    events: state.events.flatMap(mapNativeEvent),
     log: state.events.map((event) => JSON.stringify(event)),
   };
 }

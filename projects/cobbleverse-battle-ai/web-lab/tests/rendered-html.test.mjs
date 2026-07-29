@@ -145,3 +145,83 @@ test("returns exact native turn HP snapshots through the battle API", async () =
     ),
   );
 });
+
+test("returns a compact native battle summary for EvE sweeps", async () => {
+  const response = await requestWorker("/api/battles?detail=summary", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      mode: "eve",
+      seed: 79,
+      battleEngine: "cobbleverse",
+      aiProfiles: [
+        { difficulty: "expert", strategy: "balanced" },
+        { difficulty: "expert", strategy: "balanced" },
+      ],
+      sides: [
+        { source: "preset", trainerId: "dbingsu-server-party" },
+        { source: "preset", trainerId: "hoenn_league_drake" },
+      ],
+    }),
+  });
+
+  const body = await response.json();
+  assert.equal(response.status, 201, JSON.stringify(body));
+  assert.equal(body.ok, true);
+  assert.equal(body.scenario, undefined);
+  assert.ok(body.battle.turns > 0);
+  assert.equal(body.battle.aiTrace, undefined);
+  assert.equal(body.battle.turnSnapshots, undefined);
+  assert.equal(body.battle.events, undefined);
+  assert.ok(JSON.stringify(body).length < 1_000);
+});
+
+test("runs multiple compact native battles through the sweep API", async () => {
+  const response = await requestWorker("/api/battle-sweep", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      scenario: {
+        mode: "eve",
+        seed: 80,
+        battleEngine: "cobbleverse",
+        aiProfiles: [
+          { difficulty: "expert", strategy: "balanced" },
+          { difficulty: "expert", strategy: "balanced" },
+        ],
+        sides: [
+          { source: "preset", trainerId: "dbingsu-server-party" },
+          { source: "preset", trainerId: "hoenn_league_drake" },
+        ],
+      },
+      jobs: [
+        {
+          seed: 80,
+          aiProfiles: [
+            { difficulty: "expert", strategy: "balanced" },
+            { difficulty: "expert", strategy: "balanced" },
+          ],
+        },
+        {
+          seed: 81,
+          aiProfiles: [
+            { difficulty: "expert", strategy: "aggressive" },
+            { difficulty: "expert", strategy: "defensive" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  const body = await response.json();
+  assert.equal(response.status, 201, JSON.stringify(body));
+  assert.equal(body.ok, true);
+  assert.equal(body.results.length, 2);
+  assert.deepEqual(
+    body.results.map((battle) => battle.seed),
+    [80, 81],
+  );
+  assert.ok(body.results.every((battle) => battle.turns > 0));
+  assert.ok(body.results.every((battle) => battle.events === undefined));
+  assert.ok(JSON.stringify(body).length < 2_000);
+});

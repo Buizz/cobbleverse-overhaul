@@ -179,6 +179,16 @@ type ReportData = {
   battle: Battle;
 };
 
+type BattleSummary = Pick<
+  Battle,
+  "battleId" | "scenarioId" | "seed" | "status" | "winner" | "turns" | "durationMs"
+>;
+
+type SweepBattleSummary = Pick<
+  BattleSummary,
+  "seed" | "status" | "winner" | "turns" | "durationMs"
+>;
+
 type LocalizationCatalog = {
   species: Record<string, { name?: string }>;
   moves: Record<string, { name?: string }>;
@@ -1295,6 +1305,7 @@ export default function EveReport() {
   const [running, setRunning] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [sweepRounds, setSweepRounds] = useState(3);
+  const [sweepMode, setSweepMode] = useState<"fast" | "exact">("fast");
   const [batchStatus, setBatchStatus] = useState("");
   const [sweepResult, setSweepResult] = useState<SweepResult | null>(null);
   const [error, setError] = useState("");
@@ -1409,6 +1420,24 @@ export default function EveReport() {
     };
   };
 
+  const runBattleSummaries = async (
+    scenario: Scenario,
+    jobs: Array<{ seed: number; aiProfiles: AiProfile[] }>,
+  ) => {
+    const response = await fetch("/api/battle-sweep", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scenario, jobs }),
+    });
+    const result = (await response.json()) as
+      | { ok: true; results: SweepBattleSummary[] }
+      | { ok: false; issues: Array<{ message: string }> };
+    if (!result.ok) {
+      throw new Error(result.issues[0]?.message ?? "반복 전투를 실행하지 못했습니다.");
+    }
+    return result.results;
+  };
+
   const scenarioWith = (nextSeed: number, nextProfiles = profiles) => {
     if (!selected) return null;
     return {
@@ -1437,11 +1466,15 @@ export default function EveReport() {
     if (!selected) return;
     const rounds = Math.max(1, Math.min(20, Math.floor(sweepRounds)));
     const baseSeed = Number.isInteger(seed) ? seed : selected.scenario.seed;
-    const reports: ReportData[] = [];
     const sideA = new Map<AiProfile["strategy"], { games: number; wins: number }>();
     const sideB = new Map<AiProfile["strategy"], { games: number; wins: number }>();
+    const finalistA = new Map<AiProfile["strategy"], { games: number; wins: number }>();
+    const finalistB = new Map<AiProfile["strategy"], { games: number; wins: number }>();
     const matchups = new Map<string, SweepMatchup>();
-    const totalBattles = strategyValues.length * strategyValues.length * rounds;
+    const totalBattles =
+      (sweepMode === "exact"
+        ? strategyValues.length * strategyValues.length
+        : strategyValues.length * 2 - 1 + 4) * rounds;
 
     for (const strategy of strategyValues) {
       sideA.set(strategy, { games: 0, wins: 0 });
@@ -1453,52 +1486,120 @@ export default function EveReport() {
     setError("");
     try {
       let completed = 0;
-      for (const strategyA of strategyValues) {
-        for (const strategyB of strategyValues) {
-          const matchupKey = `${strategyA}:${strategyB}`;
-          matchups.set(matchupKey, {
-            strategyA,
-            strategyB,
-            games: 0,
-            winsA: 0,
-            winsB: 0,
-          });
-          for (let round = 0; round < rounds; round += 1) {
-            const nextProfiles: AiProfile[] = [
-              { ...(profiles[0] ?? { difficulty: "expert" }), strategy: strategyA },
-              { ...(profiles[1] ?? { difficulty: "expert" }), strategy: strategyB },
-            ];
-            const scenario = scenarioWith(baseSeed + round, nextProfiles);
-            if (!scenario) return;
-            const report = await runBattleScenario(scenario);
-            reports.push(report);
-
-            const winner = report.battle.winner;
-            const winnerSide =
-              winner === report.scenario.sides[0].name
-                ? 0
-                : winner === report.scenario.sides[1].name
-                  ? 1
-                  : -1;
-            const scoreA = sideA.get(strategyA);
-            const scoreB = sideB.get(strategyB);
-            const matchup = matchups.get(matchupKey);
-            if (scoreA) scoreA.games += 1;
-            if (scoreB) scoreB.games += 1;
-            if (matchup) matchup.games += 1;
-            if (winnerSide === 0) {
-              if (scoreA) scoreA.wins += 1;
-              if (matchup) matchup.winsA += 1;
-            }
-            if (winnerSide === 1) {
-              if (scoreB) scoreB.wins += 1;
-              if (matchup) matchup.winsB += 1;
-            }
-
-            completed += 1;
-            setBatchStatus(`${completed}/${totalBattles} 전투 실행 중`);
+      type MatchupPlan = {
+        strategyA: AiProfile["strategy"];
+        strategyB: AiProfile["strategy"];
+        score: { sideA?: boolean; sideB?: boolean; finalist?: boolean };
+      };
+      const runMatchups = async (plans: MatchupPlan[]) => {
+        const executions = plans.flatMap((plan) => {
+          const matchupKey = `${plan.strategyA}:${plan.strategyB}`;
+          if (!matchups.has(matchupKey)) {
+            matchups.set(matchupKey, {
+              strategyA: plan.strategyA,
+              strategyB: plan.strategyB,
+              games: 0,
+              winsA: 0,
+              winsB: 0,
+            });
           }
+          return Array.from({ length: rounds }, (_, round) => ({
+            ...plan,
+            matchupKey,
+            seed: baseSeed + round,
+            aiProfiles: [
+              {
+                ...(profiles[0] ?? { difficulty: "expert" }),
+                strategy: plan.strategyA,
+              },
+              {
+                ...(profiles[1] ?? { difficulty: "expert" }),
+                strategy: plan.strategyB,
+              },
+            ] as AiProfile[],
+          }));
+        });
+        const baseScenario = scenarioWith(baseSeed, profiles);
+        if (!baseScenario) {
+          throw new Error("반복 전투의 기준 시나리오를 찾지 못했습니다.");
         }
+        const battles = await runBattleSummaries(
+          baseScenario,
+          executions.map((execution) => ({
+            seed: execution.seed,
+            aiProfiles: execution.aiProfiles,
+          })),
+        );
+        for (const [index, execution] of executions.entries()) {
+          const battle = battles[index];
+          if (!battle) {
+            throw new Error("반복 전투 결과 수가 요청과 일치하지 않습니다.");
+          }
+          const winnerSide =
+            battle.winner === baseScenario.sides[0].name
+              ? 0
+              : battle.winner === baseScenario.sides[1].name
+                ? 1
+                : -1;
+          const scoreA = execution.score.sideA
+            ? sideA.get(execution.strategyA)
+            : undefined;
+          const scoreB = execution.score.sideB
+            ? sideB.get(execution.strategyB)
+            : undefined;
+          const finalA = execution.score.finalist
+            ? finalistA.get(execution.strategyA)
+            : undefined;
+          const finalB = execution.score.finalist
+            ? finalistB.get(execution.strategyB)
+            : undefined;
+          const matchup = matchups.get(execution.matchupKey);
+          if (scoreA) scoreA.games += 1;
+          if (scoreB) scoreB.games += 1;
+          if (finalA) finalA.games += 1;
+          if (finalB) finalB.games += 1;
+          if (matchup) matchup.games += 1;
+          if (winnerSide === 0) {
+            if (scoreA) scoreA.wins += 1;
+            if (finalA) finalA.wins += 1;
+            if (matchup) matchup.winsA += 1;
+          }
+          if (winnerSide === 1) {
+            if (scoreB) scoreB.wins += 1;
+            if (finalB) finalB.wins += 1;
+            if (matchup) matchup.winsB += 1;
+          }
+
+          completed += 1;
+        }
+        setBatchStatus(`${completed}/${totalBattles} 전투 실행 중`);
+      };
+
+      if (sweepMode === "exact") {
+        await runMatchups(
+          strategyValues.flatMap((strategyA) =>
+            strategyValues.map((strategyB) => ({
+              strategyA,
+              strategyB,
+              score: { sideA: true, sideB: true },
+            })),
+          ),
+        );
+      } else {
+        await runMatchups([
+          ...strategyValues.map((strategy) => ({
+            strategyA: strategy,
+            strategyB: "balanced" as const,
+            score: { sideA: true, sideB: strategy === "balanced" },
+          })),
+          ...strategyValues
+            .filter((strategy) => strategy !== "balanced")
+            .map((strategy) => ({
+              strategyA: "balanced" as const,
+              strategyB: strategy,
+              score: { sideB: true },
+            })),
+        ]);
       }
 
       const toScores = (map: Map<AiProfile["strategy"], { games: number; wins: number }>) =>
@@ -1510,29 +1611,62 @@ export default function EveReport() {
             winRate: score.games > 0 ? score.wins / score.games : 0,
           }))
           .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins);
-      const sideAScores = toScores(sideA);
-      const sideBScores = toScores(sideB);
-      const nextHistory = [
-        ...[...reports].reverse(),
-        ...history.filter(
-          (entry) => !reports.some((report) => historyId(report) === historyId(entry)),
-        ),
-      ];
-      const latestReport = reports.at(-1);
-      const stored = persistEveStorage(nextHistory, latestReport);
-      setHistory(stored.history);
-      if (stored.trimmed) {
-        setError("저장 공간이 부족해 오래된 EvE 전적 일부를 정리했습니다.");
+      let sideAScores = toScores(sideA);
+      let sideBScores = toScores(sideB);
+      let bestA = sideAScores[0] ?? null;
+      let bestB = sideBScores[0] ?? null;
+      if (sweepMode === "fast") {
+        const topA = sideAScores.slice(0, 2);
+        const topB = sideBScores.slice(0, 2);
+        for (const score of topA) {
+          finalistA.set(score.strategy, { games: 0, wins: 0 });
+        }
+        for (const score of topB) {
+          finalistB.set(score.strategy, { games: 0, wins: 0 });
+        }
+        await runMatchups(
+          topA.flatMap((scoreA) =>
+            topB.map((scoreB) => ({
+              strategyA: scoreA.strategy,
+              strategyB: scoreB.strategy,
+              score: { finalist: true },
+            })),
+          ),
+        );
+        const finalistAScores = toScores(finalistA);
+        const finalistBScores = toScores(finalistB);
+        bestA = finalistAScores[0] ?? bestA;
+        bestB = finalistBScores[0] ?? bestB;
+        sideAScores = [
+          ...finalistAScores,
+          ...sideAScores.filter((score) => !finalistA.has(score.strategy)),
+        ];
+        sideBScores = [
+          ...finalistBScores,
+          ...sideBScores.filter((score) => !finalistB.has(score.strategy)),
+        ];
       }
-      if (latestReport) {
-        selectReport(latestReport);
+      const bestProfiles: AiProfile[] = [
+        {
+          ...(profiles[0] ?? { difficulty: "expert" }),
+          strategy: bestA?.strategy ?? "balanced",
+        },
+        {
+          ...(profiles[1] ?? { difficulty: "expert" }),
+          strategy: bestB?.strategy ?? "balanced",
+        },
+      ];
+      const representativeScenario = scenarioWith(baseSeed, bestProfiles);
+      if (representativeScenario) {
+        setBatchStatus(`${totalBattles}/${totalBattles} 전투 완료 · 대표 로그 생성 중`);
+        saveRun(await runBattleScenario(representativeScenario));
       }
       setSweepResult({
         baseSeed,
         rounds,
         totalBattles,
-        bestA: sideAScores[0] ?? null,
-        bestB: sideBScores[0] ?? null,
+        bestA,
+        bestB,
         sideA: sideAScores,
         sideB: sideBScores,
         matchups: Array.from(matchups.values()).sort(
@@ -1735,9 +1869,21 @@ export default function EveReport() {
         <div>
           <strong>성향 자동 분석</strong>
           <span>
-            1P/2P 성향 조합 {strategyValues.length * strategyValues.length}개를 같은 시드 묶음으로 반복합니다.
+            {sweepMode === "fast"
+              ? "모든 성향을 균형형과 비교한 뒤 상위 2개씩 다시 대결합니다."
+              : `1P/2P 성향 조합 ${strategyValues.length * strategyValues.length}개를 모두 대결합니다.`}
           </span>
         </div>
+        <label>
+          분석 방식
+          <select
+            value={sweepMode}
+            onChange={(event) => setSweepMode(event.target.value as "fast" | "exact")}
+          >
+            <option value="fast">빠른 분석 · 최대 19조합</option>
+            <option value="exact">정밀 분석 · 64조합</option>
+          </select>
+        </label>
         <label>
           반복 시드 수
           <input

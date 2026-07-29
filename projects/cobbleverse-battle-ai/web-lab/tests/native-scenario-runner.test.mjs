@@ -102,6 +102,19 @@ test("runs the selected native engine and records AI settings", () => {
   );
 });
 
+test("omits heavy traces and snapshots from summary-only native battles", () => {
+  const battle = runNativeScenarioBattle(scenario, { includeDetails: false });
+
+  assert.equal(battle.status, "completed");
+  assert.equal(battle.winner, "Red");
+  assert.ok(battle.turns > 0);
+  assert.equal("aiTrace" in battle, false);
+  assert.equal("turnSnapshots" in battle, false);
+  assert.equal("events" in battle, false);
+  assert.equal("log" in battle, false);
+  assert.equal("finalState" in battle, false);
+});
+
 test("includes HP on initial native switch events and separates side-condition layers", () => {
   const battle = runNativeScenarioBattle(
     {

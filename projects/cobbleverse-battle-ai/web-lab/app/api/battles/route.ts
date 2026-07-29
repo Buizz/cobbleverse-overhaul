@@ -10,6 +10,7 @@ import { runAutomaticBattle } from "../../../lib/showdown-battle-runner.mjs";
 const itemResolver = createCobblemonItemResolver(itemCatalog);
 
 export async function POST(request: Request) {
+  const summaryOnly = new URL(request.url).searchParams.get("detail") === "summary";
   let payload: unknown;
   try {
     payload = await request.json();
@@ -39,16 +40,29 @@ export async function POST(request: Request) {
     );
     const battle =
       validation.scenario.battleEngine === "cobbleverse"
-        ? runNativeScenarioBattle(validation.scenario)
+        ? runNativeScenarioBattle(validation.scenario, {
+            includeDetails: !summaryOnly,
+          })
         : await runAutomaticBattle(validation.scenario);
+    const responseBattle = summaryOnly
+      ? {
+          battleId: battle.battleId,
+          scenarioId: battle.scenarioId,
+          seed: battle.seed,
+          status: battle.status,
+          winner: battle.winner,
+          turns: battle.turns,
+          durationMs: battle.durationMs,
+        }
+      : {
+          ...battle,
+          warnings: [...(battle.warnings ?? []), ...moveSupportWarnings],
+        };
     return Response.json(
       {
         ok: true,
-        scenario: validation.scenario,
-        battle: {
-          ...battle,
-          warnings: [...(battle.warnings ?? []), ...moveSupportWarnings],
-        },
+        ...(!summaryOnly && { scenario: validation.scenario }),
+        battle: responseBattle,
       },
       { status: 201 },
     );

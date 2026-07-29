@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { strFromU8, unzipSync } from "fflate";
+import { useRouter } from "next/navigation";
 import {
   BATTLE_STATUSES,
   healthFromCondition,
@@ -5454,6 +5455,7 @@ function InteractiveArena({
 }
 
 export function BattleLab() {
+  const router = useRouter();
   const [labView, setLabView] = useState<LabView>("setup");
   const [mode, setMode] = useState<BattleMode>("pve");
   const [partySource, setPartySource] = useState<PartySource>("custom");
@@ -5462,6 +5464,10 @@ export function BattleLab() {
     useState<LocalizationCatalog | null>(null);
   const [catalog, setCatalog] = useState<BattleCatalog | null>(null);
   const [sharedI18n, setSharedI18n] = useState<SharedI18nCatalog | null>(null);
+
+  useEffect(() => {
+    router.prefetch("/eve-report");
+  }, [router]);
   const [choiceTarget, setChoiceTarget] = useState<ChoiceTarget | null>(null);
   const [recentTrainerIds, setRecentTrainerIds] = useState<string[]>([]);
   const [partyOrders, setPartyOrders] = useState<Record<string, number[]>>({});
@@ -6246,7 +6252,7 @@ export function BattleLab() {
             battle: result.battle,
           }),
         );
-        window.location.assign("/eve-report");
+        router.push("/eve-report");
         return;
       }
       setNotice(

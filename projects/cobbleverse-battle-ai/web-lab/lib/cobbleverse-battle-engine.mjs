@@ -10482,12 +10482,14 @@ function compactTurnSnapshot(state) {
 export function runSimpleBattle(setup, options = {}) {
   const maxTurns = Number(options.maxTurns ?? DEFAULT_MAX_TURNS);
   const difficulty = String(options.difficulty ?? "standard");
+  const captureAiTrace = options.captureAiTrace !== false;
+  const captureTurnSnapshots = options.captureTurnSnapshots !== false;
   const aiProfiles = [0, 1].map((index) => ({
     difficulty: options.aiProfiles?.[index]?.difficulty ?? difficulty,
     strategy: options.aiProfiles?.[index]?.strategy ?? "balanced",
   }));
   let state = createSimpleBattle(setup);
-  state.turnSnapshots = [compactTurnSnapshot(state)];
+  state.turnSnapshots = captureTurnSnapshots ? [compactTurnSnapshot(state)] : [];
   while (state.status === "running" && state.turn < maxTurns) {
     const decisions = state.sides.map((_, sideIndex) => {
       const profile = aiProfiles[sideIndex];
@@ -10499,19 +10501,25 @@ export function runSimpleBattle(setup, options = {}) {
       );
       return {
         command: decision.command,
-        trace: createSimpleAiDecisionTrace(
-          state,
-          sideIndex,
-          decision,
-          profile.difficulty,
-          profile.strategy,
-        ),
+        trace: captureAiTrace
+          ? createSimpleAiDecisionTrace(
+              state,
+              sideIndex,
+              decision,
+              profile.difficulty,
+              profile.strategy,
+            )
+          : null,
       };
     });
-    state.aiTrace.push(...decisions.map((decision) => decision.trace));
+    if (captureAiTrace) {
+      state.aiTrace.push(...decisions.map((decision) => decision.trace));
+    }
     const commands = decisions.map((decision) => decision.command);
     state = resolveSimpleTurn(state, commands);
-    state.turnSnapshots.push(compactTurnSnapshot(state));
+    if (captureTurnSnapshots) {
+      state.turnSnapshots.push(compactTurnSnapshot(state));
+    }
   }
   if (state.status === "running") {
     state.status = "turn_limit";
