@@ -13,12 +13,12 @@
     "schemaVersion": 1,
     "itemCount": 7615,
     "resolutionCounts": {
-      "not_battle_item": 33,
-      "resolved": 561,
+      "not_battle_item": 35,
+      "resolved": 577,
       "unknown": 3
     }
   },
-  "trainerCount": 217,
+  "trainerCount": 220,
   "trainers": [
     {
       "id": "dbingsu-server-party",
@@ -362,6 +362,1060 @@
         "data": {
           "canTera": false,
           "officialEntry": true
+        }
+      }
+    },
+    {
+      "id": "champions-mega-mawile-dual-mode",
+      "sourceFile": "entries/custom/champions-mega-mawile-dual-mode.json",
+      "sourceGroup": "custom",
+      "name": "포챔스 메가입치트 듀얼 모드",
+      "entry": {
+        "type": "computer",
+        "priority": 990,
+        "label": "Pokémon Champions 공식 샘플",
+        "source": "Pokemon.com Mega Mawile Team Build",
+        "owner": "Joseph Ugarte",
+        "snapshotDate": "2026-07-21"
+      },
+      "battleRules": {
+        "battleType": "double",
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "mawile",
+          "resolvedSpecies": "Mawile",
+          "aspects": [],
+          "gimmicks": {
+            "mega": true
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "brave",
+          "ability": "hypercutter",
+          "heldItem": "mega_showdown:mawilite",
+          "heldItemOptions": [
+            "mega_showdown:mawilite"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "mega_showdown:mawilite",
+              "canonicalId": "mega_showdown:mawilite",
+              "status": "resolved",
+              "candidates": [
+                "mega_showdown:mawilite"
+              ],
+              "item": {
+                "id": "mega_showdown:mawilite",
+                "namespace": "mega_showdown",
+                "path": "mawilite",
+                "englishName": "Mawilite",
+                "koreanName": "입치트나이트",
+                "battleCategory": "mega",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "playrough",
+            "suckerpunch",
+            "rockslide",
+            "protect"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "attack": 252,
+            "defence": 4,
+            "specialDefence": 2
+          }
+        },
+        {
+          "slot": 2,
+          "species": "charizard",
+          "resolvedSpecies": "Charizard",
+          "aspects": [],
+          "gimmicks": {
+            "mega": true
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "modest",
+          "ability": "blaze",
+          "heldItem": "mega_showdown:charizardite_y",
+          "heldItemOptions": [
+            "mega_showdown:charizardite_y"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "mega_showdown:charizardite_y",
+              "canonicalId": "mega_showdown:charizardite_y",
+              "status": "resolved",
+              "candidates": [
+                "mega_showdown:charizardite_y"
+              ],
+              "item": {
+                "id": "mega_showdown:charizardite_y",
+                "namespace": "mega_showdown",
+                "path": "charizardite_y",
+                "englishName": "Charizardite Y",
+                "koreanName": "리자몽나이트 Y",
+                "battleCategory": "mega",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "heatwave",
+            "weatherball",
+            "solarbeam",
+            "protect"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 124,
+            "defence": 140,
+            "specialAttack": 164,
+            "speed": 82
+          }
+        },
+        {
+          "slot": 3,
+          "species": "farigiraf",
+          "resolvedSpecies": "Farigiraf",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "modest",
+          "ability": "armortail",
+          "heldItem": "cobblemon:colbur_berry",
+          "heldItemOptions": [
+            "cobblemon:colbur_berry"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:colbur_berry",
+              "canonicalId": "cobblemon:colbur_berry",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:colbur_berry"
+              ],
+              "item": {
+                "id": "cobblemon:colbur_berry",
+                "namespace": "cobblemon",
+                "path": "colbur_berry",
+                "englishName": "Colbur Berry",
+                "koreanName": "마코열매",
+                "battleCategory": "berry",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "psychic",
+            "thunderbolt",
+            "helpinghand",
+            "trickroom"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 220,
+            "defence": 100,
+            "specialAttack": 76,
+            "specialDefence": 114
+          }
+        },
+        {
+          "slot": 4,
+          "species": "garchomp",
+          "resolvedSpecies": "Garchomp",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "roughskin",
+          "heldItem": "cobblemon:life_orb",
+          "heldItemOptions": [
+            "cobblemon:life_orb"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:life_orb",
+              "canonicalId": "cobblemon:life_orb",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:life_orb"
+              ],
+              "item": {
+                "id": "cobblemon:life_orb",
+                "namespace": "cobblemon",
+                "path": "life_orb",
+                "englishName": "Life Orb",
+                "koreanName": "생명의구슬",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "dragonclaw",
+            "earthquake",
+            "rockslide",
+            "protect"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "attack": 244,
+            "defence": 14,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 5,
+          "species": "venusaur",
+          "resolvedSpecies": "Venusaur",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "modest",
+          "ability": "chlorophyll",
+          "heldItem": "cobblemon:focus_sash",
+          "heldItemOptions": [
+            "cobblemon:focus_sash"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:focus_sash",
+              "canonicalId": "cobblemon:focus_sash",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:focus_sash"
+              ],
+              "item": {
+                "id": "cobblemon:focus_sash",
+                "namespace": "cobblemon",
+                "path": "focus_sash",
+                "englishName": "Focus Sash",
+                "koreanName": "기합의띠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "leafstorm",
+            "sludgebomb",
+            "sleeppowder",
+            "protect"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 6,
+            "specialAttack": 252,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 6,
+          "species": "incineroar",
+          "resolvedSpecies": "Incineroar",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "careful",
+          "ability": "intimidate",
+          "heldItem": "cobblemon:sitrus_berry",
+          "heldItemOptions": [
+            "cobblemon:sitrus_berry"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:sitrus_berry",
+              "canonicalId": "cobblemon:sitrus_berry",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:sitrus_berry"
+              ],
+              "item": {
+                "id": "cobblemon:sitrus_berry",
+                "namespace": "cobblemon",
+                "path": "sitrus_berry",
+                "englishName": "Sitrus Berry",
+                "koreanName": "자뭉열매",
+                "battleCategory": "berry",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "flareblitz",
+            "darkestlariat",
+            "partingshot",
+            "fakeout"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 236,
+            "attack": 44,
+            "defence": 68,
+            "specialDefence": 156,
+            "speed": 4
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "strategy": "tempo",
+          "format": "champions-double"
+        }
+      }
+    },
+    {
+      "id": "champions-mega-raichu-x-rain",
+      "sourceFile": "entries/custom/champions-mega-raichu-x-rain.json",
+      "sourceGroup": "custom",
+      "name": "포챔스 메가라이츄 X 레인",
+      "entry": {
+        "type": "computer",
+        "priority": 980,
+        "label": "Pokémon Champions 공식 샘플",
+        "source": "Pokemon.com Mega Raichu X Team Build",
+        "owner": "Aaron Zheng",
+        "snapshotDate": "2026-07-14"
+      },
+      "battleRules": {
+        "battleType": "double",
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "raichu",
+          "resolvedSpecies": "Raichu",
+          "aspects": [],
+          "gimmicks": {
+            "mega": true
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "lightningrod",
+          "heldItem": "lumymon:raichunite_x",
+          "heldItemOptions": [
+            "lumymon:raichunite_x"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "lumymon:raichunite_x",
+              "canonicalId": "lumymon:raichunite_x",
+              "status": "not_battle_item",
+              "candidates": [
+                "lumymon:raichunite_x"
+              ],
+              "item": {
+                "id": "lumymon:raichunite_x",
+                "namespace": "lumymon",
+                "path": "raichunite_x",
+                "englishName": "Raichunite X",
+                "koreanName": "",
+                "battleCategory": "unverified",
+                "battleUsable": false
+              }
+            }
+          ],
+          "moveset": [
+            "fakeout",
+            "volttackle",
+            "voltswitch",
+            "raindance"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 6,
+            "attack": 252,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 2,
+          "species": "archaludon",
+          "resolvedSpecies": "Archaludon",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "modest",
+          "ability": "stamina",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "protect",
+            "dragonpulse",
+            "flashcannon",
+            "electroshot"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "specialDefence": 204,
+            "speed": 54
+          }
+        },
+        {
+          "slot": 3,
+          "species": "pelipper",
+          "resolvedSpecies": "Pelipper",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "bold",
+          "ability": "drizzle",
+          "heldItem": "cobblemon:sitrus_berry",
+          "heldItemOptions": [
+            "cobblemon:sitrus_berry"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:sitrus_berry",
+              "canonicalId": "cobblemon:sitrus_berry",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:sitrus_berry"
+              ],
+              "item": {
+                "id": "cobblemon:sitrus_berry",
+                "namespace": "cobblemon",
+                "path": "sitrus_berry",
+                "englishName": "Sitrus Berry",
+                "koreanName": "자뭉열매",
+                "battleCategory": "berry",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "weatherball",
+            "tailwind",
+            "hurricane",
+            "wideguard"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 28,
+            "specialDefence": 148,
+            "speed": 82
+          }
+        },
+        {
+          "slot": 4,
+          "species": "gholdengo",
+          "resolvedSpecies": "Gholdengo",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "modest",
+          "ability": "goodasgold",
+          "heldItem": "cobblemon:life_orb",
+          "heldItemOptions": [
+            "cobblemon:life_orb"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:life_orb",
+              "canonicalId": "cobblemon:life_orb",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:life_orb"
+              ],
+              "item": {
+                "id": "cobblemon:life_orb",
+                "namespace": "cobblemon",
+                "path": "life_orb",
+                "englishName": "Life Orb",
+                "koreanName": "생명의구슬",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "makeitrain",
+            "nastyplot",
+            "shadowball",
+            "protect"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 6,
+            "specialAttack": 252,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 5,
+          "species": "sinistcha",
+          "resolvedSpecies": "Sinistcha",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "calm",
+          "ability": "hospitality",
+          "heldItem": "cobblemon:colbur_berry",
+          "heldItemOptions": [
+            "cobblemon:colbur_berry"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:colbur_berry",
+              "canonicalId": "cobblemon:colbur_berry",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:colbur_berry"
+              ],
+              "item": {
+                "id": "cobblemon:colbur_berry",
+                "namespace": "cobblemon",
+                "path": "colbur_berry",
+                "englishName": "Colbur Berry",
+                "koreanName": "마코열매",
+                "battleCategory": "berry",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "lifedew",
+            "ragepowder",
+            "matchagotcha",
+            "trickroom"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 108,
+            "specialDefence": 150
+          }
+        },
+        {
+          "slot": 6,
+          "species": "talonflame",
+          "resolvedSpecies": "Talonflame",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "galewings",
+          "heldItem": "cobblemon:sharp_beak",
+          "heldItemOptions": [
+            "cobblemon:sharp_beak"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:sharp_beak",
+              "canonicalId": "cobblemon:sharp_beak",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:sharp_beak"
+              ],
+              "item": {
+                "id": "cobblemon:sharp_beak",
+                "namespace": "cobblemon",
+                "path": "sharp_beak",
+                "englishName": "Sharp Beak",
+                "koreanName": "예리한부리",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "dualwingbeat",
+            "willowisp",
+            "tailwind",
+            "protect"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 6,
+            "attack": 252,
+            "speed": 252
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "strategy": "field-control",
+          "format": "champions-double"
+        }
+      }
+    },
+    {
+      "id": "champions-mega-emboar-setup",
+      "sourceFile": "entries/custom/champions-mega-emboar-setup.json",
+      "sourceGroup": "custom",
+      "name": "포챔스 메가염무왕 셋업",
+      "entry": {
+        "type": "computer",
+        "priority": 970,
+        "label": "Pokémon Champions 공식 샘플",
+        "source": "Pokemon.com Mega Emboar Team Build",
+        "owner": "Jamie Boyt",
+        "snapshotDate": "2026-05-13"
+      },
+      "battleRules": {
+        "battleType": "double",
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "emboar",
+          "resolvedSpecies": "Emboar",
+          "aspects": [],
+          "gimmicks": {
+            "mega": true
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "adamant",
+          "ability": "blaze",
+          "heldItem": "lumymon:emboarite",
+          "heldItemOptions": [
+            "lumymon:emboarite"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "lumymon:emboarite",
+              "canonicalId": "lumymon:emboarite",
+              "status": "not_battle_item",
+              "candidates": [
+                "lumymon:emboarite"
+              ],
+              "item": {
+                "id": "lumymon:emboarite",
+                "namespace": "lumymon",
+                "path": "emboarite",
+                "englishName": "Emboarite",
+                "koreanName": "",
+                "battleCategory": "unverified",
+                "battleUsable": false
+              }
+            }
+          ],
+          "moveset": [
+            "heatcrash",
+            "drainpunch",
+            "bulkup",
+            "protect"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 236,
+            "attack": 92,
+            "defence": 124,
+            "speed": 58
+          }
+        },
+        {
+          "slot": 2,
+          "species": "primarina",
+          "resolvedSpecies": "Primarina",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "modest",
+          "ability": "liquidvoice",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "hypervoice",
+            "moonblast",
+            "calmmind",
+            "protect"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 108,
+            "specialAttack": 108,
+            "speed": 42
+          }
+        },
+        {
+          "slot": 3,
+          "species": "sinistcha",
+          "resolvedSpecies": "Sinistcha",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "bold",
+          "ability": "hospitality",
+          "heldItem": "cobblemon:sitrus_berry",
+          "heldItemOptions": [
+            "cobblemon:sitrus_berry"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:sitrus_berry",
+              "canonicalId": "cobblemon:sitrus_berry",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:sitrus_berry"
+              ],
+              "item": {
+                "id": "cobblemon:sitrus_berry",
+                "namespace": "cobblemon",
+                "path": "sitrus_berry",
+                "englishName": "Sitrus Berry",
+                "koreanName": "자뭉열매",
+                "battleCategory": "berry",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "matchagotcha",
+            "lifedew",
+            "ragepowder",
+            "trickroom"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 28,
+            "specialDefence": 230
+          }
+        },
+        {
+          "slot": 4,
+          "species": "weavile",
+          "resolvedSpecies": "Weavile",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "pickpocket",
+          "heldItem": "cobblemon:kings_rock",
+          "heldItemOptions": [
+            "cobblemon:kings_rock"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:kings_rock",
+              "canonicalId": "cobblemon:kings_rock",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:kings_rock"
+              ],
+              "item": {
+                "id": "cobblemon:kings_rock",
+                "namespace": "cobblemon",
+                "path": "kings_rock",
+                "englishName": "Kings Rock",
+                "koreanName": "왕의징표석",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "knockoff",
+            "icespinner",
+            "fakeout",
+            "fling"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 44,
+            "speed": 214
+          }
+        },
+        {
+          "slot": 5,
+          "species": "aerodactyl",
+          "resolvedSpecies": "Aerodactyl",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "unnerve",
+          "heldItem": "cobblemon:focus_sash",
+          "heldItemOptions": [
+            "cobblemon:focus_sash"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:focus_sash",
+              "canonicalId": "cobblemon:focus_sash",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:focus_sash"
+              ],
+              "item": {
+                "id": "cobblemon:focus_sash",
+                "namespace": "cobblemon",
+                "path": "focus_sash",
+                "englishName": "Focus Sash",
+                "koreanName": "기합의띠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "rockslide",
+            "dualwingbeat",
+            "tailwind",
+            "protect"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 6,
+            "attack": 252,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 6,
+          "species": "garchomp",
+          "resolvedSpecies": "Garchomp",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "roughskin",
+          "heldItem": "cobblemon:white_herb",
+          "heldItemOptions": [
+            "cobblemon:white_herb"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:white_herb",
+              "canonicalId": "cobblemon:white_herb",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:white_herb"
+              ],
+              "item": {
+                "id": "cobblemon:white_herb",
+                "namespace": "cobblemon",
+                "path": "white_herb",
+                "englishName": "White Herb",
+                "koreanName": "하양허브",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "stompingtantrum",
+            "dragonclaw",
+            "swordsdance",
+            "protect"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 6,
+            "attack": 252,
+            "speed": 252
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "strategy": "setup",
+          "format": "champions-double"
         }
       }
     },

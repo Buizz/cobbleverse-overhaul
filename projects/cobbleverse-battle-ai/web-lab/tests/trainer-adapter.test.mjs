@@ -162,8 +162,8 @@ test("builds the prioritized custom and RCT trainer index", async () => {
   const payload = await buildTrainerIndex();
 
   assert.equal(payload.schemaVersion, 3);
-  assert.equal(payload.trainerCount, 217);
-  assert.equal(payload.trainers.length, 217);
+  assert.equal(payload.trainerCount, 220);
+  assert.equal(payload.trainers.length, 220);
   assert.deepEqual(payload.sourceGroups, ["custom", "rct"]);
   assert.equal(payload.trainers[0].id, "dbingsu-server-party");
   assert.equal(payload.trainers[0].sourceGroup, "custom");

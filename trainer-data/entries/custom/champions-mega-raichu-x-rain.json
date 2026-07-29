@@ -1,0 +1,107 @@
+{
+  "name": "포챔스 메가라이츄 X 레인",
+  "entry": {
+    "type": "computer",
+    "priority": 980,
+    "label": "Pokémon Champions 공식 샘플",
+    "source": "Pokemon.com Mega Raichu X Team Build",
+    "owner": "Aaron Zheng",
+    "snapshotDate": "2026-07-14"
+  },
+  "battleRules": {
+    "battleType": "double",
+    "maxItemUses": 0
+  },
+  "bag": [],
+  "team": [
+    {
+      "species": "raichu",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "lightningrod",
+      "heldItem": "lumymon:raichunite_x",
+      "moveset": ["fakeout", "volttackle", "voltswitch", "raindance"],
+      "gimmicks": {"mega": true},
+      "champions": {
+        "statPoints": {"hp": 2, "attack": 32, "speed": 32},
+        "statAlignment": "jolly"
+      },
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 6, "attack": 252, "speed": 252}
+    },
+    {
+      "species": "archaludon",
+      "level": 100,
+      "nature": "modest",
+      "ability": "stamina",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": ["protect", "dragonpulse", "flashcannon", "electroshot"],
+      "champions": {
+        "statPoints": {"hp": 32, "special_defence": 26, "speed": 8},
+        "statAlignment": "modest"
+      },
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 252, "special_defence": 204, "speed": 54}
+    },
+    {
+      "species": "pelipper",
+      "level": 100,
+      "nature": "bold",
+      "ability": "drizzle",
+      "heldItem": "cobblemon:sitrus_berry",
+      "moveset": ["weatherball", "tailwind", "hurricane", "wideguard"],
+      "champions": {
+        "statPoints": {"hp": 32, "defence": 4, "special_defence": 19, "speed": 11},
+        "statAlignment": "bold"
+      },
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 252, "defence": 28, "special_defence": 148, "speed": 82}
+    },
+    {
+      "species": "gholdengo",
+      "level": 100,
+      "nature": "modest",
+      "ability": "goodasgold",
+      "heldItem": "cobblemon:life_orb",
+      "moveset": ["makeitrain", "nastyplot", "shadowball", "protect"],
+      "champions": {
+        "statPoints": {"hp": 2, "special_attack": 32, "speed": 32},
+        "statAlignment": "modest"
+      },
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 6, "special_attack": 252, "speed": 252}
+    },
+    {
+      "species": "sinistcha",
+      "level": 100,
+      "nature": "calm",
+      "ability": "hospitality",
+      "heldItem": "cobblemon:colbur_berry",
+      "moveset": ["lifedew", "ragepowder", "matchagotcha", "trickroom"],
+      "champions": {
+        "statPoints": {"hp": 32, "defence": 14, "special_defence": 20},
+        "statAlignment": "calm"
+      },
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 0},
+      "evs": {"hp": 252, "defence": 108, "special_defence": 150}
+    },
+    {
+      "species": "talonflame",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "galewings",
+      "heldItem": "cobblemon:sharp_beak",
+      "moveset": ["dualwingbeat", "willowisp", "tailwind", "protect"],
+      "champions": {
+        "statPoints": {"hp": 2, "attack": 32, "speed": 32},
+        "statAlignment": "jolly"
+      },
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 6, "attack": 252, "speed": 252}
+    }
+  ],
+  "ai": {
+    "type": "cobbleverse",
+    "data": {"strategy": "field-control", "format": "champions-double"}
+  }
+}

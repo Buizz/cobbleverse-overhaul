@@ -1,0 +1,108 @@
+{
+  "name": "포챔스 메가입치트 듀얼 모드",
+  "entry": {
+    "type": "computer",
+    "priority": 990,
+    "label": "Pokémon Champions 공식 샘플",
+    "source": "Pokemon.com Mega Mawile Team Build",
+    "owner": "Joseph Ugarte",
+    "snapshotDate": "2026-07-21"
+  },
+  "battleRules": {
+    "battleType": "double",
+    "maxItemUses": 0
+  },
+  "bag": [],
+  "team": [
+    {
+      "species": "mawile",
+      "level": 100,
+      "nature": "brave",
+      "ability": "hypercutter",
+      "heldItem": "mega_showdown:mawilite",
+      "moveset": ["playrough", "suckerpunch", "rockslide", "protect"],
+      "gimmicks": {"mega": true},
+      "champions": {
+        "statPoints": {"hp": 32, "attack": 32, "defence": 1, "special_defence": 1},
+        "statAlignment": "brave"
+      },
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 0},
+      "evs": {"hp": 252, "attack": 252, "defence": 4, "special_defence": 2}
+    },
+    {
+      "species": "charizard",
+      "level": 100,
+      "nature": "modest",
+      "ability": "blaze",
+      "heldItem": "mega_showdown:charizardite_y",
+      "moveset": ["heatwave", "weatherball", "solarbeam", "protect"],
+      "gimmicks": {"mega": true},
+      "champions": {
+        "statPoints": {"hp": 16, "defence": 18, "special_attack": 21, "speed": 11},
+        "statAlignment": "modest"
+      },
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 124, "defence": 140, "special_attack": 164, "speed": 82}
+    },
+    {
+      "species": "farigiraf",
+      "level": 100,
+      "nature": "modest",
+      "ability": "armortail",
+      "heldItem": "cobblemon:colbur_berry",
+      "moveset": ["psychic", "thunderbolt", "helpinghand", "trickroom"],
+      "champions": {
+        "statPoints": {"hp": 28, "defence": 13, "special_attack": 10, "special_defence": 15},
+        "statAlignment": "modest"
+      },
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 0},
+      "evs": {"hp": 220, "defence": 100, "special_attack": 76, "special_defence": 114}
+    },
+    {
+      "species": "garchomp",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "roughskin",
+      "heldItem": "cobblemon:life_orb",
+      "moveset": ["dragonclaw", "earthquake", "rockslide", "protect"],
+      "champions": {
+        "statPoints": {"attack": 31, "defence": 3, "speed": 32},
+        "statAlignment": "jolly"
+      },
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 31},
+      "evs": {"attack": 244, "defence": 14, "speed": 252}
+    },
+    {
+      "species": "venusaur",
+      "level": 100,
+      "nature": "modest",
+      "ability": "chlorophyll",
+      "heldItem": "cobblemon:focus_sash",
+      "moveset": ["leafstorm", "sludgebomb", "sleeppowder", "protect"],
+      "champions": {
+        "statPoints": {"hp": 2, "special_attack": 32, "speed": 32},
+        "statAlignment": "modest"
+      },
+      "ivs": {"hp": 31, "attack": 0, "defence": 31, "special_attack": 31, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 6, "special_attack": 252, "speed": 252}
+    },
+    {
+      "species": "incineroar",
+      "level": 100,
+      "nature": "careful",
+      "ability": "intimidate",
+      "heldItem": "cobblemon:sitrus_berry",
+      "moveset": ["flareblitz", "darkestlariat", "partingshot", "fakeout"],
+      "champions": {
+        "statPoints": {"hp": 30, "attack": 6, "defence": 9, "special_defence": 20, "speed": 1},
+        "statAlignment": "careful"
+      },
+      "ivs": {"hp": 31, "attack": 31, "defence": 31, "special_attack": 0, "special_defence": 31, "speed": 31},
+      "evs": {"hp": 236, "attack": 44, "defence": 68, "special_defence": 156, "speed": 4}
+    }
+  ],
+  "ai": {
+    "type": "cobbleverse",
+    "data": {"strategy": "tempo", "format": "champions-double"}
+  }
+}

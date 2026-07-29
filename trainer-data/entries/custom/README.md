@@ -19,9 +19,30 @@ Cobbleverse에서 직접 관리하는 플레이어 엔트리와 전투 AI 검증
 - `sv9-sand-balance.json`: 모래날림과 모래헤치기 연계, 날씨 수혜 교체를
   시험하는 모래바람 밸런스
 
-세 팀은 2025년 말 SV OU 샘플 팀과 2026년 초 대회 사용 경향에서 확인한
-역할 조합을 참고해 프로젝트에서 새로 구성했다. 특정 선수의 대회 엔트리를
-그대로 복제한 자료는 아니다.
+SV 팀은 2026년 7월 13일 갱신된 SV OU 샘플과 2026년 SPL XVII 공개
+팀 덤프에서 확인한 역할 조합을 참고해 프로젝트에서 새로 구성했다. 특정
+선수의 대회 엔트리를 그대로 복제한 자료는 아니다.
+
+## Pokémon Champions 공식 샘플
+
+- `champions-mega-mawile-dual-mode.json`: 2026-07-21 공식 메가입치트
+  팀. 트릭룸과 메가리자몽 Y 쾌속 모드를 함께 사용한다.
+- `champions-mega-raichu-x-rain.json`: 2026-07-14 공식 메가라이츄 X
+  팀. 비, 일렉트릭필드, 순풍과 브리두라스 전개를 사용한다.
+- `champions-mega-emboar-setup.json`: 2026-05-13 공식 메가염무왕
+  팀. 벌크업/명상 전개를 분노가루와 속도 제어로 지원한다.
+
+포챔스 원문의 Stat Points는 각 포켓몬의 `champions.statPoints`에
+보존했다. 현재 엔진에서 계산할 수 있도록 동일한 투자 비율의 EV 값도 함께
+기록했다. 이 엔트리들은 더블배틀을 전제로 한다.
+
+참고 자료:
+
+- https://www.smogon.com/forums/threads/sv-ou-sample-teams-new-samples-added-post-wcop.3712513/
+- https://www.smogon.com/forums/threads/spl-xvii-ou-discussion-thread.3775874/
+- https://www.pokemon.com/br/features/pokemon-champions-como-montar-uma-equipe-com-mega-mawile
+- https://www.pokemon.com/us/features/pokemon-champions-how-to-build-a-mega-raichu-x-team
+- https://www.pokemon.com/us/features/pokemon-champions-how-to-build-a-mega-emboar-team
 
 실전 구성을 우선 보존하므로 아직 자체 엔진에서 구현되지 않은 특성도
 포함한다. 엄격 특성 검증에서 발견되는 항목은 후속 특성 구현 체크리스트의
@@ -42,3 +63,19 @@ Cobbleverse에서 직접 관리하는 플레이어 엔트리와 전투 AI 검증
 - 모래헤치기(`sandrush`)
 - 불꽃몸(`flamebody`)
 - 불굴의방패(`dauntlessshield`)
+
+포챔스 샘플로 추가된 후속 구현 대상:
+
+- 괴력집게(`hypercutter`)
+- 맹화(`blaze`)
+- 테일아머(`armortail`)
+- 까칠한피부(`roughskin`)
+- 엽록소(`chlorophyll`)
+- 피뢰침(`lightningrod`)
+- 지구력(`stamina`)
+- 잔비(`drizzle`)
+- 황금몸(`goodasgold`)
+- 대접(`hospitality`)
+- 질풍날개(`galewings`)
+- 촉촉보이스(`liquidvoice`)
+- 메가염무왕과 메가라이츄 X의 폼, 종족값, 타입과 메가 특성
