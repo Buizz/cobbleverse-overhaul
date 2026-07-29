@@ -35,7 +35,8 @@ test("server-renders the Cobbleverse battle lab shell", async () => {
   assert.match(html, /<title>Cobbleverse Battle Lab(?: · Cobbleverse)?<\/title>/i);
   assert.match(html, /PvE 테스트/);
   assert.match(html, /EvE 테스트/);
-  assert.match(html, /시나리오 생성/);
+  assert.match(html, /검증하고 배틀 시작/);
+  assert.match(html, /저장된 전투 이어하기/);
   assert.match(html, /TEST SEED/);
   assert.doesNotMatch(html, /react-loading-skeleton|Your site is taking shape/);
 });

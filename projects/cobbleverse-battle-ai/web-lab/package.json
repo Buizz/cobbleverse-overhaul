@@ -14,7 +14,7 @@
     "sync:i18n": "node ../tools/sync-pokemon-i18n.mjs",
     "sync:ai-moves": "npm run sync:i18n && node ../tools/classify-ai-moves.mjs",
     "predev": "npm run sync:trainers && npm run sync:i18n && npm run audit:species && npm run audit:mechanics",
-    "dev": "vinext dev",
+    "dev": "vinext dev --port 3000",
     "build": "npm run sync:trainers && npm run sync:i18n && npm run audit:species && npm run audit:mechanics && vinext build",
     "prestart": "npm run sync:trainers && npm run sync:i18n && npm run audit:species && npm run audit:mechanics",
     "start": "vinext start",

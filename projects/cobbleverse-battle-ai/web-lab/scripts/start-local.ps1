@@ -23,6 +23,20 @@ function Test-LocalPort {
     }
 }
 
+function Test-PortOccupied {
+    $client = New-Object System.Net.Sockets.TcpClient
+    try {
+        $connection = $client.ConnectAsync("127.0.0.1", 3000)
+        return $connection.Wait(500) -and $client.Connected
+    }
+    catch {
+        return $false
+    }
+    finally {
+        $client.Dispose()
+    }
+}
+
 function Open-LocalPage {
     $browserInfo = New-Object System.Diagnostics.ProcessStartInfo
     $browserInfo.FileName = $localUrl
@@ -68,6 +82,11 @@ if (Test-LocalPort) {
         Open-LocalPage
     }
     exit 0
+}
+
+if (Test-PortOccupied) {
+    Write-Error "Port 3000 is already in use by another process. Cobbleverse Battle Lab only uses http://localhost:3000; stop the occupying process and run this script again."
+    exit 1
 }
 
 $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue

@@ -2,7 +2,15 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { strFromU8, unzipSync } from "fflate";
 import {
   BATTLE_STATUSES,
@@ -23,6 +31,7 @@ import {
 
 type BattleMode = "pve" | "eve";
 type PartySource = "custom" | "preset";
+type LabView = "setup" | "editor";
 
 type Pokemon = {
   slot: number;
@@ -2303,6 +2312,151 @@ function AiProfileControls({
   );
 }
 
+type TournamentSelectOption = {
+  value: string;
+  label: string;
+  disabled?: boolean;
+};
+
+function TournamentSelect({
+  ariaLabel,
+  value,
+  options,
+  disabled = false,
+  onChange,
+}: {
+  ariaLabel: string;
+  value: string;
+  options: TournamentSelectOption[];
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const listboxId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
+  const selected = options[selectedIndex] ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () =>
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [open]);
+
+  const focusOption = (index: number, direction: 1 | -1) => {
+    let next = index;
+    for (let attempts = 0; attempts < options.length; attempts += 1) {
+      next = (next + direction + options.length) % options.length;
+      if (!options[next]?.disabled) {
+        optionRefs.current[next]?.focus();
+        return;
+      }
+    }
+  };
+
+  const openAndFocus = (index = selectedIndex) => {
+    setOpen(true);
+    window.requestAnimationFrame(() => optionRefs.current[index]?.focus());
+  };
+
+  const handleTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      openAndFocus(selectedIndex);
+    }
+  };
+
+  const handleOptionKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusOption(index, 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusOption(index, -1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      optionRefs.current.find((option) => !option?.disabled)?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      [...optionRefs.current]
+        .reverse()
+        .find((option) => !option?.disabled)
+        ?.focus();
+    }
+  };
+
+  return (
+    <div className={`tournament-select ${open ? "open" : ""}`} ref={rootRef}>
+      <button
+        aria-controls={listboxId}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label={ariaLabel}
+        className="tournament-select-trigger"
+        disabled={disabled}
+        onClick={() => (open ? setOpen(false) : openAndFocus())}
+        onKeyDown={handleTriggerKeyDown}
+        ref={triggerRef}
+        role="combobox"
+        type="button"
+      >
+        <span>{selected?.label ?? value}</span>
+        <b aria-hidden="true" />
+      </button>
+      {open ? (
+        <div
+          aria-label={`${ariaLabel} 선택 목록`}
+          className="tournament-select-menu"
+          id={listboxId}
+          role="listbox"
+        >
+          {options.map((option, index) => (
+            <button
+              aria-selected={option.value === value}
+              className={option.value === value ? "selected" : ""}
+              disabled={option.disabled}
+              key={option.value}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+                triggerRef.current?.focus();
+              }}
+              onKeyDown={(event) => handleOptionKeyDown(event, index)}
+              ref={(element) => {
+                optionRefs.current[index] = element;
+              }}
+              role="option"
+              tabIndex={-1}
+              type="button"
+            >
+              <span>{option.label}</span>
+              {option.value === value ? <b aria-hidden="true">✓</b> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function TeamStrip({
   trainer,
   emptyText,
@@ -2604,6 +2758,63 @@ function PersistentBattleSaves({
   );
 }
 
+function CustomPartySummary({
+  party,
+  localization,
+  entryName,
+  onEdit,
+}: {
+  party: CustomPokemon[];
+  localization: LocalizationCatalog | null;
+  entryName: string;
+  onEdit: () => void;
+}) {
+  const memberCount = customPartyMemberCount(party);
+  return (
+    <section className="custom-party-summary" aria-label="직접 구성 엔트리 요약">
+      <header>
+        <div>
+          <small>CUSTOM ENTRY</small>
+          <strong>{entryName.trim() || "편집 중인 엔트리"}</strong>
+        </div>
+        <span className={memberCount === 6 ? "valid" : ""}>{memberCount}/6</span>
+      </header>
+      <div>
+        {party.map((pokemon, index) => (
+          <article
+            className={pokemon.species.trim() ? "filled" : ""}
+            key={`${index}-${pokemon.species}`}
+          >
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            {pokemon.species.trim() ? (
+              <>
+                <PokemonSprite species={pokemon.species} alt="" />
+                <strong>{localizedSpecies(localization, pokemon.species)}</strong>
+                <small>Lv.{pokemon.level}</small>
+              </>
+            ) : (
+              <>
+                <b>+</b>
+                <strong>빈 슬롯</strong>
+              </>
+            )}
+          </article>
+        ))}
+      </div>
+      <footer>
+        <p>
+          {memberCount === 6
+            ? "전투에 사용할 엔트리가 준비되었습니다."
+            : `${6 - memberCount}마리를 더 구성해야 합니다.`}
+        </p>
+        <button type="button" onClick={onEdit}>
+          엔트리 편집 열기
+        </button>
+      </footer>
+    </section>
+  );
+}
+
 function CustomPartyEditor({
   party,
   onChange,
@@ -2662,48 +2873,139 @@ function CustomPartyEditor({
     );
   };
 
+  const [selectedPokemonIndex, setSelectedPokemonIndex] = useState(0);
+  const pokemon = party[selectedPokemonIndex] ?? party[0];
+  const selectedSpecies = catalog?.species.find(
+    (entry) => entry.id === dexId(pokemon.species),
+  );
+  const formOptions = selectedSpecies
+    ? catalog?.species.filter(
+        (entry) =>
+          entry.number === selectedSpecies.number &&
+          entry.id !== selectedSpecies.id,
+      ) ?? []
+    : [];
+  const evTotal = pokemonStatKeys.reduce(
+    (total, stat) => total + (pokemon.evs[stat] ?? 0),
+    0,
+  );
+
   return (
-    <div className="custom-grid">
-      {party.map((pokemon, index) => {
-        const selectedSpecies = catalog?.species.find(
-          (entry) => entry.id === dexId(pokemon.species),
-        );
-        const formOptions = selectedSpecies
-          ? catalog?.species.filter(
-              (entry) =>
-                entry.number === selectedSpecies.number &&
-                entry.id !== selectedSpecies.id,
-            ) ?? []
-          : [];
-        return (
-          <article className="custom-card" key={index}>
-          <header>
-            <span className="slot-number">{String(index + 1).padStart(2, "0")}</span>
+    <div className="focused-entry-editor">
+      <nav className="focused-party-tabs" aria-label="편집할 포켓몬 선택">
+        {party.map((member, index) => (
+          <button
+            type="button"
+            className={selectedPokemonIndex === index ? "active" : ""}
+            key={index}
+            onClick={() => setSelectedPokemonIndex(index)}
+            aria-pressed={selectedPokemonIndex === index}
+          >
+            <span>{index + 1}</span>
+            {member.species ? (
+              <PokemonSprite species={member.species} alt="" />
+            ) : (
+              <b>+</b>
+            )}
             <strong>
-              {pokemon.species
-                ? localizedSpecies(localization, pokemon.species)
+              {member.species
+                ? localizedSpecies(localization, member.species)
                 : "빈 슬롯"}
             </strong>
+            <small>{member.species ? `Lv.${member.level}` : "포켓몬 추가"}</small>
+          </button>
+        ))}
+      </nav>
+
+      <article className="focused-pokemon-editor">
+        <aside className="focused-pokemon-preview">
+          <span className="slot-number">
+            SLOT {String(selectedPokemonIndex + 1).padStart(2, "0")}
+          </span>
+          <div>
             {pokemon.species ? (
               <PokemonSprite
-                className="custom-card-sprite"
+                className="focused-pokemon-sprite"
                 species={pokemon.species}
                 alt=""
               />
-            ) : null}
+            ) : (
+              <button
+                type="button"
+                className="empty-pokemon-prompt"
+                onClick={() =>
+                  onOpenChoice({
+                    kind: "pokemon",
+                    pokemonIndex: selectedPokemonIndex,
+                  })
+                }
+                disabled={!catalog}
+              >
+                <b>+</b>
+                <span>포켓몬 선택</span>
+              </button>
+            )}
+          </div>
+          <h3>
+            {pokemon.species
+              ? localizedSpecies(localization, pokemon.species)
+              : "빈 슬롯"}
+          </h3>
+          <p>{selectedSpecies?.forme || "기본 모습"} · Lv.{pokemon.level}</p>
+          <div className="focused-preview-actions">
+            <button
+              type="button"
+              onClick={() =>
+                onOpenChoice({
+                  kind: "pokemon",
+                  pokemonIndex: selectedPokemonIndex,
+                })
+              }
+              disabled={!catalog}
+            >
+              포켓몬 변경
+            </button>
+            <button
+              type="button"
+              className="danger"
+              onClick={() =>
+                onChange(
+                  party.map((member, index) =>
+                    index === selectedPokemonIndex ? emptyPokemon() : member,
+                  ),
+                )
+              }
+              disabled={!pokemon.species}
+            >
+              슬롯 비우기
+            </button>
+          </div>
+        </aside>
+
+        <section className="focused-profile-panel">
+          <header>
+            <span>BATTLE PROFILE</span>
+            <strong>기본 설정</strong>
           </header>
-          <div className="custom-fields">
+          <div className="focused-profile-fields">
             <label className="wide">
               포켓몬
               <span className="editor-picker-input">
                 <input
                   value={pokemon.species}
-                  onChange={(event) => update(index, "species", event.target.value)}
+                  onChange={(event) =>
+                    update(selectedPokemonIndex, "species", event.target.value)
+                  }
                   placeholder="예: garchomp"
                 />
                 <button
                   type="button"
-                  onClick={() => onOpenChoice({ kind: "pokemon", pokemonIndex: index })}
+                  onClick={() =>
+                    onOpenChoice({
+                      kind: "pokemon",
+                      pokemonIndex: selectedPokemonIndex,
+                    })
+                  }
                   disabled={!catalog}
                 >
                   선택
@@ -2714,7 +3016,9 @@ function CustomPartyEditor({
               폼/모습
               <select
                 value={pokemon.species}
-                onChange={(event) => update(index, "species", event.target.value)}
+                onChange={(event) =>
+                  update(selectedPokemonIndex, "species", event.target.value)
+                }
                 disabled={!selectedSpecies || formOptions.length === 0}
               >
                 <option value={pokemon.species}>
@@ -2735,7 +3039,11 @@ function CustomPartyEditor({
                 max="100"
                 value={pokemon.level}
                 onChange={(event) =>
-                  update(index, "level", Math.min(100, Math.max(1, Number(event.target.value))))
+                  update(
+                    selectedPokemonIndex,
+                    "level",
+                    Math.min(100, Math.max(1, Number(event.target.value))),
+                  )
                 }
               />
             </label>
@@ -2744,12 +3052,19 @@ function CustomPartyEditor({
               <span className="editor-picker-input">
                 <input
                   value={pokemon.ability}
-                  onChange={(event) => update(index, "ability", event.target.value)}
+                  onChange={(event) =>
+                    update(selectedPokemonIndex, "ability", event.target.value)
+                  }
                   placeholder="예: roughskin"
                 />
                 <button
                   type="button"
-                  onClick={() => onOpenChoice({ kind: "ability", pokemonIndex: index })}
+                  onClick={() =>
+                    onOpenChoice({
+                      kind: "ability",
+                      pokemonIndex: selectedPokemonIndex,
+                    })
+                  }
                   disabled={!catalog}
                 >
                   선택
@@ -2761,12 +3076,19 @@ function CustomPartyEditor({
               <span className="editor-picker-input">
                 <input
                   value={pokemon.heldItem}
-                  onChange={(event) => update(index, "heldItem", event.target.value)}
+                  onChange={(event) =>
+                    update(selectedPokemonIndex, "heldItem", event.target.value)
+                  }
                   placeholder="예: rocky_helmet"
                 />
                 <button
                   type="button"
-                  onClick={() => onOpenChoice({ kind: "item", pokemonIndex: index })}
+                  onClick={() =>
+                    onOpenChoice({
+                      kind: "item",
+                      pokemonIndex: selectedPokemonIndex,
+                    })
+                  }
                   disabled={!catalog}
                 >
                   선택
@@ -2777,7 +3099,9 @@ function CustomPartyEditor({
               테라타입
               <select
                 value={pokemon.tera}
-                onChange={(event) => update(index, "tera", event.target.value)}
+                onChange={(event) =>
+                  update(selectedPokemonIndex, "tera", event.target.value)
+                }
               >
                 <option value="">지정 안 함</option>
                 {Object.entries(pokemonTypeNames).map(([type, name]) => (
@@ -2787,102 +3111,217 @@ function CustomPartyEditor({
                 ))}
               </select>
             </label>
-            <div className="custom-gimmick-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={pokemon.dynamax}
-                  onChange={(event) =>
-                    update(index, "dynamax", event.target.checked)
-                  }
-                />
-                <span>AI 다이맥스 강제</span>
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={pokemon.gmax}
-                  onChange={(event) => {
-                    const checked = event.target.checked;
-                    onChange(
-                      party.map((member, memberIndex) =>
-                        memberIndex === index
-                          ? {
-                              ...member,
-                              gmax: checked,
-                              dynamax: checked || member.dynamax,
-                            }
-                          : member,
-                      ),
-                    );
-                  }}
-                />
-                <span>거다이맥스 개체</span>
-              </label>
-            </div>
           </div>
-          <details className="stat-editor">
-            <summary>개체값 / 노력치</summary>
-            <div>
-              {pokemonStatKeys.map((stat) => (
-                <label key={`iv-${stat}`}>
-                  <span>IV {pokemonStatNames[stat]}</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="31"
-                    value={pokemon.ivs[stat] ?? 31}
-                    onChange={(event) =>
-                      updateStat(index, "ivs", stat, Number(event.target.value))
-                    }
-                  />
-                </label>
-              ))}
-              {pokemonStatKeys.map((stat) => (
-                <label key={`ev-${stat}`}>
-                  <span>EV {pokemonStatNames[stat]}</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="252"
-                    value={pokemon.evs[stat] ?? 0}
-                    onChange={(event) =>
-                      updateStat(index, "evs", stat, Number(event.target.value))
-                    }
-                  />
-                </label>
-              ))}
+          <div className="focused-gimmick-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={pokemon.dynamax}
+                onChange={(event) =>
+                  update(selectedPokemonIndex, "dynamax", event.target.checked)
+                }
+              />
+              <span>AI 다이맥스 강제</span>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={pokemon.gmax}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  onChange(
+                    party.map((member, index) =>
+                      index === selectedPokemonIndex
+                        ? {
+                            ...member,
+                            gmax: checked,
+                            dynamax: checked || member.dynamax,
+                          }
+                        : member,
+                    ),
+                  );
+                }}
+              />
+              <span>거다이맥스 개체</span>
+            </label>
+          </div>
+        </section>
+
+        <section className="focused-stat-panel">
+          <header>
+            <span>TRAINING</span>
+            <strong>개체값 · 노력치</strong>
+            <small>EV {evTotal}/510</small>
+          </header>
+          <div className="focused-stat-table">
+            <div className="focused-stat-heading">
+              <span>능력치</span>
+              <span>IV</span>
+              <span>EV</span>
             </div>
-          </details>
-          <div className="moves-grid">
-            {pokemon.moves.map((move, moveIndex) => (
-              <div className="move-editor-field" key={moveIndex}>
-                <span>{String(moveIndex + 1).padStart(2, "0")}</span>
+            {pokemonStatKeys.map((stat) => (
+              <label key={stat}>
+                <strong>{pokemonStatNames[stat]}</strong>
                 <input
-                  value={move}
-                  onChange={(event) => updateMove(index, moveIndex, event.target.value)}
-                  aria-label={`${index + 1}번 포켓몬 ${moveIndex + 1}번 기술`}
-                  placeholder={`기술 ${moveIndex + 1}`}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpenChoice({
-                      kind: "move",
-                      pokemonIndex: index,
-                      moveIndex,
-                    })
+                  type="number"
+                  min="0"
+                  max="31"
+                  value={pokemon.ivs[stat] ?? 31}
+                  onChange={(event) =>
+                    updateStat(
+                      selectedPokemonIndex,
+                      "ivs",
+                      stat,
+                      Number(event.target.value),
+                    )
                   }
-                  disabled={!catalog}
-                >
-                  선택
-                </button>
-              </div>
+                  aria-label={`${pokemonStatNames[stat]} 개체값`}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="252"
+                  value={pokemon.evs[stat] ?? 0}
+                  onChange={(event) =>
+                    updateStat(
+                      selectedPokemonIndex,
+                      "evs",
+                      stat,
+                      Number(event.target.value),
+                    )
+                  }
+                  aria-label={`${pokemonStatNames[stat]} 노력치`}
+                />
+              </label>
             ))}
           </div>
-          </article>
-        );
-      })}
+        </section>
+
+        <section className="focused-moves-panel">
+          <header>
+            <span>MOVESET</span>
+            <strong>기술 구성</strong>
+          </header>
+          <div className="focused-moves-list">
+            {pokemon.moves.map((move, moveIndex) => {
+              const moveDetails = catalog?.moves.find(
+                (entry) => entry.id === dexId(move),
+              );
+              const learnMethods = moveDetails
+                ? moveLearnMethods(catalog, selectedSpecies?.id, moveDetails.id)
+                : [];
+              const isStab =
+                Boolean(moveDetails) &&
+                (selectedSpecies?.types.includes(moveDetails?.type ?? "") ?? false);
+              return (
+                <div
+                  className={`focused-move-field ${
+                    moveDetails
+                      ? `move-type-${moveDetails.type.toLowerCase()}`
+                      : "empty"
+                  }`}
+                  key={moveIndex}
+                >
+                  <div className="focused-move-heading">
+                    <span>{String(moveIndex + 1).padStart(2, "0")}</span>
+                    <div>
+                      <small>기술 {moveIndex + 1}</small>
+                      <strong>
+                        {moveDetails?.name ||
+                          localization?.moves[dexId(move)]?.name ||
+                          move ||
+                          "기술을 선택하세요"}
+                      </strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onOpenChoice({
+                          kind: "move",
+                          pokemonIndex: selectedPokemonIndex,
+                          moveIndex,
+                        })
+                      }
+                      disabled={!catalog}
+                    >
+                      선택
+                    </button>
+                  </div>
+
+                  {moveDetails ? (
+                    <>
+                      <div className="focused-move-facts">
+                        <TypeIcon type={moveDetails.type} withLabel />
+                        <MoveCategoryIcon category={moveDetails.category} />
+                        <span>
+                          {moveCategoryNames[moveDetails.category]}
+                        </span>
+                        <span>위력 {moveDetails.power || "—"}</span>
+                        <span>
+                          명중{" "}
+                          {moveDetails.accuracy === true
+                            ? "필중"
+                            : moveDetails.accuracy}
+                        </span>
+                        <span>PP {moveDetails.pp}</span>
+                        {moveDetails.priority !== 0 ? (
+                          <span className="priority">
+                            우선도 {moveDetails.priority > 0 ? "+" : ""}
+                            {moveDetails.priority}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p>
+                        {moveDetails.description ||
+                          localization?.moves[moveDetails.id]?.description ||
+                          "등록된 기술 설명이 없습니다."}
+                      </p>
+                      <div className="focused-move-tags">
+                        {learnMethods.slice(0, 3).map((method) => (
+                          <b key={method.source}>
+                            {learnMethodLabel(method)}
+                          </b>
+                        ))}
+                        {learnMethods.length > 3 ? (
+                          <b>+{learnMethods.length - 3}</b>
+                        ) : null}
+                        {isStab ? <b className="stab">타입 일치</b> : null}
+                        {selectedSpecies &&
+                        Object.keys(
+                          catalog?.learnsets?.[selectedSpecies.id] ?? {},
+                        ).length > 0 &&
+                        learnMethods.length === 0 ? (
+                          <b className="warning">습득 정보 없음</b>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="focused-move-empty-copy">
+                      기술 라이브러리에서 기술을 선택하면 상세 정보가 표시됩니다.
+                    </p>
+                  )}
+
+                  <label className="focused-move-id">
+                    <small>기술 ID</small>
+                    <input
+                      value={move}
+                      onChange={(event) =>
+                        updateMove(
+                          selectedPokemonIndex,
+                          moveIndex,
+                          event.target.value,
+                        )
+                      }
+                      aria-label={`${selectedPokemonIndex + 1}번 포켓몬 ${moveIndex + 1}번 기술`}
+                      placeholder="예: vinewhip"
+                    />
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </article>
     </div>
   );
 }
@@ -4923,7 +5362,7 @@ function InteractiveArena({
         </div>
       )}
 
-      <details className="battle-details">
+      <details className="battle-details" open>
         <summary>
           <span>
             <strong>로그 자세히 보기</strong>
@@ -5089,6 +5528,7 @@ function InteractiveArena({
 }
 
 export function BattleLab() {
+  const [labView, setLabView] = useState<LabView>("setup");
   const [mode, setMode] = useState<BattleMode>("pve");
   const [partySource, setPartySource] = useState<PartySource>("custom");
   const [data, setData] = useState<TrainerIndex | null>(null);
@@ -5699,7 +6139,7 @@ export function BattleLab() {
     invalidatePreparedBattle();
   };
 
-  const prepareTest = async () => {
+  const prepareTest = async (): Promise<BattleScenario | null> => {
     const ready = mode === "pve" ? pveReady : eveReady;
     if (!ready) {
       setNotice(
@@ -5707,7 +6147,7 @@ export function BattleLab() {
           ? "Cobbleverse 자체 엔진은 현재 싱글 배틀만 지원합니다."
           : `${battleType === "triple" ? "트리플" : battleType === "double" ? "더블" : "싱글"} 배틀에 필요한 양쪽 파티와 기술을 먼저 완성해 주세요.`,
       );
-      return;
+      return null;
     }
 
     const customSide = {
@@ -5808,7 +6248,7 @@ export function BattleLab() {
       const result = (await response.json()) as ScenarioResponse;
       if (!result.ok) {
         setNotice(result.issues[0]?.message ?? "전투 구성을 검증하지 못했습니다.");
-        return;
+        return null;
       }
       setScenario(result.scenario);
       setScenarioWarnings(result.warnings ?? []);
@@ -5817,8 +6257,10 @@ export function BattleLab() {
           ? `시나리오가 준비되었지만 자체 엔진 기술 경고가 ${result.warnings.length}건 있습니다.`
           : `시나리오 ${result.scenario.scenarioId}가 준비되었습니다.`,
       );
+      return result.scenario;
     } catch {
       setNotice("시나리오 API에 연결하지 못했습니다. 로컬 서버 상태를 확인해 주세요.");
+      return null;
     } finally {
       setPreparing(false);
     }
@@ -5843,8 +6285,9 @@ export function BattleLab() {
     URL.revokeObjectURL(url);
   };
 
-  const runBattle = async () => {
-    if (!scenario) return;
+  const runBattle = async (scenarioOverride?: BattleScenario) => {
+    const activeScenario = scenarioOverride ?? scenario;
+    if (!activeScenario) return;
     setRunningBattle(true);
     setBattle(null);
     setNotice("자동 대전을 실행하고 있습니다.");
@@ -5852,7 +6295,7 @@ export function BattleLab() {
       const response = await fetch("/api/battles", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(scenario),
+        body: JSON.stringify(activeScenario),
       });
       const result = (await response.json()) as BattleResponse;
       if (!result.ok) {
@@ -5864,16 +6307,16 @@ export function BattleLab() {
         schemaVersion: 1,
         savedAt: new Date().toISOString(),
         kind: "automatic",
-        scenario,
+        scenario: activeScenario,
         battle: result.battle,
       });
-      if (scenario.mode === "eve") {
+      if (activeScenario.mode === "eve") {
         localStorage.setItem(
           EVE_REPORT_KEY,
           JSON.stringify({
             schemaVersion: 1,
             savedAt: new Date().toISOString(),
-            scenario,
+            scenario: activeScenario,
             battle: result.battle,
           }),
         );
@@ -5905,8 +6348,9 @@ export function BattleLab() {
     URL.revokeObjectURL(url);
   };
 
-  const startInteractive = async () => {
-    if (!scenario || scenario.mode !== "pve") return;
+  const startInteractive = async (scenarioOverride?: BattleScenario) => {
+    const activeScenario = scenarioOverride ?? scenario;
+    if (!activeScenario || activeScenario.mode !== "pve") return;
     playbackToken.current += 1;
     setActionNotice(null);
     setHpPreview({});
@@ -5916,7 +6360,7 @@ export function BattleLab() {
       const response = await fetch("/api/interactive-battles", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ operation: "start", scenario }),
+        body: JSON.stringify({ operation: "start", scenario: activeScenario }),
       });
       const result = (await response.json()) as InteractiveResponse;
       if (!result.ok) {
@@ -5928,7 +6372,7 @@ export function BattleLab() {
         schemaVersion: 1,
         savedAt: new Date().toISOString(),
         kind: "interactive",
-        scenario,
+        scenario: activeScenario,
         battle: result.battle,
       });
       setNotice("배틀이 시작되었습니다. 사용할 기술을 선택하세요.");
@@ -5937,6 +6381,20 @@ export function BattleLab() {
     } finally {
       setInteractiveBusy(false);
     }
+  };
+
+  const startConfiguredBattle = async () => {
+    const activeScenario = scenario ?? (await prepareTest());
+    if (!activeScenario) return;
+    if (
+      activeScenario.mode === "pve" &&
+      (activeScenario.battleEngine === "showdown" ||
+        activeScenario.battleType === "single")
+    ) {
+      await startInteractive(activeScenario);
+      return;
+    }
+    await runBattle(activeScenario);
   };
 
   const chooseInteractiveAction = async (action: InteractiveAction) => {
@@ -6231,7 +6689,25 @@ export function BattleLab() {
             <small>Battle Lab · Alpha</small>
           </span>
         </a>
+        <nav className="product-nav" aria-label="주요 화면">
+          <button
+            className={labView === "setup" ? "active" : ""}
+            type="button"
+            onClick={() => setLabView("setup")}
+          >
+            배틀 준비
+          </button>
+          <button
+            className={labView === "editor" ? "active" : ""}
+            type="button"
+            onClick={() => setLabView("editor")}
+          >
+            엔트리 편집
+          </button>
+          <a href="/eve-report">EvE 리포트</a>
+        </nav>
         <div className="topbar-actions">
+          <span className="tournament-mode">토너먼트 모드</span>
           <button
             className={`workspace-source ${workspaceSettings ? "configured" : ""}`}
             onClick={() => {
@@ -6254,6 +6730,9 @@ export function BattleLab() {
                 ? `${data.trainerCount}개 트레이너 동기화됨`
                 : "트레이너 데이터 불러오는 중"}
           </div>
+          <span className="operator-badge" aria-label="현재 사용자">
+            CV
+          </span>
         </div>
       </header>
 
@@ -6338,20 +6817,95 @@ export function BattleLab() {
         />
       ) : null}
 
-      <section className="hero" id="top">
-        <div>
-          <p className="eyebrow">AI BATTLE WORKBENCH / 01</p>
-          <h1>파티를 고르고,<br />전략을 시험할 준비를 합니다.</h1>
-          <p className="hero-copy">
-            RCT 트레이너 JSON을 공통 형식으로 읽고 PvE와 EvE 테스트 구성을
-            빠르게 만듭니다. PvE에서는 기술과 교체를 직접 선택해 AI 트레이너와
-            싸울 수 있고, EvE에서는 양쪽 AI의 자동 대전을 관찰할 수 있습니다.
+      {labView === "editor" ? (
+        <section className="entry-editor-workspace" id="entry-editor">
+          <header className="entry-editor-heading">
+            <div>
+              <p className="eyebrow">ENTRY BUILDER</p>
+              <h1>엔트리 편집</h1>
+              <p>포켓몬, 특성, 도구, 능력치와 기술 구성을 관리합니다.</p>
+            </div>
+            <div>
+              <span className={customMemberCount === 6 ? "valid" : ""}>
+                {customMemberCount}/6
+              </span>
+              <button type="button" onClick={() => setLabView("setup")}>
+                배틀 준비로 돌아가기
+              </button>
+            </div>
+          </header>
+          <CustomEntryManager
+            entries={customEntries}
+            trainers={sortedTrainers}
+            selectedEntryId={selectedCustomEntryId}
+            entryName={customEntryName}
+            party={customParty}
+            localization={localization}
+            onNameChange={setCustomEntryName}
+            onSelect={loadCustomEntry}
+            onSave={saveCustomEntry}
+            onNew={createNewCustomEntry}
+            onDelete={deleteCustomEntry}
+            onCopyTrainer={copyTrainerToCustomParty}
+            onImportFiles={importCustomEntryFiles}
+          />
+          <CustomPartyEditor
+            party={customParty}
+            onChange={updateCustomParty}
+            localization={localization}
+            catalog={catalog}
+            onOpenChoice={setChoiceTarget}
+          />
+          <footer className="entry-editor-footer">
+            <div>
+              <span className={customMemberCount === 6 ? "valid" : ""}>
+                {customMemberCount === 6 ? "VALID ENTRY" : "INCOMPLETE"}
+              </span>
+              <p>
+                {customMemberCount === 6
+                  ? "6마리 엔트리 구성이 완료되었습니다."
+                  : "전투에 사용할 포켓몬 6마리를 구성해 주세요."}
+              </p>
+            </div>
+            <button type="button" onClick={saveCustomEntry} disabled={!customMemberCount}>
+              엔트리 저장
+            </button>
+          </footer>
+        </section>
+      ) : (
+      <div className="setup-workspace">
+      <section className="setup-header" id="top">
+        <div className="setup-title">
+          <p className="eyebrow">BATTLE SETUP</p>
+          <h1>배틀 준비</h1>
+          <p>
+            {mode === "pve"
+              ? "내 엔트리와 AI 상대를 선택해 직접 대전을 시작합니다."
+              : "두 AI 엔트리의 전략과 전투 규칙을 맞춰 자동 대전을 시작합니다."}
           </p>
         </div>
-        <div className="hero-metric">
-          <span>DATASET</span>
+        <ol className="setup-progress" aria-label="배틀 준비 단계">
+          <li className="complete">
+            <span>1</span>
+            <div><small>MODE</small><strong>모드 선택</strong></div>
+          </li>
+          <li className={(mode === "pve" ? pveReady : eveReady) ? "complete" : "current"}>
+            <span>2</span>
+            <div><small>ENTRY</small><strong>엔트리 구성</strong></div>
+          </li>
+          <li className={scenario ? "complete" : (mode === "pve" ? pveReady : eveReady) ? "current" : ""}>
+            <span>3</span>
+            <div><small>RULES</small><strong>규칙 검증</strong></div>
+          </li>
+          <li className={interactiveBattle || battle ? "complete" : scenario ? "current" : ""}>
+            <span>4</span>
+            <div><small>BATTLE</small><strong>전투 시작</strong></div>
+          </li>
+        </ol>
+        <div className="dataset-status">
+          <span>TRAINER DATA</span>
           <strong>{data?.trainerCount ?? "—"}</strong>
-          <small>normalized trainer definitions</small>
+          <small>{data ? "동기화 완료" : "불러오는 중"}</small>
         </div>
       </section>
 
@@ -6386,10 +6940,25 @@ export function BattleLab() {
         </button>
       </nav>
 
+      {mode === "pve" ? (
+        <section className="continue-section" aria-labelledby="continue-heading">
+          <header>
+            <p className="eyebrow">CONTINUE</p>
+            <h2 id="continue-heading">저장된 전투 이어하기</h2>
+          </header>
+          <PersistentBattleSaves
+            slots={persistentBattleSlots}
+            busy={interactiveBusy}
+            onResume={(slot) => void resumePersistentBattle(slot)}
+            onDelete={(slot) => void removePersistentBattle(slot)}
+          />
+        </section>
+      ) : null}
+
       <section className="ai-config-panel" aria-labelledby="ai-config-heading">
         <div>
-          <p className="eyebrow">AI CONFIGURATION</p>
-          <h2 id="ai-config-heading">AI 설정</h2>
+          <p className="eyebrow">BATTLE RULES</p>
+          <h2 id="ai-config-heading">전투 규칙</h2>
           <p>
             난이도 프로필과 전투 규칙을 계산할 엔진을 선택합니다. 설정은
             시나리오 JSON과 배틀 결과에 함께 기록됩니다.
@@ -6397,41 +6966,52 @@ export function BattleLab() {
         </div>
         <label>
           <span>대결 타입</span>
-          <select
-            aria-label="대결 타입"
+          <TournamentSelect
+            ariaLabel="대결 타입"
             value={battleType}
-            onChange={(event) => {
-              setBattleType(event.target.value as BattleType);
+            options={[
+              { value: "single", label: "1인 · 싱글 배틀" },
+              { value: "double", label: "2인 · 더블 배틀" },
+              { value: "triple", label: "3인 · 트리플 배틀" },
+            ]}
+            onChange={(value) => {
+              setBattleType(value as BattleType);
               setScenario(null);
               setBattle(null);
               setInteractiveBattle(null);
               setNotice("대결 타입이 변경되었습니다. 시나리오를 다시 생성해 주세요.");
             }}
-          >
-            <option value="single">1인 · 싱글 배틀</option>
-            <option value="double">2인 · 더블 배틀</option>
-            <option value="triple">3인 · 트리플 배틀</option>
-          </select>
+          />
           <small>각 진영이 동시에 내보내는 포켓몬 수를 선택합니다.</small>
         </label>
         <label>
           <span>기믹 규칙</span>
-          <select
-            aria-label="기믹 규칙"
+          <TournamentSelect
+            ariaLabel="기믹 규칙"
             value={battleEngine === "cobbleverse" ? "all" : gimmickRules}
             disabled={battleEngine === "cobbleverse"}
-            onChange={(event) => {
-              setGimmickRules(event.target.value as BattleGimmickRules);
+            options={[
+              {
+                value: "all",
+                label: "전체 기믹 · 메가 / Z파워 / 다이맥스 / 테라스탈",
+              },
+              {
+                value: "gen9",
+                label: "9세대 · 메가진화 / Z파워 / 테라스탈",
+              },
+              {
+                value: "gen8",
+                label: "8세대 · 메가진화 / Z파워 / 다이맥스",
+              },
+            ]}
+            onChange={(value) => {
+              setGimmickRules(value as BattleGimmickRules);
               setScenario(null);
               setBattle(null);
               setInteractiveBattle(null);
               setNotice("기믹 규칙이 변경되었습니다. 시나리오를 다시 생성해 주세요.");
             }}
-          >
-            <option value="all">전체 기믹 · 메가 / Z파워 / 다이맥스 / 테라스탈</option>
-            <option value="gen9">9세대 · 메가진화 / Z파워 / 테라스탈</option>
-            <option value="gen8">8세대 · 메가진화 / Z파워 / 다이맥스</option>
-          </select>
+          />
           <small>
             {battleEngine === "cobbleverse"
               ? "자체 엔진은 Cobblemon 규칙에 따라 네 가지 기믹을 모두 사용할 수 있습니다."
@@ -6442,23 +7022,29 @@ export function BattleLab() {
           <>
             <label>
               <span>AI 수준</span>
-              <select
-                aria-label="AI 수준"
+              <TournamentSelect
+                ariaLabel="AI 수준"
                 value={aiDifficulty}
-                onChange={(event) => {
-                  setAiDifficulty(event.target.value as AiDifficulty);
+                options={[
+                  {
+                    value: "novice",
+                    label: "초급 · 공격 위주와 의도적인 실수",
+                  },
+                  { value: "standard", label: "보통 · 기본 평가" },
+                  { value: "advanced", label: "상급 · 강한 행동 우선" },
+                  { value: "expert", label: "전문가 · 최선 행동 집중" },
+                  {
+                    value: "cheater",
+                    label: "치터 · 상대 행동 열람 (프로토콜 준비 중)",
+                    disabled: true,
+                  },
+                ]}
+                onChange={(value) => {
+                  setAiDifficulty(value as AiDifficulty);
                   setScenario(null);
                   setBattle(null);
                 }}
-              >
-                <option value="novice">초급 · 공격 위주와 의도적인 실수</option>
-                <option value="standard">보통 · 기본 평가</option>
-                <option value="advanced">상급 · 강한 행동 우선</option>
-                <option value="expert">전문가 · 최선 행동 집중</option>
-                <option value="cheater" disabled>
-                  치터 · 상대 행동 열람 (프로토콜 준비 중)
-                </option>
-              </select>
+              />
               <small>
                 현재는 초기 휴리스틱 프로필이며 전략 탐색이 구현되면서 단계별로
                 확장됩니다.
@@ -6467,22 +7053,17 @@ export function BattleLab() {
             {battleEngine === "cobbleverse" ? (
               <label>
                 <span>상대 AI 성향</span>
-                <select
-                  aria-label="상대 AI 성향"
+                <TournamentSelect
+                  ariaLabel="상대 AI 성향"
                   value={pveOpponentStrategy}
-                  onChange={(event) => {
-                    setPveOpponentStrategy(event.target.value as AiStrategy);
+                  options={aiStrategyOptions}
+                  onChange={(value) => {
+                    setPveOpponentStrategy(value as AiStrategy);
                     setScenario(null);
                     setBattle(null);
                     setInteractiveBattle(null);
                   }}
-                >
-                  {aiStrategyOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                />
                 <small>
                   자체 엔진 PvE에서 상대 트레이너의 행동 평가 가중치를 정합니다.
                 </small>
@@ -6492,11 +7073,21 @@ export function BattleLab() {
         ) : null}
         <label>
           <span>배틀 엔진</span>
-          <select
-            aria-label="배틀 엔진"
+          <TournamentSelect
+            ariaLabel="배틀 엔진"
             value={battleEngine}
-            onChange={(event) => {
-              const nextEngine = event.target.value as BattleEngineChoice;
+            options={[
+              {
+                value: "showdown",
+                label: "Pokémon Showdown 엔진",
+              },
+              {
+                value: "cobbleverse",
+                label: "Cobbleverse 자체 엔진 · 싱글 전용",
+              },
+            ]}
+            onChange={(value) => {
+              const nextEngine = value as BattleEngineChoice;
               setBattleEngine(nextEngine);
               if (nextEngine === "showdown" && gimmickRules === "all") {
                 setGimmickRules("gen9");
@@ -6505,10 +7096,7 @@ export function BattleLab() {
               setBattle(null);
               setInteractiveBattle(null);
             }}
-          >
-            <option value="showdown">Pokémon Showdown 엔진</option>
-            <option value="cobbleverse">Cobbleverse 자체 엔진 · 싱글 전용</option>
-          </select>
+          />
           {battleEngine === "cobbleverse" && battleType !== "single" ? (
             <small className="config-warning">
               자체 엔진의 더블·트리플 규칙은 분리 구현 전이므로 Showdown 엔진을
@@ -6535,23 +7123,16 @@ export function BattleLab() {
                 className={partySource === "custom" ? "active" : ""}
                 onClick={() => setPartySource("custom")}
               >
-                직접 구성
+                새로 만들기
               </button>
               <button
                 className={partySource === "preset" ? "active" : ""}
                 onClick={() => setPartySource("preset")}
               >
-                JSON에서 선택
+                프리셋 불러오기
               </button>
             </div>
           </div>
-
-          <PersistentBattleSaves
-            slots={persistentBattleSlots}
-            busy={interactiveBusy}
-            onResume={(slot) => void resumePersistentBattle(slot)}
-            onDelete={(slot) => void removePersistentBattle(slot)}
-          />
 
           <div className="match-column">
             <article className="side-panel player-panel">
@@ -6559,7 +7140,7 @@ export function BattleLab() {
                 <span>A</span>
                 <div>
                   <small>PLAYER SIDE</small>
-                  <h3>{partySource === "custom" ? "내 파티 직접 구성" : "준비된 파티 불러오기"}</h3>
+                  <h3>{partySource === "custom" ? "내 엔트리 만들기" : "내 엔트리 불러오기"}</h3>
                 </div>
               </div>
               {partySource === "custom" ? (
@@ -6570,27 +7151,11 @@ export function BattleLab() {
                       <i style={{ width: `${(customMemberCount / 6) * 100}%` }} />
                     </div>
                   </div>
-                  <CustomEntryManager
-                    entries={customEntries}
-                    trainers={sortedTrainers}
-                    selectedEntryId={selectedCustomEntryId}
+                  <CustomPartySummary
+                    party={customParty}
+                    localization={localization}
                     entryName={customEntryName}
-                    party={customParty}
-                    localization={localization}
-                    onNameChange={setCustomEntryName}
-                    onSelect={loadCustomEntry}
-                    onSave={saveCustomEntry}
-                    onNew={createNewCustomEntry}
-                    onDelete={deleteCustomEntry}
-                    onCopyTrainer={copyTrainerToCustomParty}
-                    onImportFiles={importCustomEntryFiles}
-                  />
-                  <CustomPartyEditor
-                    party={customParty}
-                    onChange={updateCustomParty}
-                    localization={localization}
-                    catalog={catalog}
-                    onOpenChoice={setChoiceTarget}
+                    onEdit={() => setLabView("editor")}
                   />
                 </>
               ) : (
@@ -6865,7 +7430,11 @@ export function BattleLab() {
               <>
                 <button onClick={copyScenario}>JSON 복사</button>
                 <button onClick={downloadScenario}>시나리오 다운로드</button>
-                <button className="run-battle" onClick={runBattle} disabled={runningBattle}>
+                <button
+                  className="run-battle"
+                  onClick={() => void runBattle()}
+                  disabled={runningBattle}
+                >
                   {runningBattle ? "대전 진행 중" : "자동 대전 실행"}
                 </button>
               </>
@@ -6945,37 +7514,34 @@ export function BattleLab() {
               </button>
             </div>
           </label>
-          <button className="primary-action" onClick={prepareTest} disabled={preparing}>
-            {preparing ? "검증 중" : "시나리오 생성"} <span aria-hidden="true">→</span>
+          <button
+            className="primary-action"
+            onClick={() => void prepareTest()}
+            disabled={preparing || interactiveBusy || runningBattle}
+          >
+            {preparing ? "검증 중" : scenario ? "구성 다시 검증" : "구성 미리보기"}
           </button>
           <button
             className="battle-start-action"
-            onClick={
-              scenario?.mode === "pve" &&
-              (scenario.battleEngine === "showdown" ||
-                scenario.battleType === "single")
-                ? startInteractive
-                : scenario
-                  ? runBattle
-                  : undefined
+            onClick={() => void startConfiguredBattle()}
+            disabled={
+              !(mode === "pve" ? pveReady : eveReady) ||
+              preparing ||
+              interactiveBusy ||
+              runningBattle
             }
-            disabled={!scenario || interactiveBusy || runningBattle}
           >
             {interactiveBusy || runningBattle
               ? "배틀 준비 중"
-              : scenario?.battleEngine === "cobbleverse" &&
-                  scenario?.mode === "pve" &&
-                  scenario?.battleType === "single"
-                ? "자체 엔진 PvE 시작"
-                : scenario?.battleType === "triple"
-                  ? "트리플 직접 대전"
-                  : scenario?.battleType === "double"
-                    ? "더블 직접 대전"
-                : "배틀 시작"}
+              : scenario
+                ? "배틀 시작"
+                : "검증하고 배틀 시작"}
             <span aria-hidden="true">▶</span>
           </button>
         </div>
       </footer>
+      </div>
+      )}
     </main>
   );
 }

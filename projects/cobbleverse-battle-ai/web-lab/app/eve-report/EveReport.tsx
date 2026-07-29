@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -358,6 +359,28 @@ function compactTeamLine(
     .slice(0, 6)
     .map((pokemon) => `${localSpecies(localization, pokemon.species)} Lv.${pokemon.level}`)
     .join(", ");
+}
+
+function ReportPokemonSprite({
+  species,
+  label,
+}: {
+  species: string;
+  label: string;
+}) {
+  const remoteUrl = `/api/pokemon-sprites?species=${encodeURIComponent(species)}&remote=1`;
+  const [failed, setFailed] = useState(false);
+  return (
+    <img
+      alt={label}
+      src={
+        failed
+          ? `/api/pokemon-sprites?species=${encodeURIComponent(species)}&fallback=1`
+          : remoteUrl
+      }
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 function traceByTurnAndSide(report: ReportData | null) {
@@ -1038,6 +1061,15 @@ export default function EveReport() {
     () => (selected ? battlePlainText(selected, localization) : ""),
     [selected, localization],
   );
+  const latestTraceBySide = useMemo(
+    () =>
+      [0, 1].map((side) =>
+        [...(selected?.battle.aiTrace ?? [])]
+          .reverse()
+          .find((trace) => trace.side === side),
+      ),
+    [selected],
+  );
 
   if (!selected) {
     return (
@@ -1053,8 +1085,15 @@ export default function EveReport() {
   return (
     <main className="eve-report-page eve-report-compact">
       <nav className="eve-report-nav">
-        <Link href="/">← 전투 도구</Link>
-        <div>
+        <Link className="eve-report-brand" href="/">
+          <span>CV</span>
+          <strong>Cobbleverse Battle Lab</strong>
+        </Link>
+        <div className="eve-report-tabs">
+          <Link href="/">배틀 준비</Link>
+          <strong>EvE 리포트</strong>
+        </div>
+        <div className="eve-report-actions">
           <button onClick={download}>JSON</button>
           <button onClick={() => navigator.clipboard.writeText(plainLog)}>로그 복사</button>
           <button onClick={clearHistory}>전적 전체 삭제</button>
@@ -1095,6 +1134,43 @@ export default function EveReport() {
           >
             랜덤 시드
           </button>
+        </div>
+      </section>
+
+      <section className="eve-match-summary" aria-label="선택한 EvE 대전 요약">
+        {selected.scenario.sides.map((side, sideIndex) => {
+          const profile = profilesOf(selected)[sideIndex];
+          return (
+            <article className={sideIndex === 0 ? "side-a" : "side-b"} key={side.name}>
+              <header>
+                <span>SIDE {sideIndex === 0 ? "A" : "B"}</span>
+                <div>
+                  <strong>{side.name}</strong>
+                  <small>
+                    {difficultyNames[profile?.difficulty]} · {strategyNames[profile?.strategy]}
+                  </small>
+                </div>
+              </header>
+              <div>
+                {side.team.slice(0, 6).map((pokemon) => (
+                  <span key={pokemon.slot} title={localSpecies(localization, pokemon.species)}>
+                    <ReportPokemonSprite
+                      species={pokemon.species}
+                      label={localSpecies(localization, pokemon.species)}
+                    />
+                    <small>Lv.{pokemon.level}</small>
+                  </span>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+        <div className="eve-match-result">
+          <span>WINNER</span>
+          <strong>{selected.battle.winner ?? "DRAW"}</strong>
+          <small>
+            {selected.battle.turns}턴 · {(selected.battle.durationMs / 1000).toFixed(2)}초
+          </small>
         </div>
       </section>
 
@@ -1255,6 +1331,54 @@ export default function EveReport() {
           </header>
           <pre>{plainLog}</pre>
         </section>
+
+        <aside className="eve-ai-detail-panel">
+          <header>
+            <strong>AI 판단 상세</strong>
+            <span>최근 턴 기준</span>
+          </header>
+          {latestTraceBySide.map((trace, sideIndex) => (
+            <article className={sideIndex === 0 ? "side-a" : "side-b"} key={sideIndex}>
+              <div className="eve-ai-choice">
+                <span>{sideIndex === 0 ? "SIDE A" : "SIDE B"}</span>
+                <strong>{trace?.chosenAction ?? "판단 기록 없음"}</strong>
+                <small>
+                  {trace
+                    ? `T${trace.turn} · ${localSpecies(localization, trace.species)}`
+                    : "AI 후보 정보가 없습니다."}
+                </small>
+              </div>
+              {trace ? (
+                <>
+                  <p>{trace.reason}</p>
+                  <div className="eve-ai-candidates">
+                    {trace.candidates.slice(0, 4).map((candidate) => {
+                      const score = Number(candidate.score ?? 0);
+                      const maximum = Math.max(
+                        1,
+                        ...trace.candidates.map((entry) =>
+                          Math.max(0, Number(entry.score ?? 0)),
+                        ),
+                      );
+                      return (
+                        <div className={candidate.selected ? "selected" : ""} key={`${candidate.slot}-${candidate.name}`}>
+                          <span>
+                            <strong>{candidate.name}</strong>
+                            <b>{score.toFixed(1)}</b>
+                          </span>
+                          <i style={{ width: `${Math.max(3, Math.min(100, (Math.max(0, score) / maximum) * 100))}%` }} />
+                          <small>
+                            {candidate.reasons?.[0]?.message ?? "세부 판단 근거 없음"}
+                          </small>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
+            </article>
+          ))}
+        </aside>
       </section>
 
       {selected.battle.warnings.length > 0 ? (
