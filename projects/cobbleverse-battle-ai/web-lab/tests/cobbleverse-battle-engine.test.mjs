@@ -650,12 +650,13 @@ test("does not offer weight-based moves against a Dynamaxed target", () => {
               stats: { ...pokemon().stats, hp: 300 },
               moves: [
                 {
-                  id: "splash",
-                  name: "Splash",
+                  id: "tackle",
+                  name: "Tackle",
                   type: "Normal",
-                  category: "Status",
+                  category: "Physical",
+                  power: 40,
                   accuracy: true,
-                  pp: 40,
+                  pp: 35,
                 },
               ],
             }),
@@ -5478,6 +5479,116 @@ test("Dynamax Max Move effects replace the source move side effects", () => {
         event.amount < 0,
     ),
     false,
+  );
+});
+
+test("Max Darkness does not inherit Sucker Punch priority", () => {
+  const state = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "SlowDynamax",
+                types: ["Dark"],
+                stats: { ...pokemon().stats, speed: 40 },
+                gimmicks: { canDynamax: true },
+                moves: [
+                  {
+                    id: "suckerpunch",
+                    name: "Sucker Punch",
+                    type: "Dark",
+                    category: "Physical",
+                    power: 70,
+                    accuracy: 100,
+                    priority: 1,
+                    pp: 5,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "FastTarget",
+                stats: { ...pokemon().stats, hp: 240, speed: 120 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1, gimmick: "dynamax" }, { move: 1 }],
+  );
+  const moveEvents = state.events.filter(
+    (event) => event.turn === 1 && event.type === "move",
+  );
+
+  assert.deepEqual(
+    moveEvents.map((event) => event.pokemon),
+    ["FastTarget", "SlowDynamax"],
+  );
+  assert.equal(moveEvents[1].move, "Max Darkness");
+});
+
+test("Max Guard keeps its own priority instead of the source status move", () => {
+  const state = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "SlowDynamax",
+                stats: { ...pokemon().stats, speed: 40 },
+                gimmicks: { canDynamax: true },
+                moves: [
+                  {
+                    id: "splash",
+                    name: "Splash",
+                    type: "Normal",
+                    category: "Status",
+                    accuracy: true,
+                    priority: 0,
+                    pp: 40,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "FastTarget",
+                stats: { ...pokemon().stats, speed: 120 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1, gimmick: "dynamax" }, { move: 1 }],
+  );
+  const moveEvents = state.events.filter(
+    (event) => event.turn === 1 && event.type === "move",
+  );
+
+  assert.equal(moveEvents[0].pokemon, "SlowDynamax");
+  assert.equal(moveEvents[0].move, "Max Guard");
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.type === "move_blocked" &&
+        event.pokemon === "SlowDynamax" &&
+        event.move === "Tackle" &&
+        event.source === "Max Guard",
+    ),
   );
 });
 

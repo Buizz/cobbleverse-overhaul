@@ -2079,18 +2079,27 @@ function markPursuitIntercepts(actions) {
   }
 }
 
+function nativeMaxMovePriority(pokemon, move) {
+  const maxMove = resolveNativeMaxMove(pokemon, move);
+  return cleanId(maxMove.id) === "maxguard" ? 4 : 0;
+}
+
 function effectiveMovePriority(state, action) {
   if (action.kind === "switch") return 10_000;
   const move = action.selected?.move;
+  const pokemon = activePokemon(state, action.side);
+  if (pokemon.dynamaxTurns > 0) {
+    return nativeMaxMovePriority(pokemon, move);
+  }
   if (
     cleanId(move?.id) === "grassyglide" &&
     cleanId(state.field?.terrain?.id) === "grassyterrain" &&
-    isGrounded(activePokemon(state, action.side))
+    isGrounded(pokemon)
   ) {
     return 1;
   }
   if (cleanId(move?.id) === "thunderclap") return 1;
-  return movePriorityForPokemon(activePokemon(state, action.side), move);
+  return movePriorityForPokemon(pokemon, move);
 }
 
 function rejectGimmick(state, action, reason) {
@@ -2656,7 +2665,7 @@ function transformGimmickMove(state, action, move) {
       id: maxMove.id,
       name: maxMove.name,
       accuracy: true,
-      priority: 0,
+      priority: nativeMaxMovePriority(pokemon, move),
       power:
         isStatus
           ? 0
@@ -9264,7 +9273,7 @@ function aiDisplayMoveData(pokemon, move, dynamaxMode = "") {
     id: maxMove.id,
     name: maxMove.name,
     accuracy: true,
-    priority: 0,
+    priority: nativeMaxMovePriority(maxMovePokemon, abilityMove),
     power: isStatus ? 0 : Math.max(90, Math.min(150, abilityMove.power * 1.35)),
     target: isStatus ? "self" : abilityMove.target,
     status: "",
