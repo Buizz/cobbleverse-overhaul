@@ -4615,6 +4615,8 @@ function InteractiveArena({
   const playerCondition = opponentWon
     ? "0 fnt"
     : hpPreview.p1 ?? active?.condition.text ?? latestConditionBySide(battle.events, "p1");
+  const playerSpriteFainted = conditionPercent(playerCondition) === 0;
+  const opponentSpriteFainted = opponentHp === 0;
   const pokemonStatuses = statusByPokemon(battle.events);
   const opponentStatus =
     pokemonStatuses.get(dexId(opponentName)) ??
@@ -4902,7 +4904,7 @@ function InteractiveArena({
               <div
                 className={`sprite-platform opponent-platform ${
                   opponentGimmickState.dynamax ? "dynamaxed" : ""
-                } ${playerWon ? "fainted" : ""} ${pokemonTransitionClass(
+                } ${opponentSpriteFainted ? "fainted" : ""} ${pokemonTransitionClass(
                   actionNotice?.event,
                   "p2",
                   pokemon.species,
@@ -4977,7 +4979,7 @@ function InteractiveArena({
               <div
                 className={`sprite-platform player-platform ${
                   playerGimmickState.dynamax ? "dynamaxed" : ""
-                } ${opponentWon ? "fainted" : ""} ${pokemonTransitionClass(
+                } ${playerSpriteFainted ? "fainted" : ""} ${pokemonTransitionClass(
                   actionNotice?.event,
                   "p1",
                   pokemon.species,
