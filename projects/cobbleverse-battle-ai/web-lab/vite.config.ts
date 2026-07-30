@@ -2,7 +2,7 @@ import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { localBattleSweep } from "./local-battle-sweep-vite-plugin";
-import { localWorkspace } from "./build/local-workspace-vite-plugin";
+import { localWorkspace } from "./local-workspace-vite-plugin";
 import { sites } from "./build/sites-vite-plugin";
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =

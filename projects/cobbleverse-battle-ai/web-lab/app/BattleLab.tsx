@@ -183,6 +183,10 @@ function isCatalogMove(entry: CatalogChoice): entry is CatalogMove {
 }
 
 type LocalWorkspaceSettings = {
+  modWorkspacePath: string;
+  resourceWorkspacePath: string;
+  resourcePacksPath: string;
+  resourcePackCount: number;
   workspacePath: string;
   modsPath: string;
   cobblemonJar: string;
@@ -5558,7 +5562,8 @@ export function BattleLab() {
   const [workspaceSettings, setWorkspaceSettings] =
     useState<LocalWorkspaceSettings | null>(null);
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
-  const [workspacePath, setWorkspacePath] = useState("");
+  const [modWorkspacePath, setModWorkspacePath] = useState("");
+  const [resourceWorkspacePath, setResourceWorkspacePath] = useState("");
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [workspaceError, setWorkspaceError] = useState("");
   const [customParty, setCustomParty] = useState(initialParty);
@@ -5645,10 +5650,13 @@ export function BattleLab() {
       .then((result) => {
         if (result.ok && result.configured && result.settings) {
           setWorkspaceSettings(result.settings);
-          setWorkspacePath(result.settings.workspacePath);
+          setModWorkspacePath(
+            result.settings.modWorkspacePath || result.settings.workspacePath,
+          );
+          setResourceWorkspacePath(result.settings.resourceWorkspacePath);
           return;
         }
-        setWorkspacePath(result.previousPath ?? "");
+        setModWorkspacePath(result.previousPath ?? "");
         setWorkspaceError(result.message ?? "");
         setWorkspaceDialogOpen(true);
       })
@@ -5799,7 +5807,7 @@ export function BattleLab() {
       const response = await fetch("/api/local-workspace", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ workspacePath }),
+        body: JSON.stringify({ modWorkspacePath, resourceWorkspacePath }),
       });
       const result = (await response.json()) as LocalWorkspaceResponse;
       if (!result.ok || !result.settings) {
@@ -5807,7 +5815,10 @@ export function BattleLab() {
         return;
       }
       setWorkspaceSettings(result.settings);
-      setWorkspacePath(result.settings.workspacePath);
+      setModWorkspacePath(
+        result.settings.modWorkspacePath || result.settings.workspacePath,
+      );
+      setResourceWorkspacePath(result.settings.resourceWorkspacePath);
       const localizationResponse = await fetch(
         `/data/cobblemon-ko-kr.json?updated=${Date.now()}`,
         { cache: "no-store" },
@@ -6740,11 +6751,15 @@ export function BattleLab() {
               setWorkspaceDialogOpen(true);
             }}
           >
-            <span>MOD SOURCE</span>
+            <span>LOCAL SOURCES</span>
             <strong>
               {workspaceSettings
-                ? `${workspaceSettings.modCount}개 모드`
-                : "폴더 설정 필요"}
+                ? `${workspaceSettings.modCount} MOD · ${
+                    workspaceSettings.resourceWorkspacePath
+                      ? `${workspaceSettings.resourcePackCount} PACK`
+                      : "NO PACK"
+                  }`
+                : "경로 설정 필요"}
             </strong>
           </button>
           <div className="data-status" aria-live="polite">
@@ -6771,33 +6786,54 @@ export function BattleLab() {
           >
             <header>
               <div>
-                <p className="eyebrow">LOCAL MOD WORKSPACE</p>
-                <h2 id="workspace-dialog-heading">Cobbleverse 모드 폴더 설정</h2>
+                <p className="eyebrow">LOCAL WORKSPACES</p>
+                <h2 id="workspace-dialog-heading">로컬 작업공간 설정</h2>
               </div>
               <button
                 type="button"
                 onClick={() => setWorkspaceDialogOpen(false)}
-                aria-label="모드 폴더 설정 닫기"
+                aria-label="로컬 작업공간 설정 닫기"
               >
                 닫기
               </button>
             </header>
             <form onSubmit={saveWorkspace}>
-              <label htmlFor="workspace-path">
-                Cobbleverse 작업공간 또는 mods 폴더
-              </label>
-              <input
-                id="workspace-path"
-                value={workspacePath}
-                onChange={(event) => setWorkspacePath(event.target.value)}
-                placeholder="예: G:\CobbleverseTrainerWebEditorWorkspace"
-                spellCheck={false}
-                autoFocus
-              />
+              <div className="workspace-path-field">
+                <label htmlFor="mod-workspace-path">
+                  <span>1</span>
+                  <strong>MOD 폴더 지정</strong>
+                  <small>Cobbleverse 작업공간 또는 mods 폴더</small>
+                </label>
+                <input
+                  id="mod-workspace-path"
+                  value={modWorkspacePath}
+                  onChange={(event) => setModWorkspacePath(event.target.value)}
+                  placeholder="예: G:\CobbleverseTrainerWebEditorWorkspace"
+                  spellCheck={false}
+                  autoFocus
+                />
+              </div>
+              <div className="workspace-path-field">
+                <label htmlFor="resource-workspace-path">
+                  <span>2</span>
+                  <strong>리소스 폴더 지정</strong>
+                  <small>리소스 작업공간 또는 resourcepacks 폴더</small>
+                </label>
+                <input
+                  id="resource-workspace-path"
+                  value={resourceWorkspacePath}
+                  onChange={(event) =>
+                    setResourceWorkspacePath(event.target.value)
+                  }
+                  placeholder="예: G:\Cobbleverse\resourcepacks"
+                  spellCheck={false}
+                />
+              </div>
               <p>
-                입력한 폴더는 이 컴퓨터의 로컬 설정에만 저장됩니다. `mods`
-                폴더에서 Cobblemon 본체를 찾아 한국어 데이터와 타입 아이콘을
-                자동으로 갱신합니다.
+                두 경로는 이 컴퓨터의 로컬 설정에만 저장됩니다. MOD 폴더는
+                Cobblemon 데이터 동기화에 사용하며, 리소스 폴더는 배틀 음악과
+                효과음 리소스를 찾는 데 사용합니다. 리소스 경로는 나중에
+                지정해도 됩니다.
               </p>
               {workspaceSettings ? (
                 <dl>
@@ -6808,6 +6844,14 @@ export function BattleLab() {
                   <div>
                     <dt>mods</dt>
                     <dd>{workspaceSettings.modCount}개 JAR</dd>
+                  </div>
+                  <div>
+                    <dt>resourcepacks</dt>
+                    <dd>
+                      {workspaceSettings.resourceWorkspacePath
+                        ? `${workspaceSettings.resourcePackCount}개 팩`
+                        : "지정 안 함"}
+                    </dd>
                   </div>
                 </dl>
               ) : null}
@@ -6824,7 +6868,9 @@ export function BattleLab() {
                   나중에 설정
                 </button>
                 <button type="submit" disabled={workspaceBusy}>
-                  {workspaceBusy ? "검증 및 동기화 중…" : "폴더 저장 및 동기화"}
+                  {workspaceBusy
+                    ? "검증 및 동기화 중…"
+                    : "작업공간 저장 및 동기화"}
                 </button>
               </footer>
             </form>

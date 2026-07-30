@@ -207,15 +207,44 @@ button {
   padding: 24px 26px 26px;
 }
 
-.workspace-dialog form > label {
-  display: block;
-  margin-bottom: 9px;
-  color: #cbd4e1;
-  font-size: 11px;
-  font-weight: 700;
+.workspace-path-field {
+  display: grid;
+  gap: 9px;
 }
 
-.workspace-dialog form > input {
+.workspace-path-field + .workspace-path-field {
+  margin-top: 18px;
+}
+
+.workspace-path-field > label {
+  display: grid;
+  grid-template-columns: 26px auto 1fr;
+  align-items: center;
+  gap: 5px 9px;
+  color: #cbd4e1;
+}
+
+.workspace-path-field > label > span {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  grid-row: 1 / 3;
+  place-items: center;
+  border: 1px solid #526079;
+  color: var(--cyan);
+  font: 800 9px/1 ui-monospace, monospace;
+}
+
+.workspace-path-field > label > strong {
+  font-size: 11px;
+}
+
+.workspace-path-field > label > small {
+  color: #8492a7;
+  font-size: 9px;
+}
+
+.workspace-path-field > input {
   width: 100%;
   min-height: 48px;
   padding: 0 13px;
@@ -226,7 +255,7 @@ button {
   font: 600 11px/1.4 ui-monospace, monospace;
 }
 
-.workspace-dialog form > input:focus {
+.workspace-path-field > input:focus {
   border-color: var(--cyan);
   box-shadow: 0 0 0 3px rgba(89, 222, 218, 0.1);
 }
@@ -240,7 +269,7 @@ button {
 
 .workspace-dialog dl {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   margin: 18px 0 0;
   border: 1px solid #35445d;
 }
