@@ -481,8 +481,45 @@ test("estimates symmetric and terminal win probabilities from battle state value
   assert.equal(won.terminalOutcome, "win");
   assert.equal(lost.probability, 0);
   assert.equal(lost.terminalOutcome, "loss");
-  assert.equal(favorable.modelVersion, "heuristic-logistic-v2");
+  assert.equal(favorable.modelVersion, "heuristic-logistic-v3");
   assert.ok(favorable.topFactors.length > 0);
+});
+
+test("values bench matchup coverage and safe finishing routes", () => {
+  const strongBench = {
+    teamSize: 3,
+    livingCount: 3,
+    totalHpRatio: 2.4,
+    matchupCoverage: 0.82,
+    safeKoCoverage: 0.75,
+    benchReadiness: 0.88,
+    sweepPotential: 0.8,
+  };
+  const weakBench = {
+    teamSize: 3,
+    livingCount: 3,
+    totalHpRatio: 2.4,
+    matchupCoverage: 0.38,
+    safeKoCoverage: 0.25,
+    benchReadiness: 0.42,
+    sweepPotential: 0.35,
+  };
+  const favorable = estimateBattleWinProbability({
+    own: strongBench,
+    opponent: weakBench,
+  });
+  const reversed = estimateBattleWinProbability({
+    own: weakBench,
+    opponent: strongBench,
+  });
+
+  assert.ok(favorable.probability > 0.5);
+  assert.ok(favorable.components.matchupCoverage > 0);
+  assert.ok(favorable.components.safeKoCoverage > 0);
+  assert.ok(favorable.components.benchReadiness > 0);
+  assert.ok(favorable.components.sweepPotential > 0);
+  assert.ok(Math.abs(favorable.probability + reversed.probability - 1) < 0.0001);
+  assert.equal(favorable.featureSchemaVersion, 3);
 });
 
 test("normalizes ace survival by each team's ace candidate count", () => {

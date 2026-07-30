@@ -1340,6 +1340,22 @@ function normalizedBattleValueSide(side = {}) {
       0,
       finiteNumber(side.gimmicksRemaining, 0),
     ),
+    matchupCoverage: Math.max(
+      0,
+      Math.min(1, finiteNumber(side.matchupCoverage, 0)),
+    ),
+    safeKoCoverage: Math.max(
+      0,
+      Math.min(1, finiteNumber(side.safeKoCoverage, 0)),
+    ),
+    benchReadiness: Math.max(
+      0,
+      Math.min(1, finiteNumber(side.benchReadiness, 0)),
+    ),
+    sweepPotential: Math.max(
+      0,
+      Math.min(1, finiteNumber(side.sweepPotential, 0)),
+    ),
   };
 }
 
@@ -1369,6 +1385,14 @@ export function evaluateBattleStateValue(state = {}) {
       (own.gimmicksRemaining - opponent.gimmicksRemaining) * 4,
     uniqueCounters:
       (own.uniqueCountersAlive - opponent.uniqueCountersAlive) * 16,
+    matchupCoverage:
+      (own.matchupCoverage - opponent.matchupCoverage) * 36,
+    safeKoCoverage:
+      (own.safeKoCoverage - opponent.safeKoCoverage) * 22,
+    benchReadiness:
+      (own.benchReadiness - opponent.benchReadiness) * 16,
+    sweepPotential:
+      (own.sweepPotential - opponent.sweepPotential) * 22,
     field: fieldAdvantage,
   };
   const value =
@@ -1390,8 +1414,8 @@ export function evaluateBattleStateValue(state = {}) {
   };
 }
 
-const WIN_PROBABILITY_MODEL_VERSION = "heuristic-logistic-v2";
-const WIN_PROBABILITY_FEATURE_SCHEMA_VERSION = 2;
+const WIN_PROBABILITY_MODEL_VERSION = "heuristic-logistic-v3";
+const WIN_PROBABILITY_FEATURE_SCHEMA_VERSION = 3;
 const WIN_PROBABILITY_COMPONENT_LABELS = {
   pokemonCount: "남은 포켓몬",
   totalHp: "남은 체력",
@@ -1401,6 +1425,10 @@ const WIN_PROBABILITY_COMPONENT_LABELS = {
   hazards: "설치물",
   gimmicks: "남은 기믹",
   uniqueCounters: "핵심 대응 자원",
+  matchupCoverage: "팀 대면 대응력",
+  safeKoCoverage: "안전한 KO 경로",
+  benchReadiness: "벤치 준비도",
+  sweepPotential: "후반 돌파 가능성",
   field: "필드 상성",
 };
 
@@ -1492,6 +1520,10 @@ function battleStateInformationCoverage(state = {}) {
     "hazardLayers",
     "uniqueCountersAlive",
     "gimmicksRemaining",
+    "matchupCoverage",
+    "safeKoCoverage",
+    "benchReadiness",
+    "sweepPotential",
   ];
   const sides = [state.own ?? {}, state.opponent ?? {}];
   const knownSideFields = sides.reduce(
@@ -1607,6 +1639,14 @@ function applyProjectedSideDelta(side, delta = {}) {
     gimmicksRemaining:
       side.gimmicksRemaining +
       finiteNumber(delta.gimmicksRemaining, 0),
+    matchupCoverage:
+      side.matchupCoverage + finiteNumber(delta.matchupCoverage, 0),
+    safeKoCoverage:
+      side.safeKoCoverage + finiteNumber(delta.safeKoCoverage, 0),
+    benchReadiness:
+      side.benchReadiness + finiteNumber(delta.benchReadiness, 0),
+    sweepPotential:
+      side.sweepPotential + finiteNumber(delta.sweepPotential, 0),
   };
   return normalizedBattleValueSide(projected);
 }

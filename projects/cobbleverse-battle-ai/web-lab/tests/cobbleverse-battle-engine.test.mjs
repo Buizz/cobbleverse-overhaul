@@ -9,6 +9,7 @@ import {
   chooseSimpleAiDecision,
   chooseSimpleAiCommand,
   createSimpleBattle,
+  estimateSimpleBattleWinProbability,
   isSimpleAbilitySupported,
   resolveSimpleTurn,
   resolveSimpleCheaterDecision,
@@ -423,6 +424,95 @@ test("calculates the built-in type chart without Showdown", () => {
   assert.equal(typeMultiplier("Electric", ["Water", "Flying"]), 4);
   assert.equal(typeMultiplier("Electric", ["Ground"]), 0);
   assert.equal(typeMultiplier("Fire", ["Water"]), 0.5);
+});
+
+test("includes inactive bench matchups in the battle win estimate", () => {
+  const statusMove = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    accuracy: true,
+    pp: 40,
+  };
+  const opponent = pokemon({
+    name: "Grass Threat",
+    types: ["Grass"],
+    stats: { ...pokemon().stats, hp: 180, specialAttack: 140, speed: 90 },
+    moves: [
+      {
+        id: "energyball",
+        name: "Energy Ball",
+        type: "Grass",
+        category: "Special",
+        power: 90,
+        accuracy: 100,
+        pp: 10,
+      },
+    ],
+  });
+  const baseSide = pokemon({
+    name: "Active Anchor",
+    stats: { ...pokemon().stats, hp: 180, speed: 60 },
+    moves: [statusMove],
+  });
+  const strongBench = pokemon({
+    name: "Fire Counter",
+    types: ["Fire"],
+    stats: { ...pokemon().stats, specialAttack: 150, speed: 130 },
+    moves: [
+      {
+        id: "flamethrower",
+        name: "Flamethrower",
+        type: "Fire",
+        category: "Special",
+        power: 100,
+        accuracy: 100,
+        pp: 15,
+      },
+    ],
+  });
+  const weakBench = pokemon({
+    name: "Weak Reserve",
+    types: ["Water"],
+    stats: { ...pokemon().stats, specialAttack: 60, speed: 50 },
+    moves: [
+      {
+        id: "watergun",
+        name: "Water Gun",
+        type: "Water",
+        category: "Special",
+        power: 40,
+        accuracy: 100,
+        pp: 25,
+      },
+    ],
+  });
+  const stateWithCounter = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Counter Team", team: [baseSide, strongBench] },
+        { name: "Threat Team", team: [opponent] },
+      ],
+    }),
+  );
+  const stateWithoutCounter = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Weak Team", team: [baseSide, weakBench] },
+        { name: "Threat Team", team: [opponent] },
+      ],
+    }),
+  );
+  const withCounter = estimateSimpleBattleWinProbability(stateWithCounter, 0);
+  const withoutCounter = estimateSimpleBattleWinProbability(
+    stateWithoutCounter,
+    0,
+  );
+
+  assert.ok(withCounter.probability > withoutCounter.probability);
+  assert.ok(withCounter.components.matchupCoverage > withoutCounter.components.matchupCoverage);
+  assert.ok(withCounter.components.safeKoCoverage >= withoutCounter.components.safeKoCoverage);
 });
 
 test("reports a deterministic damage range with STAB", () => {

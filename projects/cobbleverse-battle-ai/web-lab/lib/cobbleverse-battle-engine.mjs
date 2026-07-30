@@ -10718,6 +10718,7 @@ const SIMPLE_THREAT_COUNTER_MAP_CACHE = new WeakMap();
 const SIMPLE_ROLE_PROGRESS_CACHE = new WeakMap();
 const SIMPLE_TEAM_ANALYSIS_CACHE = new WeakMap();
 const SIMPLE_BATTLE_VALUE_STATE_CACHE = new WeakMap();
+const SIMPLE_TEAM_MATCHUP_CACHE = new WeakMap();
 
 function aiOneTurnSearchWeight(difficulty) {
   const id = cleanId(difficulty);
@@ -10795,10 +10796,226 @@ function simpleRemainingGimmicks(side) {
   );
 }
 
+function simpleTeamMatchupMetrics(
+  state,
+  sideIndex,
+  cacheKey = simpleAnalysisStateKey(state),
+) {
+  const cached = SIMPLE_TEAM_MATCHUP_CACHE.get(state);
+  if (cached?.key === cacheKey && cached.bySide.has(sideIndex)) {
+    return cached.bySide.get(sideIndex);
+  }
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const ownSide = state.sides[sideIndex];
+  const enemySide = state.sides[opponentSide];
+  const allies = ownSide.team
+    .map((member, index) => ({ member, index }))
+    .filter(({ member }) => member.fainted !== true && member.hp > 0);
+  const enemies = enemySide.team
+    .map((member, index) => ({ member, index }))
+    .filter(({ member }) => member.fainted !== true && member.hp > 0);
+  const trickRoom =
+    Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0;
+  const pairByAlly = new WeakMap();
+  const pairs = allies.map((allyEntry) => {
+    const row = enemies.map((enemyEntry) => {
+      const ally = allyEntry.member;
+      const enemy = enemyEntry.member;
+      const outgoing = bestAiAttackProfile(
+        state,
+        sideIndex,
+        ally,
+        opponentSide,
+        enemy,
+      );
+      const incoming = bestAiAttackProfile(
+        state,
+        opponentSide,
+        enemy,
+        sideIndex,
+        ally,
+      );
+      const allySpeed = effectiveSpeed(ally, state, sideIndex);
+      const enemySpeed = effectiveSpeed(enemy, state, opponentSide);
+      const actsBefore =
+        outgoing.priority > incoming.priority ||
+        (outgoing.priority === incoming.priority &&
+          (trickRoom ? allySpeed < enemySpeed : allySpeed > enemySpeed));
+      const enemyActsBefore =
+        incoming.priority > outgoing.priority ||
+        (incoming.priority === outgoing.priority &&
+          (trickRoom ? enemySpeed < allySpeed : enemySpeed > allySpeed));
+      const outgoingRatio = Math.min(
+        1.5,
+        Math.max(0, outgoing.expectedDamage / Math.max(1, enemy.hp)),
+      );
+      const incomingRatio = Math.min(
+        1.5,
+        Math.max(0, incoming.expectedDamage / Math.max(1, ally.hp)),
+      );
+      const canKo = outgoing.expectedDamage >= enemy.hp;
+      const enemyCanKo = incoming.expectedDamage >= ally.hp;
+      const safeKo = canKo && (actsBefore || !enemyCanKo);
+      const enemySafeKo = enemyCanKo && (enemyActsBefore || !canKo);
+      const tempo =
+        actsBefore === enemyActsBefore ? 0 : actsBefore ? 0.06 : -0.06;
+      const allyScore = Math.max(
+        0,
+        Math.min(
+          1,
+          0.5 +
+            (outgoingRatio - incomingRatio) * 0.24 +
+            tempo +
+            (safeKo ? 0.16 : 0) -
+            (enemySafeKo ? 0.16 : 0),
+        ),
+      );
+      return {
+        ally: allyEntry,
+        enemy: enemyEntry,
+        outgoing,
+        incoming,
+        actsBefore,
+        enemyActsBefore,
+        outgoingRatio,
+        incomingRatio,
+        safeKo,
+        enemySafeKo,
+        allyScore,
+        enemyScore: 1 - allyScore,
+      };
+    });
+    pairByAlly.set(allyEntry.member, new Map(
+      row.map((pair) => [pair.enemy.member, pair]),
+    ));
+    return row;
+  });
+
+  const sideMetrics = (
+    ownEntries,
+    opposingEntries,
+    scoreForPair,
+    safeKoForPair,
+    activeIndex,
+  ) => {
+    if (ownEntries.length === 0) {
+      return {
+        matchupCoverage: 0,
+        safeKoCoverage: 0,
+        benchReadiness: 0,
+        sweepPotential: 0,
+      };
+    }
+    if (opposingEntries.length === 0) {
+      return {
+        matchupCoverage: 1,
+        safeKoCoverage: 1,
+        benchReadiness: 1,
+        sweepPotential: 1,
+      };
+    }
+    const opponentBestScores = opposingEntries.map((opponent, opponentIndex) =>
+      Math.max(
+        ...ownEntries.map((_, ownIndex) =>
+          scoreForPair(ownIndex, opponentIndex),
+        ),
+      ),
+    );
+    const matchupCoverage =
+      opponentBestScores.reduce((total, score) => total + score, 0) /
+      opposingEntries.length;
+    const safeKoCoverage =
+      opposingEntries.filter((_, opponentIndex) =>
+        ownEntries.some((__, ownIndex) =>
+          safeKoForPair(ownIndex, opponentIndex),
+        ),
+      ).length / opposingEntries.length;
+    const memberSweepScores = ownEntries.map((entry, ownIndex) => {
+      const matchupAverage =
+        opposingEntries.reduce(
+          (total, _, opponentIndex) =>
+            total + scoreForPair(ownIndex, opponentIndex),
+          0,
+        ) / opposingEntries.length;
+      const maxHp = Math.max(
+        1,
+        Number(entry.member.stats?.hp ?? entry.member.hp ?? 1),
+      );
+      const hpRatio = Math.max(
+        0,
+        Math.min(1, Number(entry.member.hp ?? 0) / maxHp),
+      );
+      return matchupAverage * (0.7 + hpRatio * 0.3);
+    });
+    const bench = ownEntries
+      .map((entry, ownIndex) => ({ entry, ownIndex }))
+      .filter(({ entry }) => entry.index !== activeIndex);
+    const benchReadiness =
+      bench.length === 0
+        ? 0
+        : bench.reduce((total, { entry, ownIndex }) => {
+            const maxHp = Math.max(
+              1,
+              Number(entry.member.stats?.hp ?? entry.member.hp ?? 1),
+            );
+            const hpRatio = Math.max(
+              0,
+              Math.min(1, Number(entry.member.hp ?? 0) / maxHp),
+            );
+            const statusReadiness = entry.member.status ? 0.55 : 1;
+            const bestMatchup = Math.max(
+              ...opposingEntries.map((_, opponentIndex) =>
+                scoreForPair(ownIndex, opponentIndex),
+              ),
+            );
+            return (
+              total +
+              hpRatio * 0.45 +
+              statusReadiness * 0.15 +
+              bestMatchup * 0.4
+            );
+          }, 0) / bench.length;
+    return {
+      matchupCoverage,
+      safeKoCoverage,
+      benchReadiness,
+      sweepPotential: Math.max(...memberSweepScores),
+    };
+  };
+
+  const ownMetrics = sideMetrics(
+    allies,
+    enemies,
+    (allyIndex, enemyIndex) => pairs[allyIndex][enemyIndex].allyScore,
+    (allyIndex, enemyIndex) => pairs[allyIndex][enemyIndex].safeKo,
+    ownSide.active,
+  );
+  const opponentMetrics = sideMetrics(
+    enemies,
+    allies,
+    (enemyIndex, allyIndex) => pairs[allyIndex][enemyIndex].enemyScore,
+    (enemyIndex, allyIndex) => pairs[allyIndex][enemyIndex].enemySafeKo,
+    enemySide.active,
+  );
+  const result = {
+    own: ownMetrics,
+    opponent: opponentMetrics,
+    pairByAlly,
+  };
+  const nextCache = cached?.key === cacheKey ? cached.bySide : new Map();
+  nextCache.set(sideIndex, result);
+  SIMPLE_TEAM_MATCHUP_CACHE.set(state, {
+    key: cacheKey,
+    bySide: nextCache,
+  });
+  return result;
+}
+
 function simpleBattleValueSide(
   side,
   roleAnalysis,
   uniqueCounterSlots = new Set(),
+  matchupMetrics = {},
 ) {
   let livingCount = 0;
   let totalHpRatio = 0;
@@ -10839,6 +11056,10 @@ function simpleBattleValueSide(
     hazardLayers: simpleHazardLayerCount(side.conditions),
     uniqueCountersAlive,
     gimmicksRemaining: simpleRemainingGimmicks(side),
+    matchupCoverage: Number(matchupMetrics.matchupCoverage ?? 0),
+    safeKoCoverage: Number(matchupMetrics.safeKoCoverage ?? 0),
+    benchReadiness: Number(matchupMetrics.benchReadiness ?? 0),
+    sweepPotential: Number(matchupMetrics.sweepPotential ?? 0),
   };
 }
 
@@ -10862,12 +11083,18 @@ function simpleBattleStateValueSnapshot(
   const enemyAnalysis = simpleTeamAnalysis(state, opponentSide);
   const resolvedThreatMap =
     threatCounterMap ??
-    simpleThreatCounterMap(state, sideIndex, resolvedAllyAnalysis);
+    simpleThreatCounterMap(
+      state,
+      sideIndex,
+      resolvedAllyAnalysis,
+      cacheKey,
+    );
   const uniqueCounterSlots = new Set(
     resolvedThreatMap.mustPreserveResources.map((resource) => resource.slot),
   );
   const ownActive = activePokemon(state, sideIndex);
   const enemyActive = activePokemon(state, opponentSide);
+  const matchupMetrics = simpleTeamMatchupMetrics(state, sideIndex, cacheKey);
   const fieldAdvantage =
     (fieldSwitchSynergy(state, sideIndex, ownActive, enemyActive)
       .fieldSynergyValue -
@@ -10880,8 +11107,14 @@ function simpleBattleStateValueSnapshot(
       ownSide,
       resolvedAllyAnalysis,
       uniqueCounterSlots,
+      matchupMetrics.own,
     ),
-    opponent: simpleBattleValueSide(enemySide, enemyAnalysis),
+    opponent: simpleBattleValueSide(
+      enemySide,
+      enemyAnalysis,
+      new Set(),
+      matchupMetrics.opponent,
+    ),
     fieldAdvantage: Math.round(fieldAdvantage * 100) / 100,
     field: {
       weather: cleanId(state.field?.weather?.id),
@@ -10897,6 +11130,12 @@ function simpleBattleStateValueSnapshot(
     bySide: nextCache,
   });
   return result;
+}
+
+export function estimateSimpleBattleWinProbability(state, sideIndex = 0) {
+  return estimateBattleWinProbability(
+    simpleBattleStateValueSnapshot(state, sideIndex),
+  );
 }
 
 function aiCandidateKoProbability(candidate) {
@@ -11179,8 +11418,12 @@ function simpleAnalysisStateKey(state) {
   });
 }
 
-function simpleThreatCounterMap(state, sideIndex, allyAnalysis = null) {
-  const cacheKey = simpleAnalysisStateKey(state);
+function simpleThreatCounterMap(
+  state,
+  sideIndex,
+  allyAnalysis = null,
+  cacheKey = simpleAnalysisStateKey(state),
+) {
   const cached = SIMPLE_THREAT_COUNTER_MAP_CACHE.get(state);
   if (cached?.key === cacheKey && cached.bySide.has(sideIndex)) {
     return cached.bySide.get(sideIndex);
@@ -11192,43 +11435,31 @@ function simpleThreatCounterMap(state, sideIndex, allyAnalysis = null) {
     allyAnalysis ??
     simpleTeamAnalysis(state, sideIndex);
   const enemyAnalysis = simpleTeamAnalysis(state, opponentSide);
+  const matchupMetrics = simpleTeamMatchupMetrics(state, sideIndex, cacheKey);
   const result = buildThreatCounterMap({
     allies,
     enemies,
     allyAnalysis: resolvedAllyAnalysis,
     enemyAnalysis,
     evaluateMatchup: ({ ally, enemy }) => {
-      const outgoing = bestAiAttackProfile(
-        state,
-        sideIndex,
-        ally,
-        opponentSide,
-        enemy,
-      );
-      const incoming = bestAiAttackProfile(
-        state,
-        opponentSide,
-        enemy,
-        sideIndex,
-        ally,
-      );
-      const actsBefore =
-        outgoing.priority > incoming.priority ||
-        (outgoing.priority === incoming.priority &&
-          (Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0
-            ? effectiveSpeed(ally, state, sideIndex) <
-              effectiveSpeed(enemy, state, opponentSide)
-            : effectiveSpeed(ally, state, sideIndex) >
-              effectiveSpeed(enemy, state, opponentSide)));
+      const pair = matchupMetrics.pairByAlly.get(ally)?.get(enemy);
+      if (!pair) {
+        return {
+          allyHpPercent: ally.hp / ally.stats.hp,
+          incomingDamageRatio: 0,
+          outgoingDamageRatio: 0,
+          actsBefore: false,
+          priorityKo: false,
+        };
+      }
       return {
         allyHpPercent: ally.hp / ally.stats.hp,
-        incomingDamageRatio: incoming.expectedDamage / ally.stats.hp,
-        outgoingDamageRatio:
-          enemy.hp > 0 ? outgoing.expectedDamage / enemy.hp : 0,
-        actsBefore,
+        incomingDamageRatio: pair.incoming.expectedDamage / ally.stats.hp,
+        outgoingDamageRatio: pair.outgoingRatio,
+        actsBefore: pair.actsBefore,
         priorityKo:
-          outgoing.priority > incoming.priority &&
-          outgoing.expectedDamage >= enemy.hp,
+          pair.outgoing.priority > pair.incoming.priority &&
+          pair.outgoing.expectedDamage >= enemy.hp,
       };
     },
   });
