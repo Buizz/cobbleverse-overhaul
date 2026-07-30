@@ -412,6 +412,31 @@ test("accepts the separate win-probability expert policy", () => {
   assert.equal(result.scenario.aiProfiles[1].difficulty, "expert_winrate");
 });
 
+test("accepts the separate one-turn search expert policy", () => {
+  const result = createBattleScenario(
+    {
+      mode: "eve",
+      seed: 44,
+      battleEngine: "cobbleverse",
+      aiDifficulty: "expert_search",
+      aiProfiles: [
+        { difficulty: "expert", strategy: "balanced" },
+        { difficulty: "expert_search", strategy: "balanced" },
+      ],
+      sides: [
+        { source: "preset", trainerId: "kanto_brock" },
+        { source: "preset", trainerId: "kanto_misty" },
+      ],
+    },
+    index.trainers,
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.scenario.aiDifficulty, "expert_search");
+  assert.equal(result.scenario.aiProfiles[0].difficulty, "expert");
+  assert.equal(result.scenario.aiProfiles[1].difficulty, "expert_search");
+});
+
 test("preserves and validates per-side cheater activation probability", () => {
   const valid = createBattleScenario(
     {

@@ -12222,14 +12222,325 @@ function applyWinProbabilityDecisionPolicy({
   };
 }
 
+function simpleSearchPolicyCandidates({
+  moveCandidates = [],
+  switchCandidates = [],
+  gimmick = null,
+  gimmickMove = null,
+}) {
+  const candidates = [
+    ...moveCandidates.map((candidate) => ({
+      ...candidate,
+      policyKind: "move",
+      policyCommand: { move: candidate.slot },
+    })),
+    ...switchCandidates.map((candidate) => ({
+      ...candidate,
+      policyKind: "switch",
+      policyCommand: { switch: candidate.slot },
+    })),
+    ...(gimmick && gimmickMove
+      ? [
+          {
+            ...gimmickMove,
+            policyKind: "gimmick",
+            policyCommand: { move: gimmickMove.slot, gimmick },
+          },
+        ]
+      : []),
+  ];
+  const unique = new Map();
+  for (const candidate of candidates.filter(
+    (candidate) => candidate.legal !== false && candidate.disabled !== true,
+  )) {
+    const key = simpleCommandKey(candidate.policyCommand);
+    const previous = unique.get(key);
+    if (!previous || Number(candidate.score ?? 0) > Number(previous.score ?? 0)) {
+      unique.set(key, candidate);
+    }
+  }
+  return [...unique.values()].sort(
+    (left, right) => Number(right.score ?? 0) - Number(left.score ?? 0),
+  );
+}
+
+function boundedSearchCandidates(candidates, selectedCommand, limit) {
+  const bounded = candidates.slice(0, limit);
+  const selectedKey = simpleCommandKey(selectedCommand);
+  const selected = candidates.find(
+    (candidate) => simpleCommandKey(candidate.policyCommand) === selectedKey,
+  );
+  if (
+    selected &&
+    !bounded.some(
+      (candidate) =>
+        simpleCommandKey(candidate.policyCommand) === selectedKey,
+    )
+  ) {
+    bounded[bounded.length - 1] = selected;
+  }
+  return bounded;
+}
+
+function simpleSearchActionDistribution(candidates, temperature = 70) {
+  if (candidates.length === 0) return [];
+  const maximum = Math.max(
+    ...candidates.map((candidate) => Number(candidate.score ?? 0)),
+  );
+  const weighted = candidates.map((candidate) => ({
+    candidate,
+    weight: Math.exp(
+      Math.max(
+        -20,
+        (Number(candidate.score ?? 0) - maximum) /
+          Math.max(1, temperature),
+      ),
+    ),
+  }));
+  const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+  return weighted.map((entry) => ({
+    ...entry,
+    probability: total > 0 ? entry.weight / total : 1 / weighted.length,
+  }));
+}
+
+function roundedSearchProbability(value) {
+  return Math.round(Number(value ?? 0) * 10_000) / 10_000;
+}
+
+function applyOneTurnExpectimaxDecisionPolicy({
+  state,
+  sideIndex,
+  opponentStrategy,
+  heuristicDecision,
+  moveCandidates,
+  switchCandidates,
+  gimmick,
+  gimmickMove,
+  gimmickCandidate,
+  lockedSelection,
+}) {
+  if (lockedSelection) {
+    return {
+      ...heuristicDecision,
+      diagnostics: {
+        ...heuristicDecision.diagnostics,
+        policy: "expectimax-one-turn",
+        policyOverride: false,
+        searchSkipped: "locked-selection",
+      },
+    };
+  }
+
+  const ownCandidates = boundedSearchCandidates(
+    simpleSearchPolicyCandidates({
+      moveCandidates,
+      switchCandidates,
+      gimmick,
+      gimmickMove,
+    }),
+    heuristicDecision.command,
+    4,
+  );
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const opponentDecision = chooseSimpleAiDecision(
+    state,
+    opponentSide,
+    "expert",
+    opponentStrategy ?? "balanced",
+  );
+  const opponentCandidates = boundedSearchCandidates(
+    simpleSearchPolicyCandidates({
+      moveCandidates: opponentDecision.moveCandidates,
+      switchCandidates: opponentDecision.switchCandidates,
+      gimmick: opponentDecision.command.gimmick ?? null,
+      gimmickMove: opponentDecision.command.gimmick
+        ? opponentDecision.selectedMove
+        : null,
+    }),
+    opponentDecision.command,
+    3,
+  );
+  const opponentDistribution =
+    simpleSearchActionDistribution(opponentCandidates);
+  const evaluations = [];
+  let searchNodes = 0;
+  let searchFailures = 0;
+
+  for (const ownCandidate of ownCandidates) {
+    const outcomes = [];
+    for (const opponentEntry of opponentDistribution) {
+      const commands =
+        sideIndex === 0
+          ? [
+              ownCandidate.policyCommand,
+              opponentEntry.candidate.policyCommand,
+            ]
+          : [
+              opponentEntry.candidate.policyCommand,
+              ownCandidate.policyCommand,
+            ];
+      try {
+        const nextState = simulateSimpleTurn(state, commands, {
+          historyTurns: 1,
+        });
+        const probability = estimateBattleWinProbability(
+          simpleBattleStateValueSnapshot(nextState, sideIndex),
+        ).probability;
+        outcomes.push({
+          opponentCommand: opponentEntry.candidate.policyCommand,
+          opponentId: opponentEntry.candidate.id,
+          opponentProbability: opponentEntry.probability,
+          winProbability: probability,
+        });
+        searchNodes += 1;
+      } catch {
+        searchFailures += 1;
+      }
+    }
+    if (outcomes.length === 0) continue;
+    const coveredProbability = outcomes.reduce(
+      (sum, outcome) => sum + outcome.opponentProbability,
+      0,
+    );
+    const expectedWinProbability =
+      outcomes.reduce(
+        (sum, outcome) =>
+          sum + outcome.winProbability * outcome.opponentProbability,
+        0,
+      ) / Math.max(Number.EPSILON, coveredProbability);
+    const worstWinProbability = Math.min(
+      ...outcomes.map((outcome) => outcome.winProbability),
+    );
+    const searchValue =
+      expectedWinProbability * 0.8 + worstWinProbability * 0.2;
+    evaluations.push({
+      ...ownCandidate,
+      searchEvaluation: {
+        expectedWinProbability:
+          roundedSearchProbability(expectedWinProbability),
+        worstWinProbability: roundedSearchProbability(worstWinProbability),
+        searchValue: roundedSearchProbability(searchValue),
+        outcomes: outcomes.map((outcome) => ({
+          ...outcome,
+          opponentProbability: roundedSearchProbability(
+            outcome.opponentProbability,
+          ),
+          winProbability: roundedSearchProbability(outcome.winProbability),
+        })),
+      },
+    });
+  }
+
+  evaluations.sort(
+    (left, right) =>
+      Number(right.searchEvaluation.searchValue) -
+        Number(left.searchEvaluation.searchValue) ||
+      Number(right.score ?? 0) - Number(left.score ?? 0),
+  );
+  const selected = evaluations[0];
+  if (!selected) {
+    return {
+      ...heuristicDecision,
+      diagnostics: {
+        ...heuristicDecision.diagnostics,
+        policy: "expectimax-one-turn",
+        policyOverride: false,
+        searchNodes,
+        searchFailures,
+        searchSkipped: "no-valid-outcome",
+      },
+    };
+  }
+
+  const evaluationByCommand = new Map(
+    evaluations.map((candidate) => [
+      simpleCommandKey(candidate.policyCommand),
+      candidate.searchEvaluation,
+    ]),
+  );
+  const enrichedMoveCandidates = moveCandidates.map((candidate) => ({
+    ...candidate,
+    searchEvaluation: evaluationByCommand.get(
+      simpleCommandKey({ move: candidate.slot }),
+    ),
+  }));
+  const enrichedSwitchCandidates = heuristicDecision.switchCandidates.map(
+    (candidate) => ({
+      ...candidate,
+      searchEvaluation: evaluationByCommand.get(
+        simpleCommandKey({ switch: candidate.slot }),
+      ),
+    }),
+  );
+  const selectedIsSwitch = selected.policyKind === "switch";
+  const selectedMove = selectedIsSwitch
+    ? null
+    : enrichedMoveCandidates.find(
+        (candidate) => candidate.slot === selected.policyCommand.move,
+      ) ?? heuristicDecision.selectedMove;
+  const selectedSwitch = selectedIsSwitch
+    ? enrichedSwitchCandidates.find(
+        (candidate) => candidate.slot === selected.policyCommand.switch,
+      ) ?? selected
+    : null;
+  const enrichedGimmickCandidate =
+    gimmickCandidate && gimmick && gimmickMove
+      ? {
+          ...gimmickCandidate,
+          searchEvaluation: evaluationByCommand.get(
+            simpleCommandKey({ move: gimmickMove.slot, gimmick }),
+          ),
+        }
+      : null;
+  const policyOverride =
+    simpleCommandKey(selected.policyCommand) !==
+    simpleCommandKey(heuristicDecision.command);
+
+  return {
+    ...heuristicDecision,
+    command: selected.policyCommand,
+    selectedMove,
+    selectedSwitch,
+    moveCandidates: enrichedMoveCandidates,
+    switchCandidates: enrichedSwitchCandidates,
+    gimmickCandidate: enrichedGimmickCandidate,
+    diagnostics: {
+      ...heuristicDecision.diagnostics,
+      selectionSource: "expectimax-one-turn",
+      policy: "expectimax-one-turn",
+      policyOverride,
+      searchDepthTurns: 1,
+      searchNodes,
+      searchFailures,
+      ownCandidateCount: ownCandidates.length,
+      opponentCandidateCount: opponentCandidates.length,
+      heuristicCommand: structuredClone(heuristicDecision.command),
+      searchCommand: structuredClone(selected.policyCommand),
+      expectedWinProbability:
+        selected.searchEvaluation.expectedWinProbability,
+      worstWinProbability: selected.searchEvaluation.worstWinProbability,
+      searchValue: selected.searchEvaluation.searchValue,
+      opponentDistribution: opponentDistribution.map((entry) => ({
+        id: entry.candidate.id,
+        command: structuredClone(entry.candidate.policyCommand),
+        probability: roundedSearchProbability(entry.probability),
+      })),
+    },
+  };
+}
+
 export function chooseSimpleAiDecision(
   state,
   sideIndex,
   difficulty = "standard",
   strategy = "balanced",
+  options = {},
 ) {
   const scoringDifficulty =
-    difficulty === "expert_winrate" || difficulty === "cheater"
+    difficulty === "expert_winrate" ||
+    difficulty === "expert_search" ||
+    difficulty === "cheater"
       ? "expert"
       : difficulty;
   const side = state.sides[sideIndex];
@@ -12492,6 +12803,20 @@ export function chooseSimpleAiDecision(
       switchMargin,
     },
   };
+  if (difficulty === "expert_search") {
+    return applyOneTurnExpectimaxDecisionPolicy({
+      state,
+      sideIndex,
+      opponentStrategy: options.opponentStrategy,
+      heuristicDecision,
+      moveCandidates,
+      switchCandidates: tacticallyViableSwitches,
+      gimmick,
+      gimmickMove: commandMove,
+      gimmickCandidate: gimmickDecision.candidate ?? null,
+      lockedSelection,
+    });
+  }
   if (difficulty !== "expert_winrate") {
     return heuristicDecision;
   }
@@ -12774,6 +13099,8 @@ export function createSimpleAiDecisionTrace(
     selectionPolicy:
       difficulty === "expert_winrate"
         ? "win-probability"
+        : difficulty === "expert_search"
+          ? "expectimax-one-turn"
         : difficulty === "cheater" && decision.diagnostics?.cheatActivated
           ? "cheater-exact-command"
         : "heuristic",
@@ -12822,6 +13149,10 @@ export function runSimpleBattle(setup, options = {}) {
         sideIndex,
         profile.difficulty,
         profile.strategy,
+        {
+          opponentStrategy:
+            aiProfiles[sideIndex === 0 ? 1 : 0]?.strategy ?? "balanced",
+        },
       );
     });
     const decisions = baseDecisions.map((baseDecision, sideIndex) => {

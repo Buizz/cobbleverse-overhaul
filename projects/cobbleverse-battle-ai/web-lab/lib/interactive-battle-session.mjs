@@ -485,6 +485,7 @@ class TracedOpponentAI extends BattleStreams.BattlePlayer {
       const priorityWeight =
         this.difficulty === "expert" ||
         this.difficulty === "expert_winrate" ||
+        this.difficulty === "expert_search" ||
         this.difficulty === "cheater"
           ? 12
           : 5;

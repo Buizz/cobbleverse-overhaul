@@ -9,6 +9,7 @@ const AI_DIFFICULTIES = new Set([
   "advanced",
   "expert",
   "expert_winrate",
+  "expert_search",
   "cheater",
 ]);
 const AI_STRATEGIES = new Set([
@@ -414,7 +415,7 @@ export function createBattleScenario(raw, trainers, itemResolver = null) {
       issue(
         "aiDifficulty",
         "unsupported",
-        "AI 수준은 novice, standard, advanced, expert, expert_winrate, cheater 중 하나여야 합니다.",
+        "AI 수준은 novice, standard, advanced, expert, expert_winrate, expert_search, cheater 중 하나여야 합니다.",
       ),
     );
   }
@@ -433,7 +434,7 @@ export function createBattleScenario(raw, trainers, itemResolver = null) {
         issue(
           `aiProfiles.${index}.difficulty`,
           "unsupported",
-          "AI 수준은 novice, standard, advanced, expert, expert_winrate, cheater 중 하나여야 합니다.",
+          "AI 수준은 novice, standard, advanced, expert, expert_winrate, expert_search, cheater 중 하나여야 합니다.",
         ),
       );
     }

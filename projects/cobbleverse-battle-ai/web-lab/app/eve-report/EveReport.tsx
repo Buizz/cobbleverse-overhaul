@@ -25,6 +25,7 @@ type AiProfile = {
     | "advanced"
     | "expert"
     | "expert_winrate"
+    | "expert_search"
     | "cheater";
   strategy:
     | "balanced"
@@ -249,6 +250,7 @@ const difficultyNames: Record<string, string> = {
   advanced: "상급",
   expert: "전문가(휴리스틱)",
   expert_winrate: "전문가(승률 기반)",
+  expert_search: "전문가(1턴 탐색)",
   cheater: "치터",
 };
 

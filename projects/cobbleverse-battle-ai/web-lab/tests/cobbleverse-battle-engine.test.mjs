@@ -15292,3 +15292,88 @@ test("keeps heuristic and win-probability expert policies separate in traces", (
   assert.equal(battle.aiTrace[1].difficulty, "expert_winrate");
   assert.equal(battle.aiTrace[1].selectionPolicy, "win-probability");
 });
+
+test("evaluates one-turn search against a bounded opponent distribution", () => {
+  const battleSetup = setup({
+    sides: [
+      {
+        name: "Search",
+        team: [
+          pokemon({
+            name: "Searcher",
+            moves: [
+              {
+                id: "tackle",
+                name: "Tackle",
+                type: "Normal",
+                category: "Physical",
+                power: 40,
+                accuracy: 100,
+                pp: 35,
+              },
+              {
+                id: "swordsdance",
+                name: "Swords Dance",
+                type: "Normal",
+                category: "Status",
+                accuracy: true,
+                pp: 20,
+                selfBoosts: { attack: 2 },
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Heuristic",
+        team: [
+          pokemon({
+            name: "Opponent",
+            moves: [
+              {
+                id: "tackle",
+                name: "Tackle",
+                type: "Normal",
+                category: "Physical",
+                power: 40,
+                accuracy: 100,
+                pp: 35,
+              },
+              {
+                id: "growl",
+                name: "Growl",
+                type: "Normal",
+                category: "Status",
+                accuracy: 100,
+                pp: 40,
+                boosts: { attack: -1 },
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const battle = runSimpleBattle(battleSetup, {
+    maxTurns: 1,
+    aiProfiles: [
+      { difficulty: "expert_search", strategy: "balanced" },
+      { difficulty: "expert", strategy: "balanced" },
+    ],
+  });
+  const trace = battle.aiTrace[0];
+
+  assert.equal(trace.difficulty, "expert_search");
+  assert.equal(trace.selectionPolicy, "expectimax-one-turn");
+  assert.equal(trace.diagnostics.searchDepthTurns, 1);
+  assert.ok(trace.diagnostics.searchNodes >= 2);
+  assert.ok(trace.diagnostics.opponentCandidateCount >= 2);
+  assert.ok(
+    trace.candidates.some(
+      (candidate) =>
+        Number.isFinite(
+          candidate.searchEvaluation?.expectedWinProbability,
+        ),
+    ),
+  );
+});

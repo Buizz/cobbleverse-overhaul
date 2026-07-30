@@ -6,6 +6,7 @@ const DIFFICULTY_LABELS = {
   advanced: "상급",
   expert: "전문가(휴리스틱)",
   expert_winrate: "전문가(승률 기반)",
+  expert_search: "전문가(1턴 탐색)",
   cheater: "치터",
 };
 const ROLE_LABELS = {
@@ -3129,6 +3130,7 @@ export function scoreAiMoveCandidate(
   const priorityWeight =
     difficulty === "expert" ||
     difficulty === "expert_winrate" ||
+    difficulty === "expert_search" ||
     difficulty === "cheater"
       ? 12
       : 5;
@@ -3289,6 +3291,7 @@ function moveDecisionReasons(candidate, difficulty, strategy) {
   if (
     difficulty === "expert" ||
     difficulty === "expert_winrate" ||
+    difficulty === "expert_search" ||
     difficulty === "cheater"
   ) {
     reasons.push({
@@ -4069,6 +4072,7 @@ export function toAiTraceCandidate(candidate, options) {
     winProbabilityDelta:
       normalized.oneTurnEvaluation?.winProbabilityDelta,
     oneTurnEvaluation: normalized.oneTurnEvaluation,
+    searchEvaluation: candidate.searchEvaluation,
     opponentConditionalPriorityLikelihood:
       normalized.opponentConditionalPriorityLikelihood,
     opponentSetupMoveCount: normalized.opponentSetupMoveCount,
