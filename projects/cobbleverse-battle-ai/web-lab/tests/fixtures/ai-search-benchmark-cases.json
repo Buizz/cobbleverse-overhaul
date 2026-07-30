@@ -35,8 +35,8 @@
       "trainerIds": ["sv9-hazard-balance", "dbingsu-server-party"],
       "focus": ["hazard", "salt-cure", "long-game"],
       "baseline": {
-        "winnerTrainerId": "sv9-hazard-balance",
-        "turns": 29
+        "winnerTrainerId": "dbingsu-server-party",
+        "turns": 34
       }
     },
     {
@@ -46,7 +46,7 @@
       "focus": ["trick-room", "switch", "future-matchup"],
       "baseline": {
         "winnerTrainerId": "sv9-trick-room-balance",
-        "turns": 32
+        "turns": 73
       }
     },
     {
@@ -55,8 +55,8 @@
       "trainerIds": ["champions-mega-emboar-setup", "sv9-screens-offense"],
       "focus": ["setup", "screens", "survival"],
       "baseline": {
-        "winnerTrainerId": "champions-mega-emboar-setup",
-        "turns": 34
+        "winnerTrainerId": "sv9-screens-offense",
+        "turns": 25
       }
     },
     {
@@ -85,8 +85,8 @@
       "trainerIds": ["sv9-sand-balance", "sv9-trick-room-balance"],
       "focus": ["weather", "trick-room", "counter-switch"],
       "baseline": {
-        "winnerTrainerId": null,
-        "turns": 100
+        "winnerTrainerId": "sv9-sand-balance",
+        "turns": 48
       }
     },
     {
@@ -106,7 +106,7 @@
       "focus": ["weather", "trick-room", "gimmick", "switch"],
       "baseline": {
         "winnerTrainerId": "sv9-sand-balance",
-        "turns": 22
+        "turns": 26
       }
     }
   ]

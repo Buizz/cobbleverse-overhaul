@@ -2518,6 +2518,63 @@ test("chooses an AI replacement by matchup instead of party order", () => {
   );
 });
 
+test("forces the final replacement onto entry hazards even when it will faint", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Attacker",
+          team: [
+            pokemon({
+              name: "Attacker",
+              stats: { ...pokemon().stats, attack: 300, speed: 200 },
+              moves: [
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 200,
+                  accuracy: true,
+                  pp: 35,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Hazard Side",
+          team: [
+            pokemon({
+              name: "Active",
+              stats: { ...pokemon().stats, hp: 40, speed: 20 },
+              hp: 1,
+            }),
+            pokemon({
+              name: "Final Bench",
+              stats: { ...pokemon().stats, hp: 120 },
+              hp: 15,
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[1].team[0].hp = 1;
+  state.sides[1].team[1].hp = 15;
+  state.sides[1].conditions.stealthrock = {
+    id: "stealthrock",
+    layers: 1,
+  };
+
+  const result = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+
+  assert.equal(result.sides[1].active, 1);
+  assert.equal(result.sides[1].team[1].fainted, true);
+  assert.equal(result.status, "completed");
+  assert.equal(result.winner, "Attacker");
+});
+
 test("avoids a forced replacement that will faint before its first action", () => {
   const attackingMove = ({
     id,
@@ -7219,6 +7276,108 @@ test("AI compares living team candidates before spending a low-value Tera", () =
   assert.ok(
     decision.gimmickCandidate.reasons.some(
       (reason) => reason.code === "gimmick.tera.better_reserve_candidate",
+    ),
+    JSON.stringify(decision.gimmickCandidate, null, 2),
+  );
+});
+
+test("AI preserves same-type Tera when it only slightly improves Salt Cure damage", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Porygon Team",
+        team: [
+          pokemon({
+            id: "porygon2",
+            name: "Porygon2",
+            types: ["Normal"],
+            stats: {
+              ...pokemon().stats,
+              hp: 374,
+              specialAttack: 170,
+              speed: 70,
+            },
+            moves: [
+              {
+                id: "icebeam",
+                name: "Ice Beam",
+                type: "Ice",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+          pokemon({ id: "blissey", name: "Blissey", types: ["Normal"] }),
+          pokemon({ id: "slowbro", name: "Slowbro", types: ["Water", "Psychic"] }),
+        ],
+      },
+      {
+        name: "Garganacl Team",
+        team: [
+          pokemon({
+            id: "garganacl",
+            name: "Garganacl",
+            types: ["Rock"],
+            gimmicks: { teraType: "Rock" },
+            stats: {
+              ...pokemon().stats,
+              hp: 404,
+              attack: 120,
+              specialDefence: 130,
+              speed: 35,
+            },
+            moves: [
+              {
+                id: "saltcure",
+                name: "Salt Cure",
+                type: "Rock",
+                category: "Physical",
+                power: 40,
+                accuracy: 100,
+                pp: 15,
+              },
+            ],
+          }),
+          pokemon({
+            id: "charizard",
+            name: "Charizard",
+            types: ["Fire", "Flying"],
+            gimmicks: { teraType: "Fire" },
+            moves: [
+              {
+                id: "fireblast",
+                name: "Fire Blast",
+                type: "Fire",
+                category: "Special",
+                power: 110,
+                accuracy: 85,
+                pp: 5,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  state.turn = 2;
+  state.sides[1].team[0].hp = 253;
+  state.sides[1].gimmickResources.mega = "consumed";
+  state.sides[1].gimmickResources.zmove = "consumed";
+  state.sides[1].gimmickResources.dynamax = "consumed";
+  const decision = chooseSimpleAiDecision(state, 1, "expert", "balanced");
+
+  assert.equal(decision.selectedMove.id, "saltcure");
+  assert.equal(
+    decision.command.gimmick,
+    undefined,
+    JSON.stringify(decision.gimmickCandidate, null, 2),
+  );
+  assert.ok(
+    decision.gimmickCandidate.reasons.some(
+      (reason) => reason.code === "gimmick.tera.marginal_gain",
     ),
     JSON.stringify(decision.gimmickCandidate, null, 2),
   );

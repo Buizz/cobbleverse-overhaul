@@ -7870,7 +7870,13 @@ function bestFaintReplacement(state, sideIndex) {
       rng: createAiRng(state.seed, sideIndex, state.turn * 31),
     },
   );
-  return selected ? selected.slot - 1 : undefined;
+  if (selected) return selected.slot - 1;
+  return side.team.findIndex(
+    (pokemon, index) =>
+      index !== side.active &&
+      !pokemon.fainted &&
+      pokemon.hp > 0,
+  );
 }
 
 function advanceFaintedSides(state) {
@@ -10582,14 +10588,17 @@ function applyTeraDefensiveScore(
     ({ guaranteed: 2, possible: 1 }[value] ?? 0);
   const baseExpectedDamage = Number(baseMove.expectedDamage ?? 0);
   const selectedExpectedDamage = Number(selectedMove.expectedDamage ?? 0);
-  const hasOffensiveTeraGain =
-    selectedExpectedDamage >=
-      baseExpectedDamage + Math.max(10, baseExpectedDamage * 0.1) ||
+  const expectedDamageGain = Math.max(
+    0,
+    selectedExpectedDamage - baseExpectedDamage,
+  );
+  const improvesKoChance =
     koChanceValue(selectedMove.koChance) > koChanceValue(baseMove.koChance);
+  const hasMeaningfulDamageGain =
+    expectedDamageGain >= Math.max(30, baseExpectedDamage * 0.2);
   const failsToSurviveDefensiveTera =
     projection.activeKoAfterTera &&
-    !teraPreventsCounterattack &&
-    !hasOffensiveTeraGain;
+    !teraPreventsCounterattack;
   const activeWeight = Math.max(
     -32,
     Math.min(
@@ -10751,6 +10760,35 @@ function applyTeraDefensiveScore(
       },
       weight: opportunityPenalty,
       message: `${resourceOpportunity.bestAlternative.name}의 장기 테라 적합도가 더 높아 현재 포켓몬의 사용 점수를 낮췄습니다.`,
+    });
+  }
+
+  const shouldPreserveForBetterCandidate =
+    opportunityGap > 2 &&
+    !improvesKoChance &&
+    !hasMeaningfulDamageGain &&
+    !projection.preventsActiveKo &&
+    projection.activeDamageReductionRatio < 0.1;
+  if (shouldPreserveForBetterCandidate) {
+    const activationThreshold = Number(candidate.activationThreshold ?? 5);
+    const scoreBeforeCap = Number(candidate.score ?? 0) + adjustment;
+    const marginalPenalty = Math.min(
+      0,
+      activationThreshold - 1 - scoreBeforeCap,
+    );
+    adjustment += marginalPenalty;
+    reasons.push({
+      code: "gimmick.tera.marginal_gain",
+      label: "테라 실질 이득 부족",
+      value: {
+        damageBefore: Math.round(baseExpectedDamage * 100) / 100,
+        damageAfter: Math.round(selectedExpectedDamage * 100) / 100,
+        koBefore: baseMove.koChance ?? "none",
+        koAfter: selectedMove.koChance ?? "none",
+      },
+      weight: Math.round(marginalPenalty * 100) / 100,
+      message:
+        "KO 단계, 충분한 화력 상승, 현재 대면의 생존 가치가 개선되지 않고 더 적합한 파티 후보가 있어 테라 자원을 보존합니다.",
     });
   }
 
