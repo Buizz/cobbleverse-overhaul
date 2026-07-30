@@ -13,6 +13,7 @@ import {
   resolveSimpleTurn,
   resolveSimpleCheaterDecision,
   runSimpleBattle,
+  simulateSimpleTurn,
   typeMultiplier,
 } from "../lib/cobbleverse-battle-engine.mjs";
 
@@ -633,6 +634,59 @@ test("resolves speed order, PP and damage using the same seed", () => {
   );
   assert.equal(first.sides[0].team[0].moves[0].pp, 34);
   assert.ok(first.sides[1].team[0].hp < 120);
+});
+
+test("simulates a turn without mutating the source or cloning heavy history", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    accuracy: true,
+    pp: 40,
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Left",
+          team: [pokemon({ name: "Left", moves: [splash] })],
+        },
+        {
+          name: "Right",
+          team: [pokemon({ name: "Right", moves: [splash] })],
+        },
+      ],
+    }),
+  );
+  for (let turn = 0; turn < 5; turn += 1) {
+    state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  }
+  state.aiTrace = [{ payload: "heavy trace" }];
+  state.turnSnapshots = [{ payload: "heavy snapshot" }];
+  const sourceBefore = structuredClone(state);
+  const expected = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  const simulated = simulateSimpleTurn(
+    state,
+    [{ move: 1 }, { move: 1 }],
+    { historyTurns: 3 },
+  );
+  const withoutHistory = (value) => {
+    const result = structuredClone(value);
+    result.events = [];
+    result.aiTrace = [];
+    result.turnSnapshots = [];
+    return result;
+  };
+
+  assert.deepEqual(state, sourceBefore);
+  assert.deepEqual(withoutHistory(simulated), withoutHistory(expected));
+  assert.deepEqual(simulated.aiTrace, []);
+  assert.deepEqual(simulated.turnSnapshots, []);
+  assert.ok(simulated.events.length < expected.events.length);
+  assert.ok(
+    simulated.events.every((event) => Number(event.turn ?? 0) >= 3),
+  );
 });
 
 test("prevents Blood Moon from being used on consecutive turns", () => {

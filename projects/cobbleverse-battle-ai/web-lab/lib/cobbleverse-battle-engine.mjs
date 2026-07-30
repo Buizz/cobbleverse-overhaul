@@ -8460,14 +8460,33 @@ function expireDynamax(state) {
   }
 }
 
-export function resolveSimpleTurn(previousState, commands) {
+function turnResolutionState(previousState, compactHistoryTurns = null) {
+  if (!Number.isInteger(compactHistoryTurns)) {
+    return clone(previousState);
+  }
+  const historyTurns = Math.max(0, compactHistoryTurns);
+  const minimumTurn = Math.max(0, previousState.turn - historyTurns + 1);
+  return clone({
+    ...previousState,
+    events: (previousState.events ?? []).filter(
+      (event) => Number(event.turn ?? 0) >= minimumTurn,
+    ),
+    aiTrace: [],
+    turnSnapshots: [],
+  });
+}
+
+function resolveSimpleTurnInternal(previousState, commands, options = {}) {
   if (previousState.status !== "running") {
     throw new Error("The battle is already finished");
   }
   if (!Array.isArray(commands) || commands.length !== 2) {
     throw new Error("Exactly two commands are required");
   }
-  const state = clone(previousState);
+  const state = turnResolutionState(
+    previousState,
+    options.compactHistoryTurns ?? null,
+  );
   const hasRngState = state.rngState !== null && state.rngState !== undefined;
   const rng = createRng(
     hasRngState ? state.rngState : state.seed,
@@ -8537,6 +8556,19 @@ export function resolveSimpleTurn(previousState, commands) {
   advanceFaintedSides(state);
   state.rngState = rng.snapshot();
   return state;
+}
+
+export function resolveSimpleTurn(previousState, commands) {
+  return resolveSimpleTurnInternal(previousState, commands);
+}
+
+export function simulateSimpleTurn(previousState, commands, options = {}) {
+  return resolveSimpleTurnInternal(previousState, commands, {
+    compactHistoryTurns: Math.max(
+      0,
+      Number.isInteger(options.historyTurns) ? options.historyTurns : 3,
+    ),
+  });
 }
 
 function strongestMovePower(pokemon) {
