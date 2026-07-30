@@ -32,6 +32,7 @@ import {
 const ENGINE_VERSION = "0.9.7";
 const DEFAULT_MAX_TURNS = 200;
 const DEFAULT_FIELD_DURATION = 5;
+const SECOND_TURN_SEARCH_DISCOUNT = 0.72;
 const GIMMICK_KINDS = ["mega", "zmove", "dynamax", "terastallize"];
 const PRE_MOVE_GIMMICKS = new Set(["mega", "dynamax", "gigantamax", "terastallize"]);
 const SIDE_CONDITION_DURATIONS = {
@@ -835,6 +836,18 @@ function normalizeSide(side, index) {
   return {
     name: String(side?.name ?? `Side ${index + 1}`),
     active: 0,
+    bag: Array.isArray(side?.bag)
+      ? side.bag
+          .map((entry) => ({
+            item: cleanId(entry?.item),
+            quantity: Math.max(0, Math.floor(Number(entry?.quantity ?? 0))),
+          }))
+          .filter((entry) => entry.item && entry.quantity > 0)
+      : [],
+    itemUsesRemaining: Math.max(
+      0,
+      Math.floor(Number(side?.maxItemUses ?? 0)),
+    ),
     usedGimmicks: {
       mega: false,
       zmove: false,
@@ -2001,6 +2014,24 @@ function buildActions(state, commands, rng) {
         };
       }
       const lockedSelection = lockedMoveSelection(pokemon);
+      const item = cleanId(commands[side]?.item);
+      if (item) {
+        if (lockedSelection?.preventsSwitch) {
+          throw new Error(
+            `Side ${side + 1} cannot use an item while locked into ${lockedSelection.move.name}`,
+          );
+        }
+        return {
+          kind: "item",
+          side,
+          pokemon,
+          item,
+          selected: null,
+          priority: 10_002,
+          speed: effectiveSpeed(pokemon, state, side),
+          tie: rng.next(),
+        };
+      }
       const switchSlot = Number(commands[side]?.switch);
       if (Number.isInteger(switchSlot)) {
         if (lockedSelection?.preventsSwitch) {
@@ -2085,6 +2116,7 @@ function nativeMaxMovePriority(pokemon, move) {
 }
 
 function effectiveMovePriority(state, action) {
+  if (action.kind === "item") return 10_002;
   if (action.kind === "switch") return 10_000;
   const move = action.selected?.move;
   const pokemon = activePokemon(state, action.side);
@@ -2100,6 +2132,115 @@ function effectiveMovePriority(state, action) {
   }
   if (cleanId(move?.id) === "thunderclap") return 1;
   return movePriorityForPokemon(pokemon, move);
+}
+
+const TRAINER_BATTLE_ITEMS = {
+  fullrestore: {
+    name: "풀회복약",
+    heal: "full",
+    cureStatus: true,
+  },
+  potion: {
+    name: "회복약",
+    heal: 20,
+    cureStatus: false,
+  },
+  fullheal: {
+    name: "만병통치제",
+    heal: 0,
+    cureStatus: true,
+  },
+};
+
+function trainerItemEntry(side, item) {
+  return side.bag.find((entry) => cleanId(entry.item) === cleanId(item)) ?? null;
+}
+
+function canUseTrainerItem(state, sideIndex, item) {
+  const side = state.sides[sideIndex];
+  const pokemon = activePokemon(state, sideIndex);
+  const effect = TRAINER_BATTLE_ITEMS[cleanId(item)];
+  const entry = trainerItemEntry(side, item);
+  if (
+    !effect ||
+    !entry ||
+    entry.quantity <= 0 ||
+    side.itemUsesRemaining <= 0 ||
+    pokemon.fainted ||
+    pokemon.hp <= 0
+  ) {
+    return false;
+  }
+  const canHeal =
+    effect.heal !== 0 && pokemon.hp < pokemon.stats.hp;
+  const canCure =
+    effect.cureStatus &&
+    (Boolean(pokemon.status) || Boolean(pokemon.volatiles?.confusion));
+  return canHeal || canCure;
+}
+
+function executeTrainerItem(state, action) {
+  const side = state.sides[action.side];
+  const pokemon = activePokemon(state, action.side);
+  if (pokemon !== action.pokemon || !canUseTrainerItem(state, action.side, action.item)) {
+    state.events.push({
+      turn: state.turn,
+      type: "item_failed",
+      side: action.side,
+      pokemon: pokemon?.name ?? action.pokemon?.name ?? "",
+      item: action.item,
+    });
+    return false;
+  }
+  const effect = TRAINER_BATTLE_ITEMS[cleanId(action.item)];
+  const entry = trainerItemEntry(side, action.item);
+  entry.quantity -= 1;
+  side.itemUsesRemaining -= 1;
+  state.events.push({
+    turn: state.turn,
+    type: "trainer_item",
+    side: action.side,
+    pokemon: pokemon.name,
+    item: action.item,
+    itemName: effect.name,
+    quantityRemaining: entry.quantity,
+    usesRemaining: side.itemUsesRemaining,
+  });
+  if (effect.cureStatus && pokemon.status) {
+    const status = pokemon.status;
+    pokemon.status = "";
+    pokemon.statusTurns = 0;
+    pokemon.toxicCounter = 0;
+    state.events.push({
+      turn: state.turn,
+      type: "status_cured",
+      side: action.side,
+      pokemon: pokemon.name,
+      status,
+      source: effect.name,
+    });
+  }
+  if (effect.cureStatus && pokemon.volatiles?.confusion) {
+    delete pokemon.volatiles.confusion;
+    state.events.push({
+      turn: state.turn,
+      type: "volatile_end",
+      side: action.side,
+      pokemon: pokemon.name,
+      effect: "confusion",
+      source: effect.name,
+    });
+  }
+  if (effect.heal !== 0) {
+    healPokemon(
+      state,
+      action.side,
+      pokemon,
+      effect.heal === "full" ? pokemon.stats.hp : effect.heal,
+      effect.name,
+    );
+  }
+  return true;
 }
 
 function rejectGimmick(state, action, reason) {
@@ -8502,6 +8643,24 @@ function resolveSimpleTurnInternal(previousState, commands, options = {}) {
     previousState,
     options.compactHistoryTurns ?? null,
   );
+  const suppressedRandomSecondaries = [];
+  if (options.suppressRandomSecondaries === true) {
+    for (const side of state.sides) {
+      for (const pokemon of side.team) {
+        for (const move of pokemon.moves) {
+          if (move.secondaries.some((effect) => effect.chance < 100)) {
+            suppressedRandomSecondaries.push({
+              move,
+              secondaries: move.secondaries,
+            });
+            move.secondaries = move.secondaries.filter(
+              (effect) => effect.chance >= 100,
+            );
+          }
+        }
+      }
+    }
+  }
   const hasRngState = state.rngState !== null && state.rngState !== undefined;
   const rng = createRng(
     hasRngState ? state.rngState : state.seed,
@@ -8524,6 +8683,8 @@ function resolveSimpleTurnInternal(previousState, commands, options = {}) {
   for (const action of actions) {
     if (action.kind === "switch") {
       executeSwitch(state, action);
+    } else if (action.kind === "item") {
+      executeTrainerItem(state, action);
     } else {
       const actedPokemon = activePokemon(state, action.side);
       const succeeded = executeMove(state, action, rng);
@@ -8569,6 +8730,9 @@ function resolveSimpleTurnInternal(previousState, commands, options = {}) {
     }
   }
   advanceFaintedSides(state);
+  for (const { move, secondaries } of suppressedRandomSecondaries) {
+    move.secondaries = secondaries;
+  }
   state.rngState = rng.snapshot();
   return state;
 }
@@ -8583,6 +8747,7 @@ export function simulateSimpleTurn(previousState, commands, options = {}) {
       0,
       Number.isInteger(options.historyTurns) ? options.historyTurns : 3,
     ),
+    suppressRandomSecondaries: options.suppressRandomSecondaries === true,
   });
 }
 
@@ -12437,6 +12602,7 @@ function applyWinProbabilityDecisionPolicy({
   heuristicDecision,
   moveCandidates,
   switchCandidates,
+  itemCandidates,
   gimmick,
   gimmickMove,
   gimmickCandidate,
@@ -12459,6 +12625,7 @@ function applyWinProbabilityDecisionPolicy({
   const policyCandidates = simpleSearchPolicyCandidates({
     moveCandidates,
     switchCandidates,
+    itemCandidates,
     gimmick,
     gimmickMove,
   });
@@ -12484,6 +12651,7 @@ function applyWinProbabilityDecisionPolicy({
     simpleSearchPolicyCandidates({
       moveCandidates: opponentDecision.moveCandidates,
       switchCandidates: opponentDecision.switchCandidates,
+      itemCandidates: opponentDecision.itemCandidates,
       gimmick: opponentDecision.command.gimmick ?? null,
       gimmickMove: opponentDecision.command.gimmick
         ? opponentDecision.selectedMove
@@ -12737,6 +12905,7 @@ function applyWinProbabilityDecisionPolicy({
 function simpleSearchPolicyCandidates({
   moveCandidates = [],
   switchCandidates = [],
+  itemCandidates = [],
   gimmick = null,
   gimmickMove = null,
 }) {
@@ -12750,6 +12919,11 @@ function simpleSearchPolicyCandidates({
       ...candidate,
       policyKind: "switch",
       policyCommand: { switch: candidate.slot },
+    })),
+    ...itemCandidates.map((candidate) => ({
+      ...candidate,
+      policyKind: "item",
+      policyCommand: { item: candidate.id },
     })),
     ...(gimmick && gimmickMove
       ? [
@@ -12859,6 +13033,7 @@ function cachedSimpleSearchTransition(context, state, commands) {
   }
   const nextState = simulateSimpleTurn(state, commands, {
     historyTurns: 1,
+    suppressRandomSecondaries: true,
   });
   context.searchNodes += 1;
   SIMPLE_SEARCH_TRANSITION_CACHE.set(key, nextState);
@@ -13005,6 +13180,7 @@ function applyTwoTurnExpectimaxDecisionPolicy({
   heuristicDecision,
   moveCandidates,
   switchCandidates,
+  itemCandidates,
   gimmick,
   gimmickMove,
   gimmickCandidate,
@@ -13029,6 +13205,7 @@ function applyTwoTurnExpectimaxDecisionPolicy({
     simpleSearchPolicyCandidates({
       moveCandidates,
       switchCandidates,
+      itemCandidates,
       gimmick,
       gimmickMove,
     }),
@@ -13059,6 +13236,7 @@ function applyTwoTurnExpectimaxDecisionPolicy({
         simpleSearchPolicyCandidates({
           moveCandidates: opponentDecision.moveCandidates,
           switchCandidates: opponentDecision.switchCandidates,
+          itemCandidates: opponentDecision.itemCandidates,
           gimmick: opponentDecision.command.gimmick ?? null,
           gimmickMove: opponentDecision.command.gimmick
             ? opponentDecision.selectedMove
@@ -13200,9 +13378,13 @@ function applyTwoTurnExpectimaxDecisionPolicy({
       opponentStrategy: opponentStrategy ?? "balanced",
     });
     if (continuation) {
+      const immediateWeight = 1 - SECOND_TURN_SEARCH_DISCOUNT;
       beamOutcome.evaluatedWinProbability =
-        continuation.expectedWinProbability;
-      beamOutcome.riskWinProbability = continuation.worstWinProbability;
+        beamOutcome.winProbability * immediateWeight +
+        continuation.expectedWinProbability * SECOND_TURN_SEARCH_DISCOUNT;
+      beamOutcome.riskWinProbability =
+        beamOutcome.winProbability * immediateWeight +
+        continuation.worstWinProbability * SECOND_TURN_SEARCH_DISCOUNT;
       beamOutcome.continuation = continuation;
     }
     const coveredProbability = candidate.rawOutcomes.reduce(
@@ -13264,10 +13446,61 @@ function applyTwoTurnExpectimaxDecisionPolicy({
         Number(left.searchEvaluation.searchValue) ||
       Number(right.score ?? 0) - Number(left.score ?? 0),
   );
+  const initiallySelected = evaluations[0];
+  const immediateNonConsecutiveCandidate = evaluations
+    .filter(
+      (candidate) =>
+        candidate.policyKind === "move" &&
+        candidate.category !== "Status" &&
+        NON_CONSECUTIVE_MOVES.has(cleanId(candidate.id)),
+    )
+    .sort(
+      (left, right) =>
+        Number(right.expectedDamage ?? 0) -
+          Number(left.expectedDamage ?? 0) ||
+        Number(right.score ?? 0) - Number(left.score ?? 0),
+    )[0] ?? null;
+  const plannedContinuationMoves = (
+    initiallySelected?.searchEvaluation?.outcomes ?? []
+  )
+    .map((outcome) => outcome.continuation?.ownCommand?.move)
+    .filter(Number.isInteger);
+  const continuationDefersNonConsecutiveMove =
+    plannedContinuationMoves.length > 0 &&
+    plannedContinuationMoves.every(
+      (slot) => slot === immediateNonConsecutiveCandidate?.slot,
+    );
+  const selectedDamage = Number(initiallySelected?.expectedDamage ?? 0);
+  const nonConsecutiveDamage = Number(
+    immediateNonConsecutiveCandidate?.expectedDamage ?? 0,
+  );
+  const nonConsecutiveDamageLead =
+    nonConsecutiveDamage - selectedDamage;
+  const startsUsefulNonConsecutiveCycle =
+    nonConsecutiveDamageLead >= Math.max(8, selectedDamage * 0.08) &&
+    Number(
+      immediateNonConsecutiveCandidate?.opponentKnockoutBeforeActionProbability ??
+        0,
+    ) <=
+      Number(
+        initiallySelected?.opponentKnockoutBeforeActionProbability ?? 0,
+      ) +
+        0.05;
+  const deferredNonConsecutiveMove =
+    initiallySelected &&
+    immediateNonConsecutiveCandidate &&
+    initiallySelected.policyKind === "move" &&
+    initiallySelected.slot !== immediateNonConsecutiveCandidate.slot &&
+    initiallySelected.category !== "Status" &&
+    initiallySelected.koChance !== "guaranteed" &&
+    (continuationDefersNonConsecutiveMove ||
+      startsUsefulNonConsecutiveCycle);
+  const selected = deferredNonConsecutiveMove
+    ? immediateNonConsecutiveCandidate
+    : initiallySelected;
   for (const candidate of evaluations) {
     delete candidate.rawOutcomes;
   }
-  const selected = evaluations[0];
   if (!selected) {
     return {
       ...heuristicDecision,
@@ -13375,6 +13608,18 @@ function applyTwoTurnExpectimaxDecisionPolicy({
         selected.searchEvaluation.expectedWinProbability,
       worstWinProbability: selected.searchEvaluation.worstWinProbability,
       searchValue: selected.searchEvaluation.searchValue,
+      nonConsecutiveDeferralGuard: deferredNonConsecutiveMove
+        ? {
+            deferredMove: initiallySelected.id,
+            selectedMove: selected.id,
+            reason:
+              startsUsefulNonConsecutiveCycle
+                ? "Using the stronger non-consecutive move now starts its cooldown cycle without losing the later use window."
+                : "The search continuation postponed the same non-consecutive move to the next turn.",
+            expectedDamageLead:
+              Math.round(nonConsecutiveDamageLead * 100) / 100,
+          }
+        : null,
       opponentDistribution: opponentDistribution.map((entry) => ({
         id: entry.candidate.id,
         command: structuredClone(entry.candidate.policyCommand),
@@ -13382,6 +13627,103 @@ function applyTwoTurnExpectimaxDecisionPolicy({
       })),
     },
   };
+}
+
+function automaticTrainerItemCandidates(state, sideIndex, moveCandidates) {
+  const side = state.sides[sideIndex];
+  const pokemon = activePokemon(state, sideIndex);
+  if (side.itemUsesRemaining <= 0 || pokemon.fainted || pokemon.hp <= 0) {
+    return [];
+  }
+  const incomingDamageRatio = Math.max(
+    0,
+    ...moveCandidates.map((candidate) =>
+      Number(candidate.incomingDamageRatio ?? 0),
+    ),
+  );
+  const incomingDamage = incomingDamageRatio * pokemon.hp;
+  const missingHp = Math.max(0, pokemon.stats.hp - pokemon.hp);
+  const currentMoveScore = Math.max(
+    0,
+    ...moveCandidates.map((candidate) => Number(candidate.score ?? 0)),
+  );
+  const statusValue = Math.max(
+    {
+      slp: 130,
+      frz: 130,
+      tox: 95,
+      par: 70,
+      brn: 65,
+      psn: 55,
+    }[cleanId(pokemon.status)] ?? 0,
+    pokemon.volatiles?.confusion ? 55 : 0,
+  );
+  const uniqueItems = new Map();
+  for (const entry of side.bag) {
+    const id = cleanId(entry.item);
+    if (!TRAINER_BATTLE_ITEMS[id] || entry.quantity <= 0 || uniqueItems.has(id)) {
+      continue;
+    }
+    const effect = TRAINER_BATTLE_ITEMS[id];
+    const healing =
+      effect.heal === "full"
+        ? missingHp
+        : Math.min(missingHp, Number(effect.heal ?? 0));
+    const curedStatusValue = effect.cureStatus ? statusValue : 0;
+    if (healing <= 0 && curedStatusValue <= 0) continue;
+    const hpAfter = Math.min(pokemon.stats.hp, pokemon.hp + healing);
+    const preventsImmediateKo =
+      incomingDamage >= pokemon.hp && incomingDamage < hpAfter;
+    const stillFaints = incomingDamage >= hpAfter;
+    let score =
+      healing * 0.72 +
+      curedStatusValue +
+      (preventsImmediateKo ? 95 : 0) -
+      Math.min(90, incomingDamage * 0.2);
+    if (stillFaints && incomingDamage >= pokemon.hp) score -= 260;
+    if (id === "potion" && healing < 20) score -= 12;
+    if (currentMoveScore >= 180 && !preventsImmediateKo) score -= 35;
+    uniqueItems.set(id, {
+      id,
+      name: effect.name,
+      type: "item",
+      legal: true,
+      score: Math.round(score * 100) / 100,
+      healing,
+      curesStatus:
+        effect.cureStatus &&
+        (Boolean(pokemon.status) || Boolean(pokemon.volatiles?.confusion)),
+      incomingDamage: Math.round(incomingDamage * 100) / 100,
+      preventsImmediateKo,
+      reasons: [
+        ...(healing > 0
+          ? [{
+              component: "healing",
+              label: "회복량",
+              value: healing,
+              message: `${effect.name}으로 체력 ${healing}을 회복할 수 있습니다.`,
+            }]
+          : []),
+        ...(curedStatusValue > 0
+          ? [{
+              component: "statusCure",
+              label: "상태 회복",
+              value: curedStatusValue,
+              message: `${pokemon.status || "confusion"} 상태를 치료할 수 있습니다.`,
+            }]
+          : []),
+        ...(preventsImmediateKo
+          ? [{
+              component: "survival",
+              label: "즉시 기절 방지",
+              value: 95,
+              message: "예상 공격을 받은 뒤에도 생존할 수 있습니다.",
+            }]
+          : []),
+      ],
+    });
+  }
+  return [...uniqueItems.values()].sort((left, right) => right.score - left.score);
 }
 
 export function chooseSimpleAiDecision(
@@ -13415,6 +13757,10 @@ export function chooseSimpleAiDecision(
     lockedSelection &&
     moveCandidates.find((candidate) => candidate.slot === lockedSelection.slot);
   const chosenMove = forcedMove ?? selectedMove;
+  const itemCandidates = lockedSelection?.preventsSwitch
+    ? []
+    : automaticTrainerItemCandidates(state, sideIndex, moveCandidates);
+  const selectedItem = itemCandidates[0] ?? null;
   const canVoluntarilySwitch =
     !lockedSelection?.preventsSwitch &&
     !isPokemonTrapped(state, sideIndex, pokemon) &&
@@ -13570,6 +13916,7 @@ export function chooseSimpleAiDecision(
       selectedSwitch,
       moveCandidates,
       switchCandidates,
+      itemCandidates,
       dynamaxMoveCandidates,
       selectedDynamaxMove,
       gimmickCandidate: gimmickDecision.candidate ?? null,
@@ -13622,6 +13969,7 @@ export function chooseSimpleAiDecision(
     selectedSwitch: null,
     moveCandidates,
     switchCandidates,
+    itemCandidates,
     dynamaxMoveCandidates,
     selectedDynamaxMove,
     gimmickCandidate: gimmickDecision.candidate ?? null,
@@ -13657,15 +14005,42 @@ export function chooseSimpleAiDecision(
       switchMargin,
     },
   };
+  const currentActionScore = shouldSwitch
+    ? Number(selectedSwitch?.score ?? -Infinity)
+    : Number(commandMove?.score ?? chosenMove?.score ?? -Infinity);
+  const shouldUseItem =
+    selectedItem &&
+    selectedItem.score >= currentActionScore + 8;
+  const itemAwareHeuristicDecision = shouldUseItem
+    ? {
+        ...heuristicDecision,
+        command: { item: selectedItem.id },
+        selectedMove: null,
+        selectedSwitch: null,
+        selectedItem,
+        diagnostics: {
+          ...heuristicDecision.diagnostics,
+          selectionSource: "item-score",
+          chosenItem: {
+            id: selectedItem.id,
+            score: selectedItem.score,
+          },
+        },
+      }
+    : {
+        ...heuristicDecision,
+        selectedItem: null,
+      };
   if (difficulty === "expert_search") {
     return applyTwoTurnExpectimaxDecisionPolicy({
       state,
       sideIndex,
       strategy,
       opponentStrategy: options.opponentStrategy,
-      heuristicDecision,
+      heuristicDecision: itemAwareHeuristicDecision,
       moveCandidates,
       switchCandidates: tacticallyViableSwitches,
+      itemCandidates,
       gimmick,
       gimmickMove: commandMove,
       gimmickCandidate: gimmickDecision.candidate ?? null,
@@ -13674,15 +14049,16 @@ export function chooseSimpleAiDecision(
     });
   }
   if (difficulty !== "expert_winrate") {
-    return heuristicDecision;
+    return itemAwareHeuristicDecision;
   }
   return applyWinProbabilityDecisionPolicy({
     state,
     sideIndex,
     opponentStrategy: options.opponentStrategy,
-    heuristicDecision,
+    heuristicDecision: itemAwareHeuristicDecision,
     moveCandidates,
     switchCandidates: tacticallyViableSwitches,
+    itemCandidates,
     gimmick,
     gimmickMove: commandMove,
     gimmickCandidate: gimmickDecision.candidate ?? null,
@@ -13704,6 +14080,7 @@ function simpleCommandKey(command) {
   return JSON.stringify({
     move: Number(command?.move ?? 0),
     switch: Number(command?.switch ?? 0),
+    ...(command?.item ? { item: String(command.item) } : {}),
     gimmick: String(command?.gimmick ?? ""),
   });
 }
@@ -13775,6 +14152,7 @@ export function applySimpleCheaterKnowledge(
     heuristicDecision: exactHeuristicDecision,
     moveCandidates: exactHeuristicDecision.moveCandidates,
     switchCandidates: exactHeuristicDecision.switchCandidates,
+    itemCandidates: exactHeuristicDecision.itemCandidates,
     gimmick: exactHeuristicDecision.command.gimmick ?? null,
     gimmickMove: exactHeuristicDecision.command.gimmick
       ? exactHeuristicDecision.selectedMove
@@ -13926,6 +14304,11 @@ export function createSimpleAiDecisionTrace(
       Number.isInteger(command.switch) &&
       candidate.slot === decision.selectedSwitch?.slot,
   }));
+  const itemCandidates = (decision.itemCandidates ?? []).map((candidate) => ({
+    ...candidate,
+    score: Math.round(Number(candidate.score ?? 0) * 100) / 100,
+    selected: cleanId(command.item) === cleanId(candidate.id),
+  }));
   const gimmickCandidates = decision.gimmickCandidate
     ? [
         {
@@ -13964,6 +14347,7 @@ export function createSimpleAiDecisionTrace(
   const candidates = [
     ...moveCandidates,
     ...switchCandidates,
+    ...itemCandidates,
     ...gimmickCandidates,
   ].sort(
     (left, right) => Number(right.score ?? 0) - Number(left.score ?? 0),
@@ -13975,12 +14359,17 @@ export function createSimpleAiDecisionTrace(
     sideName: state.sides[sideIndex].name,
     actor: sideIndex === 1 ? "AI" : state.sides[sideIndex].name,
     species: active.name,
-    kind: Number.isInteger(command.switch) ? "switch" : "move",
+    kind: Number.isInteger(command.switch)
+      ? "switch"
+      : command.item
+        ? "item"
+        : "move",
     difficulty,
     strategy,
     chosenAction:
       moveCandidates.find((candidate) => candidate.selected)?.name ??
       switchCandidates.find((candidate) => candidate.selected)?.name ??
+      itemCandidates.find((candidate) => candidate.selected)?.name ??
       gimmickCandidates.find((candidate) => candidate.selected)?.name ??
       "",
     gimmick: command.gimmick ?? "",

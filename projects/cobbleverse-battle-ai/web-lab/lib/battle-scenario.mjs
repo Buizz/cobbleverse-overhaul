@@ -420,6 +420,52 @@ export function createBattleScenario(raw, trainers, itemResolver = null) {
     );
   }
 
+  const rawItemRules =
+    raw?.itemRules && typeof raw.itemRules === "object"
+      ? raw.itemRules
+      : {};
+  const itemRuleSource =
+    cleanText(rawItemRules.source).toLowerCase() || "trainer";
+  if (itemRuleSource !== "global" && itemRuleSource !== "trainer") {
+    issues.push(
+      issue(
+        "itemRules.source",
+        "unsupported",
+        "아이템 규칙 출처는 global 또는 trainer여야 합니다.",
+      ),
+    );
+  }
+  const maxItemUses = Number(rawItemRules.maxUses ?? 0);
+  if (
+    itemRuleSource === "global" &&
+    (!Number.isInteger(maxItemUses) || maxItemUses < 0 || maxItemUses > 99)
+  ) {
+    issues.push(
+      issue(
+        "itemRules.maxUses",
+        "range",
+        "아이템 사용 횟수는 0부터 99 사이의 정수여야 합니다.",
+      ),
+    );
+  }
+  const supportedBattleItems = new Set([
+    "cobblemon:full_restore",
+    "cobblemon:potion",
+    "cobblemon:full_heal",
+  ]);
+  const enabledItems = Array.isArray(rawItemRules.items)
+    ? [...new Set(rawItemRules.items.map(cleanText))]
+        .filter((item) => supportedBattleItems.has(item))
+    : [];
+  const itemRules = {
+    source: itemRuleSource,
+    items: itemRuleSource === "global" ? enabledItems : [],
+    maxUses:
+      itemRuleSource === "global" && Number.isInteger(maxItemUses)
+        ? maxItemUses
+        : null,
+  };
+
   const rawAiProfiles = Array.isArray(raw?.aiProfiles) ? raw.aiProfiles : [];
   const aiProfiles = [0, 1].map((index) => {
     const difficulty =
@@ -556,6 +602,7 @@ export function createBattleScenario(raw, trainers, itemResolver = null) {
     gimmickRules,
     aiDifficulty,
     aiProfiles,
+    itemRules,
     sides: leveledSides,
   };
   const scenarioId = `${mode}-${seed.toString(16).padStart(8, "0")}-${canonicalScenarioHash(scenarioBody)}`;

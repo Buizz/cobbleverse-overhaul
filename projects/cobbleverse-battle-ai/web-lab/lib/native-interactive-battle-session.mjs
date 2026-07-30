@@ -314,6 +314,62 @@ function snapshot(session) {
     0,
     player,
   );
+  const battleItems = requiresReplacement
+    ? []
+    : playerSide.bag
+        .filter((entry) => entry.quantity > 0)
+        .map((entry) => {
+          const id = String(entry.item ?? "");
+          const normalized = id
+            .split(":")
+            .at(-1)
+            .replace(/[^a-z0-9]/gi, "")
+            .toLowerCase();
+          const effectUseful =
+            (normalized === "fullrestore" &&
+              (player.hp < player.stats.hp || Boolean(player.status))) ||
+            (normalized === "potion" && player.hp < player.stats.hp) ||
+            (normalized === "fullheal" && Boolean(player.status));
+          return {
+            id,
+            name: {
+              fullrestore: "풀회복약",
+              potion: "회복약",
+              fullheal: "만병통치제",
+            }[normalized] ?? id,
+            quantity: entry.quantity,
+            disabled:
+              playerSide.itemUsesRemaining <= 0 || !effectUseful,
+          };
+        });
+  const opponentMoveCandidates = publicMoves(
+    opponent,
+    player,
+    "standard",
+    "balanced",
+    state,
+    1,
+    0,
+  );
+  const latestMoveCandidates = (latestDecision?.candidates ?? []).filter(
+    (candidate) =>
+      candidate?.action?.type === "move" &&
+      Number.isInteger(candidate.slot),
+  );
+  const latestMoveCandidateBySlot = new Map(
+    latestMoveCandidates.map((candidate) => [candidate.slot, candidate]),
+  );
+  const opponentMoves = opponentMoveCandidates.map((move) => {
+    const decisionCandidate = latestMoveCandidateBySlot.get(move.slot);
+    return decisionCandidate
+      ? {
+          ...move,
+          selected: decisionCandidate.selected === true,
+          score: decisionCandidate.score,
+          reasons: decisionCandidate.reasons,
+        }
+      : move;
+  });
 
   return {
     sessionId: session.id,
@@ -325,6 +381,11 @@ function snapshot(session) {
       gimmickRules: "all",
       aiDifficulty: scenario.aiDifficulty,
       aiProfiles: scenario.aiProfiles,
+      itemRules: scenario.itemRules ?? {
+        source: "trainer",
+        items: [],
+        maxUses: null,
+      },
     },
     status: running ? "awaiting_choice" : state.status,
     winner: state.winner,
@@ -407,22 +468,14 @@ function snapshot(session) {
               ? ""
               : configuredTeraType,
           },
-          switches: availableSwitches(playerSide, 0),
-          trapped: false,
+           switches: availableSwitches(playerSide, 0),
+           items: battleItems,
+           itemUsesRemaining: playerSide.itemUsesRemaining,
+           trapped: false,
           opponent: {
             species: opponent.name,
             types: opponent.types,
-            moves:
-              latestDecision?.candidates ??
-              publicMoves(
-                opponent,
-                player,
-                "standard",
-                "balanced",
-                state,
-                1,
-                0,
-              ),
+            moves: opponentMoves,
             decision: latestDecision
               ? {
                   strategy: latestDecision.strategy,
@@ -464,6 +517,11 @@ function removeExpiredSessions() {
 
 function playerCommand(state, action) {
   const type = String(action?.type ?? "");
+  if (type === "item") {
+    const item = String(action?.item ?? "");
+    if (!item) throw new Error("사용할 아이템을 선택해 주세요.");
+    return { item };
+  }
   const slot = Number(action?.slot);
   if (!Number.isInteger(slot)) {
     throw new Error("올바른 기술 또는 교체 슬롯을 선택해 주세요.");

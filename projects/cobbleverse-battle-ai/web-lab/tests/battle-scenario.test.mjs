@@ -67,6 +67,56 @@ test("creates a deterministic PvE scenario from a custom party and preset", () =
   });
   assert.equal(first.scenario.sides[1].bag[0].item, "cobblemon:full_restore");
   assert.equal(first.scenario.sides[1].battleRules.maxItemUses, 99);
+  assert.deepEqual(first.scenario.itemRules, {
+    source: "trainer",
+    items: [],
+    maxUses: null,
+  });
+});
+
+test("stores the virtual battle-wide trainer item rules", () => {
+  const result = createBattleScenario(
+    {
+      mode: "pve",
+      seed: 2468,
+      battleEngine: "cobbleverse",
+      itemRules: {
+        source: "global",
+        items: [
+          "cobblemon:full_restore",
+          "cobblemon:potion",
+          "cobblemon:full_heal",
+          "cobblemon:hyper_potion",
+        ],
+        maxUses: 2,
+      },
+      sides: [
+        {
+          source: "custom",
+          name: "Player",
+          team: [{ species: "pikachu", level: 50, moves: ["thunderbolt"] }],
+        },
+        {
+          source: "custom",
+          name: "Opponent",
+          team: [{ species: "eevee", level: 50, moves: ["quickattack"] }],
+        },
+      ],
+    },
+    index.trainers,
+    itemResolver,
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.scenario.itemRules, {
+    source: "global",
+    items: [
+      "cobblemon:full_restore",
+      "cobblemon:potion",
+      "cobblemon:full_heal",
+    ],
+    maxUses: 2,
+  });
 });
 
 test("accepts an independently edited custom PvE opponent", () => {

@@ -46,6 +46,7 @@ export const BATTLE_EVENT_NAMES: Record<string, string> = {
   stat_set: "능력 변화",
   ability: "특성 발동",
   item: "도구 발동",
+  trainer_item: "트레이너 아이템",
   item_consumed: "도구 소모",
   item_removed: "도구 소모",
   activated: "효과 발동",
@@ -239,6 +240,8 @@ export function formatBattleDialogue(
       return `${actor || "포켓몬"}의 특성 「${detail || "특성"}」!`;
     case "item":
       return `${subject} ${detail || "도구"}를 사용했다!`;
+    case "trainer_item":
+      return `트레이너가 ${actor || "포켓몬"}에게 ${detail || "아이템"}을 사용했다!`;
     case "item_consumed":
     case "item_removed":
       return `${actor || "포켓몬"}의 ${detail || "도구"}이 없어졌다!`;

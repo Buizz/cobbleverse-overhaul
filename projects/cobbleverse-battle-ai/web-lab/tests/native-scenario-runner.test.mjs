@@ -210,6 +210,11 @@ test("runs the selected native engine and records AI settings", () => {
     ],
     battleType: "single",
     gimmickRules: "all",
+    itemRules: {
+      source: "trainer",
+      items: [],
+      maxUses: null,
+    },
   });
   assert.equal(battle.status, "completed");
   assert.equal(battle.winner, "Red");
@@ -228,8 +233,8 @@ test("runs the selected native engine and records AI settings", () => {
   );
 });
 
-test("warns instead of silently applying unsupported trainer bag items", () => {
-  const battle = runNativeScenarioBattle({
+test("filters unsupported JSON bag items without reporting the old unsupported warning", () => {
+  const configured = {
     ...scenario,
     sides: scenario.sides.map((side, index) => ({
       ...side,
@@ -239,15 +244,39 @@ test("warns instead of silently applying unsupported trainer bag items", () => {
           : [],
       battleRules: { maxItemUses: 2 },
     })),
-  });
+  };
+  const setup = createNativeBattleSetup(configured);
+  const battle = runNativeScenarioBattle(configured);
 
-  assert.ok(
+  assert.deepEqual(setup.sides[1].bag, []);
+  assert.equal(setup.sides[1].maxItemUses, 2);
+  assert.equal(
     battle.warnings.some(
       (warning) =>
         warning.path === "sides.1.bag" &&
         warning.code === "native_trainer_bag_items_unsupported",
     ),
+    false,
   );
+});
+
+test("applies virtual global item rules equally to both native sides", () => {
+  const setup = createNativeBattleSetup({
+    ...scenario,
+    itemRules: {
+      source: "global",
+      items: ["cobblemon:full_restore", "cobblemon:full_heal"],
+      maxUses: 2,
+    },
+  });
+
+  for (const side of setup.sides) {
+    assert.equal(side.maxItemUses, 2);
+    assert.deepEqual(side.bag, [
+      { item: "cobblemon:full_restore", quantity: 2 },
+      { item: "cobblemon:full_heal", quantity: 2 },
+    ]);
+  }
 });
 
 test("omits heavy traces and snapshots from summary-only native battles", () => {
@@ -528,6 +557,14 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
   assert.equal(switched.request.active.species, "Charmander");
   assert.equal(switched.aiTrace.length, 1);
   assert.equal(switched.aiTrace[0].strategy, "hazard");
+  assert.ok(
+    switched.request.opponent.moves.every(
+      (move) =>
+        ["Physical", "Special", "Status"].includes(move.category) &&
+        !["move", "switch", "item", "gimmick"].includes(move.type),
+    ),
+    "the opponent move panel must only receive complete move records",
+  );
   assert.ok(
     switched.aiTrace[0].candidates.some((candidate) =>
       candidate.reasons.some((reason) => reason.code.startsWith("damage.")),

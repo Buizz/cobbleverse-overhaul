@@ -26,6 +26,77 @@ test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
+test("uses trainer battle items and consumes both quantity and use limit", () => {
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Item User",
+          bag: [
+            { item: "cobblemon:full_restore", quantity: 1 },
+            { item: "cobblemon:full_heal", quantity: 1 },
+          ],
+          maxItemUses: 1,
+          team: [pokemon({ name: "Item User" })],
+        },
+        { name: "Opponent", team: [pokemon({ name: "Opponent" })] },
+      ],
+    }),
+  );
+  state.sides[0].team[0].hp = 20;
+  state.sides[0].team[0].status = "brn";
+  state = resolveSimpleTurn(state, [
+    { item: "cobblemon:full_restore" },
+    { move: 1 },
+  ]);
+
+  assert.equal(state.sides[0].team[0].status, "");
+  assert.equal(state.sides[0].bag[0].quantity, 0);
+  assert.equal(state.sides[0].itemUsesRemaining, 0);
+  assert.ok(state.events.some((event) => event.type === "trainer_item"));
+  assert.ok(state.events.some((event) => event.type === "status_cured"));
+  const rejected = resolveSimpleTurn(state, [
+    { item: "cobblemon:full_heal" },
+    { move: 1 },
+  ]);
+  assert.equal(rejected.sides[0].bag[1].quantity, 1);
+  assert.ok(rejected.events.some((event) => event.type === "item_failed"));
+});
+
+test("offers a useful trainer item as an explainable AI candidate", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "AI",
+          bag: [{ item: "cobblemon:full_restore", quantity: 1 }],
+          maxItemUses: 1,
+          team: [pokemon({ name: "AI" })],
+        },
+        { name: "Opponent", team: [pokemon({ name: "Opponent" })] },
+      ],
+    }),
+  );
+  state.sides[0].team[0].hp = 25;
+  state.sides[0].team[0].status = "tox";
+  const decision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const trace = createSimpleAiDecisionTrace(
+    state,
+    0,
+    decision,
+    "expert",
+    "balanced",
+  );
+
+  assert.ok(decision.itemCandidates.some((candidate) => candidate.id === "fullrestore"));
+  assert.ok(trace.candidates.some((candidate) => candidate.type === "item"));
+});
+
 test("cheater responds to the opponent's committed status move", () => {
   const state = createSimpleBattle(
     setup({
@@ -901,6 +972,236 @@ test("prevents Blood Moon from being used on consecutive turns", () => {
   ]);
   assert.equal(afterCooldown.sides[0].team[0].moves[0].pp, 3);
   assert.ok(afterCooldown.sides[1].team[0].hp < targetHp);
+});
+
+test("two-turn search does not postpone Blood Moon forever", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Blood Moon AI",
+          team: [
+            pokemon({
+              name: "Bloodmoon Ursaluna",
+              types: ["Normal", "Ground"],
+              stats: {
+                ...pokemon().stats,
+                hp: 500,
+                specialAttack: 220,
+                speed: 100,
+              },
+              moves: [
+                {
+                  id: "bloodmoon",
+                  name: "Blood Moon",
+                  type: "Normal",
+                  category: "Special",
+                  power: 140,
+                  accuracy: 100,
+                  pp: 5,
+                },
+                {
+                  id: "earthpower",
+                  name: "Earth Power",
+                  type: "Ground",
+                  category: "Special",
+                  power: 130,
+                  accuracy: 100,
+                  pp: 10,
+                  secondaries: [
+                    {
+                      chance: 10,
+                      boosts: { specialDefence: -1 },
+                    },
+                  ],
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Target",
+          team: [
+            pokemon({
+              name: "Durable Target",
+              types: ["Normal"],
+              stats: {
+                ...pokemon().stats,
+                hp: 240,
+                specialDefence: 180,
+                speed: 40,
+              },
+              moves: [
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  const decision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert_search",
+    "balanced",
+  );
+
+  assert.equal(
+    decision.command.move,
+    1,
+    JSON.stringify(decision.diagnostics, null, 2),
+  );
+  assert.equal(decision.selectedMove.id, "bloodmoon");
+
+  const afterBloodMoon = resolveSimpleTurn(state, [
+    decision.command,
+    { move: 1 },
+  ]);
+  const cooldownDecision = chooseSimpleAiDecision(
+    afterBloodMoon,
+    0,
+    "expert_search",
+    "balanced",
+  );
+  assert.equal(cooldownDecision.command.move, 2);
+
+  const afterCooldown = resolveSimpleTurn(afterBloodMoon, [
+    cooldownDecision.command,
+    { move: 1 },
+  ]);
+  const availableAgain = chooseSimpleAiDecision(
+    afterCooldown,
+    0,
+    "expert_search",
+    "balanced",
+  );
+  assert.equal(availableAgain.command.move, 1);
+});
+
+test("starts the Blood Moon cooldown cycle before Light Screen expires", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Blood Moon AI",
+          team: [
+            pokemon({
+              name: "Bloodmoon Ursaluna",
+              types: ["Normal", "Ground"],
+              stats: {
+                ...pokemon().stats,
+                hp: 428,
+                specialAttack: 205,
+                speed: 80,
+              },
+              moves: [
+                {
+                  id: "bloodmoon",
+                  name: "Blood Moon",
+                  type: "Normal",
+                  category: "Special",
+                  power: 140,
+                  accuracy: 100,
+                  pp: 5,
+                },
+                {
+                  id: "earthpower",
+                  name: "Earth Power",
+                  type: "Ground",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 10,
+                  secondaries: [
+                    {
+                      chance: 10,
+                      boosts: { specialDefence: -1 },
+                    },
+                  ],
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Snorlax",
+          team: [
+            pokemon({
+              name: "Snorlax",
+              types: ["Normal"],
+              stats: {
+                ...pokemon().stats,
+                hp: 524,
+                specialDefence: 210,
+                speed: 40,
+              },
+              moves: [
+                {
+                  id: "curse",
+                  name: "Curse",
+                  type: "Ghost",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 10,
+                  boosts: { attack: 1, defence: 1, speed: -1 },
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[1].conditions.lightscreen = {
+    id: "lightscreen",
+    turns: 3,
+  };
+
+  const firstDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert_search",
+    "balanced",
+  );
+  assert.equal(
+    firstDecision.command.move,
+    1,
+    JSON.stringify(firstDecision.diagnostics, null, 2),
+  );
+
+  const afterBloodMoon = resolveSimpleTurn(state, [
+    firstDecision.command,
+    { move: 1 },
+  ]);
+  const cooldownDecision = chooseSimpleAiDecision(
+    afterBloodMoon,
+    0,
+    "expert_search",
+    "balanced",
+  );
+  assert.equal(cooldownDecision.command.move, 2);
+
+  const afterCooldown = resolveSimpleTurn(afterBloodMoon, [
+    cooldownDecision.command,
+    { move: 1 },
+  ]);
+  const availableBeforeExpiry = chooseSimpleAiDecision(
+    afterCooldown,
+    0,
+    "expert_search",
+    "balanced",
+  );
+  assert.equal(availableBeforeExpiry.command.move, 1);
 });
 
 test("applies stat-changing status moves to the battle state", () => {

@@ -265,6 +265,11 @@ type BattleScenario = {
   gimmickRules: BattleGimmickRules;
   aiDifficulty: AiDifficulty;
   aiProfiles: AiProfile[];
+  itemRules: {
+    source: "global" | "trainer";
+    items: string[];
+    maxUses: number | null;
+  };
   sides: Array<{
     source: PartySource;
     trainerId: string | null;
@@ -388,7 +393,7 @@ type AiTraceEntry = {
   turn: number;
   actor: string;
   species?: string;
-  kind?: "move" | "switch";
+  kind?: "move" | "switch" | "item";
   strategy?: string;
   chosenAction?: string;
   gimmick?: string;
@@ -475,6 +480,7 @@ type InteractiveSlotAction = {
 
 type InteractiveAction =
   | InteractiveSlotAction
+  | { type: "item"; item: string }
   | { type: "multi"; actions: InteractiveSlotAction[] };
 
 type InteractiveBattle = {
@@ -532,6 +538,13 @@ type InteractiveBattle = {
     moves: InteractiveMove[];
     gimmicks: InteractiveGimmicks;
     switches: InteractivePokemon[];
+    items?: Array<{
+      id: string;
+      name: string;
+      quantity: number;
+      disabled: boolean;
+    }>;
+    itemUsesRemaining?: number;
     trapped: boolean;
     opponents?: Array<{
       position: number;
@@ -1063,14 +1076,15 @@ function StatusBadge({
 function MoveCategoryIcon({
   category,
 }: {
-  category: "Physical" | "Special" | "Status";
+  category?: "Physical" | "Special" | "Status";
 }) {
-  const normalizedCategory = category.toLowerCase();
+  const safeCategory = category ?? "Status";
+  const normalizedCategory = safeCategory.toLowerCase();
   return (
     <span
       className={`move-category-icon move-category-${normalizedCategory}`}
-      title={`${moveCategoryNames[category]} 기술`}
-      aria-label={`${moveCategoryNames[category]} 기술`}
+      title={`${moveCategoryNames[safeCategory]} 기술`}
+      aria-label={`${moveCategoryNames[safeCategory]} 기술`}
     >
       <i aria-hidden="true" />
     </span>
@@ -4741,7 +4755,10 @@ function InteractiveArena({
     type: "move" | "switch";
     slot: number;
     gimmick?: BattleGimmick;
-  } | { type: "multi"; actions: InteractiveSlotAction[] }) => void;
+  } | { type: "item"; item: string } | {
+    type: "multi";
+    actions: InteractiveSlotAction[];
+  }) => void;
   onSessionOperation: (
     operation: "save" | "load" | "undo",
     slot?: number,
@@ -5664,6 +5681,27 @@ function InteractiveArena({
                 <p>교체 가능한 포켓몬이 없습니다.</p>
               ) : null}
             </div>
+            {request?.items?.length ? (
+              <div className="battle-item-panel">
+                <div>
+                  <strong>배틀 아이템</strong>
+                  <span>남은 사용 {request.itemUsesRemaining ?? 0}회</span>
+                </div>
+                <div className="battle-item-list">
+                  {request.items.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      disabled={busy || item.disabled}
+                      onClick={() => onAction({ type: "item", item: item.id })}
+                    >
+                      <strong>{item.name}</strong>
+                      <small>보유 {item.quantity}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="ai-intent-control">
               <button
                 className={showAiIntent ? "active" : ""}
@@ -5956,6 +5994,12 @@ export function BattleLab() {
   const [pveOpponentStrategy, setPveOpponentStrategy] =
     useState<AiStrategy>("balanced");
   const [pveCheatProbability, setPveCheatProbability] = useState(0.5);
+  const [battleItems, setBattleItems] = useState([
+    "cobblemon:full_restore",
+    "cobblemon:potion",
+    "cobblemon:full_heal",
+  ]);
+  const [maxItemUses, setMaxItemUses] = useState(2);
   const [eveAiProfiles, setEveAiProfiles] = useState<[AiProfile, AiProfile]>([
     { difficulty: "expert", strategy: "balanced" },
     { difficulty: "expert", strategy: "balanced" },
@@ -6765,6 +6809,11 @@ export function BattleLab() {
                   : {}),
               },
             ],
+            itemRules: {
+              source: "global",
+              items: battleItems,
+              maxUses: maxItemUses,
+            },
             sides: [
               partySource === "preset"
                 ? {
@@ -6798,6 +6847,11 @@ export function BattleLab() {
             gimmickRules: battleEngine === "cobbleverse" ? "all" : gimmickRules,
             aiDifficulty: eveAiProfiles[0].difficulty,
             aiProfiles: eveAiProfiles,
+            itemRules: {
+              source: "global",
+              items: battleItems,
+              maxUses: maxItemUses,
+            },
             sides: [
               partySource === "preset"
                 ? {
@@ -7816,6 +7870,61 @@ export function BattleLab() {
             </small>
           )}
         </label>
+        {battleEngine === "cobbleverse" ? (
+          <fieldset className="battle-item-rule">
+            <legend>트레이너 아이템</legend>
+            <div className="battle-item-options">
+              {[
+                ["cobblemon:full_restore", "풀회복약"],
+                ["cobblemon:potion", "회복약"],
+                ["cobblemon:full_heal", "만병통치제"],
+              ].map(([id, label]) => (
+                <button
+                  type="button"
+                  key={id}
+                  aria-pressed={battleItems.includes(id)}
+                  onClick={() => {
+                    setBattleItems((current) =>
+                      current.includes(id)
+                        ? current.filter((item) => item !== id)
+                        : [...current, id],
+                    );
+                    setScenario(null);
+                    setBattle(null);
+                    setInteractiveBattle(null);
+                  }}
+                >
+                  <span aria-hidden="true">
+                    {battleItems.includes(id) ? "✓" : ""}
+                  </span>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="battle-item-use-limit">
+              <span>사용 횟수</span>
+              <input
+                type="number"
+                aria-label="트레이너 아이템 사용 횟수"
+                min="0"
+                max="99"
+                value={maxItemUses}
+                onChange={(event) => {
+                  setMaxItemUses(
+                    Math.max(0, Math.min(99, Number(event.target.value) || 0)),
+                  );
+                  setScenario(null);
+                  setBattle(null);
+                  setInteractiveBattle(null);
+                }}
+              />
+            </div>
+            <small>
+              가상전투 양쪽에 동일하게 적용됩니다. 실제 엔진 연동에서는
+              트레이너 JSON의 bag과 maxItemUses를 사용합니다.
+            </small>
+          </fieldset>
+        ) : null}
       </section>
 
       {mode === "pve" ? (

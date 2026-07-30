@@ -317,6 +317,12 @@ function hydrateMember(member, path, teraContext = {}) {
 }
 
 export function createNativeBattleSetup(scenario) {
+  const supportedItems = new Set([
+    "cobblemon:full_restore",
+    "cobblemon:potion",
+    "cobblemon:full_heal",
+  ]);
+  const globalItemRules = scenario.itemRules?.source === "global";
   return {
     seed: scenario.seed,
     strictAbilityValidation: true,
@@ -330,6 +336,15 @@ export function createNativeBattleSetup(scenario) {
       );
       return {
         name: side.name,
+        bag: globalItemRules
+          ? (scenario.itemRules.items ?? []).map((item) => ({
+              item,
+              quantity: Number(scenario.itemRules.maxUses ?? 0),
+            }))
+          : (side.bag ?? []).filter((entry) => supportedItems.has(entry.item)),
+        maxItemUses: globalItemRules
+          ? Number(scenario.itemRules.maxUses ?? 0)
+          : Math.max(0, Number(side.battleRules?.maxItemUses ?? 0)),
         team: side.team.map((member, memberIndex) =>
           hydrateMember(
             member,
@@ -358,6 +373,21 @@ export function mapNativeEvent(event) {
   const base = { turn: event.turn, type: event.type, actor: actor(event) };
   if (event.type === "turn") {
     return [{ ...base, label: `Turn ${event.turn}` }];
+  }
+  if (event.type === "trainer_item") {
+    return [{
+      ...base,
+      type: "trainer_item",
+      detail: displayValue(event.itemName || event.item),
+      condition: String(event.usesRemaining ?? ""),
+    }];
+  }
+  if (event.type === "item_failed") {
+    return [{
+      ...base,
+      type: "failed",
+      detail: displayValue(event.item),
+    }];
   }
   if (event.type === "switch") {
     const condition =
@@ -601,16 +631,6 @@ export function runNativeScenarioBattle(scenario, options = {}) {
       })),
     })),
   } : undefined;
-  const unsupportedBagWarnings = scenario.sides.flatMap((side, sideIndex) =>
-    Array.isArray(side.bag) && side.bag.length > 0
-      ? [{
-          path: `sides.${sideIndex}.bag`,
-          code: "native_trainer_bag_items_unsupported",
-          message:
-            "트레이너 가방 아이템은 시나리오에 보존되지만 자체 엔진의 전투 중 아이템 행동에는 아직 연결되지 않았습니다.",
-        }]
-      : [],
-  );
   const result = {
     battleId: `${scenario.scenarioId}-native-battle`,
     scenarioId: scenario.scenarioId,
@@ -631,6 +651,11 @@ export function runNativeScenarioBattle(scenario, options = {}) {
         })),
       battleType: "single",
       gimmickRules: "all",
+      itemRules: scenario.itemRules ?? {
+        source: "trainer",
+        items: [],
+        maxUses: null,
+      },
     },
     seed: scenario.seed,
     status: state.status,
@@ -644,7 +669,6 @@ export function runNativeScenarioBattle(scenario, options = {}) {
         message:
           "자체 엔진은 현재 포켓몬·기술 원본 데이터만 Showdown 카탈로그에서 읽으며, 전투 판정은 Cobbleverse 엔진이 수행합니다.",
       },
-      ...unsupportedBagWarnings,
     ],
   };
   if (!includeDetails) return result;

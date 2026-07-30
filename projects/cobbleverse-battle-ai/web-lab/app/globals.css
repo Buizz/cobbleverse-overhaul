@@ -11084,3 +11084,131 @@ select:disabled {
     width: 54px;
   }
 }
+.battle-item-rule {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px minmax(260px, 1fr);
+  align-items: end;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.battle-item-rule legend {
+  padding: 0 6px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.battle-item-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.battle-item-options button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.battle-item-options button[aria-pressed="true"] {
+  border-color: #79a900;
+  background: #efffd4;
+}
+
+.battle-item-options button span {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #8091a6;
+  color: #18334e;
+  font-size: 11px;
+}
+
+.battle-item-use-limit {
+  display: grid;
+  gap: 5px;
+}
+
+.battle-item-use-limit > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.battle-item-use-limit input {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 0 10px;
+}
+
+.battle-item-rule > small {
+  align-self: center;
+}
+
+.battle-item-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(143, 164, 188, 0.35);
+}
+
+.battle-item-panel > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  color: #f4f8ff;
+}
+
+.battle-item-panel > div:first-child span {
+  color: #91a6bf;
+  font-size: 11px;
+}
+
+.battle-item-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.battle-item-list button {
+  min-width: 0;
+  min-height: 52px;
+  border: 1px solid #47617f;
+  background: #132b46;
+  color: #f4f8ff;
+}
+
+.battle-item-list button:disabled {
+  opacity: 0.42;
+}
+
+.battle-item-list button strong,
+.battle-item-list button small {
+  display: block;
+}
+
+.battle-item-list button small {
+  margin-top: 3px;
+  color: #91a6bf;
+}
+
+@media (max-width: 900px) {
+  .battle-item-rule {
+    grid-template-columns: 1fr;
+  }
+}
