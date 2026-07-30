@@ -4900,32 +4900,33 @@ function InteractiveArena({
             }`}
             aria-label={`상대 활성 포켓몬 ${opponentFieldPokemon.length}마리`}
           >
-            {opponentFieldPokemon.map((pokemon) => (
-              <div
-                className={`sprite-platform opponent-platform ${
-                  opponentGimmickState.dynamax ? "dynamaxed" : ""
-                } ${opponentSpriteFainted ? "fainted" : ""} ${pokemonTransitionClass(
-                  actionNotice?.event,
-                  "p2",
-                  pokemon.species,
-                )}`}
-                key={`${pokemon.position}-${pokemon.species}-${
-                  pokemonTransitionClass(
-                    actionNotice?.event,
-                    "p2",
-                    pokemon.species,
-                  )
-                    ? actionNotice?.step
-                    : "steady"
-                }`}
-              >
-                {/* Dynamic Showdown sprite URLs are intentionally rendered without Next image optimization. */}
-                <PokemonSprite
-                  species={pokemon.species}
-                  alt={`${localizedSpecies(localization, pokemon.species)} 전면 스프라이트`}
-                />
-              </div>
-            ))}
+            {opponentFieldPokemon.map((pokemon) => {
+              const transition = pokemonTransitionClass(
+                actionNotice?.event,
+                "p2",
+                pokemon.species,
+              );
+              return (
+                <div
+                  className={`sprite-platform opponent-platform ${
+                    opponentGimmickState.dynamax ? "dynamaxed" : ""
+                  } ${
+                    opponentSpriteFainted && transition !== "is-entering"
+                      ? "fainted"
+                      : ""
+                  } ${transition}`}
+                  key={`${pokemon.position}-${pokemon.species}-${
+                    transition ? actionNotice?.step : "steady"
+                  }`}
+                >
+                  {/* Dynamic Showdown sprite URLs are intentionally rendered without Next image optimization. */}
+                  <PokemonSprite
+                    species={pokemon.species}
+                    alt={`${localizedSpecies(localization, pokemon.species)} 전면 스프라이트`}
+                  />
+                </div>
+              );
+            })}
             <StatRankPanel ranks={opponentRanks} />
           </div>
         </article>
@@ -4975,33 +4976,34 @@ function InteractiveArena({
             }`}
             aria-label={`플레이어 활성 포켓몬 ${playerFieldPokemon.length}마리`}
           >
-            {playerFieldPokemon.map((pokemon, index) => (
-              <div
-                className={`sprite-platform player-platform ${
-                  playerGimmickState.dynamax ? "dynamaxed" : ""
-                } ${playerSpriteFainted ? "fainted" : ""} ${pokemonTransitionClass(
-                  actionNotice?.event,
-                  "p1",
-                  pokemon.species,
-                )}`}
-                key={`${index}-${pokemon.species}-${
-                  pokemonTransitionClass(
-                    actionNotice?.event,
-                    "p1",
-                    pokemon.species,
-                  )
-                    ? actionNotice?.step
-                    : "steady"
-                }`}
-              >
-                {/* Dynamic Showdown sprite URLs intentionally skip Next image optimization. */}
-                <PokemonSprite
-                  species={pokemon.species}
-                  back
-                  alt={`${localizedSpecies(localization, pokemon.species)} 후면 스프라이트`}
-                />
-              </div>
-            ))}
+            {playerFieldPokemon.map((pokemon, index) => {
+              const transition = pokemonTransitionClass(
+                actionNotice?.event,
+                "p1",
+                pokemon.species,
+              );
+              return (
+                <div
+                  className={`sprite-platform player-platform ${
+                    playerGimmickState.dynamax ? "dynamaxed" : ""
+                  } ${
+                    playerSpriteFainted && transition !== "is-entering"
+                      ? "fainted"
+                      : ""
+                  } ${transition}`}
+                  key={`${index}-${pokemon.species}-${
+                    transition ? actionNotice?.step : "steady"
+                  }`}
+                >
+                  {/* Dynamic Showdown sprite URLs intentionally skip Next image optimization. */}
+                  <PokemonSprite
+                    species={pokemon.species}
+                    back
+                    alt={`${localizedSpecies(localization, pokemon.species)} 후면 스프라이트`}
+                  />
+                </div>
+              );
+            })}
             <StatRankPanel ranks={playerRanks} />
           </div>
           <div className="combatant-card">
