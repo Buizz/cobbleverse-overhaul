@@ -15381,6 +15381,27 @@ test("keeps heuristic and win-probability expert policies separate in traces", (
   assert.equal(battle.aiTrace[0].selectionPolicy, "heuristic");
   assert.equal(battle.aiTrace[1].difficulty, "expert_winrate");
   assert.equal(battle.aiTrace[1].selectionPolicy, "win-probability");
+
+  const decision = chooseSimpleAiDecision(
+    createSimpleBattle(battleSetup),
+    1,
+    "expert_winrate",
+    "balanced",
+  );
+  assert.equal(
+    decision.diagnostics.policy,
+    "win-probability-simulated",
+  );
+  assert.ok(
+    decision.diagnostics.simulationNodes +
+      decision.diagnostics.simulationCacheHits >
+      0,
+  );
+  assert.ok(
+    [...decision.moveCandidates, ...decision.switchCandidates].some(
+      (candidate) => candidate.winRateSimulation?.outcomes?.length > 0,
+    ),
+  );
 });
 
 test("evaluates two-turn search against a bounded opponent distribution", () => {

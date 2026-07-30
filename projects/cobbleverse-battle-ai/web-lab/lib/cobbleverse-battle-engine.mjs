@@ -12345,6 +12345,9 @@ function projectedSimpleGimmickCandidate({
 }
 
 function applyWinProbabilityDecisionPolicy({
+  state,
+  sideIndex,
+  opponentStrategy,
   heuristicDecision,
   moveCandidates,
   switchCandidates,
@@ -12352,87 +12355,279 @@ function applyWinProbabilityDecisionPolicy({
   gimmickMove,
   gimmickCandidate,
   lockedSelection,
+  maxNodes = 8,
 }) {
-  if (lockedSelection) return heuristicDecision;
-  const policyCandidates = [
-    ...moveCandidates.map((candidate) => ({
-      ...candidate,
-      policyKind: "move",
-      policyCommand: { move: candidate.slot },
-    })),
-    ...switchCandidates.map((candidate) => ({
-      ...candidate,
-      policyKind: "switch",
-      policyCommand: { switch: candidate.slot },
-    })),
-    ...(gimmick && gimmickMove
-      ? [
-          {
-            ...gimmickMove,
-            policyKind: "gimmick",
-            policyCommand: { move: gimmickMove.slot, gimmick },
-          },
-        ]
-      : []),
-  ];
-  const heuristicCandidate = policyCandidates.find((candidate) => {
-    if (Number.isInteger(heuristicDecision.command.switch)) {
-      return (
-        candidate.policyKind === "switch" &&
-        candidate.slot === heuristicDecision.command.switch
-      );
-    }
-    if (heuristicDecision.command.gimmick) {
-      return (
-        candidate.policyKind === "gimmick" &&
-        candidate.policyCommand.gimmick === heuristicDecision.command.gimmick
-      );
-    }
-    return (
-      candidate.policyKind === "move" &&
-      candidate.slot === heuristicDecision.command.move
-    );
-  });
-  const selected = selectWinProbabilityCandidate(
-    policyCandidates,
-    heuristicCandidate,
-    { minimumGain: 0.02 },
-  );
-  if (!selected || selected === heuristicCandidate) {
+  const searchStartedAt =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (lockedSelection) {
     return {
       ...heuristicDecision,
       diagnostics: {
         ...heuristicDecision.diagnostics,
-        policy: "win-probability",
+        policy: "win-probability-simulated",
+        policyOverride: false,
+        simulationSkipped: "locked-selection",
+      },
+    };
+  }
+  const policyCandidates = simpleSearchPolicyCandidates({
+    moveCandidates,
+    switchCandidates,
+    gimmick,
+    gimmickMove,
+  });
+  const heuristicCandidate = policyCandidates.find((candidate) => {
+    return (
+      simpleCommandKey(candidate.policyCommand) ===
+      simpleCommandKey(heuristicDecision.command)
+    );
+  });
+  const ownCandidates = boundedSearchCandidates(
+    policyCandidates,
+    heuristicDecision.command,
+    4,
+  );
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const opponentDecision = chooseSimpleAiDecision(
+    state,
+    opponentSide,
+    "expert",
+    opponentStrategy ?? "balanced",
+  );
+  const opponentCandidates = boundedSearchCandidates(
+    simpleSearchPolicyCandidates({
+      moveCandidates: opponentDecision.moveCandidates,
+      switchCandidates: opponentDecision.switchCandidates,
+      gimmick: opponentDecision.command.gimmick ?? null,
+      gimmickMove: opponentDecision.command.gimmick
+        ? opponentDecision.selectedMove
+        : null,
+    }),
+    opponentDecision.command,
+    2,
+  );
+  const opponentDistribution =
+    simpleSearchActionDistribution(opponentCandidates);
+  const currentWinProbability = simpleSearchWinProbability(state, sideIndex);
+  const context = {
+    maxNodes,
+    searchNodes: 0,
+    searchFailures: 0,
+    cacheHits: 0,
+    budgetExhausted: false,
+  };
+  const evaluatedCandidates = [];
+
+  for (const candidate of ownCandidates) {
+    const outcomes = [];
+    for (const opponentEntry of opponentDistribution) {
+      const commands =
+        sideIndex === 0
+          ? [
+              candidate.policyCommand,
+              opponentEntry.candidate.policyCommand,
+            ]
+          : [
+              opponentEntry.candidate.policyCommand,
+              candidate.policyCommand,
+            ];
+      try {
+        const nextState = cachedSimpleSearchTransition(context, state, commands);
+        if (!nextState) continue;
+        outcomes.push({
+          opponentId: opponentEntry.candidate.id,
+          opponentCommand: opponentEntry.candidate.policyCommand,
+          opponentProbability: opponentEntry.probability,
+          winProbability: simpleSearchWinProbability(nextState, sideIndex),
+        });
+      } catch {
+        context.searchFailures += 1;
+      }
+    }
+    if (outcomes.length === 0) continue;
+    const coveredProbability = outcomes.reduce(
+      (total, outcome) => total + outcome.opponentProbability,
+      0,
+    );
+    const expectedWinProbability =
+      outcomes.reduce(
+        (total, outcome) =>
+          total + outcome.winProbability * outcome.opponentProbability,
+        0,
+      ) / Math.max(Number.EPSILON, coveredProbability);
+    const worstWinProbability = Math.min(
+      ...outcomes.map((outcome) => outcome.winProbability),
+    );
+    const winProbabilityDelta =
+      expectedWinProbability - currentWinProbability;
+    evaluatedCandidates.push({
+      ...candidate,
+      oneTurnEvaluation: {
+        qValue: roundedSearchProbability(expectedWinProbability),
+        delta: roundedSearchProbability(winProbabilityDelta),
+        winProbabilityBefore:
+          roundedSearchProbability(currentWinProbability),
+        winProbabilityAfter:
+          roundedSearchProbability(expectedWinProbability),
+        winProbabilityDelta:
+          roundedSearchProbability(winProbabilityDelta),
+        componentDeltas: {},
+        reasons: [
+          {
+            component: "simulatedWinProbability",
+            label: "실제 다음 상태",
+            contribution: roundedSearchProbability(winProbabilityDelta),
+            message:
+              "상대의 유력 행동과 실제 1턴 전투 결과를 시뮬레이션해 승률을 계산했습니다.",
+          },
+        ],
+      },
+      winRateSimulation: {
+        expectedWinProbability:
+          roundedSearchProbability(expectedWinProbability),
+        worstWinProbability: roundedSearchProbability(worstWinProbability),
+        outcomes: outcomes.map((outcome) => ({
+          opponentId: outcome.opponentId,
+          opponentCommand: structuredClone(outcome.opponentCommand),
+          opponentProbability: roundedSearchProbability(
+            outcome.opponentProbability,
+          ),
+          winProbability: roundedSearchProbability(outcome.winProbability),
+        })),
+      },
+    });
+  }
+  const evaluationByCommand = new Map(
+    evaluatedCandidates.map((candidate) => [
+      simpleCommandKey(candidate.policyCommand),
+      candidate,
+    ]),
+  );
+  const evaluatedHeuristic = heuristicCandidate
+    ? evaluationByCommand.get(
+        simpleCommandKey(heuristicCandidate.policyCommand),
+      ) ?? heuristicCandidate
+    : null;
+  const selected = selectWinProbabilityCandidate(
+    evaluatedCandidates,
+    evaluatedHeuristic,
+    { minimumGain: 0.02 },
+  );
+  if (!selected) {
+    return {
+      ...heuristicDecision,
+      diagnostics: {
+        ...heuristicDecision.diagnostics,
+        policy: "win-probability-simulated",
         policyOverride: false,
         minimumGain: 0.02,
+        simulationSkipped: "no-valid-outcome",
+        simulationNodes: context.searchNodes,
+        simulationFailures: context.searchFailures,
+        simulationCacheHits: context.cacheHits,
       },
     };
   }
   const heuristicWinProbability = Number(
-    heuristicCandidate?.oneTurnEvaluation?.winProbabilityAfter,
+    evaluatedHeuristic?.oneTurnEvaluation?.winProbabilityAfter,
   );
   const selectedWinProbability = Number(
     selected.oneTurnEvaluation?.winProbabilityAfter,
   );
+  const policyOverride =
+    simpleCommandKey(selected.policyCommand) !==
+    simpleCommandKey(heuristicDecision.command);
+  const enrichedMoveCandidates = moveCandidates.map((candidate) => {
+    const evaluated = evaluationByCommand.get(
+      simpleCommandKey({ move: candidate.slot }),
+    );
+    return evaluated
+      ? {
+          ...candidate,
+          oneTurnEvaluation: evaluated.oneTurnEvaluation,
+          winRateSimulation: evaluated.winRateSimulation,
+        }
+      : candidate;
+  });
+  const enrichedSwitchCandidates = switchCandidates.map((candidate) => {
+    const evaluated = evaluationByCommand.get(
+      simpleCommandKey({ switch: candidate.slot }),
+    );
+    return evaluated
+      ? {
+          ...candidate,
+          oneTurnEvaluation: evaluated.oneTurnEvaluation,
+          winRateSimulation: evaluated.winRateSimulation,
+        }
+      : candidate;
+  });
+  const selectedIsSwitch = selected.policyKind === "switch";
+  const selectedMove = selectedIsSwitch
+    ? null
+    : selected.policyKind === "gimmick"
+      ? selected
+      : enrichedMoveCandidates.find(
+          (candidate) => candidate.slot === selected.policyCommand.move,
+        ) ?? selected;
+  const selectedSwitch = selectedIsSwitch
+    ? enrichedSwitchCandidates.find(
+        (candidate) => candidate.slot === selected.policyCommand.switch,
+      ) ?? selected
+    : null;
+  const evaluatedGimmick = gimmick
+    ? evaluationByCommand.get(
+        simpleCommandKey({ move: gimmickMove?.slot, gimmick }),
+      )
+    : null;
   return {
     ...heuristicDecision,
     command: selected.policyCommand,
-    selectedMove: selected.policyKind === "switch" ? null : selected,
-    selectedSwitch: selected.policyKind === "switch" ? selected : null,
+    selectedMove,
+    selectedSwitch,
+    moveCandidates: enrichedMoveCandidates,
+    switchCandidates: enrichedSwitchCandidates,
     gimmickCandidate:
-      selected.policyKind === "gimmick" ? gimmickCandidate : null,
+      selected.policyKind === "gimmick" && gimmickCandidate
+        ? {
+            ...gimmickCandidate,
+            oneTurnEvaluation:
+              evaluatedGimmick?.oneTurnEvaluation ??
+              gimmickCandidate.oneTurnEvaluation,
+            winRateSimulation: evaluatedGimmick?.winRateSimulation,
+          }
+        : null,
     diagnostics: {
       ...heuristicDecision.diagnostics,
-      selectionSource: "win-probability",
-      policy: "win-probability",
-      policyOverride: true,
+      selectionSource: policyOverride
+        ? "win-probability-simulated"
+        : heuristicDecision.diagnostics.selectionSource,
+      policy: "win-probability-simulated",
+      policyOverride,
       minimumGain: 0.02,
-      heuristicAction: heuristicCandidate
+      simulationNodes: context.searchNodes,
+      simulationFailures: context.searchFailures,
+      simulationCacheHits: context.cacheHits,
+      simulationBudget: context.maxNodes,
+      simulationBudgetExhausted: context.budgetExhausted,
+      simulationElapsedMs: Math.round(
+        ((typeof performance !== "undefined"
+          ? performance.now()
+          : Date.now()) -
+          searchStartedAt) *
+          100,
+      ) / 100,
+      ownCandidateCount: ownCandidates.length,
+      opponentCandidateCount: opponentCandidates.length,
+      opponentDistribution: opponentDistribution.map((entry) => ({
+        id: entry.candidate.id,
+        command: structuredClone(entry.candidate.policyCommand),
+        probability: roundedSearchProbability(entry.probability),
+      })),
+      heuristicAction: evaluatedHeuristic
         ? {
-            kind: heuristicCandidate.policyKind,
-            id: heuristicCandidate.id,
-            slot: heuristicCandidate.slot,
+            kind: evaluatedHeuristic.policyKind,
+            id: evaluatedHeuristic.id,
+            slot: evaluatedHeuristic.slot,
             winProbabilityAfter: heuristicWinProbability,
           }
         : null,
@@ -13378,6 +13573,9 @@ export function chooseSimpleAiDecision(
     return heuristicDecision;
   }
   return applyWinProbabilityDecisionPolicy({
+    state,
+    sideIndex,
+    opponentStrategy: options.opponentStrategy,
     heuristicDecision,
     moveCandidates,
     switchCandidates: tacticallyViableSwitches,
@@ -13385,6 +13583,7 @@ export function chooseSimpleAiDecision(
     gimmickMove: commandMove,
     gimmickCandidate: gimmickDecision.candidate ?? null,
     lockedSelection,
+    maxNodes: Number(options.winRateNodeBudget ?? 8),
   });
 }
 
