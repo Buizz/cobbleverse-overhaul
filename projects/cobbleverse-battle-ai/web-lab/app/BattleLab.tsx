@@ -2198,7 +2198,7 @@ function AiProfileControls({
           <option value="advanced">상급</option>
           <option value="expert">전문가(휴리스틱)</option>
           <option value="expert_winrate">전문가(승률 기반)</option>
-          <option value="expert_search">전문가(1턴 탐색)</option>
+          <option value="expert_search">전문가(2턴 탐색)</option>
           <option value="cheater">치터</option>
         </select>
       </label>
@@ -7059,7 +7059,7 @@ export function BattleLab() {
                   { value: "advanced", label: "상급 · 강한 행동 우선" },
                   { value: "expert", label: "전문가(휴리스틱) · 최선 행동 집중" },
                   { value: "expert_winrate", label: "전문가(승률 기반) · 다음 상태 승률 비교" },
-                  { value: "expert_search", label: "전문가(1턴 탐색) · 상대 후보까지 실제 전개" },
+                  { value: "expert_search", label: "전문가(2턴 탐색) · 후속 행동까지 실제 전개" },
                   {
                     value: "cheater",
                     label: "치터 · 설정 확률로 확정된 상대 행동 열람",

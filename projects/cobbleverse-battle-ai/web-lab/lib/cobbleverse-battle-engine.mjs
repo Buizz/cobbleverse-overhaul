@@ -12305,12 +12305,189 @@ function simpleSearchActionDistribution(candidates, temperature = 70) {
 }
 
 function roundedSearchProbability(value) {
-  return Math.round(Number(value ?? 0) * 10_000) / 10_000;
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue)
+    ? Math.round(numericValue * 10_000) / 10_000
+    : null;
 }
 
-function applyOneTurnExpectimaxDecisionPolicy({
+const SIMPLE_SEARCH_TRANSITION_CACHE_LIMIT = 512;
+const SIMPLE_SEARCH_TRANSITION_CACHE = new Map();
+const SIMPLE_SEARCH_STATE_HASH_CACHE = new WeakMap();
+
+function simpleSearchStateHash(state) {
+  const cached = SIMPLE_SEARCH_STATE_HASH_CACHE.get(state);
+  if (cached) return cached;
+  const searchState = { ...state };
+  delete searchState.aiTrace;
+  delete searchState.turnSnapshots;
+  const hash = JSON.stringify(searchState);
+  SIMPLE_SEARCH_STATE_HASH_CACHE.set(state, hash);
+  return hash;
+}
+
+function simpleSearchTransitionKey(state, commands) {
+  return `${simpleSearchStateHash(state)}|${commands
+    .map((command) => simpleCommandKey(command))
+    .join("|")}`;
+}
+
+function cachedSimpleSearchTransition(context, state, commands) {
+  const key = simpleSearchTransitionKey(state, commands);
+  const cached = SIMPLE_SEARCH_TRANSITION_CACHE.get(key);
+  if (cached) {
+    SIMPLE_SEARCH_TRANSITION_CACHE.delete(key);
+    SIMPLE_SEARCH_TRANSITION_CACHE.set(key, cached);
+    context.cacheHits += 1;
+    return cached;
+  }
+  if (context.searchNodes >= context.maxNodes) {
+    context.budgetExhausted = true;
+    return null;
+  }
+  const nextState = simulateSimpleTurn(state, commands, {
+    historyTurns: 1,
+  });
+  context.searchNodes += 1;
+  SIMPLE_SEARCH_TRANSITION_CACHE.set(key, nextState);
+  if (SIMPLE_SEARCH_TRANSITION_CACHE.size > SIMPLE_SEARCH_TRANSITION_CACHE_LIMIT) {
+    const oldestKey = SIMPLE_SEARCH_TRANSITION_CACHE.keys().next().value;
+    SIMPLE_SEARCH_TRANSITION_CACHE.delete(oldestKey);
+  }
+  return nextState;
+}
+
+function searchCandidatesFromDecision(decision, limit) {
+  return boundedSearchCandidates(
+    simpleSearchPolicyCandidates({
+      moveCandidates: decision.moveCandidates,
+      switchCandidates: decision.switchCandidates,
+      gimmick: decision.command.gimmick ?? null,
+      gimmickMove: decision.command.gimmick
+        ? decision.selectedMove
+        : null,
+    }),
+    decision.command,
+    limit,
+  );
+}
+
+function simpleSearchWinProbability(state, sideIndex) {
+  return estimateBattleWinProbability(
+    simpleBattleStateValueSnapshot(state, sideIndex),
+  ).probability;
+}
+
+function evaluateSecondTurnSearch({
+  context,
   state,
   sideIndex,
+  strategy,
+  opponentStrategy,
+}) {
+  if (state.status !== "running") {
+    const probability = simpleSearchWinProbability(state, sideIndex);
+    return {
+      expectedWinProbability: probability,
+      worstWinProbability: probability,
+      searchValue: probability,
+      ownCommand: null,
+      opponentDistribution: [],
+      outcomes: [],
+    };
+  }
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const ownDecision = chooseSimpleAiDecision(
+    state,
+    sideIndex,
+    "expert",
+    strategy,
+  );
+  const opponentDecision = chooseSimpleAiDecision(
+    state,
+    opponentSide,
+    "expert",
+    opponentStrategy,
+  );
+  const ownCandidates = searchCandidatesFromDecision(ownDecision, 2);
+  const opponentCandidates = searchCandidatesFromDecision(opponentDecision, 1);
+  const opponentDistribution =
+    simpleSearchActionDistribution(opponentCandidates);
+  const evaluations = [];
+
+  for (const ownCandidate of ownCandidates) {
+    const outcomes = [];
+    for (const opponentEntry of opponentDistribution) {
+      const commands =
+        sideIndex === 0
+          ? [
+              ownCandidate.policyCommand,
+              opponentEntry.candidate.policyCommand,
+            ]
+          : [
+              opponentEntry.candidate.policyCommand,
+              ownCandidate.policyCommand,
+            ];
+      try {
+        const nextState = cachedSimpleSearchTransition(context, state, commands);
+        if (!nextState) continue;
+        outcomes.push({
+          opponentCommand: opponentEntry.candidate.policyCommand,
+          opponentId: opponentEntry.candidate.id,
+          opponentProbability: opponentEntry.probability,
+          winProbability: simpleSearchWinProbability(nextState, sideIndex),
+        });
+      } catch {
+        context.searchFailures += 1;
+      }
+    }
+    if (outcomes.length === 0) continue;
+    const coveredProbability = outcomes.reduce(
+      (sum, outcome) => sum + outcome.opponentProbability,
+      0,
+    );
+    const expectedWinProbability =
+      outcomes.reduce(
+        (sum, outcome) =>
+          sum + outcome.winProbability * outcome.opponentProbability,
+        0,
+      ) / Math.max(Number.EPSILON, coveredProbability);
+    const worstWinProbability = Math.min(
+      ...outcomes.map((outcome) => outcome.winProbability),
+    );
+    evaluations.push({
+      ownCommand: ownCandidate.policyCommand,
+      ownId: ownCandidate.id,
+      expectedWinProbability,
+      worstWinProbability,
+      searchValue:
+        expectedWinProbability * 0.8 + worstWinProbability * 0.2,
+      outcomes,
+    });
+  }
+
+  evaluations.sort(
+    (left, right) =>
+      right.searchValue - left.searchValue ||
+      right.expectedWinProbability - left.expectedWinProbability,
+  );
+  const selected = evaluations[0];
+  return selected
+    ? {
+        ...selected,
+        opponentDistribution: opponentDistribution.map((entry) => ({
+          id: entry.candidate.id,
+          command: entry.candidate.policyCommand,
+          probability: entry.probability,
+        })),
+      }
+    : null;
+}
+
+function applyTwoTurnExpectimaxDecisionPolicy({
+  state,
+  sideIndex,
+  strategy,
   opponentStrategy,
   heuristicDecision,
   moveCandidates,
@@ -12319,13 +12496,16 @@ function applyOneTurnExpectimaxDecisionPolicy({
   gimmickMove,
   gimmickCandidate,
   lockedSelection,
+  maxNodes = 10,
 }) {
+  const searchStartedAt =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
   if (lockedSelection) {
     return {
       ...heuristicDecision,
       diagnostics: {
         ...heuristicDecision.diagnostics,
-        policy: "expectimax-one-turn",
+        policy: "expectimax-two-turn",
         policyOverride: false,
         searchSkipped: "locked-selection",
       },
@@ -12340,7 +12520,7 @@ function applyOneTurnExpectimaxDecisionPolicy({
       gimmickMove,
     }),
     heuristicDecision.command,
-    4,
+    3,
   );
   const opponentSide = sideIndex === 0 ? 1 : 0;
   const opponentDecision = chooseSimpleAiDecision(
@@ -12359,13 +12539,19 @@ function applyOneTurnExpectimaxDecisionPolicy({
         : null,
     }),
     opponentDecision.command,
-    3,
+    2,
   );
   const opponentDistribution =
     simpleSearchActionDistribution(opponentCandidates);
   const evaluations = [];
-  let searchNodes = 0;
-  let searchFailures = 0;
+  const context = {
+    maxNodes,
+    searchNodes: 0,
+    searchFailures: 0,
+    cacheHits: 0,
+    budgetExhausted: false,
+    maxDepthReached: 1,
+  };
 
   for (const ownCandidate of ownCandidates) {
     const outcomes = [];
@@ -12381,21 +12567,24 @@ function applyOneTurnExpectimaxDecisionPolicy({
               ownCandidate.policyCommand,
             ];
       try {
-        const nextState = simulateSimpleTurn(state, commands, {
-          historyTurns: 1,
-        });
-        const probability = estimateBattleWinProbability(
-          simpleBattleStateValueSnapshot(nextState, sideIndex),
-        ).probability;
+        const nextState = cachedSimpleSearchTransition(
+          context,
+          state,
+          commands,
+        );
+        if (!nextState) continue;
+        const probability = simpleSearchWinProbability(nextState, sideIndex);
         outcomes.push({
           opponentCommand: opponentEntry.candidate.policyCommand,
           opponentId: opponentEntry.candidate.id,
           opponentProbability: opponentEntry.probability,
           winProbability: probability,
+          evaluatedWinProbability: probability,
+          riskWinProbability: probability,
+          nextState,
         });
-        searchNodes += 1;
       } catch {
-        searchFailures += 1;
+        context.searchFailures += 1;
       }
     }
     if (outcomes.length === 0) continue;
@@ -12406,27 +12595,51 @@ function applyOneTurnExpectimaxDecisionPolicy({
     const expectedWinProbability =
       outcomes.reduce(
         (sum, outcome) =>
-          sum + outcome.winProbability * outcome.opponentProbability,
+          sum +
+          outcome.evaluatedWinProbability * outcome.opponentProbability,
         0,
       ) / Math.max(Number.EPSILON, coveredProbability);
     const worstWinProbability = Math.min(
-      ...outcomes.map((outcome) => outcome.winProbability),
+      ...outcomes.map((outcome) => outcome.riskWinProbability),
     );
     const searchValue =
       expectedWinProbability * 0.8 + worstWinProbability * 0.2;
     evaluations.push({
       ...ownCandidate,
+      rawOutcomes: outcomes,
       searchEvaluation: {
         expectedWinProbability:
           roundedSearchProbability(expectedWinProbability),
         worstWinProbability: roundedSearchProbability(worstWinProbability),
         searchValue: roundedSearchProbability(searchValue),
         outcomes: outcomes.map((outcome) => ({
-          ...outcome,
+          opponentCommand: outcome.opponentCommand,
+          opponentId: outcome.opponentId,
           opponentProbability: roundedSearchProbability(
             outcome.opponentProbability,
           ),
           winProbability: roundedSearchProbability(outcome.winProbability),
+          evaluatedWinProbability: roundedSearchProbability(
+            outcome.evaluatedWinProbability,
+          ),
+          riskWinProbability: roundedSearchProbability(
+            outcome.riskWinProbability,
+          ),
+          continuation: outcome.continuation
+            ? {
+                ownCommand: outcome.continuation.ownCommand,
+                ownId: outcome.continuation.ownId,
+                expectedWinProbability: roundedSearchProbability(
+                  outcome.continuation.expectedWinProbability,
+                ),
+                worstWinProbability: roundedSearchProbability(
+                  outcome.continuation.worstWinProbability,
+                ),
+                searchValue: roundedSearchProbability(
+                  outcome.continuation.searchValue,
+                ),
+              }
+            : null,
         })),
       },
     });
@@ -12438,16 +12651,113 @@ function applyOneTurnExpectimaxDecisionPolicy({
         Number(left.searchEvaluation.searchValue) ||
       Number(right.score ?? 0) - Number(left.score ?? 0),
   );
+  const preliminarySearchGap =
+    evaluations.length > 1
+      ? Number(evaluations[0].searchEvaluation.searchValue) -
+        Number(evaluations[1].searchEvaluation.searchValue)
+      : Infinity;
+  const continuationBeam =
+    preliminarySearchGap <= 0.04 ? evaluations.slice(0, 2) : [];
+  if (continuationBeam.length > 0) context.maxDepthReached = 2;
+  for (const candidate of continuationBeam) {
+    const beamOutcome = [...candidate.rawOutcomes].sort(
+      (left, right) =>
+        right.opponentProbability - left.opponentProbability ||
+        left.winProbability - right.winProbability,
+    )[0];
+    const continuation = evaluateSecondTurnSearch({
+      context,
+      state: beamOutcome.nextState,
+      sideIndex,
+      strategy,
+      opponentStrategy: opponentStrategy ?? "balanced",
+    });
+    if (continuation) {
+      beamOutcome.evaluatedWinProbability =
+        continuation.expectedWinProbability;
+      beamOutcome.riskWinProbability = continuation.worstWinProbability;
+      beamOutcome.continuation = continuation;
+    }
+    const coveredProbability = candidate.rawOutcomes.reduce(
+      (sum, outcome) => sum + outcome.opponentProbability,
+      0,
+    );
+    const expectedWinProbability =
+      candidate.rawOutcomes.reduce(
+        (sum, outcome) =>
+          sum +
+          outcome.evaluatedWinProbability * outcome.opponentProbability,
+        0,
+      ) / Math.max(Number.EPSILON, coveredProbability);
+    const worstWinProbability = Math.min(
+      ...candidate.rawOutcomes.map((outcome) => outcome.riskWinProbability),
+    );
+    candidate.searchEvaluation = {
+      ...candidate.searchEvaluation,
+      expectedWinProbability:
+        roundedSearchProbability(expectedWinProbability),
+      worstWinProbability: roundedSearchProbability(worstWinProbability),
+      searchValue: roundedSearchProbability(
+        expectedWinProbability * 0.8 + worstWinProbability * 0.2,
+      ),
+      outcomes: candidate.rawOutcomes.map((outcome) => ({
+        opponentCommand: outcome.opponentCommand,
+        opponentId: outcome.opponentId,
+        opponentProbability: roundedSearchProbability(
+          outcome.opponentProbability,
+        ),
+        winProbability: roundedSearchProbability(outcome.winProbability),
+        evaluatedWinProbability: roundedSearchProbability(
+          outcome.evaluatedWinProbability,
+        ),
+        riskWinProbability: roundedSearchProbability(
+          outcome.riskWinProbability,
+        ),
+        continuation: outcome.continuation
+          ? {
+              ownCommand: outcome.continuation.ownCommand,
+              ownId: outcome.continuation.ownId,
+              expectedWinProbability: roundedSearchProbability(
+                outcome.continuation.expectedWinProbability,
+              ),
+              worstWinProbability: roundedSearchProbability(
+                outcome.continuation.worstWinProbability,
+              ),
+              searchValue: roundedSearchProbability(
+                outcome.continuation.searchValue,
+              ),
+            }
+          : null,
+      })),
+    };
+  }
+  evaluations.sort(
+    (left, right) =>
+      Number(right.searchEvaluation.searchValue) -
+        Number(left.searchEvaluation.searchValue) ||
+      Number(right.score ?? 0) - Number(left.score ?? 0),
+  );
+  for (const candidate of evaluations) {
+    delete candidate.rawOutcomes;
+  }
   const selected = evaluations[0];
   if (!selected) {
     return {
       ...heuristicDecision,
       diagnostics: {
         ...heuristicDecision.diagnostics,
-        policy: "expectimax-one-turn",
+        policy: "expectimax-two-turn",
         policyOverride: false,
-        searchNodes,
-        searchFailures,
+        searchNodes: context.searchNodes,
+        searchFailures: context.searchFailures,
+        searchCacheHits: context.cacheHits,
+        searchBudget: context.maxNodes,
+        searchBudgetExhausted: context.budgetExhausted,
+        searchDepthTurns: context.maxDepthReached,
+        searchDepthLimit: 2,
+        preliminarySearchGap:
+          roundedSearchProbability(preliminarySearchGap),
+        continuationBeamCount: continuationBeam.length,
         searchSkipped: "no-valid-outcome",
       },
     };
@@ -12507,12 +12817,26 @@ function applyOneTurnExpectimaxDecisionPolicy({
     gimmickCandidate: enrichedGimmickCandidate,
     diagnostics: {
       ...heuristicDecision.diagnostics,
-      selectionSource: "expectimax-one-turn",
-      policy: "expectimax-one-turn",
+      selectionSource: "expectimax-two-turn",
+      policy: "expectimax-two-turn",
       policyOverride,
-      searchDepthTurns: 1,
-      searchNodes,
-      searchFailures,
+      searchDepthTurns: context.maxDepthReached,
+      searchDepthLimit: 2,
+      searchNodes: context.searchNodes,
+      searchFailures: context.searchFailures,
+      searchCacheHits: context.cacheHits,
+      searchBudget: context.maxNodes,
+      searchBudgetExhausted: context.budgetExhausted,
+      preliminarySearchGap:
+        roundedSearchProbability(preliminarySearchGap),
+      continuationBeamCount: continuationBeam.length,
+      searchElapsedMs: Math.round(
+        ((typeof performance !== "undefined"
+          ? performance.now()
+          : Date.now()) -
+          searchStartedAt) *
+          100,
+      ) / 100,
       ownCandidateCount: ownCandidates.length,
       opponentCandidateCount: opponentCandidates.length,
       heuristicCommand: structuredClone(heuristicDecision.command),
@@ -12804,9 +13128,10 @@ export function chooseSimpleAiDecision(
     },
   };
   if (difficulty === "expert_search") {
-    return applyOneTurnExpectimaxDecisionPolicy({
+    return applyTwoTurnExpectimaxDecisionPolicy({
       state,
       sideIndex,
+      strategy,
       opponentStrategy: options.opponentStrategy,
       heuristicDecision,
       moveCandidates,
@@ -12815,6 +13140,7 @@ export function chooseSimpleAiDecision(
       gimmickMove: commandMove,
       gimmickCandidate: gimmickDecision.candidate ?? null,
       lockedSelection,
+      maxNodes: Number(options.searchNodeBudget ?? 10),
     });
   }
   if (difficulty !== "expert_winrate") {
@@ -13066,6 +13392,8 @@ export function createSimpleAiDecisionTrace(
           winProbabilityDelta:
             decision.gimmickCandidate.oneTurnEvaluation
               ?.winProbabilityDelta,
+          searchEvaluation:
+            decision.gimmickCandidate.searchEvaluation,
           selected: command.gimmick === decision.gimmickCandidate.id,
         },
       ]
@@ -13100,7 +13428,7 @@ export function createSimpleAiDecisionTrace(
       difficulty === "expert_winrate"
         ? "win-probability"
         : difficulty === "expert_search"
-          ? "expectimax-one-turn"
+          ? "expectimax-two-turn"
         : difficulty === "cheater" && decision.diagnostics?.cheatActivated
           ? "cheater-exact-command"
         : "heuristic",

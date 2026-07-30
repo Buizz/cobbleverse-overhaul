@@ -412,7 +412,7 @@ test("accepts the separate win-probability expert policy", () => {
   assert.equal(result.scenario.aiProfiles[1].difficulty, "expert_winrate");
 });
 
-test("accepts the separate one-turn search expert policy", () => {
+test("accepts the separate two-turn search expert policy", () => {
   const result = createBattleScenario(
     {
       mode: "eve",

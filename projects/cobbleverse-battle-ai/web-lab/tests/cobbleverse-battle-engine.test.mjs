@@ -15293,7 +15293,7 @@ test("keeps heuristic and win-probability expert policies separate in traces", (
   assert.equal(battle.aiTrace[1].selectionPolicy, "win-probability");
 });
 
-test("evaluates one-turn search against a bounded opponent distribution", () => {
+test("evaluates two-turn search against a bounded opponent distribution", () => {
   const battleSetup = setup({
     sides: [
       {
@@ -15364,9 +15364,12 @@ test("evaluates one-turn search against a bounded opponent distribution", () => 
   const trace = battle.aiTrace[0];
 
   assert.equal(trace.difficulty, "expert_search");
-  assert.equal(trace.selectionPolicy, "expectimax-one-turn");
-  assert.equal(trace.diagnostics.searchDepthTurns, 1);
+  assert.equal(trace.selectionPolicy, "expectimax-two-turn");
+  assert.equal(trace.diagnostics.searchDepthTurns, 2);
   assert.ok(trace.diagnostics.searchNodes >= 2);
+  assert.ok(trace.diagnostics.searchNodes <= 10);
+  assert.equal(trace.diagnostics.searchBudget, 10);
+  assert.equal(trace.diagnostics.searchDepthLimit, 2);
   assert.ok(trace.diagnostics.opponentCandidateCount >= 2);
   assert.ok(
     trace.candidates.some(
@@ -15376,4 +15379,24 @@ test("evaluates one-turn search against a bounded opponent distribution", () => 
         ),
     ),
   );
+  assert.ok(
+    trace.candidates.some((candidate) =>
+      candidate.searchEvaluation?.outcomes?.some(
+        (outcome) => outcome.continuation?.ownCommand,
+      ),
+    ),
+  );
+
+  const cachedBattle = runSimpleBattle(battleSetup, {
+    maxTurns: 1,
+    aiProfiles: [
+      { difficulty: "expert_search", strategy: "balanced" },
+      { difficulty: "expert", strategy: "balanced" },
+    ],
+  });
+  assert.deepEqual(
+    cachedBattle.aiTrace[0].diagnostics.searchCommand,
+    trace.diagnostics.searchCommand,
+  );
+  assert.ok(cachedBattle.aiTrace[0].diagnostics.searchCacheHits > 0);
 });
