@@ -4,6 +4,11 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { basename, dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { Plugin } from "vite";
+import {
+  createLocalBattleAudioCatalog,
+  streamLocalBattleAudio,
+  type LocalBattleAudioCatalogResult,
+} from "./local-audio-catalog";
 
 const execFileAsync = promisify(execFile);
 
@@ -149,11 +154,98 @@ export function localWorkspace(): Plugin {
     "scripts",
     "sync-cobblemon-localization.mjs",
   );
+  let audioCatalogPath = "";
+  let audioCatalogPromise: Promise<LocalBattleAudioCatalogResult> | null = null;
+
+  const loadSavedWorkspace = async () =>
+    JSON.parse(await readFile(configPath, "utf8")) as SavedWorkspace;
+  const loadAudioCatalog = async () => {
+    const saved = await loadSavedWorkspace();
+    const resourcePacksPath = String(saved.resourcePacksPath ?? "").trim();
+    if (!resourcePacksPath) {
+      return {
+        catalog: { configured: false, events: [], trackCount: 0 },
+        sources: new Map(),
+      } satisfies LocalBattleAudioCatalogResult;
+    }
+    if (audioCatalogPath !== resourcePacksPath || !audioCatalogPromise) {
+      audioCatalogPath = resourcePacksPath;
+      audioCatalogPromise = createLocalBattleAudioCatalog(resourcePacksPath);
+    }
+    return audioCatalogPromise;
+  };
 
   return {
     name: "cobbleverse-local-workspace",
     enforce: "pre",
     configureServer(server) {
+      server.middlewares.use(
+        "/api/local-audio/catalog",
+        async (request, response) => {
+          if (request.method !== "GET") {
+            sendJson(response, 405, {
+              ok: false,
+              message: "지원하지 않는 요청입니다.",
+            });
+            return;
+          }
+          try {
+            const result = await loadAudioCatalog();
+            sendJson(response, 200, { ok: true, ...result.catalog });
+          } catch (error) {
+            audioCatalogPromise = null;
+            sendJson(response, 500, {
+              ok: false,
+              configured: true,
+              events: [],
+              trackCount: 0,
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "리소스팩 사운드를 읽지 못했습니다.",
+            });
+          }
+        },
+      );
+
+      server.middlewares.use(
+        "/api/local-audio/file",
+        async (request, response) => {
+          if (request.method !== "GET") {
+            sendJson(response, 405, {
+              ok: false,
+              message: "지원하지 않는 요청입니다.",
+            });
+            return;
+          }
+          try {
+            const requestUrl = new URL(
+              request.url ?? "/",
+              "http://localhost",
+            );
+            const id = requestUrl.searchParams.get("id") ?? "";
+            const result = await loadAudioCatalog();
+            const source = result.sources.get(id);
+            if (!source) {
+              sendJson(response, 404, {
+                ok: false,
+                message: "요청한 배틀 사운드를 찾지 못했습니다.",
+              });
+              return;
+            }
+            streamLocalBattleAudio(response, source);
+          } catch (error) {
+            sendJson(response, 500, {
+              ok: false,
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "배틀 사운드를 재생하지 못했습니다.",
+            });
+          }
+        },
+      );
+
       server.middlewares.use(
         "/api/local-folder-picker",
         async (request, response) => {
@@ -307,6 +399,8 @@ export function localWorkspace(): Plugin {
               `${JSON.stringify(saved, null, 2)}\n`,
               "utf8",
             );
+            audioCatalogPath = "";
+            audioCatalogPromise = null;
             sendJson(response, 200, {
               ok: true,
               configured: true,

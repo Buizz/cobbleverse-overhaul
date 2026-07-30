@@ -33,6 +33,7 @@ import {
   BATTLE_EVENT_NAMES,
   formatBattleDialogue,
 } from "../lib/battle-dialogue";
+import { BattleAudioControl } from "../lib/BattleAudioControl";
 
 type BattleMode = "pve" | "eve";
 type PartySource = "custom" | "preset";
@@ -4717,6 +4718,7 @@ function InteractiveArena({
           </h2>
         </div>
         <div className="arena-header-tools">
+          <BattleAudioControl eventId="battle.pvn.default" compact />
           <div
             className="battle-save-control"
             role="group"

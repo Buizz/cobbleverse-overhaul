@@ -1,7 +1,13 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
 
 import {
@@ -13,6 +19,12 @@ import {
   BATTLE_EVENT_NAMES,
   formatBattleDialogue,
 } from "../../lib/battle-dialogue";
+import { BattleAudioControl } from "../../lib/BattleAudioControl";
+import {
+  getBattleAudioServerSettings,
+  getBattleAudioSettings,
+  subscribeBattleAudioSettings,
+} from "../../lib/battle-audio";
 
 const EVE_REPORT_KEY = "cobbleverse-battle-lab:eve-report";
 const EVE_HISTORY_KEY = "cobbleverse-battle-lab:eve-history";
@@ -934,7 +946,11 @@ function replayDelay(speed: EveReplaySpeed) {
   return 420;
 }
 
-function playReplaySound(context: AudioContext, event: BattleEvent) {
+function playReplaySound(
+  context: AudioContext,
+  event: BattleEvent,
+  volume: number,
+) {
   const cues: Record<string, [number, OscillatorType, number]> = {
     switch: [420, "sine", 0.11],
     move: [520, "square", 0.09],
@@ -963,7 +979,10 @@ function playReplaySound(context: AudioContext, event: BattleEvent) {
     );
   }
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(0.055, start + 0.015);
+  gain.gain.exponentialRampToValueAtTime(
+    Math.max(0.0001, 0.055 * volume),
+    start + 0.015,
+  );
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
   oscillator.connect(gain);
   gain.connect(context.destination);
@@ -1124,7 +1143,12 @@ function EveBattleReplay({
   const [cursor, setCursor] = useState(-1);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<EveReplaySpeed>("normal");
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const soundSettings = useSyncExternalStore(
+    (onStoreChange) =>
+      subscribeBattleAudioSettings(() => onStoreChange()),
+    getBattleAudioSettings,
+    getBattleAudioServerSettings,
+  );
   const audioContext = useRef<AudioContext | null>(null);
   const currentEvent = cursor >= 0 ? replayEvents[cursor] : null;
   const visibleEvents = replayEvents.slice(0, cursor + 1);
@@ -1164,21 +1188,8 @@ function EveBattleReplay({
   }, [cursor, playing, replayEvents.length, speed]);
 
   useEffect(() => {
-    if (!soundEnabled || !currentEvent || !audioContext.current) return;
-    void audioContext.current.resume().then(() => {
-      if (audioContext.current) playReplaySound(audioContext.current, currentEvent);
-    });
-  }, [currentEvent, soundEnabled]);
-
-  useEffect(
-    () => () => {
-      if (audioContext.current) void audioContext.current.close();
-    },
-    [],
-  );
-
-  const toggleSound = () => {
-    if (!soundEnabled && !audioContext.current) {
+    if (!soundSettings.enabled || !currentEvent) return;
+    if (!audioContext.current) {
       const BrowserAudioContext =
         window.AudioContext ??
         (
@@ -1188,8 +1199,24 @@ function EveBattleReplay({
         ).webkitAudioContext;
       if (BrowserAudioContext) audioContext.current = new BrowserAudioContext();
     }
-    setSoundEnabled((enabled) => !enabled);
-  };
+    if (!audioContext.current) return;
+    void audioContext.current.resume().then(() => {
+      if (audioContext.current) {
+        playReplaySound(
+          audioContext.current,
+          currentEvent,
+          soundSettings.volume,
+        );
+      }
+    });
+  }, [currentEvent, soundSettings]);
+
+  useEffect(
+    () => () => {
+      if (audioContext.current) void audioContext.current.close();
+    },
+    [],
+  );
 
   const startPlayback = () => {
     if (replayEvents.length === 0) return;
@@ -1221,14 +1248,7 @@ function EveBattleReplay({
               <option value="fast">2x</option>
             </select>
           </label>
-          <button
-            type="button"
-            className={soundEnabled ? "active" : ""}
-            onClick={toggleSound}
-            aria-pressed={soundEnabled}
-          >
-            {soundEnabled ? "사운드 켜짐" : "사운드 꺼짐"}
-          </button>
+          <BattleAudioControl eventId="battle.pvp.default" compact />
         </div>
       </header>
 

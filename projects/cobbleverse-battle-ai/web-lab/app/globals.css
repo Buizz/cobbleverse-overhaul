@@ -10389,3 +10389,81 @@ select:disabled {
     grid-row: 3;
   }
 }
+.battle-audio-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.battle-audio-control > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.battle-audio-control > button > span {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.battle-audio-control > button.active {
+  border-color: #3ee4d3;
+  color: #3ee4d3;
+}
+
+.battle-audio-control > label {
+  display: grid;
+  grid-template-columns: auto 72px;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.battle-audio-control input[type="range"] {
+  width: 72px;
+  accent-color: #3ee4d3;
+}
+
+.battle-audio-control > small {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 4;
+  width: max-content;
+  max-width: 260px;
+  padding: 5px 8px;
+  border: 1px solid #f1bf45;
+  background: #0c2034;
+  color: #fff2bd;
+  font-size: 11px;
+}
+
+.battle-audio-control.compact {
+  min-width: 190px;
+}
+
+@media (max-width: 900px) {
+  .battle-audio-control,
+  .battle-audio-control.compact {
+    min-width: 0;
+  }
+
+  .battle-audio-control > label {
+    grid-template-columns: auto 54px;
+  }
+
+  .battle-audio-control input[type="range"] {
+    width: 54px;
+  }
+}
