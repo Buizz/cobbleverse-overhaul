@@ -1,0 +1,113 @@
+{
+  "schema": "cobbleverse-ai-search-benchmark",
+  "version": 1,
+  "defaults": {
+    "levelMode": "level-100",
+    "battleType": "single",
+    "gimmickRules": "all",
+    "strategy": "balanced",
+    "maxTurns": 100
+  },
+  "cases": [
+    {
+      "id": "core-dbingsu-vs-drake",
+      "seed": 20260719,
+      "trainerIds": ["dbingsu-server-party", "hoenn_league_drake"],
+      "focus": ["setup", "salt-cure", "sturdy", "gimmick"],
+      "baseline": {
+        "winnerTrainerId": "dbingsu-server-party",
+        "turns": 12
+      }
+    },
+    {
+      "id": "speed-offense-vs-raichu-rain",
+      "seed": 20260746,
+      "trainerIds": ["sv9-speed-offense", "champions-mega-raichu-x-rain"],
+      "focus": ["weather", "switch", "speed-control"],
+      "baseline": {
+        "winnerTrainerId": "sv9-speed-offense",
+        "turns": 45
+      }
+    },
+    {
+      "id": "hazard-balance-vs-dbingsu",
+      "seed": 20260752,
+      "trainerIds": ["sv9-hazard-balance", "dbingsu-server-party"],
+      "focus": ["hazard", "salt-cure", "long-game"],
+      "baseline": {
+        "winnerTrainerId": "sv9-hazard-balance",
+        "turns": 29
+      }
+    },
+    {
+      "id": "trick-room-vs-dbingsu",
+      "seed": 20260754,
+      "trainerIds": ["sv9-trick-room-balance", "dbingsu-server-party"],
+      "focus": ["trick-room", "switch", "future-matchup"],
+      "baseline": {
+        "winnerTrainerId": null,
+        "turns": 100
+      }
+    },
+    {
+      "id": "emboar-setup-vs-screens",
+      "seed": 20260758,
+      "trainerIds": ["champions-mega-emboar-setup", "sv9-screens-offense"],
+      "focus": ["setup", "screens", "survival"],
+      "baseline": {
+        "winnerTrainerId": "champions-mega-emboar-setup",
+        "turns": 34
+      }
+    },
+    {
+      "id": "mawile-dual-vs-trick-room",
+      "seed": 20260768,
+      "trainerIds": ["champions-mega-mawile-dual-mode", "sv9-trick-room-balance"],
+      "focus": ["mega", "priority", "switch", "trick-room"],
+      "baseline": {
+        "winnerTrainerId": "champions-mega-mawile-dual-mode",
+        "turns": 23
+      }
+    },
+    {
+      "id": "raichu-rain-vs-bulky-offense",
+      "seed": 20260769,
+      "trainerIds": ["champions-mega-raichu-x-rain", "sv9-modern-bulky-offense"],
+      "focus": ["weather", "switch", "ace-preservation"],
+      "baseline": {
+        "winnerTrainerId": "champions-mega-raichu-x-rain",
+        "turns": 39
+      }
+    },
+    {
+      "id": "sand-vs-trick-room",
+      "seed": 20260749,
+      "trainerIds": ["sv9-sand-balance", "sv9-trick-room-balance"],
+      "focus": ["weather", "trick-room", "counter-switch"],
+      "baseline": {
+        "winnerTrainerId": null,
+        "turns": 100
+      }
+    },
+    {
+      "id": "corrado-vs-bulky-offense",
+      "seed": 20260751,
+      "trainerIds": ["sinnoh_corrado", "sv9-modern-bulky-offense"],
+      "focus": ["salt-cure", "switch", "hazard"],
+      "baseline": {
+        "winnerTrainerId": "sv9-modern-bulky-offense",
+        "turns": 28
+      }
+    },
+    {
+      "id": "dbingsu-vs-sand",
+      "seed": 20260765,
+      "trainerIds": ["dbingsu-server-party", "sv9-sand-balance"],
+      "focus": ["weather", "trick-room", "gimmick", "switch"],
+      "baseline": {
+        "winnerTrainerId": "sv9-sand-balance",
+        "turns": 26
+      }
+    }
+  ]
+}
