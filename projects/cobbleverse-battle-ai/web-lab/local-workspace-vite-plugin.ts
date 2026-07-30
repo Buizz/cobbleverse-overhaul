@@ -19,6 +19,22 @@ type SavedWorkspace = {
   savedAt: string;
 };
 
+const folderPickerScript = String.raw`
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$dialog.Description = "Cobbleverse Battle Lab 폴더 선택"
+$dialog.ShowNewFolderButton = $true
+if ($env:COBBLEVERSE_INITIAL_FOLDER -and (Test-Path -LiteralPath $env:COBBLEVERSE_INITIAL_FOLDER -PathType Container)) {
+  $dialog.SelectedPath = (Resolve-Path -LiteralPath $env:COBBLEVERSE_INITIAL_FOLDER).Path
+}
+$result = $dialog.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+  [Console]::Write($dialog.SelectedPath)
+}
+$dialog.Dispose()
+`;
+
 function sendJson(
   response: ServerResponse,
   status: number,
@@ -129,6 +145,65 @@ export function localWorkspace(): Plugin {
     name: "cobbleverse-local-workspace",
     enforce: "pre",
     configureServer(server) {
+      server.middlewares.use(
+        "/api/local-folder-picker",
+        async (request, response) => {
+          if (request.method !== "POST") {
+            sendJson(response, 405, {
+              ok: false,
+              message: "지원하지 않는 요청입니다.",
+            });
+            return;
+          }
+
+          if (process.platform !== "win32") {
+            sendJson(response, 501, {
+              ok: false,
+              message: "폴더 찾아보기는 현재 Windows에서만 지원합니다.",
+            });
+            return;
+          }
+
+          try {
+            const payload = await requestBody(request);
+            const initialPath = String(payload.workspacePath ?? "").trim();
+            const { stdout } = await execFileAsync(
+              "powershell.exe",
+              [
+                "-NoLogo",
+                "-NoProfile",
+                "-STA",
+                "-Command",
+                folderPickerScript,
+              ],
+              {
+                cwd: appDirectory,
+                env: {
+                  ...process.env,
+                  COBBLEVERSE_INITIAL_FOLDER: initialPath,
+                },
+                windowsHide: true,
+                maxBuffer: 1024 * 1024,
+              },
+            );
+            const selectedPath = stdout.trim();
+            sendJson(response, 200, {
+              ok: true,
+              cancelled: !selectedPath,
+              selectedPath,
+            });
+          } catch (error) {
+            sendJson(response, 500, {
+              ok: false,
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "폴더 선택 창을 열지 못했습니다.",
+            });
+          }
+        },
+      );
+
       server.middlewares.use(
         "/api/local-workspace",
         async (request, response) => {

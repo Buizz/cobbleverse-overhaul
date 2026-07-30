@@ -203,6 +203,13 @@ type LocalWorkspaceResponse = {
   message?: string;
 };
 
+type LocalFolderPickerResponse = {
+  ok: boolean;
+  cancelled?: boolean;
+  selectedPath?: string;
+  message?: string;
+};
+
 type ScenarioIssue = {
   path: string;
   code: string;
@@ -5564,6 +5571,9 @@ export function BattleLab() {
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
   const [modWorkspacePath, setModWorkspacePath] = useState("");
   const [resourceWorkspacePath, setResourceWorkspacePath] = useState("");
+  const [folderPickerTarget, setFolderPickerTarget] = useState<
+    "mod" | "resource" | null
+  >(null);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [workspaceError, setWorkspaceError] = useState("");
   const [customParty, setCustomParty] = useState(initialParty);
@@ -5836,6 +5846,35 @@ export function BattleLab() {
       setWorkspaceError("모드 폴더 설정을 저장하지 못했습니다.");
     } finally {
       setWorkspaceBusy(false);
+    }
+  };
+
+  const chooseWorkspaceFolder = async (target: "mod" | "resource") => {
+    setFolderPickerTarget(target);
+    setWorkspaceError("");
+    try {
+      const initialPath =
+        target === "mod" ? modWorkspacePath : resourceWorkspacePath;
+      const response = await fetch("/api/local-folder-picker", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspacePath: initialPath }),
+      });
+      const result = (await response.json()) as LocalFolderPickerResponse;
+      if (!result.ok) {
+        setWorkspaceError(result.message ?? "폴더 선택 창을 열지 못했습니다.");
+        return;
+      }
+      if (result.cancelled || !result.selectedPath) return;
+      if (target === "mod") {
+        setModWorkspacePath(result.selectedPath);
+      } else {
+        setResourceWorkspacePath(result.selectedPath);
+      }
+    } catch {
+      setWorkspaceError("로컬 폴더 선택 API에 연결하지 못했습니다.");
+    } finally {
+      setFolderPickerTarget(null);
     }
   };
 
@@ -6804,14 +6843,25 @@ export function BattleLab() {
                   <strong>MOD 폴더 지정</strong>
                   <small>Cobbleverse 작업공간 또는 mods 폴더</small>
                 </label>
-                <input
-                  id="mod-workspace-path"
-                  value={modWorkspacePath}
-                  onChange={(event) => setModWorkspacePath(event.target.value)}
-                  placeholder="예: G:\CobbleverseTrainerWebEditorWorkspace"
-                  spellCheck={false}
-                  autoFocus
-                />
+                <div className="workspace-path-input">
+                  <input
+                    id="mod-workspace-path"
+                    value={modWorkspacePath}
+                    onChange={(event) =>
+                      setModWorkspacePath(event.target.value)
+                    }
+                    placeholder="예: G:\CobbleverseTrainerWebEditorWorkspace"
+                    spellCheck={false}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void chooseWorkspaceFolder("mod")}
+                    disabled={folderPickerTarget !== null}
+                  >
+                    {folderPickerTarget === "mod" ? "여는 중…" : "찾아보기"}
+                  </button>
+                </div>
               </div>
               <div className="workspace-path-field">
                 <label htmlFor="resource-workspace-path">
@@ -6819,15 +6869,26 @@ export function BattleLab() {
                   <strong>리소스 폴더 지정</strong>
                   <small>리소스 작업공간 또는 resourcepacks 폴더</small>
                 </label>
-                <input
-                  id="resource-workspace-path"
-                  value={resourceWorkspacePath}
-                  onChange={(event) =>
-                    setResourceWorkspacePath(event.target.value)
-                  }
-                  placeholder="예: G:\Cobbleverse\resourcepacks"
-                  spellCheck={false}
-                />
+                <div className="workspace-path-input">
+                  <input
+                    id="resource-workspace-path"
+                    value={resourceWorkspacePath}
+                    onChange={(event) =>
+                      setResourceWorkspacePath(event.target.value)
+                    }
+                    placeholder="예: G:\Cobbleverse\resourcepacks"
+                    spellCheck={false}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void chooseWorkspaceFolder("resource")}
+                    disabled={folderPickerTarget !== null}
+                  >
+                    {folderPickerTarget === "resource"
+                      ? "여는 중…"
+                      : "찾아보기"}
+                  </button>
+                </div>
               </div>
               <p>
                 두 경로는 이 컴퓨터의 로컬 설정에만 저장됩니다. MOD 폴더는

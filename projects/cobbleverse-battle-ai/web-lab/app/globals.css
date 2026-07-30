@@ -244,7 +244,13 @@ button {
   font-size: 9px;
 }
 
-.workspace-path-field > input {
+.workspace-path-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 8px;
+}
+
+.workspace-path-input > input {
   width: 100%;
   min-height: 48px;
   padding: 0 13px;
@@ -255,9 +261,28 @@ button {
   font: 600 11px/1.4 ui-monospace, monospace;
 }
 
-.workspace-path-field > input:focus {
+.workspace-path-input > input:focus {
   border-color: var(--cyan);
   box-shadow: 0 0 0 3px rgba(89, 222, 218, 0.1);
+}
+
+.workspace-path-input > button {
+  border: 1px solid #58677f;
+  background: #182841;
+  color: #dbe6f4;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.workspace-path-input > button:hover:not(:disabled) {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.workspace-path-input > button:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .workspace-dialog form > p {
