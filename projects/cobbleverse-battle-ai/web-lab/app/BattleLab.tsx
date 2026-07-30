@@ -324,6 +324,11 @@ type BattleHpPreview = {
   p2?: string;
 };
 
+type BattleSpeciesPreview = {
+  p1?: string;
+  p2?: string;
+};
+
 type BattleResult = {
   battleId: string;
   scenarioId: string;
@@ -3620,6 +3625,18 @@ function actorName(value: string | undefined) {
   return value?.replace(/^p[12][a-z]?: /, "") ?? "";
 }
 
+function pokemonTransitionClass(
+  event: BattleEvent | undefined,
+  side: "p1" | "p2",
+  species: string,
+) {
+  if (!event?.actor?.startsWith(side)) return "";
+  if (dexId(actorName(event.actor)) !== dexId(species)) return "";
+  if (event.type === "switch") return "is-entering";
+  if (event.type === "faint") return "is-fainting";
+  return "";
+}
+
 function showdownSpriteUrl(species: string, back = false) {
   return `/api/pokemon-sprites?species=${encodeURIComponent(species)}${back ? "&back=1" : ""}`;
 }
@@ -4392,6 +4409,7 @@ function InteractiveArena({
   playbackMode,
   actionNotice,
   hpPreview,
+  speciesPreview,
   persistentSaveSlots,
   onAction,
   onSessionOperation,
@@ -4406,6 +4424,7 @@ function InteractiveArena({
   playbackMode: BattlePlaybackMode;
   actionNotice: BattleActionNotice | null;
   hpPreview: BattleHpPreview;
+  speciesPreview: BattleSpeciesPreview;
   persistentSaveSlots: PersistentBattleSlot[];
   onAction: (action: {
     type: "move" | "switch";
@@ -4579,6 +4598,7 @@ function InteractiveArena({
   const latestPlayerSpecies = latestBattlingSpeciesBySide(battle.events, "p1");
   const latestOpponentSpecies = latestBattlingSpeciesBySide(battle.events, "p2");
   const opponentName =
+    speciesPreview.p2 ||
     (playerWon ? latestOpponentSpecies : activeSpeciesBySide(battle.events, "p2")) ||
     actorName(opponentEvent?.actor) ||
     battle.sides[1].name;
@@ -4587,6 +4607,7 @@ function InteractiveArena({
     : hpPreview.p2 ?? opponentEvent?.condition ?? latestConditionBySide(battle.events, "p2");
   const opponentHp = conditionPercent(opponentCondition);
   const playerDisplaySpecies =
+    speciesPreview.p1 ||
     (opponentWon
       ? latestPlayerSpecies
       : activeSpeciesBySide(battle.events, "p1") || latestPlayerSpecies) ||
@@ -4671,7 +4692,13 @@ function InteractiveArena({
         : []);
   const opponentFieldPokemon =
     request?.opponents?.length
-      ? request.opponents
+      ? request.opponents.map((pokemon) =>
+          request.opponents.length === 1 &&
+          opponentName &&
+          pokemon.species !== opponentName
+            ? { ...pokemon, species: opponentName }
+            : pokemon,
+        )
       : [{ position: 1, species: opponentName, types: request?.opponent?.types ?? [] }];
   const playerInfo = mergedPokemonInfo({
     battle,
@@ -4875,8 +4902,20 @@ function InteractiveArena({
               <div
                 className={`sprite-platform opponent-platform ${
                   opponentGimmickState.dynamax ? "dynamaxed" : ""
-                } ${playerWon ? "fainted" : ""}`}
-                key={`${pokemon.position}-${pokemon.species}`}
+                } ${playerWon ? "fainted" : ""} ${pokemonTransitionClass(
+                  actionNotice?.event,
+                  "p2",
+                  pokemon.species,
+                )}`}
+                key={`${pokemon.position}-${pokemon.species}-${
+                  pokemonTransitionClass(
+                    actionNotice?.event,
+                    "p2",
+                    pokemon.species,
+                  )
+                    ? actionNotice?.step
+                    : "steady"
+                }`}
               >
                 {/* Dynamic Showdown sprite URLs are intentionally rendered without Next image optimization. */}
                 <PokemonSprite
@@ -4938,8 +4977,20 @@ function InteractiveArena({
               <div
                 className={`sprite-platform player-platform ${
                   playerGimmickState.dynamax ? "dynamaxed" : ""
+                } ${opponentWon ? "fainted" : ""} ${pokemonTransitionClass(
+                  actionNotice?.event,
+                  "p1",
+                  pokemon.species,
+                )}`}
+                key={`${index}-${pokemon.species}-${
+                  pokemonTransitionClass(
+                    actionNotice?.event,
+                    "p1",
+                    pokemon.species,
+                  )
+                    ? actionNotice?.step
+                    : "steady"
                 }`}
-                key={`${index}-${pokemon.species}`}
               >
                 {/* Dynamic Showdown sprite URLs intentionally skip Next image optimization. */}
                 <PokemonSprite
@@ -5599,6 +5650,8 @@ export function BattleLab() {
   const [actionNotice, setActionNotice] =
     useState<BattleActionNotice | null>(null);
   const [hpPreview, setHpPreview] = useState<BattleHpPreview>({});
+  const [speciesPreview, setSpeciesPreview] =
+    useState<BattleSpeciesPreview>({});
   const playbackToken = useRef(0);
 
   useEffect(() => {
@@ -6406,6 +6459,7 @@ export function BattleLab() {
     playbackToken.current += 1;
     setActionNotice(null);
     setHpPreview({});
+    setSpeciesPreview({});
     setInteractiveBusy(true);
     setNotice("직접 조작 배틀을 시작하고 있습니다.");
     try {
@@ -6482,6 +6536,7 @@ export function BattleLab() {
       if (playbackMode === "instant") {
         setInteractiveBattle(result.battle);
         setHpPreview({});
+        setSpeciesPreview({});
         if (scenario && result.battle.status === "awaiting_choice") {
           storeLastBattle({
             schemaVersion: 1,
@@ -6505,6 +6560,15 @@ export function BattleLab() {
           if (playbackToken.current !== token) return;
           if (event.actor?.startsWith("p1") || event.actor?.startsWith("p2")) {
             const side = event.actor.startsWith("p1") ? "p1" : "p2";
+            if (event.type === "switch" || event.type === "mega_evolution") {
+              const nextSpecies = event.detail || actorName(event.actor);
+              if (nextSpecies) {
+                setSpeciesPreview((current) => ({
+                  ...current,
+                  [side]: nextSpecies,
+                }));
+              }
+            }
             if (event.type === "switch") {
               setHpPreview((current) => {
                 const next = { ...current };
@@ -6538,6 +6602,7 @@ export function BattleLab() {
         }
         if (playbackToken.current !== token) return;
         setInteractiveBattle(result.battle);
+        setSpeciesPreview({});
         if (scenario && result.battle.status === "awaiting_choice") {
           storeLastBattle({
             schemaVersion: 1,
@@ -6629,6 +6694,7 @@ export function BattleLab() {
       setInteractiveBattle(result.battle);
       setActionNotice(null);
       setHpPreview({});
+      setSpeciesPreview({});
       storeLastBattle({
         schemaVersion: 1,
         savedAt: new Date().toISOString(),
@@ -6691,6 +6757,7 @@ export function BattleLab() {
       setInteractiveBattle(result.battle);
       setActionNotice(null);
       setHpPreview({});
+      setSpeciesPreview({});
       if (scenario) {
         storeLastBattle({
           schemaVersion: 1,
@@ -6716,6 +6783,7 @@ export function BattleLab() {
     setInteractiveBusy(false);
     setActionNotice(null);
     setHpPreview({});
+    setSpeciesPreview({});
     if (!current || current.status !== "awaiting_choice") return;
     try {
       await fetch("/api/interactive-battles", {
@@ -7606,6 +7674,7 @@ export function BattleLab() {
           playbackMode={playbackMode}
           actionNotice={actionNotice}
           hpPreview={hpPreview}
+          speciesPreview={speciesPreview}
           persistentSaveSlots={persistentBattleSlots}
           onAction={chooseInteractiveAction}
           onSessionOperation={controlInteractiveSession}

@@ -2819,6 +2819,39 @@ button {
     transform 280ms ease;
 }
 
+.sprite-platform.is-fainting {
+  z-index: 4;
+  animation: eve-pokemon-sink 620ms cubic-bezier(0.55, 0, 0.85, 0.36) both;
+  will-change: clip-path, filter, opacity, transform;
+}
+
+.sprite-platform.is-fainting::after {
+  animation: eve-pokemon-sink-shadow 620ms ease-in both;
+}
+
+.sprite-platform.is-entering {
+  z-index: 4;
+  animation: eve-pokemon-enter 620ms cubic-bezier(0.2, 0.76, 0.26, 1) both;
+  will-change: filter, opacity, transform;
+}
+
+.sprite-platform.is-entering::before {
+  position: absolute;
+  inset: 2% -8% -4%;
+  z-index: 3;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 1) 0,
+    rgba(217, 252, 255, 0.86) 22%,
+    rgba(85, 229, 223, 0.32) 44%,
+    rgba(85, 229, 223, 0) 72%
+  );
+  content: "";
+  pointer-events: none;
+  animation: eve-pokemon-entry-flash 620ms ease-out both;
+}
+
 .sprite-platform.dynamaxed img {
   width: 232px;
   filter:
@@ -2827,14 +2860,14 @@ button {
   transform: translateY(-4px);
 }
 
-.sprite-platform.fainted img {
-  opacity: 0.38;
-  filter: grayscale(1) drop-shadow(0 8px 5px rgba(12, 27, 31, 0.18));
-  transform: translateY(18px) rotate(-4deg);
+.sprite-platform.fainted {
+  clip-path: inset(0 0 100% 0);
+  opacity: 0;
+  transform: translateY(22%) scaleX(0.82) scaleY(0.5);
 }
 
 .sprite-platform.fainted::after {
-  background: rgba(20, 28, 34, 0.18);
+  opacity: 0;
 }
 
 .battle-stage.player-won .opponent-combatant .combatant-card {
@@ -10156,6 +10189,7 @@ select:disabled {
   height: 240px;
   justify-self: center;
   transform-origin: 50% 92%;
+  will-change: clip-path, filter, opacity, transform;
 }
 
 .eve-replay-pokemon > img {
@@ -10297,10 +10331,18 @@ select:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sprite-platform.is-fainting,
+  .sprite-platform.is-fainting::after,
+  .sprite-platform.is-entering,
+  .sprite-platform.is-entering::before,
   .eve-replay-combatant > article i b {
     transition: none;
   }
 
+  .sprite-platform.is-fainting,
+  .sprite-platform.is-fainting::after,
+  .sprite-platform.is-entering,
+  .sprite-platform.is-entering::before,
   .eve-replay-pokemon.is-fainting,
   .eve-replay-pokemon.is-fainting::after,
   .eve-replay-pokemon.is-entering > img,
