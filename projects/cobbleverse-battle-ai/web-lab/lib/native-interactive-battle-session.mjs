@@ -3,12 +3,12 @@ import { randomUUID } from "node:crypto";
 import {
   calculateMovePreview,
   canPokemonUseTerastallization,
-  chooseSimpleAiDecision,
   createSimpleAiDecisionTrace,
   createSimpleBattle,
   isMoveBlockedByDynamaxTarget,
   isMoveTemporarilyDisabled,
   replaceFaintedPokemon,
+  resolveSimpleCheaterDecision,
   resolveSimpleTurn,
 } from "./cobbleverse-battle-engine.mjs";
 import {
@@ -558,11 +558,17 @@ export function chooseNativeInteractiveBattleAction(sessionId, action) {
   const before = diagnosticBattleState(session.state);
   const checkpoint = sessionCheckpoint(session);
   const eventStart = session.state.events.length;
-  const aiDecision = chooseSimpleAiDecision(
+  const normalizedPlayerCommand = playerCommand(session.state, action);
+  const aiDecision = resolveSimpleCheaterDecision(
     session.state,
     1,
-    difficulty,
-    strategy,
+    {
+      difficulty,
+      strategy,
+      cheatProbability:
+        session.scenario.aiProfiles?.[1]?.cheatProbability ?? 0.5,
+    },
+    normalizedPlayerCommand,
   );
   const aiCommand = aiDecision.command;
   const trace = createSimpleAiDecisionTrace(
@@ -574,7 +580,6 @@ export function chooseNativeInteractiveBattleAction(sessionId, action) {
   );
   session.aiTrace.push(trace);
   try {
-    const normalizedPlayerCommand = playerCommand(session.state, action);
     session.state = resolveSimpleTurn(session.state, [
       normalizedPlayerCommand,
       aiCommand,

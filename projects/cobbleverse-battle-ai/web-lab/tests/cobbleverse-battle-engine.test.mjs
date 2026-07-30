@@ -2,16 +2,381 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applySimpleCheaterKnowledge,
   automaticSwitchCandidates,
   calculateDamageRange,
   calculateMovePreview,
   chooseSimpleAiDecision,
   chooseSimpleAiCommand,
   createSimpleBattle,
+  isSimpleAbilitySupported,
   resolveSimpleTurn,
+  resolveSimpleCheaterDecision,
   runSimpleBattle,
   typeMultiplier,
 } from "../lib/cobbleverse-battle-engine.mjs";
+
+test("reports native ability support for random matchup filtering", () => {
+  assert.equal(isSimpleAbilitySupported("pressure"), true);
+  assert.equal(isSimpleAbilitySupported("cobblemon:pressure"), true);
+  assert.equal(isSimpleAbilitySupported("earlybird"), false);
+  assert.equal(isSimpleAbilitySupported(""), true);
+});
+
+test("cheater responds to the opponent's committed status move", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Bait",
+          team: [
+            pokemon({
+              name: "Bait",
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+                {
+                  id: "hyperbeam",
+                  name: "Hyper Beam",
+                  type: "Normal",
+                  category: "Special",
+                  power: 150,
+                  accuracy: 90,
+                  pp: 5,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Cheater",
+          team: [
+            pokemon({
+              name: "Cheater",
+              moves: [
+                {
+                  id: "suckerpunch",
+                  name: "Sucker Punch",
+                  type: "Dark",
+                  category: "Physical",
+                  power: 70,
+                  accuracy: 100,
+                  priority: 1,
+                  pp: 5,
+                },
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const baseDecision = chooseSimpleAiDecision(
+    state,
+    1,
+    "cheater",
+    "balanced",
+  );
+  assert.equal(baseDecision.command.move, 1);
+
+  const cheated = applySimpleCheaterKnowledge(
+    state,
+    1,
+    baseDecision,
+    { move: 1 },
+    { strategy: "balanced" },
+  );
+
+  assert.equal(cheated.command.move, 2);
+  assert.equal(cheated.diagnostics.cheatActivated, true);
+  assert.equal(cheated.diagnostics.cheaterResponseChanged, true);
+  assert.deepEqual(cheated.diagnostics.observedOpponentCommand, { move: 1 });
+  assert.equal(cheated.diagnostics.cheaterCandidates, undefined);
+  assert.ok(
+    cheated.moveCandidates.every(
+      (candidate) => !candidate.opponentThreateningMoveId,
+    ),
+  );
+});
+
+test("Upper Hand only succeeds against a pending damaging priority move", () => {
+  const upperHand = {
+    id: "upperhand",
+    name: "Upper Hand",
+    type: "Fighting",
+    category: "Physical",
+    power: 65,
+    accuracy: 100,
+    priority: 3,
+    pp: 15,
+  };
+  const quickAttack = {
+    id: "quickattack",
+    name: "Quick Attack",
+    type: "Normal",
+    category: "Physical",
+    power: 40,
+    accuracy: 100,
+    priority: 1,
+    pp: 30,
+  };
+  const scenario = setup({
+    sides: [
+      {
+        name: "Upper Hand",
+        team: [pokemon({ name: "Upper Hand user", moves: [upperHand] })],
+      },
+      {
+        name: "Target",
+        team: [
+          pokemon({ name: "Lead", moves: [quickAttack] }),
+          pokemon({ name: "Replacement", moves: [quickAttack] }),
+        ],
+      },
+    ],
+  });
+
+  const priorityResult = resolveSimpleTurn(
+    createSimpleBattle(scenario),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.ok(priorityResult.sides[1].team[0].hp < pokemon().stats.hp);
+  assert.equal(priorityResult.sides[0].team[0].hp, pokemon().stats.hp);
+  assert.ok(
+    priorityResult.events.some(
+      (event) =>
+        event.type === "volatile_start" &&
+        event.pokemon === "Lead" &&
+        event.effect === "flinch",
+    ),
+  );
+
+  const switchResult = resolveSimpleTurn(
+    createSimpleBattle(scenario),
+    [{ move: 1 }, { switch: 2 }],
+  );
+  assert.equal(switchResult.sides[1].team[1].hp, pokemon().stats.hp);
+  assert.ok(
+    switchResult.events.some(
+      (event) =>
+        event.type === "move_failed" &&
+        event.move === "Upper Hand",
+    ),
+  );
+});
+
+test("cheater scores Upper Hand from the opponent's committed priority move", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Target",
+          team: [
+            pokemon({
+              moves: [
+                {
+                  id: "quickattack",
+                  name: "Quick Attack",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  priority: 1,
+                  pp: 30,
+                },
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Cheater",
+          team: [
+            pokemon({
+              moves: [
+                {
+                  id: "upperhand",
+                  name: "Upper Hand",
+                  type: "Fighting",
+                  category: "Physical",
+                  power: 65,
+                  accuracy: 100,
+                  priority: 3,
+                  pp: 15,
+                },
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  const againstPriority = applySimpleCheaterKnowledge(
+    state,
+    1,
+    null,
+    { move: 1 },
+    { strategy: "balanced" },
+  );
+  const priorityCandidate = againstPriority.moveCandidates.find(
+    (candidate) => candidate.id === "upperhand",
+  );
+  assert.equal(priorityCandidate.upperHandExactOutcome, "success");
+  assert.equal(againstPriority.command.move, 1);
+
+  const againstRegularMove = applySimpleCheaterKnowledge(
+    state,
+    1,
+    null,
+    { move: 2 },
+    { strategy: "balanced" },
+  );
+  const failedCandidate = againstRegularMove.moveCandidates.find(
+    (candidate) => candidate.id === "upperhand",
+  );
+  assert.equal(failedCandidate.upperHandExactOutcome, "failure");
+  assert.equal(againstRegularMove.command.move, 2);
+});
+
+test("cheater activation obeys configured probability and remains seeded", () => {
+  const state = createSimpleBattle(setup());
+  const baseDecision = chooseSimpleAiDecision(
+    state,
+    1,
+    "cheater",
+    "balanced",
+  );
+  const never = resolveSimpleCheaterDecision(
+    state,
+    1,
+    { difficulty: "cheater", strategy: "balanced", cheatProbability: 0 },
+    { move: 1 },
+    baseDecision,
+  );
+  const always = resolveSimpleCheaterDecision(
+    state,
+    1,
+    { difficulty: "cheater", strategy: "balanced", cheatProbability: 1 },
+    { move: 1 },
+    baseDecision,
+  );
+  const repeated = resolveSimpleCheaterDecision(
+    state,
+    1,
+    { difficulty: "cheater", strategy: "balanced", cheatProbability: 1 },
+    { move: 1 },
+    baseDecision,
+  );
+
+  assert.equal(never.diagnostics.cheatActivated, false);
+  assert.equal(always.diagnostics.cheatActivated, true);
+  assert.equal(always.diagnostics.cheatRoll, repeated.diagnostics.cheatRoll);
+  assert.deepEqual(always.command, repeated.command);
+});
+
+test("EvE resolves cheater knowledge after both base commands are committed", () => {
+  const battle = runSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Status user",
+          team: [
+            pokemon({
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Cheater",
+          team: [
+            pokemon({
+              moves: [
+                {
+                  id: "suckerpunch",
+                  name: "Sucker Punch",
+                  type: "Dark",
+                  category: "Physical",
+                  power: 70,
+                  accuracy: 100,
+                  priority: 1,
+                  pp: 5,
+                },
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+    {
+      maxTurns: 1,
+      aiProfiles: [
+        { difficulty: "expert", strategy: "balanced" },
+        {
+          difficulty: "cheater",
+          strategy: "balanced",
+          cheatProbability: 1,
+        },
+      ],
+    },
+  );
+  const trace = battle.aiTrace.find((entry) => entry.side === 1);
+
+  assert.equal(trace.selectionPolicy, "cheater-exact-command");
+  assert.equal(trace.diagnostics.cheatActivated, true);
+  assert.deepEqual(trace.diagnostics.observedOpponentCommand, { move: 1 });
+  assert.equal(trace.chosenAction, "Tackle");
+});
 
 function pokemon(overrides = {}) {
   return {
@@ -14851,4 +15216,25 @@ test("Purifying Salt blocks status and Hospitality is explicit singles-only supp
       }),
     ),
   );
+});
+
+test("keeps heuristic and win-probability expert policies separate in traces", () => {
+  const battleSetup = setup({
+    sides: [
+      { name: "Heuristic", team: [pokemon({ name: "Left" })] },
+      { name: "Win rate", team: [pokemon({ name: "Right" })] },
+    ],
+  });
+  const battle = runSimpleBattle(battleSetup, {
+    maxTurns: 1,
+    aiProfiles: [
+      { difficulty: "expert", strategy: "balanced" },
+      { difficulty: "expert_winrate", strategy: "balanced" },
+    ],
+  });
+
+  assert.equal(battle.aiTrace[0].difficulty, "expert");
+  assert.equal(battle.aiTrace[0].selectionPolicy, "heuristic");
+  assert.equal(battle.aiTrace[1].difficulty, "expert_winrate");
+  assert.equal(battle.aiTrace[1].selectionPolicy, "win-probability");
 });

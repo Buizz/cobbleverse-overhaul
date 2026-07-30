@@ -19,7 +19,13 @@ const EVE_HISTORY_KEY = "cobbleverse-battle-lab:eve-history";
 const EVE_HISTORY_LIMIT = 20;
 
 type AiProfile = {
-  difficulty: "novice" | "standard" | "advanced" | "expert" | "cheater";
+  difficulty:
+    | "novice"
+    | "standard"
+    | "advanced"
+    | "expert"
+    | "expert_winrate"
+    | "cheater";
   strategy:
     | "balanced"
     | "aggressive"
@@ -30,6 +36,7 @@ type AiProfile = {
     | "hazard"
     | "tempo"
     | "unpredictable";
+  cheatProbability?: number;
 };
 
 type AiDecisionReason = {
@@ -96,8 +103,26 @@ type AiCandidate = {
   koChance?: "none" | "possible" | "guaranteed";
   damageRangeMinimum?: number;
   damageRangeMaximum?: number;
+  winProbabilityBefore?: number;
+  winProbabilityAfter?: number;
+  winProbabilityDelta?: number;
   selected: boolean;
   reasons?: AiDecisionReason[];
+};
+
+type WinEstimate = {
+  probability: number;
+  probabilityPercent: number;
+  confidence: number;
+  modelVersion: string;
+  terminal: boolean;
+  topFactors: Array<{
+    component: string;
+    label: string;
+    contribution: number;
+    direction: "favorable" | "unfavorable" | "neutral";
+    message: string;
+  }>;
 };
 
 type AiTrace = {
@@ -112,6 +137,30 @@ type AiTrace = {
   gimmick?: string;
   reason: string;
   candidates: AiCandidate[];
+  winEstimate?: WinEstimate;
+  selectionPolicy?: "heuristic" | "win-probability" | "cheater-exact-command";
+  diagnostics?: {
+    cheatActivated?: boolean;
+    cheatProbability?: number;
+    cheatRoll?: number;
+    cheaterResponseChanged?: boolean;
+    observedOpponentCommand?: {
+      move?: number;
+      switch?: number;
+      gimmick?: string;
+    };
+    heuristicExpectedWinProbability?: number | null;
+    cheaterExpectedWinProbability?: number | null;
+  } | null;
+  policyComparison?: {
+    heuristicAction: string;
+    heuristicWinProbability: number;
+    winProbabilityAction: string;
+    winProbability: number;
+    probabilityGap: number;
+    differs: boolean;
+    materiallyDiffers: boolean;
+  } | null;
 };
 
 type BattleEvent = {
@@ -198,7 +247,8 @@ const difficultyNames: Record<string, string> = {
   novice: "초급",
   standard: "보통",
   advanced: "상급",
-  expert: "전문가",
+  expert: "전문가(휴리스틱)",
+  expert_winrate: "전문가(승률 기반)",
   cheater: "치터",
 };
 
@@ -357,6 +407,21 @@ function profilesOf(report: ReportData | null) {
       },
     ]
   );
+}
+
+function editableProfilesOf(report: ReportData | null) {
+  const profiles = [...profilesOf(report)];
+  if (
+    profiles[0]?.difficulty === "cheater" &&
+    profiles[1]?.difficulty === "cheater"
+  ) {
+    profiles[1] = {
+      ...profiles[1],
+      difficulty: "expert",
+      cheatProbability: undefined,
+    };
+  }
+  return profiles;
 }
 
 function compactTeamLine(
@@ -524,6 +589,16 @@ function turnPlainText(
       continue;
     }
     for (const trace of traces) {
+      if (trace.winEstimate) {
+        lines.push(
+          `    현재 추정 승률 ${trace.winEstimate.probabilityPercent.toFixed(1)}% | 신뢰도 ${(trace.winEstimate.confidence * 100).toFixed(0)}% | ${trace.winEstimate.modelVersion}`,
+        );
+      }
+      if (trace.diagnostics?.cheatActivated) {
+        lines.push(
+          "    치터 발동: 상대 확정 명령 하나만 사용해 전문가 판단을 실행했습니다.",
+        );
+      }
       for (const candidate of trace.candidates.slice(0, 6)) {
         const marker = candidate.selected ? "*" : " ";
         const label =
@@ -547,8 +622,11 @@ function turnPlainText(
             : candidate.koChance === "possible"
               ? " | KO 가능"
               : "";
+        const winText = Number.isFinite(candidate.winProbabilityAfter)
+          ? ` | 행동 후 승률 ${(Number(candidate.winProbabilityAfter) * 100).toFixed(1)}% (${Number(candidate.winProbabilityDelta) >= 0 ? "+" : ""}${(Number(candidate.winProbabilityDelta) * 100).toFixed(1)}%p)`
+          : "";
         lines.push(
-          `    ${marker} ${label} | 점수 ${Number(candidate.score ?? 0).toFixed(2)}${damageRange}${koText}`,
+          `    ${marker} ${label} | 점수 ${Number(candidate.score ?? 0).toFixed(2)}${damageRange}${koText}${winText}`,
         );
         for (const reason of (candidate.reasons ?? []).slice(0, candidate.selected ? 3 : 2)) {
           const weight =
@@ -950,6 +1028,13 @@ function EveReplayDecisionRail({
                   {difficultyNames[trace.difficulty] ?? trace.difficulty} ·{" "}
                   {strategyNames[trace.strategy] ?? trace.strategy}
                 </small>
+                {trace.winEstimate ? (
+                  <small>
+                    현재 승률 {trace.winEstimate.probabilityPercent.toFixed(1)}%
+                    {" · "}신뢰도{" "}
+                    {(trace.winEstimate.confidence * 100).toFixed(0)}%
+                  </small>
+                ) : null}
               </div>
               <div className="eve-replay-decision-candidates">
                 {trace.candidates.slice(0, 4).map((candidate, index) => {
@@ -963,7 +1048,11 @@ function EveReplayDecisionRail({
                         <strong>
                           {replayCandidateName(candidate, localization)}
                         </strong>
-                        <b>{score.toFixed(1)}</b>
+                        <b>
+                          {Number.isFinite(candidate.winProbabilityAfter)
+                            ? `${(Number(candidate.winProbabilityAfter) * 100).toFixed(1)}%`
+                            : score.toFixed(1)}
+                        </b>
                       </span>
                       <i>
                         <b
@@ -1336,7 +1425,7 @@ export default function EveReport() {
         setHistory(nextHistory);
         setSelectedId(historyId(nextHistory[0]));
         setSeed(nextHistory[0].scenario.seed);
-        setProfiles([...profilesOf(nextHistory[0])]);
+        setProfiles(editableProfilesOf(nextHistory[0]));
         const stored = persistEveStorage(nextHistory, nextHistory[0]);
         if (stored.trimmed) {
           setError("저장 공간이 부족해 오래된 EvE 전적 일부를 정리했습니다.");
@@ -1353,7 +1442,7 @@ export default function EveReport() {
   const selectReport = (next: ReportData) => {
     setSelectedId(historyId(next));
     setSeed(next.scenario.seed);
-    setProfiles([...profilesOf(next)]);
+    setProfiles(editableProfilesOf(next));
   };
 
   const saveRun = (next: ReportData) => {
@@ -1828,10 +1917,23 @@ export default function EveReport() {
                 value={profiles[sideIndex]?.difficulty ?? "expert"}
                 onChange={(event) => {
                   const next = [...profiles];
+                  const difficulty = event.target
+                    .value as AiProfile["difficulty"];
                   next[sideIndex] = {
                     ...(next[sideIndex] ?? { strategy: "balanced" }),
-                    difficulty: event.target.value as AiProfile["difficulty"],
+                    difficulty,
                   };
+                  const otherSideIndex = sideIndex === 0 ? 1 : 0;
+                  if (
+                    difficulty === "cheater" &&
+                    next[otherSideIndex]?.difficulty === "cheater"
+                  ) {
+                    next[otherSideIndex] = {
+                      ...next[otherSideIndex],
+                      difficulty: "expert",
+                      cheatProbability: undefined,
+                    };
+                  }
                   setProfiles(next);
                 }}
               >
@@ -1858,6 +1960,31 @@ export default function EveReport() {
                 ))}
               </select>
             </label>
+            {profiles[sideIndex]?.difficulty === "cheater" ? (
+              <label>
+                행동 열람 {Math.round((profiles[sideIndex]?.cheatProbability ?? 0.5) * 100)}%
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={Math.round(
+                    (profiles[sideIndex]?.cheatProbability ?? 0.5) * 100,
+                  )}
+                  onChange={(event) => {
+                    const next = [...profiles];
+                    next[sideIndex] = {
+                      ...(next[sideIndex] ?? {
+                        difficulty: "cheater",
+                        strategy: "balanced",
+                      }),
+                      cheatProbability: Number(event.target.value) / 100,
+                    };
+                    setProfiles(next);
+                  }}
+                />
+              </label>
+            ) : null}
           </article>
         ))}
         <button disabled={running || batchRunning} onClick={() => rerun(selected.scenario.seed, profiles)}>
@@ -1999,13 +2126,31 @@ export default function EveReport() {
                 <strong>{trace?.chosenAction ?? "판단 기록 없음"}</strong>
                 <small>
                   {trace
-                    ? `T${trace.turn} · ${localSpecies(localization, trace.species)}`
+                    ? `T${trace.turn} · ${localSpecies(localization, trace.species)}${
+                        trace.winEstimate
+                          ? ` · 현재 승률 ${trace.winEstimate.probabilityPercent.toFixed(1)}%`
+                          : ""
+                      }`
                     : "AI 후보 정보가 없습니다."}
                 </small>
               </div>
               {trace ? (
                 <>
                   <p>{trace.reason}</p>
+                  {trace.diagnostics?.cheatActivated ? (
+                    <p className="eve-ai-policy-comparison">
+                      치터 발동 · 상대 확정 행동만 반영한 전문가 판단
+                    </p>
+                  ) : null}
+                  {trace.policyComparison?.differs ? (
+                    <p className="eve-ai-policy-comparison">
+                      휴리스틱 선택 {trace.policyComparison.heuristicAction}{" "}
+                      {(trace.policyComparison.heuristicWinProbability * 100).toFixed(1)}%
+                      {" · "}승률 최상 {trace.policyComparison.winProbabilityAction}{" "}
+                      {(trace.policyComparison.winProbability * 100).toFixed(1)}%
+                      {" · "}차이 +{(trace.policyComparison.probabilityGap * 100).toFixed(1)}%p
+                    </p>
+                  ) : null}
                   <div className="eve-ai-candidates">
                     {trace.candidates.slice(0, 4).map((candidate) => {
                       const score = Number(candidate.score ?? 0);
@@ -2019,7 +2164,11 @@ export default function EveReport() {
                         <div className={candidate.selected ? "selected" : ""} key={`${candidate.slot}-${candidate.name}`}>
                           <span>
                             <strong>{candidate.name}</strong>
-                            <b>{score.toFixed(1)}</b>
+                            <b>
+                              {Number.isFinite(candidate.winProbabilityAfter)
+                                ? `${(Number(candidate.winProbabilityAfter) * 100).toFixed(1)}%`
+                                : score.toFixed(1)}
+                            </b>
                           </span>
                           <i style={{ width: `${Math.max(3, Math.min(100, (Math.max(0, score) / maximum) * 100))}%` }} />
                           <small>

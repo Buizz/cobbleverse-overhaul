@@ -13,7 +13,9 @@ import {
   analyzeTeamProfile,
   aiDecisionReason,
   buildThreatCounterMap,
+  compareAiDecisionPolicies,
   createAiRng,
+  estimateBattleWinProbability,
   evaluateOneTurnBattleState,
   evaluatePokemonRoleProgress,
   evaluateSetupThreat,
@@ -22,6 +24,7 @@ import {
   selectAiGimmick,
   selectAiMoveCandidate,
   selectAiSwitchCandidate,
+  selectWinProbabilityCandidate,
   toAiActionCandidate,
   toAiTraceCandidate,
 } from "./common-battle-ai.mjs";
@@ -399,6 +402,11 @@ function cleanId(value) {
     .toLowerCase()
     .replace(/^.*:/, "")
     .replace(/[^a-z0-9]+/g, "");
+}
+
+export function isSimpleAbilitySupported(ability) {
+  const abilityId = cleanId(ability);
+  return abilityId.length === 0 || SUPPORTED_ABILITIES.has(abilityId);
 }
 
 function canonicalTypeName(value) {
@@ -4996,8 +5004,18 @@ function executeMove(state, action, rng) {
     const defenderAction = state.currentActions?.find(
       (candidate) => candidate.side === defenderSide,
     );
-    const targetPriority = Number(defenderAction?.priority ?? 0);
-    if (defender.turnState.acted || targetPriority <= 0) {
+    const targetMove = defenderAction?.selected?.move;
+    const targetPriority = Number(
+      defenderAction?.priority ?? targetMove?.priority ?? 0,
+    );
+    if (
+      defender.turnState.acted ||
+      defenderAction?.kind !== "move" ||
+      !targetMove ||
+      targetMove.category === "Status" ||
+      Number(targetMove.power ?? 0) <= 0 ||
+      targetPriority <= 0
+    ) {
       state.events.push({
         turn: state.turn,
         type: "move_failed",
@@ -9255,6 +9273,10 @@ function automaticMoveCandidates(
   const pokemon = activePokemon(state, sideIndex);
   const defenderSide = sideIndex === 0 ? 1 : 0;
   const defender = activePokemon(state, defenderSide);
+  const exactOpponentKnowledge = state.aiKnowledge?.[sideIndex] ?? null;
+  const exactOpponentCommand =
+    exactOpponentKnowledge?.opponentCommand ?? null;
+  const exactOpponentMove = exactOpponentKnowledge?.opponentMove ?? null;
   const opponentHazards = Object.fromEntries(
     ["stealthrock", "spikes", "toxicspikes", "stickyweb"].map((id) => [
       id,
@@ -9548,15 +9570,90 @@ function automaticMoveCandidates(
           (actionOrderTrickRoomActive
             ? defenderSpeed < attackerSpeed
             : defenderSpeed > attackerSpeed));
+      const upperHandEligibleThreats =
+        cleanId(displayMove.id) === "upperhand"
+          ? opponentAttackThreats.filter((threat) => {
+              if (threat.priority <= 0) return false;
+              if (movePriority > threat.priority) return true;
+              if (movePriority < threat.priority) return false;
+              return actionOrderTrickRoomActive
+                ? attackerSpeed <= defenderSpeed
+                : attackerSpeed >= defenderSpeed;
+            })
+          : [];
+      const exactUpperHandTargetIsValid =
+        Number.isInteger(exactOpponentCommand?.move) &&
+        exactOpponentMove?.category !== "Status" &&
+        Number(exactOpponentMove?.power ?? 0) > 0 &&
+        Number(exactOpponentMove?.priority ?? 0) > 0;
+      const exactOpponentPriority = Number(exactOpponentMove?.priority ?? 0);
+      const upperHandSpeedComparison = actionOrderTrickRoomActive
+        ? defenderSpeed - attackerSpeed
+        : attackerSpeed - defenderSpeed;
+      const exactUpperHandActsFirstProbability =
+        movePriority > exactOpponentPriority
+          ? 1
+          : movePriority < exactOpponentPriority
+            ? 0
+            : upperHandSpeedComparison > 0
+              ? 1
+              : upperHandSpeedComparison === 0
+                ? 0.5
+                : 0;
+      const upperHandExactOutcome =
+        cleanId(displayMove.id) === "upperhand" && exactOpponentCommand
+          ? !exactUpperHandTargetIsValid ||
+            exactUpperHandActsFirstProbability <= 0
+            ? "failure"
+            : exactUpperHandActsFirstProbability >= 1
+              ? "success"
+              : "uncertain"
+          : "";
+      const upperHandPriorityPressure = upperHandEligibleThreats.reduce(
+        (best, threat) => Math.max(best, threat.expectedDamage),
+        0,
+      );
+      const upperHandTotalAttackPressure = opponentAttackThreats.reduce(
+        (sum, threat) => sum + Math.max(0, threat.expectedDamage),
+        0,
+      );
+      const upperHandSuccessProbability =
+        upperHandExactOutcome === "success"
+          ? 1
+          : upperHandExactOutcome === "failure"
+            ? 0
+            : upperHandExactOutcome === "uncertain"
+              ? exactUpperHandActsFirstProbability
+            : upperHandEligibleThreats.length > 0
+              ? Math.max(
+                  0.15,
+                  Math.min(
+                    0.8,
+                    upperHandTotalAttackPressure > 0
+                      ? (upperHandPriorityPressure /
+                          upperHandTotalAttackPressure) *
+                          1.4
+                      : 0.25,
+                  ),
+                )
+              : 0;
+      const exactConditionalPriorityFailure =
+        ["suckerpunch", "thunderclap"].includes(cleanId(displayMove.id)) &&
+        (Number.isInteger(exactOpponentCommand?.switch) ||
+          exactOpponentMove?.category === "Status");
       const conditionalPriorityRepeatFailure =
         ["suckerpunch", "thunderclap"].includes(cleanId(displayMove.id)) &&
-        conditionalPriorityFailureStreak > 0 &&
-        (opponentLastDisplayMove?.category === "Status" ||
-          (defender.lastMoveSucceeded === true &&
-            Number(opponentLastDisplayMove?.power ?? 0) > 0 &&
-            opponentLastMoveActsFirst));
+        (exactConditionalPriorityFailure ||
+          (conditionalPriorityFailureStreak > 0 &&
+            (opponentLastDisplayMove?.category === "Status" ||
+              (defender.lastMoveSucceeded === true &&
+                Number(opponentLastDisplayMove?.power ?? 0) > 0 &&
+                opponentLastMoveActsFirst))));
       const conditionalPriorityRepeatCause =
-        opponentLastDisplayMove?.category === "Status"
+        Number.isInteger(exactOpponentCommand?.switch)
+          ? "switch"
+          : exactOpponentMove?.category === "Status" ||
+              opponentLastDisplayMove?.category === "Status"
           ? "status_move"
           : conditionalPriorityRepeatFailure
             ? "already_acted"
@@ -9920,6 +10017,12 @@ function automaticMoveCandidates(
         conditionalPriorityAdaptChance,
         conditionalPriorityAdapted,
         conditionalPriorityAdaptPenalty,
+        upperHandExactOutcome,
+        upperHandSuccessProbability,
+        upperHandEligiblePriorityMoves: upperHandEligibleThreats.map(
+          (threat) => threat.moveId,
+        ),
+        exactOpponentMoveId: exactOpponentMove?.id ?? "",
         opponentLastMoveId: opponentLastDisplayMove?.id ?? "",
         opponentHp: defender.hp,
         opponentAbility: activeAbility(defender),
@@ -10029,6 +10132,12 @@ function automaticMoveCandidates(
         conditionalPriorityAdaptChance,
         conditionalPriorityAdapted,
         conditionalPriorityAdaptPenalty,
+        upperHandExactOutcome,
+        upperHandSuccessProbability,
+        upperHandEligiblePriorityMoves: upperHandEligibleThreats.map(
+          (threat) => threat.moveId,
+        ),
+        exactOpponentMoveId: exactOpponentMove?.id ?? "",
         opponentLastMoveId: opponentLastDisplayMove?.id ?? "",
         opponentHp: defender.hp,
         score: scoreAiMoveCandidate(baseCandidate, difficulty, strategy),
@@ -10590,8 +10699,24 @@ function compactOneTurnEvaluation(evaluation) {
   return {
     qValue: evaluation.qValue,
     delta: evaluation.delta,
+    winProbabilityBefore: evaluation.winProbabilityBefore,
+    winProbabilityAfter: evaluation.winProbabilityAfter,
+    winProbabilityDelta: evaluation.winProbabilityDelta,
     componentDeltas: evaluation.componentDeltas,
     reasons: evaluation.reasons,
+  };
+}
+
+function compactWinEstimate(estimate) {
+  return {
+    probability: estimate.probability,
+    probabilityPercent: estimate.probabilityPercent,
+    confidence: estimate.confidence,
+    modelVersion: estimate.modelVersion,
+    featureSchemaVersion: estimate.featureSchemaVersion,
+    terminal: estimate.terminal,
+    terminalOutcome: estimate.terminalOutcome,
+    topFactors: estimate.topFactors,
   };
 }
 
@@ -10650,6 +10775,7 @@ function simpleBattleValueSide(
   let positiveBoosts = 0;
   let statusBurden = 0;
   let uniqueCountersAlive = 0;
+  let aceCandidateCount = 0;
 
   side.team.forEach((member, index) => {
     const maxHp = Math.max(1, Number(member.stats?.hp ?? member.hp ?? 1));
@@ -10663,6 +10789,7 @@ function simpleBattleValueSide(
     }
     totalHpRatio += hpRatio;
     if (roleAnalysis?.roles?.[index]?.aceProfile?.qualifies === true) {
+      aceCandidateCount += 1;
       if (living) aceAliveCount += 1;
       aceHpRatio += hpRatio;
     }
@@ -10672,6 +10799,7 @@ function simpleBattleValueSide(
     teamSize: side.team.length,
     livingCount,
     totalHpRatio,
+    aceCandidateCount,
     aceAliveCount,
     aceHpRatio,
     positiveBoosts,
@@ -11953,12 +12081,125 @@ function projectedSimpleGimmickCandidate({
   };
 }
 
+function applyWinProbabilityDecisionPolicy({
+  heuristicDecision,
+  moveCandidates,
+  switchCandidates,
+  gimmick,
+  gimmickMove,
+  gimmickCandidate,
+  lockedSelection,
+}) {
+  if (lockedSelection) return heuristicDecision;
+  const policyCandidates = [
+    ...moveCandidates.map((candidate) => ({
+      ...candidate,
+      policyKind: "move",
+      policyCommand: { move: candidate.slot },
+    })),
+    ...switchCandidates.map((candidate) => ({
+      ...candidate,
+      policyKind: "switch",
+      policyCommand: { switch: candidate.slot },
+    })),
+    ...(gimmick && gimmickMove
+      ? [
+          {
+            ...gimmickMove,
+            policyKind: "gimmick",
+            policyCommand: { move: gimmickMove.slot, gimmick },
+          },
+        ]
+      : []),
+  ];
+  const heuristicCandidate = policyCandidates.find((candidate) => {
+    if (Number.isInteger(heuristicDecision.command.switch)) {
+      return (
+        candidate.policyKind === "switch" &&
+        candidate.slot === heuristicDecision.command.switch
+      );
+    }
+    if (heuristicDecision.command.gimmick) {
+      return (
+        candidate.policyKind === "gimmick" &&
+        candidate.policyCommand.gimmick === heuristicDecision.command.gimmick
+      );
+    }
+    return (
+      candidate.policyKind === "move" &&
+      candidate.slot === heuristicDecision.command.move
+    );
+  });
+  const selected = selectWinProbabilityCandidate(
+    policyCandidates,
+    heuristicCandidate,
+    { minimumGain: 0.02 },
+  );
+  if (!selected || selected === heuristicCandidate) {
+    return {
+      ...heuristicDecision,
+      diagnostics: {
+        ...heuristicDecision.diagnostics,
+        policy: "win-probability",
+        policyOverride: false,
+        minimumGain: 0.02,
+      },
+    };
+  }
+  const heuristicWinProbability = Number(
+    heuristicCandidate?.oneTurnEvaluation?.winProbabilityAfter,
+  );
+  const selectedWinProbability = Number(
+    selected.oneTurnEvaluation?.winProbabilityAfter,
+  );
+  return {
+    ...heuristicDecision,
+    command: selected.policyCommand,
+    selectedMove: selected.policyKind === "switch" ? null : selected,
+    selectedSwitch: selected.policyKind === "switch" ? selected : null,
+    gimmickCandidate:
+      selected.policyKind === "gimmick" ? gimmickCandidate : null,
+    diagnostics: {
+      ...heuristicDecision.diagnostics,
+      selectionSource: "win-probability",
+      policy: "win-probability",
+      policyOverride: true,
+      minimumGain: 0.02,
+      heuristicAction: heuristicCandidate
+        ? {
+            kind: heuristicCandidate.policyKind,
+            id: heuristicCandidate.id,
+            slot: heuristicCandidate.slot,
+            winProbabilityAfter: heuristicWinProbability,
+          }
+        : null,
+      probabilityAction: {
+        kind: selected.policyKind,
+        id: selected.id,
+        slot: selected.slot,
+        winProbabilityAfter: selectedWinProbability,
+      },
+      probabilityGain:
+        Number.isFinite(heuristicWinProbability) &&
+        Number.isFinite(selectedWinProbability)
+          ? Math.round(
+              (selectedWinProbability - heuristicWinProbability) * 10_000,
+            ) / 10_000
+          : null,
+    },
+  };
+}
+
 export function chooseSimpleAiDecision(
   state,
   sideIndex,
   difficulty = "standard",
   strategy = "balanced",
 ) {
+  const scoringDifficulty =
+    difficulty === "expert_winrate" || difficulty === "cheater"
+      ? "expert"
+      : difficulty;
   const side = state.sides[sideIndex];
   const pokemon = activePokemon(state, sideIndex);
   const lockedSelection = lockedMoveSelection(pokemon);
@@ -11966,10 +12207,10 @@ export function chooseSimpleAiDecision(
     state,
     sideIndex,
     strategy,
-    difficulty,
+    scoringDifficulty,
   );
   const selectedMove = selectAiMoveCandidate(moveCandidates, {
-    difficulty,
+    difficulty: scoringDifficulty,
     strategy,
     rng: createAiRng(state.seed, sideIndex, state.turn * 17),
   });
@@ -11989,7 +12230,7 @@ export function chooseSimpleAiDecision(
         state,
         sideIndex,
         moveCandidates,
-        difficulty,
+        scoringDifficulty,
         strategy,
       )
     : [];
@@ -12008,7 +12249,7 @@ export function chooseSimpleAiDecision(
     advanced: 14,
     expert: 8,
     cheater: 8,
-  }[difficulty] ?? 18;
+  }[scoringDifficulty] ?? 18;
   const shouldSwitch =
     selectedSwitch &&
     selectedSwitch.safeImmediateKoAvailable !== true &&
@@ -12040,7 +12281,7 @@ export function chooseSimpleAiDecision(
           state,
           sideIndex,
           strategy,
-          difficulty,
+          scoringDifficulty,
           dynamaxMode,
           { gimmickResourceCost: 1 },
         )
@@ -12048,7 +12289,7 @@ export function chooseSimpleAiDecision(
   const selectedDynamaxMove =
     dynamaxMoveCandidates.length > 0
       ? selectAiMoveCandidate(dynamaxMoveCandidates, {
-          difficulty,
+          difficulty: scoringDifficulty,
           strategy,
           rng: createAiRng(state.seed, sideIndex, state.turn * 19),
         })
@@ -12060,7 +12301,7 @@ export function chooseSimpleAiDecision(
           state,
           sideIndex,
           gimmick: "mega",
-          difficulty,
+          difficulty: scoringDifficulty,
           strategy,
           baseMove: chosenMove,
           configured: true,
@@ -12072,7 +12313,7 @@ export function chooseSimpleAiDecision(
           state,
           sideIndex,
           gimmick: "terastallize",
-          difficulty,
+          difficulty: scoringDifficulty,
           strategy,
           baseMove: chosenMove,
           configured: pokemon.gimmicks?.teraConfigured === true,
@@ -12125,8 +12366,8 @@ export function chooseSimpleAiDecision(
         : gimmick === "terastallize" && teraProjection.selectedMove
           ? teraProjection.selectedMove
       : chosenMove;
-  if (shouldSwitch) {
-    return {
+  const heuristicDecision = shouldSwitch
+    ? {
       command: { switch: selectedSwitch.slot },
       selectedMove: null,
       selectedSwitch,
@@ -12166,14 +12407,13 @@ export function chooseSimpleAiDecision(
         },
         switchMargin,
       },
-    };
-  }
-  return {
+    }
+    : {
     command: {
       move: commandMove?.slot ?? automaticMoveSlot(
         state,
         sideIndex,
-        difficulty,
+        scoringDifficulty,
         strategy,
         moveCandidates,
       ),
@@ -12220,6 +12460,18 @@ export function chooseSimpleAiDecision(
       switchMargin,
     },
   };
+  if (difficulty !== "expert_winrate") {
+    return heuristicDecision;
+  }
+  return applyWinProbabilityDecisionPolicy({
+    heuristicDecision,
+    moveCandidates,
+    switchCandidates: tacticallyViableSwitches,
+    gimmick,
+    gimmickMove: commandMove,
+    gimmickCandidate: gimmickDecision.candidate ?? null,
+    lockedSelection,
+  });
 }
 
 export function chooseSimpleAiCommand(
@@ -12231,6 +12483,155 @@ export function chooseSimpleAiCommand(
   return chooseSimpleAiDecision(state, sideIndex, difficulty, strategy).command;
 }
 
+function simpleCommandKey(command) {
+  return JSON.stringify({
+    move: Number(command?.move ?? 0),
+    switch: Number(command?.switch ?? 0),
+    gimmick: String(command?.gimmick ?? ""),
+  });
+}
+
+function stateWithExactOpponentCommand(state, sideIndex, opponentCommand) {
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const knownState = structuredClone(state);
+  const knownSide = knownState.sides[opponentSide];
+  knownState.aiKnowledge = {
+    ...(knownState.aiKnowledge ?? {}),
+    [sideIndex]: {
+      opponentCommand: structuredClone(opponentCommand),
+    },
+  };
+
+  if (Number.isInteger(opponentCommand?.switch)) {
+    const switchIndex = Number(opponentCommand.switch) - 1;
+    const switchTarget = knownSide.team[switchIndex];
+    if (switchTarget && !switchTarget.fainted && switchTarget.hp > 0) {
+      knownSide.active = switchIndex;
+      switchTarget.moves = [];
+      switchTarget.lastMove = null;
+      switchTarget.lastMoveSucceeded = null;
+    }
+    return knownState;
+  }
+
+  if (!Number.isInteger(opponentCommand?.move)) return knownState;
+  const opponent = activePokemon(knownState, opponentSide);
+  const moveIndex = Number(opponentCommand.move) - 1;
+  const selectedMove = opponent.moves[moveIndex];
+  if (!selectedMove) return knownState;
+
+  const knownMove =
+    opponentCommand.gimmick === "dynamax" ||
+    opponentCommand.gimmick === "gigantamax"
+      ? aiDisplayMoveData(opponent, selectedMove, opponentCommand.gimmick)
+      : selectedMove;
+  knownState.aiKnowledge[sideIndex].opponentMove = structuredClone(knownMove);
+  opponent.moves = [knownMove];
+  opponent.lastMove = {
+    id: knownMove.id,
+    name: knownMove.name,
+  };
+  opponent.lastMoveSucceeded = true;
+  return knownState;
+}
+
+export function applySimpleCheaterKnowledge(
+  state,
+  sideIndex,
+  decision,
+  opponentCommand,
+  options = {},
+) {
+  const exactDecision = chooseSimpleAiDecision(
+    stateWithExactOpponentCommand(state, sideIndex, opponentCommand),
+    sideIndex,
+    "expert",
+    options.strategy ?? "balanced",
+  );
+  return {
+    ...exactDecision,
+    diagnostics: {
+      ...exactDecision.diagnostics,
+      selectionSource: "cheater-exact-command",
+      cheatActivated: true,
+      observedOpponentCommand: structuredClone(opponentCommand),
+      heuristicCommand: decision?.command
+        ? structuredClone(decision.command)
+        : null,
+      cheaterCommand: structuredClone(exactDecision.command),
+      cheaterResponseChanged: decision?.command
+        ? simpleCommandKey(exactDecision.command) !==
+          simpleCommandKey(decision.command)
+        : null,
+    },
+  };
+}
+
+export function resolveSimpleCheaterDecision(
+  state,
+  sideIndex,
+  profile,
+  opponentCommand,
+  fallbackDecision = null,
+) {
+  if (profile?.difficulty !== "cheater") {
+    return (
+      fallbackDecision ??
+      chooseSimpleAiDecision(
+        state,
+        sideIndex,
+        profile?.difficulty ?? "expert",
+        profile?.strategy ?? "balanced",
+      )
+    );
+  }
+  const probability = Math.max(
+    0,
+    Math.min(1, Number(profile?.cheatProbability ?? 0.5)),
+  );
+  const roll =
+    createAiRng(
+      state.seed,
+      sideIndex,
+      state.turn * 211 + sideIndex * 17 + 59,
+    ).nextIndex(10_000) / 10_000;
+  if (roll >= probability) {
+    const decision =
+      fallbackDecision ??
+      chooseSimpleAiDecision(
+        state,
+        sideIndex,
+        "expert",
+        profile?.strategy ?? "balanced",
+      );
+    return {
+      ...decision,
+      diagnostics: {
+        ...decision.diagnostics,
+        cheatActivated: false,
+        cheatProbability: probability,
+        cheatRoll: roll,
+      },
+    };
+  }
+  const cheated = applySimpleCheaterKnowledge(
+    state,
+    sideIndex,
+    fallbackDecision,
+    opponentCommand,
+    { strategy: profile?.strategy ?? "balanced" },
+  );
+  return {
+    ...cheated,
+    diagnostics: {
+      ...cheated.diagnostics,
+      cheatActivated: true,
+      cheatProbability: probability,
+      cheatRoll: roll,
+    },
+  };
+}
+
 export function createSimpleAiDecisionTrace(
   state,
   sideIndex,
@@ -12240,6 +12641,11 @@ export function createSimpleAiDecisionTrace(
 ) {
   const command = decision.command;
   const active = activePokemon(state, sideIndex);
+  const winEstimate = compactWinEstimate(
+    estimateBattleWinProbability(
+      simpleBattleStateValueSnapshot(state, sideIndex),
+    ),
+  );
   const moveCandidates = decision.moveCandidates.map((candidate) => ({
     ...toAiTraceCandidate(
       {
@@ -12294,6 +12700,15 @@ export function createSimpleAiDecisionTrace(
               Number(decision.gimmickCandidate.score ?? 0) * 100,
             ) / 100,
           reasons: decision.gimmickCandidate.reasons ?? [],
+          winProbabilityBefore:
+            decision.gimmickCandidate.oneTurnEvaluation
+              ?.winProbabilityBefore,
+          winProbabilityAfter:
+            decision.gimmickCandidate.oneTurnEvaluation
+              ?.winProbabilityAfter,
+          winProbabilityDelta:
+            decision.gimmickCandidate.oneTurnEvaluation
+              ?.winProbabilityDelta,
           selected: command.gimmick === decision.gimmickCandidate.id,
         },
       ]
@@ -12305,6 +12720,7 @@ export function createSimpleAiDecisionTrace(
   ].sort(
     (left, right) => Number(right.score ?? 0) - Number(left.score ?? 0),
   );
+  const policyComparison = compareAiDecisionPolicies(candidates);
   return {
     turn: state.turn + 1,
     side: sideIndex,
@@ -12323,6 +12739,14 @@ export function createSimpleAiDecisionTrace(
     reason: aiDecisionReason(strategy, command.gimmick ?? ""),
     candidates,
     aiModel: "common-battle-ai",
+    selectionPolicy:
+      difficulty === "expert_winrate"
+        ? "win-probability"
+        : difficulty === "cheater" && decision.diagnostics?.cheatActivated
+          ? "cheater-exact-command"
+        : "heuristic",
+    winEstimate,
+    policyComparison,
     diagnostics: decision.diagnostics ?? null,
   };
 }
@@ -12350,18 +12774,45 @@ export function runSimpleBattle(setup, options = {}) {
   const aiProfiles = [0, 1].map((index) => ({
     difficulty: options.aiProfiles?.[index]?.difficulty ?? difficulty,
     strategy: options.aiProfiles?.[index]?.strategy ?? "balanced",
+    cheatProbability: Math.max(
+      0,
+      Math.min(1, Number(options.aiProfiles?.[index]?.cheatProbability ?? 0.5)),
+    ),
   }));
   let state = createSimpleBattle(setup);
   state.turnSnapshots = captureTurnSnapshots ? [compactTurnSnapshot(state)] : [];
   while (state.status === "running" && state.turn < maxTurns) {
-    const decisions = state.sides.map((_, sideIndex) => {
+    const baseDecisions = state.sides.map((_, sideIndex) => {
       const profile = aiProfiles[sideIndex];
-      const decision = chooseSimpleAiDecision(
+      if (profile.difficulty === "cheater") return null;
+      return chooseSimpleAiDecision(
         state,
         sideIndex,
         profile.difficulty,
         profile.strategy,
       );
+    });
+    const decisions = baseDecisions.map((baseDecision, sideIndex) => {
+      const profile = aiProfiles[sideIndex];
+      if (profile.difficulty !== "cheater") return baseDecision;
+      const opponentSide = sideIndex === 0 ? 1 : 0;
+      const opponentDecision =
+        baseDecisions[opponentSide] ??
+        chooseSimpleAiDecision(
+          state,
+          opponentSide,
+          "expert",
+          aiProfiles[opponentSide].strategy,
+        );
+      return resolveSimpleCheaterDecision(
+        state,
+        sideIndex,
+        profile,
+        opponentDecision.command,
+      );
+    });
+    const tracedDecisions = decisions.map((decision, sideIndex) => {
+      const profile = aiProfiles[sideIndex];
       return {
         command: decision.command,
         trace: captureAiTrace
@@ -12376,9 +12827,11 @@ export function runSimpleBattle(setup, options = {}) {
       };
     });
     if (captureAiTrace) {
-      state.aiTrace.push(...decisions.map((decision) => decision.trace));
+      state.aiTrace.push(
+        ...tracedDecisions.map((decision) => decision.trace),
+      );
     }
-    const commands = decisions.map((decision) => decision.command);
+    const commands = tracedDecisions.map((decision) => decision.command);
     state = resolveSimpleTurn(state, commands);
     if (captureTurnSnapshots) {
       state.turnSnapshots.push(compactTurnSnapshot(state));

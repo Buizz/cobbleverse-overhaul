@@ -483,7 +483,9 @@ class TracedOpponentAI extends BattleStreams.BattlePlayer {
     const score = (move) => {
       const accuracy = move.accuracy === true ? 1 : move.accuracy / 100;
       const priorityWeight =
-        this.difficulty === "expert" || this.difficulty === "cheater"
+        this.difficulty === "expert" ||
+        this.difficulty === "expert_winrate" ||
+        this.difficulty === "cheater"
           ? 12
           : 5;
       return move.power * accuracy + move.priority * priorityWeight;

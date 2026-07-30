@@ -8,6 +8,7 @@ const AI_DIFFICULTIES = new Set([
   "standard",
   "advanced",
   "expert",
+  "expert_winrate",
   "cheater",
 ]);
 const AI_STRATEGIES = new Set([
@@ -413,7 +414,7 @@ export function createBattleScenario(raw, trainers, itemResolver = null) {
       issue(
         "aiDifficulty",
         "unsupported",
-        "AI 수준은 novice, standard, advanced, expert, cheater 중 하나여야 합니다.",
+        "AI 수준은 novice, standard, advanced, expert, expert_winrate, cheater 중 하나여야 합니다.",
       ),
     );
   }
@@ -424,12 +425,15 @@ export function createBattleScenario(raw, trainers, itemResolver = null) {
       cleanText(rawAiProfiles[index]?.difficulty).toLowerCase() || aiDifficulty;
     const strategy =
       cleanText(rawAiProfiles[index]?.strategy).toLowerCase() || "balanced";
+    const rawCheatProbability =
+      rawAiProfiles[index]?.cheatProbability ?? raw?.cheatProbability ?? 0.5;
+    const cheatProbability = Number(rawCheatProbability);
     if (!AI_DIFFICULTIES.has(difficulty)) {
       issues.push(
         issue(
           `aiProfiles.${index}.difficulty`,
           "unsupported",
-          "AI 수준은 novice, standard, advanced, expert, cheater 중 하나여야 합니다.",
+          "AI 수준은 novice, standard, advanced, expert, expert_winrate, cheater 중 하나여야 합니다.",
         ),
       );
     }
@@ -442,8 +446,46 @@ export function createBattleScenario(raw, trainers, itemResolver = null) {
         ),
       );
     }
-    return { difficulty, strategy };
+    if (
+      !Number.isFinite(cheatProbability) ||
+      cheatProbability < 0 ||
+      cheatProbability > 1
+    ) {
+      issues.push(
+        issue(
+          `aiProfiles.${index}.cheatProbability`,
+          "invalid",
+          "치터 행동 열람 확률은 0부터 1 사이여야 합니다.",
+        ),
+      );
+    }
+    const includesCheatProbability =
+      difficulty === "cheater" ||
+      rawAiProfiles[index]?.cheatProbability != null;
+    return {
+      difficulty,
+      strategy,
+      ...(includesCheatProbability
+        ? {
+            cheatProbability: Number.isFinite(cheatProbability)
+              ? Math.max(0, Math.min(1, cheatProbability))
+              : 0.5,
+          }
+        : {}),
+    };
   });
+  if (
+    mode === "eve" &&
+    aiProfiles.every((profile) => profile.difficulty === "cheater")
+  ) {
+    issues.push(
+      issue(
+        "aiProfiles",
+        "conflict",
+        "EvE에서는 한쪽 AI만 치터 난이도를 사용할 수 있습니다.",
+      ),
+    );
+  }
 
   const trainerById = new Map(
     (Array.isArray(trainers) ? trainers : []).map((trainer) => [trainer.id, trainer]),

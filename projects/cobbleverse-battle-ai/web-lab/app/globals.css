@@ -4920,6 +4920,20 @@ body .lab-shell :where(button, input, select, textarea) {
   text-transform: uppercase;
 }
 
+.eve-ai-profile .cheat-probability-control {
+  grid-column: 1 / -1;
+}
+
+.cheat-probability-control output {
+  color: #0b4050;
+  font-weight: 900;
+}
+
+.cheat-probability-control input[type="range"] {
+  width: 100%;
+  accent-color: #16bdb4;
+}
+
 .eve-report-page {
   min-height: 100vh;
   padding: 28px clamp(18px, 4vw, 64px) 72px;

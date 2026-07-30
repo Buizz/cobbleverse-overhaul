@@ -216,7 +216,13 @@ type LevelMode = "original" | "level-50" | "level-100";
 type BattleEngineChoice = "showdown" | "cobbleverse";
 type BattleType = "single" | "double" | "triple";
 type BattleGimmickRules = "gen8" | "gen9" | "all";
-type AiDifficulty = "novice" | "standard" | "advanced" | "expert" | "cheater";
+type AiDifficulty =
+  | "novice"
+  | "standard"
+  | "advanced"
+  | "expert"
+  | "expert_winrate"
+  | "cheater";
 type AiStrategy =
   | "balanced"
   | "aggressive"
@@ -227,7 +233,11 @@ type AiStrategy =
   | "hazard"
   | "tempo"
   | "unpredictable";
-type AiProfile = { difficulty: AiDifficulty; strategy: AiStrategy };
+type AiProfile = {
+  difficulty: AiDifficulty;
+  strategy: AiStrategy;
+  cheatProbability?: number;
+};
 
 type BattleScenario = {
   scenarioId: string;
@@ -2185,7 +2195,9 @@ function AiProfileControls({
           <option value="novice">초급</option>
           <option value="standard">보통</option>
           <option value="advanced">상급</option>
-          <option value="expert">전문가</option>
+          <option value="expert">전문가(휴리스틱)</option>
+          <option value="expert_winrate">전문가(승률 기반)</option>
+          <option value="cheater">치터</option>
         </select>
       </label>
       <label>
@@ -2207,6 +2219,28 @@ function AiProfileControls({
           ))}
         </select>
       </label>
+      {profile.difficulty === "cheater" ? (
+        <label className="cheat-probability-control">
+          <span>
+            행동 열람 확률{" "}
+            <output>{Math.round((profile.cheatProbability ?? 0.5) * 100)}%</output>
+          </span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value={Math.round((profile.cheatProbability ?? 0.5) * 100)}
+            onChange={(event) =>
+              onChange({
+                ...profile,
+                cheatProbability: Number(event.target.value) / 100,
+              })
+            }
+            aria-label={`AI ${side} 행동 열람 확률`}
+          />
+        </label>
+      ) : null}
     </div>
   );
 }
@@ -5545,6 +5579,7 @@ export function BattleLab() {
     useState<AiDifficulty>("standard");
   const [pveOpponentStrategy, setPveOpponentStrategy] =
     useState<AiStrategy>("balanced");
+  const [pveCheatProbability, setPveCheatProbability] = useState(0.5);
   const [eveAiProfiles, setEveAiProfiles] = useState<[AiProfile, AiProfile]>([
     { difficulty: "expert", strategy: "balanced" },
     { difficulty: "expert", strategy: "balanced" },
@@ -5696,6 +5731,9 @@ export function BattleLab() {
             } else {
               setPveOpponentStrategy(
                 stored.scenario.aiProfiles[1]?.strategy ?? "balanced",
+              );
+              setPveCheatProbability(
+                stored.scenario.aiProfiles[1]?.cheatProbability ?? 0.5,
               );
             }
           }
@@ -6165,6 +6203,9 @@ export function BattleLab() {
                   battleEngine === "cobbleverse"
                     ? pveOpponentStrategy
                     : "balanced",
+                ...(aiDifficulty === "cheater"
+                  ? { cheatProbability: pveCheatProbability }
+                  : {}),
               },
             ],
             sides: [
@@ -6529,6 +6570,9 @@ export function BattleLab() {
       setAiDifficulty(restoredScenario.aiDifficulty);
       setPveOpponentStrategy(
         restoredScenario.aiProfiles?.[1]?.strategy ?? "balanced",
+      );
+      setPveCheatProbability(
+        restoredScenario.aiProfiles?.[1]?.cheatProbability ?? 0.5,
       );
       const playerSide = restoredScenario.sides[0];
       const opponentSide = restoredScenario.sides[1];
@@ -7011,11 +7055,11 @@ export function BattleLab() {
                   },
                   { value: "standard", label: "보통 · 기본 평가" },
                   { value: "advanced", label: "상급 · 강한 행동 우선" },
-                  { value: "expert", label: "전문가 · 최선 행동 집중" },
+                  { value: "expert", label: "전문가(휴리스틱) · 최선 행동 집중" },
+                  { value: "expert_winrate", label: "전문가(승률 기반) · 다음 상태 승률 비교" },
                   {
                     value: "cheater",
-                    label: "치터 · 상대 행동 열람 (프로토콜 준비 중)",
-                    disabled: true,
+                    label: "치터 · 설정 확률로 확정된 상대 행동 열람",
                   },
                 ]}
                 onChange={(value) => {
@@ -7029,6 +7073,29 @@ export function BattleLab() {
                 확장됩니다.
               </small>
             </label>
+            {aiDifficulty === "cheater" ? (
+              <label className="cheat-probability-control">
+                <span>
+                  행동 열람 확률 <output>{Math.round(pveCheatProbability * 100)}%</output>
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={Math.round(pveCheatProbability * 100)}
+                  onChange={(event) => {
+                    setPveCheatProbability(Number(event.target.value) / 100);
+                    setScenario(null);
+                    setBattle(null);
+                    setInteractiveBattle(null);
+                  }}
+                />
+                <small>
+                  발동한 턴에는 플레이어가 확정한 명령을 본 뒤 대응 행동을 다시 고릅니다.
+                </small>
+              </label>
+            ) : null}
             {battleEngine === "cobbleverse" ? (
               <label>
                 <span>상대 AI 성향</span>
@@ -7231,7 +7298,17 @@ export function BattleLab() {
                 side="A"
                 profile={eveAiProfiles[0]}
                 onChange={(profile) => {
-                  setEveAiProfiles([profile, eveAiProfiles[1]]);
+                  setEveAiProfiles([
+                    profile,
+                    profile.difficulty === "cheater" &&
+                    eveAiProfiles[1].difficulty === "cheater"
+                      ? {
+                          ...eveAiProfiles[1],
+                          difficulty: "expert",
+                          cheatProbability: undefined,
+                        }
+                      : eveAiProfiles[1],
+                  ]);
                   setScenario(null);
                   setBattle(null);
                 }}
@@ -7264,7 +7341,17 @@ export function BattleLab() {
                 side="B"
                 profile={eveAiProfiles[1]}
                 onChange={(profile) => {
-                  setEveAiProfiles([eveAiProfiles[0], profile]);
+                  setEveAiProfiles([
+                    profile.difficulty === "cheater" &&
+                    eveAiProfiles[0].difficulty === "cheater"
+                      ? {
+                          ...eveAiProfiles[0],
+                          difficulty: "expert",
+                          cheatProbability: undefined,
+                        }
+                      : eveAiProfiles[0],
+                    profile,
+                  ]);
                   setScenario(null);
                   setBattle(null);
                 }}

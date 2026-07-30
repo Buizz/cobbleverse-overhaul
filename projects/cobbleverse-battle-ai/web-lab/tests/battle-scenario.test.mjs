@@ -387,6 +387,125 @@ test("preserves the selected AI difficulty and battle engine", () => {
   ]);
 });
 
+test("accepts the separate win-probability expert policy", () => {
+  const result = createBattleScenario(
+    {
+      mode: "eve",
+      seed: 43,
+      battleEngine: "cobbleverse",
+      aiDifficulty: "expert_winrate",
+      aiProfiles: [
+        { difficulty: "expert", strategy: "balanced" },
+        { difficulty: "expert_winrate", strategy: "balanced" },
+      ],
+      sides: [
+        { source: "preset", trainerId: "kanto_brock" },
+        { source: "preset", trainerId: "kanto_misty" },
+      ],
+    },
+    index.trainers,
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.scenario.aiDifficulty, "expert_winrate");
+  assert.equal(result.scenario.aiProfiles[0].difficulty, "expert");
+  assert.equal(result.scenario.aiProfiles[1].difficulty, "expert_winrate");
+});
+
+test("preserves and validates per-side cheater activation probability", () => {
+  const valid = createBattleScenario(
+    {
+      mode: "eve",
+      seed: 44,
+      battleEngine: "cobbleverse",
+      aiDifficulty: "cheater",
+      aiProfiles: [
+        {
+          difficulty: "cheater",
+          strategy: "balanced",
+          cheatProbability: 0.25,
+        },
+        {
+          difficulty: "expert",
+          strategy: "tempo",
+        },
+      ],
+      sides: [
+        { source: "preset", trainerId: "kanto_brock" },
+        { source: "preset", trainerId: "kanto_misty" },
+      ],
+    },
+    index.trainers,
+  );
+  assert.equal(valid.ok, true);
+  assert.equal(valid.scenario.aiProfiles[0].cheatProbability, 0.25);
+  assert.equal(valid.scenario.aiProfiles[1].cheatProbability, undefined);
+
+  const invalid = createBattleScenario(
+    {
+      mode: "eve",
+      seed: 45,
+      battleEngine: "cobbleverse",
+      aiDifficulty: "cheater",
+      aiProfiles: [
+        {
+          difficulty: "cheater",
+          strategy: "balanced",
+          cheatProbability: 1.2,
+        },
+        {
+          difficulty: "expert",
+          strategy: "balanced",
+        },
+      ],
+      sides: [
+        { source: "preset", trainerId: "kanto_brock" },
+        { source: "preset", trainerId: "kanto_misty" },
+      ],
+    },
+    index.trainers,
+  );
+  assert.equal(invalid.ok, false);
+  assert.ok(
+    invalid.issues.some(
+      (entry) =>
+        entry.path === "aiProfiles.0.cheatProbability" &&
+        entry.code === "invalid",
+    ),
+  );
+
+  const bothCheaters = createBattleScenario(
+    {
+      mode: "eve",
+      seed: 46,
+      battleEngine: "cobbleverse",
+      aiProfiles: [
+        {
+          difficulty: "cheater",
+          strategy: "balanced",
+          cheatProbability: 0.5,
+        },
+        {
+          difficulty: "cheater",
+          strategy: "tempo",
+          cheatProbability: 0.5,
+        },
+      ],
+      sides: [
+        { source: "preset", trainerId: "kanto_brock" },
+        { source: "preset", trainerId: "kanto_misty" },
+      ],
+    },
+    index.trainers,
+  );
+  assert.equal(bothCheaters.ok, false);
+  assert.ok(
+    bothCheaters.issues.some(
+      (entry) => entry.path === "aiProfiles" && entry.code === "conflict",
+    ),
+  );
+});
+
 test("preserves a supported multi battle type and validates active members", () => {
   const result = createBattleScenario(
     {

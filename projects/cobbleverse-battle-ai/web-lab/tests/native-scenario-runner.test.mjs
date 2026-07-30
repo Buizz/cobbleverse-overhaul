@@ -558,6 +558,64 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
   );
 });
 
+test("native PvE cheater reads the committed player command at 100 percent", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-pve-cheater",
+    mode: "pve",
+    aiDifficulty: "cheater",
+    aiProfiles: [
+      { difficulty: "expert", strategy: "balanced" },
+      {
+        difficulty: "cheater",
+        strategy: "balanced",
+        cheatProbability: 1,
+      },
+    ],
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "shuckle",
+            ability: "sturdy",
+            moveset: ["withdraw"],
+            gimmicks: {},
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "mawile",
+            ability: "intimidate",
+            moveset: ["suckerpunch", "tackle"],
+            gimmicks: {},
+          },
+        ],
+      },
+    ],
+  };
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  const next = chooseNativeInteractiveBattleAction(started.sessionId, {
+    type: "move",
+    slot: 1,
+  });
+
+  assert.equal(next.aiTrace[0].selectionPolicy, "cheater-exact-command");
+  assert.equal(next.aiTrace[0].diagnostics.cheatActivated, true);
+  assert.deepEqual(
+    next.aiTrace[0].diagnostics.observedOpponentCommand,
+    { move: 1 },
+  );
+  assert.equal(next.reproduction.turns[0].aiCommand.move, 2);
+});
+
 test("saves, loads, and rewinds native PvE battle checkpoints", () => {
   clearNativeInteractiveBattleSessions();
   const battleScenario = {

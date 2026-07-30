@@ -15,18 +15,23 @@ import {
 import {
   analyzeTeamProfile,
   buildThreatCounterMap,
+  calibrateWinProbability,
+  compareAiDecisionPolicies,
   createAiMoveTrace,
   createAiSwitchTrace,
+  estimateBattleWinProbability,
   evaluateBattleStateValue,
   evaluateOneTurnBattleState,
   evaluatePokemonRoleProgress,
   evaluateSetupThreat,
+  fitWinProbabilityCalibration,
   scoreAiDynamaxCandidate,
   scoreAiSwitchCandidate,
   moveRoleValue,
   scoreAiMoveCandidate,
   selectAiMoveCandidate,
   selectAiGimmick,
+  selectWinProbabilityCandidate,
   teamRoleLabel,
 } from "../lib/common-battle-ai.mjs";
 
@@ -427,6 +432,136 @@ test("evaluates a normalized battle state from HP, aces, counters, and field res
   assert.ok(favorable.components.uniqueCounters > 0);
 });
 
+test("estimates symmetric and terminal win probabilities from battle state value", () => {
+  const favorableState = {
+    own: {
+      teamSize: 3,
+      livingCount: 3,
+      totalHpRatio: 2.4,
+      aceAliveCount: 1,
+      aceHpRatio: 0.9,
+      positiveBoosts: 2,
+      statusBurden: 0,
+      hazardLayers: 0,
+      uniqueCountersAlive: 1,
+      gimmicksRemaining: 2,
+    },
+    opponent: {
+      teamSize: 3,
+      livingCount: 2,
+      totalHpRatio: 1.2,
+      aceAliveCount: 1,
+      aceHpRatio: 0.3,
+      positiveBoosts: 0,
+      statusBurden: 1,
+      hazardLayers: 1,
+      uniqueCountersAlive: 0,
+      gimmicksRemaining: 1,
+    },
+    fieldAdvantage: 4,
+  };
+  const favorable = estimateBattleWinProbability(favorableState);
+  const reversed = estimateBattleWinProbability({
+    own: favorableState.opponent,
+    opponent: favorableState.own,
+    fieldAdvantage: -favorableState.fieldAdvantage,
+  });
+  const won = estimateBattleWinProbability({
+    own: { teamSize: 1, livingCount: 1, totalHpRatio: 0.1 },
+    opponent: { teamSize: 1, livingCount: 0, totalHpRatio: 0 },
+  });
+  const lost = estimateBattleWinProbability({
+    own: { teamSize: 1, livingCount: 0, totalHpRatio: 0 },
+    opponent: { teamSize: 1, livingCount: 1, totalHpRatio: 0.1 },
+  });
+
+  assert.ok(favorable.probability > 0.5);
+  assert.ok(Math.abs(favorable.probability + reversed.probability - 1) < 0.0001);
+  assert.equal(won.probability, 1);
+  assert.equal(won.terminalOutcome, "win");
+  assert.equal(lost.probability, 0);
+  assert.equal(lost.terminalOutcome, "loss");
+  assert.equal(favorable.modelVersion, "heuristic-logistic-v2");
+  assert.ok(favorable.topFactors.length > 0);
+});
+
+test("normalizes ace survival by each team's ace candidate count", () => {
+  const evaluation = evaluateBattleStateValue({
+    own: {
+      teamSize: 6,
+      livingCount: 6,
+      totalHpRatio: 6,
+      aceCandidateCount: 1,
+      aceAliveCount: 1,
+      aceHpRatio: 1,
+    },
+    opponent: {
+      teamSize: 6,
+      livingCount: 6,
+      totalHpRatio: 6,
+      aceCandidateCount: 3,
+      aceAliveCount: 3,
+      aceHpRatio: 3,
+    },
+  });
+
+  assert.equal(evaluation.components.aceSurvival, 0);
+  assert.equal(evaluation.value, 0);
+});
+
+test("fits win probability calibration from observed outcomes", () => {
+  const calibration = fitWinProbabilityCalibration([
+    { predictedProbability: 0.15, actualOutcome: 0 },
+    { predictedProbability: 0.3, actualOutcome: 0 },
+    { predictedProbability: 0.7, actualOutcome: 1 },
+    { predictedProbability: 0.85, actualOutcome: 1 },
+  ]);
+
+  assert.equal(calibration.fitted, true);
+  assert.equal(calibration.sampleCount, 4);
+  assert.ok(calibrateWinProbability(0.8, calibration) > 0.8);
+  assert.ok(calibrateWinProbability(0.2, calibration) < 0.2);
+});
+
+test("compares heuristic and win-probability candidate policies", () => {
+  const candidates = [
+    {
+      id: "move:a",
+      name: "Heuristic",
+      legal: true,
+      selected: true,
+      score: 120,
+      winProbabilityAfter: 0.55,
+    },
+    {
+      id: "move:b",
+      name: "Win rate",
+      legal: true,
+      selected: false,
+      score: 100,
+      winProbabilityAfter: 0.68,
+    },
+  ];
+  const comparison = compareAiDecisionPolicies(candidates);
+  const selected = selectWinProbabilityCandidate(
+    candidates.map((candidate) => ({
+      ...candidate,
+      oneTurnEvaluation: {
+        winProbabilityAfter: candidate.winProbabilityAfter,
+      },
+    })),
+    {
+      ...candidates[0],
+      oneTurnEvaluation: { winProbabilityAfter: 0.55 },
+    },
+  );
+
+  assert.equal(comparison.heuristicAction, "Heuristic");
+  assert.equal(comparison.winProbabilityAction, "Win rate");
+  assert.equal(comparison.materiallyDiffers, true);
+  assert.equal(selected.name, "Win rate");
+});
+
 test("projects one-turn state value and charges recoil or sacrifice against a KO", () => {
   const state = {
     own: {
@@ -479,6 +614,8 @@ test("projects one-turn state value and charges recoil or sacrifice against a KO
 
   assert.ok(cleanKo.delta > 0);
   assert.ok(cleanKo.delta > tradedKo.delta);
+  assert.ok(cleanKo.winProbabilityAfter > cleanKo.winProbabilityBefore);
+  assert.ok(cleanKo.winProbabilityDelta > tradedKo.winProbabilityDelta);
   assert.ok(cleanKo.reasons.some((reason) => reason.component === "pokemonCount"));
 });
 

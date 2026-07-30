@@ -4,7 +4,8 @@ const DIFFICULTY_LABELS = {
   novice: "초급",
   standard: "보통",
   advanced: "상급",
-  expert: "전문가",
+  expert: "전문가(휴리스틱)",
+  expert_winrate: "전문가(승률 기반)",
   cheater: "치터",
 };
 const ROLE_LABELS = {
@@ -1305,6 +1306,15 @@ function normalizedBattleValueSide(side = {}) {
       finiteNumber(side.livingCount, 1),
     ),
   );
+  const aceAliveCount = Math.max(0, finiteNumber(side.aceAliveCount, 0));
+  const aceHpRatio = Math.max(0, finiteNumber(side.aceHpRatio, 0));
+  const aceCandidateCount = Math.max(
+    1,
+    finiteNumber(
+      side.aceCandidateCount,
+      Math.max(aceAliveCount, Math.ceil(aceHpRatio), 1),
+    ),
+  );
   return {
     teamSize,
     livingCount: Math.max(
@@ -1315,8 +1325,9 @@ function normalizedBattleValueSide(side = {}) {
       0,
       Math.min(teamSize, finiteNumber(side.totalHpRatio, 0)),
     ),
-    aceAliveCount: Math.max(0, finiteNumber(side.aceAliveCount, 0)),
-    aceHpRatio: Math.max(0, finiteNumber(side.aceHpRatio, 0)),
+    aceCandidateCount,
+    aceAliveCount: Math.min(aceCandidateCount, aceAliveCount),
+    aceHpRatio: Math.min(aceCandidateCount, aceHpRatio),
     positiveBoosts: Math.max(0, finiteNumber(side.positiveBoosts, 0)),
     statusBurden: Math.max(0, finiteNumber(side.statusBurden, 0)),
     hazardLayers: Math.max(0, finiteNumber(side.hazardLayers, 0)),
@@ -1335,12 +1346,18 @@ export function evaluateBattleStateValue(state = {}) {
   const own = normalizedBattleValueSide(state.own);
   const opponent = normalizedBattleValueSide(state.opponent);
   const fieldAdvantage = finiteNumber(state.fieldAdvantage, 0);
+  const ownAceAliveRatio = own.aceAliveCount / own.aceCandidateCount;
+  const opponentAceAliveRatio =
+    opponent.aceAliveCount / opponent.aceCandidateCount;
+  const ownAceHpRatio = own.aceHpRatio / own.aceCandidateCount;
+  const opponentAceHpRatio =
+    opponent.aceHpRatio / opponent.aceCandidateCount;
   const components = {
     pokemonCount: (own.livingCount - opponent.livingCount) * 70,
     totalHp: (own.totalHpRatio - opponent.totalHpRatio) * 24,
     aceSurvival:
-      (own.aceAliveCount - opponent.aceAliveCount) * 18 +
-      (own.aceHpRatio - opponent.aceHpRatio) * 28,
+      (ownAceAliveRatio - opponentAceAliveRatio) * 54 +
+      (ownAceHpRatio - opponentAceHpRatio) * 84,
     status:
       (opponent.statusBurden - own.statusBurden) * 9,
     boosts:
@@ -1349,7 +1366,8 @@ export function evaluateBattleStateValue(state = {}) {
       (opponent.hazardLayers - own.hazardLayers) * 5,
     gimmicks:
       (own.gimmicksRemaining - opponent.gimmicksRemaining) * 4,
-    uniqueCounters: own.uniqueCountersAlive * 16,
+    uniqueCounters:
+      (own.uniqueCountersAlive - opponent.uniqueCountersAlive) * 16,
     field: fieldAdvantage,
   };
   const value =
@@ -1369,6 +1387,203 @@ export function evaluateBattleStateValue(state = {}) {
       field: { ...(state.field ?? {}) },
     },
   };
+}
+
+const WIN_PROBABILITY_MODEL_VERSION = "heuristic-logistic-v2";
+const WIN_PROBABILITY_FEATURE_SCHEMA_VERSION = 2;
+const WIN_PROBABILITY_COMPONENT_LABELS = {
+  pokemonCount: "남은 포켓몬",
+  totalHp: "남은 체력",
+  aceSurvival: "에이스 생존",
+  status: "상태이상",
+  boosts: "능력치 랭크",
+  hazards: "설치물",
+  gimmicks: "남은 기믹",
+  uniqueCounters: "핵심 대응 자원",
+  field: "필드 상성",
+};
+
+function clampProbability(value) {
+  return Math.max(0, Math.min(1, Number(value) || 0));
+}
+
+function probabilityLogit(probability) {
+  const clamped = Math.max(0.0001, Math.min(0.9999, probability));
+  return Math.log(clamped / (1 - clamped));
+}
+
+export function calibrateWinProbability(probability, calibration = {}) {
+  const intercept = finiteNumber(calibration.intercept, 0);
+  const slope = finiteNumber(calibration.slope, 1);
+  const calibrated =
+    1 / (1 + Math.exp(-(intercept + slope * probabilityLogit(probability))));
+  return Math.max(0.01, Math.min(0.99, calibrated));
+}
+
+export function fitWinProbabilityCalibration(samples = [], options = {}) {
+  const normalized = samples
+    .map((sample) => ({
+      probability: finiteNumber(
+        sample.predictedProbability,
+        finiteNumber(sample.probability),
+      ),
+      outcome: finiteNumber(
+        sample.actualOutcome,
+        finiteNumber(sample.outcome),
+      ),
+    }))
+    .filter(
+      (sample) =>
+        sample.probability !== undefined &&
+        sample.outcome !== undefined &&
+        sample.outcome >= 0 &&
+        sample.outcome <= 1,
+    );
+  if (normalized.length < 2) {
+    return {
+      intercept: 0,
+      slope: 1,
+      sampleCount: normalized.length,
+      fitted: false,
+    };
+  }
+  const iterations = Math.max(1, Math.floor(finiteNumber(options.iterations, 1200)));
+  const learningRate = Math.max(0.0001, finiteNumber(options.learningRate, 0.03));
+  const regularization = Math.max(0, finiteNumber(options.regularization, 0.01));
+  let intercept = 0;
+  let slope = 1;
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    let interceptGradient = 0;
+    let slopeGradient = 0;
+    for (const sample of normalized) {
+      const input = probabilityLogit(sample.probability);
+      const prediction =
+        1 / (1 + Math.exp(-(intercept + slope * input)));
+      const error = prediction - sample.outcome;
+      interceptGradient += error;
+      slopeGradient += error * input;
+    }
+    interceptGradient =
+      interceptGradient / normalized.length + regularization * intercept;
+    slopeGradient =
+      slopeGradient / normalized.length + regularization * (slope - 1);
+    intercept -= learningRate * interceptGradient;
+    slope -= learningRate * slopeGradient;
+  }
+  return {
+    intercept: Math.round(intercept * 100_000) / 100_000,
+    slope: Math.round(slope * 100_000) / 100_000,
+    sampleCount: normalized.length,
+    fitted: true,
+  };
+}
+
+function battleStateInformationCoverage(state = {}) {
+  const sideFields = [
+    "teamSize",
+    "livingCount",
+    "totalHpRatio",
+    "aceCandidateCount",
+    "aceAliveCount",
+    "aceHpRatio",
+    "positiveBoosts",
+    "statusBurden",
+    "hazardLayers",
+    "uniqueCountersAlive",
+    "gimmicksRemaining",
+  ];
+  const sides = [state.own ?? {}, state.opponent ?? {}];
+  const knownSideFields = sides.reduce(
+    (total, side) =>
+      total +
+      sideFields.filter((field) => Number.isFinite(Number(side[field]))).length,
+    0,
+  );
+  const fieldKnown = Number.isFinite(Number(state.fieldAdvantage)) ? 1 : 0;
+  return (knownSideFields + fieldKnown) / (sideFields.length * 2 + 1);
+}
+
+function winEstimateFromEvaluation(state, evaluation, options = {}) {
+  const ownLiving = evaluation.state.own.livingCount;
+  const opponentLiving = evaluation.state.opponent.livingCount;
+  const terminal =
+    ownLiving <= 0 || opponentLiving <= 0;
+  const terminalOutcome =
+    ownLiving <= 0 && opponentLiving <= 0
+      ? "draw"
+      : opponentLiving <= 0
+        ? "win"
+        : ownLiving <= 0
+          ? "loss"
+          : null;
+  const scale = Math.max(1, finiteNumber(options.scale, 90));
+  const logisticProbability = 1 / (1 + Math.exp(-evaluation.value / scale));
+  const calibratedProbability = calibrateWinProbability(
+    logisticProbability,
+    options.calibration,
+  );
+  const probability =
+    terminalOutcome === "win"
+      ? 1
+      : terminalOutcome === "loss"
+        ? 0
+        : terminalOutcome === "draw"
+          ? 0.5
+          : calibratedProbability;
+  const suppliedConfidence = finiteNumber(
+    options.informationConfidence,
+    finiteNumber(state.informationConfidence),
+  );
+  const coverage = battleStateInformationCoverage(state);
+  const confidence = clampProbability(
+    suppliedConfidence ??
+      (terminal ? 1 : 0.45 + coverage * 0.45),
+  );
+  const topFactors = Object.entries(evaluation.components)
+    .filter(([, contribution]) => Math.abs(contribution) >= 0.5)
+    .sort(
+      (left, right) =>
+        Math.abs(right[1]) - Math.abs(left[1]),
+    )
+    .slice(0, 5)
+    .map(([component, contribution]) => ({
+      component,
+      label: WIN_PROBABILITY_COMPONENT_LABELS[component] ?? component,
+      contribution,
+      direction:
+        contribution > 0
+          ? "favorable"
+          : contribution < 0
+            ? "unfavorable"
+            : "neutral",
+      message: `${WIN_PROBABILITY_COMPONENT_LABELS[component] ?? component} 항목은 현재 승률을 ${contribution > 0 ? "높이는" : "낮추는"} 주요 요인입니다.`,
+    }));
+
+  return {
+    probability: Math.round(probability * 10_000) / 10_000,
+    probabilityPercent: Math.round(probability * 1_000) / 10,
+    confidence: Math.round(confidence * 1_000) / 1_000,
+    modelVersion: WIN_PROBABILITY_MODEL_VERSION,
+    featureSchemaVersion: WIN_PROBABILITY_FEATURE_SCHEMA_VERSION,
+    terminal,
+    terminalOutcome,
+    rawValue: evaluation.value,
+    rawProbability: Math.round(logisticProbability * 10_000) / 10_000,
+    calibration: {
+      intercept: finiteNumber(options.calibration?.intercept, 0),
+      slope: finiteNumber(options.calibration?.slope, 1),
+    },
+    topFactors,
+    components: evaluation.components,
+  };
+}
+
+export function estimateBattleWinProbability(state = {}, options = {}) {
+  return winEstimateFromEvaluation(
+    state,
+    evaluateBattleStateValue(state),
+    options,
+  );
 }
 
 function applyProjectedSideDelta(side, delta = {}) {
@@ -1418,8 +1633,16 @@ export function evaluateOneTurnBattleState(
   outcome = {},
 ) {
   const before = evaluateBattleStateValue(state);
+  const beforeWinEstimate = winEstimateFromEvaluation(
+    before.state,
+    before,
+  );
   const projectedState = projectOneTurnBattleState(before.state, outcome);
   const after = evaluateBattleStateValue(projectedState);
+  const afterWinEstimate = winEstimateFromEvaluation(
+    after.state,
+    after,
+  );
   const componentDeltas = Object.fromEntries(
     Object.keys(after.components).map((key) => [
       key,
@@ -1444,6 +1667,15 @@ export function evaluateOneTurnBattleState(
     projectedState,
     qValue: after.value,
     delta,
+    winProbabilityBefore: beforeWinEstimate.probability,
+    winProbabilityAfter: afterWinEstimate.probability,
+    winProbabilityDelta:
+      Math.round(
+        (afterWinEstimate.probability - beforeWinEstimate.probability) *
+          10_000,
+      ) / 10_000,
+    winEstimateBefore: beforeWinEstimate,
+    winEstimateAfter: afterWinEstimate,
     componentDeltas,
     reasons,
   };
@@ -1674,9 +1906,12 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         scoreAdjustment(
           "simulation.one_turn_state_value",
           "1턴 후 전투 상태",
-          oneTurnEvaluation.qValue,
+          oneTurnEvaluation.winProbabilityAfter ??
+            oneTurnEvaluation.qValue,
           weight,
-          `이 행동을 적용한 다음 상태의 가치는 ${oneTurnEvaluation.qValue}, 현재 상태 대비 변화는 ${delta >= 0 ? "+" : ""}${delta}로 평가했습니다.`,
+          oneTurnEvaluation.winProbabilityAfter !== undefined
+            ? `현재 승률 ${Math.round(oneTurnEvaluation.winProbabilityBefore * 1_000) / 10}%에서 행동 후 ${Math.round(oneTurnEvaluation.winProbabilityAfter * 1_000) / 10}%로 ${oneTurnEvaluation.winProbabilityDelta >= 0 ? "+" : ""}${Math.round(oneTurnEvaluation.winProbabilityDelta * 1_000) / 10}%p 변할 것으로 추정했습니다.`
+            : `이 행동을 적용한 다음 상태의 가치는 ${oneTurnEvaluation.qValue}, 현재 상태 대비 변화는 ${delta >= 0 ? "+" : ""}${delta}로 평가했습니다.`,
         ),
       );
     }
@@ -1698,6 +1933,66 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         `상대의 ${enriched.opponentThreateningMoveId || "공격"}에 먼저 쓰러져 이 행동을 실행하지 못할 확률이 ${Math.round(knockoutBeforeActionProbability * 100)}%라 점수를 크게 낮췄습니다.`,
       ),
     );
+  }
+
+  if (moveId === "upperhand") {
+    const exactOutcome = String(enriched.upperHandExactOutcome ?? "");
+    const successProbability = Math.max(
+      0,
+      Math.min(
+        1,
+        finiteNumber(enriched.upperHandSuccessProbability, 0),
+      ),
+    );
+    const eligibleMoves = Array.isArray(enriched.upperHandEligiblePriorityMoves)
+      ? enriched.upperHandEligiblePriorityMoves.filter(Boolean)
+      : [];
+    if (exactOutcome === "failure") {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.upper_hand.exact_failure",
+          "기선제압 실패 확정",
+          enriched.exactOpponentMoveId || "non-priority-action",
+          -2000,
+          "확인한 상대 행동이 공격 선공기가 아니거나 기선제압보다 먼저 행동하므로 이 기술은 실패합니다.",
+        ),
+      );
+    } else if (exactOutcome === "success") {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.upper_hand.exact_success",
+          "기선제압 성공 확정",
+          enriched.exactOpponentMoveId || eligibleMoves[0] || "priority-move",
+          90,
+          "상대가 공격 선공기를 확정했고 기선제압이 먼저 발동하므로 피해와 풀죽음 가치를 높게 반영했습니다.",
+        ),
+      );
+    } else if (successProbability <= 0) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.upper_hand.no_valid_target",
+          "기선제압 대상 없음",
+          false,
+          -1200,
+          "현재 확인된 상대 기술 중 기선제압보다 늦게 발동하는 공격 선공기가 없어 실패 가능성이 확정적입니다.",
+        ),
+      );
+    } else {
+      const probabilityPercent = Math.round(successProbability * 100);
+      const weight =
+        Math.round(
+          (-140 * (1 - successProbability) + 70 * successProbability) * 100,
+        ) / 100;
+      adjustments.push(
+        scoreAdjustment(
+          "rule.upper_hand.predicted_priority",
+          "기선제압 선공기 예측",
+          `${probabilityPercent}%`,
+          weight,
+          `상대의 공격 선공기 후보 ${eligibleMoves.join(", ")}와 피해 압박을 기준으로 성공 확률을 ${probabilityPercent}%로 추정했습니다.`,
+        ),
+      );
+    }
   }
 
   if (
@@ -2832,7 +3127,11 @@ export function scoreAiMoveCandidate(
         ? Number(candidate.accuracy) / 100
         : 1;
   const priorityWeight =
-    difficulty === "expert" || difficulty === "cheater" ? 12 : 5;
+    difficulty === "expert" ||
+    difficulty === "expert_winrate" ||
+    difficulty === "cheater"
+      ? 12
+      : 5;
   const statusValue =
     candidate.category === "Status"
       ? strategy === "defensive"
@@ -2987,7 +3286,11 @@ function moveDecisionReasons(candidate, difficulty, strategy) {
     reasons.push(adjustment);
   }
 
-  if (difficulty === "expert" || difficulty === "cheater") {
+  if (
+    difficulty === "expert" ||
+    difficulty === "expert_winrate" ||
+    difficulty === "cheater"
+  ) {
     reasons.push({
       code: "difficulty.priority_weight",
       label: "고난도 판단",
@@ -3069,9 +3372,12 @@ export function switchRuleAdjustments(candidate, strategy = "balanced") {
         scoreAdjustment(
           "simulation.one_turn_state_value",
           "1턴 후 전투 상태",
-          oneTurnEvaluation.qValue,
+          oneTurnEvaluation.winProbabilityAfter ??
+            oneTurnEvaluation.qValue,
           weight,
-          `교체 직후 상태의 가치는 ${oneTurnEvaluation.qValue}, 현재 상태 대비 변화는 ${delta >= 0 ? "+" : ""}${delta}로 평가했습니다.`,
+          oneTurnEvaluation.winProbabilityAfter !== undefined
+            ? `현재 승률 ${Math.round(oneTurnEvaluation.winProbabilityBefore * 1_000) / 10}%에서 교체 후 ${Math.round(oneTurnEvaluation.winProbabilityAfter * 1_000) / 10}%로 ${oneTurnEvaluation.winProbabilityDelta >= 0 ? "+" : ""}${Math.round(oneTurnEvaluation.winProbabilityDelta * 1_000) / 10}%p 변할 것으로 추정했습니다.`
+            : `교체 직후 상태의 가치는 ${oneTurnEvaluation.qValue}, 현재 상태 대비 변화는 ${delta >= 0 ? "+" : ""}${delta}로 평가했습니다.`,
         ),
       );
     }
@@ -3756,6 +4062,12 @@ export function toAiTraceCandidate(candidate, options) {
     damageRangeMinimum: normalized.damageRangeMinimum,
     damageRangeMaximum: normalized.damageRangeMaximum,
     battleStateValueDelta: normalized.battleStateValueDelta,
+    winProbabilityBefore:
+      normalized.oneTurnEvaluation?.winProbabilityBefore,
+    winProbabilityAfter:
+      normalized.oneTurnEvaluation?.winProbabilityAfter,
+    winProbabilityDelta:
+      normalized.oneTurnEvaluation?.winProbabilityDelta,
     oneTurnEvaluation: normalized.oneTurnEvaluation,
     opponentConditionalPriorityLikelihood:
       normalized.opponentConditionalPriorityLikelihood,
@@ -3781,6 +4093,91 @@ export function toAiTraceCandidate(candidate, options) {
     mustPreserveFor: normalized.mustPreserveFor,
     reasons: normalized.reasons,
   };
+}
+
+export function compareAiDecisionPolicies(
+  candidates = [],
+  { materialThreshold = 0.02 } = {},
+) {
+  const comparable = candidates.filter(
+    (candidate) =>
+      candidate?.legal !== false &&
+      Number.isFinite(Number(candidate?.winProbabilityAfter)),
+  );
+  const selectedCandidates = comparable.filter(
+    (candidate) => candidate.selected === true,
+  );
+  const heuristicSelection =
+    selectedCandidates.find((candidate) => candidate.type === "gimmick") ??
+    selectedCandidates[0] ??
+    null;
+  const winProbabilitySelection =
+    [...comparable].sort(
+      (left, right) =>
+        Number(right.winProbabilityAfter) -
+          Number(left.winProbabilityAfter) ||
+        Number(right.score ?? 0) - Number(left.score ?? 0),
+    )[0] ?? null;
+  if (!heuristicSelection || !winProbabilitySelection) {
+    return null;
+  }
+  const probabilityGap =
+    Number(winProbabilitySelection.winProbabilityAfter) -
+    Number(heuristicSelection.winProbabilityAfter);
+  return {
+    heuristicActionId:
+      heuristicSelection.actionId ?? heuristicSelection.id ?? "",
+    heuristicAction: heuristicSelection.name ?? heuristicSelection.id ?? "",
+    heuristicScore: finiteNumber(heuristicSelection.score, 0),
+    heuristicWinProbability: Number(
+      heuristicSelection.winProbabilityAfter,
+    ),
+    winProbabilityActionId:
+      winProbabilitySelection.actionId ?? winProbabilitySelection.id ?? "",
+    winProbabilityAction:
+      winProbabilitySelection.name ?? winProbabilitySelection.id ?? "",
+    winProbabilityScore: finiteNumber(winProbabilitySelection.score, 0),
+    winProbability: Number(winProbabilitySelection.winProbabilityAfter),
+    probabilityGap:
+      Math.round(probabilityGap * 10_000) / 10_000,
+    differs: probabilityGap > 1e-9,
+    materiallyDiffers: probabilityGap >= materialThreshold,
+    materialThreshold,
+  };
+}
+
+export function selectWinProbabilityCandidate(
+  candidates = [],
+  heuristicSelection = null,
+  { minimumGain = 0.02 } = {},
+) {
+  const comparable = candidates.filter(
+    (candidate) =>
+      candidate?.legal !== false &&
+      Number.isFinite(
+        Number(candidate?.oneTurnEvaluation?.winProbabilityAfter),
+      ),
+  );
+  const probabilityWinner =
+    [...comparable].sort(
+      (left, right) =>
+        Number(right.oneTurnEvaluation.winProbabilityAfter) -
+          Number(left.oneTurnEvaluation.winProbabilityAfter) ||
+        Number(right.score ?? 0) - Number(left.score ?? 0),
+    )[0] ?? null;
+  if (!probabilityWinner) return heuristicSelection;
+  const heuristicProbability = Number(
+    heuristicSelection?.oneTurnEvaluation?.winProbabilityAfter,
+  );
+  if (
+    heuristicSelection &&
+    Number.isFinite(heuristicProbability) &&
+    Number(probabilityWinner.oneTurnEvaluation.winProbabilityAfter) <
+      heuristicProbability + minimumGain
+  ) {
+    return heuristicSelection;
+  }
+  return probabilityWinner;
 }
 
 export function selectAiMoveCandidate(
