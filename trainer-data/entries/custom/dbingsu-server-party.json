@@ -70,6 +70,10 @@
     {
       "species": "urshifu-rapidstrike",
       "gender": "FEMALE",
+      "gimmicks": {
+        "dynamax": true,
+        "gmax": true
+      },
       "level": 100,
       "nature": "adamant",
       "ability": "unseenfist",

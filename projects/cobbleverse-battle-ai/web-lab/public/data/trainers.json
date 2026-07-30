@@ -149,7 +149,10 @@
           "species": "urshifu-rapidstrike",
           "resolvedSpecies": "Urshifu-Rapid-Strike",
           "aspects": [],
-          "gimmicks": {},
+          "gimmicks": {
+            "dynamax": true,
+            "gmax": true
+          },
           "level": 100,
           "gender": "FEMALE",
           "nature": "adamant",

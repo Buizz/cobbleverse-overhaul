@@ -16,7 +16,7 @@
       "focus": ["setup", "salt-cure", "sturdy", "gimmick"],
       "baseline": {
         "winnerTrainerId": "dbingsu-server-party",
-        "turns": 12
+        "turns": 18
       }
     },
     {
@@ -36,7 +36,7 @@
       "focus": ["hazard", "salt-cure", "long-game"],
       "baseline": {
         "winnerTrainerId": "sv9-hazard-balance",
-        "turns": 33
+        "turns": 29
       }
     },
     {
@@ -45,8 +45,8 @@
       "trainerIds": ["sv9-trick-room-balance", "dbingsu-server-party"],
       "focus": ["trick-room", "switch", "future-matchup"],
       "baseline": {
-        "winnerTrainerId": null,
-        "turns": 100
+        "winnerTrainerId": "sv9-trick-room-balance",
+        "turns": 32
       }
     },
     {
