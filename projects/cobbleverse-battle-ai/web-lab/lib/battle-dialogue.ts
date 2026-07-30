@@ -123,6 +123,62 @@ function hpSuffix(event: BattleDialogueEvent) {
   return "";
 }
 
+function resolvedSpecies(
+  value: string | undefined,
+  context: BattleDialogueContext,
+) {
+  const raw = battleActorName(value);
+  return context.speciesName?.(raw) ?? raw;
+}
+
+export function formatBattleSwitchDialogue(
+  event: BattleDialogueEvent,
+  context: BattleDialogueContext = {},
+) {
+  const side = actorSide(event.actor);
+  const sideLabel = side ? context.sideLabels?.[side] ?? "" : "";
+  const incoming =
+    resolvedSpecies(event.actor, context) ||
+    resolvedSpecies(event.detail, context) ||
+    "새 포켓몬";
+  const outgoing = resolvedSpecies(event.fromActor, context);
+  const condition = hpSuffix(event);
+  const subject = (name: string) =>
+    `${name}${koreanBattleParticle(name, "이", "가")}`;
+
+  if (event.selection === "lead") {
+    if (side === "p1" && sideLabel === "") return `가랏! ${incoming}!${condition}`;
+    return `${sideLabel}${subject(incoming)} 선봉으로 나왔다!${condition}`;
+  }
+
+  const faintReplacement =
+    event.selection === "faint" ||
+    event.selection === "faint_replacement" ||
+    (event.forced && event.selection === "matchup_score");
+  if (faintReplacement) {
+    return outgoing
+      ? `${sideLabel}${subject(outgoing)} 쓰러져 ${subject(incoming)} 대신 출전했다!${condition}`
+      : `${sideLabel}${subject(incoming)} 대신 출전했다!${condition}`;
+  }
+
+  if (event.selection === "self_switch") {
+    return outgoing
+      ? `${sideLabel}${outgoing}${koreanBattleParticle(outgoing, "은", "는")} 돌아오고 ${subject(incoming)} 나왔다!${condition}`
+      : `${sideLabel}${subject(incoming)} 나왔다!${condition}`;
+  }
+
+  if (event.selection === "force_switch" || event.forced) {
+    return outgoing
+      ? `${sideLabel}${subject(outgoing)} 강제로 돌아가고 ${subject(incoming)} 끌려 나왔다!${condition}`
+      : `${sideLabel}${subject(incoming)} 강제로 끌려 나왔다!${condition}`;
+  }
+
+  if (outgoing) {
+    return `${sideLabel}포켓몬 교체: ${outgoing} → ${incoming}${condition}`;
+  }
+  return `${sideLabel}${incoming}${koreanBattleParticle(incoming, "으로", "로")} 교체했다!${condition}`;
+}
+
 export function formatBattleDialogue(
   event: BattleDialogueEvent,
   context: BattleDialogueContext = {},
@@ -151,18 +207,8 @@ export function formatBattleDialogue(
       return `${event.turn}턴 시작`;
     case "move":
       return `${actor || "포켓몬"}의 ${detail || "기술"}!`;
-    case "switch": {
-      const incoming = actor || detail || "포켓몬";
-      if (event.selection === "lead") return `${incoming}, 선봉으로 나왔다!`;
-      if (
-        event.selection === "faint" ||
-        event.selection === "faint_replacement"
-      ) {
-        return `${incoming}, 쓰러진 포켓몬을 대신해 출전했다!`;
-      }
-      if (event.forced) return `${incoming}, 강제로 전장에 나왔다!`;
-      return `${incoming}${koreanBattleParticle(incoming, "으로", "로")} 교체했다!`;
-    }
+    case "switch":
+      return formatBattleSwitchDialogue(event, context);
     case "damage":
       return `${subject} ${source ? `${source}의 효과로 ` : ""}데미지를 입었다!${hpSuffix(event)}`;
     case "damage_prevented":

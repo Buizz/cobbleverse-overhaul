@@ -1294,39 +1294,6 @@ function koreanParticle(
   return (code - 0xac00) % 28 === 0 ? vowelParticle : consonantParticle;
 }
 
-function switchMessage(
-  localization: LocalizationCatalog | null,
-  event: BattleEvent,
-) {
-  const incoming =
-    localizedEventDetail(localization, event) ||
-    localizedSpecies(localization, actorName(event.actor)) ||
-    "새 포켓몬";
-  const outgoing = localizedSpecies(
-    localization,
-    actorName(event.fromActor),
-  );
-  const opponent = event.actor?.startsWith("p2") ? "상대 " : "";
-
-  if (event.selection === "lead") {
-    return event.actor?.startsWith("p2")
-      ? `상대 ${incoming}${koreanParticle(incoming, "이", "가")} 선봉으로 나왔다!`
-      : `가랏! ${incoming}!`;
-  }
-  if (
-    event.selection === "faint_replacement" ||
-    (event.forced && event.selection === "matchup_score")
-  ) {
-    return outgoing
-      ? `${opponent}${outgoing}${koreanParticle(outgoing, "이", "가")} 쓰러져 ${incoming}${koreanParticle(incoming, "이", "가")} 대신 출전했다!`
-      : `${opponent}${incoming}${koreanParticle(incoming, "이", "가")} 대신 출전했다!`;
-  }
-  if (outgoing) {
-    return `${opponent}포켓몬 교체: ${outgoing} → ${incoming}`;
-  }
-  return `${opponent}포켓몬을 ${incoming}(으)로 교체했다!`;
-}
-
 const battleDetailNames: Record<string, string> = {
   Sturdy: "옹골참",
   Leftovers: "먹다남은음식",
@@ -1472,7 +1439,6 @@ function pokemonBattleMessage(
       localizedEventDetail(localization, event),
     sideLabels: { p1: "", p2: "상대 " },
     overrides: {
-      switch: () => switchMessage(localization, event),
       damage: () =>
         `${subject} ${damageCause(localization, event) ?? ""} 데미지를 입었다!`
           .replace(/\s+/g, " ")
@@ -1505,8 +1471,7 @@ function BattleLogEventLine({
     case "switch":
       return (
         <p>
-          <strong>{switchMessage(localization, event)}</strong>
-          {condition}
+          <strong>{pokemonBattleMessage(localization, event)}</strong>
         </p>
       );
     case "move":
