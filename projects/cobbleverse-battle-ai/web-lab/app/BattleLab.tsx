@@ -1151,7 +1151,7 @@ function actionNoticeCopy(
       };
     case "switch":
       return {
-        title: switchMessage(localization, event),
+        title: pokemonBattleMessage(localization, event),
         detail:
           event.selection === "lead"
             ? "선봉 포켓몬이 전투를 시작합니다."
