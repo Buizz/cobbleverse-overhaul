@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-raging-bolt-calm-mind",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "명상 선공 특수형",
+  "species": "Raging Bolt",
+  "speciesLabel": "날뛰는우레",
+  "level": 50,
+  "ability": "Protosynthesis",
+  "abilityLabel": "고대활성",
+  "heldItem": "Leftovers",
+  "heldItemLabel": "먹다남은음식",
+  "nature": "Modest",
+  "natureLabel": "조심",
+  "tera": "fairy",
+  "moves": [
+    "Calm Mind",
+    "Thunderclap",
+    "Dragon Pulse",
+    "Thunderbolt"
+  ],
+  "moveLabels": [
+    "명상",
+    "질풍신뢰",
+    "용의파동",
+    "10만볼트"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 0,
+    "spa": 252,
+    "spd": 4,
+    "spe": 0
+  },
+  "tags": [
+    "랭크업",
+    "선공기",
+    "특수 에이스"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

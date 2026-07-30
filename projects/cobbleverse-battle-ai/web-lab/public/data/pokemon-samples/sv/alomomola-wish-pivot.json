@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-alomomola-wish-pivot",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "재생력 소원 피벗",
+  "species": "Alomomola",
+  "speciesLabel": "맘복치",
+  "level": 50,
+  "ability": "Regenerator",
+  "abilityLabel": "재생력",
+  "heldItem": "Heavy-Duty Boots",
+  "heldItemLabel": "통굽부츠",
+  "nature": "Relaxed",
+  "natureLabel": "무사태평",
+  "tera": "flying",
+  "moves": [
+    "Wish",
+    "Protect",
+    "Flip Turn",
+    "Scald"
+  ],
+  "moveLabels": [
+    "희망사항",
+    "방어",
+    "퀵턴",
+    "열탕"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 252,
+    "spa": 0,
+    "spd": 4,
+    "spe": 0
+  },
+  "tags": [
+    "회복 지원",
+    "피벗",
+    "물리막이"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

@@ -525,12 +525,6 @@ export function createBattleScenario(raw, trainers, itemResolver = null) {
     });
   }
 
-  if (mode === "pve" && rawSides[1]?.source !== "preset") {
-    issues.push(issue("sides.1.source", "pve_opponent", "PvE의 상대 파티는 트레이너 JSON이어야 합니다."));
-  }
-  if (mode === "eve" && rawSides.some((side) => side?.source !== "preset")) {
-    issues.push(issue("sides", "eve_presets", "EvE에서는 양쪽 모두 트레이너 JSON을 사용해야 합니다."));
-  }
   if (
     mode === "eve" &&
     cleanText(rawSides[0]?.trainerId) &&

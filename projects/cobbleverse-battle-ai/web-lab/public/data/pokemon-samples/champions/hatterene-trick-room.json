@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-hatterene-trick-room",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "매직미러 트릭룸 선봉",
+  "species": "Hatterene",
+  "speciesLabel": "브리무음",
+  "level": 50,
+  "ability": "Magic Bounce",
+  "abilityLabel": "매직미러",
+  "heldItem": "Sitrus Berry",
+  "heldItemLabel": "자뭉열매",
+  "nature": "Quiet",
+  "natureLabel": "냉정",
+  "tera": "",
+  "moves": [
+    "Dazzling Gleam",
+    "Mystical Fire",
+    "Psychic",
+    "Trick Room"
+  ],
+  "moveLabels": [
+    "매지컬샤인",
+    "매지컬플레임",
+    "사이코키네시스",
+    "트릭룸"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 0
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 4,
+    "spa": 252,
+    "spd": 0,
+    "spe": 0
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "트릭룸",
+    "선봉",
+    "판 반사"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

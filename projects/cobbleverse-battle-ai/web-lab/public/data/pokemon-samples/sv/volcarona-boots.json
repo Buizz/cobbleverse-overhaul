@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-volcarona-boots",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "통굽부츠 나비춤형",
+  "species": "Volcarona",
+  "speciesLabel": "불카모스",
+  "level": 50,
+  "ability": "Flame Body",
+  "abilityLabel": "불꽃몸",
+  "heldItem": "Heavy-Duty Boots",
+  "heldItemLabel": "통굽부츠",
+  "nature": "Timid",
+  "natureLabel": "겁쟁이",
+  "tera": "ground",
+  "moves": [
+    "Quiver Dance",
+    "Fiery Dance",
+    "Bug Buzz",
+    "Tera Blast"
+  ],
+  "moveLabels": [
+    "나비춤",
+    "불꽃춤",
+    "벌레의야단법석",
+    "테라버스트"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 4,
+    "atk": 0,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "tags": [
+    "랭크업",
+    "특수 에이스",
+    "테라 활용"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

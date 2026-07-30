@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-venusaur-mega-wall",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가이상해꽃 내구형",
+  "species": "Venusaur",
+  "speciesLabel": "이상해꽃",
+  "level": 50,
+  "ability": "Chlorophyll",
+  "abilityLabel": "엽록소",
+  "heldItem": "Venusaurite",
+  "heldItemLabel": "이상해꽃나이트",
+  "nature": "Bold",
+  "natureLabel": "대담",
+  "tera": "",
+  "moves": [
+    "Giga Drain",
+    "Sludge Bomb",
+    "Synthesis",
+    "Leech Seed"
+  ],
+  "moveLabels": [
+    "기가드레인",
+    "오물폭탄",
+    "광합성",
+    "씨뿌리기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 252,
+    "spa": 0,
+    "spd": 4,
+    "spe": 0
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "막이",
+    "회복"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-iron-crown-booster-energy",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "부스트에너지 특수형",
+  "species": "Iron Crown",
+  "speciesLabel": "무쇠감투",
+  "level": 50,
+  "ability": "Quark Drive",
+  "abilityLabel": "쿼크차지",
+  "heldItem": "Booster Energy",
+  "heldItemLabel": "부스트에너지",
+  "nature": "Timid",
+  "natureLabel": "겁쟁이",
+  "tera": "fighting",
+  "moves": [
+    "Tachyon Cutter",
+    "Psychic Noise",
+    "Focus Blast",
+    "Volt Switch"
+  ],
+  "moveLabels": [
+    "타키온커터",
+    "사이코노이즈",
+    "기합구슬",
+    "볼트체인지"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 4,
+    "atk": 0,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "tags": [
+    "특수 에이스",
+    "피벗",
+    "회복 억제"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

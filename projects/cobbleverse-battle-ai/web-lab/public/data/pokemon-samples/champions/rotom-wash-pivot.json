@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-rotom-wash-pivot",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "로토무워시 내구 피벗",
+  "species": "Rotom-Wash",
+  "speciesLabel": "로토무 (워시)",
+  "level": 50,
+  "ability": "Levitate",
+  "abilityLabel": "부유",
+  "heldItem": "Leftovers",
+  "heldItemLabel": "먹다남은음식",
+  "nature": "Bold",
+  "natureLabel": "대담",
+  "tera": "",
+  "moves": [
+    "Volt Switch",
+    "Hydro Pump",
+    "Will-O-Wisp",
+    "Pain Split"
+  ],
+  "moveLabels": [
+    "볼트체인지",
+    "하이드로펌프",
+    "도깨비불",
+    "아픔나누기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 252,
+    "spa": 0,
+    "spd": 0,
+    "spe": 4
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "피벗",
+    "물리막이",
+    "화상"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

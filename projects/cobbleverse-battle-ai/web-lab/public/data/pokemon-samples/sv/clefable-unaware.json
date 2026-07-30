@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-clefable-unaware",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "천진 명상 막이",
+  "species": "Clefable",
+  "speciesLabel": "픽시",
+  "level": 50,
+  "ability": "Unaware",
+  "abilityLabel": "천진",
+  "heldItem": "Leftovers",
+  "heldItemLabel": "먹다남은음식",
+  "nature": "Bold",
+  "natureLabel": "대담",
+  "tera": "water",
+  "moves": [
+    "Moonblast",
+    "Moonlight",
+    "Calm Mind",
+    "Knock Off"
+  ],
+  "moveLabels": [
+    "문포스",
+    "달의불빛",
+    "명상",
+    "탁쳐서떨구기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 252,
+    "spa": 0,
+    "spd": 4,
+    "spe": 0
+  },
+  "tags": [
+    "막이",
+    "랭크업 억제",
+    "회복"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

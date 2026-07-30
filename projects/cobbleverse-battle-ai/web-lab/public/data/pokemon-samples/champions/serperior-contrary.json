@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-serperior-contrary",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "심술꾸러기 리프스톰형",
+  "species": "Serperior",
+  "speciesLabel": "샤로다",
+  "level": 50,
+  "ability": "Contrary",
+  "abilityLabel": "심술꾸러기",
+  "heldItem": "Life Orb",
+  "heldItemLabel": "생명의구슬",
+  "nature": "Timid",
+  "natureLabel": "겁쟁이",
+  "tera": "",
+  "moves": [
+    "Leaf Storm",
+    "Glare",
+    "Giga Drain",
+    "Dragon Pulse"
+  ],
+  "moveLabels": [
+    "리프스톰",
+    "뱀눈초리",
+    "기가드레인",
+    "용의파동"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 4,
+    "atk": 0,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "랭크업",
+    "고속",
+    "마비"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

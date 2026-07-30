@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-blastoise-mega-spinner",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가거북왕 특수 스핀형",
+  "species": "Blastoise",
+  "speciesLabel": "거북왕",
+  "level": 50,
+  "ability": "Torrent",
+  "abilityLabel": "급류",
+  "heldItem": "Blastoisinite",
+  "heldItemLabel": "거북왕나이트",
+  "nature": "Modest",
+  "natureLabel": "조심",
+  "tera": "",
+  "moves": [
+    "Water Pulse",
+    "Dark Pulse",
+    "Aura Sphere",
+    "Rapid Spin"
+  ],
+  "moveLabels": [
+    "물의파동",
+    "악의파동",
+    "파동탄",
+    "고속스핀"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 4,
+    "atk": 0,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "판 제거",
+    "특수 에이스"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

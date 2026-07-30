@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-landorus-therian-scarf",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "구애스카프 위협 피벗",
+  "species": "Landorus-Therian",
+  "speciesLabel": "랜드로스 (영물폼)",
+  "level": 50,
+  "ability": "Intimidate",
+  "abilityLabel": "위협",
+  "heldItem": "Choice Scarf",
+  "heldItemLabel": "구애스카프",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "flying",
+  "moves": [
+    "Earthquake",
+    "U-turn",
+    "Stone Edge",
+    "Taunt"
+  ],
+  "moveLabels": [
+    "지진",
+    "유턴",
+    "스톤에지",
+    "도발"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "tags": [
+    "피벗",
+    "복수 처리",
+    "위협"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-gardevoir-mega-special",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가가디안 특수 돌파형",
+  "species": "Gardevoir",
+  "speciesLabel": "가디안",
+  "level": 50,
+  "ability": "Trace",
+  "abilityLabel": "트레이스",
+  "heldItem": "Gardevoirite",
+  "heldItemLabel": "가디안나이트",
+  "nature": "Timid",
+  "natureLabel": "겁쟁이",
+  "tera": "",
+  "moves": [
+    "Hyper Voice",
+    "Psyshock",
+    "Focus Blast",
+    "Taunt"
+  ],
+  "moveLabels": [
+    "하이퍼보이스",
+    "사이코쇼크",
+    "기합구슬",
+    "도발"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 4,
+    "atk": 0,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "특수 에이스",
+    "도발"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

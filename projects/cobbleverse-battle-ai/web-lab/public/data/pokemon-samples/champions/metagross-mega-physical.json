@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-metagross-mega-physical",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가메타그로스 고속 물리형",
+  "species": "Metagross",
+  "speciesLabel": "메타그로스",
+  "level": 50,
+  "ability": "Clear Body",
+  "abilityLabel": "클리어바디",
+  "heldItem": "Metagrossite",
+  "heldItemLabel": "메타그로스나이트",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "",
+  "moves": [
+    "Meteor Mash",
+    "Zen Headbutt",
+    "Earthquake",
+    "Ice Punch"
+  ],
+  "moveLabels": [
+    "코멧펀치",
+    "사념의박치기",
+    "지진",
+    "냉동펀치"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "고속",
+    "물리 에이스"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-dragonite-boots-dance",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "멀티스케일 용춤 마무리형",
+  "species": "Dragonite",
+  "speciesLabel": "망나뇽",
+  "level": 50,
+  "ability": "Multiscale",
+  "abilityLabel": "멀티스케일",
+  "heldItem": "Heavy-Duty Boots",
+  "heldItemLabel": "통굽부츠",
+  "nature": "Adamant",
+  "natureLabel": "고집",
+  "tera": "normal",
+  "moves": [
+    "Dragon Dance",
+    "Extreme Speed",
+    "Earthquake",
+    "Ice Spinner"
+  ],
+  "moveLabels": [
+    "용의춤",
+    "신속",
+    "지진",
+    "아이스스피너"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "tags": [
+    "에이스",
+    "랭크업",
+    "선공기"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

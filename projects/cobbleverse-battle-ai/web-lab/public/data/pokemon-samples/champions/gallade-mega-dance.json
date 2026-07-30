@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-gallade-mega-dance",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가엘레이드 칼춤형",
+  "species": "Gallade",
+  "speciesLabel": "엘레이드",
+  "level": 50,
+  "ability": "Steadfast",
+  "abilityLabel": "불굴의마음",
+  "heldItem": "Galladite",
+  "heldItemLabel": "엘레이드나이트",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "",
+  "moves": [
+    "Swords Dance",
+    "Close Combat",
+    "Psycho Cut",
+    "Knock Off"
+  ],
+  "moveLabels": [
+    "칼춤",
+    "인파이트",
+    "사이코커터",
+    "탁쳐서떨구기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "랭크업",
+    "물리 에이스"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

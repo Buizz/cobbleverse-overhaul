@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-absol-mega-mixed",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가앱솔 혼합 선공형",
+  "species": "Absol",
+  "speciesLabel": "앱솔",
+  "level": 50,
+  "ability": "Super Luck",
+  "abilityLabel": "대운",
+  "heldItem": "Absolite",
+  "heldItemLabel": "앱솔나이트",
+  "nature": "Naive",
+  "natureLabel": "천진난만",
+  "tera": "",
+  "moves": [
+    "Knock Off",
+    "Sucker Punch",
+    "Fire Blast",
+    "Play Rough"
+  ],
+  "moveLabels": [
+    "탁쳐서떨구기",
+    "기습",
+    "불대문자",
+    "치근거리기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 4,
+    "spd": 0,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "혼합 에이스",
+    "선공기"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

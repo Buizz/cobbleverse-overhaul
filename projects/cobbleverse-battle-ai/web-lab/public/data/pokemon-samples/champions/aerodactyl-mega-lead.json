@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-aerodactyl-mega-lead",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가프테라 고속 선봉",
+  "species": "Aerodactyl",
+  "speciesLabel": "프테라",
+  "level": 50,
+  "ability": "Pressure",
+  "abilityLabel": "프레셔",
+  "heldItem": "Aerodactylite",
+  "heldItemLabel": "프테라나이트",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "",
+  "moves": [
+    "Stone Edge",
+    "Earthquake",
+    "Taunt",
+    "Stealth Rock"
+  ],
+  "moveLabels": [
+    "스톤에지",
+    "지진",
+    "도발",
+    "스텔스록"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "선봉",
+    "판 장악"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-walking-wake-specs",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "쾌청 구애안경형",
+  "species": "Walking Wake",
+  "speciesLabel": "굽이치는물결",
+  "level": 50,
+  "ability": "Protosynthesis",
+  "abilityLabel": "고대활성",
+  "heldItem": "Choice Specs",
+  "heldItemLabel": "구애안경",
+  "nature": "Timid",
+  "natureLabel": "겁쟁이",
+  "tera": "water",
+  "moves": [
+    "Hydro Steam",
+    "Draco Meteor",
+    "Flamethrower",
+    "Flip Turn"
+  ],
+  "moveLabels": [
+    "하이드로스팀",
+    "용성군",
+    "화염방사",
+    "퀵턴"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 4,
+    "atk": 0,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "tags": [
+    "날씨",
+    "특수 에이스",
+    "피벗"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

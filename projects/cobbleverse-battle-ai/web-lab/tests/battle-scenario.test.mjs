@@ -69,6 +69,95 @@ test("creates a deterministic PvE scenario from a custom party and preset", () =
   assert.equal(first.scenario.sides[1].battleRules.maxItemUses, 99);
 });
 
+test("accepts an independently edited custom PvE opponent", () => {
+  const result = createBattleScenario(
+    {
+      mode: "pve",
+      seed: 4321,
+      battleEngine: "cobbleverse",
+      sides: [
+        {
+          source: "custom",
+          name: "Player Entry",
+          team: [
+            {
+              species: "pikachu",
+              level: 50,
+              moves: ["thunderbolt"],
+            },
+          ],
+        },
+        {
+          source: "custom",
+          name: "Computer Entry",
+          team: [
+            {
+              species: "eevee",
+              level: 50,
+              ability: "adaptability",
+              moves: ["quickattack"],
+            },
+          ],
+        },
+      ],
+    },
+    index.trainers,
+    itemResolver,
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.scenario.sides[0].name, "Player Entry");
+  assert.equal(result.scenario.sides[1].source, "custom");
+  assert.equal(result.scenario.sides[1].name, "Computer Entry");
+  assert.equal(result.scenario.sides[1].team[0].species, "eevee");
+  assert.equal(result.scenario.sides[1].team[0].moveset[0], "quickattack");
+});
+
+test("keeps custom entries available when switching to EvE", () => {
+  const result = createBattleScenario(
+    {
+      mode: "eve",
+      seed: 9876,
+      battleEngine: "cobbleverse",
+      sides: [
+        {
+          source: "custom",
+          name: "Engine A Entry",
+          team: [
+            {
+              species: "pikachu",
+              level: 50,
+              moves: ["thunderbolt"],
+            },
+          ],
+        },
+        {
+          source: "custom",
+          name: "Engine B Entry",
+          team: [
+            {
+              species: "eevee",
+              level: 50,
+              moves: ["quickattack"],
+            },
+          ],
+        },
+      ],
+    },
+    index.trainers,
+    itemResolver,
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    result.scenario.sides.map((side) => [side.source, side.name]),
+    [
+      ["custom", "Engine A Entry"],
+      ["custom", "Engine B Entry"],
+    ],
+  );
+});
+
 test("applies the RCT Tera target policy to the designated member", () => {
   const result = createBattleScenario(
     {

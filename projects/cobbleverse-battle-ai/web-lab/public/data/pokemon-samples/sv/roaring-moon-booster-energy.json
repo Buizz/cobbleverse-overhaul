@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-roaring-moon-booster-energy",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "부스트에너지 용춤형",
+  "species": "Roaring Moon",
+  "speciesLabel": "고동치는달",
+  "level": 50,
+  "ability": "Protosynthesis",
+  "abilityLabel": "고대활성",
+  "heldItem": "Booster Energy",
+  "heldItemLabel": "부스트에너지",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "flying",
+  "moves": [
+    "Dragon Dance",
+    "Knock Off",
+    "Acrobatics",
+    "Earthquake"
+  ],
+  "moveLabels": [
+    "용의춤",
+    "탁쳐서떨구기",
+    "애크러뱃",
+    "지진"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "tags": [
+    "랭크업",
+    "물리 에이스",
+    "도구 제거"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-dragapult-specs",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "구애안경 고속 특수형",
+  "species": "Dragapult",
+  "speciesLabel": "드래펄트",
+  "level": 50,
+  "ability": "Infiltrator",
+  "abilityLabel": "틈새포착",
+  "heldItem": "Choice Specs",
+  "heldItemLabel": "구애안경",
+  "nature": "Timid",
+  "natureLabel": "겁쟁이",
+  "tera": "ghost",
+  "moves": [
+    "Draco Meteor",
+    "Shadow Ball",
+    "Flamethrower",
+    "U-turn"
+  ],
+  "moveLabels": [
+    "용성군",
+    "섀도볼",
+    "화염방사",
+    "유턴"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 4,
+    "atk": 0,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "tags": [
+    "고속",
+    "특수 에이스",
+    "피벗"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

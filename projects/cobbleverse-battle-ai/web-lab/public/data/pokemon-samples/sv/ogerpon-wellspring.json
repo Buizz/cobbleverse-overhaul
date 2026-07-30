@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-ogerpon-wellspring",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "우물의가면 칼춤형",
+  "species": "Ogerpon-Wellspring",
+  "speciesLabel": "오거폰 (우물의 가면)",
+  "level": 50,
+  "ability": "Water Absorb",
+  "abilityLabel": "저수",
+  "heldItem": "Wellspring Mask",
+  "heldItemLabel": "우물의가면",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "water",
+  "moves": [
+    "Ivy Cudgel",
+    "Horn Leech",
+    "Swords Dance",
+    "Encore"
+  ],
+  "moveLabels": [
+    "덩굴방망이",
+    "우드혼",
+    "칼춤",
+    "앙코르"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "tags": [
+    "에이스",
+    "랭크업",
+    "앙코르"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-lopunny-mega-pivot",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가이어롭 고속 피벗",
+  "species": "Lopunny",
+  "speciesLabel": "이어롭",
+  "level": 50,
+  "ability": "Limber",
+  "abilityLabel": "유연",
+  "heldItem": "Lopunnite",
+  "heldItemLabel": "이어롭나이트",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "",
+  "moves": [
+    "Fake Out",
+    "Close Combat",
+    "Return",
+    "U-turn"
+  ],
+  "moveLabels": [
+    "속이기",
+    "인파이트",
+    "은혜갚기",
+    "유턴"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "고속",
+    "속이기"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

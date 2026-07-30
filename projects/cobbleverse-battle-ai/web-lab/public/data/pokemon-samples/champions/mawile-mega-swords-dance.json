@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-mawile-mega-swords-dance",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가입치트 칼춤 돌파형",
+  "species": "Mawile",
+  "speciesLabel": "입치트",
+  "level": 50,
+  "ability": "Intimidate",
+  "abilityLabel": "위협",
+  "heldItem": "Mawilite",
+  "heldItemLabel": "입치트나이트",
+  "nature": "Adamant",
+  "natureLabel": "고집",
+  "tera": "",
+  "moves": [
+    "Play Rough",
+    "Sucker Punch",
+    "Swords Dance",
+    "Knock Off"
+  ],
+  "moveLabels": [
+    "치근거리기",
+    "기습",
+    "칼춤",
+    "탁쳐서떨구기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 0
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "랭크업",
+    "선공기"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-salamence-mega-dance",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가보만다 용춤형",
+  "species": "Salamence",
+  "speciesLabel": "보만다",
+  "level": 50,
+  "ability": "Intimidate",
+  "abilityLabel": "위협",
+  "heldItem": "Salamencite",
+  "heldItemLabel": "보만다나이트",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "",
+  "moves": [
+    "Dragon Dance",
+    "Double-Edge",
+    "Earthquake",
+    "Roost"
+  ],
+  "moveLabels": [
+    "용의춤",
+    "이판사판태클",
+    "지진",
+    "날개쉬기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "랭크업",
+    "에이스"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

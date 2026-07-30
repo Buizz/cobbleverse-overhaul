@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-gholdengo-air-balloon",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "풍선 전개 방해 특수형",
+  "species": "Gholdengo",
+  "speciesLabel": "타부자고",
+  "level": 50,
+  "ability": "Good as Gold",
+  "abilityLabel": "황금몸",
+  "heldItem": "Air Balloon",
+  "heldItemLabel": "풍선",
+  "nature": "Timid",
+  "natureLabel": "겁쟁이",
+  "tera": "flying",
+  "moves": [
+    "Make It Rain",
+    "Shadow Ball",
+    "Nasty Plot",
+    "Recover"
+  ],
+  "moveLabels": [
+    "골드러시",
+    "섀도볼",
+    "나쁜음모",
+    "HP회복"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 4,
+    "atk": 0,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "tags": [
+    "특수 에이스",
+    "랭크업",
+    "판 제거 방해"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

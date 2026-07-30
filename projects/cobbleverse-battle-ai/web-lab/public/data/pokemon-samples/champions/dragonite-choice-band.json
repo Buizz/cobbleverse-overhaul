@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-dragonite-choice-band",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "멀티스케일 구애머리띠",
+  "species": "Dragonite",
+  "speciesLabel": "망나뇽",
+  "level": 50,
+  "ability": "Multiscale",
+  "abilityLabel": "멀티스케일",
+  "heldItem": "Choice Band",
+  "heldItemLabel": "구애머리띠",
+  "nature": "Adamant",
+  "natureLabel": "고집",
+  "tera": "",
+  "moves": [
+    "Extreme Speed",
+    "Outrage",
+    "Earthquake",
+    "Fire Punch"
+  ],
+  "moveLabels": [
+    "신속",
+    "역린",
+    "지진",
+    "불꽃펀치"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "구애",
+    "선공기",
+    "물리 에이스"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

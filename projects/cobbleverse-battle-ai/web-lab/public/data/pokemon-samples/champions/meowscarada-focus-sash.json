@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-meowscarada-focus-sash",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "기합의띠 고속 선봉",
+  "species": "Meowscarada",
+  "speciesLabel": "마스카나",
+  "level": 50,
+  "ability": "Protean",
+  "abilityLabel": "변환자재",
+  "heldItem": "Focus Sash",
+  "heldItemLabel": "기합의띠",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "",
+  "moves": [
+    "Flower Trick",
+    "Knock Off",
+    "U-turn",
+    "Spikes"
+  ],
+  "moveLabels": [
+    "트릭플라워",
+    "탁쳐서떨구기",
+    "유턴",
+    "압정뿌리기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "선봉",
+    "판 장악",
+    "피벗"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

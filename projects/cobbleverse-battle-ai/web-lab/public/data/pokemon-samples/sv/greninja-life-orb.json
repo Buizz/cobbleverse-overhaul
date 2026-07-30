@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-greninja-life-orb",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "생명의구슬 혼합형",
+  "species": "Greninja",
+  "speciesLabel": "개굴닌자",
+  "level": 50,
+  "ability": "Protean",
+  "abilityLabel": "변환자재",
+  "heldItem": "Life Orb",
+  "heldItemLabel": "생명의구슬",
+  "nature": "Naive",
+  "natureLabel": "천진난만",
+  "tera": "water",
+  "moves": [
+    "Hydro Pump",
+    "Dark Pulse",
+    "Ice Beam",
+    "U-turn"
+  ],
+  "moveLabels": [
+    "하이드로펌프",
+    "악의파동",
+    "냉동빔",
+    "유턴"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 4,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "tags": [
+    "고속",
+    "혼합 에이스",
+    "피벗"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

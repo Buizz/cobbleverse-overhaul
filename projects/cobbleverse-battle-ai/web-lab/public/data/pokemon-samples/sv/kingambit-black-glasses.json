@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-kingambit-black-glasses",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "총대장 칼춤 마무리형",
+  "species": "Kingambit",
+  "speciesLabel": "대도각참",
+  "level": 50,
+  "ability": "Supreme Overlord",
+  "abilityLabel": "총대장",
+  "heldItem": "Black Glasses",
+  "heldItemLabel": "검은안경",
+  "nature": "Adamant",
+  "natureLabel": "고집",
+  "tera": "dark",
+  "moves": [
+    "Kowtow Cleave",
+    "Sucker Punch",
+    "Iron Head",
+    "Swords Dance"
+  ],
+  "moveLabels": [
+    "도각참",
+    "기습",
+    "아이언헤드",
+    "칼춤"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 0
+  },
+  "tags": [
+    "마무리",
+    "선공기",
+    "랭크업"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

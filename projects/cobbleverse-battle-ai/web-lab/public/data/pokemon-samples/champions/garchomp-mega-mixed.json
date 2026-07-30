@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-garchomp-mega-mixed",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가한카리아스 혼합 돌파형",
+  "species": "Garchomp",
+  "speciesLabel": "한카리아스",
+  "level": 50,
+  "ability": "Rough Skin",
+  "abilityLabel": "까칠한피부",
+  "heldItem": "Garchompite",
+  "heldItemLabel": "한카리아스나이트",
+  "nature": "Naive",
+  "natureLabel": "천진난만",
+  "tera": "",
+  "moves": [
+    "Earthquake",
+    "Draco Meteor",
+    "Fire Blast",
+    "Stone Edge"
+  ],
+  "moveLabels": [
+    "지진",
+    "용성군",
+    "불대문자",
+    "스톤에지"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 4,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "혼합 에이스",
+    "막이 돌파"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

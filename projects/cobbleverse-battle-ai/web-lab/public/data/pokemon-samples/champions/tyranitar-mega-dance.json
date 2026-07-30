@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-tyranitar-mega-dance",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가마기라스 용춤형",
+  "species": "Tyranitar",
+  "speciesLabel": "마기라스",
+  "level": 50,
+  "ability": "Sand Stream",
+  "abilityLabel": "모래날림",
+  "heldItem": "Tyranitarite",
+  "heldItemLabel": "마기라스나이트",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "",
+  "moves": [
+    "Dragon Dance",
+    "Stone Edge",
+    "Crunch",
+    "Earthquake"
+  ],
+  "moveLabels": [
+    "용의춤",
+    "스톤에지",
+    "깨물어부수기",
+    "지진"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "날씨",
+    "랭크업"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

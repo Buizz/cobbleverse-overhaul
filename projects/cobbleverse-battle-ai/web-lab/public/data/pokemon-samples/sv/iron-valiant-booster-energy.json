@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-iron-valiant-booster-energy",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "부스트에너지 혼합 에이스",
+  "species": "Iron Valiant",
+  "speciesLabel": "무쇠무인",
+  "level": 50,
+  "ability": "Quark Drive",
+  "abilityLabel": "쿼크차지",
+  "heldItem": "Booster Energy",
+  "heldItemLabel": "부스트에너지",
+  "nature": "Naive",
+  "natureLabel": "천진난만",
+  "tera": "fairy",
+  "moves": [
+    "Moonblast",
+    "Close Combat",
+    "Knock Off",
+    "Encore"
+  ],
+  "moveLabels": [
+    "문포스",
+    "인파이트",
+    "탁쳐서떨구기",
+    "앙코르"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 4,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "tags": [
+    "고속",
+    "혼합 에이스",
+    "앙코르"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

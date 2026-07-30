@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-ting-lu-hazards",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "재앙의그릇 판 장악형",
+  "species": "Ting-Lu",
+  "speciesLabel": "딩루",
+  "level": 50,
+  "ability": "Vessel of Ruin",
+  "abilityLabel": "재앙의그릇",
+  "heldItem": "Leftovers",
+  "heldItemLabel": "먹다남은음식",
+  "nature": "Careful",
+  "natureLabel": "신중",
+  "tera": "poison",
+  "moves": [
+    "Earthquake",
+    "Ruination",
+    "Spikes",
+    "Whirlwind"
+  ],
+  "moveLabels": [
+    "지진",
+    "카타스트로피",
+    "압정뿌리기",
+    "날려버리기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 4,
+    "spa": 0,
+    "spd": 252,
+    "spe": 0
+  },
+  "tags": [
+    "특수막이",
+    "판 장악",
+    "강제교체"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

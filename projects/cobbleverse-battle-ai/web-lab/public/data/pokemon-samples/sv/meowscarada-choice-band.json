@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-meowscarada-choice-band",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "구애머리띠 고속 피벗",
+  "species": "Meowscarada",
+  "speciesLabel": "마스카나",
+  "level": 50,
+  "ability": "Protean",
+  "abilityLabel": "변환자재",
+  "heldItem": "Choice Band",
+  "heldItemLabel": "구애머리띠",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "grass",
+  "moves": [
+    "Flower Trick",
+    "Knock Off",
+    "U-turn",
+    "Triple Axel"
+  ],
+  "moveLabels": [
+    "트릭플라워",
+    "탁쳐서떨구기",
+    "유턴",
+    "트리플악셀"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "tags": [
+    "고속",
+    "피벗",
+    "도구 제거"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

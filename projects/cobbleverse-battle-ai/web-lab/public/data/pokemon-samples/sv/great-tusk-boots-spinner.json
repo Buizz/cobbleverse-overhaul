@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-great-tusk-boots-spinner",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "통굽부츠 고속스핀형",
+  "species": "Great Tusk",
+  "speciesLabel": "위대한엄니",
+  "level": 50,
+  "ability": "Protosynthesis",
+  "abilityLabel": "고대활성",
+  "heldItem": "Heavy-Duty Boots",
+  "heldItemLabel": "통굽부츠",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "steel",
+  "moves": [
+    "Headlong Rush",
+    "Close Combat",
+    "Rapid Spin",
+    "Knock Off"
+  ],
+  "moveLabels": [
+    "들이받기",
+    "인파이트",
+    "고속스핀",
+    "탁쳐서떨구기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 4,
+    "spa": 0,
+    "spd": 0,
+    "spe": 252
+  },
+  "tags": [
+    "판 제거",
+    "물리 에이스",
+    "도구 제거"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

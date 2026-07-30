@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-corviknight-defog",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "압박 날개쉬기 제거형",
+  "species": "Corviknight",
+  "speciesLabel": "아머까오",
+  "level": 50,
+  "ability": "Pressure",
+  "abilityLabel": "프레셔",
+  "heldItem": "Rocky Helmet",
+  "heldItemLabel": "울퉁불퉁멧",
+  "nature": "Impish",
+  "natureLabel": "장난꾸러기",
+  "tera": "dragon",
+  "moves": [
+    "Brave Bird",
+    "U-turn",
+    "Roost",
+    "Defog"
+  ],
+  "moveLabels": [
+    "브레이브버드",
+    "유턴",
+    "날개쉬기",
+    "안개제거"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 252,
+    "spa": 0,
+    "spd": 4,
+    "spe": 0
+  },
+  "tags": [
+    "판 제거",
+    "피벗",
+    "물리막이"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

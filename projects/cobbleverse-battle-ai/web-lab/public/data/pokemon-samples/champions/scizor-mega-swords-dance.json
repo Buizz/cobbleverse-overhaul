@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-scizor-mega-swords-dance",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가핫삼 칼춤 사이클형",
+  "species": "Scizor",
+  "speciesLabel": "핫삼",
+  "level": 50,
+  "ability": "Technician",
+  "abilityLabel": "테크니션",
+  "heldItem": "Scizorite",
+  "heldItemLabel": "핫삼나이트",
+  "nature": "Adamant",
+  "natureLabel": "고집",
+  "tera": "",
+  "moves": [
+    "Bullet Punch",
+    "Swords Dance",
+    "Roost",
+    "U-turn"
+  ],
+  "moveLabels": [
+    "불릿펀치",
+    "칼춤",
+    "날개쉬기",
+    "유턴"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 248,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 8,
+    "spe": 0
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "피벗",
+    "선공기"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-heatran-leftovers",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "마그마스톰 도발 사이클",
+  "species": "Heatran",
+  "speciesLabel": "히드런",
+  "level": 50,
+  "ability": "Flash Fire",
+  "abilityLabel": "타오르는불꽃",
+  "heldItem": "Leftovers",
+  "heldItemLabel": "먹다남은음식",
+  "nature": "Calm",
+  "natureLabel": "차분",
+  "tera": "grass",
+  "moves": [
+    "Magma Storm",
+    "Earth Power",
+    "Taunt",
+    "Stealth Rock"
+  ],
+  "moveLabels": [
+    "마그마스톰",
+    "대지의힘",
+    "도발",
+    "스텔스록"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 0,
+    "spa": 4,
+    "spd": 252,
+    "spe": 0
+  },
+  "tags": [
+    "특수막이",
+    "판 장악",
+    "도발"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

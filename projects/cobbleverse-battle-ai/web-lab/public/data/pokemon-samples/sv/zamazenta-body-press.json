@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-zamazenta-body-press",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "철벽 바디프레스형",
+  "species": "Zamazenta",
+  "speciesLabel": "자마젠타",
+  "level": 50,
+  "ability": "Dauntless Shield",
+  "abilityLabel": "불굴의방패",
+  "heldItem": "Leftovers",
+  "heldItemLabel": "먹다남은음식",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "steel",
+  "moves": [
+    "Iron Defense",
+    "Body Press",
+    "Crunch",
+    "Substitute"
+  ],
+  "moveLabels": [
+    "철벽",
+    "바디프레스",
+    "깨물어부수기",
+    "대타출동"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 4,
+    "spa": 0,
+    "spd": 0,
+    "spe": 252
+  },
+  "tags": [
+    "랭크업",
+    "물리막이",
+    "에이스"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

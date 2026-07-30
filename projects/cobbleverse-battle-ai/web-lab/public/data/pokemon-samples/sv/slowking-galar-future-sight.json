@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-slowking-galar-future-sight",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "재생력 미래예지 피벗",
+  "species": "Slowking-Galar",
+  "speciesLabel": "야도킹 (가라르)",
+  "level": 50,
+  "ability": "Regenerator",
+  "abilityLabel": "재생력",
+  "heldItem": "Heavy-Duty Boots",
+  "heldItemLabel": "통굽부츠",
+  "nature": "Sassy",
+  "natureLabel": "건방",
+  "tera": "water",
+  "moves": [
+    "Future Sight",
+    "Sludge Bomb",
+    "Chilly Reception",
+    "Thunder Wave"
+  ],
+  "moveLabels": [
+    "미래예지",
+    "오물폭탄",
+    "썰렁개그",
+    "전기자석파"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 0,
+    "spa": 4,
+    "spd": 252,
+    "spe": 0
+  },
+  "tags": [
+    "특수막이",
+    "피벗",
+    "미래 압박"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

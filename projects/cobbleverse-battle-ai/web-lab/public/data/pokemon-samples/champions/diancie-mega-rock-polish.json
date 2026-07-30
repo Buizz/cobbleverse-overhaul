@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-diancie-mega-rock-polish",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가디안시 록커트형",
+  "species": "Diancie",
+  "speciesLabel": "디안시",
+  "level": 50,
+  "ability": "Clear Body",
+  "abilityLabel": "클리어바디",
+  "heldItem": "Diancite",
+  "heldItemLabel": "디안시나이트",
+  "nature": "Naive",
+  "natureLabel": "천진난만",
+  "tera": "",
+  "moves": [
+    "Diamond Storm",
+    "Moonblast",
+    "Earth Power",
+    "Rock Polish"
+  ],
+  "moveLabels": [
+    "다이아스톰",
+    "문포스",
+    "대지의힘",
+    "록커트"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 4,
+    "def": 0,
+    "spa": 252,
+    "spd": 0,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "랭크업",
+    "혼합 에이스"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

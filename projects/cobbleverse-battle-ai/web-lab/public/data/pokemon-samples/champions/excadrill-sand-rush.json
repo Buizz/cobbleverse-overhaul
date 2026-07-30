@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-excadrill-sand-rush",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "모래헤치기 스위퍼",
+  "species": "Excadrill",
+  "speciesLabel": "몰드류",
+  "level": 50,
+  "ability": "Sand Rush",
+  "abilityLabel": "모래헤치기",
+  "heldItem": "Life Orb",
+  "heldItemLabel": "생명의구슬",
+  "nature": "Adamant",
+  "natureLabel": "고집",
+  "tera": "",
+  "moves": [
+    "Earthquake",
+    "Iron Head",
+    "Rock Slide",
+    "Swords Dance"
+  ],
+  "moveLabels": [
+    "지진",
+    "아이언헤드",
+    "스톤샤워",
+    "칼춤"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 4,
+    "spa": 0,
+    "spd": 0,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "날씨",
+    "랭크업",
+    "물리 에이스"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

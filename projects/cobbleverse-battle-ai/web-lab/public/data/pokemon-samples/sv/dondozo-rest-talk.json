@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-dondozo-rest-talk",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "천진 잠자기 막이",
+  "species": "Dondozo",
+  "speciesLabel": "어써러셔",
+  "level": 50,
+  "ability": "Unaware",
+  "abilityLabel": "천진",
+  "heldItem": "Heavy-Duty Boots",
+  "heldItemLabel": "통굽부츠",
+  "nature": "Impish",
+  "natureLabel": "장난꾸러기",
+  "tera": "dragon",
+  "moves": [
+    "Wave Crash",
+    "Body Press",
+    "Rest",
+    "Sleep Talk"
+  ],
+  "moveLabels": [
+    "웨이브태클",
+    "바디프레스",
+    "잠자기",
+    "잠꼬대"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 252,
+    "spa": 0,
+    "spd": 4,
+    "spe": 0
+  },
+  "tags": [
+    "물리막이",
+    "랭크업 억제",
+    "회복"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-rillaboom-choice-band",
+  "source": "pokesample",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "그래스메이커 구애머리띠",
+  "species": "Rillaboom",
+  "speciesLabel": "고릴타",
+  "level": 50,
+  "ability": "Grassy Surge",
+  "abilityLabel": "그래스메이커",
+  "heldItem": "Choice Band",
+  "heldItemLabel": "구애머리띠",
+  "nature": "Adamant",
+  "natureLabel": "고집",
+  "tera": "grass",
+  "moves": [
+    "Grassy Glide",
+    "Wood Hammer",
+    "U-turn",
+    "Knock Off"
+  ],
+  "moveLabels": [
+    "그래스슬라이더",
+    "우드해머",
+    "유턴",
+    "탁쳐서떨구기"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 4,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 0,
+    "spe": 252
+  },
+  "tags": [
+    "필드",
+    "선공기",
+    "피벗"
+  ],
+  "sourceUrl": "https://www.pokesample.com/ko/sample-champions"
+}

@@ -21,6 +21,7 @@ import {
   statusFromCondition,
 } from "../lib/battle-status.mjs";
 import { localizedSpeciesName } from "../lib/species-localization.mjs";
+import { applyPokemonBuildSample } from "../lib/pokemon-build-samples.mjs";
 import {
   deletePersistentBattleSlot,
   getPersistentBattleSlot,
@@ -572,6 +573,7 @@ type InteractiveResponse =
 type CustomPokemon = {
   species: string;
   level: number;
+  nature: string;
   ability: string;
   heldItem: string;
   ivs: Record<string, number>;
@@ -580,6 +582,31 @@ type CustomPokemon = {
   gmax: boolean;
   tera: string;
   moves: string[];
+};
+
+type PokemonBuildSample = {
+  schemaVersion: 1;
+  id: string;
+  source: "pokesample" | "pkmnchamps";
+  format: "sv" | "champions";
+  battleStyle: "single" | "double";
+  title: string;
+  species: string;
+  speciesLabel: string;
+  level: number;
+  ability: string;
+  abilityLabel: string;
+  heldItem: string;
+  heldItemLabel: string;
+  nature: string;
+  natureLabel: string;
+  tera: string;
+  moves: string[];
+  moveLabels: string[];
+  ivs: Record<string, number>;
+  evs: Record<string, number>;
+  tags: string[];
+  sourceUrl: string;
 };
 
 type SavedCustomEntry = {
@@ -626,6 +653,7 @@ type StoredBattleView =
 const emptyPokemon = (): CustomPokemon => ({
   species: "",
   level: 50,
+  nature: "",
   ability: "",
   heldItem: "",
   ivs: Object.fromEntries(pokemonStatKeys.map((key) => [key, 31])),
@@ -661,6 +689,7 @@ function normalizeCustomPokemon(pokemon: Partial<CustomPokemon> = {}) {
   return {
     species: String(pokemon.species ?? ""),
     level: Number.isInteger(level) ? Math.min(100, Math.max(1, level)) : 50,
+    nature: String(pokemon.nature ?? ""),
     ability: String(pokemon.ability ?? ""),
     heldItem: String(pokemon.heldItem ?? ""),
     ivs: normalizeCustomStats(pokemon.ivs, 31, 31),
@@ -711,6 +740,7 @@ function customPokemonFromImportedMember(member: Record<string, unknown>) {
   return normalizeCustomPokemon({
     species: String(member.resolvedSpecies ?? member.species ?? ""),
     level: Number(member.level ?? 50),
+    nature: String(member.nature ?? ""),
     ability: String(member.ability ?? ""),
     heldItem: String(member.heldItem ?? member.item ?? ""),
     ivs: {
@@ -2700,44 +2730,58 @@ function CustomPartySummary({
 }) {
   const memberCount = customPartyMemberCount(party);
   return (
-    <section className="custom-party-summary" aria-label="직접 구성 엔트리 요약">
-      <header>
-        <div>
-          <small>CUSTOM ENTRY</small>
+    <section
+      className="custom-party-summary team-strip"
+      aria-label="직접 구성 엔트리 요약"
+    >
+      <header className="team-entry-heading">
+        <span>
           <strong>{entryName.trim() || "편집 중인 엔트리"}</strong>
-        </div>
-        <span className={memberCount === 6 ? "valid" : ""}>{memberCount}/6</span>
+          <small>{memberCount}마리</small>
+        </span>
+        <span className="team-entry-source">사용자정의</span>
       </header>
-      <div>
-        {party.map((pokemon, index) => (
-          <article
-            className={pokemon.species.trim() ? "filled" : ""}
-            key={`${index}-${pokemon.species}`}
-          >
-            <span>{String(index + 1).padStart(2, "0")}</span>
+      {party.map((pokemon, index) => (
+        <article
+          className={`pokemon-chip custom-party-chip ${
+            pokemon.species.trim() ? "filled" : "empty"
+          }`}
+          key={`${index}-${pokemon.species}`}
+        >
+          <span className="slot-number">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          <div className="pokemon-chip-summary">
             {pokemon.species.trim() ? (
-              <>
-                <PokemonSprite species={pokemon.species} alt="" />
-                <strong>{localizedSpecies(localization, pokemon.species)}</strong>
-                <small>Lv.{pokemon.level}</small>
-              </>
+              <PokemonSprite species={pokemon.species} alt="" />
             ) : (
-              <>
-                <b>+</b>
-                <strong>빈 슬롯</strong>
-              </>
+              <span className="custom-party-empty-sprite">+</span>
             )}
-          </article>
-        ))}
-      </div>
-      <footer>
+            <span>
+              {pokemon.species.trim() ? (
+                <>
+                  <strong>{localizedSpecies(localization, pokemon.species)}</strong>
+                  <span>Lv.{pokemon.level}</span>
+                  <small>사용자정의 프리셋</small>
+                </>
+              ) : (
+                <>
+                  <strong>빈 슬롯</strong>
+                  <small>포켓몬을 추가하세요</small>
+                </>
+              )}
+            </span>
+          </div>
+        </article>
+      ))}
+      <footer className="preset-entry-actions">
         <p>
           {memberCount === 6
-            ? "전투에 사용할 엔트리가 준비되었습니다."
+            ? "선택한 엔트리를 사용자정의 편집기에서 수정합니다."
             : `${6 - memberCount}마리를 더 구성해야 합니다.`}
         </p>
         <button type="button" onClick={onEdit}>
-          엔트리 편집 열기
+          엔트리 편집
         </button>
       </footer>
     </section>
@@ -2757,6 +2801,7 @@ function CustomPartyEditor({
   catalog: BattleCatalog | null;
   onOpenChoice: (target: ChoiceTarget) => void;
 }) {
+  const [sampleLibraryOpen, setSampleLibraryOpen] = useState(false);
   const update = (
     index: number,
     key: keyof Omit<CustomPokemon, "moves">,
@@ -2884,6 +2929,13 @@ function CustomPartyEditor({
           <div className="focused-preview-actions">
             <button
               type="button"
+              className="sample-library-button"
+              onClick={() => setSampleLibraryOpen(true)}
+            >
+              샘플에서 선택
+            </button>
+            <button
+              type="button"
               onClick={() =>
                 onOpenChoice({
                   kind: "pokemon",
@@ -2974,6 +3026,16 @@ function CustomPartyEditor({
                     Math.min(100, Math.max(1, Number(event.target.value))),
                   )
                 }
+              />
+            </label>
+            <label>
+              성격
+              <input
+                value={pokemon.nature}
+                onChange={(event) =>
+                  update(selectedPokemonIndex, "nature", event.target.value)
+                }
+                placeholder="예: Jolly"
               />
             </label>
             <label className="wide">
@@ -3251,6 +3313,255 @@ function CustomPartyEditor({
           </div>
         </section>
       </article>
+      {sampleLibraryOpen ? (
+        <PokemonSampleLibraryDialog
+          currentSpecies={pokemon.species}
+          onApply={(sample) => {
+            onChange(
+              party.map((member, index) =>
+                index === selectedPokemonIndex
+                  ? normalizeCustomPokemon(
+                      applyPokemonBuildSample(member, sample) as Partial<CustomPokemon>,
+                    )
+                  : member,
+              ),
+            );
+            setSampleLibraryOpen(false);
+          }}
+          onClose={() => setSampleLibraryOpen(false)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function PokemonSampleLibraryDialog({
+  currentSpecies,
+  onApply,
+  onClose,
+}: {
+  currentSpecies: string;
+  onApply: (sample: PokemonBuildSample) => void;
+  onClose: () => void;
+}) {
+  const [samples, setSamples] = useState<PokemonBuildSample[]>([]);
+  const [query, setQuery] = useState("");
+  const [format, setFormat] = useState<"all" | "sv" | "champions">("all");
+  const [source, setSource] = useState<"all" | "pokesample" | "pkmnchamps">(
+    "all",
+  );
+  const [sameSpeciesOnly, setSameSpeciesOnly] = useState(Boolean(currentSpecies));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const indexResponse = await fetch("/data/pokemon-samples/index.json");
+        if (!indexResponse.ok) throw new Error("index");
+        const index = (await indexResponse.json()) as { samples?: string[] };
+        const rows = await Promise.all(
+          (index.samples ?? []).map(async (path) => {
+            const response = await fetch(`/data/pokemon-samples/${path}`);
+            if (!response.ok) throw new Error(path);
+            return (await response.json()) as PokemonBuildSample;
+          }),
+        );
+        if (!cancelled) setSamples(rows);
+      } catch {
+        if (!cancelled) {
+          setError("샘플 JSON을 불러오지 못했습니다.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredSamples = samples.filter((sample) => {
+    if (format !== "all" && sample.format !== format) return false;
+    if (source !== "all" && sample.source !== source) return false;
+    if (
+      sameSpeciesOnly &&
+      currentSpecies &&
+      dexId(sample.species) !== dexId(currentSpecies)
+    ) {
+      return false;
+    }
+    if (!normalizedQuery) return true;
+    return [
+      sample.title,
+      sample.species,
+      sample.speciesLabel,
+      sample.ability,
+      sample.abilityLabel,
+      sample.heldItem,
+      sample.heldItemLabel,
+      sample.natureLabel,
+      ...sample.moves,
+      ...sample.moveLabels,
+      ...sample.tags,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedQuery);
+  });
+
+  return (
+    <div className="choice-backdrop" role="presentation">
+      <section
+        className="pokemon-sample-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="포켓몬 샘플 라이브러리"
+      >
+        <header className="choice-dialog-head">
+          <div>
+            <p className="eyebrow">BUILD SAMPLE LIBRARY</p>
+            <h2>포켓몬 샘플에서 구성</h2>
+            <small>
+              검증된 샘플의 특성, 도구, 성격, 능력치와 기술을 슬롯에 한 번에
+              적용합니다.
+            </small>
+          </div>
+          <button type="button" onClick={onClose}>
+            닫기
+          </button>
+        </header>
+
+        <div className="pokemon-sample-filters">
+          <label className="sample-search">
+            <span>샘플 검색</span>
+            <input
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="포켓몬, 역할, 기술, 도구 검색"
+            />
+          </label>
+          <label>
+            <span>규칙</span>
+            <select
+              value={format}
+              onChange={(event) =>
+                setFormat(event.target.value as typeof format)
+              }
+            >
+              <option value="all">전체 샘플</option>
+              <option value="sv">SV 샘플</option>
+              <option value="champions">포챔스 샘플</option>
+            </select>
+          </label>
+          <label>
+            <span>출처</span>
+            <select
+              value={source}
+              onChange={(event) =>
+                setSource(event.target.value as typeof source)
+              }
+            >
+              <option value="all">모든 출처</option>
+              <option value="pokesample">포케샘플</option>
+              <option value="pkmnchamps">PkmnChamps 추천순</option>
+            </select>
+          </label>
+          {currentSpecies ? (
+            <label className="same-species-toggle">
+              <input
+                type="checkbox"
+                checked={sameSpeciesOnly}
+                onChange={(event) => setSameSpeciesOnly(event.target.checked)}
+              />
+              <span>현재 포켓몬 샘플만</span>
+            </label>
+          ) : null}
+        </div>
+
+        <div className="pokemon-sample-summary">
+          <strong>{filteredSamples.length}개 샘플</strong>
+          <span>
+            포챔스 수치는 현재 엔진의 510 EV 체계로 정규화되어 적용됩니다.
+          </span>
+        </div>
+
+        <div className="pokemon-sample-grid">
+          {loading ? <p className="sample-state">샘플을 불러오는 중입니다.</p> : null}
+          {error ? <p className="sample-state error">{error}</p> : null}
+          {!loading && !error && filteredSamples.length === 0 ? (
+            <p className="sample-state">
+              조건에 맞는 샘플이 없습니다. 현재 포켓몬 필터를 해제하거나 검색어를
+              바꿔 보세요.
+            </p>
+          ) : null}
+          {filteredSamples.map((sample) => (
+            <article className="pokemon-sample-card" key={sample.id}>
+              <header>
+                <PokemonSprite species={sample.species} alt="" />
+                <div>
+                  <span>
+                    {sample.format === "sv" ? "SV" : "포챔스"} ·{" "}
+                    {sample.source === "pokesample"
+                      ? "포케샘플"
+                      : "PkmnChamps 추천"}
+                  </span>
+                  <h3>{sample.speciesLabel}</h3>
+                  <p>{sample.title}</p>
+                </div>
+              </header>
+              <dl>
+                <div>
+                  <dt>특성</dt>
+                  <dd>{sample.abilityLabel}</dd>
+                </div>
+                <div>
+                  <dt>도구</dt>
+                  <dd>{sample.heldItemLabel || "없음"}</dd>
+                </div>
+                <div>
+                  <dt>성격</dt>
+                  <dd>{sample.natureLabel || "무보정"}</dd>
+                </div>
+                <div>
+                  <dt>테라</dt>
+                  <dd>
+                    {sample.tera
+                      ? pokemonTypeNames[
+                          `${sample.tera[0]?.toUpperCase()}${sample.tera.slice(1)}`
+                        ] ?? sample.tera
+                      : "지정 없음"}
+                  </dd>
+                </div>
+              </dl>
+              <div className="pokemon-sample-moves">
+                {sample.moveLabels.map((move, index) => (
+                  <span key={`${sample.id}-${index}`}>{move}</span>
+                ))}
+              </div>
+              <div className="pokemon-sample-evs">
+                {pokemonStatKeys
+                  .filter((stat) => (sample.evs[stat] ?? 0) > 0)
+                  .map((stat) => (
+                    <span key={stat}>
+                      {pokemonStatNames[stat]} {sample.evs[stat]}
+                    </span>
+                  ))}
+              </div>
+              <footer>
+                <span>{sample.tags.slice(0, 3).join(" · ")}</span>
+                <button type="button" onClick={() => onApply(sample)}>
+                  이 샘플 적용
+                </button>
+              </footer>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
@@ -5623,10 +5934,15 @@ export function BattleLab() {
   const [customEntries, setCustomEntries] = useState<SavedCustomEntry[]>([]);
   const [customEntryName, setCustomEntryName] = useState("");
   const [selectedCustomEntryId, setSelectedCustomEntryId] = useState("");
+  const [entryEditorTarget, setEntryEditorTarget] =
+    useState<"player" | "opponent">("player");
+  const [opponentPartySource, setOpponentPartySource] =
+    useState<PartySource>("preset");
+  const [opponentCustomParty, setOpponentCustomParty] = useState(initialParty);
+  const [opponentCustomEntryName, setOpponentCustomEntryName] = useState("");
+  const [opponentCustomEntryId, setOpponentCustomEntryId] = useState("");
   const [playerPreset, setPlayerPreset] = useState("");
   const [opponentPreset, setOpponentPreset] = useState("");
-  const [eveLeft, setEveLeft] = useState("");
-  const [eveRight, setEveRight] = useState("");
   const [notice, setNotice] = useState("");
   const [seed, setSeed] = useState(20260724);
   const [levelMode, setLevelMode] = useState<LevelMode>("original");
@@ -5804,38 +6120,66 @@ export function BattleLab() {
           }
           setPartySource(stored.scenario.sides[0]?.source ?? "custom");
           if (stored.scenario.mode === "pve") {
-            setPlayerPreset(stored.scenario.sides[0]?.trainerId ?? "");
-            setOpponentPreset(stored.scenario.sides[1]?.trainerId ?? "");
-            if (stored.scenario.sides[0]?.source === "custom") {
-              const restoredTeam = stored.scenario.sides[0].team.map(
-                (pokemon) => ({
-                  species: pokemon.species,
-                  level: pokemon.level,
-                  ability: pokemon.ability ?? "",
-                  heldItem: pokemon.heldItem ?? "",
-                  ivs: normalizeCustomStats(pokemon.ivs, 31, 31),
-                  evs: normalizeCustomStats(pokemon.evs, 0, 252),
-                  dynamax:
-                    pokemon.gimmicks?.dynamax === true ||
-                    pokemon.gimmicks?.gmax === true,
-                  gmax: pokemon.gimmicks?.gmax === true,
-                  tera: pokemon.gimmicks?.tera ?? "",
-                  moves: [...pokemon.moveset, "", "", "", ""].slice(0, 4),
-                }),
-              );
+            const playerSide = stored.scenario.sides[0];
+            const opponentSide = stored.scenario.sides[1];
+            setPlayerPreset(playerSide?.trainerId ?? "");
+            setOpponentPartySource(opponentSide?.source ?? "preset");
+            setOpponentPreset(opponentSide?.trainerId ?? "");
+            if (playerSide?.source === "custom") {
               setCustomParty(
-                [
-                  ...restoredTeam,
-                  ...Array.from(
-                    { length: Math.max(0, 6 - restoredTeam.length) },
-                    emptyPokemon,
+                normalizeCustomParty(
+                  playerSide.team.map((member) =>
+                    customPokemonFromImportedMember(
+                      member as unknown as Record<string, unknown>,
+                    ),
                   ),
-                ].slice(0, 6),
+                ),
               );
+              setCustomEntryName(playerSide.name ?? "");
+            }
+            if (opponentSide?.source === "custom") {
+              setOpponentCustomParty(
+                normalizeCustomParty(
+                  opponentSide.team.map((member) =>
+                    customPokemonFromImportedMember(
+                      member as unknown as Record<string, unknown>,
+                    ),
+                  ),
+                ),
+              );
+              setOpponentCustomEntryName(opponentSide.name ?? "");
             }
           } else {
-            setEveLeft(stored.scenario.sides[0]?.trainerId ?? "");
-            setEveRight(stored.scenario.sides[1]?.trainerId ?? "");
+            const leftSide = stored.scenario.sides[0];
+            const rightSide = stored.scenario.sides[1];
+            setPartySource(leftSide?.source ?? "preset");
+            setOpponentPartySource(rightSide?.source ?? "preset");
+            setPlayerPreset(leftSide?.trainerId ?? "");
+            setOpponentPreset(rightSide?.trainerId ?? "");
+            if (leftSide?.source === "custom") {
+              setCustomParty(
+                normalizeCustomParty(
+                  leftSide.team.map((member) =>
+                    customPokemonFromImportedMember(
+                      member as unknown as Record<string, unknown>,
+                    ),
+                  ),
+                ),
+              );
+              setCustomEntryName(leftSide.name ?? "");
+            }
+            if (rightSide?.source === "custom") {
+              setOpponentCustomParty(
+                normalizeCustomParty(
+                  rightSide.team.map((member) =>
+                    customPokemonFromImportedMember(
+                      member as unknown as Record<string, unknown>,
+                    ),
+                  ),
+                ),
+              );
+              setOpponentCustomEntryName(rightSide.name ?? "");
+            }
           }
           setScenario(stored.scenario);
           if (stored.kind === "automatic") {
@@ -5968,8 +6312,8 @@ export function BattleLab() {
   };
   const playerTrainer = withPartyOrder(trainerById.get(playerPreset));
   const opponentTrainer = withPartyOrder(trainerById.get(opponentPreset));
-  const leftTrainer = withPartyOrder(trainerById.get(eveLeft));
-  const rightTrainer = withPartyOrder(trainerById.get(eveRight));
+  const leftTrainer = playerTrainer;
+  const rightTrainer = opponentTrainer;
   const requiredMemberCount =
     battleType === "triple" ? 3 : battleType === "double" ? 2 : 1;
   const formatSupported =
@@ -5986,18 +6330,41 @@ export function BattleLab() {
           pokemon.level <= 100 &&
           pokemon.moves.some((move) => move.trim()),
       );
+  const opponentCustomMemberCount = opponentCustomParty.filter((pokemon) =>
+    pokemon.species.trim(),
+  ).length;
+  const opponentCustomPartyReady =
+    opponentCustomMemberCount >= requiredMemberCount &&
+    opponentCustomParty
+      .filter((pokemon) => pokemon.species.trim())
+      .every(
+        (pokemon) =>
+          Number.isInteger(pokemon.level) &&
+          pokemon.level >= 1 &&
+          pokemon.level <= 100 &&
+          pokemon.moves.some((move) => move.trim()),
+      );
   const pveReady =
     formatSupported &&
-    Boolean(opponentTrainer) &&
-    (opponentTrainer?.team.length ?? 0) >= requiredMemberCount &&
     (partySource === "preset"
       ? (playerTrainer?.team.length ?? 0) >= requiredMemberCount
-      : customPartyReady);
+      : customPartyReady) &&
+    (opponentPartySource === "preset"
+      ? (opponentTrainer?.team.length ?? 0) >= requiredMemberCount
+      : opponentCustomPartyReady);
   const eveReady =
     formatSupported &&
-    Boolean(leftTrainer && rightTrainer && eveLeft !== eveRight) &&
-    (leftTrainer?.team.length ?? 0) >= requiredMemberCount &&
-    (rightTrainer?.team.length ?? 0) >= requiredMemberCount;
+    (partySource === "preset"
+      ? (leftTrainer?.team.length ?? 0) >= requiredMemberCount
+      : customPartyReady) &&
+    (opponentPartySource === "preset"
+      ? (rightTrainer?.team.length ?? 0) >= requiredMemberCount
+      : opponentCustomPartyReady) &&
+    !(
+      partySource === "preset" &&
+      opponentPartySource === "preset" &&
+      playerPreset === opponentPreset
+    );
 
   const rememberTrainer = (trainerId: string) => {
     if (!trainerId) return;
@@ -6068,8 +6435,19 @@ export function BattleLab() {
   };
 
   const updateCustomParty = (party: CustomPokemon[]) => {
-    setCustomParty(normalizeCustomParty(party));
+    const normalizedParty = normalizeCustomParty(party);
+    setCustomParty(normalizedParty);
+    if (entryEditorTarget === "opponent") {
+      setOpponentCustomParty(normalizedParty);
+    }
     invalidatePreparedBattle();
+  };
+
+  const updateCustomEntryName = (name: string) => {
+    setCustomEntryName(name);
+    if (entryEditorTarget === "opponent") {
+      setOpponentCustomEntryName(name);
+    }
   };
 
   const persistCustomEntries = (entries: SavedCustomEntry[]) => {
@@ -6109,7 +6487,16 @@ export function BattleLab() {
     });
     setSelectedCustomEntryId(id);
     setCustomEntryName(name);
+    if (entryEditorTarget === "opponent") {
+      setOpponentPartySource("custom");
+      setOpponentCustomEntryId(id);
+      setOpponentCustomEntryName(name);
+      setOpponentCustomParty(normalizedParty);
+    } else {
+      setPartySource("custom");
+    }
     setNotice(`${name} 저장 완료 · ${memberCount}마리`);
+    setLabView("setup");
   };
 
   const loadCustomEntry = (entryId: string) => {
@@ -6123,10 +6510,56 @@ export function BattleLab() {
     setNotice(`${entry.name} 엔트리를 불러왔습니다.`);
   };
 
+  const loadOpponentCustomEntry = (entryId: string) => {
+    setOpponentCustomEntryId(entryId);
+    const entry = customEntries.find((candidate) => candidate.id === entryId);
+    if (!entry) return;
+    setOpponentPartySource("custom");
+    setOpponentCustomParty(normalizeCustomParty(entry.party));
+    setOpponentCustomEntryName(entry.name);
+    invalidatePreparedBattle();
+    setNotice(`${entry.name} 엔트리를 AI 상대로 불러왔습니다.`);
+  };
+
+  const openCustomEntryEditor = (
+    entryId: string,
+    target: "player" | "opponent",
+  ) => {
+    const entry = customEntries.find((candidate) => candidate.id === entryId);
+    if (!entry) return;
+    const party = normalizeCustomParty(entry.party);
+    setEntryEditorTarget(target);
+    setSelectedCustomEntryId(entry.id);
+    setCustomEntryName(entry.name);
+    setCustomParty(party);
+    if (target === "opponent") {
+      setOpponentPartySource("custom");
+      setOpponentCustomEntryId(entry.id);
+      setOpponentCustomEntryName(entry.name);
+      setOpponentCustomParty(party);
+    } else {
+      setPartySource("custom");
+    }
+    invalidatePreparedBattle();
+    setLabView("editor");
+  };
+
   const createNewCustomEntry = () => {
+    const party = initialParty.map((pokemon) => ({
+      ...pokemon,
+      moves: [...pokemon.moves],
+    }));
     setSelectedCustomEntryId("");
     setCustomEntryName("");
-    setCustomParty(initialParty.map((pokemon) => ({ ...pokemon, moves: [...pokemon.moves] })));
+    setCustomParty(party);
+    if (entryEditorTarget === "opponent") {
+      setOpponentPartySource("custom");
+      setOpponentCustomEntryId("");
+      setOpponentCustomEntryName("");
+      setOpponentCustomParty(party);
+    } else {
+      setPartySource("custom");
+    }
     invalidatePreparedBattle();
     setNotice("새 직접 구성 엔트리를 편집할 수 있습니다.");
   };
@@ -6143,16 +6576,33 @@ export function BattleLab() {
       setSelectedCustomEntryId("");
       setCustomEntryName("");
     }
+    if (opponentCustomEntryId === entryId) {
+      setOpponentCustomEntryId("");
+      setOpponentCustomEntryName("");
+    }
     setNotice(`${entry.name} 엔트리를 삭제했습니다.`);
   };
 
-  const copyTrainerToCustomParty = (trainerId: string) => {
+  const copyTrainerToCustomParty = (
+    trainerId: string,
+    target: "player" | "opponent" = entryEditorTarget,
+  ) => {
     const trainer = trainerById.get(trainerId);
     if (!trainer) return;
-    setPartySource("custom");
+    const party = customPartyFromTrainer(trainer);
+    const name = `${trainer.name} 복사본`;
+    setEntryEditorTarget(target);
     setSelectedCustomEntryId("");
-    setCustomEntryName(`${trainer.name} 복사본`);
-    setCustomParty(customPartyFromTrainer(trainer));
+    setCustomEntryName(name);
+    setCustomParty(party);
+    if (target === "opponent") {
+      setOpponentPartySource("custom");
+      setOpponentCustomEntryId("");
+      setOpponentCustomEntryName(name);
+      setOpponentCustomParty(party);
+    } else {
+      setPartySource("custom");
+    }
     invalidatePreparedBattle();
     setNotice(`${trainer.name} 구성을 직접 편집 화면으로 가져왔습니다.`);
   };
@@ -6214,10 +6664,17 @@ export function BattleLab() {
       persistCustomEntries(next);
       return next;
     });
-    setPartySource("custom");
     setCustomParty(imported[0].party);
     setCustomEntryName(imported[0].name);
     setSelectedCustomEntryId(imported[0].id);
+    if (entryEditorTarget === "opponent") {
+      setOpponentPartySource("custom");
+      setOpponentCustomParty(imported[0].party);
+      setOpponentCustomEntryName(imported[0].name);
+      setOpponentCustomEntryId(imported[0].id);
+    } else {
+      setPartySource("custom");
+    }
     invalidatePreparedBattle();
     setNotice(
       `${imported.length}개 엔트리를 폴더 그룹과 함께 가져왔습니다.${
@@ -6264,12 +6721,15 @@ export function BattleLab() {
       return null;
     }
 
-    const customSide = {
-      source: "custom",
-      name: "Player",
-      team: customParty.map((pokemon) => ({
+    const customSide = (name: string, party: CustomPokemon[]) => ({
+      source: "custom" as const,
+      name,
+      team: party
+        .filter((pokemon) => pokemon.species.trim())
+        .map((pokemon) => ({
         species: pokemon.species,
         level: pokemon.level,
+        nature: pokemon.nature || null,
         ability: pokemon.ability,
         heldItem: pokemon.heldItem,
         ivs: pokemon.ivs,
@@ -6281,7 +6741,7 @@ export function BattleLab() {
         },
         moves: pokemon.moves,
       })),
-    };
+    });
     const requestBody =
       mode === "pve"
         ? {
@@ -6314,14 +6774,19 @@ export function BattleLab() {
                       (pokemon, index) => trainerMemberSlot(pokemon, index),
                     ),
                   }
-                : customSide,
-              {
-                source: "preset",
-                trainerId: opponentPreset,
-                teamOrder: opponentTrainer?.team.map(
-                  (pokemon, index) => trainerMemberSlot(pokemon, index),
-                ),
-              },
+                : customSide(customEntryName || "Player", customParty),
+              opponentPartySource === "preset"
+                ? {
+                    source: "preset",
+                    trainerId: opponentPreset,
+                    teamOrder: opponentTrainer?.team.map(
+                      (pokemon, index) => trainerMemberSlot(pokemon, index),
+                    ),
+                  }
+                : customSide(
+                    opponentCustomEntryName || "AI Opponent",
+                    opponentCustomParty,
+                  ),
             ],
           }
         : {
@@ -6334,20 +6799,27 @@ export function BattleLab() {
             aiDifficulty: eveAiProfiles[0].difficulty,
             aiProfiles: eveAiProfiles,
             sides: [
-              {
-                source: "preset",
-                trainerId: eveLeft,
-                teamOrder: leftTrainer?.team.map((pokemon, index) =>
-                  trainerMemberSlot(pokemon, index),
-                ),
-              },
-              {
-                source: "preset",
-                trainerId: eveRight,
-                teamOrder: rightTrainer?.team.map((pokemon, index) =>
-                  trainerMemberSlot(pokemon, index),
-                ),
-              },
+              partySource === "preset"
+                ? {
+                    source: "preset",
+                    trainerId: playerPreset,
+                    teamOrder: leftTrainer?.team.map((pokemon, index) =>
+                      trainerMemberSlot(pokemon, index),
+                    ),
+                  }
+                : customSide(customEntryName || "Engine A", customParty),
+              opponentPartySource === "preset"
+                ? {
+                    source: "preset",
+                    trainerId: opponentPreset,
+                    teamOrder: rightTrainer?.team.map((pokemon, index) =>
+                      trainerMemberSlot(pokemon, index),
+                    ),
+                  }
+                : customSide(
+                    opponentCustomEntryName || "Engine B",
+                    opponentCustomParty,
+                  ),
             ],
           };
 
@@ -6689,7 +7161,20 @@ export function BattleLab() {
       );
       const playerSide = restoredScenario.sides[0];
       const opponentSide = restoredScenario.sides[1];
+      setOpponentPartySource(opponentSide?.source ?? "preset");
       setOpponentPreset(opponentSide?.trainerId ?? "");
+      if (opponentSide?.source === "custom") {
+        setOpponentCustomParty(
+          normalizeCustomParty(
+            opponentSide.team.map((member) =>
+              customPokemonFromImportedMember(
+                member as unknown as Record<string, unknown>,
+              ),
+            ),
+          ),
+        );
+        setOpponentCustomEntryName(opponentSide.name ?? "");
+      }
       if (playerSide?.source === "custom") {
         setPartySource("custom");
         setCustomParty(
@@ -6835,13 +7320,6 @@ export function BattleLab() {
             onClick={() => setLabView("setup")}
           >
             배틀 준비
-          </button>
-          <button
-            className={labView === "editor" ? "active" : ""}
-            type="button"
-            onClick={() => setLabView("editor")}
-          >
-            엔트리 편집
           </button>
           <a href="/eve-report">EvE 리포트</a>
         </nav>
@@ -7018,7 +7496,11 @@ export function BattleLab() {
           <header className="entry-editor-heading">
             <div>
               <p className="eyebrow">ENTRY BUILDER</p>
-              <h1>엔트리 편집</h1>
+              <h1>
+                {entryEditorTarget === "opponent"
+                  ? "컴퓨터 파티 엔트리 편집"
+                  : "플레이어 파티 엔트리 편집"}
+              </h1>
               <p>포켓몬, 특성, 도구, 능력치와 기술 구성을 관리합니다.</p>
             </div>
             <div>
@@ -7037,8 +7519,10 @@ export function BattleLab() {
             entryName={customEntryName}
             party={customParty}
             localization={localization}
-            onNameChange={setCustomEntryName}
-            onSelect={loadCustomEntry}
+            onNameChange={updateCustomEntryName}
+            onSelect={(entryId) =>
+              openCustomEntryEditor(entryId, entryEditorTarget)
+            }
             onSave={saveCustomEntry}
             onNew={createNewCustomEntry}
             onDelete={deleteCustomEntry}
@@ -7151,7 +7635,10 @@ export function BattleLab() {
         </section>
       ) : null}
 
-      <section className="ai-config-panel" aria-labelledby="ai-config-heading">
+      <section
+        className={`ai-config-panel${mode === "pve" && aiDifficulty === "cheater" ? " has-cheater-probability" : ""}`}
+        aria-labelledby="ai-config-heading"
+      >
         <div>
           <p className="eyebrow">BATTLE RULES</p>
           <h2 id="ai-config-heading">전투 규칙</h2>
@@ -7338,20 +7825,6 @@ export function BattleLab() {
               <p className="eyebrow">PLAYER VS ENVIRONMENT</p>
               <h2 id="pve-heading">PvE 매치 구성</h2>
             </div>
-            <div className="source-toggle" aria-label="플레이어 파티 입력 방식">
-              <button
-                className={partySource === "custom" ? "active" : ""}
-                onClick={() => setPartySource("custom")}
-              >
-                새로 만들기
-              </button>
-              <button
-                className={partySource === "preset" ? "active" : ""}
-                onClick={() => setPartySource("preset")}
-              >
-                프리셋 불러오기
-              </button>
-            </div>
           </div>
 
           <div className="match-column">
@@ -7360,22 +7833,57 @@ export function BattleLab() {
                 <span>A</span>
                 <div>
                   <small>PLAYER SIDE</small>
-                  <h3>{partySource === "custom" ? "내 엔트리 만들기" : "내 엔트리 불러오기"}</h3>
+                  <h3>
+                    {partySource === "custom"
+                      ? "사용자정의 프리셋"
+                      : "내 엔트리 불러오기"}
+                  </h3>
                 </div>
+              </div>
+              <div className="source-toggle" aria-label="플레이어 파티 입력 방식">
+                <button
+                  className={partySource === "custom" ? "active" : ""}
+                  onClick={() => {
+                    setPartySource("custom");
+                    invalidatePreparedBattle();
+                  }}
+                >
+                  사용자정의 프리셋
+                </button>
+                <button
+                  className={partySource === "preset" ? "active" : ""}
+                  onClick={() => {
+                    setPartySource("preset");
+                    invalidatePreparedBattle();
+                  }}
+                >
+                  프리셋 불러오기
+                </button>
               </div>
               {partySource === "custom" ? (
                 <>
-                  <div className="party-progress">
-                    <span>{customMemberCount}/6 슬롯 사용</span>
-                    <div>
-                      <i style={{ width: `${(customMemberCount / 6) * 100}%` }} />
-                    </div>
-                  </div>
+                  <label className="custom-preset-picker">
+                    <span className="field-label">저장된 사용자정의 프리셋</span>
+                    <select
+                      value={selectedCustomEntryId}
+                      onChange={(event) => loadCustomEntry(event.target.value)}
+                    >
+                      <option value="">사용자정의 프리셋 선택</option>
+                      {customEntries.map((entry) => (
+                        <option key={entry.id} value={entry.id}>
+                          {entry.name} · {customPartyMemberCount(entry.party)}마리
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <CustomPartySummary
                     party={customParty}
                     localization={localization}
                     entryName={customEntryName}
-                    onEdit={() => setLabView("editor")}
+                    onEdit={() => {
+                      setEntryEditorTarget("player");
+                      setLabView("editor");
+                    }}
                   />
                 </>
               ) : (
@@ -7400,6 +7908,22 @@ export function BattleLab() {
                       moveTrainerMember(playerTrainer, fromIndex, toIndex)
                     }
                   />
+                  <div className="preset-entry-actions">
+                    <p>
+                      선택한 프리셋을 사용자정의 복사본으로 가져와 수정합니다.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={!playerTrainer}
+                      onClick={() => {
+                        if (!playerTrainer) return;
+                        copyTrainerToCustomParty(playerTrainer.id, "player");
+                        setLabView("editor");
+                      }}
+                    >
+                      엔트리 편집
+                    </button>
+                  </div>
                 </>
               )}
             </article>
@@ -7415,29 +7939,104 @@ export function BattleLab() {
                 <span>B</span>
                 <div>
                   <small>AI OPPONENT</small>
-                  <h3>상대 트레이너 선택</h3>
+                  <h3>
+                    {opponentPartySource === "custom"
+                      ? "사용자정의 프리셋"
+                      : "상대 엔트리 불러오기"}
+                  </h3>
                 </div>
               </div>
-              <TrainerPicker
-                label="상대 트레이너 JSON"
-                trainers={sortedTrainers}
-                value={opponentPreset}
-                onChange={(trainerId) =>
-                  selectTrainer(setOpponentPreset, trainerId)
-                }
-                localization={localization}
-                recentIds={recentTrainerIds}
-                minimumTeamSize={requiredMemberCount}
-                selectedTrainer={opponentTrainer}
-              />
-              <TeamStrip
-                trainer={opponentTrainer}
-                emptyText="상대 트레이너를 선택하면 최대 6마리의 파티가 표시됩니다."
-                localization={localization}
-                onMove={(fromIndex, toIndex) =>
-                  moveTrainerMember(opponentTrainer, fromIndex, toIndex)
-                }
-              />
+              <div className="source-toggle" aria-label="컴퓨터 파티 입력 방식">
+                <button
+                  className={opponentPartySource === "custom" ? "active" : ""}
+                  onClick={() => {
+                    setOpponentPartySource("custom");
+                    invalidatePreparedBattle();
+                  }}
+                >
+                  사용자정의 프리셋
+                </button>
+                <button
+                  className={opponentPartySource === "preset" ? "active" : ""}
+                  onClick={() => {
+                    setOpponentPartySource("preset");
+                    invalidatePreparedBattle();
+                  }}
+                >
+                  프리셋 불러오기
+                </button>
+              </div>
+              {opponentPartySource === "custom" ? (
+                <>
+                  <label className="custom-preset-picker">
+                    <span className="field-label">저장된 사용자정의 프리셋</span>
+                    <select
+                      value={opponentCustomEntryId}
+                      onChange={(event) =>
+                        loadOpponentCustomEntry(event.target.value)
+                      }
+                    >
+                      <option value="">사용자정의 프리셋 선택</option>
+                      {customEntries.map((entry) => (
+                        <option key={entry.id} value={entry.id}>
+                          {entry.name} · {customPartyMemberCount(entry.party)}마리
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <CustomPartySummary
+                    party={opponentCustomParty}
+                    localization={localization}
+                    entryName={opponentCustomEntryName}
+                    onEdit={() => {
+                      setEntryEditorTarget("opponent");
+                      setSelectedCustomEntryId(opponentCustomEntryId);
+                      setCustomEntryName(opponentCustomEntryName);
+                      setCustomParty(opponentCustomParty);
+                      setLabView("editor");
+                    }}
+                  />
+                </>
+              ) : (
+                <>
+                  <TrainerPicker
+                    label="상대 트레이너 JSON"
+                    trainers={sortedTrainers}
+                    value={opponentPreset}
+                    onChange={(trainerId) =>
+                      selectTrainer(setOpponentPreset, trainerId)
+                    }
+                    localization={localization}
+                    recentIds={recentTrainerIds}
+                    minimumTeamSize={requiredMemberCount}
+                    selectedTrainer={opponentTrainer}
+                  />
+                  <TeamStrip
+                    trainer={opponentTrainer}
+                    emptyText="상대 트레이너를 선택하면 최대 6마리의 파티가 표시됩니다."
+                    localization={localization}
+                    onMove={(fromIndex, toIndex) =>
+                      moveTrainerMember(opponentTrainer, fromIndex, toIndex)
+                    }
+                  />
+                  <div className="preset-entry-actions">
+                    <p>
+                      선택한 프리셋을 사용자정의 복사본으로 가져와 수정합니다.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={!opponentTrainer}
+                      onClick={() => {
+                        if (!opponentTrainer) return;
+                        copyTrainerToCustomParty(opponentTrainer.id, "opponent");
+                        setLabView("editor");
+                      }}
+                    >
+                      엔트리 편집
+                    </button>
+                  </div>
+                </>
+              )}
             </article>
           </div>
         </section>
@@ -7456,18 +8055,15 @@ export function BattleLab() {
             <article className="side-panel">
               <div className="panel-title">
                 <span>A</span>
-                <div><small>ENGINE A</small><h3>첫 번째 AI</h3></div>
+                <div>
+                  <small>ENGINE A</small>
+                  <h3>
+                    {partySource === "custom"
+                      ? "사용자정의 프리셋"
+                      : "첫 번째 AI"}
+                  </h3>
+                </div>
               </div>
-              <TrainerPicker
-                label="엔진 A 트레이너"
-                trainers={sortedTrainers}
-                value={eveLeft}
-                onChange={(trainerId) => selectTrainer(setEveLeft, trainerId)}
-                localization={localization}
-                recentIds={recentTrainerIds}
-                minimumTeamSize={requiredMemberCount}
-                selectedTrainer={leftTrainer}
-              />
               <AiProfileControls
                 side="A"
                 profile={eveAiProfiles[0]}
@@ -7487,30 +8083,89 @@ export function BattleLab() {
                   setBattle(null);
                 }}
               />
-              <TeamStrip
-                trainer={leftTrainer}
-                emptyText="첫 번째 AI 파티를 선택하세요."
-                localization={localization}
-                onMove={(fromIndex, toIndex) =>
-                  moveTrainerMember(leftTrainer, fromIndex, toIndex)
-                }
-              />
+              <div className="source-toggle" aria-label="엔진 A 파티 입력 방식">
+                <button
+                  className={partySource === "custom" ? "active" : ""}
+                  onClick={() => {
+                    setPartySource("custom");
+                    invalidatePreparedBattle();
+                  }}
+                >
+                  사용자정의 프리셋
+                </button>
+                <button
+                  className={partySource === "preset" ? "active" : ""}
+                  onClick={() => {
+                    setPartySource("preset");
+                    invalidatePreparedBattle();
+                  }}
+                >
+                  프리셋 불러오기
+                </button>
+              </div>
+              {partySource === "custom" ? (
+                <>
+                  <label className="custom-preset-picker">
+                    <span className="field-label">저장된 사용자정의 프리셋</span>
+                    <select
+                      value={selectedCustomEntryId}
+                      onChange={(event) => loadCustomEntry(event.target.value)}
+                    >
+                      <option value="">사용자정의 프리셋 선택</option>
+                      {customEntries.map((entry) => (
+                        <option key={entry.id} value={entry.id}>
+                          {entry.name} · {customPartyMemberCount(entry.party)}마리
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <CustomPartySummary
+                    party={customParty}
+                    localization={localization}
+                    entryName={customEntryName}
+                    onEdit={() => {
+                      setEntryEditorTarget("player");
+                      setLabView("editor");
+                    }}
+                  />
+                </>
+              ) : (
+                <>
+                  <TrainerPicker
+                    label="엔진 A 트레이너"
+                    trainers={sortedTrainers}
+                    value={playerPreset}
+                    onChange={(trainerId) =>
+                      selectTrainer(setPlayerPreset, trainerId)
+                    }
+                    localization={localization}
+                    recentIds={recentTrainerIds}
+                    minimumTeamSize={requiredMemberCount}
+                    selectedTrainer={leftTrainer}
+                  />
+                  <TeamStrip
+                    trainer={leftTrainer}
+                    emptyText="첫 번째 AI 파티를 선택하세요."
+                    localization={localization}
+                    onMove={(fromIndex, toIndex) =>
+                      moveTrainerMember(leftTrainer, fromIndex, toIndex)
+                    }
+                  />
+                </>
+              )}
             </article>
             <article className="side-panel">
               <div className="panel-title">
                 <span>B</span>
-                <div><small>ENGINE B</small><h3>두 번째 AI</h3></div>
+                <div>
+                  <small>ENGINE B</small>
+                  <h3>
+                    {opponentPartySource === "custom"
+                      ? "사용자정의 프리셋"
+                      : "두 번째 AI"}
+                  </h3>
+                </div>
               </div>
-              <TrainerPicker
-                label="엔진 B 트레이너"
-                trainers={sortedTrainers}
-                value={eveRight}
-                onChange={(trainerId) => selectTrainer(setEveRight, trainerId)}
-                localization={localization}
-                recentIds={recentTrainerIds}
-                minimumTeamSize={requiredMemberCount}
-                selectedTrainer={rightTrainer}
-              />
               <AiProfileControls
                 side="B"
                 profile={eveAiProfiles[1]}
@@ -7530,14 +8185,81 @@ export function BattleLab() {
                   setBattle(null);
                 }}
               />
-              <TeamStrip
-                trainer={rightTrainer}
-                emptyText="두 번째 AI 파티를 선택하세요."
-                localization={localization}
-                onMove={(fromIndex, toIndex) =>
-                  moveTrainerMember(rightTrainer, fromIndex, toIndex)
-                }
-              />
+              <div className="source-toggle" aria-label="엔진 B 파티 입력 방식">
+                <button
+                  className={opponentPartySource === "custom" ? "active" : ""}
+                  onClick={() => {
+                    setOpponentPartySource("custom");
+                    invalidatePreparedBattle();
+                  }}
+                >
+                  사용자정의 프리셋
+                </button>
+                <button
+                  className={opponentPartySource === "preset" ? "active" : ""}
+                  onClick={() => {
+                    setOpponentPartySource("preset");
+                    invalidatePreparedBattle();
+                  }}
+                >
+                  프리셋 불러오기
+                </button>
+              </div>
+              {opponentPartySource === "custom" ? (
+                <>
+                  <label className="custom-preset-picker">
+                    <span className="field-label">저장된 사용자정의 프리셋</span>
+                    <select
+                      value={opponentCustomEntryId}
+                      onChange={(event) =>
+                        loadOpponentCustomEntry(event.target.value)
+                      }
+                    >
+                      <option value="">사용자정의 프리셋 선택</option>
+                      {customEntries.map((entry) => (
+                        <option key={entry.id} value={entry.id}>
+                          {entry.name} · {customPartyMemberCount(entry.party)}마리
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <CustomPartySummary
+                    party={opponentCustomParty}
+                    localization={localization}
+                    entryName={opponentCustomEntryName}
+                    onEdit={() => {
+                      setEntryEditorTarget("opponent");
+                      setSelectedCustomEntryId(opponentCustomEntryId);
+                      setCustomEntryName(opponentCustomEntryName);
+                      setCustomParty(opponentCustomParty);
+                      setLabView("editor");
+                    }}
+                  />
+                </>
+              ) : (
+                <>
+                  <TrainerPicker
+                    label="엔진 B 트레이너"
+                    trainers={sortedTrainers}
+                    value={opponentPreset}
+                    onChange={(trainerId) =>
+                      selectTrainer(setOpponentPreset, trainerId)
+                    }
+                    localization={localization}
+                    recentIds={recentTrainerIds}
+                    minimumTeamSize={requiredMemberCount}
+                    selectedTrainer={rightTrainer}
+                  />
+                  <TeamStrip
+                    trainer={rightTrainer}
+                    emptyText="두 번째 AI 파티를 선택하세요."
+                    localization={localization}
+                    onMove={(fromIndex, toIndex) =>
+                      moveTrainerMember(rightTrainer, fromIndex, toIndex)
+                    }
+                  />
+                </>
+              )}
             </article>
           </div>
         </section>

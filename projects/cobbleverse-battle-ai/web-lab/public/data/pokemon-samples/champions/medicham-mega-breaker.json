@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "champions-medicham-mega-breaker",
+  "source": "pkmnchamps",
+  "format": "champions",
+  "battleStyle": "single",
+  "title": "메가요가램 물리 돌파형",
+  "species": "Medicham",
+  "speciesLabel": "요가램",
+  "level": 50,
+  "ability": "Pure Power",
+  "abilityLabel": "순수한힘",
+  "heldItem": "Medichamite",
+  "heldItemLabel": "요가램나이트",
+  "nature": "Jolly",
+  "natureLabel": "명랑",
+  "tera": "",
+  "moves": [
+    "High Jump Kick",
+    "Zen Headbutt",
+    "Fake Out",
+    "Ice Punch"
+  ],
+  "moveLabels": [
+    "무릎차기",
+    "사념의박치기",
+    "속이기",
+    "냉동펀치"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 0,
+    "atk": 252,
+    "def": 0,
+    "spa": 0,
+    "spd": 4,
+    "spe": 252
+  },
+  "sourceStats": {
+    "system": "champions-normalized"
+  },
+  "tags": [
+    "메가진화",
+    "속이기",
+    "막이 돌파"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}
