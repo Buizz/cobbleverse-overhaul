@@ -13001,6 +13001,7 @@ function applyTwoTurnExpectimaxDecisionPolicy({
   sideIndex,
   strategy,
   opponentStrategy,
+  exactOpponentCommand = null,
   heuristicDecision,
   moveCandidates,
   switchCandidates,
@@ -13035,26 +13036,40 @@ function applyTwoTurnExpectimaxDecisionPolicy({
     3,
   );
   const opponentSide = sideIndex === 0 ? 1 : 0;
-  const opponentDecision = chooseSimpleAiDecision(
-    state,
-    opponentSide,
-    "expert",
-    opponentStrategy ?? "balanced",
-  );
-  const opponentCandidates = boundedSearchCandidates(
-    simpleSearchPolicyCandidates({
-      moveCandidates: opponentDecision.moveCandidates,
-      switchCandidates: opponentDecision.switchCandidates,
-      gimmick: opponentDecision.command.gimmick ?? null,
-      gimmickMove: opponentDecision.command.gimmick
-        ? opponentDecision.selectedMove
-        : null,
-    }),
-    opponentDecision.command,
-    2,
-  );
-  const opponentDistribution =
-    simpleSearchActionDistribution(opponentCandidates);
+  const opponentDecision = exactOpponentCommand
+    ? null
+    : chooseSimpleAiDecision(
+        state,
+        opponentSide,
+        "expert",
+        opponentStrategy ?? "balanced",
+      );
+  const opponentCandidates = exactOpponentCommand
+    ? [
+        {
+          id: `exact:${simpleCommandKey(exactOpponentCommand)}`,
+          type: Number.isInteger(exactOpponentCommand.switch)
+            ? "switch"
+            : "move",
+          score: 0,
+          policyCommand: structuredClone(exactOpponentCommand),
+        },
+      ]
+    : boundedSearchCandidates(
+        simpleSearchPolicyCandidates({
+          moveCandidates: opponentDecision.moveCandidates,
+          switchCandidates: opponentDecision.switchCandidates,
+          gimmick: opponentDecision.command.gimmick ?? null,
+          gimmickMove: opponentDecision.command.gimmick
+            ? opponentDecision.selectedMove
+            : null,
+        }),
+        opponentDecision.command,
+        2,
+      );
+  const opponentDistribution = exactOpponentCommand
+    ? [{ candidate: opponentCandidates[0], probability: 1 }]
+    : simpleSearchActionDistribution(opponentCandidates);
   const evaluations = [];
   const context = {
     maxNodes,
@@ -13351,6 +13366,9 @@ function applyTwoTurnExpectimaxDecisionPolicy({
       ) / 100,
       ownCandidateCount: ownCandidates.length,
       opponentCandidateCount: opponentCandidates.length,
+      exactOpponentCommand: exactOpponentCommand
+        ? structuredClone(exactOpponentCommand)
+        : null,
       heuristicCommand: structuredClone(heuristicDecision.command),
       searchCommand: structuredClone(selected.policyCommand),
       expectedWinProbability:
@@ -13741,17 +13759,36 @@ export function applySimpleCheaterKnowledge(
   opponentCommand,
   options = {},
 ) {
-  const exactDecision = chooseSimpleAiDecision(
+  const strategy = options.strategy ?? "balanced";
+  const exactHeuristicDecision = chooseSimpleAiDecision(
     stateWithExactOpponentCommand(state, sideIndex, opponentCommand),
     sideIndex,
     "expert",
-    options.strategy ?? "balanced",
+    strategy,
   );
+  const exactDecision = applyTwoTurnExpectimaxDecisionPolicy({
+    state,
+    sideIndex,
+    strategy,
+    opponentStrategy: options.opponentStrategy ?? "balanced",
+    exactOpponentCommand: opponentCommand,
+    heuristicDecision: exactHeuristicDecision,
+    moveCandidates: exactHeuristicDecision.moveCandidates,
+    switchCandidates: exactHeuristicDecision.switchCandidates,
+    gimmick: exactHeuristicDecision.command.gimmick ?? null,
+    gimmickMove: exactHeuristicDecision.command.gimmick
+      ? exactHeuristicDecision.selectedMove
+      : null,
+    gimmickCandidate: exactHeuristicDecision.gimmickCandidate ?? null,
+    lockedSelection: lockedMoveSelection(activePokemon(state, sideIndex)),
+    maxNodes: Number(options.searchNodeBudget ?? 10),
+  });
   return {
     ...exactDecision,
     diagnostics: {
       ...exactDecision.diagnostics,
       selectionSource: "cheater-exact-command",
+      policy: "cheater-exact-command-search",
       cheatActivated: true,
       observedOpponentCommand: structuredClone(opponentCommand),
       heuristicCommand: decision?.command
@@ -13784,6 +13821,7 @@ export function resolveSimpleCheaterDecision(
       )
     );
   }
+  const strategy = profile?.strategy ?? "balanced";
   const probability = Math.max(
     0,
     Math.min(1, Number(profile?.cheatProbability ?? 0.5)),
@@ -13795,18 +13833,23 @@ export function resolveSimpleCheaterDecision(
       state.turn * 211 + sideIndex * 17 + 59,
     ).nextIndex(10_000) / 10_000;
   if (roll >= probability) {
-    const decision =
-      fallbackDecision ??
-      chooseSimpleAiDecision(
-        state,
-        sideIndex,
-        "expert",
-        profile?.strategy ?? "balanced",
-      );
+    const searchDecision =
+      fallbackDecision?.diagnostics?.policy === "expectimax-two-turn"
+        ? fallbackDecision
+        : chooseSimpleAiDecision(
+            state,
+            sideIndex,
+            "expert_search",
+            strategy,
+            {
+              opponentStrategy: profile?.opponentStrategy ?? "balanced",
+              searchNodeBudget: profile?.searchNodeBudget,
+            },
+          );
     return {
-      ...decision,
+      ...searchDecision,
       diagnostics: {
-        ...decision.diagnostics,
+        ...searchDecision.diagnostics,
         cheatActivated: false,
         cheatProbability: probability,
         cheatRoll: roll,
@@ -13818,7 +13861,11 @@ export function resolveSimpleCheaterDecision(
     sideIndex,
     fallbackDecision,
     opponentCommand,
-    { strategy: profile?.strategy ?? "balanced" },
+    {
+      strategy,
+      opponentStrategy: profile?.opponentStrategy ?? "balanced",
+      searchNodeBudget: profile?.searchNodeBudget,
+    },
   );
   return {
     ...cheated,
@@ -13943,7 +13990,10 @@ export function createSimpleAiDecisionTrace(
     selectionPolicy:
       difficulty === "expert_winrate"
         ? "win-probability"
-        : difficulty === "expert_search"
+        : difficulty === "expert_search" ||
+            (difficulty === "cheater" &&
+              decision.diagnostics?.cheatActivated !== true &&
+              decision.diagnostics?.policy === "expectimax-two-turn")
           ? "expectimax-two-turn"
         : difficulty === "cheater" && decision.diagnostics?.cheatActivated
           ? "cheater-exact-command"
@@ -14014,7 +14064,11 @@ export function runSimpleBattle(setup, options = {}) {
       return resolveSimpleCheaterDecision(
         state,
         sideIndex,
-        profile,
+        {
+          ...profile,
+          opponentStrategy:
+            aiProfiles[opponentSide]?.strategy ?? "balanced",
+        },
         opponentDecision.command,
       );
     });

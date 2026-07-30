@@ -151,7 +151,11 @@ type AiTrace = {
   reason: string;
   candidates: AiCandidate[];
   winEstimate?: WinEstimate;
-  selectionPolicy?: "heuristic" | "win-probability" | "cheater-exact-command";
+  selectionPolicy?:
+    | "heuristic"
+    | "win-probability"
+    | "expectimax-two-turn"
+    | "cheater-exact-command";
   diagnostics?: {
     cheatActivated?: boolean;
     cheatProbability?: number;

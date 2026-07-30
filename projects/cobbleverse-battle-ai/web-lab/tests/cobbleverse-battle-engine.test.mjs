@@ -8,6 +8,7 @@ import {
   calculateMovePreview,
   chooseSimpleAiDecision,
   chooseSimpleAiCommand,
+  createSimpleAiDecisionTrace,
   createSimpleBattle,
   estimateSimpleBattleWinProbability,
   isSimpleAbilitySupported,
@@ -108,6 +109,16 @@ test("cheater responds to the opponent's committed status move", () => {
   assert.equal(cheated.diagnostics.cheatActivated, true);
   assert.equal(cheated.diagnostics.cheaterResponseChanged, true);
   assert.deepEqual(cheated.diagnostics.observedOpponentCommand, { move: 1 });
+  assert.equal(cheated.diagnostics.policy, "cheater-exact-command-search");
+  assert.equal(cheated.diagnostics.searchDepthLimit, 2);
+  assert.equal(cheated.diagnostics.opponentCandidateCount, 1);
+  assert.deepEqual(cheated.diagnostics.opponentDistribution, [
+    {
+      id: 'exact:{"move":1,"switch":0,"gimmick":""}',
+      command: { move: 1 },
+      probability: 1,
+    },
+  ]);
   assert.equal(cheated.diagnostics.cheaterCandidates, undefined);
   assert.ok(
     cheated.moveCandidates.every(
@@ -275,10 +286,16 @@ test("cheater scores Upper Hand from the opponent's committed priority move", ()
 
 test("cheater activation obeys configured probability and remains seeded", () => {
   const state = createSimpleBattle(setup());
-  const baseDecision = chooseSimpleAiDecision(
+  const heuristicDecision = chooseSimpleAiDecision(
     state,
     1,
-    "cheater",
+    "expert",
+    "balanced",
+  );
+  const searchDecision = chooseSimpleAiDecision(
+    state,
+    1,
+    "expert_search",
     "balanced",
   );
   const never = resolveSimpleCheaterDecision(
@@ -286,25 +303,38 @@ test("cheater activation obeys configured probability and remains seeded", () =>
     1,
     { difficulty: "cheater", strategy: "balanced", cheatProbability: 0 },
     { move: 1 },
-    baseDecision,
+    heuristicDecision,
   );
   const always = resolveSimpleCheaterDecision(
     state,
     1,
     { difficulty: "cheater", strategy: "balanced", cheatProbability: 1 },
     { move: 1 },
-    baseDecision,
+    heuristicDecision,
   );
   const repeated = resolveSimpleCheaterDecision(
     state,
     1,
     { difficulty: "cheater", strategy: "balanced", cheatProbability: 1 },
     { move: 1 },
-    baseDecision,
+    heuristicDecision,
   );
 
   assert.equal(never.diagnostics.cheatActivated, false);
+  assert.equal(never.diagnostics.policy, "expectimax-two-turn");
+  assert.deepEqual(never.command, searchDecision.command);
+  assert.equal(
+    createSimpleAiDecisionTrace(
+      state,
+      1,
+      never,
+      "cheater",
+      "balanced",
+    ).selectionPolicy,
+    "expectimax-two-turn",
+  );
   assert.equal(always.diagnostics.cheatActivated, true);
+  assert.equal(always.diagnostics.policy, "cheater-exact-command-search");
   assert.equal(always.diagnostics.cheatRoll, repeated.diagnostics.cheatRoll);
   assert.deepEqual(always.command, repeated.command);
 });
