@@ -4911,7 +4911,7 @@ function InteractiveArena({
                   className={`sprite-platform opponent-platform ${
                     opponentGimmickState.dynamax ? "dynamaxed" : ""
                   } ${
-                    opponentSpriteFainted && transition !== "is-entering"
+                    opponentSpriteFainted && !transition
                       ? "fainted"
                       : ""
                   } ${transition}`}
@@ -4987,7 +4987,7 @@ function InteractiveArena({
                   className={`sprite-platform player-platform ${
                     playerGimmickState.dynamax ? "dynamaxed" : ""
                   } ${
-                    playerSpriteFainted && transition !== "is-entering"
+                    playerSpriteFainted && !transition
                       ? "fainted"
                       : ""
                   } ${transition}`}
