@@ -24,14 +24,23 @@ Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
 $dialog.Description = "Cobbleverse Battle Lab 폴더 선택"
 $dialog.ShowNewFolderButton = $true
+$owner = New-Object System.Windows.Forms.Form
+$owner.TopMost = $true
+$owner.ShowInTaskbar = $false
+$owner.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+$owner.Size = New-Object System.Drawing.Size(1, 1)
+$owner.Opacity = 0
 if ($env:COBBLEVERSE_INITIAL_FOLDER -and (Test-Path -LiteralPath $env:COBBLEVERSE_INITIAL_FOLDER -PathType Container)) {
   $dialog.SelectedPath = (Resolve-Path -LiteralPath $env:COBBLEVERSE_INITIAL_FOLDER).Path
 }
-$result = $dialog.ShowDialog()
+$owner.Show()
+$result = $dialog.ShowDialog($owner)
 if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
   [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
   [Console]::Write($dialog.SelectedPath)
 }
+$owner.Close()
+$owner.Dispose()
 $dialog.Dispose()
 `;
 
@@ -172,6 +181,8 @@ export function localWorkspace(): Plugin {
               [
                 "-NoLogo",
                 "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
                 "-STA",
                 "-Command",
                 folderPickerScript,
