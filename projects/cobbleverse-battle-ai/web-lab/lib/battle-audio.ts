@@ -39,6 +39,7 @@ const SYNTHETIC_FALLBACKS: Record<
   super_effective: [660, "square", 0.1, 880],
   critical: [820, "triangle", 0.12, 1120],
   status: [250, "triangle", 0.16, 180],
+  residual_damage: [205, "triangle", 0.13, 145],
   boost: [570, "sine", 0.12, 760],
   unboost: [410, "sine", 0.12, 240],
   faint: [150, "sawtooth", 0.24, 55],
@@ -303,7 +304,14 @@ function playSyntheticEffect(type: string, delayMs: number) {
 export type BattleSoundEvent = {
   type: string;
   detail?: string;
+  source?: string;
+  cause?: string;
 };
+
+function isIndirectDamage(event: BattleSoundEvent) {
+  const cause = eventId(event.cause ?? "");
+  return Boolean(cause && cause !== "move" && cause !== "direct");
+}
 
 export async function playBattleSoundEffects(events: BattleSoundEvent[]) {
   const settings = getBattleAudioSettings();
@@ -331,6 +339,22 @@ export async function playBattleSoundEffects(events: BattleSoundEvent[]) {
       continue;
     }
     if (event.type === "damage") {
+      if (isIndirectDamage(event)) {
+        const source = eventId(event.source ?? event.detail ?? "");
+        const cause = eventId(event.cause ?? "");
+        const residualEffect = await playCatalogEffect(
+          [
+            ...(source ? [`residual.${source}`] : []),
+            ...(cause ? [`residual.${cause}`] : []),
+            "impact.residual",
+          ],
+          delayMs,
+        );
+        if (!residualEffect) playSyntheticEffect("residual_damage", delayMs);
+        activeMove = "";
+        played = residualEffect || played || Boolean(SYNTHETIC_FALLBACKS.residual_damage);
+        continue;
+      }
       const moveEffect = activeMove
         ? (await playMoveEffectPhases(activeMove, "target", delayMs)) ||
           (await playCatalogEffect(["impact.normal"], delayMs))

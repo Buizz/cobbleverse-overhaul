@@ -409,7 +409,12 @@ export function mapNativeEvent(event) {
     }];
   }
   if (event.type === "move") {
-    return [{ ...base, detail: event.move ?? "" }];
+    return [{
+      ...base,
+      detail: event.move ?? "",
+      ...(event.moveType ? { moveType: event.moveType } : {}),
+      ...(event.moveCategory ? { moveCategory: event.moveCategory } : {}),
+    }];
   }
   if (event.type === "gimmick") {
     const eventType = {
@@ -469,6 +474,8 @@ export function mapNativeEvent(event) {
         type: "damage",
         condition: `${event.remainingHp}/${event.maximumHp}`,
         source: nativeEffectSource(event),
+        ...(event.cause ? { cause: event.cause } : {}),
+        ...(event.moveType ? { moveType: event.moveType } : {}),
       },
     ];
   }

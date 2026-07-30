@@ -1958,6 +1958,40 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
     }
   }
 
+  const stayPressurePenalty = Math.max(
+    0,
+    finiteNumber(enriched.stayPressurePenalty, 0),
+  );
+  if (stayPressurePenalty > 0) {
+    const pressureSources = [];
+    if (finiteNumber(enriched.yawnSwitchPressure, 0) > 0) {
+      pressureSources.push(
+        Number(enriched.yawnTurns ?? 0) <= 1
+          ? "이번 턴 뒤 발동하는 하품"
+          : "하품",
+      );
+    }
+    if (finiteNumber(enriched.saltCureSwitchPressure, 0) > 0) {
+      pressureSources.push(
+        `소금절이 ${finiteNumber(enriched.saltCureResidualDamage, 0)} 피해`,
+      );
+    }
+    if (finiteNumber(enriched.toxicSwitchPressure, 0) > 0) {
+      pressureSources.push(
+        `맹독 ${Math.max(1, finiteNumber(enriched.toxicCounter, 1))}단계`,
+      );
+    }
+    adjustments.push(
+      scoreAdjustment(
+        "rule.action.switch_cleared_pressure",
+        "교체로 해제 가능한 누적 위험",
+        pressureSources,
+        -stayPressurePenalty,
+        `${pressureSources.join(", ")} 때문에 현재 포켓몬을 계속 두는 행동의 점수를 ${stayPressurePenalty} 낮췄습니다.`,
+      ),
+    );
+  }
+
   if (isDamage && knockoutBeforeActionProbability >= 0.25) {
     const weight =
       knockoutBeforeActionProbability >= 0.75
@@ -3399,6 +3433,31 @@ export function switchRuleAdjustments(candidate, strategy = "balanced") {
     candidate.oneTurnEvaluation ??
     candidate.battleStateEvaluation ??
     null;
+  const stayPressurePenalty = Math.max(
+    0,
+    finiteNumber(candidate.stayPressurePenalty, 0),
+  );
+  if (stayPressurePenalty > 0) {
+    const relieved = [];
+    if (finiteNumber(candidate.yawnSwitchPressure, 0) > 0) {
+      relieved.push("하품");
+    }
+    if (finiteNumber(candidate.saltCureSwitchPressure, 0) > 0) {
+      relieved.push("소금절이");
+    }
+    if (finiteNumber(candidate.toxicSwitchPressure, 0) > 0) {
+      relieved.push("맹독 누적");
+    }
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.clears_residual_pressure",
+        "교체 시 누적 위험 해제",
+        relieved,
+        0,
+        `교체하면 ${relieved.join(", ")} 압박을 제거하거나 초기화할 수 있어 잔류 행동과 비교할 때 유리합니다.`,
+      ),
+    );
+  }
   if (oneTurnEvaluation) {
     const delta = finiteNumber(
       oneTurnEvaluation.delta,

@@ -306,7 +306,10 @@ type BattleEvent = {
   target?: string;
   condition?: string;
   source?: string;
+  cause?: string;
   sourceActor?: string;
+  moveType?: string;
+  moveCategory?: string;
   remainingHp?: number;
   maximumHp?: number;
   fromActor?: string;
@@ -333,6 +336,11 @@ type BattleHpPreview = {
 type BattleSpeciesPreview = {
   p1?: string;
   p2?: string;
+};
+
+type BattleFaintedPreview = {
+  p1?: boolean;
+  p2?: boolean;
 };
 
 type BattleResult = {
@@ -3962,6 +3970,38 @@ function pokemonTransitionClass(
   return "";
 }
 
+function pokemonHitClass(
+  event: BattleEvent | undefined,
+  side: "p1" | "p2",
+  species: string,
+) {
+  if (
+    event?.type !== "damage" ||
+    !event.moveType ||
+    !event.actor?.startsWith(side) ||
+    dexId(actorName(event.actor)) !== dexId(species)
+  ) {
+    return "";
+  }
+  return `is-hit hit-type-${dexId(event.moveType)}`;
+}
+
+function pokemonAttackClass(
+  event: BattleEvent | undefined,
+  side: "p1" | "p2",
+  species: string,
+) {
+  if (
+    event?.type !== "move" ||
+    dexId(event.moveCategory) === "status" ||
+    !event.actor?.startsWith(side) ||
+    dexId(actorName(event.actor)) !== dexId(species)
+  ) {
+    return "";
+  }
+  return "is-attacking";
+}
+
 function showdownSpriteUrl(species: string, back = false) {
   return `/api/pokemon-sprites?species=${encodeURIComponent(species)}${back ? "&back=1" : ""}`;
 }
@@ -4735,6 +4775,7 @@ function InteractiveArena({
   actionNotice,
   hpPreview,
   speciesPreview,
+  faintedPreview,
   persistentSaveSlots,
   onAction,
   onSessionOperation,
@@ -4750,6 +4791,7 @@ function InteractiveArena({
   actionNotice: BattleActionNotice | null;
   hpPreview: BattleHpPreview;
   speciesPreview: BattleSpeciesPreview;
+  faintedPreview: BattleFaintedPreview;
   persistentSaveSlots: PersistentBattleSlot[];
   onAction: (action: {
     type: "move" | "switch";
@@ -4943,16 +4985,8 @@ function InteractiveArena({
   const playerCondition = opponentWon
     ? "0 fnt"
     : hpPreview.p1 ?? active?.condition.text ?? latestConditionBySide(battle.events, "p1");
-  const playerDamageJustReachedZero =
-    actionNotice?.event.type === "damage" &&
-    actionNotice.event.actor?.startsWith("p1");
-  const opponentDamageJustReachedZero =
-    actionNotice?.event.type === "damage" &&
-    actionNotice.event.actor?.startsWith("p2");
-  const playerSpriteFainted =
-    conditionPercent(playerCondition) === 0 && !playerDamageJustReachedZero;
-  const opponentSpriteFainted =
-    opponentHp === 0 && !opponentDamageJustReachedZero;
+  const playerSpriteFainted = faintedPreview.p1 === true;
+  const opponentSpriteFainted = faintedPreview.p2 === true;
   const pokemonStatuses = statusByPokemon(battle.events);
   const opponentStatus =
     pokemonStatuses.get(dexId(opponentName)) ??
@@ -4997,6 +5031,8 @@ function InteractiveArena({
       events.map((event) => ({
         type: event.type,
         detail: event.detail,
+        source: event.source,
+        cause: event.cause,
       })),
     );
   }, [actionNotice]);
@@ -5242,6 +5278,17 @@ function InteractiveArena({
                 "p2",
                 pokemon.species,
               );
+              const hit = pokemonHitClass(
+                actionNotice?.event,
+                "p2",
+                pokemon.species,
+              );
+              const attack = pokemonAttackClass(
+                actionNotice?.event,
+                "p2",
+                pokemon.species,
+              );
+              const visualEffect = transition || hit || attack;
               return (
                 <div
                   className={`sprite-platform opponent-platform ${
@@ -5250,9 +5297,9 @@ function InteractiveArena({
                     opponentSpriteFainted && !transition
                       ? "fainted"
                       : ""
-                  } ${transition}`}
+                  } ${transition} ${hit} ${attack}`}
                   key={`${pokemon.position}-${pokemon.species}-${
-                    transition ? actionNotice?.step : "steady"
+                    visualEffect ? actionNotice?.step : "steady"
                   }`}
                 >
                   {/* Dynamic Showdown sprite URLs are intentionally rendered without Next image optimization. */}
@@ -5318,6 +5365,17 @@ function InteractiveArena({
                 "p1",
                 pokemon.species,
               );
+              const hit = pokemonHitClass(
+                actionNotice?.event,
+                "p1",
+                pokemon.species,
+              );
+              const attack = pokemonAttackClass(
+                actionNotice?.event,
+                "p1",
+                pokemon.species,
+              );
+              const visualEffect = transition || hit || attack;
               return (
                 <div
                   className={`sprite-platform player-platform ${
@@ -5326,9 +5384,9 @@ function InteractiveArena({
                     playerSpriteFainted && !transition
                       ? "fainted"
                       : ""
-                  } ${transition}`}
+                  } ${transition} ${hit} ${attack}`}
                   key={`${index}-${pokemon.species}-${
-                    transition ? actionNotice?.step : "steady"
+                    visualEffect ? actionNotice?.step : "steady"
                   }`}
                 >
                   {/* Dynamic Showdown sprite URLs intentionally skip Next image optimization. */}
@@ -6024,6 +6082,8 @@ export function BattleLab() {
   const [hpPreview, setHpPreview] = useState<BattleHpPreview>({});
   const [speciesPreview, setSpeciesPreview] =
     useState<BattleSpeciesPreview>({});
+  const [faintedPreview, setFaintedPreview] =
+    useState<BattleFaintedPreview>({});
   const playbackToken = useRef(0);
 
   useEffect(() => {
@@ -6998,6 +7058,7 @@ export function BattleLab() {
     setActionNotice(null);
     setHpPreview({});
     setSpeciesPreview({});
+    setFaintedPreview({});
     setInteractiveBusy(true);
     setNotice("직접 조작 배틀을 시작하고 있습니다.");
     try {
@@ -7075,6 +7136,7 @@ export function BattleLab() {
         setInteractiveBattle(result.battle);
         setHpPreview({});
         setSpeciesPreview({});
+        setFaintedPreview({});
         if (scenario && result.battle.status === "awaiting_choice") {
           storeLastBattle({
             schemaVersion: 1,
@@ -7108,6 +7170,10 @@ export function BattleLab() {
               }
             }
             if (event.type === "switch") {
+              setFaintedPreview((current) => ({
+                ...current,
+                [side]: false,
+              }));
               setHpPreview((current) => {
                 const next = { ...current };
                 if (event.condition) {
@@ -7133,6 +7199,12 @@ export function BattleLab() {
                         ? damagePreventionHp(event)
                         : undefined),
               }));
+              if (event.type === "faint") {
+                setFaintedPreview((current) => ({
+                  ...current,
+                  [side]: true,
+                }));
+              }
             }
           }
           setActionNotice({
@@ -7250,6 +7322,7 @@ export function BattleLab() {
       setActionNotice(null);
       setHpPreview({});
       setSpeciesPreview({});
+      setFaintedPreview({});
       storeLastBattle({
         schemaVersion: 1,
         savedAt: new Date().toISOString(),
@@ -7313,6 +7386,7 @@ export function BattleLab() {
       setActionNotice(null);
       setHpPreview({});
       setSpeciesPreview({});
+      setFaintedPreview({});
       if (scenario) {
         storeLastBattle({
           schemaVersion: 1,
@@ -7339,6 +7413,7 @@ export function BattleLab() {
     setActionNotice(null);
     setHpPreview({});
     setSpeciesPreview({});
+    setFaintedPreview({});
     if (!current || current.status !== "awaiting_choice") return;
     try {
       await fetch("/api/interactive-battles", {
@@ -8522,6 +8597,7 @@ export function BattleLab() {
           actionNotice={actionNotice}
           hpPreview={hpPreview}
           speciesPreview={speciesPreview}
+          faintedPreview={faintedPreview}
           persistentSaveSlots={persistentBattleSlots}
           onAction={chooseInteractiveAction}
           onSessionOperation={controlInteractiveSession}

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "sv-hippowdon-yawn-wall",
+  "source": "pkmnchamps",
+  "format": "sv",
+  "battleStyle": "single",
+  "title": "하품 전개 물리막이",
+  "species": "Hippowdon",
+  "speciesLabel": "하마돈",
+  "level": 50,
+  "ability": "Sand Stream",
+  "abilityLabel": "모래날림",
+  "heldItem": "Leftovers",
+  "heldItemLabel": "먹다남은음식",
+  "nature": "Impish",
+  "natureLabel": "장난꾸러기",
+  "tera": "water",
+  "moves": [
+    "Earthquake",
+    "Stealth Rock",
+    "Slack Off",
+    "Yawn"
+  ],
+  "moveLabels": [
+    "지진",
+    "스텔스록",
+    "게으름피우기",
+    "하품"
+  ],
+  "ivs": {
+    "hp": 31,
+    "atk": 31,
+    "def": 31,
+    "spa": 31,
+    "spd": 31,
+    "spe": 31
+  },
+  "evs": {
+    "hp": 252,
+    "atk": 0,
+    "def": 252,
+    "spa": 0,
+    "spd": 4,
+    "spe": 0
+  },
+  "tags": [
+    "물리막이",
+    "하품",
+    "기점 회피 유도",
+    "스텔스록"
+  ],
+  "sourceUrl": "https://pkmnchamps.com/samples"
+}

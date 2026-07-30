@@ -14781,6 +14781,240 @@ test("marks a bench Pokemon as the unique counter for a future ace", () => {
   assert.equal(futureCounter.preservationTargetIsCurrent, false);
 });
 
+test("AI lowers stay-in actions when switching clears Yawn, Salt Cure, or Toxic pressure", () => {
+  const sleepTalk = {
+    id: "sleeptalk",
+    name: "Sleep Talk",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 10,
+  };
+  const scenario = setup({
+    sides: [
+      {
+        name: "Pressured",
+        team: [
+          pokemon({
+            id: "pressured-active",
+            name: "Pressured Active",
+            stats: { ...pokemon().stats, hp: 300, speed: 90 },
+            moves: [
+              {
+                id: "bodyslam",
+                name: "Body Slam",
+                type: "Normal",
+                category: "Physical",
+                power: 85,
+                accuracy: 100,
+                pp: 15,
+              },
+            ],
+          }),
+          pokemon({
+            id: "healthy-bench",
+            name: "Healthy Bench",
+            stats: { ...pokemon().stats, hp: 300, speed: 80 },
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            id: "bulky-opponent",
+            name: "Bulky Opponent",
+            stats: {
+              ...pokemon().stats,
+              hp: 500,
+              defence: 160,
+              speed: 70,
+            },
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  const active = state.sides[0].team[0];
+
+  active.volatiles.yawn = { id: "yawn", turns: 1 };
+  const yawnDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const yawnMove = yawnDecision.moveCandidates.find(
+    (candidate) => candidate.id === "bodyslam",
+  );
+  assert.equal(yawnMove.yawnSwitchPressure, 220);
+  assert.equal(yawnDecision.command.switch, 2);
+  assert.ok(
+    yawnMove.score <
+      yawnMove.expectedDamage,
+  );
+
+  active.moves.push({
+    ...sleepTalk,
+    boosts: {},
+    selfBoosts: {},
+    secondaries: [],
+  });
+  const sleepTalkDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.equal(sleepTalkDecision.moveCandidates[0].sleepExploitable, true);
+  assert.equal(sleepTalkDecision.moveCandidates[0].yawnSwitchPressure, 0);
+
+  delete active.volatiles.yawn;
+  active.moves.pop();
+  active.status = "tox";
+  active.toxicCounter = 1;
+  const earlyToxicDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const earlyToxicPenalty =
+    earlyToxicDecision.moveCandidates[0].toxicSwitchPressure;
+  active.toxicCounter = 6;
+  const lateToxicDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.ok(
+    lateToxicDecision.moveCandidates[0].toxicSwitchPressure >
+      earlyToxicPenalty,
+  );
+
+  active.status = "";
+  active.toxicCounter = 0;
+  active.volatiles.saltcure = { id: "saltcure", source: "Salt Cure" };
+  active.hp = active.stats.hp;
+  const fullHpSaltDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const fullHpSaltPenalty =
+    fullHpSaltDecision.moveCandidates[0].saltCureSwitchPressure;
+  active.hp = Math.floor(active.stats.hp / 3);
+  const lowHpSaltDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.ok(
+    lowHpSaltDecision.moveCandidates[0].saltCureSwitchPressure >
+      fullHpSaltPenalty,
+  );
+});
+
+test("expert search values the free turn caused by Yawn sleep after a KO", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Yawn Target",
+        team: [
+          pokemon({
+            id: "setup-attacker",
+            name: "Setup Attacker",
+            stats: {
+              ...pokemon().stats,
+              hp: 340,
+              attack: 150,
+              speed: 110,
+            },
+            moves: [
+              {
+                id: "strong-hit",
+                name: "Strong Hit",
+                type: "Normal",
+                category: "Physical",
+                power: 120,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+          pokemon({
+            id: "healthy-switch",
+            name: "Healthy Switch",
+            stats: { ...pokemon().stats, hp: 360, speed: 90 },
+          }),
+        ],
+      },
+      {
+        name: "Yawn User",
+        team: [
+          pokemon({
+            id: "weakened-yawner",
+            name: "Weakened Yawner",
+            stats: {
+              ...pokemon().stats,
+              hp: 420,
+              defence: 130,
+              speed: 60,
+            },
+          }),
+          pokemon({
+            id: "healthy-follow-up",
+            name: "Healthy Follow Up",
+            stats: {
+              ...pokemon().stats,
+              hp: 360,
+              attack: 145,
+              speed: 120,
+            },
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  const attacker = state.sides[0].team[0];
+  attacker.boosts.attack = 2;
+  attacker.volatiles.yawn = { id: "yawn", turns: 1 };
+  state.sides[1].team[0].hp = 40;
+
+  const decision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert_search",
+    "balanced",
+  );
+
+  assert.equal(decision.command.switch, 2);
+  assert.equal(decision.diagnostics.policy, "expectimax-two-turn");
+
+  const awakeState = structuredClone(state);
+  delete awakeState.sides[0].team[0].volatiles.yawn;
+  const awakeProbability = estimateSimpleBattleWinProbability(awakeState, 0);
+  awakeState.sides[0].team[0].status = "slp";
+  awakeState.sides[0].team[0].statusTurns = 1;
+  const shortSleepProbability = estimateSimpleBattleWinProbability(
+    awakeState,
+    0,
+  );
+  awakeState.sides[0].team[0].statusTurns = 3;
+  const longSleepProbability = estimateSimpleBattleWinProbability(
+    awakeState,
+    0,
+  );
+  assert.ok(shortSleepProbability.probability < awakeProbability.probability);
+  assert.ok(longSleepProbability.probability < shortSleepProbability.probability);
+});
+
 test("marks a hazard lead as role-complete after its hazard is established", () => {
   const scenario = setup({
     sides: [

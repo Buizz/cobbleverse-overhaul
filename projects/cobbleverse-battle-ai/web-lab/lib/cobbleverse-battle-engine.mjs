@@ -5038,6 +5038,8 @@ function executeMove(state, action, rng) {
     pokemon: attacker.name,
     move: move.name,
     moveId: move.id,
+    moveType: move.type,
+    moveCategory: move.category,
     slot,
   });
   state.turnMoves ??= [];
@@ -7266,6 +7268,7 @@ function executeMove(state, action, rng) {
         pokemon: defender.name,
         source: attacker.name,
         move: move.name,
+        moveType: move.type,
         damage: 0,
         remainingHp: defender.hp,
         maximumHp: defender.stats.hp,
@@ -7294,6 +7297,7 @@ function executeMove(state, action, rng) {
         source: "substitute",
         cause: "substitute",
         move: move.name,
+        moveType: move.type,
         damage: appliedDamage,
         remainingHp: defender.hp,
         maximumHp: defender.stats.hp,
@@ -7351,6 +7355,7 @@ function executeMove(state, action, rng) {
         pokemon: defender.name,
         source: attacker.name,
         move: move.name,
+        moveType: move.type,
         damage,
         remainingHp: defender.hp,
         maximumHp: defender.stats.hp,
@@ -9700,6 +9705,7 @@ function automaticMoveCandidates(
   const incomingDamageRatio =
     threatTarget.hp > 0 ? opponentBestDamage / threatTarget.hp : 1;
   const survivalTurns = estimatedSurvivalTurns(pokemon, opponentBestDamage);
+  const switchPressure = activeSwitchPressure(pokemon);
   const activeRoleProfile = analyzeTeamProfile([
     {
       ...aiRoleAnalysisMember(pokemon),
@@ -10299,6 +10305,7 @@ function automaticMoveCandidates(
         expectedRecoilDamage,
         recoilWouldFaint:
           expectedRecoilDamage > 0 && expectedRecoilDamage >= pokemon.hp,
+        ...switchPressure,
         hitCount: damageOutcome.hitCount,
         damageRangeMinimum: damageOutcome.effectiveMinimum,
         damageRangeMaximum: damageOutcome.effectiveMaximum,
@@ -10420,6 +10427,7 @@ function automaticMoveCandidates(
         expectedRecoilDamage,
         recoilWouldFaint:
           expectedRecoilDamage > 0 && expectedRecoilDamage >= pokemon.hp,
+        ...switchPressure,
         hitCount: damageOutcome.hitCount,
         damageRangeMinimum: damageOutcome.effectiveMinimum,
         damageRangeMaximum: damageOutcome.effectiveMaximum,
@@ -11033,9 +11041,21 @@ function simpleTeamAnalysis(state, sideIndex) {
   return analysis;
 }
 
-function simpleStatusBurden(pokemon) {
+function simpleStatusBurden(pokemon, { active = false } = {}) {
   const status = cleanId(pokemon?.status);
   if (!status) return 0;
+  if (status === "slp") {
+    if (canExploitSleepForAi(pokemon)) return active ? 0.5 : 0.75;
+    const remainingTurns = Math.max(
+      1,
+      Math.min(3, Number(pokemon?.statusTurns ?? 1)),
+    );
+    const strandedBoosts = Math.min(6, positiveBoostTotal(pokemon));
+    // Active sleep concedes tempo and often strands boosts when switching out.
+    return active
+      ? 7 + remainingTurns * 1.5 + strandedBoosts * 0.75
+      : 2 + remainingTurns * 0.5;
+  }
   return status === "tox" ? 1.5 : 1;
 }
 
@@ -11281,10 +11301,18 @@ function simpleBattleValueSide(
     const maxHp = Math.max(1, Number(member.stats?.hp ?? member.hp ?? 1));
     const hpRatio = Math.max(0, Math.min(1, Number(member.hp ?? 0) / maxHp));
     const living = member.fainted !== true && member.hp > 0;
+    const isActive = index === side.active;
     if (living) {
       livingCount += 1;
-      positiveBoosts += positiveBoostTotal(member);
-      statusBurden += simpleStatusBurden(member);
+      const memberBoosts = positiveBoostTotal(member);
+      const sleepingWithoutCounterplay =
+        isActive &&
+        cleanId(member.status) === "slp" &&
+        !canExploitSleepForAi(member);
+      positiveBoosts += sleepingWithoutCounterplay
+        ? memberBoosts * 0.25
+        : memberBoosts;
+      statusBurden += simpleStatusBurden(member, { active: isActive });
       if (uniqueCounterSlots.has(index + 1)) uniqueCountersAlive += 1;
     }
     totalHpRatio += hpRatio;
@@ -11662,6 +11690,9 @@ function simpleAnalysisStateKey(state) {
         hp: member.hp,
         fainted: member.fainted,
         status: member.status,
+        statusTurns: member.statusTurns,
+        toxicCounter: member.toxicCounter,
+        volatiles: member.volatiles,
         boosts: member.boosts,
         activeTurns: member.activeTurns,
       })),
@@ -12001,6 +12032,78 @@ function offensiveBoostTotal(pokemon) {
   );
 }
 
+function canExploitSleepForAi(pokemon) {
+  const usableMoveIds = new Set(
+    (pokemon.moves ?? [])
+      .filter(
+        (move) =>
+          move.pp > 0 &&
+          !isMoveTemporarilyDisabled(pokemon, move),
+      )
+      .map((move) => cleanId(move.id)),
+  );
+  return usableMoveIds.has("sleeptalk") || usableMoveIds.has("snore");
+}
+
+function activeSwitchPressure(pokemon) {
+  const maxHp = Math.max(1, Number(pokemon.stats?.hp ?? pokemon.hp ?? 1));
+  const hpPercent = Math.max(0, Math.min(1, pokemon.hp / maxHp));
+  const yawn = pokemon.volatiles?.yawn;
+  const yawnTurns = Number(yawn?.turns ?? 0);
+  const sleepExploitable = canExploitSleepForAi(pokemon);
+  const yawnPenalty =
+    yawn && !sleepExploitable
+      ? yawnTurns <= 1
+        ? 220
+        : 110
+      : 0;
+  const saltCureDamage = pokemon.volatiles?.saltcure
+    ? saltCureResidualDamage(pokemon)
+    : 0;
+  const saltCurePenalty =
+    saltCureDamage > 0
+      ? Math.min(
+          150,
+          saltCureDamage * (0.55 + (1 - hpPercent) * 0.9),
+        )
+      : 0;
+  const toxicCounter =
+    pokemon.status === "tox"
+      ? Math.max(1, Number(pokemon.toxicCounter ?? 1))
+      : 0;
+  const toxicNextDamage =
+    toxicCounter > 0
+      ? Math.max(1, Math.floor((maxHp * toxicCounter) / 16))
+      : 0;
+  const toxicFollowingDamage =
+    toxicCounter > 0
+      ? Math.max(1, Math.floor((maxHp * Math.min(15, toxicCounter + 1)) / 16))
+      : 0;
+  const toxicPenalty =
+    toxicCounter > 0
+      ? Math.min(
+          220,
+          (toxicNextDamage + toxicFollowingDamage) *
+            (0.5 + (1 - hpPercent) * 0.45),
+        )
+      : 0;
+  const stayPressurePenalty =
+    Math.round((yawnPenalty + saltCurePenalty + toxicPenalty) * 100) / 100;
+  return {
+    stayPressurePenalty,
+    yawnSwitchPressure: yawnPenalty,
+    yawnTurns,
+    sleepExploitable,
+    saltCureSwitchPressure: Math.round(saltCurePenalty * 100) / 100,
+    saltCureResidualDamage: saltCureDamage,
+    toxicSwitchPressure: Math.round(toxicPenalty * 100) / 100,
+    toxicCounter,
+    toxicNextDamage,
+    toxicFollowingDamage,
+    urgentSwitchPressure: yawnPenalty >= 220,
+  };
+}
+
 function switchEventOnPreviousTurn(state, sideIndex, pokemon) {
   return state.events.find(
     (event) =>
@@ -12092,6 +12195,7 @@ export function automaticSwitchCandidates(
   const currentOutgoingRatio =
     opponent.hp > 0 ? currentAttack.expectedDamage / opponent.hp : 0;
   const bestMove = moveCandidates[0] ?? null;
+  const switchPressure = activeSwitchPressure(current);
   const currentActsFirst =
     currentAttack.priority > currentIncoming.priority ||
     (currentAttack.priority === currentIncoming.priority &&
@@ -12350,6 +12454,7 @@ export function automaticSwitchCandidates(
         hazardDamageRatio: hazardDamage / pokemon.stats.hp,
         emergencyEscape,
         noEffectiveMoveEscape,
+        ...switchPressure,
         ...switchSetupThreat,
         ...fieldSynergy,
       };
@@ -13795,7 +13900,8 @@ export function chooseSimpleAiDecision(
   }[scoringDifficulty] ?? 18;
   const shouldSwitch =
     selectedSwitch &&
-    selectedSwitch.safeImmediateKoAvailable !== true &&
+    (selectedSwitch.safeImmediateKoAvailable !== true ||
+      selectedSwitch.urgentSwitchPressure === true) &&
     Number(selectedSwitch.score ?? -Infinity) >=
       Number(chosenMove?.score ?? -Infinity) + switchMargin;
   const canMegaEvo =

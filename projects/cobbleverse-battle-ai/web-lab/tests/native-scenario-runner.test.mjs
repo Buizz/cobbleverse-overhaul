@@ -329,6 +329,28 @@ test("preserves native damage and heal causes for Showdown-like logs", () => {
   assert.deepEqual(
     mapNativeEvent({
       turn: 1,
+      type: "move",
+      side: 0,
+      pokemon: "Attacker",
+      move: "Flamethrower",
+      moveType: "Fire",
+      moveCategory: "Special",
+    }),
+    [
+      {
+        turn: 1,
+        type: "move",
+        actor: "p1a: Attacker",
+        detail: "Flamethrower",
+        moveType: "Fire",
+        moveCategory: "Special",
+      },
+    ],
+  );
+
+  assert.deepEqual(
+    mapNativeEvent({
+      turn: 1,
       type: "damage",
       side: 0,
       pokemon: "Bomber",
@@ -345,11 +367,34 @@ test("preserves native damage and heal causes for Showdown-like logs", () => {
         actor: "p1a: Bomber",
         condition: "0/120",
         source: "move: Explosion",
+        cause: "self_destruct",
       },
     ],
   );
 
-  assert.equal(
+  assert.deepEqual(
+    mapNativeEvent({
+      turn: 2,
+      type: "damage",
+      side: 1,
+      pokemon: "Target",
+      source: "Salt Cure",
+      cause: "volatile",
+      remainingHp: 90,
+      maximumHp: 120,
+      effectiveness: 1,
+    })[0],
+    {
+      turn: 2,
+      type: "damage",
+      actor: "p2a: Target",
+      condition: "90/120",
+      source: "Salt Cure",
+      cause: "volatile",
+    },
+  );
+
+  assert.deepEqual(
     mapNativeEvent({
       turn: 1,
       type: "damage",
@@ -357,11 +402,19 @@ test("preserves native damage and heal causes for Showdown-like logs", () => {
       pokemon: "Attacker",
       source: "Defender",
       move: "Tackle",
+      moveType: "Normal",
       remainingHp: 50,
       maximumHp: 120,
       effectiveness: 1,
-    })[0].source,
-    "",
+    })[0],
+    {
+      turn: 1,
+      type: "damage",
+      actor: "p1a: Attacker",
+      condition: "50/120",
+      source: "",
+      moveType: "Normal",
+    },
   );
 
   assert.deepEqual(

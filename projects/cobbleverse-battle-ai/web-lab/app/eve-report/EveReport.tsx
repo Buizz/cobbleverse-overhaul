@@ -189,6 +189,9 @@ type BattleEvent = {
   layers?: number;
   duration?: number;
   source?: string;
+  cause?: string;
+  moveType?: string;
+  moveCategory?: string;
   target?: string;
   fromActor?: string;
   automatic?: boolean;
@@ -852,6 +855,34 @@ function replayPokemonTransition(
   return "";
 }
 
+function replayPokemonHitClass(
+  event: BattleEvent | null,
+  sideIndex: number,
+) {
+  if (
+    event?.type !== "damage" ||
+    !event.moveType ||
+    eventSideIndex(event) !== sideIndex
+  ) {
+    return "";
+  }
+  return `is-hit hit-type-${dexId(event.moveType)}`;
+}
+
+function replayPokemonAttackClass(
+  event: BattleEvent | null,
+  sideIndex: number,
+) {
+  if (
+    event?.type !== "move" ||
+    dexId(event.moveCategory) === "status" ||
+    eventSideIndex(event) !== sideIndex
+  ) {
+    return "";
+  }
+  return "is-attacking";
+}
+
 function conditionNumbers(condition: string | undefined) {
   const token = String(condition ?? "").split(" ")[0];
   if (!token) return null;
@@ -944,12 +975,19 @@ function replaySideState(
   const pokemon = team[activeIndex] ?? team[0];
   const hp = hpBySlot[activeIndex] ?? 0;
   const maxHp = maxHpBySlot[activeIndex] ?? 1;
+  const fainted = visibleEvents.some(
+    (event) =>
+      event.type === "faint" &&
+      eventSideIndex(event) === sideIndex &&
+      eventPokemonSlot(report, localization, sideIndex, event) === activeIndex,
+  );
   return {
     activeIndex,
     pokemon,
     displaySpecies: displaySpecies || pokemon?.species || "",
     hp,
     maxHp,
+    fainted,
     hpPercent: Math.max(0, Math.min(100, (hp / maxHp) * 100)),
   };
 }
@@ -1179,7 +1217,12 @@ function EveBattleReplay({
   useEffect(() => {
     if (!soundSettings.sfxEnabled || !currentEvent) return;
     void playBattleSoundEffects([
-      { type: currentEvent.type, detail: currentEvent.detail },
+      {
+        type: currentEvent.type,
+        detail: currentEvent.detail,
+        source: currentEvent.source,
+        cause: currentEvent.cause,
+      },
     ]);
   }, [currentEvent, soundSettings]);
 
@@ -1226,11 +1269,16 @@ function EveBattleReplay({
           traces={currentTraces[0]}
         />
         <div className="eve-replay-stage">
-        {sideStates.map((state, sideIndex) => (
-          <div
-            className={`eve-replay-combatant side-${sideIndex === 0 ? "a" : "b"}`}
-            key={sideIndex}
-          >
+        {sideStates.map((state, sideIndex) => {
+          const transition = replayPokemonTransition(currentEvent, sideIndex);
+          const hit = replayPokemonHitClass(currentEvent, sideIndex);
+          const attack = replayPokemonAttackClass(currentEvent, sideIndex);
+          const visualEffect = transition || hit || attack;
+          return (
+            <div
+              className={`eve-replay-combatant side-${sideIndex === 0 ? "a" : "b"}`}
+              key={sideIndex}
+            >
             <article>
               <span>{sideIndex === 0 ? "SIDE A" : "SIDE B"}</span>
               <strong>
@@ -1248,14 +1296,12 @@ function EveBattleReplay({
             {state.pokemon ? (
               <div
                 className={`eve-replay-pokemon ${
-                  replayPokemonTransition(currentEvent, sideIndex)
-                    ? `is-${replayPokemonTransition(currentEvent, sideIndex)}`
-                    : ""
+                  transition ? `is-${transition}` : ""
+                } ${hit} ${attack} ${
+                  state.fainted && transition !== "fainting" ? "fainted" : ""
                 }`}
                 key={`${sideIndex}-${state.displaySpecies}-${
-                  replayPokemonTransition(currentEvent, sideIndex)
-                    ? cursor
-                    : "steady"
+                  visualEffect ? cursor : "steady"
                 }`}
               >
                 <ReportPokemonSprite
@@ -1264,8 +1310,9 @@ function EveBattleReplay({
                 />
               </div>
             ) : null}
-          </div>
-        ))}
+            </div>
+          );
+        })}
 
         <div className="eve-replay-turn">
           <span>TURN</span>

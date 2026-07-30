@@ -36,7 +36,7 @@
       "focus": ["hazard", "salt-cure", "long-game"],
       "baseline": {
         "winnerTrainerId": "dbingsu-server-party",
-        "turns": 34
+        "turns": 19
       }
     },
     {
@@ -76,7 +76,7 @@
       "focus": ["weather", "switch", "ace-preservation"],
       "baseline": {
         "winnerTrainerId": "champions-mega-raichu-x-rain",
-        "turns": 35
+        "turns": 43
       }
     },
     {
@@ -96,7 +96,7 @@
       "focus": ["salt-cure", "switch", "hazard"],
       "baseline": {
         "winnerTrainerId": "sv9-modern-bulky-offense",
-        "turns": 28
+        "turns": 40
       }
     },
     {

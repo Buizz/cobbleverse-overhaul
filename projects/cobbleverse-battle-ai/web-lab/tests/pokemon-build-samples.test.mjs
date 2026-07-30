@@ -24,6 +24,12 @@ test("sample index points to valid individual JSON builds", async () => {
   assert.ok(samples.every(Boolean));
   assert.ok(samples.some((sample) => sample.format === "sv"));
   assert.ok(samples.some((sample) => sample.format === "champions"));
+  assert.ok(
+    samples.some(
+      (sample) =>
+        sample.species === "Hippowdon" && sample.moves.includes("Yawn"),
+    ),
+  );
 });
 
 test("applying a sample replaces the whole battle build", () => {
