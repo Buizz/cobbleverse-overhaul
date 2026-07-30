@@ -34,6 +34,7 @@ import {
   formatBattleDialogue,
 } from "../lib/battle-dialogue";
 import { BattleAudioControl } from "../lib/BattleAudioControl";
+import { playBattleSoundEffects } from "../lib/battle-audio";
 
 type BattleMode = "pve" | "eve";
 type PartySource = "custom" | "preset";
@@ -4663,6 +4664,18 @@ function InteractiveArena({
     : actionNotice
       ? [actionNotice.event]
       : [];
+  useEffect(() => {
+    if (!actionNotice) return;
+    const events = actionNotice.events?.length
+      ? actionNotice.events
+      : [actionNotice.event];
+    void playBattleSoundEffects(
+      events.map((event) => ({
+        type: event.type,
+        detail: event.detail,
+      })),
+    );
+  }, [actionNotice]);
   const actionMessages = actionEvents.map((event) =>
     pokemonBattleMessage(localization, event),
   );

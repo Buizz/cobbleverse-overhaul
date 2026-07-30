@@ -4,11 +4,13 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   getBattleAudioSettings,
   getBattleAudioServerSettings,
+  playBattleSoundEffects,
   setBattleAudioSettings,
   startBattleMusic,
   stopBattleMusic,
   subscribeBattleAudioSettings,
   type BattleAudioSettings,
+  unlockBattleSoundEffects,
 } from "./battle-audio";
 
 export function BattleAudioControl({
@@ -28,7 +30,7 @@ export function BattleAudioControl({
 
   useEffect(() => {
     const current = getBattleAudioSettings();
-    if (current.enabled) {
+    if (current.bgmEnabled) {
       void startBattleMusic(eventId).catch(() => {
         setStatus("재생 버튼을 다시 눌러 주세요.");
       });
@@ -39,7 +41,7 @@ export function BattleAudioControl({
   }, [eventId]);
 
   const toggleSound = async () => {
-    if (settings.enabled && status) {
+    if (settings.bgmEnabled && status) {
       setStatus("");
       try {
         const result = await startBattleMusic(eventId);
@@ -53,10 +55,10 @@ export function BattleAudioControl({
     }
     const next = setBattleAudioSettings({
       ...settings,
-      enabled: !settings.enabled,
+      bgmEnabled: !settings.bgmEnabled,
     });
     setStatus("");
-    if (!next.enabled) {
+    if (!next.bgmEnabled) {
       stopBattleMusic();
       return;
     }
@@ -74,8 +76,14 @@ export function BattleAudioControl({
     }
   };
 
-  const changeVolume = (volume: number) => {
-    setBattleAudioSettings({ ...settings, volume });
+  const toggleEffects = async () => {
+    const next = setBattleAudioSettings({
+      ...settings,
+      sfxEnabled: !settings.sfxEnabled,
+    });
+    if (!next.sfxEnabled) return;
+    await unlockBattleSoundEffects();
+    await playBattleSoundEffects([{ type: "switch" }]);
   };
 
   return (
@@ -84,29 +92,65 @@ export function BattleAudioControl({
       role="group"
       aria-label="배틀 사운드"
     >
-      <button
-        type="button"
-        className={settings.enabled ? "active" : ""}
-        aria-pressed={settings.enabled}
-        onClick={() => void toggleSound()}
-        title="지정한 리소스팩의 배틀 BGM을 재생합니다."
-      >
-        <span aria-hidden="true">{settings.enabled ? "♪" : "×"}</span>
-        {settings.enabled ? "사운드 켜짐" : "사운드 꺼짐"}
-      </button>
-      <label title={`음량 ${Math.round(settings.volume * 100)}%`}>
-        <span>음량</span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={Math.round(settings.volume * 100)}
-          onChange={(event) => changeVolume(Number(event.target.value) / 100)}
-          aria-label="배틀 사운드 음량"
-        />
-      </label>
-      {status ? <small role="status">{status}</small> : null}
+      <div className="battle-audio-channel">
+        <button
+          type="button"
+          className={settings.bgmEnabled ? "active" : ""}
+          aria-pressed={settings.bgmEnabled}
+          onClick={() => void toggleSound()}
+          title="지정한 리소스팩의 배틀 BGM을 재생합니다."
+        >
+          <span aria-hidden="true">{settings.bgmEnabled ? "♪" : "×"}</span>
+          BGM
+        </button>
+        <label title={`BGM 음량 ${Math.round(settings.bgmVolume * 100)}%`}>
+          <span>BGM</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={Math.round(settings.bgmVolume * 100)}
+            onChange={(event) =>
+              setBattleAudioSettings({
+                ...settings,
+                bgmVolume: Number(event.target.value) / 100,
+              })
+            }
+            aria-label="전투 BGM 음량"
+          />
+        </label>
+      </div>
+      <div className="battle-audio-channel">
+        <button
+          type="button"
+          className={settings.sfxEnabled ? "active" : ""}
+          aria-pressed={settings.sfxEnabled}
+          onClick={() => void toggleEffects()}
+          title="Cobblemon 기술과 타격 효과음을 재생합니다."
+        >
+          <span aria-hidden="true">{settings.sfxEnabled ? "◆" : "×"}</span>
+          효과음
+        </button>
+        <label title={`효과음 음량 ${Math.round(settings.sfxVolume * 100)}%`}>
+          <span>효과음</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={Math.round(settings.sfxVolume * 100)}
+            onChange={(event) =>
+              setBattleAudioSettings({
+                ...settings,
+                sfxVolume: Number(event.target.value) / 100,
+              })
+            }
+            aria-label="배틀 효과음 음량"
+          />
+        </label>
+      </div>
+      {status && !compact ? <small role="status">{status}</small> : null}
     </div>
   );
 }

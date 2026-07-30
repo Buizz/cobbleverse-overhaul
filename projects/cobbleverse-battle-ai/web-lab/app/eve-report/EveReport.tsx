@@ -4,7 +4,6 @@
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -23,6 +22,7 @@ import { BattleAudioControl } from "../../lib/BattleAudioControl";
 import {
   getBattleAudioServerSettings,
   getBattleAudioSettings,
+  playBattleSoundEffects,
   subscribeBattleAudioSettings,
 } from "../../lib/battle-audio";
 
@@ -946,50 +946,6 @@ function replayDelay(speed: EveReplaySpeed) {
   return 420;
 }
 
-function playReplaySound(
-  context: AudioContext,
-  event: BattleEvent,
-  volume: number,
-) {
-  const cues: Record<string, [number, OscillatorType, number]> = {
-    switch: [420, "sine", 0.11],
-    move: [520, "square", 0.09],
-    damage: [145, "sawtooth", 0.12],
-    damage_prevented: [310, "triangle", 0.14],
-    heal: [760, "sine", 0.16],
-    super_effective: [660, "square", 0.1],
-    critical: [820, "triangle", 0.12],
-    faint: [110, "sawtooth", 0.24],
-    win: [880, "sine", 0.25],
-  };
-  const cue = cues[event.type];
-  if (!cue) return;
-  const [frequency, type, duration] = cue;
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  const start = context.currentTime;
-  oscillator.type = type;
-  oscillator.frequency.setValueAtTime(frequency, start);
-  if (event.type === "faint") {
-    oscillator.frequency.exponentialRampToValueAtTime(55, start + duration);
-  } else if (event.type === "heal" || event.type === "win") {
-    oscillator.frequency.exponentialRampToValueAtTime(
-      frequency * 1.35,
-      start + duration,
-    );
-  }
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(
-    Math.max(0.0001, 0.055 * volume),
-    start + 0.015,
-  );
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start(start);
-  oscillator.stop(start + duration + 0.02);
-}
-
 function replayCandidateName(
   candidate: AiCandidate,
   localization: LocalizationCatalog | null,
@@ -1149,7 +1105,6 @@ function EveBattleReplay({
     getBattleAudioSettings,
     getBattleAudioServerSettings,
   );
-  const audioContext = useRef<AudioContext | null>(null);
   const currentEvent = cursor >= 0 ? replayEvents[cursor] : null;
   const visibleEvents = replayEvents.slice(0, cursor + 1);
   const currentTurn = currentEvent?.turn ?? 0;
@@ -1188,35 +1143,11 @@ function EveBattleReplay({
   }, [cursor, playing, replayEvents.length, speed]);
 
   useEffect(() => {
-    if (!soundSettings.enabled || !currentEvent) return;
-    if (!audioContext.current) {
-      const BrowserAudioContext =
-        window.AudioContext ??
-        (
-          window as typeof window & {
-            webkitAudioContext?: typeof AudioContext;
-          }
-        ).webkitAudioContext;
-      if (BrowserAudioContext) audioContext.current = new BrowserAudioContext();
-    }
-    if (!audioContext.current) return;
-    void audioContext.current.resume().then(() => {
-      if (audioContext.current) {
-        playReplaySound(
-          audioContext.current,
-          currentEvent,
-          soundSettings.volume,
-        );
-      }
-    });
+    if (!soundSettings.sfxEnabled || !currentEvent) return;
+    void playBattleSoundEffects([
+      { type: currentEvent.type, detail: currentEvent.detail },
+    ]);
   }, [currentEvent, soundSettings]);
-
-  useEffect(
-    () => () => {
-      if (audioContext.current) void audioContext.current.close();
-    },
-    [],
-  );
 
   const startPlayback = () => {
     if (replayEvents.length === 0) return;

@@ -170,7 +170,9 @@ export function localWorkspace(): Plugin {
     }
     if (audioCatalogPath !== resourcePacksPath || !audioCatalogPromise) {
       audioCatalogPath = resourcePacksPath;
-      audioCatalogPromise = createLocalBattleAudioCatalog(resourcePacksPath);
+      audioCatalogPromise = createLocalBattleAudioCatalog(resourcePacksPath, [
+        saved.cobblemonJar,
+      ]);
     }
     return audioCatalogPromise;
   };

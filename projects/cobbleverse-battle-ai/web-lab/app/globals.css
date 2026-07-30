@@ -10394,17 +10394,24 @@ select:disabled {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-width: 220px;
+  min-width: 360px;
 }
 
-.battle-audio-control > button {
+.battle-audio-channel {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.battle-audio-channel > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 68px;
   white-space: nowrap;
 }
 
-.battle-audio-control > button > span {
+.battle-audio-channel > button > span {
   display: grid;
   width: 18px;
   height: 18px;
@@ -10415,12 +10422,12 @@ select:disabled {
   line-height: 1;
 }
 
-.battle-audio-control > button.active {
+.battle-audio-channel > button.active {
   border-color: #3ee4d3;
   color: #3ee4d3;
 }
 
-.battle-audio-control > label {
+.battle-audio-channel > label {
   display: grid;
   grid-template-columns: auto 72px;
   align-items: center;
@@ -10450,7 +10457,7 @@ select:disabled {
 }
 
 .battle-audio-control.compact {
-  min-width: 190px;
+  min-width: 330px;
 }
 
 @media (max-width: 900px) {
@@ -10459,7 +10466,7 @@ select:disabled {
     min-width: 0;
   }
 
-  .battle-audio-control > label {
+  .battle-audio-channel > label {
     grid-template-columns: auto 54px;
   }
 

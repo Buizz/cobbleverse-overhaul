@@ -256,6 +256,7 @@ async function scanArchivePack(packPath: string) {
 
 export async function createLocalBattleAudioCatalog(
   resourcePacksPath: string,
+  baseArchives: string[] = [],
 ): Promise<LocalBattleAudioCatalogResult> {
   const entries = await readdir(resourcePacksPath, { withFileTypes: true });
   const packs = entries.filter(
@@ -263,30 +264,37 @@ export async function createLocalBattleAudioCatalog(
       entry.isDirectory() ||
       (entry.isFile() && /\.(?:zip|jar)$/i.test(entry.name)),
   );
-  const scanned = await Promise.all(
-    packs.map((entry) => {
+  const scanned = await Promise.all([
+    ...baseArchives.map((archivePath) => scanArchivePack(archivePath)),
+    ...packs.map((entry) => {
       const packPath = join(resourcePacksPath, entry.name);
       return entry.isDirectory()
         ? scanDirectoryPack(packPath)
         : scanArchivePack(packPath);
     }),
-  );
+  ]);
   const resources = new Map<
     string,
     { source: AudioSource; pack: string; entryPath: string }
   >();
-  const definitions: SoundDefinition[] = [];
+  const definitions = new Map<string, SoundDefinition>();
 
   for (const pack of scanned) {
-    definitions.push(...pack.definitions);
+    for (const definition of pack.definitions) {
+      definitions.set(definition.event, definition);
+    }
     for (const [name, resource] of pack.resources) {
       resources.set(name, resource);
     }
   }
 
   const sources = new Map<string, AudioSource>();
-  const events = definitions
-    .filter((definition) => /\.battle\.|:battle\./i.test(definition.event))
+  const events = Array.from(definitions.values())
+    .filter((definition) =>
+      /(?:^|:)(?:battle\.|move\.|impact\.|poke_ball\.(?:send_out|recall|hit))/i.test(
+        definition.event,
+      ),
+    )
     .map((definition) => ({
       id: definition.event.replace(/^[^:]+:/, ""),
       tracks: definition.references
