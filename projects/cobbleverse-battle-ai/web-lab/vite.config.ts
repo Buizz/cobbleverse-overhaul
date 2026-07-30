@@ -1,6 +1,7 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
+import { localBattleSweep } from "./local-battle-sweep-vite-plugin";
 import { localWorkspace } from "./build/local-workspace-vite-plugin";
 import { sites } from "./build/sites-vite-plugin";
 
@@ -49,6 +50,7 @@ export default defineConfig(async () => {
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
     plugins: [
+      localBattleSweep(),
       localWorkspace(),
       vinext(),
       sites(),

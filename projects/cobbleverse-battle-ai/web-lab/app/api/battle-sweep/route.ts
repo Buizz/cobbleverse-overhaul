@@ -11,6 +11,8 @@ const difficulties = new Set([
   "standard",
   "advanced",
   "expert",
+  "expert_winrate",
+  "expert_search",
   "cheater",
 ]);
 const strategies = new Set([
@@ -122,7 +124,15 @@ export async function POST(request: Request) {
         durationMs: battle.durationMs,
       });
     }
-    return Response.json({ ok: true, results }, { status: 201 });
+    return Response.json(
+      {
+        ok: true,
+        results,
+        parallelism: 1,
+        executionMode: "sequential",
+      },
+      { status: 201 },
+    );
   } catch (error) {
     return Response.json(
       {

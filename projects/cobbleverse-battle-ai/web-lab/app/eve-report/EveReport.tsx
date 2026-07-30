@@ -296,6 +296,8 @@ type SweepResult = {
   baseSeed: number;
   rounds: number;
   totalBattles: number;
+  parallelism: number;
+  executionMode: "worker_threads" | "sequential";
   bestA: SweepScore | null;
   bestB: SweepScore | null;
   sideA: SweepScore[];
@@ -1397,6 +1399,7 @@ export default function EveReport() {
   const [batchRunning, setBatchRunning] = useState(false);
   const [sweepRounds, setSweepRounds] = useState(3);
   const [sweepMode, setSweepMode] = useState<"fast" | "exact">("fast");
+  const [sweepParallelism, setSweepParallelism] = useState(0);
   const [batchStatus, setBatchStatus] = useState("");
   const [sweepResult, setSweepResult] = useState<SweepResult | null>(null);
   const [error, setError] = useState("");
@@ -1518,15 +1521,24 @@ export default function EveReport() {
     const response = await fetch("/api/battle-sweep", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ scenario, jobs }),
+      body: JSON.stringify({
+        scenario,
+        jobs,
+        concurrency: sweepParallelism,
+      }),
     });
     const result = (await response.json()) as
-      | { ok: true; results: SweepBattleSummary[] }
+      | {
+          ok: true;
+          results: SweepBattleSummary[];
+          parallelism: number;
+          executionMode: "worker_threads" | "sequential";
+        }
       | { ok: false; issues: Array<{ message: string }> };
     if (!result.ok) {
       throw new Error(result.issues[0]?.message ?? "반복 전투를 실행하지 못했습니다.");
     }
-    return result.results;
+    return result;
   };
 
   const scenarioWith = (nextSeed: number, nextProfiles = profiles) => {
@@ -1577,6 +1589,8 @@ export default function EveReport() {
     setError("");
     try {
       let completed = 0;
+      let usedParallelism = 1;
+      let executionMode: SweepResult["executionMode"] = "sequential";
       type MatchupPlan = {
         strategyA: AiProfile["strategy"];
         strategyB: AiProfile["strategy"];
@@ -1614,13 +1628,16 @@ export default function EveReport() {
         if (!baseScenario) {
           throw new Error("반복 전투의 기준 시나리오를 찾지 못했습니다.");
         }
-        const battles = await runBattleSummaries(
+        const sweep = await runBattleSummaries(
           baseScenario,
           executions.map((execution) => ({
             seed: execution.seed,
             aiProfiles: execution.aiProfiles,
           })),
         );
+        const battles = sweep.results;
+        usedParallelism = Math.max(usedParallelism, sweep.parallelism);
+        executionMode = sweep.executionMode;
         for (const [index, execution] of executions.entries()) {
           const battle = battles[index];
           if (!battle) {
@@ -1663,7 +1680,9 @@ export default function EveReport() {
 
           completed += 1;
         }
-        setBatchStatus(`${completed}/${totalBattles} 전투 실행 중`);
+        setBatchStatus(
+          `${completed}/${totalBattles} 전투 실행 중 · ${usedParallelism}코어`,
+        );
       };
 
       if (sweepMode === "exact") {
@@ -1756,6 +1775,8 @@ export default function EveReport() {
         baseSeed,
         rounds,
         totalBattles,
+        parallelism: usedParallelism,
+        executionMode,
         bestA,
         bestB,
         sideA: sideAScores,
@@ -2023,6 +2044,21 @@ export default function EveReport() {
             onChange={(event) => setSweepRounds(Number(event.target.value))}
           />
         </label>
+        <label>
+          CPU 병렬 실행
+          <select
+            value={sweepParallelism}
+            onChange={(event) =>
+              setSweepParallelism(Number(event.target.value))
+            }
+          >
+            <option value={0}>자동</option>
+            <option value={1}>1코어</option>
+            <option value={2}>2코어</option>
+            <option value={4}>4코어</option>
+            <option value={8}>8코어</option>
+          </select>
+        </label>
         <button disabled={running || batchRunning} onClick={runStrategySweep}>
           {batchRunning ? batchStatus : "최고 승률 성향 찾기"}
         </button>
@@ -2032,7 +2068,7 @@ export default function EveReport() {
         <section className="eve-sweep-result">
           <header>
             <strong>
-              분석 결과 · seed {sweepResult.baseSeed}부터 {sweepResult.rounds}회 반복 · {sweepResult.totalBattles}전
+              분석 결과 · seed {sweepResult.baseSeed}부터 {sweepResult.rounds}회 반복 · {sweepResult.totalBattles}전 · {sweepResult.parallelism}코어
             </strong>
             <span>
               1P 최고 {sweepResult.bestA ? strategyNames[sweepResult.bestA.strategy] : "-"} ·
