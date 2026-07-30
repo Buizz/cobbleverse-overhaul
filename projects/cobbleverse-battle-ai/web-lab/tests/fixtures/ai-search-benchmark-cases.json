@@ -25,8 +25,8 @@
       "trainerIds": ["sv9-speed-offense", "champions-mega-raichu-x-rain"],
       "focus": ["weather", "switch", "speed-control"],
       "baseline": {
-        "winnerTrainerId": null,
-        "turns": 34
+        "winnerTrainerId": "sv9-speed-offense",
+        "turns": 29
       }
     },
     {
@@ -76,7 +76,7 @@
       "focus": ["weather", "switch", "ace-preservation"],
       "baseline": {
         "winnerTrainerId": "champions-mega-raichu-x-rain",
-        "turns": 39
+        "turns": 35
       }
     },
     {

@@ -6651,6 +6651,85 @@ test("AI scores defensive Terastallization through the projected one-turn state"
   assert.ok(decision.gimmickCandidate.oneTurnEvaluation);
 });
 
+test("AI preserves Terastallization when defensive Tera still faints immediately", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Fragile Tera Candidate",
+            types: ["Electric"],
+            gimmicks: { teraType: "Grass" },
+            stats: {
+              ...pokemon().stats,
+              hp: 180,
+              specialAttack: 100,
+              speed: 80,
+            },
+            moves: [
+              {
+                id: "icebeam",
+                name: "Ice Beam",
+                type: "Ice",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            name: "Overwhelming Ground Threat",
+            types: ["Ground"],
+            stats: {
+              ...pokemon().stats,
+              hp: 500,
+              attack: 600,
+              speed: 160,
+            },
+            moves: [
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const decision = chooseSimpleAiDecision(
+    createSimpleBattle(scenario),
+    0,
+    "expert",
+    "balanced",
+  );
+
+  assert.equal(decision.command.gimmick, undefined);
+  assert.ok(
+    decision.gimmickCandidate.reasons.some(
+      (reason) =>
+        reason.code === "gimmick.tera.fails_to_survive_active_hit",
+    ),
+    JSON.stringify(decision.gimmickCandidate, null, 2),
+  );
+  assert.ok(
+    decision.gimmickCandidate.score <
+      decision.gimmickCandidate.activationThreshold,
+  );
+});
+
 test("AI evaluates remaining opposing matchups before spending Terastallization", () => {
   const scenario = setup({
     sides: [

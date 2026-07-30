@@ -10471,6 +10471,9 @@ function teraDefensiveProjection(state, projectedState, sideIndex) {
     Boolean(activeMatchup) &&
     activeMatchup.currentDamage < currentPokemon.hp &&
     activeMatchup.projectedDamage >= projectedPokemon.hp;
+  const activeKoAfterTera =
+    Boolean(activeMatchup) &&
+    activeMatchup.projectedDamage >= projectedPokemon.hp;
 
   return {
     activeMatchup,
@@ -10479,6 +10482,7 @@ function teraDefensiveProjection(state, projectedState, sideIndex) {
     futureDamageReductionRatio,
     preventsActiveKo,
     createsActiveKoRisk,
+    activeKoAfterTera,
   };
 }
 
@@ -10569,11 +10573,30 @@ function applyTeraDefensiveScore(
   const safeGuaranteedKo =
     baseMove.koChance === "guaranteed" &&
     Number(baseMove.actionBeforeThreatProbability ?? 0) >= 0.99;
+  const teraPreventsCounterattack =
+    selectedMove.koChance === "guaranteed" &&
+    Number(selectedMove.actionBeforeThreatProbability ?? 0) >= 0.99;
+  const actionScoreGain =
+    Number(selectedMove.score ?? 0) - Number(baseMove.score ?? 0);
+  const koChanceValue = (value) =>
+    ({ guaranteed: 2, possible: 1 }[value] ?? 0);
+  const baseExpectedDamage = Number(baseMove.expectedDamage ?? 0);
+  const selectedExpectedDamage = Number(selectedMove.expectedDamage ?? 0);
+  const hasOffensiveTeraGain =
+    selectedExpectedDamage >=
+      baseExpectedDamage + Math.max(10, baseExpectedDamage * 0.1) ||
+    koChanceValue(selectedMove.koChance) > koChanceValue(baseMove.koChance);
+  const failsToSurviveDefensiveTera =
+    projection.activeKoAfterTera &&
+    !teraPreventsCounterattack &&
+    !hasOffensiveTeraGain;
   const activeWeight = Math.max(
     -32,
     Math.min(
       36,
-      (safeGuaranteedKo ? 0 : projection.activeDamageReductionRatio) * 48,
+      safeGuaranteedKo || failsToSurviveDefensiveTera
+        ? 0
+        : projection.activeDamageReductionRatio * 48,
     ),
   );
   if (Math.abs(activeWeight) >= 0.5) {
@@ -10619,7 +10642,24 @@ function applyTeraDefensiveScore(
         "현재는 버티는 공격을 테라스탈 후에는 버티지 못하므로 사용 가치를 크게 낮췄습니다.",
     });
   }
-  if (projection.futureMatchups.length > 0) {
+  if (failsToSurviveDefensiveTera) {
+    adjustment -= 999;
+    reasons.push({
+      code: "gimmick.tera.fails_to_survive_active_hit",
+      label: "테라 후에도 생존 불가",
+      value: projection.activeMatchup
+        ? {
+            opponent: projection.activeMatchup.name,
+            damage:
+              Math.round(projection.activeMatchup.projectedDamage * 100) / 100,
+          }
+        : true,
+      weight: -999,
+      message:
+        "테라스탈로 피해를 줄여도 현재 상대의 공격에 쓰러지며, 그 전에 확정 KO로 반격을 막을 수도 없어 테라 자원을 보존합니다.",
+    });
+  }
+  if (!failsToSurviveDefensiveTera && projection.futureMatchups.length > 0) {
     const futureWeight = Math.max(
       -18,
       Math.min(18, projection.futureDamageReductionRatio * 24),
@@ -10652,11 +10692,10 @@ function applyTeraDefensiveScore(
         "현재와 남은 대면에서 뚜렷한 방어 이득이 없어 테라 자원을 보존합니다.",
     });
   }
-  const actionScoreGain =
-    Number(selectedMove.score ?? 0) - Number(baseMove.score ?? 0);
   const hasImmediateGain =
     actionScoreGain >= 5 ||
     (!safeGuaranteedKo &&
+      !failsToSurviveDefensiveTera &&
       (projection.preventsActiveKo ||
         projection.activeDamageReductionRatio >= 0.1));
   if (
