@@ -4615,8 +4615,16 @@ function InteractiveArena({
   const playerCondition = opponentWon
     ? "0 fnt"
     : hpPreview.p1 ?? active?.condition.text ?? latestConditionBySide(battle.events, "p1");
-  const playerSpriteFainted = conditionPercent(playerCondition) === 0;
-  const opponentSpriteFainted = opponentHp === 0;
+  const playerDamageJustReachedZero =
+    actionNotice?.event.type === "damage" &&
+    actionNotice.event.actor?.startsWith("p1");
+  const opponentDamageJustReachedZero =
+    actionNotice?.event.type === "damage" &&
+    actionNotice.event.actor?.startsWith("p2");
+  const playerSpriteFainted =
+    conditionPercent(playerCondition) === 0 && !playerDamageJustReachedZero;
+  const opponentSpriteFainted =
+    opponentHp === 0 && !opponentDamageJustReachedZero;
   const pokemonStatuses = statusByPokemon(battle.events);
   const opponentStatus =
     pokemonStatuses.get(dexId(opponentName)) ??
