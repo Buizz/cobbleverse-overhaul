@@ -16,6 +16,9 @@ test("contains Cobblemon Korean species and move localization", async () => {
   assert.equal(catalog.species.pikachu.name, "피카츄");
   assert.equal(catalog.moves.thunderbolt.name, "10만볼트");
   assert.match(catalog.moves.thunderbolt.description, /전격/);
+  assert.equal(catalog.moves.breakneckblitz.name, "울트라대시어택");
+  assert.equal(catalog.moves.pulverizingpancake.name, "진심의공격");
+  assert.match(catalog.moves.pulverizingpancake.description, /Z파워/);
   assert.ok(Object.keys(catalog.species).length >= 1_000);
   assert.ok(Object.keys(catalog.moves).length >= 800);
   assert.equal(catalog.typeIcons.length, 18);

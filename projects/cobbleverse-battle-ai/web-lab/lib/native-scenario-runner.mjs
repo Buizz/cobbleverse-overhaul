@@ -2,6 +2,31 @@ import { Dex } from "@pkmn/sim";
 import { runSimpleBattle } from "./cobbleverse-battle-engine.mjs";
 import { isNativeGigantamaxSpecies } from "./native-max-moves.mjs";
 import { resolveShowdownMemberSpecies } from "./showdown-species.mjs";
+import {
+  explicitTeraType,
+  seededNativeTeraType,
+} from "./virtual-tera-policy.mjs";
+
+const GENERIC_Z_MOVE_NAMES = {
+  normal: "Breakneck Blitz",
+  fighting: "All-Out Pummeling",
+  flying: "Supersonic Skystrike",
+  poison: "Acid Downpour",
+  ground: "Tectonic Rage",
+  rock: "Continental Crush",
+  bug: "Savage Spin-Out",
+  ghost: "Never-Ending Nightmare",
+  steel: "Corkscrew Crash",
+  fire: "Inferno Overdrive",
+  water: "Hydro Vortex",
+  grass: "Bloom Doom",
+  electric: "Gigavolt Havoc",
+  psychic: "Shattered Psyche",
+  ice: "Subzero Slammer",
+  dragon: "Devastating Drake",
+  dark: "Black Hole Eclipse",
+  fairy: "Twinkle Tackle",
+};
 
 function statValue(base, level, iv, ev, isHp = false) {
   const core = Math.floor(
@@ -84,7 +109,7 @@ function nativeEffectSource(event) {
   return "";
 }
 
-function hydrateMember(member, path) {
+function hydrateMember(member, path, teraContext = {}) {
   const resolvedSpecies = resolveShowdownMemberSpecies(member);
   const species = Dex.species.get(resolvedSpecies.showdownName ?? member.species);
   if (!species.exists) {
@@ -101,6 +126,29 @@ function hydrateMember(member, path) {
       memberStat(evs, key, 0),
       isHp,
     );
+  const hydratedForm = (formName) => {
+    const form = Dex.species.get(formName);
+    if (!form.exists) return null;
+    return {
+      id: form.id,
+      name: form.name,
+      types: form.types,
+      ability:
+        form.abilities?.["0"] ??
+        form.abilities?.S ??
+        form.abilities?.H ??
+        "",
+      weightKg: form.weightkg,
+      stats: {
+        hp: calculated(form, "hp", true),
+        attack: calculated(form, "atk"),
+        defence: calculated(form, "def"),
+        specialAttack: calculated(form, "spa"),
+        specialDefence: calculated(form, "spd"),
+        speed: calculated(form, "spe"),
+      },
+    };
+  };
   const moves = member.moveset.map((moveId, moveIndex) => {
     const move = Dex.moves.get(moveId);
     if (!move.exists) {
@@ -180,18 +228,66 @@ function hydrateMember(member, path) {
     (showdownItem.zMove || showdownItem.zMoveType || showdownItem.zMoveFrom)
       ? {
           item: heldItem,
-          move: showdownItem.zMove ?? "",
+          itemName: showdownItem.name ?? heldItem,
+          move:
+            typeof showdownItem.zMove === "string"
+              ? showdownItem.zMove
+              : GENERIC_Z_MOVE_NAMES[cleanId(showdownItem.zMoveType)] ?? "",
           moveType: showdownItem.zMoveType ?? "",
           moveFrom: showdownItem.zMoveFrom ?? "",
+          users: Array.isArray(showdownItem.itemUser)
+            ? showdownItem.itemUser.map(cleanId)
+            : [],
         }
       : null;
+  const baseSpeciesName = species.baseSpecies || species.name;
+  const isOgerpon = baseSpeciesName === "Ogerpon";
+  const isTerapagos = baseSpeciesName === "Terapagos";
+  const ogerponTeraFormName =
+    species.name === "Ogerpon"
+      ? "Ogerpon-Teal-Tera"
+      : isOgerpon
+        ? `${species.name.replace(/-Tera$/, "")}-Tera`
+        : "";
+  const speciesForms = {
+    ...(isOgerpon
+      ? { tera: hydratedForm(ogerponTeraFormName) }
+      : {}),
+    ...(isTerapagos
+      ? {
+          terastal: hydratedForm("Terapagos-Terastal"),
+          stellar: hydratedForm("Terapagos-Stellar"),
+        }
+      : {}),
+  };
+  const requiredTeraType = isTerapagos
+    ? "Stellar"
+    : isOgerpon
+      ? species.requiredTeraType ?? species.types.at(-1) ?? "Grass"
+      : explicitTeraType(member) ||
+        seededNativeTeraType(
+          species.types,
+          teraContext.seed,
+          teraContext.sideIndex,
+          teraContext.memberIndex,
+        );
+  const configuredAbility =
+    displayValue(member.ability) ||
+    ((isOgerpon || isTerapagos)
+      ? species.abilities?.["0"] ??
+        species.abilities?.S ??
+        species.abilities?.H ??
+        ""
+      : "");
   return {
     id: species.id,
     name: species.name,
+    baseSpecies: baseSpeciesName,
     level,
     types: species.types,
-    ability: member.ability ?? "",
+    ability: configuredAbility,
     item: heldItem,
+    speciesForms,
     gimmicks: {
       megaStone,
       zCrystal,
@@ -200,7 +296,11 @@ function hydrateMember(member, path) {
         member.gimmicks?.dynamax === true || member.gimmicks?.gmax === true,
       canGigantamax: isNativeGigantamaxSpecies(species.id),
       gigantamax: member.gimmicks?.gmax === true,
-      teraType: member.gimmicks?.tera ?? species.types[0] ?? "Normal",
+      teraConfigured:
+        teraContext.teraConfigured ??
+        member.gimmicks?.teraEligible ??
+        (explicitTeraType(member) !== ""),
+      teraType: requiredTeraType,
     },
     weightKg: species.weightkg,
     friendship: member.friendship ?? member.happiness ?? 255,
@@ -224,15 +324,28 @@ export function createNativeBattleSetup(scenario) {
       scenario.gimmickRules === "all"
         ? "cobbleverse_all"
         : `official_${scenario.gimmickRules ?? "gen9"}`,
-    sides: scenario.sides.map((side, sideIndex) => ({
-      name: side.name,
-      team: side.team.map((member, memberIndex) =>
-        hydrateMember(
-          member,
-          `sides.${sideIndex}.team.${memberIndex}`,
+    sides: scenario.sides.map((side, sideIndex) => {
+      const hasExplicitTeraEligibility = side.team.some(
+        (member) => member.gimmicks?.teraEligible != null,
+      );
+      return {
+        name: side.name,
+        team: side.team.map((member, memberIndex) =>
+          hydrateMember(
+            member,
+            `sides.${sideIndex}.team.${memberIndex}`,
+            {
+              seed: scenario.seed,
+              sideIndex,
+              memberIndex,
+              teraConfigured: hasExplicitTeraEligibility
+                ? member.gimmicks?.teraEligible === true
+                : true,
+            },
+          ),
         ),
-      ),
-    })),
+      };
+    }),
   };
 }
 
@@ -290,6 +403,19 @@ export function mapNativeEvent(event) {
                 : "",
       },
     ];
+  }
+  if (event.type === "form_change") {
+    return [{
+      ...base,
+      type: "formechange",
+      detail: event.pokemon ?? "",
+      source: displayValue(event.source),
+      condition:
+        Number.isFinite(event.remainingHp) &&
+        Number.isFinite(event.maximumHp)
+          ? `${event.remainingHp}/${event.maximumHp}`
+          : "",
+    }];
   }
   if (event.type === "dynamax_end") {
     return [{ ...base, type: "dynamax_ended" }];
@@ -475,6 +601,16 @@ export function runNativeScenarioBattle(scenario, options = {}) {
       })),
     })),
   } : undefined;
+  const unsupportedBagWarnings = scenario.sides.flatMap((side, sideIndex) =>
+    Array.isArray(side.bag) && side.bag.length > 0
+      ? [{
+          path: `sides.${sideIndex}.bag`,
+          code: "native_trainer_bag_items_unsupported",
+          message:
+            "트레이너 가방 아이템은 시나리오에 보존되지만 자체 엔진의 전투 중 아이템 행동에는 아직 연결되지 않았습니다.",
+        }]
+      : [],
+  );
   const result = {
     battleId: `${scenario.scenarioId}-native-battle`,
     scenarioId: scenario.scenarioId,
@@ -508,6 +644,7 @@ export function runNativeScenarioBattle(scenario, options = {}) {
         message:
           "자체 엔진은 현재 포켓몬·기술 원본 데이터만 Showdown 카탈로그에서 읽으며, 전투 판정은 Cobbleverse 엔진이 수행합니다.",
       },
+      ...unsupportedBagWarnings,
     ],
   };
   if (!includeDetails) return result;

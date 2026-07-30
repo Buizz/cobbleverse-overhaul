@@ -131,6 +131,14 @@ const HAZARD_MAX_LAYERS = {
   spikes: 3,
   toxicspikes: 2,
 };
+const HAZARD_MOVE_CONDITIONS = {
+  ceaselessedge: "spikes",
+  spikes: "spikes",
+  stealthrock: "stealthrock",
+  stickyweb: "stickyweb",
+  stoneaxe: "stealthrock",
+  toxicspikes: "toxicspikes",
+};
 const BOOST_RESET_MOVE_IDS = new Set(["haze", "clearsmog"]);
 const PHAZE_MOVE_IDS = new Set([
   "roar",
@@ -157,6 +165,10 @@ const SELF_SACRIFICE_MOVE_IDS = new Set([
   "selfdestruct",
 ]);
 const DYNAMAX_SCORE_THRESHOLD = 18;
+const PROJECTED_GIMMICK_THRESHOLDS = {
+  mega: 0,
+  terastallize: 5,
+};
 
 const AI_SCORING_RULES = [
   {
@@ -915,6 +927,696 @@ export function analyzeTeamProfile(team = []) {
   };
 }
 
+function battleMemberId(member = {}, fallback = "") {
+  return cleanId(member.id ?? member.species ?? member.name ?? fallback);
+}
+
+function battleMemberHpPercent(member = {}) {
+  const maxHp = finiteNumber(
+    member.maxHp,
+    finiteNumber(
+      member.stats?.hp,
+      finiteNumber(member.maxhp, member.hp),
+    ),
+  );
+  const hp = finiteNumber(member.hp, maxHp);
+  return maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0;
+}
+
+function livingBattleMember(member = {}) {
+  return member.fainted !== true && battleMemberHpPercent(member) > 0;
+}
+
+export function buildThreatCounterMap({
+  allies = [],
+  enemies = [],
+  allyAnalysis = analyzeTeamProfile(allies),
+  enemyAnalysis = analyzeTeamProfile(enemies),
+  evaluateMatchup = () => ({}),
+} = {}) {
+  const threats = enemies
+    .map((enemy, enemyIndex) => {
+      if (!livingBattleMember(enemy)) return null;
+      const enemyRole = enemyAnalysis.roles?.[enemyIndex] ?? {};
+      const aceScore = Math.max(0, Math.min(20, finiteNumber(enemyRole.aceScore, 0)));
+      const setupScore = Math.max(
+        0,
+        finiteNumber(enemyRole.roleScores?.setupSweeper, 0),
+      );
+      const offense = Math.max(
+        pokemonStat(enemy, ["attack", "atk"]),
+        pokemonStat(enemy, ["specialAttack", "specialAtk", "spa"]),
+      );
+      const hpPercent = battleMemberHpPercent(enemy);
+      const threatScore =
+        Math.min(12, aceScore) +
+        Math.min(6, setupScore) +
+        Math.max(0, offense - 100) / 15 +
+        hpPercent * 2;
+      const threatLevel =
+        threatScore >= 14
+          ? "critical"
+          : threatScore >= 9
+            ? "high"
+            : threatScore >= 5
+              ? "medium"
+              : "low";
+      if (!["critical", "high"].includes(threatLevel)) {
+        return {
+          enemySlot: Number(enemy.slot ?? enemyIndex + 1),
+          enemyPokemonId: battleMemberId(enemy, enemyIndex + 1),
+          species: pokemonDisplayName(enemy),
+          threatLevel,
+          threatScore: Math.round(threatScore * 100) / 100,
+          counters: [],
+          softChecks: [],
+          revengeKillers: [],
+          mustPreserveResources: [],
+        };
+      }
+      const resources = allies
+        .map((ally, allyIndex) => {
+          if (!livingBattleMember(ally)) return null;
+          const matchup =
+            evaluateMatchup({
+              ally,
+              enemy,
+              allyIndex,
+              enemyIndex,
+            }) ?? {};
+          const allyHpPercent = ratioValue(
+            matchup.allyHpPercent,
+            battleMemberHpPercent(ally),
+          );
+          const incomingDamageRatio = Math.max(
+            0,
+            finiteNumber(matchup.incomingDamageRatio, 1),
+          );
+          const outgoingDamageRatio = Math.max(
+            0,
+            finiteNumber(matchup.outgoingDamageRatio, 0),
+          );
+          const survivesHit =
+            matchup.survivesHit === true ||
+            incomingDamageRatio < allyHpPercent;
+          const revengeKill =
+            matchup.priorityKo === true ||
+            (outgoingDamageRatio >= 1 && matchup.actsBefore === true);
+          const hardCounter =
+            survivesHit &&
+            (outgoingDamageRatio >= 0.65 ||
+              (incomingDamageRatio <= 0.35 && outgoingDamageRatio >= 0.35));
+          const softCheck =
+            hardCounter ||
+            (survivesHit &&
+              (outgoingDamageRatio >= 0.35 || incomingDamageRatio <= 0.6));
+          if (!softCheck && !revengeKill) return null;
+          const allyRole = allyAnalysis.roles?.[allyIndex] ?? {};
+          return {
+            slot: Number(ally.slot ?? allyIndex + 1),
+            pokemonId: battleMemberId(ally, allyIndex + 1),
+            species: pokemonDisplayName(ally),
+            classification: hardCounter
+              ? "counter"
+              : revengeKill
+                ? "revenge_killer"
+                : "soft_check",
+            incomingDamageRatio,
+            outgoingDamageRatio,
+            survivesHit,
+            actsBefore: matchup.actsBefore === true,
+            priorityKo: matchup.priorityKo === true,
+            aceQualified: allyRole.aceProfile?.qualifies === true,
+          };
+        })
+        .filter(Boolean)
+        .sort(
+          (left, right) =>
+            Number(right.classification === "counter") -
+              Number(left.classification === "counter") ||
+            Number(right.priorityKo) - Number(left.priorityKo) ||
+            right.outgoingDamageRatio - left.outgoingDamageRatio ||
+            left.incomingDamageRatio - right.incomingDamageRatio,
+        );
+      const counters = resources.filter(
+        (resource) => resource.classification === "counter",
+      );
+      const revengeKillers = resources.filter(
+        (resource) => resource.classification === "revenge_killer",
+      );
+      const softChecks = resources.filter(
+        (resource) => resource.classification === "soft_check",
+      );
+      const mustPreserveResources =
+        ["critical", "high"].includes(threatLevel) && counters.length <= 1
+          ? counters.length === 1
+            ? counters
+            : softChecks.length === 1
+              ? softChecks
+              : revengeKillers.length === 1
+                ? revengeKillers
+                : []
+          : [];
+      return {
+        enemySlot: Number(enemy.slot ?? enemyIndex + 1),
+        enemyPokemonId: battleMemberId(enemy, enemyIndex + 1),
+        species: pokemonDisplayName(enemy),
+        threatLevel,
+        threatScore: Math.round(threatScore * 100) / 100,
+        counters,
+        softChecks,
+        revengeKillers,
+        mustPreserveResources,
+      };
+    })
+    .filter(Boolean)
+    .sort(
+      (left, right) =>
+        right.threatScore - left.threatScore || left.enemySlot - right.enemySlot,
+    );
+
+  const mustPreserveResources = [
+    ...new Map(
+      threats.flatMap((threat) =>
+        threat.mustPreserveResources.map((resource) => [
+          resource.slot,
+          {
+            ...resource,
+            threats: [],
+          },
+        ]),
+      ),
+    ).values(),
+  ];
+  for (const resource of mustPreserveResources) {
+    resource.threats = threats
+      .filter((threat) =>
+        threat.mustPreserveResources.some(
+          (candidate) => candidate.slot === resource.slot,
+        ),
+      )
+      .map((threat) => ({
+        enemySlot: threat.enemySlot,
+        enemyPokemonId: threat.enemyPokemonId,
+        species: threat.species,
+        threatLevel: threat.threatLevel,
+      }));
+  }
+
+  return {
+    threats,
+    mustPreserveResources,
+  };
+}
+
+function setupAnswerCount(value) {
+  if (Array.isArray(value)) return value.length;
+  return Math.max(0, finiteNumber(value, 0));
+}
+
+export function evaluateSetupThreat({
+  setupMoves = [],
+  setupMoveIds = [],
+  setupLikelihood = 0,
+  opponentCurrentBoosts = 0,
+  opponentRoleScore = 0,
+  opponentAce = false,
+  opponentHpPercent = 1,
+  immediateDamageRatio = 0,
+  counters = [],
+  softChecks = [],
+  revengeKillers = [],
+  punishOptions = [],
+} = {}) {
+  const normalizedMoves =
+    setupMoves.length > 0
+      ? setupMoves.map((move) => ({
+          id: cleanId(move?.id ?? move?.name ?? move),
+          boosts: { ...(move?.selfBoosts ?? move?.boosts ?? {}) },
+        }))
+      : setupMoveIds.map((id) => ({ id: cleanId(id), boosts: {} }));
+  const opponentCanSetup = normalizedMoves.length > 0;
+  if (!opponentCanSetup) {
+    return {
+      opponentCanSetup: false,
+      setupMoveCandidates: [],
+      setupLikelihood: 0,
+      sweepRiskAfterSetup: 0,
+      riskTier: 0,
+      availableAnswersAfterSetup: {
+        counters: 0,
+        softChecks: 0,
+        revengeKillers: 0,
+        estimatedTotal: 0,
+      },
+      punishOptions: [],
+      oneMoreTurnUnmanageable: false,
+      freeTurnPenalty: 0,
+      reasons: [],
+    };
+  }
+
+  const strongestBoost = normalizedMoves.reduce(
+    (best, move) => {
+      const attack = Math.max(
+        0,
+        finiteNumber(move.boosts.attack, 0),
+        finiteNumber(
+          move.boosts.specialAttack,
+          finiteNumber(move.boosts.specialattack, 0),
+        ),
+      );
+      const speed = Math.max(0, finiteNumber(move.boosts.speed, 0));
+      const pressure = attack + speed * 0.8;
+      return pressure > best.pressure
+        ? { moveId: move.id, attack, speed, pressure }
+        : best;
+    },
+    { moveId: normalizedMoves[0]?.id ?? "", attack: 0, speed: 0, pressure: 0 },
+  );
+  const counterCount = setupAnswerCount(counters);
+  const softCheckCount = setupAnswerCount(softChecks);
+  const revengeKillerCount = setupAnswerCount(revengeKillers);
+  const effectiveSoftChecks =
+    strongestBoost.attack >= 2 ? Math.min(0.5, softCheckCount * 0.25) : softCheckCount * 0.65;
+  const effectiveRevengeKillers =
+    strongestBoost.speed > 0 ? revengeKillerCount * 0.25 : revengeKillerCount * 0.75;
+  const estimatedAnswerCount =
+    counterCount + effectiveSoftChecks + effectiveRevengeKillers;
+  const answerScarcity =
+    estimatedAnswerCount <= 0
+      ? 1
+      : estimatedAnswerCount < 1
+        ? 0.82
+        : estimatedAnswerCount < 2
+          ? 0.48
+          : 0.12;
+  const likelihood = Math.max(0, Math.min(1, finiteNumber(setupLikelihood, 0)));
+  const currentBoostPressure = Math.min(
+    1,
+    Math.max(0, finiteNumber(opponentCurrentBoosts, 0)) / 4,
+  );
+  const nextBoostPressure = Math.min(1, strongestBoost.pressure / 3);
+  const rolePressure = Math.min(
+    1,
+    Math.max(0, finiteNumber(opponentRoleScore, 0)) / 10,
+  );
+  const hpPressure = Math.max(
+    0,
+    Math.min(1, finiteNumber(opponentHpPercent, 1)),
+  );
+  const immediatePunish = Math.max(
+    0,
+    Math.min(1, finiteNumber(immediateDamageRatio, 0)),
+  );
+  const rawSweepRisk =
+    likelihood *
+    (0.18 +
+      nextBoostPressure * 0.3 +
+      currentBoostPressure * 0.18 +
+      answerScarcity * 0.24 +
+      rolePressure * 0.08 +
+      (opponentAce ? 0.08 : 0) +
+      hpPressure * 0.05) *
+    (1 - Math.min(0.55, immediatePunish * 0.45));
+  const sweepRiskAfterSetup =
+    Math.round(Math.max(0, Math.min(1, rawSweepRisk)) * 100) / 100;
+  const riskTier =
+    sweepRiskAfterSetup >= 0.65
+      ? 3
+      : sweepRiskAfterSetup >= 0.42
+        ? 2
+        : sweepRiskAfterSetup >= 0.22
+          ? 1
+          : 0;
+  const normalizedPunishOptions = [
+    ...new Set(
+      punishOptions
+        .map((option) => cleanId(option?.id ?? option?.moveId ?? option))
+        .filter(Boolean),
+    ),
+  ];
+  const oneMoreTurnUnmanageable =
+    riskTier >= 3 && estimatedAnswerCount < 1 && immediatePunish < 1;
+  const freeTurnPenalty =
+    Math.round(
+      sweepRiskAfterSetup *
+        (riskTier >= 3 ? 180 : riskTier === 2 ? 125 : riskTier === 1 ? 70 : 0) *
+        100,
+    ) / 100;
+  const reasons = [
+    `랭크업 가능성 ${Math.round(likelihood * 100)}%, 사용 후 스윕 위험 ${Math.round(sweepRiskAfterSetup * 100)}%`,
+    `랭크업 후 유효 대응 자원 약 ${Math.round(estimatedAnswerCount * 10) / 10}마리`,
+  ];
+  if (strongestBoost.moveId) {
+    reasons.push(
+      `${strongestBoost.moveId}: 공격 ${strongestBoost.attack}, 스피드 ${strongestBoost.speed} 상승`,
+    );
+  }
+  if (normalizedPunishOptions.length > 0) {
+    reasons.push(`즉시 응징 수단: ${normalizedPunishOptions.join(", ")}`);
+  }
+
+  return {
+    opponentCanSetup,
+    setupMoveCandidates: normalizedMoves,
+    setupLikelihood: likelihood,
+    sweepRiskAfterSetup,
+    riskTier,
+    strongestBoost,
+    availableAnswersAfterSetup: {
+      counters: counterCount,
+      softChecks: softCheckCount,
+      revengeKillers: revengeKillerCount,
+      estimatedTotal: Math.round(estimatedAnswerCount * 100) / 100,
+    },
+    punishOptions: normalizedPunishOptions,
+    oneMoreTurnUnmanageable,
+    freeTurnPenalty,
+    reasons,
+  };
+}
+
+function normalizedBattleValueSide(side = {}) {
+  const teamSize = Math.max(
+    1,
+    finiteNumber(
+      side.teamSize,
+      finiteNumber(side.livingCount, 1),
+    ),
+  );
+  return {
+    teamSize,
+    livingCount: Math.max(
+      0,
+      Math.min(teamSize, finiteNumber(side.livingCount, 0)),
+    ),
+    totalHpRatio: Math.max(
+      0,
+      Math.min(teamSize, finiteNumber(side.totalHpRatio, 0)),
+    ),
+    aceAliveCount: Math.max(0, finiteNumber(side.aceAliveCount, 0)),
+    aceHpRatio: Math.max(0, finiteNumber(side.aceHpRatio, 0)),
+    positiveBoosts: Math.max(0, finiteNumber(side.positiveBoosts, 0)),
+    statusBurden: Math.max(0, finiteNumber(side.statusBurden, 0)),
+    hazardLayers: Math.max(0, finiteNumber(side.hazardLayers, 0)),
+    uniqueCountersAlive: Math.max(
+      0,
+      finiteNumber(side.uniqueCountersAlive, 0),
+    ),
+    gimmicksRemaining: Math.max(
+      0,
+      finiteNumber(side.gimmicksRemaining, 0),
+    ),
+  };
+}
+
+export function evaluateBattleStateValue(state = {}) {
+  const own = normalizedBattleValueSide(state.own);
+  const opponent = normalizedBattleValueSide(state.opponent);
+  const fieldAdvantage = finiteNumber(state.fieldAdvantage, 0);
+  const components = {
+    pokemonCount: (own.livingCount - opponent.livingCount) * 70,
+    totalHp: (own.totalHpRatio - opponent.totalHpRatio) * 24,
+    aceSurvival:
+      (own.aceAliveCount - opponent.aceAliveCount) * 18 +
+      (own.aceHpRatio - opponent.aceHpRatio) * 28,
+    status:
+      (opponent.statusBurden - own.statusBurden) * 9,
+    boosts:
+      (own.positiveBoosts - opponent.positiveBoosts) * 7,
+    hazards:
+      (opponent.hazardLayers - own.hazardLayers) * 5,
+    gimmicks:
+      (own.gimmicksRemaining - opponent.gimmicksRemaining) * 4,
+    uniqueCounters: own.uniqueCountersAlive * 16,
+    field: fieldAdvantage,
+  };
+  const value =
+    Math.round(
+      Object.values(components).reduce(
+        (total, component) => total + component,
+        0,
+      ) * 100,
+    ) / 100;
+  return {
+    value,
+    components,
+    state: {
+      own,
+      opponent,
+      fieldAdvantage,
+      field: { ...(state.field ?? {}) },
+    },
+  };
+}
+
+function applyProjectedSideDelta(side, delta = {}) {
+  const projected = {
+    ...side,
+    livingCount: side.livingCount + finiteNumber(delta.livingCount, 0),
+    totalHpRatio: side.totalHpRatio + finiteNumber(delta.totalHpRatio, 0),
+    aceAliveCount:
+      side.aceAliveCount + finiteNumber(delta.aceAliveCount, 0),
+    aceHpRatio: side.aceHpRatio + finiteNumber(delta.aceHpRatio, 0),
+    positiveBoosts:
+      side.positiveBoosts + finiteNumber(delta.positiveBoosts, 0),
+    statusBurden:
+      side.statusBurden + finiteNumber(delta.statusBurden, 0),
+    hazardLayers:
+      side.hazardLayers + finiteNumber(delta.hazardLayers, 0),
+    uniqueCountersAlive:
+      side.uniqueCountersAlive +
+      finiteNumber(delta.uniqueCountersAlive, 0),
+    gimmicksRemaining:
+      side.gimmicksRemaining +
+      finiteNumber(delta.gimmicksRemaining, 0),
+  };
+  return normalizedBattleValueSide(projected);
+}
+
+export function projectOneTurnBattleState(
+  state = {},
+  outcome = {},
+) {
+  const before = evaluateBattleStateValue(state).state;
+  const after = {
+    own: applyProjectedSideDelta(before.own, outcome.own),
+    opponent: applyProjectedSideDelta(before.opponent, outcome.opponent),
+    fieldAdvantage:
+      before.fieldAdvantage + finiteNumber(outcome.fieldAdvantage, 0),
+    field: {
+      ...before.field,
+      ...(outcome.field ?? {}),
+    },
+  };
+  return after;
+}
+
+export function evaluateOneTurnBattleState(
+  state = {},
+  outcome = {},
+) {
+  const before = evaluateBattleStateValue(state);
+  const projectedState = projectOneTurnBattleState(before.state, outcome);
+  const after = evaluateBattleStateValue(projectedState);
+  const componentDeltas = Object.fromEntries(
+    Object.keys(after.components).map((key) => [
+      key,
+      Math.round(
+        (after.components[key] - before.components[key]) * 100,
+      ) / 100,
+    ]),
+  );
+  const delta =
+    Math.round((after.value - before.value) * 100) / 100;
+  const reasons = Object.entries(componentDeltas)
+    .filter(([, value]) => Math.abs(value) >= 0.5)
+    .sort((left, right) => Math.abs(right[1]) - Math.abs(left[1]))
+    .slice(0, 4)
+    .map(([component, value]) => ({
+      component,
+      value,
+    }));
+  return {
+    before,
+    after,
+    projectedState,
+    qValue: after.value,
+    delta,
+    componentDeltas,
+    reasons,
+  };
+}
+
+function sideConditionLayers(conditions = {}, conditionId = "") {
+  const condition = conditions?.[conditionId];
+  if (!condition) return 0;
+  if (condition === true) return 1;
+  if (Number.isFinite(Number(condition))) return Number(condition);
+  return Math.max(
+    1,
+    Number(condition.layers ?? condition.level ?? condition.count ?? 1),
+  );
+}
+
+export function evaluatePokemonRoleProgress({
+  member = {},
+  roleProfile = null,
+  ownSideConditions = {},
+  opponentSideConditions = {},
+  opponentLivingCount = 0,
+  highThreatCount = 0,
+  setupThreatCount = 0,
+  assignedThreats = [],
+  opponentHazardSetterAlive = false,
+  mustPreserveResource = false,
+  activeTurns = 0,
+} = {}) {
+  const resolvedRole =
+    roleProfile ?? analyzeTeamProfile([member]).roles[0] ?? {};
+  const roleNames = (resolvedRole.roles ?? [])
+    .filter((entry) => Number(entry.score ?? 0) > 0)
+    .map((entry) => entry.role);
+  const roleScoreByName = new Map(
+    (resolvedRole.roles ?? []).map((entry) => [
+      entry.role,
+      Number(entry.score ?? 0),
+    ]),
+  );
+  const primaryRoleScore = Number(
+    roleScoreByName.get(resolvedRole.primaryRole) ?? 0,
+  );
+  const meaningfulRoleThreshold = Math.max(2.5, primaryRoleScore * 0.4);
+  const trackedRoleNames = roleNames.filter((role) => {
+    if (
+      role !== resolvedRole.primaryRole &&
+      Number(roleScoreByName.get(role) ?? 0) < meaningfulRoleThreshold
+    ) {
+      return false;
+    }
+    if (role === "ace") return resolvedRole.aceProfile?.qualifies === true;
+    if (role === "support" || role === "pivot") {
+      return resolvedRole.primaryRole === role;
+    }
+    return true;
+  });
+  const auxiliaryRoles = roleNames.filter(
+    (role) => !trackedRoleNames.includes(role),
+  );
+  const moveIds = resolvedRole.moveIds?.length
+    ? resolvedRole.moveIds
+    : pokemonMoveIds(member);
+  const hazardSetConditions = [
+    ...new Set(
+      moveIds
+        .filter((moveId) =>
+          (moveRoleEntry(moveId)?.tags ?? []).some(
+            (tag) => cleanId(tag) === "hazardset",
+          ),
+        )
+        .map((moveId) => HAZARD_MOVE_CONDITIONS[cleanId(moveId)])
+        .filter(Boolean),
+    ),
+  ];
+  const hasHazardRemoval = moveIds.some((moveId) =>
+    (moveRoleEntry(moveId)?.tags ?? []).some(
+      (tag) => cleanId(tag) === "hazardremove",
+    ),
+  );
+  const ownHazardLayers = Object.keys(HAZARD_MAX_LAYERS).reduce(
+    (total, conditionId) =>
+      total + sideConditionLayers(ownSideConditions, conditionId),
+    0,
+  );
+  const hazardSetComplete =
+    hazardSetConditions.length > 0 &&
+    hazardSetConditions.every(
+      (conditionId) =>
+        sideConditionLayers(opponentSideConditions, conditionId) >=
+        HAZARD_MAX_LAYERS[conditionId],
+    );
+  const hazardRemovalComplete =
+    hasHazardRemoval &&
+    ownHazardLayers === 0 &&
+    opponentHazardSetterAlive !== true;
+  const completedRoles = [];
+  const remainingRoles = [];
+  const reasons = [];
+
+  for (const role of trackedRoleNames) {
+    let complete = false;
+    if (role === "lead") {
+      complete = activeTurns > 0 || hazardSetComplete;
+    } else if (role === "hazardControl") {
+      const setTaskComplete =
+        hazardSetConditions.length === 0 || hazardSetComplete;
+      const removeTaskComplete =
+        !hasHazardRemoval || hazardRemovalComplete;
+      complete = setTaskComplete && removeTaskComplete;
+    } else if (role === "revengeKiller") {
+      complete = highThreatCount <= 0;
+    } else if (role === "disruptor") {
+      complete = setupThreatCount <= 0;
+    } else if (role === "wall") {
+      complete =
+        assignedThreats.length === 0 &&
+        highThreatCount <= 0 &&
+        opponentLivingCount > 0;
+    } else {
+      complete = opponentLivingCount <= 0;
+    }
+    if (complete) completedRoles.push(role);
+    else remainingRoles.push(role);
+  }
+
+  if (hazardSetConditions.length > 0) {
+    reasons.push(
+      hazardSetComplete
+        ? `설치 임무 완료: ${hazardSetConditions.join(", ")} 최대 층수`
+        : `설치 임무 남음: ${hazardSetConditions
+            .filter(
+              (conditionId) =>
+                sideConditionLayers(opponentSideConditions, conditionId) <
+                HAZARD_MAX_LAYERS[conditionId],
+            )
+            .join(", ")}`,
+    );
+  }
+  if (hasHazardRemoval) {
+    reasons.push(
+      hazardRemovalComplete
+        ? "제거 임무 완료: 아군 설치물 없음, 상대 설치 요원 없음"
+        : ownHazardLayers > 0
+          ? `제거 임무 남음: 아군 쪽 설치물 ${ownHazardLayers}층`
+          : "제거 임무 남음: 상대 설치 요원 생존",
+    );
+  }
+  if (assignedThreats.length > 0) {
+    reasons.push(`담당 위협 생존: ${assignedThreats.join(", ")}`);
+  }
+
+  const roleComplete =
+    trackedRoleNames.length > 0 &&
+    remainingRoles.length === 0 &&
+    opponentLivingCount > 0;
+  const expendableResource =
+    roleComplete &&
+    mustPreserveResource !== true &&
+    resolvedRole.aceProfile?.qualifies !== true;
+  return {
+    roleComplete,
+    expendableResource,
+    completedRoles,
+    remainingRoles,
+    auxiliaryRoles,
+    hazardSetComplete,
+    hazardRemovalComplete,
+    assignedThreats: [...assignedThreats],
+    reasons,
+  };
+}
+
 export function aiScoringRuleCatalog() {
   return AI_SCORING_RULES.map((rule) => ({ ...rule }));
 }
@@ -925,6 +1627,20 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
   const tags = candidateTagSet(enriched);
   const adjustments = [];
   const tier = setupThreatTier(enriched);
+  const setupEvaluation =
+    enriched.setupThreatEvaluation ??
+    enriched.opponentSetupThreatEvaluation ??
+    {};
+  const sweepRiskAfterSetup = Math.max(
+    0,
+    Math.min(
+      1,
+      finiteNumber(
+        setupEvaluation.sweepRiskAfterSetup,
+        enriched.opponentSetupSweepRisk,
+      ) ?? 0,
+    ),
+  );
   const actsBefore =
     enriched.actsBeforeOpponent === true ||
     Number(enriched.priority ?? 0) > 0 ||
@@ -938,6 +1654,33 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
       finiteNumber(enriched.opponentKnockoutBeforeActionProbability, 0),
     ),
   );
+  const oneTurnEvaluation =
+    enriched.oneTurnEvaluation ??
+    enriched.battleStateEvaluation ??
+    null;
+  if (oneTurnEvaluation) {
+    const delta = finiteNumber(
+      oneTurnEvaluation.delta,
+      enriched.battleStateValueDelta,
+    );
+    const weightMultiplier = Math.max(
+      0,
+      finiteNumber(enriched.oneTurnSearchWeight, 0.35),
+    );
+    if (delta !== undefined && weightMultiplier > 0) {
+      const weight =
+        Math.round(delta * weightMultiplier * 100) / 100;
+      adjustments.push(
+        scoreAdjustment(
+          "simulation.one_turn_state_value",
+          "1턴 후 전투 상태",
+          oneTurnEvaluation.qValue,
+          weight,
+          `이 행동을 적용한 다음 상태의 가치는 ${oneTurnEvaluation.qValue}, 현재 상태 대비 변화는 ${delta >= 0 ? "+" : ""}${delta}로 평가했습니다.`,
+        ),
+      );
+    }
+  }
 
   if (isDamage && knockoutBeforeActionProbability >= 0.25) {
     const weight =
@@ -1792,12 +2535,16 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
     }
     if (!setupRiskRecoveryEmergency && opponentLikelyToSetup(enriched)) {
       const likelihood = opponentSetupLikelihood(enriched);
-      const penalty =
+      const legacyPenalty =
         hpPercent >= 0.8
-          ? -95
+          ? 95
           : hpPercent >= 0.65
-            ? -75
-            : -45;
+            ? 75
+            : 45;
+      const penalty = -Math.max(
+        legacyPenalty,
+        finiteNumber(setupEvaluation.freeTurnPenalty, 0),
+      );
       adjustments.push(
         scoreAdjustment(
           "rule.recovery.free_setup_risk",
@@ -1807,6 +2554,91 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
           "회복이 급하지 않은 상황에서 회복기를 쓰면 상대 랭크업 기술에 무료 턴을 줄 위험이 커서 크게 감점했습니다.",
         ),
       );
+    }
+  }
+
+  const setupPunishMove =
+    BOOST_RESET_MOVE_IDS.has(moveId) ||
+    PHAZE_MOVE_IDS.has(moveId) ||
+    TAUNT_MOVE_IDS.has(moveId) ||
+    moveId === "encore" ||
+    enriched.koChance === "guaranteed" ||
+    enriched.immediateKoBeforeOpponent === true ||
+    ["brn", "par", "slp"].includes(cleanId(enriched.status)) ||
+    (enriched.secondaries ?? []).some(
+      (secondary) =>
+        ["brn", "par", "slp"].includes(cleanId(secondary.status)) &&
+        Number(secondary.chance ?? 100) >= 60,
+    );
+  const recoveryMove = RECOVERY_MOVE_IDS.has(moveId) || tags.has("recovery");
+  if (
+    setupPunishMove &&
+    setupEvaluation.opponentCanSetup === true &&
+    sweepRiskAfterSetup >= 0.22 &&
+    enriched.koChance !== "guaranteed" &&
+    enriched.immediateKoBeforeOpponent !== true
+  ) {
+    const bonus =
+      Math.round(
+        Math.max(
+          12,
+          finiteNumber(setupEvaluation.freeTurnPenalty, 0) * 0.85,
+        ) * 100,
+      ) / 100;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.setup_threat.punish_option",
+        "랭크업 즉시 응징",
+        moveId,
+        bonus,
+        `상대가 랭크업하면 스윕 위험이 ${Math.round(sweepRiskAfterSetup * 100)}%까지 오르므로, ${moveId}로 전개를 즉시 끊는 가치를 높였습니다.`,
+      ),
+    );
+  }
+  if (
+    !recoveryMove &&
+    setupEvaluation.opponentCanSetup === true &&
+    sweepRiskAfterSetup >= 0.22 &&
+    !setupPunishMove
+  ) {
+    let exposureMultiplier = 0;
+    if (enriched.category === "Status") {
+      exposureMultiplier = tags.has("setupboost")
+        ? 0.45
+        : tags.has("hazardset")
+          ? 1
+          : 0.8;
+    } else {
+      const opponentHp = Math.max(1, finiteNumber(enriched.opponentHp, 1));
+      const damageRatio = finiteNumber(enriched.expectedDamage, 0) / opponentHp;
+      if (damageRatio < 0.2) exposureMultiplier = 0.45;
+    }
+    if (exposureMultiplier > 0) {
+      const penalty =
+        -Math.round(
+          finiteNumber(setupEvaluation.freeTurnPenalty, 0) *
+            exposureMultiplier *
+            100,
+        ) / 100;
+      if (penalty < 0) {
+        adjustments.push(
+          scoreAdjustment(
+            tags.has("hazardset")
+              ? "rule.setup_threat.free_hazard_turn"
+              : tags.has("setupboost")
+                ? "rule.setup_threat.setup_race"
+                : "rule.setup_threat.free_turn",
+            tags.has("hazardset")
+              ? "설치 중 상대 랭크업 위험"
+              : tags.has("setupboost")
+                ? "랭크업 맞대응 위험"
+                : "상대 무료 랭크업 위험",
+            Math.round(sweepRiskAfterSetup * 100),
+            penalty,
+            `이 행동으로 상대에게 랭크업 기회를 주면 스윕 위험이 ${Math.round(sweepRiskAfterSetup * 100)}%까지 오르고, 랭크업 후 유효 대응 자원은 약 ${finiteNumber(setupEvaluation.availableAnswersAfterSetup?.estimatedTotal, 0)}마리로 평가됩니다.`,
+          ),
+        );
+      }
     }
   }
 
@@ -1868,6 +2700,7 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
     if (expendable) weight += 70;
     if (activeRoleScore >= 10) weight -= 70;
     else if (activeRoleScore >= 6) weight -= 35;
+    if (enriched.mustPreserveResource === true) weight -= 180;
     if (!meaningfulDamage) weight -= 60;
     adjustments.push(
       scoreAdjustment(
@@ -1875,7 +2708,11 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         "자폭 리스크",
         damageRatio === undefined ? enriched.koChance ?? false : Math.round(damageRatio * 100),
         weight,
-        meaningfulDamage && expendable
+        enriched.mustPreserveResource === true
+          ? `현재 포켓몬은 ${arrayValues(enriched.mustPreserveFor).join(", ") || "상대 핵심 포켓몬"}의 유일한 대응 자원이라 자폭으로 소모하지 않도록 크게 낮췄습니다.`
+          : enriched.roleComplete === true
+            ? `현재 포켓몬은 ${arrayValues(enriched.completedRoles).map((role) => ROLE_LABELS[role] ?? role).join(", ") || "주요"} 역할을 마쳐, 유의미한 피해를 남기는 자폭의 소모 비용을 완화했습니다.`
+          : meaningfulDamage && expendable
           ? "상대에게 유의미한 피해를 주고 현재 포켓몬의 남은 역할 가치가 낮아 자폭 리스크를 제한적으로 허용했습니다."
           : meaningfulDamage
             ? "상대에게 피해 가치는 있지만 사용자가 쓰러지는 소모 비용을 크게 반영했습니다."
@@ -2198,6 +3035,158 @@ export function switchRuleAdjustments(candidate, strategy = "balanced") {
     candidate.fieldSynergyValue,
     candidate.fieldValue,
   );
+  const setupEvaluation =
+    candidate.setupThreatEvaluation ??
+    candidate.opponentSetupThreatEvaluation ??
+    {};
+  const setupSweepRisk = Math.max(
+    0,
+    Math.min(
+      1,
+      finiteNumber(
+        setupEvaluation.sweepRiskAfterSetup,
+        candidate.opponentSetupSweepRisk,
+      ) ?? 0,
+    ),
+  );
+  const oneTurnEvaluation =
+    candidate.oneTurnEvaluation ??
+    candidate.battleStateEvaluation ??
+    null;
+  if (oneTurnEvaluation) {
+    const delta = finiteNumber(
+      oneTurnEvaluation.delta,
+      candidate.battleStateValueDelta,
+    );
+    const weightMultiplier = Math.max(
+      0,
+      finiteNumber(candidate.oneTurnSearchWeight, 0.35),
+    );
+    if (delta !== undefined && weightMultiplier > 0) {
+      const weight =
+        Math.round(delta * weightMultiplier * 100) / 100;
+      adjustments.push(
+        scoreAdjustment(
+          "simulation.one_turn_state_value",
+          "1턴 후 전투 상태",
+          oneTurnEvaluation.qValue,
+          weight,
+          `교체 직후 상태의 가치는 ${oneTurnEvaluation.qValue}, 현재 상태 대비 변화는 ${delta >= 0 ? "+" : ""}${delta}로 평가했습니다.`,
+        ),
+      );
+    }
+  }
+
+  if (candidate.mustPreserveResource === true) {
+    const preservationTargets = arrayValues(candidate.mustPreserveFor);
+    const currentThreat = candidate.preservationTargetIsCurrent === true;
+    if (currentThreat && candidate.currentThreatClassification === "counter") {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.switch.unique_counter_deployment",
+          "유일 카운터 투입",
+          preservationTargets,
+          18,
+          `현재 상대는 ${preservationTargets.join(", ") || "핵심 위협"}이며, 이 교체 후보가 유일한 안정 대응 자원이라 투입 가치를 높였습니다.`,
+        ),
+      );
+    } else if (!currentThreat) {
+      const exposureRisk = Math.max(
+        switchInDamageRatio,
+        candidate.canReachNextAction === false ? 1 : 0,
+      );
+      if (exposureRisk >= 0.2) {
+        const strategyMultiplier =
+          strategy === "ace_check"
+            ? 1.3
+            : strategy === "defensive"
+              ? 1.15
+              : strategy === "reckless_ace"
+                ? 0.75
+                : 1;
+        const weight =
+          -Math.round(
+            Math.min(180, 28 + exposureRisk * 95) *
+              strategyMultiplier *
+              100,
+          ) / 100;
+        adjustments.push(
+          scoreAdjustment(
+            "rule.switch.unique_counter_preservation",
+            "유일 카운터 보존",
+            preservationTargets,
+            weight,
+            `${preservationTargets.join(", ") || "남은 상대 핵심 포켓몬"}을 막을 유일한 대응 자원이라, 현재 대면에서 체력을 소모하는 교체를 낮게 평가했습니다.`,
+          ),
+        );
+      }
+    }
+  }
+
+  if (candidate.targetRoleComplete === true) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.role_complete",
+        "역할 완료 자원",
+        candidate.targetCompletedRoles ?? true,
+        0,
+        `${arrayValues(candidate.targetCompletedRoles).map((role) => ROLE_LABELS[role] ?? role).join(", ") || "주요"} 역할을 마친 자원으로 평가했습니다.`,
+      ),
+    );
+  }
+
+  if (
+    !forceSwitch &&
+    setupEvaluation.opponentCanSetup === true &&
+    setupSweepRisk >= 0.22
+  ) {
+    const classification = cleanId(candidate.currentThreatClassification);
+    const entersAsAnswer = [
+      "counter",
+      "softcheck",
+      "revengekiller",
+    ].includes(classification);
+    const canPunishAfterSwitch =
+      candidate.canKoOnNextAction === true ||
+      candidate.priorityKo === true ||
+      candidate.setupPunishAfterSwitch === true;
+    if (entersAsAnswer || canPunishAfterSwitch) {
+      const weight = Math.round((10 + setupSweepRisk * 20) * 100) / 100;
+      adjustments.push(
+        scoreAdjustment(
+          "rule.switch.setup_answer",
+          "랭크업 대응 투입",
+          candidate.currentThreatClassification ?? candidate.projectedBestMoveId,
+          weight,
+          "상대의 랭크업 가능성을 허용하더라도 교체 후보가 카운터 또는 즉시 응징 자원으로 기능할 수 있습니다.",
+        ),
+      );
+    } else {
+      const targetPressure = Math.max(
+        0,
+        finiteNumber(candidate.targetOutgoingDamageRatio, 0),
+      );
+      const lowPressureMultiplier =
+        targetPressure < 0.35 ? 0.8 : targetPressure < 0.6 ? 0.55 : 0.3;
+      const penalty =
+        -Math.round(
+          finiteNumber(setupEvaluation.freeTurnPenalty, 0) *
+            lowPressureMultiplier *
+            100,
+        ) / 100;
+      if (penalty < 0) {
+        adjustments.push(
+          scoreAdjustment(
+            "rule.switch.free_setup_turn",
+            "의미 없는 교체의 랭크업 위험",
+            Math.round(setupSweepRisk * 100),
+            penalty,
+            `교체 후보가 상대 랭크업 포켓몬의 카운터가 아니고 즉시 KO도 만들지 못해, 교체 중 스윕 위험 ${Math.round(setupSweepRisk * 100)}%를 허용하는 비용을 반영했습니다.`,
+          ),
+        );
+      }
+    }
+  }
 
   if (currentIncoming !== undefined && targetIncoming !== undefined) {
     const weight = Math.round((currentIncoming - targetIncoming) * 12 * 100) / 100;
@@ -2283,7 +3272,9 @@ export function switchRuleAdjustments(candidate, strategy = "balanced") {
     const preservationCost =
       (candidate.targetAceQualified === true
         ? 650 + Math.min(180, aceScore * 10)
-        : 35 + Math.min(60, roleScore * 5)) * preservationMultiplier;
+        : candidate.targetRoleComplete === true
+          ? 10
+          : 35 + Math.min(60, roleScore * 5)) * preservationMultiplier;
     const weight = -Math.round((150 + preservationCost) * 100) / 100;
     adjustments.push(
       scoreAdjustment(
@@ -2726,6 +3717,72 @@ export function toAiActionCandidate(
   };
 }
 
+export function toAiTraceCandidate(candidate, options) {
+  const normalized = toAiActionCandidate(candidate, options);
+  const setupThreatEvaluation = normalized.setupThreatEvaluation
+    ? {
+        opponentCanSetup:
+          normalized.setupThreatEvaluation.opponentCanSetup === true,
+        setupLikelihood:
+          normalized.setupThreatEvaluation.setupLikelihood,
+        sweepRiskAfterSetup:
+          normalized.setupThreatEvaluation.sweepRiskAfterSetup,
+        riskTier: normalized.setupThreatEvaluation.riskTier,
+        availableAnswersAfterSetup:
+          normalized.setupThreatEvaluation.availableAnswersAfterSetup,
+        oneMoreTurnUnmanageable:
+          normalized.setupThreatEvaluation.oneMoreTurnUnmanageable,
+      }
+    : undefined;
+  return {
+    slot: normalized.slot,
+    id: normalized.id,
+    name: normalized.name,
+    type: normalized.type,
+    actionId: normalized.actionId,
+    action: normalized.action,
+    legal: normalized.legal,
+    pp: normalized.pp,
+    maxPp: normalized.maxPp,
+    disabled: normalized.disabled,
+    category: normalized.category,
+    power: normalized.power,
+    accuracy: normalized.accuracy,
+    priority: normalized.priority,
+    expectedDamage: normalized.expectedDamage,
+    koChance: normalized.koChance,
+    score: normalized.score,
+    roleValue: normalized.roleValue,
+    damageRangeMinimum: normalized.damageRangeMinimum,
+    damageRangeMaximum: normalized.damageRangeMaximum,
+    battleStateValueDelta: normalized.battleStateValueDelta,
+    oneTurnEvaluation: normalized.oneTurnEvaluation,
+    opponentConditionalPriorityLikelihood:
+      normalized.opponentConditionalPriorityLikelihood,
+    opponentSetupMoveCount: normalized.opponentSetupMoveCount,
+    opponentSetupFirstTurnLikelihood:
+      normalized.opponentSetupFirstTurnLikelihood,
+    opponentSetupSweepRisk: normalized.opponentSetupSweepRisk,
+    setupThreatEvaluation,
+    setupFutureTargetCount: normalized.setupFutureTargetCount,
+    setupFuturePressureGain: normalized.setupFuturePressureGain,
+    setupFollowupSurvivalProbability:
+      normalized.setupFollowupSurvivalProbability,
+    setupGuardConsumptionProbability:
+      normalized.setupGuardConsumptionProbability,
+    setupFollowupActsBeforeThreat:
+      normalized.setupFollowupActsBeforeThreat,
+    opponentKnockoutBeforeActionProbability:
+      normalized.opponentKnockoutBeforeActionProbability,
+    reliableKoAlternative: normalized.reliableKoAlternative,
+    knockoutBoostAlternative: normalized.knockoutBoostAlternative,
+    canReachNextAction: normalized.canReachNextAction,
+    mustPreserveResource: normalized.mustPreserveResource,
+    mustPreserveFor: normalized.mustPreserveFor,
+    reasons: normalized.reasons,
+  };
+}
+
 export function selectAiMoveCandidate(
   candidates,
   {
@@ -2795,7 +3852,11 @@ export function createAiMoveTrace({
 }) {
   const ranked = rankAiMoveCandidates(candidates, difficulty, strategy).map(
     (candidate) => ({
-      ...toAiActionCandidate(candidate, { type: "move", difficulty, strategy }),
+      ...toAiTraceCandidate(candidate, {
+        type: "move",
+        difficulty,
+        strategy,
+      }),
       selected: candidate.slot === selected?.slot,
     }),
   );
@@ -2879,7 +3940,11 @@ export function createAiSwitchTrace({
   selected,
 }) {
   const ranked = rankAiSwitchCandidates(candidates, strategy).map((candidate) => ({
-    ...toAiActionCandidate(candidate, { type: "switch", difficulty, strategy }),
+    ...toAiTraceCandidate(candidate, {
+      type: "switch",
+      difficulty,
+      strategy,
+    }),
     selected: candidate.slot === selected?.slot,
   }));
   return {
@@ -3099,6 +4164,33 @@ export function scoreAiDynamaxCandidate({
         )})의 전술 점수 차이를 반영했습니다.`,
       ),
     );
+    if (dynamaxMove.oneTurnEvaluation) {
+      const maxDelta = finiteNumber(
+        dynamaxMove.oneTurnEvaluation.delta,
+        dynamaxMove.battleStateValueDelta,
+      );
+      const baseDelta = finiteNumber(
+        baseMoveForDynamax.oneTurnEvaluation?.delta,
+        baseMoveForDynamax.battleStateValueDelta,
+      );
+      reasons.push(
+        scoreAdjustment(
+          "simulation.gimmick_one_turn_state",
+          "다이맥스 후 1턴 상태",
+          dynamaxMove.oneTurnEvaluation.qValue,
+          0,
+          `다이맥스 행동의 다음 상태 변화는 ${
+            maxDelta >= 0 ? "+" : ""
+          }${maxDelta}${
+            baseDelta !== undefined
+              ? `, 일반 행동 대비 ${maxDelta - baseDelta >= 0 ? "+" : ""}${Math.round(
+                  (maxDelta - baseDelta) * 100,
+                ) / 100}`
+              : ""
+          }입니다.`,
+        ),
+      );
+    }
 
     const baseHitCount = Math.max(1, Number(baseMoveForDynamax.hitCount ?? 1));
     const maxHitCount = Math.max(1, Number(dynamaxMove.hitCount ?? 1));
@@ -3139,6 +4231,24 @@ export function scoreAiDynamaxCandidate({
     }
   }
 
+  if (
+    forceDynamax &&
+    score >= DYNAMAX_SCORE_THRESHOLD - 5 &&
+    score < DYNAMAX_SCORE_THRESHOLD
+  ) {
+    const forcedFloor = DYNAMAX_SCORE_THRESHOLD - score;
+    score = DYNAMAX_SCORE_THRESHOLD;
+    reasons.push(
+      scoreAdjustment(
+        "gimmick.dynamax.configured_floor",
+        "지정 대상 우선",
+        true,
+        forcedFloor,
+        "안전 조건을 통과한 엔트리 지정 대상이므로 다이맥스 활성화 기준을 충족하도록 보정했습니다.",
+      ),
+    );
+  }
+
   if (reasons.length === 0) {
     reasons.push(
       scoreAdjustment(
@@ -3156,6 +4266,104 @@ export function scoreAiDynamaxCandidate({
     type: "gimmick",
     legal: true,
     score: Math.round(score * 100) / 100,
+    oneTurnEvaluation: dynamaxMove?.oneTurnEvaluation ?? null,
+    battleStateValueDelta:
+      dynamaxMove?.battleStateValueDelta ??
+      dynamaxMove?.oneTurnEvaluation?.delta ??
+      null,
+    reasons,
+  };
+}
+
+export function scoreAiProjectedGimmickCandidate({
+  id,
+  selectedMove = {},
+  baseMove = {},
+  configured = false,
+  activationThreshold,
+} = {}) {
+  const normalizedId = cleanId(id);
+  const reasons = [];
+  const selectedScore = finiteNumber(selectedMove.score, 0);
+  const baseScore = finiteNumber(baseMove.score, 0);
+  const scoreDifference = Math.round((selectedScore - baseScore) * 100) / 100;
+  const configuredBonus =
+    configured === true
+      ? normalizedId === "mega"
+        ? 8
+        : normalizedId === "terastallize"
+          ? 3
+          : 0
+      : 0;
+  const score = Math.round((scoreDifference + configuredBonus) * 100) / 100;
+  const selectedDelta = finiteNumber(
+    selectedMove.oneTurnEvaluation?.delta,
+    selectedMove.battleStateValueDelta,
+  );
+  const baseDelta = finiteNumber(
+    baseMove.oneTurnEvaluation?.delta,
+    baseMove.battleStateValueDelta,
+  );
+  const stateDeltaDifference =
+    selectedDelta !== undefined && baseDelta !== undefined
+      ? Math.round((selectedDelta - baseDelta) * 100) / 100
+      : null;
+
+  reasons.push(
+    scoreAdjustment(
+      `gimmick.${normalizedId}.action_conversion`,
+      "기믹 적용 행동 비교",
+      scoreDifference,
+      scoreDifference,
+      `일반 행동 ${baseMove.name ?? baseMove.id ?? "기술"}(${baseScore.toFixed(
+        2,
+      )})과 기믹 적용 행동 ${
+        selectedMove.name ?? selectedMove.id ?? "기술"
+      }(${selectedScore.toFixed(2)})의 점수 차이를 반영했습니다.`,
+    ),
+  );
+  if (stateDeltaDifference !== null) {
+    reasons.push(
+      scoreAdjustment(
+        "simulation.gimmick_one_turn_state",
+        "기믹 적용 후 1턴 상태",
+        selectedMove.oneTurnEvaluation?.qValue ?? null,
+        0,
+        `기믹 적용 행동의 다음 상태 변화는 ${
+          selectedDelta >= 0 ? "+" : ""
+        }${selectedDelta}, 일반 행동 대비 차이는 ${
+          stateDeltaDifference >= 0 ? "+" : ""
+        }${stateDeltaDifference}입니다.`,
+      ),
+    );
+  }
+  if (configuredBonus > 0) {
+    reasons.push(
+      scoreAdjustment(
+        `gimmick.${normalizedId}.configured`,
+        "엔트리 기믹 지정",
+        true,
+        configuredBonus,
+        "엔트리에 지정된 기믹 후보이므로 사용 우선도를 소폭 높였습니다.",
+      ),
+    );
+  }
+
+  return {
+    id: normalizedId,
+    type: "gimmick",
+    legal: true,
+    score,
+    activationThreshold:
+      activationThreshold ??
+      PROJECTED_GIMMICK_THRESHOLDS[normalizedId] ??
+      0,
+    selectedMove,
+    oneTurnEvaluation: selectedMove.oneTurnEvaluation ?? null,
+    battleStateValueDelta:
+      selectedMove.battleStateValueDelta ??
+      selectedMove.oneTurnEvaluation?.delta ??
+      null,
     reasons,
   };
 }
@@ -3169,14 +4377,36 @@ export function selectAiGimmick({
   dynamaxMove = null,
   baseMoveForDynamax = null,
   dynamaxMoveCandidates = [],
+  projectedGimmickCandidates = [],
   forceDynamax = false,
   alreadyUsed = {},
 } = {}) {
   let dynamaxCandidate = null;
+  const projectedCandidates = new Map(
+    projectedGimmickCandidates
+      .filter((candidate) => candidate?.id)
+      .map((candidate) => [cleanId(candidate.id), candidate]),
+  );
+  const availableCandidates = [];
   if (!alreadyUsed.mega) {
-    if (active.canMegaEvo) return { id: "mega", showdownSuffix: " mega" };
-    if (active.canMegaEvoX) return { id: "mega", showdownSuffix: " megax" };
-    if (active.canMegaEvoY) return { id: "mega", showdownSuffix: " megay" };
+    const megaSuffix = active.canMegaEvo
+      ? " mega"
+      : active.canMegaEvoX
+        ? " megax"
+        : active.canMegaEvoY
+          ? " megay"
+          : "";
+    if (megaSuffix) {
+      const projectedMega = projectedCandidates.get("mega");
+      if (!projectedMega) {
+        return { id: "mega", showdownSuffix: megaSuffix };
+      }
+      availableCandidates.push({
+        ...projectedMega,
+        id: "mega",
+        showdownSuffix: megaSuffix,
+      });
+    }
   }
   if (!alreadyUsed.zmove && active.canZMove?.[moveSlot - 1]) {
     return { id: "zmove", showdownSuffix: " zmove" };
@@ -3195,24 +4425,77 @@ export function selectAiGimmick({
     if (dynamaxCandidate.score >= DYNAMAX_SCORE_THRESHOLD) {
       const useGigantamax =
         active.canGigantamax === true || configured?.gimmicks?.gigantamax === true;
-      return {
+      availableCandidates.push({
         id: useGigantamax ? "gigantamax" : "dynamax",
         showdownSuffix: " dynamax",
-        candidate: {
-          ...dynamaxCandidate,
-          id: useGigantamax ? "gigantamax" : "dynamax",
-        },
-      };
+        ...dynamaxCandidate,
+        id: useGigantamax ? "gigantamax" : "dynamax",
+        forced: forceDynamax,
+        activationThreshold: DYNAMAX_SCORE_THRESHOLD,
+      });
     }
   }
   if (
     !alreadyUsed.terastallize &&
     active.canTerastallize &&
-    configured?.gimmicks?.tera
+    (
+      configured?.gimmicks?.teraEligible === true ||
+      (
+        configured?.gimmicks?.teraEligible == null &&
+        configured?.gimmicks?.tera
+      )
+    )
   ) {
-    return { id: "terastallize", showdownSuffix: " terastallize" };
+    const projectedTera = projectedCandidates.get("terastallize");
+    if (!projectedTera) {
+      return { id: "terastallize", showdownSuffix: " terastallize" };
+    }
+    availableCandidates.push({
+      ...projectedTera,
+      id: "terastallize",
+      showdownSuffix: " terastallize",
+    });
   }
-  return { id: "", showdownSuffix: "", candidate: dynamaxCandidate };
+  const selectedCandidate = availableCandidates
+    .filter(
+      (candidate) =>
+        candidate.legal !== false &&
+        finiteNumber(candidate.score, -Infinity) >=
+          finiteNumber(candidate.activationThreshold, 0),
+    )
+    .sort(
+      (left, right) => {
+        if (left.forced !== right.forced) return right.forced ? 1 : -1;
+        return (
+          finiteNumber(right.score, -Infinity) -
+          finiteNumber(right.activationThreshold, 0) -
+          (finiteNumber(left.score, -Infinity) -
+            finiteNumber(left.activationThreshold, 0))
+        );
+      },
+    )[0];
+  if (selectedCandidate) {
+    return {
+      id: selectedCandidate.id,
+      showdownSuffix: selectedCandidate.showdownSuffix,
+      candidate: selectedCandidate,
+    };
+  }
+  const bestRejectedCandidate = [
+    ...availableCandidates,
+    dynamaxCandidate,
+  ]
+    .filter(Boolean)
+    .sort(
+      (left, right) =>
+        finiteNumber(right.score, -Infinity) -
+        finiteNumber(left.score, -Infinity),
+    )[0];
+  return {
+    id: "",
+    showdownSuffix: "",
+    candidate: bestRejectedCandidate ?? null,
+  };
 }
 
 export function selectAiTargetSuffix(move, activeIndex, activeCount, team = []) {

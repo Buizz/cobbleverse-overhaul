@@ -70,6 +70,132 @@ test("hydrates scenario members for the Cobbleverse engine", () => {
   assert.ok(setup.sides[0].team[0].stats.speed > 0);
 });
 
+test("hydrates only RCT-designated members as Tera candidates", () => {
+  const setup = createNativeBattleSetup({
+    ...scenario,
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            gimmicks: {
+              tera: "electric",
+              teraEligible: false,
+            },
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            gimmicks: {
+              teraEligible: true,
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(setup.sides[0].team[0].gimmicks.teraConfigured, false);
+  assert.equal(setup.sides[1].team[0].gimmicks.teraConfigured, true);
+  assert.equal(setup.sides[1].team[0].gimmicks.teraType, "Water");
+});
+
+test("hydrates Ogerpon and Terapagos with their species-specific Tera forms", () => {
+  const setup = createNativeBattleSetup({
+    ...scenario,
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "ogerpon-wellspring",
+            ability: "waterabsorb",
+            item: "wellspringmask",
+            moveset: ["ivycudgel"],
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "terapagos",
+            ability: "terashift",
+            moveset: ["terastarstorm"],
+          },
+        ],
+      },
+    ],
+  });
+  const ogerpon = setup.sides[0].team[0];
+  const terapagos = setup.sides[1].team[0];
+
+  assert.equal(ogerpon.baseSpecies, "Ogerpon");
+  assert.equal(ogerpon.gimmicks.teraType, "Water");
+  assert.equal(ogerpon.speciesForms.tera.name, "Ogerpon-Wellspring-Tera");
+  assert.equal(
+    ogerpon.speciesForms.tera.ability,
+    "Embody Aspect (Wellspring)",
+  );
+
+  assert.equal(terapagos.baseSpecies, "Terapagos");
+  assert.equal(terapagos.gimmicks.teraType, "Stellar");
+  assert.equal(terapagos.speciesForms.terastal.name, "Terapagos-Terastal");
+  assert.equal(terapagos.speciesForms.stellar.name, "Terapagos-Stellar");
+  assert.equal(
+    terapagos.speciesForms.stellar.stats.hp -
+      terapagos.speciesForms.terastal.stats.hp,
+    65,
+  );
+});
+
+test("chooses a seeded original Tera Type when virtual data omits one", () => {
+  const dualTypeScenario = {
+    ...scenario,
+    seed: 1,
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "garchomp",
+            moveset: ["earthquake"],
+          },
+        ],
+      },
+      scenario.sides[1],
+    ],
+  };
+  const first = createNativeBattleSetup(dualTypeScenario);
+  const repeated = createNativeBattleSetup(dualTypeScenario);
+  const nextSeed = createNativeBattleSetup({
+    ...dualTypeScenario,
+    seed: 2,
+  });
+
+  assert.equal(
+    first.sides[0].team[0].gimmicks.teraType,
+    repeated.sides[0].team[0].gimmicks.teraType,
+  );
+  assert.ok(
+    ["Dragon", "Ground"].includes(
+      first.sides[0].team[0].gimmicks.teraType,
+    ),
+  );
+  assert.notEqual(
+    first.sides[0].team[0].gimmicks.teraType,
+    nextSeed.sides[0].team[0].gimmicks.teraType,
+  );
+});
+
 test("runs the selected native engine and records AI settings", () => {
   const battle = runNativeScenarioBattle(scenario);
 
@@ -99,6 +225,28 @@ test("runs the selected native engine and records AI settings", () => {
   assert.equal(
     battle.turnSnapshots[0].sides[0].team[0].hp,
     battle.turnSnapshots[0].sides[0].team[0].maxHp,
+  );
+});
+
+test("warns instead of silently applying unsupported trainer bag items", () => {
+  const battle = runNativeScenarioBattle({
+    ...scenario,
+    sides: scenario.sides.map((side, index) => ({
+      ...side,
+      bag:
+        index === 1
+          ? [{ item: "cobblemon:hyper_potion", quantity: 2 }]
+          : [],
+      battleRules: { maxItemUses: 2 },
+    })),
+  });
+
+  assert.ok(
+    battle.warnings.some(
+      (warning) =>
+        warning.path === "sides.1.bag" &&
+        warning.code === "native_trainer_bag_items_unsupported",
+    ),
   );
 });
 
@@ -906,6 +1054,69 @@ test("offers each Cobbleverse gimmick only from its configured Pokémon data", (
       `${entry.gimmick} should emit ${entry.eventType}`,
     );
   }
+});
+
+test("offers namespaced Normalium Z for Facade and Snorlium Z only for Giga Impact", () => {
+  const requestFor = (heldItem, moveset) => {
+    clearNativeInteractiveBattleSessions();
+    return startNativeInteractiveBattle({
+      ...scenario,
+      scenarioId: `native-z-${heldItem}`,
+      mode: "pve",
+      gimmickRules: "all",
+      sides: [
+        {
+          ...scenario.sides[0],
+          team: [
+            {
+              ...scenario.sides[0].team[0],
+              species: "snorlax",
+              heldItem,
+              moveset,
+            },
+          ],
+        },
+        {
+          ...scenario.sides[1],
+          team: [
+            {
+              ...scenario.sides[1].team[0],
+              species: "shuckle",
+              moveset: ["withdraw"],
+            },
+          ],
+        },
+      ],
+    }).request;
+  };
+
+  const normaliumRequest = requestFor(
+    "mega_showdown:normalium_z",
+    ["facade", "hammerarm", "curse", "rest"],
+  );
+  assert.equal(normaliumRequest.gimmicks.zMoves[0]?.move, "Breakneck Blitz");
+  assert.equal(normaliumRequest.gimmicks.zMoves[1], null);
+  assert.equal(normaliumRequest.gimmicks.zMoves[2], null);
+
+  const snorliumRequest = requestFor(
+    "mega_showdown:snorlium_z",
+    ["facade", "gigaimpact", "curse", "rest"],
+  );
+  assert.equal(snorliumRequest.gimmicks.zMoves[0], null);
+  assert.equal(
+    snorliumRequest.gimmicks.zMoves[1]?.move,
+    "Pulverizing Pancake",
+  );
+
+  const incompatibleSnorliumRequest = requestFor(
+    "mega_showdown:snorlium_z",
+    ["facade", "hammerarm", "curse", "rest"],
+  );
+  assert.equal(incompatibleSnorliumRequest.gimmicks.zMoves.some(Boolean), false);
+  assert.match(
+    incompatibleSnorliumRequest.gimmicks.zMoveReason,
+    /gigaimpact/,
+  );
 });
 
 test("hides Dynamax choices after native player Mega Evolution", () => {

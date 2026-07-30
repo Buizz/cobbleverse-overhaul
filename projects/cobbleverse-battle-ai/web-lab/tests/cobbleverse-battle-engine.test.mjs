@@ -4152,6 +4152,13 @@ test("AI uses Salt Cure before Stealth Rock into a likely first-turn setup threa
   const stealthRock = trace.candidates.find((candidate) => candidate.id === "stealthrock");
   assert.equal(saltCure.selected, true);
   assert.ok(saltCure.opponentSetupFirstTurnLikelihood >= 0.65);
+  assert.equal(stealthRock.setupThreatEvaluation.opponentCanSetup, true);
+  assert.ok(stealthRock.opponentSetupSweepRisk >= 0.4);
+  assert.ok(
+    stealthRock.reasons.some(
+      (reason) => reason.code === "rule.setup_threat.free_hazard_turn",
+    ),
+  );
   assert.ok(saltCure.score > stealthRock.score);
 });
 
@@ -5329,6 +5336,1240 @@ test("uses the configured Tera Type and rejects a command-side override", () => 
   assert.equal(state.sides[0].team[0].terastallized, true);
   assert.equal(state.sides[0].team[0].teraType, "Water");
   assert.deepEqual(state.sides[0].team[0].types, ["Water"]);
+
+  const lowerCaseState = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [pokemon({ gimmicks: { teraType: "electric" } })],
+          },
+          { name: "AI", team: [pokemon({ name: "AiMon" })] },
+        ],
+      }),
+    ),
+    [{ move: 1, gimmick: "terastallize" }, { move: 1 }],
+  );
+  assert.equal(lowerCaseState.sides[0].team[0].teraType, "Electric");
+  assert.deepEqual(lowerCaseState.sides[0].team[0].types, ["Electric"]);
+});
+
+test("changes each Ogerpon mask into its fixed Tera form and Embody Aspect", () => {
+  const cases = [
+    {
+      id: "ogerpon",
+      name: "Ogerpon",
+      item: "",
+      types: ["Grass"],
+      teraType: "Grass",
+      teraId: "ogerpontealtera",
+      ability: "embodyaspectteal",
+      stat: "speed",
+    },
+    {
+      id: "ogerponwellspring",
+      name: "Ogerpon-Wellspring",
+      item: "wellspringmask",
+      types: ["Grass", "Water"],
+      teraType: "Water",
+      teraId: "ogerponwellspringtera",
+      ability: "embodyaspectwellspring",
+      stat: "specialDefence",
+    },
+    {
+      id: "ogerponhearthflame",
+      name: "Ogerpon-Hearthflame",
+      item: "hearthflamemask",
+      types: ["Grass", "Fire"],
+      teraType: "Fire",
+      teraId: "ogerponhearthflametera",
+      ability: "embodyaspecthearthflame",
+      stat: "attack",
+    },
+    {
+      id: "ogerponcornerstone",
+      name: "Ogerpon-Cornerstone",
+      item: "cornerstonemask",
+      types: ["Grass", "Rock"],
+      teraType: "Rock",
+      teraId: "ogerponcornerstonetera",
+      ability: "embodyaspectcornerstone",
+      stat: "defence",
+    },
+  ];
+
+  for (const entry of cases) {
+    const formName = `${entry.name === "Ogerpon" ? "Ogerpon-Teal" : entry.name}-Tera`;
+    const state = createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Ogerpon",
+            team: [
+              pokemon({
+                id: entry.id,
+                name: entry.name,
+                baseSpecies: "Ogerpon",
+                item: entry.item,
+                ability: "defiant",
+                types: entry.types,
+                gimmicks: { teraType: "Dragon" },
+                speciesForms: {
+                  tera: {
+                    id: entry.teraId,
+                    name: formName,
+                    types: entry.types,
+                    ability: entry.ability,
+                    weightKg: 39.8,
+                    stats: pokemon().stats,
+                  },
+                },
+                moves: [
+                  {
+                    id: "splash",
+                    name: "Splash",
+                    type: "Normal",
+                    category: "Status",
+                    power: 0,
+                    accuracy: true,
+                    pp: 40,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "Target",
+            team: [
+              pokemon({
+                moves: [
+                  {
+                    id: "splash",
+                    name: "Splash",
+                    type: "Normal",
+                    category: "Status",
+                    power: 0,
+                    accuracy: true,
+                    pp: 40,
+                  },
+                ],
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+    const result = resolveSimpleTurn(
+      state,
+      [{ move: 1, gimmick: "terastallize" }, { move: 1 }],
+    );
+    const ogerpon = result.sides[0].team[0];
+
+    assert.equal(ogerpon.id, entry.teraId);
+    assert.equal(ogerpon.teraType, entry.teraType);
+    assert.deepEqual(ogerpon.types, [entry.teraType]);
+    assert.equal(ogerpon.ability, entry.ability);
+    assert.equal(ogerpon.boosts[entry.stat], 1);
+    assert.ok(
+      result.events.some(
+        (event) =>
+          event.type === "ability_activate" &&
+          event.ability === entry.ability,
+      ),
+    );
+  }
+});
+
+test("applies Ogerpon mask power, Water Absorb, Mold Breaker, and Defiant", () => {
+  const attack = {
+    id: "ivycudgel",
+    name: "Ivy Cudgel",
+    type: "Grass",
+    category: "Physical",
+    power: 100,
+    accuracy: true,
+    pp: 10,
+  };
+  const plain = pokemon({
+    id: "ogerpon",
+    baseSpecies: "Ogerpon",
+    types: ["Grass"],
+    moves: [attack],
+  });
+  const masked = {
+    ...plain,
+    id: "ogerponwellspring",
+    item: "wellspringmask",
+  };
+  const defender = pokemon({ types: ["Normal"] });
+  assert.equal(
+    calculateDamageRange(masked, defender, attack).itemModifier,
+    1.2,
+  );
+  assert.ok(
+    calculateDamageRange(masked, defender, attack).maximum >
+      calculateDamageRange(plain, defender, attack).maximum,
+  );
+
+  const waterAbsorbState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Water",
+          team: [
+            pokemon({
+              moves: [{
+                id: "surf",
+                name: "Surf",
+                type: "Water",
+                category: "Special",
+                power: 90,
+                accuracy: true,
+                pp: 15,
+              }],
+            }),
+          ],
+        },
+        {
+          name: "Ogerpon",
+          team: [
+            pokemon({
+              ability: "waterabsorb",
+              stats: { ...pokemon().stats, hp: 200 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  waterAbsorbState.sides[1].team[0].hp = 100;
+  const absorbed = resolveSimpleTurn(
+    waterAbsorbState,
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(absorbed.sides[1].team[0].hp, 150);
+
+  const lowered = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Intimidate",
+          team: [pokemon({ ability: "intimidate" })],
+        },
+        {
+          name: "Defiant",
+          team: [pokemon({ ability: "defiant" })],
+        },
+      ],
+    }),
+  );
+  assert.equal(lowered.sides[1].team[0].boosts.attack, 1);
+
+  const sturdy = {
+    ...pokemon({ ability: "sturdy", stats: { ...pokemon().stats, hp: 120 } }),
+    hp: 120,
+  };
+  const moldBreaker = {
+    ...pokemon({
+      ability: "moldbreaker",
+      stats: { ...pokemon().stats, attack: 500 },
+    }),
+    originalTypes: ["Normal"],
+  };
+  assert.ok(calculateDamageRange(moldBreaker, sturdy, attack).maximum >= 120);
+});
+
+test("runs Terapagos Tera Shift, Tera Shell, and Stellar form conversion", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const forms = {
+    terastal: {
+      id: "terapagosterastal",
+      name: "Terapagos-Terastal",
+      types: ["Normal"],
+      ability: "terashell",
+      weightKg: 16,
+      stats: {
+        hp: 95,
+        attack: 95,
+        defence: 110,
+        specialAttack: 105,
+        specialDefence: 110,
+        speed: 85,
+      },
+    },
+    stellar: {
+      id: "terapagosstellar",
+      name: "Terapagos-Stellar",
+      types: ["Normal"],
+      ability: "teraformzero",
+      weightKg: 77,
+      stats: {
+        hp: 160,
+        attack: 105,
+        defence: 110,
+        specialAttack: 130,
+        specialDefence: 110,
+        speed: 85,
+      },
+    },
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Terapagos",
+          team: [
+            pokemon({
+              id: "terapagos",
+              name: "Terapagos",
+              baseSpecies: "Terapagos",
+              ability: "terashift",
+              gimmicks: { teraType: "Fire" },
+              stats: {
+                hp: 90,
+                attack: 65,
+                defence: 85,
+                specialAttack: 65,
+                specialDefence: 85,
+                speed: 60,
+              },
+              speciesForms: forms,
+              moves: [splash],
+            }),
+          ],
+        },
+        { name: "Target", team: [pokemon({ moves: [splash] })] },
+      ],
+    }),
+  );
+  const terastal = state.sides[0].team[0];
+  assert.equal(terastal.id, "terapagosterastal");
+  assert.equal(terastal.name, "Terapagos-Terastal");
+  assert.equal(terastal.ability, "terashell");
+  assert.equal(terastal.stats.hp, 95);
+  assert.equal(terastal.hp, 95);
+  assert.equal(terastal.configuredTeraType, "Stellar");
+
+  const fightingMove = {
+    id: "closecombat",
+    name: "Close Combat",
+    type: "Fighting",
+    category: "Physical",
+    power: 120,
+    accuracy: true,
+    pp: 5,
+  };
+  assert.equal(
+    calculateDamageRange(pokemon(), terastal, fightingMove).effectiveness,
+    0.5,
+  );
+  terastal.hp = 70;
+  assert.equal(
+    calculateDamageRange(pokemon(), terastal, fightingMove).effectiveness,
+    2,
+  );
+  assert.equal(
+    calculateDamageRange(
+      pokemon({ ability: "moldbreaker" }),
+      { ...terastal, hp: terastal.stats.hp },
+      fightingMove,
+    ).effectiveness,
+    2,
+  );
+
+  state.field.weather = { id: "raindance", turns: 5 };
+  state.field.terrain = { id: "electricterrain", turns: 5 };
+  const stellarState = resolveSimpleTurn(
+    state,
+    [{ move: 1, gimmick: "terastallize" }, { move: 1 }],
+  );
+  const stellar = stellarState.sides[0].team[0];
+  assert.equal(stellar.id, "terapagosstellar");
+  assert.equal(stellar.name, "Terapagos-Stellar");
+  assert.equal(stellar.ability, "teraformzero");
+  assert.equal(stellar.teraType, "Stellar");
+  assert.deepEqual(stellar.types, ["Normal"]);
+  assert.equal(stellar.stats.hp, 160);
+  assert.equal(stellar.hp, 135);
+  assert.equal(stellarState.field.weather, null);
+  assert.equal(stellarState.field.terrain, null);
+  assert.ok(
+    stellarState.events.some(
+      (event) =>
+        event.type === "ability_activate" &&
+        event.ability === "teraformzero",
+    ),
+  );
+});
+
+test("keeps Tera Shell resistance through every hit of a multi-hit move", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Attacker",
+          team: [
+            pokemon({
+              stats: { ...pokemon().stats, speed: 150 },
+              moves: [{
+                id: "doublehit",
+                name: "Double Hit",
+                type: "Normal",
+                category: "Physical",
+                power: 35,
+                accuracy: true,
+                pp: 10,
+                multihit: [2, 2],
+              }],
+            }),
+          ],
+        },
+        {
+          name: "Terapagos",
+          team: [
+            pokemon({
+              id: "terapagosterastal",
+              name: "Terapagos-Terastal",
+              baseSpecies: "Terapagos",
+              ability: "terashell",
+              stats: { ...pokemon().stats, hp: 500 },
+              moves: [{
+                id: "splash",
+                name: "Splash",
+                type: "Normal",
+                category: "Status",
+                power: 0,
+                accuracy: true,
+                pp: 40,
+              }],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const result = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  const hits = result.events.filter(
+    (event) =>
+      event.type === "damage" &&
+      event.pokemon === "Terapagos-Terastal" &&
+      event.move === "Double Hit",
+  );
+  assert.equal(hits.length, 2);
+  assert.deepEqual(hits.map((event) => event.effectiveness), [0.5, 0.5]);
+});
+
+test("preserves original STAB and applies same-type Tera STAB", () => {
+  const defender = pokemon({ types: ["Normal"] });
+  const move = {
+    id: "flamethrower",
+    name: "Flamethrower",
+    type: "Fire",
+    category: "Special",
+    power: 90,
+    accuracy: 100,
+    pp: 15,
+  };
+  const differentTera = {
+    ...pokemon({ types: ["Grass"] }),
+    originalTypes: ["Fire", "Flying"],
+    terastallized: true,
+    teraType: "Grass",
+  };
+  const sameTypeTera = {
+    ...differentTera,
+    types: ["Fire"],
+    teraType: "Fire",
+  };
+  const adaptableTera = {
+    ...sameTypeTera,
+    ability: "adaptability",
+  };
+
+  assert.equal(calculateDamageRange(differentTera, defender, move).stab, 1.5);
+  assert.equal(calculateDamageRange(sameTypeTera, defender, move).stab, 2);
+  assert.equal(calculateDamageRange(adaptableTera, defender, move).stab, 2.25);
+});
+
+test("uses transformed Tera Blast and the Tera power floor in previews", () => {
+  const attacker = {
+    ...pokemon({
+      stats: {
+        ...pokemon().stats,
+        attack: 180,
+        specialAttack: 80,
+      },
+    }),
+    originalTypes: ["Normal"],
+    types: ["Electric"],
+    terastallized: true,
+    teraType: "Electric",
+  };
+  const defender = pokemon({ types: ["Water"] });
+  const teraBlast = {
+    id: "terablast",
+    name: "Tera Blast",
+    type: "Normal",
+    category: "Special",
+    power: 80,
+    accuracy: 100,
+    pp: 10,
+  };
+  const lowPowerMove = {
+    id: "electroweb",
+    name: "Electroweb",
+    type: "Electric",
+    category: "Special",
+    power: 55,
+    accuracy: 95,
+    pp: 15,
+  };
+
+  const teraBlastPreview = calculateMovePreview(attacker, defender, teraBlast);
+  const lowPowerPreview = calculateMovePreview(attacker, defender, lowPowerMove);
+
+  assert.equal(teraBlastPreview.move.type, "Electric");
+  assert.equal(teraBlastPreview.move.category, "Physical");
+  assert.equal(teraBlastPreview.range.effectiveness, 2);
+  assert.equal(lowPowerPreview.move.power, 60);
+});
+
+test("keeps defensive typing and consumes Stellar boosts by move type", () => {
+  const flamethrower = {
+    id: "flamethrower",
+    name: "Flamethrower",
+    type: "Fire",
+    category: "Special",
+    power: 90,
+    accuracy: 100,
+    pp: 15,
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Stellar",
+          team: [
+            pokemon({
+              name: "Stellar User",
+              types: ["Fire", "Flying"],
+              gimmicks: { teraType: "Stellar" },
+              moves: [flamethrower],
+            }),
+          ],
+        },
+        {
+          name: "Target",
+          team: [
+            pokemon({
+              name: "Target",
+              stats: { ...pokemon().stats, hp: 500 },
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  power: 0,
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state = resolveSimpleTurn(state, [
+    { move: 1, gimmick: "terastallize" },
+    { move: 1 },
+  ]);
+  const attacker = state.sides[0].team[0];
+  const defender = state.sides[1].team[0];
+
+  assert.deepEqual(attacker.types, ["Fire", "Flying"]);
+  assert.deepEqual(attacker.stellarBoostedTypes, ["Fire"]);
+  assert.equal(calculateDamageRange(attacker, defender, flamethrower).stab, 1.5);
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.type === "stellar_boost_consumed" &&
+        event.moveType === "Fire",
+    ),
+  );
+});
+
+test("treats Stellar attacks as super effective only into Terastallized targets", () => {
+  const attacker = {
+    ...pokemon(),
+    originalTypes: ["Normal"],
+    terastallized: true,
+    teraType: "Stellar",
+    stellarBoostedTypes: [],
+  };
+  const stellarMove = {
+    id: "terablast",
+    name: "Tera Blast",
+    type: "Stellar",
+    category: "Special",
+    power: 100,
+    accuracy: 100,
+    pp: 10,
+    teraResolved: true,
+  };
+  const normalTarget = pokemon({ types: ["Ghost"] });
+  const teraTarget = {
+    ...normalTarget,
+    types: ["Water"],
+    originalTypes: ["Ghost"],
+    terastallized: true,
+    teraType: "Water",
+  };
+
+  assert.equal(
+    calculateDamageRange(attacker, normalTarget, stellarMove).effectiveness,
+    1,
+  );
+  assert.equal(
+    calculateDamageRange(attacker, teraTarget, stellarMove).effectiveness,
+    2,
+  );
+});
+
+test("AI scores defensive Terastallization through the projected one-turn state", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Tera Candidate",
+            types: ["Electric"],
+            gimmicks: { teraType: "Flying" },
+            stats: {
+              ...pokemon().stats,
+              hp: 180,
+              specialAttack: 180,
+              speed: 80,
+            },
+            moves: [
+              {
+                id: "icebeam",
+                name: "Ice Beam",
+                type: "Ice",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            name: "Ground Threat",
+            types: ["Ground"],
+            stats: {
+              ...pokemon().stats,
+              hp: 240,
+              attack: 320,
+              speed: 160,
+            },
+            moves: [
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const decision = chooseSimpleAiDecision(
+    createSimpleBattle(scenario),
+    0,
+    "expert",
+    "balanced",
+  );
+
+  assert.equal(decision.command.gimmick, "terastallize");
+  assert.equal(decision.gimmickCandidate.id, "terastallize");
+  assert.ok(
+    decision.gimmickCandidate.reasons.some(
+      (reason) => reason.code === "simulation.gimmick_one_turn_state",
+    ),
+  );
+  assert.ok(
+    decision.gimmickCandidate.reasons.some(
+      (reason) => reason.code === "gimmick.tera.active_damage_change",
+    ),
+  );
+  assert.ok(
+    decision.gimmickCandidate.reasons.some(
+      (reason) => reason.code === "gimmick.tera.prevents_active_ko",
+    ),
+  );
+  assert.ok(decision.gimmickCandidate.oneTurnEvaluation);
+});
+
+test("AI evaluates remaining opposing matchups before spending Terastallization", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Tera Candidate",
+            types: ["Electric"],
+            gimmicks: { teraType: "Flying" },
+            moves: [
+              {
+                id: "icebeam",
+                name: "Ice Beam",
+                type: "Ice",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            name: "Ground Threat",
+            types: ["Ground"],
+            moves: [
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+          pokemon({
+            name: "Ice Backline",
+            types: ["Ice"],
+            moves: [
+              {
+                id: "icebeam",
+                name: "Ice Beam",
+                type: "Ice",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const decision = chooseSimpleAiDecision(
+    createSimpleBattle(scenario),
+    0,
+    "expert",
+    "balanced",
+  );
+  const remainingReason = decision.gimmickCandidate.reasons.find(
+    (reason) => reason.code === "gimmick.tera.remaining_matchups",
+  );
+
+  assert.ok(remainingReason);
+  assert.equal(remainingReason.value[0].opponent, "Ice Backline");
+  assert.deepEqual(remainingReason.value[0].types, ["Ice"]);
+  assert.ok(remainingReason.value[0].after > remainingReason.value[0].before);
+  assert.ok(remainingReason.weight < 0);
+});
+
+test("reserves Tera for the configured member until that member faints", () => {
+  const reservedScenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Fallback",
+            types: ["Normal"],
+            gimmicks: {
+              teraType: "Electric",
+              teraConfigured: false,
+            },
+            stats: {
+              ...pokemon().stats,
+              attack: 180,
+              specialAttack: 70,
+            },
+            moves: [
+              {
+                id: "terablast",
+                name: "Tera Blast",
+                type: "Normal",
+                category: "Special",
+                power: 80,
+                accuracy: 100,
+                pp: 10,
+                dynamicPower: true,
+              },
+            ],
+          }),
+          pokemon({
+            name: "Configured",
+            gimmicks: {
+              teraType: "Water",
+              teraConfigured: true,
+            },
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            types: ["Water"],
+            moves: [
+              {
+                id: "splash",
+                name: "Splash",
+                type: "Normal",
+                category: "Status",
+                accuracy: true,
+                pp: 40,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const reserved = resolveSimpleTurn(
+    createSimpleBattle(reservedScenario),
+    [{ move: 1, gimmick: "terastallize" }, { move: 1 }],
+  );
+
+  assert.equal(reserved.sides[0].team[0].terastallized, false);
+  assert.ok(
+    reserved.events.some(
+      (event) =>
+        event.type === "gimmick_rejected" &&
+        event.reason === "tera_reserved_for_configured_pokemon",
+    ),
+  );
+
+  const fallbackState = createSimpleBattle(reservedScenario);
+  fallbackState.sides[0].team[1].hp = 0;
+  fallbackState.sides[0].team[1].fainted = true;
+  const fallback = resolveSimpleTurn(
+    fallbackState,
+    [{ move: 1, gimmick: "terastallize" }, { move: 1 }],
+  );
+
+  assert.equal(fallback.sides[0].team[0].terastallized, true);
+  assert.equal(fallback.sides[0].team[0].teraType, "Electric");
+
+  const aiReservedState = createSimpleBattle(reservedScenario);
+  aiReservedState.sides[0].gimmickResources.mega = "consumed";
+  aiReservedState.sides[0].gimmickResources.zmove = "consumed";
+  aiReservedState.sides[0].gimmickResources.dynamax = "consumed";
+  const reservedDecision = chooseSimpleAiDecision(
+    aiReservedState,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.notEqual(reservedDecision.command.gimmick, "terastallize");
+
+  aiReservedState.sides[0].team[1].hp = 0;
+  aiReservedState.sides[0].team[1].fainted = true;
+  const fallbackDecision = chooseSimpleAiDecision(
+    aiReservedState,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.equal(fallbackDecision.command.gimmick, "terastallize");
+  assert.equal(fallbackDecision.gimmickCandidate.selectedMove.type, "Electric");
+});
+
+test("AI evaluates Tera Blast with its transformed type and category", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Tera Blast User",
+            types: ["Normal"],
+            gimmicks: { teraType: "Electric" },
+            stats: {
+              ...pokemon().stats,
+              attack: 180,
+              specialAttack: 70,
+            },
+            moves: [
+              {
+                id: "terablast",
+                name: "Tera Blast",
+                type: "Normal",
+                category: "Special",
+                power: 80,
+                accuracy: 100,
+                pp: 10,
+                dynamicPower: true,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            name: "Water Target",
+            types: ["Water"],
+            moves: [
+              {
+                id: "watergun",
+                name: "Water Gun",
+                type: "Water",
+                category: "Special",
+                power: 40,
+                accuracy: 100,
+                pp: 25,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const decision = chooseSimpleAiDecision(
+    createSimpleBattle(scenario),
+    0,
+    "expert",
+    "balanced",
+  );
+
+  assert.equal(decision.command.gimmick, "terastallize");
+  assert.equal(decision.gimmickCandidate.selectedMove.type, "Electric");
+  assert.equal(decision.gimmickCandidate.selectedMove.category, "Physical");
+});
+
+test("AI preserves Terastallization when it does not improve the projected action", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Neutral Tera",
+            gimmicks: { teraType: "Grass" },
+            moves: [
+              {
+                id: "waterpulse",
+                name: "Water Pulse",
+                type: "Water",
+                category: "Special",
+                power: 60,
+                accuracy: 100,
+                pp: 20,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            name: "Neutral Opponent",
+            moves: [
+              {
+                id: "confusion",
+                name: "Confusion",
+                type: "Psychic",
+                category: "Special",
+                power: 50,
+                accuracy: 100,
+                pp: 25,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const decision = chooseSimpleAiDecision(
+    createSimpleBattle(scenario),
+    0,
+    "expert",
+    "balanced",
+  );
+
+  assert.equal(decision.command.gimmick, undefined);
+  assert.equal(decision.gimmickCandidate.id, "terastallize");
+  assert.ok(
+    decision.gimmickCandidate.score <
+      decision.gimmickCandidate.activationThreshold,
+  );
+});
+
+test("AI preserves Tera on a safe guaranteed KO when a stronger reserve candidate remains", () => {
+  const closeCombat = {
+    id: "closecombat",
+    name: "Close Combat",
+    type: "Fighting",
+    category: "Physical",
+    power: 120,
+    accuracy: 100,
+    pp: 5,
+    selfBoosts: { defence: -1, specialDefence: -1 },
+  };
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            id: "koraidon",
+            name: "Koraidon",
+            types: ["Fighting", "Dragon"],
+            gimmicks: { teraType: "Fire" },
+            stats: {
+              ...pokemon().stats,
+              attack: 280,
+              speed: 160,
+            },
+            moves: [closeCombat],
+          }),
+          pokemon({
+            id: "reserve",
+            name: "Reserve Sweeper",
+            types: ["Water"],
+            gimmicks: { teraType: "Water" },
+            stats: {
+              ...pokemon().stats,
+              specialAttack: 240,
+            },
+            moves: [
+              {
+                id: "hydropump",
+                name: "Hydro Pump",
+                type: "Water",
+                category: "Special",
+                power: 110,
+                accuracy: 80,
+                pp: 5,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            name: "Snorlax",
+            types: ["Normal"],
+            stats: {
+              ...pokemon().stats,
+              hp: 120,
+              defence: 80,
+              speed: 40,
+            },
+          }),
+          pokemon({
+            name: "Fire Backline",
+            types: ["Fire"],
+            moves: [
+              {
+                id: "flamethrower",
+                name: "Flamethrower",
+                type: "Fire",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 15,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  state.sides[0].gimmickResources.mega = "consumed";
+  state.sides[0].gimmickResources.zmove = "consumed";
+  state.sides[0].gimmickResources.dynamax = "consumed";
+  const decision = chooseSimpleAiDecision(state, 0, "expert", "balanced");
+
+  assert.equal(decision.selectedMove.id, "closecombat");
+  assert.equal(decision.selectedMove.koChance, "guaranteed");
+  assert.equal(decision.command.gimmick, undefined);
+  assert.ok(
+    decision.gimmickCandidate.reasons.some(
+      (reason) => reason.code === "gimmick.tera.safe_ko_preservation",
+    ),
+    JSON.stringify(decision.gimmickCandidate, null, 2),
+  );
+  assert.ok(
+    decision.gimmickCandidate.reasons.some(
+      (reason) => reason.code === "gimmick.tera.better_reserve_candidate",
+    ),
+  );
+});
+
+test("AI compares living team candidates before spending a low-value Tera", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            id: "garganacl",
+            name: "Garganacl",
+            types: ["Rock"],
+            gimmicks: { teraType: "Water" },
+            moves: [
+              {
+                id: "earthquake",
+                name: "Earthquake",
+                type: "Ground",
+                category: "Physical",
+                power: 100,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+          pokemon({
+            name: "Electric Reserve",
+            types: ["Electric"],
+            gimmicks: { teraType: "Electric" },
+            moves: [
+              {
+                id: "thunderbolt",
+                name: "Thunderbolt",
+                type: "Electric",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 15,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            name: "Neutral Target",
+            types: ["Normal"],
+            stats: { ...pokemon().stats, hp: 300 },
+            moves: [
+              {
+                id: "psychic",
+                name: "Psychic",
+                type: "Psychic",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  state.sides[0].gimmickResources.mega = "consumed";
+  state.sides[0].gimmickResources.zmove = "consumed";
+  state.sides[0].gimmickResources.dynamax = "consumed";
+  const decision = chooseSimpleAiDecision(state, 0, "expert", "balanced");
+
+  assert.equal(decision.command.gimmick, undefined);
+  assert.ok(
+    decision.gimmickCandidate.reasons.some(
+      (reason) => reason.code === "gimmick.tera.better_reserve_candidate",
+    ),
+    JSON.stringify(decision.gimmickCandidate, null, 2),
+  );
+});
+
+test("AI records projected one-turn state reasons for Mega Evolution", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "AI",
+        team: [
+          pokemon({
+            name: "Mega Candidate",
+            item: "testite",
+            gimmicks: {
+              megaStone: {
+                item: "testite",
+                evolves: "testmon",
+                form: "Testmon-Mega",
+                ability: "hugepower",
+                stats: {
+                  attack: 180,
+                  defence: 130,
+                  specialAttack: 100,
+                  specialDefence: 120,
+                  speed: 120,
+                },
+              },
+            },
+          }),
+        ],
+      },
+      { name: "Opponent", team: [pokemon({ name: "Target" })] },
+    ],
+  });
+  const decision = chooseSimpleAiDecision(
+    createSimpleBattle(scenario),
+    0,
+    "expert",
+    "balanced",
+  );
+
+  assert.equal(decision.command.gimmick, "mega");
+  assert.equal(decision.gimmickCandidate.id, "mega");
+  assert.ok(
+    decision.gimmickCandidate.reasons.some(
+      (reason) => reason.code === "simulation.gimmick_one_turn_state",
+    ),
+  );
+  assert.ok(decision.gimmickCandidate.oneTurnEvaluation);
 });
 
 test("supports first-turn Fake Out flinch and later failure", () => {
@@ -12222,6 +13463,219 @@ test("AI voluntarily switches to a safe counter and reports switch scores", () =
       (reason) => reason.code === "switch.emergency_escape",
     ),
   );
+  assert.ok(
+    switchCandidate.reasons.some(
+      (reason) => reason.code === "simulation.one_turn_state_value",
+    ),
+  );
+});
+
+test("marks a bench Pokemon as the unique counter for a future ace", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({
+            id: "current",
+            name: "Current",
+            types: ["Grass"],
+            stats: { ...pokemon().stats, hp: 220, speed: 80 },
+          }),
+          pokemon({
+            id: "future-counter",
+            name: "Future Counter",
+            types: ["Fairy"],
+            stats: {
+              ...pokemon().stats,
+              hp: 220,
+              attack: 230,
+              specialDefence: 120,
+              speed: 100,
+            },
+            moves: [
+              {
+                id: "playrough",
+                name: "Play Rough",
+                type: "Fairy",
+                category: "Physical",
+                power: 90,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+          pokemon({
+            id: "ordinary-bench",
+            name: "Ordinary Bench",
+            types: ["Normal"],
+            stats: { ...pokemon().stats, hp: 220, speed: 90 },
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            id: "current-fire",
+            name: "Current Fire",
+            types: ["Fire"],
+            stats: {
+              ...pokemon().stats,
+              hp: 200,
+              specialAttack: 180,
+              speed: 110,
+            },
+            moves: [
+              {
+                id: "flamethrower",
+                name: "Flamethrower",
+                type: "Fire",
+                category: "Special",
+                power: 90,
+                accuracy: 100,
+                pp: 15,
+              },
+            ],
+          }),
+          pokemon({
+            id: "future-dragon-ace",
+            name: "Future Dragon Ace",
+            aiRole: "ace",
+            types: ["Dragon"],
+            stats: {
+              ...pokemon().stats,
+              hp: 180,
+              attack: 190,
+              speed: 125,
+            },
+            moves: [
+              {
+                id: "dragondance",
+                name: "Dragon Dance",
+                type: "Dragon",
+                category: "Status",
+                power: 0,
+                accuracy: true,
+                pp: 20,
+                boosts: { attack: 1, speed: 1 },
+              },
+              {
+                id: "outrage",
+                name: "Outrage",
+                type: "Dragon",
+                category: "Physical",
+                power: 120,
+                accuracy: 100,
+                pp: 10,
+              },
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  const candidates = automaticSwitchCandidates(
+    state,
+    0,
+    [],
+    "expert",
+    "balanced",
+  );
+  const futureCounter = candidates.find(
+    (candidate) => candidate.id === "future-counter",
+  );
+
+  assert.equal(futureCounter.mustPreserveResource, true);
+  assert.deepEqual(futureCounter.mustPreserveFor, ["Future Dragon Ace"]);
+  assert.equal(futureCounter.preservationTargetIsCurrent, false);
+});
+
+test("marks a hazard lead as role-complete after its hazard is established", () => {
+  const scenario = setup({
+    sides: [
+      {
+        name: "Player",
+        team: [
+          pokemon({
+            id: "hazard-lead",
+            name: "Hazard Lead",
+            types: ["Rock"],
+            stats: {
+              ...pokemon().stats,
+              hp: 240,
+              attack: 130,
+              speed: 60,
+            },
+            moves: [
+              {
+                id: "stealthrock",
+                name: "Stealth Rock",
+                type: "Rock",
+                category: "Status",
+                power: 0,
+                accuracy: true,
+                pp: 20,
+                sideCondition: "stealthrock",
+              },
+              {
+                id: "explosion",
+                name: "Explosion",
+                type: "Normal",
+                category: "Physical",
+                power: 250,
+                accuracy: 100,
+                pp: 5,
+                selfDestruct: true,
+              },
+            ],
+          }),
+        ],
+      },
+      {
+        name: "Opponent",
+        team: [
+          pokemon({
+            id: "ordinary-opponent",
+            name: "Ordinary Opponent",
+            stats: { ...pokemon().stats, hp: 260, speed: 70 },
+          }),
+          pokemon({
+            id: "ordinary-bench",
+            name: "Ordinary Bench",
+            stats: { ...pokemon().stats, hp: 260, speed: 70 },
+          }),
+        ],
+      },
+    ],
+  });
+  const state = createSimpleBattle(scenario);
+  const beforeDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const beforeExplosion = beforeDecision.moveCandidates.find(
+    (candidate) => candidate.id === "explosion",
+  );
+  assert.equal(beforeExplosion.roleComplete, false);
+
+  state.sides[1].conditions.stealthrock = { layers: 1 };
+  const decision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const explosion = decision.moveCandidates.find(
+    (candidate) => candidate.id === "explosion",
+  );
+
+  assert.equal(explosion.roleComplete, true);
+  assert.equal(explosion.expendableResource, true);
+  assert.ok(explosion.completedRoles.includes("hazardControl"));
 });
 
 test("AI does not sacrifice an ace that cannot act after taking the switch-in hit", () => {

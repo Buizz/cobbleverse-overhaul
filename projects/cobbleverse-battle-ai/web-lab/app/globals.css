@@ -683,28 +683,49 @@ button {
   gap: 8px;
 }
 
-.official-entry-banner {
+.team-entry-heading {
   display: flex;
   grid-column: 1 / -1;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid #a4cf31;
-  border-left: 4px solid var(--lime);
-  background: #17233a;
-  color: #f2f6fb;
+  height: 36px;
+  padding: 6px 9px;
+  box-sizing: border-box;
+  border: 1px solid #c7d3d7;
+  border-left: 3px solid var(--cyan);
+  background: #eef5f6;
 }
 
-.official-entry-banner strong {
-  color: var(--lime);
-  font-size: 12px;
+.team-entry-heading > span:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
 }
 
-.official-entry-banner span {
-  color: #aeb9ca;
-  font-size: 10px;
+.team-entry-heading strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.team-entry-heading small,
+.team-entry-source {
+  color: #6f7d91;
+  font-size: 9px;
   font-weight: 600;
+}
+
+.official-entry-badge {
+  overflow: hidden;
+  max-width: 55%;
+  padding: 3px 6px;
+  border: 1px solid #9fcf28;
+  background: #eaffb2;
+  color: #365300;
+  font-size: 9px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pokemon-chip {
@@ -759,26 +780,44 @@ button {
   font: 700 9px/1 ui-monospace, monospace;
 }
 
-.pokemon-chip strong,
-.pokemon-chip > span,
-.pokemon-chip small {
+.pokemon-chip-summary {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 7px;
+  align-items: center;
+}
+
+.pokemon-chip-summary > img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.pokemon-chip-summary > span {
+  min-width: 0;
+}
+
+.pokemon-chip-summary strong,
+.pokemon-chip-summary > span > span,
+.pokemon-chip-summary small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pokemon-chip strong {
+.pokemon-chip-summary strong {
   font-size: 12px;
 }
 
-.pokemon-chip > span:not(.slot-number) {
+.pokemon-chip-summary > span > span {
   margin-top: 5px;
   color: #59667c;
   font: 600 10px/1 ui-monospace, monospace;
 }
 
-.pokemon-chip small {
+.pokemon-chip-summary small {
   margin-top: 12px;
   color: #828b9b;
   font-size: 9px;
@@ -3349,6 +3388,58 @@ button {
   letter-spacing: 0.09em;
 }
 
+.gimmick-control-detail {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+}
+
+.gimmick-control-detail.tera-type-detail {
+  flex-wrap: wrap;
+  gap: 5px 7px;
+}
+
+.gimmick-control-detail.tera-type-detail > small {
+  width: 100%;
+  color: #aebbd0;
+  font: 800 8px/1 ui-monospace, monospace;
+}
+
+.battle-gimmick-controls
+  button
+  .gimmick-control-detail.tera-type-detail
+  .type-icon {
+  display: inline-flex;
+  min-height: 24px;
+  gap: 5px;
+  align-items: center;
+  padding: 3px 8px 3px 4px;
+  color: #fff;
+  font: inherit;
+  letter-spacing: 0;
+}
+
+.battle-gimmick-controls
+  button
+  .gimmick-control-detail.tera-type-detail
+  .type-icon-art {
+  width: 17px;
+  height: 17px;
+  flex-basis: 17px;
+  color: #fff;
+  letter-spacing: 0;
+}
+
+.battle-gimmick-controls
+  button
+  .gimmick-control-detail.tera-type-detail
+  .type-icon
+  b {
+  color: #fff;
+  font: 850 11px/1 var(--font-ui);
+  letter-spacing: 0;
+}
+
 .battle-gimmick-controls button strong {
   font-size: 12px;
 }
@@ -5911,11 +6002,10 @@ body .lab-shell :where(button, input, select, textarea) {
   background: #f7fafb;
 }
 
-.official-entry-banner {
-  border-color: #273c55;
-  border-left-color: var(--lime);
+.team-entry-heading {
+  border-color: #c7d3d7;
   border-radius: 3px;
-  background: #102239;
+  background: #eef5f6;
 }
 
 .versus {
@@ -7396,11 +7486,11 @@ body .lab-shell :where(button, input, select, textarea) {
   margin-bottom: 9px;
 }
 
-.pokemon-chip strong {
+.pokemon-chip-summary strong {
   font-size: 10px;
 }
 
-.pokemon-chip small {
+.pokemon-chip-summary small {
   margin-top: 8px;
   font-size: 8px;
 }

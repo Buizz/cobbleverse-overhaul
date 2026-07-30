@@ -12,15 +12,21 @@ import {
 import {
   analyzeTeamProfile,
   aiDecisionReason,
+  buildThreatCounterMap,
   createAiRng,
+  evaluateOneTurnBattleState,
+  evaluatePokemonRoleProgress,
+  evaluateSetupThreat,
   scoreAiMoveCandidate,
+  scoreAiProjectedGimmickCandidate,
   selectAiGimmick,
   selectAiMoveCandidate,
   selectAiSwitchCandidate,
   toAiActionCandidate,
+  toAiTraceCandidate,
 } from "./common-battle-ai.mjs";
 
-const ENGINE_VERSION = "0.9.6";
+const ENGINE_VERSION = "0.9.7";
 const DEFAULT_MAX_TURNS = 200;
 const DEFAULT_FIELD_DURATION = 5;
 const GIMMICK_KINDS = ["mega", "zmove", "dynamax", "terastallize"];
@@ -113,6 +119,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "competitive",
   "chlorophyll",
   "dauntlessshield",
+  "defiant",
   "download",
   "drizzle",
   "drought",
@@ -137,6 +144,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "magicbounce",
   "magnetpull",
   "mindseye",
+  "moldbreaker",
   "multiscale",
   "beastboost",
   "overcoat",
@@ -163,6 +171,9 @@ const IMPLEMENTED_ABILITIES = new Set([
   "sturdy",
   "supremeoverlord",
   "technician",
+  "teraformzero",
+  "terashell",
+  "terashift",
   "teravolt",
   "thickfat",
   "toughclaws",
@@ -170,9 +181,14 @@ const IMPLEMENTED_ABILITIES = new Set([
   "unseenfist",
   "vitalspirit",
   "waterveil",
+  "waterabsorb",
   "overgrow",
   "orichalcumpulse",
   "armortail",
+  "embodyaspectcornerstone",
+  "embodyaspecthearthflame",
+  "embodyaspectteal",
+  "embodyaspectwellspring",
 ]);
 const INTENTIONAL_NO_EFFECT_ABILITIES = new Set([
   "hospitality",
@@ -385,6 +401,15 @@ function cleanId(value) {
     .replace(/[^a-z0-9]+/g, "");
 }
 
+function canonicalTypeName(value) {
+  const typeId = cleanId(value);
+  return (
+    [...Object.keys(TYPE_CHART), "Stellar", "Typeless"].find(
+      (type) => cleanId(type) === typeId,
+    ) ?? String(value ?? "").trim()
+  );
+}
+
 export function isMoveTemporarilyDisabled(pokemon, move) {
   const moveId = cleanId(move?.id);
   return (
@@ -427,6 +452,99 @@ function normalizeOptionalStats(stats) {
     if (Number.isFinite(value) && value > 0) normalized[stat] = Math.floor(value);
   }
   return Object.keys(normalized).length ? normalized : null;
+}
+
+function normalizeSpeciesForm(form) {
+  if (!form || typeof form !== "object") return null;
+  const stats = form.stats ?? {};
+  const normalizedStats = {};
+  for (const stat of [
+    "hp",
+    "attack",
+    "defence",
+    "specialAttack",
+    "specialDefence",
+    "speed",
+  ]) {
+    const value = Number(stats[stat]);
+    if (Number.isFinite(value) && value > 0) normalizedStats[stat] = value;
+  }
+  return {
+    id: cleanId(form.id ?? form.name),
+    name: cleanDisplayName(form.name ?? form.id),
+    types: Array.isArray(form.types)
+      ? form.types.map(String).filter(Boolean).slice(0, 2)
+      : [],
+    ability: cleanId(form.ability),
+    weightKg: Math.max(0.1, Number(form.weightKg ?? 100)),
+    stats: normalizedStats,
+  };
+}
+
+function pokemonFamilyId(pokemon) {
+  return cleanId(
+    pokemon?.baseSpecies ??
+      pokemon?.baseSpeciesName ??
+      pokemon?.id ??
+      pokemon?.name,
+  );
+}
+
+function isOgerponPokemon(pokemon) {
+  return pokemonFamilyId(pokemon) === "ogerpon";
+}
+
+function isTerapagosPokemon(pokemon) {
+  return pokemonFamilyId(pokemon) === "terapagos";
+}
+
+function ogerponTeraProfile(pokemon) {
+  if (!isOgerponPokemon(pokemon)) return null;
+  const speciesId = cleanId(pokemon.id ?? pokemon.name);
+  const itemId = cleanId(pokemon.item);
+  if (
+    speciesId.includes("wellspring") ||
+    itemId === "wellspringmask"
+  ) {
+    return {
+      type: "Water",
+      id: "ogerponwellspringtera",
+      name: "Ogerpon-Wellspring-Tera",
+      ability: "embodyaspectwellspring",
+      boosts: { specialDefence: 1 },
+    };
+  }
+  if (
+    speciesId.includes("hearthflame") ||
+    itemId === "hearthflamemask"
+  ) {
+    return {
+      type: "Fire",
+      id: "ogerponhearthflametera",
+      name: "Ogerpon-Hearthflame-Tera",
+      ability: "embodyaspecthearthflame",
+      boosts: { attack: 1 },
+    };
+  }
+  if (
+    speciesId.includes("cornerstone") ||
+    itemId === "cornerstonemask"
+  ) {
+    return {
+      type: "Rock",
+      id: "ogerponcornerstonetera",
+      name: "Ogerpon-Cornerstone-Tera",
+      ability: "embodyaspectcornerstone",
+      boosts: { defence: 1 },
+    };
+  }
+  return {
+    type: "Grass",
+    id: "ogerpontealtera",
+    name: "Ogerpon-Teal-Tera",
+    ability: "embodyaspectteal",
+    boosts: { speed: 1 },
+  };
 }
 
 function normalizeBoosts(boosts) {
@@ -560,9 +678,34 @@ function normalizePokemon(pokemon, path) {
     : [];
   if (moves.length === 0) throw new Error(`${path} requires at least one move`);
   const maximumHp = assertFinitePositive(stats.hp, `${path}.stats.hp`);
+  const baseSpecies = String(
+    pokemon?.baseSpecies ?? pokemon?.id ?? pokemon?.name ?? "",
+  ).trim();
+  const speciesForms = Object.fromEntries(
+    Object.entries(pokemon?.speciesForms ?? {})
+      .map(([key, form]) => [cleanId(key), normalizeSpeciesForm(form)])
+      .filter(([, form]) => form),
+  );
+  const speciesIdentity = {
+    baseSpecies,
+    id: pokemon?.id,
+    name: pokemon?.name,
+    item: pokemon?.item,
+  };
+  const requiredTeraType = isTerapagosPokemon(speciesIdentity)
+    ? "Stellar"
+    : ogerponTeraProfile(speciesIdentity)?.type;
+  const configuredTeraType = String(
+    requiredTeraType ??
+      gimmicks.teraType ??
+      gimmicks.tera ??
+      pokemon?.types?.[0] ??
+      "Normal",
+  ).trim();
   return {
     id: String(pokemon?.id ?? pokemon?.name ?? "").trim(),
     name: String(pokemon?.name ?? pokemon?.id ?? "").trim(),
+    baseSpecies,
     level: Math.max(1, Math.min(100, Number(pokemon?.level ?? 50))),
     types: Array.isArray(pokemon?.types)
       ? pokemon.types.map(String).slice(0, 2)
@@ -572,6 +715,7 @@ function normalizePokemon(pokemon, path) {
       : ["Normal"],
     ability: cleanId(pokemon?.ability),
     item: cleanId(pokemon?.item),
+    speciesForms,
     gimmicks: {
       megaStone:
         gimmicks.megaStone && typeof gimmicks.megaStone === "object"
@@ -590,9 +734,13 @@ function normalizePokemon(pokemon, path) {
         gimmicks.zCrystal && typeof gimmicks.zCrystal === "object"
           ? {
               item: cleanId(gimmicks.zCrystal.item ?? pokemon?.item),
-              move: cleanId(gimmicks.zCrystal.move),
+              itemName: cleanDisplayName(gimmicks.zCrystal.itemName),
+              move: cleanDisplayName(gimmicks.zCrystal.move),
               moveType: cleanId(gimmicks.zCrystal.moveType),
               moveFrom: cleanId(gimmicks.zCrystal.moveFrom),
+              users: Array.isArray(gimmicks.zCrystal.users)
+                ? gimmicks.zCrystal.users.map(cleanId).filter(Boolean)
+                : [],
             }
           : null,
       canDynamax: true,
@@ -604,12 +752,11 @@ function normalizePokemon(pokemon, path) {
         gimmicks.canGigantamax === true ||
         isNativeGigantamaxSpecies(pokemon?.id ?? pokemon?.name),
       gigantamax: gimmicks.gigantamax === true || gimmicks.gmax === true,
-      teraType: String(
-        gimmicks.teraType ??
-          gimmicks.tera ??
-          pokemon?.types?.[0] ??
-          "Normal",
-      ).trim(),
+      teraConfigured:
+        gimmicks.teraConfigured === true ||
+        (gimmicks.teraConfigured == null &&
+          (gimmicks.teraType != null || gimmicks.tera != null)),
+      teraType: configuredTeraType,
     },
     weightKg: Math.max(0.1, Number(pokemon?.weightKg ?? 100)),
     friendship: Math.max(
@@ -658,13 +805,11 @@ function normalizePokemon(pokemon, path) {
     volatiles: {},
     boosts: Object.fromEntries(BOOST_STATS.map((stat) => [stat, 0])),
     teraType: null,
-    configuredTeraType: String(
-      gimmicks.teraType ??
-        gimmicks.tera ??
-        pokemon?.types?.[0] ??
-        "Normal",
-    ).trim(),
+    configuredTeraType,
     terastallized: false,
+    stellarBoostedTypes: Array.isArray(pokemon?.stellarBoostedTypes)
+      ? pokemon.stellarBoostedTypes.map(String)
+      : [],
     dynamaxTurns: 0,
     dynamaxMode: null,
     baseMaximumHp: maximumHp,
@@ -723,9 +868,19 @@ export function typeMultiplier(attackType, defenderTypes) {
 }
 
 function moveEffectiveness(move, defenderTypes, attacker = null, defender = null) {
+  if (cleanId(move.type) === "stellar") {
+    return defender?.terastallized === true ? 2 : 1;
+  }
   if (
     move.type === "Electric" &&
     activeAbility(defender) === "lightningrod" &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    return 0;
+  }
+  if (
+    move.type === "Water" &&
+    activeAbility(defender) === "waterabsorb" &&
     !ignoresDefenderAbility(attacker)
   ) {
     return 0;
@@ -755,6 +910,17 @@ function moveEffectiveness(move, defenderTypes, attacker = null, defender = null
   if (cleanId(move.id) === "flyingpress") {
     effectiveness *= typeMultiplier("Flying", defenderTypes);
   }
+  if (
+    effectiveness >= 1 &&
+    cleanId(move.id) !== "struggle" &&
+    activeAbility(defender) === "terashell" &&
+    cleanId(defender?.id ?? defender?.name) === "terapagosterastal" &&
+    !ignoresDefenderAbility(attacker) &&
+    (defender.hp >= defender.stats.hp ||
+      defender.abilityState?.teraShellActive === true)
+  ) {
+    effectiveness = 0.5;
+  }
   return effectiveness;
 }
 
@@ -772,7 +938,9 @@ function doublesPhysicalAttack(ability) {
 }
 
 function ignoresDefenderAbility(attacker) {
-  return ["teravolt"].includes(cleanId(activeAbility(attacker)));
+  return ["moldbreaker", "teravolt"].includes(
+    cleanId(activeAbility(attacker)),
+  );
 }
 
 function makesContact(move) {
@@ -982,6 +1150,81 @@ function effectiveWeightPokemon(pokemon) {
   };
 }
 
+function isStellarTerastallized(pokemon) {
+  return (
+    pokemon?.terastallized === true &&
+    cleanId(pokemon?.teraType) === "stellar"
+  );
+}
+
+function isTerapagosStellar(pokemon) {
+  const speciesId = cleanId(
+    pokemon?.species ?? pokemon?.id ?? pokemon?.name,
+  );
+  return (
+    isStellarTerastallized(pokemon) &&
+    (speciesId === "terapagos" || speciesId === "terapagosstellar")
+  );
+}
+
+function teraModifiedMove(attacker, move) {
+  if (!attacker?.terastallized || move?.teraResolved === true) return move;
+  const moveId = cleanId(move?.id);
+  if (moveId === "terablast") {
+    const teraType = attacker.teraType || attacker.types?.[0] || "Normal";
+    const usesPhysicalAttack =
+      effectiveStat(attacker, "attack") >
+      effectiveStat(attacker, "specialAttack");
+    return {
+      ...move,
+      type: teraType,
+      category: usesPhysicalAttack ? "Physical" : "Special",
+      selfBoosts:
+        cleanId(teraType) === "stellar"
+          ? {
+              ...move.selfBoosts,
+              attack: (move.selfBoosts?.attack ?? 0) - 1,
+              specialAttack: (move.selfBoosts?.specialAttack ?? 0) - 1,
+            }
+          : move.selfBoosts,
+      teraResolved: true,
+    };
+  }
+  if (moveId === "terastarstorm" && isTerapagosStellar(attacker)) {
+    const usesPhysicalAttack =
+      effectiveStat(attacker, "attack") >
+      effectiveStat(attacker, "specialAttack");
+    return {
+      ...move,
+      type: "Stellar",
+      category: usesPhysicalAttack ? "Physical" : "Special",
+      teraResolved: true,
+    };
+  }
+  return move;
+}
+
+function teraPowerAdjustedMove(attacker, move) {
+  if (
+    !attacker?.terastallized ||
+    move?.category === "Status" ||
+    move?.power <= 0 ||
+    move?.power >= 60 ||
+    Number(move?.priority ?? 0) > 0 ||
+    move?.multihit ||
+    move?.dynamicPower
+  ) {
+    return move;
+  }
+  const moveType = cleanId(move.type);
+  const receivesTeraFloor = isStellarTerastallized(attacker)
+    ? !new Set(
+        (attacker.stellarBoostedTypes ?? []).map((type) => cleanId(type)),
+      ).has(moveType)
+    : moveType === cleanId(attacker.teraType);
+  return receivesTeraFloor ? { ...move, power: 60, teraPowerFloor: true } : move;
+}
+
 function resolveEstimatedMovePower(
   attacker,
   defender,
@@ -990,20 +1233,24 @@ function resolveEstimatedMovePower(
   attackerSide,
   defenderSide,
 ) {
-  if (!move.dynamicPower && !SUPPORTED_DYNAMIC_POWER_MOVES.has(cleanId(move.id))) {
-    return move;
+  move = teraModifiedMove(attacker, move);
+  let estimatedMove = move;
+  if (move.dynamicPower || SUPPORTED_DYNAMIC_POWER_MOVES.has(cleanId(move.id))) {
+    const dynamicPower = resolveDynamicPower(move, {
+      state,
+      attackerSide,
+      defenderSide,
+      attacker: effectiveWeightPokemon(attacker),
+      defender: effectiveWeightPokemon(defender),
+      attackerSpeed: effectiveSpeed(attacker, state, attackerSide),
+      defenderSpeed: effectiveSpeed(defender, state, defenderSide),
+      effectiveness: moveEffectiveness(move, defender.types, attacker, defender),
+    });
+    if (dynamicPower.supported) {
+      estimatedMove = { ...move, power: dynamicPower.power };
+    }
   }
-  const dynamicPower = resolveDynamicPower(move, {
-    state,
-    attackerSide,
-    defenderSide,
-    attacker: effectiveWeightPokemon(attacker),
-    defender: effectiveWeightPokemon(defender),
-    attackerSpeed: effectiveSpeed(attacker, state, attackerSide),
-    defenderSpeed: effectiveSpeed(defender, state, defenderSide),
-    effectiveness: moveEffectiveness(move, defender.types, attacker, defender),
-  });
-  return dynamicPower.supported ? { ...move, power: dynamicPower.power } : move;
+  return teraPowerAdjustedMove(attacker, estimatedMove);
 }
 
 function damageBase(attacker, defender, move, options = {}) {
@@ -1098,24 +1345,54 @@ function fieldDamageModifier(
 
 export function calculateDamageRange(attacker, defender, move, context = {}) {
   move = abilityModifiedMove(attacker, move);
+  move = teraModifiedMove(attacker, move);
+  move = teraPowerAdjustedMove(attacker, move);
   if (
     (move.category === "Status" || move.power <= 0) &&
     fixedDamageAmount(move, attacker, defender) === null
   ) {
     return { minimum: 0, maximum: 0, stab: 1, effectiveness: 1 };
   }
-  const sameType = attacker.types.includes(move.type);
-  const originalSameType = attacker.originalTypes?.includes(move.type);
-  const stab = sameType
-    ? attacker.terastallized && originalSameType
-      ? 2
-      : activeAbility(attacker) === "adaptability"
-        ? 2
-        : 1.5
-    : 1;
+  const moveType = cleanId(move.type);
+  const currentSameType = attacker.types.some(
+    (type) => cleanId(type) === moveType,
+  );
+  const originalSameType = attacker.originalTypes?.some(
+    (type) => cleanId(type) === moveType,
+  );
+  let stab = 1;
+  if (isStellarTerastallized(attacker)) {
+    const stellarBoostAvailable = !(attacker.stellarBoostedTypes ?? []).some(
+      (type) => cleanId(type) === moveType,
+    );
+    stab = originalSameType ? 1.5 : 1;
+    if (stellarBoostAvailable) stab = originalSameType ? 2 : 1.2;
+  } else if (attacker.terastallized) {
+    const teraSameType = cleanId(attacker.teraType) === moveType;
+    if (teraSameType) {
+      stab = originalSameType ? 2 : 1.5;
+    } else if (originalSameType) {
+      stab = 1.5;
+    }
+    if (activeAbility(attacker) === "adaptability" && teraSameType) {
+      stab = stab === 2 ? 2.25 : 2;
+    }
+  } else if (currentSameType) {
+    stab = activeAbility(attacker) === "adaptability" ? 2 : 1.5;
+  }
   const effectiveness = moveEffectiveness(move, defender.types, attacker, defender);
   const base = damageBase(attacker, defender, move, context);
-  const itemModifier = attacker.item === "lifeorb" ? 1.3 : 1;
+  const itemModifier =
+    attacker.item === "lifeorb"
+      ? 1.3
+      : isOgerponPokemon(attacker) &&
+          [
+            "cornerstonemask",
+            "hearthflamemask",
+            "wellspringmask",
+          ].includes(cleanId(attacker.item))
+        ? 1.2
+        : 1;
   let abilityModifier = 1;
   if (activeAbility(attacker) === "toughclaws" && makesContact(move)) {
     abilityModifier *= 1.3;
@@ -1196,6 +1473,7 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
 
 export function calculateMovePreview(attacker, defender, move, context = {}) {
   move = abilityModifiedMove(attacker, move);
+  move = teraModifiedMove(attacker, move);
   const estimatedMove = resolveEstimatedMovePower(
     attacker,
     defender,
@@ -1288,6 +1566,174 @@ function emitAbilityActivation(state, side, pokemon, ability, details = {}) {
   });
 }
 
+function applySpeciesForm(
+  state,
+  sideIndex,
+  pokemon,
+  form,
+  source,
+  options = {},
+) {
+  if (!form) return false;
+  const previousName = pokemon.name;
+  const previousMaximumHp = pokemon.stats.hp;
+  const previousDamage = Math.max(0, previousMaximumHp - pokemon.hp);
+  const nextStats = { ...pokemon.stats, ...(form.stats ?? {}) };
+  pokemon.id = form.id || pokemon.id;
+  pokemon.name = form.name || pokemon.name;
+  pokemon.ability = cleanId(form.ability || pokemon.ability);
+  pokemon.weightKg = Math.max(
+    0.1,
+    Number(form.weightKg ?? pokemon.weightKg),
+  );
+  pokemon.stats = nextStats;
+  pokemon.baseMaximumHp = nextStats.hp;
+  pokemon.hp =
+    pokemon.hp <= 0
+      ? 0
+      : Math.max(1, nextStats.hp - previousDamage);
+  if (!options.preserveBattleTypes && form.types?.length) {
+    pokemon.types = form.types.slice();
+    pokemon.originalTypes = form.types.slice();
+  }
+  pokemon.currentForm = pokemon.id;
+  pokemon.abilityState = {};
+  state.events.push({
+    turn: state.turn,
+    type: "form_change",
+    side: sideIndex,
+    pokemon: pokemon.name,
+    fromPokemon: previousName,
+    form: pokemon.id,
+    source,
+    remainingHp: pokemon.hp,
+    maximumHp: pokemon.stats.hp,
+  });
+  return true;
+}
+
+function applyTeraShiftOnEntry(state, sideIndex, pokemon) {
+  if (
+    !isTerapagosPokemon(pokemon) ||
+    pokemon.terastallized ||
+    cleanId(pokemon.id) === "terapagosterastal"
+  ) {
+    return false;
+  }
+  const form =
+    pokemon.speciesForms?.terastal ?? {
+      id: "terapagosterastal",
+      name: "Terapagos-Terastal",
+      types: ["Normal"],
+      ability: "terashell",
+      weightKg: pokemon.weightKg,
+      stats: pokemon.stats,
+    };
+  emitAbilityActivation(state, sideIndex, pokemon, "terashift");
+  return applySpeciesForm(
+    state,
+    sideIndex,
+    pokemon,
+    form,
+    "terashift",
+  );
+}
+
+function clearTeraformZeroField(state, sideIndex, pokemon) {
+  const cleared = [];
+  for (const fieldKind of ["weather", "terrain"]) {
+    const effect = state.field?.[fieldKind];
+    if (!effect) continue;
+    cleared.push({ fieldKind, effect: effect.id });
+    state.field[fieldKind] = null;
+  }
+  if (cleared.length === 0) return false;
+  emitAbilityActivation(state, sideIndex, pokemon, "teraformzero");
+  for (const entry of cleared) {
+    state.events.push({
+      turn: state.turn,
+      type: "field_end",
+      side: sideIndex,
+      pokemon: pokemon.name,
+      source: "teraformzero",
+      ...entry,
+    });
+  }
+  return true;
+}
+
+function applySpeciesTerastallization(state, sideIndex, pokemon) {
+  const ogerponProfile = ogerponTeraProfile(pokemon);
+  if (ogerponProfile) {
+    const form = pokemon.speciesForms?.tera ?? {
+      ...ogerponProfile,
+      types: pokemon.originalTypes,
+      weightKg: pokemon.weightKg,
+      stats: pokemon.stats,
+    };
+    applySpeciesForm(
+      state,
+      sideIndex,
+      pokemon,
+      {
+        ...form,
+        id: ogerponProfile.id,
+        name: ogerponProfile.name,
+        ability: ogerponProfile.ability,
+      },
+      "terastallize",
+      { preserveBattleTypes: true },
+    );
+    pokemon.teraType = ogerponProfile.type;
+    pokemon.types = [ogerponProfile.type];
+    pokemon.terastallized = true;
+    pokemon.stellarBoostedTypes = [];
+    emitAbilityActivation(
+      state,
+      sideIndex,
+      pokemon,
+      ogerponProfile.ability,
+    );
+    applyBoosts(
+      state,
+      sideIndex,
+      pokemon,
+      ogerponProfile.boosts,
+      ogerponProfile.ability,
+    );
+    return true;
+  }
+  pokemon.teraType = canonicalTypeName(pokemon.configuredTeraType);
+  if (isTerapagosPokemon(pokemon)) {
+    const form =
+      pokemon.speciesForms?.stellar ?? {
+        id: "terapagosstellar",
+        name: "Terapagos-Stellar",
+        types: ["Normal"],
+        ability: "teraformzero",
+        weightKg: pokemon.weightKg,
+        stats: pokemon.stats,
+      };
+    applySpeciesForm(
+      state,
+      sideIndex,
+      pokemon,
+      form,
+      "terastallize",
+      { preserveBattleTypes: true },
+    );
+  }
+  if (cleanId(pokemon.teraType) !== "stellar") {
+    pokemon.types = [pokemon.teraType];
+  }
+  pokemon.terastallized = true;
+  pokemon.stellarBoostedTypes = [];
+  if (isTerapagosPokemon(pokemon)) {
+    clearTeraformZeroField(state, sideIndex, pokemon);
+  }
+  return true;
+}
+
 function initializeParadoxAbility(state, sideIndex, pokemon, ability) {
   if (!["protosynthesis", "quarkdrive"].includes(ability)) return;
   const previousSource = pokemon.abilityState?.paradoxSource;
@@ -1318,6 +1764,7 @@ function initializeParadoxAbility(state, sideIndex, pokemon, ability) {
 
 function applyEntryAbilities(state, sideIndex, pokemon) {
   if (!pokemon || pokemon.fainted) return;
+  applyTeraShiftOnEntry(state, sideIndex, pokemon);
   const ability = activeAbility(pokemon);
   pokemon.abilityState ??= {};
   if (
@@ -1335,6 +1782,16 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
     pokemon.abilityState.dauntlessShieldUsed = true;
     emitAbilityActivation(state, sideIndex, pokemon, ability);
     applyBoosts(state, sideIndex, pokemon, { defence: 1 }, ability);
+  }
+  const embodyBoosts = {
+    embodyaspectcornerstone: { defence: 1 },
+    embodyaspecthearthflame: { attack: 1 },
+    embodyaspectteal: { speed: 1 },
+    embodyaspectwellspring: { specialDefence: 1 },
+  }[ability];
+  if (embodyBoosts && pokemon.terastallized) {
+    emitAbilityActivation(state, sideIndex, pokemon, ability);
+    applyBoosts(state, sideIndex, pokemon, embodyBoosts, ability);
   }
   const entryWeather = {
     drizzle: "raindance",
@@ -1644,7 +2101,7 @@ function rejectGimmick(state, action, reason) {
   action.gimmickReserved = false;
 }
 
-function validateGimmickRequest(action) {
+function validateGimmickRequest(state, action) {
   const pokemon = action.pokemon;
   const gimmicks = pokemon.gimmicks ?? {};
 
@@ -1665,6 +2122,13 @@ function validateGimmickRequest(action) {
     const crystal = gimmicks.zCrystal;
     if (!crystal || !crystal.item || crystal.item !== pokemon.item) {
       return "z_crystal_required";
+    }
+    const speciesIds = new Set([cleanId(pokemon.id), cleanId(pokemon.name)]);
+    if (
+      crystal.users?.length &&
+      !crystal.users.some((species) => speciesIds.has(cleanId(species)))
+    ) {
+      return "z_crystal_incompatible";
     }
     const move = action.selected?.move;
     if (crystal.moveFrom && crystal.moveFrom !== cleanId(move?.id)) {
@@ -1690,7 +2154,11 @@ function validateGimmickRequest(action) {
   }
 
   if (action.gimmick === "terastallize") {
+    if (pokemon.megaEvolved) return "tera_blocked_by_mega";
     if (pokemon.dynamaxTurns > 0) return "tera_blocked_by_dynamax";
+    if (!canPokemonUseTerastallization(state, action.side, pokemon)) {
+      return "tera_reserved_for_configured_pokemon";
+    }
     const configuredType = String(
       pokemon.configuredTeraType ?? gimmicks.teraType ?? "",
     ).trim();
@@ -1739,7 +2207,7 @@ function reserveGimmick(state, action) {
     rejectGimmick(state, action, "resource_unavailable");
     return;
   }
-  const validationError = validateGimmickRequest(action);
+  const validationError = validateGimmickRequest(state, action);
   if (validationError) {
     rejectGimmick(state, action, validationError);
     return;
@@ -1860,9 +2328,7 @@ function activatePreMoveGimmick(state, action) {
     pokemon.dynamaxTurns = 3;
     pokemon.dynamaxMode = action.dynamaxMode;
   } else if (action.gimmick === "terastallize") {
-    pokemon.teraType = pokemon.configuredTeraType;
-    pokemon.types = [pokemon.teraType];
-    pokemon.terastallized = true;
+    applySpeciesTerastallization(state, action.side, pokemon);
   }
 
   emitGimmickActivation(state, action, pokemon);
@@ -3492,6 +3958,14 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
     });
     applyBoosts(state, side, pokemon, { specialAttack: 2 }, "competitive");
   }
+  if (
+    loweredByOpponent &&
+    activeAbility(pokemon) === "defiant" &&
+    (pokemon.boosts.attack ?? 0) < 6
+  ) {
+    emitAbilityActivation(state, side, pokemon, "defiant", { source });
+    applyBoosts(state, side, pokemon, { attack: 2 }, "defiant");
+  }
   return changed;
 }
 
@@ -4353,24 +4827,7 @@ function executeMove(state, action, rng) {
   ) {
     move = { ...move, power: Math.max(1, move.power * 2) };
   }
-  if (cleanId(move.id) === "terablast" && attacker.terastallized) {
-    const teraType = attacker.teraType || attacker.types[0] || "Normal";
-    const usesPhysicalAttack =
-      effectiveStat(attacker, "attack") > effectiveStat(attacker, "specialAttack");
-    move = {
-      ...move,
-      type: teraType,
-      category: usesPhysicalAttack ? "Physical" : "Special",
-      selfBoosts:
-        cleanId(teraType) === "stellar"
-          ? {
-              ...move.selfBoosts,
-              attack: (move.selfBoosts?.attack ?? 0) - 1,
-              specialAttack: (move.selfBoosts?.specialAttack ?? 0) - 1,
-            }
-          : move.selfBoosts,
-    };
-  }
+  move = teraModifiedMove(attacker, move);
   if (cleanId(move.id) === "photongeyser") {
     const usesPhysicalAttack =
       effectiveStat(attacker, "attack") > effectiveStat(attacker, "specialAttack");
@@ -4410,9 +4867,6 @@ function executeMove(state, action, rng) {
   }
   if (cleanId(move.id) === "revelationdance") {
     move = { ...move, type: attacker.types[0] || move.type };
-  }
-  if (cleanId(move.id) === "terastarstorm" && attacker.terastallized) {
-    move = { ...move, type: attacker.teraType || move.type };
   }
   move = weatherBallMove(state, move);
   move = terrainPulseMove(state, move);
@@ -6409,6 +6863,47 @@ function executeMove(state, action, rng) {
     return false;
   }
 
+  if (
+    move.type === "Water" &&
+    move.target !== "self" &&
+    activeAbility(defender) === "waterabsorb" &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    emitAbilityActivation(state, defenderSide, defender, "waterabsorb", {
+      targetSide: action.side,
+      target: attacker.name,
+      move: move.name,
+    });
+    healPokemon(
+      state,
+      defenderSide,
+      defender,
+      Math.max(1, Math.floor(defender.stats.hp / 4)),
+      "waterabsorb",
+    );
+    return true;
+  }
+
+  const teraShellActive =
+    move.category !== "Status" &&
+    cleanId(move.id) !== "struggle" &&
+    activeAbility(defender) === "terashell" &&
+    cleanId(defender.id ?? defender.name) === "terapagosterastal" &&
+    defender.hp >= defender.stats.hp &&
+    !ignoresDefenderAbility(attacker) &&
+    moveEffectiveness(move, defender.types, attacker, {
+      ...defender,
+      ability: "",
+    }) >= 1;
+  if (teraShellActive) {
+    defender.abilityState ??= {};
+    defender.abilityState.teraShellActive = true;
+    emitAbilityActivation(state, defenderSide, defender, "terashell", {
+      targetSide: action.side,
+      target: attacker.name,
+      move: move.name,
+    });
+  }
   const requestedHits = hitCountForMove(move, attacker, rng);
   let landedHits = 0;
   let totalDamage = 0;
@@ -6444,9 +6939,12 @@ function executeMove(state, action, rng) {
       hit,
       rng,
     });
-    const hitMove = dynamicPower.supported
-      ? { ...move, power: dynamicPower.power }
-      : move;
+    const hitMove = teraPowerAdjustedMove(
+      attacker,
+      dynamicPower.supported
+        ? { ...move, power: dynamicPower.power }
+        : move,
+    );
     const chargeBoosted =
       hit === 1 &&
       attacker.volatiles?.charge &&
@@ -6831,6 +7329,31 @@ function executeMove(state, action, rng) {
       hits: landedHits,
       damage: totalDamage,
     });
+  }
+  if (
+    landedHits > 0 &&
+    totalDamage > 0 &&
+    isStellarTerastallized(attacker) &&
+    !isTerapagosStellar(attacker)
+  ) {
+    const boostedTypes = new Set(
+      (attacker.stellarBoostedTypes ?? []).map((type) => cleanId(type)),
+    );
+    if (!boostedTypes.has(cleanId(move.type))) {
+      attacker.stellarBoostedTypes ??= [];
+      attacker.stellarBoostedTypes.push(move.type);
+      state.events.push({
+        turn: state.turn,
+        type: "stellar_boost_consumed",
+        side: action.side,
+        pokemon: attacker.name,
+        move: move.name,
+        moveType: move.type,
+      });
+    }
+  }
+  if (teraShellActive) {
+    delete defender.abilityState.teraShellActive;
   }
   if (totalDamage > 0 && move.drain) {
     healPokemon(
@@ -8354,6 +8877,7 @@ function aiExpectedMoveDamage(
   );
   if (isMoveBlockedByDynamaxTarget(estimatedMove, defender)) {
     return {
+      move: estimatedMove,
       range: {
         minimum: 0,
         maximum: 0,
@@ -8377,6 +8901,7 @@ function aiExpectedMoveDamage(
     const expectedDamage =
       effectiveness === 0 ? 0 : Math.min(defender.hp, fixedDamage);
     return {
+      move: estimatedMove,
       range: {
         minimum: expectedDamage,
         maximum: expectedDamage,
@@ -8397,6 +8922,7 @@ function aiExpectedMoveDamage(
   });
   const criticalModifier = critical && range.effectiveness !== 0 ? 1.5 : 1;
   return {
+    move: estimatedMove,
     range,
     expectedDamage:
       ((range.minimum + range.maximum) / 2) *
@@ -8562,18 +9088,47 @@ function aiOpponentSetupThreatProfile({
   attacker,
   defender,
   opponentRoleProfile,
+  threatEntry = null,
 }) {
   const setupMoves = defender.moves.filter(isAiSetupBoostMove);
   if (setupMoves.length === 0) {
+    const setupThreatEvaluation = evaluateSetupThreat();
     return {
       opponentSetupMoveCount: 0,
       opponentSetupFirstTurnLikelihood: 0,
       opponentLikelyFirstTurnSetup: false,
       opponentSetupThreatTier: 0,
+      opponentSetupSweepRisk: 0,
+      opponentSetupAnswerCount: 0,
+      opponentSetupPunishOptions: [],
+      setupThreatEvaluation,
+      oneMoreTurnUnmanageable: false,
     };
   }
 
+  const punishOptions = [];
   const bestIncomingDamage = attacker.moves.reduce((best, move) => {
+    const moveId = cleanId(move.id ?? move.name);
+    if (
+      [
+        "haze",
+        "clearsmog",
+        "roar",
+        "whirlwind",
+        "dragontail",
+        "circlethrow",
+        "taunt",
+        "encore",
+      ].includes(moveId) ||
+      ["brn", "par", "slp"].includes(cleanId(move.status)) ||
+      (move.secondaries ?? []).some(
+        (secondary) =>
+          ["brn", "par", "slp"].includes(cleanId(secondary.status)) &&
+          Number(secondary.chance ?? 100) >= 60,
+      )
+    ) {
+      punishOptions.push(moveId);
+    }
     if (move.category === "Status" || move.power <= 0) return best;
     const displayMove = aiDisplayMoveData(attacker, move);
     const accuracy = displayMove.accuracy === true ? 1 : displayMove.accuracy / 100;
@@ -8586,6 +9141,9 @@ function aiOpponentSetupThreatProfile({
         sideIndex,
         defenderSide,
       ).expectedDamage * accuracy;
+    if (damage >= defender.hp && accuracy >= 0.8) {
+      punishOptions.push(moveId);
+    }
     return Math.max(best, damage);
   }, 0);
   const damageRatio =
@@ -8607,14 +9165,34 @@ function aiOpponentSetupThreatProfile({
   else if (setupRoleScore > 0) likelihood += 0.08;
   if (aceQualified) likelihood += 0.08;
   likelihood = Math.max(0, Math.min(1, Math.round(likelihood * 100) / 100));
+  const setupThreatEvaluation = evaluateSetupThreat({
+    setupMoves,
+    setupLikelihood: likelihood,
+    opponentCurrentBoosts: offensiveBoostTotal(defender),
+    opponentRoleScore: setupRoleScore,
+    opponentAce: aceQualified,
+    opponentHpPercent: hpPercent,
+    immediateDamageRatio: damageRatio,
+    counters: threatEntry?.counters ?? [],
+    softChecks: threatEntry?.softChecks ?? [],
+    revengeKillers: threatEntry?.revengeKillers ?? [],
+    punishOptions,
+  });
 
   return {
     opponentSetupMoveCount: setupMoves.length,
     opponentSetupMoveIds: setupMoves.map((move) => cleanId(move.id ?? move.name)),
     opponentSetupFirstTurnLikelihood: likelihood,
     opponentLikelyFirstTurnSetup: likelihood >= 0.65,
-    opponentSetupThreatTier: likelihood >= 0.75 ? 3 : likelihood >= 0.55 ? 2 : 1,
+    opponentSetupThreatTier: setupThreatEvaluation.riskTier,
     opponentSetupPunishUrgency: Math.round((likelihood * Math.max(0, 1 - damageRatio)) * 100) / 100,
+    opponentSetupSweepRisk: setupThreatEvaluation.sweepRiskAfterSetup,
+    opponentSetupAnswerCount:
+      setupThreatEvaluation.availableAnswersAfterSetup.estimatedTotal,
+    opponentSetupPunishOptions: setupThreatEvaluation.punishOptions,
+    setupThreatEvaluation,
+    oneMoreTurnUnmanageable:
+      setupThreatEvaluation.oneMoreTurnUnmanageable,
   };
 }
 
@@ -8672,6 +9250,7 @@ function automaticMoveCandidates(
   strategy = "balanced",
   difficulty = "standard",
   dynamaxMode = "",
+  projectionOptions = {},
 ) {
   const pokemon = activePokemon(state, sideIndex);
   const defenderSide = sideIndex === 0 ? 1 : 0;
@@ -8894,7 +9473,37 @@ function automaticMoveCandidates(
     },
   ]).roles[0];
   const activeRoleScore = activeRoleProfile?.roles[0]?.score ?? 0;
+  const oneTurnSearchWeight = aiOneTurnSearchWeight(difficulty);
+  const gimmickResourceCost = Math.max(
+    0,
+    Number(projectionOptions.gimmickResourceCost ?? 0),
+  );
+  const needsSacrificeAnalysis = pokemon.moves.some((move) =>
+    SELF_DESTRUCT_MOVES.has(cleanId(move.id)),
+  );
+  const opponentHasSetupMove = defender.moves.some(isAiSetupBoostMove);
+  const activeThreatCounterMap =
+    needsSacrificeAnalysis || opponentHasSetupMove || oneTurnSearchWeight > 0
+    ? simpleThreatCounterMap(state, sideIndex)
+    : null;
+  const activePreservationProfile = activeThreatCounterMap
+    ? activeThreatCounterMap.mustPreserveResources.find(
+        (resource) => resource.slot === state.sides[sideIndex].active + 1,
+      )
+    : null;
+  const activeRoleProgress = needsSacrificeAnalysis
+    ? simpleTeamRoleProgress(
+        state,
+        sideIndex,
+        null,
+        activeThreatCounterMap,
+      )[state.sides[sideIndex].active]
+    : null;
   const opponentRoleProfile = analyzeTeamProfile([aiRoleAnalysisMember(defender)]).roles[0];
+  const currentSetupThreatEntry = activeThreatCounterMap?.threats.find(
+    (threat) =>
+      threat.enemySlot === state.sides[defenderSide].active + 1,
+  );
   const opponentSetupThreat = aiOpponentSetupThreatProfile({
     state,
     sideIndex,
@@ -8902,7 +9511,17 @@ function automaticMoveCandidates(
     attacker: pokemon,
     defender,
     opponentRoleProfile,
+    threatEntry: currentSetupThreatEntry,
   });
+  const oneTurnStateBefore =
+    oneTurnSearchWeight > 0
+      ? simpleBattleStateValueSnapshot(
+          state,
+          sideIndex,
+          null,
+          activeThreatCounterMap,
+        )
+      : null;
   const roomContext = trickRoomContext(
     state,
     sideIndex,
@@ -8914,7 +9533,7 @@ function automaticMoveCandidates(
   const knockoutBoosts = knockoutAbilityBoosts(activeAbility(pokemon), pokemon);
   return pokemon.moves
     .map((move, index) => {
-      const displayMove = aiDisplayMoveData(pokemon, move, dynamaxMode);
+      let displayMove = aiDisplayMoveData(pokemon, move, dynamaxMode);
       const movePriority = Number(displayMove.priority ?? 0);
       const attackerSpeed = effectiveSpeed(pokemon, state, sideIndex);
       const defenderSpeed = effectiveSpeed(defender, state, defenderSide);
@@ -8988,6 +9607,7 @@ function automaticMoveCandidates(
         sideIndex,
         defenderSide,
       );
+      displayMove = damageEstimate.move ?? displayMove;
       const range = damageEstimate.range;
       const damageOutcome = aiDamageOutcomeProfile(
         pokemon,
@@ -9345,6 +9965,15 @@ function automaticMoveCandidates(
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
+        roleComplete: activeRoleProgress?.roleComplete === true,
+        expendableResource:
+          activeRoleProgress?.expendableResource === true,
+        completedRoles: activeRoleProgress?.completedRoles ?? [],
+        remainingRoles: activeRoleProgress?.remainingRoles ?? [],
+        roleProgressReasons: activeRoleProgress?.reasons ?? [],
+        mustPreserveResource: Boolean(activePreservationProfile),
+        mustPreserveFor:
+          activePreservationProfile?.threats.map((threat) => threat.species) ?? [],
         selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(displayMove.id)),
         selfBoosts: displayMove.selfBoosts,
         effectiveSelfBoostTotal,
@@ -9451,6 +10080,15 @@ function automaticMoveCandidates(
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
+        roleComplete: activeRoleProgress?.roleComplete === true,
+        expendableResource:
+          activeRoleProgress?.expendableResource === true,
+        completedRoles: activeRoleProgress?.completedRoles ?? [],
+        remainingRoles: activeRoleProgress?.remainingRoles ?? [],
+        roleProgressReasons: activeRoleProgress?.reasons ?? [],
+        mustPreserveResource: Boolean(activePreservationProfile),
+        mustPreserveFor:
+          activePreservationProfile?.threats.map((threat) => threat.species) ?? [],
         selfSacrifice: SELF_DESTRUCT_MOVES.has(cleanId(displayMove.id)),
         selfBoosts: displayMove.selfBoosts,
         effectiveSelfBoostTotal,
@@ -9546,9 +10184,33 @@ function automaticMoveCandidates(
             ? { ...knockoutBoosts }
             : null,
       };
+      const oneTurnEvaluation = oneTurnStateBefore
+        ? evaluateOneTurnBattleState(
+            oneTurnStateBefore,
+            simpleMoveOneTurnOutcome({
+              pokemon: threatTarget,
+              defender,
+              candidate: enriched,
+              opponentBestDamage,
+              activeRoleProfile,
+              opponentRoleProfile,
+              activePreservationProfile,
+              gimmickResourceCost,
+            }),
+          )
+        : null;
+      const evaluated = oneTurnEvaluation
+        ? {
+            ...enriched,
+            oneTurnEvaluation:
+              compactOneTurnEvaluation(oneTurnEvaluation),
+            battleStateValueDelta: oneTurnEvaluation.delta,
+            oneTurnSearchWeight,
+          }
+        : enriched;
       return {
-        ...enriched,
-        score: scoreAiMoveCandidate(enriched, difficulty, strategy),
+        ...evaluated,
+        score: scoreAiMoveCandidate(evaluated, difficulty, strategy),
       };
     })
     .sort((left, right) => right.score - left.score || left.slot - right.slot);
@@ -9605,6 +10267,896 @@ function bestAiAttackProfile(
     },
     { expectedDamage: 0, priority: 0, moveId: "" },
   );
+}
+
+function teraDefensiveProjection(state, projectedState, sideIndex) {
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const currentPokemon = activePokemon(state, sideIndex);
+  const projectedPokemon = activePokemon(projectedState, sideIndex);
+  const maxHp = Math.max(1, Number(currentPokemon.stats?.hp ?? currentPokemon.hp));
+  const matchups = state.sides[opponentSide].team
+    .map((enemy, index) => {
+      if (enemy.fainted || enemy.hp <= 0) return null;
+      const currentDamage = bestAiAttackProfile(
+        state,
+        opponentSide,
+        enemy,
+        sideIndex,
+        currentPokemon,
+      ).expectedDamage;
+      const projectedDamage = bestAiAttackProfile(
+        projectedState,
+        opponentSide,
+        enemy,
+        sideIndex,
+        projectedPokemon,
+      ).expectedDamage;
+      return {
+        slot: index + 1,
+        name: enemy.name,
+        types: [...(enemy.types ?? [])],
+        active: index === state.sides[opponentSide].active,
+        currentDamage,
+        projectedDamage,
+      };
+    })
+    .filter(Boolean);
+  const activeMatchup = matchups.find((matchup) => matchup.active) ?? null;
+  const futureMatchups = matchups.filter((matchup) => !matchup.active);
+  const futureWeight = Math.max(1, futureMatchups.length);
+  const futureDamageReductionRatio =
+    futureMatchups.reduce(
+      (total, matchup) =>
+        total + (matchup.currentDamage - matchup.projectedDamage) / maxHp,
+      0,
+    ) / futureWeight;
+  const activeDamageReductionRatio = activeMatchup
+    ? (activeMatchup.currentDamage - activeMatchup.projectedDamage) / maxHp
+    : 0;
+  const preventsActiveKo =
+    Boolean(activeMatchup) &&
+    activeMatchup.currentDamage >= currentPokemon.hp &&
+    activeMatchup.projectedDamage < projectedPokemon.hp;
+  const createsActiveKoRisk =
+    Boolean(activeMatchup) &&
+    activeMatchup.currentDamage < currentPokemon.hp &&
+    activeMatchup.projectedDamage >= projectedPokemon.hp;
+
+  return {
+    activeMatchup,
+    futureMatchups,
+    activeDamageReductionRatio,
+    futureDamageReductionRatio,
+    preventsActiveKo,
+    createsActiveKoRisk,
+  };
+}
+
+function teraLongTermPotential(state, sideIndex, pokemon) {
+  const teraType = canonicalTypeName(pokemon?.configuredTeraType);
+  if (!teraType) return 0;
+  const originalTypes = pokemon.originalTypes ?? pokemon.types ?? [];
+  const offensiveGain = (pokemon.moves ?? []).reduce((best, move) => {
+    if (
+      move.category === "Status" ||
+      Number(move.power ?? 0) <= 0 ||
+      cleanId(move.type) !== cleanId(teraType)
+    ) {
+      return best;
+    }
+    const originalStab = originalTypes.some(
+      (type) => cleanId(type) === cleanId(move.type),
+    )
+      ? 1.5
+      : 1;
+    const teraStab = originalStab > 1 ? 2 : 1.5;
+    return Math.max(
+      best,
+      Number(move.power ?? 0) * Math.max(0, teraStab - originalStab) * 0.08,
+    );
+  }, 0);
+  const enemyMoves = state.sides[sideIndex === 0 ? 1 : 0].team.flatMap(
+    (enemy) =>
+      enemy.fainted || enemy.hp <= 0
+        ? []
+        : (enemy.moves ?? []).filter(
+            (move) => move.category !== "Status" && Number(move.power ?? 0) > 0,
+          ),
+  );
+  const defensiveGain =
+    enemyMoves.length > 0
+      ? (enemyMoves.reduce(
+          (total, move) =>
+            total +
+            Math.max(
+              -2,
+              Math.min(
+                2,
+                typeMultiplier(move.type, originalTypes) -
+                  typeMultiplier(move.type, [teraType]),
+              ),
+            ),
+          0,
+        ) /
+          enemyMoves.length) *
+        5
+      : 0;
+  return Math.round((offensiveGain + defensiveGain) * 100) / 100;
+}
+
+function teraResourceOpportunity(state, sideIndex) {
+  const side = state.sides[sideIndex];
+  const active = activePokemon(state, sideIndex);
+  const currentPotential = teraLongTermPotential(state, sideIndex, active);
+  const alternatives = side.team
+    .filter(
+      (pokemon) =>
+        pokemon !== active &&
+        !pokemon.fainted &&
+        pokemon.hp > 0 &&
+        isConfiguredTeraPokemon(pokemon),
+    )
+    .map((pokemon) => ({
+      name: pokemon.name,
+      potential: teraLongTermPotential(state, sideIndex, pokemon),
+    }))
+    .sort((left, right) => right.potential - left.potential);
+  return {
+    currentPotential,
+    alternatives,
+    bestAlternative: alternatives[0] ?? null,
+  };
+}
+
+function applyTeraDefensiveScore(
+  candidate,
+  projection,
+  { baseMove = {}, selectedMove = {}, resourceOpportunity = null } = {},
+) {
+  if (!candidate || !projection) return candidate;
+  const reasons = [...(candidate.reasons ?? [])];
+  let adjustment = 0;
+  const safeGuaranteedKo =
+    baseMove.koChance === "guaranteed" &&
+    Number(baseMove.actionBeforeThreatProbability ?? 0) >= 0.99;
+  const activeWeight = Math.max(
+    -32,
+    Math.min(
+      36,
+      (safeGuaranteedKo ? 0 : projection.activeDamageReductionRatio) * 48,
+    ),
+  );
+  if (Math.abs(activeWeight) >= 0.5) {
+    adjustment += activeWeight;
+    reasons.push({
+      code: "gimmick.tera.active_damage_change",
+      label: "현재 대면 방어 변화",
+      value: projection.activeMatchup
+        ? {
+            opponent: projection.activeMatchup.name,
+            types: projection.activeMatchup.types,
+            before: Math.round(projection.activeMatchup.currentDamage * 100) / 100,
+            after: Math.round(projection.activeMatchup.projectedDamage * 100) / 100,
+          }
+        : null,
+      weight: Math.round(activeWeight * 100) / 100,
+      message: projection.activeMatchup
+        ? `테라스탈 전후 ${projection.activeMatchup.name}의 최선 공격 피해를 ${Math.round(
+            projection.activeMatchup.currentDamage,
+          )} -> ${Math.round(projection.activeMatchup.projectedDamage)}로 비교했습니다.`
+        : "현재 상대의 공격 피해 변화가 없습니다.",
+    });
+  }
+  if (projection.preventsActiveKo && !safeGuaranteedKo) {
+    adjustment += 32;
+    reasons.push({
+      code: "gimmick.tera.prevents_active_ko",
+      label: "테라 생존 확보",
+      value: true,
+      weight: 32,
+      message:
+        "현재 상대의 최선 공격에 쓰러지는 상황을 테라스탈로 피할 수 있어 생존 가치를 반영했습니다.",
+    });
+  }
+  if (projection.createsActiveKoRisk) {
+    adjustment -= 40;
+    reasons.push({
+      code: "gimmick.tera.creates_active_ko_risk",
+      label: "테라 후 KO 위험",
+      value: true,
+      weight: -40,
+      message:
+        "현재는 버티는 공격을 테라스탈 후에는 버티지 못하므로 사용 가치를 크게 낮췄습니다.",
+    });
+  }
+  if (projection.futureMatchups.length > 0) {
+    const futureWeight = Math.max(
+      -18,
+      Math.min(18, projection.futureDamageReductionRatio * 24),
+    );
+    adjustment += futureWeight;
+    reasons.push({
+      code: "gimmick.tera.remaining_matchups",
+      label: "남은 상대 대면",
+      value: projection.futureMatchups.map((matchup) => ({
+        opponent: matchup.name,
+        types: matchup.types,
+        before: Math.round(matchup.currentDamage * 100) / 100,
+        after: Math.round(matchup.projectedDamage * 100) / 100,
+      })),
+      weight: Math.round(futureWeight * 100) / 100,
+      message:
+        "살아 있는 상대 포켓몬들의 타입과 알려진 공격을 기준으로 이후 대면의 피해 변화를 함께 반영했습니다.",
+    });
+  }
+  if (
+    Math.abs(projection.activeDamageReductionRatio) < 0.05 &&
+    Math.abs(projection.futureDamageReductionRatio) < 0.05
+  ) {
+    reasons.push({
+      code: "gimmick.tera.no_defensive_gain",
+      label: "방어 이득 부족",
+      value: false,
+      weight: 0,
+      message:
+        "현재와 남은 대면에서 뚜렷한 방어 이득이 없어 테라 자원을 보존합니다.",
+    });
+  }
+  const actionScoreGain =
+    Number(selectedMove.score ?? 0) - Number(baseMove.score ?? 0);
+  const hasImmediateGain =
+    actionScoreGain >= 5 ||
+    (!safeGuaranteedKo &&
+      (projection.preventsActiveKo ||
+        projection.activeDamageReductionRatio >= 0.1));
+  if (
+    safeGuaranteedKo &&
+    !hasImmediateGain &&
+    resourceOpportunity?.alternatives?.length > 0
+  ) {
+    adjustment -= 36;
+    reasons.push({
+      code: "gimmick.tera.safe_ko_preservation",
+      label: "확정 KO에서 테라 보존",
+      value: {
+        move: baseMove.name ?? baseMove.id ?? "",
+        alternatives: resourceOpportunity.alternatives.map(
+          (alternative) => alternative.name,
+        ),
+      },
+      weight: -36,
+      message:
+        "테라스탈 없이 먼저 확정 KO할 수 있고 다른 테라 후보가 살아 있어 공용 자원을 보존합니다.",
+    });
+  } else if (
+    !hasImmediateGain &&
+    resourceOpportunity?.alternatives?.length > 0
+  ) {
+    adjustment -= 8;
+    reasons.push({
+      code: "gimmick.tera.shared_resource_preservation",
+      label: "파티 공용 테라 보존",
+      value: resourceOpportunity.alternatives.map(
+        (alternative) => alternative.name,
+      ),
+      weight: -8,
+      message:
+        "현재 행동의 즉시 이득이 작고 다른 사용 후보가 살아 있어 테라 자원을 보존합니다.",
+    });
+  }
+  const opportunityGap =
+    Number(resourceOpportunity?.bestAlternative?.potential ?? -Infinity) -
+    Number(resourceOpportunity?.currentPotential ?? 0);
+  if (opportunityGap > 2) {
+    const opportunityPenalty = -Math.min(
+      18,
+      Math.round((opportunityGap - 2) * 200) / 100,
+    );
+    adjustment += opportunityPenalty;
+    reasons.push({
+      code: "gimmick.tera.better_reserve_candidate",
+      label: "더 적합한 테라 후보 보존",
+      value: {
+        current: Math.round(resourceOpportunity.currentPotential * 100) / 100,
+        reserve: resourceOpportunity.bestAlternative,
+      },
+      weight: opportunityPenalty,
+      message: `${resourceOpportunity.bestAlternative.name}의 장기 테라 적합도가 더 높아 현재 포켓몬의 사용 점수를 낮췄습니다.`,
+    });
+  }
+
+  return {
+    ...candidate,
+    score: Math.round((Number(candidate.score ?? 0) + adjustment) * 100) / 100,
+    reasons,
+    defensiveProjection: projection,
+  };
+}
+
+const SIMPLE_THREAT_COUNTER_MAP_CACHE = new WeakMap();
+const SIMPLE_ROLE_PROGRESS_CACHE = new WeakMap();
+const SIMPLE_TEAM_ANALYSIS_CACHE = new WeakMap();
+const SIMPLE_BATTLE_VALUE_STATE_CACHE = new WeakMap();
+
+function aiOneTurnSearchWeight(difficulty) {
+  const id = cleanId(difficulty);
+  if (id === "cheater") return 0.4;
+  if (id === "expert") return 0.35;
+  if (id === "advanced") return 0.2;
+  return 0;
+}
+
+function compactOneTurnEvaluation(evaluation) {
+  return {
+    qValue: evaluation.qValue,
+    delta: evaluation.delta,
+    componentDeltas: evaluation.componentDeltas,
+    reasons: evaluation.reasons,
+  };
+}
+
+function simpleHazardLayerCount(conditions = {}) {
+  return [
+    ["stealthrock", 1],
+    ["spikes", 3],
+    ["toxicspikes", 2],
+    ["stickyweb", 1],
+  ].reduce((total, [id, maximum]) => {
+    const condition = conditions[id];
+    if (!condition) return total;
+    const layers =
+      condition === true ? 1 : Number(condition.layers ?? 1);
+    return total + Math.max(0, Math.min(maximum, layers));
+  }, 0);
+}
+
+function simpleTeamAnalysis(state, sideIndex) {
+  const cached = SIMPLE_TEAM_ANALYSIS_CACHE.get(state);
+  if (cached?.has(sideIndex)) return cached.get(sideIndex);
+  const analysis = analyzeTeamProfile(
+    state.sides[sideIndex].team.map((member) =>
+      aiRoleAnalysisMember(member),
+    ),
+  );
+  const nextCache = cached ?? new Map();
+  nextCache.set(sideIndex, analysis);
+  SIMPLE_TEAM_ANALYSIS_CACHE.set(state, nextCache);
+  return analysis;
+}
+
+function simpleStatusBurden(pokemon) {
+  const status = cleanId(pokemon?.status);
+  if (!status) return 0;
+  return status === "tox" ? 1.5 : 1;
+}
+
+function simpleRemainingGimmicks(side) {
+  const used = side?.usedGimmicks ?? {};
+  return ["mega", "zmove", "dynamax", "terastallize"].reduce(
+    (total, gimmick) => total + (used[gimmick] === true ? 0 : 1),
+    0,
+  );
+}
+
+function simpleBattleValueSide(
+  side,
+  roleAnalysis,
+  uniqueCounterSlots = new Set(),
+) {
+  let livingCount = 0;
+  let totalHpRatio = 0;
+  let aceAliveCount = 0;
+  let aceHpRatio = 0;
+  let positiveBoosts = 0;
+  let statusBurden = 0;
+  let uniqueCountersAlive = 0;
+
+  side.team.forEach((member, index) => {
+    const maxHp = Math.max(1, Number(member.stats?.hp ?? member.hp ?? 1));
+    const hpRatio = Math.max(0, Math.min(1, Number(member.hp ?? 0) / maxHp));
+    const living = member.fainted !== true && member.hp > 0;
+    if (living) {
+      livingCount += 1;
+      positiveBoosts += positiveBoostTotal(member);
+      statusBurden += simpleStatusBurden(member);
+      if (uniqueCounterSlots.has(index + 1)) uniqueCountersAlive += 1;
+    }
+    totalHpRatio += hpRatio;
+    if (roleAnalysis?.roles?.[index]?.aceProfile?.qualifies === true) {
+      if (living) aceAliveCount += 1;
+      aceHpRatio += hpRatio;
+    }
+  });
+
+  return {
+    teamSize: side.team.length,
+    livingCount,
+    totalHpRatio,
+    aceAliveCount,
+    aceHpRatio,
+    positiveBoosts,
+    statusBurden,
+    hazardLayers: simpleHazardLayerCount(side.conditions),
+    uniqueCountersAlive,
+    gimmicksRemaining: simpleRemainingGimmicks(side),
+  };
+}
+
+function simpleBattleStateValueSnapshot(
+  state,
+  sideIndex,
+  allyAnalysis = null,
+  threatCounterMap = null,
+) {
+  const cacheKey = simpleAnalysisStateKey(state);
+  const cached = SIMPLE_BATTLE_VALUE_STATE_CACHE.get(state);
+  if (cached?.key === cacheKey && cached.bySide.has(sideIndex)) {
+    return cached.bySide.get(sideIndex);
+  }
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const ownSide = state.sides[sideIndex];
+  const enemySide = state.sides[opponentSide];
+  const resolvedAllyAnalysis =
+    allyAnalysis ??
+    simpleTeamAnalysis(state, sideIndex);
+  const enemyAnalysis = simpleTeamAnalysis(state, opponentSide);
+  const resolvedThreatMap =
+    threatCounterMap ??
+    simpleThreatCounterMap(state, sideIndex, resolvedAllyAnalysis);
+  const uniqueCounterSlots = new Set(
+    resolvedThreatMap.mustPreserveResources.map((resource) => resource.slot),
+  );
+  const ownActive = activePokemon(state, sideIndex);
+  const enemyActive = activePokemon(state, opponentSide);
+  const fieldAdvantage =
+    (fieldSwitchSynergy(state, sideIndex, ownActive, enemyActive)
+      .fieldSynergyValue -
+      fieldSwitchSynergy(state, opponentSide, enemyActive, ownActive)
+        .fieldSynergyValue) /
+    4;
+
+  const result = {
+    own: simpleBattleValueSide(
+      ownSide,
+      resolvedAllyAnalysis,
+      uniqueCounterSlots,
+    ),
+    opponent: simpleBattleValueSide(enemySide, enemyAnalysis),
+    fieldAdvantage: Math.round(fieldAdvantage * 100) / 100,
+    field: {
+      weather: cleanId(state.field?.weather?.id),
+      terrain: cleanId(state.field?.terrain?.id),
+      trickRoom:
+        Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0,
+    },
+  };
+  const nextCache = cached?.key === cacheKey ? cached.bySide : new Map();
+  nextCache.set(sideIndex, result);
+  SIMPLE_BATTLE_VALUE_STATE_CACHE.set(state, {
+    key: cacheKey,
+    bySide: nextCache,
+  });
+  return result;
+}
+
+function aiCandidateKoProbability(candidate) {
+  const accuracy =
+    candidate.accuracy === true
+      ? 1
+      : Math.max(0, Math.min(1, Number(candidate.accuracy ?? 100) / 100));
+  if (candidate.koChance === "guaranteed") return accuracy;
+  if (candidate.koChance === "possible") return accuracy * 0.5;
+  return 0;
+}
+
+function candidateStatusBurden(candidate) {
+  const statusWeight = (status) => (cleanId(status) === "tox" ? 1.5 : 1);
+  if (candidate.status && candidate.statusBlocked !== true) {
+    return statusWeight(candidate.status);
+  }
+  return (candidate.statusResidualCandidates ?? []).reduce(
+    (best, status) =>
+      Math.max(
+        best,
+        statusWeight(status.status) *
+          Math.max(0, Math.min(1, Number(status.chance ?? 100) / 100)),
+      ),
+    0,
+  );
+}
+
+function candidateHazardLayerDelta(candidate) {
+  const moveId = cleanId(candidate.id);
+  const conditionId =
+    cleanId(candidate.sideCondition) ||
+    ({
+      ceaselessedge: "spikes",
+      spikes: "spikes",
+      stealthrock: "stealthrock",
+      stickyweb: "stickyweb",
+      stoneaxe: "stealthrock",
+      toxicspikes: "toxicspikes",
+    })[moveId];
+  if (!conditionId) return 0;
+  const currentLayers = Number(
+    candidate.opponentHazards?.[conditionId] ?? 0,
+  );
+  const maximum =
+    conditionId === "spikes"
+      ? 3
+      : conditionId === "toxicspikes"
+        ? 2
+        : 1;
+  return currentLayers < maximum ? 1 : 0;
+}
+
+function simpleMoveOneTurnOutcome({
+  pokemon,
+  defender,
+  candidate,
+  opponentBestDamage,
+  activeRoleProfile,
+  opponentRoleProfile,
+  activePreservationProfile,
+  gimmickResourceCost = 0,
+}) {
+  const actionProbability = Math.max(
+    0,
+    1 -
+      Number(candidate.opponentKnockoutBeforeActionProbability ?? 0),
+  );
+  const actionBeforeThreatProbability = Math.max(
+    0,
+    Math.min(1, Number(candidate.actionBeforeThreatProbability ?? 0)),
+  );
+  const koProbability = aiCandidateKoProbability(candidate) * actionProbability;
+  const retaliationProbability = Math.max(
+    0,
+    1 - koProbability * actionBeforeThreatProbability,
+  );
+  const maxHp = Math.max(1, Number(pokemon.stats?.hp ?? pokemon.hp));
+  const opponentMaxHp = Math.max(
+    1,
+    Number(defender.stats?.hp ?? defender.hp),
+  );
+  const selfSacrifice = candidate.selfSacrifice === true;
+  const projectedIncomingDamage =
+    candidate.category === "Status"
+      ? Math.max(
+          0,
+          Number(candidate.setupIncomingDamageRatioAfterBoost ?? 0) *
+            pokemon.hp,
+        )
+      : Math.max(0, Number(opponentBestDamage ?? 0));
+  const incomingDamage = selfSacrifice
+    ? 0
+    : Math.min(
+        pokemon.hp,
+        projectedIncomingDamage * retaliationProbability,
+      );
+  const recoilDamage = Math.max(
+    0,
+    Number(candidate.expectedRecoilDamage ?? 0) * actionProbability,
+  );
+  const residualDamage = Math.max(
+    0,
+    Number(candidate.setupResidualDamage ?? 0),
+  );
+  const recoveryAmount = Math.max(
+    0,
+    Number(candidate.recoveryAmount ?? 0) * actionProbability,
+  );
+  const projectedOwnHp = selfSacrifice
+    ? 0
+    : Math.max(
+        0,
+        Math.min(
+          maxHp,
+          pokemon.hp -
+            incomingDamage -
+            recoilDamage -
+            residualDamage +
+            recoveryAmount,
+        ),
+      );
+  const ownFaintProbability = selfSacrifice
+    ? 1
+    : projectedOwnHp <= 0
+      ? 1
+      : 0;
+  const expectedDamage = Math.max(
+    0,
+    Number(candidate.expectedDamage ?? 0) * actionProbability,
+  );
+  const ownIsAce =
+    activeRoleProfile?.aceProfile?.qualifies === true;
+  const opponentIsAce =
+    opponentRoleProfile?.aceProfile?.qualifies === true;
+  const ownPositiveBoostDelta =
+    Math.max(0, Number(candidate.effectiveSelfBoostTotal ?? 0)) *
+      actionProbability -
+    Math.min(
+      positiveBoostTotal(pokemon),
+      Math.max(0, Number(candidate.selfDropTotal ?? 0)) * actionProbability,
+    );
+  const opponentPositiveBoostDelta = -Math.min(
+    positiveBoostTotal(defender),
+    Object.values(candidate.boosts ?? {}).reduce(
+      (total, amount) => total + Math.max(0, -Number(amount ?? 0)),
+      0,
+    ) * actionProbability,
+  );
+  const fieldDelta =
+    candidate.weather || candidate.terrain || candidate.pseudoWeather
+      ? Math.max(2, Math.min(12, Number(candidate.fieldValue ?? 6)))
+      : 0;
+  const projectedField = {};
+  if (candidate.weather) {
+    projectedField.weather = cleanId(candidate.weather);
+  }
+  if (candidate.terrain) {
+    projectedField.terrain = cleanId(candidate.terrain);
+  }
+  if (cleanId(candidate.pseudoWeather) === "trickroom") {
+    projectedField.trickRoom = true;
+  }
+
+  return {
+    own: {
+      livingCount: -ownFaintProbability,
+      totalHpRatio: (projectedOwnHp - pokemon.hp) / maxHp,
+      aceAliveCount: ownIsAce ? -ownFaintProbability : 0,
+      aceHpRatio: ownIsAce
+        ? (projectedOwnHp - pokemon.hp) / maxHp
+        : 0,
+      positiveBoosts: ownPositiveBoostDelta,
+      statusBurden:
+        cleanId(candidate.id) === "rest" && pokemon.status
+          ? -simpleStatusBurden(pokemon)
+          : 0,
+      uniqueCountersAlive:
+        activePreservationProfile && ownFaintProbability > 0
+          ? -ownFaintProbability
+          : 0,
+      gimmicksRemaining: -Math.max(0, Number(gimmickResourceCost ?? 0)),
+    },
+    opponent: {
+      livingCount: -koProbability,
+      totalHpRatio: -Math.min(defender.hp, expectedDamage) / opponentMaxHp,
+      aceAliveCount: opponentIsAce ? -koProbability : 0,
+      aceHpRatio: opponentIsAce
+        ? -Math.min(defender.hp, expectedDamage) / opponentMaxHp
+        : 0,
+      positiveBoosts: opponentPositiveBoostDelta,
+      statusBurden:
+        defender.status || defender.fainted
+          ? 0
+          : candidateStatusBurden(candidate) * actionProbability,
+      hazardLayers:
+        candidateHazardLayerDelta(candidate) * actionProbability,
+    },
+    fieldAdvantage: fieldDelta * actionProbability,
+    field: projectedField,
+  };
+}
+
+function simpleSwitchOneTurnOutcome({
+  current,
+  target,
+  candidate,
+  targetRoleProfile,
+  preservationProfile,
+}) {
+  const maxHp = Math.max(1, Number(target.stats?.hp ?? target.hp));
+  const setupEvaluation = candidate.setupThreatEvaluation ?? {};
+  const setupLikelihood =
+    setupEvaluation.opponentCanSetup === true
+      ? Math.max(
+          0,
+          Math.min(
+            1,
+            Number(
+              setupEvaluation.setupLikelihood ??
+                candidate.opponentSetupFirstTurnLikelihood ??
+                0,
+            ),
+          ),
+        )
+      : 0;
+  const attackProbability = 1 - setupLikelihood;
+  const entryDamage = Math.max(0, Number(candidate.hazardDamage ?? 0));
+  const incomingDamage =
+    Math.max(0, Number(candidate.switchInExpectedDamage ?? 0)) *
+    attackProbability;
+  const projectedHp = Math.max(
+    0,
+    target.hp - entryDamage - incomingDamage,
+  );
+  const faintProbability = projectedHp <= 0 ? 1 : 0;
+  const targetIsAce =
+    targetRoleProfile?.aceProfile?.qualifies === true;
+  const strongestBoost = setupEvaluation.strongestBoost ?? {};
+  const opponentSetupBoosts =
+    (Math.max(0, Number(strongestBoost.attack ?? 0)) +
+      Math.max(0, Number(strongestBoost.speed ?? 0))) *
+    setupLikelihood;
+
+  return {
+    own: {
+      livingCount: -faintProbability,
+      totalHpRatio: (projectedHp - target.hp) / maxHp,
+      aceAliveCount: targetIsAce ? -faintProbability : 0,
+      aceHpRatio: targetIsAce
+        ? (projectedHp - target.hp) / maxHp
+        : 0,
+      positiveBoosts: -positiveBoostTotal(current),
+      uniqueCountersAlive:
+        preservationProfile && faintProbability > 0
+          ? -faintProbability
+          : 0,
+    },
+    opponent: {
+      positiveBoosts: opponentSetupBoosts,
+    },
+  };
+}
+
+function simpleAnalysisStateKey(state) {
+  return JSON.stringify({
+    turn: state.turn,
+    field: state.field,
+    sides: state.sides.map((side) => ({
+      active: side.active,
+      conditions: side.conditions,
+      team: side.team.map((member) => ({
+        hp: member.hp,
+        fainted: member.fainted,
+        status: member.status,
+        boosts: member.boosts,
+        activeTurns: member.activeTurns,
+      })),
+    })),
+  });
+}
+
+function simpleThreatCounterMap(state, sideIndex, allyAnalysis = null) {
+  const cacheKey = simpleAnalysisStateKey(state);
+  const cached = SIMPLE_THREAT_COUNTER_MAP_CACHE.get(state);
+  if (cached?.key === cacheKey && cached.bySide.has(sideIndex)) {
+    return cached.bySide.get(sideIndex);
+  }
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const allies = state.sides[sideIndex].team;
+  const enemies = state.sides[opponentSide].team;
+  const resolvedAllyAnalysis =
+    allyAnalysis ??
+    simpleTeamAnalysis(state, sideIndex);
+  const enemyAnalysis = simpleTeamAnalysis(state, opponentSide);
+  const result = buildThreatCounterMap({
+    allies,
+    enemies,
+    allyAnalysis: resolvedAllyAnalysis,
+    enemyAnalysis,
+    evaluateMatchup: ({ ally, enemy }) => {
+      const outgoing = bestAiAttackProfile(
+        state,
+        sideIndex,
+        ally,
+        opponentSide,
+        enemy,
+      );
+      const incoming = bestAiAttackProfile(
+        state,
+        opponentSide,
+        enemy,
+        sideIndex,
+        ally,
+      );
+      const actsBefore =
+        outgoing.priority > incoming.priority ||
+        (outgoing.priority === incoming.priority &&
+          (Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0
+            ? effectiveSpeed(ally, state, sideIndex) <
+              effectiveSpeed(enemy, state, opponentSide)
+            : effectiveSpeed(ally, state, sideIndex) >
+              effectiveSpeed(enemy, state, opponentSide)));
+      return {
+        allyHpPercent: ally.hp / ally.stats.hp,
+        incomingDamageRatio: incoming.expectedDamage / ally.stats.hp,
+        outgoingDamageRatio:
+          enemy.hp > 0 ? outgoing.expectedDamage / enemy.hp : 0,
+        actsBefore,
+        priorityKo:
+          outgoing.priority > incoming.priority &&
+          outgoing.expectedDamage >= enemy.hp,
+      };
+    },
+  });
+  const nextCache = cached?.key === cacheKey ? cached.bySide : new Map();
+  nextCache.set(sideIndex, result);
+  SIMPLE_THREAT_COUNTER_MAP_CACHE.set(state, {
+    key: cacheKey,
+    bySide: nextCache,
+  });
+  return result;
+}
+
+function simpleTeamRoleProgress(
+  state,
+  sideIndex,
+  teamRoleAnalysis = null,
+  threatCounterMap = null,
+) {
+  const cacheKey = simpleAnalysisStateKey(state);
+  const cached = SIMPLE_ROLE_PROGRESS_CACHE.get(state);
+  if (cached?.key === cacheKey && cached.bySide.has(sideIndex)) {
+    return cached.bySide.get(sideIndex);
+  }
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const side = state.sides[sideIndex];
+  const opponent = state.sides[opponentSide];
+  const resolvedTeamAnalysis =
+    teamRoleAnalysis ??
+    simpleTeamAnalysis(state, sideIndex);
+  const enemyAnalysis = simpleTeamAnalysis(state, opponentSide);
+  const resolvedThreatMap =
+    threatCounterMap ??
+    simpleThreatCounterMap(state, sideIndex, resolvedTeamAnalysis);
+  const opponentLivingCount = opponent.team.filter(
+    (member) => !member.fainted && member.hp > 0,
+  ).length;
+  const highThreatCount = resolvedThreatMap.threats.filter(
+    (threat) =>
+      ["critical", "high"].includes(threat.threatLevel) &&
+      opponent.team[threat.enemySlot - 1]?.fainted !== true &&
+      opponent.team[threat.enemySlot - 1]?.hp > 0,
+  ).length;
+  const setupThreatCount = enemyAnalysis.setupThreats.filter(
+    (role) =>
+      opponent.team[role.slot - 1]?.fainted !== true &&
+      opponent.team[role.slot - 1]?.hp > 0,
+  ).length;
+  const opponentHazardSetterAlive = enemyAnalysis.hazardPlan.setters.some(
+    (role) =>
+      opponent.team[role.slot - 1]?.fainted !== true &&
+      opponent.team[role.slot - 1]?.hp > 0,
+  );
+  const progress = side.team.map((member, index) => {
+    const slot = index + 1;
+    const preservationProfile =
+      resolvedThreatMap.mustPreserveResources.find(
+        (resource) => resource.slot === slot,
+      );
+    const assignedThreats = resolvedThreatMap.threats
+      .filter((threat) =>
+        [
+          ...threat.counters,
+          ...threat.softChecks,
+          ...threat.revengeKillers,
+        ].some((resource) => resource.slot === slot),
+      )
+      .map((threat) => threat.species);
+    return evaluatePokemonRoleProgress({
+      member: aiRoleAnalysisMember(member),
+      roleProfile: resolvedTeamAnalysis.roles[index],
+      ownSideConditions: side.conditions,
+      opponentSideConditions: opponent.conditions,
+      opponentLivingCount,
+      highThreatCount,
+      setupThreatCount,
+      assignedThreats,
+      opponentHazardSetterAlive,
+      mustPreserveResource: Boolean(preservationProfile),
+      activeTurns: Number(member.activeTurns ?? 0),
+    });
+  });
+  const nextCache = cached?.key === cacheKey ? cached.bySide : new Map();
+  nextCache.set(sideIndex, progress);
+  SIMPLE_ROLE_PROGRESS_CACHE.set(state, {
+    key: cacheKey,
+    bySide: nextCache,
+  });
+  return progress;
 }
 
 function projectedSwitchMoveCandidates(
@@ -9828,9 +11380,56 @@ export function automaticSwitchCandidates(
   const opponentSide = sideIndex === 0 ? 1 : 0;
   const current = activePokemon(state, sideIndex);
   const opponent = activePokemon(state, opponentSide);
-  const teamRoleAnalysis = analyzeTeamProfile(
-    side.team.map((member) => aiRoleAnalysisMember(member)),
+  const teamRoleAnalysis = simpleTeamAnalysis(state, sideIndex);
+  const oneTurnSearchWeight = aiOneTurnSearchWeight(difficulty);
+  const threatCounterMap = simpleThreatCounterMap(
+    state,
+    sideIndex,
+    teamRoleAnalysis,
   );
+  const teamRoleProgress = simpleTeamRoleProgress(
+    state,
+    sideIndex,
+    teamRoleAnalysis,
+    threatCounterMap,
+  );
+  const currentThreat = threatCounterMap.threats.find(
+    (threat) => threat.enemySlot === state.sides[opponentSide].active + 1,
+  );
+  const moveSetupContext = moveCandidates.find(
+    (candidate) => candidate.setupThreatEvaluation,
+  );
+  const switchSetupThreat = moveSetupContext
+    ? {
+        opponentSetupMoveCount: moveSetupContext.opponentSetupMoveCount,
+        opponentSetupMoveIds: moveSetupContext.opponentSetupMoveIds,
+        opponentSetupFirstTurnLikelihood:
+          moveSetupContext.opponentSetupFirstTurnLikelihood,
+        opponentLikelyFirstTurnSetup:
+          moveSetupContext.opponentLikelyFirstTurnSetup,
+        opponentSetupThreatTier:
+          moveSetupContext.opponentSetupThreatTier,
+        opponentSetupSweepRisk:
+          moveSetupContext.opponentSetupSweepRisk,
+        opponentSetupAnswerCount:
+          moveSetupContext.opponentSetupAnswerCount,
+        opponentSetupPunishOptions:
+          moveSetupContext.opponentSetupPunishOptions,
+        setupThreatEvaluation: moveSetupContext.setupThreatEvaluation,
+        oneMoreTurnUnmanageable:
+          moveSetupContext.oneMoreTurnUnmanageable,
+      }
+    : aiOpponentSetupThreatProfile({
+        state,
+        sideIndex,
+        defenderSide: opponentSide,
+        attacker: current,
+        defender: opponent,
+        opponentRoleProfile: analyzeTeamProfile([
+          aiRoleAnalysisMember(opponent),
+        ]).roles[0],
+        threatEntry: currentThreat,
+      });
   const currentAttack = bestAiAttackProfile(
     state,
     sideIndex,
@@ -9912,6 +11511,15 @@ export function automaticSwitchCandidates(
     current,
   );
   const recentSwitch = Boolean(recentSwitchEvent);
+  const oneTurnStateBefore =
+    oneTurnSearchWeight > 0
+      ? simpleBattleStateValueSnapshot(
+          state,
+          sideIndex,
+          teamRoleAnalysis,
+          threatCounterMap,
+        )
+      : null;
 
   return side.team
     .map((pokemon, index) => {
@@ -9983,6 +11591,15 @@ export function automaticSwitchCandidates(
         canReachNextAction &&
         projectedBestMove?.koChance === "guaranteed";
       const targetRoleProfile = teamRoleAnalysis.roles[index];
+      const targetRoleProgress = teamRoleProgress[index];
+      const preservationProfile = threatCounterMap.mustPreserveResources.find(
+        (resource) => resource.slot === slot,
+      );
+      const currentThreatResource = [
+        ...(currentThreat?.counters ?? []),
+        ...(currentThreat?.softChecks ?? []),
+        ...(currentThreat?.revengeKillers ?? []),
+      ].find((resource) => resource.slot === slot);
       const emergencyEscape =
         !currentCanReachAction &&
         currentIncomingRatio >= currentHpPercent &&
@@ -10049,9 +11666,24 @@ export function automaticSwitchCandidates(
         projectedKnockoutBeforeActionProbability,
         targetPrimaryRole: targetRoleProfile?.primaryRole ?? "support",
         targetRoleScore: targetRoleProfile?.roles?.[0]?.score ?? 0,
+        targetRoleComplete: targetRoleProgress?.roleComplete === true,
+        targetExpendableResource:
+          targetRoleProgress?.expendableResource === true,
+        targetCompletedRoles: targetRoleProgress?.completedRoles ?? [],
+        targetRemainingRoles: targetRoleProgress?.remainingRoles ?? [],
+        targetRoleProgressReasons: targetRoleProgress?.reasons ?? [],
         targetAceScore: targetRoleProfile?.aceScore ?? 0,
         targetAceQualified:
           targetRoleProfile?.aceProfile?.qualifies === true,
+        mustPreserveResource: Boolean(preservationProfile),
+        mustPreserveFor:
+          preservationProfile?.threats.map((threat) => threat.species) ?? [],
+        preservationTargetIsCurrent:
+          preservationProfile?.threats.some(
+            (threat) => threat.enemySlot === state.sides[opponentSide].active + 1,
+          ) ?? false,
+        currentThreatClassification:
+          currentThreatResource?.classification ?? null,
         priorityKo:
           Number(projectedBestMove?.priority ?? targetAttack.priority) >
             targetIncoming.priority &&
@@ -10076,9 +11708,31 @@ export function automaticSwitchCandidates(
         hazardDamageRatio: hazardDamage / pokemon.stats.hp,
         emergencyEscape,
         noEffectiveMoveEscape,
+        ...switchSetupThreat,
         ...fieldSynergy,
       };
-      const selected = selectAiSwitchCandidate([candidate], {
+      const oneTurnEvaluation = oneTurnStateBefore
+        ? evaluateOneTurnBattleState(
+            oneTurnStateBefore,
+            simpleSwitchOneTurnOutcome({
+              current,
+              target: pokemon,
+              candidate,
+              targetRoleProfile,
+              preservationProfile,
+            }),
+          )
+        : null;
+      const evaluated = oneTurnEvaluation
+        ? {
+            ...candidate,
+            oneTurnEvaluation:
+              compactOneTurnEvaluation(oneTurnEvaluation),
+            battleStateValueDelta: oneTurnEvaluation.delta,
+            oneTurnSearchWeight,
+          }
+        : candidate;
+      const selected = selectAiSwitchCandidate([evaluated], {
         difficulty,
         strategy,
         rng: createAiRng(state.seed, sideIndex, state.turn * 23 + slot),
@@ -10116,6 +11770,30 @@ function isConfiguredDynamaxPokemon(pokemon) {
   );
 }
 
+function isConfiguredTeraPokemon(pokemon) {
+  return pokemon?.gimmicks?.teraConfigured === true;
+}
+
+function canUseTeraFallback(side) {
+  const configured = side.team.filter(isConfiguredTeraPokemon);
+  return (
+    configured.length > 0 &&
+    configured.every((pokemon) => pokemon.fainted || pokemon.hp <= 0)
+  );
+}
+
+export function canPokemonUseTerastallization(
+  state,
+  sideIndex,
+  pokemon = activePokemon(state, sideIndex),
+) {
+  if (!state?.sides?.[sideIndex] || !pokemon) return false;
+  return (
+    isConfiguredTeraPokemon(pokemon) ||
+    canUseTeraFallback(state.sides[sideIndex])
+  );
+}
+
 function canUseDynamaxFallback(side) {
   const configured = side.team.filter(isConfiguredDynamaxPokemon);
   return (
@@ -10132,6 +11810,147 @@ function hasLivingConfiguredDynamaxOther(side, active) {
       !pokemon.fainted &&
       pokemon.hp > 0,
   );
+}
+
+function projectedSimpleStateForGimmick(state, sideIndex, gimmick) {
+  const side = state.sides[sideIndex];
+  const source = activePokemon(state, sideIndex);
+  const projectedPokemon = {
+    ...source,
+    types: [...source.types],
+    originalTypes: [...(source.originalTypes ?? source.types)],
+    stats: { ...source.stats },
+    boosts: { ...source.boosts },
+    abilityState: { ...(source.abilityState ?? {}) },
+  };
+  const projectedState = {
+    ...state,
+    events: [...(state.events ?? [])],
+    field: {
+      ...state.field,
+      weather: state.field?.weather ? { ...state.field.weather } : null,
+      terrain: state.field?.terrain ? { ...state.field.terrain } : null,
+      pseudoWeather: { ...(state.field?.pseudoWeather ?? {}) },
+    },
+  };
+
+  if (gimmick === "mega") {
+    const stone = projectedPokemon.gimmicks?.megaStone ?? {};
+    const megaForm = cleanDisplayName(stone.form);
+    if (megaForm) {
+      projectedPokemon.baseSpeciesName =
+        projectedPokemon.baseSpeciesName || projectedPokemon.name;
+      projectedPokemon.name = megaForm;
+      projectedPokemon.id = cleanId(megaForm);
+    }
+    if (Array.isArray(stone.types) && stone.types.length > 0) {
+      projectedPokemon.types = stone.types
+        .map(String)
+        .filter(Boolean)
+        .slice(0, 2);
+      projectedPokemon.originalTypes = projectedPokemon.types.slice();
+    }
+    if (stone.ability) projectedPokemon.ability = stone.ability;
+    if (stone.stats) {
+      for (const [stat, value] of Object.entries(stone.stats)) {
+        projectedPokemon.stats[stat] = value;
+      }
+    } else {
+      for (const stat of [
+        "attack",
+        "defence",
+        "specialAttack",
+        "specialDefence",
+        "speed",
+      ]) {
+        projectedPokemon.stats[stat] = Math.max(
+          1,
+          Math.floor(projectedPokemon.stats[stat] * 1.1),
+        );
+      }
+    }
+    projectedPokemon.megaEvolved = true;
+  } else if (gimmick === "terastallize") {
+    applySpeciesTerastallization(
+      projectedState,
+      sideIndex,
+      projectedPokemon,
+    );
+  }
+
+  const projectedTeam = side.team.map((member, index) =>
+    index === side.active ? projectedPokemon : member,
+  );
+  return {
+    ...projectedState,
+    sides: state.sides.map((candidateSide, index) =>
+      index === sideIndex
+        ? { ...candidateSide, team: projectedTeam }
+        : candidateSide,
+    ),
+  };
+}
+
+function projectedSimpleGimmickCandidate({
+  state,
+  sideIndex,
+  gimmick,
+  difficulty,
+  strategy,
+  baseMove,
+  configured = false,
+}) {
+  const projectedState = projectedSimpleStateForGimmick(
+    state,
+    sideIndex,
+    gimmick,
+  );
+  const candidates = automaticMoveCandidates(
+    projectedState,
+    sideIndex,
+    strategy,
+    difficulty,
+    "",
+    { gimmickResourceCost: 1 },
+  );
+  const selectedMove = selectAiMoveCandidate(candidates, {
+    difficulty,
+    strategy,
+    rng: createAiRng(
+      state.seed,
+      sideIndex,
+      state.turn * 29 + (gimmick === "mega" ? 3 : 7),
+    ),
+  });
+  if (!selectedMove) {
+    return {
+      candidate: null,
+      moveCandidates: candidates,
+      selectedMove: null,
+    };
+  }
+  const projectedCandidate = scoreAiProjectedGimmickCandidate({
+    id: gimmick,
+    selectedMove,
+    baseMove,
+    configured,
+  });
+  return {
+    candidate:
+      gimmick === "terastallize"
+        ? applyTeraDefensiveScore(
+            projectedCandidate,
+            teraDefensiveProjection(state, projectedState, sideIndex),
+            {
+              baseMove,
+              selectedMove,
+              resourceOpportunity: teraResourceOpportunity(state, sideIndex),
+            },
+          )
+        : projectedCandidate,
+    moveCandidates: candidates,
+    selectedMove,
+  };
 }
 
 export function chooseSimpleAiDecision(
@@ -10199,6 +12018,13 @@ export function chooseSimpleAiDecision(
     side.gimmickResources.mega === "available" &&
     pokemon.megaEvolved !== true &&
     canMegaEvolvePokemon(pokemon);
+  const canTerastallize =
+    side.gimmickResources.terastallize === "available" &&
+    pokemon.terastallized !== true &&
+    pokemon.megaEvolved !== true &&
+    pokemon.dynamaxTurns <= 0 &&
+    canPokemonUseTerastallization(state, sideIndex, pokemon) &&
+    Boolean(String(pokemon.configuredTeraType ?? "").trim());
   const dynamaxFallback =
     canUseDynamaxFallback(side) && !canMegaEvo;
   const canDynamax =
@@ -10216,6 +12042,7 @@ export function chooseSimpleAiDecision(
           strategy,
           difficulty,
           dynamaxMode,
+          { gimmickResourceCost: 1 },
         )
       : [];
   const selectedDynamaxMove =
@@ -10227,12 +12054,37 @@ export function chooseSimpleAiDecision(
         })
       : null;
   const baseMoveForDynamax = selectedDynamaxMove ? chosenMove : null;
+  const megaProjection =
+    canMegaEvo && !lockedSelection && chosenMove
+      ? projectedSimpleGimmickCandidate({
+          state,
+          sideIndex,
+          gimmick: "mega",
+          difficulty,
+          strategy,
+          baseMove: chosenMove,
+          configured: true,
+        })
+      : { candidate: null, moveCandidates: [], selectedMove: null };
+  const teraProjection =
+    canTerastallize && !lockedSelection && chosenMove
+      ? projectedSimpleGimmickCandidate({
+          state,
+          sideIndex,
+          gimmick: "terastallize",
+          difficulty,
+          strategy,
+          baseMove: chosenMove,
+          configured: pokemon.gimmicks?.teraConfigured === true,
+        })
+      : { candidate: null, moveCandidates: [], selectedMove: null };
   const gimmickDecision = chosenMove
     ? selectAiGimmick({
         active: {
           canMegaEvo,
           canDynamax,
           canGigantamax: pokemon.gimmicks?.canGigantamax === true,
+          canTerastallize,
           dynamaxReservedForOther: hasLivingConfiguredDynamaxOther(side, pokemon),
           hpPercent: pokemon.hp / pokemon.stats.hp,
           incomingDamageRatio: chosenMove.incomingDamageRatio,
@@ -10243,6 +12095,7 @@ export function chooseSimpleAiDecision(
             dynamax:
               pokemon.gimmicks?.forceDynamax === true || dynamaxFallback,
             gigantamax: pokemon.gimmicks?.gigantamax === true,
+            tera: canTerastallize,
           },
         },
         selectedMove: chosenMove,
@@ -10250,6 +12103,10 @@ export function chooseSimpleAiDecision(
         dynamaxMove: selectedDynamaxMove,
         baseMoveForDynamax,
         dynamaxMoveCandidates,
+        projectedGimmickCandidates: [
+          megaProjection.candidate,
+          teraProjection.candidate,
+        ].filter(Boolean),
         forceDynamax: pokemon.gimmicks?.forceDynamax === true,
         alreadyUsed: side.usedGimmicks,
       })
@@ -10263,6 +12120,10 @@ export function chooseSimpleAiDecision(
   const commandMove =
     usesDynamaxMove && selectedDynamaxMove
       ? selectedDynamaxMove
+      : gimmick === "mega" && megaProjection.selectedMove
+        ? megaProjection.selectedMove
+        : gimmick === "terastallize" && teraProjection.selectedMove
+          ? teraProjection.selectedMove
       : chosenMove;
   if (shouldSwitch) {
     return {
@@ -10380,7 +12241,7 @@ export function createSimpleAiDecisionTrace(
   const command = decision.command;
   const active = activePokemon(state, sideIndex);
   const moveCandidates = decision.moveCandidates.map((candidate) => ({
-    ...toAiActionCandidate(
+    ...toAiTraceCandidate(
       {
         ...candidate,
         score: Math.round(candidate.score * 100) / 100,
@@ -10397,7 +12258,7 @@ export function createSimpleAiDecisionTrace(
       candidate.slot === command.move,
   }));
   const switchCandidates = decision.switchCandidates.map((candidate) => ({
-    ...toAiActionCandidate(
+    ...toAiTraceCandidate(
       {
         ...candidate,
         score: Math.round(candidate.score * 100) / 100,
@@ -10422,10 +12283,12 @@ export function createSimpleAiDecisionTrace(
             strategy,
           }),
           id: decision.gimmickCandidate.id,
-          name:
-            decision.gimmickCandidate.id === "gigantamax"
-              ? "거다이맥스"
-              : "다이맥스",
+          name: {
+            mega: "메가진화",
+            dynamax: "다이맥스",
+            gigantamax: "거다이맥스",
+            terastallize: "테라스탈",
+          }[decision.gimmickCandidate.id] ?? decision.gimmickCandidate.id,
           score:
             Math.round(
               Number(decision.gimmickCandidate.score ?? 0) * 100,

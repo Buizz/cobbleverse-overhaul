@@ -24,6 +24,7 @@ G:\2026 MineCraft\Cobblemon-RunAndBunAI
 | `EntryHazardPlacementRule` | `moveRuleAdjustments()` | 1차 구현 | 스텔스록/압정/독압정/끈적끈적네트 설치 가치 |
 | `SetupOpportunityRule` | `moveRuleAdjustments()` | 1차 구현 | 낮은 피격량이면 랭크업 보너스, KO 위험이면 페널티 |
 | `SetupDisruptionRule` | `moveRuleAdjustments()` | 1차 구현 | 흑안개/클리어스모그/강제교체/도발 보정 |
+| `FreeSetupTurnRule` | `evaluateSetupThreat()`, 후보 점수 규칙 | 1차 구현 | 회복/설치/무의미한 교체가 만드는 상대 스윕 위험과 남은 대응 자원 수 반영 |
 | `SwitchMatchupRule` | `switchRuleAdjustments()` | 1차 구현 | 피격 감소, 공격 개선, 체력, 상태, 랭크 손실 보정 |
 | `ImmediateKoDominanceRule` | `moveRuleAdjustments()` | 1차 구현 | 안전한 확정 KO가 있으면 비공격 행동 억제 |
 | `ImmediateKoAttackPreferenceRule` | `moveRuleAdjustments()` | 1차 구현 | 안전한 확정 KO가 있으면 비마무리 공격 억제 |
@@ -35,6 +36,7 @@ G:\2026 MineCraft\Cobblemon-RunAndBunAI
 | `LethalSwitchInRule` | `switchRuleAdjustments()` | 1차 구현 | 예상 공격에 진입 즉시 쓰러지는 교체 후보 억제 |
 | `DynamaxSwitchPenaltyRule` | `switchRuleAdjustments()` | 1차 구현 | 남은 다이맥스 턴 포기 비용 반영 |
 | 다이맥스 활성화 점수화 | `scoreAiDynamaxCandidate()` | 1차 구현 | 생존/화력 가치와 안전 랭크업 기회비용을 비교 |
+| `OneTurnSearchEngine` | `evaluateBattleStateValue()`, `evaluateOneTurnBattleState()` | 1차 구현 | 기술·교체와 메가진화·다이맥스·테라스탈 후 기대 HP, 생존, 에이스, 랭크, 상태, 설치물, 기믹, 유일 카운터 가치를 후보 점수와 이유에 연결 |
 
 ## 다음 이식 후보
 
@@ -42,14 +44,15 @@ G:\2026 MineCraft\Cobblemon-RunAndBunAI
 - [ ] `EmergencyCounterSwitchRule`: 상대 위협에 대한 유일/주요 카운터를 보존하고 투입한다.
 - [x] 다이맥스 사용 자체를 점수화한다.
 - [ ] `DynamaxMoveValueRule`: 다이맥스 기술의 날씨/필드/랭크 부가효과와 불필요한 다이월을 더 세밀하게 평가한다.
-- [ ] `OneTurnSearchEngine`: 1턴 얕은 시뮬레이션으로 후보 점수를 보정한다.
+- [x] `OneTurnSearchEngine`: 자체 엔진 기술·교체·메가진화·다이맥스·테라스탈 후보를 1턴 기대 상태로 투영해 점수를 보정한다.
+- [ ] Z기술과 Showdown 엔진 후보도 동일한 기믹 상태 투영 경로에 연결한다.
 
 ## 필요한 관측 필드
 
 - [ ] 후보별 `actsBeforeOpponent`
 - [x] 후보별 `actionBeforeThreatProbability`, `opponentKnockoutBeforeActionProbability`
 - [ ] 후보별 `incomingDamageRatio`, `outgoingDamageRatio`
-- [ ] 상대 전개 위협도 `setupThreatTier`
+- [x] 상대 전개 위협도 `setupThreatTier`, `sweepRiskAfterSetup`, `availableAnswersAfterSetup`
 - [ ] 상대 남은 포켓몬 수 `livingOpponents`
 - [ ] 현재/교체 후보 상태 이상
 - [ ] 현재 포켓몬의 양수 랭크 합계
@@ -98,7 +101,8 @@ G:\2026 MineCraft\Cobblemon-RunAndBunAI
 ### 다음 확장
 
 - [ ] 상대가 이번 턴 사용할 가능성이 높은 기술별 확률을 반영한 교체 기대값
-- [ ] 위협-카운터 맵의 `mustPreserveResources`를 교체 및 희생 판단에 연결
+- [x] 위협-카운터 맵의 `mustPreserveResources`를 자체 엔진 교체 및 자폭 희생 판단에 연결
+- [x] 판 설치·제거 및 담당 위협 기준의 역할 완료 상태를 희생 교체와 자폭 비용에 연결
 - [ ] 독압정 흡수, 끈적끈적네트, 날씨 피해까지 포함한 교체 직후 상태 시뮬레이션
 - [ ] Pursuit류 교체 추격 위험을 AI 관측 모델에 연결
 - [ ] Showdown 일반 턴의 자발적 교체 후보를 동일 산식으로 연결

@@ -427,6 +427,8 @@ type InteractiveGimmicks = {
   canMegaEvo: boolean;
   megaVariant: "mega" | "megax" | "megay";
   zMoves: Array<{ move: string; target: string } | null>;
+  zCrystalName?: string;
+  zMoveReason?: string;
   canDynamax: boolean;
   canGigantamax?: boolean;
   maxMoves: Array<{ id: string; move: string; target: string }>;
@@ -2371,17 +2373,19 @@ function TeamStrip({
 
   return (
     <div className="team-strip" aria-label={`${trainer.name} 파티`}>
-      {trainer.entry.type === "official-player" ? (
-        <div className="official-entry-banner">
-          <strong>★ {trainer.entry.label ?? "공식 엔트리"}</strong>
-          <span>
-            {trainer.entry.owner} · {trainer.entry.source}
-            {trainer.entry.snapshotDate
-              ? ` · ${trainer.entry.snapshotDate} 기준`
-              : ""}
+      <div className="team-entry-heading">
+        <span>
+          <strong>포켓몬 엔트리</strong>
+          <small>{trainer.team.length}마리</small>
+        </span>
+        {trainer.entry.type === "official-player" ? (
+          <span className="official-entry-badge">
+            ★ {trainer.entry.label ?? "공식 엔트리"}
           </span>
-        </div>
-      ) : null}
+        ) : (
+          <span className="team-entry-source">{trainer.sourceGroup}</span>
+        )}
+      </div>
       {trainer.team.map((pokemon, index) => (
         <article
           className="pokemon-chip"
@@ -2410,16 +2414,25 @@ function TeamStrip({
               →
             </button>
           </div>
-          <strong>
-            {localizedSpecies(
-              localization,
-              pokemon.resolvedSpecies ?? pokemon.species,
-            )}
-          </strong>
-          <span>Lv.{pokemon.level}</span>
-          <small>
-            {displayId(pokemon.ability)} · {displayId(pokemon.heldItem)}
-          </small>
+          <div className="pokemon-chip-summary">
+            <PokemonSprite
+              loading="lazy"
+              species={pokemon.resolvedSpecies ?? pokemon.species}
+              alt=""
+            />
+            <span>
+              <strong>
+                {localizedSpecies(
+                  localization,
+                  pokemon.resolvedSpecies ?? pokemon.species,
+                )}
+              </strong>
+              <span>Lv.{pokemon.level}</span>
+              <small>
+                {displayId(pokemon.ability)} · {displayId(pokemon.heldItem)}
+              </small>
+            </span>
+          </div>
         </article>
       ))}
     </div>
@@ -4292,9 +4305,14 @@ function MultiBattleCommandPanel({
           {request.kind === "force_switch" ? null : (
             <div className="multi-move-grid">
               {current?.moves.map((move) => {
+                const zMove = current.gimmicks.zMoves[move.slot - 1];
+                const displayedMoveName =
+                  activeMultiGimmickSelection === "zmove" && zMove
+                    ? localizedMove(localization, zMove.move, zMove.move)
+                    : localizedMove(localization, move.id, move.name);
                 const unavailableForGimmick =
                   (activeMultiGimmickSelection === "zmove" &&
-                    !current.gimmicks.zMoves[move.slot - 1]) ||
+                    !zMove) ||
                   (activeMultiGimmickSelection === "dynamax" &&
                     !current.gimmicks.maxMoves[move.slot - 1]);
                 return (
@@ -4316,7 +4334,7 @@ function MultiBattleCommandPanel({
                     }}
                   >
                     <span>{String(move.slot).padStart(2, "0")}</span>
-                    <b>{localizedMove(localization, move.id, move.name)}</b>
+                    <b>{displayedMoveName}</b>
                     <TypeIcon type={move.type} withLabel />
                     <small>
                       위력 {move.power || "—"} · PP {move.pp}/{move.maxPp}
@@ -4481,11 +4499,13 @@ function InteractiveArena({
         {
           id: "zmove",
           label: "Z파워",
-          detail: "Z-POWER",
+          detail: request.gimmicks.zCrystalName || "Z-POWER",
           available:
             request.gimmicks.zMoves.some(Boolean) &&
             !playerUsedGimmicks.has("zmove"),
-          reason: "현재 기술과 호환되는 Z크리스탈이 필요합니다.",
+          reason:
+            request.gimmicks.zMoveReason ||
+            "현재 기술과 호환되는 Z크리스탈이 필요합니다.",
         },
         {
           id: "dynamax",
@@ -5071,7 +5091,24 @@ function InteractiveArena({
                     type="button"
                     title={gimmick.available ? gimmick.label : gimmick.reason}
                   >
-                    <span>{gimmick.detail}</span>
+                    <div
+                      className={`gimmick-control-detail ${
+                        gimmick.id === "terastallize" ? "tera-type-detail" : ""
+                      }`}
+                    >
+                      {gimmick.id === "terastallize" &&
+                      request.gimmicks.canTerastallize ? (
+                        <>
+                          <small>현재 테라 타입</small>
+                          <TypeIcon
+                            type={request.gimmicks.canTerastallize}
+                            withLabel
+                          />
+                        </>
+                      ) : (
+                        <span>{gimmick.detail}</span>
+                      )}
+                    </div>
                     <strong>{gimmick.label}</strong>
                     {!gimmick.available ? <small>{gimmick.reason}</small> : null}
                   </button>
@@ -5082,6 +5119,12 @@ function InteractiveArena({
               <div className="move-buttons">
                 {request.moves.map((move) => {
                   const zMove = request.gimmicks.zMoves[move.slot - 1];
+                  const zMoveName = zMove
+                    ? localizedMove(localization, zMove.move, zMove.move)
+                    : null;
+                  const zMoveDescription =
+                    zMove &&
+                    localization?.moves[dexId(zMove.move)]?.description;
                   const maxMove =
                     request.gimmicks.maxMoves[move.slot - 1] ??
                     (isNativeBattle
@@ -5099,7 +5142,7 @@ function InteractiveArena({
                     localization?.moves[dexId(maxMove.id)]?.description;
                   const gimmickMoveName =
                     activeGimmickSelection === "zmove"
-                      ? zMove?.move
+                      ? zMoveName
                       : activeGimmickSelection === "dynamax"
                         ? maxMoveName
                         : null;
@@ -5154,7 +5197,11 @@ function InteractiveArena({
                         <small>타입 상성 기준</small>
                       </span>
                       <small className="move-description">
-                        {activeGimmickSelection === "dynamax"
+                        {activeGimmickSelection === "zmove"
+                          ? zMoveDescription ??
+                            localization?.moves[dexId(move.id)]?.description ??
+                            "등록된 한국어 기술 설명이 없습니다."
+                          : activeGimmickSelection === "dynamax"
                           ? maxMoveDescription ??
                             dynamaxMoveDescription(
                               move,

@@ -63,7 +63,116 @@ test("creates a deterministic PvE scenario from a custom party and preset", () =
     dynamax: true,
     gmax: false,
     tera: "ground",
+    teraEligible: true,
   });
+  assert.equal(first.scenario.sides[1].bag[0].item, "cobblemon:full_restore");
+  assert.equal(first.scenario.sides[1].battleRules.maxItemUses, 99);
+});
+
+test("applies the RCT Tera target policy to the designated member", () => {
+  const result = createBattleScenario(
+    {
+      mode: "pve",
+      seed: 1234,
+      battleEngine: "cobbleverse",
+      sides: [
+        {
+          source: "custom",
+          team: [
+            {
+              species: "pikachu",
+              level: 50,
+              moves: ["thunderbolt"],
+            },
+          ],
+        },
+        { source: "preset", trainerId: "kanto_league_lance" },
+      ],
+    },
+    index.trainers,
+    itemResolver,
+  );
+
+  assert.equal(result.ok, true);
+  const opponent = result.scenario.sides[1];
+  assert.equal(opponent.ai.data.canTera, true);
+  assert.equal(opponent.ai.data.teraTarget, "dragonite");
+  assert.deepEqual(
+    opponent.team
+      .filter((member) => member.gimmicks.teraEligible)
+      .map((member) => member.species),
+    ["dragonite"],
+  );
+  assert.equal(
+    opponent.team.find((member) => member.species === "dragonite").gimmicks.tera,
+    "normal",
+  );
+});
+
+test("does not require the in-game canTera flag for virtual battles", () => {
+  const result = createBattleScenario(
+    {
+      mode: "pve",
+      seed: 1234,
+      battleEngine: "cobbleverse",
+      sides: [
+        {
+          source: "custom",
+          team: [
+            {
+              species: "pikachu",
+              level: 50,
+              moves: ["thunderbolt"],
+            },
+          ],
+        },
+        { source: "preset", trainerId: "hoenn_league_drake" },
+      ],
+    },
+    index.trainers,
+    itemResolver,
+  );
+
+  assert.equal(result.ok, true);
+  const calyrex = result.scenario.sides[1].team.find(
+    (member) => member.species === "calyrex",
+  );
+  assert.equal(calyrex.gimmicks.tera, "fairy");
+  assert.equal(calyrex.gimmicks.teraEligible, true);
+  assert.ok(
+    result.scenario.sides[1].team.every(
+      (member) => member.gimmicks.teraEligible === true,
+    ),
+  );
+});
+
+test("reads Cobblemon-style Tera Type properties into virtual scenarios", () => {
+  const result = createBattleScenario(
+    {
+      mode: "pve",
+      seed: 1234,
+      battleEngine: "cobbleverse",
+      sides: [
+        {
+          source: "custom",
+          team: [
+            {
+              species: "garchomp",
+              level: 50,
+              teraType: "Steel",
+              moves: ["earthquake"],
+            },
+          ],
+        },
+        { source: "preset", trainerId: "kanto_brock" },
+      ],
+    },
+    index.trainers,
+    itemResolver,
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.scenario.sides[0].team[0].gimmicks.tera, "steel");
 });
 
 test("applies a preset team order to the scenario and lead slot", () => {

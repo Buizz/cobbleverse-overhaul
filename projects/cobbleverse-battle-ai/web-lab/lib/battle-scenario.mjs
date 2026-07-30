@@ -45,11 +45,22 @@ function normalizeStats(value) {
   );
 }
 
+function normalizeBag(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => ({
+      item: cleanText(entry?.item),
+      quantity: Math.max(0, Math.floor(Number(entry?.quantity ?? 0))),
+    }))
+    .filter((entry) => entry.item && entry.quantity > 0);
+}
+
 function normalizeMember(raw, slot, itemResolver) {
   const normalizedItem = normalizeHeldItem(
     raw?.heldItemOptions?.length ? raw.heldItemOptions : raw?.heldItem,
     itemResolver,
   );
+  const teraType = explicitTeraType(raw).toLowerCase() || null;
   return {
     slot,
     species: cleanText(raw?.species),
@@ -65,9 +76,11 @@ function normalizeMember(raw, slot, itemResolver) {
             mega: raw.gimmicks.mega === true,
             dynamax: raw.gimmicks.dynamax === true,
             gmax: raw.gimmicks.gmax === true,
-            tera: cleanText(raw.gimmicks.tera).toLowerCase() || null,
+            tera: teraType,
           }
-        : {},
+        : teraType
+          ? { tera: teraType }
+          : {},
     level: Number(raw?.level),
     gender: cleanText(raw?.gender) || null,
     nature: cleanText(raw?.nature) || null,
@@ -115,6 +128,26 @@ function samePresetMember(left, right) {
   return !leftMoves || !rightMoves || leftMoves === rightMoves;
 }
 
+function applyVirtualTeraPolicy(team, ai) {
+  const data =
+    ai?.data && typeof ai.data === "object" && !Array.isArray(ai.data)
+      ? ai.data
+      : {};
+  const teraTarget = comparableId(data.teraTarget);
+
+  return team.map((member) => {
+    const targetMatches =
+      !teraTarget || memberSpeciesKeys(member).has(teraTarget);
+    return {
+      ...member,
+      gimmicks: {
+        ...member.gimmicks,
+        teraEligible: targetMatches,
+      },
+    };
+  });
+}
+
 function orderedPresetTeamFromScenarioTeam(rawTeam, sourceTeam) {
   if (!Array.isArray(rawTeam) || rawTeam.length === 0) return [];
   const usedIndexes = new Set();
@@ -158,9 +191,12 @@ function validateMember(member, path) {
 function normalizeCustomSide(raw, path, itemResolver) {
   const rawTeam = Array.isArray(raw?.team) ? raw.team : [];
   const populatedTeam = rawTeam.filter((member) => cleanText(member?.species));
-  const team = populatedTeam
-    .slice(0, 6)
-    .map((member, index) => normalizeMember(member, index + 1, itemResolver));
+  const team = applyVirtualTeraPolicy(
+    populatedTeam
+      .slice(0, 6)
+      .map((member, index) => normalizeMember(member, index + 1, itemResolver)),
+    raw?.ai,
+  );
   const issues = [];
 
   if (populatedTeam.length === 0) {
@@ -179,6 +215,17 @@ function normalizeCustomSide(raw, path, itemResolver) {
       source: "custom",
       trainerId: null,
       name: cleanText(raw?.name) || "Player",
+      battleRules:
+        raw?.battleRules &&
+        typeof raw.battleRules === "object" &&
+        !Array.isArray(raw.battleRules)
+          ? raw.battleRules
+          : {},
+      bag: normalizeBag(raw?.bag),
+      ai:
+        raw?.ai && typeof raw.ai === "object" && !Array.isArray(raw.ai)
+          ? raw.ai
+          : null,
       team,
     },
   };
@@ -227,9 +274,12 @@ function normalizePresetSide(raw, path, trainerById, itemResolver) {
           ...orderedByTeam,
           ...sourceTeam.filter((member) => !orderedByTeam.includes(member)),
         ];
-  const team = orderedTeam
+  const team = applyVirtualTeraPolicy(
+    orderedTeam
     .slice(0, 6)
-    .map((member, index) => normalizeMember(member, index + 1, itemResolver));
+      .map((member, index) => normalizeMember(member, index + 1, itemResolver)),
+    trainer.ai,
+  );
   const issues = [];
   team.forEach((member, index) => {
     issues.push(...validateMember(member, `${path}.team.${index}`));
@@ -241,6 +291,17 @@ function normalizePresetSide(raw, path, trainerById, itemResolver) {
       source: "preset",
       trainerId: trainer.id,
       name: trainer.name,
+      battleRules:
+        trainer.battleRules &&
+        typeof trainer.battleRules === "object" &&
+        !Array.isArray(trainer.battleRules)
+          ? trainer.battleRules
+          : {},
+      bag: normalizeBag(trainer.bag),
+      ai:
+        trainer.ai && typeof trainer.ai === "object" && !Array.isArray(trainer.ai)
+          ? trainer.ai
+          : null,
       team,
     },
   };
@@ -472,3 +533,4 @@ export function createBattleScenario(raw, trainers, itemResolver = null) {
 }
 import { normalizeHeldItem } from "./cobblemon-item-catalog.mjs";
 import { battleFormat } from "./battle-formats.mjs";
+import { explicitTeraType } from "./virtual-tera-policy.mjs";

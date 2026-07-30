@@ -8,6 +8,10 @@ import {
   showdownControllerId,
 } from "./showdown-player-ai.mjs";
 import { resolveShowdownMemberSpecies } from "./showdown-species.mjs";
+import {
+  explicitTeraType,
+  seededNativeTeraType,
+} from "./virtual-tera-policy.mjs";
 
 const ENGINE_ID = "pokemon-showdown";
 const ENGINE_VERSION = "0.10.11";
@@ -79,7 +83,7 @@ function toStats(raw, fallback) {
   );
 }
 
-function convertMember(member, path, warnings) {
+function convertMember(member, path, warnings, teraContext = {}) {
   const resolvedSpecies = resolveShowdownMemberSpecies(member);
   const species = Dex.species.get(resolvedSpecies.showdownName ?? member.species);
   if (!species.exists) {
@@ -151,8 +155,21 @@ function convertMember(member, path, warnings) {
       : member.gender === "FEMALE" || member.gender === "F"
         ? "F"
         : "";
+  const requiredTeraType =
+    species.baseSpecies === "Terapagos"
+      ? "Stellar"
+      : species.baseSpecies === "Ogerpon"
+        ? species.requiredTeraType ?? species.types.at(-1)
+        : "";
   const requestedTeraType = Dex.types.get(
-    member.gimmicks?.tera || species.types[0],
+    requiredTeraType ||
+      explicitTeraType(member) ||
+      seededNativeTeraType(
+        species.types,
+        teraContext.seed,
+        teraContext.sideIndex,
+        teraContext.memberIndex,
+      ),
   );
 
   return {
@@ -178,7 +195,16 @@ export function convertScenarioTeams(scenario) {
   const warnings = [];
   const teams = scenario.sides.map((side, sideIndex) =>
     side.team.map((member, memberIndex) =>
-      convertMember(member, `sides.${sideIndex}.team.${memberIndex}`, warnings),
+      convertMember(
+        member,
+        `sides.${sideIndex}.team.${memberIndex}`,
+        warnings,
+        {
+          seed: scenario.seed,
+          sideIndex,
+          memberIndex,
+        },
+      ),
     ),
   );
   return {

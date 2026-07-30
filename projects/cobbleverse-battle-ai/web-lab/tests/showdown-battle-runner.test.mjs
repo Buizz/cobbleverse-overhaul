@@ -59,6 +59,22 @@ test("converts scenario teams to packed Showdown teams", () => {
   assert.deepEqual(result.warnings, []);
 });
 
+test("uses the same seeded original Tera Type for virtual Showdown teams", () => {
+  const altered = structuredClone(scenario);
+  altered.seed = 1;
+  altered.sides[0].team[0] = {
+    ...altered.sides[0].team[0],
+    species: "garchomp",
+    moveset: ["earthquake"],
+  };
+  const first = convertScenarioTeams(altered);
+  const repeated = convertScenarioTeams(altered);
+  const nextSeed = convertScenarioTeams({ ...altered, seed: 2 });
+
+  assert.equal(first.packedTeams[0], repeated.packedTeams[0]);
+  assert.notEqual(first.packedTeams[0], nextSeed.packedTeams[0]);
+});
+
 test("recognizes the rapid-strike Urshifu form used by the official entry", () => {
   const altered = structuredClone(scenario);
   altered.sides[0].team[0] = {

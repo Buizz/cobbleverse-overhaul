@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   calculateMovePreview,
+  canPokemonUseTerastallization,
   chooseSimpleAiDecision,
   createSimpleAiDecisionTrace,
   createSimpleBattle,
@@ -261,20 +262,45 @@ function snapshot(session) {
     cleanId(megaStone?.item) === cleanId(player.item) &&
     (!megaStone?.evolves || playerSpeciesIds.has(cleanId(megaStone.evolves)));
   const zCrystal = player.gimmicks?.zCrystal;
+  const equippedZCrystal =
+    zCrystal && cleanId(zCrystal.item) === cleanId(player.item)
+      ? zCrystal
+      : null;
+  const zCrystalUserCompatible =
+    !equippedZCrystal?.users?.length ||
+    equippedZCrystal.users.some((species) => playerSpeciesIds.has(cleanId(species)));
   const zMoves = player.moves.map((move) => {
     if (
       move.category === "Status" ||
-      zCrystal?.item !== player.item ||
-      (zCrystal.moveType && zCrystal.moveType !== move.type.toLowerCase()) ||
-      (zCrystal.moveFrom && zCrystal.moveFrom !== move.id)
+      !equippedZCrystal ||
+      !zCrystalUserCompatible ||
+      (equippedZCrystal.moveType &&
+        cleanId(equippedZCrystal.moveType) !== cleanId(move.type)) ||
+      (equippedZCrystal.moveFrom &&
+        cleanId(equippedZCrystal.moveFrom) !== cleanId(move.id))
     ) {
       return null;
     }
     return {
-      move: zCrystal.move || `Z-${move.name}`,
+      move: equippedZCrystal.move || `Z-${move.name}`,
       target: "normal",
     };
   });
+  const zMoveReason = (() => {
+    if (!equippedZCrystal) {
+      return "현재 포켓몬이 Z크리스탈을 지니고 있지 않습니다.";
+    }
+    if (!zCrystalUserCompatible) {
+      return `${equippedZCrystal.itemName || "이 Z크리스탈"}은(는) 현재 포켓몬이 사용할 수 없습니다.`;
+    }
+    if (equippedZCrystal.moveFrom) {
+      return `${equippedZCrystal.itemName || "전용 Z크리스탈"}을 사용하려면 ${equippedZCrystal.moveFrom} 기술이 필요합니다.`;
+    }
+    if (equippedZCrystal.moveType) {
+      return `${equippedZCrystal.itemName || "Z크리스탈"}과 같은 타입의 공격 기술이 필요합니다.`;
+    }
+    return "현재 기술 구성으로 사용할 수 있는 Z기술이 없습니다.";
+  })();
   // Cobblemon의 플레이어는 엔트리 플래그와 무관하게 전투당 한 번
   // 다이맥스를 직접 선택할 수 있다. 거다이맥스 버튼은 엔트리 설정이
   // 아니라 실제 종이 거다이맥스 가능한지로 판정한다.
@@ -283,6 +309,11 @@ function snapshot(session) {
     player.gimmicks?.canGigantamax === true || isNativeGigantamaxSpecies(player);
   const canGigantamax = canDynamax && gigantamax;
   const configuredTeraType = player.configuredTeraType || "";
+  const canUseTerastallization = canPokemonUseTerastallization(
+    state,
+    0,
+    player,
+  );
 
   return {
     sessionId: session.id,
@@ -337,6 +368,8 @@ function snapshot(session) {
               requiresReplacement || playerHasGimmickForm || usedGimmicks.zmove
                 ? []
                 : zMoves,
+            zCrystalName: equippedZCrystal?.itemName ?? "",
+            zMoveReason,
             canDynamax:
               !requiresReplacement &&
               !usedGimmicks.dynamax &&
@@ -369,6 +402,7 @@ function snapshot(session) {
               playerDynamaxed ||
               player.megaEvolved === true ||
               usedGimmicks.terastallize ||
+              !canUseTerastallization ||
               !configuredTeraType
               ? ""
               : configuredTeraType,

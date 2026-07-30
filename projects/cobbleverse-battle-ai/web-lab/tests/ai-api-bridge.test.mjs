@@ -14,8 +14,13 @@ import {
 } from "../lib/ai-api-bridge/observation-adapter.mjs";
 import {
   analyzeTeamProfile,
+  buildThreatCounterMap,
   createAiMoveTrace,
   createAiSwitchTrace,
+  evaluateBattleStateValue,
+  evaluateOneTurnBattleState,
+  evaluatePokemonRoleProgress,
+  evaluateSetupThreat,
   scoreAiDynamaxCandidate,
   scoreAiSwitchCandidate,
   moveRoleValue,
@@ -149,6 +154,506 @@ test("honors manually selected ace roles before inferred ace scoring", () => {
   assert.equal(report.aceCandidates[0].species, "Porygon2");
   assert.equal(report.aceCandidates[0].aceProfile.manual.forced, true);
   assert.ok(report.aceCandidates[0].roles.some((role) => role.role === "ace"));
+});
+
+test("maps high threats to counters and marks a unique resource for preservation", () => {
+  const allies = [
+    {
+      slot: 1,
+      species: "Unique Wall",
+      hp: 200,
+      maxHp: 200,
+      stats: { hp: 200, defense: 150 },
+      moves: ["Recover", "Body Press"],
+    },
+    {
+      slot: 2,
+      species: "Fragile Attacker",
+      hp: 150,
+      maxHp: 150,
+      stats: { hp: 150, attack: 130 },
+      moves: ["Tackle"],
+    },
+  ];
+  const enemies = [
+    {
+      slot: 1,
+      species: "Enemy Ace",
+      aiRole: "ace",
+      hp: 250,
+      maxHp: 250,
+      stats: { hp: 250, attack: 150, speed: 110 },
+      moves: ["Swords Dance", "Close Combat"],
+    },
+  ];
+  const report = buildThreatCounterMap({
+    allies,
+    enemies,
+    evaluateMatchup: ({ allyIndex }) =>
+      allyIndex === 0
+        ? {
+            incomingDamageRatio: 0.25,
+            outgoingDamageRatio: 0.7,
+            actsBefore: false,
+          }
+        : {
+            incomingDamageRatio: 1.1,
+            outgoingDamageRatio: 0.4,
+            actsBefore: false,
+          },
+  });
+
+  assert.equal(report.threats[0].threatLevel, "critical");
+  assert.deepEqual(
+    report.threats[0].counters.map((entry) => entry.species),
+    ["Unique Wall"],
+  );
+  assert.equal(report.mustPreserveResources.length, 1);
+  assert.equal(report.mustPreserveResources[0].species, "Unique Wall");
+  assert.equal(
+    report.mustPreserveResources[0].threats[0].species,
+    "Enemy Ace",
+  );
+});
+
+test("does not mark either counter as unique when multiple answers remain", () => {
+  const allies = [
+    { slot: 1, species: "Counter A", hp: 100, maxHp: 100 },
+    { slot: 2, species: "Counter B", hp: 100, maxHp: 100 },
+  ];
+  const enemies = [
+    {
+      slot: 1,
+      species: "Enemy Ace",
+      aiRole: "ace",
+      hp: 100,
+      maxHp: 100,
+      stats: { attack: 150, speed: 120 },
+      moves: ["Swords Dance"],
+    },
+  ];
+  const report = buildThreatCounterMap({
+    allies,
+    enemies,
+    evaluateMatchup: () => ({
+      incomingDamageRatio: 0.3,
+      outgoingDamageRatio: 0.7,
+    }),
+  });
+
+  assert.equal(report.threats[0].counters.length, 2);
+  assert.equal(report.mustPreserveResources.length, 0);
+});
+
+test("penalizes exposing a unique future counter and reports the reason", () => {
+  const ordinarySwitch = {
+    slot: 2,
+    name: "Ordinary switch",
+    hpPercent: 0.7,
+    expectedDamage: 40,
+    matchupValue: 30,
+    switchInDamageRatio: 0.5,
+    canReachNextAction: true,
+  };
+  const uniqueCounter = {
+    ...ordinarySwitch,
+    name: "Unique future counter",
+    mustPreserveResource: true,
+    mustPreserveFor: ["Enemy Ace"],
+    preservationTargetIsCurrent: false,
+  };
+
+  assert.ok(
+    scoreAiSwitchCandidate(uniqueCounter, "expert", "balanced") <
+      scoreAiSwitchCandidate(ordinarySwitch, "expert", "balanced") - 60,
+  );
+  const trace = createAiSwitchTrace({
+    turn: 3,
+    side: 0,
+    sideName: "AI",
+    species: "Lead",
+    selected: ordinarySwitch,
+    candidates: [ordinarySwitch, uniqueCounter],
+  });
+  const preserved = trace.candidates.find(
+    (candidate) => candidate.name === "Unique future counter",
+  );
+  assert.ok(
+    preserved.reasons.some(
+      (reason) => reason.code === "rule.switch.unique_counter_preservation",
+    ),
+  );
+});
+
+test("rewards deploying the unique counter into its assigned threat", () => {
+  const baseline = {
+    slot: 2,
+    name: "Assigned counter",
+    hpPercent: 0.8,
+    expectedDamage: 45,
+    matchupValue: 35,
+    switchInDamageRatio: 0.15,
+    canReachNextAction: true,
+  };
+  const assignedCounter = {
+    ...baseline,
+    mustPreserveResource: true,
+    mustPreserveFor: ["Enemy Ace"],
+    preservationTargetIsCurrent: true,
+    currentThreatClassification: "counter",
+  };
+
+  assert.equal(
+    scoreAiSwitchCandidate(assignedCounter, "expert", "balanced"),
+    scoreAiSwitchCandidate(baseline, "expert", "balanced") + 18,
+  );
+});
+
+test("tracks hazard setter role completion from live side conditions", () => {
+  const member = {
+    slot: 1,
+    species: "Hazard Lead",
+    moves: ["Stealth Rock", "Explosion"],
+  };
+  const roleProfile = analyzeTeamProfile([member]).roles[0];
+  const before = evaluatePokemonRoleProgress({
+    member,
+    roleProfile,
+    opponentLivingCount: 3,
+    opponentSideConditions: {},
+  });
+  const after = evaluatePokemonRoleProgress({
+    member,
+    roleProfile,
+    opponentLivingCount: 3,
+    opponentSideConditions: { stealthrock: { layers: 1 } },
+  });
+  const preservedAfter = evaluatePokemonRoleProgress({
+    member,
+    roleProfile,
+    opponentLivingCount: 3,
+    opponentSideConditions: { stealthrock: { layers: 1 } },
+    mustPreserveResource: true,
+  });
+
+  assert.equal(before.roleComplete, false);
+  assert.ok(before.remainingRoles.includes("hazardControl"));
+  assert.equal(after.roleComplete, true);
+  assert.equal(after.expendableResource, true);
+  assert.ok(after.completedRoles.includes("hazardControl"));
+  assert.equal(preservedAfter.roleComplete, true);
+  assert.equal(preservedAfter.expendableResource, false);
+  assert.ok(after.reasons.some((reason) => reason.includes("설치 임무 완료")));
+});
+
+test("keeps hazard removal and assigned counter roles unfinished", () => {
+  const remover = {
+    slot: 1,
+    species: "Field Cleaner",
+    moves: ["Defog"],
+  };
+  const roleProfile = analyzeTeamProfile([remover]).roles[0];
+  const hazardsRemain = evaluatePokemonRoleProgress({
+    member: remover,
+    roleProfile,
+    ownSideConditions: { spikes: { layers: 2 } },
+    opponentLivingCount: 3,
+    activeTurns: 1,
+  });
+  const setterRemains = evaluatePokemonRoleProgress({
+    member: remover,
+    roleProfile,
+    ownSideConditions: {},
+    opponentLivingCount: 3,
+    opponentHazardSetterAlive: true,
+    activeTurns: 1,
+  });
+  const assignedCounter = evaluatePokemonRoleProgress({
+    member: remover,
+    roleProfile,
+    ownSideConditions: {},
+    opponentLivingCount: 3,
+    assignedThreats: ["Enemy Ace"],
+    highThreatCount: 1,
+    mustPreserveResource: true,
+    activeTurns: 1,
+  });
+
+  assert.equal(hazardsRemain.roleComplete, false);
+  assert.equal(setterRemains.roleComplete, false);
+  assert.equal(assignedCounter.expendableResource, false);
+  assert.ok(
+    assignedCounter.reasons.some((reason) =>
+      reason.includes("담당 위협 생존"),
+    ),
+  );
+});
+
+test("evaluates a normalized battle state from HP, aces, counters, and field resources", () => {
+  const favorable = evaluateBattleStateValue({
+    own: {
+      teamSize: 3,
+      livingCount: 3,
+      totalHpRatio: 2.4,
+      aceAliveCount: 1,
+      aceHpRatio: 0.9,
+      positiveBoosts: 2,
+      statusBurden: 0,
+      hazardLayers: 0,
+      uniqueCountersAlive: 1,
+      gimmicksRemaining: 2,
+    },
+    opponent: {
+      teamSize: 3,
+      livingCount: 2,
+      totalHpRatio: 1.2,
+      aceAliveCount: 1,
+      aceHpRatio: 0.3,
+      positiveBoosts: 0,
+      statusBurden: 1,
+      hazardLayers: 1,
+      gimmicksRemaining: 1,
+    },
+    fieldAdvantage: 4,
+  });
+  const unfavorable = evaluateBattleStateValue({
+    own: favorable.state.opponent,
+    opponent: favorable.state.own,
+    fieldAdvantage: -4,
+  });
+
+  assert.ok(favorable.value > 0);
+  assert.ok(favorable.value > unfavorable.value);
+  assert.ok(favorable.components.uniqueCounters > 0);
+});
+
+test("projects one-turn state value and charges recoil or sacrifice against a KO", () => {
+  const state = {
+    own: {
+      teamSize: 2,
+      livingCount: 2,
+      totalHpRatio: 2,
+      aceAliveCount: 1,
+      aceHpRatio: 1,
+      positiveBoosts: 0,
+      statusBurden: 0,
+      hazardLayers: 0,
+      uniqueCountersAlive: 1,
+      gimmicksRemaining: 1,
+    },
+    opponent: {
+      teamSize: 2,
+      livingCount: 2,
+      totalHpRatio: 2,
+      aceAliveCount: 1,
+      aceHpRatio: 1,
+      positiveBoosts: 0,
+      statusBurden: 0,
+      hazardLayers: 0,
+      gimmicksRemaining: 1,
+    },
+  };
+  const cleanKo = evaluateOneTurnBattleState(state, {
+    opponent: {
+      livingCount: -1,
+      totalHpRatio: -1,
+      aceAliveCount: -1,
+      aceHpRatio: -1,
+    },
+  });
+  const tradedKo = evaluateOneTurnBattleState(state, {
+    own: {
+      livingCount: -1,
+      totalHpRatio: -1,
+      aceAliveCount: -1,
+      aceHpRatio: -1,
+      uniqueCountersAlive: -1,
+    },
+    opponent: {
+      livingCount: -1,
+      totalHpRatio: -1,
+      aceAliveCount: -1,
+      aceHpRatio: -1,
+    },
+  });
+
+  assert.ok(cleanKo.delta > 0);
+  assert.ok(cleanKo.delta > tradedKo.delta);
+  assert.ok(cleanKo.reasons.some((reason) => reason.component === "pokemonCount"));
+});
+
+test("evaluates setup sweep risk from boosts and remaining answers", () => {
+  const exposed = evaluateSetupThreat({
+    setupMoves: [
+      {
+        id: "dragondance",
+        selfBoosts: { attack: 1, speed: 1 },
+      },
+    ],
+    setupLikelihood: 0.9,
+    opponentRoleScore: 8,
+    opponentAce: true,
+    opponentHpPercent: 1,
+    immediateDamageRatio: 0.15,
+    counters: [],
+    softChecks: [],
+    revengeKillers: [],
+    punishOptions: ["Taunt"],
+  });
+  const answered = evaluateSetupThreat({
+    setupMoves: [
+      {
+        id: "dragondance",
+        selfBoosts: { attack: 1, speed: 1 },
+      },
+    ],
+    setupLikelihood: 0.9,
+    opponentRoleScore: 8,
+    opponentAce: true,
+    opponentHpPercent: 1,
+    immediateDamageRatio: 1,
+    counters: [{ slot: 2 }, { slot: 3 }],
+    softChecks: [{ slot: 4 }],
+    revengeKillers: [{ slot: 5 }],
+    punishOptions: ["Taunt", "Ice Shard"],
+  });
+
+  assert.equal(exposed.opponentCanSetup, true);
+  assert.equal(exposed.riskTier, 3);
+  assert.equal(exposed.oneMoreTurnUnmanageable, true);
+  assert.ok(exposed.freeTurnPenalty > 100);
+  assert.deepEqual(exposed.punishOptions, ["taunt"]);
+  assert.ok(
+    answered.sweepRiskAfterSetup < exposed.sweepRiskAfterSetup,
+  );
+  assert.ok(
+    answered.availableAnswersAfterSetup.estimatedTotal >= 2,
+  );
+});
+
+test("penalizes free setup turns but preserves direct setup answers", () => {
+  const setupThreatEvaluation = evaluateSetupThreat({
+    setupMoves: [
+      {
+        id: "swordsdance",
+        selfBoosts: { attack: 2 },
+      },
+    ],
+    setupLikelihood: 0.9,
+    opponentRoleScore: 9,
+    opponentAce: true,
+    opponentHpPercent: 1,
+    immediateDamageRatio: 0.1,
+  });
+  const stealthRock = {
+    slot: 1,
+    id: "stealthrock",
+    name: "Stealth Rock",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 20,
+    livingOpponents: 5,
+    opponentHp: 300,
+    setupThreatEvaluation,
+    opponentSetupMoveCount: 1,
+    opponentSetupFirstTurnLikelihood: 0.9,
+    opponentLikelyFirstTurnSetup: true,
+    opponentSetupThreatTier: setupThreatEvaluation.riskTier,
+  };
+  const taunt = {
+    ...stealthRock,
+    slot: 2,
+    id: "taunt",
+    name: "Taunt",
+  };
+  const safeStealthRock = {
+    ...stealthRock,
+    setupThreatEvaluation: evaluateSetupThreat(),
+    opponentSetupMoveCount: 0,
+    opponentSetupFirstTurnLikelihood: 0,
+    opponentLikelyFirstTurnSetup: false,
+    opponentSetupThreatTier: 0,
+  };
+
+  assert.ok(
+    scoreAiMoveCandidate(stealthRock, "expert", "balanced") <
+      scoreAiMoveCandidate(safeStealthRock, "expert", "balanced") - 80,
+  );
+  assert.ok(
+    scoreAiMoveCandidate(taunt, "expert", "balanced") >
+      scoreAiMoveCandidate(stealthRock, "expert", "balanced"),
+  );
+  const trace = createAiMoveTrace({
+    turn: 2,
+    side: 0,
+    sideName: "AI",
+    species: "Hazard Lead",
+    selected: taunt,
+    candidates: [stealthRock, taunt],
+  });
+  const riskyHazard = trace.candidates.find(
+    (candidate) => candidate.id === "stealthrock",
+  );
+  assert.ok(
+    riskyHazard.reasons.some(
+      (reason) => reason.code === "rule.setup_threat.free_hazard_turn",
+    ),
+  );
+});
+
+test("penalizes switches that give a setup threat a free turn", () => {
+  const setupThreatEvaluation = evaluateSetupThreat({
+    setupMoves: [
+      {
+        id: "nastyplot",
+        selfBoosts: { specialAttack: 2 },
+      },
+    ],
+    setupLikelihood: 0.85,
+    opponentRoleScore: 9,
+    opponentAce: true,
+    opponentHpPercent: 0.9,
+    immediateDamageRatio: 0.15,
+  });
+  const passiveSwitch = {
+    slot: 2,
+    name: "Passive Switch",
+    hpPercent: 0.9,
+    expectedDamage: 20,
+    matchupValue: 20,
+    switchInDamageRatio: 0.15,
+    targetOutgoingDamageRatio: 0.2,
+    canReachNextAction: true,
+    setupThreatEvaluation,
+  };
+  const counterSwitch = {
+    ...passiveSwitch,
+    slot: 3,
+    name: "Counter Switch",
+    currentThreatClassification: "counter",
+  };
+
+  assert.ok(
+    scoreAiSwitchCandidate(counterSwitch, "expert", "balanced") >
+      scoreAiSwitchCandidate(passiveSwitch, "expert", "balanced") + 80,
+  );
+  const trace = createAiSwitchTrace({
+    turn: 3,
+    side: 0,
+    sideName: "AI",
+    species: "Support",
+    selected: counterSwitch,
+    candidates: [passiveSwitch, counterSwitch],
+  });
+  const passive = trace.candidates.find(
+    (candidate) => candidate.name === "Passive Switch",
+  );
+  assert.ok(
+    passive.reasons.some(
+      (reason) => reason.code === "rule.switch.free_setup_turn",
+    ),
+  );
 });
 
 test("analyzes team roles from scenario moveset fields", () => {
@@ -1052,6 +1557,16 @@ test("penalizes self-sacrifice moves unless damage and expendable role justify t
     activeRoleScore: 0,
     koChance: "guaranteed",
   };
+  const unfinishedHazardExplosion = {
+    ...explosionFromAce,
+    activeRoleScore: 7,
+  };
+  const completedHazardExplosion = {
+    ...unfinishedHazardExplosion,
+    roleComplete: true,
+    expendableResource: true,
+    completedRoles: ["hazardControl", "lead"],
+  };
 
   assert.ok(
     scoreAiMoveCandidate(bodySlam, "expert", "balanced") >
@@ -1060,6 +1575,10 @@ test("penalizes self-sacrifice moves unless damage and expendable role justify t
   assert.ok(
     scoreAiMoveCandidate(finishingExplosion, "expert", "balanced") >
       scoreAiMoveCandidate(bodySlam, "expert", "balanced"),
+  );
+  assert.equal(
+    scoreAiMoveCandidate(completedHazardExplosion, "expert", "balanced"),
+    scoreAiMoveCandidate(unfinishedHazardExplosion, "expert", "balanced") + 70,
   );
 
   const trace = createAiMoveTrace({
@@ -1077,6 +1596,65 @@ test("penalizes self-sacrifice moves unless damage and expendable role justify t
     explosion.reasons.some(
       (reason) => reason.code === "rule.self_sacrifice.resource_cost",
     ),
+  );
+});
+
+test("strongly rejects self-sacrifice from a unique counter resource", () => {
+  const ordinaryExplosion = {
+    slot: 1,
+    id: "explosion",
+    name: "Explosion",
+    category: "Physical",
+    power: 250,
+    accuracy: 100,
+    expectedDamage: 200,
+    opponentHp: 220,
+    koChance: "possible",
+    activeRoleScore: 3,
+    expendableResource: true,
+  };
+  const preservedExplosion = {
+    ...ordinaryExplosion,
+    mustPreserveResource: true,
+    mustPreserveFor: ["Enemy Ace"],
+  };
+
+  assert.ok(
+    scoreAiMoveCandidate(
+      preservedExplosion,
+      "expert",
+      "balanced",
+    ) <
+      scoreAiMoveCandidate(
+        ordinaryExplosion,
+        "expert",
+        "balanced",
+      ) -
+        170,
+  );
+  const trace = createAiMoveTrace({
+    turn: 5,
+    side: 0,
+    sideName: "AI",
+    species: "Unique Counter",
+    selected: ordinaryExplosion,
+    candidates: [ordinaryExplosion, preservedExplosion],
+    difficulty: "expert",
+    strategy: "balanced",
+  });
+  const preserved = trace.candidates.find(
+    (candidate) => candidate.mustPreserveResource === true,
+  );
+  assert.ok(
+    preserved.reasons.some(
+      (reason) => reason.code === "rule.self_sacrifice.resource_cost",
+    ),
+  );
+  assert.match(
+    preserved.reasons.find(
+      (reason) => reason.code === "rule.self_sacrifice.resource_cost",
+    ).message,
+    /유일한 대응 자원/,
   );
 });
 
