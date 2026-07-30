@@ -10142,25 +10142,171 @@ select:disabled {
   display: block;
   height: 100%;
   background: #aef13b;
-  transition: width 220ms ease;
+  transition: width 90ms ease-out;
 }
 
 .eve-replay-combatant.side-b > article i b {
   background: #ff596d;
 }
 
-.eve-replay-combatant > img {
+.eve-replay-pokemon {
+  position: relative;
   z-index: 2;
   width: min(250px, 100%);
   height: 240px;
   justify-self: center;
+  transform-origin: 50% 92%;
+}
+
+.eve-replay-pokemon > img {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 16px 9px rgba(6, 24, 37, 0.3));
 }
 
-.eve-replay-combatant.side-b > img {
+.eve-replay-combatant.side-b > .eve-replay-pokemon {
   grid-column: 1;
   grid-row: 1;
+}
+
+.eve-replay-pokemon::after {
+  position: absolute;
+  right: 13%;
+  bottom: 4%;
+  left: 13%;
+  z-index: -1;
+  height: 12%;
+  border-radius: 50%;
+  background: rgba(7, 24, 35, 0.34);
+  filter: blur(5px);
+  content: "";
+  pointer-events: none;
+}
+
+.eve-replay-pokemon.is-fainting {
+  animation: eve-pokemon-sink 520ms cubic-bezier(0.55, 0, 0.85, 0.36) both;
+}
+
+.eve-replay-pokemon.is-fainting::after {
+  animation: eve-pokemon-sink-shadow 520ms ease-in both;
+}
+
+.eve-replay-pokemon.is-entering > img {
+  animation: eve-pokemon-enter 560ms cubic-bezier(0.2, 0.76, 0.26, 1) both;
+}
+
+.eve-replay-pokemon.is-entering::before {
+  position: absolute;
+  inset: 12% 4% 2%;
+  z-index: 3;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.98) 0,
+    rgba(201, 249, 255, 0.72) 24%,
+    rgba(85, 229, 223, 0) 70%
+  );
+  content: "";
+  pointer-events: none;
+  animation: eve-pokemon-entry-flash 560ms ease-out both;
+}
+
+@keyframes eve-pokemon-sink {
+  0% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+  45% {
+    clip-path: inset(0 0 18% 0);
+    opacity: 1;
+    transform: translateY(7%) scaleX(0.98) scaleY(0.94);
+    filter: brightness(0.82) saturate(0.72);
+  }
+  82% {
+    clip-path: inset(0 0 72% 0);
+    opacity: 0.75;
+    transform: translateY(17%) scaleX(0.9) scaleY(0.72);
+    filter: brightness(0.48) saturate(0.3);
+  }
+  100% {
+    clip-path: inset(0 0 96% 0);
+    opacity: 0;
+    transform: translateY(22%) scaleX(0.82) scaleY(0.52);
+    filter: brightness(0.25) saturate(0);
+  }
+}
+
+@keyframes eve-pokemon-sink-shadow {
+  0% {
+    opacity: 0.65;
+    transform: scaleX(1);
+  }
+  70% {
+    opacity: 0.85;
+    transform: scaleX(0.72);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(0.18);
+  }
+}
+
+@keyframes eve-pokemon-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(12%) scale(0.62);
+    filter: brightness(0) invert(1) drop-shadow(0 0 22px #fff);
+  }
+  24% {
+    opacity: 1;
+    transform: translateY(2%) scale(0.88);
+    filter: brightness(0) invert(1) drop-shadow(0 0 28px #fff);
+  }
+  58% {
+    transform: translateY(-2%) scale(1.04);
+    filter: brightness(2.2) saturate(0.25)
+      drop-shadow(0 0 17px rgba(225, 255, 255, 0.9));
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 16px 9px rgba(6, 24, 37, 0.3));
+  }
+}
+
+@keyframes eve-pokemon-entry-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.25);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(0.78);
+  }
+  58% {
+    opacity: 0.58;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.38);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eve-replay-combatant > article i b {
+    transition: none;
+  }
+
+  .eve-replay-pokemon.is-fainting,
+  .eve-replay-pokemon.is-fainting::after,
+  .eve-replay-pokemon.is-entering > img,
+  .eve-replay-pokemon.is-entering::before {
+    animation-duration: 1ms;
+  }
 }
 
 .eve-replay-turn {

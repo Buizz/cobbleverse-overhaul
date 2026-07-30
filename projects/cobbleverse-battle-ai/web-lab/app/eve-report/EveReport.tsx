@@ -838,6 +838,16 @@ function eventSideIndex(event: BattleEvent) {
   return -1;
 }
 
+function replayPokemonTransition(
+  event: BattleEvent | null,
+  sideIndex: number,
+) {
+  if (!event || eventSideIndex(event) !== sideIndex) return "";
+  if (event.type === "switch") return "entering";
+  if (event.type === "faint") return "fainting";
+  return "";
+}
+
 function conditionNumbers(condition: string | undefined) {
   const token = String(condition ?? "").split(" ")[0];
   if (!token) return null;
@@ -940,10 +950,12 @@ function replaySideState(
   };
 }
 
-function replayDelay(speed: EveReplaySpeed) {
-  if (speed === "slow") return 800;
-  if (speed === "fast") return 180;
-  return 420;
+function replayDelay(speed: EveReplaySpeed, event: BattleEvent | null) {
+  const baseDelay = speed === "slow" ? 800 : speed === "fast" ? 180 : 420;
+  if (event?.type === "faint" || event?.type === "switch") {
+    return Math.max(baseDelay, 600);
+  }
+  return baseDelay;
 }
 
 function replayCandidateName(
@@ -1127,6 +1139,24 @@ function EveBattleReplay({
   );
 
   useEffect(() => {
+    const species = new Set(
+      report.scenario.sides.flatMap((side) =>
+        side.team.slice(0, 6).map((pokemon) => pokemon.species),
+      ),
+    );
+    for (const event of replayEvents) {
+      if (event.type === "switch" || event.type === "mega_evolution") {
+        const name = actorName(event.actor);
+        if (name) species.add(name);
+      }
+    }
+    for (const name of species) {
+      const image = new Image();
+      image.src = `/api/pokemon-sprites?species=${encodeURIComponent(name)}&remote=1`;
+    }
+  }, [replayEvents, report]);
+
+  useEffect(() => {
     if (!playing) return;
     if (cursor >= replayEvents.length - 1) return;
     const timer = window.setTimeout(
@@ -1137,10 +1167,10 @@ function EveBattleReplay({
           return next;
         });
       },
-      replayDelay(speed),
+      replayDelay(speed, currentEvent),
     );
     return () => window.clearTimeout(timer);
-  }, [cursor, playing, replayEvents.length, speed]);
+  }, [cursor, currentEvent, playing, replayEvents.length, speed]);
 
   useEffect(() => {
     if (!soundSettings.sfxEnabled || !currentEvent) return;
@@ -1212,10 +1242,23 @@ function EveBattleReplay({
               </i>
             </article>
             {state.pokemon ? (
-              <ReportPokemonSprite
-                species={state.displaySpecies}
-                label={localSpecies(localization, state.displaySpecies)}
-              />
+              <div
+                className={`eve-replay-pokemon ${
+                  replayPokemonTransition(currentEvent, sideIndex)
+                    ? `is-${replayPokemonTransition(currentEvent, sideIndex)}`
+                    : ""
+                }`}
+                key={`${sideIndex}-${state.displaySpecies}-${
+                  replayPokemonTransition(currentEvent, sideIndex)
+                    ? cursor
+                    : "steady"
+                }`}
+              >
+                <ReportPokemonSprite
+                  species={state.displaySpecies}
+                  label={localSpecies(localization, state.displaySpecies)}
+                />
+              </div>
             ) : null}
           </div>
         ))}
