@@ -6574,7 +6574,11 @@ export function BattleLab() {
             if (event.type === "switch") {
               setHpPreview((current) => {
                 const next = { ...current };
-                delete next[side];
+                if (event.condition) {
+                  next[side] = event.condition;
+                } else {
+                  delete next[side];
+                }
                 return next;
               });
             } else if (
