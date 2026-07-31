@@ -461,15 +461,18 @@ function compactTeamLine(
 function ReportPokemonSprite({
   species,
   label,
+  className,
 }: {
   species: string;
   label: string;
+  className?: string;
 }) {
   const remoteUrl = `/api/pokemon-sprites?species=${encodeURIComponent(species)}&remote=1`;
   const [failed, setFailed] = useState(false);
   return (
     <img
       alt={label}
+      className={className}
       src={
         failed
           ? `/api/pokemon-sprites?species=${encodeURIComponent(species)}&fallback=1`
@@ -1339,6 +1342,13 @@ function EveBattleReplay({
                   species={state.displaySpecies}
                   label={localSpecies(localization, state.displaySpecies)}
                 />
+                {state.teraType ? (
+                  <ReportPokemonSprite
+                    species={state.displaySpecies}
+                    label=""
+                    className="tera-sprite-sheen"
+                  />
+                ) : null}
               </div>
             ) : null}
             </div>

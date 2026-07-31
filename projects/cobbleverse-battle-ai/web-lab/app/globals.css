@@ -3121,49 +3121,124 @@ button {
 .terastallized {
   --tera-rgb: 118, 255, 224;
   --tera-hue: 0deg;
+  --tera-sepia: 0.88;
+  --tera-saturation: 4.8;
+  --tera-sheen-saturation: 6;
+  --tera-brightness: 1.08;
 }
 
 .terastallized:not(.dynamaxed) > .battle-gimmick-aura {
-  background: radial-gradient(
-    ellipse at 50% 62%,
-    rgba(255, 255, 255, 0.65) 0 5%,
-    rgba(var(--tera-rgb), 0.48) 24%,
-    rgba(var(--tera-rgb), 0.2) 48%,
-    rgba(var(--tera-rgb), 0) 72%
-  );
-  filter: blur(5px);
-  opacity: 0.78;
+  width: 96%;
+  background:
+    radial-gradient(circle at 27% 34%, rgba(255, 255, 255, 0.9) 0 1.2%, transparent 2.8%),
+    radial-gradient(circle at 69% 22%, rgba(var(--tera-rgb), 0.9) 0 1%, transparent 2.5%),
+    radial-gradient(circle at 78% 58%, rgba(255, 255, 255, 0.75) 0 0.9%, transparent 2.2%),
+    radial-gradient(
+      ellipse at 50% 66%,
+      rgba(var(--tera-rgb), 0.22) 0 16%,
+      rgba(var(--tera-rgb), 0.08) 38%,
+      rgba(var(--tera-rgb), 0) 67%
+    );
+  filter: blur(2px);
+  opacity: 0.48;
   animation: tera-aura-shimmer 2.4s ease-in-out infinite;
 }
 
-.terastallized > img {
+.terastallized > img:not(.tera-sprite-sheen),
+.interactive-arena
+  .sprite-platform.terastallized
+  > img:not(.tera-sprite-sheen) {
   filter:
-    brightness(1.08)
-    saturate(1.42)
+    grayscale(0.42)
+    sepia(var(--tera-sepia))
+    saturate(var(--tera-saturation))
     hue-rotate(var(--tera-hue))
+    brightness(var(--tera-brightness))
+    contrast(1.08)
     drop-shadow(0 0 8px rgba(var(--tera-rgb), 0.95))
     drop-shadow(0 0 22px rgba(var(--tera-rgb), 0.52));
+  animation: tera-body-flow 2.8s ease-in-out infinite;
 }
 
-.tera-type-normal { --tera-rgb: 206, 207, 199; --tera-hue: 0deg; }
-.tera-type-fire { --tera-rgb: 255, 82, 42; --tera-hue: -18deg; }
-.tera-type-water { --tera-rgb: 50, 164, 255; --tera-hue: 126deg; }
-.tera-type-electric { --tera-rgb: 255, 224, 45; --tera-hue: 42deg; }
-.tera-type-grass { --tera-rgb: 84, 211, 95; --tera-hue: 78deg; }
-.tera-type-ice { --tera-rgb: 105, 234, 255; --tera-hue: 142deg; }
-.tera-type-fighting { --tera-rgb: 236, 71, 61; --tera-hue: -10deg; }
-.tera-type-poison { --tera-rgb: 190, 80, 221; --tera-hue: 212deg; }
-.tera-type-ground { --tera-rgb: 211, 150, 67; --tera-hue: 18deg; }
-.tera-type-flying { --tera-rgb: 128, 178, 255; --tera-hue: 151deg; }
-.tera-type-psychic { --tera-rgb: 255, 87, 166; --tera-hue: 300deg; }
-.tera-type-bug { --tera-rgb: 164, 206, 45; --tera-hue: 64deg; }
-.tera-type-rock { --tera-rgb: 201, 174, 86; --tera-hue: 30deg; }
-.tera-type-ghost { --tera-rgb: 119, 92, 207; --tera-hue: 190deg; }
-.tera-type-dragon { --tera-rgb: 87, 94, 242; --tera-hue: 170deg; }
-.tera-type-dark { --tera-rgb: 91, 82, 105; --tera-hue: 204deg; }
-.tera-type-steel { --tera-rgb: 157, 197, 211; --tera-hue: 138deg; }
-.tera-type-fairy { --tera-rgb: 255, 133, 208; --tera-hue: 286deg; }
-.tera-type-stellar { --tera-rgb: 118, 255, 224; --tera-hue: 164deg; }
+.tera-sprite-sheen {
+  position: absolute !important;
+  bottom: 0;
+  left: 50%;
+  z-index: 3 !important;
+  opacity: 0.62;
+  pointer-events: none;
+  translate: -50% 0;
+  mix-blend-mode: screen;
+  filter:
+    grayscale(1)
+    sepia(1)
+    saturate(var(--tera-sheen-saturation))
+    hue-rotate(var(--tera-hue))
+    brightness(1.75)
+    contrast(1.18) !important;
+  -webkit-mask-image: linear-gradient(
+    112deg,
+    transparent 30%,
+    rgba(0, 0, 0, 0.2) 39%,
+    #000 48%,
+    rgba(0, 0, 0, 0.25) 57%,
+    transparent 68%
+  );
+  mask-image: linear-gradient(
+    112deg,
+    transparent 30%,
+    rgba(0, 0, 0, 0.2) 39%,
+    #000 48%,
+    rgba(0, 0, 0, 0.25) 57%,
+    transparent 68%
+  );
+  -webkit-mask-size: 260% 100%;
+  mask-size: 260% 100%;
+  animation: tera-sprite-sheen-flow 2s linear infinite !important;
+}
+
+.player-platform > .tera-sprite-sheen {
+  bottom: -8px;
+}
+
+.tera-type-normal {
+  --tera-rgb: 206, 207, 199;
+  --tera-hue: 0deg;
+  --tera-sepia: 0.08;
+  --tera-saturation: 1.15;
+  --tera-sheen-saturation: 1.5;
+}
+.tera-type-fire { --tera-rgb: 255, 82, 42; --tera-hue: -40deg; }
+.tera-type-water { --tera-rgb: 50, 164, 255; --tera-hue: 170deg; }
+.tera-type-electric { --tera-rgb: 255, 224, 45; --tera-hue: 10deg; }
+.tera-type-grass { --tera-rgb: 84, 211, 95; --tera-hue: 80deg; }
+.tera-type-ice { --tera-rgb: 105, 234, 255; --tera-hue: 150deg; }
+.tera-type-fighting { --tera-rgb: 236, 71, 61; --tera-hue: -40deg; }
+.tera-type-poison { --tera-rgb: 190, 80, 221; --tera-hue: 245deg; }
+.tera-type-ground { --tera-rgb: 211, 150, 67; --tera-hue: -10deg; }
+.tera-type-flying { --tera-rgb: 128, 178, 255; --tera-hue: 170deg; }
+.tera-type-psychic { --tera-rgb: 255, 87, 166; --tera-hue: 290deg; }
+.tera-type-bug { --tera-rgb: 164, 206, 45; --tera-hue: 55deg; }
+.tera-type-rock { --tera-rgb: 201, 174, 86; --tera-hue: 5deg; }
+.tera-type-ghost { --tera-rgb: 119, 92, 207; --tera-hue: 230deg; }
+.tera-type-dragon { --tera-rgb: 87, 94, 242; --tera-hue: 210deg; }
+.tera-type-dark {
+  --tera-rgb: 91, 82, 105;
+  --tera-hue: 210deg;
+  --tera-sepia: 0.3;
+  --tera-saturation: 1.35;
+  --tera-sheen-saturation: 1.8;
+  --tera-brightness: 0.78;
+}
+.tera-type-steel {
+  --tera-rgb: 157, 197, 211;
+  --tera-hue: 160deg;
+  --tera-sepia: 0.22;
+  --tera-saturation: 1.5;
+  --tera-sheen-saturation: 2;
+}
+.tera-type-fairy { --tera-rgb: 255, 133, 208; --tera-hue: 280deg; }
+.tera-type-stellar { --tera-rgb: 118, 255, 224; --tera-hue: 140deg; }
 
 @keyframes dynamax-aura-pulse {
   0%,
@@ -3180,12 +3255,38 @@ button {
 @keyframes tera-aura-shimmer {
   0%,
   100% {
-    opacity: 0.62;
+    opacity: 0.28;
     transform: translateX(-50%) scale(0.9);
   }
   50% {
-    opacity: 0.9;
+    opacity: 0.52;
     transform: translateX(-50%) scale(1.03);
+  }
+}
+
+@keyframes tera-body-flow {
+  0%,
+  100% {
+    opacity: 0.96;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes tera-sprite-sheen-flow {
+  0% {
+    opacity: 0.28;
+    -webkit-mask-position: 110% 0;
+    mask-position: 110% 0;
+  }
+  42% {
+    opacity: 0.72;
+  }
+  100% {
+    opacity: 0.28;
+    -webkit-mask-position: -110% 0;
+    mask-position: -110% 0;
   }
 }
 
@@ -3413,8 +3514,8 @@ button {
   }
 }
 
-.sprite-platform.terastallized.is-hit img,
-.eve-replay-pokemon.terastallized.is-hit > img {
+.sprite-platform.terastallized.is-hit img:not(.tera-sprite-sheen),
+.eve-replay-pokemon.terastallized.is-hit > img:not(.tera-sprite-sheen) {
   animation-name: pokemon-type-impact-tera;
 }
 
@@ -9403,6 +9504,14 @@ select:disabled {
   align-items: flex-end;
 }
 
+.interactive-arena .sprite-platform {
+  height: 100%;
+}
+
+.interactive-arena .battle-gimmick-aura {
+  bottom: -6px;
+}
+
 .interactive-arena .player-platform-group {
   left: 10%;
 }
@@ -11102,13 +11211,24 @@ select:disabled {
   height: 316px;
 }
 
-.eve-replay-pokemon.terastallized > img {
+.eve-replay-pokemon.terastallized > img:not(.tera-sprite-sheen) {
   filter:
-    brightness(1.08)
-    saturate(1.42)
+    grayscale(0.42)
+    sepia(var(--tera-sepia))
+    saturate(var(--tera-saturation))
     hue-rotate(var(--tera-hue))
+    brightness(var(--tera-brightness))
+    contrast(1.08)
     drop-shadow(0 0 8px rgba(var(--tera-rgb), 0.95))
     drop-shadow(0 0 22px rgba(var(--tera-rgb), 0.52));
+  animation: tera-body-flow 2.8s ease-in-out infinite;
+}
+
+.eve-replay-pokemon > .tera-sprite-sheen {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  translate: 0;
 }
 
 .eve-replay-combatant.side-b > .eve-replay-pokemon {

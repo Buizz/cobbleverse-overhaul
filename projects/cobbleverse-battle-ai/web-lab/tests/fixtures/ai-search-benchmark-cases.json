@@ -58,11 +58,11 @@
       "focus": ["trick-room", "switch", "future-matchup"],
       "previousBaseline": {
         "winnerTrainerId": "dbingsu-server-party",
-        "turns": 20
+        "turns": 21
       },
       "baseline": {
         "winnerTrainerId": "dbingsu-server-party",
-        "turns": 21
+        "turns": 48
       }
     },
     {
@@ -72,11 +72,11 @@
       "focus": ["setup", "screens", "survival"],
       "previousBaseline": {
         "winnerTrainerId": "sv9-screens-offense",
-        "turns": 25
+        "turns": 24
       },
       "baseline": {
         "winnerTrainerId": "sv9-screens-offense",
-        "turns": 24
+        "turns": 20
       }
     },
     {
@@ -100,11 +100,11 @@
       "focus": ["weather", "switch", "ace-preservation"],
       "previousBaseline": {
         "winnerTrainerId": "sv9-modern-bulky-offense",
-        "turns": 29
+        "turns": 36
       },
       "baseline": {
         "winnerTrainerId": "sv9-modern-bulky-offense",
-        "turns": 36
+        "turns": 39
       }
     },
     {
@@ -142,11 +142,11 @@
       "focus": ["weather", "trick-room", "gimmick", "switch"],
       "previousBaseline": {
         "winnerTrainerId": "sv9-sand-balance",
-        "turns": 26
+        "turns": 12
       },
       "baseline": {
         "winnerTrainerId": "sv9-sand-balance",
-        "turns": 12
+        "turns": 14
       }
     }
   ]

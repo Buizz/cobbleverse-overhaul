@@ -1429,7 +1429,7 @@ test("offers namespaced Normalium Z for Facade and Snorlium Z only for Giga Impa
   );
 });
 
-test("hides Dynamax choices after native player Mega Evolution", () => {
+test("shows only native gimmicks compatible with the active Pokemon", () => {
   clearNativeInteractiveBattleSessions();
   const battleScenario = {
     ...scenario,
@@ -1486,7 +1486,7 @@ test("hides Dynamax choices after native player Mega Evolution", () => {
   assert.equal(mega.request.gimmicks.canDynamax, false);
   assert.deepEqual(mega.request.gimmicks.maxMoves, []);
   assert.deepEqual(mega.request.gimmicks.zMoves, []);
-  assert.equal(mega.request.gimmicks.canTerastallize, "");
+  assert.equal(mega.request.gimmicks.canTerastallize, "fire");
 
   const switched = chooseNativeInteractiveBattleAction(mega.sessionId, {
     type: "switch",
@@ -1495,6 +1495,25 @@ test("hides Dynamax choices after native player Mega Evolution", () => {
   assert.equal(switched.request.active.species, "Raichu");
   assert.equal(switched.request.gimmicks.canDynamax, true);
   assert.ok(switched.request.gimmicks.maxMoves[0]);
+
+  const teraStarted = startNativeInteractiveBattle({
+    ...battleScenario,
+    scenarioId: "native-tera-blocks-dynamax",
+  });
+  const terastallized = chooseNativeInteractiveBattleAction(
+    teraStarted.sessionId,
+    {
+      type: "move",
+      slot: 1,
+      gimmick: "terastallize",
+    },
+  );
+  assert.ok(
+    terastallized.events.some((event) => event.type === "terastallized"),
+  );
+  assert.equal(terastallized.request.gimmicks.canDynamax, false);
+  assert.equal(terastallized.request.gimmicks.canGigantamax, false);
+  assert.deepEqual(terastallized.request.gimmicks.maxMoves, []);
 });
 
 test("waits for the player to choose a replacement after fainting", () => {

@@ -5419,6 +5419,13 @@ function InteractiveArena({
                     species={pokemon.species}
                     alt={`${localizedSpecies(localization, pokemon.species)} 전면 스프라이트`}
                   />
+                  {opponentGimmickState.tera ? (
+                    <PokemonSprite
+                      species={pokemon.species}
+                      alt=""
+                      className="tera-sprite-sheen"
+                    />
+                  ) : null}
                 </div>
               );
             })}
@@ -5508,6 +5515,14 @@ function InteractiveArena({
                     back
                     alt={`${localizedSpecies(localization, pokemon.species)} 후면 스프라이트`}
                   />
+                  {playerGimmickState.tera ? (
+                    <PokemonSprite
+                      species={pokemon.species}
+                      back
+                      alt=""
+                      className="tera-sprite-sheen"
+                    />
+                  ) : null}
                 </div>
               );
             })}

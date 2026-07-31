@@ -2968,20 +2968,50 @@ test("forces the target out after phazing moves", () => {
 
   const next = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
 
-  assert.equal(next.sides[1].team[next.sides[1].active].name, "WaterReserve");
+  assert.notEqual(next.sides[1].team[next.sides[1].active].name, "Lead");
   assert.ok(
-    next.events.some(
-      (event) =>
-        event.type === "switch" &&
-        event.source === "Whirlwind" &&
-        event.selection === "force_switch",
+    ["FireReserve", "WaterReserve"].includes(
+      next.sides[1].team[next.sides[1].active].name,
     ),
+  );
+  const switchEvent = next.events.find(
+    (event) =>
+      event.type === "switch" &&
+      event.source === "Whirlwind" &&
+      event.selection === "force_switch",
+  );
+  assert.ok(
+    switchEvent,
+  );
+  assert.equal(switchEvent.fromPokemon, "Lead");
+  assert.notEqual(switchEvent.pokemon, "Lead");
+  const seededReplacements = new Set(
+    [
+      1,
+      1_000,
+      100_000,
+      1_000_000,
+      20_260_731,
+      123_456_789,
+      987_654_321,
+      2_147_483_647,
+    ].map((seed) => {
+      const seeded = resolveSimpleTurn(
+        { ...state, seed, rngState: null },
+        [{ move: 1 }, { move: 1 }],
+      );
+      return seeded.sides[1].team[seeded.sides[1].active].name;
+    }),
+  );
+  assert.deepEqual(
+    [...seededReplacements].sort(),
+    ["FireReserve", "WaterReserve"],
   );
   assert.ok(
     next.events.some(
       (event) =>
         event.type === "damage" &&
-        event.pokemon === "WaterReserve" &&
+        event.pokemon === switchEvent.pokemon &&
         event.source === "stealthrock",
     ),
   );
@@ -7625,7 +7655,7 @@ test("rejects Mega Evolution and Z-Power without a compatible held item", () => 
   assert.equal(state.sides[0].gimmickResources.zmove, "available");
 });
 
-test("blocks Mega Evolution and Dynamax from stacking", () => {
+test("applies the configured native gimmick compatibility rules", () => {
   const battleSetup = setup({
     sides: [
       {
@@ -7637,6 +7667,8 @@ test("blocks Mega Evolution and Dynamax from stacking", () => {
             item: "mawilite",
             gimmicks: {
               forceDynamax: true,
+              teraConfigured: true,
+              teraType: "Steel",
               megaStone: {
                 item: "mawilite",
                 evolves: "mawile",
@@ -7684,10 +7716,13 @@ test("blocks Mega Evolution and Dynamax from stacking", () => {
     { move: 1 },
   ]);
   assert.equal(megaState.sides[0].team[0].megaEvolved, true);
-  assert.equal(
-    chooseSimpleAiCommand(megaState, 0, "expert", "balanced").gimmick,
-    undefined,
-  );
+
+  const teraAfterMega = resolveSimpleTurn(megaState, [
+    { move: 1, gimmick: "terastallize" },
+    { move: 1 },
+  ]);
+  assert.equal(teraAfterMega.sides[0].team[0].megaEvolved, true);
+  assert.equal(teraAfterMega.sides[0].team[0].terastallized, true);
 
   const dynamaxAttempt = resolveSimpleTurn(megaState, [
     { move: 1, gimmick: "dynamax" },
@@ -7733,6 +7768,47 @@ test("blocks Mega Evolution and Dynamax from stacking", () => {
         event.type === "gimmick_rejected" &&
         event.gimmick === "terastallize" &&
         event.reason === "tera_blocked_by_dynamax",
+    ),
+  );
+
+  const endedDynamaxState = structuredClone(dynamaxState);
+  const endedDynamaxPokemon = endedDynamaxState.sides[0].team[0];
+  endedDynamaxPokemon.dynamaxTurns = 0;
+  endedDynamaxPokemon.dynamaxMode = null;
+  const teraAfterDynamax = resolveSimpleTurn(endedDynamaxState, [
+    { move: 1, gimmick: "terastallize" },
+    { move: 1 },
+  ]);
+  assert.notEqual(teraAfterDynamax.sides[0].team[0].terastallized, true);
+  assert.ok(
+    teraAfterDynamax.events.some(
+      (event) =>
+        event.type === "gimmick_rejected" &&
+        event.gimmick === "terastallize" &&
+        event.reason === "tera_blocked_by_dynamax",
+    ),
+  );
+
+  const teraState = resolveSimpleTurn(createSimpleBattle(battleSetup), [
+    { move: 1, gimmick: "terastallize" },
+    { move: 1 },
+  ]);
+  assert.equal(teraState.sides[0].team[0].terastallized, true);
+  assert.equal(
+    chooseSimpleAiCommand(teraState, 0, "expert", "balanced").gimmick,
+    undefined,
+  );
+  const gigantamaxAfterTera = resolveSimpleTurn(teraState, [
+    { move: 1, gimmick: "gigantamax" },
+    { move: 1 },
+  ]);
+  assert.equal(gigantamaxAfterTera.sides[0].team[0].dynamaxTurns, 0);
+  assert.ok(
+    gigantamaxAfterTera.events.some(
+      (event) =>
+        event.type === "gimmick_rejected" &&
+        event.gimmick === "gigantamax" &&
+        event.reason === "dynamax_blocked_by_tera",
     ),
   );
 });

@@ -10,6 +10,10 @@ import {
   resolveNativeMaxMove,
 } from "./native-max-moves.mjs";
 import {
+  canPokemonCombineGimmick,
+  pokemonGimmickConflict,
+} from "./native-gimmick-compatibility.mjs";
+import {
   analyzeTeamProfile,
   aiDecisionReason,
   buildThreatCounterMap,
@@ -910,6 +914,7 @@ function normalizePokemon(pokemon, path) {
     stellarBoostedTypes: Array.isArray(pokemon?.stellarBoostedTypes)
       ? pokemon.stellarBoostedTypes.map(String)
       : [],
+    hasDynamaxed: pokemon?.hasDynamaxed === true,
     dynamaxTurns: 0,
     dynamaxMode: null,
     baseMaximumHp: maximumHp,
@@ -2529,7 +2534,11 @@ function validateGimmickRequest(state, action) {
   const gimmicks = pokemon.gimmicks ?? {};
 
   if (action.gimmick === "mega") {
-    if (pokemon.dynamaxTurns > 0) return "mega_blocked_by_dynamax";
+    const conflict = pokemonGimmickConflict(pokemon, "mega");
+    if (conflict === "dynamax") {
+      return "mega_blocked_by_dynamax";
+    }
+    if (conflict === "terastallize") return "mega_blocked_by_tera";
     const stone = gimmicks.megaStone;
     if (!stone || !stone.item || stone.item !== pokemon.item) {
       return "mega_stone_required";
@@ -2564,7 +2573,9 @@ function validateGimmickRequest(state, action) {
   }
 
   if (action.gimmick === "dynamax" || action.gimmick === "gigantamax") {
-    if (pokemon.megaEvolved) return "dynamax_blocked_by_mega";
+    const conflict = pokemonGimmickConflict(pokemon, action.gimmick);
+    if (conflict === "mega") return "dynamax_blocked_by_mega";
+    if (conflict === "terastallize") return "dynamax_blocked_by_tera";
     if (gimmicks.canDynamax !== true) return "dynamax_unavailable";
     if (
       action.gimmick === "gigantamax" &&
@@ -2577,8 +2588,11 @@ function validateGimmickRequest(state, action) {
   }
 
   if (action.gimmick === "terastallize") {
-    if (pokemon.megaEvolved) return "tera_blocked_by_mega";
-    if (pokemon.dynamaxTurns > 0) return "tera_blocked_by_dynamax";
+    const conflict = pokemonGimmickConflict(pokemon, "terastallize");
+    if (conflict === "mega") return "tera_blocked_by_mega";
+    if (conflict === "dynamax") {
+      return "tera_blocked_by_dynamax";
+    }
     if (!canPokemonUseTerastallization(state, action.side, pokemon)) {
       return "tera_reserved_for_configured_pokemon";
     }
@@ -2748,6 +2762,7 @@ function activatePreMoveGimmick(state, action) {
   } else if (action.gimmick === "dynamax" || action.gimmick === "gigantamax") {
     pokemon.hp *= 2;
     pokemon.stats.hp *= 2;
+    pokemon.hasDynamaxed = true;
     pokemon.dynamaxTurns = 3;
     pokemon.dynamaxMode = action.dynamaxMode;
   } else if (action.gimmick === "terastallize") {
@@ -2954,12 +2969,23 @@ function executeSelfSwitch(state, sideIndex, source, preferredSlot = null) {
   return true;
 }
 
-function executeForceSwitch(state, sideIndex, source) {
-  if (state.sides[sideIndex].team[state.sides[sideIndex].active].fainted) {
+function executeForceSwitch(state, sideIndex, source, rng) {
+  const side = state.sides[sideIndex];
+  if (side.team[side.active].fainted) {
     return false;
   }
-  const next = bestFaintReplacement(state, sideIndex);
-  if (!Number.isInteger(next) || next < 0) return false;
+  const candidates = side.team
+    .map((pokemon, index) => ({ pokemon, index }))
+    .filter(
+      ({ pokemon, index }) =>
+        index !== side.active && !pokemon.fainted && pokemon.hp > 0,
+    );
+  if (candidates.length === 0) return false;
+  const roll = Math.min(
+    candidates.length - 1,
+    Math.floor((rng?.next?.() ?? 0) * candidates.length),
+  );
+  const next = candidates[roll].index;
   switchActivePokemon(state, sideIndex, next + 1, {
     automatic: true,
     forced: true,
@@ -7389,7 +7415,8 @@ function executeMove(state, action, rng) {
     }
     if (move.forceSwitch) {
       handled = true;
-      applied = executeForceSwitch(state, defenderSide, move.name) || applied;
+      applied =
+        executeForceSwitch(state, defenderSide, move.name, rng) || applied;
     }
     if (!applied) {
       state.events.push({
@@ -8348,7 +8375,7 @@ function executeMove(state, action, rng) {
   }
   markFainted(state, action.side, attacker);
   if (totalDamage > 0 && move.forceSwitch) {
-    executeForceSwitch(state, defenderSide, move.name);
+    executeForceSwitch(state, defenderSide, move.name, rng);
   }
   if (totalDamage > 0 && move.selfSwitch) {
     executeSelfSwitch(
@@ -15682,12 +15709,12 @@ export function chooseSimpleAiDecision(
   const canMegaEvo =
     side.gimmickResources.mega === "available" &&
     pokemon.megaEvolved !== true &&
+    canPokemonCombineGimmick(pokemon, "mega") &&
     canMegaEvolvePokemon(pokemon);
   const canTerastallize =
     side.gimmickResources.terastallize === "available" &&
     pokemon.terastallized !== true &&
-    pokemon.megaEvolved !== true &&
-    pokemon.dynamaxTurns <= 0 &&
+    canPokemonCombineGimmick(pokemon, "terastallize") &&
     canPokemonUseTerastallization(state, sideIndex, pokemon) &&
     Boolean(String(pokemon.configuredTeraType ?? "").trim());
   const dynamaxFallback =
@@ -15695,7 +15722,7 @@ export function chooseSimpleAiDecision(
   const canDynamax =
     side.gimmickResources.dynamax === "available" &&
     pokemon.dynamaxTurns <= 0 &&
-    pokemon.megaEvolved !== true;
+    canPokemonCombineGimmick(pokemon, "dynamax");
   const dynamaxMode = pokemon.gimmicks?.canGigantamax === true
     ? "gigantamax"
     : "dynamax";

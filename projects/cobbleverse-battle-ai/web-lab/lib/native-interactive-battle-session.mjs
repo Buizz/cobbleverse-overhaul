@@ -20,6 +20,9 @@ import {
   resolveNativeMaxMove,
 } from "./native-max-moves.mjs";
 import {
+  canPokemonCombineGimmick,
+} from "./native-gimmick-compatibility.mjs";
+import {
   scoreAiMoveCandidate,
 } from "./common-battle-ai.mjs";
 
@@ -263,10 +266,7 @@ function snapshot(session) {
   const latestDecision = session.aiTrace.at(-1) ?? null;
   const usedGimmicks = playerSide.usedGimmicks ?? {};
   const playerDynamaxed = player.dynamaxTurns > 0;
-  const playerHasGimmickForm =
-    player.megaEvolved === true ||
-    playerDynamaxed ||
-    player.terastallized === true;
+  const canUseZMove = canPokemonCombineGimmick(player, "zmove");
   const megaStone = player.gimmicks?.megaStone;
   const playerSpeciesIds = new Set([cleanId(player.id), cleanId(player.name)]);
   const canMegaEvolve =
@@ -315,7 +315,11 @@ function snapshot(session) {
   // Cobblemon의 플레이어는 엔트리 플래그와 무관하게 전투당 한 번
   // 다이맥스를 직접 선택할 수 있다. 거다이맥스 버튼은 엔트리 설정이
   // 아니라 실제 종이 거다이맥스 가능한지로 판정한다.
-  const canDynamax = player.megaEvolved !== true;
+  const canDynamax = canPokemonCombineGimmick(player, "dynamax");
+  const canTerastallize = canPokemonCombineGimmick(
+    player,
+    "terastallize",
+  );
   const gigantamax =
     player.gimmicks?.canGigantamax === true || isNativeGigantamaxSpecies(player);
   const canGigantamax = canDynamax && gigantamax;
@@ -433,13 +437,12 @@ function snapshot(session) {
           gimmicks: {
             canMegaEvo:
               !requiresReplacement &&
-              !playerDynamaxed &&
-              player.terastallized !== true &&
+              canPokemonCombineGimmick(player, "mega") &&
               !usedGimmicks.mega &&
               canMegaEvolve,
             megaVariant: "mega",
             zMoves:
-              requiresReplacement || playerHasGimmickForm || usedGimmicks.zmove
+              requiresReplacement || !canUseZMove || usedGimmicks.zmove
                 ? []
                 : zMoves,
             zCrystalName: equippedZCrystal?.itemName ?? "",
@@ -473,8 +476,7 @@ function snapshot(session) {
             gigantamax: gigantamax ? "gigantamax" : "",
             canTerastallize:
               requiresReplacement ||
-              playerDynamaxed ||
-              player.megaEvolved === true ||
+              !canTerastallize ||
               usedGimmicks.terastallize ||
               !canUseTerastallization ||
               !configuredTeraType
