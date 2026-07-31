@@ -1,5 +1,9 @@
 import { Dex } from "@pkmn/sim";
 
+const CUSTOM_SPRITE_ALIASES = new Map([
+  ["dragalgemega", "dragalge"],
+]);
+
 export function cleanSpeciesReference(value) {
   const raw = String(value ?? "").trim();
   const withoutNamespace = raw.includes(":") ? raw.split(":").at(-1) : raw;
@@ -10,12 +14,18 @@ export function resolveShowdownSpecies(value) {
   const source = cleanSpeciesReference(value);
   const species = Dex.species.get(source);
   if (!species.exists) {
+    const baseFormSource = source.replace(/-mega$/i, "");
+    const baseForm =
+      baseFormSource !== source ? Dex.species.get(baseFormSource) : null;
     return {
       exists: false,
       source,
       showdownId: null,
       showdownName: null,
-      spriteId: source.toLowerCase(),
+      spriteId:
+        baseForm?.exists && baseForm.spriteid
+          ? baseForm.spriteid
+          : source.toLowerCase(),
       baseSpecies: null,
       forme: null,
     };
@@ -25,7 +35,7 @@ export function resolveShowdownSpecies(value) {
     source,
     showdownId: species.id,
     showdownName: species.name,
-    spriteId: species.spriteid,
+    spriteId: CUSTOM_SPRITE_ALIASES.get(species.id) ?? species.spriteid,
     baseSpecies: species.baseSpecies,
     forme: species.forme || null,
   };

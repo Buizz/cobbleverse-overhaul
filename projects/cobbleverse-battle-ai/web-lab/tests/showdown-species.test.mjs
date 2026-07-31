@@ -62,3 +62,10 @@ test("returns a stable fallback for species missing from Showdown data", () => {
     forme: null,
   });
 });
+
+test("uses the base sprite for custom Mega forms missing from Showdown", () => {
+  const resolved = resolveShowdownSpecies("Dragalge-Mega");
+
+  assert.equal(resolved.spriteId, "dragalge");
+  assert.equal(showdownSpriteId("Dragalge-Mega"), "dragalge");
+});
