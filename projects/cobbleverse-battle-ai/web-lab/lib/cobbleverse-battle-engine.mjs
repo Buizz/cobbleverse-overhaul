@@ -294,6 +294,11 @@ const TRAPPING_VOLATILES = new Set([
   "thousandwaves",
   "trapped",
 ]);
+const BATON_PASS_VOLATILES = new Set([
+  "aquaring",
+  "ingrain",
+  "substitute",
+]);
 const BOOST_STATS = [
   "attack",
   "defence",
@@ -7069,9 +7074,11 @@ function executeMove(state, action, rng) {
     if (cleanId(move.id) === "batonpass") {
       handled = true;
       const passedBoosts = { ...attacker.boosts };
-      const passedSubstitute = attacker.volatiles?.substitute
-        ? clone(attacker.volatiles.substitute)
-        : null;
+      const passedVolatiles = Object.fromEntries(
+        Object.entries(attacker.volatiles ?? {})
+          .filter(([id]) => BATON_PASS_VOLATILES.has(cleanId(id)))
+          .map(([id, volatile]) => [id, clone(volatile)]),
+      );
       const teamAnalysis = simpleTeamAnalysis(state, action.side);
       const aceIndex = teamAnalysis.roles.findIndex(
         (role) => role?.aceProfile?.qualifies === true,
@@ -7095,9 +7102,7 @@ function executeMove(state, action, rng) {
       if (switched) {
         const incoming = activePokemon(state, action.side);
         incoming.boosts = passedBoosts;
-        if (passedSubstitute) {
-          incoming.volatiles.substitute = passedSubstitute;
-        }
+        Object.assign(incoming.volatiles, passedVolatiles);
         state.events.push({
           turn: state.turn,
           type: "boosts_passed",

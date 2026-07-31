@@ -518,6 +518,15 @@ test("Baton Pass support sets up safely, then passes boosts to the sole ace", ()
     id: "substitute",
     hp: 45,
   };
+  state.sides[0].team[0].volatiles.ingrain = {
+    id: "ingrain",
+    source: "Ingrain",
+  };
+  state.sides[0].team[0].volatiles.aquaring = {
+    id: "aquaring",
+    source: "Aqua Ring",
+  };
+  state.sides[0].team[1].hp = 60;
   state.sides[0].team[0].hp = 70;
   state.sides[1].team[0].stats.attack = 200;
   Object.assign(state.sides[1].team[0].moves[0], {
@@ -558,6 +567,11 @@ test("Baton Pass support sets up safely, then passes boosts to the sole ace", ()
   assert.equal(passed.sides[0].active, 1);
   assert.equal(passed.sides[0].team[1].boosts.speed, 2);
   assert.equal(passed.sides[0].team[1].volatiles.substitute.hp, 45);
+  assert.equal(passed.sides[0].team[1].volatiles.ingrain.id, "ingrain");
+  assert.equal(passed.sides[0].team[1].volatiles.aquaring.id, "aquaring");
+  assert.equal(passed.sides[0].team[1].hp, 96);
+  assert.equal(passed.sides[0].team[0].volatiles.ingrain, undefined);
+  assert.equal(passed.sides[0].team[0].volatiles.aquaring, undefined);
   assert.equal(
     passed.events.filter(
       (event) =>
@@ -573,7 +587,12 @@ test("Baton Pass support sets up safely, then passes boosts to the sole ace", ()
         event.type === "boosts_passed" &&
         event.pokemon === "Sole Ace" &&
         event.boosts?.spe === 2,
-    ),
+      ),
+  );
+
+  assert.throws(
+    () => resolveSimpleTurn(passed, [{ switch: 1 }, { move: 1 }]),
+    /cannot switch while trapped/,
   );
 });
 
@@ -19623,6 +19642,7 @@ test("AI never selects Haze when the opponent has no positive stat ranks", () =>
         (reason) => reason.code === "rule.haze.immediate_boost_reset",
       ),
   );
+
 });
 
 test("AI immediately phazes an opponent with accumulated stat ranks", () => {
