@@ -908,6 +908,20 @@ const EVE_REPORT_KEY = "cobbleverse-battle-lab:eve-report";
 const PARTY_ORDERS_KEY = "cobbleverse-battle-lab:party-orders";
 const CUSTOM_ENTRIES_KEY = "cobbleverse-battle-lab:custom-entries";
 
+function compactEveBattleForStorage(battle: BattleResult): BattleResult {
+  return {
+    ...battle,
+    log: [],
+    aiTrace: battle.aiTrace?.map((trace) => ({
+      ...trace,
+      candidates: trace.candidates?.slice(0, 6).map((candidate) => ({
+        ...candidate,
+        reasons: candidate.reasons?.slice(0, candidate.selected ? 3 : 2),
+      })),
+    })),
+  };
+}
+
 const pokemonTypeNames: Record<string, string> = {
   Normal: "노말",
   Fire: "불꽃",
@@ -7204,23 +7218,31 @@ export function BattleLab() {
         return;
       }
       setBattle(result.battle);
+      const storedBattle =
+        activeScenario.mode === "eve"
+          ? compactEveBattleForStorage(result.battle)
+          : result.battle;
       storeLastBattle({
         schemaVersion: 1,
         savedAt: new Date().toISOString(),
         kind: "automatic",
         scenario: activeScenario,
-        battle: result.battle,
+        battle: storedBattle,
       });
       if (activeScenario.mode === "eve") {
-        localStorage.setItem(
-          EVE_REPORT_KEY,
-          JSON.stringify({
-            schemaVersion: 1,
-            savedAt: new Date().toISOString(),
-            scenario: activeScenario,
-            battle: result.battle,
-          }),
-        );
+        try {
+          localStorage.setItem(
+            EVE_REPORT_KEY,
+            JSON.stringify({
+              schemaVersion: 1,
+              savedAt: new Date().toISOString(),
+              scenario: activeScenario,
+              battle: storedBattle,
+            }),
+          );
+        } catch {
+          localStorage.removeItem(EVE_REPORT_KEY);
+        }
         router.push("/eve-report");
         return;
       }
@@ -8563,6 +8585,22 @@ export function BattleLab() {
                       moveTrainerMember(leftTrainer, fromIndex, toIndex)
                     }
                   />
+                  <div className="preset-entry-actions">
+                    <p>
+                      선택한 프리셋을 사용자 정의 복사본으로 가져와 수정합니다.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={!leftTrainer}
+                      onClick={() => {
+                        if (!leftTrainer) return;
+                        copyTrainerToCustomParty(leftTrainer.id, "player");
+                        setLabView("editor");
+                      }}
+                    >
+                      엔트리 편집
+                    </button>
+                  </div>
                 </>
               )}
             </article>
@@ -8673,6 +8711,22 @@ export function BattleLab() {
                       moveTrainerMember(rightTrainer, fromIndex, toIndex)
                     }
                   />
+                  <div className="preset-entry-actions">
+                    <p>
+                      선택한 프리셋을 사용자 정의 복사본으로 가져와 수정합니다.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={!rightTrainer}
+                      onClick={() => {
+                        if (!rightTrainer) return;
+                        copyTrainerToCustomParty(rightTrainer.id, "opponent");
+                        setLabView("editor");
+                      }}
+                    >
+                      엔트리 편집
+                    </button>
+                  </div>
                 </>
               )}
             </article>
