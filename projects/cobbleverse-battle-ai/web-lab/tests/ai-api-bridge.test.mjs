@@ -1196,6 +1196,7 @@ test("applies RunAndBun-inspired setup and hazard scoring rules", () => {
     accuracy: true,
     pp: 30,
     setupThreatTier: "tier_3",
+    opponentPositiveBoosts: 2,
   };
   const recover = {
     slot: 2,

@@ -400,6 +400,7 @@ test("Baton Pass support sets up safely, then passes boosts to the sole ace", ()
     category: "Status",
     accuracy: true,
     pp: 40,
+    selfSwitch: true,
   };
   const state = createSimpleBattle(
     setup({
@@ -513,6 +514,10 @@ test("Baton Pass support sets up safely, then passes boosts to the sole ace", ()
   );
 
   state.sides[0].team[0].boosts.speed = 2;
+  state.sides[0].team[0].volatiles.substitute = {
+    id: "substitute",
+    hp: 45,
+  };
   state.sides[0].team[0].hp = 70;
   state.sides[1].team[0].stats.attack = 200;
   Object.assign(state.sides[1].team[0].moves[0], {
@@ -548,15 +553,177 @@ test("Baton Pass support sets up safely, then passes boosts to the sole ace", ()
 
   const passed = resolveSimpleTurn(state, [
     passDecision.command,
-    { move: 1 },
+    { switch: 2 },
   ]);
   assert.equal(passed.sides[0].active, 1);
   assert.equal(passed.sides[0].team[1].boosts.speed, 2);
+  assert.equal(passed.sides[0].team[1].volatiles.substitute.hp, 45);
+  assert.equal(
+    passed.events.filter(
+      (event) =>
+        event.type === "switch" &&
+        event.side === 0 &&
+        event.source === "Baton Pass",
+    ).length,
+    1,
+  );
   assert.ok(
     passed.events.some(
       (event) =>
         event.type === "boosts_passed" &&
-        event.pokemon === "Sole Ace",
+        event.pokemon === "Sole Ace" &&
+        event.boosts?.spe === 2,
+    ),
+  );
+});
+
+test("Baton Pass support takes safe extra boosts before transferring to its ace", () => {
+  const tailGlow = {
+    id: "tailglow",
+    name: "Tail Glow",
+    type: "Bug",
+    category: "Status",
+    accuracy: true,
+    pp: 20,
+    selfBoosts: { specialAttack: 3 },
+  };
+  const acidArmor = {
+    id: "acidarmor",
+    name: "Acid Armor",
+    type: "Poison",
+    category: "Status",
+    accuracy: true,
+    pp: 20,
+    selfBoosts: { defence: 2 },
+  };
+  const batonPass = {
+    id: "batonpass",
+    name: "Baton Pass",
+    type: "Normal",
+    category: "Status",
+    accuracy: true,
+    pp: 40,
+    selfSwitch: true,
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Baton Team",
+          team: [
+            pokemon({
+              name: "Safe Passer",
+              aiRole: "notace",
+              stats: {
+                ...pokemon().stats,
+                hp: 340,
+                defence: 120,
+                specialDefence: 120,
+                speed: 110,
+              },
+              moves: [tailGlow, acidArmor, batonPass],
+            }),
+            pokemon({
+              name: "Special Ace",
+              aiRole: "ace",
+              stats: {
+                ...pokemon().stats,
+                hp: 320,
+                specialAttack: 210,
+                speed: 100,
+              },
+              moves: [
+                {
+                  id: "psychic",
+                  name: "Psychic",
+                  type: "Psychic",
+                  category: "Special",
+                  power: 90,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Passive Team",
+          team: [
+            pokemon({
+              name: "Passive Wall",
+              stats: {
+                ...pokemon().stats,
+                hp: 420,
+                attack: 70,
+                speed: 40,
+              },
+              moves: [
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+            pokemon({
+              name: "Target Two",
+              stats: { ...pokemon().stats, hp: 220, specialDefence: 80 },
+            }),
+            pokemon({
+              name: "Target Three",
+              stats: { ...pokemon().stats, hp: 220, specialDefence: 80 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const passer = state.sides[0].team[0];
+
+  passer.boosts.specialAttack = 3;
+  const finishOffence = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "reckless_ace",
+  );
+  assert.equal(finishOffence.command.move, 1);
+
+  passer.boosts.specialAttack = 6;
+  const addDefence = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "reckless_ace",
+  );
+  assert.equal(addDefence.command.move, 2);
+
+  passer.boosts.defence = 2;
+  const transfer = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "reckless_ace",
+  );
+  assert.equal(
+    transfer.command.move,
+    3,
+    JSON.stringify(
+      transfer.moveCandidates.map((candidate) => ({
+        id: candidate.id,
+        score: candidate.score,
+        sweepBoosts: candidate.batonPassCurrentSweepBoostTotal,
+        defensiveBoosts: candidate.batonPassCurrentDefensiveBoostTotal,
+        reasons: candidate.reasons
+          ?.filter((reason) => reason.code.startsWith("rule.baton_pass"))
+          .map((reason) => reason.code),
+      })),
+      null,
+      2,
     ),
   );
 });
@@ -839,6 +1006,487 @@ test("cheater responds to the opponent's committed status move", () => {
       (candidate) => !candidate.opponentThreateningMoveId,
     ),
   );
+});
+
+test("AI warns about Taunt and Encore while cheater avoids the committed disruption", () => {
+  const setupMove = {
+    id: "swordsdance",
+    name: "Swords Dance",
+    type: "Normal",
+    category: "Status",
+    accuracy: true,
+    pp: 20,
+    selfBoosts: { attack: 2 },
+  };
+  const attackMove = {
+    id: "slash",
+    name: "Slash",
+    type: "Normal",
+    category: "Physical",
+    power: 70,
+    accuracy: 100,
+    pp: 20,
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Planner",
+          team: [
+            pokemon({
+              name: "Planner",
+              stats: { ...pokemon().stats, attack: 140, speed: 80 },
+              moves: [setupMove, attackMove],
+            }),
+          ],
+        },
+        {
+          name: "Disruptor",
+          team: [
+            pokemon({
+              name: "Disruptor",
+              stats: { ...pokemon().stats, speed: 160 },
+              moves: [
+                {
+                  id: "taunt",
+                  name: "Taunt",
+                  type: "Dark",
+                  category: "Status",
+                  accuracy: 100,
+                  pp: 20,
+                  volatileStatus: "taunt",
+                },
+                {
+                  id: "encore",
+                  name: "Encore",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: 100,
+                  pp: 5,
+                  volatileStatus: "encore",
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[0].team[0].lastMove = { id: "swordsdance", name: "Swords Dance" };
+  state.sides[0].team[0].lastMoveSucceeded = true;
+
+  const expert = chooseSimpleAiDecision(state, 0, "expert", "balanced");
+  const expertTrace = createSimpleAiDecisionTrace(
+    state,
+    0,
+    expert,
+    "expert",
+    "balanced",
+  );
+  const setupCandidate = expertTrace.candidates.find(
+    (candidate) => candidate.id === "swordsdance",
+  );
+  assert.ok(
+    setupCandidate.reasons.some(
+      (reason) => reason.code === "rule.status_disruption.taunt_risk",
+    ),
+  );
+  assert.ok(
+    setupCandidate.reasons.some(
+      (reason) => reason.code === "rule.status_disruption.encore_risk",
+    ),
+  );
+
+  for (const [slot, reasonCode] of [
+    [1, "rule.status_disruption.exact_taunt"],
+    [2, "rule.status_disruption.exact_encore"],
+  ]) {
+    const cheated = applySimpleCheaterKnowledge(
+      state,
+      0,
+      expert,
+      { move: slot },
+      { strategy: "balanced" },
+    );
+    assert.equal(
+      cheated.command.move,
+      2,
+      JSON.stringify(
+        cheated.moveCandidates.map((candidate) => ({
+          id: candidate.id,
+          score: candidate.score,
+          exactTauntRisk: candidate.exactTauntRisk,
+          exactEncoreRisk: candidate.exactEncoreRisk,
+        })),
+        null,
+        2,
+      ),
+    );
+    const trace = createSimpleAiDecisionTrace(
+      state,
+      0,
+      cheated,
+      "cheater",
+      "balanced",
+    );
+    assert.ok(
+      trace.candidates
+        .find((candidate) => candidate.id === "swordsdance")
+        .reasons.some((reason) => reason.code === reasonCode),
+    );
+  }
+});
+
+test("AI reduces Encore concern when three-turn survival is safe, especially after defensive setup", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Setup Side",
+          team: [
+            pokemon({
+              name: "Setup User",
+              stats: {
+                ...pokemon().stats,
+                hp: 320,
+                defence: 100,
+                attack: 130,
+                speed: 80,
+              },
+              moves: [
+                {
+                  id: "irondefense",
+                  name: "Iron Defense",
+                  type: "Steel",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 15,
+                  selfBoosts: { defence: 2 },
+                },
+                {
+                  id: "swordsdance",
+                  name: "Swords Dance",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 20,
+                  selfBoosts: { attack: 2 },
+                },
+                {
+                  id: "slash",
+                  name: "Slash",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 70,
+                  accuracy: 100,
+                  pp: 20,
+                },
+              ],
+            }),
+            pokemon({ name: "Bench Escape" }),
+          ],
+        },
+        {
+          name: "Encore Side",
+          team: [
+            pokemon({
+              name: "Weak Disruptor",
+              stats: { ...pokemon().stats, attack: 70, speed: 150 },
+              moves: [
+                {
+                  id: "encore",
+                  name: "Encore",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: 100,
+                  pp: 5,
+                  volatileStatus: "encore",
+                },
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const decision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const trace = createSimpleAiDecisionTrace(
+    state,
+    0,
+    decision,
+    "expert",
+    "balanced",
+  );
+  const ironDefense = decision.moveCandidates.find(
+    (candidate) => candidate.id === "irondefense",
+  );
+  const swordsDance = decision.moveCandidates.find(
+    (candidate) => candidate.id === "swordsdance",
+  );
+  const ironEncoreReason = trace.candidates
+    .find((candidate) => candidate.id === "irondefense")
+    .reasons.find(
+    (reason) => reason.code === "rule.status_disruption.encore_risk",
+  );
+  const swordsEncoreReason = trace.candidates
+    .find((candidate) => candidate.id === "swordsdance")
+    .reasons.find(
+    (reason) => reason.code === "rule.status_disruption.encore_risk",
+  );
+
+  assert.equal(ironDefense.disruptionCanSurviveThreeTurns, true);
+  assert.equal(ironDefense.disruptionDefensiveSetup, true);
+  assert.ok(
+    ironDefense.disruptionThreeTurnDamageRatio <
+      swordsDance.disruptionThreeTurnDamageRatio,
+  );
+  assert.ok(ironEncoreReason.weight > swordsEncoreReason.weight);
+  assert.match(ironEncoreReason.message, /방어형 랭크업 후 3턴 예상 피해/);
+
+  const benchThreat = structuredClone(state.sides[1].team[0]);
+  benchThreat.name = "Bench Breaker";
+  benchThreat.stats.attack = 520;
+  benchThreat.moves = [
+    {
+      id: "gigaimpact",
+      name: "Giga Impact",
+      type: "Normal",
+      category: "Physical",
+      power: 150,
+      accuracy: 100,
+      pp: 5,
+    },
+  ];
+  state.sides[1].team.push(benchThreat);
+
+  const threatenedDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const threatenedIronDefense = threatenedDecision.moveCandidates.find(
+    (candidate) => candidate.id === "irondefense",
+  );
+  const threatenedTrace = createSimpleAiDecisionTrace(
+    state,
+    0,
+    threatenedDecision,
+    "expert",
+    "balanced",
+  );
+  const threatenedEncoreReason = threatenedTrace.candidates
+    .find((candidate) => candidate.id === "irondefense")
+    .reasons.find(
+      (reason) => reason.code === "rule.status_disruption.encore_risk",
+    );
+
+  assert.equal(threatenedIronDefense.disruptionBenchSwitchThreat, true);
+  assert.equal(threatenedIronDefense.disruptionCanSurviveThreeTurns, false);
+  assert.ok(threatenedEncoreReason.weight < ironEncoreReason.weight);
+  assert.match(threatenedEncoreReason.message, /벤치 위협으로 교체/);
+});
+
+test("AI uses Taunt and Encore only when their three-turn control creates value", () => {
+  const recover = {
+    id: "recover",
+    name: "Recover",
+    type: "Normal",
+    category: "Status",
+    accuracy: true,
+    pp: 10,
+    heal: [1, 2],
+  };
+  const calmMind = {
+    id: "calmmind",
+    name: "Calm Mind",
+    type: "Psychic",
+    category: "Status",
+    accuracy: true,
+    pp: 20,
+    selfBoosts: { specialAttack: 1, specialDefence: 1 },
+  };
+  const weakAttack = {
+    id: "confusion",
+    name: "Confusion",
+    type: "Psychic",
+    category: "Special",
+    power: 50,
+    accuracy: 100,
+    pp: 25,
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Controller",
+          team: [
+            pokemon({
+              name: "Controller",
+              stats: {
+                ...pokemon().stats,
+                hp: 360,
+                specialDefence: 160,
+                speed: 130,
+              },
+              moves: [
+                {
+                  id: "taunt",
+                  name: "Taunt",
+                  type: "Dark",
+                  category: "Status",
+                  accuracy: 100,
+                  pp: 20,
+                  volatileStatus: "taunt",
+                },
+                {
+                  id: "encore",
+                  name: "Encore",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: 100,
+                  pp: 5,
+                  volatileStatus: "encore",
+                },
+                {
+                  id: "slash",
+                  name: "Slash",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 70,
+                  accuracy: 100,
+                  pp: 20,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Passive Setup",
+          team: [
+            pokemon({
+              name: "Passive Setup",
+              stats: {
+                ...pokemon().stats,
+                hp: 380,
+                specialAttack: 75,
+                speed: 70,
+              },
+              moves: [recover, calmMind, weakAttack],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[1].team[0].lastMove = {
+    id: "recover",
+    name: "Recover",
+  };
+  state.sides[1].team[0].lastMoveSucceeded = true;
+
+  const controlDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const controlTrace = createSimpleAiDecisionTrace(
+    state,
+    0,
+    controlDecision,
+    "expert",
+    "balanced",
+  );
+  const taunt = controlTrace.candidates.find(
+    (candidate) => candidate.id === "taunt",
+  );
+  const encore = controlTrace.candidates.find(
+    (candidate) => candidate.id === "encore",
+  );
+  const tauntLock = taunt.reasons.find(
+    (reason) => reason.code === "rule.status_control.taunt_lock",
+  );
+  const encoreLock = encore.reasons.find(
+    (reason) => reason.code === "rule.status_control.encore_status_lock",
+  );
+
+  assert.ok(tauntLock.weight > 0);
+  assert.ok(encoreLock.weight > tauntLock.weight);
+  assert.equal(controlDecision.command.move, 2);
+  assert.equal(
+    controlDecision.moveCandidates.find(
+      (candidate) => candidate.id === "encore",
+    ).statusControlCanSurviveThreeTurns,
+    true,
+  );
+
+  const dangerousMove = {
+    id: "hyperbeam",
+    name: "Hyper Beam",
+    type: "Normal",
+    category: "Special",
+    power: 150,
+    accuracy: 100,
+    pp: 5,
+  };
+  state.sides[1].team[0].moves = [dangerousMove];
+  state.sides[1].team[0].stats.specialAttack = 520;
+  state.sides[1].team[0].lastMove = {
+    id: "hyperbeam",
+    name: "Hyper Beam",
+  };
+
+  const dangerDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const dangerTrace = createSimpleAiDecisionTrace(
+    state,
+    0,
+    dangerDecision,
+    "expert",
+    "balanced",
+  );
+  const dangerTaunt = dangerTrace.candidates.find(
+    (candidate) => candidate.id === "taunt",
+  );
+  const dangerEncore = dangerTrace.candidates.find(
+    (candidate) => candidate.id === "encore",
+  );
+
+  assert.ok(
+    dangerTaunt.reasons.some(
+      (reason) => reason.code === "rule.status_control.taunt_no_target",
+    ),
+  );
+  assert.ok(
+    dangerEncore.reasons.find(
+      (reason) => reason.code === "rule.status_control.encore_attack_lock",
+    ).weight < 0,
+  );
+  assert.ok(
+    dangerEncore.reasons.some(
+      (reason) => reason.code === "rule.status_control.encore_short_life",
+    ),
+  );
+  assert.equal(dangerDecision.command.move, 3);
 });
 
 test("Upper Hand only succeeds against a pending damaging priority move", () => {
@@ -2685,6 +3333,48 @@ test("handles Protect and Sucker Punch timing rules", () => {
         event.pokemon === "Protector" &&
         event.source === "protect",
     ),
+  );
+  const consecutiveProtectDecision = chooseSimpleAiDecision(
+    protectedTurn,
+    0,
+    "expert",
+    "balanced",
+  );
+  const consecutiveProtect = consecutiveProtectDecision.moveCandidates.find(
+    (candidate) => candidate.id === "protect",
+  );
+  assert.equal(consecutiveProtect.protectSuccessProbability, 1 / 3);
+  const consecutiveProtectTrace = createSimpleAiDecisionTrace(
+    protectedTurn,
+    0,
+    consecutiveProtectDecision,
+    "expert",
+    "balanced",
+  );
+  assert.ok(
+    consecutiveProtectTrace.candidates
+      .find((candidate) => candidate.id === "protect")
+      .reasons.some(
+        (reason) => reason.code === "rule.protect.consecutive_failure_risk",
+      ),
+  );
+
+  protectedTurn.sides[0].team[0].protectCounter = 20;
+  const failedConsecutiveProtect = resolveSimpleTurn(protectedTurn, [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  assert.ok(
+    failedConsecutiveProtect.events.some(
+      (event) =>
+        event.type === "move_failed" &&
+        event.pokemon === "Protector" &&
+        event.move === "Protect",
+    ),
+  );
+  assert.equal(
+    failedConsecutiveProtect.sides[0].team[0].protectCounter,
+    0,
   );
 
   const suckerState = createSimpleBattle(
@@ -6517,6 +7207,198 @@ test("Dynamax Max Move effects replace the source move side effects", () => {
         event.pokemon === "Urshifu-Rapid-Strike" &&
         ["def", "spd"].includes(event.stat) &&
         event.amount < 0,
+    ),
+    false,
+  );
+});
+
+test("damaging Max Moves apply weather, terrain, and guaranteed stat effects", () => {
+  const cases = [
+    {
+      source: {
+        id: "flamethrower",
+        name: "Flamethrower",
+        type: "Fire",
+        category: "Special",
+        power: 90,
+        accuracy: 100,
+        pp: 15,
+      },
+      fieldKind: "weather",
+      effect: "sunnyday",
+      maxMove: "Max Flare",
+    },
+    {
+      source: {
+        id: "surf",
+        name: "Surf",
+        type: "Water",
+        category: "Special",
+        power: 90,
+        accuracy: 100,
+        pp: 15,
+      },
+      fieldKind: "weather",
+      effect: "raindance",
+      maxMove: "Max Geyser",
+    },
+    {
+      source: {
+        id: "thunderbolt",
+        name: "Thunderbolt",
+        type: "Electric",
+        category: "Special",
+        power: 90,
+        accuracy: 100,
+        pp: 15,
+      },
+      fieldKind: "terrain",
+      effect: "electricterrain",
+      maxMove: "Max Lightning",
+    },
+    {
+      source: {
+        id: "energyball",
+        name: "Energy Ball",
+        type: "Grass",
+        category: "Special",
+        power: 90,
+        accuracy: 100,
+        pp: 10,
+      },
+      fieldKind: "terrain",
+      effect: "grassyterrain",
+      maxMove: "Max Overgrowth",
+    },
+  ];
+
+  for (const entry of cases) {
+    const state = resolveSimpleTurn(
+      createSimpleBattle(
+        setup({
+          sides: [
+            {
+              name: "Player",
+              team: [
+                pokemon({
+                  name: "DynamaxUser",
+                  types: [entry.source.type],
+                  stats: { ...pokemon().stats, specialAttack: 140, speed: 120 },
+                  gimmicks: { canDynamax: true },
+                  moves: [entry.source],
+                }),
+              ],
+            },
+            {
+              name: "AI",
+              team: [
+                pokemon({
+                  name: "Target",
+                  stats: {
+                    ...pokemon().stats,
+                    hp: 500,
+                    specialDefence: 140,
+                    speed: 40,
+                  },
+                }),
+              ],
+            },
+          ],
+        }),
+      ),
+      [{ move: 1, gimmick: "dynamax" }, { move: 1 }],
+    );
+
+    assert.equal(state.field[entry.fieldKind]?.id, entry.effect);
+    assert.ok(
+      state.events.some(
+        (event) =>
+          event.type === "field_start" &&
+          event.fieldKind === entry.fieldKind &&
+          event.effect === entry.effect &&
+          event.source === entry.maxMove,
+      ),
+    );
+  }
+
+  const maxStrikeState = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "DynamaxUser",
+                gimmicks: { canDynamax: true },
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "Target",
+                stats: { ...pokemon().stats, hp: 500, speed: 40 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1, gimmick: "dynamax" }, { move: 1 }],
+  );
+  assert.equal(maxStrikeState.sides[1].team[0].boosts.speed, -1);
+});
+
+test("a Max Move does not create its field effect when the target is immune", () => {
+  const state = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "DynamaxUser",
+                types: ["Electric"],
+                stats: { ...pokemon().stats, specialAttack: 140, speed: 120 },
+                gimmicks: { canDynamax: true },
+                moves: [
+                  {
+                    id: "thunderbolt",
+                    name: "Thunderbolt",
+                    type: "Electric",
+                    category: "Special",
+                    power: 90,
+                    accuracy: 100,
+                    pp: 15,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "GroundTarget",
+                types: ["Ground"],
+                stats: { ...pokemon().stats, hp: 500, speed: 40 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1, gimmick: "dynamax" }, { move: 1 }],
+  );
+
+  assert.equal(state.field.terrain, null);
+  assert.equal(
+    state.events.some(
+      (event) =>
+        event.type === "field_start" && event.effect === "electricterrain",
     ),
     false,
   );
@@ -18043,4 +18925,143 @@ test("damage reduction abilities and Sheer Force alter damage consistently", () 
   const result = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
   assert.equal(result.sides[0].team[0].hp, hpBefore);
   assert.equal(result.sides[1].team[0].status, "");
+});
+
+test("Sand Stream weather expires after five turns and reports remaining turns", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    accuracy: true,
+    pp: 40,
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Sand",
+          team: [
+            pokemon({
+              name: "Hippowdon",
+              ability: "sandstream",
+              types: ["Ground"],
+              moves: [splash],
+            }),
+          ],
+        },
+        {
+          name: "Rock",
+          team: [
+            pokemon({
+              name: "Rock Target",
+              types: ["Rock"],
+              moves: [splash],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  assert.equal(state.field.weather.turns, 5);
+  for (let turn = 0; turn < 5; turn += 1) {
+    state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  }
+
+  assert.equal(state.field.weather, null);
+  assert.deepEqual(
+    state.events
+      .filter(
+        (event) =>
+          event.type === "field_tick" && event.effect === "sandstorm",
+      )
+      .map((event) => event.remainingTurns),
+    [4, 3, 2, 1],
+  );
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.type === "field_end" &&
+        event.fieldKind === "weather" &&
+        event.effect === "sandstorm",
+    ),
+  );
+});
+
+test("AI never selects Haze when the opponent has no positive stat ranks", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Haze User",
+          team: [
+            pokemon({
+              name: "Haze User",
+              moves: [
+                {
+                  id: "haze",
+                  name: "Haze",
+                  type: "Ice",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 30,
+                },
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+          ],
+        },
+        { name: "Target", team: [pokemon({ name: "Target" })] },
+      ],
+    }),
+  );
+  const decision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert_search",
+    "balanced",
+  );
+  const haze = decision.moveCandidates.find(
+    (candidate) => candidate.id === "haze",
+  );
+  const trace = createSimpleAiDecisionTrace(
+    state,
+    0,
+    decision,
+    "expert_search",
+    "balanced",
+  );
+
+  assert.equal(haze.disabled, true);
+  assert.equal(decision.command.move, 2);
+  assert.ok(
+    trace.candidates
+      .find((candidate) => candidate.id === "haze")
+      .reasons.some(
+        (reason) => reason.code === "rule.haze.no_opponent_boosts",
+      ),
+  );
+
+  state.sides[1].team[0].boosts.attack = 2;
+  const boostedDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert_search",
+    "balanced",
+  );
+  assert.equal(
+    boostedDecision.moveCandidates.find(
+      (candidate) => candidate.id === "haze",
+    ).disabled,
+    false,
+  );
 });

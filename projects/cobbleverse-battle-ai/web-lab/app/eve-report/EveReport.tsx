@@ -197,6 +197,7 @@ type BattleEvent = {
   automatic?: boolean;
   forced?: boolean;
   selection?: string;
+  boosts?: Record<string, number>;
 };
 
 type Battle = {
@@ -930,6 +931,10 @@ function replaySideState(
   const hpBySlot = [...maxHpBySlot];
   let activeIndex = 0;
   let displaySpecies = team[0]?.species ?? "";
+  let dynamaxed = false;
+  let gigantamaxed = false;
+  let teraType = "";
+  const teraTypeBySlot = new Map<number, string>();
 
   const previousSnapshot = [...(report.battle.turnSnapshots ?? [])]
     .reverse()
@@ -950,6 +955,9 @@ function replaySideState(
       const nextSlot = eventPokemonSlot(report, localization, sideIndex, event);
       if (nextSlot >= 0) activeIndex = nextSlot;
       displaySpecies = actorName(event.actor) || team[activeIndex]?.species || "";
+      dynamaxed = false;
+      gigantamaxed = false;
+      teraType = teraTypeBySlot.get(activeIndex) ?? "";
     }
     if (
       event.type === "mega_evolution" &&
@@ -959,6 +967,18 @@ function replaySideState(
     }
 
     const slot = eventPokemonSlot(report, localization, sideIndex, event);
+    if (eventSideIndex(event) === sideIndex) {
+      if (event.type === "dynamax_started") {
+        dynamaxed = true;
+        gigantamaxed = dexId(event.detail) === "gigantamax";
+      } else if (event.type === "dynamax_ended") {
+        dynamaxed = false;
+        gigantamaxed = false;
+      } else if (event.type === "terastallized") {
+        teraType = event.detail ?? "";
+        if (slot >= 0) teraTypeBySlot.set(slot, teraType);
+      }
+    }
     if (slot < 0) continue;
     if (
       ["switch", "damage", "damage_prevented", "heal", "faint"].includes(
@@ -991,6 +1011,9 @@ function replaySideState(
     hp,
     maxHp,
     fainted,
+    dynamaxed,
+    gigantamaxed,
+    teraType,
     hpPercent: Math.max(0, Math.min(100, (hp / maxHp) * 100)),
   };
 }
@@ -1302,11 +1325,16 @@ function EveBattleReplay({
                   transition ? `is-${transition}` : ""
                 } ${hit} ${attack} ${
                   state.fainted && transition !== "fainting" ? "fainted" : ""
+                } ${state.dynamaxed ? "dynamaxed" : ""} ${
+                  state.gigantamaxed ? "gigantamaxed" : ""
+                } ${state.teraType ? "terastallized" : ""} ${
+                  state.teraType ? `tera-type-${dexId(state.teraType)}` : ""
                 }`}
                 key={`${sideIndex}-${state.displaySpecies}-${
                   visualEffect ? cursor : "steady"
                 }`}
               >
+                <span className="battle-gimmick-aura" aria-hidden="true" />
                 <ReportPokemonSprite
                   species={state.displaySpecies}
                   label={localSpecies(localization, state.displaySpecies)}

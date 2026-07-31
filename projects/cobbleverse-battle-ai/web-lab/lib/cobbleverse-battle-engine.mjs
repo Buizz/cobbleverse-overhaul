@@ -103,6 +103,12 @@ const AI_RECOVERY_MOVES = new Set([
   "rest",
   "wish",
 ]);
+const AI_HAZARD_MOVES = new Set([
+  "spikes",
+  "stealthrock",
+  "stickyweb",
+  "toxicspikes",
+]);
 const AI_PROTECTIVE_MOVES = new Set([
   "protect",
   "detect",
@@ -112,6 +118,20 @@ const AI_PROTECTIVE_MOVES = new Set([
   "burningbulwark",
   "obstruct",
   "silktrap",
+]);
+const AI_STATUS_CONTROL_MOVES = new Set([
+  "batonpass",
+  "encore",
+  "haze",
+  "healbell",
+  "aromatherapy",
+  "substitute",
+  "taunt",
+]);
+const CONSECUTIVE_PROTECTION_MOVES = new Set([
+  ...AI_PROTECTIVE_MOVES,
+  "endure",
+  "maxguard",
 ]);
 const IMPLEMENTED_ABILITIES = new Set([
   "adaptability",
@@ -469,7 +489,11 @@ export function isMoveTemporarilyDisabled(pokemon, move) {
       pokemon?.lastMoveSucceeded === true &&
       cleanId(pokemon?.lastMove?.id) === moveId) ||
     (FIRST_ACTIVE_TURN_MOVES.has(moveId) &&
-      Number(pokemon?.activeTurns ?? 0) > 0)
+      Number(pokemon?.activeTurns ?? 0) > 0) ||
+    (moveId === "substitute" &&
+      (Boolean(pokemon?.volatiles?.substitute) ||
+        Number(pokemon?.hp ?? 0) <=
+          Math.floor(Number(pokemon?.stats?.hp ?? 0) / 4)))
   );
 }
 
@@ -874,6 +898,7 @@ function normalizePokemon(pokemon, path) {
       id: "",
       count: 0,
     },
+    protectCounter: 0,
     lockedMove: null,
     choiceLock: null,
     chargingMove: null,
@@ -2871,6 +2896,7 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
     BOOST_STATS.map((stat) => [stat, 0]),
   );
   outgoing.consecutiveMove = { id: "", count: 0 };
+  outgoing.protectCounter = 0;
   outgoing.lockedMove = null;
   outgoing.choiceLock = null;
   outgoing.chargingMove = null;
@@ -4860,6 +4886,7 @@ function markFainted(state, side, pokemon) {
   pokemon.fainted = true;
   state.sides[side].lastFaintedTurn = state.turn;
   pokemon.consecutiveMove = { id: "", count: 0 };
+  pokemon.protectCounter = 0;
   pokemon.lockedMove = null;
   pokemon.choiceLock = null;
   pokemon.chargingMove = null;
@@ -4976,6 +5003,10 @@ function recordMoveResult(state, side, pokemon, move, slot, succeeded, rng = nul
   const rampageMove = RAMPAGE_LOCK_MOVES.has(moveId);
   const repeatedLockMove = rollingMove || rampageMove;
   pokemon.lastMoveSucceeded = Boolean(succeeded);
+  pokemon.protectCounter =
+    succeeded && CONSECUTIVE_PROTECTION_MOVES.has(moveId)
+      ? Math.max(0, Number(pokemon.protectCounter ?? 0)) + 1
+      : 0;
   if (succeeded && move) {
     pokemon.lastMove = clone(move);
     if (!["copycat", "metronome", "mimic", "mirrormove", "sleeptalk"].includes(moveId)) {
@@ -5061,6 +5092,13 @@ function recordMoveResult(state, side, pokemon, move, slot, succeeded, rng = nul
       reason: succeeded ? "completed" : "interrupted",
     });
   }
+}
+
+function consecutiveProtectionSucceeded(pokemon, moveId, rng) {
+  if (!CONSECUTIVE_PROTECTION_MOVES.has(moveId)) return true;
+  const previousSuccesses = Math.max(0, Number(pokemon?.protectCounter ?? 0));
+  if (previousSuccesses <= 0) return true;
+  return (rng?.next?.() ?? 0) < 1 / 3 ** previousSuccesses;
 }
 
 function executeMove(state, action, rng) {
@@ -5987,25 +6025,29 @@ function executeMove(state, action, rng) {
       ].includes(cleanId(move.id))
     ) {
       handled = true;
-      applied =
-        applyVolatileStatus(
-          state,
-          action.side,
-          attacker,
-          "protect",
-          move.name,
-        ) || applied;
+      if (consecutiveProtectionSucceeded(attacker, cleanId(move.id), rng)) {
+        applied =
+          applyVolatileStatus(
+            state,
+            action.side,
+            attacker,
+            "protect",
+            move.name,
+          ) || applied;
+      }
     }
     if (cleanId(move.id) === "endure") {
       handled = true;
-      applied =
-        applyVolatileStatus(
-          state,
-          action.side,
-          attacker,
-          "endure",
-          move.name,
-        ) || applied;
+      if (consecutiveProtectionSucceeded(attacker, cleanId(move.id), rng)) {
+        applied =
+          applyVolatileStatus(
+            state,
+            action.side,
+            attacker,
+            "endure",
+            move.name,
+          ) || applied;
+      }
     }
     if (["moonlight", "morningsun", "synthesis"].includes(cleanId(move.id))) {
       handled = true;
@@ -6964,6 +7006,9 @@ function executeMove(state, action, rng) {
     if (cleanId(move.id) === "batonpass") {
       handled = true;
       const passedBoosts = { ...attacker.boosts };
+      const passedSubstitute = attacker.volatiles?.substitute
+        ? clone(attacker.volatiles.substitute)
+        : null;
       const teamAnalysis = simpleTeamAnalysis(state, action.side);
       const aceIndex = teamAnalysis.roles.findIndex(
         (role) => role?.aceProfile?.qualifies === true,
@@ -6983,13 +7028,22 @@ function executeMove(state, action, rng) {
         preferredSlot,
       );
       if (switched) {
-        activePokemon(state, action.side).boosts = passedBoosts;
+        const incoming = activePokemon(state, action.side);
+        incoming.boosts = passedBoosts;
+        if (passedSubstitute) {
+          incoming.volatiles.substitute = passedSubstitute;
+        }
         state.events.push({
           turn: state.turn,
           type: "boosts_passed",
           side: action.side,
           pokemon: activePokemon(state, action.side).name,
           source: move.name,
+          boosts: Object.fromEntries(
+            Object.entries(passedBoosts)
+              .filter(([, stage]) => Number(stage ?? 0) !== 0)
+              .map(([stat, stage]) => [eventStat(stat), Number(stage)]),
+          ),
         });
         applied = true;
       }
@@ -7349,7 +7403,11 @@ function executeMove(state, action, rng) {
           : "This move effect is not in the native effect catalog yet.",
       });
     }
-    if (applied && move.selfSwitch) {
+    if (
+      applied &&
+      move.selfSwitch &&
+      !["batonpass", "shedtail"].includes(cleanId(move.id))
+    ) {
       executeSelfSwitch(
         state,
         action.side,
@@ -8169,6 +8227,61 @@ function executeMove(state, action, rng) {
   ) {
     removeTargetItem(state, defenderSide, defender, move.name);
   }
+  if (totalDamage > 0) {
+    if (move.weather) {
+      setFieldEffect(
+        state,
+        action.side,
+        attacker,
+        "weather",
+        move.weather,
+        move.name,
+      );
+    }
+    if (move.terrain) {
+      setFieldEffect(
+        state,
+        action.side,
+        attacker,
+        "terrain",
+        move.terrain,
+        move.name,
+      );
+    }
+    if (move.pseudoWeather) {
+      setFieldEffect(
+        state,
+        action.side,
+        attacker,
+        "pseudoWeather",
+        move.pseudoWeather,
+        move.name,
+      );
+    }
+    if (move.sideCondition) {
+      const targetSide =
+        move.target === "allySide" || move.target === "self"
+          ? action.side
+          : defenderSide;
+      setSideCondition(
+        state,
+        targetSide,
+        attacker,
+        move.sideCondition,
+        move.name,
+      );
+    }
+    if (defender.hp > 0 && Object.keys(move.boosts).length) {
+      applyBoosts(
+        state,
+        defenderSide,
+        defender,
+        move.boosts,
+        move.name,
+        action.side,
+      );
+    }
+  }
   if (!isSheerForceBoostedMove(attacker, move)) {
     for (const secondary of move.secondaries) {
       if (defender.hp <= 0) break;
@@ -8910,7 +9023,16 @@ function advanceTimedEffects(state, rng) {
     const effect = state.field[kind];
     if (!effect) continue;
     effect.turns -= 1;
-    if (effect.turns > 0) continue;
+    if (effect.turns > 0) {
+      state.events.push({
+        turn: state.turn,
+        type: "field_tick",
+        fieldKind: kind,
+        effect: effect.id,
+        remainingTurns: effect.turns,
+      });
+      continue;
+    }
     state.events.push({
       turn: state.turn,
       type: "field_end",
@@ -8930,7 +9052,16 @@ function advanceTimedEffects(state, rng) {
   }
   for (const [id, effect] of Object.entries(state.field.pseudoWeather)) {
     effect.turns -= 1;
-    if (effect.turns > 0) continue;
+    if (effect.turns > 0) {
+      state.events.push({
+        turn: state.turn,
+        type: "field_tick",
+        fieldKind: "pseudoWeather",
+        effect: id,
+        remainingTurns: effect.turns,
+      });
+      continue;
+    }
     state.events.push({
       turn: state.turn,
       type: "field_end",
@@ -9752,12 +9883,45 @@ function aiBatonPassProfile(
 
   const passedSource = boostedPokemonForAi(source, additionalBoosts);
   const passedBoosts = { ...passedSource.boosts };
-  const currentBoostTotal = ["attack", "specialAttack", "speed"].reduce(
+  const sweepBoostStats = ["attack", "specialAttack", "speed"];
+  const defensiveBoostStats = ["defence", "specialDefence"];
+  const transferableBoostStats = [
+    ...sweepBoostStats,
+    ...defensiveBoostStats,
+  ];
+  const currentSweepBoostTotal = sweepBoostStats.reduce(
     (sum, stat) =>
       sum + Math.max(0, Number(source.boosts?.[stat] ?? 0)),
     0,
   );
-  const passedBoostTotal = ["attack", "specialAttack", "speed"].reduce(
+  const currentDefensiveBoostTotal = defensiveBoostStats.reduce(
+    (sum, stat) =>
+      sum + Math.max(0, Number(source.boosts?.[stat] ?? 0)),
+    0,
+  );
+  const currentBoostTotal = transferableBoostStats.reduce(
+    (sum, stat) =>
+      sum + Math.max(0, Number(source.boosts?.[stat] ?? 0)),
+    0,
+  );
+  const availableSetupBoostStats = new Set(
+    source.moves
+      .filter(
+        (move) =>
+          move.pp > 0 &&
+          !isMoveTemporarilyDisabled(source, move) &&
+          cleanId(move.id) !== "batonpass",
+      )
+      .flatMap((move) => {
+        const displayMove = aiDisplayMoveData(source, move);
+        return transferableBoostStats.filter(
+          (stat) =>
+            Number(displayMove.selfBoosts?.[stat] ?? 0) > 0 &&
+            Number(source.boosts?.[stat] ?? 0) < 6,
+        );
+      }),
+  );
+  const passedBoostTotal = transferableBoostStats.reduce(
     (sum, stat) => sum + Math.max(0, Number(passedBoosts[stat] ?? 0)),
     0,
   );
@@ -9808,6 +9972,14 @@ function aiBatonPassProfile(
     batonPassTargetName: ace.name,
     batonPassTargetAce: true,
     batonPassCurrentBoostTotal: currentBoostTotal,
+    batonPassCurrentSweepBoostTotal: currentSweepBoostTotal,
+    batonPassCurrentDefensiveBoostTotal: currentDefensiveBoostTotal,
+    batonPassCanRaiseSweepFurther: sweepBoostStats.some((stat) =>
+      availableSetupBoostStats.has(stat),
+    ),
+    batonPassCanRaiseDefenseFurther: defensiveBoostStats.some((stat) =>
+      availableSetupBoostStats.has(stat),
+    ),
     batonPassBoostTotal: passedBoostTotal,
     batonPassAdditionalBoostTotal: Math.max(
       0,
@@ -10067,6 +10239,33 @@ function aiDisplayMoveData(pokemon, move, dynamaxMode = "") {
   };
 }
 
+function aiStatusControlValue(move) {
+  if (!move || move.category !== "Status") return 0;
+  const moveId = cleanId(move.id);
+  const positiveSelfBoosts = Object.values(move.selfBoosts ?? {}).reduce(
+    (sum, value) => sum + Math.max(0, Number(value ?? 0)),
+    0,
+  );
+  if (positiveSelfBoosts > 0) {
+    return Math.min(1, 0.55 + positiveSelfBoosts * 0.12);
+  }
+  if (AI_RECOVERY_MOVES.has(moveId) || moveId === "batonpass") return 1;
+  if (AI_HAZARD_MOVES.has(moveId)) return 0.82;
+  if (AI_PROTECTIVE_MOVES.has(moveId) || moveId === "substitute") return 0.68;
+  if (AI_STATUS_CONTROL_MOVES.has(moveId)) return 0.72;
+  if (
+    move.status ||
+    move.volatileStatus ||
+    move.sideCondition ||
+    move.pseudoWeather ||
+    move.weather ||
+    move.terrain
+  ) {
+    return 0.6;
+  }
+  return 0.4;
+}
+
 function automaticMoveCandidates(
   state,
   sideIndex,
@@ -10255,6 +10454,58 @@ function automaticMoveCandidates(
   const opponentLastDisplayMove = opponentLastMove
     ? aiDisplayMoveData(defender, opponentLastMove)
     : null;
+  const opponentDisruptionMoves = Object.fromEntries(
+    ["taunt", "encore"].map((id) => {
+      const move = defender.moves.find(
+        (candidate) =>
+          cleanId(candidate.id) === id &&
+          candidate.pp > 0 &&
+          !isMoveTemporarilyDisabled(defender, candidate),
+      );
+      return [id, move ? aiDisplayMoveData(defender, move) : null];
+    }),
+  );
+  const recentOpponentMoveId = cleanId(opponentLastDisplayMove?.id);
+  const ownLastMove = pokemon.moves.find(
+    (move) => cleanId(move.id) === cleanId(pokemon.lastMove?.id),
+  );
+  const ownLastMoveWasStatus =
+    pokemon.lastMoveSucceeded === true && ownLastMove?.category === "Status";
+  const disruptionUseLikelihood = (id) => {
+    if (!opponentDisruptionMoves[id]) return 0;
+    let likelihood = id === "taunt" ? 0.24 : 0.18;
+    if (recentOpponentMoveId === id) likelihood += 0.2;
+    if (id === "encore" && ownLastMoveWasStatus) likelihood += 0.22;
+    return Math.max(0, Math.min(0.72, likelihood));
+  };
+  const opponentTauntLikelihood = disruptionUseLikelihood("taunt");
+  const opponentEncoreLikelihood = disruptionUseLikelihood("encore");
+  const hasStatusControlMove = pokemon.moves.some((move) =>
+    ["taunt", "encore"].includes(cleanId(move.id)),
+  );
+  const opponentUsableMoves = hasStatusControlMove
+    ? defender.moves.filter(
+        (move) => move.pp > 0 && !isMoveTemporarilyDisabled(defender, move),
+      )
+    : [];
+  const opponentStatusMoveProfiles = opponentUsableMoves
+    .filter((move) => move.category === "Status")
+    .map((move) => ({
+      id: cleanId(move.id),
+      value: aiStatusControlValue(move),
+    }));
+  const opponentStatusMoveRatio =
+    opponentUsableMoves.length > 0
+      ? opponentStatusMoveProfiles.length /
+        opponentUsableMoves.length
+      : 0;
+  const opponentStatusControlValue =
+    opponentStatusMoveProfiles.length > 0
+      ? opponentStatusMoveProfiles.reduce(
+          (sum, profile) => sum + profile.value,
+          0,
+        ) / opponentStatusMoveProfiles.length
+      : 0;
   const conditionalPriorityFailureTurns = new Set(
     state.events
       .filter(
@@ -10296,6 +10547,48 @@ function automaticMoveCandidates(
   );
   const incomingDamageRatio =
     threatTarget.hp > 0 ? opponentBestDamage / threatTarget.hp : 1;
+  const opponentBenchAttackDamageRatio = hasStatusControlMove
+    ? state.sides[defenderSide].team.reduce((worstRatio, opponent, opponentIndex) => {
+    if (
+      opponentIndex === state.sides[defenderSide].active ||
+      opponent.fainted ||
+      opponent.hp <= 0
+    ) {
+      return worstRatio;
+    }
+    const expectedDamage = opponent.moves.reduce((worstDamage, move) => {
+      if (move.pp <= 0 || isMoveTemporarilyDisabled(opponent, move)) {
+        return worstDamage;
+      }
+      const opponentMove = aiDisplayMoveData(opponent, move);
+      if (
+        opponentMove.category === "Status" ||
+        Number(opponentMove.power ?? 0) <= 0
+      ) {
+        return worstDamage;
+      }
+      const accuracy = expectedAccuracyFraction(
+        opponent,
+        threatTarget,
+        opponentMove,
+        state,
+      );
+      const estimate = aiExpectedMoveDamage(
+        opponent,
+        threatTarget,
+        opponentMove,
+        state,
+        defenderSide,
+        sideIndex,
+      );
+      return Math.max(worstDamage, estimate.expectedDamage * accuracy);
+    }, 0);
+    return Math.max(
+      worstRatio,
+      threatTarget.hp > 0 ? expectedDamage / threatTarget.hp : 1,
+    );
+      }, 0)
+    : 0;
   const survivalTurns = estimatedSurvivalTurns(pokemon, opponentBestDamage);
   const switchPressure = activeSwitchPressure(pokemon);
   const activeRoleProfile = analyzeTeamProfile([
@@ -10380,6 +10673,59 @@ function automaticMoveCandidates(
           (actionOrderTrickRoomActive
             ? defenderSpeed < attackerSpeed
             : defenderSpeed > attackerSpeed));
+      const disruptionActsBeforeProbability = (disruptionMove) => {
+        if (!disruptionMove) return 0;
+        const disruptionPriority = Number(
+          movePriorityForPokemon(defender, disruptionMove),
+        );
+        if (disruptionPriority > movePriority) return 1;
+        if (disruptionPriority < movePriority) return 0;
+        const speedComparison = actionOrderTrickRoomActive
+          ? attackerSpeed - defenderSpeed
+          : defenderSpeed - attackerSpeed;
+        return speedComparison > 0 ? 1 : speedComparison === 0 ? 0.5 : 0;
+      };
+      const tauntActsBeforeProbability = disruptionActsBeforeProbability(
+        opponentDisruptionMoves.taunt,
+      );
+      const encoreActsBeforeProbability = disruptionActsBeforeProbability(
+        opponentDisruptionMoves.encore,
+      );
+      const statusMoveDisruptionBaseProfile =
+        displayMove.category === "Status"
+          ? {
+              opponentHasTaunt: Boolean(opponentDisruptionMoves.taunt),
+              opponentHasEncore: Boolean(opponentDisruptionMoves.encore),
+              opponentTauntRisk:
+                opponentTauntLikelihood *
+                (0.45 + tauntActsBeforeProbability * 0.55),
+              opponentEncoreRisk:
+                opponentEncoreLikelihood *
+                (ownLastMoveWasStatus
+                  ? 0.65 + encoreActsBeforeProbability * 0.35
+                  : 0.4 + encoreActsBeforeProbability * 0.25),
+              opponentDisruptionActsBeforeProbability: Math.max(
+                tauntActsBeforeProbability,
+                encoreActsBeforeProbability,
+              ),
+              exactTauntRisk:
+                cleanId(exactOpponentMove?.id) === "taunt"
+                  ? tauntActsBeforeProbability > 0
+                    ? 1
+                    : displayMove.selfSwitch
+                      ? 0
+                      : 0.65
+                  : 0,
+              exactEncoreRisk:
+                cleanId(exactOpponentMove?.id) === "encore"
+                  ? displayMove.selfSwitch
+                    ? encoreActsBeforeProbability > 0
+                      ? 0.15
+                      : 0
+                    : 0.85
+                  : 0,
+            }
+          : {};
       const upperHandEligibleThreats =
         cleanId(displayMove.id) === "upperhand"
           ? opponentAttackThreats.filter((threat) => {
@@ -10747,6 +11093,214 @@ function automaticMoveCandidates(
       const setupIncomingDamage = setupIncomingThreat.expectedDamage;
       const setupIncomingDamageRatioAfterBoost =
         pokemon.hp > 0 ? setupIncomingDamage / pokemon.hp : 1;
+      const defensiveSetup =
+        Number(displayMove.selfBoosts?.defence ?? 0) > 0 ||
+        Number(displayMove.selfBoosts?.specialDefence ?? 0) > 0;
+      const disruptionActiveDamageRatio =
+        displayMove.category === "Status" && defensiveSetup
+          ? Math.min(
+              incomingDamageRatio,
+              setupIncomingDamageRatioAfterBoost,
+            )
+          : incomingDamageRatio;
+      const disruptionBenchSwitchDamageRatio =
+        displayMove.category === "Status"
+          ? state.sides[defenderSide].team.reduce(
+              (worstRatio, opponent, opponentIndex) => {
+                if (
+                  opponentIndex === state.sides[defenderSide].active ||
+                  opponent.fainted ||
+                  opponent.hp <= 0
+                ) {
+                  return worstRatio;
+                }
+                const expectedDamage = opponent.moves.reduce(
+                  (worstDamage, opponentMove) => {
+                    if (opponentMove.pp <= 0) return worstDamage;
+                    const opponentDisplayMove = aiDisplayMoveData(
+                      opponent,
+                      opponentMove,
+                    );
+                    if (
+                      opponentDisplayMove.category === "Status" ||
+                      Number(opponentDisplayMove.power ?? 0) <= 0
+                    ) {
+                      return worstDamage;
+                    }
+                    const estimate = aiExpectedMoveDamage(
+                      opponent,
+                      setupPokemon,
+                      opponentDisplayMove,
+                      state,
+                      defenderSide,
+                      sideIndex,
+                    );
+                    return Math.max(
+                      worstDamage,
+                      estimate.expectedDamage *
+                        expectedAccuracyFraction(
+                          opponent,
+                          setupPokemon,
+                          opponentDisplayMove,
+                          state,
+                        ),
+                    );
+                  },
+                  0,
+                );
+                return Math.max(
+                  worstRatio,
+                  pokemon.hp > 0 ? expectedDamage / pokemon.hp : 1,
+                );
+              },
+              0,
+            )
+          : 0;
+      const disruptionIncomingDamageRatio = Math.max(
+        disruptionActiveDamageRatio,
+        disruptionBenchSwitchDamageRatio,
+      );
+      const disruptionThreeTurnDamageRatio =
+        Math.max(
+          disruptionActiveDamageRatio * 3,
+          disruptionBenchSwitchDamageRatio * 2,
+        );
+      const statusMoveDisruptionProfile =
+        displayMove.category === "Status"
+          ? {
+              ...statusMoveDisruptionBaseProfile,
+              disruptionIncomingDamageRatio,
+              disruptionThreeTurnDamageRatio,
+              disruptionBenchSwitchDamageRatio,
+              disruptionBenchSwitchThreat:
+                disruptionBenchSwitchDamageRatio >
+                disruptionActiveDamageRatio,
+              disruptionCanSurviveThreeTurns:
+                disruptionThreeTurnDamageRatio < 1,
+              disruptionDefensiveSetup: defensiveSetup,
+              disruptionDefensiveDamageReduction: defensiveSetup
+                ? Math.max(
+                    0,
+                    incomingDamageRatio -
+                      setupIncomingDamageRatioAfterBoost,
+                  )
+                : 0,
+              disruptionSwitchEscapeAvailable:
+                !isPokemonTrapped(state, sideIndex, pokemon) &&
+                state.sides[sideIndex].team.some(
+                  (member, memberIndex) =>
+                    memberIndex !== state.sides[sideIndex].active &&
+                    !member.fainted &&
+                    member.hp > 0,
+                ),
+            }
+          : {};
+      const statusControlMoveId = cleanId(displayMove.id);
+      const exactOpponentMovePriority = Number(
+        exactOpponentMove?.priority ?? 0,
+      );
+      const exactOpponentActsBeforeProbability = !exactOpponentMove
+        ? 0
+        : exactOpponentMovePriority > movePriority
+          ? 1
+          : exactOpponentMovePriority < movePriority
+            ? 0
+            : actionOrderTrickRoomActive
+              ? defenderSpeed < attackerSpeed
+                ? 1
+                : defenderSpeed === attackerSpeed
+                  ? 0.5
+                  : 0
+              : defenderSpeed > attackerSpeed
+                ? 1
+                : defenderSpeed === attackerSpeed
+                  ? 0.5
+                  : 0;
+      const exactEncoreTargetAvailable =
+        statusControlMoveId === "encore" &&
+        exactOpponentMove &&
+        !Number.isInteger(exactOpponentCommand?.switch) &&
+        exactOpponentActsBeforeProbability > 0;
+      const encoreTargetMove = exactEncoreTargetAvailable
+        ? exactOpponentMove
+        : opponentLastDisplayMove;
+      const encoreTargetMoveId = cleanId(encoreTargetMove?.id);
+      const encoreTargetInvalid =
+        !encoreTargetMoveId ||
+        ["encore", "mimic", "sketch", "struggle"].includes(
+          encoreTargetMoveId,
+        );
+      const encoreTargetThreat = opponentAttackThreats.find(
+        (threat) => cleanId(threat.moveId) === encoreTargetMoveId,
+      );
+      const encoreTargetDamageRatio =
+        threatTarget.hp > 0
+          ? Number(encoreTargetThreat?.expectedDamage ?? 0) / threatTarget.hp
+          : 1;
+      const opponentCanEscapeStatusControl =
+        livingOpponents > 1 &&
+        !isPokemonTrapped(state, defenderSide, defender);
+      const opponentSwitchHazardLayers =
+        Number(opponentHazards.stealthrock ?? 0) +
+        Number(opponentHazards.spikes ?? 0) +
+        Number(opponentHazards.toxicspikes ?? 0) +
+        Number(opponentHazards.stickyweb ?? 0);
+      const statusControlActiveDamageRatio =
+        statusControlMoveId === "encore" && !encoreTargetInvalid
+          ? encoreTargetMove?.category === "Status"
+            ? 0
+            : encoreTargetDamageRatio
+          : incomingDamageRatio;
+      const statusControlThreeTurnDamageRatio = Math.max(
+        statusControlActiveDamageRatio * 3,
+        opponentCanEscapeStatusControl
+          ? opponentBenchAttackDamageRatio * 2
+          : 0,
+      );
+      const offensiveStatusControlProfile =
+        displayMove.category === "Status" &&
+        ["taunt", "encore"].includes(statusControlMoveId)
+          ? {
+              statusControlTargetStatusMoveCount:
+                opponentStatusMoveProfiles.length,
+              statusControlTargetStatusMoveRatio: opponentStatusMoveRatio,
+              statusControlTargetValue: opponentStatusControlValue,
+              statusControlThreeTurnDamageRatio,
+              statusControlCanSurviveThreeTurns:
+                statusControlThreeTurnDamageRatio < 1,
+              statusControlOpponentCanSwitch:
+                opponentCanEscapeStatusControl,
+              statusControlSwitchHazardLayers:
+                opponentSwitchHazardLayers,
+              statusControlBenchDamageRatio:
+                opponentBenchAttackDamageRatio,
+              statusControlTargetAlreadyAffected:
+                Boolean(defender.volatiles?.[statusControlMoveId]),
+              tauntPreventsExactStatus:
+                statusControlMoveId === "taunt" &&
+                exactOpponentMove?.category === "Status" &&
+                exactOpponentActsBeforeProbability < 1,
+              tauntPreventionConfidence:
+                statusControlMoveId === "taunt" &&
+                exactOpponentMove?.category === "Status"
+                  ? 1 - exactOpponentActsBeforeProbability
+                  : 0,
+              encoreTargetValid:
+                statusControlMoveId === "encore" &&
+                !encoreTargetInvalid,
+              encoreTargetMoveId,
+              encoreTargetIsStatus:
+                encoreTargetMove?.category === "Status",
+              encoreTargetStatusValue:
+                encoreTargetMove?.category === "Status"
+                  ? aiStatusControlValue(encoreTargetMove)
+                  : 0,
+              encoreTargetDamageRatio,
+              encoreExactTargetConfidence: exactEncoreTargetAvailable
+                ? exactOpponentActsBeforeProbability
+                : 0,
+            }
+          : {};
       const setupFollowupPokemon = clone(setupPokemon);
       if (activeAbility(setupFollowupPokemon) === "speedboost") {
         setupFollowupPokemon.boosts.speed = Math.min(
@@ -10813,6 +11367,11 @@ function automaticMoveCandidates(
       );
       const baseCandidate = {
         ...displayMove,
+        protectSuccessProbability: CONSECUTIVE_PROTECTION_MOVES.has(
+          cleanId(displayMove.id),
+        )
+          ? 1 / 3 ** Math.max(0, Number(pokemon.protectCounter ?? 0))
+          : 1,
         expectedDamage,
         tacticalValue,
         hpPercent: pokemon.hp / pokemon.stats.hp,
@@ -10888,6 +11447,8 @@ function automaticMoveCandidates(
           opponentConditionalPriorityThreat?.expectedDamage ?? 0,
         opponentConditionalPriorityFailureCount:
           conditionalPriorityFailureCount,
+        ...statusMoveDisruptionProfile,
+        ...offensiveStatusControlProfile,
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
@@ -10932,6 +11493,7 @@ function automaticMoveCandidates(
         power: displayMove.power,
         accuracy: effectiveAccuracy(pokemon, defender, displayMove, state),
         priority: displayMove.priority,
+        protectSuccessProbability: baseCandidate.protectSuccessProbability,
         hpPercent: pokemon.hp / pokemon.stats.hp,
         incomingDamageRatio,
         opponentThreateningMoveId: incomingBeforeActionThreat.moveId,
@@ -11011,6 +11573,8 @@ function automaticMoveCandidates(
           opponentConditionalPriorityThreat?.expectedDamage ?? 0,
         opponentConditionalPriorityFailureCount:
           conditionalPriorityFailureCount,
+        ...offensiveStatusControlProfile,
+        ...statusMoveDisruptionProfile,
         ...roomContext,
         activeRoleScore,
         activePrimaryRole: activeRoleProfile?.primaryRole ?? "support",
@@ -11046,6 +11610,11 @@ function automaticMoveCandidates(
         breaksFocusSash: damageOutcome.breaksFocusSash,
         koChance: baseCandidate.koChance,
         pp: move.pp,
+        disabled:
+          cleanId(displayMove.id) === "haze" &&
+          Object.values(defender.boosts ?? {}).every(
+            (value) => Number(value ?? 0) <= 0,
+          ),
         temporarilyDisabled:
           pokemon.dynamaxTurns <= 0 &&
           !dynamaxMode &&
@@ -13877,6 +14446,14 @@ function simpleSearchWinProbability(state, sideIndex) {
   ).probability;
 }
 
+function simpleSearchReliabilityPenalty(candidate) {
+  const successProbability = Math.max(
+    0,
+    Math.min(1, Number(candidate?.protectSuccessProbability ?? 1)),
+  );
+  return (1 - successProbability) * 0.18;
+}
+
 function evaluateSecondTurnSearch({
   context,
   state,
@@ -13945,14 +14522,21 @@ function evaluateSecondTurnSearch({
       (sum, outcome) => sum + outcome.opponentProbability,
       0,
     );
-    const expectedWinProbability =
+    const reliabilityPenalty = simpleSearchReliabilityPenalty(ownCandidate);
+    const expectedWinProbability = Math.max(
+      0,
       outcomes.reduce(
         (sum, outcome) =>
           sum + outcome.winProbability * outcome.opponentProbability,
         0,
-      ) / Math.max(Number.EPSILON, coveredProbability);
-    const worstWinProbability = Math.min(
-      ...outcomes.map((outcome) => outcome.winProbability),
+      ) /
+        Math.max(Number.EPSILON, coveredProbability) -
+        reliabilityPenalty,
+    );
+    const worstWinProbability = Math.max(
+      0,
+      Math.min(...outcomes.map((outcome) => outcome.winProbability)) -
+        reliabilityPenalty,
     );
     evaluations.push({
       ownCommand: ownCandidate.policyCommand,
@@ -14109,15 +14693,22 @@ function applyTwoTurnExpectimaxDecisionPolicy({
       (sum, outcome) => sum + outcome.opponentProbability,
       0,
     );
-    const expectedWinProbability =
+    const reliabilityPenalty = simpleSearchReliabilityPenalty(ownCandidate);
+    const expectedWinProbability = Math.max(
+      0,
       outcomes.reduce(
         (sum, outcome) =>
           sum +
           outcome.evaluatedWinProbability * outcome.opponentProbability,
         0,
-      ) / Math.max(Number.EPSILON, coveredProbability);
-    const worstWinProbability = Math.min(
-      ...outcomes.map((outcome) => outcome.riskWinProbability),
+      ) /
+        Math.max(Number.EPSILON, coveredProbability) -
+        reliabilityPenalty,
+    );
+    const worstWinProbability = Math.max(
+      0,
+      Math.min(...outcomes.map((outcome) => outcome.riskWinProbability)) -
+        reliabilityPenalty,
     );
     const searchValue =
       expectedWinProbability * 0.8 + worstWinProbability * 0.2;

@@ -70,6 +70,75 @@ test("hydrates scenario members for the Cobbleverse engine", () => {
   assert.ok(setup.sides[0].team[0].stats.speed > 0);
 });
 
+test("hydrates Z-A Dragalgite and lets the computer Mega Evolve Dragalge", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-dragalge-mega",
+    mode: "pve",
+    levelMode: "level-100",
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            slot: 1,
+            species: "shuckle",
+            level: 100,
+            ability: "sturdy",
+            heldItem: "leftovers",
+            moveset: ["withdraw", "rest", "toxic", "protect"],
+            ivs: {},
+            evs: {},
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            slot: 1,
+            species: "dragalge",
+            level: 100,
+            ability: "adaptability",
+            heldItem: "zamega:dragalgite",
+            moveset: [
+              "dracometeor",
+              "sludgebomb",
+              "flipturn",
+              "toxicspikes",
+            ],
+            ivs: {},
+            evs: {},
+          },
+        ],
+      },
+    ],
+  };
+  const setup = createNativeBattleSetup(battleScenario);
+  const dragalge = setup.sides[1].team[0];
+
+  assert.equal(dragalge.gimmicks.megaStone.form, "Dragalge-Mega");
+  assert.equal(dragalge.gimmicks.megaStone.ability, "Regenerator");
+  assert.deepEqual(dragalge.gimmicks.megaStone.types, ["Poison", "Dragon"]);
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  const next = chooseNativeInteractiveBattleAction(started.sessionId, {
+    type: "move",
+    slot: 1,
+  });
+
+  assert.equal(next.aiTrace[0].gimmick, "mega");
+  assert.ok(
+    next.events.some(
+      (event) =>
+        event.type === "mega_evolution" &&
+        event.detail === "Dragalge-Mega",
+    ),
+  );
+  assert.equal(next.request.opponent.species, "Dragalge-Mega");
+});
+
 test("hydrates only RCT-designated members as Tera candidates", () => {
   const setup = createNativeBattleSetup({
     ...scenario,
@@ -344,6 +413,26 @@ test("preserves native damage and heal causes for Showdown-like logs", () => {
         detail: "Flamethrower",
         moveType: "Fire",
         moveCategory: "Special",
+      },
+    ],
+  );
+
+  assert.deepEqual(
+    mapNativeEvent({
+      turn: 2,
+      type: "boosts_passed",
+      side: 0,
+      pokemon: "Special Ace",
+      source: "Baton Pass",
+      boosts: { spa: 6, def: 2 },
+    }),
+    [
+      {
+        turn: 2,
+        type: "boosts_passed",
+        actor: "p1a: Special Ace",
+        detail: "Baton Pass",
+        boosts: { spa: 6, def: 2 },
       },
     ],
   );

@@ -7,6 +7,7 @@ import { strToU8, zipSync } from "fflate";
 
 import {
   buildTrainerIndex,
+  normalizeBattleItemCatalogEntry,
   normalizeStats,
   normalizeTrainer,
   readTrainerDocuments,
@@ -15,6 +16,22 @@ import {
   createCobblemonItemResolver,
   normalizeHeldItem,
 } from "../lib/cobblemon-item-catalog.mjs";
+
+test("promotes Z-A Mega stones into the searchable battle item catalog", () => {
+  const dragalgite = normalizeBattleItemCatalogEntry({
+    id: "zamega:dragalgite",
+    namespace: "zamega",
+    path: "dragalgite",
+    englishName: "Dragalgite",
+    koreanName: "",
+    battleCategory: "unverified",
+    battleUsable: false,
+  });
+
+  assert.equal(dragalgite.battleUsable, true);
+  assert.equal(dragalgite.battleCategory, "mega");
+  assert.equal(dragalgite.koreanName, "드래캄나이트");
+});
 
 test("normalizes short and long stat keys", () => {
   assert.deepEqual(

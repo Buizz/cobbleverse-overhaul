@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "generatedAt": "2026-07-24T15:10:33.1322691Z",
   "source": "trainer-data/catalogs/cobblemon-items.json",
-  "itemCount": 255,
+  "itemCount": 301,
   "items": [
     {
       "id": "cobblemon:ability_shield",
@@ -5029,6 +5029,604 @@
       ],
       "sourceJars": [
         "Cobblemon-neoforge-1.7.1+1.21.1.jar"
+      ]
+    },
+    {
+      "id": "zamega:absolitez",
+      "namespace": "zamega",
+      "path": "absolitez",
+      "englishName": "Absolite Z",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:ange",
+      "namespace": "zamega",
+      "path": "ange",
+      "englishName": "Ange",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:barbaracite",
+      "namespace": "zamega",
+      "path": "barbaracite",
+      "englishName": "Barbaracite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:baxcalibrite",
+      "namespace": "zamega",
+      "path": "baxcalibrite",
+      "englishName": "Baxcalibrite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:chandelurite",
+      "namespace": "zamega",
+      "path": "chandelurite",
+      "englishName": "Chandelurite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:chesnaughtite",
+      "namespace": "zamega",
+      "path": "chesnaughtite",
+      "englishName": "Chesnaughtite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:chimechoite",
+      "namespace": "zamega",
+      "path": "chimechoite",
+      "englishName": "Chimechoite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:clefablite",
+      "namespace": "zamega",
+      "path": "clefablite",
+      "englishName": "Clefablite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:crabominite",
+      "namespace": "zamega",
+      "path": "crabominite",
+      "englishName": "Crabominite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:darkranite",
+      "namespace": "zamega",
+      "path": "darkranite",
+      "englishName": "Darkranite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:delphoxite",
+      "namespace": "zamega",
+      "path": "delphoxite",
+      "englishName": "Delphoxite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:dragalgite",
+      "namespace": "zamega",
+      "path": "dragalgite",
+      "englishName": "Dragalgite",
+      "koreanName": "드래캄나이트",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:dragoninite",
+      "namespace": "zamega",
+      "path": "dragoninite",
+      "englishName": "Dragoninite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:drampanite",
+      "namespace": "zamega",
+      "path": "drampanite",
+      "englishName": "Drampanite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:eelektrossite",
+      "namespace": "zamega",
+      "path": "eelektrossite",
+      "englishName": "Eelektrossite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:emboarite",
+      "namespace": "zamega",
+      "path": "emboarite",
+      "englishName": "Emboarite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:excadrite",
+      "namespace": "zamega",
+      "path": "excadrite",
+      "englishName": "Excadrite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:falinksite",
+      "namespace": "zamega",
+      "path": "falinksite",
+      "englishName": "Falinksite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:feraligite",
+      "namespace": "zamega",
+      "path": "feraligite",
+      "englishName": "Feraligite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:floettite",
+      "namespace": "zamega",
+      "path": "floettite",
+      "englishName": "Floettite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:froslassite",
+      "namespace": "zamega",
+      "path": "froslassite",
+      "englishName": "Froslassite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:garchompitez",
+      "namespace": "zamega",
+      "path": "garchompitez",
+      "englishName": "Garchompite Z",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:glimmoranite",
+      "namespace": "zamega",
+      "path": "glimmoranite",
+      "englishName": "Glimmoranite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:golisopite",
+      "namespace": "zamega",
+      "path": "golisopite",
+      "englishName": "Golisopite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:golurkite",
+      "namespace": "zamega",
+      "path": "golurkite",
+      "englishName": "Golurkite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:greninjite",
+      "namespace": "zamega",
+      "path": "greninjite",
+      "englishName": "Greninjite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:hawluchanite",
+      "namespace": "zamega",
+      "path": "hawluchanite",
+      "englishName": "Hawluchanite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:heatranite",
+      "namespace": "zamega",
+      "path": "heatranite",
+      "englishName": "Heatranite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:lucarionitez",
+      "namespace": "zamega",
+      "path": "lucarionitez",
+      "englishName": "Lucarionite Z",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:magearnite",
+      "namespace": "zamega",
+      "path": "magearnite",
+      "englishName": "Magearnite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:malamarite",
+      "namespace": "zamega",
+      "path": "malamarite",
+      "englishName": "Malamarite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:meganiumite",
+      "namespace": "zamega",
+      "path": "meganiumite",
+      "englishName": "Meganiumite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:meowsticite",
+      "namespace": "zamega",
+      "path": "meowsticite",
+      "englishName": "Meowsticite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:pyroarite",
+      "namespace": "zamega",
+      "path": "pyroarite",
+      "englishName": "Pyroarite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:raichunitex",
+      "namespace": "zamega",
+      "path": "raichunitex",
+      "englishName": "Raichunite X",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:raichunitey",
+      "namespace": "zamega",
+      "path": "raichunitey",
+      "englishName": "Raichunite Y",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:scolipite",
+      "namespace": "zamega",
+      "path": "scolipite",
+      "englishName": "Scolipite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:scovillainite",
+      "namespace": "zamega",
+      "path": "scovillainite",
+      "englishName": "Scovillainite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:scraftinite",
+      "namespace": "zamega",
+      "path": "scraftinite",
+      "englishName": "Scraftinite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:skarmorite",
+      "namespace": "zamega",
+      "path": "skarmorite",
+      "englishName": "Skarmorite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:staraptite",
+      "namespace": "zamega",
+      "path": "staraptite",
+      "englishName": "Staraptite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:starminite",
+      "namespace": "zamega",
+      "path": "starminite",
+      "englishName": "Starminite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:tatsugirinite",
+      "namespace": "zamega",
+      "path": "tatsugirinite",
+      "englishName": "Tatsugirinite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:victreebelite",
+      "namespace": "zamega",
+      "path": "victreebelite",
+      "englishName": "Victreebelite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:zeraorite",
+      "namespace": "zamega",
+      "path": "zeraorite",
+      "englishName": "Zeraorite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
+      ]
+    },
+    {
+      "id": "zamega:zygardite",
+      "namespace": "zamega",
+      "path": "zygardite",
+      "englishName": "Zygardite",
+      "koreanName": "",
+      "battleCategory": "mega",
+      "battleUsable": true,
+      "tags": {},
+      "sourceJars": [
+        "zamega-neoforge-1.5.4.jar"
       ]
     }
   ]

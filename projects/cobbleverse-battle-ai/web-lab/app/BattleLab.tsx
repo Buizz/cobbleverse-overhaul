@@ -320,6 +320,7 @@ type BattleEvent = {
   automatic?: boolean;
   forced?: boolean;
   selection?: string;
+  boosts?: Record<string, number>;
 };
 
 type BattlePlaybackMode = "instant" | "fast" | "normal";
@@ -340,6 +341,11 @@ type BattleHpPreview = {
 type BattleSpeciesPreview = {
   p1?: string;
   p2?: string;
+};
+
+type BattleTypePreview = {
+  p1?: string[];
+  p2?: string[];
 };
 
 type BattleFaintedPreview = {
@@ -1012,6 +1018,7 @@ const playbackEventTypes = new Set([
   "activated",
   "cannot_move",
   "weather",
+  "field_active",
   "field_started",
   "field_ended",
   "mega_evolution",
@@ -1500,6 +1507,9 @@ function pokemonBattleMessage(
     detailName: () =>
       battleDetailNames[event.detail ?? ""] ??
       localizedEventDetail(localization, event),
+    sourceName: (value) =>
+      battleDetailNames[value] ??
+      localizedEventDetail(localization, { ...event, detail: value }),
     sideLabels: { p1: "", p2: "상대 " },
     overrides: {
       damage: () =>
@@ -1653,13 +1663,10 @@ function BattleLogEventLine({
         </p>
       );
     case "weather":
+    case "field_active":
     case "field_started":
     case "field_ended":
-      return (
-        <p>
-          {battleEventNames[event.type]}: <b>{detail}</b>
-        </p>
-      );
+      return <p>{pokemonBattleMessage(localization, event)}</p>;
     case "win":
       return (
         <p className="battle-log-result">
@@ -4074,6 +4081,37 @@ function conditionNumbers(condition: string | undefined) {
   };
 }
 
+function activeTypesForBattleSide(
+  battle: InteractiveBattle,
+  side: "p1" | "p2",
+  species: string,
+) {
+  const speciesId = dexId(species);
+  if (side === "p1") {
+    const activeCandidates = [
+      ...(battle.request?.activeSlots?.map((slot) => slot.active) ?? []),
+      battle.request?.active,
+    ].filter((pokemon): pokemon is InteractivePokemon => Boolean(pokemon));
+    const active =
+      activeCandidates.find((pokemon) => dexId(pokemon.species) === speciesId) ??
+      (activeCandidates.length === 1 ? activeCandidates[0] : null);
+    if (active?.terastallized) return [active.terastallized];
+    if (active?.types.length) return active.types;
+  } else {
+    const opponents = battle.request?.opponents ?? [];
+    const opponent =
+      opponents.find((pokemon) => dexId(pokemon.species) === speciesId) ??
+      (opponents.length === 1 ? opponents[0] : battle.request?.opponent);
+    if (opponent?.types?.length) return opponent.types;
+  }
+  const configured = battle.sides[side === "p1" ? 0 : 1]?.team.find(
+    (pokemon) =>
+      dexId(pokemon.resolvedSpecies ?? pokemon.species) === speciesId ||
+      dexId(pokemon.species) === speciesId,
+  );
+  return configured?.types ?? [];
+}
+
 function displayPokemonFromBattleState(
   species: string,
   condition: string | undefined,
@@ -4312,24 +4350,47 @@ function latestConditionBySide(events: BattleEvent[], side: "p1" | "p2") {
 }
 
 function activeGimmickState(events: BattleEvent[], side: "p1" | "p2") {
-  const state = { mega: false, dynamax: false, tera: "" };
+  const state = {
+    mega: false,
+    dynamax: false,
+    gigantamax: false,
+    tera: "",
+  };
   for (const event of events) {
     if (!event.actor?.startsWith(side)) continue;
     if (event.type === "switch") {
       state.mega = dexId(event.detail).includes("mega");
       state.dynamax = false;
+      state.gigantamax = false;
       state.tera = "";
     } else if (event.type === "mega_evolution") {
       state.mega = true;
     } else if (event.type === "dynamax_started") {
       state.dynamax = true;
+      state.gigantamax = dexId(event.detail) === "gigantamax";
     } else if (event.type === "dynamax_ended") {
       state.dynamax = false;
+      state.gigantamax = false;
     } else if (event.type === "terastallized") {
       state.tera = event.detail ?? "";
     }
   }
   return state;
+}
+
+function gimmickVisualClasses(state: {
+  dynamax: boolean;
+  gigantamax: boolean;
+  tera: string;
+}) {
+  return [
+    state.dynamax ? "dynamaxed" : "",
+    state.gigantamax ? "gigantamaxed" : "",
+    state.tera ? "terastallized" : "",
+    state.tera ? `tera-type-${dexId(state.tera)}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function usedGimmicksBySide(events: BattleEvent[], side: "p1" | "p2") {
@@ -4350,13 +4411,22 @@ function usedGimmicksBySide(events: BattleEvent[], side: "p1" | "p2") {
 function GimmickStateBadges({
   state,
 }: {
-  state: { mega: boolean; dynamax: boolean; tera: string };
+  state: {
+    mega: boolean;
+    dynamax: boolean;
+    gigantamax: boolean;
+    tera: string;
+  };
 }) {
   if (!state.mega && !state.dynamax && !state.tera) return null;
   return (
     <div className="gimmick-state-badges">
       {state.mega ? <span className="mega">MEGA</span> : null}
-      {state.dynamax ? <span className="dynamax">DYNAMAX</span> : null}
+      {state.dynamax ? (
+        <span className="dynamax">
+          {state.gigantamax ? "GIGANTAMAX" : "DYNAMAX"}
+        </span>
+      ) : null}
       {state.tera ? <span className="tera">TERA · {state.tera}</span> : null}
     </div>
   );
@@ -4368,6 +4438,14 @@ function activeStatRanks(events: BattleEvent[], side: "p1" | "p2") {
     if (!event.actor?.startsWith(side)) continue;
     if (event.type === "switch") {
       for (const stat of Object.keys(ranks)) delete ranks[stat];
+      continue;
+    }
+    if (event.type === "boosts_passed") {
+      for (const stat of Object.keys(ranks)) delete ranks[stat];
+      for (const [stat, rank] of Object.entries(event.boosts ?? {})) {
+        if (!Number.isFinite(rank) || rank === 0) continue;
+        ranks[stat] = Math.max(-6, Math.min(6, rank));
+      }
       continue;
     }
     if (!["stat_up", "stat_down", "stat_set"].includes(event.type)) continue;
@@ -4781,7 +4859,9 @@ function InteractiveArena({
   actionNotice,
   hpPreview,
   speciesPreview,
+  typePreview,
   faintedPreview,
+  playbackEvents,
   persistentSaveSlots,
   onAction,
   onSessionOperation,
@@ -4797,7 +4877,9 @@ function InteractiveArena({
   actionNotice: BattleActionNotice | null;
   hpPreview: BattleHpPreview;
   speciesPreview: BattleSpeciesPreview;
+  typePreview: BattleTypePreview;
   faintedPreview: BattleFaintedPreview;
+  playbackEvents: BattleEvent[];
   persistentSaveSlots: PersistentBattleSlot[];
   onAction: (action: {
     type: "move" | "switch";
@@ -4836,6 +4918,10 @@ function InteractiveArena({
     gimmick?: BattleGimmick;
   } | null>(null);
   const request = battle.request;
+  const visualEvents =
+    playbackEvents.length > 0
+      ? [...battle.events, ...playbackEvents]
+      : battle.events;
   const reproductionJson = useMemo(
     () =>
       JSON.stringify(
@@ -4951,7 +5037,7 @@ function InteractiveArena({
     gimmickOptions.find(
       (option) => option.id === selectedGimmick && option.available,
     )?.id ?? null;
-  const opponentEvent = [...battle.events]
+  const opponentEvent = [...visualEvents]
     .reverse()
     .find(
       (event) =>
@@ -4977,29 +5063,29 @@ function InteractiveArena({
   const finished = battle.status !== "awaiting_choice";
   const playerWon = finished && battle.winner === battle.sides[0].name;
   const opponentWon = finished && battle.winner === battle.sides[1].name;
-  const latestPlayerSpecies = latestBattlingSpeciesBySide(battle.events, "p1");
-  const latestOpponentSpecies = latestBattlingSpeciesBySide(battle.events, "p2");
+  const latestPlayerSpecies = latestBattlingSpeciesBySide(visualEvents, "p1");
+  const latestOpponentSpecies = latestBattlingSpeciesBySide(visualEvents, "p2");
   const opponentName =
     speciesPreview.p2 ||
-    (playerWon ? latestOpponentSpecies : activeSpeciesBySide(battle.events, "p2")) ||
+    (playerWon ? latestOpponentSpecies : activeSpeciesBySide(visualEvents, "p2")) ||
     actorName(opponentEvent?.actor) ||
     battle.sides[1].name;
   const opponentCondition = playerWon
     ? "0 fnt"
-    : hpPreview.p2 ?? opponentEvent?.condition ?? latestConditionBySide(battle.events, "p2");
+    : hpPreview.p2 ?? opponentEvent?.condition ?? latestConditionBySide(visualEvents, "p2");
   const opponentHp = conditionPercent(opponentCondition);
   const playerDisplaySpecies =
     speciesPreview.p1 ||
     (opponentWon
       ? latestPlayerSpecies
-      : activeSpeciesBySide(battle.events, "p1") || latestPlayerSpecies) ||
+      : activeSpeciesBySide(visualEvents, "p1") || latestPlayerSpecies) ||
     active?.species;
   const playerCondition = opponentWon
     ? "0 fnt"
-    : hpPreview.p1 ?? active?.condition.text ?? latestConditionBySide(battle.events, "p1");
+    : hpPreview.p1 ?? active?.condition.text ?? latestConditionBySide(visualEvents, "p1");
   const playerSpriteFainted = faintedPreview.p1 === true;
   const opponentSpriteFainted = faintedPreview.p2 === true;
-  const pokemonStatuses = statusByPokemon(battle.events);
+  const pokemonStatuses = statusByPokemon(visualEvents);
   const opponentStatus =
     pokemonStatuses.get(dexId(opponentName)) ??
     statusFromCondition(opponentCondition);
@@ -5008,18 +5094,24 @@ function InteractiveArena({
     pokemonStatuses.get(dexId(active?.species)) ??
     statusFromCondition(playerCondition);
   const faintedOpponentSpecies = new Set(
-    battle.events
+    visualEvents
       .filter((event) => event.type === "faint" && event.actor?.startsWith("p2"))
       .map((event) => dexId(actorName(event.actor))),
   );
-  const playerRanks = activeStatRanks(battle.events, "p1");
-  const opponentRanks = activeStatRanks(battle.events, "p2");
-  const playerGimmickState = activeGimmickState(battle.events, "p1");
-  const opponentGimmickState = activeGimmickState(battle.events, "p2");
-  if (active?.terastallized) {
+  const playerRanks = activeStatRanks(visualEvents, "p1");
+  const opponentRanks = activeStatRanks(visualEvents, "p2");
+  const playerGimmickState = activeGimmickState(visualEvents, "p1");
+  const opponentGimmickState = activeGimmickState(visualEvents, "p2");
+  if (!speciesPreview.p1 && active?.terastallized) {
     playerGimmickState.tera = active.terastallized;
   }
-  const fieldState = activeBattleFields(battle.events);
+  const playerDisplayTypes = playerGimmickState.tera
+    ? [playerGimmickState.tera]
+    : typePreview.p1 ?? active?.types ?? [];
+  const opponentDisplayTypes = opponentGimmickState.tera
+    ? [opponentGimmickState.tera]
+    : typePreview.p2 ?? request?.opponent?.types ?? [];
+  const fieldState = activeBattleFields(visualEvents);
   const fieldVisualClasses = [
     fieldState.terrain ? `terrain-${dexId(fieldState.terrain)}` : "",
     fieldState.weather ? `weather-${dexId(fieldState.weather)}` : "",
@@ -5063,13 +5155,18 @@ function InteractiveArena({
         pokemon.ident?.match(/^(p[12][a-z]?):/)?.[1] ??
         `p1${String.fromCharCode(97 + index)}`;
       const currentSpecies =
-        activeSpeciesByPosition(battle.events, position) ||
+        activeSpeciesByPosition(visualEvents, position) ||
         (requestedPlayerFieldPokemon.length === 1
           ? playerDisplaySpecies
           : pokemon.species);
-      return currentSpecies === pokemon.species
-        ? pokemon
-        : { ...pokemon, species: currentSpecies };
+      return {
+        ...pokemon,
+        species: currentSpecies,
+        types:
+          requestedPlayerFieldPokemon.length === 1
+            ? playerDisplayTypes
+            : pokemon.types,
+      };
     }) ??
     (active
       ? [{ ...active, species: playerDisplaySpecies || active.species }]
@@ -5079,13 +5176,15 @@ function InteractiveArena({
   const opponentFieldPokemon =
     request?.opponents?.length
       ? request.opponents.map((pokemon) =>
-          request.opponents.length === 1 &&
-          opponentName &&
-          pokemon.species !== opponentName
-            ? { ...pokemon, species: opponentName }
+          request.opponents.length === 1 && opponentName
+            ? {
+                ...pokemon,
+                species: opponentName,
+                types: opponentDisplayTypes,
+              }
             : pokemon,
         )
-      : [{ position: 1, species: opponentName, types: request?.opponent?.types ?? [] }];
+      : [{ position: 1, species: opponentName, types: opponentDisplayTypes }];
   const playerInfo = mergedPokemonInfo({
     battle,
     sideIndex: 0,
@@ -5254,7 +5353,7 @@ function InteractiveArena({
             <GimmickStateBadges state={opponentGimmickState} />
             <div className="combatant-meta-row">
               <div className="combatant-types">
-                {request?.opponent?.types.map((type) => (
+                {opponentDisplayTypes.map((type) => (
                   <TypeIcon key={type} type={type} withLabel />
                 ))}
               </div>
@@ -5303,9 +5402,9 @@ function InteractiveArena({
               const visualEffect = transition || hit || attack;
               return (
                 <div
-                  className={`sprite-platform opponent-platform ${
-                    opponentGimmickState.dynamax ? "dynamaxed" : ""
-                  } ${
+                  className={`sprite-platform opponent-platform ${gimmickVisualClasses(
+                    opponentGimmickState,
+                  )} ${
                     opponentSpriteFainted && !transition
                       ? "fainted"
                       : ""
@@ -5314,6 +5413,7 @@ function InteractiveArena({
                     visualEffect ? actionNotice?.step : "steady"
                   }`}
                 >
+                  <span className="battle-gimmick-aura" aria-hidden="true" />
                   {/* Dynamic Showdown sprite URLs are intentionally rendered without Next image optimization. */}
                   <PokemonSprite
                     species={pokemon.species}
@@ -5390,9 +5490,9 @@ function InteractiveArena({
               const visualEffect = transition || hit || attack;
               return (
                 <div
-                  className={`sprite-platform player-platform ${
-                    playerGimmickState.dynamax ? "dynamaxed" : ""
-                  } ${
+                  className={`sprite-platform player-platform ${gimmickVisualClasses(
+                    playerGimmickState,
+                  )} ${
                     playerSpriteFainted && !transition
                       ? "fainted"
                       : ""
@@ -5401,6 +5501,7 @@ function InteractiveArena({
                     visualEffect ? actionNotice?.step : "steady"
                   }`}
                 >
+                  <span className="battle-gimmick-aura" aria-hidden="true" />
                   {/* Dynamic Showdown sprite URLs intentionally skip Next image optimization. */}
                   <PokemonSprite
                     species={pokemon.species}
@@ -5422,7 +5523,7 @@ function InteractiveArena({
             <GimmickStateBadges state={playerGimmickState} />
             <div className="combatant-meta-row">
               <div className="combatant-types">
-                {active?.types.map((type) => (
+                {playerDisplayTypes.map((type) => (
                   <TypeIcon key={type} type={type} withLabel />
                 ))}
               </div>
@@ -6124,8 +6225,10 @@ export function BattleLab() {
   const [hpPreview, setHpPreview] = useState<BattleHpPreview>({});
   const [speciesPreview, setSpeciesPreview] =
     useState<BattleSpeciesPreview>({});
+  const [typePreview, setTypePreview] = useState<BattleTypePreview>({});
   const [faintedPreview, setFaintedPreview] =
     useState<BattleFaintedPreview>({});
+  const [playbackEvents, setPlaybackEvents] = useState<BattleEvent[]>([]);
   const playbackToken = useRef(0);
 
   useEffect(() => {
@@ -7109,7 +7212,9 @@ export function BattleLab() {
     setActionNotice(null);
     setHpPreview({});
     setSpeciesPreview({});
+    setTypePreview({});
     setFaintedPreview({});
+    setPlaybackEvents([]);
     setInteractiveBusy(true);
     setNotice("직접 조작 배틀을 시작하고 있습니다.");
     try {
@@ -7211,7 +7316,9 @@ export function BattleLab() {
         setInteractiveBattle(result.battle);
         setHpPreview({});
         setSpeciesPreview({});
+        setTypePreview({});
         setFaintedPreview({});
+        setPlaybackEvents([]);
         if (scenario && result.battle.status === "awaiting_choice") {
           storeLastBattle({
             schemaVersion: 1,
@@ -7231,6 +7338,8 @@ export function BattleLab() {
           });
         }
       } else {
+        setPlaybackEvents([]);
+        setTypePreview({});
         for (const [index, event] of events.entries()) {
           if (playbackToken.current !== token) return;
           if (event.actor?.startsWith("p1") || event.actor?.startsWith("p2")) {
@@ -7242,7 +7351,21 @@ export function BattleLab() {
                   ...current,
                   [side]: nextSpecies,
                 }));
+                setTypePreview((current) => ({
+                  ...current,
+                  [side]: activeTypesForBattleSide(
+                    result.battle,
+                    side,
+                    nextSpecies,
+                  ),
+                }));
               }
+            }
+            if (event.type === "terastallized" && event.detail) {
+              setTypePreview((current) => ({
+                ...current,
+                [side]: [event.detail as string],
+              }));
             }
             if (event.type === "switch") {
               setFaintedPreview((current) => ({
@@ -7282,6 +7405,7 @@ export function BattleLab() {
               }
             }
           }
+          setPlaybackEvents(events.slice(0, index + 1));
           setActionNotice({
             event,
             step: index + 1,
@@ -7292,6 +7416,8 @@ export function BattleLab() {
         if (playbackToken.current !== token) return;
         setInteractiveBattle(result.battle);
         setSpeciesPreview({});
+        setTypePreview({});
+        setPlaybackEvents([]);
         if (scenario && result.battle.status === "awaiting_choice") {
           storeLastBattle({
             schemaVersion: 1,
@@ -7397,7 +7523,9 @@ export function BattleLab() {
       setActionNotice(null);
       setHpPreview({});
       setSpeciesPreview({});
+      setTypePreview({});
       setFaintedPreview({});
+      setPlaybackEvents([]);
       storeLastBattle({
         schemaVersion: 1,
         savedAt: new Date().toISOString(),
@@ -7461,7 +7589,9 @@ export function BattleLab() {
       setActionNotice(null);
       setHpPreview({});
       setSpeciesPreview({});
+      setTypePreview({});
       setFaintedPreview({});
+      setPlaybackEvents([]);
       if (scenario) {
         storeLastBattle({
           schemaVersion: 1,
@@ -7488,7 +7618,9 @@ export function BattleLab() {
     setActionNotice(null);
     setHpPreview({});
     setSpeciesPreview({});
+    setTypePreview({});
     setFaintedPreview({});
+    setPlaybackEvents([]);
     if (!current || current.status !== "awaiting_choice") return;
     try {
       await fetch("/api/interactive-battles", {
@@ -8637,7 +8769,9 @@ export function BattleLab() {
           actionNotice={actionNotice}
           hpPreview={hpPreview}
           speciesPreview={speciesPreview}
+          typePreview={typePreview}
           faintedPreview={faintedPreview}
+          playbackEvents={playbackEvents}
           persistentSaveSlots={persistentBattleSlots}
           onAction={chooseInteractiveAction}
           onSessionOperation={controlInteractiveSession}

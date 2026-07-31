@@ -2148,6 +2148,296 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
   const moveId = cleanId(enriched.id ?? enriched.moveId ?? enriched.name);
   const tags = candidateTagSet(enriched);
   const adjustments = [];
+  if (enriched.category === "Status") {
+    const disruptionThreeTurnDamageRatio = Math.max(
+      0,
+      finiteNumber(enriched.disruptionThreeTurnDamageRatio, 3),
+    );
+    const survivesDisruptionWindow =
+      enriched.disruptionCanSurviveThreeTurns === true ||
+      disruptionThreeTurnDamageRatio < 1;
+    const defensiveSetup = enriched.disruptionDefensiveSetup === true;
+    const switchEscapeAvailable =
+      enriched.disruptionSwitchEscapeAvailable === true;
+    const benchSwitchThreat =
+      enriched.disruptionBenchSwitchThreat === true;
+    const defensiveDamageReduction = Math.max(
+      0,
+      finiteNumber(enriched.disruptionDefensiveDamageReduction, 0),
+    );
+    const disruptionWindowDescription = benchSwitchThreat
+      ? `상대의 벤치 교체 경로까지 포함한 3턴 예상 피해가 현재 체력의 ${Math.round(disruptionThreeTurnDamageRatio * 100)}%`
+      : `3턴 예상 피해가 현재 체력의 ${Math.round(disruptionThreeTurnDamageRatio * 100)}%`;
+    const survivalDiscount = Math.min(
+      0.78,
+      (survivesDisruptionWindow ? 0.45 : 0) +
+        (defensiveSetup && defensiveDamageReduction > 0 ? 0.18 : 0) +
+        (switchEscapeAvailable ? 0.1 : 0),
+    );
+    const exactTauntRisk = Math.max(
+      0,
+      Math.min(1, finiteNumber(enriched.exactTauntRisk, 0)),
+    );
+    const exactEncoreRisk = Math.max(
+      0,
+      Math.min(1, finiteNumber(enriched.exactEncoreRisk, 0)),
+    );
+    const exactDisruptionRisk = Math.max(exactTauntRisk, exactEncoreRisk);
+    if (exactDisruptionRisk > 0) {
+      const exactMove = exactTauntRisk >= exactEncoreRisk ? "도발" : "앙코르";
+      const exactTauntActsFirst =
+        exactMove === "도발" &&
+        finiteNumber(
+          enriched.opponentDisruptionActsBeforeProbability,
+          0,
+        ) >= 1;
+      const adjustedExactRisk =
+        exactDisruptionRisk *
+        (exactTauntActsFirst ? 1 : 1 - survivalDiscount);
+      adjustments.push(
+        scoreAdjustment(
+          `rule.status_disruption.exact_${exactMove === "도발" ? "taunt" : "encore"}`,
+          `확정된 ${exactMove} 경계`,
+          adjustedExactRisk,
+          -Math.round(adjustedExactRisk * 700),
+          exactTauntActsFirst
+            ? "치터 판단으로 상대의 선공 도발을 확인해 이번 변화기가 실패하는 위험을 크게 반영했습니다."
+            : survivesDisruptionWindow
+              ? `상대의 ${exactMove}을 확인했지만 ${disruptionWindowDescription}라 생존 및 교체 여지를 함께 반영했습니다.`
+              : `치터 판단으로 상대가 이번 턴 ${exactMove}을 사용하는 것을 확인해 변화기가 봉쇄되거나 반복 사용에 묶일 위험을 크게 반영했습니다.`,
+        ),
+      );
+    } else {
+      const tauntRisk = Math.max(
+        0,
+        Math.min(1, finiteNumber(enriched.opponentTauntRisk, 0)),
+      );
+      const encoreRisk = Math.max(
+        0,
+        Math.min(1, finiteNumber(enriched.opponentEncoreRisk, 0)),
+      );
+      if (tauntRisk > 0) {
+        const adjustedTauntRisk = tauntRisk * (1 - survivalDiscount);
+        adjustments.push(
+          scoreAdjustment(
+            "rule.status_disruption.taunt_risk",
+            "상대 도발 경계",
+            adjustedTauntRisk,
+            -Math.round(adjustedTauntRisk * 90),
+            survivesDisruptionWindow
+              ? `상대가 도발을 보유했지만 ${disruptionWindowDescription}라 위험 감점을 완화했습니다.`
+              : `상대가 도발을 보유하고 있어 이번 변화기가 봉쇄될 위험을 ${Math.round(tauntRisk * 100)}%로 평가했습니다.`,
+          ),
+        );
+      }
+      if (encoreRisk > 0) {
+        const adjustedEncoreRisk = encoreRisk * (1 - survivalDiscount);
+        adjustments.push(
+          scoreAdjustment(
+            "rule.status_disruption.encore_risk",
+            "상대 앙코르 경계",
+            adjustedEncoreRisk,
+            -Math.round(adjustedEncoreRisk * 75),
+            survivesDisruptionWindow
+              ? defensiveSetup && defensiveDamageReduction > 0
+                ? `상대가 앙코르를 보유했지만 방어형 랭크업 후 ${disruptionWindowDescription}로 줄어 위험 감점을 크게 완화했습니다.`
+                : `상대가 앙코르를 보유했지만 ${disruptionWindowDescription}라 생존 및 교체 여지를 반영했습니다.`
+              : benchSwitchThreat
+                ? `상대가 앙코르를 보유했고 벤치 위협으로 교체하면 3턴 안에 쓰러질 수 있어 반복 사용에 묶이는 위험을 유지했습니다.`
+                : `상대가 앙코르를 보유하고 있어 변화기 반복에 묶일 위험을 ${Math.round(encoreRisk * 100)}%로 평가했습니다.`,
+          ),
+        );
+      }
+    }
+  }
+  const hasStatusControlObservation =
+    enriched.statusControlTargetStatusMoveCount !== undefined ||
+    enriched.encoreTargetValid !== undefined;
+  if (
+    hasStatusControlObservation &&
+    (moveId === "taunt" || moveId === "encore")
+  ) {
+    const targetAlreadyAffected =
+      enriched.statusControlTargetAlreadyAffected === true;
+    const canSurviveControlWindow =
+      enriched.statusControlCanSurviveThreeTurns === true;
+    const controlWindowDamageRatio = Math.max(
+      0,
+      finiteNumber(enriched.statusControlThreeTurnDamageRatio, 3),
+    );
+    const opponentCanSwitch =
+      enriched.statusControlOpponentCanSwitch === true;
+    const switchHazardLayers = Math.max(
+      0,
+      finiteNumber(enriched.statusControlSwitchHazardLayers, 0),
+    );
+    if (targetAlreadyAffected) {
+      adjustments.push(
+        scoreAdjustment(
+          `rule.status_control.${moveId}_already_active`,
+          "이미 적용된 방해 효과",
+          moveId,
+          -1000,
+          `상대에게 ${moveId === "taunt" ? "도발" : "앙코르"}가 이미 적용되어 있어 다시 사용할 이유가 없습니다.`,
+        ),
+      );
+    } else if (moveId === "taunt") {
+      const statusMoveCount = Math.max(
+        0,
+        finiteNumber(enriched.statusControlTargetStatusMoveCount, 0),
+      );
+      const statusMoveRatio = Math.max(
+        0,
+        Math.min(
+          1,
+          finiteNumber(enriched.statusControlTargetStatusMoveRatio, 0),
+        ),
+      );
+      const targetValue = Math.max(
+        0,
+        Math.min(1, finiteNumber(enriched.statusControlTargetValue, 0)),
+      );
+      if (statusMoveCount <= 0) {
+        adjustments.push(
+          scoreAdjustment(
+            "rule.status_control.taunt_no_target",
+            "차단할 변화기 없음",
+            0,
+            -1000,
+            "상대가 사용할 수 있는 변화기가 없어 도발은 아무 효과가 없습니다.",
+          ),
+        );
+      } else {
+        const preventionConfidence = Math.max(
+          0,
+          Math.min(
+            1,
+            finiteNumber(enriched.tauntPreventionConfidence, 0),
+          ),
+        );
+        const controlBonus = Math.round(
+          12 +
+            statusMoveRatio * 30 +
+            targetValue * 34 +
+            preventionConfidence * 75,
+        );
+        adjustments.push(
+          scoreAdjustment(
+            "rule.status_control.taunt_lock",
+            "핵심 변화기 차단",
+            `${statusMoveCount} / ${Math.round(statusMoveRatio * 100)}%`,
+            controlBonus,
+            preventionConfidence > 0
+              ? `상대가 이번 턴 사용할 변화기를 최대 ${Math.round(preventionConfidence * 100)}% 확률로 먼저 차단하며, 기술 ${statusMoveCount}개를 봉쇄할 수 있습니다.`
+              : `상대 기술 중 변화기 ${statusMoveCount}개의 회복·랭크업·설치 가치를 차단할 수 있어 점수를 높였습니다.`,
+          ),
+        );
+        if (!canSurviveControlWindow && preventionConfidence < 1) {
+          const penalty = -Math.min(
+            120,
+            Math.round(45 + Math.max(0, controlWindowDamageRatio - 1) * 65),
+          );
+          adjustments.push(
+            scoreAdjustment(
+              "rule.status_control.taunt_short_life",
+              "도발 유지 전 생존 위험",
+              controlWindowDamageRatio,
+              penalty,
+              `도발을 걸어도 공격 기술이나 교체 대응으로 3턴 동안 현재 체력의 약 ${Math.round(controlWindowDamageRatio * 100)}% 피해를 받을 수 있어 가치를 낮췄습니다.`,
+            ),
+          );
+        }
+      }
+    } else if (enriched.encoreTargetValid !== true) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.status_control.encore_no_target",
+          "고정할 직전 기술 없음",
+          enriched.encoreTargetMoveId ?? "",
+          -1000,
+          "앙코르로 고정할 수 있는 상대의 직전 기술이 없어 사용할 수 없습니다.",
+        ),
+      );
+    } else {
+      const targetMoveId = enriched.encoreTargetMoveId ?? "";
+      const exactConfidence = Math.max(
+        0,
+        Math.min(
+          1,
+          finiteNumber(enriched.encoreExactTargetConfidence, 0),
+        ),
+      );
+      if (enriched.encoreTargetIsStatus === true) {
+        const targetValue = Math.max(
+          0,
+          Math.min(
+            1,
+            finiteNumber(enriched.encoreTargetStatusValue, 0),
+          ),
+        );
+        const bonus = Math.round(
+          38 +
+            targetValue * 72 +
+            exactConfidence * 70 +
+            Math.min(18, switchHazardLayers * 6),
+        );
+        adjustments.push(
+          scoreAdjustment(
+            "rule.status_control.encore_status_lock",
+            "변화기 반복 고정",
+            targetMoveId,
+            bonus,
+            opponentCanSwitch
+              ? `상대를 ${targetMoveId}에 묶어 교체를 강요하고 한 턴의 주도권${switchHazardLayers > 0 ? "과 설치물 피해" : ""}을 얻을 수 있습니다.`
+              : `상대를 ${targetMoveId}에 3턴 동안 묶어 안전한 공격이나 전개 기회를 확보할 수 있습니다.`,
+          ),
+        );
+      } else {
+        const targetDamageRatio = Math.max(
+          0,
+          finiteNumber(enriched.encoreTargetDamageRatio, 1),
+        );
+        const weight =
+          targetDamageRatio <= 0.2
+            ? 52
+            : targetDamageRatio <= 0.35
+              ? 24
+              : targetDamageRatio >= 0.65
+                ? -130
+                : targetDamageRatio >= 0.5
+                  ? -75
+                  : -18;
+        adjustments.push(
+          scoreAdjustment(
+            "rule.status_control.encore_attack_lock",
+            targetDamageRatio <= 0.35
+              ? "약한 공격에 고정"
+              : "위험한 공격에 고정",
+            `${targetMoveId} / ${Math.round(targetDamageRatio * 100)}%`,
+            weight,
+            targetDamageRatio <= 0.35
+              ? `상대를 현재 체력의 약 ${Math.round(targetDamageRatio * 100)}%만 깎는 ${targetMoveId}에 묶어 전개 기회를 만들 수 있습니다.`
+              : `${targetMoveId}에 묶어도 한 번에 현재 체력의 약 ${Math.round(targetDamageRatio * 100)}% 피해를 받아 앙코르의 가치를 낮췄습니다.`,
+          ),
+        );
+      }
+      if (!canSurviveControlWindow) {
+        const penalty = -Math.min(
+          110,
+          Math.round(35 + Math.max(0, controlWindowDamageRatio - 1) * 55),
+        );
+        adjustments.push(
+          scoreAdjustment(
+            "rule.status_control.encore_short_life",
+            "앙코르 이후 생존 위험",
+            controlWindowDamageRatio,
+            penalty,
+            `상대의 교체 대응까지 고려하면 3턴 동안 현재 체력의 약 ${Math.round(controlWindowDamageRatio * 100)}% 피해를 받을 수 있어 후속 이득을 제한했습니다.`,
+          ),
+        );
+      }
+    }
+  }
   const tier = setupThreatTier(enriched);
   const setupEvaluation =
     enriched.setupThreatEvaluation ??
@@ -2849,6 +3139,86 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
     );
   }
 
+  const batonPassCurrentSweepBoostTotal = finiteNumber(
+    enriched.batonPassCurrentSweepBoostTotal,
+    finiteNumber(enriched.batonPassCurrentBoostTotal, 0),
+  );
+  const batonPassCurrentDefensiveBoostTotal = finiteNumber(
+    enriched.batonPassCurrentDefensiveBoostTotal,
+    0,
+  );
+  const safeForAnotherBatonSetup =
+    batonSetupSurvivalProbability >= 0.85 &&
+    finiteNumber(enriched.incomingDamageRatio, 1) <= 0.35 &&
+    finiteNumber(enriched.opponentKnockoutBeforeActionProbability, 0) < 0.2;
+  const batonPassDevelopmentRemaining =
+    (batonPassCurrentSweepBoostTotal < 6 &&
+      enriched.batonPassCanRaiseSweepFurther === true) ||
+    (batonPassCurrentDefensiveBoostTotal < 2 &&
+      enriched.batonPassCanRaiseDefenseFurther === true);
+  const batonPassReady =
+    enriched.batonPassTargetAvailable === true &&
+    enriched.batonPassTargetAce === true &&
+    batonPassCurrentSweepBoostTotal >= 3 &&
+    finiteNumber(enriched.batonPassNewKoTargets, 0) >= 2 &&
+    (!safeForAnotherBatonSetup ||
+      (batonPassCurrentSweepBoostTotal >= 6 &&
+        batonPassCurrentDefensiveBoostTotal >= 2));
+  if (
+    moveId !== "batonpass" &&
+    batonPassReady &&
+    (batonSetupGain > 0 ||
+      tags.has("setupboost") ||
+      finiteNumber(enriched.effectiveSelfBoostTotal, 0) > 0)
+  ) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.baton_pass.ready_to_transfer",
+        "에이스 전달 준비 완료",
+        enriched.batonPassTargetName,
+        -220,
+        safeForAnotherBatonSetup
+          ? `핵심 공격 랭크 ${batonPassCurrentSweepBoostTotal}와 방어 랭크 ${batonPassCurrentDefensiveBoostTotal}를 확보해, 안전한 추가 전개보다 ${enriched.batonPassTargetName}에게 전달할 가치가 높습니다.`
+          : `이미 쌓은 랭크로 ${enriched.batonPassTargetName}이 상대 ${Math.max(2, finiteNumber(enriched.batonPassNewKoTargets, 0))}마리 이상을 압박하며 추가 전개가 안전하지 않아 즉시 전달을 우선합니다.`,
+      ),
+    );
+  }
+  if (
+    moveId === "batonpass" &&
+    safeForAnotherBatonSetup &&
+    batonPassDevelopmentRemaining
+  ) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.baton_pass.safe_development_remaining",
+        "안전한 추가 전개 가능",
+        enriched.batonPassTargetName,
+        -90,
+        `상대의 예상 최대 피해가 현재 체력의 ${Math.round(finiteNumber(enriched.incomingDamageRatio, 0) * 100)}%에 불과해, ${enriched.batonPassTargetName}에게 넘기기 전에 의미 있는 랭크를 한 번 더 확보할 수 있습니다.`,
+      ),
+    );
+  }
+
+  const protectSuccessProbability = Math.max(
+    0,
+    Math.min(1, finiteNumber(enriched.protectSuccessProbability, 1)),
+  );
+  if (
+    protectSuccessProbability < 1 &&
+    ["protect", "detect", "kingsshield", "spikyshield", "banefulbunker", "burningbulwark", "obstruct", "silktrap", "endure", "maxguard"].includes(moveId)
+  ) {
+    const penalty = Math.round((1 - protectSuccessProbability) * -21000) / 100;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.protect.consecutive_failure_risk",
+        "연속 방어 실패 위험",
+        protectSuccessProbability,
+        penalty,
+        `연속 사용 성공률이 ${Math.round(protectSuccessProbability * 100)}%로 낮아져 실패 위험을 반영했습니다.`,
+      ),
+    );
+  }
+
   if (tags.has("setupboost")) {
     const incomingRatio = ratioValue(
       enriched.opponentMaxDamageToCurrentHealthRatio,
@@ -3306,6 +3676,26 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         ["brn", "par", "slp"].includes(cleanId(secondary.status)) &&
         Number(secondary.chance ?? 100) >= 60,
     );
+
+  if (
+    moveId === "haze" &&
+    Math.max(
+      0,
+      finiteNumber(enriched.opponentPositiveBoosts, 0),
+      positiveBoostTotal(enriched.opponentBoosts),
+      positiveBoostTotal(enriched.targetBoosts),
+    ) <= 0
+  ) {
+    adjustments.push(
+      scoreAdjustment(
+        "rule.haze.no_opponent_boosts",
+        "초기화할 상대 랭크 없음",
+        0,
+        -1000,
+        "상대에게 올라간 랭크가 없어 흑안개를 사용할 이유가 없습니다.",
+      ),
+    );
+  }
   const recoveryMove = RECOVERY_MOVE_IDS.has(moveId) || tags.has("recovery");
   if (
     setupPunishMove &&

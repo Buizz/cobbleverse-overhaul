@@ -44,6 +44,7 @@ export const BATTLE_EVENT_NAMES: Record<string, string> = {
   stat_up: "능력 상승",
   stat_down: "능력 하락",
   stat_set: "능력 변화",
+  boosts_passed: "능력 변화 전달",
   ability: "특성 발동",
   item: "도구 발동",
   trainer_item: "트레이너 아이템",
@@ -52,6 +53,7 @@ export const BATTLE_EVENT_NAMES: Record<string, string> = {
   activated: "효과 발동",
   cannot_move: "행동 불가",
   weather: "날씨 변화",
+  field_active: "필드 효과 지속",
   field_started: "필드 효과 시작",
   field_ended: "필드 효과 종료",
   mega_evolution: "메가진화",
@@ -109,7 +111,9 @@ function resolvedActor(event: BattleDialogueEvent, context: BattleDialogueContex
 function resolvedDetail(event: BattleDialogueEvent, context: BattleDialogueContext) {
   if (context.detailName) return context.detailName(event);
   if (!event.detail) return "";
-  if (event.type === "move") return context.moveName?.(event.detail) ?? event.detail;
+  if (event.type === "move" || event.type === "boosts_passed") {
+    return context.moveName?.(event.detail) ?? event.detail;
+  }
   if (event.type === "switch") {
     return context.speciesName?.(battleActorName(event.detail)) ?? battleActorName(event.detail);
   }
@@ -236,6 +240,8 @@ export function formatBattleDialogue(
       return `${actor || "포켓몬"}의 ${(STAT_NAMES[event.detail ?? ""] ?? detail) || "능력"}이 떨어졌다!`;
     case "stat_set":
       return `${actor || "포켓몬"}의 ${(STAT_NAMES[event.detail ?? ""] ?? detail) || "능력"}이 변했다!`;
+    case "boosts_passed":
+      return `${actor || "포켓몬"}에게 ${detail || "배턴터치"}로 능력 변화가 이어졌다!`;
     case "ability":
       return `${actor || "포켓몬"}의 특성 「${detail || "특성"}」!`;
     case "item":
@@ -254,7 +260,22 @@ export function formatBattleDialogue(
     case "cannot_move":
       return `${subject} 움직일 수 없다!`;
     case "weather":
+      if (String(event.detail ?? "").toLowerCase() === "none") {
+        const weatherName =
+          context.sourceName?.(event.condition ?? "") ||
+          event.condition ||
+          "날씨";
+        return `${weatherName}${koreanBattleParticle(weatherName, "이", "가")} 그쳤다!`;
+      }
       return `${detail || "날씨"}가 전장을 뒤덮었다!`;
+    case "field_active": {
+      const fieldName = detail || "필드 효과";
+      const subject = `${fieldName}${koreanBattleParticle(fieldName, "이", "가")}`;
+      return String(event.source ?? "").toLowerCase() === "weather" &&
+        String(event.detail ?? "").toLowerCase() === "sandstorm"
+        ? `${subject} 불고 있다. (남은 턴 ${event.condition || "?"})`
+        : `${subject} 계속되고 있다. (남은 턴 ${event.condition || "?"})`;
+    }
     case "field_started":
       return `${detail || "필드 효과"}가 시작되었다!`;
     case "field_ended":

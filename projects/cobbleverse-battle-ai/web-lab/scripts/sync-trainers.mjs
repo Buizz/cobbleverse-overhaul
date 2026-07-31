@@ -42,6 +42,31 @@ const statAliases = {
   speed: "speed",
 };
 
+const battleItemOverrides = {
+  "zamega:dragalgite": {
+    battleCategory: "mega",
+    battleUsable: true,
+    koreanName: "드래캄나이트",
+  },
+};
+
+export function normalizeBattleItemCatalogEntry(item) {
+  const id = String(item?.id ?? "").toLowerCase();
+  const namespace = String(item?.namespace ?? "").toLowerCase();
+  const megaItem =
+    namespace === "zamega"
+      ? {
+          battleCategory: "mega",
+          battleUsable: true,
+        }
+      : {};
+  return {
+    ...item,
+    ...megaItem,
+    ...(battleItemOverrides[id] ?? {}),
+  };
+}
+
 export function normalizeStats(stats) {
   if (!stats || typeof stats !== "object" || Array.isArray(stats)) {
     return {};
@@ -227,7 +252,11 @@ export function normalizeTrainer(
 }
 
 export async function buildTrainerIndex() {
-  const itemCatalog = JSON.parse(await readFile(itemCatalogSource, "utf8"));
+  const rawItemCatalog = JSON.parse(await readFile(itemCatalogSource, "utf8"));
+  const itemCatalog = {
+    ...rawItemCatalog,
+    items: rawItemCatalog.items.map(normalizeBattleItemCatalogEntry),
+  };
   const itemResolver = createCobblemonItemResolver(itemCatalog);
   const documents = await readTrainerDocuments();
   const trainers = documents.map((document) =>

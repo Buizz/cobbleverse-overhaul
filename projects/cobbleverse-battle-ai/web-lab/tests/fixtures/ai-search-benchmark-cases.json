@@ -29,12 +29,12 @@
       "trainerIds": ["sv9-speed-offense", "champions-mega-raichu-x-rain"],
       "focus": ["weather", "switch", "speed-control"],
       "previousBaseline": {
-        "winnerTrainerId": "champions-mega-raichu-x-rain",
-        "turns": 42
-      },
-      "baseline": {
         "winnerTrainerId": "sv9-speed-offense",
         "turns": 28
+      },
+      "baseline": {
+        "winnerTrainerId": null,
+        "turns": 29
       }
     },
     {
@@ -58,11 +58,11 @@
       "focus": ["trick-room", "switch", "future-matchup"],
       "previousBaseline": {
         "winnerTrainerId": "dbingsu-server-party",
-        "turns": 33
+        "turns": 20
       },
       "baseline": {
         "winnerTrainerId": "dbingsu-server-party",
-        "turns": 20
+        "turns": 21
       }
     },
     {
@@ -86,11 +86,11 @@
       "focus": ["mega", "priority", "switch", "trick-room"],
       "previousBaseline": {
         "winnerTrainerId": "champions-mega-mawile-dual-mode",
-        "turns": 62
+        "turns": 27
       },
       "baseline": {
         "winnerTrainerId": "champions-mega-mawile-dual-mode",
-        "turns": 27
+        "turns": 37
       }
     },
     {
@@ -99,12 +99,12 @@
       "trainerIds": ["champions-mega-raichu-x-rain", "sv9-modern-bulky-offense"],
       "focus": ["weather", "switch", "ace-preservation"],
       "previousBaseline": {
-        "winnerTrainerId": "champions-mega-raichu-x-rain",
-        "turns": 43
+        "winnerTrainerId": "sv9-modern-bulky-offense",
+        "turns": 29
       },
       "baseline": {
         "winnerTrainerId": "sv9-modern-bulky-offense",
-        "turns": 43
+        "turns": 36
       }
     },
     {

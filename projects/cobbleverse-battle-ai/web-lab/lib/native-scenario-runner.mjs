@@ -28,6 +28,23 @@ const GENERIC_Z_MOVE_NAMES = {
   fairy: "Twinkle Tackle",
 };
 
+const CUSTOM_MEGA_STONES = {
+  dragalgite: {
+    evolves: "Dragalge",
+    form: "Dragalge-Mega",
+    types: ["Poison", "Dragon"],
+    ability: "regenerator",
+    baseStats: {
+      hp: 65,
+      atk: 85,
+      def: 105,
+      spa: 132,
+      spd: 163,
+      spe: 44,
+    },
+  },
+};
+
 function statValue(base, level, iv, ev, isHp = false) {
   const core = Math.floor(
     ((2 * base + iv + Math.floor(ev / 4)) * level) / 100,
@@ -194,13 +211,14 @@ function hydrateMember(member, path, teraContext = {}) {
   const heldItem = member.heldItemPath ?? member.heldItem ?? "";
   const itemPath = cleanId(heldItem);
   const showdownItem = Dex.items.get(itemPath);
+  const customMegaStone = CUSTOM_MEGA_STONES[itemPath] ?? null;
   const megaSpecies = normalizeShowdownSpecies(showdownItem.megaStone);
   const megaEvolves =
     showdownItem.megaEvolves ??
     (showdownItem.megaStone && typeof showdownItem.megaStone === "object"
       ? Object.keys(showdownItem.megaStone)[0]
       : "");
-  const megaStone =
+  const showdownMegaStone =
     showdownItem.exists && megaSpecies?.name
       ? {
           item: heldItem,
@@ -223,6 +241,24 @@ function hydrateMember(member, path, teraContext = {}) {
             : null,
         }
       : null;
+  const megaStone =
+    showdownMegaStone ??
+    (customMegaStone
+      ? {
+          item: heldItem,
+          evolves: customMegaStone.evolves,
+          form: customMegaStone.form,
+          types: customMegaStone.types,
+          ability: customMegaStone.ability,
+          stats: {
+            attack: calculated(customMegaStone, "atk"),
+            defence: calculated(customMegaStone, "def"),
+            specialAttack: calculated(customMegaStone, "spa"),
+            specialDefence: calculated(customMegaStone, "spd"),
+            speed: calculated(customMegaStone, "spe"),
+          },
+        }
+      : null);
   const zCrystal =
     showdownItem.exists &&
     (showdownItem.zMove || showdownItem.zMoveType || showdownItem.zMoveFrom)
@@ -539,13 +575,27 @@ export function mapNativeEvent(event) {
       },
     ];
   }
+  if (event.type === "boosts_passed") {
+    return [
+      {
+        ...base,
+        type: "boosts_passed",
+        detail: displayValue(event.source),
+        boosts: { ...(event.boosts ?? {}) },
+      },
+    ];
+  }
   if (event.type === "field_start" || event.type === "field_end") {
     if (event.fieldKind === "weather") {
       return [
         {
           ...base,
           type: "weather",
-          detail: event.type === "field_start" ? event.effect ?? "" : "",
+          detail: event.type === "field_start" ? event.effect ?? "" : "none",
+          condition:
+            event.type === "field_start"
+              ? String(event.duration ?? "")
+              : event.effect ?? "",
         },
       ];
     }
@@ -555,6 +605,17 @@ export function mapNativeEvent(event) {
         type: event.type === "field_start" ? "field_started" : "field_ended",
         detail: event.effect ?? "",
         condition: event.fieldKind ?? "",
+      },
+    ];
+  }
+  if (event.type === "field_tick") {
+    return [
+      {
+        ...base,
+        type: "field_active",
+        detail: event.effect ?? "",
+        condition: String(event.remainingTurns ?? ""),
+        source: event.fieldKind ?? "",
       },
     ];
   }

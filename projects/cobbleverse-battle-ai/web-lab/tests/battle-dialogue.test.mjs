@@ -76,3 +76,55 @@ test("distinguishes voluntary, self, and forced switches", () => {
     "2P 폴리곤2가 강제로 돌아가고 핫삼이 끌려 나왔다! (344/344)",
   );
 });
+
+test("describes active and expired weather with remaining turns", () => {
+  const context = {
+    detailName: (event) =>
+      event.detail === "sandstorm" ? "모래바람" : event.detail ?? "",
+    sourceName: (value) => (value === "sandstorm" ? "모래바람" : value),
+  };
+
+  assert.equal(
+    formatBattleDialogue(
+      {
+        turn: 2,
+        type: "field_active",
+        detail: "sandstorm",
+        condition: "3",
+        source: "weather",
+      },
+      context,
+    ),
+    "모래바람이 불고 있다. (남은 턴 3)",
+  );
+  assert.equal(
+    formatBattleDialogue(
+      {
+        turn: 5,
+        type: "weather",
+        detail: "none",
+        condition: "sandstorm",
+      },
+      context,
+    ),
+    "모래바람이 그쳤다!",
+  );
+});
+
+test("describes stat ranks carried by Baton Pass", () => {
+  assert.equal(
+    formatBattleDialogue(
+      {
+        turn: 4,
+        type: "boosts_passed",
+        actor: "p1a: Special Ace",
+        detail: "Baton Pass",
+      },
+      {
+        speciesName,
+        moveName: (value) => (value === "Baton Pass" ? "배턴터치" : value),
+      },
+    ),
+    "Special Ace에게 배턴터치로 능력 변화가 이어졌다!",
+  );
+});

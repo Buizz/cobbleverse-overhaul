@@ -13,8 +13,8 @@
     "schemaVersion": 1,
     "itemCount": 7615,
     "resolutionCounts": {
-      "not_battle_item": 36,
-      "resolved": 599,
+      "not_battle_item": 28,
+      "resolved": 607,
       "unknown": 4
     }
   },
@@ -1623,7 +1623,7 @@
             {
               "input": "zamega:dragalgite",
               "canonicalId": "zamega:dragalgite",
-              "status": "not_battle_item",
+              "status": "resolved",
               "candidates": [
                 "zamega:dragalgite"
               ],
@@ -1632,9 +1632,9 @@
                 "namespace": "zamega",
                 "path": "dragalgite",
                 "englishName": "Dragalgite",
-                "koreanName": "",
-                "battleCategory": "unverified",
-                "battleUsable": false
+                "koreanName": "드래캄나이트",
+                "battleCategory": "mega",
+                "battleUsable": true
               }
             }
           ],
@@ -7255,7 +7255,7 @@
             {
               "input": "zamega:starminite",
               "canonicalId": "zamega:starminite",
-              "status": "not_battle_item",
+              "status": "resolved",
               "candidates": [
                 "zamega:starminite"
               ],
@@ -7265,8 +7265,8 @@
                 "path": "starminite",
                 "englishName": "Starminite",
                 "koreanName": "",
-                "battleCategory": "unverified",
-                "battleUsable": false
+                "battleCategory": "mega",
+                "battleUsable": true
               }
             }
           ],
@@ -26805,7 +26805,7 @@
             {
               "input": "zamega:malamarite",
               "canonicalId": "zamega:malamarite",
-              "status": "not_battle_item",
+              "status": "resolved",
               "candidates": [
                 "zamega:malamarite"
               ],
@@ -26815,8 +26815,8 @@
                 "path": "malamarite",
                 "englishName": "Malamarite",
                 "koreanName": "",
-                "battleCategory": "unverified",
-                "battleUsable": false
+                "battleCategory": "mega",
+                "battleUsable": true
               }
             }
           ],
@@ -27706,7 +27706,7 @@
             {
               "input": "zamega:dragoninite",
               "canonicalId": "zamega:dragoninite",
-              "status": "not_battle_item",
+              "status": "resolved",
               "candidates": [
                 "zamega:dragoninite"
               ],
@@ -27716,8 +27716,8 @@
                 "path": "dragoninite",
                 "englishName": "Dragoninite",
                 "koreanName": "",
-                "battleCategory": "unverified",
-                "battleUsable": false
+                "battleCategory": "mega",
+                "battleUsable": true
               }
             }
           ],
@@ -30252,7 +30252,7 @@
             {
               "input": "zamega:zygardite",
               "canonicalId": "zamega:zygardite",
-              "status": "not_battle_item",
+              "status": "resolved",
               "candidates": [
                 "zamega:zygardite"
               ],
@@ -30262,8 +30262,8 @@
                 "path": "zygardite",
                 "englishName": "Zygardite",
                 "koreanName": "",
-                "battleCategory": "unverified",
-                "battleUsable": false
+                "battleCategory": "mega",
+                "battleUsable": true
               }
             }
           ],
@@ -36382,7 +36382,7 @@
             {
               "input": "zamega:emboarite",
               "canonicalId": "zamega:emboarite",
-              "status": "not_battle_item",
+              "status": "resolved",
               "candidates": [
                 "zamega:emboarite"
               ],
@@ -36392,8 +36392,8 @@
                 "path": "emboarite",
                 "englishName": "Emboarite",
                 "koreanName": "",
-                "battleCategory": "unverified",
-                "battleUsable": false
+                "battleCategory": "mega",
+                "battleUsable": true
               }
             }
           ],
@@ -46779,7 +46779,7 @@
             {
               "input": "zamega:staraptite",
               "canonicalId": "zamega:staraptite",
-              "status": "not_battle_item",
+              "status": "resolved",
               "candidates": [
                 "zamega:staraptite"
               ],
@@ -46789,8 +46789,8 @@
                 "path": "staraptite",
                 "englishName": "Staraptite",
                 "koreanName": "",
-                "battleCategory": "unverified",
-                "battleUsable": false
+                "battleCategory": "mega",
+                "battleUsable": true
               }
             }
           ],
@@ -47482,7 +47482,7 @@
             {
               "input": "zamega:raichunitey",
               "canonicalId": "zamega:raichunitey",
-              "status": "not_battle_item",
+              "status": "resolved",
               "candidates": [
                 "zamega:raichunitey"
               ],
@@ -47492,8 +47492,8 @@
                 "path": "raichunitey",
                 "englishName": "Raichunite Y",
                 "koreanName": "",
-                "battleCategory": "unverified",
-                "battleUsable": false
+                "battleCategory": "mega",
+                "battleUsable": true
               }
             }
           ],
