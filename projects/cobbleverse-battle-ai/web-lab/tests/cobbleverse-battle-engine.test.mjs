@@ -3508,6 +3508,69 @@ test("handles Protect and Sucker Punch timing rules", () => {
   );
 });
 
+test("Protect does not block an opponent's self-targeted setup move", () => {
+  const state = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Protector",
+                stats: { ...pokemon().stats, speed: 160 },
+                moves: [
+                  {
+                    id: "protect",
+                    name: "Protect",
+                    type: "Normal",
+                    category: "Status",
+                    accuracy: true,
+                    priority: 4,
+                    pp: 10,
+                    target: "self",
+                    volatileStatus: "protect",
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "Setup User",
+                stats: { ...pokemon().stats, speed: 40 },
+                moves: [
+                  {
+                    id: "swordsdance",
+                    name: "Swords Dance",
+                    type: "Normal",
+                    category: "Status",
+                    accuracy: true,
+                    pp: 20,
+                    target: "self",
+                    selfBoosts: { attack: 2 },
+                  },
+                ],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+
+  assert.equal(state.sides[1].team[0].boosts.attack, 2);
+  assert.ok(
+    !state.events.some(
+      (event) =>
+        event.type === "move_blocked" && event.move === "Swords Dance",
+    ),
+  );
+});
+
 test("AI stops repeating Sucker Punch after a faster priority attack", () => {
   const scenario = setup({
     sides: [
@@ -10329,6 +10392,76 @@ test("supports Destiny Bond and Curse battle effects", () => {
   assert.equal(normalCurse.sides[0].team[0].boosts.speed, -1);
   assert.equal(normalCurse.sides[0].team[0].volatiles.curse, undefined);
   assert.equal(normalCurse.sides[1].team[0].volatiles.curse, undefined);
+
+  const aiCurseBattle = createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Observer",
+                stats: { ...pokemon().stats, speed: 160 },
+                moves: [
+                  {
+                    id: "splash",
+                    name: "Splash",
+                    type: "Normal",
+                    category: "Status",
+                    accuracy: true,
+                    pp: 40,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "SleepingCurser",
+                status: "slp",
+                stats: { ...pokemon().stats, speed: 40 },
+                moves: [
+                  {
+                    id: "sleeptalk",
+                    name: "Sleep Talk",
+                    type: "Normal",
+                    category: "Status",
+                    accuracy: true,
+                    pp: 10,
+                    target: "self",
+                  },
+                  {
+                    id: "curse",
+                    name: "Curse",
+                    type: "Ghost",
+                    category: "Status",
+                    accuracy: true,
+                    pp: 10,
+                    boosts: { atk: 1, def: 1, spe: -1 },
+                    selfBoosts: { attack: 1, defence: 1, speed: -1 },
+                    volatileStatus: "curse",
+                  },
+                ],
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+  aiCurseBattle.sides[1].team[0].status = "slp";
+  aiCurseBattle.sides[1].team[0].statusTurns = 2;
+  const aiCalledNormalCurse = resolveSimpleTurn(
+    aiCurseBattle,
+    [{ move: 1 }, { move: 1 }],
+  );
+  const aiCurser = aiCalledNormalCurse.sides[1].team[0];
+  assert.equal(aiCurser.boosts.attack, 1);
+  assert.equal(aiCurser.boosts.defence, 1);
+  assert.equal(aiCurser.boosts.speed, -1);
+  assert.equal(aiCurser.volatiles.curse, undefined);
+  assert.equal(aiCalledNormalCurse.sides[0].team[0].volatiles.curse, undefined);
 });
 
 test("Destiny Bond expires on the next action and fails on consecutive use", () => {
@@ -19139,5 +19272,20 @@ test("AI never selects Haze when the opponent has no positive stat ranks", () =>
       (candidate) => candidate.id === "haze",
     ).disabled,
     false,
+  );
+  assert.equal(boostedDecision.command.move, 1);
+  const boostedTrace = createSimpleAiDecisionTrace(
+    state,
+    0,
+    boostedDecision,
+    "expert_search",
+    "balanced",
+  );
+  assert.ok(
+    boostedTrace.candidates
+      .find((candidate) => candidate.id === "haze")
+      .reasons.some(
+        (reason) => reason.code === "rule.haze.immediate_boost_reset",
+      ),
   );
 });

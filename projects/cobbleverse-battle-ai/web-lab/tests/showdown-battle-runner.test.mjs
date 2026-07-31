@@ -233,6 +233,29 @@ test("parses detailed Showdown battle events", () => {
   });
 });
 
+test("parses Showdown stat reset events for Haze and Clear Smog", () => {
+  const events = battleEvents([
+    "|turn|4",
+    "|-boost|p1a: Scizor|atk|2",
+    "|-boost|p2a: Volcarona|spa|1",
+    "|-clearallboost",
+    "|-boost|p2a: Volcarona|spe|1",
+    "|-clearboost|p2a: Volcarona",
+  ]);
+
+  assert.deepEqual(events.slice(3), [
+    { turn: 4, type: "stat_reset_all", actor: "" },
+    {
+      turn: 4,
+      type: "stat_up",
+      actor: "p2a: Volcarona",
+      detail: "spe",
+      condition: "1",
+    },
+    { turn: 4, type: "stat_reset", actor: "p2a: Volcarona" },
+  ]);
+});
+
 test("preserves item and residual effect sources for damage explanations", () => {
   const events = battleEvents([
     "|turn|5",

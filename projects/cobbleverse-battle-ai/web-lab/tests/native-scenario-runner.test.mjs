@@ -397,6 +397,24 @@ test("includes HP on initial native switch events and separates side-condition l
 test("preserves native damage and heal causes for Showdown-like logs", () => {
   assert.deepEqual(
     mapNativeEvent({
+      turn: 2,
+      type: "stat_reset",
+      side: 1,
+      pokemon: "Boosted Target",
+      source: "Haze",
+    }),
+    [
+      {
+        turn: 2,
+        type: "stat_reset",
+        actor: "p2a: Boosted Target",
+        detail: "Haze",
+      },
+    ],
+  );
+
+  assert.deepEqual(
+    mapNativeEvent({
       turn: 1,
       type: "move",
       side: 0,
@@ -734,6 +752,54 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
       (candidate) => candidate.selected && candidate.type === "move",
     )?.slot,
     switched.reproduction.turns[0].aiCommand.move,
+  );
+});
+
+test("uses the configured Tera Type when it differs from the original type", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-pve-off-type-tera-test",
+    mode: "pve",
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "scolipede",
+            moveset: ["protect"],
+            gimmicks: { tera: "Water", teraEligible: true },
+          },
+        ],
+      },
+      scenario.sides[1],
+    ],
+  };
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  assert.equal(started.request.gimmicks.canTerastallize, "Water");
+
+  const next = chooseNativeInteractiveBattleAction(started.sessionId, {
+    type: "move",
+    slot: 1,
+    gimmick: "terastallize",
+  });
+
+  assert.ok(
+    next.events.some(
+      (event) =>
+        event.type === "terastallized" &&
+        event.actor === "p1a: Scolipede" &&
+        event.detail === "Water",
+    ),
+  );
+  assert.ok(
+    !next.events.some(
+      (event) =>
+        event.type === "gimmick_rejected" &&
+        event.actor === "p1a: Scolipede",
+    ),
   );
 });
 
@@ -1584,7 +1650,7 @@ test("waits for the player to choose a replacement after fainting", () => {
   assert.notEqual(replaced.events.at(-1).condition, "0 fnt");
 });
 
-test("requires the player to choose the target of a self-switch move", () => {
+test("uses the player's chosen Baton Pass target instead of the AI-preferred ace", () => {
   clearNativeInteractiveBattleSessions();
   const battleScenario = {
     ...scenario,
@@ -1599,14 +1665,21 @@ test("requires the player to choose the target of a self-switch move", () => {
             slot: 1,
             species: "scizor",
             level: 50,
-            moveset: ["uturn"],
+            moveset: ["batonpass"],
           },
           {
             ...scenario.sides[0].team[0],
             slot: 2,
-            species: "raichu",
+            species: "magikarp",
             level: 50,
-            moveset: ["thunderbolt"],
+            moveset: ["splash"],
+          },
+          {
+            ...scenario.sides[0].team[0],
+            slot: 3,
+            species: "annihilape",
+            level: 50,
+            moveset: ["ragefist", "drainpunch", "bulkup"],
           },
         ],
       },
@@ -1640,13 +1713,13 @@ test("requires the player to choose the target of a self-switch move", () => {
     slot: 1,
     selfSwitchSlot: 2,
   });
-  assert.equal(switched.request.active.species, "Raichu");
+  assert.equal(switched.request.active.species, "Magikarp");
   assert.ok(
     switched.events.some(
       (event) =>
         event.type === "switch" &&
         event.selection === "self_switch" &&
-        event.actor?.includes("Raichu"),
+        event.actor?.includes("Magikarp"),
     ),
   );
 });

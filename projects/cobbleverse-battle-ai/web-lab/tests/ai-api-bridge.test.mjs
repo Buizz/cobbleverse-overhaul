@@ -1241,6 +1241,18 @@ test("applies RunAndBun-inspired setup and hazard scoring rules", () => {
     strategy: "ace_check",
   });
   assert.equal(selected.id, "haze");
+  assert.ok(
+    scoreAiMoveCandidate(
+      { ...haze, setupThreatTier: "tier_0", opponentPositiveBoosts: 1 },
+      "expert",
+      "balanced",
+    ) >
+      scoreAiMoveCandidate(
+        { slot: 4, id: "tackle", category: "Physical", power: 120, accuracy: true, pp: 35 },
+        "expert",
+        "balanced",
+      ),
+  );
 
   const trace = createAiMoveTrace({
     turn: 4,

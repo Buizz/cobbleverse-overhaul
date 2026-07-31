@@ -490,6 +490,8 @@ function snapshot(session) {
           opponent: {
             species: opponent.name,
             types: opponent.types,
+            teraType: opponent.teraType ?? "",
+            terastallized: opponent.terastallized ? opponent.teraType : "",
             moves: opponentMoves,
             decision: latestDecision
               ? {
@@ -578,7 +580,14 @@ function playerCommand(state, action) {
       ...(keepsSelfSwitch ? { selfSwitchSlot } : {}),
       ...(gimmick ? { gimmick } : {}),
       ...(gimmick === "terastallize"
-        ? { teraType: active.teraType || active.types[0] || "Normal" }
+        ? {
+            teraType:
+              active.configuredTeraType ||
+              active.gimmicks?.teraType ||
+              active.teraType ||
+              active.types[0] ||
+              "Normal",
+          }
         : {}),
     };
   }

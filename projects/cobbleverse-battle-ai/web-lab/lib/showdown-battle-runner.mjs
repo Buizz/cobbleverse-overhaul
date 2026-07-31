@@ -285,6 +285,18 @@ export function battleEvents(logLines) {
         actor: parts[2] ?? "",
         detail: parts[3] ?? "",
       });
+    } else if (type === "-clearallboost") {
+      events.push({
+        turn: currentTurn,
+        type: "stat_reset_all",
+        actor: "",
+      });
+    } else if (type === "-clearboost") {
+      events.push({
+        turn: currentTurn,
+        type: "stat_reset",
+        actor: parts[2] ?? "",
+      });
     } else if (
       type === "-boost" ||
       type === "-unboost" ||

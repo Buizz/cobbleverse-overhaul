@@ -577,6 +577,8 @@ type InteractiveBattle = {
     opponent: null | {
       species: string;
       types: string[];
+      teraType?: string;
+      terastallized?: string;
       ability?: string | null;
       item?: string | null;
       heldItem?: string | null;
@@ -2757,11 +2759,13 @@ function CustomPartySummary({
   localization,
   entryName,
   onEdit,
+  onMove,
 }: {
   party: CustomPokemon[];
   localization: LocalizationCatalog | null;
   entryName: string;
   onEdit: () => void;
+  onMove: (fromIndex: number, toIndex: number) => void;
 }) {
   const memberCount = customPartyMemberCount(party);
   return (
@@ -2783,9 +2787,29 @@ function CustomPartySummary({
           }`}
           key={`${index}-${pokemon.species}`}
         >
-          <span className="slot-number">
-            {String(index + 1).padStart(2, "0")}
-          </span>
+          <div className="party-position-controls">
+            <button
+              type="button"
+              disabled={index === 0}
+              onClick={() => onMove(index, index - 1)}
+              aria-label={`${localizedSpecies(localization, pokemon.species) || "빈 슬롯"} 순서를 앞으로 이동`}
+              title="앞으로 이동"
+            >
+              ↑
+            </button>
+            <span className="slot-number">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <button
+              type="button"
+              disabled={index === party.length - 1}
+              onClick={() => onMove(index, index + 1)}
+              aria-label={`${localizedSpecies(localization, pokemon.species) || "빈 슬롯"} 순서를 뒤로 이동`}
+              title="뒤로 이동"
+            >
+              ↓
+            </button>
+          </div>
           <div className="pokemon-chip-summary">
             {pokemon.species.trim() ? (
               <PokemonSprite species={pokemon.species} alt="" />
@@ -4102,6 +4126,7 @@ function activeTypesForBattleSide(
     const opponent =
       opponents.find((pokemon) => dexId(pokemon.species) === speciesId) ??
       (opponents.length === 1 ? opponents[0] : battle.request?.opponent);
+    if (opponent?.terastallized) return [opponent.terastallized];
     if (opponent?.types?.length) return opponent.types;
   }
   const configured = battle.sides[side === "p1" ? 0 : 1]?.team.find(
@@ -4356,13 +4381,14 @@ function activeGimmickState(events: BattleEvent[], side: "p1" | "p2") {
     gigantamax: false,
     tera: "",
   };
+  const teraByPokemon = new Map<string, string>();
   for (const event of events) {
     if (!event.actor?.startsWith(side)) continue;
     if (event.type === "switch") {
       state.mega = dexId(event.detail).includes("mega");
       state.dynamax = false;
       state.gigantamax = false;
-      state.tera = "";
+      state.tera = teraByPokemon.get(dexId(actorName(event.actor))) ?? "";
     } else if (event.type === "mega_evolution") {
       state.mega = true;
     } else if (event.type === "dynamax_started") {
@@ -4373,6 +4399,9 @@ function activeGimmickState(events: BattleEvent[], side: "p1" | "p2") {
       state.gigantamax = false;
     } else if (event.type === "terastallized") {
       state.tera = event.detail ?? "";
+      if (state.tera) {
+        teraByPokemon.set(dexId(actorName(event.actor)), state.tera);
+      }
     }
   }
   return state;
@@ -4435,8 +4464,16 @@ function GimmickStateBadges({
 function activeStatRanks(events: BattleEvent[], side: "p1" | "p2") {
   const ranks: Record<string, number> = {};
   for (const event of events) {
+    if (event.type === "stat_reset_all") {
+      for (const stat of Object.keys(ranks)) delete ranks[stat];
+      continue;
+    }
     if (!event.actor?.startsWith(side)) continue;
     if (event.type === "switch") {
+      for (const stat of Object.keys(ranks)) delete ranks[stat];
+      continue;
+    }
+    if (event.type === "stat_reset") {
       for (const stat of Object.keys(ranks)) delete ranks[stat];
       continue;
     }
@@ -5102,15 +5139,22 @@ function InteractiveArena({
   const opponentRanks = activeStatRanks(visualEvents, "p2");
   const playerGimmickState = activeGimmickState(visualEvents, "p1");
   const opponentGimmickState = activeGimmickState(visualEvents, "p2");
-  if (!speciesPreview.p1 && active?.terastallized) {
+  if (active?.terastallized) {
     playerGimmickState.tera = active.terastallized;
+  }
+  const activeOpponent =
+    request?.opponents?.find(
+      (pokemon) => dexId(pokemon.species) === dexId(opponentName),
+    ) ?? request?.opponent;
+  if (activeOpponent?.terastallized) {
+    opponentGimmickState.tera = activeOpponent.terastallized;
   }
   const playerDisplayTypes = playerGimmickState.tera
     ? [playerGimmickState.tera]
     : typePreview.p1 ?? active?.types ?? [];
   const opponentDisplayTypes = opponentGimmickState.tera
     ? [opponentGimmickState.tera]
-    : typePreview.p2 ?? request?.opponent?.types ?? [];
+    : typePreview.p2 ?? activeOpponent?.types ?? [];
   const fieldState = activeBattleFields(visualEvents);
   const fieldVisualClasses = [
     fieldState.terrain ? `terrain-${dexId(fieldState.terrain)}` : "",
@@ -6707,6 +6751,36 @@ export function BattleLab() {
     invalidatePreparedBattle();
   };
 
+  const moveCustomPartyMember = (
+    target: "player" | "opponent",
+    fromIndex: number,
+    toIndex: number,
+  ) => {
+    const party = target === "opponent" ? opponentCustomParty : customParty;
+    if (
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= party.length ||
+      toIndex >= party.length
+    ) {
+      return;
+    }
+    const reordered = [...party];
+    [reordered[fromIndex], reordered[toIndex]] = [
+      reordered[toIndex],
+      reordered[fromIndex],
+    ];
+    if (target === "opponent") {
+      setOpponentCustomParty(reordered);
+    } else {
+      setCustomParty(reordered);
+    }
+    invalidatePreparedBattle();
+    setNotice(
+      `사용자정의 엔트리 순서를 변경했습니다. ${toIndex === 0 ? "첫 번째 포켓몬이 선봉으로 출전합니다." : ""}`,
+    );
+  };
+
   const updateCustomEntryName = (name: string) => {
     setCustomEntryName(name);
     if (entryEditorTarget === "opponent") {
@@ -8251,6 +8325,9 @@ export function BattleLab() {
                     party={customParty}
                     localization={localization}
                     entryName={customEntryName}
+                    onMove={(fromIndex, toIndex) =>
+                      moveCustomPartyMember("player", fromIndex, toIndex)
+                    }
                     onEdit={() => {
                       setEntryEditorTarget("player");
                       setLabView("editor");
@@ -8359,6 +8436,9 @@ export function BattleLab() {
                     party={opponentCustomParty}
                     localization={localization}
                     entryName={opponentCustomEntryName}
+                    onMove={(fromIndex, toIndex) =>
+                      moveCustomPartyMember("opponent", fromIndex, toIndex)
+                    }
                     onEdit={() => {
                       setEntryEditorTarget("opponent");
                       setSelectedCustomEntryId(opponentCustomEntryId);
@@ -8494,6 +8574,9 @@ export function BattleLab() {
                     party={customParty}
                     localization={localization}
                     entryName={customEntryName}
+                    onMove={(fromIndex, toIndex) =>
+                      moveCustomPartyMember("player", fromIndex, toIndex)
+                    }
                     onEdit={() => {
                       setEntryEditorTarget("player");
                       setLabView("editor");
@@ -8598,6 +8681,9 @@ export function BattleLab() {
                     party={opponentCustomParty}
                     localization={localization}
                     entryName={opponentCustomEntryName}
+                    onMove={(fromIndex, toIndex) =>
+                      moveCustomPartyMember("opponent", fromIndex, toIndex)
+                    }
                     onEdit={() => {
                       setEntryEditorTarget("opponent");
                       setSelectedCustomEntryId(opponentCustomEntryId);

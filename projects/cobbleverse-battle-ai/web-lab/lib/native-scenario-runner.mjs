@@ -575,6 +575,15 @@ export function mapNativeEvent(event) {
       },
     ];
   }
+  if (event.type === "stat_reset") {
+    return [
+      {
+        ...base,
+        type: "stat_reset",
+        detail: displayValue(event.source),
+      },
+    ];
+  }
   if (event.type === "boosts_passed") {
     return [
       {

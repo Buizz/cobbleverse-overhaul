@@ -3677,15 +3677,13 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         Number(secondary.chance ?? 100) >= 60,
     );
 
-  if (
-    moveId === "haze" &&
-    Math.max(
-      0,
-      finiteNumber(enriched.opponentPositiveBoosts, 0),
-      positiveBoostTotal(enriched.opponentBoosts),
-      positiveBoostTotal(enriched.targetBoosts),
-    ) <= 0
-  ) {
+  const opponentPositiveBoosts = Math.max(
+    0,
+    finiteNumber(enriched.opponentPositiveBoosts, 0),
+    positiveBoostTotal(enriched.opponentBoosts),
+    positiveBoostTotal(enriched.targetBoosts),
+  );
+  if (moveId === "haze" && opponentPositiveBoosts <= 0) {
     adjustments.push(
       scoreAdjustment(
         "rule.haze.no_opponent_boosts",
@@ -3693,6 +3691,17 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         0,
         -1000,
         "상대에게 올라간 랭크가 없어 흑안개를 사용할 이유가 없습니다.",
+      ),
+    );
+  } else if (moveId === "haze") {
+    const immediateResetBonus = 240 + Math.min(6, opponentPositiveBoosts) * 40;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.haze.immediate_boost_reset",
+        "상대 랭크 즉시 초기화",
+        opponentPositiveBoosts,
+        immediateResetBonus,
+        `상대에게 양의 랭크가 ${opponentPositiveBoosts}단계 있으므로 위협도 예측과 무관하게 흑안개를 즉시 우선합니다.`,
       ),
     );
   }

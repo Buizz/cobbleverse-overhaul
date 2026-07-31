@@ -5594,7 +5594,7 @@ function executeMove(state, action, rng) {
 
   if (
     defender.volatiles?.protect &&
-    move.target !== "self" &&
+    move.category !== "Status" &&
     cleanId(move.id) !== "hyperspacefury" &&
     move.bypassProtect !== true &&
     !(activeAbility(attacker) === "unseenfist" && makesContact(move))
@@ -7041,12 +7041,14 @@ function executeMove(state, action, rng) {
       );
       const ace = state.sides[action.side].team[aceIndex];
       const preferredSlot =
-        aceIndex >= 0 &&
-        ace !== attacker &&
-        !ace?.fainted &&
-        ace?.hp > 0
-          ? aceIndex + 1
-          : null;
+        Number.isInteger(action.selfSwitchSlot) && action.selfSwitchSlot > 0
+          ? action.selfSwitchSlot
+          : aceIndex >= 0 &&
+              ace !== attacker &&
+              !ace?.fainted &&
+              ace?.hp > 0
+            ? aceIndex + 1
+            : null;
       const switched = executeSelfSwitch(
         state,
         action.side,
@@ -7300,7 +7302,7 @@ function executeMove(state, action, rng) {
           action.side,
         ) || applied;
     }
-    if (sourceMoveId !== "curse" && Object.keys(move.selfBoosts).length) {
+    if (cleanId(move.id) !== "curse" && Object.keys(move.selfBoosts).length) {
       handled = true;
       applied =
         applyBoosts(
@@ -7311,7 +7313,7 @@ function executeMove(state, action, rng) {
           move.name,
         ) || applied;
     }
-    if (sourceMoveId !== "curse" && move.volatileStatus) {
+    if (cleanId(move.id) !== "curse" && move.volatileStatus) {
       handled = true;
       const targetsSelf = move.target === "self";
       applied =
@@ -15959,6 +15961,34 @@ export function chooseSimpleAiDecision(
         ...heuristicDecision,
         selectedItem: null,
       };
+  const immediateHazeCandidate = !lockedSelection
+    ? moveCandidates.find(
+        (candidate) =>
+          cleanId(candidate.id) === "haze" &&
+          candidate.disabled !== true &&
+          Number(candidate.opponentPositiveBoosts ?? 0) > 0,
+      )
+    : null;
+  if (immediateHazeCandidate) {
+    return {
+      ...itemAwareHeuristicDecision,
+      command: { move: immediateHazeCandidate.slot },
+      selectedMove: immediateHazeCandidate,
+      selectedSwitch: null,
+      selectedItem: null,
+      gimmickCandidate: null,
+      diagnostics: {
+        ...itemAwareHeuristicDecision.diagnostics,
+        selectionSource: "immediate-haze",
+        policy: "immediate-boost-reset",
+        chosenMove: {
+          slot: immediateHazeCandidate.slot,
+          id: immediateHazeCandidate.id,
+          score: immediateHazeCandidate.score,
+        },
+      },
+    };
+  }
   if (difficulty === "expert_search") {
     return applyTwoTurnExpectimaxDecisionPolicy({
       state,
