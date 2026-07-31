@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { localBattleSweep } from "./local-battle-sweep-vite-plugin";
 import { localWorkspace } from "./local-workspace-vite-plugin";
-import { sites } from "./build/sites-vite-plugin";
+import { sites } from "./sites-vite-plugin";
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   "00000000-0000-4000-8000-000000000000";
