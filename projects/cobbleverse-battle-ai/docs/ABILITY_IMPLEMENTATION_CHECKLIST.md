@@ -98,6 +98,43 @@
 | UNIT_TESTED | `armortail` | 상대의 우선도 기술 차단 | `executeMove` priority gate |
 | UNIT_TESTED | `liquidvoice` | 소리 기술을 물 타입으로 변환 | `abilityModifiedMove`, AI 피해 미리보기 |
 | FORMAT_LIMITED | `hospitality` | 더블에서 아군 회복 | 현재 자체 엔진이 싱글 전용이므로 strict 검증은 통과하되 발동 대상 없음 |
+| UNIT_TESTED | `innerfocus` | 풀죽음 및 위협에 의한 공격 하락 무효 | `applyVolatileStatus`, `applyBoosts` |
+| UNIT_TESTED | `clearbody` | 상대가 유발한 능력 하락 무효 | `applyBoosts` |
+| UNIT_TESTED | `whitesmoke` | 상대가 유발한 능력 하락 무효 | `applyBoosts` |
+| UNIT_TESTED | `swiftswim` | 비/폭우 중 스피드 2배 | `effectiveSpeed` |
+| UNIT_TESTED | `torrent` | HP 1/3 이하에서 물 기술 위력 1.5배 | `calculateDamageRange` |
+| UNIT_TESTED | `battlearmor` | 급소 공격 무효 | 실제 급소 판정, AI 피해 예측 |
+| UNIT_TESTED | `shellarmor` | 급소 공격 무효 | 실제 급소 판정, AI 피해 예측 |
+| UNIT_TESTED | `ironfist` | 펀치 기술 위력 1.2배 | `calculateDamageRange` |
+| UNIT_TESTED | `strongjaw` | 물기 기술 위력 1.5배 | `calculateDamageRange` |
+| UNIT_TESTED | `sharpness` | 베기 기술 위력 1.5배 | `calculateDamageRange` |
+| UNIT_TESTED | `tintedlens` | 반감 공격 피해 2배 | `calculateDamageRange` |
+| UNIT_TESTED | `filter` | 효과 굉장한 피해 0.75배 | `calculateDamageRange` |
+| UNIT_TESTED | `solidrock` | 효과 굉장한 피해 0.75배 | `calculateDamageRange` |
+| UNIT_TESTED | `prismarmor` | 효과 굉장한 피해 0.75배 | `calculateDamageRange` |
+| UNIT_TESTED | `moxie` | 직접 KO 후 공격 1랭크 상승 | `applyKnockoutAbility` |
+| UNIT_TESTED | `snowwarning` | 등장 시 눈 시작 | `applyEntryAbilities`, `setFieldEffect` |
+| UNIT_TESTED | `noguard` | 자신과 상대의 기술이 명중률·회피를 무시 | `effectiveAccuracy`, AI 후보 명중률 |
+| UNIT_TESTED | `compoundeyes` | 기술 명중률 1.3배 | `effectiveAccuracy`, AI 후보 명중률 |
+| UNIT_TESTED | `keeneye` | 명중률 하락 방지, 상대 회피 상승 무시 | `applyBoosts`, `effectiveAccuracy` |
+| UNIT_TESTED | `sandveil` | 모래바람에서 상대 명중률 0.8배 | `effectiveAccuracy`, AI 후보 명중률 |
+| UNIT_TESTED | `snowcloak` | 눈에서 상대 명중률 0.8배 | `effectiveAccuracy`, AI 후보 명중률 |
+| UNIT_TESTED | `hustle` | 물리 위력 1.5배, 물리 명중률 0.8배 | `calculateDamageRange`, `effectiveAccuracy` |
+| UNIT_TESTED | `scrappy` | 노말·격투 기술로 고스트를 공격 가능 | `moveEffectiveness` |
+| UNIT_TESTED | `infiltrator` | 대타출동·리플렉터·빛의장막·오로라베일 관통 | `executeMove`, `fieldDamageModifier` |
+| UNIT_TESTED | `wonderguard` | 효과가 굉장한 공격 외 직접 공격 무효 | `moveEffectiveness` |
+| UNIT_TESTED | `voltabsorb` | 전기 기술 무효 및 최대 HP 1/4 회복 | `absorbingAbilityForMove`, `executeMove` |
+| UNIT_TESTED | `stormdrain` | 물 기술 무효 및 특공 1랭크 상승 | `absorbingAbilityForMove`, `executeMove` |
+| UNIT_TESTED | `dryskin` | 물 기술 회복, 불꽃 피해 증가, 비 회복·쾌청 피해 | 피해·턴 종료·AI 예상 피해 |
+| UNIT_TESTED | `flashfire` | 불꽃 기술 무효 및 이후 불꽃 위력 1.5배 | 흡수 발동, `calculateDamageRange` |
+| UNIT_TESTED | `sapsipper` | 풀 기술 무효 및 공격 1랭크 상승 | 흡수 발동, `applyBoosts` |
+| UNIT_TESTED | `eartheater` | 땅 기술 무효 및 최대 HP 1/4 회복 | 흡수 발동 |
+| UNIT_TESTED | `soundproof` | 소리 기술 무효 | `absorbingAbilityForMove` |
+| UNIT_TESTED | `wellbakedbody` | 불꽃 기술 무효 및 방어 2랭크 상승 | 흡수 발동, `applyBoosts` |
+| UNIT_TESTED | `fluffy` | 접촉 피해 절반, 불꽃 피해 2배 | `abilityDamageModifier` |
+| UNIT_TESTED | `furcoat` | 물리 피해 절반 | `abilityDamageModifier` |
+| UNIT_TESTED | `heatproof` | 불꽃 피해 절반 및 화상 피해 절반 | 피해·턴 종료·AI 예상 피해 |
+| UNIT_TESTED | `sheerforce` | 부가효과 기술 위력 1.3배, 부가효과와 생명의구슬 반동 제거 | 피해 계산, 실제 후처리 |
 
 ## 명시적 전투 효과 없음
 
@@ -136,20 +173,20 @@
 - [x] `supremeoverlord`: 기절한 아군 수에 따른 피해 보정
 - [x] `protosynthesis`: 쾌청/부스트에너지 최고 능력 보정
 - [x] `quarkdrive`: 일렉트릭필드/부스트에너지 최고 능력 보정
-- [ ] `hustle`: 물리 공격 1.5배, 물리 명중 0.8배
+- [x] `hustle`: 물리 공격 1.5배, 물리 명중 0.8배
 - [ ] `gorillatactics`: 물리 공격 1.5배 및 기술 고정
 - [ ] `slowstart`: 5턴 동안 공격·스피드 0.5배
 - [ ] `defeatist`: HP 절반 이하 공격·특공 0.5배
 - [ ] `flowergift`: 쾌청 중 공격·특방 보정
 - [ ] `solarpower`: 쾌청 중 특공 1.5배 및 턴 종료 피해
-- [ ] `tintedlens`: 반감 공격 피해 2배
+- [x] `tintedlens`: 반감 공격 피해 2배
 - [ ] `sniper`: 급소 피해 추가 보정
 - [x] `technician`: 위력 60 이하 기술 1.5배
 - [ ] `reckless`: 반동기/점프킥류 위력 1.2배
-- [ ] `ironfist`: 펀치 기술 1.2배
-- [ ] `strongjaw`: 물기 기술 1.5배
+- [x] `ironfist`: 펀치 기술 1.2배
+- [x] `strongjaw`: 물기 기술 1.5배
 - [ ] `megalauncher`: 파동 기술 1.5배
-- [ ] `sheerforce`: 부가효과 기술 1.3배 및 부가효과 제거
+- [x] `sheerforce`: 부가효과 기술 1.3배 및 부가효과 제거
 
 ### 타입·면역·상태
 
@@ -160,15 +197,15 @@
 - [x] `insomnia`: 잠듦 면역
 - [x] `vitalspirit`: 잠듦 면역
 - [x] `owntempo`: 혼란 면역
-- [ ] `waterabsorb`: 물 기술 무효 및 회복
-- [ ] `stormdrain`: 물 기술 무효 및 특공 상승
-- [ ] `dryskin`: 물 회복, 불꽃 약화/쾌청 피해/비 회복
-- [ ] `voltabsorb`: 전기 기술 무효 및 회복
+- [x] `waterabsorb`: 물 기술 무효 및 회복
+- [x] `stormdrain`: 물 기술 무효 및 특공 상승
+- [x] `dryskin`: 물 회복, 불꽃 피해 증가/쾌청 피해/비 회복
+- [x] `voltabsorb`: 전기 기술 무효 및 회복
 - [ ] `motordrive`: 전기 기술 무효 및 스피드 상승
 - [x] `lightningrod`: 전기 기술 무효 및 특공 상승. 더블의 대상 유도는 포맷 확장 시 추가
-- [ ] `flashfire`: 불꽃 기술 무효 및 불꽃 위력 강화
-- [ ] `sapsipper`: 풀 기술 무효 및 공격 상승
-- [ ] `heatproof`: 불꽃 피해 및 화상 피해 감소
+- [x] `flashfire`: 불꽃 기술 무효 및 불꽃 위력 강화
+- [x] `sapsipper`: 풀 기술 무효 및 공격 상승
+- [x] `heatproof`: 불꽃 피해 및 화상 피해 감소
 - [ ] `oblivious`: 도발/헤롱헤롱 등 일부 상태 면역
 
 ### 날씨·필드
@@ -176,8 +213,8 @@
 - [x] `drizzle`: 등장 시 비
 - [x] `drought`: 등장 시 쾌청
 - [x] `sandstream`: 등장 시 모래바람
-- [ ] `snowwarning`: 등장 시 눈
-- [ ] `swiftswim`: 비 중 스피드 2배
+- [x] `snowwarning`: 등장 시 눈
+- [x] `swiftswim`: 비 중 스피드 2배
 - [x] `chlorophyll`: 쾌청 중 스피드 2배
 - [x] `sandrush`: 모래바람 중 스피드 2배
 - [ ] `slushrush`: 눈 중 스피드 2배
@@ -201,7 +238,7 @@
 - [ ] `trace`: 등장 시 상대 특성 복사
 - [x] `regenerator`: 교체 시 HP 1/3 회복
 - [x] `naturalcure`: 교체 시 상태 회복
-- [ ] `moxie`: 직접 KO 후 공격 +1
+- [x] `moxie`: 직접 KO 후 공격 +1
 - [x] `beastboost`: KO 후 가장 높은 능력 +1
 - [x] `speedboost`: 턴 종료 스피드 +1
 - [ ] `contrary`: 랭크 변화 반전
@@ -213,13 +250,13 @@
 - [x] `vesselofruin`: 필드에 있는 동안 상대 특수공격 25% 감소 (`damageBase`)
 - [x] `sturdy`: 풀피 일격 기절 방지
 - [x] `unaware`: 공격·피격 시 상대 능력 랭크 변화 무시
-- [ ] `wonderguard`: 효과 굉장한 공격 외 무효
+- [x] `wonderguard`: 효과 굉장한 공격 외 무효
 - [x] `rockhead`: 기술 반동 피해 무효
 - [ ] `magicguard`: 간접 피해 무효
 - [x] `overcoat`: 날씨 피해/가루 기술 무효
-- [ ] `filter`: 효과 굉장한 피해 감소
-- [ ] `solidrock`: 효과 굉장한 피해 감소
-- [ ] `prismarmor`: 효과 굉장한 피해 감소
+- [x] `filter`: 효과 굉장한 피해 감소
+- [x] `solidrock`: 효과 굉장한 피해 감소
+- [x] `prismarmor`: 효과 굉장한 피해 감소
 - [ ] `disguise`: 첫 직접 피해 흡수
 - [ ] `iceface`: 물리 피해 1회 흡수
 

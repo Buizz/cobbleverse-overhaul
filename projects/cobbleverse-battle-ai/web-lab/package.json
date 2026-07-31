@@ -9,6 +9,7 @@
     "sync:trainers": "node scripts/sync-trainers.mjs",
     "audit:species": "node scripts/audit-species-forms.mjs",
     "audit:mechanics": "node scripts/audit-native-mechanics.mjs",
+    "audit:abilities": "node scripts/audit-native-abilities.mjs",
     "mechanics:backlog": "npm run audit:mechanics && node scripts/report-native-move-backlog.mjs",
     "sync:localization": "node scripts/sync-cobblemon-localization.mjs",
     "sync:i18n": "node ../tools/sync-pokemon-i18n.mjs",

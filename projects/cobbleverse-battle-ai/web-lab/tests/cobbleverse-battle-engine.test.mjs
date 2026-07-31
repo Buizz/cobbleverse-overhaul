@@ -10358,6 +10358,363 @@ test("boosts contact move damage for Tough Claws", () => {
   assert.equal(toughNonContact.maximum, ordinaryNonContact.maximum);
 });
 
+test("applies common stat-drop immunity and Snow Warning entry abilities", () => {
+  const clearBodyState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [pokemon({ name: "Intimidator", ability: "intimidate" })],
+        },
+        {
+          name: "AI",
+          team: [pokemon({ name: "Clear Body", ability: "clearbody" })],
+        },
+      ],
+    }),
+  );
+  assert.equal(clearBodyState.sides[1].team[0].boosts.attack, 0);
+  assert.ok(
+    clearBodyState.events.some(
+      (event) =>
+        event.type === "ability_activate" && event.ability === "clearbody",
+    ),
+  );
+
+  const innerFocusState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [pokemon({ name: "Intimidator", ability: "intimidate" })],
+        },
+        {
+          name: "AI",
+          team: [pokemon({ name: "Inner Focus", ability: "innerfocus" })],
+        },
+      ],
+    }),
+  );
+  assert.equal(innerFocusState.sides[1].team[0].boosts.attack, 0);
+
+  const snowState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [pokemon({ name: "Snow Setter", ability: "snowwarning" })],
+        },
+        { name: "AI", team: [pokemon({ name: "Target" })] },
+      ],
+    }),
+  );
+  assert.equal(snowState.field.weather.id, "snow");
+});
+
+test("prevents flinching with Inner Focus", () => {
+  const fakeOut = {
+    id: "fakeout",
+    name: "Fake Out",
+    type: "Normal",
+    category: "Physical",
+    power: 40,
+    accuracy: true,
+    priority: 3,
+    pp: 10,
+    contact: true,
+    volatileStatus: "flinch",
+  };
+  const tackle = {
+    id: "tackle",
+    name: "Tackle",
+    type: "Normal",
+    category: "Physical",
+    power: 40,
+    accuracy: true,
+    pp: 35,
+  };
+  const result = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [pokemon({ name: "Fake Out User", moves: [fakeOut] })],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "Inner Focus Target",
+                ability: "innerfocus",
+                moves: [tackle],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.ok(
+    result.events.some(
+      (event) =>
+        event.type === "move" && event.pokemon === "Inner Focus Target",
+    ),
+  );
+  assert.ok(
+    !result.events.some(
+      (event) =>
+        event.type === "cant_move" &&
+        event.pokemon === "Inner Focus Target" &&
+        event.status === "flinch",
+    ),
+  );
+});
+
+test("applies first-batch offensive ability damage modifiers", () => {
+  const target = pokemon({
+    name: "Target",
+    types: ["Normal"],
+    stats: { ...pokemon().stats, hp: 400, defence: 120 },
+  });
+  const ordinary = pokemon({
+    name: "Ordinary",
+    stats: { ...pokemon().stats, attack: 140 },
+  });
+  const flaggedMove = (flag) => ({
+    id: `${flag}move`,
+    name: `${flag} move`,
+    type: "Normal",
+    category: "Physical",
+    power: 80,
+    accuracy: 100,
+    pp: 10,
+    flags: { [flag]: true },
+  });
+  const abilityDamage = (ability, flag) =>
+    calculateDamageRange(
+      { ...ordinary, ability },
+      target,
+      flaggedMove(flag),
+    ).maximum;
+  const ordinaryDamage = (flag) =>
+    calculateDamageRange(ordinary, target, flaggedMove(flag)).maximum;
+
+  assert.ok(abilityDamage("ironfist", "punch") > ordinaryDamage("punch"));
+  assert.ok(abilityDamage("strongjaw", "bite") > ordinaryDamage("bite") * 1.4);
+  assert.ok(abilityDamage("sharpness", "slicing") > ordinaryDamage("slicing") * 1.4);
+
+  const waterMove = {
+    ...flaggedMove("contact"),
+    id: "waterfall",
+    name: "Waterfall",
+    type: "Water",
+  };
+  const torrentUser = {
+    ...ordinary,
+    ability: "torrent",
+    hp: Math.floor(ordinary.stats.hp / 3),
+  };
+  assert.ok(
+    calculateDamageRange(torrentUser, target, waterMove).maximum >
+      calculateDamageRange(ordinary, target, waterMove).maximum * 1.4,
+  );
+
+  const resistedTarget = { ...target, types: ["Rock"] };
+  assert.ok(
+    calculateDamageRange(
+      { ...ordinary, ability: "tintedlens" },
+      resistedTarget,
+      flaggedMove("contact"),
+    ).maximum >
+      calculateDamageRange(
+        ordinary,
+        resistedTarget,
+        flaggedMove("contact"),
+      ).maximum *
+        1.8,
+  );
+  assert.equal(
+    calculateDamageRange(
+      {
+        ...ordinary,
+        ability: "tintedlens",
+        volatiles: { gastroacid: { id: "gastroacid" } },
+      },
+      resistedTarget,
+      flaggedMove("contact"),
+    ).maximum,
+    calculateDamageRange(
+      ordinary,
+      resistedTarget,
+      flaggedMove("contact"),
+    ).maximum,
+  );
+});
+
+test("applies defensive ability modifiers, Swift Swim, and Moxie", () => {
+  const fightingMove = {
+    id: "closecombat",
+    name: "Close Combat",
+    type: "Fighting",
+    category: "Physical",
+    power: 120,
+    accuracy: true,
+    pp: 5,
+  };
+  const attacker = pokemon({
+    name: "Attacker",
+    types: ["Fighting"],
+    stats: { ...pokemon().stats, attack: 150 },
+  });
+  const ordinaryTarget = pokemon({
+    name: "Ordinary Target",
+    types: ["Normal"],
+    stats: { ...pokemon().stats, hp: 500, defence: 140 },
+  });
+  const ordinaryDamage = calculateDamageRange(
+    attacker,
+    ordinaryTarget,
+    fightingMove,
+  ).maximum;
+  for (const ability of ["filter", "solidrock", "prismarmor"]) {
+    const reduced = calculateDamageRange(
+      attacker,
+      { ...ordinaryTarget, ability },
+      fightingMove,
+    ).maximum;
+    assert.ok(reduced < ordinaryDamage * 0.8);
+  }
+  assert.equal(
+    calculateDamageRange(
+      { ...attacker, ability: "moldbreaker" },
+      { ...ordinaryTarget, ability: "filter" },
+      fightingMove,
+    ).maximum,
+    ordinaryDamage,
+  );
+
+  const guaranteedCritical = {
+    ...fightingMove,
+    id: "wickedblow",
+    name: "Wicked Blow",
+    type: "Dark",
+    willCrit: true,
+  };
+  const armorResult = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Critical User",
+                stats: { ...pokemon().stats, speed: 150 },
+                moves: [guaranteedCritical],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "Shell Armor",
+                ability: "shellarmor",
+                moves: [{ ...fightingMove, power: 1 }],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.ok(
+    !armorResult.events.some(
+      (event) => event.type === "critical" && event.pokemon === "Shell Armor",
+    ),
+  );
+
+  const rainBattle = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Swift Swimmer",
+              ability: "swiftswim",
+              stats: { ...pokemon().stats, speed: 80 },
+              moves: [fightingMove],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "Faster Target",
+              stats: { ...pokemon().stats, speed: 120 },
+              moves: [fightingMove],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  rainBattle.field.weather = { id: "raindance", turns: 5 };
+  const rainState = resolveSimpleTurn(
+    rainBattle,
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(
+    rainState.events.find((event) => event.type === "move")?.pokemon,
+    "Swift Swimmer",
+  );
+
+  const moxieResult = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        strictAbilityValidation: true,
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "Moxie User",
+                ability: "moxie",
+                stats: { ...pokemon().stats, attack: 200, speed: 150 },
+                moves: [fightingMove],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "Low HP Target",
+                hp: 1,
+                stats: { ...pokemon().stats, hp: 100 },
+                moves: [fightingMove],
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(moxieResult.sides[0].team[0].boosts.attack, 1);
+});
+
 test("supports common trainer abilities required by strict native scenarios", () => {
   const passiveMove = {
     id: "splash",
@@ -17384,4 +17741,306 @@ test("Vessel of Ruin reduces incoming special damage", () => {
 
   assert.ok(vesselRange.maximum < ordinaryRange.maximum);
   assert.equal(isSimpleAbilitySupported("vesselofruin"), true);
+});
+
+test("accuracy abilities affect both actual attacks and AI candidate accuracy", () => {
+  const inaccurateMove = {
+    id: "dynamicpunch",
+    name: "Dynamic Punch",
+    type: "Fighting",
+    category: "Physical",
+    power: 100,
+    accuracy: 50,
+    pp: 5,
+  };
+  const state = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "No Guard",
+          team: [
+            pokemon({
+              name: "Machamp",
+              ability: "noguard",
+              moves: [inaccurateMove],
+            }),
+          ],
+        },
+        {
+          name: "Target",
+          team: [
+            pokemon({
+              name: "Target",
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const decision = chooseSimpleAiDecision(state, 0, "expert", "balanced");
+  assert.equal(decision.moveCandidates[0].accuracy, 100);
+  const result = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(result.sides[1].team[0].hp < result.sides[1].team[0].stats.hp);
+
+  const compoundState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Compound Eyes",
+          team: [
+            pokemon({
+              ability: "compoundeyes",
+              moves: [inaccurateMove],
+            }),
+          ],
+        },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  const compoundDecision = chooseSimpleAiDecision(
+    compoundState,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.equal(compoundDecision.moveCandidates[0].accuracy, 65);
+});
+
+test("type absorption abilities are visible to damage previews and activate in battle", () => {
+  const cases = [
+    ["voltabsorb", "Electric"],
+    ["stormdrain", "Water"],
+    ["dryskin", "Water"],
+    ["flashfire", "Fire"],
+    ["wellbakedbody", "Fire"],
+    ["sapsipper", "Grass"],
+    ["eartheater", "Ground"],
+    ["soundproof", "Normal", { sound: true }],
+  ];
+  for (const [ability, type, flags = {}] of cases) {
+    const attacker = pokemon();
+    const defender = pokemon({ ability });
+    const move = {
+      id: `${ability}test`,
+      name: `${ability} test`,
+      type,
+      category: "Special",
+      power: 80,
+      accuracy: true,
+      pp: 10,
+      flags,
+    };
+    assert.equal(calculateDamageRange(attacker, defender, move).effectiveness, 0);
+    assert.equal(isSimpleAbilitySupported(ability), true);
+  }
+
+  const state = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Electric",
+          team: [
+            pokemon({
+              moves: [
+                {
+                  id: "thunderbolt",
+                  name: "Thunderbolt",
+                  type: "Electric",
+                  category: "Special",
+                  power: 90,
+                  accuracy: true,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Absorb",
+          team: [pokemon({ name: "Jolteon", ability: "voltabsorb" })],
+        },
+      ],
+    }),
+  );
+  state.sides[1].team[0].hp = 50;
+  const result = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(result.sides[1].team[0].hp > 50);
+  assert.ok(
+    result.events.some(
+      (event) =>
+        event.type === "ability_activate" && event.ability === "voltabsorb",
+    ),
+  );
+});
+
+test("Scrappy, Wonder Guard, and Infiltrator change otherwise blocked matchups", () => {
+  const fightingMove = {
+    id: "closecombat",
+    name: "Close Combat",
+    type: "Fighting",
+    category: "Physical",
+    power: 120,
+    accuracy: true,
+    pp: 5,
+  };
+  const ghost = pokemon({ types: ["Ghost"] });
+  assert.equal(
+    calculateDamageRange(pokemon(), ghost, fightingMove).effectiveness,
+    0,
+  );
+  assert.ok(
+    calculateDamageRange(
+      pokemon({ ability: "scrappy" }),
+      ghost,
+      fightingMove,
+    ).maximum > 0,
+  );
+
+  const shedinja = pokemon({
+    ability: "wonderguard",
+    types: ["Bug", "Ghost"],
+  });
+  const neutralMove = {
+    ...fightingMove,
+    id: "waterpulse",
+    name: "Water Pulse",
+    type: "Water",
+    category: "Special",
+    power: 60,
+  };
+  const superEffectiveMove = {
+    ...neutralMove,
+    id: "flamethrower",
+    name: "Flamethrower",
+    type: "Fire",
+    power: 90,
+  };
+  assert.equal(
+    calculateDamageRange(pokemon(), shedinja, neutralMove).maximum,
+    0,
+  );
+  assert.ok(
+    calculateDamageRange(pokemon(), shedinja, superEffectiveMove).maximum > 0,
+  );
+
+  const screenState = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Infiltrator",
+          team: [pokemon({ ability: "infiltrator" })],
+        },
+        { name: "Screen", team: [pokemon()] },
+      ],
+    }),
+  );
+  screenState.sides[1].conditions.reflect = { id: "reflect", turns: 5 };
+  const infiltrator = screenState.sides[0].team[0];
+  const screenTarget = screenState.sides[1].team[0];
+  const bypassed = calculateDamageRange(
+    infiltrator,
+    screenTarget,
+    infiltrator.moves[0],
+    { state: screenState, attackerSide: 0, defenderSide: 1 },
+  ).maximum;
+  infiltrator.ability = "";
+  const screened = calculateDamageRange(
+    infiltrator,
+    screenTarget,
+    infiltrator.moves[0],
+    { state: screenState, attackerSide: 0, defenderSide: 1 },
+  ).maximum;
+  assert.ok(bypassed > screened);
+});
+
+test("damage reduction abilities and Sheer Force alter damage consistently", () => {
+  const contactMove = {
+    id: "bodyslam",
+    name: "Body Slam",
+    type: "Normal",
+    category: "Physical",
+    power: 85,
+    accuracy: true,
+    pp: 15,
+    flags: { contact: true },
+    secondaries: [{ chance: 100, status: "par" }],
+  };
+  const attacker = pokemon();
+  const ordinary = calculateDamageRange(attacker, pokemon(), contactMove).maximum;
+  for (const ability of ["fluffy", "furcoat"]) {
+    const reduced = calculateDamageRange(
+      attacker,
+      pokemon({ ability }),
+      contactMove,
+    ).maximum;
+    assert.ok(reduced < ordinary);
+  }
+  const fireMove = {
+    ...contactMove,
+    id: "flamethrower",
+    name: "Flamethrower",
+    type: "Fire",
+    category: "Special",
+    flags: {},
+    secondaries: [],
+  };
+  assert.ok(
+    calculateDamageRange(attacker, pokemon({ ability: "heatproof" }), fireMove)
+      .maximum <
+      calculateDamageRange(attacker, pokemon(), fireMove).maximum,
+  );
+
+  const sheerForceAttacker = pokemon({
+    ability: "sheerforce",
+    item: "lifeorb",
+    moves: [contactMove],
+  });
+  assert.ok(
+    calculateDamageRange(sheerForceAttacker, pokemon(), contactMove).maximum >
+      ordinary,
+  );
+  const state = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        { name: "Sheer Force", team: [sheerForceAttacker] },
+        {
+          name: "Target",
+          team: [
+            pokemon({
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const hpBefore = state.sides[0].team[0].hp;
+  const result = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(result.sides[0].team[0].hp, hpBefore);
+  assert.equal(result.sides[1].team[0].status, "");
 });

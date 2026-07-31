@@ -7758,41 +7758,6 @@ export function BattleLab() {
         </section>
       ) : (
       <div className="setup-workspace">
-      <section className="setup-header" id="top">
-        <div className="setup-title">
-          <p className="eyebrow">BATTLE SETUP</p>
-          <h1>배틀 준비</h1>
-          <p>
-            {mode === "pve"
-              ? "내 엔트리와 AI 상대를 선택해 직접 대전을 시작합니다."
-              : "두 AI 엔트리의 전략과 전투 규칙을 맞춰 자동 대전을 시작합니다."}
-          </p>
-        </div>
-        <ol className="setup-progress" aria-label="배틀 준비 단계">
-          <li className="complete">
-            <span>1</span>
-            <div><small>MODE</small><strong>모드 선택</strong></div>
-          </li>
-          <li className={(mode === "pve" ? pveReady : eveReady) ? "complete" : "current"}>
-            <span>2</span>
-            <div><small>ENTRY</small><strong>엔트리 구성</strong></div>
-          </li>
-          <li className={scenario ? "complete" : (mode === "pve" ? pveReady : eveReady) ? "current" : ""}>
-            <span>3</span>
-            <div><small>RULES</small><strong>규칙 검증</strong></div>
-          </li>
-          <li className={interactiveBattle || battle ? "complete" : scenario ? "current" : ""}>
-            <span>4</span>
-            <div><small>BATTLE</small><strong>전투 시작</strong></div>
-          </li>
-        </ol>
-        <div className="dataset-status">
-          <span>TRAINER DATA</span>
-          <strong>{data?.trainerCount ?? "—"}</strong>
-          <small>{data ? "동기화 완료" : "불러오는 중"}</small>
-        </div>
-      </section>
-
       <nav className="mode-tabs" aria-label="전투 테스트 모드">
         <button
           className={mode === "pve" ? "active" : ""}

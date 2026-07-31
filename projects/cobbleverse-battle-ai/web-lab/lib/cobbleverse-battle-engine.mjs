@@ -118,17 +118,25 @@ const IMPLEMENTED_ABILITIES = new Set([
   "asoneglastrier",
   "asonespectrier",
   "baddreams",
+  "battlearmor",
   "blaze",
   "chillingneigh",
   "competitive",
+  "compoundeyes",
   "chlorophyll",
+  "clearbody",
   "dauntlessshield",
   "defiant",
   "download",
   "drizzle",
+  "dryskin",
   "drought",
+  "eartheater",
   "electricsurge",
   "flamebody",
+  "flashfire",
+  "fluffy",
+  "furcoat",
   "galewings",
   "goodasgold",
   "grimneigh",
@@ -137,11 +145,14 @@ const IMPLEMENTED_ABILITIES = new Set([
   "hypercutter",
   "hugepower",
   "hydration",
+  "hustle",
   "immunity",
   "insomnia",
   "intimidate",
   "intrepidsword",
   "ironbarbs",
+  "ironfist",
+  "keeneye",
   "levitate",
   "limber",
   "lightmetal",
@@ -153,8 +164,12 @@ const IMPLEMENTED_ABILITIES = new Set([
   "moldbreaker",
   "multiscale",
   "multitype",
+  "moxie",
   "naturalcure",
   "beastboost",
+  "innerfocus",
+  "infiltrator",
+  "noguard",
   "overcoat",
   "owntempo",
   "pickpocket",
@@ -170,13 +185,23 @@ const IMPLEMENTED_ABILITIES = new Set([
   "roughskin",
   "sandrush",
   "sandstream",
+  "sandveil",
+  "sapsipper",
+  "scrappy",
+  "sharpness",
   "shadowshield",
+  "sheerforce",
+  "shellarmor",
   "simple",
   "skilllink",
+  "snowcloak",
+  "soundproof",
   "speedboost",
   "static",
   "stamina",
   "sturdy",
+  "strongjaw",
+  "stormdrain",
   "supremeoverlord",
   "technician",
   "teraformzero",
@@ -184,15 +209,27 @@ const IMPLEMENTED_ABILITIES = new Set([
   "terashift",
   "teravolt",
   "thickfat",
+  "tintedlens",
   "toughclaws",
   "toxicdebris",
   "unaware",
   "unseenfist",
   "vitalspirit",
   "vesselofruin",
+  "voltabsorb",
   "waterveil",
   "waterabsorb",
+  "wellbakedbody",
+  "whitesmoke",
+  "wonderguard",
   "overgrow",
+  "torrent",
+  "swiftswim",
+  "snowwarning",
+  "filter",
+  "heatproof",
+  "solidrock",
+  "prismarmor",
   "orichalcumpulse",
   "armortail",
   "embodyaspectcornerstone",
@@ -921,31 +958,11 @@ function moveEffectiveness(move, defenderTypes, attacker = null, defender = null
   if (cleanId(move.type) === "stellar") {
     return defender?.terastallized === true ? 2 : 1;
   }
-  if (
-    move.type === "Electric" &&
-    activeAbility(defender) === "lightningrod" &&
-    !ignoresDefenderAbility(attacker)
-  ) {
-    return 0;
-  }
-  if (
-    move.type === "Water" &&
-    activeAbility(defender) === "waterabsorb" &&
-    !ignoresDefenderAbility(attacker)
-  ) {
-    return 0;
-  }
-  if (
-    move.type === "Ground" &&
-    activeAbility(defender) === "levitate" &&
-    !ignoresDefenderAbility(attacker)
-  ) {
-    return 0;
-  }
+  if (absorbingAbilityForMove(defender, move, attacker)) return 0;
   let effectiveness = typeMultiplier(move.type, defenderTypes);
   if (
     effectiveness === 0 &&
-    activeAbility(attacker) === "mindseye" &&
+    ["mindseye", "scrappy"].includes(activeAbility(attacker)) &&
     ["Normal", "Fighting"].includes(move.type) &&
     defenderTypes.includes("Ghost")
   ) {
@@ -959,6 +976,14 @@ function moveEffectiveness(move, defenderTypes, attacker = null, defender = null
   }
   if (cleanId(move.id) === "flyingpress") {
     effectiveness *= typeMultiplier("Flying", defenderTypes);
+  }
+  if (
+    effectiveness <= 1 &&
+    cleanId(move.id) !== "struggle" &&
+    activeAbility(defender) === "wonderguard" &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    effectiveness = 0;
   }
   if (
     effectiveness >= 1 &&
@@ -1001,8 +1026,82 @@ function makesContact(move) {
   );
 }
 
+function hasMoveFlag(move, flag) {
+  return Boolean(move?.[flag] === true || move?.flags?.[flag] === true);
+}
+
 function isSoundMove(move) {
   return Boolean(move?.sound === true || move?.flags?.sound === true);
+}
+
+function absorbingAbilityForMove(defender, move, attacker = null) {
+  if (!defender || ignoresDefenderAbility(attacker)) return "";
+  const ability = activeAbility(defender);
+  const moveType = cleanId(move?.type);
+  if (ability === "soundproof" && isSoundMove(move)) return ability;
+  if (
+    (moveType === "electric" &&
+      ["lightningrod", "voltabsorb"].includes(ability)) ||
+    (moveType === "water" &&
+      ["dryskin", "stormdrain", "waterabsorb"].includes(ability)) ||
+    (moveType === "fire" &&
+      ["flashfire", "wellbakedbody"].includes(ability)) ||
+    (moveType === "grass" && ability === "sapsipper") ||
+    (moveType === "ground" && ["eartheater", "levitate"].includes(ability))
+  ) {
+    return ability;
+  }
+  return "";
+}
+
+function isSheerForceBoostedMove(attacker, move) {
+  return (
+    activeAbility(attacker) === "sheerforce" &&
+    Array.isArray(move?.secondaries) &&
+    move.secondaries.length > 0
+  );
+}
+
+function activateAbsorbingAbility(
+  state,
+  defenderSide,
+  defender,
+  attackerSide,
+  attacker,
+  move,
+) {
+  const ability = absorbingAbilityForMove(defender, move, attacker);
+  if (!ability) return false;
+  emitAbilityActivation(state, defenderSide, defender, ability, {
+    targetSide: attackerSide,
+    target: attacker.name,
+    move: move.name,
+  });
+  if (["voltabsorb", "waterabsorb", "dryskin", "eartheater"].includes(ability)) {
+    healPokemon(
+      state,
+      defenderSide,
+      defender,
+      Math.max(1, Math.floor(defender.stats.hp / 4)),
+      ability,
+    );
+  } else if (["lightningrod", "stormdrain"].includes(ability)) {
+    applyBoosts(
+      state,
+      defenderSide,
+      defender,
+      { specialAttack: 1 },
+      ability,
+    );
+  } else if (ability === "sapsipper") {
+    applyBoosts(state, defenderSide, defender, { attack: 1 }, ability);
+  } else if (ability === "wellbakedbody") {
+    applyBoosts(state, defenderSide, defender, { defence: 2 }, ability);
+  } else if (ability === "flashfire") {
+    defender.abilityState ??= {};
+    defender.abilityState.flashFireBoosted = true;
+  }
+  return true;
 }
 
 function abilityModifiedMove(attacker, move) {
@@ -1033,19 +1132,40 @@ function statusBlockedByAbility(pokemon, status) {
 function abilityDamageModifier(defender, move, attacker = null) {
   if (ignoresDefenderAbility(attacker)) return 1;
   const ability = activeAbility(defender);
+  let modifier = 1;
   if (
     (ability === "multiscale" || ability === "shadowshield") &&
     defender.hp >= defender.stats.hp
   ) {
-    return 0.5;
+    modifier *= 0.5;
   }
   if (ability === "thickfat" && (move.type === "Fire" || move.type === "Ice")) {
-    return 0.5;
+    modifier *= 0.5;
   }
   if (ability === "purifyingsalt" && move.type === "Ghost") {
-    return 0.5;
+    modifier *= 0.5;
   }
-  return 1;
+  if (ability === "heatproof" && move.type === "Fire") {
+    modifier *= 0.5;
+  }
+  if (ability === "furcoat" && move.category === "Physical") {
+    modifier *= 0.5;
+  }
+  if (ability === "fluffy") {
+    if (makesContact(move)) modifier *= 0.5;
+    if (move.type === "Fire") modifier *= 2;
+  }
+  if (ability === "dryskin" && move.type === "Fire") {
+    modifier *= 1.25;
+  }
+  return modifier;
+}
+
+function preventsCriticalHit(defender, attacker = null) {
+  return (
+    !ignoresDefenderAbility(attacker) &&
+    ["battlearmor", "shellarmor"].includes(activeAbility(defender))
+  );
 }
 
 function validateSupportedAbilities(sides) {
@@ -1179,7 +1299,9 @@ function effectiveSpeed(pokemon, state = null, sideIndex = null) {
   if (
     (activeAbility(pokemon) === "chlorophyll" &&
       ["sunnyday", "desolateland"].includes(weather)) ||
-    (activeAbility(pokemon) === "sandrush" && weather === "sandstorm")
+    (activeAbility(pokemon) === "sandrush" && weather === "sandstorm") ||
+    (activeAbility(pokemon) === "swiftswim" &&
+      ["raindance", "primordialsea"].includes(weather))
   ) {
     speed *= 2;
   }
@@ -1392,7 +1514,11 @@ function fieldDamageModifier(
   if (defender.volatiles?.tarshot && move.type === "Fire") {
     modifier *= 2;
   }
-  if (!critical && Number.isInteger(defenderSide)) {
+  if (
+    !critical &&
+    activeAbility(attacker) !== "infiltrator" &&
+    Number.isInteger(defenderSide)
+  ) {
     if (hasSideCondition(state, defenderSide, "auroraveil")) {
       modifier *= 0.5;
     } else if (
@@ -1467,6 +1593,28 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   if (activeAbility(attacker) === "technician" && move.power > 0 && move.power <= 60) {
     abilityModifier *= 1.5;
   }
+  if (activeAbility(attacker) === "ironfist" && hasMoveFlag(move, "punch")) {
+    abilityModifier *= 1.2;
+  }
+  if (activeAbility(attacker) === "strongjaw" && hasMoveFlag(move, "bite")) {
+    abilityModifier *= 1.5;
+  }
+  if (activeAbility(attacker) === "sharpness" && hasMoveFlag(move, "slicing")) {
+    abilityModifier *= 1.5;
+  }
+  if (activeAbility(attacker) === "hustle" && move.category === "Physical") {
+    abilityModifier *= 1.5;
+  }
+  if (isSheerForceBoostedMove(attacker, move)) {
+    abilityModifier *= 1.3;
+  }
+  if (
+    activeAbility(attacker) === "flashfire" &&
+    attacker.abilityState?.flashFireBoosted &&
+    move.type === "Fire"
+  ) {
+    abilityModifier *= 1.5;
+  }
   if (
     activeAbility(attacker) === "overgrow" &&
     move.type === "Grass" &&
@@ -1480,6 +1628,27 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     attacker.hp <= Math.floor(attacker.stats.hp / 3)
   ) {
     abilityModifier *= 1.5;
+  }
+  if (
+    activeAbility(attacker) === "torrent" &&
+    move.type === "Water" &&
+    attacker.hp <= Math.floor(attacker.stats.hp / 3)
+  ) {
+    abilityModifier *= 1.5;
+  }
+  if (
+    activeAbility(attacker) === "tintedlens" &&
+    effectiveness > 0 &&
+    effectiveness < 1
+  ) {
+    abilityModifier *= 2;
+  }
+  if (
+    ["filter", "solidrock", "prismarmor"].includes(activeAbility(defender)) &&
+    effectiveness > 1 &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    abilityModifier *= 0.75;
   }
   if (
     activeAbility(attacker) === "supremeoverlord" &&
@@ -1865,6 +2034,7 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
     drought: "sunnyday",
     orichalcumpulse: "sunnyday",
     sandstream: "sandstorm",
+    snowwarning: "snow",
   }[ability];
   if (entryWeather) {
     emitAbilityActivation(state, sideIndex, pokemon, ability);
@@ -1918,6 +2088,9 @@ function knockoutAbilityBoosts(ability, pokemon = null) {
   if (id === "beastboost") {
     const stat = beastBoostStat(pokemon);
     return stat ? { [stat]: 1 } : null;
+  }
+  if (id === "moxie") {
+    return { attack: 1 };
   }
   return null;
 }
@@ -2995,6 +3168,12 @@ function eventStat(stat) {
 
 function effectiveAccuracy(attacker, defender, move, state = null) {
   if (move.accuracy === true) return 100;
+  if (
+    activeAbility(attacker) === "noguard" ||
+    activeAbility(defender) === "noguard"
+  ) {
+    return 100;
+  }
   const weather = cleanId(state?.field?.weather?.id);
   if (cleanId(move.id) === "blizzard" && ["hail", "snow"].includes(weather)) {
     return 100;
@@ -3012,16 +3191,43 @@ function effectiveAccuracy(attacker, defender, move, state = null) {
     return 50;
   }
   const accuracyStage = attacker.boosts?.accuracy ?? 0;
-  const evasionStage = defender.boosts?.evasion ?? 0;
+  const evasionStage =
+    activeAbility(attacker) === "keeneye"
+      ? Math.min(0, defender.boosts?.evasion ?? 0)
+      : defender.boosts?.evasion ?? 0;
+  let abilityModifier = 1;
+  if (activeAbility(attacker) === "compoundeyes") abilityModifier *= 1.3;
+  if (activeAbility(attacker) === "hustle" && move.category === "Physical") {
+    abilityModifier *= 0.8;
+  }
+  if (
+    activeAbility(defender) === "sandveil" &&
+    weather === "sandstorm" &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    abilityModifier *= 0.8;
+  }
+  if (
+    activeAbility(defender) === "snowcloak" &&
+    ["hail", "snow"].includes(weather) &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    abilityModifier *= 0.8;
+  }
   return Math.max(
     1,
     Math.min(
       100,
       move.accuracy *
+        abilityModifier *
         stageMultiplier(accuracyStage) /
         stageMultiplier(evasionStage),
     ),
   );
+}
+
+function expectedAccuracyFraction(attacker, defender, move, state = null) {
+  return effectiveAccuracy(attacker, defender, move, state) / 100;
 }
 
 function weatherBallMove(state, move) {
@@ -3454,6 +3660,10 @@ function applyVolatileStatus(state, side, pokemon, id, source, sourceSide = null
     return false;
   }
   if (normalized === "confusion" && activeAbility(pokemon) === "owntempo") {
+    return false;
+  }
+  if (normalized === "flinch" && activeAbility(pokemon) === "innerfocus") {
+    emitAbilityActivation(state, side, pokemon, "innerfocus", { source });
     return false;
   }
   const turns = volatileDuration(normalized);
@@ -4174,6 +4384,26 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
   let loweredByOpponent = false;
   for (const [stat, amount] of Object.entries(boosts ?? {})) {
     if (!BOOST_STATS.includes(stat) || !Number.isFinite(amount)) continue;
+    const loweredByFoe =
+      amount < 0 && Number.isInteger(sourceSide) && sourceSide !== side;
+    if (
+      loweredByFoe &&
+      ["clearbody", "whitesmoke"].includes(activeAbility(pokemon))
+    ) {
+      emitAbilityActivation(state, side, pokemon, activeAbility(pokemon), {
+        source,
+      });
+      continue;
+    }
+    if (
+      loweredByFoe &&
+      stat === "attack" &&
+      cleanId(source) === "intimidate" &&
+      activeAbility(pokemon) === "innerfocus"
+    ) {
+      emitAbilityActivation(state, side, pokemon, "innerfocus", { source });
+      continue;
+    }
     if (
       stat === "attack" &&
       amount < 0 &&
@@ -4182,6 +4412,16 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
       sourceSide !== side
     ) {
       emitAbilityActivation(state, side, pokemon, "hypercutter", { source });
+      continue;
+    }
+    if (
+      stat === "accuracy" &&
+      amount < 0 &&
+      activeAbility(pokemon) === "keeneye" &&
+      Number.isInteger(sourceSide) &&
+      sourceSide !== side
+    ) {
+      emitAbilityActivation(state, side, pokemon, "keeneye", { source });
       continue;
     }
     const modifiedAmount = activeAbility(pokemon) === "simple" ? amount * 2 : amount;
@@ -5657,6 +5897,7 @@ function executeMove(state, action, rng) {
 
   if (
     defender.volatiles?.substitute &&
+    activeAbility(attacker) !== "infiltrator" &&
     move.category === "Status" &&
     move.target !== "self"
   ) {
@@ -5690,23 +5931,16 @@ function executeMove(state, action, rng) {
   }
 
   if (
-    move.type === "Electric" &&
     move.target !== "self" &&
-    activeAbility(defender) === "lightningrod" &&
-    !ignoresDefenderAbility(attacker)
-  ) {
-    emitAbilityActivation(state, defenderSide, defender, "lightningrod", {
-      targetSide: action.side,
-      target: attacker.name,
-      move: move.name,
-    });
-    applyBoosts(
+    activateAbsorbingAbility(
       state,
       defenderSide,
       defender,
-      { specialAttack: 1 },
-      "lightningrod",
-    );
+      action.side,
+      attacker,
+      move,
+    )
+  ) {
     return true;
   }
 
@@ -7163,27 +7397,6 @@ function executeMove(state, action, rng) {
     return false;
   }
 
-  if (
-    move.type === "Water" &&
-    move.target !== "self" &&
-    activeAbility(defender) === "waterabsorb" &&
-    !ignoresDefenderAbility(attacker)
-  ) {
-    emitAbilityActivation(state, defenderSide, defender, "waterabsorb", {
-      targetSide: action.side,
-      target: attacker.name,
-      move: move.name,
-    });
-    healPokemon(
-      state,
-      defenderSide,
-      defender,
-      Math.max(1, Math.floor(defender.stats.hp / 4)),
-      "waterabsorb",
-    );
-    return true;
-  }
-
   const teraShellActive =
     move.category !== "Status" &&
     cleanId(move.id) !== "struggle" &&
@@ -7290,6 +7503,7 @@ function executeMove(state, action, rng) {
       critRatio >= 3 ? 1 : critRatio === 2 ? 1 / 8 : 1 / 24;
     const critical =
       fixedDamage === null &&
+      !preventsCriticalHit(defender, attacker) &&
       (move.willCrit || attacker.volatiles?.laserfocus || rng.next() < criticalChance);
     if (attacker.volatiles?.laserfocus && fixedDamage === null) {
       delete attacker.volatiles.laserfocus;
@@ -7414,7 +7628,10 @@ function executeMove(state, action, rng) {
     let appliedDamage = damage;
     const substitute = defender.volatiles?.substitute;
     const substituteBlockedHit = Boolean(
-      damage > 0 && substitute && move.target !== "self",
+      damage > 0 &&
+        substitute &&
+        move.target !== "self" &&
+        activeAbility(attacker) !== "infiltrator",
     );
     if (substituteBlockedHit) {
       appliedDamage = Math.min(damage, substitute.hp);
@@ -7698,7 +7915,12 @@ function executeMove(state, action, rng) {
       effectiveness: 1,
     });
   }
-  if (totalDamage > 0 && attacker.item === "lifeorb" && !attacker.fainted) {
+  if (
+    totalDamage > 0 &&
+    attacker.item === "lifeorb" &&
+    !attacker.fainted &&
+    !isSheerForceBoostedMove(attacker, move)
+  ) {
     const recoil = Math.min(attacker.hp, Math.max(1, Math.floor(attacker.stats.hp / 10)));
     attacker.hp -= recoil;
     state.events.push({
@@ -7947,19 +8169,21 @@ function executeMove(state, action, rng) {
   ) {
     removeTargetItem(state, defenderSide, defender, move.name);
   }
-  for (const secondary of move.secondaries) {
-    if (defender.hp <= 0) break;
-    if (rng.next() * 100 >= secondary.chance) continue;
-    applyMoveEffect(
-      state,
-      action.side,
-      attacker,
-      defenderSide,
-      defender,
-      secondary,
-      rng,
-      move.name,
-    );
+  if (!isSheerForceBoostedMove(attacker, move)) {
+    for (const secondary of move.secondaries) {
+      if (defender.hp <= 0) break;
+      if (rng.next() * 100 >= secondary.chance) continue;
+      applyMoveEffect(
+        state,
+        action.side,
+        attacker,
+        defenderSide,
+        defender,
+        secondary,
+        rng,
+        move.name,
+      );
+    }
   }
   if (totalDamage > 0 && !defender.fainted && Object.keys(move.selfBoosts).length) {
     applyBoosts(
@@ -8353,10 +8577,40 @@ function applyEndTurnEffects(state) {
       emitAbilityActivation(state, sideIndex, pokemon, "hydration");
       curePokemonStatus(state, sideIndex, pokemon, "hydration");
     }
+    if (
+      activeAbility(pokemon) === "dryskin" &&
+      ["raindance", "primordialsea"].includes(weather)
+    ) {
+      emitAbilityActivation(state, sideIndex, pokemon, "dryskin");
+      healPokemon(
+        state,
+        sideIndex,
+        pokemon,
+        Math.max(1, Math.floor(pokemon.stats.hp / 8)),
+        "dryskin",
+      );
+    } else if (
+      activeAbility(pokemon) === "dryskin" &&
+      ["sunnyday", "desolateland"].includes(weather)
+    ) {
+      emitAbilityActivation(state, sideIndex, pokemon, "dryskin");
+      applyDirectDamage(
+        state,
+        sideIndex,
+        pokemon,
+        Math.max(1, Math.floor(pokemon.stats.hp / 8)),
+        "dryskin",
+        "ability",
+      );
+      if (pokemon.fainted) continue;
+    }
     let damage = 0;
     let source = "";
     if (pokemon.status === "brn") {
       damage = Math.max(1, Math.floor(pokemon.stats.hp / 16));
+      if (activeAbility(pokemon) === "heatproof") {
+        damage = Math.max(1, Math.floor(damage / 2));
+      }
       source = "brn";
     } else if (pokemon.status === "psn") {
       damage = Math.max(1, Math.floor(pokemon.stats.hp / 8));
@@ -9124,6 +9378,9 @@ function aiEndTurnResidualDamage(pokemon, state) {
   let damage = 0;
   if (pokemon.status === "brn") {
     damage += Math.max(1, Math.floor(pokemon.stats.hp / 16));
+    if (activeAbility(pokemon) === "heatproof") {
+      damage = Math.max(1, Math.floor(damage / 2));
+    }
   } else if (pokemon.status === "psn") {
     damage += Math.max(1, Math.floor(pokemon.stats.hp / 8));
   } else if (pokemon.status === "tox") {
@@ -9155,6 +9412,12 @@ function aiEndTurnResidualDamage(pokemon, state) {
   }
   if (pokemon.volatiles?.saltcure) {
     damage += saltCureResidualDamage(pokemon);
+  }
+  if (
+    activeAbility(pokemon) === "dryskin" &&
+    ["sunnyday", "desolateland"].includes(cleanId(state.field?.weather?.id))
+  ) {
+    damage += Math.max(1, Math.floor(pokemon.stats.hp / 8));
   }
   return damage;
 }
@@ -9193,6 +9456,7 @@ function aiDamageOutcomeProfile(attacker, defender, move, range) {
   const hitCount = aiExpectedHitCount(move, attacker);
   const criticalModifier =
     (move.willCrit || attacker.volatiles?.laserfocus) &&
+    !preventsCriticalHit(defender, attacker) &&
     range.effectiveness !== 0
       ? 1.5
       : 1;
@@ -9251,7 +9515,10 @@ function aiExpectedMoveDamage(
   attackerSide,
   defenderSide,
 ) {
-  const critical = Boolean(move.willCrit || attacker.volatiles?.laserfocus);
+  const critical = Boolean(
+    !preventsCriticalHit(defender, attacker) &&
+      (move.willCrit || attacker.volatiles?.laserfocus),
+  );
   const estimatedMove = resolveEstimatedMovePower(
     attacker,
     defender,
@@ -9373,8 +9640,12 @@ function aiSetupFollowupValue(
   const bestDamageAgainst = (attacker, target) =>
     damagingMoves.reduce((best, candidate) => {
       const displayMove = aiDisplayMoveData(attacker, candidate);
-      const accuracy =
-        displayMove.accuracy === true ? 1 : Number(displayMove.accuracy ?? 100) / 100;
+      const accuracy = expectedAccuracyFraction(
+        attacker,
+        target,
+        displayMove,
+        state,
+      );
       const damage =
         aiExpectedMoveDamage(
           attacker,
@@ -9678,7 +9949,12 @@ function aiOpponentSetupThreatProfile({
     }
     if (move.category === "Status" || move.power <= 0) return best;
     const displayMove = aiDisplayMoveData(attacker, move);
-    const accuracy = displayMove.accuracy === true ? 1 : displayMove.accuracy / 100;
+    const accuracy = expectedAccuracyFraction(
+      attacker,
+      defender,
+      displayMove,
+      state,
+    );
     const damage =
       aiExpectedMoveDamage(
         attacker,
@@ -9831,10 +10107,12 @@ function automaticMoveCandidates(
     .map((move) => {
       const displayMove = aiDisplayMoveData(defender, move);
       if (displayMove.category === "Status") return null;
-      const accuracy =
-        displayMove.accuracy === true
-          ? 1
-          : Math.max(0, Number(displayMove.accuracy ?? 100) / 100);
+      const accuracy = expectedAccuracyFraction(
+        defender,
+        threatTarget,
+        displayMove,
+        state,
+      );
       const estimate = aiExpectedMoveDamage(
         defender,
         threatTarget,
@@ -9878,10 +10156,12 @@ function automaticMoveCandidates(
       }
       const displayMove = aiDisplayMoveData(pokemon, move, dynamaxMode);
       if (displayMove.category === "Status") return best;
-      const accuracy =
-        displayMove.accuracy === true
-          ? 1
-          : Math.max(0, Number(displayMove.accuracy ?? 100) / 100);
+      const accuracy = expectedAccuracyFraction(
+        threatTarget,
+        defender,
+        displayMove,
+        state,
+      );
       const estimate = aiExpectedMoveDamage(
         threatTarget,
         defender,
@@ -10242,8 +10522,12 @@ function automaticMoveCandidates(
         displayMove,
         range,
       );
-      const accuracy =
-        displayMove.accuracy === true ? 1 : displayMove.accuracy / 100;
+      const accuracy = expectedAccuracyFraction(
+        pokemon,
+        defender,
+        displayMove,
+        state,
+      );
       const statusWeights = {
         slp: 48,
         tox: 42,
@@ -10394,10 +10678,12 @@ function automaticMoveCandidates(
           ) {
             return worst;
           }
-          const opponentAccuracy =
-            opponentDisplayMove.accuracy === true
-              ? 1
-              : opponentDisplayMove.accuracy / 100;
+          const opponentAccuracy = expectedAccuracyFraction(
+            defender,
+            setupPokemon,
+            opponentDisplayMove,
+            state,
+          );
           const estimate = aiExpectedMoveDamage(
             defender,
             setupPokemon,
@@ -10644,7 +10930,7 @@ function automaticMoveCandidates(
         type: displayMove.type,
         category: displayMove.category,
         power: displayMove.power,
-        accuracy: displayMove.accuracy,
+        accuracy: effectiveAccuracy(pokemon, defender, displayMove, state),
         priority: displayMove.priority,
         hpPercent: pokemon.hp / pokemon.stats.hp,
         incomingDamageRatio,
@@ -10894,10 +11180,12 @@ function bestAiAttackProfile(
       if (move.pp <= 0 || isMoveTemporarilyDisabled(attacker, move)) return best;
       const displayMove = aiDisplayMoveData(attacker, move);
       if (displayMove.category === "Status") return best;
-      const accuracy =
-        displayMove.accuracy === true
-          ? 1
-          : Math.max(0, Number(displayMove.accuracy ?? 100) / 100);
+      const accuracy = expectedAccuracyFraction(
+        attacker,
+        defender,
+        displayMove,
+        state,
+      );
       const estimate = aiExpectedMoveDamage(
         attacker,
         defender,
@@ -12176,10 +12464,12 @@ function projectedSwitchMoveCandidates(
     .map((move) => {
       const displayMove = aiDisplayMoveData(opponent, move);
       if (displayMove.category === "Status") return null;
-      const accuracy =
-        displayMove.accuracy === true
-          ? 1
-          : Math.max(0, Number(displayMove.accuracy ?? 100) / 100);
+      const accuracy = expectedAccuracyFraction(
+        opponent,
+        projectedPokemon,
+        displayMove,
+        state,
+      );
       const estimate = aiExpectedMoveDamage(
         opponent,
         projectedPokemon,
@@ -12270,10 +12560,12 @@ function projectedSwitchMoveCandidates(
         displayMove,
         damageEstimate.range,
       );
-      const accuracy =
-        displayMove.accuracy === true
-          ? 1
-          : Math.max(0, Number(displayMove.accuracy ?? 100) / 100);
+      const accuracy = expectedAccuracyFraction(
+        projectedPokemon,
+        opponent,
+        displayMove,
+        state,
+      );
       const expectedDamage = Math.min(
         opponent.hp,
         damageEstimate.expectedDamage * accuracy,

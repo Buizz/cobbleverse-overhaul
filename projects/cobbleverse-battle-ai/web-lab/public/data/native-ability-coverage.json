@@ -1,0 +1,3781 @@
+{
+  "schemaVersion": 1,
+  "generatedFrom": "public/data/trainers.json",
+  "trainerCount": 224,
+  "uniqueAbilityCount": 208,
+  "supportedAbilityCount": 112,
+  "unsupportedAbilityCount": 96,
+  "abilities": [
+    {
+      "id": "levitate",
+      "usageCount": 43,
+      "examples": [
+        {
+          "pokemon": "Rotom-Wash",
+          "trainer": "SV9 해저드 밸런스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Hydreigon",
+          "trainer": "SV9 해저드 밸런스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Bronzong",
+          "trainer": "SV9 트릭룸 밸런스",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "sturdy",
+      "usageCount": 25,
+      "examples": [
+        {
+          "pokemon": "Magnezone",
+          "trainer": "DBingsu 공식 엔트리",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Geodude",
+          "trainer": "Brock",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Bonsly",
+          "trainer": "Brock",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "intimidate",
+      "usageCount": 20,
+      "examples": [
+        {
+          "pokemon": "Mawile",
+          "trainer": "DBingsu 공식 엔트리",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Incineroar",
+          "trainer": "포챔스 메가입치트 듀얼 모드",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Salamence",
+          "trainer": "SV9 고속 오펜스",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "pressure",
+      "usageCount": 19,
+      "examples": [
+        {
+          "pokemon": "Corviknight",
+          "trainer": "재생력 순환 막이",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Deoxys-Speed",
+          "trainer": "SV9 스크린 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Corviknight",
+          "trainer": "딩루 하마돈 모래 막이",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "technician",
+      "usageCount": 18,
+      "examples": [
+        {
+          "pokemon": "Scizor",
+          "trainer": "SV9 해저드 밸런스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Smeargle",
+          "trainer": "Aaron",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Donphan",
+          "trainer": "Ace Trainer George",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "innerfocus",
+      "usageCount": 16,
+      "examples": [
+        {
+          "pokemon": "Sawk",
+          "trainer": "Black Belt Hitoshi",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Kangaskhan",
+          "trainer": "Boss Giovanni",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Heracross",
+          "trainer": "Bruno",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "clearbody",
+      "usageCount": 14,
+      "examples": [
+        {
+          "pokemon": "Klinklang",
+          "trainer": "Biker Virgil",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Metagross",
+          "trainer": "Champion Terry",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Metagross",
+          "trainer": "Champion Terry",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "chlorophyll",
+      "usageCount": 13,
+      "examples": [
+        {
+          "pokemon": "Venusaur",
+          "trainer": "포챔스 메가입치트 듀얼 모드",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Exeggutor-Alola",
+          "trainer": "Ace Trainer George",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Venusaur",
+          "trainer": "Ash",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "naturalcure",
+      "usageCount": 13,
+      "examples": [
+        {
+          "pokemon": "Blissey",
+          "trainer": "딩루 하마돈 모래 막이",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Chansey",
+          "trainer": "Ace Trainer Alexa",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Starmie",
+          "trainer": "Adriano",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "swiftswim",
+      "usageCount": 13,
+      "examples": [
+        {
+          "pokemon": "Barraskewda",
+          "trainer": "Ace Trainer Janny",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Basculegion",
+          "trainer": "Adriano",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Qwilfish",
+          "trainer": "Biker Jaxon",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "rockhead",
+      "usageCount": 12,
+      "examples": [
+        {
+          "pokemon": "Sudowoodo",
+          "trainer": "Ace Trainer Janny",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Arcanine-Hisui",
+          "trainer": "Blaine",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Onix",
+          "trainer": "Brock",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "shedskin",
+      "usageCount": 12,
+      "examples": [
+        {
+          "pokemon": "Arbok",
+          "trainer": "Biker Malik",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Karrablast",
+          "trainer": "Bug Catcher Keigo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Scrafty",
+          "trainer": "Crush Girl Tanya",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "sheerforce",
+      "usageCount": 12,
+      "examples": [
+        {
+          "pokemon": "Wigglytuff",
+          "trainer": "Ace Trainer Alexa",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Darmanitan",
+          "trainer": "Ace Trainer George",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Conkeldurr",
+          "trainer": "Black Belt Daisuke",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "blaze",
+      "usageCount": 11,
+      "examples": [
+        {
+          "pokemon": "Charizard",
+          "trainer": "포챔스 메가입치트 듀얼 모드",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Emboar",
+          "trainer": "포챔스 메가염무왕 셋업",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Charizard",
+          "trainer": "Ash",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "static",
+      "usageCount": 11,
+      "examples": [
+        {
+          "pokemon": "Pikachu",
+          "trainer": "Ash",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Pikachu",
+          "trainer": "Corrado",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Pikachu",
+          "trainer": "Friendly Teacher",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "thickfat",
+      "usageCount": 11,
+      "examples": [
+        {
+          "pokemon": "Snorlax",
+          "trainer": "DBingsu 공식 엔트리",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Mamoswine",
+          "trainer": "SV9 고속 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Snorlax",
+          "trainer": "SV9 트릭룸 밸런스",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "unaware",
+      "usageCount": 11,
+      "examples": [
+        {
+          "pokemon": "Dondozo",
+          "trainer": "재생력 순환 막이",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Dondozo",
+          "trainer": "딩루 하마돈 모래 막이",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Clefable",
+          "trainer": "저승갓숭 배턴터치 전개",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "flashfire",
+      "usageCount": 10,
+      "examples": [
+        {
+          "pokemon": "Sizzlipede",
+          "trainer": "Bug Catcher Greg",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Centiskorch",
+          "trainer": "Dumbass Jojo Fan",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Growlithe",
+          "trainer": "Fabbo67",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "sandstream",
+      "usageCount": 10,
+      "examples": [
+        {
+          "pokemon": "Hippowdon",
+          "trainer": "딩루 하마돈 모래 막이",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Tyranitar",
+          "trainer": "SV9 모래바람 밸런스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Hippowdon",
+          "trainer": "Apollo",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "sandveil",
+      "usageCount": 10,
+      "examples": [
+        {
+          "pokemon": "Gliscor",
+          "trainer": "Boss Giovanni",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Garchomp",
+          "trainer": "Boss Giovanni",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Cacnea",
+          "trainer": "Gentleman Arthur",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "analytic",
+      "usageCount": 9,
+      "examples": [
+        {
+          "pokemon": "Watchog",
+          "trainer": "Norman",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Magneton",
+          "trainer": "Team Rocket Agent",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Magneton",
+          "trainer": "Team Rocket Grunt",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "cursedbody",
+      "usageCount": 9,
+      "examples": [
+        {
+          "pokemon": "Gengar",
+          "trainer": "Agatha",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Gengar",
+          "trainer": "Angelo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Incineroar",
+          "trainer": "Ester",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "guts",
+      "usageCount": 9,
+      "examples": [
+        {
+          "pokemon": "Conkeldurr",
+          "trainer": "SV9 트릭룸 밸런스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Ursaring",
+          "trainer": "Crush Girl Tanya",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Machamp",
+          "trainer": "Dumbass Jojo Fan",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "overgrow",
+      "usageCount": 9,
+      "examples": [
+        {
+          "pokemon": "Meganium",
+          "trainer": "Beauty Lola",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Dartrix",
+          "trainer": "Bird Keeper Mitch",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Venusaur",
+          "trainer": "Corrado",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "regenerator",
+      "usageCount": 9,
+      "examples": [
+        {
+          "pokemon": "Ho-Oh",
+          "trainer": "재생력 순환 막이",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Toxapex",
+          "trainer": "재생력 순환 막이",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Toxapex",
+          "trainer": "딩루 하마돈 모래 막이",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "roughskin",
+      "usageCount": 9,
+      "examples": [
+        {
+          "pokemon": "Garchomp",
+          "trainer": "포챔스 메가입치트 듀얼 모드",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Garchomp",
+          "trainer": "포챔스 메가염무왕 셋업",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Garchomp",
+          "trainer": "Ferruccio",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "speedboost",
+      "usageCount": 9,
+      "examples": [
+        {
+          "pokemon": "Blaziken",
+          "trainer": "DBingsu 공식 엔트리",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Scolipede",
+          "trainer": "저승갓숭 배턴터치 전개",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Scolipede",
+          "trainer": "마나피 아르세우스 배턴터치",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "synchronize",
+      "usageCount": 9,
+      "examples": [
+        {
+          "pokemon": "Umbreon",
+          "trainer": "Friendly Anastasia",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Umbreon",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Espeon",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "waterabsorb",
+      "usageCount": 9,
+      "examples": [
+        {
+          "pokemon": "Clodsire",
+          "trainer": "Apollo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Vaporeon",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Volcanion",
+          "trainer": "Gatekeeper Owen",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "drought",
+      "usageCount": 8,
+      "examples": [
+        {
+          "pokemon": "Torkoal",
+          "trainer": "Blaine",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Ninetales",
+          "trainer": "Blaine",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Groudon",
+          "trainer": "Champion Terry",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "flamebody",
+      "usageCount": 8,
+      "examples": [
+        {
+          "pokemon": "Moltres",
+          "trainer": "SV9 모래바람 밸런스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Magmortar",
+          "trainer": "Blaine",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Rapidash",
+          "trainer": "Fiammetta",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "multiscale",
+      "usageCount": 8,
+      "examples": [
+        {
+          "pokemon": "Dragonite",
+          "trainer": "SV9 스크린 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Dragonite",
+          "trainer": "SV9 모던 벌키 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Dragonite",
+          "trainer": "SV9 해저드 밸런스",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "noguard",
+      "usageCount": 8,
+      "examples": [
+        {
+          "pokemon": "Doublade",
+          "trainer": "Ace Trainer Runan",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Machoke",
+          "trainer": "Black Belt Daisuke",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Machamp",
+          "trainer": "Bruno",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "owntempo",
+      "usageCount": 8,
+      "examples": [
+        {
+          "pokemon": "Smeargle",
+          "trainer": "저승갓숭 배턴터치 전개",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Lickilicky",
+          "trainer": "Aaron",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Lilligant",
+          "trainer": "Beauty Bridget",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "protosynthesis",
+      "usageCount": 8,
+      "examples": [
+        {
+          "pokemon": "Great Tusk",
+          "trainer": "SV9 스크린 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Great Tusk",
+          "trainer": "SV9 모던 벌키 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Gouging Fire",
+          "trainer": "Alice",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "rivalry",
+      "usageCount": 8,
+      "examples": [
+        {
+          "pokemon": "Shinx",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Nidoking",
+          "trainer": "Giovanni",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Nidoqueen",
+          "trainer": "Giovanni",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "shellarmor",
+      "usageCount": 8,
+      "examples": [
+        {
+          "pokemon": "Turtonator",
+          "trainer": "Blaine",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Torterra",
+          "trainer": "Ferruccio",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Torterra",
+          "trainer": "Giovanni",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "torrent",
+      "usageCount": 8,
+      "examples": [
+        {
+          "pokemon": "Primarina",
+          "trainer": "Adriano",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Greninja",
+          "trainer": "Giulio1232",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Feraligatr",
+          "trainer": "Giulio1232",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "beastboost",
+      "usageCount": 7,
+      "examples": [
+        {
+          "pokemon": "Blacephalon",
+          "trainer": "Agatha",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Pheromosa",
+          "trainer": "Champion Terry",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Greninja",
+          "trainer": "Fannie",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "hustle",
+      "usageCount": 7,
+      "examples": [
+        {
+          "pokemon": "Togekiss",
+          "trainer": "Biker Goon",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Raticate",
+          "trainer": "Team Rocket Agent",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Raticate",
+          "trainer": "Team Rocket Agent",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "infiltrator",
+      "usageCount": 7,
+      "examples": [
+        {
+          "pokemon": "Spiritomb",
+          "trainer": "Agatha",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Dragapult",
+          "trainer": "Blue",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Dragapult",
+          "trainer": "Lyris",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "ironfist",
+      "usageCount": 7,
+      "examples": [
+        {
+          "pokemon": "Golurk",
+          "trainer": "Agatha",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Melmetal",
+          "trainer": "Biker Hideo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Pawmot",
+          "trainer": "Bruno",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "keeneye",
+      "usageCount": 7,
+      "examples": [
+        {
+          "pokemon": "Toucannon",
+          "trainer": "Aaron",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Rockruff",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Pelipper",
+          "trainer": "Sailor Duncan",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "moldbreaker",
+      "usageCount": 7,
+      "examples": [
+        {
+          "pokemon": "Pinsir",
+          "trainer": "Ace Trainer George",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Haxorus",
+          "trainer": "Alice",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Cranidos",
+          "trainer": "Brock",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "poisontouch",
+      "usageCount": 7,
+      "examples": [
+        {
+          "pokemon": "Roselia",
+          "trainer": "Beauty Bridget",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Dragalge",
+          "trainer": "Biker Lukas",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Roserade",
+          "trainer": "Biker Malik",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "serenegrace",
+      "usageCount": 7,
+      "examples": [
+        {
+          "pokemon": "Blissey",
+          "trainer": "Ace Trainer Alexa",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Meloetta",
+          "trainer": "Biker Ruben",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Dudunsparce",
+          "trainer": "Cue Ball Isaiah",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "steadfast",
+      "usageCount": 7,
+      "examples": [
+        {
+          "pokemon": "Farfetch’d-Galar",
+          "trainer": "Camper Flint",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Gallade",
+          "trainer": "Crush Girl Sharon",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Sirfetch’d",
+          "trainer": "Edo_Leone",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "aftermath",
+      "usageCount": 6,
+      "examples": [
+        {
+          "pokemon": "Seviper",
+          "trainer": "Tamer Phil",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Skuntank",
+          "trainer": "Team Rocket Grunt",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Skuntank",
+          "trainer": "Team Rocket Grunt",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "compoundeyes",
+      "usageCount": 6,
+      "examples": [
+        {
+          "pokemon": "Butterfree",
+          "trainer": "Bug Catcher Anthony",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Joltik",
+          "trainer": "Bug Catcher Cale",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Nincada",
+          "trainer": "Bug Catcher Greg",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "disguise",
+      "usageCount": 6,
+      "examples": [
+        {
+          "pokemon": "Mimikyu",
+          "trainer": "Agatha",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Mimikyu",
+          "trainer": "Morn27015",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Mimikyu",
+          "trainer": "Team Rocket Admin",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "hypercutter",
+      "usageCount": 6,
+      "examples": [
+        {
+          "pokemon": "Mawile",
+          "trainer": "포챔스 메가입치트 듀얼 모드",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Pinsir",
+          "trainer": "Bug Catcher Greg",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Corphish",
+          "trainer": "Fisherman Dale",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "insomnia",
+      "usageCount": 6,
+      "examples": [
+        {
+          "pokemon": "Hypno",
+          "trainer": "Atena",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Banette",
+          "trainer": "Pokéfan Laurenzia",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Hypno",
+          "trainer": "Team Rocket Agent",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "sharpness",
+      "usageCount": 6,
+      "examples": [
+        {
+          "pokemon": "Keldeo",
+          "trainer": "Ace Trainer Runan",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Samurott-Hisui",
+          "trainer": "Ace Trainer Symes",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Gallade",
+          "trainer": "Bruno",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "solidrock",
+      "usageCount": 6,
+      "examples": [
+        {
+          "pokemon": "Camerupt",
+          "trainer": "Fiammetta",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Rhyperior",
+          "trainer": "Giovanni",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Rhyperior",
+          "trainer": "Giovanni",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "stickyhold",
+      "usageCount": 6,
+      "examples": [
+        {
+          "pokemon": "Muk",
+          "trainer": "Atena",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Muk",
+          "trainer": "Team Rocket Grunt",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Muk",
+          "trainer": "Team Rocket Officer",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "strongjaw",
+      "usageCount": 6,
+      "examples": [
+        {
+          "pokemon": "Sharpedo",
+          "trainer": "Apollo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Boltund",
+          "trainer": "Biker Lao",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Clobbopus",
+          "trainer": "Fisherman Dale",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "tintedlens",
+      "usageCount": 6,
+      "examples": [
+        {
+          "pokemon": "Dartrix",
+          "trainer": "Gentleman Brooks",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Illumise",
+          "trainer": "Lass Haley",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Noctowl",
+          "trainer": "Team Rocket Agent",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "battlearmor",
+      "usageCount": 5,
+      "examples": [
+        {
+          "pokemon": "Falinks",
+          "trainer": "Black Belt Hitoshi",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Dewott",
+          "trainer": "Lass Ann",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Kabutops",
+          "trainer": "Scientist Ed",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "cutecharm",
+      "usageCount": 5,
+      "examples": [
+        {
+          "pokemon": "Wigglytuff",
+          "trainer": "Aaron",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Lopunny",
+          "trainer": "Chiara",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Wigglytuff",
+          "trainer": "DummyH77",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "frisk",
+      "usageCount": 5,
+      "examples": [
+        {
+          "pokemon": "Exeggutor-Alola",
+          "trainer": "Dragon Tamer Ramiro",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Banette",
+          "trainer": "Team Rocket Spy",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Banette",
+          "trainer": "Team Rocket Spy",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "gluttony",
+      "usageCount": 5,
+      "examples": [
+        {
+          "pokemon": "Appletun",
+          "trainer": "Bobbo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Zigzagoon",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Lechonk",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "hydration",
+      "usageCount": 5,
+      "examples": [
+        {
+          "pokemon": "Manaphy",
+          "trainer": "마나피 아르세우스 배턴터치",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Goodra",
+          "trainer": "Mario",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Palpitoad",
+          "trainer": "Picnicker Missy",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "quarkdrive",
+      "usageCount": 5,
+      "examples": [
+        {
+          "pokemon": "Iron Valiant",
+          "trainer": "SV9 스크린 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Iron Bundle",
+          "trainer": "Adriano",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Iron Valiant",
+          "trainer": "Bruno",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "sandrush",
+      "usageCount": 5,
+      "examples": [
+        {
+          "pokemon": "Excadrill",
+          "trainer": "SV9 모래바람 밸런스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Dracovish",
+          "trainer": "Biker Hideo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Excadrill",
+          "trainer": "Biker Ruben",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "swarm",
+      "usageCount": 5,
+      "examples": [
+        {
+          "pokemon": "Beedrill",
+          "trainer": "Biker Hideo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Sewaddle",
+          "trainer": "Bug Catcher Cale",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Ledyba",
+          "trainer": "Bug Catcher Cale",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "unburden",
+      "usageCount": 5,
+      "examples": [
+        {
+          "pokemon": "Hawlucha",
+          "trainer": "Bird Keeper Mitch",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Sneasler",
+          "trainer": "Koga",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Liepard",
+          "trainer": "Team Rocket Grunt",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "weakarmor",
+      "usageCount": 5,
+      "examples": [
+        {
+          "pokemon": "Garbodor",
+          "trainer": "Biker Jaxon",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Ceruledge",
+          "trainer": "Fosco",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Kabutops",
+          "trainer": "Team Rocket Scientist",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "competitive",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Articuno-Galar",
+          "trainer": "SV9 고속 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Articuno-Galar",
+          "trainer": "Ace Trainer Janny",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Articuno-Galar",
+          "trainer": "Corrado",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "download",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Porygon2",
+          "trainer": "DBingsu 공식 엔트리",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Porygon2",
+          "trainer": "SV9 트릭룸 밸런스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Porygon2",
+          "trainer": "Chiara",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "drizzle",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Pelipper",
+          "trainer": "포챔스 메가라이츄 X 레인",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Pelipper",
+          "trainer": "Ace Trainer Janny",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Pelipper",
+          "trainer": "Adriano",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "filter",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Mr. Mime",
+          "trainer": "Delia",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Mr. Mime",
+          "trainer": "Sabrina",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Mime Jr.",
+          "trainer": "Team Rocket Admin",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "lightningrod",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Raichu",
+          "trainer": "포챔스 메가라이츄 X 레인",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Rhyperior",
+          "trainer": "Blue",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Togedemaru",
+          "trainer": "Lami_Andre",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "magicbounce",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Espeon",
+          "trainer": "저승갓숭 배턴터치 전개",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Espeon",
+          "trainer": "마나피 아르세우스 배턴터치",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Hatterene",
+          "trainer": "SV9 모던 벌키 오펜스",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "neutralizinggas",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Weezing",
+          "trainer": "Biker Lukas",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Weezing-Galar",
+          "trainer": "Friendly Teacher",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Weezing",
+          "trainer": "Team Rocket General Archer",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "oblivious",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Jynx",
+          "trainer": "Sabrina",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Wailord",
+          "trainer": "Sailor Trevor",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Salazzle",
+          "trainer": "Team Rocket Officer",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "sapsipper",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Goodra",
+          "trainer": "Beauty Sheila",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Bouffalant",
+          "trainer": "Beauty Sheila",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Farigiraf",
+          "trainer": "Marzia",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "shadowtag",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Gothitelle",
+          "trainer": "Frida",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Gothitelle",
+          "trainer": "Marzia",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Wobbuffet",
+          "trainer": "Team Rocket Admin",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "shielddust",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Caterpie",
+          "trainer": "Bug Catcher Rick",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Caterpie",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Dustox",
+          "trainer": "Koga",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "sniper",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Drapion",
+          "trainer": "Apollo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Horsea",
+          "trainer": "Misty",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Golbat",
+          "trainer": "Team Rocket Grunt",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "snowcloak",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Articuno",
+          "trainer": "Alfredo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Froslass",
+          "trainer": "Bianca",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Glaceon",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "snowwarning",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Vanilluxe",
+          "trainer": "Alfredo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Vanilluxe",
+          "trainer": "Bianca",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Ninetales-Alola",
+          "trainer": "Lorelei",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "thermalexchange",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Baxcalibur",
+          "trainer": "Alice",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Baxcalibur",
+          "trainer": "Dragon Tamer Ramiro",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Baxcalibur",
+          "trainer": "Lance",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "unseenfist",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Urshifu-Rapid-Strike",
+          "trainer": "DBingsu 공식 엔트리",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Urshifu-Rapid-Strike",
+          "trainer": "Bruno",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Urshifu-Rapid-Strike",
+          "trainer": "Bruno",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "wonderguard",
+      "usageCount": 4,
+      "examples": [
+        {
+          "pokemon": "Shedinja",
+          "trainer": "Dumbass Creator",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Shedinja",
+          "trainer": "Dumbass Creator",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Shedinja",
+          "trainer": "Dumbass Creator",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "defiant",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Annihilape",
+          "trainer": "저승갓숭 배턴터치 전개",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Annihilape",
+          "trainer": "Bruno",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Zapdos-Galar",
+          "trainer": "Furio",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "earlybird",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Kangaskhan",
+          "trainer": "Norman",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Houndoom",
+          "trainer": "Team Rocket General Archer",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Houndoom",
+          "trainer": "Team Rocket General Archer",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "effectspore",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Vileplume",
+          "trainer": "Atena",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Amoonguss",
+          "trainer": "Gardenia",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Breloom",
+          "trainer": "Rudi",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "goodasgold",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Gholdengo",
+          "trainer": "포챔스 메가라이츄 X 레인",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Gholdengo",
+          "trainer": "Agatha",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Gholdengo",
+          "trainer": "Tell",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "hospitality",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Sinistcha",
+          "trainer": "포챔스 메가라이츄 X 레인",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Sinistcha",
+          "trainer": "포챔스 메가염무왕 셋업",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Ferrothorn",
+          "trainer": "Gardenia",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "hugepower",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Azumarill",
+          "trainer": "DummyH77",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Azurill",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Azumarill",
+          "trainer": "Petra",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "imposter",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Ditto",
+          "trainer": "Champion Terry",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Ditto",
+          "trainer": "Champion Terry",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Ditto",
+          "trainer": "Luciano",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "ironbarbs",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Ferrothorn",
+          "trainer": "재생력 순환 막이",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Ferrothorn",
+          "trainer": "Ace Trainer Janny",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Ferrothorn",
+          "trainer": "Dumbass Jojo Fan",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "leafguard",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Hoppip",
+          "trainer": "Lass Dalia",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Skiploom",
+          "trainer": "Lass Dalia",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Skiploom",
+          "trainer": "Lass Dalia",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "limber",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Lopunny",
+          "trainer": "Biker Ruben",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Persian",
+          "trainer": "Boss Giovanni",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Persian",
+          "trainer": "Giovanni",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "mindseye",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Ursaluna-Bloodmoon",
+          "trainer": "SV9 트릭룸 밸런스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Ursaluna-Bloodmoon",
+          "trainer": "Chiara",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Ursaluna-Bloodmoon",
+          "trainer": "Drake",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "pickpocket",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Weavile",
+          "trainer": "포챔스 메가염무왕 셋업",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Weavile",
+          "trainer": "Drake",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Weavile",
+          "trainer": "Fannie",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "prankster",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Sableye",
+          "trainer": "Angelo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Grimmsnarl",
+          "trainer": "Ester",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Sableye",
+          "trainer": "Tell",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "purepower",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Medicham",
+          "trainer": "Biker Lao",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Medicham",
+          "trainer": "Crush Kin Mik & Kia",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Medicham",
+          "trainer": "Rudi",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "reckless",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Decidueye-Hisui",
+          "trainer": "Ace Trainer Symes",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Bouffalant",
+          "trainer": "Biker Virgil",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Blaziken",
+          "trainer": "Bird Keeper Mitch",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "scrappy",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Kangaskhan",
+          "trainer": "Aaron",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Pangoro",
+          "trainer": "Furio",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Sirfetch’d",
+          "trainer": "Rudi",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "skilllink",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Cloyster",
+          "trainer": "Ace Trainer George",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Cloyster",
+          "trainer": "Lorelei",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Toucannon",
+          "trainer": "Valerio",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "stamina",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Archaludon",
+          "trainer": "포챔스 메가라이츄 X 레인",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Archaludon",
+          "trainer": "Gatekeeper Owen",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Archaludon",
+          "trainer": "Lance",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "stancechange",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Aegislash",
+          "trainer": "Ace Trainer Runan",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Aegislash",
+          "trainer": "Angelo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Aegislash",
+          "trainer": "Dumbass Jojo Fan",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "stench",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Stunky",
+          "trainer": "Camper Drew",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Muk",
+          "trainer": "Team Rocket General Archer",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Muk",
+          "trainer": "Team Rocket General Archer",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "sweetveil",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Alcremie",
+          "trainer": "Ace Trainer Symes",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Alcremie",
+          "trainer": "Lass Anne",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Alcremie",
+          "trainer": "Petra",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "toxicdebris",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Glimmora",
+          "trainer": "SV9 스크린 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Glimmora",
+          "trainer": "Apollo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Glimmora",
+          "trainer": "Koga",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "trace",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Gardevoir",
+          "trainer": "Gengar",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Gardevoir",
+          "trainer": "Marzia",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Kirlia",
+          "trainer": "Petra",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "vesselofruin",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Ting-Lu",
+          "trainer": "딩루 하마돈 모래 막이",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Ting-Lu",
+          "trainer": "Frida",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Ting-Lu",
+          "trainer": "Karen",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "voltabsorb",
+      "usageCount": 3,
+      "examples": [
+        {
+          "pokemon": "Pachirisu",
+          "trainer": "Frida",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Jolteon",
+          "trainer": "Friendly Coach",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Kilowattrel",
+          "trainer": "Valerio",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "baddreams",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Darkrai",
+          "trainer": "SV9 모던 벌키 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Darkrai",
+          "trainer": "Fannie",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "cloudnine",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Altaria",
+          "trainer": "Alice",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Psyduck",
+          "trainer": "Misty",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "damp",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Poliwrath",
+          "trainer": "Swimmer♀ Shirley",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Poliwhirl",
+          "trainer": "Swimmer♀ Shirley",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "dragonsmaw",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Regidrago",
+          "trainer": "Champion Terry",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Regidrago",
+          "trainer": "Vulcano",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "dryskin",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Toxicroak",
+          "trainer": "Biker Lukas",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Heliolisk",
+          "trainer": "Scientist Ed",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "flowerveil",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Florges",
+          "trainer": "Lass Ann",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Florges",
+          "trainer": "Petra",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "fluffy",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Houndstone",
+          "trainer": "Angelo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Bewear",
+          "trainer": "Crush Girl Tanya",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "galewings",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Talonflame",
+          "trainer": "포챔스 메가라이츄 X 레인",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Talonflame",
+          "trainer": "Frida",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "gooey",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Goodra-Hisui",
+          "trainer": "Dragon Tamer Ramiro",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Goodra-Hisui",
+          "trainer": "Lance",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "gorillatactics",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Darmanitan-Galar",
+          "trainer": "Alfredo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Darmanitan-Galar",
+          "trainer": "Bianca",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "grassysurge",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Rillaboom",
+          "trainer": "Ace Trainer Symes",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Rillaboom",
+          "trainer": "Blue",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "heatproof",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Bronzor",
+          "trainer": "Hiker Alan",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Bronzong",
+          "trainer": "Sabrina",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "heavymetal",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Copperajah",
+          "trainer": "Jasmine",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Copperajah",
+          "trainer": "Tamer Phil",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "illusion",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Zoroark-Hisui",
+          "trainer": "Angelo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Zorua",
+          "trainer": "Picnicker Dana",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "immunity",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Snorlax",
+          "trainer": "Edo_Leone",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Snorlax",
+          "trainer": "Red",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "intrepidsword",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Zacian-Crowned",
+          "trainer": "Corrado",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Zamazenta-Crowned",
+          "trainer": "Omar",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "justified",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Cobalion",
+          "trainer": "Bruno",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Keldeo",
+          "trainer": "Champion Terry",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "lightmetal",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Scizor",
+          "trainer": "Drake",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Duraludon",
+          "trainer": "Sandra",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "magicguard",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Clefable",
+          "trainer": "Ace Trainer Alexa",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Arceus",
+          "trainer": "Luciano",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "magician",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Hoopa-Unbound",
+          "trainer": "Dumbass Jojo Fan",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Hoopa-Unbound",
+          "trainer": "Marzia",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "mirrorarmor",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Corviknight",
+          "trainer": "Omar",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Corviknight",
+          "trainer": "Valerio",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "moxie",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Honchkrow",
+          "trainer": "Atena",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Krookodile",
+          "trainer": "RickAlly",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "overcoat",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Kommo-o",
+          "trainer": "Lance",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Reuniclus",
+          "trainer": "Picnicker Missy",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "pickup",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Pachirisu",
+          "trainer": "Gengar",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Pumpkaboo",
+          "trainer": "Pokéfan Laurenzia",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "primordialsea",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Kyogre-Primal",
+          "trainer": "Leader Ivan",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Kyogre-Primal",
+          "trainer": "Rocco",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "protean",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Greninja",
+          "trainer": "Biker Hideo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Meowscarada",
+          "trainer": "Gardenia",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "purifyingsalt",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Garganacl",
+          "trainer": "SV9 모던 벌키 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Garganacl",
+          "trainer": "SV9 해저드 밸런스",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "runaway",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Ponyta-Galar",
+          "trainer": "Lass Megan",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Rattata",
+          "trainer": "Youngster Yasu",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "sandforce",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Dugtrio-Alola",
+          "trainer": "Biker Lao",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Gigalith",
+          "trainer": "Biker Ruben",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "soundproof",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Voltorb-Hisui",
+          "trainer": "Lt. Surge",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Kommo-o",
+          "trainer": "Lyris",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "stormdrain",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Gastrodon",
+          "trainer": "Apollo",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Lileep",
+          "trainer": "Brock",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "supremeoverlord",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Kingambit",
+          "trainer": "SV9 스크린 오펜스",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Kingambit",
+          "trainer": "Omar",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "teravolt",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Kyurem-Black",
+          "trainer": "Bianca",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Zekrom",
+          "trainer": "Drake",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "unnerve",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Aerodactyl",
+          "trainer": "포챔스 메가염무왕 셋업",
+          "sourceGroup": "custom"
+        },
+        {
+          "pokemon": "Houndoom",
+          "trainer": "Fiammetta",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "victorystar",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Victini",
+          "trainer": "Ace Trainer Runan",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Victini",
+          "trainer": "Rocket Admin Ariana",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "vitalspirit",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Grapploct",
+          "trainer": "Crush Kin Ron & Mya",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Electivire",
+          "trainer": "Walter",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "whitesmoke",
+      "usageCount": 2,
+      "examples": [
+        {
+          "pokemon": "Heatmor",
+          "trainer": "Team Rocket Scout",
+          "sourceGroup": "rct"
+        },
+        {
+          "pokemon": "Heatmor",
+          "trainer": "Team Rocket Scout",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "adaptability",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Dragalge",
+          "trainer": "재생력 순환 막이",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "airlock",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Rayquaza",
+          "trainer": "Lyris",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "anticipation",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Toxicroak",
+          "trainer": "Ace Trainer Janny",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "arenatrap",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Diglett",
+          "trainer": "Camper Flint",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "armortail",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Farigiraf",
+          "trainer": "포챔스 메가입치트 듀얼 모드",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "aromaveil",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Lechonk",
+          "trainer": "School Kid BrunoRe",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "asonespectrier",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Calyrex-Shadow",
+          "trainer": "Drake",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "aurabreak",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Zygarde-Mega",
+          "trainer": "Luciano",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "ballfetch",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Yamper",
+          "trainer": "Fabbo67",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "beadsofruin",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Chi-Yu",
+          "trainer": "Karen",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "cheekpouch",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Dedenne",
+          "trainer": "Lt. Surge",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "chillingneigh",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Glastrier",
+          "trainer": "Alfredo",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "comatose",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Komala",
+          "trainer": "Ace Trainer Alexa",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "contrary",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Malamar",
+          "trainer": "Karen",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "cottondown",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Eldegoss",
+          "trainer": "Erika",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "darkaura",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Yveltal",
+          "trainer": "Ester",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "dauntlessshield",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Zamazenta",
+          "trainer": "SV9 모래바람 밸런스",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "defeatist",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Archeops",
+          "trainer": "Scientist Ed",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "deltastream",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Rayquaza-Mega",
+          "trainer": "Rocco",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "desolateland",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Groudon-Primal",
+          "trainer": "Rocco",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "eartheater",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Orthworm",
+          "trainer": "Jasmine",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "electricsurge",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Pincurchin",
+          "trainer": "Walter",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "fairyaura",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Xerneas",
+          "trainer": "Champion Terry",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "flowergift",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Cherrim",
+          "trainer": "Fosco",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "forecast",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Rampardos",
+          "trainer": "Scientist Ivan",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "forewarn",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Hypno",
+          "trainer": "Gambler Darian",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "furcoat",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Persian-Alola",
+          "trainer": "Camper Drew",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "gulpmissile",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Cramorant",
+          "trainer": "Sailor Trevor",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "hadronengine",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Miraidon",
+          "trainer": "Lance",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "harvest",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Exeggutor",
+          "trainer": "Sabrina",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "healer",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Hatenna",
+          "trainer": "Lass Haley",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "honeygather",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Combee",
+          "trainer": "Bug Catcher Rick",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "icebody",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Vanillish",
+          "trainer": "Vale_Fragola",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "illuminate",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Volbeat",
+          "trainer": "Gentleman Komodo",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "liquidooze",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Tentacruel",
+          "trainer": "Swimmer♀ Tisha",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "liquidvoice",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Primarina",
+          "trainer": "포챔스 메가염무왕 셋업",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "magnetpull",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Magnezone",
+          "trainer": "SV9 고속 오펜스",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "multitype",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Arceus",
+          "trainer": "마나피 아르세우스 배턴터치",
+          "sourceGroup": "custom"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "orichalcumpulse",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Koraidon",
+          "trainer": "Lance",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "poisonheal",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Breloom",
+          "trainer": "Trainer May",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "poisonpoint",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Dragalge",
+          "trainer": "Alice",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "poisonpuppeteer",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Pecharunt",
+          "trainer": "Koga",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "prismarmor",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Necrozma-Ultra",
+          "trainer": "Luciano",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "psychicsurge",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Indeedee",
+          "trainer": "Pino",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "queenlymajesty",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Tsareena",
+          "trainer": "Gardenia",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "quickdraw",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Slowbro-Galar",
+          "trainer": "Pino",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "ripen",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Applin",
+          "trainer": "Lass Miriam",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "shadowshield",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Lunala",
+          "trainer": "Pino",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "slushrush",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Arctovish",
+          "trainer": "Alfredo",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "solarpower",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Heliolisk",
+          "trainer": "Fosco",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "soulheart",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Magearna",
+          "trainer": "Jasmine",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "superluck",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Honchkrow",
+          "trainer": "Boss Giovanni",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "swordofruin",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Chien-Pao",
+          "trainer": "Karen",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "tabletsofruin",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Wo-Chien",
+          "trainer": "Karen",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "tangledfeet",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Pidgeot",
+          "trainer": "Lass Megan",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "telepathy",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Gardevoir",
+          "trainer": "Frida",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "toughclaws",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Lycanroc",
+          "trainer": "Crush Kin Mik & Kia",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "transistor",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Regieleki",
+          "trainer": "Champion Terry",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "truant",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Slaking",
+          "trainer": "Cue Ball Isaiah",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "waterbubble",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Araquanid",
+          "trainer": "Raffaello",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    },
+    {
+      "id": "wellbakedbody",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Dachsbun",
+          "trainer": "Petra",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "SUPPORTED"
+    },
+    {
+      "id": "zenmode",
+      "usageCount": 1,
+      "examples": [
+        {
+          "pokemon": "Darmanitan-Galar",
+          "trainer": "Crush Girl Sharon",
+          "sourceGroup": "rct"
+        }
+      ],
+      "status": "UNSUPPORTED"
+    }
+  ]
+}
