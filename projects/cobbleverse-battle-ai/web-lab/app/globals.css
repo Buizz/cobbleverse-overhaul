@@ -3276,17 +3276,23 @@ button {
 
 @keyframes tera-sprite-sheen-flow {
   0% {
-    opacity: 0.28;
-    -webkit-mask-position: 110% 0;
-    mask-position: 110% 0;
+    opacity: 0;
+    -webkit-mask-position: 130% 0;
+    mask-position: 130% 0;
   }
-  42% {
+  12% {
+    opacity: 0.28;
+  }
+  50% {
     opacity: 0.72;
   }
-  100% {
+  88% {
     opacity: 0.28;
-    -webkit-mask-position: -110% 0;
-    mask-position: -110% 0;
+  }
+  100% {
+    opacity: 0;
+    -webkit-mask-position: -130% 0;
+    mask-position: -130% 0;
   }
 }
 
@@ -9533,6 +9539,14 @@ select:disabled {
   width: clamp(190px, 18vw, 300px);
   max-height: 310px;
   filter: drop-shadow(0 16px 9px rgba(11, 28, 41, 0.34));
+}
+
+.interactive-arena .opponent-platform > img {
+  position: absolute;
+  right: auto;
+  bottom: 0;
+  left: 50%;
+  translate: -50% 0;
 }
 
 .interactive-arena .player-platform img {

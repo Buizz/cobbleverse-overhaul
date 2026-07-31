@@ -40,6 +40,7 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+/releases/
 
 # local launcher state
 /.local-server.pid
