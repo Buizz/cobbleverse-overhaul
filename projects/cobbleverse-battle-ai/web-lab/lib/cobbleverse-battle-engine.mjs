@@ -132,6 +132,12 @@ const AI_STATUS_CONTROL_MOVES = new Set([
   "substitute",
   "taunt",
 ]);
+const AI_PHAZE_MOVES = new Set([
+  "roar",
+  "whirlwind",
+  "dragontail",
+  "circlethrow",
+]);
 const CONSECUTIVE_PROTECTION_MOVES = new Set([
   ...AI_PROTECTIVE_MOVES,
   "endure",
@@ -4534,6 +4540,7 @@ function targetsPokemonWithStatusMove(move) {
 
 function canMagicBounceMove(move) {
   if (move?.category !== "Status" || cleanId(move.target) === "self") return false;
+  if (cleanId(move.id) === "curse") return false;
   return !move.weather && !move.terrain && !move.pseudoWeather;
 }
 
@@ -4593,6 +4600,9 @@ function reflectStatusMove(
       move.volatileStatus,
       move.name,
     );
+  }
+  if (move.forceSwitch) {
+    executeForceSwitch(state, attackerSide, move.name, rng);
   }
   return true;
 }
@@ -5023,14 +5033,24 @@ function fixedDamageAmount(move, attacker, defender, rng = null) {
   return null;
 }
 
-function recordMoveResult(state, side, pokemon, move, slot, succeeded, rng = null) {
+function recordMoveResult(
+  state,
+  side,
+  pokemon,
+  move,
+  slot,
+  succeeded,
+  rng = null,
+  resolvedMove = null,
+) {
   const moveId = cleanId(move?.id);
+  const protectionMoveId = cleanId(resolvedMove?.id ?? move?.id);
   const rollingMove = ROLLING_LOCK_MOVES.has(moveId);
   const rampageMove = RAMPAGE_LOCK_MOVES.has(moveId);
   const repeatedLockMove = rollingMove || rampageMove;
   pokemon.lastMoveSucceeded = Boolean(succeeded);
   pokemon.protectCounter =
-    succeeded && CONSECUTIVE_PROTECTION_MOVES.has(moveId)
+    succeeded && CONSECUTIVE_PROTECTION_MOVES.has(protectionMoveId)
       ? Math.max(0, Number(pokemon.protectCounter ?? 0)) + 1
       : 0;
   if (succeeded && move) {
@@ -5361,6 +5381,7 @@ function executeMove(state, action, rng) {
     sourceMove = callMove(state, action.side, attacker, sourceMove, natureMove);
   }
   let move = transformGimmickMove(state, action, sourceMove);
+  action.resolvedMove = move;
   move = abilityModifiedMove(attacker, move);
   if (attacker.volatiles?.electrify) {
     move = { ...move, type: "Electric" };
@@ -5933,6 +5954,22 @@ function executeMove(state, action, rng) {
       pokemon: defender.name,
       move: move.name,
       source: "goodasgold",
+    });
+    return false;
+  }
+
+  if (
+    move.powder &&
+    move.target !== "self" &&
+    defender.types.includes("Grass")
+  ) {
+    state.events.push({
+      turn: state.turn,
+      type: "move_blocked",
+      side: defenderSide,
+      pokemon: defender.name,
+      move: move.name,
+      source: "grass-type-powder-immunity",
     });
     return false;
   }
@@ -7313,7 +7350,11 @@ function executeMove(state, action, rng) {
           move.name,
         ) || applied;
     }
-    if (cleanId(move.id) !== "curse" && move.volatileStatus) {
+    if (
+      cleanId(move.id) !== "curse" &&
+      !CONSECUTIVE_PROTECTION_MOVES.has(cleanId(move.id)) &&
+      move.volatileStatus
+    ) {
       handled = true;
       const targetsSelf = move.target === "self";
       applied =
@@ -9265,6 +9306,7 @@ function resolveSimpleTurnInternal(previousState, commands, options = {}) {
         action.selected?.slot,
         succeeded,
         rng,
+        action.resolvedMove,
       );
       releaseGimmick(state, action, "action_not_executed");
     }
@@ -11396,6 +11438,10 @@ function automaticMoveCandidates(
       );
       const baseCandidate = {
         ...displayMove,
+        willFail:
+          displayMove.category === "Status" &&
+          Boolean(candidateHazardConditionId(displayMove)) &&
+          candidateHazardLayerDelta({ ...displayMove, opponentHazards }) === 0,
         protectSuccessProbability: CONSECUTIVE_PROTECTION_MOVES.has(
           cleanId(displayMove.id),
         )
@@ -11522,6 +11568,7 @@ function automaticMoveCandidates(
         power: displayMove.power,
         accuracy: effectiveAccuracy(pokemon, defender, displayMove, state),
         priority: displayMove.priority,
+        willFail: baseCandidate.willFail,
         protectSuccessProbability: baseCandidate.protectSuccessProbability,
         hpPercent: pokemon.hp / pokemon.stats.hp,
         incomingDamageRatio,
@@ -12649,9 +12696,9 @@ function candidateStatusBurden(candidate) {
   );
 }
 
-function candidateHazardLayerDelta(candidate) {
+function candidateHazardConditionId(candidate) {
   const moveId = cleanId(candidate.id);
-  const conditionId =
+  return (
     cleanId(candidate.sideCondition) ||
     ({
       ceaselessedge: "spikes",
@@ -12660,7 +12707,13 @@ function candidateHazardLayerDelta(candidate) {
       stickyweb: "stickyweb",
       stoneaxe: "stealthrock",
       toxicspikes: "toxicspikes",
-    })[moveId];
+    })[moveId] ||
+    ""
+  );
+}
+
+function candidateHazardLayerDelta(candidate) {
+  const conditionId = candidateHazardConditionId(candidate);
   if (!conditionId) return 0;
   const currentLayers = Number(
     candidate.opponentHazards?.[conditionId] ?? 0,
@@ -15629,6 +15682,11 @@ export function chooseSimpleAiDecision(
       : difficulty;
   const side = state.sides[sideIndex];
   const pokemon = activePokemon(state, sideIndex);
+  const opponentSideIndex = sideIndex === 0 ? 1 : 0;
+  const opponent = activePokemon(state, opponentSideIndex);
+  const livingOpponentCount = state.sides[opponentSideIndex].team.filter(
+    (member) => !member.fainted && member.hp > 0,
+  ).length;
   const lockedSelection = lockedMoveSelection(pokemon);
   const moveCandidates = automaticMoveCandidates(
     state,
@@ -15985,6 +16043,40 @@ export function chooseSimpleAiDecision(
           slot: immediateHazeCandidate.slot,
           id: immediateHazeCandidate.id,
           score: immediateHazeCandidate.score,
+        },
+      },
+    };
+  }
+  const immediatePhazeCandidate =
+    !lockedSelection &&
+    opponent.dynamaxTurns <= 0 &&
+    (activeAbility(opponent) !== "magicbounce" ||
+      ignoresDefenderAbility(pokemon)) &&
+    livingOpponentCount > 1
+      ? moveCandidates.find(
+          (candidate) =>
+            AI_PHAZE_MOVES.has(cleanId(candidate.id)) &&
+            candidate.disabled !== true &&
+            Number(candidate.pp ?? 0) > 0 &&
+            Number(candidate.opponentPositiveBoosts ?? 0) > 0,
+        )
+      : null;
+  if (immediatePhazeCandidate) {
+    return {
+      ...itemAwareHeuristicDecision,
+      command: { move: immediatePhazeCandidate.slot },
+      selectedMove: immediatePhazeCandidate,
+      selectedSwitch: null,
+      selectedItem: null,
+      gimmickCandidate: null,
+      diagnostics: {
+        ...itemAwareHeuristicDecision.diagnostics,
+        selectionSource: "immediate-phaze",
+        policy: "immediate-boost-removal",
+        chosenMove: {
+          slot: immediatePhazeCandidate.slot,
+          id: immediatePhazeCandidate.id,
+          score: immediatePhazeCandidate.score,
         },
       },
     };

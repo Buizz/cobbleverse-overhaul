@@ -315,6 +315,9 @@ function hydrateMember(member, path, teraContext = {}) {
         species.abilities?.H ??
         ""
       : "");
+  const canGigantamax = isNativeGigantamaxSpecies(species.id);
+  const configuredGigantamax =
+    member.gimmicks?.gmax === true && canGigantamax;
   return {
     id: species.id,
     name: species.name,
@@ -329,9 +332,9 @@ function hydrateMember(member, path, teraContext = {}) {
       zCrystal,
       canDynamax: true,
       forceDynamax:
-        member.gimmicks?.dynamax === true || member.gimmicks?.gmax === true,
-      canGigantamax: isNativeGigantamaxSpecies(species.id),
-      gigantamax: member.gimmicks?.gmax === true,
+        member.gimmicks?.dynamax === true || configuredGigantamax,
+      canGigantamax,
+      gigantamax: configuredGigantamax,
       teraConfigured:
         teraContext.teraConfigured ??
         member.gimmicks?.teraEligible ??

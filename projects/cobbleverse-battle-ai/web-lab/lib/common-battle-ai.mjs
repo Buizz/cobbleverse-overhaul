@@ -5179,10 +5179,12 @@ export function selectAiMoveCandidate(
     (candidate) => !candidate.disabled && Number(candidate.pp ?? 1) > 0,
   );
   if (available.length === 0) return null;
+  const usable = available.filter((candidate) => candidate.willFail !== true);
+  const selectable = usable.length > 0 ? usable : available;
   if (difficulty === "novice") {
-    return available[rng.nextIndex(available.length)];
+    return selectable[rng.nextIndex(selectable.length)];
   }
-  const ranked = rankAiMoveCandidates(available, difficulty, strategy);
+  const ranked = rankAiMoveCandidates(selectable, difficulty, strategy);
   if (strategy === "unpredictable" && ranked.length > 1) {
     return ranked[rng.nextIndex(Math.min(3, ranked.length))];
   }

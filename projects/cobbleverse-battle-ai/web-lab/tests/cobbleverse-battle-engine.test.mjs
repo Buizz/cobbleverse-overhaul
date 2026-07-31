@@ -6391,6 +6391,54 @@ test("AI avoids selecting already maxed entry hazards", () => {
   assert.equal(command.move, 2);
 });
 
+test("AI never repeats maxed Spikes while another move is usable", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "Ting-Lu",
+              moves: [
+                {
+                  id: "spikes",
+                  name: "Spikes",
+                  type: "Ground",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 20,
+                  target: "foeSide",
+                  sideCondition: "spikes",
+                },
+                {
+                  id: "earthquake",
+                  name: "Earthquake",
+                  type: "Ground",
+                  category: "Physical",
+                  power: 100,
+                  accuracy: 100,
+                  pp: 10,
+                },
+              ],
+            }),
+          ],
+        },
+        { name: "Player", team: [pokemon({ name: "Scolipede" })] },
+      ],
+    }),
+  );
+  state.sides[1].conditions.spikes = { id: "spikes", layers: 3 };
+
+  for (const difficulty of ["novice", "standard", "advanced", "expert"]) {
+    assert.equal(
+      chooseSimpleAiCommand(state, 0, difficulty, "hazard").move,
+      2,
+      difficulty,
+    );
+  }
+});
+
 test("AI uses Salt Cure before Stealth Rock into a likely first-turn setup threat", () => {
   const scenario = setup({
     sides: [
@@ -7596,15 +7644,29 @@ test("Max Guard keeps its own priority instead of the source status move", () =>
 
   assert.equal(moveEvents[0].pokemon, "SlowDynamax");
   assert.equal(moveEvents[0].move, "Max Guard");
+  assert.equal(state.sides[0].team[0].protectCounter, 1);
   assert.ok(
     state.events.some(
       (event) =>
         event.type === "move_blocked" &&
         event.pokemon === "SlowDynamax" &&
         event.move === "Tackle" &&
-        event.source === "Max Guard",
+      event.source === "Max Guard",
     ),
   );
+
+  state.sides[0].team[0].protectCounter = 20;
+  const repeated = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(
+    repeated.events.some(
+      (event) =>
+        event.turn === 2 &&
+        event.type === "move_failed" &&
+        event.pokemon === "SlowDynamax" &&
+        event.move === "Max Guard",
+    ),
+  );
+  assert.equal(repeated.sides[0].team[0].protectCounter, 0);
 });
 
 test("does not apply Max Move boosts when the attack has no effect", () => {
@@ -10464,6 +10526,90 @@ test("supports Destiny Bond and Curse battle effects", () => {
   assert.equal(aiCalledNormalCurse.sides[0].team[0].volatiles.curse, undefined);
 });
 
+test("Magic Bounce does not reflect either form of Curse", () => {
+  const curseMove = {
+    id: "curse",
+    name: "Curse",
+    type: "Ghost",
+    category: "Status",
+    accuracy: true,
+    pp: 10,
+    volatileStatus: "curse",
+  };
+
+  const normalCurse = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "NormalCurser",
+                stats: { ...pokemon().stats, speed: 160 },
+                moves: [curseMove],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [pokemon({ name: "MagicBounce", ability: "magicbounce" })],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  const normalUser = normalCurse.sides[0].team[0];
+  assert.equal(normalUser.boosts.attack, 1);
+  assert.equal(normalUser.boosts.defence, 1);
+  assert.equal(normalUser.boosts.speed, -1);
+  assert.equal(normalUser.volatiles.curse, undefined);
+  assert.equal(normalCurse.sides[1].team[0].volatiles.curse, undefined);
+  assert.equal(
+    normalCurse.events.some((event) => event.type === "move_reflected"),
+    false,
+  );
+
+  const ghostCurse = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Player",
+            team: [
+              pokemon({
+                name: "GhostCurser",
+                types: ["Ghost"],
+                stats: { ...pokemon().stats, hp: 160, speed: 160 },
+                moves: [curseMove],
+              }),
+            ],
+          },
+          {
+            name: "AI",
+            team: [
+              pokemon({
+                name: "MagicBounce",
+                ability: "magicbounce",
+                stats: { ...pokemon().stats, hp: 160 },
+              }),
+            ],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(ghostCurse.sides[0].team[0].hp, 80);
+  assert.equal(ghostCurse.sides[0].team[0].volatiles.curse, undefined);
+  assert.equal(ghostCurse.sides[1].team[0].volatiles.curse.id, "curse");
+  assert.equal(
+    ghostCurse.events.some((event) => event.type === "move_reflected"),
+    false,
+  );
+});
+
 test("Destiny Bond expires on the next action and fails on consecutive use", () => {
   const destinyBond = {
     id: "destinybond",
@@ -12426,6 +12572,71 @@ test("supports terrain, weather, knockout, and powder immunity abilities", () =>
   );
 });
 
+test("Grass types are immune to Spore and Sleep Powder", () => {
+  for (const move of [
+    {
+      id: "spore",
+      name: "Spore",
+      type: "Grass",
+      category: "Status",
+      accuracy: true,
+      pp: 15,
+      status: "slp",
+      flags: { powder: true },
+    },
+    {
+      id: "sleeppowder",
+      name: "Sleep Powder",
+      type: "Grass",
+      category: "Status",
+      accuracy: true,
+      pp: 15,
+      status: "slp",
+      flags: { powder: true },
+    },
+  ]) {
+    const state = resolveSimpleTurn(
+      createSimpleBattle(
+        setup({
+          sides: [
+            {
+              name: "Player",
+              team: [
+                pokemon({
+                  name: "PowderUser",
+                  stats: { ...pokemon().stats, speed: 160 },
+                  moves: [move],
+                }),
+              ],
+            },
+            {
+              name: "AI",
+              team: [
+                pokemon({
+                  name: "GrassTarget",
+                  types: ["Grass"],
+                  stats: { ...pokemon().stats, speed: 40 },
+                }),
+              ],
+            },
+          ],
+        }),
+      ),
+      [{ move: 1 }, { move: 1 }],
+    );
+
+    assert.equal(state.sides[1].team[0].status, "");
+    assert.ok(
+      state.events.some(
+        (event) =>
+          event.type === "move_blocked" &&
+          event.move === move.name &&
+          event.source === "grass-type-powder-immunity",
+      ),
+    );
+  }
+});
+
 test("rejects unsupported abilities in strict validation mode", () => {
   assert.throws(
     () =>
@@ -13769,6 +13980,80 @@ test("supports Sleep Talk, Transform, and Pursuit switch interception", () => {
   );
   assert.equal(intercepted.events.find((event) => event.type === "move")?.move, "Pursuit");
   assert.equal(intercepted.sides[1].active, 1);
+});
+
+test("raises Rage Fist power for every damaging hit taken", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Player",
+          team: [
+            pokemon({
+              name: "Annihilape",
+              types: ["Fighting", "Ghost"],
+              stats: { ...pokemon().stats, hp: 500, attack: 150, speed: 160 },
+              moves: [
+                {
+                  id: "bulkup",
+                  name: "Bulk Up",
+                  type: "Fighting",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 20,
+                },
+                {
+                  id: "ragefist",
+                  name: "Rage Fist",
+                  type: "Ghost",
+                  category: "Physical",
+                  power: 50,
+                  accuracy: true,
+                  pp: 10,
+                  dynamicPower: true,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "AI",
+          team: [
+            pokemon({
+              name: "MultiHitUser",
+              stats: { ...pokemon().stats, attack: 50, speed: 80 },
+              moves: [
+                {
+                  id: "doublehit",
+                  name: "Double Hit",
+                  type: "Dark",
+                  category: "Physical",
+                  power: 35,
+                  accuracy: true,
+                  pp: 10,
+                  multihit: [2, 2],
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  const hitTwice = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(hitTwice.sides[0].team[0].timesHit, 2);
+
+  const usedRageFist = resolveSimpleTurn(hitTwice, [{ move: 2 }, { move: 1 }]);
+  assert.ok(
+    usedRageFist.events.some(
+      (event) =>
+        event.type === "dynamic_power" &&
+        event.move === "Rage Fist" &&
+        event.power === 150 &&
+        event.reason === "times_hit",
+    ),
+  );
 });
 
 test("supports protective variants with contact-style punishments", () => {
@@ -18267,6 +18552,56 @@ test("supports Lightning Rod, Good as Gold, and Magic Bounce", () => {
   );
   assert.equal(bounceResult.sides[0].team[0].status, "tox");
   assert.equal(bounceResult.sides[1].team[0].status, "");
+
+  const phazeState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Phazer",
+          team: [
+            pokemon({
+              name: "Whirlwind User",
+              stats: { ...pokemon().stats, speed: 120 },
+              moves: [
+                {
+                  id: "whirlwind",
+                  name: "Whirlwind",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  priority: -6,
+                  pp: 20,
+                  forceSwitch: true,
+                },
+              ],
+            }),
+            pokemon({ name: "Phazer Reserve" }),
+          ],
+        },
+        {
+          name: "Bounce",
+          team: [
+            pokemon({ name: "Magic Bounce User", ability: "magicbounce" }),
+            pokemon({ name: "Bounce Reserve" }),
+          ],
+        },
+      ],
+    }),
+  );
+  const reflectedPhaze = resolveSimpleTurn(phazeState, [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  assert.equal(reflectedPhaze.sides[0].active, 1);
+  assert.equal(reflectedPhaze.sides[1].active, 0);
+  assert.ok(
+    reflectedPhaze.events.some(
+      (event) =>
+        event.type === "move_reflected" &&
+        event.move === "Whirlwind" &&
+        event.source === "magicbounce",
+    ),
+  );
 });
 
 test("supports Bad Dreams and paradox stat boosts", () => {
@@ -19287,5 +19622,76 @@ test("AI never selects Haze when the opponent has no positive stat ranks", () =>
       .reasons.some(
         (reason) => reason.code === "rule.haze.immediate_boost_reset",
       ),
+  );
+});
+
+test("AI immediately phazes an opponent with accumulated stat ranks", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Phazer",
+          team: [
+            pokemon({
+              name: "Ting-Lu",
+              moves: [
+                {
+                  id: "whirlwind",
+                  name: "Whirlwind",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  priority: -6,
+                  pp: 20,
+                  forceSwitch: true,
+                },
+                {
+                  id: "ruination",
+                  name: "Ruination",
+                  type: "Dark",
+                  category: "Special",
+                  power: 0,
+                  accuracy: 90,
+                  pp: 10,
+                  dynamicDamage: true,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Setup Team",
+          team: [
+            pokemon({ name: "Boosted", boosts: { attack: 4, speed: 2 } }),
+            pokemon({ name: "Reserve" }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[1].team[0].boosts.attack = 4;
+  state.sides[1].team[0].boosts.speed = 2;
+
+  for (const difficulty of ["novice", "standard", "advanced", "expert_search"]) {
+    const decision = chooseSimpleAiDecision(
+      state,
+      0,
+      difficulty,
+      "balanced",
+    );
+    assert.equal(decision.command.move, 1, difficulty);
+    assert.equal(decision.diagnostics.selectionSource, "immediate-phaze");
+  }
+
+  state.sides[1].team[0].ability = "magicbounce";
+  const reflectedDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.notEqual(
+    reflectedDecision.diagnostics.selectionSource,
+    "immediate-phaze",
   );
 });

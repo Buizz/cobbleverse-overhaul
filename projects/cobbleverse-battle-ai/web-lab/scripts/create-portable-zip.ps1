@@ -106,6 +106,14 @@ exit /b %errorlevel%
 '@ | Set-Content -LiteralPath (Join-Path $packageRoot "START-WEB-LAB.bat") -Encoding ascii
 
     @'
+@echo off
+setlocal
+cd /d "%~dp0projects\cobbleverse-battle-ai\web-lab"
+call stop.bat
+exit /b %errorlevel%
+'@ | Set-Content -LiteralPath (Join-Path $packageRoot "STOP-WEB-LAB.bat") -Encoding ascii
+
+    @'
 Cobbleverse Battle Lab portable package
 
 Requirements:
@@ -120,7 +128,7 @@ Run:
 4. Open http://localhost:3000 if the browser does not open automatically.
 
 Stop:
-- Run projects\cobbleverse-battle-ai\web-lab\stop.bat.
+- Double-click STOP-WEB-LAB.bat next to START-WEB-LAB.bat.
 
 This package intentionally excludes node_modules, build outputs, caches, tests,
 logs, local settings, and repository-only trainer source data. Generated runtime

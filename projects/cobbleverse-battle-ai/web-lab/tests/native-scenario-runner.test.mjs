@@ -1326,6 +1326,32 @@ test("forces the computer to Gigantamax when its entry requests G-Max", () => {
   );
 });
 
+test("ignores an invalid Gigantamax flag on Ho-Oh", () => {
+  const setup = createNativeBattleSetup({
+    ...scenario,
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "ho-oh",
+            resolvedSpecies: "Ho-Oh",
+            moveset: ["sacredfire", "bravebird"],
+            gimmicks: { gmax: true },
+          },
+        ],
+      },
+      scenario.sides[1],
+    ],
+  });
+  const hoOh = setup.sides[0].team[0];
+
+  assert.equal(hoOh.gimmicks.canGigantamax, false);
+  assert.equal(hoOh.gimmicks.gigantamax, false);
+  assert.equal(hoOh.gimmicks.forceDynamax, false);
+});
+
 test("offers each Cobbleverse gimmick only from its configured Pokémon data", () => {
   const cases = [
     {

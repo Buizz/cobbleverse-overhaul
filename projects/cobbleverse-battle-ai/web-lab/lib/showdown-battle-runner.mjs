@@ -237,6 +237,7 @@ export function battleEvents(logLines) {
         actor: parts[2] ?? "",
         detail: parts[3]?.split(",")[0] ?? "",
         condition: parts[4] ?? "",
+        ...effectMetadata(parts.slice(5)),
       });
     } else if (type === "move") {
       events.push({

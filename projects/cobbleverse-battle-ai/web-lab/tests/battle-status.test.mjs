@@ -59,3 +59,21 @@ test("tracks status application and recovery per Pokémon", () => {
   ]);
   assert.equal(cured.has("pikachu"), false);
 });
+
+test("keeps Toxic visible after native residual damage without a status suffix", () => {
+  const statuses = statusByPokemon([
+    {
+      type: "status",
+      actor: "p2a: Ho-Oh",
+      detail: "tox",
+    },
+    {
+      type: "damage",
+      actor: "p2a: Ho-Oh",
+      condition: "150/200",
+      source: "tox",
+    },
+  ]);
+
+  assert.equal(statuses.get("hooh"), "tox");
+});

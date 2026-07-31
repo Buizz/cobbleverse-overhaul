@@ -109,6 +109,14 @@ test("calculates HP, speed, weight, status, and rank based power", () => {
     resolve("ragefist", 50, { attacker: { timesHit: 3 } }).power,
     200,
   );
+  assert.equal(
+    resolve("ragefist", 50, { attacker: { timesHit: 0 } }).power,
+    50,
+  );
+  assert.equal(
+    resolve("ragefist", 50, { attacker: { timesHit: 20 } }).power,
+    350,
+  );
 });
 
 test("changes power per hit for Triple Axel", () => {

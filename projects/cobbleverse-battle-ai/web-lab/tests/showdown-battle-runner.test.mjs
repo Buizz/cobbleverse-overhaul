@@ -256,6 +256,22 @@ test("parses Showdown stat reset events for Haze and Clear Smog", () => {
   ]);
 });
 
+test("preserves Baton Pass metadata on switch events", () => {
+  const events = battleEvents([
+    "|turn|3",
+    "|switch|p1a: Annihilape|Annihilape, F|424/424|[from] Baton Pass",
+  ]);
+
+  assert.deepEqual(events[1], {
+    turn: 3,
+    type: "switch",
+    actor: "p1a: Annihilape",
+    detail: "Annihilape",
+    condition: "424/424",
+    source: "Baton Pass",
+  });
+});
+
 test("preserves item and residual effect sources for damage explanations", () => {
   const events = battleEvents([
     "|turn|5",

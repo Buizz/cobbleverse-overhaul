@@ -40,7 +40,6 @@ export function statusByPokemon(events) {
     ) {
       const status = statusFromCondition(event.condition);
       if (status) statuses.set(pokemon, status);
-      else statuses.delete(pokemon);
     }
   }
   return statuses;
