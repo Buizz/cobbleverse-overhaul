@@ -2792,10 +2792,10 @@ function CustomPartySummary({
               type="button"
               disabled={index === 0}
               onClick={() => onMove(index, index - 1)}
-              aria-label={`${localizedSpecies(localization, pokemon.species) || "빈 슬롯"} 순서를 앞으로 이동`}
-              title="앞으로 이동"
+              aria-label={`${localizedSpecies(localization, pokemon.species) || "빈 슬롯"} 순서를 왼쪽으로 이동`}
+              title="왼쪽으로 이동"
             >
-              ↑
+              ←
             </button>
             <span className="slot-number">
               {String(index + 1).padStart(2, "0")}
@@ -2804,10 +2804,10 @@ function CustomPartySummary({
               type="button"
               disabled={index === party.length - 1}
               onClick={() => onMove(index, index + 1)}
-              aria-label={`${localizedSpecies(localization, pokemon.species) || "빈 슬롯"} 순서를 뒤로 이동`}
-              title="뒤로 이동"
+              aria-label={`${localizedSpecies(localization, pokemon.species) || "빈 슬롯"} 순서를 오른쪽으로 이동`}
+              title="오른쪽으로 이동"
             >
-              ↓
+              →
             </button>
           </div>
           <div className="pokemon-chip-summary">
