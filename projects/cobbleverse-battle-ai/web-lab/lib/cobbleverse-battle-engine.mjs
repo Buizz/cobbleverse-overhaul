@@ -136,10 +136,12 @@ const IMPLEMENTED_ABILITIES = new Set([
   "hadronengine",
   "hypercutter",
   "hugepower",
+  "hydration",
   "immunity",
   "insomnia",
   "intimidate",
   "intrepidsword",
+  "ironbarbs",
   "levitate",
   "limber",
   "lightmetal",
@@ -150,6 +152,8 @@ const IMPLEMENTED_ABILITIES = new Set([
   "mindseye",
   "moldbreaker",
   "multiscale",
+  "multitype",
+  "naturalcure",
   "beastboost",
   "overcoat",
   "owntempo",
@@ -182,8 +186,10 @@ const IMPLEMENTED_ABILITIES = new Set([
   "thickfat",
   "toughclaws",
   "toxicdebris",
+  "unaware",
   "unseenfist",
   "vitalspirit",
+  "vesselofruin",
   "waterveil",
   "waterabsorb",
   "overgrow",
@@ -711,19 +717,42 @@ function normalizePokemon(pokemon, path) {
       pokemon?.types?.[0] ??
       "Normal",
   ).trim();
+  const normalizedAbility = cleanId(pokemon?.ability);
+  const normalizedItem = cleanId(pokemon?.item);
+  const configuredTypes = Array.isArray(pokemon?.types)
+    ? pokemon.types.map(String).slice(0, 2)
+    : ["Normal"];
+  const multitypeType =
+    normalizedAbility === "multitype" ? multitypePlateType(normalizedItem) : "";
+  const battleTypes = multitypeType ? [multitypeType] : configuredTypes;
   return {
     id: String(pokemon?.id ?? pokemon?.name ?? "").trim(),
     name: String(pokemon?.name ?? pokemon?.id ?? "").trim(),
     baseSpecies,
+    role: pokemon?.role,
+    aiRole: pokemon?.aiRole,
+    roles: Array.isArray(pokemon?.roles) ? [...pokemon.roles] : pokemon?.roles,
+    aiRoles: Array.isArray(pokemon?.aiRoles)
+      ? [...pokemon.aiRoles]
+      : pokemon?.aiRoles,
+    ace: pokemon?.ace,
+    isAce: pokemon?.isAce,
+    forceAce: pokemon?.forceAce,
+    notAce: pokemon?.notAce,
+    aiAce: pokemon?.aiAce,
+    acePriority: pokemon?.acePriority,
+    ai:
+      pokemon?.ai && typeof pokemon.ai === "object"
+        ? clone(pokemon.ai)
+        : undefined,
+    roleStats: normalizeOptionalStats(
+      pokemon?.baseStats ?? pokemon?.roleStats,
+    ),
     level: Math.max(1, Math.min(100, Number(pokemon?.level ?? 50))),
-    types: Array.isArray(pokemon?.types)
-      ? pokemon.types.map(String).slice(0, 2)
-      : ["Normal"],
-    originalTypes: Array.isArray(pokemon?.types)
-      ? pokemon.types.map(String).slice(0, 2)
-      : ["Normal"],
-    ability: cleanId(pokemon?.ability),
-    item: cleanId(pokemon?.item),
+    types: battleTypes,
+    originalTypes: battleTypes.slice(),
+    ability: normalizedAbility,
+    item: normalizedItem,
     speciesForms,
     gimmicks: {
       megaStone:
@@ -1062,6 +1091,7 @@ function paradoxBoostStat(pokemon, state = null) {
 
 function effectiveStat(pokemon, stat, options = {}) {
   let stage = pokemon.boosts?.[stat] ?? 0;
+  if (options.ignoreStages) stage = 0;
   if (options.ignoreNegative && stage < 0) stage = 0;
   if (options.ignorePositive && stage > 0) stage = 0;
   let value = pokemon.stats[stat] * stageMultiplier(stage);
@@ -1276,15 +1306,31 @@ function resolveEstimatedMovePower(
 
 function damageBase(attacker, defender, move, options = {}) {
   const physical = move.category === "Physical";
-  const attack = effectiveStat(
+  const defenderIgnoresAttackerStages =
+    activeAbility(defender) === "unaware" &&
+    !ignoresDefenderAbility(attacker);
+  const attackerIgnoresDefenderStages =
+    activeAbility(attacker) === "unaware";
+  let attack = effectiveStat(
     attacker,
     physical ? "attack" : "specialAttack",
-    { ignoreNegative: options.critical, state: options.state },
+    {
+      ignoreNegative: options.critical,
+      ignoreStages: defenderIgnoresAttackerStages,
+      state: options.state,
+    },
   );
+  if (!physical && activeAbility(defender) === "vesselofruin") {
+    attack *= 0.75;
+  }
   let defence = effectiveStat(
     defender,
     physical ? "defence" : "specialDefence",
-    { ignorePositive: options.critical, state: options.state },
+    {
+      ignorePositive: options.critical,
+      ignoreStages: attackerIgnoresDefenderStages,
+      state: options.state,
+    },
   );
   if (
     !physical &&
@@ -2026,6 +2072,7 @@ function buildActions(state, commands, rng) {
           side,
           pokemon,
           item,
+          targetSlot: Number(commands[side]?.itemTarget) || null,
           selected: null,
           priority: 10_002,
           speed: effectiveSpeed(pokemon, state, side),
@@ -2065,6 +2112,7 @@ function buildActions(state, commands, rng) {
         side,
         pokemon,
         selected,
+        selfSwitchSlot: Number(commands[side]?.selfSwitchSlot) || null,
         locked: Boolean(lockedSelection),
         lockSource: lockedSelection?.lockSource ?? "",
         noPpCost: Boolean(lockedSelection?.noPpCost),
@@ -2156,9 +2204,18 @@ function trainerItemEntry(side, item) {
   return side.bag.find((entry) => cleanId(entry.item) === cleanId(item)) ?? null;
 }
 
-function canUseTrainerItem(state, sideIndex, item) {
+function trainerItemTarget(state, sideIndex, targetSlot = null) {
   const side = state.sides[sideIndex];
-  const pokemon = activePokemon(state, sideIndex);
+  const targetIndex = Number(targetSlot) - 1;
+  if (Number.isInteger(targetIndex) && targetIndex >= 0) {
+    return side.team[targetIndex] ?? null;
+  }
+  return activePokemon(state, sideIndex);
+}
+
+function canUseTrainerItem(state, sideIndex, item, targetSlot = null) {
+  const side = state.sides[sideIndex];
+  const pokemon = trainerItemTarget(state, sideIndex, targetSlot);
   const effect = TRAINER_BATTLE_ITEMS[cleanId(item)];
   const entry = trainerItemEntry(side, item);
   if (
@@ -2166,6 +2223,7 @@ function canUseTrainerItem(state, sideIndex, item) {
     !entry ||
     entry.quantity <= 0 ||
     side.itemUsesRemaining <= 0 ||
+    !pokemon ||
     pokemon.fainted ||
     pokemon.hp <= 0
   ) {
@@ -2181,8 +2239,16 @@ function canUseTrainerItem(state, sideIndex, item) {
 
 function executeTrainerItem(state, action) {
   const side = state.sides[action.side];
-  const pokemon = activePokemon(state, action.side);
-  if (pokemon !== action.pokemon || !canUseTrainerItem(state, action.side, action.item)) {
+  const pokemon = trainerItemTarget(state, action.side, action.targetSlot);
+  if (
+    !pokemon ||
+    !canUseTrainerItem(
+      state,
+      action.side,
+      action.item,
+      action.targetSlot,
+    )
+  ) {
     state.events.push({
       turn: state.turn,
       type: "item_failed",
@@ -2203,6 +2269,7 @@ function executeTrainerItem(state, action) {
     pokemon: pokemon.name,
     item: action.item,
     itemName: effect.name,
+    targetSlot: side.team.indexOf(pokemon) + 1,
     quantityRemaining: entry.quantity,
     usesRemaining: side.itemUsesRemaining,
   });
@@ -2617,6 +2684,15 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
       "regenerator",
     );
   }
+  if (
+    activeAbility(outgoing) === "naturalcure" &&
+    outgoing.status &&
+    !outgoing.fainted &&
+    outgoing.hp > 0
+  ) {
+    emitAbilityActivation(state, sideIndex, outgoing, "naturalcure");
+    curePokemonStatus(state, sideIndex, outgoing, "naturalcure");
+  }
   endDynamax(state, sideIndex, outgoing, "switch");
   outgoing.boosts = Object.fromEntries(
     BOOST_STATS.map((stat) => [stat, 0]),
@@ -2654,11 +2730,21 @@ function executeSwitch(state, action) {
   switchActivePokemon(state, action.side, action.switchSlot);
 }
 
-function executeSelfSwitch(state, sideIndex, source) {
+function executeSelfSwitch(state, sideIndex, source, preferredSlot = null) {
   if (state.sides[sideIndex].team[state.sides[sideIndex].active].fainted) {
     return false;
   }
-  const next = bestFaintReplacement(state, sideIndex);
+  const preferredIndex = Number(preferredSlot) - 1;
+  const preferred = state.sides[sideIndex].team[preferredIndex];
+  const next =
+    Number.isInteger(preferredIndex) &&
+    preferredIndex >= 0 &&
+    preferredIndex !== state.sides[sideIndex].active &&
+    preferred &&
+    !preferred.fainted &&
+    preferred.hp > 0
+      ? preferredIndex
+      : bestFaintReplacement(state, sideIndex);
   if (!Number.isInteger(next) || next < 0) return false;
   switchActivePokemon(state, sideIndex, next + 1, {
     automatic: true,
@@ -3020,6 +3106,28 @@ function heldItemType(item) {
     if (id === `${cleanId(type)}memory`) return type;
   }
   return "";
+}
+
+function multitypePlateType(item) {
+  const plateTypes = {
+    dreadplate: "Dark",
+    earthplate: "Ground",
+    fistplate: "Fighting",
+    flameplate: "Fire",
+    icicleplate: "Ice",
+    insectplate: "Bug",
+    ironplate: "Steel",
+    meadowplate: "Grass",
+    mindplate: "Psychic",
+    pixieplate: "Fairy",
+    skyplate: "Flying",
+    splashplate: "Water",
+    spookyplate: "Ghost",
+    stoneplate: "Rock",
+    toxicplate: "Poison",
+    zapplate: "Electric",
+  };
+  return plateTypes[cleanId(item)] ?? "";
 }
 
 function terrainPulseMove(state, move) {
@@ -6622,7 +6730,24 @@ function executeMove(state, action, rng) {
     if (cleanId(move.id) === "batonpass") {
       handled = true;
       const passedBoosts = { ...attacker.boosts };
-      const switched = executeSelfSwitch(state, action.side, move.name);
+      const teamAnalysis = simpleTeamAnalysis(state, action.side);
+      const aceIndex = teamAnalysis.roles.findIndex(
+        (role) => role?.aceProfile?.qualifies === true,
+      );
+      const ace = state.sides[action.side].team[aceIndex];
+      const preferredSlot =
+        aceIndex >= 0 &&
+        ace !== attacker &&
+        !ace?.fainted &&
+        ace?.hp > 0
+          ? aceIndex + 1
+          : null;
+      const switched = executeSelfSwitch(
+        state,
+        action.side,
+        move.name,
+        preferredSlot,
+      );
       if (switched) {
         activePokemon(state, action.side).boosts = passedBoosts;
         state.events.push({
@@ -6991,7 +7116,12 @@ function executeMove(state, action, rng) {
       });
     }
     if (applied && move.selfSwitch) {
-      executeSelfSwitch(state, action.side, move.name);
+      executeSelfSwitch(
+        state,
+        action.side,
+        move.name,
+        action.selfSwitchSlot,
+      );
     }
     return applied;
   }
@@ -7451,19 +7581,26 @@ function executeMove(state, action, rng) {
         damage > 0 &&
         !ignoresDefenderAbility(attacker) &&
         makesContact(move) &&
-        activeAbility(defender) === "roughskin" &&
+        ["roughskin", "ironbarbs"].includes(activeAbility(defender)) &&
         !attacker.fainted
       ) {
-        emitAbilityActivation(state, defenderSide, defender, "roughskin", {
+        const contactDamageAbility = activeAbility(defender);
+        emitAbilityActivation(
+          state,
+          defenderSide,
+          defender,
+          contactDamageAbility,
+          {
           targetSide: action.side,
           target: attacker.name,
-        });
+          },
+        );
         applyDirectDamage(
           state,
           action.side,
           attacker,
           Math.max(1, Math.floor(attacker.stats.hp / 8)),
-          "roughskin",
+          contactDamageAbility,
           "ability",
         );
       }
@@ -7877,7 +8014,12 @@ function executeMove(state, action, rng) {
     executeForceSwitch(state, defenderSide, move.name);
   }
   if (totalDamage > 0 && move.selfSwitch) {
-    executeSelfSwitch(state, action.side, move.name);
+    executeSelfSwitch(
+      state,
+      action.side,
+      move.name,
+      action.selfSwitchSlot,
+    );
   }
   return totalDamage > 0;
 }
@@ -8202,6 +8344,15 @@ function applyEndTurnEffects(state) {
         source: wish.source || "Wish",
       });
     }
+    const weather = cleanId(state.field?.weather?.id);
+    if (
+      activeAbility(pokemon) === "hydration" &&
+      ["raindance", "primordialsea"].includes(weather) &&
+      pokemon.status
+    ) {
+      emitAbilityActivation(state, sideIndex, pokemon, "hydration");
+      curePokemonStatus(state, sideIndex, pokemon, "hydration");
+    }
     let damage = 0;
     let source = "";
     if (pokemon.status === "brn") {
@@ -8261,7 +8412,6 @@ function applyEndTurnEffects(state) {
       );
       if (pokemon.fainted) continue;
     }
-    const weather = cleanId(state.field?.weather?.id);
     if (
       weather === "sandstorm" &&
       !["Rock", "Ground", "Steel"].some((type) =>
@@ -9299,6 +9449,168 @@ function aiSetupFollowupValue(
   };
 }
 
+function aiBatonPassProfile(
+  state,
+  sideIndex,
+  source,
+  additionalBoosts = {},
+) {
+  const side = state.sides[sideIndex];
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const hasBatonPass = source.moves.some(
+    (move) => cleanId(move.id) === "batonpass" && move.pp > 0,
+  );
+  if (!hasBatonPass) return {};
+  const teamAnalysis = simpleTeamAnalysis(state, sideIndex);
+  const aceIndex = teamAnalysis.roles.findIndex(
+    (role) => role?.aceProfile?.qualifies === true,
+  );
+  const ace = side.team[aceIndex];
+  if (
+    aceIndex < 0 ||
+    ace === source ||
+    !ace ||
+    ace.fainted ||
+    ace.hp <= 0
+  ) {
+    return {
+      batonPassAvailable: true,
+      batonPassTargetAvailable: false,
+    };
+  }
+
+  const passedSource = boostedPokemonForAi(source, additionalBoosts);
+  const passedBoosts = { ...passedSource.boosts };
+  const currentBoostTotal = ["attack", "specialAttack", "speed"].reduce(
+    (sum, stat) =>
+      sum + Math.max(0, Number(source.boosts?.[stat] ?? 0)),
+    0,
+  );
+  const passedBoostTotal = ["attack", "specialAttack", "speed"].reduce(
+    (sum, stat) => sum + Math.max(0, Number(passedBoosts[stat] ?? 0)),
+    0,
+  );
+  const projectedAce = clone(ace);
+  projectedAce.boosts = Object.fromEntries(
+    BOOST_STATS.map((stat) => [stat, Number(passedBoosts[stat] ?? 0)]),
+  );
+  const livingTargets = state.sides[opponentSide].team.filter(
+    (target) => !target.fainted && target.hp > 0,
+  );
+  let newKoTargets = 0;
+  let safeKoTargets = 0;
+  let pressureGain = 0;
+  for (const target of livingTargets) {
+    const baseline = bestAiAttackProfile(
+      state,
+      sideIndex,
+      ace,
+      opponentSide,
+      target,
+    );
+    const boosted = bestAiAttackProfile(
+      state,
+      sideIndex,
+      projectedAce,
+      opponentSide,
+      target,
+    );
+    const baselineKo = baseline.expectedDamage >= target.hp;
+    const boostedKo = boosted.expectedDamage >= target.hp;
+    if (boostedKo && !baselineKo) newKoTargets += 1;
+    if (boostedKo) safeKoTargets += 1;
+    pressureGain += Math.max(
+      0,
+      Math.min(1.25, boosted.expectedDamage / Math.max(1, target.hp)) -
+        Math.min(1.25, baseline.expectedDamage / Math.max(1, target.hp)),
+    );
+  }
+  const value =
+    passedBoostTotal * 14 +
+    newKoTargets * 55 +
+    safeKoTargets * 8 +
+    pressureGain * 36;
+  return {
+    batonPassAvailable: true,
+    batonPassTargetAvailable: true,
+    batonPassTargetSlot: aceIndex + 1,
+    batonPassTargetName: ace.name,
+    batonPassTargetAce: true,
+    batonPassCurrentBoostTotal: currentBoostTotal,
+    batonPassBoostTotal: passedBoostTotal,
+    batonPassAdditionalBoostTotal: Math.max(
+      0,
+      passedBoostTotal - currentBoostTotal,
+    ),
+    batonPassNewKoTargets: newKoTargets,
+    batonPassSafeKoTargets: safeKoTargets,
+    batonPassPressureGain: Math.round(pressureGain * 100) / 100,
+    batonPassTransferValue: Math.round(value * 100) / 100,
+  };
+}
+
+function aiBatonPassSetupPlan(state, sideIndex, source) {
+  const setupMoves = source.moves
+    .filter(
+      (move) =>
+        move.pp > 0 &&
+        !isMoveTemporarilyDisabled(source, move) &&
+        cleanId(move.id) !== "batonpass",
+    )
+    .map((move) => aiDisplayMoveData(source, move))
+    .map((move) => {
+      const boosts = Object.fromEntries(
+        BOOST_STATS.map((stat) => [
+          stat,
+          Math.max(0, Number(move.selfBoosts?.[stat] ?? 0)),
+        ]),
+      );
+      const boostTotal = Object.values(boosts).reduce(
+        (sum, amount) => sum + amount,
+        0,
+      );
+      return { move, boosts, boostTotal };
+    })
+    .filter((entry) => entry.boostTotal > 0)
+    .sort(
+      (left, right) =>
+        right.boostTotal - left.boostTotal ||
+        cleanId(left.move.id).localeCompare(cleanId(right.move.id)),
+    );
+  const abilityId = activeAbility(source);
+  const abilityBoosts =
+    abilityId === "speedboost"
+      ? { speed: 1 }
+      : abilityId === "moody"
+        ? { attack: 1, speed: 1 }
+        : null;
+  const selected =
+    setupMoves[0] ??
+    (abilityBoosts
+      ? {
+          move: null,
+          boosts: abilityBoosts,
+          boostTotal: Object.values(abilityBoosts).reduce(
+            (sum, amount) => sum + amount,
+            0,
+          ),
+        }
+      : null);
+  if (!selected) return {};
+  return {
+    setupMoveId: selected.move?.id ?? "",
+    setupAbility: selected.move ? "" : abilityId,
+    setupBoosts: selected.boosts,
+    setupBoostTotal: selected.boostTotal,
+    ...aiBatonPassProfile(
+      state,
+      sideIndex,
+      source,
+      selected.boosts,
+    ),
+  };
+}
+
 function aiRoleAnalysisMember(pokemon) {
   const member = { ...pokemon };
   if (pokemon.baseStats ?? pokemon.baseStatsRaw ?? pokemon.roleStats) {
@@ -10063,6 +10375,12 @@ function automaticMoveCandidates(
         sideIndex,
         defenderSide,
       );
+      const batonPassProfile = aiBatonPassProfile(
+        state,
+        sideIndex,
+        pokemon,
+        displayMove.selfBoosts,
+      );
       const setupResidualDamage = aiEndTurnResidualDamage(pokemon, state);
       const setupIncomingThreat = defender.moves.reduce(
         (worst, opponentMove) => {
@@ -10265,6 +10583,7 @@ function automaticMoveCandidates(
         ),
         ...opponentSetupThreat,
         ...setupFollowup,
+        ...batonPassProfile,
         setupIncomingDamageRatioAfterBoost,
         setupFollowupSurvivalProbability,
         setupResidualDamage,
@@ -10387,6 +10706,7 @@ function automaticMoveCandidates(
         ),
         ...opponentSetupThreat,
         ...setupFollowup,
+        ...batonPassProfile,
         setupIncomingDamageRatioAfterBoost,
         setupFollowupSurvivalProbability,
         setupResidualDamage,
@@ -12190,6 +12510,16 @@ export function automaticSwitchCandidates(
     current,
   );
   const currentHpPercent = current.hp / current.stats.hp;
+  const currentAbility = activeAbility(current);
+  const regeneratorRecoveryHp =
+    currentAbility === "regenerator"
+      ? Math.min(
+          current.stats.hp - current.hp,
+          Math.max(1, Math.floor(current.stats.hp / 3)),
+        )
+      : 0;
+  const regeneratorRecoveryRatio =
+    regeneratorRecoveryHp / Math.max(1, current.stats.hp);
   const currentIncomingRatio =
     currentIncoming.expectedDamage / current.stats.hp;
   const currentOutgoingRatio =
@@ -12266,6 +12596,19 @@ export function automaticSwitchCandidates(
           threatCounterMap,
         )
       : null;
+  const lowestResidualIndex = lowestResidualValuePokemonIndex(
+    state,
+    sideIndex,
+  );
+  const aceRecoveryPlan =
+    lowestResidualIndex >= 0 && lowestResidualIndex !== side.active
+      ? bestAceRecoverySacrificePlan(
+          state,
+          sideIndex,
+          strategy,
+          lowestResidualIndex,
+        )
+      : null;
 
   return side.team
     .map((pokemon, index) => {
@@ -12338,6 +12681,61 @@ export function automaticSwitchCandidates(
         projectedBestMove?.koChance === "guaranteed";
       const targetRoleProfile = teamRoleAnalysis.roles[index];
       const targetRoleProgress = teamRoleProgress[index];
+      const batonPassSetupPlan = aiBatonPassSetupPlan(
+        state,
+        sideIndex,
+        pokemon,
+      );
+      const batonPassBoostedPokemon =
+        batonPassSetupPlan.batonPassTargetAvailable === true
+          ? boostedPokemonForAi(
+              pokemon,
+              batonPassSetupPlan.setupBoosts,
+            )
+          : pokemon;
+      const batonPassActsFirst =
+        Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0
+          ? effectiveSpeed(
+              batonPassBoostedPokemon,
+              state,
+              sideIndex,
+            ) <
+            effectiveSpeed(opponent, state, opponentSide)
+          : effectiveSpeed(
+              batonPassBoostedPokemon,
+              state,
+              sideIndex,
+            ) >
+            effectiveSpeed(opponent, state, opponentSide);
+      const batonPassIncomingDamageRatio =
+        targetIncoming.expectedDamage / Math.max(1, hpAfterSwitchIn);
+      const batonPassRequiredHits = batonPassActsFirst ? 1 : 2;
+      const batonPassSurvivesPlan =
+        hpAfterSwitchIn -
+          targetIncoming.expectedDamage * batonPassRequiredHits >
+        0;
+      const batonPassSafeSetupTurns =
+        targetIncoming.expectedDamage <= 0
+          ? 2
+          : Math.max(
+              0,
+              Math.min(
+                2,
+                Math.floor(
+                  (hpAfterSwitchIn - 1) /
+                    targetIncoming.expectedDamage,
+                ) - (batonPassActsFirst ? 0 : 1),
+              ),
+            );
+      const batonPassSetupOpportunity =
+        batonPassSetupPlan.batonPassTargetAvailable === true &&
+        Number(batonPassSetupPlan.setupBoostTotal ?? 0) > 0 &&
+        survivesSwitchIn &&
+        batonPassSurvivesPlan &&
+        batonPassSafeSetupTurns >= 1 &&
+        batonPassIncomingDamageRatio <= 0.45 &&
+        positiveBoostTotal(opponent) <= 1 &&
+        Number(switchSetupThreat.opponentSetupSweepRisk ?? 0) < 0.42;
       const preservationProfile = threatCounterMap.mustPreserveResources.find(
         (resource) => resource.slot === slot,
       );
@@ -12393,6 +12791,10 @@ export function automaticSwitchCandidates(
         currentOutgoingDamageRatio: currentOutgoingRatio,
         targetOutgoingDamageRatio: targetOutgoingRatio,
         currentStatus: current.status,
+        currentAbility,
+        currentHpPercent,
+        regeneratorRecoveryHp,
+        regeneratorRecoveryRatio,
         targetStatus: pokemon.status,
         currentPositiveBoosts: positiveBoostTotal(current),
         opponentPositiveBoosts: positiveBoostTotal(opponent),
@@ -12421,6 +12823,14 @@ export function automaticSwitchCandidates(
         targetAceScore: targetRoleProfile?.aceScore ?? 0,
         targetAceQualified:
           targetRoleProfile?.aceProfile?.qualifies === true,
+        targetBatonPassSupport:
+          targetRoleProfile?.batonPassProfile?.qualifies === true,
+        batonPassSetupOpportunity,
+        batonPassSafeSetupTurns,
+        batonPassIncomingDamageRatio:
+          Math.round(batonPassIncomingDamageRatio * 1000) / 1000,
+        batonPassActsFirst,
+        ...batonPassSetupPlan,
         mustPreserveResource: Boolean(preservationProfile),
         mustPreserveFor:
           preservationProfile?.threats.map((threat) => threat.species) ?? [],
@@ -12457,6 +12867,11 @@ export function automaticSwitchCandidates(
         ...switchPressure,
         ...switchSetupThreat,
         ...fieldSynergy,
+        aceRecoveryPlanEligible:
+          aceRecoveryPlan?.eligible === true &&
+          index === lowestResidualIndex,
+        aceRecoveryPlan:
+          index === lowestResidualIndex ? aceRecoveryPlan : null,
       };
       const oneTurnEvaluation = oneTurnStateBefore
         ? evaluateOneTurnBattleState(
@@ -13734,7 +14149,333 @@ function applyTwoTurnExpectimaxDecisionPolicy({
   };
 }
 
-function automaticTrainerItemCandidates(state, sideIndex, moveCandidates) {
+function trainerItemFutureMatchupValue(
+  state,
+  sideIndex,
+  pokemon,
+  postTurnHp,
+) {
+  if (postTurnHp <= 0) {
+    return {
+      value: 0,
+      safeKoTargets: [],
+      pressureTargets: [],
+    };
+  }
+  const opponentSide = sideIndex === 0 ? 1 : 0;
+  const projectedPokemon = { ...pokemon, hp: postTurnHp };
+  const trickRoom =
+    Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0;
+  const opponentAnalysis = simpleTeamAnalysis(state, opponentSide);
+  const safeKoTargets = [];
+  const pressureTargets = [];
+  let value = 0;
+
+  for (const [enemyIndex, enemy] of state.sides[opponentSide].team.entries()) {
+    if (enemy.fainted || enemy.hp <= 0) continue;
+    const outgoing = bestAiAttackProfile(
+      state,
+      sideIndex,
+      projectedPokemon,
+      opponentSide,
+      enemy,
+    );
+    const incoming = bestAiAttackProfile(
+      state,
+      opponentSide,
+      enemy,
+      sideIndex,
+      projectedPokemon,
+    );
+    const ownSpeed = effectiveSpeed(projectedPokemon, state, sideIndex);
+    const enemySpeed = effectiveSpeed(enemy, state, opponentSide);
+    const actsBefore =
+      outgoing.priority > incoming.priority ||
+      (outgoing.priority === incoming.priority &&
+        (trickRoom ? ownSpeed < enemySpeed : ownSpeed > enemySpeed));
+    const canKo = outgoing.expectedDamage >= enemy.hp;
+    const survivesIncoming = incoming.expectedDamage < postTurnHp;
+    const canReachAction = actsBefore || survivesIncoming;
+    const safeKo = canKo && canReachAction;
+    const pressureRatio = canReachAction
+      ? Math.min(1.25, outgoing.expectedDamage / Math.max(1, enemy.hp))
+      : 0;
+    if (safeKo) {
+      safeKoTargets.push(enemy.name);
+      value += 24;
+    } else if (pressureRatio >= 0.6) {
+      pressureTargets.push(enemy.name);
+      value += pressureRatio * 10;
+    }
+    if (
+      safeKo &&
+      opponentAnalysis.roles[enemyIndex]?.aceProfile?.qualifies === true
+    ) {
+      value += 10;
+    }
+  }
+  return {
+    value: Math.round(value * 100) / 100,
+    safeKoTargets,
+    pressureTargets,
+  };
+}
+
+function trainerItemRoleValue(
+  state,
+  sideIndex,
+  pokemon,
+  baselinePostTurnHp,
+  healedPostTurnHp,
+) {
+  const side = state.sides[sideIndex];
+  const teamAnalysis = simpleTeamAnalysis(state, sideIndex);
+  const threatMap = simpleThreatCounterMap(
+    state,
+    sideIndex,
+    teamAnalysis,
+  );
+  const roleProgress = simpleTeamRoleProgress(
+    state,
+    sideIndex,
+    teamAnalysis,
+    threatMap,
+  )[side.active];
+  const roleProfile = teamAnalysis.roles[side.active];
+  const baseline = trainerItemFutureMatchupValue(
+    state,
+    sideIndex,
+    pokemon,
+    baselinePostTurnHp,
+  );
+  const healed = trainerItemFutureMatchupValue(
+    state,
+    sideIndex,
+    pokemon,
+    healedPostTurnHp,
+  );
+  const baselineSafeKos = new Set(baseline.safeKoTargets);
+  const unlockedSafeKoTargets = healed.safeKoTargets.filter(
+    (target) => !baselineSafeKos.has(target),
+  );
+  const mustPreserve = threatMap.mustPreserveResources.some(
+    (resource) => resource.slot === side.active + 1,
+  );
+  let value =
+    Math.max(0, healed.value - baseline.value) +
+    unlockedSafeKoTargets.length * 14 +
+    healed.safeKoTargets.length * 18;
+  if (
+    healed.safeKoTargets.length > 0 &&
+    roleProfile?.aceProfile?.qualifies === true
+  ) {
+    value += 10;
+  }
+  if (healedPostTurnHp > 0 && baselinePostTurnHp <= 0) {
+    if (roleProfile?.aceProfile?.qualifies === true) value += 18;
+    if ((roleProgress?.remainingRoles ?? []).includes("revengeKiller")) {
+      value += 14;
+    }
+    if ((roleProgress?.remainingRoles ?? []).includes("setupSweeper")) {
+      value += 10;
+    }
+    if (mustPreserve) value += 20;
+    if (roleProgress?.expendableResource === true) value -= 14;
+  }
+  return {
+    value: Math.round(value * 100) / 100,
+    safeKoTargets: healed.safeKoTargets,
+    pressureTargets: healed.pressureTargets,
+    unlockedSafeKoTargets,
+    remainingRoles: roleProgress?.remainingRoles ?? [],
+    mustPreserve,
+    expendableResource: roleProgress?.expendableResource === true,
+  };
+}
+
+function lowestResidualValuePokemonIndex(state, sideIndex) {
+  const side = state.sides[sideIndex];
+  const analysis = simpleTeamAnalysis(state, sideIndex);
+  const threatMap = simpleThreatCounterMap(
+    state,
+    sideIndex,
+    analysis,
+  );
+  const progress = simpleTeamRoleProgress(
+    state,
+    sideIndex,
+    analysis,
+    threatMap,
+  );
+  const preservedSlots = new Set(
+    threatMap.mustPreserveResources.map((resource) => resource.slot),
+  );
+  return side.team
+    .map((pokemon, index) => {
+      if (
+        pokemon.fainted ||
+        pokemon.hp <= 0 ||
+        analysis.roles[index]?.aceProfile?.qualifies === true
+      ) {
+        return null;
+      }
+      const maxHp = Math.max(1, Number(pokemon.stats?.hp ?? pokemon.hp));
+      const roleStrength = Math.max(
+        0,
+        ...(analysis.roles[index]?.roles ?? []).map(
+          (role) => Number(role.score ?? 0),
+        ),
+      );
+      const remainingRoleValue =
+        Number(progress[index]?.remainingRoles?.length ?? 0) * 6;
+      const preservationValue = preservedSlots.has(index + 1) ? 120 : 0;
+      const completedDiscount =
+        progress[index]?.roleComplete === true ? 18 : 0;
+      const expendableDiscount =
+        progress[index]?.expendableResource === true ? 24 : 0;
+      return {
+        index,
+        value:
+          roleStrength * 7 +
+          remainingRoleValue +
+          preservationValue +
+          (pokemon.hp / maxHp) * 12 -
+          completedDiscount -
+          expendableDiscount,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.value - right.value || left.index - right.index)[0]
+    ?.index ?? -1;
+}
+
+function aceRecoverySacrificeProjection(
+  state,
+  sideIndex,
+  sacrificeIndex,
+  strategy,
+  itemId,
+) {
+  const side = state.sides[sideIndex];
+  const analysis = simpleTeamAnalysis(state, sideIndex);
+  const aceIndex = analysis.roles.findIndex(
+    (role) => role?.aceProfile?.qualifies === true,
+  );
+  const ace = side.team[aceIndex];
+  const sacrifice = side.team[sacrificeIndex];
+  const effect = TRAINER_BATTLE_ITEMS[cleanId(itemId)];
+  if (
+    aceIndex < 0 ||
+    aceIndex === sacrificeIndex ||
+    !ace ||
+    ace.fainted ||
+    ace.hp <= 0 ||
+    !sacrifice ||
+    sacrifice.fainted ||
+    sacrifice.hp <= 0 ||
+    !effect ||
+    effect.heal === 0
+  ) {
+    return null;
+  }
+  const missingHp = Math.max(0, ace.stats.hp - ace.hp);
+  const healing =
+    effect.heal === "full"
+      ? missingHp
+      : Math.min(missingHp, Number(effect.heal ?? 0));
+  if (healing <= 0) return null;
+
+  const projected = clone(state);
+  const projectedSide = projected.sides[sideIndex];
+  const projectedSacrifice = projectedSide.team[sacrificeIndex];
+  const projectedAce = projectedSide.team[aceIndex];
+  projectedSacrifice.hp = 0;
+  projectedSacrifice.fainted = true;
+  projectedSide.active = aceIndex;
+  projectedAce.hp = Math.min(projectedAce.stats.hp, projectedAce.hp + healing);
+  if (effect.cureStatus) {
+    projectedAce.status = "";
+    projectedAce.statusTurns = 0;
+    projectedAce.toxicCounter = 0;
+    if (projectedAce.volatiles) delete projectedAce.volatiles.confusion;
+  }
+  const beforeEstimate = estimateSimpleBattleWinProbability(
+    state,
+    sideIndex,
+  );
+  const afterEstimate = estimateSimpleBattleWinProbability(
+    projected,
+    sideIndex,
+  );
+  const winProbabilityBefore = Number(
+    beforeEstimate?.probability ?? beforeEstimate,
+  );
+  const winProbabilityAfter = Number(
+    afterEstimate?.probability ?? afterEstimate,
+  );
+  const winProbabilityDelta =
+    winProbabilityAfter - winProbabilityBefore;
+  const minimumGain = strategy === "reckless_ace" ? 0.025 : 0.04;
+  const strategyMultiplier = strategy === "reckless_ace" ? 1.55 : 1;
+  return {
+    eligible: winProbabilityDelta >= minimumGain,
+    aceIndex,
+    aceSlot: aceIndex + 1,
+    aceName: ace.name,
+    sacrificeIndex,
+    sacrificeSlot: sacrificeIndex + 1,
+    sacrificeName: sacrifice.name,
+    itemId: cleanId(itemId),
+    healing,
+    hpAfterHealing: projectedAce.hp,
+    winProbabilityBefore:
+      Math.round(winProbabilityBefore * 10_000) / 10_000,
+    winProbabilityAfter:
+      Math.round(winProbabilityAfter * 10_000) / 10_000,
+    winProbabilityDelta:
+      Math.round(winProbabilityDelta * 10_000) / 10_000,
+    minimumGain,
+    strategyMultiplier,
+  };
+}
+
+function bestAceRecoverySacrificePlan(
+  state,
+  sideIndex,
+  strategy,
+  sacrificeIndex = lowestResidualValuePokemonIndex(state, sideIndex),
+) {
+  if (sacrificeIndex < 0) return null;
+  const side = state.sides[sideIndex];
+  return side.bag
+    .filter(
+      (entry) =>
+        entry.quantity > 0 &&
+        TRAINER_BATTLE_ITEMS[cleanId(entry.item)]?.heal !== 0,
+    )
+    .map((entry) =>
+      aceRecoverySacrificeProjection(
+        state,
+        sideIndex,
+        sacrificeIndex,
+        strategy,
+        entry.item,
+      ),
+    )
+    .filter(Boolean)
+    .sort(
+      (left, right) =>
+        right.winProbabilityDelta - left.winProbabilityDelta ||
+        right.healing - left.healing,
+    )[0] ?? null;
+}
+
+function automaticTrainerItemCandidates(
+  state,
+  sideIndex,
+  moveCandidates,
+  strategy = "balanced",
+) {
   const side = state.sides[sideIndex];
   const pokemon = activePokemon(state, sideIndex);
   if (side.itemUsesRemaining <= 0 || pokemon.fainted || pokemon.hp <= 0) {
@@ -13777,15 +14518,50 @@ function automaticTrainerItemCandidates(state, sideIndex, moveCandidates) {
     const curedStatusValue = effect.cureStatus ? statusValue : 0;
     if (healing <= 0 && curedStatusValue <= 0) continue;
     const hpAfter = Math.min(pokemon.stats.hp, pokemon.hp + healing);
+    const residualPokemon = effect.cureStatus
+      ? {
+          ...pokemon,
+          status: "",
+          statusTurns: 0,
+          toxicCounter: 0,
+        }
+      : pokemon;
+    const residualDamage = aiEndTurnResidualDamage(residualPokemon, state);
+    const baselineResidualDamage = aiEndTurnResidualDamage(pokemon, state);
+    const baselinePostTurnHp = Math.max(
+      0,
+      pokemon.hp - incomingDamage - baselineResidualDamage,
+    );
+    const postTurnHp = Math.max(
+      0,
+      hpAfter - incomingDamage - residualDamage,
+    );
     const preventsImmediateKo =
       incomingDamage >= pokemon.hp && incomingDamage < hpAfter;
-    const stillFaints = incomingDamage >= hpAfter;
+    const stillFaints = postTurnHp <= 0;
+    const roleValue = trainerItemRoleValue(
+      state,
+      sideIndex,
+      pokemon,
+      baselinePostTurnHp,
+      postTurnHp,
+    );
+    const resourceCost =
+      side.itemUsesRemaining <= 1
+        ? 18
+        : side.itemUsesRemaining === 2
+          ? 10
+          : 6;
     let score =
       healing * 0.72 +
       curedStatusValue +
       (preventsImmediateKo ? 95 : 0) -
-      Math.min(90, incomingDamage * 0.2);
-    if (stillFaints && incomingDamage >= pokemon.hp) score -= 260;
+      Math.min(90, incomingDamage * 0.2) +
+      roleValue.value -
+      resourceCost;
+    if (stillFaints && incomingDamage + residualDamage >= pokemon.hp) {
+      score -= 260;
+    }
     if (id === "potion" && healing < 20) score -= 12;
     if (currentMoveScore >= 180 && !preventsImmediateKo) score -= 35;
     uniqueItems.set(id, {
@@ -13799,7 +14575,18 @@ function automaticTrainerItemCandidates(state, sideIndex, moveCandidates) {
         effect.cureStatus &&
         (Boolean(pokemon.status) || Boolean(pokemon.volatiles?.confusion)),
       incomingDamage: Math.round(incomingDamage * 100) / 100,
+      residualDamage,
+      postTurnHp: Math.round(postTurnHp * 100) / 100,
       preventsImmediateKo,
+      survivesEndOfTurn: postTurnHp > 0,
+      futureRoleValue: roleValue.value,
+      futureSafeKoTargets: roleValue.safeKoTargets,
+      futurePressureTargets: roleValue.pressureTargets,
+      unlockedSafeKoTargets: roleValue.unlockedSafeKoTargets,
+      remainingRoles: roleValue.remainingRoles,
+      mustPreserveResource: roleValue.mustPreserve,
+      expendableResource: roleValue.expendableResource,
+      resourceCost,
       reasons: [
         ...(healing > 0
           ? [{
@@ -13825,8 +14612,92 @@ function automaticTrainerItemCandidates(state, sideIndex, moveCandidates) {
               message: "예상 공격을 받은 뒤에도 생존할 수 있습니다.",
             }]
           : []),
+        ...(roleValue.safeKoTargets.length > 0
+          ? [{
+              component: "futureKoRole",
+              label: "후속 처리 역할",
+              value: roleValue.value,
+              message:
+                roleValue.unlockedSafeKoTargets.length > 0
+                  ? `회복하면 ${roleValue.unlockedSafeKoTargets.join(", ")} 상대로 안전한 KO 경로를 되찾습니다.`
+                  : `회복하면 ${roleValue.safeKoTargets.join(", ")} 상대로 안전한 KO 역할을 유지할 수 있습니다.`,
+            }]
+          : []),
+        ...(roleValue.mustPreserve
+          ? [{
+              component: "preservation",
+              label: "핵심 대응 자원",
+              value: 20,
+              message: "남은 상대를 막는 핵심 대응 자원이라 생존 가치를 높게 반영했습니다.",
+            }]
+          : []),
+        ...(residualDamage > 0
+          ? [{
+              component: "residualDamage",
+              label: "턴 종료 피해",
+              value: -residualDamage,
+              message: `아이템 사용 후에도 턴 종료 피해 ${residualDamage}이 예상됩니다.`,
+            }]
+          : []),
+        {
+          component: "resourceCost",
+          label: "아이템 자원",
+          value: -resourceCost,
+          message: `남은 사용 횟수를 보존하기 위해 자원 비용 ${resourceCost}을 반영했습니다.`,
+        },
       ],
     });
+  }
+  const sacrificeIndex = lowestResidualValuePokemonIndex(state, sideIndex);
+  const recoveryPlan =
+    sacrificeIndex === side.active
+      ? bestAceRecoverySacrificePlan(
+          state,
+          sideIndex,
+          strategy,
+          sacrificeIndex,
+        )
+      : null;
+  if (recoveryPlan?.eligible) {
+    const effect = TRAINER_BATTLE_ITEMS[recoveryPlan.itemId];
+    const planScore =
+      recoveryPlan.winProbabilityDelta *
+      1_000 *
+      recoveryPlan.strategyMultiplier;
+    uniqueItems.set(
+      `${recoveryPlan.itemId}:target:${recoveryPlan.aceSlot}`,
+      {
+        id: recoveryPlan.itemId,
+        actionId: `item:${recoveryPlan.itemId}:target:${recoveryPlan.aceSlot}`,
+        name: `${effect.name} → ${recoveryPlan.aceName}`,
+        type: "item",
+        legal: true,
+        score: Math.round(planScore * 100) / 100,
+        targetSlot: recoveryPlan.aceSlot,
+        targetPokemon: recoveryPlan.aceName,
+        healing: recoveryPlan.healing,
+        postTurnHp: recoveryPlan.hpAfterHealing,
+        aceRecoveryPlanEligible: true,
+        aceRecoveryPlan: recoveryPlan,
+        reasons: [
+          {
+            component: "aceRecoveryPlan",
+            label: "에이스 회복 계획",
+            value: recoveryPlan.winProbabilityDelta,
+            message: `${recoveryPlan.sacrificeName}을 잔존 가치가 가장 낮은 자원으로 두고 ${recoveryPlan.aceName}을 회복하면, 희생 후 예측 승률이 ${Math.round(recoveryPlan.winProbabilityBefore * 1_000) / 10}%에서 ${Math.round(recoveryPlan.winProbabilityAfter * 1_000) / 10}%로 ${Math.round(recoveryPlan.winProbabilityDelta * 1_000) / 10}%p 상승합니다.`,
+          },
+          ...(strategy === "reckless_ace"
+            ? [{
+                component: "recklessAceRecovery",
+                label: "저돌적 에이스 운용",
+                value: recoveryPlan.strategyMultiplier,
+                message:
+                  "저돌적 에이스 성향이라 에이스의 재돌파 가능성을 더 강하게 반영했습니다.",
+              }]
+            : []),
+        ],
+      },
+    );
   }
   return [...uniqueItems.values()].sort((left, right) => right.score - left.score);
 }
@@ -13864,8 +14735,18 @@ export function chooseSimpleAiDecision(
   const chosenMove = forcedMove ?? selectedMove;
   const itemCandidates = lockedSelection?.preventsSwitch
     ? []
-    : automaticTrainerItemCandidates(state, sideIndex, moveCandidates);
-  const selectedItem = itemCandidates[0] ?? null;
+    : automaticTrainerItemCandidates(
+        state,
+        sideIndex,
+        moveCandidates,
+        strategy,
+      );
+  const selectedItem =
+    itemCandidates.find(
+      (candidate) => candidate.aceRecoveryPlanEligible === true,
+    ) ??
+    itemCandidates[0] ??
+    null;
   const canVoluntarilySwitch =
     !lockedSelection?.preventsSwitch &&
     !isPokemonTrapped(state, sideIndex, pokemon) &&
@@ -13890,7 +14771,12 @@ export function chooseSimpleAiDecision(
         candidate.canKoOnNextAction !== true
       ),
   );
-  const selectedSwitch = tacticallyViableSwitches[0] ?? null;
+  const recoveryPlanSwitch =
+    tacticallyViableSwitches.find(
+      (candidate) => candidate.aceRecoveryPlanEligible === true,
+    ) ?? null;
+  const selectedSwitch =
+    recoveryPlanSwitch ?? tacticallyViableSwitches[0] ?? null;
   const switchMargin = {
     novice: Infinity,
     standard: 24,
@@ -13898,12 +14784,18 @@ export function chooseSimpleAiDecision(
     expert: 8,
     cheater: 8,
   }[scoringDifficulty] ?? 18;
+  const batonDevelopmentPlan =
+    chosenMove?.batonPassTargetAvailable === true &&
+    Number(chosenMove.batonPassAdditionalBoostTotal ?? 0) > 0 &&
+    Number(chosenMove.setupFollowupSurvivalProbability ?? 0) >= 0.65;
   const shouldSwitch =
     selectedSwitch &&
-    (selectedSwitch.safeImmediateKoAvailable !== true ||
-      selectedSwitch.urgentSwitchPressure === true) &&
-    Number(selectedSwitch.score ?? -Infinity) >=
-      Number(chosenMove?.score ?? -Infinity) + switchMargin;
+    !batonDevelopmentPlan &&
+    (selectedSwitch.aceRecoveryPlanEligible === true ||
+      ((selectedSwitch.safeImmediateKoAvailable !== true ||
+        selectedSwitch.urgentSwitchPressure === true) &&
+        Number(selectedSwitch.score ?? -Infinity) >=
+          Number(chosenMove?.score ?? -Infinity) + switchMargin));
   const canMegaEvo =
     side.gimmickResources.mega === "available" &&
     pokemon.megaEvolved !== true &&
@@ -13968,6 +14860,15 @@ export function chooseSimpleAiDecision(
           configured: pokemon.gimmicks?.teraConfigured === true,
         })
       : { candidate: null, moveCandidates: [], selectedMove: null };
+  const teamRoleAnalysis = simpleTeamAnalysis(state, sideIndex);
+  const activeRoleProfile = teamRoleAnalysis.roles[side.active];
+  const livingAceIndex = teamRoleAnalysis.roles.findIndex(
+    (role, index) =>
+      role?.aceProfile?.qualifies === true &&
+      !side.team[index].fainted &&
+      side.team[index].hp > 0,
+  );
+  const livingAce = side.team[livingAceIndex] ?? null;
   const gimmickDecision = chosenMove
     ? selectAiGimmick({
         active: {
@@ -13979,6 +14880,11 @@ export function chooseSimpleAiDecision(
           hpPercent: pokemon.hp / pokemon.stats.hp,
           incomingDamageRatio: chosenMove.incomingDamageRatio,
           opponentHp: chosenMove.opponentHp,
+          aceQualified:
+            activeRoleProfile?.aceProfile?.qualifies === true,
+          livingAceOther:
+            livingAceIndex >= 0 && livingAceIndex !== side.active,
+          livingAceName: livingAce?.name ?? "",
         },
         configured: {
           gimmicks: {
@@ -14116,11 +15022,17 @@ export function chooseSimpleAiDecision(
     : Number(commandMove?.score ?? chosenMove?.score ?? -Infinity);
   const shouldUseItem =
     selectedItem &&
-    selectedItem.score >= currentActionScore + 8;
+    (selectedItem.aceRecoveryPlanEligible === true ||
+      selectedItem.score >= currentActionScore + 8);
   const itemAwareHeuristicDecision = shouldUseItem
     ? {
         ...heuristicDecision,
-        command: { item: selectedItem.id },
+        command: {
+          item: selectedItem.id,
+          ...(selectedItem.targetSlot
+            ? { itemTarget: selectedItem.targetSlot }
+            : {}),
+        },
         selectedMove: null,
         selectedSwitch: null,
         selectedItem,
@@ -14187,6 +15099,9 @@ function simpleCommandKey(command) {
     move: Number(command?.move ?? 0),
     switch: Number(command?.switch ?? 0),
     ...(command?.item ? { item: String(command.item) } : {}),
+    ...(command?.itemTarget
+      ? { itemTarget: Number(command.itemTarget) }
+      : {}),
     gimmick: String(command?.gimmick ?? ""),
   });
 }
@@ -14413,7 +15328,10 @@ export function createSimpleAiDecisionTrace(
   const itemCandidates = (decision.itemCandidates ?? []).map((candidate) => ({
     ...candidate,
     score: Math.round(Number(candidate.score ?? 0) * 100) / 100,
-    selected: cleanId(command.item) === cleanId(candidate.id),
+    selected:
+      cleanId(command.item) === cleanId(candidate.id) &&
+      Number(command.itemTarget ?? 0) ===
+        Number(candidate.targetSlot ?? 0),
   }));
   const gimmickCandidates = decision.gimmickCandidate
     ? [

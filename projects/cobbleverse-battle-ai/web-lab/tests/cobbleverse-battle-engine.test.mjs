@@ -97,6 +97,649 @@ test("offers a useful trainer item as an explainable AI candidate", () => {
   assert.ok(trace.candidates.some((candidate) => candidate.type === "item"));
 });
 
+test("AI values healing a Pokemon that can still finish future matchups", () => {
+  const buildState = ({ attack, speed, power }) => {
+    const state = createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Item User",
+            bag: [{ item: "cobblemon:full_restore", quantity: 1 }],
+            maxItemUses: 1,
+            team: [
+              pokemon({
+                name: "Recoverable",
+                stats: {
+                  ...pokemon().stats,
+                  hp: 320,
+                  attack,
+                  speed,
+                },
+                moves: [
+                  {
+                    id: "future-hit",
+                    name: "Future Hit",
+                    type: "Normal",
+                    category: "Physical",
+                    power,
+                    accuracy: 100,
+                    pp: 10,
+                  },
+                ],
+              }),
+            ],
+          },
+          {
+            name: "Opponent",
+            team: [
+              pokemon({
+                name: "Current Opponent",
+                stats: {
+                  ...pokemon().stats,
+                  hp: 180,
+                  attack: 85,
+                  defence: 90,
+                  speed: 70,
+                },
+              }),
+              pokemon({
+                name: "Future Target",
+                stats: {
+                  ...pokemon().stats,
+                  hp: 150,
+                  attack: 95,
+                  defence: 75,
+                  speed: 80,
+                },
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+    state.sides[0].team[0].hp = 30;
+    return state;
+  };
+  const finisherDecision = chooseSimpleAiDecision(
+    buildState({ attack: 220, speed: 140, power: 120 }),
+    0,
+    "expert",
+    "balanced",
+  );
+  const supportDecision = chooseSimpleAiDecision(
+    buildState({ attack: 55, speed: 45, power: 40 }),
+    0,
+    "expert",
+    "balanced",
+  );
+  const finisherItem = finisherDecision.itemCandidates.find(
+    (candidate) => candidate.id === "fullrestore",
+  );
+  const supportItem = supportDecision.itemCandidates.find(
+    (candidate) => candidate.id === "fullrestore",
+  );
+
+  assert.ok(finisherItem.futureSafeKoTargets.includes("Future Target"));
+  assert.ok(finisherItem.futureRoleValue > supportItem.futureRoleValue);
+  assert.ok(finisherItem.score > supportItem.score);
+  assert.ok(
+    finisherItem.reasons.some(
+      (reason) => reason.component === "futureKoRole",
+    ),
+  );
+});
+
+test("AI accounts for residual damage after using a healing item", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Item User",
+          bag: [{ item: "cobblemon:full_restore", quantity: 1 }],
+          maxItemUses: 1,
+          team: [
+            pokemon({
+              name: "Salted",
+              stats: { ...pokemon().stats, hp: 320 },
+            }),
+          ],
+        },
+        {
+          name: "Opponent",
+          team: [
+            pokemon({
+              name: "Passive Opponent",
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[0].team[0].hp = 90;
+  state.sides[0].team[0].volatiles.saltcure = { id: "saltcure" };
+
+  const decision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  const item = decision.itemCandidates.find(
+    (candidate) => candidate.id === "fullrestore",
+  );
+
+  assert.equal(item.residualDamage, 40);
+  assert.equal(item.postTurnHp, 280);
+  assert.equal(item.survivesEndOfTurn, true);
+  assert.ok(
+    item.reasons.some(
+      (reason) => reason.component === "residualDamage",
+    ),
+  );
+});
+
+test("AI sacrifices its lowest-value member only when healing the ace raises win probability", () => {
+  const weakMove = {
+    id: "weakhit",
+    name: "Weak Hit",
+    type: "Normal",
+    category: "Physical",
+    power: 35,
+    accuracy: 100,
+    pp: 30,
+  };
+  const aceMove = {
+    id: "acehit",
+    name: "Ace Hit",
+    type: "Fighting",
+    category: "Physical",
+    power: 140,
+    accuracy: 100,
+    pp: 10,
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Recovery Plan",
+          bag: [{ item: "cobblemon:full_restore", quantity: 1 }],
+          maxItemUses: 1,
+          team: [
+            pokemon({
+              name: "Current Support",
+              aiRole: "notace",
+              stats: { ...pokemon().stats, hp: 240, defence: 140 },
+              moves: [weakMove],
+            }),
+            pokemon({
+              name: "Low Value Sacrifice",
+              aiRole: "notace",
+              stats: { ...pokemon().stats, hp: 80, defence: 80 },
+              moves: [weakMove],
+            }),
+            pokemon({
+              name: "Damaged Ace",
+              aiRole: "ace",
+              stats: {
+                ...pokemon().stats,
+                hp: 320,
+                attack: 260,
+                speed: 150,
+              },
+              moves: [aceMove],
+            }),
+          ],
+        },
+        {
+          name: "Targets",
+          team: [
+            pokemon({
+              name: "Target One",
+              types: ["Normal"],
+              stats: {
+                ...pokemon().stats,
+                hp: 220,
+                attack: 110,
+                defence: 90,
+                speed: 80,
+              },
+              moves: [weakMove],
+            }),
+            pokemon({
+              name: "Target Two",
+              types: ["Normal"],
+              stats: { ...pokemon().stats, hp: 220, defence: 90 },
+              moves: [weakMove],
+            }),
+            pokemon({
+              name: "Target Three",
+              types: ["Normal"],
+              stats: { ...pokemon().stats, hp: 220, defence: 90 },
+              moves: [weakMove],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.sides[0].team[2].hp = 20;
+
+  const switchDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "reckless_ace",
+  );
+  const sacrifice = switchDecision.switchCandidates.find(
+    (candidate) => candidate.name.includes("Low Value Sacrifice"),
+  );
+
+  assert.equal(
+    sacrifice.aceRecoveryPlanEligible,
+    true,
+    JSON.stringify(sacrifice.aceRecoveryPlan, null, 2),
+  );
+  assert.equal(switchDecision.command.switch, 2);
+  assert.ok(sacrifice.aceRecoveryPlan.winProbabilityDelta >= 0.025);
+
+  const switched = resolveSimpleTurn(state, [
+    switchDecision.command,
+    { move: 1 },
+  ]);
+  assert.equal(switched.sides[0].active, 1);
+  assert.ok(switched.sides[0].team[1].hp > 0);
+
+  const itemDecision = chooseSimpleAiDecision(
+    switched,
+    0,
+    "expert",
+    "reckless_ace",
+  );
+  assert.equal(itemDecision.command.item, "fullrestore");
+  assert.equal(itemDecision.command.itemTarget, 3);
+
+  const healed = resolveSimpleTurn(switched, [
+    itemDecision.command,
+    { move: 1 },
+  ]);
+  assert.equal(healed.sides[0].team[2].hp, 320);
+  assert.ok(
+    healed.events.some(
+      (event) =>
+        event.type === "trainer_item" &&
+        event.pokemon === "Damaged Ace" &&
+        event.targetSlot === 3,
+    ),
+  );
+});
+
+test("Baton Pass support sets up safely, then passes boosts to the sole ace", () => {
+  const agility = {
+    id: "agility",
+    name: "Agility",
+    type: "Psychic",
+    category: "Status",
+    accuracy: true,
+    pp: 30,
+    selfBoosts: { speed: 2 },
+  };
+  const batonPass = {
+    id: "batonpass",
+    name: "Baton Pass",
+    type: "Normal",
+    category: "Status",
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Baton Team",
+          team: [
+            pokemon({
+              name: "Passer",
+              aiRole: "notace",
+              stats: {
+                ...pokemon().stats,
+                hp: 240,
+                defence: 150,
+                speed: 140,
+              },
+              moves: [agility, batonPass],
+            }),
+            pokemon({
+              name: "Sole Ace",
+              aiRole: "ace",
+              stats: {
+                ...pokemon().stats,
+                hp: 300,
+                attack: 230,
+                speed: 70,
+              },
+              moves: [
+                {
+                  id: "closecombat",
+                  name: "Close Combat",
+                  type: "Fighting",
+                  category: "Physical",
+                  power: 120,
+                  accuracy: 100,
+                  pp: 5,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Opponent",
+          team: [
+            pokemon({
+              name: "Passive Target",
+              stats: { ...pokemon().stats, attack: 35, speed: 60 },
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+            pokemon({
+              name: "Future Target",
+              types: ["Normal"],
+              stats: { ...pokemon().stats, hp: 220, defence: 90 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  const setupDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.equal(
+    setupDecision.command.move,
+    1,
+    JSON.stringify(
+      {
+        command: setupDecision.command,
+        moves: setupDecision.moveCandidates.map((candidate) => ({
+          id: candidate.id,
+          score: candidate.score,
+          batonPassTransferValue: candidate.batonPassTransferValue,
+          setupFollowupSurvivalProbability:
+            candidate.setupFollowupSurvivalProbability,
+        })),
+        switches: setupDecision.switchCandidates.map((candidate) => ({
+          name: candidate.name,
+          score: candidate.score,
+        })),
+      },
+      null,
+      2,
+    ),
+  );
+  const setupTrace = createSimpleAiDecisionTrace(
+    state,
+    0,
+    setupDecision,
+    "expert",
+    "balanced",
+  );
+  assert.ok(
+    setupTrace.candidates
+      .find((candidate) => candidate.id === "agility")
+      .reasons.some(
+        (reason) => reason.code === "rule.baton_pass.setup_for_ace",
+      ),
+  );
+
+  state.sides[0].team[0].boosts.speed = 2;
+  state.sides[0].team[0].hp = 70;
+  state.sides[1].team[0].stats.attack = 200;
+  Object.assign(state.sides[1].team[0].moves[0], {
+    id: "stronghit",
+    name: "Strong Hit",
+    category: "Physical",
+    power: 100,
+    accuracy: 100,
+    pp: 10,
+  });
+  const passDecision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.equal(
+    passDecision.command.move,
+    2,
+    JSON.stringify(
+      passDecision.moveCandidates.map((candidate) => ({
+        id: candidate.id,
+        score: candidate.score,
+        boosts: candidate.batonPassCurrentBoostTotal,
+        transfer: candidate.batonPassTransferValue,
+        survival: candidate.setupFollowupSurvivalProbability,
+        beforeKo: candidate.opponentKnockoutBeforeActionProbability,
+      })),
+      null,
+      2,
+    ),
+  );
+
+  const passed = resolveSimpleTurn(state, [
+    passDecision.command,
+    { move: 1 },
+  ]);
+  assert.equal(passed.sides[0].active, 1);
+  assert.equal(passed.sides[0].team[1].boosts.speed, 2);
+  assert.ok(
+    passed.events.some(
+      (event) =>
+        event.type === "boosts_passed" &&
+        event.pokemon === "Sole Ace",
+    ),
+  );
+});
+
+test("AI switches a Baton Pass supporter into a weak matchup, especially for reckless ace", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Baton Team",
+          team: [
+            pokemon({
+              id: "current-wall",
+              name: "Current Wall",
+              aiRole: "notace",
+              stats: { ...pokemon().stats, hp: 300, attack: 55 },
+              moves: [
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+            pokemon({
+              id: "baton-support",
+              name: "Baton Support",
+              aiRole: "notace",
+              stats: {
+                ...pokemon().stats,
+                hp: 320,
+                defence: 180,
+                specialDefence: 180,
+                speed: 125,
+              },
+              moves: [
+                {
+                  id: "agility",
+                  name: "Agility",
+                  type: "Psychic",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 30,
+                  selfBoosts: { speed: 2 },
+                },
+                {
+                  id: "batonpass",
+                  name: "Baton Pass",
+                  type: "Normal",
+                  category: "Status",
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+            pokemon({
+              id: "sole-ace",
+              name: "Sole Ace",
+              aiRole: "ace",
+              stats: {
+                ...pokemon().stats,
+                hp: 300,
+                attack: 220,
+                speed: 65,
+              },
+              moves: [
+                {
+                  id: "closecombat",
+                  name: "Close Combat",
+                  type: "Fighting",
+                  category: "Physical",
+                  power: 120,
+                  accuracy: 100,
+                  pp: 5,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Weak Opponent",
+          team: [
+            pokemon({
+              id: "weak-active",
+              name: "Weak Active",
+              stats: {
+                ...pokemon().stats,
+                hp: 260,
+                attack: 45,
+                speed: 70,
+              },
+              moves: [
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 30,
+                  accuracy: 100,
+                  pp: 35,
+                },
+              ],
+            }),
+            pokemon({
+              id: "future-target",
+              name: "Future Target",
+              types: ["Normal"],
+              stats: {
+                ...pokemon().stats,
+                hp: 280,
+                defence: 110,
+              },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+
+  const balanced = automaticSwitchCandidates(
+    state,
+    0,
+    [],
+    "expert",
+    "balanced",
+  ).find((candidate) => candidate.id === "baton-support");
+  const reckless = automaticSwitchCandidates(
+    state,
+    0,
+    [],
+    "expert",
+    "reckless_ace",
+  ).find((candidate) => candidate.id === "baton-support");
+
+  assert.equal(
+    balanced.targetBatonPassSupport,
+    true,
+    JSON.stringify(balanced, null, 2),
+  );
+  assert.equal(balanced.batonPassSetupOpportunity, true);
+  assert.equal(balanced.batonPassTargetName, "Sole Ace");
+  assert.ok(balanced.batonPassSafeSetupTurns >= 1);
+  assert.ok(reckless.score > balanced.score);
+
+  const decision = chooseSimpleAiDecision(
+    state,
+    0,
+    "expert",
+    "reckless_ace",
+  );
+  assert.equal(
+    decision.command.switch,
+    2,
+    JSON.stringify(
+      decision.switchCandidates.map((candidate) => ({
+        id: candidate.id,
+        score: candidate.score,
+        baton: candidate.batonPassSetupOpportunity,
+        transfer: candidate.batonPassTransferValue,
+      })),
+      null,
+      2,
+    ),
+  );
+
+  const dangerousState = structuredClone(state);
+  dangerousState.sides[1].team[0].stats.attack = 260;
+  dangerousState.sides[1].team[0].moves[0].power = 180;
+  const unsafePasser = automaticSwitchCandidates(
+    dangerousState,
+    0,
+    [],
+    "expert",
+    "reckless_ace",
+  ).find((candidate) => candidate.id === "baton-support");
+  assert.equal(unsafePasser.batonPassSetupOpportunity, false);
+  assert.ok(unsafePasser.score < reckless.score);
+});
+
 test("cheater responds to the opponent's committed status move", () => {
   const state = createSimpleBattle(
     setup({
@@ -1595,8 +2238,17 @@ test("switches out after self-switch moves and keeps entry effects active", () =
       (event) =>
         event.type === "damage" &&
         event.pokemon === "WaterReserve" &&
-        event.source === "stealthrock",
+      event.source === "stealthrock",
     ),
+  );
+
+  const preferred = resolveSimpleTurn(
+    state,
+    [{ move: 1, selfSwitchSlot: 2 }, { move: 1 }],
+  );
+  assert.equal(
+    preferred.sides[0].team[preferred.sides[0].active].name,
+    "FireReserve",
   );
 });
 
@@ -7413,8 +8065,10 @@ test("AI preserves Terastallization when it does not improve the projected actio
       },
     ],
   });
+  const state = createSimpleBattle(scenario);
+  state.sides[0].gimmickResources.dynamax = "consumed";
   const decision = chooseSimpleAiDecision(
-    createSimpleBattle(scenario),
+    state,
     0,
     "expert",
     "balanced",
@@ -15783,6 +16437,204 @@ test("applies Regenerator and Magnet Pull to manual and AI switching", () => {
   );
 });
 
+test("AI prefers a useful Regenerator switch when the active Pokemon is low on HP", () => {
+  const createRegeneratorState = (ability, hp) => {
+    const state = createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Regenerator AI",
+            team: [
+              pokemon({
+                id: "regenerator-active",
+                name: "Regenerator Active",
+                ability,
+                types: ["Water"],
+                stats: { ...pokemon().stats, hp: 120, specialDefence: 125 },
+              }),
+              pokemon({
+                id: "safe-bench",
+                name: "Safe Bench",
+                types: ["Rock"],
+                stats: { ...pokemon().stats, hp: 180, defence: 145 },
+              }),
+            ],
+          },
+          {
+            name: "Opponent",
+            team: [
+              pokemon({
+                id: "weak-opponent",
+                name: "Weak Opponent",
+                types: ["Flying"],
+                stats: { ...pokemon().stats, attack: 80, speed: 80 },
+                moves: [
+                  {
+                    id: "wingattack",
+                    name: "Wing Attack",
+                    type: "Flying",
+                    category: "Physical",
+                    power: 60,
+                    accuracy: 100,
+                    pp: 35,
+                  },
+                ],
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+    state.sides[0].team[0].hp = hp;
+    return state;
+  };
+  const switchCandidate = (ability, hp) =>
+    automaticSwitchCandidates(
+      createRegeneratorState(ability, hp),
+      0,
+      [],
+      "expert",
+      "balanced",
+    ).find((candidate) => candidate.slot === 2);
+
+  const lowHpRegenerator = switchCandidate("regenerator", 30);
+  const lowHpOrdinary = switchCandidate("", 30);
+  const healthyRegenerator = switchCandidate("regenerator", 90);
+  const healthyOrdinary = switchCandidate("", 90);
+
+  assert.equal(lowHpRegenerator.currentAbility, "regenerator");
+  assert.equal(lowHpRegenerator.regeneratorRecoveryHp, 40);
+  assert.ok(lowHpRegenerator.score > lowHpOrdinary.score);
+  assert.equal(healthyRegenerator.score, healthyOrdinary.score);
+});
+
+test("supports Iron Barbs, Natural Cure, and Unaware for defensive teams", () => {
+  const contactState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Contact",
+          team: [
+            pokemon({
+              name: "Contact Attacker",
+              moves: [
+                {
+                  id: "tackle",
+                  name: "Tackle",
+                  type: "Normal",
+                  category: "Physical",
+                  power: 40,
+                  accuracy: 100,
+                  pp: 35,
+                  contact: true,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Barbs",
+          team: [
+            pokemon({
+              name: "Ferrothorn",
+              ability: "ironbarbs",
+              moves: [
+                {
+                  id: "splash",
+                  name: "Splash",
+                  type: "Normal",
+                  category: "Status",
+                  power: 0,
+                  accuracy: true,
+                  pp: 40,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const afterContact = resolveSimpleTurn(contactState, [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  assert.equal(afterContact.sides[0].team[0].hp, 105);
+  assert.ok(
+    afterContact.events.some(
+      (event) =>
+        event.type === "ability_activate" && event.ability === "ironbarbs",
+    ),
+  );
+
+  const naturalCureState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Natural Cure",
+          team: [
+            pokemon({ name: "Blissey", ability: "naturalcure" }),
+            pokemon({ name: "Bench" }),
+          ],
+        },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  naturalCureState.sides[0].team[0].status = "tox";
+  const afterSwitch = resolveSimpleTurn(naturalCureState, [
+    { switch: 2 },
+    { move: 1 },
+  ]);
+  assert.equal(afterSwitch.sides[0].team[0].status, "");
+  assert.ok(
+    afterSwitch.events.some(
+      (event) =>
+        event.type === "status_cured" && event.source === "naturalcure",
+    ),
+  );
+
+  const attackMove = {
+    id: "bodyslam",
+    name: "Body Slam",
+    type: "Normal",
+    category: "Physical",
+    power: 85,
+    accuracy: 100,
+    pp: 15,
+  };
+  const boostedAttacker = pokemon({
+    name: "Boosted",
+    stats: { ...pokemon().stats, attack: 160 },
+    boosts: { attack: 4 },
+  });
+  const neutralAttacker = {
+    ...boostedAttacker,
+    boosts: { attack: 0 },
+  };
+  const unawareDefender = pokemon({
+    name: "Dondozo",
+    ability: "unaware",
+    stats: { ...pokemon().stats, defence: 150 },
+  });
+  const ordinaryDefender = {
+    ...unawareDefender,
+    ability: "",
+  };
+  assert.equal(
+    calculateDamageRange(boostedAttacker, unawareDefender, attackMove).maximum,
+    calculateDamageRange(neutralAttacker, unawareDefender, attackMove).maximum,
+  );
+  assert.ok(
+    calculateDamageRange(boostedAttacker, ordinaryDefender, attackMove).maximum >
+      calculateDamageRange(
+        boostedAttacker,
+        unawareDefender,
+        attackMove,
+      ).maximum,
+  );
+});
+
 test("applies one-time entry boosts and Hyper Cutter protection", () => {
   const shieldState = createSimpleBattle(
     setup({
@@ -16424,4 +17276,112 @@ test("evaluates two-turn search against a bounded opponent distribution", () => 
     trace.diagnostics.searchCommand,
   );
   assert.ok(cachedBattle.aiTrace[0].diagnostics.searchCacheHits > 0);
+});
+
+test("Hydration cures major status in rain before residual status damage", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    accuracy: true,
+    pp: 40,
+  };
+  let state = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Rain",
+          team: [
+            pokemon({
+              name: "Manaphy",
+              ability: "hydration",
+              moves: [splash],
+            }),
+          ],
+        },
+        {
+          name: "Target",
+          team: [pokemon({ name: "Target", moves: [splash] })],
+        },
+      ],
+    }),
+  );
+  state.field.weather = { id: "raindance", turns: 3 };
+  state.sides[0].team[0].status = "brn";
+  const hpBefore = state.sides[0].team[0].hp;
+
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+
+  assert.equal(state.sides[0].team[0].status, "");
+  assert.equal(state.sides[0].team[0].hp, hpBefore);
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.type === "ability_activate" &&
+        event.ability === "hydration" &&
+        event.pokemon === "Manaphy",
+    ),
+  );
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.type === "status_cured" &&
+        event.source === "hydration" &&
+        event.status === "brn",
+    ),
+  );
+});
+
+test("Multitype applies an Arceus plate type when battle state is created", () => {
+  const state = createSimpleBattle(
+    setup({
+      strictAbilityValidation: true,
+      sides: [
+        {
+          name: "Arceus",
+          team: [
+            pokemon({
+              id: "arceus",
+              name: "Arceus",
+              types: ["Normal"],
+              ability: "multitype",
+              item: "cobblemon:pixie_plate",
+            }),
+          ],
+        },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+
+  assert.deepEqual(state.sides[0].team[0].types, ["Fairy"]);
+  assert.deepEqual(state.sides[0].team[0].originalTypes, ["Fairy"]);
+  assert.equal(isSimpleAbilitySupported("multitype"), true);
+  assert.equal(isSimpleAbilitySupported("hydration"), true);
+});
+
+test("Vessel of Ruin reduces incoming special damage", () => {
+  const attacker = pokemon({
+    stats: { ...pokemon().stats, specialAttack: 160 },
+  });
+  const specialMove = {
+    id: "psychic",
+    name: "Psychic",
+    type: "Psychic",
+    category: "Special",
+    power: 90,
+    accuracy: 100,
+    pp: 10,
+  };
+  const ordinaryRange = calculateDamageRange(attacker, pokemon(), specialMove);
+  const vesselRange = calculateDamageRange(
+    attacker,
+    pokemon({ name: "Ting-Lu", ability: "vesselofruin" }),
+    specialMove,
+  );
+
+  assert.ok(vesselRange.maximum < ordinaryRange.maximum);
+  assert.equal(isSimpleAbilitySupported("vesselofruin"), true);
 });

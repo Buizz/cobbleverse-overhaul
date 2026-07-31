@@ -1,0 +1,168 @@
+{
+  "name": "딩루 하마돈 모래 막이",
+  "entry": {
+    "type": "computer",
+    "priority": 949,
+    "label": "모래 순환 막이 테스트",
+    "source": "Cobbleverse defensive AI test archetype",
+    "owner": "Cobbleverse",
+    "snapshotDate": "2026-07-31"
+  },
+  "battleRules": {
+    "maxItemUses": 0
+  },
+  "bag": [],
+  "team": [
+    {
+      "species": "ting-lu",
+      "level": 100,
+      "nature": "careful",
+      "ability": "vesselofruin",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": ["spikes", "ruination", "whirlwind", "rest"],
+      "gimmicks": {
+        "tera": "Poison"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 0
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 4,
+        "special_defence": 252
+      }
+    },
+    {
+      "species": "hippowdon",
+      "level": 100,
+      "nature": "impish",
+      "ability": "sandstream",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": ["stealthrock", "yawn", "slackoff", "earthquake"],
+      "gimmicks": {
+        "tera": "Dragon"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 4
+      }
+    },
+    {
+      "species": "toxapex",
+      "level": 100,
+      "nature": "bold",
+      "ability": "regenerator",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": ["recover", "toxic", "haze", "surf"],
+      "gimmicks": {
+        "tera": "Dark"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 4
+      }
+    },
+    {
+      "species": "corviknight",
+      "level": 100,
+      "nature": "impish",
+      "ability": "pressure",
+      "heldItem": "cobblemon:heavy_duty_boots",
+      "moveset": ["defog", "roost", "uturn", "bodypress"],
+      "gimmicks": {
+        "tera": "Water"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 248,
+        "defence": 252,
+        "special_defence": 8
+      }
+    },
+    {
+      "species": "blissey",
+      "level": 100,
+      "nature": "bold",
+      "ability": "naturalcure",
+      "heldItem": "cobblemon:heavy_duty_boots",
+      "moveset": ["softboiled", "seismictoss", "thunderwave", "teleport"],
+      "gimmicks": {
+        "tera": "Ghost"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 0
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 4
+      }
+    },
+    {
+      "species": "dondozo",
+      "level": 100,
+      "nature": "impish",
+      "ability": "unaware",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": ["curse", "waterfall", "rest", "sleeptalk"],
+      "gimmicks": {
+        "tera": "Dragon"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 4
+      }
+    }
+  ],
+  "ai": {
+    "type": "cobbleverse",
+    "data": {
+      "canTera": true,
+      "strategy": "defensive"
+    }
+  }
+}

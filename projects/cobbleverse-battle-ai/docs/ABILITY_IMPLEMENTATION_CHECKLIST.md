@@ -80,10 +80,13 @@
 | UNIT_TESTED | `beastboost` | 상대를 쓰러뜨리면 현재 원 능력치 중 가장 높은 능력 +1 | `applyKnockoutAbility` |
 | UNIT_TESTED | `overcoat` | 모래바람 피해와 가루 기술 무효 | `applyEndTurnEffects`, `executeMove` |
 | UNIT_TESTED | `regenerator` | 자발적/기술 교체 시 최대 HP 1/3 회복 | `switchActivePokemon` |
+| UNIT_TESTED | `naturalcure` | 교체 시 주요 상태이상과 맹독 누적 초기화 | `switchActivePokemon`, `curePokemonStatus` |
 | UNIT_TESTED | `magnetpull` | 상대 강철 타입의 자발적 교체 차단 | `buildActions`, `chooseSimpleAiDecision` |
 | UNIT_TESTED | `dauntlessshield` | 전투 중 첫 등장에 한 번 방어 +1 | `applyEntryAbilities` |
 | UNIT_TESTED | `hypercutter` | 상대가 유발한 공격 하락 차단 | `applyBoosts` |
 | UNIT_TESTED | `roughskin` | 접촉 공격자에게 최대 HP 1/8 피해 | `executeMove` post-hit |
+| UNIT_TESTED | `ironbarbs` | 접촉 공격자에게 최대 HP 1/8 피해 | `executeMove` post-hit |
+| UNIT_TESTED | `unaware` | 공격·피격 시 상대 능력 랭크 변화 무시 | `damageBase`, `effectiveStat` |
 | UNIT_TESTED | `flamebody` | 접촉 공격자에게 30% 화상 | `executeMove` post-hit |
 | UNIT_TESTED | `stamina` | 피해를 받을 때마다 방어 +1 | `executeMove` post-hit |
 | UNIT_TESTED | `toxicdebris` | 물리 피해를 받으면 상대 필드에 독압정 | `executeMove` post-hit |
@@ -181,6 +184,11 @@
 - [ ] `sandforce`: 모래바람 중 바위/땅/강철 위력 보정
 - [ ] `icebody`: 눈 중 회복
 - [ ] `raindish`: 비 중 회복
+- [x] `hydration`: 비/폭우 턴 종료 시 상태이상 피해 전에 주요 상태이상 회복 (`applyEndTurnEffects`)
+
+### 폼·타입
+
+- [x] `multitype`: 전투 상태 생성 시 플레이트에 맞춰 아르세우스의 타입과 원래 타입 변경 (`normalizePokemon`, `heldItemType`)
 
 ### 등장·교체·랭크
 
@@ -192,7 +200,7 @@
 - [x] `intrepidsword`: 등장 시 공격 +1
 - [ ] `trace`: 등장 시 상대 특성 복사
 - [x] `regenerator`: 교체 시 HP 1/3 회복
-- [ ] `naturalcure`: 교체 시 상태 회복
+- [x] `naturalcure`: 교체 시 상태 회복
 - [ ] `moxie`: 직접 KO 후 공격 +1
 - [x] `beastboost`: KO 후 가장 높은 능력 +1
 - [x] `speedboost`: 턴 종료 스피드 +1
@@ -202,7 +210,9 @@
 
 ### 방어·피해 무시
 
+- [x] `vesselofruin`: 필드에 있는 동안 상대 특수공격 25% 감소 (`damageBase`)
 - [x] `sturdy`: 풀피 일격 기절 방지
+- [x] `unaware`: 공격·피격 시 상대 능력 랭크 변화 무시
 - [ ] `wonderguard`: 효과 굉장한 공격 외 무효
 - [x] `rockhead`: 기술 반동 피해 무효
 - [ ] `magicguard`: 간접 피해 무효
@@ -216,7 +226,7 @@
 ### 접촉·피격 반응
 
 - [x] `roughskin`: 접촉 피해 반사
-- [ ] `ironbarbs`: 접촉 피해 반사
+- [x] `ironbarbs`: 접촉 피해 반사
 - [x] `static`: 접촉 피해를 준 공격자 마비 확률
 - [x] `flamebody`: 접촉 시 화상 확률
 - [ ] `poisontouch`: 접촉 공격 시 독 확률

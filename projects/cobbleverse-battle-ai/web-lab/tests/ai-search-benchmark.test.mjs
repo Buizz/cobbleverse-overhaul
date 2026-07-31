@@ -44,7 +44,7 @@ const buildScenario = (entry, trainers) => ({
 
 test("defines unique fixed AI search benchmark cases", () => {
   assert.equal(benchmark.schema, "cobbleverse-ai-search-benchmark");
-  assert.equal(benchmark.version, 1);
+  assert.equal(benchmark.version, 2);
   assert.equal(benchmark.cases.length, 10);
   assert.equal(
     new Set(benchmark.cases.map((entry) => entry.id)).size,

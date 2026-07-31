@@ -1,6 +1,6 @@
 {
   "schema": "cobbleverse-ai-search-benchmark",
-  "version": 1,
+  "version": 2,
   "defaults": {
     "levelMode": "level-100",
     "battleType": "single",
@@ -14,9 +14,13 @@
       "seed": 20260719,
       "trainerIds": ["dbingsu-server-party", "hoenn_league_drake"],
       "focus": ["setup", "salt-cure", "sturdy", "gimmick"],
-      "baseline": {
+      "previousBaseline": {
         "winnerTrainerId": "dbingsu-server-party",
         "turns": 18
+      },
+      "baseline": {
+        "winnerTrainerId": "dbingsu-server-party",
+        "turns": 12
       }
     },
     {
@@ -24,9 +28,13 @@
       "seed": 20260746,
       "trainerIds": ["sv9-speed-offense", "champions-mega-raichu-x-rain"],
       "focus": ["weather", "switch", "speed-control"],
-      "baseline": {
+      "previousBaseline": {
         "winnerTrainerId": "sv9-speed-offense",
         "turns": 29
+      },
+      "baseline": {
+        "winnerTrainerId": "champions-mega-raichu-x-rain",
+        "turns": 42
       }
     },
     {
@@ -34,9 +42,13 @@
       "seed": 20260752,
       "trainerIds": ["sv9-hazard-balance", "dbingsu-server-party"],
       "focus": ["hazard", "salt-cure", "long-game"],
-      "baseline": {
+      "previousBaseline": {
         "winnerTrainerId": "dbingsu-server-party",
         "turns": 19
+      },
+      "baseline": {
+        "winnerTrainerId": "sv9-hazard-balance",
+        "turns": 30
       }
     },
     {
@@ -44,9 +56,13 @@
       "seed": 20260754,
       "trainerIds": ["sv9-trick-room-balance", "dbingsu-server-party"],
       "focus": ["trick-room", "switch", "future-matchup"],
+      "previousBaseline": {
+        "winnerTrainerId": "dbingsu-server-party",
+        "turns": 33
+      },
       "baseline": {
-        "winnerTrainerId": "sv9-trick-room-balance",
-        "turns": 73
+        "winnerTrainerId": "dbingsu-server-party",
+        "turns": 20
       }
     },
     {
@@ -54,9 +70,13 @@
       "seed": 20260758,
       "trainerIds": ["champions-mega-emboar-setup", "sv9-screens-offense"],
       "focus": ["setup", "screens", "survival"],
-      "baseline": {
+      "previousBaseline": {
         "winnerTrainerId": "sv9-screens-offense",
         "turns": 25
+      },
+      "baseline": {
+        "winnerTrainerId": "sv9-screens-offense",
+        "turns": 24
       }
     },
     {
@@ -64,6 +84,10 @@
       "seed": 20260768,
       "trainerIds": ["champions-mega-mawile-dual-mode", "sv9-trick-room-balance"],
       "focus": ["mega", "priority", "switch", "trick-room"],
+      "previousBaseline": {
+        "winnerTrainerId": "champions-mega-mawile-dual-mode",
+        "turns": 62
+      },
       "baseline": {
         "winnerTrainerId": "champions-mega-mawile-dual-mode",
         "turns": 62
@@ -74,6 +98,10 @@
       "seed": 20260769,
       "trainerIds": ["champions-mega-raichu-x-rain", "sv9-modern-bulky-offense"],
       "focus": ["weather", "switch", "ace-preservation"],
+      "previousBaseline": {
+        "winnerTrainerId": "champions-mega-raichu-x-rain",
+        "turns": 43
+      },
       "baseline": {
         "winnerTrainerId": "champions-mega-raichu-x-rain",
         "turns": 43
@@ -84,9 +112,13 @@
       "seed": 20260749,
       "trainerIds": ["sv9-sand-balance", "sv9-trick-room-balance"],
       "focus": ["weather", "trick-room", "counter-switch"],
+      "previousBaseline": {
+        "winnerTrainerId": "sv9-sand-balance",
+        "turns": 63
+      },
       "baseline": {
         "winnerTrainerId": "sv9-sand-balance",
-        "turns": 48
+        "turns": 71
       }
     },
     {
@@ -94,9 +126,13 @@
       "seed": 20260751,
       "trainerIds": ["sinnoh_corrado", "sv9-modern-bulky-offense"],
       "focus": ["salt-cure", "switch", "hazard"],
-      "baseline": {
+      "previousBaseline": {
         "winnerTrainerId": "sv9-modern-bulky-offense",
         "turns": 40
+      },
+      "baseline": {
+        "winnerTrainerId": "sv9-modern-bulky-offense",
+        "turns": 19
       }
     },
     {
@@ -104,9 +140,13 @@
       "seed": 20260765,
       "trainerIds": ["dbingsu-server-party", "sv9-sand-balance"],
       "focus": ["weather", "trick-room", "gimmick", "switch"],
-      "baseline": {
+      "previousBaseline": {
         "winnerTrainerId": "sv9-sand-balance",
         "turns": 26
+      },
+      "baseline": {
+        "winnerTrainerId": "sv9-sand-balance",
+        "turns": 12
       }
     }
   ]

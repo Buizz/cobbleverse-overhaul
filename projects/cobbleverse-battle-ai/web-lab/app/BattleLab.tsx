@@ -36,6 +36,10 @@ import {
 } from "../lib/battle-dialogue";
 import { BattleAudioControl } from "../lib/BattleAudioControl";
 import { playBattleSoundEffects } from "../lib/battle-audio";
+import {
+  SELECTABLE_AI_STRATEGIES,
+  selectSeededAiStrategy,
+} from "../lib/common-battle-ai.mjs";
 
 type BattleMode = "pve" | "eve";
 type PartySource = "custom" | "preset";
@@ -457,6 +461,7 @@ type InteractiveMove = {
   power: number;
   accuracy: number | true;
   priority: number;
+  selfSwitch?: boolean;
   effectiveness:
     | "super"
     | "neutral"
@@ -484,6 +489,7 @@ type InteractiveSlotAction = {
   slot: number;
   target?: number;
   gimmick?: BattleGimmick;
+  selfSwitchSlot?: number;
 };
 
 type InteractiveAction =
@@ -4797,6 +4803,7 @@ function InteractiveArena({
     type: "move" | "switch";
     slot: number;
     gimmick?: BattleGimmick;
+    selfSwitchSlot?: number;
   } | { type: "item"; item: string } | {
     type: "multi";
     actions: InteractiveSlotAction[];
@@ -4823,6 +4830,11 @@ function InteractiveArena({
     requestId: number;
     value: BattleGimmick | null;
   }>({ requestId: -1, value: null });
+  const [pendingSelfSwitch, setPendingSelfSwitch] = useState<{
+    requestId: number;
+    moveSlot: number;
+    gimmick?: BattleGimmick;
+  } | null>(null);
   const request = battle.request;
   const reproductionJson = useMemo(
     () =>
@@ -5534,7 +5546,9 @@ function InteractiveArena({
           <div className="move-command-panel">
             <div className="command-heading">
               <strong>
-                {request?.kind === "force_switch"
+                {pendingSelfSwitch?.requestId === request?.requestId
+                  ? "기술 사용 후 교체할 포켓몬을 선택하세요"
+                  : request?.kind === "force_switch"
                   ? "다음 포켓몬을 선택하세요"
                   : "기술을 선택하세요"}
               </strong>
@@ -5634,17 +5648,33 @@ function InteractiveArena({
                           : ""
                       }`}
                       disabled={busy || move.disabled || unavailableForGimmick}
-                      onClick={() =>
+                      onClick={() => {
+                        const gimmick =
+                          activeGimmickSelection === "dynamax" &&
+                          request.gimmicks.canGigantamax
+                            ? "gigantamax"
+                            : activeGimmickSelection ?? undefined;
+                        if (
+                          isNativeBattle &&
+                          move.selfSwitch &&
+                          !["zmove", "dynamax", "gigantamax"].includes(
+                            gimmick ?? "",
+                          )
+                        ) {
+                          setPendingSelfSwitch({
+                            requestId: request.requestId,
+                            moveSlot: move.slot,
+                            gimmick,
+                          });
+                          return;
+                        }
+                        setPendingSelfSwitch(null);
                         onAction({
                           type: "move",
                           slot: move.slot,
-                          gimmick:
-                            activeGimmickSelection === "dynamax" &&
-                            request.gimmicks.canGigantamax
-                              ? "gigantamax"
-                              : activeGimmickSelection ?? undefined,
-                        })
-                      }
+                          gimmick,
+                        });
+                      }}
                     >
                     <span>{String(move.slot).padStart(2, "0")}</span>
                     <div className="move-card-copy">
@@ -5711,9 +5741,19 @@ function InteractiveArena({
                 <button
                   key={pokemon.slot}
                   disabled={busy}
-                  onClick={() =>
-                    onAction({ type: "switch", slot: pokemon.slot })
-                  }
+                  onClick={() => {
+                    if (pendingSelfSwitch?.requestId === request?.requestId) {
+                      onAction({
+                        type: "move",
+                        slot: pendingSelfSwitch.moveSlot,
+                        gimmick: pendingSelfSwitch.gimmick,
+                        selfSwitchSlot: pokemon.slot,
+                      });
+                      setPendingSelfSwitch(null);
+                      return;
+                    }
+                    onAction({ type: "switch", slot: pokemon.slot });
+                  }}
                 >
                   <span className="switch-sprite">
                     {/* Dynamic Showdown sprite URLs intentionally skip Next image optimization. */}
@@ -5730,7 +5770,9 @@ function InteractiveArena({
                       <StatusBadge status={pokemon.condition.status} />
                     </div>
                     <small>
-                      {healthFromCondition(pokemon.condition.text)}
+                      {pendingSelfSwitch?.requestId === request?.requestId
+                        ? `공격 후 교체 · ${healthFromCondition(pokemon.condition.text)}`
+                        : healthFromCondition(pokemon.condition.text)}
                     </small>
                   </div>
                 </button>
@@ -6814,7 +6856,12 @@ export function BattleLab() {
     invalidatePreparedBattle();
   };
 
-  const prepareTest = async (): Promise<BattleScenario | null> => {
+  const prepareTest = async (
+    overrides: {
+      seed?: number;
+      pveOpponentStrategy?: AiStrategy;
+    } = {},
+  ): Promise<BattleScenario | null> => {
     const ready = mode === "pve" ? pveReady : eveReady;
     if (!ready) {
       setNotice(
@@ -6850,7 +6897,7 @@ export function BattleLab() {
       mode === "pve"
         ? {
             mode,
-            seed,
+            seed: overrides.seed ?? seed,
             levelMode,
             battleType,
             battleEngine,
@@ -6861,9 +6908,10 @@ export function BattleLab() {
               {
                 difficulty: aiDifficulty,
                 strategy:
-                  battleEngine === "cobbleverse"
+                  overrides.pveOpponentStrategy ??
+                  (battleEngine === "cobbleverse"
                     ? pveOpponentStrategy
-                    : "balanced",
+                    : "balanced"),
                 ...(aiDifficulty === "cheater"
                   ? { cheatProbability: pveCheatProbability }
                   : {}),
@@ -7051,7 +7099,10 @@ export function BattleLab() {
     URL.revokeObjectURL(url);
   };
 
-  const startInteractive = async (scenarioOverride?: BattleScenario) => {
+  const startInteractive = async (
+    scenarioOverride?: BattleScenario,
+    successNotice?: string,
+  ) => {
     const activeScenario = scenarioOverride ?? scenario;
     if (!activeScenario || activeScenario.mode !== "pve") return;
     playbackToken.current += 1;
@@ -7080,7 +7131,9 @@ export function BattleLab() {
         scenario: activeScenario,
         battle: result.battle,
       });
-      setNotice("배틀이 시작되었습니다. 사용할 기술을 선택하세요.");
+      setNotice(
+        successNotice ?? "배틀이 시작되었습니다. 사용할 기술을 선택하세요.",
+      );
     } catch {
       setNotice("대화형 배틀 API에 연결하지 못했습니다.");
     } finally {
@@ -7100,6 +7153,28 @@ export function BattleLab() {
       return;
     }
     await runBattle(activeScenario);
+  };
+
+  const startLivePveBattle = async () => {
+    if (mode !== "pve") return;
+    const liveSeed = crypto.getRandomValues(new Uint32Array(1))[0];
+    const liveStrategy = selectSeededAiStrategy(
+      liveSeed,
+      SELECTABLE_AI_STRATEGIES,
+    ) as AiStrategy;
+    setSeed(liveSeed);
+    setScenario(null);
+    setBattle(null);
+    setInteractiveBattle(null);
+    const activeScenario = await prepareTest({
+      seed: liveSeed,
+      pveOpponentStrategy: liveStrategy,
+    });
+    if (!activeScenario) return;
+    await startInteractive(
+      activeScenario,
+      `실전 대전이 시작되었습니다. 무작위 상대 전략과 시드 ${liveSeed}가 이번 대전에 기록되었습니다.`,
+    );
   };
 
   const chooseInteractiveAction = async (action: InteractiveAction) => {
@@ -8669,6 +8744,22 @@ export function BattleLab() {
           >
             {preparing ? "검증 중" : scenario ? "구성 다시 검증" : "구성 미리보기"}
           </button>
+          {mode === "pve" ? (
+            <button
+              className="live-battle-start-action"
+              onClick={() => void startLivePveBattle()}
+              disabled={
+                !pveReady ||
+                preparing ||
+                interactiveBusy ||
+                runningBattle
+              }
+              title="무작위 시드와 무작위 상대 전략으로 직접 조작 배틀을 시작합니다."
+            >
+              {interactiveBusy ? "실전 준비 중" : "실전 대전 시작"}
+              <span aria-hidden="true">◆</span>
+            </button>
+          ) : null}
           <button
             className="battle-start-action"
             onClick={() => void startConfiguredBattle()}

@@ -648,6 +648,79 @@ test("runs a player-controlled PvE turn through the Cobbleverse engine", () => {
   );
 });
 
+test("gives the PvE player the shared item list with two total uses", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-pve-player-items",
+    mode: "pve",
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "pikachu",
+            moveset: ["splash"],
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "squirtle",
+            moveset: ["tackle"],
+          },
+        ],
+      },
+    ],
+  };
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  assert.equal(started.request.itemUsesRemaining, 2);
+  assert.deepEqual(
+    started.request.items.map((item) => [item.id, item.quantity]),
+    [
+      ["fullrestore", 2],
+      ["potion", 2],
+      ["fullheal", 2],
+    ],
+  );
+
+  const damaged = chooseNativeInteractiveBattleAction(started.sessionId, {
+    type: "move",
+    slot: 1,
+  });
+  assert.ok(damaged.request.active.condition.current < damaged.request.active.condition.maximum);
+  assert.equal(
+    damaged.request.items.find(
+      (item) => item.id === "fullrestore",
+    ).disabled,
+    false,
+  );
+
+  const healed = chooseNativeInteractiveBattleAction(damaged.sessionId, {
+    type: "item",
+    item: "cobblemon:full_restore",
+  });
+  assert.equal(healed.request.itemUsesRemaining, 1);
+  assert.equal(
+    healed.request.items.find(
+      (item) => item.id === "fullrestore",
+    ).quantity,
+    1,
+  );
+  assert.ok(
+    healed.events.some(
+      (event) =>
+        event.type === "trainer_item" &&
+        event.actor?.startsWith("p1"),
+    ),
+  );
+});
+
 test("native PvE cheater reads the committed player command at 100 percent", () => {
   clearNativeInteractiveBattleSessions();
   const battleScenario = {
@@ -1401,4 +1474,71 @@ test("waits for the player to choose a replacement after fainting", () => {
   assert.equal(replaced.events.at(-1).type, "switch");
   assert.match(replaced.events.at(-1).condition ?? "", /^[1-9]\d*\/[1-9]\d*/);
   assert.notEqual(replaced.events.at(-1).condition, "0 fnt");
+});
+
+test("requires the player to choose the target of a self-switch move", () => {
+  clearNativeInteractiveBattleSessions();
+  const battleScenario = {
+    ...scenario,
+    scenarioId: "native-player-self-switch",
+    mode: "pve",
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            slot: 1,
+            species: "scizor",
+            level: 50,
+            moveset: ["uturn"],
+          },
+          {
+            ...scenario.sides[0].team[0],
+            slot: 2,
+            species: "raichu",
+            level: 50,
+            moveset: ["thunderbolt"],
+          },
+        ],
+      },
+      {
+        ...scenario.sides[1],
+        team: [
+          {
+            ...scenario.sides[1].team[0],
+            species: "shuckle",
+            level: 50,
+            moveset: ["withdraw"],
+          },
+        ],
+      },
+    ],
+  };
+
+  const started = startNativeInteractiveBattle(battleScenario);
+  assert.equal(started.request.moves[0].selfSwitch, true);
+  assert.throws(
+    () =>
+      chooseNativeInteractiveBattleAction(started.sessionId, {
+        type: "move",
+        slot: 1,
+      }),
+    /교체할 포켓몬을 선택/,
+  );
+
+  const switched = chooseNativeInteractiveBattleAction(started.sessionId, {
+    type: "move",
+    slot: 1,
+    selfSwitchSlot: 2,
+  });
+  assert.equal(switched.request.active.species, "Raichu");
+  assert.ok(
+    switched.events.some(
+      (event) =>
+        event.type === "switch" &&
+        event.selection === "self_switch" &&
+        event.actor?.includes("Raichu"),
+    ),
+  );
 });

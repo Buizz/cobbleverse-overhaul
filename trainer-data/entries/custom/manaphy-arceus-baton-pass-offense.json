@@ -1,0 +1,168 @@
+{
+  "name": "마나피 아르세우스 배턴터치",
+  "entry": {
+    "type": "computer",
+    "priority": 944,
+    "label": "특수 배턴터치 에이스 테스트",
+    "source": "Cobbleverse Baton Pass AI test archetype",
+    "owner": "Cobbleverse",
+    "snapshotDate": "2026-07-31"
+  },
+  "battleRules": {
+    "maxItemUses": 0
+  },
+  "bag": [],
+  "team": [
+    {
+      "species": "manaphy",
+      "level": 100,
+      "nature": "timid",
+      "ability": "hydration",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": ["tailglow", "acidarmor", "substitute", "batonpass"],
+      "gimmicks": {
+        "tera": "Fairy"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "special_defence": 4,
+        "speed": 252
+      }
+    },
+    {
+      "species": "arceus",
+      "level": 100,
+      "nature": "timid",
+      "ability": "multitype",
+      "heldItem": "cobblemon:pixie_plate",
+      "moveset": ["storedpower", "judgment", "recover", "calmmind"],
+      "gimmicks": {
+        "tera": "Fairy"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 4,
+        "special_attack": 252,
+        "speed": 252
+      }
+    },
+    {
+      "species": "scolipede",
+      "level": 100,
+      "nature": "jolly",
+      "ability": "speedboost",
+      "heldItem": "cobblemon:focus_sash",
+      "moveset": ["protect", "irondefense", "substitute", "batonpass"],
+      "gimmicks": {
+        "tera": "Water"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "special_defence": 4,
+        "speed": 252
+      }
+    },
+    {
+      "species": "espeon",
+      "level": 100,
+      "nature": "timid",
+      "ability": "magicbounce",
+      "heldItem": "cobblemon:light_clay",
+      "moveset": ["reflect", "lightscreen", "psychic", "morningsun"],
+      "gimmicks": {
+        "tera": "Fairy"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "special_defence": 4,
+        "speed": 252
+      }
+    },
+    {
+      "species": "clefable",
+      "level": 100,
+      "nature": "bold",
+      "ability": "unaware",
+      "heldItem": "cobblemon:leftovers",
+      "moveset": ["wish", "protect", "moonblast", "thunderwave"],
+      "gimmicks": {
+        "tera": "Steel"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 0,
+        "defence": 31,
+        "special_attack": 31,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 252,
+        "defence": 252,
+        "special_defence": 4
+      }
+    },
+    {
+      "species": "corviknight",
+      "level": 100,
+      "nature": "impish",
+      "ability": "pressure",
+      "heldItem": "cobblemon:heavy_duty_boots",
+      "moveset": ["defog", "roost", "uturn", "bodypress"],
+      "gimmicks": {
+        "tera": "Dragon"
+      },
+      "ivs": {
+        "hp": 31,
+        "attack": 31,
+        "defence": 31,
+        "special_attack": 0,
+        "special_defence": 31,
+        "speed": 31
+      },
+      "evs": {
+        "hp": 248,
+        "defence": 252,
+        "special_defence": 8
+      }
+    }
+  ],
+  "ai": {
+    "type": "cobbleverse",
+    "data": {
+      "canTera": true,
+      "strategy": "reckless_ace"
+    }
+  }
+}

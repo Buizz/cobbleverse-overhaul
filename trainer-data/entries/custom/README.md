@@ -18,6 +18,14 @@ Cobbleverse에서 직접 관리하는 플레이어 엔트리와 전투 AI 검증
   고속 에이스를 함께 시험하는 벌키 오펜스
 - `sv9-sand-balance.json`: 모래날림과 모래헤치기 연계, 날씨 수혜 교체를
   시험하는 모래바람 밸런스
+- `legendary-regenerator-stall.json`: 칠색조·더시마사리·메가드래캄의
+  재생력 순환, 너트령의 설치물, 어써러셔의 천진 전개 억제를 시험하는 막이형 팀
+- `annihilape-baton-pass-offense.json`: 펜드라와 루브도가 랭크를 쌓아
+  저승갓숭에게 배턴터치하는 저돌적 에이스 전개 팀
+- `manaphy-arceus-baton-pass-offense.json`: 마나피의 특수공격·방어
+  랭크와 펜드라의 속도 랭크를 아르세우스에게 전달하는 전개 팀
+- `ting-lu-hippowdon-stall.json`: 딩루의 압정과 날려버리기, 하마돈의
+  모래바람·스텔스록·하품을 중심으로 교체를 강요하는 막이형 팀
 
 SV 팀은 2026년 7월 13일 갱신된 SV OU 샘플과 2026년 SPL XVII 공개
 팀 덤프에서 확인한 역할 조합을 참고해 프로젝트에서 새로 구성했다. 특정

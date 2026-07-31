@@ -8793,6 +8793,33 @@ select:disabled {
   transform: none;
 }
 
+.live-battle-start-action {
+  min-width: 190px;
+  min-height: 56px;
+  border: 1px solid #00aeb8;
+  border-radius: var(--control-radius);
+  background: #102f46;
+  color: #eaffff;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-battle-start-action:hover:not(:disabled) {
+  border-color: #35e4dd;
+  background: #16465b;
+}
+
+.live-battle-start-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.live-battle-start-action span {
+  margin-left: 8px;
+  color: #35e4dd;
+}
+
 .battle-gimmick-controls {
   gap: 5px;
 }

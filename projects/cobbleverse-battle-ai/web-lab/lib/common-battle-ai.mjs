@@ -12,6 +12,7 @@ const DIFFICULTY_LABELS = {
 const ROLE_LABELS = {
   lead: "선봉",
   ace: "에이스",
+  subAce: "준에이스",
   setupSweeper: "랭크업 스위퍼",
   wall: "막이",
   pivot: "피벗",
@@ -23,6 +24,7 @@ const ROLE_LABELS = {
 const STRATEGY_ROLE_WEIGHTS = {
   balanced: {
     ace: 0.9,
+    subAce: 0.65,
     setupSweeper: 0.8,
     wall: 0.75,
     pivot: 0.8,
@@ -33,6 +35,7 @@ const STRATEGY_ROLE_WEIGHTS = {
   },
   aggressive: {
     ace: 1.35,
+    subAce: 0.95,
     setupSweeper: 1.05,
     revengeKiller: 1.0,
     pivot: 0.55,
@@ -50,11 +53,13 @@ const STRATEGY_ROLE_WEIGHTS = {
     revengeKiller: 0.55,
     setupSweeper: 0.35,
     ace: 0.25,
+    subAce: 0.2,
   },
   ace_check: {
     revengeKiller: 1.25,
     disruptor: 1.15,
     ace: 0.9,
+    subAce: 0.65,
     pivot: 0.75,
     hazardControl: 0.65,
     wall: 0.6,
@@ -63,6 +68,7 @@ const STRATEGY_ROLE_WEIGHTS = {
   },
   reckless_ace: {
     ace: 1.55,
+    subAce: 0.9,
     setupSweeper: 1.25,
     revengeKiller: 0.95,
     pivot: 0.35,
@@ -76,6 +82,7 @@ const STRATEGY_ROLE_WEIGHTS = {
     support: 0.85,
     disruptor: 0.75,
     ace: 0.7,
+    subAce: 0.55,
     pivot: 0.65,
     hazardControl: 0.55,
     revengeKiller: 0.35,
@@ -89,6 +96,7 @@ const STRATEGY_ROLE_WEIGHTS = {
     support: 0.55,
     wall: 0.45,
     ace: 0.3,
+    subAce: 0.2,
     setupSweeper: 0.25,
   },
   tempo: {
@@ -96,6 +104,7 @@ const STRATEGY_ROLE_WEIGHTS = {
     revengeKiller: 1.05,
     disruptor: 0.9,
     ace: 0.75,
+    subAce: 0.6,
     hazardControl: 0.65,
     support: 0.45,
     setupSweeper: 0.35,
@@ -126,6 +135,16 @@ const STRATEGY_ALIASES = {
   pivot: "tempo",
   unpredictable: "tempo",
 };
+export const SELECTABLE_AI_STRATEGIES = Object.freeze([
+  "balanced",
+  "aggressive",
+  "defensive",
+  "ace_check",
+  "reckless_ace",
+  "setup",
+  "hazard",
+  "tempo",
+]);
 const ROLE_VALUE_SCALE = 4;
 const HAZARD_MAX_LAYERS = {
   stealthrock: 1,
@@ -165,6 +184,21 @@ const SELF_SACRIFICE_MOVE_IDS = new Set([
   "explosion",
   "mistyexplosion",
   "selfdestruct",
+]);
+const ACE_SETUP_ABILITY_IDS = new Set([
+  "asoneglastrier",
+  "asonespectrier",
+  "beastboost",
+  "chillingneigh",
+  "competitive",
+  "contrary",
+  "defiant",
+  "download",
+  "grimneigh",
+  "intrepidsword",
+  "moxie",
+  "soulheart",
+  "speedboost",
 ]);
 const DYNAMAX_SCORE_THRESHOLD = 18;
 const PROJECTED_GIMMICK_THRESHOLDS = {
@@ -264,6 +298,23 @@ export function createAiRng(seed, side = 0, salt = 0) {
       return length > 0 ? state % length : 0;
     },
   };
+}
+
+export function selectSeededAiStrategy(
+  seed,
+  preferredStrategies = SELECTABLE_AI_STRATEGIES,
+) {
+  const normalized = Array.from(
+    new Set(
+      (Array.isArray(preferredStrategies) ? preferredStrategies : [])
+        .map((strategy) => canonicalStrategy(strategy))
+        .filter((strategy) => SELECTABLE_AI_STRATEGIES.includes(strategy)),
+    ),
+  );
+  const candidates =
+    normalized.length > 0 ? normalized : SELECTABLE_AI_STRATEGIES;
+  const rng = createAiRng(seed, 1, 0x51a7e9);
+  return candidates[rng.nextIndex(candidates.length)];
 }
 
 function cleanId(value) {
@@ -494,6 +545,20 @@ function pokemonLevel(member = {}) {
   return Number.isFinite(level) && level > 0 ? level : 0;
 }
 
+function pokemonAbilityId(member = {}) {
+  const ability =
+    member.ability ??
+    member.abilityId ??
+    member.currentAbility ??
+    member.baseAbility ??
+    "";
+  return cleanId(
+    typeof ability === "string"
+      ? ability
+      : ability?.id ?? ability?.name ?? ability?.ability,
+  );
+}
+
 function manualAcePreference(member = {}) {
   const ai = member.ai ?? member.aiProfile ?? {};
   const directValues = [
@@ -596,6 +661,7 @@ function gimmickAceProfile(member = {}) {
 function computeAceProfile({
   member = {},
   roleScores = {},
+  speciesAceScore = 0,
   tags = new Set(),
   stats = {},
   teamContext = {},
@@ -638,10 +704,13 @@ function computeAceProfile({
   const highestLevel = level > 0 && maxLevel > 0 && level >= maxLevel;
   const levelGap = highestLevel ? level - Number(teamContext.secondMaxLevel ?? level) : 0;
   const hasSetup = tags.has("setupboost") || setupScore >= 3.5;
+  const setupAbility = ACE_SETUP_ABILITY_IDS.has(pokemonAbilityId(member));
+  const batonPassSupport = teamContext.hasBatonPassSupport === true;
+  const hasSetupRoute = hasSetup || setupAbility || batonPassSupport;
   const hasOffensiveStat = offense >= 115;
   const hasFastStat = speed >= 100;
   const hasHighBst = baseTotal >= 570;
-  const hasStrongSpeciesPrior = rawAce >= 2.4;
+  const hasStrongSpeciesPrior = Number(speciesAceScore) >= 2.4;
 
   if (manual.forced) {
     score += 100 + manual.priority;
@@ -675,6 +744,14 @@ function computeAceProfile({
   if (hasSetup) {
     score += 2.6;
     reasons.push("랭크업 전개 가능");
+  }
+  if (setupAbility) {
+    score += 1.8;
+    reasons.push("특성으로 랭크업 가능");
+  }
+  if (batonPassSupport && !hasSetup) {
+    score += 1.2;
+    reasons.push("팀의 배턴터치 전개 수혜");
   }
   if (revengeScore >= 3) {
     score += 0.8;
@@ -720,12 +797,28 @@ function computeAceProfile({
     reasons.push("막이/지원 역할 보존");
   }
 
+  const estimatedKoCapacity =
+    manual.forced ||
+    (hasSetupRoute &&
+      (offense >= 100 || rawAce >= 2 || gimmick.value > 0))
+      ? 2
+      : offense >= 135 && speed >= 100
+        ? 2
+        : 1;
   const qualifies = manual.forced || (score >= 5.8 && offensiveAnchor);
   return {
     score: Math.round(score * 100) / 100,
     qualifies,
     manual,
     reasons,
+    offense,
+    speed,
+    hasSetup,
+    setupAbility,
+    batonPassSupport,
+    hasSetupRoute,
+    estimatedKoCapacity,
+    offensiveAnchor,
   };
 }
 
@@ -735,6 +828,35 @@ function analyzeTeamMemberRole(member = {}, index = 0, teamContext = {}) {
   const warnings = [];
   const moveIds = pokemonMoveIds(member);
   const tags = new Set();
+  const hasBatonPass = moveIds.includes("batonpass");
+  const hasBatonPassSetupMove = (member.moves ?? member.moveset ?? []).some(
+    (move) => {
+      const moveId = cleanId(
+        typeof move === "string"
+          ? move
+          : move?.id ?? move?.moveId ?? move?.name ?? move?.move,
+      );
+      if (!moveId || moveId === "batonpass") return false;
+      const boosts =
+        typeof move === "string"
+          ? {}
+          : move?.selfBoosts ?? move?.boosts ?? {};
+      const explicitBoost = Object.values(boosts).some(
+        (amount) => Number(amount ?? 0) > 0,
+      );
+      const catalogEntry = moveRoleEntry(moveId);
+      return (
+        explicitBoost ||
+        (catalogEntry?.tags ?? []).some(
+          (tag) => cleanId(tag) === "setupboost",
+        ) ||
+        Number(catalogEntry?.roleScores?.setupSweeper ?? 0) >= 2.5
+      );
+    },
+  );
+  const batonPassSetupAbility = ["speedboost", "moody"].includes(
+    cleanId(member.ability),
+  );
 
   if (moveIds.length === 0) {
     warnings.push("기술 정보 없음");
@@ -807,6 +929,16 @@ function analyzeTeamMemberRole(member = {}, index = 0, teamContext = {}) {
     addRoleScore(roleScores, "pivot", 2.2);
     reasons.push("피벗 기술로 유리 대면을 연결할 수 있습니다.");
   }
+  if (
+    hasBatonPass &&
+    (hasBatonPassSetupMove || batonPassSetupAbility)
+  ) {
+    addRoleScore(roleScores, "pivot", 1.6);
+    addRoleScore(roleScores, "support", 1.2);
+    reasons.push(
+      "랭크업 수단과 배턴터치를 함께 보유해 에이스 전개 요원으로 평가합니다.",
+    );
+  }
   if (tags.has("hazardset") || tags.has("hazardremove")) {
     addRoleScore(roleScores, "hazardControl", 2.2);
     reasons.push("설치물 설치/제거로 판 관리 역할을 맡을 수 있습니다.");
@@ -823,6 +955,7 @@ function analyzeTeamMemberRole(member = {}, index = 0, teamContext = {}) {
   const aceProfile = computeAceProfile({
     member,
     roleScores,
+    speciesAceScore: Number(speciesOverride?.roleScores?.ace ?? 0),
     tags,
     stats: { attack, specialAttack, speed, hp, defense, specialDefense },
     teamContext,
@@ -830,9 +963,6 @@ function analyzeTeamMemberRole(member = {}, index = 0, teamContext = {}) {
   const displayRoleScores = { ...roleScores };
   if (!aceProfile.qualifies) {
     displayRoleScores.ace = 0;
-  }
-  if (aceProfile.qualifies && aceProfile.reasons.length > 0) {
-    reasons.unshift(`에이스 판단: ${aceProfile.reasons.slice(0, 3).join(", ")}`);
   }
 
   const roles = topRoles(displayRoleScores);
@@ -846,9 +976,125 @@ function analyzeTeamMemberRole(member = {}, index = 0, teamContext = {}) {
     rawRoleScores: roleScores,
     aceScore: aceProfile.score,
     aceProfile,
+    batonPassProfile: {
+      qualifies:
+        hasBatonPass &&
+        (hasBatonPassSetupMove || batonPassSetupAbility),
+      hasBatonPass,
+      hasSetupMove: hasBatonPassSetupMove,
+      setupAbility: batonPassSetupAbility ? cleanId(member.ability) : "",
+    },
     moveIds,
     reasons: reasons.slice(0, 4),
     warnings,
+  };
+}
+
+function finalizeTeamAceRoles(roleEntries, teamContext) {
+  const candidates = roleEntries
+    .filter(
+      (entry) =>
+        entry.aceProfile?.manual?.blocked !== true &&
+        Number.isFinite(Number(entry.aceScore)),
+    )
+    .sort(
+      (left, right) =>
+        Number(right.aceProfile?.manual?.forced === true) -
+          Number(left.aceProfile?.manual?.forced === true) ||
+        Number(right.aceProfile?.manual?.priority ?? 0) -
+          Number(left.aceProfile?.manual?.priority ?? 0) ||
+        Number(right.aceScore ?? 0) - Number(left.aceScore ?? 0) ||
+        left.slot - right.slot,
+    );
+  const forcedCandidates = candidates.filter(
+    (entry) => entry.aceProfile?.manual?.forced === true,
+  );
+  const sweepCandidates = candidates.filter(
+    (entry) =>
+      Number(entry.aceProfile?.estimatedKoCapacity ?? 1) >= 2 &&
+      entry.aceProfile?.offensiveAnchor === true,
+  );
+  const noTeamSetupRoute = teamContext.hasTeamSetupRoute !== true;
+  const strongestOffenseCandidates = candidates
+    .filter(
+      (entry) =>
+        entry.aceProfile?.offensiveAnchor === true ||
+        entry.aceProfile?.manual?.forced === true,
+    )
+    .sort(
+      (left, right) =>
+        Number(right.aceProfile?.offense ?? 0) -
+          Number(left.aceProfile?.offense ?? 0) ||
+        Number(right.aceScore ?? 0) - Number(left.aceScore ?? 0) ||
+        left.slot - right.slot,
+    );
+  const primaryAce =
+    forcedCandidates[0] ??
+    (noTeamSetupRoute ? strongestOffenseCandidates[0] : sweepCandidates[0]) ??
+    strongestOffenseCandidates[0] ??
+    null;
+  const subAceCandidates = candidates
+    .filter((entry) => {
+      if (!primaryAce || entry.slot === primaryAce.slot) return false;
+      const scoreGap =
+        Number(primaryAce.aceScore ?? 0) - Number(entry.aceScore ?? 0);
+      return (
+        entry.aceProfile?.qualifies === true ||
+        Number(entry.aceProfile?.estimatedKoCapacity ?? 1) >= 2 ||
+        (entry.aceProfile?.offensiveAnchor === true && scoreGap <= 3)
+      );
+    })
+    .slice(0, 2);
+  const subAceSlots = new Set(subAceCandidates.map((entry) => entry.slot));
+
+  for (const entry of roleEntries) {
+    const isAce = primaryAce?.slot === entry.slot;
+    const isSubAce = subAceSlots.has(entry.slot);
+    const roleScores = {
+      ...entry.rawRoleScores,
+      ace: isAce
+        ? Math.max(3, Number(entry.rawRoleScores?.ace ?? 0))
+        : 0,
+      subAce: isSubAce
+        ? Math.max(
+            1.5,
+            Math.min(4.5, Number(entry.aceScore ?? 0) * 0.35),
+          )
+        : 0,
+    };
+    entry.aceProfile = {
+      ...entry.aceProfile,
+      qualifies: isAce,
+      tier: isAce ? "ace" : isSubAce ? "subAce" : "none",
+    };
+    entry.roleScores = roleScores;
+    entry.roles = topRoles(roleScores);
+    entry.primaryRole = entry.roles[0]?.role ?? "support";
+    if (isAce) {
+      const selectionReason = noTeamSetupRoute
+        ? "팀에 확실한 랭크업 경로가 없어 가장 높은 공격 능력을 우선했습니다."
+        : `최소 ${entry.aceProfile.estimatedKoCapacity}명을 처리할 전개 잠재력을 가진 팀 내 최우선 후보입니다.`;
+      entry.reasons.unshift(
+        `에이스 확정: ${selectionReason}`,
+        `에이스 판단: ${entry.aceProfile.reasons.slice(0, 3).join(", ")}`,
+      );
+    } else if (isSubAce) {
+      entry.reasons.unshift(
+        `준에이스 판단: 에이스 점수 ${entry.aceScore}로 최종 에이스 다음 공격 자원입니다.`,
+      );
+    }
+    entry.reasons = entry.reasons.slice(0, 4);
+  }
+
+  return {
+    ace: primaryAce
+      ? roleEntries.find((entry) => entry.slot === primaryAce.slot)
+      : null,
+    subAces: subAceCandidates
+      .map((candidate) =>
+        roleEntries.find((entry) => entry.slot === candidate.slot),
+      )
+      .filter(Boolean),
   };
 }
 
@@ -861,8 +1107,28 @@ export function analyzeTeamProfile(team = []) {
     maxLevel: sortedLevels[0] ?? 0,
     secondMaxLevel:
       sortedLevels.find((level) => level < (sortedLevels[0] ?? 0)) ?? sortedLevels[0] ?? 0,
+    hasBatonPassSupport: team.some((member) =>
+      pokemonMoveIds(member).includes("batonpass"),
+    ),
+    hasTeamSetupRoute: team.some((member) => {
+      const moveIds = pokemonMoveIds(member);
+      return (
+        moveIds.some((moveId) =>
+          (moveRoleEntry(moveId)?.tags ?? []).some(
+            (tag) => cleanId(tag) === "setupboost",
+          ),
+        ) ||
+        ACE_SETUP_ABILITY_IDS.has(pokemonAbilityId(member))
+      );
+    }),
   };
-  const roles = team.map((member, index) => analyzeTeamMemberRole(member, index, teamContext));
+  if (teamContext.hasBatonPassSupport) {
+    teamContext.hasTeamSetupRoute = true;
+  }
+  const roles = team.map((member, index) =>
+    analyzeTeamMemberRole(member, index, teamContext),
+  );
+  const aceSelection = finalizeTeamAceRoles(roles, teamContext);
   const byRole = (role) =>
     roles
       .filter((entry) => entry.roles.some((candidate) => candidate.role === role))
@@ -870,26 +1136,8 @@ export function analyzeTeamProfile(team = []) {
         (left, right) =>
           Number(right.roleScores[role] ?? 0) - Number(left.roleScores[role] ?? 0),
       );
-  const qualifiedAceCandidates = roles
-    .filter((entry) => entry.aceProfile?.qualifies)
-    .sort(
-      (left, right) =>
-        Number(right.aceScore ?? 0) - Number(left.aceScore ?? 0) ||
-        Number(right.rawRoleScores?.ace ?? 0) - Number(left.rawRoleScores?.ace ?? 0) ||
-        left.slot - right.slot,
-    );
-  const fallbackAce = roles
-    .filter((entry) => Number.isFinite(Number(entry.aceScore)))
-    .sort(
-      (left, right) =>
-        Number(right.aceScore ?? 0) - Number(left.aceScore ?? 0) || left.slot - right.slot,
-    )[0];
-  const aceCandidates =
-    qualifiedAceCandidates.length > 0
-      ? qualifiedAceCandidates.slice(0, 3)
-      : fallbackAce
-        ? [fallbackAce]
-        : [];
+  const aceCandidates = aceSelection.ace ? [aceSelection.ace] : [];
+  const subAceCandidates = aceSelection.subAces;
   const defensiveCore = byRole("wall").slice(0, 3);
   const speedControl = [
     ...new Map(
@@ -918,6 +1166,7 @@ export function analyzeTeamProfile(team = []) {
   return {
     roles,
     aceCandidates,
+    subAceCandidates,
     defensiveCore,
     speedControl,
     hazardPlan: {
@@ -2565,6 +2814,41 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
     }
   }
 
+  const batonSetupGain = Math.max(
+    0,
+    finiteNumber(enriched.batonPassAdditionalBoostTotal, 0),
+  );
+  const batonSetupSurvivalProbability = Math.max(
+    0,
+    Math.min(
+      1,
+      finiteNumber(enriched.setupFollowupSurvivalProbability, 0),
+    ),
+  );
+  if (
+    moveId !== "batonpass" &&
+    enriched.batonPassTargetAvailable === true &&
+    batonSetupGain > 0 &&
+    batonSetupSurvivalProbability >= 0.65
+  ) {
+    const batonSetupWeight = Math.min(
+      180,
+      70 +
+        batonSetupGain * 24 +
+        Math.max(0, finiteNumber(enriched.batonPassNewKoTargets, 0)) * 42 +
+        Math.max(0, finiteNumber(enriched.batonPassPressureGain, 0)) * 28,
+    );
+    adjustments.push(
+      scoreAdjustment(
+        "rule.baton_pass.setup_for_ace",
+        "에이스 전달용 랭크업",
+        enriched.batonPassTargetName,
+        Math.round(batonSetupWeight * 100) / 100,
+        `${enriched.batonPassTargetName}에게 배턴터치할 수 있고 다음 행동까지 생존할 확률이 ${Math.round(batonSetupSurvivalProbability * 100)}%라, 안전한 범위에서 랭크를 더 쌓는 가치를 반영했습니다.`,
+      ),
+    );
+  }
+
   if (tags.has("setupboost")) {
     const incomingRatio = ratioValue(
       enriched.opponentMaxDamageToCurrentHealthRatio,
@@ -2797,6 +3081,88 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
           Math.round(strategicGain * 100) / 100,
           Math.round(weight * 100) / 100,
           `랭크업 후 새 KO권 ${newKoTargets}마리, 뒤쪽 엔트리 압박 증가 ${Math.round(futurePressureGain * 100)}%, 새 속도 우위 ${newSpeedAdvantages}개를 만들 수 있습니다.`,
+        ),
+      );
+    }
+  }
+
+  if (moveId === "batonpass") {
+    const currentBoostTotal = Math.max(
+      0,
+      finiteNumber(
+        enriched.batonPassCurrentBoostTotal,
+        finiteNumber(enriched.batonPassBoostTotal, 0),
+      ),
+    );
+    const canReachPass =
+      finiteNumber(enriched.opponentKnockoutBeforeActionProbability, 0) < 0.75;
+    if (
+      enriched.batonPassTargetAvailable !== true ||
+      enriched.batonPassTargetAce !== true
+    ) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.baton_pass.no_ace_target",
+          "전달 대상 없음",
+          false,
+          -180,
+          "살아 있는 에이스 전달 대상이 없어 배턴터치 가치를 크게 낮췄습니다.",
+        ),
+      );
+    } else if (currentBoostTotal <= 0) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.baton_pass.no_boosts",
+          "전달할 랭크 없음",
+          0,
+          -150,
+          "현재 전달할 유효한 공격·특수공격·스피드 랭크가 없어 배턴터치를 보류합니다.",
+        ),
+      );
+    } else if (!canReachPass) {
+      adjustments.push(
+        scoreAdjustment(
+          "rule.baton_pass.ko_before_pass",
+          "전달 전 기절 위험",
+          enriched.opponentKnockoutBeforeActionProbability,
+          -420,
+          "배턴터치를 사용하기 전에 쓰러질 가능성이 높아 전개를 성공시킬 수 없습니다.",
+        ),
+      );
+    } else {
+      const followupSurvival = Math.max(
+        0,
+        Math.min(
+          1,
+          finiteNumber(enriched.setupFollowupSurvivalProbability, 1),
+        ),
+      );
+      const urgentPass =
+        followupSurvival < 0.55 ||
+        finiteNumber(enriched.incomingDamageRatio, 0) >=
+          finiteNumber(enriched.hpPercent, 1);
+      const transferWeight = Math.min(
+        260,
+        55 +
+          Math.max(0, finiteNumber(enriched.batonPassTransferValue, 0)) *
+            0.75 +
+          (urgentPass ? 70 : 0),
+      );
+      adjustments.push(
+        scoreAdjustment(
+          urgentPass
+            ? "rule.baton_pass.pass_before_faint"
+            : "rule.baton_pass.transfer_to_ace",
+          urgentPass ? "기절 전 에이스 전달" : "에이스에게 랭크 전달",
+          {
+            target: enriched.batonPassTargetName,
+            boosts: currentBoostTotal,
+            newKoTargets: enriched.batonPassNewKoTargets,
+          },
+          Math.round(transferWeight * 100) / 100,
+          urgentPass
+            ? `다음 턴까지 전개 포켓몬이 버티기 어려워, 쌓은 ${currentBoostTotal}랭크를 잃기 전에 ${enriched.batonPassTargetName}에게 넘기는 가치를 높였습니다.`
+            : `쌓은 ${currentBoostTotal}랭크를 에이스 ${enriched.batonPassTargetName}에게 넘기면 새 KO권 ${Math.max(0, finiteNumber(enriched.batonPassNewKoTargets, 0))}개를 만들 수 있어 전개 가치를 반영했습니다.`,
         ),
       );
     }
@@ -3437,6 +3803,56 @@ export function switchRuleAdjustments(candidate, strategy = "balanced") {
     0,
     finiteNumber(candidate.stayPressurePenalty, 0),
   );
+  const currentHpPercent = Math.max(
+    0,
+    Math.min(
+      1,
+      finiteNumber(candidate.currentHpPercent, 1),
+    ),
+  );
+  const regeneratorRecoveryRatio = Math.max(
+    0,
+    finiteNumber(candidate.regeneratorRecoveryRatio, 0),
+  );
+  if (
+    cleanId(candidate.currentAbility) === "regenerator" &&
+    !forceSwitch &&
+    currentHpPercent < 0.6 &&
+    regeneratorRecoveryRatio > 0
+  ) {
+    const urgency = Math.max(
+      0,
+      Math.min(1, (0.6 - currentHpPercent) / 0.6),
+    );
+    const strategyMultiplier =
+      strategy === "tempo"
+        ? 1.25
+        : strategy === "defensive"
+          ? 1.2
+          : strategy === "aggressive"
+            ? 0.8
+            : strategy === "reckless_ace"
+              ? 0.75
+              : 1;
+    const bonus =
+      Math.round(
+        (12 + regeneratorRecoveryRatio * 70 + urgency * 28) *
+          strategyMultiplier *
+          100,
+      ) / 100;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.regenerator_recovery",
+        "재생력 회복",
+        {
+          hpPercent: Math.round(currentHpPercent * 100),
+          recovery: candidate.regeneratorRecoveryHp,
+        },
+        bonus,
+        `현재 체력이 ${Math.round(currentHpPercent * 100)}%라 교체하면 재생력으로 ${Math.round(regeneratorRecoveryRatio * 100)}%만큼 회복할 수 있어 교체 가치를 높였습니다.`,
+      ),
+    );
+  }
   if (stayPressurePenalty > 0) {
     const relieved = [];
     if (finiteNumber(candidate.yawnSwitchPressure, 0) > 0) {
@@ -3483,6 +3899,75 @@ export function switchRuleAdjustments(candidate, strategy = "balanced") {
         ),
       );
     }
+  }
+  if (candidate.aceRecoveryPlanEligible === true) {
+    const plan = candidate.aceRecoveryPlan ?? {};
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.ace_recovery_sacrifice_plan",
+        "에이스 회복용 희생 교체",
+        {
+          sacrifice: plan.sacrificeName,
+          ace: plan.aceName,
+          winProbabilityDelta: plan.winProbabilityDelta,
+        },
+        0,
+        `${plan.sacrificeName ?? candidate.name}을 잔존 가치가 가장 낮은 자원으로 투입한 뒤 ${plan.aceName ?? "에이스"}을 회복하면 예측 승률이 ${Math.round(Number(plan.winProbabilityDelta ?? 0) * 1_000) / 10}%p 상승하므로 연속 계획을 시작합니다.`,
+      ),
+    );
+  }
+  if (candidate.batonPassSetupOpportunity === true) {
+    const strategyMultiplier =
+      strategy === "reckless_ace"
+        ? 3.1
+        : strategy === "setup"
+          ? 1.6
+          : strategy === "aggressive"
+            ? 1.15
+            : strategy === "defensive" || strategy === "hazard"
+              ? 0.75
+              : 1;
+    const transferValue = Math.max(
+      0,
+      finiteNumber(candidate.batonPassTransferValue, 0),
+    );
+    const newKoTargets = Math.max(
+      0,
+      finiteNumber(candidate.batonPassNewKoTargets, 0),
+    );
+    const setupTurns = Math.max(
+      1,
+      finiteNumber(candidate.batonPassSafeSetupTurns, 1),
+    );
+    const bonus =
+      Math.round(
+        Math.min(
+          125,
+          38 +
+            setupTurns * 10 +
+            transferValue * 0.16 +
+            newKoTargets * 24,
+        ) *
+          strategyMultiplier *
+          100,
+      ) / 100;
+    adjustments.push(
+      scoreAdjustment(
+        "rule.switch.baton_pass_setup_opportunity",
+        "배턴터치 전개 기회",
+        {
+          ace: candidate.batonPassTargetName,
+          setupTurns,
+          incomingDamageRatio: candidate.batonPassIncomingDamageRatio,
+        },
+        bonus,
+        `${candidate.name}이(가) 약한 상대를 상대로 약 ${setupTurns}회 안전하게 랭크업한 뒤 에이스 ${candidate.batonPassTargetName}에게 배턴터치할 수 있어 투입 가치를 높였습니다.${
+          strategy === "reckless_ace"
+            ? " 저돌적 에이스 전략이라 에이스 전개 보너스를 더 강하게 적용했습니다."
+            : ""
+        }`,
+      ),
+    );
   }
 
   if (candidate.mustPreserveResource === true) {
@@ -4524,7 +5009,6 @@ export function scoreAiDynamaxCandidate({
       ),
     );
   }
-
   const dynamaxIncomingKoProbability = Math.max(
     0,
     Math.min(
@@ -4729,6 +5213,41 @@ export function scoreAiDynamaxCandidate({
         ),
       );
     }
+  }
+
+  if (
+    score >= DYNAMAX_SCORE_THRESHOLD &&
+    active.aceQualified === true
+  ) {
+    score += 4;
+    reasons.push(
+      scoreAdjustment(
+        "gimmick.dynamax.ace_preference",
+        "에이스 다이맥스",
+        true,
+        4,
+        "이미 사용 기준을 충족한 후보 중 팀의 단일 에이스가 다이맥스 체력과 맥스기술을 활용하도록 선호도를 높였습니다.",
+      ),
+    );
+  } else if (
+    score >= DYNAMAX_SCORE_THRESHOLD &&
+    active.livingAceOther === true
+  ) {
+    const adjustedScore = Math.max(
+      DYNAMAX_SCORE_THRESHOLD,
+      score - 6,
+    );
+    const penalty = adjustedScore - score;
+    score = adjustedScore;
+    reasons.push(
+      scoreAdjustment(
+        "gimmick.dynamax.reserve_for_ace",
+        "에이스 자원 보존",
+        active.livingAceName ?? true,
+        penalty,
+        `${active.livingAceName ?? "팀 에이스"}가 살아 있어 비에이스의 다이맥스 선호도를 낮추되, 자체 사용 근거가 충분한 후보를 강제로 배제하지는 않습니다.`,
+      ),
+    );
   }
 
   if (

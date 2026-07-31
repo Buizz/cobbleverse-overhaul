@@ -162,8 +162,8 @@ test("builds the prioritized custom and RCT trainer index", async () => {
   const payload = await buildTrainerIndex();
 
   assert.equal(payload.schemaVersion, 3);
-  assert.equal(payload.trainerCount, 220);
-  assert.equal(payload.trainers.length, 220);
+  assert.equal(payload.trainerCount, 224);
+  assert.equal(payload.trainers.length, 224);
   assert.deepEqual(payload.sourceGroups, ["custom", "rct"]);
   assert.equal(payload.trainers[0].id, "dbingsu-server-party");
   assert.equal(payload.trainers[0].sourceGroup, "custom");
@@ -195,4 +195,76 @@ test("builds the prioritized custom and RCT trainer index", async () => {
   assert.equal(corrado.team[3].species, "articuno");
   assert.deepEqual(corrado.team[3].aspects, ["galarian"]);
   assert.equal(corrado.team[3].resolvedSpecies, "Articuno-Galar");
+  const regeneratorStall = payload.trainers.find(
+    (trainer) => trainer.id === "legendary-regenerator-stall",
+  );
+  assert.equal(regeneratorStall.sourceGroup, "custom");
+  assert.equal(regeneratorStall.ai.data.strategy, "defensive");
+  assert.deepEqual(
+    regeneratorStall.team.slice(0, 3).map((member) => [
+      member.resolvedSpecies,
+      member.ability,
+    ]),
+    [
+      ["Ho-Oh", "regenerator"],
+      ["Ferrothorn", "ironbarbs"],
+      ["Toxapex", "regenerator"],
+    ],
+  );
+  assert.deepEqual(
+    [
+      regeneratorStall.team[3].resolvedSpecies,
+      regeneratorStall.team[3].ability,
+      regeneratorStall.team[3].heldItem,
+    ],
+    ["Dragalge", "adaptability", "zamega:dragalgite"],
+  );
+  const annihilapeBatonPass = payload.trainers.find(
+    (trainer) => trainer.id === "annihilape-baton-pass-offense",
+  );
+  assert.equal(annihilapeBatonPass.sourceGroup, "custom");
+  assert.equal(annihilapeBatonPass.ai.data.strategy, "reckless_ace");
+  assert.deepEqual(
+    annihilapeBatonPass.team.slice(0, 3).map((member) => [
+      member.resolvedSpecies,
+      member.ability,
+      member.moveset.includes("batonpass"),
+    ]),
+    [
+      ["Scolipede", "speedboost", true],
+      ["Smeargle", "owntempo", true],
+      ["Annihilape", "defiant", false],
+    ],
+  );
+  const manaphyArceusBatonPass = payload.trainers.find(
+    (trainer) => trainer.id === "manaphy-arceus-baton-pass-offense",
+  );
+  assert.equal(manaphyArceusBatonPass.sourceGroup, "custom");
+  assert.equal(manaphyArceusBatonPass.ai.data.strategy, "reckless_ace");
+  assert.deepEqual(
+    manaphyArceusBatonPass.team.slice(0, 2).map((member) => [
+      member.resolvedSpecies,
+      member.ability,
+      member.moveset.includes("batonpass"),
+    ]),
+    [
+      ["Manaphy", "hydration", true],
+      ["Arceus", "multitype", false],
+    ],
+  );
+  const tingLuHippowdonStall = payload.trainers.find(
+    (trainer) => trainer.id === "ting-lu-hippowdon-stall",
+  );
+  assert.equal(tingLuHippowdonStall.sourceGroup, "custom");
+  assert.equal(tingLuHippowdonStall.ai.data.strategy, "defensive");
+  assert.deepEqual(
+    tingLuHippowdonStall.team.slice(0, 2).map((member) => [
+      member.resolvedSpecies,
+      member.ability,
+    ]),
+    [
+      ["Ting-Lu", "vesselofruin"],
+      ["Hippowdon", "sandstream"],
+    ],
+  );
 });

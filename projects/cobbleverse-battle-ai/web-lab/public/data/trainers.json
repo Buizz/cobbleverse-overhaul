@@ -13,12 +13,12 @@
     "schemaVersion": 1,
     "itemCount": 7615,
     "resolutionCounts": {
-      "not_battle_item": 35,
-      "resolved": 577,
-      "unknown": 3
+      "not_battle_item": 36,
+      "resolved": 599,
+      "unknown": 4
     }
   },
-  "trainerCount": 220,
+  "trainerCount": 224,
   "trainers": [
     {
       "id": "dbingsu-server-party",
@@ -1423,6 +1423,361 @@
       }
     },
     {
+      "id": "legendary-regenerator-stall",
+      "sourceFile": "entries/custom/legendary-regenerator-stall.json",
+      "sourceGroup": "custom",
+      "name": "재생력 순환 막이",
+      "entry": {
+        "type": "computer",
+        "priority": 950,
+        "label": "재생력 스톨 테스트",
+        "source": "Cobbleverse defensive AI test archetype",
+        "owner": "Cobbleverse",
+        "snapshotDate": "2026-07-31"
+      },
+      "battleRules": {
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "ho-oh",
+          "resolvedSpecies": "Ho-Oh",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Grass"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "careful",
+          "ability": "regenerator",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "sacredfire",
+            "bravebird",
+            "recover",
+            "whirlwind"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 248,
+            "specialDefence": 208,
+            "speed": 52
+          }
+        },
+        {
+          "slot": 2,
+          "species": "ferrothorn",
+          "resolvedSpecies": "Ferrothorn",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Ghost"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "relaxed",
+          "ability": "ironbarbs",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "stealthrock",
+            "leechseed",
+            "protect",
+            "powerwhip"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 88,
+            "specialDefence": 168
+          }
+        },
+        {
+          "slot": 3,
+          "species": "toxapex",
+          "resolvedSpecies": "Toxapex",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dark"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "bold",
+          "ability": "regenerator",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "recover",
+            "toxic",
+            "haze",
+            "surf"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 252,
+            "specialDefence": 4
+          }
+        },
+        {
+          "slot": 4,
+          "species": "dragalge",
+          "resolvedSpecies": "Dragalge",
+          "aspects": [],
+          "gimmicks": {},
+          "level": 100,
+          "gender": null,
+          "nature": "calm",
+          "ability": "adaptability",
+          "heldItem": "zamega:dragalgite",
+          "heldItemOptions": [
+            "zamega:dragalgite"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "zamega:dragalgite",
+              "canonicalId": "zamega:dragalgite",
+              "status": "not_battle_item",
+              "candidates": [
+                "zamega:dragalgite"
+              ],
+              "item": {
+                "id": "zamega:dragalgite",
+                "namespace": "zamega",
+                "path": "dragalgite",
+                "englishName": "Dragalgite",
+                "koreanName": "",
+                "battleCategory": "unverified",
+                "battleUsable": false
+              }
+            }
+          ],
+          "moveset": [
+            "dracometeor",
+            "sludgebomb",
+            "flipturn",
+            "toxicspikes"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "specialAttack": 4,
+            "specialDefence": 252
+          }
+        },
+        {
+          "slot": 5,
+          "species": "dondozo",
+          "resolvedSpecies": "Dondozo",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dragon"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "impish",
+          "ability": "unaware",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "curse",
+            "waterfall",
+            "rest",
+            "sleeptalk"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 252,
+            "specialDefence": 4
+          }
+        },
+        {
+          "slot": 6,
+          "species": "corviknight",
+          "resolvedSpecies": "Corviknight",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Water"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "impish",
+          "ability": "pressure",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "defog",
+            "roost",
+            "uturn",
+            "bodypress"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 248,
+            "defence": 252,
+            "specialDefence": 8
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "canTera": true,
+          "strategy": "defensive"
+        }
+      }
+    },
+    {
       "id": "sv9-screens-offense",
       "sourceFile": "entries/custom/sv9-screens-offense.json",
       "sourceGroup": "custom",
@@ -1776,6 +2131,1066 @@
         "data": {
           "canTera": true,
           "strategy": "setup"
+        }
+      }
+    },
+    {
+      "id": "ting-lu-hippowdon-stall",
+      "sourceFile": "entries/custom/ting-lu-hippowdon-stall.json",
+      "sourceGroup": "custom",
+      "name": "딩루 하마돈 모래 막이",
+      "entry": {
+        "type": "computer",
+        "priority": 949,
+        "label": "모래 순환 막이 테스트",
+        "source": "Cobbleverse defensive AI test archetype",
+        "owner": "Cobbleverse",
+        "snapshotDate": "2026-07-31"
+      },
+      "battleRules": {
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "ting-lu",
+          "resolvedSpecies": "Ting-Lu",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Poison"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "careful",
+          "ability": "vesselofruin",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "spikes",
+            "ruination",
+            "whirlwind",
+            "rest"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 4,
+            "specialDefence": 252
+          }
+        },
+        {
+          "slot": 2,
+          "species": "hippowdon",
+          "resolvedSpecies": "Hippowdon",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dragon"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "impish",
+          "ability": "sandstream",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "stealthrock",
+            "yawn",
+            "slackoff",
+            "earthquake"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 252,
+            "specialDefence": 4
+          }
+        },
+        {
+          "slot": 3,
+          "species": "toxapex",
+          "resolvedSpecies": "Toxapex",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dark"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "bold",
+          "ability": "regenerator",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "recover",
+            "toxic",
+            "haze",
+            "surf"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 252,
+            "specialDefence": 4
+          }
+        },
+        {
+          "slot": 4,
+          "species": "corviknight",
+          "resolvedSpecies": "Corviknight",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Water"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "impish",
+          "ability": "pressure",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "defog",
+            "roost",
+            "uturn",
+            "bodypress"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 248,
+            "defence": 252,
+            "specialDefence": 8
+          }
+        },
+        {
+          "slot": 5,
+          "species": "blissey",
+          "resolvedSpecies": "Blissey",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Ghost"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "bold",
+          "ability": "naturalcure",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "softboiled",
+            "seismictoss",
+            "thunderwave",
+            "teleport"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 0
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 252,
+            "specialDefence": 4
+          }
+        },
+        {
+          "slot": 6,
+          "species": "dondozo",
+          "resolvedSpecies": "Dondozo",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dragon"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "impish",
+          "ability": "unaware",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "curse",
+            "waterfall",
+            "rest",
+            "sleeptalk"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 252,
+            "specialDefence": 4
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "canTera": true,
+          "strategy": "defensive"
+        }
+      }
+    },
+    {
+      "id": "annihilape-baton-pass-offense",
+      "sourceFile": "entries/custom/annihilape-baton-pass-offense.json",
+      "sourceGroup": "custom",
+      "name": "저승갓숭 배턴터치 전개",
+      "entry": {
+        "type": "computer",
+        "priority": 945,
+        "label": "배턴터치 에이스 테스트",
+        "source": "Cobbleverse Baton Pass AI test archetype",
+        "owner": "Cobbleverse",
+        "snapshotDate": "2026-07-31"
+      },
+      "battleRules": {
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "scolipede",
+          "resolvedSpecies": "Scolipede",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Water"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "speedboost",
+          "heldItem": "cobblemon:focus_sash",
+          "heldItemOptions": [
+            "cobblemon:focus_sash"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:focus_sash",
+              "canonicalId": "cobblemon:focus_sash",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:focus_sash"
+              ],
+              "item": {
+                "id": "cobblemon:focus_sash",
+                "namespace": "cobblemon",
+                "path": "focus_sash",
+                "englishName": "Focus Sash",
+                "koreanName": "기합의띠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "protect",
+            "swordsdance",
+            "irondefense",
+            "batonpass"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 2,
+          "species": "smeargle",
+          "resolvedSpecies": "Smeargle",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Ghost"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "owntempo",
+          "heldItem": "cobblemon:focus_sash",
+          "heldItemOptions": [
+            "cobblemon:focus_sash"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:focus_sash",
+              "canonicalId": "cobblemon:focus_sash",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:focus_sash"
+              ],
+              "item": {
+                "id": "cobblemon:focus_sash",
+                "namespace": "cobblemon",
+                "path": "focus_sash",
+                "englishName": "Focus Sash",
+                "koreanName": "기합의띠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "spore",
+            "shellsmash",
+            "substitute",
+            "batonpass"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 3,
+          "species": "annihilape",
+          "resolvedSpecies": "Annihilape",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Fire"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "adamant",
+          "ability": "defiant",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "ragefist",
+            "drainpunch",
+            "taunt",
+            "bulkup"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "attack": 252,
+            "specialDefence": 4
+          }
+        },
+        {
+          "slot": 4,
+          "species": "espeon",
+          "resolvedSpecies": "Espeon",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Fairy"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "magicbounce",
+          "heldItem": "cobblemon:light_clay",
+          "heldItemOptions": [
+            "cobblemon:light_clay"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:light_clay",
+              "canonicalId": "cobblemon:light_clay",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:light_clay"
+              ],
+              "item": {
+                "id": "cobblemon:light_clay",
+                "namespace": "cobblemon",
+                "path": "light_clay",
+                "englishName": "Light Clay",
+                "koreanName": "빛의점토",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "reflect",
+            "lightscreen",
+            "psychic",
+            "morningsun"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 5,
+          "species": "corviknight",
+          "resolvedSpecies": "Corviknight",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dragon"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "impish",
+          "ability": "pressure",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "defog",
+            "roost",
+            "uturn",
+            "bodypress"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 248,
+            "defence": 252,
+            "specialDefence": 8
+          }
+        },
+        {
+          "slot": 6,
+          "species": "clefable",
+          "resolvedSpecies": "Clefable",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Steel"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "bold",
+          "ability": "unaware",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "wish",
+            "protect",
+            "moonblast",
+            "thunderwave"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 252,
+            "specialDefence": 4
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "canTera": true,
+          "strategy": "reckless_ace"
+        }
+      }
+    },
+    {
+      "id": "manaphy-arceus-baton-pass-offense",
+      "sourceFile": "entries/custom/manaphy-arceus-baton-pass-offense.json",
+      "sourceGroup": "custom",
+      "name": "마나피 아르세우스 배턴터치",
+      "entry": {
+        "type": "computer",
+        "priority": 944,
+        "label": "특수 배턴터치 에이스 테스트",
+        "source": "Cobbleverse Baton Pass AI test archetype",
+        "owner": "Cobbleverse",
+        "snapshotDate": "2026-07-31"
+      },
+      "battleRules": {
+        "maxItemUses": 0
+      },
+      "bag": [],
+      "team": [
+        {
+          "slot": 1,
+          "species": "manaphy",
+          "resolvedSpecies": "Manaphy",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Fairy"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "hydration",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "tailglow",
+            "acidarmor",
+            "substitute",
+            "batonpass"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 2,
+          "species": "arceus",
+          "resolvedSpecies": "Arceus",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Fairy"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "multitype",
+          "heldItem": "cobblemon:pixie_plate",
+          "heldItemOptions": [
+            "cobblemon:pixie_plate"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:pixie_plate",
+              "canonicalId": "cobblemon:pixie_plate",
+              "status": "unknown",
+              "candidates": []
+            }
+          ],
+          "moveset": [
+            "storedpower",
+            "judgment",
+            "recover",
+            "calmmind"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 4,
+            "specialAttack": 252,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 3,
+          "species": "scolipede",
+          "resolvedSpecies": "Scolipede",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Water"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "jolly",
+          "ability": "speedboost",
+          "heldItem": "cobblemon:focus_sash",
+          "heldItemOptions": [
+            "cobblemon:focus_sash"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:focus_sash",
+              "canonicalId": "cobblemon:focus_sash",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:focus_sash"
+              ],
+              "item": {
+                "id": "cobblemon:focus_sash",
+                "namespace": "cobblemon",
+                "path": "focus_sash",
+                "englishName": "Focus Sash",
+                "koreanName": "기합의띠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "protect",
+            "irondefense",
+            "substitute",
+            "batonpass"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 4,
+          "species": "espeon",
+          "resolvedSpecies": "Espeon",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Fairy"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "timid",
+          "ability": "magicbounce",
+          "heldItem": "cobblemon:light_clay",
+          "heldItemOptions": [
+            "cobblemon:light_clay"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:light_clay",
+              "canonicalId": "cobblemon:light_clay",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:light_clay"
+              ],
+              "item": {
+                "id": "cobblemon:light_clay",
+                "namespace": "cobblemon",
+                "path": "light_clay",
+                "englishName": "Light Clay",
+                "koreanName": "빛의점토",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "reflect",
+            "lightscreen",
+            "psychic",
+            "morningsun"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "specialDefence": 4,
+            "speed": 252
+          }
+        },
+        {
+          "slot": 5,
+          "species": "clefable",
+          "resolvedSpecies": "Clefable",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Steel"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "bold",
+          "ability": "unaware",
+          "heldItem": "cobblemon:leftovers",
+          "heldItemOptions": [
+            "cobblemon:leftovers"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:leftovers",
+              "canonicalId": "cobblemon:leftovers",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:leftovers"
+              ],
+              "item": {
+                "id": "cobblemon:leftovers",
+                "namespace": "cobblemon",
+                "path": "leftovers",
+                "englishName": "Leftovers",
+                "koreanName": "먹다남은음식",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "wish",
+            "protect",
+            "moonblast",
+            "thunderwave"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 0,
+            "defence": 31,
+            "specialAttack": 31,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 252,
+            "defence": 252,
+            "specialDefence": 4
+          }
+        },
+        {
+          "slot": 6,
+          "species": "corviknight",
+          "resolvedSpecies": "Corviknight",
+          "aspects": [],
+          "gimmicks": {
+            "tera": "Dragon"
+          },
+          "level": 100,
+          "gender": null,
+          "nature": "impish",
+          "ability": "pressure",
+          "heldItem": "cobblemon:heavy_duty_boots",
+          "heldItemOptions": [
+            "cobblemon:heavy_duty_boots"
+          ],
+          "heldItemResolution": [
+            {
+              "input": "cobblemon:heavy_duty_boots",
+              "canonicalId": "cobblemon:heavy_duty_boots",
+              "status": "resolved",
+              "candidates": [
+                "cobblemon:heavy_duty_boots"
+              ],
+              "item": {
+                "id": "cobblemon:heavy_duty_boots",
+                "namespace": "cobblemon",
+                "path": "heavy_duty_boots",
+                "englishName": "Heavy-Duty Boots",
+                "koreanName": "통굽부츠",
+                "battleCategory": "held",
+                "battleUsable": true
+              }
+            }
+          ],
+          "moveset": [
+            "defog",
+            "roost",
+            "uturn",
+            "bodypress"
+          ],
+          "ivs": {
+            "hp": 31,
+            "attack": 31,
+            "defence": 31,
+            "specialAttack": 0,
+            "specialDefence": 31,
+            "speed": 31
+          },
+          "evs": {
+            "hp": 248,
+            "defence": 252,
+            "specialDefence": 8
+          }
+        }
+      ],
+      "ai": {
+        "type": "cobbleverse",
+        "data": {
+          "canTera": true,
+          "strategy": "reckless_ace"
         }
       }
     },

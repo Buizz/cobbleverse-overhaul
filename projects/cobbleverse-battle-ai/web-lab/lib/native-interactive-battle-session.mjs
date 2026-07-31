@@ -26,6 +26,15 @@ import {
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const SAVE_SLOT_COUNT = 5;
 const MAX_CHECKPOINTS = 100;
+const DEFAULT_PVE_ITEM_RULES = {
+  source: "global",
+  items: [
+    "cobblemon:full_restore",
+    "cobblemon:potion",
+    "cobblemon:full_heal",
+  ],
+  maxUses: 2,
+};
 const sessions = new Map();
 
 function cleanId(value) {
@@ -88,6 +97,7 @@ function publicMoveData(pokemon, move) {
     priority: 0,
     power: isStatus ? 0 : Math.max(90, Math.min(150, move.power * 1.35)),
     target: isStatus ? "self" : move.target,
+    selfSwitch: false,
   };
 }
 
@@ -135,6 +145,7 @@ function publicMoves(
       power: displayMove.power,
       accuracy: displayMove.accuracy,
       priority: displayMove.priority,
+      selfSwitch: Boolean(displayMove.selfSwitch),
       effectiveness:
         displayMove.category === "Status"
           ? "not_applicable"
@@ -325,11 +336,13 @@ function snapshot(session) {
             .at(-1)
             .replace(/[^a-z0-9]/gi, "")
             .toLowerCase();
+          const hasCurableCondition =
+            Boolean(player.status) || Boolean(player.volatiles?.confusion);
           const effectUseful =
             (normalized === "fullrestore" &&
-              (player.hp < player.stats.hp || Boolean(player.status))) ||
+              (player.hp < player.stats.hp || hasCurableCondition)) ||
             (normalized === "potion" && player.hp < player.stats.hp) ||
-            (normalized === "fullheal" && Boolean(player.status));
+            (normalized === "fullheal" && hasCurableCondition);
           return {
             id,
             name: {
@@ -538,8 +551,29 @@ function playerCommand(state, action) {
       throw new Error("현재 사용할 수 없는 기술입니다.");
     }
     const gimmick = String(action?.gimmick ?? "");
+    const selfSwitchSlot = Number(action?.selfSwitchSlot);
+    const keepsSelfSwitch =
+      active.dynamaxTurns <= 0 &&
+      move.selfSwitch &&
+      !["zmove", "dynamax", "gigantamax"].includes(gimmick);
+    if (keepsSelfSwitch && !Number.isInteger(selfSwitchSlot)) {
+      throw new Error("기술 사용 후 교체할 포켓몬을 선택해 주세요.");
+    }
+    if (keepsSelfSwitch) {
+      const side = state.sides[0];
+      const replacement = side.team[selfSwitchSlot - 1];
+      if (
+        !replacement ||
+        replacement.fainted ||
+        replacement.hp <= 0 ||
+        selfSwitchSlot - 1 === side.active
+      ) {
+        throw new Error("교체할 수 있는 포켓몬을 선택해 주세요.");
+      }
+    }
     return {
       move: slot,
+      ...(keepsSelfSwitch ? { selfSwitchSlot } : {}),
       ...(gimmick ? { gimmick } : {}),
       ...(gimmick === "terastallize"
         ? { teraType: active.teraType || active.types[0] || "Normal" }
@@ -558,11 +592,18 @@ export function startNativeInteractiveBattle(scenario) {
     throw new Error("Cobbleverse 자체 엔진 PvE는 현재 싱글 배틀만 지원합니다.");
   }
   removeExpiredSessions();
+  const interactiveScenario =
+    scenario.itemRules?.source === "global"
+      ? scenario
+      : {
+          ...scenario,
+          itemRules: structuredClone(DEFAULT_PVE_ITEM_RULES),
+        };
   const session = {
     id: `native-${randomUUID()}`,
-    scenario,
+    scenario: interactiveScenario,
     state: createSimpleBattle({
-      ...createNativeBattleSetup(scenario),
+      ...createNativeBattleSetup(interactiveScenario),
       manualFaintSwitchSides: [0],
     }),
     aiTrace: [],

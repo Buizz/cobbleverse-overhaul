@@ -14,10 +14,10 @@
     }
   ],
   "generatedFrom": "public/data/trainers.json",
-  "trainerCount": 220,
+  "trainerCount": 224,
   "totalMoveCount": 938,
   "currentStandardMoveCount": 685,
-  "trainerUsedMoveCount": 568,
+  "trainerUsedMoveCount": 573,
   "availabilityCounts": {
     "Past": 191,
     "Standard": 685,
@@ -34,7 +34,7 @@
     "UNKNOWN": 0
   },
   "trainerStatusCounts": {
-    "SUPPORTED": 568,
+    "SUPPORTED": 573,
     "PARTIAL": 0,
     "UNSUPPORTED": 0,
     "UNKNOWN": 0
@@ -124,7 +124,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -647,8 +647,8 @@
       "name": "Baton Pass",
       "exists": true,
       "availability": "Standard",
-      "usedByTrainers": false,
-      "trainerUsageCount": 0,
+      "usedByTrainers": true,
+      "trainerUsageCount": 4,
       "requirements": [
         "selfSwitch"
       ],
@@ -909,7 +909,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 19,
+      "trainerUsageCount": 23,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1036,7 +1036,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 14,
+      "trainerUsageCount": 15,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1146,7 +1146,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 9,
+      "trainerUsageCount": 10,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1238,7 +1238,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 18,
+      "trainerUsageCount": 19,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -1820,7 +1820,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 7,
+      "trainerUsageCount": 9,
       "requirements": [
         "volatileStatus"
       ],
@@ -1923,7 +1923,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 6,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2168,7 +2168,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 11,
+      "trainerUsageCount": 12,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2332,7 +2332,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 18,
+      "trainerUsageCount": 19,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -2446,7 +2446,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 85,
+      "trainerUsageCount": 86,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -3162,7 +3162,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 3,
+      "trainerUsageCount": 4,
       "requirements": [
         "selfSwitch"
       ],
@@ -4273,7 +4273,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 3,
+      "trainerUsageCount": 5,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -4950,7 +4950,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 15,
+      "trainerUsageCount": 17,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -5015,8 +5015,8 @@
       "name": "Judgment",
       "exists": true,
       "availability": "Standard",
-      "usedByTrainers": false,
-      "trainerUsageCount": 0,
+      "usedByTrainers": true,
+      "trainerUsageCount": 1,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -5231,7 +5231,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 9,
+      "trainerUsageCount": 10,
       "requirements": [
         "volatileStatus"
       ],
@@ -5299,7 +5299,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 9,
+      "trainerUsageCount": 11,
       "requirements": [
         "sideCondition"
       ],
@@ -6189,7 +6189,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 23,
+      "trainerUsageCount": 25,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -6222,7 +6222,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 4,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7106,7 +7106,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 7,
+      "trainerUsageCount": 8,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7150,7 +7150,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 37,
+      "trainerUsageCount": 42,
       "requirements": [
         "volatileStatus"
       ],
@@ -7185,7 +7185,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 33,
+      "trainerUsageCount": 35,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7437,7 +7437,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [
         "dynamicPower"
       ],
@@ -7542,7 +7542,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 13,
+      "trainerUsageCount": 17,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7564,7 +7564,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 11,
+      "trainerUsageCount": 13,
       "requirements": [
         "sideCondition"
       ],
@@ -7610,7 +7610,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 14,
+      "trainerUsageCount": 17,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7858,7 +7858,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 12,
+      "trainerUsageCount": 16,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -7893,7 +7893,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 3,
+      "trainerUsageCount": 4,
       "requirements": [
         "dynamicDamage"
       ],
@@ -7906,7 +7906,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -8156,7 +8156,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [
         "fixedDamage"
       ],
@@ -8317,7 +8317,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 5,
+      "trainerUsageCount": 6,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -8539,7 +8539,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -8583,7 +8583,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 5,
+      "trainerUsageCount": 7,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -8605,7 +8605,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 35,
+      "trainerUsageCount": 36,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -8768,8 +8768,8 @@
       "name": "Soft-Boiled",
       "exists": true,
       "availability": "Standard",
-      "usedByTrainers": false,
-      "trainerUsageCount": 0,
+      "usedByTrainers": true,
+      "trainerUsageCount": 1,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -8927,7 +8927,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [
         "sideCondition"
       ],
@@ -9043,7 +9043,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 6,
+      "trainerUsageCount": 7,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -9078,7 +9078,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 35,
+      "trainerUsageCount": 37,
       "requirements": [
         "sideCondition"
       ],
@@ -9229,7 +9229,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 2,
+      "trainerUsageCount": 3,
       "requirements": [
         "dynamicPower"
       ],
@@ -9354,7 +9354,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 10,
+      "trainerUsageCount": 13,
       "requirements": [
         "volatileStatus"
       ],
@@ -9472,7 +9472,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 11,
+      "trainerUsageCount": 13,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -9567,7 +9567,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 40,
+      "trainerUsageCount": 41,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -9634,8 +9634,8 @@
       "name": "Tail Glow",
       "exists": true,
       "availability": "Standard",
-      "usedByTrainers": false,
-      "trainerUsageCount": 0,
+      "usedByTrainers": true,
+      "trainerUsageCount": 1,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -9718,7 +9718,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 13,
+      "trainerUsageCount": 14,
       "requirements": [
         "volatileStatus"
       ],
@@ -9800,8 +9800,8 @@
       "name": "Teleport",
       "exists": true,
       "availability": "Standard",
-      "usedByTrainers": false,
-      "trainerUsageCount": 0,
+      "usedByTrainers": true,
+      "trainerUsageCount": 1,
       "requirements": [
         "selfSwitch"
       ],
@@ -10009,7 +10009,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 25,
+      "trainerUsageCount": 28,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -10077,7 +10077,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 13,
+      "trainerUsageCount": 15,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -10088,7 +10088,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 7,
+      "trainerUsageCount": 8,
       "requirements": [
         "sideCondition"
       ],
@@ -10328,7 +10328,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 30,
+      "trainerUsageCount": 34,
       "requirements": [
         "selfSwitch"
       ],
@@ -10479,7 +10479,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 5,
+      "trainerUsageCount": 7,
       "requirements": [],
       "callbacks": [],
       "status": "SUPPORTED"
@@ -10600,7 +10600,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 4,
+      "trainerUsageCount": 6,
       "requirements": [
         "forceSwitch"
       ],
@@ -10694,7 +10694,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 3,
+      "trainerUsageCount": 5,
       "requirements": [
         "slotCondition"
       ],
@@ -10801,7 +10801,7 @@
       "exists": true,
       "availability": "Standard",
       "usedByTrainers": true,
-      "trainerUsageCount": 8,
+      "trainerUsageCount": 9,
       "requirements": [
         "volatileStatus"
       ],

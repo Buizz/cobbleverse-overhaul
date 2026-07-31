@@ -708,7 +708,10 @@ function teamRolePlainText(
       lines.push(roleSummaryLine(localization, entry));
     }
     lines.push(
-      `  에이스 후보: ${roleNameSummary(localization, profile.aceCandidates)}`,
+      `  에이스: ${roleNameSummary(localization, profile.aceCandidates)}`,
+    );
+    lines.push(
+      `  준에이스: ${roleNameSummary(localization, profile.subAceCandidates)}`,
     );
     lines.push(
       `  막이 코어: ${roleNameSummary(localization, profile.defensiveCore)}`,

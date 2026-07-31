@@ -29,8 +29,10 @@ import {
   scoreAiSwitchCandidate,
   moveRoleValue,
   scoreAiMoveCandidate,
+  SELECTABLE_AI_STRATEGIES,
   selectAiMoveCandidate,
   selectAiGimmick,
+  selectSeededAiStrategy,
   selectWinProbabilityCandidate,
   teamRoleLabel,
 } from "../lib/common-battle-ai.mjs";
@@ -39,6 +41,25 @@ test("loads shared AI move role catalog through the web bridge", async () => {
   const catalog = await loadMoveRoleCatalog();
   assert.ok(getMoveRoleEntry(catalog, "Stealth Rock").tags.includes("HAZARD_SET"));
   assert.ok(getMoveRoleScore(catalog, "Swords Dance", "setupSweeper") >= 4);
+});
+
+test("selects a reproducible live PvE strategy from the preferred strategy pool", () => {
+  const allStrategies = new Set(SELECTABLE_AI_STRATEGIES);
+  const first = selectSeededAiStrategy(20260731);
+  const repeated = selectSeededAiStrategy(20260731);
+  const preferred = selectSeededAiStrategy(20260731, ["setup", "tempo"]);
+  const observed = new Set(
+    Array.from({ length: 256 }, (_, seed) => selectSeededAiStrategy(seed)),
+  );
+
+  assert.equal(first, repeated);
+  assert.ok(allStrategies.has(first));
+  assert.deepEqual(observed, allStrategies);
+  assert.ok(["setup", "tempo"].includes(preferred));
+  assert.equal(
+    selectSeededAiStrategy(20260731, ["unsupported"]),
+    first,
+  );
 });
 
 test("analyzes team member roles from moves and stats", () => {
@@ -72,6 +93,7 @@ test("analyzes team member roles from moves and stats", () => {
   assert.ok(corviknight.roles.some((role) => role.role === "pivot"));
   assert.ok(scizor.roles.some((role) => role.role === "revengeKiller"));
   assert.equal(teamRoleLabel("ace"), "에이스");
+  assert.equal(teamRoleLabel("subAce"), "준에이스");
 });
 
 test("uses species role priors as soft bonuses in team analysis", () => {
@@ -135,7 +157,15 @@ test("separates true ace candidates from broad offensive role scores", () => {
   assert.equal(garganacl.roles.some((role) => role.role === "ace"), false);
   assert.deepEqual(
     report.aceCandidates.map((entry) => entry.species),
-    ["Mawile", "Blaziken"],
+    ["Mawile"],
+  );
+  assert.deepEqual(
+    report.subAceCandidates.map((entry) => entry.species),
+    ["Blaziken"],
+  );
+  assert.equal(
+    report.roles.filter((entry) => entry.aceProfile.qualifies).length,
+    1,
   );
 });
 
@@ -159,6 +189,82 @@ test("honors manually selected ace roles before inferred ace scoring", () => {
   assert.equal(report.aceCandidates[0].species, "Porygon2");
   assert.equal(report.aceCandidates[0].aceProfile.manual.forced, true);
   assert.ok(report.aceCandidates[0].roles.some((role) => role.role === "ace"));
+});
+
+test("selects one ability setup ace and keeps close candidates as sub aces", () => {
+  const report = analyzeTeamProfile([
+    {
+      slot: 1,
+      species: "Blaziken",
+      level: 100,
+      ability: "Speed Boost",
+      stats: { attack: 145, specialAttack: 110, speed: 100 },
+      moves: ["Close Combat", "Flare Blitz", "Protect"],
+    },
+    {
+      slot: 2,
+      species: "Garchomp",
+      level: 100,
+      stats: { attack: 130, specialAttack: 80, speed: 102 },
+      moves: ["Earthquake", "Dragon Claw"],
+    },
+  ]);
+
+  assert.equal(report.aceCandidates.length, 1);
+  assert.equal(report.aceCandidates[0].species, "Blaziken");
+  assert.equal(report.aceCandidates[0].aceProfile.setupAbility, true);
+  assert.equal(report.aceCandidates[0].aceProfile.estimatedKoCapacity, 2);
+  assert.equal(report.subAceCandidates[0].species, "Garchomp");
+  assert.ok(
+    report.subAceCandidates[0].roles.some(
+      (role) => role.role === "subAce",
+    ),
+  );
+});
+
+test("uses Baton Pass support as an ace setup route", () => {
+  const report = analyzeTeamProfile([
+    {
+      slot: 1,
+      species: "Support",
+      level: 100,
+      stats: { attack: 60, specialAttack: 60, speed: 110 },
+      moves: ["Baton Pass", "Agility"],
+    },
+    {
+      slot: 2,
+      species: "Receiver",
+      level: 100,
+      stats: { attack: 150, specialAttack: 70, speed: 80 },
+      moves: ["Earthquake", "Rock Slide"],
+    },
+  ]);
+
+  assert.equal(report.aceCandidates[0].species, "Receiver");
+  assert.equal(report.aceCandidates[0].aceProfile.batonPassSupport, true);
+  assert.equal(report.aceCandidates[0].aceProfile.estimatedKoCapacity, 2);
+});
+
+test("falls back to the strongest offensive stat when the team has no setup route", () => {
+  const report = analyzeTeamProfile([
+    {
+      slot: 1,
+      species: "Fast Candidate",
+      level: 100,
+      stats: { attack: 115, specialAttack: 80, speed: 140 },
+      moves: ["Tackle"],
+    },
+    {
+      slot: 2,
+      species: "Strong Candidate",
+      level: 100,
+      stats: { attack: 155, specialAttack: 70, speed: 70 },
+      moves: ["Body Slam"],
+    },
+  ]);
+
+  assert.equal(report.aceCandidates[0].species, "Strong Candidate");
+  assert.match(report.aceCandidates[0].reasons[0], /가장 높은 공격 능력/);
 });
 
 test("maps high threats to counters and marks a unique resource for preservation", () => {
@@ -1976,6 +2082,56 @@ test("scores Dynamax activation against setup opportunity cost", () => {
   assert.ok(withMaxKnuckle.score >= 12);
   assert.ok(
     withMaxKnuckle.reasons.some((reason) => reason.code === "gimmick.dynamax.max_knuckle"),
+  );
+});
+
+test("prefers an already-viable Dynamax candidate when the user is the sole ace", () => {
+  const selectedMove = {
+    slot: 1,
+    id: "closecombat",
+    name: "Close Combat",
+    type: "Fighting",
+    category: "Physical",
+    power: 120,
+    expectedDamage: 240,
+    opponentHp: 210,
+    koChance: "guaranteed",
+  };
+  const shared = {
+    configured: { gimmicks: { dynamax: true } },
+    selectedMove,
+    moveCandidates: [selectedMove],
+  };
+  const ace = scoreAiDynamaxCandidate({
+    ...shared,
+    active: {
+      canDynamax: true,
+      aceQualified: true,
+      hpPercent: 0.7,
+      incomingDamageRatio: 0.55,
+      opponentHp: 210,
+    },
+  });
+  const reserve = scoreAiDynamaxCandidate({
+    ...shared,
+    active: {
+      canDynamax: true,
+      livingAceOther: true,
+      livingAceName: "Ace",
+      hpPercent: 0.7,
+      incomingDamageRatio: 0.55,
+      opponentHp: 210,
+    },
+  });
+
+  assert.ok(ace.score >= 12);
+  assert.ok(reserve.score >= 12);
+  assert.ok(ace.score > reserve.score);
+  assert.ok(
+    ace.reasons.some((reason) => reason.code === "gimmick.dynamax.ace_preference"),
+  );
+  assert.ok(
+    reserve.reasons.some((reason) => reason.code === "gimmick.dynamax.reserve_for_ace"),
   );
 });
 
