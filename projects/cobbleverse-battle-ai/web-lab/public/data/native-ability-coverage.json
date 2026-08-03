@@ -3,8 +3,8 @@
   "generatedFrom": "public/data/trainers.json",
   "trainerCount": 224,
   "uniqueAbilityCount": 208,
-  "supportedAbilityCount": 122,
-  "unsupportedAbilityCount": 86,
+  "supportedAbilityCount": 127,
+  "unsupportedAbilityCount": 81,
   "abilities": [
     {
       "id": "levitate",
@@ -1214,7 +1214,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "strongjaw",
@@ -1302,7 +1302,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "frisk",
@@ -1324,7 +1324,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "gluttony",
@@ -1434,7 +1434,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "unburden",
@@ -1456,7 +1456,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "weakarmor",

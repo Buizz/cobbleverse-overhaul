@@ -162,6 +162,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "competitive",
   "compoundeyes",
   "cursedbody",
+  "cutecharm",
   "chlorophyll",
   "clearbody",
   "dauntlessshield",
@@ -176,6 +177,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "flamebody",
   "flashfire",
   "fluffy",
+  "frisk",
   "furcoat",
   "galewings",
   "goodasgold",
@@ -244,10 +246,12 @@ const IMPLEMENTED_ABILITIES = new Set([
   "static",
   "steadfast",
   "stamina",
+  "stickyhold",
   "sturdy",
   "strongjaw",
   "stormdrain",
   "supremeoverlord",
+  "swarm",
   "synchronize",
   "technician",
   "teraformzero",
@@ -259,6 +263,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "toughclaws",
   "toxicdebris",
   "unaware",
+  "unburden",
   "unseenfist",
   "vitalspirit",
   "vesselofruin",
@@ -1381,6 +1386,12 @@ function effectiveSpeed(pokemon, state = null, sideIndex = null) {
     speed *= 2;
   }
   if (
+    activeAbility(pokemon) === "unburden" &&
+    pokemon.abilityState?.unburdenActivated === true
+  ) {
+    speed *= 2;
+  }
+  if (
     state &&
     Number.isInteger(sideIndex) &&
     hasSideCondition(state, sideIndex, "tailwind")
@@ -1724,6 +1735,13 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   if (
     activeAbility(attacker) === "torrent" &&
     move.type === "Water" &&
+    attacker.hp <= Math.floor(attacker.stats.hp / 3)
+  ) {
+    abilityModifier *= 1.5;
+  }
+  if (
+    activeAbility(attacker) === "swarm" &&
+    move.type === "Bug" &&
     attacker.hp <= Math.floor(attacker.stats.hp / 3)
   ) {
     abilityModifier *= 1.5;
@@ -2144,6 +2162,13 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
   const targetSide = sideIndex === 0 ? 1 : 0;
   const target = activePokemon(state, targetSide);
   if (!target || target.fainted) return;
+  if (ability === "frisk" && target.item) {
+    emitAbilityActivation(state, sideIndex, pokemon, ability, {
+      targetSide,
+      target: target.name,
+      item: target.item,
+    });
+  }
   if (ability === "download") {
     const defence = effectiveStat(target, "defence");
     const specialDefence = effectiveStat(target, "specialDefence");
@@ -2978,6 +3003,7 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
   outgoing.choiceLock = null;
   outgoing.chargingMove = null;
   outgoing.volatiles = {};
+  delete outgoing.abilityState?.unburdenActivated;
   if (outgoing.status === "tox") {
     outgoing.toxicCounter = 1;
   }
@@ -3066,8 +3092,44 @@ function isConsumableBattleItem(item) {
   return id.endsWith("berry") || id.endsWith("gem");
 }
 
-function removeTargetItem(state, sideIndex, pokemon, source) {
+function heldItemRemovalBlocked(state, sideIndex, pokemon, sourceSide, source) {
+  if (!Number.isInteger(sourceSide) || sourceSide === sideIndex) return false;
+  const sourcePokemon = activePokemon(state, sourceSide);
+  if (
+    activeAbility(pokemon) !== "stickyhold" ||
+    ignoresDefenderAbility(sourcePokemon)
+  ) {
+    return false;
+  }
+  emitAbilityActivation(state, sideIndex, pokemon, "stickyhold", {
+    source,
+    targetSide: sourceSide,
+    target: sourcePokemon?.name,
+  });
+  return true;
+}
+
+function activateUnburden(state, sideIndex, pokemon, item, source) {
+  if (
+    !item ||
+    activeAbility(pokemon) !== "unburden" ||
+    pokemon.abilityState?.unburdenActivated === true
+  ) {
+    return;
+  }
+  pokemon.abilityState ??= {};
+  pokemon.abilityState.unburdenActivated = true;
+  emitAbilityActivation(state, sideIndex, pokemon, "unburden", {
+    item,
+    source,
+  });
+}
+
+function removeTargetItem(state, sideIndex, pokemon, source, sourceSide = null) {
   if (!pokemon.item) return "";
+  if (heldItemRemovalBlocked(state, sideIndex, pokemon, sourceSide, source)) {
+    return "";
+  }
   const removedItem = pokemon.item;
   pokemon.item = "";
   pokemon.lastItem = removedItem;
@@ -3079,6 +3141,7 @@ function removeTargetItem(state, sideIndex, pokemon, source) {
     item: removedItem,
     source,
   });
+  activateUnburden(state, sideIndex, pokemon, removedItem, source);
   return removedItem;
 }
 
@@ -3097,12 +3160,19 @@ function consumeHeldItem(state, sideIndex, pokemon, source) {
     item: consumedItem,
     source,
   });
+  activateUnburden(state, sideIndex, pokemon, consumedItem, source);
   return consumedItem;
 }
 
 function stealTargetItem(state, attackerSide, attacker, defenderSide, defender, source) {
   if (attacker.item || !itemCanBeStolen(defender.item)) return false;
-  const stolenItem = removeTargetItem(state, defenderSide, defender, source);
+  const stolenItem = removeTargetItem(
+    state,
+    defenderSide,
+    defender,
+    source,
+    attackerSide,
+  );
   if (!stolenItem) return false;
   attacker.item = stolenItem;
   state.events.push({
@@ -3120,6 +3190,17 @@ function swapHeldItems(state, attackerSide, attacker, defenderSide, defender, so
   if (!itemCanBeStolen(attacker.item) && !itemCanBeStolen(defender.item)) {
     return false;
   }
+  if (
+    heldItemRemovalBlocked(
+      state,
+      defenderSide,
+      defender,
+      attackerSide,
+      source,
+    )
+  ) {
+    return false;
+  }
   const attackerItem = attacker.item || "";
   const defenderItem = defender.item || "";
   attacker.item = defenderItem;
@@ -3135,6 +3216,12 @@ function swapHeldItems(state, attackerSide, attacker, defenderSide, defender, so
     rightPokemon: defender.name,
     rightItem: defender.item,
   });
+  if (attackerItem && !attacker.item) {
+    activateUnburden(state, attackerSide, attacker, attackerItem, source);
+  }
+  if (defenderItem && !defender.item) {
+    activateUnburden(state, defenderSide, defender, defenderItem, source);
+  }
   return true;
 }
 
@@ -6991,7 +7078,14 @@ function executeMove(state, action, rng) {
     if (cleanId(move.id) === "corrosivegas") {
       handled = true;
       applied = removeTargetItem(state, action.side, attacker, move.name) || applied;
-      applied = removeTargetItem(state, defenderSide, defender, move.name) || applied;
+      applied =
+        removeTargetItem(
+          state,
+          defenderSide,
+          defender,
+          move.name,
+          action.side,
+        ) || applied;
     }
     if (cleanId(move.id) === "topsyturvy") {
       handled = true;
@@ -7958,18 +8052,14 @@ function executeMove(state, action, rng) {
         !defender.item &&
         attacker.item
       ) {
-        defender.item = attacker.item;
-        attacker.item = "";
-        state.events.push({
-          turn: state.turn,
-          type: "item_stolen",
-          side: defenderSide,
-          pokemon: defender.name,
-          targetSide: action.side,
-          target: attacker.name,
-          item: defender.item,
-          source: "pickpocket",
-        });
+        stealTargetItem(
+          state,
+          defenderSide,
+          defender,
+          action.side,
+          attacker,
+          "pickpocket",
+        );
       }
       if (
         damage > 0 &&
@@ -8024,6 +8114,31 @@ function executeMove(state, action, rng) {
           "par",
           rng,
           "static",
+          defenderSide,
+        );
+      }
+      if (
+        damage > 0 &&
+        defender.hp > 0 &&
+        !ignoresDefenderAbility(attacker) &&
+        makesContact(move) &&
+        activeAbility(defender) === "cutecharm" &&
+        defender.gender &&
+        attacker.gender &&
+        defender.gender !== attacker.gender &&
+        !attacker.volatiles?.attract &&
+        rng.next() < 0.3
+      ) {
+        emitAbilityActivation(state, defenderSide, defender, "cutecharm", {
+          targetSide: action.side,
+          target: attacker.name,
+        });
+        applyVolatileStatus(
+          state,
+          action.side,
+          attacker,
+          "attract",
+          "cutecharm",
           defenderSide,
         );
       }
@@ -8442,7 +8557,13 @@ function executeMove(state, action, rng) {
     }
   }
   if (landedHits > 0 && cleanId(move.id) === "knockoff" && defender.item) {
-    removeTargetItem(state, defenderSide, defender, move.name);
+    removeTargetItem(
+      state,
+      defenderSide,
+      defender,
+      move.name,
+      action.side,
+    );
   }
   if (
     landedHits > 0 &&
@@ -8455,14 +8576,26 @@ function executeMove(state, action, rng) {
     ["bugbite", "incinerate"].includes(cleanId(move.id)) &&
     isConsumableBattleItem(defender.item)
   ) {
-    removeTargetItem(state, defenderSide, defender, move.name);
+    removeTargetItem(
+      state,
+      defenderSide,
+      defender,
+      move.name,
+      action.side,
+    );
   }
   if (
     landedHits > 0 &&
     cleanId(move.id) === "pluck" &&
     isConsumableBattleItem(defender.item)
   ) {
-    removeTargetItem(state, defenderSide, defender, move.name);
+    removeTargetItem(
+      state,
+      defenderSide,
+      defender,
+      move.name,
+      action.side,
+    );
   }
   if (totalDamage > 0) {
     if (move.weather) {

@@ -67,6 +67,11 @@
 | UNIT_TESTED | `steadfast` | 불굴의마음, 풀죽음으로 행동하지 못하면 스피드 +1 | `canAct` | `Steadfast raises Speed after flinching and respects suppression` |
 | UNIT_TESTED | `aftermath` | 유폭, 접촉 공격으로 쓰러질 때 공격자 최대 HP의 1/4 피해 | `executeMove` post-KO contact reaction | `Aftermath damages a contact attacker after a knockout and can be bypassed` |
 | UNIT_TESTED | `disguise` | 탈, 첫 직접 공격 1타 흡수 후 최대 HP의 1/8 피해 | `executeMove`, `aiDamageOutcomeProfile` | `Disguise absorbs the first hit, takes chip damage, and informs AI damage` |
+| UNIT_TESTED | `stickyhold` | 점착, 상대에 의한 아이템 제거·강탈·교환 방지 | 아이템 제거·강탈·교환 도우미 | `Sticky Hold blocks opposing item removal unless the ability is ignored` |
+| UNIT_TESTED | `cutecharm` | 헤롱헤롱바디, 이성의 접촉 공격자에게 30% 확률로 헤롱헤롱 | `executeMove` post-hit contact reaction | `Cute Charm infatuates an opposite-gender contact attacker and respects suppression` |
+| UNIT_TESTED | `frisk` | 통찰, 등장 시 상대가 지닌 아이템 공개 | `applyEntryAbilities` | `Frisk reveals the opposing held item on entry` |
+| UNIT_TESTED | `swarm` | 벌레의알림, HP 1/3 이하에서 벌레 기술 위력 1.5배 | `calculateDamageRange` | `Swarm boosts low-HP Bug damage in previews and respects suppression` |
+| UNIT_TESTED | `unburden` | 곡예, 아이템 상실 후 교체 전까지 스피드 2배 | 아이템 제거·소비 도우미, `effectiveSpeed`, `switchActivePokemon` | `Unburden doubles Speed after losing an item and resets on switch` |
 
 ## 2026 실전 파티 특성 구현 묶음
 
@@ -198,6 +203,7 @@
 - [ ] `megalauncher`: 파동 기술 1.5배
 - [x] `sheerforce`: 부가효과 기술 1.3배 및 부가효과 제거
 - [x] `serenegrace`: 기술 부가효과 확률 2배(최대 100%)
+- [x] `swarm`: HP 1/3 이하 벌레 타입 기술 1.5배
 
 ### 타입·면역·상태
 
@@ -246,6 +252,7 @@
 - [x] `minus`: 기어업/자기장조작 대상
 - [x] `download`: 등장 시 공격 또는 특공 +1
 - [x] `intrepidsword`: 등장 시 공격 +1
+- [x] `frisk`: 등장 시 상대의 지닌 아이템 공개
 - [ ] `trace`: 등장 시 상대 특성 복사
 - [x] `regenerator`: 교체 시 HP 1/3 회복
 - [x] `naturalcure`: 교체 시 상태 회복
@@ -253,6 +260,7 @@
 - [x] `beastboost`: KO 후 가장 높은 능력 +1
 - [x] `speedboost`: 턴 종료 스피드 +1
 - [x] `steadfast`: 풀죽음으로 행동하지 못하면 스피드 +1
+- [x] `unburden`: 아이템 상실 후 교체 전까지 스피드 2배
 - [ ] `contrary`: 랭크 변화 반전
 - [x] `competitive`: 상대에 의한 능력 하락 시 특공 +2
 - [ ] `defiant`: 능력 하락 시 공격 +2
@@ -280,10 +288,15 @@
 - [x] `flamebody`: 접촉 시 화상 확률
 - [x] `poisontouch`: 접촉 공격 시 독 확률
 - [ ] `effectspore`: 접촉 시 상태 확률
-- [ ] `cutecharm`: 접촉 시 헤롱헤롱 확률
+- [x] `cutecharm`: 이성의 접촉 공격자에게 헤롱헤롱 확률
 - [ ] `mummy`: 접촉 공격자의 특성을 미라로 변경
 - [ ] `wandering spirit`: 접촉 시 특성 교환
 - [x] `aftermath`: 접촉 KO 시 피해
+
+### 아이템 상호작용
+
+- [x] `stickyhold`: 상대에 의한 아이템 제거·강탈·교환 방지
+- [ ] `gluttony`: 체력 회복 나무열매 발동 기준을 HP 1/2로 변경
 
 ### 우선도·행동 제한
 

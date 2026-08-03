@@ -50,6 +50,18 @@ test("reports the second high-usage ability batch as supported", () => {
   }
 });
 
+test("reports the third high-usage ability batch as supported", () => {
+  for (const ability of [
+    "stickyhold",
+    "cutecharm",
+    "frisk",
+    "swarm",
+    "unburden",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
 test("uses trainer battle items and consumes both quantity and use limit", () => {
   let state = createSimpleBattle(
     setup({
@@ -20223,6 +20235,213 @@ test("Disguise absorbs the first hit, takes chip damage, and informs AI damage",
   ]);
   assert.ok(bypassed.sides[1].team[0].hp < 105);
   assert.equal(bypassed.sides[1].team[0].abilityState.disguiseBusted, undefined);
+});
+
+test("Sticky Hold blocks opposing item removal unless the ability is ignored", () => {
+  const knockOff = {
+    id: "knockoff",
+    name: "Knock Off",
+    type: "Dark",
+    category: "Physical",
+    power: 20,
+    accuracy: true,
+    pp: 20,
+    contact: true,
+  };
+  const run = (ability = "") =>
+    resolveSimpleTurn(
+      createSimpleBattle(
+        setup({
+          sides: [
+            {
+              name: "Remover",
+              team: [pokemon({ ability, moves: [knockOff] })],
+            },
+            {
+              name: "Sticky Hold",
+              team: [
+                pokemon({
+                  ability: "stickyhold",
+                  item: "leftovers",
+                  stats: { ...pokemon().stats, hp: 500 },
+                }),
+              ],
+            },
+          ],
+        }),
+      ),
+      [{ move: 1 }, { move: 1 }],
+    );
+
+  const blocked = run();
+  assert.equal(blocked.sides[1].team[0].item, "leftovers");
+  assert.ok(
+    blocked.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "stickyhold",
+    ),
+  );
+  assert.equal(run("moldbreaker").sides[1].team[0].item, "");
+});
+
+test("Cute Charm infatuates an opposite-gender contact attacker and respects suppression", () => {
+  const contactMove = {
+    id: "scratch",
+    name: "Scratch",
+    type: "Normal",
+    category: "Physical",
+    power: 40,
+    accuracy: true,
+    pp: 35,
+    contact: true,
+  };
+  const run = (seed, suppressed = false) => {
+    const state = createSimpleBattle(
+      setup({
+        seed,
+        sides: [
+          {
+            name: "Attacker",
+            team: [pokemon({ gender: "M", moves: [contactMove] })],
+          },
+          {
+            name: "Cute Charm",
+            team: [
+              pokemon({
+                ability: "cutecharm",
+                gender: "F",
+                stats: { ...pokemon().stats, hp: 500 },
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+    if (suppressed) {
+      state.sides[1].team[0].volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  };
+  const triggeringSeed = Array.from({ length: 128 }, (_, seed) => seed).find(
+    (seed) => run(seed).sides[0].team[0].volatiles.attract,
+  );
+
+  assert.notEqual(triggeringSeed, undefined);
+  const charmed = run(triggeringSeed);
+  assert.equal(charmed.sides[0].team[0].volatiles.attract.source, "cutecharm");
+  assert.ok(
+    charmed.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "cutecharm",
+    ),
+  );
+  assert.equal(run(triggeringSeed, true).sides[0].team[0].volatiles.attract, undefined);
+});
+
+test("Frisk reveals the opposing held item on entry", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Frisk", team: [pokemon({ ability: "frisk" })] },
+        {
+          name: "Target",
+          team: [pokemon({ name: "Item Holder", item: "choicescarf" })],
+        },
+      ],
+    }),
+  );
+  const event = state.events.find(
+    (candidate) => candidate.type === "ability_activate" && candidate.ability === "frisk",
+  );
+
+  assert.equal(event.target, "Item Holder");
+  assert.equal(event.item, "choicescarf");
+});
+
+test("Swarm boosts low-HP Bug damage in previews and respects suppression", () => {
+  const bugMove = {
+    id: "xscissor",
+    name: "X-Scissor",
+    type: "Bug",
+    category: "Physical",
+    power: 80,
+    accuracy: true,
+    pp: 15,
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Swarm",
+          team: [pokemon({ ability: "swarm", moves: [bugMove] })],
+        },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  const attacker = state.sides[0].team[0];
+  const defender = state.sides[1].team[0];
+  attacker.hp = 40;
+  const boosted = calculateDamageRange(attacker, defender, attacker.moves[0]);
+  attacker.volatiles.gastroacid = { id: "gastroacid" };
+  const suppressed = calculateDamageRange(attacker, defender, attacker.moves[0]);
+
+  assert.equal(boosted.abilityModifier, 1.5);
+  assert.equal(suppressed.abilityModifier, 1);
+});
+
+test("Unburden doubles Speed after losing an item and resets on switch", () => {
+  const fling = {
+    id: "fling",
+    name: "Fling",
+    type: "Dark",
+    category: "Physical",
+    power: 30,
+    accuracy: true,
+    pp: 10,
+  };
+  const tackle = {
+    ...pokemon().moves[0],
+    contact: true,
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Unburden",
+          team: [
+            pokemon({
+              name: "Unburden User",
+              ability: "unburden",
+              item: "ironball",
+              stats: { ...pokemon().stats, speed: 60 },
+              moves: [fling, tackle],
+            }),
+            pokemon({ name: "Bench" }),
+          ],
+        },
+        {
+          name: "Fast Target",
+          team: [pokemon({ stats: { ...pokemon().stats, hp: 500, speed: 100 } })],
+        },
+      ],
+    }),
+  );
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].item, "");
+  assert.equal(state.sides[0].team[0].abilityState.unburdenActivated, true);
+  assert.ok(
+    state.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "unburden",
+    ),
+  );
+
+  state = resolveSimpleTurn(state, [{ move: 2 }, { move: 1 }]);
+  const turnTwoDamage = state.events.filter(
+    (event) => event.turn === 2 && event.type === "damage" && event.cause !== "status",
+  );
+  assert.equal(turnTwoDamage[0].source, "Unburden User");
+
+  state = resolveSimpleTurn(state, [{ switch: 2 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].abilityState.unburdenActivated, undefined);
 });
 
 test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {
