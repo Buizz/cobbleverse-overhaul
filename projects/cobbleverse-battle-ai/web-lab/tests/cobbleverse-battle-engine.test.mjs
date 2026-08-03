@@ -22,7 +22,7 @@ import {
 test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported("pressure"), true);
   assert.equal(isSimpleAbilitySupported("cobblemon:pressure"), true);
-  assert.equal(isSimpleAbilitySupported("earlybird"), false);
+  assert.equal(isSimpleAbilitySupported("leafguard"), false);
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
@@ -69,6 +69,18 @@ test("reports the fourth high-usage ability batch as supported", () => {
     "shadowtag",
     "shielddust",
     "sniper",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
+test("reports the fifth high-usage ability batch as supported", () => {
+  for (const ability of [
+    "gluttony",
+    "neutralizinggas",
+    "thermalexchange",
+    "earlybird",
+    "effectspore",
   ]) {
     assert.equal(isSimpleAbilitySupported(ability), true, ability);
   }
@@ -20719,6 +20731,232 @@ test("Sniper increases guaranteed critical damage in battle and AI estimates", (
       (event) => event.type === "damage" && event.side === 1 && event.turn === 1,
     ).damage;
   assert.ok(damage(sniper) > damage(baseline));
+});
+
+test("Gluttony consumes pinch healing Berries at half HP", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const run = (ability) => {
+    const state = createSimpleBattle(
+      setup({
+        sides: [
+          { name: "Attacker", team: [pokemon()] },
+          {
+            name: "Berry",
+            team: [
+              pokemon({
+                ability,
+                item: "figyberry",
+                moves: [splash],
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+    state.sides[1].team[0].hp = 70;
+    return resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  };
+
+  const gluttony = run("gluttony");
+  const baseline = run("");
+  assert.equal(gluttony.sides[1].team[0].item, "");
+  assert.equal(gluttony.sides[1].team[0].ateBerry, true);
+  assert.equal(baseline.sides[1].team[0].item, "figyberry");
+  assert.ok(
+    gluttony.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "gluttony",
+    ),
+  );
+  assert.ok(
+    gluttony.events.some(
+      (event) => event.type === "heal" && event.source === "figyberry",
+    ),
+  );
+});
+
+test("Neutralizing Gas suppresses active abilities and restores them after switching", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Huge Power",
+          team: [pokemon({ ability: "hugepower" })],
+        },
+        {
+          name: "Gas",
+          team: [
+            pokemon({
+              name: "Gas User",
+              ability: "neutralizinggas",
+              moves: [splash],
+              stats: { ...pokemon().stats, hp: 500 },
+            }),
+            pokemon({
+              name: "Bench",
+              moves: [splash],
+              stats: { ...pokemon().stats, hp: 500 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  assert.ok(state.sides[0].team[0].volatiles.neutralizinggas);
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  const suppressedDamage = state.events.find(
+    (event) => event.turn === 1 && event.type === "damage" && event.side === 1,
+  ).damage;
+
+  state = resolveSimpleTurn(state, [{ move: 1 }, { switch: 2 }]);
+  const restoredDamage = state.events.find(
+    (event) => event.turn === 2 && event.type === "damage" && event.side === 1,
+  ).damage;
+  assert.equal(state.sides[0].team[0].volatiles.neutralizinggas, undefined);
+  assert.ok(restoredDamage > suppressedDamage * 1.5);
+  assert.ok(
+    state.events.some(
+      (event) =>
+        event.type === "ability_activate" && event.ability === "neutralizinggas",
+    ),
+  );
+});
+
+test("Thermal Exchange blocks burns and raises Attack after Fire damage", () => {
+  const fireMove = {
+    id: "ember",
+    name: "Ember",
+    type: "Fire",
+    category: "Special",
+    power: 40,
+    accuracy: true,
+    pp: 25,
+  };
+  const willOWisp = {
+    id: "willowisp",
+    name: "Will-O-Wisp",
+    type: "Fire",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 15,
+    status: "brn",
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Fire", team: [pokemon({ moves: [fireMove] })] },
+        {
+          name: "Exchange",
+          team: [
+            pokemon({
+              ability: "thermalexchange",
+              stats: { ...pokemon().stats, hp: 500 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const activated = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(activated.sides[1].team[0].boosts.attack, 1);
+
+  const burnState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Burn", team: [pokemon({ moves: [willOWisp] })] },
+        { name: "Exchange", team: [pokemon({ ability: "thermalexchange" })] },
+      ],
+    }),
+  );
+  const burnBlocked = resolveSimpleTurn(burnState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(burnBlocked.sides[1].team[0].status, "");
+  burnState.sides[1].team[0].volatiles.gastroacid = { id: "gastroacid" };
+  const suppressed = resolveSimpleTurn(burnState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(suppressed.sides[1].team[0].status, "brn");
+});
+
+test("Early Bird wakes and acts sooner while respecting suppression", () => {
+  const run = (suppressed = false) => {
+    const state = createSimpleBattle(setup());
+    const user = state.sides[0].team[0];
+    user.ability = "earlybird";
+    user.status = "slp";
+    user.statusTurns = 2;
+    if (suppressed) {
+      user.volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  };
+
+  const awake = run();
+  assert.equal(awake.sides[0].team[0].status, "");
+  assert.ok(
+    awake.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "earlybird",
+    ),
+  );
+  assert.ok(
+    awake.events.some(
+      (event) => event.type === "damage" && event.source === "PlayerMon",
+    ),
+  );
+  assert.equal(run(true).sides[0].team[0].status, "slp");
+});
+
+test("Effect Spore inflicts contact status and respects suppression and powder immunity", () => {
+  const contactMove = {
+    ...pokemon().moves[0],
+    contact: true,
+  };
+  const run = (seed, { suppressed = false, types = ["Normal"] } = {}) => {
+    const state = createSimpleBattle(
+      setup({
+        seed,
+        sides: [
+          { name: "Attacker", team: [pokemon({ types, moves: [contactMove] })] },
+          {
+            name: "Effect Spore",
+            team: [
+              pokemon({
+                ability: "effectspore",
+                stats: { ...pokemon().stats, hp: 500 },
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+    if (suppressed) {
+      state.sides[1].team[0].volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  };
+  const triggeringSeed = Array.from({ length: 256 }, (_, seed) => seed).find(
+    (seed) => run(seed).sides[0].team[0].status,
+  );
+
+  assert.notEqual(triggeringSeed, undefined);
+  const affected = run(triggeringSeed);
+  assert.ok(["par", "psn", "slp"].includes(affected.sides[0].team[0].status));
+  assert.equal(run(triggeringSeed, { suppressed: true }).sides[0].team[0].status, "");
+  assert.equal(run(triggeringSeed, { types: ["Grass"] }).sides[0].team[0].status, "");
 });
 
 test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {

@@ -77,6 +77,11 @@
 | UNIT_TESTED | `shadowtag` | 그림자밟기, 고스트·아름다운허물·동일 특성 예외를 제외한 상대 교체 차단 | `isPokemonTrapped`, 수동·AI 교체 후보 | `Shadow Tag traps switch attempts while respecting standard exceptions` |
 | UNIT_TESTED | `shielddust` | 인분, 공격 기술의 부가효과 차단 | 실제 부가효과 처리·AI 후보 점수 | `Shield Dust blocks damaging-move secondaries in battle and AI scoring` |
 | UNIT_TESTED | `sniper` | 스나이퍼, 급소 피해를 기본 1.5배에서 2.25배로 강화 | 실제 피해·AI 예상 피해 | `Sniper increases guaranteed critical damage in battle and AI estimates` |
+| UNIT_TESTED | `gluttony` | 먹보, 핀치 회복·랭크 나무열매를 HP 1/2 이하에서 조기 소비 | 직접 피해·간접 피해·HP 비용 후 나무열매 소비 | `Gluttony consumes pinch healing Berries at half HP` |
+| UNIT_TESTED | `neutralizinggas` | 화학변화가스, 필드에 있는 동안 다른 활성 특성 억제 | 생성·등장·교체·기절·특성 변경 동기화 | `Neutralizing Gas suppresses active abilities and restores them after switching` |
+| UNIT_TESTED | `thermalexchange` | 열교환, 화상 면역 및 불꽃 피해를 받으면 공격 +1 | `statusBlockedByAbility`, `executeMove` post-hit | `Thermal Exchange blocks burns and raises Attack after Fire damage` |
+| UNIT_TESTED | `earlybird` | 일찍기상, 수면 카운터를 2씩 줄이고 기상 즉시 행동 | `canAct` | `Early Bird wakes and acts sooner while respecting suppression` |
+| UNIT_TESTED | `effectspore` | 포자, 접촉 공격자에게 30% 확률로 마비·독·수면 | `executeMove` post-hit contact reaction | `Effect Spore inflicts contact status and respects suppression and powder immunity` |
 
 ## 2026 실전 파티 특성 구현 묶음
 
@@ -229,6 +234,8 @@
 - [x] `sapsipper`: 풀 기술 무효 및 공격 상승
 - [x] `heatproof`: 불꽃 피해 및 화상 피해 감소
 - [x] `oblivious`: 위협·도발·헤롱헤롱 무효
+- [x] `thermalexchange`: 화상 면역 및 불꽃 피해를 받으면 공격 +1
+- [x] `earlybird`: 수면 카운터를 2씩 감소하고 기상 즉시 행동
 
 ### 날씨·필드
 
@@ -267,6 +274,7 @@
 - [x] `steadfast`: 풀죽음으로 행동하지 못하면 스피드 +1
 - [x] `unburden`: 아이템 상실 후 교체 전까지 스피드 2배
 - [x] `shadowtag`: 고스트·탈출용 아이템·동일 특성 예외를 제외한 교체 차단
+- [x] `neutralizinggas`: 등장·교체·기절·특성 변경에 맞춰 다른 활성 특성 억제·복구
 - [ ] `contrary`: 랭크 변화 반전
 - [x] `competitive`: 상대에 의한 능력 하락 시 특공 +2
 - [ ] `defiant`: 능력 하락 시 공격 +2
@@ -293,7 +301,7 @@
 - [x] `static`: 접촉 피해를 준 공격자 마비 확률
 - [x] `flamebody`: 접촉 시 화상 확률
 - [x] `poisontouch`: 접촉 공격 시 독 확률
-- [ ] `effectspore`: 접촉 시 상태 확률
+- [x] `effectspore`: 접촉 시 마비·독·수면 확률, 풀 타입·방진 면역
 - [x] `cutecharm`: 이성의 접촉 공격자에게 헤롱헤롱 확률
 - [ ] `mummy`: 접촉 공격자의 특성을 미라로 변경
 - [ ] `wandering spirit`: 접촉 시 특성 교환
@@ -307,7 +315,7 @@
 ### 아이템 상호작용
 
 - [x] `stickyhold`: 상대에 의한 아이템 제거·강탈·교환 방지
-- [ ] `gluttony`: 체력 회복 나무열매 발동 기준을 HP 1/2로 변경
+- [x] `gluttony`: 핀치 회복·랭크 나무열매 발동 기준을 HP 1/2로 변경
 
 ### 우선도·행동 제한
 
