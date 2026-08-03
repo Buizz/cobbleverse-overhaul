@@ -192,12 +192,14 @@ const IMPLEMENTED_ABILITIES = new Set([
   "hydration",
   "hustle",
   "immunity",
+  "imposter",
   "insomnia",
   "intimidate",
   "intrepidsword",
   "ironbarbs",
   "ironfist",
   "keeneye",
+  "leafguard",
   "levitate",
   "limber",
   "lightmetal",
@@ -224,10 +226,12 @@ const IMPLEMENTED_ABILITIES = new Set([
   "minus",
   "plus",
   "pressure",
+  "prankster",
   "protosynthesis",
   "purifyingsalt",
   "purepower",
   "quarkdrive",
+  "reckless",
   "regenerator",
   "rockhead",
   "roughskin",
@@ -254,6 +258,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "static",
   "steadfast",
   "stamina",
+  "stench",
   "stickyhold",
   "sturdy",
   "strongjaw",
@@ -1201,11 +1206,33 @@ function abilityModifiedMove(attacker, move) {
   if (activeAbility(attacker) === "liquidvoice" && isSoundMove(move)) {
     return { ...move, type: "Water" };
   }
+  if (
+    activeAbility(attacker) === "stench" &&
+    move?.category !== "Status" &&
+    Number(move?.power ?? 0) > 0 &&
+    !(move.secondaries ?? []).some(
+      (effect) => cleanId(effect.volatileStatus) === "flinch",
+    )
+  ) {
+    return {
+      ...move,
+      secondaries: [
+        ...(move.secondaries ?? []),
+        { chance: 10, volatileStatus: "flinch" },
+      ],
+    };
+  }
   return move;
 }
 
 function movePriorityForPokemon(pokemon, move) {
   const priority = Number(move?.priority ?? 0);
+  if (
+    activeAbility(pokemon) === "prankster" &&
+    move?.category === "Status"
+  ) {
+    return priority + 1;
+  }
   if (
     activeAbility(pokemon) === "galewings" &&
     move?.type === "Flying" &&
@@ -1718,6 +1745,12 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   if (activeAbility(attacker) === "hustle" && move.category === "Physical") {
     abilityModifier *= 1.5;
   }
+  if (
+    activeAbility(attacker) === "reckless" &&
+    (move.recoil || hasCrashOnFailure(move))
+  ) {
+    abilityModifier *= 1.2;
+  }
   if (activeAbility(attacker) === "analytic") {
     const defenderAlreadyActed =
       typeof context.defenderActed === "boolean"
@@ -2214,6 +2247,14 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
   const targetSide = sideIndex === 0 ? 1 : 0;
   const target = activePokemon(state, targetSide);
   if (!target || target.fainted) return;
+  if (ability === "imposter" && !pokemon.volatiles?.transform) {
+    emitAbilityActivation(state, sideIndex, pokemon, ability, {
+      targetSide,
+      target: target.name,
+    });
+    applyTransform(state, sideIndex, pokemon, target, ability);
+    return;
+  }
   if (ability === "frisk" && target.item) {
     emitAbilityActivation(state, sideIndex, pokemon, ability, {
       targetSide,
@@ -3048,6 +3089,7 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
     emitAbilityActivation(state, sideIndex, outgoing, "naturalcure");
     curePokemonStatus(state, sideIndex, outgoing, "naturalcure");
   }
+  revertTransform(outgoing);
   endDynamax(state, sideIndex, outgoing, "switch");
   outgoing.boosts = Object.fromEntries(
     BOOST_STATS.map((stat) => [stat, 0]),
@@ -3696,6 +3738,14 @@ function canReceiveStatus(
   if (state && Number.isInteger(side)) {
     const terrain = cleanId(state.field?.terrain?.id);
     if (
+      activeAbility(pokemon) === "leafguard" &&
+      ["sunnyday", "desolateland"].includes(
+        cleanId(state.field?.weather?.id),
+      )
+    ) {
+      return false;
+    }
+    if (
       isGrounded(pokemon) &&
       (terrain === "mistyterrain" ||
         (terrain === "electricterrain" && status === "slp"))
@@ -4188,6 +4238,22 @@ function applyTransform(state, side, pokemon, target, source) {
     id: "transform",
     previousName,
     target: target.name,
+    original: {
+      id: pokemon.id,
+      name: pokemon.name,
+      types: [...pokemon.types],
+      originalTypes: [...pokemon.originalTypes],
+      ability: pokemon.ability,
+      weightKg: pokemon.weightKg,
+      stats: {
+        attack: pokemon.stats.attack,
+        defence: pokemon.stats.defence,
+        specialAttack: pokemon.stats.specialAttack,
+        specialDefence: pokemon.stats.specialDefence,
+        speed: pokemon.stats.speed,
+      },
+      moves: clone(pokemon.moves),
+    },
   };
   pokemon.name = target.name;
   pokemon.id = target.id;
@@ -4219,6 +4285,20 @@ function applyTransform(state, side, pokemon, target, source) {
     source,
   });
   syncNeutralizingGas(state);
+  return true;
+}
+
+function revertTransform(pokemon) {
+  const original = pokemon.volatiles?.transform?.original;
+  if (!original) return false;
+  pokemon.id = original.id;
+  pokemon.name = original.name;
+  pokemon.types = [...original.types];
+  pokemon.originalTypes = [...original.originalTypes];
+  pokemon.ability = original.ability;
+  pokemon.weightKg = original.weightKg;
+  Object.assign(pokemon.stats, original.stats);
+  pokemon.moves = clone(original.moves);
   return true;
 }
 
@@ -4835,6 +4915,14 @@ function targetsPokemonWithStatusMove(move) {
   return !["self", "allyside", "foeside", "all"].includes(cleanId(move.target));
 }
 
+function isPranksterBlocked(attacker, defender, move) {
+  return (
+    activeAbility(attacker) === "prankster" &&
+    targetsPokemonWithStatusMove(move) &&
+    defender.types.includes("Dark")
+  );
+}
+
 function canMagicBounceMove(move) {
   if (move?.category !== "Status" || cleanId(move.target) === "self") return false;
   if (cleanId(move.id) === "curse") return false;
@@ -5073,6 +5161,17 @@ function applyMoveEffect(
         attackerSide,
       ) ||
       applied;
+  }
+  if (effect.volatileStatus) {
+    applied =
+      applyVolatileStatus(
+        state,
+        defenderSide,
+        defender,
+        effect.volatileStatus,
+        source,
+        attackerSide,
+      ) || applied;
   }
   if (Object.keys(effect.boosts ?? {}).length) {
     applied =
@@ -6259,6 +6358,18 @@ function executeMove(state, action, rng) {
       pokemon: attacker.name,
       move: move.name,
       reason: "Focus Punch fails if the user was hit before moving.",
+    });
+    return false;
+  }
+
+  if (isPranksterBlocked(attacker, defender, move)) {
+    state.events.push({
+      turn: state.turn,
+      type: "move_blocked",
+      side: defenderSide,
+      pokemon: defender.name,
+      move: move.name,
+      source: "prankster-dark-immunity",
     });
     return false;
   }
@@ -11573,7 +11684,14 @@ function automaticMoveCandidates(
         frz: 55,
       };
       const majorStatusValue =
-        displayMove.status && canReceiveStatus(defender, displayMove.status)
+        displayMove.status &&
+        canReceiveStatus(
+          defender,
+          displayMove.status,
+          state,
+          defenderSide,
+          sideIndex,
+        )
           ? statusWeights[displayMove.status] ?? 18
           : 0;
       const setupPokemon = boostedPokemonForAi(
@@ -11631,9 +11749,18 @@ function automaticMoveCandidates(
         if (secondaryEffectsBlocked(pokemon, defender, displayMove)) return sum;
         const chance = secondaryEffectChance(pokemon, effect) / 100;
         const status =
-          effect.status && canReceiveStatus(defender, effect.status)
+          effect.status &&
+          canReceiveStatus(
+            defender,
+            effect.status,
+            state,
+            defenderSide,
+            sideIndex,
+          )
             ? statusWeights[effect.status] ?? 18
             : 0;
+        const volatile =
+          cleanId(effect.volatileStatus) === "flinch" ? 18 : 0;
         const boosts =
           Object.values(effect.selfBoosts).reduce(
             (value, amount) => value + Math.max(0, amount) * 12,
@@ -11643,7 +11770,7 @@ function automaticMoveCandidates(
             (value, amount) => value + Math.max(0, -amount) * 10,
             0,
           );
-        return sum + (status + boosts) * chance;
+        return sum + (status + volatile + boosts) * chance;
       }, 0);
       const statusResidualCandidates = [
         ...(displayMove.status &&
@@ -12063,9 +12190,10 @@ function automaticMoveCandidates(
       const baseCandidate = {
         ...displayMove,
         willFail:
-          displayMove.category === "Status" &&
-          Boolean(candidateHazardConditionId(displayMove)) &&
-          candidateHazardLayerDelta({ ...displayMove, opponentHazards }) === 0,
+          isPranksterBlocked(pokemon, defender, displayMove) ||
+          (displayMove.category === "Status" &&
+            Boolean(candidateHazardConditionId(displayMove)) &&
+            candidateHazardLayerDelta({ ...displayMove, opponentHazards }) === 0),
         protectSuccessProbability: CONSECUTIVE_PROTECTION_MOVES.has(
           cleanId(displayMove.id),
         )

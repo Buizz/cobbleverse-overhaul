@@ -22,7 +22,7 @@ import {
 test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported("pressure"), true);
   assert.equal(isSimpleAbilitySupported("cobblemon:pressure"), true);
-  assert.equal(isSimpleAbilitySupported("leafguard"), false);
+  assert.equal(isSimpleAbilitySupported("stancechange"), false);
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
@@ -81,6 +81,18 @@ test("reports the fifth high-usage ability batch as supported", () => {
     "thermalexchange",
     "earlybird",
     "effectspore",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
+test("reports the sixth high-usage ability batch as supported", () => {
+  for (const ability of [
+    "imposter",
+    "leafguard",
+    "prankster",
+    "reckless",
+    "stench",
   ]) {
     assert.equal(isSimpleAbilitySupported(ability), true, ability);
   }
@@ -20957,6 +20969,244 @@ test("Effect Spore inflicts contact status and respects suppression and powder i
   assert.ok(["par", "psn", "slp"].includes(affected.sides[0].team[0].status));
   assert.equal(run(triggeringSeed, { suppressed: true }).sides[0].team[0].status, "");
   assert.equal(run(triggeringSeed, { types: ["Grass"] }).sides[0].team[0].status, "");
+});
+
+test("Imposter transforms on entry and restores the original Pokemon on switch", () => {
+  const dragonMove = {
+    id: "dragonclaw",
+    name: "Dragon Claw",
+    type: "Dragon",
+    category: "Physical",
+    power: 80,
+    accuracy: true,
+    pp: 15,
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Imposter",
+          team: [
+            pokemon({ name: "Ditto", ability: "imposter" }),
+            pokemon({ name: "Bench" }),
+          ],
+        },
+        {
+          name: "Target",
+          team: [
+            pokemon({
+              name: "Dragon",
+              id: "dragon",
+              types: ["Dragon"],
+              ability: "multiscale",
+              stats: { ...pokemon().stats, attack: 160 },
+              moves: [dragonMove],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const transformed = state.sides[0].team[0];
+  assert.equal(transformed.name, "Dragon");
+  assert.equal(transformed.ability, "multiscale");
+  assert.equal(transformed.stats.attack, 160);
+  assert.equal(transformed.stats.hp, 120);
+  assert.equal(transformed.moves[0].id, "dragonclaw");
+  assert.equal(transformed.moves[0].pp, 5);
+
+  state = resolveSimpleTurn(state, [{ switch: 2 }, { move: 1 }]);
+  const restored = state.sides[0].team[0];
+  assert.equal(restored.name, "Ditto");
+  assert.equal(restored.ability, "imposter");
+  assert.equal(restored.moves[0].id, "tackle");
+});
+
+test("Leaf Guard blocks major status in sun and informs AI scoring", () => {
+  const willOWisp = {
+    id: "willowisp",
+    name: "Will-O-Wisp",
+    type: "Fire",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 15,
+    status: "brn",
+  };
+  const makeState = (suppressed = false) => {
+    const state = createSimpleBattle(
+      setup({
+        sides: [
+          { name: "Burn", team: [pokemon({ moves: [willOWisp] })] },
+          { name: "Leaf Guard", team: [pokemon({ ability: "leafguard" })] },
+        ],
+      }),
+    );
+    state.field.weather = { id: "sunnyday", turns: 5 };
+    if (suppressed) {
+      state.sides[1].team[0].volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return state;
+  };
+  const blocked = resolveSimpleTurn(makeState(), [{ move: 1 }, { move: 1 }]);
+  assert.equal(blocked.sides[1].team[0].status, "");
+  const suppressed = resolveSimpleTurn(makeState(true), [{ move: 1 }, { move: 1 }]);
+  assert.equal(suppressed.sides[1].team[0].status, "brn");
+
+  const decision = chooseSimpleAiDecision(
+    makeState(),
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.equal(decision.moveCandidates[0].statusBlocked, true);
+});
+
+test("Prankster raises status priority and fails against opposing Dark types", () => {
+  const thunderWave = {
+    id: "thunderwave",
+    name: "Thunder Wave",
+    type: "Electric",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 20,
+    status: "par",
+  };
+  const makeState = (types = ["Normal"]) =>
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Prankster",
+            team: [
+              pokemon({
+                ability: "prankster",
+                stats: { ...pokemon().stats, speed: 40 },
+                moves: [thunderWave],
+              }),
+            ],
+          },
+          {
+            name: "Fast",
+            team: [pokemon({ types, stats: { ...pokemon().stats, speed: 160 } })],
+          },
+        ],
+      }),
+    );
+
+  const priority = resolveSimpleTurn(makeState(), [{ move: 1 }, { move: 1 }]);
+  const statusIndex = priority.events.findIndex(
+    (event) => event.turn === 1 && event.type === "status" && event.side === 1,
+  );
+  const damageIndex = priority.events.findIndex(
+    (event) => event.turn === 1 && event.type === "damage" && event.side === 0,
+  );
+  assert.ok(statusIndex >= 0 && statusIndex < damageIndex);
+
+  const darkState = makeState(["Dark"]);
+  const darkDecision = chooseSimpleAiDecision(
+    darkState,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.equal(darkDecision.moveCandidates[0].willFail, true);
+  const blocked = resolveSimpleTurn(darkState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(blocked.sides[1].team[0].status, "");
+  assert.ok(
+    blocked.events.some(
+      (event) => event.type === "move_blocked" && event.source === "prankster-dark-immunity",
+    ),
+  );
+});
+
+test("Reckless boosts recoil and crash move damage in previews", () => {
+  const doubleEdge = {
+    id: "doubleedge",
+    name: "Double-Edge",
+    type: "Normal",
+    category: "Physical",
+    power: 120,
+    accuracy: true,
+    pp: 15,
+    recoil: [1, 3],
+  };
+  const highJumpKick = {
+    id: "highjumpkick",
+    name: "High Jump Kick",
+    type: "Fighting",
+    category: "Physical",
+    power: 130,
+    accuracy: 90,
+    pp: 10,
+  };
+  const attacker = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Reckless",
+          team: [pokemon({ ability: "reckless", moves: [doubleEdge, highJumpKick] })],
+        },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  ).sides[0].team[0];
+  const defender = createSimpleBattle(setup()).sides[1].team[0];
+
+  assert.equal(calculateDamageRange(attacker, defender, attacker.moves[0]).abilityModifier, 1.2);
+  assert.equal(calculateDamageRange(attacker, defender, attacker.moves[1]).abilityModifier, 1.2);
+  attacker.volatiles.gastroacid = { id: "gastroacid" };
+  assert.equal(calculateDamageRange(attacker, defender, attacker.moves[0]).abilityModifier, 1);
+});
+
+test("Stench can flinch with damaging moves and respects suppression", () => {
+  const run = (seed, suppressed = false, targetAbility = "") => {
+    const state = createSimpleBattle(
+      setup({
+        seed,
+        sides: [
+          {
+            name: "Stench",
+            team: [
+              pokemon({
+                ability: "stench",
+                stats: { ...pokemon().stats, speed: 160 },
+              }),
+            ],
+          },
+          {
+            name: "Target",
+            team: [pokemon({ ability: targetAbility, stats: { ...pokemon().stats, hp: 500, speed: 40 } })],
+          },
+        ],
+      }),
+    );
+    if (suppressed) {
+      state.sides[0].team[0].volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  };
+  const triggeringSeed = Array.from({ length: 512 }, (_, seed) => seed).find(
+    (seed) =>
+      run(seed).events.some(
+        (event) => event.type === "cant_move" && event.status === "flinch",
+      ),
+  );
+
+  assert.notEqual(triggeringSeed, undefined);
+  assert.equal(
+    run(triggeringSeed, true).events.some(
+      (event) => event.type === "cant_move" && event.status === "flinch",
+    ),
+    false,
+  );
+  assert.equal(
+    run(triggeringSeed, false, "innerfocus").events.some(
+      (event) => event.type === "cant_move" && event.status === "flinch",
+    ),
+    false,
+  );
 });
 
 test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {

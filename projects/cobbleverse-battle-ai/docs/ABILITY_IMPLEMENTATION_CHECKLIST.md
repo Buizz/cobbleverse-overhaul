@@ -82,6 +82,11 @@
 | UNIT_TESTED | `thermalexchange` | 열교환, 화상 면역 및 불꽃 피해를 받으면 공격 +1 | `statusBlockedByAbility`, `executeMove` post-hit | `Thermal Exchange blocks burns and raises Attack after Fire damage` |
 | UNIT_TESTED | `earlybird` | 일찍기상, 수면 카운터를 2씩 줄이고 기상 즉시 행동 | `canAct` | `Early Bird wakes and acts sooner while respecting suppression` |
 | UNIT_TESTED | `effectspore` | 포자, 접촉 공격자에게 30% 확률로 마비·독·수면 | `executeMove` post-hit contact reaction | `Effect Spore inflicts contact status and respects suppression and powder immunity` |
+| UNIT_TESTED | `imposter` | 괴짜, 등장 즉시 상대를 변신으로 복사하고 교체 시 원상복구 | `applyEntryAbilities`, `applyTransform`, `revertTransform` | `Imposter transforms on entry and restores the original Pokemon on switch` |
+| UNIT_TESTED | `leafguard` | 리프가드, 쾌청·큰가뭄 중 주요 상태이상 방지 | `canReceiveStatus`, 실제 처리·AI 상태 가치 | `Leaf Guard blocks major status in sun and informs AI scoring` |
+| UNIT_TESTED | `prankster` | 짓궂은마음, 변화기 우선도 +1 및 상대 악 타입 무효 | 실제 행동 순서·상태기 차단·AI 실패 판정 | `Prankster raises status priority and fails against opposing Dark types` |
+| UNIT_TESTED | `reckless` | 이판사판, 반동기·실패 시 추락 피해 기술 위력 1.2배 | `calculateDamageRange` | `Reckless boosts recoil and crash move damage in previews` |
+| UNIT_TESTED | `stench` | 악취, 자체 풀죽음 효과가 없는 공격기에 10% 풀죽음 추가 | `abilityModifiedMove`, 실제 부가효과·AI 후보 점수 | `Stench can flinch with damaging moves and respects suppression` |
 
 ## 2026 실전 파티 특성 구현 묶음
 
@@ -207,7 +212,7 @@
 - [x] `tintedlens`: 반감 공격 피해 2배
 - [x] `sniper`: 급소 피해를 2.25배로 강화
 - [x] `technician`: 위력 60 이하 기술 1.5배
-- [ ] `reckless`: 반동기/점프킥류 위력 1.2배
+- [x] `reckless`: 반동기/점프킥류 위력 1.2배
 - [x] `ironfist`: 펀치 기술 1.2배
 - [x] `strongjaw`: 물기 기술 1.5배
 - [ ] `megalauncher`: 파동 기술 1.5배
@@ -236,6 +241,7 @@
 - [x] `oblivious`: 위협·도발·헤롱헤롱 무효
 - [x] `thermalexchange`: 화상 면역 및 불꽃 피해를 받으면 공격 +1
 - [x] `earlybird`: 수면 카운터를 2씩 감소하고 기상 즉시 행동
+- [x] `leafguard`: 쾌청·큰가뭄 중 주요 상태이상 방지
 
 ### 날씨·필드
 
@@ -255,6 +261,7 @@
 ### 폼·타입
 
 - [x] `multitype`: 전투 상태 생성 시 플레이트에 맞춰 아르세우스의 타입과 원래 타입 변경 (`normalizePokemon`, `heldItemType`)
+- [x] `imposter`: 등장 즉시 상대를 복사하고 교체 시 원래 데이터 복구
 
 ### 등장·교체·랭크
 
@@ -311,6 +318,7 @@
 ### 부가효과 방어
 
 - [x] `shielddust`: 공격 기술의 부가효과 차단 및 AI 가치 제거
+- [x] `stench`: 자체 풀죽음 효과가 없는 공격기에 10% 풀죽음 추가
 
 ### 아이템 상호작용
 
@@ -319,7 +327,7 @@
 
 ### 우선도·행동 제한
 
-- [ ] `prankster`: 변화기 우선도 +1 및 악 타입 상호작용
+- [x] `prankster`: 변화기 우선도 +1 및 상대 악 타입 무효
 - [x] `galewings`: 풀피 비행 기술 우선도 +1
 - [ ] `triage`: 회복기 우선도 +3
 - [ ] `queenlymajesty`: 상대 선공기 차단
