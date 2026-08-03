@@ -25,6 +25,7 @@ import {
   evaluateSetupThreat,
   scoreAiMoveCandidate,
   scoreAiProjectedGimmickCandidate,
+  scoreAiSwitchCandidate,
   selectAiGimmick,
   selectAiMoveCandidate,
   selectAiSwitchCandidate,
@@ -137,6 +138,11 @@ const AI_PHAZE_MOVES = new Set([
   "whirlwind",
   "dragontail",
   "circlethrow",
+]);
+const AI_REVEALED_SETUP_RESET_MOVES = new Set([
+  "haze",
+  "clearsmog",
+  ...AI_PHAZE_MOVES,
 ]);
 const CONSECUTIVE_PROTECTION_MOVES = new Set([
   ...AI_PROTECTIVE_MOVES,
@@ -10463,6 +10469,38 @@ function automaticMoveCandidates(
   const livingOpponents = state.sides[defenderSide].team.filter(
     (member) => !member.fainted && member.hp > 0,
   ).length;
+  const revealedSetupResetProfiles = state.sides[defenderSide].team.flatMap(
+    (member, memberIndex) => {
+      if (member.fainted || member.hp <= 0) return [];
+      const revealedMoves = new Set(
+        (member.moveHistory ?? []).map((moveId) => cleanId(moveId)),
+      );
+      if (member.lastMoveSucceeded === true) {
+        revealedMoves.add(cleanId(member.lastMove?.id));
+      }
+      return member.moves
+        .filter(
+          (move) =>
+            move.pp > 0 &&
+            revealedMoves.has(cleanId(move.id)) &&
+            AI_REVEALED_SETUP_RESET_MOVES.has(cleanId(move.id)),
+        )
+        .map((move) => ({
+          id: cleanId(move.id),
+          active: memberIndex === state.sides[defenderSide].active,
+        }));
+    },
+  );
+  const opponentRevealedSetupResetMoveIds = [
+    ...new Set(revealedSetupResetProfiles.map((profile) => profile.id)),
+  ];
+  const opponentActiveRevealedSetupResetMoveIds = [
+    ...new Set(
+      revealedSetupResetProfiles
+        .filter((profile) => profile.active)
+        .map((profile) => profile.id),
+    ),
+  ];
   const threatTarget = dynamaxMode
     ? {
         ...pokemon,
@@ -11587,6 +11625,8 @@ function automaticMoveCandidates(
         opponentHazards,
         opponentVolatiles: defender.volatiles ?? {},
         opponentStatus: defender.status,
+        opponentRevealedSetupResetMoveIds,
+        opponentActiveRevealedSetupResetMoveIds,
         statusBlocked,
         statusResidualCandidates,
         livingOpponents,
@@ -11714,6 +11754,8 @@ function automaticMoveCandidates(
         opponentHazards,
         opponentVolatiles: defender.volatiles ?? {},
         opponentStatus: defender.status,
+        opponentRevealedSetupResetMoveIds,
+        opponentActiveRevealedSetupResetMoveIds,
         statusBlocked,
         statusResidualCandidates,
         livingOpponents,
@@ -13452,6 +13494,10 @@ function activeSwitchPressure(pokemon) {
             (0.5 + (1 - hpPercent) * 0.45),
         )
       : 0;
+  const toxicImmediateLethal =
+    toxicCounter > 0 && toxicNextDamage >= pokemon.hp;
+  const toxicTwoTurnLethal =
+    toxicCounter > 0 && toxicNextDamage + toxicFollowingDamage >= pokemon.hp;
   const stayPressurePenalty =
     Math.round((yawnPenalty + saltCurePenalty + toxicPenalty) * 100) / 100;
   return {
@@ -13465,7 +13511,9 @@ function activeSwitchPressure(pokemon) {
     toxicCounter,
     toxicNextDamage,
     toxicFollowingDamage,
-    urgentSwitchPressure: yawnPenalty >= 220,
+    toxicImmediateLethal,
+    toxicTwoTurnLethal,
+    urgentSwitchPressure: yawnPenalty >= 220 || toxicTwoTurnLethal,
   };
 }
 
@@ -13939,11 +13987,19 @@ export function automaticSwitchCandidates(
             oneTurnSearchWeight,
           }
         : candidate;
-      const selected = selectAiSwitchCandidate([evaluated], {
-        difficulty,
-        strategy,
-        rng: createAiRng(state.seed, sideIndex, state.turn * 23 + slot),
-      });
+      const selected =
+        difficulty === "novice"
+          ? {
+              ...evaluated,
+              score:
+                Math.round(scoreAiSwitchCandidate(evaluated, strategy) * 100) /
+                100,
+            }
+          : selectAiSwitchCandidate([evaluated], {
+              difficulty,
+              strategy,
+              rng: createAiRng(state.seed, sideIndex, state.turn * 23 + slot),
+            });
       return selected;
     })
     .filter(Boolean)
@@ -15860,14 +15916,21 @@ export function chooseSimpleAiDecision(
     chosenMove?.batonPassTargetAvailable === true &&
     Number(chosenMove.batonPassAdditionalBoostTotal ?? 0) > 0 &&
     Number(chosenMove.setupFollowupSurvivalProbability ?? 0) >= 0.65;
+  const residualCounterSwitch =
+    selectedSwitch?.toxicTwoTurnLethal === true &&
+    selectedSwitch.safeImmediateKoAvailable !== true &&
+    selectedSwitch.survivesSwitchIn !== false &&
+    selectedSwitch.canReachNextAction === true &&
+    selectedSwitch.canKoOnNextAction === true;
   const shouldSwitch =
     selectedSwitch &&
-    !batonDevelopmentPlan &&
-    (selectedSwitch.aceRecoveryPlanEligible === true ||
-      ((selectedSwitch.safeImmediateKoAvailable !== true ||
-        selectedSwitch.urgentSwitchPressure === true) &&
-        Number(selectedSwitch.score ?? -Infinity) >=
-          Number(chosenMove?.score ?? -Infinity) + switchMargin));
+    (residualCounterSwitch ||
+      (!batonDevelopmentPlan &&
+        (selectedSwitch.aceRecoveryPlanEligible === true ||
+          ((selectedSwitch.safeImmediateKoAvailable !== true ||
+            selectedSwitch.urgentSwitchPressure === true) &&
+            Number(selectedSwitch.score ?? -Infinity) >=
+              Number(chosenMove?.score ?? -Infinity) + switchMargin))));
   const canMegaEvo =
     side.gimmickResources.mega === "available" &&
     pokemon.megaEvolved !== true &&
@@ -16005,7 +16068,9 @@ export function chooseSimpleAiDecision(
       selectedDynamaxMove,
       gimmickCandidate: gimmickDecision.candidate ?? null,
       diagnostics: {
-        selectionSource: "switch-score",
+        selectionSource: residualCounterSwitch
+          ? "residual-counter-switch"
+          : "switch-score",
         lockedSelection: lockedSelection
           ? {
               slot: lockedSelection.slot,

@@ -19966,3 +19966,165 @@ test("Cursed Body disables the damaging move and respects suppression", () => {
   ]);
   assert.equal(maxMoveResult.sides[0].team[0].volatiles.disable, undefined);
 });
+
+test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {
+  const swordsDance = {
+    id: "swordsdance",
+    name: "Swords Dance",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 20,
+    selfBoosts: { attack: 2 },
+  };
+  const haze = {
+    id: "haze",
+    name: "Haze",
+    type: "Ice",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 30,
+  };
+  const state = createSimpleBattle(
+    setup({
+      seed: 1728982397,
+      sides: [
+        {
+          name: "Setup AI",
+          team: [
+            pokemon({
+              id: "urshifu",
+              name: "Poisoned Setup User",
+              stats: {
+                ...pokemon().stats,
+                hp: 343,
+                attack: 210,
+                speed: 160,
+              },
+              moves: [
+                swordsDance,
+                {
+                  ...pokemon().moves[0],
+                  id: "weakstrike",
+                  name: "Weak Strike",
+                  power: 35,
+                },
+              ],
+            }),
+            pokemon({
+              id: "magnezone",
+              name: "Magnezone",
+              types: ["Electric", "Steel"],
+              stats: {
+                ...pokemon().stats,
+                hp: 344,
+                specialAttack: 500,
+                specialDefence: 220,
+                speed: 120,
+              },
+              moves: [
+                {
+                  id: "thunderbolt",
+                  name: "Thunderbolt",
+                  type: "Electric",
+                  category: "Special",
+                  power: 150,
+                  accuracy: 100,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+        {
+          name: "Haze Team",
+          team: [
+            pokemon({
+              id: "toxapex",
+              name: "Toxapex",
+              types: ["Poison", "Water"],
+              stats: {
+                ...pokemon().stats,
+                hp: 304,
+                defence: 300,
+                specialDefence: 100,
+                speed: 60,
+              },
+              moves: [
+                haze,
+                {
+                  id: "surf",
+                  name: "Surf",
+                  type: "Water",
+                  category: "Special",
+                  power: 60,
+                  accuracy: 100,
+                  pp: 15,
+                },
+              ],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  state.turn = 8;
+  const setupUser = state.sides[0].team[0];
+  setupUser.hp = 117;
+  setupUser.status = "tox";
+  setupUser.toxicCounter = 3;
+  const hazeUser = state.sides[1].team[0];
+  hazeUser.moveHistory = ["haze"];
+  hazeUser.lastMove = structuredClone(hazeUser.moves[0]);
+  hazeUser.lastMoveSucceeded = true;
+
+  const decision = chooseSimpleAiDecision(state, 0, "novice", "balanced");
+  const trace = createSimpleAiDecisionTrace(
+    state,
+    0,
+    decision,
+    "novice",
+    "balanced",
+  );
+  const swordsDanceCandidate = decision.moveCandidates.find(
+    (candidate) => candidate.id === "swordsdance",
+  );
+  const magnezoneCandidate = decision.switchCandidates.find(
+    (candidate) => candidate.id === "magnezone",
+  );
+  const swordsDanceTrace = trace.candidates.find(
+    (candidate) => candidate.id === "swordsdance",
+  );
+
+  assert.equal(decision.command.switch, 2);
+  assert.equal(decision.diagnostics.selectionSource, "residual-counter-switch");
+  assert.ok(Number.isFinite(magnezoneCandidate.score));
+  assert.equal(magnezoneCandidate.canKoOnNextAction, true);
+  assert.equal(magnezoneCandidate.toxicTwoTurnLethal, true);
+  assert.ok(
+    swordsDanceTrace.reasons.some(
+      (reason) =>
+        reason.code === "rule.setup.revealed_boost_reset" &&
+        reason.weight === -240,
+    ),
+  );
+
+  const unrevealedState = structuredClone(state);
+  unrevealedState.sides[1].team[0].moveHistory = [];
+  unrevealedState.sides[1].team[0].lastMove = null;
+  unrevealedState.sides[1].team[0].lastMoveSucceeded = null;
+  const unrevealedDecision = chooseSimpleAiDecision(
+    unrevealedState,
+    0,
+    "novice",
+    "balanced",
+  );
+  const unrevealedSwordsDance = unrevealedDecision.moveCandidates.find(
+    (candidate) => candidate.id === "swordsdance",
+  );
+  assert.ok(
+    swordsDanceCandidate.score <= unrevealedSwordsDance.score - 200,
+  );
+});

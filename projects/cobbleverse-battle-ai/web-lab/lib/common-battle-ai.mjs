@@ -3263,6 +3263,28 @@ export function moveRuleAdjustments(candidate, strategy = "balanced") {
         enriched.setupEffectiveBoostTotal,
         1,
       ) > 0;
+    const revealedSetupResetMoveIds = arrayValues(
+      enriched.opponentRevealedSetupResetMoveIds,
+    ).map(cleanId).filter(Boolean);
+    const activeRevealedSetupResetMoveIds = arrayValues(
+      enriched.opponentActiveRevealedSetupResetMoveIds,
+    ).map(cleanId).filter(Boolean);
+    if (effectiveBoostAvailable && revealedSetupResetMoveIds.length > 0) {
+      const activeResetAvailable = activeRevealedSetupResetMoveIds.length > 0;
+      const penalty = activeResetAvailable ? -240 : -100;
+      const resetMoves = activeResetAvailable
+        ? activeRevealedSetupResetMoveIds
+        : revealedSetupResetMoveIds;
+      adjustments.push(
+        scoreAdjustment(
+          "rule.setup.revealed_boost_reset",
+          "공개된 랭크 초기화 대응",
+          resetMoves,
+          penalty,
+          `상대가 이미 ${resetMoves.join(", ")} 사용을 공개했고${activeResetAvailable ? " 현재 포켓몬이 다시 사용할 수 있어" : " 교체로 다시 대응할 수 있어"} 랭크업 투자 가치가 낮습니다.`,
+        ),
+      );
+    }
     if (
       conditionalPriorityLikelihood >= 0.25 &&
       effectiveBoostAvailable &&
