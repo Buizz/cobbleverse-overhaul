@@ -26,6 +26,18 @@ test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
+test("reports the first high-usage ability batch as supported", () => {
+  for (const ability of [
+    "shedskin",
+    "analytic",
+    "cursedbody",
+    "synchronize",
+    "rivalry",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
 test("uses trainer battle items and consumes both quantity and use limit", () => {
   let state = createSimpleBattle(
     setup({
@@ -19714,4 +19726,243 @@ test("AI immediately phazes an opponent with accumulated stat ranks", () => {
     reflectedDecision.diagnostics.selectionSource,
     "immediate-phaze",
   );
+});
+
+test("boosts slower attacks with Analytic in previews and turn resolution", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Analytic",
+          team: [
+            pokemon({
+              name: "Analytic User",
+              ability: "analytic",
+              stats: { ...pokemon().stats, speed: 50 },
+            }),
+          ],
+        },
+        {
+          name: "Fast",
+          team: [
+            pokemon({
+              name: "Fast Target",
+              stats: { ...pokemon().stats, hp: 500, speed: 150 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const attacker = state.sides[0].team[0];
+  const defender = state.sides[1].team[0];
+  const preview = calculateMovePreview(attacker, defender, attacker.moves[0], {
+    state,
+    attackerSide: 0,
+    defenderSide: 1,
+  });
+
+  assert.equal(preview.range.abilityModifier, 1.3);
+
+  const baselineState = structuredClone(state);
+  baselineState.sides[0].team[0].ability = "";
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  const baseline = resolveSimpleTurn(baselineState, [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  const damageEvent = resolved.events.find(
+    (event) =>
+      event.turn === 1 &&
+      event.type === "damage" &&
+      event.side === 1 &&
+      event.source === "Analytic User",
+  );
+  const baselineDamageEvent = baseline.events.find(
+    (event) =>
+      event.turn === 1 &&
+      event.type === "damage" &&
+      event.side === 1 &&
+      event.source === "Analytic User",
+  );
+  assert.ok(damageEvent.damage > baselineDamageEvent.damage);
+});
+
+test("applies Rivalry only when both Pokemon have known genders", () => {
+  const battle = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Rivalry",
+          team: [pokemon({ ability: "rivalry", gender: "MALE" })],
+        },
+        {
+          name: "Targets",
+          team: [pokemon({ gender: "M" })],
+        },
+      ],
+    }),
+  );
+  const attacker = battle.sides[0].team[0];
+  const defender = battle.sides[1].team[0];
+  const sameGender = calculateDamageRange(attacker, defender, attacker.moves[0]);
+  defender.gender = "F";
+  const oppositeGender = calculateDamageRange(attacker, defender, attacker.moves[0]);
+  defender.gender = "";
+  const unknownGender = calculateDamageRange(attacker, defender, attacker.moves[0]);
+
+  assert.equal(attacker.gender, "M");
+  assert.equal(sameGender.abilityModifier, 1.25);
+  assert.equal(oppositeGender.abilityModifier, 0.75);
+  assert.equal(unknownGender.abilityModifier, 1);
+});
+
+test("reflects opponent-inflicted major status with Synchronize", () => {
+  const burnMove = {
+    id: "willowisp",
+    name: "Will-O-Wisp",
+    type: "Fire",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 15,
+    status: "brn",
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Inflicter", team: [pokemon({ moves: [burnMove] })] },
+        {
+          name: "Synchronize",
+          team: [pokemon({ ability: "synchronize" })],
+        },
+      ],
+    }),
+  );
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+
+  assert.equal(resolved.sides[0].team[0].status, "brn");
+  assert.equal(resolved.sides[1].team[0].status, "brn");
+  assert.ok(
+    resolved.events.some(
+      (event) =>
+        event.type === "ability_activate" && event.ability === "synchronize",
+    ),
+  );
+
+  const suppressed = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Inflicter", team: [pokemon({ moves: [burnMove] })] },
+        {
+          name: "Suppressed",
+          team: [pokemon({ ability: "synchronize" })],
+        },
+      ],
+    }),
+  );
+  suppressed.sides[1].team[0].volatiles.gastroacid = { id: "gastroacid" };
+  const suppressedResult = resolveSimpleTurn(suppressed, [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  assert.equal(suppressedResult.sides[0].team[0].status, "");
+  assert.equal(suppressedResult.sides[1].team[0].status, "brn");
+});
+
+test("Shed Skin cures status at end of turn and respects suppression", () => {
+  const run = (seed, suppressed = false) => {
+    const state = createSimpleBattle(
+      setup({
+        seed,
+        sides: [
+          {
+            name: "Shed Skin",
+            team: [pokemon({ ability: "shedskin" })],
+          },
+          { name: "Opponent", team: [pokemon()] },
+        ],
+      }),
+    );
+    state.sides[0].team[0].status = "brn";
+    if (suppressed) {
+      state.sides[0].team[0].volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  };
+  const triggeringSeed = Array.from({ length: 128 }, (_, seed) => seed).find(
+    (seed) => run(seed).sides[0].team[0].status === "",
+  );
+
+  assert.notEqual(triggeringSeed, undefined);
+  const cured = run(triggeringSeed);
+  assert.ok(
+    cured.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "shedskin",
+    ),
+  );
+  assert.equal(run(triggeringSeed, true).sides[0].team[0].status, "brn");
+});
+
+test("Cursed Body disables the damaging move and respects suppression", () => {
+  const run = (seed, suppressed = false) => {
+    const state = createSimpleBattle(
+      setup({
+        seed,
+        sides: [
+          { name: "Attacker", team: [pokemon()] },
+          {
+            name: "Cursed Body",
+            team: [
+              pokemon({
+                ability: "cursedbody",
+                stats: { ...pokemon().stats, hp: 500 },
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+    if (suppressed) {
+      state.sides[1].team[0].volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  };
+  const triggeringSeed = Array.from({ length: 128 }, (_, seed) => seed).find(
+    (seed) => run(seed).sides[0].team[0].volatiles.disable?.moveId === "tackle",
+  );
+
+  assert.notEqual(triggeringSeed, undefined);
+  const disabled = run(triggeringSeed);
+  assert.equal(disabled.sides[0].team[0].volatiles.disable.moveId, "tackle");
+  assert.ok(
+    disabled.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "cursedbody",
+    ),
+  );
+  assert.equal(run(triggeringSeed, true).sides[0].team[0].volatiles.disable, undefined);
+
+  const maxMoveState = createSimpleBattle(
+    setup({
+      seed: triggeringSeed,
+      sides: [
+        { name: "Dynamaxed", team: [pokemon()] },
+        {
+          name: "Cursed Body",
+          team: [
+            pokemon({
+              ability: "cursedbody",
+              stats: { ...pokemon().stats, hp: 500 },
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  maxMoveState.sides[0].team[0].dynamaxTurns = 3;
+  const maxMoveResult = resolveSimpleTurn(maxMoveState, [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  assert.equal(maxMoveResult.sides[0].team[0].volatiles.disable, undefined);
 });

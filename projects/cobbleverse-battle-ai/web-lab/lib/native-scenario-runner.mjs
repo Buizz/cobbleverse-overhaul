@@ -324,6 +324,7 @@ function hydrateMember(member, path, teraContext = {}) {
     baseSpecies: baseSpeciesName,
     level,
     types: species.types,
+    gender: member.gender ?? null,
     ability: configuredAbility,
     item: heldItem,
     speciesForms,

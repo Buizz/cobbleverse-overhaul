@@ -3,8 +3,8 @@
   "generatedFrom": "public/data/trainers.json",
   "trainerCount": 224,
   "uniqueAbilityCount": 208,
-  "supportedAbilityCount": 112,
-  "unsupportedAbilityCount": 96,
+  "supportedAbilityCount": 117,
+  "unsupportedAbilityCount": 91,
   "abilities": [
     {
       "id": "levitate",
@@ -268,7 +268,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "sheerforce",
@@ -466,7 +466,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "cursedbody",
@@ -488,7 +488,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "guts",
@@ -620,7 +620,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "waterabsorb",
@@ -796,7 +796,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "shellarmor",

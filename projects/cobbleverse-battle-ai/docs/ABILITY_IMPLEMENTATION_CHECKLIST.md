@@ -57,6 +57,11 @@
 | UNIT_TESTED | `competitive` | 승기, 상대에 의해 능력치가 내려가면 특공 2랭크 상승 | `applyBoosts` opponent stat-drop reaction | `supports common trainer abilities required by strict native scenarios` |
 | UNIT_TESTED | `overgrow` | 심록, HP 1/3 이하에서 풀 타입 기술 위력 1.5배 | `calculateDamageRange` | `supports common trainer abilities required by strict native scenarios` |
 | UNIT_TESTED | `intrepidsword` | 불요의검, 등장 시 공격 1랭크 상승 | `applyEntryAbilities` | `supports common trainer abilities required by strict native scenarios` |
+| UNIT_TESTED | `shedskin` | 탈피, 턴 종료 시 33% 확률로 주요 상태이상 회복 | `applyEndTurnEffects` | `Shed Skin cures status at end of turn and respects suppression` |
+| UNIT_TESTED | `analytic` | 애널라이즈, 대상보다 나중에 행동하면 공격 피해 약 1.3배 | `calculateDamageRange`, AI 피해 미리보기 | `boosts slower attacks with Analytic in previews and turn resolution` |
+| UNIT_TESTED | `cursedbody` | 저주받은바디, 피해를 받으면 30% 확률로 사용 기술을 4턴 봉인 | `executeMove` post-hit | `Cursed Body disables the damaging move and respects suppression` |
+| UNIT_TESTED | `synchronize` | 싱크로, 상대가 유발한 화상·마비·독을 상대에게 반사 | `applyStatus` | `reflects opponent-inflicted major status with Synchronize` |
+| UNIT_TESTED | `rivalry` | 투쟁심, 같은 성별 대상 피해 1.25배·다른 성별 대상 피해 0.75배 | `normalizePokemon`, `calculateDamageRange` | `applies Rivalry only when both Pokemon have known genders` |
 
 ## 2026 실전 파티 특성 구현 묶음
 

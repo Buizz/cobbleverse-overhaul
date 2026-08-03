@@ -145,6 +145,7 @@ const CONSECUTIVE_PROTECTION_MOVES = new Set([
 ]);
 const IMPLEMENTED_ABILITIES = new Set([
   "adaptability",
+  "analytic",
   "asoneglastrier",
   "asonespectrier",
   "baddreams",
@@ -153,6 +154,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "chillingneigh",
   "competitive",
   "compoundeyes",
+  "cursedbody",
   "chlorophyll",
   "clearbody",
   "dauntlessshield",
@@ -213,6 +215,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "regenerator",
   "rockhead",
   "roughskin",
+  "rivalry",
   "sandrush",
   "sandstream",
   "sandveil",
@@ -220,6 +223,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "scrappy",
   "sharpness",
   "shadowshield",
+  "shedskin",
   "sheerforce",
   "shellarmor",
   "simple",
@@ -233,6 +237,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "strongjaw",
   "stormdrain",
   "supremeoverlord",
+  "synchronize",
   "technician",
   "teraformzero",
   "terashell",
@@ -481,6 +486,13 @@ function cleanId(value) {
     .toLowerCase()
     .replace(/^.*:/, "")
     .replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizedGender(value) {
+  const gender = cleanId(value);
+  if (["m", "male"].includes(gender)) return "M";
+  if (["f", "female"].includes(gender)) return "F";
+  return "";
 }
 
 export function isSimpleAbilitySupported(ability) {
@@ -827,6 +839,7 @@ function normalizePokemon(pokemon, path) {
     level: Math.max(1, Math.min(100, Number(pokemon?.level ?? 50))),
     types: battleTypes,
     originalTypes: battleTypes.slice(),
+    gender: normalizedGender(pokemon?.gender),
     ability: normalizedAbility,
     item: normalizedItem,
     speciesForms,
@@ -1645,6 +1658,23 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   }
   if (activeAbility(attacker) === "hustle" && move.category === "Physical") {
     abilityModifier *= 1.5;
+  }
+  if (activeAbility(attacker) === "analytic") {
+    const defenderAlreadyActed =
+      typeof context.defenderActed === "boolean"
+        ? context.defenderActed
+        : context.state?.currentActions
+          ? defender.turnState?.acted === true
+          : Number.isInteger(context.attackerSide) &&
+              Number.isInteger(context.defenderSide) &&
+              context.state
+            ? effectiveSpeed(attacker, context.state, context.attackerSide) <
+              effectiveSpeed(defender, context.state, context.defenderSide)
+            : false;
+    if (defenderAlreadyActed) abilityModifier *= 1.3;
+  }
+  if (activeAbility(attacker) === "rivalry" && attacker.gender && defender.gender) {
+    abilityModifier *= attacker.gender === defender.gender ? 1.25 : 0.75;
   }
   if (isSheerForceBoostedMove(attacker, move)) {
     abilityModifier *= 1.3;
@@ -3504,6 +3534,35 @@ function applyStatus(
     status,
     source,
   });
+  if (
+    ["brn", "par", "psn", "tox"].includes(status) &&
+    activeAbility(pokemon) === "synchronize" &&
+    Number.isInteger(sourceSide) &&
+    sourceSide !== side
+  ) {
+    const sourcePokemon = activePokemon(state, sourceSide);
+    if (
+      sourcePokemon &&
+      !sourcePokemon.fainted &&
+      !ignoresDefenderAbility(sourcePokemon) &&
+      canReceiveStatus(sourcePokemon, status, state, sourceSide, side)
+    ) {
+      emitAbilityActivation(state, side, pokemon, "synchronize", {
+        targetSide: sourceSide,
+        target: sourcePokemon.name,
+        status,
+      });
+      applyStatus(
+        state,
+        sourceSide,
+        sourcePokemon,
+        status,
+        rng,
+        "synchronize",
+        side,
+      );
+    }
+  }
   return true;
 }
 
@@ -7872,6 +7931,34 @@ function executeMove(state, action, rng) {
       if (
         damage > 0 &&
         defender.hp > 0 &&
+        activeAbility(defender) === "cursedbody" &&
+        !ignoresDefenderAbility(attacker) &&
+        !attacker.volatiles?.disable &&
+        !move.isMaxMove &&
+        !hasMoveFlag(move, "futuremove") &&
+        cleanId(move.id) !== "struggle" &&
+        rng.next() < 0.3 &&
+        applyVolatileStatus(
+          state,
+          action.side,
+          attacker,
+          "disable",
+          "cursedbody",
+          defenderSide,
+        )
+      ) {
+        attacker.volatiles.disable.moveId = cleanId(move.id);
+        attacker.volatiles.disable.move = move.name;
+        emitAbilityActivation(state, defenderSide, defender, "cursedbody", {
+          targetSide: action.side,
+          target: attacker.name,
+          move: move.name,
+          moveId: cleanId(move.id),
+        });
+      }
+      if (
+        damage > 0 &&
+        defender.hp > 0 &&
         activeAbility(defender) === "static" &&
         !ignoresDefenderAbility(attacker) &&
         makesContact(move) &&
@@ -8732,7 +8819,7 @@ function applyFutureAttacks(state) {
   state.futureAttacks = remaining;
 }
 
-function applyEndTurnEffects(state) {
+function applyEndTurnEffects(state, rng) {
   applyFutureAttacks(state);
   for (const [sideIndex, side] of state.sides.entries()) {
     const pokemon = side.team[side.active];
@@ -8757,6 +8844,16 @@ function applyEndTurnEffects(state) {
       });
     }
     const weather = cleanId(state.field?.weather?.id);
+    if (
+      activeAbility(pokemon) === "shedskin" &&
+      pokemon.status &&
+      rng.next() < 0.33
+    ) {
+      emitAbilityActivation(state, sideIndex, pokemon, "shedskin", {
+        status: pokemon.status,
+      });
+      curePokemonStatus(state, sideIndex, pokemon, "shedskin");
+    }
     if (
       activeAbility(pokemon) === "hydration" &&
       ["raindance", "primordialsea"].includes(weather) &&
@@ -9329,7 +9426,7 @@ function resolveSimpleTurnInternal(previousState, commands, options = {}) {
       );
     }
   }
-  applyEndTurnEffects(state);
+  applyEndTurnEffects(state, rng);
   advanceTimedEffects(state, rng);
   expireDynamax(state);
   for (const [sideIndex, side] of state.sides.entries()) {
