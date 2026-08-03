@@ -62,6 +62,18 @@ test("reports the third high-usage ability batch as supported", () => {
   }
 });
 
+test("reports the fourth high-usage ability batch as supported", () => {
+  for (const ability of [
+    "weakarmor",
+    "oblivious",
+    "shadowtag",
+    "shielddust",
+    "sniper",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
 test("uses trainer battle items and consumes both quantity and use limit", () => {
   let state = createSimpleBattle(
     setup({
@@ -20442,6 +20454,271 @@ test("Unburden doubles Speed after losing an item and resets on switch", () => {
 
   state = resolveSimpleTurn(state, [{ switch: 2 }, { move: 1 }]);
   assert.equal(state.sides[0].team[0].abilityState.unburdenActivated, undefined);
+});
+
+test("Weak Armor lowers Defence and sharply raises Speed after a physical hit", () => {
+  const run = (suppressed = false) => {
+    const state = createSimpleBattle(
+      setup({
+        sides: [
+          { name: "Attacker", team: [pokemon()] },
+          {
+            name: "Weak Armor",
+            team: [
+              pokemon({
+                ability: "weakarmor",
+                stats: { ...pokemon().stats, hp: 500 },
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+    if (suppressed) {
+      state.sides[1].team[0].volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  };
+
+  const activated = run();
+  assert.equal(activated.sides[1].team[0].boosts.defence, -1);
+  assert.equal(activated.sides[1].team[0].boosts.speed, 2);
+  assert.ok(
+    activated.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "weakarmor",
+    ),
+  );
+  assert.equal(run(true).sides[1].team[0].boosts.defence, 0);
+  assert.equal(run(true).sides[1].team[0].boosts.speed, 0);
+});
+
+test("Oblivious blocks Intimidate, Taunt, and Attract unless suppressed", () => {
+  const taunt = {
+    id: "taunt",
+    name: "Taunt",
+    type: "Dark",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 20,
+    volatileStatus: "taunt",
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Controller",
+          team: [pokemon({ ability: "intimidate", gender: "M", moves: [taunt] })],
+        },
+        {
+          name: "Oblivious",
+          team: [pokemon({ ability: "oblivious", gender: "F" })],
+        },
+      ],
+    }),
+  );
+  assert.equal(state.sides[1].team[0].boosts.attack, 0);
+  const blocked = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(blocked.sides[1].team[0].volatiles.taunt, undefined);
+
+  const attract = {
+    id: "attract",
+    name: "Attract",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 15,
+  };
+  const attractionBlocked = resolveSimpleTurn(
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Attractor",
+            team: [pokemon({ gender: "M", moves: [attract] })],
+          },
+          {
+            name: "Oblivious",
+            team: [pokemon({ ability: "oblivious", gender: "F" })],
+          },
+        ],
+      }),
+    ),
+    [{ move: 1 }, { move: 1 }],
+  );
+  assert.equal(attractionBlocked.sides[1].team[0].volatiles.attract, undefined);
+
+  const suppressed = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Controller", team: [pokemon({ gender: "M", moves: [taunt] })] },
+        { name: "Oblivious", team: [pokemon({ ability: "oblivious", gender: "F" })] },
+      ],
+    }),
+  );
+  suppressed.sides[1].team[0].volatiles.gastroacid = { id: "gastroacid" };
+  const applied = resolveSimpleTurn(suppressed, [{ move: 1 }, { move: 1 }]);
+  assert.ok(
+    applied.events.some(
+      (event) =>
+        event.type === "volatile_start" &&
+        event.side === 1 &&
+        event.effect === "taunt",
+    ),
+  );
+});
+
+test("Shadow Tag traps switch attempts while respecting standard exceptions", () => {
+  const makeState = (overrides = {}) =>
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Trapped",
+            team: [pokemon(overrides), pokemon({ name: "Bench" })],
+          },
+          {
+            name: "Shadow Tag",
+            team: [pokemon({ ability: "shadowtag" })],
+          },
+        ],
+      }),
+    );
+
+  assert.throws(
+    () => resolveSimpleTurn(makeState(), [{ switch: 2 }, { move: 1 }]),
+    /cannot switch while trapped/,
+  );
+  assert.deepEqual(automaticSwitchCandidates(makeState(), 0), []);
+
+  const ghost = resolveSimpleTurn(
+    makeState({ types: ["Ghost"] }),
+    [{ switch: 2 }, { move: 1 }],
+  );
+  assert.equal(ghost.sides[0].active, 1);
+  const opposingTag = resolveSimpleTurn(
+    makeState({ ability: "shadowtag" }),
+    [{ switch: 2 }, { move: 1 }],
+  );
+  assert.equal(opposingTag.sides[0].active, 1);
+  const shedShell = resolveSimpleTurn(
+    makeState({ item: "shedshell" }),
+    [{ switch: 2 }, { move: 1 }],
+  );
+  assert.equal(shedShell.sides[0].active, 1);
+});
+
+test("Shield Dust blocks damaging-move secondaries in battle and AI scoring", () => {
+  const shock = {
+    id: "nuzzlelike",
+    name: "Nuzzle Like",
+    type: "Electric",
+    category: "Physical",
+    power: 20,
+    accuracy: true,
+    pp: 20,
+    secondaries: [{ chance: 100, status: "par" }],
+  };
+  const makeState = (attackerAbility = "", defenderAbility = "shielddust") =>
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Attacker",
+            team: [pokemon({ ability: attackerAbility, moves: [shock] })],
+          },
+          {
+            name: "Defender",
+            team: [
+              pokemon({
+                ability: defenderAbility,
+                stats: { ...pokemon().stats, hp: 500 },
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+
+  const blocked = resolveSimpleTurn(makeState(), [{ move: 1 }, { move: 1 }]);
+  assert.equal(blocked.sides[1].team[0].status, "");
+  assert.ok(
+    blocked.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "shielddust",
+    ),
+  );
+  const bypassed = resolveSimpleTurn(makeState("moldbreaker"), [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  assert.equal(bypassed.sides[1].team[0].status, "par");
+
+  const blockedScore = chooseSimpleAiDecision(
+    makeState(),
+    0,
+    "expert",
+    "balanced",
+  ).moveCandidates[0].tacticalValue;
+  const baselineScore = chooseSimpleAiDecision(
+    makeState("", ""),
+    0,
+    "expert",
+    "balanced",
+  ).moveCandidates[0].tacticalValue;
+  assert.ok(blockedScore < baselineScore);
+});
+
+test("Sniper increases guaranteed critical damage in battle and AI estimates", () => {
+  const criticalMove = {
+    id: "stormthrow",
+    name: "Storm Throw",
+    type: "Fighting",
+    category: "Physical",
+    power: 60,
+    accuracy: true,
+    pp: 10,
+    willCrit: true,
+  };
+  const makeState = (ability = "") =>
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Critical",
+            team: [pokemon({ ability, moves: [criticalMove] })],
+          },
+          {
+            name: "Target",
+            team: [pokemon({ stats: { ...pokemon().stats, hp: 500 } })],
+          },
+        ],
+      }),
+    );
+  const sniperDecision = chooseSimpleAiDecision(
+    makeState("sniper"),
+    0,
+    "expert",
+    "balanced",
+  );
+  const baselineDecision = chooseSimpleAiDecision(
+    makeState(),
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.ok(
+    sniperDecision.moveCandidates[0].expectedDamage >
+      baselineDecision.moveCandidates[0].expectedDamage,
+  );
+
+  const sniper = resolveSimpleTurn(makeState("sniper"), [{ move: 1 }, { move: 1 }]);
+  const baseline = resolveSimpleTurn(makeState(), [{ move: 1 }, { move: 1 }]);
+  const damage = (result) =>
+    result.events.find(
+      (event) => event.type === "damage" && event.side === 1 && event.turn === 1,
+    ).damage;
+  assert.ok(damage(sniper) > damage(baseline));
 });
 
 test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {

@@ -72,6 +72,11 @@
 | UNIT_TESTED | `frisk` | 통찰, 등장 시 상대가 지닌 아이템 공개 | `applyEntryAbilities` | `Frisk reveals the opposing held item on entry` |
 | UNIT_TESTED | `swarm` | 벌레의알림, HP 1/3 이하에서 벌레 기술 위력 1.5배 | `calculateDamageRange` | `Swarm boosts low-HP Bug damage in previews and respects suppression` |
 | UNIT_TESTED | `unburden` | 곡예, 아이템 상실 후 교체 전까지 스피드 2배 | 아이템 제거·소비 도우미, `effectiveSpeed`, `switchActivePokemon` | `Unburden doubles Speed after losing an item and resets on switch` |
+| UNIT_TESTED | `weakarmor` | 깨어진갑옷, 물리 피해를 받으면 방어 -1·스피드 +2 | `executeMove` post-hit reaction | `Weak Armor lowers Defence and sharply raises Speed after a physical hit` |
+| UNIT_TESTED | `oblivious` | 둔감, 위협·도발·헤롱헤롱 무효 | `applyBoosts`, `applyVolatileStatus` | `Oblivious blocks Intimidate, Taunt, and Attract unless suppressed` |
+| UNIT_TESTED | `shadowtag` | 그림자밟기, 고스트·아름다운허물·동일 특성 예외를 제외한 상대 교체 차단 | `isPokemonTrapped`, 수동·AI 교체 후보 | `Shadow Tag traps switch attempts while respecting standard exceptions` |
+| UNIT_TESTED | `shielddust` | 인분, 공격 기술의 부가효과 차단 | 실제 부가효과 처리·AI 후보 점수 | `Shield Dust blocks damaging-move secondaries in battle and AI scoring` |
+| UNIT_TESTED | `sniper` | 스나이퍼, 급소 피해를 기본 1.5배에서 2.25배로 강화 | 실제 피해·AI 예상 피해 | `Sniper increases guaranteed critical damage in battle and AI estimates` |
 
 ## 2026 실전 파티 특성 구현 묶음
 
@@ -195,7 +200,7 @@
 - [ ] `flowergift`: 쾌청 중 공격·특방 보정
 - [ ] `solarpower`: 쾌청 중 특공 1.5배 및 턴 종료 피해
 - [x] `tintedlens`: 반감 공격 피해 2배
-- [ ] `sniper`: 급소 피해 추가 보정
+- [x] `sniper`: 급소 피해를 2.25배로 강화
 - [x] `technician`: 위력 60 이하 기술 1.5배
 - [ ] `reckless`: 반동기/점프킥류 위력 1.2배
 - [x] `ironfist`: 펀치 기술 1.2배
@@ -223,7 +228,7 @@
 - [x] `flashfire`: 불꽃 기술 무효 및 불꽃 위력 강화
 - [x] `sapsipper`: 풀 기술 무효 및 공격 상승
 - [x] `heatproof`: 불꽃 피해 및 화상 피해 감소
-- [ ] `oblivious`: 도발/헤롱헤롱 등 일부 상태 면역
+- [x] `oblivious`: 위협·도발·헤롱헤롱 무효
 
 ### 날씨·필드
 
@@ -261,6 +266,7 @@
 - [x] `speedboost`: 턴 종료 스피드 +1
 - [x] `steadfast`: 풀죽음으로 행동하지 못하면 스피드 +1
 - [x] `unburden`: 아이템 상실 후 교체 전까지 스피드 2배
+- [x] `shadowtag`: 고스트·탈출용 아이템·동일 특성 예외를 제외한 교체 차단
 - [ ] `contrary`: 랭크 변화 반전
 - [x] `competitive`: 상대에 의한 능력 하락 시 특공 +2
 - [ ] `defiant`: 능력 하락 시 공격 +2
@@ -292,6 +298,11 @@
 - [ ] `mummy`: 접촉 공격자의 특성을 미라로 변경
 - [ ] `wandering spirit`: 접촉 시 특성 교환
 - [x] `aftermath`: 접촉 KO 시 피해
+- [x] `weakarmor`: 물리 피해를 받으면 방어 -1·스피드 +2
+
+### 부가효과 방어
+
+- [x] `shielddust`: 공격 기술의 부가효과 차단 및 AI 가치 제거
 
 ### 아이템 상호작용
 

@@ -212,6 +212,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "innerfocus",
   "infiltrator",
   "noguard",
+  "oblivious",
   "overcoat",
   "owntempo",
   "pickpocket",
@@ -235,12 +236,15 @@ const IMPLEMENTED_ABILITIES = new Set([
   "serenegrace",
   "sharpness",
   "shadowshield",
+  "shadowtag",
   "shedskin",
   "sheerforce",
   "shellarmor",
+  "shielddust",
   "simple",
   "skilllink",
   "snowcloak",
+  "sniper",
   "soundproof",
   "speedboost",
   "static",
@@ -269,6 +273,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "vesselofruin",
   "voltabsorb",
   "waterveil",
+  "weakarmor",
   "waterabsorb",
   "wellbakedbody",
   "whitesmoke",
@@ -1245,6 +1250,19 @@ function preventsCriticalHit(defender, attacker = null) {
   return (
     !ignoresDefenderAbility(attacker) &&
     ["battlearmor", "shellarmor"].includes(activeAbility(defender))
+  );
+}
+
+function criticalDamageModifier(attacker, defender, critical) {
+  if (!critical || preventsCriticalHit(defender, attacker)) return 1;
+  return activeAbility(attacker) === "sniper" ? 2.25 : 1.5;
+}
+
+function secondaryEffectsBlocked(attacker, defender, move) {
+  return (
+    move?.category !== "Status" &&
+    activeAbility(defender) === "shielddust" &&
+    !ignoresDefenderAbility(attacker)
   );
 }
 
@@ -3896,6 +3914,13 @@ function applyVolatileStatus(state, side, pokemon, id, source, sourceSide = null
     emitAbilityActivation(state, side, pokemon, "innerfocus", { source });
     return false;
   }
+  if (
+    ["attract", "taunt"].includes(normalized) &&
+    activeAbility(pokemon) === "oblivious"
+  ) {
+    emitAbilityActivation(state, side, pokemon, "oblivious", { source });
+    return false;
+  }
   const turns = volatileDuration(normalized);
   pokemon.volatiles[normalized] = Number.isFinite(turns)
     ? { id: normalized, turns }
@@ -4477,12 +4502,18 @@ function isTrappedByVolatile(pokemon) {
 function isPokemonTrapped(state, sideIndex, pokemon) {
   if (isTrappedByVolatile(pokemon)) return true;
   const opponent = activePokemon(state, sideIndex === 0 ? 1 : 0);
+  const bypassesAbilityTrap =
+    pokemon.types.includes("Ghost") || cleanId(pokemon.item) === "shedshell";
+  if (opponent.fainted || bypassesAbilityTrap) return false;
+  if (
+    activeAbility(opponent) === "shadowtag" &&
+    activeAbility(pokemon) !== "shadowtag"
+  ) {
+    return true;
+  }
   return (
-    !opponent.fainted &&
     activeAbility(opponent) === "magnetpull" &&
-    pokemon.types.includes("Steel") &&
-    !pokemon.types.includes("Ghost") &&
-    cleanId(pokemon.item) !== "shedshell"
+    pokemon.types.includes("Steel")
   );
 }
 
@@ -4629,9 +4660,11 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
       loweredByFoe &&
       stat === "attack" &&
       cleanId(source) === "intimidate" &&
-      activeAbility(pokemon) === "innerfocus"
+      ["innerfocus", "oblivious"].includes(activeAbility(pokemon))
     ) {
-      emitAbilityActivation(state, side, pokemon, "innerfocus", { source });
+      emitAbilityActivation(state, side, pokemon, activeAbility(pokemon), {
+        source,
+      });
       continue;
     }
     if (
@@ -7838,7 +7871,11 @@ function executeMove(state, action, rng) {
         ? null
         : moveEffectiveness(chargedHitMove, defender.types, attacker, defender);
     const randomFactor = fixedDamage === null ? 0.85 + rng.next() * 0.15 : 1;
-    const criticalModifier = critical ? 1.5 : 1;
+    const criticalModifier = criticalDamageModifier(
+      attacker,
+      defender,
+      critical,
+    );
     let damage =
       fixedDamage !== null
         ? fixedEffectiveness === 0
@@ -8153,6 +8190,25 @@ function executeMove(state, action, rng) {
           target: attacker.name,
         });
         applyBoosts(state, defenderSide, defender, { defence: 1 }, "stamina");
+      }
+      if (
+        damage > 0 &&
+        defender.hp > 0 &&
+        move.category === "Physical" &&
+        activeAbility(defender) === "weakarmor" &&
+        !ignoresDefenderAbility(attacker)
+      ) {
+        emitAbilityActivation(state, defenderSide, defender, "weakarmor", {
+          targetSide: action.side,
+          target: attacker.name,
+        });
+        applyBoosts(
+          state,
+          defenderSide,
+          defender,
+          { defence: -1, speed: 2 },
+          "weakarmor",
+        );
       }
       if (
         damage > 0 &&
@@ -8653,8 +8709,21 @@ function executeMove(state, action, rng) {
     }
   }
   if (!isSheerForceBoostedMove(attacker, move)) {
+    const shieldDustBlocked =
+      totalDamage > 0 &&
+      defender.hp > 0 &&
+      move.secondaries.length > 0 &&
+      secondaryEffectsBlocked(attacker, defender, move);
+    if (shieldDustBlocked) {
+      emitAbilityActivation(state, defenderSide, defender, "shielddust", {
+        targetSide: action.side,
+        target: attacker.name,
+        move: move.name,
+      });
+    }
     for (const secondary of move.secondaries) {
       if (defender.hp <= 0) break;
+      if (shieldDustBlocked) continue;
       if (rng.next() * 100 >= secondaryEffectChance(attacker, secondary)) continue;
       applyMoveEffect(
         state,
@@ -9988,10 +10057,12 @@ function aiExpectedHitCount(move, attacker) {
 function aiDamageOutcomeProfile(attacker, defender, move, range) {
   const hitCount = aiExpectedHitCount(move, attacker);
   const criticalModifier =
-    (move.willCrit || attacker.volatiles?.laserfocus) &&
-    !preventsCriticalHit(defender, attacker) &&
     range.effectiveness !== 0
-      ? 1.5
+      ? criticalDamageModifier(
+          attacker,
+          defender,
+          move.willCrit || attacker.volatiles?.laserfocus,
+        )
       : 1;
   const disguiseBlocked =
     activeAbility(defender) === "disguise" &&
@@ -10117,7 +10188,10 @@ function aiExpectedMoveDamage(
     defenderSide,
     critical,
   });
-  const criticalModifier = critical && range.effectiveness !== 0 ? 1.5 : 1;
+  const criticalModifier =
+    range.effectiveness !== 0
+      ? criticalDamageModifier(attacker, defender, critical)
+      : 1;
   return {
     move: estimatedMove,
     range,
@@ -11384,6 +11458,7 @@ function automaticMoveCandidates(
       const recoveryNetHpChange =
         recoveryAmount - recoveryExpectedIncomingDamage;
       const secondaryValue = displayMove.secondaries.reduce((sum, effect) => {
+        if (secondaryEffectsBlocked(pokemon, defender, displayMove)) return sum;
         const chance = secondaryEffectChance(pokemon, effect) / 100;
         const status =
           effect.status && canReceiveStatus(defender, effect.status)
@@ -11408,6 +11483,7 @@ function automaticMoveCandidates(
         ...displayMove.secondaries
           .filter(
             (effect) =>
+              !secondaryEffectsBlocked(pokemon, defender, displayMove) &&
               effect.status &&
               canReceiveStatus(
                 defender,
@@ -13776,6 +13852,9 @@ export function automaticSwitchCandidates(
   const opponentSide = sideIndex === 0 ? 1 : 0;
   const current = activePokemon(state, sideIndex);
   const opponent = activePokemon(state, opponentSide);
+  if (!current.fainted && isPokemonTrapped(state, sideIndex, current)) {
+    return [];
+  }
   const teamRoleAnalysis = simpleTeamAnalysis(state, sideIndex);
   const oneTurnSearchWeight = aiOneTurnSearchWeight(difficulty);
   const threatCounterMap = simpleThreatCounterMap(
