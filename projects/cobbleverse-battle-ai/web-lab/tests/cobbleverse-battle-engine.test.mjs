@@ -38,6 +38,18 @@ test("reports the first high-usage ability batch as supported", () => {
   }
 });
 
+test("reports the second high-usage ability batch as supported", () => {
+  for (const ability of [
+    "poisontouch",
+    "serenegrace",
+    "steadfast",
+    "aftermath",
+    "disguise",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
 test("uses trainer battle items and consumes both quantity and use limit", () => {
   let state = createSimpleBattle(
     setup({
@@ -19965,6 +19977,252 @@ test("Cursed Body disables the damaging move and respects suppression", () => {
     { move: 1 },
   ]);
   assert.equal(maxMoveResult.sides[0].team[0].volatiles.disable, undefined);
+});
+
+test("Poison Touch poisons on contact and respects suppression", () => {
+  const contactMove = {
+    id: "scratch",
+    name: "Scratch",
+    type: "Normal",
+    category: "Physical",
+    power: 40,
+    accuracy: true,
+    pp: 35,
+    contact: true,
+  };
+  const run = (seed, suppressed = false) => {
+    const state = createSimpleBattle(
+      setup({
+        seed,
+        sides: [
+          {
+            name: "Poison Touch",
+            team: [pokemon({ ability: "poisontouch", moves: [contactMove] })],
+          },
+          {
+            name: "Target",
+            team: [pokemon({ stats: { ...pokemon().stats, hp: 500 } })],
+          },
+        ],
+      }),
+    );
+    if (suppressed) {
+      state.sides[0].team[0].volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  };
+  const triggeringSeed = Array.from({ length: 128 }, (_, seed) => seed).find(
+    (seed) => run(seed).sides[1].team[0].status === "psn",
+  );
+
+  assert.notEqual(triggeringSeed, undefined);
+  const poisoned = run(triggeringSeed);
+  assert.ok(
+    poisoned.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "poisontouch",
+    ),
+  );
+  assert.equal(run(triggeringSeed, true).sides[1].team[0].status, "");
+});
+
+test("Serene Grace doubles secondary chances in resolution and AI scoring", () => {
+  const bodySlam = {
+    id: "bodyslam",
+    name: "Body Slam",
+    type: "Normal",
+    category: "Physical",
+    power: 40,
+    accuracy: true,
+    pp: 15,
+    secondaries: [{ chance: 50, status: "par" }],
+  };
+  const makeState = (ability) =>
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Grace",
+            team: [pokemon({ ability, moves: [bodySlam] })],
+          },
+          {
+            name: "Target",
+            team: [pokemon({ stats: { ...pokemon().stats, hp: 500 } })],
+          },
+        ],
+      }),
+    );
+
+  const graceful = resolveSimpleTurn(makeState("serenegrace"), [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  assert.equal(graceful.sides[1].team[0].status, "par");
+
+  const gracefulDecision = chooseSimpleAiDecision(
+    makeState("serenegrace"),
+    0,
+    "expert",
+    "balanced",
+  );
+  const baselineDecision = chooseSimpleAiDecision(
+    makeState(""),
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.ok(
+    gracefulDecision.moveCandidates[0].tacticalValue >
+      baselineDecision.moveCandidates[0].tacticalValue,
+  );
+
+  const suppressed = makeState("serenegrace");
+  suppressed.sides[0].team[0].volatiles.gastroacid = { id: "gastroacid" };
+  const suppressedDecision = chooseSimpleAiDecision(
+    suppressed,
+    0,
+    "expert",
+    "balanced",
+  );
+  assert.equal(
+    suppressedDecision.moveCandidates[0].tacticalValue,
+    baselineDecision.moveCandidates[0].tacticalValue,
+  );
+});
+
+test("Steadfast raises Speed after flinching and respects suppression", () => {
+  const fakeOut = {
+    id: "fakeout",
+    name: "Fake Out",
+    type: "Normal",
+    category: "Physical",
+    power: 40,
+    accuracy: true,
+    pp: 10,
+    priority: 3,
+    contact: true,
+  };
+  const run = (suppressed = false) => {
+    const state = createSimpleBattle(
+      setup({
+        sides: [
+          { name: "Flincher", team: [pokemon({ moves: [fakeOut] })] },
+          { name: "Steadfast", team: [pokemon({ ability: "steadfast" })] },
+        ],
+      }),
+    );
+    if (suppressed) {
+      state.sides[1].team[0].volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  };
+
+  const activated = run();
+  assert.equal(activated.sides[1].team[0].boosts.speed, 1);
+  assert.ok(
+    activated.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "steadfast",
+    ),
+  );
+  assert.equal(run(true).sides[1].team[0].boosts.speed, 0);
+});
+
+test("Aftermath damages a contact attacker after a knockout and can be bypassed", () => {
+  const knockoutMove = {
+    id: "megapunch",
+    name: "Mega Punch",
+    type: "Normal",
+    category: "Physical",
+    power: 500,
+    accuracy: true,
+    pp: 20,
+    contact: true,
+  };
+  const run = (ability = "") =>
+    resolveSimpleTurn(
+      createSimpleBattle(
+        setup({
+          sides: [
+            {
+              name: "Attacker",
+              team: [pokemon({ ability, moves: [knockoutMove] })],
+            },
+            {
+              name: "Aftermath",
+              team: [pokemon({ ability: "aftermath", stats: { ...pokemon().stats, hp: 20 } })],
+            },
+          ],
+        }),
+      ),
+      [{ move: 1 }, { move: 1 }],
+    );
+
+  const activated = run();
+  assert.equal(activated.sides[0].team[0].hp, 90);
+  assert.ok(
+    activated.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "aftermath",
+    ),
+  );
+  assert.equal(run("moldbreaker").sides[0].team[0].hp, 120);
+});
+
+test("Disguise absorbs the first hit, takes chip damage, and informs AI damage", () => {
+  const heavyHit = {
+    id: "slam",
+    name: "Slam",
+    type: "Normal",
+    category: "Physical",
+    power: 140,
+    accuracy: true,
+    pp: 20,
+    contact: true,
+  };
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const makeState = (attackerAbility = "") =>
+    createSimpleBattle(
+      setup({
+        sides: [
+          {
+            name: "Attacker",
+            team: [pokemon({ ability: attackerAbility, moves: [heavyHit] })],
+          },
+          {
+            name: "Disguise",
+            team: [pokemon({ ability: "disguise", moves: [splash] })],
+          },
+        ],
+      }),
+    );
+
+  const initial = makeState();
+  const decision = chooseSimpleAiDecision(initial, 0, "expert", "balanced");
+  assert.equal(decision.moveCandidates[0].expectedDamage, 15);
+
+  const firstTurn = resolveSimpleTurn(initial, [{ move: 1 }, { move: 1 }]);
+  assert.equal(firstTurn.sides[1].team[0].hp, 105);
+  assert.equal(firstTurn.sides[1].team[0].abilityState.disguiseBusted, true);
+  assert.ok(
+    firstTurn.events.some(
+      (event) => event.type === "ability_activate" && event.ability === "disguise",
+    ),
+  );
+  const secondTurn = resolveSimpleTurn(firstTurn, [{ move: 1 }, { move: 1 }]);
+  assert.ok(secondTurn.sides[1].team[0].hp < 105);
+
+  const bypassed = resolveSimpleTurn(makeState("moldbreaker"), [
+    { move: 1 },
+    { move: 1 },
+  ]);
+  assert.ok(bypassed.sides[1].team[0].hp < 105);
+  assert.equal(bypassed.sides[1].team[0].abilityState.disguiseBusted, undefined);
 });
 
 test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {

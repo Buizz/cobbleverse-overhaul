@@ -151,6 +151,7 @@ const CONSECUTIVE_PROTECTION_MOVES = new Set([
 ]);
 const IMPLEMENTED_ABILITIES = new Set([
   "adaptability",
+  "aftermath",
   "analytic",
   "asoneglastrier",
   "asonespectrier",
@@ -166,6 +167,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "dauntlessshield",
   "defiant",
   "download",
+  "disguise",
   "drizzle",
   "dryskin",
   "drought",
@@ -211,6 +213,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "overcoat",
   "owntempo",
   "pickpocket",
+  "poisontouch",
   "minus",
   "plus",
   "pressure",
@@ -227,6 +230,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "sandveil",
   "sapsipper",
   "scrappy",
+  "serenegrace",
   "sharpness",
   "shadowshield",
   "shedskin",
@@ -238,6 +242,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "soundproof",
   "speedboost",
   "static",
+  "steadfast",
   "stamina",
   "sturdy",
   "strongjaw",
@@ -1120,6 +1125,16 @@ function isSheerForceBoostedMove(attacker, move) {
     Array.isArray(move?.secondaries) &&
     move.secondaries.length > 0
   );
+}
+
+function secondaryEffectChance(attacker, effect) {
+  const baseChance = Math.max(
+    0,
+    Math.min(100, Number(effect?.chance ?? 100)),
+  );
+  return activeAbility(attacker) === "serenegrace"
+    ? Math.min(100, baseChance * 2)
+    : baseChance;
 }
 
 function activateAbsorbingAbility(
@@ -4879,6 +4894,10 @@ function canAct(state, side, pokemon, rng, options = {}) {
       status: "flinch",
       source: "flinch",
     });
+    if (activeAbility(pokemon) === "steadfast") {
+      emitAbilityActivation(state, side, pokemon, "steadfast");
+      applyBoosts(state, side, pokemon, { speed: 1 }, "steadfast");
+    }
     return false;
   }
   if (pokemon.volatiles?.attract && rng.next() < 0.5) {
@@ -7823,7 +7842,6 @@ function executeMove(state, action, rng) {
       });
       break;
     }
-    let appliedDamage = damage;
     const substitute = defender.volatiles?.substitute;
     const substituteBlockedHit = Boolean(
       damage > 0 &&
@@ -7831,6 +7849,25 @@ function executeMove(state, action, rng) {
         move.target !== "self" &&
         activeAbility(attacker) !== "infiltrator",
     );
+    const disguiseBlockedHit = Boolean(
+      damage > 0 &&
+        !substituteBlockedHit &&
+        activeAbility(defender) === "disguise" &&
+        defender.abilityState?.disguiseBusted !== true &&
+        !ignoresDefenderAbility(attacker),
+    );
+    if (disguiseBlockedHit) {
+      defender.abilityState ??= {};
+      defender.abilityState.disguiseBusted = true;
+      damage = 0;
+      emitAbilityActivation(state, defenderSide, defender, "disguise", {
+        targetSide: action.side,
+        target: attacker.name,
+        move: move.name,
+        hit,
+      });
+    }
+    let appliedDamage = damage;
     if (substituteBlockedHit) {
       appliedDamage = Math.min(damage, substitute.hp);
       substitute.hp -= appliedDamage;
@@ -8068,6 +8105,38 @@ function executeMove(state, action, rng) {
           rng,
           "flamebody",
           defenderSide,
+        );
+      }
+      if (
+        damage > 0 &&
+        defender.hp > 0 &&
+        activeAbility(attacker) === "poisontouch" &&
+        makesContact(move) &&
+        canReceiveStatus(defender, "psn", state, defenderSide, action.side) &&
+        rng.next() < 0.3
+      ) {
+        emitAbilityActivation(state, action.side, attacker, "poisontouch", {
+          targetSide: defenderSide,
+          target: defender.name,
+        });
+        applyStatus(
+          state,
+          defenderSide,
+          defender,
+          "psn",
+          rng,
+          "poisontouch",
+          action.side,
+        );
+      }
+      if (disguiseBlockedHit && defender.hp > 0) {
+        applyDirectDamage(
+          state,
+          defenderSide,
+          defender,
+          Math.max(1, Math.floor(defender.stats.hp / 8)),
+          "disguise",
+          "ability",
         );
       }
     }
@@ -8453,7 +8522,7 @@ function executeMove(state, action, rng) {
   if (!isSheerForceBoostedMove(attacker, move)) {
     for (const secondary of move.secondaries) {
       if (defender.hp <= 0) break;
-      if (rng.next() * 100 >= secondary.chance) continue;
+      if (rng.next() * 100 >= secondaryEffectChance(attacker, secondary)) continue;
       applyMoveEffect(
         state,
         action.side,
@@ -8480,6 +8549,27 @@ function executeMove(state, action, rng) {
   const defenderFainted = markFainted(state, defenderSide, defender);
   if (defenderFainted && cleanId(move.id) === "fellstinger" && !attacker.fainted) {
     applyBoosts(state, action.side, attacker, { attack: 3 }, move.name);
+  }
+  if (
+    defenderFainted &&
+    !attacker.fainted &&
+    totalDamage > 0 &&
+    makesContact(move) &&
+    activeAbility(defender) === "aftermath" &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    emitAbilityActivation(state, defenderSide, defender, "aftermath", {
+      targetSide: action.side,
+      target: attacker.name,
+    });
+    applyDirectDamage(
+      state,
+      action.side,
+      attacker,
+      Math.max(1, Math.floor(attacker.stats.hp / 4)),
+      "aftermath",
+      "ability",
+    );
   }
   if (defenderFainted && !attacker.fainted) {
     applyKnockoutAbility(state, action.side, attacker, defender);
@@ -9770,8 +9860,19 @@ function aiDamageOutcomeProfile(attacker, defender, move, range) {
     range.effectiveness !== 0
       ? 1.5
       : 1;
-  const totalMinimum = range.minimum * hitCount * criticalModifier;
-  const totalMaximum = range.maximum * hitCount * criticalModifier;
+  const disguiseBlocked =
+    activeAbility(defender) === "disguise" &&
+    defender.abilityState?.disguiseBusted !== true &&
+    !ignoresDefenderAbility(attacker) &&
+    range.effectiveness !== 0;
+  const damagingHitCount = Math.max(0, hitCount - (disguiseBlocked ? 1 : 0));
+  const disguiseDamage = disguiseBlocked
+    ? Math.max(1, Math.floor(defender.stats.hp / 8))
+    : 0;
+  const totalMinimum =
+    range.minimum * damagingHitCount * criticalModifier + disguiseDamage;
+  const totalMaximum =
+    range.maximum * damagingHitCount * criticalModifier + disguiseDamage;
   const sturdyCanTrigger =
     activeAbility(defender) === "sturdy" &&
     defender.hp >= defender.stats.hp &&
@@ -9803,6 +9904,7 @@ function aiDamageOutcomeProfile(attacker, defender, move, range) {
     totalMaximum,
     effectiveMinimum,
     effectiveMaximum,
+    disguiseBlocked,
     sturdyBlocked,
     focusSashBlocked,
     singleHitSurvivalBlocked,
@@ -11149,7 +11251,7 @@ function automaticMoveCandidates(
       const recoveryNetHpChange =
         recoveryAmount - recoveryExpectedIncomingDamage;
       const secondaryValue = displayMove.secondaries.reduce((sum, effect) => {
-        const chance = effect.chance / 100;
+        const chance = secondaryEffectChance(pokemon, effect) / 100;
         const status =
           effect.status && canReceiveStatus(defender, effect.status)
             ? statusWeights[effect.status] ?? 18
@@ -11182,7 +11284,10 @@ function automaticMoveCandidates(
                 sideIndex,
               ),
           )
-          .map((effect) => ({ status: effect.status, chance: effect.chance })),
+          .map((effect) => ({
+            status: effect.status,
+            chance: secondaryEffectChance(pokemon, effect),
+          })),
       ];
       const statusBlocked =
         Boolean(displayMove.status) &&
@@ -11195,8 +11300,8 @@ function automaticMoveCandidates(
         recoveryValue +
         secondaryValue;
       const uncappedExpectedDamage =
-        (damageOutcome.singleHitSurvivalBlocked
-          ? Math.min(damageEstimate.expectedDamage, damageOutcome.effectiveMaximum)
+        (damageOutcome.singleHitSurvivalBlocked || damageOutcome.disguiseBlocked
+          ? (damageOutcome.effectiveMinimum + damageOutcome.effectiveMaximum) / 2
           : damageEstimate.expectedDamage) * accuracy;
       const expectedDamage = Math.min(defender.hp, uncappedExpectedDamage);
       const expectedRecoilDamage = displayMove.recoil

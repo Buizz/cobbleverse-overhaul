@@ -62,6 +62,11 @@
 | UNIT_TESTED | `cursedbody` | 저주받은바디, 피해를 받으면 30% 확률로 사용 기술을 4턴 봉인 | `executeMove` post-hit | `Cursed Body disables the damaging move and respects suppression` |
 | UNIT_TESTED | `synchronize` | 싱크로, 상대가 유발한 화상·마비·독을 상대에게 반사 | `applyStatus` | `reflects opponent-inflicted major status with Synchronize` |
 | UNIT_TESTED | `rivalry` | 투쟁심, 같은 성별 대상 피해 1.25배·다른 성별 대상 피해 0.75배 | `normalizePokemon`, `calculateDamageRange` | `applies Rivalry only when both Pokemon have known genders` |
+| UNIT_TESTED | `poisontouch` | 독수, 접촉 공격 적중 시 30% 확률로 대상에게 독 | `executeMove` post-hit contact reaction | `Poison Touch poisons on contact and respects suppression` |
+| UNIT_TESTED | `serenegrace` | 하늘의은총, 기술 부가효과 확률 2배(최대 100%) | `secondaryEffectChance`, 실제 부가효과·AI 후보 점수 | `Serene Grace doubles secondary chances in resolution and AI scoring` |
+| UNIT_TESTED | `steadfast` | 불굴의마음, 풀죽음으로 행동하지 못하면 스피드 +1 | `canAct` | `Steadfast raises Speed after flinching and respects suppression` |
+| UNIT_TESTED | `aftermath` | 유폭, 접촉 공격으로 쓰러질 때 공격자 최대 HP의 1/4 피해 | `executeMove` post-KO contact reaction | `Aftermath damages a contact attacker after a knockout and can be bypassed` |
+| UNIT_TESTED | `disguise` | 탈, 첫 직접 공격 1타 흡수 후 최대 HP의 1/8 피해 | `executeMove`, `aiDamageOutcomeProfile` | `Disguise absorbs the first hit, takes chip damage, and informs AI damage` |
 
 ## 2026 실전 파티 특성 구현 묶음
 
@@ -192,6 +197,7 @@
 - [x] `strongjaw`: 물기 기술 1.5배
 - [ ] `megalauncher`: 파동 기술 1.5배
 - [x] `sheerforce`: 부가효과 기술 1.3배 및 부가효과 제거
+- [x] `serenegrace`: 기술 부가효과 확률 2배(최대 100%)
 
 ### 타입·면역·상태
 
@@ -246,6 +252,7 @@
 - [x] `moxie`: 직접 KO 후 공격 +1
 - [x] `beastboost`: KO 후 가장 높은 능력 +1
 - [x] `speedboost`: 턴 종료 스피드 +1
+- [x] `steadfast`: 풀죽음으로 행동하지 못하면 스피드 +1
 - [ ] `contrary`: 랭크 변화 반전
 - [x] `competitive`: 상대에 의한 능력 하락 시 특공 +2
 - [ ] `defiant`: 능력 하락 시 공격 +2
@@ -262,7 +269,7 @@
 - [x] `filter`: 효과 굉장한 피해 감소
 - [x] `solidrock`: 효과 굉장한 피해 감소
 - [x] `prismarmor`: 효과 굉장한 피해 감소
-- [ ] `disguise`: 첫 직접 피해 흡수
+- [x] `disguise`: 첫 직접 공격 1타 흡수 후 최대 HP 1/8 피해
 - [ ] `iceface`: 물리 피해 1회 흡수
 
 ### 접촉·피격 반응
@@ -271,12 +278,12 @@
 - [x] `ironbarbs`: 접촉 피해 반사
 - [x] `static`: 접촉 피해를 준 공격자 마비 확률
 - [x] `flamebody`: 접촉 시 화상 확률
-- [ ] `poisontouch`: 접촉 공격 시 독 확률
+- [x] `poisontouch`: 접촉 공격 시 독 확률
 - [ ] `effectspore`: 접촉 시 상태 확률
 - [ ] `cutecharm`: 접촉 시 헤롱헤롱 확률
 - [ ] `mummy`: 접촉 공격자의 특성을 미라로 변경
 - [ ] `wandering spirit`: 접촉 시 특성 교환
-- [ ] `aftermath`: 접촉 KO 시 피해
+- [x] `aftermath`: 접촉 KO 시 피해
 
 ### 우선도·행동 제한
 

@@ -3,8 +3,8 @@
   "generatedFrom": "public/data/trainers.json",
   "trainerCount": 224,
   "uniqueAbilityCount": 208,
-  "supportedAbilityCount": 117,
-  "unsupportedAbilityCount": 91,
+  "supportedAbilityCount": 122,
+  "unsupportedAbilityCount": 86,
   "abilities": [
     {
       "id": "levitate",
@@ -994,7 +994,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "serenegrace",
@@ -1016,7 +1016,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "steadfast",
@@ -1038,7 +1038,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "aftermath",
@@ -1060,7 +1060,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "compoundeyes",
@@ -1104,7 +1104,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "hypercutter",
