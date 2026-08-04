@@ -107,6 +107,7 @@ const TRACE_BLOCKED_ABILITIES = new Set([
   "neutralizinggas",
   "orichalcumpulse",
   "powerconstruct",
+  "primordialsea",
   "protosynthesis",
   "quarkdrive",
   "receiver",
@@ -123,6 +124,14 @@ const TRACE_BLOCKED_ABILITIES = new Set([
 const ROLLING_LOCK_MOVES = new Set(["iceball", "rollout"]);
 const RAMPAGE_LOCK_MOVES = new Set(["outrage", "petaldance", "thrash"]);
 const NON_CONSECUTIVE_MOVES = new Set(["bloodmoon", "gigatonhammer"]);
+const AROMA_VEIL_VOLATILES = new Set([
+  "attract",
+  "disable",
+  "encore",
+  "healblock",
+  "taunt",
+  "torment",
+]);
 const FIRST_ACTIVE_TURN_MOVES = new Set(["fakeout", "firstimpression"]);
 const CHOICE_LOCK_ITEMS = new Set(["choiceband", "choicescarf", "choicespecs"]);
 const LOADED_DICE_ITEMS = new Set(["loadeddice"]);
@@ -181,7 +190,11 @@ const CONSECUTIVE_PROTECTION_MOVES = new Set([
 const IMPLEMENTED_ABILITIES = new Set([
   "adaptability",
   "aftermath",
+  "airlock",
   "analytic",
+  "anticipation",
+  "arenatrap",
+  "aromaveil",
   "asoneglastrier",
   "asonespectrier",
   "baddreams",
@@ -249,6 +262,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "magician",
   "magnetpull",
   "mindseye",
+  "mirrorarmor",
   "moldbreaker",
   "multiscale",
   "multitype",
@@ -262,13 +276,16 @@ const IMPLEMENTED_ABILITIES = new Set([
   "oblivious",
   "overcoat",
   "owntempo",
+  "pickup",
   "pickpocket",
   "poisontouch",
   "minus",
   "plus",
   "pressure",
   "prankster",
+  "primordialsea",
   "protosynthesis",
+  "protean",
   "purifyingsalt",
   "purepower",
   "quarkdrive",
@@ -278,6 +295,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "roughskin",
   "rivalry",
   "sandrush",
+  "sandforce",
   "sandstream",
   "sandveil",
   "sapsipper",
@@ -323,6 +341,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "unaware",
   "unburden",
   "unseenfist",
+  "victorystar",
   "vitalspirit",
   "vesselofruin",
   "voltabsorb",
@@ -1145,7 +1164,11 @@ function effectiveWeather(state) {
   if (!state) return "";
   const weatherSuppressed = state.sides?.some((_, sideIndex) => {
     const pokemon = activePokemon(state, sideIndex);
-    return pokemon && !pokemon.fainted && activeAbility(pokemon) === "cloudnine";
+    return (
+      pokemon &&
+      !pokemon.fainted &&
+      ["airlock", "cloudnine"].includes(activeAbility(pokemon))
+    );
   });
   return weatherSuppressed ? "" : cleanId(state.field?.weather?.id);
 }
@@ -1161,6 +1184,15 @@ function dampActive(state) {
 
 function isDampBlockedMove(state, move) {
   return dampActive(state) && DAMP_BLOCKED_MOVES.has(cleanId(move?.id));
+}
+
+function isPrimordialSeaBlockedMove(state, move) {
+  return (
+    effectiveWeather(state) === "primordialsea" &&
+    move?.category !== "Status" &&
+    move?.type === "Fire" &&
+    Number(move?.power ?? 0) > 0
+  );
 }
 
 function doublesPhysicalAttack(ability) {
@@ -1761,6 +1793,7 @@ function fieldDamageModifier(
 }
 
 export function calculateDamageRange(attacker, defender, move, context = {}) {
+  attacker = proteanPreviewPokemon(attacker, move);
   attacker = stanceChangePreviewPokemon(attacker, move);
   move = abilityModifiedMove(attacker, move);
   move = teraModifiedMove(attacker, move);
@@ -1829,6 +1862,13 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   }
   if (activeAbility(attacker) === "dragonsmaw" && move.type === "Dragon") {
     abilityModifier *= 1.5;
+  }
+  if (
+    activeAbility(attacker) === "sandforce" &&
+    effectiveWeather(context.state) === "sandstorm" &&
+    ["Rock", "Ground", "Steel"].includes(move.type)
+  ) {
+    abilityModifier *= 1.3;
   }
   if (activeAbility(attacker) === "hustle" && move.category === "Physical") {
     abilityModifier *= 1.5;
@@ -2174,6 +2214,40 @@ function applyStanceChange(state, sideIndex, pokemon, move) {
   );
 }
 
+function proteanTargetType(pokemon, move) {
+  if (
+    !pokemon ||
+    pokemon.terastallized ||
+    pokemon.dynamaxTurns > 0 ||
+    activeAbility(pokemon) !== "protean" ||
+    pokemon.abilityState?.proteanUsed === true ||
+    !move?.type ||
+    cleanId(move.id) === "struggle"
+  ) {
+    return "";
+  }
+  const alreadySameType =
+    pokemon.types.length === 1 && cleanId(pokemon.types[0]) === cleanId(move.type);
+  return alreadySameType ? "" : move.type;
+}
+
+function proteanPreviewPokemon(pokemon, move) {
+  const type = proteanTargetType(pokemon, move);
+  return type ? { ...pokemon, types: [type] } : pokemon;
+}
+
+function applyProtean(state, sideIndex, pokemon, move) {
+  const type = proteanTargetType(pokemon, move);
+  if (!type) return false;
+  pokemon.abilityState ??= {};
+  pokemon.abilityState.proteanUsed = true;
+  emitAbilityActivation(state, sideIndex, pokemon, "protean", {
+    move: move.name,
+    type,
+  });
+  return setPokemonTypes(state, sideIndex, pokemon, [type], "protean");
+}
+
 function applyTeraShiftOnEntry(state, sideIndex, pokemon) {
   if (
     !isTerapagosPokemon(pokemon) ||
@@ -2362,6 +2436,7 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
     drizzle: "raindance",
     drought: "sunnyday",
     orichalcumpulse: "sunnyday",
+    primordialsea: "primordialsea",
     sandstream: "sandstorm",
     snowwarning: "snow",
   }[ability];
@@ -2423,6 +2498,25 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
       });
       applyEntryAbilities(state, sideIndex, pokemon);
       return;
+    }
+  }
+  if (ability === "anticipation") {
+    const threateningMoves = target.moves
+      .filter((move) => {
+        const moveId = cleanId(move.id);
+        return (
+          ["fissure", "guillotine", "horndrill", "sheercold"].includes(moveId) ||
+          (move.category !== "Status" &&
+            moveEffectiveness(move, pokemon.types, target, pokemon) > 1)
+        );
+      })
+      .map((move) => cleanId(move.id));
+    if (threateningMoves.length > 0) {
+      emitAbilityActivation(state, sideIndex, pokemon, "anticipation", {
+        targetSide,
+        target: target.name,
+        threateningMoves,
+      });
     }
   }
   if (ability === "frisk" && target.item) {
@@ -3269,6 +3363,7 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
     emitAbilityActivation(state, sideIndex, outgoing, "naturalcure");
     curePokemonStatus(state, sideIndex, outgoing, "naturalcure");
   }
+  endPersistentAbilityWeather(state, sideIndex, outgoing, "switch");
   revertTransform(outgoing);
   if (outgoing.abilityState?.tracedAbility) {
     outgoing.ability =
@@ -3284,6 +3379,7 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
   outgoing.lockedMove = null;
   outgoing.choiceLock = null;
   outgoing.chargingMove = null;
+  delete outgoing.abilityState?.proteanUsed;
   delete outgoing.displayName;
   outgoing.volatiles = {};
   delete outgoing.abilityState?.unburdenActivated;
@@ -3436,6 +3532,13 @@ function consumeHeldItem(state, sideIndex, pokemon, source) {
   pokemon.consumedItem = consumedItem;
   pokemon.usedItem = consumedItem;
   pokemon.lastItem = consumedItem;
+  state.consumedItems ??= [];
+  state.consumedItems.push({
+    turn: state.turn,
+    side: sideIndex,
+    pokemon: pokemon.name,
+    item: consumedItem,
+  });
   state.events.push({
     turn: state.turn,
     type: "item_removed",
@@ -3728,6 +3831,7 @@ function effectiveAccuracy(attacker, defender, move, state = null) {
       : defender.boosts?.evasion ?? 0;
   let abilityModifier = 1;
   if (activeAbility(attacker) === "compoundeyes") abilityModifier *= 1.3;
+  if (activeAbility(attacker) === "victorystar") abilityModifier *= 1.1;
   if (activeAbility(attacker) === "hustle" && move.category === "Physical") {
     abilityModifier *= 0.8;
   }
@@ -4244,6 +4348,19 @@ function applyVolatileStatus(state, side, pokemon, id, source, sourceSide = null
   if (!normalized || pokemon.fainted || pokemon.volatiles[normalized]) {
     return false;
   }
+  const aromaVeilPokemon = activePokemon(state, side);
+  if (
+    AROMA_VEIL_VOLATILES.has(normalized) &&
+    Number.isInteger(sourceSide) &&
+    sourceSide !== side &&
+    activeAbility(aromaVeilPokemon) === "aromaveil"
+  ) {
+    emitAbilityActivation(state, side, aromaVeilPokemon, "aromaveil", {
+      source,
+      target: pokemon.name,
+    });
+    return false;
+  }
   if (normalized === "confusion" && activeAbility(pokemon) === "owntempo") {
     return false;
   }
@@ -4622,13 +4739,13 @@ function suppressAbility(state, side, pokemon, source) {
   return true;
 }
 
-function applyDisable(state, side, pokemon, source) {
+function applyDisable(state, side, pokemon, source, sourceSide = null) {
   const lastMove = pokemon.lastMove;
   const disabledMoveId = cleanId(lastMove?.id);
   if (!disabledMoveId || pokemon.moves.every((move) => cleanId(move.id) !== disabledMoveId)) {
     return false;
   }
-  if (!applyVolatileStatus(state, side, pokemon, "disable", source)) {
+  if (!applyVolatileStatus(state, side, pokemon, "disable", source, sourceSide)) {
     return false;
   }
   pokemon.volatiles.disable.moveId = disabledMoveId;
@@ -4636,7 +4753,7 @@ function applyDisable(state, side, pokemon, source) {
   return true;
 }
 
-function applyEncore(state, side, pokemon, source) {
+function applyEncore(state, side, pokemon, source, sourceSide = null) {
   const lastMove = pokemon.lastMove;
   const encoredMoveId = cleanId(lastMove?.id);
   if (
@@ -4646,7 +4763,7 @@ function applyEncore(state, side, pokemon, source) {
   ) {
     return false;
   }
-  if (!applyVolatileStatus(state, side, pokemon, "encore", source)) {
+  if (!applyVolatileStatus(state, side, pokemon, "encore", source, sourceSide)) {
     return false;
   }
   pokemon.volatiles.encore.moveId = encoredMoveId;
@@ -4883,6 +5000,9 @@ function isPokemonTrapped(state, sideIndex, pokemon) {
   ) {
     return true;
   }
+  if (activeAbility(opponent) === "arenatrap" && isGrounded(pokemon)) {
+    return true;
+  }
   return (
     activeAbility(opponent) === "magnetpull" &&
     pokemon.types.includes("Steel")
@@ -4917,9 +5037,26 @@ function applyWeatherRecoveryMove(state, side, pokemon, source) {
 function setFieldEffect(state, side, pokemon, kind, id, source) {
   const normalized = cleanId(id);
   if (!normalized) return false;
+  if (
+    kind === "weather" &&
+    cleanId(state.field?.weather?.id) === "primordialsea" &&
+    normalized !== "primordialsea"
+  ) {
+    state.events.push({
+      turn: state.turn,
+      type: "field_blocked",
+      side,
+      pokemon: pokemon.name,
+      fieldKind: kind,
+      effect: normalized,
+      source: "primordialsea",
+    });
+    return false;
+  }
   let turns = DEFAULT_FIELD_DURATION;
   if (kind === "terrain" && pokemon.item === "terrainextender") turns = 8;
   if (kind === "weather") {
+    if (normalized === "primordialsea") turns = null;
     const weatherRocks = {
       sunnyday: "heatrock",
       raindance: "damprock",
@@ -4932,7 +5069,12 @@ function setFieldEffect(state, side, pokemon, kind, id, source) {
   if (kind === "pseudoWeather") {
     state.field.pseudoWeather[normalized] = { id: normalized, turns };
   } else {
-    state.field[kind] = { id: normalized, turns };
+    state.field[kind] = {
+      id: normalized,
+      turns,
+      sourceAbility: cleanId(source),
+      sourceSide: side,
+    };
   }
   state.events.push({
     turn: state.turn,
@@ -4955,6 +5097,28 @@ function setFieldEffect(state, side, pokemon, kind, id, source) {
       );
     }
   }
+  return true;
+}
+
+function endPersistentAbilityWeather(state, side, pokemon, reason) {
+  const weather = state.field?.weather;
+  if (
+    cleanId(weather?.id) !== "primordialsea" ||
+    weather?.sourceSide !== side ||
+    cleanId(weather?.sourceAbility) !== "primordialsea"
+  ) {
+    return false;
+  }
+  state.field.weather = null;
+  state.events.push({
+    turn: state.turn,
+    type: "field_end",
+    side,
+    pokemon: pokemon.name,
+    fieldKind: "weather",
+    effect: "primordialsea",
+    source: reason,
+  });
   return true;
 }
 
@@ -5019,6 +5183,29 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
     if (!BOOST_STATS.includes(stat) || !Number.isFinite(amount)) continue;
     const loweredByFoe =
       amount < 0 && Number.isInteger(sourceSide) && sourceSide !== side;
+    if (
+      loweredByFoe &&
+      activeAbility(pokemon) === "mirrorarmor" &&
+      cleanId(source) !== "mirrorarmor"
+    ) {
+      const sourcePokemon = activePokemon(state, sourceSide);
+      emitAbilityActivation(state, side, pokemon, "mirrorarmor", {
+        source,
+        targetSide: sourceSide,
+        target: sourcePokemon?.name,
+      });
+      if (sourcePokemon && !sourcePokemon.fainted) {
+        applyBoosts(
+          state,
+          sourceSide,
+          sourcePokemon,
+          { [stat]: amount },
+          "mirrorarmor",
+          side,
+        );
+      }
+      continue;
+    }
     const flowerVeilPokemon = state ? activePokemon(state, side) : null;
     if (
       loweredByFoe &&
@@ -5132,6 +5319,17 @@ function isPranksterBlocked(attacker, defender, move) {
     activeAbility(attacker) === "prankster" &&
     targetsPokemonWithStatusMove(move) &&
     defender.types.includes("Dark")
+  );
+}
+
+function isAromaVeilBlockedMove(state, defenderSide, move) {
+  if (!state || !Number.isInteger(defenderSide)) return false;
+  const protector = activePokemon(state, defenderSide);
+  const effect = cleanId(move?.volatileStatus || move?.id);
+  return (
+    activeAbility(protector) === "aromaveil" &&
+    targetsPokemonWithStatusMove(move) &&
+    AROMA_VEIL_VOLATILES.has(effect)
   );
 }
 
@@ -5571,6 +5769,7 @@ function canAct(state, side, pokemon, rng, options = {}) {
 function markFainted(state, side, pokemon) {
   if (pokemon.hp > 0 || pokemon.fainted) return false;
   pokemon.hp = 0;
+  endPersistentAbilityWeather(state, side, pokemon, "faint");
   endDynamax(state, side, pokemon, "faint");
   pokemon.fainted = true;
   state.sides[side].lastFaintedTurn = state.turn;
@@ -6127,6 +6326,7 @@ function executeMove(state, action, rng) {
   move = growthMove(state, move);
   move = terrainModifiedMove(state, attacker, move);
   move = chargeAdjustedMove(state, move);
+  applyProtean(state, action.side, attacker, move);
   applyStanceChange(state, action.side, attacker, move);
   state.events.push({
     turn: state.turn,
@@ -6141,6 +6341,19 @@ function executeMove(state, action, rng) {
   });
   state.turnMoves ??= [];
   state.turnMoves.push({ side: action.side, id: cleanId(move.id), move: move.name });
+
+  if (isPrimordialSeaBlockedMove(state, move)) {
+    state.events.push({
+      turn: state.turn,
+      type: "move_failed",
+      side: action.side,
+      pokemon: attacker.name,
+      move: move.name,
+      reason: "Primordial Sea extinguishes damaging Fire-type moves.",
+      source: "primordialsea",
+    });
+    return false;
+  }
 
   if (isDampBlockedMove(state, move)) {
     const dampSide = activeAbility(activePokemon(state, 0)) === "damp" ? 0 : 1;
@@ -7192,11 +7405,15 @@ function executeMove(state, action, rng) {
     }
     if (cleanId(move.id) === "disable") {
       handled = true;
-      applied = applyDisable(state, defenderSide, defender, move.name) || applied;
+      applied =
+        applyDisable(state, defenderSide, defender, move.name, action.side) ||
+        applied;
     }
     if (cleanId(move.id) === "encore") {
       handled = true;
-      applied = applyEncore(state, defenderSide, defender, move.name) || applied;
+      applied =
+        applyEncore(state, defenderSide, defender, move.name, action.side) ||
+        applied;
     }
     if (cleanId(move.id) === "spite") {
       handled = true;
@@ -7352,7 +7569,14 @@ function executeMove(state, action, rng) {
     if (cleanId(move.id) === "healblock") {
       handled = true;
       applied =
-        applyVolatileStatus(state, defenderSide, defender, "healblock", move.name) ||
+        applyVolatileStatus(
+          state,
+          defenderSide,
+          defender,
+          "healblock",
+          move.name,
+          action.side,
+        ) ||
         applied;
     }
     if (cleanId(move.id) === "imprison") {
@@ -8067,6 +8291,7 @@ function executeMove(state, action, rng) {
           targetsSelf ? attacker : defender,
           move.volatileStatus,
           move.name,
+          action.side,
         ) || applied;
     }
     if (cleanId(move.id) === "defensecurl") {
@@ -10104,13 +10329,38 @@ function applyEndTurnEffects(state, rng) {
         "Black Sludge",
       );
     }
+    if (activeAbility(pokemon) === "pickup" && !pokemon.item) {
+      const pickupIndex = (state.consumedItems ?? []).findLastIndex(
+        (entry) => entry.turn === state.turn && entry.item,
+      );
+      if (pickupIndex >= 0) {
+        const [pickedUp] = state.consumedItems.splice(pickupIndex, 1);
+        pokemon.item = pickedUp.item;
+        emitAbilityActivation(state, sideIndex, pokemon, "pickup", {
+          item: pickedUp.item,
+          sourcePokemon: pickedUp.pokemon,
+        });
+        state.events.push({
+          turn: state.turn,
+          type: "item_received",
+          side: sideIndex,
+          pokemon: pokemon.name,
+          item: pickedUp.item,
+          source: "pickup",
+        });
+      }
+    }
   }
+  state.consumedItems = (state.consumedItems ?? []).filter(
+    (entry) => entry.turn >= state.turn,
+  );
 }
 
 function advanceTimedEffects(state, rng) {
   for (const kind of ["weather", "terrain"]) {
     const effect = state.field[kind];
     if (!effect) continue;
+    if (!Number.isFinite(effect.turns)) continue;
     effect.turns -= 1;
     if (effect.turns > 0) {
       state.events.push({
@@ -12530,7 +12780,9 @@ function automaticMoveCandidates(
       const baseCandidate = {
         ...displayMove,
         willFail:
+          isPrimordialSeaBlockedMove(state, displayMove) ||
           isDampBlockedMove(state, displayMove) ||
+          isAromaVeilBlockedMove(state, defenderSide, displayMove) ||
           isPranksterBlocked(pokemon, defender, displayMove) ||
           (displayMove.category === "Status" &&
             Boolean(candidateHazardConditionId(displayMove)) &&

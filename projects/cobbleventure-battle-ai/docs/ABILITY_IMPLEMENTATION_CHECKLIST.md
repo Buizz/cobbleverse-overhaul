@@ -102,6 +102,16 @@
 | UNIT_TESTED | `justified` | 정의의마음, 악 타입 피해를 받으면 공격 1랭크 상승 | 피격 후 타입 반응 | `Gooey lowers contact Speed and Justified raises Attack after Dark damage` |
 | UNIT_TESTED | `magicguard` | 매직가드, 직접 공격과 HP 비용 외 간접 피해 무효 | 장판·상태·날씨·반동·아이템·변동 상태·AI 잔여 피해 | `Magic Guard prevents indirect damage and informs hazard prediction` |
 | UNIT_TESTED | `magician` | 매지션, 도구가 없을 때 피해를 준 상대의 도구 강탈 | 피격 후 아이템 처리 | `Magician steals the target item after dealing damage` |
+| UNIT_TESTED | `mirrorarmor` | 미러아머, 상대가 유발한 능력 하락을 상대에게 반사 | `applyBoosts`, 실제 랭크 반사 | `Mirror Armor reflects opposing stat drops` |
+| UNIT_TESTED | `pickup` | 픽업, 턴 중 소비된 도구를 턴 종료에 회수 | `consumeHeldItem`, `applyEndTurnEffects` | `Pickup retrieves an item consumed earlier in the turn` |
+| UNIT_TESTED | `primordialsea` | 시작의바다, 영구 폭우 전개·불꽃 공격 무효·일반 날씨 교체 방지·사용자 이탈 시 종료 | 등장·날씨 설정·기술 실패·교체·기절·AI 실패 판정 | `Primordial Sea blocks Fire moves, resists replacement, and ends with its source` |
+| UNIT_TESTED | `protean` | 변환자재, 교체당 한 번 사용 기술 타입으로 변경 | 실제 타입 변경·교체 초기화·AI 자속 계산 | `Protean changes type once per switch and informs STAB previews` |
+| UNIT_TESTED | `sandforce` | 모래의힘, 모래바람 중 바위·땅·강철 기술 위력 1.3배 | `calculateDamageRange`, 실제 피해·AI 미리보기 | `Sand Force boosts sand attacks and Victory Star raises accuracy` |
+| UNIT_TESTED | `victorystar` | 승리의별, 자신과 같은 편의 기술 명중률 1.1배 | `effectiveAccuracy`, 실제 명중·AI 후보 명중률 | `Sand Force boosts sand attacks and Victory Star raises accuracy` |
+| UNIT_TESTED | `airlock` | 에어록, 활성 중 날씨 전투 효과 무효 | `effectiveWeather`, 피해·속도·명중·상태·턴 종료·AI 계산 | `Primordial Sea blocks Fire moves, resists replacement, and ends with its source` |
+| UNIT_TESTED | `anticipation` | 위험예지, 등장 시 효과가 굉장한 기술과 일격기 감지 | `applyEntryAbilities` 위협 기술 이벤트 | `Anticipation reveals super-effective and one-hit knockout threats` |
+| UNIT_TESTED | `arenatrap` | 개미지옥, 땅에 닿은 상대의 교체 봉쇄 | `isPokemonTrapped`, 수동·AI 교체 후보 | `Arena Trap prevents grounded switches but allows airborne targets` |
+| UNIT_TESTED | `aromaveil` | 아로마베일, 헤롱헤롱·사슬묶기·앵콜·회복봉인·도발·트집 방지 | `applyVolatileStatus`, 실제 방해기·AI 실패 판정 | `Aroma Veil blocks mental interference and informs AI failure` |
 
 ## 2026 실전 파티 특성 구현 묶음
 

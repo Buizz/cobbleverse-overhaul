@@ -22,7 +22,7 @@ import {
 test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported("pressure"), true);
   assert.equal(isSimpleAbilitySupported("cobblemon:pressure"), true);
-  assert.equal(isSimpleAbilitySupported("mirrorarmor"), false);
+  assert.equal(isSimpleAbilitySupported("aurabreak"), false);
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
@@ -122,6 +122,23 @@ test("reports the eighth high-usage ability batch as supported", () => {
     "justified",
     "magicguard",
     "magician",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
+test("reports the ninth high-usage ability batch as supported", () => {
+  for (const ability of [
+    "mirrorarmor",
+    "pickup",
+    "primordialsea",
+    "protean",
+    "sandforce",
+    "victorystar",
+    "airlock",
+    "anticipation",
+    "arenatrap",
+    "aromaveil",
   ]) {
     assert.equal(isSimpleAbilitySupported(ability), true, ability);
   }
@@ -21701,6 +21718,248 @@ test("Magician steals the target item after dealing damage", () => {
   assert.equal(resolved.sides[0].team[0].item, "leftovers");
   assert.equal(resolved.sides[1].team[0].item, "");
   assert.ok(resolved.events.some((event) => event.ability === "magician"));
+});
+
+test("Mirror Armor reflects opposing stat drops", () => {
+  const growl = {
+    id: "growl",
+    name: "Growl",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+    boosts: { attack: -1 },
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Growl", team: [pokemon({ moves: [growl] })] },
+        { name: "Mirror", team: [pokemon({ ability: "mirrorarmor" })] },
+      ],
+    }),
+  );
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[0].team[0].boosts.attack, -1);
+  assert.equal(resolved.sides[1].team[0].boosts.attack, 0);
+  assert.ok(resolved.events.some((event) => event.ability === "mirrorarmor"));
+});
+
+test("Pickup retrieves an item consumed earlier in the turn", () => {
+  const strongMove = { ...pokemon().moves[0], power: 500 };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Pickup", team: [pokemon({ ability: "pickup", moves: [strongMove] })] },
+        { name: "Sash", team: [pokemon({ item: "focussash" })] },
+      ],
+    }),
+  );
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[0].team[0].item, "focussash");
+  assert.equal(resolved.sides[1].team[0].item, "");
+  assert.ok(resolved.events.some((event) => event.ability === "pickup"));
+});
+
+test("Primordial Sea blocks Fire moves, resists replacement, and ends with its source", () => {
+  const fireMove = {
+    id: "flamethrower",
+    name: "Flamethrower",
+    type: "Fire",
+    category: "Special",
+    power: 90,
+    accuracy: true,
+    pp: 15,
+  };
+  const sunnyDay = {
+    id: "sunnyday",
+    name: "Sunny Day",
+    type: "Fire",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 5,
+    weather: "sunnyday",
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Fire", team: [pokemon({ moves: [fireMove, sunnyDay] })] },
+        {
+          name: "Sea",
+          team: [pokemon({ ability: "primordialsea" }), pokemon({ name: "Bench" })],
+        },
+      ],
+    }),
+  );
+  assert.equal(state.field.weather.id, "primordialsea");
+  assert.equal(state.field.weather.turns, null);
+  const decision = chooseSimpleAiDecision(state, 0, "expert", "balanced");
+  assert.equal(decision.moveCandidates[0].willFail, true);
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[1].team[0].hp, pokemon().stats.hp);
+  state = resolveSimpleTurn(state, [{ move: 2 }, { move: 1 }]);
+  assert.equal(state.field.weather.id, "primordialsea");
+  state = resolveSimpleTurn(state, [{ move: 1 }, { switch: 2 }]);
+  assert.equal(state.field.weather, null);
+
+  const airLockState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Air Lock", team: [pokemon({ ability: "airlock", moves: [fireMove] })] },
+        { name: "Sea", team: [pokemon({ ability: "primordialsea", stats: { ...pokemon().stats, hp: 300 } })] },
+      ],
+    }),
+  );
+  const airLockResult = resolveSimpleTurn(airLockState, [{ move: 1 }, { move: 1 }]);
+  assert.ok(airLockResult.sides[1].team[0].hp < 300);
+});
+
+test("Protean changes type once per switch and informs STAB previews", () => {
+  const electricMove = {
+    id: "thunderbolt",
+    name: "Thunderbolt",
+    type: "Electric",
+    category: "Special",
+    power: 90,
+    accuracy: true,
+    pp: 15,
+  };
+  const fireMove = { ...electricMove, id: "flamethrower", name: "Flamethrower", type: "Fire" };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Protean", team: [pokemon({ types: ["Water"], ability: "protean", moves: [electricMove, fireMove] })] },
+        { name: "Wall", team: [pokemon({ stats: { ...pokemon().stats, hp: 600 } })] },
+      ],
+    }),
+  );
+  const user = state.sides[0].team[0];
+  const target = state.sides[1].team[0];
+  assert.equal(calculateDamageRange(user, target, user.moves[0], { state }).stab, 1.5);
+  user.volatiles.gastroacid = { id: "gastroacid" };
+  assert.equal(calculateDamageRange(user, target, user.moves[0], { state }).stab, 1);
+  delete user.volatiles.gastroacid;
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.deepEqual(state.sides[0].team[0].types, ["Electric"]);
+  state = resolveSimpleTurn(state, [{ move: 2 }, { move: 1 }]);
+  assert.deepEqual(state.sides[0].team[0].types, ["Electric"]);
+});
+
+test("Sand Force boosts sand attacks and Victory Star raises accuracy", () => {
+  const rockMove = {
+    id: "rockslide",
+    name: "Rock Slide",
+    type: "Rock",
+    category: "Physical",
+    power: 75,
+    accuracy: 80,
+    pp: 10,
+  };
+  const sandState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Sand Force", team: [pokemon({ ability: "sandforce", moves: [rockMove] })] },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  sandState.field.weather = { id: "sandstorm", turns: 5 };
+  assert.equal(
+    calculateDamageRange(
+      sandState.sides[0].team[0],
+      sandState.sides[1].team[0],
+      sandState.sides[0].team[0].moves[0],
+      { state: sandState },
+    ).abilityModifier,
+    1.3,
+  );
+
+  const victoryState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Victory Star", team: [pokemon({ ability: "victorystar", moves: [rockMove] })] },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  const victoryDecision = chooseSimpleAiDecision(victoryState, 0, "expert", "balanced");
+  assert.equal(victoryDecision.moveCandidates[0].accuracy, 88);
+});
+
+test("Anticipation reveals super-effective and one-hit knockout threats", () => {
+  const psychic = {
+    id: "psychic",
+    name: "Psychic",
+    type: "Psychic",
+    category: "Special",
+    power: 90,
+    accuracy: true,
+    pp: 10,
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Anticipation", team: [pokemon({ types: ["Fighting", "Poison"], ability: "anticipation" })] },
+        { name: "Threat", team: [pokemon({ moves: [psychic] })] },
+      ],
+    }),
+  );
+  const activation = state.events.find((event) => event.ability === "anticipation");
+  assert.ok(activation);
+  assert.deepEqual(activation.threateningMoves, ["psychic"]);
+});
+
+test("Arena Trap prevents grounded switches but allows airborne targets", () => {
+  const makeState = (overrides = {}) =>
+    createSimpleBattle(
+      setup({
+        sides: [
+          { name: "Target", team: [pokemon(overrides), pokemon({ name: "Bench" })] },
+          { name: "Trap", team: [pokemon({ ability: "arenatrap" })] },
+        ],
+      }),
+    );
+  assert.throws(
+    () => resolveSimpleTurn(makeState(), [{ switch: 2 }, { move: 1 }]),
+    /cannot switch while trapped/,
+  );
+  const flying = resolveSimpleTurn(
+    makeState({ types: ["Flying"] }),
+    [{ switch: 2 }, { move: 1 }],
+  );
+  assert.equal(flying.sides[0].active, 1);
+  const levitate = resolveSimpleTurn(
+    makeState({ ability: "levitate" }),
+    [{ switch: 2 }, { move: 1 }],
+  );
+  assert.equal(levitate.sides[0].active, 1);
+});
+
+test("Aroma Veil blocks mental interference and informs AI failure", () => {
+  const taunt = {
+    id: "taunt",
+    name: "Taunt",
+    type: "Dark",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 20,
+    volatileStatus: "taunt",
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Taunt", team: [pokemon({ moves: [taunt] })] },
+        { name: "Veil", team: [pokemon({ ability: "aromaveil" })] },
+      ],
+    }),
+  );
+  const decision = chooseSimpleAiDecision(state, 0, "expert", "balanced");
+  assert.equal(decision.moveCandidates[0].willFail, true);
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[1].team[0].volatiles.taunt, undefined);
+  assert.ok(resolved.events.some((event) => event.ability === "aromaveil"));
 });
 
 test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {
