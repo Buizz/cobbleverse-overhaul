@@ -7,6 +7,7 @@
   "purpose": "development-pack-placeholder",
   "production_ready": false,
   "notice": "Cobblemon과 Cobbleventure NeoForge JAR이 아직 포함되지 않은 개발용 임시 팩입니다.",
+  "icon": "pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",
     "mod_loader": {

@@ -55,14 +55,23 @@ build.bat pack-release
 
 ```text
 manifest.json
+icon.png
 overrides/
+├─ icon.png
 ├─ cobbleventure-pack-info.json
 └─ config/<프로필 확인 파일>
 ```
 
+프로필의 `icon` 경로는 400x400 이상의 정사각형 PNG여야 한다. 빌더는 같은
+이미지를 ZIP 최상위와 `overrides`에 기록하고 두 파일의 내용까지 검사한다.
+최상위 `icon.png`는 런처 호환성 테스트용이며 CurseForge 사설 프로필 manifest의
+공식 필드는 아니다. 자동 적용되지 않으면 `overrides/icon.png`로 인스턴스 루트에
+복사된 파일을 프로필 편집 화면에서 수동으로 선택한다.
+
 빌더는 생성 직후 다음 항목을 검사한다.
 
 - `manifest.json`과 `overrides/`가 ZIP 최상위에 있는가
+- 두 `icon.png`가 프로필 원본과 일치하고 최소 크기·정사각형 조건을 만족하는가
 - ZIP 엔트리에 절대 경로, `..` 또는 Windows 구분자가 없는가
 - Minecraft와 NeoForge 버전이 스모크 프로필과 일치하는가
 - manifest 종류·버전·files·overrides 필드가 올바른가

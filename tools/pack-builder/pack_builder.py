@@ -13,6 +13,7 @@ from typing import Any
 
 PROFILE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 class PackError(RuntimeError):
@@ -57,6 +58,16 @@ def _inside(root: Path, candidate: Path, label: str) -> Path:
     return resolved_candidate
 
 
+def _png_dimensions(data: bytes, label: str) -> tuple[int, int]:
+    if len(data) < 24 or data[:8] != PNG_SIGNATURE or data[12:16] != b"IHDR":
+        raise PackError(f"{label}은 올바른 PNG 파일이어야 합니다.")
+    width = int.from_bytes(data[16:20], "big")
+    height = int.from_bytes(data[20:24], "big")
+    if width < 400 or height < 400 or width != height:
+        raise PackError(f"{label}은 400x400 이상의 정사각형 PNG여야 합니다: {width}x{height}")
+    return width, height
+
+
 def load_profile(root: Path, profile_path: Path) -> dict[str, Any]:
     root = root.resolve()
     path = profile_path if profile_path.is_absolute() else root / profile_path
@@ -76,6 +87,7 @@ def load_profile(root: Path, profile_path: Path) -> dict[str, Any]:
         "author",
         "purpose",
         "notice",
+        "icon",
         "overrides_directory",
         "output",
     ):
@@ -123,9 +135,17 @@ def load_profile(root: Path, profile_path: Path) -> dict[str, Any]:
     if output.suffix.lower() != ".zip":
         raise PackError("출력 파일 확장자는 .zip이어야 합니다.")
 
+    icon = _inside(root, root / profile["icon"], "아이콘")
+    if not icon.is_file():
+        raise PackError(f"아이콘 파일이 없습니다: {icon}")
+    if icon.suffix.lower() != ".png":
+        raise PackError("아이콘 파일 확장자는 .png여야 합니다.")
+    _png_dimensions(icon.read_bytes(), "팩 아이콘")
+
     profile["_profile_path"] = path
     profile["_overrides_path"] = overrides
     profile["_output_path"] = output
+    profile["_icon_path"] = icon
     return profile
 
 
@@ -184,6 +204,7 @@ def build_pack(root: Path, profile_path: Path) -> Path:
     profile = load_profile(root, profile_path)
     output: Path = profile["_output_path"]
     overrides: Path = profile["_overrides_path"]
+    icon: Path = profile["_icon_path"]
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_name(output.name + ".tmp")
 
@@ -194,6 +215,8 @@ def build_pack(root: Path, profile_path: Path) -> Path:
         "purpose": profile["purpose"],
         "production_ready": profile["production_ready"],
         "notice": profile["notice"],
+        "icon": "icon.png",
+        "profile_icon_import": "experimental",
         "minecraft": manifest["minecraft"],
     }
 
@@ -202,7 +225,10 @@ def build_pack(root: Path, profile_path: Path) -> Path:
     try:
         with zipfile.ZipFile(temporary, "w", allowZip64=True) as archive:
             _write_bytes(archive, "manifest.json", _json_bytes(manifest))
+            icon_data = icon.read_bytes()
+            _write_bytes(archive, "icon.png", icon_data)
             archive.writestr(_zip_info("overrides", directory=True), b"")
+            _write_bytes(archive, "overrides/icon.png", icon_data)
             _write_bytes(
                 archive,
                 "overrides/cobbleventure-pack-info.json",
@@ -213,6 +239,10 @@ def build_pack(root: Path, profile_path: Path) -> Path:
                     raise PackError(f"overrides에 심볼릭 링크를 사용할 수 없습니다: {source}")
                 if source.is_file():
                     relative = source.relative_to(overrides)
+                    if relative.as_posix().casefold() == "icon.png":
+                        raise PackError(
+                            "overrides 최상위 icon.png는 프로필 icon과 충돌합니다."
+                        )
                     _write_bytes(archive, _archive_name(relative), source.read_bytes())
         validate_pack(output=temporary, profile=profile)
         os.replace(temporary, output)
@@ -254,11 +284,17 @@ def validate_pack(
                     raise PackError(f"안전하지 않은 ZIP 엔트리입니다: {name}")
             if "manifest.json" not in names:
                 raise PackError("ZIP 최상위에 manifest.json이 없습니다.")
+            if "icon.png" not in names:
+                raise PackError("ZIP 최상위에 icon.png가 없습니다.")
             if "overrides/" not in names:
                 raise PackError("ZIP 최상위에 overrides/ 디렉터리가 없습니다.")
+            if "overrides/icon.png" not in names:
+                raise PackError("overrides/에 icon.png가 없습니다.")
             if not any(name.startswith("overrides/") and name != "overrides/" for name in names):
                 raise PackError("overrides/에 테스트 파일이 없습니다.")
             manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+            root_icon = archive.read("icon.png")
+            override_icon = archive.read("overrides/icon.png")
     except (OSError, zipfile.BadZipFile, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise PackError(f"ZIP을 검증할 수 없습니다: {output}: {error}") from error
 
@@ -271,6 +307,10 @@ def validate_pack(
         raise PackError("manifestVersion은 1이어야 합니다.")
     if manifest.get("overrides") != "overrides":
         raise PackError("manifest overrides는 overrides여야 합니다.")
+    expected_icon = profile["_icon_path"].read_bytes()
+    _png_dimensions(root_icon, "ZIP 팩 아이콘")
+    if root_icon != expected_icon or override_icon != expected_icon:
+        raise PackError("ZIP 아이콘이 선택한 프로필의 아이콘과 일치하지 않습니다.")
     return manifest
 
 

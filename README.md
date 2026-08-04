@@ -74,6 +74,7 @@ dist/cobbleventure-import-smoke-0.1.0-curseforge.zip.sha256
 - Minecraft 1.21.1
 - NeoForge 21.1.248
 - 외부 모드 0개
+- 테스트용 정사각형 팩 아이콘
 - overrides 임포트 확인용 텍스트와 팩 정보 JSON
 
 이 버전은 CurseForge 임포트 파이프라인 확인용으로 별도 고정한 값이며, Cobblemon
@@ -86,10 +87,15 @@ CurseForge 앱에서 다음 순서로 가져옵니다.
 3. `dist/cobbleventure-import-smoke-0.1.0-curseforge.zip`을 선택합니다.
 4. `Cobbleventure Import Smoke Test` 프로필이 생성되는지 확인합니다.
 5. 프로필 상세에서 Minecraft 1.21.1과 NeoForge가 선택되었는지 확인합니다.
-6. 가능하면 게임을 한 번 실행해 빈 NeoForge 프로필이 정상 시작되는지 확인합니다.
+6. 테스트 아이콘이 프로필 이미지로 자동 적용되는지 확인합니다.
+7. 가능하면 게임을 한 번 실행해 빈 NeoForge 프로필이 정상 시작되는지 확인합니다.
 
 임포트된 인스턴스의 `config/cobbleventure-import-smoke.txt`가 존재하면
-`overrides`도 정상 적용된 것입니다. CurseForge의 공식 임포트 화면과 오류 기준은
+`overrides`도 정상 적용된 것입니다. 프로필 아이콘 자동 적용은 CurseForge 사설
+임포트 manifest의 공식 필드로 문서화되어 있지 않으므로 이번 테스트의 확인
+항목입니다. 자동 적용되지 않더라도 인스턴스 루트에 복사된 `icon.png`를 프로필
+이미지 선택 화면에서 수동으로 지정할 수 있습니다. CurseForge의 공식 임포트
+화면과 오류 기준은
 [Sharing Modpacks/Custom Profiles](https://support.curseforge.com/support/solutions/articles/9000197912)를
 참고합니다.
 

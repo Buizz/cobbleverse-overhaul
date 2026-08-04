@@ -7,6 +7,7 @@
   "purpose": "curseforge-import-smoke-test",
   "production_ready": false,
   "notice": "CurseForge 임포트 구조만 확인하는 빈 테스트 프로필입니다.",
+  "icon": "pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",
     "mod_loader": {
