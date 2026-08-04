@@ -64,13 +64,16 @@ overrides/
 
 프로필의 `icon` 경로는 400x400 이상의 정사각형 PNG여야 한다. 빌더는 같은
 이미지를 ZIP 최상위와 `overrides`에 기록하고 두 파일의 내용까지 검사한다.
-최상위 `icon.png`는 런처 호환성 테스트용이며 CurseForge 사설 프로필 manifest의
-공식 필드는 아니다. 자동 적용되지 않으면 `overrides/icon.png`로 인스턴스 루트에
-복사된 파일을 프로필 편집 화면에서 수동으로 선택한다.
+CurseForge 프로필 이미지는 실제 내보내기 ZIP과 같이 `manifest.json`의 `image`
+필드에 공개 HTTPS URL로 기록한다. 로컬 파일 경로와 ZIP 내부 경로는 프로필
+이미지로 사용되지 않는다. 최상위 `icon.png`는 다른 런처 호환성용이며,
+`overrides/icon.png`는 자동 적용 실패 시 수동으로 선택할 사본이다. GitHub 원본
+URL을 사용할 때는 이미지 커밋을 먼저 원격 브랜치에 push해야 한다.
 
 빌더는 생성 직후 다음 항목을 검사한다.
 
 - `manifest.json`과 `overrides/`가 ZIP 최상위에 있는가
+- manifest의 `image`가 HTTPS URL인가
 - 두 `icon.png`가 프로필 원본과 일치하고 최소 크기·정사각형 조건을 만족하는가
 - ZIP 엔트리에 절대 경로, `..` 또는 Windows 구분자가 없는가
 - Minecraft와 NeoForge 버전이 스모크 프로필과 일치하는가

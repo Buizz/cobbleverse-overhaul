@@ -50,6 +50,7 @@ class PackBuilderTests(unittest.TestCase):
             "production_ready": False,
             "notice": "Test only",
             "icon": "pack/assets/icon.png",
+            "image_url": "https://example.invalid/icon.png",
             "minecraft": {
                 "version": "1.21.1",
                 "mod_loader": {
@@ -82,6 +83,7 @@ class PackBuilderTests(unittest.TestCase):
                 root_icon = archive.read("icon.png")
                 override_icon = archive.read("overrides/icon.png")
             self.assertEqual("minecraftModpack", manifest["manifestType"])
+            self.assertEqual("https://example.invalid/icon.png", manifest["image"])
             self.assertEqual([], manifest["files"])
             self.assertIn("manifest.json", names)
             self.assertIn("icon.png", names)
@@ -109,6 +111,17 @@ class PackBuilderTests(unittest.TestCase):
             root = Path(directory)
             profile_path = self._fixture(root)
             self._write_png(root / "pack" / "assets" / "icon.png", 399, 400)
+            with self.assertRaises(pack_builder.PackError):
+                pack_builder.load_profile(root, profile_path)
+
+    def test_rejects_non_https_image_url(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            profile_path = self._fixture(root)
+            absolute_profile = root / profile_path
+            profile = json.loads(absolute_profile.read_text(encoding="utf-8"))
+            profile["image_url"] = "overrides/icon.png"
+            absolute_profile.write_text(json.dumps(profile), encoding="utf-8")
             with self.assertRaises(pack_builder.PackError):
                 pack_builder.load_profile(root, profile_path)
 
