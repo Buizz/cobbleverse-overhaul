@@ -22,7 +22,7 @@ import {
 test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported("pressure"), true);
   assert.equal(isSimpleAbilitySupported("cobblemon:pressure"), true);
-  assert.equal(isSimpleAbilitySupported("illuminate"), false);
+  assert.equal(isSimpleAbilitySupported("solarpower"), false);
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
@@ -173,6 +173,23 @@ test("reports the eleventh high-usage ability batch as supported", () => {
     "healer",
     "honeygather",
     "icebody",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
+test("reports the twelfth high-usage ability batch as supported", () => {
+  for (const ability of [
+    "illuminate",
+    "liquidooze",
+    "poisonheal",
+    "poisonpoint",
+    "poisonpuppeteer",
+    "psychicsurge",
+    "queenlymajesty",
+    "quickdraw",
+    "ripen",
+    "slushrush",
   ]) {
     assert.equal(isSimpleAbilitySupported(ability), true, ability);
   }
@@ -22426,6 +22443,203 @@ test("Harvest restores a consumed Berry in sun and Ice Body heals in snow", () =
   state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
   assert.ok(state.sides[0].team[0].hp > 50);
   assert.ok(state.events.some((event) => event.ability === "icebody"));
+});
+
+test("Illuminate raises move accuracy in AI previews", () => {
+  const inaccurateMove = { ...pokemon().moves[0], accuracy: 80 };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Illuminate", team: [pokemon({ ability: "illuminate", moves: [inaccurateMove] })] },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  const decision = chooseSimpleAiDecision(state, 0, "expert", "balanced");
+  assert.equal(decision.moveCandidates[0].accuracy, 88);
+});
+
+test("Liquid Ooze converts draining recovery into damage", () => {
+  const drainMove = {
+    ...pokemon().moves[0],
+    id: "gigadrain",
+    name: "Giga Drain",
+    type: "Grass",
+    category: "Special",
+    power: 60,
+    drain: [1, 2],
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Drainer", team: [pokemon({ moves: [drainMove] })] },
+        { name: "Ooze", team: [pokemon({ ability: "liquidooze", stats: { ...pokemon().stats, hp: 300 } })] },
+      ],
+    }),
+  );
+  state.sides[0].team[0].hp = 70;
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(resolved.sides[0].team[0].hp < 70);
+  assert.ok(resolved.events.some((event) => event.ability === "liquidooze"));
+});
+
+test("Poison Heal uses Toxic Orb and heals instead of taking poison damage", () => {
+  const protect = {
+    id: "protect",
+    name: "Protect",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 10,
+    target: "self",
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Poison Heal", team: [pokemon({ ability: "poisonheal", item: "toxicorb", moves: [protect] })] },
+        { name: "Target", team: [pokemon({ moves: [protect] })] },
+      ],
+    }),
+  );
+  state.sides[0].team[0].hp = 50;
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].status, "tox");
+  assert.equal(state.sides[0].team[0].hp, 50);
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(state.sides[0].team[0].hp > 50);
+  assert.ok(state.events.some((event) => event.ability === "poisonheal"));
+});
+
+test("Poison Point can poison a contact attacker", () => {
+  const contactMove = { ...pokemon().moves[0], contact: true };
+  let poisoned = null;
+  for (let seed = 0; seed < 100 && !poisoned; seed += 1) {
+    const state = createSimpleBattle(
+      setup({
+        seed,
+        sides: [
+          { name: "Contact", team: [pokemon({ moves: [contactMove] })] },
+          { name: "Point", team: [pokemon({ ability: "poisonpoint" })] },
+        ],
+      }),
+    );
+    const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+    if (resolved.events.some((event) => event.ability === "poisonpoint")) {
+      poisoned = resolved;
+    }
+  }
+  assert.ok(poisoned);
+  assert.equal(poisoned.sides[0].team[0].status, "psn");
+});
+
+test("Poison Puppeteer confuses a target after poisoning it", () => {
+  const toxic = {
+    id: "toxic",
+    name: "Toxic",
+    type: "Poison",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 10,
+    status: "tox",
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Puppeteer", team: [pokemon({ ability: "poisonpuppeteer", moves: [toxic] })] },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[1].team[0].status, "tox");
+  assert.ok(resolved.sides[1].team[0].volatiles.confusion);
+  assert.ok(resolved.events.some((event) => event.ability === "poisonpuppeteer"));
+});
+
+test("Psychic Surge starts terrain and Queenly Majesty blocks priority", () => {
+  const quickAttack = {
+    ...pokemon().moves[0],
+    id: "quickattack",
+    name: "Quick Attack",
+    priority: 1,
+  };
+  const surgeState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Surge", team: [pokemon({ ability: "psychicsurge", item: "terrainextender" })] },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  assert.equal(surgeState.field.terrain.id, "psychicterrain");
+  assert.equal(surgeState.field.terrain.turns, 8);
+
+  const queenState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Priority", team: [pokemon({ moves: [quickAttack] })] },
+        { name: "Queen", team: [pokemon({ ability: "queenlymajesty" })] },
+      ],
+    }),
+  );
+  assert.equal(chooseSimpleAiDecision(queenState, 0, "expert", "balanced").moveCandidates[0].willFail, true);
+  const resolved = resolveSimpleTurn(queenState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[1].team[0].hp, pokemon().stats.hp);
+  assert.ok(resolved.events.some((event) => event.source === "queenlymajesty"));
+});
+
+test("Quick Draw can let a slower Pokemon move first", () => {
+  const knockoutMove = { ...pokemon().moves[0], power: 500 };
+  let activated = null;
+  for (let seed = 0; seed < 100 && !activated; seed += 1) {
+    const state = createSimpleBattle(
+      setup({
+        seed,
+        sides: [
+          { name: "Quick Draw", team: [pokemon({ ability: "quickdraw", moves: [knockoutMove], stats: { ...pokemon().stats, speed: 50 } })] },
+          { name: "Fast", team: [pokemon({ moves: [knockoutMove], stats: { ...pokemon().stats, speed: 200 } })] },
+        ],
+      }),
+    );
+    const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+    if (resolved.events.some((event) => event.ability === "quickdraw")) {
+      activated = resolved;
+    }
+  }
+  assert.ok(activated);
+  assert.equal(activated.sides[1].team[0].fainted, true);
+  assert.equal(activated.sides[0].team[0].hp, pokemon().stats.hp);
+});
+
+test("Ripen doubles Berry effects and Slush Rush doubles Speed in snow", () => {
+  const weakMove = { ...pokemon().moves[0], power: 1 };
+  const ripenState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Attacker", team: [pokemon({ moves: [weakMove], stats: { ...pokemon().stats, speed: 200 } })] },
+        { name: "Ripen", team: [pokemon({ ability: "ripen", item: "sitrusberry", moves: [weakMove] })] },
+      ],
+    }),
+  );
+  ripenState.sides[1].team[0].hp = 40;
+  const ripened = resolveSimpleTurn(ripenState, [{ move: 1 }, { move: 1 }]);
+  assert.ok(ripened.sides[1].team[0].hp > 75);
+  assert.ok(ripened.events.some((event) => event.ability === "ripen"));
+
+  const knockoutMove = { ...pokemon().moves[0], power: 500 };
+  const snowState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Rush", team: [pokemon({ ability: "slushrush", moves: [knockoutMove], stats: { ...pokemon().stats, speed: 60 } })] },
+        { name: "Snow", team: [pokemon({ ability: "snowwarning", moves: [knockoutMove], stats: { ...pokemon().stats, speed: 100 } })] },
+      ],
+    }),
+  );
+  const rushed = resolveSimpleTurn(snowState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(rushed.sides[1].team[0].fainted, true);
+  assert.equal(rushed.sides[0].team[0].hp, pokemon().stats.hp);
 });
 
 test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {

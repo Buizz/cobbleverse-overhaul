@@ -132,6 +132,16 @@
 | UNIT_TESTED | `healer` | 치유의마음, 싱글 전투에는 치료할 아군 슬롯이 없어 발동 조건 없음 | 명시적 싱글 무효 특성 레지스트리 | `reports the eleventh high-usage ability batch as supported` |
 | UNIT_TESTED | `honeygather` | 꿀모으기, 전투 외 아이템 획득 효과로 PvE 전투 영향 없음 | 명시적 무효 특성 레지스트리 | `reports the eleventh high-usage ability batch as supported` |
 | UNIT_TESTED | `icebody` | 아이스바디, 눈·싸라기눈에서 턴 종료 최대 HP 1/16 회복 | `applyEndTurnEffects` | `Harvest restores a consumed Berry in sun and Ice Body heals in snow` |
+| UNIT_TESTED | `illuminate` | 발광, 기술 명중률 1.1배 | `effectiveAccuracy`, 실제 명중·AI 후보 명중률 | `Illuminate raises move accuracy in AI previews` |
+| UNIT_TESTED | `liquidooze` | 해감액, 흡수기가 회복할 HP만큼 공격자에게 피해 | 흡수기 후처리·간접 피해·AI 전투 시뮬레이션 | `Liquid Ooze converts draining recovery into damage` |
+| UNIT_TESTED | `poisonheal` | 포이즌힐, 독·맹독 피해 대신 최대 HP 1/8 회복 | 턴 종료 상태 처리·맹독구슬·AI 잔여 피해 | `Poison Heal uses Toxic Orb and heals instead of taking poison damage` |
+| UNIT_TESTED | `poisonpoint` | 독가시, 접촉 피해를 받으면 30% 확률로 공격자를 독 상태로 변경 | 피격 후 접촉 반응·상태 이벤트 | `Poison Point can poison a contact attacker` |
+| UNIT_TESTED | `poisonpuppeteer` | 독사슬인형, 자신이 상대를 독·맹독으로 만들면 혼란 부여 | `applyStatus`, 주요 상태·혼란 연계 | `Poison Puppeteer confuses a target after poisoning it` |
+| UNIT_TESTED | `psychicsurge` | 사이코메이커, 등장 시 사이코필드 전개 | `applyEntryAbilities`, `setFieldEffect`, 그라운드 우선기 차단 | `Psychic Surge starts terrain and Queenly Majesty blocks priority` |
+| UNIT_TESTED | `queenlymajesty` | 여왕의위엄, 상대 우선도 기술 차단 | 실제 기술 차단·AI 실패 판정 | `Psychic Surge starts terrain and Queenly Majesty blocks priority` |
+| UNIT_TESTED | `quickdraw` | 퀵드로우, 30% 확률로 같은 우선도 안에서 먼저 행동 | `prepareActionOrder`, `sortActions`, 시드 기반 발동 이벤트 | `Quick Draw can let a slower Pokemon move first` |
+| UNIT_TESTED | `ripen` | 숙성, 회복·랭크 나무열매 효과 2배 | 나무열매 소비·회복·랭크 처리 | `Ripen doubles Berry effects and Slush Rush doubles Speed in snow` |
+| UNIT_TESTED | `slushrush` | 눈치우기, 눈·싸라기눈에서 스피드 2배 | `effectiveSpeed`, 실제 행동 순서·AI 속도 계산 | `Ripen doubles Berry effects and Slush Rush doubles Speed in snow` |
 
 ## 2026 실전 파티 특성 구현 묶음
 

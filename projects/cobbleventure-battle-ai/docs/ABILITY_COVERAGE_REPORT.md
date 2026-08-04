@@ -5,34 +5,24 @@
 
 - 트레이너 수: 224
 - 실제 사용 고유 특성: 208
-- 지원: 187
-- 미지원: 21
+- 지원: 197
+- 미지원: 11
 
 ## 미지원 특성
 
 | 우선순위 | ID | 사용 수 | 사용 예시 |
 |---:|---|---:|---|
-| 1 | `illuminate` | 1 | Volbeat (Gentleman Komodo) |
-| 2 | `liquidooze` | 1 | Tentacruel (Swimmer♀ Tisha) |
-| 3 | `poisonheal` | 1 | Breloom (Trainer May) |
-| 4 | `poisonpoint` | 1 | Dragalge (Alice) |
-| 5 | `poisonpuppeteer` | 1 | Pecharunt (Koga) |
-| 6 | `psychicsurge` | 1 | Indeedee (Pino) |
-| 7 | `queenlymajesty` | 1 | Tsareena (Gardenia) |
-| 8 | `quickdraw` | 1 | Slowbro-Galar (Pino) |
-| 9 | `ripen` | 1 | Applin (Lass Miriam) |
-| 10 | `slushrush` | 1 | Arctovish (Alfredo) |
-| 11 | `solarpower` | 1 | Heliolisk (Fosco) |
-| 12 | `soulheart` | 1 | Magearna (Jasmine) |
-| 13 | `superluck` | 1 | Honchkrow (Boss Giovanni) |
-| 14 | `swordofruin` | 1 | Chien-Pao (Karen) |
-| 15 | `tabletsofruin` | 1 | Wo-Chien (Karen) |
-| 16 | `tangledfeet` | 1 | Pidgeot (Lass Megan) |
-| 17 | `telepathy` | 1 | Gardevoir (Frida) |
-| 18 | `transistor` | 1 | Regieleki (Champion Terry) |
-| 19 | `truant` | 1 | Slaking (Cue Ball Isaiah) |
-| 20 | `waterbubble` | 1 | Araquanid (Raffaello) |
-| 21 | `zenmode` | 1 | Darmanitan-Galar (Crush Girl Sharon) |
+| 1 | `solarpower` | 1 | Heliolisk (Fosco) |
+| 2 | `soulheart` | 1 | Magearna (Jasmine) |
+| 3 | `superluck` | 1 | Honchkrow (Boss Giovanni) |
+| 4 | `swordofruin` | 1 | Chien-Pao (Karen) |
+| 5 | `tabletsofruin` | 1 | Wo-Chien (Karen) |
+| 6 | `tangledfeet` | 1 | Pidgeot (Lass Megan) |
+| 7 | `telepathy` | 1 | Gardevoir (Frida) |
+| 8 | `transistor` | 1 | Regieleki (Champion Terry) |
+| 9 | `truant` | 1 | Slaking (Cue Ball Isaiah) |
+| 10 | `waterbubble` | 1 | Araquanid (Raffaello) |
+| 11 | `zenmode` | 1 | Darmanitan-Galar (Crush Girl Sharon) |
 
 ## 지원 특성
 
@@ -217,12 +207,22 @@
 | `healer` | 1 |
 | `honeygather` | 1 |
 | `icebody` | 1 |
+| `illuminate` | 1 |
+| `liquidooze` | 1 |
 | `liquidvoice` | 1 |
 | `magnetpull` | 1 |
 | `multitype` | 1 |
 | `orichalcumpulse` | 1 |
+| `poisonheal` | 1 |
+| `poisonpoint` | 1 |
+| `poisonpuppeteer` | 1 |
 | `prismarmor` | 1 |
+| `psychicsurge` | 1 |
+| `queenlymajesty` | 1 |
+| `quickdraw` | 1 |
+| `ripen` | 1 |
 | `shadowshield` | 1 |
+| `slushrush` | 1 |
 | `toughclaws` | 1 |
 | `wellbakedbody` | 1 |
 

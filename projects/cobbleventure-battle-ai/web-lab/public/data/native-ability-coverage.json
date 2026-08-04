@@ -3,8 +3,8 @@
   "generatedFrom": "public/data/trainers.json",
   "trainerCount": 224,
   "uniqueAbilityCount": 208,
-  "supportedAbilityCount": 187,
-  "unsupportedAbilityCount": 21,
+  "supportedAbilityCount": 197,
+  "unsupportedAbilityCount": 11,
   "abilities": [
     {
       "id": "levitate",
@@ -3439,7 +3439,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "liquidooze",
@@ -3451,7 +3451,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "liquidvoice",
@@ -3511,7 +3511,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "poisonpoint",
@@ -3523,7 +3523,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "poisonpuppeteer",
@@ -3535,7 +3535,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "prismarmor",
@@ -3559,7 +3559,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "queenlymajesty",
@@ -3571,7 +3571,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "quickdraw",
@@ -3583,7 +3583,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "ripen",
@@ -3595,7 +3595,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "shadowshield",
@@ -3619,7 +3619,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "solarpower",
