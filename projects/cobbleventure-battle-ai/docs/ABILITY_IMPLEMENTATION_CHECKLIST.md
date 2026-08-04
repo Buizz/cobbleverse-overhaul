@@ -112,6 +112,16 @@
 | UNIT_TESTED | `anticipation` | 위험예지, 등장 시 효과가 굉장한 기술과 일격기 감지 | `applyEntryAbilities` 위협 기술 이벤트 | `Anticipation reveals super-effective and one-hit knockout threats` |
 | UNIT_TESTED | `arenatrap` | 개미지옥, 땅에 닿은 상대의 교체 봉쇄 | `isPokemonTrapped`, 수동·AI 교체 후보 | `Arena Trap prevents grounded switches but allows airborne targets` |
 | UNIT_TESTED | `aromaveil` | 아로마베일, 헤롱헤롱·사슬묶기·앵콜·회복봉인·도발·트집 방지 | `applyVolatileStatus`, 실제 방해기·AI 실패 판정 | `Aroma Veil blocks mental interference and informs AI failure` |
+| UNIT_TESTED | `aurabreak` | 오라브레이크, 다크오라·페어리오라의 위력 보정을 3/4배로 반전 | `calculateDamageRange`, 필드 활성 특성 조회 | `Dark Aura boosts Dark damage while Aura Break reverses the aura` |
+| UNIT_TESTED | `ballfetch` | 볼줍기, 포획을 지원하지 않는 트레이너 PvE에서는 발동 조건 없음 | 명시적 무효 특성 레지스트리 | `reports the tenth high-usage ability batch as supported` |
+| UNIT_TESTED | `beadsofruin` | 재앙의구슬, 자신 이외 포켓몬의 특수방어를 0.75배로 취급 | `damageBase`, 실제 피해·AI 미리보기 | `Beads of Ruin raises special damage and Defeatist halves offense at half HP` |
+| UNIT_TESTED | `cheekpouch` | 볼주머니, 나무열매 소비 시 최대 HP의 1/3 회복 | `consumeHeldItem`, 모든 나무열매 소비 경로 | `Cheek Pouch heals after consuming a Berry` |
+| UNIT_TESTED | `comatose` | 절대안깸, 주요 상태이상 면역 및 수면 판정 기술과 상호작용 | `canReceiveStatus`, 수면 전용 기술·악몽·나이트메어·나쁜꿈 | `Comatose blocks status while allowing sleep-only moves` |
+| UNIT_TESTED | `contrary` | 심술꾸러기, 모든 능력 랭크 변화의 부호 반전 | `applyBoosts`, 자기·상대 유발 랭크 변화 | `Contrary reverses both self boosts and opposing stat drops` |
+| UNIT_TESTED | `cottondown` | 솜털, 공격 피해를 받을 때마다 공격자의 스피드 1랭크 하락 | 피격 후 반응·`applyBoosts` | `Cotton Down lowers the attacker's Speed after a damaging hit` |
+| UNIT_TESTED | `darkaura` | 다크오라, 필드의 악 타입 기술 위력 4/3배 | `calculateDamageRange`, 실제 피해·AI 미리보기 | `Dark Aura boosts Dark damage while Aura Break reverses the aura` |
+| UNIT_TESTED | `defeatist` | 무기력, HP가 절반 이하일 때 공격·특수공격 절반 | `effectiveStat`, 실제 피해·AI 미리보기 | `Beads of Ruin raises special damage and Defeatist halves offense at half HP` |
+| UNIT_TESTED | `deltastream` | 델타스트림, 영구 난기류 전개·비행 약점 완화·일반 날씨 교체 방지·사용자 이탈 시 종료 | 등장·날씨 설정·피해 계산·교체·기절 | `Delta Stream weakens Flying weaknesses and ends with its source` |
 
 ## 2026 실전 파티 특성 구현 묶음
 

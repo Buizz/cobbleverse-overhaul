@@ -22,7 +22,7 @@ import {
 test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported("pressure"), true);
   assert.equal(isSimpleAbilitySupported("cobblemon:pressure"), true);
-  assert.equal(isSimpleAbilitySupported("aurabreak"), false);
+  assert.equal(isSimpleAbilitySupported("desolateland"), false);
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
@@ -139,6 +139,23 @@ test("reports the ninth high-usage ability batch as supported", () => {
     "anticipation",
     "arenatrap",
     "aromaveil",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
+test("reports the tenth high-usage ability batch as supported", () => {
+  for (const ability of [
+    "aurabreak",
+    "ballfetch",
+    "beadsofruin",
+    "cheekpouch",
+    "comatose",
+    "contrary",
+    "cottondown",
+    "darkaura",
+    "defeatist",
+    "deltastream",
   ]) {
     assert.equal(isSimpleAbilitySupported(ability), true, ability);
   }
@@ -21960,6 +21977,238 @@ test("Aroma Veil blocks mental interference and informs AI failure", () => {
   const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
   assert.equal(resolved.sides[1].team[0].volatiles.taunt, undefined);
   assert.ok(resolved.events.some((event) => event.ability === "aromaveil"));
+});
+
+test("Dark Aura boosts Dark damage while Aura Break reverses the aura", () => {
+  const darkMove = {
+    ...pokemon().moves[0],
+    id: "darkpulse",
+    name: "Dark Pulse",
+    type: "Dark",
+    category: "Special",
+  };
+  const makeState = (defenderAbility = "") =>
+    createSimpleBattle(
+      setup({
+        sides: [
+          { name: "Aura", team: [pokemon({ ability: "darkaura", moves: [darkMove] })] },
+          { name: "Target", team: [pokemon({ ability: defenderAbility })] },
+        ],
+      }),
+    );
+  const auraState = makeState();
+  const auraRange = calculateDamageRange(
+    auraState.sides[0].team[0],
+    auraState.sides[1].team[0],
+    auraState.sides[0].team[0].moves[0],
+    { state: auraState, attackerSide: 0, defenderSide: 1 },
+  );
+  const suppressedState = structuredClone(auraState);
+  suppressedState.sides[0].team[0].volatiles.gastroacid = { id: "gastroacid" };
+  const normalRange = calculateDamageRange(
+    suppressedState.sides[0].team[0],
+    suppressedState.sides[1].team[0],
+    suppressedState.sides[0].team[0].moves[0],
+    { state: suppressedState, attackerSide: 0, defenderSide: 1 },
+  );
+  const breakState = makeState("aurabreak");
+  const breakRange = calculateDamageRange(
+    breakState.sides[0].team[0],
+    breakState.sides[1].team[0],
+    breakState.sides[0].team[0].moves[0],
+    { state: breakState, attackerSide: 0, defenderSide: 1 },
+  );
+  assert.ok(auraRange.maximum > normalRange.maximum);
+  assert.ok(breakRange.maximum < normalRange.maximum);
+});
+
+test("Beads of Ruin raises special damage and Defeatist halves offense at half HP", () => {
+  const specialMove = {
+    ...pokemon().moves[0],
+    id: "psychic",
+    name: "Psychic",
+    type: "Psychic",
+    category: "Special",
+  };
+  const beadsState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Beads", team: [pokemon({ ability: "beadsofruin", moves: [specialMove] })] },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  const beadsUser = beadsState.sides[0].team[0];
+  const target = beadsState.sides[1].team[0];
+  const boosted = calculateDamageRange(beadsUser, target, beadsUser.moves[0], { state: beadsState });
+  beadsUser.volatiles.gastroacid = { id: "gastroacid" };
+  const normal = calculateDamageRange(beadsUser, target, beadsUser.moves[0], { state: beadsState });
+  assert.ok(boosted.maximum > normal.maximum);
+
+  const defeatistState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Defeatist", team: [pokemon({ ability: "defeatist" })] },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  const defeatist = defeatistState.sides[0].team[0];
+  const full = calculateDamageRange(defeatist, defeatistState.sides[1].team[0], defeatist.moves[0], { state: defeatistState });
+  defeatist.hp = Math.floor(defeatist.stats.hp / 2);
+  const weakened = calculateDamageRange(defeatist, defeatistState.sides[1].team[0], defeatist.moves[0], { state: defeatistState });
+  assert.ok(weakened.maximum < full.maximum);
+});
+
+test("Cheek Pouch heals after consuming a Berry", () => {
+  const weakMove = { ...pokemon().moves[0], power: 1 };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Attacker", team: [pokemon({ moves: [weakMove], stats: { ...pokemon().stats, speed: 200 } })] },
+        { name: "Cheeks", team: [pokemon({ ability: "cheekpouch", item: "figyberry", moves: [weakMove] })] },
+      ],
+    }),
+  );
+  state.sides[1].team[0].hp = 20;
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[1].team[0].item, "");
+  assert.ok(resolved.sides[1].team[0].hp > 50);
+  assert.ok(resolved.events.some((event) => event.ability === "cheekpouch"));
+});
+
+test("Comatose blocks status while allowing sleep-only moves", () => {
+  const toxic = {
+    id: "toxic",
+    name: "Toxic",
+    type: "Poison",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 10,
+    status: "tox",
+  };
+  const sleepTalk = {
+    id: "sleeptalk",
+    name: "Sleep Talk",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 10,
+    target: "self",
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Toxic", team: [pokemon({ moves: [toxic], stats: { ...pokemon().stats, speed: 200 } })] },
+        { name: "Comatose", team: [pokemon({ ability: "comatose", moves: [sleepTalk, pokemon().moves[0]] })] },
+      ],
+    }),
+  );
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[1].team[0].status, "");
+  assert.ok(resolved.sides[0].team[0].hp < pokemon().stats.hp);
+  assert.ok(resolved.events.some((event) => event.move === "Tackle"));
+});
+
+test("Contrary reverses both self boosts and opposing stat drops", () => {
+  const swordsDance = {
+    id: "swordsdance",
+    name: "Swords Dance",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 20,
+    target: "self",
+    selfBoosts: { attack: 2 },
+  };
+  const growl = {
+    id: "growl",
+    name: "Growl",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+    boosts: { attack: -1 },
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Contrary", team: [pokemon({ ability: "contrary", moves: [swordsDance] })] },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].boosts.attack, -2);
+
+  state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Growl", team: [pokemon({ moves: [growl] })] },
+        { name: "Contrary", team: [pokemon({ ability: "contrary" })] },
+      ],
+    }),
+  );
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[1].team[0].boosts.attack, 1);
+});
+
+test("Cotton Down lowers the attacker's Speed after a damaging hit", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Attacker", team: [pokemon()] },
+        { name: "Cotton", team: [pokemon({ ability: "cottondown" })] },
+      ],
+    }),
+  );
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[0].team[0].boosts.speed, -1);
+  assert.ok(resolved.events.some((event) => event.ability === "cottondown"));
+});
+
+test("Delta Stream weakens Flying weaknesses and ends with its source", () => {
+  const rockMove = {
+    ...pokemon().moves[0],
+    id: "rockslide",
+    name: "Rock Slide",
+    type: "Rock",
+  };
+  const rainDance = {
+    id: "raindance",
+    name: "Rain Dance",
+    type: "Water",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 5,
+    weather: "raindance",
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Rock", team: [pokemon({ moves: [rockMove, rainDance] })] },
+        { name: "Delta", team: [pokemon({ ability: "deltastream", types: ["Flying"] }), pokemon({ name: "Bench" })] },
+      ],
+    }),
+  );
+  assert.equal(state.field.weather.id, "deltastream");
+  assert.equal(state.field.weather.turns, null);
+  const range = calculateDamageRange(
+    state.sides[0].team[0],
+    state.sides[1].team[0],
+    state.sides[0].team[0].moves[0],
+    { state, attackerSide: 0, defenderSide: 1 },
+  );
+  assert.equal(range.effectiveness, 1);
+  state = resolveSimpleTurn(state, [{ move: 2 }, { move: 1 }]);
+  assert.equal(state.field.weather.id, "deltastream");
+  state = resolveSimpleTurn(state, [{ move: 1 }, { switch: 2 }]);
+  assert.equal(state.field.weather, null);
 });
 
 test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {

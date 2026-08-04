@@ -132,6 +132,11 @@ const AROMA_VEIL_VOLATILES = new Set([
   "taunt",
   "torment",
 ]);
+const PERSISTENT_ABILITY_WEATHERS = new Set([
+  "deltastream",
+  "desolateland",
+  "primordialsea",
+]);
 const FIRST_ACTIVE_TURN_MOVES = new Set(["fakeout", "firstimpression"]);
 const CHOICE_LOCK_ITEMS = new Set(["choiceband", "choicescarf", "choicespecs"]);
 const LOADED_DICE_ITEMS = new Set(["loadeddice"]);
@@ -195,20 +200,29 @@ const IMPLEMENTED_ABILITIES = new Set([
   "anticipation",
   "arenatrap",
   "aromaveil",
+  "aurabreak",
   "asoneglastrier",
   "asonespectrier",
   "baddreams",
   "battlearmor",
+  "beadsofruin",
   "blaze",
+  "cheekpouch",
   "chillingneigh",
   "competitive",
   "compoundeyes",
+  "comatose",
+  "contrary",
+  "cottondown",
   "cursedbody",
   "cutecharm",
   "chlorophyll",
   "clearbody",
   "cloudnine",
   "dauntlessshield",
+  "darkaura",
+  "defeatist",
+  "deltastream",
   "defiant",
   "download",
   "damp",
@@ -367,6 +381,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "embodyaspectwellspring",
 ]);
 const INTENTIONAL_NO_EFFECT_ABILITIES = new Set([
+  "ballfetch",
   "hospitality",
   "runaway",
   "unnerve",
@@ -1160,6 +1175,20 @@ function activeAbility(pokemon) {
     : pokemon.ability;
 }
 
+function hasActiveAbility(state, ability) {
+  const id = cleanId(ability);
+  return Boolean(
+    state?.sides?.some((_, sideIndex) => {
+      const pokemon = activePokemon(state, sideIndex);
+      return pokemon && !pokemon.fainted && activeAbility(pokemon) === id;
+    }),
+  );
+}
+
+function isEffectivelyAsleep(pokemon) {
+  return pokemon?.status === "slp" || activeAbility(pokemon) === "comatose";
+}
+
 function effectiveWeather(state) {
   if (!state) return "";
   const weatherSuppressed = state.sides?.some((_, sideIndex) => {
@@ -1448,6 +1477,13 @@ function effectiveStat(pokemon, stat, options = {}) {
   if (options.ignoreNegative && stage < 0) stage = 0;
   if (options.ignorePositive && stage > 0) stage = 0;
   let value = pokemon.stats[stat] * stageMultiplier(stage);
+  if (
+    ["attack", "specialAttack"].includes(stat) &&
+    activeAbility(pokemon) === "defeatist" &&
+    pokemon.hp <= Math.floor(pokemon.stats.hp / 2)
+  ) {
+    value *= 0.5;
+  }
   if (stat === "attack") {
     if (pokemon.status === "brn" && activeAbility(pokemon) !== "guts") value *= 0.5;
     if (doublesPhysicalAttack(activeAbility(pokemon))) value *= 2;
@@ -1710,6 +1746,9 @@ function damageBase(attacker, defender, move, options = {}) {
       state: options.state,
     },
   );
+  if (!physical && activeAbility(attacker) === "beadsofruin") {
+    defence *= 0.75;
+  }
   if (
     !physical &&
     effectiveWeather(options.state) === "sandstorm" &&
@@ -1831,7 +1870,15 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   } else if (currentSameType) {
     stab = activeAbility(attacker) === "adaptability" ? 2 : 1.5;
   }
-  const effectiveness = moveEffectiveness(move, defender.types, attacker, defender);
+  let effectiveness = moveEffectiveness(move, defender.types, attacker, defender);
+  if (
+    effectiveWeather(context.state) === "deltastream" &&
+    defender.types.includes("Flying") &&
+    ["Electric", "Ice", "Rock"].includes(move.type) &&
+    effectiveness > 1
+  ) {
+    effectiveness /= 2;
+  }
   const base = damageBase(attacker, defender, move, context);
   const itemModifier =
     attacker.item === "lifeorb"
@@ -1845,6 +1892,17 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
         ? 1.2
         : 1;
   let abilityModifier = 1;
+  const auraAbility =
+    move.type === "Dark"
+      ? "darkaura"
+      : move.type === "Fairy"
+        ? "fairyaura"
+        : "";
+  if (auraAbility && hasActiveAbility(context.state, auraAbility)) {
+    abilityModifier *= hasActiveAbility(context.state, "aurabreak")
+      ? 0.75
+      : 4 / 3;
+  }
   if (activeAbility(attacker) === "toughclaws" && makesContact(move)) {
     abilityModifier *= 1.3;
   }
@@ -2435,6 +2493,7 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
   const entryWeather = {
     drizzle: "raindance",
     drought: "sunnyday",
+    deltastream: "deltastream",
     orichalcumpulse: "sunnyday",
     primordialsea: "primordialsea",
     sandstream: "sandstorm",
@@ -3548,6 +3607,23 @@ function consumeHeldItem(state, sideIndex, pokemon, source) {
     source,
   });
   activateUnburden(state, sideIndex, pokemon, consumedItem, source);
+  if (
+    cleanId(consumedItem).endsWith("berry") &&
+    activeAbility(pokemon) === "cheekpouch" &&
+    !pokemon.fainted
+  ) {
+    emitAbilityActivation(state, sideIndex, pokemon, "cheekpouch", {
+      item: consumedItem,
+      source,
+    });
+    healPokemon(
+      state,
+      sideIndex,
+      pokemon,
+      Math.max(1, Math.floor(pokemon.stats.hp / 3)),
+      "cheekpouch",
+    );
+  }
   return consumedItem;
 }
 
@@ -4025,6 +4101,7 @@ function canReceiveStatus(
   sourceSide = null,
 ) {
   if (!status || pokemon.status || pokemon.fainted) return false;
+  if (activeAbility(pokemon) === "comatose") return false;
   if (state && Number.isInteger(side)) {
     const terrain = cleanId(state.field?.terrain?.id);
     const sideAbilityPokemon = activePokemon(state, side);
@@ -5037,10 +5114,11 @@ function applyWeatherRecoveryMove(state, side, pokemon, source) {
 function setFieldEffect(state, side, pokemon, kind, id, source) {
   const normalized = cleanId(id);
   if (!normalized) return false;
+  const currentWeather = cleanId(state.field?.weather?.id);
   if (
     kind === "weather" &&
-    cleanId(state.field?.weather?.id) === "primordialsea" &&
-    normalized !== "primordialsea"
+    PERSISTENT_ABILITY_WEATHERS.has(currentWeather) &&
+    !PERSISTENT_ABILITY_WEATHERS.has(normalized)
   ) {
     state.events.push({
       turn: state.turn,
@@ -5049,14 +5127,14 @@ function setFieldEffect(state, side, pokemon, kind, id, source) {
       pokemon: pokemon.name,
       fieldKind: kind,
       effect: normalized,
-      source: "primordialsea",
+      source: currentWeather,
     });
     return false;
   }
   let turns = DEFAULT_FIELD_DURATION;
   if (kind === "terrain" && pokemon.item === "terrainextender") turns = 8;
   if (kind === "weather") {
-    if (normalized === "primordialsea") turns = null;
+    if (PERSISTENT_ABILITY_WEATHERS.has(normalized)) turns = null;
     const weatherRocks = {
       sunnyday: "heatrock",
       raindance: "damprock",
@@ -5102,10 +5180,11 @@ function setFieldEffect(state, side, pokemon, kind, id, source) {
 
 function endPersistentAbilityWeather(state, side, pokemon, reason) {
   const weather = state.field?.weather;
+  const weatherId = cleanId(weather?.id);
   if (
-    cleanId(weather?.id) !== "primordialsea" ||
+    !PERSISTENT_ABILITY_WEATHERS.has(weatherId) ||
     weather?.sourceSide !== side ||
-    cleanId(weather?.sourceAbility) !== "primordialsea"
+    cleanId(weather?.sourceAbility) !== weatherId
   ) {
     return false;
   }
@@ -5116,7 +5195,7 @@ function endPersistentAbilityWeather(state, side, pokemon, reason) {
     side,
     pokemon: pokemon.name,
     fieldKind: "weather",
-    effect: "primordialsea",
+    effect: weatherId,
     source: reason,
   });
   return true;
@@ -5181,8 +5260,11 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
   let loweredByOpponent = false;
   for (const [stat, amount] of Object.entries(boosts ?? {})) {
     if (!BOOST_STATS.includes(stat) || !Number.isFinite(amount)) continue;
+    const contraryAmount = activeAbility(pokemon) === "contrary" ? -amount : amount;
+    const modifiedAmount =
+      activeAbility(pokemon) === "simple" ? contraryAmount * 2 : contraryAmount;
     const loweredByFoe =
-      amount < 0 && Number.isInteger(sourceSide) && sourceSide !== side;
+      modifiedAmount < 0 && Number.isInteger(sourceSide) && sourceSide !== side;
     if (
       loweredByFoe &&
       activeAbility(pokemon) === "mirrorarmor" &&
@@ -5199,7 +5281,7 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
           state,
           sourceSide,
           sourcePokemon,
-          { [stat]: amount },
+          { [stat]: modifiedAmount },
           "mirrorarmor",
           side,
         );
@@ -5240,7 +5322,7 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
     }
     if (
       stat === "attack" &&
-      amount < 0 &&
+      modifiedAmount < 0 &&
       activeAbility(pokemon) === "hypercutter" &&
       Number.isInteger(sourceSide) &&
       sourceSide !== side
@@ -5250,7 +5332,7 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
     }
     if (
       stat === "accuracy" &&
-      amount < 0 &&
+      modifiedAmount < 0 &&
       activeAbility(pokemon) === "keeneye" &&
       Number.isInteger(sourceSide) &&
       sourceSide !== side
@@ -5258,7 +5340,6 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
       emitAbilityActivation(state, side, pokemon, "keeneye", { source });
       continue;
     }
-    const modifiedAmount = activeAbility(pokemon) === "simple" ? amount * 2 : amount;
     const previous = pokemon.boosts[stat] ?? 0;
     const next = Math.max(-6, Math.min(6, previous + modifiedAmount));
     const applied = next - previous;
@@ -6096,7 +6177,7 @@ function executeMove(state, action, rng) {
     });
     return false;
   }
-  if (sourceMoveId === "snore" && attacker.status !== "slp") {
+  if (sourceMoveId === "snore" && !isEffectivelyAsleep(attacker)) {
     state.events.push({
       turn: state.turn,
       type: "move_failed",
@@ -6108,7 +6189,7 @@ function executeMove(state, action, rng) {
     return false;
   }
   if (sourceMoveId === "sleeptalk") {
-    if (attacker.status !== "slp") {
+    if (!isEffectivelyAsleep(attacker)) {
       state.events.push({
         turn: state.turn,
         type: "move_failed",
@@ -6696,7 +6777,7 @@ function executeMove(state, action, rng) {
     return false;
   }
 
-  if (cleanId(move.id) === "dreameater" && defender.status !== "slp") {
+  if (cleanId(move.id) === "dreameater" && !isEffectivelyAsleep(defender)) {
     state.events.push({
       turn: state.turn,
       type: "move_failed",
@@ -7122,8 +7203,7 @@ function executeMove(state, action, rng) {
     if (cleanId(move.id) === "stuffcheeks") {
       handled = true;
       if (cleanId(attacker.item).endsWith("berry")) {
-        removeTargetItem(state, action.side, attacker, move.name);
-        attacker.consumedItem = attacker.lastItem;
+        consumeHeldItem(state, action.side, attacker, move.name);
         applied =
           applyBoosts(state, action.side, attacker, { defence: 2 }, move.name) ||
           true;
@@ -7136,8 +7216,7 @@ function executeMove(state, action, rng) {
         [defenderSide, defender],
       ]) {
         if (cleanId(teaPokemon.item).endsWith("berry")) {
-          removeTargetItem(state, teaSide, teaPokemon, move.name);
-          teaPokemon.consumedItem = teaPokemon.lastItem;
+          consumeHeldItem(state, teaSide, teaPokemon, move.name);
           applied = true;
         }
       }
@@ -7673,7 +7752,7 @@ function executeMove(state, action, rng) {
     }
     if (cleanId(move.id) === "nightmare") {
       handled = true;
-      if (defender.status === "slp") {
+      if (isEffectivelyAsleep(defender)) {
         applied =
           applyVolatileStatus(state, defenderSide, defender, "nightmare", move.name) ||
           applied;
@@ -8845,6 +8924,25 @@ function executeMove(state, action, rng) {
       }
       if (
         damage > 0 &&
+        activeAbility(defender) === "cottondown" &&
+        !ignoresDefenderAbility(attacker) &&
+        !attacker.fainted
+      ) {
+        emitAbilityActivation(state, defenderSide, defender, "cottondown", {
+          targetSide: action.side,
+          target: attacker.name,
+        });
+        applyBoosts(
+          state,
+          action.side,
+          attacker,
+          { speed: -1 },
+          "cottondown",
+          defenderSide,
+        );
+      }
+      if (
+        damage > 0 &&
         defender.hp > 0 &&
         move.type === "Dark" &&
         activeAbility(defender) === "justified" &&
@@ -9388,7 +9486,7 @@ function executeMove(state, action, rng) {
     cleanId(move.id) === "naturalgift" &&
     cleanId(attacker.item).endsWith("berry")
   ) {
-    removeTargetItem(state, action.side, attacker, move.name);
+    consumeHeldItem(state, action.side, attacker, move.name);
   }
   if (
     landedHits > 0 &&
@@ -10062,7 +10160,7 @@ function applyEndTurnEffects(state, rng) {
     const opposingSide = sideIndex === 0 ? 1 : 0;
     const opposingPokemon = activePokemon(state, opposingSide);
     if (
-      pokemon.status === "slp" &&
+      isEffectivelyAsleep(pokemon) &&
       !opposingPokemon.fainted &&
       activeAbility(opposingPokemon) === "baddreams"
     ) {
@@ -10210,7 +10308,7 @@ function applyEndTurnEffects(state, rng) {
     }
     if (
       pokemon.volatiles?.nightmare &&
-      pokemon.status === "slp" &&
+      isEffectivelyAsleep(pokemon) &&
       activeAbility(pokemon) !== "magicguard"
     ) {
       const applied = Math.min(
@@ -10879,7 +10977,7 @@ function aiEndTurnResidualDamage(pokemon, state) {
   if (pokemon.volatiles?.curse) {
     damage += Math.max(1, Math.floor(pokemon.stats.hp / 4));
   }
-  if (pokemon.volatiles?.nightmare && pokemon.status === "slp") {
+  if (pokemon.volatiles?.nightmare && isEffectivelyAsleep(pokemon)) {
     damage += Math.max(1, Math.floor(pokemon.stats.hp / 4));
   }
   if (pokemon.volatiles?.saltcure) {
