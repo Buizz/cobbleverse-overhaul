@@ -5,79 +5,74 @@
 
 - 트레이너 수: 224
 - 실제 사용 고유 특성: 208
-- 지원: 142
-- 미지원: 66
+- 지원: 147
+- 미지원: 61
 
 ## 미지원 특성
 
 | 우선순위 | ID | 사용 수 | 사용 예시 |
 |---:|---|---:|---|
-| 1 | `stancechange` | 3 | Aegislash (Ace Trainer Runan), Aegislash (Angelo), Aegislash (Dumbass Jojo Fan) |
-| 2 | `sweetveil` | 3 | Alcremie (Ace Trainer Symes), Alcremie (Lass Anne), Alcremie (Petra) |
-| 3 | `trace` | 3 | Gardevoir (Gengar), Gardevoir (Marzia), Kirlia (Petra) |
-| 4 | `cloudnine` | 2 | Altaria (Alice), Psyduck (Misty) |
-| 5 | `damp` | 2 | Poliwrath (Swimmer♀ Shirley), Poliwhirl (Swimmer♀ Shirley) |
-| 6 | `dragonsmaw` | 2 | Regidrago (Champion Terry), Regidrago (Vulcano) |
-| 7 | `flowerveil` | 2 | Florges (Lass Ann), Florges (Petra) |
-| 8 | `gooey` | 2 | Goodra-Hisui (Dragon Tamer Ramiro), Goodra-Hisui (Lance) |
-| 9 | `gorillatactics` | 2 | Darmanitan-Galar (Alfredo), Darmanitan-Galar (Bianca) |
-| 10 | `grassysurge` | 2 | Rillaboom (Ace Trainer Symes), Rillaboom (Blue) |
-| 11 | `heavymetal` | 2 | Copperajah (Jasmine), Copperajah (Tamer Phil) |
-| 12 | `illusion` | 2 | Zoroark-Hisui (Angelo), Zorua (Picnicker Dana) |
-| 13 | `justified` | 2 | Cobalion (Bruno), Keldeo (Champion Terry) |
-| 14 | `magicguard` | 2 | Clefable (Ace Trainer Alexa), Arceus (Luciano) |
-| 15 | `magician` | 2 | Hoopa-Unbound (Dumbass Jojo Fan), Hoopa-Unbound (Marzia) |
-| 16 | `mirrorarmor` | 2 | Corviknight (Omar), Corviknight (Valerio) |
-| 17 | `pickup` | 2 | Pachirisu (Gengar), Pumpkaboo (Pokéfan Laurenzia) |
-| 18 | `primordialsea` | 2 | Kyogre-Primal (Leader Ivan), Kyogre-Primal (Rocco) |
-| 19 | `protean` | 2 | Greninja (Biker Hideo), Meowscarada (Gardenia) |
-| 20 | `sandforce` | 2 | Dugtrio-Alola (Biker Lao), Gigalith (Biker Ruben) |
-| 21 | `victorystar` | 2 | Victini (Ace Trainer Runan), Victini (Rocket Admin Ariana) |
-| 22 | `airlock` | 1 | Rayquaza (Lyris) |
-| 23 | `anticipation` | 1 | Toxicroak (Ace Trainer Janny) |
-| 24 | `arenatrap` | 1 | Diglett (Camper Flint) |
-| 25 | `aromaveil` | 1 | Lechonk (School Kid BrunoRe) |
-| 26 | `aurabreak` | 1 | Zygarde-Mega (Luciano) |
-| 27 | `ballfetch` | 1 | Yamper (Fabbo67) |
-| 28 | `beadsofruin` | 1 | Chi-Yu (Karen) |
-| 29 | `cheekpouch` | 1 | Dedenne (Lt. Surge) |
-| 30 | `comatose` | 1 | Komala (Ace Trainer Alexa) |
-| 31 | `contrary` | 1 | Malamar (Karen) |
-| 32 | `cottondown` | 1 | Eldegoss (Erika) |
-| 33 | `darkaura` | 1 | Yveltal (Ester) |
-| 34 | `defeatist` | 1 | Archeops (Scientist Ed) |
-| 35 | `deltastream` | 1 | Rayquaza-Mega (Rocco) |
-| 36 | `desolateland` | 1 | Groudon-Primal (Rocco) |
-| 37 | `fairyaura` | 1 | Xerneas (Champion Terry) |
-| 38 | `flowergift` | 1 | Cherrim (Fosco) |
-| 39 | `forecast` | 1 | Rampardos (Scientist Ivan) |
-| 40 | `forewarn` | 1 | Hypno (Gambler Darian) |
-| 41 | `gulpmissile` | 1 | Cramorant (Sailor Trevor) |
-| 42 | `harvest` | 1 | Exeggutor (Sabrina) |
-| 43 | `healer` | 1 | Hatenna (Lass Haley) |
-| 44 | `honeygather` | 1 | Combee (Bug Catcher Rick) |
-| 45 | `icebody` | 1 | Vanillish (Vale_Fragola) |
-| 46 | `illuminate` | 1 | Volbeat (Gentleman Komodo) |
-| 47 | `liquidooze` | 1 | Tentacruel (Swimmer♀ Tisha) |
-| 48 | `poisonheal` | 1 | Breloom (Trainer May) |
-| 49 | `poisonpoint` | 1 | Dragalge (Alice) |
-| 50 | `poisonpuppeteer` | 1 | Pecharunt (Koga) |
-| 51 | `psychicsurge` | 1 | Indeedee (Pino) |
-| 52 | `queenlymajesty` | 1 | Tsareena (Gardenia) |
-| 53 | `quickdraw` | 1 | Slowbro-Galar (Pino) |
-| 54 | `ripen` | 1 | Applin (Lass Miriam) |
-| 55 | `slushrush` | 1 | Arctovish (Alfredo) |
-| 56 | `solarpower` | 1 | Heliolisk (Fosco) |
-| 57 | `soulheart` | 1 | Magearna (Jasmine) |
-| 58 | `superluck` | 1 | Honchkrow (Boss Giovanni) |
-| 59 | `swordofruin` | 1 | Chien-Pao (Karen) |
-| 60 | `tabletsofruin` | 1 | Wo-Chien (Karen) |
-| 61 | `tangledfeet` | 1 | Pidgeot (Lass Megan) |
-| 62 | `telepathy` | 1 | Gardevoir (Frida) |
-| 63 | `transistor` | 1 | Regieleki (Champion Terry) |
-| 64 | `truant` | 1 | Slaking (Cue Ball Isaiah) |
-| 65 | `waterbubble` | 1 | Araquanid (Raffaello) |
-| 66 | `zenmode` | 1 | Darmanitan-Galar (Crush Girl Sharon) |
+| 1 | `dragonsmaw` | 2 | Regidrago (Champion Terry), Regidrago (Vulcano) |
+| 2 | `flowerveil` | 2 | Florges (Lass Ann), Florges (Petra) |
+| 3 | `gooey` | 2 | Goodra-Hisui (Dragon Tamer Ramiro), Goodra-Hisui (Lance) |
+| 4 | `gorillatactics` | 2 | Darmanitan-Galar (Alfredo), Darmanitan-Galar (Bianca) |
+| 5 | `grassysurge` | 2 | Rillaboom (Ace Trainer Symes), Rillaboom (Blue) |
+| 6 | `heavymetal` | 2 | Copperajah (Jasmine), Copperajah (Tamer Phil) |
+| 7 | `illusion` | 2 | Zoroark-Hisui (Angelo), Zorua (Picnicker Dana) |
+| 8 | `justified` | 2 | Cobalion (Bruno), Keldeo (Champion Terry) |
+| 9 | `magicguard` | 2 | Clefable (Ace Trainer Alexa), Arceus (Luciano) |
+| 10 | `magician` | 2 | Hoopa-Unbound (Dumbass Jojo Fan), Hoopa-Unbound (Marzia) |
+| 11 | `mirrorarmor` | 2 | Corviknight (Omar), Corviknight (Valerio) |
+| 12 | `pickup` | 2 | Pachirisu (Gengar), Pumpkaboo (Pokéfan Laurenzia) |
+| 13 | `primordialsea` | 2 | Kyogre-Primal (Leader Ivan), Kyogre-Primal (Rocco) |
+| 14 | `protean` | 2 | Greninja (Biker Hideo), Meowscarada (Gardenia) |
+| 15 | `sandforce` | 2 | Dugtrio-Alola (Biker Lao), Gigalith (Biker Ruben) |
+| 16 | `victorystar` | 2 | Victini (Ace Trainer Runan), Victini (Rocket Admin Ariana) |
+| 17 | `airlock` | 1 | Rayquaza (Lyris) |
+| 18 | `anticipation` | 1 | Toxicroak (Ace Trainer Janny) |
+| 19 | `arenatrap` | 1 | Diglett (Camper Flint) |
+| 20 | `aromaveil` | 1 | Lechonk (School Kid BrunoRe) |
+| 21 | `aurabreak` | 1 | Zygarde-Mega (Luciano) |
+| 22 | `ballfetch` | 1 | Yamper (Fabbo67) |
+| 23 | `beadsofruin` | 1 | Chi-Yu (Karen) |
+| 24 | `cheekpouch` | 1 | Dedenne (Lt. Surge) |
+| 25 | `comatose` | 1 | Komala (Ace Trainer Alexa) |
+| 26 | `contrary` | 1 | Malamar (Karen) |
+| 27 | `cottondown` | 1 | Eldegoss (Erika) |
+| 28 | `darkaura` | 1 | Yveltal (Ester) |
+| 29 | `defeatist` | 1 | Archeops (Scientist Ed) |
+| 30 | `deltastream` | 1 | Rayquaza-Mega (Rocco) |
+| 31 | `desolateland` | 1 | Groudon-Primal (Rocco) |
+| 32 | `fairyaura` | 1 | Xerneas (Champion Terry) |
+| 33 | `flowergift` | 1 | Cherrim (Fosco) |
+| 34 | `forecast` | 1 | Rampardos (Scientist Ivan) |
+| 35 | `forewarn` | 1 | Hypno (Gambler Darian) |
+| 36 | `gulpmissile` | 1 | Cramorant (Sailor Trevor) |
+| 37 | `harvest` | 1 | Exeggutor (Sabrina) |
+| 38 | `healer` | 1 | Hatenna (Lass Haley) |
+| 39 | `honeygather` | 1 | Combee (Bug Catcher Rick) |
+| 40 | `icebody` | 1 | Vanillish (Vale_Fragola) |
+| 41 | `illuminate` | 1 | Volbeat (Gentleman Komodo) |
+| 42 | `liquidooze` | 1 | Tentacruel (Swimmer♀ Tisha) |
+| 43 | `poisonheal` | 1 | Breloom (Trainer May) |
+| 44 | `poisonpoint` | 1 | Dragalge (Alice) |
+| 45 | `poisonpuppeteer` | 1 | Pecharunt (Koga) |
+| 46 | `psychicsurge` | 1 | Indeedee (Pino) |
+| 47 | `queenlymajesty` | 1 | Tsareena (Gardenia) |
+| 48 | `quickdraw` | 1 | Slowbro-Galar (Pino) |
+| 49 | `ripen` | 1 | Applin (Lass Miriam) |
+| 50 | `slushrush` | 1 | Arctovish (Alfredo) |
+| 51 | `solarpower` | 1 | Heliolisk (Fosco) |
+| 52 | `soulheart` | 1 | Magearna (Jasmine) |
+| 53 | `superluck` | 1 | Honchkrow (Boss Giovanni) |
+| 54 | `swordofruin` | 1 | Chien-Pao (Karen) |
+| 55 | `tabletsofruin` | 1 | Wo-Chien (Karen) |
+| 56 | `tangledfeet` | 1 | Pidgeot (Lass Megan) |
+| 57 | `telepathy` | 1 | Gardevoir (Frida) |
+| 58 | `transistor` | 1 | Regieleki (Champion Terry) |
+| 59 | `truant` | 1 | Slaking (Cue Ball Isaiah) |
+| 60 | `waterbubble` | 1 | Araquanid (Raffaello) |
+| 61 | `zenmode` | 1 | Darmanitan-Galar (Crush Girl Sharon) |
 
 ## 지원 특성
 
@@ -185,11 +180,16 @@
 | `scrappy` | 3 |
 | `skilllink` | 3 |
 | `stamina` | 3 |
+| `stancechange` | 3 |
 | `stench` | 3 |
+| `sweetveil` | 3 |
 | `toxicdebris` | 3 |
+| `trace` | 3 |
 | `vesselofruin` | 3 |
 | `voltabsorb` | 3 |
 | `baddreams` | 2 |
+| `cloudnine` | 2 |
+| `damp` | 2 |
 | `dryskin` | 2 |
 | `fluffy` | 2 |
 | `galewings` | 2 |

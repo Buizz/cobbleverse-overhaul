@@ -225,6 +225,38 @@ test("hydrates Ogerpon and Terapagos with their species-specific Tera forms", ()
   );
 });
 
+test("hydrates both Aegislash forms for Stance Change", () => {
+  const setup = createNativeBattleSetup({
+    ...scenario,
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "aegislash",
+            ability: "stancechange",
+            moveset: ["kingsshield", "shadowball"],
+          },
+        ],
+      },
+      scenario.sides[1],
+    ],
+  });
+  const aegislash = setup.sides[0].team[0];
+
+  assert.equal(aegislash.speciesForms.shield.name, "Aegislash");
+  assert.equal(aegislash.speciesForms.blade.name, "Aegislash-Blade");
+  assert.ok(
+    aegislash.speciesForms.blade.stats.attack >
+      aegislash.speciesForms.shield.stats.attack,
+  );
+  assert.ok(
+    aegislash.speciesForms.shield.stats.defence >
+      aegislash.speciesForms.blade.stats.defence,
+  );
+});
+
 test("chooses a seeded original Tera Type when virtual data omits one", () => {
   const dualTypeScenario = {
     ...scenario,

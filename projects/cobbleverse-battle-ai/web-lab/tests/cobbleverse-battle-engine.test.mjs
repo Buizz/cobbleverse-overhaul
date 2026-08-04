@@ -22,7 +22,7 @@ import {
 test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported("pressure"), true);
   assert.equal(isSimpleAbilitySupported("cobblemon:pressure"), true);
-  assert.equal(isSimpleAbilitySupported("stancechange"), false);
+  assert.equal(isSimpleAbilitySupported("dragonsmaw"), false);
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
@@ -93,6 +93,18 @@ test("reports the sixth high-usage ability batch as supported", () => {
     "prankster",
     "reckless",
     "stench",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
+test("reports the seventh high-usage ability batch as supported", () => {
+  for (const ability of [
+    "stancechange",
+    "sweetveil",
+    "trace",
+    "cloudnine",
+    "damp",
   ]) {
     assert.equal(isSimpleAbilitySupported(ability), true, ability);
   }
@@ -21205,6 +21217,232 @@ test("Stench can flinch with damaging moves and respects suppression", () => {
     run(triggeringSeed, false, "innerfocus").events.some(
       (event) => event.type === "cant_move" && event.status === "flinch",
     ),
+    false,
+  );
+});
+
+test("Stance Change uses Blade Forme for attacks and Shield Forme for King's Shield", () => {
+  const slash = {
+    id: "slash",
+    name: "Slash",
+    type: "Normal",
+    category: "Physical",
+    power: 70,
+    accuracy: true,
+    pp: 20,
+  };
+  const kingsShield = {
+    id: "kingsshield",
+    name: "King's Shield",
+    type: "Steel",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 10,
+    target: "self",
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Aegislash",
+          team: [
+            pokemon({
+              id: "aegislash",
+              name: "Aegislash",
+              baseSpecies: "Aegislash",
+              ability: "stancechange",
+              stats: {
+                ...pokemon().stats,
+                hp: 240,
+                attack: 60,
+                defence: 180,
+                specialAttack: 60,
+                specialDefence: 180,
+              },
+              speciesForms: {
+                shield: {
+                  id: "aegislash",
+                  name: "Aegislash",
+                  types: ["Steel", "Ghost"],
+                  ability: "stancechange",
+                  stats: { attack: 60, defence: 180, specialAttack: 60, specialDefence: 180 },
+                },
+                blade: {
+                  id: "aegislashblade",
+                  name: "Aegislash-Blade",
+                  types: ["Steel", "Ghost"],
+                  ability: "stancechange",
+                  stats: { attack: 180, defence: 60, specialAttack: 180, specialDefence: 60 },
+                },
+              },
+              moves: [slash, kingsShield],
+            }),
+          ],
+        },
+        {
+          name: "Target",
+          team: [pokemon({ stats: { ...pokemon().stats, hp: 500 } })],
+        },
+      ],
+    }),
+  );
+  const aegislash = state.sides[0].team[0];
+  const target = state.sides[1].team[0];
+  const stanceRange = calculateDamageRange(aegislash, target, aegislash.moves[0], { state });
+  aegislash.volatiles.gastroacid = { id: "gastroacid" };
+  const shieldRange = calculateDamageRange(aegislash, target, aegislash.moves[0], { state });
+  delete aegislash.volatiles.gastroacid;
+  assert.ok(stanceRange.maximum > shieldRange.maximum);
+
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].id, "aegislashblade");
+  assert.equal(state.sides[0].team[0].stats.attack, 180);
+  state = resolveSimpleTurn(state, [{ move: 2 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].id, "aegislash");
+  assert.equal(state.sides[0].team[0].stats.defence, 180);
+});
+
+test("Sweet Veil blocks sleep and informs AI scoring", () => {
+  const spore = {
+    id: "spore",
+    name: "Spore",
+    type: "Grass",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 15,
+    status: "slp",
+  };
+  const makeState = (suppressed = false) => {
+    const state = createSimpleBattle(
+      setup({
+        sides: [
+          { name: "Sleep", team: [pokemon({ moves: [spore] })] },
+          { name: "Veil", team: [pokemon({ ability: "sweetveil" })] },
+        ],
+      }),
+    );
+    if (suppressed) {
+      state.sides[1].team[0].volatiles.gastroacid = { id: "gastroacid" };
+    }
+    return state;
+  };
+  assert.equal(
+    resolveSimpleTurn(makeState(), [{ move: 1 }, { move: 1 }]).sides[1].team[0].status,
+    "",
+  );
+  assert.equal(
+    resolveSimpleTurn(makeState(true), [{ move: 1 }, { move: 1 }]).sides[1].team[0].status,
+    "slp",
+  );
+  const decision = chooseSimpleAiDecision(makeState(), 0, "expert", "balanced");
+  assert.equal(decision.moveCandidates[0].statusBlocked, true);
+});
+
+test("Trace copies an eligible entry ability and restores itself on switch", () => {
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Trace",
+          team: [pokemon({ name: "Gardevoir", ability: "trace" }), pokemon({ name: "Bench" })],
+        },
+        {
+          name: "Target",
+          team: [pokemon({ name: "Intimidator", ability: "intimidate" })],
+        },
+      ],
+    }),
+  );
+  assert.equal(state.sides[0].team[0].ability, "intimidate");
+  assert.equal(state.sides[1].team[0].boosts.attack, -1);
+  assert.ok(
+    state.events.some(
+      (event) => event.ability === "trace" && event.copiedAbility === "intimidate",
+    ),
+  );
+  state = resolveSimpleTurn(state, [{ switch: 2 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].ability, "trace");
+});
+
+test("Cloud Nine suppresses weather mechanics without removing weather", () => {
+  const fireMove = {
+    id: "flamethrower",
+    name: "Flamethrower",
+    type: "Fire",
+    category: "Special",
+    power: 90,
+    accuracy: true,
+    pp: 15,
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Fire", team: [pokemon({ moves: [fireMove] })] },
+        { name: "Cloud Nine", team: [pokemon({ ability: "cloudnine" })] },
+      ],
+    }),
+  );
+  state.field.weather = { id: "sunnyday", turns: 5 };
+  const attacker = state.sides[0].team[0];
+  const defender = state.sides[1].team[0];
+  assert.equal(
+    calculateDamageRange(attacker, defender, attacker.moves[0], { state }).fieldModifier,
+    1,
+  );
+  defender.volatiles.gastroacid = { id: "gastroacid" };
+  assert.equal(
+    calculateDamageRange(attacker, defender, attacker.moves[0], { state }).fieldModifier,
+    1.5,
+  );
+  delete defender.volatiles.gastroacid;
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.field.weather.id, "sunnyday");
+});
+
+test("Damp blocks explosive moves, AI selection, and Aftermath", () => {
+  const explosion = {
+    id: "explosion",
+    name: "Explosion",
+    type: "Normal",
+    category: "Physical",
+    power: 250,
+    accuracy: true,
+    pp: 5,
+  };
+  const explosiveState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Explosion", team: [pokemon({ moves: [explosion] })] },
+        { name: "Damp", team: [pokemon({ ability: "damp" })] },
+      ],
+    }),
+  );
+  const decision = chooseSimpleAiDecision(explosiveState, 0, "expert", "balanced");
+  assert.equal(decision.moveCandidates[0].willFail, true);
+  const blocked = resolveSimpleTurn(explosiveState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(blocked.sides[0].team[0].fainted, false);
+  assert.equal(blocked.sides[1].team[0].hp, pokemon().stats.hp);
+  assert.ok(blocked.events.some((event) => event.source === "damp" && event.type === "move_failed"));
+
+  const aftermathState = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Damp Contact",
+          team: [pokemon({ ability: "damp", moves: [{ ...pokemon().moves[0], power: 500, contact: true }] })],
+        },
+        {
+          name: "Aftermath",
+          team: [pokemon({ ability: "aftermath", stats: { ...pokemon().stats, hp: 1 } })],
+        },
+      ],
+    }),
+  );
+  const aftermathBlocked = resolveSimpleTurn(aftermathState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(
+    aftermathBlocked.events.some((event) => event.ability === "aftermath"),
     false,
   );
 });

@@ -87,6 +87,11 @@
 | UNIT_TESTED | `prankster` | 짓궂은마음, 변화기 우선도 +1 및 상대 악 타입 무효 | 실제 행동 순서·상태기 차단·AI 실패 판정 | `Prankster raises status priority and fails against opposing Dark types` |
 | UNIT_TESTED | `reckless` | 이판사판, 반동기·실패 시 추락 피해 기술 위력 1.2배 | `calculateDamageRange` | `Reckless boosts recoil and crash move damage in previews` |
 | UNIT_TESTED | `stench` | 악취, 자체 풀죽음 효과가 없는 공격기에 10% 풀죽음 추가 | `abilityModifiedMove`, 실제 부가효과·AI 후보 점수 | `Stench can flinch with damaging moves and respects suppression` |
+| UNIT_TESTED | `stancechange` | 배틀스위치, 공격기 사용 시 블레이드폼·킹실드 사용 시 실드폼 전환 | `applyStanceChange`, 실제 폼 변환·AI 피해 미리보기 | `Stance Change uses Blade Forme for attacks and Shield Forme for King's Shield` |
+| UNIT_TESTED | `sweetveil` | 스위트베일, 자신과 같은 편의 수면 방지 | `canReceiveStatus`, 실제 처리·AI 상태 가치 | `Sweet Veil blocks sleep and informs AI scoring` |
+| UNIT_TESTED | `trace` | 트레이스, 등장 시 복사 가능한 상대 특성을 복사하고 교체 시 원복 | `applyEntryAbilities`, `switchActivePokemon` | `Trace copies an eligible entry ability and restores itself on switch` |
+| UNIT_TESTED | `cloudnine` | 날씨부정, 날씨는 유지하되 활성 중 모든 날씨 전투 효과 무효 | `effectiveWeather`, 피해·속도·명중·상태·턴 종료·AI 계산 | `Cloud Nine suppresses weather mechanics without removing weather` |
+| UNIT_TESTED | `damp` | 습기, 자폭·대폭발·미스트버스트·깜짝헤드 및 유폭 방지 | 기술 실패 처리·유폭 후처리·AI 실패 판정 | `Damp blocks explosive moves, AI selection, and Aftermath` |
 
 ## 2026 실전 파티 특성 구현 묶음
 

@@ -91,6 +91,35 @@ const SELF_DESTRUCT_MOVES = new Set([
   "mistyexplosion",
   "selfdestruct",
 ]);
+const DAMP_BLOCKED_MOVES = new Set([...SELF_DESTRUCT_MOVES, "mindblown"]);
+const TRACE_BLOCKED_ABILITIES = new Set([
+  "asoneglastrier",
+  "asonespectrier",
+  "battlebond",
+  "comatose",
+  "commander",
+  "disguise",
+  "gulpmissile",
+  "hadronengine",
+  "illusion",
+  "imposter",
+  "multitype",
+  "neutralizinggas",
+  "orichalcumpulse",
+  "powerconstruct",
+  "protosynthesis",
+  "quarkdrive",
+  "receiver",
+  "rkssystem",
+  "schooling",
+  "shieldsdown",
+  "stancechange",
+  "teraformzero",
+  "terashift",
+  "trace",
+  "wonderguard",
+  "zenmode",
+]);
 const ROLLING_LOCK_MOVES = new Set(["iceball", "rollout"]);
 const RAMPAGE_LOCK_MOVES = new Set(["outrage", "petaldance", "thrash"]);
 const NON_CONSECUTIVE_MOVES = new Set(["bloodmoon", "gigatonhammer"]);
@@ -165,9 +194,11 @@ const IMPLEMENTED_ABILITIES = new Set([
   "cutecharm",
   "chlorophyll",
   "clearbody",
+  "cloudnine",
   "dauntlessshield",
   "defiant",
   "download",
+  "damp",
   "disguise",
   "drizzle",
   "dryskin",
@@ -259,12 +290,14 @@ const IMPLEMENTED_ABILITIES = new Set([
   "steadfast",
   "stamina",
   "stench",
+  "stancechange",
   "stickyhold",
   "sturdy",
   "strongjaw",
   "stormdrain",
   "supremeoverlord",
   "swarm",
+  "sweetveil",
   "synchronize",
   "technician",
   "thermalexchange",
@@ -275,6 +308,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "thickfat",
   "tintedlens",
   "toughclaws",
+  "trace",
   "toxicdebris",
   "unaware",
   "unburden",
@@ -872,6 +906,7 @@ function normalizePokemon(pokemon, path) {
     originalTypes: battleTypes.slice(),
     gender: normalizedGender(pokemon?.gender),
     ability: normalizedAbility,
+    baseAbility: normalizedAbility,
     item: normalizedItem,
     speciesForms,
     gimmicks: {
@@ -1094,6 +1129,28 @@ function activeAbility(pokemon) {
     (pokemon.volatiles?.neutralizinggas && pokemon.ability !== "neutralizinggas")
     ? ""
     : pokemon.ability;
+}
+
+function effectiveWeather(state) {
+  if (!state) return "";
+  const weatherSuppressed = state.sides?.some((_, sideIndex) => {
+    const pokemon = activePokemon(state, sideIndex);
+    return pokemon && !pokemon.fainted && activeAbility(pokemon) === "cloudnine";
+  });
+  return weatherSuppressed ? "" : cleanId(state.field?.weather?.id);
+}
+
+function dampActive(state) {
+  return Boolean(
+    state?.sides?.some((_, sideIndex) => {
+      const pokemon = activePokemon(state, sideIndex);
+      return pokemon && !pokemon.fainted && activeAbility(pokemon) === "damp";
+    }),
+  );
+}
+
+function isDampBlockedMove(state, move) {
+  return dampActive(state) && DAMP_BLOCKED_MOVES.has(cleanId(move?.id));
 }
 
 function doublesPhysicalAttack(ability) {
@@ -1329,7 +1386,7 @@ function validateSupportedAbilities(sides) {
 
 function paradoxBoostStat(pokemon, state = null) {
   const ability = activeAbility(pokemon);
-  const weather = cleanId(state?.field?.weather?.id);
+  const weather = effectiveWeather(state);
   const terrain = cleanId(state?.field?.terrain?.id);
   const fieldActive =
     (ability === "protosynthesis" &&
@@ -1356,7 +1413,7 @@ function effectiveStat(pokemon, stat, options = {}) {
     if (
       activeAbility(pokemon) === "orichalcumpulse" &&
       ["sunnyday", "desolateland"].includes(
-        cleanId(options.state?.field?.weather?.id),
+        effectiveWeather(options.state),
       )
     ) {
       value *= 4 / 3;
@@ -1429,7 +1486,7 @@ function isGrounded(pokemon) {
 
 function effectiveSpeed(pokemon, state = null, sideIndex = null) {
   let speed = effectiveStat(pokemon, "speed", { state });
-  const weather = cleanId(state?.field?.weather?.id);
+  const weather = effectiveWeather(state);
   if (
     (activeAbility(pokemon) === "chlorophyll" &&
       ["sunnyday", "desolateland"].includes(weather)) ||
@@ -1596,7 +1653,7 @@ function damageBase(attacker, defender, move, options = {}) {
   );
   if (
     !physical &&
-    cleanId(options.state?.field?.weather?.id) === "sandstorm" &&
+    effectiveWeather(options.state) === "sandstorm" &&
     defender.types.includes("Rock")
   ) {
     defence *= 1.5;
@@ -1622,7 +1679,7 @@ function fieldDamageModifier(
 ) {
   let modifier = abilityDamageModifier(defender, move, attacker);
   if (!state) return modifier;
-  const weather = cleanId(state.field?.weather?.id);
+  const weather = effectiveWeather(state);
   if (weather === "sunnyday" || weather === "desolateland") {
     if (move.type === "Fire") modifier *= 1.5;
     if (move.type === "Water") modifier *= 0.5;
@@ -1677,6 +1734,7 @@ function fieldDamageModifier(
 }
 
 export function calculateDamageRange(attacker, defender, move, context = {}) {
+  attacker = stanceChangePreviewPokemon(attacker, move);
   move = abilityModifiedMove(attacker, move);
   move = teraModifiedMove(attacker, move);
   move = teraPowerAdjustedMove(attacker, move);
@@ -2040,6 +2098,52 @@ function applySpeciesForm(
   return true;
 }
 
+function stanceChangeTargetForm(pokemon, move) {
+  if (
+    !pokemon ||
+    pokemon.dynamaxTurns > 0 ||
+    activeAbility(pokemon) !== "stancechange" ||
+    pokemonFamilyId(pokemon) !== "aegislash"
+  ) {
+    return null;
+  }
+  const moveId = cleanId(move?.id);
+  if (moveId === "kingsshield") return pokemon.speciesForms?.shield ?? null;
+  if (move?.category !== "Status") return pokemon.speciesForms?.blade ?? null;
+  return null;
+}
+
+function stanceChangePreviewPokemon(pokemon, move) {
+  const form = stanceChangeTargetForm(pokemon, move);
+  if (!form || cleanId(form.id) === cleanId(pokemon.id)) return pokemon;
+  return {
+    ...pokemon,
+    id: form.id || pokemon.id,
+    name: form.name || pokemon.name,
+    types: form.types?.length ? form.types.slice() : pokemon.types,
+    originalTypes: form.types?.length
+      ? form.types.slice()
+      : pokemon.originalTypes,
+    stats: { ...pokemon.stats, ...(form.stats ?? {}) },
+  };
+}
+
+function applyStanceChange(state, sideIndex, pokemon, move) {
+  const form = stanceChangeTargetForm(pokemon, move);
+  if (!form || cleanId(form.id) === cleanId(pokemon.id)) return false;
+  emitAbilityActivation(state, sideIndex, pokemon, "stancechange", {
+    move: move.name,
+    form: form.id,
+  });
+  return applySpeciesForm(
+    state,
+    sideIndex,
+    pokemon,
+    form,
+    "stancechange",
+  );
+}
+
 function applyTeraShiftOnEntry(state, sideIndex, pokemon) {
   if (
     !isTerapagosPokemon(pokemon) ||
@@ -2254,6 +2358,22 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
     });
     applyTransform(state, sideIndex, pokemon, target, ability);
     return;
+  }
+  if (ability === "trace") {
+    const copiedAbility = cleanId(activeAbility(target));
+    if (copiedAbility && !TRACE_BLOCKED_ABILITIES.has(copiedAbility)) {
+      pokemon.abilityState.tracedOriginalAbility =
+        cleanId(pokemon.baseAbility) || "trace";
+      pokemon.abilityState.tracedAbility = copiedAbility;
+      pokemon.ability = copiedAbility;
+      emitAbilityActivation(state, sideIndex, pokemon, "trace", {
+        targetSide,
+        target: target.name,
+        copiedAbility,
+      });
+      applyEntryAbilities(state, sideIndex, pokemon);
+      return;
+    }
   }
   if (ability === "frisk" && target.item) {
     emitAbilityActivation(state, sideIndex, pokemon, ability, {
@@ -3090,6 +3210,11 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
     curePokemonStatus(state, sideIndex, outgoing, "naturalcure");
   }
   revertTransform(outgoing);
+  if (outgoing.abilityState?.tracedAbility) {
+    outgoing.ability =
+      outgoing.abilityState.tracedOriginalAbility || outgoing.baseAbility || "trace";
+    outgoing.abilityState = {};
+  }
   endDynamax(state, sideIndex, outgoing, "switch");
   outgoing.boosts = Object.fromEntries(
     BOOST_STATS.map((stat) => [stat, 0]),
@@ -3449,7 +3574,7 @@ function transformGimmickMove(state, action, move) {
 }
 
 function solarChargeWeather(state) {
-  return cleanId(state.field?.weather?.id);
+  return effectiveWeather(state);
 }
 
 function shouldChargeMove(state, move, action) {
@@ -3519,7 +3644,7 @@ function effectiveAccuracy(attacker, defender, move, state = null) {
   ) {
     return 100;
   }
-  const weather = cleanId(state?.field?.weather?.id);
+  const weather = effectiveWeather(state);
   if (cleanId(move.id) === "blizzard" && ["hail", "snow"].includes(weather)) {
     return 100;
   }
@@ -3577,7 +3702,7 @@ function expectedAccuracyFraction(attacker, defender, move, state = null) {
 
 function weatherBallMove(state, move) {
   if (cleanId(move.id) !== "weatherball") return move;
-  const weather = cleanId(state.field?.weather?.id);
+  const weather = effectiveWeather(state);
   const weatherTypes = {
     sunnyday: "Fire",
     desolateland: "Fire",
@@ -3701,7 +3826,7 @@ function terrainPulseMove(state, move) {
 
 function growthMove(state, move) {
   if (cleanId(move.id) !== "growth") return move;
-  const weather = cleanId(state.field?.weather?.id);
+  const weather = effectiveWeather(state);
   if (!["sunnyday", "desolateland"].includes(weather)) return move;
   return {
     ...move,
@@ -3738,9 +3863,15 @@ function canReceiveStatus(
   if (state && Number.isInteger(side)) {
     const terrain = cleanId(state.field?.terrain?.id);
     if (
+      status === "slp" &&
+      activeAbility(activePokemon(state, side)) === "sweetveil"
+    ) {
+      return false;
+    }
+    if (
       activeAbility(pokemon) === "leafguard" &&
       ["sunnyday", "desolateland"].includes(
-        cleanId(state.field?.weather?.id),
+        effectiveWeather(state),
       )
     ) {
       return false;
@@ -4690,7 +4821,7 @@ function isPokemonTrapped(state, sideIndex, pokemon) {
 }
 
 function weatherRecoveryFraction(state) {
-  const weather = cleanId(state.field?.weather?.id);
+  const weather = effectiveWeather(state);
   if (["sunnyday", "desolateland"].includes(weather)) return [2, 3];
   if (
     ["raindance", "primordialsea", "sandstorm", "snow", "hail"].includes(
@@ -5889,6 +6020,7 @@ function executeMove(state, action, rng) {
   move = growthMove(state, move);
   move = terrainModifiedMove(state, attacker, move);
   move = chargeAdjustedMove(state, move);
+  applyStanceChange(state, action.side, attacker, move);
   state.events.push({
     turn: state.turn,
     type: "move",
@@ -5902,6 +6034,26 @@ function executeMove(state, action, rng) {
   });
   state.turnMoves ??= [];
   state.turnMoves.push({ side: action.side, id: cleanId(move.id), move: move.name });
+
+  if (isDampBlockedMove(state, move)) {
+    const dampSide = activeAbility(activePokemon(state, 0)) === "damp" ? 0 : 1;
+    const dampPokemon = activePokemon(state, dampSide);
+    emitAbilityActivation(state, dampSide, dampPokemon, "damp", {
+      targetSide: action.side,
+      target: attacker.name,
+      move: move.name,
+    });
+    state.events.push({
+      turn: state.turn,
+      type: "move_failed",
+      side: action.side,
+      pokemon: attacker.name,
+      move: move.name,
+      reason: "Damp prevents explosive moves.",
+      source: "damp",
+    });
+    return false;
+  }
 
   if (shouldChargeMove(state, move, action)) {
     return beginChargeMove(state, action, attacker, move, slot);
@@ -7489,7 +7641,7 @@ function executeMove(state, action, rng) {
       handled = true;
       const healFraction =
         cleanId(move.id) === "shoreup" &&
-        cleanId(state.field?.weather?.id) === "sandstorm"
+        effectiveWeather(state) === "sandstorm"
           ? [2, 3]
           : cleanId(move.id) === "floralhealing" &&
               cleanId(state.field?.terrain?.id) === "grassyterrain"
@@ -7882,7 +8034,7 @@ function executeMove(state, action, rng) {
       handled = true;
       if (
         cleanId(move.sideCondition) === "auroraveil" &&
-        !["hail", "snow"].includes(cleanId(state.field?.weather?.id))
+        !["hail", "snow"].includes(effectiveWeather(state))
       ) {
         applied = false || applied;
       } else {
@@ -9039,6 +9191,7 @@ function executeMove(state, action, rng) {
     totalDamage > 0 &&
     makesContact(move) &&
     activeAbility(defender) === "aftermath" &&
+    !dampActive(state) &&
     !ignoresDefenderAbility(attacker)
   ) {
     emitAbilityActivation(state, defenderSide, defender, "aftermath", {
@@ -9422,7 +9575,7 @@ function applyEndTurnEffects(state, rng) {
         source: wish.source || "Wish",
       });
     }
-    const weather = cleanId(state.field?.weather?.id);
+    const weather = effectiveWeather(state);
     if (
       activeAbility(pokemon) === "shedskin" &&
       pokemon.status &&
@@ -10133,7 +10286,7 @@ function hasMoveType(pokemon, type) {
 }
 
 function fieldSwitchSynergy(state, sideIndex, pokemon, opponent) {
-  const weather = cleanId(state.field?.weather?.id);
+  const weather = effectiveWeather(state);
   const terrain = cleanId(state.field?.terrain?.id);
   const trickRoomActive =
     Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0;
@@ -10276,7 +10429,7 @@ function aiEndTurnResidualDamage(pokemon, state) {
   }
 
   if (
-    cleanId(state.field?.weather?.id) === "sandstorm" &&
+    effectiveWeather(state) === "sandstorm" &&
     !["Rock", "Ground", "Steel"].some((type) => pokemon.types.includes(type)) &&
     !["magicguard", "overcoat", "sandforce", "sandrush", "sandveil"].includes(
       activeAbility(pokemon),
@@ -10298,7 +10451,7 @@ function aiEndTurnResidualDamage(pokemon, state) {
   }
   if (
     activeAbility(pokemon) === "dryskin" &&
-    ["sunnyday", "desolateland"].includes(cleanId(state.field?.weather?.id))
+    ["sunnyday", "desolateland"].includes(effectiveWeather(state))
   ) {
     damage += Math.max(1, Math.floor(pokemon.stats.hp / 8));
   }
@@ -12190,6 +12343,7 @@ function automaticMoveCandidates(
       const baseCandidate = {
         ...displayMove,
         willFail:
+          isDampBlockedMove(state, displayMove) ||
           isPranksterBlocked(pokemon, defender, displayMove) ||
           (displayMove.category === "Status" &&
             Boolean(candidateHazardConditionId(displayMove)) &&
@@ -13405,7 +13559,7 @@ function simpleBattleStateValueSnapshot(
     ),
     fieldAdvantage: Math.round(fieldAdvantage * 100) / 100,
     field: {
-      weather: cleanId(state.field?.weather?.id),
+      weather: effectiveWeather(state),
       terrain: cleanId(state.field?.terrain?.id),
       trickRoom:
         Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0,

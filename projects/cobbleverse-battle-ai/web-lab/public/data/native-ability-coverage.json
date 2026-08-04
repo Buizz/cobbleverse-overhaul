@@ -3,8 +3,8 @@
   "generatedFrom": "public/data/trainers.json",
   "trainerCount": 224,
   "uniqueAbilityCount": 208,
-  "supportedAbilityCount": 142,
-  "unsupportedAbilityCount": 66,
+  "supportedAbilityCount": 147,
+  "unsupportedAbilityCount": 61,
   "abilities": [
     {
       "id": "levitate",
@@ -2270,7 +2270,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "stench",
@@ -2314,7 +2314,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "toxicdebris",
@@ -2358,7 +2358,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "vesselofruin",
@@ -2436,7 +2436,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "damp",
@@ -2453,7 +2453,7 @@
           "sourceGroup": "rct"
         }
       ],
-      "status": "UNSUPPORTED"
+      "status": "SUPPORTED"
     },
     {
       "id": "dragonsmaw",
