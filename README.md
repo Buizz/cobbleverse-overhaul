@@ -53,6 +53,46 @@ build.bat validate
 나오는 것이 정상입니다. `검증 성공: 오류 0개`가 표시되면 콘텐츠 개발을 계속할
 수 있습니다.
 
+### CurseForge 임포트 스모크 팩 생성
+
+정식 모드가 없는 상태에서도 CurseForge의 프로필 임포트 흐름을 먼저 확인할 수
+있습니다.
+
+```bat
+build.bat pack-smoke
+```
+
+성공하면 다음 파일이 생성됩니다.
+
+```text
+dist/cobbleventure-import-smoke-0.1.0-curseforge.zip
+dist/cobbleventure-import-smoke-0.1.0-curseforge.zip.sha256
+```
+
+스모크 팩에는 다음 항목만 들어 있습니다.
+
+- Minecraft 1.21.1
+- NeoForge 21.1.248
+- 외부 모드 0개
+- overrides 임포트 확인용 텍스트와 팩 정보 JSON
+
+이 버전은 CurseForge 임포트 파이프라인 확인용으로 별도 고정한 값이며, Cobblemon
+1.8 정식팩의 버전을 확정한 것이 아닙니다.
+
+CurseForge 앱에서 다음 순서로 가져옵니다.
+
+1. Minecraft 화면에서 `Import`를 선택합니다.
+2. `Import Profile .zip` 또는 `Choose .zip file`을 선택합니다.
+3. `dist/cobbleventure-import-smoke-0.1.0-curseforge.zip`을 선택합니다.
+4. `Cobbleventure Import Smoke Test` 프로필이 생성되는지 확인합니다.
+5. 프로필 상세에서 Minecraft 1.21.1과 NeoForge가 선택되었는지 확인합니다.
+6. 가능하면 게임을 한 번 실행해 빈 NeoForge 프로필이 정상 시작되는지 확인합니다.
+
+임포트된 인스턴스의 `config/cobbleventure-import-smoke.txt`가 존재하면
+`overrides`도 정상 적용된 것입니다. CurseForge의 공식 임포트 화면과 오류 기준은
+[Sharing Modpacks/Custom Profiles](https://support.curseforge.com/support/solutions/articles/9000197912)를
+참고합니다.
+
 ### 전투 테스트 Web Lab 실행
 
 Windows에서는 Web Lab 폴더의 BAT 파일을 사용하는 방법이 가장 간단합니다.
@@ -160,7 +200,8 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 | `build.bat validate` | 의존성 Lock, 정규화 콘텐츠와 대화·RCT 참조 검사 | `draft` 경고를 허용하고 오류가 없으면 성공 |
 | `build.bat validate-pack` | Minecraft·NeoForge·활성 모드 버전과 CurseForge ID까지 엄격 검사 | 의존성 확정 전에는 실패가 정상 |
 | `build.bat api` | 데이터 관리용 Python Web API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
-| `build.bat test` | Python 검증기와 Web API 회귀 테스트 | 모든 `unittest`가 통과해야 함 |
+| `build.bat test` | 콘텐츠 검증기, Web API와 팩 빌더 회귀 테스트 | 모든 Python `unittest`가 통과해야 함 |
+| `build.bat pack-smoke` | 최소 CurseForge 임포트 테스트 ZIP 생성·재검증 | `dist`에 ZIP과 SHA-256 생성 |
 
 `build.bat`을 인자 없이 실행하면 사용 가능한 명령을 표시합니다. 자세한 검사
 규칙과 종료 코드는 [Content Manager 사용법](tools/content-manager/README.md)을
@@ -227,17 +268,28 @@ Lab 서버에 포함됩니다. 기본 주소는 `http://localhost:3000/api/...`�
 
 ## CurseForge 테스트팩 상태
 
-최종 목표는 다음 명령으로 외부 의존성, 생성 데이터와 자체 NeoForge JAR을
-합쳐 CurseForge 임포트 ZIP을 생성하는 것입니다.
+최소 임포트 스모크 팩은 현재 다음 명령으로 생성할 수 있습니다.
+
+```bat
+build.bat pack-smoke
+```
+
+이 명령은 정식 의존성 Lock을 사용하지 않으며 Minecraft와 NeoForge만 포함한
+빈 테스트 프로필을 만듭니다. 생성기는 ZIP을 다시 열어 `manifest.json`,
+`overrides/`, CRC, 내부 경로와 프로필 값이 올바른지 검사합니다. 자세한 구조는
+[CurseForge Pack Builder 문서](tools/pack-builder/README.md)를 참고합니다.
+
+최종 목표는 다음 명령으로 외부 의존성, 생성 데이터와 자체 NeoForge JAR을 합쳐
+실제 테스트팩을 만드는 것입니다.
 
 ```bat
 build.bat pack
 ```
 
-하지만 `pack` 명령과 NeoForge 게임 어댑터는 아직 구현되지 않았습니다. 현재
-`build.bat validate-pack`은 불완전한 의존성으로 ZIP이 만들어지는 것을 막는
-준비 검사입니다. Cobblemon 1.8 안정판과 대상 모드 버전을 고정한 뒤 패키징
-단계를 연결합니다.
+정식 `pack` 명령과 NeoForge 게임 어댑터는 아직 구현되지 않았습니다. 현재
+`build.bat validate-pack`은 불완전한 정식 의존성으로 ZIP이 만들어지는 것을
+막는 준비 검사입니다. Cobblemon 1.8 안정판과 대상 모드 버전을 고정한 뒤
+스모크 빌더에 정식 의존성·JAR 취합 단계를 연결합니다.
 
 ## 현재 저장소 범위
 

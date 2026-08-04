@@ -1,0 +1,4 @@
+Cobbleventure CurseForge import smoke test
+
+This profile intentionally contains no gameplay mods.
+If this file exists in the imported profile's config directory, overrides were imported correctly.

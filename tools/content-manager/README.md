@@ -12,6 +12,7 @@ build.bat validate
 build.bat validate-pack
 build.bat api
 build.bat test
+build.bat pack-smoke
 ```
 
 ### 명령 설명
@@ -22,6 +23,7 @@ build.bat test
 | `build.bat validate-pack` | CurseForge ZIP을 만들 수 있을 정도로 모든 실행 버전과 CurseForge ID가 고정되었는지 엄격하게 검사한다. | Lock 상태와 Minecraft·NeoForge·활성 모드 정보가 모두 확정됨 |
 | `build.bat api` | 콘텐츠 관리 화면이나 외부 로컬 도구에서 사용할 Web API를 실행한다. | `127.0.0.1:8765`에서 서버가 시작됨 |
 | `build.bat test` | 콘텐츠 검증기와 로컬 Web API의 회귀 테스트를 실행한다. | 모든 Python 단위 테스트가 통과함 |
+| `build.bat pack-smoke` | 별도 팩 빌더로 최소 CurseForge 임포트 ZIP을 생성하고 검증한다. | `dist`에 ZIP과 SHA-256이 생성됨 |
 
 #### `validate`
 
@@ -78,6 +80,9 @@ http://127.0.0.1:8765
 
 BAT 파일을 인자 없이 실행하면 사용 가능한 명령 목록을 출력한다. 현재는 도움말
 출력 후 종료 코드 `1`을 반환하므로 자동화에서는 반드시 명령을 지정한다.
+
+`pack-smoke`의 프로필과 ZIP 구조는
+[`tools/pack-builder/README.md`](../pack-builder/README.md)에서 관리한다.
 
 Python 모듈을 직접 실행할 수도 있다.
 

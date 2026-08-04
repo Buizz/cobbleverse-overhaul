@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "profile_id": "import-smoke",
+  "name": "Cobbleventure Import Smoke Test",
+  "version": "0.1.0-smoke",
+  "author": "Buizz",
+  "minecraft": {
+    "version": "1.21.1",
+    "mod_loader": {
+      "id": "neoforge-21.1.248",
+      "primary": true
+    }
+  },
+  "files": [],
+  "overrides_directory": "pack/overrides/import-smoke",
+  "output": "dist/cobbleventure-import-smoke-0.1.0-curseforge.zip"
+}
