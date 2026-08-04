@@ -70,8 +70,18 @@ def load_profile(root: Path, profile_path: Path) -> dict[str, Any]:
     profile_id = _required_string(profile, "profile_id", "$")
     if not PROFILE_ID.fullmatch(profile_id):
         raise PackError("$.profile_id가 올바른 소문자 ID가 아닙니다.")
-    for key in ("name", "version", "author", "overrides_directory", "output"):
+    for key in (
+        "name",
+        "version",
+        "author",
+        "purpose",
+        "notice",
+        "overrides_directory",
+        "output",
+    ):
         _required_string(profile, key, "$")
+    if not isinstance(profile.get("production_ready"), bool):
+        raise PackError("$.production_ready는 boolean이어야 합니다.")
 
     minecraft = profile.get("minecraft")
     if not isinstance(minecraft, dict):
@@ -181,8 +191,9 @@ def build_pack(root: Path, profile_path: Path) -> Path:
     pack_info = {
         "schema_version": 1,
         "profile_id": profile["profile_id"],
-        "purpose": "curseforge-import-smoke-test",
-        "production_ready": False,
+        "purpose": profile["purpose"],
+        "production_ready": profile["production_ready"],
+        "notice": profile["notice"],
         "minecraft": manifest["minecraft"],
     }
 

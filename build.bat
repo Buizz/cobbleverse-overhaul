@@ -5,6 +5,7 @@ set "REPO_ROOT=%~dp0"
 set "CONTENT_MANAGER=%REPO_ROOT%tools\content-manager\content_manager.py"
 set "PACK_BUILDER=%REPO_ROOT%tools\pack-builder\pack_builder.py"
 set "SMOKE_PROFILE=pack\profiles\import-smoke.json"
+set "DEVELOPMENT_PROFILE=pack\profiles\development-placeholder.json"
 
 where py >nul 2>nul
 if %errorlevel% equ 0 (
@@ -24,6 +25,8 @@ if /I "%~1"=="validate-pack" goto validate_pack
 if /I "%~1"=="api" goto api
 if /I "%~1"=="test" goto test
 if /I "%~1"=="pack-smoke" goto pack_smoke
+if /I "%~1"=="pack" goto pack
+if /I "%~1"=="pack-release" goto pack_release
 goto help_error
 
 :validate
@@ -48,6 +51,22 @@ exit /b %errorlevel%
 %PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%SMOKE_PROFILE%"
 exit /b %errorlevel%
 
+:pack
+%PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%DEVELOPMENT_PROFILE%"
+exit /b %errorlevel%
+
+:pack_release
+%PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%." --strict-pack
+if errorlevel 1 (
+    echo.
+    echo [INFO] Release packaging was blocked because the dependency lock is not ready.
+    exit /b 1
+)
+echo [ERROR] Release manifest export is not implemented yet.
+exit /b 1
+
 :help_error
 echo [ERROR] Unknown command: %~1
 
@@ -57,6 +76,8 @@ echo.
 echo   validate       Validate dependency lock and normalized content
 echo   validate-pack  Validate that dependencies are ready for CurseForge packaging
 echo   api            Start the local content manager Web API
-echo   test           Run content manager unit tests
+echo   test           Run all Python tool unit tests
 echo   pack-smoke     Build a minimal CurseForge import test ZIP
+echo   pack           Build the temporary development CurseForge ZIP
+echo   pack-release   Validate release readiness; blocked until dependencies are locked
 exit /b 1

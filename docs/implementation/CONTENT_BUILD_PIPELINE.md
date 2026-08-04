@@ -92,6 +92,8 @@ dist/cobbleventure-<profile>-<version>-curseforge.zip
 | `build.bat api` | Python 콘텐츠 관리 로컬 Web API 실행 | 웹 관리 화면이나 외부 제작 도구 연결 시 |
 | `build.bat test` | 검증기와 API 회귀 테스트 실행 | 관리 도구 코드 변경 후 |
 | `build.bat pack-smoke` | Minecraft·NeoForge만 포함한 최소 CurseForge 임포트 ZIP 생성 | 패키징 파이프라인과 CurseForge 앱 임포트 확인 시 |
+| `build.bat pack` | 일반 콘텐츠 검증 후 임시 개발 ZIP 생성 | 개발 자산 취합 흐름 확인 시 |
+| `build.bat pack-release` | 정식 의존성 Lock과 공개 패키징 준비 검사 | 배포 후보 생성 전 |
 
 `validate`는 `draft` 의존성의 미확정 버전을 경고로 허용하지만,
 `validate-pack`은 이를 오류로 처리한다. 따라서 Cobblemon 1.8 대상 버전이
@@ -103,6 +105,8 @@ dist/cobbleventure-<profile>-<version>-curseforge.zip
 `pack-smoke`는 정식 의존성 검증을 우회하는 일반 팩이 아니라 임포트 형식만
 확인하는 별도 프로필이다. 외부 모드와 자체 JAR을 포함하지 않으며
 `pack/profiles/import-smoke.json`에 임시 Minecraft·NeoForge 버전을 명시한다.
+임시 `pack`은 `pack/profiles/development-placeholder.json`을 사용해 별도 개발
+ZIP을 만들며, `pack-release`는 Lock이 확정될 때까지 ZIP 생성을 차단한다.
 
 후속 단계에서 다음 명령을 같은 진입점에 추가한다.
 
@@ -110,7 +114,6 @@ dist/cobbleventure-<profile>-<version>-curseforge.zip
 build.bat import
 build.bat generate
 build.bat mods
-build.bat pack
 build.bat all
 ```
 
@@ -157,9 +160,10 @@ overrides/
 - 허가되지 않은 외부 JAR와 기존 Cobbleverse 전용 자산이 포함되지 않았는가
 - ZIP 최상위 구조가 CurseForge 가져오기 형식과 일치하는가
 
-현재 `build.bat pack-smoke`가 위 구조 생성, ZIP CRC, 안전한 엔트리 경로와
-manifest 일치 검사를 먼저 구현한다. 정식 `pack`은 의존성 Lock이 확정된 뒤
-같은 빌더를 사용하도록 확장한다.
+현재 `build.bat pack-smoke`와 임시 `build.bat pack`이 위 구조 생성, ZIP CRC,
+안전한 엔트리 경로와 manifest 일치 검사를 구현한다. 정식 개발 팩은 의존성
+Lock이 확정된 뒤 같은 `pack` 진입점에 외부 모드와 자체 JAR 취합을 추가한다.
+`pack-release`는 그 전까지 릴리스 ZIP을 만들지 않는다.
 
 ## 8. 빌드 단계와 실패 정책
 

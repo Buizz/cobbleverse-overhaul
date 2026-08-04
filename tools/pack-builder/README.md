@@ -23,13 +23,41 @@ dist/cobbleventure-import-smoke-0.1.0-curseforge.zip.sha256
 버전은 `pack/profiles/import-smoke.json`에서 별도로 관리하므로 정식
 `dependencies.lock.json`을 확정한 것으로 취급하지 않는다.
 
+## 임시 개발 팩
+
+```bat
+build.bat pack
+```
+
+출력:
+
+```text
+dist/cobbleventure-development-0.1.0-curseforge.zip
+dist/cobbleventure-development-0.1.0-curseforge.zip.sha256
+```
+
+일반 콘텐츠 검증을 먼저 실행한 뒤 개발용 프로필을 패키징한다. 현재는 외부 모드와
+자체 NeoForge JAR이 없어 스모크 팩과 실행 구성은 비슷하지만, 임포트 형식만
+검사하는 스모크 팩과 이후 실제 개발 자산을 취합할 `pack` 진입점을 구분한다.
+
+## 릴리스 팩 게이트
+
+```bat
+build.bat pack-release
+```
+
+현재 임시 구현은 `validate-pack`을 실행하여 Minecraft, NeoForge와 모든 활성
+외부 모드의 버전·CurseForge 식별자가 고정됐는지 검사한다. Lock이 `draft`인
+동안 종료 코드 `1`로 실패하며 릴리스 ZIP을 만들지 않는다. 개발 팩을 릴리스
+결과로 복사하거나 이름만 바꾸는 동작은 하지 않는다.
+
 ## 생성 ZIP
 
 ```text
 manifest.json
 overrides/
 ├─ cobbleventure-pack-info.json
-└─ config/cobbleventure-import-smoke.txt
+└─ config/<프로필 확인 파일>
 ```
 
 빌더는 생성 직후 다음 항목을 검사한다.
@@ -44,6 +72,7 @@ overrides/
 
 ```text
 python tools/pack-builder/pack_builder.py build --root . --profile pack/profiles/import-smoke.json
+python tools/pack-builder/pack_builder.py build --root . --profile pack/profiles/development-placeholder.json
 python tools/pack-builder/pack_builder.py validate --root . --profile pack/profiles/import-smoke.json
 ```
 

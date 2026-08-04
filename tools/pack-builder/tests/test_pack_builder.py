@@ -30,6 +30,9 @@ class PackBuilderTests(unittest.TestCase):
             "name": "Smoke",
             "version": "0.0.1",
             "author": "Test",
+            "purpose": "test-fixture",
+            "production_ready": False,
+            "notice": "Test only",
             "minecraft": {
                 "version": "1.21.1",
                 "mod_loader": {
@@ -56,11 +59,16 @@ class PackBuilderTests(unittest.TestCase):
             )
             with zipfile.ZipFile(output) as archive:
                 names = archive.namelist()
+                pack_info = json.loads(
+                    archive.read("overrides/cobbleventure-pack-info.json")
+                )
             self.assertEqual("minecraftModpack", manifest["manifestType"])
             self.assertEqual([], manifest["files"])
             self.assertIn("manifest.json", names)
             self.assertIn("overrides/", names)
             self.assertIn("overrides/config/marker.txt", names)
+            self.assertEqual("test-fixture", pack_info["purpose"])
+            self.assertFalse(pack_info["production_ready"])
             self.assertTrue(output.with_name(output.name + ".sha256").is_file())
 
     def test_rejects_output_outside_dist(self) -> None:

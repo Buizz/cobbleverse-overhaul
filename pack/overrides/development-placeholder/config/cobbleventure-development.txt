@@ -1,0 +1,4 @@
+Cobbleventure development pack placeholder
+
+This pack is importable, but it does not contain Cobblemon, RCT, or Cobbleventure NeoForge jars yet.
+Use it only to test the development packaging workflow.

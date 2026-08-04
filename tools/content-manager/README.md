@@ -13,6 +13,8 @@ build.bat validate-pack
 build.bat api
 build.bat test
 build.bat pack-smoke
+build.bat pack
+build.bat pack-release
 ```
 
 ### 명령 설명
@@ -24,6 +26,8 @@ build.bat pack-smoke
 | `build.bat api` | 콘텐츠 관리 화면이나 외부 로컬 도구에서 사용할 Web API를 실행한다. | `127.0.0.1:8765`에서 서버가 시작됨 |
 | `build.bat test` | 콘텐츠 검증기와 로컬 Web API의 회귀 테스트를 실행한다. | 모든 Python 단위 테스트가 통과함 |
 | `build.bat pack-smoke` | 별도 팩 빌더로 최소 CurseForge 임포트 ZIP을 생성하고 검증한다. | `dist`에 ZIP과 SHA-256이 생성됨 |
+| `build.bat pack` | 일반 검증 후 별도 팩 빌더로 임시 개발 ZIP을 생성한다. | `dist`에 개발 ZIP과 SHA-256이 생성됨 |
+| `build.bat pack-release` | 정식 패키징 조건을 엄격 검증한다. | Lock이 `draft`인 현재는 실패하고 ZIP을 만들지 않음 |
 
 #### `validate`
 
@@ -69,9 +73,9 @@ http://127.0.0.1:8765
 
 #### `test`
 
-`tools/content-manager/tests` 아래의 Python `unittest`를 실행한다. 콘텐츠
-검증 규칙이나 Web API를 변경한 뒤 실행하며, 테스트 실패 시 변경을 패키징하지
-않는다.
+`tools/content-manager/tests`와 `tools/pack-builder/tests` 아래의 Python
+`unittest`를 실행한다. 콘텐츠 검증 규칙, Web API나 팩 빌더를 변경한 뒤
+실행하며, 테스트 실패 시 변경을 패키징하지 않는다.
 
 ### 종료 코드
 

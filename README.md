@@ -93,6 +93,25 @@ CurseForge 앱에서 다음 순서로 가져옵니다.
 [Sharing Modpacks/Custom Profiles](https://support.curseforge.com/support/solutions/articles/9000197912)를
 참고합니다.
 
+### 임시 개발 팩 생성
+
+스모크 테스트보다 한 단계 위인 개발용 패키징 흐름은 다음 명령으로 확인합니다.
+
+```bat
+build.bat pack
+```
+
+이 명령은 일반 콘텐츠 검증을 먼저 통과한 뒤 다음 파일을 생성합니다.
+
+```text
+dist/cobbleventure-development-0.1.0-curseforge.zip
+dist/cobbleventure-development-0.1.0-curseforge.zip.sha256
+```
+
+현재 개발 팩도 CurseForge에서 임포트할 수 있지만 Cobblemon, RCT와 자체
+NeoForge JAR은 아직 포함하지 않습니다. ZIP 안의 팩 정보에
+`production_ready: false`와 개발용 임시 팩이라는 안내를 기록합니다.
+
 ### 전투 테스트 Web Lab 실행
 
 Windows에서는 Web Lab 폴더의 BAT 파일을 사용하는 방법이 가장 간단합니다.
@@ -202,6 +221,8 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 | `build.bat api` | 데이터 관리용 Python Web API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
 | `build.bat test` | 콘텐츠 검증기, Web API와 팩 빌더 회귀 테스트 | 모든 Python `unittest`가 통과해야 함 |
 | `build.bat pack-smoke` | 최소 CurseForge 임포트 테스트 ZIP 생성·재검증 | `dist`에 ZIP과 SHA-256 생성 |
+| `build.bat pack` | 일반 콘텐츠 검증 후 임시 개발 팩 생성 | 임포트 가능한 개발용 ZIP과 SHA-256 생성 |
+| `build.bat pack-release` | 정식 의존성·배포 준비 상태를 엄격 검사 | 현재는 누락 항목을 출력하고 실패하는 것이 정상 |
 
 `build.bat`을 인자 없이 실행하면 사용 가능한 명령을 표시합니다. 자세한 검사
 규칙과 종료 코드는 [Content Manager 사용법](tools/content-manager/README.md)을
@@ -266,30 +287,31 @@ Lab 서버에 포함됩니다. 기본 주소는 `http://localhost:3000/api/...`�
 상세 범위는 [Battle AI 프로젝트 문서](projects/cobbleventure-battle-ai/README.md)를
 참고합니다.
 
-## CurseForge 테스트팩 상태
+## CurseForge 패키징 명령의 구분
 
-최소 임포트 스모크 팩은 현재 다음 명령으로 생성할 수 있습니다.
+| 명령 | 목적 | ZIP 생성 여부 |
+|------|------|---------------|
+| `pack-smoke` | CurseForge가 최소 manifest와 overrides를 받아들이는지 확인 | 항상 스모크 ZIP 생성 |
+| `pack` | 콘텐츠 검증부터 개발 ZIP 생성까지의 작업 흐름 확인 | 현재 임시 개발 ZIP 생성 |
+| `pack-release` | 정식 의존성과 공개 배포 준비가 완료됐는지 확인 | 현재는 차단되며 ZIP을 만들지 않음 |
+
+`pack-smoke`와 임시 `pack`은 정식 `dependencies.lock.json`을 확정한 것으로
+취급하지 않습니다. 둘 다 Minecraft 1.21.1과 NeoForge 21.1.248을 사용하는
+패키징 테스트 프로필이며 외부 모드는 0개입니다.
 
 ```bat
-build.bat pack-smoke
+build.bat pack-release
 ```
 
-이 명령은 정식 의존성 Lock을 사용하지 않으며 Minecraft와 NeoForge만 포함한
-빈 테스트 프로필을 만듭니다. 생성기는 ZIP을 다시 열어 `manifest.json`,
-`overrides/`, CRC, 내부 경로와 프로필 값이 올바른지 검사합니다. 자세한 구조는
+현재 `pack-release`는 내부적으로 `validate-pack`을 실행합니다. Cobblemon,
+RCT API와 RCT의 버전·CurseForge project ID/file ID가 미정이므로 종료 코드
+`1`로 실패하고 ZIP을 생성하지 않는 것이 정상입니다. 의존성 Lock이 완성된
+뒤에는 이 명령에 외부 의존성 manifest 생성, 자체 JAR 취합, 라이선스와 공개
+배포 검사를 연결합니다.
+
+모든 ZIP 생성 명령은 결과를 다시 열어 `manifest.json`, `overrides/`, CRC,
+내부 경로와 프로필 값이 올바른지 검사합니다. 자세한 구조는
 [CurseForge Pack Builder 문서](tools/pack-builder/README.md)를 참고합니다.
-
-최종 목표는 다음 명령으로 외부 의존성, 생성 데이터와 자체 NeoForge JAR을 합쳐
-실제 테스트팩을 만드는 것입니다.
-
-```bat
-build.bat pack
-```
-
-정식 `pack` 명령과 NeoForge 게임 어댑터는 아직 구현되지 않았습니다. 현재
-`build.bat validate-pack`은 불완전한 정식 의존성으로 ZIP이 만들어지는 것을
-막는 준비 검사입니다. Cobblemon 1.8 안정판과 대상 모드 버전을 고정한 뒤
-스모크 빌더에 정식 의존성·JAR 취합 단계를 연결합니다.
 
 ## 현재 저장소 범위
 

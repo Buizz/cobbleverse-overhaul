@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "profile_id": "development-placeholder",
+  "name": "Cobbleventure Development Test Pack",
+  "version": "0.1.0-dev",
+  "author": "Buizz",
+  "purpose": "development-pack-placeholder",
+  "production_ready": false,
+  "notice": "Cobblemon과 Cobbleventure NeoForge JAR이 아직 포함되지 않은 개발용 임시 팩입니다.",
+  "minecraft": {
+    "version": "1.21.1",
+    "mod_loader": {
+      "id": "neoforge-21.1.248",
+      "primary": true
+    }
+  },
+  "files": [],
+  "overrides_directory": "pack/overrides/development-placeholder",
+  "output": "dist/cobbleventure-development-0.1.0-curseforge.zip"
+}
