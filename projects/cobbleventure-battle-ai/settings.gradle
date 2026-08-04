@@ -1,0 +1,4 @@
+rootProject.name = 'cobbleventure-battle-ai'
+
+include 'ai-api'
+include 'ai-engine'

@@ -1,5 +1,0 @@
-description = 'Cobbleverse 전투 AI의 결정 엔진과 점수 규칙'
-
-dependencies {
-    api project(':ai-api')
-}

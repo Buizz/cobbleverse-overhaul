@@ -1,0 +1,8 @@
+description = 'Cobbleventure 지역 JSON 로딩과 의미 검증 엔진'
+
+dependencies {
+    api project(':adventure-api')
+
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.17.2'
+}

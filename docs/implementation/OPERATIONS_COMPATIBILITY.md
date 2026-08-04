@@ -10,7 +10,7 @@
 
 - 도시, NPC, 진행과 챔피언 상태 조회·복구
 - 백업, 저장 데이터 마이그레이션과 장애 대응
-- 기반 Cobbleverse, Minecraft, Fabric과 의존 모드 호환성
+- Minecraft, Fabric, Cobblemon과 선택 어댑터·호환성 프로필의 버전 호환성
 - 설치, 업데이트, 배포 파일 구성과 라이선스
 
 ## 현재 원칙

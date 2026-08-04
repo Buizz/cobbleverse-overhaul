@@ -143,11 +143,11 @@ transition                     # 세대별 챔피언로드와 리그 구역
 각 스폰 파일의 `dimensions` 조건에 세대 차원 ID를 지정한다.
 
 ```text
-cobbleverse_adventure:generation_1
-cobbleverse_adventure:generation_2
+cobbleventure:generation_1
+cobbleventure:generation_2
 ...
-cobbleverse_adventure:generation_N
-cobbleverse_adventure:transition
+cobbleventure:generation_N
+cobbleventure:transition
 ```
 
 기본 Cobblemon 스폰 파일에 차원 제한이 없으면 동일한 바이옴을 사용하는 모든 세대 차원에 그대로 적용될 수 있다. 완전한 세대별 분리가 필요하면 기본 스폰 풀을 필터링하고 프로젝트가 생성한 스폰 파일로 대체한다. 포켓몬 수만큼 JSON을 손으로 관리하지 않고 다음 입력표에서 데이터 생성기로 스폰 파일을 생성한다.

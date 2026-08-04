@@ -4,17 +4,17 @@
 >
 > 관련 결정: D-03, D-07, D-25~D-31
 >
-> 구현 프로젝트: [Cobbleverse Battle AI](../../projects/cobbleverse-battle-ai/README.md)
+> 구현 프로젝트: [Cobbleventure Battle AI](../../projects/cobbleventure-battle-ai/README.md)
 >
-> 개선 계획: [독립 전투 엔진, 웹 실험실과 AI 평가](../../projects/cobbleverse-battle-ai/docs/IMPROVEMENT_PLAN.md)
+> 개선 계획: [독립 전투 엔진, 웹 실험실과 AI 평가](../../projects/cobbleventure-battle-ai/docs/IMPROVEMENT_PLAN.md)
 >
-> 규칙 적합성: [특수 효과 완전성 및 테스트](../../projects/cobbleverse-battle-ai/docs/MECHANICS_COVERAGE_PLAN.md)
+> 규칙 적합성: [특수 효과 완전성 및 테스트](../../projects/cobbleventure-battle-ai/docs/MECHANICS_COVERAGE_PLAN.md)
 >
-> 전략 AI: [팀 역할·승리 조건과 제한적 난수](../../projects/cobbleverse-battle-ai/docs/STRATEGIC_AI_PLAN.md)
+> 전략 AI: [팀 역할·승리 조건과 제한적 난수](../../projects/cobbleventure-battle-ai/docs/STRATEGIC_AI_PLAN.md)
 >
-> 전략 성향: [팀 분석과 전략 아키타입 선택](../../projects/cobbleverse-battle-ai/docs/STRATEGY_ARCHETYPES_AND_TEAM_ANALYSIS.md)
+> 전략 성향: [팀 분석과 전략 아키타입 선택](../../projects/cobbleventure-battle-ai/docs/STRATEGY_ARCHETYPES_AND_TEAM_ANALYSIS.md)
 >
-> 승률 모델: [팀 프리뷰·전투 상태 승률과 자기대전 가치 학습](../../projects/cobbleverse-battle-ai/docs/WIN_PROBABILITY_MODEL.md)
+> 승률 모델: [팀 프리뷰·전투 상태 승률과 자기대전 가치 학습](../../projects/cobbleventure-battle-ai/docs/WIN_PROBABILITY_MODEL.md)
 >
 > 설계 상태: 플랫폼 독립 AI 골격 추가 / Cobblemon·RCT 어댑터와 전술 규칙 미구현
 
@@ -51,10 +51,10 @@
 
 ## 다음 결정
 
-- 기반 트레이너 모드와 지원 API
+- 내부 공통 트레이너 계약과 첫 공급자 어댑터
 - AI 계층별 허용 행동과 제한
 - 난이도별 트레이너 배치, 실수율과 탐색 예산
-- Cobblemon 1.8에서 인간 행동 잠금 후 치터 AI를 호출할 수 있는지
+- 대상 Cobblemon 안정 버전에서 인간 행동 잠금 후 치터 AI를 호출할 수 있는지
 - 첫 지방에서 완전 구현할 기술·특성·도구 카탈로그
 - 팀 역할의 데이터 지정과 자동 추론 범위
 - 에이스 보존, 랭크업 견제와 확률 정책의 평가 기준

@@ -89,7 +89,7 @@ WorldActionPolicy
 
 ### 4.1 기준 규칙
 
-- 데이터 태그 `#cobbleverse_adventure:field_harvestable`에 등록된 블록만 수확할 수 있다.
+- 데이터 태그 `#cobbleventure:field_harvestable`에 등록된 블록만 수확할 수 있다.
 - 성숙 단계에 도달한 작물만 허용한다.
 - 씨앗이나 줄기까지 제거하지 않고 수확 상태로 되돌리거나 자동 재식재한다.
 - 드롭은 월드에 흩뿌리기보다 [본가식 가방 인벤토리](BAG_INVENTORY.md)의 대응 포켓에 서버가 직접 지급한다.
@@ -211,7 +211,7 @@ FixedOreNodeState
 외부 보호·클레임 API
   → 영역과 기본 파괴·설치 차단
 
-Cobbleverse Adventure 코어
+Cobbleventure 게임 어댑터
   → 진행 상태, 작물 성숙도, 자원 노드, 가방 지급과 예외 판정
 ```
 

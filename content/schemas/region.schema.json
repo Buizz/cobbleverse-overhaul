@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/region.schema.json",
+  "title": "Cobbleventure region definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "dimension",
+    "bounds",
+    "biome_pool",
+    "boundary",
+    "connections",
+    "anchors"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "$ref": "#/$defs/resource_id" },
+    "dimension": { "$ref": "#/$defs/resource_id" },
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_x", "min_z", "max_x", "max_z"],
+      "properties": {
+        "min_x": { "type": "integer" },
+        "min_z": { "type": "integer" },
+        "max_x": { "type": "integer" },
+        "max_z": { "type": "integer" }
+      }
+    },
+    "biome_pool": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/resource_id" }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "protection_profile"],
+      "properties": {
+        "type": { "enum": ["STRUCTURE_WALL", "INVISIBLE", "COMBINED", "NONE"] },
+        "template": { "$ref": "#/$defs/resource_id" },
+        "protection_profile": { "$ref": "#/$defs/resource_id" }
+      }
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "gate_id"],
+        "properties": {
+          "target": { "$ref": "#/$defs/resource_id" },
+          "gate_id": { "$ref": "#/$defs/resource_id" },
+          "requirement": { "$ref": "#/$defs/resource_id" }
+        }
+      }
+    },
+    "anchors": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/block_position" }
+    },
+    "spawn_profile": { "$ref": "#/$defs/resource_id" }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "block_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "z": { "type": "integer" }
+      }
+    }
+  }
+}

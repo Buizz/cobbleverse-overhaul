@@ -1,0 +1,4 @@
+rootProject.name = 'cobbleventure-core'
+
+include 'adventure-api'
+include 'region-engine'

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "cobbleventure:generation_1/region_01",
+  "dimension": "cobbleventure:generation_1",
+  "bounds": {
+    "min_x": -2048,
+    "min_z": -2048,
+    "max_x": 2047,
+    "max_z": 2047
+  },
+  "biome_pool": [
+    "minecraft:plains",
+    "minecraft:forest"
+  ],
+  "boundary": {
+    "type": "COMBINED",
+    "template": "cobbleventure:region_wall",
+    "protection_profile": "cobbleventure:adventure_field"
+  },
+  "connections": [
+    {
+      "target": "cobbleventure:generation_1/region_02",
+      "gate_id": "cobbleventure:east_gate",
+      "requirement": "cobbleventure:badge_01"
+    }
+  ],
+  "anchors": {
+    "spawn": { "x": 0, "y": 80, "z": 0 },
+    "city": { "x": 600, "y": 75, "z": -300 },
+    "gym": { "x": 720, "y": 76, "z": -280 }
+  },
+  "spawn_profile": "cobbleventure:generation_1_region_01"
+}

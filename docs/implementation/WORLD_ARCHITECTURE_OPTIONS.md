@@ -8,7 +8,7 @@
 
 ## 0 결정 요약
 
-2026년 7월 22일, `Cobbleverse Adventure`의 기준 아키텍처로 **3안 하이브리드**를 선택했다.
+2026년 7월 22일, 당시 `Cobbleverse Adventure`였던 현재 `Cobbleventure`의 기준 아키텍처로 **3안 하이브리드**를 선택했다.
 
 ```text
 세대별 보호형 서바이벌 월드

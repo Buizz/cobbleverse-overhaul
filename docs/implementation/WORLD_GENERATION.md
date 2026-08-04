@@ -66,73 +66,20 @@
 
 ## 5 설정 데이터 초안
 
-세대 월드의 지역 구성은 코드에 직접 넣지 않고 JSON 데이터로 관리한다.
+세대 월드의 지역 구성은 코드에 직접 넣지 않고 지역별 JSON 파일로 관리한다. 현재 기계 판독 기준은 [지역 JSON Schema](../../content/schemas/region.schema.json), 첫 예제는 [1세대 지역 1](../../content/regions/generation_1/region_01.json)이다.
 
-```json
-{
-  "schema_version": 1,
-  "world_id": "generation_1",
-  "start_region": "region_1",
-  "regions": [
-    {
-      "id": "region_1",
-      "order": 1,
-      "biomes": [
-        "minecraft:forest",
-        "minecraft:plains"
-      ],
-      "settlement_profile": "generation_1/town_1",
-      "gym_profile": "generation_1/gym_1",
-      "spawn_profile": "generation_1/region_1",
-      "connections": [
-        {
-          "to": "region_2",
-          "gate_profile": "forest_pass",
-          "required_badges": 1
-        }
-      ]
-    },
-    {
-      "id": "region_2",
-      "order": 2,
-      "biomes": [
-        "minecraft:desert",
-        "minecraft:swamp"
-      ],
-      "settlement_profile": "generation_1/town_2",
-      "gym_profile": "generation_1/gym_2",
-      "spawn_profile": "generation_1/region_2",
-      "connections": [
-        {
-          "to": "region_3",
-          "gate_profile": "ruined_causeway",
-          "required_badges": 2
-        }
-      ]
-    },
-    {
-      "id": "region_8",
-      "order": 8,
-      "biomes": [
-        "minecraft:jagged_peaks",
-        "minecraft:grove"
-      ],
-      "settlement_profile": "generation_1/town_8",
-      "gym_profile": "generation_1/gym_8",
-      "spawn_profile": "generation_1/region_8",
-      "connections": []
-    }
-  ],
-  "league_portal": {
-    "source_region": "region_8",
-    "required_badges": 8,
-    "destination_dimension": "cobbleverse_adventure:transition",
-    "destination_anchor": "generation_1/league_entrance"
-  }
-}
-```
+각 지역은 다음 항목을 선언한다.
 
-실제 파일에는 지역 1부터 8까지 빠짐없이 정의해야 한다. 배열 순서만 신뢰하지 않고 `id`와 `order`를 함께 검증한다.
+- `id`, `dimension`과 스키마 버전
+- 직사각형 좌표 경계와 바이옴 풀
+- 구조물 벽, 비가시 경계 또는 두 방식을 결합한 경계 프로필
+- 다음 지역, 관문과 진행 조건 ID
+- 스폰, 도시와 체육관 같은 고정 앵커
+- 포켓몬 스폰 프로필 참조
+
+플랫폼 독립 코어는 리소스 ID 형식, 최소·최대 좌표, 앵커 포함 여부, 관문 중복, 존재하지 않는 연결 대상과 같은 차원 내 지역 겹침을 검증한다. 실제 벽 생성, 보호와 차원 이동은 향후 게임 어댑터가 이 검증 결과를 사용해 수행한다.
+
+월드 수준 파일은 시작 지역, 지역 순서와 리그 목적지를 묶는 별도 계약으로 추가한다. 지역 파일 배열 순서에 진행 순서를 암묵적으로 의존하지 않는다.
 
 ## 6 지역 배치
 

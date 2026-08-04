@@ -43,18 +43,18 @@ Raid Dens는 레이드마다 차원을 생성하지 않는다. `cobblemonraidden
 - 활성 슬롯에만 청크 로드 티켓을 부여하고 종료 시 제거한다.
 - 정리 순서는 플레이어 귀환, 엔티티 제거, 블록 초기화, 슬롯 반환으로 고정한다.
 
-## 3 Cobbleverse Adventure 적용 구조
+## 3 Cobbleventure 적용 구조
 
 초기안은 역할별 공용 차원을 하나씩 두는 방식이다.
 
 ```text
-cobbleverse_adventure:instances
+cobbleventure:instances
   ├─ 슬롯 0: 임시 관장전 경기장
   ├─ 슬롯 1: 레이드 또는 보스전
   ├─ 슬롯 2: 스토리 컷신 공간
   └─ 슬롯 N: 상태 변화 건물 내부
 
-cobbleverse_adventure:farm_plots
+cobbleventure:farm_plots
   └─ 플레이어별 영구 1청크 농장
 ```
 

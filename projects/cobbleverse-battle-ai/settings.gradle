@@ -1,4 +1,0 @@
-rootProject.name = 'cobbleverse-battle-ai'
-
-include 'ai-api'
-include 'ai-engine'
