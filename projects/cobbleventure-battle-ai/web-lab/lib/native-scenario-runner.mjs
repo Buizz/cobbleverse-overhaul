@@ -280,6 +280,8 @@ function hydrateMember(member, path, teraContext = {}) {
   const isOgerpon = baseSpeciesName === "Ogerpon";
   const isTerapagos = baseSpeciesName === "Terapagos";
   const isAegislash = baseSpeciesName === "Aegislash";
+  const isDarmanitan = baseSpeciesName === "Darmanitan";
+  const isGalarianDarmanitan = isDarmanitan && species.name.includes("Galar");
   const ogerponTeraFormName =
     species.name === "Ogerpon"
       ? "Ogerpon-Teal-Tera"
@@ -291,6 +293,16 @@ function hydrateMember(member, path, teraContext = {}) {
       ? {
           shield: hydratedForm("Aegislash"),
           blade: hydratedForm("Aegislash-Blade"),
+        }
+      : {}),
+    ...(isDarmanitan
+      ? {
+          base: hydratedForm(
+            isGalarianDarmanitan ? "Darmanitan-Galar" : "Darmanitan",
+          ),
+          zen: hydratedForm(
+            isGalarianDarmanitan ? "Darmanitan-Galar-Zen" : "Darmanitan-Zen",
+          ),
         }
       : {}),
     ...(isOgerpon

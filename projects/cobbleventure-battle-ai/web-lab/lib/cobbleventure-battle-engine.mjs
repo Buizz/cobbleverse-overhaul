@@ -395,6 +395,16 @@ const IMPLEMENTED_ABILITIES = new Set([
   "prismarmor",
   "orichalcumpulse",
   "armortail",
+  "solarpower",
+  "soulheart",
+  "superluck",
+  "swordofruin",
+  "tabletsofruin",
+  "tangledfeet",
+  "transistor",
+  "truant",
+  "waterbubble",
+  "zenmode",
   "embodyaspectcornerstone",
   "embodyaspecthearthflame",
   "embodyaspectteal",
@@ -406,6 +416,7 @@ const INTENTIONAL_NO_EFFECT_ABILITIES = new Set([
   "honeygather",
   "hospitality",
   "runaway",
+  "telepathy",
   "unnerve",
 ]);
 const SUPPORTED_ABILITIES = new Set([
@@ -1411,6 +1422,7 @@ function statusBlockedByAbility(pokemon, status) {
   const ability = activeAbility(pokemon);
   if (ability === "purifyingsalt") return true;
   if (ability === "thermalexchange" && status === "brn") return true;
+  if (ability === "waterbubble" && status === "brn") return true;
   return Boolean(STATUS_IMMUNITY_ABILITIES[status]?.has(ability));
 }
 
@@ -1431,6 +1443,9 @@ function abilityDamageModifier(defender, move, attacker = null) {
     modifier *= 0.5;
   }
   if (ability === "heatproof" && move.type === "Fire") {
+    modifier *= 0.5;
+  }
+  if (ability === "waterbubble" && move.type === "Fire") {
     modifier *= 0.5;
   }
   if (ability === "furcoat" && move.category === "Physical") {
@@ -1548,6 +1563,12 @@ function effectiveStat(pokemon, stat, options = {}) {
   }
   if (stat === "specialAttack") {
     if (pokemon.item === "choicespecs") value *= 1.5;
+    if (
+      activeAbility(pokemon) === "solarpower" &&
+      ["sunnyday", "desolateland"].includes(effectiveWeather(options.state))
+    ) {
+      value *= 1.5;
+    }
     if (
       activeAbility(pokemon) === "hadronengine" &&
       cleanId(options.state?.field?.terrain?.id) === "electricterrain"
@@ -1782,6 +1803,13 @@ function damageBase(attacker, defender, move, options = {}) {
   if (!physical && activeAbility(defender) === "vesselofruin") {
     attack *= 0.75;
   }
+  if (
+    physical &&
+    activeAbility(defender) === "tabletsofruin" &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    attack *= 0.75;
+  }
   let defence = effectiveStat(
     defender,
     physical ? "defence" : "specialDefence",
@@ -1792,6 +1820,9 @@ function damageBase(attacker, defender, move, options = {}) {
     },
   );
   if (!physical && activeAbility(attacker) === "beadsofruin") {
+    defence *= 0.75;
+  }
+  if (physical && activeAbility(attacker) === "swordofruin") {
     defence *= 0.75;
   }
   if (
@@ -1965,6 +1996,12 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   }
   if (activeAbility(attacker) === "dragonsmaw" && move.type === "Dragon") {
     abilityModifier *= 1.5;
+  }
+  if (activeAbility(attacker) === "transistor" && move.type === "Electric") {
+    abilityModifier *= 1.3;
+  }
+  if (activeAbility(attacker) === "waterbubble" && move.type === "Water") {
+    abilityModifier *= 2;
   }
   if (
     activeAbility(attacker) === "sandforce" &&
@@ -2269,6 +2306,39 @@ function applySpeciesForm(
     maximumHp: pokemon.stats.hp,
   });
   return true;
+}
+
+function isZenModeForm(pokemon) {
+  return Boolean(
+    pokemon?.speciesForms?.zen &&
+      cleanId(pokemon.id) === cleanId(pokemon.speciesForms.zen.id),
+  );
+}
+
+function updateZenModeForm(state, sideIndex, pokemon) {
+  if (
+    !pokemon ||
+    pokemon.fainted ||
+    pokemon.dynamaxTurns > 0 ||
+    activeAbility(pokemon) !== "zenmode"
+  ) {
+    return false;
+  }
+  const shouldBeZen = pokemon.hp <= Math.floor(pokemon.stats.hp / 2);
+  const targetForm = shouldBeZen
+    ? pokemon.speciesForms?.zen
+    : pokemon.speciesForms?.base;
+  if (!targetForm || cleanId(targetForm.id) === cleanId(pokemon.id)) return false;
+  emitAbilityActivation(state, sideIndex, pokemon, "zenmode", {
+    form: targetForm.id,
+  });
+  return applySpeciesForm(state, sideIndex, pokemon, targetForm, "zenmode");
+}
+
+function revertZenModeForm(state, sideIndex, pokemon) {
+  const baseForm = pokemon?.speciesForms?.base;
+  if (!baseForm || !isZenModeForm(pokemon)) return false;
+  return applySpeciesForm(state, sideIndex, pokemon, baseForm, "zenmode");
 }
 
 function stanceChangeTargetForm(pokemon, move) {
@@ -3553,6 +3623,7 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
     curePokemonStatus(state, sideIndex, outgoing, "naturalcure");
   }
   endPersistentAbilityWeather(state, sideIndex, outgoing, "switch");
+  revertZenModeForm(state, sideIndex, outgoing);
   revertTransform(outgoing);
   if (outgoing.abilityState?.tracedAbility) {
     outgoing.ability =
@@ -4081,6 +4152,13 @@ function effectiveAccuracy(attacker, defender, move, state = null) {
     !ignoresDefenderAbility(attacker)
   ) {
     abilityModifier *= 0.8;
+  }
+  if (
+    activeAbility(defender) === "tangledfeet" &&
+    defender.volatiles?.confusion &&
+    !ignoresDefenderAbility(attacker)
+  ) {
+    abilityModifier *= 0.5;
   }
   return Math.max(
     1,
@@ -6057,6 +6135,28 @@ function markFainted(state, side, pokemon) {
     side,
     pokemon: pokemon.name,
   });
+  for (const [otherSide, battleSide] of state.sides.entries()) {
+    const witness = battleSide.team[battleSide.active];
+    if (
+      otherSide === side ||
+      !witness ||
+      witness === pokemon ||
+      witness.fainted ||
+      activeAbility(witness) !== "soulheart"
+    ) {
+      continue;
+    }
+    emitAbilityActivation(state, otherSide, witness, "soulheart", {
+      faintedPokemon: pokemon.name,
+    });
+    applyBoosts(
+      state,
+      otherSide,
+      witness,
+      { specialAttack: 1 },
+      "soulheart",
+    );
+  }
   return true;
 }
 
@@ -6280,6 +6380,22 @@ function consecutiveProtectionSucceeded(pokemon, moveId, rng) {
   return (rng?.next?.() ?? 0) < 1 / 3 ** previousSuccesses;
 }
 
+function isTruantLoafTurn(pokemon) {
+  return (
+    activeAbility(pokemon) === "truant" &&
+    Math.max(0, Number(pokemon?.activeTurns ?? 0)) % 2 === 1
+  );
+}
+
+function criticalHitChance(pokemon, move) {
+  if (move?.willCrit || pokemon?.volatiles?.laserfocus) return 1;
+  const ratio =
+    Math.max(1, Number(move?.critRatio ?? 1)) +
+    (pokemon?.volatiles?.focusenergy ? 2 : 0) +
+    (activeAbility(pokemon) === "superluck" ? 1 : 0);
+  return ratio >= 3 ? 1 : ratio === 2 ? 1 / 8 : 1 / 24;
+}
+
 function executeMove(state, action, rng) {
   const attacker = activePokemon(state, action.side);
   const defenderSide = action.side === 0 ? 1 : 0;
@@ -6297,6 +6413,20 @@ function executeMove(state, action, rng) {
 
   let { move: sourceMove, slot } = action.selected;
   const sourceMoveId = cleanId(sourceMove.id);
+  if (isTruantLoafTurn(attacker)) {
+    emitAbilityActivation(state, action.side, attacker, "truant", {
+      move: sourceMove.name,
+    });
+    state.events.push({
+      turn: state.turn,
+      type: "cant_move",
+      side: action.side,
+      pokemon: attacker.name,
+      move: sourceMove.name,
+      ability: "truant",
+    });
+    return false;
+  }
   if (
     !canAct(state, action.side, attacker, rng, {
       allowSleepAction: sourceMoveId === "sleeptalk" || sourceMoveId === "snore",
@@ -8837,9 +8967,7 @@ function executeMove(state, action, rng) {
       });
     }
     const fixedDamage = fixedDamageAmount(chargedHitMove, attacker, defender, rng);
-    const critRatio = move.critRatio + (attacker.volatiles?.focusenergy ? 2 : 0);
-    const criticalChance =
-      critRatio >= 3 ? 1 : critRatio === 2 ? 1 / 8 : 1 / 24;
+    const criticalChance = criticalHitChance(attacker, move);
     const critical =
       fixedDamage === null &&
       !preventsCriticalHit(defender, attacker) &&
@@ -10417,6 +10545,21 @@ function applyEndTurnEffects(state, rng) {
       if (pokemon.fainted) continue;
     }
     if (
+      activeAbility(pokemon) === "solarpower" &&
+      ["sunnyday", "desolateland"].includes(weather)
+    ) {
+      emitAbilityActivation(state, sideIndex, pokemon, "solarpower");
+      applyDirectDamage(
+        state,
+        sideIndex,
+        pokemon,
+        Math.max(1, Math.floor(pokemon.stats.hp / 8)),
+        "solarpower",
+        "ability",
+      );
+      if (pokemon.fainted) continue;
+    }
+    if (
       activeAbility(pokemon) === "icebody" &&
       ["hail", "snow"].includes(weather)
     ) {
@@ -10821,6 +10964,9 @@ function applyEndTurnEffects(state, rng) {
   state.consumedItems = (state.consumedItems ?? []).filter(
     (entry) => entry.turn >= state.turn,
   );
+  for (const [sideIndex, side] of state.sides.entries()) {
+    updateZenModeForm(state, sideIndex, side.team[side.active]);
+  }
 }
 
 function advanceTimedEffects(state, rng) {
@@ -11474,10 +11620,14 @@ function aiExpectedMoveDamage(
   attackerSide,
   defenderSide,
 ) {
-  const critical = Boolean(
-    !preventsCriticalHit(defender, attacker) &&
-      (move.willCrit || attacker.volatiles?.laserfocus),
-  );
+  const criticalChance = preventsCriticalHit(defender, attacker)
+    ? 0
+    : move.willCrit || attacker.volatiles?.laserfocus
+      ? 1
+      : activeAbility(attacker) === "superluck"
+        ? criticalHitChance(attacker, move)
+        : 0;
+  const critical = criticalChance >= 1;
   const estimatedMove = resolveEstimatedMovePower(
     attacker,
     defender,
@@ -11533,7 +11683,9 @@ function aiExpectedMoveDamage(
   });
   const criticalModifier =
     range.effectiveness !== 0
-      ? criticalDamageModifier(attacker, defender, critical)
+      ? 1 +
+        criticalChance *
+          (criticalDamageModifier(attacker, defender, true) - 1)
       : 1;
   return {
     move: estimatedMove,
@@ -13253,6 +13405,7 @@ function automaticMoveCandidates(
       const baseCandidate = {
         ...displayMove,
         willFail:
+          isTruantLoafTurn(pokemon) ||
           isPrimordialSeaBlockedMove(state, displayMove) ||
           isDesolateLandBlockedMove(state, displayMove) ||
           isDampBlockedMove(state, displayMove) ||

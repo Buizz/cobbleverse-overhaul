@@ -5,24 +5,13 @@
 
 - 트레이너 수: 224
 - 실제 사용 고유 특성: 208
-- 지원: 197
-- 미지원: 11
+- 지원: 208
+- 미지원: 0
 
 ## 미지원 특성
 
 | 우선순위 | ID | 사용 수 | 사용 예시 |
 |---:|---|---:|---|
-| 1 | `solarpower` | 1 | Heliolisk (Fosco) |
-| 2 | `soulheart` | 1 | Magearna (Jasmine) |
-| 3 | `superluck` | 1 | Honchkrow (Boss Giovanni) |
-| 4 | `swordofruin` | 1 | Chien-Pao (Karen) |
-| 5 | `tabletsofruin` | 1 | Wo-Chien (Karen) |
-| 6 | `tangledfeet` | 1 | Pidgeot (Lass Megan) |
-| 7 | `telepathy` | 1 | Gardevoir (Frida) |
-| 8 | `transistor` | 1 | Regieleki (Champion Terry) |
-| 9 | `truant` | 1 | Slaking (Cue Ball Isaiah) |
-| 10 | `waterbubble` | 1 | Araquanid (Raffaello) |
-| 11 | `zenmode` | 1 | Darmanitan-Galar (Crush Girl Sharon) |
 
 ## 지원 특성
 
@@ -223,6 +212,17 @@
 | `ripen` | 1 |
 | `shadowshield` | 1 |
 | `slushrush` | 1 |
+| `solarpower` | 1 |
+| `soulheart` | 1 |
+| `superluck` | 1 |
+| `swordofruin` | 1 |
+| `tabletsofruin` | 1 |
+| `tangledfeet` | 1 |
+| `telepathy` | 1 |
 | `toughclaws` | 1 |
+| `transistor` | 1 |
+| `truant` | 1 |
+| `waterbubble` | 1 |
 | `wellbakedbody` | 1 |
+| `zenmode` | 1 |
 

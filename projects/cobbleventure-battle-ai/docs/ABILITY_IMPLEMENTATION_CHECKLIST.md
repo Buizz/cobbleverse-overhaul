@@ -142,6 +142,17 @@
 | UNIT_TESTED | `quickdraw` | 퀵드로우, 30% 확률로 같은 우선도 안에서 먼저 행동 | `prepareActionOrder`, `sortActions`, 시드 기반 발동 이벤트 | `Quick Draw can let a slower Pokemon move first` |
 | UNIT_TESTED | `ripen` | 숙성, 회복·랭크 나무열매 효과 2배 | 나무열매 소비·회복·랭크 처리 | `Ripen doubles Berry effects and Slush Rush doubles Speed in snow` |
 | UNIT_TESTED | `slushrush` | 눈치우기, 눈·싸라기눈에서 스피드 2배 | `effectiveSpeed`, 실제 행동 순서·AI 속도 계산 | `Ripen doubles Berry effects and Slush Rush doubles Speed in snow` |
+| UNIT_TESTED | `solarpower` | 선파워, 쾌청에서 특공 1.5배 및 턴 종료 최대 HP 1/8 피해 | `effectiveStat`, `applyEndTurnEffects` | `Solar Power boosts special attacks in sun and applies recoil` |
+| UNIT_TESTED | `soulheart` | 소울하트, 다른 포켓몬이 쓰러지면 특공 1랭크 상승 | `markFainted` | `Soul-Heart raises Special Attack after the opponent faints` |
+| UNIT_TESTED | `superluck` | 대운, 급소 랭크 +1 | 실제 급소 판정·AI 기대 피해 | `Super Luck raises a high-critical-ratio move to a guaranteed critical hit` |
+| UNIT_TESTED | `swordofruin` | 재앙의검, 상대 방어를 0.75배로 취급 | `damageBase` | `applies the final offensive ability modifiers` |
+| UNIT_TESTED | `tabletsofruin` | 재앙의목간, 상대 공격을 0.75배로 취급 | `damageBase` | `applies the final offensive ability modifiers` |
+| UNIT_TESTED | `tangledfeet` | 갈지자걸음, 혼란 중 상대 명중률 절반 | `effectiveAccuracy` | `Tangled Feet halves accuracy against a confused target` |
+| UNIT_TESTED | `telepathy` | 텔레파시, 싱글 전용 엔진에서는 같은 편 공격이 없어 발동 조건 없음 | 명시적 무효 특성 레지스트리 | `reports the final trainer ability batch as supported` |
+| UNIT_TESTED | `transistor` | 트랜지스터, 전기 타입 공격 위력 1.3배 | `calculateDamageRange` | `applies the final offensive ability modifiers` |
+| UNIT_TESTED | `truant` | 게으름, 행동 턴과 쉬는 턴을 교대로 적용 | `executeMove`, AI 실패 판정 | `Truant alternates between acting and loafing around` |
+| UNIT_TESTED | `waterbubble` | 수포, 물 공격 2배·불꽃 피해 절반·화상 면역 | 피해 계산·`statusBlockedByAbility` | `applies the final offensive ability modifiers`, `Water Bubble blocks burns` |
+| UNIT_TESTED | `zenmode` | 달마모드, 턴 종료 HP 절반 경계에서 폼 전환 및 교체 시 복귀 | `applyEndTurnEffects`, `switchActivePokemon`, 네이티브 폼 수화 | `Zen Mode changes form below half HP and reverts after healing`, `hydrates both Galarian Darmanitan forms for Zen Mode` |
 
 ## 2026 실전 파티 특성 구현 묶음
 

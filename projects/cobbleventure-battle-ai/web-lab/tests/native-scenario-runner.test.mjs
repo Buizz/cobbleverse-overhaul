@@ -257,6 +257,36 @@ test("hydrates both Aegislash forms for Stance Change", () => {
   );
 });
 
+test("hydrates both Galarian Darmanitan forms for Zen Mode", () => {
+  const setup = createNativeBattleSetup({
+    ...scenario,
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "darmanitangalar",
+            ability: "zenmode",
+            moveset: ["iciclecrash"],
+          },
+        ],
+      },
+      scenario.sides[1],
+    ],
+  });
+  const darmanitan = setup.sides[0].team[0];
+
+  assert.equal(darmanitan.speciesForms.base.name, "Darmanitan-Galar");
+  assert.equal(darmanitan.speciesForms.zen.name, "Darmanitan-Galar-Zen");
+  assert.deepEqual(darmanitan.speciesForms.base.types, ["Ice"]);
+  assert.deepEqual(darmanitan.speciesForms.zen.types, ["Ice", "Fire"]);
+  assert.ok(
+    darmanitan.speciesForms.zen.stats.attack >
+      darmanitan.speciesForms.base.stats.attack,
+  );
+});
+
 test("chooses a seeded original Tera Type when virtual data omits one", () => {
   const dualTypeScenario = {
     ...scenario,

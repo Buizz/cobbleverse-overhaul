@@ -22,7 +22,7 @@ import {
 test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported("pressure"), true);
   assert.equal(isSimpleAbilitySupported("cobblemon:pressure"), true);
-  assert.equal(isSimpleAbilitySupported("solarpower"), false);
+  assert.equal(isSimpleAbilitySupported("nonexistentability"), false);
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
@@ -193,6 +193,185 @@ test("reports the twelfth high-usage ability batch as supported", () => {
   ]) {
     assert.equal(isSimpleAbilitySupported(ability), true, ability);
   }
+});
+
+test("reports the final trainer ability batch as supported", () => {
+  for (const ability of [
+    "solarpower",
+    "soulheart",
+    "superluck",
+    "swordofruin",
+    "tabletsofruin",
+    "tangledfeet",
+    "telepathy",
+    "transistor",
+    "truant",
+    "waterbubble",
+    "zenmode",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
+test("applies the final offensive ability modifiers", () => {
+  const target = pokemon();
+  const physicalMove = { ...pokemon().moves[0], power: 80 };
+  const specialMove = {
+    ...physicalMove,
+    id: "thunderbolt",
+    name: "Thunderbolt",
+    type: "Electric",
+    category: "Special",
+  };
+  const waterMove = { ...specialMove, id: "surf", name: "Surf", type: "Water" };
+  const ordinaryPhysical = calculateDamageRange(pokemon(), target, physicalMove).maximum;
+  assert.ok(
+    calculateDamageRange(pokemon({ ability: "swordofruin" }), target, physicalMove)
+      .maximum > ordinaryPhysical,
+  );
+  assert.ok(
+    calculateDamageRange(pokemon(), pokemon({ ability: "tabletsofruin" }), physicalMove)
+      .maximum < ordinaryPhysical,
+  );
+  assert.equal(
+    calculateDamageRange(pokemon({ ability: "transistor" }), target, specialMove)
+      .abilityModifier,
+    1.3,
+  );
+  assert.equal(
+    calculateDamageRange(pokemon({ ability: "waterbubble" }), target, waterMove)
+      .abilityModifier,
+    2,
+  );
+  assert.ok(
+    calculateDamageRange(pokemon(), pokemon({ ability: "waterbubble" }), {
+      ...specialMove,
+      type: "Fire",
+    }).maximum < calculateDamageRange(pokemon(), target, { ...specialMove, type: "Fire" }).maximum,
+  );
+});
+
+test("Solar Power boosts special attacks in sun and applies recoil", () => {
+  const attacker = pokemon({
+    ability: "solarpower",
+    moves: [{ ...pokemon().moves[0], category: "Special", power: 80 }],
+  });
+  let state = createSimpleBattle(setup({
+    sides: [
+      { name: "Player", team: [attacker] },
+      { name: "AI", team: [pokemon({ moves: [{ ...pokemon().moves[0], power: 0, category: "Status" }] })] },
+    ],
+  }));
+  state.field.weather = { id: "sunnyday", turns: 5 };
+  const sunny = calculateDamageRange(
+    state.sides[0].team[0],
+    state.sides[1].team[0],
+    state.sides[0].team[0].moves[0],
+    { state },
+  );
+  const clearState = structuredClone(state);
+  clearState.field.weather = null;
+  const clear = calculateDamageRange(
+    clearState.sides[0].team[0],
+    clearState.sides[1].team[0],
+    clearState.sides[0].team[0].moves[0],
+    { state: clearState },
+  );
+  assert.ok(sunny.maximum > clear.maximum);
+  const hp = state.sides[0].team[0].hp;
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].hp, hp - 15);
+});
+
+test("Soul-Heart raises Special Attack after the opponent faints", () => {
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Player", team: [pokemon({ ability: "soulheart", moves: [{ ...pokemon().moves[0], power: 200 }] })] },
+      { name: "AI", team: [pokemon({ stats: { ...pokemon().stats, hp: 1 } })] },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[0].team[0].boosts.specialAttack, 1);
+});
+
+test("Super Luck raises a high-critical-ratio move to a guaranteed critical hit", () => {
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Player", team: [pokemon({ ability: "superluck", moves: [{ ...pokemon().moves[0], critRatio: 2 }] })] },
+      { name: "AI", team: [pokemon()] },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(
+    resolved.events.some(
+      (event) => event.type === "damage" && event.side === 1 && event.critical,
+    ),
+  );
+});
+
+test("Truant alternates between acting and loafing around", () => {
+  let state = createSimpleBattle(setup({
+    sides: [
+      { name: "Player", team: [pokemon({ ability: "truant" })] },
+      { name: "AI", team: [pokemon()] },
+    ],
+  }));
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  const hpAfterFirst = state.sides[1].team[0].hp;
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[1].team[0].hp, hpAfterFirst);
+  assert.ok(state.events.some((event) => event.turn === 2 && event.ability === "truant"));
+});
+
+test("Water Bubble blocks burns", () => {
+  const willOWisp = {
+    id: "willowisp",
+    name: "Will-O-Wisp",
+    type: "Fire",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    status: "brn",
+    pp: 15,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Player", team: [pokemon({ moves: [willOWisp] })] },
+      { name: "AI", team: [pokemon({ ability: "waterbubble" })] },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[1].team[0].status, "");
+});
+
+test("Tangled Feet halves accuracy against a confused target", () => {
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Player", team: [pokemon()] },
+      { name: "AI", team: [pokemon({ ability: "tangledfeet" })] },
+    ],
+  }));
+  state.sides[1].team[0].volatiles.confusion = { turns: 3 };
+  const decision = chooseSimpleAiDecision(state, 0, "expert", "balanced");
+  assert.equal(decision.moveCandidates[0].accuracy, 50);
+});
+
+test("Zen Mode changes form below half HP and reverts after healing", () => {
+  const base = { id: "darmanitangalar", name: "Darmanitan-Galar", ability: "zenmode", types: ["Ice"], stats: { ...pokemon().stats, attack: 120, speed: 95 } };
+  const zen = { id: "darmanitangalarzen", name: "Darmanitan-Galar-Zen", ability: "zenmode", types: ["Ice", "Fire"], stats: { ...pokemon().stats, attack: 160, speed: 135 } };
+  let state = createSimpleBattle(setup({
+    sides: [
+      { name: "Player", team: [pokemon({ ...base, hp: 50, speciesForms: { base, zen }, moves: [{ ...pokemon().moves[0], power: 0, category: "Status" }] })] },
+      { name: "AI", team: [pokemon({ moves: [{ ...pokemon().moves[0], power: 0, category: "Status" }] })] },
+    ],
+  }));
+  state.sides[0].team[0].hp = 50;
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].id, "darmanitangalarzen");
+  assert.deepEqual(state.sides[0].team[0].types, ["Ice", "Fire"]);
+  state.sides[0].team[0].hp = 100;
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].id, "darmanitangalar");
 });
 
 test("uses trainer battle items and consumes both quantity and use limit", () => {
