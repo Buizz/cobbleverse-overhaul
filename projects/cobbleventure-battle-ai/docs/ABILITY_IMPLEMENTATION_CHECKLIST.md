@@ -92,6 +92,16 @@
 | UNIT_TESTED | `trace` | 트레이스, 등장 시 복사 가능한 상대 특성을 복사하고 교체 시 원복 | `applyEntryAbilities`, `switchActivePokemon` | `Trace copies an eligible entry ability and restores itself on switch` |
 | UNIT_TESTED | `cloudnine` | 날씨부정, 날씨는 유지하되 활성 중 모든 날씨 전투 효과 무효 | `effectiveWeather`, 피해·속도·명중·상태·턴 종료·AI 계산 | `Cloud Nine suppresses weather mechanics without removing weather` |
 | UNIT_TESTED | `damp` | 습기, 자폭·대폭발·미스트버스트·깜짝헤드 및 유폭 방지 | 기술 실패 처리·유폭 후처리·AI 실패 판정 | `Damp blocks explosive moves, AI selection, and Aftermath` |
+| UNIT_TESTED | `dragonsmaw` | 용의턱, 드래곤 타입 공격 위력 1.5배 | `calculateDamageRange`, 실제 피해·AI 미리보기 | `Dragon's Maw boosts Dragon damage and Heavy Metal doubles effective weight` |
+| UNIT_TESTED | `flowerveil` | 플라워베일, 풀 타입 같은 편의 상태이상·상대 능력 하락 방지 | `canReceiveStatus`, `applyBoosts`, AI 상태 가치 | `Flower Veil protects Grass users from foe status and stat drops` |
+| UNIT_TESTED | `gooey` | 미끈미끈, 접촉 공격자의 스피드 1랭크 하락 | 피격 후 접촉 반응 | `Gooey lowers contact Speed and Justified raises Attack after Dark damage` |
+| UNIT_TESTED | `gorillatactics` | 무아지경, 물리 공격 1.5배 및 첫 성공 기술 고정 | `effectiveStat`, 기술 고정·AI 피해 계산 | `Gorilla Tactics boosts Attack and locks the first successful move` |
+| UNIT_TESTED | `grassysurge` | 그래스메이커, 등장 시 그래스필드 전개 | `applyEntryAbilities`, `setFieldEffect` | `Grassy Surge starts Grassy Terrain on entry` |
+| UNIT_TESTED | `heavymetal` | 헤비메탈, 무게 기반 계산에서 자신의 무게 2배 | `effectiveWeightPokemon`, 동적 위력·AI 미리보기 | `Dragon's Maw boosts Dragon damage and Heavy Metal doubles effective weight` |
+| UNIT_TESTED | `illusion` | 일루전, 마지막 건강한 같은 편으로 표시되고 직접 피해 시 해제 | 등장 처리·직접 피해 후처리 | `Illusion displays the last healthy teammate and breaks after direct damage` |
+| UNIT_TESTED | `justified` | 정의의마음, 악 타입 피해를 받으면 공격 1랭크 상승 | 피격 후 타입 반응 | `Gooey lowers contact Speed and Justified raises Attack after Dark damage` |
+| UNIT_TESTED | `magicguard` | 매직가드, 직접 공격과 HP 비용 외 간접 피해 무효 | 장판·상태·날씨·반동·아이템·변동 상태·AI 잔여 피해 | `Magic Guard prevents indirect damage and informs hazard prediction` |
+| UNIT_TESTED | `magician` | 매지션, 도구가 없을 때 피해를 준 상대의 도구 강탈 | 피격 후 아이템 처리 | `Magician steals the target item after dealing damage` |
 
 ## 2026 실전 파티 특성 구현 묶음
 

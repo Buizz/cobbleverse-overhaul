@@ -199,6 +199,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "defiant",
   "download",
   "damp",
+  "dragonsmaw",
   "disguise",
   "drizzle",
   "dryskin",
@@ -210,10 +211,14 @@ const IMPLEMENTED_ABILITIES = new Set([
   "flamebody",
   "flashfire",
   "fluffy",
+  "flowerveil",
   "frisk",
   "furcoat",
   "galewings",
   "goodasgold",
+  "gooey",
+  "gorillatactics",
+  "grassysurge",
   "gluttony",
   "grimneigh",
   "guts",
@@ -222,13 +227,16 @@ const IMPLEMENTED_ABILITIES = new Set([
   "hugepower",
   "hydration",
   "hustle",
+  "heavymetal",
   "immunity",
   "imposter",
+  "illusion",
   "insomnia",
   "intimidate",
   "intrepidsword",
   "ironbarbs",
   "ironfist",
+  "justified",
   "keeneye",
   "leafguard",
   "levitate",
@@ -237,6 +245,8 @@ const IMPLEMENTED_ABILITIES = new Set([
   "lightningrod",
   "liquidvoice",
   "magicbounce",
+  "magicguard",
+  "magician",
   "magnetpull",
   "mindseye",
   "moldbreaker",
@@ -1409,6 +1419,12 @@ function effectiveStat(pokemon, stat, options = {}) {
   if (stat === "attack") {
     if (pokemon.status === "brn" && activeAbility(pokemon) !== "guts") value *= 0.5;
     if (doublesPhysicalAttack(activeAbility(pokemon))) value *= 2;
+    if (
+      activeAbility(pokemon) === "gorillatactics" &&
+      pokemon.dynamaxTurns <= 0
+    ) {
+      value *= 1.5;
+    }
     if (pokemon.item === "choiceband") value *= 1.5;
     if (
       activeAbility(pokemon) === "orichalcumpulse" &&
@@ -1513,11 +1529,22 @@ function effectiveSpeed(pokemon, state = null, sideIndex = null) {
 }
 
 function effectiveWeightPokemon(pokemon) {
-  if (activeAbility(pokemon) !== "lightmetal") return pokemon;
+  const ability = activeAbility(pokemon);
+  if (!["lightmetal", "heavymetal"].includes(ability)) return pokemon;
   return {
     ...pokemon,
-    weightKg: Math.max(0.1, Number(pokemon.weightKg ?? 100) / 2),
+    weightKg: Math.max(
+      0.1,
+      Number(pokemon.weightKg ?? 100) * (ability === "heavymetal" ? 2 : 0.5),
+    ),
   };
+}
+
+function hasChoiceLockEffect(pokemon) {
+  return (
+    CHOICE_LOCK_ITEMS.has(cleanId(pokemon.item)) ||
+    (activeAbility(pokemon) === "gorillatactics" && pokemon.dynamaxTurns <= 0)
+  );
 }
 
 function isStellarTerastallized(pokemon) {
@@ -1798,6 +1825,9 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     abilityModifier *= 1.5;
   }
   if (activeAbility(attacker) === "sharpness" && hasMoveFlag(move, "slicing")) {
+    abilityModifier *= 1.5;
+  }
+  if (activeAbility(attacker) === "dragonsmaw" && move.type === "Dragon") {
     abilityModifier *= 1.5;
   }
   if (activeAbility(attacker) === "hustle" && move.category === "Physical") {
@@ -2341,11 +2371,31 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
   }
   const entryTerrain = {
     electricsurge: "electricterrain",
+    grassysurge: "grassyterrain",
     hadronengine: "electricterrain",
   }[ability];
   if (entryTerrain) {
     emitAbilityActivation(state, sideIndex, pokemon, ability);
     setFieldEffect(state, sideIndex, pokemon, "terrain", entryTerrain, ability);
+  }
+  if (ability === "illusion" && !pokemon.volatiles?.illusion) {
+    const disguise = [...state.sides[sideIndex].team]
+      .reverse()
+      .find(
+        (candidate) =>
+          candidate !== pokemon && !candidate.fainted && candidate.hp > 0,
+      );
+    if (disguise) {
+      pokemon.volatiles.illusion = {
+        id: "illusion",
+        displayedId: disguise.id,
+        displayedName: disguise.name,
+      };
+      pokemon.displayName = disguise.name;
+      emitAbilityActivation(state, sideIndex, pokemon, "illusion", {
+        displayedPokemon: disguise.name,
+      });
+    }
   }
   initializeParadoxAbility(state, sideIndex, pokemon, ability);
   const targetSide = sideIndex === 0 ? 1 : 0;
@@ -2510,7 +2560,7 @@ function lockedMoveSelection(pokemon) {
       noPpCost: true,
     };
   }
-  if (CHOICE_LOCK_ITEMS.has(cleanId(pokemon.item)) && pokemon.choiceLock?.id) {
+  if (hasChoiceLockEffect(pokemon) && pokemon.choiceLock?.id) {
     const index = pokemon.moves.findIndex(
       (move) => cleanId(move.id) === cleanId(pokemon.choiceLock.id) && move.pp > 0,
     );
@@ -2518,12 +2568,15 @@ function lockedMoveSelection(pokemon) {
     return {
       move: pokemon.moves[index],
       slot: index + 1,
-      lockSource: "choice",
+      lockSource:
+        activeAbility(pokemon) === "gorillatactics"
+          ? "gorillatactics"
+          : "choice",
       preventsSwitch: false,
       noPpCost: false,
     };
   }
-  if (!CHOICE_LOCK_ITEMS.has(cleanId(pokemon.item))) {
+  if (!hasChoiceLockEffect(pokemon)) {
     pokemon.choiceLock = null;
   }
   return null;
@@ -3116,6 +3169,13 @@ function applyEntryHazards(state, sideIndex, pokemon) {
     delete conditions[wishId];
   }
   const hazardDamage = (amount, source) => {
+    if (activeAbility(pokemon) === "magicguard") {
+      emitAbilityActivation(state, sideIndex, pokemon, "magicguard", {
+        source,
+        cause: "entry_hazard",
+      });
+      return false;
+    }
     const applied = Math.min(pokemon.hp, Math.max(1, Math.floor(amount)));
     pokemon.hp -= applied;
     state.events.push({
@@ -3224,6 +3284,7 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
   outgoing.lockedMove = null;
   outgoing.choiceLock = null;
   outgoing.chargingMove = null;
+  delete outgoing.displayName;
   outgoing.volatiles = {};
   delete outgoing.abilityState?.unburdenActivated;
   if (outgoing.status === "tox") {
@@ -3862,6 +3923,14 @@ function canReceiveStatus(
   if (!status || pokemon.status || pokemon.fainted) return false;
   if (state && Number.isInteger(side)) {
     const terrain = cleanId(state.field?.terrain?.id);
+    const sideAbilityPokemon = activePokemon(state, side);
+    if (
+      pokemon.types.includes("Grass") &&
+      activeAbility(sideAbilityPokemon) === "flowerveil" &&
+      sourceSide !== side
+    ) {
+      return false;
+    }
     if (
       status === "slp" &&
       activeAbility(activePokemon(state, side)) === "sweetveil"
@@ -4950,6 +5019,18 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
     if (!BOOST_STATS.includes(stat) || !Number.isFinite(amount)) continue;
     const loweredByFoe =
       amount < 0 && Number.isInteger(sourceSide) && sourceSide !== side;
+    const flowerVeilPokemon = state ? activePokemon(state, side) : null;
+    if (
+      loweredByFoe &&
+      pokemon.types.includes("Grass") &&
+      activeAbility(flowerVeilPokemon) === "flowerveil"
+    ) {
+      emitAbilityActivation(state, side, flowerVeilPokemon, "flowerveil", {
+        source,
+        target: pokemon.name,
+      });
+      continue;
+    }
     if (
       loweredByFoe &&
       ["clearbody", "whitesmoke"].includes(activeAbility(pokemon))
@@ -5178,6 +5259,16 @@ function healPokemon(state, side, pokemon, amount, source) {
 
 function applyDirectDamage(state, side, pokemon, amount, source, cause = "move") {
   if (pokemon.fainted || pokemon.hp <= 0) return 0;
+  if (
+    activeAbility(pokemon) === "magicguard" &&
+    !["move", "futureattack", "selfcost"].includes(cleanId(cause))
+  ) {
+    emitAbilityActivation(state, side, pokemon, "magicguard", {
+      source,
+      cause,
+    });
+    return 0;
+  }
   const damage = Math.max(0, Math.min(pokemon.hp, Math.floor(amount)));
   if (damage <= 0) return 0;
   pokemon.hp -= damage;
@@ -5365,6 +5456,13 @@ function canAct(state, side, pokemon, rng, options = {}) {
       effect: "confusion",
     });
     if (rng.next() < 1 / 3) {
+      if (activeAbility(pokemon) === "magicguard") {
+        emitAbilityActivation(state, side, pokemon, "magicguard", {
+          source: "confusion",
+          cause: "volatile",
+        });
+        return false;
+      }
       const damage = Math.min(
         pokemon.hp,
         Math.max(
@@ -5494,6 +5592,13 @@ function markFainted(state, side, pokemon) {
 
 function applyCrashDamage(state, side, pokemon, source) {
   if (pokemon.fainted || pokemon.hp <= 0) return false;
+  if (activeAbility(pokemon) === "magicguard") {
+    emitAbilityActivation(state, side, pokemon, "magicguard", {
+      source,
+      cause: "crash",
+    });
+    return false;
+  }
   const damage = Math.min(pokemon.hp, Math.max(1, Math.floor(pokemon.stats.hp / 2)));
   pokemon.hp -= damage;
   state.events.push({
@@ -5625,7 +5730,7 @@ function recordMoveResult(
     pokemon.choiceLock = null;
     return;
   }
-  if (!CHOICE_LOCK_ITEMS.has(cleanId(pokemon.item))) {
+  if (!hasChoiceLockEffect(pokemon)) {
     pokemon.choiceLock = null;
   } else if (
     succeeded &&
@@ -5637,6 +5742,8 @@ function recordMoveResult(
       id: moveId,
       slot,
       item: cleanId(pokemon.item),
+      ability:
+        activeAbility(pokemon) === "gorillatactics" ? "gorillatactics" : "",
     };
   }
   if (
@@ -8460,6 +8567,19 @@ function executeMove(state, action, rng) {
         hit,
         hits: requestedHits,
       });
+      if (damage > 0 && defender.volatiles?.illusion) {
+        const displayedPokemon = defender.volatiles.illusion.displayedName;
+        delete defender.volatiles.illusion;
+        delete defender.displayName;
+        state.events.push({
+          turn: state.turn,
+          type: "illusion_end",
+          side: defenderSide,
+          pokemon: defender.name,
+          displayedPokemon,
+          source: move.name,
+        });
+      }
       if (
         damage > 0 &&
         defender.hp > 0 &&
@@ -8477,6 +8597,59 @@ function executeMove(state, action, rng) {
           attacker,
           "pickpocket",
         );
+      }
+      if (
+        damage > 0 &&
+        makesContact(move) &&
+        activeAbility(defender) === "gooey" &&
+        !ignoresDefenderAbility(attacker) &&
+        !attacker.fainted
+      ) {
+        emitAbilityActivation(state, defenderSide, defender, "gooey", {
+          targetSide: action.side,
+          target: attacker.name,
+        });
+        applyBoosts(
+          state,
+          action.side,
+          attacker,
+          { speed: -1 },
+          "gooey",
+          defenderSide,
+        );
+      }
+      if (
+        damage > 0 &&
+        defender.hp > 0 &&
+        move.type === "Dark" &&
+        activeAbility(defender) === "justified" &&
+        !ignoresDefenderAbility(attacker)
+      ) {
+        emitAbilityActivation(state, defenderSide, defender, "justified", {
+          targetSide: action.side,
+          target: attacker.name,
+        });
+        applyBoosts(state, defenderSide, defender, { attack: 1 }, "justified");
+      }
+      if (
+        damage > 0 &&
+        activeAbility(attacker) === "magician" &&
+        !attacker.item &&
+        defender.item &&
+        stealTargetItem(
+          state,
+          action.side,
+          attacker,
+          defenderSide,
+          defender,
+          "magician",
+        )
+      ) {
+        emitAbilityActivation(state, action.side, attacker, "magician", {
+          targetSide: defenderSide,
+          target: defender.name,
+          item: attacker.item,
+        });
       }
       if (
         damage > 0 &&
@@ -8794,6 +8967,7 @@ function executeMove(state, action, rng) {
     totalDamage > 0 &&
     move.recoil &&
     activeAbility(attacker) !== "rockhead" &&
+    activeAbility(attacker) !== "magicguard" &&
     !attacker.fainted
   ) {
     const recoil = Math.min(
@@ -8817,6 +8991,7 @@ function executeMove(state, action, rng) {
   if (
     totalDamage > 0 &&
     attacker.item === "lifeorb" &&
+    activeAbility(attacker) !== "magicguard" &&
     !attacker.fainted &&
     !isSheerForceBoostedMove(attacker, move)
   ) {
@@ -9642,7 +9817,7 @@ function applyEndTurnEffects(state, rng) {
       pokemon.toxicCounter = Math.min(15, pokemon.toxicCounter + 1);
       source = "tox";
     }
-    if (damage > 0) {
+    if (damage > 0 && activeAbility(pokemon) !== "magicguard") {
       const applied = Math.min(pokemon.hp, damage);
       pokemon.hp -= applied;
       state.events.push({
@@ -9751,7 +9926,10 @@ function applyEndTurnEffects(state, rng) {
       });
       applyBoosts(state, sideIndex, pokemon, { speed: 1 }, "speedboost");
     }
-    if (pokemon.volatiles?.leechseed) {
+    if (
+      pokemon.volatiles?.leechseed &&
+      activeAbility(pokemon) !== "magicguard"
+    ) {
       const applied = Math.min(
         pokemon.hp,
         Math.max(1, Math.floor(pokemon.stats.hp / 8)),
@@ -9785,7 +9963,7 @@ function applyEndTurnEffects(state, rng) {
       }
       if (markFainted(state, sideIndex, pokemon)) continue;
     }
-    if (pokemon.volatiles?.curse) {
+    if (pokemon.volatiles?.curse && activeAbility(pokemon) !== "magicguard") {
       const applied = Math.min(
         pokemon.hp,
         Math.max(1, Math.floor(pokemon.stats.hp / 4)),
@@ -9805,7 +9983,11 @@ function applyEndTurnEffects(state, rng) {
       });
       if (markFainted(state, sideIndex, pokemon)) continue;
     }
-    if (pokemon.volatiles?.nightmare && pokemon.status === "slp") {
+    if (
+      pokemon.volatiles?.nightmare &&
+      pokemon.status === "slp" &&
+      activeAbility(pokemon) !== "magicguard"
+    ) {
       const applied = Math.min(
         pokemon.hp,
         Math.max(1, Math.floor(pokemon.stats.hp / 4)),
@@ -9825,7 +10007,10 @@ function applyEndTurnEffects(state, rng) {
       });
       if (markFainted(state, sideIndex, pokemon)) continue;
     }
-    if (pokemon.volatiles?.saltcure) {
+    if (
+      pokemon.volatiles?.saltcure &&
+      activeAbility(pokemon) !== "magicguard"
+    ) {
       const saltCureDivisor = pokemon.types.some((type) =>
         ["Water", "Steel"].includes(type),
       )
@@ -9879,7 +10064,7 @@ function applyEndTurnEffects(state, rng) {
     const binding = Object.values(pokemon.volatiles ?? {}).find((volatile) =>
       BINDING_VOLATILES.has(cleanId(volatile?.id)),
     );
-    if (binding) {
+    if (binding && activeAbility(pokemon) !== "magicguard") {
       const applied = Math.min(
         pokemon.hp,
         Math.max(1, Math.floor(pokemon.stats.hp / 8)),
@@ -10411,6 +10596,7 @@ function estimatedSurvivalTurns(pokemon, incomingDamage) {
 }
 
 function aiEndTurnResidualDamage(pokemon, state) {
+  if (activeAbility(pokemon) === "magicguard") return 0;
   let damage = 0;
   if (pokemon.status === "brn") {
     damage += Math.max(1, Math.floor(pokemon.stats.hp / 16));
@@ -11963,7 +12149,8 @@ function automaticMoveCandidates(
           ? (damageOutcome.effectiveMinimum + damageOutcome.effectiveMaximum) / 2
           : damageEstimate.expectedDamage) * accuracy;
       const expectedDamage = Math.min(defender.hp, uncappedExpectedDamage);
-      const expectedRecoilDamage = displayMove.recoil
+      const expectedRecoilDamage =
+        displayMove.recoil && activeAbility(pokemon) !== "magicguard"
         ? Math.min(
             pokemon.hp,
             fractionAmount(
@@ -12707,6 +12894,7 @@ function automaticMoveCandidates(
 }
 
 function predictedEntryHazardDamage(state, sideIndex, pokemon) {
+  if (activeAbility(pokemon) === "magicguard") return 0;
   const conditions = state.sides[sideIndex]?.conditions ?? {};
   let damage = 0;
   if (conditions.stealthrock) {
@@ -14221,6 +14409,7 @@ function canExploitSleepForAi(pokemon) {
 function activeSwitchPressure(pokemon) {
   const maxHp = Math.max(1, Number(pokemon.stats?.hp ?? pokemon.hp ?? 1));
   const hpPercent = Math.max(0, Math.min(1, pokemon.hp / maxHp));
+  const ignoresResidualDamage = activeAbility(pokemon) === "magicguard";
   const yawn = pokemon.volatiles?.yawn;
   const yawnTurns = Number(yawn?.turns ?? 0);
   const sleepExploitable = canExploitSleepForAi(pokemon);
@@ -14230,7 +14419,7 @@ function activeSwitchPressure(pokemon) {
         ? 220
         : 110
       : 0;
-  const saltCureDamage = pokemon.volatiles?.saltcure
+  const saltCureDamage = pokemon.volatiles?.saltcure && !ignoresResidualDamage
     ? saltCureResidualDamage(pokemon)
     : 0;
   const saltCurePenalty =
@@ -14241,7 +14430,7 @@ function activeSwitchPressure(pokemon) {
         )
       : 0;
   const toxicCounter =
-    pokemon.status === "tox"
+    pokemon.status === "tox" && !ignoresResidualDamage
       ? Math.max(1, Number(pokemon.toxicCounter ?? 1))
       : 0;
   const toxicNextDamage =

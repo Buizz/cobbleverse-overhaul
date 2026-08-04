@@ -22,7 +22,7 @@ import {
 test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported("pressure"), true);
   assert.equal(isSimpleAbilitySupported("cobblemon:pressure"), true);
-  assert.equal(isSimpleAbilitySupported("dragonsmaw"), false);
+  assert.equal(isSimpleAbilitySupported("mirrorarmor"), false);
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
@@ -105,6 +105,23 @@ test("reports the seventh high-usage ability batch as supported", () => {
     "trace",
     "cloudnine",
     "damp",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
+test("reports the eighth high-usage ability batch as supported", () => {
+  for (const ability of [
+    "dragonsmaw",
+    "flowerveil",
+    "gooey",
+    "gorillatactics",
+    "grassysurge",
+    "heavymetal",
+    "illusion",
+    "justified",
+    "magicguard",
+    "magician",
   ]) {
     assert.equal(isSimpleAbilitySupported(ability), true, ability);
   }
@@ -21445,6 +21462,245 @@ test("Damp blocks explosive moves, AI selection, and Aftermath", () => {
     aftermathBlocked.events.some((event) => event.ability === "aftermath"),
     false,
   );
+});
+
+test("Dragon's Maw boosts Dragon damage and Heavy Metal doubles effective weight", () => {
+  const dragonClaw = {
+    id: "dragonclaw",
+    name: "Dragon Claw",
+    type: "Dragon",
+    category: "Physical",
+    power: 80,
+    accuracy: true,
+    pp: 15,
+  };
+  const lowKick = {
+    id: "lowkick",
+    name: "Low Kick",
+    type: "Fighting",
+    category: "Physical",
+    power: 20,
+    accuracy: true,
+    pp: 20,
+    dynamicPower: true,
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Attacker", team: [pokemon({ ability: "dragonsmaw", moves: [dragonClaw, lowKick] })] },
+        { name: "Heavy", team: [pokemon({ ability: "heavymetal", weightKg: 80 })] },
+      ],
+    }),
+  );
+  const attacker = state.sides[0].team[0];
+  const defender = state.sides[1].team[0];
+  assert.equal(
+    calculateDamageRange(attacker, defender, attacker.moves[0], { state }).abilityModifier,
+    1.5,
+  );
+  const heavyPower = calculateMovePreview(attacker, defender, attacker.moves[1], {
+    state,
+    attackerSide: 0,
+    defenderSide: 1,
+  }).move.power;
+  defender.volatiles.gastroacid = { id: "gastroacid" };
+  const normalPower = calculateMovePreview(attacker, defender, attacker.moves[1], {
+    state,
+    attackerSide: 0,
+    defenderSide: 1,
+  }).move.power;
+  assert.ok(heavyPower > normalPower);
+});
+
+test("Flower Veil protects Grass users from foe status and stat drops", () => {
+  const willOWisp = {
+    id: "willowisp",
+    name: "Will-O-Wisp",
+    type: "Fire",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 15,
+    status: "brn",
+  };
+  const growl = {
+    id: "growl",
+    name: "Growl",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+    boosts: { attack: -1 },
+  };
+  const makeState = (move) =>
+    createSimpleBattle(
+      setup({
+        sides: [
+          { name: "Foe", team: [pokemon({ moves: [move] })] },
+          { name: "Veil", team: [pokemon({ types: ["Grass"], ability: "flowerveil" })] },
+        ],
+      }),
+    );
+  const statusState = makeState(willOWisp);
+  const statusDecision = chooseSimpleAiDecision(statusState, 0, "expert", "balanced");
+  assert.equal(statusDecision.moveCandidates[0].statusBlocked, true);
+  const statusResult = resolveSimpleTurn(statusState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(statusResult.sides[1].team[0].status, "");
+  const dropResult = resolveSimpleTurn(makeState(growl), [{ move: 1 }, { move: 1 }]);
+  assert.equal(dropResult.sides[1].team[0].boosts.attack, 0);
+});
+
+test("Gooey lowers contact Speed and Justified raises Attack after Dark damage", () => {
+  const contact = { ...pokemon().moves[0], contact: true };
+  const gooeyState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Contact", team: [pokemon({ moves: [contact] })] },
+        { name: "Gooey", team: [pokemon({ ability: "gooey", stats: { ...pokemon().stats, hp: 300 } })] },
+      ],
+    }),
+  );
+  const gooeyResult = resolveSimpleTurn(gooeyState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(gooeyResult.sides[0].team[0].boosts.speed, -1);
+
+  const darkMove = { ...contact, id: "bite", name: "Bite", type: "Dark" };
+  const justifiedState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Dark", team: [pokemon({ moves: [darkMove] })] },
+        { name: "Justified", team: [pokemon({ ability: "justified", stats: { ...pokemon().stats, hp: 300 } })] },
+      ],
+    }),
+  );
+  const justifiedResult = resolveSimpleTurn(justifiedState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(justifiedResult.sides[1].team[0].boosts.attack, 1);
+});
+
+test("Gorilla Tactics boosts Attack and locks the first successful move", () => {
+  const firstMove = { ...pokemon().moves[0], id: "firstmove", name: "First Move", power: 30 };
+  const secondMove = { ...pokemon().moves[0], id: "secondmove", name: "Second Move", power: 30 };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Gorilla", team: [pokemon({ ability: "gorillatactics", moves: [firstMove, secondMove] })] },
+        {
+          name: "Wall",
+          team: [
+            pokemon({
+              stats: { ...pokemon().stats, hp: 600 },
+              moves: [{ ...pokemon().moves[0], power: 1 }],
+            }),
+          ],
+        },
+      ],
+    }),
+  );
+  const gorilla = state.sides[0].team[0];
+  const wall = state.sides[1].team[0];
+  const boosted = calculateDamageRange(gorilla, wall, gorilla.moves[0], { state });
+  gorilla.volatiles.gastroacid = { id: "gastroacid" };
+  const normal = calculateDamageRange(gorilla, wall, gorilla.moves[0], { state });
+  delete gorilla.volatiles.gastroacid;
+  assert.ok(boosted.maximum > normal.maximum);
+
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].choiceLock.id, "firstmove");
+  state = resolveSimpleTurn(state, [{ move: 2 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].lastMove.id, "firstmove");
+});
+
+test("Grassy Surge starts Grassy Terrain on entry", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Surge", team: [pokemon({ ability: "grassysurge" })] },
+        { name: "Target", team: [pokemon()] },
+      ],
+    }),
+  );
+  assert.equal(state.field.terrain.id, "grassyterrain");
+  assert.equal(state.field.terrain.turns, 5);
+});
+
+test("Illusion displays the last healthy teammate and breaks after direct damage", () => {
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Illusion",
+          team: [
+            pokemon({ name: "Zoroark", ability: "illusion", stats: { ...pokemon().stats, speed: 40 } }),
+            pokemon({ name: "Last Ally" }),
+          ],
+        },
+        { name: "Foe", team: [pokemon({ stats: { ...pokemon().stats, speed: 160 } })] },
+      ],
+    }),
+  );
+  assert.equal(state.sides[0].team[0].displayName, "Last Ally");
+  assert.equal(state.sides[0].team[0].volatiles.illusion.displayedName, "Last Ally");
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].displayName, undefined);
+  assert.equal(state.sides[0].team[0].volatiles.illusion, undefined);
+  assert.ok(state.events.some((event) => event.type === "illusion_end"));
+});
+
+test("Magic Guard prevents indirect damage and informs hazard prediction", () => {
+  const recoilMove = {
+    ...pokemon().moves[0],
+    id: "doubleedge",
+    name: "Double-Edge",
+    power: 80,
+    recoil: [1, 3],
+  };
+  const protect = {
+    id: "protect",
+    name: "Protect",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 10,
+    target: "self",
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        {
+          name: "Guard",
+          team: [pokemon({ ability: "magicguard", item: "lifeorb", moves: [recoilMove] }), pokemon({ name: "Bench" })],
+        },
+        { name: "Protect", team: [pokemon({ moves: [protect], stats: { ...pokemon().stats, hp: 500 } })] },
+      ],
+    }),
+  );
+  const guard = state.sides[0].team[0];
+  guard.status = "psn";
+  guard.volatiles.leechseed = { id: "leechseed", sourceSide: 1, source: "Leech Seed" };
+  const hpBefore = guard.hp;
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].hp, hpBefore);
+
+  state.sides[0].conditions.stealthrock = { id: "stealthrock", layers: 1, turns: null };
+  state = resolveSimpleTurn(state, [{ switch: 2 }, { move: 1 }]);
+  state = resolveSimpleTurn(state, [{ switch: 1 }, { move: 1 }]);
+  assert.equal(state.sides[0].team[0].hp, hpBefore);
+});
+
+test("Magician steals the target item after dealing damage", () => {
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Magician", team: [pokemon({ ability: "magician", item: "" })] },
+        { name: "Holder", team: [pokemon({ item: "leftovers", stats: { ...pokemon().stats, hp: 300 } })] },
+      ],
+    }),
+  );
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[0].team[0].item, "leftovers");
+  assert.equal(resolved.sides[1].team[0].item, "");
+  assert.ok(resolved.events.some((event) => event.ability === "magician"));
 });
 
 test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {

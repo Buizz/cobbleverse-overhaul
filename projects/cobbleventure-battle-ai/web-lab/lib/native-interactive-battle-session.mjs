@@ -488,7 +488,7 @@ function snapshot(session) {
            itemUsesRemaining: playerSide.itemUsesRemaining,
            trapped: false,
           opponent: {
-            species: opponent.name,
+            species: opponent.displayName || opponent.name,
             types: opponent.types,
             teraType: opponent.teraType ?? "",
             terastallized: opponent.terastallized ? opponent.teraType : "",
