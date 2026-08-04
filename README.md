@@ -55,7 +55,58 @@ build.bat validate
 
 ### 전투 테스트 Web Lab 실행
 
-최초 실행 또는 `package-lock.json`이 바뀐 뒤에는 의존성을 설치합니다.
+Windows에서는 Web Lab 폴더의 BAT 파일을 사용하는 방법이 가장 간단합니다.
+
+```powershell
+cd projects\cobbleventure-battle-ai\web-lab
+.\start.bat
+```
+
+탐색기에서
+`projects\cobbleventure-battle-ai\web-lab\start.bat`을 더블클릭해도 됩니다.
+`start.bat`은 다음 작업을 자동으로 처리합니다.
+
+- 최초 실행에서 `node_modules`가 없으면 `npm ci` 실행
+- 트레이너·다국어 데이터 동기화와 전투 메커니즘 검사
+- 개발 서버를 숨겨진 백그라운드 프로세스로 실행
+- 서버 준비를 최대 90초 동안 확인
+- 준비가 끝나면 기본 브라우저로 `http://localhost:3000` 열기
+
+트레이너 동기화와 메커니즘 감사가 함께 실행되므로 PC 상태에 따라 시작에
+수십 초가 걸릴 수 있습니다. 준비 확인이 끝날 때까지 `start.bat` 창을 닫지
+않습니다.
+
+실행 중에 `start.bat`을 다시 사용하면 서버를 중복으로 만들지 않고 기존 페이지를
+엽니다. 포트 `3000`을 다른 프로그램이 사용 중이면 해당 프로그램을 먼저
+종료해야 합니다.
+
+서버 상태와 시작 오류는 Web Lab 폴더의 다음 로컬 로그에서 확인합니다.
+
+```text
+.local-server.log
+.local-server-error.log
+```
+
+이 로그와 `.local-server.pid`는 로컬 실행 파일이므로 Git에 포함되지 않습니다.
+브라우저를 자동으로 열지 않으려면 `COBBLEVERSE_NO_BROWSER=1` 환경 변수를 설정한
+뒤 `start.bat`을 실행합니다.
+
+준비가 끝나면 다음 주소를 사용할 수 있습니다.
+
+- 전투 실험실: [http://localhost:3000](http://localhost:3000)
+- EvE 대량 전투 리포트: [http://localhost:3000/eve-report](http://localhost:3000/eve-report)
+
+`start.bat`으로 시작한 백그라운드 서버는 반드시 `stop.bat`으로 종료합니다.
+
+```powershell
+cd projects\cobbleventure-battle-ai\web-lab
+.\stop.bat
+```
+
+`stop.bat`은 `.local-server.pid`에 기록된 서버와 그 하위 Node 프로세스를 함께
+종료합니다. 이미 종료되어 있으면 오류 없이 종료된 상태라고 안내합니다.
+
+서버 출력을 터미널에서 직접 확인하며 개발하려면 BAT 대신 다음 명령을 사용합니다.
 
 ```powershell
 cd projects\cobbleventure-battle-ai\web-lab
@@ -63,15 +114,9 @@ npm ci
 npm run dev
 ```
 
-`npm run dev`는 트레이너와 다국어 데이터 동기화, 종·전투 메커니즘 검사를 먼저
-실행한 다음 개발 서버를 시작합니다. 준비가 끝나면 브라우저에서 다음 주소를
-엽니다.
-
-- 전투 실험실: [http://localhost:3000](http://localhost:3000)
-- EvE 대량 전투 리포트: [http://localhost:3000/eve-report](http://localhost:3000/eve-report)
-
-서버를 종료하려면 실행 중인 터미널에서 `Ctrl+C`를 누릅니다. 이후 다시 실행할
-때는 같은 디렉터리에서 `npm run dev`만 실행하면 됩니다.
+수동으로 실행한 서버는 `stop.bat`이 아니라 실행 중인 터미널에서 `Ctrl+C`로
+종료합니다. `npm ci`는 최초 실행이나 `package-lock.json` 변경 후에만 다시
+실행하면 됩니다.
 
 ### 데이터 관리 Python Web API 실행
 
@@ -142,6 +187,9 @@ Battle AI를 빌드하고 테스트합니다.
 
 ### 전투 Web Lab 빌드와 테스트
 
+`start.bat`과 `stop.bat`은 개발 서버를 편하게 켜고 끄는 도구입니다. 프로덕션
+빌드와 자동 테스트는 아래 npm 명령으로 별도 실행합니다.
+
 ```powershell
 cd projects\cobbleventure-battle-ai\web-lab
 npm ci
@@ -208,20 +256,6 @@ structures/         체육관 도시 구조물 원본
 resources/          텍스처·번역·사운드 등 자체 리소스
 docs/               기획·설계·결정 기록
 ```
-
-## Git 저장소 시작하기
-
-GitHub 등에서 저장소를 만들 때 README, `.gitignore`, 라이선스를 자동 생성하지 않은 **빈 저장소**로 만든 뒤 아래 명령을 실행합니다.
-
-```bash
-git init -b main
-git add .
-git commit -m "docs: add initial project plan"
-git remote add origin <REMOTE_URL>
-git push -u origin main
-```
-
-Git은 빈 디렉터리를 추적하지 않으므로, 구현용 디렉터리는 실제 파일이 생길 때 추가합니다.
 
 ## 저장소 원칙
 
