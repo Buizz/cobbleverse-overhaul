@@ -85,10 +85,19 @@ dist/cobbleventure-<profile>-<version>-curseforge.zip
 
 1차 명령은 다음과 같다.
 
-```text
-build.bat validate
-build.bat api
-```
+| 명령 | 현재 역할 | 사용 시점 |
+|------|-----------|-----------|
+| `build.bat validate` | 의존성 Lock과 정규화 콘텐츠의 형식·교차 참조 검사 | 콘텐츠를 편집한 뒤 반복 실행 |
+| `build.bat validate-pack` | 버전과 CurseForge ID까지 포함한 엄격한 패키징 준비 검사 | ZIP 생성 직전 |
+| `build.bat api` | Python 콘텐츠 관리 로컬 Web API 실행 | 웹 관리 화면이나 외부 제작 도구 연결 시 |
+| `build.bat test` | 검증기와 API 회귀 테스트 실행 | 관리 도구 코드 변경 후 |
+
+`validate`는 `draft` 의존성의 미확정 버전을 경고로 허용하지만,
+`validate-pack`은 이를 오류로 처리한다. 따라서 Cobblemon 1.8 대상 버전이
+확정되기 전에도 콘텐츠 개발은 진행할 수 있고 불완전한 CurseForge ZIP 생성은
+차단된다. 각 명령의 상세 입출력과 종료 코드는
+[`tools/content-manager/README.md`](../../tools/content-manager/README.md)에
+기록한다.
 
 후속 단계에서 다음 명령을 같은 진입점에 추가한다.
 
