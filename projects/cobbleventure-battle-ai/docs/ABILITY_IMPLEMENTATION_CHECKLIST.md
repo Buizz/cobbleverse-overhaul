@@ -122,6 +122,16 @@
 | UNIT_TESTED | `darkaura` | 다크오라, 필드의 악 타입 기술 위력 4/3배 | `calculateDamageRange`, 실제 피해·AI 미리보기 | `Dark Aura boosts Dark damage while Aura Break reverses the aura` |
 | UNIT_TESTED | `defeatist` | 무기력, HP가 절반 이하일 때 공격·특수공격 절반 | `effectiveStat`, 실제 피해·AI 미리보기 | `Beads of Ruin raises special damage and Defeatist halves offense at half HP` |
 | UNIT_TESTED | `deltastream` | 델타스트림, 영구 난기류 전개·비행 약점 완화·일반 날씨 교체 방지·사용자 이탈 시 종료 | 등장·날씨 설정·피해 계산·교체·기절 | `Delta Stream weakens Flying weaknesses and ends with its source` |
+| UNIT_TESTED | `desolateland` | 끝의대지, 영구 쾌청 전개·물 공격 무효·일반 날씨 교체 방지·사용자 이탈 시 종료 | 등장·날씨 설정·기술 실패·교체·기절·AI 실패 판정 | `Desolate Land blocks Water moves, resists replacement, and ends with its source` |
+| UNIT_TESTED | `fairyaura` | 페어리오라, 필드의 페어리 타입 기술 위력 4/3배 | `calculateDamageRange`, 오라브레이크 반전·AI 미리보기 | `Fairy Aura boosts Fairy damage and Aura Break reverses it` |
+| UNIT_TESTED | `flowergift` | 플라워기프트, 쾌청·끝의대지에서 공격·특수방어 1.5배 | `effectiveStat`, 실제 피해·AI 미리보기 | `Flower Gift boosts Attack and Special Defence in harsh sunlight` |
+| UNIT_TESTED | `forecast` | 기분파, 유효 날씨에 따라 불꽃·물·얼음 타입으로 변하고 날씨 종료 시 원래 타입 복귀 | 날씨 시작·종료·교체·억제 시 `setPokemonTypes` | `Forecast follows strong weather and restores the original type` |
+| UNIT_TESTED | `forewarn` | 예지몽, 등장 시 상대의 최고 위력 기술 공개 | `applyEntryAbilities`, 변동 위력·일격기 환산 | `Forewarn reveals the opponent's highest-power move` |
+| UNIT_TESTED | `gulpmissile` | 그대로꿀꺽미사일, 파도타기·다이빙 후 피격 시 최대 HP 1/4 피해와 방어 하락 또는 마비 | 공격 후 저장·피격 후 반응·상태·랭크 이벤트 | `Gulp Missile retaliates with its stored prey after Surf` |
+| UNIT_TESTED | `harvest` | 수확, 소비한 나무열매를 턴 종료에 50%·쾌청에서 100% 복구 | `consumeHeldItem`, `applyEndTurnEffects` | `Harvest restores a consumed Berry in sun and Ice Body heals in snow` |
+| UNIT_TESTED | `healer` | 치유의마음, 싱글 전투에는 치료할 아군 슬롯이 없어 발동 조건 없음 | 명시적 싱글 무효 특성 레지스트리 | `reports the eleventh high-usage ability batch as supported` |
+| UNIT_TESTED | `honeygather` | 꿀모으기, 전투 외 아이템 획득 효과로 PvE 전투 영향 없음 | 명시적 무효 특성 레지스트리 | `reports the eleventh high-usage ability batch as supported` |
+| UNIT_TESTED | `icebody` | 아이스바디, 눈·싸라기눈에서 턴 종료 최대 HP 1/16 회복 | `applyEndTurnEffects` | `Harvest restores a consumed Berry in sun and Ice Body heals in snow` |
 
 ## 2026 실전 파티 특성 구현 묶음
 

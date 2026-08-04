@@ -5,44 +5,34 @@
 
 - 트레이너 수: 224
 - 실제 사용 고유 특성: 208
-- 지원: 177
-- 미지원: 31
+- 지원: 187
+- 미지원: 21
 
 ## 미지원 특성
 
 | 우선순위 | ID | 사용 수 | 사용 예시 |
 |---:|---|---:|---|
-| 1 | `desolateland` | 1 | Groudon-Primal (Rocco) |
-| 2 | `fairyaura` | 1 | Xerneas (Champion Terry) |
-| 3 | `flowergift` | 1 | Cherrim (Fosco) |
-| 4 | `forecast` | 1 | Rampardos (Scientist Ivan) |
-| 5 | `forewarn` | 1 | Hypno (Gambler Darian) |
-| 6 | `gulpmissile` | 1 | Cramorant (Sailor Trevor) |
-| 7 | `harvest` | 1 | Exeggutor (Sabrina) |
-| 8 | `healer` | 1 | Hatenna (Lass Haley) |
-| 9 | `honeygather` | 1 | Combee (Bug Catcher Rick) |
-| 10 | `icebody` | 1 | Vanillish (Vale_Fragola) |
-| 11 | `illuminate` | 1 | Volbeat (Gentleman Komodo) |
-| 12 | `liquidooze` | 1 | Tentacruel (Swimmer♀ Tisha) |
-| 13 | `poisonheal` | 1 | Breloom (Trainer May) |
-| 14 | `poisonpoint` | 1 | Dragalge (Alice) |
-| 15 | `poisonpuppeteer` | 1 | Pecharunt (Koga) |
-| 16 | `psychicsurge` | 1 | Indeedee (Pino) |
-| 17 | `queenlymajesty` | 1 | Tsareena (Gardenia) |
-| 18 | `quickdraw` | 1 | Slowbro-Galar (Pino) |
-| 19 | `ripen` | 1 | Applin (Lass Miriam) |
-| 20 | `slushrush` | 1 | Arctovish (Alfredo) |
-| 21 | `solarpower` | 1 | Heliolisk (Fosco) |
-| 22 | `soulheart` | 1 | Magearna (Jasmine) |
-| 23 | `superluck` | 1 | Honchkrow (Boss Giovanni) |
-| 24 | `swordofruin` | 1 | Chien-Pao (Karen) |
-| 25 | `tabletsofruin` | 1 | Wo-Chien (Karen) |
-| 26 | `tangledfeet` | 1 | Pidgeot (Lass Megan) |
-| 27 | `telepathy` | 1 | Gardevoir (Frida) |
-| 28 | `transistor` | 1 | Regieleki (Champion Terry) |
-| 29 | `truant` | 1 | Slaking (Cue Ball Isaiah) |
-| 30 | `waterbubble` | 1 | Araquanid (Raffaello) |
-| 31 | `zenmode` | 1 | Darmanitan-Galar (Crush Girl Sharon) |
+| 1 | `illuminate` | 1 | Volbeat (Gentleman Komodo) |
+| 2 | `liquidooze` | 1 | Tentacruel (Swimmer♀ Tisha) |
+| 3 | `poisonheal` | 1 | Breloom (Trainer May) |
+| 4 | `poisonpoint` | 1 | Dragalge (Alice) |
+| 5 | `poisonpuppeteer` | 1 | Pecharunt (Koga) |
+| 6 | `psychicsurge` | 1 | Indeedee (Pino) |
+| 7 | `queenlymajesty` | 1 | Tsareena (Gardenia) |
+| 8 | `quickdraw` | 1 | Slowbro-Galar (Pino) |
+| 9 | `ripen` | 1 | Applin (Lass Miriam) |
+| 10 | `slushrush` | 1 | Arctovish (Alfredo) |
+| 11 | `solarpower` | 1 | Heliolisk (Fosco) |
+| 12 | `soulheart` | 1 | Magearna (Jasmine) |
+| 13 | `superluck` | 1 | Honchkrow (Boss Giovanni) |
+| 14 | `swordofruin` | 1 | Chien-Pao (Karen) |
+| 15 | `tabletsofruin` | 1 | Wo-Chien (Karen) |
+| 16 | `tangledfeet` | 1 | Pidgeot (Lass Megan) |
+| 17 | `telepathy` | 1 | Gardevoir (Frida) |
+| 18 | `transistor` | 1 | Regieleki (Champion Terry) |
+| 19 | `truant` | 1 | Slaking (Cue Ball Isaiah) |
+| 20 | `waterbubble` | 1 | Araquanid (Raffaello) |
+| 21 | `zenmode` | 1 | Darmanitan-Galar (Crush Girl Sharon) |
 
 ## 지원 특성
 
@@ -213,10 +203,20 @@
 | `dauntlessshield` | 1 |
 | `defeatist` | 1 |
 | `deltastream` | 1 |
+| `desolateland` | 1 |
 | `eartheater` | 1 |
 | `electricsurge` | 1 |
+| `fairyaura` | 1 |
+| `flowergift` | 1 |
+| `forecast` | 1 |
+| `forewarn` | 1 |
 | `furcoat` | 1 |
+| `gulpmissile` | 1 |
 | `hadronengine` | 1 |
+| `harvest` | 1 |
+| `healer` | 1 |
+| `honeygather` | 1 |
+| `icebody` | 1 |
 | `liquidvoice` | 1 |
 | `magnetpull` | 1 |
 | `multitype` | 1 |

@@ -22,7 +22,7 @@ import {
 test("reports native ability support for random matchup filtering", () => {
   assert.equal(isSimpleAbilitySupported("pressure"), true);
   assert.equal(isSimpleAbilitySupported("cobblemon:pressure"), true);
-  assert.equal(isSimpleAbilitySupported("desolateland"), false);
+  assert.equal(isSimpleAbilitySupported("illuminate"), false);
   assert.equal(isSimpleAbilitySupported(""), true);
 });
 
@@ -156,6 +156,23 @@ test("reports the tenth high-usage ability batch as supported", () => {
     "darkaura",
     "defeatist",
     "deltastream",
+  ]) {
+    assert.equal(isSimpleAbilitySupported(ability), true, ability);
+  }
+});
+
+test("reports the eleventh high-usage ability batch as supported", () => {
+  for (const ability of [
+    "desolateland",
+    "fairyaura",
+    "flowergift",
+    "forecast",
+    "forewarn",
+    "gulpmissile",
+    "harvest",
+    "healer",
+    "honeygather",
+    "icebody",
   ]) {
     assert.equal(isSimpleAbilitySupported(ability), true, ability);
   }
@@ -22209,6 +22226,206 @@ test("Delta Stream weakens Flying weaknesses and ends with its source", () => {
   assert.equal(state.field.weather.id, "deltastream");
   state = resolveSimpleTurn(state, [{ move: 1 }, { switch: 2 }]);
   assert.equal(state.field.weather, null);
+});
+
+test("Desolate Land blocks Water moves, resists replacement, and ends with its source", () => {
+  const waterMove = {
+    ...pokemon().moves[0],
+    id: "surf",
+    name: "Surf",
+    type: "Water",
+    category: "Special",
+  };
+  const rainDance = {
+    id: "raindance",
+    name: "Rain Dance",
+    type: "Water",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 5,
+    weather: "raindance",
+  };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Water", team: [pokemon({ moves: [waterMove, rainDance] })] },
+        { name: "Land", team: [pokemon({ ability: "desolateland" }), pokemon({ name: "Bench" })] },
+      ],
+    }),
+  );
+  assert.equal(state.field.weather.id, "desolateland");
+  assert.equal(state.field.weather.turns, null);
+  assert.equal(
+    chooseSimpleAiDecision(state, 0, "expert", "balanced").moveCandidates.find(
+      (candidate) => candidate.id === "surf",
+    ).willFail,
+    true,
+  );
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[1].team[0].hp, pokemon().stats.hp);
+  state = resolveSimpleTurn(state, [{ move: 2 }, { move: 1 }]);
+  assert.equal(state.field.weather.id, "desolateland");
+  state = resolveSimpleTurn(state, [{ move: 1 }, { switch: 2 }]);
+  assert.equal(state.field.weather, null);
+});
+
+test("Fairy Aura boosts Fairy damage and Aura Break reverses it", () => {
+  const fairyMove = {
+    ...pokemon().moves[0],
+    id: "moonblast",
+    name: "Moonblast",
+    type: "Fairy",
+    category: "Special",
+  };
+  const makeRange = (defenderAbility = "") => {
+    const state = createSimpleBattle(
+      setup({
+        sides: [
+          { name: "Aura", team: [pokemon({ ability: "fairyaura", moves: [fairyMove] })] },
+          { name: "Target", team: [pokemon({ ability: defenderAbility })] },
+        ],
+      }),
+    );
+    return calculateDamageRange(
+      state.sides[0].team[0],
+      state.sides[1].team[0],
+      state.sides[0].team[0].moves[0],
+      { state, attackerSide: 0, defenderSide: 1 },
+    );
+  };
+  const aura = makeRange();
+  const reversed = makeRange("aurabreak");
+  assert.ok(aura.abilityModifier > 1);
+  assert.ok(reversed.abilityModifier < 1);
+});
+
+test("Flower Gift boosts Attack and Special Defence in harsh sunlight", () => {
+  const physicalMove = { ...pokemon().moves[0], power: 60 };
+  const specialMove = { ...physicalMove, category: "Special" };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Gift", team: [pokemon({ ability: "flowergift", moves: [physicalMove] })] },
+        { name: "Sun", team: [pokemon({ ability: "desolateland", moves: [specialMove] })] },
+      ],
+    }),
+  );
+  const gift = state.sides[0].team[0];
+  const foe = state.sides[1].team[0];
+  const physicalBoosted = calculateDamageRange(gift, foe, gift.moves[0], { state });
+  const specialReduced = calculateDamageRange(foe, gift, foe.moves[0], { state });
+  gift.volatiles.gastroacid = { id: "gastroacid" };
+  const physicalNormal = calculateDamageRange(gift, foe, gift.moves[0], { state });
+  const specialNormal = calculateDamageRange(foe, gift, foe.moves[0], { state });
+  assert.ok(physicalBoosted.maximum > physicalNormal.maximum);
+  assert.ok(specialReduced.maximum < specialNormal.maximum);
+});
+
+test("Forecast follows strong weather and restores the original type", () => {
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Forecast", team: [pokemon({ ability: "forecast", types: ["Rock"] })] },
+        { name: "Sun", team: [pokemon({ ability: "desolateland" }), pokemon({ name: "Bench" })] },
+      ],
+    }),
+  );
+  assert.deepEqual(state.sides[0].team[0].types, ["Fire"]);
+  state = resolveSimpleTurn(state, [{ move: 1 }, { switch: 2 }]);
+  assert.deepEqual(state.sides[0].team[0].types, ["Rock"]);
+  assert.ok(state.events.some((event) => event.ability === "forecast"));
+});
+
+test("Forewarn reveals the opponent's highest-power move", () => {
+  const weakMove = { ...pokemon().moves[0], id: "quickattack", name: "Quick Attack", power: 40 };
+  const strongMove = { ...pokemon().moves[0], id: "hyperbeam", name: "Hyper Beam", power: 150 };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Forewarn", team: [pokemon({ ability: "forewarn" })] },
+        { name: "Threat", team: [pokemon({ moves: [weakMove, strongMove] })] },
+      ],
+    }),
+  );
+  const activation = state.events.find((event) => event.ability === "forewarn");
+  assert.equal(activation.moveId, "hyperbeam");
+  assert.equal(activation.power, 150);
+});
+
+test("Gulp Missile retaliates with its stored prey after Surf", () => {
+  const surf = {
+    ...pokemon().moves[0],
+    id: "surf",
+    name: "Surf",
+    type: "Water",
+    category: "Special",
+    power: 20,
+  };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Cramorant", team: [pokemon({ ability: "gulpmissile", moves: [surf], stats: { ...pokemon().stats, speed: 200 } })] },
+        { name: "Attacker", team: [pokemon({ stats: { ...pokemon().stats, hp: 200, speed: 50 } })] },
+      ],
+    }),
+  );
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[0].team[0].abilityState.gulpMissileForm, undefined);
+  assert.equal(resolved.sides[1].team[0].boosts.defence, -1);
+  assert.ok(resolved.events.filter((event) => event.ability === "gulpmissile").length >= 2);
+  assert.ok(resolved.events.some((event) => event.source === "gulpmissile" && event.type === "damage"));
+
+  const lowHpState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Cramorant", team: [pokemon({ ability: "gulpmissile", moves: [surf], stats: { ...pokemon().stats, speed: 200 } })] },
+        { name: "Attacker", team: [pokemon({ stats: { ...pokemon().stats, hp: 200, speed: 50 } })] },
+      ],
+    }),
+  );
+  lowHpState.sides[0].team[0].hp = 50;
+  const gorgingResult = resolveSimpleTurn(lowHpState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(gorgingResult.sides[1].team[0].status, "par");
+});
+
+test("Harvest restores a consumed Berry in sun and Ice Body heals in snow", () => {
+  const protect = {
+    id: "protect",
+    name: "Protect",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 10,
+    target: "self",
+  };
+  const weakMove = { ...pokemon().moves[0], power: 1 };
+  let state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Sun", team: [pokemon({ ability: "desolateland", moves: [weakMove], stats: { ...pokemon().stats, speed: 200 } })] },
+        { name: "Harvest", team: [pokemon({ ability: "harvest", item: "figyberry", moves: [weakMove] })] },
+      ],
+    }),
+  );
+  state.sides[1].team[0].hp = 20;
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(state.sides[1].team[0].item, "figyberry");
+  assert.ok(state.events.some((event) => event.ability === "harvest"));
+
+  state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Ice Body", team: [pokemon({ ability: "icebody", moves: [protect] })] },
+        { name: "Snow", team: [pokemon({ ability: "snowwarning", moves: [protect] })] },
+      ],
+    }),
+  );
+  state.sides[0].team[0].hp = 50;
+  state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(state.sides[0].team[0].hp > 50);
+  assert.ok(state.events.some((event) => event.ability === "icebody"));
 });
 
 test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", () => {

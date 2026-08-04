@@ -98,6 +98,8 @@ const TRACE_BLOCKED_ABILITIES = new Set([
   "battlebond",
   "comatose",
   "commander",
+  "deltastream",
+  "desolateland",
   "disguise",
   "gulpmissile",
   "hadronengine",
@@ -223,6 +225,7 @@ const IMPLEMENTED_ABILITIES = new Set([
   "darkaura",
   "defeatist",
   "deltastream",
+  "desolateland",
   "defiant",
   "download",
   "damp",
@@ -235,10 +238,14 @@ const IMPLEMENTED_ABILITIES = new Set([
   "earlybird",
   "electricsurge",
   "effectspore",
+  "fairyaura",
   "flamebody",
   "flashfire",
   "fluffy",
+  "flowergift",
   "flowerveil",
+  "forecast",
+  "forewarn",
   "frisk",
   "furcoat",
   "galewings",
@@ -248,13 +255,16 @@ const IMPLEMENTED_ABILITIES = new Set([
   "grassysurge",
   "gluttony",
   "grimneigh",
+  "gulpmissile",
   "guts",
   "hadronengine",
   "hypercutter",
   "hugepower",
   "hydration",
+  "harvest",
   "hustle",
   "heavymetal",
+  "icebody",
   "immunity",
   "imposter",
   "illusion",
@@ -382,6 +392,8 @@ const IMPLEMENTED_ABILITIES = new Set([
 ]);
 const INTENTIONAL_NO_EFFECT_ABILITIES = new Set([
   "ballfetch",
+  "healer",
+  "honeygather",
   "hospitality",
   "runaway",
   "unnerve",
@@ -1224,6 +1236,15 @@ function isPrimordialSeaBlockedMove(state, move) {
   );
 }
 
+function isDesolateLandBlockedMove(state, move) {
+  return (
+    effectiveWeather(state) === "desolateland" &&
+    move?.category !== "Status" &&
+    move?.type === "Water" &&
+    Number(move?.power ?? 0) > 0
+  );
+}
+
 function doublesPhysicalAttack(ability) {
   return ["hugepower", "purepower"].includes(cleanId(ability));
 }
@@ -1483,6 +1504,13 @@ function effectiveStat(pokemon, stat, options = {}) {
     pokemon.hp <= Math.floor(pokemon.stats.hp / 2)
   ) {
     value *= 0.5;
+  }
+  if (
+    ["attack", "specialDefence"].includes(stat) &&
+    activeAbility(pokemon) === "flowergift" &&
+    ["sunnyday", "desolateland"].includes(effectiveWeather(options.state))
+  ) {
+    value *= 1.5;
   }
   if (stat === "attack") {
     if (pokemon.status === "brn" && activeAbility(pokemon) !== "guts") value *= 0.5;
@@ -2456,9 +2484,60 @@ function initializeParadoxAbility(state, sideIndex, pokemon, ability) {
   });
 }
 
+function updateForecastForms(state) {
+  const weather = effectiveWeather(state);
+  const weatherType =
+    ["sunnyday", "desolateland"].includes(weather)
+      ? "Fire"
+      : ["raindance", "primordialsea"].includes(weather)
+        ? "Water"
+        : ["hail", "snow"].includes(weather)
+          ? "Ice"
+          : "";
+  for (let sideIndex = 0; sideIndex < state.sides.length; sideIndex += 1) {
+    const pokemon = activePokemon(state, sideIndex);
+    if (!pokemon || pokemon.fainted || pokemon.terastallized) continue;
+    const forecastActive = activeAbility(pokemon) === "forecast";
+    if (!forecastActive && pokemon.abilityState?.forecastApplied !== true) continue;
+    const nextTypes =
+      forecastActive && weatherType
+        ? [weatherType]
+        : pokemon.originalTypes;
+    if (
+      pokemon.types.length === nextTypes.length &&
+      pokemon.types.every((type, index) => type === nextTypes[index])
+    ) {
+      continue;
+    }
+    if (forecastActive) {
+      emitAbilityActivation(state, sideIndex, pokemon, "forecast", {
+        weather: weather || "none",
+        types: [...nextTypes],
+      });
+    }
+    setPokemonTypes(state, sideIndex, pokemon, nextTypes, "forecast");
+    if (forecastActive && weatherType) {
+      pokemon.abilityState.forecastApplied = true;
+    } else {
+      delete pokemon.abilityState.forecastApplied;
+    }
+  }
+}
+
+function forewarnMovePower(move) {
+  const moveId = cleanId(move?.id);
+  if (["fissure", "guillotine", "horndrill", "sheercold"].includes(moveId)) {
+    return 160;
+  }
+  if (["counter", "metalburst", "mirrorcoat"].includes(moveId)) return 120;
+  if (move?.dynamicPower) return 80;
+  return Math.max(0, Number(move?.power ?? 0));
+}
+
 function applyEntryAbilities(state, sideIndex, pokemon) {
   if (!pokemon || pokemon.fainted) return;
   applyTeraShiftOnEntry(state, sideIndex, pokemon);
+  updateForecastForms(state);
   const ability = activeAbility(pokemon);
   pokemon.abilityState ??= {};
   if (ability === "neutralizinggas") {
@@ -2491,6 +2570,7 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
     applyBoosts(state, sideIndex, pokemon, embodyBoosts, ability);
   }
   const entryWeather = {
+    desolateland: "desolateland",
     drizzle: "raindance",
     drought: "sunnyday",
     deltastream: "deltastream",
@@ -2557,6 +2637,21 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
       });
       applyEntryAbilities(state, sideIndex, pokemon);
       return;
+    }
+  }
+  if (ability === "forewarn") {
+    const maximumPower = Math.max(0, ...target.moves.map(forewarnMovePower));
+    const threateningMove = target.moves.find(
+      (move) => forewarnMovePower(move) === maximumPower,
+    );
+    if (threateningMove && maximumPower > 0) {
+      emitAbilityActivation(state, sideIndex, pokemon, "forewarn", {
+        targetSide,
+        target: target.name,
+        move: threateningMove.name,
+        moveId: cleanId(threateningMove.id),
+        power: maximumPower,
+      });
     }
   }
   if (ability === "anticipation") {
@@ -3439,6 +3534,7 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
   outgoing.choiceLock = null;
   outgoing.chargingMove = null;
   delete outgoing.abilityState?.proteanUsed;
+  delete outgoing.abilityState?.gulpMissileForm;
   delete outgoing.displayName;
   outgoing.volatiles = {};
   delete outgoing.abilityState?.unburdenActivated;
@@ -4622,6 +4718,7 @@ function changeAbility(state, side, pokemon, ability, source, reason = "changed"
     reason,
   });
   syncNeutralizingGas(state);
+  updateForecastForms(state);
   return true;
 }
 
@@ -4679,6 +4776,7 @@ function applyTransform(state, side, pokemon, target, source) {
     source,
   });
   syncNeutralizingGas(state);
+  updateForecastForms(state);
   return true;
 }
 
@@ -4813,6 +4911,7 @@ function suppressAbility(state, side, pokemon, source) {
     source,
   });
   syncNeutralizingGas(state);
+  updateForecastForms(state);
   return true;
 }
 
@@ -5165,6 +5264,7 @@ function setFieldEffect(state, side, pokemon, kind, id, source) {
     source,
   });
   if (kind === "weather" || kind === "terrain") {
+    if (kind === "weather") updateForecastForms(state);
     for (let activeSide = 0; activeSide < state.sides.length; activeSide += 1) {
       const active = activePokemon(state, activeSide);
       initializeParadoxAbility(
@@ -5189,6 +5289,7 @@ function endPersistentAbilityWeather(state, side, pokemon, reason) {
     return false;
   }
   state.field.weather = null;
+  updateForecastForms(state);
   state.events.push({
     turn: state.turn,
     type: "field_end",
@@ -5859,8 +5960,10 @@ function markFainted(state, side, pokemon) {
   pokemon.lockedMove = null;
   pokemon.choiceLock = null;
   pokemon.chargingMove = null;
+  delete pokemon.abilityState?.gulpMissileForm;
   pokemon.volatiles = {};
   syncNeutralizingGas(state);
+  updateForecastForms(state);
   state.events.push({
     turn: state.turn,
     type: "faint",
@@ -6432,6 +6535,19 @@ function executeMove(state, action, rng) {
       move: move.name,
       reason: "Primordial Sea extinguishes damaging Fire-type moves.",
       source: "primordialsea",
+    });
+    return false;
+  }
+
+  if (isDesolateLandBlockedMove(state, move)) {
+    state.events.push({
+      turn: state.turn,
+      type: "move_failed",
+      side: action.side,
+      pokemon: attacker.name,
+      move: move.name,
+      reason: "Desolate Land evaporates damaging Water-type moves.",
+      source: "desolateland",
     });
     return false;
   }
@@ -8941,6 +9057,48 @@ function executeMove(state, action, rng) {
           defenderSide,
         );
       }
+      const gulpMissileForm = defender.abilityState?.gulpMissileForm;
+      if (
+        damage > 0 &&
+        gulpMissileForm &&
+        activeAbility(defender) === "gulpmissile" &&
+        !ignoresDefenderAbility(attacker)
+      ) {
+        delete defender.abilityState.gulpMissileForm;
+        emitAbilityActivation(state, defenderSide, defender, "gulpmissile", {
+          form: gulpMissileForm,
+          targetSide: action.side,
+          target: attacker.name,
+        });
+        applyDirectDamage(
+          state,
+          action.side,
+          attacker,
+          Math.max(1, Math.floor(attacker.stats.hp / 4)),
+          "gulpmissile",
+          "ability",
+        );
+        if (!attacker.fainted && gulpMissileForm === "gulping") {
+          applyBoosts(
+            state,
+            action.side,
+            attacker,
+            { defence: -1 },
+            "gulpmissile",
+            defenderSide,
+          );
+        } else if (!attacker.fainted && gulpMissileForm === "gorging") {
+          applyStatus(
+            state,
+            action.side,
+            attacker,
+            "par",
+            rng,
+            "gulpmissile",
+            defenderSide,
+          );
+        }
+      }
       if (
         damage > 0 &&
         defender.hp > 0 &&
@@ -9487,6 +9645,20 @@ function executeMove(state, action, rng) {
     cleanId(attacker.item).endsWith("berry")
   ) {
     consumeHeldItem(state, action.side, attacker, move.name);
+  }
+  if (
+    landedHits > 0 &&
+    ["surf", "dive"].includes(cleanId(move.id)) &&
+    activeAbility(attacker) === "gulpmissile" &&
+    !attacker.fainted
+  ) {
+    const form =
+      attacker.hp > Math.floor(attacker.stats.hp / 2) ? "gulping" : "gorging";
+    attacker.abilityState.gulpMissileForm = form;
+    emitAbilityActivation(state, action.side, attacker, "gulpmissile", {
+      form,
+      move: move.name,
+    });
   }
   if (
     landedHits > 0 &&
@@ -10119,6 +10291,19 @@ function applyEndTurnEffects(state, rng) {
       );
       if (pokemon.fainted) continue;
     }
+    if (
+      activeAbility(pokemon) === "icebody" &&
+      ["hail", "snow"].includes(weather)
+    ) {
+      emitAbilityActivation(state, sideIndex, pokemon, "icebody");
+      healPokemon(
+        state,
+        sideIndex,
+        pokemon,
+        Math.max(1, Math.floor(pokemon.stats.hp / 16)),
+        "icebody",
+      );
+    }
     let damage = 0;
     let source = "";
     if (pokemon.status === "brn") {
@@ -10427,6 +10612,34 @@ function applyEndTurnEffects(state, rng) {
         "Black Sludge",
       );
     }
+    if (
+      activeAbility(pokemon) === "harvest" &&
+      !pokemon.item &&
+      cleanId(pokemon.consumedItem).endsWith("berry") &&
+      (["sunnyday", "desolateland"].includes(weather) || rng.next() < 0.5)
+    ) {
+      const harvestedItem = cleanId(pokemon.consumedItem);
+      pokemon.item = harvestedItem;
+      pokemon.consumedItem = "";
+      const consumedIndex = (state.consumedItems ?? []).findLastIndex(
+        (entry) =>
+          entry.side === sideIndex &&
+          entry.pokemon === pokemon.name &&
+          cleanId(entry.item) === harvestedItem,
+      );
+      if (consumedIndex >= 0) state.consumedItems.splice(consumedIndex, 1);
+      emitAbilityActivation(state, sideIndex, pokemon, "harvest", {
+        item: harvestedItem,
+      });
+      state.events.push({
+        turn: state.turn,
+        type: "item_received",
+        side: sideIndex,
+        pokemon: pokemon.name,
+        item: harvestedItem,
+        source: "harvest",
+      });
+    }
     if (activeAbility(pokemon) === "pickup" && !pokemon.item) {
       const pickupIndex = (state.consumedItems ?? []).findLastIndex(
         (entry) => entry.turn === state.turn && entry.item,
@@ -10477,6 +10690,7 @@ function advanceTimedEffects(state, rng) {
       effect: effect.id,
     });
     state.field[kind] = null;
+    if (kind === "weather") updateForecastForms(state);
     for (let sideIndex = 0; sideIndex < state.sides.length; sideIndex += 1) {
       const pokemon = activePokemon(state, sideIndex);
       initializeParadoxAbility(
@@ -12879,6 +13093,7 @@ function automaticMoveCandidates(
         ...displayMove,
         willFail:
           isPrimordialSeaBlockedMove(state, displayMove) ||
+          isDesolateLandBlockedMove(state, displayMove) ||
           isDampBlockedMove(state, displayMove) ||
           isAromaVeilBlockedMove(state, defenderSide, displayMove) ||
           isPranksterBlocked(pokemon, defender, displayMove) ||
