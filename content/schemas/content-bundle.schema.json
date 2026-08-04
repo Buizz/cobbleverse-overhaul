@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/content-bundle.schema.json",
+  "title": "Cobbleventure normalized content bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "trainer", "npc", "dialogues", "quests"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "$ref": "#/$defs/resource_id" },
+    "trainer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "ai", "battle_format", "team"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "ai": { "type": "string", "minLength": 1 },
+        "battle_format": { "type": "string", "minLength": 1 },
+        "battle_rules": { "type": "object" },
+        "bag": { "type": "array" },
+        "team": { "type": "array" }
+      }
+    },
+    "npc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "portrait", "initial_dialogue"],
+      "properties": {
+        "name": { "$ref": "#/$defs/text" },
+        "portrait": { "$ref": "#/$defs/resource_id" },
+        "initial_dialogue": { "$ref": "#/$defs/resource_id" }
+      }
+    },
+    "dialogues": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dialogue" }
+    },
+    "quests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "$ref": "#/$defs/resource_id" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "text": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["translate"],
+          "properties": {
+            "translate": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "dialogue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "conditions", "choices"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resource_id" },
+        "text": { "$ref": "#/$defs/text" },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operation" }
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "text", "conditions", "actions"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+              "text": { "$ref": "#/$defs/text" },
+              "conditions": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/operation" }
+              },
+              "actions": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "$ref": "#/$defs/operation" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

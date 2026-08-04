@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "status": "draft",
+  "profile": "cobbleventure-dev",
+  "minecraft": {
+    "version": null,
+    "loader": {
+      "type": "neoforge",
+      "version": null
+    }
+  },
+  "mods": [
+    {
+      "id": "cobblemon",
+      "display_name": "Cobblemon",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": null,
+      "curseforge": {
+        "project_id": null,
+        "file_id": null
+      },
+      "reason": "포켓몬, 파티와 실제 배틀 시스템"
+    },
+    {
+      "id": "rctapi",
+      "display_name": "Radical Cobblemon Trainers API",
+      "classification": "required-candidate",
+      "side": "both",
+      "enabled": true,
+      "version": null,
+      "curseforge": {
+        "project_id": null,
+        "file_id": null
+      },
+      "reason": "트레이너 데이터와 전투 연동 계약"
+    },
+    {
+      "id": "rctmod",
+      "display_name": "Radical Cobblemon Trainers",
+      "classification": "required-candidate",
+      "side": "both",
+      "enabled": true,
+      "version": null,
+      "curseforge": {
+        "project_id": null,
+        "file_id": null
+      },
+      "reason": "RCT 트레이너 JSON 로딩과 트레이너전 관리"
+    },
+    {
+      "id": "mega_showdown",
+      "display_name": "Mega Showdown",
+      "classification": "optional",
+      "side": "both",
+      "enabled": false,
+      "version": null,
+      "curseforge": {
+        "project_id": null,
+        "file_id": null
+      },
+      "reason": "추가 전투 기믹 호환 후보"
+    },
+    {
+      "id": "easy_npc",
+      "display_name": "Easy NPC Core",
+      "classification": "profile-optional",
+      "side": "both",
+      "enabled": false,
+      "version": null,
+      "curseforge": {
+        "project_id": null,
+        "file_id": null
+      },
+      "reason": "Easy NPC 호환 프로필의 NPC와 대화"
+    },
+    {
+      "id": "easy_npc_config_ui",
+      "display_name": "Easy NPC Config UI",
+      "classification": "profile-optional",
+      "side": "both",
+      "enabled": false,
+      "version": null,
+      "curseforge": {
+        "project_id": null,
+        "file_id": null
+      },
+      "reason": "Easy NPC 호환 프로필의 게임 내 설정과 네트워크"
+    },
+    {
+      "id": "tbcs",
+      "display_name": "Cobblemon Trainer Battle Commands",
+      "classification": "profile-optional",
+      "side": "both",
+      "enabled": false,
+      "version": null,
+      "curseforge": {
+        "project_id": null,
+        "file_id": null
+      },
+      "reason": "명령 기반 NPC와 RCT API 전투 연결 비교안"
+    }
+  ]
+}

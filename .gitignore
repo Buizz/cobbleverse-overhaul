@@ -35,6 +35,13 @@ mods/*.jar
 .env
 .env.*
 *.local
+.venv/
+__pycache__/
+*.py[cod]
+
+# Generated distribution and staging output
+dist/
+staging/
 
 # Temporary files
 *.tmp

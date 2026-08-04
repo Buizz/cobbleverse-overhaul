@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/dependencies-lock.schema.json",
+  "title": "Cobbleventure dependency lock",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "profile", "minecraft", "mods"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "status": { "enum": ["draft", "locked"] },
+    "profile": { "type": "string", "minLength": 1 },
+    "minecraft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "loader"],
+      "properties": {
+        "version": { "type": ["string", "null"] },
+        "loader": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "version"],
+          "properties": {
+            "type": { "const": "neoforge" },
+            "version": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "mods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "display_name",
+          "classification",
+          "side",
+          "enabled",
+          "version",
+          "curseforge",
+          "reason"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+          "display_name": { "type": "string", "minLength": 1 },
+          "classification": {
+            "enum": ["required", "required-candidate", "optional", "profile-optional", "development"]
+          },
+          "side": { "enum": ["client", "server", "both"] },
+          "enabled": { "type": "boolean" },
+          "version": { "type": ["string", "null"] },
+          "curseforge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["project_id", "file_id"],
+            "properties": {
+              "project_id": { "type": ["integer", "null"], "minimum": 1 },
+              "file_id": { "type": ["integer", "null"], "minimum": 1 }
+            }
+          },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

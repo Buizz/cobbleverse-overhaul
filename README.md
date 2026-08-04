@@ -8,12 +8,14 @@
 >
 > 게임 연동 기준: **Cobblemon 안정 버전 정식 출시 후 별도 어댑터에서 확정**
 >
-> 현재 개발 기준: **Minecraft·Fabric·Cobblemon 의존성이 없는 플랫폼 독립 코어 우선**
+> 현재 개발 기준: **Minecraft·NeoForge·Cobblemon 의존성이 없는 플랫폼 독립 코어 우선**
 
 ## 문서
 
 - [프로젝트 기획서](docs/PROJECT_PLAN.md)
 - [구현 설계 문서 안내](docs/implementation/README.md)
+- [콘텐츠 제작 및 CurseForge 빌드 파이프라인](docs/implementation/CONTENT_BUILD_PIPELINE.md)
+- [의존 모드 관리표](docs/MOD_DEPENDENCIES.md)
 - [선택 아키텍처와 비교 기록](docs/implementation/WORLD_ARCHITECTURE_OPTIONS.md)
 - [세대 월드 8지역 및 체육관 도시 생성](docs/implementation/WORLD_GENERATION.md)
 - [도시 포맷과 세대별 특수 시설](docs/implementation/CITY_FACILITIES.md)
@@ -23,9 +25,12 @@
 
 ## 현재 저장소 범위
 
-현재는 기획 문서, 플랫폼 독립 지역 코어와 전투 AI, 트레이너 JSON 예제 데이터를 관리합니다. Minecraft·Fabric·Cobblemon 연동 모드와 특정 트레이너 모드 어댑터는 대상 안정 버전을 확정한 뒤 추가합니다.
+현재는 기획 문서, 플랫폼 독립 지역 코어와 전투 AI, 트레이너 JSON 예제 데이터를 관리합니다. Minecraft·NeoForge·Cobblemon 연동 모드와 특정 트레이너 모드 어댑터는 대상 안정 버전을 확정한 뒤 추가합니다.
 
-의존성 방향은 항상 `게임 어댑터 → 플랫폼 독립 코어`로 유지합니다. 플랫폼 독립 코어는 Minecraft, Fabric, Cobblemon 또는 특정 트레이너 모드 클래스를 참조하지 않습니다.
+콘텐츠와 의존성 Lock의 첫 검증 도구는 저장소 루트에서 `build.bat validate`로
+실행합니다. 로컬 관리 API는 `build.bat api`로 시작합니다.
+
+의존성 방향은 항상 `게임 어댑터 → 플랫폼 독립 코어`로 유지합니다. 플랫폼 독립 코어는 Minecraft, NeoForge, Cobblemon 또는 특정 트레이너 모드 클래스를 참조하지 않습니다.
 
 향후 구현 단계에서는 필요에 따라 다음 영역을 추가할 예정입니다.
 

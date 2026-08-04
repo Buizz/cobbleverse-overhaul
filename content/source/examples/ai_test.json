@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "cobbleventure:ai_test",
+  "trainer": {
+    "name": "AI Man",
+    "ai": "cobbleventure",
+    "battle_format": "GEN_9_SINGLES",
+    "battle_rules": {},
+    "bag": [],
+    "team": []
+  },
+  "npc": {
+    "name": {
+      "translate": "npc.cobbleventure.ai_test.name"
+    },
+    "portrait": "cobbleventure:gui/portrait/ai_man",
+    "initial_dialogue": "cobbleventure:ai_test/greeting"
+  },
+  "dialogues": [
+    {
+      "id": "cobbleventure:ai_test/greeting",
+      "text": {
+        "translate": "dialogue.cobbleventure.ai_test.greeting"
+      },
+      "conditions": [],
+      "choices": [
+        {
+          "id": "battle",
+          "text": {
+            "translate": "dialogue.cobbleventure.choice.battle"
+          },
+          "conditions": [],
+          "actions": [
+            {
+              "type": "start_rct_battle",
+              "trainer": "cobbleventure:ai_test"
+            }
+          ]
+        },
+        {
+          "id": "cancel",
+          "text": {
+            "translate": "dialogue.cobbleventure.choice.cancel"
+          },
+          "conditions": [],
+          "actions": [
+            {
+              "type": "close"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "quests": []
+}
