@@ -2,13 +2,12 @@
   "schema_version": 1,
   "profile_id": "import-smoke",
   "name": "Cobbleventure Import Smoke Test",
-  "version": "0.1.0-smoke",
+  "version": "0.1.1-smoke",
   "author": "Buizz",
   "purpose": "curseforge-import-smoke-test",
   "production_ready": false,
   "notice": "CurseForge 임포트 구조만 확인하는 빈 테스트 프로필입니다.",
   "icon": "pack/assets/cobbleventure-import-test-icon.png",
-  "image_url": "https://raw.githubusercontent.com/Buizz/cobbleverse-overhaul/main/pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",
     "mod_loader": {
@@ -18,5 +17,5 @@
   },
   "files": [],
   "overrides_directory": "pack/overrides/import-smoke",
-  "output": "dist/cobbleventure-import-smoke-0.1.0-curseforge.zip"
+  "output": "dist/cobbleventure-import-smoke-0.1.1-curseforge.zip"
 }

@@ -152,10 +152,10 @@ overrides/
 ```
 
 팩 프로필의 아이콘 원본은 `pack/assets`에서 관리하며 400x400 이상의 정사각형
-PNG를 사용한다. CurseForge 프로필 이미지는 실제 내보내기 ZIP에서 확인한 형식에
-맞춰 manifest의 `image` 필드에 공개 HTTPS URL로 기록한다. GitHub Raw URL을
-사용한다면 이미지 커밋이 원격 브랜치에 먼저 push되어 있어야 한다. 최상위
-`icon.png`는 다른 런처 호환성용이고 `overrides/icon.png`는 수동 선택용 사본이다.
+PNG를 사용한다. 사설 CurseForge ZIP은 manifest의 `image` 필드에 ZIP 최상위
+기준 상대 경로 `icon.png`를 기록한다. 공개 모드팩의 ForgeCDN URL과 달리 별도
+호스팅이 필요 없고 import 임시 폴더의 이미지가 프로필에 복사된다.
+`overrides/icon.png`는 수동 선택용 사본이다.
 
 패키징 전 최소 검증 항목은 다음과 같다.
 
@@ -167,7 +167,7 @@ PNG를 사용한다. CurseForge 프로필 이미지는 실제 내보내기 ZIP�
 - `ai` 선택 값이 Cobbleventure Battle AI 등록 값과 일치하는가
 - 허가되지 않은 외부 JAR와 기존 Cobbleverse 전용 자산이 포함되지 않았는가
 - ZIP 최상위 구조가 CurseForge 가져오기 형식과 일치하는가
-- manifest의 `image`가 공개 HTTPS URL인가
+- manifest의 `image`가 ZIP 최상위 `icon.png`를 정확히 가리키는가
 - 팩 아이콘이 정사각형·최소 크기 조건을 만족하고 ZIP의 두 사본이 동일한가
 
 현재 `build.bat pack-smoke`와 임시 `build.bat pack`이 위 구조 생성, ZIP CRC,

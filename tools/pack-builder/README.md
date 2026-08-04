@@ -14,8 +14,8 @@ build.bat pack-smoke
 출력:
 
 ```text
-dist/cobbleventure-import-smoke-0.1.0-curseforge.zip
-dist/cobbleventure-import-smoke-0.1.0-curseforge.zip.sha256
+dist/cobbleventure-import-smoke-0.1.1-curseforge.zip
+dist/cobbleventure-import-smoke-0.1.1-curseforge.zip.sha256
 ```
 
 이 팩은 CurseForge 임포트 흐름만 확인하기 위해 Minecraft 1.21.1과 NeoForge를
@@ -32,8 +32,8 @@ build.bat pack
 출력:
 
 ```text
-dist/cobbleventure-development-0.1.0-curseforge.zip
-dist/cobbleventure-development-0.1.0-curseforge.zip.sha256
+dist/cobbleventure-development-0.1.1-curseforge.zip
+dist/cobbleventure-development-0.1.1-curseforge.zip.sha256
 ```
 
 일반 콘텐츠 검증을 먼저 실행한 뒤 개발용 프로필을 패키징한다. 현재는 외부 모드와
@@ -64,16 +64,17 @@ overrides/
 
 프로필의 `icon` 경로는 400x400 이상의 정사각형 PNG여야 한다. 빌더는 같은
 이미지를 ZIP 최상위와 `overrides`에 기록하고 두 파일의 내용까지 검사한다.
-CurseForge 프로필 이미지는 실제 내보내기 ZIP과 같이 `manifest.json`의 `image`
-필드에 공개 HTTPS URL로 기록한다. 로컬 파일 경로와 ZIP 내부 경로는 프로필
-이미지로 사용되지 않는다. 최상위 `icon.png`는 다른 런처 호환성용이며,
-`overrides/icon.png`는 자동 적용 실패 시 수동으로 선택할 사본이다. GitHub 원본
-URL을 사용할 때는 이미지 커밋을 먼저 원격 브랜치에 push해야 한다.
+CurseForge 프로필 이미지는 `manifest.json`의 `image` 필드에 ZIP 최상위 기준
+상대 경로인 `icon.png`로 기록한다. CurseForge import 서비스는 ZIP을 푼 임시
+폴더와 이 값을 함께 이미지 경로 해석기에 전달한다. 공개된 CurseForge 모드팩은
+ForgeCDN URL을 사용하기도 하지만, 사설 빌드에서는 ZIP에 포함된 상대 경로를
+사용해야 별도 업로드 없이 재현할 수 있다. `overrides/icon.png`는 수동 선택용
+사본이다.
 
 빌더는 생성 직후 다음 항목을 검사한다.
 
 - `manifest.json`과 `overrides/`가 ZIP 최상위에 있는가
-- manifest의 `image`가 HTTPS URL인가
+- manifest의 `image`가 최상위 `icon.png`를 가리키는가
 - 두 `icon.png`가 프로필 원본과 일치하고 최소 크기·정사각형 조건을 만족하는가
 - ZIP 엔트리에 절대 경로, `..` 또는 Windows 구분자가 없는가
 - Minecraft와 NeoForge 버전이 스모크 프로필과 일치하는가

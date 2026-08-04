@@ -9,7 +9,6 @@ import sys
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
-from urllib.parse import urlparse
 
 
 PROFILE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -89,7 +88,6 @@ def load_profile(root: Path, profile_path: Path) -> dict[str, Any]:
         "purpose",
         "notice",
         "icon",
-        "image_url",
         "overrides_directory",
         "output",
     ):
@@ -144,11 +142,6 @@ def load_profile(root: Path, profile_path: Path) -> dict[str, Any]:
         raise PackError("아이콘 파일 확장자는 .png여야 합니다.")
     _png_dimensions(icon.read_bytes(), "팩 아이콘")
 
-    image_url = profile["image_url"]
-    parsed_image_url = urlparse(image_url)
-    if parsed_image_url.scheme != "https" or not parsed_image_url.netloc:
-        raise PackError("$.image_url은 공개적으로 접근 가능한 HTTPS URL이어야 합니다.")
-
     profile["_profile_path"] = path
     profile["_overrides_path"] = overrides
     profile["_output_path"] = output
@@ -174,7 +167,7 @@ def manifest_for(profile: dict[str, Any]) -> dict[str, Any]:
         "name": profile["name"],
         "version": profile["version"],
         "author": profile["author"],
-        "image": profile["image_url"],
+        "image": "icon.png",
         "files": profile["files"],
         "overrides": "overrides",
     }
@@ -224,7 +217,6 @@ def build_pack(root: Path, profile_path: Path) -> Path:
         "production_ready": profile["production_ready"],
         "notice": profile["notice"],
         "icon": "icon.png",
-        "image_url": profile["image_url"],
         "minecraft": manifest["minecraft"],
     }
 

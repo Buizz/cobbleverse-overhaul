@@ -65,8 +65,8 @@ build.bat pack-smoke
 성공하면 다음 파일이 생성됩니다.
 
 ```text
-dist/cobbleventure-import-smoke-0.1.0-curseforge.zip
-dist/cobbleventure-import-smoke-0.1.0-curseforge.zip.sha256
+dist/cobbleventure-import-smoke-0.1.1-curseforge.zip
+dist/cobbleventure-import-smoke-0.1.1-curseforge.zip.sha256
 ```
 
 스모크 팩에는 다음 항목만 들어 있습니다.
@@ -84,17 +84,16 @@ CurseForge 앱에서 다음 순서로 가져옵니다.
 
 1. Minecraft 화면에서 `Import`를 선택합니다.
 2. `Import Profile .zip` 또는 `Choose .zip file`을 선택합니다.
-3. `dist/cobbleventure-import-smoke-0.1.0-curseforge.zip`을 선택합니다.
+3. `dist/cobbleventure-import-smoke-0.1.1-curseforge.zip`을 선택합니다.
 4. `Cobbleventure Import Smoke Test` 프로필이 생성되는지 확인합니다.
 5. 프로필 상세에서 Minecraft 1.21.1과 NeoForge가 선택되었는지 확인합니다.
 6. 테스트 아이콘이 프로필 이미지로 적용되는지 확인합니다.
 7. 가능하면 게임을 한 번 실행해 빈 NeoForge 프로필이 정상 시작되는지 확인합니다.
 
 임포트된 인스턴스의 `config/cobbleventure-import-smoke.txt`가 존재하면
-`overrides`도 정상 적용된 것입니다. CurseForge에서 내보낸 실제 모드팩과 동일하게
-`manifest.json`의 `image`에는 공개 HTTPS 이미지 URL을 기록합니다. 현재 URL은
-GitHub `main` 브랜치의 생성 아이콘을 가리키므로 해당 커밋이 원격에 push되어야
-임포트 시 다운로드할 수 있습니다. ZIP 안의 `overrides/icon.png`는 수동 지정용
+`overrides`도 정상 적용된 것입니다. `manifest.json`의 `image`는 ZIP 최상위의
+`icon.png`를 상대 경로로 가리킵니다. CurseForge는 import 임시 폴더에서 이 파일을
+찾아 프로필 이미지로 복사합니다. ZIP 안의 `overrides/icon.png`는 수동 지정용
 사본입니다. CurseForge의 공식 임포트 화면과 오류 기준은
 [Sharing Modpacks/Custom Profiles](https://support.curseforge.com/support/solutions/articles/9000197912)를
 참고합니다.
@@ -110,8 +109,8 @@ build.bat pack
 이 명령은 일반 콘텐츠 검증을 먼저 통과한 뒤 다음 파일을 생성합니다.
 
 ```text
-dist/cobbleventure-development-0.1.0-curseforge.zip
-dist/cobbleventure-development-0.1.0-curseforge.zip.sha256
+dist/cobbleventure-development-0.1.1-curseforge.zip
+dist/cobbleventure-development-0.1.1-curseforge.zip.sha256
 ```
 
 현재 개발 팩도 CurseForge에서 임포트할 수 있지만 Cobblemon, RCT와 자체
