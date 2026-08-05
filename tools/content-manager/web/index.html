@@ -46,12 +46,22 @@
 
       <section class="page" id="trainers">
         <div class="workspace-grid">
-          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">TRAINER BUNDLES</p><h2>트레이너 목록</h2></div><span class="count-pill" id="trainer-list-count">0</span></div><div id="trainer-list" class="list-body"></div></aside>
+          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">TRAINER BUNDLES</p><h2>트레이너 목록</h2></div><div class="list-tools"><span class="count-pill" id="trainer-list-count">0</span><button class="mini-button" data-create="trainers">＋</button></div></div><div id="trainer-list" class="list-body"></div></aside>
           <div class="editor panel">
             <div class="panel-heading"><div><p class="eyebrow">NORMALIZED JSON</p><h2 id="trainer-editor-title">트레이너를 선택하세요</h2></div><span class="path-label" id="trainer-path">—</span></div>
-            <div class="notice">1차 버전에서는 전체 구조를 잃지 않도록 JSON 편집기를 제공합니다. 이후 팀·대화 전용 폼을 추가합니다.</div>
-            <label class="field-label" for="trainer-json">트레이너 JSON</label>
-            <textarea class="code-editor" id="trainer-json" spellcheck="false" disabled></textarea>
+            <form id="trainer-form" class="form-grid trainer-form">
+              <label class="wide"><span>트레이너 ID</span><input name="id" readonly disabled></label>
+              <label><span>한국어 이름</span><input name="nameKo" disabled></label>
+              <label><span>영문 이름</span><input name="nameEn" disabled></label>
+              <label class="wide"><span>태그 — 쉼표로 구분</span><input name="tags" disabled></label>
+              <fieldset class="wide"><legend>NPC 행동</legend><label><span>이동 방식</span><select name="movement" disabled><option value="stationary">고정</option><option value="wander">제한 배회</option><option value="patrol">순찰</option></select></label><label><span>상호작용 거리</span><input type="number" min="0.5" step="0.5" name="interactionRange" disabled></label><label class="toggle"><input type="checkbox" name="lookAtPlayer" disabled><span>플레이어 바라보기</span></label><label class="toggle"><input type="checkbox" name="invulnerable" disabled><span>피해 면역</span></label></fieldset>
+              <fieldset class="wide"><legend>마을 배치</legend><label><span>지역 ID</span><input name="region" disabled></label><label><span>마을 ID</span><input name="settlement" disabled></label><label><span>앵커 ID</span><input name="anchor" disabled></label><label><span>회전</span><input type="number" step="1" name="rotation" disabled></label><label><span>생성 정책</span><select name="spawnPolicy" disabled><option value="persistent">항상 유지</option><option value="on_region_load">지역 로딩</option><option value="manual">수동 생성</option></select></label></fieldset>
+              <fieldset class="wide"><legend>전투 설정</legend><label><span>배틀 포맷</span><input name="battleFormat" disabled></label><label><span>전투 방식</span><select name="battleType" disabled><option value="singles">싱글</option><option value="doubles">더블</option></select></label><label><span>AI 프로필</span><input name="battleAi" disabled></label><label><span>레벨 방식</span><select name="levelMode" disabled><option value="fixed">고정</option><option value="scale_to_player">플레이어에 맞춤</option><option value="cap_to_player">플레이어 상한</option></select></label></fieldset>
+              <fieldset class="wide mechanic-options"><legend>특수 기믹 허용</legend><label class="toggle"><input type="checkbox" name="megaEvolution" disabled><span>메가진화</span></label><label class="toggle"><input type="checkbox" name="zMove" disabled><span>Z기술</span></label><label class="toggle"><input type="checkbox" name="dynamax" disabled><span>다이맥스</span></label><label class="toggle"><input type="checkbox" name="terastallization" disabled><span>테라스탈</span></label></fieldset>
+            </form>
+            <div class="subsection-heading"><div><p class="eyebrow">BATTLE TEAM</p><h3>포켓몬 팀</h3></div><button class="button secondary" id="add-pokemon" disabled>포켓몬 추가</button></div>
+            <div id="team-list" class="team-list"><div class="issues empty">트레이너를 선택하면 팀이 표시됩니다.</div></div>
+            <details class="advanced"><summary>대화·진행을 포함한 전체 JSON 편집</summary><textarea class="code-editor compact" id="trainer-json" spellcheck="false" disabled></textarea><button class="button text-button" id="apply-trainer-json" disabled>JSON을 편집 폼에 반영</button></details>
             <div class="editor-actions"><button class="button secondary" id="validate-trainer" disabled>문서 검증</button><button class="button primary" id="save-trainer" disabled>검증 후 저장</button></div>
             <div id="trainer-issues" class="issues empty">편집할 트레이너를 선택하세요.</div>
           </div>
@@ -60,7 +70,7 @@
 
       <section class="page" id="settlements">
         <div class="workspace-grid">
-          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">SETTLEMENTS</p><h2>마을 목록</h2></div><span class="count-pill" id="settlement-list-count">0</span></div><div id="settlement-list" class="list-body"></div></aside>
+          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">SETTLEMENTS</p><h2>마을 목록</h2></div><div class="list-tools"><span class="count-pill" id="settlement-list-count">0</span><button class="mini-button" data-create="settlements">＋</button></div></div><div id="settlement-list" class="list-body"></div></aside>
           <div class="editor panel">
             <div class="panel-heading"><div><p class="eyebrow">BASIC SETTINGS</p><h2 id="settlement-editor-title">마을을 선택하세요</h2></div><span class="path-label" id="settlement-path">—</span></div>
             <form id="settlement-form" class="form-grid">
@@ -91,6 +101,17 @@
         </div>
       </section>
     </main>
+    <dialog id="create-dialog" class="create-dialog">
+      <form method="dialog" id="create-form">
+        <div class="dialog-heading"><div><p class="eyebrow">NEW DOCUMENT</p><h2 id="create-title">새 문서</h2></div><button class="dialog-close" id="create-close" type="button" aria-label="닫기">×</button></div>
+        <input type="hidden" name="category">
+        <label><span>파일 ID</span><input name="slug" pattern="[a-z0-9][a-z0-9_]*" placeholder="route_01_trainer" required><small>소문자, 숫자와 밑줄만 사용합니다.</small></label>
+        <label><span>한국어 이름</span><input name="name" placeholder="첫 번째 트레이너" required></label>
+        <label id="generation-field"><span>세대 디렉터리</span><input name="generation" value="generation_1" pattern="[a-z0-9][a-z0-9_]*" required></label>
+        <div class="dialog-actions"><button class="button secondary" id="create-cancel" type="button">취소</button><button class="button primary" type="submit" id="create-submit">생성</button></div>
+        <div id="create-issues" class="issues empty"></div>
+      </form>
+    </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="/app.js"></script>
   </body>

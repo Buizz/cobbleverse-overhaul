@@ -74,7 +74,9 @@ http://127.0.0.1:8765
 브라우저에서 기본 주소를 열면 다음 기능을 사용할 수 있다.
 
 - 저장소 검증 현황과 트레이너·마을 수 확인
-- 트레이너 번들 JSON 조회, 검증과 저장
+- 새 트레이너·마을의 유효한 기본 JSON 생성
+- 트레이너 기본 정보, NPC 행동, 배치, 전투 설정과 최대 6마리 팀 편집
+- 대화·진행과 IV·EV 등 전체 트레이너 JSON 고급 편집
 - 마을 이름, 지역, 차원, 중심, 경계와 기본 NPC 배치 수치 편집
 - 전체 마을 JSON 고급 편집
 - 허용된 `build.bat` 검사·테스트·패키징 명령 실행과 결과 확인
@@ -121,6 +123,7 @@ python tools/content-manager/content_manager.py api --root .
 - `GET /api/trainers?path=...`, `GET /api/settlements?path=...`: 단일 문서 조회
 - `PUT /api/trainers?path=...`, `PUT /api/settlements?path=...`: 검증 후 문서 저장
 - `POST /api/document-validation?category=...`: 저장하지 않고 문서 검증
+- `POST /api/documents`: 유효한 기본값으로 새 트레이너 또는 마을 생성
 - `POST /api/build`: 허용 목록에 있는 빌드 명령 실행
 
 응답은 UTF-8 JSON이다. Web API는 로컬 제작 도구용이며 인증 없이 외부
@@ -141,5 +144,5 @@ python tools/content-manager/content_manager.py api --root .
 `content/source/examples`에서 확인한다. 저장소 내 다른 JSON의 역할과 편집 여부는
 [JSON 데이터 카탈로그](../../docs/JSON_CATALOG.md)에 정리되어 있다.
 
-트레이너 팀·대화 전용 폼, 새 문서 생성, Excel 가져오기와 대상별 출력기는 다음
-개발 단계에서 같은 도구에 추가한다.
+대화 그래프 전용 편집기, 마을 배치 슬롯 전용 폼, Excel 가져오기와 대상별
+출력기는 다음 개발 단계에서 같은 도구에 추가한다.

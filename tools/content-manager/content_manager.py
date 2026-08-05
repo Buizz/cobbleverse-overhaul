@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 RESOURCE_ID = re.compile(r"^[a-z0-9_.-]+:[a-z0-9_./-]+$")
 MOD_ID = re.compile(r"^[a-z][a-z0-9_-]*$")
 CHOICE_ID = re.compile(r"^[a-z0-9_.-]+$")
+DOCUMENT_SLUG = re.compile(r"^[a-z0-9][a-z0-9_]*$")
 LANGUAGE_ID = re.compile(r"^[a-z]{2}_[a-z]{2}$")
 STAT_NAMES = {
     "hp",
@@ -881,6 +882,172 @@ def _save_document(
     return target, issues
 
 
+def _trainer_template(slug: str, name: str) -> dict[str, Any]:
+    trainer_id = f"cobbleventure:trainer/{slug}"
+    dialogue_id = f"cobbleventure:dialogue/{slug}/greeting"
+    victory_flag = f"cobbleventure:flag/trainer/{slug}/defeated"
+    return {
+        "$schema": "../../schemas/content-bundle.schema.json",
+        "schema_version": 1,
+        "id": trainer_id,
+        "enabled": True,
+        "name": {"ko_kr": name},
+        "description": {"ko_kr": f"{name} 트레이너 콘텐츠입니다."},
+        "tags": ["trainer"],
+        "npc": {
+            "display_name": {"ko_kr": name},
+            "appearance": {
+                "type": "skin",
+                "resource": f"cobbleventure:npc/{slug}",
+                "portrait": f"cobbleventure:gui/portrait/{slug}",
+            },
+            "behavior": {
+                "movement": "stationary",
+                "look_at_player": True,
+                "interaction_range": 4.0,
+                "invulnerable": True,
+                "collision": True,
+            },
+        },
+        "placement": {
+            "region": "cobbleventure:generation_1/region_01",
+            "settlement": "cobbleventure:settlement/starter_town",
+            "anchor": f"cobbleventure:anchor/{slug}",
+            "offset": {"x": 0, "y": 0, "z": 0},
+            "rotation": 0,
+            "spawn_policy": "persistent",
+        },
+        "battle": {
+            "trainer_id": trainer_id,
+            "format": "GEN_9_SINGLES",
+            "battle_type": "singles",
+            "ai": "cobbleventure:ai/balanced",
+            "level_mode": "fixed",
+            "rules": {},
+            "bag": [],
+            "mechanics": {
+                "mega_evolution": False,
+                "z_move": False,
+                "dynamax": False,
+                "terastallization": False,
+            },
+            "team": [
+                {
+                    "species": "cobblemon:rattata",
+                    "level": 5,
+                    "form": None,
+                    "gender": "random",
+                    "nature": None,
+                    "ability": None,
+                    "held_item": None,
+                    "moves": ["tackle"],
+                    "ivs": {},
+                    "evs": {},
+                    "tera_type": None,
+                    "shiny": False,
+                    "gigantamax_factor": False,
+                }
+            ],
+        },
+        "dialogue": {
+            "entry": dialogue_id,
+            "nodes": [
+                {
+                    "id": dialogue_id,
+                    "speaker": "npc",
+                    "text": {"ko_kr": f"안녕! 나는 {name}(이)야. 승부할래?"},
+                    "conditions": [],
+                    "actions": [],
+                    "choices": [
+                        {
+                            "id": "battle",
+                            "text": {"ko_kr": "승부한다"},
+                            "conditions": [],
+                            "actions": [
+                                {"type": "start_battle", "trainer": trainer_id}
+                            ],
+                        },
+                        {
+                            "id": "cancel",
+                            "text": {"ko_kr": "다음에"},
+                            "conditions": [],
+                            "actions": [{"type": "close_dialogue"}],
+                        },
+                    ],
+                }
+            ],
+        },
+        "progression": {
+            "requirements": [],
+            "victory_flag": victory_flag,
+            "rematch": {"enabled": True, "cooldown_ticks": 0},
+            "dialogue_routes": [
+                {"when": {"type": "always"}, "entry": dialogue_id}
+            ],
+        },
+        "outcomes": {
+            "on_player_win": {
+                "actions": [
+                    {"type": "set_flag", "key": victory_flag, "value": True}
+                ]
+            },
+            "on_player_loss": {"actions": []},
+        },
+    }
+
+
+def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any]:
+    return {
+        "$schema": "../../schemas/settlement.schema.json",
+        "schema_version": 1,
+        "id": f"cobbleventure:settlement/{slug}",
+        "enabled": True,
+        "display_name": {"ko_kr": name},
+        "region": f"cobbleventure:{generation}/region_01",
+        "dimension": f"cobbleventure:{generation}",
+        "bounds": {"min_x": -32, "min_z": -32, "max_x": 32, "max_z": 32},
+        "center": {"x": 0, "y": 64, "z": 0},
+        "anchors": {"town_square": {"x": 0, "y": 64, "z": 0}},
+        "npc_placement": {
+            "max_ambient_npcs": 8,
+            "default_wander_radius": 5,
+            "trainer_slots": [],
+            "zones": [],
+        },
+    }
+
+
+def _create_document(
+    root: Path, category: str, slug: str, name: str, generation: str = "generation_1"
+) -> tuple[Path | None, list[Issue]]:
+    if category not in {"trainers", "settlements"}:
+        return None, [Issue("error", "", "$.category", "지원하지 않는 문서 종류입니다.")]
+    if not DOCUMENT_SLUG.fullmatch(slug):
+        return None, [
+            Issue(
+                "error",
+                "",
+                "$.slug",
+                "파일 ID는 소문자, 숫자와 밑줄만 사용할 수 있습니다.",
+            )
+        ]
+    if not name.strip():
+        return None, [Issue("error", "", "$.name", "한국어 이름이 필요합니다.")]
+    if not DOCUMENT_SLUG.fullmatch(generation):
+        return None, [Issue("error", "", "$.generation", "올바른 세대 ID가 아닙니다.")]
+
+    if category == "trainers":
+        relative_path = f"content/source/trainers/{slug}.json"
+        document = _trainer_template(slug, name.strip())
+    else:
+        relative_path = f"content/settlements/{generation}/{slug}.json"
+        document = _settlement_template(slug, name.strip(), generation)
+    target = (root / relative_path).resolve()
+    if target.exists():
+        return target, [Issue("error", target.as_posix(), "$", "같은 이름의 파일이 이미 존재합니다.")]
+    return _save_document(root, category, relative_path, document)
+
+
 def _run_build(root: Path, command: str) -> dict[str, Any]:
     if command not in BUILD_COMMANDS:
         raise ValueError("허용되지 않은 빌드 명령입니다.")
@@ -1067,6 +1234,30 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     {
                         "valid": errors == 0,
                         "errors": errors,
+                        "issues": [asdict(issue) for issue in issues],
+                    },
+                )
+                return
+            if request.path == "/api/documents":
+                if not isinstance(payload, dict):
+                    self._json(400, {"error": "문서 생성 정보가 필요합니다."})
+                    return
+                category = payload.get("category")
+                slug = payload.get("slug")
+                name = payload.get("name")
+                generation = payload.get("generation", "generation_1")
+                if not all(isinstance(value, str) for value in (category, slug, name, generation)):
+                    self._json(400, {"error": "문서 종류, 파일 ID와 이름을 문자열로 입력해야 합니다."})
+                    return
+                target, issues = _create_document(
+                    root, category, slug, name, generation
+                )
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(
+                    201 if errors == 0 else 422,
+                    {
+                        "created": errors == 0,
+                        "path": target.relative_to(root).as_posix() if target else "",
                         "issues": [asdict(issue) for issue in issues],
                     },
                 )

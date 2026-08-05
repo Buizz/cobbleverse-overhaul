@@ -101,11 +101,142 @@ async function loadDocument(category, path) {
 
 function renderTrainer() {
   const document = state.trainer;
+  const form = $("#trainer-form");
   $("#trainer-editor-title").textContent = document.name?.ko_kr || document.id;
   $("#trainer-path").textContent = state.trainerPath;
+  setFormValue(form, "id", document.id);
+  setFormValue(form, "nameKo", document.name?.ko_kr);
+  setFormValue(form, "nameEn", document.name?.en_us);
+  setFormValue(form, "tags", (document.tags || []).join(", "));
+  setFormValue(form, "movement", document.npc?.behavior?.movement);
+  setFormValue(form, "interactionRange", document.npc?.behavior?.interaction_range);
+  setFormValue(form, "lookAtPlayer", document.npc?.behavior?.look_at_player);
+  setFormValue(form, "invulnerable", document.npc?.behavior?.invulnerable);
+  setFormValue(form, "region", document.placement?.region);
+  setFormValue(form, "settlement", document.placement?.settlement);
+  setFormValue(form, "anchor", document.placement?.anchor);
+  setFormValue(form, "rotation", document.placement?.rotation);
+  setFormValue(form, "spawnPolicy", document.placement?.spawn_policy);
+  setFormValue(form, "battleFormat", document.battle?.format);
+  setFormValue(form, "battleType", document.battle?.battle_type);
+  setFormValue(form, "battleAi", document.battle?.ai);
+  setFormValue(form, "levelMode", document.battle?.level_mode);
+  setFormValue(form, "megaEvolution", document.battle?.mechanics?.mega_evolution);
+  setFormValue(form, "zMove", document.battle?.mechanics?.z_move);
+  setFormValue(form, "dynamax", document.battle?.mechanics?.dynamax);
+  setFormValue(form, "terastallization", document.battle?.mechanics?.terastallization);
+  [...form.elements].forEach((element) => element.disabled = false);
+  renderTeam();
   $("#trainer-json").value = JSON.stringify(document, null, 2);
-  ["#trainer-json", "#validate-trainer", "#save-trainer"].forEach((selector) => $(selector).disabled = false);
+  ["#trainer-json", "#apply-trainer-json", "#add-pokemon", "#validate-trainer", "#save-trainer"].forEach((selector) => $(selector).disabled = false);
   showIssues("#trainer-issues", { valid: true, issues: [] });
+}
+
+function updateTrainerFromForm() {
+  if (!state.trainer) return;
+  const form = $("#trainer-form");
+  const name = { ...(state.trainer.name || {}), ko_kr: form.elements.nameKo.value };
+  if (form.elements.nameEn.value.trim()) name.en_us = form.elements.nameEn.value;
+  else delete name.en_us;
+  state.trainer.name = name;
+  state.trainer.npc.display_name = { ...name };
+  state.trainer.tags = form.elements.tags.value.split(",").map((tag) => tag.trim()).filter(Boolean);
+  Object.assign(state.trainer.npc.behavior, {
+    movement: form.elements.movement.value,
+    interaction_range: Number(form.elements.interactionRange.value),
+    look_at_player: form.elements.lookAtPlayer.checked,
+    invulnerable: form.elements.invulnerable.checked
+  });
+  Object.assign(state.trainer.placement, {
+    region: form.elements.region.value,
+    settlement: form.elements.settlement.value,
+    anchor: form.elements.anchor.value,
+    rotation: Number(form.elements.rotation.value),
+    spawn_policy: form.elements.spawnPolicy.value
+  });
+  Object.assign(state.trainer.battle, {
+    format: form.elements.battleFormat.value,
+    battle_type: form.elements.battleType.value,
+    ai: form.elements.battleAi.value,
+    level_mode: form.elements.levelMode.value
+  });
+  Object.assign(state.trainer.battle.mechanics, {
+    mega_evolution: form.elements.megaEvolution.checked,
+    z_move: form.elements.zMove.checked,
+    dynamax: form.elements.dynamax.checked,
+    terastallization: form.elements.terastallization.checked
+  });
+  syncTrainerJson();
+}
+
+function pokemonTemplate() {
+  return {
+    species: "cobblemon:rattata", level: 5, form: null, gender: "random",
+    nature: null, ability: null, held_item: null, moves: ["tackle"], ivs: {}, evs: {},
+    tera_type: null, shiny: false, gigantamax_factor: false
+  };
+}
+
+function renderTeam() {
+  const team = state.trainer?.battle?.team || [];
+  const list = $("#team-list");
+  if (!team.length) {
+    list.innerHTML = '<div class="issues empty">포켓몬을 한 마리 이상 추가해야 합니다.</div>';
+    return;
+  }
+  list.innerHTML = team.map((pokemon, index) => `
+    <article class="pokemon-card" data-index="${index}">
+      <div class="pokemon-heading"><strong>#${index + 1} ${escapeHtml(pokemon.species || "포켓몬")}</strong><button class="remove-pokemon" type="button" data-remove="${index}">팀에서 제거</button></div>
+      <div class="pokemon-fields">
+        <label><span>종 ID</span><input name="species" value="${escapeHtml(pokemon.species || "")}"></label>
+        <label><span>레벨</span><input type="number" min="1" max="100" name="level" value="${escapeHtml(pokemon.level ?? 5)}"></label>
+        <label><span>성별</span><select name="gender"><option value="random" ${pokemon.gender === "random" ? "selected" : ""}>무작위</option><option value="male" ${pokemon.gender === "male" ? "selected" : ""}>수컷</option><option value="female" ${pokemon.gender === "female" ? "selected" : ""}>암컷</option><option value="genderless" ${pokemon.gender === "genderless" ? "selected" : ""}>무성</option></select></label>
+        <label><span>성격</span><input name="nature" value="${escapeHtml(pokemon.nature || "")}" placeholder="비우면 자동"></label>
+        <label><span>특성</span><input name="ability" value="${escapeHtml(pokemon.ability || "")}" placeholder="비우면 자동"></label>
+        <label><span>소지품 ID</span><input name="heldItem" value="${escapeHtml(pokemon.held_item || "")}" placeholder="비우면 없음"></label>
+        <label class="moves"><span>기술 — 쉼표로 구분</span><input name="moves" value="${escapeHtml((pokemon.moves || []).join(", "))}"></label>
+        <label><span>테라 타입</span><input name="teraType" value="${escapeHtml(pokemon.tera_type || "")}" placeholder="비우면 없음"></label>
+        <div class="pokemon-toggles"><label><input type="checkbox" name="shiny" ${pokemon.shiny ? "checked" : ""}>이로치</label><label><input type="checkbox" name="gigantamax" ${pokemon.gigantamax_factor ? "checked" : ""}>거다이맥스</label></div>
+      </div>
+    </article>`).join("");
+  $$("#team-list .pokemon-card input, #team-list .pokemon-card select").forEach((input) => input.addEventListener("input", updateTeamFromCards));
+  $$("[data-remove]").forEach((button) => button.addEventListener("click", () => removePokemon(Number(button.dataset.remove))));
+}
+
+function updateTeamFromCards() {
+  $$("#team-list .pokemon-card").forEach((card) => {
+    const pokemon = state.trainer.battle.team[Number(card.dataset.index)];
+    const value = (name) => card.querySelector(`[name="${name}"]`).value.trim();
+    Object.assign(pokemon, {
+      species: value("species"), level: Number(value("level")),
+      gender: value("gender"), nature: value("nature") || null,
+      ability: value("ability") || null, held_item: value("heldItem") || null,
+      moves: value("moves").split(",").map((move) => move.trim()).filter(Boolean),
+      tera_type: value("teraType") || null,
+      shiny: card.querySelector('[name="shiny"]').checked,
+      gigantamax_factor: card.querySelector('[name="gigantamax"]').checked
+    });
+  });
+  syncTrainerJson();
+}
+
+function addPokemon() {
+  if (!state.trainer) return;
+  if (state.trainer.battle.team.length >= 6) { toast("팀은 최대 6마리까지 구성할 수 있습니다."); return; }
+  state.trainer.battle.team.push(pokemonTemplate());
+  renderTeam();
+  syncTrainerJson();
+}
+
+function removePokemon(index) {
+  if (state.trainer.battle.team.length <= 1) { toast("팀에는 포켓몬이 한 마리 이상 필요합니다."); return; }
+  state.trainer.battle.team.splice(index, 1);
+  renderTeam();
+  syncTrainerJson();
+}
+
+function syncTrainerJson() {
+  $("#trainer-json").value = JSON.stringify(state.trainer, null, 2);
 }
 
 function setFormValue(form, name, value) {
@@ -181,6 +312,43 @@ async function saveDocument(category) {
   if (category === "settlements") renderSettlement(); else renderTrainer();
 }
 
+function openCreateDialog(category) {
+  const form = $("#create-form");
+  form.reset();
+  form.elements.category.value = category;
+  form.elements.generation.value = "generation_1";
+  $("#create-title").textContent = category === "trainers" ? "새 트레이너" : "새 마을";
+  $("#generation-field").hidden = category === "trainers";
+  $("#create-issues").className = "issues empty";
+  $("#create-issues").textContent = "";
+  $("#create-dialog").showModal();
+  form.elements.slug.focus();
+}
+
+async function createDocument(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  const payload = {
+    category: form.elements.category.value,
+    slug: form.elements.slug.value,
+    name: form.elements.name.value,
+    generation: form.elements.generation.value
+  };
+  $("#create-submit").disabled = true;
+  try {
+    const result = await request("/api/documents", { method: "POST", body: JSON.stringify(payload) });
+    if (!result.ok) { showIssues("#create-issues", result.data); return; }
+    $("#create-dialog").close();
+    await Promise.all([loadDashboard(), loadLists()]);
+    switchPage(payload.category);
+    await loadDocument(payload.category, result.data.path);
+    toast(payload.category === "trainers" ? "새 트레이너를 만들었습니다." : "새 마을을 만들었습니다.");
+  } finally {
+    $("#create-submit").disabled = false;
+  }
+}
+
 function renderBuildCommands() {
   const descriptions = {
     validate: "모든 콘텐츠와 의존성 Lock을 빠르게 검사합니다.", test: "콘텐츠 관리와 패키징 회귀 테스트를 실행합니다.",
@@ -226,9 +394,16 @@ $("#refresh-button").addEventListener("click", refreshAll);
 $("#validate-repository").addEventListener("click", loadDashboard);
 $("#validate-trainer").addEventListener("click", () => validateDocument("trainers"));
 $("#save-trainer").addEventListener("click", () => saveDocument("trainers"));
+$("#trainer-form").addEventListener("input", updateTrainerFromForm);
+$("#add-pokemon").addEventListener("click", addPokemon);
+$("#apply-trainer-json").addEventListener("click", () => { const document = parseEditor("#trainer-json"); if (document) { state.trainer = document; renderTrainer(); toast("JSON을 편집 폼에 반영했습니다."); } });
 $("#validate-settlement").addEventListener("click", () => validateDocument("settlements"));
 $("#save-settlement").addEventListener("click", () => saveDocument("settlements"));
 $("#settlement-form").addEventListener("input", updateSettlementFromForm);
 $("#apply-settlement-json").addEventListener("click", () => { const document = parseEditor("#settlement-json"); if (document) { state.settlement = document; renderSettlement(); toast("JSON을 기본 설정에 반영했습니다."); } });
+$$('[data-create]').forEach((button) => button.addEventListener("click", () => openCreateDialog(button.dataset.create)));
+$("#create-form").addEventListener("submit", createDocument);
+$("#create-close").addEventListener("click", () => $("#create-dialog").close());
+$("#create-cancel").addEventListener("click", () => $("#create-dialog").close());
 
 refreshAll();

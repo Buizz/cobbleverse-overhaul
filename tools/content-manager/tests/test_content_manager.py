@@ -128,6 +128,33 @@ class ContentManagerTests(unittest.TestCase):
             self.assertTrue(any("마을 경계 안" in issue.message for issue in issues))
             self.assertEqual(source, content_manager.load_json(target))
 
+    def test_new_trainer_template_is_valid(self) -> None:
+        template = content_manager._trainer_template("route_01", "길목 트레이너")
+        content_id, issues = content_manager._validate_payload(
+            template, content_manager.validate_content_file
+        )
+        self.assertEqual("cobbleventure:trainer/route_01", content_id)
+        self.assertEqual([], issues)
+
+    def test_create_document_writes_valid_template_and_rejects_duplicate(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            trainer_path, trainer_issues = content_manager._create_document(
+                root, "trainers", "route_01", "길목 트레이너"
+            )
+            settlement_path, settlement_issues = content_manager._create_document(
+                root, "settlements", "forest_town", "숲 마을", "generation_1"
+            )
+            self.assertEqual([], trainer_issues)
+            self.assertEqual([], settlement_issues)
+            self.assertTrue(trainer_path.is_file())
+            self.assertTrue(settlement_path.is_file())
+
+            _, duplicate_issues = content_manager._create_document(
+                root, "trainers", "route_01", "중복 트레이너"
+            )
+            self.assertTrue(any("이미 존재" in issue.message for issue in duplicate_issues))
+
     def test_strict_pack_rejects_draft_lock(self) -> None:
         root = Path(__file__).parents[3]
         issues = content_manager.validate_dependency_lock(
@@ -195,6 +222,37 @@ class ContentManagerTests(unittest.TestCase):
             thread.join(timeout=2)
         runner.assert_called_once_with(root.resolve(), "validate")
         self.assertTrue(payload["success"])
+
+    def test_document_creation_api(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            server = content_manager.ThreadingHTTPServer(
+                ("127.0.0.1", 0), content_manager.create_handler(root)
+            )
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/documents",
+                    data=json.dumps(
+                        {
+                            "category": "trainers",
+                            "slug": "api_trainer",
+                            "name": "API 트레이너",
+                            "generation": "generation_1",
+                        }
+                    ).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request) as response:
+                    payload = json.load(response)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+            self.assertTrue(payload["created"])
+            self.assertTrue((root / payload["path"]).is_file())
 
 
 if __name__ == "__main__":
