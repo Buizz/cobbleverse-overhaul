@@ -829,6 +829,14 @@ Cobbleventure는 특정 모드팩의 확장 계층이 아니다. Cobblemon과 �
 | [본가식 가방 인벤토리](implementation/BAG_INVENTORY.md) | 포켓별 UI, 서버 권위 저장과 차원별 포켓 제한 | 기준 설계 |
 | [비전머신과 포켓몬 탑승 이동](implementation/HM_TRAVERSAL.md) | 3안의 탑승 권한, 공중날기와 파도타기 | 기준 설계 |
 | [월드 초기화 및 지역 경계](implementation/WORLD_BOOTSTRAP_REGIONS.md) | 청크 사전 생성, 지역 그래프, 경계와 관문 검사 | 기술 조사 진행 |
+| [1세대 시작 지역 통합 구현 계획](implementation/GENERATION_ONE_BATCH_IMPLEMENTATION.md) | 마을별 바이옴·벽·건물·규모·안전층과 트레이너 타입의 구현 순서 | 구현 대기 |
+| [바이옴 카탈로그와 지역 생성 체계](implementation/BIOME_REGION_SYSTEM.md) | 데이터 기반 BiomeSource와 생성 좌표 단일화 | 구현 예정 |
+| [마을별 바이옴 범위와 경계 벽](implementation/SETTLEMENT_BIOME_BOUNDARIES.md) | 내부·주변 바이옴, 완충 지대, 물리 벽과 관문 | 구현 예정 |
+| [무지하 차원의 안전 기반층](implementation/SAFE_SURFACE_FOUNDATION.md) | 10층 기반암과 공허 낙하 복구 | 구현 예정 |
+| [마을별 건축 디자인과 건축 키트](implementation/SETTLEMENT_BUILDING_KITS.md) | 마을별 팔레트와 역할별 자체 구조물 | 구현 예정 |
+| [마을 규모와 배치 계획](implementation/SETTLEMENT_SCALE_LAYOUT.md) | 대형 시작 마을의 도로·시설·부지 계획 | 구현 예정 |
+| [트레이너 타입 분류 체계](implementation/TRAINER_TYPE_SYSTEM.md) | 클래스·전략·난이도·마을 역할의 독립 관리 | 데이터 계약 예정 |
+| [마을 중심 트레이너 배치 계획](implementation/SETTLEMENT_TRAINER_PLACEMENT.md) | 마을 슬롯·구역·인구 예산 기반 NPC 배치 | 후속 구현 예정 |
 | [진행 및 콘텐츠 해금](implementation/PROGRESSION.md) | 지역, 관장, 배지, 포켓몬 해금 상태와 이벤트 | 개요 작성 |
 | [트레이너 및 전투](implementation/TRAINER_BATTLE.md) | 영구 NPC, 트레이너 팀, AI 계층, 재대결 | 개요 작성 |
 | [Cobbleventure Core](../projects/cobbleventure-core/README.md) | 게임 비의존 지역 계약, JSON 로딩과 의미·교차 참조 검증 | 지역 계약 착수 |

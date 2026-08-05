@@ -23,6 +23,14 @@
 | [보호형 서바이벌 필드와 재생 자원](PROTECTED_SURVIVAL_RESOURCES.md) | 필드 권한, 작물 수확, 특수 던전 광물 노드와 자연 동굴 대체 | 기준 설계 |
 | [공용 인스턴스 차원과 상태 변화 건물](INSTANCED_SPACES.md) | 레이드 덴식 슬롯, 임시 전투장과 스토리 단계별 집·건물 내부 | 기술 참고안 |
 | [월드 초기화 및 지역 경계](WORLD_BOOTSTRAP_REGIONS.md) | 청크 사전 생성, 지역 셀, 마을·관문 배치, 벽과 제한 통로 | 기술 조사 진행 |
+| [1세대 시작 지역 통합 구현 계획](GENERATION_ONE_BATCH_IMPLEMENTATION.md) | 바이옴·벽·건물·마을 규모·안전층·트레이너 타입의 일괄 구현 순서 | 구현 대기 |
+| [바이옴 카탈로그와 지역 생성 체계](BIOME_REGION_SYSTEM.md) | 데이터 기반 바이옴 판정, 전용 BiomeSource와 좌표 단일화 | 구현 예정 |
+| [마을별 바이옴 범위와 경계 벽](SETTLEMENT_BIOME_BOUNDARIES.md) | 마을 내부·주변 바이옴, 완충 지대, 벽과 관문 | 구현 예정 |
+| [무지하 차원의 안전 기반층](SAFE_SURFACE_FOUNDATION.md) | Y=55~64 기반암과 공허 낙하 복구 | 구현 예정 |
+| [마을별 건축 디자인과 건축 키트](SETTLEMENT_BUILDING_KITS.md) | 마을별 팔레트, 역할별 구조물과 BCA 호환 경계 | 구현 예정 |
+| [마을 규모와 배치 계획](SETTLEMENT_SCALE_LAYOUT.md) | 대형 시작 마을, 도로·시설·부지 배치와 검증 | 구현 예정 |
+| [트레이너 타입 분류 체계](TRAINER_TYPE_SYSTEM.md) | 클래스·전투 성향·난이도·마을 역할 분리 | 데이터 계약 예정 |
+| [마을 중심 트레이너 배치 계획](SETTLEMENT_TRAINER_PLACEMENT.md) | 마을 슬롯·구역·인구 예산 기반 NPC 배치 | 후속 구현 예정 |
 | [진행 및 콘텐츠 해금](PROGRESSION.md) | 아키텍처별 관장 순서, 배지, 리그 자격과 포켓몬 해금 | 개요 작성 |
 | [트레이너 및 전투](TRAINER_BATTLE.md) | 영구 NPC, 트레이너 팀, AI, 재대결 | 개요 작성 |
 | [경제 및 보상](ECONOMY_REWARDS.md) | 상점, 배틀타워, 보상표, 병뚜껑과 성장 재화 | 개요 작성 |
