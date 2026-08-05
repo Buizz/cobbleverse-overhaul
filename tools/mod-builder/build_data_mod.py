@@ -16,6 +16,8 @@ REQUIRED_ENTRIES = {
     "pack.mcmeta",
     "data/minecraft/tags/function/tick.json",
     "data/cobbleventure_bootstrap/function/tick.mcfunction",
+    "data/cobbleventure_bootstrap/function/schedule_starter_town.mcfunction",
+    "data/cobbleventure_bootstrap/function/auto_place_starter_town.mcfunction",
     "data/cobbleventure_bootstrap/function/place_starter_town.mcfunction",
     "data/cobbleventure_bootstrap/function/retry_starter_town.mcfunction",
 }
