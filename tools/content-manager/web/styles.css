@@ -213,3 +213,53 @@ body {
 .nature-choice-result .optional-choice-card { width: min(720px,100%); margin: 0 auto; }
 
 @media (max-width: 720px) { .choice-dialog-filters { grid-template-columns: 1fr; }.nature-stat-selector > div { grid-template-columns: repeat(2,minmax(0,1fr)); }.pokemon-choice-card { grid-template-columns: 54px minmax(0,1fr); }.choice-art, .choice-art img { width: 50px; height: 50px; } }
+
+/* Desktop authoring UI readability scale. Keep essential information at 11px or larger. */
+body { font-size: 14px; line-height: 1.45; }
+.brand small, .nav-item span, .server-state small, .eyebrow, .stat-card > span, .path-label, .document-button small, .subsection-heading small { font-size: 11px; }
+.server-state strong, .field-label, .terminal-heading, .trainer-slot-heading strong { font-size: 12px; }
+.button, .remove-pokemon, .remove-bag-item, .remove-trainer-slot { font-size: 13px; }
+
+.form-grid label > span, fieldset legend, .create-dialog label > span,
+.bag-settings > label > span, .bag-item-row label > span,
+.pokemon-fields label > span, .trainer-slot-fields label > span { font-size: 12px; }
+.form-grid input, .form-grid select, .create-dialog input,
+.bag-settings > label input, .bag-item-row input,
+.pokemon-fields input, .pokemon-fields select,
+.trainer-slot-fields input, .trainer-slot-fields select { font-size: 14px; }
+.bag-settings > label small, .create-dialog label small { font-size: 11px; line-height: 1.5; }
+.bag-item-index { font-size: 12px; }
+.bag-item-description strong { font-size: 14px; }
+.bag-item-description small { font-size: 11px; line-height: 1.45; }
+
+.focused-party-tabs button small, .party-order-toolbar > span,
+.focused-pokemon-preview > .slot-number { font-size: 11px; }
+.party-order-toolbar > span b, .focused-pokemon-editor section > header > span { font-size: 10px; }
+.party-order-toolbar button, .focused-preview-actions button { font-size: 12px; }
+.focused-pokemon-editor section > header > small { font-size: 11px; }
+.focused-profile-fields > label, .focused-gimmick-row label,
+.focused-gimmick-item { font-size: 11px; }
+.focused-profile-fields input, .focused-profile-fields select,
+.focused-gimmick-item select, .focused-stat-table input { font-size: 13px; }
+.focused-profile-fields .editor-picker-input button,
+.focused-move-field .move-field-actions button { font-size: 11px; }
+.focused-profile-fields .nature-effect-summary,
+.focused-profile-fields .tera-type-summary,
+.focused-gimmick-row label small, .focused-gimmick-item small { font-size: 10px; line-height: 1.5; }
+.focused-stat-heading { font-size: 10px; }
+.focused-stat-table label strong { font-size: 12px; }
+.focused-move-field small { font-size: 10px; }
+.focused-move-meta, .focused-move-description,
+.focused-move-empty-hint { font-size: 11px; }
+.focused-move-meta .move-type-badge { font-size: 10px; }
+
+.choice-dialog-head small, .choice-result-count,
+.choice-card-title small, .choice-card > small { font-size: 11px; }
+.choice-dialog-head button, .choice-dialog-filters input,
+.choice-dialog-filters select { font-size: 12px; }
+.choice-card-title strong { font-size: 14px; }
+.choice-card p { font-size: 12px; }
+.move-type-badge, .choice-tags b { font-size: 11px; }
+.nature-stat-selector legend, .nature-stat-selector button,
+.nature-result-heading small, .nature-result-effects b,
+.nature-result-action { font-size: 11px; }

@@ -377,6 +377,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn(".focused-pokemon-preview [hidden]", styles)
         self.assertIn(".bag-settings > label input, .bag-item-row input", styles)
         self.assertIn("color-scheme: light", styles)
+        self.assertIn("Desktop authoring UI readability scale", styles)
+        self.assertIn(".bag-item-description strong { font-size: 14px; }", styles)
+        self.assertIn(".focused-move-description,", styles)
         self.assertIn("POKEMON_ENTRY_CLIPBOARD_SCHEMA", clipboard_module)
 
     def test_build_api_uses_allowlisted_runner(self) -> None:
