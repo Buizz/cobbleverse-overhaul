@@ -24,6 +24,12 @@
     "town_square": { "x": 600, "y": 75, "z": -300 },
     "gym_entrance": { "x": 720, "y": 76, "z": -280 }
   },
+  "structure_profile": {
+    "structure": "cobbleventure:starter_town/village",
+    "required_facilities": {
+      "gym": "cobbleventure:starter_town/gym"
+    }
+  },
   "npc_placement": {
     "max_ambient_npcs": 8,
     "default_wander_radius": 5,

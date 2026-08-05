@@ -209,6 +209,25 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("cobbleventure:settlement/starter_town", settlement_id)
         self.assertEqual([], issues)
 
+    def test_settlement_requires_valid_structure_profile(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (
+                root
+                / "content"
+                / "settlements"
+                / "generation_1"
+                / "starter_town.json"
+            ).read_text(encoding="utf-8")
+        )
+        source["structure_profile"]["required_facilities"] = {}
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertTrue(any("하나 이상의 필수 시설" in issue.message for issue in issues))
+
     def test_settlement_trainer_slot_requires_trainer_and_spawn_policy(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(

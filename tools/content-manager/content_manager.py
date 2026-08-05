@@ -376,6 +376,37 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 _issue(issues, "error", path, f"$.anchors.{anchor_id}", "올바른 앵커 ID가 아닙니다.")
             _validate_block_position(position, issues, path, f"$.anchors.{anchor_id}")
 
+    structure_profile = _require_object(
+        root.get("structure_profile"), issues, path, "$.structure_profile"
+    )
+    if structure_profile is not None:
+        _resource_id(
+            structure_profile.get("structure"),
+            issues,
+            path,
+            "$.structure_profile.structure",
+        )
+        facilities = _require_object(
+            structure_profile.get("required_facilities"),
+            issues,
+            path,
+            "$.structure_profile.required_facilities",
+        )
+        if facilities is not None:
+            if not facilities:
+                _issue(
+                    issues,
+                    "error",
+                    path,
+                    "$.structure_profile.required_facilities",
+                    "하나 이상의 필수 시설이 필요합니다.",
+                )
+            for facility_id, structure_id in facilities.items():
+                facility_path = f"$.structure_profile.required_facilities.{facility_id}"
+                if not isinstance(facility_id, str) or not CHOICE_ID.fullmatch(facility_id):
+                    _issue(issues, "error", path, facility_path, "올바른 시설 ID가 아닙니다.")
+                _resource_id(structure_id, issues, path, facility_path)
+
     placement = _require_object(
         root.get("npc_placement"), issues, path, "$.npc_placement"
     )
@@ -1377,6 +1408,10 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
         "bounds": {"min_x": -32, "min_z": -32, "max_x": 32, "max_z": 32},
         "center": {"x": 0, "y": 64, "z": 0},
         "anchors": {"town_square": {"x": 0, "y": 64, "z": 0}},
+        "structure_profile": {
+            "structure": f"cobbleventure:{slug}/village",
+            "required_facilities": {"gym": f"cobbleventure:{slug}/gym"},
+        },
         "npc_placement": {
             "max_ambient_npcs": 8,
             "default_wander_radius": 5,

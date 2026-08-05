@@ -121,7 +121,8 @@ Cobblemon Additions 4.2.1 원본 JAR이 포함됩니다. `build.bat pack`은 먼
 정보에는 `production_ready: false`를 기록합니다.
 
 새 월드에 처음 입장하면 시작 지점에서 X/Z 각각 `+32` 블록 떨어진 지표면에
-BCA 소형 마을 하나를 배치합니다. 이 기능은 정식 지역 플래너 전의 테스트용이며
+자체 체육관을 중심으로 BCA 도로와 건물이 확장되는 Cobbleventure 시작 마을을
+배치합니다. 이 기능은 정식 지역 플래너 전의 테스트용이며
 세부 동작과 재시도 명령은
 [World Bootstrap 문서](projects/cobbleventure-world-bootstrap/README.md)를 참고합니다.
 

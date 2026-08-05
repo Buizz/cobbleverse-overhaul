@@ -14,6 +14,7 @@
     "bounds",
     "center",
     "anchors",
+    "structure_profile",
     "npc_placement"
   ],
   "properties": {
@@ -30,6 +31,20 @@
       "type": "object",
       "propertyNames": { "pattern": "^[a-z0-9_.-]+$" },
       "additionalProperties": { "$ref": "#/$defs/block_position" }
+    },
+    "structure_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["structure", "required_facilities"],
+      "properties": {
+        "structure": { "$ref": "#/$defs/resource_id" },
+        "required_facilities": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[a-z0-9_.-]+$" },
+          "additionalProperties": { "$ref": "#/$defs/resource_id" }
+        }
+      }
     },
     "npc_placement": {
       "type": "object",

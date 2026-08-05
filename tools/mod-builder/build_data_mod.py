@@ -5,6 +5,8 @@ import os
 import zipfile
 from pathlib import Path, PurePosixPath
 
+from starter_gym import build_starter_gym_nbt
+
 
 SOURCE = Path("projects/cobbleventure-world-bootstrap/src/main/resources")
 OUTPUT = Path(
@@ -20,6 +22,12 @@ REQUIRED_ENTRIES = {
     "data/cobbleventure_bootstrap/function/auto_place_starter_town.mcfunction",
     "data/cobbleventure_bootstrap/function/place_starter_town.mcfunction",
     "data/cobbleventure_bootstrap/function/retry_starter_town.mcfunction",
+    "data/cobbleventure/worldgen/structure/starter_town/village.json",
+    "data/cobbleventure/worldgen/template_pool/starter_town/center.json",
+    "data/cobbleventure/structure/starter_town/gym.nbt",
+}
+GENERATED_ENTRIES = {
+    "data/cobbleventure/structure/starter_town/gym.nbt": build_starter_gym_nbt,
 }
 
 
@@ -52,6 +60,11 @@ def build(root: Path) -> Path:
 
     files = sorted(path for path in source.rglob("*") if path.is_file())
     names = {PurePosixPath(path.relative_to(source)).as_posix() for path in files}
+    generated = {name: factory() for name, factory in GENERATED_ENTRIES.items()}
+    collisions = sorted(names & generated.keys())
+    if collisions:
+        raise ModBuildError(f"생성 파일과 소스 파일 경로가 충돌합니다: {', '.join(collisions)}")
+    names.update(generated)
     missing = sorted(REQUIRED_ENTRIES - names)
     if missing:
         raise ModBuildError(f"필수 데이터 모드 파일이 없습니다: {', '.join(missing)}")
@@ -67,6 +80,8 @@ def build(root: Path) -> Path:
                     raise ModBuildError(f"심볼릭 링크를 패키징할 수 없습니다: {path}")
                 name = PurePosixPath(path.relative_to(source)).as_posix()
                 archive.writestr(_zip_info(name), path.read_bytes())
+            for name, data in sorted(generated.items()):
+                archive.writestr(_zip_info(name), data)
         os.replace(temporary, output)
     except Exception:
         if temporary.exists():

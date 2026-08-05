@@ -105,10 +105,14 @@
 |------|------|
 | 경로 | `content/settlements/**/*.json` |
 | 스키마 | `content/schemas/settlement.schema.json` |
-| 역할 | 마을 이름·경계·중심·앵커와 일반 NPC·트레이너 배치 슬롯 정의 |
+| 역할 | 마을 이름·경계·중심·앵커, 생성 구조·필수 시설과 일반 NPC·트레이너 배치 슬롯 정의 |
 | 소비자 | Python 콘텐츠 관리 화면과 향후 NeoForge NPC 배치 어댑터 |
 
 마을의 기본 정보와 트레이너 슬롯은 Python 관리 화면에서 폼으로 편집할 수 있다.
+`structure_profile.structure`은 전체 마을 구조 ID를 가리키고,
+`required_facilities`는 체육관처럼 생성 시 반드시 포함해야 하는 시설과 구조 ID를
+연결한다. 현재 시작 마을은 `cobbleventure:starter_town/village`와 자체 체육관을
+사용한다.
 각 슬롯은 `trainer_id`, 절대 좌표, 회전, 생성 정책과 태그를 가지며, 저장소 검증기는
 `trainer_id`가 실제 `content/source` 트레이너를 가리키는지도 검사한다. 트레이너를
 다른 마을로 옮길 때는 트레이너 번들을 수정하지 않고 두 마을의 슬롯만 변경한다.
