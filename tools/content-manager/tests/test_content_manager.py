@@ -116,6 +116,23 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertTrue(any("같은 전투 기믹" in issue.message for issue in issues))
 
+    def test_invalid_battle_bag_limits_are_rejected(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["battle"]["rules"]["max_item_uses"] = -1
+        source["battle"]["bag"] = [
+            {"item": "cobblemon:potion", "quantity": 0}
+        ]
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertTrue(any("max_item_uses" in issue.path for issue in issues))
+        self.assertTrue(any("bag[0].quantity" in issue.path for issue in issues))
+
     def test_invalid_tera_type_is_rejected(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -270,8 +287,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertGreaterEqual(len(editor_catalog["species"]), 1000)
         self.assertGreaterEqual(len(editor_catalog["moves"]), 900)
         self.assertTrue(any(entry.get("forme") for entry in editor_catalog["species"]))
+        self.assertTrue(
+            any(entry["id"] == "cobblemon:potion" for entry in editor_catalog["bagItems"])
+        )
         self.assertIn("Cobbleventure Content Studio", page)
         self.assertIn("엔트리 JSON 복사", page)
+        self.assertIn("전투 가방", page)
         self.assertIn("POKEMON_ENTRY_CLIPBOARD_SCHEMA", clipboard_module)
 
     def test_build_api_uses_allowlisted_runner(self) -> None:

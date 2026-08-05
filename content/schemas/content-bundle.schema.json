@@ -132,7 +132,12 @@
         "battle_type": { "enum": ["singles", "doubles"] },
         "ai": { "$ref": "#/$defs/resource_id" },
         "level_mode": { "enum": ["fixed", "scale_to_player", "cap_to_player"] },
-        "rules": { "type": "object" },
+        "rules": {
+          "type": "object",
+          "properties": {
+            "max_item_uses": { "type": "integer", "minimum": 0 }
+          }
+        },
         "bag": {
           "type": "array",
           "items": {

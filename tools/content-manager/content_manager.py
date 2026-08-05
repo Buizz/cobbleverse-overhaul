@@ -658,7 +658,21 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
             _issue(issues, "error", path, "$.battle.battle_type", "singles 또는 doubles여야 합니다.")
         if battle.get("level_mode") not in {"fixed", "scale_to_player", "cap_to_player"}:
             _issue(issues, "error", path, "$.battle.level_mode", "지원하지 않는 레벨 방식입니다.")
-        _require_object(battle.get("rules"), issues, path, "$.battle.rules")
+        rules = _require_object(battle.get("rules"), issues, path, "$.battle.rules")
+        if rules is not None and "max_item_uses" in rules:
+            max_item_uses = rules.get("max_item_uses")
+            if (
+                not isinstance(max_item_uses, int)
+                or isinstance(max_item_uses, bool)
+                or max_item_uses < 0
+            ):
+                _issue(
+                    issues,
+                    "error",
+                    path,
+                    "$.battle.rules.max_item_uses",
+                    "0 이상의 정수여야 합니다.",
+                )
         bag = _require_list(battle.get("bag"), issues, path, "$.battle.bag")
         if bag is not None:
             for index, item_value in enumerate(bag):

@@ -78,6 +78,7 @@ http://127.0.0.1:8765
 - 저장소 검증 현황과 트레이너·마을 수 확인
 - 새 트레이너·마을의 유효한 기본 JSON 생성
 - 트레이너 기본 정보, NPC 행동, 배치, 전투 설정과 최대 6마리 팀 편집
+- 전투 가방의 회복·상태회복·능력치 아이템, 보유 수량과 전투당 최대 사용 횟수 편집
 - 본가식 트레이너 클래스 선택과 RCT 개별·그룹 스킨 미리보기
 - Battle Web Lab과 같은 포켓몬 슬롯·프로필·IV/EV·기술 집중 편집기
 - 포켓몬·폼·성격·특성·기술·지닌 도구를 검색해서 고르는 공용 다이얼로그
@@ -128,7 +129,7 @@ python tools/content-manager/content_manager.py api --root .
 - `GET /api/dashboard`: 관리 화면 요약과 실행 가능한 빌드 명령
 - `GET /api/trainers`, `GET /api/settlements`: 관리 문서 목록
 - `GET /api/trainer-classes`: 트레이너 클래스와 기본 외형 카탈로그
-- `GET /api/editor-catalog`: Battle Web Lab과 공유하는 포켓몬·폼·기술·특성·도구 카탈로그
+- `GET /api/editor-catalog`: Battle Web Lab과 공유하는 포켓몬·폼·기술·특성·도구 및 트레이너 가방 아이템 카탈로그
 - `GET /api/trainers?path=...`, `GET /api/settlements?path=...`: 단일 문서 조회
 - `PUT /api/trainers?path=...`, `PUT /api/settlements?path=...`: 검증 후 문서 저장
 - `POST /api/document-validation?category=...`: 저장하지 않고 문서 검증
@@ -144,6 +145,7 @@ python tools/content-manager/content_manager.py api --root .
 - `locked` 상태에서 Minecraft·NeoForge·활성 모드 버전 고정 여부
 - 정규화 콘텐츠 ID 형식과 파일 간 중복
 - NPC, 배치, 전투, 팀과 포켓몬 필드의 필수값·범위
+- 트레이너 가방 아이템 ID·수량과 전투당 최대 사용 횟수
 - 대화 노드·선택지 ID 중복과 조건·동작 형식
 - `next_dialogue`, 진행 경로와 대화 진입점의 대상 존재 여부
 - `start_battle`의 트레이너 ID 일치 여부

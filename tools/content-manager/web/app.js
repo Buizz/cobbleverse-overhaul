@@ -191,11 +191,16 @@ function renderTrainer() {
   setFormValue(form, "zMove", document.battle?.mechanics?.z_move);
   setFormValue(form, "dynamax", document.battle?.mechanics?.dynamax);
   setFormValue(form, "terastallization", document.battle?.mechanics?.terastallization);
+  $("#max-item-uses").value = Number.isInteger(document.battle?.rules?.max_item_uses)
+    ? document.battle.rules.max_item_uses
+    : "";
   [...form.elements].forEach((element) => element.disabled = false);
+  $("#max-item-uses").disabled = false;
   renderTrainerPreview();
+  renderBag();
   renderTeam();
   $("#trainer-json").value = JSON.stringify(document, null, 2);
-  ["#trainer-json", "#apply-trainer-json", "#add-pokemon", "#copy-team-json", "#paste-team-json", "#validate-trainer", "#save-trainer"].forEach((selector) => $(selector).disabled = false);
+  ["#trainer-json", "#apply-trainer-json", "#add-bag-item", "#add-pokemon", "#copy-team-json", "#paste-team-json", "#validate-trainer", "#save-trainer"].forEach((selector) => $(selector).disabled = false);
   showIssues("#trainer-issues", { valid: true, issues: [] });
 }
 
@@ -230,6 +235,10 @@ function updateTrainerFromForm() {
     ai: form.elements.battleAi.value,
     level_mode: form.elements.levelMode.value
   });
+  state.trainer.battle.rules ||= {};
+  const maxItemUses = $("#max-item-uses").value.trim();
+  if (maxItemUses === "") delete state.trainer.battle.rules.max_item_uses;
+  else state.trainer.battle.rules.max_item_uses = Math.max(0, Number.parseInt(maxItemUses, 10) || 0);
   Object.assign(state.trainer.battle.mechanics, {
     mega_evolution: form.elements.megaEvolution.checked,
     z_move: form.elements.zMove.checked,
@@ -243,6 +252,59 @@ function updateTrainerFromForm() {
   }
   renderTrainerPreview();
   syncTrainerJson();
+}
+
+function bagItemCatalogEntry(itemId) {
+  return (state.editorCatalog?.bagItems || []).find((entry) => entry.id === itemId) || null;
+}
+
+function renderBag() {
+  const list = $("#bag-list");
+  if (!state.trainer?.battle) {
+    list.innerHTML = '<div class="issues empty">트레이너를 선택하면 가방이 표시됩니다.</div>';
+    return;
+  }
+  state.trainer.battle.bag ||= [];
+  const bag = state.trainer.battle.bag;
+  if (!bag.length) {
+    list.innerHTML = '<div class="issues empty">등록된 전투 아이템이 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = bag.map((entry, index) => {
+    const catalogEntry = bagItemCatalogEntry(entry.item);
+    const label = catalogEntry?.name || entry.item;
+    const category = catalogEntry?.description || "사용할 아이템";
+    return `<article class="bag-item-row">
+      <span class="bag-item-index">${String(index + 1).padStart(2, "0")}</span>
+      <div class="bag-item-description"><strong>${escapeHtml(label)}</strong><small>${escapeHtml(category)} · ${escapeHtml(entry.item)}</small></div>
+      <button type="button" class="button secondary" data-select-bag-item="${index}">아이템 선택</button>
+      <label><span>수량</span><input type="number" min="1" step="1" value="${Math.max(1, Number(entry.quantity) || 1)}" data-bag-quantity="${index}"></label>
+      <button type="button" class="remove-bag-item" data-remove-bag-item="${index}">삭제</button>
+    </article>`;
+  }).join("");
+  $$('[data-select-bag-item]').forEach((button) => button.addEventListener("click", () => openChoiceDialog("bag_item", null, Number(button.dataset.selectBagItem))));
+  $$('[data-bag-quantity]').forEach((input) => input.addEventListener("input", () => {
+    const entry = state.trainer.battle.bag[Number(input.dataset.bagQuantity)];
+    if (!entry) return;
+    entry.quantity = Math.max(1, Number.parseInt(input.value, 10) || 1);
+    syncTrainerJson();
+  }));
+  $$('[data-remove-bag-item]').forEach((button) => button.addEventListener("click", () => {
+    state.trainer.battle.bag.splice(Number(button.dataset.removeBagItem), 1);
+    renderBag();
+    syncTrainerJson();
+  }));
+}
+
+function addBagItem() {
+  if (!state.trainer?.battle) return;
+  state.trainer.battle.bag ||= [];
+  const fallback = state.editorCatalog?.bagItems?.find((entry) => entry.shortId === "potion")
+    || state.editorCatalog?.bagItems?.[0];
+  state.trainer.battle.bag.push({ item: fallback?.id || "cobblemon:potion", quantity: 1 });
+  renderBag();
+  syncTrainerJson();
+  openChoiceDialog("bag_item", null, state.trainer.battle.bag.length - 1);
 }
 
 function applyTrainerClass() {
@@ -664,20 +726,21 @@ function natureForStats(increased, decreased) {
   return natureDefinitions.find((nature) => nature.increased === increased && nature.decreased === decreased) || null;
 }
 
-function openChoiceDialog(kind, moveIndex = null) {
-  if (!state.editorCatalog || !currentPokemon()) {
+function openChoiceDialog(kind, moveIndex = null, bagIndex = null) {
+  if (!state.editorCatalog || (kind !== "bag_item" && !currentPokemon())) {
     toast("전투 데이터 카탈로그를 아직 불러오지 못했습니다.");
     return;
   }
-  updateFocusedPokemon();
-  const [natureUp, natureDown] = natureSelection(currentPokemon().nature);
+  if (kind !== "bag_item") updateFocusedPokemon();
+  const [natureUp, natureDown] = natureSelection(currentPokemon()?.nature);
   const initialScope = kind === "pokemon" ? "all" : kind === "item" ? "battle" : "recommended";
-  state.choice = { kind, moveIndex, query: "", type: "", category: "", scope: initialScope, generation: "", natureUp, natureDown };
+  state.choice = { kind, moveIndex, bagIndex, query: "", type: "", category: "", scope: kind === "bag_item" ? "all" : initialScope, generation: "", natureUp, natureDown };
   const titles = {
     pokemon: ["포켓몬 선택", "기본 모습, 지역 폼과 특수 형태를 함께 검색합니다."],
     nature: ["성격 선택", "올릴 능력치와 내릴 능력치를 고르면 실제 성격으로 자동 연결됩니다."],
     ability: ["특성 선택", "현재 포켓몬이 사용할 수 있는 특성을 우선 표시합니다."],
     item: ["지닌 도구 선택", "배틀에서 사용할 수 있는 도구를 종류와 출처별로 찾습니다."],
+    bag_item: ["가방 아이템 선택", "트레이너가 전투 중 사용할 회복·상태회복·능력치 아이템을 찾습니다."],
     move: ["기술 선택", "현재 포켓몬이 배울 수 있는 기술을 우선 표시합니다."]
   };
   [$("#choice-title").textContent, $("#choice-subtitle").textContent] = titles[kind];
@@ -717,6 +780,9 @@ function renderChoiceDialog() {
     const namespaces = [...new Set(ordinaryItems.map((item) => item.namespace))].sort();
     filters.className = "choice-dialog-filters";
     filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="battle">배틀 사용 가능 전체</option><option value="held">일반 지닌 도구</option><option value="berry">나무열매</option><option value="gem">타입 주얼</option><option value="all">전체 일반 아이템</option></select><select id="choice-category"><option value="">모든 출처 모드</option>${namespaces.map((namespace) => `<option value="${escapeHtml(namespace)}">${escapeHtml(namespace)}</option>`).join("")}</select>`;
+  } else if (choice.kind === "bag_item") {
+    filters.className = "choice-dialog-filters";
+    filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="all">모든 가방 아이템</option><option value="potion">HP 회복</option><option value="status">상태 회복</option><option value="revive">기절 회복</option><option value="battle">능력치 강화</option></select>`;
   } else {
     filters.className = "choice-dialog-filters";
     filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="recommended">현재 포켓몬의 특성</option><option value="all">모든 특성</option></select>`;
@@ -765,6 +831,8 @@ function renderChoiceResults(selectedSpecies) {
   } else if (choice.kind === "ability") {
     const allowed = new Set(selectedSpecies?.abilities || []);
     rows = (state.editorCatalog.abilities || []).filter((entry) => matches(entry.id, entry.name, entry.englishName, entry.description) && (choice.scope === "all" || !selectedSpecies || allowed.has(entry.id)));
+  } else if (choice.kind === "bag_item") {
+    rows = (state.editorCatalog.bagItems || []).filter((entry) => matches(entry.id, entry.shortId, entry.name, entry.englishName, entry.description) && (choice.scope === "all" || entry.category === choice.scope));
   } else {
     rows = (state.editorCatalog.items || []).filter((entry) => !["mega", "z"].includes(entry.category) && matches(entry.id, entry.shortId, entry.name, entry.englishName, entry.description) && (choice.scope === "all" || (choice.scope === "battle" && entry.battleUsable) || entry.category === choice.scope) && (!choice.category || entry.namespace === choice.category));
   }
@@ -807,6 +875,15 @@ async function hydrateChoicePokemonArt(entries) {
 
 function chooseDialogValue(value) {
   const choice = state.choice;
+  if (choice?.kind === "bag_item") {
+    const entry = state.trainer?.battle?.bag?.[choice.bagIndex];
+    if (!entry || !value) return;
+    entry.item = value;
+    closeChoiceDialog();
+    renderBag();
+    syncTrainerJson();
+    return;
+  }
   const pokemon = currentPokemon();
   if (!choice || !pokemon) return;
   if (choice.kind === "pokemon") {
@@ -1058,6 +1135,8 @@ $("#trainer-form").addEventListener("input", (event) => {
   else updateTrainerFromForm();
 });
 $("#add-pokemon").addEventListener("click", addPokemon);
+$("#add-bag-item").addEventListener("click", addBagItem);
+$("#max-item-uses").addEventListener("input", updateTrainerFromForm);
 $("#copy-team-json").addEventListener("click", copyTeamJson);
 $("#paste-team-json").addEventListener("click", pasteTeamJson);
 $("#apply-trainer-json").addEventListener("click", () => { const document = parseEditor("#trainer-json"); if (document) { state.trainer = document; renderTrainer(); toast("JSON을 편집 폼에 반영했습니다."); } });
