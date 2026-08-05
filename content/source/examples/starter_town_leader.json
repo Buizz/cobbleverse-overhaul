@@ -71,6 +71,7 @@
         "nature": "impish",
         "ability": "sturdy",
         "held_item": null,
+        "gimmick": null,
         "moves": ["tackle", "defense_curl", "rock_throw"],
         "ivs": {
           "hp": 20,

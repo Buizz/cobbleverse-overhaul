@@ -81,6 +81,41 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertTrue(any("aspects는 중복" in issue.message for issue in issues))
 
+    def test_pokemon_cannot_hold_regular_and_gimmick_items_together(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        pokemon = source["battle"]["team"][0]
+        pokemon["held_item"] = "cobblemon:choice_band"
+        pokemon["gimmick"] = {
+            "type": "mega_evolution",
+            "item": "mega_showdown:charizardite_x",
+        }
+        source["battle"]["mechanics"]["mega_evolution"] = True
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertTrue(any("동시에 지정" in issue.message for issue in issues))
+
+    def test_pokemon_gimmick_requires_matching_battle_mechanic(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["battle"]["team"][0]["gimmick"] = {
+            "type": "z_move",
+            "item": "mega_showdown:normalium_z",
+        }
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertTrue(any("같은 전투 기믹" in issue.message for issue in issues))
+
     def test_starter_town_is_valid(self) -> None:
         root = Path(__file__).parents[3]
         settlement_id, issues = content_manager.validate_settlement_file(

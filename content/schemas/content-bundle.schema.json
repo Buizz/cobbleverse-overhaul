@@ -167,6 +167,17 @@
     "pokemon": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": ["held_item", "gimmick"],
+            "properties": {
+              "held_item": { "type": "string" },
+              "gimmick": { "type": "object" }
+            }
+          }
+        }
+      ],
       "required": ["species", "level", "gender", "moves", "shiny"],
       "properties": {
         "species": { "$ref": "#/$defs/resource_id" },
@@ -184,6 +195,21 @@
           "oneOf": [
             { "$ref": "#/$defs/resource_id" },
             { "type": "null" }
+          ]
+        },
+        "gimmick": {
+          "description": "메가진화 또는 Z기술 사용 의도. RCT 출력 시 item을 실제 소지품으로 변환한다.",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "item"],
+              "properties": {
+                "type": { "enum": ["mega_evolution", "z_move"] },
+                "item": { "$ref": "#/$defs/resource_id" }
+              }
+            }
           ]
         },
         "moves": {

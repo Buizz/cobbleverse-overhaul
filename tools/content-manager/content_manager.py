@@ -677,6 +677,41 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
                     _issue(issues, "error", path, f"{pokemon_path}.aspects", "aspects는 비어 있지 않은 문자열 배열이어야 합니다.")
                 elif len(aspects) != len(set(aspects)):
                     _issue(issues, "error", path, f"{pokemon_path}.aspects", "aspects는 중복될 수 없습니다.")
+                held_item = pokemon.get("held_item")
+                if held_item is not None:
+                    _resource_id(held_item, issues, path, f"{pokemon_path}.held_item")
+                gimmick = pokemon.get("gimmick")
+                if gimmick is not None:
+                    gimmick_object = _require_object(gimmick, issues, path, f"{pokemon_path}.gimmick")
+                    if gimmick_object is not None:
+                        gimmick_type = gimmick_object.get("type")
+                        if gimmick_type not in {"mega_evolution", "z_move"}:
+                            _issue(
+                                issues,
+                                "error",
+                                path,
+                                f"{pokemon_path}.gimmick.type",
+                                "mega_evolution 또는 z_move여야 합니다.",
+                            )
+                        _resource_id(gimmick_object.get("item"), issues, path, f"{pokemon_path}.gimmick.item")
+                        if held_item is not None:
+                            _issue(
+                                issues,
+                                "error",
+                                path,
+                                pokemon_path,
+                                "일반 소지품과 메가진화·Z기술 아이템은 동시에 지정할 수 없습니다.",
+                            )
+                        if gimmick_type in {"mega_evolution", "z_move"} and (
+                            mechanics is None or mechanics.get(gimmick_type) is not True
+                        ):
+                            _issue(
+                                issues,
+                                "error",
+                                path,
+                                f"{pokemon_path}.gimmick",
+                                "포켓몬 기믹을 사용하려면 같은 전투 기믹을 허용해야 합니다.",
+                            )
                 for boolean_key in ("shiny", "gigantamax_factor"):
                     if boolean_key in pokemon and not isinstance(pokemon.get(boolean_key), bool):
                         _issue(issues, "error", path, f"{pokemon_path}.{boolean_key}", "boolean이어야 합니다.")
@@ -1055,6 +1090,7 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
                     "nature": None,
                     "ability": None,
                     "held_item": None,
+                    "gimmick": None,
                     "moves": ["tackle"],
                     "ivs": {},
                     "evs": {},

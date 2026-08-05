@@ -24,6 +24,32 @@ const statLabels = { hp: "체력", attack: "공격", defense: "방어", special_
 const natureStats = ["", "hp", "attack", "defense", "special_attack", "special_defense", "speed"];
 const neutralNatureByStat = { attack: "hardy", defense: "docile", special_attack: "bashful", special_defense: "quirky", speed: "serious" };
 const pokemonTypeNames = { Normal:"노말", Fire:"불꽃", Water:"물", Electric:"전기", Grass:"풀", Ice:"얼음", Fighting:"격투", Poison:"독", Ground:"땅", Flying:"비행", Psychic:"에스퍼", Bug:"벌레", Rock:"바위", Ghost:"고스트", Dragon:"드래곤", Dark:"악", Steel:"강철", Fairy:"페어리" };
+const zCrystalByType = {
+  Normal: "normalium_z", Fire: "firium_z", Water: "waterium_z", Electric: "electrium_z",
+  Grass: "grassium_z", Ice: "icium_z", Fighting: "fightinium_z", Poison: "poisonium_z",
+  Ground: "groundium_z", Flying: "flyinium_z", Psychic: "psychium_z", Bug: "buginium_z",
+  Rock: "rockium_z", Ghost: "ghostium_z", Dragon: "dragonium_z", Dark: "darkinium_z",
+  Steel: "steelium_z", Fairy: "fairium_z"
+};
+const signatureZCrystals = [
+  { item: "aloraichium_z", species: ["raichu"], forms: ["alola"], moves: ["thunderbolt"] },
+  { item: "decidium_z", species: ["decidueye"], moves: ["spiritshackle"] },
+  { item: "eevium_z", species: ["eevee"], moves: ["lastresort"] },
+  { item: "incinium_z", species: ["incineroar"], moves: ["darkestlariat"] },
+  { item: "kommonium_z", species: ["kommoo"], moves: ["clangingscales"] },
+  { item: "lunalium_z", species: ["lunala"], moves: ["moongeistbeam"] },
+  { item: "lycanium_z", species: ["lycanroc"], moves: ["stoneedge"] },
+  { item: "marshadium_z", species: ["marshadow"], moves: ["spectralthief"] },
+  { item: "mewnium_z", species: ["mew"], moves: ["psychic"] },
+  { item: "mimikium_z", species: ["mimikyu"], moves: ["playrough"] },
+  { item: "pikanium_z", species: ["pikachu"], moves: ["volttackle"] },
+  { item: "pikashunium_z", species: ["pikachu"], moves: ["thunderbolt"] },
+  { item: "primarium_z", species: ["primarina"], moves: ["sparklingaria"] },
+  { item: "snorlium_z", species: ["snorlax"], moves: ["gigaimpact"] },
+  { item: "solganium_z", species: ["solgaleo"], moves: ["sunsteelstrike"] },
+  { item: "tapunium_z", speciesPrefix: "tapu", moves: ["naturesmadness"] },
+  { item: "ultranecrozium_z", species: ["necrozma"], moves: ["photongeyser"] }
+];
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -202,6 +228,11 @@ function updateTrainerFromForm() {
     dynamax: form.elements.dynamax.checked,
     terastallization: form.elements.terastallization.checked
   });
+  for (const pokemon of state.trainer.battle.team || []) {
+    if (!pokemon.gimmick?.type) continue;
+    state.trainer.battle.mechanics[pokemon.gimmick.type] = true;
+    form.elements[pokemon.gimmick.type === "mega_evolution" ? "megaEvolution" : "zMove"].checked = true;
+  }
   renderTrainerPreview();
   syncTrainerJson();
 }
@@ -302,11 +333,86 @@ function formOptionsForPokemon(pokemon) {
   return (state.editorCatalog?.species || []).filter((entry) => entry.number === selected.number);
 }
 
+function catalogItemByShortId(shortId) {
+  return (state.editorCatalog?.items || []).find((item) => item.shortId === shortId) || null;
+}
+
+function moveCatalogId(value) {
+  return toId(String(value || "").replace(/^.*:/, ""));
+}
+
+function commonPrefixLength(left, right) {
+  let length = 0;
+  while (length < left.length && length < right.length && left[length] === right[length]) length += 1;
+  return length;
+}
+
+function megaItemCandidates(pokemon) {
+  const selected = catalogSpeciesForPokemon(pokemon);
+  if (!selected) return [];
+  const baseId = toId(selected.baseSpecies || selected.englishName || pokemon.species?.replace(/^.*:/, ""));
+  const hasMegaForm = (state.editorCatalog?.species || []).some(
+    (entry) => entry.number === selected.number && /mega/i.test(entry.forme || ""),
+  );
+  if (!hasMegaForm) return [];
+  return (state.editorCatalog?.items || [])
+    .filter((item) => item.category === "mega")
+    .map((item) => {
+      const stem = toId(item.shortId).replace(/ite[xy]?$/, "");
+      const prefix = commonPrefixLength(baseId, stem);
+      return { item, prefix, score: prefix * 10 - Math.abs(baseId.length - stem.length) };
+    })
+    .filter(({ item, prefix }) => prefix >= Math.max(4, Math.ceil(Math.min(baseId.length, toId(item.shortId).length) * 0.6)))
+    .sort((left, right) => right.score - left.score || left.item.shortId.localeCompare(right.item.shortId))
+    .map(({ item }) => item);
+}
+
+function zItemCandidates(pokemon) {
+  const selected = catalogSpeciesForPokemon(pokemon);
+  if (!selected) return [];
+  const baseId = toId(selected.baseSpecies || selected.englishName || pokemon.species?.replace(/^.*:/, ""));
+  const formId = toId(`${selected.forme || ""} ${pokemon.form || ""}`);
+  const moveIds = new Set((pokemon.moves || []).map(moveCatalogId));
+  const candidates = [];
+  for (const rule of signatureZCrystals) {
+    const speciesMatches = rule.speciesPrefix ? baseId.startsWith(rule.speciesPrefix) : rule.species.includes(baseId);
+    const formMatches = !rule.forms || rule.forms.some((form) => formId.includes(form));
+    const moveMatches = rule.moves.some((move) => moveIds.has(move));
+    if (speciesMatches && formMatches && moveMatches) candidates.push(catalogItemByShortId(rule.item));
+  }
+  for (const moveId of pokemon.moves || []) {
+    const move = (state.editorCatalog?.moves || []).find((entry) => entry.id === moveCatalogId(moveId));
+    const crystal = move ? catalogItemByShortId(zCrystalByType[move.type]) : null;
+    if (crystal) candidates.push(crystal);
+  }
+  return candidates.filter((item, index, items) => item && items.findIndex((candidate) => candidate?.id === item.id) === index);
+}
+
+function gimmickCandidates(pokemon, type) {
+  return type === "mega_evolution" ? megaItemCandidates(pokemon) : type === "z_move" ? zItemCandidates(pokemon) : [];
+}
+
+function normalizePokemonGimmick(pokemon) {
+  if (!pokemon.gimmick) return;
+  const candidates = gimmickCandidates(pokemon, pokemon.gimmick.type);
+  if (!candidates.length) {
+    pokemon.gimmick = null;
+    return;
+  }
+  if (!candidates.some((item) => item.id === pokemon.gimmick.item)) pokemon.gimmick.item = candidates[0].id;
+  pokemon.held_item = null;
+}
+
+function itemLabel(itemId) {
+  const item = (state.editorCatalog?.items || []).find((entry) => entry.id === itemId);
+  return item ? `${item.name} (${item.shortId})` : itemId;
+}
+
 function pokemonTemplate() {
   return {
     species: "cobblemon:rattata", level: 5, form: null, aspects: [], gender: "random",
     nature: null, ability: null, held_item: null, moves: ["tackle"], ivs: {}, evs: {},
-    tera_type: null, shiny: false, gigantamax_factor: false
+    tera_type: null, shiny: false, gigantamax_factor: false, gimmick: null
   };
 }
 
@@ -326,6 +432,10 @@ function renderTeam() {
   ];
   const moves = Array.from({ length: 4 }, (_, index) => pokemon.moves?.[index] || "");
   const formOptions = formOptionsForPokemon(pokemon);
+  normalizePokemonGimmick(pokemon);
+  const megaCandidates = megaItemCandidates(pokemon);
+  const zCandidates = zItemCandidates(pokemon);
+  const gimmickCandidatesForPokemon = gimmickCandidates(pokemon, pokemon.gimmick?.type);
   list.innerHTML = `
     <div class="focused-entry-editor">
       <nav class="focused-party-tabs" aria-label="편집할 포켓몬 선택">
@@ -353,10 +463,16 @@ function renderTeam() {
             <label><span>성별</span><select name="gender"><option value="random" ${pokemon.gender === "random" ? "selected" : ""}>무작위</option><option value="male" ${pokemon.gender === "male" ? "selected" : ""}>수컷</option><option value="female" ${pokemon.gender === "female" ? "selected" : ""}>암컷</option><option value="genderless" ${pokemon.gender === "genderless" ? "selected" : ""}>무성</option></select></label>
             <label class="wide"><span>성격</span><span class="editor-picker-input"><input name="nature" value="${escapeHtml(natureLabel(pokemon.nature))}" data-value="${escapeHtml(pokemon.nature || "")}" readonly><button type="button" data-open-choice="nature">선택</button></span><small class="nature-effect-summary">${escapeHtml(natureEffectLabel(pokemon.nature))}</small></label>
             <label class="wide"><span>특성</span><span class="editor-picker-input"><input name="ability" value="${escapeHtml(pokemon.ability || "")}" readonly placeholder="비우면 자동"><button type="button" data-open-choice="ability">선택</button></span></label>
-            <label class="wide"><span>소지품</span><span class="editor-picker-input"><input name="heldItem" value="${escapeHtml(pokemon.held_item || "")}" readonly placeholder="비우면 없음"><button type="button" data-open-choice="item">선택</button></span></label>
+            <label class="wide"><span>일반 소지품</span><span class="editor-picker-input"><input name="heldItem" value="${escapeHtml(pokemon.held_item || "")}" readonly placeholder="${pokemon.gimmick ? "기믹 아이템 사용 중" : "비우면 없음"}"><button type="button" data-open-choice="item">선택</button></span></label>
             <label class="wide"><span>테라 타입</span><select name="teraType"><option value="">지정 안 함</option>${Object.entries(pokemonTypeNames).map(([type, label]) => `<option value="${type.toLowerCase()}" ${pokemon.tera_type === type.toLowerCase() ? "selected" : ""}>${label}</option>`).join("")}</select></label>
           </div>
-          <div class="focused-gimmick-row"><label><input type="checkbox" name="shiny" ${pokemon.shiny ? "checked" : ""}>이로치</label><label><input type="checkbox" name="gigantamax" ${pokemon.gigantamax_factor ? "checked" : ""}>거다이맥스</label></div>
+          <div class="focused-gimmick-row">
+            <label><input type="checkbox" name="shiny" ${pokemon.shiny ? "checked" : ""}><span>이로치</span></label>
+            <label><input type="checkbox" name="gigantamax" ${pokemon.gigantamax_factor ? "checked" : ""}><span>거다이맥스</span></label>
+            <label title="${megaCandidates.length ? "체크하면 메가스톤을 자동으로 지정합니다." : "현재 포켓몬에 대응하는 메가스톤이 없습니다."}"><input type="checkbox" name="pokemonMegaEvolution" ${pokemon.gimmick?.type === "mega_evolution" ? "checked" : ""} ${megaCandidates.length ? "" : "disabled"}><span>메가진화<small>${megaCandidates.length ? `${megaCandidates.length}개 호환` : "사용 불가"}</small></span></label>
+            <label title="${zCandidates.length ? "현재 기술에 맞는 Z크리스탈을 자동으로 지정합니다." : "현재 기술과 포켓몬에 맞는 Z크리스탈이 없습니다."}"><input type="checkbox" name="pokemonZMove" ${pokemon.gimmick?.type === "z_move" ? "checked" : ""} ${zCandidates.length ? "" : "disabled"}><span>Z기술<small>${zCandidates.length ? `${zCandidates.length}개 호환` : "사용 불가"}</small></span></label>
+          </div>
+          ${pokemon.gimmick ? `<label class="focused-gimmick-item"><span>RCT 출력용 기믹 소지품</span><select name="gimmickItem">${gimmickCandidatesForPokemon.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === pokemon.gimmick.item ? "selected" : ""}>${escapeHtml(itemLabel(item.id))}</option>`).join("")}</select><small>정규화 JSON에는 기믹으로 보관하고, RCT 출력 시 실제 소지품으로 변환합니다.</small></label>` : ""}
         </section>
         <section class="focused-stat-panel">
           <header><span>STATS</span><strong>개체값·노력치</strong><small id="ev-total">EV ${evTotal(pokemon)}/510</small></header>
@@ -372,6 +488,9 @@ function renderTeam() {
   $$('[data-add-slot]').forEach((button) => button.addEventListener("click", addPokemon));
   $$(".focused-pokemon-editor input, .focused-pokemon-editor select").forEach((input) => input.addEventListener("input", updateFocusedPokemon));
   list.querySelector('[name="form"]')?.addEventListener("change", () => { updateFocusedPokemon(); renderTeam(); });
+  list.querySelector('[name="pokemonMegaEvolution"]')?.addEventListener("change", (event) => setPokemonGimmick("mega_evolution", event.target.checked));
+  list.querySelector('[name="pokemonZMove"]')?.addEventListener("change", (event) => setPokemonGimmick("z_move", event.target.checked));
+  list.querySelector('[name="gimmickItem"]')?.addEventListener("change", (event) => setPokemonGimmickItem(event.target.value));
   $$('[data-open-choice]').forEach((button) => button.addEventListener("click", () => openChoiceDialog(button.dataset.openChoice)));
   $$('[data-open-move]').forEach((button) => button.addEventListener("click", () => openChoiceDialog("move", Number(button.dataset.openMove))));
   $$('[data-clear-move]').forEach((button) => button.addEventListener("click", () => clearMove(Number(button.dataset.clearMove))));
@@ -379,6 +498,38 @@ function renderTeam() {
   $("#duplicate-pokemon").addEventListener("click", duplicatePokemon);
   hydrateFocusedPokemonArt();
   hydratePartyArt();
+}
+
+function setPokemonGimmick(type, enabled) {
+  const pokemon = currentPokemon();
+  if (!pokemon) return;
+  updateFocusedPokemon();
+  if (!enabled) {
+    if (pokemon.gimmick?.type === type) pokemon.gimmick = null;
+  } else {
+    const candidates = gimmickCandidates(pokemon, type);
+    if (!candidates.length) {
+      toast("현재 포켓몬 설정에 맞는 기믹 아이템이 없습니다.");
+      renderTeam();
+      return;
+    }
+    pokemon.gimmick = { type, item: candidates[0].id };
+    pokemon.held_item = null;
+    const mechanicInput = $("#trainer-form").elements[type === "mega_evolution" ? "megaEvolution" : "zMove"];
+    mechanicInput.checked = true;
+    state.trainer.battle.mechanics[type] = true;
+  }
+  renderTeam();
+  syncTrainerJson();
+}
+
+function setPokemonGimmickItem(itemId) {
+  const pokemon = currentPokemon();
+  if (!pokemon?.gimmick) return;
+  const candidates = gimmickCandidates(pokemon, pokemon.gimmick.type);
+  if (candidates.some((item) => item.id === itemId)) pokemon.gimmick.item = itemId;
+  pokemon.held_item = null;
+  syncTrainerJson();
 }
 
 function addPokemon() {
@@ -433,6 +584,7 @@ function updateFocusedPokemon() {
     ivs, evs,
     moves: $$('[data-move]').map((input) => input.value.trim()).filter(Boolean)
   });
+  normalizePokemonGimmick(pokemon);
   $("#ev-total").textContent = `EV ${evTotal(pokemon)}/510`;
   $("#focused-species-name").textContent = speciesLabel(pokemon.species);
   syncTrainerJson();
@@ -509,9 +661,10 @@ function renderChoiceDialog() {
     filters.className = "choice-dialog-filters";
     filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="recommended">현재 포켓몬의 기술</option><option value="all">전체 기술</option></select><select id="choice-type"><option value="">모든 타입</option>${Object.entries(pokemonTypeNames).map(([type, label]) => `<option value="${type}">${label}</option>`).join("")}</select><select id="choice-category"><option value="">모든 분류</option><option value="Physical">물리</option><option value="Special">특수</option><option value="Status">변화</option></select>`;
   } else if (choice.kind === "item") {
-    const namespaces = [...new Set((state.editorCatalog.items || []).map((item) => item.namespace))].sort();
+    const ordinaryItems = (state.editorCatalog.items || []).filter((item) => !["mega", "z"].includes(item.category));
+    const namespaces = [...new Set(ordinaryItems.map((item) => item.namespace))].sort();
     filters.className = "choice-dialog-filters";
-    filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="battle">배틀 사용 가능 전체</option><option value="held">일반 지닌 도구</option><option value="berry">나무열매</option><option value="gem">타입 주얼</option><option value="mega">메가스톤</option><option value="z">Z크리스탈</option><option value="all">전체 아이템</option></select><select id="choice-category"><option value="">모든 출처 모드</option>${namespaces.map((namespace) => `<option value="${escapeHtml(namespace)}">${escapeHtml(namespace)}</option>`).join("")}</select>`;
+    filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="battle">배틀 사용 가능 전체</option><option value="held">일반 지닌 도구</option><option value="berry">나무열매</option><option value="gem">타입 주얼</option><option value="all">전체 일반 아이템</option></select><select id="choice-category"><option value="">모든 출처 모드</option>${namespaces.map((namespace) => `<option value="${escapeHtml(namespace)}">${escapeHtml(namespace)}</option>`).join("")}</select>`;
   } else {
     filters.className = "choice-dialog-filters";
     filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="recommended">현재 포켓몬의 특성</option><option value="all">모든 특성</option></select>`;
@@ -561,7 +714,7 @@ function renderChoiceResults(selectedSpecies) {
     const allowed = new Set(selectedSpecies?.abilities || []);
     rows = (state.editorCatalog.abilities || []).filter((entry) => matches(entry.id, entry.name, entry.englishName, entry.description) && (choice.scope === "all" || !selectedSpecies || allowed.has(entry.id)));
   } else {
-    rows = (state.editorCatalog.items || []).filter((entry) => matches(entry.id, entry.shortId, entry.name, entry.englishName, entry.description) && (choice.scope === "all" || (choice.scope === "battle" && entry.battleUsable) || entry.category === choice.scope) && (!choice.category || entry.namespace === choice.category));
+    rows = (state.editorCatalog.items || []).filter((entry) => !["mega", "z"].includes(entry.category) && matches(entry.id, entry.shortId, entry.name, entry.englishName, entry.description) && (choice.scope === "all" || (choice.scope === "battle" && entry.battleUsable) || entry.category === choice.scope) && (!choice.category || entry.namespace === choice.category));
   }
   $("#choice-count").textContent = `검색 결과 ${rows.length}개${rows.length > 120 ? " · 처음 120개 표시" : ""}`;
   $("#choice-results").className = "choice-results";
@@ -611,13 +764,18 @@ function chooseDialogValue(value) {
     pokemon.form = entry.forme ? entry.id : null;
     pokemon.aspects = pokemon.aspects || [];
     if (!pokemon.ability) pokemon.ability = entry.abilities?.[0] || null;
+    normalizePokemonGimmick(pokemon);
   } else if (choice.kind === "nature") pokemon.nature = value;
   else if (choice.kind === "ability") pokemon.ability = value;
-  else if (choice.kind === "item") pokemon.held_item = value;
+  else if (choice.kind === "item") {
+    pokemon.held_item = value;
+    pokemon.gimmick = null;
+  }
   else if (choice.kind === "move") {
     const moves = Array.from({ length: 4 }, (_, index) => pokemon.moves?.[index] || "");
     moves[choice.moveIndex] = value;
     pokemon.moves = moves.filter(Boolean);
+    normalizePokemonGimmick(pokemon);
   }
   closeChoiceDialog();
   renderTeam();

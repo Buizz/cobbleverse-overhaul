@@ -63,6 +63,7 @@
         "nature": null,
         "ability": null,
         "held_item": null,
+        "gimmick": null,
         "moves": ["tackle", "tail_whip"],
         "ivs": {},
         "evs": {},
