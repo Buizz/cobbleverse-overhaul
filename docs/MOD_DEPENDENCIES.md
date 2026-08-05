@@ -25,7 +25,6 @@
 | `kotlin_for_forge` | Kotlin for Forge | 필수 | 양쪽 | Cobblemon NeoForge의 Kotlin 런타임 | 5.11.0 / CF `351264:7471280` |
 | `rctapi` | Radical Cobblemon Trainers API | 필수 후보 | 양쪽 | 트레이너 데이터와 전투 연동 계약 | 대상 버전 확인 필요 |
 | `rctmod` | Radical Cobblemon Trainers | 필수 후보 | 양쪽 | RCT JSON 로딩과 트레이너전 관리 | 자체 데이터 운용 범위 검증 필요 |
-| `cobblemon_additions` | Brocraft Cobblemon Additions | 선택·참고 후보 | 양쪽 | 포켓몬 테마 마을, 센터, 마트와 백화점 | 현행 Fabric 모드를 NeoForge에 직접 포함하지 않음 |
 | `mega_showdown` | Mega Showdown | 선택 | 양쪽 | 메가진화 등 추가 전투 기믹 | Cobblemon 1.7.3 및 RCT 연동 검증 필요 |
 | `easy_npc` | Easy NPC Core | 선택 프로필 | 양쪽 | Easy NPC 호환 프로필의 NPC와 대화 | 자체 NPC 기본안과 비교 유지 |
 | `easy_npc_config_ui` | Easy NPC Config UI | 선택 프로필 | 양쪽 | Easy NPC 게임 내 설정과 네트워크 | Easy NPC 프로필에서만 사용 |
@@ -43,9 +42,17 @@
 
 ## 마을과 상업 시설 구조물 조사
 
-기존 CreateMon/Cobbleverse 계열 팩의 실제 ZIP을 조사한 결과, 포켓몬 테마
-마을의 핵심은 `cobblemon-additions-4.2.1.jar`였다. 이 파일 안에는 다음 구조물이
-직접 들어 있다.
+공식 Cobbleverse 구성표에는 **Cobblemon Additions가 모드가 아니라 데이터팩**으로
+기재되어 있다. 따라서 CurseForge의 모드 목록에서 BCA라는 독립 모드가 보이지
+않는 것이 정상이며, 외부 모드 의존성 Lock에도 등록하지 않는다.
+
+참고용으로 제공받은 `CreateMon ver 8` ZIP은 원본 Cobbleverse 배포본이 아니라
+이를 바탕으로 별도 구성한 팩이다. 이 ZIP에는 `cobblemon-additions-4.2.1.jar`가
+`overrides/mods`에 수동 포함되어 있었지만, 이것만으로 원본 Cobbleverse도 같은
+JAR을 모드로 사용한다고 판단할 수 없다.
+
+CreateMon에 들어 있던 해당 파일과 `COBBLEVERSE-DP`의 `bca` 네임스페이스에는
+다음 구조물이 확인된다.
 
 - 마을과 도로를 구성하는 여러 바이옴별 직소 구조물
 - `pokecenter.nbt`
@@ -53,19 +60,19 @@
 - `center_department_store.nbt`
 - 백화점 층별 상점 직원을 포함한 상점 NPC 구조물
 
-따라서 기존 팩에서 본 마을, 포켓몬센터, 포켓마트와 백화점은 주로
-**Brocraft Cobblemon Additions(BCA)**가 만든다. `COBBLEVERSE-DP`에도 같은
-`bca` 네임스페이스 구조물이 복사·조정되어 있으므로, 팩 전용 데이터팩이
-체육관과 랜드마크뿐 아니라 BCA 구조물 일부를 덮어쓰는 구성이다.
+즉 Cobbleverse의 포켓몬 테마 마을과 상업 시설은 Cobblemon Additions 데이터팩
+자산을 포함하거나 가공한 구성으로 볼 수 있다. 다만 실제 배포에서는
+`COBBLEVERSE-DP`에 함께 포장될 수 있으므로, 이를 별도의 BCA 모드가 시설을
+생성한다고 표현하지 않는다.
 
-다만 확인한 4.2.1 JAR의 메타데이터는 Fabric Loader, Fabric API와 Fabric
-Language Kotlin을 요구한다. 기존 NeoForge 팩은 Sinytra Connector와 Forgified
-Fabric API까지 포함해 이 Fabric 모드를 구동한 사례다. 우리 프로젝트는
-NeoForge 네이티브 구성을 우선하므로 다음 원칙을 적용한다.
+CreateMon에서 확인한 4.2.1 JAR의 메타데이터는 Fabric Loader, Fabric API와
+Fabric Language Kotlin을 요구한다. 이 포장본을 NeoForge에서 그대로 사용하려면
+Connector 계열 호환층이 필요하다. 우리 프로젝트는 NeoForge 네이티브 구성을
+우선하므로 다음 원칙을 적용한다.
 
-1. BCA를 지금 필수 의존성으로 활성화하지 않는다.
+1. BCA를 외부 모드 의존성으로 등록하지 않는다.
 2. BCA의 마을 직소 풀과 센터·마트·백화점 구성은 자체 월드 생성 구현의 참고로 쓴다.
-3. 실제 채택 시에는 NeoForge 네이티브 배포본 또는 순수 데이터팩 배포본을 먼저 검증한다.
+3. 실제 채택 시에는 순수 데이터팩으로 관리하고 라이선스와 수정·재배포 범위를 먼저 검증한다.
 4. Fabric JAR을 쓰기 위해 Connector 계열 의존성을 늘리는 선택은 별도 호환 프로필로 격리한다.
 
 `CobbleTowns: Continued`도 포켓몬 본가 마을을 바탕으로 센터와 마트를 추가하는
@@ -77,7 +84,7 @@ NeoForge 네이티브 구성을 우선하므로 다음 원칙을 적용한다.
 - 자체 NPC 기본팩과 Easy NPC 호환팩의 공개 배포 범위
 - Mega Showdown에서 지원할 기믹과 RCT 전투별 활성화 방식
 - 성능, 지도, 건축과 장식 모드 목록
-- BCA 또는 다른 마을 데이터팩을 실제 배포 의존성으로 사용할지 여부
+- Cobblemon Additions 또는 다른 마을 데이터팩 자산을 실제 콘텐츠에 사용할지 여부
 
 미확정 항목은 `0`, 빈 문자열 또는 임의 버전으로 채우지 않고 Lock 파일에서
 `null`과 `draft` 상태로 유지한다.

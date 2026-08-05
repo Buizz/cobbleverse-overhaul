@@ -63,19 +63,6 @@
       "reason": "RCT 트레이너 JSON 로딩과 트레이너전 관리"
     },
     {
-      "id": "cobblemon_additions",
-      "display_name": "Brocraft Cobblemon Additions",
-      "classification": "optional",
-      "side": "both",
-      "enabled": false,
-      "version": null,
-      "curseforge": {
-        "project_id": null,
-        "file_id": null
-      },
-      "reason": "포켓몬 테마 마을, 포켓몬센터, 포켓마트와 백화점 구조물 참고 후보; 현행 배포본은 Fabric 모드이므로 NeoForge 직접 의존 금지"
-    },
-    {
       "id": "mega_showdown",
       "display_name": "Mega Showdown",
       "classification": "optional",
