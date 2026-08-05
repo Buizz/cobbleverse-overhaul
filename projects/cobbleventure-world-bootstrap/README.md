@@ -16,6 +16,8 @@
   리스폰 지점으로 지정한다.
 - 새 스폰 기준 X/Z 각각 `+32` 블록 떨어진 지표면에
   `cobbleventure:starter_town/village`를 배치한다.
+- Jigsaw 마을의 최대 확장 거리 116블록을 포함하도록 중심 기준 반경 9청크를
+  먼저 생성·로드한 뒤 구조물을 배치한다.
 - 시작 마을 구조물의 허용 바이옴은 `cobbleventure:starter_plains`로 고정한다.
   BCA의 바닐라 마을용 `#bca:villages` 태그에는 의존하지 않는다.
 - 자체 체육관을 시작 조각으로 확정하고 네 방향의 BCA 도로 풀에서 주택과
@@ -54,3 +56,14 @@ build.bat mod-bootstrap
 명령은 체육관 NBT를 생성한 뒤 NeoForge Java 소스를 컴파일하고, 생성된 JAR을
 CurseForge 개발 팩의 `overrides/mods`에 복사한다. 일반 `build.bat pack`도
 같은 작업을 먼저 수행한다.
+
+실제 플레이 팩의 모드 JAR을 함께 불러와 시작 마을 배치까지 검사하려면 다음
+개발용 통합 실행을 사용한다. `integration_mods_dir`에는 테스트 인스턴스의
+`mods` 폴더를 지정한다. 기존 부트스트랩 JAR은 자동으로 제외된다.
+
+```bat
+projects\cobbleventure-battle-ai\gradlew.bat ^
+  -p projects\cobbleventure-world-bootstrap ^
+  -Pintegration_mods_dir="C:\path\to\instance\mods" ^
+  runIntegrationServer
+```

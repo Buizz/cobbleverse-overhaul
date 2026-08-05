@@ -29,7 +29,9 @@ public final class CobbleventureBootstrap {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String DATA_FILE = "cobbleventure_world_bootstrap";
     private static final int VILLAGE_OFFSET = 32;
+    private static final int VILLAGE_CHUNK_RADIUS = 9;
     private static final int EXPECTED_SURFACE_Y = 69;
+    private static final String INTEGRATION_TEST_PROPERTY = "cobbleventure.testStarterTown";
     private static final String PLAYER_STARTED = "cobbleventureGenerationOneStarted";
     private static final ResourceKey<Level> GENERATION_ONE =
         ResourceKey.create(
@@ -75,6 +77,14 @@ public final class CobbleventureBootstrap {
             STARTER_BIOME.location(),
             surface.getY()
         );
+
+        if (Boolean.getBoolean(INTEGRATION_TEST_PROPERTY)) {
+            BlockPos villagePos = surfacePosition(level, VILLAGE_OFFSET, VILLAGE_OFFSET);
+            if (!placeStarterTown(level, villagePos)) {
+                throw new IllegalStateException("Cobbleventure starter town integration placement failed");
+            }
+            LOGGER.info("Cobbleventure starter town integration placement succeeded at {}", villagePos);
+        }
     }
 
     private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
@@ -124,26 +134,7 @@ public final class CobbleventureBootstrap {
         level.getChunk(spawnPos);
         level.getChunk(villagePos);
         level.setDefaultSpawnPos(spawnPos, 0.0F);
-        int placed;
-        try {
-            placed = level.getServer().getCommands().getDispatcher().execute(
-                "place structure cobbleventure:starter_town/village ~ ~ ~",
-                level.getServer().createCommandSourceStack()
-                .withLevel(level)
-                .withPosition(Vec3.atLowerCornerOf(villagePos))
-                .withPermission(4)
-                .withSuppressedOutput()
-            );
-        } catch (CommandSyntaxException error) {
-            placed = 0;
-        }
-        if (placed == 0) {
-            LOGGER.error(
-                "Starter town placement returned 0 in {} at {} (biome={})",
-                level.dimension().location(),
-                villagePos,
-                level.getBiome(villagePos).unwrapKey().map(ResourceKey::location).orElse(null)
-            );
+        if (!placeStarterTown(level, villagePos)) {
             firstPlayer.sendSystemMessage(Component.literal(
                 "[Cobbleventure] 전용 시작 차원은 생성했지만 시작 마을 배치에 실패했습니다."
             ));
@@ -155,6 +146,49 @@ public final class CobbleventureBootstrap {
             "[Cobbleventure] 전용 시작 바이옴에 체육관 마을을 생성했습니다."
         ));
         return true;
+    }
+
+    private static boolean placeStarterTown(ServerLevel level, BlockPos villagePos) {
+        loadChunkSquare(level, villagePos, VILLAGE_CHUNK_RADIUS);
+        try {
+            int placed = level.getServer().getCommands().getDispatcher().execute(
+                "place structure cobbleventure:starter_town/village ~ ~ ~",
+                level.getServer().createCommandSourceStack()
+                .withLevel(level)
+                .withPosition(Vec3.atLowerCornerOf(villagePos))
+                .withPermission(4)
+                .withSuppressedOutput()
+            );
+            if (placed != 0) {
+                return true;
+            }
+        } catch (CommandSyntaxException error) {
+            LOGGER.error(
+                "Starter town command failed in {} at {} (biome={}): {}",
+                level.dimension().location(),
+                villagePos,
+                level.getBiome(villagePos).unwrapKey().map(ResourceKey::location).orElse(null),
+                error.getRawMessage().getString()
+            );
+            return false;
+        }
+        LOGGER.error(
+            "Starter town placement returned 0 in {} at {} (biome={})",
+            level.dimension().location(),
+            villagePos,
+            level.getBiome(villagePos).unwrapKey().map(ResourceKey::location).orElse(null)
+        );
+        return false;
+    }
+
+    private static void loadChunkSquare(ServerLevel level, BlockPos center, int radius) {
+        int centerChunkX = center.getX() >> 4;
+        int centerChunkZ = center.getZ() >> 4;
+        for (int chunkX = centerChunkX - radius; chunkX <= centerChunkX + radius; chunkX++) {
+            for (int chunkZ = centerChunkZ - radius; chunkZ <= centerChunkZ + radius; chunkZ++) {
+                level.getChunk(chunkX, chunkZ);
+            }
+        }
     }
 
     private static void movePlayerToStart(

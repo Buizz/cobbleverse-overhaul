@@ -14,11 +14,29 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 sourceSets.main.resources.srcDir 'src/generated/resources'
 
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+if (project.hasProperty('integration_mods_dir')) {
+    dependencies {
+        localRuntime fileTree(project.property('integration_mods_dir')) {
+            include '*.jar'
+            exclude 'cobbleventure-world-bootstrap-*.jar'
+        }
+    }
+}
+
 neoForge {
     version = project.neo_version
     runs {
         client { client() }
         server { server() }
+        integrationServer {
+            server()
+            systemProperty 'cobbleventure.testStarterTown', 'true'
+        }
         gameTestServer { type = 'gameTestServer' }
     }
     mods {
