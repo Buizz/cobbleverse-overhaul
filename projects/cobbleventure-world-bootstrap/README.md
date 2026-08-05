@@ -22,9 +22,11 @@
 /function cobbleventure_bootstrap:retry_starter_town
 ```
 
-체육관 NBT는 `tools/mod-builder/starter_gym.py`에서 생성한다. 현재는 바닐라
-블록으로 만든 배틀 코트형 샘플이며, 실제 건축 NBT가 준비되면 같은 리소스 ID로
-교체할 수 있다.
+체육관 NBT는 `tools/mod-builder/starter_gym.py`에서 생성한다. 모든 체육관은
+같은 소형 외관과 포켓볼 표식을 사용하고, `starter_town.json`의 `gym_theme`에
+따라 지붕과 입구 카펫 색만 바뀐다. 시작 체육관은 바위 타입이므로 회색 지붕을
+사용한다. 내부는 작은 로비만 두며 입구 오프셋 `(12, 1, 4)`를 향후 공용
+인스턴스 차원의 관장별 실내로 연결한다.
 
 이 모듈은 프로토타입이다. 이후에는 `content/settlements`의 좌표·시설 설정과
 정식 월드 초기화 상태 머신을 읽는 Java 기반 NeoForge 어댑터로 교체한다.

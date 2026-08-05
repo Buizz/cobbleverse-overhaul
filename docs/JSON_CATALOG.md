@@ -112,7 +112,8 @@
 `structure_profile.structure`은 전체 마을 구조 ID를 가리키고,
 `required_facilities`는 체육관처럼 생성 시 반드시 포함해야 하는 시설과 구조 ID를
 연결한다. 현재 시작 마을은 `cobbleventure:starter_town/village`와 자체 체육관을
-사용한다.
+사용한다. `gym_theme`은 공통 체육관 외관의 지붕 색을 포켓몬 타입에 맞춰
+선택하며, `gym_entrance_offset`은 향후 실내 인스턴스로 이동시키는 입구 위치다.
 각 슬롯은 `trainer_id`, 절대 좌표, 회전, 생성 정책과 태그를 가지며, 저장소 검증기는
 `trainer_id`가 실제 `content/source` 트레이너를 가리키는지도 검사한다. 트레이너를
 다른 마을로 옮길 때는 트레이너 번들을 수정하지 않고 두 마을의 슬롯만 변경한다.

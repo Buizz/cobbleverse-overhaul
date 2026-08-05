@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from starter_gym import build_starter_gym_nbt
+from starter_gym import GYM_ROOF_BLOCKS, build_starter_gym_nbt
 
 
 SOURCE = Path("projects/cobbleventure-world-bootstrap/src/main/resources")
@@ -13,6 +14,7 @@ OUTPUT = Path(
     "pack/overrides/development-placeholder/mods/"
     "cobbleventure-world-bootstrap-0.1.0.jar"
 )
+STARTER_TOWN_CONFIG = Path("content/settlements/generation_1/starter_town.json")
 REQUIRED_ENTRIES = {
     "META-INF/neoforge.mods.toml",
     "pack.mcmeta",
@@ -26,9 +28,7 @@ REQUIRED_ENTRIES = {
     "data/cobbleventure/worldgen/template_pool/starter_town/center.json",
     "data/cobbleventure/structure/starter_town/gym.nbt",
 }
-GENERATED_ENTRIES = {
-    "data/cobbleventure/structure/starter_town/gym.nbt": build_starter_gym_nbt,
-}
+GENERATED_ENTRY_NAMES = {"data/cobbleventure/structure/starter_town/gym.nbt"}
 
 
 class ModBuildError(RuntimeError):
@@ -51,6 +51,18 @@ def _zip_info(name: str) -> zipfile.ZipInfo:
     return info
 
 
+def _starter_gym_theme(root: Path) -> str:
+    path = _inside(root, root / STARTER_TOWN_CONFIG, "시작 마을 설정")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        theme = data["structure_profile"]["gym_theme"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
+        raise ModBuildError(f"시작 마을 체육관 테마를 읽을 수 없습니다: {path}") from error
+    if theme not in GYM_ROOF_BLOCKS:
+        raise ModBuildError(f"지원하지 않는 시작 체육관 테마입니다: {theme}")
+    return theme
+
+
 def build(root: Path) -> Path:
     root = root.resolve()
     source = _inside(root, root / SOURCE, "소스")
@@ -60,7 +72,10 @@ def build(root: Path) -> Path:
 
     files = sorted(path for path in source.rglob("*") if path.is_file())
     names = {PurePosixPath(path.relative_to(source)).as_posix() for path in files}
-    generated = {name: factory() for name, factory in GENERATED_ENTRIES.items()}
+    theme = _starter_gym_theme(root)
+    generated = {
+        "data/cobbleventure/structure/starter_town/gym.nbt": build_starter_gym_nbt(theme)
+    }
     collisions = sorted(names & generated.keys())
     if collisions:
         raise ModBuildError(f"생성 파일과 소스 파일 경로가 충돌합니다: {', '.join(collisions)}")

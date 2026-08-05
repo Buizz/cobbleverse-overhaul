@@ -12,6 +12,27 @@ TAG_STRING = 8
 TAG_LIST = 9
 TAG_COMPOUND = 10
 
+GYM_ROOF_BLOCKS = {
+    "normal": "minecraft:white_concrete",
+    "fire": "minecraft:red_concrete",
+    "water": "minecraft:blue_concrete",
+    "electric": "minecraft:yellow_concrete",
+    "grass": "minecraft:green_concrete",
+    "ice": "minecraft:light_blue_concrete",
+    "fighting": "minecraft:orange_concrete",
+    "poison": "minecraft:purple_concrete",
+    "ground": "minecraft:brown_concrete",
+    "flying": "minecraft:cyan_concrete",
+    "psychic": "minecraft:magenta_concrete",
+    "bug": "minecraft:lime_concrete",
+    "rock": "minecraft:gray_concrete",
+    "ghost": "minecraft:purple_concrete",
+    "dragon": "minecraft:blue_concrete",
+    "dark": "minecraft:black_concrete",
+    "steel": "minecraft:light_gray_concrete",
+    "fairy": "minecraft:pink_concrete",
+}
+
 
 def _string(value: str) -> bytes:
     encoded = value.encode("utf-8")
@@ -70,9 +91,14 @@ def _jigsaw_nbt(orientation: str) -> dict[str, object]:
     }
 
 
-def build_starter_gym_nbt() -> bytes:
-    """Create a deterministic vanilla structure NBT for the prototype gym."""
-    width, height, depth = 31, 10, 25
+def build_starter_gym_nbt(theme: str = "rock") -> bytes:
+    """Create a compact gym shell whose roof colour follows a Pokémon type."""
+    try:
+        roof_block = GYM_ROOF_BLOCKS[theme]
+    except KeyError as error:
+        raise ValueError(f"지원하지 않는 체육관 테마입니다: {theme}") from error
+
+    width, height, depth = 25, 9, 19
     blocks: dict[tuple[int, int, int], tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None]] = {}
 
     def set_block(
@@ -92,59 +118,56 @@ def build_starter_gym_nbt() -> bytes:
                 for z in range(z1, z2 + 1):
                     set_block(x, y, z, name)
 
-    # 건물 내부를 비우고 기초·벽·지붕을 만든다.
-    fill(5, 1, 5, 25, 8, 20, "minecraft:air")
-    fill(5, 0, 5, 25, 0, 20, "minecraft:polished_andesite")
-    fill(5, 1, 5, 25, 6, 5, "minecraft:bricks")
-    fill(5, 1, 20, 25, 6, 20, "minecraft:bricks")
-    fill(5, 1, 6, 5, 6, 19, "minecraft:bricks")
-    fill(25, 1, 6, 25, 6, 19, "minecraft:bricks")
-    fill(5, 7, 5, 25, 7, 20, "minecraft:dark_prismarine")
+    # 공통 외관: 작은 로비만 가진 체육관 껍데기다.
+    fill(5, 1, 4, 19, 7, 14, "minecraft:air")
+    fill(5, 0, 4, 19, 0, 14, "minecraft:polished_andesite")
+    fill(5, 1, 4, 19, 6, 4, "minecraft:stone_bricks")
+    fill(5, 1, 14, 19, 6, 14, "minecraft:stone_bricks")
+    fill(5, 1, 5, 5, 6, 13, "minecraft:stone_bricks")
+    fill(19, 1, 5, 19, 6, 13, "minecraft:stone_bricks")
 
-    # 출입구와 측면 창문.
-    fill(14, 1, 5, 16, 3, 5, "minecraft:air")
-    for x in (8, 10, 20, 22):
-        fill(x, 3, 5, x, 4, 5, "minecraft:glass")
-        fill(x, 3, 20, x, 4, 20, "minecraft:glass")
-    for z in (9, 12, 15, 18):
+    # 지붕만 타입 테마 색으로 바꾼다. 한 블록 돌출시켜 외관을 읽기 쉽게 한다.
+    fill(4, 7, 3, 20, 7, 15, roof_block)
+    fill(5, 8, 4, 19, 8, 14, roof_block)
+
+    # 정면 출입구와 공통 창문.
+    fill(11, 1, 4, 13, 3, 4, "minecraft:air")
+    for x in (7, 9, 15, 17):
+        fill(x, 3, 4, x, 4, 4, "minecraft:glass")
+        fill(x, 3, 14, x, 4, 14, "minecraft:glass")
+    for z in (7, 10, 12):
         fill(5, 3, z, 5, 4, z, "minecraft:glass")
-        fill(25, 3, z, 25, 4, z, "minecraft:glass")
+        fill(19, 3, z, 19, 4, z, "minecraft:glass")
 
-    # 실내 배틀 코트와 중앙선.
-    fill(8, 0, 8, 22, 0, 12, "minecraft:red_concrete")
-    fill(8, 0, 14, 22, 0, 18, "minecraft:blue_concrete")
-    fill(8, 0, 13, 22, 0, 13, "minecraft:white_concrete")
-    fill(14, 0, 8, 16, 0, 18, "minecraft:white_concrete")
-    set_block(15, 0, 13, "minecraft:sea_lantern")
+    # 입구에서 향후 실내 인스턴스로 연결될 작은 로비와 테마 카펫.
+    fill(8, 0, 6, 16, 0, 12, "minecraft:smooth_stone")
+    fill(11, 0, 4, 13, 0, 10, roof_block)
+    set_block(12, 0, 10, "minecraft:sea_lantern")
 
-    # 관람석과 천장 조명.
-    fill(6, 1, 8, 6, 2, 18, "minecraft:stone_bricks")
-    fill(24, 1, 8, 24, 2, 18, "minecraft:stone_bricks")
-    for x in (9, 15, 21):
-        for z in (8, 13, 18):
-            set_block(x, 6, z, "minecraft:sea_lantern")
+    for x in (8, 12, 16):
+        set_block(x, 6, 9, "minecraft:sea_lantern")
 
-    # 정면에 포켓볼 형태의 체육관 표식을 넣는다.
-    fill(12, 4, 5, 18, 4, 5, "minecraft:white_concrete")
-    fill(12, 6, 5, 18, 6, 5, "minecraft:red_concrete")
-    fill(12, 5, 5, 18, 5, 5, "minecraft:black_concrete")
-    set_block(15, 5, 5, "minecraft:sea_lantern")
+    # 정면 포켓볼 표식은 모든 체육관이 공유한다.
+    fill(9, 4, 4, 15, 4, 4, "minecraft:white_concrete")
+    fill(9, 6, 4, 15, 6, 4, "minecraft:red_concrete")
+    fill(9, 5, 4, 15, 5, 4, "minecraft:black_concrete")
+    set_block(12, 5, 4, "minecraft:sea_lantern")
 
-    # 건물 주변 도로 고리와 네 방향 BCA 직소 연결점.
-    fill(3, 0, 2, 27, 0, 4, "minecraft:cobblestone")
-    fill(3, 0, 21, 27, 0, 23, "minecraft:cobblestone")
-    fill(2, 0, 3, 4, 0, 22, "minecraft:cobblestone")
-    fill(26, 0, 3, 28, 0, 22, "minecraft:cobblestone")
-    fill(14, 0, 0, 16, 0, 5, "minecraft:cobblestone")
-    fill(14, 0, 20, 16, 0, 24, "minecraft:cobblestone")
-    fill(0, 0, 11, 5, 0, 13, "minecraft:cobblestone")
-    fill(25, 0, 11, 30, 0, 13, "minecraft:cobblestone")
+    # 건물 주변 도로와 네 방향 BCA 직소 연결점.
+    fill(3, 0, 1, 21, 0, 3, "minecraft:cobblestone")
+    fill(3, 0, 15, 21, 0, 17, "minecraft:cobblestone")
+    fill(1, 0, 2, 3, 0, 16, "minecraft:cobblestone")
+    fill(21, 0, 2, 23, 0, 16, "minecraft:cobblestone")
+    fill(11, 0, 0, 13, 0, 4, "minecraft:cobblestone")
+    fill(11, 0, 14, 13, 0, 18, "minecraft:cobblestone")
+    fill(0, 0, 8, 5, 0, 10, "minecraft:cobblestone")
+    fill(19, 0, 8, 24, 0, 10, "minecraft:cobblestone")
 
     connectors = (
-        (15, 0, 0, "north_up"),
-        (15, 0, 24, "south_up"),
-        (0, 0, 12, "west_up"),
-        (30, 0, 12, "east_up"),
+        (12, 0, 0, "north_up"),
+        (12, 0, 18, "south_up"),
+        (0, 0, 9, "west_up"),
+        (24, 0, 9, "east_up"),
     )
     for x, y, z, orientation in connectors:
         set_block(

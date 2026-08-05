@@ -26,6 +26,8 @@
   },
   "structure_profile": {
     "structure": "cobbleventure:starter_town/village",
+    "gym_theme": "rock",
+    "gym_entrance_offset": { "x": 12, "y": 1, "z": 4 },
     "required_facilities": {
       "gym": "cobbleventure:starter_town/gym"
     }

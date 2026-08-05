@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import gzip
+import json
 import sys
 import tempfile
 import unittest
@@ -21,11 +22,17 @@ SPEC.loader.exec_module(build_data_mod)
 class DataModBuilderTests(unittest.TestCase):
     def _fixture(self, root: Path) -> Path:
         source = root / build_data_mod.SOURCE
-        source_entries = build_data_mod.REQUIRED_ENTRIES - build_data_mod.GENERATED_ENTRIES.keys()
+        source_entries = build_data_mod.REQUIRED_ENTRIES - build_data_mod.GENERATED_ENTRY_NAMES
         for name in source_entries:
             path = source / Path(name)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(f"fixture: {name}\n", encoding="utf-8")
+        config = root / build_data_mod.STARTER_TOWN_CONFIG
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text(
+            json.dumps({"structure_profile": {"gym_theme": "rock"}}),
+            encoding="utf-8",
+        )
         return source
 
     def test_builds_deterministic_jar_with_required_entries(self) -> None:
@@ -45,6 +52,25 @@ class DataModBuilderTests(unittest.TestCase):
                 )
                 self.assertIn(b"minecraft:jigsaw", gym)
                 self.assertIn(b"bca:default/paths", gym)
+                self.assertIn(b"minecraft:gray_concrete", gym)
+
+    def test_roof_colour_follows_settlement_theme(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            config = root / build_data_mod.STARTER_TOWN_CONFIG
+            config.write_text(
+                json.dumps({"structure_profile": {"gym_theme": "water"}}),
+                encoding="utf-8",
+            )
+
+            output = build_data_mod.build(root)
+
+            with zipfile.ZipFile(output) as archive:
+                gym = gzip.decompress(
+                    archive.read("data/cobbleventure/structure/starter_town/gym.nbt")
+                )
+                self.assertIn(b"minecraft:blue_concrete", gym)
 
     def test_rejects_missing_required_entry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

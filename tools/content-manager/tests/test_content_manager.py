@@ -228,6 +228,25 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertTrue(any("하나 이상의 필수 시설" in issue.message for issue in issues))
 
+    def test_settlement_rejects_unknown_gym_theme(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (
+                root
+                / "content"
+                / "settlements"
+                / "generation_1"
+                / "starter_town.json"
+            ).read_text(encoding="utf-8")
+        )
+        source["structure_profile"]["gym_theme"] = "rainbow"
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertTrue(any("체육관 타입 테마" in issue.message for issue in issues))
+
     def test_settlement_trainer_slot_requires_trainer_and_spawn_policy(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(

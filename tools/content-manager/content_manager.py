@@ -386,6 +386,25 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             path,
             "$.structure_profile.structure",
         )
+        gym_theme = structure_profile.get("gym_theme")
+        if gym_theme not in {
+            "normal", "fire", "water", "electric", "grass", "ice",
+            "fighting", "poison", "ground", "flying", "psychic", "bug",
+            "rock", "ghost", "dragon", "dark", "steel", "fairy",
+        }:
+            _issue(
+                issues,
+                "error",
+                path,
+                "$.structure_profile.gym_theme",
+                "지원하는 체육관 타입 테마가 아닙니다.",
+            )
+        _validate_block_position(
+            structure_profile.get("gym_entrance_offset"),
+            issues,
+            path,
+            "$.structure_profile.gym_entrance_offset",
+        )
         facilities = _require_object(
             structure_profile.get("required_facilities"),
             issues,
@@ -1410,6 +1429,8 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
         "anchors": {"town_square": {"x": 0, "y": 64, "z": 0}},
         "structure_profile": {
             "structure": f"cobbleventure:{slug}/village",
+            "gym_theme": "normal",
+            "gym_entrance_offset": {"x": 12, "y": 1, "z": 4},
             "required_facilities": {"gym": f"cobbleventure:{slug}/gym"},
         },
         "npc_placement": {
