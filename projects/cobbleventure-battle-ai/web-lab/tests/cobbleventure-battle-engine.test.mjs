@@ -22982,3 +22982,171 @@ test("AI abandons revealed Haze setup and makes a lethal-Toxic counter switch", 
     swordsDanceCandidate.score <= unrevealedSwordsDance.score - 200,
   );
 });
+
+test("Berry Juice heals at half HP and Lum Berry immediately cures status", () => {
+  const weakMove = { ...pokemon().moves[0], power: 1 };
+  const juiceState = createSimpleBattle(setup({
+    sides: [
+      { name: "Attacker", team: [pokemon({ moves: [weakMove] })] },
+      { name: "Juice", team: [pokemon({ item: "berryjuice", moves: [weakMove] })] },
+    ],
+  }));
+  juiceState.sides[1].team[0].hp = 50;
+  const juiced = resolveSimpleTurn(juiceState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(juiced.sides[1].team[0].item, "");
+  assert.ok(juiced.sides[1].team[0].hp > 50);
+  assert.equal(juiced.sides[1].team[0].ateBerry, false);
+
+  const toxic = {
+    id: "toxic",
+    name: "Toxic",
+    type: "Poison",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    status: "tox",
+    pp: 10,
+  };
+  const lumState = createSimpleBattle(setup({
+    sides: [
+      { name: "Status", team: [pokemon({ moves: [toxic] })] },
+      { name: "Lum", team: [pokemon({ item: "lumberry" })] },
+    ],
+  }));
+  const cured = resolveSimpleTurn(lumState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(cured.sides[1].team[0].status, "");
+  assert.equal(cured.sides[1].team[0].item, "");
+  assert.equal(cured.sides[1].team[0].ateBerry, true);
+});
+
+test("White Herb restores lowered ranks after the change is applied", () => {
+  const growl = {
+    id: "growl",
+    name: "Growl",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    boosts: { attack: -1 },
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Growl", team: [pokemon({ moves: [growl] })] },
+      { name: "Herb", team: [pokemon({ item: "whiteherb" })] },
+    ],
+  }));
+  const restored = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(restored.sides[1].team[0].boosts.attack, 0);
+  assert.equal(restored.sides[1].team[0].item, "");
+});
+
+test("Weakness Policy raises both offenses after a super-effective hit", () => {
+  const fireMove = {
+    ...pokemon().moves[0],
+    id: "ember",
+    name: "Ember",
+    type: "Fire",
+    category: "Special",
+    power: 20,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Fire", team: [pokemon({ moves: [fireMove] })] },
+      { name: "Policy", team: [pokemon({ types: ["Grass"], item: "weaknesspolicy" })] },
+    ],
+  }));
+  const activated = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(activated.sides[1].team[0].item, "");
+  assert.equal(activated.sides[1].team[0].boosts.attack, 2);
+  assert.equal(activated.sides[1].team[0].boosts.specialAttack, 2);
+});
+
+test("Power Herb skips the charge turn and preserves charge-move boosts", () => {
+  const meteorBeam = {
+    id: "meteorbeam",
+    name: "Meteor Beam",
+    type: "Rock",
+    category: "Special",
+    power: 120,
+    accuracy: true,
+    pp: 10,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Herb", team: [pokemon({ item: "powerherb", moves: [meteorBeam] })] },
+      { name: "Target", team: [pokemon()] },
+    ],
+  }));
+  const fired = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(fired.sides[0].team[0].item, "");
+  assert.equal(fired.sides[0].team[0].chargingMove, null);
+  assert.equal(fired.sides[0].team[0].boosts.specialAttack, 1);
+  assert.ok(fired.sides[1].team[0].hp < fired.sides[1].team[0].stats.hp);
+});
+
+test("Custap Berry moves first inside the same priority bracket", () => {
+  const weakMove = { ...pokemon().moves[0], power: 1 };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Custap", team: [pokemon({ item: "custapberry", stats: { ...pokemon().stats, speed: 10 }, moves: [weakMove] })] },
+      { name: "Fast", team: [pokemon({ stats: { ...pokemon().stats, speed: 200 }, moves: [weakMove] })] },
+    ],
+  }));
+  state.sides[0].team[0].hp = 30;
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  const moves = resolved.events.filter((event) => event.turn === 1 && event.type === "move");
+  assert.equal(moves[0].side, 0);
+  assert.equal(resolved.sides[0].team[0].item, "");
+  assert.equal(resolved.sides[0].team[0].ateBerry, true);
+});
+
+test("Colbur Berry halves one super-effective Dark hit and is consumed", () => {
+  const darkMove = {
+    ...pokemon().moves[0],
+    id: "bite",
+    name: "Bite",
+    type: "Dark",
+    power: 60,
+  };
+  const attacker = pokemon({ types: ["Dark"], moves: [darkMove] });
+  const plain = pokemon({ types: ["Psychic"] });
+  const colbur = pokemon({ types: ["Psychic"], item: "colburberry" });
+  assert.ok(
+    calculateDamageRange(attacker, colbur, darkMove).maximum <
+      calculateDamageRange(attacker, plain, darkMove).maximum,
+  );
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Dark", team: [attacker] },
+      { name: "Colbur", team: [colbur] },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[1].team[0].item, "");
+  assert.equal(resolved.sides[1].team[0].ateBerry, true);
+});
+
+test("Water, Ghost, and Normal Gems boost their matching move once", () => {
+  for (const type of ["Water", "Ghost", "Normal"]) {
+    const move = {
+      ...pokemon().moves[0],
+      id: `${type.toLowerCase()}move`,
+      name: `${type} Move`,
+      type,
+      power: 50,
+    };
+    const gem = `${type.toLowerCase()}gem`;
+    const attacker = pokemon({ types: [type], item: gem, moves: [move] });
+    const target = pokemon({ types: [type === "Ghost" ? "Psychic" : "Normal"] });
+    assert.equal(calculateDamageRange(attacker, target, move).itemModifier, 1.3);
+    const state = createSimpleBattle(setup({
+      sides: [
+        { name: "Gem", team: [attacker] },
+        { name: "Target", team: [target] },
+      ],
+    }));
+    const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+    assert.equal(resolved.sides[0].team[0].item, "", type);
+  }
+});

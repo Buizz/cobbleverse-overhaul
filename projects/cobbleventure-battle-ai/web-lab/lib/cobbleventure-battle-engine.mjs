@@ -1956,7 +1956,7 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     effectiveness /= 2;
   }
   const base = damageBase(attacker, defender, move, context);
-  const itemModifier =
+  let itemModifier =
     attacker.item === "lifeorb"
       ? 1.3
       : isOgerponPokemon(attacker) &&
@@ -1967,6 +1967,12 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
           ].includes(cleanId(attacker.item))
         ? 1.2
         : 1;
+  if (
+    move.category !== "Status" &&
+    cleanId(attacker.item) === `${cleanId(move.type)}gem`
+  ) {
+    itemModifier *= 1.3;
+  }
   let abilityModifier = 1;
   const auraAbility =
     move.type === "Dark"
@@ -2098,7 +2104,7 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     ).length;
     abilityModifier *= 1 + Math.min(5, faintedAllies) * 0.1;
   }
-  const fieldModifier = fieldDamageModifier(
+  let fieldModifier = fieldDamageModifier(
     context.state,
     context.attackerSide,
     attacker,
@@ -2107,6 +2113,13 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     move,
     context.critical,
   );
+  if (
+    cleanId(defender.item) === "colburberry" &&
+    move.type === "Dark" &&
+    effectiveness > 1
+  ) {
+    fieldModifier *= 0.5;
+  }
   return {
     minimum:
       effectiveness === 0
@@ -3027,6 +3040,8 @@ function sortActions(state, actions) {
     if (priority !== 0) return priority;
     const quickDraw = Number(Boolean(right.quickDraw)) - Number(Boolean(left.quickDraw));
     if (quickDraw !== 0) return quickDraw;
+    const custap = Number(Boolean(right.custap)) - Number(Boolean(left.custap));
+    if (custap !== 0) return custap;
     const speed = trickRoom
       ? left.speed - right.speed
       : right.speed - left.speed;
@@ -3495,6 +3510,17 @@ function prepareActionOrder(state, commands, rng) {
         { move: action.selected?.move?.name },
       );
     }
+    const actionPokemon = activePokemon(state, action.side);
+    if (
+      action.kind === "move" &&
+      action.selected &&
+      cleanId(actionPokemon.item) === "custapberry" &&
+      actionPokemon.hp <= Math.floor(actionPokemon.stats.hp / 4)
+    ) {
+      action.custap = true;
+      consumeHeldItem(state, action.side, actionPokemon, action.selected.move.name);
+      markBerryEaten(actionPokemon, "custapberry");
+    }
   }
   markPursuitIntercepts(actions);
   return sortActions(state, actions);
@@ -3829,6 +3855,54 @@ function consumeHeldItem(state, sideIndex, pokemon, source) {
   return consumedItem;
 }
 
+function markBerryEaten(pokemon, item) {
+  if (cleanId(item).endsWith("berry")) pokemon.ateBerry = true;
+}
+
+function tryConsumeLumBerry(state, sideIndex, pokemon, source) {
+  if (
+    cleanId(pokemon.item) !== "lumberry" ||
+    (!pokemon.status && !pokemon.volatiles?.confusion)
+  ) {
+    return false;
+  }
+  const curedStatus = pokemon.status;
+  const curedConfusion = Boolean(pokemon.volatiles?.confusion);
+  consumeHeldItem(state, sideIndex, pokemon, source);
+  markBerryEaten(pokemon, "lumberry");
+  if (curedStatus) curePokemonStatus(state, sideIndex, pokemon, "lumberry");
+  if (curedConfusion) {
+    endVolatileStatus(state, sideIndex, pokemon, "confusion", "lumberry");
+  }
+  return true;
+}
+
+function tryConsumeWhiteHerb(state, sideIndex, pokemon, source) {
+  if (
+    cleanId(pokemon.item) !== "whiteherb" ||
+    !BOOST_STATS.some((stat) => Number(pokemon.boosts?.[stat] ?? 0) < 0)
+  ) {
+    return false;
+  }
+  consumeHeldItem(state, sideIndex, pokemon, source);
+  for (const stat of BOOST_STATS) {
+    const previous = Number(pokemon.boosts?.[stat] ?? 0);
+    if (previous >= 0) continue;
+    pokemon.boosts[stat] = 0;
+    state.events.push({
+      turn: state.turn,
+      type: "stat_change",
+      side: sideIndex,
+      pokemon: pokemon.name,
+      stat: eventStat(stat),
+      amount: -previous,
+      stage: 0,
+      source: "whiteherb",
+    });
+  }
+  return true;
+}
+
 function tryConsumePinchBerry(state, sideIndex, pokemon, source) {
   if (!pokemon.item || pokemon.fainted || pokemon.hp <= 0) return false;
   const berry = cleanId(pokemon.item);
@@ -3840,6 +3914,7 @@ function tryConsumePinchBerry(state, sideIndex, pokemon, source) {
     oranberry: { amount: 10, pinch: false },
     sitrusberry: { fraction: [1, 4], pinch: false },
     wikiberry: { fraction: [1, 3], pinch: true },
+    berryjuice: { amount: 20, pinch: false, berry: false },
   };
   const statBerries = {
     apicotberry: { specialDefence: 1 },
@@ -3868,8 +3943,9 @@ function tryConsumePinchBerry(state, sideIndex, pokemon, source) {
     });
   }
   consumeHeldItem(state, sideIndex, pokemon, berry);
-  pokemon.ateBerry = true;
-  const ripenMultiplier = activeAbility(pokemon) === "ripen" ? 2 : 1;
+  markBerryEaten(pokemon, berry);
+  const ripenMultiplier =
+    berry.endsWith("berry") && activeAbility(pokemon) === "ripen" ? 2 : 1;
   if (ripenMultiplier > 1) {
     emitAbilityActivation(state, sideIndex, pokemon, "ripen", {
       item: berry,
@@ -4076,11 +4152,7 @@ function chargeAdjustedMove(state, move) {
 function beginChargeMove(state, action, attacker, move, slot) {
   const moveId = cleanId(move.id);
   attacker.chargingMove = { id: moveId, slot, source: move.name };
-  if (moveId === "meteorbeam" || moveId === "electroshot") {
-    applyBoosts(state, action.side, attacker, { specialAttack: 1 }, move.name);
-  } else if (moveId === "skullbash") {
-    applyBoosts(state, action.side, attacker, { defence: 1 }, move.name);
-  }
+  applyChargeMoveBoost(state, action.side, attacker, move);
   state.events.push({
     turn: state.turn,
     type: "charge_start",
@@ -4089,6 +4161,15 @@ function beginChargeMove(state, action, attacker, move, slot) {
     move: move.name,
   });
   return true;
+}
+
+function applyChargeMoveBoost(state, side, attacker, move) {
+  const moveId = cleanId(move.id);
+  if (moveId === "meteorbeam" || moveId === "electroshot") {
+    applyBoosts(state, side, attacker, { specialAttack: 1 }, move.name);
+  } else if (moveId === "skullbash") {
+    applyBoosts(state, side, attacker, { defence: 1 }, move.name);
+  }
 }
 
 function eventStat(stat) {
@@ -4465,6 +4546,7 @@ function applyStatus(
       );
     }
   }
+  tryConsumeLumBerry(state, side, pokemon, source);
   return true;
 }
 
@@ -4503,6 +4585,7 @@ function applyRest(state, side, pokemon, source) {
     source,
   });
   healPokemon(state, side, pokemon, pokemon.stats.hp, source);
+  tryConsumeLumBerry(state, side, pokemon, source);
   return true;
 }
 
@@ -4734,6 +4817,9 @@ function applyVolatileStatus(state, side, pokemon, id, source, sourceSide = null
     duration: turns,
     source,
   });
+  if (normalized === "confusion" && cleanId(source) !== "poisonpuppeteer") {
+    tryConsumeLumBerry(state, side, pokemon, source);
+  }
   return true;
 }
 
@@ -5630,6 +5716,7 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
       source,
     });
   }
+  if (changed) tryConsumeWhiteHerb(state, side, pokemon, source);
   if (
     loweredByOpponent &&
     activeAbility(pokemon) === "competitive" &&
@@ -6790,7 +6877,20 @@ function executeMove(state, action, rng) {
   }
 
   if (shouldChargeMove(state, move, action)) {
-    return beginChargeMove(state, action, attacker, move, slot);
+    if (cleanId(attacker.item) === "powerherb") {
+      consumeHeldItem(state, action.side, attacker, move.name);
+      applyChargeMoveBoost(state, action.side, attacker, move);
+      state.events.push({
+        turn: state.turn,
+        type: "charge_skipped",
+        side: action.side,
+        pokemon: attacker.name,
+        move: move.name,
+        source: "powerherb",
+      });
+    } else {
+      return beginChargeMove(state, action, attacker, move, slot);
+    }
   }
   if (action.chargingRelease) {
     attacker.chargingMove = null;
@@ -8887,6 +8987,12 @@ function executeMove(state, action, rng) {
     });
   }
   const requestedHits = hitCountForMove(move, attacker, rng);
+  const activatedGemItem =
+    move.category !== "Status" &&
+    cleanId(attacker.item) === `${cleanId(move.type)}gem`
+      ? attacker.item
+      : "";
+  let gemConsumed = false;
   let landedHits = 0;
   let totalDamage = 0;
   for (
@@ -8983,12 +9089,17 @@ function executeMove(state, action, rng) {
         source: move.name,
       });
     }
-    const range = calculateDamageRange(attacker, defender, chargedHitMove, {
+    const range = calculateDamageRange(
+      activatedGemItem ? { ...attacker, item: activatedGemItem } : attacker,
+      defender,
+      chargedHitMove,
+      {
       state,
       attackerSide: action.side,
       defenderSide,
       critical,
-    });
+      },
+    );
     const fixedEffectiveness =
       fixedDamage === null
         ? null
@@ -9203,6 +9314,34 @@ function executeMove(state, action, rng) {
         hit,
         hits: requestedHits,
       });
+      if (damage > 0 && activatedGemItem && !gemConsumed) {
+        consumeHeldItem(state, action.side, attacker, move.name);
+        gemConsumed = true;
+      }
+      if (
+        damage > 0 &&
+        cleanId(defender.item) === "colburberry" &&
+        move.type === "Dark" &&
+        range.effectiveness > 1
+      ) {
+        consumeHeldItem(state, defenderSide, defender, move.name);
+        markBerryEaten(defender, "colburberry");
+      }
+      if (
+        damage > 0 &&
+        defender.hp > 0 &&
+        cleanId(defender.item) === "weaknesspolicy" &&
+        range.effectiveness > 1
+      ) {
+        consumeHeldItem(state, defenderSide, defender, move.name);
+        applyBoosts(
+          state,
+          defenderSide,
+          defender,
+          { attack: 2, specialAttack: 2 },
+          "weaknesspolicy",
+        );
+      }
       if (damage > 0 && defender.volatiles?.illusion) {
         const displayedPokemon = defender.volatiles.illusion.displayedName;
         delete defender.volatiles.illusion;
