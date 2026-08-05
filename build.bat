@@ -75,7 +75,7 @@ echo Usage: build.bat ^<command^>
 echo.
 echo   validate       Validate dependency lock and normalized content
 echo   validate-pack  Validate that dependencies are ready for CurseForge packaging
-echo   api            Start the local content manager Web API
+echo   api            Start the local content manager Web UI and API
 echo   test           Run all Python tool unit tests
 echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP

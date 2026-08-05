@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/settlement.schema.json",
+  "title": "Cobbleventure settlement definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "enabled",
+    "display_name",
+    "region",
+    "dimension",
+    "bounds",
+    "center",
+    "anchors",
+    "npc_placement"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "id": { "$ref": "#/$defs/resource_id" },
+    "enabled": { "type": "boolean" },
+    "display_name": { "$ref": "#/$defs/localized_text" },
+    "region": { "$ref": "#/$defs/resource_id" },
+    "dimension": { "$ref": "#/$defs/resource_id" },
+    "bounds": { "$ref": "#/$defs/horizontal_bounds" },
+    "center": { "$ref": "#/$defs/block_position" },
+    "anchors": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9_.-]+$" },
+      "additionalProperties": { "$ref": "#/$defs/block_position" }
+    },
+    "npc_placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_ambient_npcs",
+        "default_wander_radius",
+        "trainer_slots",
+        "zones"
+      ],
+      "properties": {
+        "max_ambient_npcs": { "type": "integer", "minimum": 0 },
+        "default_wander_radius": { "type": "number", "minimum": 0 },
+        "trainer_slots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/trainer_slot" }
+        },
+        "zones": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/npc_zone" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "localized_text": {
+      "type": "object",
+      "minProperties": 1,
+      "required": ["ko_kr"],
+      "propertyNames": { "pattern": "^[a-z]{2}_[a-z]{2}$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "block_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "z": { "type": "integer" }
+      }
+    },
+    "horizontal_bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_x", "min_z", "max_x", "max_z"],
+      "properties": {
+        "min_x": { "type": "integer" },
+        "min_z": { "type": "integer" },
+        "max_x": { "type": "integer" },
+        "max_z": { "type": "integer" }
+      }
+    },
+    "trainer_slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "position", "rotation", "tags"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "position": { "$ref": "#/$defs/block_position" },
+        "rotation": { "type": "number" },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }
+        }
+      }
+    },
+    "npc_zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "bounds", "max_npcs", "tags"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "bounds": { "$ref": "#/$defs/horizontal_bounds" },
+        "max_npcs": { "type": "integer", "minimum": 1 },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }
+        }
+      }
+    }
+  }
+}

@@ -183,7 +183,7 @@ npm run dev
 종료합니다. `npm ci`는 최초 실행이나 `package-lock.json` 변경 후에만 다시
 실행하면 됩니다.
 
-### 데이터 관리 Python Web API 실행
+### 데이터 관리 Python Web 실행
 
 저장소 루트에서 다음 명령을 실행합니다.
 
@@ -191,17 +191,17 @@ npm run dev
 build.bat api
 ```
 
-`Cobbleventure Content Manager API` 메시지가 출력되면 브라우저에서 다음 주소로
-동작을 확인할 수 있습니다.
+`Cobbleventure Content Manager` 메시지가 출력되면 브라우저에서 다음 주소를
+엽니다.
 
-- 상태 확인: [http://127.0.0.1:8765/health](http://127.0.0.1:8765/health)
-- 의존 모드 Lock 조회: [http://127.0.0.1:8765/dependencies](http://127.0.0.1:8765/dependencies)
-- 콘텐츠 검증: [http://127.0.0.1:8765/validate](http://127.0.0.1:8765/validate)
-- 패키징 준비 검증: [http://127.0.0.1:8765/validate?strict_pack=true](http://127.0.0.1:8765/validate?strict_pack=true)
+- 관리 화면: [http://127.0.0.1:8765/](http://127.0.0.1:8765/)
+- 상태 확인 API: [http://127.0.0.1:8765/health](http://127.0.0.1:8765/health)
+- 콘텐츠 검증 API: [http://127.0.0.1:8765/validate](http://127.0.0.1:8765/validate)
 
-현재 Python 서버는 관리 프로그램이 사용할 **JSON Web API**만 제공하며, 사람이
-폼으로 데이터를 편집하는 시각적 웹 화면은 아직 구현되지 않았습니다. 기본
-주소 `http://127.0.0.1:8765/` 자체는 API 경로가 아니므로 `404`가 정상입니다.
+관리 화면에서는 프로젝트 검증 상태를 확인하고, 트레이너 JSON을 편집하며, 마을의
+이름·지역·차원·중심·경계와 기본 NPC 배치 수치를 수정할 수 있습니다. `validate`,
+`test`, `pack-smoke`, `pack`, `validate-pack`도 버튼으로 실행할 수 있습니다. 저장
+요청은 서버에서 다시 검증하며 오류가 있으면 원본 파일을 덮어쓰지 않습니다.
 서버를 종료하려면 `Ctrl+C`를 누릅니다.
 
 포트를 바꾸어 직접 실행할 수도 있습니다.
@@ -224,7 +224,7 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 |------|------|----------------|
 | `build.bat validate` | 의존성 Lock과 정규화 콘텐츠의 전투·대화·진행 참조 검사 | `draft` 경고를 허용하고 오류가 없으면 성공 |
 | `build.bat validate-pack` | Minecraft·NeoForge·활성 모드 버전과 CurseForge ID까지 엄격 검사 | 의존성 확정 전에는 실패가 정상 |
-| `build.bat api` | 데이터 관리용 Python Web API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
+| `build.bat api` | 데이터 관리용 Python Web 화면과 API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
 | `build.bat test` | 콘텐츠 검증기, Web API와 팩 빌더 회귀 테스트 | 모든 Python `unittest`가 통과해야 함 |
 | `build.bat pack-smoke` | 최소 CurseForge 임포트 테스트 ZIP 생성·재검증 | `dist`에 ZIP과 SHA-256 생성 |
 | `build.bat pack` | 일반 콘텐츠 검증 후 임시 개발 팩 생성 | 임포트 가능한 개발용 ZIP과 SHA-256 생성 |

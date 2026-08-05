@@ -63,13 +63,25 @@
 데이터의 ID와 연결된다. 현재 Python 검증기는 트레이너 번들의 ID 형식까지만
 검사하며, 지역 파일과의 교차 참조 검증은 지역 출력기 구현 단계에서 추가한다.
 
+### 마을 데이터
+
+| 항목 | 내용 |
+|------|------|
+| 경로 | `content/settlements/**/*.json` |
+| 스키마 | `content/schemas/settlement.schema.json` |
+| 역할 | 마을 이름·경계·중심·앵커와 일반 NPC·트레이너 배치 슬롯 정의 |
+| 소비자 | Python 콘텐츠 관리 화면과 향후 NeoForge NPC 배치 어댑터 |
+
+마을의 기본 정보는 Python 관리 화면에서 폼으로 편집할 수 있다. 트레이너 슬롯과
+NPC 구역은 현재 고급 JSON에서 관리하며, 실제 배치 기능이 구현될 때 전용 편집
+화면을 추가한다.
+
 ## 앞으로 추가할 기준 원본
 
 다음 경로와 파일 형식은 아직 구현되지 않은 설계 대상이다.
 
 | 예정 종류 | 제안 경로 | 역할 |
 |-----------|-----------|------|
-| 마을·시설 | `content/settlements/**/*.json` | 마을 범위, 건물, 체육관, 지역 앵커 정의 |
 | NPC 배치 집합 | `content/placements/**/*.json` | 많은 NPC와 오브젝트를 한 장소에 일괄 배치 |
 | 공용 대화 | `content/dialogues/**/*.json` | 여러 NPC가 재사용하는 대화 그래프 |
 | 퀘스트 | `content/quests/**/*.json` | 퀘스트 조건, 목표, 보상과 진행 상태 |
@@ -86,6 +98,7 @@
 |------|-----------|
 | `content/schemas/content-bundle.schema.json` | 정규화된 트레이너 콘텐츠 번들 |
 | `content/schemas/region.schema.json` | 플랫폼 독립 지역 데이터 |
+| `content/schemas/settlement.schema.json` | 마을과 NPC 배치 기본 데이터 |
 | `pack/schemas/dependencies-lock.schema.json` | 모드팩 의존성 Lock |
 
 JSON Schema는 편집기 자동 완성과 구조 계약에 사용한다. Python 검증기는 리소스
@@ -147,4 +160,3 @@ Lock 파일은 [의존 모드 관리표](MOD_DEPENDENCIES.md)와 함께 관리�
 - 파일 이름보다 JSON 내부의 리소스 ID가 공식 식별자다.
 - 대화 노드와 선택지 ID는 해당 번들 안에서 유일해야 한다.
 - RCT 출력용 `battle.trainer_id`와 번들의 `id`는 의도적으로 같게 유지한다.
-

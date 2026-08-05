@@ -1,7 +1,7 @@
 # Cobbleventure Content Manager
 
-Python 표준 라이브러리만으로 실행되는 콘텐츠·의존성 검증 도구의 첫 구현이다.
-CLI와 로컬 Web API는 같은 검증 코드를 사용한다.
+Python 표준 라이브러리만으로 실행되는 콘텐츠 제작·검증 도구다. CLI, 로컬 관리
+화면과 Web API는 같은 검증 코드를 사용한다.
 
 ## 실행
 
@@ -64,15 +64,24 @@ Cobblemon 1.8과 관련 모드 버전이 확정되기 전에는 다음 `draft` �
 
 #### `api`
 
-로컬 Web API를 실행하고 종료할 때까지 터미널을 점유한다. 종료하려면
+로컬 관리 화면과 Web API를 실행하고 종료할 때까지 터미널을 점유한다. 종료하려면
 `Ctrl+C`를 누른다. 기본 주소는 다음과 같다.
 
 ```text
 http://127.0.0.1:8765
 ```
 
-현재 API는 인증을 제공하지 않으므로 기본값인 로컬 주소를 유지한다. 다른 PC가
-접속할 수 있는 주소로 바인딩하지 않는다.
+브라우저에서 기본 주소를 열면 다음 기능을 사용할 수 있다.
+
+- 저장소 검증 현황과 트레이너·마을 수 확인
+- 트레이너 번들 JSON 조회, 검증과 저장
+- 마을 이름, 지역, 차원, 중심, 경계와 기본 NPC 배치 수치 편집
+- 전체 마을 JSON 고급 편집
+- 허용된 `build.bat` 검사·테스트·패키징 명령 실행과 결과 확인
+
+저장 전 서버 검증에 실패하면 원본 파일을 변경하지 않는다. 관리 화면은 인증을
+제공하지 않으므로 기본값인 로컬 주소를 유지하고 다른 PC가 접속할 수 있는 주소로
+바인딩하지 않는다.
 
 #### `test`
 
@@ -107,6 +116,12 @@ python tools/content-manager/content_manager.py api --root .
 - `GET /validate`: 저장소 데이터 검증
 - `GET /validate?strict_pack=true`: CurseForge 패키징 가능 상태까지 검증
 - `POST /validate`: `GET /validate`와 동일
+- `GET /api/dashboard`: 관리 화면 요약과 실행 가능한 빌드 명령
+- `GET /api/trainers`, `GET /api/settlements`: 관리 문서 목록
+- `GET /api/trainers?path=...`, `GET /api/settlements?path=...`: 단일 문서 조회
+- `PUT /api/trainers?path=...`, `PUT /api/settlements?path=...`: 검증 후 문서 저장
+- `POST /api/document-validation?category=...`: 저장하지 않고 문서 검증
+- `POST /api/build`: 허용 목록에 있는 빌드 명령 실행
 
 응답은 UTF-8 JSON이다. Web API는 로컬 제작 도구용이며 인증 없이 외부
 인터페이스에 바인딩하지 않는다.
@@ -120,10 +135,11 @@ python tools/content-manager/content_manager.py api --root .
 - 대화 노드·선택지 ID 중복과 조건·동작 형식
 - `next_dialogue`, 진행 경로와 대화 진입점의 대상 존재 여부
 - `start_battle`의 트레이너 ID 일치 여부
+- 마을 ID·지역·차원, 경계와 중심 좌표, 앵커, 트레이너 슬롯과 NPC 구역
 
 구조 계약은 `content/schemas/content-bundle.schema.json`, 실제 작성 예제는
 `content/source/examples`에서 확인한다. 저장소 내 다른 JSON의 역할과 편집 여부는
 [JSON 데이터 카탈로그](../../docs/JSON_CATALOG.md)에 정리되어 있다.
 
-Excel 가져오기, 대상별 출력기와 CurseForge 패키징은 다음 개발 단계에서 같은
-도구에 추가한다.
+트레이너 팀·대화 전용 폼, 새 문서 생성, Excel 가져오기와 대상별 출력기는 다음
+개발 단계에서 같은 도구에 추가한다.

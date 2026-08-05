@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import subprocess
 import sys
+import tempfile
+import threading
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -44,6 +48,18 @@ VALID_CLASSIFICATIONS = {
     "optional",
     "profile-optional",
     "development",
+}
+BUILD_COMMANDS = {
+    "validate": "콘텐츠와 의존성 검사",
+    "test": "Python 도구 회귀 테스트",
+    "pack-smoke": "최소 CurseForge 임포트 ZIP 생성",
+    "pack": "개발용 CurseForge ZIP 생성",
+    "validate-pack": "실제 모드팩 빌드 준비 상태 검사",
+}
+STATIC_CONTENT_TYPES = {
+    ".css": "text/css; charset=utf-8",
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
 }
 
 
@@ -208,6 +224,149 @@ def _validate_operation_list(
                 dialogue_targets,
             )
     return operations
+
+
+def _validate_block_position(
+    value: Any, issues: list[Issue], file: Path, data_path: str
+) -> dict[str, Any] | None:
+    position = _require_object(value, issues, file, data_path)
+    if position is None:
+        return None
+    for axis in ("x", "y", "z"):
+        coordinate = position.get(axis)
+        if not isinstance(coordinate, int) or isinstance(coordinate, bool):
+            _issue(issues, "error", file, f"{data_path}.{axis}", "정수 좌표여야 합니다.")
+    return position
+
+
+def _validate_horizontal_bounds(
+    value: Any, issues: list[Issue], file: Path, data_path: str
+) -> dict[str, Any] | None:
+    bounds = _require_object(value, issues, file, data_path)
+    if bounds is None:
+        return None
+    for key in ("min_x", "min_z", "max_x", "max_z"):
+        coordinate = bounds.get(key)
+        if not isinstance(coordinate, int) or isinstance(coordinate, bool):
+            _issue(issues, "error", file, f"{data_path}.{key}", "정수 좌표여야 합니다.")
+    if all(
+        isinstance(bounds.get(key), int) and not isinstance(bounds.get(key), bool)
+        for key in ("min_x", "max_x")
+    ):
+        if bounds["min_x"] >= bounds["max_x"]:
+            _issue(issues, "error", file, data_path, "min_x는 max_x보다 작아야 합니다.")
+    if all(
+        isinstance(bounds.get(key), int) and not isinstance(bounds.get(key), bool)
+        for key in ("min_z", "max_z")
+    ):
+        if bounds["min_z"] >= bounds["max_z"]:
+            _issue(issues, "error", file, data_path, "min_z는 max_z보다 작아야 합니다.")
+    return bounds
+
+
+def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return None, issues
+
+    root = _require_object(data, issues, path, "$")
+    if root is None:
+        return None, issues
+    if root.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "지원 버전은 1입니다.")
+    settlement_id = _resource_id(root.get("id"), issues, path, "$.id")
+    if not isinstance(root.get("enabled"), bool):
+        _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
+    _localized_text(root.get("display_name"), issues, path, "$.display_name")
+    _resource_id(root.get("region"), issues, path, "$.region")
+    _resource_id(root.get("dimension"), issues, path, "$.dimension")
+
+    bounds = _validate_horizontal_bounds(root.get("bounds"), issues, path, "$.bounds")
+    center = _validate_block_position(root.get("center"), issues, path, "$.center")
+    if bounds is not None and center is not None:
+        if all(
+            isinstance(center.get(axis), int) and not isinstance(center.get(axis), bool)
+            for axis in ("x", "z")
+        ):
+            if not bounds.get("min_x", 0) <= center["x"] <= bounds.get("max_x", 0):
+                _issue(issues, "error", path, "$.center.x", "마을 경계 안에 있어야 합니다.")
+            if not bounds.get("min_z", 0) <= center["z"] <= bounds.get("max_z", 0):
+                _issue(issues, "error", path, "$.center.z", "마을 경계 안에 있어야 합니다.")
+
+    anchors = _require_object(root.get("anchors"), issues, path, "$.anchors")
+    if anchors is not None:
+        for anchor_id, position in anchors.items():
+            if not isinstance(anchor_id, str) or not CHOICE_ID.fullmatch(anchor_id):
+                _issue(issues, "error", path, f"$.anchors.{anchor_id}", "올바른 앵커 ID가 아닙니다.")
+            _validate_block_position(position, issues, path, f"$.anchors.{anchor_id}")
+
+    placement = _require_object(
+        root.get("npc_placement"), issues, path, "$.npc_placement"
+    )
+    if placement is not None:
+        maximum = placement.get("max_ambient_npcs")
+        if not isinstance(maximum, int) or isinstance(maximum, bool) or maximum < 0:
+            _issue(issues, "error", path, "$.npc_placement.max_ambient_npcs", "0 이상의 정수여야 합니다.")
+        wander_radius = placement.get("default_wander_radius")
+        if (
+            not isinstance(wander_radius, (int, float))
+            or isinstance(wander_radius, bool)
+            or wander_radius < 0
+        ):
+            _issue(issues, "error", path, "$.npc_placement.default_wander_radius", "0 이상의 숫자여야 합니다.")
+
+        slots = _require_list(
+            placement.get("trainer_slots"), issues, path, "$.npc_placement.trainer_slots"
+        )
+        seen_slots: set[str] = set()
+        if slots is not None:
+            for index, slot_value in enumerate(slots):
+                slot_path = f"$.npc_placement.trainer_slots[{index}]"
+                slot = _require_object(slot_value, issues, path, slot_path)
+                if slot is None:
+                    continue
+                slot_id = slot.get("id")
+                if not isinstance(slot_id, str) or not CHOICE_ID.fullmatch(slot_id):
+                    _issue(issues, "error", path, f"{slot_path}.id", "올바른 슬롯 ID가 아닙니다.")
+                elif slot_id in seen_slots:
+                    _issue(issues, "error", path, f"{slot_path}.id", f"중복 슬롯 ID: {slot_id}")
+                else:
+                    seen_slots.add(slot_id)
+                _validate_block_position(slot.get("position"), issues, path, f"{slot_path}.position")
+                rotation = slot.get("rotation")
+                if not isinstance(rotation, (int, float)) or isinstance(rotation, bool):
+                    _issue(issues, "error", path, f"{slot_path}.rotation", "숫자여야 합니다.")
+                tags = _require_list(slot.get("tags"), issues, path, f"{slot_path}.tags")
+                if tags is not None:
+                    for tag_index, tag in enumerate(tags):
+                        if not isinstance(tag, str) or not CHOICE_ID.fullmatch(tag):
+                            _issue(issues, "error", path, f"{slot_path}.tags[{tag_index}]", "올바른 태그가 아닙니다.")
+
+        zones = _require_list(
+            placement.get("zones"), issues, path, "$.npc_placement.zones"
+        )
+        seen_zones: set[str] = set()
+        if zones is not None:
+            for index, zone_value in enumerate(zones):
+                zone_path = f"$.npc_placement.zones[{index}]"
+                zone = _require_object(zone_value, issues, path, zone_path)
+                if zone is None:
+                    continue
+                zone_id = zone.get("id")
+                if not isinstance(zone_id, str) or not CHOICE_ID.fullmatch(zone_id):
+                    _issue(issues, "error", path, f"{zone_path}.id", "올바른 구역 ID가 아닙니다.")
+                elif zone_id in seen_zones:
+                    _issue(issues, "error", path, f"{zone_path}.id", f"중복 구역 ID: {zone_id}")
+                else:
+                    seen_zones.add(zone_id)
+                _validate_horizontal_bounds(zone.get("bounds"), issues, path, f"{zone_path}.bounds")
+                maximum_npcs = zone.get("max_npcs")
+                if not isinstance(maximum_npcs, int) or isinstance(maximum_npcs, bool) or maximum_npcs < 1:
+                    _issue(issues, "error", path, f"{zone_path}.max_npcs", "1 이상의 정수여야 합니다.")
+    return settlement_id, issues
 
 
 def validate_dependency_lock(path: Path, strict_pack: bool) -> list[Issue]:
@@ -552,6 +711,25 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
             else:
                 seen_content[content_id] = path
 
+    settlement_dir = root / "content" / "settlements"
+    seen_settlements: dict[str, Path] = {}
+    if settlement_dir.exists():
+        for path in sorted(settlement_dir.rglob("*.json")):
+            settlement_id, file_issues = validate_settlement_file(path)
+            issues.extend(file_issues)
+            if settlement_id is None:
+                continue
+            if settlement_id in seen_settlements:
+                _issue(
+                    issues,
+                    "error",
+                    path,
+                    "$.id",
+                    f"다른 파일과 중복된 마을 ID: {settlement_id} ({seen_settlements[settlement_id].as_posix()})",
+                )
+            else:
+                seen_settlements[settlement_id] = path
+
     errors = sum(issue.level == "error" for issue in issues)
     warnings = sum(issue.level == "warning" for issue in issues)
     return ValidationResult(errors == 0, errors, warnings, issues)
@@ -567,34 +745,295 @@ def _print_result(result: ValidationResult) -> None:
         print(f"검증 실패: 오류 {result.errors}개, 경고 {result.warnings}개")
 
 
-def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
-    class Handler(BaseHTTPRequestHandler):
-        server_version = "CobbleventureContentManager/0.1"
+def _localized_value(value: Any) -> str:
+    if not isinstance(value, dict):
+        return ""
+    return str(value.get("ko_kr") or value.get("en_us") or next(iter(value.values()), ""))
 
-        def _json(self, status: int, payload: Any) -> None:
-            body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+
+def _managed_directory(root: Path, category: str) -> Path:
+    directories = {
+        "trainers": root / "content" / "source",
+        "settlements": root / "content" / "settlements",
+    }
+    if category not in directories:
+        raise ValueError("지원하지 않는 문서 종류입니다.")
+    return directories[category].resolve()
+
+
+def _managed_path(root: Path, category: str, relative_path: str) -> Path:
+    if not relative_path or Path(relative_path).is_absolute():
+        raise ValueError("저장소 기준 상대 경로가 필요합니다.")
+    target = (root / Path(relative_path)).resolve()
+    base = _managed_directory(root, category)
+    if target.suffix.lower() != ".json" or base not in target.parents:
+        raise ValueError("허용된 JSON 디렉터리 밖에는 접근할 수 없습니다.")
+    return target
+
+
+def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
+    base = _managed_directory(root, category)
+    if not base.exists():
+        return []
+    documents: list[dict[str, Any]] = []
+    for path in sorted(base.rglob("*.json")):
+        try:
+            data = load_json(path)
+            documents.append(
+                {
+                    "path": path.relative_to(root).as_posix(),
+                    "id": data.get("id", ""),
+                    "name": _localized_value(
+                        data.get("name")
+                        if category == "trainers"
+                        else data.get("display_name")
+                    ),
+                    "enabled": data.get("enabled", False),
+                }
+            )
+        except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+            documents.append(
+                {
+                    "path": path.relative_to(root).as_posix(),
+                    "id": "",
+                    "name": path.stem,
+                    "enabled": False,
+                    "error": str(error),
+                }
+            )
+    return documents
+
+
+def _validate_payload(
+    data: Any,
+    validator: Any,
+) -> tuple[str | None, list[Issue]]:
+    with tempfile.TemporaryDirectory(prefix="cobbleventure-content-") as directory:
+        candidate = Path(directory) / "candidate.json"
+        candidate.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        return validator(candidate)
+
+
+def _duplicate_document_issue(
+    root: Path,
+    category: str,
+    target: Path,
+    document_id: str | None,
+    validator: Any,
+) -> Issue | None:
+    if not document_id:
+        return None
+    base = _managed_directory(root, category)
+    if not base.exists():
+        return None
+    for path in base.rglob("*.json"):
+        if path.resolve() == target.resolve():
+            continue
+        existing_id, _ = validator(path)
+        if existing_id == document_id:
+            return Issue(
+                "error",
+                target.as_posix(),
+                "$.id",
+                f"다른 파일과 중복된 ID입니다: {path.relative_to(root).as_posix()}",
+            )
+    return None
+
+
+def _save_document(
+    root: Path, category: str, relative_path: str, data: Any
+) -> tuple[Path | None, list[Issue]]:
+    validator = (
+        validate_content_file if category == "trainers" else validate_settlement_file
+    )
+    try:
+        target = _managed_path(root, category, relative_path)
+    except ValueError as error:
+        return None, [Issue("error", relative_path, "$", str(error))]
+    document_id, candidate_issues = _validate_payload(data, validator)
+    issues = [
+        Issue(issue.level, target.as_posix(), issue.path, issue.message)
+        for issue in candidate_issues
+    ]
+    duplicate = _duplicate_document_issue(
+        root, category, target, document_id, validator
+    )
+    if duplicate is not None:
+        issues.append(duplicate)
+    if any(issue.level == "error" for issue in issues):
+        return target, issues
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary_name = tempfile.mkstemp(
+        prefix=f".{target.stem}-", suffix=".json.tmp", dir=target.parent
+    )
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as output:
+            json.dump(data, output, ensure_ascii=False, indent=2)
+            output.write("\n")
+        os.replace(temporary_name, target)
+    finally:
+        temporary = Path(temporary_name)
+        if temporary.exists():
+            temporary.unlink()
+    return target, issues
+
+
+def _run_build(root: Path, command: str) -> dict[str, Any]:
+    if command not in BUILD_COMMANDS:
+        raise ValueError("허용되지 않은 빌드 명령입니다.")
+    try:
+        completed = subprocess.run(
+            ["cmd.exe", "/d", "/c", str(root / "build.bat"), command],
+            cwd=root,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=300,
+            check=False,
+        )
+        output = "\n".join(
+            part.strip() for part in (completed.stdout, completed.stderr) if part.strip()
+        )
+        return {
+            "command": command,
+            "description": BUILD_COMMANDS[command],
+            "success": completed.returncode == 0,
+            "return_code": completed.returncode,
+            "output": output or "출력 없음",
+        }
+    except subprocess.TimeoutExpired as error:
+        output = (error.stdout or b"") if isinstance(error.stdout, bytes) else (error.stdout or "")
+        return {
+            "command": command,
+            "description": BUILD_COMMANDS[command],
+            "success": False,
+            "return_code": None,
+            "output": f"5분 제한 시간을 초과했습니다.\n{output}",
+        }
+
+
+def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
+    root = root.resolve()
+    web_root = (Path(__file__).parent / "web").resolve()
+    build_lock = threading.Lock()
+
+    class Handler(BaseHTTPRequestHandler):
+        server_version = "CobbleventureContentManager/0.2"
+
+        def _bytes(self, status: int, body: bytes, content_type: str) -> None:
             self.send_response(status)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(body)
 
+        def _json(self, status: int, payload: Any) -> None:
+            body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+            self._bytes(status, body, "application/json; charset=utf-8")
+
+        def _read_json(self) -> Any:
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+            except ValueError as error:
+                raise ValueError("올바르지 않은 Content-Length입니다.") from error
+            if content_length < 1 or content_length > 2 * 1024 * 1024:
+                raise ValueError("요청 JSON은 1바이트 이상 2MB 이하여야 합니다.")
+            try:
+                return json.loads(
+                    self.rfile.read(content_length).decode("utf-8"),
+                    object_pairs_hook=_reject_duplicate_keys,
+                )
+            except (UnicodeDecodeError, json.JSONDecodeError, DuplicateKeyError) as error:
+                raise ValueError(f"JSON을 읽을 수 없습니다: {error}") from error
+
+        def _serve_static(self, request_path: str) -> bool:
+            static_files = {
+                "/": "index.html",
+                "/index.html": "index.html",
+                "/app.js": "app.js",
+                "/styles.css": "styles.css",
+            }
+            file_name = static_files.get(request_path)
+            if file_name is None:
+                return False
+            path = web_root / file_name
+            try:
+                body = path.read_bytes()
+            except OSError:
+                self._json(500, {"error": "관리 화면 파일을 읽을 수 없습니다."})
+                return True
+            self._bytes(
+                200,
+                body,
+                STATIC_CONTENT_TYPES.get(path.suffix, "application/octet-stream"),
+            )
+            return True
+
+        def _document_response(self, category: str, request: Any) -> None:
+            query = parse_qs(request.query)
+            relative_path = query.get("path", [""])[0]
+            if not relative_path:
+                self._json(200, {"items": _list_documents(root, category)})
+                return
+            try:
+                path = _managed_path(root, category, relative_path)
+                self._json(
+                    200,
+                    {
+                        "path": path.relative_to(root).as_posix(),
+                        "document": load_json(path),
+                    },
+                )
+            except ValueError as error:
+                self._json(400, {"error": str(error)})
+            except FileNotFoundError:
+                self._json(404, {"error": "문서를 찾을 수 없습니다."})
+            except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                self._json(500, {"error": str(error)})
+
         def _route(self) -> None:
             request = urlparse(self.path)
+            if self._serve_static(request.path):
+                return
             if request.path == "/health":
                 self._json(200, {"status": "ok", "service": "cobbleventure-content-manager"})
                 return
-            if request.path == "/dependencies":
+            if request.path in {"/dependencies", "/api/dependencies"}:
                 try:
                     self._json(200, load_json(root / "pack" / "dependencies.lock.json"))
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
-            if request.path == "/validate":
+            if request.path in {"/validate", "/api/validate"}:
                 query = parse_qs(request.query)
                 strict_pack = query.get("strict_pack", ["false"])[0].lower() in {"1", "true", "yes"}
                 result = validate_repository(root, strict_pack)
                 self._json(200 if result.valid else 422, result.as_json())
+                return
+            if request.path == "/api/dashboard":
+                result = validate_repository(root)
+                self._json(
+                    200,
+                    {
+                        "trainers": len(_list_documents(root, "trainers")),
+                        "settlements": len(_list_documents(root, "settlements")),
+                        "validation": result.as_json(),
+                        "build_commands": [
+                            {"id": command, "description": description}
+                            for command, description in BUILD_COMMANDS.items()
+                        ],
+                    },
+                )
+                return
+            if request.path == "/api/trainers":
+                self._document_response("trainers", request)
+                return
+            if request.path == "/api/settlements":
+                self._document_response("settlements", request)
                 return
             self._json(404, {"error": "not_found"})
 
@@ -602,10 +1041,78 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
             self._route()
 
         def do_POST(self) -> None:
-            if urlparse(self.path).path == "/validate":
+            request = urlparse(self.path)
+            if request.path in {"/validate", "/api/validate"}:
                 self._route()
                 return
+            try:
+                payload = self._read_json()
+            except ValueError as error:
+                self._json(400, {"error": str(error)})
+                return
+            if request.path == "/api/document-validation":
+                category = parse_qs(request.query).get("category", [""])[0]
+                if category not in {"trainers", "settlements"}:
+                    self._json(400, {"error": "지원하지 않는 문서 종류입니다."})
+                    return
+                validator = (
+                    validate_content_file
+                    if category == "trainers"
+                    else validate_settlement_file
+                )
+                _, issues = _validate_payload(payload, validator)
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(
+                    200 if errors == 0 else 422,
+                    {
+                        "valid": errors == 0,
+                        "errors": errors,
+                        "issues": [asdict(issue) for issue in issues],
+                    },
+                )
+                return
+            if request.path == "/api/build":
+                command = payload.get("command") if isinstance(payload, dict) else None
+                if not isinstance(command, str) or command not in BUILD_COMMANDS:
+                    self._json(400, {"error": "허용된 빌드 명령을 선택해야 합니다."})
+                    return
+                if not build_lock.acquire(blocking=False):
+                    self._json(409, {"error": "다른 빌드 명령이 실행 중입니다."})
+                    return
+                try:
+                    result = _run_build(root, command)
+                finally:
+                    build_lock.release()
+                self._json(200 if result["success"] else 422, result)
+                return
             self._json(404, {"error": "not_found"})
+
+        def do_PUT(self) -> None:
+            request = urlparse(self.path)
+            categories = {
+                "/api/trainers": "trainers",
+                "/api/settlements": "settlements",
+            }
+            category = categories.get(request.path)
+            if category is None:
+                self._json(404, {"error": "not_found"})
+                return
+            relative_path = parse_qs(request.query).get("path", [""])[0]
+            try:
+                payload = self._read_json()
+            except ValueError as error:
+                self._json(400, {"error": str(error)})
+                return
+            target, issues = _save_document(root, category, relative_path, payload)
+            errors = sum(issue.level == "error" for issue in issues)
+            self._json(
+                200 if errors == 0 else 422,
+                {
+                    "saved": errors == 0,
+                    "path": target.relative_to(root).as_posix() if target else relative_path,
+                    "issues": [asdict(issue) for issue in issues],
+                },
+            )
 
         def log_message(self, format: str, *args: Any) -> None:
             print(f"[API] {self.address_string()} {format % args}")
@@ -641,7 +1148,7 @@ def main() -> int:
 
     root = arguments.root.resolve()
     server = ThreadingHTTPServer((arguments.host, arguments.port), create_handler(root))
-    print(f"Cobbleventure Content Manager API: http://{arguments.host}:{arguments.port}")
+    print(f"Cobbleventure Content Manager: http://{arguments.host}:{arguments.port}")
     print(f"저장소: {root}")
     try:
         server.serve_forever()
