@@ -23530,3 +23530,268 @@ test("Bright Powder, Scope Lens, and Focus Band use their battle probabilities",
   assert.ok(scopeLensCriticals > ordinaryCriticals * 2);
   assert.ok(focusBandSurvivals >= 10 && focusBandSurvivals <= 40);
 });
+
+test("Pixie Plate, Charcoal, and Dragon Fang boost matching damage", () => {
+  const cases = [
+    ["pixieplate", "Fairy"],
+    ["charcoal", "Fire"],
+    ["charcoalstick", "Fire"],
+    ["dragonfang", "Dragon"],
+  ];
+  for (const [item, type] of cases) {
+    const move = { ...pokemon().moves[0], type };
+    assert.equal(
+      calculateDamageRange(pokemon({ item }), pokemon(), move).itemModifier,
+      1.2,
+      item,
+    );
+  }
+});
+
+test("Punching Glove boosts punching moves and removes their contact effects", () => {
+  const punch = {
+    ...pokemon().moves[0],
+    name: "Drain Punch",
+    id: "drainpunch",
+    type: "Fighting",
+    power: 75,
+    contact: true,
+    punch: true,
+  };
+  assert.equal(
+    calculateDamageRange(
+      pokemon({ item: "punchingglove" }),
+      pokemon(),
+      punch,
+    ).itemModifier,
+    1.1,
+  );
+
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      {
+        name: "Glove",
+        team: [pokemon({ name: "Puncher", item: "punchingglove", moves: [punch] })],
+      },
+      {
+        name: "Helmet",
+        team: [pokemon({ name: "Defender", item: "rockyhelmet", ability: "ironbarbs", moves: [splash] })],
+      },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[0].team[0].hp, pokemon().stats.hp);
+  assert.equal(
+    resolved.events.some(
+      (event) => ["rockyhelmet", "ironbarbs"].includes(event.source),
+    ),
+    false,
+  );
+});
+
+test("Grip Claw extends binding moves to seven turns", () => {
+  const fireSpin = {
+    id: "firespin",
+    name: "Fire Spin",
+    type: "Fire",
+    category: "Special",
+    power: 35,
+    accuracy: true,
+    pp: 15,
+    volatileStatus: "firespin",
+  };
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      {
+        name: "Binder",
+        team: [pokemon({ item: "grib_claw", moves: [fireSpin] })],
+      },
+      {
+        name: "Target",
+        team: [pokemon({ stats: { ...pokemon().stats, hp: 300 }, moves: [splash] })],
+      },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[1].team[0].volatiles.firespin.turns, 6);
+});
+
+test("Medicinal Leek guarantees a normal critical hit for Sirfetch'd", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      {
+        name: "Leek",
+        team: [
+          pokemon({
+            id: "sirfetchd",
+            baseSpecies: "Sirfetch'd",
+            item: "medicinalleek",
+          }),
+        ],
+      },
+      { name: "Target", team: [pokemon({ moves: [splash] })] },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(
+    resolved.events.some(
+      (event) => event.type === "damage" && event.critical === true,
+    ),
+  );
+});
+
+test("Chesto, Yache, and Maranga Berries activate and are consumed", () => {
+  const rest = {
+    id: "rest",
+    name: "Rest",
+    type: "Psychic",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 10,
+    heal: [1, 1],
+  };
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const chestoState = createSimpleBattle(setup({
+    sides: [
+      {
+        name: "Rest",
+        team: [pokemon({ item: "chestoberry", moves: [rest] })],
+      },
+      { name: "Target", team: [pokemon({ moves: [splash] })] },
+    ],
+  }));
+  chestoState.sides[0].team[0].hp = 40;
+  const rested = resolveSimpleTurn(chestoState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(rested.sides[0].team[0].status, "");
+  assert.equal(rested.sides[0].team[0].item, "");
+
+  const iceMove = {
+    ...pokemon().moves[0],
+    name: "Ice Beam",
+    id: "icebeam",
+    type: "Ice",
+    category: "Special",
+    power: 90,
+  };
+  const yacheRange = calculateDamageRange(
+    pokemon(),
+    pokemon({ types: ["Dragon"], item: "yacheberry" }),
+    iceMove,
+  );
+  assert.equal(yacheRange.effectiveness, 2);
+  assert.equal(yacheRange.fieldModifier, 0.5);
+
+  const marangaState = createSimpleBattle(setup({
+    sides: [
+      { name: "Special", team: [pokemon({ moves: [iceMove] })] },
+      {
+        name: "Berry",
+        team: [
+          pokemon({
+            item: "marangaberry",
+            ability: "ripen",
+            stats: { ...pokemon().stats, hp: 300 },
+            moves: [splash],
+          }),
+        ],
+      },
+    ],
+  }));
+  const marangaResult = resolveSimpleTurn(
+    marangaState,
+    [{ move: 1 }, { move: 1 }],
+  );
+  const marangaHolder = marangaResult.sides[1].team[0];
+  assert.equal(marangaHolder.item, "");
+  assert.equal(marangaHolder.boosts.specialDefence, 2);
+});
+
+test("Quick Claw sometimes lets a slower holder move first", () => {
+  const slowMove = {
+    ...pokemon().moves[0],
+    name: "Slow Hit",
+    id: "slowhit",
+    power: 20,
+  };
+  const fastMove = {
+    ...slowMove,
+    name: "Fast Hit",
+    id: "fasthit",
+  };
+  let activations = 0;
+  for (let seed = 1; seed <= 240; seed += 1) {
+    const state = createSimpleBattle(setup({
+      seed,
+      sides: [
+        {
+          name: "Slow",
+          team: [
+            pokemon({
+              name: "Slow Holder",
+              item: "quickclaw",
+              stats: { ...pokemon().stats, speed: 40 },
+              moves: [slowMove],
+            }),
+          ],
+        },
+        {
+          name: "Fast",
+          team: [
+            pokemon({
+              name: "Fast Target",
+              stats: { ...pokemon().stats, speed: 160 },
+              moves: [fastMove],
+            }),
+          ],
+        },
+      ],
+    }));
+    const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+    const activated = resolved.events.some(
+      (event) => event.type === "item_activate" && event.item === "quickclaw",
+    );
+    if (!activated) continue;
+    activations += 1;
+    const firstDirectHit = resolved.events.find(
+      (event) => event.type === "damage" && event.cause !== "residual",
+    );
+    assert.equal(firstDirectHit.source, "Slow Holder");
+  }
+  assert.ok(activations >= 25 && activations <= 70);
+});

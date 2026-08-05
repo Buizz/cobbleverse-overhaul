@@ -870,6 +870,7 @@ function normalizeMove(move, path) {
         : Math.max(0, Math.min(100, Number(move?.accuracy ?? 100))),
     priority: Number(move?.priority ?? 0),
     contact: makesContact(move),
+    punch: hasMoveFlag(move, "punch"),
     powder: Boolean(move?.powder === true || move?.flags?.powder === true),
     sound: Boolean(move?.sound === true || move?.flags?.sound === true),
     maxPp: Math.max(1, Number(move?.pp ?? move?.maxPp ?? 1)),
@@ -1285,6 +1286,13 @@ function makesContact(move) {
   );
 }
 
+function makesEffectiveContact(attacker, move) {
+  return !(
+    cleanId(attacker?.item) === "punchingglove" &&
+    hasMoveFlag(move, "punch")
+  ) && makesContact(move);
+}
+
 function hasMoveFlag(move, flag) {
   return Boolean(move?.[flag] === true || move?.flags?.[flag] === true);
 }
@@ -1454,7 +1462,7 @@ function abilityDamageModifier(defender, move, attacker = null) {
     modifier *= 0.5;
   }
   if (ability === "fluffy") {
-    if (makesContact(move)) modifier *= 0.5;
+    if (makesEffectiveContact(attacker, move)) modifier *= 0.5;
     if (move.type === "Fire") modifier *= 2;
   }
   if (ability === "dryskin" && move.type === "Fire") {
@@ -1992,9 +2000,13 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   const typeBoostingItems = {
     blackglasses: "Dark",
     blackbelt: "Fighting",
+    charcoal: "Fire",
+    charcoalstick: "Fire",
+    dragonfang: "Dragon",
     magnet: "Electric",
     miracleseed: "Grass",
     mysticwater: "Water",
+    pixieplate: "Fairy",
     sharpbeak: "Flying",
     spelltag: "Ghost",
   };
@@ -2010,6 +2022,12 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   ) {
     itemModifier *= 1.1;
   }
+  if (
+    cleanId(attacker.item) === "punchingglove" &&
+    hasMoveFlag(move, "punch")
+  ) {
+    itemModifier *= 1.1;
+  }
   let abilityModifier = 1;
   const auraAbility =
     move.type === "Dark"
@@ -2022,7 +2040,10 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
       ? 0.75
       : 4 / 3;
   }
-  if (activeAbility(attacker) === "toughclaws" && makesContact(move)) {
+  if (
+    activeAbility(attacker) === "toughclaws" &&
+    makesEffectiveContact(attacker, move)
+  ) {
     abilityModifier *= 1.3;
   }
   if (activeAbility(attacker) === "technician" && move.power > 0 && move.power <= 60) {
@@ -2151,7 +2172,9 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     context.critical,
   );
   if (
-    ["chartiberry", "colburberry"].includes(cleanId(defender.item)) &&
+    ["chartiberry", "colburberry", "yacheberry"].includes(
+      cleanId(defender.item),
+    ) &&
     heldItemType(defender.item) === move.type &&
     effectiveness > 1
   ) {
@@ -3077,6 +3100,8 @@ function sortActions(state, actions) {
     if (priority !== 0) return priority;
     const quickDraw = Number(Boolean(right.quickDraw)) - Number(Boolean(left.quickDraw));
     if (quickDraw !== 0) return quickDraw;
+    const quickClaw = Number(Boolean(right.quickClaw)) - Number(Boolean(left.quickClaw));
+    if (quickClaw !== 0) return quickClaw;
     const custap = Number(Boolean(right.custap)) - Number(Boolean(left.custap));
     if (custap !== 0) return custap;
     const speed = trickRoom
@@ -3551,6 +3576,22 @@ function prepareActionOrder(state, commands, rng) {
     if (
       action.kind === "move" &&
       action.selected &&
+      cleanId(actionPokemon.item) === "quickclaw" &&
+      rng.next() < 0.2
+    ) {
+      action.quickClaw = true;
+      state.events.push({
+        turn: state.turn,
+        type: "item_activate",
+        side: action.side,
+        pokemon: actionPokemon.name,
+        item: "quickclaw",
+        move: action.selected.move.name,
+      });
+    }
+    if (
+      action.kind === "move" &&
+      action.selected &&
       cleanId(actionPokemon.item) === "custapberry" &&
       actionPokemon.hp <= Math.floor(actionPokemon.stats.hp / 4)
     ) {
@@ -3916,19 +3957,21 @@ function markBerryEaten(pokemon, item) {
 }
 
 function tryConsumeLumBerry(state, sideIndex, pokemon, source) {
-  if (
-    cleanId(pokemon.item) !== "lumberry" ||
-    (!pokemon.status && !pokemon.volatiles?.confusion)
-  ) {
+  const berry = cleanId(pokemon.item);
+  const curesWithLum =
+    berry === "lumberry" &&
+    Boolean(pokemon.status || pokemon.volatiles?.confusion);
+  const curesWithChesto = berry === "chestoberry" && pokemon.status === "slp";
+  if (!curesWithLum && !curesWithChesto) {
     return false;
   }
   const curedStatus = pokemon.status;
-  const curedConfusion = Boolean(pokemon.volatiles?.confusion);
+  const curedConfusion = curesWithLum && Boolean(pokemon.volatiles?.confusion);
   consumeHeldItem(state, sideIndex, pokemon, source);
-  markBerryEaten(pokemon, "lumberry");
-  if (curedStatus) curePokemonStatus(state, sideIndex, pokemon, "lumberry");
+  markBerryEaten(pokemon, berry);
+  if (curedStatus) curePokemonStatus(state, sideIndex, pokemon, berry);
   if (curedConfusion) {
-    endVolatileStatus(state, sideIndex, pokemon, "confusion", "lumberry");
+    endVolatileStatus(state, sideIndex, pokemon, "confusion", berry);
   }
   return true;
 }
@@ -4860,7 +4903,14 @@ function applyVolatileStatus(state, side, pokemon, id, source, sourceSide = null
   pokemon.volatiles[normalized].source = source;
   pokemon.volatiles[normalized].sourceSide = sourceSide;
   if (BINDING_VOLATILES.has(normalized)) {
-    pokemon.volatiles[normalized].turns = pokemon.volatiles[normalized].turns ?? 4;
+    const sourcePokemon = Number.isInteger(sourceSide)
+      ? activePokemon(state, sourceSide)
+      : null;
+    pokemon.volatiles[normalized].turns =
+      cleanId(sourcePokemon?.item) === "gribclaw" ||
+      cleanId(sourcePokemon?.item) === "gripclaw"
+        ? 7
+        : pokemon.volatiles[normalized].turns ?? 4;
   }
   if (normalized === "perishsong") {
     pokemon.volatiles[normalized].count = 3;
@@ -6531,13 +6581,22 @@ function isTruantLoafTurn(pokemon) {
   );
 }
 
+function heldItemCriticalRatioBoost(pokemon) {
+  if (cleanId(pokemon.item) === "scopelens") return 1;
+  return ["farfetchd", "sirfetchd"].includes(
+    cleanId(pokemon.baseSpecies || pokemon.id || pokemon.name),
+  ) && cleanId(pokemon.item) === "medicinalleek"
+    ? 2
+    : 0;
+}
+
 function criticalHitChance(pokemon, move) {
   if (move?.willCrit || pokemon?.volatiles?.laserfocus) return 1;
   const ratio =
     Math.max(1, Number(move?.critRatio ?? 1)) +
     (pokemon?.volatiles?.focusenergy ? 2 : 0) +
     (activeAbility(pokemon) === "superluck" ? 1 : 0) +
-    (cleanId(pokemon.item) === "scopelens" ? 1 : 0);
+    heldItemCriticalRatioBoost(pokemon);
   return ratio >= 3 ? 1 : ratio === 2 ? 1 / 8 : 1 / 24;
 }
 
@@ -7087,7 +7146,10 @@ function executeMove(state, action, rng) {
     move.category !== "Status" &&
     cleanId(move.id) !== "hyperspacefury" &&
     move.bypassProtect !== true &&
-    !(activeAbility(attacker) === "unseenfist" && makesContact(move))
+    !(
+      activeAbility(attacker) === "unseenfist" &&
+      makesEffectiveContact(attacker, move)
+    )
   ) {
     const protectSource = defender.volatiles.protect.source || "protect";
     const protectSourceId = cleanId(protectSource);
@@ -9393,7 +9455,9 @@ function executeMove(state, action, rng) {
       }
       if (
         damage > 0 &&
-        ["chartiberry", "colburberry"].includes(cleanId(defender.item)) &&
+        ["chartiberry", "colburberry", "yacheberry"].includes(
+          cleanId(defender.item),
+        ) &&
         heldItemType(defender.item) === move.type &&
         range.effectiveness > 1
       ) {
@@ -9416,6 +9480,29 @@ function executeMove(state, action, rng) {
           "weaknesspolicy",
         );
       }
+      if (
+        damage > 0 &&
+        defender.hp > 0 &&
+        cleanId(defender.item) === "marangaberry" &&
+        move.category === "Special"
+      ) {
+        consumeHeldItem(state, defenderSide, defender, move.name);
+        markBerryEaten(defender, "marangaberry");
+        const ripenMultiplier = activeAbility(defender) === "ripen" ? 2 : 1;
+        if (ripenMultiplier > 1) {
+          emitAbilityActivation(state, defenderSide, defender, "ripen", {
+            item: "marangaberry",
+            source: move.name,
+          });
+        }
+        applyBoosts(
+          state,
+          defenderSide,
+          defender,
+          { specialDefence: ripenMultiplier },
+          "marangaberry",
+        );
+      }
       if (damage > 0 && defender.volatiles?.illusion) {
         const displayedPokemon = defender.volatiles.illusion.displayedName;
         delete defender.volatiles.illusion;
@@ -9434,7 +9521,7 @@ function executeMove(state, action, rng) {
         defender.hp > 0 &&
         activeAbility(defender) === "pickpocket" &&
         !ignoresDefenderAbility(attacker) &&
-        makesContact(move) &&
+        makesEffectiveContact(attacker, move) &&
         !defender.item &&
         attacker.item
       ) {
@@ -9449,7 +9536,7 @@ function executeMove(state, action, rng) {
       }
       if (
         damage > 0 &&
-        makesContact(move) &&
+        makesEffectiveContact(attacker, move) &&
         cleanId(defender.item) === "rockyhelmet" &&
         !attacker.fainted
       ) {
@@ -9464,7 +9551,7 @@ function executeMove(state, action, rng) {
       }
       if (
         damage > 0 &&
-        makesContact(move) &&
+        makesEffectiveContact(attacker, move) &&
         activeAbility(defender) === "gooey" &&
         !ignoresDefenderAbility(attacker) &&
         !attacker.fainted
@@ -9609,7 +9696,7 @@ function executeMove(state, action, rng) {
         defender.hp > 0 &&
         activeAbility(defender) === "poisonpoint" &&
         !ignoresDefenderAbility(attacker) &&
-        makesContact(move) &&
+        makesEffectiveContact(attacker, move) &&
         canReceiveStatus(attacker, "psn", state, action.side, defenderSide) &&
         rng.next() < 0.3
       ) {
@@ -9632,7 +9719,7 @@ function executeMove(state, action, rng) {
         defender.hp > 0 &&
         activeAbility(defender) === "static" &&
         !ignoresDefenderAbility(attacker) &&
-        makesContact(move) &&
+        makesEffectiveContact(attacker, move) &&
         canReceiveStatus(attacker, "par", state, action.side, defenderSide) &&
         rng.next() < 0.3
       ) {
@@ -9659,7 +9746,7 @@ function executeMove(state, action, rng) {
         damage > 0 &&
         defender.hp > 0 &&
         !ignoresDefenderAbility(attacker) &&
-        makesContact(move) &&
+        makesEffectiveContact(attacker, move) &&
         activeAbility(defender) === "cutecharm" &&
         defender.gender &&
         attacker.gender &&
@@ -9751,7 +9838,7 @@ function executeMove(state, action, rng) {
       if (
         damage > 0 &&
         !ignoresDefenderAbility(attacker) &&
-        makesContact(move) &&
+        makesEffectiveContact(attacker, move) &&
         ["roughskin", "ironbarbs"].includes(activeAbility(defender)) &&
         !attacker.fainted
       ) {
@@ -9779,7 +9866,7 @@ function executeMove(state, action, rng) {
         damage > 0 &&
         defender.hp > 0 &&
         !ignoresDefenderAbility(attacker) &&
-        makesContact(move) &&
+        makesEffectiveContact(attacker, move) &&
         activeAbility(defender) === "flamebody" &&
         canReceiveStatus(attacker, "brn", state, action.side, defenderSide) &&
         rng.next() < 0.3
@@ -9802,7 +9889,7 @@ function executeMove(state, action, rng) {
         damage > 0 &&
         defender.hp > 0 &&
         !ignoresDefenderAbility(attacker) &&
-        makesContact(move) &&
+        makesEffectiveContact(attacker, move) &&
         activeAbility(defender) === "effectspore" &&
         !attacker.types.includes("Grass") &&
         activeAbility(attacker) !== "overcoat" &&
@@ -9833,7 +9920,7 @@ function executeMove(state, action, rng) {
         damage > 0 &&
         defender.hp > 0 &&
         activeAbility(attacker) === "poisontouch" &&
-        makesContact(move) &&
+        makesEffectiveContact(attacker, move) &&
         canReceiveStatus(defender, "psn", state, defenderSide, action.side) &&
         rng.next() < 0.3
       ) {
@@ -10059,6 +10146,7 @@ function executeMove(state, action, rng) {
       defender,
       move.volatileStatus,
       move.name,
+      action.side,
     );
   }
   if (landedHits > 0 && cleanId(move.id) === "thousandwaves" && !defender.fainted) {
@@ -10353,7 +10441,7 @@ function executeMove(state, action, rng) {
     defenderFainted &&
     !attacker.fainted &&
     totalDamage > 0 &&
-    makesContact(move) &&
+    makesEffectiveContact(attacker, move) &&
     activeAbility(defender) === "aftermath" &&
     !dampActive(state) &&
     !ignoresDefenderAbility(attacker)
@@ -11879,7 +11967,7 @@ function aiExpectedMoveDamage(
     : move.willCrit || attacker.volatiles?.laserfocus
       ? 1
       : activeAbility(attacker) === "superluck" ||
-          cleanId(attacker.item) === "scopelens"
+          heldItemCriticalRatioBoost(attacker) > 0
         ? criticalHitChance(attacker, move)
         : 0;
   const critical = criticalChance >= 1;
