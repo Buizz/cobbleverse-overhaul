@@ -78,8 +78,14 @@
           "version",
           "artifact_format",
           "packaging_status",
+          "runtime_status",
           "modrinth",
           "install_path",
+          "vendored_path",
+          "source_url",
+          "sha1",
+          "sha512",
+          "license",
           "reason"
         ],
         "properties": {
@@ -94,6 +100,7 @@
           "version": { "type": ["string", "null"] },
           "artifact_format": { "enum": ["zip", "fabric_mod", "neoforge_mod"] },
           "packaging_status": { "enum": ["ready", "blocked"] },
+          "runtime_status": { "enum": ["ready", "blocked"] },
           "modrinth": {
             "type": "object",
             "additionalProperties": false,
@@ -104,6 +111,11 @@
             }
           },
           "install_path": { "enum": ["datapacks", "resourcepacks", "mods"] },
+          "vendored_path": { "type": ["string", "null"], "minLength": 1 },
+          "source_url": { "type": "string", "format": "uri", "minLength": 1 },
+          "sha1": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+          "sha512": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+          "license": { "type": "string", "minLength": 1 },
           "reason": { "type": "string", "minLength": 1 }
         }
       }

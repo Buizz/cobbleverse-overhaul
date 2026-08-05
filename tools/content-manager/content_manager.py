@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -629,12 +630,25 @@ def validate_dependency_lock(path: Path, strict_pack: bool) -> list[Issue]:
                 _issue(issues, "error", path, f"{item_path}.artifact_format", "지원하지 않는 배포 형식입니다.")
             if content_pack.get("packaging_status") not in {"ready", "blocked"}:
                 _issue(issues, "error", path, f"{item_path}.packaging_status", "ready 또는 blocked여야 합니다.")
+            if content_pack.get("runtime_status") not in {"ready", "blocked"}:
+                _issue(issues, "error", path, f"{item_path}.runtime_status", "ready 또는 blocked여야 합니다.")
             if content_pack.get("install_path") not in {"datapacks", "resourcepacks", "mods"}:
                 _issue(issues, "error", path, f"{item_path}.install_path", "지원하지 않는 설치 경로입니다.")
             if not isinstance(content_pack.get("display_name"), str) or not content_pack.get("display_name", "").strip():
                 _issue(issues, "error", path, f"{item_path}.display_name", "이름이 필요합니다.")
             if not isinstance(content_pack.get("reason"), str) or not content_pack.get("reason", "").strip():
                 _issue(issues, "error", path, f"{item_path}.reason", "선정 이유가 필요합니다.")
+            if not isinstance(content_pack.get("source_url"), str) or not content_pack.get("source_url", "").startswith("https://"):
+                _issue(issues, "error", path, f"{item_path}.source_url", "HTTPS 원본 주소가 필요합니다.")
+            if not isinstance(content_pack.get("license"), str) or not content_pack.get("license", "").strip():
+                _issue(issues, "error", path, f"{item_path}.license", "배포 라이선스가 필요합니다.")
+
+            sha1 = content_pack.get("sha1")
+            sha512 = content_pack.get("sha512")
+            if not isinstance(sha1, str) or not re.fullmatch(r"[0-9a-f]{40}", sha1):
+                _issue(issues, "error", path, f"{item_path}.sha1", "소문자 16진수 SHA-1이 필요합니다.")
+            if not isinstance(sha512, str) or not re.fullmatch(r"[0-9a-f]{128}", sha512):
+                _issue(issues, "error", path, f"{item_path}.sha512", "소문자 16진수 SHA-512가 필요합니다.")
 
             modrinth = _require_object(
                 content_pack.get("modrinth"), issues, path, f"{item_path}.modrinth"
@@ -665,6 +679,36 @@ def validate_dependency_lock(path: Path, strict_pack: bool) -> list[Issue]:
                         f"{item_path}.packaging_status",
                         "선정 콘텐츠팩의 패키징 차단 사유를 해결해야 합니다.",
                     )
+                if content_pack.get("runtime_status") == "blocked":
+                    severity = "error" if strict_pack or status == "locked" else "warning"
+                    _issue(
+                        issues,
+                        severity,
+                        path,
+                        f"{item_path}.runtime_status",
+                        "선정 콘텐츠팩의 게임 런타임 호환 문제를 해결해야 합니다.",
+                    )
+
+                vendored_path = content_pack.get("vendored_path")
+                if content_pack.get("packaging_status") == "ready":
+                    if not isinstance(vendored_path, str) or not vendored_path.strip():
+                        _issue(issues, "error", path, f"{item_path}.vendored_path", "패키징할 저장소 파일 경로가 필요합니다.")
+                    else:
+                        repository_root = path.resolve().parents[1]
+                        artifact_path = (repository_root / vendored_path).resolve()
+                        try:
+                            artifact_path.relative_to(repository_root)
+                        except ValueError:
+                            _issue(issues, "error", path, f"{item_path}.vendored_path", "저장소 밖의 파일은 패키징할 수 없습니다.")
+                        else:
+                            if not artifact_path.is_file():
+                                _issue(issues, "error", path, f"{item_path}.vendored_path", "패키징할 원본 파일이 없습니다.")
+                            elif isinstance(sha1, str) and isinstance(sha512, str):
+                                artifact = artifact_path.read_bytes()
+                                if hashlib.sha1(artifact).hexdigest() != sha1:
+                                    _issue(issues, "error", path, f"{item_path}.sha1", "저장소 파일의 SHA-1이 Lock과 다릅니다.")
+                                if hashlib.sha512(artifact).hexdigest() != sha512:
+                                    _issue(issues, "error", path, f"{item_path}.sha512", "저장소 파일의 SHA-512가 Lock과 다릅니다.")
 
     if status == "draft":
         severity = "error" if strict_pack else "warning"

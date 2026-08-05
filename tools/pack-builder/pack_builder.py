@@ -333,12 +333,18 @@ def main() -> int:
             output = build_pack(root, arguments.profile)
             manifest = validate_pack(output, profile=profile)
             digest = hashlib.sha256(output.read_bytes()).hexdigest()
+            with zipfile.ZipFile(output, "r") as archive:
+                vendored_mod_count = sum(
+                    name.startswith("overrides/mods/") and name.endswith(".jar")
+                    for name in archive.namelist()
+                )
             print(f"CurseForge ZIP 생성 완료: {output}")
             print(
                 "프로필: "
                 f"Minecraft {manifest['minecraft']['version']}, "
                 f"{manifest['minecraft']['modLoaders'][0]['id']}, "
-                f"외부 모드 {len(manifest['files'])}개"
+                f"CurseForge 외부 모드 {len(manifest['files'])}개, "
+                f"직접 포함 JAR {vendored_mod_count}개"
             )
             print(f"SHA-256: {digest}")
         else:

@@ -125,13 +125,19 @@
       "selected": true,
       "version": "4.2.1",
       "artifact_format": "fabric_mod",
-      "packaging_status": "blocked",
+      "packaging_status": "ready",
+      "runtime_status": "blocked",
       "modrinth": {
         "project_id": "W2pr9jyL",
         "version_id": "9PMzbD4o"
       },
       "install_path": "mods",
-      "reason": "마을, 포켓몬센터, 포켓마트와 백화점 콘텐츠 후보; NeoForge에서는 Fabric 호환층과 재배포 권한 확인 전까지 패키징하지 않음"
+      "vendored_path": "pack/overrides/development-placeholder/mods/cobblemon-additions-4.2.1.jar",
+      "source_url": "https://cdn.modrinth.com/data/W2pr9jyL/versions/9PMzbD4o/cobblemon-additions-4.2.1.jar",
+      "sha1": "8aff3ce2f13787b310af5293022c413daccdee4b",
+      "sha512": "63bbba75a22081f8489e486c5dc7947c8556255022e9c3ac692d6ff252883c7d2d74692b1bdb663ce9d841042c9bcc38785815a7bd0a40e9f89ccc7664d2c273",
+      "license": "CC0-1.0",
+      "reason": "마을, 포켓몬센터, 포켓마트와 백화점 콘텐츠; 원본 JAR은 개발팩에 포함했으며 NeoForge 실행에는 Fabric 호환층 추가가 필요함"
     }
   ]
 }
