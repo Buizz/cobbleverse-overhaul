@@ -31,14 +31,6 @@
       "collision": true
     }
   },
-  "placement": {
-    "region": "cobbleventure:region/development",
-    "settlement": "cobbleventure:settlement/test_area",
-    "anchor": "cobbleventure:anchor/ai_test",
-    "offset": { "x": 0, "y": 0, "z": 0 },
-    "rotation": 0,
-    "spawn_policy": "manual"
-  },
   "battle": {
     "trainer_id": "cobbleventure:trainer/ai_test",
     "format": "GEN_9_SINGLES",

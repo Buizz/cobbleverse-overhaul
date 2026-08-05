@@ -36,6 +36,19 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("cobbleventure:trainer/starter_town_leader", content_id)
         self.assertEqual([], issues)
 
+    def test_trainer_owned_placement_is_rejected(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["placement"] = {}
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertTrue(any("마을의 npc_placement" in issue.message for issue in issues))
+
     def test_missing_dialogue_target_is_rejected(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -154,6 +167,26 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("cobbleventure:settlement/starter_town", settlement_id)
         self.assertEqual([], issues)
 
+    def test_settlement_trainer_slot_requires_trainer_and_spawn_policy(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (
+                root
+                / "content"
+                / "settlements"
+                / "generation_1"
+                / "starter_town.json"
+            ).read_text(encoding="utf-8")
+        )
+        slot = source["npc_placement"]["trainer_slots"][0]
+        slot.pop("trainer_id")
+        slot["spawn_policy"] = "unknown"
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+        self.assertTrue(any("trainer_id" in issue.path for issue in issues))
+        self.assertTrue(any("생성 정책" in issue.message for issue in issues))
+
     def test_trainer_class_catalog_is_valid(self) -> None:
         root = Path(__file__).parents[3]
         issues = content_manager.validate_trainer_class_catalog(
@@ -220,6 +253,7 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertEqual("cobbleventure:trainer/route_01", content_id)
         self.assertEqual([], issues)
+        self.assertNotIn("placement", template)
 
     def test_create_document_writes_valid_template_and_rejects_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

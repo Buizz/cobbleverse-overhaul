@@ -12,7 +12,6 @@
     "name",
     "tags",
     "npc",
-    "placement",
     "battle",
     "dialogue",
     "progression",
@@ -31,7 +30,6 @@
       "items": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }
     },
     "npc": { "$ref": "#/$defs/npc" },
-    "placement": { "$ref": "#/$defs/placement" },
     "battle": { "$ref": "#/$defs/battle" },
     "dialogue": { "$ref": "#/$defs/dialogue_graph" },
     "progression": { "$ref": "#/$defs/progression" },
@@ -97,19 +95,6 @@
             "collision": { "type": "boolean" }
           }
         }
-      }
-    },
-    "placement": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["region", "settlement", "anchor", "offset", "rotation", "spawn_policy"],
-      "properties": {
-        "region": { "$ref": "#/$defs/resource_id" },
-        "settlement": { "$ref": "#/$defs/resource_id" },
-        "anchor": { "$ref": "#/$defs/resource_id" },
-        "offset": { "$ref": "#/$defs/vector3" },
-        "rotation": { "type": "number", "minimum": -360, "maximum": 360 },
-        "spawn_policy": { "enum": ["persistent", "on_region_load", "manual"] }
       }
     },
     "battle": {

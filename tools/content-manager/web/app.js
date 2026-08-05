@@ -177,11 +177,6 @@ function renderTrainer() {
   setFormValue(form, "interactionRange", document.npc?.behavior?.interaction_range);
   setFormValue(form, "lookAtPlayer", document.npc?.behavior?.look_at_player);
   setFormValue(form, "invulnerable", document.npc?.behavior?.invulnerable);
-  setFormValue(form, "region", document.placement?.region);
-  setFormValue(form, "settlement", document.placement?.settlement);
-  setFormValue(form, "anchor", document.placement?.anchor);
-  setFormValue(form, "rotation", document.placement?.rotation);
-  setFormValue(form, "spawnPolicy", document.placement?.spawn_policy);
   setFormValue(form, "battleFormat", document.battle?.format);
   setFormValue(form, "battleType", document.battle?.battle_type);
   setFormValue(form, "battleAi", document.battle?.ai);
@@ -220,13 +215,6 @@ function updateTrainerFromForm() {
     interaction_range: Number(form.elements.interactionRange.value),
     look_at_player: form.elements.lookAtPlayer.checked,
     invulnerable: form.elements.invulnerable.checked
-  });
-  Object.assign(state.trainer.placement, {
-    region: form.elements.region.value,
-    settlement: form.elements.settlement.value,
-    anchor: form.elements.anchor.value,
-    rotation: Number(form.elements.rotation.value),
-    spawn_policy: form.elements.spawnPolicy.value
   });
   Object.assign(state.trainer.battle, {
     format: form.elements.battleFormat.value,
@@ -1066,9 +1054,88 @@ function renderSettlement() {
   setFormValue(form, "maxAmbient", document.npc_placement?.max_ambient_npcs);
   setFormValue(form, "wanderRadius", document.npc_placement?.default_wander_radius);
   [...form.elements].forEach((element) => element.disabled = false);
+  renderTrainerSlots();
   $("#settlement-json").value = JSON.stringify(document, null, 2);
-  ["#settlement-json", "#apply-settlement-json", "#validate-settlement", "#save-settlement"].forEach((selector) => $(selector).disabled = false);
+  ["#settlement-json", "#apply-settlement-json", "#add-trainer-slot", "#validate-settlement", "#save-settlement"].forEach((selector) => $(selector).disabled = false);
   showIssues("#settlement-issues", { valid: true, issues: [] });
+}
+
+function trainerSlotId(trainerId, slots) {
+  const base = (trainerId.split("/").pop() || "trainer").replace(/[^a-z0-9_.-]/g, "_");
+  let candidate = base;
+  let suffix = 2;
+  const used = new Set(slots.map((slot) => slot.id));
+  while (used.has(candidate)) candidate = `${base}_${suffix++}`;
+  return candidate;
+}
+
+function renderTrainerSlots() {
+  const list = $("#trainer-slot-list");
+  const slots = state.settlement?.npc_placement?.trainer_slots || [];
+  if (!slots.length) {
+    list.innerHTML = '<div class="issues empty">아직 이 마을에 배치된 트레이너가 없습니다.</div>';
+    return;
+  }
+  const trainerOptions = state.trainers.map((trainer) =>
+    `<option value="${escapeHtml(trainer.id)}">${escapeHtml(trainer.name || trainer.id)} · ${escapeHtml(trainer.id)}</option>`
+  ).join("");
+  list.innerHTML = slots.map((slot, index) => `
+    <article class="trainer-slot-row" data-slot-index="${index}">
+      <div class="trainer-slot-heading"><strong>배치 ${String(index + 1).padStart(2, "0")}</strong><button type="button" class="remove-trainer-slot" data-remove-trainer-slot="${index}">삭제</button></div>
+      <div class="trainer-slot-fields">
+        <label class="trainer-choice"><span>트레이너</span><select data-slot-field="trainer_id">${trainerOptions}</select></label>
+        <label><span>슬롯 ID</span><input data-slot-field="id" value="${escapeHtml(slot.id || "")}"></label>
+        <label><span>X</span><input type="number" data-slot-field="x" value="${Number(slot.position?.x ?? 0)}"></label>
+        <label><span>Y</span><input type="number" data-slot-field="y" value="${Number(slot.position?.y ?? 64)}"></label>
+        <label><span>Z</span><input type="number" data-slot-field="z" value="${Number(slot.position?.z ?? 0)}"></label>
+        <label><span>회전</span><input type="number" min="-360" max="360" step="1" data-slot-field="rotation" value="${Number(slot.rotation ?? 0)}"></label>
+        <label><span>생성 정책</span><select data-slot-field="spawn_policy"><option value="persistent">항상 유지</option><option value="on_region_load">지역 로딩 시</option><option value="manual">수동 생성</option></select></label>
+        <label class="slot-tags"><span>태그 — 쉼표로 구분</span><input data-slot-field="tags" value="${escapeHtml((slot.tags || []).join(", "))}"></label>
+      </div>
+    </article>`).join("");
+  $$(".trainer-slot-row").forEach((row) => {
+    const slot = slots[Number(row.dataset.slotIndex)];
+    row.querySelector('[data-slot-field="trainer_id"]').value = slot.trainer_id || "";
+    row.querySelector('[data-slot-field="spawn_policy"]').value = slot.spawn_policy || "persistent";
+  });
+}
+
+function addTrainerSlot() {
+  if (!state.settlement) return;
+  if (!state.trainers.length) { toast("먼저 트레이너를 하나 이상 만들어 주세요."); return; }
+  state.settlement.npc_placement ||= { max_ambient_npcs: 0, default_wander_radius: 5, trainer_slots: [], zones: [] };
+  state.settlement.npc_placement.trainer_slots ||= [];
+  const slots = state.settlement.npc_placement.trainer_slots;
+  const assigned = new Set(slots.map((slot) => slot.trainer_id));
+  const trainer = state.trainers.find((entry) => !assigned.has(entry.id)) || state.trainers[0];
+  slots.push({
+    id: trainerSlotId(trainer.id, slots),
+    trainer_id: trainer.id,
+    position: { ...(state.settlement.center || { x: 0, y: 64, z: 0 }) },
+    rotation: 0,
+    spawn_policy: "persistent",
+    tags: ["trainer"]
+  });
+  renderTrainerSlots();
+  updateSettlementFromForm();
+}
+
+function updateTrainerSlot(event) {
+  const row = event.target.closest("[data-slot-index]");
+  const field = event.target.dataset.slotField;
+  if (!row || !field || !state.settlement) return;
+  const slot = state.settlement.npc_placement.trainer_slots[Number(row.dataset.slotIndex)];
+  if (["x", "y", "z"].includes(field)) slot.position[field] = Number(event.target.value);
+  else if (field === "rotation") slot.rotation = Number(event.target.value);
+  else if (field === "tags") slot.tags = event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean);
+  else slot[field] = event.target.value;
+  updateSettlementFromForm();
+}
+
+function removeTrainerSlot(index) {
+  state.settlement?.npc_placement?.trainer_slots?.splice(index, 1);
+  renderTrainerSlots();
+  updateSettlementFromForm();
 }
 
 function updateSettlementFromForm() {
@@ -1214,6 +1281,12 @@ $("#apply-trainer-json").addEventListener("click", () => { const document = pars
 $("#validate-settlement").addEventListener("click", () => validateDocument("settlements"));
 $("#save-settlement").addEventListener("click", () => saveDocument("settlements"));
 $("#settlement-form").addEventListener("input", updateSettlementFromForm);
+$("#add-trainer-slot").addEventListener("click", addTrainerSlot);
+$("#trainer-slot-list").addEventListener("input", updateTrainerSlot);
+$("#trainer-slot-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-trainer-slot]");
+  if (button) removeTrainerSlot(Number(button.dataset.removeTrainerSlot));
+});
 $("#apply-settlement-json").addEventListener("click", () => { const document = parseEditor("#settlement-json"); if (document) { state.settlement = document; renderSettlement(); toast("JSON을 기본 설정에 반영했습니다."); } });
 $$('[data-create]').forEach((button) => button.addEventListener("click", () => openCreateDialog(button.dataset.create)));
 $("#create-form").addEventListener("submit", createDocument);

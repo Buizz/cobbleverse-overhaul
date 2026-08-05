@@ -30,15 +30,11 @@
     "trainer_slots": [
       {
         "id": "gym_leader",
+        "trainer_id": "cobbleventure:trainer/starter_town_leader",
         "position": { "x": 724, "y": 76, "z": -272 },
         "rotation": 180,
+        "spawn_policy": "persistent",
         "tags": ["gym", "fixed", "trainer"]
-      },
-      {
-        "id": "street_trainer_01",
-        "position": { "x": 612, "y": 75, "z": -286 },
-        "rotation": 90,
-        "tags": ["street", "trainer", "wander"]
       }
     ],
     "zones": [

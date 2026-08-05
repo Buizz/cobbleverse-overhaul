@@ -31,14 +31,6 @@
       "collision": true
     }
   },
-  "placement": {
-    "region": "cobbleventure:region/generation_1/region_01",
-    "settlement": "cobbleventure:settlement/starter_town",
-    "anchor": "cobbleventure:anchor/starter_town/gym_leader",
-    "offset": { "x": 0, "y": 0, "z": 0 },
-    "rotation": 180,
-    "spawn_policy": "persistent"
-  },
   "battle": {
     "trainer_id": "cobbleventure:trainer/starter_town_leader",
     "format": "GEN_9_SINGLES",

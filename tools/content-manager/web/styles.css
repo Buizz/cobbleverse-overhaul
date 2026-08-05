@@ -71,6 +71,19 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 @media (max-width: 620px) { .trainer-form fieldset:nth-of-type(1), .trainer-form fieldset:nth-of-type(2), .trainer-form fieldset:nth-of-type(3), .trainer-form fieldset.mechanic-options { grid-template-columns: 1fr 1fr; }.pokemon-fields { grid-template-columns: 1fr 1fr; }.pokemon-fields .moves, .pokemon-fields .pokemon-toggles { grid-column: span 2; } }
 @media (max-width: 620px) { .bag-item-row { grid-template-columns: 28px 1fr auto; align-items: center; }.bag-item-description { grid-column: span 2; }.bag-item-row label { grid-column: 2; }.bag-item-row [data-select-bag-item] { grid-column: 2; }.remove-bag-item { grid-column: 3; grid-row: 1; } }
 
+.subsection-heading small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+.trainer-slot-list { display: grid; gap: 10px; padding: 0 24px 24px; }
+.trainer-slot-row { overflow: hidden; border: 1px solid #c7d4d9; border-radius: 3px; background: #f8fafb; }
+.trainer-slot-heading { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid #d0dce0; }
+.trainer-slot-heading strong { color: #6e9d0e; font: 800 11px Consolas, monospace; }
+.remove-trainer-slot { border: 0; background: transparent; color: #c72f43; font-size: 11px; cursor: pointer; }
+.trainer-slot-fields { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(130px, 1fr) repeat(4, minmax(70px, .55fr)); gap: 10px; padding: 14px; }
+.trainer-slot-fields label > span { display: block; margin-bottom: 6px; color: #607788; font-size: 9px; font-weight: 700; }
+.trainer-slot-fields input, .trainer-slot-fields select { width: 100%; min-height: 36px; padding: 7px 9px; color-scheme: light; border: 1px solid #b9c8cf; border-radius: 3px; outline: none; background: #fff; color: #162f43; }
+.trainer-slot-fields input:focus, .trainer-slot-fields select:focus { border-color: #1e9eaa; box-shadow: 0 0 0 2px rgba(64, 215, 207, .18); }
+.trainer-slot-fields .trainer-choice, .trainer-slot-fields .slot-tags { grid-column: span 2; }
+@media (max-width: 900px) { .trainer-slot-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }.trainer-slot-fields .trainer-choice, .trainer-slot-fields .slot-tags { grid-column: span 2; } }
+
 /* Battle Web Lab visual language */
 :root {
   color-scheme: light;

@@ -381,10 +381,15 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                     _issue(issues, "error", path, f"{slot_path}.id", f"중복 슬롯 ID: {slot_id}")
                 else:
                     seen_slots.add(slot_id)
+                _resource_id(slot.get("trainer_id"), issues, path, f"{slot_path}.trainer_id")
                 _validate_block_position(slot.get("position"), issues, path, f"{slot_path}.position")
                 rotation = slot.get("rotation")
                 if not isinstance(rotation, (int, float)) or isinstance(rotation, bool):
                     _issue(issues, "error", path, f"{slot_path}.rotation", "숫자여야 합니다.")
+                elif not -360 <= rotation <= 360:
+                    _issue(issues, "error", path, f"{slot_path}.rotation", "-360 이상 360 이하여야 합니다.")
+                if slot.get("spawn_policy") not in {"persistent", "on_region_load", "manual"}:
+                    _issue(issues, "error", path, f"{slot_path}.spawn_policy", "지원하지 않는 생성 정책입니다.")
                 tags = _require_list(slot.get("tags"), issues, path, f"{slot_path}.tags")
                 if tags is not None:
                     for tag_index, tag in enumerate(tags):
@@ -594,6 +599,14 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
         _issue(issues, "error", path, "$.schema_version", "지원 버전은 1입니다.")
 
     content_id = _resource_id(root.get("id"), issues, path, "$.id")
+    if "placement" in root:
+        _issue(
+            issues,
+            "error",
+            path,
+            "$.placement",
+            "트레이너 배치는 마을의 npc_placement.trainer_slots에서 관리해야 합니다.",
+        )
     if not isinstance(root.get("enabled"), bool):
         _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
     _localized_text(root.get("name"), issues, path, "$.name")
@@ -633,19 +646,6 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
             interaction_range = behavior.get("interaction_range")
             if not isinstance(interaction_range, (int, float)) or isinstance(interaction_range, bool) or interaction_range <= 0:
                 _issue(issues, "error", path, "$.npc.behavior.interaction_range", "0보다 큰 숫자여야 합니다.")
-
-    placement = _require_object(root.get("placement"), issues, path, "$.placement")
-    if placement is not None:
-        for key in ("region", "settlement", "anchor"):
-            _resource_id(placement.get(key), issues, path, f"$.placement.{key}")
-        offset = _require_object(placement.get("offset"), issues, path, "$.placement.offset")
-        if offset is not None:
-            for key in ("x", "y", "z"):
-                value = offset.get(key)
-                if not isinstance(value, (int, float)) or isinstance(value, bool):
-                    _issue(issues, "error", path, f"$.placement.offset.{key}", "숫자여야 합니다.")
-        if placement.get("spawn_policy") not in {"persistent", "on_region_load", "manual"}:
-            _issue(issues, "error", path, "$.placement.spawn_policy", "지원하지 않는 생성 정책입니다.")
 
     battle = _require_object(root.get("battle"), issues, path, "$.battle")
     if battle is not None:
@@ -910,6 +910,21 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
         for path in sorted(settlement_dir.rglob("*.json")):
             settlement_id, file_issues = validate_settlement_file(path)
             issues.extend(file_issues)
+            try:
+                settlement_data = load_json(path)
+                trainer_slots = settlement_data.get("npc_placement", {}).get("trainer_slots", [])
+                for index, slot in enumerate(trainer_slots):
+                    trainer_id = slot.get("trainer_id") if isinstance(slot, dict) else None
+                    if isinstance(trainer_id, str) and trainer_id not in seen_content:
+                        _issue(
+                            issues,
+                            "error",
+                            path,
+                            f"$.npc_placement.trainer_slots[{index}].trainer_id",
+                            f"존재하지 않는 트레이너 ID: {trainer_id}",
+                        )
+            except (OSError, json.JSONDecodeError, DuplicateKeyError, AttributeError):
+                pass
             if settlement_id is None:
                 continue
             if settlement_id in seen_settlements:
@@ -1101,14 +1116,6 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
                 "invulnerable": True,
                 "collision": True,
             },
-        },
-        "placement": {
-            "region": "cobbleventure:generation_1/region_01",
-            "settlement": "cobbleventure:settlement/starter_town",
-            "anchor": f"cobbleventure:anchor/{slug}",
-            "offset": {"x": 0, "y": 0, "z": 0},
-            "rotation": 0,
-            "spawn_policy": "persistent",
         },
         "battle": {
             "trainer_id": trainer_id,
