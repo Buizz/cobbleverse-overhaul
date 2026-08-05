@@ -30,6 +30,12 @@
 | `easy_npc_config_ui` | Easy NPC Config UI | 선택 프로필 | 양쪽 | Easy NPC 게임 내 설정과 네트워크 | Easy NPC 프로필에서만 사용 |
 | `tbcs` | Cobblemon Trainer Battle Commands | 선택 프로필 | 양쪽 | 명령 기반 NPC와 RCT API 전투 연결 | 자체 RCT Bridge와 비교 필요 |
 
+## 콘텐츠팩 의존성
+
+| ID | 콘텐츠팩 | 구분 | 선택 버전 | 배포 형식 | 패키징 상태 |
+|----|----------|------|-----------|-----------|-------------|
+| `cobblemon_additions` | Cobblemon Additions | 필수 후보 | 4.2.1 / Modrinth `W2pr9jyL:9PMzbD4o` | Fabric JAR로 포장된 데이터팩·모드 | 보류: NeoForge 호환층·재배포 권한 확인 필요 |
+
 ## 자체 모듈
 
 | 모듈 | 역할 | 외부 의존성 원칙 |
@@ -70,7 +76,7 @@ Fabric Language Kotlin을 요구한다. 이 포장본을 NeoForge에서 그대�
 Connector 계열 호환층이 필요하다. 우리 프로젝트는 NeoForge 네이티브 구성을
 우선하므로 다음 원칙을 적용한다.
 
-1. BCA를 외부 모드 의존성으로 등록하지 않는다.
+1. BCA를 외부 모드 목록이 아니라 콘텐츠팩 의존성으로 등록한다.
 2. BCA의 마을 직소 풀과 센터·마트·백화점 구성은 자체 월드 생성 구현의 참고로 쓴다.
 3. 실제 채택 시에는 순수 데이터팩으로 관리하고 라이선스와 수정·재배포 범위를 먼저 검증한다.
 4. Fabric JAR을 쓰기 위해 Connector 계열 의존성을 늘리는 선택은 별도 호환 프로필로 격리한다.

@@ -358,7 +358,24 @@ class ContentManagerTests(unittest.TestCase):
         issues = content_manager.validate_dependency_lock(
             root / "pack" / "dependencies.lock.json", strict_pack=True
         )
-        self.assertTrue(any("Minecraft 버전" in issue.message for issue in issues))
+        self.assertTrue(any("draft" in issue.message for issue in issues))
+
+    def test_cobblemon_additions_content_pack_is_registered(self) -> None:
+        root = Path(__file__).parents[3]
+        dependency_lock = content_manager.load_json(
+            root / "pack" / "dependencies.lock.json"
+        )
+        content_pack = next(
+            item
+            for item in dependency_lock["content_packs"]
+            if item["id"] == "cobblemon_additions"
+        )
+        self.assertTrue(content_pack["selected"])
+        self.assertEqual("4.2.1", content_pack["version"])
+        self.assertEqual("fabric_mod", content_pack["artifact_format"])
+        self.assertEqual("blocked", content_pack["packaging_status"])
+        self.assertEqual("W2pr9jyL", content_pack["modrinth"]["project_id"])
+        self.assertEqual("9PMzbD4o", content_pack["modrinth"]["version_id"])
 
     def test_local_api_health_and_validation(self) -> None:
         root = Path(__file__).parents[3]

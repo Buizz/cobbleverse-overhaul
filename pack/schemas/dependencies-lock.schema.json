@@ -4,7 +4,7 @@
   "title": "Cobbleventure dependency lock",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "status", "profile", "minecraft", "mods"],
+  "required": ["schema_version", "status", "profile", "minecraft", "mods", "content_packs"],
   "properties": {
     "schema_version": { "const": 1 },
     "status": { "enum": ["draft", "locked"] },
@@ -59,6 +59,51 @@
               "file_id": { "type": ["integer", "null"], "minimum": 1 }
             }
           },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "content_packs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "display_name",
+          "kind",
+          "classification",
+          "side",
+          "selected",
+          "version",
+          "artifact_format",
+          "packaging_status",
+          "modrinth",
+          "install_path",
+          "reason"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+          "display_name": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["datapack", "resourcepack"] },
+          "classification": {
+            "enum": ["required", "required-candidate", "optional", "profile-optional", "development"]
+          },
+          "side": { "enum": ["client", "server", "both"] },
+          "selected": { "type": "boolean" },
+          "version": { "type": ["string", "null"] },
+          "artifact_format": { "enum": ["zip", "fabric_mod", "neoforge_mod"] },
+          "packaging_status": { "enum": ["ready", "blocked"] },
+          "modrinth": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["project_id", "version_id"],
+            "properties": {
+              "project_id": { "type": ["string", "null"], "minLength": 1 },
+              "version_id": { "type": ["string", "null"], "minLength": 1 }
+            }
+          },
+          "install_path": { "enum": ["datapacks", "resourcepacks", "mods"] },
           "reason": { "type": "string", "minLength": 1 }
         }
       }

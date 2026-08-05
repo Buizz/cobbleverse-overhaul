@@ -197,7 +197,7 @@ Python 콘텐츠 관리 웹과 전투 Web Lab은 팀 전체를 다음 공통 클
 
 | 경로 | 역할 |
 |------|------|
-| `pack/dependencies.lock.json` | Minecraft, NeoForge와 포함 모드의 확정 버전·출처 |
+| `pack/dependencies.lock.json` | Minecraft, NeoForge, 포함 모드와 외부 콘텐츠팩의 확정 버전·출처 |
 | `pack/profiles/*.json` | smoke, 개발, 배포 등 패키징 프로필 |
 
 Lock 파일은 [의존 모드 관리표](MOD_DEPENDENCIES.md)와 함께 관리하되, 빌드

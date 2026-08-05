@@ -599,13 +599,81 @@ def validate_dependency_lock(path: Path, strict_pack: bool) -> list[Issue]:
                 if not isinstance(project_id, int) or not isinstance(file_id, int):
                     _issue(issues, "error", path, f"{item_path}.curseforge", "활성 외부 모드의 CurseForge ID를 고정해야 합니다.")
 
-    if status == "draft" and not strict_pack:
+    content_packs = _require_list(root.get("content_packs"), issues, path, "$.content_packs")
+    seen_content_pack_ids: set[str] = set()
+    seen_modrinth_versions: set[tuple[str, str]] = set()
+    if content_packs is not None:
+        for index, value in enumerate(content_packs):
+            item_path = f"$.content_packs[{index}]"
+            content_pack = _require_object(value, issues, path, item_path)
+            if content_pack is None:
+                continue
+
+            content_pack_id = content_pack.get("id")
+            if not isinstance(content_pack_id, str) or not MOD_ID.fullmatch(content_pack_id):
+                _issue(issues, "error", path, f"{item_path}.id", "올바른 콘텐츠팩 ID가 아닙니다.")
+            elif content_pack_id in seen_content_pack_ids:
+                _issue(issues, "error", path, f"{item_path}.id", f"중복 콘텐츠팩 ID: {content_pack_id}")
+            else:
+                seen_content_pack_ids.add(content_pack_id)
+
+            if content_pack.get("kind") not in {"datapack", "resourcepack"}:
+                _issue(issues, "error", path, f"{item_path}.kind", "datapack 또는 resourcepack이어야 합니다.")
+            if content_pack.get("classification") not in VALID_CLASSIFICATIONS:
+                _issue(issues, "error", path, f"{item_path}.classification", "지원하지 않는 분류입니다.")
+            if content_pack.get("side") not in VALID_SIDES:
+                _issue(issues, "error", path, f"{item_path}.side", "client, server, both 중 하나여야 합니다.")
+            if not isinstance(content_pack.get("selected"), bool):
+                _issue(issues, "error", path, f"{item_path}.selected", "boolean이어야 합니다.")
+            if content_pack.get("artifact_format") not in {"zip", "fabric_mod", "neoforge_mod"}:
+                _issue(issues, "error", path, f"{item_path}.artifact_format", "지원하지 않는 배포 형식입니다.")
+            if content_pack.get("packaging_status") not in {"ready", "blocked"}:
+                _issue(issues, "error", path, f"{item_path}.packaging_status", "ready 또는 blocked여야 합니다.")
+            if content_pack.get("install_path") not in {"datapacks", "resourcepacks", "mods"}:
+                _issue(issues, "error", path, f"{item_path}.install_path", "지원하지 않는 설치 경로입니다.")
+            if not isinstance(content_pack.get("display_name"), str) or not content_pack.get("display_name", "").strip():
+                _issue(issues, "error", path, f"{item_path}.display_name", "이름이 필요합니다.")
+            if not isinstance(content_pack.get("reason"), str) or not content_pack.get("reason", "").strip():
+                _issue(issues, "error", path, f"{item_path}.reason", "선정 이유가 필요합니다.")
+
+            modrinth = _require_object(
+                content_pack.get("modrinth"), issues, path, f"{item_path}.modrinth"
+            )
+            project_id = modrinth.get("project_id") if modrinth else None
+            version_id = modrinth.get("version_id") if modrinth else None
+            if project_id is not None and (not isinstance(project_id, str) or not project_id.strip()):
+                _issue(issues, "error", path, f"{item_path}.modrinth.project_id", "비어 있지 않은 문자열 또는 null이어야 합니다.")
+            if version_id is not None and (not isinstance(version_id, str) or not version_id.strip()):
+                _issue(issues, "error", path, f"{item_path}.modrinth.version_id", "비어 있지 않은 문자열 또는 null이어야 합니다.")
+            if isinstance(project_id, str) and isinstance(version_id, str):
+                pair = (project_id, version_id)
+                if pair in seen_modrinth_versions:
+                    _issue(issues, "error", path, f"{item_path}.modrinth", "동일한 Modrinth 파일이 중복되었습니다.")
+                seen_modrinth_versions.add(pair)
+
+            if content_pack.get("selected"):
+                if not content_pack.get("version"):
+                    _issue(issues, "error", path, f"{item_path}.version", "선정 콘텐츠팩 버전을 고정해야 합니다.")
+                if not isinstance(project_id, str) or not isinstance(version_id, str):
+                    _issue(issues, "error", path, f"{item_path}.modrinth", "선정 콘텐츠팩의 Modrinth ID를 고정해야 합니다.")
+                if content_pack.get("packaging_status") == "blocked":
+                    severity = "error" if strict_pack or status == "locked" else "warning"
+                    _issue(
+                        issues,
+                        severity,
+                        path,
+                        f"{item_path}.packaging_status",
+                        "선정 콘텐츠팩의 패키징 차단 사유를 해결해야 합니다.",
+                    )
+
+    if status == "draft":
+        severity = "error" if strict_pack else "warning"
         _issue(
             issues,
-            "warning",
+            severity,
             path,
             "$.status",
-            "의존성이 draft 상태입니다. 일반 콘텐츠 개발은 가능하지만 테스트팩 패키징은 차단됩니다.",
+            "의존성이 draft 상태입니다. 일반 콘텐츠 개발은 가능하지만 정식 테스트팩 패키징은 차단됩니다.",
         )
     return issues
 

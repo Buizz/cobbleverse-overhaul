@@ -114,5 +114,24 @@
       },
       "reason": "명령 기반 NPC와 RCT API 전투 연결 비교안"
     }
+  ],
+  "content_packs": [
+    {
+      "id": "cobblemon_additions",
+      "display_name": "Cobblemon Additions",
+      "kind": "datapack",
+      "classification": "required-candidate",
+      "side": "both",
+      "selected": true,
+      "version": "4.2.1",
+      "artifact_format": "fabric_mod",
+      "packaging_status": "blocked",
+      "modrinth": {
+        "project_id": "W2pr9jyL",
+        "version_id": "9PMzbD4o"
+      },
+      "install_path": "mods",
+      "reason": "마을, 포켓몬센터, 포켓마트와 백화점 콘텐츠 후보; NeoForge에서는 Fabric 호환층과 재배포 권한 확인 전까지 패키징하지 않음"
+    }
   ]
 }
