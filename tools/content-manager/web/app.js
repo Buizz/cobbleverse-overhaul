@@ -392,6 +392,35 @@ function formOptionsForPokemon(pokemon) {
   return (state.editorCatalog?.species || []).filter((entry) => entry.number === selected.number);
 }
 
+const pokemonFormNames = {
+  alola: "알로라", galar: "가라르", hisui: "히스이", paldea: "팔데아",
+  mega: "메가진화", megax: "메가진화 X", megay: "메가진화 Y", gmax: "거다이맥스",
+  primal: "원시회귀", origin: "오리진폼", therian: "영물폼", incarnate: "화신폼",
+  sky: "스카이폼", land: "랜드폼", attack: "어택폼", defense: "디펜스폼",
+  speed: "스피드폼", school: "군집의 모습", solo: "단독의 모습", zen: "달마모드",
+  crowned: "왕의 모습", hero: "역전의 용사", complete: "퍼펙트폼", totem: "주인 포켓몬",
+};
+
+function pokemonFormLabel(forme) {
+  const form = String(forme || "");
+  const id = toId(form);
+  if (pokemonFormNames[id]) return pokemonFormNames[id];
+  const translated = form.split("-").map((part) => pokemonFormNames[toId(part)] || part).join(" ");
+  return translated || "기본";
+}
+
+function pokemonCatalogDisplayName(entry) {
+  if (!entry) return "포켓몬";
+  if (entry.name && entry.name !== entry.englishName) return entry.name;
+  if (entry.forme) {
+    const base = (state.editorCatalog?.species || []).find(
+      (candidate) => candidate.number === entry.number && !candidate.forme,
+    );
+    if (base?.name) return `${base.name} (${pokemonFormLabel(entry.forme)})`;
+  }
+  return entry.name || entry.englishName || entry.id;
+}
+
 function catalogItemByShortId(shortId) {
   return (state.editorCatalog?.items || []).find((item) => item.shortId === shortId) || null;
 }
@@ -508,6 +537,7 @@ function renderTeam() {
   ];
   const moves = Array.from({ length: 4 }, (_, index) => pokemon.moves?.[index] || "");
   const formOptions = formOptionsForPokemon(pokemon);
+  const baseFormOption = formOptions.find((entry) => !entry.forme);
   normalizePokemonGimmick(pokemon);
   const megaCandidates = megaItemCandidates(pokemon);
   const zCandidates = zItemCandidates(pokemon);
@@ -538,8 +568,7 @@ function renderTeam() {
           <header><span>PROFILE</span><strong>기본 설정</strong><small>필수 정보</small></header>
           <div class="focused-profile-fields">
             <label class="wide"><span>포켓몬</span><span class="editor-picker-input"><input name="species" value="${escapeHtml(pokemon.species || "")}" readonly><button type="button" data-open-choice="pokemon">선택</button></span></label>
-            <label class="wide"><span>폼·특수 형태</span><select name="form"><option value="">기본 형태</option>${formOptions.map((entry) => `<option value="${escapeHtml(entry.forme ? entry.id : "")}" ${String(pokemon.form || "") === (entry.forme ? entry.id : "") ? "selected" : ""}>${escapeHtml(entry.forme ? `${entry.name} · ${entry.forme}` : `${entry.name} · 기본`)}</option>`).join("")}</select></label>
-            <label class="wide"><span>추가 Aspects — 쉼표로 구분</span><input name="aspects" value="${escapeHtml((pokemon.aspects || []).join(", "))}" placeholder="예: alolan, female"></label>
+            <label class="wide"><span>폼·특수 형태</span><select name="form"><option value="">${escapeHtml(baseFormOption ? `${pokemonCatalogDisplayName(baseFormOption)} (기본)` : "기본 형태")}</option>${formOptions.filter((entry) => entry.forme).map((entry) => `<option value="${escapeHtml(entry.id)}" ${String(pokemon.form || "") === entry.id ? "selected" : ""}>${escapeHtml(pokemonCatalogDisplayName(entry))}</option>`).join("")}</select></label>
             <label><span>레벨</span><input type="number" min="1" max="100" name="level" value="${escapeHtml(pokemon.level ?? 5)}"></label>
             <label><span>성별</span><select name="gender"><option value="random" ${pokemon.gender === "random" ? "selected" : ""}>무작위</option><option value="male" ${pokemon.gender === "male" ? "selected" : ""}>수컷</option><option value="female" ${pokemon.gender === "female" ? "selected" : ""}>암컷</option><option value="genderless" ${pokemon.gender === "genderless" ? "selected" : ""}>무성</option></select></label>
             <label class="wide"><span>성격</span><span class="editor-picker-input"><input name="nature" value="${escapeHtml(natureLabel(pokemon.nature))}" data-value="${escapeHtml(pokemon.nature || "")}" readonly><button type="button" data-open-choice="nature">선택</button></span><small class="nature-effect-summary">${escapeHtml(natureEffectLabel(pokemon.nature))}</small></label>
@@ -569,6 +598,7 @@ function renderTeam() {
   $$('[data-add-slot]').forEach((button) => button.addEventListener("click", addPokemon));
   $$(".focused-pokemon-editor input, .focused-pokemon-editor select").forEach((input) => input.addEventListener("input", updateFocusedPokemon));
   list.querySelector('[name="form"]')?.addEventListener("change", () => { updateFocusedPokemon(); renderTeam(); });
+  list.querySelector('[name="shiny"]')?.addEventListener("change", () => { updateFocusedPokemon(); renderTeam(); });
   list.querySelector('[name="pokemonMegaEvolution"]')?.addEventListener("change", (event) => setPokemonGimmick("mega_evolution", event.target.checked));
   list.querySelector('[name="pokemonZMove"]')?.addEventListener("change", (event) => setPokemonGimmick("z_move", event.target.checked));
   list.querySelector('[name="gimmickItem"]')?.addEventListener("change", (event) => setPokemonGimmickItem(event.target.value));
@@ -732,7 +762,7 @@ function updateFocusedPokemon(event = null) {
   Object.assign(pokemon, {
     species: value("species"), level: Number(value("level")), gender: value("gender"),
     form: value("form") || null,
-    aspects: value("aspects").split(",").map((aspect) => aspect.trim()).filter(Boolean),
+    aspects: Array.isArray(pokemon.aspects) ? [...pokemon.aspects] : [],
     nature: editor.querySelector('[name="nature"]').dataset.value || null,
     ability: value("ability") || null,
     held_item: value("heldItem") || null, tera_type: value("teraType") || "auto",
@@ -984,7 +1014,8 @@ function speciesLabel(species) {
 }
 
 function pokemonDisplayName(pokemon) {
-  return catalogSpeciesForPokemon(pokemon)?.name || speciesLabel(pokemon?.species);
+  const entry = catalogSpeciesForPokemon(pokemon);
+  return entry ? pokemonCatalogDisplayName(entry) : speciesLabel(pokemon?.species);
 }
 
 function pokemonPokedexNumber(pokemon) {
@@ -993,19 +1024,61 @@ function pokemonPokedexNumber(pokemon) {
   return Number.isInteger(number) && number > 0 ? number : null;
 }
 
-function pokemonArtworkUrls(pokemon) {
+const pokemonArtworkCache = new Map();
+
+function basePokemonArtworkUrls(pokemon) {
   const number = pokemonPokedexNumber(pokemon);
   if (!number) return [];
   const root = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
+  const shiny = pokemon?.shiny ? "shiny/" : "";
   return [
-    `${root}/other/official-artwork/${number}.png`,
-    `${root}/${number}.png`,
+    `${root}/other/official-artwork/${shiny}${number}.png`,
+    `${root}/${shiny}${number}.png`,
   ];
 }
 
-function applyPokemonArtwork(image, fallback, pokemon) {
+function pokeApiSpeciesSlug(entry) {
+  return String(entry?.englishName || entry?.id || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function pokemonArtworkUrls(pokemon) {
+  const entry = catalogSpeciesForPokemon(pokemon);
+  if (!entry?.forme) return basePokemonArtworkUrls(pokemon);
+  const slug = pokeApiSpeciesSlug(entry);
+  const cacheKey = `${slug}:${pokemon?.shiny ? "shiny" : "normal"}`;
+  if (pokemonArtworkCache.has(cacheKey)) return pokemonArtworkCache.get(cacheKey);
+  const request = fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(slug)}`)
+    .then((response) => {
+      if (!response.ok) throw new Error(`PokeAPI ${response.status}`);
+      return response.json();
+    })
+    .then((data) => {
+      const official = data.sprites?.other?.["official-artwork"];
+      return pokemon?.shiny
+        ? [official?.front_shiny, data.sprites?.front_shiny].filter(Boolean)
+        : [official?.front_default, data.sprites?.front_default].filter(Boolean);
+    })
+    .catch(() => []);
+  pokemonArtworkCache.set(cacheKey, request);
+  return request;
+}
+
+async function applyPokemonArtwork(image, fallback, pokemon) {
   if (!image) return;
-  const urls = pokemonArtworkUrls(pokemon);
+  const requestId = `${pokemon?.species || ""}:${pokemon?.form || ""}:${pokemon?.shiny ? "shiny" : "normal"}`;
+  image.dataset.artRequest = requestId;
+  image.hidden = true;
+  image.removeAttribute("src");
+  if (fallback) {
+    fallback.hidden = false;
+    const message = fallback.querySelector?.("span");
+    if (message) message.textContent = "이미지 불러오는 중";
+  }
+  const urls = await pokemonArtworkUrls(pokemon);
+  if (image.dataset.artRequest !== requestId) return;
   let stage = 0;
   const showFallback = () => {
     image.hidden = true;
