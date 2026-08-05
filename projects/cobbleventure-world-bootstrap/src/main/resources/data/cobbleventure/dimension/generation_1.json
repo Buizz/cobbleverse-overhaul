@@ -1,0 +1,30 @@
+{
+  "type": "cobbleventure:generation_world",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "cobbleventure:starter_plains",
+      "features": true,
+      "lakes": false,
+      "layers": [
+        {
+          "block": "minecraft:air",
+          "height": 64
+        },
+        {
+          "block": "minecraft:bedrock",
+          "height": 1
+        },
+        {
+          "block": "minecraft:dirt",
+          "height": 3
+        },
+        {
+          "block": "minecraft:grass_block",
+          "height": 1
+        }
+      ],
+      "structure_overrides": []
+    }
+  }
+}

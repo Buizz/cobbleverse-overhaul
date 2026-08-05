@@ -1,19 +1,18 @@
 package dev.buizz.cobbleventure.bootstrap;
 
-import com.mojang.datafixers.util.Pair;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import java.util.function.Predicate;
+import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.tags.TagKey;
-import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.Vec3;
@@ -21,22 +20,61 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import org.slf4j.Logger;
 
 @Mod(CobbleventureBootstrap.MOD_ID)
 public final class CobbleventureBootstrap {
     public static final String MOD_ID = "cobbleventure_bootstrap";
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final String DATA_FILE = "cobbleventure_world_bootstrap";
-    private static final int SEARCH_RADIUS = 8192;
-    private static final int HORIZONTAL_STEP = 32;
-    private static final int VERTICAL_STEP = 64;
     private static final int VILLAGE_OFFSET = 32;
-    private static final TagKey<Biome> STARTER_BIOMES = TagKey.create(
-        Registries.BIOME,
-        ResourceLocation.fromNamespaceAndPath("cobbleventure", "starter_biomes")
-    );
+    private static final int EXPECTED_SURFACE_Y = 69;
+    private static final String PLAYER_STARTED = "cobbleventureGenerationOneStarted";
+    private static final ResourceKey<Level> GENERATION_ONE =
+        ResourceKey.create(
+            Registries.DIMENSION,
+            ResourceLocation.fromNamespaceAndPath("cobbleventure", "generation_1")
+        );
+    private static final ResourceKey<net.minecraft.world.level.biome.Biome> STARTER_BIOME =
+        ResourceKey.create(
+            Registries.BIOME,
+            ResourceLocation.fromNamespaceAndPath("cobbleventure", "starter_plains")
+        );
 
     public CobbleventureBootstrap(IEventBus modBus) {
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
+        NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
+    }
+
+    private static void onServerStarted(ServerStartedEvent event) {
+        ServerLevel level = event.getServer().getLevel(GENERATION_ONE);
+        if (level == null) {
+            throw new IllegalStateException("Cobbleventure generation_1 dimension is missing");
+        }
+
+        BlockPos surface = surfacePosition(level, 0, 0);
+        if (!level.getBiome(surface).is(STARTER_BIOME)) {
+            throw new IllegalStateException("Cobbleventure starter_plains biome is missing at spawn");
+        }
+        if (surface.getY() != EXPECTED_SURFACE_Y) {
+            throw new IllegalStateException(
+                "Cobbleventure generation_1 surface height must be "
+                    + EXPECTED_SURFACE_Y + ", but was " + surface.getY()
+            );
+        }
+        if (!level.getBlockState(new BlockPos(0, 68, 0)).is(Blocks.GRASS_BLOCK)
+            || !level.getBlockState(new BlockPos(0, 64, 0)).is(Blocks.BEDROCK)
+            || !level.getBlockState(new BlockPos(0, 63, 0)).isAir()) {
+            throw new IllegalStateException(
+                "Cobbleventure generation_1 must have grass over bedrock with empty space below"
+            );
+        }
+        LOGGER.info(
+            "Cobbleventure generation_1 ready: biome={}, surfaceY={}",
+            STARTER_BIOME.location(),
+            surface.getY()
+        );
     }
 
     private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
@@ -44,20 +82,30 @@ public final class CobbleventureBootstrap {
             return;
         }
 
-        ServerLevel overworld = player.serverLevel().getServer().overworld();
+        ServerLevel overworld = player.getServer().overworld();
+        ServerLevel generationOne = player.getServer().getLevel(GENERATION_ONE);
+        if (generationOne == null) {
+            player.sendSystemMessage(Component.literal(
+                "[Cobbleventure] generation_1 전용 차원을 불러오지 못했습니다."
+            ));
+            return;
+        }
+
         BootstrapSavedData data = overworld.getDataStorage().computeIfAbsent(
             new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
             DATA_FILE
         );
-        if (data.isComplete()) {
-            return;
+        if (!data.isComplete()) {
+            player.sendSystemMessage(Component.literal(
+                "[Cobbleventure] 전용 시작 바이옴과 마을을 준비하고 있습니다..."
+            ));
+            if (!initializeWorld(generationOne, player, data)) {
+                return;
+            }
         }
 
-        player.sendSystemMessage(Component.literal("[Cobbleventure] 시작용 평원을 찾고 있습니다..."));
-        if (!initializeWorld(overworld, player, data)) {
-            player.sendSystemMessage(Component.literal(
-                "[Cobbleventure] 반경 " + SEARCH_RADIUS + "블록 안에서 시작용 평원을 찾지 못했습니다."
-            ));
+        if (!player.getPersistentData().getBoolean(PLAYER_STARTED)) {
+            movePlayerToStart(player, generationOne, data.spawnPos());
         }
     }
 
@@ -66,20 +114,7 @@ public final class CobbleventureBootstrap {
         ServerPlayer firstPlayer,
         BootstrapSavedData data
     ) {
-        Predicate<Holder<Biome>> acceptedBiome = biome -> biome.is(STARTER_BIOMES);
-        Pair<BlockPos, Holder<Biome>> result = level.findClosestBiome3d(
-            acceptedBiome,
-            level.getSharedSpawnPos(),
-            SEARCH_RADIUS,
-            HORIZONTAL_STEP,
-            VERTICAL_STEP
-        );
-        if (result == null) {
-            return false;
-        }
-
-        BlockPos biomePos = result.getFirst();
-        BlockPos spawnPos = surfacePosition(level, biomePos.getX(), biomePos.getZ());
+        BlockPos spawnPos = surfacePosition(level, 0, 0);
         BlockPos villagePos = surfacePosition(
             level,
             spawnPos.getX() + VILLAGE_OFFSET,
@@ -89,12 +124,6 @@ public final class CobbleventureBootstrap {
         level.getChunk(spawnPos);
         level.getChunk(villagePos);
         level.setDefaultSpawnPos(spawnPos, 0.0F);
-        firstPlayer.teleportTo(
-            spawnPos.getX() + 0.5D,
-            spawnPos.getY() + 1.0D,
-            spawnPos.getZ() + 0.5D
-        );
-
         int placed;
         try {
             placed = level.getServer().getCommands().getDispatcher().execute(
@@ -110,19 +139,37 @@ public final class CobbleventureBootstrap {
         }
         if (placed == 0) {
             firstPlayer.sendSystemMessage(Component.literal(
-                "[Cobbleventure] 평원 스폰은 지정했지만 시작 마을 배치에 실패했습니다."
+                "[Cobbleventure] 전용 시작 차원은 생성했지만 시작 마을 배치에 실패했습니다."
             ));
             return false;
         }
 
         data.complete(spawnPos, villagePos);
         firstPlayer.sendSystemMessage(Component.literal(
-            "[Cobbleventure] 평원에 시작 지점과 체육관 마을을 생성했습니다."
+            "[Cobbleventure] 전용 시작 바이옴에 체육관 마을을 생성했습니다."
         ));
         return true;
     }
 
+    private static void movePlayerToStart(
+        ServerPlayer player,
+        ServerLevel level,
+        BlockPos spawnPos
+    ) {
+        player.teleportTo(
+            level,
+            spawnPos.getX() + 0.5D,
+            spawnPos.getY() + 1.0D,
+            spawnPos.getZ() + 0.5D,
+            0.0F,
+            0.0F
+        );
+        player.setRespawnPosition(GENERATION_ONE, spawnPos, 0.0F, true, false);
+        player.getPersistentData().putBoolean(PLAYER_STARTED, true);
+    }
+
     private static BlockPos surfacePosition(ServerLevel level, int x, int z) {
+        level.getChunk(x >> 4, z >> 4);
         int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
         return new BlockPos(x, y, z);
     }
@@ -150,6 +197,10 @@ public final class CobbleventureBootstrap {
 
         boolean isComplete() {
             return complete;
+        }
+
+        BlockPos spawnPos() {
+            return spawnPos;
         }
 
         void complete(BlockPos spawnPos, BlockPos villagePos) {

@@ -94,6 +94,14 @@
 
 프로젝트에는 커스텀 `BiomeSource`를 권고한다.
 
+현재 1차 프로토타입은 이 구조로 넘어가기 전의 데이터 경계를 먼저 확정한다.
+`cobbleventure:generation_1` 전용 차원과
+`cobbleventure:starter_plains` 전용 바이옴을 등록하고, Y=64 기반암 아래를 빈
+공간으로 둔 Flat 생성기를 사용한다. 따라서 채굴 가능한 지하, 동굴, 광맥과
+지하 구조물이 생기지 않는다. 다음 단계에서는 같은 차원·바이옴 ID를 유지하면서
+Flat 생성기를 지역 JSON을 읽는 커스텀 `BiomeSource`·`ChunkGenerator`로 교체해
+여러 지표 바이옴과 경계를 생성한다.
+
 ```text
 월드 좌표
   → region planner의 지역 셀 조회

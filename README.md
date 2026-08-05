@@ -116,12 +116,13 @@ dist/cobbleventure-development-0.1.1-curseforge.zip.sha256
 
 현재 개발 팩에는 Cobblemon 1.7.3, BCA 실행 호환 계층과 CobbleDollars,
 Cobblemon Additions 4.2.1 원본 JAR이 포함됩니다. `build.bat pack`은 먼저
-평원 스폰을 고정하는 시작 마을 부트스트랩 Java 모드를 빌드하고 함께 넣습니다. RCT와
+무지하 전용 시작 바이옴·세대 차원을 생성하는 부트스트랩 Java 모드를 빌드하고 함께 넣습니다. RCT와
 정식 Cobbleventure NeoForge 게임 어댑터는 아직 포함하지 않으며 ZIP 안의 팩
 정보에는 `production_ready: false`를 기록합니다.
 
-새 월드에 처음 입장하면 기존 스폰 반경 8,192블록에서 평원 또는 해바라기 평원을
-찾아 월드 스폰과 첫 플레이어를 옮깁니다. 새 스폰에서 X/Z 각각 `+32` 블록 떨어진 지표면에
+새 월드에 처음 입장하면 동굴·광맥·지하 구조물이 없는
+`cobbleventure:generation_1` 차원으로 플레이어를 옮깁니다. 전용
+`cobbleventure:starter_plains` 바이옴의 새 스폰에서 X/Z 각각 `+32` 블록 떨어진 지표면에
 자체 체육관을 중심으로 BCA 도로와 건물이 확장되는 Cobbleventure 시작 마을을
 배치합니다. 체육관은 공통 외관을 사용하고 관장 타입에 따라 지붕 색이 바뀌며,
 현재 시작 체육관은 바위 타입의 회색 지붕입니다. 이 기능은 정식 지역 플래너 전의 테스트용이며
@@ -241,7 +242,7 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 | `build.bat web` | 데이터 관리용 Python Web 화면과 API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
 | `build.bat api` | `build.bat web`의 호환용 별칭 | Web 화면과 API가 동일하게 실행됨 |
 | `build.bat test` | 콘텐츠/Web/팩 회귀 테스트와 월드 부트스트랩 Java 컴파일 | Python `unittest`와 Gradle 테스트가 모두 통과해야 함 |
-| `build.bat mod-bootstrap` | 평원 스폰·BCA 테스트 마을용 NeoForge Java 모드 빌드 | 체육관 NBT 생성 후 개발 팩 `overrides/mods`에 JAR 생성 |
+| `build.bat mod-bootstrap` | 무지하 시작 바이옴·세대 차원·BCA 테스트 마을용 NeoForge Java 모드 빌드 | 체육관 NBT 생성 후 개발 팩 `overrides/mods`에 JAR 생성 |
 | `build.bat pack-smoke` | 최소 CurseForge 임포트 테스트 ZIP 생성·재검증 | `dist`에 ZIP과 SHA-256 생성 |
 | `build.bat pack` | 일반 콘텐츠 검증 후 임시 개발 팩 생성 | 임포트 가능한 개발용 ZIP과 SHA-256 생성 |
 | `build.bat pack-release` | 정식 의존성·배포 준비 상태를 엄격 검사 | 현재는 누락 항목을 출력하고 실패하는 것이 정상 |

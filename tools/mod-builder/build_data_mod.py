@@ -15,6 +15,12 @@ REQUIRED_ENTRIES = {
     "pack.mcmeta",
     "data/cobbleventure/worldgen/structure/starter_town/village.json",
     "data/cobbleventure/worldgen/template_pool/starter_town/center.json",
+    "data/cobbleventure/worldgen/biome/starter_plains.json",
+    "data/cobbleventure/dimension_type/generation_world.json",
+    "data/cobbleventure/dimension/generation_1.json",
+    "data/c/tags/worldgen/biome/is_overworld.json",
+    "data/c/tags/worldgen/biome/is_plains.json",
+    "data/minecraft/tags/worldgen/biome/is_overworld.json",
 }
 GENERATED_ENTRY = Path("data/cobbleventure/structure/starter_town/gym.nbt")
 

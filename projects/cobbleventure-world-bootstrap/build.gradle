@@ -19,6 +19,7 @@ neoForge {
     runs {
         client { client() }
         server { server() }
+        gameTestServer { type = 'gameTestServer' }
     }
     mods {
         "${mod_id}" { sourceSet(sourceSets.main) }
@@ -41,8 +42,15 @@ processResources {
     }
 }
 
+tasks.register('cleanInstalledDevelopmentJars', Delete) {
+    delete fileTree(rootProject.file('../../pack/overrides/development-placeholder/mods')) {
+        include 'cobbleventure-world-bootstrap-*.jar'
+    }
+}
+
 tasks.register('installDevelopmentJar', Copy) {
     dependsOn jar
+    dependsOn 'cleanInstalledDevelopmentJars'
     from jar
     into rootProject.file('../../pack/overrides/development-placeholder/mods')
 }
