@@ -398,6 +398,22 @@ function moveCatalogId(value) {
   return toId(String(value || "").replace(/^.*:/, ""));
 }
 
+function moveCatalogEntry(value) {
+  const id = moveCatalogId(value);
+  return (state.editorCatalog?.moves || []).find((entry) => moveCatalogId(entry.id) === id) || null;
+}
+
+function focusedMoveCard(move, index) {
+  const entry = moveCatalogEntry(move);
+  const typeId = entry ? toId(entry.type) : "";
+  const name = entry?.name || move || "";
+  const categoryNames = { Physical: "물리", Special: "특수", Status: "변화" };
+  const details = entry
+    ? `<span class="focused-move-meta"><b class="move-type-badge type-${escapeHtml(typeId)}">${escapeHtml(pokemonTypeNames[entry.type] || entry.type)}</b><span>${escapeHtml(categoryNames[entry.category] || entry.category)}</span><span>위력 ${entry.power || "—"}</span><span>명중 ${entry.accuracy === true ? "필중" : (entry.accuracy || "—")}</span><span>PP ${entry.pp ?? "—"}</span></span><span class="focused-move-description">${escapeHtml(entry.description || entry.englishName || "설명 없음")}</span>`
+    : `<span class="focused-move-empty-hint">기술을 선택하면 타입과 전투 정보가 표시됩니다.</span>`;
+  return `<div class="focused-move-field ${move ? `type-${escapeHtml(typeId)}` : "empty"}"><span>${String(index + 1).padStart(2, "0")}</span><label><small>MOVE ${index + 1}</small><input data-move="${index}" data-value="${escapeHtml(move)}" value="${escapeHtml(name)}" readonly placeholder="기술 선택">${details}</label><div class="move-field-actions"><button type="button" data-open-move="${index}">선택</button><button type="button" data-clear-move="${index}">지우기</button></div></div>`;
+}
+
 function commonPrefixLength(left, right) {
   let length = 0;
   while (length < left.length && length < right.length && left[length] === right[length]) length += 1;
@@ -543,7 +559,7 @@ function renderTeam() {
         </section>
         <section class="focused-moves-panel">
           <header><span>MOVESET</span><strong>기술 구성</strong><small>최대 4개</small></header>
-          <div class="focused-moves-list">${moves.map((move, index) => `<div class="focused-move-field ${move ? "" : "empty"}"><span>${String(index + 1).padStart(2, "0")}</span><label><small>MOVE ${index + 1}</small><input data-move="${index}" value="${escapeHtml(move)}" readonly placeholder="기술 선택"></label><div class="move-field-actions"><button type="button" data-open-move="${index}">선택</button><button type="button" data-clear-move="${index}">지우기</button></div></div>`).join("")}</div>
+          <div class="focused-moves-list">${moves.map(focusedMoveCard).join("")}</div>
         </section>
       </article>
     </div>`;
@@ -721,7 +737,7 @@ function updateFocusedPokemon(event = null) {
     shiny: editor.querySelector('[name="shiny"]').checked,
     gigantamax_factor: editor.querySelector('[name="gigantamax"]').checked,
     ivs, evs,
-    moves: $$('[data-move]').map((input) => input.value.trim()).filter(Boolean)
+    moves: $$('[data-move]').map((input) => String(input.dataset.value ?? input.value).trim()).filter(Boolean)
   });
   normalizePokemonGimmick(pokemon);
   $("#ev-total").textContent = `EV ${evTotal(pokemon)}/510`;
@@ -731,6 +747,7 @@ function updateFocusedPokemon(event = null) {
 
 function clearMove(index) {
   const input = $(`[data-move="${index}"]`);
+  input.dataset.value = "";
   input.value = "";
   updateFocusedPokemon();
   input.focus();
