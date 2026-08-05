@@ -51,9 +51,18 @@
             <div class="panel-heading"><div><p class="eyebrow">NORMALIZED JSON</p><h2 id="trainer-editor-title">트레이너를 선택하세요</h2></div><span class="path-label" id="trainer-path">—</span></div>
             <form id="trainer-form" class="form-grid trainer-form">
               <label class="wide"><span>트레이너 ID</span><input name="id" readonly disabled></label>
-              <label><span>한국어 이름</span><input name="nameKo" disabled></label>
-              <label><span>영문 이름</span><input name="nameEn" disabled></label>
+              <label><span>트레이너 이름 (한국어)</span><input name="nameKo" disabled></label>
+              <label><span>트레이너 이름 (영문)</span><input name="nameEn" disabled></label>
               <label class="wide"><span>태그 — 쉼표로 구분</span><input name="tags" disabled></label>
+              <section class="trainer-appearance-panel wide">
+                <div class="trainer-preview" id="trainer-preview"><div class="trainer-preview-fallback">NPC</div></div>
+                <div class="trainer-appearance-fields">
+                  <label><span>트레이너 클래스</span><select name="trainerClass" disabled></select></label>
+                  <label><span>외형 출처</span><select name="appearanceSource" disabled><option value="custom">직접 제작</option><option value="rct_single">RCT 개별 스킨</option><option value="rct_group">RCT 그룹 스킨</option></select></label>
+                  <label class="wide"><span>스킨·모델 리소스</span><input name="appearanceResource" disabled></label>
+                  <small id="trainer-appearance-note">트레이너 클래스를 선택하면 기본 외형을 불러옵니다.</small>
+                </div>
+              </section>
               <fieldset class="wide"><legend>NPC 행동</legend><label><span>이동 방식</span><select name="movement" disabled><option value="stationary">고정</option><option value="wander">제한 배회</option><option value="patrol">순찰</option></select></label><label><span>상호작용 거리</span><input type="number" min="0.5" step="0.5" name="interactionRange" disabled></label><label class="toggle"><input type="checkbox" name="lookAtPlayer" disabled><span>플레이어 바라보기</span></label><label class="toggle"><input type="checkbox" name="invulnerable" disabled><span>피해 면역</span></label></fieldset>
               <fieldset class="wide"><legend>마을 배치</legend><label><span>지역 ID</span><input name="region" disabled></label><label><span>마을 ID</span><input name="settlement" disabled></label><label><span>앵커 ID</span><input name="anchor" disabled></label><label><span>회전</span><input type="number" step="1" name="rotation" disabled></label><label><span>생성 정책</span><select name="spawnPolicy" disabled><option value="persistent">항상 유지</option><option value="on_region_load">지역 로딩</option><option value="manual">수동 생성</option></select></label></fieldset>
               <fieldset class="wide"><legend>전투 설정</legend><label><span>배틀 포맷</span><input name="battleFormat" disabled></label><label><span>전투 방식</span><select name="battleType" disabled><option value="singles">싱글</option><option value="doubles">더블</option></select></label><label><span>AI 프로필</span><input name="battleAi" disabled></label><label><span>레벨 방식</span><select name="levelMode" disabled><option value="fixed">고정</option><option value="scale_to_player">플레이어에 맞춤</option><option value="cap_to_player">플레이어 상한</option></select></label></fieldset>

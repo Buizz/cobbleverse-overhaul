@@ -1,0 +1,76 @@
+{
+  "$schema": "../schemas/trainer-classes.schema.json",
+  "schema_version": 1,
+  "classes": [
+    {
+      "id": "cobbleventure:trainer_class/youngster",
+      "display_name": { "ko_kr": "반바지 꼬마", "en_us": "Youngster" },
+      "title_pattern": { "ko_kr": "반바지 꼬마 {name}", "en_us": "Youngster {name}" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/youngster_yasu_0063" },
+      "tags": ["child", "route", "common"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/school_kid",
+      "display_name": { "ko_kr": "학원 끝난 아이", "en_us": "School Kid" },
+      "title_pattern": { "ko_kr": "학원 끝난 아이 {name}", "en_us": "School Kid {name}" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/school_kid_brunore_001e" },
+      "tags": ["child", "school", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/bug_catcher",
+      "display_name": { "ko_kr": "곤충채집소년", "en_us": "Bug Catcher" },
+      "title_pattern": { "ko_kr": "곤충채집소년 {name}", "en_us": "Bug Catcher {name}" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/bug_catcher_rick_0066" },
+      "tags": ["bug", "forest", "route", "common"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/lass",
+      "display_name": { "ko_kr": "아가씨", "en_us": "Lass" },
+      "title_pattern": { "ko_kr": "아가씨 {name}", "en_us": "Lass {name}" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/lass_ann_007e" },
+      "tags": ["route", "town", "common"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/camper",
+      "display_name": { "ko_kr": "캠프보이", "en_us": "Camper" },
+      "title_pattern": { "ko_kr": "캠프보이 {name}", "en_us": "Camper {name}" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/camper_drew_0095" },
+      "tags": ["outdoor", "route"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/picnicker",
+      "display_name": { "ko_kr": "피크닉걸", "en_us": "Picnicker" },
+      "title_pattern": { "ko_kr": "피크닉걸 {name}", "en_us": "Picnicker {name}" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/picnicker_dana_01da" },
+      "tags": ["outdoor", "route"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/hiker",
+      "display_name": { "ko_kr": "등산가", "en_us": "Hiker" },
+      "title_pattern": { "ko_kr": "등산가 {name}", "en_us": "Hiker {name}" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/hiker_alan_00b9" },
+      "tags": ["cave", "mountain", "route"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/ace_trainer",
+      "display_name": { "ko_kr": "엘리트 트레이너", "en_us": "Ace Trainer" },
+      "title_pattern": { "ko_kr": "엘리트 트레이너 {name}", "en_us": "Ace Trainer {name}" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/ace_trainer_symes_0071" },
+      "tags": ["advanced", "route"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/gym_leader",
+      "display_name": { "ko_kr": "체육관 관장", "en_us": "Gym Leader" },
+      "title_pattern": { "ko_kr": "체육관 관장 {name}", "en_us": "Gym Leader {name}" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/gym_leader_default" },
+      "tags": ["boss", "gym", "unique"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/custom",
+      "display_name": { "ko_kr": "사용자 정의", "en_us": "Custom" },
+      "title_pattern": { "ko_kr": "{name}", "en_us": "{name}" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/default" },
+      "tags": ["custom"]
+    }
+  ]
+}

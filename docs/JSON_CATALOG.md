@@ -99,7 +99,16 @@ NPC 구역은 현재 고급 JSON에서 관리하며, 실제 배치 기능이 구
 | `content/schemas/content-bundle.schema.json` | 정규화된 트레이너 콘텐츠 번들 |
 | `content/schemas/region.schema.json` | 플랫폼 독립 지역 데이터 |
 | `content/schemas/settlement.schema.json` | 마을과 NPC 배치 기본 데이터 |
+| `content/schemas/trainer-classes.schema.json` | 트레이너 클래스와 기본 외형 카탈로그 |
 | `pack/schemas/dependencies-lock.schema.json` | 모드팩 의존성 Lock |
+
+## 제작 카탈로그
+
+| 경로 | 역할 |
+|------|------|
+| `content/catalogs/trainer-classes.json` | 본가식 트레이너 직업명, 이름 패턴, 태그와 RCT·자체 기본 외형 연결 |
+
+트레이너 번들의 `npc.trainer_class`는 반드시 이 카탈로그에 있는 ID를 사용한다.
 
 JSON Schema는 편집기 자동 완성과 구조 계약에 사용한다. Python 검증기는 리소스
 ID 중복, 대화 대상 존재 여부, 전투 ID 일치, EV 합계처럼 파일 구조만으로 표현하기

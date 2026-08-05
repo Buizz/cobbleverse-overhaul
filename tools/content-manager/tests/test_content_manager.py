@@ -76,6 +76,13 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("cobbleventure:settlement/starter_town", settlement_id)
         self.assertEqual([], issues)
 
+    def test_trainer_class_catalog_is_valid(self) -> None:
+        root = Path(__file__).parents[3]
+        issues = content_manager.validate_trainer_class_catalog(
+            root / "content" / "catalogs" / "trainer-classes.json"
+        )
+        self.assertEqual([], issues)
+
     def test_settlement_center_must_be_inside_bounds(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -179,6 +186,8 @@ class ContentManagerTests(unittest.TestCase):
                 dashboard = json.load(response)
             with urllib.request.urlopen(f"{base_url}/api/settlements") as response:
                 settlements = json.load(response)
+            with urllib.request.urlopen(f"{base_url}/api/trainer-classes") as response:
+                trainer_classes = json.load(response)
             with urllib.request.urlopen(base_url) as response:
                 page = response.read().decode("utf-8")
         finally:
@@ -190,6 +199,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertGreaterEqual(dashboard["trainers"], 2)
         self.assertEqual(1, dashboard["settlements"])
         self.assertEqual(1, len(settlements["items"]))
+        self.assertGreaterEqual(len(trainer_classes["classes"]), 10)
         self.assertIn("Cobbleventure Content Studio", page)
 
     def test_build_api_uses_allowlisted_runner(self) -> None:

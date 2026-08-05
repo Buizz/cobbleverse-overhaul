@@ -67,3 +67,94 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 @media (max-width: 900px) { .sidebar { position: static; width: 100%; padding: 15px; }.brand { padding-bottom: 14px; }.sidebar nav { grid-template-columns: repeat(4, 1fr); }.nav-item { justify-content: center; padding: 10px 5px; font-size: 11px; }.nav-item span, .server-state { display: none; } main { margin-left: 0; padding: 0 18px 40px; }.topbar { min-height: 92px; }.workspace-grid { grid-template-columns: 1fr; }.document-list { position: static; }.list-body { max-height: 260px; }.hero-badge { display: none; } }
 @media (max-width: 620px) { .topbar .button { display: none; }.hero { padding: 28px 24px; }.stats, .build-grid, .form-grid { grid-template-columns: 1fr; }.workspace-grid { display: block; }.document-list { margin-bottom: 14px; }.form-grid fieldset, .form-grid fieldset:nth-of-type(1) { grid-template-columns: 1fr 1fr; }.panel-heading { align-items: flex-start; }.path-label { display: none; }.sidebar nav { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 620px) { .trainer-form fieldset:nth-of-type(1), .trainer-form fieldset:nth-of-type(2), .trainer-form fieldset:nth-of-type(3), .trainer-form fieldset.mechanic-options { grid-template-columns: 1fr 1fr; }.pokemon-fields { grid-template-columns: 1fr 1fr; }.pokemon-fields .moves, .pokemon-fields .pokemon-toggles { grid-column: span 2; } }
+
+/* Battle Web Lab visual language */
+:root {
+  color-scheme: light;
+  --bg: #eef4f5;
+  --sidebar: #101b32;
+  --panel: #ffffff;
+  --panel-2: #eef8f8;
+  --line: #bccbd0;
+  --text: #101b2d;
+  --muted: #607788;
+  --accent: #b8f23f;
+  --accent-2: #40d7cf;
+  --green: #79b512;
+  --red: #d94758;
+  --shadow: 0 8px 24px rgba(13, 37, 55, .07);
+}
+
+body {
+  background:
+    linear-gradient(rgba(16, 27, 45, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 27, 45, .035) 1px, transparent 1px),
+    var(--bg);
+  background-size: 32px 32px;
+}
+
+.sidebar { background: var(--sidebar); border-color: rgba(255, 255, 255, .13); }
+.brand-mark { border-radius: 3px; border-color: var(--accent); background: var(--accent); color: #122032; }
+.brand strong { color: #fff; }.brand small { color: #95a8b8; }
+.nav-item { border-radius: 3px; color: #9db0c0; }
+.nav-item:hover { background: #172a45; color: #fff; }
+.nav-item.is-active { background: #1b304d; color: #fff; box-shadow: inset 4px 0 var(--accent); }
+.nav-item.is-active span, .eyebrow { color: #6e9d0e; }
+.sidebar .nav-item.is-active span { color: var(--accent); }
+.server-state { border-color: rgba(255, 255, 255, .13); }.server-state strong { color: #fff; }
+.topbar { min-height: 92px; border-color: #c4d1d5; }
+.panel, .stat-card { border-color: #b9c9cf; border-radius: 5px; background: #fff; box-shadow: var(--shadow); }
+.hero { min-height: 220px; border-left: 6px solid var(--accent); background: radial-gradient(circle at 86% 20%, rgba(64, 215, 207, .17), transparent 31%), linear-gradient(135deg, #fff, #edf4f5); }
+.hero p:last-child, .stat-card small, .path-label, .field-label { color: var(--muted); }
+.hero-badge { border-color: #17344a; border-radius: 3px; background: #132a3d; color: var(--accent); }
+.hero-badge span { color: #c8d5dc; }
+.stat-card { border-left: 4px solid #40d7cf; }.stat-card > span { color: #587185; }.stat-card strong { color: #142a3d; }
+.panel-heading { border-color: #c7d4d9; background: #f8fafb; }
+.button { border-radius: 3px; }.button.primary { border-color: #7ea91f; background: var(--accent); color: #172414; }.button.primary:hover:not(:disabled) { background: #c7ff54; }.button.secondary { border-color: #9fb1ba; background: #fff; color: #284256; }
+.count-pill { border-radius: 3px; background: #17344a; color: var(--accent); }.mini-button { border-radius: 3px; border-color: #17344a; background: #17344a; color: var(--accent); }
+.document-button { border-color: #d0dce0; color: #172d40; }.document-button:hover, .document-button.is-active { background: #eef8f8; }.document-button.is-active { box-shadow: inset 4px 0 var(--accent); }
+.notice { border-color: #1e9eaa; background: #eaf8f7; color: #315166; }
+.form-grid input, .form-grid select, .pokemon-fields input, .pokemon-fields select { border-color: #b9c8cf; border-radius: 3px; background: #fbfdfe; color: #162f43; }
+.form-grid input:focus, .form-grid select:focus { border-color: #1e9eaa; box-shadow: 0 0 0 2px rgba(64, 215, 207, .18); }
+.form-grid fieldset { border-color: #c7d4d9; border-radius: 3px; background: #f8fafb; }
+.form-grid label > span, fieldset legend { color: #51697a; }
+.toggle input { accent-color: #79b512; }
+.advanced { border-color: #c7d4d9; }.advanced summary { color: #187c86; font-weight: 800; }
+.code-editor { border-radius: 3px; border-color: #17344a; background: #101b2d; color: #dce9ef; }
+.editor-actions { border-color: #c7d4d9; background: #f8fafb; }
+.build-command { border-color: #c7d4d9; border-radius: 3px; background: #f8fafb; }.terminal-heading { border-color: #b9c9cf; background: #17344a; color: #d7e2e8; }.terminal { background: #101b2d; color: #b8f23f; }
+.toast { border-radius: 3px; border-color: #17344a; background: #17344a; color: #fff; }
+
+.trainer-appearance-panel {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  min-height: 244px;
+  overflow: hidden;
+  border: 1px solid #b9c9cf;
+  border-radius: 5px;
+  background: #f6f9fa;
+}
+.trainer-preview { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 18px; border-right: 1px solid #d0dce0; background: radial-gradient(circle, rgba(64,215,207,.18), transparent 56%); }
+.trainer-preview > strong { color: #17344a; font-size: 13px; }.trainer-preview-fallback { display: grid; width: 90px; height: 130px; place-items: center; border: 1px dashed #8ca0ad; border-radius: 42px 42px 12px 12px; background: #fff; color: #6d8190; font-size: 24px; font-weight: 900; }
+.trainer-appearance-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-content: center; padding: 22px; }.trainer-appearance-fields .wide, .trainer-appearance-fields > small { grid-column: 1 / -1; }.trainer-appearance-fields > small { color: #667e8e; line-height: 1.55; }
+.skin-doll { position: relative; width: 96px; height: 176px; image-rendering: pixelated; filter: drop-shadow(0 12px 9px rgba(18,44,60,.2)); }.skin-doll i { position: absolute; display: block; background-image: var(--skin-image); background-repeat: no-repeat; background-size: 512px 512px; image-rendering: pixelated; }.skin-head { top: 0; left: 16px; width: 64px; height: 64px; background-position: -64px -64px; }.skin-body { top: 64px; left: 16px; width: 64px; height: 80px; background-position: -160px -160px; }.skin-arm { top: 64px; width: 24px; height: 80px; }.skin-arm.left { left: -8px; background-position: -352px -160px; }.skin-arm.right { right: -8px; background-position: -320px -160px; transform: scaleX(-1); }.skin-leg { top: 144px; width: 32px; height: 32px; }.skin-leg.left { left: 16px; background-position: -32px -160px; }.skin-leg.right { right: 16px; background-position: -160px -384px; }
+
+.team-list { display: block; padding: 0 24px 24px; }
+.focused-entry-editor { overflow: hidden; border: 1px solid #b9c9cf; border-radius: 5px; background: #eaf0f2; box-shadow: var(--shadow); }
+.focused-party-tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 10px; border-bottom: 1px solid #b9c9cf; background: #f8fafb; }
+.focused-party-tabs button { position: relative; display: grid; min-width: 0; min-height: 104px; grid-template-columns: 28px minmax(0, 1fr); grid-template-rows: 1fr auto auto; gap: 2px 7px; padding: 8px 10px; overflow: hidden; border: 1px solid #c4d0d5; border-radius: 4px; background: #fff; color: #172d40; text-align: left; cursor: pointer; transition: 120ms ease; }
+.focused-party-tabs button:hover { border-color: #7f99a8; transform: translateY(-1px); }.focused-party-tabs button.active { border: 2px solid #9ad51f; padding: 7px 9px; background: #f8ffe9; box-shadow: 0 0 0 2px rgba(184,242,63,.22); }.focused-party-tabs button > span { position: absolute; top: 8px; left: 9px; color: #526b7d; font: 900 11px/1 Consolas, monospace; }
+.focused-party-tabs button img, .focused-party-tabs button > b { width: 64px; height: 58px; grid-column: 1 / -1; justify-self: center; object-fit: contain; }.focused-party-tabs button > b { display: grid; place-items: center; color: #8da0ad; font-size: 28px; font-weight: 400; }.focused-party-tabs button strong, .focused-party-tabs button small { overflow: hidden; grid-column: 1 / -1; text-overflow: ellipsis; white-space: nowrap; }.focused-party-tabs button strong { font-size: 12px; }.focused-party-tabs button small { color: #6d8190; font: 750 9px/1.3 Consolas, monospace; }
+.focused-pokemon-editor { display: grid; min-height: 590px; grid-template-columns: minmax(190px,.7fr) minmax(250px,1fr) minmax(230px,.82fr) minmax(250px,.95fr); background: #fff; }.focused-pokemon-editor > section, .focused-pokemon-preview { min-width: 0; padding: 18px; border-right: 1px solid #d0dce0; }.focused-pokemon-editor > section:last-child { border-right: 0; }
+.focused-pokemon-preview { display: flex; flex-direction: column; align-items: center; background: radial-gradient(circle at 50% 33%, rgba(65,216,207,.14), transparent 34%), #f6f9fa; text-align: center; }.focused-pokemon-preview > .slot-number { align-self: flex-start; color: #5d7485; font: 850 9px/1 Consolas, monospace; }.focused-pokemon-preview > div:nth-of-type(1) { display: grid; width: 100%; min-height: 260px; place-items: center; }.focused-pokemon-sprite { width: min(220px,90%); height: 240px; object-fit: contain; filter: drop-shadow(0 16px 12px rgba(18,44,60,.18)); }.empty-pokemon-prompt { display: grid; width: 160px; height: 160px; place-items: center; align-content: center; gap: 10px; border: 1px dashed #8ca0ad; border-radius: 50%; background: rgba(255,255,255,.72); color: #577083; }.empty-pokemon-prompt b { font-size: 36px; font-weight: 300; }.empty-pokemon-prompt span { font-size: 11px; font-weight: 800; }.focused-pokemon-preview h3 { margin: 2px 0 4px; font-size: 24px; }.focused-pokemon-preview p { margin: 0; color: #6c8190; font-size: 11px; }
+.focused-preview-actions { display: grid; width: 100%; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: auto; padding-top: 24px; }.focused-preview-actions button { min-height: 38px; border: 1px solid #9eb0ba; border-radius: 3px; background: #fff; color: #284256; font-size: 10px; font-weight: 800; }.focused-preview-actions button.danger { border-color: #e0a1a7; color: #aa3442; }
+.focused-pokemon-editor section > header { display: grid; grid-template-columns: 1fr auto; margin-bottom: 16px; padding-bottom: 11px; border-bottom: 2px solid #dce5e8; }.focused-pokemon-editor section > header > span { grid-column: 1 / -1; margin-bottom: 4px; color: #5d7485; font: 850 8px/1 Consolas, monospace; }.focused-pokemon-editor section > header > strong { font-size: 15px; }.focused-pokemon-editor section > header > small { align-self: center; color: #628096; font: 800 9px/1 Consolas, monospace; }
+.focused-profile-fields { display: grid; grid-template-columns: 1fr 94px; gap: 12px 8px; }.focused-profile-fields > label { display: grid; min-width: 0; gap: 5px; color: #51697a; font-size: 9px; font-weight: 800; }.focused-profile-fields > label.wide { grid-column: 1 / -1; }.focused-profile-fields input, .focused-profile-fields select { width: 100%; min-width: 0; height: 38px; border: 1px solid #b9c8cf; border-radius: 3px; background: #fbfdfe; color: #162f43; font-size: 11px; }.focused-profile-fields input:focus, .focused-profile-fields select:focus, .focused-move-field input:focus, .focused-stat-table input:focus { border-color: #1e9eaa; outline: 2px solid rgba(64,215,207,.18); }
+.focused-gimmick-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 15px; }.focused-gimmick-row label { display: flex; min-height: 42px; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #c2d0d5; border-radius: 3px; background: #f7fafb; color: #3f586a; font-size: 9px; font-weight: 800; }.focused-gimmick-row input { width: 16px; height: 16px; accent-color: #79b512; }
+.focused-stat-table { display: grid; gap: 6px; }.focused-stat-heading, .focused-stat-table label { display: grid; grid-template-columns: minmax(64px,1fr) 58px 68px; gap: 6px; align-items: center; }.focused-stat-heading { padding: 0 4px 3px; color: #758996; font: 800 8px/1 Consolas, monospace; text-align: center; }.focused-stat-heading span:first-child { text-align: left; }.focused-stat-table label { min-height: 50px; padding: 6px; border: 1px solid #d1dce0; border-radius: 3px; background: #f8fafb; }.focused-stat-table label strong { color: #334e61; font-size: 10px; }.focused-stat-table input { width: 100%; min-width: 0; height: 34px; padding: 0 5px; border: 1px solid #b9c8cf; border-radius: 3px; background: #fff; color: #172f42; font: 750 11px/1 Consolas, monospace; text-align: center; }
+.focused-moves-list { display: grid; gap: 9px; }.focused-move-field { display: grid; min-height: 82px; grid-template-columns: 30px minmax(0,1fr) 48px; gap: 8px; align-items: center; padding: 9px; border: 1px solid #c7d4d9; border-left: 4px solid #55bcd2; border-radius: 3px; background: #f8fafb; }.focused-move-field.empty { border-left-color: #aebdc5; }.focused-move-field > span { color: #26869d; font: 900 11px/1 Consolas, monospace; text-align: center; }.focused-move-field label { display: grid; min-width: 0; gap: 5px; }.focused-move-field small { color: #6f8391; font-size: 8px; font-weight: 800; }.focused-move-field input { width: 100%; min-width: 0; height: 34px; border: 0; border-bottom: 1px solid #b6c5cc; background: transparent; color: #172f42; font-size: 11px; font-weight: 750; }.focused-move-field button { min-height: 34px; border: 1px solid #93a9b5; border-radius: 3px; background: #fff; color: #315166; font-size: 9px; font-weight: 800; }.empty-team-prompt { display: block; width: 100%; min-height: 150px; border: 0; background: #f8fafb; color: #315166; font-weight: 800; }
+
+.create-dialog { border-radius: 5px; border-color: #b9c9cf; background: #fff; color: #101b2d; }.create-dialog input { border-radius: 3px; border-color: #b9c8cf; background: #fbfdfe; color: #162f43; }
+
+@media (max-width: 1280px) { .focused-pokemon-editor { grid-template-columns: minmax(210px,.7fr) minmax(290px,1fr) minmax(270px,1fr); }.focused-moves-panel { grid-column: 2 / -1; border-top: 1px solid #d0dce0; }.focused-moves-list { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .focused-party-tabs { display: flex; overflow-x: auto; }.focused-party-tabs button { flex: 0 0 145px; }.focused-pokemon-editor { grid-template-columns: 1fr; }.focused-pokemon-editor > section, .focused-pokemon-preview { grid-column: 1; border-right: 0; border-bottom: 1px solid #d0dce0; }.focused-moves-panel { grid-column: 1; }.focused-moves-list { grid-template-columns: 1fr; }.trainer-appearance-panel { grid-template-columns: 1fr; }.trainer-preview { border-right: 0; border-bottom: 1px solid #d0dce0; } }

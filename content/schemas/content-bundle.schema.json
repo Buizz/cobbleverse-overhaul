@@ -70,14 +70,16 @@
     "npc": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["display_name", "appearance", "behavior"],
+      "required": ["display_name", "trainer_class", "appearance", "behavior"],
       "properties": {
         "display_name": { "$ref": "#/$defs/localized_text" },
+        "trainer_class": { "$ref": "#/$defs/resource_id" },
         "appearance": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["type", "resource"],
+          "required": ["source", "type", "resource"],
           "properties": {
+            "source": { "enum": ["custom", "rct_single", "rct_group"] },
             "type": { "enum": ["skin", "model"] },
             "resource": { "$ref": "#/$defs/resource_id" },
             "portrait": { "$ref": "#/$defs/resource_id" }

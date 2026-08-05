@@ -370,6 +370,56 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
     return settlement_id, issues
 
 
+def validate_trainer_class_catalog(path: Path) -> list[Issue]:
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return issues
+    root = _require_object(data, issues, path, "$")
+    if root is None:
+        return issues
+    if root.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "지원 버전은 1입니다.")
+    classes = _require_list(root.get("classes"), issues, path, "$.classes")
+    seen_ids: set[str] = set()
+    if classes is None:
+        return issues
+    if not classes:
+        _issue(issues, "error", path, "$.classes", "트레이너 클래스가 하나 이상 필요합니다.")
+    for index, value in enumerate(classes):
+        class_path = f"$.classes[{index}]"
+        trainer_class = _require_object(value, issues, path, class_path)
+        if trainer_class is None:
+            continue
+        class_id = _resource_id(trainer_class.get("id"), issues, path, f"{class_path}.id")
+        if class_id:
+            if class_id in seen_ids:
+                _issue(issues, "error", path, f"{class_path}.id", f"중복 클래스 ID: {class_id}")
+            seen_ids.add(class_id)
+        _localized_text(trainer_class.get("display_name"), issues, path, f"{class_path}.display_name")
+        _localized_text(trainer_class.get("title_pattern"), issues, path, f"{class_path}.title_pattern")
+        appearance = _require_object(
+            trainer_class.get("default_appearance"),
+            issues,
+            path,
+            f"{class_path}.default_appearance",
+        )
+        if appearance is not None:
+            if appearance.get("source") not in {"custom", "rct_single", "rct_group"}:
+                _issue(issues, "error", path, f"{class_path}.default_appearance.source", "지원하지 않는 외형 출처입니다.")
+            if appearance.get("type") not in {"skin", "model"}:
+                _issue(issues, "error", path, f"{class_path}.default_appearance.type", "skin 또는 model이어야 합니다.")
+            _resource_id(appearance.get("resource"), issues, path, f"{class_path}.default_appearance.resource")
+        tags = _require_list(trainer_class.get("tags"), issues, path, f"{class_path}.tags")
+        if tags is not None:
+            for tag_index, tag in enumerate(tags):
+                if not isinstance(tag, str) or not CHOICE_ID.fullmatch(tag):
+                    _issue(issues, "error", path, f"{class_path}.tags[{tag_index}]", "올바른 태그가 아닙니다.")
+    return issues
+
+
 def validate_dependency_lock(path: Path, strict_pack: bool) -> list[Issue]:
     issues: list[Issue] = []
     try:
@@ -518,8 +568,11 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
     npc = _require_object(root.get("npc"), issues, path, "$.npc")
     if npc is not None:
         _localized_text(npc.get("display_name"), issues, path, "$.npc.display_name")
+        _resource_id(npc.get("trainer_class"), issues, path, "$.npc.trainer_class")
         appearance = _require_object(npc.get("appearance"), issues, path, "$.npc.appearance")
         if appearance is not None:
+            if appearance.get("source") not in {"custom", "rct_single", "rct_group"}:
+                _issue(issues, "error", path, "$.npc.appearance.source", "custom, rct_single, rct_group 중 하나여야 합니다.")
             if appearance.get("type") not in {"skin", "model"}:
                 _issue(issues, "error", path, "$.npc.appearance.type", "skin 또는 model이어야 합니다.")
             _resource_id(appearance.get("resource"), issues, path, "$.npc.appearance.resource")
@@ -691,6 +744,18 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
 def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResult:
     root = root.resolve()
     issues = validate_dependency_lock(root / "pack" / "dependencies.lock.json", strict_pack)
+    trainer_class_path = root / "content" / "catalogs" / "trainer-classes.json"
+    issues.extend(validate_trainer_class_catalog(trainer_class_path))
+    trainer_class_ids: set[str] = set()
+    try:
+        trainer_class_data = load_json(trainer_class_path)
+        trainer_class_ids = {
+            value.get("id")
+            for value in trainer_class_data.get("classes", [])
+            if isinstance(value, dict) and isinstance(value.get("id"), str)
+        }
+    except (OSError, json.JSONDecodeError, DuplicateKeyError):
+        pass
     content_dir = root / "content" / "source"
     seen_content: dict[str, Path] = {}
     if not content_dir.exists():
@@ -699,6 +764,18 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
         for path in sorted(content_dir.rglob("*.json")):
             content_id, file_issues = validate_content_file(path)
             issues.extend(file_issues)
+            try:
+                selected_class = load_json(path).get("npc", {}).get("trainer_class")
+                if isinstance(selected_class, str) and selected_class not in trainer_class_ids:
+                    _issue(
+                        issues,
+                        "error",
+                        path,
+                        "$.npc.trainer_class",
+                        f"카탈로그에 없는 트레이너 클래스입니다: {selected_class}",
+                    )
+            except (OSError, json.JSONDecodeError, DuplicateKeyError, AttributeError):
+                pass
             if content_id is None:
                 continue
             if content_id in seen_content:
@@ -895,11 +972,12 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
         "description": {"ko_kr": f"{name} 트레이너 콘텐츠입니다."},
         "tags": ["trainer"],
         "npc": {
-            "display_name": {"ko_kr": name},
+            "display_name": {"ko_kr": f"반바지 꼬마 {name}"},
+            "trainer_class": "cobbleventure:trainer_class/youngster",
             "appearance": {
+                "source": "rct_single",
                 "type": "skin",
-                "resource": f"cobbleventure:npc/{slug}",
-                "portrait": f"cobbleventure:gui/portrait/{slug}",
+                "resource": "rctmod:trainers/single/youngster_yasu_0063",
             },
             "behavior": {
                 "movement": "stationary",
@@ -1195,6 +1273,17 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                         ],
                     },
                 )
+                return
+            if request.path == "/api/trainer-classes":
+                try:
+                    self._json(
+                        200,
+                        load_json(
+                            root / "content" / "catalogs" / "trainer-classes.json"
+                        ),
+                    )
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/trainers":
                 self._document_response("trainers", request)

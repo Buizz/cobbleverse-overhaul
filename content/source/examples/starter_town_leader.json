@@ -4,8 +4,8 @@
   "id": "cobbleventure:trainer/starter_town_leader",
   "enabled": true,
   "name": {
-    "ko_kr": "새싹마을 관장",
-    "en_us": "Starter Town Leader"
+    "ko_kr": "태산",
+    "en_us": "Tae-san"
   },
   "description": {
     "ko_kr": "대화, RCT 전투, 승리 플래그와 보상을 검증하기 위한 첫 번째 기준 트레이너입니다."
@@ -13,10 +13,12 @@
   "tags": ["gym_leader", "starter_town", "main_story"],
   "npc": {
     "display_name": {
-      "ko_kr": "새싹마을 관장",
-      "en_us": "Starter Town Leader"
+      "ko_kr": "체육관 관장 태산",
+      "en_us": "Gym Leader Tae-san"
     },
+    "trainer_class": "cobbleventure:trainer_class/gym_leader",
     "appearance": {
+      "source": "custom",
       "type": "skin",
       "resource": "cobbleventure:npc/starter_town_leader",
       "portrait": "cobbleventure:gui/portrait/starter_town_leader"

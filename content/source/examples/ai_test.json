@@ -16,7 +16,9 @@
       "ko_kr": "AI 맨",
       "en_us": "AI Man"
     },
+    "trainer_class": "cobbleventure:trainer_class/custom",
     "appearance": {
+      "source": "custom",
       "type": "skin",
       "resource": "cobbleventure:npc/ai_man",
       "portrait": "cobbleventure:gui/portrait/ai_man"
