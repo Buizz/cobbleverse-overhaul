@@ -1,56 +1,131 @@
 {
+  "$schema": "../../schemas/content-bundle.schema.json",
   "schema_version": 1,
-  "id": "cobbleventure:ai_test",
-  "trainer": {
-    "name": "AI Man",
-    "ai": "cobbleventure",
-    "battle_format": "GEN_9_SINGLES",
-    "battle_rules": {},
-    "bag": [],
-    "team": []
+  "id": "cobbleventure:trainer/ai_test",
+  "enabled": true,
+  "name": {
+    "ko_kr": "AI 맨",
+    "en_us": "AI Man"
   },
+  "description": {
+    "ko_kr": "대화에서 RCT 전투를 시작하는 개발용 테스트 트레이너입니다."
+  },
+  "tags": ["development", "battle_test"],
   "npc": {
-    "name": {
-      "translate": "npc.cobbleventure.ai_test.name"
+    "display_name": {
+      "ko_kr": "AI 맨",
+      "en_us": "AI Man"
     },
-    "portrait": "cobbleventure:gui/portrait/ai_man",
-    "initial_dialogue": "cobbleventure:ai_test/greeting"
+    "appearance": {
+      "type": "skin",
+      "resource": "cobbleventure:npc/ai_man",
+      "portrait": "cobbleventure:gui/portrait/ai_man"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "interaction_range": 4.0,
+      "invulnerable": true,
+      "collision": true
+    }
   },
-  "dialogues": [
-    {
-      "id": "cobbleventure:ai_test/greeting",
-      "text": {
-        "translate": "dialogue.cobbleventure.ai_test.greeting"
-      },
-      "conditions": [],
-      "choices": [
-        {
-          "id": "battle",
-          "text": {
-            "translate": "dialogue.cobbleventure.choice.battle"
-          },
-          "conditions": [],
-          "actions": [
-            {
-              "type": "start_rct_battle",
-              "trainer": "cobbleventure:ai_test"
-            }
-          ]
+  "placement": {
+    "region": "cobbleventure:region/development",
+    "settlement": "cobbleventure:settlement/test_area",
+    "anchor": "cobbleventure:anchor/ai_test",
+    "offset": { "x": 0, "y": 0, "z": 0 },
+    "rotation": 0,
+    "spawn_policy": "manual"
+  },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/ai_test",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": "cobbleventure:ai/balanced",
+    "level_mode": "fixed",
+    "rules": {},
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:rattata",
+        "level": 5,
+        "form": null,
+        "gender": "random",
+        "nature": null,
+        "ability": null,
+        "held_item": null,
+        "moves": ["tackle", "tail_whip"],
+        "ivs": {},
+        "evs": {},
+        "tera_type": null,
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ]
+  },
+  "dialogue": {
+    "entry": "cobbleventure:dialogue/ai_test/greeting",
+    "nodes": [
+      {
+        "id": "cobbleventure:dialogue/ai_test/greeting",
+        "speaker": "npc",
+        "text": {
+          "ko_kr": "안녕! 나는 AI 맨이야. 나와 승부할래?",
+          "en_us": "Hello! I'm AI Man. Would you like to battle?"
         },
-        {
-          "id": "cancel",
-          "text": {
-            "translate": "dialogue.cobbleventure.choice.cancel"
+        "conditions": [],
+        "actions": [],
+        "choices": [
+          {
+            "id": "battle",
+            "text": { "ko_kr": "승부한다", "en_us": "Battle" },
+            "conditions": [],
+            "actions": [
+              {
+                "type": "start_battle",
+                "trainer": "cobbleventure:trainer/ai_test"
+              }
+            ]
           },
-          "conditions": [],
-          "actions": [
-            {
-              "type": "close"
-            }
-          ]
+          {
+            "id": "cancel",
+            "text": { "ko_kr": "다음에", "en_us": "Not now" },
+            "conditions": [],
+            "actions": [{ "type": "close_dialogue" }]
+          }
+        ]
+      }
+    ]
+  },
+  "progression": {
+    "requirements": [],
+    "victory_flag": "cobbleventure:flag/trainer/ai_test/defeated",
+    "rematch": { "enabled": true, "cooldown_ticks": 0 },
+    "dialogue_routes": [
+      {
+        "when": { "type": "always" },
+        "entry": "cobbleventure:dialogue/ai_test/greeting"
+      }
+    ]
+  },
+  "outcomes": {
+    "on_player_win": {
+      "actions": [
+        {
+          "type": "set_flag",
+          "key": "cobbleventure:flag/trainer/ai_test/defeated",
+          "value": true
         }
       ]
+    },
+    "on_player_loss": {
+      "actions": []
     }
-  ],
-  "quests": []
+  }
 }

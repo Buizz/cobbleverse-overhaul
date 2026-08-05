@@ -1,48 +1,48 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cobbleventure.example/schema/content-bundle.schema.json",
-  "title": "Cobbleventure normalized content bundle",
+  "title": "Cobbleventure trainer encounter content bundle",
+  "description": "트레이너 NPC 한 명의 외형, 배치, 전투, 대화와 진행 결과를 함께 관리하는 기준 데이터",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "id", "trainer", "npc", "dialogues", "quests"],
+  "required": [
+    "schema_version",
+    "id",
+    "enabled",
+    "name",
+    "tags",
+    "npc",
+    "placement",
+    "battle",
+    "dialogue",
+    "progression",
+    "outcomes"
+  ],
   "properties": {
+    "$schema": { "type": "string" },
     "schema_version": { "const": 1 },
     "id": { "$ref": "#/$defs/resource_id" },
-    "trainer": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["name", "ai", "battle_format", "team"],
-      "properties": {
-        "name": { "type": "string", "minLength": 1 },
-        "ai": { "type": "string", "minLength": 1 },
-        "battle_format": { "type": "string", "minLength": 1 },
-        "battle_rules": { "type": "object" },
-        "bag": { "type": "array" },
-        "team": { "type": "array" }
-      }
-    },
-    "npc": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["name", "portrait", "initial_dialogue"],
-      "properties": {
-        "name": { "$ref": "#/$defs/text" },
-        "portrait": { "$ref": "#/$defs/resource_id" },
-        "initial_dialogue": { "$ref": "#/$defs/resource_id" }
-      }
-    },
-    "dialogues": {
+    "enabled": { "type": "boolean" },
+    "name": { "$ref": "#/$defs/localized_text" },
+    "description": { "$ref": "#/$defs/localized_text" },
+    "tags": {
       "type": "array",
-      "items": { "$ref": "#/$defs/dialogue" }
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }
     },
-    "quests": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["id"],
-        "properties": {
-          "id": { "$ref": "#/$defs/resource_id" }
-        }
+    "npc": { "$ref": "#/$defs/npc" },
+    "placement": { "$ref": "#/$defs/placement" },
+    "battle": { "$ref": "#/$defs/battle" },
+    "dialogue": { "$ref": "#/$defs/dialogue_graph" },
+    "progression": { "$ref": "#/$defs/progression" },
+    "outcomes": { "$ref": "#/$defs/outcomes" },
+    "export_overrides": {
+      "type": "object",
+      "description": "기준 데이터로 표현할 수 없는 대상별 임시 설정. 일반 콘텐츠에는 사용하지 않는다.",
+      "additionalProperties": false,
+      "properties": {
+        "rct": { "type": "object" },
+        "easy_npc": { "type": "object" }
       }
     }
   },
@@ -51,58 +51,305 @@
       "type": "string",
       "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
     },
-    "text": {
-      "oneOf": [
-        { "type": "string", "minLength": 1 },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["translate"],
-          "properties": {
-            "translate": { "type": "string", "minLength": 1 }
-          }
-        }
-      ]
+    "localized_text": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z]{2}_[a-z]{2}$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
     },
-    "dialogue": {
+    "vector3": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "text", "conditions", "choices"],
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" }
+      }
+    },
+    "npc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_name", "appearance", "behavior"],
+      "properties": {
+        "display_name": { "$ref": "#/$defs/localized_text" },
+        "appearance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "resource"],
+          "properties": {
+            "type": { "enum": ["skin", "model"] },
+            "resource": { "$ref": "#/$defs/resource_id" },
+            "portrait": { "$ref": "#/$defs/resource_id" }
+          }
+        },
+        "behavior": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["movement", "look_at_player", "interaction_range", "invulnerable"],
+          "properties": {
+            "movement": { "enum": ["stationary", "wander", "patrol"] },
+            "look_at_player": { "type": "boolean" },
+            "interaction_range": { "type": "number", "exclusiveMinimum": 0 },
+            "invulnerable": { "type": "boolean" },
+            "collision": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region", "settlement", "anchor", "offset", "rotation", "spawn_policy"],
+      "properties": {
+        "region": { "$ref": "#/$defs/resource_id" },
+        "settlement": { "$ref": "#/$defs/resource_id" },
+        "anchor": { "$ref": "#/$defs/resource_id" },
+        "offset": { "$ref": "#/$defs/vector3" },
+        "rotation": { "type": "number", "minimum": -360, "maximum": 360 },
+        "spawn_policy": { "enum": ["persistent", "on_region_load", "manual"] }
+      }
+    },
+    "battle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trainer_id",
+        "format",
+        "battle_type",
+        "ai",
+        "level_mode",
+        "rules",
+        "bag",
+        "mechanics",
+        "team"
+      ],
+      "properties": {
+        "trainer_id": { "$ref": "#/$defs/resource_id" },
+        "format": { "type": "string", "minLength": 1 },
+        "battle_type": { "enum": ["singles", "doubles"] },
+        "ai": { "$ref": "#/$defs/resource_id" },
+        "level_mode": { "enum": ["fixed", "scale_to_player", "cap_to_player"] },
+        "rules": { "type": "object" },
+        "bag": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["item", "quantity"],
+            "properties": {
+              "item": { "$ref": "#/$defs/resource_id" },
+              "quantity": { "type": "integer", "minimum": 1 }
+            }
+          }
+        },
+        "mechanics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mega_evolution", "z_move", "dynamax", "terastallization"],
+          "properties": {
+            "mega_evolution": { "type": "boolean" },
+            "z_move": { "type": "boolean" },
+            "dynamax": { "type": "boolean" },
+            "terastallization": { "type": "boolean" }
+          }
+        },
+        "team": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": { "$ref": "#/$defs/pokemon" }
+        }
+      }
+    },
+    "pokemon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["species", "level", "gender", "moves", "shiny"],
+      "properties": {
+        "species": { "$ref": "#/$defs/resource_id" },
+        "level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "form": { "type": ["string", "null"] },
+        "gender": { "enum": ["male", "female", "genderless", "random"] },
+        "nature": { "type": ["string", "null"] },
+        "ability": { "type": ["string", "null"] },
+        "held_item": {
+          "oneOf": [
+            { "$ref": "#/$defs/resource_id" },
+            { "type": "null" }
+          ]
+        },
+        "moves": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "ivs": { "$ref": "#/$defs/ivs" },
+        "evs": { "$ref": "#/$defs/evs" },
+        "tera_type": { "type": ["string", "null"] },
+        "shiny": { "type": "boolean" },
+        "gigantamax_factor": { "type": "boolean" }
+      }
+    },
+    "ivs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hp": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "attack": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "defense": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "special_attack": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "special_defense": { "type": "integer", "minimum": 0, "maximum": 31 },
+        "speed": { "type": "integer", "minimum": 0, "maximum": 31 }
+      }
+    },
+    "evs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hp": { "type": "integer", "minimum": 0, "maximum": 252 },
+        "attack": { "type": "integer", "minimum": 0, "maximum": 252 },
+        "defense": { "type": "integer", "minimum": 0, "maximum": 252 },
+        "special_attack": { "type": "integer", "minimum": 0, "maximum": 252 },
+        "special_defense": { "type": "integer", "minimum": 0, "maximum": 252 },
+        "speed": { "type": "integer", "minimum": 0, "maximum": 252 }
+      }
+    },
+    "dialogue_graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry", "nodes"],
+      "properties": {
+        "entry": { "$ref": "#/$defs/resource_id" },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/dialogue_node" }
+        }
+      }
+    },
+    "dialogue_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "speaker", "text", "conditions", "actions", "choices"],
       "properties": {
         "id": { "$ref": "#/$defs/resource_id" },
-        "text": { "$ref": "#/$defs/text" },
+        "speaker": { "enum": ["npc", "player", "system"] },
+        "text": { "$ref": "#/$defs/localized_text" },
         "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operation" }
+        },
+        "actions": {
           "type": "array",
           "items": { "$ref": "#/$defs/operation" }
         },
         "choices": {
           "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["id", "text", "conditions", "actions"],
-            "properties": {
-              "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-              "text": { "$ref": "#/$defs/text" },
-              "conditions": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/operation" }
-              },
-              "actions": {
-                "type": "array",
-                "minItems": 1,
-                "items": { "$ref": "#/$defs/operation" }
-              }
-            }
-          }
+          "items": { "$ref": "#/$defs/dialogue_choice" }
+        }
+      }
+    },
+    "dialogue_choice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "conditions", "actions"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "text": { "$ref": "#/$defs/localized_text" },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operation" }
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/operation" }
         }
       }
     },
     "operation": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["type"],
       "properties": {
-        "type": { "type": "string", "minLength": 1 }
+        "type": {
+          "enum": [
+            "always",
+            "flag_equals",
+            "next_dialogue",
+            "close_dialogue",
+            "start_battle",
+            "set_flag",
+            "give_item",
+            "start_quest",
+            "complete_quest",
+            "teleport",
+            "open_dialogue"
+          ]
+        },
+        "target": { "$ref": "#/$defs/resource_id" },
+        "trainer": { "$ref": "#/$defs/resource_id" },
+        "key": { "$ref": "#/$defs/resource_id" },
+        "value": { "type": ["string", "number", "boolean"] },
+        "item": { "$ref": "#/$defs/resource_id" },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "progression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirements", "victory_flag", "rematch", "dialogue_routes"],
+      "properties": {
+        "requirements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operation" }
+        },
+        "victory_flag": { "$ref": "#/$defs/resource_id" },
+        "rematch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "cooldown_ticks": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "dialogue_routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["when", "entry"],
+            "properties": {
+              "when": { "$ref": "#/$defs/operation" },
+              "entry": { "$ref": "#/$defs/resource_id" }
+            }
+          }
+        }
+      }
+    },
+    "outcomes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["on_player_win", "on_player_loss"],
+      "properties": {
+        "on_player_win": { "$ref": "#/$defs/outcome" },
+        "on_player_loss": { "$ref": "#/$defs/outcome" }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actions"],
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operation" }
+        }
       }
     }
   }

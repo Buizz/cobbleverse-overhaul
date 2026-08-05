@@ -15,6 +15,7 @@
 - [프로젝트 기획서](docs/PROJECT_PLAN.md)
 - [구현 설계 문서 안내](docs/implementation/README.md)
 - [콘텐츠 제작 및 CurseForge 빌드 파이프라인](docs/implementation/CONTENT_BUILD_PIPELINE.md)
+- [JSON 데이터 카탈로그](docs/JSON_CATALOG.md)
 - [의존 모드 관리표](docs/MOD_DEPENDENCIES.md)
 - [선택 아키텍처와 비교 기록](docs/implementation/WORLD_ARCHITECTURE_OPTIONS.md)
 - [세대 월드 8지역 및 체육관 도시 생성](docs/implementation/WORLD_GENERATION.md)
@@ -221,7 +222,7 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 
 | 명령 | 설명 | 현재 예상 결과 |
 |------|------|----------------|
-| `build.bat validate` | 의존성 Lock, 정규화 콘텐츠와 대화·RCT 참조 검사 | `draft` 경고를 허용하고 오류가 없으면 성공 |
+| `build.bat validate` | 의존성 Lock과 정규화 콘텐츠의 전투·대화·진행 참조 검사 | `draft` 경고를 허용하고 오류가 없으면 성공 |
 | `build.bat validate-pack` | Minecraft·NeoForge·활성 모드 버전과 CurseForge ID까지 엄격 검사 | 의존성 확정 전에는 실패가 정상 |
 | `build.bat api` | 데이터 관리용 Python Web API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
 | `build.bat test` | 콘텐츠 검증기, Web API와 팩 빌더 회귀 테스트 | 모든 Python `unittest`가 통과해야 함 |

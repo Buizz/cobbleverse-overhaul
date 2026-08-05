@@ -21,7 +21,7 @@ build.bat pack-release
 
 | 명령 | 용도 | 성공 조건 |
 |------|------|-----------|
-| `build.bat validate` | 개발 중인 의존성 Lock과 `content/source`의 정규화 콘텐츠를 검사한다. | JSON 형식, ID, 대화 참조와 RCT 연결에 오류가 없음 |
+| `build.bat validate` | 개발 중인 의존성 Lock과 `content/source`의 정규화 콘텐츠를 검사한다. | JSON 형식, ID, 전투·대화·진행 참조에 오류가 없음 |
 | `build.bat validate-pack` | CurseForge ZIP을 만들 수 있을 정도로 모든 실행 버전과 CurseForge ID가 고정되었는지 엄격하게 검사한다. | Lock 상태와 Minecraft·NeoForge·활성 모드 정보가 모두 확정됨 |
 | `build.bat api` | 콘텐츠 관리 화면이나 외부 로컬 도구에서 사용할 Web API를 실행한다. | `127.0.0.1:8765`에서 서버가 시작됨 |
 | `build.bat test` | 콘텐츠 검증기와 로컬 Web API의 회귀 테스트를 실행한다. | 모든 Python 단위 테스트가 통과함 |
@@ -35,9 +35,12 @@ build.bat pack-release
 
 - 의존성 Lock의 필수 필드와 모드 ID 중복
 - 정규화 콘텐츠 파일의 JSON 형식과 `schema_version`
-- 트레이너, NPC와 대화의 리소스 ID 형식 및 파일 간 중복
-- NPC의 최초 대화와 `next_dialogue` 대상 존재 여부
-- `start_rct_battle`이 현재 콘텐츠의 트레이너 ID를 가리키는지 여부
+- 콘텐츠, NPC, 지역, 마을, 앵커와 전투의 리소스 ID 형식
+- NPC 외형·행동, 배치 위치·생성 정책, 전투 규칙과 AI 프로필
+- 포켓몬 레벨·기술·개체값·노력치와 팀 전체 데이터
+- 대화 노드·선택지 중복, 조건·동작 형식과 이동 대상 존재 여부
+- `start_battle`이 현재 콘텐츠의 `battle.trainer_id`를 가리키는지 여부
+- 진행 경로와 승리·패배 결과 동작의 참조
 
 Cobblemon 1.8과 관련 모드 버전이 확정되기 전에는 다음 `draft` 경고가 나오는
 것이 정상이다. 경고만 있고 오류가 없으면 종료 코드 `0`으로 성공한다.
@@ -113,10 +116,14 @@ python tools/content-manager/content_manager.py api --root .
 - 의존성 Lock 필수 필드, 상태, 모드 ID와 CurseForge ID 중복
 - `locked` 상태에서 Minecraft·NeoForge·활성 모드 버전 고정 여부
 - 정규화 콘텐츠 ID 형식과 파일 간 중복
-- NPC의 최초 대화 참조
-- 대화 노드와 선택지 ID 중복
-- `next_dialogue` 대상 존재 여부
-- `start_rct_battle`의 트레이너 ID 일치 여부
+- NPC, 배치, 전투, 팀과 포켓몬 필드의 필수값·범위
+- 대화 노드·선택지 ID 중복과 조건·동작 형식
+- `next_dialogue`, 진행 경로와 대화 진입점의 대상 존재 여부
+- `start_battle`의 트레이너 ID 일치 여부
+
+구조 계약은 `content/schemas/content-bundle.schema.json`, 실제 작성 예제는
+`content/source/examples`에서 확인한다. 저장소 내 다른 JSON의 역할과 편집 여부는
+[JSON 데이터 카탈로그](../../docs/JSON_CATALOG.md)에 정리되어 있다.
 
 Excel 가져오기, 대상별 출력기와 CurseForge 패키징은 다음 개발 단계에서 같은
 도구에 추가한다.
