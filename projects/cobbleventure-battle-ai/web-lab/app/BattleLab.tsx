@@ -666,8 +666,101 @@ const pokemonStatNames: Record<(typeof pokemonStatKeys)[number], string> = {
   spe: "스피드",
 };
 
+type NatureStat = Exclude<(typeof pokemonStatKeys)[number], "hp">;
+
+type NatureDefinition = {
+  id: string;
+  name: string;
+  increased: NatureStat | null;
+  decreased: NatureStat | null;
+};
+
+const natureDefinitions: NatureDefinition[] = [
+  { id: "hardy", name: "노력", increased: null, decreased: null },
+  { id: "lonely", name: "외로움", increased: "atk", decreased: "def" },
+  { id: "brave", name: "용감", increased: "atk", decreased: "spe" },
+  { id: "adamant", name: "고집", increased: "atk", decreased: "spa" },
+  { id: "naughty", name: "개구쟁이", increased: "atk", decreased: "spd" },
+  { id: "bold", name: "대담", increased: "def", decreased: "atk" },
+  { id: "docile", name: "온순", increased: null, decreased: null },
+  { id: "relaxed", name: "무사태평", increased: "def", decreased: "spe" },
+  { id: "impish", name: "장난꾸러기", increased: "def", decreased: "spa" },
+  { id: "lax", name: "촐랑", increased: "def", decreased: "spd" },
+  { id: "timid", name: "겁쟁이", increased: "spe", decreased: "atk" },
+  { id: "hasty", name: "성급", increased: "spe", decreased: "def" },
+  { id: "serious", name: "성실", increased: null, decreased: null },
+  { id: "jolly", name: "명랑", increased: "spe", decreased: "spa" },
+  { id: "naive", name: "천진난만", increased: "spe", decreased: "spd" },
+  { id: "modest", name: "조심", increased: "spa", decreased: "atk" },
+  { id: "mild", name: "의젓", increased: "spa", decreased: "def" },
+  { id: "quiet", name: "냉정", increased: "spa", decreased: "spe" },
+  { id: "bashful", name: "수줍음", increased: null, decreased: null },
+  { id: "rash", name: "덜렁", increased: "spa", decreased: "spd" },
+  { id: "calm", name: "차분", increased: "spd", decreased: "atk" },
+  { id: "gentle", name: "얌전", increased: "spd", decreased: "def" },
+  { id: "sassy", name: "건방", increased: "spd", decreased: "spe" },
+  { id: "careful", name: "신중", increased: "spd", decreased: "spa" },
+  { id: "quirky", name: "변덕", increased: null, decreased: null },
+];
+
+const neutralNatureByStat: Record<NatureStat, string> = {
+  atk: "hardy",
+  def: "docile",
+  spa: "bashful",
+  spd: "quirky",
+  spe: "serious",
+};
+
+const natureStatChoices: Array<{
+  value: NatureStat | "" | "hp";
+  label: string;
+  disabled?: boolean;
+}> = [
+  { value: "", label: "보정 없음" },
+  { value: "hp", label: "체력 (불가)", disabled: true },
+  { value: "atk", label: "공격" },
+  { value: "def", label: "방어" },
+  { value: "spa", label: "특수공격" },
+  { value: "spd", label: "특수방어" },
+  { value: "spe", label: "스피드" },
+];
+
+function natureById(value: string) {
+  const id = value.trim().toLowerCase();
+  return natureDefinitions.find((nature) => nature.id === id) ?? null;
+}
+
+function natureSelection(value: string): [NatureStat | "", NatureStat | ""] {
+  const nature = natureById(value);
+  if (!nature) return ["", ""];
+  if (nature.increased && nature.decreased) {
+    return [nature.increased, nature.decreased];
+  }
+  const neutralStat = (Object.entries(neutralNatureByStat).find(
+    ([, natureId]) => natureId === nature.id,
+  )?.[0] ?? "") as NatureStat | "";
+  return [neutralStat, neutralStat];
+}
+
+function natureForStats(
+  increased: NatureStat | "",
+  decreased: NatureStat | "",
+) {
+  if (!increased && !decreased) return natureById("hardy");
+  if (!increased || !decreased) return null;
+  if (increased === decreased) {
+    return natureById(neutralNatureByStat[increased]);
+  }
+  return (
+    natureDefinitions.find(
+      (nature) =>
+        nature.increased === increased && nature.decreased === decreased,
+    ) ?? null
+  );
+}
+
 type ChoiceTarget =
-  | { kind: "pokemon" | "ability" | "item"; pokemonIndex: number }
+  | { kind: "pokemon" | "nature" | "ability" | "item"; pokemonIndex: number }
   | { kind: "move"; pokemonIndex: number; moveIndex: number };
 
 type StoredBattleView =
@@ -3102,15 +3195,39 @@ function CustomPartyEditor({
                 }
               />
             </label>
-            <label>
+            <label className="wide">
               성격
-              <input
-                value={pokemon.nature}
-                onChange={(event) =>
-                  update(selectedPokemonIndex, "nature", event.target.value)
-                }
-                placeholder="예: Jolly"
-              />
+              <span className="editor-picker-input nature-picker-input">
+                <input
+                  value={
+                    natureById(pokemon.nature)
+                      ? `${natureById(pokemon.nature)?.name} (${natureById(pokemon.nature)?.id})`
+                      : pokemon.nature
+                  }
+                  readOnly
+                  placeholder="성격을 선택하세요"
+                  aria-label="선택된 성격"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenChoice({
+                      kind: "nature",
+                      pokemonIndex: selectedPokemonIndex,
+                    })
+                  }
+                >
+                  선택
+                </button>
+              </span>
+              <small className="nature-effect-summary">
+                {(() => {
+                  const nature = natureById(pokemon.nature);
+                  if (!nature) return "상승·하락 능력치로 성격을 결정합니다.";
+                  if (!nature.increased || !nature.decreased) return "능력치 보정 없음";
+                  return `${pokemonStatNames[nature.increased]} ↑ · ${pokemonStatNames[nature.decreased]} ↓`;
+                })()}
+              </small>
             </label>
             <label className="wide">
               특성
@@ -3640,6 +3757,45 @@ function PokemonSampleLibraryDialog({
   );
 }
 
+function NatureStatSelector({
+  legend,
+  tone,
+  selected,
+  onSelect,
+}: {
+  legend: string;
+  tone: "up" | "down";
+  selected: NatureStat | "";
+  onSelect: (stat: NatureStat | "") => void;
+}) {
+  return (
+    <fieldset className={`nature-stat-selector ${tone}`}>
+      <legend>{legend}</legend>
+      <div>
+        {natureStatChoices.map((choice) => (
+          <button
+            type="button"
+            className={selected === choice.value ? "active" : ""}
+            key={choice.value || "neutral"}
+            onClick={() =>
+              !choice.disabled && onSelect(choice.value as NatureStat | "")
+            }
+            disabled={choice.disabled}
+            aria-pressed={!choice.disabled && selected === choice.value}
+            title={
+              choice.disabled
+                ? "포켓몬의 성격은 체력을 보정하지 않습니다."
+                : undefined
+            }
+          >
+            {choice.label}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function EditorChoiceDialog({
   target,
   catalog,
@@ -3658,6 +3814,15 @@ function EditorChoiceDialog({
   const [categoryFilter, setCategoryFilter] = useState("");
   const [generationFilter, setGenerationFilter] = useState("");
   const [scopeFilter, setScopeFilter] = useState("recommended");
+  const initialNatureSelection = natureSelection(
+    party[target.pokemonIndex]?.nature ?? "",
+  );
+  const [natureIncreased, setNatureIncreased] = useState<NatureStat | "">(
+    initialNatureSelection[0],
+  );
+  const [natureDecreased, setNatureDecreased] = useState<NatureStat | "">(
+    initialNatureSelection[1],
+  );
   const pokemon = party[target.pokemonIndex];
   const species = catalog.species.find(
     (entry) => entry.id === dexId(pokemon.species),
@@ -3727,6 +3892,7 @@ function EditorChoiceDialog({
           (scopeFilter !== "recommended" || allowed.has(entry.id)),
       );
     }
+    if (target.kind === "nature") return [];
     const itemScope =
       scopeFilter === "recommended" ? "battle" : scopeFilter;
     return catalog.items.filter(
@@ -3755,9 +3921,14 @@ function EditorChoiceDialog({
       "특성 선택",
       `${species?.name ?? "현재 포켓몬"}의 기본 특성을 우선 표시합니다.`,
     ],
+    nature: [
+      "성격 선택",
+      "올릴 능력치와 내릴 능력치를 고르면 실제 성격에 자동으로 연결됩니다. HP는 성격 보정을 받지 않습니다.",
+    ],
     item: ["지닌 도구 선택", "Cobblemon 레지스트리의 배틀 도구를 검색합니다."],
   } as const;
   const [title, description] = titles[target.kind];
+  const selectedNature = natureForStats(natureIncreased, natureDecreased);
   const namespaces = [
     ...new Set(catalog.items.map((entry) => entry.namespace)),
   ].sort();
@@ -3780,13 +3951,34 @@ function EditorChoiceDialog({
             닫기
           </button>
         </header>
-        <div className="choice-dialog-filters">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="이름·ID·설명 검색"
-            autoFocus
-          />
+        <div
+          className={`choice-dialog-filters ${
+            target.kind === "nature" ? "nature-choice-filters" : ""
+          }`}
+        >
+          {target.kind !== "nature" ? (
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="이름·ID·설명 검색"
+              autoFocus
+            />
+          ) : (
+            <>
+              <NatureStatSelector
+                legend="올릴 능력치 (+10%)"
+                tone="up"
+                selected={natureIncreased}
+                onSelect={setNatureIncreased}
+              />
+              <NatureStatSelector
+                legend="내릴 능력치 (-10%)"
+                tone="down"
+                selected={natureDecreased}
+                onSelect={setNatureDecreased}
+              />
+            </>
+          )}
           {target.kind === "pokemon" ? (
             <>
               <select
@@ -3894,11 +4086,63 @@ function EditorChoiceDialog({
           ) : null}
         </div>
         <div className="choice-result-count">
-          검색 결과 {rows.length}개
-          {rows.length > 240 ? " · 처음 240개 표시" : ""}
+          {target.kind === "nature"
+            ? selectedNature
+              ? "현재 선택된 성격"
+              : "상승·하락 능력치를 모두 선택해 주세요."
+            : `검색 결과 ${rows.length}개${
+                rows.length > 240 ? " · 처음 240개 표시" : ""
+              }`}
         </div>
-        <div className="editor-choice-grid">
-          {rows.slice(0, 240).map((entry) => {
+        <div
+          className={`editor-choice-grid ${
+            target.kind === "nature" ? "nature-choice-result" : ""
+          }`}
+        >
+          {target.kind === "nature" ? (
+            selectedNature ? (
+              <button
+                type="button"
+                className="nature-result-card"
+                onClick={() => onChoose(selectedNature.id)}
+              >
+                <span className="nature-result-heading">
+                  <span>
+                    <small>SELECTED NATURE</small>
+                    <strong>{selectedNature.name}</strong>
+                  </span>
+                  <b>{selectedNature.id}</b>
+                </span>
+                {selectedNature.increased && selectedNature.decreased ? (
+                  <span className="nature-result-effects">
+                    <b className="up">
+                      {pokemonStatNames[selectedNature.increased]} 10% 상승
+                    </b>
+                    <b className="down">
+                      {pokemonStatNames[selectedNature.decreased]} 10% 하락
+                    </b>
+                  </span>
+                ) : (
+                  <span className="nature-result-effects">
+                    <b className="neutral">능력치 보정 없음</b>
+                  </span>
+                )}
+                <span className="nature-result-action">
+                  이 성격을 적용하려면 클릭하세요
+                </span>
+              </button>
+            ) : (
+              <div className="nature-choice-invalid">
+                <strong>실제 성격으로 연결할 수 없는 조합입니다.</strong>
+                <p>
+                  상승·하락 능력치를 모두 선택하세요. 중립 성격은 같은
+                  능력치를 양쪽에서 고르거나 양쪽 모두 보정 없음으로 선택합니다.
+                </p>
+              </div>
+            )
+          ) : null}
+          {target.kind !== "nature"
+            ? rows.slice(0, 240).map((entry) => {
             if (isCatalogSpecies(entry)) {
               return (
                 <button
@@ -3996,8 +4240,9 @@ function EditorChoiceDialog({
                 ) : null}
               </button>
             );
-          })}
-          {rows.length === 0 ? (
+              })
+            : null}
+          {target.kind !== "nature" && rows.length === 0 ? (
             <div className="choice-empty">조건에 맞는 항목이 없습니다.</div>
           ) : null}
         </div>
@@ -7012,6 +7257,9 @@ export function BattleLab() {
             species: value,
             ability: selectedSpecies?.abilities[0] ?? "",
           };
+        }
+        if (choiceTarget.kind === "nature") {
+          return { ...pokemon, nature: value };
         }
         return { ...pokemon, [choiceTarget.kind === "item" ? "heldItem" : "ability"]: value };
       }),
