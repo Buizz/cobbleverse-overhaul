@@ -6,7 +6,6 @@ import json
 import sys
 import tempfile
 import unittest
-import zipfile
 from pathlib import Path
 
 
@@ -22,7 +21,7 @@ SPEC.loader.exec_module(build_data_mod)
 class DataModBuilderTests(unittest.TestCase):
     def _fixture(self, root: Path) -> Path:
         source = root / build_data_mod.SOURCE
-        source_entries = build_data_mod.REQUIRED_ENTRIES - build_data_mod.GENERATED_ENTRY_NAMES
+        source_entries = build_data_mod.REQUIRED_ENTRIES
         for name in source_entries:
             path = source / Path(name)
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -35,7 +34,7 @@ class DataModBuilderTests(unittest.TestCase):
         )
         return source
 
-    def test_builds_deterministic_jar_with_required_entries(self) -> None:
+    def test_builds_deterministic_gym_resource(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self._fixture(root)
@@ -45,14 +44,10 @@ class DataModBuilderTests(unittest.TestCase):
             output = build_data_mod.build(root)
 
             self.assertEqual(first, output.read_bytes())
-            with zipfile.ZipFile(output) as archive:
-                self.assertTrue(build_data_mod.REQUIRED_ENTRIES.issubset(archive.namelist()))
-                gym = gzip.decompress(
-                    archive.read("data/cobbleventure/structure/starter_town/gym.nbt")
-                )
-                self.assertIn(b"minecraft:jigsaw", gym)
-                self.assertIn(b"bca:default/paths", gym)
-                self.assertIn(b"minecraft:gray_concrete", gym)
+            gym = gzip.decompress(output.read_bytes())
+            self.assertIn(b"minecraft:jigsaw", gym)
+            self.assertIn(b"bca:default/paths", gym)
+            self.assertIn(b"minecraft:gray_concrete", gym)
 
     def test_roof_colour_follows_settlement_theme(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -66,11 +61,8 @@ class DataModBuilderTests(unittest.TestCase):
 
             output = build_data_mod.build(root)
 
-            with zipfile.ZipFile(output) as archive:
-                gym = gzip.decompress(
-                    archive.read("data/cobbleventure/structure/starter_town/gym.nbt")
-                )
-                self.assertIn(b"minecraft:blue_concrete", gym)
+            gym = gzip.decompress(output.read_bytes())
+            self.assertIn(b"minecraft:blue_concrete", gym)
 
     def test_rejects_missing_required_entry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

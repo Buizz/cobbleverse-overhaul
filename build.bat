@@ -5,6 +5,8 @@ set "REPO_ROOT=%~dp0"
 set "CONTENT_MANAGER=%REPO_ROOT%tools\content-manager\content_manager.py"
 set "PACK_BUILDER=%REPO_ROOT%tools\pack-builder\pack_builder.py"
 set "DATA_MOD_BUILDER=%REPO_ROOT%tools\mod-builder\build_data_mod.py"
+set "GRADLEW=%REPO_ROOT%projects\cobbleventure-battle-ai\gradlew.bat"
+set "WORLD_BOOTSTRAP_PROJECT=%REPO_ROOT%projects\cobbleventure-world-bootstrap"
 set "SMOKE_PROFILE=pack\profiles\import-smoke.json"
 set "DEVELOPMENT_PROFILE=pack\profiles\development-placeholder.json"
 
@@ -51,6 +53,8 @@ if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\pack-builder\tests" -p "test_*.py"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\mod-builder\tests" -p "test_*.py"
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%WORLD_BOOTSTRAP_PROJECT%" test
 exit /b %errorlevel%
 
 :generate
@@ -59,6 +63,8 @@ exit /b %errorlevel%
 
 :mod_bootstrap
 %PYTHON_CMD% "%DATA_MOD_BUILDER%" --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%WORLD_BOOTSTRAP_PROJECT%" build
 exit /b %errorlevel%
 
 :pack_smoke
@@ -69,6 +75,8 @@ exit /b %errorlevel%
 %PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%DATA_MOD_BUILDER%" --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%WORLD_BOOTSTRAP_PROJECT%" build
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%DEVELOPMENT_PROFILE%"
 exit /b %errorlevel%
@@ -93,9 +101,9 @@ echo   validate       Validate dependency lock and normalized content
 echo   validate-pack  Validate that dependencies are ready for CurseForge packaging
 echo   web            Start the local content manager Web UI and API
 echo   api            Alias for web (kept for compatibility)
-echo   test           Run all Python tool unit tests
+echo   test           Run Python tests and compile the world bootstrap module
 echo   generate       Generate RCT trainers and in-game AI runtime profiles
-echo   mod-bootstrap  Build the starter-town NeoForge data mod JAR
+echo   mod-bootstrap  Build the starter-town NeoForge Java mod JAR
 echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked

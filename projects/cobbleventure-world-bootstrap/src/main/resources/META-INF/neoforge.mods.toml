@@ -1,28 +1,26 @@
-modLoader="lowcodefml"
-loaderVersion="[1,)"
-license="All Rights Reserved"
-showAsDataPack=true
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
 
 [[mods]]
 modId="cobbleventure_bootstrap"
-version="0.1.0"
-displayName="Cobbleventure World Bootstrap"
+version="${mod_version}"
+displayName="${mod_name}"
 authors="Buizz"
 description='''
-Places one Cobblemon Additions test village near the first overworld spawn.
-This is a temporary prototype for the Cobbleventure world bootstrap pipeline.
+Finds a plains biome, moves the world spawn there, and places the Cobbleventure starter town.
 '''
 
 [[dependencies.cobbleventure_bootstrap]]
 modId="neoforge"
 type="required"
-versionRange="[21.1,)"
+versionRange="[${neo_version},)"
 ordering="NONE"
 side="BOTH"
 
 [[dependencies.cobbleventure_bootstrap]]
 modId="minecraft"
 type="required"
-versionRange="[1.21.1,1.22)"
+versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
