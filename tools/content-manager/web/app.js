@@ -27,6 +27,7 @@ const natureDefinitions = [
   ["quirky", "변덕", null, null]
 ].map(([id, name, increased, decreased]) => ({ id, name, increased, decreased }));
 const statLabels = { hp: "체력", attack: "공격", defense: "방어", special_attack: "특수공격", special_defense: "특수방어", speed: "스피드" };
+const pokemonStatKeys = ["hp", "attack", "defense", "special_attack", "special_defense", "speed"];
 const natureStats = ["", "hp", "attack", "defense", "special_attack", "special_defense", "speed"];
 const neutralNatureByStat = { attack: "hardy", defense: "docile", special_attack: "bashful", special_defense: "quirky", speed: "serious" };
 const pokemonTypeNames = { Normal:"노말", Fire:"불꽃", Water:"물", Electric:"전기", Grass:"풀", Ice:"얼음", Fighting:"격투", Poison:"독", Ground:"땅", Flying:"비행", Psychic:"에스퍼", Bug:"벌레", Rock:"바위", Ghost:"고스트", Dragon:"드래곤", Dark:"악", Steel:"강철", Fairy:"페어리" };
@@ -494,6 +495,7 @@ function renderTeam() {
   }
   state.selectedPokemonIndex = Math.min(state.selectedPokemonIndex, team.length - 1);
   const pokemon = team[state.selectedPokemonIndex];
+  normalizePokemonStats(pokemon);
   const stats = [
     ["hp", "HP"], ["attack", "공격"], ["defense", "방어"],
     ["special_attack", "특수공격"], ["special_defense", "특수방어"], ["speed", "스피드"]
@@ -543,7 +545,7 @@ function renderTeam() {
           ${pokemon.gimmick ? `<label class="focused-gimmick-item"><span>RCT 출력용 기믹 소지품</span><select name="gimmickItem">${gimmickCandidatesForPokemon.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === pokemon.gimmick.item ? "selected" : ""}>${escapeHtml(itemLabel(item.id))}</option>`).join("")}</select><small>정규화 JSON에는 기믹으로 보관하고, RCT 출력 시 실제 소지품으로 변환합니다.</small></label>` : ""}
         </section>
         <section class="focused-stat-panel">
-          <header><span>STATS</span><strong>개체값·노력치</strong><small id="ev-total">EV ${evTotal(pokemon)}/510</small></header>
+          <header><span>STATS</span><strong>개체값·노력치</strong><small id="ev-total" title="IV는 능력치별 31, EV는 능력치별 252·전체 510으로 자동 제한됩니다.">EV ${evTotal(pokemon)}/510</small></header>
           <div class="focused-stat-table"><div class="focused-stat-heading"><span>능력치</span><span>IV</span><span>EV</span></div>${stats.map(([key, label]) => `<label><strong>${label}</strong><input type="number" min="0" max="31" data-iv="${key}" value="${escapeHtml(pokemon.ivs?.[key] ?? 0)}"><input type="number" min="0" max="252" data-ev="${key}" value="${escapeHtml(pokemon.evs?.[key] ?? 0)}"></label>`).join("")}</div>
         </section>
         <section class="focused-moves-panel">
@@ -676,14 +678,32 @@ async function pasteTeamJson() {
   }
 }
 
-function updateFocusedPokemon() {
+function updateFocusedPokemon(event = null) {
   const editor = $(".focused-pokemon-editor");
   if (!editor || !state.trainer?.battle?.team?.[state.selectedPokemonIndex]) return;
   const pokemon = state.trainer.battle.team[state.selectedPokemonIndex];
   const value = (name) => editor.querySelector(`[name="${name}"]`).value.trim();
-  const ivs = {}; const evs = {};
-  $$('[data-iv]').forEach((input) => ivs[input.dataset.iv] = Number(input.value));
-  $$('[data-ev]').forEach((input) => evs[input.dataset.ev] = Number(input.value));
+  const ivInputs = [...editor.querySelectorAll('[data-iv]')];
+  const evInputs = [...editor.querySelectorAll('[data-ev]')];
+  const ivs = Object.fromEntries(ivInputs.map((input) => {
+    const amount = clampInteger(input.value, 0, 31);
+    input.value = amount;
+    return [input.dataset.iv, amount];
+  }));
+  const evs = Object.fromEntries(evInputs.map((input) => [input.dataset.ev, clampInteger(input.value, 0, 252)]));
+  const activeEvKey = event?.target?.dataset?.ev || null;
+  const total = Object.values(evs).reduce((sum, amount) => sum + amount, 0);
+  if (total > 510 && activeEvKey && Object.hasOwn(evs, activeEvKey)) {
+    const otherTotal = Object.entries(evs).reduce((sum, [key, amount]) => key === activeEvKey ? sum : sum + amount, 0);
+    evs[activeEvKey] = Math.max(0, 510 - otherTotal);
+  } else if (total > 510) {
+    let remaining = 510;
+    for (const key of pokemonStatKeys) {
+      evs[key] = Math.min(evs[key] || 0, remaining);
+      remaining -= evs[key];
+    }
+  }
+  evInputs.forEach((input) => { input.value = evs[input.dataset.ev] ?? 0; });
   Object.assign(pokemon, {
     species: value("species"), level: Number(value("level")), gender: value("gender"),
     form: value("form") || null,
@@ -914,6 +934,23 @@ function closeChoiceDialog() {
 
 function evTotal(pokemon) {
   return Object.values(pokemon.evs || {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
+}
+
+function clampInteger(value, minimum, maximum) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return minimum;
+  return Math.min(maximum, Math.max(minimum, Math.trunc(number)));
+}
+
+function normalizePokemonStats(pokemon) {
+  pokemon.ivs ||= {};
+  pokemon.evs ||= {};
+  let remainingEvs = 510;
+  for (const key of pokemonStatKeys) {
+    pokemon.ivs[key] = clampInteger(pokemon.ivs[key], 0, 31);
+    pokemon.evs[key] = Math.min(clampInteger(pokemon.evs[key], 0, 252), remainingEvs);
+    remainingEvs -= pokemon.evs[key];
+  }
 }
 
 function speciesLabel(species) {

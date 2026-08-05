@@ -301,6 +301,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("other/official-artwork", app_script)
         self.assertNotIn("pokeapi.co/api/v2/pokemon", app_script)
         self.assertIn("move-type-badge", app_script)
+        self.assertIn("normalizePokemonStats", app_script)
+        self.assertIn("remainingEvs = 510", app_script)
         self.assertIn(".move-type-badge.type-fire", styles)
         self.assertIn(".move-type-badge.type-fairy", styles)
         self.assertIn("POKEMON_ENTRY_CLIPBOARD_SCHEMA", clipboard_module)
