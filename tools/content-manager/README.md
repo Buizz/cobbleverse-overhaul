@@ -10,6 +10,7 @@ Python 표준 라이브러리만으로 실행되는 콘텐츠 제작·검증 도
 ```bat
 build.bat validate
 build.bat validate-pack
+build.bat web
 build.bat api
 build.bat test
 build.bat pack-smoke
@@ -23,7 +24,8 @@ build.bat pack-release
 |------|------|-----------|
 | `build.bat validate` | 개발 중인 의존성 Lock과 `content/source`의 정규화 콘텐츠를 검사한다. | JSON 형식, ID, 전투·대화·진행 참조에 오류가 없음 |
 | `build.bat validate-pack` | CurseForge ZIP을 만들 수 있을 정도로 모든 실행 버전과 CurseForge ID가 고정되었는지 엄격하게 검사한다. | Lock 상태와 Minecraft·NeoForge·활성 모드 정보가 모두 확정됨 |
-| `build.bat api` | 콘텐츠 관리 화면이나 외부 로컬 도구에서 사용할 Web API를 실행한다. | `127.0.0.1:8765`에서 서버가 시작됨 |
+| `build.bat web` | 콘텐츠 관리 화면과 외부 로컬 도구용 Web API를 함께 실행한다. | `127.0.0.1:8765`에서 서버가 시작됨 |
+| `build.bat api` | 기존 자동화 호환을 위한 `web` 명령의 별칭이다. | `web`과 동일하게 실행됨 |
 | `build.bat test` | 콘텐츠 검증기와 로컬 Web API의 회귀 테스트를 실행한다. | 모든 Python 단위 테스트가 통과함 |
 | `build.bat pack-smoke` | 별도 팩 빌더로 최소 CurseForge 임포트 ZIP을 생성하고 검증한다. | `dist`에 ZIP과 SHA-256이 생성됨 |
 | `build.bat pack` | 일반 검증 후 별도 팩 빌더로 임시 개발 ZIP을 생성한다. | `dist`에 개발 ZIP과 SHA-256이 생성됨 |
@@ -62,7 +64,7 @@ Cobblemon 1.8과 관련 모드 버전이 확정되기 전에는 다음 `draft` �
 현재처럼 Lock이 `draft`이고 버전이 미정이면 실패하는 것이 정상이다. 이 명령이
 성공하기 전에는 후속 `pack` 명령이 ZIP을 생성해서는 안 된다.
 
-#### `api`
+#### `web`과 `api`
 
 로컬 관리 화면과 Web API를 실행하고 종료할 때까지 터미널을 점유한다. 종료하려면
 `Ctrl+C`를 누른다. 기본 주소는 다음과 같다.
@@ -109,7 +111,8 @@ python tools/content-manager/content_manager.py validate --root .
 python tools/content-manager/content_manager.py api --root .
 ```
 
-`api`는 기본적으로 `127.0.0.1:8765`에서 실행된다.
+`web`은 기본적으로 `127.0.0.1:8765`에서 실행된다. `api`는 기존 스크립트를 위한
+호환용 별칭이며 동작은 같다.
 
 ## API
 

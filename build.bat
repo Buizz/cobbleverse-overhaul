@@ -22,6 +22,7 @@ if %errorlevel% equ 0 (
 if "%~1"=="" goto help
 if /I "%~1"=="validate" goto validate
 if /I "%~1"=="validate-pack" goto validate_pack
+if /I "%~1"=="web" goto api
 if /I "%~1"=="api" goto api
 if /I "%~1"=="test" goto test
 if /I "%~1"=="pack-smoke" goto pack_smoke
@@ -75,7 +76,8 @@ echo Usage: build.bat ^<command^>
 echo.
 echo   validate       Validate dependency lock and normalized content
 echo   validate-pack  Validate that dependencies are ready for CurseForge packaging
-echo   api            Start the local content manager Web UI and API
+echo   web            Start the local content manager Web UI and API
+echo   api            Alias for web (kept for compatibility)
 echo   test           Run all Python tool unit tests
 echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP

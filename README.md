@@ -188,7 +188,7 @@ npm run dev
 저장소 루트에서 다음 명령을 실행합니다.
 
 ```bat
-build.bat api
+build.bat web
 ```
 
 `Cobbleventure Content Manager` 메시지가 출력되면 브라우저에서 다음 주소를
@@ -226,7 +226,8 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 |------|------|----------------|
 | `build.bat validate` | 의존성 Lock과 정규화 콘텐츠의 전투·대화·진행 참조 검사 | `draft` 경고를 허용하고 오류가 없으면 성공 |
 | `build.bat validate-pack` | Minecraft·NeoForge·활성 모드 버전과 CurseForge ID까지 엄격 검사 | 의존성 확정 전에는 실패가 정상 |
-| `build.bat api` | 데이터 관리용 Python Web 화면과 API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
+| `build.bat web` | 데이터 관리용 Python Web 화면과 API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
+| `build.bat api` | `build.bat web`의 호환용 별칭 | Web 화면과 API가 동일하게 실행됨 |
 | `build.bat test` | 콘텐츠 검증기, Web API와 팩 빌더 회귀 테스트 | 모든 Python `unittest`가 통과해야 함 |
 | `build.bat pack-smoke` | 최소 CurseForge 임포트 테스트 ZIP 생성·재검증 | `dist`에 ZIP과 SHA-256 생성 |
 | `build.bat pack` | 일반 콘텐츠 검증 후 임시 개발 팩 생성 | 임포트 가능한 개발용 ZIP과 SHA-256 생성 |
