@@ -113,9 +113,21 @@
       ],
       "properties": {
         "trainer_id": { "$ref": "#/$defs/resource_id" },
-        "format": { "type": "string", "minLength": 1 },
+        "format": { "enum": ["GEN_9_SINGLES", "GEN_9_DOUBLES"] },
         "battle_type": { "enum": ["singles", "doubles"] },
-        "ai": { "$ref": "#/$defs/resource_id" },
+        "ai": {
+          "enum": [
+            "cobbleventure:ai/balanced",
+            "cobbleventure:ai/aggressive",
+            "cobbleventure:ai/defensive",
+            "cobbleventure:ai/ace_check",
+            "cobbleventure:ai/reckless_ace",
+            "cobbleventure:ai/setup",
+            "cobbleventure:ai/hazard",
+            "cobbleventure:ai/tempo",
+            "cobbleventure:ai/unpredictable"
+          ]
+        },
         "level_mode": { "enum": ["fixed", "scale_to_player", "cap_to_player"] },
         "rules": {
           "type": "object",

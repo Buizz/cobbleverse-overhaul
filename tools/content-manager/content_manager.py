@@ -49,6 +49,21 @@ TERA_TYPES = {
     "steel",
     "fairy",
 }
+BATTLE_FORMAT_TYPES = {
+    "GEN_9_SINGLES": "singles",
+    "GEN_9_DOUBLES": "doubles",
+}
+AI_PROFILES = {
+    "cobbleventure:ai/balanced",
+    "cobbleventure:ai/aggressive",
+    "cobbleventure:ai/defensive",
+    "cobbleventure:ai/ace_check",
+    "cobbleventure:ai/reckless_ace",
+    "cobbleventure:ai/setup",
+    "cobbleventure:ai/hazard",
+    "cobbleventure:ai/tempo",
+    "cobbleventure:ai/unpredictable",
+}
 OPERATION_TYPES = {
     "always",
     "flag_equals",
@@ -652,10 +667,16 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
         trainer_id = _resource_id(battle.get("trainer_id"), issues, path, "$.battle.trainer_id")
         if trainer_id and trainer_id != content_id:
             _issue(issues, "error", path, "$.battle.trainer_id", "최상위 콘텐츠 ID와 일치해야 합니다.")
-        _require_string(battle.get("format"), issues, path, "$.battle.format")
-        _resource_id(battle.get("ai"), issues, path, "$.battle.ai")
+        battle_format = battle.get("format")
+        if battle_format not in BATTLE_FORMAT_TYPES:
+            _issue(issues, "error", path, "$.battle.format", "지원하지 않는 배틀 포맷입니다.")
+        battle_ai = _resource_id(battle.get("ai"), issues, path, "$.battle.ai")
+        if battle_ai and battle_ai not in AI_PROFILES:
+            _issue(issues, "error", path, "$.battle.ai", "지원하지 않는 AI 프로필입니다.")
         if battle.get("battle_type") not in {"singles", "doubles"}:
             _issue(issues, "error", path, "$.battle.battle_type", "singles 또는 doubles여야 합니다.")
+        elif battle_format in BATTLE_FORMAT_TYPES and BATTLE_FORMAT_TYPES[battle_format] != battle.get("battle_type"):
+            _issue(issues, "error", path, "$.battle.format", "배틀 포맷과 전투 방식이 일치해야 합니다.")
         if battle.get("level_mode") not in {"fixed", "scale_to_player", "cap_to_player"}:
             _issue(issues, "error", path, "$.battle.level_mode", "지원하지 않는 레벨 방식입니다.")
         rules = _require_object(battle.get("rules"), issues, path, "$.battle.rules")

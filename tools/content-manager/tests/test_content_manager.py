@@ -146,6 +146,21 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("max_item_uses" in issue.path for issue in issues))
         self.assertTrue(any("bag[0].quantity" in issue.path for issue in issues))
 
+    def test_battle_format_and_ai_profile_are_restricted(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["battle"]["format"] = "GEN_9_DOUBLES"
+        source["battle"]["ai"] = "cobbleventure:ai/unknown"
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertTrue(any("전투 방식이 일치" in issue.message for issue in issues))
+        self.assertTrue(any("AI 프로필" in issue.message for issue in issues))
+
     def test_invalid_tera_type_is_rejected(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -331,6 +346,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("Cobbleventure Content Studio", page)
         self.assertIn("엔트리 JSON 복사", page)
         self.assertIn("전투 가방", page)
+        self.assertIn('<select name="battleFormat"', page)
+        self.assertIn('<select name="battleAi"', page)
         self.assertIn("PokeAPI/sprites/master/sprites/pokemon", app_script)
         self.assertIn("other/official-artwork", app_script)
         self.assertNotIn("pokeapi.co/api/v2/pokemon", app_script)

@@ -42,6 +42,11 @@
 | `outcomes` | 승리·패배·무승부 후 플래그, 보상, 퀘스트 등 실행 동작 |
 | `export_overrides` | 특정 출력 대상에서만 필요한 최소 예외 설정 |
 
+`battle.format`은 현재 `GEN_9_SINGLES`, `GEN_9_DOUBLES` 중 하나이며
+`battle_type`의 싱글·더블과 일치해야 한다. `battle.ai`는 전투 엔진과 공유하는
+`cobbleventure:ai/balanced`, `aggressive`, `defensive`, `ace_check`,
+`reckless_ace`, `setup`, `hazard`, `tempo`, `unpredictable` 중 하나를 사용한다.
+
 대사에는 한국어 `ko_kr`을 반드시 두고, 다른 언어는 같은 객체에 추가한다.
 조건과 동작은 문자열 명령을 넣지 않고 `type`이 있는 구조화 객체로 작성한다.
 

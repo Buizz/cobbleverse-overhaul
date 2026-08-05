@@ -1274,7 +1274,15 @@ $("#validate-trainer").addEventListener("click", () => validateDocument("trainer
 $("#save-trainer").addEventListener("click", () => saveDocument("trainers"));
 $("#trainer-form").addEventListener("input", (event) => {
   if (event.target.name === "trainerClass") applyTrainerClass();
-  else updateTrainerFromForm();
+  else {
+    const form = event.currentTarget;
+    if (event.target.name === "battleType") {
+      form.elements.battleFormat.value = event.target.value === "doubles" ? "GEN_9_DOUBLES" : "GEN_9_SINGLES";
+    } else if (event.target.name === "battleFormat") {
+      form.elements.battleType.value = event.target.value === "GEN_9_DOUBLES" ? "doubles" : "singles";
+    }
+    updateTrainerFromForm();
+  }
 });
 $("#add-pokemon").addEventListener("click", addPokemon);
 $("#add-bag-item").addEventListener("click", addBagItem);
