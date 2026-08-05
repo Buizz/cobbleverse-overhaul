@@ -11,8 +11,6 @@ const state = {
   trainerPath: "", settlementPath: "", buildCommands: [], trainerClasses: [],
   selectedPokemonIndex: 0, editorCatalog: null, choice: null
 };
-const pokemonArtworkCache = new Map();
-
 const natureDefinitions = [
   ["hardy", "노력", null, null], ["lonely", "외로움", "attack", "defense"],
   ["brave", "용감", "attack", "speed"], ["adamant", "고집", "attack", "special_attack"],
@@ -520,7 +518,7 @@ function renderTeam() {
           <span class="slot-number">PARTY SLOT ${String(state.selectedPokemonIndex + 1).padStart(2, "0")}</span>
           <div><img class="focused-pokemon-sprite" id="focused-pokemon-art" alt="${escapeHtml(speciesLabel(pokemon.species))}" hidden><button class="empty-pokemon-prompt" id="pokemon-art-fallback" type="button"><b>?</b><span>이미지 불러오는 중</span></button></div>
           <h3 id="focused-species-name">${escapeHtml(speciesLabel(pokemon.species))}</h3>
-          <p>Lv.${escapeHtml(pokemon.level)} · PokéAPI HOME PNG</p>
+          <p>Lv.${escapeHtml(pokemon.level)} · PokeAPI official-artwork</p>
           <div class="focused-preview-actions"><button type="button" id="duplicate-pokemon">복제</button><button type="button" class="danger" id="remove-focused-pokemon">팀에서 제거</button></div>
         </aside>
         <section class="focused-profile-panel">
@@ -862,15 +860,13 @@ function bindChoiceResultButtons() {
   $$('[data-choice-value]').forEach((button) => button.addEventListener("click", () => chooseDialogValue(button.dataset.choiceValue)));
 }
 
-async function hydrateChoicePokemonArt(entries) {
-  await Promise.all(entries.map(async (entry) => {
+function hydrateChoicePokemonArt(entries) {
+  for (const entry of entries) {
     const pokemon = { species: speciesResourceId(entry), form: entry.forme ? entry.id : null };
-    let url = await pokemonArtwork(pokemon);
-    if (!url && pokemon.form) url = await pokemonArtwork({ ...pokemon, form: null });
     const image = document.querySelector(`[data-choice-art="${CSS.escape(entry.id)}"]`);
     const fallback = document.querySelector(`[data-choice-art-fallback="${CSS.escape(entry.id)}"]`);
-    if (image && url) { image.src = url; image.hidden = false; if (fallback) fallback.hidden = true; }
-  }));
+    applyPokemonArtwork(image, fallback, pokemon);
+  }
 }
 
 function chooseDialogValue(value) {
@@ -924,51 +920,70 @@ function speciesLabel(species) {
   return String(species || "포켓몬").replace(/^.*:/, "").replaceAll("_", " ");
 }
 
-function pokeApiSlug(pokemon) {
+function pokemonPokedexNumber(pokemon) {
   const catalogEntry = catalogSpeciesForPokemon(pokemon);
-  if (pokemon?.form && catalogEntry?.englishName) {
-    return String(catalogEntry.englishName).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  }
-  return String(pokemon?.species || "").replace(/^.*:/, "").replaceAll("_", "-").toLowerCase();
+  const number = Number(catalogEntry?.number);
+  return Number.isInteger(number) && number > 0 ? number : null;
 }
 
-async function pokemonArtwork(pokemon) {
-  const slug = pokeApiSlug(pokemon);
-  if (!slug) return "";
-  if (pokemonArtworkCache.has(slug)) return pokemonArtworkCache.get(slug);
-  try {
-    const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${encodeURIComponent(slug)}`);
-    if (!response.ok) throw new Error("not found");
-    const data = await response.json();
-    const url = data.sprites?.other?.home?.front_default || data.sprites?.other?.["official-artwork"]?.front_default || "";
-    pokemonArtworkCache.set(slug, url);
-    return url;
-  } catch {
-    pokemonArtworkCache.set(slug, "");
-    return "";
-  }
+function pokemonArtworkUrls(pokemon) {
+  const number = pokemonPokedexNumber(pokemon);
+  if (!number) return [];
+  const root = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon";
+  return [
+    `${root}/other/official-artwork/${number}.png`,
+    `${root}/${number}.png`,
+  ];
 }
 
-async function hydrateFocusedPokemonArt() {
+function applyPokemonArtwork(image, fallback, pokemon) {
+  if (!image) return;
+  const urls = pokemonArtworkUrls(pokemon);
+  let stage = 0;
+  const showFallback = () => {
+    image.hidden = true;
+    image.removeAttribute("src");
+    if (fallback) {
+      fallback.hidden = false;
+      const message = fallback.querySelector?.("span");
+      if (message) message.textContent = "이미지 없음";
+    }
+  };
+  const loadNext = () => {
+    if (stage >= urls.length) {
+      showFallback();
+      return;
+    }
+    image.src = urls[stage++];
+  };
+  if (!urls.length) {
+    showFallback();
+    return;
+  }
+  image.hidden = false;
+  if (fallback) fallback.hidden = true;
+  image.onload = () => {
+    image.hidden = false;
+    if (fallback) fallback.hidden = true;
+  };
+  image.onerror = loadNext;
+  loadNext();
+}
+
+function hydrateFocusedPokemonArt() {
   const pokemon = state.trainer?.battle?.team?.[state.selectedPokemonIndex];
   if (!pokemon) return;
   const image = $("#focused-pokemon-art");
   const fallback = $("#pokemon-art-fallback");
-  let url = await pokemonArtwork(pokemon);
-  if (!url && pokemon.form) url = await pokemonArtwork({ ...pokemon, form: null });
-  if (!image || !fallback) return;
-  if (url) { image.src = url; image.hidden = false; fallback.hidden = true; }
-  else { image.hidden = true; fallback.hidden = false; fallback.querySelector("span").textContent = "이미지 없음"; }
+  applyPokemonArtwork(image, fallback, pokemon);
 }
 
-async function hydratePartyArt() {
-  await Promise.all((state.trainer?.battle?.team || []).map(async (pokemon, index) => {
+function hydratePartyArt() {
+  (state.trainer?.battle?.team || []).forEach((pokemon, index) => {
     const image = document.querySelector(`[data-party-art="${index}"]`);
     const fallback = document.querySelector(`[data-party-fallback="${index}"]`);
-    let url = await pokemonArtwork(pokemon);
-    if (!url && pokemon.form) url = await pokemonArtwork({ ...pokemon, form: null });
-    if (image && url) { image.src = url; image.hidden = false; if (fallback) fallback.hidden = true; }
-  }));
+    applyPokemonArtwork(image, fallback, pokemon);
+  });
 }
 
 function syncTrainerJson() {
