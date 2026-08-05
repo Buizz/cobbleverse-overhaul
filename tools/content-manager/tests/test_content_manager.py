@@ -374,7 +374,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("4.2.1", content_pack["version"])
         self.assertEqual("fabric_mod", content_pack["artifact_format"])
         self.assertEqual("ready", content_pack["packaging_status"])
-        self.assertEqual("blocked", content_pack["runtime_status"])
+        self.assertEqual("ready", content_pack["runtime_status"])
         self.assertEqual("W2pr9jyL", content_pack["modrinth"]["project_id"])
         self.assertEqual("9PMzbD4o", content_pack["modrinth"]["version_id"])
 

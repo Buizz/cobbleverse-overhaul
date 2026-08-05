@@ -37,6 +37,58 @@
       "reason": "Cobblemon NeoForge의 필수 Kotlin 런타임"
     },
     {
+      "id": "sinytra_connector",
+      "display_name": "Sinytra Connector",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "2.0.0-beta.14+1.21.1",
+      "curseforge": {
+        "project_id": 890127,
+        "file_id": 7634148
+      },
+      "reason": "NeoForge에서 Cobblemon Additions Fabric JAR을 로딩하는 호환층"
+    },
+    {
+      "id": "forgified_fabric_api",
+      "display_name": "Forgified Fabric API",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "0.116.7+2.2.1+1.21.1",
+      "curseforge": {
+        "project_id": 889079,
+        "file_id": 7575945
+      },
+      "reason": "Cobblemon Additions가 요구하는 Fabric API를 NeoForge에서 제공"
+    },
+    {
+      "id": "fabric_language_kotlin",
+      "display_name": "Fabric Language Kotlin",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "1.13.8+kotlin.2.3.0",
+      "curseforge": {
+        "project_id": 308769,
+        "file_id": 7340876
+      },
+      "reason": "Connector 위에서 Cobblemon Additions의 Fabric Kotlin 진입점을 실행"
+    },
+    {
+      "id": "cobbledollars",
+      "display_name": "CobbleDollars",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "2.0.0+Beta-5.1+1.21.1",
+      "curseforge": {
+        "project_id": 859232,
+        "file_id": 6604564
+      },
+      "reason": "Cobblemon Additions 상점과 백화점의 화폐 및 상인 기능"
+    },
+    {
       "id": "rctapi",
       "display_name": "Radical Cobblemon Trainers API",
       "classification": "required-candidate",
@@ -126,7 +178,7 @@
       "version": "4.2.1",
       "artifact_format": "fabric_mod",
       "packaging_status": "ready",
-      "runtime_status": "blocked",
+      "runtime_status": "ready",
       "modrinth": {
         "project_id": "W2pr9jyL",
         "version_id": "9PMzbD4o"

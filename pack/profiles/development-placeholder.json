@@ -6,7 +6,7 @@
   "author": "Buizz",
   "purpose": "development-pack-placeholder",
   "production_ready": false,
-  "notice": "Cobblemon 1.7.3과 필수 Kotlin 런타임만 포함하며 Cobbleventure NeoForge JAR은 아직 없는 개발용 임시 팩입니다.",
+  "notice": "Cobblemon 1.7.3과 Cobblemon Additions 호환 구성을 포함하며 Cobbleventure NeoForge JAR은 아직 없는 개발용 임시 팩입니다.",
   "icon": "pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",
@@ -24,6 +24,26 @@
     {
       "projectID": 351264,
       "fileID": 7471280,
+      "required": true
+    },
+    {
+      "projectID": 890127,
+      "fileID": 7634148,
+      "required": true
+    },
+    {
+      "projectID": 889079,
+      "fileID": 7575945,
+      "required": true
+    },
+    {
+      "projectID": 308769,
+      "fileID": 7340876,
+      "required": true
+    },
+    {
+      "projectID": 859232,
+      "fileID": 6604564,
       "required": true
     }
   ],
