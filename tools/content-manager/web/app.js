@@ -179,6 +179,7 @@ function renderTrainer() {
   setFormValue(form, "invulnerable", document.npc?.behavior?.invulnerable);
   setFormValue(form, "battleFormat", document.battle?.format);
   setFormValue(form, "battleType", document.battle?.battle_type);
+  setFormValue(form, "battleDifficulty", document.battle?.difficulty || "standard");
   setFormValue(form, "battleAi", document.battle?.ai);
   setFormValue(form, "levelMode", document.battle?.level_mode);
   setFormValue(form, "megaEvolution", document.battle?.mechanics?.mega_evolution);
@@ -219,6 +220,7 @@ function updateTrainerFromForm() {
   Object.assign(state.trainer.battle, {
     format: form.elements.battleFormat.value,
     battle_type: form.elements.battleType.value,
+    difficulty: form.elements.battleDifficulty.value,
     ai: form.elements.battleAi.value,
     level_mode: form.elements.levelMode.value
   });

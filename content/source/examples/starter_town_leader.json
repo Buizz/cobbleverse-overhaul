@@ -35,6 +35,7 @@
     "trainer_id": "cobbleventure:trainer/starter_town_leader",
     "format": "GEN_9_SINGLES",
     "battle_type": "singles",
+    "difficulty": "standard",
     "ai": "cobbleventure:ai/balanced",
     "level_mode": "fixed",
     "rules": {

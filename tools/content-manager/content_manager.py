@@ -64,6 +64,7 @@ AI_PROFILES = {
     "cobbleventure:ai/tempo",
     "cobbleventure:ai/unpredictable",
 }
+AI_DIFFICULTIES = {"novice", "standard", "advanced", "expert", "cheater"}
 OPERATION_TYPES = {
     "always",
     "flag_equals",
@@ -673,6 +674,8 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
         battle_ai = _resource_id(battle.get("ai"), issues, path, "$.battle.ai")
         if battle_ai and battle_ai not in AI_PROFILES:
             _issue(issues, "error", path, "$.battle.ai", "지원하지 않는 AI 프로필입니다.")
+        if battle.get("difficulty") not in AI_DIFFICULTIES:
+            _issue(issues, "error", path, "$.battle.difficulty", "지원하지 않는 AI 난이도입니다.")
         if battle.get("battle_type") not in {"singles", "doubles"}:
             _issue(issues, "error", path, "$.battle.battle_type", "singles 또는 doubles여야 합니다.")
         elif battle_format in BATTLE_FORMAT_TYPES and BATTLE_FORMAT_TYPES[battle_format] != battle.get("battle_type"):
@@ -1142,6 +1145,7 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
             "trainer_id": trainer_id,
             "format": "GEN_9_SINGLES",
             "battle_type": "singles",
+            "difficulty": "standard",
             "ai": "cobbleventure:ai/balanced",
             "level_mode": "fixed",
             "rules": {},

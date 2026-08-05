@@ -146,7 +146,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("max_item_uses" in issue.path for issue in issues))
         self.assertTrue(any("bag[0].quantity" in issue.path for issue in issues))
 
-    def test_battle_format_and_ai_profile_are_restricted(self) -> None:
+    def test_battle_format_difficulty_and_ai_profile_are_restricted(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
             (root / "content" / "source" / "examples" / "ai_test.json").read_text(
@@ -154,11 +154,13 @@ class ContentManagerTests(unittest.TestCase):
             )
         )
         source["battle"]["format"] = "GEN_9_DOUBLES"
+        source["battle"]["difficulty"] = "impossible"
         source["battle"]["ai"] = "cobbleventure:ai/unknown"
         _, issues = content_manager._validate_payload(
             source, content_manager.validate_content_file
         )
         self.assertTrue(any("전투 방식이 일치" in issue.message for issue in issues))
+        self.assertTrue(any("AI 난이도" in issue.message for issue in issues))
         self.assertTrue(any("AI 프로필" in issue.message for issue in issues))
 
     def test_invalid_tera_type_is_rejected(self) -> None:
@@ -269,6 +271,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("cobbleventure:trainer/route_01", content_id)
         self.assertEqual([], issues)
         self.assertNotIn("placement", template)
+        self.assertEqual("standard", template["battle"]["difficulty"])
 
     def test_create_document_writes_valid_template_and_rejects_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -347,6 +350,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("엔트리 JSON 복사", page)
         self.assertIn("전투 가방", page)
         self.assertIn('<select name="battleFormat"', page)
+        self.assertIn('<select name="battleDifficulty"', page)
         self.assertIn('<select name="battleAi"', page)
         self.assertIn("PokeAPI/sprites/master/sprites/pokemon", app_script)
         self.assertIn("other/official-artwork", app_script)

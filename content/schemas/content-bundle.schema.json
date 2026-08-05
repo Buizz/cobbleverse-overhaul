@@ -104,6 +104,7 @@
         "trainer_id",
         "format",
         "battle_type",
+        "difficulty",
         "ai",
         "level_mode",
         "rules",
@@ -115,6 +116,7 @@
         "trainer_id": { "$ref": "#/$defs/resource_id" },
         "format": { "enum": ["GEN_9_SINGLES", "GEN_9_DOUBLES"] },
         "battle_type": { "enum": ["singles", "doubles"] },
+        "difficulty": { "enum": ["novice", "standard", "advanced", "expert", "cheater"] },
         "ai": {
           "enum": [
             "cobbleventure:ai/balanced",

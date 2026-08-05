@@ -36,14 +36,19 @@
 |------|---------------|
 | 기본 정보 | 스키마 버전, 콘텐츠 ID, 활성 여부, 이름, 설명, 태그 |
 | `npc` | 표시 이름, 스킨·모델·초상화, 상호작용 거리와 행동 방식 |
-| `battle` | RCT 트레이너 ID, 배틀 형식, AI 프로필, 레벨 규칙, 아이템, 특수기믹, 팀 |
+| `battle` | RCT 트레이너 ID, 배틀 형식, AI 난이도, 전략 프로필, 레벨 규칙, 아이템, 특수기믹, 팀 |
 | `dialogue` | 시작 노드, 대사, 조건, 선택지와 실행 동작 |
 | `progression` | 재대전 정책, 상태 플래그, 조건별 대화 진입점 |
 | `outcomes` | 승리·패배·무승부 후 플래그, 보상, 퀘스트 등 실행 동작 |
 | `export_overrides` | 특정 출력 대상에서만 필요한 최소 예외 설정 |
 
 `battle.format`은 현재 `GEN_9_SINGLES`, `GEN_9_DOUBLES` 중 하나이며
-`battle_type`의 싱글·더블과 일치해야 한다. `battle.ai`는 전투 엔진과 공유하는
+`battle_type`의 싱글·더블과 일치해야 한다. `battle.difficulty`는 판단 수준과
+정보 사용 범위를 정하는 `novice`, `standard`, `advanced`, `expert`, `cheater` 중
+하나다. `cheater`는 플레이어가 확정한 이번 턴 행동 정보를 사용하는 특수 보스용
+단계이므로 일반 트레이너에는 사용하지 않는다.
+
+`battle.ai`는 난이도와 별개로 행동 성향을 고르는 전략 프로필이다. 전투 엔진과 공유하는
 `cobbleventure:ai/balanced`, `aggressive`, `defensive`, `ace_check`,
 `reckless_ace`, `setup`, `hazard`, `tempo`, `unpredictable` 중 하나를 사용한다.
 
