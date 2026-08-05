@@ -9,10 +9,10 @@
 
 1. 양쪽 AI 또는 플레이어가 기본 행동을 먼저 확정한다.
 2. 치터 AI는 `cheatProbability`에 따라 시드 기반 발동 판정을 한다.
-3. 발동하지 않으면 기존 휴리스틱 행동을 그대로 사용한다.
+3. 발동하지 않으면 전문가 2턴 탐색으로 행동한다.
 4. 발동하면 전문가 AI가 예상하던 상대 행동 후보를 확정 명령 하나로
    교체한다.
-5. 기존 전문가 휴리스틱으로 기술·교체·기믹을 한 번만 판단한다.
+5. 확정 행동 대응 정책으로 기술·교체·기믹을 한 번 판단한다.
 
 EvE에서는 비교 실험의 의미와 실행 비용을 고려해 한쪽 AI만 치터를 사용할
 수 있다. UI에서 반대쪽을 치터로 바꾸면 기존 치터는 전문가 휴리스틱으로
@@ -73,9 +73,10 @@ EvE에서는 비교 실험의 의미와 실행 비용을 고려해 한쪽 AI만 
 
 ## 설정
 
-`aiProfiles[].difficulty`를 `cheater`로 지정하고
-`aiProfiles[].cheatProbability`에 `0~1` 값을 넣는다.
-값을 생략하면 `0.5`를 사용한다.
+관리 콘텐츠에서는 `battle.ai.difficulty`를 `cheater`로 지정하고
+`battle.ai.options.cheat_probability`에 `0~1` 값을 넣는다. 이 값은 RCT와
+게임 런타임 출력에서 `cheatProbability`로 변환된다. 전투 웹의 직접 시나리오는
+기존처럼 `aiProfiles[].cheatProbability`를 사용한다.
 
 ```json
 {

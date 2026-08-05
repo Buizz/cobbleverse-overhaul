@@ -25,6 +25,7 @@ if /I "%~1"=="validate-pack" goto validate_pack
 if /I "%~1"=="web" goto api
 if /I "%~1"=="api" goto api
 if /I "%~1"=="test" goto test
+if /I "%~1"=="generate" goto generate
 if /I "%~1"=="pack-smoke" goto pack_smoke
 if /I "%~1"=="pack" goto pack
 if /I "%~1"=="pack-release" goto pack_release
@@ -46,6 +47,10 @@ exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\content-manager\tests" -p "test_*.py"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\pack-builder\tests" -p "test_*.py"
+exit /b %errorlevel%
+
+:generate
+%PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%."
 exit /b %errorlevel%
 
 :pack_smoke
@@ -79,6 +84,7 @@ echo   validate-pack  Validate that dependencies are ready for CurseForge packag
 echo   web            Start the local content manager Web UI and API
 echo   api            Alias for web (kept for compatibility)
 echo   test           Run all Python tool unit tests
+echo   generate       Generate RCT trainers and in-game AI runtime profiles
 echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked

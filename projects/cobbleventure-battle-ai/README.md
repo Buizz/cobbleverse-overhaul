@@ -20,6 +20,12 @@ Cobbleventure의 트레이너 전투 AI를 새로 설계하기 위한 Java 21 �
 
 Cobblemon, RCT API, Fabric과 NeoForge 의존성은 아직 추가하지 않았다. 실제 게임 객체를 AI 모델로 변환하는 `cobblemon-adapter`와 선택된 행동을 실행하는 플랫폼 모듈은 대상 버전을 확정한 뒤 추가한다.
 
+`ai-api`의 `AiRuntimeProfile`은 생성된 게임 프로필의 난이도·전략·치터 확률을
+검증하고, `ai-engine`의 `ConfiguredDecisionEngine`은 휴리스틱·승률·2턴 탐색·
+확정 행동 대응 엔진 중 실제 사용할 정책을 선택한다. 이 계약은 구현되어 있지만
+Cobblemon/RCT 전투 객체를 관측과 명령으로 변환하는 마지막 플랫폼 어댑터는 아직
+없으므로 현재 빌드를 인게임 AI 완성본으로 취급하지 않는다.
+
 `web-lab`은 제품 코드가 아니라 관찰용 실험실이다. 웹 화면에서 전역 AI 데이터나 `ai-api`에 가까운 관측 모델이 필요할 때는 `web-lab/lib/ai-api-bridge`만 통과한다. 이 경계 밖의 UI·Next.js API·Showdown 디버깅 코드는 `ai-api`, `ai-engine`, `data`의 설계를 오염시키면 안 된다.
 
 ## 원칙

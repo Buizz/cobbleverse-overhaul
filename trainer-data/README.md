@@ -37,9 +37,10 @@ RCT의 `ai.data.canTera`와 `ai.data.teraTarget`은 각각 인게임 트레이�
 `gimmicks.tera`가 없으면 원래 첫 번째 타입을 기본 테라타입으로 사용한다.
 
 가상전투 시나리오 JSON에는 `aiDifficulty`와 진영별 `aiProfiles`가 기록된다.
-트레이너 엔트리 편집기의 로컬 저장 형식은 아직 인게임용 `ai` 설정 편집과
-RCT 스키마 검증을 제공하지 않는다. 인게임 배포용 JSON 내보내기 단계에서는
-`ai.type`, `ai.data`, 기믹 대상과 전투 규칙을 별도 스키마로 검증해야 한다.
+콘텐츠 관리 도구의 스키마 2는 `battle.ai`에서 난이도·전략·치터 확률을 편집하며,
+`build.bat generate`가 이를 RCT의 `ai.type`·`ai.data`와 실제 게임용 런타임
+프로필로 함께 변환한다. 대상 Cobblemon/RCT 버전이 확정되면 게임 어댑터가 이
+런타임 프로필을 읽고 서버 전투 세션에 적용한다.
 
 `bag`과 `battleRules.maxItemUses`는 생성된 전투 시나리오에 보존한다. 포켓몬의
 `heldItem`은 자체 엔진까지 전달되지만, 트레이너가 턴을 소비해 사용하는 가방

@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -53,18 +54,26 @@ BATTLE_FORMAT_TYPES = {
     "GEN_9_SINGLES": "singles",
     "GEN_9_DOUBLES": "doubles",
 }
-AI_PROFILES = {
-    "cobbleventure:ai/balanced",
-    "cobbleventure:ai/aggressive",
-    "cobbleventure:ai/defensive",
-    "cobbleventure:ai/ace_check",
-    "cobbleventure:ai/reckless_ace",
-    "cobbleventure:ai/setup",
-    "cobbleventure:ai/hazard",
-    "cobbleventure:ai/tempo",
-    "cobbleventure:ai/unpredictable",
+AI_STRATEGIES = {
+    "balanced",
+    "aggressive",
+    "defensive",
+    "ace_check",
+    "reckless_ace",
+    "setup",
+    "hazard",
+    "tempo",
+    "unpredictable",
 }
-AI_DIFFICULTIES = {"novice", "standard", "advanced", "expert", "cheater"}
+AI_DIFFICULTIES = {
+    "novice",
+    "standard",
+    "advanced",
+    "expert",
+    "expert_winrate",
+    "expert_search",
+    "cheater",
+}
 OPERATION_TYPES = {
     "always",
     "flag_equals",
@@ -90,6 +99,7 @@ VALID_CLASSIFICATIONS = {
 BUILD_COMMANDS = {
     "validate": "콘텐츠와 의존성 검사",
     "test": "Python 도구 회귀 테스트",
+    "generate": "RCT와 실제 게임용 AI 프로필 생성",
     "pack-smoke": "최소 CurseForge 임포트 ZIP 생성",
     "pack": "개발용 CurseForge ZIP 생성",
     "validate-pack": "실제 모드팩 빌드 준비 상태 검사",
@@ -611,8 +621,8 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
     root = _require_object(data, issues, path, "$")
     if root is None:
         return None, issues
-    if root.get("schema_version") != 1:
-        _issue(issues, "error", path, "$.schema_version", "지원 버전은 1입니다.")
+    if root.get("schema_version") != 2:
+        _issue(issues, "error", path, "$.schema_version", "지원 버전은 2입니다.")
 
     content_id = _resource_id(root.get("id"), issues, path, "$.id")
     if "placement" in root:
@@ -671,11 +681,27 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
         battle_format = battle.get("format")
         if battle_format not in BATTLE_FORMAT_TYPES:
             _issue(issues, "error", path, "$.battle.format", "지원하지 않는 배틀 포맷입니다.")
-        battle_ai = _resource_id(battle.get("ai"), issues, path, "$.battle.ai")
-        if battle_ai and battle_ai not in AI_PROFILES:
-            _issue(issues, "error", path, "$.battle.ai", "지원하지 않는 AI 프로필입니다.")
-        if battle.get("difficulty") not in AI_DIFFICULTIES:
-            _issue(issues, "error", path, "$.battle.difficulty", "지원하지 않는 AI 난이도입니다.")
+        battle_ai = _require_object(battle.get("ai"), issues, path, "$.battle.ai")
+        if battle_ai is not None:
+            if battle_ai.get("controller") != "cobbleventure":
+                _issue(issues, "error", path, "$.battle.ai.controller", "cobbleventure여야 합니다.")
+            difficulty = battle_ai.get("difficulty")
+            if difficulty not in AI_DIFFICULTIES:
+                _issue(issues, "error", path, "$.battle.ai.difficulty", "지원하지 않는 AI 난이도입니다.")
+            if battle_ai.get("strategy") not in AI_STRATEGIES:
+                _issue(issues, "error", path, "$.battle.ai.strategy", "지원하지 않는 AI 전략입니다.")
+            options = _require_object(battle_ai.get("options"), issues, path, "$.battle.ai.options")
+            if options is not None:
+                cheat_probability = options.get("cheat_probability")
+                if difficulty == "cheater":
+                    if (
+                        not isinstance(cheat_probability, (int, float))
+                        or isinstance(cheat_probability, bool)
+                        or not 0 <= cheat_probability <= 1
+                    ):
+                        _issue(issues, "error", path, "$.battle.ai.options.cheat_probability", "치터 확률은 0부터 1 사이의 숫자여야 합니다.")
+                elif "cheat_probability" in options:
+                    _issue(issues, "error", path, "$.battle.ai.options.cheat_probability", "치터 난이도에서만 설정할 수 있습니다.")
         if battle.get("battle_type") not in {"singles", "doubles"}:
             _issue(issues, "error", path, "$.battle.battle_type", "singles 또는 doubles여야 합니다.")
         elif battle_format in BATTLE_FORMAT_TYPES and BATTLE_FORMAT_TYPES[battle_format] != battle.get("battle_type"):
@@ -1119,7 +1145,7 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
     victory_flag = f"cobbleventure:flag/trainer/{slug}/defeated"
     return {
         "$schema": "../../schemas/content-bundle.schema.json",
-        "schema_version": 1,
+        "schema_version": 2,
         "id": trainer_id,
         "enabled": True,
         "name": {"ko_kr": name},
@@ -1145,8 +1171,12 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
             "trainer_id": trainer_id,
             "format": "GEN_9_SINGLES",
             "battle_type": "singles",
-            "difficulty": "standard",
-            "ai": "cobbleventure:ai/balanced",
+            "ai": {
+                "controller": "cobbleventure",
+                "difficulty": "standard",
+                "strategy": "balanced",
+                "options": {},
+            },
             "level_mode": "fixed",
             "rules": {},
             "bag": [],
@@ -1307,6 +1337,145 @@ def _run_build(root: Path, command: str) -> dict[str, Any]:
             "return_code": None,
             "output": f"5분 제한 시간을 초과했습니다.\n{output}",
         }
+
+
+def _short_resource_id(value: Any) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    return value.split(":", 1)[-1]
+
+
+def _rct_stats(stats: Any) -> dict[str, int]:
+    if not isinstance(stats, dict):
+        return {}
+    keys = {
+        "hp": "hp",
+        "attack": "atk",
+        "defense": "def",
+        "special_attack": "spa",
+        "special_defense": "spd",
+        "speed": "spe",
+    }
+    return {
+        target: value
+        for source, target in keys.items()
+        if isinstance((value := stats.get(source)), int) and not isinstance(value, bool)
+    }
+
+
+def _rct_team_member(member: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "species": _short_resource_id(member.get("species")),
+        "level": member.get("level"),
+        "moveset": [_short_resource_id(move) for move in member.get("moves", [])],
+    }
+    optional_values = {
+        "nature": _short_resource_id(member.get("nature")),
+        "ability": _short_resource_id(member.get("ability")),
+    }
+    result.update({key: value for key, value in optional_values.items() if value})
+    gender = member.get("gender")
+    if gender in {"male", "female", "genderless"}:
+        result["gender"] = gender.upper()
+    aspects = member.get("aspects")
+    if isinstance(aspects, list) and aspects:
+        result["aspects"] = list(aspects)
+    ivs = _rct_stats(member.get("ivs"))
+    evs = _rct_stats(member.get("evs"))
+    if ivs:
+        result["ivs"] = ivs
+    if evs:
+        result["evs"] = evs
+    held_item = member.get("gimmick", {}).get("item") if isinstance(member.get("gimmick"), dict) else member.get("held_item")
+    if held_item:
+        result["heldItem"] = _short_resource_id(held_item)
+    if member.get("shiny"):
+        result["shiny"] = True
+    if member.get("gigantamax_factor"):
+        result["gmaxFactor"] = True
+    tera_type = member.get("tera_type")
+    if isinstance(tera_type, str) and tera_type != "auto":
+        result["teraType"] = tera_type
+    return result
+
+
+def export_rct_trainer(document: dict[str, Any]) -> dict[str, Any]:
+    battle = document["battle"]
+    ai = battle["ai"]
+    ai_data: dict[str, Any] = {
+        "difficulty": ai["difficulty"],
+        "strategy": ai["strategy"],
+        "canTera": bool(battle.get("mechanics", {}).get("terastallization")),
+    }
+    if ai["difficulty"] == "cheater":
+        ai_data["cheatProbability"] = ai["options"]["cheat_probability"]
+    result: dict[str, Any] = {
+        "name": document.get("name", {}).get("ko_kr") or document["id"],
+        "ai": {"type": ai["controller"], "data": ai_data},
+        "team": [_rct_team_member(member) for member in battle.get("team", [])],
+    }
+    rules = battle.get("rules", {})
+    if rules:
+        result["battleRules"] = {
+            "maxItemUses" if key == "max_item_uses" else "canForfeit" if key == "can_forfeit" else key: value
+            for key, value in rules.items()
+        }
+    bag = battle.get("bag", [])
+    if bag:
+        result["bag"] = [
+            {"item": item["item"], "quantity": item["quantity"]}
+            for item in bag
+        ]
+    return result
+
+
+def export_ai_runtime_profile(document: dict[str, Any]) -> dict[str, Any]:
+    ai = document["battle"]["ai"]
+    options: dict[str, Any] = {}
+    if ai["difficulty"] == "cheater":
+        options["cheatProbability"] = ai["options"]["cheat_probability"]
+    return {
+        "schemaVersion": 1,
+        "trainerId": document["battle"]["trainer_id"],
+        "controller": ai["controller"],
+        "difficulty": ai["difficulty"],
+        "strategy": ai["strategy"],
+        "options": options,
+    }
+
+
+def generate_content(root: Path, output: Path | None = None) -> dict[str, Any]:
+    root = root.resolve()
+    output = (output or root / "generated").resolve()
+    marker = output / ".cobbleventure-generated"
+    validation = validate_repository(root)
+    if not validation.valid:
+        raise ValueError("콘텐츠 검증이 실패하여 생성할 수 없습니다.")
+    if output.exists():
+        if not marker.is_file():
+            raise ValueError(f"생성 전용 폴더가 아니므로 삭제하지 않습니다: {output}")
+        shutil.rmtree(output)
+    output.mkdir(parents=True)
+    marker.write_text("generated by tools/content-manager\n", encoding="utf-8")
+    rct_root = output / "rct" / "data" / "rctmod" / "trainers"
+    runtime_root = output / "cobbleventure" / "ai-profiles"
+    trainers: list[str] = []
+    for source in sorted((root / "content" / "source").rglob("*.json")):
+        trainer_id, issues = validate_content_file(source)
+        if trainer_id is None or any(issue.level == "error" for issue in issues):
+            continue
+        document = load_json(source)
+        if not document.get("enabled", True):
+            continue
+        slug = trainer_id.rsplit("/", 1)[-1]
+        for target, payload in (
+            (rct_root / f"{slug}.json", export_rct_trainer(document)),
+            (runtime_root / f"{slug}.json", export_ai_runtime_profile(document)),
+        ):
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        trainers.append(trainer_id)
+    return {"output": output.as_posix(), "trainers": trainers, "count": len(trainers)}
 
 
 def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
@@ -1575,6 +1744,11 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--strict-pack", action="store_true")
     validate.add_argument("--json", action="store_true", dest="json_output")
 
+    generate = subcommands.add_parser("generate", help="RCT와 실제 게임용 AI 프로필 생성")
+    generate.add_argument("--root", type=Path, default=Path.cwd())
+    generate.add_argument("--output", type=Path)
+    generate.add_argument("--json", action="store_true", dest="json_output")
+
     api = subcommands.add_parser("api", help="로컬 Web API 실행")
     api.add_argument("--root", type=Path, default=Path.cwd())
     api.add_argument("--host", default="127.0.0.1")
@@ -1591,6 +1765,18 @@ def main() -> int:
         else:
             _print_result(result)
         return 0 if result.valid else 1
+
+    if arguments.command == "generate":
+        try:
+            result = generate_content(arguments.root, arguments.output)
+        except ValueError as error:
+            print(f"[ERROR] {error}")
+            return 1
+        if arguments.json_output:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            print(f"[OK] 트레이너 {result['count']}개 생성: {result['output']}")
+        return 0
 
     root = arguments.root.resolve()
     server = ThreadingHTTPServer((arguments.host, arguments.port), create_handler(root))

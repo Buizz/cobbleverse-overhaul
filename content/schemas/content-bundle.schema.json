@@ -19,7 +19,7 @@
   ],
   "properties": {
     "$schema": { "type": "string" },
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "id": { "$ref": "#/$defs/resource_id" },
     "enabled": { "type": "boolean" },
     "name": { "$ref": "#/$defs/localized_text" },
@@ -104,7 +104,6 @@
         "trainer_id",
         "format",
         "battle_type",
-        "difficulty",
         "ai",
         "level_mode",
         "rules",
@@ -116,18 +115,32 @@
         "trainer_id": { "$ref": "#/$defs/resource_id" },
         "format": { "enum": ["GEN_9_SINGLES", "GEN_9_DOUBLES"] },
         "battle_type": { "enum": ["singles", "doubles"] },
-        "difficulty": { "enum": ["novice", "standard", "advanced", "expert", "cheater"] },
         "ai": {
-          "enum": [
-            "cobbleventure:ai/balanced",
-            "cobbleventure:ai/aggressive",
-            "cobbleventure:ai/defensive",
-            "cobbleventure:ai/ace_check",
-            "cobbleventure:ai/reckless_ace",
-            "cobbleventure:ai/setup",
-            "cobbleventure:ai/hazard",
-            "cobbleventure:ai/tempo",
-            "cobbleventure:ai/unpredictable"
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["controller", "difficulty", "strategy", "options"],
+          "properties": {
+            "controller": { "const": "cobbleventure" },
+            "difficulty": {
+              "enum": ["novice", "standard", "advanced", "expert", "expert_winrate", "expert_search", "cheater"]
+            },
+            "strategy": {
+              "enum": ["balanced", "aggressive", "defensive", "ace_check", "reckless_ace", "setup", "hazard", "tempo", "unpredictable"]
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cheat_probability": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "difficulty": { "const": "cheater" } } },
+              "then": { "properties": { "options": { "required": ["cheat_probability"] } } },
+              "else": { "properties": { "options": { "not": { "required": ["cheat_probability"] } } } }
+            }
           ]
         },
         "level_mode": { "enum": ["fixed", "scale_to_player", "cap_to_player"] },

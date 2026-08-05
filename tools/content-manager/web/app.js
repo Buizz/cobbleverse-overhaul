@@ -163,6 +163,10 @@ async function loadDocument(category, path) {
 function renderTrainer() {
   const document = state.trainer;
   const form = $("#trainer-form");
+  const ai = normalizeTrainerAi(document.battle);
+  document.schema_version = 2;
+  document.battle.ai = ai;
+  delete document.battle.difficulty;
   $("#trainer-editor-title").textContent = document.name?.ko_kr || document.id;
   $("#trainer-path").textContent = state.trainerPath;
   setFormValue(form, "id", document.id);
@@ -179,8 +183,10 @@ function renderTrainer() {
   setFormValue(form, "invulnerable", document.npc?.behavior?.invulnerable);
   setFormValue(form, "battleFormat", document.battle?.format);
   setFormValue(form, "battleType", document.battle?.battle_type);
-  setFormValue(form, "battleDifficulty", document.battle?.difficulty || "standard");
-  setFormValue(form, "battleAi", document.battle?.ai);
+  setFormValue(form, "battleDifficulty", ai.difficulty);
+  setFormValue(form, "battleAi", ai.strategy);
+  setFormValue(form, "cheatProbability", Math.round((ai.options?.cheat_probability ?? 0.5) * 100));
+  renderCheatProbability(form);
   setFormValue(form, "levelMode", document.battle?.level_mode);
   setFormValue(form, "megaEvolution", document.battle?.mechanics?.mega_evolution);
   setFormValue(form, "zMove", document.battle?.mechanics?.z_move);
@@ -217,13 +223,22 @@ function updateTrainerFromForm() {
     look_at_player: form.elements.lookAtPlayer.checked,
     invulnerable: form.elements.invulnerable.checked
   });
+  const difficulty = form.elements.battleDifficulty.value;
+  const aiOptions = difficulty === "cheater"
+    ? { cheat_probability: Math.max(0, Math.min(1, Number(form.elements.cheatProbability.value) / 100)) }
+    : {};
   Object.assign(state.trainer.battle, {
     format: form.elements.battleFormat.value,
     battle_type: form.elements.battleType.value,
-    difficulty: form.elements.battleDifficulty.value,
-    ai: form.elements.battleAi.value,
+    ai: {
+      controller: "cobbleventure",
+      difficulty,
+      strategy: form.elements.battleAi.value,
+      options: aiOptions,
+    },
     level_mode: form.elements.levelMode.value
   });
+  renderCheatProbability(form);
   state.trainer.battle.rules ||= {};
   const maxItemUses = $("#max-item-uses").value.trim();
   if (maxItemUses === "") delete state.trainer.battle.rules.max_item_uses;
@@ -241,6 +256,31 @@ function updateTrainerFromForm() {
   }
   renderTrainerPreview();
   syncTrainerJson();
+}
+
+function normalizeTrainerAi(battle) {
+  const raw = battle?.ai;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    return {
+      controller: raw.controller || "cobbleventure",
+      difficulty: raw.difficulty || "standard",
+      strategy: raw.strategy || "balanced",
+      options: raw.options && typeof raw.options === "object" ? { ...raw.options } : {},
+    };
+  }
+  return {
+    controller: "cobbleventure",
+    difficulty: battle?.difficulty || "standard",
+    strategy: String(raw || "cobbleventure:ai/balanced").replace(/^cobbleventure:ai\//, ""),
+    options: {},
+  };
+}
+
+function renderCheatProbability(form = $("#trainer-form")) {
+  const isCheater = form.elements.battleDifficulty.value === "cheater";
+  $("#ai-cheat-probability").hidden = !isCheater;
+  const percentage = Math.max(0, Math.min(100, Number(form.elements.cheatProbability.value) || 0));
+  $("#cheat-probability-output").textContent = `${percentage}%`;
 }
 
 function bagItemCatalogEntry(itemId) {

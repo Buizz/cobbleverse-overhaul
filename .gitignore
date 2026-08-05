@@ -42,6 +42,7 @@ __pycache__/
 # Generated distribution and staging output
 dist/
 staging/
+generated/
 
 # Temporary files
 *.tmp

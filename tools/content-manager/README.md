@@ -13,6 +13,7 @@ build.bat validate-pack
 build.bat web
 build.bat api
 build.bat test
+build.bat generate
 build.bat pack-smoke
 build.bat pack
 build.bat pack-release
@@ -27,6 +28,7 @@ build.bat pack-release
 | `build.bat web` | 콘텐츠 관리 화면과 외부 로컬 도구용 Web API를 함께 실행한다. | `127.0.0.1:8765`에서 서버가 시작됨 |
 | `build.bat api` | 기존 자동화 호환을 위한 `web` 명령의 별칭이다. | `web`과 동일하게 실행됨 |
 | `build.bat test` | 콘텐츠 검증기와 로컬 Web API의 회귀 테스트를 실행한다. | 모든 Python 단위 테스트가 통과함 |
+| `build.bat generate` | 정규화 트레이너에서 RCT JSON과 실제 게임용 AI 런타임 프로필을 생성한다. | `generated/rct`와 `generated/cobbleventure/ai-profiles`에 같은 AI 설정이 생성됨 |
 | `build.bat pack-smoke` | 별도 팩 빌더로 최소 CurseForge 임포트 ZIP을 생성하고 검증한다. | `dist`에 ZIP과 SHA-256이 생성됨 |
 | `build.bat pack` | 일반 검증 후 별도 팩 빌더로 임시 개발 ZIP을 생성한다. | `dist`에 개발 ZIP과 SHA-256이 생성됨 |
 | `build.bat pack-release` | 정식 패키징 조건을 엄격 검증한다. | Lock이 `draft`인 현재는 실패하고 ZIP을 만들지 않음 |
@@ -78,6 +80,7 @@ http://127.0.0.1:8765
 - 저장소 검증 현황과 트레이너·마을 수 확인
 - 새 트레이너·마을의 유효한 기본 JSON 생성
 - 트레이너 기본 정보, NPC 행동, 전투 설정과 최대 6마리 팀 편집
+- 휴리스틱·승률 기반·2턴 탐색 전문가 난이도와 치터 행동 열람 확률 편집
 - 전투 가방의 회복·상태회복·능력치 아이템, 보유 수량과 전투당 최대 사용 횟수 편집
 - 본가식 트레이너 클래스 선택과 RCT 개별·그룹 스킨 미리보기
 - Battle Web Lab과 같은 포켓몬 슬롯·프로필·IV/EV·기술 집중 편집기
@@ -116,6 +119,7 @@ Python 모듈을 직접 실행할 수도 있다.
 
 ```text
 python tools/content-manager/content_manager.py validate --root .
+python tools/content-manager/content_manager.py generate --root .
 python tools/content-manager/content_manager.py api --root .
 ```
 
@@ -158,8 +162,15 @@ python tools/content-manager/content_manager.py api --root .
 `content/source/examples`에서 확인한다. 저장소 내 다른 JSON의 역할과 편집 여부는
 [JSON 데이터 카탈로그](../../docs/JSON_CATALOG.md)에 정리되어 있다.
 
-대화 그래프 전용 편집기, 마을 배치 슬롯 전용 폼, Excel 가져오기와 대상별
-출력기는 다음 개발 단계에서 같은 도구에 추가한다.
+`build.bat generate`는 `content/source`를 검증한 뒤 RCT 트레이너와
+Cobbleventure 게임 런타임 AI 프로필을 함께 생성한다. 생성 결과는
+`generated/`에 있으며 Git에는 올리지 않는다. RCT 출력의 `ai.type`은
+`cobbleventure`, `ai.data`에는 `difficulty`, `strategy`, 치터일 때
+`cheatProbability`가 들어간다. 게임 어댑터는 같은 값의 런타임 프로필을 읽어
+판단 엔진을 선택한다.
+
+대화 그래프 전용 편집기, Excel 가져오기와 나머지 대상별 출력기는 다음 개발
+단계에서 같은 도구에 추가한다.
 
 포켓몬의 기본 종은 `species`, 카탈로그에서 선택한 지역 폼·특수 형태는 `form`,
 카탈로그만으로 표현되지 않는 Cobblemon 상태는 `aspects` 문자열 배열에 보관한다.

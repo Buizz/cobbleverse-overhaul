@@ -154,14 +154,39 @@ class ContentManagerTests(unittest.TestCase):
             )
         )
         source["battle"]["format"] = "GEN_9_DOUBLES"
-        source["battle"]["difficulty"] = "impossible"
-        source["battle"]["ai"] = "cobbleventure:ai/unknown"
+        source["battle"]["ai"]["difficulty"] = "impossible"
+        source["battle"]["ai"]["strategy"] = "unknown"
         _, issues = content_manager._validate_payload(
             source, content_manager.validate_content_file
         )
         self.assertTrue(any("전투 방식이 일치" in issue.message for issue in issues))
         self.assertTrue(any("AI 난이도" in issue.message for issue in issues))
-        self.assertTrue(any("AI 프로필" in issue.message for issue in issues))
+        self.assertTrue(any("AI 전략" in issue.message for issue in issues))
+
+    def test_cheater_probability_is_required_and_restricted(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["battle"]["ai"]["difficulty"] = "cheater"
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertTrue(any("치터 확률" in issue.message for issue in issues))
+
+        source["battle"]["ai"]["options"]["cheat_probability"] = 0.35
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertEqual([], issues)
+
+        source["battle"]["ai"]["difficulty"] = "expert_search"
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertTrue(any("치터 난이도에서만" in issue.message for issue in issues))
 
     def test_invalid_tera_type_is_rejected(self) -> None:
         root = Path(__file__).parents[3]
@@ -271,7 +296,43 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("cobbleventure:trainer/route_01", content_id)
         self.assertEqual([], issues)
         self.assertNotIn("placement", template)
-        self.assertEqual("standard", template["battle"]["difficulty"])
+        self.assertEqual(2, template["schema_version"])
+        self.assertEqual("standard", template["battle"]["ai"]["difficulty"])
+        self.assertEqual("balanced", template["battle"]["ai"]["strategy"])
+
+    def test_generate_exports_same_ai_profile_to_rct_and_runtime(self) -> None:
+        root = Path(__file__).parents[3]
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "generated"
+            result = content_manager.generate_content(root, output)
+            self.assertGreaterEqual(result["count"], 2)
+            rct = content_manager.load_json(
+                output / "rct" / "data" / "rctmod" / "trainers" / "ai_test.json"
+            )
+            runtime = content_manager.load_json(
+                output / "cobbleventure" / "ai-profiles" / "ai_test.json"
+            )
+            self.assertEqual("cobbleventure", rct["ai"]["type"])
+            self.assertEqual("standard", rct["ai"]["data"]["difficulty"])
+            self.assertEqual("balanced", rct["ai"]["data"]["strategy"])
+            self.assertEqual("standard", runtime["difficulty"])
+            self.assertEqual("balanced", runtime["strategy"])
+
+    def test_cheater_probability_is_exported_for_runtime_use(self) -> None:
+        root = Path(__file__).parents[3]
+        source = content_manager.load_json(
+            root / "content" / "source" / "examples" / "ai_test.json"
+        )
+        source["battle"]["ai"] = {
+            "controller": "cobbleventure",
+            "difficulty": "cheater",
+            "strategy": "ace_check",
+            "options": {"cheat_probability": 0.35},
+        }
+        rct = content_manager.export_rct_trainer(source)
+        runtime = content_manager.export_ai_runtime_profile(source)
+        self.assertEqual(0.35, rct["ai"]["data"]["cheatProbability"])
+        self.assertEqual(0.35, runtime["options"]["cheatProbability"])
 
     def test_create_document_writes_valid_template_and_rejects_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -351,7 +412,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("전투 가방", page)
         self.assertIn('<select name="battleFormat"', page)
         self.assertIn('<select name="battleDifficulty"', page)
+        self.assertIn('value="expert_winrate"', page)
+        self.assertIn('value="expert_search"', page)
+        self.assertIn('name="cheatProbability"', page)
         self.assertIn('<select name="battleAi"', page)
+        self.assertIn("normalizeTrainerAi", app_script)
+        self.assertIn("cheat_probability", app_script)
         self.assertIn("PokeAPI/sprites/master/sprites/pokemon", app_script)
         self.assertIn("other/official-artwork", app_script)
         self.assertIn("pokeapi.co/api/v2/pokemon", app_script)

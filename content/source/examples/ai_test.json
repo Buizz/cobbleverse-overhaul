@@ -1,6 +1,6 @@
 {
   "$schema": "../../schemas/content-bundle.schema.json",
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "cobbleventure:trainer/ai_test",
   "enabled": true,
   "name": {
@@ -35,8 +35,12 @@
     "trainer_id": "cobbleventure:trainer/ai_test",
     "format": "GEN_9_SINGLES",
     "battle_type": "singles",
-    "difficulty": "standard",
-    "ai": "cobbleventure:ai/balanced",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
     "level_mode": "fixed",
     "rules": {},
     "bag": [],

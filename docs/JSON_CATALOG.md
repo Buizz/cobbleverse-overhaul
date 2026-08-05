@@ -28,7 +28,7 @@
 | 스키마 | `content/schemas/content-bundle.schema.json` |
 | 예제 | `content/source/examples/ai_test.json`, `starter_town_leader.json` |
 | 역할 | 한 트레이너 조우에 필요한 NPC, 전투, 대화, 진행 조건과 결과를 함께 정의 |
-| 소비자 | Python 콘텐츠 관리 도구와 향후 RCT·NPC 출력기 |
+| 소비자 | Python 콘텐츠 관리 도구, RCT·게임 AI 프로필 출력기와 향후 NPC 출력기 |
 
 현재 번들의 주요 영역은 다음과 같다.
 
@@ -43,14 +43,27 @@
 | `export_overrides` | 특정 출력 대상에서만 필요한 최소 예외 설정 |
 
 `battle.format`은 현재 `GEN_9_SINGLES`, `GEN_9_DOUBLES` 중 하나이며
-`battle_type`의 싱글·더블과 일치해야 한다. `battle.difficulty`는 판단 수준과
-정보 사용 범위를 정하는 `novice`, `standard`, `advanced`, `expert`, `cheater` 중
-하나다. `cheater`는 플레이어가 확정한 이번 턴 행동 정보를 사용하는 특수 보스용
-단계이므로 일반 트레이너에는 사용하지 않는다.
+`battle_type`의 싱글·더블과 일치해야 한다. 스키마 2부터 AI 설정은
+`battle.ai` 객체 하나에 보관한다.
 
-`battle.ai`는 난이도와 별개로 행동 성향을 고르는 전략 프로필이다. 전투 엔진과 공유하는
-`cobbleventure:ai/balanced`, `aggressive`, `defensive`, `ace_check`,
-`reckless_ace`, `setup`, `hazard`, `tempo`, `unpredictable` 중 하나를 사용한다.
+```json
+{
+  "controller": "cobbleventure",
+  "difficulty": "cheater",
+  "strategy": "balanced",
+  "options": { "cheat_probability": 0.35 }
+}
+```
+
+난이도는 `novice`, `standard`, `advanced`, `expert`, `expert_winrate`,
+`expert_search`, `cheater` 중 하나다. 세 전문가 모드는 각각 휴리스틱, 승률 기반,
+2턴 탐색 정책이다. `cheater`는 `options.cheat_probability`의 확률로 플레이어가
+확정한 이번 턴 행동을 사용하며 실패하면 2턴 탐색으로 행동한다. 확률은 `0~1`이고
+치터 난이도에서만 저장한다.
+
+`strategy`는 난이도와 별개의 행동 성향이며 `balanced`, `aggressive`,
+`defensive`, `ace_check`, `reckless_ace`, `setup`, `hazard`, `tempo`,
+`unpredictable` 중 하나를 사용한다.
 
 대사에는 한국어 `ko_kr`을 반드시 두고, 다른 언어는 같은 객체에 추가한다.
 조건과 동작은 문자열 명령을 넣지 않고 `type`이 있는 구조화 객체로 작성한다.
@@ -192,9 +205,11 @@ Lock 파일은 [의존 모드 관리표](MOD_DEPENDENCIES.md)와 함께 관리�
 
 ## 생성 결과
 
-향후 출력기는 정규화 번들을 다음 대상으로 변환한다.
+현재 `build.bat generate`는 정규화 번들을 RCT 트레이너 JSON과 게임 AI 런타임
+프로필로 변환한다. 나머지 출력기는 단계적으로 추가한다.
 
-- RCT 트레이너 JSON
+- `generated/rct/data/rctmod/trainers/*.json`: RCT 트레이너 JSON
+- `generated/cobbleventure/ai-profiles/*.json`: 실제 게임용 AI 런타임 프로필
 - 자체 NPC·대화 데이터 또는 Easy NPC 데이터
 - NeoForge 메인 모드가 읽는 지역·배치 데이터
 - CurseForge 임포트 ZIP과 검사 보고서

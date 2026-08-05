@@ -93,6 +93,7 @@ dist/cobbleventure-<profile>-<version>-curseforge.zip
 | `build.bat validate-pack` | 버전과 CurseForge ID까지 포함한 엄격한 패키징 준비 검사 | ZIP 생성 직전 |
 | `build.bat api` | Python 콘텐츠 관리 로컬 Web API 실행 | 웹 관리 화면이나 외부 제작 도구 연결 시 |
 | `build.bat test` | 검증기와 API 회귀 테스트 실행 | 관리 도구 코드 변경 후 |
+| `build.bat generate` | RCT 트레이너와 실제 게임용 AI 런타임 프로필 생성 | 정규화 콘텐츠 변경 후 |
 | `build.bat pack-smoke` | Minecraft·NeoForge만 포함한 최소 CurseForge 임포트 ZIP 생성 | 패키징 파이프라인과 CurseForge 앱 임포트 확인 시 |
 | `build.bat pack` | 일반 콘텐츠 검증 후 임시 개발 ZIP 생성 | 개발 자산 취합 흐름 확인 시 |
 | `build.bat pack-release` | 정식 의존성 Lock과 공개 패키징 준비 검사 | 배포 후보 생성 전 |
@@ -114,7 +115,6 @@ ZIP을 만들며, `pack-release`는 Lock이 확정될 때까지 ZIP 생성을 �
 
 ```text
 build.bat import
-build.bat generate
 build.bat mods
 build.bat all
 ```
@@ -199,7 +199,7 @@ environment check
 
 1. 의존성 Lock, 정규화 콘텐츠 스키마와 교차 참조 검증
 2. Excel 가져오기와 Web API 편집·검증 기능
-3. RCT 트레이너 출력기
+3. RCT 트레이너 출력기 — AI 설정과 기본 팀·가방 변환 구현
 4. Cobbleventure NPC·대화 출력기
 5. Easy NPC 호환 출력기
 6. NeoForge 어댑터와 RCT 전투 연결
