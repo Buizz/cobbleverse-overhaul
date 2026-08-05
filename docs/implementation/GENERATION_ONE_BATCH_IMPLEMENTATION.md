@@ -18,6 +18,8 @@
 
 ## 기준 문서
 
+실제 진행 상태는 [1세대 시작 지역 구현 체크리스트](GENERATION_ONE_IMPLEMENTATION_CHECKLIST.md) 한곳에서 갱신한다.
+
 | 순서 | 문서 | 구현 결과 |
 |---:|---|---|
 | 1 | [바이옴 카탈로그와 지역 생성 체계](BIOME_REGION_SYSTEM.md) | 데이터 기반 `BiomeSource`와 좌표 단일화 |

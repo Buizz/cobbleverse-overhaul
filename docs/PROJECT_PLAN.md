@@ -830,6 +830,7 @@ Cobbleventure는 특정 모드팩의 확장 계층이 아니다. Cobblemon과 �
 | [비전머신과 포켓몬 탑승 이동](implementation/HM_TRAVERSAL.md) | 3안의 탑승 권한, 공중날기와 파도타기 | 기준 설계 |
 | [월드 초기화 및 지역 경계](implementation/WORLD_BOOTSTRAP_REGIONS.md) | 청크 사전 생성, 지역 그래프, 경계와 관문 검사 | 기술 조사 진행 |
 | [1세대 시작 지역 통합 구현 계획](implementation/GENERATION_ONE_BATCH_IMPLEMENTATION.md) | 마을별 바이옴·벽·건물·규모·안전층과 트레이너 타입의 구현 순서 | 구현 대기 |
+| [1세대 시작 지역 구현 체크리스트](implementation/GENERATION_ONE_IMPLEMENTATION_CHECKLIST.md) | 시작 지역 구현과 검증 상태를 한곳에서 관리하는 실행표 | 진행 관리 |
 | [바이옴 카탈로그와 지역 생성 체계](implementation/BIOME_REGION_SYSTEM.md) | 데이터 기반 BiomeSource와 생성 좌표 단일화 | 구현 예정 |
 | [마을별 바이옴 범위와 경계 벽](implementation/SETTLEMENT_BIOME_BOUNDARIES.md) | 내부·주변 바이옴, 완충 지대, 물리 벽과 관문 | 구현 예정 |
 | [무지하 차원의 안전 기반층](implementation/SAFE_SURFACE_FOUNDATION.md) | 10층 기반암과 공허 낙하 복구 | 구현 예정 |
