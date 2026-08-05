@@ -3,10 +3,10 @@
   "status": "draft",
   "profile": "cobbleventure-dev",
   "minecraft": {
-    "version": null,
+    "version": "1.21.1",
     "loader": {
       "type": "neoforge",
-      "version": null
+      "version": "21.1.248"
     }
   },
   "mods": [
@@ -16,12 +16,25 @@
       "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": null,
+      "version": "1.7.3",
       "curseforge": {
-        "project_id": null,
-        "file_id": null
+        "project_id": 687131,
+        "file_id": 7553231
       },
       "reason": "포켓몬, 파티와 실제 배틀 시스템"
+    },
+    {
+      "id": "kotlin_for_forge",
+      "display_name": "Kotlin for Forge",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "5.11.0",
+      "curseforge": {
+        "project_id": 351264,
+        "file_id": 7471280
+      },
+      "reason": "Cobblemon NeoForge의 필수 Kotlin 런타임"
     },
     {
       "id": "rctapi",
@@ -48,6 +61,19 @@
         "file_id": null
       },
       "reason": "RCT 트레이너 JSON 로딩과 트레이너전 관리"
+    },
+    {
+      "id": "cobblemon_additions",
+      "display_name": "Brocraft Cobblemon Additions",
+      "classification": "optional",
+      "side": "both",
+      "enabled": false,
+      "version": null,
+      "curseforge": {
+        "project_id": null,
+        "file_id": null
+      },
+      "reason": "포켓몬 테마 마을, 포켓몬센터, 포켓마트와 백화점 구조물 참고 후보; 현행 배포본은 Fabric 모드이므로 NeoForge 직접 의존 금지"
     },
     {
       "id": "mega_showdown",
