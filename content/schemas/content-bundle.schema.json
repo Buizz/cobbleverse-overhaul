@@ -172,6 +172,11 @@
         "species": { "$ref": "#/$defs/resource_id" },
         "level": { "type": "integer", "minimum": 1, "maximum": 100 },
         "form": { "type": ["string", "null"] },
+        "aspects": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
         "gender": { "enum": ["male", "female", "genderless", "random"] },
         "nature": { "type": ["string", "null"] },
         "ability": { "type": ["string", "null"] },

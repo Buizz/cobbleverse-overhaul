@@ -106,6 +106,29 @@ def load_json(path: Path) -> Any:
         return json.load(source, object_pairs_hook=_reject_duplicate_keys)
 
 
+def load_editor_catalog(root: Path) -> dict[str, Any]:
+    script = Path(__file__).with_name("export_editor_catalog.mjs")
+    completed = subprocess.run(
+        ["node", str(script), str(root.resolve())],
+        cwd=root,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+        check=False,
+    )
+    if completed.returncode != 0:
+        message = completed.stderr.strip() or completed.stdout.strip()
+        raise RuntimeError(message or "전투 데이터 카탈로그를 만들지 못했습니다.")
+    try:
+        catalog = json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        raise RuntimeError("전투 데이터 카탈로그 JSON을 읽지 못했습니다.") from error
+    if not isinstance(catalog, dict):
+        raise RuntimeError("전투 데이터 카탈로그 형식이 올바르지 않습니다.")
+    return catalog
+
+
 def _issue(
     issues: list[Issue], level: str, path: Path, data_path: str, message: str
 ) -> None:
@@ -644,6 +667,19 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
                     _issue(issues, "error", path, f"{pokemon_path}.level", "1부터 100 사이의 정수여야 합니다.")
                 if pokemon.get("gender") not in {"male", "female", "genderless", "random"}:
                     _issue(issues, "error", path, f"{pokemon_path}.gender", "지원하지 않는 성별 값입니다.")
+                form = pokemon.get("form")
+                if form is not None and (not isinstance(form, str) or not form.strip()):
+                    _issue(issues, "error", path, f"{pokemon_path}.form", "폼은 비어 있지 않은 문자열 또는 null이어야 합니다.")
+                aspects = pokemon.get("aspects", [])
+                if not isinstance(aspects, list) or any(
+                    not isinstance(aspect, str) or not aspect.strip() for aspect in aspects
+                ):
+                    _issue(issues, "error", path, f"{pokemon_path}.aspects", "aspects는 비어 있지 않은 문자열 배열이어야 합니다.")
+                elif len(aspects) != len(set(aspects)):
+                    _issue(issues, "error", path, f"{pokemon_path}.aspects", "aspects는 중복될 수 없습니다.")
+                for boolean_key in ("shiny", "gigantamax_factor"):
+                    if boolean_key in pokemon and not isinstance(pokemon.get(boolean_key), bool):
+                        _issue(issues, "error", path, f"{pokemon_path}.{boolean_key}", "boolean이어야 합니다.")
                 moves = _require_list(pokemon.get("moves"), issues, path, f"{pokemon_path}.moves")
                 if moves is not None and not 1 <= len(moves) <= 4:
                     _issue(issues, "error", path, f"{pokemon_path}.moves", "기술은 1개 이상 4개 이하여야 합니다.")
@@ -1014,6 +1050,7 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
                     "species": "cobblemon:rattata",
                     "level": 5,
                     "form": None,
+                    "aspects": [],
                     "gender": "random",
                     "nature": None,
                     "ability": None,
@@ -1164,6 +1201,8 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
     root = root.resolve()
     web_root = (Path(__file__).parent / "web").resolve()
     build_lock = threading.Lock()
+    editor_catalog_lock = threading.Lock()
+    editor_catalog: dict[str, Any] | None = None
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "CobbleventureContentManager/0.2"
@@ -1283,6 +1322,16 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                         ),
                     )
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/editor-catalog":
+                nonlocal editor_catalog
+                try:
+                    with editor_catalog_lock:
+                        if editor_catalog is None:
+                            editor_catalog = load_editor_catalog(root)
+                    self._json(200, editor_catalog)
+                except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
                     self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/trainers":

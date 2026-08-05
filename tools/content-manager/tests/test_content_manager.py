@@ -68,6 +68,19 @@ class ContentManagerTests(unittest.TestCase):
             _, issues = content_manager.validate_content_file(path)
         self.assertTrue(any("EV 합계" in issue.message for issue in issues))
 
+    def test_duplicate_pokemon_aspects_are_rejected(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["battle"]["team"][0]["aspects"] = ["alolan", "alolan"]
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertTrue(any("aspects는 중복" in issue.message for issue in issues))
+
     def test_starter_town_is_valid(self) -> None:
         root = Path(__file__).parents[3]
         settlement_id, issues = content_manager.validate_settlement_file(
@@ -188,6 +201,8 @@ class ContentManagerTests(unittest.TestCase):
                 settlements = json.load(response)
             with urllib.request.urlopen(f"{base_url}/api/trainer-classes") as response:
                 trainer_classes = json.load(response)
+            with urllib.request.urlopen(f"{base_url}/api/editor-catalog") as response:
+                editor_catalog = json.load(response)
             with urllib.request.urlopen(base_url) as response:
                 page = response.read().decode("utf-8")
         finally:
@@ -200,6 +215,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(1, dashboard["settlements"])
         self.assertEqual(1, len(settlements["items"]))
         self.assertGreaterEqual(len(trainer_classes["classes"]), 10)
+        self.assertGreaterEqual(len(editor_catalog["species"]), 1000)
+        self.assertGreaterEqual(len(editor_catalog["moves"]), 900)
+        self.assertTrue(any(entry.get("forme") for entry in editor_catalog["species"]))
         self.assertIn("Cobbleventure Content Studio", page)
 
     def test_build_api_uses_allowlisted_runner(self) -> None:

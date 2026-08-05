@@ -66,6 +66,7 @@
         "species": "cobblemon:geodude",
         "level": 12,
         "form": null,
+        "aspects": [],
         "gender": "random",
         "nature": "impish",
         "ability": "sturdy",

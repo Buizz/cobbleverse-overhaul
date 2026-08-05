@@ -58,6 +58,7 @@
         "species": "cobblemon:rattata",
         "level": 5,
         "form": null,
+        "aspects": [],
         "gender": "random",
         "nature": null,
         "ability": null,

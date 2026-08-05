@@ -80,6 +80,8 @@ http://127.0.0.1:8765
 - 트레이너 기본 정보, NPC 행동, 배치, 전투 설정과 최대 6마리 팀 편집
 - 본가식 트레이너 클래스 선택과 RCT 개별·그룹 스킨 미리보기
 - Battle Web Lab과 같은 포켓몬 슬롯·프로필·IV/EV·기술 집중 편집기
+- 포켓몬·폼·성격·특성·기술·지닌 도구를 검색해서 고르는 공용 다이얼로그
+- 지역 폼과 특수 형태 선택, 카탈로그 외 Cobblemon `aspects` 직접 입력
 - 대화·진행과 IV·EV 등 전체 트레이너 JSON 고급 편집
 - 마을 이름, 지역, 차원, 중심, 경계와 기본 NPC 배치 수치 편집
 - 전체 마을 JSON 고급 편집
@@ -126,6 +128,7 @@ python tools/content-manager/content_manager.py api --root .
 - `GET /api/dashboard`: 관리 화면 요약과 실행 가능한 빌드 명령
 - `GET /api/trainers`, `GET /api/settlements`: 관리 문서 목록
 - `GET /api/trainer-classes`: 트레이너 클래스와 기본 외형 카탈로그
+- `GET /api/editor-catalog`: Battle Web Lab과 공유하는 포켓몬·폼·기술·특성·도구 카탈로그
 - `GET /api/trainers?path=...`, `GET /api/settlements?path=...`: 단일 문서 조회
 - `PUT /api/trainers?path=...`, `PUT /api/settlements?path=...`: 검증 후 문서 저장
 - `POST /api/document-validation?category=...`: 저장하지 않고 문서 검증
@@ -152,6 +155,11 @@ python tools/content-manager/content_manager.py api --root .
 
 대화 그래프 전용 편집기, 마을 배치 슬롯 전용 폼, Excel 가져오기와 대상별
 출력기는 다음 개발 단계에서 같은 도구에 추가한다.
+
+포켓몬의 기본 종은 `species`, 카탈로그에서 선택한 지역 폼·특수 형태는 `form`,
+카탈로그만으로 표현되지 않는 Cobblemon 상태는 `aspects` 문자열 배열에 보관한다.
+메가진화와 Z기술은 폼을 직접 고정하기보다 해당 지닌 도구와 전투 기믹 허용
+설정을 함께 사용하는 것이 기본 원칙이다.
 
 포켓몬 이미지는 PokéAPI HOME PNG를 원격 미리보기로 사용한다. RCT 외형 미리보기와
 포켓몬 이미지는 저장소나 모드팩에 복사되지 않으며, 네트워크가 없으면 이미지 없이
