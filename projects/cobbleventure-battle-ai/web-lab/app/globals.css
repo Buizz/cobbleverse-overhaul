@@ -10370,6 +10370,45 @@ select:disabled {
   background: #f8fafb;
 }
 
+.entry-clipboard-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px;
+  border-bottom: 1px solid #b9c9cf;
+  background: #eef5f6;
+}
+
+.entry-clipboard-toolbar p {
+  margin: 0;
+  color: #536d7d;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.entry-clipboard-toolbar > div {
+  display: flex;
+  gap: 7px;
+}
+
+.entry-clipboard-toolbar button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #1b7e8b;
+  border-radius: 3px;
+  background: #fff;
+  color: #11616b;
+  font-size: 9px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.entry-clipboard-toolbar button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
 .focused-party-tabs button {
   position: relative;
   display: grid;

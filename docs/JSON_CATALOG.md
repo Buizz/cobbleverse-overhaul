@@ -148,6 +148,23 @@ Web Lab의 `public/data`가 다른 원본에서 복사되도록 구성된 경우
 고치지 않는다. 동기화 스크립트나 원본 데이터셋을 수정한다. 이 데이터는 게임
 콘텐츠 번들과 목적이 다르므로 `content/source`로 합치지 않는다.
 
+### 웹 편집기 엔트리 교환 JSON
+
+Python 콘텐츠 관리 웹과 전투 Web Lab은 팀 전체를 다음 공통 클립보드 계약으로
+복사하고 붙여넣는다.
+
+| 항목 | 내용 |
+|------|------|
+| 스키마 식별자 | `cobbleventure:party-entry-clipboard` |
+| 현재 버전 | `1` |
+| 구현 | `projects/cobbleventure-battle-ai/web-lab/lib/pokemon-entry-clipboard.mjs` |
+| 팀 배열 | 최상위 `pokemon` |
+
+이 형식은 두 편집기 사이의 임시 교환 형식이며 콘텐츠 기준 원본은 아니다. 붙여넣기
+호환을 위해 공통 형식 외에도 과거의 최상위 배열, `party`, `team`, `battle.team`
+형식을 읽을 수 있다. 읽은 데이터는 각 편집기의 내부 구조로 정규화하며, 다시
+복사하면 항상 현재 공통 형식으로 출력한다.
+
 ## 빌드와 패키징 설정
 
 | 경로 | 역할 |

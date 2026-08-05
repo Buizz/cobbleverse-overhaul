@@ -41,6 +41,13 @@ import {
   selectSeededAiStrategy,
 } from "../lib/common-battle-ai.mjs";
 import { activeStatRanks } from "../lib/battle-stat-ranks.mjs";
+import {
+  createPartyClipboardEntry,
+  parsePartyClipboardText,
+  readClipboardText,
+  toBattleLabParty,
+  writeClipboardText,
+} from "../lib/pokemon-entry-clipboard.mjs";
 
 type BattleMode = "pve" | "eve";
 type PartySource = "custom" | "preset";
@@ -608,15 +615,20 @@ type InteractiveResponse =
 
 type CustomPokemon = {
   species: string;
+  form: string | null;
+  aspects: string[];
   level: number;
+  gender: "male" | "female" | "genderless" | "random";
   nature: string;
   ability: string;
   heldItem: string;
+  gimmick: { type: "mega_evolution" | "z_move"; item: string } | null;
   ivs: Record<string, number>;
   evs: Record<string, number>;
   dynamax: boolean;
   gmax: boolean;
   tera: string;
+  shiny: boolean;
   moves: string[];
 };
 
@@ -781,15 +793,20 @@ type StoredBattleView =
 
 const emptyPokemon = (): CustomPokemon => ({
   species: "",
+  form: null,
+  aspects: [],
   level: 50,
+  gender: "random",
   nature: "",
   ability: "",
   heldItem: "",
+  gimmick: null,
   ivs: Object.fromEntries(pokemonStatKeys.map((key) => [key, 31])),
   evs: Object.fromEntries(pokemonStatKeys.map((key) => [key, 0])),
   dynamax: false,
   gmax: false,
   tera: "",
+  shiny: false,
   moves: ["", "", "", ""],
 });
 
@@ -817,15 +834,31 @@ function normalizeCustomPokemon(pokemon: Partial<CustomPokemon> = {}) {
   const level = Number(pokemon.level ?? 50);
   return {
     species: String(pokemon.species ?? ""),
+    form: pokemon.form ? String(pokemon.form) : null,
+    aspects: Array.isArray(pokemon.aspects)
+      ? [...new Set(pokemon.aspects.map((aspect) => String(aspect).trim()).filter(Boolean))]
+      : [],
     level: Number.isInteger(level) ? Math.min(100, Math.max(1, level)) : 50,
+    gender: ["male", "female", "genderless", "random"].includes(
+      String(pokemon.gender),
+    )
+      ? (pokemon.gender as CustomPokemon["gender"])
+      : "random",
     nature: String(pokemon.nature ?? ""),
     ability: String(pokemon.ability ?? ""),
     heldItem: String(pokemon.heldItem ?? ""),
+    gimmick:
+      pokemon.gimmick &&
+      ["mega_evolution", "z_move"].includes(pokemon.gimmick.type) &&
+      pokemon.gimmick.item
+        ? { ...pokemon.gimmick }
+        : null,
     ivs: normalizeCustomStats(pokemon.ivs, 31, 31),
     evs: normalizeCustomStats(pokemon.evs, 0, 252),
     dynamax: pokemon.dynamax === true || pokemon.gmax === true,
     gmax: pokemon.gmax === true,
     tera: String(pokemon.tera ?? ""),
+    shiny: pokemon.shiny === true,
     moves: [...(Array.isArray(pokemon.moves) ? pokemon.moves : []), "", "", "", ""]
       .slice(0, 4)
       .map((move) => String(move ?? "")),
@@ -868,10 +901,17 @@ function customPokemonFromImportedMember(member: Record<string, unknown>) {
       : [];
   return normalizeCustomPokemon({
     species: String(member.resolvedSpecies ?? member.species ?? ""),
+    form: member.form ? String(member.form) : null,
+    aspects: Array.isArray(member.aspects) ? member.aspects.map(String) : [],
     level: Number(member.level ?? 50),
+    gender: String(member.gender ?? "random") as CustomPokemon["gender"],
     nature: String(member.nature ?? ""),
     ability: String(member.ability ?? ""),
     heldItem: String(member.heldItem ?? member.item ?? ""),
+    gimmick:
+      member.gimmick && typeof member.gimmick === "object"
+        ? (member.gimmick as CustomPokemon["gimmick"])
+        : null,
     ivs: {
       hp: importedStatValue(ivs, ["hp"], 31),
       atk: importedStatValue(ivs, ["atk", "attack"], 31),
@@ -903,6 +943,7 @@ function customPokemonFromImportedMember(member: Record<string, unknown>) {
       gimmicks.gmax === true,
     gmax: member.gmax === true || gimmicks.gmax === true,
     tera: String(member.tera ?? gimmicks.tera ?? ""),
+    shiny: member.shiny === true,
     moves: moves.map(String),
   });
 }
@@ -2969,6 +3010,7 @@ function CustomPartyEditor({
   onOpenChoice: (target: ChoiceTarget) => void;
 }) {
   const [sampleLibraryOpen, setSampleLibraryOpen] = useState(false);
+  const [clipboardNotice, setClipboardNotice] = useState("");
   const update = (
     index: number,
     key: keyof Omit<CustomPokemon, "moves">,
@@ -2977,6 +3019,31 @@ function CustomPartyEditor({
     onChange(
       party.map((pokemon, pokemonIndex) =>
         pokemonIndex === index ? { ...pokemon, [key]: value } : pokemon,
+      ),
+    );
+  };
+
+  const updateSpecies = (index: number, value: string) => {
+    onChange(
+      party.map((pokemon, pokemonIndex) =>
+        pokemonIndex === index ? { ...pokemon, species: value, form: null } : pokemon,
+      ),
+    );
+  };
+
+  const updateHeldItem = (index: number, value: string) => {
+    const item = catalog?.items.find(
+      (entry) => entry.id === value || entry.shortId === value || dexId(entry.id) === dexId(value),
+    );
+    const gimmick =
+      item?.category === "mega"
+        ? { type: "mega_evolution" as const, item: item.id }
+        : item?.category === "z"
+          ? { type: "z_move" as const, item: item.id }
+          : null;
+    onChange(
+      party.map((pokemon, pokemonIndex) =>
+        pokemonIndex === index ? { ...pokemon, heldItem: value, gimmick } : pokemon,
       ),
     );
   };
@@ -3031,8 +3098,52 @@ function CustomPartyEditor({
     0,
   );
 
+  const clipboardOptions = {
+    species: catalog?.species ?? [],
+    items: catalog?.items ?? [],
+  };
+
+  const copyEntryJson = async () => {
+    try {
+      const entry = createPartyClipboardEntry(party, clipboardOptions);
+      await writeClipboardText(JSON.stringify(entry, null, 2));
+      setClipboardNotice(`포켓몬 ${entry.pokemon.length}마리의 엔트리 JSON을 복사했습니다.`);
+    } catch (error) {
+      setClipboardNotice(error instanceof Error ? error.message : "엔트리를 복사하지 못했습니다.");
+    }
+  };
+
+  const pasteEntryJson = async () => {
+    try {
+      const entry = parsePartyClipboardText(await readClipboardText(), clipboardOptions);
+      const imported = (
+        toBattleLabParty(entry, clipboardOptions) as Partial<CustomPokemon>[]
+      ).map((member) => normalizeCustomPokemon(member));
+      onChange(normalizeCustomParty(imported));
+      setSelectedPokemonIndex(0);
+      setClipboardNotice(`클립보드에서 포켓몬 ${imported.length}마리를 붙여넣었습니다.`);
+    } catch (error) {
+      setClipboardNotice(error instanceof Error ? error.message : "엔트리를 붙여넣지 못했습니다.");
+    }
+  };
+
   return (
     <div className="focused-entry-editor">
+      <div className="entry-clipboard-toolbar">
+        <p>{clipboardNotice || "관리 웹과 전투 웹에서 같은 엔트리 JSON을 사용할 수 있습니다."}</p>
+        <div>
+          <button
+            type="button"
+            onClick={() => void copyEntryJson()}
+            disabled={!party.some((member) => member.species.trim())}
+          >
+            엔트리 JSON 복사
+          </button>
+          <button type="button" onClick={() => void pasteEntryJson()}>
+            엔트리 JSON 붙여넣기
+          </button>
+        </div>
+      </div>
       <nav className="focused-party-tabs" aria-label="편집할 포켓몬 선택">
         {party.map((member, index) => (
           <button
@@ -3142,7 +3253,7 @@ function CustomPartyEditor({
                 <input
                   value={pokemon.species}
                   onChange={(event) =>
-                    update(selectedPokemonIndex, "species", event.target.value)
+                    updateSpecies(selectedPokemonIndex, event.target.value)
                   }
                   placeholder="예: garchomp"
                 />
@@ -3165,7 +3276,7 @@ function CustomPartyEditor({
               <select
                 value={pokemon.species}
                 onChange={(event) =>
-                  update(selectedPokemonIndex, "species", event.target.value)
+                  updateSpecies(selectedPokemonIndex, event.target.value)
                 }
                 disabled={!selectedSpecies || formOptions.length === 0}
               >
@@ -3259,7 +3370,7 @@ function CustomPartyEditor({
                 <input
                   value={pokemon.heldItem}
                   onChange={(event) =>
-                    update(selectedPokemonIndex, "heldItem", event.target.value)
+                    updateHeldItem(selectedPokemonIndex, event.target.value)
                   }
                   placeholder="예: rocky_helmet"
                 />
@@ -3285,7 +3396,7 @@ function CustomPartyEditor({
                   update(selectedPokemonIndex, "tera", event.target.value)
                 }
               >
-                <option value="">지정 안 함</option>
+                    <option value="">자동 (주속성 중 하나)</option>
                 {Object.entries(pokemonTypeNames).map(([type, name]) => (
                   <option key={type} value={type.toLowerCase()}>
                     {name}
@@ -7255,13 +7366,27 @@ export function BattleLab() {
           return {
             ...pokemon,
             species: value,
+            form: null,
             ability: selectedSpecies?.abilities[0] ?? "",
           };
         }
         if (choiceTarget.kind === "nature") {
           return { ...pokemon, nature: value };
         }
-        return { ...pokemon, [choiceTarget.kind === "item" ? "heldItem" : "ability"]: value };
+        if (choiceTarget.kind === "item") {
+          const item = catalog?.items.find((entry) => entry.id === value);
+          return {
+            ...pokemon,
+            heldItem: value,
+            gimmick:
+              item?.category === "mega"
+                ? { type: "mega_evolution", item: item.id }
+                : item?.category === "z"
+                  ? { type: "z_move", item: item.id }
+                  : null,
+          };
+        }
+        return { ...pokemon, ability: value };
       }),
     );
     setChoiceTarget(null);

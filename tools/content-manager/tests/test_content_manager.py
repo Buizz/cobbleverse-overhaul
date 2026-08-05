@@ -253,6 +253,10 @@ class ContentManagerTests(unittest.TestCase):
                 editor_catalog = json.load(response)
             with urllib.request.urlopen(base_url) as response:
                 page = response.read().decode("utf-8")
+            with urllib.request.urlopen(
+                f"{base_url}/pokemon-entry-clipboard.mjs"
+            ) as response:
+                clipboard_module = response.read().decode("utf-8")
         finally:
             server.shutdown()
             server.server_close()
@@ -267,6 +271,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertGreaterEqual(len(editor_catalog["moves"]), 900)
         self.assertTrue(any(entry.get("forme") for entry in editor_catalog["species"]))
         self.assertIn("Cobbleventure Content Studio", page)
+        self.assertIn("엔트리 JSON 복사", page)
+        self.assertIn("POKEMON_ENTRY_CLIPBOARD_SCHEMA", clipboard_module)
 
     def test_build_api_uses_allowlisted_runner(self) -> None:
         root = Path(__file__).parents[3]

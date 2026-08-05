@@ -1,3 +1,11 @@
+import {
+  createPartyClipboardEntry,
+  parsePartyClipboardText,
+  readClipboardText,
+  toContentManagerParty,
+  writeClipboardText,
+} from "/pokemon-entry-clipboard.mjs";
+
 const state = {
   trainers: [], settlements: [], trainer: null, settlement: null,
   trainerPath: "", settlementPath: "", buildCommands: [], trainerClasses: [],
@@ -187,7 +195,7 @@ function renderTrainer() {
   renderTrainerPreview();
   renderTeam();
   $("#trainer-json").value = JSON.stringify(document, null, 2);
-  ["#trainer-json", "#apply-trainer-json", "#add-pokemon", "#validate-trainer", "#save-trainer"].forEach((selector) => $(selector).disabled = false);
+  ["#trainer-json", "#apply-trainer-json", "#add-pokemon", "#copy-team-json", "#paste-team-json", "#validate-trainer", "#save-trainer"].forEach((selector) => $(selector).disabled = false);
   showIssues("#trainer-issues", { valid: true, issues: [] });
 }
 
@@ -562,6 +570,50 @@ function duplicatePokemon() {
   state.selectedPokemonIndex += 1;
   renderTeam();
   syncTrainerJson();
+}
+
+function clipboardCatalogOptions() {
+  return {
+    species: state.editorCatalog?.species || [],
+    items: state.editorCatalog?.items || [],
+  };
+}
+
+async function copyTeamJson() {
+  if (!state.trainer?.battle?.team?.length) return;
+  updateFocusedPokemon();
+  try {
+    const entry = createPartyClipboardEntry(
+      state.trainer.battle.team,
+      clipboardCatalogOptions(),
+    );
+    await writeClipboardText(JSON.stringify(entry, null, 2));
+    toast(`포켓몬 ${entry.pokemon.length}마리의 엔트리 JSON을 복사했습니다.`);
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+async function pasteTeamJson() {
+  if (!state.trainer?.battle) return;
+  try {
+    const entry = parsePartyClipboardText(
+      await readClipboardText(),
+      clipboardCatalogOptions(),
+    );
+    const team = toContentManagerParty(entry, clipboardCatalogOptions());
+    state.trainer.battle.team = team;
+    state.trainer.battle.mechanics ||= {};
+    for (const pokemon of team) {
+      if (pokemon.gimmick?.type) state.trainer.battle.mechanics[pokemon.gimmick.type] = true;
+      if (pokemon.gigantamax_factor) state.trainer.battle.mechanics.dynamax = true;
+    }
+    state.selectedPokemonIndex = 0;
+    renderTrainer();
+    toast(`클립보드에서 포켓몬 ${team.length}마리를 붙여넣었습니다.`);
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
 function updateFocusedPokemon() {
@@ -1006,6 +1058,8 @@ $("#trainer-form").addEventListener("input", (event) => {
   else updateTrainerFromForm();
 });
 $("#add-pokemon").addEventListener("click", addPokemon);
+$("#copy-team-json").addEventListener("click", copyTeamJson);
+$("#paste-team-json").addEventListener("click", pasteTeamJson);
 $("#apply-trainer-json").addEventListener("click", () => { const document = parseEditor("#trainer-json"); if (document) { state.trainer = document; renderTrainer(); toast("JSON을 편집 폼에 반영했습니다."); } });
 $("#validate-settlement").addEventListener("click", () => validateDocument("settlements"));
 $("#save-settlement").addEventListener("click", () => saveDocument("settlements"));

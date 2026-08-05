@@ -82,6 +82,7 @@ STATIC_CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
 }
 
 
@@ -1301,15 +1302,20 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
 
         def _serve_static(self, request_path: str) -> bool:
             static_files = {
-                "/": "index.html",
-                "/index.html": "index.html",
-                "/app.js": "app.js",
-                "/styles.css": "styles.css",
+                "/": web_root / "index.html",
+                "/index.html": web_root / "index.html",
+                "/app.js": web_root / "app.js",
+                "/styles.css": web_root / "styles.css",
+                "/pokemon-entry-clipboard.mjs": root
+                / "projects"
+                / "cobbleventure-battle-ai"
+                / "web-lab"
+                / "lib"
+                / "pokemon-entry-clipboard.mjs",
             }
-            file_name = static_files.get(request_path)
-            if file_name is None:
+            path = static_files.get(request_path)
+            if path is None:
                 return False
-            path = web_root / file_name
             try:
                 body = path.read_bytes()
             except OSError:

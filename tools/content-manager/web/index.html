@@ -68,7 +68,7 @@
               <fieldset class="wide"><legend>전투 설정</legend><label><span>배틀 포맷</span><input name="battleFormat" disabled></label><label><span>전투 방식</span><select name="battleType" disabled><option value="singles">싱글</option><option value="doubles">더블</option></select></label><label><span>AI 프로필</span><input name="battleAi" disabled></label><label><span>레벨 방식</span><select name="levelMode" disabled><option value="fixed">고정</option><option value="scale_to_player">플레이어에 맞춤</option><option value="cap_to_player">플레이어 상한</option></select></label></fieldset>
               <fieldset class="wide mechanic-options"><legend>특수 기믹 허용</legend><label class="toggle"><input type="checkbox" name="megaEvolution" disabled><span>메가진화</span></label><label class="toggle"><input type="checkbox" name="zMove" disabled><span>Z기술</span></label><label class="toggle"><input type="checkbox" name="dynamax" disabled><span>다이맥스</span></label><label class="toggle"><input type="checkbox" name="terastallization" disabled><span>테라스탈</span></label></fieldset>
             </form>
-            <div class="subsection-heading"><div><p class="eyebrow">BATTLE TEAM</p><h3>포켓몬 팀</h3></div><button class="button secondary" id="add-pokemon" disabled>포켓몬 추가</button></div>
+            <div class="subsection-heading"><div><p class="eyebrow">BATTLE TEAM</p><h3>포켓몬 팀</h3></div><div class="team-heading-actions"><button class="button secondary" id="copy-team-json" disabled>엔트리 JSON 복사</button><button class="button secondary" id="paste-team-json" disabled>엔트리 JSON 붙여넣기</button><button class="button secondary" id="add-pokemon" disabled>포켓몬 추가</button></div></div>
             <div id="team-list" class="team-list"><div class="issues empty">트레이너를 선택하면 팀이 표시됩니다.</div></div>
             <details class="advanced"><summary>대화·진행을 포함한 전체 JSON 편집</summary><textarea class="code-editor compact" id="trainer-json" spellcheck="false" disabled></textarea><button class="button text-button" id="apply-trainer-json" disabled>JSON을 편집 폼에 반영</button></details>
             <div class="editor-actions"><button class="button secondary" id="validate-trainer" disabled>문서 검증</button><button class="button primary" id="save-trainer" disabled>검증 후 저장</button></div>
@@ -133,6 +133,6 @@
       </form>
     </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js"></script>
+    <script type="module" src="/app.js"></script>
   </body>
 </html>
