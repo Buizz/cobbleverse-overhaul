@@ -305,6 +305,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("remainingEvs = 510", app_script)
         self.assertIn(".move-type-badge.type-fire", styles)
         self.assertIn(".move-type-badge.type-fairy", styles)
+        self.assertIn(".bag-settings > label input, .bag-item-row input", styles)
+        self.assertIn("color-scheme: light", styles)
         self.assertIn("POKEMON_ENTRY_CLIPBOARD_SCHEMA", clipboard_module)
 
     def test_build_api_uses_allowlisted_runner(self) -> None:

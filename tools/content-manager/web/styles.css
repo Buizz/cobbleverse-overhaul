@@ -119,6 +119,7 @@ body {
 .notice { border-color: #1e9eaa; background: #eaf8f7; color: #315166; }
 .form-grid input, .form-grid select, .pokemon-fields input, .pokemon-fields select { border-color: #b9c8cf; border-radius: 3px; background: #fbfdfe; color: #162f43; }
 .form-grid input:focus, .form-grid select:focus { border-color: #1e9eaa; box-shadow: 0 0 0 2px rgba(64, 215, 207, .18); }
+.bag-settings > label input, .bag-item-row input { color-scheme: light; border-color: #b9c8cf; border-radius: 3px; background: #fff; color: #162f43; caret-color: #162f43; }.bag-settings > label input:focus, .bag-item-row input:focus { border-color: #1e9eaa; outline: 2px solid rgba(64,215,207,.18); }.bag-item-row { border-color: #c7d4d9; border-radius: 3px; background: #f8fafb; }.bag-item-index { color: #6e9d0e; }.bag-item-description strong { color: #172f42; }.bag-item-description small, .bag-item-row label > span, .bag-settings > label > span, .bag-settings > label small { color: #607788; }.remove-bag-item { color: #c72f43; }
 .form-grid fieldset { border-color: #c7d4d9; border-radius: 3px; background: #f8fafb; }
 .form-grid label > span, fieldset legend { color: #51697a; }
 .toggle input { accent-color: #79b512; }
