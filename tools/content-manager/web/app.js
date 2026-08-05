@@ -500,7 +500,7 @@ function renderTeam() {
         ${Array.from({ length: 6 }, (_, index) => {
           const member = team[index];
           if (!member) return `<button type="button" class="empty" data-add-slot="${index}"><b>＋</b><strong>빈 슬롯</strong><small>SLOT ${String(index + 1).padStart(2, "0")}</small></button>`;
-          return `<button type="button" class="${index === state.selectedPokemonIndex ? "active" : ""}" data-pokemon-index="${index}"><span>${String(index + 1).padStart(2, "0")}</span><img data-party-art="${index}" alt="" hidden><b data-party-fallback="${index}">●</b><strong>${escapeHtml(speciesLabel(member.species))}</strong><small>Lv.${escapeHtml(member.level)}</small></button>`;
+          return `<button type="button" class="${index === state.selectedPokemonIndex ? "active" : ""}" data-pokemon-index="${index}"><span>${String(index + 1).padStart(2, "0")}</span><img data-party-art="${index}" alt="" hidden><b data-party-fallback="${index}">●</b><strong>${escapeHtml(pokemonDisplayName(member))}</strong><small>Lv.${escapeHtml(member.level)}</small></button>`;
         }).join("")}
       </nav>
       <div class="party-order-toolbar" aria-label="선택한 포켓몬 순서 이동">
@@ -511,8 +511,8 @@ function renderTeam() {
       <article class="focused-pokemon-editor">
         <aside class="focused-pokemon-preview">
           <span class="slot-number">PARTY SLOT ${String(state.selectedPokemonIndex + 1).padStart(2, "0")}</span>
-          <div><img class="focused-pokemon-sprite" id="focused-pokemon-art" alt="${escapeHtml(speciesLabel(pokemon.species))}" hidden><button class="empty-pokemon-prompt" id="pokemon-art-fallback" type="button"><b>?</b><span>이미지 불러오는 중</span></button></div>
-          <h3 id="focused-species-name">${escapeHtml(speciesLabel(pokemon.species))}</h3>
+          <div><img class="focused-pokemon-sprite" id="focused-pokemon-art" alt="${escapeHtml(pokemonDisplayName(pokemon))}" hidden><button class="empty-pokemon-prompt" id="pokemon-art-fallback" type="button"><b>?</b><span>이미지 불러오는 중</span></button></div>
+          <h3 id="focused-species-name">${escapeHtml(pokemonDisplayName(pokemon))}</h3>
           <p>Lv.${escapeHtml(pokemon.level)} · PokeAPI official-artwork</p>
           <div class="focused-preview-actions"><button type="button" id="duplicate-pokemon">복제</button><button type="button" class="danger" id="remove-focused-pokemon">팀에서 제거</button></div>
         </aside>
@@ -725,7 +725,7 @@ function updateFocusedPokemon(event = null) {
   });
   normalizePokemonGimmick(pokemon);
   $("#ev-total").textContent = `EV ${evTotal(pokemon)}/510`;
-  $("#focused-species-name").textContent = speciesLabel(pokemon.species);
+  $("#focused-species-name").textContent = pokemonDisplayName(pokemon);
   syncTrainerJson();
 }
 
@@ -962,6 +962,10 @@ function normalizePokemonStats(pokemon) {
 
 function speciesLabel(species) {
   return String(species || "포켓몬").replace(/^.*:/, "").replaceAll("_", " ");
+}
+
+function pokemonDisplayName(pokemon) {
+  return catalogSpeciesForPokemon(pokemon)?.name || speciesLabel(pokemon?.species);
 }
 
 function pokemonPokedexNumber(pokemon) {
