@@ -14464,6 +14464,7 @@ test("supports protective variants with contact-style punishments", () => {
                     category: "Physical",
                     power: 70,
                     accuracy: true,
+                    contact: true,
                     pp: 20,
                   },
                 ],
@@ -14525,6 +14526,7 @@ test("supports protective variants with contact-style punishments", () => {
                     category: "Physical",
                     power: 70,
                     accuracy: true,
+                    contact: true,
                     pp: 20,
                   },
                 ],
@@ -23794,4 +23796,210 @@ test("Quick Claw sometimes lets a slower holder move first", () => {
     assert.equal(firstDirectHit.source, "Slow Holder");
   }
   assert.ok(activations >= 25 && activations <= 70);
+});
+
+test("Never-Melt Ice and Wide Lens affect damage and AI accuracy", () => {
+  const iceMove = {
+    ...pokemon().moves[0],
+    id: "icebeam",
+    name: "Ice Beam",
+    type: "Ice",
+    category: "Special",
+    power: 90,
+    accuracy: 90,
+  };
+  assert.equal(
+    calculateDamageRange(
+      pokemon({ item: "nevermeltice" }),
+      pokemon(),
+      iceMove,
+    ).itemModifier,
+    1.2,
+  );
+
+  const state = createSimpleBattle(setup({
+    sides: [
+      {
+        name: "Lens",
+        team: [pokemon({ item: "widelens", moves: [iceMove] })],
+      },
+      { name: "Target", team: [pokemon()] },
+    ],
+  }));
+  const decision = chooseSimpleAiDecision(state, 0, "expert", "balanced");
+  assert.equal(Math.round(decision.moveCandidates[0].accuracy), 99);
+});
+
+test("Metronome ramps repeated move power up to twice the base damage", () => {
+  const repeatedMove = {
+    ...pokemon().moves[0],
+    id: "swift",
+    name: "Swift",
+    category: "Special",
+    power: 20,
+    accuracy: true,
+  };
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  let state = createSimpleBattle(setup({
+    sides: [
+      {
+        name: "Metronome",
+        team: [pokemon({ item: "metronome", moves: [repeatedMove] })],
+      },
+      {
+        name: "Target",
+        team: [
+          pokemon({
+            stats: { ...pokemon().stats, hp: 2_000, specialDefence: 300 },
+            moves: [splash],
+          }),
+        ],
+      },
+    ],
+  }));
+
+  for (let count = 1; count <= 6; count += 1) {
+    state = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+    const holder = state.sides[0].team[0];
+    const modifier = calculateDamageRange(
+      holder,
+      state.sides[1].team[0],
+      holder.moves[0],
+    ).itemModifier;
+    assert.equal(modifier, 1 + Math.min(5, count) * 0.2, count);
+  }
+});
+
+test("Covert Cloak blocks damaging-move secondary effects", () => {
+  const guaranteedParalysis = {
+    ...pokemon().moves[0],
+    id: "nuzzlelike",
+    name: "Nuzzle-like Hit",
+    type: "Electric",
+    secondaries: [{ chance: 100, status: "par" }],
+  };
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Attacker", team: [pokemon({ moves: [guaranteedParalysis] })] },
+      {
+        name: "Cloak",
+        team: [pokemon({ item: "covertcloak", moves: [splash] })],
+      },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[1].team[0].status, "");
+  assert.ok(
+    resolved.events.some(
+      (event) => event.type === "item_activate" && event.item === "covertcloak",
+    ),
+  );
+});
+
+test("Protective Pads block contact punishment without removing contact bonuses", () => {
+  const contactMove = {
+    ...pokemon().moves[0],
+    name: "Contact Hit",
+    id: "contacthit",
+    contact: true,
+  };
+  const paddedAttacker = pokemon({
+    item: "protectivepads",
+    ability: "toughclaws",
+  });
+  assert.equal(
+    calculateDamageRange(paddedAttacker, pokemon(), contactMove).abilityModifier,
+    1.3,
+  );
+
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      {
+        name: "Pads",
+        team: [pokemon({ name: "Padded", item: "protectivepads", moves: [contactMove] })],
+      },
+      {
+        name: "Punish",
+        team: [
+          pokemon({
+            item: "rockyhelmet",
+            ability: "ironbarbs",
+            moves: [splash],
+          }),
+        ],
+      },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[0].team[0].hp, pokemon().stats.hp);
+  assert.equal(
+    resolved.events.some(
+      (event) => ["rockyhelmet", "ironbarbs"].includes(event.source),
+    ),
+    false,
+  );
+});
+
+test("Clear Amulet blocks stat drops caused by an opponent", () => {
+  const growl = {
+    id: "growl",
+    name: "Growl",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+    boosts: { attack: -1 },
+  };
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Drop", team: [pokemon({ moves: [growl] })] },
+      {
+        name: "Amulet",
+        team: [pokemon({ item: "clearamulet", moves: [splash] })],
+      },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[1].team[0].boosts.attack, 0);
+  assert.ok(
+    resolved.events.some(
+      (event) => event.type === "item_activate" && event.item === "clearamulet",
+    ),
+  );
 });

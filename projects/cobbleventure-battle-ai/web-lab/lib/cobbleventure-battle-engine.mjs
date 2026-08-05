@@ -1293,6 +1293,13 @@ function makesEffectiveContact(attacker, move) {
   ) && makesContact(move);
 }
 
+function triggersContactPunishment(attacker, move) {
+  return (
+    makesEffectiveContact(attacker, move) &&
+    cleanId(attacker?.item) !== "protectivepads"
+  );
+}
+
 function hasMoveFlag(move, flag) {
   return Boolean(move?.[flag] === true || move?.flags?.[flag] === true);
 }
@@ -1483,12 +1490,17 @@ function criticalDamageModifier(attacker, defender, critical) {
   return activeAbility(attacker) === "sniper" ? 2.25 : 1.5;
 }
 
-function secondaryEffectsBlocked(attacker, defender, move) {
-  return (
-    move?.category !== "Status" &&
-    activeAbility(defender) === "shielddust" &&
+function secondaryEffectBlockSource(attacker, defender, move) {
+  if (move?.category === "Status") return "";
+  if (cleanId(defender.item) === "covertcloak") return "covertcloak";
+  return activeAbility(defender) === "shielddust" &&
     !ignoresDefenderAbility(attacker)
-  );
+    ? "shielddust"
+    : "";
+}
+
+function secondaryEffectsBlocked(attacker, defender, move) {
+  return Boolean(secondaryEffectBlockSource(attacker, defender, move));
 }
 
 function validateSupportedAbilities(sides) {
@@ -2006,6 +2018,7 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     magnet: "Electric",
     miracleseed: "Grass",
     mysticwater: "Water",
+    nevermeltice: "Ice",
     pixieplate: "Fairy",
     sharpbeak: "Flying",
     spelltag: "Ghost",
@@ -2027,6 +2040,12 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     hasMoveFlag(move, "punch")
   ) {
     itemModifier *= 1.1;
+  }
+  if (
+    cleanId(attacker.item) === "metronome" &&
+    cleanId(attacker.consecutiveMove?.id) === cleanId(move.id)
+  ) {
+    itemModifier *= 1 + Math.min(5, attacker.consecutiveMove.count) * 0.2;
   }
   let abilityModifier = 1;
   const auraAbility =
@@ -4319,6 +4338,7 @@ function effectiveAccuracy(attacker, defender, move, state = null) {
   if (activeAbility(attacker) === "hustle" && move.category === "Physical") {
     abilityModifier *= 0.8;
   }
+  if (cleanId(attacker.item) === "widelens") abilityModifier *= 1.1;
   if (cleanId(defender.item) === "brightpowder") abilityModifier *= 0.9;
   if (
     activeAbility(defender) === "sandveil" &&
@@ -4751,7 +4771,12 @@ function applyProtectBlockEffect(
   rng,
 ) {
   const protectSource = cleanId(defender.volatiles?.protect?.source);
-  if (blockedMove.category !== "Physical" || blockedMove.power <= 0) return false;
+  if (
+    blockedMove.power <= 0 ||
+    !triggersContactPunishment(attacker, blockedMove)
+  ) {
+    return false;
+  }
   if (protectSource === "kingsshield") {
     return applyBoosts(
       state,
@@ -5756,6 +5781,17 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
       emitAbilityActivation(state, side, flowerVeilPokemon, "flowerveil", {
         source,
         target: pokemon.name,
+      });
+      continue;
+    }
+    if (loweredByFoe && cleanId(pokemon.item) === "clearamulet") {
+      state.events.push({
+        turn: state.turn,
+        type: "item_activate",
+        side,
+        pokemon: pokemon.name,
+        item: "clearamulet",
+        source,
       });
       continue;
     }
@@ -9521,7 +9557,7 @@ function executeMove(state, action, rng) {
         defender.hp > 0 &&
         activeAbility(defender) === "pickpocket" &&
         !ignoresDefenderAbility(attacker) &&
-        makesEffectiveContact(attacker, move) &&
+        triggersContactPunishment(attacker, move) &&
         !defender.item &&
         attacker.item
       ) {
@@ -9536,7 +9572,7 @@ function executeMove(state, action, rng) {
       }
       if (
         damage > 0 &&
-        makesEffectiveContact(attacker, move) &&
+        triggersContactPunishment(attacker, move) &&
         cleanId(defender.item) === "rockyhelmet" &&
         !attacker.fainted
       ) {
@@ -9551,7 +9587,7 @@ function executeMove(state, action, rng) {
       }
       if (
         damage > 0 &&
-        makesEffectiveContact(attacker, move) &&
+        triggersContactPunishment(attacker, move) &&
         activeAbility(defender) === "gooey" &&
         !ignoresDefenderAbility(attacker) &&
         !attacker.fainted
@@ -9696,7 +9732,7 @@ function executeMove(state, action, rng) {
         defender.hp > 0 &&
         activeAbility(defender) === "poisonpoint" &&
         !ignoresDefenderAbility(attacker) &&
-        makesEffectiveContact(attacker, move) &&
+        triggersContactPunishment(attacker, move) &&
         canReceiveStatus(attacker, "psn", state, action.side, defenderSide) &&
         rng.next() < 0.3
       ) {
@@ -9719,7 +9755,7 @@ function executeMove(state, action, rng) {
         defender.hp > 0 &&
         activeAbility(defender) === "static" &&
         !ignoresDefenderAbility(attacker) &&
-        makesEffectiveContact(attacker, move) &&
+        triggersContactPunishment(attacker, move) &&
         canReceiveStatus(attacker, "par", state, action.side, defenderSide) &&
         rng.next() < 0.3
       ) {
@@ -9746,7 +9782,7 @@ function executeMove(state, action, rng) {
         damage > 0 &&
         defender.hp > 0 &&
         !ignoresDefenderAbility(attacker) &&
-        makesEffectiveContact(attacker, move) &&
+        triggersContactPunishment(attacker, move) &&
         activeAbility(defender) === "cutecharm" &&
         defender.gender &&
         attacker.gender &&
@@ -9838,7 +9874,7 @@ function executeMove(state, action, rng) {
       if (
         damage > 0 &&
         !ignoresDefenderAbility(attacker) &&
-        makesEffectiveContact(attacker, move) &&
+        triggersContactPunishment(attacker, move) &&
         ["roughskin", "ironbarbs"].includes(activeAbility(defender)) &&
         !attacker.fainted
       ) {
@@ -9866,7 +9902,7 @@ function executeMove(state, action, rng) {
         damage > 0 &&
         defender.hp > 0 &&
         !ignoresDefenderAbility(attacker) &&
-        makesEffectiveContact(attacker, move) &&
+        triggersContactPunishment(attacker, move) &&
         activeAbility(defender) === "flamebody" &&
         canReceiveStatus(attacker, "brn", state, action.side, defenderSide) &&
         rng.next() < 0.3
@@ -9889,7 +9925,7 @@ function executeMove(state, action, rng) {
         damage > 0 &&
         defender.hp > 0 &&
         !ignoresDefenderAbility(attacker) &&
-        makesEffectiveContact(attacker, move) &&
+        triggersContactPunishment(attacker, move) &&
         activeAbility(defender) === "effectspore" &&
         !attacker.types.includes("Grass") &&
         activeAbility(attacker) !== "overcoat" &&
@@ -10394,21 +10430,36 @@ function executeMove(state, action, rng) {
     }
   }
   if (!isSheerForceBoostedMove(attacker, move)) {
-    const shieldDustBlocked =
+    const secondaryBlockSource =
       totalDamage > 0 &&
       defender.hp > 0 &&
       move.secondaries.length > 0 &&
-      secondaryEffectsBlocked(attacker, defender, move);
-    if (shieldDustBlocked) {
-      emitAbilityActivation(state, defenderSide, defender, "shielddust", {
-        targetSide: action.side,
-        target: attacker.name,
-        move: move.name,
+      secondaryEffectBlockSource(attacker, defender, move);
+    if (secondaryBlockSource === "shielddust") {
+      emitAbilityActivation(
+        state,
+        defenderSide,
+        defender,
+        secondaryBlockSource,
+        {
+          targetSide: action.side,
+          target: attacker.name,
+          move: move.name,
+        },
+      );
+    } else if (secondaryBlockSource === "covertcloak") {
+      state.events.push({
+        turn: state.turn,
+        type: "item_activate",
+        side: defenderSide,
+        pokemon: defender.name,
+        item: secondaryBlockSource,
+        source: move.name,
       });
     }
     for (const secondary of move.secondaries) {
       if (defender.hp <= 0) break;
-      if (shieldDustBlocked) continue;
+      if (secondaryBlockSource) continue;
       if (rng.next() * 100 >= secondaryEffectChance(attacker, secondary)) continue;
       applyMoveEffect(
         state,
@@ -10441,7 +10492,7 @@ function executeMove(state, action, rng) {
     defenderFainted &&
     !attacker.fainted &&
     totalDamage > 0 &&
-    makesEffectiveContact(attacker, move) &&
+    triggersContactPunishment(attacker, move) &&
     activeAbility(defender) === "aftermath" &&
     !dampActive(state) &&
     !ignoresDefenderAbility(attacker)
@@ -13280,10 +13331,13 @@ function automaticMoveCandidates(
         (sum, amount) => sum + Math.min(0, amount) * 15,
         0,
       );
-      const targetDropValue = Object.values(displayMove.boosts).reduce(
-        (sum, amount) => sum + Math.max(0, -amount) * 13,
-        0,
-      );
+      const targetDropValue =
+        cleanId(defender.item) === "clearamulet"
+          ? 0
+          : Object.values(displayMove.boosts).reduce(
+              (sum, amount) => sum + Math.max(0, -amount) * 13,
+              0,
+            );
       const missingHp = Math.max(0, pokemon.stats.hp - pokemon.hp);
       const isRestMove = cleanId(displayMove.id) === "rest";
       const recoveryAmount = isRestMove
