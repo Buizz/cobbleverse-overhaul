@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 MODULE_PATH = Path(__file__).parents[1] / "build_data_mod.py"
+REPOSITORY_ROOT = MODULE_PATH.parents[2]
 sys.path.insert(0, str(MODULE_PATH.parent))
 SPEC = importlib.util.spec_from_file_location("build_data_mod", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -19,6 +20,16 @@ SPEC.loader.exec_module(build_data_mod)
 
 
 class DataModBuilderTests(unittest.TestCase):
+    def test_starter_structure_targets_custom_biome(self) -> None:
+        path = (
+            REPOSITORY_ROOT
+            / build_data_mod.SOURCE
+            / "data/cobbleventure/worldgen/structure/starter_town/village.json"
+        )
+        structure = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertEqual("cobbleventure:starter_plains", structure["biomes"])
+
     def _fixture(self, root: Path) -> Path:
         source = root / build_data_mod.SOURCE
         source_entries = build_data_mod.REQUIRED_ENTRIES

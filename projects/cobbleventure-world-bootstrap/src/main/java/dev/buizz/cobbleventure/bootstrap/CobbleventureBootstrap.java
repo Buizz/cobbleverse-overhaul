@@ -138,6 +138,12 @@ public final class CobbleventureBootstrap {
             placed = 0;
         }
         if (placed == 0) {
+            LOGGER.error(
+                "Starter town placement returned 0 in {} at {} (biome={})",
+                level.dimension().location(),
+                villagePos,
+                level.getBiome(villagePos).unwrapKey().map(ResourceKey::location).orElse(null)
+            );
             firstPlayer.sendSystemMessage(Component.literal(
                 "[Cobbleventure] 전용 시작 차원은 생성했지만 시작 마을 배치에 실패했습니다."
             ));

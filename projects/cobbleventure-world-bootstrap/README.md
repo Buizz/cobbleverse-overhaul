@@ -16,6 +16,8 @@
   리스폰 지점으로 지정한다.
 - 새 스폰 기준 X/Z 각각 `+32` 블록 떨어진 지표면에
   `cobbleventure:starter_town/village`를 배치한다.
+- 시작 마을 구조물의 허용 바이옴은 `cobbleventure:starter_plains`로 고정한다.
+  BCA의 바닐라 마을용 `#bca:villages` 태그에는 의존하지 않는다.
 - 자체 체육관을 시작 조각으로 확정하고 네 방향의 BCA 도로 풀에서 주택과
   마을 시설을 확장하므로 체육관은 무작위로 누락되지 않는다.
 - 오버월드 SavedData `cobbleventure_world_bootstrap.dat`에 스폰·마을 좌표와

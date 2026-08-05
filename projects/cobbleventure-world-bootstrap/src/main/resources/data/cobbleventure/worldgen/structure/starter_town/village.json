@@ -1,6 +1,6 @@
 {
   "type": "minecraft:jigsaw",
-  "biomes": "#bca:villages",
+  "biomes": "cobbleventure:starter_plains",
   "spawn_overrides": {},
   "start_pool": "cobbleventure:starter_town/center",
   "size": 3,
