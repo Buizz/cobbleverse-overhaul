@@ -341,6 +341,7 @@ function hydrateMember(member, path, teraContext = {}) {
     id: species.id,
     name: species.name,
     baseSpecies: baseSpeciesName,
+    canEvolve: Array.isArray(species.evos) && species.evos.length > 0,
     level,
     types: species.types,
     gender: member.gender ?? null,

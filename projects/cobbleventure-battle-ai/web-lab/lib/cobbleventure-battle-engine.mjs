@@ -959,6 +959,7 @@ function normalizePokemon(pokemon, path) {
     id: String(pokemon?.id ?? pokemon?.name ?? "").trim(),
     name: String(pokemon?.name ?? pokemon?.id ?? "").trim(),
     baseSpecies,
+    canEvolve: pokemon?.canEvolve === true,
     role: pokemon?.role,
     aiRole: pokemon?.aiRole,
     roles: Array.isArray(pokemon?.roles) ? [...pokemon.roles] : pokemon?.roles,
@@ -1577,6 +1578,13 @@ function effectiveStat(pokemon, stat, options = {}) {
     }
   }
   if (stat === "specialDefence" && pokemon.item === "assaultvest") value *= 1.5;
+  if (
+    ["defence", "specialDefence"].includes(stat) &&
+    pokemon.item === "eviolite" &&
+    pokemon.canEvolve
+  ) {
+    value *= 1.5;
+  }
   if (stat === "speed") {
     if (pokemon.status === "par") value *= 0.5;
     if (pokemon.item === "choicescarf") value *= 1.5;
@@ -1972,6 +1980,18 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     cleanId(attacker.item) === `${cleanId(move.type)}gem`
   ) {
     itemModifier *= 1.3;
+  }
+  const typeBoostingItems = {
+    blackbelt: "Fighting",
+    magnet: "Electric",
+    miracleseed: "Grass",
+    sharpbeak: "Flying",
+  };
+  if (typeBoostingItems[cleanId(attacker.item)] === move.type) {
+    itemModifier *= 1.2;
+  }
+  if (cleanId(attacker.item) === "expertbelt" && effectiveness > 1) {
+    itemModifier *= 1.2;
   }
   let abilityModifier = 1;
   const auraAbility =
@@ -3546,6 +3566,25 @@ function applyEntryHazards(state, sideIndex, pokemon) {
       maximumHp: pokemon.stats.hp,
     });
     delete conditions[wishId];
+  }
+  if (cleanId(pokemon.item) === "heavydutyboots") {
+    const hazardsPresent = [
+      "stealthrock",
+      "spikes",
+      "toxicspikes",
+      "stickyweb",
+    ].some((hazard) => conditions[hazard]);
+    if (hazardsPresent) {
+      state.events.push({
+        turn: state.turn,
+        type: "item_activate",
+        side: sideIndex,
+        pokemon: pokemon.name,
+        item: "heavydutyboots",
+        source: "entry_hazard",
+      });
+    }
+    return;
   }
   const hazardDamage = (amount, source) => {
     if (activeAbility(pokemon) === "magicguard") {
@@ -9376,6 +9415,21 @@ function executeMove(state, action, rng) {
       if (
         damage > 0 &&
         makesContact(move) &&
+        cleanId(defender.item) === "rockyhelmet" &&
+        !attacker.fainted
+      ) {
+        applyDirectDamage(
+          state,
+          action.side,
+          attacker,
+          Math.max(1, Math.floor(attacker.stats.hp / 6)),
+          "rockyhelmet",
+          "item",
+        );
+      }
+      if (
+        damage > 0 &&
+        makesContact(move) &&
         activeAbility(defender) === "gooey" &&
         !ignoresDefenderAbility(attacker) &&
         !attacker.fainted
@@ -9835,6 +9889,19 @@ function executeMove(state, action, rng) {
     } else {
       healPokemon(state, action.side, attacker, drainedAmount, move.name);
     }
+  }
+  if (
+    totalDamage > 0 &&
+    cleanId(attacker.item) === "shellbell" &&
+    !attacker.fainted
+  ) {
+    healPokemon(
+      state,
+      action.side,
+      attacker,
+      Math.max(1, Math.floor(totalDamage / 8)),
+      "shellbell",
+    );
   }
   if (
     totalDamage > 0 &&
@@ -11047,6 +11114,19 @@ function applyEndTurnEffects(state, rng) {
         "tox",
         rng,
         "Toxic Orb",
+        sideIndex,
+      );
+    } else if (
+      cleanId(pokemon.item) === "flameorb" &&
+      canReceiveStatus(pokemon, "brn", state, sideIndex, sideIndex)
+    ) {
+      applyStatus(
+        state,
+        sideIndex,
+        pokemon,
+        "brn",
+        rng,
+        "Flame Orb",
         sideIndex,
       );
     }
@@ -13916,7 +13996,12 @@ function automaticMoveCandidates(
 }
 
 function predictedEntryHazardDamage(state, sideIndex, pokemon) {
-  if (activeAbility(pokemon) === "magicguard") return 0;
+  if (
+    activeAbility(pokemon) === "magicguard" ||
+    cleanId(pokemon.item) === "heavydutyboots"
+  ) {
+    return 0;
+  }
   const conditions = state.sides[sideIndex]?.conditions ?? {};
   let damage = 0;
   if (conditions.stealthrock) {

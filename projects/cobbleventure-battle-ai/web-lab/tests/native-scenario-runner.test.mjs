@@ -287,6 +287,35 @@ test("hydrates both Galarian Darmanitan forms for Zen Mode", () => {
   );
 });
 
+test("hydrates evolution eligibility for Eviolite", () => {
+  const setup = createNativeBattleSetup({
+    ...scenario,
+    sides: [
+      {
+        ...scenario.sides[0],
+        team: [
+          {
+            ...scenario.sides[0].team[0],
+            species: "charmander",
+            item: "cobblemon:eviolite",
+            moveset: ["ember"],
+          },
+          {
+            ...scenario.sides[0].team[0],
+            species: "charizard",
+            item: "cobblemon:eviolite",
+            moveset: ["flamethrower"],
+          },
+        ],
+      },
+      scenario.sides[1],
+    ],
+  });
+
+  assert.equal(setup.sides[0].team[0].canEvolve, true);
+  assert.equal(setup.sides[0].team[1].canEvolve, false);
+});
+
 test("chooses a seeded original Tera Type when virtual data omits one", () => {
   const dualTypeScenario = {
     ...scenario,

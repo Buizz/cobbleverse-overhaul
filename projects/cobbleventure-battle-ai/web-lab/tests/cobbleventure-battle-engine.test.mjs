@@ -23150,3 +23150,165 @@ test("Water, Ghost, and Normal Gems boost their matching move once", () => {
     assert.equal(resolved.sides[0].team[0].item, "", type);
   }
 });
+
+test("Heavy-Duty Boots ignore every entry hazard and inform switch scoring", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      {
+        name: "Boots",
+        team: [
+          pokemon({ name: "Lead" }),
+          pokemon({ name: "Boots User", item: "heavydutyboots" }),
+        ],
+      },
+      { name: "Target", team: [pokemon({ moves: [splash] })] },
+    ],
+  }));
+  state.sides[0].conditions = {
+    stealthrock: { layers: 1 },
+    spikes: { layers: 3 },
+    toxicspikes: { layers: 2 },
+    stickyweb: { layers: 1 },
+  };
+  const candidates = automaticSwitchCandidates(state, 0);
+  assert.equal(candidates[0].hazardDamage, 0);
+  const switched = resolveSimpleTurn(state, [{ switch: 2 }, { move: 1 }]);
+  const bootsUser = switched.sides[0].team[1];
+  assert.equal(bootsUser.hp, bootsUser.stats.hp);
+  assert.equal(bootsUser.status, "");
+  assert.equal(bootsUser.boosts.speed, 0);
+});
+
+test("Rocky Helmet damages a contact attacker", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Contact", team: [pokemon({ moves: [{ ...pokemon().moves[0], contact: true }] })] },
+      { name: "Helmet", team: [pokemon({ item: "rockyhelmet", moves: [splash] })] },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(
+    resolved.events.some(
+      (event) => event.source === "rockyhelmet" && event.damage === 20,
+    ),
+  );
+});
+
+test("type items and Expert Belt boost matching damage previews", () => {
+  const cases = [
+    ["blackbelt", "Fighting"],
+    ["magnet", "Electric"],
+    ["miracleseed", "Grass"],
+    ["sharpbeak", "Flying"],
+  ];
+  for (const [item, type] of cases) {
+    const move = { ...pokemon().moves[0], type };
+    assert.equal(
+      calculateDamageRange(pokemon({ item }), pokemon(), move).itemModifier,
+      1.2,
+      item,
+    );
+  }
+  const fightingMove = { ...pokemon().moves[0], type: "Fighting" };
+  assert.equal(
+    calculateDamageRange(
+      pokemon({ item: "expertbelt" }),
+      pokemon({ types: ["Normal"] }),
+      fightingMove,
+    ).itemModifier,
+    1.2,
+  );
+  assert.equal(
+    calculateDamageRange(
+      pokemon({ item: "expertbelt" }),
+      pokemon({ types: ["Water"] }),
+      fightingMove,
+    ).itemModifier,
+    1,
+  );
+});
+
+test("Shell Bell restores one eighth of damage dealt", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Bell", team: [pokemon({ item: "shellbell", moves: [{ ...pokemon().moves[0], power: 80 }] })] },
+      { name: "Target", team: [pokemon({ moves: [splash] })] },
+    ],
+  }));
+  state.sides[0].team[0].hp = 50;
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.ok(resolved.sides[0].team[0].hp > 50);
+  assert.ok(
+    resolved.events.some(
+      (event) => event.type === "heal" && event.source === "shellbell",
+    ),
+  );
+});
+
+test("Eviolite raises both defences only for Pokemon that can evolve", () => {
+  const physical = { ...pokemon().moves[0], power: 80 };
+  const special = { ...physical, category: "Special" };
+  const attacker = pokemon();
+  const ordinary = pokemon({ canEvolve: true });
+  const eviolite = pokemon({ canEvolve: true, item: "eviolite" });
+  const finalStage = pokemon({ canEvolve: false, item: "eviolite" });
+  assert.ok(
+    calculateDamageRange(attacker, eviolite, physical).maximum <
+      calculateDamageRange(attacker, ordinary, physical).maximum,
+  );
+  assert.ok(
+    calculateDamageRange(attacker, eviolite, special).maximum <
+      calculateDamageRange(attacker, ordinary, special).maximum,
+  );
+  assert.equal(
+    calculateDamageRange(attacker, finalStage, physical).maximum,
+    calculateDamageRange(attacker, ordinary, physical).maximum,
+  );
+});
+
+test("Flame Orb burns its holder at the end of the turn", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Orb", team: [pokemon({ item: "flameorb", moves: [splash] })] },
+      { name: "Target", team: [pokemon({ moves: [splash] })] },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[0].team[0].status, "brn");
+});
