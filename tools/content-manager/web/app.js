@@ -515,6 +515,11 @@ function renderTeam() {
           return `<button type="button" class="${index === state.selectedPokemonIndex ? "active" : ""}" data-pokemon-index="${index}"><span>${String(index + 1).padStart(2, "0")}</span><img data-party-art="${index}" alt="" hidden><b data-party-fallback="${index}">●</b><strong>${escapeHtml(speciesLabel(member.species))}</strong><small>Lv.${escapeHtml(member.level)}</small></button>`;
         }).join("")}
       </nav>
+      <div class="party-order-toolbar" aria-label="선택한 포켓몬 순서 이동">
+        <span><b>PARTY ORDER</b> 선택한 포켓몬을 이동합니다.</span>
+        <button type="button" id="move-pokemon-left" ${state.selectedPokemonIndex === 0 ? "disabled" : ""}>← 왼쪽</button>
+        <button type="button" id="move-pokemon-right" ${state.selectedPokemonIndex === team.length - 1 ? "disabled" : ""}>오른쪽 →</button>
+      </div>
       <article class="focused-pokemon-editor">
         <aside class="focused-pokemon-preview">
           <span class="slot-number">PARTY SLOT ${String(state.selectedPokemonIndex + 1).padStart(2, "0")}</span>
@@ -566,6 +571,8 @@ function renderTeam() {
   $$('[data-clear-move]').forEach((button) => button.addEventListener("click", () => clearMove(Number(button.dataset.clearMove))));
   $("#remove-focused-pokemon").addEventListener("click", () => removePokemon(state.selectedPokemonIndex));
   $("#duplicate-pokemon").addEventListener("click", duplicatePokemon);
+  $("#move-pokemon-left").addEventListener("click", () => moveSelectedPokemon(-1));
+  $("#move-pokemon-right").addEventListener("click", () => moveSelectedPokemon(1));
   hydrateFocusedPokemonArt();
   hydratePartyArt();
 }
@@ -623,6 +630,18 @@ function selectPokemon(index) {
   updateFocusedPokemon();
   state.selectedPokemonIndex = index;
   renderTeam();
+}
+
+function moveSelectedPokemon(offset) {
+  const team = state.trainer?.battle?.team;
+  if (!team) return;
+  updateFocusedPokemon();
+  const targetIndex = state.selectedPokemonIndex + offset;
+  if (targetIndex < 0 || targetIndex >= team.length) return;
+  [team[state.selectedPokemonIndex], team[targetIndex]] = [team[targetIndex], team[state.selectedPokemonIndex]];
+  state.selectedPokemonIndex = targetIndex;
+  renderTeam();
+  syncTrainerJson();
 }
 
 function duplicatePokemon() {
