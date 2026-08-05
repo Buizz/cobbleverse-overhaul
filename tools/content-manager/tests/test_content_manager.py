@@ -272,6 +272,8 @@ class ContentManagerTests(unittest.TestCase):
                 page = response.read().decode("utf-8")
             with urllib.request.urlopen(f"{base_url}/app.js") as response:
                 app_script = response.read().decode("utf-8")
+            with urllib.request.urlopen(f"{base_url}/styles.css") as response:
+                styles = response.read().decode("utf-8")
             with urllib.request.urlopen(
                 f"{base_url}/pokemon-entry-clipboard.mjs"
             ) as response:
@@ -298,6 +300,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("PokeAPI/sprites/master/sprites/pokemon", app_script)
         self.assertIn("other/official-artwork", app_script)
         self.assertNotIn("pokeapi.co/api/v2/pokemon", app_script)
+        self.assertIn("move-type-badge", app_script)
+        self.assertIn(".move-type-badge.type-fire", styles)
+        self.assertIn(".move-type-badge.type-fairy", styles)
         self.assertIn("POKEMON_ENTRY_CLIPBOARD_SCHEMA", clipboard_module)
 
     def test_build_api_uses_allowlisted_runner(self) -> None:
