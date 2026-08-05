@@ -116,6 +116,19 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertTrue(any("같은 전투 기믹" in issue.message for issue in issues))
 
+    def test_invalid_tera_type_is_rejected(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["battle"]["team"][0]["tera_type"] = "not_a_type"
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertTrue(any("지원하는 포켓몬 타입" in issue.message for issue in issues))
+
     def test_starter_town_is_valid(self) -> None:
         root = Path(__file__).parents[3]
         settlement_id, issues = content_manager.validate_settlement_file(

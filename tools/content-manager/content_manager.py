@@ -28,6 +28,27 @@ STAT_NAMES = {
     "special_defense",
     "speed",
 }
+TERA_TYPES = {
+    "auto",
+    "normal",
+    "fire",
+    "water",
+    "electric",
+    "grass",
+    "ice",
+    "fighting",
+    "poison",
+    "ground",
+    "flying",
+    "psychic",
+    "bug",
+    "rock",
+    "ghost",
+    "dragon",
+    "dark",
+    "steel",
+    "fairy",
+}
 OPERATION_TYPES = {
     "always",
     "flag_equals",
@@ -715,6 +736,14 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
                 for boolean_key in ("shiny", "gigantamax_factor"):
                     if boolean_key in pokemon and not isinstance(pokemon.get(boolean_key), bool):
                         _issue(issues, "error", path, f"{pokemon_path}.{boolean_key}", "boolean이어야 합니다.")
+                if pokemon.get("tera_type") not in TERA_TYPES:
+                    _issue(
+                        issues,
+                        "error",
+                        path,
+                        f"{pokemon_path}.tera_type",
+                        "auto 또는 지원하는 포켓몬 타입이어야 합니다.",
+                    )
                 moves = _require_list(pokemon.get("moves"), issues, path, f"{pokemon_path}.moves")
                 if moves is not None and not 1 <= len(moves) <= 4:
                     _issue(issues, "error", path, f"{pokemon_path}.moves", "기술은 1개 이상 4개 이하여야 합니다.")
@@ -1094,7 +1123,7 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
                     "moves": ["tackle"],
                     "ivs": {},
                     "evs": {},
-                    "tera_type": None,
+                    "tera_type": "auto",
                     "shiny": False,
                     "gigantamax_factor": False,
                 }

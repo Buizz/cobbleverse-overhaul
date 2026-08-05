@@ -412,7 +412,7 @@ function pokemonTemplate() {
   return {
     species: "cobblemon:rattata", level: 5, form: null, aspects: [], gender: "random",
     nature: null, ability: null, held_item: null, moves: ["tackle"], ivs: {}, evs: {},
-    tera_type: null, shiny: false, gigantamax_factor: false, gimmick: null
+    tera_type: "auto", shiny: false, gigantamax_factor: false, gimmick: null
   };
 }
 
@@ -464,7 +464,7 @@ function renderTeam() {
             <label class="wide"><span>성격</span><span class="editor-picker-input"><input name="nature" value="${escapeHtml(natureLabel(pokemon.nature))}" data-value="${escapeHtml(pokemon.nature || "")}" readonly><button type="button" data-open-choice="nature">선택</button></span><small class="nature-effect-summary">${escapeHtml(natureEffectLabel(pokemon.nature))}</small></label>
             <label class="wide"><span>특성</span><span class="editor-picker-input"><input name="ability" value="${escapeHtml(pokemon.ability || "")}" readonly placeholder="비우면 자동"><button type="button" data-open-choice="ability">선택</button></span></label>
             <label class="wide"><span>일반 소지품</span><span class="editor-picker-input"><input name="heldItem" value="${escapeHtml(pokemon.held_item || "")}" readonly placeholder="${pokemon.gimmick ? "기믹 아이템 사용 중" : "비우면 없음"}"><button type="button" data-open-choice="item">선택</button></span></label>
-            <label class="wide"><span>테라 타입</span><select name="teraType"><option value="">지정 안 함</option>${Object.entries(pokemonTypeNames).map(([type, label]) => `<option value="${type.toLowerCase()}" ${pokemon.tera_type === type.toLowerCase() ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+            <label class="wide"><span>테라 타입</span><select name="teraType"><option value="auto" ${!pokemon.tera_type || pokemon.tera_type === "auto" ? "selected" : ""}>자동 (주속성 중 하나)</option>${Object.entries(pokemonTypeNames).map(([type, label]) => `<option value="${type.toLowerCase()}" ${pokemon.tera_type === type.toLowerCase() ? "selected" : ""}>${label}</option>`).join("")}</select><small class="tera-type-summary">자동은 RCT 출력 시 포켓몬의 원래 타입 중 하나로 확정됩니다.</small></label>
           </div>
           <div class="focused-gimmick-row">
             <label><input type="checkbox" name="shiny" ${pokemon.shiny ? "checked" : ""}><span>이로치</span></label>
@@ -578,7 +578,7 @@ function updateFocusedPokemon() {
     aspects: value("aspects").split(",").map((aspect) => aspect.trim()).filter(Boolean),
     nature: editor.querySelector('[name="nature"]').dataset.value || null,
     ability: value("ability") || null,
-    held_item: value("heldItem") || null, tera_type: value("teraType") || null,
+    held_item: value("heldItem") || null, tera_type: value("teraType") || "auto",
     shiny: editor.querySelector('[name="shiny"]').checked,
     gigantamax_factor: editor.querySelector('[name="gigantamax"]').checked,
     ivs, evs,

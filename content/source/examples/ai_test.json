@@ -67,7 +67,7 @@
         "moves": ["tackle", "tail_whip"],
         "ivs": {},
         "evs": {},
-        "tera_type": null,
+        "tera_type": "auto",
         "shiny": false,
         "gigantamax_factor": false
       }

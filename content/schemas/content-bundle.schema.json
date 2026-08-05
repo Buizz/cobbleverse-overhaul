@@ -178,7 +178,7 @@
           }
         }
       ],
-      "required": ["species", "level", "gender", "moves", "shiny"],
+      "required": ["species", "level", "gender", "moves", "tera_type", "shiny"],
       "properties": {
         "species": { "$ref": "#/$defs/resource_id" },
         "level": { "type": "integer", "minimum": 1, "maximum": 100 },
@@ -221,7 +221,14 @@
         },
         "ivs": { "$ref": "#/$defs/ivs" },
         "evs": { "$ref": "#/$defs/evs" },
-        "tera_type": { "type": ["string", "null"] },
+        "tera_type": {
+          "description": "auto이면 RCT 출력 시 포켓몬의 원래 타입 중 하나로 확정한다.",
+          "enum": [
+            "auto", "normal", "fire", "water", "electric", "grass", "ice",
+            "fighting", "poison", "ground", "flying", "psychic", "bug", "rock",
+            "ghost", "dragon", "dark", "steel", "fairy"
+          ]
+        },
         "shiny": { "type": "boolean" },
         "gigantamax_factor": { "type": "boolean" }
       }

@@ -164,6 +164,7 @@ body {
 .focused-profile-fields .editor-picker-input input { border-radius: 3px 0 0 3px; }
 .focused-profile-fields .editor-picker-input button { border: 1px solid #17344a; border-radius: 0 3px 3px 0; background: #17344a; color: #fff; font-size: 9px; font-weight: 800; cursor: pointer; }
 .focused-profile-fields .nature-effect-summary { color: #61798a; font-size: 8px; font-weight: 750; }
+.focused-profile-fields .tera-type-summary { color: #61798a; font-size: 8px; font-weight: 650; line-height: 1.4; }
 .focused-profile-fields input[readonly] { color: #1d3b50; font-weight: 750; cursor: default; }
 .focused-move-field { grid-template-columns: 30px minmax(0, 1fr) 54px; }
 .move-field-actions { display: grid; gap: 4px; }
