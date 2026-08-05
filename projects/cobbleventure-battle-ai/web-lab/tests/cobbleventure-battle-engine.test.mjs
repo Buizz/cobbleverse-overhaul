@@ -23312,3 +23312,221 @@ test("Flame Orb burns its holder at the end of the turn", () => {
   const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
   assert.equal(resolved.sides[0].team[0].status, "brn");
 });
+
+test("Black Glasses, Spell Tag, Mystic Water, and Wise Glasses boost damage", () => {
+  const typedCases = [
+    ["blackglasses", "Dark"],
+    ["spelltag", "Ghost"],
+    ["mysticwater", "Water"],
+  ];
+  for (const [item, type] of typedCases) {
+    const move = { ...pokemon().moves[0], type };
+    assert.equal(
+      calculateDamageRange(pokemon({ item }), pokemon(), move).itemModifier,
+      1.2,
+      item,
+    );
+  }
+
+  const specialMove = {
+    ...pokemon().moves[0],
+    category: "Special",
+  };
+  assert.equal(
+    calculateDamageRange(
+      pokemon({ item: "wiseglasses" }),
+      pokemon(),
+      specialMove,
+    ).itemModifier,
+    1.1,
+  );
+  assert.equal(
+    calculateDamageRange(
+      pokemon({ item: "wiseglasses" }),
+      pokemon(),
+      pokemon().moves[0],
+    ).itemModifier,
+    1,
+  );
+});
+
+test("Light Ball doubles both attacking stats only for Pikachu", () => {
+  const physicalMove = { ...pokemon().moves[0], power: 80 };
+  const specialMove = { ...physicalMove, category: "Special" };
+  const ordinaryPikachu = pokemon({ id: "pikachu", baseSpecies: "Pikachu" });
+  const lightBallPikachu = pokemon({
+    id: "pikachu",
+    baseSpecies: "Pikachu",
+    item: "lightball",
+  });
+  const lightBallRaichu = pokemon({
+    id: "raichu",
+    baseSpecies: "Raichu",
+    item: "lightball",
+  });
+
+  for (const move of [physicalMove, specialMove]) {
+    const ordinary = calculateDamageRange(ordinaryPikachu, pokemon(), move);
+    const boosted = calculateDamageRange(lightBallPikachu, pokemon(), move);
+    const raichu = calculateDamageRange(lightBallRaichu, pokemon(), move);
+    assert.ok(boosted.maximum > ordinary.maximum * 1.9, move.category);
+    assert.equal(raichu.maximum, ordinary.maximum, move.category);
+  }
+});
+
+test("King's Rock adds a ten-percent flinch secondary to damaging moves", () => {
+  const preview = calculateMovePreview(
+    pokemon({ item: "kingsrock" }),
+    pokemon(),
+    pokemon().moves[0],
+  );
+  assert.ok(
+    preview.move.secondaries.some(
+      (effect) => effect.volatileStatus === "flinch" && effect.chance === 10,
+    ),
+  );
+
+  const existingFlinchMove = {
+    ...pokemon().moves[0],
+    secondaries: [{ chance: 30, volatileStatus: "flinch" }],
+  };
+  const existingPreview = calculateMovePreview(
+    pokemon({ item: "kingsrock" }),
+    pokemon(),
+    existingFlinchMove,
+  );
+  assert.equal(existingPreview.move.secondaries.length, 1);
+  assert.equal(existingPreview.move.secondaries[0].chance, 30);
+});
+
+test("Charti Berry halves a super-effective Rock hit and is consumed", () => {
+  const rockMove = {
+    ...pokemon().moves[0],
+    name: "Rock Slide",
+    id: "rockslide",
+    type: "Rock",
+    power: 75,
+  };
+  const target = pokemon({ types: ["Fire"], item: "chartiberry" });
+  const range = calculateDamageRange(pokemon(), target, rockMove);
+  assert.equal(range.effectiveness, 2);
+  assert.equal(range.fieldModifier, 0.5);
+
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  const state = createSimpleBattle(setup({
+    sides: [
+      { name: "Rock", team: [pokemon({ moves: [rockMove] })] },
+      {
+        name: "Berry",
+        team: [pokemon({ types: ["Fire"], item: "chartiberry", moves: [splash] })],
+      },
+    ],
+  }));
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  const berryHolder = resolved.sides[1].team[0];
+  assert.equal(berryHolder.item, "");
+  assert.equal(berryHolder.consumedItem, "chartiberry");
+  assert.equal(berryHolder.ateBerry, true);
+});
+
+test("Bright Powder, Scope Lens, and Focus Band use their battle probabilities", () => {
+  const splash = {
+    id: "splash",
+    name: "Splash",
+    type: "Normal",
+    category: "Status",
+    power: 0,
+    accuracy: true,
+    pp: 40,
+  };
+  let brightPowderMisses = 0;
+  let ordinaryCriticals = 0;
+  let scopeLensCriticals = 0;
+  let focusBandSurvivals = 0;
+
+  for (let seed = 1; seed <= 240; seed += 1) {
+    const accuracyState = createSimpleBattle(setup({
+      seed,
+      sides: [
+        { name: "Attacker", team: [pokemon({ name: "Accurate" })] },
+        {
+          name: "Target",
+          team: [pokemon({ name: "Powder", item: "brightpowder", moves: [splash] })],
+        },
+      ],
+    }));
+    const accuracyResult = resolveSimpleTurn(
+      accuracyState,
+      [{ move: 1 }, { move: 1 }],
+    );
+    if (accuracyResult.events.some((event) => event.type === "miss")) {
+      brightPowderMisses += 1;
+    }
+
+    for (const [item, recordCritical] of [
+      ["", () => { ordinaryCriticals += 1; }],
+      ["scopelens", () => { scopeLensCriticals += 1; }],
+    ]) {
+      const criticalState = createSimpleBattle(setup({
+        seed,
+        sides: [
+          {
+            name: "Attacker",
+            team: [pokemon({ name: "Critter", item, moves: [{ ...pokemon().moves[0], accuracy: true }] })],
+          },
+          { name: "Target", team: [pokemon({ name: "Dummy", moves: [splash] })] },
+        ],
+      }));
+      const criticalResult = resolveSimpleTurn(
+        criticalState,
+        [{ move: 1 }, { move: 1 }],
+      );
+      if (
+        criticalResult.events.some(
+          (event) => event.type === "damage" && event.critical === true,
+        )
+      ) {
+        recordCritical();
+      }
+    }
+
+    const lethalMove = {
+      ...pokemon().moves[0],
+      power: 400,
+      accuracy: true,
+    };
+    const bandState = createSimpleBattle(setup({
+      seed,
+      sides: [
+        {
+          name: "Attacker",
+          team: [pokemon({ stats: { ...pokemon().stats, attack: 300 }, moves: [lethalMove] })],
+        },
+        {
+          name: "Target",
+          team: [pokemon({ item: "focusband", stats: { ...pokemon().stats, defence: 50 }, moves: [splash] })],
+        },
+      ],
+    }));
+    const bandResult = resolveSimpleTurn(bandState, [{ move: 1 }, { move: 1 }]);
+    if (
+      bandResult.events.some(
+        (event) => event.type === "damage_prevented" && event.source === "Focus Band",
+      )
+    ) {
+      focusBandSurvivals += 1;
+    }
+  }
+
+  assert.ok(brightPowderMisses >= 10 && brightPowderMisses <= 40);
+  assert.ok(scopeLensCriticals > ordinaryCriticals * 2);
+  assert.ok(focusBandSurvivals >= 10 && focusBandSurvivals <= 40);
+});

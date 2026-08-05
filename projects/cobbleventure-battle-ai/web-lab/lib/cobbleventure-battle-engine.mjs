@@ -1378,7 +1378,8 @@ function abilityModifiedMove(attacker, move) {
     return { ...move, type: "Water" };
   }
   if (
-    activeAbility(attacker) === "stench" &&
+    (activeAbility(attacker) === "stench" ||
+      cleanId(attacker.item) === "kingsrock") &&
     move?.category !== "Status" &&
     Number(move?.power ?? 0) > 0 &&
     !(move.secondaries ?? []).some(
@@ -1529,6 +1530,13 @@ function effectiveStat(pokemon, stat, options = {}) {
   if (options.ignoreNegative && stage < 0) stage = 0;
   if (options.ignorePositive && stage > 0) stage = 0;
   let value = pokemon.stats[stat] * stageMultiplier(stage);
+  if (
+    ["attack", "specialAttack"].includes(stat) &&
+    cleanId(pokemon.item) === "lightball" &&
+    cleanId(pokemon.baseSpecies || pokemon.id || pokemon.name) === "pikachu"
+  ) {
+    value *= 2;
+  }
   if (
     ["attack", "specialAttack"].includes(stat) &&
     activeAbility(pokemon) === "defeatist" &&
@@ -1982,16 +1990,25 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     itemModifier *= 1.3;
   }
   const typeBoostingItems = {
+    blackglasses: "Dark",
     blackbelt: "Fighting",
     magnet: "Electric",
     miracleseed: "Grass",
+    mysticwater: "Water",
     sharpbeak: "Flying",
+    spelltag: "Ghost",
   };
   if (typeBoostingItems[cleanId(attacker.item)] === move.type) {
     itemModifier *= 1.2;
   }
   if (cleanId(attacker.item) === "expertbelt" && effectiveness > 1) {
     itemModifier *= 1.2;
+  }
+  if (
+    cleanId(attacker.item) === "wiseglasses" &&
+    move.category === "Special"
+  ) {
+    itemModifier *= 1.1;
   }
   let abilityModifier = 1;
   const auraAbility =
@@ -2134,8 +2151,8 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
     context.critical,
   );
   if (
-    cleanId(defender.item) === "colburberry" &&
-    move.type === "Dark" &&
+    ["chartiberry", "colburberry"].includes(cleanId(defender.item)) &&
+    heldItemType(defender.item) === move.type &&
     effectiveness > 1
   ) {
     fieldModifier *= 0.5;
@@ -4259,6 +4276,7 @@ function effectiveAccuracy(attacker, defender, move, state = null) {
   if (activeAbility(attacker) === "hustle" && move.category === "Physical") {
     abilityModifier *= 0.8;
   }
+  if (cleanId(defender.item) === "brightpowder") abilityModifier *= 0.9;
   if (
     activeAbility(defender) === "sandveil" &&
     weather === "sandstorm" &&
@@ -6518,7 +6536,8 @@ function criticalHitChance(pokemon, move) {
   const ratio =
     Math.max(1, Number(move?.critRatio ?? 1)) +
     (pokemon?.volatiles?.focusenergy ? 2 : 0) +
-    (activeAbility(pokemon) === "superluck" ? 1 : 0);
+    (activeAbility(pokemon) === "superluck" ? 1 : 0) +
+    (cleanId(pokemon.item) === "scopelens" ? 1 : 0);
   return ratio >= 3 ? 1 : ratio === 2 ? 1 / 8 : 1 / 24;
 }
 
@@ -9223,6 +9242,21 @@ function executeMove(state, action, rng) {
         remainingHp: defender.hp,
       });
     }
+    if (
+      damage >= defender.hp &&
+      cleanId(defender.item) === "focusband" &&
+      rng.next() < 0.1
+    ) {
+      damage = Math.max(0, defender.hp - 1);
+      state.events.push({
+        turn: state.turn,
+        type: "damage_prevented",
+        side: defenderSide,
+        pokemon: defender.name,
+        source: "Focus Band",
+        remainingHp: defender.hp,
+      });
+    }
     const hitEffectiveness =
       fixedDamage === null ? range.effectiveness : fixedEffectiveness;
     if (hitEffectiveness === 0) {
@@ -9359,12 +9393,13 @@ function executeMove(state, action, rng) {
       }
       if (
         damage > 0 &&
-        cleanId(defender.item) === "colburberry" &&
-        move.type === "Dark" &&
+        ["chartiberry", "colburberry"].includes(cleanId(defender.item)) &&
+        heldItemType(defender.item) === move.type &&
         range.effectiveness > 1
       ) {
+        const berryId = cleanId(defender.item);
         consumeHeldItem(state, defenderSide, defender, move.name);
-        markBerryEaten(defender, "colburberry");
+        markBerryEaten(defender, berryId);
       }
       if (
         damage > 0 &&
@@ -11843,7 +11878,8 @@ function aiExpectedMoveDamage(
     ? 0
     : move.willCrit || attacker.volatiles?.laserfocus
       ? 1
-      : activeAbility(attacker) === "superluck"
+      : activeAbility(attacker) === "superluck" ||
+          cleanId(attacker.item) === "scopelens"
         ? criticalHitChance(attacker, move)
         : 0;
   const critical = criticalChance >= 1;
