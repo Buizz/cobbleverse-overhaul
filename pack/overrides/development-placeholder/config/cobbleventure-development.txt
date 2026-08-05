@@ -1,4 +1,5 @@
-Cobbleventure development pack placeholder
+Cobbleventure development test pack
 
-This pack is importable, but it does not contain Cobblemon, RCT, or Cobbleventure NeoForge jars yet.
-Use it only to test the development packaging workflow.
+This pack contains Cobblemon 1.7.3, the Cobblemon Additions compatibility stack,
+and a temporary starter-town bootstrap data mod. RCT and the production
+Cobbleventure NeoForge gameplay adapter are not included yet.

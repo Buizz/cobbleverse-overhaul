@@ -1,0 +1,28 @@
+modLoader="lowcodefml"
+loaderVersion="[1,)"
+license="All Rights Reserved"
+showAsDataPack=true
+
+[[mods]]
+modId="cobbleventure_bootstrap"
+version="0.1.0"
+displayName="Cobbleventure World Bootstrap"
+authors="Buizz"
+description='''
+Places one Cobblemon Additions test village near the first overworld spawn.
+This is a temporary prototype for the Cobbleventure world bootstrap pipeline.
+'''
+
+[[dependencies.cobbleventure_bootstrap]]
+modId="neoforge"
+type="required"
+versionRange="[21.1,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.cobbleventure_bootstrap]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1,1.22)"
+ordering="NONE"
+side="BOTH"

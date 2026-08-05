@@ -6,7 +6,7 @@
   "author": "Buizz",
   "purpose": "development-pack-placeholder",
   "production_ready": false,
-  "notice": "Cobblemon 1.7.3과 Cobblemon Additions 호환 구성을 포함하며 Cobbleventure NeoForge JAR은 아직 없는 개발용 임시 팩입니다.",
+  "notice": "Cobblemon 1.7.3, Cobblemon Additions 호환 구성과 테스트용 시작 마을 부트스트랩을 포함한 개발용 임시 팩입니다.",
   "icon": "pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",

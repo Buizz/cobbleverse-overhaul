@@ -45,6 +45,7 @@
 | 모듈 | 역할 | 외부 의존성 원칙 |
 |------|------|------------------|
 | Cobbleventure Core | 진행, 지역, 퀘스트와 데이터 계약 | Minecraft·Cobblemon 비의존 유지 |
+| Cobbleventure World Bootstrap | 첫 오버월드 시작점 근처에 BCA 테스트 마을 배치 | `lowcodefml` 데이터 모드로 격리, 정식 지역 플래너 구현 후 교체 |
 | Cobbleventure NPC | NPC, 대화창, 조건과 행동 | NeoForge 어댑터에서만 게임 API 사용 |
 | Cobbleventure RCT Bridge | 대화 행동을 RCT 전투 시작으로 변환 | RCT 관련 코드를 별도 모듈로 격리 |
 | Cobbleventure Battle AI | RCT JSON의 `ai` 선택값으로 실행되는 AI | RCT 기본 AI를 대체하지 않음 |

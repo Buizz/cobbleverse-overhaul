@@ -4,6 +4,7 @@ setlocal
 set "REPO_ROOT=%~dp0"
 set "CONTENT_MANAGER=%REPO_ROOT%tools\content-manager\content_manager.py"
 set "PACK_BUILDER=%REPO_ROOT%tools\pack-builder\pack_builder.py"
+set "DATA_MOD_BUILDER=%REPO_ROOT%tools\mod-builder\build_data_mod.py"
 set "SMOKE_PROFILE=pack\profiles\import-smoke.json"
 set "DEVELOPMENT_PROFILE=pack\profiles\development-placeholder.json"
 
@@ -26,6 +27,7 @@ if /I "%~1"=="web" goto api
 if /I "%~1"=="api" goto api
 if /I "%~1"=="test" goto test
 if /I "%~1"=="generate" goto generate
+if /I "%~1"=="mod-bootstrap" goto mod_bootstrap
 if /I "%~1"=="pack-smoke" goto pack_smoke
 if /I "%~1"=="pack" goto pack
 if /I "%~1"=="pack-release" goto pack_release
@@ -47,10 +49,16 @@ exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\content-manager\tests" -p "test_*.py"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\pack-builder\tests" -p "test_*.py"
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\mod-builder\tests" -p "test_*.py"
 exit /b %errorlevel%
 
 :generate
 %PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%."
+exit /b %errorlevel%
+
+:mod_bootstrap
+%PYTHON_CMD% "%DATA_MOD_BUILDER%" --root "%REPO_ROOT%."
 exit /b %errorlevel%
 
 :pack_smoke
@@ -59,6 +67,8 @@ exit /b %errorlevel%
 
 :pack
 %PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%DATA_MOD_BUILDER%" --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%DEVELOPMENT_PROFILE%"
 exit /b %errorlevel%
@@ -85,6 +95,7 @@ echo   web            Start the local content manager Web UI and API
 echo   api            Alias for web (kept for compatibility)
 echo   test           Run all Python tool unit tests
 echo   generate       Generate RCT trainers and in-game AI runtime profiles
+echo   mod-bootstrap  Build the starter-town NeoForge data mod JAR
 echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked
