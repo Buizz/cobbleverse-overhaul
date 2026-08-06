@@ -1,0 +1,9 @@
+description = '월드 서식지별 포켓몬 출현 후보와 탐색 위치를 계산하는 플랫폼 독립 엔진'
+
+dependencies {
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+}
+
+test {
+    systemProperty 'cobbleventure.contentRoot', rootProject.file('../../content').absolutePath
+}

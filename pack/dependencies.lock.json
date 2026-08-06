@@ -127,18 +127,18 @@
       },
       "reason": "추가 전투 기믹 호환 후보"
     },
-    {
-      "id": "easy_npc",
+      {
+        "id": "easy_npc",
       "display_name": "Easy NPC Core",
       "classification": "profile-optional",
       "side": "both",
-      "enabled": false,
-      "version": null,
-      "curseforge": {
-        "project_id": null,
-        "file_id": null
-      },
-      "reason": "Easy NPC 호환 프로필의 NPC와 대화"
+        "enabled": true,
+        "version": "7.0.1",
+        "curseforge": {
+          "project_id": 559312,
+          "file_id": 8420470
+        },
+        "reason": "트레이너 의상 프리셋, 장비, 어린이 체형 NPC"
     },
     {
       "id": "easy_npc_config_ui",

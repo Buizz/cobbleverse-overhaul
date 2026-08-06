@@ -8,8 +8,16 @@ import {
 
 const state = {
   trainers: [], settlements: [], trainer: null, settlement: null,
-  trainerPath: "", settlementPath: "", buildCommands: [], trainerClasses: [],
-  selectedPokemonIndex: 0, editorCatalog: null, choice: null
+  trainerPath: "", settlementPath: "", buildCommands: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
+  selectedPokemonIndex: 0, editorCatalog: null, choice: null,
+  biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null
+};
+const biomeChoices = {
+  habitat: [["plains", "평원"], ["forest", "숲"], ["arid", "건조지"], ["mountain", "산악"], ["cave", "동굴"], ["wetland", "습지"], ["freshwater", "담수"], ["ocean", "해양"], ["snow", "설원"], ["volcanic", "화산"], ["urban", "도시"], ["special", "특수"]],
+  temperature: [["any", "무관"], ["cold", "한랭"], ["cool", "서늘"], ["temperate", "온대"], ["hot", "고온"]],
+  humidity: [["any", "무관"], ["dry", "건조"], ["normal", "보통"], ["humid", "다습"], ["aquatic", "수중"]],
+  weather: [["any", "무관"], ["clear", "맑음"], ["rain", "비"], ["thunder", "뇌우"], ["snow", "눈"], ["fog", "안개"]],
+  time: [["any", "무관"], ["day", "낮"], ["night", "밤"], ["twilight", "황혼"]]
 };
 const natureDefinitions = [
   ["hardy", "노력", null, null], ["lonely", "외로움", "attack", "defense"],
@@ -105,7 +113,7 @@ function escapeHtml(value) {
 function switchPage(section) {
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === section));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너 데이터", settlements: "마을 기본 설정", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너 데이터", settlements: "마을 기본 설정", biomes: "바이옴 관리", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
 }
 
@@ -124,17 +132,30 @@ async function loadDashboard() {
 }
 
 async function loadLists() {
-  const [trainers, settlements, trainerClasses, editorCatalog] = await Promise.all([
+  const [trainers, settlements, trainerClasses, trainerRoster, editorCatalog, biomeCatalog, pokemonHabitats] = await Promise.all([
     request("/api/trainers"), request("/api/settlements"), request("/api/trainer-classes"),
-    request("/api/editor-catalog")
+    request("/api/trainer-roster"),
+    request("/api/editor-catalog"), request("/api/biome-catalog"), request("/api/pokemon-habitats")
   ]);
   state.trainers = trainers.data.items || [];
   state.settlements = settlements.data.items || [];
   state.trainerClasses = trainerClasses.data.classes || [];
+  state.trainerRoster = trainerRoster.ok ? trainerRoster.data : { organizations: [], league_characters: [] };
   state.editorCatalog = editorCatalog.ok ? editorCatalog.data : null;
+  state.biomeCatalog = biomeCatalog.ok ? biomeCatalog.data : { profiles: [], sets: [] };
+  state.pokemonHabitats = pokemonHabitats.ok ? pokemonHabitats.data.pokemon || [] : [];
   if (!editorCatalog.ok) toast(editorCatalog.data.error || "전투 데이터 카탈로그를 불러오지 못했습니다.");
+  if (!biomeCatalog.ok || !pokemonHabitats.ok) {
+    const message = biomeCatalog.status === 404 || pokemonHabitats.status === 404
+      ? "바이옴 API가 없는 이전 서버가 실행 중입니다. build.bat web을 다시 시작해 주세요."
+      : (biomeCatalog.data.error || pokemonHabitats.data.error || "바이옴 데이터를 불러오지 못했습니다.");
+    toast(message);
+    $("#biome-issues").className = "issues";
+    $("#biome-issues").textContent = message;
+  }
   renderList("trainers");
   renderList("settlements");
+  renderBiomeManager();
 }
 
 function renderList(category) {
@@ -173,8 +194,20 @@ function renderTrainer() {
   setFormValue(form, "nameKo", document.name?.ko_kr);
   setFormValue(form, "nameEn", document.name?.en_us);
   setFormValue(form, "tags", (document.tags || []).join(", "));
-  form.elements.trainerClass.innerHTML = state.trainerClasses.map((trainerClass) => `<option value="${escapeHtml(trainerClass.id)}">${escapeHtml(trainerClass.display_name?.ko_kr || trainerClass.id)}</option>`).join("");
+  const categoryNames = {
+    children: "어린이·학생", outdoor: "야외·탐험", specialist: "타입 특화",
+    occupation: "직업·취미", social: "성인·상류층", advanced: "상급·특수",
+    boss: "보스·네임드", custom: "사용자 정의"
+  };
+  form.elements.trainerClass.innerHTML = Object.entries(categoryNames).map(([category, label]) => {
+    const options = state.trainerClasses.filter((entry) => entry.category === category).map((trainerClass) =>
+      `<option value="${escapeHtml(trainerClass.id)}">${escapeHtml(trainerClass.display_name?.ko_kr || trainerClass.id)}</option>`
+    ).join("");
+    return options ? `<optgroup label="${label}">${options}</optgroup>` : "";
+  }).join("");
+  form.elements.rosterCharacter.innerHTML = rosterCharacterOptions();
   setFormValue(form, "trainerClass", document.npc?.trainer_class);
+  setFormValue(form, "rosterCharacter", document.npc?.character || "");
   setFormValue(form, "appearanceSource", document.npc?.appearance?.source);
   setFormValue(form, "appearanceResource", document.npc?.appearance?.resource);
   setFormValue(form, "movement", document.npc?.behavior?.movement);
@@ -213,6 +246,8 @@ function updateTrainerFromForm() {
   else delete name.en_us;
   state.trainer.name = name;
   state.trainer.npc.trainer_class = form.elements.trainerClass.value;
+  if (form.elements.rosterCharacter.value) state.trainer.npc.character = form.elements.rosterCharacter.value;
+  else delete state.trainer.npc.character;
   state.trainer.npc.display_name = trainerDisplayName(name, state.trainer.npc.trainer_class);
   state.trainer.npc.appearance.source = form.elements.appearanceSource.value;
   state.trainer.npc.appearance.resource = form.elements.appearanceResource.value;
@@ -340,13 +375,62 @@ function applyTrainerClass() {
   const form = $("#trainer-form");
   const trainerClass = state.trainerClasses.find((entry) => entry.id === form.elements.trainerClass.value);
   if (trainerClass?.default_appearance) {
-    form.elements.appearanceSource.value = trainerClass.default_appearance.source;
-    form.elements.appearanceResource.value = trainerClass.default_appearance.resource;
+    const { source, type, resource, portrait } = trainerClass.default_appearance;
+    form.elements.appearanceSource.value = source;
+    form.elements.appearanceResource.value = resource;
     state.trainer.npc.appearance = {
       ...state.trainer.npc.appearance,
-      ...trainerClass.default_appearance
+      source, type, resource,
+      ...(portrait ? { portrait } : {})
     };
   }
+  form.elements.rosterCharacter.value = "";
+  delete state.trainer.npc.character;
+  updateTrainerFromForm();
+}
+
+function rosterCharacters() {
+  const organizations = (state.trainerRoster.organizations || []).flatMap((organization) => [
+    ...(organization.grunt_variants || []), ...(organization.named_characters || [])
+  ]);
+  return [...organizations, ...(state.trainerRoster.league_characters || [])];
+}
+
+function rosterCharacterOptions() {
+  const organizationGroups = (state.trainerRoster.organizations || []).map((organization) => {
+    const characters = [...(organization.grunt_variants || []), ...(organization.named_characters || [])];
+    return `<optgroup label="${escapeHtml(organization.display_name?.ko_kr || organization.id)}">${characters.map((character) =>
+      `<option value="${escapeHtml(character.id)}">${escapeHtml(character.display_name?.ko_kr || character.id)} · ${character.appearance?.asset_status === "verified" ? "스킨 확인" : "준비 중"}</option>`
+    ).join("")}</optgroup>`;
+  }).join("");
+  const regionNames = { kanto: "관동 리그", johto: "성도 리그", hoenn: "호연 리그", sinnoh: "신오 리그" };
+  const leagueGroups = Object.entries(regionNames).map(([region, label]) => {
+    const characters = (state.trainerRoster.league_characters || []).filter((entry) => entry.region === region);
+    return characters.length ? `<optgroup label="${label}">${characters.map((character) =>
+      `<option value="${escapeHtml(character.id)}">${escapeHtml(character.display_name?.ko_kr || character.id)} · ${character.appearance?.asset_status === "verified" ? "스킨 확인" : "정의만 확인"}</option>`
+    ).join("")}</optgroup>` : "";
+  }).join("");
+  return '<option value="">직접 설정</option>' + organizationGroups + leagueGroups;
+}
+
+function applyRosterCharacter() {
+  const form = $("#trainer-form");
+  const character = rosterCharacters().find((entry) => entry.id === form.elements.rosterCharacter.value);
+  if (!character) {
+    delete state.trainer.npc.character;
+    updateTrainerFromForm();
+    return;
+  }
+  const classByRole = {
+    grunt: "villain_grunt", admin: "villain_admin", named_agent: "villain_admin", boss: "villain_boss",
+    gym_leader: "gym_leader", elite_four: "elite_four", champion: "champion"
+  };
+  form.elements.trainerClass.value = `cobbleventure:trainer_class/${classByRole[character.role] || "custom"}`;
+  form.elements.nameKo.value = character.display_name?.ko_kr || character.id;
+  form.elements.nameEn.value = character.display_name?.en_us || "";
+  form.elements.appearanceSource.value = character.appearance.source;
+  form.elements.appearanceResource.value = character.appearance.resource;
+  state.trainer.npc.character = character.id;
   updateTrainerFromForm();
 }
 
@@ -356,21 +440,112 @@ function rctSkinUrl(resource) {
   return `https://gitlab.com/srcmc/rct/mod/-/raw/1.21.1/common/src/main/resources/assets/rctmod/textures/${path}.png`;
 }
 
+const trainerReferenceSprites = {
+  youngster: ["youngster-gen4", "4세대"], lass: ["lass-gen4", "4세대"], bug_catcher: ["bugcatcher-gen4dp", "4세대 DP"],
+  school_kid: ["schoolkid-gen4", "4세대"], preschooler: ["preschooler-gen6", "6세대"], twins: ["twins-gen4", "4세대"],
+  camper: ["camper-gen6", "6세대"], picnicker: ["picnicker-gen6", "6세대"], hiker: ["hiker-gen4", "4세대"],
+  fisherman: ["fisherman-gen4", "4세대"], sailor: ["sailor-gen6", "6세대"], swimmer_male: ["swimmer-gen4", "4세대"],
+  swimmer_female: ["swimmerf-gen4", "4세대"], bird_keeper: ["birdkeeper-gen4dp", "4세대 DP"], pokemon_ranger: ["pokemonranger-gen4", "4세대"],
+  backpacker: ["backpacker-gen6", "6세대"], skier: ["skierf-gen4dp", "4세대 DP"], boarder: ["boarder-gen2", "2세대"],
+  black_belt: ["blackbelt-gen4", "4세대"], battle_girl: ["battlegirl-gen4", "4세대"], psychic: ["psychic-gen4", "4세대"],
+  dragon_tamer: ["dragontamer-gen3", "3세대"], hex_maniac: ["hexmaniac-gen6", "6세대"], aroma_lady: ["aromalady", "본가 계열"],
+  bug_maniac: ["bugmaniac-gen3", "3세대"], kindler: ["kindler-gen3", "3세대"], tamer: ["tamer-gen3", "3세대"],
+  scientist: ["scientist-gen4", "4세대"], super_nerd: ["supernerd-gen3", "3세대"], pokemon_breeder: ["pokemonbreeder-gen4", "4세대"],
+  pokefan: ["pokefan-gen4", "4세대"], poke_maniac: ["pokemaniac-gen6", "6세대"], collector: ["collector-gen3", "3세대"],
+  police_officer: ["policeman-gen4", "4세대"], worker: ["worker-gen4", "4세대"], office_worker: ["officeworker-gen9", "9세대"],
+  cook: ["cook-gen7", "7세대"], waiter: ["waiter-gen4", "4세대"], waitress: ["waitress-gen9", "9세대"],
+  musician: ["musician-gen8", "8세대"], guitarist: ["guitarist-gen4", "4세대"], artist: ["artist-gen4", "4세대"],
+  biker: ["biker-gen4", "4세대"], beauty: ["beauty-gen4dp", "4세대 DP"], gentleman: ["gentleman-gen4", "4세대"],
+  rich_boy: ["richboy-gen4", "4세대"], lady: ["lady-gen4", "4세대"], madame: ["madame-gen6", "6세대"],
+  maid: ["maid-gen4", "4세대"], old_couple: ["oldcouple-gen3", "3세대"], young_couple: ["youngcouple-gen4dp", "4세대 DP"],
+  ace_trainer: ["acetrainer-gen4", "4세대"], veteran: ["veteran-gen4", "4세대"], double_team: ["doubleteam", "본가 계열"],
+  interviewers: ["interviewers-gen3", "3세대"], expert: ["expert-gen3", "3세대"], gym_leader: ["brock-gen3", "3세대 대표"],
+  elite_four: ["bruno-gen3", "3세대 대표"], champion: ["blue-gen3champion", "3세대 대표"], rival: ["red-gen3", "3세대 대표"],
+  villain_grunt: ["teamrocketgruntm-gen3", "3세대 대표"]
+};
+
+function trainerClassSlug(classId) {
+  return String(classId || "").split("/").pop();
+}
+
+function trainerReferenceHtml(trainerClass, rosterCharacter = null) {
+  // A generic class sprite must not be presented as the canon appearance of a named character.
+  if (rosterCharacter) return `<div class="trainer-reference-empty"><b>?</b><span>인물 전용 참조 이미지 준비 중</span></div>`;
+  const [sprite, generation] = trainerReferenceSprites[trainerClassSlug(trainerClass?.id)] || [];
+  if (!sprite) return `<div class="trainer-reference-empty"><b>?</b><span>참조 이미지 준비 중</span></div>`;
+  const url = `https://play.pokemonshowdown.com/sprites/trainers/${sprite}.png`;
+  return `<img class="trainer-reference-image" src="${url}" alt="${escapeHtml(trainerClass?.display_name?.ko_kr || "트레이너")} 본가 전투 스프라이트"><div class="trainer-reference-empty" hidden><b>?</b><span>참조 이미지 준비 중</span></div><small>${generation} 전투 스프라이트</small>`;
+}
+
+function trainerSkinUrl(appearance) {
+  if (appearance.source?.startsWith("rct_")) return rctSkinUrl(appearance.resource);
+  if (appearance.type === "skin" && appearance.resource) {
+    return `/api/trainer-skin?resource=${encodeURIComponent(appearance.resource)}`;
+  }
+  return "";
+}
+
+const minecraftParts = [
+  { name: "head", x: 20, y: 0, w: 40, h: 40, d: 40, uv: { top: [8,0], bottom: [16,0], right: [0,8], front: [8,8], left: [16,8], back: [24,8] }, overlayUv: { top: [40,0], bottom: [48,0], right: [32,8], front: [40,8], left: [48,8], back: [56,8] } },
+  { name: "body", x: 20, y: 40, w: 40, h: 60, d: 20, uv: { top: [20,16], bottom: [28,16], right: [16,20], front: [20,20], left: [28,20], back: [32,20] }, overlayUv: { top: [20,32], bottom: [28,32], right: [16,36], front: [20,36], left: [28,36], back: [32,36] } },
+  { name: "arm right-arm", x: 0, y: 40, w: 20, h: 60, d: 20, uv: { top: [44,16], bottom: [48,16], right: [40,20], front: [44,20], left: [48,20], back: [52,20] }, overlayUv: { top: [44,32], bottom: [48,32], right: [40,36], front: [44,36], left: [48,36], back: [52,36] } },
+  { name: "arm left-arm", x: 60, y: 40, w: 20, h: 60, d: 20, uv: { top: [36,48], bottom: [40,48], right: [32,52], front: [36,52], left: [40,52], back: [44,52] }, overlayUv: { top: [52,48], bottom: [56,48], right: [48,52], front: [52,52], left: [56,52], back: [60,52] } },
+  { name: "leg right-leg", x: 20, y: 100, w: 20, h: 60, d: 20, uv: { top: [4,16], bottom: [8,16], right: [0,20], front: [4,20], left: [8,20], back: [12,20] }, overlayUv: { top: [4,32], bottom: [8,32], right: [0,36], front: [4,36], left: [8,36], back: [12,36] } },
+  { name: "leg left-leg", x: 40, y: 100, w: 20, h: 60, d: 20, uv: { top: [20,48], bottom: [24,48], right: [16,52], front: [20,52], left: [24,52], back: [28,52] }, overlayUv: { top: [4,48], bottom: [8,48], right: [0,52], front: [4,52], left: [8,52], back: [12,52] } }
+];
+
+function minecraftFace(part, face, overlay = false) {
+  const [u, v] = (overlay ? part.overlayUv : part.uv)[face];
+  return `<i class="mc-face ${face}${overlay ? " overlay" : ""}" style="--uv-x:${u * -5}px;--uv-y:${v * -5}px"></i>`;
+}
+
+function minecraftModelHtml(skinUrl, body = {}) {
+  const scale = Math.max(0.5, Math.min(1.25, Number(body.height_scale) || 1));
+  const slim = body.arm_model === "slim";
+  const placeholderUrl = "/api/trainer-skin?resource=cobbleventure%3Atrainer_skin%2Funimplemented";
+  const skinLayers = skinUrl.startsWith("http")
+    ? `url('${skinUrl}'),url('${placeholderUrl}')`
+    : `url('${skinUrl}')`;
+  const parts = minecraftParts.map((source) => {
+    const part = slim && source.name.startsWith("arm")
+      ? { ...source, x: source.name.includes("right-arm") ? 5 : 60, w: 15, d: 20 }
+      : source;
+    const faceNames = ["front", "back", "right", "left", "top", "bottom"];
+    const faces = faceNames.map((face) => minecraftFace(part, face)).join("")
+      + faceNames.map((face) => minecraftFace(part, face, true)).join("");
+    return `<div class="mc-part mc-${part.name.replace(" ", " mc-")}" style="--x:${part.x}px;--y:${part.y}px;--w:${part.w}px;--h:${part.h}px;--d:${part.d}px">${faces}</div>`;
+  }).join("");
+  return `<div class="minecraft-stage" style="--skin-image:${skinLayers};--height-scale:${scale}"><div class="minecraft-model">${parts}</div><span class="minecraft-ground"></span></div>`;
+}
+
 function renderTrainerPreview() {
   if (!state.trainer) return;
   const appearance = state.trainer.npc?.appearance || {};
   const trainerClass = state.trainerClasses.find((entry) => entry.id === state.trainer.npc?.trainer_class);
+  const rosterCharacter = rosterCharacters().find((entry) => entry.id === state.trainer.npc?.character);
   const className = trainerClass?.display_name?.ko_kr || "사용자 정의";
   const fullTitle = trainerDisplayName(state.trainer.name || {}, state.trainer.npc?.trainer_class).ko_kr || className;
-  const skinUrl = appearance.source?.startsWith("rct_") ? rctSkinUrl(appearance.resource) : "";
+  const skinUrl = trainerSkinUrl(appearance);
   const preview = $("#trainer-preview");
   preview.innerHTML = skinUrl ? `
-    <div class="skin-doll" style="--skin-image: url('${skinUrl}')" aria-label="${escapeHtml(className)} RCT 스킨 미리보기">
-      <i class="skin-head"></i><i class="skin-body"></i><i class="skin-arm left"></i><i class="skin-arm right"></i><i class="skin-leg left"></i><i class="skin-leg right"></i>
-    </div><strong>${escapeHtml(fullTitle)}</strong>` : `<div class="trainer-preview-fallback">${escapeHtml(className.slice(0, 2))}</div><strong>${escapeHtml(fullTitle)}</strong>`;
+    <div class="trainer-appearance-comparison">
+      <section class="trainer-reference-card"><span>본가 디자인 기준</span>${trainerReferenceHtml(trainerClass, rosterCharacter)}</section>
+      <section class="trainer-minecraft-card"><span>현재 Minecraft 외형</span>${minecraftModelHtml(skinUrl, trainerClass?.body)}</section>
+    </div>
+    <strong>${escapeHtml(fullTitle)}</strong>
+    <span class="appearance-status ${(rosterCharacter?.appearance?.implementation_status || trainerClass?.default_appearance?.implementation_status) === "placeholder" ? "placeholder" : "ready"}">${(rosterCharacter?.appearance?.implementation_status || trainerClass?.default_appearance?.implementation_status) === "placeholder" ? "임시 스킨" : "스킨 준비됨"}</span>`
+    : `<div class="trainer-preview-fallback">${escapeHtml(className.slice(0, 2))}</div><strong>${escapeHtml(fullTitle)}</strong>`;
+  const referenceImage = preview.querySelector(".trainer-reference-image");
+  referenceImage?.addEventListener("error", () => {
+    referenceImage.hidden = true;
+    const fallback = preview.querySelector(".trainer-reference-empty");
+    if (fallback) fallback.hidden = false;
+  }, { once: true });
+  const body = trainerClass?.body || {};
+  const ageNames = { child: "어린이", teen: "청소년", adult: "성인" };
   $("#trainer-appearance-note").textContent = skinUrl
-    ? "RCT 1.21.1 리소스팩의 플레이어 스킨 구조를 미리 봅니다. 빌드에서는 선택한 리소스 ID를 사용합니다."
-    : "직접 제작 외형은 리소스팩에 스킨 또는 모델을 추가한 뒤 리소스 ID로 연결합니다.";
+    ? `Minecraft 64×64 스킨의 실제 앞·뒤·옆면을 입체로 표시합니다. 체형: ${ageNames[body.age_group] || "성인"}, 키 ${Math.round((body.height_scale || 1) * 100)}%, 팔 ${body.arm_model === "slim" ? "슬림" : "기본"}.`
+    : "스킨 또는 모델 리소스를 연결하면 Minecraft 외형을 표시합니다.";
 }
 
 function trainerDisplayName(name, classId) {
@@ -1186,6 +1361,122 @@ function setFormValue(form, name, value) {
   else input.value = value ?? "";
 }
 
+function csvValues(value) {
+  return String(value || "").split(",").map((entry) => entry.trim()).filter(Boolean);
+}
+
+function choiceOptions(values, selected = "", includeEmpty = false) {
+  const options = includeEmpty ? '<option value="">선택 안 함</option>' : "";
+  return options + values.map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+}
+
+function profileOptions(selected = "", includeEmpty = true) {
+  const values = state.biomeCatalog.profiles.map((profile) => [profile.id, profile.display_name?.ko_kr || profile.id]);
+  if (!values.length) return '<option value="">프로필 데이터 없음 — 서버를 다시 시작하세요</option>';
+  return choiceOptions(values, selected, includeEmpty);
+}
+
+function pokemonResultHtml(payload) {
+  const entries = payload?.pokemon || [];
+  if (!entries.length) return '<div class="issues empty">조건에 맞는 포켓몬이 없습니다.</div>';
+  return `<div class="result-caption">${entries.length.toLocaleString()}마리</div><div class="pokemon-result-grid">${entries.slice(0, 300).map((entry) => `<article class="habitat-pokemon-card"><b>#${String(entry.dex_number).padStart(4, "0")} ${escapeHtml(entry.display_name?.ko_kr || entry.slug)}</b><small>${escapeHtml(entry.id)} · ${entry.generation}세대</small><span>${escapeHtml(entry.habitats?.primary || "-")} · ${escapeHtml(entry.preferences?.rarity || "-")}${entry.match_reason === "unconditional" ? " · 조건 무시" : ""}</span></article>`).join("")}</div>${entries.length > 300 ? '<div class="result-caption">성능을 위해 앞의 300마리만 표시합니다.</div>' : ""}`;
+}
+
+function renderBiomeManager() {
+  const profiles = state.biomeCatalog.profiles || [];
+  if (!profiles.length) {
+    $("#biome-profile-list").innerHTML = '<div class="issues">서식지 프로필을 불러오지 못했습니다. 콘텐츠 관리자 서버를 다시 시작한 뒤 새로고침하세요.</div>';
+    $("#biome-profile-form").elements.profileId.innerHTML = '<option value="">프로필 데이터 없음</option>';
+    $("#biome-set-select").innerHTML = '<option value="">바이옴 세트 데이터 없음</option>';
+    return;
+  }
+  state.selectedBiomeProfile ||= profiles[0].id;
+  const form = $("#biome-profile-form");
+  form.elements.profileId.innerHTML = profileOptions(state.selectedBiomeProfile, false);
+  form.elements.habitat.innerHTML = choiceOptions(biomeChoices.habitat);
+  for (const key of ["temperature", "humidity", "weather", "time"]) form.elements[key].innerHTML = choiceOptions(biomeChoices[key]);
+  $("#biome-profile-list").innerHTML = profiles.map((profile) => `<button class="document-button ${profile.id === state.selectedBiomeProfile ? "is-active" : ""}" data-profile-id="${escapeHtml(profile.id)}"><strong>${escapeHtml(profile.display_name?.ko_kr || profile.id)}</strong><small>${escapeHtml(profile.habitat)} · ${escapeHtml(profile.id)}</small></button>`).join("");
+  renderSelectedBiomeProfile();
+  const sets = state.biomeCatalog.sets || [];
+  $("#biome-set-select").innerHTML = sets.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.display_name?.ko_kr || entry.id)}</option>`).join("");
+  renderBiomeSet();
+  $("#habitat-generation-filter").innerHTML = '<option value="0">전체</option>' + Array.from({ length: 9 }, (_, index) => `<option value="${index + 1}">${index + 1}세대</option>`).join("");
+  $("#habitat-filter").innerHTML = choiceOptions(biomeChoices.habitat, "", true);
+  renderHabitatPokemon();
+  $("#biome-issues").className = "issues empty";
+  $("#biome-issues").textContent = `${profiles.length}개 프로필 · ${sets.length}개 세트 · ${state.pokemonHabitats.length.toLocaleString()}마리`;
+  $$('[data-profile-id]').forEach((button) => button.addEventListener("click", () => { state.selectedBiomeProfile = button.dataset.profileId; renderBiomeManager(); }));
+}
+
+function renderSelectedBiomeProfile() {
+  const profile = state.biomeCatalog.profiles.find((entry) => entry.id === state.selectedBiomeProfile);
+  if (!profile) return;
+  const form = $("#biome-profile-form");
+  setFormValue(form, "profileId", profile.id); setFormValue(form, "nameKo", profile.display_name?.ko_kr);
+  setFormValue(form, "habitat", profile.habitat); setFormValue(form, "generation", profile.settings?.generation ?? 0);
+  for (const key of ["temperature", "humidity", "weather", "time"]) setFormValue(form, key, profile.settings?.[key] || "any");
+  setFormValue(form, "rarities", (profile.settings?.rarities || []).join(", "));
+  setFormValue(form, "forced", (profile.forced_includes || []).join(", ")); setFormValue(form, "excluded", (profile.excluded_pokemon || []).join(", "));
+  setFormValue(form, "secondary", profile.settings?.include_secondary ?? true);
+}
+
+function updateBiomeProfileFromForm() {
+  const form = $("#biome-profile-form");
+  const profile = state.biomeCatalog.profiles.find((entry) => entry.id === form.elements.profileId.value);
+  if (!profile) return;
+  profile.display_name = { ...(profile.display_name || {}), ko_kr: form.elements.nameKo.value.trim() };
+  profile.habitat = form.elements.habitat.value;
+  profile.settings = { generation: Number(form.elements.generation.value), temperature: form.elements.temperature.value, humidity: form.elements.humidity.value, weather: form.elements.weather.value, time: form.elements.time.value, rarities: csvValues(form.elements.rarities.value), include_secondary: form.elements.secondary.checked };
+  profile.forced_includes = csvValues(form.elements.forced.value); profile.excluded_pokemon = csvValues(form.elements.excluded.value);
+}
+
+function renderBiomeSet() {
+  const biomeSet = state.biomeCatalog.sets.find((entry) => entry.id === $("#biome-set-select").value) || state.biomeCatalog.sets[0];
+  if (!biomeSet) return;
+  $("#biome-set-select").value = biomeSet.id;
+  $("#biome-set-unconditional").value = (biomeSet.unconditional_spawns || []).join(", ");
+  $("#biome-set-profiles").innerHTML = biomeSet.profiles.map((item, index) => { const profile = state.biomeCatalog.profiles.find((entry) => entry.id === item.profile); return `<label><span>${escapeHtml(profile?.display_name?.ko_kr || item.profile)}</span><input type="number" min="1" max="100" value="${Number(item.weight || 1)}" data-set-weight="${index}"></label>`; }).join("");
+}
+
+function updateBiomeSet() {
+  const biomeSet = state.biomeCatalog.sets.find((entry) => entry.id === $("#biome-set-select").value);
+  if (!biomeSet) return;
+  biomeSet.unconditional_spawns = csvValues($("#biome-set-unconditional").value);
+  $$('[data-set-weight]').forEach((input) => { biomeSet.profiles[Number(input.dataset.setWeight)].weight = Number(input.value); });
+}
+
+async function runBiomePreview(payload, target) {
+  const result = await request("/api/biome-preview", { method: "POST", body: JSON.stringify(payload) });
+  $(target).innerHTML = result.ok ? pokemonResultHtml(result.data) : `<div class="issues">${escapeHtml(result.data.error || "미리보기에 실패했습니다.")}</div>`;
+}
+
+async function previewBiomeProfile() {
+  updateBiomeProfileFromForm();
+  const profile = state.biomeCatalog.profiles.find((entry) => entry.id === state.selectedBiomeProfile);
+  await runBiomePreview({ profile_id: profile.id, profile, settings: profile.settings }, "#biome-profile-preview");
+}
+
+async function testBiomeSet() {
+  updateBiomeSet();
+  await runBiomePreview({ set_id: $("#biome-set-select").value, unconditional_spawns: csvValues($("#biome-set-unconditional").value) }, "#biome-set-preview");
+}
+
+async function saveBiomeCatalog() {
+  updateBiomeProfileFromForm(); updateBiomeSet();
+  const result = await request("/api/biome-catalog", { method: "PUT", body: JSON.stringify(state.biomeCatalog) });
+  showIssues("#biome-issues", result.data);
+  toast(result.ok ? "바이옴 프로필과 세트를 저장했습니다." : "바이옴 설정을 확인해 주세요.");
+}
+
+function renderHabitatPokemon() {
+  const query = $("#habitat-pokemon-search").value.trim().toLowerCase();
+  const generation = Number($("#habitat-generation-filter").value || 0);
+  const habitat = $("#habitat-filter").value;
+  const entries = state.pokemonHabitats.filter((entry) => (!generation || entry.generation === generation) && (!habitat || entry.habitats?.primary === habitat || entry.habitats?.secondary === habitat) && (!query || `${entry.id} ${entry.slug} ${entry.display_name?.ko_kr} ${entry.display_name?.en_us}`.toLowerCase().includes(query)));
+  $("#habitat-pokemon-count").textContent = `${entries.length.toLocaleString()} / ${state.pokemonHabitats.length.toLocaleString()}마리`;
+  $("#habitat-pokemon-list").innerHTML = pokemonResultHtml({ pokemon: entries });
+}
+
 function renderSettlement() {
   const document = state.settlement;
   const form = $("#settlement-form");
@@ -1199,6 +1490,9 @@ function renderSettlement() {
   setFormValue(form, "maxX", document.bounds?.max_x); setFormValue(form, "maxZ", document.bounds?.max_z);
   setFormValue(form, "pokemonSpawnProfile", document.content_profile?.pokemon?.spawn_profile);
   setFormValue(form, "pokemonDensity", document.content_profile?.pokemon?.density_multiplier ?? 1);
+  form.elements.pokemonBiomeSet.innerHTML = choiceOptions((state.biomeCatalog.sets || []).map((entry) => [entry.id, entry.display_name?.ko_kr || entry.id]), document.content_profile?.pokemon?.biome_set, true);
+  setFormValue(form, "pokemonBiomeSet", document.content_profile?.pokemon?.biome_set);
+  setFormValue(form, "unconditionalSpawns", (document.content_profile?.pokemon?.unconditional_spawns || []).join(", "));
   setFormValue(form, "trainerPopulationProfile", document.content_profile?.trainers?.population_profile);
   setFormValue(form, "trainerMaxActive", document.content_profile?.trainers?.max_active ?? 0);
   setFormValue(form, "trainerClassPool", (document.content_profile?.trainers?.class_pool || []).join(", "));
@@ -1223,6 +1517,17 @@ function renderSettlement() {
     setFormValue(form, `biome${field}Size`, zone.size_blocks);
     setFormValue(form, `biome${field}Placement`, zone.placement || "auto");
     setFormValue(form, `biome${field}Weight`, zone.weight ?? 1);
+    form.elements[`biome${field}Profile`].innerHTML = profileOptions(zone.habitat_profile, true);
+    setFormValue(form, `biome${field}Profile`, zone.habitat_profile);
+    const settings = zone.spawn_settings || {};
+    for (const key of ["Temperature", "Humidity", "Weather", "Time"]) {
+      const settingKey = key.toLowerCase();
+      form.elements[`biome${field}${key}`].innerHTML = choiceOptions(biomeChoices[settingKey]);
+      setFormValue(form, `biome${field}${key}`, settings[settingKey] || "any");
+    }
+    setFormValue(form, `biome${field}Generation`, settings.generation ?? 0);
+    setFormValue(form, `biome${field}Rarities`, (settings.rarities || ["common", "medium", "uncommon", "rare"]).join(", "));
+    setFormValue(form, `biome${field}Secondary`, settings.include_secondary ?? true);
   }
   const connection = document.connections?.[0] || {};
   setFormValue(form, "nextSettlement", connection.target_settlement);
@@ -1336,7 +1641,9 @@ function updateSettlementFromForm() {
   state.settlement.content_profile = {
     pokemon: {
       spawn_profile: form.elements.pokemonSpawnProfile.value.trim(),
-      density_multiplier: number("pokemonDensity")
+      density_multiplier: number("pokemonDensity"),
+      biome_set: form.elements.pokemonBiomeSet.value,
+      unconditional_spawns: csvValues(form.elements.unconditionalSpawns.value)
     },
     trainers: {
       population_profile: form.elements.trainerPopulationProfile.value.trim(),
@@ -1355,12 +1662,24 @@ function updateSettlementFromForm() {
     const biome = form.elements[`biome${index}Resource`].value.trim();
     const id = form.elements[`biome${index}Id`].value.trim();
     if (!biome && !id) continue;
-    biomeZones.push({
+    const zone = {
       id, biome,
       size_blocks: number(`biome${index}Size`),
       placement: form.elements[`biome${index}Placement`].value,
-      weight: number(`biome${index}Weight`)
-    });
+      weight: number(`biome${index}Weight`),
+      habitat_profile: form.elements[`biome${index}Profile`].value,
+      spawn_settings: {
+        generation: number(`biome${index}Generation`),
+        temperature: form.elements[`biome${index}Temperature`].value,
+        humidity: form.elements[`biome${index}Humidity`].value,
+        weather: form.elements[`biome${index}Weather`].value,
+        time: form.elements[`biome${index}Time`].value,
+        rarities: csvValues(form.elements[`biome${index}Rarities`].value),
+        include_secondary: form.elements[`biome${index}Secondary`].checked
+      }
+    };
+    if (!zone.habitat_profile) { delete zone.habitat_profile; delete zone.spawn_settings; }
+    biomeZones.push(zone);
   }
   state.settlement.biome_layout = {
     arrangement: form.elements.biomeArrangement.value,
@@ -1386,6 +1705,18 @@ function updateSettlementFromForm() {
   state.settlement.npc_placement.max_ambient_npcs = number("maxAmbient");
   state.settlement.npc_placement.default_wander_radius = number("wanderRadius");
   $("#settlement-json").value = JSON.stringify(state.settlement, null, 2);
+}
+
+async function previewSettlementZone(index) {
+  if (!state.settlement) return;
+  if (!state.biomeCatalog.profiles.length) {
+    toast("서식지 프로필을 불러오지 못했습니다. build.bat web을 다시 시작해 주세요.");
+    return;
+  }
+  updateSettlementFromForm();
+  const zone = state.settlement.biome_layout.zones[index - 1];
+  if (!zone?.habitat_profile) { toast("먼저 서식지 프로필을 선택하세요."); return; }
+  await runBiomePreview({ profile_id: zone.habitat_profile, settings: zone.spawn_settings, unconditional_spawns: state.settlement.content_profile.pokemon.unconditional_spawns }, `#biome${index}Preview`);
 }
 
 function parseEditor(selector) {
@@ -1500,6 +1831,7 @@ $("#validate-trainer").addEventListener("click", () => validateDocument("trainer
 $("#save-trainer").addEventListener("click", () => saveDocument("trainers"));
 $("#trainer-form").addEventListener("input", (event) => {
   if (event.target.name === "trainerClass") applyTrainerClass();
+  else if (event.target.name === "rosterCharacter") applyRosterCharacter();
   else {
     const form = event.currentTarget;
     if (event.target.name === "battleType") {
@@ -1519,6 +1851,7 @@ $("#apply-trainer-json").addEventListener("click", () => { const document = pars
 $("#validate-settlement").addEventListener("click", () => validateDocument("settlements"));
 $("#save-settlement").addEventListener("click", () => saveDocument("settlements"));
 $("#settlement-form").addEventListener("input", updateSettlementFromForm);
+$$('[data-preview-zone]').forEach((button) => button.addEventListener("click", () => previewSettlementZone(Number(button.dataset.previewZone))));
 $("#add-trainer-slot").addEventListener("click", addTrainerSlot);
 $("#trainer-slot-list").addEventListener("input", updateTrainerSlot);
 $("#trainer-slot-list").addEventListener("click", (event) => {
@@ -1532,5 +1865,17 @@ $("#create-close").addEventListener("click", () => $("#create-dialog").close());
 $("#create-cancel").addEventListener("click", () => $("#create-dialog").close());
 $("#choice-close").addEventListener("click", closeChoiceDialog);
 $("#choice-dialog").addEventListener("click", (event) => { if (event.target === event.currentTarget) closeChoiceDialog(); });
+$$('[data-biome-tab]').forEach((button) => button.addEventListener("click", () => {
+  $$('[data-biome-tab]').forEach((entry) => entry.classList.toggle("is-active", entry === button));
+  $$('[data-biome-panel]').forEach((panel) => panel.classList.toggle("is-active", panel.dataset.biomePanel === button.dataset.biomeTab));
+}));
+$("#biome-profile-form").elements.profileId.addEventListener("change", (event) => { state.selectedBiomeProfile = event.target.value; renderBiomeManager(); });
+$("#preview-biome-profile").addEventListener("click", previewBiomeProfile);
+$("#save-biome-catalog").addEventListener("click", saveBiomeCatalog);
+$("#biome-set-select").addEventListener("change", renderBiomeSet);
+$("#test-biome-set").addEventListener("click", testBiomeSet);
+$("#habitat-pokemon-search").addEventListener("input", renderHabitatPokemon);
+$("#habitat-generation-filter").addEventListener("change", renderHabitatPokemon);
+$("#habitat-filter").addEventListener("change", renderHabitatPokemon);
 
 refreshAll();

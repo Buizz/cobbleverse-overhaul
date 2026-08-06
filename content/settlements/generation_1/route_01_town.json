@@ -27,7 +27,9 @@
   "content_profile": {
     "pokemon": {
       "spawn_profile": "cobbleventure:spawn/greenway_region",
-      "density_multiplier": 1.2
+      "density_multiplier": 1.2,
+      "biome_set": "cobbleventure:biome_set/starter_region",
+      "unconditional_spawns": []
     },
     "trainers": {
       "population_profile": "cobbleventure:trainer_population/greenway_region",
@@ -58,21 +60,27 @@
         "biome": "minecraft:forest",
         "size_blocks": 240,
         "placement": "center",
-        "weight": 5
+        "weight": 5,
+        "habitat_profile": "cobbleventure:biome_profile/forest",
+        "spawn_settings": { "generation": 1, "temperature": "temperate", "humidity": "humid", "weather": "any", "time": "any", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
       },
       {
         "id": "flower_grove",
         "biome": "minecraft:flower_forest",
         "size_blocks": 144,
         "placement": "inner",
-        "weight": 3
+        "weight": 3,
+        "habitat_profile": "cobbleventure:biome_profile/forest",
+        "spawn_settings": { "generation": 1, "temperature": "temperate", "humidity": "humid", "weather": "clear", "time": "day", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
       },
       {
         "id": "river_edge",
         "biome": "minecraft:river",
         "size_blocks": 80,
         "placement": "outer",
-        "weight": 1
+        "weight": 1,
+        "habitat_profile": "cobbleventure:biome_profile/freshwater",
+        "spawn_settings": { "generation": 1, "temperature": "temperate", "humidity": "aquatic", "weather": "rain", "time": "any", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
       }
     ],
     "boundary": {

@@ -72,6 +72,7 @@
       "properties": {
         "display_name": { "$ref": "#/$defs/localized_text" },
         "trainer_class": { "$ref": "#/$defs/resource_id" },
+        "character": { "$ref": "#/$defs/resource_id" },
         "appearance": {
           "type": "object",
           "additionalProperties": false,

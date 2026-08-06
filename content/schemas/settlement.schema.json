@@ -46,7 +46,9 @@
           "required": ["spawn_profile", "density_multiplier"],
           "properties": {
             "spawn_profile": { "$ref": "#/$defs/resource_id" },
-            "density_multiplier": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 }
+            "density_multiplier": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+            "biome_set": { "$ref": "#/$defs/resource_id" },
+            "unconditional_spawns": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } }
           }
         },
         "trainers": {
@@ -198,7 +200,23 @@
         "size_blocks": { "type": "integer", "minimum": 32, "maximum": 2048 },
         "placement": { "enum": ["center", "inner", "middle", "outer", "auto"] },
         "weight": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "offset": { "$ref": "#/$defs/horizontal_offset" }
+        "offset": { "$ref": "#/$defs/horizontal_offset" },
+        "habitat_profile": { "$ref": "#/$defs/resource_id" },
+        "spawn_settings": { "$ref": "#/$defs/spawn_settings" }
+      }
+    },
+    "spawn_settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generation", "temperature", "humidity", "weather", "time", "rarities", "include_secondary"],
+      "properties": {
+        "generation": { "type": "integer", "minimum": 0, "maximum": 9 },
+        "temperature": { "enum": ["any", "cold", "cool", "temperate", "hot"] },
+        "humidity": { "enum": ["any", "dry", "normal", "humid", "aquatic"] },
+        "weather": { "enum": ["any", "clear", "rain", "thunder", "snow", "fog"] },
+        "time": { "enum": ["any", "day", "night", "twilight"] },
+        "rarities": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["common", "medium", "uncommon", "rare", "legendary"] } },
+        "include_secondary": { "type": "boolean" }
       }
     },
     "boundary": {

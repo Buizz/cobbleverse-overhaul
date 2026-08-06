@@ -3,8 +3,12 @@ setlocal
 
 set "REPO_ROOT=%~dp0"
 set "CONTENT_MANAGER=%REPO_ROOT%tools\content-manager\content_manager.py"
+set "STOP_CONTENT_MANAGER=%REPO_ROOT%tools\content-manager\stop_existing_server.ps1"
 set "PACK_BUILDER=%REPO_ROOT%tools\pack-builder\pack_builder.py"
 set "DATA_MOD_BUILDER=%REPO_ROOT%tools\mod-builder\build_data_mod.py"
+set "TRAINER_SKIN_BUILDER=%REPO_ROOT%tools\content-manager\skin-pipeline\assemble_skin.py"
+set "YOUNGSTER_SKIN_MANIFEST=%REPO_ROOT%tools\content-manager\skin-pipeline\work\youngster\manifest.json"
+set "EASY_NPC_PRESET_BUILDER=%REPO_ROOT%tools\content-manager\generate_easy_npc_presets.py"
 set "GRADLEW=%REPO_ROOT%projects\cobbleventure-battle-ai\gradlew.bat"
 set "WORLD_BOOTSTRAP_PROJECT=%REPO_ROOT%projects\cobbleventure-world-bootstrap"
 set "SMOKE_PROFILE=pack\profiles\import-smoke.json"
@@ -44,6 +48,11 @@ exit /b %errorlevel%
 exit /b %errorlevel%
 
 :api
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%STOP_CONTENT_MANAGER%" -ManagerPath "%CONTENT_MANAGER%" -RepositoryRoot "%REPO_ROOT%."
+if errorlevel 1 (
+    echo [ERROR] Failed to stop the previous content manager server.
+    exit /b %errorlevel%
+)
 %PYTHON_CMD% "%CONTENT_MANAGER%" api --root "%REPO_ROOT%."
 exit /b %errorlevel%
 
@@ -59,9 +68,17 @@ exit /b %errorlevel%
 
 :generate
 %PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%"
 exit /b %errorlevel%
 
 :mod_bootstrap
+%PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%"
+if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%DATA_MOD_BUILDER%" --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%WORLD_BOOTSTRAP_PROJECT%" build
@@ -73,6 +90,10 @@ exit /b %errorlevel%
 
 :pack
 %PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%DATA_MOD_BUILDER%" --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%

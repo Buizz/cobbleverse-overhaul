@@ -130,6 +130,12 @@
 | `biome_layout.boundary` | 모든 바이옴 구역 외곽의 벽 프로필과 크기 |
 | `connections` | 다음 마을 방향으로 여는 관문과 통로 |
 
+포켓몬 서식지의 기준 원본은 `content/catalogs/pokemon-habitats.json`, 바이옴별
+선택 정책은 `content/catalogs/biome-profiles.json`이다. 생성 전 마을 설정을 직접
+탐색 화면에 노출하지 않고, 월드 생성기가 확정한 실제 위치를 플랫폼 독립
+`WorldHabitatIndex`로 변환한다. 상세 설계는
+[`HABITAT_DISCOVERY_AND_SPAWNING.md`](HABITAT_DISCOVERY_AND_SPAWNING.md)를 참고한다.
+
 `size_blocks`는 해당 바이옴 구역의 목표 지름이다. 실제 생성기는 마을 중심,
 `placement`, `weight`와 월드 시드를 사용해 구역을 결정적으로 배치한다.
 `toward_target` 관문은 두 마을의 중심을 잇는 방향과 외곽 벽의 교점을 우선하며,
@@ -145,7 +151,7 @@
 | 공용 대화 | `content/dialogues/**/*.json` | 여러 NPC가 재사용하는 대화 그래프 |
 | 퀘스트 | `content/quests/**/*.json` | 퀘스트 조건, 목표, 보상과 진행 상태 |
 | 세대 이동 | `content/travel/**/*.json` | 차원·세대·지역 관문과 해금 조건 |
-| 스폰 프로필 | `content/spawns/**/*.json` | 지역·바이옴별 Cobblemon 스폰 정책 |
+| Cobblemon 스폰 어댑터 | 게임 연동 프로젝트 | 서식지 인덱스의 후보를 Cobblemon 원본 스폰 상세와 결합 |
 
 실제 사용 사례가 생기기 전에는 빈 파일 종류를 미리 만들지 않는다. 새 종류를
 추가할 때는 스키마, 최소 예제, Python 검증, 출력 대상과 이 카탈로그를 함께
@@ -159,6 +165,9 @@
 | `content/schemas/region.schema.json` | 플랫폼 독립 지역 데이터 |
 | `content/schemas/settlement.schema.json` | 마을과 NPC 배치 기본 데이터 |
 | `content/schemas/trainer-classes.schema.json` | 트레이너 클래스와 기본 외형 카탈로그 |
+| `content/schemas/pokemon-habitats.schema.json` | 포켓몬별 서식지·기후·시간·희귀도 카탈로그 |
+| `content/schemas/biome-profiles.schema.json` | 바이옴 프로필, 후보 필터와 강제 포함·제외 |
+| `content/schemas/cobblemon-spawn-index.schema.json` | Cobblemon 원본에서 생성한 손실 없는 스폰 규칙 인덱스 |
 | `pack/schemas/dependencies-lock.schema.json` | 모드팩 의존성 Lock |
 
 ## 제작 카탈로그
@@ -166,8 +175,13 @@
 | 경로 | 역할 |
 |------|------|
 | `content/catalogs/trainer-classes.json` | 본가식 트레이너 직업명, 이름 패턴, 태그와 RCT·자체 기본 외형 연결 |
+| `content/catalogs/pokemon-habitats.json` | 도감 번호별 주·보조 서식지와 출현 성향 |
+| `content/catalogs/biome-profiles.json` | 월드 바이옴을 서식지와 출현 필터에 연결하는 프로필 |
 
 트레이너 번들의 `npc.trainer_class`는 반드시 이 카탈로그에 있는 ID를 사용한다.
+각 클래스는 화면 분류용 `category`, 실제 NPC 키와 팔 형태를 나타내는 `body`,
+스킨 준비 상태를 나타내는 `default_appearance.implementation_status`도 가진다.
+스킨이 아직 없는 클래스는 공용 64×64 미구현 스킨을 사용한다.
 
 JSON Schema는 편집기 자동 완성과 구조 계약에 사용한다. Python 검증기는 리소스
 ID 중복, 대화 대상 존재 여부, 전투 ID 일치, EV 합계처럼 파일 구조만으로 표현하기

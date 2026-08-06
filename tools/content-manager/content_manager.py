@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import uuid
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -110,7 +111,10 @@ STATIC_CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".mjs": "text/javascript; charset=utf-8",
+    ".png": "image/png",
 }
+HABITAT_IDS = {"plains", "forest", "arid", "mountain", "cave", "wetland", "freshwater", "ocean", "snow", "volcanic", "urban", "special"}
+RARITY_IDS = {"common", "medium", "uncommon", "rare", "legendary"}
 
 
 @dataclass(frozen=True)
@@ -153,6 +157,178 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def load_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8-sig") as source:
         return json.load(source, object_pairs_hook=_reject_duplicate_keys)
+
+
+def _catalog_path(root: Path, name: str) -> Path:
+    return root / "content" / "catalogs" / name
+
+
+def load_biome_catalog(root: Path) -> dict[str, Any]:
+    data = load_json(_catalog_path(root, "biome-profiles.json"))
+    if not isinstance(data, dict):
+        raise ValueError("바이옴 카탈로그는 객체여야 합니다.")
+    return data
+
+
+def load_pokemon_habitats(root: Path) -> dict[str, Any]:
+    data = load_json(_catalog_path(root, "pokemon-habitats.json"))
+    if not isinstance(data, dict):
+        raise ValueError("포켓몬 서식지 카탈로그는 객체여야 합니다.")
+    return data
+
+
+def validate_biome_catalogs(root: Path) -> list[Issue]:
+    issues: list[Issue] = []
+    biome_path = _catalog_path(root, "biome-profiles.json")
+    pokemon_path = _catalog_path(root, "pokemon-habitats.json")
+    try:
+        pokemon_data = load_pokemon_habitats(root)
+        pokemon = pokemon_data.get("pokemon")
+        if pokemon_data.get("schema_version") != 1:
+            _issue(issues, "error", pokemon_path, "$.schema_version", "지원 버전은 1입니다.")
+        if not isinstance(pokemon, list) or not pokemon:
+            _issue(issues, "error", pokemon_path, "$.pokemon", "포켓몬 배열이 필요합니다.")
+            pokemon = []
+        pokemon_ids: set[str] = set()
+        for index, entry in enumerate(pokemon):
+            entry_id = entry.get("id") if isinstance(entry, dict) else None
+            if not isinstance(entry_id, str) or not RESOURCE_ID.fullmatch(entry_id):
+                _issue(issues, "error", pokemon_path, f"$.pokemon[{index}].id", "올바른 포켓몬 리소스 ID가 필요합니다.")
+            elif entry_id in pokemon_ids:
+                _issue(issues, "error", pokemon_path, f"$.pokemon[{index}].id", f"중복 포켓몬 ID: {entry_id}")
+            else:
+                pokemon_ids.add(entry_id)
+            habitat = entry.get("habitats", {}).get("primary") if isinstance(entry, dict) else None
+            if habitat not in HABITAT_IDS:
+                _issue(issues, "error", pokemon_path, f"$.pokemon[{index}].habitats.primary", "지원하지 않는 대표 서식지입니다.")
+    except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", pokemon_path, "$", f"카탈로그를 읽을 수 없습니다: {error}")
+        pokemon_ids = set()
+    try:
+        biome_data = load_biome_catalog(root)
+        profiles = biome_data.get("profiles")
+        sets = biome_data.get("sets")
+        if biome_data.get("schema_version") != 1:
+            _issue(issues, "error", biome_path, "$.schema_version", "지원 버전은 1입니다.")
+        if not isinstance(profiles, list):
+            _issue(issues, "error", biome_path, "$.profiles", "프로필 배열이 필요합니다.")
+            profiles = []
+        if not isinstance(sets, list):
+            _issue(issues, "error", biome_path, "$.sets", "세트 배열이 필요합니다.")
+            sets = []
+        profile_ids: set[str] = set()
+        for index, profile in enumerate(profiles):
+            profile_id = profile.get("id") if isinstance(profile, dict) else None
+            if not isinstance(profile_id, str) or not RESOURCE_ID.fullmatch(profile_id):
+                _issue(issues, "error", biome_path, f"$.profiles[{index}].id", "올바른 프로필 ID가 필요합니다.")
+            elif profile_id in profile_ids:
+                _issue(issues, "error", biome_path, f"$.profiles[{index}].id", f"중복 프로필 ID: {profile_id}")
+            else:
+                profile_ids.add(profile_id)
+            if isinstance(profile, dict) and profile.get("habitat") not in HABITAT_IDS:
+                _issue(issues, "error", biome_path, f"$.profiles[{index}].habitat", "지원하지 않는 대표 서식지입니다.")
+            if isinstance(profile, dict):
+                rarities = profile.get("settings", {}).get("rarities")
+                if not isinstance(rarities, list) or not rarities or any(value not in RARITY_IDS for value in rarities):
+                    _issue(issues, "error", biome_path, f"$.profiles[{index}].settings.rarities", "하나 이상의 올바른 레어도가 필요합니다.")
+                for key in ("forced_includes", "excluded_pokemon"):
+                    values = profile.get(key, [])
+                    if not isinstance(values, list):
+                        _issue(issues, "error", biome_path, f"$.profiles[{index}].{key}", "배열이어야 합니다.")
+                        continue
+                    for item_index, pokemon_id in enumerate(values):
+                        if pokemon_id not in pokemon_ids:
+                            _issue(issues, "error", biome_path, f"$.profiles[{index}].{key}[{item_index}]", f"카탈로그에 없는 포켓몬입니다: {pokemon_id}")
+        for index, biome_set in enumerate(sets):
+            if not isinstance(biome_set, dict):
+                _issue(issues, "error", biome_path, f"$.sets[{index}]", "세트는 객체여야 합니다.")
+                continue
+            _resource_id(biome_set.get("id"), issues, biome_path, f"$.sets[{index}].id")
+            for item_index, item in enumerate(biome_set.get("profiles", [])):
+                profile_id = item.get("profile") if isinstance(item, dict) else None
+                if profile_id not in profile_ids:
+                    _issue(issues, "error", biome_path, f"$.sets[{index}].profiles[{item_index}].profile", f"없는 바이옴 프로필입니다: {profile_id}")
+            for key in ("unconditional_spawns",):
+                for item_index, pokemon_id in enumerate(biome_set.get(key, [])):
+                    if pokemon_id not in pokemon_ids:
+                        _issue(issues, "error", biome_path, f"$.sets[{index}].{key}[{item_index}]", f"카탈로그에 없는 포켓몬입니다: {pokemon_id}")
+    except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", biome_path, "$", f"카탈로그를 읽을 수 없습니다: {error}")
+    return issues
+
+
+def preview_biome(root: Path, request: dict[str, Any]) -> dict[str, Any]:
+    catalog = load_biome_catalog(root)
+    pokemon = load_pokemon_habitats(root).get("pokemon", [])
+    profiles = {entry["id"]: entry for entry in catalog.get("profiles", []) if isinstance(entry, dict) and isinstance(entry.get("id"), str)}
+    selected: list[dict[str, Any]] = []
+    unconditional = set(request.get("unconditional_spawns", []))
+    if isinstance(request.get("set_id"), str):
+        biome_set = next((entry for entry in catalog.get("sets", []) if entry.get("id") == request["set_id"]), None)
+        if biome_set:
+            selected = [profiles[item["profile"]] for item in biome_set.get("profiles", []) if item.get("profile") in profiles]
+            unconditional.update(biome_set.get("unconditional_spawns", []))
+    if isinstance(request.get("profile_id"), str) and request["profile_id"] in profiles:
+        selected = [profiles[request["profile_id"]]]
+    if isinstance(request.get("profile"), dict) and request["profile"].get("habitat") in HABITAT_IDS:
+        selected = [request["profile"]]
+    if not selected:
+        raise ValueError("미리 볼 바이옴 프로필 또는 세트를 선택해야 합니다.")
+    override = request.get("settings") if isinstance(request.get("settings"), dict) else {}
+    results: dict[str, dict[str, Any]] = {}
+    for profile in selected:
+        settings = {**profile.get("settings", {}), **override}
+        habitat = profile.get("habitat")
+        forced = set(profile.get("forced_includes", []))
+        excluded = set(profile.get("excluded_pokemon", []))
+        for entry in pokemon:
+            pokemon_id = entry.get("id")
+            if pokemon_id in excluded:
+                continue
+            prefs = entry.get("preferences", {})
+            habitats = entry.get("habitats", {})
+            habitat_match = habitats.get("primary") == habitat or (settings.get("include_secondary", True) and habitats.get("secondary") == habitat)
+            matches = habitat_match
+            generation = settings.get("generation", 0)
+            matches = matches and (not generation or entry.get("generation") == generation)
+            for field in ("temperature", "humidity", "weather", "time"):
+                wanted = settings.get(field, "any")
+                actual = prefs.get(field, "any")
+                matches = matches and (wanted == "any" or actual in {wanted, "any"})
+            matches = matches and prefs.get("rarity") in settings.get("rarities", list(RARITY_IDS))
+            if matches or pokemon_id in forced:
+                result = dict(entry)
+                result["matched_profiles"] = sorted(set(results.get(pokemon_id, {}).get("matched_profiles", [])) | {profile["id"]})
+                result["match_reason"] = "profile_forced" if pokemon_id in forced and not matches else "rules"
+                results[pokemon_id] = result
+    by_id = {entry.get("id"): entry for entry in pokemon}
+    for pokemon_id in unconditional:
+        if pokemon_id in by_id:
+            result = dict(by_id[pokemon_id])
+            result["matched_profiles"] = []
+            result["match_reason"] = "unconditional"
+            results[pokemon_id] = result
+    ordered = sorted(results.values(), key=lambda entry: entry.get("dex_number", 99999))
+    return {"count": len(ordered), "pokemon": ordered, "profiles": [entry["id"] for entry in selected]}
+
+
+def save_biome_catalog(root: Path, data: Any) -> list[Issue]:
+    target = _catalog_path(root, "biome-profiles.json")
+    if not isinstance(data, dict):
+        return [Issue("error", target.as_posix(), "$", "바이옴 카탈로그는 객체여야 합니다.")]
+    with tempfile.TemporaryDirectory(prefix="cobbleventure-biomes-") as directory:
+        candidate_root = Path(directory)
+        catalog_dir = candidate_root / "content" / "catalogs"
+        catalog_dir.mkdir(parents=True)
+        (catalog_dir / "biome-profiles.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        shutil.copy2(_catalog_path(root, "pokemon-habitats.json"), catalog_dir / "pokemon-habitats.json")
+        issues = validate_biome_catalogs(candidate_root)
+    if any(issue.level == "error" for issue in issues):
+        return [Issue(issue.level, target.as_posix(), issue.path, issue.message) for issue in issues]
+    temporary = target.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(target)
+    return []
 
 
 def load_editor_catalog(root: Path) -> dict[str, Any]:
@@ -399,6 +575,15 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                     "$.content_profile.pokemon.density_multiplier",
                     "0보다 크고 10 이하인 숫자여야 합니다.",
                 )
+            biome_set = pokemon.get("biome_set")
+            if biome_set is not None:
+                _resource_id(biome_set, issues, path, "$.content_profile.pokemon.biome_set")
+            unconditional = pokemon.get("unconditional_spawns", [])
+            if not isinstance(unconditional, list):
+                _issue(issues, "error", path, "$.content_profile.pokemon.unconditional_spawns", "배열이어야 합니다.")
+            else:
+                for index, pokemon_id in enumerate(unconditional):
+                    _resource_id(pokemon_id, issues, path, f"$.content_profile.pokemon.unconditional_spawns[{index}]")
 
         trainers = _require_object(
             content_profile.get("trainers"), issues, path, "$.content_profile.trainers"
@@ -506,6 +691,18 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 else:
                     seen_biome_zones.add(zone_id)
                 _resource_id(zone.get("biome"), issues, path, f"{zone_path}.biome")
+                if zone.get("habitat_profile") is not None:
+                    _resource_id(zone.get("habitat_profile"), issues, path, f"{zone_path}.habitat_profile")
+                settings = zone.get("spawn_settings")
+                if settings is not None:
+                    settings = _require_object(settings, issues, path, f"{zone_path}.spawn_settings")
+                    if settings is not None:
+                        generation = settings.get("generation")
+                        if not isinstance(generation, int) or isinstance(generation, bool) or not 0 <= generation <= 9:
+                            _issue(issues, "error", path, f"{zone_path}.spawn_settings.generation", "0(전체) 이상 9 이하의 정수여야 합니다.")
+                        rarities = settings.get("rarities")
+                        if not isinstance(rarities, list) or not rarities or any(value not in RARITY_IDS for value in rarities):
+                            _issue(issues, "error", path, f"{zone_path}.spawn_settings.rarities", "하나 이상의 올바른 레어도가 필요합니다.")
                 size = zone.get("size_blocks")
                 if not isinstance(size, int) or isinstance(size, bool) or not 32 <= size <= 2048:
                     _issue(issues, "error", path, f"{zone_path}.size_blocks", "32 이상 2048 이하의 정수여야 합니다.")
@@ -713,8 +910,26 @@ def validate_trainer_class_catalog(path: Path) -> list[Issue]:
             if class_id in seen_ids:
                 _issue(issues, "error", path, f"{class_path}.id", f"중복 클래스 ID: {class_id}")
             seen_ids.add(class_id)
+        if trainer_class.get("category") not in {
+            "children", "outdoor", "specialist", "occupation",
+            "social", "advanced", "boss", "custom",
+        }:
+            _issue(issues, "error", path, f"{class_path}.category", "지원하지 않는 클래스 분류입니다.")
         _localized_text(trainer_class.get("display_name"), issues, path, f"{class_path}.display_name")
         _localized_text(trainer_class.get("title_pattern"), issues, path, f"{class_path}.title_pattern")
+        body = _require_object(trainer_class.get("body"), issues, path, f"{class_path}.body")
+        if body is not None:
+            if body.get("age_group") not in {"child", "teen", "adult"}:
+                _issue(issues, "error", path, f"{class_path}.body.age_group", "child, teen, adult 중 하나여야 합니다.")
+            height_scale = body.get("height_scale")
+            if (
+                not isinstance(height_scale, (int, float))
+                or isinstance(height_scale, bool)
+                or not 0.5 <= height_scale <= 1.25
+            ):
+                _issue(issues, "error", path, f"{class_path}.body.height_scale", "0.5 이상 1.25 이하 숫자여야 합니다.")
+            if body.get("arm_model") not in {"classic", "slim"}:
+                _issue(issues, "error", path, f"{class_path}.body.arm_model", "classic 또는 slim이어야 합니다.")
         appearance = _require_object(
             trainer_class.get("default_appearance"),
             issues,
@@ -727,12 +942,166 @@ def validate_trainer_class_catalog(path: Path) -> list[Issue]:
             if appearance.get("type") not in {"skin", "model"}:
                 _issue(issues, "error", path, f"{class_path}.default_appearance.type", "skin 또는 model이어야 합니다.")
             _resource_id(appearance.get("resource"), issues, path, f"{class_path}.default_appearance.resource")
+            if appearance.get("implementation_status") not in {"ready", "placeholder"}:
+                _issue(issues, "error", path, f"{class_path}.default_appearance.implementation_status", "ready 또는 placeholder여야 합니다.")
         tags = _require_list(trainer_class.get("tags"), issues, path, f"{class_path}.tags")
         if tags is not None:
             for tag_index, tag in enumerate(tags):
                 if not isinstance(tag, str) or not CHOICE_ID.fullmatch(tag):
                     _issue(issues, "error", path, f"{class_path}.tags[{tag_index}]", "올바른 태그가 아닙니다.")
     return issues
+
+
+def validate_trainer_outfit_catalog(path: Path, trainer_class_ids: set[str] | None = None) -> list[Issue]:
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return issues
+    root = _require_object(data, issues, path, "$")
+    if root is None:
+        return issues
+    if root.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "지원 버전은 1입니다.")
+    outfits = _require_list(root.get("outfits"), issues, path, "$.outfits")
+    seen_ids: set[str] = set()
+    if outfits is None:
+        return issues
+    for index, value in enumerate(outfits):
+        outfit_path = f"$.outfits[{index}]"
+        outfit = _require_object(value, issues, path, outfit_path)
+        if outfit is None:
+            continue
+        outfit_id = _resource_id(outfit.get("id"), issues, path, f"{outfit_path}.id")
+        if outfit_id in seen_ids:
+            _issue(issues, "error", path, f"{outfit_path}.id", f"중복 의상 ID: {outfit_id}")
+        elif outfit_id:
+            seen_ids.add(outfit_id)
+        trainer_class = _resource_id(
+            outfit.get("trainer_class"), issues, path, f"{outfit_path}.trainer_class"
+        )
+        if trainer_class_ids is not None and trainer_class and trainer_class not in trainer_class_ids:
+            _issue(issues, "error", path, f"{outfit_path}.trainer_class", f"존재하지 않는 트레이너 클래스: {trainer_class}")
+        _localized_text(outfit.get("display_name"), issues, path, f"{outfit_path}.display_name")
+        _resource_id(outfit.get("base_skin"), issues, path, f"{outfit_path}.base_skin")
+        _resource_id(outfit.get("fallback_skin"), issues, path, f"{outfit_path}.fallback_skin")
+        if outfit.get("arm_model") not in {"classic", "slim"}:
+            _issue(issues, "error", path, f"{outfit_path}.arm_model", "classic 또는 slim이어야 합니다.")
+        equipment = _require_object(outfit.get("equipment"), issues, path, f"{outfit_path}.equipment")
+        if equipment is not None:
+            for slot, item_value in equipment.items():
+                slot_path = f"{outfit_path}.equipment.{slot}"
+                if slot not in {"head", "chest", "legs", "feet", "mainhand", "offhand"}:
+                    _issue(issues, "error", path, slot_path, "지원하지 않는 장비 슬롯입니다.")
+                    continue
+                item = _require_object(item_value, issues, path, slot_path)
+                if item is None:
+                    continue
+                _resource_id(item.get("item"), issues, path, f"{slot_path}.item")
+                chance = item.get("drop_chance")
+                if not isinstance(chance, (int, float)) or isinstance(chance, bool) or not 0 <= chance <= 1:
+                    _issue(issues, "error", path, f"{slot_path}.drop_chance", "0 이상 1 이하 숫자여야 합니다.")
+        adapters = _require_object(outfit.get("adapters"), issues, path, f"{outfit_path}.adapters")
+        easy_npc = _require_object(
+            adapters.get("easy_npc") if adapters else None,
+            issues,
+            path,
+            f"{outfit_path}.adapters.easy_npc",
+        )
+        if easy_npc is not None:
+            _resource_id(easy_npc.get("entity_type"), issues, path, f"{outfit_path}.adapters.easy_npc.entity_type")
+            _resource_id(easy_npc.get("preset"), issues, path, f"{outfit_path}.adapters.easy_npc.preset")
+            try:
+                uuid.UUID(str(easy_npc.get("custom_skin_uuid")))
+            except (ValueError, AttributeError):
+                _issue(issues, "error", path, f"{outfit_path}.adapters.easy_npc.custom_skin_uuid", "올바른 UUID가 아닙니다.")
+            scale = easy_npc.get("root_scale")
+            if not isinstance(scale, (int, float)) or isinstance(scale, bool) or not 0.5 <= scale <= 1.25:
+                _issue(issues, "error", path, f"{outfit_path}.adapters.easy_npc.root_scale", "0.5 이상 1.25 이하 숫자여야 합니다.")
+    return issues
+
+
+def _validate_roster_appearance(value: Any, issues: list[Issue], path: Path, value_path: str) -> None:
+    appearance = _require_object(value, issues, path, value_path)
+    if appearance is None:
+        return
+    _resource_id(appearance.get("resource"), issues, path, f"{value_path}.resource")
+    if "candidate_resource" in appearance:
+        _resource_id(appearance.get("candidate_resource"), issues, path, f"{value_path}.candidate_resource")
+    status = appearance.get("asset_status")
+    implementation = appearance.get("implementation_status")
+    if status not in {"verified", "definition_only", "missing"}:
+        _issue(issues, "error", path, f"{value_path}.asset_status", "지원하지 않는 자산 상태입니다.")
+    if implementation not in {"ready", "placeholder"}:
+        _issue(issues, "error", path, f"{value_path}.implementation_status", "ready 또는 placeholder여야 합니다.")
+    if status == "verified" and implementation != "ready":
+        _issue(issues, "error", path, value_path, "검증된 자산은 ready 상태여야 합니다.")
+    if status != "verified" and implementation != "placeholder":
+        _issue(issues, "error", path, value_path, "미검증 자산은 placeholder 상태여야 합니다.")
+    if appearance.get("distribution") not in {"dependency_reference", "original_required"}:
+        _issue(issues, "error", path, f"{value_path}.distribution", "지원하지 않는 배포 정책입니다.")
+
+
+def validate_trainer_roster_catalog(path: Path) -> tuple[set[str], list[Issue]]:
+    issues: list[Issue] = []
+    character_ids: set[str] = set()
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return character_ids, issues
+    root = _require_object(data, issues, path, "$")
+    if root is None:
+        return character_ids, issues
+    if root.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "지원 버전은 1입니다.")
+    organizations = _require_list(root.get("organizations"), issues, path, "$.organizations") or []
+    league = _require_list(root.get("league_characters"), issues, path, "$.league_characters") or []
+    seen_organizations: set[str] = set()
+
+    def validate_character(value: Any, value_path: str, allowed_roles: set[str]) -> None:
+        character = _require_object(value, issues, path, value_path)
+        if character is None:
+            return
+        character_id = _resource_id(character.get("id"), issues, path, f"{value_path}.id")
+        if character_id in character_ids:
+            _issue(issues, "error", path, f"{value_path}.id", f"중복 캐릭터 ID: {character_id}")
+        elif character_id:
+            character_ids.add(character_id)
+        _localized_text(character.get("display_name"), issues, path, f"{value_path}.display_name")
+        if character.get("role") not in allowed_roles:
+            _issue(issues, "error", path, f"{value_path}.role", "지원하지 않는 캐릭터 역할입니다.")
+        if character.get("gender") not in {"male", "female", "nonbinary", "unspecified"}:
+            _issue(issues, "error", path, f"{value_path}.gender", "지원하지 않는 성별 값입니다.")
+        generation = character.get("generation")
+        if not isinstance(generation, int) or isinstance(generation, bool) or not 1 <= generation <= 9:
+            _issue(issues, "error", path, f"{value_path}.generation", "세대는 1 이상 9 이하 정수여야 합니다.")
+        _validate_roster_appearance(character.get("appearance"), issues, path, f"{value_path}.appearance")
+
+    for org_index, value in enumerate(organizations):
+        org_path = f"$.organizations[{org_index}]"
+        organization = _require_object(value, issues, path, org_path)
+        if organization is None:
+            continue
+        org_id = _resource_id(organization.get("id"), issues, path, f"{org_path}.id")
+        if org_id in seen_organizations:
+            _issue(issues, "error", path, f"{org_path}.id", f"중복 조직 ID: {org_id}")
+        elif org_id:
+            seen_organizations.add(org_id)
+        _localized_text(organization.get("display_name"), issues, path, f"{org_path}.display_name")
+        grunts = _require_list(organization.get("grunt_variants"), issues, path, f"{org_path}.grunt_variants") or []
+        genders = {grunt.get("gender") for grunt in grunts if isinstance(grunt, dict)}
+        if not {"male", "female"}.issubset(genders):
+            _issue(issues, "error", path, f"{org_path}.grunt_variants", "남성·여성 조무래기 항목이 모두 필요합니다.")
+        for index, grunt in enumerate(grunts):
+            validate_character(grunt, f"{org_path}.grunt_variants[{index}]", {"grunt"})
+        named = _require_list(organization.get("named_characters"), issues, path, f"{org_path}.named_characters") or []
+        for index, character in enumerate(named):
+            validate_character(character, f"{org_path}.named_characters[{index}]", {"admin", "boss", "named_agent"})
+    for index, character in enumerate(league):
+        validate_character(character, f"$.league_characters[{index}]", {"gym_leader", "elite_four", "champion"})
+    return character_ids, issues
 
 
 def validate_dependency_lock(path: Path, strict_pack: bool) -> list[Issue]:
@@ -1003,6 +1372,8 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
     if npc is not None:
         _localized_text(npc.get("display_name"), issues, path, "$.npc.display_name")
         _resource_id(npc.get("trainer_class"), issues, path, "$.npc.trainer_class")
+        if "character" in npc:
+            _resource_id(npc.get("character"), issues, path, "$.npc.character")
         appearance = _require_object(npc.get("appearance"), issues, path, "$.npc.appearance")
         if appearance is not None:
             if appearance.get("source") not in {"custom", "rct_single", "rct_group"}:
@@ -1261,6 +1632,7 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
     issues = validate_dependency_lock(root / "pack" / "dependencies.lock.json", strict_pack)
     trainer_class_path = root / "content" / "catalogs" / "trainer-classes.json"
     issues.extend(validate_trainer_class_catalog(trainer_class_path))
+    issues.extend(validate_biome_catalogs(root))
     trainer_class_ids: set[str] = set()
     try:
         trainer_class_data = load_json(trainer_class_path)
@@ -1271,6 +1643,13 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
         }
     except (OSError, json.JSONDecodeError, DuplicateKeyError):
         pass
+    issues.extend(validate_trainer_outfit_catalog(
+        root / "content" / "catalogs" / "trainer-outfits.json", trainer_class_ids
+    ))
+    roster_ids, roster_issues = validate_trainer_roster_catalog(
+        root / "content" / "catalogs" / "trainer-roster.json"
+    )
+    issues.extend(roster_issues)
     content_dir = root / "content" / "source"
     seen_content: dict[str, Path] = {}
     if not content_dir.exists():
@@ -1288,6 +1667,15 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
                         path,
                         "$.npc.trainer_class",
                         f"카탈로그에 없는 트레이너 클래스입니다: {selected_class}",
+                    )
+                selected_character = load_json(path).get("npc", {}).get("character")
+                if isinstance(selected_character, str) and selected_character not in roster_ids:
+                    _issue(
+                        issues,
+                        "error",
+                        path,
+                        "$.npc.character",
+                        f"캐릭터 명단에 없는 네임드 인물입니다: {selected_character}",
                     )
             except (OSError, json.JSONDecodeError, DuplicateKeyError, AttributeError):
                 pass
@@ -1634,6 +2022,8 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
             "pokemon": {
                 "spawn_profile": f"cobbleventure:spawn/{slug}",
                 "density_multiplier": 1.0,
+                "biome_set": "cobbleventure:biome_set/starter_region",
+                "unconditional_spawns": [],
             },
             "trainers": {
                 "population_profile": f"cobbleventure:trainer_population/{slug}",
@@ -1652,6 +2042,13 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
             "zones": [{
                 "id": "primary", "biome": "minecraft:plains",
                 "size_blocks": 256, "placement": "center", "weight": 1,
+                "habitat_profile": "cobbleventure:biome_profile/plains",
+                "spawn_settings": {
+                    "generation": 0, "temperature": "temperate", "humidity": "normal",
+                    "weather": "any", "time": "any",
+                    "rarities": ["common", "medium", "uncommon", "rare"],
+                    "include_secondary": True,
+                },
             }],
             "boundary": {
                 "profile": f"cobbleventure:boundary/{slug}",
@@ -2010,6 +2407,58 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/trainer-roster":
+                try:
+                    self._json(
+                        200,
+                        load_json(root / "content" / "catalogs" / "trainer-roster.json"),
+                    )
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/trainer-skin":
+                query = parse_qs(request.query)
+                resource = query.get("resource", [""])[0]
+                match = re.fullmatch(r"([a-z0-9_.-]+):trainer_skin/([a-z0-9_./-]+)", resource)
+                skin_root = (
+                    root
+                    / "projects"
+                    / "cobbleventure-world-bootstrap"
+                    / "src"
+                    / "main"
+                    / "resources"
+                    / "assets"
+                ).resolve()
+                fallback = skin_root / "cobbleventure" / "textures" / "entity" / "trainer" / "unimplemented.png"
+                skin_path = fallback
+                if match:
+                    candidate = (
+                        skin_root
+                        / match.group(1)
+                        / "textures"
+                        / "entity"
+                        / "trainer"
+                        / f"{match.group(2)}.png"
+                    ).resolve()
+                    if candidate.is_relative_to(skin_root) and candidate.is_file():
+                        skin_path = candidate
+                try:
+                    self._bytes(200, skin_path.read_bytes(), "image/png")
+                except OSError as error:
+                    self._json(500, {"error": f"트레이너 스킨을 읽을 수 없습니다: {error}"})
+                return
+            if request.path == "/api/biome-catalog":
+                try:
+                    self._json(200, load_biome_catalog(root))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/pokemon-habitats":
+                try:
+                    self._json(200, load_pokemon_habitats(root))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/editor-catalog":
                 nonlocal editor_catalog
                 try:
@@ -2062,6 +2511,15 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     },
                 )
                 return
+            if request.path == "/api/biome-preview":
+                if not isinstance(payload, dict):
+                    self._json(400, {"error": "미리보기 설정은 객체여야 합니다."})
+                    return
+                try:
+                    self._json(200, preview_biome(root, payload))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                return
             if request.path == "/api/documents":
                 if not isinstance(payload, dict):
                     self._json(400, {"error": "문서 생성 정보가 필요합니다."})
@@ -2104,6 +2562,16 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
 
         def do_PUT(self) -> None:
             request = urlparse(self.path)
+            if request.path == "/api/biome-catalog":
+                try:
+                    payload = self._read_json()
+                    issues = save_biome_catalog(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
             categories = {
                 "/api/trainers": "trainers",
                 "/api/settlements": "settlements",

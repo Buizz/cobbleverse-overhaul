@@ -3,74 +3,394 @@
   "schema_version": 1,
   "classes": [
     {
-      "id": "cobbleventure:trainer_class/youngster",
-      "display_name": { "ko_kr": "반바지 꼬마", "en_us": "Youngster" },
-      "title_pattern": { "ko_kr": "반바지 꼬마 {name}", "en_us": "Youngster {name}" },
-      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/youngster_yasu_0063" },
-      "tags": ["child", "route", "common"]
+      "id": "cobbleventure:trainer_class/youngster", "category": "children",
+      "display_name": { "ko_kr": "반바지 꼬마", "en_us": "Youngster" }, "title_pattern": { "ko_kr": "반바지 꼬마 {name}", "en_us": "Youngster {name}" },
+      "body": { "age_group": "child", "height_scale": 0.78, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/youngster", "implementation_status": "ready" }, "tags": ["child", "route", "common"]
     },
     {
-      "id": "cobbleventure:trainer_class/school_kid",
-      "display_name": { "ko_kr": "학원 끝난 아이", "en_us": "School Kid" },
-      "title_pattern": { "ko_kr": "학원 끝난 아이 {name}", "en_us": "School Kid {name}" },
-      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/school_kid_brunore_001e" },
-      "tags": ["child", "school", "town"]
+      "id": "cobbleventure:trainer_class/lass", "category": "children",
+      "display_name": { "ko_kr": "짧은치마", "en_us": "Lass" }, "title_pattern": { "ko_kr": "짧은치마 {name}", "en_us": "Lass {name}" },
+      "body": { "age_group": "child", "height_scale": 0.78, "arm_model": "slim" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/lass_ann_007e", "implementation_status": "ready" }, "tags": ["child", "route", "town", "common"]
     },
     {
-      "id": "cobbleventure:trainer_class/bug_catcher",
-      "display_name": { "ko_kr": "곤충채집소년", "en_us": "Bug Catcher" },
-      "title_pattern": { "ko_kr": "곤충채집소년 {name}", "en_us": "Bug Catcher {name}" },
-      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/bug_catcher_rick_0066" },
-      "tags": ["bug", "forest", "route", "common"]
+      "id": "cobbleventure:trainer_class/bug_catcher", "category": "children",
+      "display_name": { "ko_kr": "곤충채집소년", "en_us": "Bug Catcher" }, "title_pattern": { "ko_kr": "곤충채집소년 {name}", "en_us": "Bug Catcher {name}" },
+      "body": { "age_group": "child", "height_scale": 0.78, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/bug_catcher_rick_0066", "implementation_status": "ready" }, "tags": ["bug", "child", "forest", "route", "common"]
     },
     {
-      "id": "cobbleventure:trainer_class/lass",
-      "display_name": { "ko_kr": "아가씨", "en_us": "Lass" },
-      "title_pattern": { "ko_kr": "아가씨 {name}", "en_us": "Lass {name}" },
-      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/lass_ann_007e" },
-      "tags": ["route", "town", "common"]
+      "id": "cobbleventure:trainer_class/school_kid", "category": "children",
+      "display_name": { "ko_kr": "학원 끝난 아이", "en_us": "School Kid" }, "title_pattern": { "ko_kr": "학원 끝난 아이 {name}", "en_us": "School Kid {name}" },
+      "body": { "age_group": "child", "height_scale": 0.8, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/school_kid_brunore_001e", "implementation_status": "ready" }, "tags": ["child", "school", "town"]
     },
     {
-      "id": "cobbleventure:trainer_class/camper",
-      "display_name": { "ko_kr": "캠프보이", "en_us": "Camper" },
-      "title_pattern": { "ko_kr": "캠프보이 {name}", "en_us": "Camper {name}" },
-      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/camper_drew_0095" },
-      "tags": ["outdoor", "route"]
+      "id": "cobbleventure:trainer_class/preschooler", "category": "children",
+      "display_name": { "ko_kr": "유치원아", "en_us": "Preschooler" }, "title_pattern": { "ko_kr": "유치원아 {name}", "en_us": "Preschooler {name}" },
+      "body": { "age_group": "child", "height_scale": 0.66, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["child", "town"]
     },
     {
-      "id": "cobbleventure:trainer_class/picnicker",
-      "display_name": { "ko_kr": "피크닉걸", "en_us": "Picnicker" },
-      "title_pattern": { "ko_kr": "피크닉걸 {name}", "en_us": "Picnicker {name}" },
-      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/picnicker_dana_01da" },
-      "tags": ["outdoor", "route"]
+      "id": "cobbleventure:trainer_class/twins", "category": "children",
+      "display_name": { "ko_kr": "쌍둥이", "en_us": "Twins" }, "title_pattern": { "ko_kr": "쌍둥이 {name}", "en_us": "Twins {name}" },
+      "body": { "age_group": "child", "height_scale": 0.76, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["child", "double", "pair"]
     },
     {
-      "id": "cobbleventure:trainer_class/hiker",
-      "display_name": { "ko_kr": "등산가", "en_us": "Hiker" },
-      "title_pattern": { "ko_kr": "등산가 {name}", "en_us": "Hiker {name}" },
-      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/hiker_alan_00b9" },
-      "tags": ["cave", "mountain", "route"]
+      "id": "cobbleventure:trainer_class/camper", "category": "children",
+      "display_name": { "ko_kr": "캠프보이", "en_us": "Camper" }, "title_pattern": { "ko_kr": "캠프보이 {name}", "en_us": "Camper {name}" },
+      "body": { "age_group": "teen", "height_scale": 0.88, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/camper_drew_0095", "implementation_status": "ready" }, "tags": ["outdoor", "route", "teen"]
     },
     {
-      "id": "cobbleventure:trainer_class/ace_trainer",
-      "display_name": { "ko_kr": "엘리트 트레이너", "en_us": "Ace Trainer" },
-      "title_pattern": { "ko_kr": "엘리트 트레이너 {name}", "en_us": "Ace Trainer {name}" },
-      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/ace_trainer_symes_0071" },
-      "tags": ["advanced", "route"]
+      "id": "cobbleventure:trainer_class/picnicker", "category": "children",
+      "display_name": { "ko_kr": "피크닉걸", "en_us": "Picnicker" }, "title_pattern": { "ko_kr": "피크닉걸 {name}", "en_us": "Picnicker {name}" },
+      "body": { "age_group": "teen", "height_scale": 0.88, "arm_model": "slim" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/picnicker_dana_01da", "implementation_status": "ready" }, "tags": ["outdoor", "route", "teen"]
+    },
+
+    {
+      "id": "cobbleventure:trainer_class/hiker", "category": "outdoor",
+      "display_name": { "ko_kr": "등산가", "en_us": "Hiker" }, "title_pattern": { "ko_kr": "등산가 {name}", "en_us": "Hiker {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.05, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/hiker_alan_00b9", "implementation_status": "ready" }, "tags": ["cave", "mountain", "route"]
     },
     {
-      "id": "cobbleventure:trainer_class/gym_leader",
-      "display_name": { "ko_kr": "체육관 관장", "en_us": "Gym Leader" },
-      "title_pattern": { "ko_kr": "체육관 관장 {name}", "en_us": "Gym Leader {name}" },
-      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/gym_leader_default" },
-      "tags": ["boss", "gym", "unique"]
+      "id": "cobbleventure:trainer_class/fisherman", "category": "outdoor",
+      "display_name": { "ko_kr": "낚시꾼", "en_us": "Fisherman" }, "title_pattern": { "ko_kr": "낚시꾼 {name}", "en_us": "Fisherman {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/fisherman_dale_00df", "implementation_status": "ready" }, "tags": ["fishing", "route", "water"]
     },
     {
-      "id": "cobbleventure:trainer_class/custom",
-      "display_name": { "ko_kr": "사용자 정의", "en_us": "Custom" },
-      "title_pattern": { "ko_kr": "{name}", "en_us": "{name}" },
-      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/default" },
-      "tags": ["custom"]
+      "id": "cobbleventure:trainer_class/sailor", "category": "outdoor",
+      "display_name": { "ko_kr": "선원", "en_us": "Sailor" }, "title_pattern": { "ko_kr": "선원 {name}", "en_us": "Sailor {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.03, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/sailor_duncan_0089", "implementation_status": "ready" }, "tags": ["ship", "water"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/swimmer_male", "category": "outdoor",
+      "display_name": { "ko_kr": "수영팬티 소년", "en_us": "Swimmer Male" }, "title_pattern": { "ko_kr": "수영팬티 소년 {name}", "en_us": "Swimmer {name}" },
+      "body": { "age_group": "teen", "height_scale": 0.94, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/swimmerm_jerome_00f7", "implementation_status": "ready" }, "tags": ["swimmer", "water"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/swimmer_female", "category": "outdoor",
+      "display_name": { "ko_kr": "비키니 아가씨", "en_us": "Swimmer Female" }, "title_pattern": { "ko_kr": "비키니 아가씨 {name}", "en_us": "Swimmer {name}" },
+      "body": { "age_group": "teen", "height_scale": 0.94, "arm_model": "slim" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/swimmerf_tiffany_010e", "implementation_status": "ready" }, "tags": ["swimmer", "water"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/bird_keeper", "category": "outdoor",
+      "display_name": { "ko_kr": "새 조련사", "en_us": "Bird Keeper" }, "title_pattern": { "ko_kr": "새 조련사 {name}", "en_us": "Bird Keeper {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/bird_keeper_mitch_013a", "implementation_status": "ready" }, "tags": ["flying", "route"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/pokemon_ranger", "category": "outdoor",
+      "display_name": { "ko_kr": "포켓몬 레인저", "en_us": "Pokémon Ranger" }, "title_pattern": { "ko_kr": "포켓몬 레인저 {name}", "en_us": "Pokémon Ranger {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "slim" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/ranger_beth_0255", "implementation_status": "ready" }, "tags": ["forest", "nature", "route"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/backpacker", "category": "outdoor",
+      "display_name": { "ko_kr": "백팩커", "en_us": "Backpacker" }, "title_pattern": { "ko_kr": "백팩커 {name}", "en_us": "Backpacker {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["mountain", "route", "travel"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/skier", "category": "outdoor",
+      "display_name": { "ko_kr": "스키선수", "en_us": "Skier" }, "title_pattern": { "ko_kr": "스키선수 {name}", "en_us": "Skier {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["ice", "mountain", "snow"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/boarder", "category": "outdoor",
+      "display_name": { "ko_kr": "보더", "en_us": "Boarder" }, "title_pattern": { "ko_kr": "보더 {name}", "en_us": "Boarder {name}" },
+      "body": { "age_group": "teen", "height_scale": 0.94, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["ice", "mountain", "snow"]
+    },
+
+    {
+      "id": "cobbleventure:trainer_class/black_belt", "category": "specialist",
+      "display_name": { "ko_kr": "태권왕", "en_us": "Black Belt" }, "title_pattern": { "ko_kr": "태권왕 {name}", "en_us": "Black Belt {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.04, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/black_belt_hitoshi_0141", "implementation_status": "ready" }, "tags": ["fighting", "specialist"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/battle_girl", "category": "specialist",
+      "display_name": { "ko_kr": "배틀걸", "en_us": "Battle Girl" }, "title_pattern": { "ko_kr": "배틀걸 {name}", "en_us": "Battle Girl {name}" },
+      "body": { "age_group": "adult", "height_scale": 0.98, "arm_model": "slim" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/crush_girl_sharon_0206", "implementation_status": "ready" }, "tags": ["fighting", "specialist"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/psychic", "category": "specialist",
+      "display_name": { "ko_kr": "초능력자", "en_us": "Psychic" }, "title_pattern": { "ko_kr": "초능력자 {name}", "en_us": "Psychic {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "slim" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/psychic_johan_0118", "implementation_status": "ready" }, "tags": ["psychic", "specialist"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/dragon_tamer", "category": "specialist",
+      "display_name": { "ko_kr": "드래곤 조련사", "en_us": "Dragon Tamer" }, "title_pattern": { "ko_kr": "드래곤 조련사 {name}", "en_us": "Dragon Tamer {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.03, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/dragon_tamer_ramiro_0134", "implementation_status": "ready" }, "tags": ["dragon", "specialist"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/hex_maniac", "category": "specialist",
+      "display_name": { "ko_kr": "오컬트마니아", "en_us": "Hex Maniac" }, "title_pattern": { "ko_kr": "오컬트마니아 {name}", "en_us": "Hex Maniac {name}" },
+      "body": { "age_group": "adult", "height_scale": 0.98, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["ghost", "psychic", "specialist"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/aroma_lady", "category": "specialist",
+      "display_name": { "ko_kr": "아로마 아가씨", "en_us": "Aroma Lady" }, "title_pattern": { "ko_kr": "아로마 아가씨 {name}", "en_us": "Aroma Lady {name}" },
+      "body": { "age_group": "adult", "height_scale": 0.98, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["grass", "specialist"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/bug_maniac", "category": "specialist",
+      "display_name": { "ko_kr": "곤충마니아", "en_us": "Bug Maniac" }, "title_pattern": { "ko_kr": "곤충마니아 {name}", "en_us": "Bug Maniac {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["bug", "specialist"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/kindler", "category": "specialist",
+      "display_name": { "ko_kr": "불놀이꾼", "en_us": "Kindler" }, "title_pattern": { "ko_kr": "불놀이꾼 {name}", "en_us": "Kindler {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["fire", "specialist"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/tamer", "category": "specialist",
+      "display_name": { "ko_kr": "맹수조련사", "en_us": "Tamer" }, "title_pattern": { "ko_kr": "맹수조련사 {name}", "en_us": "Tamer {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.02, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/tamer_phil_0126", "implementation_status": "ready" }, "tags": ["normal", "specialist"]
+    },
+
+    {
+      "id": "cobbleventure:trainer_class/scientist", "category": "occupation",
+      "display_name": { "ko_kr": "연구원", "en_us": "Scientist" }, "title_pattern": { "ko_kr": "연구원 {name}", "en_us": "Scientist {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/scientist_ed_0158", "implementation_status": "ready" }, "tags": ["lab", "science"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/super_nerd", "category": "occupation",
+      "display_name": { "ko_kr": "이과계의 남자", "en_us": "Super Nerd" }, "title_pattern": { "ko_kr": "이과계의 남자 {name}", "en_us": "Super Nerd {name}" },
+      "body": { "age_group": "adult", "height_scale": 0.98, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/super_nerd_aavery_00b2", "implementation_status": "ready" }, "tags": ["lab", "science"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/pokemon_breeder", "category": "occupation",
+      "display_name": { "ko_kr": "포켓몬 브리더", "en_us": "Pokémon Breeder" }, "title_pattern": { "ko_kr": "포켓몬 브리더 {name}", "en_us": "Pokémon Breeder {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["breeding", "route"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/pokefan", "category": "occupation",
+      "display_name": { "ko_kr": "포켓몬 애호가", "en_us": "Poké Fan" }, "title_pattern": { "ko_kr": "포켓몬 애호가 {name}", "en_us": "Poké Fan {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/pokefan_agathare_0021", "implementation_status": "ready" }, "tags": ["fan", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/poke_maniac", "category": "occupation",
+      "display_name": { "ko_kr": "포켓몬 매니아", "en_us": "Poké Maniac" }, "title_pattern": { "ko_kr": "포켓몬 매니아 {name}", "en_us": "Poké Maniac {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/friendly_maniac_0006", "implementation_status": "ready" }, "tags": ["fan", "route"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/collector", "category": "occupation",
+      "display_name": { "ko_kr": "포켓몬 컬렉터", "en_us": "Collector" }, "title_pattern": { "ko_kr": "포켓몬 컬렉터 {name}", "en_us": "Collector {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["collection", "route"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/police_officer", "category": "occupation",
+      "display_name": { "ko_kr": "경찰관", "en_us": "Police Officer" }, "title_pattern": { "ko_kr": "경찰관 {name}", "en_us": "Police Officer {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.02, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["law", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/worker", "category": "occupation",
+      "display_name": { "ko_kr": "작업원", "en_us": "Worker" }, "title_pattern": { "ko_kr": "작업원 {name}", "en_us": "Worker {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.02, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["industry", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/office_worker", "category": "occupation",
+      "display_name": { "ko_kr": "회사원", "en_us": "Office Worker" }, "title_pattern": { "ko_kr": "회사원 {name}", "en_us": "Office Worker {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["office", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/cook", "category": "occupation",
+      "display_name": { "ko_kr": "요리사", "en_us": "Cook" }, "title_pattern": { "ko_kr": "요리사 {name}", "en_us": "Cook {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["food", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/waiter", "category": "occupation",
+      "display_name": { "ko_kr": "웨이터", "en_us": "Waiter" }, "title_pattern": { "ko_kr": "웨이터 {name}", "en_us": "Waiter {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["service", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/waitress", "category": "occupation",
+      "display_name": { "ko_kr": "웨이트리스", "en_us": "Waitress" }, "title_pattern": { "ko_kr": "웨이트리스 {name}", "en_us": "Waitress {name}" },
+      "body": { "age_group": "adult", "height_scale": 0.98, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["service", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/musician", "category": "occupation",
+      "display_name": { "ko_kr": "뮤지션", "en_us": "Musician" }, "title_pattern": { "ko_kr": "뮤지션 {name}", "en_us": "Musician {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["music", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/guitarist", "category": "occupation",
+      "display_name": { "ko_kr": "기타리스트", "en_us": "Guitarist" }, "title_pattern": { "ko_kr": "기타리스트 {name}", "en_us": "Guitarist {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["electric", "music"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/artist", "category": "occupation",
+      "display_name": { "ko_kr": "화가", "en_us": "Artist" }, "title_pattern": { "ko_kr": "화가 {name}", "en_us": "Artist {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["art", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/biker", "category": "occupation",
+      "display_name": { "ko_kr": "폭주족", "en_us": "Biker" }, "title_pattern": { "ko_kr": "폭주족 {name}", "en_us": "Biker {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.05, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/biker_hideo_00c9", "implementation_status": "ready" }, "tags": ["road", "urban"]
+    },
+
+    {
+      "id": "cobbleventure:trainer_class/beauty", "category": "social",
+      "display_name": { "ko_kr": "아가씨", "en_us": "Beauty" }, "title_pattern": { "ko_kr": "아가씨 {name}", "en_us": "Beauty {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "slim" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/beauty_bridget_0109", "implementation_status": "ready" }, "tags": ["social", "town"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/gentleman", "category": "social",
+      "display_name": { "ko_kr": "신사", "en_us": "Gentleman" }, "title_pattern": { "ko_kr": "신사 {name}", "en_us": "Gentleman {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.02, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/gentleman_arthur_01a6", "implementation_status": "ready" }, "tags": ["social", "town", "wealthy"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/rich_boy", "category": "social",
+      "display_name": { "ko_kr": "도련님", "en_us": "Rich Boy" }, "title_pattern": { "ko_kr": "도련님 {name}", "en_us": "Rich Boy {name}" },
+      "body": { "age_group": "teen", "height_scale": 0.92, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["social", "wealthy"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/lady", "category": "social",
+      "display_name": { "ko_kr": "아가씨", "en_us": "Lady" }, "title_pattern": { "ko_kr": "아가씨 {name}", "en_us": "Lady {name}" },
+      "body": { "age_group": "teen", "height_scale": 0.92, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["social", "wealthy"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/madame", "category": "social",
+      "display_name": { "ko_kr": "마담", "en_us": "Madame" }, "title_pattern": { "ko_kr": "마담 {name}", "en_us": "Madame {name}" },
+      "body": { "age_group": "adult", "height_scale": 0.98, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["social", "wealthy"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/maid", "category": "social",
+      "display_name": { "ko_kr": "메이드", "en_us": "Maid" }, "title_pattern": { "ko_kr": "메이드 {name}", "en_us": "Maid {name}" },
+      "body": { "age_group": "adult", "height_scale": 0.98, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["service", "social"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/old_couple", "category": "social",
+      "display_name": { "ko_kr": "노부부", "en_us": "Old Couple" }, "title_pattern": { "ko_kr": "노부부 {name}", "en_us": "Old Couple {name}" },
+      "body": { "age_group": "adult", "height_scale": 0.94, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["double", "pair", "social"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/young_couple", "category": "social",
+      "display_name": { "ko_kr": "러브러브커플", "en_us": "Young Couple" }, "title_pattern": { "ko_kr": "러브러브커플 {name}", "en_us": "Young Couple {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["double", "pair", "social"]
+    },
+
+    {
+      "id": "cobbleventure:trainer_class/ace_trainer", "category": "advanced",
+      "display_name": { "ko_kr": "엘리트 트레이너", "en_us": "Ace Trainer" }, "title_pattern": { "ko_kr": "엘리트 트레이너 {name}", "en_us": "Ace Trainer {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "slim" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/ace_trainer_symes_0071", "implementation_status": "ready" }, "tags": ["advanced", "route"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/veteran", "category": "advanced",
+      "display_name": { "ko_kr": "베테랑 트레이너", "en_us": "Veteran" }, "title_pattern": { "ko_kr": "베테랑 트레이너 {name}", "en_us": "Veteran {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.02, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["advanced", "expert"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/double_team", "category": "advanced",
+      "display_name": { "ko_kr": "더블팀", "en_us": "Double Team" }, "title_pattern": { "ko_kr": "더블팀 {name}", "en_us": "Double Team {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["advanced", "double", "pair"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/interviewers", "category": "advanced",
+      "display_name": { "ko_kr": "인터뷰어", "en_us": "Interviewers" }, "title_pattern": { "ko_kr": "인터뷰어 {name}", "en_us": "Interviewers {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["double", "media", "pair"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/expert", "category": "advanced",
+      "display_name": { "ko_kr": "달인", "en_us": "Expert" }, "title_pattern": { "ko_kr": "달인 {name}", "en_us": "Expert {name}" },
+      "body": { "age_group": "adult", "height_scale": 0.96, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/expert_lancere_0024", "implementation_status": "ready" }, "tags": ["advanced", "expert"]
+    },
+
+    {
+      "id": "cobbleventure:trainer_class/gym_leader", "category": "boss",
+      "display_name": { "ko_kr": "체육관 관장", "en_us": "Gym Leader" }, "title_pattern": { "ko_kr": "체육관 관장 {name}", "en_us": "Gym Leader {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["boss", "gym", "unique"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/elite_four", "category": "boss",
+      "display_name": { "ko_kr": "사천왕", "en_us": "Elite Four" }, "title_pattern": { "ko_kr": "사천왕 {name}", "en_us": "Elite Four {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["boss", "league", "unique"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/champion", "category": "boss",
+      "display_name": { "ko_kr": "챔피언", "en_us": "Champion" }, "title_pattern": { "ko_kr": "챔피언 {name}", "en_us": "Champion {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["boss", "league", "unique"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/rival", "category": "boss",
+      "display_name": { "ko_kr": "라이벌", "en_us": "Rival" }, "title_pattern": { "ko_kr": "라이벌 {name}", "en_us": "Rival {name}" },
+      "body": { "age_group": "teen", "height_scale": 0.94, "arm_model": "classic" },
+      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/rival_red", "implementation_status": "ready" }, "tags": ["boss", "rival", "unique"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/villain_grunt", "category": "boss",
+      "display_name": { "ko_kr": "악의 조직 조무래기", "en_us": "Villainous Team Grunt" }, "title_pattern": { "ko_kr": "악의 조직 조무래기 {name}", "en_us": "Grunt {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["organization", "villain"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/villain_admin", "category": "boss",
+      "display_name": { "ko_kr": "악의 조직 간부", "en_us": "Villainous Team Admin" }, "title_pattern": { "ko_kr": "악의 조직 간부 {name}", "en_us": "Admin {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["admin", "organization", "villain"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/villain_boss", "category": "boss",
+      "display_name": { "ko_kr": "악의 조직 보스", "en_us": "Villainous Team Boss" }, "title_pattern": { "ko_kr": "악의 조직 보스 {name}", "en_us": "Boss {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["boss", "organization", "unique", "villain"]
+    },
+    {
+      "id": "cobbleventure:trainer_class/custom", "category": "custom",
+      "display_name": { "ko_kr": "사용자 정의", "en_us": "Custom" }, "title_pattern": { "ko_kr": "{name}", "en_us": "{name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/unimplemented", "implementation_status": "placeholder" }, "tags": ["custom"]
     }
   ]
 }

@@ -14,20 +14,34 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "display_name", "title_pattern", "default_appearance", "tags"],
+        "required": ["id", "category", "display_name", "title_pattern", "body", "default_appearance", "tags"],
         "properties": {
           "id": { "$ref": "#/$defs/resource_id" },
+          "category": {
+            "enum": ["children", "outdoor", "specialist", "occupation", "social", "advanced", "boss", "custom"]
+          },
           "display_name": { "$ref": "#/$defs/localized_text" },
           "title_pattern": { "$ref": "#/$defs/localized_text" },
+          "body": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["age_group", "height_scale", "arm_model"],
+            "properties": {
+              "age_group": { "enum": ["child", "teen", "adult"] },
+              "height_scale": { "type": "number", "minimum": 0.5, "maximum": 1.25 },
+              "arm_model": { "enum": ["classic", "slim"] }
+            }
+          },
           "default_appearance": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["source", "type", "resource"],
+            "required": ["source", "type", "resource", "implementation_status"],
             "properties": {
               "source": { "enum": ["custom", "rct_single", "rct_group"] },
               "type": { "enum": ["skin", "model"] },
               "resource": { "$ref": "#/$defs/resource_id" },
-              "portrait": { "$ref": "#/$defs/resource_id" }
+              "portrait": { "$ref": "#/$defs/resource_id" },
+              "implementation_status": { "enum": ["ready", "placeholder"] }
             }
           },
           "tags": {

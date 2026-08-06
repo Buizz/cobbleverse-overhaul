@@ -145,17 +145,48 @@ body {
 
 .trainer-appearance-panel {
   display: grid;
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: minmax(390px, .95fr) minmax(320px, 1.05fr);
   min-height: 244px;
   overflow: hidden;
   border: 1px solid #b9c9cf;
   border-radius: 5px;
   background: #f6f9fa;
 }
-.trainer-preview { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 18px; border-right: 1px solid #d0dce0; background: radial-gradient(circle, rgba(64,215,207,.18), transparent 56%); }
+.trainer-preview { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; min-height: 320px; padding: 14px; overflow: hidden; border-right: 1px solid #d0dce0; background: radial-gradient(circle, rgba(64,215,207,.18), transparent 56%); }
 .trainer-preview > strong { color: #17344a; font-size: 13px; }.trainer-preview-fallback { display: grid; width: 90px; height: 130px; place-items: center; border: 1px dashed #8ca0ad; border-radius: 42px 42px 12px 12px; background: #fff; color: #6d8190; font-size: 24px; font-weight: 900; }
 .trainer-appearance-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-content: center; padding: 22px; }.trainer-appearance-fields .wide, .trainer-appearance-fields > small { grid-column: 1 / -1; }.trainer-appearance-fields > small { color: #667e8e; line-height: 1.55; }
-.skin-doll { position: relative; width: 96px; height: 176px; image-rendering: pixelated; filter: drop-shadow(0 12px 9px rgba(18,44,60,.2)); }.skin-doll i { position: absolute; display: block; background-image: var(--skin-image); background-repeat: no-repeat; background-size: 512px 512px; image-rendering: pixelated; }.skin-head { top: 0; left: 16px; width: 64px; height: 64px; background-position: -64px -64px; }.skin-body { top: 64px; left: 16px; width: 64px; height: 80px; background-position: -160px -160px; }.skin-arm { top: 64px; width: 24px; height: 80px; }.skin-arm.left { left: -8px; background-position: -352px -160px; }.skin-arm.right { right: -8px; background-position: -320px -160px; transform: scaleX(-1); }.skin-leg { top: 144px; width: 32px; height: 32px; }.skin-leg.left { left: 16px; background-position: -32px -160px; }.skin-leg.right { right: 16px; background-position: -160px -384px; }
+.minecraft-stage { position: relative; width: 150px; height: 205px; perspective: 520px; perspective-origin: 50% 42%; }
+.minecraft-model { position: absolute; bottom: 18px; left: 50%; width: 80px; height: 160px; transform: translateX(-50%) scale(var(--height-scale)) rotateX(-4deg) rotateY(-24deg); transform-origin: 50% 100%; transform-style: preserve-3d; transition: transform 180ms ease; }
+.minecraft-stage:hover .minecraft-model { transform: translateX(-50%) scale(var(--height-scale)) rotateX(-4deg) rotateY(24deg); }
+.mc-part { position: absolute; top: var(--y); left: var(--x); width: var(--w); height: var(--h); transform-style: preserve-3d; }
+.mc-face { position: absolute; display: block; overflow: hidden; background-image: var(--skin-image); background-position: var(--uv-x) var(--uv-y); background-repeat: no-repeat; background-size: 320px 320px; image-rendering: pixelated; backface-visibility: hidden; }
+.mc-face.front, .mc-face.back { top: 0; left: 0; width: var(--w); height: var(--h); }
+.mc-face.front { transform: translateZ(calc(var(--d) / 2)); }
+.mc-face.back { transform: rotateY(180deg) translateZ(calc(var(--d) / 2)); }
+.mc-face.right, .mc-face.left { top: 0; left: calc((var(--w) - var(--d)) / 2); width: var(--d); height: var(--h); }
+.mc-face.right { transform: rotateY(90deg) translateZ(calc(var(--w) / 2)); }
+.mc-face.left { transform: rotateY(-90deg) translateZ(calc(var(--w) / 2)); }
+.mc-face.top, .mc-face.bottom { top: calc((var(--h) - var(--d)) / 2); left: 0; width: var(--w); height: var(--d); }
+.mc-face.top { transform: rotateX(90deg) translateZ(calc(var(--h) / 2)); }
+.mc-face.bottom { transform: rotateX(-90deg) translateZ(calc(var(--h) / 2)); }
+.mc-face.front.overlay { transform: translateZ(calc(var(--d) / 2 + .8px)); }
+.mc-face.back.overlay { transform: rotateY(180deg) translateZ(calc(var(--d) / 2 + .8px)); }
+.mc-face.right.overlay { transform: rotateY(90deg) translateZ(calc(var(--w) / 2 + .8px)); }
+.mc-face.left.overlay { transform: rotateY(-90deg) translateZ(calc(var(--w) / 2 + .8px)); }
+.mc-face.top.overlay { transform: rotateX(90deg) translateZ(calc(var(--h) / 2 + .8px)); }
+.mc-face.bottom.overlay { transform: rotateX(-90deg) translateZ(calc(var(--h) / 2 + .8px)); }
+.minecraft-ground { position: absolute; bottom: 8px; left: 50%; width: 92px; height: 18px; border-radius: 50%; background: rgba(18,44,60,.18); filter: blur(5px); transform: translateX(-50%); }
+.appearance-status { padding: 3px 7px; border: 1px solid #76ad16; border-radius: 999px; background: #f4fae9; color: #496e0c; font-size: 8px; font-weight: 850; }
+.appearance-status.placeholder { border-color: #b991d0; background: #f8effc; color: #7a339b; }
+.trainer-appearance-comparison { display: grid; width: 100%; grid-template-columns: minmax(150px,1fr) minmax(150px,1fr); gap: 8px; align-items: stretch; }
+.trainer-reference-card, .trainer-minecraft-card { position: relative; display: flex; min-width: 0; min-height: 232px; flex-direction: column; align-items: center; justify-content: center; gap: 7px; overflow: hidden; border: 1px solid rgba(121,145,157,.38); border-radius: 5px; background: rgba(255,255,255,.68); }
+.trainer-reference-card > span, .trainer-minecraft-card > span { position: absolute; top: 8px; left: 9px; color: #607788; font: 850 8px/1 Consolas, monospace; letter-spacing: .04em; }
+.trainer-reference-image { width: 128px; height: 170px; margin-top: 18px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 10px 7px rgba(18,44,60,.16)); }
+.trainer-reference-card > small { color: #6d8190; font-size: 8px; font-weight: 750; }
+.trainer-reference-empty { display: grid; width: 104px; height: 150px; margin-top: 18px; place-items: center; align-content: center; gap: 8px; border: 1px dashed #9babb4; border-radius: 5px; color: #738794; text-align: center; }
+.trainer-reference-empty[hidden] { display: none; }
+.trainer-reference-empty b { font-size: 30px; font-weight: 350; }.trainer-reference-empty span { font-size: 9px; font-weight: 800; }
+.trainer-minecraft-card .minecraft-stage { height: 220px; transform: scale(.9); transform-origin: 50% 55%; }
 
 .team-list { display: block; padding: 0 24px 24px; }
 .focused-entry-editor { overflow: hidden; border: 1px solid #b9c9cf; border-radius: 5px; background: #eaf0f2; box-shadow: var(--shadow); }
@@ -212,6 +243,33 @@ body {
 .nature-stat-selector { display: block; width: 100%; min-width: 0; min-inline-size: 0; margin: 0; padding: 0; border: 0; }.nature-stat-selector legend { margin-bottom: 8px; padding: 0; color: #52657a; font-size: 10px; font-weight: 850; }.nature-stat-selector > div { display: grid; width: 100%; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 7px; }.nature-stat-selector button { min-width: 0; min-height: 40px; padding: 6px; border: 1px solid #c3cdd8; border-radius: 3px; background: #fff; color: #263d50; font-size: 9px; font-weight: 800; white-space: nowrap; cursor: pointer; }.nature-stat-selector button:disabled { border-style: dashed; background: #eef1f4; color: #9aa7b3; cursor: not-allowed; }.nature-stat-selector.up button.active { border-color: #e45c68; background: #fff0f1; color: #a72735; box-shadow: 0 0 0 1px #e45c68 inset; }.nature-stat-selector.down button.active { border-color: #3984d6; background: #eef6ff; color: #175a9e; box-shadow: 0 0 0 1px #3984d6 inset; }
 .choice-results.nature-choice-result { grid-template-columns: 1fr; place-items: start stretch; }.nature-result-card { width: min(720px,100%); min-height: 190px; margin: 18px auto; padding: 20px; border: 1px solid #bccbd3; border-radius: 5px; background: #fff; color: #17243a; text-align: left; cursor: pointer; }.nature-result-card:hover { border-color: #71ac19; box-shadow: 0 0 0 2px rgba(154,213,31,.25); }.nature-result-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }.nature-result-heading > span { display: grid; gap: 5px; }.nature-result-heading small { color: #64798a; font: 850 8px/1 Consolas, monospace; }.nature-result-heading strong { font-size: 24px; }.nature-result-heading > b { color: #567082; font: 800 12px/1 Consolas, monospace; }.nature-result-effects { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }.nature-result-effects b { padding: 8px 11px; border: 1px solid; border-radius: 3px; font-size: 10px; }.nature-result-effects .up { border-color: #efadb3; background: #fff0f1; color: #a72735; }.nature-result-effects .down { border-color: #a9c9ed; background: #eef6ff; color: #175a9e; }.nature-result-effects .neutral { border-color: #bdcbd2; background: #f2f6f7; color: #4c6474; }.nature-result-action { display: block; margin-top: 24px; padding-top: 12px; border-top: 1px solid #dbe4e8; color: #668092; font-size: 9px; font-weight: 800; }
 .nature-choice-result .optional-choice-card { width: min(720px,100%); margin: 0 auto; }
+
+/* Biome habitat authoring and deterministic spawn previews. */
+.biome-manager { overflow: hidden; }
+.biome-tabs { display: flex; gap: 0; border-bottom: 1px solid #cad7dc; background: #eef3f4; }
+.biome-tabs button { padding: 13px 20px; border: 0; border-right: 1px solid #cad7dc; background: transparent; color: #526b78; font-weight: 800; cursor: pointer; }
+.biome-tabs button.is-active { background: #fff; color: #102f43; box-shadow: inset 0 -3px #9ad51f; }
+.biome-tab-panel { display: none; padding: 18px; }
+.biome-tab-panel.is-active { display: block; }
+.biome-split { display: grid; grid-template-columns: minmax(230px,.55fr) minmax(520px,1.45fr); gap: 16px; }
+.biome-list { max-height: 620px; overflow: auto; border: 1px solid #d3dee2; background: #f4f7f8; }
+.biome-form { align-content: start; }
+.biome-test-toolbar { display: flex; align-items: end; gap: 12px; margin-bottom: 15px; }
+.biome-test-toolbar label { display: grid; gap: 6px; min-width: 210px; color: #4f6877; font-size: 12px; font-weight: 750; }
+.biome-test-toolbar .grow { flex: 1; }
+.biome-test-toolbar input, .biome-test-toolbar select, .biome-set-profiles input { min-height: 39px; padding: 8px 10px; border: 1px solid #b9c9cf; background: #fff; color: #162f43; }
+.biome-set-profiles { display: grid; grid-template-columns: repeat(auto-fill,minmax(210px,1fr)); gap: 9px; margin-bottom: 15px; }
+.biome-set-profiles label { display: grid; grid-template-columns: 1fr 72px; align-items: center; gap: 9px; padding: 10px; border: 1px solid #d0dcdf; background: #f8fafb; color: #294b5d; font-size: 12px; font-weight: 750; }
+.pokemon-results { min-height: 96px; padding: 12px; border: 1px solid #d3dee2; background: #f4f7f8; color: #607984; }
+.pokemon-result-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(210px,1fr)); gap: 7px; }
+.habitat-pokemon-card { display: grid; gap: 4px; padding: 10px; border: 1px solid #d0dce0; background: #fff; color: #18364a; }
+.habitat-pokemon-card b { font-size: 13px; }.habitat-pokemon-card small, .habitat-pokemon-card span { color: #607884; font-size: 11px; }
+.result-caption { margin: 0 0 9px; color: #526d7b; font: 800 12px/1.3 Consolas, monospace; }
+.biome-zone-editor { border-left: 3px solid #9ad51f; }
+.zone-preview { max-height: 260px; overflow: auto; padding: 10px; border: 1px dashed #bdccd2; background: #f8fafb; color: #637984; }
+.zone-preview .pokemon-result-grid { grid-template-columns: repeat(auto-fill,minmax(185px,1fr)); }
+
+@media (max-width: 1000px) { .biome-split { grid-template-columns: 1fr; }.biome-list { max-height: 240px; }.biome-test-toolbar { align-items: stretch; flex-direction: column; }.biome-test-toolbar label { width: 100%; }.biome-test-toolbar .button { align-self: flex-start; } }
 
 @media (max-width: 720px) { .choice-dialog-filters { grid-template-columns: 1fr; }.nature-stat-selector > div { grid-template-columns: repeat(2,minmax(0,1fr)); }.pokemon-choice-card { grid-template-columns: 54px minmax(0,1fr); }.choice-art, .choice-art img { width: 50px; height: 50px; } }
 

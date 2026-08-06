@@ -1,0 +1,30 @@
+{
+  "$schema": "../schemas/trainer-outfits.schema.json",
+  "schema_version": 1,
+  "outfits": [
+    {
+      "id": "cobbleventure:trainer_outfit/youngster",
+      "trainer_class": "cobbleventure:trainer_class/youngster",
+      "display_name": { "ko_kr": "반바지 꼬마 기본 의상", "en_us": "Youngster Outfit" },
+      "base_skin": "cobbleventure:trainer_skin/youngster_equipment",
+      "fallback_skin": "cobbleventure:trainer_skin/youngster",
+      "arm_model": "classic",
+      "equipment": {
+        "head": {
+          "item": "cobbleventure_bootstrap:youngster_cap",
+          "visual_only": true,
+          "drop_chance": 0.0
+        }
+      },
+      "adapters": {
+        "easy_npc": {
+          "entity_type": "easy_npc:humanoid",
+          "skin_model": "humanoid",
+          "custom_skin_uuid": "3e606e10-b536-5735-95f5-1cd7e5108dfa",
+          "preset": "cobbleventure:trainer/youngster",
+          "root_scale": 0.78
+        }
+      }
+    }
+  ]
+}

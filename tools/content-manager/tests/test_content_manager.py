@@ -20,6 +20,56 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_web_command_stops_only_matching_previous_content_manager(self) -> None:
+        root = Path(__file__).parents[3]
+        build_script = (root / "build.bat").read_text(encoding="utf-8")
+        stop_script = (
+            root / "tools" / "content-manager" / "stop_existing_server.ps1"
+        ).read_text(encoding="utf-8")
+        self.assertIn("stop_existing_server.ps1", build_script)
+        self.assertIn("-ManagerPath", build_script)
+        self.assertIn("$command.Contains($managerNeedle)", stop_script)
+        self.assertIn("$command.Contains($rootNeedle)", stop_script)
+        self.assertIn("Stop-Process -Id $_.ProcessId", stop_script)
+
+    def test_biome_catalog_contains_all_pokemon_and_profiles(self) -> None:
+        root = Path(__file__).parents[3]
+        pokemon = content_manager.load_pokemon_habitats(root)
+        biomes = content_manager.load_biome_catalog(root)
+        self.assertEqual(1025, len(pokemon["pokemon"]))
+        self.assertEqual(12, len(biomes["profiles"]))
+        self.assertEqual([], content_manager.validate_biome_catalogs(root))
+
+    def test_biome_preview_filters_generation_and_unconditional_bypasses_rules(self) -> None:
+        root = Path(__file__).parents[3]
+        filtered = content_manager.preview_biome(
+            root,
+            {"profile_id": "cobbleventure:biome_profile/plains", "settings": {"generation": 1}},
+        )
+        self.assertGreater(filtered["count"], 0)
+        self.assertTrue(all(entry["generation"] == 1 for entry in filtered["pokemon"]))
+        forced = content_manager.preview_biome(
+            root,
+            {
+                "profile_id": "cobbleventure:biome_profile/plains",
+                "settings": {"generation": 1},
+                "unconditional_spawns": ["cobblemon:arceus"],
+            },
+        )
+        arceus = next(entry for entry in forced["pokemon"] if entry["id"] == "cobblemon:arceus")
+        self.assertEqual("unconditional", arceus["match_reason"])
+
+    def test_settlements_reference_web_biome_settings(self) -> None:
+        root = Path(__file__).parents[3]
+        settlement = content_manager.load_json(
+            root / "content" / "settlements" / "generation_1" / "starter_town.json"
+        )
+        self.assertEqual(
+            "cobbleventure:biome_set/starter_region",
+            settlement["content_profile"]["pokemon"]["biome_set"],
+        )
+        self.assertIn("spawn_settings", settlement["biome_layout"]["zones"][0])
+
     def test_example_content_is_valid(self) -> None:
         root = Path(__file__).parents[3]
         content_id, issues = content_manager.validate_content_file(
@@ -326,6 +376,55 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertEqual([], issues)
 
+    def test_trainer_class_catalog_covers_common_classes_and_child_scale(self) -> None:
+        root = Path(__file__).parents[3]
+        catalog = content_manager.load_json(
+            root / "content" / "catalogs" / "trainer-classes.json"
+        )
+        classes = {entry["id"].rsplit("/", 1)[-1]: entry for entry in catalog["classes"]}
+        self.assertGreaterEqual(len(classes), 50)
+        self.assertEqual("짧은치마", classes["lass"]["display_name"]["ko_kr"])
+        self.assertLess(classes["youngster"]["body"]["height_scale"], 1)
+        self.assertEqual("child", classes["preschooler"]["body"]["age_group"])
+        self.assertTrue(
+            all(
+                entry["default_appearance"]["implementation_status"]
+                in {"ready", "placeholder"}
+                for entry in classes.values()
+            )
+        )
+
+    def test_trainer_outfit_catalog_links_equipment_and_easy_npc_scale(self) -> None:
+        root = Path(__file__).parents[3]
+        classes = content_manager.load_json(root / "content" / "catalogs" / "trainer-classes.json")
+        class_ids = {entry["id"] for entry in classes["classes"]}
+        issues = content_manager.validate_trainer_outfit_catalog(
+            root / "content" / "catalogs" / "trainer-outfits.json", class_ids
+        )
+        self.assertEqual([], issues)
+        catalog = content_manager.load_json(root / "content" / "catalogs" / "trainer-outfits.json")
+        youngster = catalog["outfits"][0]
+        self.assertEqual("cobbleventure_bootstrap:youngster_cap", youngster["equipment"]["head"]["item"])
+        self.assertEqual(0.78, youngster["adapters"]["easy_npc"]["root_scale"])
+
+    def test_trainer_roster_covers_generational_organizations_genders_and_named_roles(self) -> None:
+        root = Path(__file__).parents[3]
+        character_ids, issues = content_manager.validate_trainer_roster_catalog(
+            root / "content" / "catalogs" / "trainer-roster.json"
+        )
+        self.assertEqual([], issues)
+        roster = content_manager.load_json(root / "content" / "catalogs" / "trainer-roster.json")
+        organizations = {entry["id"].rsplit("/", 1)[-1]: entry for entry in roster["organizations"]}
+        self.assertEqual(set(range(1, 10)), {generation for entry in organizations.values() for generation in entry["generations"]})
+        self.assertTrue({"team_rocket", "team_aqua", "team_magma", "team_galactic", "team_plasma", "team_flare", "team_skull", "team_yell", "team_star"}.issubset(organizations))
+        self.assertTrue(all({"male", "female"}.issubset({grunt["gender"] for grunt in entry["grunt_variants"]}) for entry in organizations.values()))
+        self.assertIn("cobbleventure:character/giovanni", character_ids)
+        self.assertIn("cobbleventure:character/cyrus", character_ids)
+        self.assertIn("cobbleventure:character/cynthia", character_ids)
+        roles = {entry["role"] for entry in roster["league_characters"]}
+        self.assertEqual({"gym_leader", "elite_four", "champion"}, roles)
+        self.assertGreaterEqual(sum(entry["appearance"]["asset_status"] == "verified" for entry in roster["league_characters"]), 35)
+
     def test_settlement_center_must_be_inside_bounds(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -487,8 +586,26 @@ class ContentManagerTests(unittest.TestCase):
                 settlements = json.load(response)
             with urllib.request.urlopen(f"{base_url}/api/trainer-classes") as response:
                 trainer_classes = json.load(response)
+            with urllib.request.urlopen(f"{base_url}/api/trainer-roster") as response:
+                trainer_roster = json.load(response)
+            with urllib.request.urlopen(
+                f"{base_url}/api/trainer-skin?resource=cobbleventure%3Atrainer_skin%2Funimplemented"
+            ) as response:
+                trainer_skin = response.read()
             with urllib.request.urlopen(f"{base_url}/api/editor-catalog") as response:
                 editor_catalog = json.load(response)
+            with urllib.request.urlopen(f"{base_url}/api/biome-catalog") as response:
+                biome_catalog = json.load(response)
+            with urllib.request.urlopen(f"{base_url}/api/pokemon-habitats") as response:
+                pokemon_habitats = json.load(response)
+            preview_request = urllib.request.Request(
+                f"{base_url}/api/biome-preview",
+                data=json.dumps({"set_id": "cobbleventure:biome_set/starter_region"}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(preview_request) as response:
+                biome_preview = json.load(response)
             with urllib.request.urlopen(base_url) as response:
                 page = response.read().decode("utf-8")
             with urllib.request.urlopen(f"{base_url}/app.js") as response:
@@ -504,6 +621,10 @@ class ContentManagerTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=2)
         self.assertEqual("ok", health["status"])
+        self.assertTrue(trainer_skin.startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertGreaterEqual(len(trainer_classes["classes"]), 50)
+        self.assertGreaterEqual(len(trainer_roster["organizations"]), 10)
+        self.assertGreaterEqual(len(trainer_roster["league_characters"]), 50)
         self.assertTrue(validation["valid"])
         self.assertGreaterEqual(dashboard["trainers"], 2)
         self.assertEqual(2, dashboard["settlements"])
@@ -511,11 +632,15 @@ class ContentManagerTests(unittest.TestCase):
         self.assertGreaterEqual(len(trainer_classes["classes"]), 10)
         self.assertGreaterEqual(len(editor_catalog["species"]), 1000)
         self.assertGreaterEqual(len(editor_catalog["moves"]), 900)
+        self.assertEqual(12, len(biome_catalog["profiles"]))
+        self.assertEqual(1025, len(pokemon_habitats["pokemon"]))
+        self.assertGreater(biome_preview["count"], 0)
         self.assertTrue(any(entry.get("forme") for entry in editor_catalog["species"]))
         self.assertTrue(
             any(entry["id"] == "cobblemon:potion" for entry in editor_catalog["bagItems"])
         )
         self.assertIn("Cobbleventure Content Studio", page)
+        self.assertIn("바이옴 관리", page)
         self.assertIn("엔트리 JSON 복사", page)
         self.assertIn("전투 가방", page)
         self.assertIn('<select name="battleFormat"', page)
@@ -527,6 +652,13 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("normalizeTrainerAi", app_script)
         self.assertIn("cheat_probability", app_script)
         self.assertIn("PokeAPI/sprites/master/sprites/pokemon", app_script)
+        self.assertIn("trainerReferenceSprites", app_script)
+        self.assertIn("본가 디자인 기준", app_script)
+        self.assertIn("현재 Minecraft 외형", app_script)
+        self.assertIn("rosterCharacterOptions", app_script)
+        self.assertIn('name="rosterCharacter"', page)
+        self.assertIn("youngster-gen4", app_script)
+        self.assertIn("trainer-reference-image", styles)
         self.assertIn("other/official-artwork", app_script)
         self.assertIn("pokeapi.co/api/v2/pokemon", app_script)
         self.assertIn("pokemonCatalogDisplayName", app_script)

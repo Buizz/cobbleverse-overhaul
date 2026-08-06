@@ -1,0 +1,26 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Trainers",
+    created:0L,
+    description:"반바지 꼬마 기본 의상 EasyNPC 의상 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"반바지 꼬마 기본 의상",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{Count:1b,id:"cobbleventure_bootstrap:youngster_cap"}],
+    CustomName:"{\"text\":\"반바지 꼬마 기본 의상\"}",
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.780f,0.780f,0.780f]}},
+    PersistenceRequired:1b,
+    PresetUUID:[I;126977244,1210604714,-1908334829,84713586],
+    SkinData:{Type:"CUSTOM",UUID:[I;1046507024,-1254729931,-1779098409,-451899910] },
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

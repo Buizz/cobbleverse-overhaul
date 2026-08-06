@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/trainer-outfits.schema.json",
+  "title": "Cobbleventure trainer outfit catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "outfits"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "outfits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "trainer_class", "display_name", "base_skin", "fallback_skin", "arm_model", "equipment", "adapters"],
+        "properties": {
+          "id": { "$ref": "#/$defs/resource_id" },
+          "trainer_class": { "$ref": "#/$defs/resource_id" },
+          "display_name": { "$ref": "#/$defs/localized_text" },
+          "base_skin": { "$ref": "#/$defs/resource_id" },
+          "fallback_skin": { "$ref": "#/$defs/resource_id" },
+          "arm_model": { "enum": ["classic", "slim"] },
+          "equipment": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "head": { "$ref": "#/$defs/equipment" },
+              "chest": { "$ref": "#/$defs/equipment" },
+              "legs": { "$ref": "#/$defs/equipment" },
+              "feet": { "$ref": "#/$defs/equipment" },
+              "mainhand": { "$ref": "#/$defs/equipment" },
+              "offhand": { "$ref": "#/$defs/equipment" }
+            }
+          },
+          "adapters": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["easy_npc"],
+            "properties": {
+              "easy_npc": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["entity_type", "skin_model", "custom_skin_uuid", "preset", "root_scale"],
+                "properties": {
+                  "entity_type": { "$ref": "#/$defs/resource_id" },
+                  "skin_model": { "enum": ["humanoid", "humanoid_slim"] },
+                  "custom_skin_uuid": { "type": "string", "format": "uuid" },
+                  "preset": { "$ref": "#/$defs/resource_id" },
+                  "root_scale": { "type": "number", "minimum": 0.5, "maximum": 1.25 }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "localized_text": {
+      "type": "object",
+      "minProperties": 1,
+      "required": ["ko_kr"],
+      "propertyNames": { "pattern": "^[a-z]{2}_[a-z]{2}$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "equipment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "visual_only", "drop_chance"],
+      "properties": {
+        "item": { "$ref": "#/$defs/resource_id" },
+        "visual_only": { "type": "boolean" },
+        "drop_chance": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

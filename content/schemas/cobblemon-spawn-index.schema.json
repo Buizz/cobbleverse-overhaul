@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/cobblemon-spawn-index.schema.json",
+  "title": "Generated Cobblemon spawn rule index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source", "summary", "rules"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "source": {
+      "type": "object",
+      "required": ["mod", "version", "spawn_pool", "resource_files"],
+      "properties": {
+        "mod": { "const": "cobblemon" },
+        "version": { "type": "string", "minLength": 1 },
+        "spawn_pool": { "type": "string", "minLength": 1 },
+        "resource_files": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "summary": { "type": "object" },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_resource", "rule_id", "species_id", "pokemon_expression",
+          "enabled", "type", "spawnable_position_type", "bucket", "level",
+          "weight", "presets", "condition", "anticondition",
+          "weight_multiplier", "weight_multipliers", "raw"
+        ],
+        "properties": {
+          "source_resource": { "type": "string", "minLength": 1 },
+          "rule_id": { "type": "string", "minLength": 1 },
+          "species_id": { "$ref": "#/$defs/resource_id" },
+          "pokemon_expression": { "type": "string", "minLength": 1 },
+          "enabled": { "type": "boolean" },
+          "type": { "type": "string" },
+          "spawnable_position_type": { "type": "string" },
+          "bucket": { "enum": ["common", "uncommon", "rare", "ultra-rare"] },
+          "level": { "type": "string" },
+          "weight": { "type": "number", "exclusiveMinimum": 0 },
+          "presets": { "type": "array", "items": { "type": "string" } },
+          "condition": { "type": "object" },
+          "anticondition": { "type": "object" },
+          "weight_multiplier": { "type": ["object", "null"] },
+          "weight_multipliers": { "type": "array" },
+          "raw": { "type": "object" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resource_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" }
+  }
+}

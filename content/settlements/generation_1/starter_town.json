@@ -28,7 +28,9 @@
   "content_profile": {
     "pokemon": {
       "spawn_profile": "cobbleventure:spawn/starter_region",
-      "density_multiplier": 1.0
+      "density_multiplier": 1.0,
+      "biome_set": "cobbleventure:biome_set/starter_region",
+      "unconditional_spawns": []
     },
     "trainers": {
       "population_profile": "cobbleventure:trainer_population/starter_region",
@@ -59,21 +61,27 @@
         "biome": "cobbleventure:starter_plains",
         "size_blocks": 320,
         "placement": "center",
-        "weight": 5
+        "weight": 5,
+        "habitat_profile": "cobbleventure:biome_profile/plains",
+        "spawn_settings": { "generation": 1, "temperature": "temperate", "humidity": "normal", "weather": "any", "time": "any", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
       },
       {
         "id": "outer_forest",
         "biome": "minecraft:forest",
         "size_blocks": 192,
         "placement": "outer",
-        "weight": 3
+        "weight": 3,
+        "habitat_profile": "cobbleventure:biome_profile/forest",
+        "spawn_settings": { "generation": 1, "temperature": "temperate", "humidity": "humid", "weather": "any", "time": "any", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
       },
       {
         "id": "river_patch",
         "biome": "minecraft:river",
         "size_blocks": 96,
         "placement": "middle",
-        "weight": 1
+        "weight": 1,
+        "habitat_profile": "cobbleventure:biome_profile/freshwater",
+        "spawn_settings": { "generation": 1, "temperature": "temperate", "humidity": "aquatic", "weather": "any", "time": "any", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
       }
     ],
     "boundary": {

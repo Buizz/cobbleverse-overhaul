@@ -1,0 +1,378 @@
+{
+  "$schema": "../schemas/biome-profiles.schema.json",
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "cobbleventure:biome_profile/plains",
+      "display_name": {
+        "ko_kr": "평원",
+        "en_us": "Plains"
+      },
+      "habitat": "plains",
+      "minecraft_biomes": [
+        "minecraft:plains",
+        "minecraft:meadow",
+        "minecraft:savanna"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "temperate",
+        "humidity": "normal",
+        "weather": "any",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/forest",
+      "display_name": {
+        "ko_kr": "숲",
+        "en_us": "Forest"
+      },
+      "habitat": "forest",
+      "minecraft_biomes": [
+        "minecraft:forest",
+        "minecraft:birch_forest",
+        "minecraft:jungle"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "temperate",
+        "humidity": "humid",
+        "weather": "any",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/arid",
+      "display_name": {
+        "ko_kr": "건조지",
+        "en_us": "Arid Lands"
+      },
+      "habitat": "arid",
+      "minecraft_biomes": [
+        "minecraft:desert",
+        "minecraft:badlands"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "hot",
+        "humidity": "dry",
+        "weather": "clear",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/mountain",
+      "display_name": {
+        "ko_kr": "산악",
+        "en_us": "Mountain"
+      },
+      "habitat": "mountain",
+      "minecraft_biomes": [
+        "minecraft:stony_peaks",
+        "minecraft:windswept_hills"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "cool",
+        "humidity": "normal",
+        "weather": "any",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/cave",
+      "display_name": {
+        "ko_kr": "동굴",
+        "en_us": "Cave"
+      },
+      "habitat": "cave",
+      "minecraft_biomes": [
+        "minecraft:dripstone_caves",
+        "minecraft:lush_caves",
+        "minecraft:deep_dark"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "cool",
+        "humidity": "normal",
+        "weather": "any",
+        "time": "night",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/wetland",
+      "display_name": {
+        "ko_kr": "습지",
+        "en_us": "Wetland"
+      },
+      "habitat": "wetland",
+      "minecraft_biomes": [
+        "minecraft:swamp",
+        "minecraft:mangrove_swamp"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "temperate",
+        "humidity": "humid",
+        "weather": "rain",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/freshwater",
+      "display_name": {
+        "ko_kr": "담수",
+        "en_us": "Freshwater"
+      },
+      "habitat": "freshwater",
+      "minecraft_biomes": [
+        "minecraft:river",
+        "minecraft:frozen_river"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "temperate",
+        "humidity": "aquatic",
+        "weather": "rain",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/ocean",
+      "display_name": {
+        "ko_kr": "해양",
+        "en_us": "Ocean"
+      },
+      "habitat": "ocean",
+      "minecraft_biomes": [
+        "minecraft:ocean",
+        "minecraft:deep_ocean",
+        "minecraft:warm_ocean"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "temperate",
+        "humidity": "aquatic",
+        "weather": "rain",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/snow",
+      "display_name": {
+        "ko_kr": "설원",
+        "en_us": "Snowfield"
+      },
+      "habitat": "snow",
+      "minecraft_biomes": [
+        "minecraft:snowy_plains",
+        "minecraft:ice_spikes",
+        "minecraft:frozen_ocean"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "cold",
+        "humidity": "normal",
+        "weather": "snow",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/volcanic",
+      "display_name": {
+        "ko_kr": "화산",
+        "en_us": "Volcanic"
+      },
+      "habitat": "volcanic",
+      "minecraft_biomes": [
+        "minecraft:basalt_deltas"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "hot",
+        "humidity": "dry",
+        "weather": "clear",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/urban",
+      "display_name": {
+        "ko_kr": "도시",
+        "en_us": "Urban"
+      },
+      "habitat": "urban",
+      "minecraft_biomes": [
+        "minecraft:plains"
+      ],
+      "settings": {
+        "generation": 0,
+        "temperature": "temperate",
+        "humidity": "normal",
+        "weather": "any",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    },
+    {
+      "id": "cobbleventure:biome_profile/special",
+      "display_name": {
+        "ko_kr": "특수",
+        "en_us": "Special"
+      },
+      "habitat": "special",
+      "minecraft_biomes": [],
+      "settings": {
+        "generation": 0,
+        "temperature": "any",
+        "humidity": "any",
+        "weather": "any",
+        "time": "any",
+        "rarities": [
+          "common",
+          "medium",
+          "uncommon",
+          "rare",
+          "legendary"
+        ],
+        "include_secondary": true
+      },
+      "forced_includes": [],
+      "excluded_pokemon": []
+    }
+  ],
+  "sets": [
+    {
+      "id": "cobbleventure:biome_set/starter_region",
+      "display_name": {
+        "ko_kr": "시작 지역 기본 세트",
+        "en_us": "Starter Region Set"
+      },
+      "profiles": [
+        {
+          "profile": "cobbleventure:biome_profile/plains",
+          "weight": 5
+        },
+        {
+          "profile": "cobbleventure:biome_profile/forest",
+          "weight": 3
+        },
+        {
+          "profile": "cobbleventure:biome_profile/freshwater",
+          "weight": 1
+        }
+      ],
+      "unconditional_spawns": []
+    }
+  ]
+}

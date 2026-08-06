@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/biome-profiles.schema.json",
+  "title": "Biome profiles and sets",
+  "type": "object",
+  "required": ["schema_version", "profiles", "sets"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "profiles": { "type": "array", "items": { "$ref": "#/$defs/profile" } },
+    "sets": { "type": "array", "items": { "$ref": "#/$defs/set" } }
+  },
+  "$defs": {
+    "resource_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "pokemon_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
+    "settings": {
+      "type": "object",
+      "required": ["generation", "temperature", "humidity", "weather", "time", "rarities", "include_secondary"],
+      "properties": {
+        "generation": { "type": "integer", "minimum": 0, "maximum": 9 },
+        "temperature": { "enum": ["any", "cold", "cool", "temperate", "hot"] },
+        "humidity": { "enum": ["any", "dry", "normal", "humid", "aquatic"] },
+        "weather": { "enum": ["any", "clear", "rain", "thunder", "snow", "fog"] },
+        "time": { "enum": ["any", "day", "night", "twilight"] },
+        "rarities": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["common", "medium", "uncommon", "rare", "legendary"] } },
+        "include_secondary": { "type": "boolean" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "required": ["id", "display_name", "habitat", "settings", "forced_includes", "excluded_pokemon"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resource_id" },
+        "display_name": { "type": "object", "required": ["ko_kr"] },
+        "habitat": { "enum": ["plains", "forest", "arid", "mountain", "cave", "wetland", "freshwater", "ocean", "snow", "volcanic", "urban", "special"] },
+        "minecraft_biomes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
+        "settings": { "$ref": "#/$defs/settings" },
+        "forced_includes": { "$ref": "#/$defs/pokemon_ids" },
+        "excluded_pokemon": { "$ref": "#/$defs/pokemon_ids" }
+      }
+    },
+    "set": {
+      "type": "object",
+      "required": ["id", "display_name", "profiles", "unconditional_spawns"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resource_id" },
+        "display_name": { "type": "object", "required": ["ko_kr"] },
+        "profiles": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["profile", "weight"], "properties": { "profile": { "$ref": "#/$defs/resource_id" }, "weight": { "type": "integer", "minimum": 1, "maximum": 100 } } } },
+        "unconditional_spawns": { "$ref": "#/$defs/pokemon_ids" }
+      }
+    }
+  }
+}

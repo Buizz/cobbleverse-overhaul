@@ -71,6 +71,9 @@ Cobblemon 1.8과 관련 모드 버전이 확정되기 전에는 다음 `draft` �
 로컬 관리 화면과 Web API를 실행하고 종료할 때까지 터미널을 점유한다. 종료하려면
 `Ctrl+C`를 누른다. 기본 주소는 다음과 같다.
 
+`build.bat web` 또는 `build.bat api`를 다시 실행하면 같은 저장소의 이전 콘텐츠
+관리자 Python 프로세스를 먼저 종료한다. 다른 Python 프로그램은 종료하지 않는다.
+
 ```text
 http://127.0.0.1:8765
 ```
@@ -90,6 +93,9 @@ http://127.0.0.1:8765
 - 지역 폼과 특수 형태 선택, 카탈로그 외 Cobblemon `aspects` 직접 입력
 - 대화·진행과 IV·EV 등 전체 트레이너 JSON 고급 편집
 - 마을 이름, 지역, 차원, 중심, 경계와 기본 NPC 배치 수치 편집
+- 12개 대표 서식지 프로필의 세대·온도·습도·날씨·시간·레어도 조건 편집과 출현 결과 테스트
+- 바이옴 세트의 프로필 가중치와 모든 조건을 무시하는 강제 출현 포켓몬 편집
+- 1,025마리 포켓몬 서식지 카탈로그 검색과 마을 바이옴 구역별 출현 미리보기
 - 마을에서 배치할 트레이너를 선택하고 슬롯 ID·좌표·회전·생성 정책·태그 편집
 - 전체 마을 JSON 고급 편집
 - 허용된 `build.bat` 검사·테스트·패키징 명령 실행과 결과 확인
@@ -137,6 +143,9 @@ python tools/content-manager/content_manager.py api --root .
 - `GET /api/trainers`, `GET /api/settlements`: 관리 문서 목록
 - `GET /api/trainer-classes`: 트레이너 클래스와 기본 외형 카탈로그
 - `GET /api/editor-catalog`: Battle Web Lab과 공유하는 포켓몬·폼·기술·특성·도구 및 트레이너 가방 아이템 카탈로그
+- `GET /api/biome-catalog`, `PUT /api/biome-catalog`: 바이옴 프로필·세트 조회와 검증 후 저장
+- `GET /api/pokemon-habitats`: 1,025마리의 세대·속성·선호 환경·대표/보조 서식지 카탈로그
+- `POST /api/biome-preview`: 프로필 또는 세트 조건에 따른 출현 포켓몬 판정
 - `GET /api/trainers?path=...`, `GET /api/settlements?path=...`: 단일 문서 조회
 - `PUT /api/trainers?path=...`, `PUT /api/settlements?path=...`: 검증 후 문서 저장
 - `POST /api/document-validation?category=...`: 저장하지 않고 문서 검증
@@ -157,6 +166,7 @@ python tools/content-manager/content_manager.py api --root .
 - `next_dialogue`, 진행 경로와 대화 진입점의 대상 존재 여부
 - `start_battle`의 트레이너 ID 일치 여부
 - 마을 ID·지역·차원, 경계와 중심 좌표, 앵커, 트레이너 슬롯과 NPC 구역
+- 바이옴 프로필·세트 참조, 구역별 출현 조건과 조건 무시 출현 포켓몬 ID
 
 구조 계약은 `content/schemas/content-bundle.schema.json`, 실제 작성 예제는
 `content/source/examples`에서 확인한다. 저장소 내 다른 JSON의 역할과 편집 여부는

@@ -58,6 +58,7 @@ public final class CobbleventureBootstrap {
         );
 
     public CobbleventureBootstrap(IEventBus modBus) {
+        TrainerCosmetics.register(modBus);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
     }
