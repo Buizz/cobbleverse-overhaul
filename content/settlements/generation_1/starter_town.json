@@ -17,12 +17,13 @@
   },
   "center": {
     "x": 600,
-    "y": 75,
+    "y": 69,
     "z": -300
   },
   "anchors": {
-    "town_square": { "x": 600, "y": 75, "z": -300 },
-    "gym_entrance": { "x": 720, "y": 76, "z": -280 }
+    "town_square": { "x": 600, "y": 69, "z": -300 },
+    "player_spawn": { "x": 600, "y": 69, "z": -390 },
+    "gym_entrance": { "x": 720, "y": 70, "z": -280 }
   },
   "content_profile": {
     "pokemon": {
@@ -110,7 +111,7 @@
       {
         "id": "gym_leader",
         "trainer_id": "cobbleventure:trainer/starter_town_leader",
-        "position": { "x": 724, "y": 76, "z": -272 },
+        "position": { "x": 724, "y": 70, "z": -272 },
         "rotation": 180,
         "spawn_policy": "persistent",
         "tags": ["gym", "fixed", "trainer"]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 
 from starter_gym import GYM_ROOF_BLOCKS, build_starter_gym_nbt
@@ -10,10 +11,12 @@ from starter_gym import GYM_ROOF_BLOCKS, build_starter_gym_nbt
 SOURCE = Path("projects/cobbleventure-world-bootstrap/src/main/resources")
 OUTPUT = Path("projects/cobbleventure-world-bootstrap/src/generated/resources")
 STARTER_TOWN_CONFIG = Path("content/settlements/generation_1/starter_town.json")
+SETTLEMENT_CONFIG_DIR = Path("content/settlements")
 REQUIRED_ENTRIES = {
     "META-INF/neoforge.mods.toml",
     "pack.mcmeta",
     "data/cobbleventure/worldgen/structure/starter_town/village.json",
+    "data/cobbleventure/worldgen/structure/route_01_town/village.json",
     "data/cobbleventure/worldgen/template_pool/starter_town/center.json",
     "data/cobbleventure/worldgen/biome/starter_plains.json",
     "data/cobbleventure/dimension_type/generation_world.json",
@@ -24,8 +27,10 @@ REQUIRED_ENTRIES = {
 }
 GENERATED_ENTRY = Path("data/cobbleventure/structure/starter_town/gym.nbt")
 GENERATED_SETTLEMENT_ENTRY = Path(
-    "data/cobbleventure/cobbleventure/settlements/generation_1/starter_town.json"
+    "data/cobbleventure/settlements/generation_1/starter_town.json"
 )
+GENERATED_SETTLEMENT_DIR = Path("data/cobbleventure/settlements")
+LEGACY_GENERATED_SETTLEMENT_DIR = Path("data/cobbleventure/cobbleventure/settlements")
 
 
 class ModBuildError(RuntimeError):
@@ -50,6 +55,23 @@ def _starter_town_data(root: Path) -> dict[str, object]:
     if not isinstance(data, dict) or data.get("schema_version") != 2:
         raise ModBuildError("시작 마을 설정은 settlement schema_version 2여야 합니다.")
     return data
+
+
+def _package_settlements(root: Path, output: Path) -> None:
+    source_dir = _inside(root, root / SETTLEMENT_CONFIG_DIR, "마을 설정 디렉터리")
+    if not source_dir.is_dir():
+        raise ModBuildError(f"마을 설정 디렉터리가 없습니다: {source_dir}")
+    for source_path in sorted(source_dir.rglob("*.json")):
+        try:
+            data = json.loads(source_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ModBuildError(f"마을 설정을 읽을 수 없습니다: {source_path}") from error
+        if not isinstance(data, dict) or data.get("schema_version") != 2:
+            raise ModBuildError(f"마을 설정은 schema_version 2여야 합니다: {source_path}")
+        relative = source_path.relative_to(source_dir)
+        target = _inside(root, output / GENERATED_SETTLEMENT_DIR / relative, "생성 마을 설정")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _starter_gym_theme(data: dict[str, object]) -> str:
@@ -85,12 +107,11 @@ def build(root: Path) -> Path:
     generated = _inside(root, output / GENERATED_ENTRY, "생성 체육관")
     generated.parent.mkdir(parents=True, exist_ok=True)
     generated.write_bytes(build_starter_gym_nbt(theme))
-    generated_settlement = _inside(root, output / GENERATED_SETTLEMENT_ENTRY, "생성 마을 설정")
-    generated_settlement.parent.mkdir(parents=True, exist_ok=True)
-    generated_settlement.write_text(
-        json.dumps(settlement_data, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    for directory in (GENERATED_SETTLEMENT_DIR, LEGACY_GENERATED_SETTLEMENT_DIR):
+        generated_directory = _inside(root, output / directory, "생성 마을 설정 디렉터리")
+        if generated_directory.exists():
+            shutil.rmtree(generated_directory)
+    _package_settlements(root, output)
     return generated
 
 

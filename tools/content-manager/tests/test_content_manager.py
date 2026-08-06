@@ -209,6 +209,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("cobbleventure:settlement/starter_town", settlement_id)
         self.assertEqual([], issues)
 
+    def test_route_01_town_is_valid(self) -> None:
+        root = Path(__file__).parents[3]
+        settlement_id, issues = content_manager.validate_settlement_file(
+            root / "content" / "settlements" / "generation_1" / "route_01_town.json"
+        )
+        self.assertEqual("cobbleventure:settlement/route_01_town", settlement_id)
+        self.assertEqual([], issues)
+
     def test_settlement_requires_valid_structure_profile(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -498,8 +506,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("ok", health["status"])
         self.assertTrue(validation["valid"])
         self.assertGreaterEqual(dashboard["trainers"], 2)
-        self.assertEqual(1, dashboard["settlements"])
-        self.assertEqual(1, len(settlements["items"]))
+        self.assertEqual(2, dashboard["settlements"])
+        self.assertEqual(2, len(settlements["items"]))
         self.assertGreaterEqual(len(trainer_classes["classes"]), 10)
         self.assertGreaterEqual(len(editor_catalog["species"]), 1000)
         self.assertGreaterEqual(len(editor_catalog["moves"]), 900)

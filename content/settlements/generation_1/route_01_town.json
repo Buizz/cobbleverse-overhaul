@@ -1,0 +1,124 @@
+{
+  "$schema": "../../schemas/settlement.schema.json",
+  "schema_version": 2,
+  "id": "cobbleventure:settlement/route_01_town",
+  "enabled": true,
+  "display_name": {
+    "ko_kr": "초록길 마을",
+    "en_us": "Greenway Town"
+  },
+  "region": "cobbleventure:generation_1/region_02",
+  "dimension": "cobbleventure:generation_1",
+  "bounds": {
+    "min_x": 900,
+    "min_z": -440,
+    "max_x": 1180,
+    "max_z": -160
+  },
+  "center": {
+    "x": 1040,
+    "y": 69,
+    "z": -300
+  },
+  "anchors": {
+    "town_square": { "x": 1040, "y": 69, "z": -300 },
+    "gym_entrance": { "x": 1052, "y": 70, "z": -296 }
+  },
+  "content_profile": {
+    "pokemon": {
+      "spawn_profile": "cobbleventure:spawn/greenway_region",
+      "density_multiplier": 1.2
+    },
+    "trainers": {
+      "population_profile": "cobbleventure:trainer_population/greenway_region",
+      "max_active": 14,
+      "class_pool": [
+        "cobbleventure:trainer_class/bug_catcher",
+        "cobbleventure:trainer_class/lass",
+        "cobbleventure:trainer_class/hiker"
+      ]
+    },
+    "level_scaling": {
+      "mode": "badge_and_region",
+      "base_level": 12,
+      "min_level": 8,
+      "max_level": 28,
+      "per_badge": 2,
+      "per_region": 3,
+      "pokemon_offset": 0,
+      "trainer_offset": 2
+    }
+  },
+  "biome_layout": {
+    "arrangement": "organic_patches",
+    "transition_width": 12,
+    "zones": [
+      {
+        "id": "central_forest",
+        "biome": "minecraft:forest",
+        "size_blocks": 240,
+        "placement": "center",
+        "weight": 5
+      },
+      {
+        "id": "flower_grove",
+        "biome": "minecraft:flower_forest",
+        "size_blocks": 144,
+        "placement": "inner",
+        "weight": 3
+      },
+      {
+        "id": "river_edge",
+        "biome": "minecraft:river",
+        "size_blocks": 80,
+        "placement": "outer",
+        "weight": 1
+      }
+    ],
+    "boundary": {
+      "profile": "cobbleventure:boundary/greenway_wall",
+      "width": 16,
+      "wall_height": 12,
+      "wall_thickness": 5
+    }
+  },
+  "connections": [
+    {
+      "id": "starter_town_gate",
+      "target_settlement": "cobbleventure:settlement/starter_town",
+      "placement": {
+        "mode": "toward_target",
+        "preferred_side": "west",
+        "offset": 0
+      },
+      "gate_width": 9,
+      "path_width": 7
+    }
+  ],
+  "structure_profile": {
+    "structure": "cobbleventure:route_01_town/village",
+    "gym_theme": "bug",
+    "gym_entrance_offset": { "x": 12, "y": 1, "z": 4 },
+    "required_facilities": {
+      "gym": "cobbleventure:starter_town/gym"
+    }
+  },
+  "npc_placement": {
+    "max_ambient_npcs": 10,
+    "default_wander_radius": 7,
+    "trainer_slots": [],
+    "zones": [
+      {
+        "id": "town_square",
+        "bounds": {
+          "min_x": 1018,
+          "min_z": -322,
+          "max_x": 1062,
+          "max_z": -278
+        },
+        "max_npcs": 6,
+        "tags": ["ambient", "resident"]
+      }
+    ]
+  }
+}

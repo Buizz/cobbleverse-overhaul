@@ -30,6 +30,16 @@ class DataModBuilderTests(unittest.TestCase):
 
         self.assertEqual("cobbleventure:starter_plains", structure["biomes"])
 
+    def test_route_town_structure_targets_forest(self) -> None:
+        path = (
+            REPOSITORY_ROOT
+            / build_data_mod.SOURCE
+            / "data/cobbleventure/worldgen/structure/route_01_town/village.json"
+        )
+        structure = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertEqual("minecraft:forest", structure["biomes"])
+
     def _fixture(self, root: Path) -> Path:
         source = root / build_data_mod.SOURCE
         source_entries = build_data_mod.REQUIRED_ENTRIES
@@ -89,14 +99,28 @@ class DataModBuilderTests(unittest.TestCase):
                 }),
                 encoding="utf-8",
             )
+            second = root / build_data_mod.SETTLEMENT_CONFIG_DIR / "generation_1" / "second.json"
+            second.write_text(
+                json.dumps({
+                    "schema_version": 2,
+                    "id": "cobbleventure:settlement/second",
+                    "structure_profile": {"gym_theme": "bug"},
+                }),
+                encoding="utf-8",
+            )
 
             build_data_mod.build(root)
             generated = root / build_data_mod.OUTPUT / build_data_mod.GENERATED_SETTLEMENT_ENTRY
+            generated_second = (
+                root / build_data_mod.OUTPUT / build_data_mod.GENERATED_SETTLEMENT_DIR
+                / "generation_1" / "second.json"
+            )
             data = json.loads(generated.read_text(encoding="utf-8"))
 
             self.assertEqual(2, data["schema_version"])
             self.assertEqual(3, len(data["biome_layout"]["zones"]))
             self.assertEqual("toward_target", data["connections"][0]["placement"]["mode"])
+            self.assertTrue(generated_second.is_file())
 
     def test_rejects_missing_required_entry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
