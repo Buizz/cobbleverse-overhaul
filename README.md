@@ -20,8 +20,10 @@
 - [선택 아키텍처와 비교 기록](docs/implementation/WORLD_ARCHITECTURE_OPTIONS.md)
 - [세대 월드 8지역 및 체육관 도시 생성](docs/implementation/WORLD_GENERATION.md)
 - [도시 포맷과 세대별 특수 시설](docs/implementation/CITY_FACILITIES.md)
+- [플레이어 원형 메뉴 설계](docs/implementation/PLAYER_MENU.md)
 - [Cobbleventure Core](projects/cobbleventure-core/README.md)
 - [Cobbleventure Battle AI 프로젝트](projects/cobbleventure-battle-ai/README.md)
+- [Cobbleventure Player Menu](projects/cobbleventure-player-menu/README.md)
 - [트레이너 JSON 예제 데이터](trainer-data/README.md)
 
 ## 개발 환경
@@ -116,8 +118,9 @@ dist/cobbleventure-development-0.1.1-curseforge.zip.sha256
 
 현재 개발 팩에는 Cobblemon 1.7.3, BCA 실행 호환 계층과 CobbleDollars,
 Cobblemon Additions 4.2.1 원본 JAR이 포함됩니다. `build.bat pack`은 먼저
-무지하 전용 시작 바이옴·세대 차원을 생성하는 부트스트랩 Java 모드를 빌드하고 함께 넣습니다. RCT와
-정식 Cobbleventure NeoForge 게임 어댑터는 아직 포함하지 않으며 ZIP 안의 팩
+무지하 전용 시작 바이옴·세대 차원을 생성하는 부트스트랩 Java 모드와
+인벤토리 키 기반 원형 플레이어 메뉴 모드를 빌드하고 함께 넣습니다. RCT와
+정식 Cobbleventure NeoForge 게임 어댑터의 나머지 기능은 아직 포함하지 않으며 ZIP 안의 팩
 정보에는 `production_ready: false`를 기록합니다.
 
 새 월드에 처음 입장하면 동굴·광맥·지하 구조물이 없는
@@ -241,8 +244,9 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 | `build.bat validate-pack` | Minecraft·NeoForge·활성 모드 버전과 CurseForge ID까지 엄격 검사 | 의존성 확정 전에는 실패가 정상 |
 | `build.bat web` | 데이터 관리용 Python Web 화면과 API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
 | `build.bat api` | `build.bat web`의 호환용 별칭 | Web 화면과 API가 동일하게 실행됨 |
-| `build.bat test` | 콘텐츠/Web/팩 회귀 테스트와 월드 부트스트랩 Java 컴파일 | Python `unittest`와 Gradle 테스트가 모두 통과해야 함 |
+| `build.bat test` | 콘텐츠/Web/팩 회귀 테스트와 월드 부트스트랩·플레이어 메뉴 Java 컴파일 | Python `unittest`와 Gradle 테스트가 모두 통과해야 함 |
 | `build.bat mod-bootstrap` | 무지하 시작 바이옴·세대 차원·BCA 테스트 마을용 NeoForge Java 모드 빌드 | 체육관 NBT 생성 후 개발 팩 `overrides/mods`에 JAR 생성 |
+| `build.bat mod-menu` | 인벤토리 키 기반 원형 플레이어 메뉴 NeoForge 모드 빌드 | 개발 팩 `overrides/mods`에 JAR 생성 |
 | `build.bat pack-smoke` | 최소 CurseForge 임포트 테스트 ZIP 생성·재검증 | `dist`에 ZIP과 SHA-256 생성 |
 | `build.bat pack` | 일반 콘텐츠 검증 후 임시 개발 팩 생성 | 임포트 가능한 개발용 ZIP과 SHA-256 생성 |
 | `build.bat pack-release` | 정식 의존성·배포 준비 상태를 엄격 검사 | 현재는 누락 항목을 출력하고 실패하는 것이 정상 |

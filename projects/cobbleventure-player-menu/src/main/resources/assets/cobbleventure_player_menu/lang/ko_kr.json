@@ -1,0 +1,23 @@
+{
+  "screen.cobbleventure_player_menu.title": "플레이어 메뉴",
+  "screen.cobbleventure_player_menu.hint": "숫자키 또는 마우스로 선택 · 인벤토리 키로 닫기",
+  "screen.cobbleventure_player_menu.status.select": "메뉴를 선택하세요",
+  "screen.cobbleventure_player_menu.status.coming_soon": "%s 메뉴는 준비 중입니다",
+  "screen.cobbleventure_player_menu.entry.numbered": "%s. %s",
+  "screen.cobbleventure_player_menu.entry.pokemon": "포켓몬",
+  "screen.cobbleventure_player_menu.entry.pokemon.description": "현재 파티와 포켓몬 정보를 관리합니다",
+  "screen.cobbleventure_player_menu.entry.bag": "가방",
+  "screen.cobbleventure_player_menu.entry.bag.description": "종류별 포켓에서 아이템을 관리합니다",
+  "screen.cobbleventure_player_menu.entry.equipment": "장비",
+  "screen.cobbleventure_player_menu.entry.equipment.description": "현재 바닐라 인벤토리로 연결됩니다",
+  "screen.cobbleventure_player_menu.entry.pc": "PC",
+  "screen.cobbleventure_player_menu.entry.pc.description": "포켓몬 박스와 개인 공간 기능을 엽니다",
+  "screen.cobbleventure_player_menu.entry.trainer_card": "트레이너 카드",
+  "screen.cobbleventure_player_menu.entry.trainer_card.description": "배지, 진행도와 트레이너 기록을 확인합니다",
+  "screen.cobbleventure_player_menu.entry.quests": "퀘스트",
+  "screen.cobbleventure_player_menu.entry.quests.description": "현재 목표와 완료 기록을 확인합니다",
+  "screen.cobbleventure_player_menu.entry.map": "지도",
+  "screen.cobbleventure_player_menu.entry.map.description": "지역, 도시와 목적지를 확인합니다",
+  "screen.cobbleventure_player_menu.entry.pokedex": "도감",
+  "screen.cobbleventure_player_menu.entry.pokedex.description": "발견한 포켓몬과 서식 정보를 확인합니다"
+}

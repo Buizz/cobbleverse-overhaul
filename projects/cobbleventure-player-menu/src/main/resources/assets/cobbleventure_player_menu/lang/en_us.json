@@ -1,0 +1,23 @@
+{
+  "screen.cobbleventure_player_menu.title": "Player Menu",
+  "screen.cobbleventure_player_menu.hint": "Select with a number key or the mouse · Press inventory to close",
+  "screen.cobbleventure_player_menu.status.select": "Choose a menu",
+  "screen.cobbleventure_player_menu.status.coming_soon": "%s is coming soon",
+  "screen.cobbleventure_player_menu.entry.numbered": "%s. %s",
+  "screen.cobbleventure_player_menu.entry.pokemon": "Pokémon",
+  "screen.cobbleventure_player_menu.entry.pokemon.description": "Manage your current party and Pokémon",
+  "screen.cobbleventure_player_menu.entry.bag": "Bag",
+  "screen.cobbleventure_player_menu.entry.bag.description": "Manage items in categorized pockets",
+  "screen.cobbleventure_player_menu.entry.equipment": "Equipment",
+  "screen.cobbleventure_player_menu.entry.equipment.description": "Currently opens the vanilla inventory",
+  "screen.cobbleventure_player_menu.entry.pc": "PC",
+  "screen.cobbleventure_player_menu.entry.pc.description": "Open Pokémon storage and personal services",
+  "screen.cobbleventure_player_menu.entry.trainer_card": "Trainer Card",
+  "screen.cobbleventure_player_menu.entry.trainer_card.description": "View badges, progress, and trainer records",
+  "screen.cobbleventure_player_menu.entry.quests": "Quests",
+  "screen.cobbleventure_player_menu.entry.quests.description": "View current objectives and completed quests",
+  "screen.cobbleventure_player_menu.entry.map": "Map",
+  "screen.cobbleventure_player_menu.entry.map.description": "View regions, towns, and destinations",
+  "screen.cobbleventure_player_menu.entry.pokedex": "Pokédex",
+  "screen.cobbleventure_player_menu.entry.pokedex.description": "View discovered Pokémon and habitats"
+}

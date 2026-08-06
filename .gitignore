@@ -29,6 +29,7 @@ backups/
 # Downloaded mod binaries and generated packages
 mods/*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-world-bootstrap-*.jar
+pack/overrides/development-placeholder/mods/cobbleventure-player-menu-*.jar
 *.mrpack
 *.zip
 
