@@ -1,0 +1,18 @@
+{
+  "character": "cobbleventure:character/colress",
+  "reference": "https://play.pokemonshowdown.com/sprites/trainers/colress.png",
+  "reference_label": "포켓몬스터 블랙2·화이트2 아크로마 전투 스프라이트",
+  "concept_atlas": "concept-v2.png",
+  "generation_mode": "ai-concept-plus-deterministic-auto-uv",
+  "model": "slim",
+  "auto_layout": "four_row_atlas_v1",
+  "component_minimum_area": 80,
+  "chroma_key": "#ff00ff",
+  "chroma_threshold": 45,
+  "palette_colors": 20,
+  "fallback_color": "#e4b07f",
+  "overlay_parts": ["head", "body"],
+  "overlay_colors": ["#f3f4f3", "#dfe5e7", "#285bad", "#1b2a49"],
+  "overlay_tolerance": 34,
+  "output": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/colress.png"
+}

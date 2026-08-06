@@ -1,0 +1,16 @@
+{
+  "character": "cobbleventure:character/team_star_grunt_female",
+  "reference": "reference/team_star_grunt_female.png",
+  "reference_label": "Pokémon 본가 team_star_grunt_female 트레이너 스프라이트",
+  "concept_atlas": "concept-v2.png",
+  "generation_mode": "ai-reference-plus-deterministic-auto-uv",
+  "model": "slim",
+  "auto_layout": "four_row_atlas_v1",
+  "component_minimum_area": 80,
+  "chroma_key": "#ff00ff",
+  "chroma_threshold": 45,
+  "palette_colors": 20,
+  "fallback_color": "#d8a174",
+  "overlay_parts": [],
+  "output": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/team_star_grunt_female.png"
+}

@@ -1,0 +1,16 @@
+{
+  "trainer_class": "cobbleventure:trainer_class/office_worker",
+  "reference": "https://play.pokemonshowdown.com/sprites/trainers/officeworker-gen9.png",
+  "reference_label": "Pokémon 본가 officeworker-gen9 전투 스프라이트",
+  "concept_atlas": "concept-v2.png",
+  "generation_mode": "ai-concept-plus-deterministic-auto-uv",
+  "model": "slim",
+  "auto_layout": "four_row_atlas_v1",
+  "component_minimum_area": 80,
+  "chroma_key": "#ff00ff",
+  "chroma_threshold": 45,
+  "palette_colors": 20,
+  "fallback_color": "#dca071",
+  "overlay_parts": [],
+  "output": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/office_worker.png"
+}

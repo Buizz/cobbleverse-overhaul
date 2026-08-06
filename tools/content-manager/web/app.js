@@ -205,8 +205,8 @@ function renderTrainer() {
     ).join("");
     return options ? `<optgroup label="${label}">${options}</optgroup>` : "";
   }).join("");
-  form.elements.rosterCharacter.innerHTML = rosterCharacterOptions();
   setFormValue(form, "trainerClass", document.npc?.trainer_class);
+  form.elements.rosterCharacter.innerHTML = rosterCharacterOptions(document.npc?.trainer_class);
   setFormValue(form, "rosterCharacter", document.npc?.character || "");
   setFormValue(form, "appearanceSource", document.npc?.appearance?.source);
   setFormValue(form, "appearanceResource", document.npc?.appearance?.resource);
@@ -384,6 +384,7 @@ function applyTrainerClass() {
       ...(portrait ? { portrait } : {})
     };
   }
+  form.elements.rosterCharacter.innerHTML = rosterCharacterOptions(trainerClass?.id);
   form.elements.rosterCharacter.value = "";
   delete state.trainer.npc.character;
   updateTrainerFromForm();
@@ -396,18 +397,54 @@ function rosterCharacters() {
   return [...organizations, ...(state.trainerRoster.league_characters || [])];
 }
 
-function rosterCharacterOptions() {
+const rosterRolesByClass = {
+  gym_leader: ["gym_leader"], elite_four: ["elite_four"], champion: ["champion"],
+  villain_grunt: ["grunt"], villain_admin: ["admin", "named_agent"], villain_boss: ["boss"]
+};
+
+function effectiveCharacterAppearance(character) {
+  return character?.appearance || {};
+}
+
+function rosterCharactersForClass(classId) {
+  const slug = trainerClassSlug(classId);
+  if (slug === "custom") return rosterCharacters();
+  const roles = rosterRolesByClass[slug];
+  return roles ? rosterCharacters().filter((character) => roles.includes(character.role)) : [];
+}
+
+function characterVisualMatchStatus(character) {
+  const appearance = effectiveCharacterAppearance(character);
+  if (appearance.visual_match_status) return appearance.visual_match_status;
+  if (appearance.implementation_status === "placeholder") return "unverified";
+  if (appearance.source?.startsWith("rct_") && character?.role !== "grunt") return "generic";
+  return "matched";
+}
+
+function characterAppearanceLabel(character) {
+  const status = characterVisualMatchStatus(character);
+  if (status === "matched") return "전용 스킨";
+  if (status === "generic") {
+    return effectiveCharacterAppearance(character).source === "custom" ? "1차 스킨" : "RCT 후보만 있음";
+  }
+  return character?.appearance?.asset_status === "definition_only" ? "정의만 확인" : "전용 스킨 준비 중";
+}
+
+function rosterCharacterOptions(classId) {
+  const allowedIds = new Set(rosterCharactersForClass(classId).map((character) => character.id));
   const organizationGroups = (state.trainerRoster.organizations || []).map((organization) => {
-    const characters = [...(organization.grunt_variants || []), ...(organization.named_characters || [])];
-    return `<optgroup label="${escapeHtml(organization.display_name?.ko_kr || organization.id)}">${characters.map((character) =>
-      `<option value="${escapeHtml(character.id)}">${escapeHtml(character.display_name?.ko_kr || character.id)} · ${character.appearance?.asset_status === "verified" ? "스킨 확인" : "준비 중"}</option>`
-    ).join("")}</optgroup>`;
+    const characters = [...(organization.grunt_variants || []), ...(organization.named_characters || [])]
+      .filter((character) => allowedIds.has(character.id));
+    return characters.length ? `<optgroup label="${escapeHtml(organization.display_name?.ko_kr || organization.id)}">${characters.map((character) =>
+      `<option value="${escapeHtml(character.id)}">${escapeHtml(character.display_name?.ko_kr || character.id)} · ${characterAppearanceLabel(character)}</option>`
+    ).join("")}</optgroup>` : "";
   }).join("");
   const regionNames = { kanto: "관동 리그", johto: "성도 리그", hoenn: "호연 리그", sinnoh: "신오 리그" };
   const leagueGroups = Object.entries(regionNames).map(([region, label]) => {
-    const characters = (state.trainerRoster.league_characters || []).filter((entry) => entry.region === region);
+    const characters = (state.trainerRoster.league_characters || [])
+      .filter((entry) => entry.region === region && allowedIds.has(entry.id));
     return characters.length ? `<optgroup label="${label}">${characters.map((character) =>
-      `<option value="${escapeHtml(character.id)}">${escapeHtml(character.display_name?.ko_kr || character.id)} · ${character.appearance?.asset_status === "verified" ? "스킨 확인" : "정의만 확인"}</option>`
+      `<option value="${escapeHtml(character.id)}">${escapeHtml(character.display_name?.ko_kr || character.id)} · ${characterAppearanceLabel(character)}</option>`
     ).join("")}</optgroup>` : "";
   }).join("");
   return '<option value="">직접 설정</option>' + organizationGroups + leagueGroups;
@@ -428,16 +465,18 @@ function applyRosterCharacter() {
   form.elements.trainerClass.value = `cobbleventure:trainer_class/${classByRole[character.role] || "custom"}`;
   form.elements.nameKo.value = character.display_name?.ko_kr || character.id;
   form.elements.nameEn.value = character.display_name?.en_us || "";
-  form.elements.appearanceSource.value = character.appearance.source;
-  form.elements.appearanceResource.value = character.appearance.resource;
+  const appearance = effectiveCharacterAppearance(character);
+  form.elements.appearanceSource.value = appearance.source;
+  form.elements.appearanceResource.value = appearance.resource;
+  form.elements.rosterCharacter.innerHTML = rosterCharacterOptions(form.elements.trainerClass.value);
+  form.elements.rosterCharacter.value = character.id;
   state.trainer.npc.character = character.id;
   updateTrainerFromForm();
 }
 
 function rctSkinUrl(resource) {
   if (!resource?.startsWith("rctmod:trainers/")) return "";
-  const path = resource.slice("rctmod:".length);
-  return `https://gitlab.com/srcmc/rct/mod/-/raw/1.21.1/common/src/main/resources/assets/rctmod/textures/${path}.png`;
+  return `/api/trainer-skin?resource=${encodeURIComponent(resource)}`;
 }
 
 const trainerReferenceSprites = {
@@ -464,17 +503,48 @@ const trainerReferenceSprites = {
   villain_grunt: ["teamrocketgruntm-gen3", "3세대 대표"]
 };
 
+const trainerCharacterReferenceSprites = {
+  brock: "brock-gen3", misty: "misty-gen3", lt_surge: "ltsurge-gen3", erika: "erika-gen3",
+  koga: "koga-gen3", sabrina: "sabrina-gen3", blaine: "blaine-gen3", giovanni_gym: "giovanni-gen3",
+  lorelei: "lorelei-gen3", bruno_kanto: "bruno-gen3", agatha: "agatha-gen3", lance_kanto: "lance-gen3",
+  blue_champion: "blue-gen3champion", falkner: "falkner-gen2", bugsy: "bugsy-gen2", whitney: "whitney-gen2",
+  morty: "morty-gen2", chuck: "chuck-gen2", jasmine: "jasmine-gen2", pryce: "pryce-gen2", clair: "clair-gen2",
+  will: "will-gen2", koga_johto: "koga-gen2", bruno_johto: "bruno-gen2", karen: "karen-gen2",
+  lance_champion: "lance-gen2", roxanne: "roxanne-gen3", brawly: "brawly-gen3", wattson: "wattson-gen3",
+  flannery: "flannery-gen3", norman: "norman-gen3", winona: "winona-gen3", tate: "tateandliza-gen3",
+  liza: "tateandliza-gen3", wallace: "wallace-gen3", sidney: "sidney-gen3", phoebe: "phoebe-gen3",
+  glacia: "glacia-gen3", drake: "drake-gen3", steven: "steven-gen3", roark: "roark", gardenia: "gardenia",
+  maylene: "maylene", crasher_wake: "crasherwake", fantina: "fantina", byron: "byron", candice: "candice",
+  volkner: "volkner", aaron: "aaron", bertha: "bertha", flint: "flint", lucian: "lucian", cynthia: "cynthia-gen4",
+  giovanni: "giovanni-gen3", archie: "archie-gen3", maxie: "maxie-gen3", cyrus: "cyrus",
+  ghetsis: "ghetsis", n: "n", colress: "colress", lysandre: "lysandre", guzma: "guzma",
+  plumeria: "plumeria", lusamine: "lusamine", piers: "piers", marnie: "marnie", rose: "rose",
+  oleana: "oleana", penny: "penny"
+};
+
 function trainerClassSlug(classId) {
   return String(classId || "").split("/").pop();
 }
 
+function trainerReferenceUrl(sprite) {
+  if (sprite?.startsWith("local:")) {
+    return `/api/trainer-skin?resource=${encodeURIComponent(`trainer-reference:${sprite.slice("local:".length)}`)}`;
+  }
+  return `/api/trainer-reference?sprite=${encodeURIComponent(sprite)}`;
+}
+
 function trainerReferenceHtml(trainerClass, rosterCharacter = null) {
-  // A generic class sprite must not be presented as the canon appearance of a named character.
-  if (rosterCharacter) return `<div class="trainer-reference-empty"><b>?</b><span>인물 전용 참조 이미지 준비 중</span></div>`;
-  const [sprite, generation] = trainerReferenceSprites[trainerClassSlug(trainerClass?.id)] || [];
+  const [classSprite, classGeneration] = trainerReferenceSprites[trainerClassSlug(trainerClass?.id)] || [];
+  const characterSlug = String(rosterCharacter?.id || "").split("/").pop();
+  const appearance = effectiveCharacterAppearance(rosterCharacter);
+  const characterSprite = appearance.source === "custom"
+    ? `local:${characterSlug}`
+    : trainerCharacterReferenceSprites[characterSlug];
+  const candidates = [...new Set([characterSprite, classSprite].filter(Boolean))];
+  const sprite = candidates.shift();
+  const generation = rosterCharacter ? `${rosterCharacter.generation || "?"}세대 인물` : classGeneration;
   if (!sprite) return `<div class="trainer-reference-empty"><b>?</b><span>참조 이미지 준비 중</span></div>`;
-  const url = `https://play.pokemonshowdown.com/sprites/trainers/${sprite}.png`;
-  return `<img class="trainer-reference-image" src="${url}" alt="${escapeHtml(trainerClass?.display_name?.ko_kr || "트레이너")} 본가 전투 스프라이트"><div class="trainer-reference-empty" hidden><b>?</b><span>참조 이미지 준비 중</span></div><small>${generation} 전투 스프라이트</small>`;
+  return `<img class="trainer-reference-image" src="${trainerReferenceUrl(sprite)}" data-fallback-sprites="${escapeHtml(JSON.stringify(candidates))}" alt="${escapeHtml(rosterCharacter?.display_name?.ko_kr || trainerClass?.display_name?.ko_kr || "트레이너")} 본가 전투 스프라이트"><div class="trainer-reference-empty" hidden><b>?</b><span>참조 이미지 준비 중</span></div><small>${generation} 전투 스프라이트</small>`;
 }
 
 function trainerSkinUrl(appearance) {
@@ -520,30 +590,50 @@ function minecraftModelHtml(skinUrl, body = {}) {
 
 function renderTrainerPreview() {
   if (!state.trainer) return;
-  const appearance = state.trainer.npc?.appearance || {};
   const trainerClass = state.trainerClasses.find((entry) => entry.id === state.trainer.npc?.trainer_class);
   const rosterCharacter = rosterCharacters().find((entry) => entry.id === state.trainer.npc?.character);
+  const appearance = rosterCharacter
+    ? effectiveCharacterAppearance(rosterCharacter)
+    : (state.trainer.npc?.appearance || {});
   const className = trainerClass?.display_name?.ko_kr || "사용자 정의";
   const fullTitle = trainerDisplayName(state.trainer.name || {}, state.trainer.npc?.trainer_class).ko_kr || className;
+  const visualMatch = rosterCharacter ? characterVisualMatchStatus(rosterCharacter) : "matched";
   const skinUrl = trainerSkinUrl(appearance);
+  const body = {
+    ...(rosterCharacter?.body || trainerClass?.body || {}),
+    ...(appearance.source === "custom" ? { arm_model: "slim" } : {}),
+  };
+  const appearanceState = visualMatch === "generic"
+    ? { className: "placeholder", label: "1차 스킨 검토 필요" }
+    : (appearance.implementation_status || trainerClass?.default_appearance?.implementation_status) === "placeholder"
+      ? { className: "placeholder", label: "전용 스킨 준비 중" }
+      : { className: "ready", label: "전용 스킨 준비됨" };
   const preview = $("#trainer-preview");
   preview.innerHTML = skinUrl ? `
     <div class="trainer-appearance-comparison">
       <section class="trainer-reference-card"><span>본가 디자인 기준</span>${trainerReferenceHtml(trainerClass, rosterCharacter)}</section>
-      <section class="trainer-minecraft-card"><span>현재 Minecraft 외형</span>${minecraftModelHtml(skinUrl, trainerClass?.body)}</section>
+      <section class="trainer-minecraft-card"><span>현재 Minecraft 외형</span>${minecraftModelHtml(skinUrl, body)}</section>
     </div>
     <strong>${escapeHtml(fullTitle)}</strong>
-    <span class="appearance-status ${(rosterCharacter?.appearance?.implementation_status || trainerClass?.default_appearance?.implementation_status) === "placeholder" ? "placeholder" : "ready"}">${(rosterCharacter?.appearance?.implementation_status || trainerClass?.default_appearance?.implementation_status) === "placeholder" ? "임시 스킨" : "스킨 준비됨"}</span>`
+    <span class="appearance-status ${appearanceState.className}">${appearanceState.label}</span>`
     : `<div class="trainer-preview-fallback">${escapeHtml(className.slice(0, 2))}</div><strong>${escapeHtml(fullTitle)}</strong>`;
   const referenceImage = preview.querySelector(".trainer-reference-image");
   referenceImage?.addEventListener("error", () => {
+    const fallbackSprites = JSON.parse(referenceImage.dataset.fallbackSprites || "[]");
+    const nextSprite = fallbackSprites.shift();
+    if (nextSprite) {
+      referenceImage.dataset.fallbackSprites = JSON.stringify(fallbackSprites);
+      referenceImage.src = trainerReferenceUrl(nextSprite);
+      return;
+    }
     referenceImage.hidden = true;
     const fallback = preview.querySelector(".trainer-reference-empty");
     if (fallback) fallback.hidden = false;
-  }, { once: true });
-  const body = trainerClass?.body || {};
+  });
   const ageNames = { child: "어린이", teen: "청소년", adult: "성인" };
-  $("#trainer-appearance-note").textContent = skinUrl
+  $("#trainer-appearance-note").textContent = visualMatch === "generic"
+    ? `${rosterCharacter?.display_name?.ko_kr || "선택한 인물"}의 검토용 1차 slim 스킨입니다. 원작과 다른 부분은 수동 리터치 또는 개별 재생성으로 교체할 수 있습니다.`
+    : skinUrl
     ? `Minecraft 64×64 스킨의 실제 앞·뒤·옆면을 입체로 표시합니다. 체형: ${ageNames[body.age_group] || "성인"}, 키 ${Math.round((body.height_scale || 1) * 100)}%, 팔 ${body.arm_model === "slim" ? "슬림" : "기본"}.`
     : "스킨 또는 모델 리소스를 연결하면 Minecraft 외형을 표시합니다.";
 }

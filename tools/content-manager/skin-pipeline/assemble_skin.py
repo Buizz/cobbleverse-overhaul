@@ -4,10 +4,17 @@
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import json
 from pathlib import Path
 
 from PIL import Image
+
+
+PIPELINE_ROOT = Path(__file__).resolve().parent
+RETOUCH_ROOT = PIPELINE_ROOT / "retouch"
+GENERATED_RETOUCH_ROOT = RETOUCH_ROOT / "generated"
+MANUAL_RETOUCH_ROOT = RETOUCH_ROOT / "manual"
 
 
 UV_LAYOUT = {
@@ -43,6 +50,20 @@ UV_LAYOUT = {
     },
 }
 
+SLIM_UV_LAYOUT = {
+    **UV_LAYOUT,
+    "right_arm": {
+        "base": {"top": (44, 16), "bottom": (47, 16), "right": (40, 20), "front": (44, 20), "left": (47, 20), "back": (51, 20)},
+        "overlay": {"top": (44, 32), "bottom": (47, 32), "right": (40, 36), "front": (44, 36), "left": (47, 36), "back": (51, 36)},
+        "sizes": {"top": (3, 4), "bottom": (3, 4), "right": (4, 12), "front": (3, 12), "left": (4, 12), "back": (3, 12)},
+    },
+    "left_arm": {
+        "base": {"top": (36, 48), "bottom": (39, 48), "right": (32, 52), "front": (36, 52), "left": (39, 52), "back": (43, 52)},
+        "overlay": {"top": (52, 48), "bottom": (55, 48), "right": (48, 52), "front": (52, 52), "left": (55, 52), "back": (59, 52)},
+        "sizes": {"top": (3, 4), "bottom": (3, 4), "right": (4, 12), "front": (3, 12), "left": (4, 12), "back": (3, 12)},
+    },
+}
+
 
 def parse_hex(value: str) -> tuple[int, int, int]:
     value = value.removeprefix("#")
@@ -55,18 +76,90 @@ def color_distance(left: tuple[int, ...], right: tuple[int, ...]) -> int:
     return sum((left[index] - right[index]) ** 2 for index in range(3))
 
 
+def is_chroma_spill(pixel: tuple[int, ...], key: tuple[int, int, int], threshold: int) -> bool:
+    red, green, blue = pixel[:3]
+    if color_distance(pixel, key) <= threshold * threshold:
+        return True
+    key_is_magenta = key[0] > 200 and key[2] > 200 and key[1] < 80
+    return (
+        key_is_magenta
+        and min(red, blue) >= 120
+        and green <= max(red, blue) * 0.45
+        and abs(red - blue) <= 80
+    )
+
+
 def remove_chroma(image: Image.Image, key: tuple[int, int, int], threshold: int) -> Image.Image:
     rgba = image.convert("RGBA")
-    limit = threshold * threshold
     source_pixels = rgba.get_flattened_data() if hasattr(rgba, "get_flattened_data") else rgba.getdata()
     rgba.putdata([
-        (red, green, blue, 0) if color_distance((red, green, blue), key) <= limit else (red, green, blue, alpha)
+        (red, green, blue, 0) if is_chroma_spill((red, green, blue), key, threshold) else (red, green, blue, alpha)
         for red, green, blue, alpha in source_pixels
     ])
     return rgba
 
 
-def crop_face(atlas: Image.Image, box: list[int], size: tuple[int, int], background: tuple[int, int, int]) -> Image.Image:
+def strip_exterior_outline(image: Image.Image, threshold: int = 58, depth: int | None = None) -> Image.Image:
+    """Remove dark contour pixels close to a transparent exterior edge."""
+    result = image.copy().convert("RGBA")
+    width, height = result.size
+    maximum_depth = depth if depth is not None else max(1, min(width, height) // 18)
+    for _ in range(maximum_depth):
+        pixels = result.load()
+        removable: list[tuple[int, int]] = []
+        for y in range(height):
+            for x in range(width):
+                red, green, blue, alpha = pixels[x, y]
+                if alpha == 0 or max(red, green, blue) > threshold:
+                    continue
+                if any(
+                    nx < 0 or ny < 0 or nx >= width or ny >= height or pixels[nx, ny][3] == 0
+                    for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
+                ):
+                    removable.append((x, y))
+        if not removable:
+            break
+        for x, y in removable:
+            pixels[x, y] = (0, 0, 0, 0)
+    return result
+
+
+def extend_edge_pixels(image: Image.Image, fallback: tuple[int, int, int]) -> Image.Image:
+    """Fill transparent corners with the nearest opaque pixel for a rectangular UV face."""
+    result = image.copy().convert("RGBA")
+    width, height = result.size
+    pixels = result.load()
+    queue: deque[tuple[int, int]] = deque()
+    visited = bytearray(width * height)
+    for y in range(height):
+        for x in range(width):
+            if pixels[x, y][3] > 0:
+                queue.append((x, y))
+                visited[y * width + x] = 1
+    if not queue:
+        return Image.new("RGBA", result.size, (*fallback, 255))
+    while queue:
+        x, y = queue.popleft()
+        source = pixels[x, y]
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if not (0 <= nx < width and 0 <= ny < height):
+                continue
+            offset = ny * width + nx
+            if visited[offset]:
+                continue
+            visited[offset] = 1
+            pixels[nx, ny] = (source[0], source[1], source[2], 255)
+            queue.append((nx, ny))
+    return result
+
+
+def crop_face(
+    atlas: Image.Image,
+    box: list[int],
+    size: tuple[int, int],
+    background: tuple[int, int, int],
+    outline_threshold: int = 58,
+) -> Image.Image:
     crop = atlas.crop(tuple(box))
     alpha_box = crop.getchannel("A").getbbox()
     if alpha_box:
@@ -81,14 +174,130 @@ def crop_face(atlas: Image.Image, box: list[int], size: tuple[int, int], backgro
         height = max(1, round(crop.width / target_ratio))
         top = (crop.height - height) // 2
         crop = crop.crop((0, top, crop.width, top + height))
-    crop = crop.resize(size, Image.Resampling.BOX)
-    base = Image.new("RGBA", size, (*background, 255))
-    base.alpha_composite(crop)
-    return base
+    crop = strip_exterior_outline(crop, outline_threshold)
+    crop = extend_edge_pixels(crop, background)
+    return crop.resize(size, Image.Resampling.NEAREST)
 
 
 def quantize(image: Image.Image, colors: int) -> Image.Image:
-    return image.convert("RGB").quantize(colors=colors, method=Image.Quantize.MEDIANCUT).convert("RGBA")
+    return image.convert("RGB").quantize(
+        colors=colors,
+        method=Image.Quantize.MEDIANCUT,
+        dither=Image.Dither.NONE,
+    ).convert("RGBA")
+
+
+def remove_head_side_features(face: Image.Image, face_name: str) -> Image.Image:
+    """Replace the front-facing portion of a head side with its adjacent texture column."""
+    if face_name not in {"left", "right"} or face.size != (8, 8):
+        return face
+    result = face.copy()
+    source_x = 4 if face_name == "left" else 3
+    targets = range(0, 4) if face_name == "left" else range(4, 8)
+    for y in range(result.height):
+        source = result.getpixel((source_x, y))
+        for x in targets:
+            result.putpixel((x, y), source)
+    return result
+
+
+def connected_component_boxes(atlas: Image.Image, minimum_area: int = 80) -> list[list[int]]:
+    """Find isolated non-transparent atlas parts after chroma removal."""
+    alpha = atlas.getchannel("A")
+    pixels = alpha.load()
+    width, height = alpha.size
+    visited = bytearray(width * height)
+    boxes: list[list[int]] = []
+    for y in range(height):
+        for x in range(width):
+            offset = y * width + x
+            if visited[offset] or pixels[x, y] == 0:
+                continue
+            visited[offset] = 1
+            queue = deque([(x, y)])
+            left = right = x
+            top = bottom = y
+            area = 0
+            while queue:
+                px, py = queue.pop()
+                area += 1
+                left, right = min(left, px), max(right, px)
+                top, bottom = min(top, py), max(bottom, py)
+                for nx, ny in ((px - 1, py), (px + 1, py), (px, py - 1), (px, py + 1)):
+                    if not (0 <= nx < width and 0 <= ny < height):
+                        continue
+                    neighbour = ny * width + nx
+                    if visited[neighbour] or pixels[nx, ny] == 0:
+                        continue
+                    visited[neighbour] = 1
+                    queue.append((nx, ny))
+            if area >= minimum_area:
+                boxes.append([left, top, right + 1, bottom + 1])
+    return boxes
+
+
+def _six_faces(boxes: list[list[int]]) -> dict[str, list[int]]:
+    if len(boxes) < 4:
+        raise ValueError("자동 UV 행에는 최소 네 개의 분리된 면이 필요합니다.")
+    front, left, back, right = boxes[:4]
+    top = boxes[4] if len(boxes) > 4 else front
+    bottom = boxes[5] if len(boxes) > 5 else top
+    return {"front": front, "left": left, "back": back, "right": right, "top": top, "bottom": bottom}
+
+
+def auto_detect_parts(atlas: Image.Image, minimum_area: int = 80) -> dict[str, dict[str, list[int]]]:
+    """Map four- to six-band concept layouts produced by the image workflow to Minecraft parts."""
+    components = sorted(
+        connected_component_boxes(atlas, minimum_area),
+        key=lambda box: ((box[1] + box[3]) / 2, box[0]),
+    )
+    rows: list[list[list[int]]] = []
+    row_centers: list[float] = []
+    maximum_row_gap = atlas.height * 0.1
+    for box in components:
+        center_y = (box[1] + box[3]) / 2
+        if not rows or center_y - row_centers[-1] > maximum_row_gap:
+            rows.append([box])
+            row_centers.append(center_y)
+        else:
+            rows[-1].append(box)
+            row_centers[-1] = sum((item[1] + item[3]) / 2 for item in rows[-1]) / len(rows[-1])
+    for row in rows:
+        row.sort(key=lambda box: box[0])
+    if len(rows) not in {4, 5, 6} or len(rows[0]) < 6 or len(rows[1]) < 4:
+        raise ValueError(f"자동 UV 부위 감지에 실패했습니다: {[len(row) for row in rows]}")
+
+    def limb_pair(boxes: list[list[int]]) -> tuple[dict[str, list[int]], dict[str, list[int]]]:
+        if len(boxes) >= 8:
+            midpoint = len(boxes) // 2
+            return _six_faces(boxes[:midpoint]), _six_faces(boxes[midpoint:])
+        right = _six_faces(boxes)
+        left = {
+            "front": right["right"], "left": right["back"], "back": right["left"],
+            "right": right["front"], "top": right["top"], "bottom": right["bottom"],
+        }
+        return right, left
+
+    if len(rows) == 4:
+        right_arm, left_arm = limb_pair(rows[2])
+        right_leg, left_leg = limb_pair(rows[3])
+    elif len(rows) == 6:
+        right_arm, left_arm = _six_faces(rows[2]), _six_faces(rows[3])
+        right_leg, left_leg = _six_faces(rows[4]), _six_faces(rows[5])
+    elif len(rows[2]) >= 8:
+        right_arm, left_arm = limb_pair(rows[2])
+        right_leg, left_leg = _six_faces(rows[3]), _six_faces(rows[4])
+    else:
+        right_arm, left_arm = _six_faces(rows[2]), _six_faces(rows[3])
+        right_leg, left_leg = limb_pair(rows[4])
+    return {
+        "head": _six_faces(rows[0]),
+        "body": _six_faces(rows[1]),
+        "right_arm": right_arm,
+        "left_arm": left_arm,
+        "right_leg": right_leg,
+        "left_leg": left_leg,
+    }
 
 
 def equipment_base_skin(skin: Image.Image) -> Image.Image:
@@ -142,6 +351,15 @@ def write_equipment_outputs(skin: Image.Image, manifest: dict, root: Path) -> li
     return written
 
 
+def load_manual_retouch(path: Path) -> Image.Image:
+    with Image.open(path) as source:
+        if source.size != (64, 64):
+            raise ValueError(f"수동 리터치 스킨은 64x64 PNG여야 합니다: {path}")
+        if source.format != "PNG":
+            raise ValueError(f"수동 리터치 스킨은 PNG 형식이어야 합니다: {path}")
+        return source.convert("RGBA")
+
+
 def split_overlay(face: Image.Image, selectors: list[tuple[int, int, int]], tolerance: int) -> tuple[Image.Image, Image.Image]:
     if not selectors:
         return face, Image.new("RGBA", face.size)
@@ -170,30 +388,62 @@ def assemble(manifest_path: Path, output_override: Path | None = None) -> Path:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     root = manifest_path.parent
     atlas = Image.open(root / manifest["concept_atlas"])
-    atlas = remove_chroma(atlas, parse_hex(manifest.get("chroma_key", "#ff00ff")), int(manifest.get("chroma_threshold", 70)))
+    chroma_key = parse_hex(manifest.get("chroma_key", "#ff00ff"))
+    chroma_threshold = int(manifest.get("chroma_threshold", 70))
+    atlas = remove_chroma(atlas, chroma_key, chroma_threshold)
     background = parse_hex(manifest.get("fallback_color", "#e7ad7a"))
     palette_colors = int(manifest.get("palette_colors", 20))
     overlay_colors = [parse_hex(color) for color in manifest.get("overlay_colors", [])]
     overlay_tolerance = int(manifest.get("overlay_tolerance", 58))
+    outline_threshold = int(manifest.get("outline_threshold", 58))
+    model = manifest.get("model", "classic")
+    if model not in {"classic", "slim"}:
+        raise ValueError(f"지원하지 않는 팔 모델입니다: {model}")
+    uv_layout = SLIM_UV_LAYOUT if model == "slim" else UV_LAYOUT
     skin = Image.new("RGBA", (64, 64))
 
-    for part_name, part_spec in manifest["parts"].items():
-        layout = UV_LAYOUT[part_name]
+    part_specs = manifest.get("parts")
+    if part_specs is None and manifest.get("auto_layout") == "four_row_atlas_v1":
+        part_specs = auto_detect_parts(atlas, int(manifest.get("component_minimum_area", 80)))
+    if not isinstance(part_specs, dict):
+        raise ValueError("manifest에 parts 또는 지원되는 auto_layout이 필요합니다.")
+
+    for part_name, part_spec in part_specs.items():
+        layout = uv_layout[part_name]
         for face_name, box in part_spec.items():
             size = layout["sizes"][face_name]
-            face = quantize(crop_face(atlas, box, size, background), palette_colors)
+            face = quantize(
+                crop_face(atlas, box, size, background, outline_threshold),
+                palette_colors,
+            )
+            face = extend_edge_pixels(
+                remove_chroma(face, chroma_key, chroma_threshold),
+                background,
+            )
+            if part_name == "head":
+                face = remove_head_side_features(face, face_name)
             selectors = overlay_colors if part_name in set(manifest.get("overlay_parts", [])) else []
             base, overlay = split_overlay(face, selectors, overlay_tolerance)
             skin.alpha_composite(base, layout["base"][face_name])
             if overlay.getbbox():
                 skin.alpha_composite(overlay, layout["overlay"][face_name])
 
-    output = output_override or (root / manifest["output"])
-    output.parent.mkdir(parents=True, exist_ok=True)
-    skin.save(output, format="PNG", optimize=True)
+    published_skin = skin
     if output_override is None:
-        write_equipment_outputs(skin, manifest, root)
-    return output.resolve()
+        slug = Path(manifest["output"]).stem
+        GENERATED_RETOUCH_ROOT.mkdir(parents=True, exist_ok=True)
+        generated_draft = GENERATED_RETOUCH_ROOT / f"{slug}.png"
+        skin.save(generated_draft, format="PNG", optimize=True)
+        manual_retouch = MANUAL_RETOUCH_ROOT / f"{slug}.png"
+        if manual_retouch.is_file():
+            published_skin = load_manual_retouch(manual_retouch)
+
+    output = (output_override or (root / manifest["output"])).resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    published_skin.save(output, format="PNG", optimize=True)
+    if output_override is None:
+        write_equipment_outputs(published_skin, manifest, root)
+    return output
 
 
 def main() -> None:

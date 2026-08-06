@@ -10,11 +10,14 @@ import subprocess
 import sys
 import tempfile
 import threading
+import zipfile
 import uuid
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 from urllib.parse import parse_qs, urlparse
 
 
@@ -1035,6 +1038,9 @@ def _validate_roster_appearance(value: Any, issues: list[Issue], path: Path, val
         _issue(issues, "error", path, f"{value_path}.asset_status", "지원하지 않는 자산 상태입니다.")
     if implementation not in {"ready", "placeholder"}:
         _issue(issues, "error", path, f"{value_path}.implementation_status", "ready 또는 placeholder여야 합니다.")
+    visual_match = appearance.get("visual_match_status")
+    if visual_match is not None and visual_match not in {"matched", "generic", "unverified"}:
+        _issue(issues, "error", path, f"{value_path}.visual_match_status", "지원하지 않는 외형 일치 상태입니다.")
     if status == "verified" and implementation != "ready":
         _issue(issues, "error", path, value_path, "검증된 자산은 ready 상태여야 합니다.")
     if status != "verified" and implementation != "placeholder":
@@ -1077,6 +1083,17 @@ def validate_trainer_roster_catalog(path: Path) -> tuple[set[str], list[Issue]]:
         generation = character.get("generation")
         if not isinstance(generation, int) or isinstance(generation, bool) or not 1 <= generation <= 9:
             _issue(issues, "error", path, f"{value_path}.generation", "세대는 1 이상 9 이하 정수여야 합니다.")
+        body = character.get("body")
+        if body is not None:
+            body = _require_object(body, issues, path, f"{value_path}.body")
+            if body is not None:
+                if body.get("age_group") not in {"child", "teen", "adult"}:
+                    _issue(issues, "error", path, f"{value_path}.body.age_group", "지원하지 않는 연령대입니다.")
+                height_scale = body.get("height_scale")
+                if not isinstance(height_scale, (int, float)) or isinstance(height_scale, bool) or not 0.5 <= height_scale <= 1.25:
+                    _issue(issues, "error", path, f"{value_path}.body.height_scale", "0.5 이상 1.25 이하 숫자여야 합니다.")
+                if body.get("arm_model") not in {"classic", "slim"}:
+                    _issue(issues, "error", path, f"{value_path}.body.arm_model", "classic 또는 slim이어야 합니다.")
         _validate_roster_appearance(character.get("appearance"), issues, path, f"{value_path}.appearance")
 
     for org_index, value in enumerate(organizations):
@@ -2281,6 +2298,56 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
     build_lock = threading.Lock()
     editor_catalog_lock = threading.Lock()
     editor_catalog: dict[str, Any] | None = None
+    remote_image_cache: dict[str, bytes] = {}
+    remote_image_cache_lock = threading.Lock()
+
+    def load_installed_cobbleverse_rct_png(resource_group: str, resource_id: str) -> bytes | None:
+        instance_override = os.environ.get("COBBLEVERSE_INSTANCE")
+        instance_roots = []
+        if instance_override:
+            instance_roots.append(Path(instance_override))
+        instance_roots.append(
+            Path.home()
+            / "curseforge"
+            / "minecraft"
+            / "Instances"
+            / "COBBLEVERSE - Pokemon Adventure [Cobblemon]"
+        )
+        archive_entry = (
+            f"assets/rctmod/textures/trainers/{resource_group}/{resource_id}.png"
+        )
+        for instance_root in instance_roots:
+            resource_pack = (
+                instance_root / "resourcepacks" / "COBBLEVERSE RCTmod RP.zip"
+            )
+            if not resource_pack.is_file():
+                continue
+            try:
+                with zipfile.ZipFile(resource_pack) as archive:
+                    data = archive.read(archive_entry)
+            except (OSError, KeyError, zipfile.BadZipFile):
+                continue
+            if len(data) <= 2 * 1024 * 1024 and data.startswith(b"\x89PNG\r\n\x1a\n"):
+                return data
+        return None
+
+    def load_remote_png(url: str) -> bytes:
+        with remote_image_cache_lock:
+            cached = remote_image_cache.get(url)
+        if cached is not None:
+            return cached
+        request = urllib_request.Request(
+            url,
+            headers={"User-Agent": "CobbleventureContentStudio/0.2"},
+        )
+        with urllib_request.urlopen(request, timeout=12) as response:
+            content_type = response.headers.get_content_type()
+            data = response.read(2 * 1024 * 1024 + 1)
+        if content_type != "image/png" or len(data) > 2 * 1024 * 1024 or not data.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValueError("허용된 PNG 이미지가 아닙니다.")
+        with remote_image_cache_lock:
+            remote_image_cache[url] = data
+        return data
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "CobbleventureContentManager/0.2"
@@ -2419,6 +2486,23 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
             if request.path == "/api/trainer-skin":
                 query = parse_qs(request.query)
                 resource = query.get("resource", [""])[0]
+                reference_match = re.fullmatch(r"trainer-reference:([a-z0-9_-]+)", resource)
+                if reference_match:
+                    slug = reference_match.group(1)
+                    reference_root = (
+                        root / "tools" / "content-manager" / "skin-pipeline" / "work"
+                    ).resolve()
+                    reference_path = (
+                        reference_root / slug / "reference" / f"{slug}.png"
+                    ).resolve()
+                    if reference_path.is_relative_to(reference_root) and reference_path.is_file():
+                        self._bytes(200, reference_path.read_bytes(), "image/png")
+                    else:
+                        self._json(404, {"error": "로컬 트레이너 참조 이미지를 찾을 수 없습니다."})
+                    return
+                rct_match = re.fullmatch(
+                    r"rctmod:trainers/(single|group)/([a-z0-9_-]+)", resource
+                )
                 match = re.fullmatch(r"([a-z0-9_.-]+):trainer_skin/([a-z0-9_./-]+)", resource)
                 skin_root = (
                     root
@@ -2429,9 +2513,40 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     / "resources"
                     / "assets"
                 ).resolve()
+                manual_retouch_root = (
+                    root
+                    / "tools"
+                    / "content-manager"
+                    / "skin-pipeline"
+                    / "retouch"
+                    / "manual"
+                ).resolve()
                 fallback = skin_root / "cobbleventure" / "textures" / "entity" / "trainer" / "unimplemented.png"
+                if rct_match:
+                    installed_png = load_installed_cobbleverse_rct_png(
+                        rct_match.group(1), rct_match.group(2)
+                    )
+                    if installed_png is not None:
+                        self._bytes(200, installed_png, "image/png")
+                        return
+                    remote_url = (
+                        "https://gitlab.com/srcmc/rct/mod/-/raw/1.21.1/"
+                        "common/src/main/resources/assets/rctmod/textures/trainers/"
+                        f"{rct_match.group(1)}/{rct_match.group(2)}.png"
+                    )
+                    try:
+                        self._bytes(200, load_remote_png(remote_url), "image/png")
+                    except (OSError, ValueError, urllib_error.URLError):
+                        try:
+                            self._bytes(200, fallback.read_bytes(), "image/png")
+                        except OSError as error:
+                            self._json(500, {"error": f"대체 트레이너 스킨을 읽을 수 없습니다: {error}"})
+                    return
                 skin_path = fallback
                 if match:
+                    manual_candidate = (
+                        manual_retouch_root / f"{match.group(2)}.png"
+                    ).resolve()
                     candidate = (
                         skin_root
                         / match.group(1)
@@ -2440,12 +2555,54 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                         / "trainer"
                         / f"{match.group(2)}.png"
                     ).resolve()
-                    if candidate.is_relative_to(skin_root) and candidate.is_file():
+                    if (
+                        manual_candidate.is_relative_to(manual_retouch_root)
+                        and manual_candidate.is_file()
+                    ):
+                        skin_path = manual_candidate
+                    elif candidate.is_relative_to(skin_root) and candidate.is_file():
                         skin_path = candidate
                 try:
                     self._bytes(200, skin_path.read_bytes(), "image/png")
                 except OSError as error:
                     self._json(500, {"error": f"트레이너 스킨을 읽을 수 없습니다: {error}"})
+                return
+            if request.path == "/api/trainer-reference":
+                sprite = parse_qs(request.query).get("sprite", [""])[0]
+                if not re.fullmatch(r"[a-z0-9_-]+", sprite):
+                    self._json(400, {"error": "올바른 트레이너 스프라이트 ID가 아닙니다."})
+                    return
+                remote_url = f"https://play.pokemonshowdown.com/sprites/trainers/{sprite}.png"
+                try:
+                    self._bytes(200, load_remote_png(remote_url), "image/png")
+                except (OSError, ValueError, urllib_error.URLError):
+                    self._json(404, {"error": "트레이너 참조 이미지를 찾을 수 없습니다."})
+                return
+            local_reference_match = re.fullmatch(
+                r"/trainer-assets/references/([a-z0-9_-]+)\.png", request.path
+            )
+            if request.path == "/api/trainer-reference-local" or local_reference_match:
+                slug = (
+                    local_reference_match.group(1)
+                    if local_reference_match
+                    else parse_qs(request.query).get("slug", [""])[0]
+                )
+                if not re.fullmatch(r"[a-z0-9_-]+", slug):
+                    self._json(400, {"error": "올바른 트레이너 참조 ID가 아닙니다."})
+                    return
+                reference_root = (
+                    root / "tools" / "content-manager" / "skin-pipeline" / "work"
+                ).resolve()
+                reference_path = (
+                    reference_root / slug / "reference" / f"{slug}.png"
+                ).resolve()
+                if not reference_path.is_relative_to(reference_root) or not reference_path.is_file():
+                    self._json(404, {"error": "로컬 트레이너 참조 이미지를 찾을 수 없습니다."})
+                    return
+                try:
+                    self._bytes(200, reference_path.read_bytes(), "image/png")
+                except OSError as error:
+                    self._json(500, {"error": f"트레이너 참조 이미지를 읽을 수 없습니다: {error}"})
                 return
             if request.path == "/api/biome-catalog":
                 try:

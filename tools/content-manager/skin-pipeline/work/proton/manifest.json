@@ -1,0 +1,24 @@
+{
+  "character": "cobbleventure:character/proton",
+  "reference": "https://archives.bulbagarden.net/wiki/File:HeartGold_SoulSilver_Proton.png",
+  "reference_label": "포켓몬 하트골드·소울실버 프로톤 공식 일러스트",
+  "concept_atlas": "concept-v2.png",
+  "generation_mode": "ai-concept-plus-deterministic-uv",
+  "model": "slim",
+  "chroma_key": "#ff00ff",
+  "chroma_threshold": 45,
+  "palette_colors": 20,
+  "fallback_color": "#e7ad7a",
+  "overlay_parts": ["head"],
+  "overlay_colors": ["#151515", "#202020", "#087866", "#119a80"],
+  "overlay_tolerance": 58,
+  "parts": {
+    "head": { "front": [48, 52, 236, 201], "left": [269, 52, 433, 201], "back": [468, 52, 630, 207], "right": [669, 52, 830, 201], "top": [866, 52, 1023, 218], "bottom": [1060, 57, 1225, 215] },
+    "body": { "front": [49, 298, 233, 534], "left": [316, 299, 426, 534], "back": [520, 299, 717, 534], "right": [771, 299, 861, 534], "top": [901, 298, 1021, 534], "bottom": [1064, 299, 1209, 534] },
+    "right_arm": { "front": [88, 637, 149, 844], "left": [238, 637, 306, 843], "back": [399, 637, 464, 844], "right": [555, 637, 620, 844], "top": [1011, 645, 1093, 730], "bottom": [1011, 759, 1093, 843] },
+    "left_arm": { "front": [555, 637, 620, 844], "left": [399, 637, 464, 844], "back": [865, 637, 930, 844], "right": [238, 637, 306, 843], "top": [1011, 645, 1093, 730], "bottom": [1011, 759, 1093, 843] },
+    "right_leg": { "front": [94, 931, 167, 1176], "left": [399, 931, 474, 1176], "back": [714, 931, 786, 1176], "right": [557, 931, 632, 1176], "top": [1011, 939, 1093, 1024], "bottom": [1011, 1053, 1093, 1176] },
+    "left_leg": { "front": [247, 931, 319, 1176], "left": [557, 931, 632, 1176], "back": [869, 931, 942, 1176], "right": [399, 931, 474, 1176], "top": [1011, 939, 1093, 1024], "bottom": [1011, 1053, 1093, 1176] }
+  },
+  "output": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/proton.png"
+}

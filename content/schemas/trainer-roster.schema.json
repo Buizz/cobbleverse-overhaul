@@ -55,6 +55,7 @@
         "candidate_resource": { "$ref": "#/$defs/resource_id" },
         "implementation_status": { "enum": ["ready", "placeholder"] },
         "asset_status": { "enum": ["verified", "definition_only", "missing"] },
+        "visual_match_status": { "enum": ["matched", "generic", "unverified"] },
         "distribution": { "enum": ["dependency_reference", "original_required"] }
       }
     },
@@ -69,6 +70,16 @@
         "gender": { "enum": ["male", "female", "nonbinary", "unspecified"] },
         "generation": { "type": "integer", "minimum": 1, "maximum": 9 },
         "region": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "body": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["age_group", "height_scale", "arm_model"],
+          "properties": {
+            "age_group": { "enum": ["child", "teen", "adult"] },
+            "height_scale": { "type": "number", "minimum": 0.5, "maximum": 1.25 },
+            "arm_model": { "enum": ["classic", "slim"] }
+          }
+        },
         "appearance": { "$ref": "#/$defs/appearance" }
       }
     },

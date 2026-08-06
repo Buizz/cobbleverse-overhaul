@@ -1,0 +1,24 @@
+{
+  "character": "cobbleventure:character/petrel",
+  "reference": "https://archives.bulbagarden.net/wiki/File:HeartGold_SoulSilver_Petrel.png",
+  "reference_label": "포켓몬 하트골드·소울실버 페트렐 공식 일러스트",
+  "concept_atlas": "concept-v2.png",
+  "generation_mode": "ai-concept-plus-deterministic-uv",
+  "model": "slim",
+  "chroma_key": "#ff00ff",
+  "chroma_threshold": 45,
+  "palette_colors": 20,
+  "fallback_color": "#e7ad7a",
+  "overlay_parts": ["head"],
+  "overlay_colors": ["#663a78", "#7b478d", "#975daf"],
+  "overlay_tolerance": 58,
+  "parts": {
+    "head": { "front": [65, 37, 215, 250], "left": [270, 43, 426, 250], "back": [471, 43, 617, 237], "right": [667, 41, 804, 250], "top": [855, 78, 998, 231], "bottom": [1063, 81, 1202, 238] },
+    "body": { "front": [46, 314, 290, 562], "left": [363, 329, 465, 560], "back": [700, 329, 917, 561], "right": [994, 329, 1101, 560], "top": [525, 329, 630, 430], "bottom": [525, 459, 630, 560] },
+    "right_arm": { "front": [46, 659, 107, 829], "left": [170, 659, 230, 829], "back": [284, 659, 347, 829], "right": [401, 660, 461, 830], "top": [501, 660, 568, 744], "bottom": [501, 745, 568, 829] },
+    "left_arm": { "front": [697, 659, 774, 829], "left": [816, 659, 876, 829], "back": [922, 659, 980, 829], "right": [1025, 659, 1086, 830], "top": [1131, 659, 1197, 744], "bottom": [1131, 745, 1197, 830] },
+    "right_leg": { "front": [46, 930, 133, 1179], "left": [185, 930, 269, 1179], "back": [320, 930, 402, 1179], "right": [453, 930, 537, 1182], "top": [453, 930, 537, 1050], "bottom": [453, 1060, 537, 1182] },
+    "left_leg": { "front": [687, 930, 770, 1182], "left": [819, 930, 899, 1179], "back": [950, 930, 1036, 1180], "right": [1091, 930, 1174, 1182], "top": [1091, 930, 1174, 1050], "bottom": [1091, 1060, 1174, 1182] }
+  },
+  "output": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/petrel.png"
+}

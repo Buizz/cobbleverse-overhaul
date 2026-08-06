@@ -388,11 +388,57 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("child", classes["preschooler"]["body"]["age_group"])
         self.assertTrue(
             all(
-                entry["default_appearance"]["implementation_status"]
-                in {"ready", "placeholder"}
+                entry["default_appearance"]["implementation_status"] == "ready"
                 for entry in classes.values()
             )
         )
+        general_classes = [
+            entry
+            for entry in classes.values()
+            if entry["category"] not in {"boss", "custom"}
+        ]
+        self.assertEqual(56, len(general_classes))
+        self.assertTrue(
+            all(
+                entry["default_appearance"]["implementation_status"] == "ready"
+                for entry in general_classes
+            )
+        )
+        generated_skin_ids = {
+            "youngster", "preschooler", "backpacker", "boarder", "hex_maniac",
+            "bug_maniac", "kindler", "office_worker", "cook", "waiter",
+            "musician", "maid", "old_couple",
+        }
+        self.assertTrue(
+            all(
+                classes[slug]["body"]["arm_model"] == "slim"
+                for slug in generated_skin_ids
+            )
+        )
+        custom_defaults = [
+            entry for entry in classes.values()
+            if entry["default_appearance"]["source"] == "custom"
+        ]
+        for entry in custom_defaults:
+            appearance = entry["default_appearance"]
+            slug = appearance["resource"].rsplit("/", 1)[-1]
+            self.assertEqual("slim", entry["body"]["arm_model"])
+            self.assertTrue(
+                (
+                    root
+                    / "projects"
+                    / "cobbleventure-world-bootstrap"
+                    / "src"
+                    / "main"
+                    / "resources"
+                    / "assets"
+                    / "cobbleventure"
+                    / "textures"
+                    / "entity"
+                    / "trainer"
+                    / f"{slug}.png"
+                ).is_file()
+            )
 
     def test_trainer_outfit_catalog_links_equipment_and_easy_npc_scale(self) -> None:
         root = Path(__file__).parents[3]
@@ -421,9 +467,77 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("cobbleventure:character/giovanni", character_ids)
         self.assertIn("cobbleventure:character/cyrus", character_ids)
         self.assertIn("cobbleventure:character/cynthia", character_ids)
+        implemented_named = {
+            character["id"].rsplit("/", 1)[-1]: character["appearance"]
+            for organization in roster["organizations"]
+            for character in organization["named_characters"]
+        }
+        self.assertEqual(
+            "rctmod:trainers/single/team_aqua_ivan",
+            implemented_named["archie"]["resource"],
+        )
+        self.assertEqual(
+            "rctmod:trainers/single/team_magma_max",
+            implemented_named["maxie"]["resource"],
+        )
+        self.assertEqual(
+            "rctmod:trainers/single/team_galactic_charon",
+            implemented_named["charon"]["resource"],
+        )
+        self.assertTrue(
+            all(
+                implemented_named[slug]["implementation_status"] == "ready"
+                for slug in ("proton", "petrel", "archie", "maxie", "charon")
+            )
+        )
+        self.assertEqual(
+            "cobbleventure:trainer_skin/proton",
+            implemented_named["proton"]["resource"],
+        )
+        self.assertEqual(
+            "cobbleventure:trainer_skin/petrel",
+            implemented_named["petrel"]["resource"],
+        )
         roles = {entry["role"] for entry in roster["league_characters"]}
         self.assertEqual({"gym_leader", "elite_four", "champion"}, roles)
         self.assertGreaterEqual(sum(entry["appearance"]["asset_status"] == "verified" for entry in roster["league_characters"]), 35)
+        organization_characters = [
+            character
+            for organization in roster["organizations"]
+            for group in ("grunt_variants", "named_characters")
+            for character in organization[group]
+        ]
+        self.assertTrue(
+            all(
+                character["appearance"]["implementation_status"] == "ready"
+                for character in organization_characters
+            )
+        )
+        custom_characters = [
+            character
+            for character in organization_characters
+            if character["appearance"]["source"] == "custom"
+        ]
+        for character in custom_characters:
+            appearance = character["appearance"]
+            slug = appearance["resource"].rsplit("/", 1)[-1]
+            self.assertEqual("verified", appearance["asset_status"])
+            self.assertTrue(
+                (
+                    root
+                    / "projects"
+                    / "cobbleventure-world-bootstrap"
+                    / "src"
+                    / "main"
+                    / "resources"
+                    / "assets"
+                    / "cobbleventure"
+                    / "textures"
+                    / "entity"
+                    / "trainer"
+                    / f"{slug}.png"
+                ).is_file()
+            )
 
     def test_settlement_center_must_be_inside_bounds(self) -> None:
         root = Path(__file__).parents[3]
@@ -592,6 +706,18 @@ class ContentManagerTests(unittest.TestCase):
                 f"{base_url}/api/trainer-skin?resource=cobbleventure%3Atrainer_skin%2Funimplemented"
             ) as response:
                 trainer_skin = response.read()
+            with urllib.request.urlopen(
+                f"{base_url}/api/trainer-reference-local?slug=colress"
+            ) as response:
+                trainer_reference = response.read()
+            with urllib.request.urlopen(
+                f"{base_url}/trainer-assets/references/colress.png"
+            ) as response:
+                trainer_reference_static = response.read()
+            with urllib.request.urlopen(
+                f"{base_url}/api/trainer-skin?resource=trainer-reference%3Acolress"
+            ) as response:
+                trainer_reference_skin_api = response.read()
             with urllib.request.urlopen(f"{base_url}/api/editor-catalog") as response:
                 editor_catalog = json.load(response)
             with urllib.request.urlopen(f"{base_url}/api/biome-catalog") as response:
@@ -622,6 +748,9 @@ class ContentManagerTests(unittest.TestCase):
             thread.join(timeout=2)
         self.assertEqual("ok", health["status"])
         self.assertTrue(trainer_skin.startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertTrue(trainer_reference.startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertTrue(trainer_reference_static.startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertTrue(trainer_reference_skin_api.startswith(b"\x89PNG\r\n\x1a\n"))
         self.assertGreaterEqual(len(trainer_classes["classes"]), 50)
         self.assertGreaterEqual(len(trainer_roster["organizations"]), 10)
         self.assertGreaterEqual(len(trainer_roster["league_characters"]), 50)
@@ -656,8 +785,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("본가 디자인 기준", app_script)
         self.assertIn("현재 Minecraft 외형", app_script)
         self.assertIn("rosterCharacterOptions", app_script)
+        self.assertIn("rosterCharactersForClass", app_script)
+        self.assertIn("rosterRolesByClass", app_script)
         self.assertIn('name="rosterCharacter"', page)
         self.assertIn("youngster-gen4", app_script)
+        self.assertIn("trainerCharacterReferenceSprites", app_script)
+        self.assertIn("characterVisualMatchStatus", app_script)
+        self.assertIn("1차 스킨 검토 필요", app_script)
+        self.assertIn('appearance.source === "custom" ? { arm_model: "slim" }', app_script)
+        self.assertIn("/api/trainer-reference?sprite=", app_script)
+        self.assertIn("trainer-reference:", app_script)
+        self.assertIn("/api/trainer-skin?resource=", app_script)
+        self.assertNotIn("https://gitlab.com/srcmc/rct/mod/-/raw/1.21.1/common", app_script)
         self.assertIn("trainer-reference-image", styles)
         self.assertIn("other/official-artwork", app_script)
         self.assertIn("pokeapi.co/api/v2/pokemon", app_script)
