@@ -121,15 +121,16 @@ public final class PlayerMenuScreen extends Screen {
     }
 
     private void activate(PlayerMenuEntry entry) {
-        if (entry.connected()) {
-            entry.open();
-            return;
-        }
-
-        statusMessage = Component.translatable(
-            "screen.cobbleventure_player_menu.status.coming_soon",
-            entry.title()
-        );
+        statusMessage = switch (entry.open()) {
+            case OPENED -> statusMessage;
+            case MISSING_POKEDEX -> Component.translatable(
+                "screen.cobbleventure_player_menu.status.missing_pokedex"
+            );
+            case UNAVAILABLE -> Component.translatable(
+                "screen.cobbleventure_player_menu.status.coming_soon",
+                entry.title()
+            );
+        };
     }
 
     private Component statusForHover() {

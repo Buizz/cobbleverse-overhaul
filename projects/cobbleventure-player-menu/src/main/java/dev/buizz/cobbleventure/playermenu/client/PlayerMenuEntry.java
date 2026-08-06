@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import net.minecraft.network.chat.Component;
+import net.neoforged.fml.ModList;
 
 enum PlayerMenuEntry {
     POKEMON("pokemon", false),
@@ -29,12 +30,25 @@ enum PlayerMenuEntry {
     }
 
     boolean connected() {
-        return connected;
+        return connected || (this == POKEDEX && ModList.get().isLoaded("cobblemon"));
     }
 
-    void open() {
+    OpenResult open() {
         if (this == EQUIPMENT) {
             PlayerMenuClient.openVanillaInventory();
+            return OpenResult.OPENED;
         }
+        if (this == POKEDEX && connected()) {
+            return CobblemonPokedexIntegration.openOwnedPokedex()
+                ? OpenResult.OPENED
+                : OpenResult.MISSING_POKEDEX;
+        }
+        return OpenResult.UNAVAILABLE;
+    }
+
+    enum OpenResult {
+        OPENED,
+        MISSING_POKEDEX,
+        UNAVAILABLE
     }
 }

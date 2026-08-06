@@ -12,6 +12,17 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+repositories {
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+    }
+}
+
+dependencies {
+    compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+}
+
 neoForge {
     version = project.neo_version
     runs {
@@ -32,6 +43,7 @@ processResources {
         mod_name: mod_name,
         mod_license: mod_license,
         mod_version: mod_version,
+        cobblemon_version: cobblemon_version,
     ]
     inputs.properties properties
     filesMatching('META-INF/neoforge.mods.toml') {

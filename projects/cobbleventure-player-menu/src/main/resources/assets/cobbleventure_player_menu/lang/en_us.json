@@ -3,6 +3,7 @@
   "screen.cobbleventure_player_menu.hint": "Select with a number key or the mouse · Press inventory to close",
   "screen.cobbleventure_player_menu.status.select": "Choose a menu",
   "screen.cobbleventure_player_menu.status.coming_soon": "%s is coming soon",
+  "screen.cobbleventure_player_menu.status.missing_pokedex": "You need to carry a Pokédex item",
   "screen.cobbleventure_player_menu.entry.numbered": "%s. %s",
   "screen.cobbleventure_player_menu.entry.pokemon": "Pokémon",
   "screen.cobbleventure_player_menu.entry.pokemon.description": "Manage your current party and Pokémon",
