@@ -348,8 +348,8 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
     root = _require_object(data, issues, path, "$")
     if root is None:
         return None, issues
-    if root.get("schema_version") != 1:
-        _issue(issues, "error", path, "$.schema_version", "지원 버전은 1입니다.")
+    if root.get("schema_version") != 2:
+        _issue(issues, "error", path, "$.schema_version", "지원 버전은 2입니다.")
     settlement_id = _resource_id(root.get("id"), issues, path, "$.id")
     if not isinstance(root.get("enabled"), bool):
         _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
@@ -375,6 +375,194 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             if not isinstance(anchor_id, str) or not CHOICE_ID.fullmatch(anchor_id):
                 _issue(issues, "error", path, f"$.anchors.{anchor_id}", "올바른 앵커 ID가 아닙니다.")
             _validate_block_position(position, issues, path, f"$.anchors.{anchor_id}")
+
+    content_profile = _require_object(
+        root.get("content_profile"), issues, path, "$.content_profile"
+    )
+    if content_profile is not None:
+        pokemon = _require_object(
+            content_profile.get("pokemon"), issues, path, "$.content_profile.pokemon"
+        )
+        if pokemon is not None:
+            _resource_id(
+                pokemon.get("spawn_profile"), issues, path,
+                "$.content_profile.pokemon.spawn_profile",
+            )
+            density = pokemon.get("density_multiplier")
+            if (
+                not isinstance(density, (int, float))
+                or isinstance(density, bool)
+                or not 0 < density <= 10
+            ):
+                _issue(
+                    issues, "error", path,
+                    "$.content_profile.pokemon.density_multiplier",
+                    "0보다 크고 10 이하인 숫자여야 합니다.",
+                )
+
+        trainers = _require_object(
+            content_profile.get("trainers"), issues, path, "$.content_profile.trainers"
+        )
+        if trainers is not None:
+            _resource_id(
+                trainers.get("population_profile"), issues, path,
+                "$.content_profile.trainers.population_profile",
+            )
+            maximum_active = trainers.get("max_active")
+            if (
+                not isinstance(maximum_active, int)
+                or isinstance(maximum_active, bool)
+                or not 0 <= maximum_active <= 128
+            ):
+                _issue(
+                    issues, "error", path, "$.content_profile.trainers.max_active",
+                    "0 이상 128 이하의 정수여야 합니다.",
+                )
+            class_pool = _require_list(
+                trainers.get("class_pool"), issues, path,
+                "$.content_profile.trainers.class_pool",
+            )
+            if class_pool is not None:
+                seen_classes: set[str] = set()
+                for index, class_id in enumerate(class_pool):
+                    class_path = f"$.content_profile.trainers.class_pool[{index}]"
+                    parsed_class = _resource_id(class_id, issues, path, class_path)
+                    if parsed_class in seen_classes:
+                        _issue(issues, "error", path, class_path, f"중복 트레이너 클래스: {parsed_class}")
+                    elif parsed_class is not None:
+                        seen_classes.add(parsed_class)
+
+        scaling = _require_object(
+            content_profile.get("level_scaling"), issues, path,
+            "$.content_profile.level_scaling",
+        )
+        if scaling is not None:
+            if scaling.get("mode") not in {
+                "fixed", "badges", "region_progress", "badge_and_region", "player_average"
+            }:
+                _issue(
+                    issues, "error", path, "$.content_profile.level_scaling.mode",
+                    "지원하지 않는 레벨 스케일링 방식입니다.",
+                )
+            for field in ("base_level", "min_level", "max_level"):
+                value = scaling.get(field)
+                if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 100:
+                    _issue(
+                        issues, "error", path, f"$.content_profile.level_scaling.{field}",
+                        "1 이상 100 이하의 정수여야 합니다.",
+                    )
+            minimum = scaling.get("min_level")
+            base = scaling.get("base_level")
+            maximum = scaling.get("max_level")
+            if all(isinstance(value, int) and not isinstance(value, bool) for value in (minimum, base, maximum)):
+                if not minimum <= base <= maximum:
+                    _issue(
+                        issues, "error", path, "$.content_profile.level_scaling",
+                        "min_level <= base_level <= max_level 순서여야 합니다.",
+                    )
+            for field, limit in (("per_badge", 20), ("per_region", 30)):
+                value = scaling.get(field)
+                if (
+                    not isinstance(value, (int, float))
+                    or isinstance(value, bool)
+                    or not 0 <= value <= limit
+                ):
+                    _issue(
+                        issues, "error", path, f"$.content_profile.level_scaling.{field}",
+                        f"0 이상 {limit} 이하의 숫자여야 합니다.",
+                    )
+            for field in ("pokemon_offset", "trainer_offset"):
+                value = scaling.get(field)
+                if not isinstance(value, int) or isinstance(value, bool) or not -50 <= value <= 50:
+                    _issue(
+                        issues, "error", path, f"$.content_profile.level_scaling.{field}",
+                        "-50 이상 50 이하의 정수여야 합니다.",
+                    )
+
+    biome_layout = _require_object(
+        root.get("biome_layout"), issues, path, "$.biome_layout"
+    )
+    if biome_layout is not None:
+        if biome_layout.get("arrangement") not in {"organic_patches", "sectors", "concentric"}:
+            _issue(issues, "error", path, "$.biome_layout.arrangement", "지원하지 않는 바이옴 배치 방식입니다.")
+        transition_width = biome_layout.get("transition_width")
+        if not isinstance(transition_width, int) or isinstance(transition_width, bool) or not 0 <= transition_width <= 64:
+            _issue(issues, "error", path, "$.biome_layout.transition_width", "0 이상 64 이하의 정수여야 합니다.")
+        biome_zones = _require_list(biome_layout.get("zones"), issues, path, "$.biome_layout.zones")
+        seen_biome_zones: set[str] = set()
+        if biome_zones is not None:
+            if not 1 <= len(biome_zones) <= 3:
+                _issue(issues, "error", path, "$.biome_layout.zones", "바이옴은 1개 이상 3개 이하로 지정해야 합니다.")
+            for index, zone_value in enumerate(biome_zones):
+                zone_path = f"$.biome_layout.zones[{index}]"
+                zone = _require_object(zone_value, issues, path, zone_path)
+                if zone is None:
+                    continue
+                zone_id = zone.get("id")
+                if not isinstance(zone_id, str) or not CHOICE_ID.fullmatch(zone_id):
+                    _issue(issues, "error", path, f"{zone_path}.id", "올바른 바이옴 구역 ID가 아닙니다.")
+                elif zone_id in seen_biome_zones:
+                    _issue(issues, "error", path, f"{zone_path}.id", f"중복 바이옴 구역 ID: {zone_id}")
+                else:
+                    seen_biome_zones.add(zone_id)
+                _resource_id(zone.get("biome"), issues, path, f"{zone_path}.biome")
+                size = zone.get("size_blocks")
+                if not isinstance(size, int) or isinstance(size, bool) or not 32 <= size <= 2048:
+                    _issue(issues, "error", path, f"{zone_path}.size_blocks", "32 이상 2048 이하의 정수여야 합니다.")
+                if zone.get("placement") not in {"center", "inner", "middle", "outer", "auto"}:
+                    _issue(issues, "error", path, f"{zone_path}.placement", "지원하지 않는 바이옴 배치 위치입니다.")
+                weight = zone.get("weight")
+                if not isinstance(weight, int) or isinstance(weight, bool) or not 1 <= weight <= 100:
+                    _issue(issues, "error", path, f"{zone_path}.weight", "1 이상 100 이하의 정수여야 합니다.")
+
+        boundary = _require_object(
+            biome_layout.get("boundary"), issues, path, "$.biome_layout.boundary"
+        )
+        if boundary is not None:
+            _resource_id(boundary.get("profile"), issues, path, "$.biome_layout.boundary.profile")
+            for field, minimum, maximum in (
+                ("width", 1, 128), ("wall_height", 3, 128), ("wall_thickness", 1, 32)
+            ):
+                value = boundary.get(field)
+                if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
+                    _issue(
+                        issues, "error", path, f"$.biome_layout.boundary.{field}",
+                        f"{minimum} 이상 {maximum} 이하의 정수여야 합니다.",
+                    )
+
+    connections = _require_list(root.get("connections"), issues, path, "$.connections")
+    seen_connections: set[str] = set()
+    if connections is not None:
+        for index, connection_value in enumerate(connections):
+            connection_path = f"$.connections[{index}]"
+            connection = _require_object(connection_value, issues, path, connection_path)
+            if connection is None:
+                continue
+            connection_id = connection.get("id")
+            if not isinstance(connection_id, str) or not CHOICE_ID.fullmatch(connection_id):
+                _issue(issues, "error", path, f"{connection_path}.id", "올바른 연결 ID가 아닙니다.")
+            elif connection_id in seen_connections:
+                _issue(issues, "error", path, f"{connection_path}.id", f"중복 연결 ID: {connection_id}")
+            else:
+                seen_connections.add(connection_id)
+            _resource_id(connection.get("target_settlement"), issues, path, f"{connection_path}.target_settlement")
+            gate_placement = _require_object(
+                connection.get("placement"), issues, path, f"{connection_path}.placement"
+            )
+            if gate_placement is not None:
+                if gate_placement.get("mode") not in {"toward_target", "fixed_side"}:
+                    _issue(issues, "error", path, f"{connection_path}.placement.mode", "지원하지 않는 관문 배치 방식입니다.")
+                if gate_placement.get("preferred_side") not in {"north", "south", "east", "west"}:
+                    _issue(issues, "error", path, f"{connection_path}.placement.preferred_side", "지원하지 않는 예비 방향입니다.")
+                offset = gate_placement.get("offset")
+                if not isinstance(offset, int) or isinstance(offset, bool) or not -1024 <= offset <= 1024:
+                    _issue(issues, "error", path, f"{connection_path}.placement.offset", "-1024 이상 1024 이하의 정수여야 합니다.")
+            for field in ("gate_width", "path_width"):
+                value = connection.get(field)
+                if not isinstance(value, int) or isinstance(value, bool) or not 3 <= value <= 31:
+                    _issue(issues, "error", path, f"{connection_path}.{field}", "3 이상 31 이하의 정수여야 합니다.")
+                elif value % 2 == 0:
+                    _issue(issues, "error", path, f"{connection_path}.{field}", "중앙 정렬을 위해 홀수여야 합니다.")
 
     structure_profile = _require_object(
         root.get("structure_profile"), issues, path, "$.structure_profile"
@@ -1118,12 +1306,15 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
 
     settlement_dir = root / "content" / "settlements"
     seen_settlements: dict[str, Path] = {}
+    settlement_records: list[tuple[Path, dict[str, Any]]] = []
     if settlement_dir.exists():
         for path in sorted(settlement_dir.rglob("*.json")):
             settlement_id, file_issues = validate_settlement_file(path)
             issues.extend(file_issues)
             try:
                 settlement_data = load_json(path)
+                if isinstance(settlement_data, dict):
+                    settlement_records.append((path, settlement_data))
                 trainer_slots = settlement_data.get("npc_placement", {}).get("trainer_slots", [])
                 for index, slot in enumerate(trainer_slots):
                     trainer_id = slot.get("trainer_id") if isinstance(slot, dict) else None
@@ -1149,6 +1340,18 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
                 )
             else:
                 seen_settlements[settlement_id] = path
+
+    for path, settlement_data in settlement_records:
+        for index, connection in enumerate(settlement_data.get("connections", [])):
+            target = connection.get("target_settlement") if isinstance(connection, dict) else None
+            if isinstance(target, str) and target not in seen_settlements:
+                _issue(
+                    issues,
+                    "warning",
+                    path,
+                    f"$.connections[{index}].target_settlement",
+                    f"아직 작성되지 않은 다음 마을 ID입니다: {target}",
+                )
 
     errors = sum(issue.level == "error" for issue in issues)
     warnings = sum(issue.level == "warning" for issue in issues)
@@ -1418,7 +1621,7 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
 def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any]:
     return {
         "$schema": "../../schemas/settlement.schema.json",
-        "schema_version": 1,
+        "schema_version": 2,
         "id": f"cobbleventure:settlement/{slug}",
         "enabled": True,
         "display_name": {"ko_kr": name},
@@ -1427,6 +1630,35 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
         "bounds": {"min_x": -32, "min_z": -32, "max_x": 32, "max_z": 32},
         "center": {"x": 0, "y": 64, "z": 0},
         "anchors": {"town_square": {"x": 0, "y": 64, "z": 0}},
+        "content_profile": {
+            "pokemon": {
+                "spawn_profile": f"cobbleventure:spawn/{slug}",
+                "density_multiplier": 1.0,
+            },
+            "trainers": {
+                "population_profile": f"cobbleventure:trainer_population/{slug}",
+                "max_active": 8,
+                "class_pool": ["cobbleventure:trainer_class/youngster"],
+            },
+            "level_scaling": {
+                "mode": "badge_and_region", "base_level": 5, "min_level": 3,
+                "max_level": 18, "per_badge": 2, "per_region": 3,
+                "pokemon_offset": 0, "trainer_offset": 1,
+            },
+        },
+        "biome_layout": {
+            "arrangement": "organic_patches",
+            "transition_width": 12,
+            "zones": [{
+                "id": "primary", "biome": "minecraft:plains",
+                "size_blocks": 256, "placement": "center", "weight": 1,
+            }],
+            "boundary": {
+                "profile": f"cobbleventure:boundary/{slug}",
+                "width": 16, "wall_height": 12, "wall_thickness": 5,
+            },
+        },
+        "connections": [],
         "structure_profile": {
             "structure": f"cobbleventure:{slug}/village",
             "gym_theme": "normal",

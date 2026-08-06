@@ -13,25 +13,36 @@
 ```json
 {
   "biome_layout": {
-    "shape": "rectangle",
-    "town_biome": "cobbleventure:biome_profile/starter_plains",
-    "surrounding_biomes": ["cobbleventure:biome_profile/starter_plains"],
-    "surrounding_width": 64,
-    "boundary_profile": "cobbleventure:boundary/stone_city_wall"
+    "arrangement": "organic_patches",
+    "transition_width": 12,
+    "zones": [
+      { "id": "plains", "biome": "cobbleventure:starter_plains", "size_blocks": 320, "placement": "center", "weight": 5 },
+      { "id": "forest", "biome": "minecraft:forest", "size_blocks": 192, "placement": "outer", "weight": 3 },
+      { "id": "river", "biome": "minecraft:river", "size_blocks": 96, "placement": "middle", "weight": 1 }
+    ],
+    "boundary": {
+      "profile": "cobbleventure:boundary/starter_region_wall",
+      "width": 16,
+      "wall_height": 12,
+      "wall_thickness": 5
+    }
   },
-  "gates": [
+  "connections": [
     {
-      "id": "east_gate",
-      "side": "east",
-      "offset": 0,
-      "width": 9,
-      "target": "cobbleventure:generation_1/region_02"
+      "id": "next_town_gate",
+      "target_settlement": "cobbleventure:settlement/route_01_town",
+      "placement": { "mode": "toward_target", "preferred_side": "east", "offset": 0 },
+      "gate_width": 9,
+      "path_width": 7
     }
   ]
 }
 ```
 
-마을 `bounds`는 건물과 도로가 놓이는 영역이다. `surrounding_width`는 마을 경계 밖의 자연 지대이며, 그 바깥에 경계 띠와 벽이 놓인다.
+마을 `bounds`는 건물과 도로가 놓이는 영역이다. 바이옴은 1~3개까지 지정하며
+`size_blocks`는 목표 지름, `placement`는 중심으로부터의 상대 위치다. 생성기는
+가중치와 월드 시드를 사용해 구역을 자연스럽고 결정적으로 배치한다. 모든 구역의
+합집합 바깥에는 경계 띠와 벽을 놓는다.
 
 ## 경계 프로필
 
@@ -49,15 +60,18 @@
 
 ## 좌표 판정
 
-사각형 마을 기준으로 거리를 다음처럼 판정한다.
+마을 기준으로 다음 순서로 판정한다.
 
-1. `bounds` 안: `town_biome`
-2. `bounds`에서 `surrounding_width` 이내: `surrounding_biomes`
-3. 경계 프로필의 폭 이내: 경계 바이옴과 벽
-4. 관문 마스크 안: 벽을 생략하고 통로 바이옴
-5. 그 너머: 다음 지역 또는 아직 할당되지 않은 외부 영역
+1. `center`와 `bounds`를 기준으로 중앙 바이옴을 고정한다.
+2. 나머지 구역을 `placement`와 `size_blocks`에 맞춰 충돌을 최소화해 배치한다.
+3. 전환 폭에서는 두 구역의 경계를 노이즈로 완화한다.
+4. 전체 바이옴 구역 외곽에 경계 바이옴과 벽을 만든다.
+5. 다음 마을 중심 방향과 외곽의 교점에는 벽을 생략하고 관문·통로를 만든다.
+6. 다음 마을 데이터가 없으면 `preferred_side`와 `offset`으로 관문을 배치한다.
+7. 그 너머는 다음 지역 또는 아직 할당되지 않은 외부 영역이다.
 
-`surrounding_biomes`가 하나면 전 범위가 그 바이옴이다. 여러 개면 가중치와 노이즈 규칙을 명시해야 하며, 목록 순서에 암묵적으로 의존하지 않는다.
+바이옴이 하나면 전 범위가 그 바이옴이다. 여러 개면 크기와 가중치를 함께 사용하며,
+목록 순서에 암묵적으로 의존하지 않는다.
 
 ## 생성과 갱신
 

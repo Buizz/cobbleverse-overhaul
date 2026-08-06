@@ -1197,6 +1197,40 @@ function renderSettlement() {
   setFormValue(form, "centerX", document.center?.x); setFormValue(form, "centerY", document.center?.y); setFormValue(form, "centerZ", document.center?.z);
   setFormValue(form, "minX", document.bounds?.min_x); setFormValue(form, "minZ", document.bounds?.min_z);
   setFormValue(form, "maxX", document.bounds?.max_x); setFormValue(form, "maxZ", document.bounds?.max_z);
+  setFormValue(form, "pokemonSpawnProfile", document.content_profile?.pokemon?.spawn_profile);
+  setFormValue(form, "pokemonDensity", document.content_profile?.pokemon?.density_multiplier ?? 1);
+  setFormValue(form, "trainerPopulationProfile", document.content_profile?.trainers?.population_profile);
+  setFormValue(form, "trainerMaxActive", document.content_profile?.trainers?.max_active ?? 0);
+  setFormValue(form, "trainerClassPool", (document.content_profile?.trainers?.class_pool || []).join(", "));
+  const scaling = document.content_profile?.level_scaling || {};
+  setFormValue(form, "scaleMode", scaling.mode || "badge_and_region");
+  setFormValue(form, "scaleBase", scaling.base_level ?? 5); setFormValue(form, "scaleMin", scaling.min_level ?? 3);
+  setFormValue(form, "scaleMax", scaling.max_level ?? 18); setFormValue(form, "scalePerBadge", scaling.per_badge ?? 2);
+  setFormValue(form, "scalePerRegion", scaling.per_region ?? 3); setFormValue(form, "pokemonLevelOffset", scaling.pokemon_offset ?? 0);
+  setFormValue(form, "trainerLevelOffset", scaling.trainer_offset ?? 1);
+  const biomeLayout = document.biome_layout || {};
+  setFormValue(form, "biomeArrangement", biomeLayout.arrangement || "organic_patches");
+  setFormValue(form, "biomeTransitionWidth", biomeLayout.transition_width ?? 12);
+  setFormValue(form, "boundaryProfile", biomeLayout.boundary?.profile);
+  setFormValue(form, "boundaryWidth", biomeLayout.boundary?.width ?? 16);
+  setFormValue(form, "wallHeight", biomeLayout.boundary?.wall_height ?? 12);
+  setFormValue(form, "wallThickness", biomeLayout.boundary?.wall_thickness ?? 5);
+  for (let index = 0; index < 3; index += 1) {
+    const zone = biomeLayout.zones?.[index] || {};
+    const field = index + 1;
+    setFormValue(form, `biome${field}Id`, zone.id);
+    setFormValue(form, `biome${field}Resource`, zone.biome);
+    setFormValue(form, `biome${field}Size`, zone.size_blocks);
+    setFormValue(form, `biome${field}Placement`, zone.placement || "auto");
+    setFormValue(form, `biome${field}Weight`, zone.weight ?? 1);
+  }
+  const connection = document.connections?.[0] || {};
+  setFormValue(form, "nextSettlement", connection.target_settlement);
+  setFormValue(form, "gatePlacementMode", connection.placement?.mode || "toward_target");
+  setFormValue(form, "gatePreferredSide", connection.placement?.preferred_side || "east");
+  setFormValue(form, "gateOffset", connection.placement?.offset ?? 0);
+  setFormValue(form, "gateWidth", connection.gate_width ?? 9);
+  setFormValue(form, "pathWidth", connection.path_width ?? 7);
   setFormValue(form, "maxAmbient", document.npc_placement?.max_ambient_npcs);
   setFormValue(form, "wanderRadius", document.npc_placement?.default_wander_radius);
   [...form.elements].forEach((element) => element.disabled = false);
@@ -1298,6 +1332,56 @@ function updateSettlementFromForm() {
     center: { x: number("centerX"), y: number("centerY"), z: number("centerZ") },
     bounds: { min_x: number("minX"), min_z: number("minZ"), max_x: number("maxX"), max_z: number("maxZ") }
   });
+  state.settlement.schema_version = 2;
+  state.settlement.content_profile = {
+    pokemon: {
+      spawn_profile: form.elements.pokemonSpawnProfile.value.trim(),
+      density_multiplier: number("pokemonDensity")
+    },
+    trainers: {
+      population_profile: form.elements.trainerPopulationProfile.value.trim(),
+      max_active: number("trainerMaxActive"),
+      class_pool: form.elements.trainerClassPool.value.split(",").map((value) => value.trim()).filter(Boolean)
+    },
+    level_scaling: {
+      mode: form.elements.scaleMode.value,
+      base_level: number("scaleBase"), min_level: number("scaleMin"), max_level: number("scaleMax"),
+      per_badge: number("scalePerBadge"), per_region: number("scalePerRegion"),
+      pokemon_offset: number("pokemonLevelOffset"), trainer_offset: number("trainerLevelOffset")
+    }
+  };
+  const biomeZones = [];
+  for (let index = 1; index <= 3; index += 1) {
+    const biome = form.elements[`biome${index}Resource`].value.trim();
+    const id = form.elements[`biome${index}Id`].value.trim();
+    if (!biome && !id) continue;
+    biomeZones.push({
+      id, biome,
+      size_blocks: number(`biome${index}Size`),
+      placement: form.elements[`biome${index}Placement`].value,
+      weight: number(`biome${index}Weight`)
+    });
+  }
+  state.settlement.biome_layout = {
+    arrangement: form.elements.biomeArrangement.value,
+    transition_width: number("biomeTransitionWidth"),
+    zones: biomeZones,
+    boundary: {
+      profile: form.elements.boundaryProfile.value.trim(),
+      width: number("boundaryWidth"), wall_height: number("wallHeight"), wall_thickness: number("wallThickness")
+    }
+  };
+  const nextSettlement = form.elements.nextSettlement.value.trim();
+  state.settlement.connections = nextSettlement ? [{
+    id: state.settlement.connections?.[0]?.id || "next_town_gate",
+    target_settlement: nextSettlement,
+    placement: {
+      mode: form.elements.gatePlacementMode.value,
+      preferred_side: form.elements.gatePreferredSide.value,
+      offset: number("gateOffset")
+    },
+    gate_width: number("gateWidth"), path_width: number("pathWidth")
+  }] : [];
   state.settlement.npc_placement = state.settlement.npc_placement || { trainer_slots: [], zones: [] };
   state.settlement.npc_placement.max_ambient_npcs = number("maxAmbient");
   state.settlement.npc_placement.default_wander_radius = number("wanderRadius");

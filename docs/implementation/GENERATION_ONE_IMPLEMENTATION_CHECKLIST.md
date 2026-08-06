@@ -44,10 +44,11 @@
 
 ### 마을과 건축
 
-- [ ] `settlement.schema.json`에 `biome_layout` 추가
+- [x] `settlement.schema.json`에 `content_profile` 추가
+- [x] `settlement.schema.json`에 `biome_layout` 추가
 - [ ] `settlement.schema.json`에 `layout_profile` 추가
 - [ ] `settlement.schema.json`에 `building_kit` 추가
-- [ ] `settlement.schema.json`에 `gates` 추가
+- [x] `settlement.schema.json`에 `connections` 추가
 - [ ] 건축 키트와 팔레트 스키마 추가
 - [ ] 역할별 구조물 ID 교차 참조 검증 추가
 - [ ] 필수 시설 수량 검증 추가
@@ -187,14 +188,15 @@
 ## 9. Python 관리 웹과 빌드 파이프라인
 
 - [ ] 바이옴 카탈로그 편집 화면 추가
-- [ ] 마을 내부·주변 바이옴 선택 UI 추가
-- [ ] 마을 크기와 완충 지대 편집 UI 추가
-- [ ] 경계 벽과 관문 편집 UI 추가
+- [x] 마을별 1~3개 바이옴 선택 UI 추가
+- [x] 바이옴별 크기·위치·가중치 편집 UI 추가
+- [x] 경계 벽과 다음 마을 관문 편집 UI 추가
 - [ ] 건축 키트 선택 UI 추가
+- [x] 마을 포켓몬·트레이너 프로필과 레벨 스케일링 UI 추가
 - [ ] 트레이너 네 분류 축 편집 UI 반영
 - [ ] 전문가 변형과 치터 확률 UI 반영
-- [ ] 신규 스키마 저장·불러오기·검증 지원
-- [ ] 정규화 JSON 빌드 출력 반영
+- [x] 신규 마을 스키마 저장·불러오기·검증 지원
+- [x] 정규화된 마을 JSON의 NeoForge 모드 리소스 출력 반영
 - [ ] 게임 리소스와 RCT 출력 변환 반영
 - [ ] 누락 참조를 빌드 오류로 표시
 - [ ] `build.bat`의 기존 명령으로 전체 생성 가능

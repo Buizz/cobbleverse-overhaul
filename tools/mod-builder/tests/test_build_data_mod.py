@@ -40,7 +40,7 @@ class DataModBuilderTests(unittest.TestCase):
         config = root / build_data_mod.STARTER_TOWN_CONFIG
         config.parent.mkdir(parents=True, exist_ok=True)
         config.write_text(
-            json.dumps({"structure_profile": {"gym_theme": "rock"}}),
+            json.dumps({"schema_version": 2, "structure_profile": {"gym_theme": "rock"}}),
             encoding="utf-8",
         )
         return source
@@ -66,7 +66,7 @@ class DataModBuilderTests(unittest.TestCase):
             self._fixture(root)
             config = root / build_data_mod.STARTER_TOWN_CONFIG
             config.write_text(
-                json.dumps({"structure_profile": {"gym_theme": "water"}}),
+                json.dumps({"schema_version": 2, "structure_profile": {"gym_theme": "water"}}),
                 encoding="utf-8",
             )
 
@@ -74,6 +74,29 @@ class DataModBuilderTests(unittest.TestCase):
 
             gym = gzip.decompress(output.read_bytes())
             self.assertIn(b"minecraft:blue_concrete", gym)
+
+    def test_packages_settlement_region_configuration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            config = root / build_data_mod.STARTER_TOWN_CONFIG
+            config.write_text(
+                json.dumps({
+                    "schema_version": 2,
+                    "structure_profile": {"gym_theme": "rock"},
+                    "biome_layout": {"zones": [{}, {}, {}]},
+                    "connections": [{"placement": {"mode": "toward_target"}}],
+                }),
+                encoding="utf-8",
+            )
+
+            build_data_mod.build(root)
+            generated = root / build_data_mod.OUTPUT / build_data_mod.GENERATED_SETTLEMENT_ENTRY
+            data = json.loads(generated.read_text(encoding="utf-8"))
+
+            self.assertEqual(2, data["schema_version"])
+            self.assertEqual(3, len(data["biome_layout"]["zones"]))
+            self.assertEqual("toward_target", data["connections"][0]["placement"]["mode"])
 
     def test_rejects_missing_required_entry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

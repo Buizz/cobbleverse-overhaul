@@ -228,6 +228,50 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertTrue(any("하나 이상의 필수 시설" in issue.message for issue in issues))
 
+    def test_settlement_supports_at_most_three_biomes(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["biome_layout"]["zones"].append({
+            "id": "fourth", "biome": "minecraft:desert", "size_blocks": 64,
+            "placement": "outer", "weight": 1,
+        })
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+        self.assertTrue(any("1개 이상 3개 이하" in issue.message for issue in issues))
+
+    def test_settlement_level_scaling_requires_ordered_range(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["content_profile"]["level_scaling"].update({
+            "min_level": 20, "base_level": 10, "max_level": 15,
+        })
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+        self.assertTrue(any("min_level <= base_level <= max_level" in issue.message for issue in issues))
+
+    def test_settlement_gate_width_must_be_odd(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["connections"][0]["gate_width"] = 8
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+        self.assertTrue(any("홀수" in issue.message for issue in issues))
+
     def test_settlement_rejects_unknown_gym_theme(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
