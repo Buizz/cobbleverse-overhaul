@@ -127,29 +127,42 @@
       },
       "reason": "추가 전투 기믹 호환 후보"
     },
-      {
-        "id": "easy_npc",
+    {
+      "id": "easy_npc_bundle",
+      "display_name": "Easy NPC Bundle",
+      "classification": "profile-optional",
+      "side": "both",
+      "enabled": true,
+      "version": "7.0.1",
+      "curseforge": {
+        "project_id": 559312,
+        "file_id": 8420470
+      },
+      "reason": "Easy NPC Core와 Config UI 의존성을 선언하는 런처용 번들"
+    },
+    {
+      "id": "easy_npc",
       "display_name": "Easy NPC Core",
       "classification": "profile-optional",
       "side": "both",
-        "enabled": true,
-        "version": "7.0.1",
-        "curseforge": {
-          "project_id": 559312,
-          "file_id": 8420470
-        },
-        "reason": "트레이너 의상 프리셋, 장비, 어린이 체형 NPC"
+      "enabled": true,
+      "version": "7.0.1",
+      "curseforge": {
+        "project_id": 1308987,
+        "file_id": 8420476
+      },
+      "reason": "트레이너 의상 프리셋, 장비, 어린이 체형 NPC"
     },
     {
       "id": "easy_npc_config_ui",
       "display_name": "Easy NPC Config UI",
       "classification": "profile-optional",
       "side": "both",
-      "enabled": false,
-      "version": null,
+      "enabled": true,
+      "version": "7.0.1",
       "curseforge": {
-        "project_id": null,
-        "file_id": null
+        "project_id": 1214728,
+        "file_id": 8420458
       },
       "reason": "Easy NPC 호환 프로필의 게임 내 설정과 네트워크"
     },

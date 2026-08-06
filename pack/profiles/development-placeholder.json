@@ -50,6 +50,16 @@
       "projectID": 559312,
       "fileID": 8420470,
       "required": true
+    },
+    {
+      "projectID": 1308987,
+      "fileID": 8420476,
+      "required": true
+    },
+    {
+      "projectID": 1214728,
+      "fileID": 8420458,
+      "required": true
     }
   ],
   "overrides_directory": "pack/overrides/development-placeholder",

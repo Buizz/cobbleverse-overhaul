@@ -30,8 +30,9 @@
 | `rctapi` | Radical Cobblemon Trainers API | 필수 후보 | 양쪽 | 트레이너 데이터와 전투 연동 계약 | 대상 버전 확인 필요 |
 | `rctmod` | Radical Cobblemon Trainers | 필수 후보 | 양쪽 | RCT JSON 로딩과 트레이너전 관리 | 자체 데이터 운용 범위 검증 필요 |
 | `mega_showdown` | Mega Showdown | 선택 | 양쪽 | 메가진화 등 추가 전투 기믹 | Cobblemon 1.7.3 및 RCT 연동 검증 필요 |
-| `easy_npc` | Easy NPC Core | 선택 프로필 | 양쪽 | Easy NPC 호환 프로필의 NPC와 대화 | 자체 NPC 기본안과 비교 유지 |
-| `easy_npc_config_ui` | Easy NPC Config UI | 선택 프로필 | 양쪽 | Easy NPC 게임 내 설정과 네트워크 | Easy NPC 프로필에서만 사용 |
+| `easy_npc_bundle` | Easy NPC Bundle | 선택 프로필 | 양쪽 | Core와 Config UI 의존성을 선언하는 런처용 번들 | 7.0.1 / CF `559312:8420470` |
+| `easy_npc` | Easy NPC Core | 선택 프로필 | 양쪽 | Easy NPC 호환 프로필의 NPC와 대화 | 7.0.1 / CF `1308987:8420476` |
+| `easy_npc_config_ui` | Easy NPC Config UI | 선택 프로필 | 양쪽 | Easy NPC 게임 내 설정과 네트워크 | 7.0.1 / CF `1214728:8420458` |
 | `tbcs` | Cobblemon Trainer Battle Commands | 선택 프로필 | 양쪽 | 명령 기반 NPC와 RCT API 전투 연결 | 자체 RCT Bridge와 비교 필요 |
 
 ## 콘텐츠팩 의존성
