@@ -78,7 +78,7 @@
       "additionalProperties": false,
       "required": ["base_height_offset", "height_variation", "noise_scale_blocks"],
       "properties": {
-        "base_height_offset": { "type": "integer", "minimum": -16, "maximum": 32 },
+        "base_height_offset": { "type": "integer", "minimum": -48, "maximum": 32 },
         "height_variation": { "type": "integer", "minimum": 0, "maximum": 8 },
         "noise_scale_blocks": { "type": "number", "minimum": 16, "maximum": 512 }
       }

@@ -8,16 +8,16 @@
       "lakes": false,
       "layers": [
         {
-          "block": "minecraft:air",
-          "height": 55
-        },
-        {
           "block": "minecraft:bedrock",
           "height": 10
         },
         {
+          "block": "minecraft:stone",
+          "height": 50
+        },
+        {
           "block": "minecraft:dirt",
-          "height": 3
+          "height": 8
         },
         {
           "block": "minecraft:grass_block",

@@ -190,8 +190,8 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
         offset = value.get("base_height_offset")
         variation = value.get("height_variation")
         scale = value.get("noise_scale_blocks")
-        if not isinstance(offset, int) or isinstance(offset, bool) or not -16 <= offset <= 32:
-            _issue(issues, "error", file, f"{data_path}.base_height_offset", "-16 이상 32 이하의 정수가 필요합니다.")
+        if not isinstance(offset, int) or isinstance(offset, bool) or not -48 <= offset <= 32:
+            _issue(issues, "error", file, f"{data_path}.base_height_offset", "-48 이상 32 이하의 정수가 필요합니다.")
         if not isinstance(variation, int) or isinstance(variation, bool) or not 0 <= variation <= 8:
             _issue(issues, "error", file, f"{data_path}.height_variation", "0 이상 8 이하의 정수가 필요합니다.")
         if not isinstance(scale, (int, float)) or isinstance(scale, bool) or not 16 <= scale <= 512:

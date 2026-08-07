@@ -34,7 +34,7 @@
           "boundary_profile": "cobbleventure:boundary/dense_tree_line",
           "terrain_profile": {
             "base_height_offset": 0,
-            "height_variation": 2,
+            "height_variation": 3,
             "noise_scale_blocks": 72
           },
           "habitat_profile": "cobbleventure:biome_profile/forest",
@@ -59,8 +59,8 @@
           "edge_noise": 0.1,
           "boundary_profile": "cobbleventure:boundary/earthwork",
           "terrain_profile": {
-            "base_height_offset": -2,
-            "height_variation": 1,
+            "base_height_offset": -8,
+            "height_variation": 2,
             "noise_scale_blocks": 96
           },
           "habitat_profile": "cobbleventure:biome_profile/freshwater",
@@ -85,8 +85,8 @@
           "edge_noise": 0.16,
           "boundary_profile": "cobbleventure:boundary/earthwork",
           "terrain_profile": {
-            "base_height_offset": 8,
-            "height_variation": 2,
+            "base_height_offset": 9,
+            "height_variation": 3,
             "noise_scale_blocks": 88
           },
           "access_requirement": "cobbleventure:field_move/rock_climb",
@@ -129,7 +129,7 @@
           "boundary_profile": "cobbleventure:boundary/dense_tree_line",
           "terrain_profile": {
             "base_height_offset": 1,
-            "height_variation": 2,
+            "height_variation": 3,
             "noise_scale_blocks": 80
           },
           "habitat_profile": "cobbleventure:biome_profile/forest",
@@ -154,8 +154,8 @@
           "edge_noise": 0.1,
           "boundary_profile": "cobbleventure:boundary/earthwork",
           "terrain_profile": {
-            "base_height_offset": -2,
-            "height_variation": 1,
+            "base_height_offset": -8,
+            "height_variation": 2,
             "noise_scale_blocks": 96
           },
           "habitat_profile": "cobbleventure:biome_profile/freshwater",
@@ -224,7 +224,7 @@
           "boundary_profile": "cobbleventure:boundary/stone_wall",
           "terrain_profile": {
             "base_height_offset": 0,
-            "height_variation": 2,
+            "height_variation": 3,
             "noise_scale_blocks": 110
           },
           "habitat_profile": "cobbleventure:biome_profile/arid",
@@ -266,8 +266,8 @@
           "edge_noise": 0.12,
           "boundary_profile": "cobbleventure:boundary/earthwork",
           "terrain_profile": {
-            "base_height_offset": -3,
-            "height_variation": 0,
+            "base_height_offset": -30,
+            "height_variation": 6,
             "noise_scale_blocks": 120
           },
           "access_requirement": "cobbleventure:field_move/surf",
@@ -386,8 +386,8 @@
       "edge_noise": 0.12,
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
-        "base_height_offset": -3,
-        "height_variation": 0,
+        "base_height_offset": -30,
+        "height_variation": 6,
         "noise_scale_blocks": 128
       },
       "surface_style": "water",

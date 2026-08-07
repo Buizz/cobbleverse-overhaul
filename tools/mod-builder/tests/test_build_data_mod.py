@@ -49,6 +49,16 @@ class DataModBuilderTests(unittest.TestCase):
         dimension = json.loads(path.read_text(encoding="utf-8"))
 
         self.assertFalse(dimension["generator"]["settings"]["features"])
+        layers = dimension["generator"]["settings"]["layers"]
+        self.assertEqual(
+            [
+                {"block": "minecraft:bedrock", "height": 10},
+                {"block": "minecraft:stone", "height": 50},
+                {"block": "minecraft:dirt", "height": 8},
+                {"block": "minecraft:grass_block", "height": 1},
+            ],
+            layers,
+        )
 
     def _fixture(self, root: Path) -> Path:
         source = root / build_data_mod.SOURCE

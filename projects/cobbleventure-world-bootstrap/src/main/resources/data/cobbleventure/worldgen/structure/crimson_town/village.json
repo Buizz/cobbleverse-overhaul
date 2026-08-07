@@ -6,10 +6,9 @@
   "start_pool": "cobbleventure:crimson_town/center",
   "size": 4,
   "start_height": {
-    "absolute": 69
+    "absolute": 68
   },
   "max_distance_from_center": 96,
   "use_expansion_hack": false,
   "terrain_adaptation": "beard_thin"
 }
-

@@ -54,7 +54,14 @@ public final class CobbleventureBootstrap {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String DATA_FILE = "cobbleventure_world_bootstrap";
     private static final int EXPECTED_SURFACE_Y = 69;
-    private static final int MAP_VERSION = 8;
+    private static final int WATER_LEVEL = 69;
+    private static final int DEEP_FOUNDATION_MIN_Y = 0;
+    private static final int DEEP_FOUNDATION_MAX_Y = 9;
+    private static final int PREVIOUS_FOUNDATION_MIN_Y = 50;
+    private static final int PREVIOUS_FOUNDATION_MAX_Y = 59;
+    private static final int LEGACY_FOUNDATION_MIN_Y = 55;
+    private static final int LEGACY_FOUNDATION_MAX_Y = 64;
+    private static final int MAP_VERSION = 10;
     private static final int TOWN_PRELOAD_RADIUS_CHUNKS = 6;
     private static final String STARTER_SETTLEMENT = "cobbleventure:settlement/starter_town";
     private static final String INTEGRATION_TEST_PROPERTY = "cobbleventure.testStarterTown";
@@ -101,13 +108,23 @@ public final class CobbleventureBootstrap {
                     + EXPECTED_SURFACE_Y + ", but was " + surface.getY()
             );
         }
-        boolean safeFoundation = true;
-        for (int y = 55; y <= 64; y++) {
-            safeFoundation &= level.getBlockState(new BlockPos(0, y, 0)).is(Blocks.BEDROCK);
-        }
+        boolean deepFoundation = hasBedrockFoundation(
+            level, 0, 0, DEEP_FOUNDATION_MIN_Y, DEEP_FOUNDATION_MAX_Y
+        );
+        boolean previousFoundation = hasBedrockFoundation(
+            level, 0, 0, PREVIOUS_FOUNDATION_MIN_Y, PREVIOUS_FOUNDATION_MAX_Y
+        );
+        boolean legacyFoundation = hasBedrockFoundation(
+            level, 0, 0, LEGACY_FOUNDATION_MIN_Y, LEGACY_FOUNDATION_MAX_Y
+        );
+        boolean emptyBelowFoundation = deepFoundation
+            || previousFoundation
+                && level.getBlockState(new BlockPos(0, PREVIOUS_FOUNDATION_MIN_Y - 1, 0)).isAir()
+            || legacyFoundation
+                && level.getBlockState(new BlockPos(0, LEGACY_FOUNDATION_MIN_Y - 1, 0)).isAir();
         if (!level.getBlockState(new BlockPos(0, 68, 0)).is(Blocks.GRASS_BLOCK)
-            || !safeFoundation
-            || !level.getBlockState(new BlockPos(0, 54, 0)).isAir()) {
+            || (!deepFoundation && !previousFoundation && !legacyFoundation)
+            || !emptyBelowFoundation) {
             throw new IllegalStateException(
                 "Cobbleventure generation_1 must have grass over ten bedrock layers with empty space below"
             );
@@ -143,6 +160,17 @@ public final class CobbleventureBootstrap {
             }
             LOGGER.info("Cobbleventure starter town integration placement succeeded at {}", starter.center());
         }
+    }
+
+    private static boolean hasBedrockFoundation(
+        ServerLevel level, int x, int z, int minY, int maxY
+    ) {
+        for (int y = minY; y <= maxY; y++) {
+            if (!level.getBlockState(new BlockPos(x, y, z)).is(Blocks.BEDROCK)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
@@ -1024,6 +1052,7 @@ public final class CobbleventureBootstrap {
         }
         drawContinuousBoundaries(level, world, bounds);
         drawHexRoads(level, world);
+        decorateNaturalTerrain(level, world, bounds);
     }
 
     private static void cleanupRenderedWorld(ServerLevel level, HexBounds bounds) {
@@ -1065,11 +1094,20 @@ public final class CobbleventureBootstrap {
         Map<String, List<TerrainSamplePoint>> samples = new LinkedHashMap<>();
         for (Map.Entry<HexCoord, CellPlan> entry : world.cells().entrySet()) {
             Point center = world.grid().worldCenter(entry.getKey());
-            TerrainSample sample = terrainAt(world, center.x() + 0.5D, center.z() + 0.5D);
-            if (sample != null) {
-                samples.computeIfAbsent(
-                    sample.kind() + ":" + sample.owner(), key -> new ArrayList<>()
-                ).add(new TerrainSamplePoint(center, sample));
+            List<Point> probes = List.of(
+                center,
+                center.translate(16, 0),
+                center.translate(-16, 0),
+                center.translate(0, 16),
+                center.translate(0, -16)
+            );
+            for (Point probe : probes) {
+                TerrainSample sample = terrainAt(world, probe.x() + 0.5D, probe.z() + 0.5D);
+                if (sample != null) {
+                    samples.computeIfAbsent(
+                        sample.kind() + ":" + sample.owner(), key -> new ArrayList<>()
+                    ).add(new TerrainSamplePoint(probe, sample));
+                }
             }
         }
         Set<String> expectedOwners = new HashSet<>();
@@ -1115,6 +1153,23 @@ public final class CobbleventureBootstrap {
                     "Terrain surface rendering mismatch for " + owner + " at Y=" + groundY
                 );
             }
+            if (isAquatic(selected.sample())) {
+                if (groundY > WATER_LEVEL - minimumWaterDepth(selected.sample())
+                    || !level.getBlockState(new BlockPos(
+                        selected.point().x(), groundY + 1, selected.point().z()
+                    )).is(Blocks.WATER)
+                    || !level.getBlockState(new BlockPos(
+                        selected.point().x(), WATER_LEVEL, selected.point().z()
+                    )).is(Blocks.WATER)
+                    || !hasUnbreakableFoundation(
+                        level, selected.point().x(), selected.point().z(),
+                        DEEP_FOUNDATION_MIN_Y, DEEP_FOUNDATION_MAX_Y
+                    )) {
+                    throw new IllegalStateException(
+                        "Aquatic terrain must be carved below a continuous waterline: " + owner
+                    );
+                }
+            }
             if ("cobbleventure:field_move/rock_climb".equals(selected.sample().accessRequirement())
                 && groundY < 74) {
                 throw new IllegalStateException(
@@ -1129,6 +1184,18 @@ public final class CobbleventureBootstrap {
                 throw new IllegalStateException("Surf region is missing navigable water: " + owner);
             }
         }
+    }
+
+    private static boolean hasUnbreakableFoundation(
+        ServerLevel level, int x, int z, int minY, int maxY
+    ) {
+        for (int y = minY; y <= maxY; y++) {
+            BlockState state = level.getBlockState(new BlockPos(x, y, z));
+            if (!state.is(Blocks.BEDROCK) && !state.is(Blocks.BARRIER)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean isValidRenderedSample(
@@ -1153,6 +1220,19 @@ public final class CobbleventureBootstrap {
                 && renderedSurface.is(Blocks.COBBLESTONE));
         if (!expectedSurface) {
             return false;
+        }
+        if (isAquatic(selected.sample())) {
+            return groundY <= WATER_LEVEL - minimumWaterDepth(selected.sample())
+                && level.getBlockState(new BlockPos(
+                    selected.point().x(), groundY + 1, selected.point().z()
+                )).is(Blocks.WATER)
+                && level.getBlockState(new BlockPos(
+                    selected.point().x(), WATER_LEVEL, selected.point().z()
+                )).is(Blocks.WATER)
+                && hasUnbreakableFoundation(
+                    level, selected.point().x(), selected.point().z(),
+                    DEEP_FOUNDATION_MIN_Y, DEEP_FOUNDATION_MAX_Y
+                );
         }
         if ("cobbleventure:field_move/rock_climb".equals(selected.sample().accessRequirement())
             && groundY < 74) {
@@ -1188,8 +1268,10 @@ public final class CobbleventureBootstrap {
                 continue;
             }
             Point center = world.grid().worldCenter(entry.getKey());
-            double noise = smoothNoise(world.seed(), plan.owner(), x / 96.0D, z / 96.0D);
-            double radius = plan.influenceRadius() * (1.0D + plan.edgeNoise() * noise);
+            double noise = layeredNoise(world.seed(), plan.owner() + ":edge", x, z, 96.0D);
+            double radius = plan.influenceRadius() * (
+                1.0D + Math.min(0.48D, plan.edgeNoise() * 1.65D) * noise
+            );
             double strength = 1.0D - Math.hypot(x - center.x(), z - center.z()) / radius;
             if (strength >= 0.0D && strength > selectedStrength) {
                 selectedStrength = strength;
@@ -1209,8 +1291,10 @@ public final class CobbleventureBootstrap {
         double selectedStrength = Double.NEGATIVE_INFINITY;
         for (ConnectionPath route : world.paths()) {
             double distance = distanceToRoute(world.grid(), route.cells(), x, z);
-            double noise = smoothNoise(world.seed(), route.id(), x / 80.0D, z / 80.0D);
-            double radius = route.corridorWidthBlocks() / 2.0D * (1.0D + route.edgeNoise() * noise);
+            double noise = layeredNoise(world.seed(), route.id() + ":edge", x, z, 80.0D);
+            double radius = route.corridorWidthBlocks() / 2.0D * (
+                1.0D + Math.min(0.42D, route.edgeNoise() * 1.5D) * noise
+            );
             double strength = 1.0D - distance / radius;
             if (strength >= 0.0D && strength > selectedStrength) {
                 selectedStrength = strength;
@@ -1261,6 +1345,14 @@ public final class CobbleventureBootstrap {
         return north + (south - north) * localZ;
     }
 
+    private static double layeredNoise(
+        long seed, String salt, double x, double z, double scale
+    ) {
+        return smoothNoise(seed, salt + ":broad", x / scale, z / scale) * 0.58D
+            + smoothNoise(seed, salt + ":medium", x / (scale * 0.43D), z / (scale * 0.43D)) * 0.29D
+            + smoothNoise(seed, salt + ":detail", x / (scale * 0.19D), z / (scale * 0.19D)) * 0.13D;
+    }
+
     private static double noiseCorner(long seed, String salt, int x, int z) {
         int value = stableHash(seed, salt, new HexCoord(x, z));
         return (Math.floorMod(value, 20001) / 10000.0D) - 1.0D;
@@ -1303,11 +1395,17 @@ public final class CobbleventureBootstrap {
         boolean aquatic = isAquatic(sample);
         BlockState surface = surfaceBlock(sample.biome());
         BlockState filler = fillerBlock(sample.biome());
-        for (int y = 65; y < groundY; y++) {
+        if (aquatic) {
+            for (int y = DEEP_FOUNDATION_MIN_Y; y <= DEEP_FOUNDATION_MAX_Y; y++) {
+                level.setBlock(new BlockPos(x, y, z), Blocks.BEDROCK.defaultBlockState(), 2);
+            }
+        }
+        int fillerStart = aquatic ? DEEP_FOUNDATION_MAX_Y + 1 : LEGACY_FOUNDATION_MAX_Y + 1;
+        for (int y = fillerStart; y < groundY; y++) {
             level.setBlock(new BlockPos(x, y, z), filler, 2);
         }
         level.setBlock(new BlockPos(x, groundY, z), surface, 2);
-        int waterTop = aquatic ? 69 : groundY;
+        int waterTop = aquatic ? WATER_LEVEL : groundY;
         for (int y = groundY + 1; y <= waterTop; y++) {
             level.setBlock(new BlockPos(x, y, z), Blocks.WATER.defaultBlockState(), 2);
         }
@@ -1320,13 +1418,14 @@ public final class CobbleventureBootstrap {
         HexWorldPlan world, TerrainSample sample, double x, double z
     ) {
         TerrainProfile terrain = sample.terrainProfile();
-        double noise = smoothNoise(
+        double noise = layeredNoise(
             world.seed(), sample.owner() + ":height",
-            x / terrain.noiseScaleBlocks(), z / terrain.noiseScaleBlocks()
+            x, z, terrain.noiseScaleBlocks()
         );
         int height = 68 + terrain.baseHeightOffset()
             + (int) Math.round(terrain.heightVariation() * noise);
-        return Math.max(65, Math.min(88, height));
+        int minimumY = isAquatic(sample) ? DEEP_FOUNDATION_MAX_Y + 1 : 65;
+        return Math.max(minimumY, Math.min(88, height));
     }
 
     private static boolean isAquatic(TerrainSample sample) {
@@ -1335,7 +1434,14 @@ public final class CobbleventureBootstrap {
             || sample.biome().contains("river");
     }
 
+    private static int minimumWaterDepth(TerrainSample sample) {
+        return sample.biome().contains("ocean") ? 20 : 6;
+    }
+
     private static BlockState fillerBlock(String biome) {
+        if (biome.contains("ocean")) {
+            return Blocks.STONE.defaultBlockState();
+        }
         if (biome.contains("desert") || biome.contains("beach")) {
             return Blocks.SAND.defaultBlockState();
         }
@@ -1349,6 +1455,11 @@ public final class CobbleventureBootstrap {
     }
 
     private static BlockState surfaceBlock(String biome) {
+        if (biome.contains("ocean")) {
+            return biome.contains("warm")
+                ? Blocks.SAND.defaultBlockState()
+                : Blocks.GRAVEL.defaultBlockState();
+        }
         if (biome.contains("river") || biome.contains("beach")) {
             return Blocks.GRAVEL.defaultBlockState();
         }
@@ -1447,16 +1558,16 @@ public final class CobbleventureBootstrap {
             for (int y = baseY; y < baseY + moundHeight; y++) {
                 level.setBlock(new BlockPos(x, y, z), y == baseY + moundHeight - 1 ? surface : Blocks.DIRT.defaultBlockState(), 2);
             }
-            if (offset == 0 && profile.collision().equals("protected")) {
-                for (int y = baseY; y < baseY + profile.height(); y++) {
+            if (Math.abs(offset) <= 2 && profile.collision().equals("protected")) {
+                for (int y = baseY + moundHeight; y < baseY + profile.height() + 3; y++) {
                     level.setBlock(new BlockPos(x, y, z), core, 2);
                 }
             }
             return;
         }
         TreeProfile tree = profile.tree();
-        if (offset == 1 && !profile.collision().equals("soft")) {
-            for (int y = baseY; y < baseY + profile.height(); y++) {
+        if (Math.abs(offset) <= 2 && offset != 0 && !profile.collision().equals("soft")) {
+            for (int y = baseY; y < baseY + profile.height() + 2; y++) {
                 level.setBlock(new BlockPos(x, y, z), core, 2);
             }
         }
@@ -1498,6 +1609,134 @@ public final class CobbleventureBootstrap {
                     world.grid().worldCenter(cells.get(index - 1)),
                     world.grid().worldCenter(cells.get(index))
                 );
+            }
+        }
+    }
+
+    private static void decorateNaturalTerrain(
+        ServerLevel level, HexWorldPlan world, HexBounds bounds
+    ) {
+        for (int gridX = bounds.minX(); gridX <= bounds.maxX(); gridX += 6) {
+            for (int gridZ = bounds.minZ(); gridZ <= bounds.maxZ(); gridZ += 6) {
+                int hash = decorationHash(world.seed(), gridX, gridZ);
+                int x = gridX + Math.floorMod(hash, 5) - 2;
+                int z = gridZ + Math.floorMod(hash / 7, 5) - 2;
+                TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
+                if (sample == null || !sample.kind().equals("surrounding") || isAquatic(sample)
+                    || !hasDecorationClearance(world, sample, x, z)) {
+                    continue;
+                }
+                int groundY = terrainGroundY(world, sample, x, z);
+                BlockPos ground = new BlockPos(x, groundY, z);
+                BlockPos above = ground.above();
+                if (!level.getBlockState(above).isAir()) {
+                    continue;
+                }
+                String biome = sample.biome();
+                int choice = Math.floorMod(hash, 100);
+                if (biome.contains("forest") || biome.contains("taiga")) {
+                    if (choice < 58) {
+                        placeNaturalTree(level, above, hash, biome.contains("taiga"));
+                    } else if (choice < 84) {
+                        placeGroundPlant(level, above, hash, biome.contains("flower"));
+                    }
+                } else if (biome.contains("flower") || biome.contains("plains")) {
+                    if (choice < 72) {
+                        placeGroundPlant(level, above, hash, biome.contains("flower"));
+                    } else if (choice < 79) {
+                        placeNaturalTree(level, above, hash, false);
+                    }
+                } else if (biome.contains("badlands") || biome.contains("desert")) {
+                    if (choice < 38) {
+                        level.setBlock(above, Blocks.DEAD_BUSH.defaultBlockState(), 2);
+                    } else if (choice < 48) {
+                        placeBoulder(level, above, hash, biome.contains("badlands"));
+                    }
+                } else if (biome.contains("mountain") || biome.contains("windswept")) {
+                    if (choice < 20) {
+                        placeNaturalTree(level, above, hash, true);
+                    } else if (choice < 45) {
+                        placeBoulder(level, above, hash, false);
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean hasDecorationClearance(
+        HexWorldPlan world, TerrainSample sample, int x, int z
+    ) {
+        int[][] checks = {{8, 0}, {-8, 0}, {0, 8}, {0, -8}};
+        for (int[] check : checks) {
+            TerrainSample nearby = terrainAt(world, x + check[0] + 0.5D, z + check[1] + 0.5D);
+            if (nearby == null || !nearby.owner().equals(sample.owner())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static int decorationHash(long seed, int x, int z) {
+        long mixed = seed ^ (x * 341873128712L) ^ (z * 132897987541L);
+        mixed ^= mixed >>> 33;
+        mixed *= 0xff51afd7ed558ccdL;
+        mixed ^= mixed >>> 33;
+        return (int) (mixed ^ mixed >>> 32);
+    }
+
+    private static void placeGroundPlant(ServerLevel level, BlockPos pos, int hash, boolean flowers) {
+        BlockState plant;
+        if (!flowers || Math.floorMod(hash, 5) < 2) {
+            plant = Blocks.SHORT_GRASS.defaultBlockState();
+        } else {
+            plant = switch (Math.floorMod(hash, 4)) {
+                case 0 -> Blocks.DANDELION.defaultBlockState();
+                case 1 -> Blocks.POPPY.defaultBlockState();
+                case 2 -> Blocks.AZURE_BLUET.defaultBlockState();
+                default -> Blocks.OXEYE_DAISY.defaultBlockState();
+            };
+        }
+        level.setBlock(pos, plant, 2);
+    }
+
+    private static void placeNaturalTree(ServerLevel level, BlockPos base, int hash, boolean spruce) {
+        int height = 4 + Math.floorMod(hash, 3);
+        BlockState log = spruce ? Blocks.SPRUCE_LOG.defaultBlockState() : Blocks.OAK_LOG.defaultBlockState();
+        BlockState leaves = spruce ? Blocks.SPRUCE_LEAVES.defaultBlockState() : Blocks.OAK_LEAVES.defaultBlockState();
+        for (int y = 0; y < height; y++) {
+            level.setBlock(base.above(y), log, 2);
+        }
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                for (int dy = -2; dy <= 1; dy++) {
+                    if (Math.abs(dx) + Math.abs(dz) + Math.max(0, Math.abs(dy) - 1) > 4) {
+                        continue;
+                    }
+                    BlockPos leafPos = base.offset(dx, height + dy, dz);
+                    if (level.getBlockState(leafPos).isAir()) {
+                        level.setBlock(leafPos, leaves, 2);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void placeBoulder(ServerLevel level, BlockPos base, int hash, boolean red) {
+        BlockState rock = red ? Blocks.RED_SANDSTONE.defaultBlockState()
+            : (Math.floorMod(hash, 3) == 0
+                ? Blocks.MOSSY_COBBLESTONE.defaultBlockState()
+                : Blocks.STONE.defaultBlockState());
+        int radius = 1 + Math.floorMod(hash, 2);
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                for (int dy = 0; dy <= radius; dy++) {
+                    if (dx * dx + dz * dz + dy * dy <= radius * radius + 1) {
+                        BlockPos rockPos = base.offset(dx, dy, dz);
+                        if (level.getBlockState(rockPos).isAir()) {
+                            level.setBlock(rockPos, rock, 2);
+                        }
+                    }
+                }
             }
         }
     }

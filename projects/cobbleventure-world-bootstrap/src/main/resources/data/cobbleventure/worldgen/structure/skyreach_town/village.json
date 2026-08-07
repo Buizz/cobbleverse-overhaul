@@ -6,7 +6,7 @@
   "terrain_adaptation": "beard_thin",
   "start_pool": "cobbleventure:skyreach_town/center",
   "size": 5,
-  "start_height": { "absolute": 77 },
+  "start_height": { "absolute": 76 },
   "max_distance_from_center": 80,
   "use_expansion_hack": false
 }
