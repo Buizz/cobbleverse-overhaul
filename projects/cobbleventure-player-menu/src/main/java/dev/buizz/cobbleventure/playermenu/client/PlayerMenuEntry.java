@@ -30,7 +30,7 @@ enum PlayerMenuEntry {
     }
 
     boolean connected() {
-        return connected || (this == POKEDEX && ModList.get().isLoaded("cobblemon"));
+        return connected || (isCobblemonEntry() && ModList.get().isLoaded("cobblemon"));
     }
 
     OpenResult open() {
@@ -38,17 +38,33 @@ enum PlayerMenuEntry {
             PlayerMenuClient.openVanillaInventory();
             return OpenResult.OPENED;
         }
+        if (this == POKEMON && connected()) {
+            return CobblemonMenuIntegration.openPartySummary()
+                ? OpenResult.OPENED
+                : OpenResult.NO_POKEMON;
+        }
+        if (this == PC && connected()) {
+            return CobblemonMenuIntegration.requestRemotePc()
+                ? OpenResult.OPENED
+                : OpenResult.ACTION_FAILED;
+        }
         if (this == POKEDEX && connected()) {
-            return CobblemonPokedexIntegration.openOwnedPokedex()
+            return CobblemonMenuIntegration.openOwnedPokedex()
                 ? OpenResult.OPENED
                 : OpenResult.MISSING_POKEDEX;
         }
         return OpenResult.UNAVAILABLE;
     }
 
+    private boolean isCobblemonEntry() {
+        return this == POKEMON || this == PC || this == POKEDEX;
+    }
+
     enum OpenResult {
         OPENED,
+        NO_POKEMON,
         MISSING_POKEDEX,
+        ACTION_FAILED,
         UNAVAILABLE
     }
 }

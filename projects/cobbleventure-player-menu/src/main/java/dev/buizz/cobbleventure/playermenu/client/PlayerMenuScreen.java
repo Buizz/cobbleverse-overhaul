@@ -123,8 +123,14 @@ public final class PlayerMenuScreen extends Screen {
     private void activate(PlayerMenuEntry entry) {
         statusMessage = switch (entry.open()) {
             case OPENED -> statusMessage;
+            case NO_POKEMON -> Component.translatable(
+                "screen.cobbleventure_player_menu.status.no_pokemon"
+            );
             case MISSING_POKEDEX -> Component.translatable(
                 "screen.cobbleventure_player_menu.status.missing_pokedex"
+            );
+            case ACTION_FAILED -> Component.translatable(
+                "screen.cobbleventure_player_menu.status.action_failed"
             );
             case UNAVAILABLE -> Component.translatable(
                 "screen.cobbleventure_player_menu.status.coming_soon",

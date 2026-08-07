@@ -4,7 +4,7 @@
 >
 > 관련 문서: [본가식 가방 인벤토리](BAG_INVENTORY.md), [진행 및 콘텐츠 해금](PROGRESSION.md), [서바이벌 월드와 플레이어 집 PC](SURVIVAL_WORLD.md)
 >
-> 설계 상태: 1차 구현 착수 / 기본 8항목 표시·장비·Cobblemon 도감 연결 완료, 세부 기능 미정
+> 설계 상태: 1차 구현 착수 / 기본 8항목 표시·장비·Cobblemon 포켓몬·PC·도감 연결 완료, 세부 기능 미정
 
 ## 1 목적
 
@@ -225,6 +225,8 @@ projects/cobbleventure-player-menu
 - [x] 인벤토리 키로 8칸 원형 메뉴를 연다.
 - [x] 모든 항목의 위치와 이름을 고정한다.
 - [x] 장비 항목을 바닐라 인벤토리 화면에 연결한다.
+- [x] 포켓몬 항목을 Cobblemon 파티 정보 화면에 연결한다.
+- [x] PC 항목에서 권한이 적용되는 Cobblemon 원격 PC를 요청한다.
 - [x] 소지한 Cobblemon 도감 아이템으로 기존 도감 화면을 연다.
 - [x] 아직 화면이 없는 항목은 선택 시 준비 중 상태를 표시한다.
 - [ ] 각 항목의 아이콘과 최종 시각 디자인을 적용한다.
@@ -233,7 +235,7 @@ projects/cobbleventure-player-menu
 - [ ] 서버가 데이터 변경과 기능 열기 요청을 다시 검증한다.
 - [ ] 게임패드 선택과 접근성 설정을 검증한다.
 
-현재 구현은 [Cobbleventure Player Menu](../../projects/cobbleventure-player-menu/README.md)에 있다. 장비는 바닐라 인벤토리로 연결하며, 도감은 플레이어 인벤토리에 있는 빨강·노랑·초록·파랑·분홍·검정·흰색 Cobblemon 도감 중 첫 아이템의 색상으로 기존 화면을 연다. 포켓몬, 가방, PC, 트레이너 카드, 퀘스트와 지도는 항목만 표시하며 후속 기능 화면이 준비되면 연결한다.
+현재 구현은 [Cobbleventure Player Menu](../../projects/cobbleventure-player-menu/README.md)에 있다. 포켓몬은 현재 선택한 파티 포켓몬의 Cobblemon 정보 화면을 열고, PC는 서버의 `/pc` 명령을 통해 원격 저장소 동기화와 편집 권한 검사를 거쳐 연다. 원격 PC 사용에는 서버의 `cobblemon.command.pc` 권한이 필요하다. 장비는 바닐라 인벤토리로 연결하며, 도감은 플레이어 인벤토리에 있는 빨강·노랑·초록·파랑·분홍·검정·흰색 Cobblemon 도감 중 첫 아이템의 색상으로 기존 화면을 연다. 가방, 트레이너 카드, 퀘스트와 지도는 항목만 표시하며 후속 기능 화면이 준비되면 연결한다.
 
 ### 8.1 합격 기준
 
