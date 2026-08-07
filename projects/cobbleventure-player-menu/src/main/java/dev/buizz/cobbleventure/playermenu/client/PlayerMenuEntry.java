@@ -10,7 +10,7 @@ enum PlayerMenuEntry {
     PC("pc", false),
     TRAINER_CARD("trainer_card", false),
     QUESTS("quests", false),
-    MAP("map", false),
+    MAP("map", true),
     POKEDEX("pokedex", false);
 
     private final String id;
@@ -36,6 +36,10 @@ enum PlayerMenuEntry {
     OpenResult open() {
         if (this == EQUIPMENT) {
             PlayerMenuClient.openVanillaInventory();
+            return OpenResult.OPENED;
+        }
+        if (this == MAP) {
+            PlayerMenuClient.openWorldMap();
             return OpenResult.OPENED;
         }
         if (this == POKEMON && connected()) {

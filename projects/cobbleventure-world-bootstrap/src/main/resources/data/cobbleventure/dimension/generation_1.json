@@ -4,7 +4,7 @@
     "type": "minecraft:flat",
     "settings": {
       "biome": "cobbleventure:starter_plains",
-      "features": true,
+      "features": false,
       "lakes": false,
       "layers": [
         {

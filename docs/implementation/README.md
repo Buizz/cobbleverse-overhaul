@@ -27,9 +27,12 @@
 | [1세대 시작 지역 통합 구현 계획](GENERATION_ONE_BATCH_IMPLEMENTATION.md) | 바이옴·벽·건물·마을 규모·안전층·트레이너 타입의 일괄 구현 순서 | 구현 대기 |
 | [1세대 시작 지역 구현 체크리스트](GENERATION_ONE_IMPLEMENTATION_CHECKLIST.md) | 데이터부터 CurseForge 검증과 후속 NPC 스폰까지 단일 진행표 | 진행 관리 |
 | [바이옴 카탈로그와 지역 생성 체계](BIOME_REGION_SYSTEM.md) | 데이터 기반 바이옴 판정, 전용 BiomeSource와 좌표 단일화 | 구현 예정 |
+| [육각 계획 그래프와 연속 바이옴 지형](HEX_WORLD_LAYOUT.md) | 보이지 않는 육각 계획, 연속 지형 마스크, A* 통로와 외곽 경계 | 2차 프로토타입 구현 |
+| [높이 지형과 필드 기술 접근 제한](FIELD_MOVE_TERRAIN_ACCESS.md) | 높이 노이즈, 희귀 고지대, 파도타기 섬 마을과 접근 해금 | 1차 구현 |
 | [마을별 바이옴 범위와 경계 벽](SETTLEMENT_BIOME_BOUNDARIES.md) | 마을 내부·주변 바이옴, 완충 지대, 벽과 관문 | 구현 예정 |
 | [무지하 차원의 안전 기반층](SAFE_SURFACE_FOUNDATION.md) | Y=55~64 기반암과 공허 낙하 복구 | 구현 예정 |
 | [마을별 건축 디자인과 건축 키트](SETTLEMENT_BUILDING_KITS.md) | 마을별 팔레트, 역할별 구조물과 BCA 호환 경계 | 구현 예정 |
+| [Radical Gyms & Structures 통합 기준](RADICAL_GYMS_INTEGRATION.md) | 타입색 외관, 진입형 RGS 체육관, 원본 리그 배치와 의존성 | 1차 구현 |
 | [마을 규모와 배치 계획](SETTLEMENT_SCALE_LAYOUT.md) | 대형 시작 마을, 도로·시설·부지 배치와 검증 | 구현 예정 |
 | [트레이너 타입 분류 체계](TRAINER_TYPE_SYSTEM.md) | 클래스·전투 성향·난이도·마을 역할 분리 | 데이터 계약 예정 |
 | [마을 중심 트레이너 배치 계획](SETTLEMENT_TRAINER_PLACEMENT.md) | 마을 슬롯·구역·인구 예산 기반 NPC 배치 | 후속 구현 예정 |

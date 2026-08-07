@@ -1,0 +1,122 @@
+{
+  "$schema": "../../schemas/settlement.schema.json",
+  "schema_version": 3,
+  "id": "cobbleventure:settlement/tidehaven_town",
+  "enabled": true,
+  "display_name": {
+    "ko_kr": "물결섬 마을",
+    "en_us": "Tidehaven Town"
+  },
+  "region": "cobbleventure:generation_1/region_04",
+  "dimension": "cobbleventure:generation_1",
+  "bounds": {
+    "min_x": 1739,
+    "min_z": -188,
+    "max_x": 1899,
+    "max_z": -28
+  },
+  "center": { "x": 1819, "y": 69, "z": -108 },
+  "anchors": {
+    "town_square": { "x": 1819, "y": 69, "z": -108 },
+    "gym_entrance": { "x": 1831, "y": 70, "z": -102 },
+    "gym_return": { "x": 1831, "y": 70, "z": -105 },
+    "harbor": { "x": 1779, "y": 69, "z": -108 }
+  },
+  "content_profile": {
+    "pokemon": {
+      "spawn_profile": "cobbleventure:spawn/tidehaven_region",
+      "density_multiplier": 1.25,
+      "biome_set": "cobbleventure:biome_set/tidehaven_region",
+      "unconditional_spawns": []
+    },
+    "trainers": {
+      "population_profile": "cobbleventure:trainer_population/tidehaven_region",
+      "max_active": 16,
+      "class_pool": [
+        "cobbleventure:trainer_class/swimmer_male",
+        "cobbleventure:trainer_class/swimmer_female",
+        "cobbleventure:trainer_class/sailor",
+        "cobbleventure:trainer_class/fisherman"
+      ]
+    },
+    "level_scaling": {
+      "mode": "badge_and_region",
+      "base_level": 28,
+      "min_level": 24,
+      "max_level": 44,
+      "per_badge": 2,
+      "per_region": 3,
+      "pokemon_offset": 1,
+      "trainer_offset": 2
+    }
+  },
+  "biome_layout": {
+    "arrangement": "organic_patches",
+    "transition_width": 10,
+    "zones": [
+      {
+        "id": "legacy_island_beach",
+        "biome": "minecraft:beach",
+        "size_blocks": 128,
+        "placement": "center",
+        "weight": 5,
+        "habitat_profile": "cobbleventure:biome_profile/coast",
+        "spawn_settings": { "generation": 1, "temperature": "warm", "humidity": "aquatic", "weather": "any", "time": "any", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
+      }
+    ],
+    "boundary": {
+      "profile": "cobbleventure:boundary/earthwork",
+      "width": 8,
+      "wall_height": 6,
+      "wall_thickness": 3
+    }
+  },
+  "connections": [
+    {
+      "id": "crimson_sea_route",
+      "target_settlement": "cobbleventure:settlement/crimson_town",
+      "placement": { "mode": "toward_target", "preferred_side": "west", "offset": 0 },
+      "gate_width": 13,
+      "path_width": 9
+    }
+  ],
+  "structure_profile": {
+    "structure": "cobbleventure:tidehaven_town/village",
+    "gym_theme": "water",
+    "gym_entrance_offset": { "x": 12, "y": 1, "z": 4 },
+    "required_facilities": {
+      "gym": "cobbleventure:tidehaven_town/gym"
+    },
+    "facility_placements": [
+      {
+        "id": "gym_interior",
+        "mode": "instanced_entry",
+        "structure": "rgs:cerulean_gym",
+        "entry_anchor": "gym_entrance",
+        "return_anchor": "gym_return",
+        "instance_origin": { "x": 3200, "y": 69, "z": 0 },
+        "instance_entry_offset": { "x": 12, "y": 4, "z": 4 },
+        "instance_exit_offset": { "x": 12, "y": 4, "z": 1 },
+        "trigger_radius": 1.75
+      }
+    ]
+  },
+  "npc_placement": {
+    "max_ambient_npcs": 12,
+    "default_wander_radius": 7,
+    "trainer_slots": [],
+    "zones": [
+      {
+        "id": "town_square",
+        "bounds": {
+          "min_x": 1797,
+          "min_z": -130,
+          "max_x": 1841,
+          "max_z": -86
+        },
+        "max_npcs": 7,
+        "tags": ["ambient", "resident", "island"]
+      }
+    ]
+  }
+}

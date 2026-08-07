@@ -56,7 +56,7 @@
         "implementation_status": { "enum": ["ready", "placeholder"] },
         "asset_status": { "enum": ["verified", "definition_only", "missing"] },
         "visual_match_status": { "enum": ["matched", "generic", "unverified"] },
-        "distribution": { "enum": ["dependency_reference", "original_required"] }
+        "distribution": { "enum": ["dependency_reference", "original_required", "third_party_attributed"] }
       }
     },
     "character": {

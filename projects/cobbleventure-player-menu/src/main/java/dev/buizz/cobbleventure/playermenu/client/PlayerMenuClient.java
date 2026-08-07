@@ -25,6 +25,14 @@ public final class PlayerMenuClient {
         minecraft.setScreen(new InventoryScreen(minecraft.player));
     }
 
+    public static void openWorldMap() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return;
+        }
+        minecraft.setScreen(new WorldMapScreen(minecraft.screen));
+    }
+
     private static void onScreenOpening(ScreenEvent.Opening event) {
         Screen newScreen = event.getNewScreen();
         if (!(newScreen instanceof InventoryScreen)) {

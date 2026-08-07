@@ -37,6 +37,10 @@ neoForge {
             server()
             systemProperty 'cobbleventure.testStarterTown', 'true'
         }
+        hexWorldServer {
+            server()
+            systemProperty 'cobbleventure.testHexWorld', 'true'
+        }
         gameTestServer { type = 'gameTestServer' }
     }
     mods {

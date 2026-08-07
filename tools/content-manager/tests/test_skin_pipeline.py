@@ -11,6 +11,7 @@ from PIL import Image
 
 
 PIPELINE_PATH = Path(__file__).parents[1] / "skin-pipeline" / "assemble_skin.py"
+COMMUNITY_IMPORT_PATH = Path(__file__).parents[1] / "skin-pipeline" / "import_community_skin.py"
 PRESET_GENERATOR_PATH = Path(__file__).parents[1] / "generate_easy_npc_presets.py"
 SPEC = importlib.util.spec_from_file_location("assemble_skin", PIPELINE_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -22,9 +23,35 @@ assert PRESET_SPEC is not None and PRESET_SPEC.loader is not None
 generate_easy_npc_presets = importlib.util.module_from_spec(PRESET_SPEC)
 sys.modules[PRESET_SPEC.name] = generate_easy_npc_presets
 PRESET_SPEC.loader.exec_module(generate_easy_npc_presets)
+COMMUNITY_SPEC = importlib.util.spec_from_file_location("import_community_skin", COMMUNITY_IMPORT_PATH)
+assert COMMUNITY_SPEC is not None and COMMUNITY_SPEC.loader is not None
+import_community_skin = importlib.util.module_from_spec(COMMUNITY_SPEC)
+sys.modules[COMMUNITY_SPEC.name] = import_community_skin
+COMMUNITY_SPEC.loader.exec_module(import_community_skin)
 
 
 class SkinPipelineTests(unittest.TestCase):
+    def test_community_skin_arm_conversion_preserves_nearest_uv(self) -> None:
+        source = Image.new("RGBA", (64, 64), (12, 34, 56, 255))
+        slim = import_community_skin.convert_arm_model(source, "classic", "slim")
+        restored = import_community_skin.convert_arm_model(slim, "slim", "classic")
+        self.assertEqual((64, 64), slim.size)
+        self.assertEqual((64, 64), restored.size)
+        self.assertEqual((12, 34, 56, 255), slim.getpixel((44, 20)))
+        self.assertEqual((12, 34, 56, 255), restored.getpixel((47, 20)))
+
+    def test_attributed_community_skins_are_present_and_64px(self) -> None:
+        root = Path(__file__).parents[3]
+        catalog = json.loads((root / "content/catalogs/trainer-skin-sources.json").read_text(encoding="utf-8"))
+        texture_root = root / "projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer"
+        self.assertEqual(23, len(catalog["skins"]))
+        for entry in catalog["skins"]:
+            slug = entry["resource"].rsplit("/", 1)[-1]
+            with Image.open(texture_root / f"{slug}.png") as skin:
+                self.assertEqual((64, 64), skin.size, slug)
+            self.assertIn(entry["source_model"], {"classic", "slim"})
+            self.assertIn(entry["target_model"], {"classic", "slim"})
+
     def test_slim_layout_uses_three_pixel_front_and_back_arm_faces(self) -> None:
         for arm in ("right_arm", "left_arm"):
             sizes = assemble_skin.SLIM_UV_LAYOUT[arm]["sizes"]
@@ -92,13 +119,38 @@ class SkinPipelineTests(unittest.TestCase):
         self.assertNotIn((8, 8, 8, 255), set(face_pixels))
         self.assertLessEqual(set(face_pixels), {(240, 80, 40, 255), (40, 120, 240, 255)})
 
+    def test_tall_head_crop_discards_hair_from_top_without_squeezing_face(self) -> None:
+        atlas = Image.new("RGBA", (8, 12), (180, 40, 40, 255))
+        for y in range(4, 12):
+            for x in range(8):
+                atlas.putpixel((x, y), (230, 170, 120, 255))
+
+        head = assemble_skin.crop_face(
+            atlas, [0, 0, 8, 12], (8, 8), (1, 2, 3),
+            outline_threshold=0, vertical_anchor="bottom",
+        )
+
+        self.assertEqual({(230, 170, 120, 255)}, set(head.get_flattened_data()))
+
     def test_youngster_manifest_covers_every_uv_face(self) -> None:
         manifest_path = PIPELINE_PATH.parent / "work" / "youngster" / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        self.assertEqual("slim", manifest["model"])
-        self.assertEqual(set(assemble_skin.UV_LAYOUT), set(manifest["parts"]))
-        for part_name, layout in assemble_skin.UV_LAYOUT.items():
-            self.assertEqual(set(layout["sizes"]), set(manifest["parts"][part_name]))
+        self.assertEqual("classic", manifest["model"])
+        self.assertEqual("four_row_atlas_v1", manifest["auto_layout"])
+        self.assertEqual(["head"], manifest["overlay_parts"])
+
+    def test_four_view_head_reuses_hair_back_for_top_and_bottom(self) -> None:
+        atlas = Image.new("RGBA", (400, 600))
+        for row in range(6):
+            for column in range(4):
+                x0, y0 = 10 + column * 95, 10 + row * 95
+                color = (20 + column * 30, 30 + row * 20, 80, 255)
+                for y in range(y0, y0 + 60):
+                    for x in range(x0, x0 + 60):
+                        atlas.putpixel((x, y), color)
+        parts = assemble_skin.auto_detect_parts(atlas)
+        self.assertEqual(parts["head"]["back"], parts["head"]["top"])
+        self.assertEqual(parts["head"]["back"], parts["head"]["bottom"])
 
     def test_youngster_build_is_valid_modern_skin_with_overlay(self) -> None:
         manifest_path = PIPELINE_PATH.parent / "work" / "youngster" / "manifest.json"
@@ -169,16 +221,20 @@ class SkinPipelineTests(unittest.TestCase):
         )
 
     def test_general_trainer_auto_uv_manifests_build_valid_skins(self) -> None:
-        slugs = (
-            "preschooler", "backpacker", "boarder", "hex_maniac", "bug_maniac",
-            "kindler", "office_worker", "cook", "waiter", "musician", "maid",
-            "old_couple",
-        )
-        for slug in slugs:
+        models = {
+            "preschooler": "slim", "backpacker": "slim", "boarder": "slim",
+            "hex_maniac": "slim", "bug_maniac": "classic", "kindler": "classic",
+            "office_worker": "slim", "cook": "slim", "waiter": "slim",
+            "musician": "slim", "maid": "slim",
+            "pokemon_ranger_male": "classic", "pokemon_ranger_female": "slim",
+            "old_couple_male": "classic", "old_couple_female": "slim",
+            "interviewers_male": "classic", "interviewers_female": "slim",
+        }
+        for slug, model in models.items():
             manifest_path = PIPELINE_PATH.parent / "work" / slug / "manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertEqual("four_row_atlas_v1", manifest["auto_layout"])
-            self.assertEqual("slim", manifest["model"])
+            self.assertEqual(model, manifest["model"])
             with self.subTest(slug=slug), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory) / f"{slug}.png"
                 assemble_skin.assemble(manifest_path, output)

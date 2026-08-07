@@ -84,6 +84,25 @@
       </section>
 
       <section class="page" id="settlements">
+        <div class="panel world-route-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">WORLD ROUTE GRAPH</p><h2>마을 동선</h2><small>마을 위치와 분기 연결을 편집하면 세대 월드 JSON에 바로 저장됩니다.</small></div>
+            <div class="world-route-actions"><button class="button secondary" id="add-world-connection">연결 추가</button><button class="button primary" id="save-world-layout">동선 저장 및 즉시 반영</button></div>
+          </div>
+          <div class="world-route-workspace">
+            <div class="world-route-map-wrap">
+              <svg id="world-route-map" viewBox="0 0 760 360" role="img" aria-label="마을 동선 미리보기"></svg>
+              <small>노드 위치는 axial Q/R 좌표를 기준으로 표시됩니다.</small>
+            </div>
+            <div class="world-route-editor">
+              <div class="subsection-heading"><div><p class="eyebrow">SETTLEMENT NODES</p><h3>마을 위치</h3></div></div>
+              <div id="world-node-list" class="world-node-list"></div>
+              <div class="subsection-heading"><div><p class="eyebrow">CONNECTIONS</p><h3>마을 간 연결</h3></div></div>
+              <div id="world-connection-list" class="world-connection-list"></div>
+            </div>
+          </div>
+          <div id="world-layout-issues" class="issues empty">월드 동선을 불러오는 중입니다.</div>
+        </div>
         <div class="workspace-grid">
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">SETTLEMENTS</p><h2>마을 목록</h2></div><div class="list-tools"><span class="count-pill" id="settlement-list-count">0</span><button class="mini-button" data-create="settlements">＋</button></div></div><div id="settlement-list" class="list-body"></div></aside>
           <div class="editor panel">
@@ -107,7 +126,7 @@
               <label><span>기본 배회 반경</span><input type="number" min="0" step="0.5" name="wanderRadius" disabled></label>
               <label class="toggle wide"><input type="checkbox" name="enabled" disabled><span>이 마을 활성화</span></label>
             </form>
-            <div class="subsection-heading"><div><p class="eyebrow">TRAINER PLACEMENT</p><h3>배치할 트레이너</h3><small>이 마을에 등장할 트레이너와 위치를 선택합니다.</small></div><button class="button secondary" id="add-trainer-slot" disabled>트레이너 배치 추가</button></div>
+            <div class="subsection-heading"><div><p class="eyebrow">TRAINER PLACEMENT</p><h3>배치할 트레이너</h3><small>싱글배틀은 EasyNPC 1명, 듀얼배틀은 같은 전투에 참여할 EasyNPC 2명을 배치합니다.</small></div><button class="button secondary" id="add-trainer-slot" disabled>트레이너 배치 추가</button></div>
             <div id="trainer-slot-list" class="trainer-slot-list"><div class="issues empty">마을을 선택하면 배치된 트레이너가 표시됩니다.</div></div>
             <details class="advanced"><summary>고급 JSON 편집</summary><textarea class="code-editor compact" id="settlement-json" spellcheck="false" disabled></textarea><button class="button text-button" id="apply-settlement-json" disabled>JSON을 기본 설정에 반영</button></details>
             <div class="editor-actions"><button class="button secondary" id="validate-settlement" disabled>문서 검증</button><button class="button primary" id="save-settlement" disabled>검증 후 저장</button></div>

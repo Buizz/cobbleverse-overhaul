@@ -44,6 +44,22 @@
               "implementation_status": { "enum": ["ready", "placeholder"] }
             }
           },
+          "appearance_options": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source", "type", "resource", "implementation_status"],
+              "properties": {
+                "source": { "enum": ["custom", "rct_single", "rct_group"] },
+                "type": { "enum": ["skin", "model"] },
+                "resource": { "$ref": "#/$defs/resource_id" },
+                "portrait": { "$ref": "#/$defs/resource_id" },
+                "implementation_status": { "enum": ["ready", "placeholder"] }
+              }
+            }
+          },
           "tags": {
             "type": "array",
             "uniqueItems": true,

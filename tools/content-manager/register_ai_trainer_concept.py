@@ -21,7 +21,7 @@ sys.modules[SPEC.name] = assembler
 SPEC.loader.exec_module(assembler)
 
 
-def register(slug: str, concept: Path, reference: Path, root: Path) -> Path:
+def register(slug: str, concept: Path, reference: Path, root: Path, model: str = "slim") -> Path:
     work = root / "tools" / "content-manager" / "skin-pipeline" / "work" / slug
     work.mkdir(parents=True, exist_ok=True)
     atlas = work / "concept-v2.png"
@@ -29,7 +29,7 @@ def register(slug: str, concept: Path, reference: Path, root: Path) -> Path:
     reference_dir = work / "reference"
     reference_dir.mkdir(parents=True, exist_ok=True)
     reference_target = reference_dir / f"{slug}.png"
-    if reference.is_file():
+    if reference.is_file() and reference.resolve() != reference_target.resolve():
         shutil.copy2(reference, reference_target)
 
     manifest = {
@@ -38,7 +38,7 @@ def register(slug: str, concept: Path, reference: Path, root: Path) -> Path:
         "reference_label": f"Pokémon 본가 {slug} 트레이너 스프라이트",
         "concept_atlas": "concept-v2.png",
         "generation_mode": "ai-reference-plus-deterministic-auto-uv",
-        "model": "slim",
+        "model": model,
         "auto_layout": "four_row_atlas_v1",
         "component_minimum_area": 80,
         "chroma_key": "#ff00ff",
@@ -63,6 +63,7 @@ def main() -> int:
     parser.add_argument("slug")
     parser.add_argument("concept", type=Path)
     parser.add_argument("reference", type=Path)
+    parser.add_argument("--model", choices=("classic", "slim"), default="slim")
     parser.add_argument("--root", type=Path, default=ROOT)
     args = parser.parse_args()
     output = register(
@@ -70,6 +71,7 @@ def main() -> int:
         args.concept.resolve(),
         args.reference.resolve(),
         args.root.resolve(),
+        args.model,
     )
     print(output)
     return 0

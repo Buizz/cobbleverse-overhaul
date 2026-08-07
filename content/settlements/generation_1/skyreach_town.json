@@ -1,0 +1,91 @@
+{
+  "$schema": "../../schemas/settlement.schema.json",
+  "schema_version": 3,
+  "id": "cobbleventure:settlement/skyreach_town",
+  "enabled": true,
+  "display_name": { "ko_kr": "하늘마루 마을", "en_us": "Skyreach Town" },
+  "region": "cobbleventure:generation_1/region_05",
+  "dimension": "cobbleventure:generation_1",
+  "bounds": { "min_x": 1185, "min_z": -764, "max_x": 1345, "max_z": -604 },
+  "center": { "x": 1265, "y": 77, "z": -684 },
+  "anchors": {
+    "town_square": { "x": 1265, "y": 77, "z": -684 },
+    "gym_entrance": { "x": 1277, "y": 78, "z": -678 },
+    "gym_return": { "x": 1277, "y": 78, "z": -681 }
+  },
+  "content_profile": {
+    "pokemon": {
+      "spawn_profile": "cobbleventure:spawn/skyreach_region",
+      "density_multiplier": 0.85,
+      "biome_set": "cobbleventure:biome_set/skyreach_region",
+      "unconditional_spawns": []
+    },
+    "trainers": {
+      "population_profile": "cobbleventure:trainer_population/skyreach_region",
+      "max_active": 14,
+      "class_pool": [
+        "cobbleventure:trainer_class/hiker",
+        "cobbleventure:trainer_class/expert",
+        "cobbleventure:trainer_class/ace_trainer"
+      ]
+    },
+    "level_scaling": {
+      "mode": "badge_and_region", "base_level": 30, "min_level": 26,
+      "max_level": 48, "per_badge": 2, "per_region": 3,
+      "pokemon_offset": 1, "trainer_offset": 3
+    }
+  },
+  "biome_layout": {
+    "arrangement": "organic_patches",
+    "transition_width": 10,
+    "zones": [
+      {
+        "id": "legacy_mountain",
+        "biome": "minecraft:stony_peaks",
+        "size_blocks": 128,
+        "placement": "center",
+        "weight": 5,
+        "habitat_profile": "cobbleventure:biome_profile/mountain",
+        "spawn_settings": { "generation": 1, "temperature": "cool", "humidity": "normal", "weather": "any", "time": "any", "rarities": ["medium", "uncommon", "rare"], "include_secondary": true }
+      }
+    ],
+    "boundary": { "profile": "cobbleventure:boundary/earthwork", "width": 10, "wall_height": 8, "wall_thickness": 5 }
+  },
+  "connections": [
+    {
+      "id": "crimson_cliff_route",
+      "target_settlement": "cobbleventure:settlement/crimson_town",
+      "placement": { "mode": "toward_target", "preferred_side": "south", "offset": 0 },
+      "gate_width": 9,
+      "path_width": 7
+    }
+  ],
+  "structure_profile": {
+    "structure": "cobbleventure:skyreach_town/village",
+    "gym_theme": "rock",
+    "gym_entrance_offset": { "x": 12, "y": 1, "z": 4 },
+    "required_facilities": { "gym": "cobbleventure:skyreach_town/gym" },
+    "facility_placements": [
+      {
+        "id": "gym_interior", "mode": "instanced_entry", "structure": "rgs:pewter_gym",
+        "entry_anchor": "gym_entrance", "return_anchor": "gym_return",
+        "instance_origin": { "x": 3840, "y": 69, "z": 0 },
+        "instance_entry_offset": { "x": 12, "y": 4, "z": 4 },
+        "instance_exit_offset": { "x": 12, "y": 4, "z": 1 }, "trigger_radius": 1.75
+      }
+    ]
+  },
+  "npc_placement": {
+    "max_ambient_npcs": 10,
+    "default_wander_radius": 6,
+    "trainer_slots": [],
+    "zones": [
+      {
+        "id": "town_square",
+        "bounds": { "min_x": 1243, "min_z": -706, "max_x": 1287, "max_z": -662 },
+        "max_npcs": 6,
+        "tags": ["ambient", "resident", "mountain"]
+      }
+    ]
+  }
+}

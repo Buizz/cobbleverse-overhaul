@@ -27,8 +27,11 @@
 | `forgified_fabric_api` | Forgified Fabric API | 필수 | 양쪽 | Fabric API의 NeoForge 호환 구현 | 0.116.7+2.2.1 / CF `889079:7575945` |
 | `fabric_language_kotlin` | Fabric Language Kotlin | 필수 | 양쪽 | BCA의 Fabric Kotlin 진입점 실행 | 1.13.8 / CF `308769:7340876` |
 | `cobbledollars` | CobbleDollars | 필수 | 양쪽 | BCA 상점과 백화점 화폐·상인 기능 | 2.0.0 Beta-5.1 / CF `859232:6604564` |
-| `rctapi` | Radical Cobblemon Trainers API | 필수 후보 | 양쪽 | 트레이너 데이터와 전투 연동 계약 | 대상 버전 확인 필요 |
-| `rctmod` | Radical Cobblemon Trainers | 필수 후보 | 양쪽 | RCT JSON 로딩과 트레이너전 관리 | 자체 데이터 운용 범위 검증 필요 |
+| `architectury_api` | Architectury API | 필수 | 양쪽 | CobbleFurnies 공용 API | 13.0.8 / CF `419699:5786327` |
+| `rctapi` | Radical Cobblemon Trainers API | 필수 | 양쪽 | 트레이너 데이터와 전투 연동 계약 | 0.15.2-beta / CF `1152792:7952419` |
+| `rctmod` | Radical Cobblemon Trainers | 필수 | 양쪽 | RCT JSON 로딩과 트레이너전 관리 | 0.18.1-beta / CF `1009534:7913180` |
+| `cobblefurnies` | CobbleFurnies | 필수 | 양쪽 | RGS 체육관·리그의 가구 블록 | 1.0 / CF `1188698:7302031` |
+| `radical_gyms_structures` | Radical Gyms & Structures | 필수 | 양쪽 | 진입형 체육관 실내와 원본 리그 구조물 | 0.6 / CF `1402174:7330950` |
 | `mega_showdown` | Mega Showdown | 선택 | 양쪽 | 메가진화 등 추가 전투 기믹 | Cobblemon 1.7.3 및 RCT 연동 검증 필요 |
 | `easy_npc_bundle` | Easy NPC Bundle | 선택 프로필 | 양쪽 | Core와 Config UI 의존성을 선언하는 런처용 번들 | 7.0.1 / CF `559312:8420470` |
 | `easy_npc` | Easy NPC Core | 선택 프로필 | 양쪽 | Easy NPC 호환 프로필의 NPC와 대화 | 7.0.1 / CF `1308987:8420476` |
@@ -96,9 +99,22 @@ Modrinth 원본을 변경하지 않고 보관하며 SHA-1과 SHA-512를 Lock에�
 `CobbleTowns: Continued`도 포켓몬 본가 마을을 바탕으로 센터와 마트를 추가하는
 대안이지만, 백화점까지 포함해 기존 팩과 같은 구성을 만든 직접 항목은 BCA다.
 
+## 체육관과 리그 구조물
+
+체육관 실내와 리그는 Radical Gyms & Structures 0.6으로 확정한다. 저장소에 원본
+JAR이나 NBT를 복사하지 않고 CurseForge manifest의 `1402174:7330950` 참조로
+설치한다. 체육관은 자체 공통 외관 안의 진입 지점에서 격리 좌표의 RGS 템플릿으로
+이동하는 방식이며, 자체 외관은 타입별로 지붕 콘크리트와 입구 카펫 색만 바꾼다.
+리그 `rgs:kanto_league`는 전용 지역에 원본 그대로 직접 배치한다.
+
+RGS 페이지가 요구하는 RCT, RCT API와 CobbleFurnies를 필수 의존성으로 함께
+고정했다. CobbleFurnies 1.0의 NeoForge 메타데이터가 요구하는 Architectury API
+13.0.8도 명시적으로 포함한다. 상세 구조물 ID와 JSON 계약은
+[`RADICAL_GYMS_INTEGRATION.md`](implementation/RADICAL_GYMS_INTEGRATION.md)를
+기준으로 한다.
+
 ## 아직 결정하지 않는 항목
 
-- RCT와 RCT API의 최종 조합 및 버전
 - 자체 NPC 기본팩과 Easy NPC 호환팩의 공개 배포 범위
 - Mega Showdown에서 지원할 기믹과 RCT 전투별 활성화 방식
 - 성능, 지도, 건축과 장식 모드 목록

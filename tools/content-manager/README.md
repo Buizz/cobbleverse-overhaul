@@ -93,10 +93,12 @@ http://127.0.0.1:8765
 - 지역 폼과 특수 형태 선택, 카탈로그 외 Cobblemon `aspects` 직접 입력
 - 대화·진행과 IV·EV 등 전체 트레이너 JSON 고급 편집
 - 마을 이름, 지역, 차원, 중심, 경계와 기본 NPC 배치 수치 편집
+- 마을 5개의 axial Q/R 위치와 `1→2→3→4`, `3→5` 같은 분기 동선 편집
+- 마을 연결별 도로·자연·해상 통로와 바위오르기·파도타기 요구 조건 편집
 - 12개 대표 서식지 프로필의 세대·온도·습도·날씨·시간·레어도 조건 편집과 출현 결과 테스트
 - 바이옴 세트의 프로필 가중치와 모든 조건을 무시하는 강제 출현 포켓몬 편집
 - 1,025마리 포켓몬 서식지 카탈로그 검색과 마을 바이옴 구역별 출현 미리보기
-- 마을에서 배치할 트레이너를 선택하고 슬롯 ID·좌표·회전·생성 정책·태그 편집
+- 마을에서 배치할 트레이너를 선택하고 싱글은 EasyNPC 1명, 듀얼은 2명의 프로필·좌표·회전 편집
 - 전체 마을 JSON 고급 편집
 - 허용된 `build.bat` 검사·테스트·패키징 명령 실행과 결과 확인
 
@@ -144,6 +146,7 @@ python tools/content-manager/content_manager.py api --root .
 - `GET /api/trainer-classes`: 트레이너 클래스와 기본 외형 카탈로그
 - `GET /api/editor-catalog`: Battle Web Lab과 공유하는 포켓몬·폼·기술·특성·도구 및 트레이너 가방 아이템 카탈로그
 - `GET /api/biome-catalog`, `PUT /api/biome-catalog`: 바이옴 프로필·세트 조회와 검증 후 저장
+- `GET /api/world-layout`, `PUT /api/world-layout`: 세대 월드의 마을 위치·분기 연결 조회와 원자적 저장
 - `GET /api/pokemon-habitats`: 1,025마리의 세대·속성·선호 환경·대표/보조 서식지 카탈로그
 - `POST /api/biome-preview`: 프로필 또는 세트 조건에 따른 출현 포켓몬 판정
 - `GET /api/trainers?path=...`, `GET /api/settlements?path=...`: 단일 문서 조회
@@ -154,6 +157,11 @@ python tools/content-manager/content_manager.py api --root .
 
 응답은 UTF-8 JSON이다. Web API는 로컬 제작 도구용이며 인증 없이 외부
 인터페이스에 바인딩하지 않는다.
+
+마을 설정 화면의 **동선 저장 및 즉시 반영**은 검증을 통과한 내용을
+`content/worlds/generation_1.json`에 즉시 저장한다. 이미 생성된 Minecraft 월드는
+지도를 자동으로 다시 그리지 않으므로, 게임에서 확인할 때는 모드를 다시 빌드하고
+지도 버전이 바뀐 새 테스트 월드를 사용한다.
 
 ## 현재 검증 범위
 

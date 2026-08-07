@@ -1,0 +1,43 @@
+{
+  "$schema": "../schemas/boundary-profiles.schema.json",
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "cobbleventure:boundary/stone_wall",
+      "type": "wall",
+      "width": 5,
+      "height": 12,
+      "foundation_depth": 10,
+      "collision": "hard",
+      "core_block": "minecraft:bedrock",
+      "surface_blocks": ["minecraft:stone_bricks", "minecraft:mossy_stone_bricks"]
+    },
+    {
+      "id": "cobbleventure:boundary/earthwork",
+      "type": "earthwork",
+      "width": 12,
+      "height": 8,
+      "foundation_depth": 10,
+      "collision": "protected",
+      "core_block": "minecraft:barrier",
+      "surface_blocks": ["minecraft:dirt", "minecraft:coarse_dirt", "minecraft:grass_block"]
+    },
+    {
+      "id": "cobbleventure:boundary/dense_tree_line",
+      "type": "tree_line",
+      "width": 10,
+      "height": 10,
+      "foundation_depth": 10,
+      "collision": "protected",
+      "core_block": "minecraft:barrier",
+      "surface_blocks": ["minecraft:podzol", "minecraft:moss_block"],
+      "tree": {
+        "log": "minecraft:dark_oak_log",
+        "leaves": "minecraft:dark_oak_leaves",
+        "spacing": 3,
+        "min_height": 7,
+        "max_height": 11
+      }
+    }
+  ]
+}

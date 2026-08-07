@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/hex-world.schema.json",
+  "title": "Cobbleventure generation hex world",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "dimension", "seed_salt", "grid",
+    "settlements", "connections"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "id": { "$ref": "#/$defs/resource_id" },
+    "dimension": { "$ref": "#/$defs/resource_id" },
+    "seed_salt": { "type": "integer" },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orientation", "tile_radius_blocks", "origin"],
+      "properties": {
+        "orientation": { "const": "pointy_top" },
+        "tile_radius_blocks": { "type": "integer", "minimum": 32, "maximum": 256 },
+        "origin": { "$ref": "#/$defs/block_position" }
+      }
+    },
+    "settlements": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/settlement_footprint" }
+    },
+    "connections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/connection" }
+    }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "block_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "z": { "type": "integer" }
+      }
+    },
+    "axial_coordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q", "r"],
+      "properties": {
+        "q": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "r": { "type": "integer", "minimum": -1024, "maximum": 1024 }
+      }
+    },
+    "spawn_settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generation", "rarities", "include_secondary"],
+      "properties": {
+        "generation": { "type": "integer", "minimum": 0, "maximum": 9 },
+        "rarities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["common", "medium", "uncommon", "rare", "legendary"] }
+        },
+        "include_secondary": { "type": "boolean" }
+      }
+    },
+    "terrain_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_height_offset", "height_variation", "noise_scale_blocks"],
+      "properties": {
+        "base_height_offset": { "type": "integer", "minimum": -16, "maximum": 32 },
+        "height_variation": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "noise_scale_blocks": { "type": "number", "minimum": 16, "maximum": 512 }
+      }
+    },
+    "biome_region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "biome", "tile_count", "preferred_direction", "growth",
+        "influence_radius_blocks", "edge_noise", "boundary_profile",
+        "habitat_profile", "spawn_settings", "terrain_profile"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "biome": { "$ref": "#/$defs/resource_id" },
+        "tile_count": { "type": "integer", "minimum": 1, "maximum": 128 },
+        "preferred_direction": { "enum": ["north_east", "east", "south_east", "south_west", "west", "north_west", "auto"] },
+        "growth": { "enum": ["compact", "organic", "linear"] },
+        "influence_radius_blocks": { "type": "number", "minimum": 24, "maximum": 512 },
+        "edge_noise": { "type": "number", "minimum": 0, "maximum": 0.45 },
+        "boundary_profile": { "$ref": "#/$defs/resource_id" },
+        "habitat_profile": { "$ref": "#/$defs/resource_id" },
+        "spawn_settings": { "$ref": "#/$defs/spawn_settings" },
+        "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
+        "access_requirement": { "$ref": "#/$defs/resource_id" }
+      }
+    },
+    "settlement_footprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "settlement", "anchor", "town_radius_cells", "town_biome",
+        "surroundings", "boundary_profile", "terrain_profile"
+      ],
+      "properties": {
+        "settlement": { "$ref": "#/$defs/resource_id" },
+        "anchor": { "$ref": "#/$defs/axial_coordinate" },
+        "town_radius_cells": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "town_biome": { "$ref": "#/$defs/resource_id" },
+        "surroundings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": { "$ref": "#/$defs/biome_region" }
+        },
+        "boundary_profile": { "$ref": "#/$defs/resource_id" },
+        "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
+        "access_requirement": { "$ref": "#/$defs/resource_id" }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "from", "to", "route_biome", "width_cells", "pathfinding",
+        "corridor_width_blocks", "edge_noise", "boundary_profile",
+        "terrain_profile", "surface_style"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "from": { "$ref": "#/$defs/resource_id" },
+        "to": { "$ref": "#/$defs/resource_id" },
+        "route_biome": { "$ref": "#/$defs/resource_id" },
+        "width_cells": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "pathfinding": { "enum": ["shortest", "organic", "explicit"] },
+        "detour_cells": { "type": "integer", "minimum": 0, "maximum": 32 },
+        "corridor_width_blocks": { "type": "number", "minimum": 12, "maximum": 256 },
+        "edge_noise": { "type": "number", "minimum": 0, "maximum": 0.35 },
+        "boundary_profile": { "$ref": "#/$defs/resource_id" },
+        "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
+        "surface_style": { "enum": ["road", "natural", "water"] },
+        "access_requirement": { "$ref": "#/$defs/resource_id" },
+        "cells": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/axial_coordinate" }
+        }
+      }
+    }
+  }
+}

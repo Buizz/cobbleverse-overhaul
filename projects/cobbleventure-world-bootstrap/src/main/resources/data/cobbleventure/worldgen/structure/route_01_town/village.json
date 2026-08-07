@@ -3,7 +3,7 @@
   "biomes": "minecraft:forest",
   "step": "surface_structures",
   "spawn_overrides": {},
-  "start_pool": "cobbleventure:starter_town/center",
+  "start_pool": "cobbleventure:route_01_town/center",
   "size": 4,
   "start_height": {
     "absolute": 69

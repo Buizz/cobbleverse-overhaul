@@ -89,30 +89,69 @@
       "reason": "Cobblemon Additions 상점과 백화점의 화폐 및 상인 기능"
     },
     {
-      "id": "rctapi",
-      "display_name": "Radical Cobblemon Trainers API",
-      "classification": "required-candidate",
+      "id": "architectury_api",
+      "display_name": "Architectury API",
+      "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": null,
+      "version": "13.0.8",
       "curseforge": {
-        "project_id": null,
-        "file_id": null
+        "project_id": 419699,
+        "file_id": 5786327
+      },
+      "reason": "CobbleFurnies 1.0의 필수 공용 API"
+    },
+    {
+      "id": "rctapi",
+      "display_name": "Radical Cobblemon Trainers API",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "0.15.2-beta",
+      "curseforge": {
+        "project_id": 1152792,
+        "file_id": 7952419
       },
       "reason": "트레이너 데이터와 전투 연동 계약"
     },
     {
       "id": "rctmod",
       "display_name": "Radical Cobblemon Trainers",
-      "classification": "required-candidate",
+      "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": null,
+      "version": "0.18.1-beta",
       "curseforge": {
-        "project_id": null,
-        "file_id": null
+        "project_id": 1009534,
+        "file_id": 7913180
       },
       "reason": "RCT 트레이너 JSON 로딩과 트레이너전 관리"
+    },
+    {
+      "id": "cobblefurnies",
+      "display_name": "CobbleFurnies",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "1.0",
+      "curseforge": {
+        "project_id": 1188698,
+        "file_id": 7302031
+      },
+      "reason": "Radical Gyms & Structures 체육관과 리그가 사용하는 가구 블록"
+    },
+    {
+      "id": "radical_gyms_structures",
+      "display_name": "Radical Gyms & Structures",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "0.6",
+      "curseforge": {
+        "project_id": 1402174,
+        "file_id": 7330950
+      },
+      "reason": "진입형 관장 체육관 실내와 원본 리그 구조물"
     },
     {
       "id": "mega_showdown",

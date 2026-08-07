@@ -1,72 +1,24 @@
 {
-  "trainer_class": "cobbleventure:trainer_class/youngster",
-  "reference": "reference/youngster-gen4.png",
-  "reference_label": "4세대 Youngster 전투 스프라이트",
+  "character": "cobbleventure:character/youngster",
+  "reference": "reference/youngster.png",
+  "reference_label": "Pokémon 본가 youngster 트레이너 스프라이트",
   "concept_atlas": "concept-v2.png",
-  "generation_mode": "ai-concept-plus-deterministic-uv",
-  "model": "slim",
+  "generation_mode": "ai-reference-plus-deterministic-auto-uv",
+  "model": "classic",
+  "auto_layout": "four_row_atlas_v1",
+  "component_minimum_area": 80,
   "chroma_key": "#ff00ff",
-  "chroma_threshold": 70,
+  "chroma_threshold": 45,
   "palette_colors": 20,
-  "fallback_color": "#e7ad7a",
-  "overlay_parts": ["head", "body"],
-  "overlay_colors": ["#173b82", "#294f9a", "#17202d"],
+  "fallback_color": "#d8a174",
+  "overlay_parts": ["head"],
+  "overlay_colors": ["#173b82", "#294f9a", "#0d204f"],
   "overlay_tolerance": 64,
-  "parts": {
-    "head": {
-      "front": [105, 76, 263, 263],
-      "left": [297, 76, 470, 263],
-      "back": [550, 76, 680, 263],
-      "right": [778, 76, 961, 263],
-      "top": [1028, 80, 1180, 270],
-      "bottom": [105, 185, 263, 263]
-    },
-    "body": {
-      "front": [136, 363, 237, 537],
-      "left": [389, 363, 459, 537],
-      "back": [585, 363, 680, 537],
-      "right": [807, 363, 876, 537],
-      "top": [1016, 421, 1180, 526],
-      "bottom": [145, 500, 234, 536]
-    },
-    "right_arm": {
-      "front": [116, 671, 177, 851],
-      "left": [247, 671, 307, 851],
-      "back": [405, 671, 460, 851],
-      "right": [599, 671, 659, 851],
-      "top": [1052, 727, 1145, 826],
-      "bottom": [1052, 780, 1145, 826]
-    },
-    "left_arm": {
-      "front": [247, 671, 307, 851],
-      "left": [405, 671, 460, 851],
-      "back": [599, 671, 659, 851],
-      "right": [809, 671, 869, 851],
-      "top": [1052, 727, 1145, 826],
-      "bottom": [1052, 780, 1145, 826]
-    },
-    "right_leg": {
-      "front": [113, 946, 178, 1181],
-      "left": [363, 946, 458, 1181],
-      "back": [571, 946, 634, 1181],
-      "right": [800, 946, 881, 1181],
-      "top": [1003, 1007, 1092, 1159],
-      "bottom": [1003, 1100, 1092, 1168]
-    },
-    "left_leg": {
-      "front": [180, 946, 243, 1181],
-      "left": [800, 946, 881, 1181],
-      "back": [635, 946, 699, 1181],
-      "right": [363, 946, 458, 1181],
-      "top": [1101, 1007, 1190, 1159],
-      "bottom": [1101, 1100, 1190, 1168]
-    }
-  },
   "output": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/youngster.png",
   "equipment_outputs": {
     "base_skin": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/youngster_equipment.png",
     "armor_texture": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure_bootstrap/textures/models/armor/youngster_cap_layer_1.png",
     "item_icon": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure_bootstrap/textures/item/youngster_cap.png"
   },
-  "item_icon_palette": ["#173b82", "#294f9a", "#0d204f", "#e7ad7a"]
+  "item_icon_palette": ["#173b82", "#294f9a", "#0d204f", "#d8a174"]
 }

@@ -31,6 +31,45 @@
 
 트레이너 JSON은 외형·대화·팀·전투 설정을 소유하고, 마을 JSON은 어디에 누구를 배치할지 소유한다.
 
+### EasyNPC 전투 멤버
+
+`trainer_slots`의 각 슬롯은 전투를 제공하는 `trainer_id`와 실제 월드에 생성할
+`members`를 분리한다. 각 멤버는 EasyNPC 외형·행동을 가져올 `npc_profile`,
+안정적인 멤버 ID, 위치와 회전을 가진다.
+
+- `battle_type: singles`는 `members`를 정확히 한 명 입력한다.
+- `battle_type: doubles`는 `members`를 정확히 두 명 입력한다.
+- 두 멤버는 별도 EasyNPC 엔티티로 생성하지만 같은 슬롯 ID와 전투 세션에 묶는다.
+- 전투 팀, AI, 보상과 승리 플래그는 슬롯의 `trainer_id`가 한 번만 소유한다.
+- 한 멤버가 없거나 로딩되지 않았으면 듀얼배틀을 시작하지 않는다.
+- 두 NPC 중 누구와 상호작용해도 동일한 전투와 진행 상태를 사용한다.
+
+예시는 다음과 같다.
+
+```json
+{
+  "id": "rocket_duo",
+  "trainer_id": "cobbleventure:trainer/rocket_duo",
+  "battle_type": "doubles",
+  "members": [
+    {
+      "id": "primary",
+      "npc_profile": "cobbleventure:trainer/rocket_jessie",
+      "position": { "x": 100, "y": 64, "z": 100 },
+      "rotation": 180
+    },
+    {
+      "id": "partner",
+      "npc_profile": "cobbleventure:trainer/rocket_james",
+      "position": { "x": 102, "y": 64, "z": 100 },
+      "rotation": 180
+    }
+  ],
+  "spawn_policy": "persistent",
+  "tags": ["trainer", "pair"]
+}
+```
+
 ## 런타임 순서
 
 1. 마을 생성 상태가 `READY`인지 확인한다.
@@ -51,6 +90,7 @@
 ## 후속 구현 완료 기준
 
 - 마을 편집기에서 트레이너를 검색해 슬롯 또는 풀에 추가할 수 있다.
+- 전투 방식에 따라 EasyNPC 멤버를 싱글 1명, 듀얼 2명으로 입력하고 검증할 수 있다.
 - 같은 월드를 여러 번 불러와도 NPC가 복제되지 않는다.
 - 관장은 정확히 한 명 생성되고 체육관 앵커를 사용한다.
 - 배회 NPC가 벽·건물·낭떠러지 밖으로 이동하지 않는다.

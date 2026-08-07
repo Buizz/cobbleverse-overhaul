@@ -159,6 +159,7 @@ def crop_face(
     size: tuple[int, int],
     background: tuple[int, int, int],
     outline_threshold: int = 58,
+    vertical_anchor: str = "center",
 ) -> Image.Image:
     crop = atlas.crop(tuple(box))
     alpha_box = crop.getchannel("A").getbbox()
@@ -172,7 +173,11 @@ def crop_face(
         crop = crop.crop((left, 0, left + width, crop.height))
     elif crop_ratio < target_ratio:
         height = max(1, round(crop.width / target_ratio))
-        top = (crop.height - height) // 2
+        # Minecraft heads always occupy a fixed cube. When generated hair makes
+        # a head panel too tall, discard the excess from the top so the lower
+        # face pixels retain their original proportions instead of being
+        # squeezed or cropped from both ends.
+        top = crop.height - height if vertical_anchor == "bottom" else (crop.height - height) // 2
         crop = crop.crop((0, top, crop.width, top + height))
     crop = strip_exterior_outline(crop, outline_threshold)
     crop = extend_edge_pixels(crop, background)
@@ -264,7 +269,7 @@ def auto_detect_parts(atlas: Image.Image, minimum_area: int = 80) -> dict[str, d
             row_centers[-1] = sum((item[1] + item[3]) / 2 for item in rows[-1]) / len(rows[-1])
     for row in rows:
         row.sort(key=lambda box: box[0])
-    if len(rows) not in {4, 5, 6} or len(rows[0]) < 6 or len(rows[1]) < 4:
+    if len(rows) not in {4, 5, 6} or len(rows[0]) < 4 or len(rows[1]) < 4:
         raise ValueError(f"자동 UV 부위 감지에 실패했습니다: {[len(row) for row in rows]}")
 
     def limb_pair(boxes: list[list[int]]) -> tuple[dict[str, list[int]], dict[str, list[int]]]:
@@ -290,8 +295,14 @@ def auto_detect_parts(atlas: Image.Image, minimum_area: int = 80) -> dict[str, d
     else:
         right_arm, left_arm = _six_faces(rows[2]), _six_faces(rows[3])
         right_leg, left_leg = limb_pair(rows[4])
+    head = _six_faces(rows[0])
+    if len(rows[0]) == 4:
+        # Four-view atlases deliberately omit top/bottom faces. Reuse the
+        # hair-only back panel so front facial pixels can never leak upward.
+        head["top"] = head["back"]
+        head["bottom"] = head["back"]
     return {
-        "head": _six_faces(rows[0]),
+        "head": head,
         "body": _six_faces(rows[1]),
         "right_arm": right_arm,
         "left_arm": left_arm,
@@ -413,7 +424,10 @@ def assemble(manifest_path: Path, output_override: Path | None = None) -> Path:
         for face_name, box in part_spec.items():
             size = layout["sizes"][face_name]
             face = quantize(
-                crop_face(atlas, box, size, background, outline_threshold),
+                crop_face(
+                    atlas, box, size, background, outline_threshold,
+                    vertical_anchor="bottom" if part_name == "head" else "center",
+                ),
                 palette_colors,
             )
             face = extend_edge_pixels(

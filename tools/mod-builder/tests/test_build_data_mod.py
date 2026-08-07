@@ -40,6 +40,16 @@ class DataModBuilderTests(unittest.TestCase):
 
         self.assertEqual("minecraft:forest", structure["biomes"])
 
+    def test_generation_dimension_disables_external_biome_features(self) -> None:
+        path = (
+            REPOSITORY_ROOT
+            / build_data_mod.SOURCE
+            / "data/cobbleventure/dimension/generation_1.json"
+        )
+        dimension = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertFalse(dimension["generator"]["settings"]["features"])
+
     def _fixture(self, root: Path) -> Path:
         source = root / build_data_mod.SOURCE
         source_entries = build_data_mod.REQUIRED_ENTRIES
@@ -50,9 +60,21 @@ class DataModBuilderTests(unittest.TestCase):
         config = root / build_data_mod.STARTER_TOWN_CONFIG
         config.parent.mkdir(parents=True, exist_ok=True)
         config.write_text(
-            json.dumps({"schema_version": 2, "structure_profile": {"gym_theme": "rock"}}),
+            json.dumps({
+                "schema_version": 3,
+                "structure_profile": {
+                    "gym_theme": "rock",
+                    "required_facilities": {"gym": "cobbleventure:starter_town/gym"},
+                },
+            }),
             encoding="utf-8",
         )
+        world = root / build_data_mod.HEX_WORLD_CONFIG_DIR / "generation_1.json"
+        world.parent.mkdir(parents=True, exist_ok=True)
+        world.write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        boundary = root / build_data_mod.BOUNDARY_PROFILE_CONFIG
+        boundary.parent.mkdir(parents=True, exist_ok=True)
+        boundary.write_text(json.dumps({"schema_version": 1, "profiles": []}), encoding="utf-8")
         return source
 
     def test_builds_deterministic_gym_resource(self) -> None:
@@ -76,7 +98,13 @@ class DataModBuilderTests(unittest.TestCase):
             self._fixture(root)
             config = root / build_data_mod.STARTER_TOWN_CONFIG
             config.write_text(
-                json.dumps({"schema_version": 2, "structure_profile": {"gym_theme": "water"}}),
+                json.dumps({
+                    "schema_version": 3,
+                    "structure_profile": {
+                        "gym_theme": "water",
+                        "required_facilities": {"gym": "cobbleventure:starter_town/gym"},
+                    },
+                }),
                 encoding="utf-8",
             )
 
@@ -92,8 +120,11 @@ class DataModBuilderTests(unittest.TestCase):
             config = root / build_data_mod.STARTER_TOWN_CONFIG
             config.write_text(
                 json.dumps({
-                    "schema_version": 2,
-                    "structure_profile": {"gym_theme": "rock"},
+                    "schema_version": 3,
+                    "structure_profile": {
+                        "gym_theme": "rock",
+                        "required_facilities": {"gym": "cobbleventure:starter_town/gym"},
+                    },
                     "biome_layout": {"zones": [{}, {}, {}]},
                     "connections": [{"placement": {"mode": "toward_target"}}],
                 }),
@@ -102,9 +133,12 @@ class DataModBuilderTests(unittest.TestCase):
             second = root / build_data_mod.SETTLEMENT_CONFIG_DIR / "generation_1" / "second.json"
             second.write_text(
                 json.dumps({
-                    "schema_version": 2,
+                    "schema_version": 3,
                     "id": "cobbleventure:settlement/second",
-                    "structure_profile": {"gym_theme": "bug"},
+                    "structure_profile": {
+                        "gym_theme": "bug",
+                        "required_facilities": {"gym": "cobbleventure:second/gym"},
+                    },
                 }),
                 encoding="utf-8",
             )
@@ -117,10 +151,18 @@ class DataModBuilderTests(unittest.TestCase):
             )
             data = json.loads(generated.read_text(encoding="utf-8"))
 
-            self.assertEqual(2, data["schema_version"])
+            self.assertEqual(3, data["schema_version"])
             self.assertEqual(3, len(data["biome_layout"]["zones"]))
             self.assertEqual("toward_target", data["connections"][0]["placement"]["mode"])
             self.assertTrue(generated_second.is_file())
+            second_gym = root / build_data_mod.OUTPUT / "data/cobbleventure/structure/second/gym.nbt"
+            self.assertIn(b"minecraft:lime_concrete", gzip.decompress(second_gym.read_bytes()))
+            self.assertTrue(
+                (root / build_data_mod.OUTPUT / build_data_mod.GENERATED_HEX_WORLD_DIR / "generation_1.json").is_file()
+            )
+            self.assertTrue(
+                (root / build_data_mod.OUTPUT / build_data_mod.GENERATED_BOUNDARY_PROFILE).is_file()
+            )
 
     def test_rejects_missing_required_entry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

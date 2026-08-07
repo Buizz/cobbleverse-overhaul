@@ -10,7 +10,8 @@ const state = {
   trainers: [], settlements: [], trainer: null, settlement: null,
   trainerPath: "", settlementPath: "", buildCommands: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
-  biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null
+  biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
+  worldLayout: null
 };
 const biomeChoices = {
   habitat: [["plains", "평원"], ["forest", "숲"], ["arid", "건조지"], ["mountain", "산악"], ["cave", "동굴"], ["wetland", "습지"], ["freshwater", "담수"], ["ocean", "해양"], ["snow", "설원"], ["volcanic", "화산"], ["urban", "도시"], ["special", "특수"]],
@@ -132,10 +133,10 @@ async function loadDashboard() {
 }
 
 async function loadLists() {
-  const [trainers, settlements, trainerClasses, trainerRoster, editorCatalog, biomeCatalog, pokemonHabitats] = await Promise.all([
+  const [trainers, settlements, trainerClasses, trainerRoster, editorCatalog, biomeCatalog, pokemonHabitats, worldLayout] = await Promise.all([
     request("/api/trainers"), request("/api/settlements"), request("/api/trainer-classes"),
     request("/api/trainer-roster"),
-    request("/api/editor-catalog"), request("/api/biome-catalog"), request("/api/pokemon-habitats")
+    request("/api/editor-catalog"), request("/api/biome-catalog"), request("/api/pokemon-habitats"), request("/api/world-layout")
   ]);
   state.trainers = trainers.data.items || [];
   state.settlements = settlements.data.items || [];
@@ -144,6 +145,7 @@ async function loadLists() {
   state.editorCatalog = editorCatalog.ok ? editorCatalog.data : null;
   state.biomeCatalog = biomeCatalog.ok ? biomeCatalog.data : { profiles: [], sets: [] };
   state.pokemonHabitats = pokemonHabitats.ok ? pokemonHabitats.data.pokemon || [] : [];
+  state.worldLayout = worldLayout.ok ? worldLayout.data : null;
   if (!editorCatalog.ok) toast(editorCatalog.data.error || "전투 데이터 카탈로그를 불러오지 못했습니다.");
   if (!biomeCatalog.ok || !pokemonHabitats.ok) {
     const message = biomeCatalog.status === 404 || pokemonHabitats.status === 404
@@ -155,7 +157,131 @@ async function loadLists() {
   }
   renderList("trainers");
   renderList("settlements");
+  renderWorldLayout();
   renderBiomeManager();
+}
+
+function settlementSummary(settlementId) {
+  return state.settlements.find((item) => item.id === settlementId);
+}
+
+function worldSettlementOptions(selected) {
+  return state.settlements.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === selected ? "selected" : ""}>${escapeHtml(item.name || item.id)}</option>`).join("");
+}
+
+function renderWorldLayout() {
+  const layout = state.worldLayout;
+  if (!layout) {
+    $("#world-node-list").innerHTML = '<div class="issues empty">월드 지도를 불러오지 못했습니다.</div>';
+    $("#world-connection-list").innerHTML = "";
+    $("#world-route-map").innerHTML = "";
+    return;
+  }
+  const nodes = layout.settlements || [];
+  const connections = layout.connections || [];
+  $("#world-node-list").innerHTML = nodes.map((node, index) => {
+    const summary = settlementSummary(node.settlement);
+    return `<div class="world-node-row" data-world-node="${index}">
+      <b>${String(index + 1).padStart(2, "0")}</b>
+      <label><span>마을</span><input value="${escapeHtml(summary?.name || node.settlement)}" title="${escapeHtml(node.settlement)}" readonly></label>
+      <label><span>Axial Q</span><input type="number" data-world-node-field="q" value="${Number(node.anchor?.q || 0)}"></label>
+      <label><span>Axial R</span><input type="number" data-world-node-field="r" value="${Number(node.anchor?.r || 0)}"></label>
+    </div>`;
+  }).join("");
+  $("#world-connection-list").innerHTML = connections.map((connection, index) => `<div class="world-connection-row" data-world-connection="${index}">
+    <b>${String(index + 1).padStart(2, "0")}</b>
+    <label><span>출발 마을</span><select data-world-connection-field="from">${worldSettlementOptions(connection.from)}</select></label>
+    <label><span>도착 마을</span><select data-world-connection-field="to">${worldSettlementOptions(connection.to)}</select></label>
+    <label><span>통로 형태</span><select data-world-connection-field="surface_style"><option value="road" ${connection.surface_style === "road" ? "selected" : ""}>도로</option><option value="natural" ${connection.surface_style === "natural" ? "selected" : ""}>자연 통로</option><option value="water" ${connection.surface_style === "water" ? "selected" : ""}>해상 통로</option></select></label>
+    <label><span>필요 기술</span><select data-world-connection-field="access_requirement"><option value="" ${!connection.access_requirement ? "selected" : ""}>없음</option><option value="cobbleventure:field_move/rock_climb" ${connection.access_requirement?.endsWith("/rock_climb") ? "selected" : ""}>바위오르기</option><option value="cobbleventure:field_move/surf" ${connection.access_requirement?.endsWith("/surf") ? "selected" : ""}>파도타기</option></select></label>
+    <button type="button" class="remove-world-connection" data-remove-world-connection="${index}">삭제</button>
+  </div>`).join("");
+  $$("[data-world-node-field]").forEach((input) => input.addEventListener("input", updateWorldLayoutFromControls));
+  $$("[data-world-connection-field]").forEach((input) => input.addEventListener("change", updateWorldLayoutFromControls));
+  $$("[data-remove-world-connection]").forEach((button) => button.addEventListener("click", () => {
+    state.worldLayout.connections.splice(Number(button.dataset.removeWorldConnection), 1);
+    renderWorldLayout();
+  }));
+  renderWorldRouteMap();
+  showIssues("#world-layout-issues", { valid: true, issues: [] });
+}
+
+function updateWorldLayoutFromControls() {
+  if (!state.worldLayout) return;
+  $$("[data-world-node]").forEach((row) => {
+    const node = state.worldLayout.settlements[Number(row.dataset.worldNode)];
+    node.anchor ||= { q: 0, r: 0 };
+    row.querySelectorAll("[data-world-node-field]").forEach((input) => { node.anchor[input.dataset.worldNodeField] = Number(input.value || 0); });
+  });
+  $$("[data-world-connection]").forEach((row) => {
+    const connection = state.worldLayout.connections[Number(row.dataset.worldConnection)];
+    row.querySelectorAll("[data-world-connection-field]").forEach((input) => {
+      const field = input.dataset.worldConnectionField;
+      if (field === "access_requirement" && !input.value) delete connection[field];
+      else connection[field] = input.value;
+    });
+  });
+  renderWorldRouteMap();
+}
+
+function renderWorldRouteMap() {
+  const layout = state.worldLayout;
+  const svg = $("#world-route-map");
+  if (!layout?.settlements?.length) { svg.innerHTML = ""; return; }
+  const raw = layout.settlements.map((node) => ({
+    id: node.settlement,
+    x: Number(node.anchor?.q || 0) + Number(node.anchor?.r || 0) * .5,
+    y: Number(node.anchor?.r || 0)
+  }));
+  const minX = Math.min(...raw.map((node) => node.x));
+  const maxX = Math.max(...raw.map((node) => node.x));
+  const minY = Math.min(...raw.map((node) => node.y));
+  const maxY = Math.max(...raw.map((node) => node.y));
+  const positions = new Map(raw.map((node) => [node.id, {
+    x: 72 + (node.x - minX) / Math.max(1, maxX - minX) * 616,
+    y: 65 + (node.y - minY) / Math.max(1, maxY - minY) * 225
+  }]));
+  const edges = (layout.connections || []).map((connection) => {
+    const from = positions.get(connection.from); const to = positions.get(connection.to);
+    if (!from || !to) return "";
+    const access = connection.access_requirement?.endsWith("/surf") ? "surf" : connection.access_requirement?.endsWith("/rock_climb") ? "rock-climb" : "";
+    return `<line class="world-route-edge ${access}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}"><title>${escapeHtml(connection.id)}</title></line>`;
+  }).join("");
+  const nodeMarkup = layout.settlements.map((node, index) => {
+    const position = positions.get(node.settlement);
+    const name = settlementSummary(node.settlement)?.name || node.settlement.split("/").pop();
+    return `<g class="world-route-node" transform="translate(${position.x} ${position.y})"><circle r="25"></circle><text class="node-index" y="5">${index + 1}</text><text y="46">${escapeHtml(name)}</text></g>`;
+  }).join("");
+  svg.innerHTML = `${edges}${nodeMarkup}`;
+}
+
+function addWorldConnection() {
+  if (!state.worldLayout?.settlements?.length) return;
+  const nodes = state.worldLayout.settlements;
+  const from = nodes[Math.max(0, nodes.length - 2)].settlement;
+  const to = nodes[nodes.length - 1].settlement;
+  const idBase = `${from.split("/").pop()}_to_${to.split("/").pop()}`;
+  state.worldLayout.connections.push({
+    id: `${idBase}_${state.worldLayout.connections.length + 1}`,
+    from, to, route_biome: "minecraft:plains", width_cells: 1,
+    pathfinding: "organic", detour_cells: 1, corridor_width_blocks: 48,
+    edge_noise: .12, boundary_profile: "cobbleventure:boundary/earthwork",
+    terrain_profile: { base_height_offset: 0, height_variation: 1, noise_scale_blocks: 96 },
+    surface_style: "road"
+  });
+  renderWorldLayout();
+}
+
+async function saveWorldLayout() {
+  if (!state.worldLayout) return;
+  updateWorldLayoutFromControls();
+  const result = await request("/api/world-layout", { method: "PUT", body: JSON.stringify(state.worldLayout) });
+  showIssues("#world-layout-issues", result.data);
+  if (!result.ok) { toast(result.data.error || "동선 검증 오류로 저장하지 않았습니다."); return; }
+  toast("마을 동선을 generation_1.json에 바로 반영했습니다.");
+  const reloaded = await request("/api/world-layout");
+  if (reloaded.ok) state.worldLayout = reloaded.data;
+  renderWorldLayout();
 }
 
 function renderList(category) {
@@ -390,6 +516,27 @@ function applyTrainerClass() {
   updateTrainerFromForm();
 }
 
+function trainerClassAppearanceForSource(trainerClass, source) {
+  return [trainerClass?.default_appearance, ...(trainerClass?.appearance_options || [])]
+    .find((appearance) => appearance?.source === source);
+}
+
+function applyAppearanceSource() {
+  const form = $("#trainer-form");
+  const trainerClass = state.trainerClasses.find((entry) => entry.id === form.elements.trainerClass.value);
+  const appearance = trainerClassAppearanceForSource(trainerClass, form.elements.appearanceSource.value);
+  if (appearance) {
+    const { source, type, resource, portrait } = appearance;
+    form.elements.appearanceResource.value = resource;
+    state.trainer.npc.appearance = {
+      ...state.trainer.npc.appearance,
+      source, type, resource,
+      ...(portrait ? { portrait } : {})
+    };
+  }
+  updateTrainerFromForm();
+}
+
 function rosterCharacters() {
   const organizations = (state.trainerRoster.organizations || []).flatMap((organization) => [
     ...(organization.grunt_variants || []), ...(organization.named_characters || [])
@@ -484,7 +631,8 @@ const trainerReferenceSprites = {
   school_kid: ["schoolkid-gen4", "4세대"], preschooler: ["preschooler-gen6", "6세대"], twins: ["twins-gen4", "4세대"],
   camper: ["camper-gen6", "6세대"], picnicker: ["picnicker-gen6", "6세대"], hiker: ["hiker-gen4", "4세대"],
   fisherman: ["fisherman-gen4", "4세대"], sailor: ["sailor-gen6", "6세대"], swimmer_male: ["swimmer-gen4", "4세대"],
-  swimmer_female: ["swimmerf-gen4", "4세대"], bird_keeper: ["birdkeeper-gen4dp", "4세대 DP"], pokemon_ranger: ["pokemonranger-gen4", "4세대"],
+  swimmer_female: ["swimmerf-gen4", "4세대"], bird_keeper: ["birdkeeper-gen4dp", "4세대 DP"],
+  pokemon_ranger_male: ["pokemonranger-gen4", "4세대"], pokemon_ranger_female: ["pokemonrangerf-gen4", "4세대"],
   backpacker: ["backpacker-gen6", "6세대"], skier: ["skierf-gen4dp", "4세대 DP"], boarder: ["boarder-gen2", "2세대"],
   black_belt: ["blackbelt-gen4", "4세대"], battle_girl: ["battlegirl-gen4", "4세대"], psychic: ["psychic-gen4", "4세대"],
   dragon_tamer: ["dragontamer-gen3", "3세대"], hex_maniac: ["hexmaniac-gen6", "6세대"], aroma_lady: ["aromalady", "본가 계열"],
@@ -496,9 +644,13 @@ const trainerReferenceSprites = {
   musician: ["musician-gen8", "8세대"], guitarist: ["guitarist-gen4", "4세대"], artist: ["artist-gen4", "4세대"],
   biker: ["biker-gen4", "4세대"], beauty: ["beauty-gen4dp", "4세대 DP"], gentleman: ["gentleman-gen4", "4세대"],
   rich_boy: ["richboy-gen4", "4세대"], lady: ["lady-gen4", "4세대"], madame: ["madame-gen6", "6세대"],
-  maid: ["maid-gen4", "4세대"], old_couple: ["oldcouple-gen3", "3세대"], young_couple: ["youngcouple-gen4dp", "4세대 DP"],
-  ace_trainer: ["acetrainer-gen4", "4세대"], veteran: ["veteran-gen4", "4세대"], double_team: ["doubleteam", "본가 계열"],
-  interviewers: ["interviewers-gen3", "3세대"], expert: ["expert-gen3", "3세대"], gym_leader: ["brock-gen3", "3세대 대표"],
+  maid: ["maid-gen4", "4세대"], old_couple_male: ["oldcouple-gen3", "3세대"], old_couple_female: ["oldcouple-gen3", "3세대"],
+  young_couple_male: ["youngcouple-gen4dp", "4세대 DP"], young_couple_female: ["youngcouple-gen4dp", "4세대 DP"],
+  ace_trainer_male: ["acetrainer-gen4", "4세대"], ace_trainer_female: ["acetrainerf-gen4", "4세대"],
+  ace_trainer_gen6_male: ["acetrainer-gen6", "6세대"], ace_trainer_gen6_female: ["acetrainerf-gen6", "6세대"],
+  veteran_male: ["veteran-gen4", "4세대"], veteran_female: ["veteranf-gen6", "6세대"],
+  interviewers_male: ["interviewers-gen3", "3세대"], interviewers_female: ["interviewers-gen3", "3세대"],
+  expert: ["expert-gen3", "3세대"], gym_leader: ["brock-gen3", "3세대 대표"],
   elite_four: ["bruno-gen3", "3세대 대표"], champion: ["blue-gen3champion", "3세대 대표"], rival: ["red-gen3", "3세대 대표"],
   villain_grunt: ["teamrocketgruntm-gen3", "3세대 대표"]
 };
@@ -516,7 +668,9 @@ const trainerCharacterReferenceSprites = {
   glacia: "glacia-gen3", drake: "drake-gen3", steven: "steven-gen3", roark: "roark", gardenia: "gardenia",
   maylene: "maylene", crasher_wake: "crasherwake", fantina: "fantina", byron: "byron", candice: "candice",
   volkner: "volkner", aaron: "aaron", bertha: "bertha", flint: "flint", lucian: "lucian", cynthia: "cynthia-gen4",
-  giovanni: "giovanni-gen3", archie: "archie-gen3", maxie: "maxie-gen3", cyrus: "cyrus",
+  giovanni: "giovanni-gen3", archer: "archer", ariana: "ariana", proton: "proton", petrel: "petrel",
+  archie: "archie-gen3", maxie: "maxie-gen3", cyrus: "cyrus", mars: "mars", jupiter: "jupiter",
+  saturn: "saturn", charon: "charon",
   ghetsis: "ghetsis", n: "n", colress: "colress", lysandre: "lysandre", guzma: "guzma",
   plumeria: "plumeria", lusamine: "lusamine", piers: "piers", marnie: "marnie", rose: "rose",
   oleana: "oleana", penny: "penny"
@@ -537,10 +691,11 @@ function trainerReferenceHtml(trainerClass, rosterCharacter = null) {
   const [classSprite, classGeneration] = trainerReferenceSprites[trainerClassSlug(trainerClass?.id)] || [];
   const characterSlug = String(rosterCharacter?.id || "").split("/").pop();
   const appearance = effectiveCharacterAppearance(rosterCharacter);
-  const characterSprite = appearance.source === "custom"
-    ? `local:${characterSlug}`
-    : trainerCharacterReferenceSprites[characterSlug];
-  const candidates = [...new Set([characterSprite, classSprite].filter(Boolean))];
+  const mappedCharacterSprite = trainerCharacterReferenceSprites[characterSlug];
+  const characterSprites = appearance.source === "custom"
+    ? [`local:${characterSlug}`, mappedCharacterSprite]
+    : [mappedCharacterSprite];
+  const candidates = [...new Set([...characterSprites, classSprite].filter(Boolean))];
   const sprite = candidates.shift();
   const generation = rosterCharacter ? `${rosterCharacter.generation || "?"}세대 인물` : classGeneration;
   if (!sprite) return `<div class="trainer-reference-empty"><b>?</b><span>참조 이미지 준비 중</span></div>`;
@@ -601,7 +756,8 @@ function renderTrainerPreview() {
   const skinUrl = trainerSkinUrl(appearance);
   const body = {
     ...(rosterCharacter?.body || trainerClass?.body || {}),
-    ...(appearance.source === "custom" ? { arm_model: "slim" } : {}),
+    ...(rosterCharacter?.gender === "male" ? { arm_model: "classic" } : {}),
+    ...(rosterCharacter?.gender === "female" ? { arm_model: "slim" } : {}),
   };
   const appearanceState = visualMatch === "generic"
     ? { className: "placeholder", label: "1차 스킨 검토 필요" }
@@ -1644,6 +1800,34 @@ function trainerSlotId(trainerId, slots) {
   return candidate;
 }
 
+function settlementTrainer(trainerId) {
+  return state.trainers.find((trainer) => trainer.id === trainerId);
+}
+
+function trainerSlotMember(id, npcProfile, position, rotation = 0) {
+  return { id, npc_profile: npcProfile, position: { ...position }, rotation };
+}
+
+function syncTrainerSlotMembers(slot) {
+  const battleType = settlementTrainer(slot.trainer_id)?.battle_type || slot.battle_type || "singles";
+  const center = state.settlement?.center || { x: 0, y: 64, z: 0 };
+  slot.battle_type = battleType;
+  slot.members ||= [];
+  if (!slot.members.length) {
+    slot.members.push(trainerSlotMember("primary", slot.trainer_id, center));
+  }
+  if (battleType === "doubles" && slot.members.length < 2) {
+    const partner = state.trainers.find((trainer) => trainer.id !== slot.members[0].npc_profile) || state.trainers[0];
+    slot.members.push(trainerSlotMember(
+      "partner",
+      partner?.id || slot.trainer_id,
+      { ...slot.members[0].position, x: Number(slot.members[0].position.x) + 2 },
+      slot.members[0].rotation
+    ));
+  }
+  slot.members = slot.members.slice(0, battleType === "doubles" ? 2 : 1);
+}
+
 function renderTrainerSlots() {
   const list = $("#trainer-slot-list");
   const slots = state.settlement?.npc_placement?.trainer_slots || [];
@@ -1654,24 +1838,39 @@ function renderTrainerSlots() {
   const trainerOptions = state.trainers.map((trainer) =>
     `<option value="${escapeHtml(trainer.id)}">${escapeHtml(trainer.name || trainer.id)} · ${escapeHtml(trainer.id)}</option>`
   ).join("");
+  slots.forEach(syncTrainerSlotMembers);
   list.innerHTML = slots.map((slot, index) => `
     <article class="trainer-slot-row" data-slot-index="${index}">
-      <div class="trainer-slot-heading"><strong>배치 ${String(index + 1).padStart(2, "0")}</strong><button type="button" class="remove-trainer-slot" data-remove-trainer-slot="${index}">삭제</button></div>
+      <div class="trainer-slot-heading"><strong>배치 ${String(index + 1).padStart(2, "0")} · ${slot.battle_type === "doubles" ? "듀얼배틀 / EasyNPC 2명" : "싱글배틀 / EasyNPC 1명"}</strong><button type="button" class="remove-trainer-slot" data-remove-trainer-slot="${index}">삭제</button></div>
       <div class="trainer-slot-fields">
-        <label class="trainer-choice"><span>트레이너</span><select data-slot-field="trainer_id">${trainerOptions}</select></label>
+        <label class="trainer-choice"><span>전투 트레이너</span><select data-slot-field="trainer_id">${trainerOptions}</select></label>
         <label><span>슬롯 ID</span><input data-slot-field="id" value="${escapeHtml(slot.id || "")}"></label>
-        <label><span>X</span><input type="number" data-slot-field="x" value="${Number(slot.position?.x ?? 0)}"></label>
-        <label><span>Y</span><input type="number" data-slot-field="y" value="${Number(slot.position?.y ?? 64)}"></label>
-        <label><span>Z</span><input type="number" data-slot-field="z" value="${Number(slot.position?.z ?? 0)}"></label>
-        <label><span>회전</span><input type="number" min="-360" max="360" step="1" data-slot-field="rotation" value="${Number(slot.rotation ?? 0)}"></label>
         <label><span>생성 정책</span><select data-slot-field="spawn_policy"><option value="persistent">항상 유지</option><option value="on_region_load">지역 로딩 시</option><option value="manual">수동 생성</option></select></label>
         <label class="slot-tags"><span>태그 — 쉼표로 구분</span><input data-slot-field="tags" value="${escapeHtml((slot.tags || []).join(", "))}"></label>
+      </div>
+      <div class="trainer-member-list">
+        ${slot.members.map((member, memberIndex) => `
+          <section class="trainer-member" data-member-index="${memberIndex}">
+            <strong>EasyNPC ${memberIndex + 1}${memberIndex === 0 ? " · 대표" : " · 파트너"}</strong>
+            <div class="trainer-member-fields">
+              <label class="trainer-choice"><span>NPC 프로필</span><select data-member-field="npc_profile">${trainerOptions}</select></label>
+              <label><span>멤버 ID</span><input data-member-field="id" value="${escapeHtml(member.id || "")}"></label>
+              <label><span>X</span><input type="number" data-member-field="x" value="${Number(member.position?.x ?? 0)}"></label>
+              <label><span>Y</span><input type="number" data-member-field="y" value="${Number(member.position?.y ?? 64)}"></label>
+              <label><span>Z</span><input type="number" data-member-field="z" value="${Number(member.position?.z ?? 0)}"></label>
+              <label><span>회전</span><input type="number" min="-360" max="360" step="1" data-member-field="rotation" value="${Number(member.rotation ?? 0)}"></label>
+            </div>
+          </section>`).join("")}
       </div>
     </article>`).join("");
   $$(".trainer-slot-row").forEach((row) => {
     const slot = slots[Number(row.dataset.slotIndex)];
     row.querySelector('[data-slot-field="trainer_id"]').value = slot.trainer_id || "";
     row.querySelector('[data-slot-field="spawn_policy"]').value = slot.spawn_policy || "persistent";
+    row.querySelectorAll("[data-member-index]").forEach((memberRow) => {
+      const member = slot.members[Number(memberRow.dataset.memberIndex)];
+      memberRow.querySelector('[data-member-field="npc_profile"]').value = member.npc_profile || "";
+    });
   });
 }
 
@@ -1686,24 +1885,38 @@ function addTrainerSlot() {
   slots.push({
     id: trainerSlotId(trainer.id, slots),
     trainer_id: trainer.id,
-    position: { ...(state.settlement.center || { x: 0, y: 64, z: 0 }) },
-    rotation: 0,
+    battle_type: trainer.battle_type || "singles",
+    members: [trainerSlotMember("primary", trainer.id, state.settlement.center || { x: 0, y: 64, z: 0 })],
     spawn_policy: "persistent",
     tags: ["trainer"]
   });
+  syncTrainerSlotMembers(slots.at(-1));
   renderTrainerSlots();
   updateSettlementFromForm();
 }
 
 function updateTrainerSlot(event) {
   const row = event.target.closest("[data-slot-index]");
-  const field = event.target.dataset.slotField;
-  if (!row || !field || !state.settlement) return;
+  if (!row || !state.settlement) return;
   const slot = state.settlement.npc_placement.trainer_slots[Number(row.dataset.slotIndex)];
-  if (["x", "y", "z"].includes(field)) slot.position[field] = Number(event.target.value);
-  else if (field === "rotation") slot.rotation = Number(event.target.value);
-  else if (field === "tags") slot.tags = event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean);
-  else slot[field] = event.target.value;
+  const memberRow = event.target.closest("[data-member-index]");
+  const memberField = event.target.dataset.memberField;
+  if (memberRow && memberField) {
+    const member = slot.members[Number(memberRow.dataset.memberIndex)];
+    if (["x", "y", "z"].includes(memberField)) member.position[memberField] = Number(event.target.value);
+    else if (memberField === "rotation") member.rotation = Number(event.target.value);
+    else member[memberField] = event.target.value;
+  } else {
+    const field = event.target.dataset.slotField;
+    if (!field) return;
+    if (field === "tags") slot.tags = event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean);
+    else slot[field] = event.target.value;
+    if (field === "trainer_id") {
+      slot.members[0].npc_profile = slot.trainer_id;
+      syncTrainerSlotMembers(slot);
+      renderTrainerSlots();
+    }
+  }
   updateSettlementFromForm();
 }
 
@@ -1727,7 +1940,7 @@ function updateSettlementFromForm() {
     center: { x: number("centerX"), y: number("centerY"), z: number("centerZ") },
     bounds: { min_x: number("minX"), min_z: number("minZ"), max_x: number("maxX"), max_z: number("maxZ") }
   });
-  state.settlement.schema_version = 2;
+  state.settlement.schema_version = 3;
   state.settlement.content_profile = {
     pokemon: {
       spawn_profile: form.elements.pokemonSpawnProfile.value.trim(),
@@ -1922,6 +2135,7 @@ $("#save-trainer").addEventListener("click", () => saveDocument("trainers"));
 $("#trainer-form").addEventListener("input", (event) => {
   if (event.target.name === "trainerClass") applyTrainerClass();
   else if (event.target.name === "rosterCharacter") applyRosterCharacter();
+  else if (event.target.name === "appearanceSource") applyAppearanceSource();
   else {
     const form = event.currentTarget;
     if (event.target.name === "battleType") {
@@ -1940,6 +2154,8 @@ $("#paste-team-json").addEventListener("click", pasteTeamJson);
 $("#apply-trainer-json").addEventListener("click", () => { const document = parseEditor("#trainer-json"); if (document) { state.trainer = document; renderTrainer(); toast("JSON을 편집 폼에 반영했습니다."); } });
 $("#validate-settlement").addEventListener("click", () => validateDocument("settlements"));
 $("#save-settlement").addEventListener("click", () => saveDocument("settlements"));
+$("#add-world-connection").addEventListener("click", addWorldConnection);
+$("#save-world-layout").addEventListener("click", saveWorldLayout);
 $("#settlement-form").addEventListener("input", updateSettlementFromForm);
 $$('[data-preview-zone]').forEach((button) => button.addEventListener("click", () => previewSettlementZone(Number(button.dataset.previewZone))));
 $("#add-trainer-slot").addEventListener("click", addTrainerSlot);

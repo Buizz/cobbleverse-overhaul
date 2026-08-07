@@ -78,12 +78,23 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .trainer-slot-heading { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid #d0dce0; }
 .trainer-slot-heading strong { color: #6e9d0e; font: 800 11px Consolas, monospace; }
 .remove-trainer-slot { border: 0; background: transparent; color: #c72f43; font-size: 11px; cursor: pointer; }
-.trainer-slot-fields { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(130px, 1fr) repeat(4, minmax(70px, .55fr)); gap: 10px; padding: 14px; }
+.trainer-slot-fields { display: grid; grid-template-columns: minmax(200px, 2fr) minmax(90px, 1fr) minmax(105px, 1fr) minmax(150px, 1.5fr); gap: 10px; padding: 14px; }
 .trainer-slot-fields label > span { display: block; margin-bottom: 6px; color: #607788; font-size: 9px; font-weight: 700; }
 .trainer-slot-fields input, .trainer-slot-fields select { width: 100%; min-height: 36px; padding: 7px 9px; color-scheme: light; border: 1px solid #b9c8cf; border-radius: 3px; outline: none; background: #fff; color: #162f43; }
 .trainer-slot-fields input:focus, .trainer-slot-fields select:focus { border-color: #1e9eaa; box-shadow: 0 0 0 2px rgba(64, 215, 207, .18); }
-.trainer-slot-fields .trainer-choice, .trainer-slot-fields .slot-tags { grid-column: span 2; }
+.trainer-slot-fields .trainer-choice, .trainer-slot-fields .slot-tags { grid-column: auto; }
+.trainer-member-list { display: grid; gap: 10px; padding: 0 14px 14px; }
+.trainer-member { padding: 12px; border: 1px solid #d0dce0; background: #eef5f6; }
+.trainer-member > strong { display: block; margin-bottom: 10px; color: #34727a; font: 800 12px Consolas, monospace; }
+.trainer-member-fields { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px; }
+.trainer-member-fields .trainer-choice { grid-column: span 7; }
+.trainer-member-fields label:nth-child(2) { grid-column: span 5; }
+.trainer-member-fields label:nth-child(n+3) { grid-column: span 3; }
+.trainer-member-fields label > span { display: block; margin-bottom: 6px; color: #607788; font-size: 12px; font-weight: 700; }
+.trainer-member-fields input, .trainer-member-fields select { width: 100%; min-height: 36px; padding: 7px 9px; color-scheme: light; border: 1px solid #b9c8cf; border-radius: 3px; outline: none; background: #fff; color: #162f43; font-size: 14px; }
+.trainer-member-fields input:focus, .trainer-member-fields select:focus { border-color: #1e9eaa; box-shadow: 0 0 0 2px rgba(64, 215, 207, .18); }
 @media (max-width: 900px) { .trainer-slot-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }.trainer-slot-fields .trainer-choice, .trainer-slot-fields .slot-tags { grid-column: span 2; } }
+@media (max-width: 900px) { .trainer-member-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }.trainer-member-fields .trainer-choice { grid-column: span 2; }.trainer-member-fields label:nth-child(2), .trainer-member-fields label:nth-child(n+3) { grid-column: auto; } }
 
 /* Battle Web Lab visual language */
 :root {
@@ -268,6 +279,31 @@ body {
 .biome-zone-editor { border-left: 3px solid #9ad51f; }
 .zone-preview { max-height: 260px; overflow: auto; padding: 10px; border: 1px dashed #bdccd2; background: #f8fafb; color: #637984; }
 .zone-preview .pokemon-result-grid { grid-template-columns: repeat(auto-fill,minmax(185px,1fr)); }
+
+.world-route-panel { margin-bottom: 16px; overflow: hidden; }
+.world-route-panel .panel-heading small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
+.world-route-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.world-route-workspace { display: grid; grid-template-columns: minmax(360px,.9fr) minmax(520px,1.1fr); min-height: 430px; }
+.world-route-map-wrap { display: grid; grid-template-rows: minmax(340px,1fr) auto; gap: 8px; padding: 18px; border-right: 1px solid #c7d4d9; background: #eef4f5; }
+.world-route-map-wrap svg { width: 100%; min-height: 340px; border: 1px solid #b9c9cf; background: linear-gradient(rgba(16,27,45,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(16,27,45,.04) 1px,transparent 1px),#fff; background-size: 28px 28px; }
+.world-route-map-wrap > small { color: #607788; font-size: 11px; }
+.world-route-edge { stroke: #40aeb8; stroke-width: 7; stroke-linecap: round; opacity: .72; }
+.world-route-edge.surf { stroke: #397fc0; stroke-dasharray: 12 8; }
+.world-route-edge.rock-climb { stroke: #b77442; stroke-dasharray: 5 6; }
+.world-route-node circle { fill: #17344a; stroke: #b8f23f; stroke-width: 4; }
+.world-route-node text { fill: #172d40; font-size: 14px; font-weight: 850; text-anchor: middle; }
+.world-route-node .node-index { fill: #b8f23f; font: 900 13px Consolas,monospace; }
+.world-route-editor { min-width: 0; padding: 18px; background: #fff; }
+.world-route-editor .subsection-heading { padding: 4px 0 10px; }
+.world-node-list,.world-connection-list { display: grid; gap: 8px; margin-bottom: 18px; }
+.world-node-row { display: grid; grid-template-columns: 34px minmax(190px,1fr) 74px 74px; gap: 8px; align-items: end; padding: 10px; border: 1px solid #c7d4d9; background: #f8fafb; }
+.world-connection-row { display: grid; grid-template-columns: 30px minmax(150px,1fr) minmax(150px,1fr) minmax(125px,.8fr) minmax(120px,.8fr) 62px; gap: 8px; align-items: end; padding: 10px; border: 1px solid #c7d4d9; background: #f8fafb; }
+.world-node-row > b,.world-connection-row > b { align-self: center; color: #6e9d0e; font: 900 12px Consolas,monospace; }
+.world-node-row label,.world-connection-row label { display: grid; gap: 5px; color: #607788; font-size: 11px; font-weight: 750; }
+.world-node-row input,.world-connection-row input,.world-connection-row select { width: 100%; min-width: 0; min-height: 36px; padding: 7px 9px; border: 1px solid #b9c8cf; background: #fff; color: #162f43; font-size: 12px; }
+.remove-world-connection { min-height: 36px; border: 1px solid #dfa7ae; background: #fff; color: #b83142; font-size: 11px; font-weight: 800; cursor: pointer; }
+@media (max-width: 1200px) { .world-route-workspace { grid-template-columns: 1fr; }.world-route-map-wrap { border-right: 0; border-bottom: 1px solid #c7d4d9; }.world-connection-row { grid-template-columns: 30px 1fr 1fr; }.world-connection-row label:nth-of-type(n+3) { grid-column: span 1; } }
+@media (max-width: 720px) { .world-node-row { grid-template-columns: 28px 1fr 64px 64px; }.world-connection-row { grid-template-columns: 28px 1fr; }.world-route-actions { width: 100%; }.world-route-actions .button { flex: 1; } }
 
 @media (max-width: 1000px) { .biome-split { grid-template-columns: 1fr; }.biome-list { max-height: 240px; }.biome-test-toolbar { align-items: stretch; flex-direction: column; }.biome-test-toolbar label { width: 100%; }.biome-test-toolbar .button { align-self: flex-start; } }
 

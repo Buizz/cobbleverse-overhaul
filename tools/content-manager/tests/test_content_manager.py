@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
 import sys
 import tempfile
 import threading
@@ -20,6 +21,41 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_world_layout_graph_can_be_saved_atomically(self) -> None:
+        root = Path(__file__).parents[3]
+        layout = content_manager.load_world_layout(root)
+        self.assertEqual(5, len(layout["settlements"]))
+        self.assertTrue(
+            any(
+                connection["from"] == "cobbleventure:settlement/crimson_town"
+                and connection["to"] == "cobbleventure:settlement/skyreach_town"
+                for connection in layout["connections"]
+            )
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            candidate_root = Path(directory)
+            settlement_dir = candidate_root / "content" / "settlements" / "generation_1"
+            catalog_dir = candidate_root / "content" / "catalogs"
+            settlement_dir.mkdir(parents=True)
+            catalog_dir.mkdir(parents=True)
+            for node in layout["settlements"]:
+                slug = node["settlement"].rsplit("/", 1)[-1]
+                (settlement_dir / f"{slug}.json").write_text(
+                    json.dumps({"id": node["settlement"], "display_name": {"ko_kr": slug}}),
+                    encoding="utf-8",
+                )
+            shutil.copy2(
+                root / "content" / "catalogs" / "boundary-profiles.json",
+                catalog_dir / "boundary-profiles.json",
+            )
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, layout))
+            saved = content_manager.load_world_layout(candidate_root)
+            invalid = json.loads(json.dumps(saved))
+            invalid["settlements"][1]["anchor"] = dict(invalid["settlements"][0]["anchor"])
+            issues = content_manager.save_world_layout(candidate_root, invalid)
+            self.assertTrue(any(issue.level == "error" for issue in issues))
+            self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
+
     def test_web_command_stops_only_matching_previous_content_manager(self) -> None:
         root = Path(__file__).parents[3]
         build_script = (root / "build.bat").read_text(encoding="utf-8")
@@ -349,6 +385,21 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertTrue(any("체육관 타입 테마" in issue.message for issue in issues))
 
+    def test_instanced_facility_requires_existing_anchors(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["facility_placements"][0]["entry_anchor"] = "missing"
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertTrue(any("존재하는 마을 앵커" in issue.message for issue in issues))
+
     def test_settlement_trainer_slot_requires_trainer_and_spawn_policy(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -368,6 +419,50 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertTrue(any("trainer_id" in issue.path for issue in issues))
         self.assertTrue(any("생성 정책" in issue.message for issue in issues))
+
+    def test_settlement_double_battle_requires_two_easy_npc_members(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (
+                root
+                / "content"
+                / "settlements"
+                / "generation_1"
+                / "starter_town.json"
+            ).read_text(encoding="utf-8")
+        )
+        slot = source["npc_placement"]["trainer_slots"][0]
+        slot["battle_type"] = "doubles"
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertTrue(any("정확히 2명" in issue.message for issue in issues))
+
+    def test_settlement_double_battle_accepts_two_easy_npc_members(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (
+                root
+                / "content"
+                / "settlements"
+                / "generation_1"
+                / "starter_town.json"
+            ).read_text(encoding="utf-8")
+        )
+        slot = source["npc_placement"]["trainer_slots"][0]
+        slot["battle_type"] = "doubles"
+        partner = json.loads(json.dumps(slot["members"][0]))
+        partner["id"] = "partner"
+        partner["position"]["x"] += 2
+        slot["members"].append(partner)
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertEqual([], issues)
 
     def test_trainer_class_catalog_is_valid(self) -> None:
         root = Path(__file__).parents[3]
@@ -397,22 +492,11 @@ class ContentManagerTests(unittest.TestCase):
             for entry in classes.values()
             if entry["category"] not in {"boss", "custom"}
         ]
-        self.assertEqual(56, len(general_classes))
+        self.assertGreaterEqual(len(general_classes), 60)
         self.assertTrue(
             all(
                 entry["default_appearance"]["implementation_status"] == "ready"
                 for entry in general_classes
-            )
-        )
-        generated_skin_ids = {
-            "youngster", "preschooler", "backpacker", "boarder", "hex_maniac",
-            "bug_maniac", "kindler", "office_worker", "cook", "waiter",
-            "musician", "maid", "old_couple",
-        }
-        self.assertTrue(
-            all(
-                classes[slug]["body"]["arm_model"] == "slim"
-                for slug in generated_skin_ids
             )
         )
         custom_defaults = [
@@ -422,7 +506,10 @@ class ContentManagerTests(unittest.TestCase):
         for entry in custom_defaults:
             appearance = entry["default_appearance"]
             slug = appearance["resource"].rsplit("/", 1)[-1]
-            self.assertEqual("slim", entry["body"]["arm_model"])
+            manifest = content_manager.load_json(
+                root / "tools" / "content-manager" / "skin-pipeline" / "work" / slug / "manifest.json"
+            )
+            self.assertEqual(entry["body"]["arm_model"], manifest["model"])
             self.assertTrue(
                 (
                     root
@@ -439,6 +526,68 @@ class ContentManagerTests(unittest.TestCase):
                     / f"{slug}.png"
                 ).is_file()
             )
+
+    def test_requested_custom_and_rct_appearance_options_exist_with_gender_models(self) -> None:
+        root = Path(__file__).parents[3]
+        catalog = content_manager.load_json(root / "content" / "catalogs" / "trainer-classes.json")
+        classes = {entry["id"].rsplit("/", 1)[-1]: entry for entry in catalog["classes"]}
+        expected_models = {
+            "lass": "slim", "bug_catcher": "classic", "school_kid": "classic",
+            "twins": "slim", "camper": "classic", "picnicker": "slim",
+            "fisherman": "classic", "sailor": "classic", "swimmer_male": "classic",
+            "swimmer_female": "slim", "bird_keeper": "classic", "tamer": "classic",
+            "hex_maniac": "slim", "aroma_lady": "slim",
+            "pokemon_ranger_male": "classic", "pokemon_ranger_female": "slim",
+            "collector": "classic", "worker": "classic", "rich_boy": "classic",
+            "madame": "slim", "young_couple_male": "classic",
+            "young_couple_female": "slim", "ace_trainer_male": "classic",
+            "ace_trainer_female": "slim", "ace_trainer_gen6_male": "classic",
+            "ace_trainer_gen6_female": "slim", "veteran_male": "classic",
+            "veteran_female": "slim", "interviewers_male": "classic",
+            "interviewers_female": "slim", "expert": "classic",
+        }
+        self.assertNotIn("bug_catcher_female", classes)
+        self.assertNotIn("double_team_male", classes)
+        self.assertNotIn("double_team_female", classes)
+        custom_only = {"ace_trainer_gen6_male", "ace_trainer_gen6_female"}
+        skin_root = root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources" / "assets" / "cobbleventure" / "textures" / "entity" / "trainer"
+        for slug, model in expected_models.items():
+            with self.subTest(slug=slug):
+                entry = classes[slug]
+                appearances = [entry["default_appearance"], *entry["appearance_options"]]
+                custom = next(option for option in appearances if option["source"] == "custom")
+                rct = next((option for option in appearances if option["source"] == "rct_single"), None)
+                self.assertEqual(f"cobbleventure:trainer_skin/{slug}", custom["resource"])
+                if slug in custom_only:
+                    self.assertIsNone(rct)
+                else:
+                    self.assertTrue(rct["resource"].startswith("rctmod:trainers/single/"))
+                rct_defaults = {
+                    "hex_maniac", "veteran_female", "interviewers_female",
+                }
+                self.assertEqual("rct_single" if slug in rct_defaults else "custom", entry["default_appearance"]["source"])
+                self.assertEqual(model, entry["body"]["arm_model"])
+                manifest = content_manager.load_json(root / "tools" / "content-manager" / "skin-pipeline" / "work" / slug / "manifest.json")
+                self.assertEqual(model, manifest["model"])
+                self.assertTrue((skin_root / f"{slug}.png").is_file())
+
+        for slug, model in {"old_couple_male": "classic", "old_couple_female": "slim"}.items():
+            entry = classes[slug]
+            self.assertEqual("custom", entry["default_appearance"]["source"])
+            self.assertEqual(f"cobbleventure:trainer_skin/{slug}", entry["default_appearance"]["resource"])
+            self.assertEqual(model, entry["body"]["arm_model"])
+            self.assertNotIn("appearance_options", entry)
+        self.assertNotIn("pokemon_ranger", classes)
+        self.assertNotIn("old_couple", classes)
+        self.assertNotIn("interviewers", classes)
+        self.assertEqual(
+            "rctmod:trainers/single/young_couple_nat_047f",
+            classes["hex_maniac"]["default_appearance"]["resource"],
+        )
+        self.assertEqual(
+            "rctmod:trainers/single/interviewers_roxy_03fe",
+            classes["interviewers_female"]["default_appearance"]["resource"],
+        )
 
     def test_trainer_outfit_catalog_links_equipment_and_easy_npc_scale(self) -> None:
         root = Path(__file__).parents[3]
@@ -473,11 +622,11 @@ class ContentManagerTests(unittest.TestCase):
             for character in organization["named_characters"]
         }
         self.assertEqual(
-            "rctmod:trainers/single/team_aqua_ivan",
+            "cobbleventure:trainer_skin/archie",
             implemented_named["archie"]["resource"],
         )
         self.assertEqual(
-            "rctmod:trainers/single/team_magma_max",
+            "cobbleventure:trainer_skin/maxie",
             implemented_named["maxie"]["resource"],
         )
         self.assertEqual(
@@ -696,6 +845,8 @@ class ContentManagerTests(unittest.TestCase):
                 validation = json.load(response)
             with urllib.request.urlopen(f"{base_url}/api/dashboard") as response:
                 dashboard = json.load(response)
+            with urllib.request.urlopen(f"{base_url}/api/trainers") as response:
+                trainers = json.load(response)
             with urllib.request.urlopen(f"{base_url}/api/settlements") as response:
                 settlements = json.load(response)
             with urllib.request.urlopen(f"{base_url}/api/trainer-classes") as response:
@@ -724,6 +875,8 @@ class ContentManagerTests(unittest.TestCase):
                 biome_catalog = json.load(response)
             with urllib.request.urlopen(f"{base_url}/api/pokemon-habitats") as response:
                 pokemon_habitats = json.load(response)
+            with urllib.request.urlopen(f"{base_url}/api/world-layout") as response:
+                world_layout = json.load(response)
             preview_request = urllib.request.Request(
                 f"{base_url}/api/biome-preview",
                 data=json.dumps({"set_id": "cobbleventure:biome_set/starter_region"}).encode("utf-8"),
@@ -756,8 +909,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertGreaterEqual(len(trainer_roster["league_characters"]), 50)
         self.assertTrue(validation["valid"])
         self.assertGreaterEqual(dashboard["trainers"], 2)
-        self.assertEqual(2, dashboard["settlements"])
-        self.assertEqual(2, len(settlements["items"]))
+        self.assertTrue(all(item["battle_type"] in {"singles", "doubles"} for item in trainers["items"]))
+        self.assertEqual(5, dashboard["settlements"])
+        self.assertEqual(5, len(settlements["items"]))
+        self.assertEqual(5, len(world_layout["settlements"]))
+        self.assertEqual(4, len(world_layout["connections"]))
         self.assertGreaterEqual(len(trainer_classes["classes"]), 10)
         self.assertGreaterEqual(len(editor_catalog["species"]), 1000)
         self.assertGreaterEqual(len(editor_catalog["moves"]), 900)
@@ -770,8 +926,10 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertIn("Cobbleventure Content Studio", page)
         self.assertIn("바이옴 관리", page)
+        self.assertIn("마을 동선", page)
         self.assertIn("엔트리 JSON 복사", page)
         self.assertIn("전투 가방", page)
+        self.assertIn("듀얼배틀은 같은 전투에 참여할 EasyNPC 2명", page)
         self.assertIn('<select name="battleFormat"', page)
         self.assertIn('<select name="battleDifficulty"', page)
         self.assertIn('value="expert_winrate"', page)
@@ -779,6 +937,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('name="cheatProbability"', page)
         self.assertIn('<select name="battleAi"', page)
         self.assertIn("normalizeTrainerAi", app_script)
+        self.assertIn("saveWorldLayout", app_script)
+        self.assertIn("renderWorldRouteMap", app_script)
         self.assertIn("cheat_probability", app_script)
         self.assertIn("PokeAPI/sprites/master/sprites/pokemon", app_script)
         self.assertIn("trainerReferenceSprites", app_script)
@@ -787,17 +947,24 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("rosterCharacterOptions", app_script)
         self.assertIn("rosterCharactersForClass", app_script)
         self.assertIn("rosterRolesByClass", app_script)
+        self.assertIn("syncTrainerSlotMembers", app_script)
         self.assertIn('name="rosterCharacter"', page)
         self.assertIn("youngster-gen4", app_script)
         self.assertIn("trainerCharacterReferenceSprites", app_script)
+        for villain_admin in ("archer", "ariana", "proton", "petrel", "mars", "jupiter", "saturn", "charon"):
+            self.assertIn(f'{villain_admin}: "{villain_admin}"', app_script)
+        self.assertIn('[`local:${characterSlug}`, mappedCharacterSprite]', app_script)
         self.assertIn("characterVisualMatchStatus", app_script)
         self.assertIn("1차 스킨 검토 필요", app_script)
-        self.assertIn('appearance.source === "custom" ? { arm_model: "slim" }', app_script)
+        self.assertIn("trainerClassAppearanceForSource", app_script)
+        self.assertIn('rosterCharacter?.gender === "male"', app_script)
+        self.assertIn('rosterCharacter?.gender === "female"', app_script)
         self.assertIn("/api/trainer-reference?sprite=", app_script)
         self.assertIn("trainer-reference:", app_script)
         self.assertIn("/api/trainer-skin?resource=", app_script)
         self.assertNotIn("https://gitlab.com/srcmc/rct/mod/-/raw/1.21.1/common", app_script)
         self.assertIn("trainer-reference-image", styles)
+        self.assertIn("world-route-map", styles)
         self.assertIn("other/official-artwork", app_script)
         self.assertIn("pokeapi.co/api/v2/pokemon", app_script)
         self.assertIn("pokemonCatalogDisplayName", app_script)

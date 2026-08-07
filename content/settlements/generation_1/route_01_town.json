@@ -1,6 +1,6 @@
 {
   "$schema": "../../schemas/settlement.schema.json",
-  "schema_version": 2,
+  "schema_version": 3,
   "id": "cobbleventure:settlement/route_01_town",
   "enabled": true,
   "display_name": {
@@ -108,7 +108,7 @@
     "gym_theme": "bug",
     "gym_entrance_offset": { "x": 12, "y": 1, "z": 4 },
     "required_facilities": {
-      "gym": "cobbleventure:starter_town/gym"
+      "gym": "cobbleventure:route_01_town/gym"
     }
   },
   "npc_placement": {

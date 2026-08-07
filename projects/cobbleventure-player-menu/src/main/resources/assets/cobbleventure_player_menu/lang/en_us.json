@@ -22,5 +22,15 @@
   "screen.cobbleventure_player_menu.entry.map": "Map",
   "screen.cobbleventure_player_menu.entry.map.description": "View regions, towns, and destinations",
   "screen.cobbleventure_player_menu.entry.pokedex": "Pokédex",
-  "screen.cobbleventure_player_menu.entry.pokedex.description": "View discovered Pokémon and habitats"
+  "screen.cobbleventure_player_menu.entry.pokedex.description": "View discovered Pokémon and habitats",
+  "item.cobbleventure_player_menu.world_map": "Map",
+  "screen.cobbleventure_player_menu.world_map.title": "World Map",
+  "screen.cobbleventure_player_menu.world_map.hint": "This is the initial world map layout",
+  "screen.cobbleventure_player_menu.world_map.back": "Back to Menu",
+  "screen.cobbleventure_player_menu.world_map.close": "Close",
+  "screen.cobbleventure_player_menu.world_map.current_position": "Current Position",
+  "screen.cobbleventure_player_menu.world_map.region_title": "Selected Area",
+  "screen.cobbleventure_player_menu.world_map.region_placeholder": "Current Area",
+  "screen.cobbleventure_player_menu.world_map.spawn_title": "Encounters",
+  "screen.cobbleventure_player_menu.world_map.spawn_placeholder": "Discovered areas and Pokémon encounter data will appear here"
 }

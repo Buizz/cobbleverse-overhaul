@@ -10,6 +10,7 @@ public final class CobbleventurePlayerMenu {
     public static final String MOD_ID = "cobbleventure_player_menu";
 
     public CobbleventurePlayerMenu(IEventBus modBus) {
+        PlayerMenuItems.register(modBus);
         if (FMLEnvironment.dist.isClient()) {
             PlayerMenuClient.register();
         }

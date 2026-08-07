@@ -1,6 +1,6 @@
 {
   "$schema": "../../schemas/settlement.schema.json",
-  "schema_version": 2,
+  "schema_version": 3,
   "id": "cobbleventure:settlement/starter_town",
   "enabled": true,
   "display_name": {
@@ -23,7 +23,8 @@
   "anchors": {
     "town_square": { "x": 600, "y": 69, "z": -300 },
     "player_spawn": { "x": 600, "y": 69, "z": -390 },
-    "gym_entrance": { "x": 720, "y": 70, "z": -280 }
+    "gym_entrance": { "x": 612, "y": 70, "z": -294 },
+    "gym_return": { "x": 612, "y": 70, "z": -297 }
   },
   "content_profile": {
     "pokemon": {
@@ -110,7 +111,20 @@
     "gym_entrance_offset": { "x": 12, "y": 1, "z": 4 },
     "required_facilities": {
       "gym": "cobbleventure:starter_town/gym"
-    }
+    },
+    "facility_placements": [
+      {
+        "id": "gym_interior",
+        "mode": "instanced_entry",
+        "structure": "rgs:pewter_gym",
+        "entry_anchor": "gym_entrance",
+        "return_anchor": "gym_return",
+        "instance_origin": { "x": 2048, "y": 69, "z": 0 },
+        "instance_entry_offset": { "x": 12, "y": 4, "z": 4 },
+        "instance_exit_offset": { "x": 12, "y": 4, "z": 1 },
+        "trigger_radius": 1.75
+      }
+    ]
   },
   "npc_placement": {
     "max_ambient_npcs": 8,
@@ -119,8 +133,15 @@
       {
         "id": "gym_leader",
         "trainer_id": "cobbleventure:trainer/starter_town_leader",
-        "position": { "x": 724, "y": 70, "z": -272 },
-        "rotation": 180,
+        "battle_type": "singles",
+        "members": [
+          {
+            "id": "primary",
+            "npc_profile": "cobbleventure:trainer/starter_town_leader",
+            "position": { "x": 724, "y": 70, "z": -272 },
+            "rotation": 180
+          }
+        ],
         "spawn_policy": "persistent",
         "tags": ["gym", "fixed", "trainer"]
       }
