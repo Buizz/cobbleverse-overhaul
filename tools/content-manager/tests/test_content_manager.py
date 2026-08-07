@@ -549,7 +549,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("bug_catcher_female", classes)
         self.assertNotIn("double_team_male", classes)
         self.assertNotIn("double_team_female", classes)
-        custom_only = {"ace_trainer_gen6_male", "ace_trainer_gen6_female"}
+        custom_only = {"ace_trainer_gen6_male", "ace_trainer_gen6_female", "veteran_female"}
         skin_root = root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources" / "assets" / "cobbleventure" / "textures" / "entity" / "trainer"
         for slug, model in expected_models.items():
             with self.subTest(slug=slug):
@@ -562,9 +562,7 @@ class ContentManagerTests(unittest.TestCase):
                     self.assertIsNone(rct)
                 else:
                     self.assertTrue(rct["resource"].startswith("rctmod:trainers/single/"))
-                rct_defaults = {
-                    "hex_maniac", "veteran_female", "interviewers_female",
-                }
+                rct_defaults = {"hex_maniac", "interviewers_female"}
                 self.assertEqual("rct_single" if slug in rct_defaults else "custom", entry["default_appearance"]["source"])
                 self.assertEqual(model, entry["body"]["arm_model"])
                 manifest = content_manager.load_json(root / "tools" / "content-manager" / "skin-pipeline" / "work" / slug / "manifest.json")

@@ -201,6 +201,19 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
         if value is not None and (not isinstance(value, str) or not RESOURCE_ID.fullmatch(value)):
             _issue(issues, "error", file, data_path, "올바른 필드 기술 리소스 ID가 필요합니다.")
 
+    def validate_access_height(terrain: Any, access: Any, file: Path, data_path: str) -> None:
+        if access != "cobbleventure:field_move/rock_climb" or not isinstance(terrain, dict):
+            return
+        offset = terrain.get("base_height_offset")
+        variation = terrain.get("height_variation")
+        if (isinstance(offset, int) and not isinstance(offset, bool)
+                and isinstance(variation, int) and not isinstance(variation, bool)
+                and offset - variation < 6):
+            _issue(
+                issues, "error", file, f"{data_path}.terrain_profile",
+                "바위오르기 지역은 최저 지점도 기본 지표보다 6블록 이상 높아야 합니다."
+            )
+
     world_dir = root / "content" / "worlds"
     if not world_dir.exists():
         _issue(issues, "warning", world_dir, "$", "육각 세대 월드 데이터가 아직 없습니다.")
@@ -286,6 +299,7 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                 _issue(issues, "error", path, f"{entry_path}.boundary_profile", f"존재하지 않는 경계 프로필: {boundary}")
             validate_terrain(entry.get("terrain_profile"), path, f"{entry_path}.terrain_profile")
             validate_access(entry.get("access_requirement"), path, f"{entry_path}.access_requirement")
+            validate_access_height(entry.get("terrain_profile"), entry.get("access_requirement"), path, entry_path)
             surroundings = entry.get("surroundings")
             if not isinstance(surroundings, list) or not surroundings:
                 _issue(issues, "error", path, f"{entry_path}.surroundings", "하나 이상의 주변 바이옴이 필요합니다.")
@@ -317,6 +331,7 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                     _issue(issues, "error", path, f"{region_path}.boundary_profile", f"존재하지 않는 경계 프로필: {region_boundary}")
                 validate_terrain(region.get("terrain_profile"), path, f"{region_path}.terrain_profile")
                 validate_access(region.get("access_requirement"), path, f"{region_path}.access_requirement")
+                validate_access_height(region.get("terrain_profile"), region.get("access_requirement"), path, region_path)
         connections = world.get("connections")
         if not isinstance(connections, list):
             _issue(issues, "error", path, "$.connections", "연결 목록은 배열이어야 합니다.")
@@ -349,6 +364,9 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
             if connection.get("surface_style") not in {"road", "natural", "water"}:
                 _issue(issues, "error", path, f"{connection_path}.surface_style", "road, natural, water 중 하나가 필요합니다.")
             validate_access(connection.get("access_requirement"), path, f"{connection_path}.access_requirement")
+            validate_access_height(
+                connection.get("terrain_profile"), connection.get("access_requirement"), path, connection_path
+            )
             if connection.get("pathfinding") == "explicit" and not connection.get("cells"):
                 _issue(issues, "error", path, f"{connection_path}.cells", "explicit 경로에는 셀 목록이 필요합니다.")
     return issues

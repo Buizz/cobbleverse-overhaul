@@ -9,7 +9,7 @@
   "component_minimum_area": 80,
   "chroma_key": "#ff00ff",
   "chroma_threshold": 45,
-  "palette_colors": 14,
+  "palette_colors": 20,
   "fallback_color": "#d8a174",
   "overlay_parts": [],
   "output": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/ace_trainer_male.png"

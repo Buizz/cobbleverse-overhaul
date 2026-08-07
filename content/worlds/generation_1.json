@@ -405,7 +405,7 @@
       "edge_noise": 0.14,
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
-        "base_height_offset": 7,
+        "base_height_offset": 8,
         "height_variation": 2,
         "noise_scale_blocks": 92
       },

@@ -54,7 +54,8 @@ public final class CobbleventureBootstrap {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String DATA_FILE = "cobbleventure_world_bootstrap";
     private static final int EXPECTED_SURFACE_Y = 69;
-    private static final int MAP_VERSION = 7;
+    private static final int MAP_VERSION = 8;
+    private static final int TOWN_PRELOAD_RADIUS_CHUNKS = 6;
     private static final String STARTER_SETTLEMENT = "cobbleventure:settlement/starter_town";
     private static final String INTEGRATION_TEST_PROPERTY = "cobbleventure.testStarterTown";
     private static final String HEX_WORLD_TEST_PROPERTY = "cobbleventure.testHexWorld";
@@ -124,6 +125,13 @@ public final class CobbleventureBootstrap {
         if (Boolean.getBoolean(HEX_WORLD_TEST_PROPERTY)) {
             drawHexWorld(level, runtime.hexWorld(), true);
             verifyHexWorld(level, runtime.hexWorld());
+            for (SettlementPlan settlement : runtime.settlements().values()) {
+                if (settlement.enabled() && !placeTown(level, settlement)) {
+                    throw new IllegalStateException(
+                        "Cobbleventure town placement integration test failed: " + settlement.id()
+                    );
+                }
+            }
             LOGGER.info("Cobbleventure hex world rendering integration test succeeded");
             event.getServer().halt(false);
         }
@@ -232,7 +240,7 @@ public final class CobbleventureBootstrap {
         BlockPos villagePos = surfacePosition(
             level, settlement.structurePoint().x(), settlement.structurePoint().z()
         );
-        level.getChunk(villagePos);
+        preloadChunksAround(level, villagePos, TOWN_PRELOAD_RADIUS_CHUNKS);
         try {
             int placed = level.getServer().getCommands().getDispatcher().execute(
                 "place structure " + settlement.structure() + " ~ ~ ~",
@@ -290,7 +298,7 @@ public final class CobbleventureBootstrap {
 
     private static boolean placeTemplate(ServerLevel level, String structure, BlockPoint position) {
         BlockPos blockPos = position.toBlockPos();
-        level.getChunk(blockPos);
+        preloadTemplateChunks(level, structure, blockPos);
         try {
             int placed = level.getServer().getCommands().getDispatcher().execute(
                 "place template " + structure + " ~ ~ ~",
@@ -304,6 +312,34 @@ public final class CobbleventureBootstrap {
         } catch (CommandSyntaxException error) {
             LOGGER.error("Template command failed for {} at {}", structure, position, error);
             return false;
+        }
+    }
+
+    private static void preloadChunksAround(ServerLevel level, BlockPos center, int radius) {
+        int centerChunkX = center.getX() >> 4;
+        int centerChunkZ = center.getZ() >> 4;
+        for (int chunkX = centerChunkX - radius; chunkX <= centerChunkX + radius; chunkX++) {
+            for (int chunkZ = centerChunkZ - radius; chunkZ <= centerChunkZ + radius; chunkZ++) {
+                level.getChunk(chunkX, chunkZ);
+            }
+        }
+    }
+
+    private static void preloadTemplateChunks(ServerLevel level, String structure, BlockPos origin) {
+        var template = level.getStructureManager().get(ResourceLocation.parse(structure));
+        if (template.isEmpty()) {
+            level.getChunk(origin);
+            return;
+        }
+        var size = template.get().getSize();
+        int minChunkX = Math.min(origin.getX(), origin.getX() + size.getX()) >> 4;
+        int maxChunkX = Math.max(origin.getX(), origin.getX() + size.getX()) >> 4;
+        int minChunkZ = Math.min(origin.getZ(), origin.getZ() + size.getZ()) >> 4;
+        int maxChunkZ = Math.max(origin.getZ(), origin.getZ() + size.getZ()) >> 4;
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                level.getChunk(chunkX, chunkZ);
+            }
         }
     }
 
@@ -1026,15 +1062,14 @@ public final class CobbleventureBootstrap {
     }
 
     private static void verifyHexWorld(ServerLevel level, HexWorldPlan world) {
-        Map<String, TerrainSamplePoint> samples = new LinkedHashMap<>();
+        Map<String, List<TerrainSamplePoint>> samples = new LinkedHashMap<>();
         for (Map.Entry<HexCoord, CellPlan> entry : world.cells().entrySet()) {
             Point center = world.grid().worldCenter(entry.getKey());
             TerrainSample sample = terrainAt(world, center.x() + 0.5D, center.z() + 0.5D);
             if (sample != null) {
-                samples.putIfAbsent(
-                    sample.kind() + ":" + sample.owner(),
-                    new TerrainSamplePoint(center, sample)
-                );
+                samples.computeIfAbsent(
+                    sample.kind() + ":" + sample.owner(), key -> new ArrayList<>()
+                ).add(new TerrainSamplePoint(center, sample));
             }
         }
         Set<String> expectedOwners = new HashSet<>();
@@ -1042,10 +1077,19 @@ public final class CobbleventureBootstrap {
             expectedOwners.add(cell.kind() + ":" + cell.owner());
         }
         for (String owner : expectedOwners) {
-            TerrainSamplePoint selected = samples.get(owner);
-            if (selected == null) {
+            List<TerrainSamplePoint> candidates = samples.get(owner);
+            if (candidates == null || candidates.isEmpty()) {
                 throw new IllegalStateException("Continuous biome region has no visible sample: " + owner);
             }
+            if (owner.startsWith("route:")) {
+                continue;
+            }
+            TerrainSamplePoint selected = candidates.stream()
+                .filter(candidate -> isValidRenderedSample(level, world, candidate))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                    "Continuous biome region has no valid interior sample: " + owner
+                ));
             ResourceKey<net.minecraft.world.level.biome.Biome> expected = ResourceKey.create(
                 Registries.BIOME,
                 ResourceLocation.parse(selected.sample().biome())
@@ -1085,6 +1129,40 @@ public final class CobbleventureBootstrap {
                 throw new IllegalStateException("Surf region is missing navigable water: " + owner);
             }
         }
+    }
+
+    private static boolean isValidRenderedSample(
+        ServerLevel level, HexWorldPlan world, TerrainSamplePoint selected
+    ) {
+        ResourceKey<net.minecraft.world.level.biome.Biome> expected = ResourceKey.create(
+            Registries.BIOME,
+            ResourceLocation.parse(selected.sample().biome())
+        );
+        BlockPos samplePosition = new BlockPos(selected.point().x(), 69, selected.point().z());
+        if (!level.getBiome(samplePosition).is(expected)) {
+            return false;
+        }
+        int groundY = terrainGroundY(
+            world, selected.sample(), selected.point().x(), selected.point().z()
+        );
+        BlockState renderedSurface = level.getBlockState(new BlockPos(
+            selected.point().x(), groundY, selected.point().z()
+        ));
+        boolean expectedSurface = renderedSurface.is(surfaceBlock(selected.sample().biome()).getBlock())
+            || (selected.sample().surfaceStyle().equals("road")
+                && renderedSurface.is(Blocks.COBBLESTONE));
+        if (!expectedSurface) {
+            return false;
+        }
+        if ("cobbleventure:field_move/rock_climb".equals(selected.sample().accessRequirement())
+            && groundY < 74) {
+            return false;
+        }
+        return !"cobbleventure:field_move/surf".equals(selected.sample().accessRequirement())
+            || !isAquatic(selected.sample())
+            || level.getBlockState(new BlockPos(
+                selected.point().x(), 69, selected.point().z()
+            )).is(Blocks.WATER);
     }
 
     private static TerrainSample terrainAt(HexWorldPlan world, double x, double z) {

@@ -29,6 +29,9 @@
   지점으로 되돌린다.
 - 육각 셀 계획을 완료한 뒤 `structure_profile.structure`을 계산된 마을 셀 중심에
   배치한다. 기존 절대 앵커는 셀 중심 이동량만큼 함께 평행이동한다.
+- 멀리 떨어진 마을의 Jigsaw 구조물을 배치하기 전 최대 확장 거리까지 주변 청크를
+  선로딩한다. `place structure`가 섬·산악 분기에서 `That position is not loaded`로
+  실패하는 것을 방지한다. 시설 템플릿은 실제 템플릿 크기에 해당하는 청크만 선로딩한다.
 - 시작 마을, 숲 테마의 `route_01_town`, 불꽃·황무지 테마의 `crimson_town`,
   파도타기로만 접근하는 섬 마을 `tidehaven_town`, 바위오르기로 진입하는 산악
   `skyreach_town`까지 5개 마을을 연결한다. 기본 동선은 `1→2→3→4`이며
