@@ -13,11 +13,11 @@
         },
         {
           "block": "minecraft:stone",
-          "height": 50
+          "height": 55
         },
         {
           "block": "minecraft:dirt",
-          "height": 8
+          "height": 3
         },
         {
           "block": "minecraft:grass_block",

@@ -105,7 +105,7 @@
       "boundary_profile": "cobbleventure:boundary/stone_wall",
       "terrain_profile": {
         "base_height_offset": 0,
-        "height_variation": 0,
+        "height_variation": 4,
         "noise_scale_blocks": 96
       }
     },
@@ -174,7 +174,7 @@
       "boundary_profile": "cobbleventure:boundary/dense_tree_line",
       "terrain_profile": {
         "base_height_offset": 0,
-        "height_variation": 0,
+        "height_variation": 4,
         "noise_scale_blocks": 96
       }
     },
@@ -243,7 +243,7 @@
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
-        "height_variation": 0,
+        "height_variation": 5,
         "noise_scale_blocks": 96
       }
     },
@@ -287,7 +287,7 @@
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
-        "height_variation": 0,
+        "height_variation": 3,
         "noise_scale_blocks": 96
       },
       "access_requirement": "cobbleventure:field_move/surf"
@@ -331,7 +331,7 @@
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 8,
-        "height_variation": 0,
+        "height_variation": 2,
         "noise_scale_blocks": 96
       },
       "access_requirement": "cobbleventure:field_move/rock_climb"

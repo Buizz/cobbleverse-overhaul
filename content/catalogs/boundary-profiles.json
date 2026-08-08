@@ -34,7 +34,7 @@
       "tree": {
         "log": "minecraft:dark_oak_log",
         "leaves": "minecraft:dark_oak_leaves",
-        "spacing": 1,
+        "spacing": 4,
         "min_height": 6,
         "max_height": 10
       }

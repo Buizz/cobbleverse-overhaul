@@ -53,12 +53,23 @@ class DataModBuilderTests(unittest.TestCase):
         self.assertEqual(
             [
                 {"block": "minecraft:bedrock", "height": 10},
-                {"block": "minecraft:stone", "height": 50},
-                {"block": "minecraft:dirt", "height": 8},
+                {"block": "minecraft:stone", "height": 55},
+                {"block": "minecraft:dirt", "height": 3},
                 {"block": "minecraft:grass_block", "height": 1},
             ],
             layers,
         )
+
+    def test_sealed_dark_forest_has_no_native_spawns(self) -> None:
+        path = (
+            REPOSITORY_ROOT
+            / build_data_mod.SOURCE
+            / "data/cobbleventure/worldgen/biome/sealed_dark_forest.json"
+        )
+        biome = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertTrue(all(not entries for entries in biome["features"]))
+        self.assertTrue(all(not entries for entries in biome["spawners"].values()))
 
     def _fixture(self, root: Path) -> Path:
         source = root / build_data_mod.SOURCE
