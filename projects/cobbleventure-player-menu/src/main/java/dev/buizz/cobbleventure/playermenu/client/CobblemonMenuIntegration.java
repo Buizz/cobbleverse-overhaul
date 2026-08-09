@@ -57,6 +57,16 @@ final class CobblemonMenuIntegration {
         return true;
     }
 
+    static int partySize() {
+        int size = 0;
+        for (int slot = 0; slot < 6; slot++) {
+            if (CobblemonClient.INSTANCE.getStorage().getParty().get(slot) != null) {
+                size++;
+            }
+        }
+        return size;
+    }
+
     private static Pokemon firstPartyPokemon() {
         for (int slot = 0; slot < 6; slot++) {
             Pokemon pokemon = CobblemonClient.INSTANCE.getStorage().getParty().get(slot);
