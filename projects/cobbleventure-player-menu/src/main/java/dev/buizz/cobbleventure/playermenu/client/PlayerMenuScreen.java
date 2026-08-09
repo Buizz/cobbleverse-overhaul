@@ -21,7 +21,7 @@ public final class PlayerMenuScreen extends Screen {
     private static final int MIN_CARD_HEIGHT = 56;
     private static final int HEADER_HEIGHT = 44;
 
-    private static final int BACKDROP_COLOR = 0xB8141B26;
+    private static final int BACKDROP_COLOR = 0x80141B26;
     private static final int PANEL_COLOR = 0xE0182636;
     private static final int PANEL_BORDER_COLOR = 0xFF465B70;
     private static final int CARD_COLOR = 0xE01B2A3B;
@@ -107,6 +107,12 @@ public final class PlayerMenuScreen extends Screen {
         renderHeader(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderFooter(graphics);
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // The menu draws its own translucent backdrop. Screen's default implementation
+        // would blur everything already drawn before super.render() renders the cards.
     }
 
     @Override

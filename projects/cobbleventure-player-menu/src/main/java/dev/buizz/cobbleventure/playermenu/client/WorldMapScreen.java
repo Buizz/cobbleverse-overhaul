@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component;
  * 월드맵의 최소 수직 프로토타입. 이후 발견 지역과 HabitatMapPanel을 이 화면에 연결한다.
  */
 public final class WorldMapScreen extends Screen {
-    private static final int PAGE_BACKGROUND = 0xF01A2028;
+    private static final int PAGE_BACKGROUND = 0xB01A2028;
     private static final int MAP_BACKGROUND = 0xFF263A35;
     private static final int MAP_GRID = 0x504E7164;
     private static final int MAP_BORDER = 0xFF9AB29C;
@@ -60,6 +60,11 @@ public final class WorldMapScreen extends Screen {
             false
         );
         super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // Keep the live world visible behind the map instead of applying Screen's blur pass.
     }
 
     @Override
