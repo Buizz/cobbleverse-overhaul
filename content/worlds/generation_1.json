@@ -1,18 +1,46 @@
 {
   "$schema": "../schemas/hex-world.schema.json",
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "cobbleventure:world/generation_1",
   "dimension": "cobbleventure:generation_1",
   "seed_salt": 1701,
   "grid": {
     "orientation": "pointy_top",
     "tile_radius_blocks": 64,
+    "map_radius_cells": 13,
     "origin": {
       "x": 600,
       "y": 69,
       "z": -300
     }
   },
+  "tiles": [
+    { "q": -1, "r": 0, "biome": "minecraft:forest", "boundary_profile": "cobbleventure:boundary/dense_tree_line", "terrain_profile": { "base_height_offset": 0, "height_variation": 3, "noise_scale_blocks": 72 } },
+    { "q": -1, "r": 1, "biome": "minecraft:forest", "boundary_profile": "cobbleventure:boundary/dense_tree_line", "terrain_profile": { "base_height_offset": 0, "height_variation": 3, "noise_scale_blocks": 72 } },
+    { "q": 0, "r": -1, "biome": "minecraft:windswept_hills", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 9, "height_variation": 3, "noise_scale_blocks": 88 }, "access_requirement": "cobbleventure:field_move/rock_climb" },
+    { "q": 1, "r": -1, "biome": "minecraft:forest", "boundary_profile": "cobbleventure:boundary/dense_tree_line", "terrain_profile": { "base_height_offset": 0, "height_variation": 3, "noise_scale_blocks": 72 } },
+    { "q": 0, "r": 1, "biome": "minecraft:river", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": -8, "height_variation": 2, "noise_scale_blocks": 96 } },
+    { "q": 3, "r": 0, "biome": "minecraft:flower_forest", "boundary_profile": "cobbleventure:boundary/dense_tree_line", "terrain_profile": { "base_height_offset": 1, "height_variation": 3, "noise_scale_blocks": 80 } },
+    { "q": 3, "r": 1, "biome": "minecraft:river", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": -8, "height_variation": 2, "noise_scale_blocks": 96 } },
+    { "q": 4, "r": -1, "biome": "minecraft:flower_forest", "boundary_profile": "cobbleventure:boundary/dense_tree_line", "terrain_profile": { "base_height_offset": 1, "height_variation": 3, "noise_scale_blocks": 80 } },
+    { "q": 5, "r": -1, "biome": "minecraft:forest", "boundary_profile": "cobbleventure:boundary/dense_tree_line", "terrain_profile": { "base_height_offset": 0, "height_variation": 3, "noise_scale_blocks": 80 } },
+    { "q": 5, "r": 0, "biome": "minecraft:flower_forest", "boundary_profile": "cobbleventure:boundary/dense_tree_line", "terrain_profile": { "base_height_offset": 1, "height_variation": 3, "noise_scale_blocks": 80 } },
+    { "q": 7, "r": 0, "biome": "minecraft:eroded_badlands", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 2, "height_variation": 3, "noise_scale_blocks": 92 } },
+    { "q": 7, "r": 1, "biome": "minecraft:desert", "boundary_profile": "cobbleventure:boundary/stone_wall", "terrain_profile": { "base_height_offset": 0, "height_variation": 3, "noise_scale_blocks": 110 } },
+    { "q": 8, "r": -1, "biome": "minecraft:badlands", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 2, "height_variation": 3, "noise_scale_blocks": 92 } },
+    { "q": 9, "r": -1, "biome": "minecraft:eroded_badlands", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 2, "height_variation": 3, "noise_scale_blocks": 92 } },
+    { "q": 9, "r": 0, "biome": "minecraft:desert", "boundary_profile": "cobbleventure:boundary/stone_wall", "terrain_profile": { "base_height_offset": 0, "height_variation": 3, "noise_scale_blocks": 110 } },
+    { "q": 9, "r": 2, "biome": "minecraft:beach", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 0, "height_variation": 2, "noise_scale_blocks": 96 } },
+    { "q": 10, "r": 1, "biome": "minecraft:warm_ocean", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": -30, "height_variation": 6, "noise_scale_blocks": 120 }, "access_requirement": "cobbleventure:field_move/surf" },
+    { "q": 11, "r": 1, "biome": "minecraft:warm_ocean", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": -30, "height_variation": 6, "noise_scale_blocks": 120 }, "access_requirement": "cobbleventure:field_move/surf" },
+    { "q": 11, "r": 2, "biome": "minecraft:warm_ocean", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": -30, "height_variation": 6, "noise_scale_blocks": 120 }, "access_requirement": "cobbleventure:field_move/surf" },
+    { "q": 10, "r": 3, "biome": "minecraft:beach", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 0, "height_variation": 2, "noise_scale_blocks": 96 } },
+    { "q": 7, "r": -4, "biome": "minecraft:windswept_hills", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 8, "height_variation": 2, "noise_scale_blocks": 92 }, "access_requirement": "cobbleventure:field_move/rock_climb" },
+    { "q": 8, "r": -5, "biome": "minecraft:stony_peaks", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 8, "height_variation": 2, "noise_scale_blocks": 92 }, "access_requirement": "cobbleventure:field_move/rock_climb" },
+    { "q": 9, "r": -5, "biome": "minecraft:windswept_hills", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 8, "height_variation": 2, "noise_scale_blocks": 92 }, "access_requirement": "cobbleventure:field_move/rock_climb" },
+    { "q": 9, "r": -4, "biome": "minecraft:stony_peaks", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 8, "height_variation": 2, "noise_scale_blocks": 92 }, "access_requirement": "cobbleventure:field_move/rock_climb" },
+    { "q": 8, "r": -3, "biome": "minecraft:windswept_hills", "boundary_profile": "cobbleventure:boundary/earthwork", "terrain_profile": { "base_height_offset": 8, "height_variation": 2, "noise_scale_blocks": 92 }, "access_requirement": "cobbleventure:field_move/rock_climb" }
+  ],
   "settlements": [
     {
       "settlement": "cobbleventure:settlement/starter_town",
@@ -253,7 +281,7 @@
         "q": 10,
         "r": 2
       },
-      "town_radius_cells": 0,
+      "town_radius_cells": 1,
       "town_biome": "minecraft:beach",
       "surroundings": [
         {
@@ -298,7 +326,7 @@
         "q": 8,
         "r": -4
       },
-      "town_radius_cells": 0,
+      "town_radius_cells": 1,
       "town_biome": "minecraft:stony_peaks",
       "surroundings": [
         {
@@ -409,7 +437,7 @@
         "height_variation": 2,
         "noise_scale_blocks": 92
       },
-      "surface_style": "natural",
+      "surface_style": "road",
       "access_requirement": "cobbleventure:field_move/rock_climb"
     }
   ]

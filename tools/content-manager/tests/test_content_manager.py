@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import shutil
@@ -8,6 +9,7 @@ import tempfile
 import threading
 import unittest
 import urllib.request
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -55,6 +57,18 @@ class ContentManagerTests(unittest.TestCase):
             issues = content_manager.save_world_layout(candidate_root, invalid)
             self.assertTrue(any(issue.level == "error" for issue in issues))
             self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
+            generation_two = {
+                "$schema": "../schemas/hex-world.schema.json",
+                "schema_version": 2,
+                "id": "cobbleventure:world/generation_2",
+                "dimension": "cobbleventure:generation_2",
+                "seed_salt": 1702,
+                "grid": {"orientation": "pointy_top", "tile_radius_blocks": 64, "map_radius_cells": 6, "origin": {"x": 0, "y": 69, "z": 0}},
+                "tiles": [], "settlements": [], "connections": [],
+            }
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, generation_two, 2))
+            self.assertEqual(generation_two, content_manager.load_world_layout(candidate_root, 2))
+            self.assertEqual([1, 2], content_manager.list_world_generations(candidate_root))
 
     def test_web_command_stops_only_matching_previous_content_manager(self) -> None:
         root = Path(__file__).parents[3]
@@ -322,6 +336,95 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertTrue(any("하나 이상의 필수 시설" in issue.message for issue in issues))
 
+    def test_settlement_rejects_invalid_village_and_house_styles(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (
+                root
+                / "content"
+                / "settlements"
+                / "generation_1"
+                / "starter_town.json"
+            ).read_text(encoding="utf-8")
+        )
+        source["structure_profile"]["village_preset"] = "unknown"
+        source["structure_profile"]["commercial_center"] = "shopping_mall"
+        source["structure_profile"]["house_style"] = "invalid pool"
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        locations = {issue.path for issue in issues if issue.level == "error"}
+        self.assertIn("$.structure_profile.village_preset", locations)
+        self.assertIn("$.structure_profile.commercial_center", locations)
+        self.assertIn("$.structure_profile.house_style", locations)
+
+    def test_special_district_allows_reserved_empty_plot(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["special_district"]["building"] = {
+            "enabled": False, "id": "future_lab", "structure": "",
+        }
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertEqual([], [issue for issue in issues if issue.level == "error"])
+
+    def test_enabled_special_building_requires_resource_id(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["special_district"]["building"].update({
+            "enabled": True, "structure": "",
+        })
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertTrue(any(
+            issue.path == "$.structure_profile.special_district.building.structure"
+            for issue in issues if issue.level == "error"
+        ))
+
+    def test_gym_can_be_disabled_without_leader_or_structure(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["gym"].update({
+            "enabled": False, "structure": "", "leader_trainer_id": "",
+        })
+        source["structure_profile"]["facility_placements"] = []
+        source["npc_placement"]["trainer_slots"] = []
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertEqual([], [issue for issue in issues if issue.level == "error"])
+
+    def test_new_settlement_reserves_special_district_and_disables_gym(self) -> None:
+        document = content_manager._settlement_template("new_town", "새 마을", "generation_1")
+
+        self.assertTrue(document["structure_profile"]["special_district"]["enabled"])
+        self.assertFalse(document["structure_profile"]["special_district"]["building"]["enabled"])
+        self.assertFalse(document["structure_profile"]["gym"]["enabled"])
+        self.assertIn("special_district", document["anchors"])
+        self.assertIn("gym_building", document["anchors"])
+
     def test_settlement_supports_at_most_three_biomes(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -385,6 +488,21 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertTrue(any("체육관 타입 테마" in issue.message for issue in issues))
 
+    def test_direct_facility_requires_existing_anchor(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["facility_placements"][0]["anchor"] = "missing"
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertTrue(any("존재하는 마을 앵커" in issue.message for issue in issues))
+
     def test_instanced_facility_requires_existing_anchors(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -392,7 +510,17 @@ class ContentManagerTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        source["structure_profile"]["facility_placements"][0]["entry_anchor"] = "missing"
+        source["structure_profile"]["facility_placements"] = [{
+            "id": "gym_interior",
+            "mode": "instanced_entry",
+            "structure": "rgs:pewter_gym",
+            "entry_anchor": "missing",
+            "return_anchor": "gym_return",
+            "instance_origin": {"x": 2048, "y": 69, "z": 0},
+            "instance_entry_offset": {"x": 12, "y": 4, "z": 4},
+            "instance_exit_offset": {"x": 12, "y": 4, "z": 1},
+            "trigger_radius": 1.75,
+        }]
 
         _, issues = content_manager._validate_payload(
             source, content_manager.validate_settlement_file
@@ -828,6 +956,92 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("W2pr9jyL", content_pack["modrinth"]["project_id"])
         self.assertEqual("9PMzbD4o", content_pack["modrinth"]["version_id"])
 
+    def test_server_full_dex_and_mega_addons_are_pinned_in_development_pack(self) -> None:
+        root = Path(__file__).parents[3]
+        dependency_lock = content_manager.load_json(
+            root / "pack" / "dependencies.lock.json"
+        )
+        mods = {item["id"]: item for item in dependency_lock["mods"]}
+        expected_files = {
+            "accessories": (938917, 7046407),
+            "owo_lib": (532610, 6416633),
+            "mega_showdown": (1189523, 8519042),
+            "paxi_neoforge": (1015157, 6485740),
+            "yungs_api_neoforge": (1015100, 6715463),
+        }
+
+        for mod_id, (project_id, file_id) in expected_files.items():
+            with self.subTest(mod_id=mod_id):
+                mod = mods[mod_id]
+                self.assertTrue(mod["enabled"])
+                self.assertEqual("required", mod["classification"])
+                self.assertEqual("both", mod["side"])
+                self.assertEqual(project_id, mod["curseforge"]["project_id"])
+                self.assertEqual(file_id, mod["curseforge"]["file_id"])
+
+        profile = content_manager.load_json(
+            root / "pack" / "profiles" / "development-placeholder.json"
+        )
+        profile_files = {
+            (entry["projectID"], entry["fileID"]) for entry in profile["files"]
+        }
+        self.assertTrue(set(expected_files.values()).issubset(profile_files))
+        self.assertNotIn(
+            "allthemons_x_mega_showdown_datapack",
+            {item["id"] for item in dependency_lock["content_packs"]},
+        )
+
+        expected_cccc_sha1 = "b37e878f7e5539bfd145ca0fe9d63bcfef0a128c"
+        expected_fix_sha1 = "9d20719aea859c9f20dfffccf3c30b756a419581"
+        paxi_root = (
+            root
+            / "pack"
+            / "overrides"
+            / "development-placeholder"
+            / "config"
+            / "paxi"
+        )
+        cccc_paths = [
+            paxi_root / folder / "CCCC-1.7.2.zip"
+            for folder in ("datapacks", "resourcepacks")
+        ]
+        fix_paths = [
+            path.parent / "ZA-Mega-Staraptor-Contrary-Fix.zip"
+            for path in cccc_paths
+        ]
+        for cccc_path in cccc_paths:
+            with self.subTest(cccc_path=cccc_path):
+                self.assertTrue(cccc_path.is_file())
+                self.assertEqual(
+                    expected_cccc_sha1,
+                    hashlib.sha1(cccc_path.read_bytes()).hexdigest(),
+                )
+        for fix_path in fix_paths:
+            with self.subTest(fix_path=fix_path):
+                self.assertTrue(fix_path.is_file())
+                self.assertEqual(
+                    expected_fix_sha1,
+                    hashlib.sha1(fix_path.read_bytes()).hexdigest(),
+                )
+
+        self.assertLess(
+            "CCCC-1.7.2.zip",
+            "ZA-Mega-Staraptor-Contrary-Fix.zip",
+        )
+        with zipfile.ZipFile(cccc_paths[0]) as archive:
+            self.assertIn("LICENSE", archive.namelist())
+            self.assertIn("Credits.txt", archive.namelist())
+        with zipfile.ZipFile(fix_paths[0]) as archive:
+            staraptor = json.loads(
+                archive.read(
+                    "data/cobblemon/species_additions/generation4/staraptor_mega.json"
+                )
+            )
+        mega_form = staraptor["forms"][0]
+        self.assertIn("contrary", mega_form["abilities"])
+        self.assertEqual("fighting", mega_form["primaryType"])
+        self.assertEqual("flying", mega_form["secondaryType"])
+
     def test_local_api_health_and_validation(self) -> None:
         root = Path(__file__).parents[3]
         server = content_manager.ThreadingHTTPServer(
@@ -875,6 +1089,8 @@ class ContentManagerTests(unittest.TestCase):
                 pokemon_habitats = json.load(response)
             with urllib.request.urlopen(f"{base_url}/api/world-layout") as response:
                 world_layout = json.load(response)
+            with urllib.request.urlopen(f"{base_url}/api/world-layouts") as response:
+                world_layouts = json.load(response)
             preview_request = urllib.request.Request(
                 f"{base_url}/api/biome-preview",
                 data=json.dumps({"set_id": "cobbleventure:biome_set/starter_region"}).encode("utf-8"),
@@ -912,6 +1128,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(5, len(settlements["items"]))
         self.assertEqual(5, len(world_layout["settlements"]))
         self.assertEqual(4, len(world_layout["connections"]))
+        self.assertGreater(len(world_layout["tiles"]), 0)
+        self.assertIn(1, world_layouts["generations"])
         self.assertGreaterEqual(len(trainer_classes["classes"]), 10)
         self.assertGreaterEqual(len(editor_catalog["species"]), 1000)
         self.assertGreaterEqual(len(editor_catalog["moves"]), 900)
@@ -924,7 +1142,8 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertIn("Cobbleventure Content Studio", page)
         self.assertIn("바이옴 관리", page)
-        self.assertIn("마을 동선", page)
+        self.assertIn("육각형 기반 월드 미니맵", page)
+        self.assertIn("세대 추가", page)
         self.assertIn("엔트리 JSON 복사", page)
         self.assertIn("전투 가방", page)
         self.assertIn("듀얼배틀은 같은 전투에 참여할 EasyNPC 2명", page)
@@ -936,7 +1155,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('<select name="battleAi"', page)
         self.assertIn("normalizeTrainerAi", app_script)
         self.assertIn("saveWorldLayout", app_script)
-        self.assertIn("renderWorldRouteMap", app_script)
+        self.assertIn("renderHexMap", app_script)
+        self.assertIn("finishSettlementDrag", app_script)
         self.assertIn("cheat_probability", app_script)
         self.assertIn("PokeAPI/sprites/master/sprites/pokemon", app_script)
         self.assertIn("trainerReferenceSprites", app_script)
@@ -962,7 +1182,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("/api/trainer-skin?resource=", app_script)
         self.assertNotIn("https://gitlab.com/srcmc/rct/mod/-/raw/1.21.1/common", app_script)
         self.assertIn("trainer-reference-image", styles)
-        self.assertIn("world-route-map", styles)
+        self.assertIn("world-map-viewport", styles)
+        self.assertIn("hex-settlement", styles)
         self.assertIn("other/official-artwork", app_script)
         self.assertIn("pokeapi.co/api/v2/pokemon", app_script)
         self.assertIn("pokemonCatalogDisplayName", app_script)

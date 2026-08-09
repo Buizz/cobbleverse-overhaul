@@ -22,7 +22,9 @@
   },
   "anchors": {
     "town_square": { "x": 1040, "y": 69, "z": -300 },
-    "gym_entrance": { "x": 1052, "y": 70, "z": -296 }
+    "special_district": { "x": 960, "y": 69, "z": -300 },
+    "gym_building": { "x": 1172, "y": 69, "z": -310 },
+    "gym_entrance": { "x": 1171, "y": 70, "z": -300 }
   },
   "content_profile": {
     "pokemon": {
@@ -100,16 +102,43 @@
         "offset": 0
       },
       "gate_width": 9,
-      "path_width": 7
+      "path_width": 3
     }
   ],
   "structure_profile": {
     "structure": "cobbleventure:route_01_town/village",
     "gym_theme": "bug",
-    "gym_entrance_offset": { "x": 12, "y": 1, "z": 4 },
+    "village_preset": "default_mid",
+    "commercial_center": "pokemart",
+    "house_style": "bca:default/general",
+    "gym_entrance_offset": { "x": 2, "y": 3, "z": 10 },
     "required_facilities": {
-      "gym": "cobbleventure:route_01_town/gym"
-    }
+      "village_hub": "cobbleventure:route_01_town/village_hub"
+    },
+    "special_district": {
+      "enabled": true,
+      "anchor": "special_district",
+      "footprint": { "width": 48, "depth": 48 },
+      "clearance": 6,
+      "entrance_direction": "south",
+      "building": { "enabled": false, "id": "special_landmark", "structure": "" }
+    },
+    "gym": {
+      "enabled": true,
+      "structure": "rgs:celadon_gym",
+      "theme": "bug",
+      "anchor": "gym_building",
+      "entrance_offset": { "x": 2, "y": 3, "z": 10 },
+      "leader_trainer_id": ""
+    },
+    "facility_placements": [
+      {
+        "id": "gym_building",
+        "mode": "direct_template",
+        "structure": "rgs:celadon_gym",
+        "anchor": "gym_building"
+      }
+    ]
   },
   "npc_placement": {
     "max_ambient_npcs": 10,

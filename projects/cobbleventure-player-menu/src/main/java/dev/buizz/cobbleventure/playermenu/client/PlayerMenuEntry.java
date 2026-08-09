@@ -13,7 +13,7 @@ enum PlayerMenuEntry {
     BAG("bag", false, "relic_coin_pouch"),
     EQUIPMENT("equipment", true, "assault_vest"),
     PC("pc", false, "pc"),
-    TRAINER_CARD("trainer_card", false, "red_card"),
+    TRAINER_CARD("trainer_card", true, "red_card"),
     QUESTS("quests", false, "scroll_of_darkness"),
     MAP("map", true, null),
     POKEDEX("pokedex", false, "pokedex_red");
@@ -67,6 +67,10 @@ enum PlayerMenuEntry {
         }
         if (this == MAP) {
             PlayerMenuClient.openWorldMap();
+            return OpenResult.OPENED;
+        }
+        if (this == TRAINER_CARD) {
+            PlayerMenuClient.openTrainerCard();
             return OpenResult.OPENED;
         }
         if (this == POKEMON && connected()) {

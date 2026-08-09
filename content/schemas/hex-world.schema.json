@@ -10,7 +10,7 @@
   ],
   "properties": {
     "$schema": { "type": "string" },
-    "schema_version": { "const": 1 },
+    "schema_version": { "enum": [1, 2] },
     "id": { "$ref": "#/$defs/resource_id" },
     "dimension": { "$ref": "#/$defs/resource_id" },
     "seed_salt": { "type": "integer" },
@@ -21,13 +21,17 @@
       "properties": {
         "orientation": { "const": "pointy_top" },
         "tile_radius_blocks": { "type": "integer", "minimum": 32, "maximum": 256 },
+        "map_radius_cells": { "type": "integer", "minimum": 3, "maximum": 14 },
         "origin": { "$ref": "#/$defs/block_position" }
       }
     },
     "settlements": {
       "type": "array",
-      "minItems": 1,
       "items": { "$ref": "#/$defs/settlement_footprint" }
+    },
+    "tiles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/placed_tile" }
     },
     "connections": {
       "type": "array",
@@ -56,6 +60,19 @@
       "properties": {
         "q": { "type": "integer", "minimum": -1024, "maximum": 1024 },
         "r": { "type": "integer", "minimum": -1024, "maximum": 1024 }
+      }
+    },
+    "placed_tile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q", "r", "biome", "boundary_profile", "terrain_profile"],
+      "properties": {
+        "q": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "r": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "biome": { "$ref": "#/$defs/resource_id" },
+        "boundary_profile": { "$ref": "#/$defs/resource_id" },
+        "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
+        "access_requirement": { "$ref": "#/$defs/resource_id" }
       }
     },
     "spawn_settings": {
@@ -120,7 +137,6 @@
         "town_biome": { "$ref": "#/$defs/resource_id" },
         "surroundings": {
           "type": "array",
-          "minItems": 1,
           "maxItems": 6,
           "items": { "$ref": "#/$defs/biome_region" }
         },

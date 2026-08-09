@@ -33,6 +33,14 @@ public final class PlayerMenuClient {
         minecraft.setScreen(new WorldMapScreen(minecraft.screen));
     }
 
+    public static void openTrainerCard() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return;
+        }
+        minecraft.setScreen(new TrainerCardScreen(minecraft.screen));
+    }
+
     private static void onScreenOpening(ScreenEvent.Opening event) {
         Screen newScreen = event.getNewScreen();
         if (!(newScreen instanceof InventoryScreen)) {

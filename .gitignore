@@ -32,6 +32,10 @@ pack/overrides/development-placeholder/mods/cobbleventure-world-bootstrap-*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-player-menu-*.jar
 *.mrpack
 *.zip
+!pack/overrides/development-placeholder/config/paxi/datapacks/CCCC-1.7.2.zip
+!pack/overrides/development-placeholder/config/paxi/resourcepacks/CCCC-1.7.2.zip
+!pack/overrides/development-placeholder/config/paxi/datapacks/ZA-Mega-Staraptor-Contrary-Fix.zip
+!pack/overrides/development-placeholder/config/paxi/resourcepacks/ZA-Mega-Staraptor-Contrary-Fix.zip
 
 # Local environment and secrets
 .env

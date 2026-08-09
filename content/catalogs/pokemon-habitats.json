@@ -4,7 +4,13 @@
   "source": {
     "workbook": "포켓몬_서식지_분류표.xlsx",
     "cobblemon": "1.7.3",
-    "cobbleverse": "1.7.42"
+    "cobbleverse": "1.7.42",
+    "runtime_addons": {
+      "mega_showdown": "1.9.3+1.7.3+1.21.1",
+      "complete_cobblemon_collection": "1.7.2-local-server-pack",
+      "za_mega_staraptor_contrary_fix": "sha1:9d20719aea859c9f20dfffccf3c30b756a419581"
+    },
+    "implementation_semantics": "implemented 값은 기본 Cobblemon 1.7.3 기준이며, 개발팩에서는 실제 NeoForge 서버의 Complete Cobblemon Collection CCCC-1.7.2가 미구현 포켓몬 모델을 보완한다."
   },
   "pokemon": [
     {

@@ -18,8 +18,10 @@
   "center": { "x": 1487, "y": 69, "z": -300 },
   "anchors": {
     "town_square": { "x": 1487, "y": 69, "z": -300 },
-    "gym_entrance": { "x": 1499, "y": 70, "z": -294 },
-    "gym_return": { "x": 1499, "y": 70, "z": -297 }
+    "special_district": { "x": 1407, "y": 69, "z": -300 },
+    "gym_building": { "x": 1619, "y": 69, "z": -310 },
+    "gym_entrance": { "x": 1618, "y": 70, "z": -300 },
+    "gym_return": { "x": 1618, "y": 70, "z": -303 }
   },
   "content_profile": {
     "pokemon": {
@@ -75,27 +77,41 @@
       "target_settlement": "cobbleventure:settlement/route_01_town",
       "placement": { "mode": "toward_target", "preferred_side": "west", "offset": 0 },
       "gate_width": 9,
-      "path_width": 7
+      "path_width": 3
     }
   ],
   "structure_profile": {
     "structure": "cobbleventure:crimson_town/village",
     "gym_theme": "fire",
-    "gym_entrance_offset": { "x": 12, "y": 1, "z": 4 },
+    "village_preset": "default_large",
+    "commercial_center": "department_store",
+    "house_style": "bca:default/general",
+    "gym_entrance_offset": { "x": 2, "y": 3, "z": 10 },
     "required_facilities": {
-      "gym": "cobbleventure:crimson_town/gym"
+      "village_hub": "cobbleventure:crimson_town/village_hub"
+    },
+    "special_district": {
+      "enabled": true,
+      "anchor": "special_district",
+      "footprint": { "width": 48, "depth": 48 },
+      "clearance": 6,
+      "entrance_direction": "south",
+      "building": { "enabled": false, "id": "special_landmark", "structure": "" }
+    },
+    "gym": {
+      "enabled": true,
+      "structure": "rgs:cinnabar_gym",
+      "theme": "fire",
+      "anchor": "gym_building",
+      "entrance_offset": { "x": 2, "y": 3, "z": 10 },
+      "leader_trainer_id": ""
     },
     "facility_placements": [
       {
-        "id": "gym_interior",
-        "mode": "instanced_entry",
+        "id": "gym_building",
+        "mode": "direct_template",
         "structure": "rgs:cinnabar_gym",
-        "entry_anchor": "gym_entrance",
-        "return_anchor": "gym_return",
-        "instance_origin": { "x": 2560, "y": 69, "z": 0 },
-        "instance_entry_offset": { "x": 12, "y": 4, "z": 4 },
-        "instance_exit_offset": { "x": 12, "y": 4, "z": 1 },
-        "trigger_radius": 1.75
+        "anchor": "gym_building"
       }
     ]
   },
@@ -118,4 +134,3 @@
     ]
   }
 }
-

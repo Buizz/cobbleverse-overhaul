@@ -5,7 +5,12 @@ import json
 import shutil
 from pathlib import Path
 
-from starter_gym import GYM_ROOF_BLOCKS, build_starter_gym_nbt
+from starter_gym import (
+    BCA_VILLAGE_PRESETS,
+    BCA_VILLAGE_START_POOLS,
+    GYM_ROOF_BLOCKS,
+    build_village_hub_nbt,
+)
 
 
 SOURCE = Path("projects/cobbleventure-world-bootstrap/src/main/resources")
@@ -17,11 +22,6 @@ BOUNDARY_PROFILE_CONFIG = Path("content/catalogs/boundary-profiles.json")
 REQUIRED_ENTRIES = {
     "META-INF/neoforge.mods.toml",
     "pack.mcmeta",
-    "data/cobbleventure/worldgen/structure/starter_town/village.json",
-    "data/cobbleventure/worldgen/structure/route_01_town/village.json",
-    "data/cobbleventure/worldgen/structure/crimson_town/village.json",
-    "data/cobbleventure/worldgen/structure/tidehaven_town/village.json",
-    "data/cobbleventure/worldgen/structure/skyreach_town/village.json",
     "data/cobbleventure/worldgen/template_pool/starter_town/center.json",
     "data/cobbleventure/worldgen/template_pool/route_01_town/center.json",
     "data/cobbleventure/worldgen/template_pool/crimson_town/center.json",
@@ -92,8 +92,10 @@ def _package_hex_worlds(root: Path, output: Path) -> None:
             data = json.loads(source_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             raise ModBuildError(f"육각 월드 설정을 읽을 수 없습니다: {source_path}") from error
-        if not isinstance(data, dict) or data.get("schema_version") != 1:
-            raise ModBuildError(f"육각 월드 설정은 schema_version 1이어야 합니다: {source_path}")
+        if not isinstance(data, dict) or data.get("schema_version") not in {1, 2}:
+            raise ModBuildError(
+                f"육각 월드 설정은 schema_version 1 또는 2여야 합니다: {source_path}"
+            )
         relative = source_path.relative_to(source_dir)
         target = _inside(root, output / GENERATED_HEX_WORLD_DIR / relative, "생성 육각 월드 설정")
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -113,25 +115,189 @@ def _package_hex_worlds(root: Path, output: Path) -> None:
     )
 
 
-def _gym_definition(data: dict[str, object]) -> tuple[str, str]:
+COMMERCIAL_CENTER_STRUCTURES = {
+    "pokemart": "bca:default/one_off/structure_pokemart",
+    "department_store": "bca:default/centers/center_department_store",
+}
+AUTHORED_STARTER_PRESET = "cobbleventure_starter"
+
+
+def _village_hub_definition(data: dict[str, object]) -> tuple[str, str, str, str]:
     try:
         profile = data["structure_profile"]  # type: ignore[index]
         theme = profile["gym_theme"]  # type: ignore[index]
-        resource = profile["required_facilities"]["gym"]  # type: ignore[index]
+        village_preset = profile.get("village_preset", "default")  # type: ignore[union-attr]
+        commercial_center = profile.get("commercial_center", "preset")  # type: ignore[union-attr]
+        resource = profile["required_facilities"]["village_hub"]  # type: ignore[index]
     except (KeyError, TypeError) as error:
-        raise ModBuildError("마을 체육관 테마 또는 리소스를 읽을 수 없습니다.") from error
+        raise ModBuildError("마을 BCA 허브 또는 체육관 테마를 읽을 수 없습니다.") from error
     if not isinstance(theme, str):
         raise ModBuildError("마을 체육관 테마는 문자열이어야 합니다.")
     if theme not in GYM_ROOF_BLOCKS:
         raise ModBuildError(f"지원하지 않는 체육관 테마입니다: {theme}")
+    if not isinstance(village_preset, str) or village_preset not in BCA_VILLAGE_PRESETS:
+        raise ModBuildError(f"지원하지 않는 BCA 마을 프리셋입니다: {village_preset}")
+    if commercial_center not in {"none", "preset", *COMMERCIAL_CENTER_STRUCTURES}:
+        raise ModBuildError(f"지원하지 않는 상업 중심 시설입니다: {commercial_center}")
+    if village_preset == AUTHORED_STARTER_PRESET and commercial_center != "none":
+        raise ModBuildError("전용 시작 마을은 commercial_center가 none이어야 합니다.")
     if not isinstance(resource, str) or ":" not in resource:
         raise ModBuildError("체육관 리소스 ID가 올바르지 않습니다.")
-    return resource, theme
+    return resource, theme, village_preset, commercial_center
 
 
-def _gym_output_path(output: Path, resource: str) -> Path:
+def _village_hub_output_path(output: Path, resource: str) -> Path:
     namespace, path = resource.split(":", 1)
     return output / "data" / namespace / "structure" / f"{path}.nbt"
+
+
+def _village_structure_output_path(output: Path, resource: str) -> Path:
+    namespace, path = resource.split(":", 1)
+    return output / "data" / namespace / "worldgen" / "structure" / f"{path}.json"
+
+
+def _commercial_center_pool(output: Path, resource: str) -> tuple[str, Path]:
+    namespace, path = resource.split(":", 1)
+    village_root = path.rsplit("/", 1)[0] if "/" in path else path
+    pool_path = f"{village_root}/commercial_center"
+    pool_id = f"{namespace}:{pool_path}"
+    return pool_id, output / "data" / namespace / "worldgen" / "template_pool" / f"{pool_path}.json"
+
+
+def _write_authored_starter_pool(
+    root: Path, output: Path, resource: str, profile: dict[str, object]
+) -> tuple[str, int]:
+    layout = profile.get("starter_layout")
+    if not isinstance(layout, dict):
+        raise ModBuildError("전용 시작 마을에는 starter_layout 설정이 필요합니다.")
+    laboratory = layout.get("laboratory_structure")
+    if not isinstance(laboratory, str) or ":" not in laboratory:
+        raise ModBuildError("시작 마을 연구소 구조물 ID가 올바르지 않습니다.")
+    depth = layout.get("jigsaw_depth", 2)
+    if not isinstance(depth, int) or isinstance(depth, bool) or not 0 <= depth <= 4:
+        raise ModBuildError("시작 마을 Jigsaw 깊이는 0 이상 4 이하의 정수여야 합니다.")
+    namespace, path = resource.split(":", 1)
+    village_root = path.rsplit("/", 1)[0] if "/" in path else path
+    pool_path = f"{village_root}/authored_center"
+    pool_id = f"{namespace}:{pool_path}"
+    target = _inside(
+        root,
+        output / "data" / namespace / "worldgen" / "template_pool" / f"{pool_path}.json",
+        "전용 시작 마을 중심 풀",
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(
+            {
+                "fallback": "minecraft:empty",
+                "elements": [{
+                    "weight": 1,
+                    "element": {
+                        "location": laboratory,
+                        "element_type": "minecraft:single_pool_element",
+                        "processors": "minecraft:empty",
+                        "projection": "rigid",
+                        "terrain_adaptation": "beard_thin",
+                    },
+                }],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+    return pool_id, depth
+
+
+def _write_commercial_center_pool(
+    root: Path, output: Path, resource: str, commercial_center: str
+) -> str:
+    structure = COMMERCIAL_CENTER_STRUCTURES[commercial_center]
+    pool_id, raw_target = _commercial_center_pool(output, resource)
+    target = _inside(root, raw_target, "상업 중심 시설 템플릿 풀")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(
+            {
+                "fallback": "minecraft:empty",
+                "elements": [{
+                    "weight": 1,
+                    "element": {
+                        "location": structure,
+                        "element_type": "minecraft:single_pool_element",
+                        "processors": "minecraft:empty",
+                        "projection": "rigid",
+                        "terrain_adaptation": "beard_thin",
+                    },
+                }],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+    return pool_id
+
+
+def _write_village_structure_override(
+    root: Path,
+    output: Path,
+    settlement: dict[str, object],
+    village_preset: str,
+    commercial_center: str,
+) -> None:
+    if village_preset not in BCA_VILLAGE_START_POOLS and village_preset != AUTHORED_STARTER_PRESET:
+        return
+    profile = settlement.get("structure_profile")
+    if not isinstance(profile, dict):
+        return
+    resource = profile.get("structure")
+    # Small unit-test fixtures and legacy fragments do not declare a worldgen
+    # structure. They can still build their compatibility hub, but there is no
+    # structure registry entry to override.
+    if not isinstance(resource, str) or ":" not in resource:
+        return
+    biome = "minecraft:plains"
+    biome_layout = settlement.get("biome_layout")
+    if isinstance(biome_layout, dict):
+        zones = biome_layout.get("zones")
+        if isinstance(zones, list) and zones and isinstance(zones[0], dict):
+            candidate = zones[0].get("biome")
+            if isinstance(candidate, str) and ":" in candidate:
+                biome = candidate
+    if village_preset == AUTHORED_STARTER_PRESET:
+        start_pool, size = _write_authored_starter_pool(root, output, resource, profile)
+    else:
+        start_pool, size = BCA_VILLAGE_START_POOLS[village_preset]
+    if commercial_center in COMMERCIAL_CENTER_STRUCTURES:
+        start_pool = _write_commercial_center_pool(
+            root, output, resource, commercial_center
+        )
+    target = _inside(root, _village_structure_output_path(output, resource), "생성 마을 구조")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(
+            {
+                "type": "minecraft:jigsaw",
+                "biomes": biome,
+                "spawn_overrides": {},
+                "start_pool": start_pool,
+                "size": size,
+                "step": "surface_structures",
+                # Match BCA's original village structures. Secondary houses and
+                # decorations that use a raised template origin are corrected
+                # separately by TownPlacementHeightContext at placement time.
+                "start_height": {"absolute": 0},
+                "project_start_to_heightmap": "WORLD_SURFACE_WG",
+                "max_distance_from_center": 116,
+                "terrain_adaptation": "beard_thin",
+                "use_expansion_hack": False,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
 
 
 def build(root: Path) -> Path:
@@ -151,20 +317,36 @@ def build(root: Path) -> Path:
     if missing:
         raise ModBuildError(f"필수 데이터 모드 파일이 없습니다: {', '.join(missing)}")
 
-    generated_gyms: dict[str, str] = {}
+    # OUTPUT contains generated resources only. Recreate it so a town that
+    # changes from a commercial centre to an authored layout cannot retain an
+    # obsolete template pool from the previous build.
+    if output.exists():
+        shutil.rmtree(output)
+    output.mkdir(parents=True, exist_ok=True)
+
+    generated_hubs: dict[str, tuple[str, str, str]] = {}
     first_generated: Path | None = None
     for _, settlement in settlements:
-        resource, theme = _gym_definition(settlement)
-        previous = generated_gyms.get(resource)
-        if previous is not None and previous != theme:
+        resource, theme, village_preset, commercial_center = _village_hub_definition(settlement)
+        previous = generated_hubs.get(resource)
+        definition = (theme, village_preset, commercial_center)
+        if previous is not None and previous != definition:
             raise ModBuildError(
-                f"같은 체육관 리소스에 서로 다른 테마가 지정되었습니다: {resource}"
+                f"같은 BCA 마을 허브에 서로 다른 설정이 지정되었습니다: {resource}"
             )
-        generated_gyms[resource] = theme
-    for resource, theme in generated_gyms.items():
-        generated = _inside(root, _gym_output_path(output, resource), "생성 체육관")
+        generated_hubs[resource] = definition
+        _write_village_structure_override(
+            root, output, settlement, village_preset, commercial_center
+        )
+    generated_structure_dir = _inside(
+        root, output / "data/cobbleventure/structure", "생성 구조물 디렉터리"
+    )
+    if generated_structure_dir.exists():
+        shutil.rmtree(generated_structure_dir)
+    for resource, (_, village_preset, _) in generated_hubs.items():
+        generated = _inside(root, _village_hub_output_path(output, resource), "생성 마을 허브")
         generated.parent.mkdir(parents=True, exist_ok=True)
-        generated.write_bytes(build_starter_gym_nbt(theme))
+        generated.write_bytes(build_village_hub_nbt(village_preset))
         if first_generated is None:
             first_generated = generated
     for directory in (
@@ -178,7 +360,7 @@ def build(root: Path) -> Path:
     _package_settlements(root, output, settlements)
     _package_hex_worlds(root, output)
     if first_generated is None:
-        raise ModBuildError("생성할 마을 체육관이 없습니다.")
+        raise ModBuildError("생성할 BCA 마을 허브가 없습니다.")
     return first_generated
 
 
@@ -187,7 +369,7 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     arguments = parser.parse_args()
     output = build(arguments.root)
-    print(f"마을별 체육관 리소스 생성 완료: {output.parent.parent}")
+    print(f"마을별 BCA 도로 허브 리소스 생성 완료: {output.parent.parent}")
     return 0
 
 

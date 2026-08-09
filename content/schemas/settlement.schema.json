@@ -91,7 +91,7 @@
     "structure_profile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["structure", "gym_theme", "gym_entrance_offset", "required_facilities"],
+      "required": ["structure", "gym_theme", "village_preset", "commercial_center", "house_style", "gym_entrance_offset", "required_facilities", "special_district", "gym"],
       "properties": {
         "structure": { "$ref": "#/$defs/resource_id" },
         "gym_theme": {
@@ -101,7 +101,36 @@
             "rock", "ghost", "dragon", "dark", "steel", "fairy"
           ]
         },
-        "gym_entrance_offset": { "$ref": "#/$defs/block_position" },
+        "village_preset": {
+          "enum": [
+            "default_small", "default_mid", "default_large",
+            "fighting_small", "fighting_mid", "fighting_large",
+            "dark_small", "dark_mid",
+            "ice_small", "ice_mid", "ice_large",
+            "cobbleventure_starter"
+          ]
+        },
+        "commercial_center": {
+          "enum": ["none", "preset", "pokemart", "department_store"],
+          "description": "BCA 프리셋 기본 중심 조각 또는 반드시 생성할 상업 중심 시설"
+        },
+        "starter_layout": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["laboratory_structure", "jigsaw_depth"],
+          "properties": {
+            "laboratory_structure": { "$ref": "#/$defs/resource_id" },
+            "jigsaw_depth": { "type": "integer", "minimum": 0, "maximum": 4 }
+          }
+        },
+        "house_style": {
+          "$ref": "#/$defs/resource_id",
+          "description": "마을 도로의 주택 연결점을 대체할 Jigsaw 주택 풀 ID"
+        },
+        "gym_entrance_offset": {
+          "$ref": "#/$defs/block_position",
+          "description": "체육관 구조물 원점 기준 실제 주 출입구 로컬 좌표. RGS 0.6 체육관은 x=2, y=3, z=10"
+        },
         "required_facilities": {
           "type": "object",
           "minProperties": 1,
@@ -111,8 +140,24 @@
         "facility_placements": {
           "type": "array",
           "items": { "$ref": "#/$defs/facility_placement" }
+        },
+        "special_district": {
+          "$ref": "#/$defs/special_district"
+        },
+        "gym": {
+          "$ref": "#/$defs/gym_config"
         }
-      }
+      },
+      "allOf": [{
+        "if": {
+          "properties": { "village_preset": { "const": "cobbleventure_starter" } },
+          "required": ["village_preset"]
+        },
+        "then": {
+          "required": ["starter_layout"],
+          "properties": { "commercial_center": { "const": "none" } }
+        }
+      }]
     },
     "npc_placement": {
       "type": "object",
@@ -285,6 +330,71 @@
         {
           "if": { "properties": { "mode": { "const": "direct_template" } } },
           "then": { "required": ["anchor"] }
+        }
+      ]
+    },
+    "special_district": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "anchor", "footprint", "clearance", "entrance_direction", "building"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "footprint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "depth"],
+          "properties": {
+            "width": { "type": "integer", "minimum": 8, "maximum": 192 },
+            "depth": { "type": "integer", "minimum": 8, "maximum": 192 }
+          }
+        },
+        "clearance": { "type": "integer", "minimum": 0, "maximum": 32 },
+        "entrance_direction": { "enum": ["north", "south", "east", "west"] },
+        "building": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "id", "structure"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+            "structure": { "type": "string" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "enabled": { "const": true } } },
+              "then": { "properties": { "structure": { "$ref": "#/$defs/resource_id" } } }
+            }
+          ]
+        }
+      }
+    },
+    "gym_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "structure", "theme", "anchor", "entrance_offset", "leader_trainer_id"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "structure": { "type": "string" },
+        "theme": {
+          "enum": [
+            "normal", "fire", "water", "electric", "grass", "ice",
+            "fighting", "poison", "ground", "flying", "psychic", "bug",
+            "rock", "ghost", "dragon", "dark", "steel", "fairy"
+          ]
+        },
+        "anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "entrance_offset": { "$ref": "#/$defs/block_position" },
+        "leader_trainer_id": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "enabled": { "const": true } } },
+          "then": {
+            "properties": {
+              "structure": { "$ref": "#/$defs/resource_id" }
+            }
+          }
         }
       ]
     },

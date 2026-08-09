@@ -11,6 +11,9 @@ description='''
 Finds a plains biome, moves the world spawn there, and places the Cobbleventure starter town.
 '''
 
+[[mixins]]
+config="cobbleventure_bootstrap.mixins.json"
+
 [[dependencies.cobbleventure_bootstrap]]
 modId="neoforge"
 type="required"

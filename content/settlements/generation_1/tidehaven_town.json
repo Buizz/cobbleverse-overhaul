@@ -18,8 +18,10 @@
   "center": { "x": 1819, "y": 69, "z": -108 },
   "anchors": {
     "town_square": { "x": 1819, "y": 69, "z": -108 },
-    "gym_entrance": { "x": 1831, "y": 70, "z": -102 },
-    "gym_return": { "x": 1831, "y": 70, "z": -105 },
+    "special_district": { "x": 1739, "y": 69, "z": -108 },
+    "gym_building": { "x": 1951, "y": 69, "z": -118 },
+    "gym_entrance": { "x": 1950, "y": 70, "z": -108 },
+    "gym_return": { "x": 1950, "y": 70, "z": -111 },
     "harbor": { "x": 1779, "y": 69, "z": -108 }
   },
   "content_profile": {
@@ -77,27 +79,41 @@
       "target_settlement": "cobbleventure:settlement/crimson_town",
       "placement": { "mode": "toward_target", "preferred_side": "west", "offset": 0 },
       "gate_width": 13,
-      "path_width": 9
+      "path_width": 3
     }
   ],
   "structure_profile": {
     "structure": "cobbleventure:tidehaven_town/village",
     "gym_theme": "water",
-    "gym_entrance_offset": { "x": 12, "y": 1, "z": 4 },
+    "village_preset": "default_mid",
+    "commercial_center": "pokemart",
+    "house_style": "bca:default/general",
+    "gym_entrance_offset": { "x": 2, "y": 3, "z": 10 },
     "required_facilities": {
-      "gym": "cobbleventure:tidehaven_town/gym"
+      "village_hub": "cobbleventure:tidehaven_town/village_hub"
+    },
+    "special_district": {
+      "enabled": true,
+      "anchor": "special_district",
+      "footprint": { "width": 48, "depth": 48 },
+      "clearance": 6,
+      "entrance_direction": "south",
+      "building": { "enabled": false, "id": "special_landmark", "structure": "" }
+    },
+    "gym": {
+      "enabled": true,
+      "structure": "rgs:cerulean_gym",
+      "theme": "water",
+      "anchor": "gym_building",
+      "entrance_offset": { "x": 2, "y": 3, "z": 10 },
+      "leader_trainer_id": ""
     },
     "facility_placements": [
       {
-        "id": "gym_interior",
-        "mode": "instanced_entry",
+        "id": "gym_building",
+        "mode": "direct_template",
         "structure": "rgs:cerulean_gym",
-        "entry_anchor": "gym_entrance",
-        "return_anchor": "gym_return",
-        "instance_origin": { "x": 3200, "y": 69, "z": 0 },
-        "instance_entry_offset": { "x": 12, "y": 4, "z": 4 },
-        "instance_exit_offset": { "x": 12, "y": 4, "z": 1 },
-        "trigger_radius": 1.75
+        "anchor": "gym_building"
       }
     ]
   },

@@ -146,7 +146,8 @@ python tools/content-manager/content_manager.py api --root .
 - `GET /api/trainer-classes`: 트레이너 클래스와 기본 외형 카탈로그
 - `GET /api/editor-catalog`: Battle Web Lab과 공유하는 포켓몬·폼·기술·특성·도구 및 트레이너 가방 아이템 카탈로그
 - `GET /api/biome-catalog`, `PUT /api/biome-catalog`: 바이옴 프로필·세트 조회와 검증 후 저장
-- `GET /api/world-layout`, `PUT /api/world-layout`: 세대 월드의 마을 위치·분기 연결 조회와 원자적 저장
+- `GET /api/world-layouts`: 작성된 세대 월드 목록 조회
+- `GET /api/world-layout?generation=1`, `PUT /api/world-layout?generation=1`: 세대별 육각 타일·마을 배치 조회와 원자적 저장
 - `GET /api/pokemon-habitats`: 1,025마리의 세대·속성·선호 환경·대표/보조 서식지 카탈로그
 - `POST /api/biome-preview`: 프로필 또는 세트 조건에 따른 출현 포켓몬 판정
 - `GET /api/trainers?path=...`, `GET /api/settlements?path=...`: 단일 문서 조회

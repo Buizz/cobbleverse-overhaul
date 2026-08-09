@@ -110,10 +110,24 @@
 
 마을의 기본 정보와 트레이너 슬롯은 Python 관리 화면에서 폼으로 편집할 수 있다.
 `structure_profile.structure`은 전체 마을 구조 ID를 가리키고,
-`required_facilities`는 체육관처럼 생성 시 반드시 포함해야 하는 시설과 구조 ID를
-연결한다. 현재 시작 마을은 `cobbleventure:starter_town/village`와 자체 체육관을
-사용한다. `gym_theme`은 공통 체육관 외관의 지붕 색을 포켓몬 타입에 맞춰
-선택하며, `gym_entrance_offset`은 향후 실내 인스턴스로 이동시키는 입구 위치다.
+`required_facilities`는 생성기가 사용하는 필수 마을 허브 리소스를 연결한다.
+`gym.enabled`는 체육관 건물 배치 여부를 정하며 `leader_trainer_id`는 관리 웹에서
+선택한 트레이너 엔트리를 `gym_leader` 슬롯에 연결한다. `village_preset`은 BCA
+4.2.1 원본 마을 11종(`default_small`부터
+`ice_large`까지) 중에서 선택한다. 일반 계열은 포켓몬센터·상점 one-off 풀을
+사용하며 `default_large`는 원본 설정에서 백화점을 중심 조각으로 사용한다.
+`commercial_center`로 `none`, `pokemart`, `department_store`, `preset` 중 하나를 골라
+상업 중심 시설을 정확히 한 번 보장할 수 있다. `house_style`은 도로의 주택 연결점에 사용할 Jigsaw
+템플릿 풀 ID다. 기본 BCA 풀은 `bca:default/general`,
+`bca:fighting/fighting`, `bca:dark/dark`, `bca:ice/ice`이며, 나중에 자체
+주택 풀을 제작하면 해당 리소스 ID로 교체할 수 있다.
+`village_preset: cobbleventure_starter`는 `starter_layout.laboratory_structure`를
+마을 중심으로 고정하며 `commercial_center: none`을 요구한다. 시작 마을의 전체
+구성은 [전용 시작 마을 레이아웃](implementation/STARTER_TOWN_LAYOUT.md)에 정리한다.
+`special_district`는 마을마다 하나씩 예약하는 대형 건축 구역이다. 위치, 최소
+폭·깊이, 여유 공간과 입구 방향을 저장하며 `building.enabled`가 켜졌을 때만
+설정된 구조물을 배치한다. 자세한 형식은
+`docs/implementation/SETTLEMENT_SPECIAL_DISTRICTS.md`를 참고한다.
 각 슬롯은 `trainer_id`, 절대 좌표, 회전, 생성 정책과 태그를 가지며, 저장소 검증기는
 `trainer_id`가 실제 `content/source` 트레이너를 가리키는지도 검사한다. 트레이너를
 다른 마을로 옮길 때는 트레이너 번들을 수정하지 않고 두 마을의 슬롯만 변경한다.

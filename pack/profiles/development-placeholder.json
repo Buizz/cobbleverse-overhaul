@@ -6,7 +6,7 @@
   "author": "Buizz",
   "purpose": "development-pack-placeholder",
   "production_ready": false,
-  "notice": "Cobblemon 1.7.3, Cobblemon Additions 호환 구성과 테스트용 시작 마을 부트스트랩을 포함한 개발용 임시 팩입니다.",
+  "notice": "Cobblemon 1.7.3, Mega Showdown, 실제 서버의 Complete Cobblemon Collection, ZA 메가진화 보정팩, Cobblemon Additions와 테스트용 지역 부트스트랩을 포함한 개발용 임시 팩입니다.",
   "icon": "pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",
@@ -67,8 +67,38 @@
       "required": true
     },
     {
+      "projectID": 841890,
+      "fileID": 8061947,
+      "required": true
+    },
+    {
       "projectID": 1402174,
       "fileID": 7330950,
+      "required": true
+    },
+    {
+      "projectID": 938917,
+      "fileID": 7046407,
+      "required": true
+    },
+    {
+      "projectID": 532610,
+      "fileID": 6416633,
+      "required": true
+    },
+    {
+      "projectID": 1189523,
+      "fileID": 8519042,
+      "required": true
+    },
+    {
+      "projectID": 1015157,
+      "fileID": 6485740,
+      "required": true
+    },
+    {
+      "projectID": 1015100,
+      "fileID": 6715463,
       "required": true
     },
     {

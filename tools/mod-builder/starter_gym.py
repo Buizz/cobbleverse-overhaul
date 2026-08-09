@@ -33,6 +33,55 @@ GYM_ROOF_BLOCKS = {
     "fairy": "minecraft:pink_concrete",
 }
 
+BCA_VILLAGE_START_POOLS = {
+    "default_small": ("bca:default/small", 2),
+    "default_mid": ("bca:default/mid", 3),
+    "default_large": ("bca:default/large", 4),
+    "fighting_small": ("bca:fighting/small", 4),
+    "fighting_mid": ("bca:fighting/mid", 4),
+    "fighting_large": ("bca:fighting/large", 6),
+    "dark_small": ("bca:dark/small", 2),
+    "dark_mid": ("bca:dark/mid", 3),
+    "ice_small": ("bca:ice/small", 4),
+    "ice_mid": ("bca:ice/mid", 4),
+    "ice_large": ("bca:ice/large", 4),
+}
+
+# The generated civic hub is retained for backwards-compatible data packs.
+# New settlement structures start from BCA's original pools so their town
+# centres (Pokecenter, Pokemart and the large department store) are not skipped.
+BCA_VILLAGE_PRESETS = {
+    **{name: "bca:default/paths" for name in ("default_small", "default_mid", "default_large")},
+    **{name: "bca:fighting/paths" for name in ("fighting_small", "fighting_mid", "fighting_large")},
+    **{name: "bca:dark/paths" for name in ("dark_small", "dark_mid")},
+    **{name: "bca:ice/paths" for name in ("ice_small", "ice_mid", "ice_large")},
+    # Legacy aliases are accepted while old user-authored settlement files are migrated.
+    "default": "bca:default/paths",
+    "fighting": "bca:fighting/paths",
+    "dark": "bca:dark/paths",
+    "ice": "bca:ice/paths",
+    # Authored starter towns use a fixed Cobbleventure centre while retaining
+    # BCA's path and housing pieces around that centre.
+    "cobbleventure_starter": "bca:default/paths",
+}
+
+BCA_VILLAGE_CONNECTORS = {
+    "default": ("bca:paths", "bca:path_straight-curved"),
+    "fighting": ("bca:fighting/paths", "bca:path_straight-curved_fighting"),
+    "dark": ("bca:paths_dark", "bca:path_straight-curved_dark"),
+    "ice": ("bca:paths_ice", "bca:path_straight-curved_ice"),
+    "cobbleventure_starter": ("bca:paths", "bca:path_straight-curved"),
+}
+
+for _variant in ("default_small", "default_mid", "default_large"):
+    BCA_VILLAGE_CONNECTORS[_variant] = BCA_VILLAGE_CONNECTORS["default"]
+for _variant in ("fighting_small", "fighting_mid", "fighting_large"):
+    BCA_VILLAGE_CONNECTORS[_variant] = BCA_VILLAGE_CONNECTORS["fighting"]
+for _variant in ("dark_small", "dark_mid"):
+    BCA_VILLAGE_CONNECTORS[_variant] = BCA_VILLAGE_CONNECTORS["dark"]
+for _variant in ("ice_small", "ice_mid", "ice_large"):
+    BCA_VILLAGE_CONNECTORS[_variant] = BCA_VILLAGE_CONNECTORS["ice"]
+
 
 def _string(value: str) -> bytes:
     encoded = value.encode("utf-8")
@@ -77,12 +126,17 @@ def _block_state_payload(name: str, properties: tuple[tuple[str, str], ...]) -> 
     return _compound(entries)
 
 
-def _jigsaw_nbt(orientation: str) -> dict[str, object]:
+def _jigsaw_nbt(
+    orientation: str,
+    path_pool: str,
+    connector_name: str,
+    connector_target: str,
+) -> dict[str, object]:
     return {
         "id": "minecraft:jigsaw",
-        "name": "cobbleventure:starter_town_path",
-        "target": "bca:paths",
-        "pool": "bca:default/paths",
+        "name": connector_name,
+        "target": connector_target,
+        "pool": path_pool,
         "final_state": "minecraft:cobblestone",
         "joint": "rollable",
         "selection_priority": 0,
@@ -91,14 +145,19 @@ def _jigsaw_nbt(orientation: str) -> dict[str, object]:
     }
 
 
-def build_starter_gym_nbt(theme: str = "rock") -> bytes:
-    """Create a compact gym shell whose roof colour follows a Pokémon type."""
+def build_village_hub_nbt(village_preset: str = "default") -> bytes:
+    """Create a BCA road grid that reserves its center for an RGS gym."""
     try:
-        roof_block = GYM_ROOF_BLOCKS[theme]
+        path_pool = BCA_VILLAGE_PRESETS[village_preset]
+        connector_name, connector_target = BCA_VILLAGE_CONNECTORS[village_preset]
     except KeyError as error:
-        raise ValueError(f"지원하지 않는 체육관 테마입니다: {theme}") from error
+        raise ValueError(f"지원하지 않는 BCA 마을 프리셋입니다: {village_preset}") from error
 
-    width, height, depth = 25, 9, 19
+    # All selected RGS gyms currently use a 25x26 footprint.  The larger start
+    # piece claims the whole civic block during Jigsaw assembly, preventing BCA
+    # houses and decorations from occupying the future gym plot.
+    width, height, depth = 49, 1, 50
+    gym_origin_x, gym_origin_z = 12, 12
     blocks: dict[tuple[int, int, int], tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None]] = {}
 
     def set_block(
@@ -118,56 +177,37 @@ def build_starter_gym_nbt(theme: str = "rock") -> bytes:
                 for z in range(z1, z2 + 1):
                     set_block(x, y, z, name)
 
-    # 공통 외관: 작은 로비만 가진 체육관 껍데기다.
-    fill(5, 1, 4, 19, 7, 14, "minecraft:air")
-    fill(5, 0, 4, 19, 0, 14, "minecraft:polished_andesite")
-    fill(5, 1, 4, 19, 6, 4, "minecraft:stone_bricks")
-    fill(5, 1, 14, 19, 6, 14, "minecraft:stone_bricks")
-    fill(5, 1, 5, 5, 6, 13, "minecraft:stone_bricks")
-    fill(19, 1, 5, 19, 6, 13, "minecraft:stone_bricks")
+    # A single, consistent road material is used here.  BCA path pieces begin
+    # at the four connectors, so no biome road is painted over the assembled
+    # village afterward.
+    ring_min_x, ring_max_x = 7, 41
+    ring_min_z, ring_max_z = 7, 42
+    ring_width = 3
+    for x in range(ring_min_x, ring_max_x + 1):
+        for z in range(ring_min_z, ring_max_z + 1):
+            if (
+                x < ring_min_x + ring_width
+                or x > ring_max_x - ring_width
+                or z < ring_min_z + ring_width
+                or z > ring_max_z - ring_width
+            ):
+                set_block(x, 0, z, "minecraft:cobblestone")
 
-    # 지붕만 타입 테마 색으로 바꾼다. 한 블록 돌출시켜 외관을 읽기 쉽게 한다.
-    fill(4, 7, 3, 20, 7, 15, roof_block)
-    fill(5, 8, 4, 19, 8, 14, roof_block)
+    center_x, center_z = width // 2, depth // 2
+    fill(center_x - 1, 0, 0, center_x + 1, 0, ring_min_z, "minecraft:cobblestone")
+    fill(center_x - 1, 0, ring_max_z, center_x + 1, 0, depth - 1, "minecraft:cobblestone")
+    fill(0, 0, center_z - 1, ring_min_x, 0, center_z + 1, "minecraft:cobblestone")
+    fill(ring_max_x, 0, center_z - 1, width - 1, 0, center_z + 1, "minecraft:cobblestone")
 
-    # 정면 출입구와 공통 창문.
-    fill(11, 1, 4, 13, 3, 4, "minecraft:air")
-    for x in (7, 9, 15, 17):
-        fill(x, 3, 4, x, 4, 4, "minecraft:glass")
-        fill(x, 3, 14, x, 4, 14, "minecraft:glass")
-    for z in (7, 10, 12):
-        fill(5, 3, z, 5, 4, z, "minecraft:glass")
-        fill(19, 3, z, 19, 4, z, "minecraft:glass")
-
-    # 입구에서 향후 실내 인스턴스로 연결될 작은 로비와 테마 카펫.
-    fill(8, 0, 6, 16, 0, 12, "minecraft:smooth_stone")
-    fill(11, 0, 4, 13, 0, 10, roof_block)
-    set_block(12, 0, 10, "minecraft:sea_lantern")
-
-    for x in (8, 12, 16):
-        set_block(x, 6, 9, "minecraft:sea_lantern")
-
-    # 정면 포켓볼 표식은 모든 체육관이 공유한다.
-    fill(9, 4, 4, 15, 4, 4, "minecraft:white_concrete")
-    fill(9, 6, 4, 15, 6, 4, "minecraft:red_concrete")
-    fill(9, 5, 4, 15, 5, 4, "minecraft:black_concrete")
-    set_block(12, 5, 4, "minecraft:sea_lantern")
-
-    # 건물 주변 도로와 네 방향 BCA 직소 연결점.
-    fill(3, 0, 1, 21, 0, 3, "minecraft:cobblestone")
-    fill(3, 0, 15, 21, 0, 17, "minecraft:cobblestone")
-    fill(1, 0, 2, 3, 0, 16, "minecraft:cobblestone")
-    fill(21, 0, 2, 23, 0, 16, "minecraft:cobblestone")
-    fill(11, 0, 0, 13, 0, 4, "minecraft:cobblestone")
-    fill(11, 0, 14, 13, 0, 18, "minecraft:cobblestone")
-    fill(0, 0, 8, 5, 0, 10, "minecraft:cobblestone")
-    fill(19, 0, 8, 24, 0, 10, "minecraft:cobblestone")
+    # Runtime replaces this invisible marker with the selected RGS gym.  It
+    # also lets the placement code recover the rotated Jigsaw plot origin.
+    set_block(gym_origin_x, 0, gym_origin_z, "minecraft:barrier")
 
     connectors = (
-        (12, 0, 0, "north_up"),
-        (12, 0, 18, "south_up"),
-        (0, 0, 9, "west_up"),
-        (24, 0, 9, "east_up"),
+        (center_x, 0, 0, "north_up"),
+        (center_x, 0, depth - 1, "south_up"),
+        (0, 0, center_z, "west_up"),
+        (width - 1, 0, center_z, "east_up"),
     )
     for x, y, z, orientation in connectors:
         set_block(
@@ -176,7 +216,9 @@ def build_starter_gym_nbt(theme: str = "rock") -> bytes:
             z,
             "minecraft:jigsaw",
             {"orientation": orientation},
-            _jigsaw_nbt(orientation),
+            _jigsaw_nbt(
+                orientation, path_pool, connector_name, connector_target
+            ),
         )
 
     palette: list[tuple[str, tuple[tuple[str, str], ...]]] = []
@@ -221,3 +263,10 @@ def build_starter_gym_nbt(theme: str = "rock") -> bytes:
     )
     uncompressed = _named(TAG_COMPOUND, "", root_payload)
     return gzip.compress(uncompressed, mtime=0)
+
+
+def build_starter_gym_nbt(theme: str = "rock", village_preset: str = "default") -> bytes:
+    """Compatibility wrapper retained for callers while gym shells are retired."""
+    if theme not in GYM_ROOF_BLOCKS:
+        raise ValueError(f"지원하지 않는 체육관 테마입니다: {theme}")
+    return build_village_hub_nbt(village_preset)

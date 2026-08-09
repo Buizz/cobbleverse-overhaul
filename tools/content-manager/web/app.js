@@ -11,7 +11,8 @@ const state = {
   trainerPath: "", settlementPath: "", buildCommands: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
   biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
-  worldLayout: null
+  worldLayout: null, worldGenerations: [1], selectedGeneration: 1,
+  selectedHex: null, mapRadius: 6, mapZoom: 1, draggedSettlement: null, worldDirty: false
 };
 const biomeChoices = {
   habitat: [["plains", "평원"], ["forest", "숲"], ["arid", "건조지"], ["mountain", "산악"], ["cave", "동굴"], ["wetland", "습지"], ["freshwater", "담수"], ["ocean", "해양"], ["snow", "설원"], ["volcanic", "화산"], ["urban", "도시"], ["special", "특수"]],
@@ -114,7 +115,7 @@ function escapeHtml(value) {
 function switchPage(section) {
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === section));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너 데이터", settlements: "마을 기본 설정", biomes: "바이옴 관리", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너 데이터", settlements: "월드 & 마을 설정", biomes: "바이옴 관리", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
 }
 
@@ -133,10 +134,11 @@ async function loadDashboard() {
 }
 
 async function loadLists() {
-  const [trainers, settlements, trainerClasses, trainerRoster, editorCatalog, biomeCatalog, pokemonHabitats, worldLayout] = await Promise.all([
+  const [trainers, settlements, trainerClasses, trainerRoster, editorCatalog, biomeCatalog, pokemonHabitats, worldLayouts, worldLayout] = await Promise.all([
     request("/api/trainers"), request("/api/settlements"), request("/api/trainer-classes"),
     request("/api/trainer-roster"),
-    request("/api/editor-catalog"), request("/api/biome-catalog"), request("/api/pokemon-habitats"), request("/api/world-layout")
+    request("/api/editor-catalog"), request("/api/biome-catalog"), request("/api/pokemon-habitats"),
+    request("/api/world-layouts"), request("/api/world-layout?generation=1")
   ]);
   state.trainers = trainers.data.items || [];
   state.settlements = settlements.data.items || [];
@@ -145,6 +147,7 @@ async function loadLists() {
   state.editorCatalog = editorCatalog.ok ? editorCatalog.data : null;
   state.biomeCatalog = biomeCatalog.ok ? biomeCatalog.data : { profiles: [], sets: [] };
   state.pokemonHabitats = pokemonHabitats.ok ? pokemonHabitats.data.pokemon || [] : [];
+  state.worldGenerations = worldLayouts.ok ? worldLayouts.data.generations || [1] : [1];
   state.worldLayout = worldLayout.ok ? worldLayout.data : null;
   if (!editorCatalog.ok) toast(editorCatalog.data.error || "전투 데이터 카탈로그를 불러오지 못했습니다.");
   if (!biomeCatalog.ok || !pokemonHabitats.ok) {
@@ -166,122 +169,194 @@ function settlementSummary(settlementId) {
 }
 
 function worldSettlementOptions(selected) {
-  return state.settlements.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === selected ? "selected" : ""}>${escapeHtml(item.name || item.id)}</option>`).join("");
+  const token = `generation_${state.selectedGeneration}/`;
+  const candidates = state.settlements.filter((item) => item.path?.replaceAll("\\", "/").includes(token));
+  return '<option value="">마을 선택</option>' + candidates.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === selected ? "selected" : ""}>${escapeHtml(item.name || item.id)}</option>`).join("");
 }
 
 function renderWorldLayout() {
   const layout = state.worldLayout;
   if (!layout) {
-    $("#world-node-list").innerHTML = '<div class="issues empty">월드 지도를 불러오지 못했습니다.</div>';
-    $("#world-connection-list").innerHTML = "";
-    $("#world-route-map").innerHTML = "";
+    $("#world-hex-map").innerHTML = "";
     return;
   }
-  const nodes = layout.settlements || [];
-  const connections = layout.connections || [];
-  $("#world-node-list").innerHTML = nodes.map((node, index) => {
-    const summary = settlementSummary(node.settlement);
-    return `<div class="world-node-row" data-world-node="${index}">
-      <b>${String(index + 1).padStart(2, "0")}</b>
-      <label><span>마을</span><input value="${escapeHtml(summary?.name || node.settlement)}" title="${escapeHtml(node.settlement)}" readonly></label>
-      <label><span>Axial Q</span><input type="number" data-world-node-field="q" value="${Number(node.anchor?.q || 0)}"></label>
-      <label><span>Axial R</span><input type="number" data-world-node-field="r" value="${Number(node.anchor?.r || 0)}"></label>
-    </div>`;
-  }).join("");
-  $("#world-connection-list").innerHTML = connections.map((connection, index) => `<div class="world-connection-row" data-world-connection="${index}">
-    <b>${String(index + 1).padStart(2, "0")}</b>
-    <label><span>출발 마을</span><select data-world-connection-field="from">${worldSettlementOptions(connection.from)}</select></label>
-    <label><span>도착 마을</span><select data-world-connection-field="to">${worldSettlementOptions(connection.to)}</select></label>
-    <label><span>통로 형태</span><select data-world-connection-field="surface_style"><option value="road" ${connection.surface_style === "road" ? "selected" : ""}>도로</option><option value="natural" ${connection.surface_style === "natural" ? "selected" : ""}>자연 통로</option><option value="water" ${connection.surface_style === "water" ? "selected" : ""}>해상 통로</option></select></label>
-    <label><span>필요 기술</span><select data-world-connection-field="access_requirement"><option value="" ${!connection.access_requirement ? "selected" : ""}>없음</option><option value="cobbleventure:field_move/rock_climb" ${connection.access_requirement?.endsWith("/rock_climb") ? "selected" : ""}>바위오르기</option><option value="cobbleventure:field_move/surf" ${connection.access_requirement?.endsWith("/surf") ? "selected" : ""}>파도타기</option></select></label>
-    <button type="button" class="remove-world-connection" data-remove-world-connection="${index}">삭제</button>
-  </div>`).join("");
-  $$("[data-world-node-field]").forEach((input) => input.addEventListener("input", updateWorldLayoutFromControls));
-  $$("[data-world-connection-field]").forEach((input) => input.addEventListener("change", updateWorldLayoutFromControls));
-  $$("[data-remove-world-connection]").forEach((button) => button.addEventListener("click", () => {
-    state.worldLayout.connections.splice(Number(button.dataset.removeWorldConnection), 1);
-    renderWorldLayout();
-  }));
-  renderWorldRouteMap();
+  layout.tiles ||= [];
+  layout.settlements ||= [];
+  const occupiedExtent = [...layout.tiles.map((tile) => tile), ...layout.settlements.map((node) => node.anchor || { q: 0, r: 0 })].reduce((largest, cell) => Math.max(largest, Math.abs(cell.q || 0), Math.abs(cell.r || 0), Math.abs((cell.q || 0) + (cell.r || 0))), 0);
+  state.mapRadius = Math.max(Number(layout.grid?.map_radius_cells || state.mapRadius), Math.min(14, occupiedExtent + 1));
+  renderGenerationTabs();
+  $("#world-map-title").textContent = `${state.selectedGeneration}세대 월드`;
+  $("#map-radius").value = state.mapRadius;
+  $("#tile-radius-blocks").value = layout.grid?.tile_radius_blocks || 64;
+  renderHexMap();
+  renderTileInspector();
+  updateWorldSaveState();
   showIssues("#world-layout-issues", { valid: true, issues: [] });
 }
 
-function updateWorldLayoutFromControls() {
-  if (!state.worldLayout) return;
-  $$("[data-world-node]").forEach((row) => {
-    const node = state.worldLayout.settlements[Number(row.dataset.worldNode)];
-    node.anchor ||= { q: 0, r: 0 };
-    row.querySelectorAll("[data-world-node-field]").forEach((input) => { node.anchor[input.dataset.worldNodeField] = Number(input.value || 0); });
-  });
-  $$("[data-world-connection]").forEach((row) => {
-    const connection = state.worldLayout.connections[Number(row.dataset.worldConnection)];
-    row.querySelectorAll("[data-world-connection-field]").forEach((input) => {
-      const field = input.dataset.worldConnectionField;
-      if (field === "access_requirement" && !input.value) delete connection[field];
-      else connection[field] = input.value;
-    });
-  });
-  renderWorldRouteMap();
+function renderGenerationTabs() {
+  $("#generation-tabs").innerHTML = state.worldGenerations.map((generation) => `<button type="button" role="tab" aria-selected="${generation === state.selectedGeneration}" class="${generation === state.selectedGeneration ? "is-active" : ""}" data-generation="${generation}"><b>${generation}</b>세대</button>`).join("");
+  $$("[data-generation]").forEach((button) => button.addEventListener("click", () => loadWorldGeneration(Number(button.dataset.generation))));
 }
 
-function renderWorldRouteMap() {
-  const layout = state.worldLayout;
-  const svg = $("#world-route-map");
-  if (!layout?.settlements?.length) { svg.innerHTML = ""; return; }
-  const raw = layout.settlements.map((node) => ({
-    id: node.settlement,
-    x: Number(node.anchor?.q || 0) + Number(node.anchor?.r || 0) * .5,
-    y: Number(node.anchor?.r || 0)
-  }));
-  const minX = Math.min(...raw.map((node) => node.x));
-  const maxX = Math.max(...raw.map((node) => node.x));
-  const minY = Math.min(...raw.map((node) => node.y));
-  const maxY = Math.max(...raw.map((node) => node.y));
-  const positions = new Map(raw.map((node) => [node.id, {
-    x: 72 + (node.x - minX) / Math.max(1, maxX - minX) * 616,
-    y: 65 + (node.y - minY) / Math.max(1, maxY - minY) * 225
-  }]));
-  const edges = (layout.connections || []).map((connection) => {
-    const from = positions.get(connection.from); const to = positions.get(connection.to);
-    if (!from || !to) return "";
-    const access = connection.access_requirement?.endsWith("/surf") ? "surf" : connection.access_requirement?.endsWith("/rock_climb") ? "rock-climb" : "";
-    return `<line class="world-route-edge ${access}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}"><title>${escapeHtml(connection.id)}</title></line>`;
-  }).join("");
-  const nodeMarkup = layout.settlements.map((node, index) => {
-    const position = positions.get(node.settlement);
-    const name = settlementSummary(node.settlement)?.name || node.settlement.split("/").pop();
-    return `<g class="world-route-node" transform="translate(${position.x} ${position.y})"><circle r="25"></circle><text class="node-index" y="5">${index + 1}</text><text y="46">${escapeHtml(name)}</text></g>`;
-  }).join("");
-  svg.innerHTML = `${edges}${nodeMarkup}`;
-}
-
-function addWorldConnection() {
-  if (!state.worldLayout?.settlements?.length) return;
-  const nodes = state.worldLayout.settlements;
-  const from = nodes[Math.max(0, nodes.length - 2)].settlement;
-  const to = nodes[nodes.length - 1].settlement;
-  const idBase = `${from.split("/").pop()}_to_${to.split("/").pop()}`;
-  state.worldLayout.connections.push({
-    id: `${idBase}_${state.worldLayout.connections.length + 1}`,
-    from, to, route_biome: "minecraft:plains", width_cells: 1,
-    pathfinding: "organic", detour_cells: 1, corridor_width_blocks: 48,
-    edge_noise: .12, boundary_profile: "cobbleventure:boundary/earthwork",
-    terrain_profile: { base_height_offset: 0, height_variation: 1, noise_scale_blocks: 96 },
-    surface_style: "road"
-  });
+async function loadWorldGeneration(generation) {
+  if (generation === state.selectedGeneration) return;
+  if (state.worldDirty && !confirm("저장하지 않은 지도 변경을 버리고 다른 세대로 이동할까요?")) return;
+  const result = await request(`/api/world-layout?generation=${generation}`);
+  if (!result.ok) { toast(result.data.error || "세대 지도를 불러오지 못했습니다."); return; }
+  state.selectedGeneration = generation;
+  state.worldLayout = result.data;
+  state.selectedHex = null;
+  state.worldDirty = false;
   renderWorldLayout();
+}
+
+function hexKey(q, r) { return `${q},${r}`; }
+function mapHexSize() { return Math.min(34, 250 / Math.max(3, state.mapRadius)); }
+function hexPoint(q, r) { const size = mapHexSize(); return { x: 490 + Math.sqrt(3) * size * (q + r / 2), y: 330 + size * 1.5 * r }; }
+function hexPolygon(x, y, radius = mapHexSize() - 2) { return Array.from({ length: 6 }, (_, i) => { const angle = Math.PI / 180 * (60 * i - 30); return `${x + radius * Math.cos(angle)},${y + radius * Math.sin(angle)}`; }).join(" "); }
+function biomeTone(biome = "") {
+  if (/ocean|river|beach/.test(biome)) return "water";
+  if (/snow|ice|frozen|peak/.test(biome)) return "snow";
+  if (/forest|jungle|grove/.test(biome)) return "forest";
+  if (/desert|badlands|savanna/.test(biome)) return "arid";
+  if (/swamp|marsh/.test(biome)) return "wetland";
+  if (/hill|mountain|stone|windswept/.test(biome)) return "mountain";
+  return "plains";
+}
+function tileAt(q, r) { return state.worldLayout?.tiles?.find((tile) => tile.q === q && tile.r === r); }
+function settlementAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
+
+function renderHexMap() {
+  const svg = $("#world-hex-map");
+  const cells = [];
+  for (let q = -state.mapRadius; q <= state.mapRadius; q++) for (let r = -state.mapRadius; r <= state.mapRadius; r++) {
+    if (Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)) <= state.mapRadius) cells.push({ q, r });
+  }
+  const tiles = cells.map(({ q, r }) => {
+    const { x, y } = hexPoint(q, r); const tile = tileAt(q, r); const town = settlementAt(q, r);
+    const selected = state.selectedHex?.q === q && state.selectedHex?.r === r;
+    const tone = town ? biomeTone(town.town_biome) : tile ? biomeTone(tile.biome) : "empty";
+    return `<g class="hex-cell ${selected ? "is-selected" : ""} tone-${tone}" data-hex-q="${q}" data-hex-r="${r}" tabindex="0" role="button" aria-label="Q ${q}, R ${r}${town ? `, ${escapeHtml(settlementSummary(town.settlement)?.name || "마을")}` : tile ? `, ${escapeHtml(tile.biome)}` : ", 빈 타일"}"><polygon points="${hexPolygon(x, y)}"></polygon>${tile && !town ? `<circle class="biome-pin" cx="${x}" cy="${y}" r="3"></circle>` : ""}</g>`;
+  }).join("");
+  const towns = (state.worldLayout.settlements || []).filter((node) => Math.max(Math.abs(node.anchor?.q || 0), Math.abs(node.anchor?.r || 0), Math.abs((node.anchor?.q || 0) + (node.anchor?.r || 0))) <= state.mapRadius).map((node) => {
+    const { x, y } = hexPoint(node.anchor.q, node.anchor.r); const name = settlementSummary(node.settlement)?.name || node.settlement.split("/").pop();
+    return `<g class="hex-settlement" data-drag-settlement="${escapeHtml(node.settlement)}" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(name)} 이동"><circle r="18"></circle><path d="M-7 5V-4L0-10L7-4V5H2V0H-2V5Z"></path><text y="31">${escapeHtml(name)}</text></g>`;
+  }).join("");
+  svg.innerHTML = `<g class="hex-map-layer" transform="translate(490 330) scale(${state.mapZoom}) translate(-490 -330)">${tiles}${towns}</g>`;
+  $("#map-tile-count").textContent = `${cells.length}개 타일 · 마을 ${(state.worldLayout.settlements || []).length}곳`;
+  $("#map-zoom").textContent = `${Math.round(state.mapZoom * 100)}%`;
+  $$("[data-hex-q]").forEach((cell) => {
+    const select = () => selectHex(Number(cell.dataset.hexQ), Number(cell.dataset.hexR));
+    cell.addEventListener("click", select);
+    cell.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
+  });
+  $$("[data-drag-settlement]").forEach((marker) => marker.addEventListener("pointerdown", (event) => beginSettlementDrag(event, marker.dataset.dragSettlement)));
 }
 
 async function saveWorldLayout() {
   if (!state.worldLayout) return;
-  updateWorldLayoutFromControls();
-  const result = await request("/api/world-layout", { method: "PUT", body: JSON.stringify(state.worldLayout) });
+  state.worldLayout.schema_version = 2;
+  state.worldLayout.grid.tile_radius_blocks = Number($("#tile-radius-blocks").value || 64);
+  const result = await request(`/api/world-layout?generation=${state.selectedGeneration}`, { method: "PUT", body: JSON.stringify(state.worldLayout) });
   showIssues("#world-layout-issues", result.data);
-  if (!result.ok) { toast(result.data.error || "동선 검증 오류로 저장하지 않았습니다."); return; }
-  toast("마을 동선을 generation_1.json에 바로 반영했습니다.");
-  const reloaded = await request("/api/world-layout");
+  if (!result.ok) { toast(result.data.error || "월드 검증 오류로 저장하지 않았습니다."); return; }
+  toast(`${state.selectedGeneration}세대 육각 월드를 저장했습니다.`);
+  state.worldDirty = false;
+  const reloaded = await request(`/api/world-layout?generation=${state.selectedGeneration}`);
   if (reloaded.ok) state.worldLayout = reloaded.data;
   renderWorldLayout();
+}
+
+function selectHex(q, r) { state.selectedHex = { q, r }; renderHexMap(); renderTileInspector(); }
+function markWorldDirty() { state.worldDirty = true; updateWorldSaveState(); }
+function updateWorldSaveState() { $("#world-save-state").textContent = state.worldDirty ? "저장하지 않은 변경" : "저장된 상태"; $("#world-save-state").classList.toggle("is-dirty", state.worldDirty); }
+
+function worldBiomeOptions(selected = "") {
+  const common = ["minecraft:plains", "minecraft:forest", "minecraft:flower_forest", "minecraft:river", "minecraft:beach", "minecraft:warm_ocean", "minecraft:desert", "minecraft:savanna", "minecraft:badlands", "minecraft:windswept_hills", "minecraft:stony_peaks", "minecraft:snowy_plains"];
+  const current = [...(state.worldLayout?.tiles || []).map((tile) => tile.biome), ...(state.worldLayout?.settlements || []).flatMap((node) => [node.town_biome, ...(node.surroundings || []).map((region) => region.biome)])];
+  return [...new Set([...common, ...current].filter(Boolean))].map((biome) => `<option value="${escapeHtml(biome)}" ${biome === selected ? "selected" : ""}>${escapeHtml(biome.replace("minecraft:", ""))}</option>`).join("");
+}
+
+function renderTileInspector() {
+  const selected = state.selectedHex; const form = $("#tile-inspector-form");
+  $("#tile-inspector-empty").hidden = Boolean(selected); form.hidden = !selected;
+  if (!selected) { $("#selected-tile-title").textContent = "타일을 선택하세요"; $("#selected-tile-coord").textContent = "Q — · R —"; return; }
+  const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r);
+  const kind = town ? "settlement" : tile ? "biome" : "empty";
+  $("#selected-tile-title").textContent = town ? (settlementSummary(town.settlement)?.name || "마을 타일") : tile ? tile.biome.replace("minecraft:", "") : "빈 타일";
+  $("#selected-tile-coord").textContent = `Q ${selected.q} · R ${selected.r}`;
+  form.elements.kind.value = kind;
+  form.elements.biome.innerHTML = worldBiomeOptions(tile?.biome || town?.town_biome || "minecraft:plains");
+  form.elements.settlement.innerHTML = worldSettlementOptions(town?.settlement || "");
+  $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== kind);
+  $("#tile-summary").innerHTML = kind === "settlement" ? `<b>마을 타일</b><span>${escapeHtml(town.settlement)}</span><small>드래그하거나 다른 타일에서 같은 마을을 선택해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 바이옴</span><small>월드 생성 시 이 좌표를 우선 적용</small>` : `<b>미지정 타일</b><span>기본 월드 지형 사용</span>`;
+}
+
+function defaultWorldTile(q, r, biome) { return { q, r, biome, boundary_profile: "cobbleventure:boundary/earthwork", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96 } }; }
+function defaultWorldSettlement(id, q, r) { return { settlement: id, anchor: { q, r }, town_radius_cells: 0, town_biome: "minecraft:plains", surroundings: [], boundary_profile: "cobbleventure:boundary/stone_wall", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96 } }; }
+
+function applyTilePlacement() {
+  const { q, r } = state.selectedHex || {}; if (q === undefined) return;
+  const kind = $("#tile-inspector-form").elements.kind.value;
+  const townIndex = state.worldLayout.settlements.findIndex((node) => node.anchor?.q === q && node.anchor?.r === r);
+  if (townIndex >= 0 && kind !== "settlement") {
+    const removed = state.worldLayout.settlements.splice(townIndex, 1)[0];
+    state.worldLayout.connections = (state.worldLayout.connections || []).filter((connection) => connection.from !== removed.settlement && connection.to !== removed.settlement);
+  }
+  state.worldLayout.tiles = state.worldLayout.tiles.filter((tile) => tile.q !== q || tile.r !== r);
+  if (kind === "biome") state.worldLayout.tiles.push(defaultWorldTile(q, r, $("#tile-inspector-form").elements.biome.value));
+  if (kind === "settlement") {
+    const id = $("#tile-inspector-form").elements.settlement.value;
+    if (!id) { toast("배치할 마을을 선택해 주세요."); return; }
+    let node = state.worldLayout.settlements.find((entry) => entry.settlement === id);
+    const occupied = settlementAt(q, r);
+    if (occupied && occupied.settlement !== id) { toast("이미 다른 마을이 배치된 타일입니다."); return; }
+    if (!node) { node = defaultWorldSettlement(id, q, r); state.worldLayout.settlements.push(node); }
+    else node.anchor = { q, r };
+  }
+  markWorldDirty(); renderWorldLayout();
+}
+
+function handleTileInspectorChange(event) {
+  if (event.target.name === "kind") {
+    $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== event.target.value);
+    if (event.target.value === "settlement") return;
+  }
+  applyTilePlacement();
+}
+
+function beginSettlementDrag(event, settlementId) {
+  event.preventDefault(); event.stopPropagation();
+  state.draggedSettlement = settlementId;
+  $("#world-hex-map").setPointerCapture?.(event.pointerId);
+  $("#world-hex-map").classList.add("is-dragging");
+}
+function nearestHexFromPointer(event) {
+  const svg = $("#world-hex-map"); const point = svg.createSVGPoint(); point.x = event.clientX; point.y = event.clientY;
+  const local = point.matrixTransform(svg.getScreenCTM().inverse());
+  let nearest = null; let distance = Infinity;
+  for (let q = -state.mapRadius; q <= state.mapRadius; q++) for (let r = -state.mapRadius; r <= state.mapRadius; r++) if (Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)) <= state.mapRadius) {
+    const p = hexPoint(q, r); const d = Math.hypot(local.x - p.x, local.y - p.y); if (d < distance) { distance = d; nearest = { q, r }; }
+  }
+  return nearest;
+}
+function finishSettlementDrag(event) {
+  if (!state.draggedSettlement) return;
+  const target = nearestHexFromPointer(event); const node = state.worldLayout.settlements.find((entry) => entry.settlement === state.draggedSettlement);
+  const occupied = target && settlementAt(target.q, target.r);
+  if (node && target && (!occupied || occupied === node)) { node.anchor = target; state.selectedHex = target; markWorldDirty(); }
+  else if (occupied && occupied !== node) toast("이미 다른 마을이 배치된 타일입니다.");
+  state.draggedSettlement = null; $("#world-hex-map").classList.remove("is-dragging"); renderWorldLayout();
+}
+
+async function addGeneration() {
+  const generation = Array.from({ length: 9 }, (_, index) => index + 1).find((value) => !state.worldGenerations.includes(value));
+  if (!generation) { toast("9세대까지 모두 추가되어 있습니다."); return; }
+  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, dimension: `cobbleventure:generation_${generation}`, seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, tiles: [], settlements: [], connections: [] };
+  const result = await request(`/api/world-layout?generation=${generation}`, { method: "PUT", body: JSON.stringify(payload) });
+  if (!result.ok) { toast(result.data.error || "세대를 추가하지 못했습니다."); return; }
+  state.worldGenerations.push(generation); state.worldGenerations.sort((a, b) => a - b); state.selectedGeneration = generation; state.worldLayout = payload; state.selectedHex = null; state.worldDirty = false; renderWorldLayout(); toast(`${generation}세대 월드를 추가했습니다.`);
 }
 
 function renderList(category) {
@@ -1723,6 +1798,33 @@ function renderHabitatPokemon() {
   $("#habitat-pokemon-list").innerHTML = pokemonResultHtml({ pokemon: entries });
 }
 
+function facilityTrainerOptions(selected = "") {
+  return '<option value="">나중에 지정</option>' + state.trainers.map((trainer) =>
+    `<option value="${escapeHtml(trainer.id)}"${trainer.id === selected ? " selected" : ""}>${escapeHtml(trainer.name || trainer.id)} · ${escapeHtml(trainer.id)}</option>`
+  ).join("");
+}
+
+function updateFacilityFormState() {
+  const form = $("#settlement-form");
+  const starterLayout = form.elements.villagePreset.value === "cobbleventure_starter";
+  form.elements.starterLaboratoryStructure.disabled = !starterLayout;
+  form.elements.starterJigsawDepth.disabled = !starterLayout;
+  if (starterLayout) {
+    form.elements.commercialCenter.value = "none";
+    form.elements.commercialCenter.disabled = true;
+  }
+  const districtEnabled = form.elements.specialDistrictEnabled.checked;
+  const buildingEnabled = districtEnabled && form.elements.specialBuildingEnabled.checked;
+  for (const name of ["specialDistrictX", "specialDistrictY", "specialDistrictZ", "specialDistrictWidth", "specialDistrictDepth", "specialDistrictClearance", "specialDistrictEntrance", "specialBuildingEnabled"]) {
+    form.elements[name].disabled = !districtEnabled;
+  }
+  for (const name of ["specialBuildingId", "specialBuildingStructure"]) form.elements[name].disabled = !buildingEnabled;
+  const gymEnabled = form.elements.gymEnabled.checked;
+  for (const name of ["gymStructure", "gymTheme", "gymAnchor", "gymLeaderTrainer", "gymEntranceX", "gymEntranceY", "gymEntranceZ"]) {
+    form.elements[name].disabled = !gymEnabled;
+  }
+}
+
 function renderSettlement() {
   const document = state.settlement;
   const form = $("#settlement-form");
@@ -1731,6 +1833,41 @@ function renderSettlement() {
   setFormValue(form, "id", document.id); setFormValue(form, "enabled", document.enabled);
   setFormValue(form, "nameKo", document.display_name?.ko_kr); setFormValue(form, "nameEn", document.display_name?.en_us);
   setFormValue(form, "region", document.region); setFormValue(form, "dimension", document.dimension);
+  setFormValue(form, "villagePreset", document.structure_profile?.village_preset || "default_large");
+  setFormValue(form, "commercialCenter", document.structure_profile?.commercial_center || "preset");
+  setFormValue(form, "starterLaboratoryStructure", document.structure_profile?.starter_layout?.laboratory_structure || "");
+  setFormValue(form, "starterJigsawDepth", document.structure_profile?.starter_layout?.jigsaw_depth ?? 2);
+  setFormValue(form, "houseStyle", document.structure_profile?.house_style || "bca:default/general");
+  const specialDistrict = document.structure_profile?.special_district || {};
+  const specialBuilding = specialDistrict.building || {};
+  const specialAnchor = document.anchors?.[specialDistrict.anchor || "special_district"] || document.center || { x: 0, y: 64, z: 0 };
+  setFormValue(form, "specialDistrictEnabled", specialDistrict.enabled ?? false);
+  setFormValue(form, "specialDistrictX", specialAnchor.x);
+  setFormValue(form, "specialDistrictY", specialAnchor.y);
+  setFormValue(form, "specialDistrictZ", specialAnchor.z);
+  setFormValue(form, "specialDistrictWidth", specialDistrict.footprint?.width ?? 48);
+  setFormValue(form, "specialDistrictDepth", specialDistrict.footprint?.depth ?? 48);
+  setFormValue(form, "specialDistrictClearance", specialDistrict.clearance ?? 6);
+  setFormValue(form, "specialDistrictEntrance", specialDistrict.entrance_direction || "south");
+  setFormValue(form, "specialBuildingEnabled", specialBuilding.enabled ?? false);
+  setFormValue(form, "specialBuildingId", specialBuilding.id || "special_landmark");
+  setFormValue(form, "specialBuildingStructure", specialBuilding.structure || "");
+  const legacyGym = document.structure_profile?.facility_placements?.find((item) => item.id === "gym_building");
+  const gym = document.structure_profile?.gym || {
+    enabled: Boolean(legacyGym), structure: legacyGym?.structure || "",
+    theme: document.structure_profile?.gym_theme || "normal", anchor: legacyGym?.anchor || "gym_building",
+    entrance_offset: document.structure_profile?.gym_entrance_offset || { x: 2, y: 3, z: 10 },
+    leader_trainer_id: document.npc_placement?.trainer_slots?.find((slot) => slot.id === "gym_leader")?.trainer_id || ""
+  };
+  setFormValue(form, "gymEnabled", gym.enabled ?? false);
+  setFormValue(form, "gymStructure", gym.structure || "");
+  setFormValue(form, "gymTheme", gym.theme || "normal");
+  setFormValue(form, "gymAnchor", gym.anchor || "gym_building");
+  form.elements.gymLeaderTrainer.innerHTML = facilityTrainerOptions(gym.leader_trainer_id || "");
+  setFormValue(form, "gymLeaderTrainer", gym.leader_trainer_id || "");
+  setFormValue(form, "gymEntranceX", gym.entrance_offset?.x ?? 2);
+  setFormValue(form, "gymEntranceY", gym.entrance_offset?.y ?? 3);
+  setFormValue(form, "gymEntranceZ", gym.entrance_offset?.z ?? 10);
   setFormValue(form, "centerX", document.center?.x); setFormValue(form, "centerY", document.center?.y); setFormValue(form, "centerZ", document.center?.z);
   setFormValue(form, "minX", document.bounds?.min_x); setFormValue(form, "minZ", document.bounds?.min_z);
   setFormValue(form, "maxX", document.bounds?.max_x); setFormValue(form, "maxZ", document.bounds?.max_z);
@@ -1785,6 +1922,7 @@ function renderSettlement() {
   setFormValue(form, "maxAmbient", document.npc_placement?.max_ambient_npcs);
   setFormValue(form, "wanderRadius", document.npc_placement?.default_wander_radius);
   [...form.elements].forEach((element) => element.disabled = false);
+  updateFacilityFormState();
   renderTrainerSlots();
   $("#settlement-json").value = JSON.stringify(document, null, 2);
   ["#settlement-json", "#apply-settlement-json", "#add-trainer-slot", "#validate-settlement", "#save-settlement"].forEach((selector) => $(selector).disabled = false);
@@ -1941,6 +2079,59 @@ function updateSettlementFromForm() {
     bounds: { min_x: number("minX"), min_z: number("minZ"), max_x: number("maxX"), max_z: number("maxZ") }
   });
   state.settlement.schema_version = 3;
+  state.settlement.structure_profile ||= {};
+  state.settlement.structure_profile.village_preset = form.elements.villagePreset.value;
+  state.settlement.structure_profile.commercial_center = form.elements.commercialCenter.value;
+  if (form.elements.villagePreset.value === "cobbleventure_starter") {
+    state.settlement.structure_profile.commercial_center = "none";
+    state.settlement.structure_profile.starter_layout = {
+      laboratory_structure: form.elements.starterLaboratoryStructure.value.trim(),
+      jigsaw_depth: number("starterJigsawDepth")
+    };
+  } else {
+    delete state.settlement.structure_profile.starter_layout;
+  }
+  state.settlement.structure_profile.house_style = form.elements.houseStyle.value.trim();
+  state.settlement.anchors ||= {};
+  const specialAnchorId = "special_district";
+  state.settlement.anchors[specialAnchorId] = {
+    x: number("specialDistrictX"), y: number("specialDistrictY"), z: number("specialDistrictZ")
+  };
+  const specialBuildingEnabled = form.elements.specialDistrictEnabled.checked && form.elements.specialBuildingEnabled.checked;
+  state.settlement.structure_profile.special_district = {
+    enabled: form.elements.specialDistrictEnabled.checked,
+    anchor: specialAnchorId,
+    footprint: { width: number("specialDistrictWidth"), depth: number("specialDistrictDepth") },
+    clearance: number("specialDistrictClearance"),
+    entrance_direction: form.elements.specialDistrictEntrance.value,
+    building: {
+      enabled: specialBuildingEnabled,
+      id: form.elements.specialBuildingId.value.trim() || "special_landmark",
+      structure: form.elements.specialBuildingStructure.value.trim()
+    }
+  };
+  const gymEnabled = form.elements.gymEnabled.checked;
+  const gymAnchor = form.elements.gymAnchor.value.trim() || "gym_building";
+  if (!state.settlement.anchors[gymAnchor]) {
+    state.settlement.anchors[gymAnchor] = { ...(state.settlement.center || { x: 0, y: 64, z: 0 }) };
+  }
+  const entranceOffset = { x: number("gymEntranceX"), y: number("gymEntranceY"), z: number("gymEntranceZ") };
+  const gymLeader = form.elements.gymLeaderTrainer.value;
+  state.settlement.structure_profile.gym = {
+    enabled: gymEnabled,
+    structure: form.elements.gymStructure.value.trim(),
+    theme: form.elements.gymTheme.value,
+    anchor: gymAnchor,
+    entrance_offset: entranceOffset,
+    leader_trainer_id: gymLeader
+  };
+  // Keep legacy fields synchronized while older data packs are still accepted.
+  state.settlement.structure_profile.gym_theme = form.elements.gymTheme.value;
+  state.settlement.structure_profile.gym_entrance_offset = entranceOffset;
+  const otherFacilities = (state.settlement.structure_profile.facility_placements || []).filter((item) => !["gym_building", "special_district_building"].includes(item.id));
+  if (gymEnabled) otherFacilities.push({ id: "gym_building", mode: "direct_template", structure: form.elements.gymStructure.value.trim(), anchor: gymAnchor });
+  if (specialBuildingEnabled) otherFacilities.push({ id: "special_district_building", mode: "direct_template", structure: form.elements.specialBuildingStructure.value.trim(), anchor: specialAnchorId });
+  state.settlement.structure_profile.facility_placements = otherFacilities;
   state.settlement.content_profile = {
     pokemon: {
       spawn_profile: form.elements.pokemonSpawnProfile.value.trim(),
@@ -2007,6 +2198,21 @@ function updateSettlementFromForm() {
   state.settlement.npc_placement = state.settlement.npc_placement || { trainer_slots: [], zones: [] };
   state.settlement.npc_placement.max_ambient_npcs = number("maxAmbient");
   state.settlement.npc_placement.default_wander_radius = number("wanderRadius");
+  state.settlement.npc_placement.trainer_slots ||= [];
+  state.settlement.npc_placement.trainer_slots = state.settlement.npc_placement.trainer_slots.filter((slot) => slot.id !== "gym_leader");
+  if (gymEnabled && gymLeader) {
+    const trainer = settlementTrainer(gymLeader);
+    const origin = state.settlement.anchors[gymAnchor];
+    const position = { x: origin.x + entranceOffset.x, y: origin.y + entranceOffset.y, z: origin.z + entranceOffset.z };
+    const leaderSlot = {
+      id: "gym_leader", trainer_id: gymLeader, battle_type: trainer?.battle_type || "singles",
+      members: [trainerSlotMember("primary", gymLeader, position)], spawn_policy: "persistent",
+      tags: ["trainer", "gym_leader"]
+    };
+    syncTrainerSlotMembers(leaderSlot);
+    state.settlement.npc_placement.trainer_slots.unshift(leaderSlot);
+  }
+  updateFacilityFormState();
   $("#settlement-json").value = JSON.stringify(state.settlement, null, 2);
 }
 
@@ -2054,7 +2260,7 @@ function openCreateDialog(category) {
   const form = $("#create-form");
   form.reset();
   form.elements.category.value = category;
-  form.elements.generation.value = "generation_1";
+  form.elements.generation.value = category === "settlements" ? `generation_${state.selectedGeneration}` : "generation_1";
   $("#create-title").textContent = category === "trainers" ? "새 트레이너" : "새 마을";
   $("#generation-field").hidden = category === "trainers";
   $("#create-issues").className = "issues empty";
@@ -2154,8 +2360,17 @@ $("#paste-team-json").addEventListener("click", pasteTeamJson);
 $("#apply-trainer-json").addEventListener("click", () => { const document = parseEditor("#trainer-json"); if (document) { state.trainer = document; renderTrainer(); toast("JSON을 편집 폼에 반영했습니다."); } });
 $("#validate-settlement").addEventListener("click", () => validateDocument("settlements"));
 $("#save-settlement").addEventListener("click", () => saveDocument("settlements"));
-$("#add-world-connection").addEventListener("click", addWorldConnection);
 $("#save-world-layout").addEventListener("click", saveWorldLayout);
+$("#add-generation").addEventListener("click", addGeneration);
+$("#tile-inspector-form").addEventListener("change", handleTileInspectorChange);
+$("#clear-tile").addEventListener("click", () => { $("#tile-inspector-form").elements.kind.value = "empty"; applyTilePlacement(); });
+$("#map-radius").addEventListener("change", (event) => { state.mapRadius = Math.max(3, Math.min(14, Number(event.target.value || 6))); state.worldLayout.grid.map_radius_cells = state.mapRadius; markWorldDirty(); renderWorldLayout(); });
+$("#tile-radius-blocks").addEventListener("change", () => { state.worldLayout.grid.tile_radius_blocks = Number($("#tile-radius-blocks").value || 64); markWorldDirty(); });
+$("#zoom-in").addEventListener("click", () => { state.mapZoom = Math.min(1.6, state.mapZoom + .1); renderHexMap(); });
+$("#zoom-out").addEventListener("click", () => { state.mapZoom = Math.max(.65, state.mapZoom - .1); renderHexMap(); });
+$("#fit-map").addEventListener("click", () => { state.mapZoom = 1; renderHexMap(); });
+$("#world-hex-map").addEventListener("pointerup", finishSettlementDrag);
+$("#world-hex-map").addEventListener("pointercancel", () => { state.draggedSettlement = null; $("#world-hex-map").classList.remove("is-dragging"); });
 $("#settlement-form").addEventListener("input", updateSettlementFromForm);
 $$('[data-preview-zone]').forEach((button) => button.addEventListener("click", () => previewSettlementZone(Number(button.dataset.previewZone))));
 $("#add-trainer-slot").addEventListener("click", addTrainerSlot);

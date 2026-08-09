@@ -280,30 +280,42 @@ body {
 .zone-preview { max-height: 260px; overflow: auto; padding: 10px; border: 1px dashed #bdccd2; background: #f8fafb; color: #637984; }
 .zone-preview .pokemon-result-grid { grid-template-columns: repeat(auto-fill,minmax(185px,1fr)); }
 
-.world-route-panel { margin-bottom: 16px; overflow: hidden; }
-.world-route-panel .panel-heading small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
-.world-route-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.world-route-workspace { display: grid; grid-template-columns: minmax(360px,.9fr) minmax(520px,1.1fr); min-height: 430px; }
-.world-route-map-wrap { display: grid; grid-template-rows: minmax(340px,1fr) auto; gap: 8px; padding: 18px; border-right: 1px solid #c7d4d9; background: #eef4f5; }
-.world-route-map-wrap svg { width: 100%; min-height: 340px; border: 1px solid #b9c9cf; background: linear-gradient(rgba(16,27,45,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(16,27,45,.04) 1px,transparent 1px),#fff; background-size: 28px 28px; }
-.world-route-map-wrap > small { color: #607788; font-size: 11px; }
-.world-route-edge { stroke: #40aeb8; stroke-width: 7; stroke-linecap: round; opacity: .72; }
-.world-route-edge.surf { stroke: #397fc0; stroke-dasharray: 12 8; }
-.world-route-edge.rock-climb { stroke: #b77442; stroke-dasharray: 5 6; }
-.world-route-node circle { fill: #17344a; stroke: #b8f23f; stroke-width: 4; }
-.world-route-node text { fill: #172d40; font-size: 14px; font-weight: 850; text-anchor: middle; }
-.world-route-node .node-index { fill: #b8f23f; font: 900 13px Consolas,monospace; }
-.world-route-editor { min-width: 0; padding: 18px; background: #fff; }
-.world-route-editor .subsection-heading { padding: 4px 0 10px; }
-.world-node-list,.world-connection-list { display: grid; gap: 8px; margin-bottom: 18px; }
-.world-node-row { display: grid; grid-template-columns: 34px minmax(190px,1fr) 74px 74px; gap: 8px; align-items: end; padding: 10px; border: 1px solid #c7d4d9; background: #f8fafb; }
-.world-connection-row { display: grid; grid-template-columns: 30px minmax(150px,1fr) minmax(150px,1fr) minmax(125px,.8fr) minmax(120px,.8fr) 62px; gap: 8px; align-items: end; padding: 10px; border: 1px solid #c7d4d9; background: #f8fafb; }
-.world-node-row > b,.world-connection-row > b { align-self: center; color: #6e9d0e; font: 900 12px Consolas,monospace; }
-.world-node-row label,.world-connection-row label { display: grid; gap: 5px; color: #607788; font-size: 11px; font-weight: 750; }
-.world-node-row input,.world-connection-row input,.world-connection-row select { width: 100%; min-width: 0; min-height: 36px; padding: 7px 9px; border: 1px solid #b9c8cf; background: #fff; color: #162f43; font-size: 12px; }
-.remove-world-connection { min-height: 36px; border: 1px solid #dfa7ae; background: #fff; color: #b83142; font-size: 11px; font-weight: 800; cursor: pointer; }
-@media (max-width: 1200px) { .world-route-workspace { grid-template-columns: 1fr; }.world-route-map-wrap { border-right: 0; border-bottom: 1px solid #c7d4d9; }.world-connection-row { grid-template-columns: 30px 1fr 1fr; }.world-connection-row label:nth-of-type(n+3) { grid-column: span 1; } }
-@media (max-width: 720px) { .world-node-row { grid-template-columns: 28px 1fr 64px 64px; }.world-connection-row { grid-template-columns: 28px 1fr; }.world-route-actions { width: 100%; }.world-route-actions .button { flex: 1; } }
+.world-map-panel { margin-bottom: 16px; overflow: hidden; border-color: #2d3b32; background: #141b17; }
+.generation-bar { display: flex; align-items: stretch; gap: 4px; min-height: 58px; padding: 9px 14px 0; border-bottom: 1px solid #303d34; background: #101612; }
+.generation-tabs { display: flex; min-width: 0; overflow-x: auto; }
+.generation-tabs button { position: relative; min-width: 92px; padding: 0 18px; border: 0; background: transparent; color: #7f8e84; font-size: 13px; font-weight: 750; cursor: pointer; }
+.generation-tabs button b { margin-right: 2px; font-size: 18px; }
+.generation-tabs button.is-active { color: #f5f2e8; }
+.generation-tabs button.is-active::after { content: ""; position: absolute; right: 14px; bottom: 0; left: 14px; height: 3px; border-radius: 3px 3px 0 0; background: var(--accent); }
+.generation-add { align-self: center; margin-left: 6px; padding: 8px 12px; border: 1px dashed #536257; border-radius: 6px; background: transparent; color: #a4b0a8; font-size: 12px; font-weight: 700; cursor: pointer; }
+.generation-add:hover { border-color: var(--accent); color: var(--accent); }
+.world-map-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 23px 26px; border-bottom: 1px solid #303d34; background: linear-gradient(105deg,#1a241d,#151c18); }
+.world-map-heading h2 { font-size: 25px; }.world-map-heading p:last-child { margin: 7px 0 0; color: #91a097; font-size: 12px; }
+.world-map-actions { display: flex; align-items: center; gap: 12px; }.world-map-actions > span { color: #849289; font-size: 11px; }.world-map-actions > span.is-dirty { color: var(--accent); }
+.world-map-workspace { display: grid; grid-template-columns: minmax(560px,1fr) 310px; min-height: 650px; }
+.world-map-canvas-wrap { display: grid; min-width: 0; grid-template-rows: auto minmax(0,1fr) auto; border-right: 1px solid #303d34; background: #0f1512; }
+.map-toolbar,.map-status { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 16px; color: #7f8d84; font-size: 11px; }
+.map-toolbar { border-bottom: 1px solid #273229; }.map-status { border-top: 1px solid #273229; }
+.map-legend,.map-toolbar > div { display: flex; align-items: center; gap: 12px; }.map-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 2px; background: #29342d; }.legend-dot.village { border-radius: 50%; background: var(--accent); }.legend-dot.biome { background: #60905c; }.legend-dot.empty { border: 1px solid #465249; background: transparent; }
+.map-tool { min-width: 30px; height: 28px; border: 1px solid #34433a; background: #18201b; color: #c9d0cb; cursor: pointer; }.map-tool.fit { padding: 0 10px; }.map-toolbar output { min-width: 42px; text-align: center; }
+.world-map-viewport { min-height: 560px; overflow: hidden; background: radial-gradient(circle at center,rgba(62,83,68,.15),transparent 53%),#0d1310; }
+.world-map-viewport svg { width: 100%; height: 100%; min-height: 560px; touch-action: none; user-select: none; }
+.hex-cell polygon { fill: #18201b; stroke: #344239; stroke-width: 1.35; transition: fill .12s,stroke .12s,filter .12s; cursor: pointer; }
+.hex-cell:hover polygon,.hex-cell:focus polygon { stroke: #d79a47; stroke-width: 2; filter: brightness(1.18); outline: none; }.hex-cell.is-selected polygon { stroke: #ffb24d; stroke-width: 3; filter: brightness(1.13); }
+.hex-cell.tone-plains polygon { fill: #536b45; }.hex-cell.tone-forest polygon { fill: #2e5a3b; }.hex-cell.tone-water polygon { fill: #315b73; }.hex-cell.tone-arid polygon { fill: #8a6039; }.hex-cell.tone-snow polygon { fill: #779095; }.hex-cell.tone-mountain polygon { fill: #5e5c55; }.hex-cell.tone-wetland polygon { fill: #405d51; }
+.biome-pin { fill: rgba(255,255,255,.55); pointer-events: none; }
+.hex-settlement { cursor: grab; }.hex-settlement:active { cursor: grabbing; }.hex-settlement circle { fill: #f2a33a; stroke: #21170c; stroke-width: 3; filter: drop-shadow(0 4px 5px rgba(0,0,0,.45)); }.hex-settlement path { fill: #21170c; pointer-events: none; }.hex-settlement text { fill: #f5f2e8; font-size: 11px; font-weight: 800; text-anchor: middle; paint-order: stroke; stroke: #101512; stroke-width: 3px; pointer-events: none; }.is-dragging .hex-settlement { cursor: grabbing; }
+.tile-inspector { display: flex; min-width: 0; flex-direction: column; background: #18201b; }
+.tile-inspector-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 22px 20px; border-bottom: 1px solid #303d34; }.tile-inspector-head h3 { margin: 0; font-size: 18px; }.tile-inspector-head > span { padding: 5px 7px; border: 1px solid #39483e; border-radius: 4px; color: #91a097; font: 700 10px Consolas,monospace; }
+.tile-inspector-empty { display: grid; min-height: 280px; padding: 35px 20px; place-items: center; align-content: center; color: #78867d; text-align: center; }.tile-inspector-empty b { color: #3c4c42; font-size: 54px; font-weight: 400; }.tile-inspector-empty p { line-height: 1.7; }
+.tile-inspector-form { display: grid; gap: 17px; padding: 20px; border-bottom: 1px solid #303d34; }.tile-inspector-form fieldset { margin: 0; padding: 0; border: 0; }.tile-inspector-form legend,.tile-inspector-form label > span,.world-settings label > span { display: block; margin-bottom: 7px; color: #9aa79f; font-size: 11px; font-weight: 750; }
+.placement-switch { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }.placement-switch label { cursor: pointer; }.placement-switch input { position: absolute; opacity: 0; }.placement-switch span { display: grid !important; min-height: 38px; margin: 0 !important; place-items: center; border: 1px solid #39473f; border-radius: 5px; background: #111713; color: #849188; }.placement-switch input:checked + span { border-color: var(--accent); background: rgba(240,164,59,.12); color: #f0b360; }
+.tile-inspector-form select,.world-settings input { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid #3a483f; border-radius: 5px; outline: none; background: #101512; color: #f1f2eb; }.tile-inspector-form label small,.world-settings label small { display: block; margin-top: 6px; color: #718078; font-size: 10px; line-height: 1.45; }
+.tile-summary { display: grid; gap: 4px; padding: 13px; border-left: 3px solid #5d7b64; background: #111713; }.tile-summary b { font-size: 12px; }.tile-summary span,.tile-summary small { overflow: hidden; color: #809087; font-size: 10px; text-overflow: ellipsis; }
+.tile-clear { width: 100%; }.world-settings { display: grid; gap: 15px; margin-top: auto; padding: 20px; background: #141b17; }.world-settings .eyebrow { margin-bottom: 0; }
+@media (max-width: 1200px) { .world-map-workspace { grid-template-columns: 1fr; }.world-map-canvas-wrap { border-right: 0; border-bottom: 1px solid #303d34; }.tile-inspector { display: grid; grid-template-columns: 260px 1fr; }.tile-inspector-head { grid-column: 1; }.tile-inspector-empty,.tile-inspector-form { grid-column: 2; grid-row: 1 / span 2; }.world-settings { grid-column: 1; } }
+@media (max-width: 720px) { .world-map-heading { align-items: flex-start; flex-direction: column; }.world-map-actions { width: 100%; justify-content: space-between; }.world-map-workspace { min-height: 0; }.world-map-viewport,.world-map-viewport svg { min-height: 430px; }.tile-inspector { display: block; }.map-legend { display: none; }.generation-bar { overflow-x: auto; }.generation-add { white-space: nowrap; } }
 
 @media (max-width: 1000px) { .biome-split { grid-template-columns: 1fr; }.biome-list { max-height: 240px; }.biome-test-toolbar { align-items: stretch; flex-direction: column; }.biome-test-toolbar label { width: 100%; }.biome-test-toolbar .button { align-self: flex-start; } }
 

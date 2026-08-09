@@ -6,7 +6,7 @@
       "weight": 1,
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "cobbleventure:tidehaven_town/gym",
+        "location": "cobbleventure:tidehaven_town/village_hub",
         "processors": "minecraft:empty",
         "projection": "rigid"
       }

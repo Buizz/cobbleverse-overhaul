@@ -31,8 +31,13 @@
 | `rctapi` | Radical Cobblemon Trainers API | 필수 | 양쪽 | 트레이너 데이터와 전투 연동 계약 | 0.15.2-beta / CF `1152792:7952419` |
 | `rctmod` | Radical Cobblemon Trainers | 필수 | 양쪽 | RCT JSON 로딩과 트레이너전 관리 | 0.18.1-beta / CF `1009534:7913180` |
 | `cobblefurnies` | CobbleFurnies | 필수 | 양쪽 | RGS 체육관·리그의 가구 블록 | 1.0 / CF `1188698:7302031` |
-| `radical_gyms_structures` | Radical Gyms & Structures | 필수 | 양쪽 | 진입형 체육관 실내와 원본 리그 구조물 | 0.6 / CF `1402174:7330950` |
-| `mega_showdown` | Mega Showdown | 선택 | 양쪽 | 메가진화 등 추가 전투 기믹 | Cobblemon 1.7.3 및 RCT 연동 검증 필요 |
+| `athena` | Athena | 필수 | 클라이언트 | CobbleFurnies 포켓볼 양탄자·연결 텍스처 렌더링 | 4.0.6 / CF `841890:8061947` |
+| `radical_gyms_structures` | Radical Gyms & Structures | 필수 | 양쪽 | 지상 체육관과 원본 리그 구조물 | 0.6 / CF `1402174:7330950` |
+| `accessories` | Accessories | 필수 | 양쪽 | Mega Showdown 장신구 슬롯과 렌더링 | 1.1.0-beta.52 / CF `938917:7046407` |
+| `owo_lib` | oωo (owo-lib) | 필수 | 양쪽 | Mega Showdown GUI·설정·네트워크 라이브러리 | 0.12.15.1-beta.3 / CF `532610:6416633` |
+| `mega_showdown` | Cobblemon: Mega Showdown | 필수 | 양쪽 | 메가진화·Z기술·테라스탈·다이맥스·울트라버스트 | 1.9.3 / CF `1189523:8519042` |
+| `paxi_neoforge` | Paxi (NeoForge) | 필수 | 양쪽 | CCCC와 ZA 보정팩을 모든 월드에서 자동 로드 | 5.1.3 / CF `1015157:6485740` |
+| `yungs_api_neoforge` | YUNG's API (NeoForge) | 필수 | 양쪽 | Paxi 필수 공용 API | 5.1.6 / CF `1015100:6715463` |
 | `easy_npc_bundle` | Easy NPC Bundle | 선택 프로필 | 양쪽 | Core와 Config UI 의존성을 선언하는 런처용 번들 | 7.0.1 / CF `559312:8420470` |
 | `easy_npc` | Easy NPC Core | 선택 프로필 | 양쪽 | Easy NPC 호환 프로필의 NPC와 대화 | 7.0.1 / CF `1308987:8420476` |
 | `easy_npc_config_ui` | Easy NPC Config UI | 선택 프로필 | 양쪽 | Easy NPC 게임 내 설정과 네트워크 | 7.0.1 / CF `1214728:8420458` |
@@ -43,6 +48,35 @@
 | ID | 콘텐츠팩 | 구분 | 선택 버전 | 배포 형식 | 패키징 상태 |
 |----|----------|------|-----------|-----------|-------------|
 | `cobblemon_additions` | Cobblemon Additions | 필수 후보 | 4.2.1 / Modrinth `W2pr9jyL:9PMzbD4o` | Fabric JAR로 포장된 데이터팩·모드 | ZIP 포함 및 NeoForge 호환 구성 완료 |
+| `complete_cobblemon_collection` | Complete Cobblemon Collection: Myths and Legends Compat | 필수 로컬 콘텐츠 | CCCC 1.7.2 / SHA-1 `b37e878f7e5539bfd145ca0fe9d63bcfef0a128c` | ZIP 데이터팩·리소스팩 | 실제 NeoForge 서버 파일을 저장소 Paxi 양쪽 경로에 포함 |
+| `za_mega_staraptor_contrary_fix` | ZA Mega Staraptor Contrary Fix | 필수 로컬 보정 | SHA-1 `9d20719aea859c9f20dfffccf3c30b756a419581` | ZIP 데이터팩·리소스팩 | 저장소 Paxi 양쪽 경로에 직접 포함 |
+
+## 전국도감과 전투 기믹
+
+기본 Cobblemon 1.7.3은 1~9세대 종 데이터와 전투는 제공하지만, 모델이 없는 종은
+대체 인형으로 표시된다. 전국도감 보완은 추정한 Modrinth판 구성이 아니라 실제
+`G:\2026 MineCraft\Cobbleverse Server\Server\datapacks`에서 확인한
+**Complete Cobblemon Collection `CCCC-1.7.2.zip`**을 기준으로 한다. 모델 자산과
+종 데이터를 함께 사용하기 위해 동일 ZIP을 Paxi의 데이터팩·리소스팩 양쪽에
+포함한다.
+
+CCCC 내부의 `LICENSE`, `Credits.txt`, 권한 증빙 파일을 원본 그대로 유지한다.
+비수익 사용·수정·재배포는 허용되지만 서버나 모드팩을 수익화하려면 저자
+Xcavalier의 명시적 서면 허가가 필요하다. 문서와 배포 설명에는
+`Complete Cobblemon Collection: Myths and Legends Compat` 명칭을 표시해야 한다.
+
+`ZA-Mega-Staraptor-Contrary-Fix.zip`은 Pokémon Champions 기준 ZA 메가진화 종
+데이터와 Showdown 변환 스크립트를 덮어쓰며, 메가 스타랩터에 격투/비행 타입,
+Contrary 특성과 보정 능력치를 적용한다. 데이터 정의와 한국어 번역을 함께
+사용하기 위해 Paxi의 `datapacks`와 `resourcepacks` 양쪽에 같은 ZIP을 넣는다.
+파일명이 `CCCC-1.7.2.zip`보다 뒤에 정렬되는 `ZA-`로 시작하므로 보정팩이 나중에
+로드된다. ZIP 안에는 별도 라이선스 문서가 없으므로 외부 공개 배포 전에는
+제공자에게 재배포 권한을 확인한다.
+
+전투 기믹은 Cobblemon 1.7.3용 **Mega Showdown 1.9.3**으로 고정한다. 공식
+의존 관계에 따라 Accessories, Architectury API, Cobblemon, Fabric API 계층과
+owo-lib를 함께 포함한다. NeoForge에서는 기존 Forgified Fabric API를 Fabric API
+호환 계층으로 사용한다.
 
 ## 자체 모듈
 
@@ -116,7 +150,7 @@ RGS 페이지가 요구하는 RCT, RCT API와 CobbleFurnies를 필수 의존성�
 ## 아직 결정하지 않는 항목
 
 - 자체 NPC 기본팩과 Easy NPC 호환팩의 공개 배포 범위
-- Mega Showdown에서 지원할 기믹과 RCT 전투별 활성화 방식
+- Mega Showdown 기믹을 RCT 트레이너별로 제한하는 런타임 어댑터 상세
 - 성능, 지도, 건축과 장식 모드 목록
 - Cobblemon Additions 또는 다른 마을 데이터팩 자산을 실제 콘텐츠에 사용할지 여부
 
