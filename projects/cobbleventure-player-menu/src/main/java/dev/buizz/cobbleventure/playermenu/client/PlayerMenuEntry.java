@@ -1,6 +1,8 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.fml.ModList;
 
 enum PlayerMenuEntry {
@@ -27,6 +29,19 @@ enum PlayerMenuEntry {
 
     Component description() {
         return Component.translatable("screen.cobbleventure_player_menu.entry." + id + ".description");
+    }
+
+    ItemStack icon() {
+        return new ItemStack(switch (this) {
+            case POKEMON -> Items.EGG;
+            case BAG -> Items.BUNDLE;
+            case EQUIPMENT -> Items.LEATHER_CHESTPLATE;
+            case PC -> Items.COMPARATOR;
+            case TRAINER_CARD -> Items.NAME_TAG;
+            case QUESTS -> Items.WRITABLE_BOOK;
+            case MAP -> Items.FILLED_MAP;
+            case POKEDEX -> Items.KNOWLEDGE_BOOK;
+        });
     }
 
     boolean connected() {

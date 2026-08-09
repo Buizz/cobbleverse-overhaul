@@ -1,6 +1,10 @@
 {
   "screen.cobbleventure_player_menu.title": "플레이어 메뉴",
   "screen.cobbleventure_player_menu.hint": "숫자키 또는 마우스로 선택 · 인벤토리 키로 닫기",
+  "screen.cobbleventure_player_menu.header.adventurer": "모험가",
+  "screen.cobbleventure_player_menu.header.player": "트레이너 · %s",
+  "screen.cobbleventure_player_menu.header.available": "사용 가능 %s/%s",
+  "screen.cobbleventure_player_menu.controls": "방향키 이동 · Enter 선택 · 숫자키 1–8 · Esc 닫기",
   "screen.cobbleventure_player_menu.status.select": "메뉴를 선택하세요",
   "screen.cobbleventure_player_menu.status.coming_soon": "%s 메뉴는 준비 중입니다",
   "screen.cobbleventure_player_menu.status.no_pokemon": "파티에 포켓몬이 없습니다",

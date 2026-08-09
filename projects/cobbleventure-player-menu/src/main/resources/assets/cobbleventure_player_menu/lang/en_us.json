@@ -1,6 +1,10 @@
 {
   "screen.cobbleventure_player_menu.title": "Player Menu",
   "screen.cobbleventure_player_menu.hint": "Select with a number key or the mouse · Press inventory to close",
+  "screen.cobbleventure_player_menu.header.adventurer": "Adventurer",
+  "screen.cobbleventure_player_menu.header.player": "Trainer · %s",
+  "screen.cobbleventure_player_menu.header.available": "Available %s/%s",
+  "screen.cobbleventure_player_menu.controls": "Arrow keys to move · Enter to select · Number keys 1–8 · Esc to close",
   "screen.cobbleventure_player_menu.status.select": "Choose a menu",
   "screen.cobbleventure_player_menu.status.coming_soon": "%s is coming soon",
   "screen.cobbleventure_player_menu.status.no_pokemon": "There are no Pokémon in your party",
