@@ -1,26 +1,31 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.fml.ModList;
 
 enum PlayerMenuEntry {
-    POKEMON("pokemon", false),
-    BAG("bag", false),
-    EQUIPMENT("equipment", true),
-    PC("pc", false),
-    TRAINER_CARD("trainer_card", false),
-    QUESTS("quests", false),
-    MAP("map", true),
-    POKEDEX("pokedex", false);
+    POKEMON("pokemon", false, "poke_ball"),
+    BAG("bag", false, "relic_coin_pouch"),
+    EQUIPMENT("equipment", true, "assault_vest"),
+    PC("pc", false, "pc"),
+    TRAINER_CARD("trainer_card", false, "red_card"),
+    QUESTS("quests", false, "scroll_of_darkness"),
+    MAP("map", true, null),
+    POKEDEX("pokedex", false, "pokedex_red");
 
     private final String id;
     private final boolean connected;
+    private final String cobblemonIconId;
 
-    PlayerMenuEntry(String id, boolean connected) {
+    PlayerMenuEntry(String id, boolean connected, String cobblemonIconId) {
         this.id = id;
         this.connected = connected;
+        this.cobblemonIconId = cobblemonIconId;
     }
 
     Component title() {
@@ -32,7 +37,7 @@ enum PlayerMenuEntry {
     }
 
     ItemStack icon() {
-        return new ItemStack(switch (this) {
+        ItemStack fallback = new ItemStack(switch (this) {
             case POKEMON -> Items.EGG;
             case BAG -> Items.BUNDLE;
             case EQUIPMENT -> Items.LEATHER_CHESTPLATE;
@@ -42,6 +47,13 @@ enum PlayerMenuEntry {
             case MAP -> Items.FILLED_MAP;
             case POKEDEX -> Items.KNOWLEDGE_BOOK;
         });
+        if (cobblemonIconId == null || !ModList.get().isLoaded("cobblemon")) {
+            return fallback;
+        }
+
+        ResourceLocation iconId = ResourceLocation.fromNamespaceAndPath("cobblemon", cobblemonIconId);
+        Item iconItem = BuiltInRegistries.ITEM.getOptional(iconId).orElse(Items.AIR);
+        return iconItem == Items.AIR ? fallback : new ItemStack(iconItem);
     }
 
     boolean connected() {
