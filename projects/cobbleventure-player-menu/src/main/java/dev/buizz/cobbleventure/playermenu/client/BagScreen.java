@@ -2,6 +2,7 @@ package dev.buizz.cobbleventure.playermenu.client;
 
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -56,8 +57,6 @@ public final class BagScreen extends Screen {
     private Button useButton;
     private Button shortcutButton;
     private Button discardButton;
-    private Button previousPageButton;
-    private Button nextPageButton;
     private BagSlotRef selectedSlot;
     private Component statusMessage = Component.empty();
     private String searchValue = "";
@@ -69,12 +68,16 @@ public final class BagScreen extends Screen {
     private int contentY;
     private int contentColumns;
     private int contentRows;
-    private int page;
+    private int scrollRow;
     private int refreshTicks;
     private int statusTicks;
     private int discardConfirmIndex = -1;
     private int discardConfirmTicks;
     private BagSlotRef draggedSlot;
+    private boolean scrollbarDragging;
+    private boolean contentDragging;
+    private double lastDragY;
+    private double dragAccumulator;
     private long snapshotRevision = -1L;
 
     public BagScreen(Screen parent) {
@@ -125,7 +128,7 @@ public final class BagScreen extends Screen {
         int actionHeight = 27;
         int availableHeight = panelY + panelHeight - PANEL_PADDING - actionHeight - DETAIL_HEIGHT - 6 - contentY;
         if (viewMode == ViewMode.GRID) {
-            contentColumns = clamp((panelWidth - PANEL_PADDING * 2) / SLOT_SIZE, 8, 25);
+            contentColumns = clamp((panelWidth - PANEL_PADDING * 2 - 8) / SLOT_SIZE, 8, 25);
             contentRows = clamp(availableHeight / SLOT_SIZE, 2, 8);
             int gridWidth = contentColumns * SLOT_SIZE;
             contentX = panelX + (panelWidth - gridWidth) / 2;
@@ -143,7 +146,7 @@ public final class BagScreen extends Screen {
             int y = viewMode == ViewMode.GRID
                 ? contentY + (index / contentColumns) * SLOT_SIZE
                 : contentY + index * LIST_ROW_HEIGHT;
-            int itemWidth = viewMode == ViewMode.GRID ? SLOT_SIZE - 1 : panelWidth - PANEL_PADDING * 2;
+            int itemWidth = viewMode == ViewMode.GRID ? SLOT_SIZE - 1 : panelWidth - PANEL_PADDING * 2 - 8;
             int itemHeight = viewMode == ViewMode.GRID ? SLOT_SIZE - 1 : LIST_ROW_HEIGHT - 1;
             ItemSlotButton button = new ItemSlotButton(x, y, itemWidth, itemHeight);
             addRenderableWidget(button);
@@ -164,10 +167,6 @@ public final class BagScreen extends Screen {
             .bounds(actionX + (actionWidth + 2) * 2, detailY + 8, actionWidth, 20).build());
 
         int footerY = panelY + panelHeight - 27;
-        previousPageButton = addRenderableWidget(Button.builder(Component.literal("<"), ignored -> changePage(-1))
-            .bounds(panelX + PANEL_PADDING, footerY, 20, 20).build());
-        nextPageButton = addRenderableWidget(Button.builder(Component.literal(">"), ignored -> changePage(1))
-            .bounds(panelX + PANEL_PADDING + 24, footerY, 20, 20).build());
         addRenderableWidget(Button.builder(
             Component.translatable("screen.cobbleventure_player_menu.bag.back"), ignored -> onClose())
             .bounds(panelX + panelWidth - 74, footerY, 62, 20).build());
@@ -196,6 +195,7 @@ public final class BagScreen extends Screen {
         drawPanel(graphics, panelX, panelY, panelWidth, panelHeight);
         renderHeader(graphics);
         renderContentBackground(graphics);
+        renderScrollbar(graphics);
         renderDetails(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
 
@@ -221,19 +221,62 @@ public final class BagScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && isOverScrollbar(mouseX, mouseY)) {
+            scrollbarDragging = true;
+            updateScrollbarDrag(mouseY);
+            return true;
+        }
         if (button == 0 || button == 1) {
             ItemSlotButton itemButton = itemButtonAt(mouseX, mouseY);
             if (itemButton != null && itemButton.slot != null) {
+                if (button == 0 && itemButton.slot.stack().isEmpty()) {
+                    contentDragging = true;
+                    lastDragY = mouseY;
+                    dragAccumulator = 0.0D;
+                    return true;
+                }
                 select(itemButton.slot);
                 if (!itemButton.slot.stack().isEmpty()) draggedSlot = itemButton.slot;
                 return true;
             }
         }
+        if ((button == 0 || button == 2) && isInsideContent(mouseX, mouseY)) {
+            contentDragging = true;
+            lastDragY = mouseY;
+            dragAccumulator = 0.0D;
+            return true;
+        }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (scrollbarDragging && button == 0) {
+            updateScrollbarDrag(mouseY);
+            return true;
+        }
+        if (contentDragging && (button == 0 || button == 2)) {
+            dragAccumulator += lastDragY - mouseY;
+            lastDragY = mouseY;
+            int rowHeight = viewMode == ViewMode.GRID ? SLOT_SIZE : LIST_ROW_HEIGHT;
+            int rows = (int)(dragAccumulator / Math.max(8.0D, rowHeight * 0.6D));
+            if (rows != 0) {
+                scrollBy(rows);
+                dragAccumulator -= rows * Math.max(8.0D, rowHeight * 0.6D);
+            }
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (scrollbarDragging || contentDragging) {
+            scrollbarDragging = false;
+            contentDragging = false;
+            draggedSlot = null;
+            return true;
+        }
         if (draggedSlot != null && (button == 0 || button == 1)) {
             ItemSlotButton target = itemButtonAt(mouseX, mouseY);
             if (target != null && target.slot != null
@@ -267,11 +310,11 @@ public final class BagScreen extends Screen {
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
-                changePage(-1);
+                scrollBy(-contentRows);
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
-                changePage(1);
+                scrollBy(contentRows);
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_V) {
@@ -290,7 +333,7 @@ public final class BagScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (scrollY != 0.0D) {
-            changePage(scrollY > 0.0D ? -1 : 1);
+            scrollBy(scrollY > 0.0D ? -1 : 1);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -329,6 +372,22 @@ public final class BagScreen extends Screen {
         }
     }
 
+    private void renderScrollbar(GuiGraphics graphics) {
+        int x = scrollbarX();
+        int top = contentY;
+        int bottom = contentY + contentHeight();
+        graphics.fill(x, top, x + 5, bottom, PANEL_DARK_COLOR);
+        int maximum = maxScrollRow();
+        if (maximum <= 0) {
+            graphics.fill(x + 1, top + 1, x + 4, bottom - 1, SLOT_COLOR);
+            return;
+        }
+        int thumbHeight = scrollbarThumbHeight();
+        int travel = Math.max(1, bottom - top - thumbHeight);
+        int thumbY = top + Math.round((float)scrollRow / maximum * travel);
+        graphics.fill(x + 1, thumbY, x + 4, thumbY + thumbHeight, ACCENT_COLOR);
+    }
+
     private void renderDetails(GuiGraphics graphics) {
         int detailY = detailY();
         graphics.fill(panelX + PANEL_PADDING, detailY, panelX + panelWidth - PANEL_PADDING,
@@ -360,9 +419,10 @@ public final class BagScreen extends Screen {
             graphics.drawString(font, font.plainSubstrByWidth(statusMessage.getString(), panelWidth - 30),
                 panelX + PANEL_PADDING + 8, detailY + DETAIL_HEIGHT - 12, ACCENT_COLOR, false);
         }
-        Component pageText = Component.translatable("screen.cobbleventure_player_menu.bag.page",
-            Math.min(page + 1, pageCount()), pageCount());
-        graphics.drawString(font, pageText, panelX + PANEL_PADDING + 51,
+        Component scrollText = Component.translatable("screen.cobbleventure_player_menu.bag.scroll_status",
+            filteredSlots.stream().filter(slot -> !slot.stack().isEmpty()).count());
+        graphics.drawString(font, font.plainSubstrByWidth(scrollText.getString(), panelWidth - 104),
+            panelX + PANEL_PADDING + 8,
             panelY + panelHeight - 21, MUTED_TEXT_COLOR, false);
     }
 
@@ -377,7 +437,7 @@ public final class BagScreen extends Screen {
         }
     }
 
-    private void refreshItems(boolean resetPage) {
+    private void refreshItems(boolean resetScroll) {
         if (minecraft == null || minecraft.player == null || itemButtons.isEmpty()) return;
         boolean selectedExtended = selectedSlot != null && selectedSlot.extended();
         int selectedIndex = selectedSlot == null ? -1 : selectedSlot.slot();
@@ -430,23 +490,24 @@ public final class BagScreen extends Screen {
             for (int emptySlot : emptySlots) addIfVisible(true, emptySlot, ItemStack.EMPTY, 0, query);
         }
 
-        if (resetPage) page = 0;
-        page = clamp(page, 0, pageCount() - 1);
+        filteredSlots.sort(Comparator
+            .comparing((BagSlotRef slot) -> slot.stack().isEmpty())
+            .thenComparing(BagScreen::sortName)
+            .thenComparing(slot -> slot.extended() ? 1 : 0)
+            .thenComparingInt(BagSlotRef::slot));
+
+        if (resetScroll) scrollRow = 0;
+        scrollRow = clamp(scrollRow, 0, maxScrollRow());
         selectedSlot = filteredSlots.stream()
             .filter(slot -> slot.extended() == selectedExtended && slot.slot() == selectedIndex && !slot.stack().isEmpty())
             .findFirst()
             .orElseGet(() -> filteredSlots.stream().filter(slot -> !slot.stack().isEmpty()).findFirst().orElse(null));
 
-        int start = page * itemButtons.size();
+        int start = scrollRow * contentColumns;
         for (int index = 0; index < itemButtons.size(); index++) {
             int itemIndex = start + index;
             itemButtons.get(index).setSlot(itemIndex < filteredSlots.size() ? filteredSlots.get(itemIndex) : null);
         }
-        boolean multiplePages = pageCount() > 1;
-        previousPageButton.visible = multiplePages;
-        nextPageButton.visible = multiplePages;
-        previousPageButton.active = page > 0;
-        nextPageButton.active = page + 1 < pageCount();
         updateActionButtons();
     }
 
@@ -532,26 +593,61 @@ public final class BagScreen extends Screen {
 
     private void toggleView() {
         viewMode = viewMode == ViewMode.GRID ? ViewMode.LIST : ViewMode.GRID;
-        page = 0;
+        scrollRow = 0;
         rebuildWidgets();
     }
 
-    private void changePage(int delta) {
-        int nextPage = clamp(page + delta, 0, pageCount() - 1);
-        if (nextPage != page) {
-            page = nextPage;
+    private void scrollBy(int rows) {
+        int nextRow = clamp(scrollRow + rows, 0, maxScrollRow());
+        if (nextRow != scrollRow) {
+            scrollRow = nextRow;
             refreshItems(false);
         }
     }
 
-    private int pageCount() {
-        int capacity = Math.max(1, itemButtons.size());
-        return Math.max(1, (filteredSlots.size() + capacity - 1) / capacity);
+    private int maxScrollRow() {
+        int totalRows = Math.max(1, (filteredSlots.size() + contentColumns - 1) / contentColumns);
+        return Math.max(0, totalRows - contentRows);
     }
 
     private int detailY() {
-        int contentHeight = viewMode == ViewMode.GRID ? contentRows * SLOT_SIZE : contentRows * LIST_ROW_HEIGHT;
-        return contentY + contentHeight + 6;
+        return contentY + contentHeight() + 6;
+    }
+
+    private int contentHeight() {
+        return viewMode == ViewMode.GRID ? contentRows * SLOT_SIZE : contentRows * LIST_ROW_HEIGHT;
+    }
+
+    private int scrollbarX() {
+        return panelX + panelWidth - PANEL_PADDING - 5;
+    }
+
+    private int scrollbarThumbHeight() {
+        int totalRows = Math.max(1, contentRows + maxScrollRow());
+        return Math.max(12, contentHeight() * contentRows / totalRows);
+    }
+
+    private boolean isOverScrollbar(double mouseX, double mouseY) {
+        return mouseX >= scrollbarX() - 2 && mouseX <= scrollbarX() + 7
+            && mouseY >= contentY && mouseY <= contentY + contentHeight();
+    }
+
+    private boolean isInsideContent(double mouseX, double mouseY) {
+        return mouseX >= panelX + PANEL_PADDING && mouseX < scrollbarX() - 2
+            && mouseY >= contentY && mouseY < contentY + contentHeight();
+    }
+
+    private void updateScrollbarDrag(double mouseY) {
+        int maximum = maxScrollRow();
+        if (maximum <= 0) return;
+        int thumbHeight = scrollbarThumbHeight();
+        int travel = Math.max(1, contentHeight() - thumbHeight);
+        double ratio = (mouseY - contentY - thumbHeight / 2.0D) / travel;
+        int nextRow = clamp((int)Math.round(ratio * maximum), 0, maximum);
+        if (nextRow != scrollRow) {
+            scrollRow = nextRow;
+            refreshItems(false);
+        }
     }
 
     private ItemSlotButton itemButtonAt(double mouseX, double mouseY) {
@@ -559,6 +655,12 @@ public final class BagScreen extends Screen {
             if (button.visible && button.isMouseOver(mouseX, mouseY)) return button;
         }
         return null;
+    }
+
+    private static String sortName(BagSlotRef slot) {
+        if (slot.stack().isEmpty()) return "";
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(slot.stack().getItem());
+        return slot.stack().getHoverName().getString().toLowerCase(Locale.ROOT) + "\u0000" + id;
     }
 
     private static int clamp(int value, int minimum, int maximum) {
