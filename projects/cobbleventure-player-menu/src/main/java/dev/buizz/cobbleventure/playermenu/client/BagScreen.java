@@ -13,18 +13,22 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import org.lwjgl.glfw.GLFW;
 
-/** 검색과 포켓 분류를 제공하는 B안 기반의 1차 가방 화면. */
+/** 검색, 포켓 분류와 실제 인벤토리 조작을 제공하는 가방 화면. */
 public final class BagScreen extends Screen {
-    private static final int PANEL_MAX_WIDTH = 430;
-    private static final int PANEL_MAX_HEIGHT = 238;
+    private static final int PANEL_MAX_WIDTH = 520;
+    private static final int PANEL_MAX_HEIGHT = 300;
     private static final int PANEL_PADDING = 8;
     private static final int TAB_HEIGHT = 22;
     private static final int SLOT_SIZE = 20;
-    private static final int DETAIL_HEIGHT = 52;
+    private static final int LIST_ROW_HEIGHT = 21;
+    private static final int DETAIL_HEIGHT = 70;
 
     private static final int SHADOW_COLOR = 0xB0000000;
     private static final int PANEL_COLOR = 0xF05A5A5A;
@@ -44,21 +48,30 @@ public final class BagScreen extends Screen {
     private final List<InventorySlotRef> filteredSlots = new ArrayList<>();
 
     private BagCategory category = BagCategory.ALL;
+    private ViewMode viewMode = ViewMode.GRID;
     private EditBox searchBox;
     private Button useButton;
+    private Button shortcutButton;
+    private Button discardButton;
     private Button previousPageButton;
     private Button nextPageButton;
     private InventorySlotRef selectedSlot;
+    private Component statusMessage = Component.empty();
+    private String searchValue = "";
     private int panelX;
     private int panelY;
     private int panelWidth;
     private int panelHeight;
-    private int gridX;
-    private int gridY;
-    private int gridColumns;
-    private int gridRows;
+    private int contentX;
+    private int contentY;
+    private int contentColumns;
+    private int contentRows;
     private int page;
     private int refreshTicks;
+    private int statusTicks;
+    private int discardConfirmIndex = -1;
+    private int discardConfirmTicks;
+    private int draggedInventoryIndex = -1;
 
     public BagScreen(Screen parent) {
         super(Component.translatable("screen.cobbleventure_player_menu.bag.title"));
@@ -72,23 +85,25 @@ public final class BagScreen extends Screen {
         itemButtons.clear();
 
         panelWidth = Math.min(PANEL_MAX_WIDTH, Math.max(292, width - 16));
-        panelHeight = Math.min(PANEL_MAX_HEIGHT, Math.max(204, height - 16));
+        panelHeight = Math.min(PANEL_MAX_HEIGHT, Math.max(214, height - 16));
         panelX = (width - panelWidth) / 2;
         panelY = (height - panelHeight) / 2;
 
-        int searchWidth = Math.min(124, panelWidth / 3);
-        searchBox = new EditBox(
-            font,
-            panelX + panelWidth - PANEL_PADDING - searchWidth,
-            panelY + 6,
-            searchWidth,
-            18,
-            Component.translatable("screen.cobbleventure_player_menu.bag.search")
-        );
+        int viewWidth = 64;
+        int searchWidth = Math.min(150, Math.max(84, panelWidth / 3));
+        searchBox = new EditBox(font, panelX + panelWidth - PANEL_PADDING - searchWidth - viewWidth - 4,
+            panelY + 6, searchWidth, 18,
+            Component.translatable("screen.cobbleventure_player_menu.bag.search"));
+        searchBox.setValue(searchValue);
         searchBox.setHint(Component.translatable("screen.cobbleventure_player_menu.bag.search"));
         searchBox.setMaxLength(48);
-        searchBox.setResponder(ignored -> refreshItems(true));
+        searchBox.setResponder(value -> {
+            searchValue = value;
+            refreshItems(true);
+        });
         addRenderableWidget(searchBox);
+        addRenderableWidget(Button.builder(viewMode.toggleLabel(), ignored -> toggleView())
+            .bounds(panelX + panelWidth - PANEL_PADDING - viewWidth, panelY + 5, viewWidth, 20).build());
 
         int tabsY = panelY + 29;
         int tabAreaWidth = panelWidth - PANEL_PADDING * 2;
@@ -96,53 +111,62 @@ public final class BagScreen extends Screen {
         int tabWidth = tabAreaWidth / categories.length;
         for (int index = 0; index < categories.length; index++) {
             int x = panelX + PANEL_PADDING + index * tabWidth;
-            int widthForTab = index == categories.length - 1
-                ? tabAreaWidth - tabWidth * index
-                : tabWidth;
+            int widthForTab = index == categories.length - 1 ? tabAreaWidth - tabWidth * index : tabWidth;
             CategoryButton button = new CategoryButton(categories[index], x, tabsY, widthForTab, TAB_HEIGHT);
             addRenderableWidget(button);
             categoryButtons.add(button);
         }
 
-        gridX = panelX + PANEL_PADDING;
-        gridY = tabsY + TAB_HEIGHT + 5;
-        int footerHeight = 27;
-        int gridAvailableHeight = panelY + panelHeight - PANEL_PADDING - footerHeight
-            - DETAIL_HEIGHT - 7 - gridY;
-        gridColumns = clamp((panelWidth - PANEL_PADDING * 2) / SLOT_SIZE, 8, 12);
-        gridRows = clamp(gridAvailableHeight / SLOT_SIZE, 3, 5);
-        int gridWidth = gridColumns * SLOT_SIZE;
-        gridX = panelX + (panelWidth - gridWidth) / 2;
+        contentY = tabsY + TAB_HEIGHT + 5;
+        int actionHeight = 27;
+        int availableHeight = panelY + panelHeight - PANEL_PADDING - actionHeight - DETAIL_HEIGHT - 6 - contentY;
+        if (viewMode == ViewMode.GRID) {
+            contentColumns = clamp((panelWidth - PANEL_PADDING * 2) / SLOT_SIZE, 8, 25);
+            contentRows = clamp(availableHeight / SLOT_SIZE, 2, 8);
+            int gridWidth = contentColumns * SLOT_SIZE;
+            contentX = panelX + (panelWidth - gridWidth) / 2;
+        } else {
+            contentColumns = 1;
+            contentRows = clamp(availableHeight / LIST_ROW_HEIGHT, 2, 8);
+            contentX = panelX + PANEL_PADDING;
+        }
 
-        int capacity = gridColumns * gridRows;
+        int capacity = contentColumns * contentRows;
         for (int index = 0; index < capacity; index++) {
-            ItemSlotButton button = new ItemSlotButton(
-                gridX + (index % gridColumns) * SLOT_SIZE,
-                gridY + (index / gridColumns) * SLOT_SIZE
-            );
+            int x = viewMode == ViewMode.GRID
+                ? contentX + (index % contentColumns) * SLOT_SIZE
+                : contentX;
+            int y = viewMode == ViewMode.GRID
+                ? contentY + (index / contentColumns) * SLOT_SIZE
+                : contentY + index * LIST_ROW_HEIGHT;
+            int itemWidth = viewMode == ViewMode.GRID ? SLOT_SIZE - 1 : panelWidth - PANEL_PADDING * 2;
+            int itemHeight = viewMode == ViewMode.GRID ? SLOT_SIZE - 1 : LIST_ROW_HEIGHT - 1;
+            ItemSlotButton button = new ItemSlotButton(x, y, itemWidth, itemHeight);
             addRenderableWidget(button);
             itemButtons.add(button);
         }
 
-        int detailY = gridY + gridRows * SLOT_SIZE + 6;
+        int detailY = detailY();
+        int actionWidth = Math.max(50, Math.min(78, (panelWidth - 156) / 3));
+        int actionX = panelX + panelWidth - PANEL_PADDING - actionWidth * 3 - 4;
         useButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.bag.use"),
-            ignored -> useSelectedItem()
-        ).bounds(panelX + panelWidth - 74, detailY + 15, 62, 20).build());
+            Component.translatable("screen.cobbleventure_player_menu.bag.use"), ignored -> useSelectedItem())
+            .bounds(actionX, detailY + 8, actionWidth, 20).build());
+        shortcutButton = addRenderableWidget(Button.builder(
+            Component.translatable("screen.cobbleventure_player_menu.bag.shortcut"), ignored -> assignShortcut())
+            .bounds(actionX + actionWidth + 2, detailY + 8, actionWidth, 20).build());
+        discardButton = addRenderableWidget(Button.builder(
+            Component.translatable("screen.cobbleventure_player_menu.bag.discard"), ignored -> discardSelected())
+            .bounds(actionX + (actionWidth + 2) * 2, detailY + 8, actionWidth, 20).build());
 
         int footerY = panelY + panelHeight - 27;
-        previousPageButton = addRenderableWidget(Button.builder(
-            Component.literal("<"),
-            ignored -> changePage(-1)
-        ).bounds(panelX + PANEL_PADDING, footerY, 20, 20).build());
-        nextPageButton = addRenderableWidget(Button.builder(
-            Component.literal(">"),
-            ignored -> changePage(1)
-        ).bounds(panelX + PANEL_PADDING + 24, footerY, 20, 20).build());
+        previousPageButton = addRenderableWidget(Button.builder(Component.literal("<"), ignored -> changePage(-1))
+            .bounds(panelX + PANEL_PADDING, footerY, 20, 20).build());
+        nextPageButton = addRenderableWidget(Button.builder(Component.literal(">"), ignored -> changePage(1))
+            .bounds(panelX + PANEL_PADDING + 24, footerY, 20, 20).build());
         addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.bag.back"),
-            ignored -> onClose()
-        ).bounds(panelX + panelWidth - 74, footerY, 62, 20).build());
+            Component.translatable("screen.cobbleventure_player_menu.bag.back"), ignored -> onClose())
+            .bounds(panelX + panelWidth - 74, footerY, 62, 20).build());
 
         refreshItems(false);
     }
@@ -150,7 +174,10 @@ public final class BagScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
-        if (++refreshTicks >= 10) {
+        if (statusTicks > 0) statusTicks--;
+        if (discardConfirmTicks > 0 && --discardConfirmTicks == 0) resetDiscardConfirmation();
+        if (++refreshTicks >= 10 && (minecraft == null || minecraft.player == null
+            || minecraft.player.inventoryMenu.getCarried().isEmpty())) {
             refreshTicks = 0;
             refreshItems(false);
         }
@@ -160,7 +187,7 @@ public final class BagScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         drawPanel(graphics, panelX, panelY, panelWidth, panelHeight);
         renderHeader(graphics);
-        renderGridBackground(graphics);
+        renderContentBackground(graphics);
         renderDetails(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
 
@@ -170,11 +197,52 @@ public final class BagScreen extends Screen {
                 break;
             }
         }
+        if (minecraft != null && minecraft.player != null) {
+            ItemStack carried = minecraft.player.inventoryMenu.getCarried();
+            if (!carried.isEmpty()) {
+                graphics.pose().pushPose();
+                graphics.pose().translate(0.0F, 0.0F, 300.0F);
+                graphics.renderItem(carried, mouseX - 8, mouseY - 8);
+                graphics.renderItemDecorations(font, carried, mouseX - 8, mouseY - 8);
+                graphics.pose().popPose();
+            }
+        }
     }
 
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // B안 패널 자체로 대비를 확보하고 월드는 흐리지 않는다.
+        // 패널 자체로 대비를 확보하고 월드는 흐리지 않는다.
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 || button == 1) {
+            ItemSlotButton itemButton = itemButtonAt(mouseX, mouseY);
+            if (itemButton != null && itemButton.slot != null) {
+                select(itemButton.slot);
+                PlayerMenuClient.pickUpInventoryItem(itemButton.slot.inventoryIndex(), button);
+                draggedInventoryIndex = itemButton.slot.inventoryIndex();
+                return true;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (draggedInventoryIndex >= 0 && (button == 0 || button == 1)) {
+            ItemSlotButton target = itemButtonAt(mouseX, mouseY);
+            if (target != null && target.slot != null
+                && target.slot.inventoryIndex() != draggedInventoryIndex
+                && minecraft != null && minecraft.player != null
+                && !minecraft.player.inventoryMenu.getCarried().isEmpty()) {
+                PlayerMenuClient.pickUpInventoryItem(target.slot.inventoryIndex(), button);
+            }
+            draggedInventoryIndex = -1;
+            refreshTicks = 9;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
@@ -189,12 +257,20 @@ public final class BagScreen extends Screen {
             return true;
         }
         if (!searchBox.isFocused()) {
+            if (keyCode >= GLFW.GLFW_KEY_1 && keyCode <= GLFW.GLFW_KEY_9 && selectedSlot != null) {
+                assignShortcut(keyCode - GLFW.GLFW_KEY_1);
+                return true;
+            }
             if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
                 changePage(-1);
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
                 changePage(1);
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_V) {
+                toggleView();
                 return true;
             }
             if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
@@ -217,9 +293,7 @@ public final class BagScreen extends Screen {
 
     @Override
     public void onClose() {
-        if (minecraft != null) {
-            minecraft.setScreen(parent);
-        }
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
     @Override
@@ -228,16 +302,16 @@ public final class BagScreen extends Screen {
     }
 
     private void renderHeader(GuiGraphics graphics) {
-        ItemStack bagIcon = PlayerMenuEntry.BAG.icon();
-        graphics.renderItem(bagIcon, panelX + 8, panelY + 7);
+        graphics.renderItem(PlayerMenuEntry.BAG.icon(), panelX + 8, panelY + 7);
         graphics.drawString(font, title, panelX + 29, panelY + 11, PRIMARY_TEXT_COLOR, false);
     }
 
-    private void renderGridBackground(GuiGraphics graphics) {
-        for (int row = 0; row < gridRows; row++) {
-            for (int column = 0; column < gridColumns; column++) {
-                int x = gridX + column * SLOT_SIZE;
-                int y = gridY + row * SLOT_SIZE;
+    private void renderContentBackground(GuiGraphics graphics) {
+        if (viewMode != ViewMode.GRID) return;
+        for (int row = 0; row < contentRows; row++) {
+            for (int column = 0; column < contentColumns; column++) {
+                int x = contentX + column * SLOT_SIZE;
+                int y = contentY + row * SLOT_SIZE;
                 graphics.fill(x, y, x + SLOT_SIZE - 1, y + SLOT_SIZE - 1, PANEL_DARK_COLOR);
                 graphics.fill(x + 1, y + 1, x + SLOT_SIZE - 2, y + SLOT_SIZE - 2, SLOT_COLOR);
             }
@@ -245,68 +319,62 @@ public final class BagScreen extends Screen {
     }
 
     private void renderDetails(GuiGraphics graphics) {
-        int detailY = gridY + gridRows * SLOT_SIZE + 6;
+        int detailY = detailY();
         graphics.fill(panelX + PANEL_PADDING, detailY, panelX + panelWidth - PANEL_PADDING,
             detailY + DETAIL_HEIGHT, PANEL_DARK_COLOR);
         graphics.fill(panelX + PANEL_PADDING + 1, detailY + 1, panelX + panelWidth - PANEL_PADDING - 1,
             detailY + DETAIL_HEIGHT - 1, 0xE04A4A4A);
 
         ItemStack stack = selectedStack();
+        int textX = panelX + PANEL_PADDING + 34;
+        int actionStart = useButton == null ? panelX + panelWidth - 180 : useButton.getX();
+        int textWidth = Math.max(60, actionStart - textX - 7);
         if (stack.isEmpty()) {
-            graphics.drawString(
-                font,
-                Component.translatable("screen.cobbleventure_player_menu.bag.empty_selection"),
-                panelX + PANEL_PADDING + 8,
-                detailY + 21,
-                MUTED_TEXT_COLOR,
-                false
-            );
+            graphics.drawString(font, Component.translatable("screen.cobbleventure_player_menu.bag.empty_selection"),
+                panelX + PANEL_PADDING + 8, detailY + 29, MUTED_TEXT_COLOR, false);
         } else {
             graphics.renderItem(stack, panelX + PANEL_PADDING + 9, detailY + 9);
             graphics.renderItemDecorations(font, stack, panelX + PANEL_PADDING + 9, detailY + 9);
-            String name = font.plainSubstrByWidth(stack.getHoverName().getString(), panelWidth - 132);
-            graphics.drawString(font, name, panelX + PANEL_PADDING + 34, detailY + 10,
-                PRIMARY_TEXT_COLOR, false);
-            Component count = Component.translatable(
-                "screen.cobbleventure_player_menu.bag.count",
-                stack.getCount()
-            );
-            graphics.drawString(font, count, panelX + PANEL_PADDING + 34, detailY + 27,
-                SECONDARY_TEXT_COLOR, false);
+            graphics.drawString(font, font.plainSubstrByWidth(stack.getHoverName().getString(), textWidth),
+                textX, detailY + 8, PRIMARY_TEXT_COLOR, false);
+            graphics.drawString(font, Component.translatable("screen.cobbleventure_player_menu.bag.count", stack.getCount()),
+                textX, detailY + 20, SECONDARY_TEXT_COLOR, false);
+            renderDescription(graphics, stack, textX, detailY + 34, textWidth);
         }
 
-        int pageCount = pageCount();
-        Component pageText = Component.translatable(
-            "screen.cobbleventure_player_menu.bag.page",
-            Math.min(page + 1, pageCount),
-            pageCount
-        );
+        if (statusTicks > 0) {
+            graphics.drawString(font, font.plainSubstrByWidth(statusMessage.getString(), panelWidth - 30),
+                panelX + PANEL_PADDING + 8, detailY + DETAIL_HEIGHT - 12, ACCENT_COLOR, false);
+        }
+        Component pageText = Component.translatable("screen.cobbleventure_player_menu.bag.page",
+            Math.min(page + 1, pageCount()), pageCount());
         graphics.drawString(font, pageText, panelX + PANEL_PADDING + 51,
             panelY + panelHeight - 21, MUTED_TEXT_COLOR, false);
     }
 
-    private void refreshItems(boolean resetPage) {
-        if (minecraft == null || minecraft.player == null || itemButtons.isEmpty()) {
-            return;
+    private void renderDescription(GuiGraphics graphics, ItemStack stack, int x, int y, int width) {
+        List<Component> tooltip = stack.getTooltipLines(Item.TooltipContext.EMPTY, minecraft.player, TooltipFlag.NORMAL);
+        int renderedLines = 0;
+        for (int index = 1; index < tooltip.size() && renderedLines < 2; index++) {
+            for (FormattedCharSequence line : font.split(tooltip.get(index), width)) {
+                graphics.drawString(font, line, x, y + renderedLines * 10, MUTED_TEXT_COLOR, false);
+                if (++renderedLines >= 2) break;
+            }
         }
+    }
+
+    private void refreshItems(boolean resetPage) {
+        if (minecraft == null || minecraft.player == null || itemButtons.isEmpty()) return;
         int selectedInventoryIndex = selectedSlot == null ? -1 : selectedSlot.inventoryIndex();
         filteredSlots.clear();
 
         Inventory inventory = minecraft.player.getInventory();
-        String query = searchBox == null ? "" : searchBox.getValue().strip().toLowerCase(Locale.ROOT);
-        // 본래 인벤토리 배열은 핫바가 먼저지만, 가방에서는 주 인벤토리를 먼저 보여준다.
-        for (int inventoryIndex = 9; inventoryIndex < 36; inventoryIndex++) {
-            addIfVisible(inventory, inventoryIndex, query);
-        }
-        for (int inventoryIndex = 0; inventoryIndex < 9; inventoryIndex++) {
-            addIfVisible(inventory, inventoryIndex, query);
-        }
+        String query = searchBox == null ? searchValue : searchBox.getValue().strip().toLowerCase(Locale.ROOT);
+        for (int inventoryIndex = 9; inventoryIndex < 36; inventoryIndex++) addIfVisible(inventory, inventoryIndex, query);
+        for (int inventoryIndex = 0; inventoryIndex < 9; inventoryIndex++) addIfVisible(inventory, inventoryIndex, query);
 
-        if (resetPage) {
-            page = 0;
-        }
+        if (resetPage) page = 0;
         page = clamp(page, 0, pageCount() - 1);
-
         selectedSlot = filteredSlots.stream()
             .filter(slot -> slot.inventoryIndex() == selectedInventoryIndex && !slot.stack().isEmpty())
             .findFirst()
@@ -317,54 +385,96 @@ public final class BagScreen extends Screen {
             int itemIndex = start + index;
             itemButtons.get(index).setSlot(itemIndex < filteredSlots.size() ? filteredSlots.get(itemIndex) : null);
         }
-
         boolean multiplePages = pageCount() > 1;
         previousPageButton.visible = multiplePages;
         nextPageButton.visible = multiplePages;
         previousPageButton.active = page > 0;
         nextPageButton.active = page + 1 < pageCount();
-        useButton.active = selectedSlot != null && !selectedSlot.stack().isEmpty();
+        updateActionButtons();
     }
 
     private void addIfVisible(Inventory inventory, int inventoryIndex, String query) {
         ItemStack stack = inventory.getItem(inventoryIndex);
-        if (stack.isEmpty() && (category != BagCategory.ALL || !query.isEmpty())) {
-            return;
-        }
-        if (!stack.isEmpty() && !category.matches(stack)) {
-            return;
-        }
+        if (stack.isEmpty() && (category != BagCategory.ALL || !query.isEmpty())) return;
+        if (!stack.isEmpty() && !category.matches(stack)) return;
         if (!stack.isEmpty() && !query.isEmpty()) {
             ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
-            String searchable = stack.getHoverName().getString().toLowerCase(Locale.ROOT)
-                + " " + itemId.toString().toLowerCase(Locale.ROOT);
-            if (!searchable.contains(query)) {
-                return;
-            }
+            List<Component> tooltip = stack.getTooltipLines(Item.TooltipContext.EMPTY, minecraft.player, TooltipFlag.NORMAL);
+            StringBuilder searchable = new StringBuilder(stack.getHoverName().getString().toLowerCase(Locale.ROOT))
+                .append(' ').append(itemId.toString().toLowerCase(Locale.ROOT));
+            for (Component line : tooltip) searchable.append(' ').append(line.getString().toLowerCase(Locale.ROOT));
+            if (!searchable.toString().contains(query)) return;
         }
         filteredSlots.add(new InventorySlotRef(inventoryIndex, stack));
     }
 
     private void select(InventorySlotRef slot) {
-        if (slot == null || slot.stack().isEmpty()) {
-            return;
-        }
-        selectedSlot = slot;
-        useButton.active = true;
+        if (slot == null) return;
+        selectedSlot = slot.stack().isEmpty() ? null : slot;
+        resetDiscardConfirmation();
+        updateActionButtons();
     }
 
     private void useSelectedItem() {
-        if (selectedSlot == null || selectedSlot.stack().isEmpty()) {
+        if (selectedSlot == null || selectedStack().isEmpty()) return;
+        PlayerMenuClient.useInventoryItem(selectedSlot.inventoryIndex());
+        showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.used"));
+        refreshTicks = 9;
+    }
+
+    private void assignShortcut() {
+        if (minecraft != null && minecraft.player != null) assignShortcut(minecraft.player.getInventory().selected);
+    }
+
+    private void assignShortcut(int hotbarIndex) {
+        if (selectedSlot == null || selectedStack().isEmpty()) return;
+        PlayerMenuClient.assignInventoryItemToHotbar(selectedSlot.inventoryIndex(), hotbarIndex);
+        showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.shortcut_registered", hotbarIndex + 1));
+        refreshTicks = 9;
+    }
+
+    private void discardSelected() {
+        if (selectedSlot == null || selectedStack().isEmpty()) return;
+        int index = selectedSlot.inventoryIndex();
+        if (discardConfirmIndex != index || discardConfirmTicks <= 0) {
+            discardConfirmIndex = index;
+            discardConfirmTicks = 60;
+            discardButton.setMessage(Component.translatable("screen.cobbleventure_player_menu.bag.discard_confirm"));
             return;
         }
-        PlayerMenuClient.useInventoryItem(selectedSlot.inventoryIndex());
+        PlayerMenuClient.discardInventoryItem(index);
+        showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.discarded"));
+        resetDiscardConfirmation();
+        refreshTicks = 9;
+    }
+
+    private void resetDiscardConfirmation() {
+        discardConfirmIndex = -1;
+        discardConfirmTicks = 0;
+        if (discardButton != null) discardButton.setMessage(Component.translatable("screen.cobbleventure_player_menu.bag.discard"));
+    }
+
+    private void updateActionButtons() {
+        boolean hasSelection = selectedSlot != null && !selectedStack().isEmpty();
+        if (useButton != null) useButton.active = hasSelection;
+        if (shortcutButton != null) shortcutButton.active = hasSelection;
+        if (discardButton != null) discardButton.active = hasSelection;
+    }
+
+    private void showStatus(Component message) {
+        statusMessage = message;
+        statusTicks = 60;
     }
 
     private ItemStack selectedStack() {
-        if (minecraft == null || minecraft.player == null || selectedSlot == null) {
-            return ItemStack.EMPTY;
-        }
+        if (minecraft == null || minecraft.player == null || selectedSlot == null) return ItemStack.EMPTY;
         return minecraft.player.getInventory().getItem(selectedSlot.inventoryIndex());
+    }
+
+    private void toggleView() {
+        viewMode = viewMode == ViewMode.GRID ? ViewMode.LIST : ViewMode.GRID;
+        page = 0;
+        rebuildWidgets();
     }
 
     private void changePage(int delta) {
@@ -380,6 +490,18 @@ public final class BagScreen extends Screen {
         return Math.max(1, (filteredSlots.size() + capacity - 1) / capacity);
     }
 
+    private int detailY() {
+        int contentHeight = viewMode == ViewMode.GRID ? contentRows * SLOT_SIZE : contentRows * LIST_ROW_HEIGHT;
+        return contentY + contentHeight + 6;
+    }
+
+    private ItemSlotButton itemButtonAt(double mouseX, double mouseY) {
+        for (ItemSlotButton button : itemButtons) {
+            if (button.visible && button.isMouseOver(mouseX, mouseY)) return button;
+        }
+        return null;
+    }
+
     private static int clamp(int value, int minimum, int maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
@@ -392,53 +514,48 @@ public final class BagScreen extends Screen {
         graphics.fill(x + 2, y + 2, x + 3, y + panelHeight - 2, PANEL_LIGHT_COLOR);
     }
 
+    private enum ViewMode {
+        GRID,
+        LIST;
+
+        Component toggleLabel() {
+            return Component.translatable("screen.cobbleventure_player_menu.bag.view."
+                + (this == GRID ? "list" : "grid"));
+        }
+    }
+
     private enum BagCategory {
-        ALL("all"),
-        RECOVERY("recovery"),
-        BALLS("balls"),
-        BATTLE("battle"),
-        MATERIALS("materials"),
-        KEY_ITEMS("key_items");
+        ALL("all"), RECOVERY("recovery"), BALLS("balls"), BATTLE("battle"),
+        MATERIALS("materials"), KEY_ITEMS("key_items");
 
         private final String id;
 
-        BagCategory(String id) {
-            this.id = id;
-        }
+        BagCategory(String id) { this.id = id; }
 
         Component title() {
             return Component.translatable("screen.cobbleventure_player_menu.bag.category." + id);
         }
 
         boolean matches(ItemStack stack) {
-            if (this == ALL) {
-                return true;
-            }
+            if (this == ALL) return true;
             ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
             String namespace = itemId.getNamespace();
             String path = itemId.getPath();
             return switch (this) {
                 case RECOVERY -> stack.has(DataComponents.FOOD)
                     || containsAny(path, "potion", "heal", "revive", "ether", "elixir", "berry", "candy");
-                case BALLS -> namespace.equals("cobblemon")
-                    && (path.endsWith("_ball") || path.contains("poke_ball"));
+                case BALLS -> namespace.equals("cobblemon") && (path.endsWith("_ball") || path.contains("poke_ball"));
                 case BATTLE -> stack.isDamageableItem()
                     || containsAny(path, "sword", "bow", "shield", "vest", "band", "specs", "scarf", "gem");
                 case KEY_ITEMS -> containsAny(path, "pokedex", "exp_share", "key", "badge", "map", "compass");
-                case MATERIALS -> !RECOVERY.matches(stack)
-                    && !BALLS.matches(stack)
-                    && !BATTLE.matches(stack)
-                    && !KEY_ITEMS.matches(stack);
+                case MATERIALS -> !RECOVERY.matches(stack) && !BALLS.matches(stack)
+                    && !BATTLE.matches(stack) && !KEY_ITEMS.matches(stack);
                 case ALL -> true;
             };
         }
 
         private static boolean containsAny(String value, String... candidates) {
-            for (String candidate : candidates) {
-                if (value.contains(candidate)) {
-                    return true;
-                }
-            }
+            for (String candidate : candidates) if (value.contains(candidate)) return true;
             return false;
         }
     }
@@ -464,26 +581,21 @@ public final class BagScreen extends Screen {
             int text = selected ? PANEL_DARK_COLOR : PRIMARY_TEXT_COLOR;
             graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), PANEL_DARK_COLOR);
             graphics.fill(getX() + 1, getY() + 1, getX() + getWidth() - 1, getY() + getHeight() - 1, fill);
-            if (selected) {
-                graphics.fill(getX() + 2, getY() + getHeight() - 3,
-                    getX() + getWidth() - 2, getY() + getHeight() - 1, ACCENT_COLOR);
-            }
-            String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 6);
-            graphics.drawCenteredString(font, label, getX() + getWidth() / 2,
-                getY() + (getHeight() - 8) / 2, text);
+            if (selected) graphics.fill(getX() + 2, getY() + getHeight() - 3,
+                getX() + getWidth() - 2, getY() + getHeight() - 1, ACCENT_COLOR);
+            graphics.drawCenteredString(font, font.plainSubstrByWidth(getMessage().getString(), getWidth() - 6),
+                getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, text);
         }
 
         @Override
-        protected void updateWidgetNarration(NarrationElementOutput output) {
-            defaultButtonNarrationText(output);
-        }
+        protected void updateWidgetNarration(NarrationElementOutput output) { defaultButtonNarrationText(output); }
     }
 
     private final class ItemSlotButton extends AbstractButton {
         private InventorySlotRef slot;
 
-        private ItemSlotButton(int x, int y) {
-            super(x, y, SLOT_SIZE - 1, SLOT_SIZE - 1, Component.empty());
+        private ItemSlotButton(int x, int y, int width, int height) {
+            super(x, y, width, height, Component.empty());
         }
 
         void setSlot(InventorySlotRef slot) {
@@ -491,39 +603,36 @@ public final class BagScreen extends Screen {
             visible = slot != null;
         }
 
-        ItemStack stack() {
-            return slot == null ? ItemStack.EMPTY : slot.stack();
-        }
+        ItemStack stack() { return slot == null ? ItemStack.EMPTY : slot.stack(); }
 
         @Override
-        public void onPress() {
-            select(slot);
-        }
+        public void onPress() { select(slot); }
 
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            if (slot == null) {
-                return;
-            }
-            boolean selected = selectedSlot != null
-                && selectedSlot.inventoryIndex() == slot.inventoryIndex()
+            if (slot == null) return;
+            boolean selected = selectedSlot != null && selectedSlot.inventoryIndex() == slot.inventoryIndex()
                 && !slot.stack().isEmpty();
             int fill = selected ? SLOT_SELECTED_COLOR : (isHovered() ? SLOT_HOVER_COLOR : SLOT_COLOR);
+            int text = selected ? PANEL_DARK_COLOR : PRIMARY_TEXT_COLOR;
             graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), PANEL_DARK_COLOR);
             graphics.fill(getX() + 1, getY() + 1, getX() + getWidth() - 1, getY() + getHeight() - 1, fill);
-            if (selected) {
-                graphics.fill(getX() + 1, getY() + 1, getX() + getWidth() - 1, getY() + 2, ACCENT_COLOR);
-            }
+            if (selected) graphics.fill(getX() + 1, getY() + 1, getX() + getWidth() - 1, getY() + 2, ACCENT_COLOR);
             if (!slot.stack().isEmpty()) {
                 graphics.renderItem(slot.stack(), getX() + 2, getY() + 2);
                 graphics.renderItemDecorations(font, slot.stack(), getX() + 2, getY() + 2);
+                if (viewMode == ViewMode.LIST) {
+                    int nameWidth = getWidth() - 78;
+                    graphics.drawString(font, font.plainSubstrByWidth(slot.stack().getHoverName().getString(), nameWidth),
+                        getX() + 23, getY() + 6, text, false);
+                    String count = "×" + slot.stack().getCount();
+                    graphics.drawString(font, count, getX() + getWidth() - font.width(count) - 7, getY() + 6, text, false);
+                }
             }
         }
 
         @Override
-        protected void updateWidgetNarration(NarrationElementOutput output) {
-            defaultButtonNarrationText(output);
-        }
+        protected void updateWidgetNarration(NarrationElementOutput output) { defaultButtonNarrationText(output); }
     }
 
     private record InventorySlotRef(int inventoryIndex, ItemStack stack) {}

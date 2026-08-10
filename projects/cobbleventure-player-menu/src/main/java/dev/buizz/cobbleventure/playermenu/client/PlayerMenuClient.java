@@ -1,13 +1,10 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.inventory.ClickType;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.EntityHitResult;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -48,51 +45,40 @@ public final class PlayerMenuClient {
 
     public static void useInventoryItem(int inventoryIndex) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null || minecraft.gameMode == null
+        if (minecraft.player == null
             || inventoryIndex < 0 || inventoryIndex >= 36
             || minecraft.player.getInventory().getItem(inventoryIndex).isEmpty()) {
             return;
         }
+        BagNetwork.requestUse(inventoryIndex);
+    }
 
-        int selectedHotbarSlot = minecraft.player.getInventory().selected;
-        if (inventoryIndex < 9) {
-            minecraft.player.getInventory().selected = inventoryIndex;
-        } else {
-            minecraft.gameMode.handleInventoryMouseClick(
-                minecraft.player.inventoryMenu.containerId,
-                inventoryIndex,
-                selectedHotbarSlot,
-                ClickType.SWAP,
-                minecraft.player
-            );
-        }
+    public static void assignInventoryItemToHotbar(int inventoryIndex, int hotbarIndex) {
+        clickInventory(inventoryIndex, hotbarIndex, ClickType.SWAP);
+    }
 
-        minecraft.setScreen(null);
-        InteractionResult result = InteractionResult.PASS;
-        if (minecraft.hitResult instanceof EntityHitResult entityHit) {
-            result = minecraft.gameMode.interactAt(
-                minecraft.player,
-                entityHit.getEntity(),
-                entityHit,
-                InteractionHand.MAIN_HAND
-            );
-            if (!result.consumesAction()) {
-                result = minecraft.gameMode.interact(
-                    minecraft.player,
-                    entityHit.getEntity(),
-                    InteractionHand.MAIN_HAND
-                );
-            }
-        } else if (minecraft.hitResult instanceof BlockHitResult blockHit) {
-            result = minecraft.gameMode.useItemOn(
-                minecraft.player,
-                InteractionHand.MAIN_HAND,
-                blockHit
-            );
+    public static void pickUpInventoryItem(int inventoryIndex, int mouseButton) {
+        clickInventory(inventoryIndex, mouseButton, ClickType.PICKUP);
+    }
+
+    public static void discardInventoryItem(int inventoryIndex) {
+        clickInventory(inventoryIndex, 1, ClickType.THROW);
+    }
+
+    private static void clickInventory(int inventoryIndex, int button, ClickType clickType) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null || minecraft.gameMode == null
+            || inventoryIndex < 0 || inventoryIndex >= 36) {
+            return;
         }
-        if (!result.consumesAction()) {
-            minecraft.gameMode.useItem(minecraft.player, InteractionHand.MAIN_HAND);
-        }
+        int menuSlot = inventoryIndex < 9 ? 36 + inventoryIndex : inventoryIndex;
+        minecraft.gameMode.handleInventoryMouseClick(
+            minecraft.player.inventoryMenu.containerId,
+            menuSlot,
+            button,
+            clickType,
+            minecraft.player
+        );
     }
 
     public static void openTrainerCard() {
