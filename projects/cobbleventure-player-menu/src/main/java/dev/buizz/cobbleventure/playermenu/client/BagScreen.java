@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -45,7 +46,7 @@ public final class BagScreen extends Screen {
     private final Screen parent;
     private final List<CategoryButton> categoryButtons = new ArrayList<>();
     private final List<ItemSlotButton> itemButtons = new ArrayList<>();
-    private final List<InventorySlotRef> filteredSlots = new ArrayList<>();
+    private final List<BagSlotRef> filteredSlots = new ArrayList<>();
 
     private BagCategory category = BagCategory.ALL;
     private ViewMode viewMode = ViewMode.GRID;
@@ -55,7 +56,7 @@ public final class BagScreen extends Screen {
     private Button discardButton;
     private Button previousPageButton;
     private Button nextPageButton;
-    private InventorySlotRef selectedSlot;
+    private BagSlotRef selectedSlot;
     private Component statusMessage = Component.empty();
     private String searchValue = "";
     private int panelX;
@@ -71,7 +72,8 @@ public final class BagScreen extends Screen {
     private int statusTicks;
     private int discardConfirmIndex = -1;
     private int discardConfirmTicks;
-    private int draggedInventoryIndex = -1;
+    private BagSlotRef draggedSlot;
+    private long snapshotRevision = -1L;
 
     public BagScreen(Screen parent) {
         super(Component.translatable("screen.cobbleventure_player_menu.bag.title"));
@@ -174,10 +176,14 @@ public final class BagScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        long revision = BagNetwork.clientSnapshot().revision();
+        if (revision != snapshotRevision) {
+            snapshotRevision = revision;
+            refreshItems(false);
+        }
         if (statusTicks > 0) statusTicks--;
         if (discardConfirmTicks > 0 && --discardConfirmTicks == 0) resetDiscardConfirmation();
-        if (++refreshTicks >= 10 && (minecraft == null || minecraft.player == null
-            || minecraft.player.inventoryMenu.getCarried().isEmpty())) {
+        if (++refreshTicks >= 10) {
             refreshTicks = 0;
             refreshItems(false);
         }
@@ -197,15 +203,12 @@ public final class BagScreen extends Screen {
                 break;
             }
         }
-        if (minecraft != null && minecraft.player != null) {
-            ItemStack carried = minecraft.player.inventoryMenu.getCarried();
-            if (!carried.isEmpty()) {
-                graphics.pose().pushPose();
-                graphics.pose().translate(0.0F, 0.0F, 300.0F);
-                graphics.renderItem(carried, mouseX - 8, mouseY - 8);
-                graphics.renderItemDecorations(font, carried, mouseX - 8, mouseY - 8);
-                graphics.pose().popPose();
-            }
+        if (draggedSlot != null && !draggedSlot.stack().isEmpty()) {
+            graphics.pose().pushPose();
+            graphics.pose().translate(0.0F, 0.0F, 300.0F);
+            graphics.renderItem(draggedSlot.stack(), mouseX - 8, mouseY - 8);
+            graphics.renderItemDecorations(font, draggedSlot.stack(), mouseX - 8, mouseY - 8);
+            graphics.pose().popPose();
         }
     }
 
@@ -220,8 +223,7 @@ public final class BagScreen extends Screen {
             ItemSlotButton itemButton = itemButtonAt(mouseX, mouseY);
             if (itemButton != null && itemButton.slot != null) {
                 select(itemButton.slot);
-                PlayerMenuClient.pickUpInventoryItem(itemButton.slot.inventoryIndex(), button);
-                draggedInventoryIndex = itemButton.slot.inventoryIndex();
+                if (!itemButton.slot.stack().isEmpty()) draggedSlot = itemButton.slot;
                 return true;
             }
         }
@@ -230,15 +232,16 @@ public final class BagScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (draggedInventoryIndex >= 0 && (button == 0 || button == 1)) {
+        if (draggedSlot != null && (button == 0 || button == 1)) {
             ItemSlotButton target = itemButtonAt(mouseX, mouseY);
             if (target != null && target.slot != null
-                && target.slot.inventoryIndex() != draggedInventoryIndex
-                && minecraft != null && minecraft.player != null
-                && !minecraft.player.inventoryMenu.getCarried().isEmpty()) {
-                PlayerMenuClient.pickUpInventoryItem(target.slot.inventoryIndex(), button);
+                && !target.slot.samePosition(draggedSlot)) {
+                PlayerMenuClient.moveBagItem(
+                    draggedSlot.extended(), draggedSlot.slot(),
+                    target.slot.extended(), target.slot.slot(), button == 1
+                );
             }
-            draggedInventoryIndex = -1;
+            draggedSlot = null;
             refreshTicks = 9;
             return true;
         }
@@ -304,6 +307,11 @@ public final class BagScreen extends Screen {
     private void renderHeader(GuiGraphics graphics) {
         graphics.renderItem(PlayerMenuEntry.BAG.icon(), panelX + 8, panelY + 7);
         graphics.drawString(font, title, panelX + 29, panelY + 11, PRIMARY_TEXT_COLOR, false);
+        if (panelWidth >= 430) {
+            graphics.drawString(font,
+                Component.translatable("screen.cobbleventure_player_menu.bag.capacity", 36, 180),
+                panelX + 70, panelY + 11, MUTED_TEXT_COLOR, false);
+        }
     }
 
     private void renderContentBackground(GuiGraphics graphics) {
@@ -337,7 +345,10 @@ public final class BagScreen extends Screen {
             graphics.renderItemDecorations(font, stack, panelX + PANEL_PADDING + 9, detailY + 9);
             graphics.drawString(font, font.plainSubstrByWidth(stack.getHoverName().getString(), textWidth),
                 textX, detailY + 8, PRIMARY_TEXT_COLOR, false);
-            graphics.drawString(font, Component.translatable("screen.cobbleventure_player_menu.bag.count", stack.getCount()),
+            Component source = Component.translatable("screen.cobbleventure_player_menu.bag.source."
+                + (selectedSlot.extended() ? "extended" : "inventory"));
+            graphics.drawString(font, Component.translatable(
+                "screen.cobbleventure_player_menu.bag.count_and_source", stack.getCount(), source),
                 textX, detailY + 20, SECONDARY_TEXT_COLOR, false);
             renderDescription(graphics, stack, textX, detailY + 34, textWidth);
         }
@@ -365,18 +376,27 @@ public final class BagScreen extends Screen {
 
     private void refreshItems(boolean resetPage) {
         if (minecraft == null || minecraft.player == null || itemButtons.isEmpty()) return;
-        int selectedInventoryIndex = selectedSlot == null ? -1 : selectedSlot.inventoryIndex();
+        boolean selectedExtended = selectedSlot != null && selectedSlot.extended();
+        int selectedIndex = selectedSlot == null ? -1 : selectedSlot.slot();
         filteredSlots.clear();
 
         Inventory inventory = minecraft.player.getInventory();
         String query = searchBox == null ? searchValue : searchBox.getValue().strip().toLowerCase(Locale.ROOT);
-        for (int inventoryIndex = 9; inventoryIndex < 36; inventoryIndex++) addIfVisible(inventory, inventoryIndex, query);
-        for (int inventoryIndex = 0; inventoryIndex < 9; inventoryIndex++) addIfVisible(inventory, inventoryIndex, query);
+        for (int inventoryIndex = 9; inventoryIndex < 36; inventoryIndex++) {
+            addIfVisible(false, inventoryIndex, inventory.getItem(inventoryIndex), query);
+        }
+        for (int inventoryIndex = 0; inventoryIndex < 9; inventoryIndex++) {
+            addIfVisible(false, inventoryIndex, inventory.getItem(inventoryIndex), query);
+        }
+        List<ItemStack> extendedSlots = BagNetwork.clientSnapshot().slots();
+        for (int slot = 0; slot < extendedSlots.size(); slot++) {
+            addIfVisible(true, slot, extendedSlots.get(slot), query);
+        }
 
         if (resetPage) page = 0;
         page = clamp(page, 0, pageCount() - 1);
         selectedSlot = filteredSlots.stream()
-            .filter(slot -> slot.inventoryIndex() == selectedInventoryIndex && !slot.stack().isEmpty())
+            .filter(slot -> slot.extended() == selectedExtended && slot.slot() == selectedIndex && !slot.stack().isEmpty())
             .findFirst()
             .orElseGet(() -> filteredSlots.stream().filter(slot -> !slot.stack().isEmpty()).findFirst().orElse(null));
 
@@ -393,8 +413,7 @@ public final class BagScreen extends Screen {
         updateActionButtons();
     }
 
-    private void addIfVisible(Inventory inventory, int inventoryIndex, String query) {
-        ItemStack stack = inventory.getItem(inventoryIndex);
+    private void addIfVisible(boolean extended, int slot, ItemStack stack, String query) {
         if (stack.isEmpty() && (category != BagCategory.ALL || !query.isEmpty())) return;
         if (!stack.isEmpty() && !category.matches(stack)) return;
         if (!stack.isEmpty() && !query.isEmpty()) {
@@ -405,10 +424,10 @@ public final class BagScreen extends Screen {
             for (Component line : tooltip) searchable.append(' ').append(line.getString().toLowerCase(Locale.ROOT));
             if (!searchable.toString().contains(query)) return;
         }
-        filteredSlots.add(new InventorySlotRef(inventoryIndex, stack));
+        filteredSlots.add(new BagSlotRef(extended, slot, stack));
     }
 
-    private void select(InventorySlotRef slot) {
+    private void select(BagSlotRef slot) {
         if (slot == null) return;
         selectedSlot = slot.stack().isEmpty() ? null : slot;
         resetDiscardConfirmation();
@@ -417,7 +436,7 @@ public final class BagScreen extends Screen {
 
     private void useSelectedItem() {
         if (selectedSlot == null || selectedStack().isEmpty()) return;
-        PlayerMenuClient.useInventoryItem(selectedSlot.inventoryIndex());
+        PlayerMenuClient.useBagItem(selectedSlot.extended(), selectedSlot.slot());
         showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.used"));
         refreshTicks = 9;
     }
@@ -428,21 +447,21 @@ public final class BagScreen extends Screen {
 
     private void assignShortcut(int hotbarIndex) {
         if (selectedSlot == null || selectedStack().isEmpty()) return;
-        PlayerMenuClient.assignInventoryItemToHotbar(selectedSlot.inventoryIndex(), hotbarIndex);
+        PlayerMenuClient.assignBagItemToHotbar(selectedSlot.extended(), selectedSlot.slot(), hotbarIndex);
         showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.shortcut_registered", hotbarIndex + 1));
         refreshTicks = 9;
     }
 
     private void discardSelected() {
         if (selectedSlot == null || selectedStack().isEmpty()) return;
-        int index = selectedSlot.inventoryIndex();
-        if (discardConfirmIndex != index || discardConfirmTicks <= 0) {
-            discardConfirmIndex = index;
+        int identity = selectedSlot.extended() ? 1000 + selectedSlot.slot() : selectedSlot.slot();
+        if (discardConfirmIndex != identity || discardConfirmTicks <= 0) {
+            discardConfirmIndex = identity;
             discardConfirmTicks = 60;
             discardButton.setMessage(Component.translatable("screen.cobbleventure_player_menu.bag.discard_confirm"));
             return;
         }
-        PlayerMenuClient.discardInventoryItem(index);
+        PlayerMenuClient.discardBagItem(selectedSlot.extended(), selectedSlot.slot());
         showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.discarded"));
         resetDiscardConfirmation();
         refreshTicks = 9;
@@ -468,7 +487,10 @@ public final class BagScreen extends Screen {
 
     private ItemStack selectedStack() {
         if (minecraft == null || minecraft.player == null || selectedSlot == null) return ItemStack.EMPTY;
-        return minecraft.player.getInventory().getItem(selectedSlot.inventoryIndex());
+        if (!selectedSlot.extended()) return minecraft.player.getInventory().getItem(selectedSlot.slot());
+        List<ItemStack> slots = BagNetwork.clientSnapshot().slots();
+        return selectedSlot.slot() >= 0 && selectedSlot.slot() < slots.size()
+            ? slots.get(selectedSlot.slot()) : ItemStack.EMPTY;
     }
 
     private void toggleView() {
@@ -592,13 +614,13 @@ public final class BagScreen extends Screen {
     }
 
     private final class ItemSlotButton extends AbstractButton {
-        private InventorySlotRef slot;
+        private BagSlotRef slot;
 
         private ItemSlotButton(int x, int y, int width, int height) {
             super(x, y, width, height, Component.empty());
         }
 
-        void setSlot(InventorySlotRef slot) {
+        void setSlot(BagSlotRef slot) {
             this.slot = slot;
             visible = slot != null;
         }
@@ -611,7 +633,7 @@ public final class BagScreen extends Screen {
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             if (slot == null) return;
-            boolean selected = selectedSlot != null && selectedSlot.inventoryIndex() == slot.inventoryIndex()
+            boolean selected = selectedSlot != null && selectedSlot.samePosition(slot)
                 && !slot.stack().isEmpty();
             int fill = selected ? SLOT_SELECTED_COLOR : (isHovered() ? SLOT_HOVER_COLOR : SLOT_COLOR);
             int text = selected ? PANEL_DARK_COLOR : PRIMARY_TEXT_COLOR;
@@ -628,6 +650,10 @@ public final class BagScreen extends Screen {
                     String count = "×" + slot.stack().getCount();
                     graphics.drawString(font, count, getX() + getWidth() - font.width(count) - 7, getY() + 6, text, false);
                 }
+            } else if (viewMode == ViewMode.LIST) {
+                Component emptyLabel = Component.translatable("screen.cobbleventure_player_menu.bag.empty_slot",
+                    slot.extended() ? slot.slot() + 1 : slot.slot() + 1);
+                graphics.drawString(font, emptyLabel, getX() + 7, getY() + 6, MUTED_TEXT_COLOR, false);
             }
         }
 
@@ -635,5 +661,9 @@ public final class BagScreen extends Screen {
         protected void updateWidgetNarration(NarrationElementOutput output) { defaultButtonNarrationText(output); }
     }
 
-    private record InventorySlotRef(int inventoryIndex, ItemStack stack) {}
+    private record BagSlotRef(boolean extended, int slot, ItemStack stack) {
+        boolean samePosition(BagSlotRef other) {
+            return other != null && extended == other.extended && slot == other.slot;
+        }
+    }
 }
