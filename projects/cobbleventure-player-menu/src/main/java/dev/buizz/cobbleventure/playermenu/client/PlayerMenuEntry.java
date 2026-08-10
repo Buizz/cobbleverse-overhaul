@@ -10,7 +10,7 @@ import net.neoforged.fml.ModList;
 
 enum PlayerMenuEntry {
     POKEMON("pokemon", false, "poke_ball"),
-    BAG("bag", false, "relic_coin_pouch"),
+    BAG("bag", true, "relic_coin_pouch"),
     EQUIPMENT("equipment", true, "assault_vest"),
     PC("pc", false, "pc"),
     TRAINER_CARD("trainer_card", true, "red_card"),
@@ -61,6 +61,10 @@ enum PlayerMenuEntry {
     }
 
     OpenResult open() {
+        if (this == BAG) {
+            PlayerMenuClient.openBag();
+            return OpenResult.OPENED;
+        }
         if (this == EQUIPMENT) {
             PlayerMenuClient.openVanillaInventory();
             return OpenResult.OPENED;
