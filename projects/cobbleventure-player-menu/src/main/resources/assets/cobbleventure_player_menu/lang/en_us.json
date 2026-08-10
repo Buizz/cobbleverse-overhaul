@@ -33,7 +33,7 @@
   "screen.cobbleventure_player_menu.bag.back": "Back to Menu",
   "screen.cobbleventure_player_menu.bag.count": "Owned %s",
   "screen.cobbleventure_player_menu.bag.count_and_source": "Owned %s · %s",
-  "screen.cobbleventure_player_menu.bag.capacity": "%s inventory + %s extra slots",
+  "screen.cobbleventure_player_menu.bag.capacity": "%s inventory · up to %s bag entries",
   "screen.cobbleventure_player_menu.bag.source.inventory": "Inventory",
   "screen.cobbleventure_player_menu.bag.source.extended": "Extended Bag",
   "screen.cobbleventure_player_menu.bag.empty_slot": "Empty Slot %s",

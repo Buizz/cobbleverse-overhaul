@@ -33,7 +33,7 @@
   "screen.cobbleventure_player_menu.bag.back": "메뉴로",
   "screen.cobbleventure_player_menu.bag.count": "보유 수량 %s",
   "screen.cobbleventure_player_menu.bag.count_and_source": "보유 수량 %s · %s",
-  "screen.cobbleventure_player_menu.bag.capacity": "기본 %s칸 + 확장 %s칸",
+  "screen.cobbleventure_player_menu.bag.capacity": "기본 %s칸 · 가방 최대 %s항목",
   "screen.cobbleventure_player_menu.bag.source.inventory": "기본 인벤토리",
   "screen.cobbleventure_player_menu.bag.source.extended": "확장 가방",
   "screen.cobbleventure_player_menu.bag.empty_slot": "빈 슬롯 %s",

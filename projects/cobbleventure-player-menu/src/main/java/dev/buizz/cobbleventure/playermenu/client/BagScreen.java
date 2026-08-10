@@ -2,8 +2,10 @@ package dev.buizz.cobbleventure.playermenu.client;
 
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.Button;
@@ -309,7 +311,8 @@ public final class BagScreen extends Screen {
         graphics.drawString(font, title, panelX + 29, panelY + 11, PRIMARY_TEXT_COLOR, false);
         if (panelWidth >= 430) {
             graphics.drawString(font,
-                Component.translatable("screen.cobbleventure_player_menu.bag.capacity", 36, 180),
+                Component.translatable("screen.cobbleventure_player_menu.bag.capacity",
+                    36, BagNetwork.extendedSlotCount()),
                 panelX + 70, panelY + 11, MUTED_TEXT_COLOR, false);
         }
     }
@@ -348,7 +351,7 @@ public final class BagScreen extends Screen {
             Component source = Component.translatable("screen.cobbleventure_player_menu.bag.source."
                 + (selectedSlot.extended() ? "extended" : "inventory"));
             graphics.drawString(font, Component.translatable(
-                "screen.cobbleventure_player_menu.bag.count_and_source", stack.getCount(), source),
+                "screen.cobbleventure_player_menu.bag.count_and_source", selectedSlot.displayCount(), source),
                 textX, detailY + 20, SECONDARY_TEXT_COLOR, false);
             renderDescription(graphics, stack, textX, detailY + 34, textWidth);
         }
@@ -383,14 +386,48 @@ public final class BagScreen extends Screen {
         Inventory inventory = minecraft.player.getInventory();
         String query = searchBox == null ? searchValue : searchBox.getValue().strip().toLowerCase(Locale.ROOT);
         for (int inventoryIndex = 9; inventoryIndex < 36; inventoryIndex++) {
-            addIfVisible(false, inventoryIndex, inventory.getItem(inventoryIndex), query);
+            ItemStack stack = inventory.getItem(inventoryIndex);
+            addIfVisible(false, inventoryIndex, stack, stack.getCount(), query);
         }
         for (int inventoryIndex = 0; inventoryIndex < 9; inventoryIndex++) {
-            addIfVisible(false, inventoryIndex, inventory.getItem(inventoryIndex), query);
+            ItemStack stack = inventory.getItem(inventoryIndex);
+            addIfVisible(false, inventoryIndex, stack, stack.getCount(), query);
         }
         List<ItemStack> extendedSlots = BagNetwork.clientSnapshot().slots();
+        List<BagSlotRef> groups = new ArrayList<>();
+        Map<Integer, List<Integer>> groupBuckets = new HashMap<>();
+        List<Integer> emptySlots = new ArrayList<>();
         for (int slot = 0; slot < extendedSlots.size(); slot++) {
-            addIfVisible(true, slot, extendedSlots.get(slot), query);
+            ItemStack stack = extendedSlots.get(slot);
+            if (stack.isEmpty()) {
+                if (emptySlots.size() < Math.max(64, itemButtons.size())) emptySlots.add(slot);
+                continue;
+            }
+            int hash = ItemStack.hashItemAndComponents(stack);
+            List<Integer> candidates = groupBuckets.computeIfAbsent(hash, ignored -> new ArrayList<>());
+            BagSlotRef matched = null;
+            int matchedIndex = -1;
+            for (int candidate : candidates) {
+                BagSlotRef group = groups.get(candidate);
+                if (ItemStack.isSameItemSameComponents(group.stack(), stack)) {
+                    matched = group;
+                    matchedIndex = candidate;
+                    break;
+                }
+            }
+            if (matched == null) {
+                candidates.add(groups.size());
+                groups.add(new BagSlotRef(true, slot, stack, stack.getCount()));
+            } else {
+                groups.set(matchedIndex, new BagSlotRef(true, matched.slot(), matched.stack(),
+                    matched.displayCount() + stack.getCount()));
+            }
+        }
+        for (BagSlotRef group : groups) {
+            addIfVisible(true, group.slot(), group.stack(), group.displayCount(), query);
+        }
+        if (category == BagCategory.ALL && query.isEmpty()) {
+            for (int emptySlot : emptySlots) addIfVisible(true, emptySlot, ItemStack.EMPTY, 0, query);
         }
 
         if (resetPage) page = 0;
@@ -413,7 +450,7 @@ public final class BagScreen extends Screen {
         updateActionButtons();
     }
 
-    private void addIfVisible(boolean extended, int slot, ItemStack stack, String query) {
+    private void addIfVisible(boolean extended, int slot, ItemStack stack, int displayCount, String query) {
         if (stack.isEmpty() && (category != BagCategory.ALL || !query.isEmpty())) return;
         if (!stack.isEmpty() && !category.matches(stack)) return;
         if (!stack.isEmpty() && !query.isEmpty()) {
@@ -424,7 +461,7 @@ public final class BagScreen extends Screen {
             for (Component line : tooltip) searchable.append(' ').append(line.getString().toLowerCase(Locale.ROOT));
             if (!searchable.toString().contains(query)) return;
         }
-        filteredSlots.add(new BagSlotRef(extended, slot, stack));
+        filteredSlots.add(new BagSlotRef(extended, slot, stack, displayCount));
     }
 
     private void select(BagSlotRef slot) {
@@ -642,12 +679,14 @@ public final class BagScreen extends Screen {
             if (selected) graphics.fill(getX() + 1, getY() + 1, getX() + getWidth() - 1, getY() + 2, ACCENT_COLOR);
             if (!slot.stack().isEmpty()) {
                 graphics.renderItem(slot.stack(), getX() + 2, getY() + 2);
-                graphics.renderItemDecorations(font, slot.stack(), getX() + 2, getY() + 2);
+                String decoration = slot.displayCount() == slot.stack().getCount()
+                    ? null : compactCount(slot.displayCount());
+                graphics.renderItemDecorations(font, slot.stack(), getX() + 2, getY() + 2, decoration);
                 if (viewMode == ViewMode.LIST) {
                     int nameWidth = getWidth() - 78;
                     graphics.drawString(font, font.plainSubstrByWidth(slot.stack().getHoverName().getString(), nameWidth),
                         getX() + 23, getY() + 6, text, false);
-                    String count = "×" + slot.stack().getCount();
+                    String count = "×" + slot.displayCount();
                     graphics.drawString(font, count, getX() + getWidth() - font.width(count) - 7, getY() + 6, text, false);
                 }
             } else if (viewMode == ViewMode.LIST) {
@@ -661,9 +700,15 @@ public final class BagScreen extends Screen {
         protected void updateWidgetNarration(NarrationElementOutput output) { defaultButtonNarrationText(output); }
     }
 
-    private record BagSlotRef(boolean extended, int slot, ItemStack stack) {
+    private record BagSlotRef(boolean extended, int slot, ItemStack stack, int displayCount) {
         boolean samePosition(BagSlotRef other) {
             return other != null && extended == other.extended && slot == other.slot;
         }
+    }
+
+    private static String compactCount(int count) {
+        if (count < 1_000) return Integer.toString(count);
+        if (count < 1_000_000) return (count / 1_000) + "K";
+        return (count / 1_000_000) + "M";
     }
 }

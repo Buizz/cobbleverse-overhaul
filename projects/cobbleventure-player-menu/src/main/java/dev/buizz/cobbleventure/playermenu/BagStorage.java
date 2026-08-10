@@ -11,7 +11,8 @@ import net.minecraft.world.item.ItemStack;
 
 /** Persistent extra item slots owned by one player. */
 public final class BagStorage {
-    public static final int SLOT_COUNT = 180;
+    /** Sparse backing slots; normal 64-item stacks provide over 260,000 items of practical capacity. */
+    public static final int SLOT_COUNT = 4096;
     private static final String ROOT_KEY = "cobbleventure_player_menu.bag";
     private static final String ITEMS_KEY = "Items";
 

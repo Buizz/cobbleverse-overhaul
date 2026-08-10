@@ -39,6 +39,10 @@ public final class BagNetwork {
         return clientSnapshot;
     }
 
+    public static int extendedSlotCount() {
+        return BagStorage.SLOT_COUNT;
+    }
+
     public static void requestSnapshot() {
         clientSnapshot = new ClientSnapshot(emptySnapshot(), clientSnapshot.revision() + 1L);
         PacketDistributor.sendToServer(new SnapshotRequestPayload());
@@ -279,14 +283,24 @@ public final class BagNetwork {
         public static final StreamCodec<RegistryFriendlyByteBuf, SnapshotPayload> STREAM_CODEC =
             StreamCodec.ofMember(SnapshotPayload::write, SnapshotPayload::read);
         private void write(RegistryFriendlyByteBuf buffer) {
-            buffer.writeVarInt(slots.size());
-            for (ItemStack stack : slots) ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, stack);
+            int occupied = 0;
+            for (ItemStack stack : slots) if (!stack.isEmpty()) occupied++;
+            buffer.writeVarInt(occupied);
+            for (int slot = 0; slot < slots.size(); slot++) {
+                ItemStack stack = slots.get(slot);
+                if (stack.isEmpty()) continue;
+                buffer.writeVarInt(slot);
+                ItemStack.STREAM_CODEC.encode(buffer, stack);
+            }
         }
         private static SnapshotPayload read(RegistryFriendlyByteBuf buffer) {
-            int size = Math.max(0, Math.min(BagStorage.SLOT_COUNT, buffer.readVarInt()));
-            List<ItemStack> slots = new ArrayList<>(BagStorage.SLOT_COUNT);
-            for (int index = 0; index < size; index++) slots.add(ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer));
-            while (slots.size() < BagStorage.SLOT_COUNT) slots.add(ItemStack.EMPTY);
+            int occupied = Math.max(0, Math.min(BagStorage.SLOT_COUNT, buffer.readVarInt()));
+            List<ItemStack> slots = new ArrayList<>(emptySnapshot());
+            for (int index = 0; index < occupied; index++) {
+                int slot = buffer.readVarInt();
+                ItemStack stack = ItemStack.STREAM_CODEC.decode(buffer);
+                if (slot >= 0 && slot < BagStorage.SLOT_COUNT) slots.set(slot, stack);
+            }
             return new SnapshotPayload(List.copyOf(slots));
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
