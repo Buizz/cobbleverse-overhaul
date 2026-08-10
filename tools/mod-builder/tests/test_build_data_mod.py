@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 MODULE_PATH = Path(__file__).parents[1] / "build_data_mod.py"
@@ -33,6 +34,77 @@ class DataModBuilderTests(unittest.TestCase):
 
         self.assertFalse(path.exists())
 
+    def test_town_layout_rerolls_until_required_facilities_fit(self) -> None:
+        source = {"id": "cobbleventure:settlement/test", "structure_profile": {"generation_profile": {"seed": 17}}}
+        failure = build_data_mod.TownFacilityPlacementError(source["id"], "gym_building")
+        with mock.patch.object(
+            build_data_mod,
+            "_compile_town_layout_attempt",
+            side_effect=[failure, {"roads": [], "facilities": {}, "houses": []}],
+        ) as attempt:
+            layout = build_data_mod._compile_town_layout(source)
+
+        self.assertEqual(1, layout["reroll_count"])
+        self.assertEqual(17, layout["requested_seed"])
+        self.assertEqual(build_data_mod._town_layout_reroll_seed(17, 1), layout["resolved_seed"])
+        self.assertEqual(2, attempt.call_count)
+
+    def test_town_layout_reroll_has_a_hard_limit(self) -> None:
+        source = {"id": "cobbleventure:settlement/test", "structure_profile": {"generation_profile": {"seed": 17}}}
+        failure = build_data_mod.TownFacilityPlacementError(source["id"], "gym_building")
+        with mock.patch.object(
+            build_data_mod,
+            "_compile_town_layout_attempt",
+            side_effect=failure,
+        ) as attempt:
+            with self.assertRaisesRegex(build_data_mod.ModBuildError, "자동 리롤 8회"):
+                build_data_mod._compile_town_layout(source)
+
+        self.assertEqual(build_data_mod.TOWN_LAYOUT_REROLL_LIMIT, attempt.call_count)
+
+    def test_town_center_uses_four_seeded_t_patterns(self) -> None:
+        patterns = [build_data_mod._town_layout_center_pattern("branching", seed) for seed in range(1, 5)]
+
+        self.assertEqual(
+            ["tee_east", "tee_west", "tee_north", "tee_south"],
+            [pattern[0] for pattern in patterns],
+        )
+        self.assertTrue(all(len(pattern[1]) == 3 for pattern in patterns))
+        self.assertEqual(4, len({pattern[1] for pattern in patterns}))
+
+    def test_three_and_five_cell_towns_lower_the_road_hub(self) -> None:
+        self.assertEqual((0, 0), build_data_mod._town_layout_hub(1))
+        self.assertEqual((0, 32), build_data_mod._town_layout_hub(3))
+        self.assertEqual((0, 32), build_data_mod._town_layout_hub(5))
+        self.assertEqual((0, 0), build_data_mod._town_layout_hub(7))
+
+    def test_tile_coverage_roads_do_not_restore_the_missing_center_arm(self) -> None:
+        source = json.loads(
+            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["layout_shape"] = "branching"
+        layout = build_data_mod._compile_town_layout_attempt(source, 1)
+        hub = (layout["hub"]["x"], layout["hub"]["z"])
+        arms: set[str] = set()
+        for road in layout["roads"]:
+            start = (road["x1"], road["z1"])
+            end = (road["x2"], road["z2"])
+            if start == hub:
+                target = end
+            elif end == hub:
+                target = start
+            else:
+                continue
+            if target[0] > hub[0]: arms.add("east")
+            if target[0] < hub[0]: arms.add("west")
+            if target[1] > hub[1]: arms.add("south")
+            if target[1] < hub[1]: arms.add("north")
+
+        self.assertEqual("tee_east", layout["center_pattern"])
+        self.assertEqual({"north", "east", "south"}, arms)
+
     def test_route_town_uses_upstream_bca_mid_village(self) -> None:
         settlement_path = (
             REPOSITORY_ROOT
@@ -51,6 +123,144 @@ class DataModBuilderTests(unittest.TestCase):
             settlement["structure_profile"]["structure"],
         )
         self.assertFalse(generated_override.exists())
+
+    def test_compiles_town_layout_inside_hexagon_with_required_civic_facilities(self) -> None:
+        settlement_path = (
+            REPOSITORY_ROOT
+            / build_data_mod.OUTPUT
+            / "data/cobbleventure/settlements/generation_1/route_01_town.json"
+        )
+        settlement = json.loads(settlement_path.read_text(encoding="utf-8"))
+        layout = settlement["compiled_layout"]
+
+        self.assertEqual("hex_tiles", layout["shape"])
+        self.assertIn(layout["cell_count"], (1, 3, 5, 7))
+        self.assertTrue(layout["roads"])
+        self.assertIn("facility_pokemon_center", layout["facilities"])
+        self.assertIn("facility_pokemart", layout["facilities"])
+        for plot in [*layout["facilities"].values(), *layout["houses"]]:
+            self.assertTrue(build_data_mod._plot_inside_town_layout(plot, layout["cell_count"], layout["footprint_shape"]))
+
+    def test_compiled_houses_reference_generated_palette_variants(self) -> None:
+        settlement_path = (
+            REPOSITORY_ROOT / build_data_mod.OUTPUT
+            / "data/cobbleventure/settlements/generation_1/route_01_town.json"
+        )
+        settlement = json.loads(settlement_path.read_text(encoding="utf-8"))
+        houses = settlement["compiled_layout"]["houses"]
+        self.assertTrue(houses)
+        for house in houses:
+            self.assertIn(house["base"], build_data_mod.HOUSE_BASES)
+            self.assertIn(house["roof"], build_data_mod.HOUSE_ROOFS)
+            self.assertIn(house["roof_color"], build_data_mod.HOUSE_ROOF_BLOCKS)
+            namespace, resource = house["structure"].split(":", 1)
+            generated = (
+                REPOSITORY_ROOT / build_data_mod.OUTPUT
+                / "data" / namespace / "structure" / f"{resource}.nbt"
+            )
+            self.assertTrue(generated.is_file(), house["structure"])
+
+    def test_compile_respects_single_house_palette_selection(self) -> None:
+        source = json.loads(
+            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source.setdefault("structure_profile", {}).setdefault("generation_profile", {}).update({
+            "house_palette": {
+                "bases": ["compact"], "roofs": ["flat"], "roof_colors": ["black"],
+            }
+        })
+
+        houses = build_data_mod._compile_town_layout(source)["houses"]
+
+        self.assertTrue(houses)
+        self.assertEqual(
+            {("compact", "flat", "black", "cobbleventure:houses/compact_flat_black")},
+            {(house["base"], house["roof"], house["roof_color"], house["structure"]) for house in houses},
+        )
+
+    def test_branching_layout_spreads_across_both_axes(self) -> None:
+        source = json.loads(
+            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["layout_shape"] = "branching"
+
+        roads = build_data_mod._compile_town_layout(source)["roads"]
+        xs = [coordinate for road in roads for coordinate in (road["x1"], road["x2"])]
+        zs = [coordinate for road in roads for coordinate in (road["z1"], road["z2"])]
+        x_span = max(xs) - min(xs)
+        z_span = max(zs) - min(zs)
+
+        self.assertLess(min(xs), 0)
+        self.assertGreater(max(xs), 0)
+        self.assertLess(min(zs), 0)
+        self.assertGreater(max(zs), 0)
+        self.assertLessEqual(max(x_span, z_span) / min(x_span, z_span), 1.75)
+
+    def test_five_cell_layout_uses_middle_row_and_only_selected_side(self) -> None:
+        middle = {(-1, 0), (0, 0), (1, 0)}
+        self.assertEqual(
+            middle | {(0, -1), (1, -1)},
+            set(build_data_mod._town_layout_cells(5, "five_up")),
+        )
+        self.assertEqual(
+            middle | {(-1, 1), (0, 1)},
+            set(build_data_mod._town_layout_cells(5, "five_down")),
+        )
+
+    def test_plot_must_fit_inside_selected_five_cell_union(self) -> None:
+        included_x, included_z = build_data_mod._town_layout_cell_center(0, -1)
+        excluded_x, excluded_z = build_data_mod._town_layout_cell_center(0, 1)
+        included = {"x": included_x - 8, "z": included_z - 8, "width": 16, "depth": 16}
+        excluded = {"x": excluded_x - 8, "z": excluded_z - 8, "width": 16, "depth": 16}
+
+        self.assertTrue(build_data_mod._plot_inside_town_layout(included, 5, "five_up"))
+        self.assertFalse(build_data_mod._plot_inside_town_layout(excluded, 5, "five_up"))
+
+    def test_compiled_five_cell_layout_covers_each_tile_without_clipped_buildings(self) -> None:
+        source = json.loads(
+            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile = source["structure_profile"]
+        profile["pokemon_center_enabled"] = False
+        profile["commercial_center"] = "none"
+        profile["facility_placements"] = []
+        profile.setdefault("gym", {})["enabled"] = False
+        source["town_radius_cells"] = 5
+
+        for shape in ("five_up", "five_down"):
+            with self.subTest(shape=shape):
+                source["town_footprint_shape"] = shape
+                layout = build_data_mod._compile_town_layout(source)
+                road_endpoints = {
+                    (road["x1"], road["z1"]) for road in layout["roads"]
+                } | {
+                    (road["x2"], road["z2"]) for road in layout["roads"]
+                }
+                for q, r in build_data_mod._town_layout_cells(5, shape):
+                    center_x, center_z = build_data_mod._town_layout_cell_center(q, r)
+                    target = (round(center_x / 16) * 16, round(center_z / 16) * 16)
+                    self.assertIn(target, road_endpoints)
+                self.assertTrue(layout["houses"])
+                self.assertTrue(all(
+                    build_data_mod._plot_inside_town_layout(plot, 5, shape)
+                    for plot in layout["houses"]
+                ))
+
+    def test_enabled_gym_is_reserved_in_compiled_layout(self) -> None:
+        settlement_path = (
+            REPOSITORY_ROOT / build_data_mod.OUTPUT
+            / "data/cobbleventure/settlements/generation_1/fuchsia_city.json"
+        )
+        settlement = json.loads(settlement_path.read_text(encoding="utf-8"))
+
+        self.assertTrue(settlement["structure_profile"]["gym"]["enabled"])
+        self.assertIn("gym_building", settlement["compiled_layout"]["facilities"])
 
     def test_does_not_register_generated_template_pools(self) -> None:
         pool_root = (

@@ -19,8 +19,10 @@ import java.util.Objects;
 /** Shared, read-only map data packaged from the content editor. */
 public final class MapContent {
     private static final String ROOT = "/data/cobbleventure_player_menu/map/";
-    private static final MapContent INSTANCE = load();
+    private static final List<MapContent> MAPS = loadAll();
+    private static final MapContent INSTANCE = MAPS.getFirst();
 
+    private final int generation;
     private final String dimension;
     private final int tileRadiusBlocks;
     private final int mapRadiusCells;
@@ -33,6 +35,7 @@ public final class MapContent {
     private final Map<String, BiomeInfo> biomes;
 
     private MapContent(
+        int generation,
         String dimension,
         int tileRadiusBlocks,
         int mapRadiusCells,
@@ -44,6 +47,7 @@ public final class MapContent {
         List<Route> routes,
         Map<String, BiomeInfo> biomes
     ) {
+        this.generation = generation;
         this.dimension = dimension;
         this.tileRadiusBlocks = tileRadiusBlocks;
         this.mapRadiusCells = mapRadiusCells;
@@ -60,6 +64,22 @@ public final class MapContent {
         return INSTANCE;
     }
 
+    public static List<MapContent> all() {
+        return MAPS;
+    }
+
+    public static List<Integer> availableGenerations() {
+        return MAPS.stream().map(MapContent::generation).toList();
+    }
+
+    public static MapContent forGeneration(int generation) {
+        for (MapContent content : MAPS) {
+            if (content.generation == generation) return content;
+        }
+        return null;
+    }
+
+    public int generation() { return generation; }
     public String dimension() { return dimension; }
     public int tileRadiusBlocks() { return tileRadiusBlocks; }
     public int mapRadiusCells() { return mapRadiusCells; }
@@ -71,9 +91,35 @@ public final class MapContent {
     public Town townAt(int q, int r) {
         Hex target = new Hex(q, r);
         for (Town town : towns) {
-            if (hexDistance(town.hex(), target) <= town.radiusCells()) return town;
+            if (townContains(town.hex(), target, town.radiusCells(), town.footprintShape())) return town;
         }
         return null;
+    }
+
+    private static boolean townContains(Hex center, Hex target, int cellCount, String footprintShape) {
+        int q = target.q() - center.q();
+        int r = target.r() - center.r();
+        if (q == 0 && r == 0) return true;
+        if (cellCount == 3) {
+            return switch (footprintShape == null ? "line_q" : footprintShape) {
+                case "triangle_up" -> (q == 0 && r == -1) || (q == 1 && r == -1);
+                case "triangle_down" -> (q == 0 && r == 1) || (q == -1 && r == 1);
+                case "line_r" -> q == 0 && Math.abs(r) == 1;
+                case "line_s" -> (q == -1 && r == 1) || (q == 1 && r == -1);
+                default -> r == 0 && Math.abs(q) == 1;
+            };
+        }
+        if (cellCount == 5) {
+            if ("five_down".equals(footprintShape)) {
+                return (r == 0 && Math.abs(q) == 1)
+                    || (q == -1 && r == 1)
+                    || (q == 0 && r == 1);
+            }
+            return (r == 0 && Math.abs(q) == 1)
+                || (q == 0 && r == -1)
+                || (q == 1 && r == -1);
+        }
+        return cellCount == 7 && hexDistance(center, target) == 1;
     }
 
     public BiomeTile tileAt(int q, int r) {
@@ -102,8 +148,18 @@ public final class MapContent {
         return hexDistance(new Hex(0, 0), new Hex(q, r)) <= mapRadiusCells;
     }
 
-    private static MapContent load() {
-        JsonObject world = resource("generation_1.json");
+    private static List<MapContent> loadAll() {
+        List<MapContent> result = new ArrayList<>();
+        for (int generation = 1; generation <= 9; generation++) {
+            String path = "generation_" + generation + ".json";
+            if (MapContent.class.getResource(ROOT + path) != null) result.add(load(generation));
+        }
+        if (result.isEmpty()) throw new IllegalStateException("No generation map resources found");
+        return List.copyOf(result);
+    }
+
+    private static MapContent load(int generation) {
+        JsonObject world = resource("generation_" + generation + ".json");
         JsonObject grid = world.getAsJsonObject("grid");
         JsonObject origin = grid.getAsJsonObject("origin");
         Map<Hex, BiomeTile> tiles = new LinkedHashMap<>();
@@ -118,7 +174,7 @@ public final class MapContent {
             JsonObject placed = element.getAsJsonObject();
             String id = placed.get("settlement").getAsString();
             String slug = id.substring(id.lastIndexOf('/') + 1);
-            JsonObject preset = resource("settlements/" + slug + ".json");
+            JsonObject preset = resource("settlements/generation_" + generation + "/" + slug + ".json");
             JsonObject anchor = placed.getAsJsonObject("anchor");
             JsonObject structure = preset.getAsJsonObject("structure_profile");
             JsonObject gym = structure.getAsJsonObject("gym");
@@ -129,6 +185,7 @@ public final class MapContent {
                 localized(preset.getAsJsonObject("display_name"), slug),
                 new Hex(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
                 preset.get("town_radius_cells").getAsInt(),
+                preset.has("town_footprint_shape") ? preset.get("town_footprint_shape").getAsString() : "line_q",
                 preset.get("biome").getAsString(),
                 gym.get("enabled").getAsBoolean(),
                 gym.get("theme").getAsString(),
@@ -155,6 +212,7 @@ public final class MapContent {
         }
 
         return new MapContent(
+            generation,
             world.get("dimension").getAsString(),
             grid.get("tile_radius_blocks").getAsInt(),
             grid.get("map_radius_cells").getAsInt(),
@@ -278,6 +336,7 @@ public final class MapContent {
         String name,
         Hex hex,
         int radiusCells,
+        String footprintShape,
         String biome,
         boolean gymEnabled,
         String gymTheme,

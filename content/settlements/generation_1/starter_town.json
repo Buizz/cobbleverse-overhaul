@@ -10,7 +10,7 @@
   "region": "cobbleventure:generation_1/region_01",
   "dimension": "cobbleventure:generation_1",
   "biome": "cobbleventure:starter_plains",
-  "town_radius_cells": 1,
+  "town_radius_cells": 7,
   "bounds": {
     "min_x": 480,
     "min_z": -420,
@@ -127,6 +127,15 @@
       "width": 7,
       "material": "cobblestone"
     },
+    "generation_profile": {
+      "seed": 19960227,
+      "depth": 2,
+      "basic_buildings": [
+        "cobbleventure:placeholder/basic_building_1",
+        "cobbleventure:placeholder/basic_building_2",
+        "cobbleventure:placeholder/basic_building_3"
+      ]
+    },
     "required_facilities": {
       "village_hub": "cobbleventure:starter_town/village_hub"
     },
@@ -144,7 +153,7 @@
       }
     ],
     "special_district": {
-      "enabled": true,
+      "enabled": false,
       "anchor": "special_district",
       "placement_mode": "manual",
       "footprint": {
@@ -153,8 +162,8 @@
       },
       "clearance": 0,
       "building": {
-        "enabled": true,
-        "structure": "bca:default/structures/the_cozy_cranny"
+        "enabled": false,
+        "structure": ""
       }
     },
     "gym": {
@@ -165,12 +174,6 @@
       "leader_trainer_id": ""
     },
     "facility_placements": [
-      {
-        "id": "special_district_building",
-        "mode": "direct_template",
-        "structure": "bca:default/structures/the_cozy_cranny",
-        "anchor": "special_district"
-      },
       {
         "id": "facility_laboratory_1",
         "facility_type": "laboratory",

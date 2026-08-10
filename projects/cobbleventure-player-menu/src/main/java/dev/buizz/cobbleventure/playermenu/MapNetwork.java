@@ -23,9 +23,9 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative map discovery and teleport networking. */
 public final class MapNetwork {
-    private static final String VERSION = "1";
+    private static final String VERSION = "3";
     private static final String VISITED_PREFIX = "cobbleventure_player_menu.visited.";
-    private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(false, Set.of(), "", false, 0L);
+    private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(false, false, Set.of(), "", false, 0L);
 
     private MapNetwork() {}
 
@@ -41,13 +41,13 @@ public final class MapNetwork {
     public static void requestSnapshot() {
         ClientSnapshot previous = clientSnapshot;
         clientSnapshot = new ClientSnapshot(
-            false, Set.of(), "", false, previous.revision() + 1L
+            false, false, Set.of(), "", false, previous.revision() + 1L
         );
         PacketDistributor.sendToServer(new MapStateRequestPayload());
     }
 
-    public static void requestTeleport(int q, int r) {
-        PacketDistributor.sendToServer(new MapTeleportPayload(q, r));
+    public static void requestTeleport(int generation, int q, int r) {
+        PacketDistributor.sendToServer(new MapTeleportPayload(generation, q, r));
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -61,33 +61,38 @@ public final class MapNetwork {
     private static void handleStateRequest(MapStateRequestPayload payload, IPayloadContext context) {
         ServerPlayer player = (ServerPlayer) context.player();
         updateVisit(player);
-        context.reply(new MapStatePayload(isAdministrator(player), visitedSettlements(player)));
+        context.reply(new MapStatePayload(isAdministrator(player), player.isCreative(), visitedSettlements(player)));
     }
 
     private static void handleState(MapStatePayload payload, IPayloadContext context) {
         ClientSnapshot previous = clientSnapshot;
         clientSnapshot = new ClientSnapshot(
-            payload.administrator(), Set.copyOf(payload.visited()), "", false, previous.revision() + 1L
+            payload.administrator(), payload.creative(), Set.copyOf(payload.visited()), "", false, previous.revision() + 1L
         );
     }
 
     private static void handleTeleport(MapTeleportPayload payload, IPayloadContext context) {
         ServerPlayer player = (ServerPlayer) context.player();
-        MapContent content = MapContent.instance();
+        MapContent content = MapContent.forGeneration(payload.generation());
+        if (content == null) {
+            context.reply(new MapTeleportResultPayload(false, "존재하지 않는 세대 지도입니다."));
+            return;
+        }
         if (!content.contains(payload.q(), payload.r())) {
             context.reply(new MapTeleportResultPayload(false, "지도 범위를 벗어난 타일입니다."));
             return;
         }
 
         boolean administrator = isAdministrator(player);
+        boolean unrestrictedTeleport = administrator || player.isCreative();
         MapContent.Town town = content.townAt(payload.q(), payload.r());
-        if (!administrator && (town == null || !hasVisited(player, town.id()))) {
+        if (!unrestrictedTeleport && (town == null || !hasVisited(player, town.id()))) {
             context.reply(new MapTeleportResultPayload(false, "방문한 마을만 순간이동할 수 있습니다."));
             return;
         }
 
-        int targetQ = administrator || town == null ? payload.q() : town.hex().q();
-        int targetR = administrator || town == null ? payload.r() : town.hex().r();
+        int targetQ = unrestrictedTeleport || town == null ? payload.q() : town.hex().q();
+        int targetR = unrestrictedTeleport || town == null ? payload.r() : town.hex().r();
         ResourceKey<Level> dimension = ResourceKey.create(
             Registries.DIMENSION, ResourceLocation.parse(content.dimension())
         );
@@ -109,7 +114,7 @@ public final class MapNetwork {
     private static void handleTeleportResult(MapTeleportResultPayload payload, IPayloadContext context) {
         ClientSnapshot previous = clientSnapshot;
         clientSnapshot = new ClientSnapshot(
-            previous.administrator(), previous.visited(), payload.message(), payload.success(), previous.revision() + 1L
+            previous.administrator(), previous.creative(), previous.visited(), payload.message(), payload.success(), previous.revision() + 1L
         );
     }
 
@@ -119,11 +124,13 @@ public final class MapNetwork {
     }
 
     private static void updateVisit(ServerPlayer player) {
-        MapContent content = MapContent.instance();
-        if (!player.level().dimension().location().toString().equals(content.dimension())) return;
-        MapContent.Hex hex = content.worldToHex(player.getX(), player.getZ());
-        MapContent.Town town = content.townAt(hex.q(), hex.r());
-        if (town != null) markVisited(player, town.id());
+        for (MapContent content : MapContent.all()) {
+            if (!player.level().dimension().location().toString().equals(content.dimension())) continue;
+            MapContent.Hex hex = content.worldToHex(player.getX(), player.getZ());
+            MapContent.Town town = content.townAt(hex.q(), hex.r());
+            if (town != null) markVisited(player, town.id());
+            return;
+        }
     }
 
     private static void markVisited(ServerPlayer player, String settlementId) {
@@ -136,8 +143,10 @@ public final class MapNetwork {
 
     private static List<String> visitedSettlements(ServerPlayer player) {
         List<String> result = new ArrayList<>();
-        for (MapContent.Town town : MapContent.instance().towns()) {
-            if (hasVisited(player, town.id())) result.add(town.id());
+        for (MapContent content : MapContent.all()) {
+            for (MapContent.Town town : content.towns()) {
+                if (hasVisited(player, town.id())) result.add(town.id());
+            }
         }
         return result;
     }
@@ -149,6 +158,7 @@ public final class MapNetwork {
 
     public record ClientSnapshot(
         boolean administrator,
+        boolean creative,
         Set<String> visited,
         String message,
         boolean teleportSucceeded,
@@ -162,32 +172,38 @@ public final class MapNetwork {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record MapStatePayload(boolean administrator, List<String> visited) implements CustomPacketPayload {
+    public record MapStatePayload(boolean administrator, boolean creative, List<String> visited) implements CustomPacketPayload {
         public static final Type<MapStatePayload> TYPE = new Type<>(id("map_state"));
         public static final StreamCodec<RegistryFriendlyByteBuf, MapStatePayload> STREAM_CODEC =
             StreamCodec.ofMember(MapStatePayload::write, MapStatePayload::read);
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeBoolean(administrator);
+            buffer.writeBoolean(creative);
             buffer.writeVarInt(visited.size());
             for (String value : visited) buffer.writeUtf(value);
         }
         private static MapStatePayload read(RegistryFriendlyByteBuf buffer) {
             boolean administrator = buffer.readBoolean();
+            boolean creative = buffer.readBoolean();
             int size = Math.max(0, Math.min(256, buffer.readVarInt()));
             List<String> visited = new ArrayList<>(size);
             for (int index = 0; index < size; index++) visited.add(buffer.readUtf());
-            return new MapStatePayload(administrator, List.copyOf(visited));
+            return new MapStatePayload(administrator, creative, List.copyOf(visited));
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record MapTeleportPayload(int q, int r) implements CustomPacketPayload {
+    public record MapTeleportPayload(int generation, int q, int r) implements CustomPacketPayload {
         public static final Type<MapTeleportPayload> TYPE = new Type<>(id("map_teleport"));
         public static final StreamCodec<RegistryFriendlyByteBuf, MapTeleportPayload> STREAM_CODEC =
             StreamCodec.ofMember(MapTeleportPayload::write, MapTeleportPayload::read);
-        private void write(RegistryFriendlyByteBuf buffer) { buffer.writeVarInt(q); buffer.writeVarInt(r); }
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeVarInt(generation);
+            buffer.writeVarInt(q);
+            buffer.writeVarInt(r);
+        }
         private static MapTeleportPayload read(RegistryFriendlyByteBuf buffer) {
-            return new MapTeleportPayload(buffer.readVarInt(), buffer.readVarInt());
+            return new MapTeleportPayload(buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt());
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

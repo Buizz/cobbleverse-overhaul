@@ -13,8 +13,7 @@ import org.lwjgl.glfw.GLFW;
 public final class WorldMapScreen extends Screen {
     private static final int PAGE_BACKGROUND = 0xC8141917;
     private static final int MAP_BACKGROUND = 0xFF121A16;
-    private static final int EMPTY_TILE = 0xFF1A2620;
-    private static final int EMPTY_BORDER = 0xFF34483D;
+    private static final int TILE_BORDER = 0xFF34483D;
     private static final int INFO_BACKGROUND = 0xF0202824;
     private static final int INFO_BORDER = 0xFF617569;
     private static final int ROUTE_COLOR = 0xFFD8BA70;
@@ -31,11 +30,20 @@ public final class WorldMapScreen extends Screen {
     private static final int PANEL_GAP = 9;
 
     private final Screen parent;
-    private final MapContent content = MapContent.instance();
+    private MapContent content = MapContent.instance();
     private MapContent.Hex selected = new MapContent.Hex(0, 0);
     private Button teleportButton;
+    private Button previousGenerationButton;
+    private Button nextGenerationButton;
+    private Button zoomOutButton;
+    private Button zoomInButton;
+    private Button resetViewButton;
     private long stateRevision = -1L;
     private int pokemonScroll;
+    private int zoomLevel;
+    private int panX;
+    private int panY;
+    private boolean generationInitialized;
 
     public WorldMapScreen(Screen parent) {
         super(Component.translatable("screen.cobbleventure_player_menu.world_map.title"));
@@ -45,8 +53,27 @@ public final class WorldMapScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        if (!generationInitialized) {
+            selectPlayerGeneration();
+            generationInitialized = true;
+        }
         selected = playerHex();
         Layout layout = layout();
+        previousGenerationButton = addRenderableWidget(Button.builder(
+            Component.literal("<"), ignored -> switchGeneration(-1)
+        ).bounds(layout.mapLeft() + 4, 6, 20, 20).build());
+        nextGenerationButton = addRenderableWidget(Button.builder(
+            Component.literal(">"), ignored -> switchGeneration(1)
+        ).bounds(layout.mapLeft() + 80, 6, 20, 20).build());
+        zoomOutButton = addRenderableWidget(Button.builder(
+            Component.literal("−"), ignored -> changeZoom(-1, layout.mapCenterX(), layout.mapCenterY())
+        ).bounds(layout.mapRight() - 72, layout.top() + 6, 20, 20).build());
+        resetViewButton = addRenderableWidget(Button.builder(
+            Component.translatable("screen.cobbleventure_player_menu.world_map.reset_view"), ignored -> resetView()
+        ).bounds(layout.mapRight() - 50, layout.top() + 6, 42, 20).build());
+        zoomInButton = addRenderableWidget(Button.builder(
+            Component.literal("+"), ignored -> changeZoom(1, layout.mapCenterX(), layout.mapCenterY())
+        ).bounds(layout.mapRight() - 94, layout.top() + 6, 20, 20).build());
         teleportButton = addRenderableWidget(Button.builder(
             Component.translatable("screen.cobbleventure_player_menu.world_map.teleport"),
             ignored -> requestTeleport()
@@ -60,6 +87,7 @@ public final class WorldMapScreen extends Screen {
             .bounds(width - MARGIN - 72, height - FOOTER_HEIGHT + 5, 72, 20)
             .build());
         MapNetwork.requestSnapshot();
+        updateNavigationButtons();
         updateTeleportButton();
     }
 
@@ -82,6 +110,13 @@ public final class WorldMapScreen extends Screen {
         graphics.fill(0, 0, width, height, PAGE_BACKGROUND);
         graphics.drawCenteredString(font, title, width / 2, 11, TEXT);
         Layout layout = layout();
+        graphics.drawCenteredString(
+            font,
+            Component.translatable("screen.cobbleventure_player_menu.world_map.generation", content.generation()),
+            layout.mapLeft() + 52,
+            11,
+            TEXT
+        );
         drawMap(graphics, layout, mouseX, mouseY);
         drawInfoPanel(graphics, layout);
         graphics.drawString(
@@ -101,7 +136,7 @@ public final class WorldMapScreen extends Screen {
         Layout layout = layout();
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && layout.mapContains(mouseX, mouseY)) {
             MapContent.Hex candidate = screenToHex(layout, mouseX, mouseY);
-            if (content.contains(candidate.q(), candidate.r())) {
+            if (isPopulated(candidate.q(), candidate.r())) {
                 selected = candidate;
                 pokemonScroll = 0;
                 updateTeleportButton();
@@ -120,7 +155,7 @@ public final class WorldMapScreen extends Screen {
             case GLFW.GLFW_KEY_DOWN -> new MapContent.Hex(selected.q(), selected.r() + 1);
             default -> null;
         };
-        if (next != null && content.contains(next.q(), next.r())) {
+        if (next != null && isPopulated(next.q(), next.r())) {
             selected = next;
             pokemonScroll = 0;
             updateTeleportButton();
@@ -132,6 +167,10 @@ public final class WorldMapScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         Layout layout = layout();
+        if (layout.mapContains(mouseX, mouseY) && scrollY != 0.0D) {
+            changeZoom(scrollY > 0.0D ? 1 : -1, mouseX, mouseY);
+            return true;
+        }
         if (mouseX >= layout.infoLeft() && mouseX < layout.infoRight()
             && mouseY >= layout.top() && mouseY < layout.bottom()
             && content.townAt(selected.q(), selected.r()) == null) {
@@ -143,6 +182,19 @@ public final class WorldMapScreen extends Screen {
             }
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        Layout layout = layout();
+        if ((button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+            && layout.mapContains(mouseX, mouseY)) {
+            panX += (int) Math.round(dragX);
+            panY += (int) Math.round(dragY);
+            updateNavigationButtons();
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override
@@ -163,6 +215,7 @@ public final class WorldMapScreen extends Screen {
     private void drawMap(GuiGraphics graphics, Layout layout, int mouseX, int mouseY) {
         graphics.fill(layout.mapLeft(), layout.top(), layout.mapRight(), layout.bottom(), MAP_BACKGROUND);
         drawBorder(graphics, layout.mapLeft(), layout.top(), layout.mapRight(), layout.bottom(), INFO_BORDER);
+        graphics.enableScissor(layout.mapLeft() + 1, layout.top() + 1, layout.mapRight() - 1, layout.bottom() - 1);
         int size = hexSize(layout);
         ScreenPoint center = mapCenter(layout);
 
@@ -173,10 +226,10 @@ public final class WorldMapScreen extends Screen {
                 ScreenPoint point = hexCenter(center, size, q, r);
                 MapContent.Town town = content.townAt(q, r);
                 MapContent.BiomeTile tile = content.tileAt(q, r);
-                String biome = town != null ? town.biome() : tile == null ? "" : tile.biome();
-                int fill = biome.isEmpty() ? EMPTY_TILE : biomeColor(biome);
-                int border = town != null ? TOWN_BORDER : EMPTY_BORDER;
-                drawHex(graphics, point.x(), point.y(), size, border, fill);
+                if (town == null && tile == null) continue;
+                String biome = town != null ? town.biome() : tile.biome();
+                int border = town != null ? TOWN_BORDER : TILE_BORDER;
+                drawHex(graphics, point.x(), point.y(), size, border, biomeColor(biome));
             }
         }
 
@@ -198,19 +251,25 @@ public final class WorldMapScreen extends Screen {
 
         ScreenPoint selectedPoint = hexCenter(center, size, selected.q(), selected.r());
         drawHexOutline(graphics, selectedPoint.x(), selectedPoint.y(), size + 1, SELECTED_BORDER);
-        MapContent.Hex playerHex = playerHex();
-        if (playerOnMappedDimension() && content.contains(playerHex.q(), playerHex.r())) {
+        MapContent.Hex playerHex = currentPlayerHex();
+        if (playerHex != null) {
             ScreenPoint player = hexCenter(center, size, playerHex.q(), playerHex.r());
-            graphics.fill(player.x() - 2, player.y() - 2, player.x() + 3, player.y() + 3, PLAYER_MARKER);
+            int marker = Math.max(3, size / 2);
+            graphics.fill(player.x() - marker - 1, player.y() - 1, player.x() + marker + 2, player.y() + 2, 0xFF161A18);
+            graphics.fill(player.x() - 1, player.y() - marker - 1, player.x() + 2, player.y() + marker + 2, 0xFF161A18);
+            graphics.fill(player.x() - marker, player.y(), player.x() + marker + 1, player.y() + 1, PLAYER_MARKER);
+            graphics.fill(player.x(), player.y() - marker, player.x() + 1, player.y() + marker + 1, PLAYER_MARKER);
+            graphics.drawString(font, "현재 위치", player.x() + marker + 3, player.y() - 4, PLAYER_MARKER, true);
         }
 
         if (layout.mapContains(mouseX, mouseY)) {
             MapContent.Hex hover = screenToHex(layout, mouseX, mouseY);
-            if (content.contains(hover.q(), hover.r())) {
+            if (isPopulated(hover.q(), hover.r())) {
                 ScreenPoint point = hexCenter(center, size, hover.q(), hover.r());
                 drawHexOutline(graphics, point.x(), point.y(), size, 0x99FFFFFF);
             }
         }
+        graphics.disableScissor();
     }
 
     private void drawInfoPanel(GuiGraphics graphics, Layout layout) {
@@ -225,6 +284,11 @@ public final class WorldMapScreen extends Screen {
 
         graphics.drawString(font, "Q " + selected.q() + " · R " + selected.r(), x, y, MUTED_TEXT, false);
         y += 15;
+        MapContent.Hex playerHex = currentPlayerHex();
+        if (playerHex != null) {
+            graphics.drawString(font, "현재 위치 Q " + playerHex.q() + " · R " + playerHex.r(), x, y, PLAYER_MARKER, false);
+            y += 15;
+        }
         if (town != null) {
             boolean visited = snapshot.visited().contains(town.id());
             graphics.drawString(font, town.name(), x, y, TEXT, false);
@@ -236,7 +300,7 @@ public final class WorldMapScreen extends Screen {
             if (town.gymEnabled()) y = drawSmallWrapped(graphics, x, y, lineWidth, town.gymStructure());
             y = drawLabelValue(graphics, x, y, lineWidth, "특별 건물", town.specialBuildingEnabled() ? "배치됨" : "없음");
             if (town.specialBuildingEnabled()) y = drawSmallWrapped(graphics, x, y, lineWidth, town.specialBuildingStructure());
-            if (!visited && !snapshot.administrator()) {
+            if (!visited && !snapshot.administrator() && !snapshot.creative()) {
                 y += 4;
                 graphics.drawWordWrap(font, Component.literal("이 마을을 직접 방문하면 빠른 이동이 해금됩니다."), x, y, lineWidth, MUTED_TEXT);
             }
@@ -269,6 +333,8 @@ public final class WorldMapScreen extends Screen {
         }
         if (snapshot.administrator()) {
             graphics.drawString(font, "관리자 디버그 이동 활성", x, layout.bottom() - 39, WARNING_TEXT, false);
+        } else if (snapshot.creative()) {
+            graphics.drawString(font, "크리에이티브 자유 이동 활성", x, layout.bottom() - 39, SUCCESS_TEXT, false);
         }
     }
 
@@ -289,14 +355,14 @@ public final class WorldMapScreen extends Screen {
         if (teleportButton == null || !teleportButton.active) return;
         teleportButton.active = false;
         teleportButton.setMessage(Component.translatable("screen.cobbleventure_player_menu.world_map.teleporting"));
-        MapNetwork.requestTeleport(selected.q(), selected.r());
+        MapNetwork.requestTeleport(content.generation(), selected.q(), selected.r());
     }
 
     private void updateTeleportButton() {
         if (teleportButton == null) return;
         MapNetwork.ClientSnapshot snapshot = MapNetwork.clientSnapshot();
         MapContent.Town town = content.townAt(selected.q(), selected.r());
-        boolean permitted = snapshot.administrator()
+        boolean permitted = snapshot.administrator() || snapshot.creative()
             || town != null && snapshot.visited().contains(town.id());
         teleportButton.visible = permitted;
         teleportButton.active = permitted;
@@ -308,12 +374,75 @@ public final class WorldMapScreen extends Screen {
     }
 
     private MapContent.Hex playerHex() {
-        if (minecraft != null && minecraft.player != null && playerOnMappedDimension()) {
-            MapContent.Hex current = content.worldToHex(minecraft.player.getX(), minecraft.player.getZ());
-            if (content.contains(current.q(), current.r())) return current;
-        }
+        MapContent.Hex current = currentPlayerHex();
+        if (current != null && isPopulated(current.q(), current.r())) return current;
         if (!content.towns().isEmpty()) return content.towns().getFirst().hex();
         return new MapContent.Hex(0, 0);
+    }
+
+    private MapContent.Hex currentPlayerHex() {
+        if (minecraft == null || minecraft.player == null || !playerOnMappedDimension()) return null;
+        MapContent.Hex current = content.worldToHex(minecraft.player.getX(), minecraft.player.getZ());
+        return content.contains(current.q(), current.r()) ? current : null;
+    }
+
+    private void selectPlayerGeneration() {
+        if (minecraft == null || minecraft.level == null) return;
+        String dimension = minecraft.level.dimension().location().toString();
+        for (MapContent candidate : MapContent.all()) {
+            if (candidate.dimension().equals(dimension)) {
+                content = candidate;
+                return;
+            }
+        }
+    }
+
+    private void switchGeneration(int offset) {
+        List<Integer> generations = MapContent.availableGenerations();
+        int index = generations.indexOf(content.generation());
+        int nextIndex = Math.max(0, Math.min(generations.size() - 1, index + offset));
+        if (nextIndex == index) return;
+        MapContent next = MapContent.forGeneration(generations.get(nextIndex));
+        if (next == null) return;
+        content = next;
+        selected = playerHex();
+        pokemonScroll = 0;
+        resetView();
+        updateNavigationButtons();
+        updateTeleportButton();
+    }
+
+    private void changeZoom(int amount, double focusX, double focusY) {
+        int next = Math.max(0, Math.min(10, zoomLevel + amount));
+        if (next == zoomLevel) return;
+        Layout layout = layout();
+        ScreenPoint oldCenter = mapCenter(layout);
+        int oldSize = hexSize(layout);
+        double localX = (focusX - oldCenter.x()) / oldSize;
+        double localY = (focusY - oldCenter.y()) / oldSize;
+        zoomLevel = next;
+        ScreenPoint baseCenter = baseMapCenter(layout);
+        int newSize = hexSize(layout);
+        panX = (int) Math.round(focusX - localX * newSize - baseCenter.x());
+        panY = (int) Math.round(focusY - localY * newSize - baseCenter.y());
+        updateNavigationButtons();
+    }
+
+    private void resetView() {
+        zoomLevel = 0;
+        panX = 0;
+        panY = 0;
+        updateNavigationButtons();
+    }
+
+    private void updateNavigationButtons() {
+        List<Integer> generations = MapContent.availableGenerations();
+        int index = generations.indexOf(content.generation());
+        if (previousGenerationButton != null) previousGenerationButton.active = index > 0;
+        if (nextGenerationButton != null) nextGenerationButton.active = index >= 0 && index < generations.size() - 1;
+        if (zoomOutButton != null) zoomOutButton.active = zoomLevel > 0;
+        if (zoomInButton != null) zoomInButton.active = zoomLevel < 10;
+        if (resetViewButton != null) resetViewButton.active = zoomLevel != 0 || panX != 0 || panY != 0;
     }
 
     private boolean playerOnMappedDimension() {
@@ -333,13 +462,55 @@ public final class WorldMapScreen extends Screen {
     }
 
     private int hexSize(Layout layout) {
-        double horizontal = layout.mapWidth() / (2.0D * Math.sqrt(3.0D) * content.mapRadiusCells() + 3.0D);
-        double vertical = layout.height() / (3.0D * content.mapRadiusCells() + 3.0D);
-        return Math.max(3, Math.min(12, (int) Math.floor(Math.min(horizontal, vertical))));
+        MapBounds bounds = mapBounds();
+        double horizontal = (layout.mapWidth() - 12.0D) / bounds.width();
+        double vertical = (layout.height() - 12.0D) / bounds.height();
+        int fitted = Math.max(3, Math.min(12, (int) Math.floor(Math.min(horizontal, vertical))));
+        return Math.min(32, fitted + zoomLevel * 2);
     }
 
     private ScreenPoint mapCenter(Layout layout) {
-        return new ScreenPoint((layout.mapLeft() + layout.mapRight()) / 2, (layout.top() + layout.bottom()) / 2);
+        ScreenPoint base = baseMapCenter(layout);
+        return new ScreenPoint(base.x() + panX, base.y() + panY);
+    }
+
+    private ScreenPoint baseMapCenter(Layout layout) {
+        MapBounds bounds = mapBounds();
+        int size = hexSize(layout);
+        int x = (int) Math.round((layout.mapLeft() + layout.mapRight()) / 2.0D - bounds.centerX() * size);
+        int y = (int) Math.round((layout.top() + layout.bottom()) / 2.0D - bounds.centerY() * size);
+        return new ScreenPoint(x, y);
+    }
+
+    private boolean isPopulated(int q, int r) {
+        return content.tileAt(q, r) != null || content.townAt(q, r) != null;
+    }
+
+    private MapBounds mapBounds() {
+        double minX = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+        for (int r = -content.mapRadiusCells(); r <= content.mapRadiusCells(); r++) {
+            int minQ = Math.max(-content.mapRadiusCells(), -r - content.mapRadiusCells());
+            int maxQ = Math.min(content.mapRadiusCells(), -r + content.mapRadiusCells());
+            for (int q = minQ; q <= maxQ; q++) {
+                if (!isPopulated(q, r)) continue;
+                double x = Math.sqrt(3.0D) * (q + r / 2.0D);
+                double y = 1.5D * r;
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
+            }
+        }
+        if (!Double.isFinite(minX)) return new MapBounds(0.0D, 0.0D, Math.sqrt(3.0D), 2.0D);
+        return new MapBounds(
+            (minX + maxX) / 2.0D,
+            (minY + maxY) / 2.0D,
+            maxX - minX + Math.sqrt(3.0D),
+            maxY - minY + 2.0D
+        );
     }
 
     private static ScreenPoint hexCenter(ScreenPoint center, int size, int q, int r) {
@@ -452,10 +623,13 @@ public final class WorldMapScreen extends Screen {
     }
 
     private record ScreenPoint(int x, int y) {}
+    private record MapBounds(double centerX, double centerY, double width, double height) {}
     private record Layout(int mapLeft, int mapRight, int infoLeft, int infoRight, int top, int bottom) {
         int mapWidth() { return mapRight - mapLeft; }
         int infoWidth() { return infoRight - infoLeft; }
         int height() { return bottom - top; }
+        int mapCenterX() { return (mapLeft + mapRight) / 2; }
+        int mapCenterY() { return (top + bottom) / 2; }
         boolean mapContains(double x, double y) { return x >= mapLeft && x < mapRight && y >= top && y < bottom; }
     }
 }

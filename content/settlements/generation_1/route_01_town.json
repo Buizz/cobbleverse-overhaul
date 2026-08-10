@@ -10,7 +10,7 @@
   "region": "cobbleventure:generation_1/region_02",
   "dimension": "cobbleventure:generation_1",
   "biome": "minecraft:forest",
-  "town_radius_cells": 1,
+  "town_radius_cells": 7,
   "bounds": {
     "min_x": 900,
     "min_z": -440,
@@ -95,20 +95,13 @@
       "building": { "enabled": false, "structure": "" }
     },
     "gym": {
-      "enabled": true,
-      "structure": "rgs:viridian_gym",
+      "enabled": false,
+      "structure": "",
       "theme": "ground",
       "anchor": "gym_building",
       "leader_trainer_id": ""
     },
-    "facility_placements": [
-      {
-        "id": "gym_building",
-        "mode": "direct_template",
-        "structure": "rgs:viridian_gym",
-        "anchor": "gym_building"
-      }
-    ]
+    "facility_placements": []
   },
   "npc_placement": {
     "max_ambient_npcs": 10,

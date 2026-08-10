@@ -51,12 +51,13 @@ processResources {
     filesMatching('META-INF/neoforge.mods.toml') {
         expand properties
     }
-    from(rootProject.file('../../content/worlds/generation_1.json')) {
+    from(rootProject.file('../../content/worlds')) {
         into 'data/cobbleventure_player_menu/map'
+        include 'generation_*.json'
     }
-    from(rootProject.file('../../content/settlements/generation_1')) {
+    from(rootProject.file('../../content/settlements')) {
         into 'data/cobbleventure_player_menu/map/settlements'
-        include '*.json'
+        include 'generation_*/*.json'
     }
     from(rootProject.file('../../content/catalogs/biome-profiles.json')) {
         into 'data/cobbleventure_player_menu/map/catalogs'

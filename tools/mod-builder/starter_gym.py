@@ -34,6 +34,25 @@ GYM_ROOF_BLOCKS = {
     "fairy": "minecraft:pink_concrete",
 }
 
+HOUSE_BASES = {
+    "compact": {"size": (16, 8, 16), "wall": "minecraft:oak_planks", "trim": "minecraft:stripped_oak_log"},
+    "wide": {"size": (32, 8, 16), "wall": "minecraft:spruce_planks", "trim": "minecraft:stripped_spruce_log"},
+    "two_story": {"size": (16, 12, 16), "wall": "minecraft:stone_bricks", "trim": "minecraft:stripped_dark_oak_log"},
+}
+HOUSE_ROOFS = {"gable", "hip", "flat"}
+HOUSE_ROOF_BLOCKS = {
+    "red": "minecraft:red_nether_bricks",
+    "orange": "minecraft:acacia_planks",
+    "yellow": "minecraft:bamboo_planks",
+    "green": "minecraft:moss_block",
+    "blue": "minecraft:warped_planks",
+    "purple": "minecraft:crimson_planks",
+    "brown": "minecraft:dark_oak_planks",
+    "gray": "minecraft:deepslate_tiles",
+    "black": "minecraft:polished_blackstone_bricks",
+    "white": "minecraft:quartz_block",
+}
+
 BCA_VILLAGE_START_POOLS = {
     "default_small": ("bca:default/small", 2),
     "default_mid": ("bca:default/mid", 3),
@@ -75,6 +94,9 @@ BCA_VILLAGE_CONNECTORS = {
 }
 
 FACILITY_PLACEHOLDERS = {
+    "basic_building_1": {"label": "기본 건물 1", "size": (16, 10, 16), "frame": "minecraft:bricks"},
+    "basic_building_2": {"label": "기본 건물 2", "size": (32, 10, 16), "frame": "minecraft:oak_planks"},
+    "basic_building_3": {"label": "기본 건물 3", "size": (16, 14, 16), "frame": "minecraft:stone_bricks"},
     "laboratory": {"label": "연구소", "size": (32, 14, 32), "frame": "minecraft:light_blue_concrete"},
     "fossil_laboratory": {"label": "화석연구소", "size": (32, 14, 32), "frame": "minecraft:brown_concrete"},
     "daycare": {"label": "키우미집", "size": (32, 10, 32), "frame": "minecraft:lime_concrete"},
@@ -281,6 +303,84 @@ def build_facility_placeholder_nbt(facility_id: str) -> bytes:
         },
     )
     return _build_structure_nbt((width, height, depth), blocks)
+
+
+def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> bytes:
+    """Build one deterministic house shell from a base, roof shape and roof palette."""
+    if base_id not in HOUSE_BASES:
+        raise ValueError(f"지원하지 않는 주택 골격입니다: {base_id}")
+    if roof_id not in HOUSE_ROOFS:
+        raise ValueError(f"지원하지 않는 지붕 형태입니다: {roof_id}")
+    if roof_color not in HOUSE_ROOF_BLOCKS:
+        raise ValueError(f"지원하지 않는 지붕 색상입니다: {roof_color}")
+    definition = HOUSE_BASES[base_id]
+    width, wall_height, depth = definition["size"]  # type: ignore[misc]
+    wall = str(definition["wall"])
+    trim = str(definition["trim"])
+    roof_block = HOUSE_ROOF_BLOCKS[roof_color]
+    roof_layers = 1 if roof_id == "flat" else min(6, depth // 2)
+    total_height = wall_height + roof_layers + 1
+    blocks: dict[
+        tuple[int, int, int],
+        tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None],
+    ] = {}
+
+    def set_block(x: int, y: int, z: int, name: str) -> None:
+        blocks[(x, y, z)] = (name, (), None)
+
+    for x in range(width):
+        for z in range(depth):
+            set_block(x, 0, z, "minecraft:smooth_stone")
+    door_x = width // 2
+    for y in range(1, wall_height):
+        for x in range(width):
+            for z in (0, depth - 1):
+                if z == 0 and abs(x - door_x) <= 1 and y <= 3:
+                    continue
+                window = y in {3, 4} and x % 5 in {2, 3}
+                set_block(x, y, z, "minecraft:glass_pane" if window else (trim if x in {0, width - 1} else wall))
+        for z in range(1, depth - 1):
+            for x in (0, width - 1):
+                window = y in {3, 4} and z % 5 in {2, 3}
+                set_block(x, y, z, "minecraft:glass_pane" if window else (trim if z in {1, depth - 2} else wall))
+    if base_id == "two_story":
+        for x in range(1, width - 1):
+            for z in range(1, depth - 1):
+                set_block(x, wall_height // 2, z, "minecraft:oak_planks")
+
+    roof_y = wall_height
+    if roof_id == "flat":
+        for x in range(width):
+            for z in range(depth):
+                set_block(x, roof_y, z, roof_block)
+        for x in range(width):
+            for z in (0, depth - 1):
+                set_block(x, roof_y + 1, z, roof_block)
+        for z in range(1, depth - 1):
+            for x in (0, width - 1):
+                set_block(x, roof_y + 1, z, roof_block)
+    elif roof_id == "gable":
+        for layer in range(roof_layers):
+            left = layer
+            right = depth - 1 - layer
+            if left > right:
+                break
+            for x in range(width):
+                set_block(x, roof_y + layer, left, roof_block)
+                set_block(x, roof_y + layer, right, roof_block)
+    else:
+        for layer in range(roof_layers):
+            min_x, max_x = layer, width - 1 - layer
+            min_z, max_z = layer, depth - 1 - layer
+            if min_x > max_x or min_z > max_z:
+                break
+            for x in range(min_x, max_x + 1):
+                set_block(x, roof_y + layer, min_z, roof_block)
+                set_block(x, roof_y + layer, max_z, roof_block)
+            for z in range(min_z + 1, max_z):
+                set_block(min_x, roof_y + layer, z, roof_block)
+                set_block(max_x, roof_y + layer, z, roof_block)
+    return _build_structure_nbt((width, total_height, depth), blocks)
 
 
 ROAD_MATERIAL_BLOCKS = {

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import gzip
 import json
+import math
 import shutil
 from pathlib import Path
 
@@ -11,7 +13,11 @@ from starter_gym import (
     BCA_VILLAGE_START_POOLS,
     FACILITY_PLACEHOLDERS,
     GYM_ROOF_BLOCKS,
+    HOUSE_BASES,
+    HOUSE_ROOFS,
+    HOUSE_ROOF_BLOCKS,
     build_facility_placeholder_nbt,
+    build_house_variant_nbt,
     build_village_hub_nbt,
 )
 
@@ -51,6 +57,25 @@ class ModBuildError(RuntimeError):
     pass
 
 
+class TownFacilityPlacementError(ModBuildError):
+    def __init__(self, settlement_id: object, facility_id: str):
+        self.settlement_id = str(settlement_id)
+        self.facility_id = facility_id
+        super().__init__(
+            f"육각형 마을 범위에 필수 시설을 배치할 수 없습니다: {settlement_id} / {facility_id}"
+        )
+
+
+TOWN_LAYOUT_REROLL_LIMIT = 8
+TOWN_LAYOUT_REROLL_STEP = 104729
+TOWN_LAYOUT_CENTER_PATTERNS = (
+    ("tee_east", (0, 1, 2)),
+    ("tee_west", (0, 2, 3)),
+    ("tee_north", (0, 1, 3)),
+    ("tee_south", (1, 2, 3)),
+)
+
+
 def _inside(root: Path, path: Path, label: str) -> Path:
     resolved = path.resolve()
     try:
@@ -82,9 +107,427 @@ def _package_settlements(
     settlements: list[tuple[Path, dict[str, object]]],
 ) -> None:
     for relative, data in settlements:
+        packaged = copy.deepcopy(data)
+        compiled_layout = _compile_town_layout(packaged)
+        if int(compiled_layout.get("reroll_count", 0)) > 0:
+            print(
+                "[경고] 필수 시설 배치를 위해 마을 레이아웃을 자동 리롤했습니다: "
+                f"{packaged.get('id')} / {compiled_layout['reroll_count']}회 / "
+                f"적용 시드 {compiled_layout['resolved_seed']}"
+            )
+        packaged["compiled_layout"] = compiled_layout
         target = _inside(root, output / GENERATED_SETTLEMENT_DIR / relative, "생성 마을 설정")
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        target.write_text(
+            json.dumps(packaged, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+
+class _LayoutRandom:
+    def __init__(self, seed: int) -> None:
+        self.value = seed & 0xFFFFFFFF
+
+    def next_double(self) -> float:
+        self.value = (self.value + 0x6D2B79F5) & 0xFFFFFFFF
+        result = self.value
+        result = ((result ^ (result >> 15)) * (result | 1)) & 0xFFFFFFFF
+        result ^= (result + (((result ^ (result >> 7)) * (result | 61)) & 0xFFFFFFFF)) & 0xFFFFFFFF
+        return ((result ^ (result >> 14)) & 0xFFFFFFFF) / 4294967296.0
+
+
+VILLAGE_TILE_RADIUS = 64.0
+
+
+def _town_layout_cells(cell_count: int, shape: str = "line_q") -> tuple[tuple[int, int], ...]:
+    if cell_count == 3:
+        return {
+            "triangle_up": ((0, 0), (0, -1), (1, -1)),
+            "triangle_down": ((0, 0), (0, 1), (-1, 1)),
+            "line_q": ((-1, 0), (0, 0), (1, 0)),
+            "line_r": ((0, -1), (0, 0), (0, 1)),
+            "line_s": ((-1, 1), (0, 0), (1, -1)),
+        }.get(shape, ((-1, 0), (0, 0), (1, 0)))
+    if cell_count == 5:
+        if shape == "five_down":
+            return ((-1, 0), (0, 0), (1, 0), (-1, 1), (0, 1))
+        return ((-1, 0), (0, 0), (1, 0), (0, -1), (1, -1))
+    if cell_count == 7:
+        return ((0, 0), (1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1))
+    return ((0, 0),)
+
+
+def _town_layout_cell_center(q: int, r: int) -> tuple[float, float]:
+    return (
+        VILLAGE_TILE_RADIUS * math.sqrt(3.0) * (q + r / 2.0),
+        VILLAGE_TILE_RADIUS * 1.5 * r,
+    )
+
+
+def _town_layout_hub(cell_count: int) -> tuple[int, int]:
+    return (0, 32) if cell_count in (3, 5) else (0, 0)
+
+
+def _town_layout_center_pattern(shape: str, seed: int) -> tuple[str, tuple[int, ...]]:
+    if shape == "linear":
+        return ("linear", (1, 3))
+    if shape == "terraced":
+        return ("terraced", (1, 3, 2))
+    return TOWN_LAYOUT_CENTER_PATTERNS[(max(1, seed) - 1) % len(TOWN_LAYOUT_CENTER_PATTERNS)]
+
+
+def _inside_layout_hex(
+    x: float, z: float, center_x: float, center_z: float, margin: float = 0.0
+) -> bool:
+    usable = max(16.0, VILLAGE_TILE_RADIUS - margin)
+    local_x = abs(x - center_x)
+    local_z = abs(z - center_z)
+    return (
+        local_z <= usable
+        and local_x <= usable * math.sqrt(3.0) / 2.0
+        and local_z + local_x / math.sqrt(3.0) <= usable
+    )
+
+
+def _inside_town_layout(
+    x: float, z: float, cell_count: int, shape: str = "line_q", margin: float = 0.0
+) -> bool:
+    return any(
+        _inside_layout_hex(x, z, *_town_layout_cell_center(q, r), margin)
+        for q, r in _town_layout_cells(cell_count, shape)
+    )
+
+
+def _plot_inside_town_layout(
+    plot: dict[str, object], cell_count: int, shape: str = "line_q"
+) -> bool:
+    x = float(plot["x"])
+    z = float(plot["z"])
+    width = int(plot["width"])
+    depth = int(plot["depth"])
+    samples = [
+        (px, pz)
+        for px in [x + min(offset, width) for offset in range(0, width + 4, 4)]
+        for pz in [z + min(offset, depth) for offset in range(0, depth + 4, 4)]
+    ]
+    samples.extend(((x + width, z + depth), (x + width / 2.0, z + depth / 2.0)))
+    return all(_inside_town_layout(px, pz, cell_count, shape, 4.0) for px, pz in samples)
+
+
+def _plots_intersect(a: dict[str, object], b: dict[str, object], margin: float) -> bool:
+    return (
+        float(a["x"]) - margin < float(b["x"]) + int(b["width"])
+        and float(a["x"]) + int(a["width"]) + margin > float(b["x"])
+        and float(a["z"]) - margin < float(b["z"]) + int(b["depth"])
+        and float(a["z"]) + int(a["depth"]) + margin > float(b["z"])
+    )
+
+
+def _compiled_facility_specs(data: dict[str, object]) -> list[tuple[str, int, int]]:
+    profile = data.get("structure_profile")
+    if not isinstance(profile, dict):
+        return []
+    starter = str(data.get("id", "")).endswith("/starter_town") \
+        or profile.get("village_preset") == AUTHORED_STARTER_PRESET
+    specs: list[tuple[str, int, int]] = []
+    if bool(profile.get("pokemon_center_enabled", not starter)):
+        specs.append(("facility_pokemon_center", 32, 32))
+    commercial = str(profile.get("commercial_center", "none" if starter else "pokemart"))
+    if commercial == "preset":
+        commercial = "pokemart"
+    if commercial == "pokemart":
+        specs.append(("facility_pokemart", 32, 16))
+    elif commercial == "department_store":
+        specs.append(("facility_department_store", 48, 48))
+    gym = profile.get("gym")
+    if isinstance(gym, dict) and gym.get("enabled") is True:
+        specs.append(("gym_building", 32, 32))
+    for facility in profile.get("facility_placements", []):
+        if not isinstance(facility, dict):
+            continue
+        facility_id = str(facility.get("id", ""))
+        if not facility_id or any(existing[0] == facility_id for existing in specs):
+            continue
+        footprint = facility.get("footprint")
+        width = int(footprint.get("width", 16)) if isinstance(footprint, dict) else 16
+        depth = int(footprint.get("depth", 16)) if isinstance(footprint, dict) else 16
+        specs.append((facility_id, width, depth))
+    return specs
+
+
+def _compile_town_layout_attempt(
+    data: dict[str, object], seed_override: int | None = None
+) -> dict[str, object]:
+    profile = data.get("structure_profile")
+    if not isinstance(profile, dict):
+        raise ModBuildError("마을 structure_profile이 필요합니다.")
+    generation = profile.get("generation_profile")
+    generation = generation if isinstance(generation, dict) else {}
+    configured_palette = generation.get("house_palette")
+    configured_palette = configured_palette if isinstance(configured_palette, dict) else {}
+    def palette_values(key: str, allowed: object, fallback: list[str]) -> list[str]:
+        values = configured_palette.get(key)
+        if not isinstance(values, list):
+            return fallback
+        selected = list(dict.fromkeys(str(value) for value in values if str(value) in allowed))
+        return selected or fallback
+    house_bases = palette_values("bases", HOUSE_BASES, list(HOUSE_BASES))
+    house_roofs = palette_values("roofs", HOUSE_ROOFS, sorted(HOUSE_ROOFS))
+    house_roof_colors = palette_values(
+        "roof_colors", HOUSE_ROOF_BLOCKS, ["red", "blue", "green", "brown"]
+    )
+    seed = int(seed_override if seed_override is not None else generation.get("seed", 1))
+    depth = max(1, min(6, int(generation.get("depth", 3))))
+    road = profile.get("road_profile")
+    road = road if isinstance(road, dict) else {}
+    road_width = int(road.get("width", 7))
+    shape = str(profile.get("layout_shape", "branching"))
+    cell_count = int(data.get("town_radius_cells", 7))
+    if cell_count not in (1, 3, 5, 7):
+        cell_count = 1
+    footprint_shape = str(data.get("town_footprint_shape", "line_q"))
+    random = _LayoutRandom(seed)
+    directions = ((0, -1), (1, 0), (0, 1), (-1, 0))
+    center_pattern, initial = _town_layout_center_pattern(shape, seed)
+    hub_x, hub_z = _town_layout_hub(cell_count)
+    queue = [(hub_x, hub_z, direction, 0) for direction in initial]
+    occupied = {(hub_x // 16, hub_z // 16)}
+    roads: list[dict[str, int]] = []
+    maximum_roads = min(20, 3 + depth * 3)
+    while queue and len(roads) < maximum_roads:
+        start_x, start_z, direction, branch_depth = queue.pop(0)
+        vector_x, vector_z = directions[direction]
+        # 중심에서 뻗는 첫 네 갈래는 길이를 맞춰 한 축으로만 길어지는
+        # 레이아웃을 방지한다. 이후 분기만 시드에 따라 길이를 달리한다.
+        cells = 2 if branch_depth == 0 else 2 + int(random.next_double() * 3.0)
+        points: list[tuple[int, int]] = []
+        for step in range(1, cells + 1):
+            cell_x = start_x // 16 + vector_x * step
+            cell_z = start_z // 16 + vector_z * step
+            point = (cell_x * 16, cell_z * 16)
+            if not _inside_town_layout(point[0], point[1], cell_count, footprint_shape, 8.0):
+                break
+            if (cell_x, cell_z) in occupied and step > 1:
+                break
+            points.append(point)
+        if len(points) < 2:
+            continue
+        if branch_depth > 0 and roads:
+            while len(points) >= 2:
+                candidate_roads = roads + [{
+                    "x1": start_x, "z1": start_z,
+                    "x2": points[-1][0], "z2": points[-1][1],
+                }]
+                xs = [coordinate for segment in candidate_roads for coordinate in (segment["x1"], segment["x2"])]
+                zs = [coordinate for segment in candidate_roads for coordinate in (segment["z1"], segment["z2"])]
+                x_span = max(xs) - min(xs)
+                z_span = max(zs) - min(zs)
+                if min(x_span, z_span) > 0 and max(x_span, z_span) / min(x_span, z_span) <= 1.75:
+                    break
+                points.pop()
+            if len(points) < 2:
+                continue
+        for point_x, point_z in points:
+            occupied.add((point_x // 16, point_z // 16))
+        end_x, end_z = points[-1]
+        roads.append({"x1": start_x, "z1": start_z, "x2": end_x, "z2": end_z})
+        if branch_depth + 1 >= depth:
+            continue
+        next_directions = [direction]
+        branch_chance = {"linear": 0.12, "radial": 0.20, "loop": 0.34}.get(shape, 0.55)
+        branch_roll = random.next_double()
+        if (shape == "branching" and branch_depth == 0) or branch_roll < branch_chance:
+            next_directions.append((direction + (1 if random.next_double() < 0.5 else 3)) % 4)
+        for next_direction in dict.fromkeys(next_directions):
+            queue.append((end_x, end_z, next_direction, branch_depth + 1))
+    if not roads:
+        roads = [{"x1": hub_x, "z1": hub_z - 32, "x2": hub_x, "z2": hub_z + 32}]
+
+    # 각 점유 타일을 실제 마을 도로망에 포함한다. 타일 외곽선만 넓어지고
+    # 건물은 중앙에 몰리는 현상을 막기 위해 타일 중심까지 직교 연결한다.
+    road_keys = {
+        (segment["x1"], segment["z1"], segment["x2"], segment["z2"])
+        for segment in roads
+    }
+
+    def append_coverage_road(x1: int, z1: int, x2: int, z2: int) -> None:
+        if x1 == x2 and z1 == z2:
+            return
+        key = (x1, z1, x2, z2)
+        reverse = (x2, z2, x1, z1)
+        if key in road_keys or reverse in road_keys:
+            return
+        roads.append({"x1": x1, "z1": z1, "x2": x2, "z2": z2})
+        road_keys.add(key)
+
+    coverage_sources = {
+        (coordinate_x, coordinate_z)
+        for segment in roads
+        for coordinate_x, coordinate_z in (
+            (segment["x1"], segment["z1"]), (segment["x2"], segment["z2"])
+        )
+        if (coordinate_x, coordinate_z) != (hub_x, hub_z)
+    }
+    for q, r in _town_layout_cells(cell_count, footprint_shape):
+        center_x, center_z = _town_layout_cell_center(q, r)
+        target_x = int(round(center_x / 16.0) * 16)
+        target_z = int(round(center_z / 16.0) * 16)
+        if (target_x, target_z) == (hub_x, hub_z):
+            continue
+        source_x, source_z = min(
+            coverage_sources or {(hub_x, hub_z)},
+            key=lambda point: abs(point[0] - target_x) + abs(point[1] - target_z),
+        )
+        append_coverage_road(source_x, source_z, target_x, source_z)
+        append_coverage_road(target_x, source_z, target_x, target_z)
+        coverage_sources.add((target_x, target_z))
+
+    slots = [
+        (road_index, ratio, side)
+        for road_index in range(len(roads))
+        for ratio in (0.15, 0.32, 0.50, 0.68, 0.85)
+        for side in (-1, 1)
+    ]
+    plots: list[dict[str, object]] = []
+
+    def place_plot(identifier: str, width: int, plot_depth: int, attempts: int) -> dict[str, object] | None:
+        # 난수로 같은 후보를 반복 추첨하지 않고 모든 도로 후보를 한 번씩
+        # 순회한다. 큰 필수 시설도 유효한 부지가 하나라도 있으면 놓인다.
+        start_slot = int(random.next_double() * len(slots)) if slots else 0
+        for attempt in range(min(attempts, max(1, len(slots)))):
+            slot_index = (start_slot + attempt) % len(slots)
+            road_index, ratio, side = slots[slot_index]
+            segment = roads[road_index]
+            horizontal = segment["z1"] == segment["z2"]
+            along_x = segment["x1"] + (segment["x2"] - segment["x1"]) * ratio
+            along_z = segment["z1"] + (segment["z2"] - segment["z1"]) * ratio
+            distance = road_width / 2.0 + (plot_depth if horizontal else width) / 2.0 + 5.0
+            center_x = along_x + (0.0 if horizontal else side * distance)
+            center_z = along_z + (side * distance if horizontal else 0.0)
+            candidate: dict[str, object] = {
+                "id": identifier, "x": round(center_x - width / 2.0, 2),
+                "z": round(center_z - plot_depth / 2.0, 2),
+                "width": width, "depth": plot_depth,
+            }
+            if not _plot_inside_town_layout(candidate, cell_count, footprint_shape):
+                continue
+            if any(_plots_intersect(candidate, existing, 4.0) for existing in plots):
+                continue
+            plots.append(candidate)
+            return candidate
+        return None
+
+    def place_grid_plot(identifier: str, width: int, plot_depth: int) -> dict[str, object] | None:
+        """도로 슬롯이 부족할 때 타일 합집합 내부의 가장 가까운 부지를 찾는다."""
+        centers = [
+            _town_layout_cell_center(q, r)
+            for q, r in _town_layout_cells(cell_count, footprint_shape)
+        ]
+
+        def segment_distance_squared(cx: float, cz: float, segment: dict[str, int]) -> float:
+            x1, x2 = sorted((segment["x1"], segment["x2"]))
+            z1, z2 = sorted((segment["z1"], segment["z2"]))
+            nearest_x = min(max(cx, x1), x2)
+            nearest_z = min(max(cz, z1), z2)
+            return (cx - nearest_x) ** 2 + (cz - nearest_z) ** 2
+
+        candidates: list[tuple[float, float, float, float]] = []
+        min_x = int(min(center[0] for center in centers) - VILLAGE_TILE_RADIUS)
+        max_x = int(max(center[0] for center in centers) + VILLAGE_TILE_RADIUS)
+        min_z = int(min(center[1] for center in centers) - VILLAGE_TILE_RADIUS)
+        max_z = int(max(center[1] for center in centers) + VILLAGE_TILE_RADIUS)
+        for x in range(min_x, max_x - width + 1, 8):
+            for z in range(min_z, max_z - plot_depth + 1, 8):
+                candidate = {
+                    "id": identifier, "x": float(x), "z": float(z),
+                    "width": width, "depth": plot_depth,
+                }
+                if not _plot_inside_town_layout(candidate, cell_count, footprint_shape):
+                    continue
+                if any(_plots_intersect(candidate, existing, 4.0) for existing in plots):
+                    continue
+                center_x = x + width / 2.0
+                center_z = z + plot_depth / 2.0
+                road_distance = min(
+                    (segment_distance_squared(center_x, center_z, segment) for segment in roads),
+                    default=0.0,
+                )
+                center_distance = (center_x - hub_x) ** 2 + (center_z - hub_z) ** 2
+                candidates.append((road_distance, center_distance, float(x), float(z)))
+        if not candidates:
+            return None
+        _, _, x, z = min(candidates)
+        candidate = {
+            "id": identifier, "x": x, "z": z,
+            "width": width, "depth": plot_depth,
+        }
+        plots.append(candidate)
+        return candidate
+
+    facilities: dict[str, dict[str, object]] = {}
+    for identifier, width, plot_depth in _compiled_facility_specs(data):
+        plot = place_plot(identifier, width, plot_depth, len(slots) * 4)
+        if plot is None:
+            plot = place_grid_plot(identifier, width, plot_depth)
+        if plot is None:
+            raise TownFacilityPlacementError(data.get("id"), identifier)
+        facilities[identifier] = plot
+    houses: list[dict[str, object]] = []
+    house_target = min(18, max(4, 3 + depth * 3))
+    for index in range(house_target):
+        base_id = house_bases[int(random.next_double() * len(house_bases))]
+        roof_id = house_roofs[int(random.next_double() * len(house_roofs))]
+        roof_color = house_roof_colors[int(random.next_double() * len(house_roof_colors))]
+        width, _, plot_depth = HOUSE_BASES[base_id]["size"]  # type: ignore[misc]
+        plot = place_plot(f"house_{index + 1}", width, plot_depth, len(slots) * 2)
+        if plot is not None:
+            plot.update({
+                "base": base_id,
+                "roof": roof_id,
+                "roof_color": roof_color,
+                "structure": f"cobbleventure:houses/{base_id}_{roof_id}_{roof_color}",
+            })
+            houses.append(plot)
+    return {
+        "schema_version": 1,
+        "shape": "hex_tiles",
+        "cell_count": cell_count,
+        "footprint_shape": footprint_shape,
+        "tile_radius_blocks": int(VILLAGE_TILE_RADIUS),
+        "hub": {"x": hub_x, "z": hub_z},
+        "center_pattern": center_pattern,
+        "roads": roads,
+        "facilities": facilities,
+        "houses": houses,
+    }
+
+
+def _town_layout_reroll_seed(seed: int, attempt: int) -> int:
+    return 1 + ((max(1, seed) - 1 + attempt * TOWN_LAYOUT_REROLL_STEP) % 999_999_999)
+
+
+def _compile_town_layout(data: dict[str, object]) -> dict[str, object]:
+    profile = data.get("structure_profile")
+    generation = profile.get("generation_profile") if isinstance(profile, dict) else None
+    requested_seed = int(generation.get("seed", 1)) if isinstance(generation, dict) else 1
+    last_error: TownFacilityPlacementError | None = None
+    for attempt in range(TOWN_LAYOUT_REROLL_LIMIT):
+        resolved_seed = _town_layout_reroll_seed(requested_seed, attempt)
+        try:
+            layout = _compile_town_layout_attempt(data, resolved_seed)
+        except TownFacilityPlacementError as error:
+            last_error = error
+            continue
+        layout["requested_seed"] = requested_seed
+        layout["resolved_seed"] = resolved_seed
+        layout["reroll_count"] = attempt
+        layout["reroll_limit"] = TOWN_LAYOUT_REROLL_LIMIT
+        return layout
+    missing = last_error.facility_id if last_error is not None else "unknown"
+    raise ModBuildError(
+        f"필수 시설 자동 리롤 {TOWN_LAYOUT_REROLL_LIMIT}회가 모두 실패했습니다: "
+        f"{data.get('id')} / {missing}. 마을 크기나 시설 수를 조정해 주세요."
+    ) from last_error
 
 
 def _package_hex_worlds(root: Path, output: Path) -> None:
@@ -467,6 +910,16 @@ def build(root: Path) -> Path:
             generated.write_bytes(authored_bytes)
         else:
             generated.write_bytes(build_facility_placeholder_nbt(facility_id))
+    for base_id in HOUSE_BASES:
+        for roof_id in sorted(HOUSE_ROOFS):
+            for roof_color in HOUSE_ROOF_BLOCKS:
+                resource = f"cobbleventure:houses/{base_id}_{roof_id}_{roof_color}"
+                generated = _inside(
+                    root, _village_hub_output_path(output, resource),
+                    "생성 주택 변형",
+                )
+                generated.parent.mkdir(parents=True, exist_ok=True)
+                generated.write_bytes(build_house_variant_nbt(base_id, roof_id, roof_color))
     for directory in (
         GENERATED_SETTLEMENT_DIR,
         LEGACY_GENERATED_SETTLEMENT_DIR,
@@ -487,7 +940,7 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     arguments = parser.parse_args()
     output = build(arguments.root)
-    print(f"마을별 BCA 도로 허브 리소스 생성 완료: {output.parent.parent}")
+    print(f"교체 가능한 마을 건물·시설 NBT 생성 완료: {output.parent.parent}")
     return 0
 
 

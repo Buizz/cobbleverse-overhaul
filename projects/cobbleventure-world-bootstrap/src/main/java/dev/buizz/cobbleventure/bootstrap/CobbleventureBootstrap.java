@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.CommandSourceStack;
@@ -83,6 +84,8 @@ public final class CobbleventureBootstrap {
     private static final int SHORE_SAND_WIDTH_BLOCKS = 6;
     private static final int OUTER_TERRAIN_TRANSITION_WIDTH = 32;
     private static final int OCEAN_CLIFF_WIDTH = 12;
+    private static final int MAX_TOWN_PREPARATION_CHUNKS = 320;
+    private static final int LAZY_TOWN_TRIGGER_DISTANCE = 64;
     private static final int OCEAN_CLIFF_MIN_Y = 86;
     private static final int OCEAN_CLIFF_MAX_Y = 100;
     private static final int GYM_RING_ROAD_MARGIN = 6;
@@ -100,7 +103,7 @@ public final class CobbleventureBootstrap {
     private static final int PREVIOUS_FOUNDATION_MAX_Y = 59;
     private static final int LEGACY_FOUNDATION_MIN_Y = 55;
     private static final int LEGACY_FOUNDATION_MAX_Y = 64;
-    private static final int MAP_VERSION = 77;
+    private static final int MAP_VERSION = 83;
     private static final int COLLISION_SHELL_RADIUS = 2;
     private static final double TOWN_RELIEF_SCALE = 0.22D;
     private static final int TOWN_EDGE_RELIEF_BLEND_BLOCKS = 40;
@@ -130,6 +133,7 @@ public final class CobbleventureBootstrap {
     private static volatile int integrationShutdownTicks = -1;
     private static volatile UUID pendingInitializationPlayer;
     private static volatile int pendingInitializationTicks = -1;
+    private static volatile WorldInitializationJob activeInitialization;
     private static final Map<NoiseKey, NormalNoise> TERRAIN_NOISES = new ConcurrentHashMap<>();
     private static final Map<UUID, Vec3> safeFieldPositions = new HashMap<>();
     private static final ResourceKey<Level> GENERATION_ONE =
@@ -341,11 +345,28 @@ public final class CobbleventureBootstrap {
         }
 
         if (Boolean.getBoolean(INTEGRATION_TEST_PROPERTY)) {
+            for (SettlementPlan settlement : runtime.settlements().values()) {
+                if (!settlement.enabled()) {
+                    continue;
+                }
+                int preparationChunks = townPreparationChunkKeys(settlement).size();
+                if (preparationChunks > MAX_TOWN_PREPARATION_CHUNKS) {
+                    throw new IllegalStateException(
+                        "Town preparation still requests too many chunks: "
+                            + settlement.id() + " (" + preparationChunks + ")"
+                    );
+                }
+                LOGGER.info(
+                    "Town preparation footprint verified: settlement={}, chunks={}",
+                    settlement.id(), preparationChunks
+                );
+            }
             SettlementPlan starter = runtime.settlements().get(STARTER_SETTLEMENT);
-            if (starter == null || !placeTown(level, starter)) {
+            if (starter == null || !placeTown(level, starter) || !placeFacilities(level, starter)) {
                 throw new IllegalStateException("Cobbleventure starter town integration placement failed");
             }
             LOGGER.info("Cobbleventure starter town integration placement succeeded at {}", starter.center());
+            integrationShutdownTicks = 40;
         }
     }
 
@@ -486,9 +507,10 @@ public final class CobbleventureBootstrap {
             return false;
         }
         progress.update(5, "안전한 대기 장소 준비 완료");
-        if (NativeWorldGeneration.usesNativeGenerator(
+        boolean nativeGenerator = NativeWorldGeneration.usesNativeGenerator(
             level.getChunkSource().getGenerator()
-        )) {
+        );
+        if (nativeGenerator) {
             activeHexWorld = runtime.hexWorld();
             activeShoreDistances = null;
             progress.update(85, "필요한 청크를 월드젠 워커에서 생성할 준비 완료");
@@ -512,6 +534,17 @@ public final class CobbleventureBootstrap {
         int enabledSettlements = (int) settlements.values().stream()
             .filter(SettlementPlan::enabled)
             .count();
+        if (nativeGenerator) {
+            activeFacilityPortals = facilityPortals(settlements);
+            data.complete(spawnPos, villagePos, MAP_VERSION);
+            progress.update(100, "시작 주변 청크를 자연 생성합니다");
+            moveWaitingPlayersToStart(level, spawnPos);
+            removeWaitingArea(level, waitingArea);
+            firstPlayer.sendSystemMessage(Component.literal(
+                "[Cobbleventure] 지형 준비가 완료되었습니다. 마을은 주변 청크와 함께 생성됩니다."
+            ));
+            return true;
+        }
         int placedSettlements = 0;
         for (SettlementPlan settlement : settlements.values()) {
             if (settlement.enabled()) {
@@ -554,85 +587,281 @@ public final class CobbleventureBootstrap {
         BlockPos villagePos = surfacePosition(
             level, settlement.center().x(), settlement.center().z()
         ).below();
-        List<ChunkPos> forcedChunks = forceChunksAround(
-            level, villagePos, TOWN_PRELOAD_RADIUS_CHUNKS
+        drawNativeTownRoadSkeleton(level, settlement);
+        LOGGER.info(
+            "Native configured town base placed without BCA village: {} at {}, shape={}, road={}x{}",
+            settlement.id(), villagePos, settlement.layoutShape(),
+            settlement.roadProfile().width(), settlement.roadProfile().material()
         );
-        try {
-            drawNativeTownRoadSkeleton(level, settlement);
-            LOGGER.info(
-                "Native configured town base placed without BCA village: {} at {}, shape={}, road={}x{}",
-                settlement.id(), villagePos, settlement.layoutShape(),
-                settlement.roadProfile().width(), settlement.roadProfile().material()
-            );
-            return true;
-        } finally {
-            releaseForcedChunks(level, forcedChunks);
-        }
+        return true;
     }
 
     private static void drawNativeTownRoadSkeleton(
         ServerLevel level, SettlementPlan settlement
     ) {
+        long startedAt = System.nanoTime();
         Point center = new Point(settlement.center().x(), settlement.center().z());
         RoadProfile road = settlement.roadProfile();
+        TownLayout layout = generateTownLayout(settlement);
         int plazaRadius = Math.max(5, road.width());
+        Set<Long> roadColumns = new HashSet<>();
         for (int x = center.x() - plazaRadius; x <= center.x() + plazaRadius; x++) {
             for (int z = center.z() - plazaRadius; z <= center.z() + plazaRadius; z++) {
                 if (Math.hypot(x - center.x(), z - center.z()) <= plazaRadius + 0.5D) {
-                    paintConfiguredRoadColumn(level, x, z, road.material());
+                    roadColumns.add(blockColumnKey(x, z));
                 }
             }
         }
-        switch (settlement.layoutShape()) {
-            case "linear" -> drawConfiguredRoad(
-                level, center.translate(-128, 0), center.translate(128, 0), road
+        for (TownRoad generatedRoad : layout.roads()) {
+            collectConfiguredRoadColumns(
+                roadColumns,
+                center.translate(generatedRoad.x1(), generatedRoad.z1()),
+                center.translate(generatedRoad.x2(), generatedRoad.z2()),
+                road.width()
             );
-            case "radial" -> {
-                drawConfiguredRoad(level, center, center.translate(0, -112), road);
-                drawConfiguredRoad(level, center, center.translate(112, 0), road);
-                drawConfiguredRoad(level, center, center.translate(0, 112), road);
-                drawConfiguredRoad(level, center, center.translate(-112, 0), road);
-            }
-            case "loop" -> {
-                Point northWest = center.translate(-80, -72);
-                Point northEast = center.translate(80, -72);
-                Point southEast = center.translate(80, 72);
-                Point southWest = center.translate(-80, 72);
-                drawConfiguredRoad(level, northWest, northEast, road);
-                drawConfiguredRoad(level, northEast, southEast, road);
-                drawConfiguredRoad(level, southEast, southWest, road);
-                drawConfiguredRoad(level, southWest, northWest, road);
-                drawConfiguredRoad(level, center, center.translate(0, 72), road);
-                drawConfiguredRoad(level, southWest, center.translate(0, 72), road);
-                drawConfiguredRoad(level, center.translate(0, 72), southEast, road);
-            }
-            case "terraced" -> {
-                drawConfiguredRoad(
-                    level, center.translate(-112, -64), center.translate(112, -64), road
-                );
-                drawConfiguredRoad(
-                    level, center.translate(-112, 0), center.translate(112, 0), road
-                );
-                drawConfiguredRoad(
-                    level, center.translate(-112, 64), center.translate(112, 64), road
-                );
-                drawConfiguredRoad(
-                    level, center.translate(-72, -64), center.translate(-48, 0), road
-                );
-                drawConfiguredRoad(
-                    level, center.translate(-48, 0), center.translate(-24, 64), road
+        }
+        for (long key : roadColumns) {
+            paintConfiguredRoadColumn(
+                level, blockColumnX(key), blockColumnZ(key), road.material()
+            );
+        }
+        long roadsFinishedAt = System.nanoTime();
+
+        List<TownTemplatePlacement> housePlacements = new ArrayList<>();
+        int smallVariant = 0;
+        for (TownPlot house : layout.houses()) {
+            String compiledStructure = house.structure();
+            int paletteIndex;
+            if (house.width() > 16 && settlement.basicBuildings().size() > 1) {
+                paletteIndex = 1;
+            } else {
+                paletteIndex = Math.min(
+                    settlement.basicBuildings().size() - 1,
+                    smallVariant++ % Math.max(1, settlement.basicBuildings().size())
                 );
             }
-            default -> {
-                Point north = center.translate(0, -112);
-                Point south = center.translate(0, 96);
-                drawConfiguredRoad(level, north, south, road);
-                drawConfiguredRoad(level, center.translate(0, -48), center.translate(88, -88), road);
-                drawConfiguredRoad(level, center.translate(0, -24), center.translate(-80, -64), road);
-                drawConfiguredRoad(level, center.translate(0, 40), center.translate(72, 78), road);
-                drawConfiguredRoad(level, center.translate(0, 58), center.translate(-64, 104), road);
+            String structure = compiledStructure != null && !compiledStructure.isBlank()
+                ? compiledStructure : settlement.basicBuildings().get(paletteIndex);
+            int x = center.x() + (int) Math.round(house.x());
+            int z = center.z() + (int) Math.round(house.z());
+            BlockPos surface = surfacePosition(level, x, z).below();
+            housePlacements.add(new TownTemplatePlacement(
+                structure, new BlockPoint(x, surface.getY(), z)
+            ));
+        }
+        preloadTemplateChunks(level, housePlacements);
+        for (TownTemplatePlacement placement : housePlacements) {
+            if (!placeTemplateLoaded(level, placement.structure(), placement.position())) {
+                String structure = placement.structure();
+                throw new IllegalStateException("Basic building NBT placement failed: " + structure);
             }
         }
+        long housesFinishedAt = System.nanoTime();
+        LOGGER.info(
+            "Generated town layout applied: settlement={}, seed={}, depth={}, roads={}, facilities={}, houses={}, roadColumns={}, roadMs={}, houseMs={}, totalMs={}",
+            settlement.id(), settlement.generationSeed(), settlement.generationDepth(),
+            layout.roads().size(), layout.facilities().size(), layout.houses().size(),
+            roadColumns.size(),
+            (roadsFinishedAt - startedAt) / 1_000_000L,
+            (housesFinishedAt - roadsFinishedAt) / 1_000_000L,
+            (housesFinishedAt - startedAt) / 1_000_000L
+        );
+    }
+
+    private static void collectConfiguredRoadColumns(
+        Set<Long> columns, Point start, Point end, int width
+    ) {
+        int dx = end.x() - start.x();
+        int dz = end.z() - start.z();
+        int steps = Math.max(Math.abs(dx), Math.abs(dz));
+        int radius = Math.max(1, width / 2);
+        for (int step = 0; step <= steps; step++) {
+            double factor = steps == 0 ? 0.0D : step / (double) steps;
+            int x = (int) Math.round(start.x() + dx * factor);
+            int z = (int) Math.round(start.z() + dz * factor);
+            for (int offsetX = -radius; offsetX <= radius; offsetX++) {
+                for (int offsetZ = -radius; offsetZ <= radius; offsetZ++) {
+                    if (offsetX * offsetX + offsetZ * offsetZ
+                        <= radius * radius + radius) {
+                        columns.add(blockColumnKey(x + offsetX, z + offsetZ));
+                    }
+                }
+            }
+        }
+    }
+
+    private static long blockColumnKey(int x, int z) {
+        return ((long) x << 32) ^ (z & 0xFFFFFFFFL);
+    }
+
+    private static int blockColumnX(long key) {
+        return (int) (key >> 32);
+    }
+
+    private static int blockColumnZ(long key) {
+        return (int) key;
+    }
+
+    private static TownLayout generateTownLayout(SettlementPlan settlement) {
+        if (settlement.compiledLayout() != null) {
+            return settlement.compiledLayout();
+        }
+        PreviewRandom random = new PreviewRandom(settlement.generationSeed());
+        int[][] directions = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+        int[] initialDirections = switch (settlement.layoutShape()) {
+            case "linear" -> new int[] {1, 3};
+            case "radial", "loop" -> new int[] {0, 1, 2, 3};
+            case "terraced" -> new int[] {1, 3, 2};
+            default -> new int[] {0, 1, 2, 3};
+        };
+        ArrayDeque<TownConnector> queue = new ArrayDeque<>();
+        for (int direction : initialDirections) {
+            queue.add(new TownConnector(0, 0, direction, 0));
+        }
+        Set<String> occupiedRoad = new HashSet<>();
+        occupiedRoad.add("0,0");
+        List<TownRoad> roads = new ArrayList<>();
+        int maximumRoads = Math.min(56, 5 + settlement.generationDepth() * 8);
+        while (!queue.isEmpty() && roads.size() < maximumRoads) {
+            TownConnector connector = queue.removeFirst();
+            int[] vector = directions[connector.direction()];
+            int cells = 3 + (int) Math.floor(random.nextDouble() * 4.0D);
+            List<Point> points = new ArrayList<>();
+            boolean blocked = false;
+            for (int step = 1; step <= cells; step++) {
+                int cellX = connector.x() / 16 + vector[0] * step;
+                int cellZ = connector.z() / 16 + vector[1] * step;
+                String key = cellX + "," + cellZ;
+                if (occupiedRoad.contains(key) && step > 1) {
+                    blocked = true;
+                    break;
+                }
+                points.add(new Point(cellX * 16, cellZ * 16));
+            }
+            if (blocked || points.size() < 2) continue;
+            for (Point point : points) occupiedRoad.add(point.x() / 16 + "," + point.z() / 16);
+            Point end = points.get(points.size() - 1);
+            roads.add(new TownRoad(connector.x(), connector.z(), end.x(), end.z()));
+            if (connector.depth() + 1 >= settlement.generationDepth()) continue;
+            List<Integer> nextDirections = new ArrayList<>();
+            nextDirections.add(connector.direction());
+            double branchChance = switch (settlement.layoutShape()) {
+                case "linear" -> 0.12D;
+                case "radial" -> 0.20D;
+                case "loop" -> 0.34D;
+                default -> 0.55D;
+            };
+            double branchRoll = random.nextDouble();
+            if ((settlement.layoutShape().equals("branching") && connector.depth() == 0)
+                || branchRoll < branchChance) {
+                nextDirections.add(Math.floorMod(connector.direction() + (random.nextDouble() < 0.5D ? 1 : 3), 4));
+            }
+            if (settlement.layoutShape().equals("terraced") && connector.depth() % 2 == 1
+                && random.nextDouble() < 0.60D) {
+                nextDirections.add((connector.direction() + 1) % 4);
+            }
+            Set<Integer> queuedDirections = new HashSet<>();
+            for (int direction : nextDirections) {
+                if (queuedDirections.add(direction)) {
+                    queue.add(new TownConnector(end.x(), end.z(), direction, connector.depth() + 1));
+                }
+            }
+        }
+
+        List<TownSlot> slots = new ArrayList<>();
+        double[] ratios = {0.30D, 0.58D, 0.82D};
+        for (int roadIndex = 0; roadIndex < roads.size(); roadIndex++) {
+            for (double ratio : ratios) {
+                slots.add(new TownSlot(roadIndex, ratio, -1));
+                slots.add(new TownSlot(roadIndex, ratio, 1));
+            }
+        }
+        for (int index = slots.size() - 1; index > 0; index--) {
+            int swap = (int) Math.floor(random.nextDouble() * (index + 1));
+            TownSlot value = slots.get(index);
+            slots.set(index, slots.get(swap));
+            slots.set(swap, value);
+        }
+        List<TownPlot> plots = new ArrayList<>();
+        Map<String, TownPlot> facilities = new LinkedHashMap<>();
+        for (FacilityPlacement facility : settlement.facilities()) {
+            if (!facility.id().startsWith("facility_")
+                && !facility.id().contains("gym")) continue;
+            TownPlot plot = tryPlaceTownPlot(
+                roads, slots, plots, random, settlement.roadProfile().width(),
+                facility.footprintWidth(), facility.footprintDepth(), facility.id(),
+                Math.max(slots.size(), slots.size() * 3)
+            );
+            if (plot == null) {
+                LOGGER.warn(
+                    "Generated layout could not reserve facility lot; configured anchor fallback will be used: settlement={}, facility={}",
+                    settlement.id(), facility.id()
+                );
+                continue;
+            }
+            facilities.put(facility.id(), plot);
+        }
+        int houseTarget = Math.min(30, Math.max(4, roads.size() + (int) Math.floor(settlement.generationDepth() * 1.5D)));
+        List<TownPlot> houses = new ArrayList<>();
+        for (int index = 0; index < houseTarget; index++) {
+            int width = random.nextDouble() < 0.34D ? 32 : 16;
+            TownPlot plot = tryPlaceTownPlot(
+                roads, slots, plots, random, settlement.roadProfile().width(),
+                width, 16, "house_" + (index + 1), 18
+            );
+            if (plot != null) houses.add(plot);
+        }
+        return new TownLayout(List.copyOf(roads), Map.copyOf(facilities), List.copyOf(houses));
+    }
+
+    private static TownPlot tryPlaceTownPlot(
+        List<TownRoad> roads, List<TownSlot> slots, List<TownPlot> plots,
+        PreviewRandom random, int roadWidth, int width, int depth, String id, int attempts
+    ) {
+        if (slots.isEmpty()) return null;
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            int slotIndex = Math.floorMod(
+                attempt + (int) Math.floor(random.nextDouble() * slots.size()), slots.size()
+            );
+            TownSlot slot = slots.get(slotIndex);
+            TownRoad road = roads.get(slot.roadIndex());
+            boolean horizontal = road.z1() == road.z2();
+            double alongX = road.x1() + (road.x2() - road.x1()) * slot.ratio();
+            double alongZ = road.z1() + (road.z2() - road.z1()) * slot.ratio();
+            double distance = roadWidth / 2.0D + (horizontal ? depth : width) / 2.0D + 7.0D;
+            double centerX = alongX + (horizontal ? 0.0D : slot.side() * distance);
+            double centerZ = alongZ + (horizontal ? slot.side() * distance : 0.0D);
+            TownPlot candidate = new TownPlot(centerX - width / 2.0D, centerZ - depth / 2.0D, width, depth, id);
+            boolean intersects = plots.stream().anyMatch(plot -> townPlotsIntersect(candidate, plot, 5.0D));
+            if (intersects) continue;
+            for (int roadIndex = 0; roadIndex < roads.size(); roadIndex++) {
+                if (roadIndex == slot.roadIndex()) continue;
+                if (townPlotIntersectsRoad(candidate, roads.get(roadIndex), roadWidth + 3, 2.0D)) {
+                    intersects = true;
+                    break;
+                }
+            }
+            if (intersects) continue;
+            plots.add(candidate);
+            return candidate;
+        }
+        return null;
+    }
+
+    private static boolean townPlotsIntersect(TownPlot a, TownPlot b, double margin) {
+        return a.x() - margin < b.x() + b.width() && a.x() + a.width() + margin > b.x()
+            && a.z() - margin < b.z() + b.depth() && a.z() + a.depth() + margin > b.z();
+    }
+
+    private static boolean townPlotIntersectsRoad(TownPlot plot, TownRoad road, int width, double margin) {
+        TownPlot roadRect = new TownPlot(
+            Math.min(road.x1(), road.x2()) - width / 2.0D,
+            Math.min(road.z1(), road.z2()) - width / 2.0D,
+            Math.abs(road.x2() - road.x1()) + width,
+            Math.abs(road.z2() - road.z1()) + width,
+            "road"
+        );
+        return townPlotsIntersect(plot, roadRect, margin);
     }
 
     private static void cleanupTownAssemblyMarkers(
@@ -716,7 +945,8 @@ public final class CobbleventureBootstrap {
                 return false;
             }
             if (position != null && (facility.id().equals("special_district_building")
-                || facility.id().startsWith("facility_"))) {
+                || facility.id().startsWith("facility_")
+                || facility.id().contains("gym"))) {
                 prepareSpecialDistrict(level, facility, position);
             }
             boolean placed = position != null && (facility.mode().equals("placeholder")
@@ -932,6 +1162,22 @@ public final class CobbleventureBootstrap {
         SettlementPlan settlement,
         FacilityPlacement facility
     ) {
+        TownPlot generated = generateTownLayout(settlement).facilities().get(facility.id());
+        if (generated != null) {
+            int x = settlement.center().x() + (int) Math.round(generated.x());
+            int z = settlement.center().z() + (int) Math.round(generated.z());
+            BlockPos surface = surfacePosition(level, x, z).below();
+            LOGGER.info(
+                "Generated town facility lot selected: settlement={}, facility={}, origin=({}, {}, {})",
+                settlement.id(), facility.id(), x, surface.getY(), z
+            );
+            return new BlockPoint(x, surface.getY(), z);
+        }
+        if (facility.id().startsWith("facility_")) {
+            if (generated == null) {
+                return null;
+            }
+        }
         BlockPoint anchor = settlement.anchors().get(facility.anchor());
         if (anchor == null) {
             return null;
@@ -1453,6 +1699,17 @@ public final class CobbleventureBootstrap {
         BlockPos blockPos = position.toBlockPos();
         List<ChunkPos> forcedChunks = forceTemplateChunks(level, structure, blockPos);
         try {
+            return placeTemplateLoaded(level, structure, position);
+        } finally {
+            releaseForcedChunks(level, forcedChunks);
+        }
+    }
+
+    private static boolean placeTemplateLoaded(
+        ServerLevel level, String structure, BlockPoint position
+    ) {
+        BlockPos blockPos = position.toBlockPos();
+        try {
             int placed = level.getServer().getCommands().getDispatcher().execute(
                 "place template " + structure + " ~ ~ ~",
                 level.getServer().createCommandSourceStack()
@@ -1465,8 +1722,32 @@ public final class CobbleventureBootstrap {
         } catch (CommandSyntaxException error) {
             LOGGER.error("Template command failed for {} at {}", structure, position, error);
             return false;
-        } finally {
-            releaseForcedChunks(level, forcedChunks);
+        }
+    }
+
+    private static void preloadTemplateChunks(
+        ServerLevel level, List<TownTemplatePlacement> placements
+    ) {
+        Set<Long> chunks = new HashSet<>();
+        for (TownTemplatePlacement placement : placements) {
+            BlockPos origin = placement.position().toBlockPos();
+            var template = level.getStructureManager().get(
+                ResourceLocation.parse(placement.structure())
+            );
+            int sizeX = template.map(value -> value.getSize().getX()).orElse(16);
+            int sizeZ = template.map(value -> value.getSize().getZ()).orElse(16);
+            int minChunkX = (Math.min(origin.getX(), origin.getX() + sizeX) >> 4) - 1;
+            int maxChunkX = (Math.max(origin.getX(), origin.getX() + sizeX) >> 4) + 1;
+            int minChunkZ = (Math.min(origin.getZ(), origin.getZ() + sizeZ) >> 4) - 1;
+            int maxChunkZ = (Math.max(origin.getZ(), origin.getZ() + sizeZ) >> 4) + 1;
+            for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+                for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                    chunks.add(ChunkPos.asLong(chunkX, chunkZ));
+                }
+            }
+        }
+        for (long key : chunks) {
+            level.getChunk(ChunkPos.getX(key), ChunkPos.getZ(key));
         }
     }
 
@@ -1523,11 +1804,13 @@ public final class CobbleventureBootstrap {
             return;
         }
         runPendingWorldInitialization(event);
+        runActiveWorldInitialization();
         ServerLevel level = event.getServer().getLevel(GENERATION_ONE);
         if (level == null) {
             return;
         }
         long gameTime = level.getGameTime();
+        scheduleNearbyTownInitialization(level, gameTime);
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             if (player.serverLevel() != level) {
                 continue;
@@ -1562,8 +1845,49 @@ public final class CobbleventureBootstrap {
         }
     }
 
+    private static void scheduleNearbyTownInitialization(ServerLevel level, long gameTime) {
+        if (activeInitialization != null || activeHexWorld == null
+            || activeSettlements.isEmpty() || gameTime % 20L != 0L) {
+            return;
+        }
+        BootstrapSavedData data = level.getServer().overworld().getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
+            DATA_FILE
+        );
+        if (!data.isComplete(MAP_VERSION)) {
+            return;
+        }
+        double triggerDistanceSquared = (double) LAZY_TOWN_TRIGGER_DISTANCE
+            * LAZY_TOWN_TRIGGER_DISTANCE;
+        for (ServerPlayer player : level.players()) {
+            for (SettlementPlan settlement : activeSettlements.values()) {
+                if (!settlement.enabled() || data.isSettlementGenerated(settlement.id())) {
+                    continue;
+                }
+                double dx = player.getX() - settlement.center().x();
+                double dz = player.getZ() - settlement.center().z();
+                if (dx * dx + dz * dz > triggerDistanceSquared) {
+                    continue;
+                }
+                GenerationProgress progress = new GenerationProgress(player);
+                activeInitialization = new WorldInitializationJob(
+                    level, player, data, BlockPos.ZERO,
+                    new RuntimeWorld(activeSettlements, activeHexWorld),
+                    data.spawnPos(), BlockPos.ZERO, List.of(settlement), progress, false
+                );
+                progress.update(86, "접근한 마을을 생성합니다: " + settlement.id());
+                LOGGER.info(
+                    "Lazy town initialization scheduled: settlement={}, player={}, distance={}",
+                    settlement.id(), player.getGameProfile().getName(),
+                    Math.sqrt(dx * dx + dz * dz)
+                );
+                return;
+            }
+        }
+    }
+
     private static void scheduleWorldInitialization(ServerPlayer player) {
-        if (pendingInitializationPlayer == null) {
+        if (pendingInitializationPlayer == null && activeInitialization == null) {
             pendingInitializationPlayer = player.getUUID();
             // Let the login/teleport packet and the waiting-area chunk reach the
             // client before the long synchronous terrain build blocks server ticks.
@@ -1607,6 +1931,197 @@ public final class CobbleventureBootstrap {
             player.getGameProfile().getName(), player.blockPosition()
         );
         initializeWorld(generationOne, player, data, waitingArea);
+    }
+
+    private static void runActiveWorldInitialization() {
+        WorldInitializationJob job = activeInitialization;
+        if (job == null) {
+            return;
+        }
+        if (job.index >= job.settlements.size()) {
+            finishWorldInitialization(job);
+            return;
+        }
+
+        SettlementPlan settlement = job.settlements.get(job.index);
+        int percent = 86 + job.index * 12 / Math.max(1, job.settlements.size());
+        String phaseName = switch (job.phase) {
+            case -1 -> "청크";
+            case 0 -> "도로";
+            case 1 -> "시설";
+            default -> "조경";
+        };
+        job.progress.update(percent, "마을 " + phaseName + " 배치 중: " + settlement.id());
+        try {
+            if (job.phase == -1) {
+                if (job.townChunks.isEmpty()) {
+                    prepareTownChunks(job, settlement);
+                }
+                int ready = countReadyTownChunks(job);
+                if (ready < job.townChunks.size()) {
+                    job.progress.update(
+                        percent,
+                        "주변 청크 자연 로드 대기 중: " + settlement.id()
+                            + " (" + ready + "/" + job.townChunks.size() + ")"
+                    );
+                    return;
+                }
+                LOGGER.info(
+                    "Town chunks became ready through normal player loading: settlement={}, chunks={}, elapsedMs={}",
+                    settlement.id(), job.townChunks.size(),
+                    (System.nanoTime() - job.chunkPreparationStartedAt) / 1_000_000L
+                );
+                job.phase = 0;
+            } else if (job.phase == 0) {
+                if (!placeTown(job.level, settlement)) {
+                    throw new IllegalStateException("Town road placement returned false");
+                }
+                job.phase = 1;
+            } else if (job.phase == 1) {
+                if (!placeFacilities(job.level, settlement)) {
+                    throw new IllegalStateException("Town facility placement returned false");
+                }
+                job.phase = 2;
+            } else {
+                if (NativeWorldGeneration.usesNativeGenerator(
+                    job.level.getChunkSource().getGenerator()
+                )) {
+                    LOGGER.info(
+                        "Town post-landscaping skipped because native chunk generation already decorates it: settlement={}",
+                        settlement.id()
+                    );
+                } else {
+                    decorateTownLandscape(job.level, job.runtime.hexWorld(), settlement);
+                }
+                releasePreparedTownChunks(job);
+                job.phase = -1;
+                job.index++;
+                if (job.index >= job.settlements.size()) {
+                    finishWorldInitialization(job);
+                }
+            }
+        } catch (RuntimeException error) {
+            releasePreparedTownChunks(job);
+            activeInitialization = null;
+            LOGGER.error(
+                "Incremental town generation failed: settlement={}, phase={}",
+                settlement.id(), phaseName, error
+            );
+            job.player.sendSystemMessage(Component.literal(
+                "[Cobbleventure] 마을 생성에 실패했습니다: " + settlement.id()
+                    + " (" + phaseName + "). 서버 로그를 확인하세요."
+            ));
+        }
+    }
+
+    private static void prepareTownChunks(
+        WorldInitializationJob job, SettlementPlan settlement
+    ) {
+        Set<Long> chunkKeys = townPreparationChunkKeys(settlement);
+        job.chunkPreparationStartedAt = System.nanoTime();
+        for (long key : chunkKeys) {
+            ChunkPos chunk = new ChunkPos(ChunkPos.getX(key), ChunkPos.getZ(key));
+            job.townChunks.add(chunk);
+        }
+        LOGGER.info(
+            "Town chunk preparation planned: settlement={}, chunks={}",
+            settlement.id(), job.townChunks.size()
+        );
+    }
+
+    private static int countReadyTownChunks(WorldInitializationJob job) {
+        int ready = 0;
+        for (ChunkPos chunk : job.townChunks) {
+            if (job.level.getChunkSource().getChunkNow(chunk.x, chunk.z) != null) {
+                ready++;
+            }
+        }
+        return ready;
+    }
+
+    private static void releasePreparedTownChunks(WorldInitializationJob job) {
+        job.townChunks.clear();
+        job.chunkPreparationStartedAt = 0L;
+    }
+
+    private static Set<Long> townPreparationChunkKeys(SettlementPlan settlement) {
+        Set<Long> chunks = new HashSet<>();
+        TownLayout layout = generateTownLayout(settlement);
+        Point center = new Point(settlement.center().x(), settlement.center().z());
+        Set<Long> roadColumns = new HashSet<>();
+        int plazaRadius = Math.max(5, settlement.roadProfile().width());
+        for (int x = center.x() - plazaRadius; x <= center.x() + plazaRadius; x++) {
+            for (int z = center.z() - plazaRadius; z <= center.z() + plazaRadius; z++) {
+                if (Math.hypot(x - center.x(), z - center.z()) <= plazaRadius + 0.5D) {
+                    roadColumns.add(blockColumnKey(x, z));
+                }
+            }
+        }
+        for (TownRoad road : layout.roads()) {
+            collectConfiguredRoadColumns(
+                roadColumns,
+                center.translate(road.x1(), road.z1()),
+                center.translate(road.x2(), road.z2()),
+                settlement.roadProfile().width()
+            );
+        }
+        for (long column : roadColumns) {
+            chunks.add(ChunkPos.asLong(
+                blockColumnX(column) >> 4, blockColumnZ(column) >> 4
+            ));
+        }
+        for (TownPlot plot : layout.houses()) {
+            addChunkRectangle(
+                chunks,
+                center.x() + (int) Math.floor(plot.x()) - 2,
+                center.z() + (int) Math.floor(plot.z()) - 2,
+                center.x() + (int) Math.ceil(plot.x() + plot.width()) + 2,
+                center.z() + (int) Math.ceil(plot.z() + plot.depth()) + 2
+            );
+        }
+        for (TownPlot plot : layout.facilities().values()) {
+            addChunkRectangle(
+                chunks,
+                center.x() + (int) Math.floor(plot.x()) - 4,
+                center.z() + (int) Math.floor(plot.z()) - 4,
+                center.x() + (int) Math.ceil(plot.x() + plot.width()) + 4,
+                center.z() + (int) Math.ceil(plot.z() + plot.depth()) + 4
+            );
+        }
+        return chunks;
+    }
+
+    private static void addChunkRectangle(
+        Set<Long> chunks, int minX, int minZ, int maxX, int maxZ
+    ) {
+        for (int chunkX = minX >> 4; chunkX <= maxX >> 4; chunkX++) {
+            for (int chunkZ = minZ >> 4; chunkZ <= maxZ >> 4; chunkZ++) {
+                chunks.add(ChunkPos.asLong(chunkX, chunkZ));
+            }
+        }
+    }
+
+    private static void finishWorldInitialization(WorldInitializationJob job) {
+        activeInitialization = null;
+        activeFacilityPortals = facilityPortals(job.runtime.settlements());
+        for (SettlementPlan settlement : job.settlements) {
+            job.data.markSettlementGenerated(settlement.id());
+        }
+        if (!job.initialGeneration) {
+            job.progress.update(100, "마을 생성 완료: " + job.settlements.getFirst().id());
+            job.player.sendSystemMessage(Component.literal(
+                "[Cobbleventure] 접근한 마을을 생성했습니다: "
+                    + job.settlements.getFirst().id()
+            ));
+            return;
+        }
+        job.data.complete(job.spawnPos, job.villagePos, MAP_VERSION);
+        job.progress.update(100, "시작 지역 생성 완료");
+        moveWaitingPlayersToStart(job.level, job.spawnPos);
+        removeWaitingArea(job.level, job.waitingArea);
+        job.player.sendSystemMessage(Component.literal(
+            "[Cobbleventure] 마을 데이터로 1세대 시작 지역과 연결 통로를 생성했습니다."
+        ));
     }
 
     private static boolean enforceFieldMoveAccess(
@@ -1780,9 +2295,18 @@ public final class CobbleventureBootstrap {
         SettlementPlan translated = translateSettlementForTest(
             configured, commandPosition.getX(), commandPosition.getZ()
         );
-        if (!placeTown(level, translated) || !placeFacilities(level, translated)) {
+        try {
+            if (!placeTown(level, translated) || !placeFacilities(level, translated)) {
+                source.sendFailure(Component.literal(
+                    "[Cobbleventure] 설정형 마을 생성에 실패했습니다: " + settlementId
+                ));
+                return 0;
+            }
+        } catch (RuntimeException error) {
+            LOGGER.error("Configured town command failed: {}", settlementId, error);
             source.sendFailure(Component.literal(
-                "[Cobbleventure] 설정형 마을 생성에 실패했습니다: " + settlementId
+                "[Cobbleventure] 설정형 마을 생성 중 오류가 발생했습니다: " + settlementId
+                    + ". 서버 로그를 확인하세요."
             ));
             return 0;
         }
@@ -1805,11 +2329,13 @@ public final class CobbleventureBootstrap {
         return new SettlementPlan(
             settlement.id(), settlement.enabled(), settlement.townRadiusCells(),
             settlement.structure(), settlement.houseStyle(), settlement.disableCommercialOneOff(),
-            settlement.layoutShape(), settlement.roadProfile(),
+            settlement.layoutShape(), settlement.roadProfile(), settlement.generationSeed(),
+            settlement.generationDepth(), settlement.basicBuildings(),
             settlement.center().translate(deltaX, deltaZ),
             settlement.structurePoint().translate(deltaX, deltaZ),
             settlement.playerSpawn().translate(deltaX, deltaZ),
-            Map.copyOf(anchors), settlement.facilities(), settlement.gates()
+            Map.copyOf(anchors), settlement.facilities(), settlement.gates(),
+            settlement.compiledLayout()
         );
     }
 
@@ -1911,6 +2437,24 @@ public final class CobbleventureBootstrap {
                 roadProfileJson.get("width").getAsInt(),
                 requiredString(roadProfileJson, "material")
             );
+        JsonObject generationProfile = structureProfile.has("generation_profile")
+            ? structureProfile.getAsJsonObject("generation_profile") : null;
+        int generationSeed = generationProfile == null
+            ? 1 + Math.floorMod(id.hashCode(), 999_999_998)
+            : generationProfile.get("seed").getAsInt();
+        int generationDepth = generationProfile == null
+            ? 4 : generationProfile.get("depth").getAsInt();
+        List<String> basicBuildings = new ArrayList<>();
+        if (generationProfile != null && generationProfile.has("basic_buildings")) {
+            for (JsonElement element : generationProfile.getAsJsonArray("basic_buildings")) {
+                basicBuildings.add(element.getAsString());
+            }
+        }
+        if (basicBuildings.isEmpty()) {
+            basicBuildings.add("cobbleventure:placeholder/basic_building_1");
+            basicBuildings.add("cobbleventure:placeholder/basic_building_2");
+            basicBuildings.add("cobbleventure:placeholder/basic_building_3");
+        }
         JsonObject gymConfig = structureProfile.has("gym")
             ? structureProfile.getAsJsonObject("gym")
             : null;
@@ -1933,6 +2477,42 @@ public final class CobbleventureBootstrap {
             }
         }
         List<FacilityPlacement> facilities = new ArrayList<>();
+        boolean starterSettlement = id.endsWith("/starter_town")
+            || (structureProfile.has("village_preset")
+                && structureProfile.get("village_preset").getAsString()
+                    .equals("cobbleventure_starter"));
+        boolean pokemonCenterEnabled = structureProfile.has("pokemon_center_enabled")
+            ? structureProfile.get("pokemon_center_enabled").getAsBoolean()
+            : !starterSettlement;
+        if (pokemonCenterEnabled) {
+            facilities.add(new FacilityPlacement(
+                "facility_pokemon_center", "direct_template",
+                "bca:default/one_off/pokecenter", "pokemon_center", "포켓몬센터",
+                null, null, null, null, null, null, 1.5D,
+                32, 32, 16, 6
+            ));
+        }
+        String commercialCenter = structureProfile.has("commercial_center")
+            ? structureProfile.get("commercial_center").getAsString()
+            : (starterSettlement ? "none" : "pokemart");
+        if (commercialCenter.equals("preset")) {
+            commercialCenter = "pokemart";
+        }
+        if (commercialCenter.equals("pokemart")) {
+            facilities.add(new FacilityPlacement(
+                "facility_pokemart", "direct_template",
+                "bca:default/one_off/structure_pokemart", "pokemart", "포켓몬상점",
+                null, null, null, null, null, null, 1.5D,
+                32, 16, 12, 6
+            ));
+        } else if (commercialCenter.equals("department_store")) {
+            facilities.add(new FacilityPlacement(
+                "facility_department_store", "direct_template",
+                "bca:default/centers/center_department_store",
+                "department_store", "백화점", null, null, null,
+                null, null, null, 1.5D, 48, 48, 32, 8
+            ));
+        }
         if (structureProfile.has("facility_placements")) {
             for (JsonElement element : structureProfile.getAsJsonArray("facility_placements")) {
                 JsonObject facility = element.getAsJsonObject();
@@ -1985,11 +2565,50 @@ public final class CobbleventureBootstrap {
                 ));
             }
         }
+        TownLayout compiledLayout = parseCompiledTownLayout(root);
         return new SettlementPlan(
             id, enabled, root.get("town_radius_cells").getAsInt(),
             structure, houseStyle, disableCommercialOneOff, layoutShape, roadProfile,
+            generationSeed, generationDepth, List.copyOf(basicBuildings),
             center, structurePoint, playerSpawn,
-            Map.copyOf(anchorPoints), List.copyOf(facilities), List.copyOf(gates)
+            Map.copyOf(anchorPoints), List.copyOf(facilities), List.copyOf(gates),
+            compiledLayout
+        );
+    }
+
+    private static TownLayout parseCompiledTownLayout(JsonObject root) {
+        if (!root.has("compiled_layout")) {
+            return null;
+        }
+        JsonObject compiled = root.getAsJsonObject("compiled_layout");
+        List<TownRoad> roads = new ArrayList<>();
+        for (JsonElement element : compiled.getAsJsonArray("roads")) {
+            JsonObject road = element.getAsJsonObject();
+            roads.add(new TownRoad(
+                road.get("x1").getAsInt(), road.get("z1").getAsInt(),
+                road.get("x2").getAsInt(), road.get("z2").getAsInt()
+            ));
+        }
+        Map<String, TownPlot> facilities = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> entry
+            : compiled.getAsJsonObject("facilities").entrySet()) {
+            facilities.put(entry.getKey(), parseCompiledTownPlot(entry.getValue().getAsJsonObject()));
+        }
+        List<TownPlot> houses = new ArrayList<>();
+        for (JsonElement element : compiled.getAsJsonArray("houses")) {
+            houses.add(parseCompiledTownPlot(element.getAsJsonObject()));
+        }
+        return new TownLayout(
+            List.copyOf(roads), Map.copyOf(facilities), List.copyOf(houses)
+        );
+    }
+
+    private static TownPlot parseCompiledTownPlot(JsonObject plot) {
+        return new TownPlot(
+            plot.get("x").getAsDouble(), plot.get("z").getAsDouble(),
+            plot.get("width").getAsInt(), plot.get("depth").getAsInt(),
+            requiredString(plot, "id"),
+            plot.has("structure") ? requiredString(plot, "structure") : null
         );
     }
 
@@ -2086,6 +2705,8 @@ public final class CobbleventureBootstrap {
                 settlement,
                 new HexCoord(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
                 townRadius,
+                value.has("town_footprint_shape")
+                    ? requiredString(value, "town_footprint_shape") : "line_q",
                 requiredString(value, "town_biome"),
                 List.copyOf(surroundings),
                 boundary,
@@ -2096,7 +2717,12 @@ public final class CobbleventureBootstrap {
         List<HexConnection> connections = new ArrayList<>();
         for (JsonElement element : root.getAsJsonArray("connections")) {
             JsonObject value = element.getAsJsonObject();
-            String boundary = requiredString(value, "boundary_profile");
+            // Older/custom web map saves did not persist these two visual
+            // fields. Keep such maps loadable and let a later editor save
+            // normalize them instead of making the whole dimension invalid.
+            String boundary = value.has("boundary_profile")
+                ? requiredString(value, "boundary_profile")
+                : "cobbleventure:boundary/dense_tree_line";
             requireBoundaryProfile(profiles, boundary);
             List<HexCoord> explicitCells = new ArrayList<>();
             if (value.has("cells")) {
@@ -2111,7 +2737,8 @@ public final class CobbleventureBootstrap {
                 requiredString(value, "id"),
                 optionalString(value, "from"),
                 optionalString(value, "to"),
-                value.has("route_biome") ? requiredString(value, "route_biome") : null,
+                value.has("route_biome")
+                    ? requiredString(value, "route_biome") : "minecraft:plains",
                 value.has("width_cells") ? value.get("width_cells").getAsInt() : 1,
                 value.has("pathfinding") ? requiredString(value, "pathfinding") : "explicit",
                 value.has("detour_cells") ? value.get("detour_cells").getAsInt() : 0,
@@ -2315,16 +2942,17 @@ public final class CobbleventureBootstrap {
                 if (other.settlement().equals(settlement.settlement())) {
                     continue;
                 }
-                int minimumDistance = settlement.townRadiusCells()
-                    + other.townRadiusCells() + 2;
-                if (settlement.anchor().distance(other.anchor()) < minimumDistance) {
+                boolean tooClose = townFootprint(settlement.anchor(), settlement.townRadiusCells(), settlement.townFootprintShape()).stream()
+                    .anyMatch(cell -> townFootprint(other.anchor(), other.townRadiusCells(), other.townFootprintShape()).stream()
+                        .anyMatch(otherCell -> cell.distance(otherCell) < 2));
+                if (tooClose) {
                     throw new IllegalStateException(
                         "Town hex footprints require at least one buffer cell: "
                             + other.settlement() + " / " + settlement.settlement()
                     );
                 }
             }
-            for (HexCoord cell : hexRange(settlement.anchor(), settlement.townRadiusCells())) {
+            for (HexCoord cell : townFootprint(settlement.anchor(), settlement.townRadiusCells(), settlement.townFootprintShape())) {
                 String previous = townOwners.putIfAbsent(cell, settlement.settlement());
                 if (previous != null) {
                     throw new IllegalStateException(
@@ -2499,11 +3127,11 @@ public final class CobbleventureBootstrap {
     ) {
         HexCoord direction = direction(region.preferredDirection());
         HexCoord preferred = settlement.anchor().plus(
-            direction.scale(settlement.townRadiusCells() + 1)
+            direction.scale(townFootprintRadius(settlement.townRadiusCells()) + 1)
         );
         Set<HexCoord> selected = new HashSet<>();
         Set<HexCoord> frontier = new HashSet<>();
-        for (HexCoord townCell : hexRange(settlement.anchor(), settlement.townRadiusCells())) {
+        for (HexCoord townCell : townFootprint(settlement.anchor(), settlement.townRadiusCells(), settlement.townFootprintShape())) {
             frontier.addAll(townCell.neighbors());
         }
         frontier.removeAll(cells.keySet());
@@ -2579,6 +3207,33 @@ public final class CobbleventureBootstrap {
         return result;
     }
 
+    private static int townFootprintRadius(int cellCount) {
+        return cellCount == 1 ? 0 : 1;
+    }
+
+    private static Set<HexCoord> townFootprint(HexCoord center, int cellCount, String shape) {
+        if (cellCount == 3) {
+            HexCoord[] offsets = switch (shape) {
+                case "triangle_up" -> new HexCoord[] {new HexCoord(0, 0), new HexCoord(0, -1), new HexCoord(1, -1)};
+                case "triangle_down" -> new HexCoord[] {new HexCoord(0, 0), new HexCoord(0, 1), new HexCoord(-1, 1)};
+                case "line_r" -> new HexCoord[] {new HexCoord(0, -1), new HexCoord(0, 0), new HexCoord(0, 1)};
+                case "line_s" -> new HexCoord[] {new HexCoord(-1, 1), new HexCoord(0, 0), new HexCoord(1, -1)};
+                default -> new HexCoord[] {new HexCoord(-1, 0), new HexCoord(0, 0), new HexCoord(1, 0)};
+            };
+            return Arrays.stream(offsets).map(center::plus).collect(Collectors.toSet());
+        }
+        if (cellCount == 5) {
+            HexCoord[] offsets = "five_down".equals(shape)
+                ? new HexCoord[] {new HexCoord(-1, 0), new HexCoord(0, 0), new HexCoord(1, 0), new HexCoord(-1, 1), new HexCoord(0, 1)}
+                : new HexCoord[] {new HexCoord(-1, 0), new HexCoord(0, 0), new HexCoord(1, 0), new HexCoord(0, -1), new HexCoord(1, -1)};
+            return Arrays.stream(offsets).map(center::plus).collect(Collectors.toSet());
+        }
+        if (cellCount == 7) {
+            return hexRange(center, 1);
+        }
+        return Set.of(center);
+    }
+
     private static int stableHash(long seed, String salt, HexCoord cell) {
         long value = seed;
         value = value * 31L + salt.hashCode();
@@ -2615,12 +3270,16 @@ public final class CobbleventureBootstrap {
                 settlement.disableCommercialOneOff(),
                 settlement.layoutShape(),
                 settlement.roadProfile(),
+                settlement.generationSeed(),
+                settlement.generationDepth(),
+                settlement.basicBuildings(),
                 target,
                 settlement.structurePoint().translate(deltaX, deltaZ),
                 settlement.playerSpawn().translate(deltaX, deltaZ),
                 Map.copyOf(anchors),
                 settlement.facilities(),
-                settlement.gates()
+                settlement.gates(),
+                settlement.compiledLayout()
             ));
         }
         return Map.copyOf(translated);
@@ -3851,10 +4510,30 @@ public final class CobbleventureBootstrap {
                     world.seed(), "world:empty-ocean:floor", x, z, 42.0D
                 );
                 int floorY = 42 + (int) Math.round(floorNoise * 5.0D);
+                int playableDistance = distanceToPlayableTerrain(world, x, z, 10);
+                double rockCluster = layeredNoise(
+                    world.seed(), "world:native-ocean-rock-cluster", x, z, 13.0D
+                );
+                boolean rockyBoundary = playableDistance <= 9
+                    && (playableDistance <= 2
+                        || rockCluster > -0.12D + playableDistance * 0.075D);
+                if (rockyBoundary) {
+                    double rockHeight = layeredNoise(
+                        world.seed(), "world:native-ocean-rock-height", x, z, 8.0D
+                    );
+                    int topY = WATER_SURFACE_Y + 2 + Math.max(0, (int) Math.round(
+                        (rockHeight + 1.0D) * 4.0D - playableDistance * 0.35D
+                    ));
+                    return new NativeTerrainColumn(
+                        topY, topY,
+                        oceanCliffRock(world, x, topY, z),
+                        Blocks.STONE.defaultBlockState(), biome, true, true
+                    );
+                }
                 return new NativeTerrainColumn(
                     floorY, WATER_SURFACE_Y,
                     oceanFloorBlock(world, x, floorY, z),
-                    Blocks.STONE.defaultBlockState(), biome, true
+                    Blocks.STONE.defaultBlockState(), biome, true, false
                 );
             }
             double broad = layeredNoise(
@@ -3865,11 +4544,28 @@ public final class CobbleventureBootstrap {
             );
             int baseY = type.equals("stone_mountain")
                 || type.equals("snow_mountain") ? 100 : 94;
+            boolean rockyCliff = hasNearbyAquaticPlayableTerrain(world, x, z, 14);
+            if (rockyCliff) {
+                baseY = 92;
+                broad = layeredNoise(
+                    world.seed(), "world:native-ocean-cliff-broad", x, z, 38.0D
+                );
+                detail = layeredNoise(
+                    world.seed(), "world:native-ocean-cliff-detail", x, z, 9.0D
+                );
+            }
             int topY = Math.max(88, Math.min(
-                112, baseY + (int) Math.round(broad * 7.0D + detail * 3.0D)
+                rockyCliff ? 102 : 112,
+                baseY + (int) Math.round(
+                    broad * (rockyCliff ? 6.0D : 7.0D)
+                        + detail * (rockyCliff ? 5.0D : 3.0D)
+                )
             ));
             return new NativeTerrainColumn(
-                topY, topY, surfaceBlock(biome), fillerBlock(biome), biome, true
+                topY, topY,
+                rockyCliff ? oceanCliffRock(world, x, topY, z) : surfaceBlock(biome),
+                rockyCliff ? Blocks.STONE.defaultBlockState() : fillerBlock(biome),
+                biome, true, rockyCliff
             );
         }
 
@@ -3889,8 +4585,31 @@ public final class CobbleventureBootstrap {
             surface,
             filler,
             sample.biome(),
+            false,
             false
         );
+    }
+
+    private static boolean hasNearbyAquaticPlayableTerrain(
+        HexWorldPlan world, int x, int z, int radius
+    ) {
+        int[][] directions = {
+            {1, 0}, {-1, 0}, {0, 1}, {0, -1},
+            {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
+        };
+        for (int distance = 1; distance <= radius; distance++) {
+            for (int[] direction : directions) {
+                TerrainSample nearby = terrainAt(
+                    world,
+                    x + direction[0] * distance + 0.5D,
+                    z + direction[1] * distance + 0.5D
+                );
+                if (nearby != null && isAquatic(nearby)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static void drawOuterTerrainTransition(
@@ -4250,7 +4969,7 @@ public final class CobbleventureBootstrap {
         return null;
     }
 
-    private static BlockState oceanCliffRock(
+    static BlockState oceanCliffRock(
         HexWorldPlan world, int x, int y, int z
     ) {
         double strata = layeredNoise(
@@ -5894,6 +6613,47 @@ public final class CobbleventureBootstrap {
         }
     }
 
+    private static final class WorldInitializationJob {
+        private final ServerLevel level;
+        private final ServerPlayer player;
+        private final BootstrapSavedData data;
+        private final BlockPos waitingArea;
+        private final RuntimeWorld runtime;
+        private final BlockPos spawnPos;
+        private final BlockPos villagePos;
+        private final List<SettlementPlan> settlements;
+        private final GenerationProgress progress;
+        private final boolean initialGeneration;
+        private final List<ChunkPos> townChunks = new ArrayList<>();
+        private int index;
+        private int phase = -1;
+        private long chunkPreparationStartedAt;
+
+        private WorldInitializationJob(
+            ServerLevel level,
+            ServerPlayer player,
+            BootstrapSavedData data,
+            BlockPos waitingArea,
+            RuntimeWorld runtime,
+            BlockPos spawnPos,
+            BlockPos villagePos,
+            List<SettlementPlan> settlements,
+            GenerationProgress progress,
+            boolean initialGeneration
+        ) {
+            this.level = level;
+            this.player = player;
+            this.data = data;
+            this.waitingArea = waitingArea;
+            this.runtime = runtime;
+            this.spawnPos = spawnPos;
+            this.villagePos = villagePos;
+            this.settlements = settlements;
+            this.progress = progress;
+            this.initialGeneration = initialGeneration;
+        }
+    }
+
     private static BlockPos surfacePosition(ServerLevel level, int x, int z) {
         level.getChunk(x >> 4, z >> 4);
         int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
@@ -5903,6 +6663,43 @@ public final class CobbleventureBootstrap {
     record Point(int x, int z) {
         Point translate(int deltaX, int deltaZ) {
             return new Point(x + deltaX, z + deltaZ);
+        }
+    }
+
+    record TownConnector(int x, int z, int direction, int depth) {}
+
+    record TownRoad(int x1, int z1, int x2, int z2) {}
+
+    record TownSlot(int roadIndex, double ratio, int side) {}
+
+    record TownTemplatePlacement(String structure, BlockPoint position) {}
+
+    record TownPlot(double x, double z, int width, int depth, String id, String structure) {
+        TownPlot(double x, double z, int width, int depth, String id) {
+            this(x, z, width, depth, id, null);
+        }
+    }
+
+    record TownLayout(
+        List<TownRoad> roads,
+        Map<String, TownPlot> facilities,
+        List<TownPlot> houses
+    ) {}
+
+    private static final class PreviewRandom {
+        private int value;
+
+        private PreviewRandom(int seed) {
+            value = seed;
+        }
+
+        private double nextDouble() {
+            value += 0x6d2b79f5;
+            int result = value;
+            result = (result ^ result >>> 15) * (result | 1);
+            result ^= result + (result ^ result >>> 7) * (result | 61);
+            int output = result ^ result >>> 14;
+            return Integer.toUnsignedLong(output) / 4294967296.0D;
         }
     }
 
@@ -6037,6 +6834,7 @@ public final class CobbleventureBootstrap {
         String settlement,
         HexCoord anchor,
         int townRadiusCells,
+        String townFootprintShape,
         String townBiome,
         List<SurroundingRegion> surroundings,
         String boundaryProfile,
@@ -6117,7 +6915,8 @@ public final class CobbleventureBootstrap {
         BlockState surface,
         BlockState filler,
         String biome,
-        boolean blocked
+        boolean blocked,
+        boolean rocky
     ) {}
 
     record TerrainSamplePoint(Point point, TerrainSample sample) {}
@@ -6413,12 +7212,16 @@ public final class CobbleventureBootstrap {
         boolean disableCommercialOneOff,
         String layoutShape,
         RoadProfile roadProfile,
+        int generationSeed,
+        int generationDepth,
+        List<String> basicBuildings,
         BlockPoint center,
         BlockPoint structurePoint,
         BlockPoint playerSpawn,
         Map<String, BlockPoint> anchors,
         List<FacilityPlacement> facilities,
-        List<TownGateConfig> gates
+        List<TownGateConfig> gates,
+        TownLayout compiledLayout
     ) {}
 
     record TownGateConfig(
@@ -6436,6 +7239,7 @@ public final class CobbleventureBootstrap {
         private int mapVersion;
         private BlockPos spawnPos = BlockPos.ZERO;
         private BlockPos villagePos = BlockPos.ZERO;
+        private final Set<String> generatedSettlements = new HashSet<>();
 
         static BootstrapSavedData create() {
             return new BootstrapSavedData();
@@ -6451,6 +7255,10 @@ public final class CobbleventureBootstrap {
                 tag.getInt("villageY"),
                 tag.getInt("villageZ")
             );
+            String generated = tag.getString("generatedSettlements");
+            if (!generated.isBlank()) {
+                data.generatedSettlements.addAll(Arrays.asList(generated.split(",")));
+            }
             return data;
         }
 
@@ -6464,6 +7272,16 @@ public final class CobbleventureBootstrap {
 
         BlockPos spawnPos() {
             return spawnPos;
+        }
+
+        boolean isSettlementGenerated(String settlementId) {
+            return generatedSettlements.contains(settlementId);
+        }
+
+        void markSettlementGenerated(String settlementId) {
+            if (generatedSettlements.add(settlementId)) {
+                setDirty();
+            }
         }
 
         void complete(BlockPos spawnPos, BlockPos villagePos, int version) {
@@ -6484,6 +7302,7 @@ public final class CobbleventureBootstrap {
             tag.putInt("villageX", villagePos.getX());
             tag.putInt("villageY", villagePos.getY());
             tag.putInt("villageZ", villagePos.getZ());
+            tag.putString("generatedSettlements", String.join(",", generatedSettlements));
             return tag;
         }
     }

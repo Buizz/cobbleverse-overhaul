@@ -14,7 +14,7 @@ const state = {
   worldLayout: null, worldGenerations: [1], selectedGeneration: 1,
   selectedHex: null, mapRadius: 6, mapZoom: 1, mapCenter: { x: 490, y: 330 }, mapViewInitialized: false,
   mapPan: null, suppressMapClick: false, draggedSettlement: null, routeDraft: null, worldDirty: false,
-  emptyTerrainBrushActive: false
+  activeMapTool: "select", paintStroke: null, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null
 };
 const biomeChoices = {
   habitat: [["plains", "평원"], ["forest", "숲"], ["arid", "건조지"], ["mountain", "산악"], ["cave", "동굴"], ["wetland", "습지"], ["freshwater", "담수"], ["ocean", "해양"], ["snow", "설원"], ["volcanic", "화산"], ["urban", "도시"], ["special", "특수"]],
@@ -31,9 +31,36 @@ const settlementFacilityCatalog = [
   { id: "hotel", label: "호텔", note: "중대형 숙박 시설", width: 32, depth: 32, height: 20, color: "#e85d75" },
   { id: "battle_tower", label: "배틀타워", note: "전투 랜드마크", width: 48, depth: 48, height: 32, color: "#9d4edd" },
   { id: "radio_tower", label: "라디오 타워", note: "방송국과 송신탑", width: 48, depth: 48, height: 32, color: "#4361ee" },
-  { id: "train_station", label: "기차역", note: "역사와 선로 예약부지", width: 48, depth: 64, height: 14, color: "#495057" },
-  { id: "gym_site", label: "체육관 부지", note: "향후 체육관 예약", width: 64, depth: 64, height: 12, color: "#ef233c" }
+  { id: "train_station", label: "기차역", note: "역사와 선로 예약부지", width: 48, depth: 64, height: 14, color: "#495057" }
 ];
+const legacyGymFacilityIds = new Set(["gym_site", "gym_lot"]);
+const houseBaseCatalog = [
+  { id: "compact", label: "소형 주택", width: 16, depth: 16 },
+  { id: "wide", label: "가로형 주택", width: 32, depth: 16 },
+  { id: "two_story", label: "2층 주택", width: 16, depth: 16 }
+];
+const houseRoofCatalog = [
+  { id: "gable", label: "박공지붕" },
+  { id: "hip", label: "모임지붕" },
+  { id: "flat", label: "평지붕" }
+];
+const houseRoofColorCatalog = [
+  { id: "red", label: "빨강", color: "#9d3030" },
+  { id: "orange", label: "주황", color: "#c96b32" },
+  { id: "yellow", label: "노랑", color: "#c6a632" },
+  { id: "green", label: "초록", color: "#567d46" },
+  { id: "blue", label: "파랑", color: "#39778a" },
+  { id: "purple", label: "보라", color: "#75517f" },
+  { id: "brown", label: "갈색", color: "#654b36" },
+  { id: "gray", label: "회색", color: "#656b70" },
+  { id: "black", label: "검정", color: "#292d32" },
+  { id: "white", label: "하양", color: "#e4e1d9" }
+];
+const defaultHousePalette = {
+  bases: houseBaseCatalog.map((item) => item.id),
+  roofs: houseRoofCatalog.map((item) => item.id),
+  roof_colors: ["red", "blue", "green", "brown"]
+};
 const civicFacilityCatalog = {
   pokemon_center: { id: "pokemon_center", label: "포켓몬센터", width: 32, depth: 32, height: 16, color: "#e63946", structure: "bca:default/one_off/pokecenter" },
   pokemart: { id: "pokemart", label: "포켓몬상점", width: 32, depth: 16, height: 12, color: "#3a86ff", structure: "bca:default/one_off/structure_pokemart" },
@@ -187,7 +214,12 @@ function settlementSummary(settlementId) {
   return state.settlements.find((item) => item.id === settlementId);
 }
 function settlementPresetBiome(settlementId) { return settlementSummary(settlementId)?.biome || "minecraft:plains"; }
-function settlementPresetRadius(settlementId) { return settlementSummary(settlementId)?.town_radius_cells ?? 1; }
+function normalizeTownCellCount(value) { const count = Number(value); return count === 3 || count === 5 || count === 7 ? count : 1; }
+function settlementPresetRadius(settlementId) { return normalizeTownCellCount(settlementSummary(settlementId)?.town_radius_cells); }
+function normalizeTownFootprintShape(value) { return ["triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down"].includes(value) ? value : "line_q"; }
+function settlementPresetFootprintShape(settlementId) { return normalizeTownFootprintShape(settlementSummary(settlementId)?.town_footprint_shape); }
+function worldSettlementCellCount(node) { return normalizeTownCellCount(node?.town_radius_cells ?? settlementPresetRadius(node?.settlement)); }
+function worldSettlementFootprintShape(node) { return normalizeTownFootprintShape(node?.town_footprint_shape ?? settlementPresetFootprintShape(node?.settlement)); }
 
 function worldSettlementOptions(selected) {
   const token = `generation_${state.selectedGeneration}/`;
@@ -205,13 +237,14 @@ function renderWorldLayout() {
   layout.settlements ||= [];
   layout.connections ||= [];
   layout.objects ||= [];
+  layout.environment_overrides ||= [];
   layout.empty_terrain ||= { default_type: "high_forest", tiles: [] };
   layout.empty_terrain.default_type ||= "high_forest";
   layout.empty_terrain.tiles ||= [];
   const occupiedExtent = [...layout.tiles, ...layout.empty_terrain.tiles, ...layout.settlements.map((node) => node.anchor || { q: 0, r: 0 }), ...layout.objects.map((node) => node.anchor || { q: 0, r: 0 })].reduce((largest, cell) => Math.max(largest, Math.abs(cell.q || 0), Math.abs(cell.r || 0), Math.abs((cell.q || 0) + (cell.r || 0))), 0);
   state.mapRadius = Math.max(Number(layout.grid?.map_radius_cells || state.mapRadius), Math.min(14, occupiedExtent + 1));
   renderGenerationTabs();
-  renderRouteCreator();
+  renderMapToolOptions();
   $("#world-map-title").textContent = `${state.selectedGeneration}세대 월드`;
   $("#tile-radius-blocks").value = layout.grid?.tile_radius_blocks || 64;
   if (!state.mapViewInitialized) fitMapToContent();
@@ -290,9 +323,33 @@ function tileAt(q, r) { return state.worldLayout?.tiles?.find((tile) => tile.q =
 function emptyTerrainAt(q, r) { return state.worldLayout?.empty_terrain?.tiles?.find((tile) => tile.q === q && tile.r === r)?.type || state.worldLayout?.empty_terrain?.default_type || "high_forest"; }
 function emptyTerrainTone(type) { return ({ high_forest: "forest", ocean: "water", desert: "arid", stone_mountain: "mountain", snow_mountain: "snow" })[type] || "forest"; }
 function emptyTerrainLabel(type) { return ({ high_forest: "높은 숲", ocean: "바다", desert: "사막", stone_mountain: "돌산", snow_mountain: "눈산" })[type] || type; }
+function emptyTerrainSymbol(type) { return ({ high_forest: "♣", ocean: "≈", desert: "·", stone_mountain: "▲", snow_mountain: "△" })[type] || "×"; }
 function settlementAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function objectAt(q, r) { return state.worldLayout?.objects?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
-function settlementFootprintAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor && hexDistance(node.anchor, { q, r }) <= settlementPresetRadius(node.settlement)); }
+function environmentOverrideAt(q, r) { return state.worldLayout?.environment_overrides?.find((entry) => entry.q === q && entry.r === r); }
+function townFootprintCells(center, cellCount, shape = "line_q") {
+  const count = normalizeTownCellCount(cellCount);
+  if (count === 1) return [{ ...center }];
+  if (count === 3) {
+    const shapes = {
+      triangle_up: [[0, 0], [0, -1], [1, -1]],
+      triangle_down: [[0, 0], [0, 1], [-1, 1]],
+      line_q: [[-1, 0], [0, 0], [1, 0]],
+      line_r: [[0, -1], [0, 0], [0, 1]],
+      line_s: [[-1, 1], [0, 0], [1, -1]]
+    };
+    const offsets = shapes[normalizeTownFootprintShape(shape)] || shapes.line_q;
+    return offsets.map(([q, r]) => ({ q: center.q + q, r: center.r + r }));
+  }
+  if (count === 5) {
+    const offsets = normalizeTownFootprintShape(shape) === "five_down"
+      ? [[-1, 0], [0, 0], [1, 0], [-1, 1], [0, 1]]
+      : [[-1, 0], [0, 0], [1, 0], [0, -1], [1, -1]];
+    return offsets.map(([q, r]) => ({ q: center.q + q, r: center.r + r }));
+  }
+  return hexArea(center, 1);
+}
+function settlementFootprintAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor && townFootprintCells(node.anchor, worldSettlementCellCount(node), worldSettlementFootprintShape(node)).some((cell) => cell.q === q && cell.r === r)); }
 function hexDistance(from, to) { return (Math.abs(from.q - to.q) + Math.abs(from.r - to.r) + Math.abs((-from.q - from.r) - (-to.q - to.r))) / 2; }
 function roundHex(q, r) {
   let roundedQ = Math.round(q); let roundedR = Math.round(r); let roundedS = Math.round(-q - r);
@@ -308,6 +365,21 @@ function straightHexPath(from, to) {
     const ratio = index / distance;
     return roundHex(from.q + (to.q - from.q) * ratio, from.r + (to.r - from.r) * ratio);
   });
+}
+function routeCellsFromAnchors(anchors = []) {
+  if (anchors.length < 2) return anchors.map(({ q, r }) => ({ q, r }));
+  const cells = [];
+  for (let index = 1; index < anchors.length; index++) {
+    const segment = straightHexPath(anchors[index - 1], anchors[index]);
+    if (index > 1) segment.shift();
+    cells.push(...segment);
+  }
+  return cells;
+}
+function connectionAnchors(connection) {
+  if (connection?.anchors?.length) return connection.anchors;
+  const cells = connectionPath(connection);
+  return cells.length > 1 ? [cells[0], cells.at(-1)] : cells;
 }
 function connectionPath(connection) {
   const cells = connection.cells || [];
@@ -343,39 +415,57 @@ function renderHexMap() {
   const tiles = cells.map(({ q, r }) => {
     const { x, y } = hexPoint(q, r); const tile = tileAt(q, r); const town = settlementAt(q, r); const townArea = settlementFootprintAt(q, r);
     const route = townArea ? null : primaryRouteAt(q, r);
-    const selected = state.selectedHex?.q === q && state.selectedHex?.r === r;
+    const selected = state.selectedHex?.q === q && state.selectedHex?.r === r; const environment = environmentOverrideAt(q, r);
     const emptyType = emptyTerrainAt(q, r);
     const tone = townArea ? biomeTone(settlementPresetBiome(townArea.settlement)) : tile ? biomeTone(tile.biome) : emptyTerrainTone(emptyType);
     const baseLabel = town ? settlementSummary(town.settlement)?.name || "마을" : townArea ? `${settlementSummary(townArea.settlement)?.name || "마을"} 사용 범위` : tile ? tile.biome : emptyTerrainLabel(emptyType);
-    const label = route ? `${baseLabel}, 길 ${route.id}` : baseLabel;
-    return `<g class="hex-cell ${selected ? "is-selected" : ""} ${route ? "is-route-terrain" : ""} ${!townArea && !tile ? "is-empty-terrain" : ""} tone-${tone}" data-hex-q="${q}" data-hex-r="${r}" tabindex="0" role="button" aria-label="Q ${q}, R ${r}, ${escapeHtml(label)}"><polygon points="${hexPolygon(x, y)}"></polygon>${tile && !townArea ? `<circle class="biome-pin" cx="${x}" cy="${y}" r="3"></circle>` : ""}</g>`;
+    const climateLabel = environment ? `, 기후 ${environment.temperature || "기본"}/${environment.humidity || "기본"}/${environment.weather || "기본"}` : "";
+    const label = (route ? `${baseLabel}, 길 ${route.id}` : baseLabel) + climateLabel;
+    const isEmpty = !townArea && !tile; const polygon = hexPolygon(x, y);
+    return `<g class="hex-cell ${selected ? "is-selected" : ""} ${route ? "is-route-terrain" : ""} ${environment ? "has-climate-override" : ""} ${isEmpty ? `is-empty-terrain empty-type-${emptyType}` : ""} tone-${tone}" data-hex-q="${q}" data-hex-r="${r}" tabindex="0" role="button" aria-label="Q ${q}, R ${r}, ${escapeHtml(label)}"><polygon points="${polygon}"></polygon>${isEmpty ? `<path class="empty-terrain-hatch" d="M${polygon}Z"></path><text class="empty-terrain-symbol" x="${x}" y="${y + 3}">${emptyTerrainSymbol(emptyType)}</text>` : ""}${tile && !townArea ? `<circle class="biome-pin" cx="${x}" cy="${y}" r="3"></circle>` : ""}${environment ? `<path class="climate-pin" d="M${x - 7} ${y - 12}h14v5h-14z"></path>` : ""}</g>`;
   }).join("");
   const townAreas = cells.map(({ q, r }) => {
     const owner = settlementFootprintAt(q, r); if (!owner) return "";
     const { x, y } = hexPoint(q, r); const name = settlementSummary(owner.settlement)?.name || owner.settlement;
-    return `<g class="hex-town-area${owner.anchor.q === q && owner.anchor.r === r ? " is-anchor" : ""}"><polygon points="${hexPolygon(x, y, mapHexSize() - 4)}"></polygon><title>${escapeHtml(name)} · 프리셋 사용 범위 ${settlementPresetRadius(owner.settlement)}</title></g>`;
+    return `<g class="hex-town-area${owner.anchor.q === q && owner.anchor.r === r ? " is-anchor" : ""}"><polygon points="${hexPolygon(x, y, mapHexSize() - 4)}"></polygon><title>${escapeHtml(name)} · 마을 크기 ${worldSettlementCellCount(owner)}칸</title></g>`;
   }).join("");
   const routes = (state.worldLayout.connections || []).map((connection) => {
     const points = connectionPath(connection).map((cell) => { const point = hexPoint(cell.q, cell.r); return `${point.x},${point.y}`; }).join(" ");
     if (!points) return "";
     const routeClass = connection.surface_style === "water" ? "water" : connection.access_requirement?.endsWith("/rock_climb") ? "climb" : "road";
-    return `<polyline class="hex-route ${routeClass}" points="${points}"><title>${escapeHtml(connection.id)}</title></polyline>`;
+    const selected = state.selectedRouteId === connection.id;
+    return `<g class="hex-route-group${selected ? " is-selected" : ""}" data-select-route="${escapeHtml(connection.id)}" tabindex="0" role="button" aria-label="${escapeHtml(connection.id)} 길 선택"><polyline class="hex-route ${routeClass}" points="${points}"><title>${escapeHtml(connection.id)}</title></polyline><polyline class="hex-route-hit" points="${points}"></polyline></g>`;
   }).join("");
   const draftRoute = state.routeDraft?.cells?.length ? (() => {
     const points = state.routeDraft.cells.map((cell) => { const point = hexPoint(cell.q, cell.r); return `${point.x},${point.y}`; }).join(" ");
     return `<polyline class="hex-route draft" points="${points}"></polyline>`;
   })() : "";
+  const routeAnchors = (() => {
+    const draft = state.routeDraft;
+    const selectedRoute = !draft && new Set(["select", "route"]).has(state.activeMapTool) ? state.worldLayout.connections.find((entry) => entry.id === state.selectedRouteId) : null;
+    const anchors = draft?.anchors || (selectedRoute ? connectionAnchors(selectedRoute) : []);
+    const routeId = draft ? "__draft__" : selectedRoute?.id;
+    if (!routeId) return "";
+    const renderedAnchors = anchors.map((anchor, index) => {
+      const { x, y } = hexPoint(anchor.q, anchor.r); const endpoint = index === 0 || index === anchors.length - 1;
+      const locked = Boolean((draft && index === 0 && draft.from) || (!draft && endpoint && (selectedRoute?.from || selectedRoute?.to)));
+      return `<g class="route-anchor${endpoint ? " endpoint" : ""}${locked ? " is-locked" : ""}" data-route-anchor-route="${escapeHtml(routeId)}" data-route-anchor-index="${index}" transform="translate(${x} ${y})" role="button" aria-label="길 앵커 ${index + 1}${locked ? " 고정" : " 이동"}"><circle r="8"></circle><circle r="3"></circle><text y="-12">${index + 1}</text></g>`;
+    }).join("");
+    if (draft || !selectedRoute || !anchors.length) return renderedAnchors;
+    const actionAnchor = anchors[Math.floor((anchors.length - 1) / 2)]; const actionPoint = hexPoint(actionAnchor.q, actionAnchor.r);
+    return `${renderedAnchors}<g class="route-anchor-actions" transform="translate(${actionPoint.x} ${actionPoint.y - 29})" data-delete-route-inline="${escapeHtml(selectedRoute.id)}" tabindex="0" role="button" aria-label="${escapeHtml(selectedRoute.id)} 길 삭제"><rect x="-25" y="-10" width="50" height="20" rx="10"></rect><text y="4">× 삭제</text></g>`;
+  })();
   const towns = (state.worldLayout.settlements || []).map((node) => {
     const { x, y } = hexPoint(node.anchor.q, node.anchor.r); const name = settlementSummary(node.settlement)?.name || node.settlement.split("/").pop();
-    return `<g class="hex-settlement" data-drag-settlement="${escapeHtml(node.settlement)}" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(name)} 이동"><circle r="18"></circle><path d="M-7 5V-4L0-10L7-4V5H2V0H-2V5Z"></path><text y="31">${escapeHtml(name)}</text></g>`;
+    return `<g class="hex-settlement${state.routeDraft?.from === node.settlement ? " is-route-origin" : ""}" data-drag-settlement="${escapeHtml(node.settlement)}" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(name)} 이동"><circle r="18"></circle><path d="M-7 5V-4L0-10L7-4V5H2V0H-2V5Z"></path><text y="31">${escapeHtml(name)}</text></g>`;
   }).join("");
   const objects = (state.worldLayout.objects || []).map((node) => {
     const { x, y } = hexPoint(node.anchor.q, node.anchor.r);
     return `<g class="hex-custom-object" transform="translate(${x} ${y})"><rect x="-9" y="-9" width="18" height="18" rx="3"></rect><text y="25">${escapeHtml(node.id)}</text></g>`;
   }).join("");
-  svg.innerHTML = `<g class="hex-map-layer">${tiles}${townAreas}${routes}${draftRoute}${towns}${objects}</g>`;
+  svg.innerHTML = `<defs><pattern id="empty-terrain-red-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#d52828" stroke-width="2.2" opacity=".78"></line></pattern></defs><g class="hex-map-layer">${tiles}${townAreas}${routes}${draftRoute}${towns}${objects}${routeAnchors}</g>`;
   const routeCellCount = new Set((state.worldLayout.connections || []).flatMap((connection) => connectionPath(connection).map((cell) => `${cell.q},${cell.r}`))).size;
-  $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 오버레이 ${routeCellCount}칸 · 빈 지형 지정 ${(state.worldLayout.empty_terrain?.tiles || []).length}개 · 마을 ${(state.worldLayout.settlements || []).length}곳 · 오브젝트 ${(state.worldLayout.objects || []).length}개`;
+  $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 오버라이드 ${(state.worldLayout.environment_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳`;
   $("#map-zoom").textContent = `${Math.round(state.mapZoom * 100)}%`;
   $$("[data-hex-q]").forEach((cell) => {
     const select = () => { if (!state.suppressMapClick) handleHexSelection(Number(cell.dataset.hexQ), Number(cell.dataset.hexR)); };
@@ -383,6 +473,30 @@ function renderHexMap() {
     cell.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } });
   });
   $$("[data-drag-settlement]").forEach((marker) => marker.addEventListener("pointerdown", (event) => beginSettlementDrag(event, marker.dataset.dragSettlement)));
+  $$("[data-drag-settlement]").forEach((marker) => marker.addEventListener("click", (event) => {
+    if (state.activeMapTool !== "route") return;
+    event.preventDefault(); event.stopPropagation();
+    const node = state.worldLayout.settlements.find((entry) => entry.settlement === marker.dataset.dragSettlement);
+    if (node?.anchor) handleRoutePoint(node.anchor.q, node.anchor.r, node.settlement);
+  }));
+  $$("[data-select-route]").forEach((route) => {
+    const select = (event) => {
+      if (!new Set(["select", "route"]).has(state.activeMapTool)) return;
+      event.preventDefault(); event.stopPropagation();
+      if (state.activeMapTool === "route" && state.routeDraft) {
+        const cell = nearestHexFromPointer(event); handleRoutePoint(cell.q, cell.r); return;
+      }
+      focusRoute(route.dataset.selectRoute, false);
+    };
+    route.addEventListener("click", select);
+    route.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") select(event); });
+  });
+  $$("[data-route-anchor-index]").forEach((anchor) => anchor.addEventListener("pointerdown", (event) => beginRouteAnchorDrag(event, anchor.dataset.routeAnchorRoute, Number(anchor.dataset.routeAnchorIndex), anchor.classList.contains("is-locked"))));
+  $$("[data-delete-route-inline]").forEach((button) => {
+    button.addEventListener("pointerdown", (event) => { event.preventDefault(); event.stopPropagation(); });
+    button.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); removeRouteConnection(button.dataset.deleteRouteInline); });
+    button.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); removeRouteConnection(button.dataset.deleteRouteInline); } });
+  });
 }
 
 async function saveWorldLayout() {
@@ -390,6 +504,7 @@ async function saveWorldLayout() {
   for (const node of state.worldLayout.settlements || []) {
     node.town_biome = settlementPresetBiome(node.settlement);
     node.town_radius_cells = settlementPresetRadius(node.settlement);
+    node.town_footprint_shape = settlementPresetFootprintShape(node.settlement);
   }
   syncConnectionPaths();
   state.worldLayout.schema_version = 2;
@@ -406,8 +521,14 @@ async function saveWorldLayout() {
 
 function selectHex(q, r) { state.selectedHex = { q, r }; renderHexMap(); renderTileInspector(); }
 function handleHexSelection(q, r) {
-  if (state.emptyTerrainBrushActive) paintEmptyTerrainArea(q, r);
-  else if (state.routeDraft) appendRouteDraft(q, r);
+  const tool = state.activeMapTool;
+  if (tool === "biome") paintBiomeArea(q, r);
+  else if (tool === "terrain") paintEmptyTerrainArea(q, r);
+  else if (tool === "climate") paintClimateArea(q, r);
+  else if (tool === "route") handleRoutePoint(q, r);
+  else if (tool === "settlement") placeSettlementWithTool(q, r);
+  else if (tool === "object") placeObjectWithTool(q, r);
+  else if (tool === "eraser") eraseMapArea(q, r);
   else selectHex(q, r);
 }
 function hexArea(center, radius) {
@@ -422,6 +543,18 @@ function setEmptyTerrainTile(q, r, type) {
   config.tiles = (config.tiles || []).filter((tile) => tile.q !== q || tile.r !== r);
   if (type !== config.default_type) config.tiles.push({ q, r, type });
 }
+function paintBiomeArea(q, r) {
+  const biome = $("#biome-brush-type").value;
+  const radius = Number($("#biome-brush-radius").value || 0);
+  for (const cell of hexArea({ q, r }, radius)) {
+    if (settlementFootprintAt(cell.q, cell.r)) continue;
+    state.worldLayout.empty_terrain.tiles = state.worldLayout.empty_terrain.tiles.filter((entry) => entry.q !== cell.q || entry.r !== cell.r);
+    const current = tileAt(cell.q, cell.r);
+    if (current) current.biome = biome;
+    else state.worldLayout.tiles.push(defaultWorldTile(cell.q, cell.r, biome));
+  }
+  state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
+}
 function paintEmptyTerrainArea(q, r) {
   const type = $("#empty-terrain-brush-type").value;
   const radius = Math.max(0, Math.min(5, Number($("#empty-terrain-brush-radius").value || 0)));
@@ -431,6 +564,51 @@ function paintEmptyTerrainArea(q, r) {
     setEmptyTerrainTile(cell.q, cell.r, type);
   }
   state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
+}
+function paintClimateArea(q, r) {
+  const values = {
+    temperature: $("#climate-temperature").value,
+    humidity: $("#climate-humidity").value,
+    weather: $("#climate-weather").value
+  };
+  const radius = Number($("#climate-brush-radius").value || 0);
+  for (const cell of hexArea({ q, r }, radius)) {
+    state.worldLayout.environment_overrides = state.worldLayout.environment_overrides.filter((entry) => entry.q !== cell.q || entry.r !== cell.r);
+    const override = { q: cell.q, r: cell.r };
+    for (const [key, value] of Object.entries(values)) if (value !== "any") override[key] = value;
+    if (Object.keys(override).length > 2) state.worldLayout.environment_overrides.push(override);
+  }
+  state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
+}
+function eraseMapArea(q, r) {
+  const target = $("#eraser-target").value; const radius = Number($("#eraser-radius").value || 0);
+  const keys = new Set(hexArea({ q, r }, radius).map((cell) => hexKey(cell.q, cell.r)));
+  if (target === "route" || target === "all") state.worldLayout.connections = state.worldLayout.connections.filter((route) => !connectionPath(route).some((cell) => keys.has(hexKey(cell.q, cell.r))));
+  if (target === "biome" || target === "all") state.worldLayout.tiles = state.worldLayout.tiles.filter((tile) => !keys.has(hexKey(tile.q, tile.r)));
+  if (target === "climate" || target === "all") state.worldLayout.environment_overrides = state.worldLayout.environment_overrides.filter((entry) => !keys.has(hexKey(entry.q, entry.r)));
+  if (target === "terrain" || target === "all") state.worldLayout.empty_terrain.tiles = state.worldLayout.empty_terrain.tiles.filter((tile) => !keys.has(hexKey(tile.q, tile.r)));
+  if (target === "object" || target === "all") state.worldLayout.objects = state.worldLayout.objects.filter((object) => !keys.has(hexKey(object.anchor.q, object.anchor.r)));
+  state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
+}
+function placeSettlementWithTool(q, r) {
+  const id = $("#settlement-tool-preset").value;
+  if (!id) { toast("왼쪽 도구 옵션에서 배치할 마을을 선택해 주세요."); return; }
+  let node = state.worldLayout.settlements.find((entry) => entry.settlement === id);
+  const occupied = settlementAt(q, r); const radius = settlementPresetRadius(id);
+  if (occupied && occupied !== node) { toast("이미 다른 마을이 배치된 타일입니다."); return; }
+  const conflict = settlementRangeConflict(node, q, r, radius);
+  if (conflict) { toast(`${settlementSummary(conflict.settlement)?.name || "다른 마을"}의 사용 범위와 겹칩니다.`); return; }
+  if (!node) { node = defaultWorldSettlement(id, q, r); state.worldLayout.settlements.push(node); }
+  node.anchor = { q, r }; node.town_radius_cells = radius; node.town_footprint_shape = settlementPresetFootprintShape(id); node.town_biome = settlementPresetBiome(id);
+  state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
+}
+function placeObjectWithTool(q, r) {
+  const id = $("#object-tool-id").value.trim(); const type = $("#object-tool-type").value.trim(); const resource = $("#object-tool-resource").value.trim();
+  if (!/^[a-z0-9_.-]+$/.test(id) || !/^[a-z0-9_.-]+$/.test(type)) { toast("오브젝트 ID와 타입을 영문 소문자 형식으로 입력해 주세요."); return; }
+  if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
+  state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
+  const object = { id, type, anchor: { q, r }, properties: {} }; if (resource) object.resource = resource;
+  state.worldLayout.objects.push(object); state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
 function markWorldDirty() { state.worldDirty = true; updateWorldSaveState(); }
 function updateWorldSaveState() { $("#world-save-state").textContent = state.worldDirty ? "저장하지 않은 변경" : "저장된 상태"; $("#world-save-state").classList.toggle("is-dirty", state.worldDirty); }
@@ -445,7 +623,7 @@ function renderTileInspector() {
   const selected = state.selectedHex; const form = $("#tile-inspector-form");
   $("#tile-inspector-empty").hidden = Boolean(selected); form.hidden = !selected;
   if (!selected) { $("#selected-tile-title").textContent = "타일을 선택하세요"; $("#selected-tile-coord").textContent = "Q — · R —"; return; }
-  const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r); const customObject = objectAt(selected.q, selected.r); const townArea = settlementFootprintAt(selected.q, selected.r);
+  const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r); const customObject = objectAt(selected.q, selected.r); const townArea = settlementFootprintAt(selected.q, selected.r); const environment = environmentOverrideAt(selected.q, selected.r);
   const routes = routesAt(selected.q, selected.r);
   const kind = customObject ? "object" : town ? "settlement" : tile ? "biome" : "empty";
   $("#selected-tile-title").textContent = customObject ? customObject.id : town ? (settlementSummary(town.settlement)?.name || "마을 타일") : tile ? tile.biome.replace("minecraft:", "") : emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r));
@@ -463,17 +641,83 @@ function renderTileInspector() {
   $("#route-overlay-list").innerHTML = routes.map((route) => `<div class="route-overlay-item"><span>${escapeHtml(route.id)} · ${escapeHtml(route.surface_style)}</span><button type="button" data-remove-route="${escapeHtml(route.id)}">연결 삭제</button></div>`).join("");
   $$('[data-remove-route]').forEach((button) => button.addEventListener("click", () => removeRouteConnection(button.dataset.removeRoute)));
   const routeNote = routes.length ? `<small>길 오버레이: ${routes.map((route) => escapeHtml(route.id)).join(", ")} · 기본 바이옴은 별도로 유지됩니다.</small>` : "";
+  const climateNote = environment ? `<small class="climate-override-note">기후 덮어쓰기 · 온도 ${escapeHtml(environment.temperature || "기본")} · 습도 ${escapeHtml(environment.humidity || "기본")} · 날씨 ${escapeHtml(environment.weather || "기본")}</small>` : "";
   const townAreaNote = townArea && !town ? `<small class="town-area-warning">실제 생성: ${escapeHtml(settlementSummary(townArea.settlement)?.name || townArea.settlement)} 사용 범위 · 이 타일의 바이옴 배치는 무시됩니다.</small>` : "";
-  $("#tile-summary").innerHTML = (kind === "object" ? `<b>${escapeHtml(customObject.id)}</b><span>${escapeHtml(customObject.type)} 오브젝트</span><small>바이옴과 길 위에 독립적으로 배치되는 확장용 메타데이터입니다.</small>` : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>프리셋 사용 반경 ${settlementPresetRadius(town.settlement)} · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote;
+  $("#tile-summary").innerHTML = (kind === "object" ? `<b>${escapeHtml(customObject.id)}</b><span>${escapeHtml(customObject.type)} 오브젝트</span><small>바이옴과 길 위에 독립적으로 배치되는 확장용 메타데이터입니다.</small>` : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote;
+}
+
+const mapToolCopy = {
+  select: ["선택 도구", "타일과 배치물을 선택해 속성을 편집합니다."],
+  biome: ["바이옴 브러시", "기본 바이옴 레이어를 클릭하거나 드래그해 칠합니다."],
+  terrain: ["빈 지형 브러시", "접근 불가 배경 지형을 칠합니다."],
+  climate: ["기후 오버라이드", "온도·습도·날씨를 좌표별로 덮어씁니다."],
+  route: ["길 만들기", "마을 자동 연결 또는 타일 경유 경로를 만듭니다."],
+  settlement: ["마을 배치", "프리셋 마을을 배치하거나 이동합니다."],
+  object: ["오브젝트 배치", "확장 가능한 커스텀 오브젝트를 배치합니다."],
+  eraser: ["지우개", "선택한 월드 레이어를 제거합니다."]
+};
+function renderMapToolOptions() {
+  const tool = state.activeMapTool; const [name, description] = mapToolCopy[tool];
+  $("#active-tool-name").textContent = name; $("#active-tool-description").textContent = description;
+  $$('[data-map-tool]').forEach((button) => { button.classList.toggle("is-active", button.dataset.mapTool === tool); button.setAttribute("aria-pressed", String(button.dataset.mapTool === tool)); });
+  $$('[data-tool-options]').forEach((panel) => panel.hidden = panel.dataset.toolOptions !== tool);
+  $("#biome-brush-type").innerHTML = worldBiomeOptions($("#biome-brush-type").value || "minecraft:plains");
+  $("#settlement-tool-preset").innerHTML = worldSettlementOptions($("#settlement-tool-preset").value);
+  const help = { select: "선택 도구 · 드래그: 지도/마을 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", route: "길 도구 · 마을 두 곳: 자동 연결 · 일반 타일: 직접 경로", settlement: "마을 도구 · 타일을 눌러 배치 또는 이동", object: "오브젝트 도구 · 독립 레이어에 배치", eraser: "지우개 · 선택 레이어 제거" };
+  $("#map-interaction-help").textContent = help[tool];
+  $("#world-hex-map").dataset.activeTool = tool;
+  renderRouteCreator();
+}
+function setActiveMapTool(tool) {
+  if (!mapToolCopy[tool] || tool === state.activeMapTool) return;
+  if (state.routeDraft && tool !== "route") state.routeDraft = null;
+  if (!new Set(["select", "route"]).has(tool)) state.selectedRouteId = null;
+  state.activeMapTool = tool; state.paintStroke = null; state.draggedSettlement = null;
+  renderMapToolOptions(); renderHexMap();
+}
+
+function applyStrokeTool(q, r) {
+  if (state.activeMapTool === "biome") paintBiomeArea(q, r);
+  else if (state.activeMapTool === "terrain") paintEmptyTerrainArea(q, r);
+  else if (state.activeMapTool === "climate") paintClimateArea(q, r);
+  else if (state.activeMapTool === "eraser") eraseMapArea(q, r);
+}
+function beginToolStroke(event) {
+  if (!new Set(["biome", "terrain", "climate", "eraser"]).has(state.activeMapTool) || event.button !== 0 || state.spacePanActive) return false;
+  event.preventDefault(); const cell = nearestHexFromPointer(event);
+  state.paintStroke = { pointerId: event.pointerId, lastKey: "" }; $("#world-hex-map").setPointerCapture?.(event.pointerId);
+  continueToolStroke(event, cell); return true;
+}
+function continueToolStroke(event, knownCell = null) {
+  if (!state.paintStroke || state.paintStroke.pointerId !== event.pointerId) return;
+  const cell = knownCell || nearestHexFromPointer(event); const key = hexKey(cell.q, cell.r);
+  if (key === state.paintStroke.lastKey) return;
+  state.paintStroke.lastKey = key; applyStrokeTool(cell.q, cell.r);
+}
+function finishToolStroke(event) {
+  if (!state.paintStroke || state.paintStroke.pointerId !== event.pointerId) return false;
+  state.paintStroke = null; state.suppressMapClick = true; setTimeout(() => { state.suppressMapClick = false; }, 0); return true;
 }
 
 function renderRouteCreator() {
   const active = Boolean(state.routeDraft);
-  $("#create-route").hidden = active;
   $("#finish-route").hidden = !active;
   $("#cancel-route").hidden = !active;
+  $("#undo-route-anchor").hidden = !active || state.routeDraft.anchors.length < 2;
   $("#route-surface").disabled = active;
-  $("#route-editor-help").textContent = active ? `${state.routeDraft.cells.length}칸 지정됨 · 다음 셀을 누르거나 길 완료를 선택하세요.` : "길은 바이옴·마을과 별개입니다. 새 길 시작 후 지도 셀을 순서대로 누르세요.";
+  $("#route-width").disabled = active;
+  const origin = state.routeDraft?.from ? settlementSummary(state.routeDraft.from)?.name || state.routeDraft.from : null;
+  $("#route-tool-status").textContent = active ? (origin ? `${origin}에서 연결 중 · 앵커 ${state.routeDraft.anchors.length}개` : `직접 그리는 중 · 앵커 ${state.routeDraft.anchors.length}개`) : "첫 앵커를 배치하세요";
+  $("#route-editor-help").textContent = active ? `${state.routeDraft.cells.length}칸 경로 · ${origin ? "지형을 누르면 앵커 추가, 다른 마을을 누르면 현재 앵커를 거쳐 완료" : "지형을 누를 때마다 앵커 추가"}` : "마을이나 지형을 누를 때마다 앵커가 생깁니다. 앵커 사이의 길은 자동으로 이어집니다.";
+  const routes = state.worldLayout?.connections || [];
+  $("#route-list-count").textContent = `${routes.length}개`;
+  $("#route-manager-list").innerHTML = routes.length ? routes.map((route) => {
+    const fromName = route.from ? settlementSummary(route.from)?.name || route.from.split("/").pop() : "직접";
+    const toName = route.to ? settlementSummary(route.to)?.name || route.to.split("/").pop() : "그리기";
+    return `<article class="route-manager-item"><button type="button" class="route-focus" data-focus-route="${escapeHtml(route.id)}"><b>${escapeHtml(route.id)}</b><span>${escapeHtml(fromName)} → ${escapeHtml(toName)}</span><small>${escapeHtml(route.surface_style)} · ${connectionPath(route).length}칸</small></button><button type="button" class="route-delete" data-delete-route="${escapeHtml(route.id)}" aria-label="${escapeHtml(route.id)} 삭제">×</button></article>`;
+  }).join("") : '<p class="route-list-empty">아직 배치된 길이 없습니다.</p>';
+  $$('[data-delete-route]').forEach((button) => button.addEventListener("click", () => removeRouteConnection(button.dataset.deleteRoute)));
+  $$('[data-focus-route]').forEach((button) => button.addEventListener("click", () => focusRoute(button.dataset.focusRoute)));
 }
 
 function nextRouteId() {
@@ -483,25 +727,40 @@ function nextRouteId() {
   return `route_custom_${String(index).padStart(2, "0")}`;
 }
 
-function createRouteConnection() {
-  state.routeDraft = { id: nextRouteId(), surface_style: $("#route-surface").value, cells: [] };
-  state.emptyTerrainBrushActive = false;
-  $("#toggle-empty-terrain-brush").setAttribute("aria-pressed", "false");
-  renderWorldLayout();
+function routeDraftDefaults() {
+  return { id: nextRouteId(), surface_style: $("#route-surface").value, corridor_width_blocks: Number($("#route-width").value || 12), edge_noise: 0, anchors: [], cells: [] };
+}
+function handleRoutePoint(q, r, settlementId = settlementAt(q, r)?.settlement) {
+  if (!state.routeDraft) {
+    state.selectedRouteId = null;
+    state.routeDraft = { ...routeDraftDefaults(), ...(settlementId ? { from: settlementId } : {}), anchors: [{ q, r }], cells: [{ q, r }] };
+    state.selectedHex = { q, r }; renderWorldLayout(); return;
+  }
+  const draft = state.routeDraft;
+  if (draft.from && settlementId && settlementId !== draft.from) {
+    if (state.worldLayout.connections.some((route) => (route.from === draft.from && route.to === settlementId) || (route.from === settlementId && route.to === draft.from))) { toast("두 마을 사이에 이미 연결 길이 있습니다."); return; }
+    const destination = state.worldLayout.settlements.find((node) => node.settlement === settlementId)?.anchor;
+    const anchors = [...draft.anchors, { ...(destination || { q, r }) }]; const cells = routeCellsFromAnchors(anchors);
+    state.worldLayout.connections.push({ id: draft.id, from: draft.from, to: settlementId, anchors, cells, corridor_width_blocks: draft.corridor_width_blocks, edge_noise: draft.edge_noise, surface_style: draft.surface_style, pathfinding: "explicit" });
+    state.routeDraft = null; state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout(); toast("두 마을을 자동 경로로 연결했습니다."); return;
+  }
+  if (draft.from && settlementId === draft.from && draft.anchors.length === 1) { toast("연결할 다른 마을이나 지형 앵커를 선택해 주세요."); return; }
+  appendRouteDraft(q, r);
 }
 function appendRouteDraft(q, r) {
   const draft = state.routeDraft; if (!draft) return;
-  const last = draft.cells.at(-1);
-  const segment = last ? straightHexPath(last, { q, r }).slice(1) : [{ q, r }];
-  for (const cell of segment) {
-    if (!draft.cells.some((entry) => entry.q === cell.q && entry.r === cell.r)) draft.cells.push(cell);
-  }
+  const last = draft.anchors.at(-1); if (last?.q === q && last?.r === r) return;
+  draft.anchors.push({ q, r }); draft.cells = routeCellsFromAnchors(draft.anchors);
   state.selectedHex = { q, r }; renderWorldLayout();
+}
+function undoRouteAnchor() {
+  const draft = state.routeDraft; if (!draft || draft.anchors.length < 2) return;
+  draft.anchors.pop(); draft.cells = routeCellsFromAnchors(draft.anchors); state.selectedHex = { ...draft.anchors.at(-1) }; renderWorldLayout();
 }
 function finishRouteConnection() {
   const draft = state.routeDraft;
-  if (!draft?.cells.length) { toast("지도에서 길 셀을 하나 이상 선택해 주세요."); return; }
-  state.worldLayout.connections.push({ id: draft.id, cells: draft.cells, corridor_width_blocks: 12, surface_style: draft.surface_style });
+  if (!draft || draft.anchors.length < 2) { toast("앵커를 두 곳 이상 배치해 주세요."); return; }
+  state.worldLayout.connections.push({ id: draft.id, anchors: draft.anchors, cells: draft.cells, corridor_width_blocks: draft.corridor_width_blocks, edge_noise: draft.edge_noise, surface_style: draft.surface_style, pathfinding: "explicit", ...(draft.from ? { from: draft.from } : {}) });
   state.routeDraft = null; markWorldDirty(); renderWorldLayout(); toast("바이옴과 독립된 길을 추가했습니다.");
 }
 function cancelRouteConnection() {
@@ -510,13 +769,27 @@ function cancelRouteConnection() {
 
 function removeRouteConnection(routeId) {
   state.worldLayout.connections = (state.worldLayout.connections || []).filter((connection) => connection.id !== routeId);
-  markWorldDirty(); renderWorldLayout(); toast(`${routeId} 연결을 삭제했습니다.`);
+  if (state.selectedRouteId === routeId) state.selectedRouteId = null;
+  markWorldDirty(); renderWorldLayout(); toast(`${routeId} 길을 삭제했습니다.`);
+}
+function focusRoute(routeId, center = true) {
+  const route = (state.worldLayout.connections || []).find((entry) => entry.id === routeId);
+  const cells = route ? connectionPath(route) : [];
+  if (!cells.length) return;
+  state.selectedRouteId = routeId;
+  state.selectedHex = { ...cells[0] };
+  if (center) {
+    const points = cells.map((cell) => hexPoint(cell.q, cell.r));
+    state.mapCenter = { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length };
+  }
+  renderHexMap(); renderTileInspector();
 }
 
 function defaultWorldTile(q, r, biome) { return { q, r, biome, boundary_profile: "cobbleventure:boundary/earthwork", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96 } }; }
-function defaultWorldSettlement(id, q, r) { return { settlement: id, anchor: { q, r }, town_radius_cells: 1, town_biome: "minecraft:plains", surroundings: [], boundary_profile: "cobbleventure:boundary/stone_wall", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96 } }; }
-function settlementRangeConflict(node, q, r, radius) {
-  return state.worldLayout.settlements.find((entry) => entry !== node && entry.anchor && hexDistance(entry.anchor, { q, r }) <= radius + settlementPresetRadius(entry.settlement));
+function defaultWorldSettlement(id, q, r) { return { settlement: id, anchor: { q, r }, town_radius_cells: settlementPresetRadius(id), town_footprint_shape: settlementPresetFootprintShape(id), town_biome: "minecraft:plains", surroundings: [], boundary_profile: "cobbleventure:boundary/stone_wall", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96 } }; }
+function settlementRangeConflict(node, q, r, cellCount) {
+  const candidateCells = townFootprintCells({ q, r }, cellCount, node ? worldSettlementFootprintShape(node) : "line_q");
+  return state.worldLayout.settlements.find((entry) => entry !== node && entry.anchor && candidateCells.some((candidate) => townFootprintCells(entry.anchor, worldSettlementCellCount(entry), worldSettlementFootprintShape(entry)).some((occupied) => hexDistance(candidate, occupied) < 2)));
 }
 
 function applyTilePlacement() {
@@ -553,6 +826,7 @@ function applyTilePlacement() {
     if (!node) { node = defaultWorldSettlement(id, q, r); state.worldLayout.settlements.push(node); }
     else node.anchor = { q, r };
     node.town_radius_cells = townRadius;
+    node.town_footprint_shape = settlementPresetFootprintShape(id);
     node.town_biome = settlementPresetBiome(id);
   }
   markWorldDirty(); renderWorldLayout();
@@ -577,8 +851,32 @@ function handleTileInspectorChange(event) {
   applyTilePlacement();
 }
 
+function beginRouteAnchorDrag(event, routeId, index, locked) {
+  event.preventDefault(); event.stopPropagation();
+  if (locked) { toast("마을에 연결된 시작·도착 앵커는 고정됩니다."); return; }
+  state.routeAnchorDrag = { pointerId: event.pointerId, routeId, index, changed: false };
+  $("#world-hex-map").setPointerCapture?.(event.pointerId);
+}
+function moveRouteAnchorDrag(event) {
+  const drag = state.routeAnchorDrag; if (!drag || drag.pointerId !== event.pointerId) return false;
+  const target = nearestHexFromPointer(event);
+  const owner = drag.routeId === "__draft__" ? state.routeDraft : state.worldLayout.connections.find((route) => route.id === drag.routeId);
+  if (!owner) return true;
+  owner.anchors ||= connectionAnchors(owner).map((anchor) => ({ ...anchor }));
+  const anchor = owner.anchors[drag.index]; if (!anchor || (anchor.q === target.q && anchor.r === target.r)) return true;
+  owner.anchors[drag.index] = target; owner.cells = routeCellsFromAnchors(owner.anchors); drag.changed = true; state.selectedHex = target; renderHexMap(); return true;
+}
+function finishRouteAnchorDrag(event) {
+  const drag = state.routeAnchorDrag; if (!drag || drag.pointerId !== event.pointerId) return false;
+  state.routeAnchorDrag = null;
+  if (drag.changed && drag.routeId !== "__draft__") markWorldDirty();
+  renderWorldLayout(); return true;
+}
+
 function beginSettlementDrag(event, settlementId) {
   event.preventDefault(); event.stopPropagation();
+  if (state.activeMapTool === "route") return;
+  if (state.activeMapTool !== "select") return;
   state.draggedSettlement = settlementId;
   $("#world-hex-map").setPointerCapture?.(event.pointerId);
   $("#world-hex-map").classList.add("is-dragging");
@@ -589,11 +887,14 @@ function nearestHexFromPointer(event) {
   return pixelToHex(local.x, local.y);
 }
 function beginMapPan(event) {
-  if (event.button !== 0 || event.target.closest?.("[data-drag-settlement]")) return;
+  if (beginToolStroke(event)) return;
+  if (event.button !== 0 || event.target.closest?.("[data-drag-settlement], [data-select-route], [data-route-anchor-index], [data-delete-route-inline]") || (state.activeMapTool !== "select" && !state.spacePanActive)) return;
   const svg = $("#world-hex-map");
   state.mapPan = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, centerX: state.mapCenter.x, centerY: state.mapCenter.y, lastRenderX: state.mapCenter.x, lastRenderY: state.mapCenter.y, moved: false };
 }
 function moveMapPan(event) {
+  if (moveRouteAnchorDrag(event)) return;
+  if (state.paintStroke) { continueToolStroke(event); return; }
   const pan = state.mapPan; if (!pan || pan.pointerId !== event.pointerId) return;
   const svg = $("#world-hex-map"); const rect = svg.getBoundingClientRect(); const view = mapViewBox();
   const dx = event.clientX - pan.startX; const dy = event.clientY - pan.startY;
@@ -609,6 +910,8 @@ function moveMapPan(event) {
   }
 }
 function finishMapPan(event) {
+  if (finishRouteAnchorDrag(event)) return;
+  if (finishToolStroke(event)) return;
   const pan = state.mapPan; if (!pan || pan.pointerId !== event.pointerId) return;
   state.mapPan = null; $("#world-hex-map").classList.remove("is-panning");
   if (pan.moved) {
@@ -631,7 +934,7 @@ function finishSettlementDrag(event) {
 async function addGeneration() {
   const generation = Array.from({ length: 9 }, (_, index) => index + 1).find((value) => !state.worldGenerations.includes(value));
   if (!generation) { toast("9세대까지 모두 추가되어 있습니다."); return; }
-  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, dimension: `cobbleventure:generation_${generation}`, seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], settlements: [], connections: [], objects: [] };
+  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, dimension: `cobbleventure:generation_${generation}`, seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], environment_overrides: [], settlements: [], connections: [], objects: [] };
   const result = await request(`/api/world-layout?generation=${generation}`, { method: "PUT", body: JSON.stringify(payload) });
   if (!result.ok) { toast(result.data.error || "세대를 추가하지 못했습니다."); return; }
   state.worldGenerations.push(generation); state.worldGenerations.sort((a, b) => a - b); state.selectedGeneration = generation; state.worldLayout = payload; state.selectedHex = null; state.worldDirty = false; state.mapViewInitialized = false; renderWorldLayout(); toast(`${generation}세대 월드를 추가했습니다.`);
@@ -2083,9 +2386,9 @@ function facilityTrainerOptions(selected = "") {
 }
 
 function settlementFacilityRequirements() {
-  const requirements = Array.isArray(state.settlement?.structure_profile?.facility_requirements)
+  const requirements = (Array.isArray(state.settlement?.structure_profile?.facility_requirements)
     ? state.settlement.structure_profile.facility_requirements
-    : [];
+    : []).filter((item) => !legacyGymFacilityIds.has(item?.id));
   if (!isStarterSettlement() || requirements.some((item) => item.id === "laboratory")) return requirements;
   const laboratory = settlementFacilityCatalog.find((item) => item.id === "laboratory");
   return laboratory ? [...requirements, {
@@ -2125,6 +2428,50 @@ function selectedFacilityRequirements() {
   });
 }
 
+function normalizedHousePalette(profile = state.settlement?.structure_profile?.generation_profile?.house_palette) {
+  const allowed = (values, catalog, fallback) => {
+    const valid = new Set(catalog.map((item) => item.id));
+    const selected = Array.isArray(values) ? [...new Set(values.filter((value) => valid.has(value)))] : [];
+    return selected.length ? selected : [...fallback];
+  };
+  return {
+    bases: allowed(profile?.bases, houseBaseCatalog, defaultHousePalette.bases),
+    roofs: allowed(profile?.roofs, houseRoofCatalog, defaultHousePalette.roofs),
+    roof_colors: allowed(profile?.roof_colors, houseRoofColorCatalog, defaultHousePalette.roof_colors)
+  };
+}
+
+function renderHousePaletteOptions(profile) {
+  const palette = normalizedHousePalette(profile);
+  const render = (target, name, catalog, selected, color = false) => {
+    const enabled = new Set(selected);
+    $(target).innerHTML = catalog.map((item) => `<label class="house-option"><input type="checkbox" name="${name}" value="${item.id}"${enabled.has(item.id) ? " checked" : ""} disabled>${color ? `<span class="house-color-swatch" style="--house-color:${item.color}"></span>` : ""}<span>${escapeHtml(item.label)}</span></label>`).join("");
+  };
+  render("#house-base-options", "houseBase", houseBaseCatalog, palette.bases);
+  render("#house-roof-options", "houseRoof", houseRoofCatalog, palette.roofs);
+  render("#house-color-options", "houseRoofColor", houseRoofColorCatalog, palette.roof_colors, true);
+}
+
+function selectedHousePalette() {
+  const selected = (name, fallback) => {
+    const values = [...$("#settlement-form").querySelectorAll(`input[name="${name}"]:checked`)].map((input) => input.value);
+    return values.length ? values : [...fallback];
+  };
+  return {
+    bases: selected("houseBase", defaultHousePalette.bases),
+    roofs: selected("houseRoof", defaultHousePalette.roofs),
+    roof_colors: selected("houseRoofColor", defaultHousePalette.roof_colors)
+  };
+}
+
+function keepHousePaletteGroupSelected(event) {
+  const name = event.target?.name;
+  if (!new Set(["houseBase", "houseRoof", "houseRoofColor"]).has(name) || event.target.checked) return;
+  if ($(`#settlement-form input[name="${name}"]:checked`)) return;
+  event.target.checked = true;
+  toast("주택 구성의 각 그룹에서 하나 이상 선택해야 합니다.");
+}
+
 function selectedCivicFacilities() {
   const form = $("#settlement-form");
   const selected = [];
@@ -2136,6 +2483,16 @@ function selectedCivicFacilities() {
     structure: facility.structure, color: facility.color,
     footprint: { width: facility.width, depth: facility.depth, height: facility.height }
   }));
+}
+
+function selectedGymFacility() {
+  const form = $("#settlement-form");
+  if (!form?.elements.gymEnabled?.checked) return [];
+  return [{
+    id: "gym_building", label: "체육관", count: 1, required: true,
+    structure: form.elements.gymStructure.value.trim(), color: "#ef233c",
+    footprint: { width: 32, depth: 32, height: 20 }
+  }];
 }
 
 function facilityLayoutOffsets(shape, count) {
@@ -2241,28 +2598,87 @@ function villagePreviewRoadRect(segment, width) {
   };
 }
 
-function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements) {
+const villagePreviewTileRadius = 64;
+
+function villageLayoutCells(cellCount, shape = "line_q") {
+  const count = normalizeTownCellCount(cellCount);
+  if (count === 1) return [{ q: 0, r: 0 }];
+  if (count === 3 || count === 5) return townFootprintCells({ q: 0, r: 0 }, count, shape);
+  return hexArea({ q: 0, r: 0 }, 1);
+}
+
+function villageLayoutCellCenter(cell) {
+  return {
+    x: villagePreviewTileRadius * Math.sqrt(3) * (cell.q + cell.r / 2),
+    z: villagePreviewTileRadius * 1.5 * cell.r
+  };
+}
+
+const villageCenterPatterns = [
+  { id: "tee_east", directions: [0, 1, 2] },
+  { id: "tee_west", directions: [0, 2, 3] },
+  { id: "tee_north", directions: [0, 1, 3] },
+  { id: "tee_south", directions: [1, 2, 3] }
+];
+
+function villageLayoutHub(cellCount) {
+  return [3, 5].includes(normalizeTownCellCount(cellCount)) ? { x: 0, z: 32 } : { x: 0, z: 0 };
+}
+
+function villageCenterPattern(shape, seed) {
+  if (shape === "linear") return { id: "linear", directions: [1, 3] };
+  if (shape === "terraced") return { id: "terraced", directions: [1, 3, 2] };
+  return villageCenterPatterns[(Math.max(1, Number(seed)) - 1) % villageCenterPatterns.length];
+}
+
+function villageLayoutHexContains(x, z, center, margin = 0) {
+  const usable = Math.max(16, villagePreviewTileRadius - margin);
+  const localX = Math.abs(x - center.x);
+  const localZ = Math.abs(z - center.z);
+  return localZ <= usable
+    && localX <= usable * Math.sqrt(3) / 2
+    && localZ + localX / Math.sqrt(3) <= usable;
+}
+
+function villageLayoutContains(x, z, cellCount, shape, margin = 0) {
+  return villageLayoutCells(cellCount, shape).some((cell) => villageLayoutHexContains(x, z, villageLayoutCellCenter(cell), margin));
+}
+
+function villagePlotInsideLayout(plot, cellCount, shape) {
+  const step = 4;
+  const samples = [];
+  for (let x = plot.x; x <= plot.x + plot.width; x += step) {
+    for (let z = plot.z; z <= plot.z + plot.depth; z += step) samples.push([x, z]);
+  }
+  samples.push([plot.x + plot.width, plot.z + plot.depth], [plot.x + plot.width / 2, plot.z + plot.depth / 2]);
+  return samples.every(([x, z]) => villageLayoutContains(x, z, cellCount, shape, 4));
+}
+
+function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q") {
   const random = villagePreviewRandom(seed);
+  const normalizedCellCount = normalizeTownCellCount(cellCount);
+  const normalizedFootprintShape = normalizeTownFootprintShape(footprintShape);
+  const layoutCells = villageLayoutCells(normalizedCellCount, normalizedFootprintShape);
   const directions = [{ x: 0, z: -1 }, { x: 1, z: 0 }, { x: 0, z: 1 }, { x: -1, z: 0 }];
-  const initialDirections = {
-    linear: [1, 3], radial: [0, 1, 2, 3], loop: [0, 1, 2, 3], terraced: [1, 3, 2], branching: [0, 2]
-  }[shape] || [0, 2];
-  const queue = initialDirections.map((direction) => ({ x: 0, z: 0, direction, depth: 0 }));
-  const occupiedRoad = new Set(["0,0"]);
+  const centerPattern = villageCenterPattern(shape, seed);
+  const hub = villageLayoutHub(normalizedCellCount);
+  const queue = centerPattern.directions.map((direction) => ({ x: hub.x, z: hub.z, direction, depth: 0 }));
+  const occupiedRoad = new Set([`${Math.round(hub.x / 16)},${Math.round(hub.z / 16)}`]);
   const roads = [];
-  const maximumRoads = Math.min(56, 5 + depth * 8);
+  const maximumRoads = Math.min(20, 3 + depth * 3);
   let rejectedRoads = 0;
 
   while (queue.length && roads.length < maximumRoads) {
     const connector = queue.shift();
     const vector = directions[connector.direction];
-    const cells = 3 + Math.floor(random() * 4);
+    const cells = connector.depth === 0 ? 2 : 2 + Math.floor(random() * 3);
     const points = [];
     let blocked = false;
     for (let step = 1; step <= cells; step += 1) {
       const cellX = Math.round(connector.x / 16) + vector.x * step;
       const cellZ = Math.round(connector.z / 16) + vector.z * step;
       const key = `${cellX},${cellZ}`;
+      if (!villageLayoutContains(cellX * 16, cellZ * 16, normalizedCellCount, normalizedFootprintShape, 8)) break;
       if (occupiedRoad.has(key) && step > 1) { blocked = true; break; }
       points.push({ key, x: cellX * 16, z: cellZ * 16 });
     }
@@ -2273,36 +2689,66 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements) {
     if (connector.depth + 1 >= depth) continue;
 
     const nextDirections = [connector.direction];
-    const branchChance = shape === "linear" ? .12 : shape === "radial" ? .2 : shape === "loop" ? .34 : .46;
-    if (random() < branchChance) nextDirections.push((connector.direction + (random() < .5 ? 1 : 3)) % 4);
-    if (shape === "branching" && random() < .22) nextDirections.push((connector.direction + (random() < .5 ? 1 : 3)) % 4);
-    if (shape === "terraced" && connector.depth % 2 === 1 && random() < .6) nextDirections.push((connector.direction + 1) % 4);
+    const branchChance = shape === "linear" ? .12 : shape === "radial" ? .2 : shape === "loop" ? .34 : .55;
+    const branchRoll = random();
+    if ((shape === "branching" && connector.depth === 0) || branchRoll < branchChance) {
+      nextDirections.push((connector.direction + (random() < .5 ? 1 : 3)) % 4);
+    }
     for (const direction of [...new Set(nextDirections)]) {
       queue.push({ x: end.x, z: end.z, direction, depth: connector.depth + 1 });
     }
   }
 
+  const roadKeys = new Set(roads.flatMap((road) => [
+    `${road.x1},${road.z1},${road.x2},${road.z2}`,
+    `${road.x2},${road.z2},${road.x1},${road.z1}`
+  ]));
+  const addCoverageRoad = (x1, z1, x2, z2) => {
+    if (x1 === x2 && z1 === z2) return;
+    const key = `${x1},${z1},${x2},${z2}`;
+    if (roadKeys.has(key)) return;
+    roads.push({ x1, z1, x2, z2, depth: 0 });
+    roadKeys.add(key);
+    roadKeys.add(`${x2},${z2},${x1},${z1}`);
+  };
+  const coverageSources = roads.flatMap((road) => [[road.x1, road.z1], [road.x2, road.z2]])
+    .filter(([x, z]) => x !== hub.x || z !== hub.z);
+  for (const cell of layoutCells) {
+    const center = villageLayoutCellCenter(cell);
+    const targetX = Math.round(center.x / 16) * 16;
+    const targetZ = Math.round(center.z / 16) * 16;
+    if (targetX === hub.x && targetZ === hub.z) continue;
+    const candidates = coverageSources.length ? coverageSources : [[hub.x, hub.z]];
+    const [sourceX, sourceZ] = candidates.reduce((best, point) =>
+      Math.abs(point[0] - targetX) + Math.abs(point[1] - targetZ) < Math.abs(best[0] - targetX) + Math.abs(best[1] - targetZ) ? point : best
+    );
+    addCoverageRoad(sourceX, sourceZ, targetX, sourceZ);
+    addCoverageRoad(targetX, sourceZ, targetX, targetZ);
+    coverageSources.push([targetX, targetZ]);
+  }
+
   const plots = [];
   const missing = [];
-  const slots = roads.flatMap((road, roadIndex) => [0.3, 0.58, 0.82].flatMap((ratio) => [-1, 1].map((side) => ({ road, roadIndex, ratio, side }))));
-  const shuffledSlots = [...slots].sort(() => random() - .5);
+  const slots = roads.flatMap((road, roadIndex) => [0.15, 0.32, 0.5, 0.68, 0.85].flatMap((ratio) => [-1, 1].map((side) => ({ road, roadIndex, ratio, side }))));
   const roadRects = roads.map((road) => villagePreviewRoadRect(road, roadWidth + 3));
 
-  function tryPlacePlot(definition, kind, label, attempts = shuffledSlots.length) {
+  function tryPlacePlot(definition, kind, label, attempts = slots.length) {
     const width = Number(definition.footprint?.width || definition.width || 16);
     const depthSize = Number(definition.footprint?.depth || definition.depth || 16);
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
-      const slot = shuffledSlots[(attempt + Math.floor(random() * Math.max(1, shuffledSlots.length))) % shuffledSlots.length];
+    const startSlot = Math.floor(random() * Math.max(1, slots.length));
+    for (let attempt = 0; attempt < Math.min(attempts, slots.length); attempt += 1) {
+      const slot = slots[(startSlot + attempt) % slots.length];
       if (!slot) break;
       const road = slot.road;
       const horizontal = road.z1 === road.z2;
       const alongX = road.x1 + (road.x2 - road.x1) * slot.ratio;
       const alongZ = road.z1 + (road.z2 - road.z1) * slot.ratio;
-      const perpendicularDistance = roadWidth / 2 + (horizontal ? depthSize : width) / 2 + 7;
+      const perpendicularDistance = roadWidth / 2 + (horizontal ? depthSize : width) / 2 + 5;
       const centerX = alongX + (horizontal ? 0 : slot.side * perpendicularDistance);
       const centerZ = alongZ + (horizontal ? slot.side * perpendicularDistance : 0);
       const plot = { x: centerX - width / 2, z: centerZ - depthSize / 2, width, depth: depthSize, kind, label };
-      if (plots.some((other) => villagePreviewRectIntersects(plot, other, 5))) continue;
+      if (!villagePlotInsideLayout(plot, normalizedCellCount, normalizedFootprintShape)) continue;
+      if (plots.some((other) => villagePreviewRectIntersects(plot, other, 4))) continue;
       if (roadRects.some((roadRect, index) => index !== slot.roadIndex && villagePreviewRectIntersects(plot, roadRect, 2))) continue;
       plots.push(plot);
       return true;
@@ -2317,15 +2763,38 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements) {
     }))
   );
   for (const facility of facilityInstances) {
-    if (!tryPlacePlot(facility, "facility", facility.instanceLabel)) missing.push(facility.instanceLabel);
+    if (!tryPlacePlot(facility, "facility", facility.instanceLabel, slots.length * 4)) missing.push(facility.instanceLabel);
   }
 
-  const houseTarget = Math.min(30, Math.max(4, roads.length + Math.floor(depth * 1.5)));
+  const houseTarget = Math.min(18, Math.max(4, 3 + depth * 3));
+  const palette = normalizedHousePalette(housePalette);
   for (let index = 0; index < houseTarget; index += 1) {
-    const wide = random() < .34;
-    tryPlacePlot({ width: wide ? 32 : 16, depth: 16 }, "house", `기본 건물 ${index + 1}`, 18);
+    const base = houseBaseCatalog.find((item) => item.id === palette.bases[Math.floor(random() * palette.bases.length)]) || houseBaseCatalog[0];
+    const roof = palette.roofs[Math.floor(random() * palette.roofs.length)];
+    const roofColor = palette.roof_colors[Math.floor(random() * palette.roof_colors.length)];
+    const before = plots.length;
+    tryPlacePlot(base, "house", `${base.label} · ${houseRoofCatalog.find((item) => item.id === roof)?.label || roof}`, slots.length * 2);
+    if (plots.length > before) Object.assign(plots.at(-1), { base: base.id, roof, roof_color: roofColor });
   }
-  return { roads, plots, missing, rejectedRoads, openConnectors: queue.length };
+  return { roads, plots, missing, rejectedRoads, openConnectors: queue.length, layoutCells, hub, centerPattern: centerPattern.id };
+}
+
+const villageLayoutRerollLimit = 8;
+const villageLayoutRerollStep = 104729;
+
+function villageLayoutRerollSeed(seed, attempt) {
+  return 1 + ((Math.max(1, Number(seed)) - 1 + attempt * villageLayoutRerollStep) % 999999999);
+}
+
+function simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q") {
+  let result = null;
+  for (let attempt = 0; attempt < villageLayoutRerollLimit; attempt += 1) {
+    const resolvedSeed = villageLayoutRerollSeed(seed, attempt);
+    result = simulateJigsawVillage(resolvedSeed, depth, shape, roadWidth, requirements, cellCount, housePalette, footprintShape);
+    Object.assign(result, { requestedSeed: seed, resolvedSeed, rerollCount: attempt, rerollLimit: villageLayoutRerollLimit });
+    if (!result.missing.length) return result;
+  }
+  return result;
 }
 
 function renderVillageGenerationTest() {
@@ -2337,13 +2806,28 @@ function renderVillageGenerationTest() {
   const depth = Math.max(1, Math.min(7, Number(form.elements.villagePreviewDepth.value || 4)));
   const shape = form.elements.townLayoutShape.value || "branching";
   const roadWidth = Number(form.elements.townRoadWidth.value || 7);
-  const requirements = [...selectedCivicFacilities(), ...selectedFacilityRequirements()];
-  const result = simulateJigsawVillage(seed, depth, shape, roadWidth, requirements);
+  const requirements = [...selectedCivicFacilities(), ...selectedFacilityRequirements(), ...selectedGymFacility()];
+  const radiusCells = normalizeTownCellCount(form.elements.townRadiusCells.value);
+  const footprintShape = normalizeTownFootprintShape(form.elements.townFootprintShape.value);
+  const result = simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, radiusCells, selectedHousePalette(), footprintShape);
+  const viewport = ({
+    1: { width: 560, height: 320 },
+    3: { width: 760, height: 430 },
+    5: { width: 820, height: 480 },
+    7: { width: 900, height: 520 }
+  })[radiusCells];
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  canvas.style.maxWidth = `${viewport.width}px`;
+  canvas.dataset.townCellCount = String(radiusCells);
   const context = canvas.getContext("2d");
-  const allX = [0, ...result.roads.flatMap((road) => [road.x1, road.x2]), ...result.plots.flatMap((plot) => [plot.x, plot.x + plot.width])];
-  const allZ = [0, ...result.roads.flatMap((road) => [road.z1, road.z2]), ...result.plots.flatMap((plot) => [plot.z, plot.z + plot.depth])];
-  const minX = Math.min(...allX) - 48; const maxX = Math.max(...allX) + 48;
-  const minZ = Math.min(...allZ) - 48; const maxZ = Math.max(...allZ) + 48;
+  const previewPadding = 28;
+  const centers = result.layoutCells.map(villageLayoutCellCenter);
+  const hexHalfWidth = villagePreviewTileRadius * Math.sqrt(3) / 2;
+  const minX = Math.min(...centers.map((center) => center.x - hexHalfWidth)) - previewPadding;
+  const maxX = Math.max(...centers.map((center) => center.x + hexHalfWidth)) + previewPadding;
+  const minZ = Math.min(...centers.map((center) => center.z - villagePreviewTileRadius)) - previewPadding;
+  const maxZ = Math.max(...centers.map((center) => center.z + villagePreviewTileRadius)) + previewPadding;
   const scale = Math.min(canvas.width / Math.max(1, maxX - minX), canvas.height / Math.max(1, maxZ - minZ));
   const offsetX = (canvas.width - (maxX - minX) * scale) / 2 - minX * scale;
   const offsetZ = (canvas.height - (maxZ - minZ) * scale) / 2 - minZ * scale;
@@ -2351,6 +2835,19 @@ function renderVillageGenerationTest() {
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = "#c9d7b3";
   context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "rgba(255,255,255,.2)";
+  context.strokeStyle = "rgba(58,91,53,.75)";
+  context.lineWidth = 2;
+  for (const cell of result.layoutCells) {
+    const center = villageLayoutCellCenter(cell);
+    const hexCorners = Array.from({ length: 6 }, (_, index) => {
+      const angle = -Math.PI / 2 + Math.PI / 3 * index;
+      return project(center.x + Math.cos(angle) * villagePreviewTileRadius, center.z + Math.sin(angle) * villagePreviewTileRadius);
+    });
+    context.beginPath();
+    hexCorners.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
+    context.closePath(); context.fill(); context.stroke();
+  }
   context.strokeStyle = "rgba(87,108,68,.18)";
   context.lineWidth = 1;
   for (let x = Math.ceil(minX / 16) * 16; x <= maxX; x += 16) {
@@ -2384,7 +2881,8 @@ function renderVillageGenerationTest() {
   const labels = [];
   for (const plot of result.plots) {
     const position = project(plot.x, plot.z);
-    context.fillStyle = plot.kind === "facility" ? "#55c9bd" : "#e4d5b5";
+    const roofColor = houseRoofColorCatalog.find((item) => item.id === plot.roof_color)?.color;
+    context.fillStyle = plot.kind === "facility" ? "#55c9bd" : roofColor || "#e4d5b5";
     context.strokeStyle = plot.kind === "facility" ? "#166b70" : "#796a50";
     context.lineWidth = plot.kind === "facility" ? 3 : 1.5;
     context.fillRect(position.x, position.y, plot.width * scale, plot.depth * scale);
@@ -2399,14 +2897,32 @@ function renderVillageGenerationTest() {
   }
   const facilityCount = result.plots.filter((plot) => plot.kind === "facility").length;
   const houseCount = result.plots.filter((plot) => plot.kind === "house").length;
-  const missingText = result.missing.length ? ` · 배치 실패: ${result.missing.join(", ")}` : " · 필수 시설 전부 배치";
-  summary.textContent = `시드 ${seed} · 도로 조각 ${result.roads.length} · 시설 ${facilityCount} · 기본 건물 ${houseCount} · 막힌 연결 ${result.rejectedRoads}${missingText}`;
+  const rerollText = result.missing.length
+    ? ` · 자동 리롤 ${result.rerollLimit}회 모두 실패`
+    : result.rerollCount > 0
+      ? ` · 자동 리롤 ${result.rerollCount}회 후 성공 · 적용 시드 ${result.resolvedSeed}`
+      : " · 첫 시도 성공";
+  const missingText = result.missing.length ? ` · 누락 시설: ${result.missing.join(", ")}` : " · 필수 시설 전부 배치";
+  const centerPatternLabel = ({ tee_east: "ㅏ형", tee_west: "ㅓ형", tee_north: "ㅗ형", tee_south: "ㅜ형", linear: "일자형", terraced: "계단형" })[result.centerPattern] || result.centerPattern;
+  summary.textContent = `마을 크기 ${radiusCells}칸 · 중앙 ${centerPatternLabel} · 허브 Z ${result.hub.z} · 요청 시드 ${seed}${rerollText} · 도로 조각 ${result.roads.length} · 시설 ${facilityCount} · 기본 건물 ${houseCount} · 막힌 연결 ${result.rejectedRoads}${missingText}`;
   summary.classList.toggle("has-error", result.missing.length > 0);
-  canvas.setAttribute("aria-label", `도로 조각 ${result.roads.length}개, 시설 ${facilityCount}개, 기본 건물 ${houseCount}개가 생성된 마을 테스트`);
+  summary.classList.toggle("has-warning", !result.missing.length && result.rerollCount > 0);
+  canvas.setAttribute("aria-label", `${radiusCells}개 육각 타일에 도로 조각 ${result.roads.length}개, 시설 ${facilityCount}개, 기본 건물 ${houseCount}개가 생성된 마을 테스트`);
 }
 
 function updateFacilityFormState() {
   const form = $("#settlement-form");
+  const townCellCount = normalizeTownCellCount(form.elements.townRadiusCells.value);
+  const shapeSelect = form.elements.townFootprintShape;
+  const previousShape = normalizeTownFootprintShape(shapeSelect.value);
+  const shapeOptions = townCellCount === 3
+    ? [["triangle_up", "윗삼각형"], ["triangle_down", "아랫삼각형"], ["line_q", "가로 일자"], ["line_r", "우하향 대각선"], ["line_s", "우상향 대각선"]]
+    : townCellCount === 5
+      ? [["five_up", "위 확장"], ["five_down", "아래 확장"]]
+      : [["line_q", "고정 형태"]];
+  shapeSelect.innerHTML = shapeOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
+  shapeSelect.value = shapeOptions.some(([value]) => value === previousShape) ? previousShape : shapeOptions[0][0];
+  shapeSelect.disabled = townCellCount !== 3 && townCellCount !== 5;
   const starterLayout = isStarterSettlement();
   if (starterLayout) {
     form.elements.pokemonCenterEnabled.checked = false;
@@ -2446,14 +2962,17 @@ function renderSettlement() {
   const presetBiome = document.biome || document.biome_layout?.zones?.[0]?.biome || "minecraft:plains";
   form.elements.presetBiome.innerHTML = worldBiomeOptions(presetBiome);
   setFormValue(form, "presetBiome", presetBiome);
-  setFormValue(form, "townRadiusCells", document.town_radius_cells ?? 1);
+  setFormValue(form, "townRadiusCells", normalizeTownCellCount(document.town_radius_cells));
+  setFormValue(form, "townFootprintShape", normalizeTownFootprintShape(document.town_footprint_shape));
   setFormValue(form, "townLayoutShape", document.structure_profile?.layout_shape || "branching");
   setFormValue(form, "townRoadWidth", document.structure_profile?.road_profile?.width ?? 7);
   setFormValue(form, "townRoadMaterial", document.structure_profile?.road_profile?.material || "cobblestone");
   const previewSeedHash = [...document.id].reduce((value, character) => ((value * 31) + character.charCodeAt(0)) >>> 0, 1);
-  const previewSeed = 1 + (previewSeedHash % 999999998);
+  const generationProfile = document.structure_profile?.generation_profile || {};
+  const previewSeed = generationProfile.seed || 1 + (previewSeedHash % 999999998);
   setFormValue(form, "villagePreviewSeed", previewSeed);
-  setFormValue(form, "villagePreviewDepth", 4);
+  setFormValue(form, "villagePreviewDepth", generationProfile.depth || 4);
+  renderHousePaletteOptions(generationProfile.house_palette);
   const starterPreset = isStarterSettlement(document);
   setFormValue(form, "pokemonCenterEnabled", document.structure_profile?.pokemon_center_enabled ?? !starterPreset);
   const savedCommercial = document.structure_profile?.commercial_center || (starterPreset ? "none" : "pokemart");
@@ -2656,7 +3175,8 @@ function updateSettlementFromForm() {
     display_name: displayName,
     region: form.elements.region.value, dimension: form.elements.dimension.value,
     biome: form.elements.presetBiome.value,
-    town_radius_cells: Math.max(0, Math.min(8, number("townRadiusCells")))
+    town_radius_cells: normalizeTownCellCount(number("townRadiusCells")),
+    town_footprint_shape: normalizeTownFootprintShape(form.elements.townFootprintShape.value)
   });
   const primaryZone = state.settlement.biome_layout?.zones?.[0];
   if (primaryZone) {
@@ -2682,6 +3202,16 @@ function updateSettlementFromForm() {
     width: Number(form.elements.townRoadWidth.value),
     material: form.elements.townRoadMaterial.value
   };
+  state.settlement.structure_profile.generation_profile = {
+    seed: Math.max(1, Math.min(999999999, number("villagePreviewSeed"))),
+    depth: Math.max(1, Math.min(7, number("villagePreviewDepth"))),
+    basic_buildings: [
+      "cobbleventure:placeholder/basic_building_1",
+      "cobbleventure:placeholder/basic_building_2",
+      "cobbleventure:placeholder/basic_building_3"
+    ],
+    house_palette: selectedHousePalette()
+  };
   state.settlement.structure_profile.facility_requirements = facilityRequirements;
   state.settlement.anchors ||= {};
   for (const anchor of Object.keys(state.settlement.anchors)) {
@@ -2691,6 +3221,26 @@ function updateSettlementFromForm() {
     [...selectedCivicFacilities(), ...facilityRequirements],
     layoutShape, state.settlement.center || { x: 0, y: 64, z: 0 }
   );
+  const generatedLayout = simulateVillageWithRerolls(
+    state.settlement.structure_profile.generation_profile.seed,
+    state.settlement.structure_profile.generation_profile.depth,
+    layoutShape,
+    state.settlement.structure_profile.road_profile.width,
+    [...selectedCivicFacilities(), ...facilityRequirements, ...selectedGymFacility()],
+    Number(form.elements.townRadiusCells.value || 1),
+    state.settlement.structure_profile.generation_profile.house_palette,
+    state.settlement.town_footprint_shape
+  );
+  const generatedFacilityPlots = generatedLayout.plots.filter((plot) => plot.kind === "facility");
+  configuredFacilities.forEach((facility, index) => {
+    const plot = generatedFacilityPlots[index];
+    if (!plot) return;
+    facility.position = {
+      x: Math.round(Number(state.settlement.center?.x || 0) + plot.x),
+      y: Number(state.settlement.center?.y || 64),
+      z: Math.round(Number(state.settlement.center?.z || 0) + plot.z)
+    };
+  });
   for (const facility of configuredFacilities) {
     state.settlement.anchors[facility.anchor] = facility.position;
   }
@@ -2943,15 +3493,13 @@ $("#save-world-layout").addEventListener("click", saveWorldLayout);
 $("#add-generation").addEventListener("click", addGeneration);
 $("#tile-inspector-form").addEventListener("change", handleTileInspectorChange);
 $("#clear-tile").addEventListener("click", clearSelectedTile);
-$("#create-route").addEventListener("click", createRouteConnection);
 $("#finish-route").addEventListener("click", finishRouteConnection);
 $("#cancel-route").addEventListener("click", cancelRouteConnection);
-$("#toggle-empty-terrain-brush").addEventListener("click", (event) => {
-  state.emptyTerrainBrushActive = !state.emptyTerrainBrushActive;
-  event.currentTarget.setAttribute("aria-pressed", String(state.emptyTerrainBrushActive));
-  event.currentTarget.textContent = state.emptyTerrainBrushActive ? "칠하기 종료" : "넓게 칠하기";
-  $("#world-hex-map").classList.toggle("is-painting", state.emptyTerrainBrushActive);
-});
+$("#undo-route-anchor").addEventListener("click", undoRouteAnchor);
+$$('[data-map-tool]').forEach((button) => button.addEventListener("click", () => setActiveMapTool(button.dataset.mapTool)));
+for (const [inputId, outputId] of [["biome-brush-radius", "biome-brush-radius-value"], ["empty-terrain-brush-radius", "empty-terrain-brush-radius-value"], ["climate-brush-radius", "climate-brush-radius-value"], ["eraser-radius", "eraser-radius-value"]]) {
+  $(`#${inputId}`).addEventListener("input", (event) => { $(`#${outputId}`).textContent = event.target.value; });
+}
 $("#tile-radius-blocks").addEventListener("change", () => { state.worldLayout.grid.tile_radius_blocks = Number($("#tile-radius-blocks").value || 64); markWorldDirty(); });
 $("#zoom-in").addEventListener("click", () => { state.mapZoom = Math.min(1.6, state.mapZoom + .1); renderHexMap(); });
 $("#zoom-out").addEventListener("click", () => { state.mapZoom = Math.max(.65, state.mapZoom - .1); renderHexMap(); });
@@ -2960,9 +3508,16 @@ $("#world-hex-map").addEventListener("pointerdown", beginMapPan);
 $("#world-hex-map").addEventListener("pointermove", moveMapPan);
 $("#world-hex-map").addEventListener("pointerup", finishSettlementDrag);
 $("#world-hex-map").addEventListener("pointerup", finishMapPan);
-$("#world-hex-map").addEventListener("pointercancel", (event) => { state.draggedSettlement = null; state.mapPan = null; $("#world-hex-map").classList.remove("is-dragging", "is-panning"); finishMapPan(event); });
+$("#world-hex-map").addEventListener("pointercancel", (event) => { state.draggedSettlement = null; state.mapPan = null; state.paintStroke = null; state.routeAnchorDrag = null; $("#world-hex-map").classList.remove("is-dragging", "is-panning"); finishMapPan(event); });
+window.addEventListener("keydown", (event) => {
+  if (event.code === "Space" && !/INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) { state.spacePanActive = true; $("#world-hex-map").classList.add("is-space-panning"); event.preventDefault(); return; }
+  if (/INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.ctrlKey || event.metaKey || event.altKey) return;
+  const tool = ({ v: "select", b: "biome", t: "terrain", c: "climate", r: "route", s: "settlement", o: "object", e: "eraser" })[event.key.toLowerCase()];
+  if (tool) { setActiveMapTool(tool); event.preventDefault(); }
+});
+window.addEventListener("keyup", (event) => { if (event.code === "Space") { state.spacePanActive = false; $("#world-hex-map").classList.remove("is-space-panning"); } });
 window.addEventListener("resize", resizeWorldMapWorkspace);
-$("#settlement-form").addEventListener("input", () => { updateSettlementFromForm(); updateFacilityFormState(); });
+$("#settlement-form").addEventListener("input", (event) => { keepHousePaletteGroupSelected(event); updateFacilityFormState(); updateSettlementFromForm(); });
 $("#regenerate-village-preview").addEventListener("click", () => {
   const input = $("#settlement-form").elements.villagePreviewSeed;
   input.value = String(1 + Math.floor(Math.random() * 999999998));
