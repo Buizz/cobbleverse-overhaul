@@ -37,6 +37,7 @@
   "screen.cobbleventure_player_menu.bag.source.inventory": "Inventory",
   "screen.cobbleventure_player_menu.bag.source.extended": "Extended Bag",
   "screen.cobbleventure_player_menu.bag.empty_slot": "Empty Slot %s",
+  "commands.cobbleventure_player_menu.bag.give": "Inserted %s items into %s player bag(s)",
   "screen.cobbleventure_player_menu.bag.page": "Page %s / %s",
   "screen.cobbleventure_player_menu.bag.empty_selection": "Select an item to manage",
   "screen.cobbleventure_player_menu.bag.category.all": "All",

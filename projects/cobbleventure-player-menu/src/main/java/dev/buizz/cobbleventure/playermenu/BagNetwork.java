@@ -32,6 +32,7 @@ public final class BagNetwork {
     public static void register(IEventBus modBus) {
         modBus.addListener(BagNetwork::registerPayloads);
         NeoForge.EVENT_BUS.addListener(BagNetwork::onItemPickup);
+        NeoForge.EVENT_BUS.addListener(BagCommands::register);
     }
 
     public static ClientSnapshot clientSnapshot() {
@@ -181,16 +182,15 @@ public final class BagNetwork {
         if (entity.hasPickUpDelay() || entity.getTarget() != null && !entity.getTarget().equals(player.getUUID())
             || inventory.getSlotWithRemainingSpace(worldStack) >= 0 || inventory.getFreeSlot() >= 0) return;
 
-        NonNullList<ItemStack> storage = BagStorage.load(player);
-        int moved = BagStorage.add(storage, worldStack);
+        BagApi.InsertResult result = BagApi.insert(player, worldStack, false);
+        int moved = result.inserted();
         if (moved <= 0) return;
-        BagStorage.save(player, storage);
+        worldStack.shrink(moved);
         player.take(entity, moved);
         player.awardStat(Stats.ITEM_PICKED_UP.get(pickedUpItem), moved);
         player.onItemPickup(entity);
         if (worldStack.isEmpty()) entity.discard();
         event.setCanPickup(TriState.FALSE);
-        sync(player, storage);
     }
 
     private static void useInventorySlot(ServerPlayer player, int sourceIndex) {
@@ -246,6 +246,11 @@ public final class BagNetwork {
         player.getInventory().setChanged();
         player.inventoryMenu.broadcastChanges();
         if (player.containerMenu != player.inventoryMenu) player.containerMenu.broadcastChanges();
+    }
+
+    static void syncExternalMutation(ServerPlayer player, List<ItemStack> storage) {
+        markInventoryChanged(player);
+        sync(player, storage);
     }
 
     private static void sync(ServerPlayer player, List<ItemStack> storage) {
