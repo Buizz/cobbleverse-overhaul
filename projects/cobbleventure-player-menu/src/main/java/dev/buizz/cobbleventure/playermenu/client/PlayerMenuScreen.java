@@ -119,6 +119,13 @@ public final class PlayerMenuScreen extends Screen {
             return true;
         }
 
+        PlayerMenuEntry shortcutEntry = PlayerMenuKeyMappings.matchingEntry(keyCode, scanCode);
+        if (shortcutEntry != null) {
+            select(shortcutEntry.ordinal());
+            activate(shortcutEntry);
+            return true;
+        }
+
         int numberIndex = keyCode - GLFW.GLFW_KEY_1;
         if (numberIndex >= 0 && numberIndex < PlayerMenuEntry.values().length) {
             select(numberIndex);
@@ -198,9 +205,15 @@ public final class PlayerMenuScreen extends Screen {
             false
         );
 
+        Component shortcut = Component.translatable(
+            "screen.cobbleventure_player_menu.shortcut",
+            PlayerMenuKeyMappings.keyName(entry)
+        );
+        graphics.drawString(font, shortcut, x + 39, y + 36, CONNECTED_COLOR, false);
+
         Component detail = statusMessage != null ? statusMessage : entry.description();
         List<FormattedCharSequence> lines = font.split(detail, infoWidth - 16);
-        int textY = y + 48;
+        int textY = y + 52;
         for (int index = 0; index < Math.min(3, lines.size()); index++) {
             graphics.drawString(
                 font,
@@ -232,7 +245,10 @@ public final class PlayerMenuScreen extends Screen {
         drawCobblemonPanel(graphics, x, y, infoWidth, panelHeight);
         graphics.drawString(
             font,
-            Component.translatable("screen.cobbleventure_player_menu.controls.primary"),
+            Component.translatable(
+                "screen.cobbleventure_player_menu.controls.primary",
+                minecraft == null ? Component.literal("E") : minecraft.options.keyInventory.getTranslatedKeyMessage()
+            ),
             x + 8,
             y + 7,
             SECONDARY_TEXT_COLOR,
@@ -385,7 +401,17 @@ public final class PlayerMenuScreen extends Screen {
                 false
             );
 
-            int titleWidth = getWidth() - 52;
+            String shortcut = PlayerMenuKeyMappings.keyName(entry).getString();
+            String clippedShortcut = font.plainSubstrByWidth(shortcut, 30);
+            int shortcutWidth = font.width(clippedShortcut);
+            int shortcutX = getX() + getWidth() - 13 - shortcutWidth;
+            graphics.fill(shortcutX - 2, getY() + 4, shortcutX + shortcutWidth + 2,
+                getY() + getHeight() - 4, selected ? ROW_SELECTED_INNER_COLOR : PANEL_DARK_COLOR);
+            graphics.drawString(font, clippedShortcut, shortcutX,
+                getY() + (getHeight() - 8) / 2,
+                selected ? SELECTED_TEXT_COLOR : CONNECTED_COLOR, false);
+
+            int titleWidth = Math.max(12, shortcutX - (getX() + 38) - 4);
             String clippedTitle = font.plainSubstrByWidth(entry.title().getString(), titleWidth);
             graphics.drawString(
                 font,

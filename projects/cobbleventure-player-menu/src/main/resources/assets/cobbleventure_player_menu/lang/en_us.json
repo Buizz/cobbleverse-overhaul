@@ -5,8 +5,9 @@
   "screen.cobbleventure_player_menu.header.player": "Trainer · %s",
   "screen.cobbleventure_player_menu.header.available": "Available %s/%s",
   "screen.cobbleventure_player_menu.header.party": "Party Pokémon %s/%s",
-  "screen.cobbleventure_player_menu.controls.primary": "↑↓ Move · Enter Select",
-  "screen.cobbleventure_player_menu.controls.secondary": "Number keys 1–8 · Esc Close",
+  "screen.cobbleventure_player_menu.controls.primary": "%s Close · ↑↓ Move · Enter Select",
+  "screen.cobbleventure_player_menu.controls.secondary": "Number keys 1–8 · Change shortcuts in Controls",
+  "screen.cobbleventure_player_menu.shortcut": "Shortcut: %s",
   "screen.cobbleventure_player_menu.status.select": "Choose a menu",
   "screen.cobbleventure_player_menu.status.available": "Available",
   "screen.cobbleventure_player_menu.status.pending": "Coming soon",
@@ -80,5 +81,15 @@
   "screen.cobbleventure_player_menu.world_map.spawn_placeholder": "Discovered areas and Pokémon encounter data will appear here",
   "screen.cobbleventure_player_menu.world_map.teleport": "Travel to this town",
   "screen.cobbleventure_player_menu.world_map.debug_teleport": "Admin debug teleport",
-  "screen.cobbleventure_player_menu.world_map.teleporting": "Teleporting…"
+  "screen.cobbleventure_player_menu.world_map.teleporting": "Teleporting…",
+  "key.categories.cobbleventure_player_menu": "Cobbleventure Player Menu",
+  "key.cobbleventure_player_menu.unbound": "Unbound",
+  "key.cobbleventure_player_menu.pokemon": "Open Pokémon",
+  "key.cobbleventure_player_menu.bag": "Open Bag",
+  "key.cobbleventure_player_menu.equipment": "Open Equipment",
+  "key.cobbleventure_player_menu.pc": "Open PC",
+  "key.cobbleventure_player_menu.trainer_card": "Open Trainer Card",
+  "key.cobbleventure_player_menu.quests": "Open Quests",
+  "key.cobbleventure_player_menu.map": "Open Map",
+  "key.cobbleventure_player_menu.pokedex": "Open Pokédex"
 }

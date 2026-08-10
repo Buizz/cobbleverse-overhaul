@@ -6,13 +6,15 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.bus.api.IEventBus;
 
 public final class PlayerMenuClient {
     private static boolean allowNextInventoryScreen;
 
     private PlayerMenuClient() {}
 
-    public static void register() {
+    public static void register(IEventBus modBus) {
+        PlayerMenuKeyMappings.register(modBus);
         NeoForge.EVENT_BUS.addListener(PlayerMenuClient::onScreenOpening);
     }
 

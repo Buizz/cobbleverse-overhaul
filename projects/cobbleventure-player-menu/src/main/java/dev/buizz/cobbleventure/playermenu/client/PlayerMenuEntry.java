@@ -36,6 +36,10 @@ enum PlayerMenuEntry {
         return Component.translatable("screen.cobbleventure_player_menu.entry." + id + ".description");
     }
 
+    String id() {
+        return id;
+    }
+
     ItemStack icon() {
         ItemStack fallback = new ItemStack(switch (this) {
             case POKEMON -> Items.EGG;
