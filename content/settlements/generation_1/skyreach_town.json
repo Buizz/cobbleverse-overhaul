@@ -3,9 +3,11 @@
   "schema_version": 3,
   "id": "cobbleventure:settlement/skyreach_town",
   "enabled": true,
-  "display_name": { "ko_kr": "하늘마루 마을", "en_us": "Skyreach Town" },
+  "display_name": { "ko_kr": "석영고원", "en_us": "Indigo Plateau" },
   "region": "cobbleventure:generation_1/region_05",
   "dimension": "cobbleventure:generation_1",
+  "biome": "minecraft:stony_peaks",
+  "town_radius_cells": 1,
   "bounds": { "min_x": 1185, "min_z": -764, "max_x": 1345, "max_z": -604 },
   "center": { "x": 1265, "y": 77, "z": -684 },
   "anchors": {
@@ -53,45 +55,30 @@
     ],
     "boundary": { "profile": "cobbleventure:boundary/earthwork", "width": 10, "wall_height": 8, "wall_thickness": 5 }
   },
-  "connections": [
-    {
-      "id": "crimson_cliff_route",
-      "target_settlement": "cobbleventure:settlement/crimson_town",
-      "placement": { "mode": "toward_target", "preferred_side": "south", "offset": 0 },
-      "gate_width": 9,
-      "path_width": 3
-    }
-  ],
+  "connections": [],
   "structure_profile": {
-    "structure": "cobbleventure:skyreach_town/village",
+    "structure": "bca:village/default_mid",
     "gym_theme": "rock",
     "village_preset": "default_mid",
-    "commercial_center": "pokemart",
+    "commercial_center": "preset",
     "house_style": "bca:default/general",
-    "gym_entrance_offset": { "x": 2, "y": 3, "z": 10 },
     "required_facilities": { "village_hub": "cobbleventure:skyreach_town/village_hub" },
     "special_district": {
       "enabled": true,
       "anchor": "special_district",
-      "footprint": { "width": 48, "depth": 48 },
+      "placement_mode": "manual",
+      "footprint": { "width": 8, "depth": 8 },
       "clearance": 6,
-      "entrance_direction": "south",
-      "building": { "enabled": false, "id": "special_landmark", "structure": "" }
+      "building": { "enabled": false, "structure": "" }
     },
     "gym": {
-      "enabled": true,
-      "structure": "rgs:blackthorn_gym",
+      "enabled": false,
+      "structure": "rgs:viridian_gym",
       "theme": "rock",
       "anchor": "gym_building",
-      "entrance_offset": { "x": 2, "y": 3, "z": 10 },
       "leader_trainer_id": ""
     },
-    "facility_placements": [
-      {
-        "id": "gym_building", "mode": "direct_template", "structure": "rgs:blackthorn_gym",
-        "anchor": "gym_building"
-      }
-    ]
+    "facility_placements": []
   },
   "npc_placement": {
     "max_ambient_npcs": 10,

@@ -18,8 +18,12 @@ public final class TownPlacementHeightContext {
         ResourceLocation.parse("bca:dark/dark"),
         ResourceLocation.parse("bca:ice/ice")
     );
-    private static final ResourceLocation BCA_DEFAULT_ONE_OFF =
-        ResourceLocation.parse("bca:default/one_off");
+    private static final Set<ResourceLocation> BCA_ONE_OFF_POOLS = Set.of(
+        ResourceLocation.parse("bca:default/one_off"),
+        ResourceLocation.parse("bca:fighting/one_off"),
+        ResourceLocation.parse("bca:dark/one_off"),
+        ResourceLocation.parse("bca:ice/one_off")
+    );
     private static final ResourceLocation EMPTY_POOL = ResourceLocation.parse("minecraft:empty");
     private static final ThreadLocal<State> ACTIVE_STATE = new ThreadLocal<>();
 
@@ -60,7 +64,7 @@ public final class TownPlacementHeightContext {
     ) {
         State state = ACTIVE_STATE.get();
         if (state != null && state.disableCommercialOneOff()
-            && original.location().equals(BCA_DEFAULT_ONE_OFF)) {
+            && BCA_ONE_OFF_POOLS.contains(original.location())) {
             return ResourceKey.create(Registries.TEMPLATE_POOL, EMPTY_POOL);
         }
         if (state == null || state.housePool() == null

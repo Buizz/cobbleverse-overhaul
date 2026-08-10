@@ -33,9 +33,14 @@
       "type": "array",
       "items": { "$ref": "#/$defs/placed_tile" }
     },
+    "empty_terrain": { "$ref": "#/$defs/empty_terrain" },
     "connections": {
       "type": "array",
       "items": { "$ref": "#/$defs/connection" }
+    },
+    "objects": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/custom_object" }
     }
   },
   "$defs": {
@@ -73,6 +78,31 @@
         "boundary_profile": { "$ref": "#/$defs/resource_id" },
         "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
         "access_requirement": { "$ref": "#/$defs/resource_id" }
+      }
+    },
+    "empty_terrain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_type", "tiles"],
+      "properties": {
+        "default_type": { "$ref": "#/$defs/empty_terrain_type" },
+        "tiles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/empty_terrain_tile" }
+        }
+      }
+    },
+    "empty_terrain_type": {
+      "enum": ["high_forest", "ocean", "desert", "stone_mountain", "snow_mountain"]
+    },
+    "empty_terrain_tile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q", "r", "type"],
+      "properties": {
+        "q": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "r": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "type": { "$ref": "#/$defs/empty_terrain_type" }
       }
     },
     "spawn_settings": {
@@ -149,9 +179,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "id", "from", "to", "route_biome", "width_cells", "pathfinding",
-        "corridor_width_blocks", "edge_noise", "boundary_profile",
-        "terrain_profile", "surface_style"
+        "id", "cells", "corridor_width_blocks", "surface_style"
       ],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
@@ -169,8 +197,22 @@
         "access_requirement": { "$ref": "#/$defs/resource_id" },
         "cells": {
           "type": "array",
+          "minItems": 1,
           "items": { "$ref": "#/$defs/axial_coordinate" }
         }
+      }
+    },
+    "custom_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "anchor"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "type": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "anchor": { "$ref": "#/$defs/axial_coordinate" },
+        "resource": { "$ref": "#/$defs/resource_id" },
+        "rotation": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "properties": { "type": "object" }
       }
     }
   }

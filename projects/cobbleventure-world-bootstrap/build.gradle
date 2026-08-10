@@ -19,9 +19,14 @@ configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
 
+def integrationBcaJar = null
 if (project.hasProperty('integration_mods_dir')) {
+    def integrationModsDirectory = file(project.property('integration_mods_dir'))
+    integrationBcaJar = fileTree(integrationModsDirectory) {
+        include 'cobblemon-additions-*.jar'
+    }.files.find()
     dependencies {
-        localRuntime fileTree(project.property('integration_mods_dir')) {
+        localRuntime fileTree(integrationModsDirectory) {
             include '*.jar'
             exclude 'cobbleventure-world-bootstrap-*.jar'
         }
@@ -41,10 +46,36 @@ neoForge {
             server()
             systemProperty 'cobbleventure.testHexWorld', 'true'
         }
+        worldPerformanceServer {
+            server()
+            systemProperty 'cobbleventure.testHexWorld', 'true'
+            systemProperty 'cobbleventure.performanceTest', 'true'
+            // Render a representative starter-region crop so terrain changes can
+            // be exercised repeatedly without rebuilding the entire Kanto map.
+            systemProperty 'cobbleventure.testRenderRadius', '192'
+        }
         gameTestServer { type = 'gameTestServer' }
     }
     mods {
         "${mod_id}" { sourceSet(sourceSets.main) }
+    }
+}
+
+tasks.named('runWorldPerformanceServer') {
+    notCompatibleWithConfigurationCache('Updates the dedicated server watchdog setting')
+    doFirst {
+        def serverProperties = file('run/server.properties')
+        if (serverProperties.isFile()) {
+            def contents = serverProperties.getText('UTF-8')
+            if (contents =~ /(?m)^max-tick-time=/) {
+                contents = contents.replaceFirst(
+                    /(?m)^max-tick-time=.*$/, 'max-tick-time=-1'
+                )
+            } else {
+                contents += System.lineSeparator() + 'max-tick-time=-1' + System.lineSeparator()
+            }
+            serverProperties.setText(contents, 'UTF-8')
+        }
     }
 }
 
@@ -61,6 +92,12 @@ processResources {
     inputs.properties properties
     filesMatching('META-INF/neoforge.mods.toml') {
         expand properties
+    }
+    if (integrationBcaJar != null) {
+        inputs.file integrationBcaJar
+        from(zipTree(integrationBcaJar)) {
+            include 'data/bca/**'
+        }
     }
 }
 

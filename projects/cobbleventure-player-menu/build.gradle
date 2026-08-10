@@ -51,6 +51,19 @@ processResources {
     filesMatching('META-INF/neoforge.mods.toml') {
         expand properties
     }
+    from(rootProject.file('../../content/worlds/generation_1.json')) {
+        into 'data/cobbleventure_player_menu/map'
+    }
+    from(rootProject.file('../../content/settlements/generation_1')) {
+        into 'data/cobbleventure_player_menu/map/settlements'
+        include '*.json'
+    }
+    from(rootProject.file('../../content/catalogs/biome-profiles.json')) {
+        into 'data/cobbleventure_player_menu/map/catalogs'
+    }
+    from(rootProject.file('../../content/catalogs/pokemon-habitats.json')) {
+        into 'data/cobbleventure_player_menu/map/catalogs'
+    }
 }
 
 tasks.register('cleanInstalledDevelopmentJars', Delete) {

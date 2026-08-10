@@ -270,12 +270,41 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
         map_radius = grid.get("map_radius_cells") if isinstance(grid, dict) else None
         if map_radius is not None and (not isinstance(map_radius, int) or isinstance(map_radius, bool) or not 3 <= map_radius <= 14):
             _issue(issues, "error", path, "$.grid.map_radius_cells", "3 이상 14 이하의 정수여야 합니다.")
+        empty_terrain = world.get("empty_terrain", {"default_type": "high_forest", "tiles": []})
+        empty_types = {"high_forest", "ocean", "desert", "stone_mountain", "snow_mountain"}
+        empty_coordinates: set[tuple[int, int]] = set()
+        if not isinstance(empty_terrain, dict):
+            _issue(issues, "error", path, "$.empty_terrain", "빈 지형 설정은 객체여야 합니다.")
+        else:
+            if empty_terrain.get("default_type", "high_forest") not in empty_types:
+                _issue(issues, "error", path, "$.empty_terrain.default_type", "지원하지 않는 빈 지형 타입입니다.")
+            empty_tiles = empty_terrain.get("tiles", [])
+            if not isinstance(empty_tiles, list):
+                _issue(issues, "error", path, "$.empty_terrain.tiles", "빈 지형 타일 배열이 필요합니다.")
+            else:
+                for index, empty_tile in enumerate(empty_tiles):
+                    empty_path = f"$.empty_terrain.tiles[{index}]"
+                    if not isinstance(empty_tile, dict):
+                        _issue(issues, "error", path, empty_path, "빈 지형 타일은 객체여야 합니다.")
+                        continue
+                    q, r = empty_tile.get("q"), empty_tile.get("r")
+                    coordinate = (q, r) if all(isinstance(value, int) and not isinstance(value, bool) for value in (q, r)) else None
+                    if coordinate is None:
+                        _issue(issues, "error", path, empty_path, "정수 axial 좌표 q, r이 필요합니다.")
+                    elif coordinate in empty_coordinates:
+                        _issue(issues, "error", path, empty_path, f"중복 빈 지형 타일: {coordinate}")
+                    else:
+                        empty_coordinates.add(coordinate)
+                    if empty_tile.get("type") not in empty_types:
+                        _issue(issues, "error", path, f"{empty_path}.type", "지원하지 않는 빈 지형 타입입니다.")
         entries = world.get("settlements")
         world_settlements: set[str] = set()
+        settlement_anchors: dict[str, tuple[int, int]] = {}
         if not isinstance(entries, list):
             _issue(issues, "error", path, "$.settlements", "마을 셀 설정 배열이 필요합니다.")
             entries = []
         occupied_anchors: set[tuple[int, int]] = set()
+        occupied_town_ranges: list[tuple[tuple[int, int], int, str]] = []
         for index, entry in enumerate(entries):
             entry_path = f"$.settlements[{index}]"
             if not isinstance(entry, dict):
@@ -298,6 +327,26 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                 _issue(issues, "error", path, f"{entry_path}.anchor", f"중복 마을 앵커 셀: {coordinate}")
             else:
                 occupied_anchors.add(coordinate)
+                if isinstance(settlement, str):
+                    settlement_anchors[settlement] = coordinate
+            town_radius = entry.get("town_radius_cells")
+            if not isinstance(town_radius, int) or isinstance(town_radius, bool) or not 0 <= town_radius <= 8:
+                _issue(issues, "error", path, f"{entry_path}.town_radius_cells", "0 이상 8 이하의 정수여야 합니다.")
+            elif coordinate is not None:
+                for other_coordinate, other_radius, other_settlement in occupied_town_ranges:
+                    q1, r1 = coordinate
+                    q2, r2 = other_coordinate
+                    distance = (abs(q1 - q2) + abs(r1 - r2) + abs((-q1 - r1) - (-q2 - r2))) // 2
+                    minimum_distance = town_radius + other_radius + 2
+                    if distance < minimum_distance:
+                        _issue(
+                            issues,
+                            "error",
+                            path,
+                            f"{entry_path}.town_radius_cells",
+                            f"마을 외곽 사이에 최소 한 칸의 완충 지형이 필요합니다: {other_settlement}",
+                        )
+                occupied_town_ranges.append((coordinate, town_radius, str(settlement)))
             boundary = entry.get("boundary_profile")
             if boundary not in boundary_ids:
                 _issue(issues, "error", path, f"{entry_path}.boundary_profile", f"존재하지 않는 경계 프로필: {boundary}")
@@ -380,10 +429,10 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                 seen_connections.add(connection_id)
             for field in ("from", "to"):
                 target = connection.get(field)
-                if target not in world_settlements:
+                if target is not None and target not in world_settlements:
                     _issue(issues, "error", path, f"{connection_path}.{field}", f"월드 지도에 없는 마을입니다: {target}")
             boundary = connection.get("boundary_profile")
-            if boundary not in boundary_ids:
+            if boundary is not None and boundary not in boundary_ids:
                 _issue(issues, "error", path, f"{connection_path}.boundary_profile", f"존재하지 않는 경계 프로필: {boundary}")
             corridor_width = connection.get("corridor_width_blocks")
             if not isinstance(corridor_width, (int, float)) or isinstance(corridor_width, bool) or not 12 <= corridor_width <= 256:
@@ -391,15 +440,54 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
             edge_noise = connection.get("edge_noise")
             if not isinstance(edge_noise, (int, float)) or isinstance(edge_noise, bool) or not 0 <= edge_noise <= 0.35:
                 _issue(issues, "error", path, f"{connection_path}.edge_noise", "0 이상 0.35 이하의 통로 경계 굴곡값이 필요합니다.")
-            validate_terrain(connection.get("terrain_profile"), path, f"{connection_path}.terrain_profile")
+            if connection.get("terrain_profile") is not None:
+                validate_terrain(connection.get("terrain_profile"), path, f"{connection_path}.terrain_profile")
             if connection.get("surface_style") not in {"road", "natural", "water"}:
                 _issue(issues, "error", path, f"{connection_path}.surface_style", "road, natural, water 중 하나가 필요합니다.")
             validate_access(connection.get("access_requirement"), path, f"{connection_path}.access_requirement")
             validate_access_height(
                 connection.get("terrain_profile"), connection.get("access_requirement"), path, connection_path
             )
-            if connection.get("pathfinding") == "explicit" and not connection.get("cells"):
-                _issue(issues, "error", path, f"{connection_path}.cells", "explicit 경로에는 셀 목록이 필요합니다.")
+            cells = connection.get("cells")
+            if not isinstance(cells, list) or not cells:
+                _issue(issues, "error", path, f"{connection_path}.cells", "직접 그린 길에는 셀 목록이 필요합니다.")
+                continue
+            coordinates = []
+            for cell_index, cell in enumerate(cells):
+                if not isinstance(cell, dict) or not all(isinstance(cell.get(key), int) and not isinstance(cell.get(key), bool) for key in ("q", "r")):
+                    _issue(issues, "error", path, f"{connection_path}.cells[{cell_index}]", "정수 axial 좌표 q, r이 필요합니다.")
+                    continue
+                coordinates.append((cell["q"], cell["r"]))
+            for cell_index in range(1, len(coordinates)):
+                q1, r1 = coordinates[cell_index - 1]
+                q2, r2 = coordinates[cell_index]
+                distance = (abs(q1 - q2) + abs(r1 - r2) + abs((-q1 - r1) - (-q2 - r2))) // 2
+                if distance != 1:
+                    _issue(issues, "error", path, f"{connection_path}.cells[{cell_index}]", "길 셀은 앞 셀과 맞닿아야 합니다.")
+        objects = world.get("objects", [])
+        if not isinstance(objects, list):
+            _issue(issues, "error", path, "$.objects", "커스텀 오브젝트 목록은 배열이어야 합니다.")
+            objects = []
+        seen_objects: set[str] = set()
+        for index, custom_object in enumerate(objects):
+            object_path = f"$.objects[{index}]"
+            if not isinstance(custom_object, dict):
+                _issue(issues, "error", path, object_path, "커스텀 오브젝트는 객체여야 합니다.")
+                continue
+            object_id = custom_object.get("id")
+            if not isinstance(object_id, str) or not CHOICE_ID.fullmatch(object_id) or object_id in seen_objects:
+                _issue(issues, "error", path, f"{object_path}.id", "유일한 오브젝트 ID가 필요합니다.")
+            else:
+                seen_objects.add(object_id)
+            object_type = custom_object.get("type")
+            if not isinstance(object_type, str) or not CHOICE_ID.fullmatch(object_type):
+                _issue(issues, "error", path, f"{object_path}.type", "올바른 오브젝트 타입이 필요합니다.")
+            anchor = custom_object.get("anchor")
+            if not isinstance(anchor, dict) or not all(isinstance(anchor.get(key), int) and not isinstance(anchor.get(key), bool) for key in ("q", "r")):
+                _issue(issues, "error", path, f"{object_path}.anchor", "정수 axial 좌표 q, r이 필요합니다.")
+            resource = custom_object.get("resource")
+            if resource is not None and (not isinstance(resource, str) or not RESOURCE_ID.fullmatch(resource)):
+                _issue(issues, "error", path, f"{object_path}.resource", "올바른 오브젝트 리소스 ID가 필요합니다.")
     return issues
 
 
@@ -823,6 +911,10 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
     _localized_text(root.get("display_name"), issues, path, "$.display_name")
     _resource_id(root.get("region"), issues, path, "$.region")
     _resource_id(root.get("dimension"), issues, path, "$.dimension")
+    _resource_id(root.get("biome"), issues, path, "$.biome")
+    town_radius = root.get("town_radius_cells")
+    if not isinstance(town_radius, int) or isinstance(town_radius, bool) or not 0 <= town_radius <= 8:
+        _issue(issues, "error", path, "$.town_radius_cells", "0 이상 8 이하의 정수여야 합니다.")
 
     bounds = _validate_horizontal_bounds(root.get("bounds"), issues, path, "$.bounds")
     center = _validate_block_position(root.get("center"), issues, path, "$.center")
@@ -967,8 +1059,8 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
         biome_zones = _require_list(biome_layout.get("zones"), issues, path, "$.biome_layout.zones")
         seen_biome_zones: set[str] = set()
         if biome_zones is not None:
-            if not 1 <= len(biome_zones) <= 3:
-                _issue(issues, "error", path, "$.biome_layout.zones", "바이옴은 1개 이상 3개 이하로 지정해야 합니다.")
+            if len(biome_zones) != 1:
+                _issue(issues, "error", path, "$.biome_layout.zones", "마을 프리셋의 바이옴은 정확히 1개여야 합니다.")
             for index, zone_value in enumerate(biome_zones):
                 zone_path = f"$.biome_layout.zones[{index}]"
                 zone = _require_object(zone_value, issues, path, zone_path)
@@ -982,6 +1074,8 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 else:
                     seen_biome_zones.add(zone_id)
                 _resource_id(zone.get("biome"), issues, path, f"{zone_path}.biome")
+                if index == 0 and zone.get("biome") != root.get("biome"):
+                    _issue(issues, "error", path, f"{zone_path}.biome", "대표 바이옴과 내부 바이옴 설정이 같아야 합니다.")
                 if zone.get("habitat_profile") is not None:
                     _resource_id(zone.get("habitat_profile"), issues, path, f"{zone_path}.habitat_profile")
                 settings = zone.get("spawn_settings")
@@ -1021,6 +1115,8 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
     connections = _require_list(root.get("connections"), issues, path, "$.connections")
     seen_connections: set[str] = set()
     if connections is not None:
+        if connections:
+            _issue(issues, "error", path, "$.connections", "마을 간 길과 연결은 월드맵에서 설정해야 합니다.")
         for index, connection_value in enumerate(connections):
             connection_path = f"$.connections[{index}]"
             connection = _require_object(connection_value, issues, path, connection_path)
@@ -1075,7 +1171,7 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 "$.structure_profile.gym_theme",
                 "지원하는 체육관 타입 테마가 아닙니다.",
             )
-        village_preset = structure_profile.get("village_preset", "default_large")
+        village_preset = structure_profile.get("village_preset")
         supported_villages = {
             "default_small", "default_mid", "default_large",
             "fighting_small", "fighting_mid", "fighting_large",
@@ -1083,7 +1179,7 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             "ice_small", "ice_mid", "ice_large",
             "cobbleventure_starter",
         }
-        if village_preset not in supported_villages:
+        if village_preset is not None and village_preset not in supported_villages:
             _issue(
                 issues,
                 "error",
@@ -1092,24 +1188,32 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 "지원하는 BCA 또는 Cobbleventure 전용 마을 프리셋이 아닙니다.",
             )
         commercial_center = structure_profile.get("commercial_center")
-        if commercial_center not in {"none", "preset", "pokemart", "department_store"}:
+        if commercial_center not in {"none", "pokemart", "department_store", "preset"}:
             _issue(
                 issues,
                 "error",
                 path,
                 "$.structure_profile.commercial_center",
-                "none, preset, pokemart, department_store 중 하나가 필요합니다.",
+                "none, pokemart 또는 department_store 중 하나가 필요합니다.",
             )
         starter_layout = structure_profile.get("starter_layout")
-        if village_preset == "cobbleventure_starter":
-            starter_layout = _require_object(
-                starter_layout, issues, path, "$.structure_profile.starter_layout"
-            )
+        starter_town = str(root.get("id", "")).endswith("/starter_town")
+        if starter_town:
             if commercial_center != "none":
                 _issue(
                     issues, "error", path, "$.structure_profile.commercial_center",
-                    "전용 시작 마을에서는 상업 중심 시설을 none으로 설정해야 합니다.",
+                    "시작 마을에서는 상업 중심 시설을 none으로 설정해야 합니다.",
                 )
+            if structure_profile.get("pokemon_center_enabled", False) is not False:
+                _issue(
+                    issues, "error", path,
+                    "$.structure_profile.pokemon_center_enabled",
+                    "시작 마을에는 포켓몬센터를 배치할 수 없습니다.",
+                )
+        if starter_layout is not None:
+            starter_layout = _require_object(
+                starter_layout, issues, path, "$.structure_profile.starter_layout"
+            )
             if starter_layout is not None:
                 _resource_id(
                     starter_layout.get("laboratory_structure"), issues, path,
@@ -1122,18 +1226,13 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                         "$.structure_profile.starter_layout.jigsaw_depth",
                         "0 이상 4 이하의 정수여야 합니다.",
                     )
-        _resource_id(
-            structure_profile.get("house_style"),
-            issues,
-            path,
-            "$.structure_profile.house_style",
-        )
-        _validate_block_position(
-            structure_profile.get("gym_entrance_offset"),
-            issues,
-            path,
-            "$.structure_profile.gym_entrance_offset",
-        )
+        if "house_style" in structure_profile:
+            _resource_id(
+                structure_profile.get("house_style"),
+                issues,
+                path,
+                "$.structure_profile.house_style",
+            )
         facilities = _require_object(
             structure_profile.get("required_facilities"),
             issues,
@@ -1155,6 +1254,63 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                     _issue(issues, "error", path, facility_path, "올바른 시설 ID가 아닙니다.")
                 _resource_id(structure_id, issues, path, facility_path)
 
+        layout_shape = structure_profile.get("layout_shape", "branching")
+        if layout_shape not in {"branching", "linear", "radial", "loop", "terraced"}:
+            _issue(
+                issues, "error", path, "$.structure_profile.layout_shape",
+                "지원하는 마을 형태가 아닙니다.",
+            )
+        road_profile = structure_profile.get("road_profile")
+        if road_profile is not None:
+            road_profile = _require_object(
+                road_profile, issues, path, "$.structure_profile.road_profile"
+            )
+            if road_profile is not None:
+                if road_profile.get("width") not in {3, 5, 7, 9}:
+                    _issue(issues, "error", path, "$.structure_profile.road_profile.width", "도로 폭은 3, 5, 7 또는 9블록이어야 합니다.")
+                if road_profile.get("material") not in {
+                    "cobblestone", "stone_bricks", "gravel",
+                    "packed_mud", "sandstone", "snow",
+                }:
+                    _issue(issues, "error", path, "$.structure_profile.road_profile.material", "지원하는 도로 노면이 아닙니다.")
+        facility_requirements = structure_profile.get("facility_requirements", [])
+        required_facility_counts: dict[str, int] = {}
+        if not isinstance(facility_requirements, list):
+            _issue(
+                issues, "error", path, "$.structure_profile.facility_requirements",
+                "필수 시설 목록은 배열이어야 합니다.",
+            )
+        else:
+            for index, requirement_value in enumerate(facility_requirements):
+                requirement_path = f"$.structure_profile.facility_requirements[{index}]"
+                requirement = _require_object(requirement_value, issues, path, requirement_path)
+                if requirement is None:
+                    continue
+                facility_id = requirement.get("id")
+                if not isinstance(facility_id, str) or not CHOICE_ID.fullmatch(facility_id):
+                    _issue(issues, "error", path, f"{requirement_path}.id", "올바른 시설 ID가 아닙니다.")
+                    continue
+                if facility_id in required_facility_counts:
+                    _issue(issues, "error", path, f"{requirement_path}.id", f"중복 필수 시설 항목: {facility_id}")
+                label = requirement.get("label")
+                if not isinstance(label, str) or not 1 <= len(label) <= 32:
+                    _issue(issues, "error", path, f"{requirement_path}.label", "1자 이상 32자 이하의 표지판 이름이 필요합니다.")
+                count = requirement.get("count")
+                if not isinstance(count, int) or isinstance(count, bool) or not 1 <= count <= 8:
+                    _issue(issues, "error", path, f"{requirement_path}.count", "시설 수량은 1 이상 8 이하의 정수여야 합니다.")
+                else:
+                    required_facility_counts[facility_id] = count
+                if requirement.get("required") is not True:
+                    _issue(issues, "error", path, f"{requirement_path}.required", "체크한 시설은 반드시 필수 시설이어야 합니다.")
+                footprint = _require_object(
+                    requirement.get("footprint"), issues, path, f"{requirement_path}.footprint"
+                )
+                if footprint is not None:
+                    for field, minimum, maximum in (("width", 8, 96), ("depth", 8, 96), ("height", 4, 48)):
+                        value = footprint.get(field)
+                        if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
+                            _issue(issues, "error", path, f"{requirement_path}.footprint.{field}", f"{minimum} 이상 {maximum} 이하의 정수여야 합니다.")
+
         anchors = root.get("anchors") if isinstance(root.get("anchors"), dict) else {}
         district = _require_object(
             structure_profile.get("special_district"), issues, path,
@@ -1163,6 +1319,8 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
         if district is not None:
             if not isinstance(district.get("enabled"), bool):
                 _issue(issues, "error", path, "$.structure_profile.special_district.enabled", "참/거짓 값이어야 합니다.")
+            if district.get("placement_mode", "manual") not in {"auto", "manual"}:
+                _issue(issues, "error", path, "$.structure_profile.special_district.placement_mode", "자동 또는 직접 지정이어야 합니다.")
             district_anchor = district.get("anchor")
             if not isinstance(district_anchor, str) or district_anchor not in anchors:
                 _issue(issues, "error", path, "$.structure_profile.special_district.anchor", "존재하는 특별 구역 앵커를 지정해야 합니다.")
@@ -1178,8 +1336,6 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             clearance = district.get("clearance")
             if not isinstance(clearance, int) or isinstance(clearance, bool) or not 0 <= clearance <= 32:
                 _issue(issues, "error", path, "$.structure_profile.special_district.clearance", "0 이상 32 이하의 정수여야 합니다.")
-            if district.get("entrance_direction") not in {"north", "south", "east", "west"}:
-                _issue(issues, "error", path, "$.structure_profile.special_district.entrance_direction", "북·남·동·서 방향 중 하나여야 합니다.")
             building = _require_object(
                 district.get("building"), issues, path,
                 "$.structure_profile.special_district.building",
@@ -1187,9 +1343,6 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             if building is not None:
                 if not isinstance(building.get("enabled"), bool):
                     _issue(issues, "error", path, "$.structure_profile.special_district.building.enabled", "참/거짓 값이어야 합니다.")
-                building_id = building.get("id")
-                if not isinstance(building_id, str) or not CHOICE_ID.fullmatch(building_id):
-                    _issue(issues, "error", path, "$.structure_profile.special_district.building.id", "올바른 건축물 ID가 아닙니다.")
                 if building.get("enabled"):
                     _resource_id(building.get("structure"), issues, path, "$.structure_profile.special_district.building.structure")
 
@@ -1209,7 +1362,6 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 "rock", "ghost", "dragon", "dark", "steel", "fairy",
             }:
                 _issue(issues, "error", path, "$.structure_profile.gym.theme", "지원하는 체육관 타입 테마가 아닙니다.")
-            _validate_block_position(gym.get("entrance_offset"), issues, path, "$.structure_profile.gym.entrance_offset")
             if gym_enabled:
                 _resource_id(gym.get("structure"), issues, path, "$.structure_profile.gym.structure")
             leader = gym.get("leader_trainer_id")
@@ -1224,6 +1376,7 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             )
         else:
             seen_placements: set[str] = set()
+            placeholder_counts: dict[str, int] = {}
             for index, placement_value in enumerate(facility_placements):
                 placement_path = f"$.structure_profile.facility_placements[{index}]"
                 facility_placement = _require_object(
@@ -1243,10 +1396,33 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                     f"{placement_path}.structure",
                 )
                 mode = facility_placement.get("mode")
-                if mode not in {"instanced_entry", "direct_template"}:
+                if mode not in {"instanced_entry", "direct_template", "placeholder"}:
                     _issue(issues, "error", path, f"{placement_path}.mode", "지원하지 않는 시설 배치 방식입니다.")
                     continue
-                if mode == "direct_template":
+                structure_id = facility_placement.get("structure")
+                is_placeholder_template = mode == "placeholder" or (
+                    isinstance(structure_id, str)
+                    and structure_id.startswith("cobbleventure:placeholder/")
+                )
+                if is_placeholder_template:
+                    facility_type = facility_placement.get("facility_type")
+                    if not isinstance(facility_type, str) or not CHOICE_ID.fullmatch(facility_type):
+                        _issue(issues, "error", path, f"{placement_path}.facility_type", "올바른 시설 종류가 필요합니다.")
+                    else:
+                        placeholder_counts[facility_type] = placeholder_counts.get(facility_type, 0) + 1
+                    label = facility_placement.get("label")
+                    if not isinstance(label, str) or not 1 <= len(label) <= 32:
+                        _issue(issues, "error", path, f"{placement_path}.label", "1자 이상 32자 이하의 표지판 이름이 필요합니다.")
+                    footprint = _require_object(
+                        facility_placement.get("footprint"), issues, path,
+                        f"{placement_path}.footprint",
+                    )
+                    if footprint is not None:
+                        for field, minimum, maximum in (("width", 8, 96), ("depth", 8, 96), ("height", 4, 48)):
+                            value = footprint.get(field)
+                            if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
+                                _issue(issues, "error", path, f"{placement_path}.footprint.{field}", f"{minimum} 이상 {maximum} 이하의 정수여야 합니다.")
+                if mode in {"direct_template", "placeholder"}:
                     anchor = facility_placement.get("anchor")
                     if not isinstance(anchor, str) or anchor not in anchors:
                         _issue(issues, "error", path, f"{placement_path}.anchor", "존재하는 마을 앵커를 지정해야 합니다.")
@@ -1268,6 +1444,13 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                     or not 0.5 <= radius <= 8
                 ):
                     _issue(issues, "error", path, f"{placement_path}.trigger_radius", "0.5 이상 8 이하의 숫자여야 합니다.")
+            for facility_id, requested_count in required_facility_counts.items():
+                placed_count = placeholder_counts.get(facility_id, 0)
+                if placed_count != requested_count:
+                    _issue(
+                        issues, "error", path, "$.structure_profile.facility_placements",
+                        f"체크한 시설 {facility_id}은(는) {requested_count}개가 필요하지만 플레이스홀더는 {placed_count}개입니다.",
+                    )
 
     placement = _require_object(
         root.get("npc_placement"), issues, path, "$.npc_placement"
@@ -2355,6 +2538,12 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
             if category == "trainers":
                 summary["battle_type"] = data.get("battle", {}).get("battle_type", "singles")
                 summary["npc_name"] = _localized_value(data.get("npc", {}).get("display_name"))
+            else:
+                zones = data.get("biome_layout", {}).get("zones", [])
+                summary["biome"] = data.get("biome") or (
+                    zones[0].get("biome") if zones else "minecraft:plains"
+                )
+                summary["town_radius_cells"] = data.get("town_radius_cells", 1)
             documents.append(summary)
         except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
             documents.append(
@@ -2569,6 +2758,8 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
         "display_name": {"ko_kr": name},
         "region": f"cobbleventure:{generation}/region_01",
         "dimension": f"cobbleventure:{generation}",
+        "biome": "minecraft:plains",
+        "town_radius_cells": 1,
         "bounds": {"min_x": -32, "min_z": -32, "max_x": 32, "max_z": 32},
         "center": {"x": 0, "y": 64, "z": 0},
         "anchors": {
@@ -2618,25 +2809,26 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
         "structure_profile": {
             "structure": f"cobbleventure:{slug}/village",
             "gym_theme": "normal",
-            "village_preset": "default_mid",
-            "commercial_center": "pokemart",
-            "house_style": "bca:default/general",
-            "gym_entrance_offset": {"x": 2, "y": 3, "z": 10},
+            "commercial_center": "none",
+            "pokemon_center_enabled": True,
+            "civic_facilities_explicit": True,
+            "layout_shape": "branching",
+            "road_profile": {"width": 7, "material": "cobblestone"},
             "required_facilities": {"village_hub": f"cobbleventure:{slug}/village_hub"},
+            "facility_requirements": [],
             "special_district": {
-                "enabled": True,
+                "enabled": False,
                 "anchor": "special_district",
-                "footprint": {"width": 48, "depth": 48},
+                "placement_mode": "auto",
+                "footprint": {"width": 8, "depth": 8},
                 "clearance": 6,
-                "entrance_direction": "south",
-                "building": {"enabled": False, "id": "special_landmark", "structure": ""},
+                "building": {"enabled": False, "structure": ""},
             },
             "gym": {
                 "enabled": False,
                 "structure": "",
                 "theme": "normal",
                 "anchor": "gym_building",
-                "entrance_offset": {"x": 2, "y": 3, "z": 10},
                 "leader_trainer_id": "",
             },
             "facility_placements": [],

@@ -4,11 +4,13 @@
   "id": "cobbleventure:settlement/route_01_town",
   "enabled": true,
   "display_name": {
-    "ko_kr": "초록길 마을",
-    "en_us": "Greenway Town"
+    "ko_kr": "상록시티",
+    "en_us": "Viridian City"
   },
   "region": "cobbleventure:generation_1/region_02",
   "dimension": "cobbleventure:generation_1",
+  "biome": "minecraft:forest",
+  "town_radius_cells": 1,
   "bounds": {
     "min_x": 900,
     "min_z": -440,
@@ -65,24 +67,6 @@
         "weight": 5,
         "habitat_profile": "cobbleventure:biome_profile/forest",
         "spawn_settings": { "generation": 1, "temperature": "temperate", "humidity": "humid", "weather": "any", "time": "any", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
-      },
-      {
-        "id": "flower_grove",
-        "biome": "minecraft:flower_forest",
-        "size_blocks": 144,
-        "placement": "inner",
-        "weight": 3,
-        "habitat_profile": "cobbleventure:biome_profile/forest",
-        "spawn_settings": { "generation": 1, "temperature": "temperate", "humidity": "humid", "weather": "clear", "time": "day", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
-      },
-      {
-        "id": "river_edge",
-        "biome": "minecraft:river",
-        "size_blocks": 80,
-        "placement": "outer",
-        "weight": 1,
-        "habitat_profile": "cobbleventure:biome_profile/freshwater",
-        "spawn_settings": { "generation": 1, "temperature": "temperate", "humidity": "aquatic", "weather": "rain", "time": "any", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
       }
     ],
     "boundary": {
@@ -92,50 +76,36 @@
       "wall_thickness": 5
     }
   },
-  "connections": [
-    {
-      "id": "starter_town_gate",
-      "target_settlement": "cobbleventure:settlement/starter_town",
-      "placement": {
-        "mode": "toward_target",
-        "preferred_side": "west",
-        "offset": 0
-      },
-      "gate_width": 9,
-      "path_width": 3
-    }
-  ],
+  "connections": [],
   "structure_profile": {
-    "structure": "cobbleventure:route_01_town/village",
-    "gym_theme": "bug",
+    "structure": "bca:village/default_mid",
+    "gym_theme": "ground",
     "village_preset": "default_mid",
-    "commercial_center": "pokemart",
+    "commercial_center": "preset",
     "house_style": "bca:default/general",
-    "gym_entrance_offset": { "x": 2, "y": 3, "z": 10 },
     "required_facilities": {
       "village_hub": "cobbleventure:route_01_town/village_hub"
     },
     "special_district": {
       "enabled": true,
       "anchor": "special_district",
-      "footprint": { "width": 48, "depth": 48 },
+      "placement_mode": "manual",
+      "footprint": { "width": 8, "depth": 8 },
       "clearance": 6,
-      "entrance_direction": "south",
-      "building": { "enabled": false, "id": "special_landmark", "structure": "" }
+      "building": { "enabled": false, "structure": "" }
     },
     "gym": {
       "enabled": true,
-      "structure": "rgs:celadon_gym",
-      "theme": "bug",
+      "structure": "rgs:viridian_gym",
+      "theme": "ground",
       "anchor": "gym_building",
-      "entrance_offset": { "x": 2, "y": 3, "z": 10 },
       "leader_trainer_id": ""
     },
     "facility_placements": [
       {
         "id": "gym_building",
         "mode": "direct_template",
-        "structure": "rgs:celadon_gym",
+        "structure": "rgs:viridian_gym",
         "anchor": "gym_building"
       }
     ]

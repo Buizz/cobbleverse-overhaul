@@ -15,6 +15,8 @@ Cobblemon Raid Dens처럼 고정된 공용 공허 차원 하나에 서로 멀리
 1. 종료 후 제거되는 관장전·레이드·리그전·컷신 공간
 2. 스토리 진행도에 따라 내부 구조와 NPC가 달라지는 집·상점·연구소 등의 상태 변화 공간
 
+특수 던전의 2인 협동 입장, 던전 세션과 EasyNPC 보스 멀티배틀은 [특수 던전 2인 협동 멀티배틀](COOPERATIVE_DUNGEON_BATTLES.md)을 따른다.
+
 ## 2 참고 구현: Cobblemon Raid Dens
 
 조사 기준은 Minecraft 1.21.1, Cobblemon 1.7.3용 Cobblemon Raid Dens `0.11.4` 공개 소스다.

@@ -1,30 +1,31 @@
 {
   "type": "cobbleventure:generation_world",
   "generator": {
-    "type": "minecraft:flat",
-    "settings": {
-      "biome": "cobbleventure:starter_plains",
-      "features": false,
-      "lakes": false,
-      "layers": [
-        {
-          "block": "minecraft:bedrock",
-          "height": 10
-        },
-        {
-          "block": "minecraft:stone",
-          "height": 54
-        },
-        {
-          "block": "minecraft:dirt",
-          "height": 3
-        },
-        {
-          "block": "minecraft:grass_block",
-          "height": 1
-        }
-      ],
-      "structure_overrides": []
+    "type": "cobbleventure:hex_map",
+    "seed": 19960227,
+    "biome_source": {
+      "type": "cobbleventure:hex_map",
+      "biomes": [
+        "cobbleventure:starter_plains",
+        "cobbleventure:sealed_dark_forest",
+        "minecraft:plains",
+        "minecraft:forest",
+        "minecraft:flower_forest",
+        "minecraft:dark_forest",
+        "minecraft:old_growth_pine_taiga",
+        "minecraft:meadow",
+        "minecraft:windswept_hills",
+        "minecraft:windswept_gravelly_hills",
+        "minecraft:stony_peaks",
+        "minecraft:snowy_slopes",
+        "minecraft:river",
+        "minecraft:beach",
+        "minecraft:deep_ocean",
+        "minecraft:warm_ocean",
+        "minecraft:desert",
+        "minecraft:sparse_jungle",
+        "minecraft:jungle"
+      ]
     }
   }
 }

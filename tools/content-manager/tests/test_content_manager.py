@@ -23,17 +23,44 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    @staticmethod
+    def _valid_settlement_trainer_slot() -> dict:
+        return {
+            "id": "starter_guide",
+            "trainer_id": "cobbleventure:trainer/starter_guide",
+            "battle_type": "singles",
+            "members": [{
+                "id": "primary",
+                "npc_profile": "cobbleventure:trainer/starter_guide",
+                "position": {"x": 600, "y": 69, "z": -300},
+                "rotation": 0,
+            }],
+            "spawn_policy": "persistent",
+            "tags": ["trainer"],
+        }
+
+    def test_player_menu_accepts_null_secondary_pokemon_habitat(self) -> None:
+        root = Path(__file__).parents[3]
+        catalog = json.loads((root / "content" / "catalogs" / "pokemon-habitats.json").read_text(encoding="utf-8"))
+        self.assertTrue(any(entry.get("habitats", {}).get("secondary") is None for entry in catalog["pokemon"]))
+        source = (root / "projects" / "cobbleventure-player-menu" / "src" / "main" / "java" / "dev" / "buizz" / "cobbleventure" / "playermenu" / "MapContent.java").read_text(encoding="utf-8")
+        self.assertIn('nullableString(habitats, "secondary")', source)
+        self.assertIn("value.isJsonNull()", source)
+
     def test_world_layout_graph_can_be_saved_atomically(self) -> None:
         root = Path(__file__).parents[3]
         layout = content_manager.load_world_layout(root)
-        self.assertEqual(5, len(layout["settlements"]))
+        self.assertEqual(11, len(layout["settlements"]))
         self.assertTrue(
             any(
-                connection["from"] == "cobbleventure:settlement/crimson_town"
+                connection["from"] == "cobbleventure:settlement/route_01_town"
                 and connection["to"] == "cobbleventure:settlement/skyreach_town"
                 for connection in layout["connections"]
             )
         )
+        self.assertTrue(all(connection["pathfinding"] == "explicit" for connection in layout["connections"]))
+        self.assertTrue(all(len(connection["cells"]) >= 2 for connection in layout["connections"]))
+        self.assertEqual("high_forest", layout["empty_terrain"]["default_type"])
         with tempfile.TemporaryDirectory() as directory:
             candidate_root = Path(directory)
             settlement_dir = candidate_root / "content" / "settlements" / "generation_1"
@@ -57,6 +84,18 @@ class ContentManagerTests(unittest.TestCase):
             issues = content_manager.save_world_layout(candidate_root, invalid)
             self.assertTrue(any(issue.level == "error" for issue in issues))
             self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
+            invalid_buffer = json.loads(json.dumps(saved))
+            invalid_buffer["settlements"][1]["anchor"] = {"q": -3, "r": 3}
+            issues = content_manager.save_world_layout(candidate_root, invalid_buffer)
+            self.assertTrue(any("완충 지형" in issue.message for issue in issues))
+            self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
+            invalid_empty = json.loads(json.dumps(saved))
+            invalid_empty["empty_terrain"]["tiles"] = [
+                {"q": 20, "r": -4, "type": "lava"},
+            ]
+            issues = content_manager.save_world_layout(candidate_root, invalid_empty)
+            self.assertTrue(any(issue.path.endswith(".type") for issue in issues))
+            self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
             generation_two = {
                 "$schema": "../schemas/hex-world.schema.json",
                 "schema_version": 2,
@@ -64,11 +103,72 @@ class ContentManagerTests(unittest.TestCase):
                 "dimension": "cobbleventure:generation_2",
                 "seed_salt": 1702,
                 "grid": {"orientation": "pointy_top", "tile_radius_blocks": 64, "map_radius_cells": 6, "origin": {"x": 0, "y": 69, "z": 0}},
+                "empty_terrain": {"default_type": "high_forest", "tiles": []},
                 "tiles": [], "settlements": [], "connections": [],
             }
             self.assertEqual([], content_manager.save_world_layout(candidate_root, generation_two, 2))
             self.assertEqual(generation_two, content_manager.load_world_layout(candidate_root, 2))
             self.assertEqual([1, 2], content_manager.list_world_generations(candidate_root))
+
+    def test_generation_one_uses_kanto_location_names_and_layout(self) -> None:
+        root = Path(__file__).parents[3]
+        expected_names = {
+            "starter_town": "태초마을",
+            "route_01_town": "상록시티",
+            "crimson_town": "회색시티",
+            "cerulean_city": "블루시티",
+            "vermilion_city": "갈색시티",
+            "lavender_town": "보라타운",
+            "celadon_city": "무지개시티",
+            "saffron_city": "노랑시티",
+            "fuchsia_city": "연분홍시티",
+            "tidehaven_town": "홍련마을",
+            "skyreach_town": "석영고원",
+        }
+        for slug, expected_name in expected_names.items():
+            settlement = json.loads(
+                (root / "content" / "settlements" / "generation_1" / f"{slug}.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(expected_name, settlement["display_name"]["ko_kr"])
+
+        layout = content_manager.load_world_layout(root)
+        anchors = {
+            node["settlement"].rsplit("/", 1)[-1]: node["anchor"]
+            for node in layout["settlements"]
+        }
+        self.assertGreater(anchors["starter_town"]["r"], anchors["route_01_town"]["r"])
+        self.assertGreater(anchors["route_01_town"]["r"], anchors["crimson_town"]["r"])
+        self.assertLess(anchors["celadon_city"]["q"], anchors["saffron_city"]["q"])
+        self.assertGreater(anchors["lavender_town"]["q"], anchors["saffron_city"]["q"])
+        self.assertGreater(anchors["tidehaven_town"]["r"], anchors["starter_town"]["r"])
+
+        nodes = layout["settlements"]
+        for index, node in enumerate(nodes):
+            for other in nodes[index + 1:]:
+                q1, r1 = node["anchor"]["q"], node["anchor"]["r"]
+                q2, r2 = other["anchor"]["q"], other["anchor"]["r"]
+                distance = (abs(q1 - q2) + abs(r1 - r2) + abs((-q1 - r1) - (-q2 - r2))) // 2
+                minimum = node["town_radius_cells"] + other["town_radius_cells"] + 2
+                self.assertGreaterEqual(distance, minimum)
+
+        cinnabar = anchors["tidehaven_town"]
+        ocean_tiles = {
+            (tile["q"], tile["r"])
+            for tile in layout["empty_terrain"]["tiles"]
+            if tile["type"] == "ocean"
+        }
+        for q in range(cinnabar["q"] - 2, cinnabar["q"] + 3):
+            for r in range(cinnabar["r"] - 2, cinnabar["r"] + 3):
+                distance = (
+                    abs(q - cinnabar["q"])
+                    + abs(r - cinnabar["r"])
+                    + abs((-q - r) - (-cinnabar["q"] - cinnabar["r"]))
+                ) // 2
+                if distance == 2:
+                    self.assertIn((q, r), ocean_tiles)
+        self.assertGreaterEqual(len(layout["tiles"]), 40)
 
     def test_web_command_stops_only_matching_previous_content_manager(self) -> None:
         root = Path(__file__).parents[3]
@@ -360,6 +460,28 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("$.structure_profile.commercial_center", locations)
         self.assertIn("$.structure_profile.house_style", locations)
 
+    def test_settlement_accepts_new_layout_without_legacy_village_fields(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"].pop("village_preset", None)
+        source["structure_profile"].pop("starter_layout", None)
+        source["structure_profile"].pop("house_style", None)
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        legacy_paths = {
+            "$.structure_profile.village_preset",
+            "$.structure_profile.starter_layout",
+            "$.structure_profile.house_style",
+        }
+        self.assertFalse(any(issue.path in legacy_paths for issue in issues))
+
     def test_special_district_allows_reserved_empty_plot(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -407,7 +529,11 @@ class ContentManagerTests(unittest.TestCase):
         source["structure_profile"]["gym"].update({
             "enabled": False, "structure": "", "leader_trainer_id": "",
         })
-        source["structure_profile"]["facility_placements"] = []
+        source["structure_profile"]["facility_placements"] = [
+            placement
+            for placement in source["structure_profile"]["facility_placements"]
+            if placement.get("id") != "gym_building"
+        ]
         source["npc_placement"]["trainer_slots"] = []
 
         _, issues = content_manager._validate_payload(
@@ -416,16 +542,23 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertEqual([], [issue for issue in issues if issue.level == "error"])
 
-    def test_new_settlement_reserves_special_district_and_disables_gym(self) -> None:
+    def test_new_settlement_uses_automatic_special_building_defaults(self) -> None:
         document = content_manager._settlement_template("new_town", "새 마을", "generation_1")
 
-        self.assertTrue(document["structure_profile"]["special_district"]["enabled"])
-        self.assertFalse(document["structure_profile"]["special_district"]["building"]["enabled"])
+        district = document["structure_profile"]["special_district"]
+        self.assertFalse(district["enabled"])
+        self.assertEqual("auto", district["placement_mode"])
+        self.assertEqual({"width": 8, "depth": 8}, district["footprint"])
+        self.assertFalse(district["building"]["enabled"])
+        self.assertNotIn("id", district["building"])
+        self.assertNotIn("entrance_direction", district)
         self.assertFalse(document["structure_profile"]["gym"]["enabled"])
+        self.assertNotIn("gym_entrance_offset", document["structure_profile"])
+        self.assertNotIn("entrance_offset", document["structure_profile"]["gym"])
         self.assertIn("special_district", document["anchors"])
         self.assertIn("gym_building", document["anchors"])
 
-    def test_settlement_supports_at_most_three_biomes(self) -> None:
+    def test_settlement_supports_exactly_one_biome(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
@@ -433,13 +566,13 @@ class ContentManagerTests(unittest.TestCase):
             )
         )
         source["biome_layout"]["zones"].append({
-            "id": "fourth", "biome": "minecraft:desert", "size_blocks": 64,
+            "id": "second", "biome": "minecraft:desert", "size_blocks": 64,
             "placement": "outer", "weight": 1,
         })
         _, issues = content_manager._validate_payload(
             source, content_manager.validate_settlement_file
         )
-        self.assertTrue(any("1개 이상 3개 이하" in issue.message for issue in issues))
+        self.assertTrue(any("정확히 1개" in issue.message for issue in issues))
 
     def test_settlement_level_scaling_requires_ordered_range(self) -> None:
         root = Path(__file__).parents[3]
@@ -456,18 +589,24 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertTrue(any("min_level <= base_level <= max_level" in issue.message for issue in issues))
 
-    def test_settlement_gate_width_must_be_odd(self) -> None:
+    def test_settlement_connections_belong_to_world_map(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
             )
         )
-        source["connections"][0]["gate_width"] = 8
+        source["connections"].append({
+            "id": "legacy_gate",
+            "target_settlement": "cobbleventure:settlement/route_01_town",
+            "placement": {"mode": "toward_target", "preferred_side": "east", "offset": 0},
+            "gate_width": 9,
+            "path_width": 3,
+        })
         _, issues = content_manager._validate_payload(
             source, content_manager.validate_settlement_file
         )
-        self.assertTrue(any("홀수" in issue.message for issue in issues))
+        self.assertTrue(any("월드맵" in issue.message for issue in issues))
 
     def test_settlement_rejects_unknown_gym_theme(self) -> None:
         root = Path(__file__).parents[3]
@@ -495,13 +634,106 @@ class ContentManagerTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        source["structure_profile"]["facility_placements"][0]["anchor"] = "missing"
+        source["structure_profile"]["facility_placements"] = [{
+            "id": "test_facility",
+            "mode": "direct_template",
+            "structure": "cobbleventure:test/facility",
+            "anchor": "missing",
+        }]
 
         _, issues = content_manager._validate_payload(
             source, content_manager.validate_settlement_file
         )
 
         self.assertTrue(any("존재하는 마을 앵커" in issue.message for issue in issues))
+
+    def test_nbt_placeholder_facilities_satisfy_checked_quantity(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["layout_shape"] = "radial"
+        source["structure_profile"]["facility_requirements"] = [{
+            "id": "hotel", "label": "호텔", "count": 2, "required": True,
+            "footprint": {"width": 32, "depth": 32, "height": 20},
+        }]
+        for index in (1, 2):
+            anchor = f"facility_hotel_{index}"
+            source["anchors"][anchor] = {"x": index * 40, "y": 69, "z": 80}
+            source["structure_profile"].setdefault("facility_placements", []).append({
+                "id": anchor,
+                "facility_type": "hotel",
+                "mode": "direct_template",
+                "structure": "cobbleventure:placeholder/hotel",
+                "anchor": anchor,
+                "label": f"호텔 {index}",
+                "footprint": {"width": 32, "depth": 32, "height": 20},
+            })
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertFalse(any("플레이스홀더" in issue.message for issue in issues))
+        self.assertFalse(any("지원하지 않는 시설 배치 방식" in issue.message for issue in issues))
+
+    def test_starter_town_rejects_center_and_commercial_facility(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["pokemon_center_enabled"] = True
+        source["structure_profile"]["commercial_center"] = "pokemart"
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        locations = {issue.path for issue in issues if issue.level == "error"}
+        self.assertIn("$.structure_profile.pokemon_center_enabled", locations)
+        self.assertIn("$.structure_profile.commercial_center", locations)
+
+    def test_settlement_rejects_invalid_road_profile(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["road_profile"] = {
+            "width": 16,
+            "material": "diamond_block",
+        }
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        locations = {issue.path for issue in issues if issue.level == "error"}
+        self.assertIn("$.structure_profile.road_profile.width", locations)
+        self.assertIn("$.structure_profile.road_profile.material", locations)
+
+    def test_checked_facility_quantity_must_match_placeholders(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["facility_requirements"] = [{
+            "id": "hotel", "label": "호텔", "count": 2, "required": True,
+            "footprint": {"width": 32, "depth": 32, "height": 20},
+        }]
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertTrue(any("2개가 필요하지만 플레이스홀더는 0개" in issue.message for issue in issues))
 
     def test_instanced_facility_requires_existing_anchors(self) -> None:
         root = Path(__file__).parents[3]
@@ -539,6 +771,7 @@ class ContentManagerTests(unittest.TestCase):
                 / "starter_town.json"
             ).read_text(encoding="utf-8")
         )
+        source["npc_placement"]["trainer_slots"] = [self._valid_settlement_trainer_slot()]
         slot = source["npc_placement"]["trainer_slots"][0]
         slot.pop("trainer_id")
         slot["spawn_policy"] = "unknown"
@@ -559,6 +792,7 @@ class ContentManagerTests(unittest.TestCase):
                 / "starter_town.json"
             ).read_text(encoding="utf-8")
         )
+        source["npc_placement"]["trainer_slots"] = [self._valid_settlement_trainer_slot()]
         slot = source["npc_placement"]["trainer_slots"][0]
         slot["battle_type"] = "doubles"
 
@@ -579,6 +813,7 @@ class ContentManagerTests(unittest.TestCase):
                 / "starter_town.json"
             ).read_text(encoding="utf-8")
         )
+        source["npc_placement"]["trainer_slots"] = [self._valid_settlement_trainer_slot()]
         slot = source["npc_placement"]["trainer_slots"][0]
         slot["battle_type"] = "doubles"
         partner = json.loads(json.dumps(slot["members"][0]))
@@ -1124,11 +1359,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(validation["valid"])
         self.assertGreaterEqual(dashboard["trainers"], 2)
         self.assertTrue(all(item["battle_type"] in {"singles", "doubles"} for item in trainers["items"]))
-        self.assertEqual(5, dashboard["settlements"])
-        self.assertEqual(5, len(settlements["items"]))
-        self.assertEqual(5, len(world_layout["settlements"]))
-        self.assertEqual(4, len(world_layout["connections"]))
-        self.assertGreater(len(world_layout["tiles"]), 0)
+        self.assertEqual(11, dashboard["settlements"])
+        self.assertEqual(11, len(settlements["items"]))
+        self.assertEqual(11, len(world_layout["settlements"]))
+        self.assertEqual(14, len(world_layout["connections"]))
+        self.assertGreater(len(world_layout["empty_terrain"]["tiles"]), 0)
         self.assertIn(1, world_layouts["generations"])
         self.assertGreaterEqual(len(trainer_classes["classes"]), 10)
         self.assertGreaterEqual(len(editor_catalog["species"]), 1000)
@@ -1144,6 +1379,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("바이옴 관리", page)
         self.assertIn("육각형 기반 월드 미니맵", page)
         self.assertIn("세대 추가", page)
+        self.assertIn('id="worlds"', page)
+        self.assertIn('id="settlements"', page)
+        self.assertIn("대표 바이옴", page)
+        self.assertIn("마을 프리셋", page)
+        self.assertNotIn("마을 동선 · 입구와 출구", page)
+        self.assertNotIn("바이옴 2 — 선택", page)
         self.assertIn("엔트리 JSON 복사", page)
         self.assertIn("전투 가방", page)
         self.assertIn("듀얼배틀은 같은 전투에 참여할 EasyNPC 2명", page)
@@ -1156,7 +1397,39 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("normalizeTrainerAi", app_script)
         self.assertIn("saveWorldLayout", app_script)
         self.assertIn("renderHexMap", app_script)
+        self.assertIn("primaryRouteAt", app_script)
+        self.assertNotIn("connection.route_biome", app_script)
+        self.assertIn("is-route-terrain", app_script)
+        self.assertNotIn('value="route"', page)
+        self.assertNotIn('name="routeBiome"', page)
+        self.assertIn('id="create-route"', page)
+        self.assertIn("createRouteConnection", app_script)
+        self.assertIn("바이옴과 독립된 길", app_script)
+        self.assertIn("routeDraft", app_script)
+        self.assertIn("objects", app_script)
+        self.assertNotIn("migrateLegacyRouteBaseTiles", app_script)
         self.assertIn("finishSettlementDrag", app_script)
+        self.assertIn("visibleHexCells", app_script)
+        self.assertIn("beginMapPan", app_script)
+        self.assertIn("settlementFootprintAt", app_script)
+        self.assertIn("마을 사용 범위", page)
+        self.assertIn("빈 지형 브러시 타입", page)
+        self.assertIn("넓게 칠하기", page)
+        self.assertIn("paintEmptyTerrainArea", app_script)
+        self.assertIn("snow_mountain", app_script)
+        self.assertNotIn('name="townRadius"', page)
+        self.assertIn('name="townRadiusCells"', page)
+        self.assertLess(page.index('id="save-settlement"'), page.index('id="settlement-form"'))
+        self.assertIn('name="specialDistrictPlacementMode"', page)
+        self.assertNotIn('name="specialDistrictEnabled"', page)
+        self.assertNotIn('name="specialBuildingId"', page)
+        self.assertNotIn('name="specialDistrictEntrance"', page)
+        self.assertNotIn('name="gymEntranceX"', page)
+        self.assertNotIn('name="gymEntranceY"', page)
+        self.assertNotIn('name="gymEntranceZ"', page)
+        self.assertNotIn("마을 중심 좌표", page)
+        self.assertNotIn("<legend>마을 경계</legend>", page)
+        self.assertIn("syncConnectionPaths", app_script)
         self.assertIn("cheat_probability", app_script)
         self.assertIn("PokeAPI/sprites/master/sprites/pokemon", app_script)
         self.assertIn("trainerReferenceSprites", app_script)
@@ -1184,6 +1457,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("trainer-reference-image", styles)
         self.assertIn("world-map-viewport", styles)
         self.assertIn("hex-settlement", styles)
+        self.assertIn("hex-route", styles)
+        self.assertIn("is-route-terrain", styles)
         self.assertIn("other/official-artwork", app_script)
         self.assertIn("pokeapi.co/api/v2/pokemon", app_script)
         self.assertIn("pokemonCatalogDisplayName", app_script)

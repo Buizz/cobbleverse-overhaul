@@ -24,48 +24,44 @@ class DataModBuilderTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         build_data_mod.build(REPOSITORY_ROOT)
 
-    def test_starter_structure_targets_custom_biome(self) -> None:
+    def test_does_not_register_legacy_village_structures(self) -> None:
         path = (
-            REPOSITORY_ROOT
-            / build_data_mod.OUTPUT
-            / "data/cobbleventure/worldgen/structure/starter_town/village.json"
-        )
-        structure = json.loads(path.read_text(encoding="utf-8"))
-
-        self.assertEqual("cobbleventure:starter_plains", structure["biomes"])
-
-    def test_route_town_structure_targets_forest(self) -> None:
-        path = (
-            REPOSITORY_ROOT
-            / build_data_mod.OUTPUT
-            / "data/cobbleventure/worldgen/structure/route_01_town/village.json"
-        )
-        structure = json.loads(path.read_text(encoding="utf-8"))
-
-        self.assertEqual("minecraft:forest", structure["biomes"])
-
-    def test_town_structures_follow_rendered_surface_height(self) -> None:
-        structure_root = (
             REPOSITORY_ROOT
             / build_data_mod.OUTPUT
             / "data/cobbleventure/worldgen/structure"
         )
-        for town in (
-            "starter_town",
-            "route_01_town",
-            "crimson_town",
-            "tidehaven_town",
-            "skyreach_town",
-        ):
-            structure = json.loads(
-                (structure_root / town / "village.json").read_text(encoding="utf-8")
-            )
-            self.assertEqual({"absolute": 0}, structure["start_height"])
-            self.assertEqual(
-                "WORLD_SURFACE_WG", structure["project_start_to_heightmap"]
-            )
 
-    def test_generation_dimension_disables_external_biome_features(self) -> None:
+        self.assertFalse(path.exists())
+
+    def test_route_town_uses_upstream_bca_mid_village(self) -> None:
+        settlement_path = (
+            REPOSITORY_ROOT
+            / build_data_mod.OUTPUT
+            / "data/cobbleventure/settlements/generation_1/route_01_town.json"
+        )
+        settlement = json.loads(settlement_path.read_text(encoding="utf-8"))
+        generated_override = (
+            REPOSITORY_ROOT
+            / build_data_mod.OUTPUT
+            / "data/cobbleventure/worldgen/structure/route_01_town/village.json"
+        )
+
+        self.assertEqual(
+            "bca:village/default_mid",
+            settlement["structure_profile"]["structure"],
+        )
+        self.assertFalse(generated_override.exists())
+
+    def test_does_not_register_generated_template_pools(self) -> None:
+        pool_root = (
+            REPOSITORY_ROOT
+            / build_data_mod.OUTPUT
+            / "data/cobbleventure/worldgen/template_pool"
+        )
+
+        self.assertFalse(pool_root.exists())
+
+    def test_generation_dimension_uses_json_backed_native_generator(self) -> None:
         path = (
             REPOSITORY_ROOT
             / build_data_mod.SOURCE
@@ -73,18 +69,17 @@ class DataModBuilderTests(unittest.TestCase):
         )
         dimension = json.loads(path.read_text(encoding="utf-8"))
 
-        self.assertFalse(dimension["generator"]["settings"]["features"])
-        layers = dimension["generator"]["settings"]["layers"]
+        generator = dimension["generator"]
+        self.assertEqual("cobbleventure:hex_map", generator["type"])
+        self.assertEqual(19960227, generator["seed"])
         self.assertEqual(
-            [
-                {"block": "minecraft:bedrock", "height": 10},
-                {"block": "minecraft:stone", "height": 54},
-                {"block": "minecraft:dirt", "height": 3},
-                {"block": "minecraft:grass_block", "height": 1},
-            ],
-            layers,
+            "cobbleventure:hex_map", generator["biome_source"]["type"]
         )
-        self.assertEqual(68, sum(layer["height"] for layer in layers))
+        self.assertIn(
+            "cobbleventure:starter_plains",
+            generator["biome_source"]["biomes"],
+        )
+        self.assertNotIn("settings", generator)
 
     def test_sealed_dark_forest_has_no_native_spawns(self) -> None:
         path = (
@@ -140,6 +135,89 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertIn(b"minecraft:barrier", hub)
             self.assertNotIn(b"concrete", hub)
 
+    def test_packages_replaceable_facility_placeholder_structures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+
+            build_data_mod.build(root)
+
+            placeholder_root = (
+                root / build_data_mod.OUTPUT / "data/cobbleventure/structure/placeholder"
+            )
+            generated = sorted(path.stem for path in placeholder_root.glob("*.nbt"))
+            self.assertEqual(sorted(build_data_mod.FACILITY_PLACEHOLDERS), generated)
+
+            hotel = gzip.decompress((placeholder_root / "hotel.nbt").read_bytes())
+            self.assertIn(b"PLACEHOLDER", hotel)
+            self.assertIn(b"hotel", hotel)
+            self.assertIn("호텔".encode("utf-8"), hotel)
+
+    def test_authored_facility_nbt_replaces_generated_placeholder(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            authored = root / build_data_mod.FACILITY_STRUCTURE_SOURCE_DIR / "hotel.nbt"
+            authored.parent.mkdir(parents=True, exist_ok=True)
+            authored_bytes = gzip.compress(b"\x0aAUTHORED HOTEL", mtime=0)
+            authored.write_bytes(authored_bytes)
+
+            build_data_mod.build(root)
+
+            packaged = (
+                root / build_data_mod.OUTPUT
+                / "data/cobbleventure/structure/placeholder/hotel.nbt"
+            )
+            self.assertEqual(authored_bytes, packaged.read_bytes())
+
+    def test_explicit_civic_facilities_use_configured_hub_and_road(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            config = root / build_data_mod.STARTER_TOWN_CONFIG
+            config.write_text(
+                json.dumps({
+                    "schema_version": 3,
+                    "id": "cobbleventure:settlement/test_town",
+                    "structure_profile": {
+                        "structure": "bca:village/default_mid",
+                        "gym_theme": "rock",
+                        "commercial_center": "department_store",
+                        "pokemon_center_enabled": True,
+                        "civic_facilities_explicit": True,
+                        "layout_shape": "loop",
+                        "road_profile": {"width": 9, "material": "packed_mud"},
+                        "required_facilities": {
+                            "village_hub": "cobbleventure:test_town/village_hub"
+                        },
+                    },
+                }),
+                encoding="utf-8",
+            )
+
+            build_data_mod.build(root)
+
+            packaged = json.loads(
+                (
+                    root / build_data_mod.OUTPUT
+                    / "data/cobbleventure/settlements/generation_1/starter_town.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                "bca:village/default_mid",
+                packaged["structure_profile"]["structure"],
+            )
+            self.assertFalse(
+                (root / build_data_mod.OUTPUT / "data/cobbleventure/worldgen").exists()
+            )
+            hub = gzip.decompress(
+                (
+                    root / build_data_mod.OUTPUT
+                    / "data/cobbleventure/structure/test_town/village_hub.nbt"
+                ).read_bytes()
+            )
+            self.assertIn(b"minecraft:packed_mud", hub)
+
     def test_village_hub_does_not_contain_custom_gym_shell(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -187,7 +265,7 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertIn(b"bca:path_straight-curved_dark", hub)
             self.assertNotIn(b"bca:default/paths", hub)
 
-    def test_original_bca_large_pool_is_written_to_structure_override(self) -> None:
+    def test_bca_large_preset_is_not_registered_as_worldgen(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self._fixture(root)
@@ -208,13 +286,10 @@ class DataModBuilderTests(unittest.TestCase):
 
             build_data_mod.build(root)
 
-            structure = root / build_data_mod.OUTPUT / "data/cobbleventure/worldgen/structure/starter_town/village.json"
-            payload = json.loads(structure.read_text(encoding="utf-8"))
-            self.assertEqual("bca:default/large", payload["start_pool"])
-            self.assertEqual(4, payload["size"])
-            self.assertEqual("cobbleventure:starter_plains", payload["biomes"])
+            worldgen = root / build_data_mod.OUTPUT / "data/cobbleventure/worldgen"
+            self.assertFalse(worldgen.exists())
 
-    def test_pokemart_can_be_forced_as_the_single_commercial_center(self) -> None:
+    def test_pokemart_does_not_restore_the_native_bca_village_graph(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self._fixture(root)
@@ -235,17 +310,8 @@ class DataModBuilderTests(unittest.TestCase):
 
             build_data_mod.build(root)
 
-            structure_path = root / build_data_mod.OUTPUT / "data/cobbleventure/worldgen/structure/starter_town/village.json"
-            structure = json.loads(structure_path.read_text(encoding="utf-8"))
-            self.assertEqual("cobbleventure:starter_town/commercial_center", structure["start_pool"])
-            self.assertEqual(3, structure["size"])
-            pool_path = root / build_data_mod.OUTPUT / "data/cobbleventure/worldgen/template_pool/starter_town/commercial_center.json"
-            pool = json.loads(pool_path.read_text(encoding="utf-8"))
-            self.assertEqual(1, len(pool["elements"]))
-            self.assertEqual(
-                "bca:default/one_off/structure_pokemart",
-                pool["elements"][0]["element"]["location"],
-            )
+            worldgen = root / build_data_mod.OUTPUT / "data/cobbleventure/worldgen"
+            self.assertFalse(worldgen.exists())
 
     def test_authored_starter_uses_laboratory_and_removes_old_commercial_pool(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -275,15 +341,8 @@ class DataModBuilderTests(unittest.TestCase):
 
             build_data_mod.build(root)
 
-            structure_path = root / build_data_mod.OUTPUT / "data/cobbleventure/worldgen/structure/starter_town/village.json"
-            structure = json.loads(structure_path.read_text(encoding="utf-8"))
-            self.assertEqual("cobbleventure:starter_town/authored_center", structure["start_pool"])
-            self.assertEqual(2, structure["size"])
-            pool_path = root / build_data_mod.OUTPUT / "data/cobbleventure/worldgen/template_pool/starter_town/authored_center.json"
-            pool = json.loads(pool_path.read_text(encoding="utf-8"))
-            self.assertEqual(
-                "bca:default/centers/center_the_academy",
-                pool["elements"][0]["element"]["location"],
+            self.assertFalse(
+                (root / build_data_mod.OUTPUT / "data/cobbleventure/worldgen").exists()
             )
             self.assertFalse(stale.exists())
 

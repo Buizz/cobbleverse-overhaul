@@ -69,12 +69,15 @@
   "screen.cobbleventure_player_menu.entry.pokedex.description": "발견한 포켓몬과 서식 정보를 확인합니다",
   "item.cobbleventure_player_menu.world_map": "지도",
   "screen.cobbleventure_player_menu.world_map.title": "월드맵",
-  "screen.cobbleventure_player_menu.world_map.hint": "현재는 월드맵 화면의 기본 형태만 표시합니다",
+  "screen.cobbleventure_player_menu.world_map.hint": "타일 선택 · 방향키 이동 · 방문한 마을은 빠른 이동 가능",
   "screen.cobbleventure_player_menu.world_map.back": "메뉴로",
   "screen.cobbleventure_player_menu.world_map.close": "닫기",
   "screen.cobbleventure_player_menu.world_map.current_position": "현재 위치",
   "screen.cobbleventure_player_menu.world_map.region_title": "선택 지역",
   "screen.cobbleventure_player_menu.world_map.region_placeholder": "현재 지역",
   "screen.cobbleventure_player_menu.world_map.spawn_title": "출현 정보",
-  "screen.cobbleventure_player_menu.world_map.spawn_placeholder": "발견 지역과 포켓몬 스폰 정보가 이곳에 표시됩니다"
+  "screen.cobbleventure_player_menu.world_map.spawn_placeholder": "발견 지역과 포켓몬 스폰 정보가 이곳에 표시됩니다",
+  "screen.cobbleventure_player_menu.world_map.teleport": "이 마을로 이동",
+  "screen.cobbleventure_player_menu.world_map.debug_teleport": "관리자 디버그 이동",
+  "screen.cobbleventure_player_menu.world_map.teleporting": "이동 중…"
 }

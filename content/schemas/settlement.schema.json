@@ -11,6 +11,8 @@
     "display_name",
     "region",
     "dimension",
+    "biome",
+    "town_radius_cells",
     "bounds",
     "center",
     "anchors",
@@ -28,6 +30,8 @@
     "display_name": { "$ref": "#/$defs/localized_text" },
     "region": { "$ref": "#/$defs/resource_id" },
     "dimension": { "$ref": "#/$defs/resource_id" },
+    "biome": { "$ref": "#/$defs/resource_id" },
+    "town_radius_cells": { "type": "integer", "minimum": 0, "maximum": 8 },
     "bounds": { "$ref": "#/$defs/horizontal_bounds" },
     "center": { "$ref": "#/$defs/block_position" },
     "anchors": {
@@ -78,7 +82,7 @@
         "zones": {
           "type": "array",
           "minItems": 1,
-          "maxItems": 3,
+          "maxItems": 1,
           "items": { "$ref": "#/$defs/biome_zone" }
         },
         "boundary": { "$ref": "#/$defs/boundary" }
@@ -86,12 +90,13 @@
     },
     "connections": {
       "type": "array",
+      "maxItems": 0,
       "items": { "$ref": "#/$defs/settlement_connection" }
     },
     "structure_profile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["structure", "gym_theme", "village_preset", "commercial_center", "house_style", "gym_entrance_offset", "required_facilities", "special_district", "gym"],
+      "required": ["structure", "gym_theme", "commercial_center", "required_facilities", "special_district", "gym"],
       "properties": {
         "structure": { "$ref": "#/$defs/resource_id" },
         "gym_theme": {
@@ -102,6 +107,8 @@
           ]
         },
         "village_preset": {
+          "deprecated": true,
+          "description": "이전 마을 데이터 호환용. 새 편집 화면과 저장 데이터에서는 사용하지 않음",
           "enum": [
             "default_small", "default_mid", "default_large",
             "fighting_small", "fighting_mid", "fighting_large",
@@ -111,10 +118,13 @@
           ]
         },
         "commercial_center": {
-          "enum": ["none", "preset", "pokemart", "department_store"],
-          "description": "BCA 프리셋 기본 중심 조각 또는 반드시 생성할 상업 중심 시설"
+          "enum": ["none", "pokemart", "department_store", "preset"],
+          "description": "없음·포켓몬상점·백화점 중 하나. preset은 이전 데이터 호환용"
         },
+        "pokemon_center_enabled": { "type": "boolean" },
+        "civic_facilities_explicit": { "type": "boolean" },
         "starter_layout": {
+          "deprecated": true,
           "type": "object",
           "additionalProperties": false,
           "required": ["laboratory_structure", "jigsaw_depth"],
@@ -125,12 +135,14 @@
         },
         "house_style": {
           "$ref": "#/$defs/resource_id",
-          "description": "마을 도로의 주택 연결점을 대체할 Jigsaw 주택 풀 ID"
+          "deprecated": true,
+          "description": "이전 마을 데이터 호환용 Jigsaw 주택 풀 ID"
         },
-        "gym_entrance_offset": {
-          "$ref": "#/$defs/block_position",
-          "description": "체육관 구조물 원점 기준 실제 주 출입구 로컬 좌표. RGS 0.6 체육관은 x=2, y=3, z=10"
+        "layout_shape": {
+          "enum": ["branching", "linear", "radial", "loop", "terraced"],
+          "description": "표준 부지를 연결하는 마을 도로망 형태"
         },
+        "road_profile": { "$ref": "#/$defs/road_profile" },
         "required_facilities": {
           "type": "object",
           "minProperties": 1,
@@ -141,23 +153,17 @@
           "type": "array",
           "items": { "$ref": "#/$defs/facility_placement" }
         },
+        "facility_requirements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/facility_requirement" }
+        },
         "special_district": {
           "$ref": "#/$defs/special_district"
         },
         "gym": {
           "$ref": "#/$defs/gym_config"
         }
-      },
-      "allOf": [{
-        "if": {
-          "properties": { "village_preset": { "const": "cobbleventure_starter" } },
-          "required": ["village_preset"]
-        },
-        "then": {
-          "required": ["starter_layout"],
-          "properties": { "commercial_center": { "const": "none" } }
-        }
-      }]
+      }
     },
     "npc_placement": {
       "type": "object",
@@ -307,8 +313,12 @@
       "required": ["id", "mode", "structure"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-        "mode": { "enum": ["instanced_entry", "direct_template"] },
+        "mode": { "enum": ["instanced_entry", "direct_template", "placeholder"] },
         "structure": { "$ref": "#/$defs/resource_id" },
+        "facility_type": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "footprint": { "$ref": "#/$defs/facility_footprint" },
+        "clearance": { "type": "integer", "minimum": 0, "maximum": 16 },
         "anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "entry_anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "return_anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
@@ -330,16 +340,54 @@
         {
           "if": { "properties": { "mode": { "const": "direct_template" } } },
           "then": { "required": ["anchor"] }
+        },
+        {
+          "if": { "properties": { "mode": { "const": "placeholder" } } },
+          "then": { "required": ["anchor", "facility_type", "label", "footprint"] }
         }
       ]
+    },
+    "facility_footprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "depth", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 8, "maximum": 96 },
+        "depth": { "type": "integer", "minimum": 8, "maximum": 96 },
+        "height": { "type": "integer", "minimum": 4, "maximum": 48 }
+      }
+    },
+    "road_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "material"],
+      "properties": {
+        "width": { "enum": [3, 5, 7, 9] },
+        "material": {
+          "enum": ["cobblestone", "stone_bricks", "gravel", "packed_mud", "sandstone", "snow"]
+        }
+      }
+    },
+    "facility_requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "count", "required", "footprint"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "count": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "required": { "const": true },
+        "footprint": { "$ref": "#/$defs/facility_footprint" }
+      }
     },
     "special_district": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "anchor", "footprint", "clearance", "entrance_direction", "building"],
+      "required": ["enabled", "anchor", "footprint", "clearance", "building"],
       "properties": {
         "enabled": { "type": "boolean" },
         "anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "placement_mode": { "enum": ["auto", "manual"] },
         "footprint": {
           "type": "object",
           "additionalProperties": false,
@@ -350,14 +398,12 @@
           }
         },
         "clearance": { "type": "integer", "minimum": 0, "maximum": 32 },
-        "entrance_direction": { "enum": ["north", "south", "east", "west"] },
         "building": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["enabled", "id", "structure"],
+          "required": ["enabled", "structure"],
           "properties": {
             "enabled": { "type": "boolean" },
-            "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
             "structure": { "type": "string" }
           },
           "allOf": [
@@ -372,7 +418,7 @@
     "gym_config": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "structure", "theme", "anchor", "entrance_offset", "leader_trainer_id"],
+      "required": ["enabled", "structure", "theme", "anchor", "leader_trainer_id"],
       "properties": {
         "enabled": { "type": "boolean" },
         "structure": { "type": "string" },
@@ -384,7 +430,6 @@
           ]
         },
         "anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-        "entrance_offset": { "$ref": "#/$defs/block_position" },
         "leader_trainer_id": { "type": "string" }
       },
       "allOf": [

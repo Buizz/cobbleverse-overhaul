@@ -4,11 +4,13 @@
   "id": "cobbleventure:settlement/tidehaven_town",
   "enabled": true,
   "display_name": {
-    "ko_kr": "물결섬 마을",
-    "en_us": "Tidehaven Town"
+    "ko_kr": "홍련마을",
+    "en_us": "Cinnabar Island"
   },
   "region": "cobbleventure:generation_1/region_04",
   "dimension": "cobbleventure:generation_1",
+  "biome": "minecraft:beach",
+  "town_radius_cells": 1,
   "bounds": {
     "min_x": 1739,
     "min_z": -188,
@@ -73,46 +75,36 @@
       "wall_thickness": 3
     }
   },
-  "connections": [
-    {
-      "id": "crimson_sea_route",
-      "target_settlement": "cobbleventure:settlement/crimson_town",
-      "placement": { "mode": "toward_target", "preferred_side": "west", "offset": 0 },
-      "gate_width": 13,
-      "path_width": 3
-    }
-  ],
+  "connections": [],
   "structure_profile": {
-    "structure": "cobbleventure:tidehaven_town/village",
-    "gym_theme": "water",
+    "structure": "bca:village/default_mid",
+    "gym_theme": "fire",
     "village_preset": "default_mid",
-    "commercial_center": "pokemart",
+    "commercial_center": "preset",
     "house_style": "bca:default/general",
-    "gym_entrance_offset": { "x": 2, "y": 3, "z": 10 },
     "required_facilities": {
       "village_hub": "cobbleventure:tidehaven_town/village_hub"
     },
     "special_district": {
       "enabled": true,
       "anchor": "special_district",
-      "footprint": { "width": 48, "depth": 48 },
+      "placement_mode": "manual",
+      "footprint": { "width": 8, "depth": 8 },
       "clearance": 6,
-      "entrance_direction": "south",
-      "building": { "enabled": false, "id": "special_landmark", "structure": "" }
+      "building": { "enabled": false, "structure": "" }
     },
     "gym": {
       "enabled": true,
-      "structure": "rgs:cerulean_gym",
-      "theme": "water",
+      "structure": "rgs:cinnabar_gym",
+      "theme": "fire",
       "anchor": "gym_building",
-      "entrance_offset": { "x": 2, "y": 3, "z": 10 },
       "leader_trainer_id": ""
     },
     "facility_placements": [
       {
         "id": "gym_building",
         "mode": "direct_template",
-        "structure": "rgs:cerulean_gym",
+        "structure": "rgs:cinnabar_gym",
         "anchor": "gym_building"
       }
     ]
