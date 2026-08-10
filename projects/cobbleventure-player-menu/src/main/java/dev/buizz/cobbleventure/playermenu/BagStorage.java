@@ -13,15 +13,16 @@ import net.minecraft.world.item.ItemStack;
 public final class BagStorage {
     /** Sparse backing slots; normal 64-item stacks provide over 260,000 items of practical capacity. */
     public static final int SLOT_COUNT = 4096;
+    public static final int SHORTCUT_COUNT = 10;
     private static final String ROOT_KEY = "cobbleventure_player_menu.bag";
     private static final String ITEMS_KEY = "Items";
+    private static final String SHORTCUTS_KEY = "Shortcuts";
 
     private BagStorage() {}
 
     public static NonNullList<ItemStack> load(ServerPlayer player) {
         NonNullList<ItemStack> slots = NonNullList.withSize(SLOT_COUNT, ItemStack.EMPTY);
-        CompoundTag persisted = player.getPersistentData().getCompound(Player.PERSISTED_NBT_TAG);
-        CompoundTag bag = persisted.getCompound(ROOT_KEY);
+        CompoundTag bag = bagTag(player);
         ListTag items = bag.getList(ITEMS_KEY, Tag.TAG_COMPOUND);
         for (int index = 0; index < items.size(); index++) {
             CompoundTag entry = items.getCompound(index);
@@ -44,9 +45,46 @@ public final class BagStorage {
             items.add(entry);
         }
 
-        CompoundTag bag = new CompoundTag();
+        CompoundTag bag = bagTag(player);
         bag.putInt("Version", 1);
         bag.put(ITEMS_KEY, items);
+        saveBagTag(player, bag);
+    }
+
+    public static NonNullList<ItemStack> loadShortcuts(ServerPlayer player) {
+        NonNullList<ItemStack> shortcuts = NonNullList.withSize(SHORTCUT_COUNT, ItemStack.EMPTY);
+        ListTag items = bagTag(player).getList(SHORTCUTS_KEY, Tag.TAG_COMPOUND);
+        for (int index = 0; index < items.size(); index++) {
+            CompoundTag entry = items.getCompound(index);
+            int slot = entry.getInt("Slot");
+            if (slot >= 0 && slot < SHORTCUT_COUNT) {
+                shortcuts.set(slot, ItemStack.parseOptional(player.registryAccess(), entry.getCompound("Stack")));
+            }
+        }
+        return shortcuts;
+    }
+
+    public static void saveShortcuts(ServerPlayer player, List<ItemStack> shortcuts) {
+        ListTag items = new ListTag();
+        for (int slot = 0; slot < Math.min(SHORTCUT_COUNT, shortcuts.size()); slot++) {
+            ItemStack stack = shortcuts.get(slot);
+            if (stack.isEmpty()) continue;
+            CompoundTag entry = new CompoundTag();
+            entry.putInt("Slot", slot);
+            entry.put("Stack", stack.copyWithCount(1).save(player.registryAccess(), new CompoundTag()));
+            items.add(entry);
+        }
+        CompoundTag bag = bagTag(player);
+        bag.put(SHORTCUTS_KEY, items);
+        saveBagTag(player, bag);
+    }
+
+    private static CompoundTag bagTag(ServerPlayer player) {
+        CompoundTag persisted = player.getPersistentData().getCompound(Player.PERSISTED_NBT_TAG);
+        return persisted.getCompound(ROOT_KEY);
+    }
+
+    private static void saveBagTag(ServerPlayer player, CompoundTag bag) {
         CompoundTag persistentData = player.getPersistentData();
         CompoundTag persisted = persistentData.getCompound(Player.PERSISTED_NBT_TAG);
         persisted.put(ROOT_KEY, bag);

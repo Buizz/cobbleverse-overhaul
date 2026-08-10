@@ -24,8 +24,10 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative bag storage, synchronization and item actions. */
 public final class BagNetwork {
-    private static final String VERSION = "2";
-    private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(emptySnapshot(), 0L);
+    private static final String VERSION = "3";
+    private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(
+        emptySnapshot(), emptyShortcuts(), 0L
+    );
 
     private BagNetwork() {}
 
@@ -44,7 +46,7 @@ public final class BagNetwork {
     }
 
     public static void requestSnapshot() {
-        clientSnapshot = new ClientSnapshot(emptySnapshot(), clientSnapshot.revision() + 1L);
+        clientSnapshot = new ClientSnapshot(emptySnapshot(), emptyShortcuts(), clientSnapshot.revision() + 1L);
         PacketDistributor.sendToServer(new SnapshotRequestPayload());
     }
 
@@ -59,12 +61,16 @@ public final class BagNetwork {
         ));
     }
 
-    public static void requestShortcut(boolean extended, int slot, int hotbarSlot) {
-        PacketDistributor.sendToServer(new ShortcutPayload(extended, slot, hotbarSlot));
+    public static void requestShortcut(boolean extended, int slot, int shortcutSlot) {
+        PacketDistributor.sendToServer(new ShortcutPayload(extended, slot, shortcutSlot));
     }
 
-    public static void requestDiscard(boolean extended, int slot) {
-        PacketDistributor.sendToServer(new DiscardPayload(extended, slot));
+    public static void requestDiscard(boolean extended, int slot, int quantity) {
+        PacketDistributor.sendToServer(new DiscardPayload(extended, slot, quantity));
+    }
+
+    public static void requestUseShortcut(int shortcutSlot) {
+        PacketDistributor.sendToServer(new UseShortcutPayload(shortcutSlot));
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -74,6 +80,7 @@ public final class BagNetwork {
         registrar.playToServer(UseItemPayload.TYPE, UseItemPayload.STREAM_CODEC, BagNetwork::handleUseItem);
         registrar.playToServer(MoveItemPayload.TYPE, MoveItemPayload.STREAM_CODEC, BagNetwork::handleMoveItem);
         registrar.playToServer(ShortcutPayload.TYPE, ShortcutPayload.STREAM_CODEC, BagNetwork::handleShortcut);
+        registrar.playToServer(UseShortcutPayload.TYPE, UseShortcutPayload.STREAM_CODEC, BagNetwork::handleUseShortcut);
         registrar.playToServer(DiscardPayload.TYPE, DiscardPayload.STREAM_CODEC, BagNetwork::handleDiscard);
     }
 
@@ -84,7 +91,11 @@ public final class BagNetwork {
     private static void handleSnapshot(SnapshotPayload payload, IPayloadContext context) {
         List<ItemStack> copy = new ArrayList<>(payload.slots().size());
         for (ItemStack stack : payload.slots()) copy.add(stack.copy());
-        clientSnapshot = new ClientSnapshot(List.copyOf(copy), clientSnapshot.revision() + 1L);
+        List<ItemStack> shortcuts = new ArrayList<>(payload.shortcuts().size());
+        for (ItemStack stack : payload.shortcuts()) shortcuts.add(stack.copy());
+        clientSnapshot = new ClientSnapshot(
+            List.copyOf(copy), List.copyOf(shortcuts), clientSnapshot.revision() + 1L
+        );
     }
 
     private static void handleUseItem(UseItemPayload payload, IPayloadContext context) {
@@ -97,18 +108,7 @@ public final class BagNetwork {
         if (!payload.extended()) {
             useInventorySlot(player, payload.slot());
         } else {
-            int handIndex = player.getInventory().selected;
-            ItemStack originalHand = player.getInventory().getItem(handIndex);
-            player.getInventory().setItem(handIndex, source);
-            try {
-                useAndFinish(player);
-            } finally {
-                ItemStack result = player.getInventory().getItem(handIndex);
-                player.getInventory().setItem(handIndex, originalHand);
-                storage.set(payload.slot(), result);
-            }
-            BagStorage.save(player, storage);
-            markInventoryChanged(player);
+            useExtendedSlot(player, storage, payload.slot());
         }
         sync(player, storage);
     }
@@ -157,23 +157,60 @@ public final class BagNetwork {
     private static void handleShortcut(ShortcutPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player)
             || !validSlot(payload.extended(), payload.slot())
-            || payload.hotbarSlot() < 0 || payload.hotbarSlot() >= 9) return;
+            || payload.shortcutSlot() < 0 || payload.shortcutSlot() >= BagStorage.SHORTCUT_COUNT) return;
         NonNullList<ItemStack> storage = BagStorage.load(player);
         ItemStack source = getStack(player, storage, payload.extended(), payload.slot());
         if (source.isEmpty()) return;
-        ItemStack hotbar = player.getInventory().getItem(payload.hotbarSlot());
-        setStack(player, storage, payload.extended(), payload.slot(), hotbar);
-        player.getInventory().setItem(payload.hotbarSlot(), source);
-        finishMutation(player, storage, payload.extended());
+        NonNullList<ItemStack> shortcuts = BagStorage.loadShortcuts(player);
+        shortcuts.set(payload.shortcutSlot(), source.copyWithCount(1));
+        BagStorage.saveShortcuts(player, shortcuts);
+        sync(player, storage);
+    }
+
+    private static void handleUseShortcut(UseShortcutPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)
+            || payload.shortcutSlot() < 0 || payload.shortcutSlot() >= BagStorage.SHORTCUT_COUNT) return;
+        ItemStack prototype = BagStorage.loadShortcuts(player).get(payload.shortcutSlot());
+        if (prototype.isEmpty()) return;
+
+        NonNullList<ItemStack> storage = BagStorage.load(player);
+        Inventory inventory = player.getInventory();
+        for (int slot = 0; slot < 36; slot++) {
+            if (!ItemStack.isSameItemSameComponents(inventory.getItem(slot), prototype)) continue;
+            useInventorySlot(player, slot);
+            sync(player, storage);
+            return;
+        }
+        for (int slot = 0; slot < storage.size(); slot++) {
+            if (!ItemStack.isSameItemSameComponents(storage.get(slot), prototype)) continue;
+            useExtendedSlot(player, storage, slot);
+            sync(player, storage);
+            return;
+        }
     }
 
     private static void handleDiscard(DiscardPayload payload, IPayloadContext context) {
-        if (!(context.player() instanceof ServerPlayer player) || !validSlot(payload.extended(), payload.slot())) return;
+        if (!(context.player() instanceof ServerPlayer player) || !validSlot(payload.extended(), payload.slot())
+            || payload.quantity() <= 0) return;
         NonNullList<ItemStack> storage = BagStorage.load(player);
         ItemStack stack = getStack(player, storage, payload.extended(), payload.slot());
         if (stack.isEmpty()) return;
-        setStack(player, storage, payload.extended(), payload.slot(), ItemStack.EMPTY);
-        player.drop(stack, false);
+        int remaining = payload.quantity();
+        if (!payload.extended()) {
+            int removed = Math.min(remaining, stack.getCount());
+            stack.shrink(removed);
+            if (stack.isEmpty()) setStack(player, storage, false, payload.slot(), ItemStack.EMPTY);
+        } else {
+            ItemStack prototype = stack.copyWithCount(1);
+            for (int slot = 0; slot < storage.size() && remaining > 0; slot++) {
+                ItemStack stored = storage.get(slot);
+                if (!ItemStack.isSameItemSameComponents(stored, prototype)) continue;
+                int removed = Math.min(remaining, stored.getCount());
+                stored.shrink(removed);
+                remaining -= removed;
+                if (stored.isEmpty()) storage.set(slot, ItemStack.EMPTY);
+            }
+        }
         finishMutation(player, storage, payload.extended());
     }
 
@@ -215,6 +252,22 @@ public final class BagNetwork {
                 inventory.setItem(sourceIndex, result);
             }
         }
+        markInventoryChanged(player);
+    }
+
+    private static void useExtendedSlot(ServerPlayer player, NonNullList<ItemStack> storage, int sourceIndex) {
+        Inventory inventory = player.getInventory();
+        int handIndex = inventory.selected;
+        ItemStack originalHand = inventory.getItem(handIndex);
+        inventory.setItem(handIndex, storage.get(sourceIndex));
+        try {
+            useAndFinish(player);
+        } finally {
+            ItemStack result = inventory.getItem(handIndex);
+            inventory.setItem(handIndex, originalHand);
+            storage.set(sourceIndex, result);
+        }
+        BagStorage.save(player, storage);
         markInventoryChanged(player);
     }
 
@@ -260,7 +313,9 @@ public final class BagNetwork {
     private static void sync(ServerPlayer player, List<ItemStack> storage) {
         List<ItemStack> copy = new ArrayList<>(BagStorage.SLOT_COUNT);
         for (ItemStack stack : storage) copy.add(stack.copy());
-        PacketDistributor.sendToPlayer(player, new SnapshotPayload(copy));
+        List<ItemStack> shortcuts = new ArrayList<>(BagStorage.SHORTCUT_COUNT);
+        for (ItemStack stack : BagStorage.loadShortcuts(player)) shortcuts.add(stack.copy());
+        PacketDistributor.sendToPlayer(player, new SnapshotPayload(copy, shortcuts));
     }
 
     private static List<ItemStack> emptySnapshot() {
@@ -269,7 +324,13 @@ public final class BagNetwork {
         return List.copyOf(result);
     }
 
-    public record ClientSnapshot(List<ItemStack> slots, long revision) {}
+    private static List<ItemStack> emptyShortcuts() {
+        List<ItemStack> result = new ArrayList<>(BagStorage.SHORTCUT_COUNT);
+        for (int index = 0; index < BagStorage.SHORTCUT_COUNT; index++) result.add(ItemStack.EMPTY);
+        return List.copyOf(result);
+    }
+
+    public record ClientSnapshot(List<ItemStack> slots, List<ItemStack> shortcuts, long revision) {}
 
     public record SnapshotRequestPayload() implements CustomPacketPayload {
         public static final Type<SnapshotRequestPayload> TYPE = new Type<>(id("bag_snapshot_request"));
@@ -278,7 +339,7 @@ public final class BagNetwork {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record SnapshotPayload(List<ItemStack> slots) implements CustomPacketPayload {
+    public record SnapshotPayload(List<ItemStack> slots, List<ItemStack> shortcuts) implements CustomPacketPayload {
         public static final Type<SnapshotPayload> TYPE = new Type<>(id("bag_snapshot"));
         public static final StreamCodec<RegistryFriendlyByteBuf, SnapshotPayload> STREAM_CODEC =
             StreamCodec.ofMember(SnapshotPayload::write, SnapshotPayload::read);
@@ -292,6 +353,10 @@ public final class BagNetwork {
                 buffer.writeVarInt(slot);
                 ItemStack.STREAM_CODEC.encode(buffer, stack);
             }
+            for (int index = 0; index < BagStorage.SHORTCUT_COUNT; index++) {
+                ItemStack stack = index < shortcuts.size() ? shortcuts.get(index) : ItemStack.EMPTY;
+                ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, stack);
+            }
         }
         private static SnapshotPayload read(RegistryFriendlyByteBuf buffer) {
             int occupied = Math.max(0, Math.min(BagStorage.SLOT_COUNT, buffer.readVarInt()));
@@ -301,7 +366,11 @@ public final class BagNetwork {
                 ItemStack stack = ItemStack.STREAM_CODEC.decode(buffer);
                 if (slot >= 0 && slot < BagStorage.SLOT_COUNT) slots.set(slot, stack);
             }
-            return new SnapshotPayload(List.copyOf(slots));
+            List<ItemStack> shortcuts = new ArrayList<>(BagStorage.SHORTCUT_COUNT);
+            for (int index = 0; index < BagStorage.SHORTCUT_COUNT; index++) {
+                shortcuts.add(ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer));
+            }
+            return new SnapshotPayload(List.copyOf(slots), List.copyOf(shortcuts));
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
@@ -330,12 +399,12 @@ public final class BagNetwork {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record ShortcutPayload(boolean extended, int slot, int hotbarSlot) implements CustomPacketPayload {
+    public record ShortcutPayload(boolean extended, int slot, int shortcutSlot) implements CustomPacketPayload {
         public static final Type<ShortcutPayload> TYPE = new Type<>(id("bag_shortcut"));
         public static final StreamCodec<RegistryFriendlyByteBuf, ShortcutPayload> STREAM_CODEC =
             StreamCodec.ofMember(ShortcutPayload::write, ShortcutPayload::read);
         private void write(RegistryFriendlyByteBuf buffer) {
-            buffer.writeBoolean(extended); buffer.writeVarInt(slot); buffer.writeVarInt(hotbarSlot);
+            buffer.writeBoolean(extended); buffer.writeVarInt(slot); buffer.writeVarInt(shortcutSlot);
         }
         private static ShortcutPayload read(RegistryFriendlyByteBuf buffer) {
             return new ShortcutPayload(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt());
@@ -343,11 +412,26 @@ public final class BagNetwork {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record DiscardPayload(boolean extended, int slot) implements CustomPacketPayload {
+    public record UseShortcutPayload(int shortcutSlot) implements CustomPacketPayload {
+        public static final Type<UseShortcutPayload> TYPE = new Type<>(id("bag_use_shortcut"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, UseShortcutPayload> STREAM_CODEC =
+            StreamCodec.of(
+                (buffer, value) -> buffer.writeVarInt(value.shortcutSlot),
+                buffer -> new UseShortcutPayload(buffer.readVarInt())
+            );
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record DiscardPayload(boolean extended, int slot, int quantity) implements CustomPacketPayload {
         public static final Type<DiscardPayload> TYPE = new Type<>(id("bag_discard"));
-        public static final StreamCodec<RegistryFriendlyByteBuf, DiscardPayload> STREAM_CODEC = codec(
-            DiscardPayload::new, DiscardPayload::extended, DiscardPayload::slot
-        );
+        public static final StreamCodec<RegistryFriendlyByteBuf, DiscardPayload> STREAM_CODEC =
+            StreamCodec.ofMember(DiscardPayload::write, DiscardPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeBoolean(extended); buffer.writeVarInt(slot); buffer.writeVarInt(quantity);
+        }
+        private static DiscardPayload read(RegistryFriendlyByteBuf buffer) {
+            return new DiscardPayload(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt());
+        }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 

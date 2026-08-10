@@ -71,8 +71,6 @@ public final class BagScreen extends Screen {
     private int scrollRow;
     private int refreshTicks;
     private int statusTicks;
-    private int discardConfirmIndex = -1;
-    private int discardConfirmTicks;
     private BagSlotRef draggedSlot;
     private boolean scrollbarDragging;
     private boolean contentDragging;
@@ -183,7 +181,6 @@ public final class BagScreen extends Screen {
             refreshItems(false);
         }
         if (statusTicks > 0) statusTicks--;
-        if (discardConfirmTicks > 0 && --discardConfirmTicks == 0) resetDiscardConfirmation();
         if (++refreshTicks >= 10) {
             refreshTicks = 0;
             refreshItems(false);
@@ -307,6 +304,10 @@ public final class BagScreen extends Screen {
         if (!searchBox.isFocused()) {
             if (keyCode >= GLFW.GLFW_KEY_1 && keyCode <= GLFW.GLFW_KEY_9 && selectedSlot != null) {
                 assignShortcut(keyCode - GLFW.GLFW_KEY_1);
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_0 && selectedSlot != null) {
+                assignShortcut(9);
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
@@ -528,7 +529,6 @@ public final class BagScreen extends Screen {
     private void select(BagSlotRef slot) {
         if (slot == null) return;
         selectedSlot = slot.stack().isEmpty() ? null : slot;
-        resetDiscardConfirmation();
         updateActionButtons();
     }
 
@@ -540,35 +540,35 @@ public final class BagScreen extends Screen {
     }
 
     private void assignShortcut() {
-        if (minecraft != null && minecraft.player != null) assignShortcut(minecraft.player.getInventory().selected);
+        if (minecraft == null || selectedSlot == null || selectedStack().isEmpty()) return;
+        minecraft.setScreen(new BagShortcutSelectScreen(
+            this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy()
+        ));
     }
 
-    private void assignShortcut(int hotbarIndex) {
+    private void assignShortcut(int shortcutIndex) {
         if (selectedSlot == null || selectedStack().isEmpty()) return;
-        PlayerMenuClient.assignBagItemToHotbar(selectedSlot.extended(), selectedSlot.slot(), hotbarIndex);
-        showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.shortcut_registered", hotbarIndex + 1));
+        PlayerMenuClient.assignBagItemToShortcut(selectedSlot.extended(), selectedSlot.slot(), shortcutIndex);
+        shortcutAssigned(shortcutIndex);
         refreshTicks = 9;
     }
 
     private void discardSelected() {
-        if (selectedSlot == null || selectedStack().isEmpty()) return;
-        int identity = selectedSlot.extended() ? 1000 + selectedSlot.slot() : selectedSlot.slot();
-        if (discardConfirmIndex != identity || discardConfirmTicks <= 0) {
-            discardConfirmIndex = identity;
-            discardConfirmTicks = 60;
-            discardButton.setMessage(Component.translatable("screen.cobbleventure_player_menu.bag.discard_confirm"));
-            return;
-        }
-        PlayerMenuClient.discardBagItem(selectedSlot.extended(), selectedSlot.slot());
-        showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.discarded"));
-        resetDiscardConfirmation();
-        refreshTicks = 9;
+        if (minecraft == null || selectedSlot == null || selectedStack().isEmpty()) return;
+        minecraft.setScreen(new BagDiscardScreen(
+            this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy(), selectedSlot.displayCount()
+        ));
     }
 
-    private void resetDiscardConfirmation() {
-        discardConfirmIndex = -1;
-        discardConfirmTicks = 0;
-        if (discardButton != null) discardButton.setMessage(Component.translatable("screen.cobbleventure_player_menu.bag.discard"));
+    void shortcutAssigned(int shortcutIndex) {
+        showStatus(Component.translatable(
+            "screen.cobbleventure_player_menu.bag.shortcut_registered", shortcutIndex + 1
+        ));
+    }
+
+    void discardRequested(int quantity) {
+        showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.discarded", quantity));
+        refreshTicks = 9;
     }
 
     private void updateActionButtons() {

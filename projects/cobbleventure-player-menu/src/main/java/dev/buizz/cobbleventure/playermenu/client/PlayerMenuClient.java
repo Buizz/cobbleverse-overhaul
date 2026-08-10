@@ -56,12 +56,12 @@ public final class PlayerMenuClient {
         BagNetwork.requestMove(sourceExtended, sourceSlot, targetExtended, targetSlot, singleItem);
     }
 
-    public static void assignBagItemToHotbar(boolean extended, int slot, int hotbarIndex) {
-        BagNetwork.requestShortcut(extended, slot, hotbarIndex);
+    public static void assignBagItemToShortcut(boolean extended, int slot, int shortcutIndex) {
+        BagNetwork.requestShortcut(extended, slot, shortcutIndex);
     }
 
-    public static void discardBagItem(boolean extended, int slot) {
-        BagNetwork.requestDiscard(extended, slot);
+    public static void discardBagItem(boolean extended, int slot, int quantity) {
+        BagNetwork.requestDiscard(extended, slot, quantity);
     }
 
     public static void openTrainerCard() {
