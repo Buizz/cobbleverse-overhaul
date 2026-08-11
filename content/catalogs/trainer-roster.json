@@ -10,6 +10,28 @@
       "missing": "캐릭터 항목만 준비했으며 독자 제작 스킨 또는 사용 허가가 필요함"
     }
   },
+  "battle_reference_defaults": [
+    { "character": "cobbleventure:character/brock", "entry": "another_red_brock_001" },
+    { "character": "cobbleventure:character/misty", "entry": "another_red_misty_001" },
+    { "character": "cobbleventure:character/lt_surge", "entry": "another_red_surge_001" },
+    { "character": "cobbleventure:character/erika", "entry": "another_red_erika_001" },
+    { "character": "cobbleventure:character/sabrina", "entry": "another_red_sabrina_001" },
+    { "character": "cobbleventure:character/blaine", "entry": "another_red_blaine_001" },
+    { "character": "cobbleventure:character/falkner", "entry": "another_red_falkner_001" },
+    { "character": "cobbleventure:character/bugsy", "entry": "another_red_bugsy_001" },
+    { "character": "cobbleventure:character/morty", "entry": "another_red_morty_001" },
+    { "character": "cobbleventure:character/chuck", "entry": "another_red_chuck_001" },
+    { "character": "cobbleventure:character/jasmine", "entry": "another_red_jasmine_001" },
+    { "character": "cobbleventure:character/clair", "entry": "another_red_clair_001" },
+    { "character": "cobbleventure:character/roxanne", "entry": "another_red_roxane_001" },
+    { "character": "cobbleventure:character/brawly", "entry": "another_red_brawly_001" },
+    { "character": "cobbleventure:character/wattson", "entry": "another_red_wattson_001" },
+    { "character": "cobbleventure:character/flannery", "entry": "another_red_flannery_001" },
+    { "character": "cobbleventure:character/norman", "entry": "another_red_norman_001" },
+    { "character": "cobbleventure:character/winona", "entry": "another_red_winoa_001" },
+    { "character": "cobbleventure:character/tate", "entry": "another_red_tate_001" },
+    { "character": "cobbleventure:character/liza", "entry": "another_red_liza_001" }
+  ],
   "organizations": [
     {
       "id": "cobbleventure:organization/team_rocket", "display_name": { "ko_kr": "로켓단", "en_us": "Team Rocket" }, "generations": [1, 2], "regions": ["kanto", "johto"],

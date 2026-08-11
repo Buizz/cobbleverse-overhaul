@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.local/schemas/trainer-reference-entries.schema.json",
+  "title": "Cobbleventure Trainer Reference Entries",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "title", "sources", "entries"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "display_name"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_-]+$" },
+          "display_name": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "source", "source_label", "category", "name", "entry_number", "trainer_type", "team_size", "min_level", "max_level", "battle"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_-]+$" },
+          "source": { "enum": ["another_red", "rct_default"] },
+          "source_label": { "type": "string", "minLength": 1 },
+          "category": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "entry_number": { "type": "integer", "minimum": 0 },
+          "trainer_type": { "type": "string" },
+          "primary_type": { "type": ["string", "null"] },
+          "team_size": { "type": "integer", "minimum": 0, "maximum": 6 },
+          "min_level": { "type": "integer", "minimum": 0 },
+          "max_level": { "type": "integer", "minimum": 0 },
+          "battle": { "type": "object" }
+        }
+      }
+    }
+  }
+}

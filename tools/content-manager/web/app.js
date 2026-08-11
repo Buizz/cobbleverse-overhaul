@@ -15,6 +15,7 @@ const structureViewPitch = {
 const state = {
   trainers: [], settlements: [], trainer: null, settlement: null,
   trainerPath: "", settlementPath: "", buildCommands: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
+  trainerReferences: { sources: [], entries: [] },
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
   biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
   worldLayout: null, worldGenerations: [1], selectedGeneration: 1,
@@ -211,12 +212,13 @@ async function loadTrainerData(force = false) {
   if (lazyDataLoaded.trainers && !force) return;
   if (lazyDataPromises.trainers) return lazyDataPromises.trainers;
   lazyDataPromises.trainers = (async () => {
-    const [trainerClasses, trainerRoster, editorCatalog] = await Promise.all([
-      request("/api/trainer-classes"), request("/api/trainer-roster"), request("/api/editor-catalog")
+    const [trainerClasses, trainerRoster, trainerReferences, editorCatalog] = await Promise.all([
+      request("/api/trainer-classes"), request("/api/trainer-roster"), request("/api/trainer-reference-entries"), request("/api/editor-catalog")
     ]);
     if (!editorCatalog.ok) throw new Error(editorCatalog.data.error || "전투 데이터 카탈로그를 불러오지 못했습니다.");
     state.trainerClasses = trainerClasses.data.classes || [];
     state.trainerRoster = trainerRoster.ok ? trainerRoster.data : { organizations: [], league_characters: [] };
+    state.trainerReferences = trainerReferences.ok ? trainerReferences.data : { sources: [], entries: [] };
     state.editorCatalog = editorCatalog.data;
     lazyDataLoaded.trainers = true;
     if (state.trainer) renderTrainer();
@@ -1093,7 +1095,7 @@ function renderTrainer() {
   renderBag();
   renderTeam();
   $("#trainer-json").value = JSON.stringify(document, null, 2);
-  ["#trainer-json", "#apply-trainer-json", "#add-bag-item", "#add-pokemon", "#copy-team-json", "#paste-team-json", "#validate-trainer", "#save-trainer"].forEach((selector) => $(selector).disabled = false);
+  ["#trainer-json", "#apply-trainer-json", "#add-bag-item", "#add-pokemon", "#load-trainer-reference", "#copy-team-json", "#paste-team-json", "#validate-trainer", "#save-trainer"].forEach((selector) => $(selector).disabled = false);
   showIssues("#trainer-issues", { valid: true, issues: [] });
 }
 
@@ -1275,6 +1277,12 @@ function rosterCharacters() {
     ...(organization.grunt_variants || []), ...(organization.named_characters || [])
   ]);
   return [...organizations, ...(state.trainerRoster.league_characters || [])];
+}
+
+function currentRosterReferenceEntryId() {
+  const characterId = state.trainer?.npc?.character;
+  return (state.trainerRoster.battle_reference_defaults || [])
+    .find((entry) => entry.character === characterId)?.entry || "";
 }
 
 const rosterRolesByClass = {
@@ -2005,13 +2013,17 @@ function natureForStats(increased, decreased) {
 }
 
 function openChoiceDialog(kind, moveIndex = null, bagIndex = null) {
-  if (!state.editorCatalog || (kind !== "bag_item" && !currentPokemon())) {
+  if (kind === "trainer_reference" && !state.trainer) {
+    toast("먼저 적용할 트레이너를 선택하세요.");
+    return;
+  }
+  if (!state.editorCatalog || (!["bag_item", "trainer_reference"].includes(kind) && !currentPokemon())) {
     toast("전투 데이터 카탈로그를 아직 불러오지 못했습니다.");
     return;
   }
-  if (kind !== "bag_item") updateFocusedPokemon();
+  if (!["bag_item", "trainer_reference"].includes(kind)) updateFocusedPokemon();
   const [natureUp, natureDown] = natureSelection(currentPokemon()?.nature);
-  const initialScope = kind === "pokemon" ? "all" : kind === "item" ? "battle" : "recommended";
+  const initialScope = kind === "pokemon" ? "all" : kind === "item" ? "battle" : kind === "trainer_reference" ? "all" : "recommended";
   state.choice = { kind, moveIndex, bagIndex, query: "", type: "", category: "", scope: kind === "bag_item" ? "all" : initialScope, generation: "", natureUp, natureDown };
   const titles = {
     pokemon: ["포켓몬 선택", "기본 모습, 지역 폼과 특수 형태를 함께 검색합니다."],
@@ -2019,6 +2031,7 @@ function openChoiceDialog(kind, moveIndex = null, bagIndex = null) {
     ability: ["특성 선택", "현재 포켓몬이 사용할 수 있는 특성을 우선 표시합니다."],
     item: ["지닌 도구 선택", "배틀에서 사용할 수 있는 도구를 종류와 출처별로 찾습니다."],
     bag_item: ["가방 아이템 선택", "트레이너가 전투 중 사용할 회복·상태회복·능력치 아이템을 찾습니다."],
+    trainer_reference: ["참고 트레이너 엔트리", "출처·분류·이름·포켓몬을 검색한 뒤 현재 트레이너의 전투 데이터로 적용합니다."],
     move: ["기술 선택", "현재 포켓몬이 배울 수 있는 기술을 우선 표시합니다."]
   };
   [$("#choice-title").textContent, $("#choice-subtitle").textContent] = titles[kind];
@@ -2061,6 +2074,11 @@ function renderChoiceDialog() {
   } else if (choice.kind === "bag_item") {
     filters.className = "choice-dialog-filters";
     filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="all">모든 가방 아이템</option><option value="potion">HP 회복</option><option value="status">상태 회복</option><option value="revive">기절 회복</option><option value="battle">능력치 강화</option></select>`;
+  } else if (choice.kind === "trainer_reference") {
+    const sources = state.trainerReferences.sources || [];
+    const categories = [...new Set((state.trainerReferences.entries || []).map((entry) => entry.category))].sort();
+    filters.className = "choice-dialog-filters";
+    filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="all">모든 출처</option>${sources.map((source) => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.display_name)}</option>`).join("")}</select><select id="choice-category"><option value="">모든 분류</option>${categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("")}</select>`;
   } else {
     filters.className = "choice-dialog-filters";
     filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="recommended">현재 포켓몬의 특성</option><option value="all">모든 특성</option></select>`;
@@ -2111,6 +2129,14 @@ function renderChoiceResults(selectedSpecies) {
     rows = (state.editorCatalog.abilities || []).filter((entry) => matches(entry.id, entry.name, entry.englishName, entry.description) && (choice.scope === "all" || !selectedSpecies || allowed.has(entry.id)));
   } else if (choice.kind === "bag_item") {
     rows = (state.editorCatalog.bagItems || []).filter((entry) => matches(entry.id, entry.shortId, entry.name, entry.englishName, entry.description) && (choice.scope === "all" || entry.category === choice.scope));
+  } else if (choice.kind === "trainer_reference") {
+    const recommendedId = currentRosterReferenceEntryId();
+    rows = (state.trainerReferences.entries || []).filter((entry) => {
+      const pokemon = (entry.battle?.team || []).map((member) => member.species).join(" ");
+      return matches(entry.id, entry.source_label, entry.category, entry.name, entry.entry_number, entry.trainer_type, entry.primary_type, pokemon)
+        && (choice.scope === "all" || entry.source === choice.scope)
+        && (!choice.category || entry.category === choice.category);
+    }).sort((left, right) => Number(right.id === recommendedId) - Number(left.id === recommendedId));
   } else {
     rows = (state.editorCatalog.items || []).filter((entry) => !["mega", "z"].includes(entry.category) && matches(entry.id, entry.shortId, entry.name, entry.englishName, entry.description) && (choice.scope === "all" || (choice.scope === "battle" && entry.battleUsable) || entry.category === choice.scope) && (!choice.category || entry.namespace === choice.category));
   }
@@ -2130,6 +2156,12 @@ function optionalChoiceCard(kind) {
 }
 
 function choiceCard(kind, entry, selectedSpecies) {
+  if (kind === "trainer_reference") {
+    const number = entry.entry_number ? `#${entry.entry_number}` : "기본";
+    const party = (entry.battle?.team || []).map((member) => speciesLabel(member.species)).join(" · ");
+    const recommended = entry.id === currentRosterReferenceEntryId();
+    return `<button type="button" class="choice-card trainer-reference-card${recommended ? " recommended" : ""}" data-choice-value="${escapeHtml(entry.id)}"><span class="choice-card-title"><strong>${escapeHtml(entry.name)} <span class="entry-number">${escapeHtml(number)}</span></strong><small>${recommended ? "명단 기본 · " : ""}${escapeHtml(entry.source_label)}</small></span><span class="choice-tags"><b>${escapeHtml(entry.category)}</b>${entry.primary_type ? `<b>${escapeHtml(entry.primary_type)}</b>` : ""}<b>${entry.team_size}마리</b><b>Lv.${entry.min_level}-${entry.max_level}</b></span><p>${escapeHtml(party || "포켓몬 팀 없음")}</p></button>`;
+  }
   if (kind === "pokemon") return `<button type="button" class="choice-card pokemon-choice-card" data-choice-value="${escapeHtml(entry.id)}"><span class="choice-art"><img loading="lazy" decoding="async" data-choice-art="${escapeHtml(entry.id)}" alt="" hidden><b data-choice-art-fallback="${escapeHtml(entry.id)}">●</b></span><span><span class="choice-card-title"><strong>${escapeHtml(pokemonCatalogDisplayName(entry))}</strong><small>#${entry.number}</small></span><span class="choice-tags">${entry.types.map((type) => `<b class="move-type-badge type-${escapeHtml(toId(type))}">${escapeHtml(pokemonTypeNames[type] || type)}</b>`).join("")}${entry.forme ? `<b class="form">${escapeHtml(pokemonFormLabel(entry.forme))}</b>` : ""}${specialForm(entry) ? '<b class="special">특수 형태</b>' : ""}</span><small>HP ${entry.baseStats.hp} · 공 ${entry.baseStats.atk} · 방 ${entry.baseStats.def} · 특공 ${entry.baseStats.spa} · 특방 ${entry.baseStats.spd} · 스피드 ${entry.baseStats.spe}</small><p>${escapeHtml(pokemonCatalogDescription(entry))}</p></span></button>`;
   if (kind === "move") return `<button type="button" class="choice-card" data-choice-value="${escapeHtml(entry.id)}"><span class="choice-card-title"><strong>${escapeHtml(entry.name)}</strong><b class="move-type-badge type-${escapeHtml(toId(entry.type))}">${escapeHtml(pokemonTypeNames[entry.type] || entry.type)}</b></span><small>${escapeHtml(entry.category)} · 위력 ${entry.power || "—"} · 명중 ${entry.accuracy === true ? "필중" : entry.accuracy} · PP ${entry.pp}</small><p>${escapeHtml(entry.description || entry.englishName)}</p></button>`;
   const allowed = kind === "ability" && selectedSpecies?.abilities?.includes(entry.id);
@@ -2151,6 +2183,18 @@ function hydrateChoicePokemonArt(entries) {
 
 function chooseDialogValue(value) {
   const choice = state.choice;
+  if (choice?.kind === "trainer_reference") {
+    const reference = (state.trainerReferences.entries || []).find((entry) => entry.id === value);
+    if (!reference || !state.trainer) return;
+    const trainerId = state.trainer.battle?.trainer_id || state.trainer.id;
+    state.trainer.battle = structuredClone(reference.battle);
+    state.trainer.battle.trainer_id = trainerId;
+    state.selectedPokemonIndex = 0;
+    closeChoiceDialog();
+    renderTrainer();
+    toast(`${reference.name}${reference.entry_number ? ` #${reference.entry_number}` : ""} 엔트리를 적용했습니다. 저장 전까지 원본 파일은 변경되지 않습니다.`);
+    return;
+  }
   if (choice?.kind === "bag_item") {
     const entry = state.trainer?.battle?.bag?.[choice.bagIndex];
     if (!entry || !value) return;
@@ -4315,6 +4359,7 @@ $("#add-bag-item").addEventListener("click", addBagItem);
 $("#max-item-uses").addEventListener("input", updateTrainerFromForm);
 $("#copy-team-json").addEventListener("click", copyTeamJson);
 $("#paste-team-json").addEventListener("click", pasteTeamJson);
+$("#load-trainer-reference").addEventListener("click", () => openChoiceDialog("trainer_reference"));
 $("#apply-trainer-json").addEventListener("click", () => { const document = parseEditor("#trainer-json"); if (document) { state.trainer = document; renderTrainer(); toast("JSON을 편집 폼에 반영했습니다."); } });
 $("#validate-settlement").addEventListener("click", () => validateDocument("settlements"));
 $("#save-settlement").addEventListener("click", () => saveDocument("settlements"));

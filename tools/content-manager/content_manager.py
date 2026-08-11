@@ -1994,6 +1994,48 @@ def validate_trainer_roster_catalog(path: Path) -> tuple[set[str], list[Issue]]:
             validate_character(character, f"{org_path}.named_characters[{index}]", {"admin", "boss", "named_agent"})
     for index, character in enumerate(league):
         validate_character(character, f"$.league_characters[{index}]", {"gym_leader", "elite_four", "champion"})
+    defaults = _require_list(
+        root.get("battle_reference_defaults", []),
+        issues,
+        path,
+        "$.battle_reference_defaults",
+    ) or []
+    seen_default_characters: set[str] = set()
+    for index, value in enumerate(defaults):
+        default_path = f"$.battle_reference_defaults[{index}]"
+        default = _require_object(value, issues, path, default_path)
+        if default is None:
+            continue
+        character_id = _resource_id(
+            default.get("character"), issues, path, f"{default_path}.character"
+        )
+        if character_id and character_id not in character_ids:
+            _issue(
+                issues,
+                "error",
+                path,
+                f"{default_path}.character",
+                f"존재하지 않는 명단 캐릭터: {character_id}",
+            )
+        if character_id in seen_default_characters:
+            _issue(
+                issues,
+                "error",
+                path,
+                f"{default_path}.character",
+                f"중복 기본 엔트리 캐릭터: {character_id}",
+            )
+        elif character_id:
+            seen_default_characters.add(character_id)
+        entry_id = default.get("entry")
+        if not isinstance(entry_id, str) or re.fullmatch(r"[a-z0-9_-]+", entry_id) is None:
+            _issue(
+                issues,
+                "error",
+                path,
+                f"{default_path}.entry",
+                "참고 엔트리 ID 형식이 올바르지 않습니다.",
+            )
     return character_ids, issues
 
 
@@ -3871,6 +3913,20 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     self._json(
                         200,
                         load_json(root / "content" / "catalogs" / "trainer-roster.json"),
+                    )
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/trainer-reference-entries":
+                try:
+                    self._json(
+                        200,
+                        load_json(
+                            root
+                            / "content"
+                            / "catalogs"
+                            / "trainer-reference-entries.json"
+                        ),
                     )
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})

@@ -21,6 +21,19 @@
         }
       }
     },
+    "battle_reference_defaults": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["character", "entry"],
+        "properties": {
+          "character": { "$ref": "#/$defs/resource_id" },
+          "entry": { "type": "string", "pattern": "^[a-z0-9_-]+$" }
+        }
+      }
+    },
     "organizations": {
       "type": "array",
       "items": { "$ref": "#/$defs/organization" }

@@ -1583,6 +1583,8 @@ class ContentManagerTests(unittest.TestCase):
                 trainer_classes = json.load(response)
             with urllib.request.urlopen(f"{base_url}/api/trainer-roster") as response:
                 trainer_roster = json.load(response)
+            with urllib.request.urlopen(f"{base_url}/api/trainer-reference-entries") as response:
+                trainer_references = json.load(response)
             with urllib.request.urlopen(
                 f"{base_url}/api/trainer-skin?resource=cobbleventure%3Atrainer_skin%2Funimplemented"
             ) as response:
@@ -1639,6 +1641,19 @@ class ContentManagerTests(unittest.TestCase):
         self.assertGreaterEqual(len(trainer_classes["classes"]), 50)
         self.assertGreaterEqual(len(trainer_roster["organizations"]), 10)
         self.assertGreaterEqual(len(trainer_roster["league_characters"]), 50)
+        self.assertEqual(535, len(trainer_references["entries"]))
+        self.assertEqual(
+            {"another_red", "rct_default"},
+            {entry["source"] for entry in trainer_references["entries"]},
+        )
+        reference_by_id = {entry["id"]: entry for entry in trainer_references["entries"]}
+        self.assertEqual(20, len(trainer_roster["battle_reference_defaults"]))
+        self.assertTrue(all(
+            default["entry"] in reference_by_id
+            and reference_by_id[default["entry"]]["source"] == "another_red"
+            and reference_by_id[default["entry"]]["entry_number"] == 1
+            for default in trainer_roster["battle_reference_defaults"]
+        ))
         self.assertTrue(validation["valid"])
         self.assertGreaterEqual(dashboard["trainers"], 2)
         self.assertTrue(all(item["battle_type"] in {"singles", "doubles"} for item in trainers["items"]))
