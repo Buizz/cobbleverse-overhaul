@@ -6,6 +6,12 @@ import {
   writeClipboardText,
 } from "/pokemon-entry-clipboard.mjs";
 
+const structureViewPitch = {
+  default: -.68,
+  minimum: -Math.PI / 2 + .02,
+  maximum: -.30
+};
+
 const state = {
   trainers: [], settlements: [], trainer: null, settlement: null,
   trainerPath: "", settlementPath: "", buildCommands: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
@@ -14,8 +20,13 @@ const state = {
   worldLayout: null, worldGenerations: [1], selectedGeneration: 1,
   selectedHex: null, mapRadius: 6, mapZoom: 1, mapCenter: { x: 490, y: 330 }, mapViewInitialized: false,
   mapPan: null, suppressMapClick: false, draggedSettlement: null, routeDraft: null, worldDirty: false,
-  activeMapTool: "select", paintStroke: null, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null
+  activeMapTool: "select", paintStroke: null, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null,
+  structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
+  structureViewer: { query: "", selected: "", model: null, yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0 },
+  customTownTool: "cell"
 };
+const lazyDataLoaded = { trainers: false, biomes: false, structures: false };
+const lazyDataPromises = { trainers: null, biomes: null, structures: null };
 const biomeChoices = {
   habitat: [["plains", "평원"], ["forest", "숲"], ["arid", "건조지"], ["mountain", "산악"], ["cave", "동굴"], ["wetland", "습지"], ["freshwater", "담수"], ["ocean", "해양"], ["snow", "설원"], ["volcanic", "화산"], ["urban", "도시"], ["special", "특수"]],
   temperature: [["any", "무관"], ["cold", "한랭"], ["cool", "서늘"], ["temperate", "온대"], ["hot", "고온"]],
@@ -29,15 +40,16 @@ const settlementFacilityCatalog = [
   { id: "daycare", label: "키우미집", note: "건물과 야외 목장", width: 32, depth: 32, height: 10, color: "#80b918" },
   { id: "tm_workshop", label: "기술머신 조합소", note: "기술머신 제작 시설", width: 32, depth: 16, height: 10, color: "#f48c06" },
   { id: "hotel", label: "호텔", note: "중대형 숙박 시설", width: 32, depth: 32, height: 20, color: "#e85d75" },
+  { id: "casino", label: "카지노", note: "CasinoCraft 게임 시설 예정", width: 48, depth: 48, height: 20, color: "#d4a017" },
   { id: "battle_tower", label: "배틀타워", note: "전투 랜드마크", width: 48, depth: 48, height: 32, color: "#9d4edd" },
   { id: "radio_tower", label: "라디오 타워", note: "방송국과 송신탑", width: 48, depth: 48, height: 32, color: "#4361ee" },
   { id: "train_station", label: "기차역", note: "역사와 선로 예약부지", width: 48, depth: 64, height: 14, color: "#495057" }
 ];
 const legacyGymFacilityIds = new Set(["gym_site", "gym_lot"]);
 const houseBaseCatalog = [
-  { id: "compact", label: "소형 주택", width: 16, depth: 16 },
-  { id: "wide", label: "가로형 주택", width: 32, depth: 16 },
-  { id: "two_story", label: "2층 주택", width: 16, depth: 16 }
+  { id: "one_story", label: "1층 주택", width: 16, depth: 16, height: 13 },
+  { id: "two_story", label: "2층 주택", width: 16, depth: 16, height: 18 },
+  { id: "five_story", label: "5층 고층주택", width: 16, depth: 16, height: 33 }
 ];
 const houseRoofCatalog = [
   { id: "gable", label: "박공지붕" },
@@ -160,9 +172,11 @@ function escapeHtml(value) {
 function switchPage(section) {
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === section));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너 데이터", worlds: "세대별 월드맵", settlements: "마을 프리셋", biomes: "바이옴 관리", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너 데이터", worlds: "세대별 월드맵", settlements: "마을 프리셋", structures: "NBT 건물 3D", biomes: "바이옴 관리", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
+  if (section === "structures") requestAnimationFrame(renderStructureModel);
+  loadSectionData(section).catch((error) => toast(error.message));
 }
 
 async function loadDashboard() {
@@ -180,46 +194,103 @@ async function loadDashboard() {
 }
 
 async function loadLists() {
-  const [trainers, settlements, trainerClasses, trainerRoster, editorCatalog, biomeCatalog, pokemonHabitats, worldLayouts, worldLayout] = await Promise.all([
-    request("/api/trainers"), request("/api/settlements"), request("/api/trainer-classes"),
-    request("/api/trainer-roster"),
-    request("/api/editor-catalog"), request("/api/biome-catalog"), request("/api/pokemon-habitats"),
+  const [trainers, settlements, worldLayouts, worldLayout] = await Promise.all([
+    request("/api/trainers"), request("/api/settlements"),
     request("/api/world-layouts"), request(`/api/world-layout?generation=${state.selectedGeneration}`)
   ]);
   state.trainers = trainers.data.items || [];
   state.settlements = settlements.data.items || [];
-  state.trainerClasses = trainerClasses.data.classes || [];
-  state.trainerRoster = trainerRoster.ok ? trainerRoster.data : { organizations: [], league_characters: [] };
-  state.editorCatalog = editorCatalog.ok ? editorCatalog.data : null;
-  state.biomeCatalog = biomeCatalog.ok ? biomeCatalog.data : { profiles: [], sets: [] };
-  state.pokemonHabitats = pokemonHabitats.ok ? pokemonHabitats.data.pokemon || [] : [];
   state.worldGenerations = worldLayouts.ok ? worldLayouts.data.generations || [1] : [1];
   state.worldLayout = worldLayout.ok ? worldLayout.data : null;
-  if (!editorCatalog.ok) toast(editorCatalog.data.error || "전투 데이터 카탈로그를 불러오지 못했습니다.");
-  if (!biomeCatalog.ok || !pokemonHabitats.ok) {
-    const message = biomeCatalog.status === 404 || pokemonHabitats.status === 404
-      ? "바이옴 API가 없는 이전 서버가 실행 중입니다. build.bat web을 다시 시작해 주세요."
-      : (biomeCatalog.data.error || pokemonHabitats.data.error || "바이옴 데이터를 불러오지 못했습니다.");
-    toast(message);
-    $("#biome-issues").className = "issues";
-    $("#biome-issues").textContent = message;
-  }
   renderList("trainers");
   renderList("settlements");
   renderWorldLayout();
-  renderBiomeManager();
+}
+
+async function loadTrainerData(force = false) {
+  if (lazyDataLoaded.trainers && !force) return;
+  if (lazyDataPromises.trainers) return lazyDataPromises.trainers;
+  lazyDataPromises.trainers = (async () => {
+    const [trainerClasses, trainerRoster, editorCatalog] = await Promise.all([
+      request("/api/trainer-classes"), request("/api/trainer-roster"), request("/api/editor-catalog")
+    ]);
+    if (!editorCatalog.ok) throw new Error(editorCatalog.data.error || "전투 데이터 카탈로그를 불러오지 못했습니다.");
+    state.trainerClasses = trainerClasses.data.classes || [];
+    state.trainerRoster = trainerRoster.ok ? trainerRoster.data : { organizations: [], league_characters: [] };
+    state.editorCatalog = editorCatalog.data;
+    lazyDataLoaded.trainers = true;
+    if (state.trainer) renderTrainer();
+  })();
+  try { await lazyDataPromises.trainers; }
+  finally { lazyDataPromises.trainers = null; }
+}
+
+async function loadBiomeData(force = false) {
+  if (lazyDataLoaded.biomes && !force) return;
+  if (lazyDataPromises.biomes) return lazyDataPromises.biomes;
+  lazyDataPromises.biomes = (async () => {
+    const [biomeCatalog, pokemonHabitats] = await Promise.all([
+      request("/api/biome-catalog"), request("/api/pokemon-habitats")
+    ]);
+    if (!biomeCatalog.ok || !pokemonHabitats.ok) {
+      const message = biomeCatalog.status === 404 || pokemonHabitats.status === 404
+        ? "바이옴 API가 없는 이전 서버가 실행 중입니다. build.bat web을 다시 시작해 주세요."
+        : (biomeCatalog.data.error || pokemonHabitats.data.error || "바이옴 데이터를 불러오지 못했습니다.");
+      $("#biome-issues").className = "issues";
+      $("#biome-issues").textContent = message;
+      throw new Error(message);
+    }
+    state.biomeCatalog = biomeCatalog.data;
+    state.pokemonHabitats = pokemonHabitats.data.pokemon || [];
+    lazyDataLoaded.biomes = true;
+    renderBiomeManager();
+  })();
+  try { await lazyDataPromises.biomes; }
+  finally { lazyDataPromises.biomes = null; }
+}
+
+async function loadStructureData(force = false) {
+  if (lazyDataLoaded.structures && !force) return;
+  if (lazyDataPromises.structures) return lazyDataPromises.structures;
+  $("#nbt-structure-count").textContent = "불러오는 중";
+  $("#nbt-structure-list").innerHTML = '<div class="issues empty">NBT 목록을 필요한 시점에 불러오고 있습니다.</div>';
+  lazyDataPromises.structures = (async () => {
+    const result = await request("/api/structure-sizes");
+    if (!result.ok) throw new Error(result.data.error || "NBT 구조물 목록을 불러오지 못했습니다.");
+    state.structureSizes = result.data.structures || {};
+    lazyDataLoaded.structures = true;
+    renderStructureBrowser();
+    if (state.settlement) renderVillageGenerationTest();
+  })();
+  try { await lazyDataPromises.structures; }
+  catch (error) {
+    $("#nbt-structure-count").textContent = "오류";
+    $("#nbt-structure-list").innerHTML = `<div class="issues">${escapeHtml(error.message)}</div>`;
+    throw error;
+  } finally { lazyDataPromises.structures = null; }
+}
+
+function loadSectionData(section, force = false) {
+  if (section === "trainers") return loadTrainerData(force);
+  if (section === "biomes") return loadBiomeData(force);
+  if (section === "structures") return loadStructureData(force);
+  if (section === "settlements") return Promise.all([loadBiomeData(force), loadStructureData(force)]);
+  return Promise.resolve();
 }
 
 function settlementSummary(settlementId) {
   return state.settlements.find((item) => item.id === settlementId);
 }
-function settlementPresetBiome(settlementId) { return settlementSummary(settlementId)?.biome || "minecraft:plains"; }
-function normalizeTownCellCount(value) { const count = Number(value); return count === 3 || count === 5 || count === 7 ? count : 1; }
+function normalizeTownCellCount(value) { const count = Number(value); return count === 3 || count === 5 || count === 7 || count === 19 ? count : 1; }
 function settlementPresetRadius(settlementId) { return normalizeTownCellCount(settlementSummary(settlementId)?.town_radius_cells); }
-function normalizeTownFootprintShape(value) { return ["triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down"].includes(value) ? value : "line_q"; }
+function normalizeTownFootprintShape(value) { return ["triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down", "custom"].includes(value) ? value : "line_q"; }
 function settlementPresetFootprintShape(settlementId) { return normalizeTownFootprintShape(settlementSummary(settlementId)?.town_footprint_shape); }
+function normalizedAxialCells(value) { const seen = new Set(); return (Array.isArray(value) ? value : []).filter((cell) => Number.isInteger(cell?.q) && Number.isInteger(cell?.r)).map((cell) => ({ q: cell.q, r: cell.r })).filter((cell) => { const key = `${cell.q},${cell.r}`; if (seen.has(key)) return false; seen.add(key); return true; }); }
+function settlementPresetFootprintCells(settlementId) { return normalizedAxialCells(settlementSummary(settlementId)?.town_footprint_cells); }
+function settlementPresetRoadExits(settlementId) { return normalizedAxialCells(settlementSummary(settlementId)?.town_road_exits); }
 function worldSettlementCellCount(node) { return normalizeTownCellCount(node?.town_radius_cells ?? settlementPresetRadius(node?.settlement)); }
 function worldSettlementFootprintShape(node) { return normalizeTownFootprintShape(node?.town_footprint_shape ?? settlementPresetFootprintShape(node?.settlement)); }
+function worldSettlementFootprintCells(node) { return normalizedAxialCells(node?.town_footprint_cells?.length ? node.town_footprint_cells : settlementPresetFootprintCells(node?.settlement)); }
 
 function worldSettlementOptions(selected) {
   const token = `generation_${state.selectedGeneration}/`;
@@ -327,8 +398,9 @@ function emptyTerrainSymbol(type) { return ({ high_forest: "♣", ocean: "≈", 
 function settlementAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function objectAt(q, r) { return state.worldLayout?.objects?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function environmentOverrideAt(q, r) { return state.worldLayout?.environment_overrides?.find((entry) => entry.q === q && entry.r === r); }
-function townFootprintCells(center, cellCount, shape = "line_q") {
+function townFootprintCells(center, cellCount, shape = "line_q", customCells = []) {
   const count = normalizeTownCellCount(cellCount);
+  if (shape === "custom") return normalizedAxialCells(customCells).map((cell) => ({ q: center.q + cell.q, r: center.r + cell.r }));
   if (count === 1) return [{ ...center }];
   if (count === 3) {
     const shapes = {
@@ -347,9 +419,9 @@ function townFootprintCells(center, cellCount, shape = "line_q") {
       : [[-1, 0], [0, 0], [1, 0], [0, -1], [1, -1]];
     return offsets.map(([q, r]) => ({ q: center.q + q, r: center.r + r }));
   }
-  return hexArea(center, 1);
+  return hexArea(center, count === 19 ? 2 : 1);
 }
-function settlementFootprintAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor && townFootprintCells(node.anchor, worldSettlementCellCount(node), worldSettlementFootprintShape(node)).some((cell) => cell.q === q && cell.r === r)); }
+function settlementFootprintAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor && townFootprintCells(node.anchor, worldSettlementCellCount(node), worldSettlementFootprintShape(node), worldSettlementFootprintCells(node)).some((cell) => cell.q === q && cell.r === r)); }
 function hexDistance(from, to) { return (Math.abs(from.q - to.q) + Math.abs(from.r - to.r) + Math.abs((-from.q - from.r) - (-to.q - to.r))) / 2; }
 function roundHex(q, r) {
   let roundedQ = Math.round(q); let roundedR = Math.round(r); let roundedS = Math.round(-q - r);
@@ -405,7 +477,7 @@ function baseBiomeAt(q, r) {
   const tile = tileAt(q, r);
   if (tile) return tile.biome;
   const townArea = settlementFootprintAt(q, r);
-  return townArea ? settlementPresetBiome(townArea.settlement) : null;
+  return townArea ? (townArea.town_biome || "minecraft:plains") : null;
 }
 
 function renderHexMap() {
@@ -417,7 +489,7 @@ function renderHexMap() {
     const route = townArea ? null : primaryRouteAt(q, r);
     const selected = state.selectedHex?.q === q && state.selectedHex?.r === r; const environment = environmentOverrideAt(q, r);
     const emptyType = emptyTerrainAt(q, r);
-    const tone = townArea ? biomeTone(settlementPresetBiome(townArea.settlement)) : tile ? biomeTone(tile.biome) : emptyTerrainTone(emptyType);
+    const tone = townArea ? biomeTone(townArea.town_biome || "minecraft:plains") : tile ? biomeTone(tile.biome) : emptyTerrainTone(emptyType);
     const baseLabel = town ? settlementSummary(town.settlement)?.name || "마을" : townArea ? `${settlementSummary(townArea.settlement)?.name || "마을"} 사용 범위` : tile ? tile.biome : emptyTerrainLabel(emptyType);
     const climateLabel = environment ? `, 기후 ${environment.temperature || "기본"}/${environment.humidity || "기본"}/${environment.weather || "기본"}` : "";
     const label = (route ? `${baseLabel}, 길 ${route.id}` : baseLabel) + climateLabel;
@@ -502,9 +574,10 @@ function renderHexMap() {
 async function saveWorldLayout() {
   if (!state.worldLayout) return;
   for (const node of state.worldLayout.settlements || []) {
-    node.town_biome = settlementPresetBiome(node.settlement);
     node.town_radius_cells = settlementPresetRadius(node.settlement);
     node.town_footprint_shape = settlementPresetFootprintShape(node.settlement);
+    node.town_footprint_cells = settlementPresetFootprintCells(node.settlement);
+    node.town_road_exits = settlementPresetRoadExits(node.settlement);
   }
   syncConnectionPaths();
   state.worldLayout.schema_version = 2;
@@ -598,8 +671,8 @@ function placeSettlementWithTool(q, r) {
   if (occupied && occupied !== node) { toast("이미 다른 마을이 배치된 타일입니다."); return; }
   const conflict = settlementRangeConflict(node, q, r, radius);
   if (conflict) { toast(`${settlementSummary(conflict.settlement)?.name || "다른 마을"}의 사용 범위와 겹칩니다.`); return; }
-  if (!node) { node = defaultWorldSettlement(id, q, r); state.worldLayout.settlements.push(node); }
-  node.anchor = { q, r }; node.town_radius_cells = radius; node.town_footprint_shape = settlementPresetFootprintShape(id); node.town_biome = settlementPresetBiome(id);
+  if (!node) { node = defaultWorldSettlement(id, q, r, $("#settlement-tool-biome").value); state.worldLayout.settlements.push(node); }
+  node.anchor = { q, r }; node.town_radius_cells = radius; node.town_footprint_shape = settlementPresetFootprintShape(id); node.town_footprint_cells = settlementPresetFootprintCells(id); node.town_road_exits = settlementPresetRoadExits(id);
   state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
 function placeObjectWithTool(q, r) {
@@ -632,6 +705,7 @@ function renderTileInspector() {
   form.elements.biome.innerHTML = worldBiomeOptions(tile?.biome || "minecraft:plains");
   form.elements.emptyTerrainType.value = emptyTerrainAt(selected.q, selected.r);
   form.elements.settlement.innerHTML = worldSettlementOptions(town?.settlement || "");
+  form.elements.townBiome.innerHTML = worldBiomeOptions(town?.town_biome || "minecraft:plains");
   form.elements.objectId.value = customObject?.id || "";
   form.elements.objectType.value = customObject?.type || "landmark";
   form.elements.objectResource.value = customObject?.resource || "";
@@ -662,6 +736,7 @@ function renderMapToolOptions() {
   $$('[data-map-tool]').forEach((button) => { button.classList.toggle("is-active", button.dataset.mapTool === tool); button.setAttribute("aria-pressed", String(button.dataset.mapTool === tool)); });
   $$('[data-tool-options]').forEach((panel) => panel.hidden = panel.dataset.toolOptions !== tool);
   $("#biome-brush-type").innerHTML = worldBiomeOptions($("#biome-brush-type").value || "minecraft:plains");
+  $("#settlement-tool-biome").innerHTML = worldBiomeOptions($("#settlement-tool-biome").value || "minecraft:plains");
   $("#settlement-tool-preset").innerHTML = worldSettlementOptions($("#settlement-tool-preset").value);
   const help = { select: "선택 도구 · 드래그: 지도/마을 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", route: "길 도구 · 마을 두 곳: 자동 연결 · 일반 타일: 직접 경로", settlement: "마을 도구 · 타일을 눌러 배치 또는 이동", object: "오브젝트 도구 · 독립 레이어에 배치", eraser: "지우개 · 선택 레이어 제거" };
   $("#map-interaction-help").textContent = help[tool];
@@ -786,10 +861,10 @@ function focusRoute(routeId, center = true) {
 }
 
 function defaultWorldTile(q, r, biome) { return { q, r, biome, boundary_profile: "cobbleventure:boundary/earthwork", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96 } }; }
-function defaultWorldSettlement(id, q, r) { return { settlement: id, anchor: { q, r }, town_radius_cells: settlementPresetRadius(id), town_footprint_shape: settlementPresetFootprintShape(id), town_biome: "minecraft:plains", surroundings: [], boundary_profile: "cobbleventure:boundary/stone_wall", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96 } }; }
+function defaultWorldSettlement(id, q, r, biome = "minecraft:plains") { return { settlement: id, anchor: { q, r }, town_radius_cells: settlementPresetRadius(id), town_footprint_shape: settlementPresetFootprintShape(id), town_footprint_cells: settlementPresetFootprintCells(id), town_road_exits: settlementPresetRoadExits(id), town_biome: biome, surroundings: [], boundary_profile: "cobbleventure:boundary/stone_wall", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96 } }; }
 function settlementRangeConflict(node, q, r, cellCount) {
-  const candidateCells = townFootprintCells({ q, r }, cellCount, node ? worldSettlementFootprintShape(node) : "line_q");
-  return state.worldLayout.settlements.find((entry) => entry !== node && entry.anchor && candidateCells.some((candidate) => townFootprintCells(entry.anchor, worldSettlementCellCount(entry), worldSettlementFootprintShape(entry)).some((occupied) => hexDistance(candidate, occupied) < 2)));
+  const candidateCells = townFootprintCells({ q, r }, cellCount, node ? worldSettlementFootprintShape(node) : "line_q", node ? worldSettlementFootprintCells(node) : []);
+  return state.worldLayout.settlements.find((entry) => entry !== node && entry.anchor && candidateCells.some((candidate) => townFootprintCells(entry.anchor, worldSettlementCellCount(entry), worldSettlementFootprintShape(entry), worldSettlementFootprintCells(entry)).some((occupied) => hexDistance(candidate, occupied) < 2)));
 }
 
 function applyTilePlacement() {
@@ -823,11 +898,13 @@ function applyTilePlacement() {
     if (occupied && occupied.settlement !== id) { toast("이미 다른 마을이 배치된 타일입니다."); return; }
     const conflict = settlementRangeConflict(node, q, r, townRadius);
     if (conflict) { toast(`${settlementSummary(conflict.settlement)?.name || "다른 마을"}의 사용 범위와 겹칩니다.`); renderTileInspector(); return; }
-    if (!node) { node = defaultWorldSettlement(id, q, r); state.worldLayout.settlements.push(node); }
+    if (!node) { node = defaultWorldSettlement(id, q, r, form.elements.townBiome.value); state.worldLayout.settlements.push(node); }
     else node.anchor = { q, r };
     node.town_radius_cells = townRadius;
     node.town_footprint_shape = settlementPresetFootprintShape(id);
-    node.town_biome = settlementPresetBiome(id);
+    node.town_footprint_cells = settlementPresetFootprintCells(id);
+    node.town_road_exits = settlementPresetRoadExits(id);
+    node.town_biome = form.elements.townBiome.value;
   }
   markWorldDirty(); renderWorldLayout();
 }
@@ -2421,17 +2498,246 @@ function selectedFacilityRequirements() {
     const facility = settlementFacilityCatalog.find((item) => item.id === row.dataset.facilityId);
     if (!facility) return [];
     const count = Math.max(1, Math.min(8, Number(row.querySelector(".facility-count input")?.value || 1)));
+    const structure = `cobbleventure:placeholder/${facility.id}`;
+    const footprint = structureFootprint(structure, facility);
     return [{
       id: facility.id, label: facility.label, count, required: true,
-      footprint: { width: facility.width, depth: facility.depth, height: facility.height }
+      structure, footprint
     }];
   });
+}
+
+function structureFootprint(structure, fallback = {}) {
+  const nbt = structure ? state.structureSizes[structure] : null;
+  return {
+    width: Number(nbt?.width || fallback.width || fallback.footprint?.width || 16),
+    depth: Number(nbt?.depth || fallback.depth || fallback.footprint?.depth || 16),
+    height: Number(nbt?.height || fallback.height || fallback.footprint?.height || 1),
+    occupied: nbt?.occupied || null,
+    topView: nbt?.top_view || null,
+    nbtResolved: Boolean(nbt),
+    source: nbt?.source || ""
+  };
+}
+
+function minecraftTopBlockColor(blockName) {
+  const name = String(blockName || "").split(":").at(-1);
+  const colors = [
+    [/water|bubble_column/, "#3f76e4"], [/lava/, "#ff6b16"],
+    [/grass_block|moss/, "#78a84f"], [/leaves|vine/, "#56893f"],
+    [/sandstone|sand/, "#d8c47b"], [/snow|ice/, "#dceff2"],
+    [/deepslate|blackstone/, "#45434a"], [/cobblestone|stone|andesite|tuff/, "#818486"],
+    [/brick|terracotta/, "#a75d4d"], [/quartz|calcite/, "#e7e1d4"],
+    [/copper/, "#b76e4f"], [/iron|anvil|cauldron/, "#9ca2a3"],
+    [/gold|yellow_/, "#e6c447"], [/diamond|cyan_/, "#53b9bc"],
+    [/red_|nether_wart/, "#ad3d3d"], [/blue_|lapis/, "#4869ae"],
+    [/purple_|amethyst/, "#9565b8"], [/pink_|magenta_/, "#cf79a3"],
+    [/orange_/, "#d8873e"], [/lime_/, "#82ad48"],
+    [/black_|coal/, "#343538"], [/gray_/, "#6f7376"], [/white_/, "#deddd7"],
+    [/glass/, "#9fc7cc"], [/wool|concrete/, "#b8ad94"],
+    [/planks|log|wood|stem|hyphae|barrel|chest|bookshelf|crafting_table/, "#9a7248"],
+    [/dirt|mud|farmland|path/, "#806044"], [/gravel/, "#8e8984"],
+    [/flower|tulip|orchid|dandelion|poppy/, "#d97983"],
+    [/torch|lantern|glowstone|shroomlight|sea_lantern/, "#e7c66a"]
+  ];
+  return colors.find(([pattern]) => pattern.test(name))?.[1] || "#9b927f";
+}
+
+function shadeMinecraftTopColor(hex, factor) {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const channel = (shift) => Math.max(0, Math.min(255, Math.round(((value >> shift) & 255) * factor)));
+  return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+}
+
+function structureViewerEntries() {
+  const query = state.structureViewer.query.trim().toLowerCase();
+  return Object.entries(state.structureSizes)
+    .filter(([id, metadata]) => !query || `${id} ${metadata.source || ""}`.toLowerCase().includes(query))
+    .sort(([left], [right]) => left.localeCompare(right));
+}
+
+function renderStructureBrowser() {
+  const list = $("#nbt-structure-list");
+  if (!list) return;
+  const entries = structureViewerEntries();
+  $("#nbt-structure-count").textContent = `${entries.length.toLocaleString()}개`;
+  list.innerHTML = entries.length ? entries.map(([id, metadata]) => `
+    <button type="button" class="nbt-structure-item${id === state.structureViewer.selected ? " is-active" : ""}" data-nbt-structure="${escapeHtml(id)}">
+      <span><strong>${escapeHtml(id.split(":").at(-1))}</strong><small>${escapeHtml(id)}</small></span>
+      <span class="nbt-structure-size">${metadata.width}×${metadata.height}×${metadata.depth}</span>
+    </button>`).join("") : '<div class="issues empty">검색 조건에 맞는 NBT가 없습니다.</div>';
+}
+
+async function loadStructureModel(structureId) {
+  state.structureViewer.selected = structureId;
+  state.structureViewer.model = null;
+  const requestId = ++state.structureViewer.requestId;
+  renderStructureBrowser();
+  $("#nbt-model-title").textContent = structureId;
+  $("#nbt-model-meta").textContent = "실제 NBT 블록을 읽는 중입니다…";
+  $("#nbt-model-source").textContent = "불러오는 중";
+  $("#nbt-model-empty").hidden = false;
+  $("#nbt-model-empty").textContent = "3D 모델을 만드는 중입니다…";
+  renderStructureModel();
+  const result = await request(`/api/structure-model?structure=${encodeURIComponent(structureId)}`);
+  if (requestId !== state.structureViewer.requestId) return;
+  if (!result.ok) {
+    $("#nbt-model-meta").textContent = result.data.error || "NBT 모델을 불러오지 못했습니다.";
+    $("#nbt-model-source").textContent = "불러오기 실패";
+    $("#nbt-model-empty").textContent = result.data.error || "NBT 모델을 불러오지 못했습니다.";
+    return;
+  }
+  state.structureViewer.model = result.data;
+  resetStructureView();
+  const model = result.data;
+  $("#nbt-model-title").textContent = structureId;
+  $("#nbt-model-meta").textContent = `${model.width} × ${model.height} × ${model.depth} 블록 · 전체 ${Number(model.total_blocks).toLocaleString()}블록`;
+  $("#nbt-model-source").textContent = model.source || "NBT";
+  $("#nbt-model-blocks").textContent = `표면 블록 ${Number(model.surface_blocks).toLocaleString()}개`;
+  $("#nbt-model-empty").hidden = Boolean(model.blocks?.length);
+  if (!model.blocks?.length) $("#nbt-model-empty").textContent = "표시할 블록이 없는 구조물입니다.";
+  renderStructureModel();
+}
+
+function resetStructureView() {
+  Object.assign(state.structureViewer, { yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null });
+  renderStructureModel();
+}
+
+function projectStructurePoint(point, model, canvas, scale = 1) {
+  const view = state.structureViewer;
+  const dx = point[0] - model.width / 2;
+  const dy = point[1] - model.height / 2;
+  const dz = point[2] - model.depth / 2;
+  const cosine = Math.cos(view.yaw), sine = Math.sin(view.yaw);
+  const rotatedX = dx * cosine - dz * sine;
+  const rotatedZ = dx * sine + dz * cosine;
+  const pitchCosine = Math.cos(view.pitch), pitchSine = Math.sin(view.pitch);
+  return {
+    x: canvas.width / 2 + rotatedX * scale,
+    y: canvas.height / 2 + (rotatedZ * pitchSine - dy * pitchCosine) * scale,
+    depth: rotatedZ * pitchCosine + dy * pitchSine
+  };
+}
+
+function structureViewScale(model, canvas) {
+  const corners = [];
+  for (const x of [0, model.width]) for (const y of [0, model.height]) for (const z of [0, model.depth]) {
+    corners.push(projectStructurePoint([x, y, z], model, canvas));
+  }
+  const spanX = Math.max(...corners.map((point) => point.x)) - Math.min(...corners.map((point) => point.x));
+  const spanY = Math.max(...corners.map((point) => point.y)) - Math.min(...corners.map((point) => point.y));
+  return Math.max(1.5, Math.min((canvas.width - 100) / Math.max(1, spanX), (canvas.height - 80) / Math.max(1, spanY))) * state.structureViewer.zoom;
+}
+
+function renderStructureModel() {
+  const canvas = $("#nbt-model-canvas");
+  const model = state.structureViewer.model;
+  if (!canvas) return;
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  if (!model?.blocks?.length) return;
+  const scale = structureViewScale(model, canvas);
+  const faceDefinitions = [
+    [[0,0,0],[0,0,1],[0,1,1],[0,1,0], .72],
+    [[1,0,1],[1,0,0],[1,1,0],[1,1,1], .86],
+    [[0,0,1],[0,0,0],[1,0,0],[1,0,1], .58],
+    [[0,1,0],[0,1,1],[1,1,1],[1,1,0], 1.08],
+    [[1,0,0],[0,0,0],[0,1,0],[1,1,0], .76],
+    [[0,0,1],[1,0,1],[1,1,1],[0,1,1], .92]
+  ];
+  const faces = [];
+  for (const [x, y, z, paletteIndex, faceMask] of model.blocks) {
+    for (let index = 0; index < faceDefinitions.length; index += 1) {
+      if (!(faceMask & (1 << index))) continue;
+      const definition = faceDefinitions[index];
+      const points = definition.slice(0, 4).map(([dx, dy, dz]) => projectStructurePoint([x + dx, y + dy, z + dz], model, canvas, scale));
+      faces.push({ points, depth: points.reduce((sum, point) => sum + point.depth, 0) / 4, color: shadeMinecraftTopColor(minecraftTopBlockColor(model.palette[paletteIndex]), definition[4]), blockName: model.palette[paletteIndex] });
+    }
+  }
+  faces.sort((left, right) => right.depth - left.depth);
+  context.lineJoin = "round";
+  for (const face of faces) {
+    context.beginPath();
+    context.moveTo(face.points[0].x, face.points[0].y);
+    for (const point of face.points.slice(1)) context.lineTo(point.x, point.y);
+    context.closePath();
+    context.globalAlpha = /glass|leaves|water/.test(face.blockName) ? .78 : 1;
+    context.fillStyle = face.color;
+    context.fill();
+    if (scale >= 3) {
+      context.strokeStyle = "rgba(18, 25, 23, .28)";
+      context.lineWidth = Math.min(1.2, scale * .09);
+      context.stroke();
+    }
+  }
+  context.globalAlpha = 1;
+}
+
+function beginStructureDrag(event) {
+  state.structureViewer.drag = { x: event.clientX, y: event.clientY, yaw: state.structureViewer.yaw, pitch: state.structureViewer.pitch };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  event.currentTarget.classList.add("is-dragging");
+}
+
+function moveStructureDrag(event) {
+  const drag = state.structureViewer.drag;
+  if (!drag) return;
+  state.structureViewer.yaw = drag.yaw + (event.clientX - drag.x) * .012;
+  state.structureViewer.pitch = Math.max(
+    structureViewPitch.minimum,
+    Math.min(structureViewPitch.maximum, drag.pitch - (event.clientY - drag.y) * .008)
+  );
+  renderStructureModel();
+}
+
+function endStructureDrag(event) {
+  state.structureViewer.drag = null;
+  event.currentTarget.classList.remove("is-dragging");
+}
+
+function rotateMinecraftTopBlock(x, z, width, depth, rotation) {
+  if (rotation === "clockwise_90") return { x: depth - 1 - z, z: x };
+  if (rotation === "clockwise_180") return { x: width - 1 - x, z: depth - 1 - z };
+  if (rotation === "counterclockwise_90") return { x: z, z: width - 1 - x };
+  return { x, z };
+}
+
+function drawMinecraftStructureTopView(context, plot, project, scale) {
+  const palette = plot.topView?.palette;
+  const blocks = plot.topView?.blocks;
+  if (!Array.isArray(palette) || !Array.isArray(blocks) || !blocks.length) return false;
+  const heights = blocks.map((block) => Number(block[2]));
+  const minHeight = Math.min(...heights);
+  const heightRange = Math.max(1, Math.max(...heights) - minHeight);
+  for (const block of blocks) {
+    const [localX, localZ, y, paletteIndex] = block.map(Number);
+    const blockName = palette[paletteIndex] || "minecraft:unknown";
+    const rotated = rotateMinecraftTopBlock(localX, localZ, plot.width, plot.depth, plot.rotation);
+    const start = project(plot.x + rotated.x, plot.z + rotated.z);
+    const end = project(plot.x + rotated.x + 1, plot.z + rotated.z + 1);
+    const heightShade = .82 + ((y - minHeight) / heightRange) * .22;
+    const variation = ((localX * 17 + localZ * 31 + paletteIndex * 7) % 5 - 2) * .018;
+    context.globalAlpha = /glass|leaves|water/.test(blockName) ? .82 : 1;
+    context.fillStyle = shadeMinecraftTopColor(minecraftTopBlockColor(blockName), heightShade + variation);
+    context.fillRect(start.x, start.y, Math.max(.7, end.x - start.x + .15), Math.max(.7, end.y - start.y + .15));
+    if (scale >= 5) {
+      context.strokeStyle = "rgba(24,31,28,.2)";
+      context.lineWidth = Math.min(1, scale * .08);
+      context.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
+    }
+  }
+  context.globalAlpha = 1;
+  return true;
 }
 
 function normalizedHousePalette(profile = state.settlement?.structure_profile?.generation_profile?.house_palette) {
   const allowed = (values, catalog, fallback) => {
     const valid = new Set(catalog.map((item) => item.id));
-    const selected = Array.isArray(values) ? [...new Set(values.filter((value) => valid.has(value)))] : [];
+    const migrated = Array.isArray(values)
+      ? values.map((value) => value === "compact" || value === "wide" ? "one_story" : value)
+      : [];
+    const selected = [...new Set(migrated.filter((value) => valid.has(value)))];
     return selected.length ? selected : [...fallback];
   };
   return {
@@ -2481,18 +2787,72 @@ function selectedCivicFacilities() {
   return selected.map((facility) => ({
     id: facility.id, label: facility.label, count: 1, required: true,
     structure: facility.structure, color: facility.color,
-    footprint: { width: facility.width, depth: facility.depth, height: facility.height }
+    footprint: structureFootprint(facility.structure, facility)
   }));
 }
 
 function selectedGymFacility() {
   const form = $("#settlement-form");
   if (!form?.elements.gymEnabled?.checked) return [];
+  const structure = form.elements.gymStructure.value.trim();
+  const footprint = structureFootprint(structure, { width: 25, depth: 26, height: 13 });
+  if (!footprint.topView?.blocks?.length) {
+    footprint.topView = gymFallbackTopView(form.elements.gymTheme.value, footprint.width, footprint.depth);
+  }
   return [{
     id: "gym_building", label: "체육관", count: 1, required: true,
-    structure: form.elements.gymStructure.value.trim(), color: "#ef233c",
-    footprint: { width: 32, depth: 32, height: 20 }
+    structure, color: "#ef233c",
+    footprint
   }];
+}
+
+function facilityCanonicalEntranceFacing(id) {
+  if (["department_store", "facility_department_store"].includes(id)) return "north";
+  if (["pokemon_center", "facility_pokemon_center"].includes(id)) return "west";
+  if (["pokemart", "facility_pokemart"].includes(id)) return "east";
+  if (String(id).includes("gym")) return "west";
+  return "north";
+}
+
+function facilityEntrancePoint(id, occupiedPlot, facing = facilityCanonicalEntranceFacing(id)) {
+  const blockX = Math.round(occupiedPlot.x);
+  const blockZ = Math.round(occupiedPlot.z);
+  if (["pokemon_center", "facility_pokemon_center"].includes(id)) {
+    return { x: blockX - 1, z: blockZ + Math.min(10, occupiedPlot.depth - 1) };
+  }
+  if (["pokemart", "facility_pokemart"].includes(id)) {
+    return { x: blockX + occupiedPlot.width, z: blockZ + Math.min(15, occupiedPlot.depth - 1) };
+  }
+  return ({
+    north: { x: blockX + occupiedPlot.width / 2, z: blockZ - 1 },
+    east: { x: blockX + occupiedPlot.width, z: blockZ + occupiedPlot.depth / 2 },
+    south: { x: blockX + occupiedPlot.width / 2, z: blockZ + occupiedPlot.depth },
+    west: { x: blockX - 1, z: blockZ + (String(id).includes("gym") ? Math.min(10, occupiedPlot.depth - 1) : occupiedPlot.depth / 2) }
+  })[facing];
+}
+
+function gymFallbackTopView(theme, width = 25, depth = 26) {
+  const themeBlock = ({
+    fire: "minecraft:red_concrete", water: "minecraft:blue_concrete",
+    electric: "minecraft:yellow_concrete", grass: "minecraft:green_concrete",
+    ice: "minecraft:light_blue_concrete", fighting: "minecraft:orange_concrete",
+    poison: "minecraft:purple_concrete", ground: "minecraft:brown_concrete",
+    flying: "minecraft:white_concrete", psychic: "minecraft:magenta_concrete",
+    bug: "minecraft:lime_concrete", rock: "minecraft:gray_concrete",
+    ghost: "minecraft:purple_concrete", dragon: "minecraft:blue_concrete",
+    dark: "minecraft:black_concrete", steel: "minecraft:light_gray_concrete",
+    fairy: "minecraft:pink_concrete"
+  })[theme] || "minecraft:red_concrete";
+  const palette = ["minecraft:stone_bricks", "minecraft:white_concrete", themeBlock];
+  const blocks = [];
+  const minX = 2, maxX = Math.max(2, width - 3), minZ = 3, maxZ = Math.max(3, depth - 3);
+  for (let z = minZ; z <= maxZ; z += 1) for (let x = minX; x <= maxX; x += 1) {
+    const border = x === minX || x === maxX || z === minZ || z === maxZ;
+    const emblem = Math.abs(x - Math.floor(width / 2)) <= 1 || Math.abs(z - Math.floor(depth / 2)) <= 1;
+    blocks.push([x, z, border ? 8 : 10, border ? 0 : emblem ? 1 : 2]);
+  }
+  for (let x = 0; x < minX; x += 1) for (let z = 9; z <= 11; z += 1) blocks.push([x, z, 1, 0]);
+  return { palette, blocks, schematic: true };
 }
 
 function facilityLayoutOffsets(shape, count) {
@@ -2599,12 +2959,33 @@ function villagePreviewRoadRect(segment, width) {
 }
 
 const villagePreviewTileRadius = 64;
+const villageDensityProfiles = {
+  sparse: { label: "여유로움", plotGap: 8, houseMultiplier: .7, slotRatios: [.22, .5, .78] },
+  normal: { label: "보통", plotGap: 4, houseMultiplier: 1, slotRatios: [.15, .32, .5, .68, .85] },
+  dense: { label: "밀집", plotGap: 1, houseMultiplier: 1.4, slotRatios: [.08, .22, .36, .5, .64, .78, .92] },
+  packed: { label: "빽빽함", plotGap: 0, houseMultiplier: 1.8, slotRatios: [.06, .17, .28, .39, .5, .61, .72, .83, .94] }
+};
 
-function villageLayoutCells(cellCount, shape = "line_q") {
+function normalizeVillageDensity(value) {
+  return villageDensityProfiles[value] ? value : "normal";
+}
+
+function ensureVillageDensityControl(form) {
+  if (form.elements.townBuildingDensity) return;
+  const controls = form.querySelector(".village-generation-controls");
+  if (!controls) return;
+  const label = document.createElement("label");
+  label.innerHTML = `<span>건물 밀집도</span><select name="townBuildingDensity">${Object.entries(villageDensityProfiles).map(([value, profile]) => `<option value="${value}">${profile.label}</option>`).join("")}</select>`;
+  controls.append(label);
+  label.querySelector("select").addEventListener("change", renderVillageGenerationTest);
+}
+
+function villageLayoutCells(cellCount, shape = "line_q", customCells = []) {
   const count = normalizeTownCellCount(cellCount);
+  if (shape === "custom") return normalizedAxialCells(customCells);
   if (count === 1) return [{ q: 0, r: 0 }];
   if (count === 3 || count === 5) return townFootprintCells({ q: 0, r: 0 }, count, shape);
-  return hexArea({ q: 0, r: 0 }, 1);
+  return hexArea({ q: 0, r: 0 }, count === 19 ? 2 : 1);
 }
 
 function villageLayoutCellCenter(cell) {
@@ -2612,6 +2993,34 @@ function villageLayoutCellCenter(cell) {
     x: villagePreviewTileRadius * Math.sqrt(3) * (cell.q + cell.r / 2),
     z: villagePreviewTileRadius * 1.5 * cell.r
   };
+}
+function villageLayoutCentroid(layoutCells) {
+  const centers = layoutCells.map(villageLayoutCellCenter);
+  if (!centers.length) return { x: 0, z: 0 };
+  return {
+    x: centers.reduce((sum, center) => sum + center.x, 0) / centers.length,
+    z: centers.reduce((sum, center) => sum + center.z, 0) / centers.length
+  };
+}
+function villageLayoutCenteredCellCenter(cell, layoutCells) {
+  const center = villageLayoutCellCenter(cell);
+  const centroid = villageLayoutCentroid(layoutCells);
+  return { x: center.x - centroid.x, z: center.z - centroid.z };
+}
+function villageLayoutExitPoint(cell, cellCount, shape, customCells = []) {
+  const layoutCells = villageLayoutCells(cellCount, shape, customCells);
+  const center = villageLayoutCenteredCellCenter(cell, layoutCells);
+  const rawCenter = villageLayoutCellCenter(cell); const keys = new Set(normalizedAxialCells(customCells).map(customTownCellKey));
+  const available = customTownDirections.filter(([dq, dr]) => !keys.has(`${cell.q + dq},${cell.r + dr}`));
+  const radial = Math.hypot(center.x, center.z) < .001 ? { x: 0, z: 1 } : center;
+  const [dq, dr] = (available.length ? available : customTownDirections).reduce((best, offset) => {
+    const delta = villageLayoutCellCenter({ q: cell.q + offset[0], r: cell.r + offset[1] });
+    const bestDelta = villageLayoutCellCenter({ q: cell.q + best[0], r: cell.r + best[1] });
+    return (delta.x - rawCenter.x) * radial.x + (delta.z - rawCenter.z) * radial.z > (bestDelta.x - rawCenter.x) * radial.x + (bestDelta.z - rawCenter.z) * radial.z ? offset : best;
+  });
+  const neighbor = villageLayoutCellCenter({ q: cell.q + dq, r: cell.r + dr }); const dx = neighbor.x - rawCenter.x; const dz = neighbor.z - rawCenter.z; const length = Math.hypot(dx, dz);
+  const direction = { x: dx / length, z: dz / length };
+  return { x: Math.round((center.x + direction.x * 48) / 16) * 16, z: Math.round((center.z + direction.z * 48) / 16) * 16 };
 }
 
 const villageCenterPatterns = [
@@ -2621,8 +3030,8 @@ const villageCenterPatterns = [
   { id: "tee_south", directions: [1, 2, 3] }
 ];
 
-function villageLayoutHub(cellCount) {
-  return [3, 5].includes(normalizeTownCellCount(cellCount)) ? { x: 0, z: 32 } : { x: 0, z: 0 };
+function villageLayoutHub() {
+  return { x: 0, z: 0 };
 }
 
 function villageCenterPattern(shape, seed) {
@@ -2640,32 +3049,33 @@ function villageLayoutHexContains(x, z, center, margin = 0) {
     && localZ + localX / Math.sqrt(3) <= usable;
 }
 
-function villageLayoutContains(x, z, cellCount, shape, margin = 0) {
-  return villageLayoutCells(cellCount, shape).some((cell) => villageLayoutHexContains(x, z, villageLayoutCellCenter(cell), margin));
+function villageLayoutContains(x, z, cellCount, shape, margin = 0, customCells = []) {
+  const layoutCells = villageLayoutCells(cellCount, shape, customCells);
+  return layoutCells.some((cell) => villageLayoutHexContains(x, z, villageLayoutCenteredCellCenter(cell, layoutCells), margin));
 }
 
-function villagePlotInsideLayout(plot, cellCount, shape) {
+function villagePlotInsideLayout(plot, cellCount, shape, customCells = []) {
   const step = 4;
   const samples = [];
   for (let x = plot.x; x <= plot.x + plot.width; x += step) {
     for (let z = plot.z; z <= plot.z + plot.depth; z += step) samples.push([x, z]);
   }
   samples.push([plot.x + plot.width, plot.z + plot.depth], [plot.x + plot.width / 2, plot.z + plot.depth / 2]);
-  return samples.every(([x, z]) => villageLayoutContains(x, z, cellCount, shape, 4));
+  return samples.every(([x, z]) => villageLayoutContains(x, z, cellCount, shape, 4, customCells));
 }
 
-function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q") {
+function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q", customCells = [], roadExits = [], density = "normal") {
   const random = villagePreviewRandom(seed);
   const normalizedCellCount = normalizeTownCellCount(cellCount);
   const normalizedFootprintShape = normalizeTownFootprintShape(footprintShape);
-  const layoutCells = villageLayoutCells(normalizedCellCount, normalizedFootprintShape);
+  const layoutCells = villageLayoutCells(normalizedCellCount, normalizedFootprintShape, customCells);
   const directions = [{ x: 0, z: -1 }, { x: 1, z: 0 }, { x: 0, z: 1 }, { x: -1, z: 0 }];
   const centerPattern = villageCenterPattern(shape, seed);
-  const hub = villageLayoutHub(normalizedCellCount);
+  const hub = villageLayoutHub();
   const queue = centerPattern.directions.map((direction) => ({ x: hub.x, z: hub.z, direction, depth: 0 }));
   const occupiedRoad = new Set([`${Math.round(hub.x / 16)},${Math.round(hub.z / 16)}`]);
   const roads = [];
-  const maximumRoads = Math.min(20, 3 + depth * 3);
+  const maximumRoads = normalizedCellCount === 19 ? Math.min(36, 6 + depth * 5) : Math.min(20, 3 + depth * 3);
   let rejectedRoads = 0;
 
   while (queue.length && roads.length < maximumRoads) {
@@ -2678,7 +3088,7 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       const cellX = Math.round(connector.x / 16) + vector.x * step;
       const cellZ = Math.round(connector.z / 16) + vector.z * step;
       const key = `${cellX},${cellZ}`;
-      if (!villageLayoutContains(cellX * 16, cellZ * 16, normalizedCellCount, normalizedFootprintShape, 8)) break;
+      if (!villageLayoutContains(cellX * 16, cellZ * 16, normalizedCellCount, normalizedFootprintShape, 8, customCells)) break;
       if (occupiedRoad.has(key) && step > 1) { blocked = true; break; }
       points.push({ key, x: cellX * 16, z: cellZ * 16 });
     }
@@ -2714,7 +3124,7 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
   const coverageSources = roads.flatMap((road) => [[road.x1, road.z1], [road.x2, road.z2]])
     .filter(([x, z]) => x !== hub.x || z !== hub.z);
   for (const cell of layoutCells) {
-    const center = villageLayoutCellCenter(cell);
+    const center = villageLayoutCenteredCellCenter(cell, layoutCells);
     const targetX = Math.round(center.x / 16) * 16;
     const targetZ = Math.round(center.z / 16) * 16;
     if (targetX === hub.x && targetZ === hub.z) continue;
@@ -2726,34 +3136,153 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
     addCoverageRoad(targetX, sourceZ, targetX, targetZ);
     coverageSources.push([targetX, targetZ]);
   }
+  for (const exit of normalizedAxialCells(roadExits)) {
+    if (!layoutCells.some((cell) => cell.q === exit.q && cell.r === exit.r)) continue;
+    const target = villageLayoutExitPoint(exit, normalizedCellCount, normalizedFootprintShape, customCells);
+    const targetX = target.x; const targetZ = target.z;
+    const [sourceX, sourceZ] = coverageSources.reduce((best, point) =>
+      Math.abs(point[0] - targetX) + Math.abs(point[1] - targetZ) < Math.abs(best[0] - targetX) + Math.abs(best[1] - targetZ) ? point : best,
+      [hub.x, hub.z]
+    );
+    addCoverageRoad(sourceX, sourceZ, targetX, sourceZ);
+    addCoverageRoad(targetX, sourceZ, targetX, targetZ);
+    coverageSources.push([targetX, targetZ]);
+  }
 
+  const densityProfile = villageDensityProfiles[normalizeVillageDensity(density)];
   const plots = [];
   const missing = [];
-  const slots = roads.flatMap((road, roadIndex) => [0.15, 0.32, 0.5, 0.68, 0.85].flatMap((ratio) => [-1, 1].map((side) => ({ road, roadIndex, ratio, side }))));
+  const slots = roads.flatMap((road, roadIndex) => densityProfile.slotRatios.flatMap((ratio) => [-1, 1].map((side) => ({ road, roadIndex, ratio, side }))));
   const roadRects = roads.map((road) => villagePreviewRoadRect(road, roadWidth + 3));
+  const blockedRoadIndices = new Set();
 
   function tryPlacePlot(definition, kind, label, attempts = slots.length) {
     const width = Number(definition.footprint?.width || definition.width || 16);
     const depthSize = Number(definition.footprint?.depth || definition.depth || 16);
+    const height = Number(definition.footprint?.height || definition.height || 1);
+    const occupied = definition.footprint?.occupied || {
+      min_x: 0, min_z: 0, max_x: width - 1, max_z: depthSize - 1,
+      width, depth: depthSize
+    };
     const startSlot = Math.floor(random() * Math.max(1, slots.length));
     for (let attempt = 0; attempt < Math.min(attempts, slots.length); attempt += 1) {
       const slot = slots[(startSlot + attempt) % slots.length];
       if (!slot) break;
+      if (blockedRoadIndices.has(slot.roadIndex)) continue;
       const road = slot.road;
       const horizontal = road.z1 === road.z2;
       const alongX = road.x1 + (road.x2 - road.x1) * slot.ratio;
       const alongZ = road.z1 + (road.z2 - road.z1) * slot.ratio;
-      const perpendicularDistance = roadWidth / 2 + (horizontal ? depthSize : width) / 2 + 5;
-      const centerX = alongX + (horizontal ? 0 : slot.side * perpendicularDistance);
-      const centerZ = alongZ + (horizontal ? slot.side * perpendicularDistance : 0);
-      const plot = { x: centerX - width / 2, z: centerZ - depthSize / 2, width, depth: depthSize, kind, label };
-      if (!villagePlotInsideLayout(plot, normalizedCellCount, normalizedFootprintShape)) continue;
-      if (plots.some((other) => villagePreviewRectIntersects(plot, other, 4))) continue;
-      if (roadRects.some((roadRect, index) => index !== slot.roadIndex && villagePreviewRectIntersects(plot, roadRect, 2))) continue;
+      const roadFacing = horizontal ? (slot.side < 0 ? "south" : "north") : (slot.side < 0 ? "east" : "west");
+      const fixedFacilityFacing = kind === "facility" ? facilityCanonicalEntranceFacing(definition.id) : null;
+      if (fixedFacilityFacing && roadFacing !== fixedFacilityFacing) continue;
+      const occupiedCenterX = (Number(occupied.min_x) + Number(occupied.max_x) + 1) / 2;
+      const occupiedCenterZ = (Number(occupied.min_z) + Number(occupied.max_z) + 1) / 2;
+      const originX = horizontal
+        ? alongX - occupiedCenterX
+        : slot.side > 0
+          ? alongX + roadWidth / 2 - Number(occupied.min_x)
+          : alongX - roadWidth / 2 - Number(occupied.max_x) - 1;
+      const originZ = horizontal
+        ? slot.side > 0
+          ? alongZ + roadWidth / 2 - Number(occupied.min_z)
+          : alongZ - roadWidth / 2 - Number(occupied.max_z) - 1
+        : alongZ - occupiedCenterZ;
+      const plot = {
+        x: originX, z: originZ,
+        id: definition.id, width, depth: depthSize, height, kind, label,
+        structure: definition.structure || "",
+        topView: definition.footprint?.topView || null,
+        nbtResolved: Boolean(definition.footprint?.nbtResolved),
+        nbtSource: definition.footprint?.source || ""
+      };
+      plot.occupied = {
+        x: originX + Number(occupied.min_x), z: originZ + Number(occupied.min_z),
+        width: Number(occupied.width), depth: Number(occupied.depth)
+      };
+      if (kind === "house" || kind === "facility") {
+        const facing = kind === "house" ? roadFacing : fixedFacilityFacing;
+        plot.entrance_facing = facing;
+        plot.rotation = kind === "house" ? ({ north: "none", east: "clockwise_90", south: "clockwise_180", west: "counterclockwise_90" })[facing] : "none";
+        plot.road_connection = { x: Math.round(alongX), z: Math.round(alongZ) };
+        plot.entrance = facilityEntrancePoint(definition.id, plot.occupied, facing);
+      }
+      if (!villagePlotInsideLayout(plot.occupied, normalizedCellCount, normalizedFootprintShape, customCells)) continue;
+      if (plots.some((other) => villagePreviewRectIntersects(plot.occupied, other.occupied || other, densityProfile.plotGap))) continue;
+      if (roadRects.some((roadRect, index) => index !== slot.roadIndex && !blockedRoadIndices.has(index) && villagePreviewRectIntersects(plot.occupied, roadRect, 1))) continue;
       plots.push(plot);
       return true;
     }
     return false;
+  }
+
+  function tryPlaceGridFacility(definition, label) {
+    const width = Number(definition.footprint?.width || definition.width || 16);
+    const depthSize = Number(definition.footprint?.depth || definition.depth || 16);
+    const height = Number(definition.footprint?.height || definition.height || 1);
+    const occupied = definition.footprint?.occupied || {
+      min_x: 0, min_z: 0, max_x: width - 1, max_z: depthSize - 1,
+      width, depth: depthSize
+    };
+    const centers = layoutCells.map((cell) => villageLayoutCenteredCellCenter(cell, layoutCells));
+    const bounds = {
+      minX: Math.floor(Math.min(...centers.map((center) => center.x)) - villagePreviewTileRadius),
+      maxX: Math.ceil(Math.max(...centers.map((center) => center.x)) + villagePreviewTileRadius),
+      minZ: Math.floor(Math.min(...centers.map((center) => center.z)) - villagePreviewTileRadius),
+      maxZ: Math.ceil(Math.max(...centers.map((center) => center.z)) + villagePreviewTileRadius)
+    };
+    const candidates = [];
+    for (let occupiedX = bounds.minX; occupiedX <= bounds.maxX - Number(occupied.width); occupiedX += 8) {
+      for (let occupiedZ = bounds.minZ; occupiedZ <= bounds.maxZ - Number(occupied.depth); occupiedZ += 8) {
+        const occupiedPlot = { x: occupiedX, z: occupiedZ, width: Number(occupied.width), depth: Number(occupied.depth) };
+        if (!villagePlotInsideLayout(occupiedPlot, normalizedCellCount, normalizedFootprintShape, customCells)) continue;
+        if (plots.some((other) => villagePreviewRectIntersects(occupiedPlot, other.occupied || other, 4))) continue;
+        const centerX = occupiedX + occupiedPlot.width / 2;
+        const centerZ = occupiedZ + occupiedPlot.depth / 2;
+        const usableRoads = roads.map((road, roadIndex) => ({ road, roadIndex })).filter(({ roadIndex }) => !blockedRoadIndices.has(roadIndex));
+        const intersectingRoads = usableRoads.filter(({ road }) => villagePreviewRectIntersects(occupiedPlot, villagePreviewRoadRect(road, roadWidth), .5)).length;
+        const roadDistances = usableRoads.map(({ road }) => {
+          const nearestX = Math.min(Math.max(centerX, Math.min(road.x1, road.x2)), Math.max(road.x1, road.x2));
+          const nearestZ = Math.min(Math.max(centerZ, Math.min(road.z1, road.z2)), Math.max(road.z1, road.z2));
+          return (centerX - nearestX) ** 2 + (centerZ - nearestZ) ** 2;
+        });
+        const roadDistance = roadDistances.length ? Math.min(...roadDistances) : 0;
+        const centerDistance = (centerX - hub.x) ** 2 + (centerZ - hub.z) ** 2;
+        candidates.push({ occupiedPlot, score: [intersectingRoads, roadDistance, centerDistance] });
+      }
+    }
+    if (!candidates.length) return false;
+    candidates.sort((left, right) => {
+      for (let index = 0; index < left.score.length; index += 1) {
+        if (left.score[index] !== right.score[index]) return left.score[index] - right.score[index];
+      }
+      return 0;
+    });
+    const occupiedPlot = candidates[0].occupiedPlot;
+    const plot = {
+      x: occupiedPlot.x - Number(occupied.min_x),
+      z: occupiedPlot.z - Number(occupied.min_z),
+      id: definition.id, width, depth: depthSize, height, kind: "facility", label,
+      structure: definition.structure || "",
+      topView: definition.footprint?.topView || null,
+      nbtResolved: Boolean(definition.footprint?.nbtResolved),
+      nbtSource: definition.footprint?.source || "",
+      occupied: occupiedPlot
+    };
+    const facing = facilityCanonicalEntranceFacing(definition.id);
+    const entrance = facilityEntrancePoint(definition.id, occupiedPlot, facing);
+    const roadPoints = roads.flatMap((road) => {
+      const x = Math.min(Math.max(entrance.x, Math.min(road.x1, road.x2)), Math.max(road.x1, road.x2));
+      const z = Math.min(Math.max(entrance.z, Math.min(road.z1, road.z2)), Math.max(road.z1, road.z2));
+      return [{ x, z, distance: (x - entrance.x) ** 2 + (z - entrance.z) ** 2 }];
+    });
+    const roadConnection = roadPoints.length ? roadPoints.reduce((best, point) => point.distance < best.distance ? point : best) : hub;
+    Object.assign(plot, { entrance_facing: facing, rotation: "none", entrance, road_connection: { x: Math.round(roadConnection.x), z: Math.round(roadConnection.z) } });
+    roads.forEach((road, roadIndex) => {
+      if (villagePreviewRectIntersects(occupiedPlot, villagePreviewRoadRect(road, roadWidth), .5)) blockedRoadIndices.add(roadIndex);
+    });
+    plots.push(plot);
+    return true;
   }
 
   const facilityInstances = requirements.flatMap((requirement) =>
@@ -2761,22 +3290,70 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       ...requirement,
       instanceLabel: Number(requirement.count || 1) > 1 ? `${requirement.label} ${index + 1}` : requirement.label
     }))
-  );
+  ).sort((left, right) => {
+    const leftArea = Number(left.footprint?.occupied?.width || left.footprint?.width || left.width || 16)
+      * Number(left.footprint?.occupied?.depth || left.footprint?.depth || left.depth || 16);
+    const rightArea = Number(right.footprint?.occupied?.width || right.footprint?.width || right.width || 16)
+      * Number(right.footprint?.occupied?.depth || right.footprint?.depth || right.depth || 16);
+    return rightArea - leftArea;
+  });
   for (const facility of facilityInstances) {
-    if (!tryPlacePlot(facility, "facility", facility.instanceLabel, slots.length * 4)) missing.push(facility.instanceLabel);
+    if (!tryPlacePlot(facility, "facility", facility.instanceLabel, slots.length * 4)
+      && !tryPlaceGridFacility(facility, facility.instanceLabel)) missing.push(facility.instanceLabel);
   }
 
-  const houseTarget = Math.min(18, Math.max(4, 3 + depth * 3));
+  const baseHouseTarget = normalizedCellCount === 19 ? Math.min(36, Math.max(12, 6 + depth * 5)) : Math.min(18, Math.max(4, 3 + depth * 3));
+  const houseTarget = Math.max(2, Math.round(baseHouseTarget * densityProfile.houseMultiplier));
   const palette = normalizedHousePalette(housePalette);
   for (let index = 0; index < houseTarget; index += 1) {
     const base = houseBaseCatalog.find((item) => item.id === palette.bases[Math.floor(random() * palette.bases.length)]) || houseBaseCatalog[0];
     const roof = palette.roofs[Math.floor(random() * palette.roofs.length)];
     const roofColor = palette.roof_colors[Math.floor(random() * palette.roof_colors.length)];
+    const structure = `cobbleventure:houses/${base.id}_${roof}_${roofColor}`;
+    const houseDefinition = {
+      ...base, structure,
+      footprint: structureFootprint(structure, base)
+    };
     const before = plots.length;
-    tryPlacePlot(base, "house", `${base.label} · ${houseRoofCatalog.find((item) => item.id === roof)?.label || roof}`, slots.length * 2);
+    tryPlacePlot(houseDefinition, "house", `${base.label} · ${houseRoofCatalog.find((item) => item.id === roof)?.label || roof}`, slots.length * 2);
     if (plots.length > before) Object.assign(plots.at(-1), { base: base.id, roof, roof_color: roofColor });
   }
-  return { roads, plots, missing, rejectedRoads, openConnectors: queue.length, layoutCells, hub, centerPattern: centerPattern.id };
+  const accessRoads = [];
+  for (const plot of plots.filter((candidate) => candidate.entrance && candidate.road_connection)) {
+    const entrances = plot.id === "department_store" ? [
+      { facing: "north", x: plot.occupied.x + plot.occupied.width / 2, z: plot.occupied.z - 1 },
+      { facing: "west", x: plot.occupied.x - 1, z: plot.occupied.z + Math.min(18, plot.occupied.depth - 1) },
+      { facing: "east", x: plot.occupied.x + plot.occupied.width, z: plot.occupied.z + Math.min(18, plot.occupied.depth - 1) }
+    ] : [{ facing: plot.entrance_facing, ...plot.entrance }];
+    plot.entrance = entrances[0];
+    plot.plazaEntrances = entrances;
+    for (let entranceIndex = 0; entranceIndex < entrances.length; entranceIndex += 1) {
+      const entrance = entrances[entranceIndex];
+      let connection = entranceIndex === 0 ? plot.road_connection : null;
+      if (!connection) {
+        const candidates = roads.map((road) => {
+          const x = Math.min(Math.max(entrance.x, Math.min(road.x1, road.x2)), Math.max(road.x1, road.x2));
+          const z = Math.min(Math.max(entrance.z, Math.min(road.z1, road.z2)), Math.max(road.z1, road.z2));
+          const sameSide = (entrance.facing === "north" && z <= plot.occupied.z)
+            || (entrance.facing === "south" && z >= plot.occupied.z + plot.occupied.depth)
+            || (entrance.facing === "west" && x <= plot.occupied.x)
+            || (entrance.facing === "east" && x >= plot.occupied.x + plot.occupied.width);
+          return { x, z, sameSide, distance: (x - entrance.x) ** 2 + (z - entrance.z) ** 2 };
+        });
+        const sameSide = candidates.filter((candidate) => candidate.sameSide);
+        connection = (sameSide.length ? sameSide : candidates).sort((left, right) => left.distance - right.distance)[0];
+      }
+      if (!connection) continue;
+      let roadX = connection.x, roadZ = connection.z;
+      if (roadX !== entrance.x && roadZ !== entrance.z) {
+        const corner = ["east", "west"].includes(entrance.facing) ? { x: entrance.x, z: roadZ } : { x: roadX, z: entrance.z };
+        accessRoads.push({ building: plot.label, x1: roadX, z1: roadZ, x2: corner.x, z2: corner.z });
+        roadX = corner.x; roadZ = corner.z;
+      }
+      accessRoads.push({ building: plot.label, x1: roadX, z1: roadZ, x2: entrance.x, z2: entrance.z });
+    }
+  }
+  return { roads: roads.filter((_, index) => !blockedRoadIndices.has(index)), accessRoads, plots, missing, rejectedRoads, openConnectors: queue.length, layoutCells, hub, centerPattern: centerPattern.id };
 }
 
 const villageLayoutRerollLimit = 8;
@@ -2786,22 +3363,92 @@ function villageLayoutRerollSeed(seed, attempt) {
   return 1 + ((Math.max(1, Number(seed)) - 1 + attempt * villageLayoutRerollStep) % 999999999);
 }
 
-function simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q") {
+function simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q", customCells = [], roadExits = [], density = "normal") {
   let result = null;
   for (let attempt = 0; attempt < villageLayoutRerollLimit; attempt += 1) {
     const resolvedSeed = villageLayoutRerollSeed(seed, attempt);
-    result = simulateJigsawVillage(resolvedSeed, depth, shape, roadWidth, requirements, cellCount, housePalette, footprintShape);
+    result = simulateJigsawVillage(resolvedSeed, depth, shape, roadWidth, requirements, cellCount, housePalette, footprintShape, customCells, roadExits, density);
     Object.assign(result, { requestedSeed: seed, resolvedSeed, rerollCount: attempt, rerollLimit: villageLayoutRerollLimit });
     if (!result.missing.length) return result;
   }
   return result;
 }
 
+function ensureVillageViewControls(canvas) {
+  if (canvas.dataset.viewControlsReady === "true") return;
+  canvas.dataset.viewControlsReady = "true";
+  const controls = document.createElement("div");
+  controls.className = "village-view-controls";
+  controls.innerHTML = `<button type="button" data-village-zoom="out" title="축소">−</button><button type="button" data-village-zoom="reset" title="화면 맞춤">100%</button><button type="button" data-village-zoom="in" title="확대">＋</button><span data-village-position>휠 확대 · 드래그 이동 · 1칸=1블록</span>`;
+  canvas.insertAdjacentElement("afterend", controls);
+  const changeZoom = (nextZoom, anchorX = canvas.width / 2, anchorY = canvas.height / 2) => {
+    const view = state.villageView;
+    const oldZoom = view.zoom;
+    const zoom = Math.max(.35, Math.min(8, nextZoom));
+    const ratio = zoom / oldZoom;
+    view.panX = anchorX - canvas.width / 2 - (anchorX - canvas.width / 2 - view.panX) * ratio;
+    view.panY = anchorY - canvas.height / 2 - (anchorY - canvas.height / 2 - view.panY) * ratio;
+    view.zoom = zoom;
+    renderVillageGenerationTest();
+  };
+  controls.addEventListener("click", (event) => {
+    const action = event.target.closest("[data-village-zoom]")?.dataset.villageZoom;
+    if (!action) return;
+    if (action === "reset") {
+      Object.assign(state.villageView, { zoom: 1, panX: 0, panY: 0, drag: null });
+      renderVillageGenerationTest();
+    } else {
+      changeZoom(state.villageView.zoom * (action === "in" ? 1.25 : .8));
+    }
+  });
+  canvas.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    const bounds = canvas.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) * canvas.width / bounds.width;
+    const y = (event.clientY - bounds.top) * canvas.height / bounds.height;
+    changeZoom(state.villageView.zoom * (event.deltaY < 0 ? 1.14 : .877), x, y);
+  }, { passive: false });
+  canvas.addEventListener("pointerdown", (event) => {
+    const view = state.villageView;
+    view.drag = { x: event.clientX, y: event.clientY, panX: view.panX, panY: view.panY };
+    canvas.setPointerCapture(event.pointerId);
+    canvas.classList.add("is-panning");
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    const view = state.villageView;
+    const bounds = canvas.getBoundingClientRect();
+    const screenX = (event.clientX - bounds.left) * canvas.width / bounds.width;
+    const screenY = (event.clientY - bounds.top) * canvas.height / bounds.height;
+    if (view.drag) {
+      view.panX = view.drag.panX + (event.clientX - view.drag.x) * canvas.width / bounds.width;
+      view.panY = view.drag.panY + (event.clientY - view.drag.y) * canvas.height / bounds.height;
+      renderVillageGenerationTest();
+      return;
+    }
+    const fitScale = Number(canvas.dataset.fitScale || 1);
+    const worldX = Number(canvas.dataset.worldCenterX || 0) + (screenX - canvas.width / 2 - view.panX) / (fitScale * view.zoom);
+    const worldZ = Number(canvas.dataset.worldCenterZ || 0) + (screenY - canvas.height / 2 - view.panY) / (fitScale * view.zoom);
+    const position = controls.querySelector("[data-village-position]");
+    position.textContent = `X ${Math.round(worldX)} · Z ${Math.round(worldZ)} · ${Math.round(view.zoom * 100)}% · 1칸=1블록`;
+  });
+  const stopPan = () => {
+    state.villageView.drag = null;
+    canvas.classList.remove("is-panning");
+  };
+  canvas.addEventListener("pointerup", stopPan);
+  canvas.addEventListener("pointercancel", stopPan);
+  canvas.addEventListener("pointerleave", () => {
+    if (!state.villageView.drag) controls.querySelector("[data-village-position]").textContent = `휠 확대 · 드래그 이동 · ${Math.round(state.villageView.zoom * 100)}% · 1칸=1블록`;
+  });
+}
+
 function renderVillageGenerationTest() {
   const canvas = $("#village-generation-canvas");
   const summary = $("#village-generation-summary");
   if (!canvas || !summary || !state.settlement) return;
+  ensureVillageViewControls(canvas);
   const form = $("#settlement-form");
+  ensureVillageDensityControl(form);
   const seed = Math.max(1, Number(form.elements.villagePreviewSeed.value || 1));
   const depth = Math.max(1, Math.min(7, Number(form.elements.villagePreviewDepth.value || 4)));
   const shape = form.elements.townLayoutShape.value || "branching";
@@ -2809,12 +3456,14 @@ function renderVillageGenerationTest() {
   const requirements = [...selectedCivicFacilities(), ...selectedFacilityRequirements(), ...selectedGymFacility()];
   const radiusCells = normalizeTownCellCount(form.elements.townRadiusCells.value);
   const footprintShape = normalizeTownFootprintShape(form.elements.townFootprintShape.value);
-  const result = simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, radiusCells, selectedHousePalette(), footprintShape);
+  const density = normalizeVillageDensity(form.elements.townBuildingDensity?.value);
+  const result = simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, radiusCells, selectedHousePalette(), footprintShape, customTownCells(), customTownExits(), density);
   const viewport = ({
     1: { width: 560, height: 320 },
     3: { width: 760, height: 430 },
     5: { width: 820, height: 480 },
-    7: { width: 900, height: 520 }
+    7: { width: 900, height: 520 },
+    19: { width: 1180, height: 720 }
   })[radiusCells];
   canvas.width = viewport.width;
   canvas.height = viewport.height;
@@ -2822,16 +3471,24 @@ function renderVillageGenerationTest() {
   canvas.dataset.townCellCount = String(radiusCells);
   const context = canvas.getContext("2d");
   const previewPadding = 28;
-  const centers = result.layoutCells.map(villageLayoutCellCenter);
+  const centers = result.layoutCells.map((cell) => villageLayoutCenteredCellCenter(cell, result.layoutCells));
   const hexHalfWidth = villagePreviewTileRadius * Math.sqrt(3) / 2;
   const minX = Math.min(...centers.map((center) => center.x - hexHalfWidth)) - previewPadding;
   const maxX = Math.max(...centers.map((center) => center.x + hexHalfWidth)) + previewPadding;
   const minZ = Math.min(...centers.map((center) => center.z - villagePreviewTileRadius)) - previewPadding;
   const maxZ = Math.max(...centers.map((center) => center.z + villagePreviewTileRadius)) + previewPadding;
-  const scale = Math.min(canvas.width / Math.max(1, maxX - minX), canvas.height / Math.max(1, maxZ - minZ));
-  const offsetX = (canvas.width - (maxX - minX) * scale) / 2 - minX * scale;
-  const offsetZ = (canvas.height - (maxZ - minZ) * scale) / 2 - minZ * scale;
-  const project = (x, z) => ({ x: offsetX + x * scale, y: offsetZ + z * scale });
+  const fitScale = Math.min(canvas.width / Math.max(1, maxX - minX), canvas.height / Math.max(1, maxZ - minZ));
+  const worldCenterX = (minX + maxX) / 2;
+  const worldCenterZ = (minZ + maxZ) / 2;
+  const view = state.villageView;
+  const scale = fitScale * view.zoom;
+  const project = (x, z) => ({
+    x: canvas.width / 2 + view.panX + (x - worldCenterX) * scale,
+    y: canvas.height / 2 + view.panY + (z - worldCenterZ) * scale
+  });
+  canvas.dataset.fitScale = String(fitScale);
+  canvas.dataset.worldCenterX = String(worldCenterX);
+  canvas.dataset.worldCenterZ = String(worldCenterZ);
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = "#c9d7b3";
   context.fillRect(0, 0, canvas.width, canvas.height);
@@ -2839,7 +3496,7 @@ function renderVillageGenerationTest() {
   context.strokeStyle = "rgba(58,91,53,.75)";
   context.lineWidth = 2;
   for (const cell of result.layoutCells) {
-    const center = villageLayoutCellCenter(cell);
+    const center = villageLayoutCenteredCellCenter(cell, result.layoutCells);
     const hexCorners = Array.from({ length: 6 }, (_, index) => {
       const angle = -Math.PI / 2 + Math.PI / 3 * index;
       return project(center.x + Math.cos(angle) * villagePreviewTileRadius, center.z + Math.sin(angle) * villagePreviewTileRadius);
@@ -2848,16 +3505,20 @@ function renderVillageGenerationTest() {
     hexCorners.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
     context.closePath(); context.fill(); context.stroke();
   }
-  context.strokeStyle = "rgba(87,108,68,.18)";
-  context.lineWidth = 1;
-  for (let x = Math.ceil(minX / 16) * 16; x <= maxX; x += 16) {
-    const start = project(x, minZ); const end = project(x, maxZ);
-    context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
-  }
-  for (let z = Math.ceil(minZ / 16) * 16; z <= maxZ; z += 16) {
-    const start = project(minX, z); const end = project(maxX, z);
-    context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
-  }
+  const drawBlockGrid = (spacing, color, lineWidth) => {
+    context.strokeStyle = color; context.lineWidth = lineWidth;
+    for (let x = Math.ceil(minX / spacing) * spacing; x <= maxX; x += spacing) {
+      const start = project(x, minZ); const end = project(x, maxZ);
+      context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
+    }
+    for (let z = Math.ceil(minZ / spacing) * spacing; z <= maxZ; z += spacing) {
+      const start = project(minX, z); const end = project(maxX, z);
+      context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
+    }
+  };
+  if (scale >= 4) drawBlockGrid(1, "rgba(65,88,60,.1)", 1);
+  else if (scale >= 1.5) drawBlockGrid(4, "rgba(65,88,60,.12)", 1);
+  drawBlockGrid(16, "rgba(54,76,49,.3)", 1);
   if (shape === "terraced") {
     context.strokeStyle = "rgba(92,85,63,.3)";
     for (let z = Math.ceil(minZ / 64) * 64; z <= maxZ; z += 64) {
@@ -2875,28 +3536,67 @@ function renderVillageGenerationTest() {
     context.lineWidth = Math.max(2, roadWidth * scale);
     context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
   }
+  context.strokeStyle = roadColors[form.elements.townRoadMaterial.value] || roadColors.cobblestone;
+  context.lineWidth = Math.max(2, 3 * scale);
+  for (const road of result.accessRoads) {
+    const start = project(road.x1, road.z1); const end = project(road.x2, road.z2);
+    context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
+  }
   const hub = project(0, 0);
   context.fillStyle = "#5b6770";
   context.fillRect(hub.x - 14 * scale, hub.y - 14 * scale, 28 * scale, 28 * scale);
   const labels = [];
   for (const plot of result.plots) {
-    const position = project(plot.x, plot.z);
+    const templatePosition = project(plot.x, plot.z);
+    const occupiedPlot = plot.occupied || plot;
+    const position = project(occupiedPlot.x, occupiedPlot.z);
     const roofColor = houseRoofColorCatalog.find((item) => item.id === plot.roof_color)?.color;
+    if (plot.nbtResolved && (occupiedPlot.width !== plot.width || occupiedPlot.depth !== plot.depth)) {
+      context.strokeStyle = "rgba(35,54,65,.35)";
+      context.lineWidth = 1;
+      context.setLineDash([4, 3]);
+      context.strokeRect(templatePosition.x, templatePosition.y, plot.width * scale, plot.depth * scale);
+      context.setLineDash([]);
+    }
+    const renderedNbtTopView = drawMinecraftStructureTopView(context, plot, project, scale);
     context.fillStyle = plot.kind === "facility" ? "#55c9bd" : roofColor || "#e4d5b5";
     context.strokeStyle = plot.kind === "facility" ? "#166b70" : "#796a50";
     context.lineWidth = plot.kind === "facility" ? 3 : 1.5;
-    context.fillRect(position.x, position.y, plot.width * scale, plot.depth * scale);
-    context.strokeRect(position.x, position.y, plot.width * scale, plot.depth * scale);
-    if (plot.kind === "facility") labels.push({ text: plot.label, x: position.x + plot.width * scale / 2, y: position.y + plot.depth * scale / 2 });
+    if (!renderedNbtTopView) context.fillRect(position.x, position.y, occupiedPlot.width * scale, occupiedPlot.depth * scale);
+    context.strokeRect(position.x, position.y, occupiedPlot.width * scale, occupiedPlot.depth * scale);
+    if (plot.entrance) {
+      const entrance = project(plot.entrance.x, plot.entrance.z);
+      context.fillStyle = plot.kind === "facility" ? "#ffcf4a" : "#fff4b8";
+      context.strokeStyle = plot.kind === "facility" ? "#7b4b00" : "#5f4b26";
+      context.lineWidth = 1;
+      context.beginPath(); context.arc(entrance.x, entrance.y, Math.max(2.5, 2 * scale), 0, Math.PI * 2); context.fill(); context.stroke();
+    }
+    labels.push({
+      text: renderedNbtTopView
+        ? (occupiedPlot.width === plot.width && occupiedPlot.depth === plot.depth
+            ? `${plot.label} · ${plot.width}×${plot.depth}`
+            : `${plot.label} · ${occupiedPlot.width}×${occupiedPlot.depth} 점유 · ${plot.width}×${plot.depth} NBT`)
+        : `${plot.label} · 대체 외곽 · ${occupiedPlot.width}×${occupiedPlot.depth} 외벽 · ${plot.width}×${plot.depth} NBT`,
+      x: position.x + occupiedPlot.width * scale / 2,
+      y: renderedNbtTopView && plot.kind !== "facility" ? position.y - 9 : position.y + occupiedPlot.depth * scale / 2,
+      compact: plot.kind === "house",
+      nbtTopView: renderedNbtTopView,
+      facility: plot.kind === "facility"
+    });
   }
-  context.textAlign = "center"; context.textBaseline = "middle"; context.font = "700 11px sans-serif";
+  context.textAlign = "center"; context.textBaseline = "middle";
   for (const label of labels) {
+    if (label.nbtTopView && !label.facility && scale < 4) continue;
+    if (label.compact && scale < 1.7) continue;
+    context.font = label.compact ? "700 9px sans-serif" : "700 11px sans-serif";
     const width = context.measureText(label.text).width + 8;
     context.fillStyle = "rgba(255,255,255,.82)"; context.fillRect(label.x - width / 2, label.y - 8, width, 16);
     context.fillStyle = "#16354a"; context.fillText(label.text, label.x, label.y);
   }
   const facilityCount = result.plots.filter((plot) => plot.kind === "facility").length;
   const houseCount = result.plots.filter((plot) => plot.kind === "house").length;
+  const resolvedNbtCount = result.plots.filter((plot) => plot.nbtResolved).length;
+  const renderedTopViewCount = result.plots.filter((plot) => plot.topView?.blocks?.length).length;
   const rerollText = result.missing.length
     ? ` · 자동 리롤 ${result.rerollLimit}회 모두 실패`
     : result.rerollCount > 0
@@ -2904,10 +3604,85 @@ function renderVillageGenerationTest() {
       : " · 첫 시도 성공";
   const missingText = result.missing.length ? ` · 누락 시설: ${result.missing.join(", ")}` : " · 필수 시설 전부 배치";
   const centerPatternLabel = ({ tee_east: "ㅏ형", tee_west: "ㅓ형", tee_north: "ㅗ형", tee_south: "ㅜ형", linear: "일자형", terraced: "계단형" })[result.centerPattern] || result.centerPattern;
-  summary.textContent = `마을 크기 ${radiusCells}칸 · 중앙 ${centerPatternLabel} · 허브 Z ${result.hub.z} · 요청 시드 ${seed}${rerollText} · 도로 조각 ${result.roads.length} · 시설 ${facilityCount} · 기본 건물 ${houseCount} · 막힌 연결 ${result.rejectedRoads}${missingText}`;
+  summary.textContent = `1칸 = 1블록 · ${villageDensityProfiles[density].label} · 확대 ${Math.round(view.zoom * 100)}% · NBT 탑뷰 ${renderedTopViewCount}/${result.plots.length} · 크기 실측 ${resolvedNbtCount}/${result.plots.length} · 마을 크기 ${radiusCells}칸 · 중앙 ${centerPatternLabel} · 허브 X ${result.hub.x} · Z ${result.hub.z} · 요청 시드 ${seed}${rerollText} · 주도로 ${result.roads.length} · 출입구 진입로 ${result.accessRoads.length} · 시설 ${facilityCount} · 기본 건물 ${houseCount} · 막힌 연결 ${result.rejectedRoads}${missingText}`;
   summary.classList.toggle("has-error", result.missing.length > 0);
   summary.classList.toggle("has-warning", !result.missing.length && result.rerollCount > 0);
   canvas.setAttribute("aria-label", `${radiusCells}개 육각 타일에 도로 조각 ${result.roads.length}개, 시설 ${facilityCount}개, 기본 건물 ${houseCount}개가 생성된 마을 테스트`);
+}
+
+const customTownDirections = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
+function customTownCells() { return normalizedAxialCells(state.settlement?.town_footprint_cells); }
+function customTownExits() { return normalizedAxialCells(state.settlement?.town_road_exits); }
+function customTownCellKey(cell) { return `${cell.q},${cell.r}`; }
+function customTownConnected(cells) {
+  if (!cells.length) return false;
+  const keys = new Set(cells.map(customTownCellKey));
+  const visited = new Set([customTownCellKey(cells[0])]);
+  const queue = [cells[0]];
+  while (queue.length) {
+    const cell = queue.shift();
+    for (const [dq, dr] of customTownDirections) {
+      const next = { q: cell.q + dq, r: cell.r + dr }; const key = customTownCellKey(next);
+      if (keys.has(key) && !visited.has(key)) { visited.add(key); queue.push(next); }
+    }
+  }
+  return visited.size === cells.length;
+}
+function customTownBoundaryCell(cell, cells) {
+  const keys = new Set(cells.map(customTownCellKey));
+  return customTownDirections.some(([dq, dr]) => !keys.has(`${cell.q + dq},${cell.r + dr}`));
+}
+function ensureCustomTownLayout() {
+  if (!state.settlement) return;
+  const required = normalizeTownCellCount($("#settlement-form").elements.townRadiusCells.value);
+  let cells = customTownCells();
+  if (!cells.length) cells = villageLayoutCells(required, required === 5 ? "five_up" : "line_q");
+  state.settlement.town_footprint_cells = cells.slice(0, required);
+  state.settlement.town_road_exits = customTownExits().filter((exit) => cells.some((cell) => customTownCellKey(cell) === customTownCellKey(exit)));
+}
+function renderCustomTownLayout() {
+  const panel = $("#custom-town-layout"); const map = $("#custom-town-layout-map"); const summary = $("#custom-town-layout-summary");
+  if (!panel || !state.settlement) return;
+  const custom = $("#settlement-form").elements.townFootprintShape.value === "custom";
+  panel.hidden = !custom;
+  if (!custom) return;
+  ensureCustomTownLayout();
+  const cells = customTownCells(); const exits = customTownExits(); const required = normalizeTownCellCount($("#settlement-form").elements.townRadiusCells.value);
+  const cellKeys = new Set(cells.map(customTownCellKey)); const exitKeys = new Set(exits.map(customTownCellKey));
+  const editorRadius = required === 19 ? 3 : 2; const size = required === 19 ? 39 : 50; const centerX = 310; const centerY = 210;
+  const candidates = hexArea({ q: 0, r: 0 }, editorRadius);
+  map.innerHTML = candidates.map((cell) => {
+    const x = centerX + Math.sqrt(3) * size * (cell.q + cell.r / 2); const y = centerY + 1.5 * size * cell.r;
+    const points = Array.from({ length: 6 }, (_, index) => { const angle = -Math.PI / 2 + index * Math.PI / 3; return `${x + Math.cos(angle) * size},${y + Math.sin(angle) * size}`; }).join(" ");
+    const key = customTownCellKey(cell); const classes = ["custom-town-hex", cellKeys.has(key) ? "is-cell" : "", exitKeys.has(key) ? "is-exit" : ""].filter(Boolean).join(" ");
+    return `<g data-custom-town-cell="${cell.q},${cell.r}"><polygon class="${classes}" points="${points}"><title>Q ${cell.q} · R ${cell.r}</title></polygon><text class="custom-town-coordinate" x="${x}" y="${y + 4}">${cell.q},${cell.r}</text>${exitKeys.has(key) ? `<text class="custom-town-exit-mark" x="${x}" y="${y - 17}">↗</text>` : ""}</g>`;
+  }).join("");
+  const errors = [];
+  if (cells.length !== required) errors.push(`타일 ${required}개가 필요합니다(현재 ${cells.length}개).`);
+  if (!cells.some((cell) => cell.q === 0 && cell.r === 0)) errors.push("중심 타일 0,0이 필요합니다.");
+  if (!customTownConnected(cells)) errors.push("모든 마을 타일이 서로 이어져야 합니다.");
+  if (!exits.length) errors.push("외부 도로 출구를 1개 이상 지정해야 합니다.");
+  if (exits.some((exit) => !customTownBoundaryCell(exit, cells))) errors.push("출구는 마을 외곽 타일에만 둘 수 있습니다.");
+  summary.textContent = errors.length ? errors.join(" ") : `타일 ${cells.length}개 · 외부 출구 ${exits.length}개 · 내부 도로와 건물은 자동 생성됩니다.`;
+  summary.classList.toggle("has-error", errors.length > 0);
+}
+function editCustomTownCell(q, r) {
+  ensureCustomTownLayout();
+  const cell = { q, r }; const key = customTownCellKey(cell); let cells = customTownCells(); let exits = customTownExits();
+  if (state.customTownTool === "exit") {
+    if (!cells.some((entry) => customTownCellKey(entry) === key)) { toast("먼저 마을 타일을 배치하세요."); return; }
+    if (!customTownBoundaryCell(cell, cells)) { toast("외부 출구는 마을 외곽 타일에만 지정할 수 있습니다."); return; }
+    exits = exits.some((entry) => customTownCellKey(entry) === key) ? exits.filter((entry) => customTownCellKey(entry) !== key) : [...exits, cell];
+  } else {
+    const required = normalizeTownCellCount($("#settlement-form").elements.townRadiusCells.value);
+    if (key === "0,0" && cells.some((entry) => customTownCellKey(entry) === key)) { toast("중심 타일은 제거할 수 없습니다."); return; }
+    if (cells.some((entry) => customTownCellKey(entry) === key)) { cells = cells.filter((entry) => customTownCellKey(entry) !== key); exits = exits.filter((entry) => customTownCellKey(entry) !== key); }
+    else if (cells.length >= required) { toast(`마을 크기는 ${required}칸입니다. 기존 타일을 먼저 제거하세요.`); return; }
+    else cells.push(cell);
+  }
+  state.settlement.town_footprint_cells = cells; state.settlement.town_road_exits = exits;
+  renderCustomTownLayout(); renderVillageGenerationTest();
+  $("#settlement-json").value = JSON.stringify(state.settlement, null, 2);
 }
 
 function updateFacilityFormState() {
@@ -2920,9 +3695,11 @@ function updateFacilityFormState() {
     : townCellCount === 5
       ? [["five_up", "위 확장"], ["five_down", "아래 확장"]]
       : [["line_q", "고정 형태"]];
+  shapeOptions.push(["custom", "커스텀 · 직접 타일 편집"]);
   shapeSelect.innerHTML = shapeOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
   shapeSelect.value = shapeOptions.some(([value]) => value === previousShape) ? previousShape : shapeOptions[0][0];
-  shapeSelect.disabled = townCellCount !== 3 && townCellCount !== 5;
+  shapeSelect.disabled = false;
+  renderCustomTownLayout();
   const starterLayout = isStarterSettlement();
   if (starterLayout) {
     form.elements.pokemonCenterEnabled.checked = false;
@@ -2953,15 +3730,13 @@ function updateFacilityFormState() {
 function renderSettlement() {
   const document = state.settlement;
   const form = $("#settlement-form");
+  ensureVillageDensityControl(form);
   $("#selected-settlement-editor").hidden = false;
   $("#settlement-editor-title").textContent = document.display_name?.ko_kr || document.id;
   $("#settlement-path").textContent = state.settlementPath;
   setFormValue(form, "id", document.id); setFormValue(form, "enabled", document.enabled);
   setFormValue(form, "nameKo", document.display_name?.ko_kr); setFormValue(form, "nameEn", document.display_name?.en_us);
   setFormValue(form, "region", document.region); setFormValue(form, "dimension", document.dimension);
-  const presetBiome = document.biome || document.biome_layout?.zones?.[0]?.biome || "minecraft:plains";
-  form.elements.presetBiome.innerHTML = worldBiomeOptions(presetBiome);
-  setFormValue(form, "presetBiome", presetBiome);
   setFormValue(form, "townRadiusCells", normalizeTownCellCount(document.town_radius_cells));
   setFormValue(form, "townFootprintShape", normalizeTownFootprintShape(document.town_footprint_shape));
   setFormValue(form, "townLayoutShape", document.structure_profile?.layout_shape || "branching");
@@ -2972,6 +3747,7 @@ function renderSettlement() {
   const previewSeed = generationProfile.seed || 1 + (previewSeedHash % 999999998);
   setFormValue(form, "villagePreviewSeed", previewSeed);
   setFormValue(form, "villagePreviewDepth", generationProfile.depth || 4);
+  setFormValue(form, "townBuildingDensity", normalizeVillageDensity(generationProfile.building_density));
   renderHousePaletteOptions(generationProfile.house_palette);
   const starterPreset = isStarterSettlement(document);
   setFormValue(form, "pokemonCenterEnabled", document.structure_profile?.pokemon_center_enabled ?? !starterPreset);
@@ -3024,7 +3800,7 @@ function renderSettlement() {
   renderVillageGenerationTest();
   renderTrainerSlots();
   $("#settlement-json").value = JSON.stringify(document, null, 2);
-  ["#settlement-json", "#apply-settlement-json", "#add-trainer-slot", "#validate-settlement", "#save-settlement"].forEach((selector) => $(selector).disabled = false);
+  ["#settlement-json", "#apply-settlement-json", "#add-trainer-slot", "#delete-settlement", "#validate-settlement", "#save-settlement"].forEach((selector) => $(selector).disabled = false);
   showIssues("#settlement-issues", { valid: true, issues: [] });
 }
 
@@ -3174,16 +3950,12 @@ function updateSettlementFromForm() {
     id: form.elements.id.value, enabled: form.elements.enabled.checked,
     display_name: displayName,
     region: form.elements.region.value, dimension: form.elements.dimension.value,
-    biome: form.elements.presetBiome.value,
     town_radius_cells: normalizeTownCellCount(number("townRadiusCells")),
     town_footprint_shape: normalizeTownFootprintShape(form.elements.townFootprintShape.value)
   });
-  const primaryZone = state.settlement.biome_layout?.zones?.[0];
-  if (primaryZone) {
-    primaryZone.biome = state.settlement.biome;
-    primaryZone.placement = "center";
-    state.settlement.biome_layout.zones = [primaryZone];
-  }
+  if (state.settlement.town_footprint_shape === "custom") ensureCustomTownLayout();
+  else { delete state.settlement.town_footprint_cells; delete state.settlement.town_road_exits; }
+  delete state.settlement.biome;
   state.settlement.schema_version = 3;
   state.settlement.structure_profile ||= {};
   const starterPreset = isStarterSettlement();
@@ -3210,7 +3982,8 @@ function updateSettlementFromForm() {
       "cobbleventure:placeholder/basic_building_2",
       "cobbleventure:placeholder/basic_building_3"
     ],
-    house_palette: selectedHousePalette()
+    house_palette: selectedHousePalette(),
+    building_density: normalizeVillageDensity(form.elements.townBuildingDensity.value)
   };
   state.settlement.structure_profile.facility_requirements = facilityRequirements;
   state.settlement.anchors ||= {};
@@ -3229,7 +4002,9 @@ function updateSettlementFromForm() {
     [...selectedCivicFacilities(), ...facilityRequirements, ...selectedGymFacility()],
     Number(form.elements.townRadiusCells.value || 1),
     state.settlement.structure_profile.generation_profile.house_palette,
-    state.settlement.town_footprint_shape
+    state.settlement.town_footprint_shape,
+    customTownCells(), customTownExits(),
+    state.settlement.structure_profile.generation_profile.building_density
   );
   const generatedFacilityPlots = generatedLayout.plots.filter((plot) => plot.kind === "facility");
   configuredFacilities.forEach((facility, index) => {
@@ -3422,6 +4197,41 @@ async function createDocument(event) {
   }
 }
 
+async function deleteSettlement() {
+  if (!state.settlement || !state.settlementPath) return;
+  const name = state.settlement.display_name?.ko_kr || state.settlement.id;
+  if (!confirm(`'${name}' 마을 프리셋 파일을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
+  const button = $("#delete-settlement");
+  const originalLabel = button.textContent;
+  const deletedIndex = Math.max(0, state.settlements.findIndex((item) => item.path === state.settlementPath));
+  button.disabled = true;
+  button.textContent = "삭제 중…";
+  try {
+    const result = await request(`/api/settlements?path=${encodeURIComponent(state.settlementPath)}`, { method: "DELETE" });
+    if (!result.ok) {
+      const references = result.data.references?.length ? `\n참조: ${result.data.references.join(", ")}` : "";
+      toast(`${result.data.error || "마을 프리셋을 삭제하지 못했습니다."}${references}`);
+      return;
+    }
+    state.settlement = null;
+    state.settlementPath = "";
+    await Promise.all([loadDashboard(), loadLists()]);
+    const next = state.settlements[Math.min(deletedIndex, state.settlements.length - 1)];
+    if (next) await loadDocument("settlements", next.path);
+    else {
+      $("#settlement-editor-title").textContent = "마을 프리셋을 선택하세요";
+      $("#settlement-path").textContent = "—";
+      $("#settlement-form").reset();
+      $$("#selected-settlement-editor input, #selected-settlement-editor select, #selected-settlement-editor textarea, #selected-settlement-editor button").forEach((element) => { element.disabled = true; });
+      renderList("settlements");
+    }
+    toast(`'${name}' 마을 프리셋을 삭제했습니다.`);
+  } finally {
+    button.textContent = originalLabel;
+    if (state.settlement) button.disabled = false;
+  }
+}
+
 function renderBuildCommands() {
   const descriptions = {
     validate: "모든 콘텐츠와 의존성 Lock을 빠르게 검사합니다.", test: "콘텐츠 관리와 패키징 회귀 테스트를 실행합니다.",
@@ -3456,6 +4266,8 @@ async function runBuild(command) {
 async function refreshAll() {
   try {
     await Promise.all([loadDashboard(), loadLists()]);
+    const activeSection = $(".nav-item.is-active")?.dataset.section || "dashboard";
+    await loadSectionData(activeSection, true);
     $("#server-dot").classList.add("online"); $("#server-label").textContent = "서버 연결됨";
   } catch (error) {
     $("#server-dot").classList.remove("online"); $("#server-label").textContent = "연결 실패"; toast(error.message);
@@ -3463,6 +4275,23 @@ async function refreshAll() {
 }
 
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchPage(button.dataset.section)));
+$("#nbt-structure-search").addEventListener("input", (event) => { state.structureViewer.query = event.target.value; renderStructureBrowser(); });
+$("#nbt-structure-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-nbt-structure]");
+  if (button) loadStructureModel(button.dataset.nbtStructure);
+});
+$("#nbt-model-canvas").addEventListener("pointerdown", beginStructureDrag);
+$("#nbt-model-canvas").addEventListener("pointermove", moveStructureDrag);
+$("#nbt-model-canvas").addEventListener("pointerup", endStructureDrag);
+$("#nbt-model-canvas").addEventListener("pointercancel", endStructureDrag);
+$("#nbt-model-canvas").addEventListener("wheel", (event) => {
+  event.preventDefault();
+  state.structureViewer.zoom = Math.max(.45, Math.min(4, state.structureViewer.zoom * (event.deltaY < 0 ? 1.12 : .89)));
+  renderStructureModel();
+}, { passive: false });
+$("#nbt-view-left").addEventListener("click", () => { state.structureViewer.yaw -= Math.PI / 8; renderStructureModel(); });
+$("#nbt-view-right").addEventListener("click", () => { state.structureViewer.yaw += Math.PI / 8; renderStructureModel(); });
+$("#nbt-view-reset").addEventListener("click", resetStructureView);
 $("#refresh-button").addEventListener("click", refreshAll);
 $("#validate-repository").addEventListener("click", loadDashboard);
 $("#validate-trainer").addEventListener("click", () => validateDocument("trainers"));
@@ -3489,6 +4318,7 @@ $("#paste-team-json").addEventListener("click", pasteTeamJson);
 $("#apply-trainer-json").addEventListener("click", () => { const document = parseEditor("#trainer-json"); if (document) { state.trainer = document; renderTrainer(); toast("JSON을 편집 폼에 반영했습니다."); } });
 $("#validate-settlement").addEventListener("click", () => validateDocument("settlements"));
 $("#save-settlement").addEventListener("click", () => saveDocument("settlements"));
+$("#delete-settlement").addEventListener("click", deleteSettlement);
 $("#save-world-layout").addEventListener("click", saveWorldLayout);
 $("#add-generation").addEventListener("click", addGeneration);
 $("#tile-inspector-form").addEventListener("change", handleTileInspectorChange);
@@ -3516,8 +4346,19 @@ window.addEventListener("keydown", (event) => {
   if (tool) { setActiveMapTool(tool); event.preventDefault(); }
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") { state.spacePanActive = false; $("#world-hex-map").classList.remove("is-space-panning"); } });
-window.addEventListener("resize", resizeWorldMapWorkspace);
+window.addEventListener("resize", () => { resizeWorldMapWorkspace(); renderStructureModel(); });
 $("#settlement-form").addEventListener("input", (event) => { keepHousePaletteGroupSelected(event); updateFacilityFormState(); updateSettlementFromForm(); });
+$("#custom-town-layout").addEventListener("click", (event) => {
+  const tool = event.target.closest("[data-custom-town-tool]")?.dataset.customTownTool;
+  if (tool) { state.customTownTool = tool; $$("[data-custom-town-tool]").forEach((button) => button.classList.toggle("is-active", button.dataset.customTownTool === tool)); return; }
+  if (event.target.closest("[data-custom-town-reset]")) {
+    state.settlement.town_footprint_cells = [];
+    state.settlement.town_road_exits = [];
+    ensureCustomTownLayout(); renderCustomTownLayout(); renderVillageGenerationTest(); return;
+  }
+  const value = event.target.closest("[data-custom-town-cell]")?.dataset.customTownCell;
+  if (value) { const [q, r] = value.split(",").map(Number); editCustomTownCell(q, r); }
+});
 $("#regenerate-village-preview").addEventListener("click", () => {
   const input = $("#settlement-form").elements.villagePreviewSeed;
   input.value = String(1 + Math.floor(Math.random() * 999999998));

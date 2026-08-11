@@ -9,7 +9,6 @@
   },
   "region": "cobbleventure:generation_1/region_01",
   "dimension": "cobbleventure:generation_1",
-  "biome": "cobbleventure:starter_plains",
   "town_radius_cells": 7,
   "bounds": {
     "min_x": 480,

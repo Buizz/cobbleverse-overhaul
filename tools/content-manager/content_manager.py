@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -181,9 +184,12 @@ def load_pokemon_habitats(root: Path) -> dict[str, Any]:
 
 
 def _town_footprint(
-    anchor: tuple[int, int], cell_count: int, shape: str = "line_q"
+    anchor: tuple[int, int], cell_count: int, shape: str = "line_q",
+    custom_cells: set[tuple[int, int]] | None = None,
 ) -> set[tuple[int, int]]:
     q, r = anchor
+    if shape == "custom":
+        return {(q + dq, r + dr) for dq, dr in (custom_cells or set())}
     if cell_count == 3:
         offsets = {
             "triangle_up": ((0, 0), (0, -1), (1, -1)),
@@ -205,6 +211,12 @@ def _town_footprint(
             (q, r), (q + 1, r), (q, r + 1), (q - 1, r + 1),
             (q - 1, r), (q, r - 1), (q + 1, r - 1),
         }
+    if cell_count == 19:
+        return {
+            (q + dq, r + dr)
+            for dq in range(-2, 3)
+            for dr in range(max(-2, -dq - 2), min(2, -dq + 2) + 1)
+        }
     return {(q, r)}
 
 
@@ -212,6 +224,48 @@ def _hex_distance(first: tuple[int, int], second: tuple[int, int]) -> int:
     q1, r1 = first
     q2, r2 = second
     return (abs(q1 - q2) + abs(r1 - r2) + abs((-q1 - r1) - (-q2 - r2))) // 2
+
+
+def _validate_custom_town_layout(
+    cells_value: Any, exits_value: Any, expected_count: Any,
+    issues: list[Issue], file: Path, data_path: str,
+) -> set[tuple[int, int]]:
+    def coordinates(value: Any, field: str) -> set[tuple[int, int]]:
+        result: set[tuple[int, int]] = set()
+        if not isinstance(value, list):
+            _issue(issues, "error", file, f"{data_path}.{field}", "육각 좌표 배열이 필요합니다.")
+            return result
+        for index, entry in enumerate(value):
+            path = f"{data_path}.{field}[{index}]"
+            if not isinstance(entry, dict) or not all(isinstance(entry.get(key), int) and not isinstance(entry.get(key), bool) for key in ("q", "r")):
+                _issue(issues, "error", file, path, "정수 axial 좌표 q, r이 필요합니다.")
+                continue
+            coordinate = (entry["q"], entry["r"])
+            if coordinate in result: _issue(issues, "error", file, path, f"중복 좌표입니다: {coordinate}")
+            result.add(coordinate)
+        return result
+    cells = coordinates(cells_value, "town_footprint_cells")
+    exits = coordinates(exits_value, "town_road_exits")
+    if isinstance(expected_count, int) and len(cells) != expected_count:
+        _issue(issues, "error", file, f"{data_path}.town_footprint_cells", f"마을 크기와 동일한 {expected_count}개 타일이 필요합니다.")
+    if (0, 0) not in cells:
+        _issue(issues, "error", file, f"{data_path}.town_footprint_cells", "중심 타일 q=0, r=0이 필요합니다.")
+    directions = ((1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1))
+    if cells:
+        visited = {next(iter(cells))}; queue = list(visited)
+        while queue:
+            q, r = queue.pop()
+            for dq, dr in directions:
+                neighbor = (q + dq, r + dr)
+                if neighbor in cells and neighbor not in visited: visited.add(neighbor); queue.append(neighbor)
+        if visited != cells: _issue(issues, "error", file, f"{data_path}.town_footprint_cells", "모든 커스텀 마을 타일이 서로 이어져야 합니다.")
+    if not exits: _issue(issues, "error", file, f"{data_path}.town_road_exits", "외부 월드 도로가 접속할 출구를 하나 이상 지정해야 합니다.")
+    for exit_cell in exits:
+        if exit_cell not in cells:
+            _issue(issues, "error", file, f"{data_path}.town_road_exits", f"출구 타일이 마을 범위에 없습니다: {exit_cell}")
+        elif all((exit_cell[0] + dq, exit_cell[1] + dr) in cells for dq, dr in directions):
+            _issue(issues, "error", file, f"{data_path}.town_road_exits", f"출구는 외곽 타일에 있어야 합니다: {exit_cell}")
+    return cells
 
 
 def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
@@ -334,11 +388,12 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
         entries = world.get("settlements")
         world_settlements: set[str] = set()
         settlement_anchors: dict[str, tuple[int, int]] = {}
+        custom_exit_counts: dict[str, int] = {}
         if not isinstance(entries, list):
             _issue(issues, "error", path, "$.settlements", "마을 셀 설정 배열이 필요합니다.")
             entries = []
         occupied_anchors: set[tuple[int, int]] = set()
-        occupied_town_ranges: list[tuple[tuple[int, int], tuple[int, str], str]] = []
+        occupied_town_ranges: list[tuple[tuple[int, int], tuple[int, str, set[tuple[int, int]]], str]] = []
         for index, entry in enumerate(entries):
             entry_path = f"$.settlements[{index}]"
             if not isinstance(entry, dict):
@@ -351,6 +406,7 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                 _issue(issues, "error", path, f"{entry_path}.settlement", f"중복 마을 셀 설정: {settlement}")
             else:
                 world_settlements.add(settlement)
+            _resource_id(entry.get("town_biome"), issues, path, f"{entry_path}.town_biome")
             anchor = entry.get("anchor")
             coordinate = None
             if isinstance(anchor, dict) and isinstance(anchor.get("q"), int) and isinstance(anchor.get("r"), int):
@@ -365,18 +421,21 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                     settlement_anchors[settlement] = coordinate
             town_radius = entry.get("town_radius_cells")
             town_shape = str(entry.get("town_footprint_shape", "line_q"))
-            if town_shape not in {"triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down"}:
+            if town_shape not in {"triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down", "custom"}:
                 _issue(issues, "error", path, f"{entry_path}.town_footprint_shape", "지원하지 않는 마을 배치 형태입니다.")
-            if not isinstance(town_radius, int) or isinstance(town_radius, bool) or town_radius not in (1, 3, 5, 7):
-                _issue(issues, "error", path, f"{entry_path}.town_radius_cells", "마을 크기는 1칸, 3칸, 5칸, 7칸 중 하나여야 합니다.")
-            elif town_radius == 3 and town_shape not in {"triangle_up", "triangle_down", "line_q", "line_r", "line_s"}:
+            if not isinstance(town_radius, int) or isinstance(town_radius, bool) or town_radius not in (1, 3, 5, 7, 19):
+                _issue(issues, "error", path, f"{entry_path}.town_radius_cells", "마을 크기는 1칸, 3칸, 5칸, 7칸, 19칸 중 하나여야 합니다.")
+            elif town_radius == 3 and town_shape != "custom" and town_shape not in {"triangle_up", "triangle_down", "line_q", "line_r", "line_s"}:
                 _issue(issues, "error", path, f"{entry_path}.town_footprint_shape", "3칸 마을은 삼각형 또는 일자 형태여야 합니다.")
-            elif town_radius == 5 and town_shape not in {"five_up", "five_down"}:
+            elif town_radius == 5 and town_shape != "custom" and town_shape not in {"five_up", "five_down"}:
                 _issue(issues, "error", path, f"{entry_path}.town_footprint_shape", "5칸 마을은 위 확장 또는 아래 확장 형태여야 합니다.")
-            elif coordinate is not None:
+            custom_cells = _validate_custom_town_layout(entry.get("town_footprint_cells"), entry.get("town_road_exits"), town_radius, issues, path, entry_path) if town_shape == "custom" else set()
+            if town_shape == "custom" and isinstance(settlement, str):
+                custom_exit_counts[settlement] = len(entry.get("town_road_exits", [])) if isinstance(entry.get("town_road_exits"), list) else 0
+            if coordinate is not None and isinstance(town_radius, int):
                 for other_coordinate, other_radius, other_settlement in occupied_town_ranges:
-                    footprint = _town_footprint(coordinate, town_radius, town_shape)
-                    other_footprint = _town_footprint(other_coordinate, other_radius[0], other_radius[1])
+                    footprint = _town_footprint(coordinate, town_radius, town_shape, custom_cells)
+                    other_footprint = _town_footprint(other_coordinate, other_radius[0], other_radius[1], other_radius[2])
                     if any(_hex_distance(cell, other_cell) < 2 for cell in footprint for other_cell in other_footprint):
                         _issue(
                             issues,
@@ -385,7 +444,7 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                             f"{entry_path}.town_radius_cells",
                             f"마을 외곽 사이에 최소 한 칸의 완충 지형이 필요합니다: {other_settlement}",
                         )
-                occupied_town_ranges.append((coordinate, (town_radius, town_shape), str(settlement)))
+                occupied_town_ranges.append((coordinate, (town_radius, town_shape, custom_cells), str(settlement)))
             boundary = entry.get("boundary_profile")
             if boundary not in boundary_ids:
                 _issue(issues, "error", path, f"{entry_path}.boundary_profile", f"존재하지 않는 경계 프로필: {boundary}")
@@ -489,6 +548,7 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
             _issue(issues, "error", path, "$.connections", "연결 목록은 배열이어야 합니다.")
             connections = []
         seen_connections: set[str] = set()
+        connection_degrees: dict[str, int] = {}
         for index, connection in enumerate(connections):
             connection_path = f"$.connections[{index}]"
             if not isinstance(connection, dict):
@@ -503,6 +563,8 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                 target = connection.get(field)
                 if target is not None and target not in world_settlements:
                     _issue(issues, "error", path, f"{connection_path}.{field}", f"월드 지도에 없는 마을입니다: {target}")
+                elif isinstance(target, str):
+                    connection_degrees[target] = connection_degrees.get(target, 0) + 1
             boundary = connection.get("boundary_profile")
             if boundary is not None and boundary not in boundary_ids:
                 _issue(issues, "error", path, f"{connection_path}.boundary_profile", f"존재하지 않는 경계 프로필: {boundary}")
@@ -549,6 +611,10 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                     _issue(issues, "error", path, f"{connection_path}.cells[{cell_index}]", "길 셀은 앞 셀과 맞닿아야 합니다.")
             if anchor_coordinates and any(anchor not in coordinates for anchor in anchor_coordinates):
                 _issue(issues, "error", path, f"{connection_path}.anchors", "모든 길 앵커는 계산된 경로 셀 위에 있어야 합니다.")
+        for settlement_id, exit_count in custom_exit_counts.items():
+            route_count = connection_degrees.get(settlement_id, 0)
+            if exit_count < route_count:
+                _issue(issues, "error", path, "$.connections", f"커스텀 마을 {settlement_id}은 외부 연결 {route_count}개에 맞춰 출구를 최소 {route_count}개 지정해야 합니다.")
         objects = world.get("objects", [])
         if not isinstance(objects, list):
             _issue(issues, "error", path, "$.objects", "커스텀 오브젝트 목록은 배열이어야 합니다.")
@@ -996,17 +1062,18 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
     _localized_text(root.get("display_name"), issues, path, "$.display_name")
     _resource_id(root.get("region"), issues, path, "$.region")
     _resource_id(root.get("dimension"), issues, path, "$.dimension")
-    _resource_id(root.get("biome"), issues, path, "$.biome")
     town_radius = root.get("town_radius_cells")
-    if not isinstance(town_radius, int) or isinstance(town_radius, bool) or town_radius not in (1, 3, 5, 7):
-        _issue(issues, "error", path, "$.town_radius_cells", "마을 크기는 1칸, 3칸, 5칸, 7칸 중 하나여야 합니다.")
+    if not isinstance(town_radius, int) or isinstance(town_radius, bool) or town_radius not in (1, 3, 5, 7, 19):
+        _issue(issues, "error", path, "$.town_radius_cells", "마을 크기는 1칸, 3칸, 5칸, 7칸, 19칸 중 하나여야 합니다.")
     town_shape = root.get("town_footprint_shape", "line_q")
-    if town_shape not in {"triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down"}:
+    if town_shape not in {"triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down", "custom"}:
         _issue(issues, "error", path, "$.town_footprint_shape", "지원하지 않는 마을 배치 형태입니다.")
-    elif town_radius == 3 and town_shape not in {"triangle_up", "triangle_down", "line_q", "line_r", "line_s"}:
+    elif town_radius == 3 and town_shape != "custom" and town_shape not in {"triangle_up", "triangle_down", "line_q", "line_r", "line_s"}:
         _issue(issues, "error", path, "$.town_footprint_shape", "3칸 마을은 삼각형 또는 일자 형태여야 합니다.")
-    elif town_radius == 5 and town_shape not in {"five_up", "five_down"}:
+    elif town_radius == 5 and town_shape != "custom" and town_shape not in {"five_up", "five_down"}:
         _issue(issues, "error", path, "$.town_footprint_shape", "5칸 마을은 위 확장 또는 아래 확장 형태여야 합니다.")
+    if town_shape == "custom":
+        _validate_custom_town_layout(root.get("town_footprint_cells"), root.get("town_road_exits"), town_radius, issues, path, "$")
 
     bounds = _validate_horizontal_bounds(root.get("bounds"), issues, path, "$.bounds")
     center = _validate_block_position(root.get("center"), issues, path, "$.center")
@@ -1166,8 +1233,6 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 else:
                     seen_biome_zones.add(zone_id)
                 _resource_id(zone.get("biome"), issues, path, f"{zone_path}.biome")
-                if index == 0 and zone.get("biome") != root.get("biome"):
-                    _issue(issues, "error", path, f"{zone_path}.biome", "대표 바이옴과 내부 바이옴 설정이 같아야 합니다.")
                 if zone.get("habitat_profile") is not None:
                     _resource_id(zone.get("habitat_profile"), issues, path, f"{zone_path}.habitat_profile")
                 settings = zone.get("spawn_settings")
@@ -1377,7 +1442,7 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             )
             if house_palette is not None:
                 for field, allowed in (
-                    ("bases", {"compact", "wide", "two_story"}),
+                    ("bases", {"one_story", "two_story", "five_story"}),
                     ("roofs", {"gable", "hip", "flat"}),
                     ("roof_colors", {"red", "orange", "yellow", "green", "blue", "purple", "brown", "gray", "black", "white"}),
                 ):
@@ -1387,6 +1452,14 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                         _issue(issues, "error", path, field_path, "하나 이상 선택해야 합니다.")
                     elif len(values) != len(set(values)) or any(value not in allowed for value in values):
                         _issue(issues, "error", path, field_path, "지원하는 항목만 중복 없이 선택해야 합니다.")
+        if generation_profile is not None and generation_profile.get("building_density", "normal") not in {
+            "sparse", "normal", "dense", "packed"
+        }:
+            _issue(
+                issues, "error", path,
+                "$.structure_profile.generation_profile.building_density",
+                "건물 밀집도는 sparse, normal, dense 또는 packed여야 합니다.",
+            )
         facility_requirements = structure_profile.get("facility_requirements", [])
         required_facility_counts: dict[str, int] = {}
         if not isinstance(facility_requirements, list):
@@ -2635,6 +2708,19 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
     base = _managed_directory(root, category)
     if not base.exists():
         return []
+    world_biomes: dict[str, str] = {}
+    if category == "settlements":
+        world_dir = root / "content" / "worlds"
+        for world_path in sorted(world_dir.glob("generation_*.json")) if world_dir.is_dir() else []:
+            try:
+                world = load_json(world_path)
+                for node in world.get("settlements", []) if isinstance(world, dict) else []:
+                    settlement_id = node.get("settlement") if isinstance(node, dict) else None
+                    town_biome = node.get("town_biome") if isinstance(node, dict) else None
+                    if isinstance(settlement_id, str) and isinstance(town_biome, str):
+                        world_biomes[settlement_id] = town_biome
+            except (OSError, json.JSONDecodeError, DuplicateKeyError):
+                pass
     documents: list[dict[str, Any]] = []
     for path in sorted(base.rglob("*.json")):
         try:
@@ -2653,12 +2739,11 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 summary["battle_type"] = data.get("battle", {}).get("battle_type", "singles")
                 summary["npc_name"] = _localized_value(data.get("npc", {}).get("display_name"))
             else:
-                zones = data.get("biome_layout", {}).get("zones", [])
-                summary["biome"] = data.get("biome") or (
-                    zones[0].get("biome") if zones else "minecraft:plains"
-                )
+                summary["biome"] = world_biomes.get(data.get("id"), "minecraft:plains")
                 summary["town_radius_cells"] = data.get("town_radius_cells", 1)
                 summary["town_footprint_shape"] = data.get("town_footprint_shape", "line_q")
+                summary["town_footprint_cells"] = data.get("town_footprint_cells", [])
+                summary["town_road_exits"] = data.get("town_road_exits", [])
             documents.append(summary)
         except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
             documents.append(
@@ -2748,6 +2833,48 @@ def _save_document(
         if temporary.exists():
             temporary.unlink()
     return target, issues
+
+
+def _delete_settlement_document(
+    root: Path, relative_path: str
+) -> tuple[Path, list[str]]:
+    target = _managed_path(root, "settlements", relative_path)
+    if not target.is_file():
+        raise FileNotFoundError("마을 프리셋을 찾을 수 없습니다.")
+    data = load_json(target)
+    settlement_id = data.get("id") if isinstance(data, dict) else None
+    if not isinstance(settlement_id, str) or not settlement_id:
+        raise ValueError("삭제할 마을 프리셋의 ID를 읽을 수 없습니다.")
+
+    references: list[str] = []
+    world_dir = root / "content" / "worlds"
+    for world_path in sorted(world_dir.glob("generation_*.json")) if world_dir.is_dir() else []:
+        world = load_json(world_path)
+        if any(
+            isinstance(node, dict) and node.get("settlement") == settlement_id
+            for node in (world.get("settlements", []) if isinstance(world, dict) else [])
+        ):
+            references.append(world_path.relative_to(root).as_posix())
+
+    settlement_dir = root / "content" / "settlements"
+    for settlement_path in sorted(settlement_dir.rglob("*.json")) if settlement_dir.is_dir() else []:
+        if settlement_path.resolve() == target.resolve():
+            continue
+        settlement = load_json(settlement_path)
+        if any(
+            isinstance(connection, dict)
+            and connection.get("target_settlement") == settlement_id
+            for connection in (
+                settlement.get("connections", [])
+                if isinstance(settlement, dict) else []
+            )
+        ):
+            references.append(settlement_path.relative_to(root).as_posix())
+
+    if references:
+        return target, references
+    target.unlink()
+    return target, []
 
 
 def _trainer_template(slug: str, name: str) -> dict[str, Any]:
@@ -2873,7 +3000,6 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
         "display_name": {"ko_kr": name},
         "region": f"cobbleventure:{generation}/region_01",
         "dimension": f"cobbleventure:{generation}",
-        "biome": "minecraft:plains",
         "town_radius_cells": 1,
         "town_footprint_shape": "line_q",
         "bounds": {"min_x": -32, "min_z": -32, "max_x": 32, "max_z": 32},
@@ -3162,12 +3288,408 @@ def generate_content(root: Path, output: Path | None = None) -> dict[str, Any]:
     return {"output": output.as_posix(), "trainers": trainers, "count": len(trainers)}
 
 
+def _read_nbt_string(stream: io.BytesIO) -> str:
+    length_data = stream.read(2)
+    if len(length_data) != 2:
+        raise ValueError("NBT 문자열 길이가 손상되었습니다.")
+    length = struct.unpack(">H", length_data)[0]
+    value = stream.read(length)
+    if len(value) != length:
+        raise ValueError("NBT 문자열이 손상되었습니다.")
+    return value.decode("utf-8")
+
+
+def _skip_nbt_payload(stream: io.BytesIO, tag_type: int) -> None:
+    fixed_sizes = {1: 1, 2: 2, 3: 4, 4: 8, 5: 4, 6: 8}
+    if tag_type in fixed_sizes:
+        stream.seek(fixed_sizes[tag_type], io.SEEK_CUR)
+        return
+    if tag_type == 7:
+        length = struct.unpack(">i", stream.read(4))[0]
+        stream.seek(max(0, length), io.SEEK_CUR)
+        return
+    if tag_type == 8:
+        _read_nbt_string(stream)
+        return
+    if tag_type == 9:
+        element_type_data = stream.read(1)
+        if not element_type_data:
+            raise ValueError("NBT 목록이 손상되었습니다.")
+        element_type = element_type_data[0]
+        length = struct.unpack(">i", stream.read(4))[0]
+        if length < 0 or length > 16_000_000:
+            raise ValueError("NBT 목록 길이가 올바르지 않습니다.")
+        for _ in range(length):
+            _skip_nbt_payload(stream, element_type)
+        return
+    if tag_type == 10:
+        while True:
+            child_type_data = stream.read(1)
+            if not child_type_data:
+                raise ValueError("NBT Compound가 손상되었습니다.")
+            child_type = child_type_data[0]
+            if child_type == 0:
+                return
+            _read_nbt_string(stream)
+            _skip_nbt_payload(stream, child_type)
+    elif tag_type in {11, 12}:
+        length = struct.unpack(">i", stream.read(4))[0]
+        if length < 0 or length > 16_000_000:
+            raise ValueError("NBT 배열 길이가 올바르지 않습니다.")
+        stream.seek(length * (4 if tag_type == 11 else 8), io.SEEK_CUR)
+    else:
+        raise ValueError(f"지원하지 않는 NBT 태그입니다: {tag_type}")
+
+
+def _read_nbt_payload(stream: io.BytesIO, tag_type: int) -> Any:
+    formats = {1: ">b", 2: ">h", 3: ">i", 4: ">q", 5: ">f", 6: ">d"}
+    if tag_type in formats:
+        size = struct.calcsize(formats[tag_type])
+        return struct.unpack(formats[tag_type], stream.read(size))[0]
+    if tag_type == 7:
+        length = struct.unpack(">i", stream.read(4))[0]
+        if length < 0 or length > 16_000_000:
+            raise ValueError("NBT byte 배열 길이가 올바르지 않습니다.")
+        return stream.read(length)
+    if tag_type == 8:
+        return _read_nbt_string(stream)
+    if tag_type == 9:
+        element_type_data = stream.read(1)
+        if not element_type_data:
+            raise ValueError("NBT 목록이 손상되었습니다.")
+        length = struct.unpack(">i", stream.read(4))[0]
+        if length < 0 or length > 16_000_000:
+            raise ValueError("NBT 목록 길이가 올바르지 않습니다.")
+        return [_read_nbt_payload(stream, element_type_data[0]) for _ in range(length)]
+    if tag_type == 10:
+        value: dict[str, Any] = {}
+        while True:
+            child_type_data = stream.read(1)
+            if not child_type_data:
+                raise ValueError("NBT Compound가 손상되었습니다.")
+            child_type = child_type_data[0]
+            if child_type == 0:
+                return value
+            child_name = _read_nbt_string(stream)
+            value[child_name] = _read_nbt_payload(stream, child_type)
+    if tag_type in {11, 12}:
+        length = struct.unpack(">i", stream.read(4))[0]
+        if length < 0 or length > 16_000_000:
+            raise ValueError("NBT 배열 길이가 올바르지 않습니다.")
+        item_format = ">i" if tag_type == 11 else ">q"
+        return [
+            struct.unpack(item_format, stream.read(struct.calcsize(item_format)))[0]
+            for _ in range(length)
+        ]
+    raise ValueError(f"지원하지 않는 NBT 태그입니다: {tag_type}")
+
+
+def _read_minecraft_structure_root(data: bytes) -> dict[str, Any]:
+    if data.startswith(b"\x1f\x8b"):
+        data = gzip.decompress(data)
+    stream = io.BytesIO(data)
+    root_type_data = stream.read(1)
+    if not root_type_data or root_type_data[0] != 10:
+        raise ValueError("마인크래프트 구조물 NBT의 루트가 Compound가 아닙니다.")
+    _read_nbt_string(stream)
+    root = _read_nbt_payload(stream, 10)
+    if not isinstance(root, dict):
+        raise ValueError("마인크래프트 구조물 NBT의 루트 형식이 올바르지 않습니다.")
+    return root
+
+
+def _minecraft_structure_parts(
+    data: bytes,
+) -> tuple[list[int], list[str], list[dict[str, Any]]]:
+    root = _read_minecraft_structure_root(data)
+    size = root.get("size")
+    if not isinstance(size, list) or len(size) != 3 or any(
+        not isinstance(value, int) or value <= 0 or value > 512 for value in size
+    ):
+        raise ValueError("구조물 size 태그 형식이 올바르지 않습니다.")
+    palette = root.get("palette")
+    blocks = root.get("blocks")
+    palette_names = [
+        entry.get("Name", "minecraft:air") if isinstance(entry, dict)
+        else "minecraft:air" for entry in palette
+    ] if isinstance(palette, list) else []
+    return size, palette_names, blocks if isinstance(blocks, list) else []
+
+
+def read_minecraft_structure_metadata(data: bytes) -> dict[str, Any]:
+    """Read template size, building bounds, and its visible top-down blocks."""
+    size, palette_names, blocks = _minecraft_structure_parts(data)
+    ignored_blocks = {
+        "minecraft:air", "minecraft:cave_air", "minecraft:void_air",
+        "minecraft:structure_void", "minecraft:jigsaw",
+        "minecraft:grass_block", "minecraft:dirt", "minecraft:coarse_dirt",
+        "minecraft:rooted_dirt", "minecraft:podzol", "minecraft:mycelium",
+        "minecraft:mud", "minecraft:dirt_path", "minecraft:farmland",
+        "minecraft:sand", "minecraft:red_sand", "minecraft:gravel",
+        "minecraft:clay", "minecraft:snow", "minecraft:snow_block",
+        "minecraft:moss_block", "minecraft:moss_carpet", "minecraft:short_grass",
+        "minecraft:tall_grass", "minecraft:fern", "minecraft:large_fern",
+        "minecraft:dead_bush", "minecraft:dandelion", "minecraft:poppy",
+        "minecraft:blue_orchid", "minecraft:allium", "minecraft:azure_bluet",
+        "minecraft:red_tulip", "minecraft:orange_tulip", "minecraft:white_tulip",
+        "minecraft:pink_tulip", "minecraft:oxeye_daisy", "minecraft:cornflower",
+        "minecraft:lily_of_the_valley", "minecraft:sunflower", "minecraft:lilac",
+        "minecraft:rose_bush", "minecraft:peony",
+    }
+    occupied: list[tuple[int, int, int]] = []
+    top_columns: dict[tuple[int, int], tuple[int, str]] = {}
+    invisible_blocks = {
+        "minecraft:air", "minecraft:cave_air", "minecraft:void_air",
+        "minecraft:structure_void", "minecraft:jigsaw",
+    }
+    if palette_names and blocks:
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            state = block.get("state")
+            position = block.get("pos")
+            if not isinstance(state, int) or not 0 <= state < len(palette_names):
+                continue
+            if isinstance(position, list) and len(position) == 3 and all(
+                isinstance(value, int) for value in position
+            ):
+                x, y, z = position
+                block_name = palette_names[state]
+                if block_name not in ignored_blocks:
+                    current = top_columns.get((x, z))
+                    if current is None or y > current[0]:
+                        top_columns[(x, z)] = (y, block_name)
+                if block_name not in ignored_blocks:
+                    occupied.append((x, y, z))
+    occupied_columns = {(x, z) for x, _, z in occupied}
+    # Collision and preview bounds must cover every block that survives the
+    # terrain-preservation processor, including one-layer paving and foliage.
+    if occupied_columns:
+        min_x = min(position[0] for position in occupied_columns)
+        max_x = max(position[0] for position in occupied_columns)
+        min_z = min(position[1] for position in occupied_columns)
+        max_z = max(position[1] for position in occupied_columns)
+    else:
+        min_x, min_z, max_x, max_z = 0, 0, size[0] - 1, size[2] - 1
+    top_palette = sorted({block_name for _, block_name in top_columns.values()})
+    top_palette_indexes = {
+        block_name: index for index, block_name in enumerate(top_palette)
+    }
+    top_blocks = [
+        [x, z, y, top_palette_indexes[block_name]]
+        for (x, z), (y, block_name) in sorted(
+            top_columns.items(), key=lambda item: (item[0][1], item[0][0])
+        )
+    ]
+    return {
+        "width": size[0], "height": size[1], "depth": size[2],
+        "occupied": {
+            "min_x": min_x, "min_z": min_z, "max_x": max_x, "max_z": max_z,
+            "width": max_x - min_x + 1, "depth": max_z - min_z + 1,
+        },
+        "top_view": {
+            "palette": top_palette,
+            "blocks": top_blocks,
+        },
+    }
+
+
+def read_minecraft_structure_model(data: bytes) -> dict[str, Any]:
+    """Read visible block faces for the interactive NBT structure viewer."""
+    size, palette_names, blocks = _minecraft_structure_parts(data)
+    invisible_blocks = {
+        "minecraft:air", "minecraft:cave_air", "minecraft:void_air",
+        "minecraft:structure_void", "minecraft:jigsaw",
+    }
+    occupied: dict[tuple[int, int, int], str] = {}
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        state = block.get("state")
+        position = block.get("pos")
+        if not isinstance(state, int) or not 0 <= state < len(palette_names):
+            continue
+        if not isinstance(position, list) or len(position) != 3 or not all(
+            isinstance(value, int) for value in position
+        ):
+            continue
+        block_name = palette_names[state]
+        if block_name not in invisible_blocks:
+            occupied[tuple(position)] = block_name
+
+    directions = [
+        (-1, 0, 0), (1, 0, 0), (0, -1, 0),
+        (0, 1, 0), (0, 0, -1), (0, 0, 1),
+    ]
+    visible: list[tuple[int, int, int, str, int]] = []
+    for (x, y, z), block_name in occupied.items():
+        face_mask = 0
+        for index, (dx, dy, dz) in enumerate(directions):
+            if (x + dx, y + dy, z + dz) not in occupied:
+                face_mask |= 1 << index
+        if face_mask:
+            visible.append((x, y, z, block_name, face_mask))
+    visible.sort(key=lambda item: (item[1], item[2], item[0]))
+    surface_palette = sorted({item[3] for item in visible})
+    palette_indexes = {
+        block_name: index for index, block_name in enumerate(surface_palette)
+    }
+    return {
+        "width": size[0], "height": size[1], "depth": size[2],
+        "palette": surface_palette,
+        "blocks": [
+            [x, y, z, palette_indexes[block_name], face_mask]
+            for x, y, z, block_name, face_mask in visible
+        ],
+        "total_blocks": len(occupied),
+        "surface_blocks": len(visible),
+    }
+def read_minecraft_structure_size(data: bytes) -> tuple[int, int, int]:
+    metadata = read_minecraft_structure_metadata(data)
+    return metadata["width"], metadata["height"], metadata["depth"]
+
+
+_STRUCTURE_ENTRY = re.compile(r"^data/([^/]+)/structures?/(.+)\.nbt$")
+
+
+def structure_mod_roots(root: Path) -> list[Path]:
+    roots = [root / "pack" / "overrides" / "development-placeholder" / "mods"]
+    instance_override = os.environ.get("COBBLEVERSE_INSTANCE")
+    if instance_override:
+        roots.append(Path(instance_override) / "mods")
+    roots.append(
+        Path.home() / "curseforge" / "minecraft" / "Instances"
+        / "COBBLEVERSE - Pokemon Adventure [Cobblemon]" / "mods"
+    )
+    return list(dict.fromkeys(path.resolve() for path in roots))
+
+
+def load_structure_size_catalog(root: Path) -> dict[str, Any]:
+    structures: dict[str, dict[str, Any]] = {}
+    warnings: list[str] = []
+
+    def add_structure(
+        resource_id: str, data: bytes, source: str, *, overwrite: bool = True
+    ) -> None:
+        if not overwrite and resource_id in structures:
+            return
+        try:
+            metadata = read_minecraft_structure_metadata(data)
+        except (OSError, EOFError, ValueError, struct.error) as error:
+            warnings.append(f"{resource_id}: {error}")
+            return
+        structures[resource_id] = {**metadata, "source": source}
+
+    resource_roots = [
+        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
+        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
+    ]
+    for resource_root in resource_roots:
+        if not resource_root.is_dir():
+            continue
+        for path in resource_root.glob("data/*/structure*/**/*.nbt"):
+            relative = path.relative_to(resource_root).as_posix()
+            match = _STRUCTURE_ENTRY.fullmatch(relative)
+            if match:
+                add_structure(
+                    f"{match.group(1)}:{match.group(2)}", path.read_bytes(),
+                    path.relative_to(root).as_posix()
+                )
+
+    for mod_root in structure_mod_roots(root):
+        if not mod_root.is_dir():
+            continue
+        for archive_path in sorted(mod_root.glob("*.jar")):
+            try:
+                with zipfile.ZipFile(archive_path) as archive:
+                    for entry in archive.infolist():
+                        match = _STRUCTURE_ENTRY.fullmatch(entry.filename)
+                        if match:
+                            add_structure(
+                                f"{match.group(1)}:{match.group(2)}",
+                                archive.read(entry), archive_path.name,
+                                overwrite=False,
+                            )
+            except (OSError, zipfile.BadZipFile) as error:
+                warnings.append(f"{archive_path.name}: {error}")
+    return {"structures": structures, "warnings": warnings}
+
+
+def load_structure_model(root: Path, resource_id: str) -> dict[str, Any] | None:
+    match = re.fullmatch(r"([a-z0-9_.-]+):([a-z0-9_./-]+)", resource_id)
+    if not match:
+        raise ValueError("올바른 구조물 리소스 ID가 아닙니다.")
+    namespace, structure_path = match.groups()
+    entry_names = [
+        f"data/{namespace}/structure/{structure_path}.nbt",
+        f"data/{namespace}/structures/{structure_path}.nbt",
+    ]
+    resource_roots = [
+        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
+        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
+    ]
+    for resource_root in resource_roots:
+        for entry_name in entry_names:
+            path = resource_root / entry_name
+            if path.is_file():
+                return {
+                    **read_minecraft_structure_model(path.read_bytes()),
+                    "source": path.relative_to(root).as_posix(),
+                }
+
+    for mod_root in structure_mod_roots(root):
+        if not mod_root.is_dir():
+            continue
+        for archive_path in sorted(mod_root.glob("*.jar")):
+            try:
+                with zipfile.ZipFile(archive_path) as archive:
+                    for entry_name in entry_names:
+                        try:
+                            data = archive.read(entry_name)
+                        except KeyError:
+                            continue
+                        return {
+                            **read_minecraft_structure_model(data),
+                            "source": archive_path.name,
+                        }
+            except (OSError, zipfile.BadZipFile):
+                continue
+    return None
+
+
+def structure_catalog_signature(root: Path) -> tuple[tuple[str, int, int], ...]:
+    """Return a cheap fingerprint for NBT resources and archives used by preview."""
+    candidates: list[Path] = []
+    for resource_root in [
+        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
+        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
+    ]:
+        if resource_root.is_dir():
+            candidates.extend(resource_root.glob("data/*/structure*/**/*.nbt"))
+    for mod_root in structure_mod_roots(root):
+        if mod_root.is_dir():
+            candidates.extend(mod_root.glob("*.jar"))
+    signature = []
+    for path in sorted(candidates, key=lambda candidate: candidate.as_posix()):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        signature.append((path.as_posix(), stat.st_size, stat.st_mtime_ns))
+    return tuple(signature)
+
+
 def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
     root = root.resolve()
     web_root = (Path(__file__).parent / "web").resolve()
     build_lock = threading.Lock()
     editor_catalog_lock = threading.Lock()
     editor_catalog: dict[str, Any] | None = None
+    structure_size_catalog_lock = threading.Lock()
+    structure_size_catalog: dict[str, Any] | None = None
+    structure_size_catalog_signature: tuple[tuple[str, int, int], ...] | None = None
+    structure_model_cache: dict[str, dict[str, Any]] = {}
+    structure_model_cache_signature: tuple[tuple[str, int, int], ...] | None = None
     remote_image_cache: dict[str, bytes] = {}
     remote_image_cache_lock = threading.Lock()
 
@@ -3506,6 +4028,42 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/structure-sizes":
+                nonlocal structure_size_catalog, structure_size_catalog_signature
+                try:
+                    with structure_size_catalog_lock:
+                        signature = structure_catalog_signature(root)
+                        if structure_size_catalog is None or signature != structure_size_catalog_signature:
+                            structure_size_catalog = load_structure_size_catalog(root)
+                            structure_size_catalog_signature = signature
+                    self._json(200, structure_size_catalog)
+                except (OSError, ValueError, zipfile.BadZipFile) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/structure-model":
+                nonlocal structure_model_cache_signature
+                resource_id = parse_qs(request.query).get("structure", [""])[0]
+                try:
+                    with structure_size_catalog_lock:
+                        signature = structure_catalog_signature(root)
+                        if signature != structure_model_cache_signature:
+                            structure_model_cache.clear()
+                            structure_model_cache_signature = signature
+                        model = structure_model_cache.get(resource_id)
+                        if model is None:
+                            loaded = load_structure_model(root, resource_id)
+                            if loaded is not None:
+                                model = {"structure": resource_id, **loaded}
+                                structure_model_cache[resource_id] = model
+                    if model is None:
+                        self._json(404, {"error": "구조물 NBT를 찾을 수 없습니다."})
+                    else:
+                        self._json(200, model)
+                except ValueError as error:
+                    self._json(400, {"error": str(error)})
+                except (OSError, EOFError, struct.error, zipfile.BadZipFile) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/trainers":
                 self._document_response("trainers", request)
                 return
@@ -3649,6 +4207,41 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     "saved": errors == 0,
                     "path": target.relative_to(root).as_posix() if target else relative_path,
                     "issues": [asdict(issue) for issue in issues],
+                },
+            )
+
+        def do_DELETE(self) -> None:
+            request = urlparse(self.path)
+            if request.path != "/api/settlements":
+                self._json(404, {"error": "not_found"})
+                return
+            relative_path = parse_qs(request.query).get("path", [""])[0]
+            try:
+                target, references = _delete_settlement_document(
+                    root, relative_path
+                )
+            except FileNotFoundError as error:
+                self._json(404, {"error": str(error)})
+                return
+            except (
+                OSError, ValueError, json.JSONDecodeError, DuplicateKeyError
+            ) as error:
+                self._json(400, {"error": str(error)})
+                return
+            if references:
+                self._json(
+                    409,
+                    {
+                        "error": "월드맵이나 다른 마을에서 참조 중이라 삭제할 수 없습니다.",
+                        "references": references,
+                    },
+                )
+                return
+            self._json(
+                200,
+                {
+                    "deleted": True,
+                    "path": target.relative_to(root).as_posix(),
                 },
             )
 

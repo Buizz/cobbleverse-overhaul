@@ -35,9 +35,9 @@ GYM_ROOF_BLOCKS = {
 }
 
 HOUSE_BASES = {
-    "compact": {"size": (16, 8, 16), "wall": "minecraft:oak_planks", "trim": "minecraft:stripped_oak_log"},
-    "wide": {"size": (32, 8, 16), "wall": "minecraft:spruce_planks", "trim": "minecraft:stripped_spruce_log"},
-    "two_story": {"size": (16, 12, 16), "wall": "minecraft:stone_bricks", "trim": "minecraft:stripped_dark_oak_log"},
+    "one_story": {"size": (16, 6, 16), "stories": 1, "wall": "minecraft:oak_planks", "trim": "minecraft:stripped_oak_log"},
+    "two_story": {"size": (16, 11, 16), "stories": 2, "wall": "minecraft:stone_bricks", "trim": "minecraft:stripped_dark_oak_log"},
+    "five_story": {"size": (16, 26, 16), "stories": 5, "wall": "minecraft:white_concrete", "trim": "minecraft:polished_deepslate"},
 }
 HOUSE_ROOFS = {"gable", "hip", "flat"}
 HOUSE_ROOF_BLOCKS = {
@@ -94,14 +94,15 @@ BCA_VILLAGE_CONNECTORS = {
 }
 
 FACILITY_PLACEHOLDERS = {
-    "basic_building_1": {"label": "기본 건물 1", "size": (16, 10, 16), "frame": "minecraft:bricks"},
-    "basic_building_2": {"label": "기본 건물 2", "size": (32, 10, 16), "frame": "minecraft:oak_planks"},
-    "basic_building_3": {"label": "기본 건물 3", "size": (16, 14, 16), "frame": "minecraft:stone_bricks"},
+    "basic_building_1": {"label": "1층 주택", "size": (16, 13, 16), "frame": "minecraft:bricks"},
+    "basic_building_2": {"label": "2층 주택", "size": (16, 18, 16), "frame": "minecraft:stone_bricks"},
+    "basic_building_3": {"label": "5층 고층주택", "size": (16, 33, 16), "frame": "minecraft:white_concrete"},
     "laboratory": {"label": "연구소", "size": (32, 14, 32), "frame": "minecraft:light_blue_concrete"},
     "fossil_laboratory": {"label": "화석연구소", "size": (32, 14, 32), "frame": "minecraft:brown_concrete"},
     "daycare": {"label": "키우미집", "size": (32, 10, 32), "frame": "minecraft:lime_concrete"},
     "tm_workshop": {"label": "기술머신 조합소", "size": (32, 10, 16), "frame": "minecraft:orange_concrete"},
     "hotel": {"label": "호텔", "size": (32, 20, 32), "frame": "minecraft:pink_concrete"},
+    "casino": {"label": "카지노", "size": (48, 20, 48), "frame": "minecraft:yellow_concrete"},
     "battle_tower": {"label": "배틀타워", "size": (48, 32, 48), "frame": "minecraft:purple_concrete"},
     "radio_tower": {"label": "라디오 타워", "size": (48, 32, 48), "frame": "minecraft:blue_concrete"},
     "train_station": {"label": "기차역", "size": (48, 14, 64), "frame": "minecraft:gray_concrete"},
@@ -317,6 +318,7 @@ def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> byte
     width, wall_height, depth = definition["size"]  # type: ignore[misc]
     wall = str(definition["wall"])
     trim = str(definition["trim"])
+    stories = int(definition["stories"])
     roof_block = HOUSE_ROOF_BLOCKS[roof_color]
     roof_layers = 1 if roof_id == "flat" else min(6, depth // 2)
     total_height = wall_height + roof_layers + 1
@@ -337,16 +339,23 @@ def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> byte
             for z in (0, depth - 1):
                 if z == 0 and abs(x - door_x) <= 1 and y <= 3:
                     continue
-                window = y in {3, 4} and x % 5 in {2, 3}
+                window = any(
+                    y in {story * 5 + 3, story * 5 + 4}
+                    for story in range(stories)
+                ) and x % 5 in {2, 3}
                 set_block(x, y, z, "minecraft:glass_pane" if window else (trim if x in {0, width - 1} else wall))
         for z in range(1, depth - 1):
             for x in (0, width - 1):
-                window = y in {3, 4} and z % 5 in {2, 3}
+                window = any(
+                    y in {story * 5 + 3, story * 5 + 4}
+                    for story in range(stories)
+                ) and z % 5 in {2, 3}
                 set_block(x, y, z, "minecraft:glass_pane" if window else (trim if z in {1, depth - 2} else wall))
-    if base_id == "two_story":
+    for story in range(1, stories):
+        floor_y = story * 5 + 1
         for x in range(1, width - 1):
             for z in range(1, depth - 1):
-                set_block(x, wall_height // 2, z, "minecraft:oak_planks")
+                set_block(x, floor_y, z, "minecraft:oak_planks")
 
     roof_y = wall_height
     if roof_id == "flat":

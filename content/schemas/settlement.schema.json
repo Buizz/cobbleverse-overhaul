@@ -11,7 +11,6 @@
     "display_name",
     "region",
     "dimension",
-    "biome",
     "town_radius_cells",
     "bounds",
     "center",
@@ -30,9 +29,16 @@
     "display_name": { "$ref": "#/$defs/localized_text" },
     "region": { "$ref": "#/$defs/resource_id" },
     "dimension": { "$ref": "#/$defs/resource_id" },
-    "biome": { "$ref": "#/$defs/resource_id" },
-    "town_radius_cells": { "type": "integer", "enum": [1, 3, 5, 7] },
-    "town_footprint_shape": { "type": "string", "enum": ["triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down"] },
+    "town_radius_cells": { "type": "integer", "enum": [1, 3, 5, 7, 19] },
+    "town_footprint_shape": { "type": "string", "enum": ["triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down", "custom"] },
+    "town_footprint_cells": {
+      "type": "array", "minItems": 1, "maxItems": 19, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/axial_coordinate" }
+    },
+    "town_road_exits": {
+      "type": "array", "minItems": 1, "maxItems": 12, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/axial_coordinate" }
+    },
     "bounds": { "$ref": "#/$defs/horizontal_bounds" },
     "center": { "$ref": "#/$defs/block_position" },
     "anchors": {
@@ -200,6 +206,15 @@
       "required": ["ko_kr"],
       "propertyNames": { "pattern": "^[a-z]{2}_[a-z]{2}$" },
       "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "axial_coordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q", "r"],
+      "properties": {
+        "q": { "type": "integer", "minimum": -8, "maximum": 8 },
+        "r": { "type": "integer", "minimum": -8, "maximum": 8 }
+      }
     },
     "block_position": {
       "type": "object",
@@ -405,6 +420,7 @@
           "properties": {
             "seed": { "type": "integer", "minimum": 1, "maximum": 999999999 },
             "depth": { "type": "integer", "minimum": 1, "maximum": 7 },
+            "building_density": { "enum": ["sparse", "normal", "dense", "packed"] },
             "basic_buildings": {
               "type": "array",
               "minItems": 1,
@@ -418,7 +434,7 @@
               "properties": {
                 "bases": {
                   "type": "array", "minItems": 1, "uniqueItems": true,
-                  "items": { "enum": ["compact", "wide", "two_story"] }
+                  "items": { "enum": ["one_story", "two_story", "five_story"] }
                 },
                 "roofs": {
                   "type": "array", "minItems": 1, "uniqueItems": true,

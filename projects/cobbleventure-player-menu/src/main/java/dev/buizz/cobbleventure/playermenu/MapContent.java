@@ -91,14 +91,16 @@ public final class MapContent {
     public Town townAt(int q, int r) {
         Hex target = new Hex(q, r);
         for (Town town : towns) {
-            if (townContains(town.hex(), target, town.radiusCells(), town.footprintShape())) return town;
+            if (townContains(town, target)) return town;
         }
         return null;
     }
 
-    private static boolean townContains(Hex center, Hex target, int cellCount, String footprintShape) {
+    private static boolean townContains(Town town, Hex target) {
+        Hex center = town.hex(); int cellCount = town.radiusCells(); String footprintShape = town.footprintShape();
         int q = target.q() - center.q();
         int r = target.r() - center.r();
+        if ("custom".equals(footprintShape)) return town.customFootprint().contains(new Hex(q, r));
         if (q == 0 && r == 0) return true;
         if (cellCount == 3) {
             return switch (footprintShape == null ? "line_q" : footprintShape) {
@@ -119,7 +121,8 @@ public final class MapContent {
                 || (q == 0 && r == -1)
                 || (q == 1 && r == -1);
         }
-        return cellCount == 7 && hexDistance(center, target) == 1;
+        if (cellCount == 7) return hexDistance(center, target) == 1;
+        return cellCount == 19 && hexDistance(center, target) <= 2;
     }
 
     public BiomeTile tileAt(int q, int r) {
@@ -180,12 +183,20 @@ public final class MapContent {
             JsonObject gym = structure.getAsJsonObject("gym");
             JsonObject district = structure.getAsJsonObject("special_district");
             JsonObject building = district.getAsJsonObject("building");
+            List<Hex> customFootprint = new ArrayList<>();
+            if (preset.has("town_footprint_cells")) {
+                for (JsonElement cellElement : preset.getAsJsonArray("town_footprint_cells")) {
+                    JsonObject cell = cellElement.getAsJsonObject();
+                    customFootprint.add(new Hex(cell.get("q").getAsInt(), cell.get("r").getAsInt()));
+                }
+            }
             towns.add(new Town(
                 id,
                 localized(preset.getAsJsonObject("display_name"), slug),
                 new Hex(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
                 preset.get("town_radius_cells").getAsInt(),
                 preset.has("town_footprint_shape") ? preset.get("town_footprint_shape").getAsString() : "line_q",
+                List.copyOf(customFootprint),
                 preset.get("biome").getAsString(),
                 gym.get("enabled").getAsBoolean(),
                 gym.get("theme").getAsString(),
@@ -337,6 +348,7 @@ public final class MapContent {
         Hex hex,
         int radiusCells,
         String footprintShape,
+        List<Hex> customFootprint,
         String biome,
         boolean gymEnabled,
         String gymTheme,

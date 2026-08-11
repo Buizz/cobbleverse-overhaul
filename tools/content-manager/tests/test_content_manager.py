@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import gzip
 import importlib.util
 import json
 import shutil
+import struct
 import sys
 import tempfile
 import threading
@@ -23,6 +25,143 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    @staticmethod
+    def _structure_nbt(size: tuple[int, int, int]) -> bytes:
+        payload = (
+            b"\x0a\x00\x00"
+            + b"\x09\x00\x04size\x03"
+            + struct.pack(">i", 3)
+            + struct.pack(">iii", *size)
+            + b"\x00"
+        )
+        return gzip.compress(payload)
+
+    @staticmethod
+    def _structure_nbt_with_blocks() -> bytes:
+        def nbt_string(value: str) -> bytes:
+            encoded = value.encode("utf-8")
+            return struct.pack(">H", len(encoded)) + encoded
+
+        palette = ["minecraft:stone", "minecraft:oak_planks", "minecraft:grass_block"]
+        palette_payload = b"".join(
+            b"\x08" + nbt_string("Name") + nbt_string(block_name) + b"\x00"
+            for block_name in palette
+        )
+        block_values = [
+            (1, 0, 1, 0), (1, 2, 1, 1), (2, 0, 1, 2),
+            (3, 0, 2, 1),
+        ]
+        blocks_payload = b"".join(
+            b"\x09" + nbt_string("pos") + b"\x03" + struct.pack(">i", 3)
+            + struct.pack(">iii", x, y, z)
+            + b"\x03" + nbt_string("state") + struct.pack(">i", state)
+            + b"\x00"
+            for x, y, z, state in block_values
+        )
+        payload = (
+            b"\x0a\x00\x00"
+            + b"\x09" + nbt_string("size") + b"\x03" + struct.pack(">i", 3)
+            + struct.pack(">iii", 4, 4, 4)
+            + b"\x09" + nbt_string("palette") + b"\x0a" + struct.pack(">i", len(palette))
+            + palette_payload
+            + b"\x09" + nbt_string("blocks") + b"\x0a" + struct.pack(">i", len(block_values))
+            + blocks_payload
+            + b"\x00"
+        )
+        return gzip.compress(payload)
+
+    def test_reads_exact_minecraft_structure_size_from_nbt(self) -> None:
+        self.assertEqual(
+            (22, 15, 23),
+            content_manager.read_minecraft_structure_size(
+                self._structure_nbt((22, 15, 23))
+            ),
+        )
+
+    def test_reads_visible_top_block_for_each_nbt_column(self) -> None:
+        metadata = content_manager.read_minecraft_structure_metadata(
+            self._structure_nbt_with_blocks()
+        )
+
+        self.assertEqual(
+            ["minecraft:oak_planks"],
+            metadata["top_view"]["palette"],
+        )
+        self.assertEqual(
+            [[1, 1, 2, 0], [3, 2, 0, 0]],
+            metadata["top_view"]["blocks"],
+        )
+        self.assertEqual(
+            {
+                "min_x": 1, "min_z": 1, "max_x": 3, "max_z": 2,
+                "width": 3, "depth": 2,
+            },
+            metadata["occupied"],
+        )
+
+    def test_reads_visible_block_faces_for_structure_model(self) -> None:
+        model = content_manager.read_minecraft_structure_model(
+            self._structure_nbt_with_blocks()
+        )
+
+        self.assertEqual((4, 4, 4), (model["width"], model["height"], model["depth"]))
+        self.assertEqual(4, model["total_blocks"])
+        self.assertEqual(4, model["surface_blocks"])
+        self.assertEqual(
+            ["minecraft:grass_block", "minecraft:oak_planks", "minecraft:stone"],
+            model["palette"],
+        )
+        self.assertEqual([61, 62, 63, 63], [block[4] for block in model["blocks"]])
+
+    def test_structure_size_catalog_reads_mod_jar_resources(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mods = root / "pack/overrides/development-placeholder/mods"
+            mods.mkdir(parents=True)
+            with zipfile.ZipFile(mods / "structures.jar", "w") as archive:
+                archive.writestr(
+                    "data/example/structure/town/center.nbt",
+                    self._structure_nbt((31, 12, 27)),
+                )
+
+            catalog = content_manager.load_structure_size_catalog(root)
+
+            self.assertEqual(
+                {
+                    "width": 31, "height": 12, "depth": 27,
+                    "occupied": {
+                        "min_x": 0, "min_z": 0, "max_x": 30, "max_z": 26,
+                        "width": 31, "depth": 27,
+                    },
+                    "top_view": {"palette": [], "blocks": []},
+                    "source": "structures.jar",
+                },
+                catalog["structures"]["example:town/center"],
+            )
+
+    def test_local_structure_overrides_installed_jar_with_same_resource_id(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            local = (
+                root / "projects/cobbleventure-world-bootstrap/src/generated/resources"
+                / "data/example/structure/town/center.nbt"
+            )
+            local.parent.mkdir(parents=True)
+            local.write_bytes(self._structure_nbt((16, 18, 16)))
+            mods = root / "pack/overrides/development-placeholder/mods"
+            mods.mkdir(parents=True)
+            with zipfile.ZipFile(mods / "old-structures.jar", "w") as archive:
+                archive.writestr(
+                    "data/example/structure/town/center.nbt",
+                    self._structure_nbt((32, 10, 16)),
+                )
+
+            catalog = content_manager.load_structure_size_catalog(root)
+
+            self.assertEqual(16, catalog["structures"]["example:town/center"]["width"])
+            self.assertEqual(18, catalog["structures"]["example:town/center"]["height"])
+            self.assertIn("src/generated/resources", catalog["structures"]["example:town/center"]["source"])
+
     def test_three_cell_town_footprint_uses_center_and_two_neighbors(self) -> None:
         self.assertEqual(
             {(-1, 0), (0, 0), (1, 0)},
@@ -38,6 +177,20 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(
             middle | {(-1, 1), (0, 1)},
             content_manager._town_footprint((0, 0), 5, "five_down"),
+        )
+
+    def test_nineteen_cell_town_footprint_is_complete_radius_two_hexagon(self) -> None:
+        cells = content_manager._town_footprint((0, 0), 19)
+
+        self.assertEqual(19, len(cells))
+        self.assertTrue(all(content_manager._hex_distance((0, 0), cell) <= 2 for cell in cells))
+
+    def test_custom_town_footprint_uses_authored_relative_cells(self) -> None:
+        relative = {(0, 0), (1, 0), (1, -1)}
+
+        self.assertEqual(
+            {(4, -2), (5, -2), (5, -3)},
+            content_manager._town_footprint((4, -2), 3, "custom", relative),
         )
 
     @staticmethod
@@ -97,6 +250,11 @@ class ContentManagerTests(unittest.TestCase):
             invalid["settlements"][1]["anchor"] = dict(invalid["settlements"][0]["anchor"])
             issues = content_manager.save_world_layout(candidate_root, invalid)
             self.assertTrue(any(issue.level == "error" for issue in issues))
+            self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
+            invalid_biome = json.loads(json.dumps(saved))
+            invalid_biome["settlements"][0].pop("town_biome")
+            issues = content_manager.save_world_layout(candidate_root, invalid_biome)
+            self.assertTrue(any(issue.path.endswith(".town_biome") for issue in issues))
             self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
             invalid_buffer = json.loads(json.dumps(saved))
             first_anchor = invalid_buffer["settlements"][0]["anchor"]
@@ -167,6 +325,7 @@ class ContentManagerTests(unittest.TestCase):
                 )
             )
             self.assertEqual(expected_name, settlement["display_name"]["ko_kr"])
+            self.assertNotIn("biome", settlement)
 
         layout = content_manager.load_world_layout(root)
         anchors = {
@@ -180,6 +339,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertGreater(anchors["tidehaven_town"]["r"], anchors["starter_town"]["r"])
 
         nodes = layout["settlements"]
+        self.assertTrue(all(node.get("town_biome") for node in nodes))
         for index, node in enumerate(nodes):
             for other in nodes[index + 1:]:
                 q1, r1 = node["anchor"]["q"], node["anchor"]["r"]
@@ -539,6 +699,25 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn(f"{prefix}.roofs", locations)
         self.assertIn(f"{prefix}.roof_colors", locations)
 
+    def test_settlement_accepts_one_two_and_five_story_house_bases(self) -> None:
+        root = Path(__file__).parents[3]
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["generation_profile"]["house_palette"] = {
+            "bases": ["one_story", "two_story", "five_story"],
+            "roofs": ["gable"],
+            "roof_colors": ["red"],
+        }
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertEqual([], [issue for issue in issues if issue.level == "error"])
+
     def test_special_district_allows_reserved_empty_plot(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
@@ -614,6 +793,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("entrance_offset", document["structure_profile"]["gym"])
         self.assertIn("special_district", document["anchors"])
         self.assertIn("gym_building", document["anchors"])
+        self.assertNotIn("biome", document)
 
     def test_settlement_supports_exactly_one_biome(self) -> None:
         root = Path(__file__).parents[3]
@@ -1158,6 +1338,52 @@ class ContentManagerTests(unittest.TestCase):
             self.assertTrue(any("마을 경계 안" in issue.message for issue in issues))
             self.assertEqual(source, content_manager.load_json(target))
 
+    def test_deletes_unreferenced_settlement_document(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "content/settlements/generation_1/delete_me.json"
+            target.parent.mkdir(parents=True)
+            target.write_text(
+                json.dumps({"id": "cobbleventure:settlement/delete_me"}),
+                encoding="utf-8",
+            )
+
+            deleted, references = content_manager._delete_settlement_document(
+                root, "content/settlements/generation_1/delete_me.json"
+            )
+
+            self.assertEqual(target, deleted)
+            self.assertEqual([], references)
+            self.assertFalse(target.exists())
+
+    def test_refuses_to_delete_referenced_settlement_document(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "content/settlements/generation_1/keep_me.json"
+            target.parent.mkdir(parents=True)
+            target.write_text(
+                json.dumps({"id": "cobbleventure:settlement/keep_me"}),
+                encoding="utf-8",
+            )
+            world = root / "content/worlds/generation_1.json"
+            world.parent.mkdir(parents=True)
+            world.write_text(
+                json.dumps({
+                    "settlements": [
+                        {"settlement": "cobbleventure:settlement/keep_me"}
+                    ]
+                }),
+                encoding="utf-8",
+            )
+
+            preserved, references = content_manager._delete_settlement_document(
+                root, "content/settlements/generation_1/keep_me.json"
+            )
+
+            self.assertEqual(target, preserved)
+            self.assertEqual(["content/worlds/generation_1.json"], references)
+            self.assertTrue(target.exists())
+
     def test_new_trainer_template_is_valid(self) -> None:
         template = content_manager._trainer_template("route_01", "길목 트레이너")
         content_id, issues = content_manager._validate_payload(
@@ -1419,6 +1645,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(11, dashboard["settlements"])
         self.assertEqual(11, len(settlements["items"]))
         self.assertEqual(11, len(world_layout["settlements"]))
+        starter_summary = next(item for item in settlements["items"] if item["id"] == "cobbleventure:settlement/starter_town")
+        starter_world_node = next(item for item in world_layout["settlements"] if item["settlement"] == starter_summary["id"])
+        self.assertEqual(starter_world_node["town_biome"], starter_summary["biome"])
         self.assertGreater(len(world_layout["connections"]), 0)
         self.assertGreater(len(world_layout["empty_terrain"]["tiles"]), 0)
         self.assertIn(1, world_layouts["generations"])
@@ -1438,7 +1667,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("세대 추가", page)
         self.assertIn('id="worlds"', page)
         self.assertIn('id="settlements"', page)
-        self.assertIn("대표 바이옴", page)
+        self.assertIn("마을 바이옴", page)
+        self.assertIn("form.elements.townBiome", app_script)
+        self.assertNotIn("node.town_biome = settlementPresetBiome", app_script)
         self.assertIn("마을 프리셋", page)
         self.assertNotIn("마을 동선 · 입구와 출구", page)
         self.assertNotIn("바이옴 2 — 선택", page)

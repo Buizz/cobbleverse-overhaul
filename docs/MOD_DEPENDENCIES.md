@@ -43,6 +43,11 @@
 | `easy_npc_config_ui` | Easy NPC Config UI | 선택 프로필 | 양쪽 | Easy NPC 게임 내 설정과 네트워크 | 7.0.1 / CF `1214728:8420458` |
 | `tbcs` | Cobblemon Trainer Battle Commands | 선택 프로필 | 양쪽 | 명령 기반 NPC와 RCT API 전투 연결 | 자체 RCT Bridge와 비교 필요 |
 
+CasinoCraft는 카지노 기본 시설에 사용할 후보이지만, Minecraft 1.21.1용 NeoForge
+호환 파일과 배포 조건을 아직 확정하지 않았다. 따라서 현재 Lock과 테스트팩에는
+추가하지 않고 바닐라 블록 플레이스홀더만 생성한다. 구조물 교체 계약과 도입 절차는
+[`CASINOCRAFT_INTEGRATION.md`](implementation/CASINOCRAFT_INTEGRATION.md)를 따른다.
+
 ## 콘텐츠팩 의존성
 
 | ID | 콘텐츠팩 | 구분 | 선택 버전 | 배포 형식 | 패키징 상태 |

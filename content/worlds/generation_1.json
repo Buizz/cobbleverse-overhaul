@@ -813,7 +813,7 @@
         "q": -5,
         "r": 6
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "cobbleventure:starter_plains",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/dense_tree_line",
@@ -821,7 +821,10 @@
         "base_height_offset": 0,
         "height_variation": 2,
         "noise_scale_blocks": 112
-      }
+      },
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/route_01_town",
@@ -829,7 +832,7 @@
         "q": -3,
         "r": 2
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "minecraft:forest",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/dense_tree_line",
@@ -837,7 +840,10 @@
         "base_height_offset": 0,
         "height_variation": 3,
         "noise_scale_blocks": 96
-      }
+      },
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/crimson_town",
@@ -845,7 +851,7 @@
         "q": -1,
         "r": -2
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "minecraft:stony_peaks",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/earthwork",
@@ -853,7 +859,10 @@
         "base_height_offset": 5,
         "height_variation": 3,
         "noise_scale_blocks": 92
-      }
+      },
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/cerulean_city",
@@ -861,7 +870,7 @@
         "q": 7,
         "r": -2
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "minecraft:river",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/earthwork",
@@ -869,7 +878,10 @@
         "base_height_offset": 0,
         "height_variation": 2,
         "noise_scale_blocks": 104
-      }
+      },
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/celadon_city",
@@ -877,7 +889,7 @@
         "q": 1,
         "r": 2
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "minecraft:flower_forest",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/dense_tree_line",
@@ -885,7 +897,10 @@
         "base_height_offset": 0,
         "height_variation": 2,
         "noise_scale_blocks": 104
-      }
+      },
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/saffron_city",
@@ -893,7 +908,7 @@
         "q": 5,
         "r": 2
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "minecraft:plains",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/stone_wall",
@@ -901,7 +916,10 @@
         "base_height_offset": 0,
         "height_variation": 2,
         "noise_scale_blocks": 112
-      }
+      },
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/lavender_town",
@@ -909,7 +927,7 @@
         "q": 9,
         "r": 2
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "minecraft:dark_forest",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/stone_wall",
@@ -917,7 +935,10 @@
         "base_height_offset": 2,
         "height_variation": 3,
         "noise_scale_blocks": 88
-      }
+      },
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/vermilion_city",
@@ -925,7 +946,7 @@
         "q": 3,
         "r": 6
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "minecraft:beach",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/earthwork",
@@ -933,7 +954,10 @@
         "base_height_offset": 0,
         "height_variation": 2,
         "noise_scale_blocks": 104
-      }
+      },
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/fuchsia_city",
@@ -941,7 +965,7 @@
         "q": 1,
         "r": 10
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "minecraft:jungle",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/dense_tree_line",
@@ -949,7 +973,10 @@
         "base_height_offset": 0,
         "height_variation": 3,
         "noise_scale_blocks": 92
-      }
+      },
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/tidehaven_town",
@@ -957,7 +984,7 @@
         "q": -5,
         "r": 12
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "minecraft:beach",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/earthwork",
@@ -966,7 +993,10 @@
         "height_variation": 3,
         "noise_scale_blocks": 96
       },
-      "access_requirement": "cobbleventure:field_move/surf"
+      "access_requirement": "cobbleventure:field_move/surf",
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/skyreach_town",
@@ -974,7 +1004,7 @@
         "q": -6,
         "r": -2
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 7,
       "town_biome": "minecraft:stony_peaks",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/earthwork",
@@ -983,7 +1013,10 @@
         "height_variation": 3,
         "noise_scale_blocks": 88
       },
-      "access_requirement": "cobbleventure:field_move/rock_climb"
+      "access_requirement": "cobbleventure:field_move/rock_climb",
+      "town_footprint_shape": "line_q",
+      "town_footprint_cells": [],
+      "town_road_exits": []
     }
   ],
   "connections": [
@@ -1397,6 +1430,47 @@
         {
           "q": -5,
           "r": 12
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit"
+    },
+    {
+      "id": "route_custom_12",
+      "from": "cobbleventure:settlement/saffron_city",
+      "to": "cobbleventure:settlement/cerulean_city",
+      "anchors": [
+        {
+          "q": 5,
+          "r": 2
+        },
+        {
+          "q": 7,
+          "r": -2
+        }
+      ],
+      "cells": [
+        {
+          "q": 5,
+          "r": 2
+        },
+        {
+          "q": 6,
+          "r": 1
+        },
+        {
+          "q": 6,
+          "r": 0
+        },
+        {
+          "q": 7,
+          "r": -1
+        },
+        {
+          "q": 7,
+          "r": -2
         }
       ],
       "corridor_width_blocks": 12,

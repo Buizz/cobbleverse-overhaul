@@ -186,8 +186,12 @@ final class NativeWorldGeneration {
         public ChunkGeneratorStructureState createState(
             HolderLookup<StructureSet> structures, RandomState randomState, long levelSeed
         ) {
-            return ChunkGeneratorStructureState.createForNormal(
-                randomState, levelSeed, biomeSource, structures
+            // Settlements and facilities in this dimension are placed only from
+            // the authored Cobbleventure map. Passing the global registry here
+            // would also schedule vanilla, BCA and RGS structure sets anywhere
+            // their biome predicates happen to match.
+            return ChunkGeneratorStructureState.createForFlat(
+                randomState, levelSeed, biomeSource, Stream.empty()
             );
         }
 

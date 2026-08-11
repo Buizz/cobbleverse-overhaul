@@ -9,7 +9,6 @@
   },
   "region": "cobbleventure:generation_1/region_02",
   "dimension": "cobbleventure:generation_1",
-  "biome": "minecraft:forest",
   "town_radius_cells": 7,
   "bounds": {
     "min_x": 900,

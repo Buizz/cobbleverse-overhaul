@@ -2,7 +2,7 @@
   "$schema": "../../schemas/settlement.schema.json", "schema_version": 3,
   "id": "cobbleventure:settlement/vermilion_city", "enabled": true,
   "display_name": { "ko_kr": "갈색시티", "en_us": "Vermilion City" },
-  "region": "cobbleventure:generation_1/vermilion", "dimension": "cobbleventure:generation_1", "biome": "minecraft:beach", "town_radius_cells": 7,
+  "region": "cobbleventure:generation_1/vermilion", "dimension": "cobbleventure:generation_1", "town_radius_cells": 7,
   "bounds": { "min_x": -160, "min_z": -160, "max_x": 160, "max_z": 160 }, "center": { "x": 0, "y": 69, "z": 0 },
   "anchors": { "town_square": { "x": 0, "y": 69, "z": 0 }, "special_district": { "x": -80, "y": 69, "z": 0 }, "gym_building": { "x": 132, "y": 69, "z": -10 }, "harbor": { "x": 0, "y": 69, "z": 80 } },
   "content_profile": { "pokemon": { "spawn_profile": "cobbleventure:spawn/vermilion", "density_multiplier": 1.1, "biome_set": "cobbleventure:biome_set/starter_region", "unconditional_spawns": [] }, "trainers": { "population_profile": "cobbleventure:trainer_population/vermilion", "max_active": 14, "class_pool": ["cobbleventure:trainer_class/sailor", "cobbleventure:trainer_class/fisherman"] }, "level_scaling": { "mode": "badge_and_region", "base_level": 24, "min_level": 18, "max_level": 40, "per_badge": 2, "per_region": 3, "pokemon_offset": 0, "trainer_offset": 2 } },

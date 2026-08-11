@@ -3,7 +3,7 @@
   "id": "cobbleventure:settlement/cerulean_city", "enabled": true,
   "display_name": { "ko_kr": "블루시티", "en_us": "Cerulean City" },
   "region": "cobbleventure:generation_1/cerulean", "dimension": "cobbleventure:generation_1",
-  "biome": "minecraft:river", "town_radius_cells": 7,
+  "town_radius_cells": 7,
   "bounds": { "min_x": -160, "min_z": -160, "max_x": 160, "max_z": 160 },
   "center": { "x": 0, "y": 69, "z": 0 },
   "anchors": { "town_square": { "x": 0, "y": 69, "z": 0 }, "special_district": { "x": -80, "y": 69, "z": 0 }, "gym_building": { "x": 132, "y": 69, "z": -10 } },

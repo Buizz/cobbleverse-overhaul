@@ -1,0 +1,150 @@
+{
+  "$schema": "../../schemas/settlement.schema.json",
+  "schema_version": 3,
+  "id": "cobbleventure:settlement/ddd",
+  "enabled": true,
+  "display_name": {
+    "ko_kr": "sss"
+  },
+  "region": "cobbleventure:generation_1/region_01",
+  "dimension": "cobbleventure:generation_1",
+  "town_radius_cells": 1,
+  "town_footprint_shape": "line_q",
+  "bounds": {
+    "min_x": -32,
+    "min_z": -32,
+    "max_x": 32,
+    "max_z": 32
+  },
+  "center": {
+    "x": 0,
+    "y": 64,
+    "z": 0
+  },
+  "anchors": {
+    "town_square": {
+      "x": 0,
+      "y": 64,
+      "z": 0
+    },
+    "player_spawn": {
+      "x": 0,
+      "y": 64,
+      "z": -24
+    },
+    "special_district": {
+      "x": -48,
+      "y": 64,
+      "z": 0
+    },
+    "gym_building": {
+      "x": 48,
+      "y": 64,
+      "z": 0
+    }
+  },
+  "content_profile": {
+    "pokemon": {
+      "spawn_profile": "cobbleventure:spawn/ddd",
+      "density_multiplier": 1.0,
+      "biome_set": "cobbleventure:biome_set/starter_region",
+      "unconditional_spawns": []
+    },
+    "trainers": {
+      "population_profile": "cobbleventure:trainer_population/ddd",
+      "max_active": 8,
+      "class_pool": [
+        "cobbleventure:trainer_class/youngster"
+      ]
+    },
+    "level_scaling": {
+      "mode": "badge_and_region",
+      "base_level": 5,
+      "min_level": 3,
+      "max_level": 18,
+      "per_badge": 2,
+      "per_region": 3,
+      "pokemon_offset": 0,
+      "trainer_offset": 1
+    }
+  },
+  "biome_layout": {
+    "arrangement": "organic_patches",
+    "transition_width": 12,
+    "zones": [
+      {
+        "id": "primary",
+        "biome": "minecraft:plains",
+        "size_blocks": 256,
+        "placement": "center",
+        "weight": 1,
+        "habitat_profile": "cobbleventure:biome_profile/plains",
+        "spawn_settings": {
+          "generation": 0,
+          "temperature": "temperate",
+          "humidity": "normal",
+          "weather": "any",
+          "time": "any",
+          "rarities": [
+            "common",
+            "medium",
+            "uncommon",
+            "rare"
+          ],
+          "include_secondary": true
+        }
+      }
+    ],
+    "boundary": {
+      "profile": "cobbleventure:boundary/ddd",
+      "width": 16,
+      "wall_height": 12,
+      "wall_thickness": 5
+    }
+  },
+  "connections": [],
+  "structure_profile": {
+    "structure": "cobbleventure:ddd/village",
+    "gym_theme": "normal",
+    "commercial_center": "none",
+    "pokemon_center_enabled": true,
+    "civic_facilities_explicit": true,
+    "layout_shape": "branching",
+    "road_profile": {
+      "width": 7,
+      "material": "cobblestone"
+    },
+    "required_facilities": {
+      "village_hub": "cobbleventure:ddd/village_hub"
+    },
+    "facility_requirements": [],
+    "special_district": {
+      "enabled": false,
+      "anchor": "special_district",
+      "placement_mode": "auto",
+      "footprint": {
+        "width": 8,
+        "depth": 8
+      },
+      "clearance": 6,
+      "building": {
+        "enabled": false,
+        "structure": ""
+      }
+    },
+    "gym": {
+      "enabled": false,
+      "structure": "",
+      "theme": "normal",
+      "anchor": "gym_building",
+      "leader_trainer_id": ""
+    },
+    "facility_placements": []
+  },
+  "npc_placement": {
+    "max_ambient_npcs": 8,
+    "default_wander_radius": 5,
+    "trainer_slots": [],
+    "zones": []
+  }
+}
