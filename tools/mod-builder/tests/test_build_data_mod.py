@@ -711,6 +711,31 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertIn(b"PLACEHOLDER", casino)
             self.assertIn("카지노".encode("utf-8"), casino)
 
+    def test_packages_landmark_facility_structures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+
+            build_data_mod.build(root)
+
+            placeholder_root = (
+                root / build_data_mod.OUTPUT / "data/cobbleventure/structure/placeholder"
+            )
+            expected = {
+                "lighthouse": ((32, 48, 32), "등대"),
+                "power_plant": ((48, 24, 48), "파워플랜트"),
+                "mansion": ((48, 24, 48), "멘션"),
+            }
+            for facility_id, (size, label) in expected.items():
+                self.assertEqual(
+                    size, build_data_mod.FACILITY_PLACEHOLDERS[facility_id]["size"]
+                )
+                structure = gzip.decompress(
+                    (placeholder_root / f"{facility_id}.nbt").read_bytes()
+                )
+                self.assertIn(facility_id.encode("utf-8"), structure)
+                self.assertIn(label.encode("utf-8"), structure)
+
     def test_authored_facility_nbt_replaces_generated_placeholder(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

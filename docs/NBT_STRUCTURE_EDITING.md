@@ -17,6 +17,8 @@ Cobbleventure가 직접 관리하는 건축물 NBT의 원본 위치와 안전한
 
 `placeholder`라는 이름은 현재 시설 배치 계약과의 호환성을 위해 유지한 리소스 경로입니다.
 그 안의 파일은 임시 건물뿐 아니라 완성된 시설 원본으로도 사용할 수 있습니다.
+등대·파워플랜트·멘션은 각각 `lighthouse.nbt`, `power_plant.nbt`, `mansion.nbt`로
+관리합니다.
 
 ## 파일 이름 규칙
 

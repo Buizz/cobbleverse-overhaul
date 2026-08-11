@@ -229,6 +229,9 @@ house_b03_roof_gray
 | 배틀타워 | XXL / H4 | 지정 마을 필수 | 외곽 랜드마크 축 | 먼 거리에서도 보이게 시야축 확보 |
 | 라디오 타워 | XXL / H4 | 지정 도시 필수 | 중심부 또는 상업 구역 가장자리 | 송신탑 실루엣과 공개·업무 구역을 구분 |
 | 기차역 | XL 또는 별도 교통 부지 | 철도 연결 마을 필수 | 마을 외곽의 주도로 종점 | 역사, 승강장, 선로 연결축을 하나의 부지로 관리 |
+| 등대 | XL / H4 | 해안 도시 선택 | 해안선 또는 항구 외곽 | 바다에서 보이는 광원부와 진입로 확보 |
+| 파워플랜트 | XXL / H3 | 스토리 지정 도시 선택 | 도시 외곽의 산업 구역 | 발전 설비와 통제 구역을 분리하고 주거지와 거리 확보 |
+| 멘션 | XXL / H3 | 스토리 지정 도시 선택 | 외곽 고지대 또는 넓은 주거 구역 | 정원·진입로를 포함한 대저택 부지로 구성 |
 | 체육관 | GYM 예약 | 체육관 마을 필수 | 중심부와 연결된 특수 시설 구역 | 건설 전에도 빈 부지를 다른 건물로 채우지 않음 |
 
 포켓몬상점과 백화점은 같은 상업 역할을 담당하므로 한 마을에서 서로 배타적인 단일 선택으로 관리한다. 선택지는 `없음`, `포켓몬상점`, `백화점`이며 둘을 동시에 필수로 만들지 않는다. 포켓몬센터는 이 상업 시설 선택과 별도 옵션이다. 단, 시작 마을은 포켓몬센터와 상업 시설을 모두 생성하지 않는다.
@@ -379,6 +382,9 @@ cobbleventure:placeholder/hotel
 cobbleventure:placeholder/battle_tower
 cobbleventure:placeholder/radio_tower
 cobbleventure:placeholder/train_station
+cobbleventure:placeholder/lighthouse
+cobbleventure:placeholder/power_plant
+cobbleventure:placeholder/mansion
 cobbleventure:placeholder/gym_site
 ```
 

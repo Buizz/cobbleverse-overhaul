@@ -48,7 +48,10 @@ const settlementFacilityCatalog = [
   { id: "casino", label: "카지노", note: "CasinoCraft 게임 시설 예정", width: 48, depth: 48, height: 20, color: "#d4a017" },
   { id: "battle_tower", label: "배틀타워", note: "전투 랜드마크", width: 48, depth: 48, height: 32, color: "#9d4edd" },
   { id: "radio_tower", label: "라디오 타워", note: "방송국과 송신탑", width: 48, depth: 48, height: 32, color: "#4361ee" },
-  { id: "train_station", label: "기차역", note: "역사와 선로 예약부지", width: 48, depth: 64, height: 14, color: "#495057" }
+  { id: "train_station", label: "기차역", note: "역사와 선로 예약부지", width: 48, depth: 64, height: 14, color: "#495057" },
+  { id: "lighthouse", label: "등대", note: "해안과 항구의 항로 랜드마크", width: 32, depth: 32, height: 48, color: "#f1f3f5" },
+  { id: "power_plant", label: "파워플랜트", note: "발전 설비와 사건 진행 시설", width: 48, depth: 48, height: 24, color: "#adb5bd" },
+  { id: "mansion", label: "멘션", note: "대저택과 스토리 랜드마크", width: 48, depth: 48, height: 24, color: "#6f4e37" }
 ];
 const legacyGymFacilityIds = new Set(["gym_site", "gym_lot"]);
 const houseBaseCatalog = [

@@ -120,6 +120,9 @@ FACILITY_PLACEHOLDERS = {
     "battle_tower": {"label": "배틀타워", "size": (48, 32, 48), "frame": "minecraft:purple_concrete"},
     "radio_tower": {"label": "라디오 타워", "size": (48, 32, 48), "frame": "minecraft:blue_concrete"},
     "train_station": {"label": "기차역", "size": (48, 14, 64), "frame": "minecraft:gray_concrete"},
+    "lighthouse": {"label": "등대", "size": (32, 48, 32), "frame": "minecraft:white_concrete"},
+    "power_plant": {"label": "파워플랜트", "size": (48, 24, 48), "frame": "minecraft:light_gray_concrete"},
+    "mansion": {"label": "멘션", "size": (48, 24, 48), "frame": "minecraft:dark_oak_planks"},
     "gym_site": {"label": "체육관 부지", "size": (64, 12, 64), "frame": "minecraft:red_concrete"},
 }
 
