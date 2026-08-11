@@ -49,6 +49,10 @@ if (project.hasProperty('integration_mods_dir')) {
 neoForge {
     version = project.neo_version
     runs {
+        configureEach {
+            jvmArgument '-Xms2G'
+            jvmArgument '-Xmx8G'
+        }
         client { client() }
         server { server() }
         integrationServer {
