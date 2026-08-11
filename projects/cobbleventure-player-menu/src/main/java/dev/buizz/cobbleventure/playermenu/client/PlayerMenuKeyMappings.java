@@ -28,6 +28,7 @@ final class PlayerMenuKeyMappings {
         bind(PlayerMenuEntry.TRAINER_CARD, GLFW.GLFW_KEY_C);
         bind(PlayerMenuEntry.QUESTS, GLFW.GLFW_KEY_J);
         bind(PlayerMenuEntry.MAP, GLFW.GLFW_KEY_M);
+        bind(PlayerMenuEntry.POKENAV, GLFW.GLFW_KEY_N);
         bind(PlayerMenuEntry.POKEDEX, GLFW.GLFW_KEY_K);
         for (int slot = 1; slot <= 10; slot++) {
             BAG_SHORTCUT_MAPPINGS.add(new KeyMapping(
@@ -94,6 +95,7 @@ final class PlayerMenuKeyMappings {
             case OPENED -> Component.empty();
             case NO_POKEMON -> Component.translatable("screen.cobbleventure_player_menu.status.no_pokemon");
             case MISSING_POKEDEX -> Component.translatable("screen.cobbleventure_player_menu.status.missing_pokedex");
+            case MISSING_POKENAV -> Component.translatable("screen.cobbleventure_player_menu.status.missing_pokenav");
             case ACTION_FAILED -> Component.translatable("screen.cobbleventure_player_menu.status.action_failed");
             case UNAVAILABLE -> Component.translatable(
                 "screen.cobbleventure_player_menu.status.coming_soon", entry.title()

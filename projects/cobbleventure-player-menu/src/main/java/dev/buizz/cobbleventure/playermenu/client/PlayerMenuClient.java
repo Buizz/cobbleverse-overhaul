@@ -64,6 +64,10 @@ public final class PlayerMenuClient {
         BagNetwork.requestDiscard(extended, slot, quantity);
     }
 
+    public static void openPokenav() {
+        BagNetwork.requestUsePokenav();
+    }
+
     public static void openTrainerCard() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) {

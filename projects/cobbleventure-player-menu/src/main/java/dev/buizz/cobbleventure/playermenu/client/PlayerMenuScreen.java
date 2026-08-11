@@ -293,6 +293,9 @@ public final class PlayerMenuScreen extends Screen {
             case MISSING_POKEDEX -> Component.translatable(
                 "screen.cobbleventure_player_menu.status.missing_pokedex"
             );
+            case MISSING_POKENAV -> Component.translatable(
+                "screen.cobbleventure_player_menu.status.missing_pokenav"
+            );
             case ACTION_FAILED -> Component.translatable(
                 "screen.cobbleventure_player_menu.status.action_failed"
             );

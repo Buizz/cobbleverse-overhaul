@@ -16,6 +16,7 @@ enum PlayerMenuEntry {
     TRAINER_CARD("trainer_card", true, "red_card"),
     QUESTS("quests", false, "scroll_of_darkness"),
     MAP("map", true, null),
+    POKENAV("pokenav", false, null),
     POKEDEX("pokedex", false, "pokedex_red");
 
     private final String id;
@@ -49,8 +50,16 @@ enum PlayerMenuEntry {
             case TRAINER_CARD -> Items.NAME_TAG;
             case QUESTS -> Items.WRITABLE_BOOK;
             case MAP -> Items.FILLED_MAP;
+            case POKENAV -> Items.COMPASS;
             case POKEDEX -> Items.KNOWLEDGE_BOOK;
         });
+        if (this == POKENAV) {
+            if (!ModList.get().isLoaded("cobblenav")) return fallback;
+            Item iconItem = BuiltInRegistries.ITEM.getOptional(
+                ResourceLocation.fromNamespaceAndPath("cobblenav", "pokenav_item_base")
+            ).orElse(Items.AIR);
+            return iconItem == Items.AIR ? fallback : new ItemStack(iconItem);
+        }
         if (cobblemonIconId == null || !ModList.get().isLoaded("cobblemon")) {
             return fallback;
         }
@@ -61,6 +70,7 @@ enum PlayerMenuEntry {
     }
 
     boolean connected() {
+        if (this == POKENAV) return ModList.get().isLoaded("cobblenav");
         return connected || (isCobblemonEntry() && ModList.get().isLoaded("cobblemon"));
     }
 
@@ -96,6 +106,10 @@ enum PlayerMenuEntry {
                 ? OpenResult.OPENED
                 : OpenResult.MISSING_POKEDEX;
         }
+        if (this == POKENAV && connected()) {
+            PlayerMenuClient.openPokenav();
+            return OpenResult.OPENED;
+        }
         return OpenResult.UNAVAILABLE;
     }
 
@@ -107,6 +121,7 @@ enum PlayerMenuEntry {
         OPENED,
         NO_POKEMON,
         MISSING_POKEDEX,
+        MISSING_POKENAV,
         ACTION_FAILED,
         UNAVAILABLE
     }

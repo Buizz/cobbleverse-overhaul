@@ -3,7 +3,9 @@ package dev.buizz.cobbleventure.playermenu;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
@@ -24,7 +26,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative bag storage, synchronization and item actions. */
 public final class BagNetwork {
-    private static final String VERSION = "3";
+    private static final String VERSION = "4";
     private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(
         emptySnapshot(), emptyShortcuts(), 0L
     );
@@ -73,6 +75,10 @@ public final class BagNetwork {
         PacketDistributor.sendToServer(new UseShortcutPayload(shortcutSlot));
     }
 
+    public static void requestUsePokenav() {
+        PacketDistributor.sendToServer(new UsePokenavPayload());
+    }
+
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(VERSION);
         registrar.playToServer(SnapshotRequestPayload.TYPE, SnapshotRequestPayload.STREAM_CODEC, BagNetwork::handleSnapshotRequest);
@@ -81,6 +87,7 @@ public final class BagNetwork {
         registrar.playToServer(MoveItemPayload.TYPE, MoveItemPayload.STREAM_CODEC, BagNetwork::handleMoveItem);
         registrar.playToServer(ShortcutPayload.TYPE, ShortcutPayload.STREAM_CODEC, BagNetwork::handleShortcut);
         registrar.playToServer(UseShortcutPayload.TYPE, UseShortcutPayload.STREAM_CODEC, BagNetwork::handleUseShortcut);
+        registrar.playToServer(UsePokenavPayload.TYPE, UsePokenavPayload.STREAM_CODEC, BagNetwork::handleUsePokenav);
         registrar.playToServer(DiscardPayload.TYPE, DiscardPayload.STREAM_CODEC, BagNetwork::handleDiscard);
     }
 
@@ -189,6 +196,27 @@ public final class BagNetwork {
         }
     }
 
+    private static void handleUsePokenav(UsePokenavPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        NonNullList<ItemStack> storage = BagStorage.load(player);
+        Inventory inventory = player.getInventory();
+        for (int slot = 0; slot < 36; slot++) {
+            if (!isPokenav(inventory.getItem(slot))) continue;
+            useInventorySlot(player, slot);
+            sync(player, storage);
+            return;
+        }
+        for (int slot = 0; slot < storage.size(); slot++) {
+            if (!isPokenav(storage.get(slot))) continue;
+            useExtendedSlot(player, storage, slot);
+            sync(player, storage);
+            return;
+        }
+        player.displayClientMessage(Component.translatable(
+            "screen.cobbleventure_player_menu.status.missing_pokenav"
+        ), true);
+    }
+
     private static void handleDiscard(DiscardPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player) || !validSlot(payload.extended(), payload.slot())
             || payload.quantity() <= 0) return;
@@ -291,6 +319,12 @@ public final class BagNetwork {
 
     private static boolean validSlot(boolean extended, int slot) {
         return slot >= 0 && slot < (extended ? BagStorage.SLOT_COUNT : 36);
+    }
+
+    private static boolean isPokenav(ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return id.getNamespace().equals("cobblenav") && id.getPath().startsWith("pokenav_item");
     }
 
     private static void finishMutation(ServerPlayer player, List<ItemStack> storage, boolean storageChanged) {
@@ -419,6 +453,13 @@ public final class BagNetwork {
                 (buffer, value) -> buffer.writeVarInt(value.shortcutSlot),
                 buffer -> new UseShortcutPayload(buffer.readVarInt())
             );
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record UsePokenavPayload() implements CustomPacketPayload {
+        public static final Type<UsePokenavPayload> TYPE = new Type<>(id("use_pokenav"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, UsePokenavPayload> STREAM_CODEC =
+            StreamCodec.unit(new UsePokenavPayload());
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
