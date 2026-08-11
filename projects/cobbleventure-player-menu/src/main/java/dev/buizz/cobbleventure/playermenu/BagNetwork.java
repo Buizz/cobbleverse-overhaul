@@ -19,6 +19,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -27,6 +28,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 /** Server-authoritative bag storage, synchronization and item actions. */
 public final class BagNetwork {
     private static final String VERSION = "4";
+    private static final int VANILLA_HOTBAR_SIZE = 9;
     private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(
         emptySnapshot(), emptyShortcuts(), 0L
     );
@@ -36,6 +38,7 @@ public final class BagNetwork {
     public static void register(IEventBus modBus) {
         modBus.addListener(BagNetwork::registerPayloads);
         NeoForge.EVENT_BUS.addListener(BagNetwork::onItemPickup);
+        NeoForge.EVENT_BUS.addListener(BagNetwork::onServerTick);
         NeoForge.EVENT_BUS.addListener(BagCommands::register);
     }
 
@@ -171,7 +174,121 @@ public final class BagNetwork {
         NonNullList<ItemStack> shortcuts = BagStorage.loadShortcuts(player);
         shortcuts.set(payload.shortcutSlot(), source.copyWithCount(1));
         BagStorage.saveShortcuts(player, shortcuts);
+        syncVanillaHotbarShortcuts(player, storage, shortcuts);
         sync(player, storage);
+    }
+
+    private static void onServerTick(ServerTickEvent.Post event) {
+        if (event.getServer().getTickCount() % 5 != 0) return;
+        for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+            NonNullList<ItemStack> storage = BagStorage.load(player);
+            NonNullList<ItemStack> shortcuts = BagStorage.loadShortcuts(player);
+            if (!syncVanillaHotbarShortcuts(player, storage, shortcuts)) continue;
+            sync(player, storage);
+        }
+    }
+
+    /** Mirrors shortcut slots 1-9 into Minecraft's real hotbar and keeps their stacks replenished. */
+    private static boolean syncVanillaHotbarShortcuts(ServerPlayer player,
+                                                       NonNullList<ItemStack> storage,
+                                                       NonNullList<ItemStack> shortcuts) {
+        Inventory inventory = player.getInventory();
+        boolean changed = false;
+        for (int hotbarSlot = 0; hotbarSlot < VANILLA_HOTBAR_SIZE; hotbarSlot++) {
+            ItemStack prototype = shortcuts.get(hotbarSlot);
+            if (prototype.isEmpty()) continue;
+
+            ItemStack target = inventory.getItem(hotbarSlot);
+            boolean compatible = ItemStack.isSameItemSameComponents(target, prototype)
+                || !target.isEmpty() && target.is(prototype.getItem()) && target.getMaxStackSize() == 1;
+            if (compatible) {
+                int needed = Math.max(0, target.getMaxStackSize() - target.getCount());
+                int moved = pullShortcutSupplies(inventory, storage, shortcuts, hotbarSlot, prototype, needed);
+                if (moved > 0) {
+                    target.grow(moved);
+                    changed = true;
+                }
+                continue;
+            }
+
+            int available = countShortcutSupplies(inventory, storage, shortcuts, hotbarSlot, prototype);
+            if (available <= 0) continue;
+            ItemStack displaced = target.copy();
+            inventory.setItem(hotbarSlot, ItemStack.EMPTY);
+            int moved = pullShortcutSupplies(
+                inventory, storage, shortcuts, hotbarSlot, prototype, prototype.getMaxStackSize()
+            );
+            if (moved > 0) inventory.setItem(hotbarSlot, prototype.copyWithCount(moved));
+            if (!displaced.isEmpty()) storeDisplacedStack(player, storage, displaced);
+            changed = true;
+        }
+        if (!changed) return false;
+        BagStorage.save(player, storage);
+        markInventoryChanged(player);
+        return true;
+    }
+
+    private static int countShortcutSupplies(Inventory inventory, List<ItemStack> storage,
+                                             List<ItemStack> shortcuts, int targetSlot,
+                                             ItemStack prototype) {
+        int count = 0;
+        for (int slot = VANILLA_HOTBAR_SIZE; slot < 36; slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (ItemStack.isSameItemSameComponents(stack, prototype)) count += stack.getCount();
+        }
+        for (ItemStack stack : storage) {
+            if (ItemStack.isSameItemSameComponents(stack, prototype)) count += stack.getCount();
+        }
+        for (int slot = 0; slot < VANILLA_HOTBAR_SIZE; slot++) {
+            if (slot == targetSlot || !shortcuts.get(slot).isEmpty()) continue;
+            ItemStack stack = inventory.getItem(slot);
+            if (ItemStack.isSameItemSameComponents(stack, prototype)) count += stack.getCount();
+        }
+        return count;
+    }
+
+    private static int pullShortcutSupplies(Inventory inventory, List<ItemStack> storage,
+                                            List<ItemStack> shortcuts, int targetSlot,
+                                            ItemStack prototype, int requested) {
+        int moved = 0;
+        for (int slot = VANILLA_HOTBAR_SIZE; slot < 36 && moved < requested; slot++) {
+            moved += takeMatching(inventory.getItem(slot), prototype, requested - moved);
+            if (inventory.getItem(slot).isEmpty()) inventory.setItem(slot, ItemStack.EMPTY);
+        }
+        for (int slot = 0; slot < storage.size() && moved < requested; slot++) {
+            moved += takeMatching(storage.get(slot), prototype, requested - moved);
+            if (storage.get(slot).isEmpty()) storage.set(slot, ItemStack.EMPTY);
+        }
+        for (int slot = 0; slot < VANILLA_HOTBAR_SIZE && moved < requested; slot++) {
+            if (slot == targetSlot || !shortcuts.get(slot).isEmpty()) continue;
+            moved += takeMatching(inventory.getItem(slot), prototype, requested - moved);
+            if (inventory.getItem(slot).isEmpty()) inventory.setItem(slot, ItemStack.EMPTY);
+        }
+        return moved;
+    }
+
+    private static int takeMatching(ItemStack source, ItemStack prototype, int requested) {
+        if (requested <= 0 || !ItemStack.isSameItemSameComponents(source, prototype)) return 0;
+        int moved = Math.min(requested, source.getCount());
+        source.shrink(moved);
+        return moved;
+    }
+
+    private static void storeDisplacedStack(ServerPlayer player, List<ItemStack> storage, ItemStack stack) {
+        for (ItemStack stored : storage) {
+            if (stack.isEmpty()) return;
+            if (!ItemStack.isSameItemSameComponents(stored, stack) || stored.getCount() >= stored.getMaxStackSize()) continue;
+            int moved = Math.min(stack.getCount(), stored.getMaxStackSize() - stored.getCount());
+            stored.grow(moved);
+            stack.shrink(moved);
+        }
+        for (int slot = 0; slot < storage.size() && !stack.isEmpty(); slot++) {
+            if (!storage.get(slot).isEmpty()) continue;
+            int moved = Math.min(stack.getCount(), stack.getMaxStackSize());
+            storage.set(slot, stack.copyWithCount(moved));
+            stack.shrink(moved);
+        }
+        if (!stack.isEmpty()) player.drop(stack, false);
     }
 
     private static void handleUseShortcut(UseShortcutPayload payload, IPayloadContext context) {
