@@ -61,7 +61,7 @@ const houseBaseCatalog = [
 ];
 const houseRoofCatalog = [
   { id: "gable", label: "박공지붕" },
-  { id: "hip", label: "모임지붕" },
+  { id: "shed", label: "외쪽 경사지붕" },
   { id: "flat", label: "평지붕" }
 ];
 const houseRoofColorCatalog = [

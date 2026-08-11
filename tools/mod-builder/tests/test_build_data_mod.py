@@ -793,6 +793,15 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertIn(b"minecraft:red_wool", red_nbt)
             self.assertIn(b"minecraft:granite", red_nbt)
 
+    def test_shed_roof_replaces_legacy_hip_roof(self) -> None:
+        shed = gzip.decompress(
+            build_data_mod.build_house_variant_nbt("one_story", "shed", "white")
+        )
+        self.assertIn(b"minecraft:white_concrete", shed)
+        self.assertIn(b"minecraft:white_wool", shed)
+        with self.assertRaises(ValueError):
+            build_data_mod.build_house_variant_nbt("one_story", "hip", "white")
+
     def test_explicit_civic_facilities_use_configured_hub_and_road(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

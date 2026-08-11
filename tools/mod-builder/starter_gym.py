@@ -39,7 +39,7 @@ HOUSE_BASES = {
     "two_story": {"size": (16, 11, 16), "stories": 2, "wall": "minecraft:stone_bricks", "trim": "minecraft:stripped_dark_oak_log"},
     "five_story": {"size": (16, 26, 16), "stories": 5, "wall": "minecraft:smooth_quartz", "trim": "minecraft:polished_deepslate"},
 }
-HOUSE_ROOFS = {"gable", "hip", "flat"}
+HOUSE_ROOFS = {"gable", "shed", "flat"}
 HOUSE_ROOF_STONE_BLOCKS = {
     "red": "minecraft:granite",
     "orange": "minecraft:granite",
@@ -399,18 +399,11 @@ def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> byte
             for x in range(width):
                 set_roof_block(x, roof_y + layer, left)
                 set_roof_block(x, roof_y + layer, right)
-    else:
-        for layer in range(roof_layers):
-            min_x, max_x = layer, width - 1 - layer
-            min_z, max_z = layer, depth - 1 - layer
-            if min_x > max_x or min_z > max_z:
-                break
-            for x in range(min_x, max_x + 1):
-                set_roof_block(x, roof_y + layer, min_z)
-                set_roof_block(x, roof_y + layer, max_z)
-            for z in range(min_z + 1, max_z):
-                set_roof_block(min_x, roof_y + layer, z)
-                set_roof_block(max_x, roof_y + layer, z)
+    else:  # shed
+        for z in range(depth):
+            layer = min(roof_layers - 1, z * roof_layers // depth)
+            for x in range(width):
+                set_roof_block(x, roof_y + layer, z)
     return _build_structure_nbt((width, total_height, depth), blocks)
 
 
