@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import com.cobblemon.mod.common.CobblemonSounds;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -7,7 +8,9 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
@@ -18,6 +21,11 @@ public final class PlayerMenuScreen extends Screen {
     private static final int MENU_HEADER_HEIGHT = 22;
     private static final int MENU_PADDING = 5;
     private static final int ROW_GAP = 2;
+    private static final long OPEN_ANIMATION_MILLIS = 160L;
+    private static final long ROW_ANIMATION_MILLIS = 120L;
+    private static final long ROW_STAGGER_MILLIS = 11L;
+    private static final long CLOSE_ANIMATION_MILLIS = 100L;
+    private static final long SELECTION_PULSE_MILLIS = 150L;
 
     // Cobblemon's summary and party screens use neutral grey panels with a
     // one-pixel light edge and a dark outer border. Keep these colours local so
@@ -46,6 +54,9 @@ public final class PlayerMenuScreen extends Screen {
     private int rowHeight;
     private int infoWidth;
     private Component statusMessage;
+    private long transitionStartedAt;
+    private long selectionChangedAt;
+    private boolean closing;
 
     public PlayerMenuScreen() {
         super(Component.translatable("screen.cobbleventure_player_menu.title"));
@@ -55,6 +66,10 @@ public final class PlayerMenuScreen extends Screen {
     protected void init() {
         super.init();
         rows.clear();
+        transitionStartedAt = System.currentTimeMillis();
+        selectionChangedAt = 0L;
+        closing = false;
+        playUiSound(CobblemonSounds.PC_ON, 1.0F, 0.55F);
 
         PlayerMenuEntry[] entries = PlayerMenuEntry.values();
         selectedIndex = clamp(selectedIndex, 0, entries.length - 1);
@@ -92,18 +107,39 @@ public final class PlayerMenuScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        for (MenuRow row : rows) {
-            if (row.isMouseOver(mouseX, mouseY)) {
-                select(row.index());
-                break;
+        float transition = transitionProgress();
+        if (!closing && openingFinished()) {
+            for (MenuRow row : rows) {
+                if (row.isMouseOver(mouseX, mouseY)) {
+                    select(row.index());
+                    break;
+                }
             }
         }
 
+        graphics.pose().pushPose();
+        graphics.pose().translate((1.0F - transition) * 16.0F, 0.0F, 0.0F);
         renderTrainerPanel(graphics);
         renderInfoPanel(graphics);
         renderMenuPanel(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderControls(graphics);
+        graphics.pose().popPose();
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (closing && System.currentTimeMillis() - transitionStartedAt >= CLOSE_ANIMATION_MILLIS
+            && minecraft != null) {
+            minecraft.setScreen(null);
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (closing || !openingFinished()) return true;
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
@@ -114,6 +150,7 @@ public final class PlayerMenuScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (closing || !openingFinished()) return true;
         if (minecraft != null && minecraft.options.keyInventory.matches(keyCode, scanCode)) {
             onClose();
             return true;
@@ -147,6 +184,14 @@ public final class PlayerMenuScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    @Override
+    public void onClose() {
+        if (closing) return;
+        closing = true;
+        transitionStartedAt = System.currentTimeMillis();
+        playUiSound(CobblemonSounds.PC_OFF, 1.0F, 0.48F);
     }
 
     private void renderTrainerPanel(GuiGraphics graphics) {
@@ -275,6 +320,8 @@ public final class PlayerMenuScreen extends Screen {
         }
         selectedIndex = nextIndex;
         statusMessage = null;
+        selectionChangedAt = System.currentTimeMillis();
+        playUiSound(CobblemonSounds.POKEDEX_CLICK_SHORT, 1.08F, 0.18F);
         if (selectedIndex < rows.size()) {
             setFocused(rows.get(selectedIndex));
         }
@@ -285,6 +332,7 @@ public final class PlayerMenuScreen extends Screen {
     }
 
     private void activate(PlayerMenuEntry entry) {
+        playUiSound(CobblemonSounds.PC_CLICK, 1.0F, 0.38F);
         statusMessage = switch (entry.open()) {
             case OPENED -> statusMessage;
             case NO_POKEMON -> Component.translatable(
@@ -317,6 +365,56 @@ public final class PlayerMenuScreen extends Screen {
         return Math.max(minimum, Math.min(maximum, value));
     }
 
+    private boolean openingFinished() {
+        long total = Math.max(
+            OPEN_ANIMATION_MILLIS,
+            ROW_ANIMATION_MILLIS
+                + Math.max(0, PlayerMenuEntry.values().length - 1) * ROW_STAGGER_MILLIS
+        );
+        return !closing && System.currentTimeMillis() - transitionStartedAt >= total;
+    }
+
+    private float transitionProgress() {
+        long duration = closing ? CLOSE_ANIMATION_MILLIS : OPEN_ANIMATION_MILLIS;
+        float linear = clamp01((System.currentTimeMillis() - transitionStartedAt) / (float) duration);
+        return closing ? 1.0F - easeOutCubic(linear) : easeOutCubic(linear);
+    }
+
+    private float rowTransitionProgress(int index) {
+        if (closing) return transitionProgress();
+        long elapsed = System.currentTimeMillis() - transitionStartedAt - index * ROW_STAGGER_MILLIS;
+        return easeOutCubic(clamp01(elapsed / (float) ROW_ANIMATION_MILLIS));
+    }
+
+    private float selectionPulse(int index) {
+        if (index != selectedIndex || selectionChangedAt == 0L) return 1.0F;
+        float progress = clamp01((System.currentTimeMillis() - selectionChangedAt) / (float) SELECTION_PULSE_MILLIS);
+        return 1.0F + (float) Math.sin(progress * Math.PI) * 0.08F;
+    }
+
+    private void playUiSound(SoundEvent sound, float pitch, float volume) {
+        if (minecraft == null) return;
+        minecraft.getSoundManager().play(SimpleSoundInstance.forUI(sound, pitch, volume));
+    }
+
+    private static float clamp01(float value) {
+        return Math.max(0.0F, Math.min(1.0F, value));
+    }
+
+    private static float easeOutCubic(float value) {
+        float inverse = 1.0F - value;
+        return 1.0F - inverse * inverse * inverse;
+    }
+
+    private static int blendColor(int from, int to, float amount) {
+        float clamped = clamp01(amount);
+        int alpha = Math.round(((from >>> 24) & 0xFF) + (((to >>> 24) & 0xFF) - ((from >>> 24) & 0xFF)) * clamped);
+        int red = Math.round(((from >>> 16) & 0xFF) + (((to >>> 16) & 0xFF) - ((from >>> 16) & 0xFF)) * clamped);
+        int green = Math.round(((from >>> 8) & 0xFF) + (((to >>> 8) & 0xFF) - ((from >>> 8) & 0xFF)) * clamped);
+        int blue = Math.round((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * clamped);
+        return alpha << 24 | red << 16 | green << 8 | blue;
+    }
+
     private static void drawCobblemonPanel(
         GuiGraphics graphics,
         int x,
@@ -335,6 +433,8 @@ public final class PlayerMenuScreen extends Screen {
         private final int index;
         private final PlayerMenuEntry entry;
         private final ItemStack icon;
+        private float hoverProgress;
+        private long lastAnimationAt = System.currentTimeMillis();
 
         private MenuRow(
             int index,
@@ -363,10 +463,19 @@ public final class PlayerMenuScreen extends Screen {
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             boolean selected = index == selectedIndex;
+            long now = System.currentTimeMillis();
+            float step = Math.min(1.0F, (now - lastAnimationAt) / 80.0F);
+            lastAnimationAt = now;
+            float hoverTarget = isHovered() && !selected ? 1.0F : 0.0F;
+            hoverProgress += (hoverTarget - hoverProgress) * step;
             int fillColor = selected
                 ? ROW_SELECTED_COLOR
-                : (isHovered() ? ROW_HOVER_COLOR : ROW_COLOR);
+                : blendColor(ROW_COLOR, ROW_HOVER_COLOR, hoverProgress);
             int textColor = selected ? SELECTED_TEXT_COLOR : PRIMARY_TEXT_COLOR;
+
+            float rowTransition = rowTransitionProgress(index);
+            graphics.pose().pushPose();
+            graphics.pose().translate((1.0F - rowTransition) * 10.0F, 0.0F, 0.0F);
 
             graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), PANEL_DARK_COLOR);
             graphics.fill(
@@ -393,8 +502,9 @@ public final class PlayerMenuScreen extends Screen {
                 );
             }
 
-            int iconY = getY() + (getHeight() - 16) / 2;
-            graphics.renderItem(icon, getX() + 17, iconY);
+            float iconScale = selectionPulse(index);
+            float iconY = getY() + getHeight() / 2.0F - 8.0F * iconScale;
+            renderIcon(graphics, icon, getX() + 25, Math.round(iconY), iconScale);
             graphics.drawString(
                 font,
                 Integer.toString(index + 1),
@@ -434,6 +544,7 @@ public final class PlayerMenuScreen extends Screen {
                 dotY + 4,
                 dotColor
             );
+            graphics.pose().popPose();
         }
 
         @Override
