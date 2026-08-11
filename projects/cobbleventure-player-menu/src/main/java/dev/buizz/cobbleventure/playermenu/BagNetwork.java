@@ -410,13 +410,20 @@ public final class BagNetwork {
         ItemEntity entity = event.getItemEntity();
         ItemStack worldStack = entity.getItem();
         var pickedUpItem = worldStack.getItem();
-        Inventory inventory = player.getInventory();
         if (entity.hasPickUpDelay() || entity.getTarget() != null && !entity.getTarget().equals(player.getUUID())
-            || inventory.getSlotWithRemainingSpace(worldStack) >= 0 || inventory.getFreeSlot() >= 0) return;
+            || worldStack.isEmpty()) return;
 
-        BagApi.InsertResult result = BagApi.insert(player, worldStack, false);
-        int moved = result.inserted();
-        if (moved <= 0) return;
+        NonNullList<ItemStack> storage = BagStorage.load(player);
+        ItemStack remainder = worldStack.copy();
+        int moved = BagStorage.add(storage, remainder);
+        if (moved <= 0) {
+            // 가방이 가득 찬 경우에도 기본 인벤토리나 핫바로 우회하지 않는다.
+            event.setCanPickup(TriState.FALSE);
+            return;
+        }
+
+        BagStorage.save(player, storage);
+        syncExternalMutation(player, storage);
         worldStack.shrink(moved);
         player.take(entity, moved);
         player.awardStat(Stats.ITEM_PICKED_UP.get(pickedUpItem), moved);
