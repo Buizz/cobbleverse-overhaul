@@ -24,6 +24,19 @@
       "reason": "포켓몬, 파티와 실제 배틀 시스템"
     },
     {
+      "id": "cobblenav",
+      "display_name": "Cobblemon Pokenav",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "2.3.3",
+      "curseforge": {
+        "project_id": 976014,
+        "file_id": 7940651
+      },
+      "reason": "플레이어 메뉴의 포켓네비와 지역별 포켓몬 출현 정보"
+    },
+    {
       "id": "kotlin_for_forge",
       "display_name": "Kotlin for Forge",
       "classification": "required",
