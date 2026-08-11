@@ -35,10 +35,10 @@ public final class WorldMapScreen extends Screen {
     private static final int HEADER_HEIGHT = 32;
     private static final int FOOTER_HEIGHT = 32;
     private static final int PANEL_GAP = 9;
-    private static final int POKEMON_ICON_SIZE = 32;
-    private static final int POKEMON_ICON_GAP = 3;
+    private static final int POKEMON_ICON_SIZE = 16;
+    private static final int POKEMON_ICON_GAP = 2;
     private static final int POKEMON_CELL_SIZE = POKEMON_ICON_SIZE + POKEMON_ICON_GAP;
-    private static final int MAX_POKEMON_MODELS = 48;
+    private static final int MAX_POKEMON_MODELS = 96;
 
     private final Screen parent;
     private MapContent content = MapContent.instance();
@@ -404,7 +404,7 @@ public final class WorldMapScreen extends Screen {
         for (int index = 0; index < capacity; index++) {
             ModelWidget model = new ModelWidget(
                 0, 0, POKEMON_ICON_SIZE, POKEMON_ICON_SIZE, fallbackPokemon,
-                0.9F, 25.0F, 0.0D, false, false
+                0.45F, 25.0F, 0.0D, false, false
             );
             model.visible = false;
             model.active = false;
