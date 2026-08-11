@@ -7,12 +7,13 @@ Cobbleventure가 직접 관리하는 건축물 NBT의 원본 위치와 안전한
 
 | 구분 | 원본 위치 | 게임 리소스 ID | 빌드 출력 |
 |---|---|---|---|
-| 주택 | `content/structures/houses/<이름>.nbt` | `cobbleventure:houses/<이름>` | `data/cobbleventure/structure/houses/<이름>.nbt` |
+| 주택 원본 | `content/structures/houses/<골격>_<지붕형태>.nbt` | 빌드 시 색상별로 생성 | `data/cobbleventure/structure/houses/<골격>_<지붕형태>_<색상>.nbt` |
 | 시설 | `content/structures/placeholder/<이름>.nbt` | `cobbleventure:placeholder/<이름>` | `data/cobbleventure/structure/placeholder/<이름>.nbt` |
 
-빌더는 `content/structures`의 NBT를 우선 복사합니다. 등록된 파일이 없을 때만 Python으로
-기본 구조물을 생성합니다. 따라서 실제 건물을 수정할 때는 반드시 `content/structures`의
-파일을 변경하고, 생성된 출력물을 원본으로 취급하지 않습니다.
+빌더는 `content/structures`의 NBT를 우선 사용합니다. 시설은 그대로 복사하고, 주택은
+9개의 원본에서 지붕 색상 10종을 치환해 기존 리소스 90종을 만듭니다. 등록된 원본이
+없을 때만 Python으로 기본 구조물을 생성합니다. 따라서 실제 건물을 수정할 때는 반드시
+`content/structures`의 파일을 변경하고, 생성된 출력물을 원본으로 취급하지 않습니다.
 
 `placeholder`라는 이름은 현재 시설 배치 계약과의 호환성을 위해 유지한 리소스 경로입니다.
 그 안의 파일은 임시 건물뿐 아니라 완성된 시설 원본으로도 사용할 수 있습니다.
@@ -21,8 +22,21 @@ Cobbleventure가 직접 관리하는 건축물 NBT의 원본 위치와 안전한
 
 - 영문 소문자, 숫자, 밑줄만 사용합니다.
 - 파일 이름과 리소스 ID의 마지막 부분을 동일하게 유지합니다.
-- 주택은 `<층수>_<지붕형태>_<지붕색>.nbt` 형식을 사용합니다.
-- 예: `one_story_gable_red.nbt` → `cobbleventure:houses/one_story_gable_red`
+- 주택 원본은 `<층수>_<지붕형태>.nbt` 형식을 사용합니다.
+- 예: `one_story_gable.nbt` 한 개에서 `cobbleventure:houses/one_story_gable_red`,
+  `cobbleventure:houses/one_story_gable_blue` 등의 리소스 10종이 생성됩니다.
+- 주택 원본에서는 `minecraft:white_concrete`, `minecraft:white_wool`, `minecraft:cobblestone`을
+  각각 지붕의 콘크리트·양털·석재 표식으로 사용합니다. 빌더가 팔레트의 이 블록들을
+  색상별 재료로 바꾸므로 지붕 이외의 장소에는 사용하지 않습니다. 흰색 콘크리트는 필수이고,
+  흰색 양털과 조약돌은 해당 재료를 섞고 싶을 때만 사용해도 됩니다.
+
+지붕의 석재 표식은 다음 규칙으로 변환됩니다.
+
+| 색상 계열 | 적용 색상 | 석재 |
+|---|---|---|
+| 붉은 계열 | 빨강, 주황, 갈색 | `minecraft:granite` |
+| 어두운 계열 | 검정, 회색, 보라 | `minecraft:cobbled_deepslate` |
+| 그 외 | 노랑, 초록, 파랑, 흰색 | `minecraft:cobblestone` |
 - 기존 이름을 바꾸면 마을 생성 설정이 이전 리소스를 찾지 못할 수 있으므로 참조도 함께 수정합니다.
 
 ## 게임 안에서 편집하기
@@ -47,14 +61,14 @@ Cobbleventure가 직접 관리하는 건축물 NBT의 원본 위치와 안전한
 4. 구조물 블록을 `LOAD` 모드로 놓고 편집할 리소스 ID를 입력해 불러옵니다.
 
    ```text
-   cobbleventure:houses/one_story_gable_red
+   cobbleventure:houses/one_story_gable_white
    cobbleventure:placeholder/laboratory
    ```
 
    명령으로 빠르게 확인하려면 다음처럼 배치할 수도 있습니다.
 
    ```mcfunction
-   /place template cobbleventure:houses/one_story_gable_red
+   /place template cobbleventure:houses/one_story_gable_white
    ```
 
 5. 원점과 크기를 기록한 뒤 건물을 수정합니다. 구조물의 정면 출입구는 현재 생성 규약상
@@ -69,8 +83,16 @@ Cobbleventure가 직접 관리하는 건축물 NBT의 원본 위치와 안전한
    <월드>/generated/cobbleventure/structures/placeholder/<이름>.nbt
    ```
 
-8. 저장된 NBT를 저장소의 대응하는 `content/structures` 파일에 덮어씁니다. 게임 월드에
-   남은 파일은 작업 사본일 뿐이며 Git에 포함할 원본은 `content` 쪽입니다.
+8. 시설은 저장된 NBT를 대응하는 `content/structures/placeholder` 파일에 덮어씁니다.
+   주택은 반드시 흰색 리소스를 편집하고, 월드에 저장된 색상 접미사 파일을 원본 이름으로
+   바꿔 복사합니다.
+
+   ```text
+   월드: generated/cobbleventure/structures/houses/one_story_gable_white.nbt
+   원본: content/structures/houses/one_story_gable.nbt
+   ```
+
+   게임 월드에 남은 파일은 작업 사본일 뿐이며 Git에 포함할 원본은 `content` 쪽입니다.
 
 구조물 블록의 편집 한계를 넘는 대형 시설은 Axiom·WorldEdit 같은 건축 도구로 작업할 수
 있습니다. 다만 빌더가 받는 최종 파일은 GZip 압축된 바닐라 Structure NBT이고 루트 태그가

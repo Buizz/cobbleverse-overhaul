@@ -19,6 +19,7 @@ from starter_gym import (
     build_facility_placeholder_nbt,
     build_house_variant_nbt,
     build_village_hub_nbt,
+    recolor_house_roof_nbt,
 )
 
 
@@ -1353,6 +1354,16 @@ def build(root: Path) -> Path:
             generated.write_bytes(build_facility_placeholder_nbt(facility_id))
     for base_id in HOUSE_BASES:
         for roof_id in sorted(HOUSE_ROOFS):
+            authored = _inside(
+                root,
+                root / HOUSE_STRUCTURE_SOURCE_DIR / f"{base_id}_{roof_id}.nbt",
+                "주택 NBT 원본",
+            )
+            authored_bytes = (
+                _read_authored_structure_nbt(authored, "주택 NBT")
+                if authored.is_file()
+                else None
+            )
             for roof_color in HOUSE_ROOF_BLOCKS:
                 resource = f"cobbleventure:houses/{base_id}_{roof_id}_{roof_color}"
                 generated = _inside(
@@ -1360,13 +1371,13 @@ def build(root: Path) -> Path:
                     "생성 주택 변형",
                 )
                 generated.parent.mkdir(parents=True, exist_ok=True)
-                authored = _inside(
-                    root,
-                    root / HOUSE_STRUCTURE_SOURCE_DIR / f"{base_id}_{roof_id}_{roof_color}.nbt",
-                    "주택 NBT 원본",
-                )
-                if authored.is_file():
-                    generated.write_bytes(_read_authored_structure_nbt(authored, "주택 NBT"))
+                if authored_bytes is not None:
+                    try:
+                        generated.write_bytes(
+                            recolor_house_roof_nbt(authored_bytes, roof_color)
+                        )
+                    except ValueError as error:
+                        raise ModBuildError(f"주택 지붕 색상 생성 실패: {authored}") from error
                 else:
                     generated.write_bytes(build_house_variant_nbt(base_id, roof_id, roof_color))
     for directory in (

@@ -37,21 +37,35 @@ GYM_ROOF_BLOCKS = {
 HOUSE_BASES = {
     "one_story": {"size": (16, 6, 16), "stories": 1, "wall": "minecraft:oak_planks", "trim": "minecraft:stripped_oak_log"},
     "two_story": {"size": (16, 11, 16), "stories": 2, "wall": "minecraft:stone_bricks", "trim": "minecraft:stripped_dark_oak_log"},
-    "five_story": {"size": (16, 26, 16), "stories": 5, "wall": "minecraft:white_concrete", "trim": "minecraft:polished_deepslate"},
+    "five_story": {"size": (16, 26, 16), "stories": 5, "wall": "minecraft:smooth_quartz", "trim": "minecraft:polished_deepslate"},
 }
 HOUSE_ROOFS = {"gable", "hip", "flat"}
-HOUSE_ROOF_BLOCKS = {
-    "red": "minecraft:red_nether_bricks",
-    "orange": "minecraft:acacia_planks",
-    "yellow": "minecraft:bamboo_planks",
-    "green": "minecraft:moss_block",
-    "blue": "minecraft:warped_planks",
-    "purple": "minecraft:crimson_planks",
-    "brown": "minecraft:dark_oak_planks",
-    "gray": "minecraft:deepslate_tiles",
-    "black": "minecraft:polished_blackstone_bricks",
-    "white": "minecraft:quartz_block",
+HOUSE_ROOF_STONE_BLOCKS = {
+    "red": "minecraft:granite",
+    "orange": "minecraft:granite",
+    "yellow": "minecraft:cobblestone",
+    "green": "minecraft:cobblestone",
+    "blue": "minecraft:cobblestone",
+    "purple": "minecraft:cobbled_deepslate",
+    "brown": "minecraft:granite",
+    "gray": "minecraft:cobbled_deepslate",
+    "black": "minecraft:cobbled_deepslate",
+    "white": "minecraft:cobblestone",
 }
+HOUSE_ROOF_PALETTES = {
+    color: {
+        "concrete": f"minecraft:{color}_concrete",
+        "wool": f"minecraft:{color}_wool",
+        "stone": stone,
+    }
+    for color, stone in HOUSE_ROOF_STONE_BLOCKS.items()
+}
+# Existing settlement config only needs the color keys. Keep this alias so the
+# config compiler does not need to know how many materials make up each roof.
+HOUSE_ROOF_BLOCKS = {
+    color: palette["concrete"] for color, palette in HOUSE_ROOF_PALETTES.items()
+}
+HOUSE_ROOF_TEMPLATE_COLOR = "white"
 
 BCA_VILLAGE_START_POOLS = {
     "default_small": ("bca:default/small", 2),
@@ -319,7 +333,7 @@ def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> byte
     wall = str(definition["wall"])
     trim = str(definition["trim"])
     stories = int(definition["stories"])
-    roof_block = HOUSE_ROOF_BLOCKS[roof_color]
+    roof_palette = HOUSE_ROOF_PALETTES[roof_color]
     roof_layers = 1 if roof_id == "flat" else min(6, depth // 2)
     total_height = wall_height + roof_layers + 1
     blocks: dict[
@@ -329,6 +343,11 @@ def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> byte
 
     def set_block(x: int, y: int, z: int, name: str) -> None:
         blocks[(x, y, z)] = (name, (), None)
+
+    def set_roof_block(x: int, y: int, z: int) -> None:
+        selector = (x * 31 + y * 13 + z * 17) % 10
+        material = "stone" if selector == 0 else ("wool" if selector <= 2 else "concrete")
+        set_block(x, y, z, roof_palette[material])
 
     for x in range(width):
         for z in range(depth):
@@ -361,13 +380,13 @@ def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> byte
     if roof_id == "flat":
         for x in range(width):
             for z in range(depth):
-                set_block(x, roof_y, z, roof_block)
+                set_roof_block(x, roof_y, z)
         for x in range(width):
             for z in (0, depth - 1):
-                set_block(x, roof_y + 1, z, roof_block)
+                set_roof_block(x, roof_y + 1, z)
         for z in range(1, depth - 1):
             for x in (0, width - 1):
-                set_block(x, roof_y + 1, z, roof_block)
+                set_roof_block(x, roof_y + 1, z)
     elif roof_id == "gable":
         for layer in range(roof_layers):
             left = layer
@@ -375,8 +394,8 @@ def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> byte
             if left > right:
                 break
             for x in range(width):
-                set_block(x, roof_y + layer, left, roof_block)
-                set_block(x, roof_y + layer, right, roof_block)
+                set_roof_block(x, roof_y + layer, left)
+                set_roof_block(x, roof_y + layer, right)
     else:
         for layer in range(roof_layers):
             min_x, max_x = layer, width - 1 - layer
@@ -384,12 +403,48 @@ def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> byte
             if min_x > max_x or min_z > max_z:
                 break
             for x in range(min_x, max_x + 1):
-                set_block(x, roof_y + layer, min_z, roof_block)
-                set_block(x, roof_y + layer, max_z, roof_block)
+                set_roof_block(x, roof_y + layer, min_z)
+                set_roof_block(x, roof_y + layer, max_z)
             for z in range(min_z + 1, max_z):
-                set_block(min_x, roof_y + layer, z, roof_block)
-                set_block(max_x, roof_y + layer, z, roof_block)
+                set_roof_block(min_x, roof_y + layer, z)
+                set_roof_block(max_x, roof_y + layer, z)
     return _build_structure_nbt((width, total_height, depth), blocks)
+
+
+def recolor_house_roof_nbt(structure_nbt: bytes, roof_color: str) -> bytes:
+    """Replace the template roof palette entry while preserving the authored structure."""
+    if roof_color not in HOUSE_ROOF_BLOCKS:
+        raise ValueError(f"지원하지 않는 지붕 색상입니다: {roof_color}")
+    try:
+        decompressed = gzip.decompress(structure_nbt)
+    except (EOFError, OSError) as error:
+        raise ValueError("주택 원본이 GZip 구조물 파일이 아닙니다.") from error
+    if not decompressed or decompressed[0] != TAG_COMPOUND:
+        raise ValueError("주택 원본의 루트가 TAG_Compound가 아닙니다.")
+
+    template_palette = HOUSE_ROOF_PALETTES[HOUSE_ROOF_TEMPLATE_COLOR]
+    target_palette = HOUSE_ROOF_PALETTES[roof_color]
+    recolored = decompressed
+    for material in ("concrete", "wool", "stone"):
+        template_block = template_palette[material]
+        target_block = target_palette[material]
+        template_palette_entry = (
+            bytes((TAG_STRING,)) + _string("Name") + _string(template_block)
+        )
+        if template_palette_entry not in recolored and material == "concrete":
+            raise ValueError(
+                f"주택 원본 팔레트에 {material} 지붕 표식 블록이 없습니다: "
+                f"{template_block}"
+            )
+        if template_palette_entry not in recolored:
+            continue
+        target_palette_entry = (
+            bytes((TAG_STRING,)) + _string("Name") + _string(target_block)
+        )
+        recolored = recolored.replace(template_palette_entry, target_palette_entry)
+    if target_palette == template_palette:
+        return structure_nbt
+    return gzip.compress(recolored, mtime=0)
 
 
 ROAD_MATERIAL_BLOCKS = {

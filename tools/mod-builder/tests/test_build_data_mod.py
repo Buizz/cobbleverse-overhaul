@@ -728,25 +728,45 @@ class DataModBuilderTests(unittest.TestCase):
             )
             self.assertEqual(authored_bytes, packaged.read_bytes())
 
-    def test_authored_house_nbt_replaces_generated_variant(self) -> None:
+    def test_authored_house_nbt_generates_roof_color_variants(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self._fixture(root)
             authored = (
                 root / build_data_mod.HOUSE_STRUCTURE_SOURCE_DIR
-                / "one_story_flat_red.nbt"
+                / "one_story_flat.nbt"
             )
             authored.parent.mkdir(parents=True, exist_ok=True)
-            authored_bytes = gzip.compress(b"\x0aAUTHORED HOUSE", mtime=0)
+            authored_bytes = build_data_mod.build_house_variant_nbt(
+                "one_story", "flat", "white"
+            )
             authored.write_bytes(authored_bytes)
 
             build_data_mod.build(root)
 
-            packaged = (
+            white = (
+                root / build_data_mod.OUTPUT
+                / "data/cobbleventure/structure/houses/one_story_flat_white.nbt"
+            )
+            blue = (
+                root / build_data_mod.OUTPUT
+                / "data/cobbleventure/structure/houses/one_story_flat_blue.nbt"
+            )
+            red = (
                 root / build_data_mod.OUTPUT
                 / "data/cobbleventure/structure/houses/one_story_flat_red.nbt"
             )
-            self.assertEqual(authored_bytes, packaged.read_bytes())
+            self.assertEqual(authored_bytes, white.read_bytes())
+            blue_nbt = gzip.decompress(blue.read_bytes())
+            self.assertIn(b"minecraft:blue_concrete", blue_nbt)
+            self.assertIn(b"minecraft:blue_wool", blue_nbt)
+            self.assertIn(b"minecraft:cobblestone", blue_nbt)
+            self.assertNotIn(b"minecraft:white_concrete", blue_nbt)
+            self.assertNotIn(b"minecraft:white_wool", blue_nbt)
+            red_nbt = gzip.decompress(red.read_bytes())
+            self.assertIn(b"minecraft:red_concrete", red_nbt)
+            self.assertIn(b"minecraft:red_wool", red_nbt)
+            self.assertIn(b"minecraft:granite", red_nbt)
 
     def test_explicit_civic_facilities_use_configured_hub_and_road(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
