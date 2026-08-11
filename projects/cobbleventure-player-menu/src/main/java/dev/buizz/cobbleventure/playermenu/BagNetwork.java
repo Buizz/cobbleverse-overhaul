@@ -184,15 +184,61 @@ public final class BagNetwork {
         Inventory inventory = player.getInventory();
         for (int slot = 0; slot < 36; slot++) {
             if (!ItemStack.isSameItemSameComponents(inventory.getItem(slot), prototype)) continue;
-            useInventorySlot(player, slot);
-            sync(player, storage);
+            useRefilledShortcut(player, storage, false, slot, prototype);
             return;
         }
         for (int slot = 0; slot < storage.size(); slot++) {
             if (!ItemStack.isSameItemSameComponents(storage.get(slot), prototype)) continue;
-            useExtendedSlot(player, storage, slot);
-            sync(player, storage);
+            useRefilledShortcut(player, storage, true, slot, prototype);
             return;
+        }
+    }
+
+    private static void useRefilledShortcut(ServerPlayer player, NonNullList<ItemStack> storage,
+                                            boolean extended, int sourceSlot, ItemStack prototype) {
+        refillShortcutStack(player, storage, extended, sourceSlot, prototype);
+        if (extended) useExtendedSlot(player, storage, sourceSlot);
+        else useInventorySlot(player, sourceSlot);
+        refillShortcutStack(player, storage, extended, sourceSlot, prototype);
+        BagStorage.save(player, storage);
+        markInventoryChanged(player);
+        sync(player, storage);
+    }
+
+    /** Consolidates matching supplies so the logical quick slot always exposes one full vanilla stack. */
+    private static void refillShortcutStack(ServerPlayer player, NonNullList<ItemStack> storage,
+                                            boolean extended, int sourceSlot, ItemStack prototype) {
+        ItemStack target = getStack(player, storage, extended, sourceSlot);
+        if (!target.isEmpty() && !ItemStack.isSameItemSameComponents(target, prototype)) return;
+        int current = target.isEmpty() ? 0 : target.getCount();
+        int needed = prototype.getMaxStackSize() - current;
+        if (needed <= 0) return;
+
+        int moved = 0;
+        Inventory inventory = player.getInventory();
+        for (int slot = 0; slot < 36 && moved < needed; slot++) {
+            if (!extended && slot == sourceSlot) continue;
+            ItemStack supply = inventory.getItem(slot);
+            if (!ItemStack.isSameItemSameComponents(supply, prototype)) continue;
+            int transfer = Math.min(needed - moved, supply.getCount());
+            supply.shrink(transfer);
+            moved += transfer;
+            if (supply.isEmpty()) inventory.setItem(slot, ItemStack.EMPTY);
+        }
+        for (int slot = 0; slot < storage.size() && moved < needed; slot++) {
+            if (extended && slot == sourceSlot) continue;
+            ItemStack supply = storage.get(slot);
+            if (!ItemStack.isSameItemSameComponents(supply, prototype)) continue;
+            int transfer = Math.min(needed - moved, supply.getCount());
+            supply.shrink(transfer);
+            moved += transfer;
+            if (supply.isEmpty()) storage.set(slot, ItemStack.EMPTY);
+        }
+        if (moved <= 0) return;
+        if (target.isEmpty()) {
+            setStack(player, storage, extended, sourceSlot, prototype.copyWithCount(moved));
+        } else {
+            target.grow(moved);
         }
     }
 
