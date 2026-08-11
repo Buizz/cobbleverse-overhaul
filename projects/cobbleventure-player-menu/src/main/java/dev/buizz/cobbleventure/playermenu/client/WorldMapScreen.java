@@ -1,12 +1,19 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
+import com.cobblemon.mod.common.client.gui.summary.widgets.ModelWidget;
+import com.cobblemon.mod.common.pokemon.RenderablePokemon;
+import com.cobblemon.mod.common.pokemon.Species;
 import dev.buizz.cobbleventure.playermenu.MapContent;
 import dev.buizz.cobbleventure.playermenu.MapNetwork;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
 /** Interactive hex world map backed by the same content used by world generation. */
@@ -28,6 +35,9 @@ public final class WorldMapScreen extends Screen {
     private static final int HEADER_HEIGHT = 32;
     private static final int FOOTER_HEIGHT = 32;
     private static final int PANEL_GAP = 9;
+    private static final int POKEMON_ICON_SIZE = 32;
+    private static final int POKEMON_ROW_HEIGHT = 34;
+    private static final int MAX_POKEMON_MODELS = 16;
 
     private final Screen parent;
     private MapContent content = MapContent.instance();
@@ -44,6 +54,9 @@ public final class WorldMapScreen extends Screen {
     private int panX;
     private int panY;
     private boolean generationInitialized;
+    private final List<ModelWidget> pokemonModels = new ArrayList<>();
+    private final List<String> pokemonModelIds = new ArrayList<>();
+    private final List<PokemonHover> pokemonHovers = new ArrayList<>();
 
     public WorldMapScreen(Screen parent) {
         super(Component.translatable("screen.cobbleventure_player_menu.world_map.title"));
@@ -86,6 +99,7 @@ public final class WorldMapScreen extends Screen {
         addRenderableWidget(Button.builder(closeLabel, ignored -> onClose())
             .bounds(width - MARGIN - 72, height - FOOTER_HEIGHT + 5, 72, 20)
             .build());
+        initPokemonModels(layout);
         MapNetwork.requestSnapshot();
         updateNavigationButtons();
         updateTeleportButton();
@@ -128,6 +142,12 @@ public final class WorldMapScreen extends Screen {
             false
         );
         super.render(graphics, mouseX, mouseY, partialTick);
+        for (PokemonHover hover : pokemonHovers) {
+            if (hover.contains(mouseX, mouseY)) {
+                graphics.renderTooltip(font, Component.literal(hover.name()), mouseX, mouseY);
+                break;
+            }
+        }
     }
 
     @Override
@@ -247,6 +267,12 @@ public final class WorldMapScreen extends Screen {
             int marker = Math.max(2, size / 3);
             graphics.fill(point.x() - marker, point.y() - marker, point.x() + marker + 1, point.y() + marker + 1, TOWN_BORDER);
             graphics.fill(point.x() - 1, point.y() - 1, point.x() + 2, point.y() + 2, 0xFF2A1D0E);
+            String label = font.plainSubstrByWidth(town.name(), Math.max(42, size * 7));
+            int labelWidth = font.width(label);
+            int labelX = point.x() - labelWidth / 2;
+            int labelY = point.y() - marker - 11;
+            graphics.fill(labelX - 2, labelY - 1, labelX + labelWidth + 2, labelY + 9, 0xB0121714);
+            graphics.drawString(font, label, labelX, labelY, TEXT, false);
         }
 
         ScreenPoint selectedPoint = hexCenter(center, size, selected.q(), selected.r());
@@ -273,6 +299,7 @@ public final class WorldMapScreen extends Screen {
     }
 
     private void drawInfoPanel(GuiGraphics graphics, Layout layout) {
+        hidePokemonModels();
         graphics.fill(layout.infoLeft(), layout.top(), layout.infoRight(), layout.bottom(), INFO_BACKGROUND);
         drawBorder(graphics, layout.infoLeft(), layout.top(), layout.infoRight(), layout.bottom(), INFO_BORDER);
         int x = layout.infoLeft() + 10;
@@ -313,11 +340,19 @@ public final class WorldMapScreen extends Screen {
             graphics.drawString(font, "서식 포켓몬 " + biome.totalPokemon() + "종 · 휠", x, y, TEXT, false);
             y += 14;
             int index = Math.min(pokemonScroll, Math.max(0, biome.pokemon().size() - 1));
-            for (; index < biome.pokemon().size(); index++) {
-                if (y > layout.bottom() - 42) break;
+            int modelIndex = 0;
+            for (; index < biome.pokemon().size() && modelIndex < pokemonModels.size(); index++, modelIndex++) {
+                if (y + POKEMON_ICON_SIZE > layout.bottom() - 42) break;
                 MapContent.Pokemon pokemon = biome.pokemon().get(index);
-                graphics.drawString(font, String.format("#%04d %s", pokemon.dexNumber(), pokemon.name()), x, y, MUTED_TEXT, false);
-                y += 11;
+                graphics.fill(x, y, x + lineWidth, y + POKEMON_ICON_SIZE, 0x702F3B35);
+                showPokemonModel(modelIndex, pokemon, x, y);
+                graphics.drawString(font, String.format("#%04d", pokemon.dexNumber()),
+                    x + POKEMON_ICON_SIZE + 5, y + 6, MUTED_TEXT, false);
+                graphics.drawString(font,
+                    font.plainSubstrByWidth(pokemon.name(), lineWidth - POKEMON_ICON_SIZE - 7),
+                    x + POKEMON_ICON_SIZE + 5, y + 17, TEXT, false);
+                pokemonHovers.add(new PokemonHover(x, y, x + lineWidth, y + POKEMON_ICON_SIZE, pokemon.name()));
+                y += POKEMON_ROW_HEIGHT;
             }
         } else {
             graphics.drawString(font, "미지정 타일", x, y, TEXT, false);
@@ -349,6 +384,46 @@ public final class WorldMapScreen extends Screen {
         if (value == null || value.isBlank()) return y;
         graphics.drawWordWrap(font, Component.literal(value), x, y, width, MUTED_TEXT);
         return y + font.split(Component.literal(value), width).size() * 10 + 4;
+    }
+
+    private void initPokemonModels(Layout layout) {
+        pokemonModels.clear();
+        pokemonModelIds.clear();
+        Species fallback = PokemonSpecies.getByName("bulbasaur");
+        if (fallback == null) return;
+        int capacity = Math.max(4, Math.min(MAX_POKEMON_MODELS, (layout.height() - 96) / POKEMON_ROW_HEIGHT));
+        RenderablePokemon fallbackPokemon = new RenderablePokemon(fallback, java.util.Set.of(), ItemStack.EMPTY);
+        for (int index = 0; index < capacity; index++) {
+            ModelWidget model = new ModelWidget(
+                0, 0, POKEMON_ICON_SIZE, POKEMON_ICON_SIZE, fallbackPokemon,
+                0.9F, 25.0F, 0.0D, false, false
+            );
+            model.visible = false;
+            model.active = false;
+            pokemonModels.add(addRenderableWidget(model));
+            pokemonModelIds.add("");
+        }
+    }
+
+    private void showPokemonModel(int modelIndex, MapContent.Pokemon pokemon, int x, int y) {
+        ModelWidget model = pokemonModels.get(modelIndex);
+        Species species = PokemonSpecies.getByIdentifier(ResourceLocation.parse(pokemon.id()));
+        if (species == null) {
+            model.visible = false;
+            return;
+        }
+        if (!pokemon.id().equals(pokemonModelIds.get(modelIndex))) {
+            model.setPokemon(new RenderablePokemon(species, java.util.Set.of(), ItemStack.EMPTY));
+            pokemonModelIds.set(modelIndex, pokemon.id());
+        }
+        model.setX(x);
+        model.setY(y);
+        model.visible = true;
+    }
+
+    private void hidePokemonModels() {
+        pokemonHovers.clear();
+        for (ModelWidget model : pokemonModels) model.visible = false;
     }
 
     private void requestTeleport() {
@@ -623,6 +698,9 @@ public final class WorldMapScreen extends Screen {
     }
 
     private record ScreenPoint(int x, int y) {}
+    private record PokemonHover(int left, int top, int right, int bottom, String name) {
+        boolean contains(int x, int y) { return x >= left && x < right && y >= top && y < bottom; }
+    }
     private record MapBounds(double centerX, double centerY, double width, double height) {}
     private record Layout(int mapLeft, int mapRight, int infoLeft, int infoRight, int top, int bottom) {
         int mapWidth() { return mapRight - mapLeft; }
