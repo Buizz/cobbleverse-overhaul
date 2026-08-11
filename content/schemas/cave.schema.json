@@ -28,6 +28,31 @@
         "bounds": { "$ref": "#/$defs/bounds" }
       }
     },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layout", "seed_salt", "main_rooms", "branch_count", "loop_chance",
+        "vertical_range", "room_radius", "tunnel_radius", "surface_roughness",
+        "water_level"
+      ],
+      "properties": {
+        "layout": { "const": "natural_network" },
+        "seed_salt": { "type": "integer" },
+        "main_rooms": { "type": "integer", "minimum": 3, "maximum": 32 },
+        "branch_count": { "type": "integer", "minimum": 0, "maximum": 16 },
+        "loop_chance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "vertical_range": { "type": "integer", "minimum": 8, "maximum": 96 },
+        "room_radius": { "$ref": "#/$defs/radius_range" },
+        "tunnel_radius": { "$ref": "#/$defs/radius_range" },
+        "surface_roughness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "water_level": { "type": "integer", "minimum": 1, "maximum": 250 },
+        "grand_room_scale": { "type": "number", "minimum": 1, "maximum": 3 },
+        "elevated_crossing": { "type": "boolean" },
+        "bridge_clearance": { "type": "integer", "minimum": 7, "maximum": 32 },
+        "manual_layout": { "$ref": "#/$defs/manual_layout" }
+      }
+    },
     "requires_flash": { "type": "boolean" },
     "random_encounters": {
       "type": "object",
@@ -109,6 +134,54 @@
     "bounds": {
       "type": "object", "additionalProperties": false, "required": ["min_x", "min_z", "max_x", "max_z"],
       "properties": { "min_x": { "type": "integer" }, "min_z": { "type": "integer" }, "max_x": { "type": "integer" }, "max_z": { "type": "integer" } }
+    },
+    "radius_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "number", "minimum": 2, "maximum": 64 },
+        "max": { "type": "number", "minimum": 2, "maximum": 96 }
+      }
+    },
+    "manual_layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "anchors", "connections"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "anchors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind", "position", "radius_x", "radius_z", "height"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+              "kind": { "enum": ["room", "grand", "junction", "landmark"] },
+              "position": { "$ref": "#/$defs/block_position" },
+              "radius_x": { "type": "number", "minimum": 3, "maximum": 96 },
+              "radius_z": { "type": "number", "minimum": 3, "maximum": 96 },
+              "height": { "type": "number", "minimum": 5, "maximum": 96 }
+            }
+          }
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "from", "to", "kind", "width"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+              "from": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+              "to": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+              "kind": { "enum": ["tunnel", "stairs", "bridge"] },
+              "width": { "type": "integer", "minimum": 3, "maximum": 15 }
+            }
+          }
+        }
+      }
     }
   }
 }

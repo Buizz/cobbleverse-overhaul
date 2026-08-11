@@ -3712,6 +3712,7 @@ def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
     if not isinstance(trainer_settings, dict) or not isinstance(trainer_settings.get("enabled"), bool):
         _issue(issues, "error", path, "$.trainer_settings", "트레이너 설정이 필요합니다.")
     entrances = data.get("entrances")
+    entrance_ids: set[str] = set()
     if not isinstance(entrances, list) or not entrances:
         _issue(issues, "error", path, "$.entrances", "동굴 내부 입구를 하나 이상 지정해야 합니다.")
     else:
@@ -3722,10 +3723,38 @@ def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
                 _issue(issues, "error", path, f"$.entrances[{index}].id", "유일한 내부 입구 ID가 필요합니다.")
             else:
                 seen.add(entrance_id)
+                entrance_ids.add(entrance_id)
             for field in ("destination_anchor", "fallback_anchor"):
                 position = entrance.get(field) if isinstance(entrance, dict) else None
                 if not isinstance(position, dict) or not all(isinstance(position.get(key), int) and not isinstance(position.get(key), bool) for key in ("x", "y", "z")):
                     _issue(issues, "error", path, f"$.entrances[{index}].{field}", "정수 블록 좌표 x, y, z가 필요합니다.")
+    manual = data.get("generator", {}).get("manual_layout") if isinstance(data.get("generator"), dict) else None
+    if isinstance(manual, dict) and manual.get("enabled"):
+        anchors = manual.get("anchors", [])
+        connections = manual.get("connections", [])
+        anchor_ids = set(entrance_ids)
+        for index, anchor in enumerate(anchors if isinstance(anchors, list) else []):
+            anchor_id = anchor.get("id") if isinstance(anchor, dict) else None
+            if not isinstance(anchor_id, str) or not CHOICE_ID.fullmatch(anchor_id) or anchor_id in anchor_ids:
+                _issue(issues, "error", path, f"$.generator.manual_layout.anchors[{index}].id", "입구와 겹치지 않는 유일한 앵커 ID가 필요합니다.")
+            else:
+                anchor_ids.add(anchor_id)
+        seen_connections: set[str] = set()
+        for index, connection in enumerate(connections if isinstance(connections, list) else []):
+            if not isinstance(connection, dict):
+                continue
+            connection_id = connection.get("id")
+            if not isinstance(connection_id, str) or connection_id in seen_connections:
+                _issue(issues, "error", path, f"$.generator.manual_layout.connections[{index}].id", "유일한 연결 ID가 필요합니다.")
+            else:
+                seen_connections.add(connection_id)
+            for endpoint in ("from", "to"):
+                if connection.get(endpoint) not in anchor_ids:
+                    _issue(issues, "error", path, f"$.generator.manual_layout.connections[{index}].{endpoint}", "존재하는 입구 또는 내부 앵커를 선택해야 합니다.")
+            if connection.get("from") == connection.get("to"):
+                _issue(issues, "error", path, f"$.generator.manual_layout.connections[{index}]", "같은 앵커끼리는 연결할 수 없습니다.")
+        if not connections:
+            _issue(issues, "warning", path, "$.generator.manual_layout.connections", "수동 배치가 켜져 있지만 연결된 통로가 없습니다.")
     return cave_id, issues
 
 

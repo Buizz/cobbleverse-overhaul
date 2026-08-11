@@ -592,6 +592,10 @@ class DataModBuilderTests(unittest.TestCase):
             "cobbleventure:starter_plains",
             generator["biome_source"]["biomes"],
         )
+        self.assertIn(
+            "cobbleventure:sealed_forest_edge",
+            generator["biome_source"]["biomes"],
+        )
         self.assertNotIn("settings", generator)
 
     def test_sealed_dark_forest_has_no_native_spawns(self) -> None:
@@ -604,6 +608,31 @@ class DataModBuilderTests(unittest.TestCase):
 
         self.assertTrue(all(not entries for entries in biome["features"]))
         self.assertTrue(all(not entries for entries in biome["spawners"].values()))
+
+    def test_sealed_forest_edge_uses_dense_automatic_vegetation(self) -> None:
+        biome_path = (
+            REPOSITORY_ROOT
+            / build_data_mod.SOURCE
+            / "data/cobbleventure/worldgen/biome/sealed_forest_edge.json"
+        )
+        feature_path = (
+            REPOSITORY_ROOT
+            / build_data_mod.SOURCE
+            / "data/cobbleventure/worldgen/placed_feature/sealed_forest_edge_trees.json"
+        )
+        biome = json.loads(biome_path.read_text(encoding="utf-8"))
+        feature = json.loads(feature_path.read_text(encoding="utf-8"))
+
+        self.assertIn(
+            "cobbleventure:sealed_forest_edge_trees", biome["features"][9]
+        )
+        self.assertTrue(all(not entries for entries in biome["spawners"].values()))
+        self.assertEqual("minecraft:dark_forest_vegetation", feature["feature"])
+        count = next(
+            modifier["count"] for modifier in feature["placement"]
+            if modifier["type"] == "minecraft:count"
+        )
+        self.assertGreater(count, 16)
 
     def _fixture(self, root: Path) -> Path:
         source = root / build_data_mod.SOURCE

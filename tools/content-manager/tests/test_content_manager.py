@@ -482,6 +482,31 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("/api/world-pokemon-map", script)
         self.assertIn("renderWorldPokemonPanel", script)
 
+    def test_cave_preview_supports_direct_editing_views_and_global_water_level(self) -> None:
+        root = Path(__file__).parents[3]
+        page = (root / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        cave = content_manager.load_json(
+            root / "content" / "caves" / "generation_1" / "mt_moon.json"
+        )
+
+        for view in ("perspective", "xy", "xz", "zy"):
+            self.assertIn(f'data-cave-view="{view}"', page)
+        self.assertIn('id="cave-node-inspector"', page)
+        self.assertIn('data-cave-selected-field="radiusX"', page)
+        self.assertIn('data-cave-selected-field="radiusZ"', page)
+        self.assertIn('data-cave-selected-field="height"', page)
+        self.assertIn("mutateSelectedCaveNode", script)
+        self.assertIn("waterY = layout.waterLevel", script)
+        self.assertNotIn('name="lakeRadius"', page)
+        self.assertNotIn('name="lakeDepth"', page)
+        self.assertNotIn("lake_radius", cave["generator"])
+        self.assertNotIn("lake_depth", cave["generator"])
+        self.assertTrue(any(
+            anchor["position"]["y"] < cave["generator"]["water_level"]
+            for anchor in cave["generator"]["manual_layout"]["anchors"]
+        ))
+
     def test_world_level_overrides_are_saved_and_validated(self) -> None:
         root = Path(__file__).parents[3]
         with tempfile.TemporaryDirectory() as directory:

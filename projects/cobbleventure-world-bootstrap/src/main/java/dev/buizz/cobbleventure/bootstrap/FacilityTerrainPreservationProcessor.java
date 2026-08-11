@@ -43,13 +43,24 @@ public final class FacilityTerrainPreservationProcessor extends BlockIgnoreProce
         StructurePlaceSettings settings
     ) {
         BlockState state = current.state();
-        if (state.is(Blocks.AIR) && current.pos().getY() <= groundY
-            && !level.getBlockState(current.pos()).isAir()) {
+        BlockState existing = level.getBlockState(current.pos());
+        if (state.is(Blocks.AIR) && current.pos().getY() == groundY
+            && isGeneratedRoadSurface(existing)) {
             return null;
         }
         if (TEMPLATE_TERRAIN.stream().anyMatch(state::is)) {
             return null;
         }
         return current;
+    }
+
+    private static boolean isGeneratedRoadSurface(BlockState state) {
+        return state.is(Blocks.COBBLESTONE)
+            || state.is(Blocks.STONE_BRICKS)
+            || state.is(Blocks.GRAVEL)
+            || state.is(Blocks.PACKED_MUD)
+            || state.is(Blocks.SANDSTONE)
+            || state.is(Blocks.POLISHED_DIORITE)
+            || state.is(Blocks.ANDESITE);
     }
 }

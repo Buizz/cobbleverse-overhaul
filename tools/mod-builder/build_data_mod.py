@@ -39,6 +39,8 @@ REQUIRED_ENTRIES = {
     "data/cobbleventure/worldgen/template_pool/tidehaven_town/center.json",
     "data/cobbleventure/worldgen/template_pool/skyreach_town/center.json",
     "data/cobbleventure/worldgen/biome/starter_plains.json",
+    "data/cobbleventure/worldgen/biome/sealed_forest_edge.json",
+    "data/cobbleventure/worldgen/placed_feature/sealed_forest_edge_trees.json",
     "data/cobbleventure/dimension_type/generation_world.json",
     "data/cobbleventure/dimension/generation_1.json",
     "data/c/tags/worldgen/biome/is_overworld.json",

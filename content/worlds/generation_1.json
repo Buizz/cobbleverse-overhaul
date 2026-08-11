@@ -1031,7 +1031,7 @@
       "facing": "east",
       "structure": "cobbleventure:cave_entrance/rock",
       "pokemon_center": {
-        "structure": "cobbleventure:facility/pokemon_center_small",
+        "structure": "bca:default/one_off/pokecenter",
         "offset": {
           "q": 0,
           "r": 1
@@ -1049,7 +1049,7 @@
       "facing": "west",
       "structure": "cobbleventure:cave_entrance/rock",
       "pokemon_center": {
-        "structure": "cobbleventure:facility/pokemon_center_small",
+        "structure": "bca:default/one_off/pokecenter",
         "offset": {
           "q": 0,
           "r": 1

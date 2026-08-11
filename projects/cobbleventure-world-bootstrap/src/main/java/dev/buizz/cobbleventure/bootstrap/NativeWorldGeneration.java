@@ -110,6 +110,7 @@ final class NativeWorldGeneration {
         private final Map<String, Holder<Biome>> byId;
         private final Holder<Biome> fallback;
         private final CobbleventureBootstrap.HexWorldPlan world;
+        private final Map<Long, Holder<Biome>> surfaceBiomeCache = new ConcurrentHashMap<>();
 
         private HexMapBiomeSource(List<Holder<Biome>> biomes) {
             if (biomes.isEmpty()) {
@@ -143,14 +144,19 @@ final class NativeWorldGeneration {
         public Holder<Biome> getNoiseBiome(
             int quartX, int quartY, int quartZ, net.minecraft.world.level.biome.Climate.Sampler sampler
         ) {
+            long cacheKey = ((long) quartX << 32) ^ (quartZ & 0xffffffffL);
+            return surfaceBiomeCache.computeIfAbsent(
+                cacheKey, ignored -> surfaceBiomeAt(quartX, quartZ)
+            );
+        }
+
+        private Holder<Biome> surfaceBiomeAt(int quartX, int quartZ) {
             int x = QuartPos.toBlock(quartX);
             int z = QuartPos.toBlock(quartZ);
             CobbleventureBootstrap.TerrainSample sample =
                 CobbleventureBootstrap.terrainAt(world, x + 0.5D, z + 0.5D);
             String id = sample == null
-                ? CobbleventureBootstrap.emptyTerrainBiome(
-                    CobbleventureBootstrap.emptyTerrainAt(world, x + 0.5D, z + 0.5D)
-                )
+                ? CobbleventureBootstrap.emptyTerrainBiome(world, x + 0.5D, z + 0.5D)
                 : sample.biome();
             return byId.getOrDefault(id, fallback);
         }
@@ -302,7 +308,9 @@ final class NativeWorldGeneration {
                 return Blocks.BEDROCK.defaultBlockState();
             }
             if (column.rocky()) {
-                return CobbleventureBootstrap.oceanCliffRock(world, x, y, z);
+                return y < CobbleventureBootstrap.WATER_SURFACE_Y
+                    ? Blocks.BARRIER.defaultBlockState()
+                    : CobbleventureBootstrap.oceanBoundaryRock(world, x, y, z);
             }
             if (y == column.groundY()) {
                 return column.surface();
@@ -376,7 +384,9 @@ final class NativeWorldGeneration {
                 (int) coordinateHash(worldX, worldZ, 0x454D50545947524FL), 100
             );
             BlockState decoration = null;
-            if (type.equals("high_forest") && !column.rocky()) {
+            if (type.equals("ocean") && !column.rocky()) {
+                if (chance < 22) decoration = Blocks.SEAGRASS.defaultBlockState();
+            } else if (type.equals("high_forest") && !column.rocky()) {
                 if (chance < 18) decoration = Blocks.FERN.defaultBlockState();
                 else if (chance < 36) decoration = Blocks.SHORT_GRASS.defaultBlockState();
                 else if (chance < 39) decoration = Blocks.BROWN_MUSHROOM.defaultBlockState();
