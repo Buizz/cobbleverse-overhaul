@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import shutil
@@ -64,8 +65,8 @@ def easy_npc_condition(operation: dict) -> str | None:
     raise ValueError(f"EasyNPC 조건으로 변환할 수 없습니다: {operation_type}")
 
 
-def graph_reward_commands(document: dict, start_battle: dict) -> list[str]:
-    target = start_battle.get("results", {}).get("player_win")
+def graph_reward_commands(document: dict, start_battle: dict, result_key: str = "player_win") -> list[str]:
+    target = start_battle.get("results", {}).get(result_key)
     nodes = {node["id"]: node for node in document.get("interaction", {}).get("nodes", [])}
     commands: list[str] = []
     visited: set[str] = set()
@@ -76,9 +77,9 @@ def graph_reward_commands(document: dict, start_battle: dict) -> list[str]:
             break
         for action in node.get("actions", []):
             action_type = action.get("type")
-            if action_type == "set_flag":
+            if action_type in {"set_flag", "mark_clear"}:
                 objective = flag_objective(action["key"])
-                value = action.get("value")
+                value = 1 if action_type == "mark_clear" else action.get("value")
                 if isinstance(value, bool):
                     value = 1 if value else 0
                 commands.extend([
@@ -89,10 +90,11 @@ def graph_reward_commands(document: dict, start_battle: dict) -> list[str]:
                 commands.append(f"give @1 {action['item']} {int(action.get('count', 1))}")
             elif action_type == "grant_loot":
                 commands.append(f"loot give @1 loot {action['loot_table']}")
-            elif action_type == "give_money":
+            elif action_type in {"give_money", "take_money"}:
                 currency = action.get("currency_objective", "cobbleventure_money")
                 if action.get("mode") == "fixed":
-                    commands.append(f"scoreboard players add @1 {currency} {int(action.get('amount', 0))}")
+                    verb = "remove" if action_type == "take_money" else "add"
+                    commands.append(f"scoreboard players {verb} @1 {currency} {int(action.get('amount', 0))}")
                 else:
                     multiplier = action.get("multiplier", 1)
                     if int(multiplier) != multiplier:
@@ -103,8 +105,10 @@ def graph_reward_commands(document: dict, start_battle: dict) -> list[str]:
                         f"scoreboard players operation @1 cv_reward_tmp = #current {level_cap}",
                         f"scoreboard players set #multiplier cv_reward_tmp {int(multiplier)}",
                         "scoreboard players operation @1 cv_reward_tmp *= #multiplier cv_reward_tmp",
-                        f"scoreboard players operation @1 {currency} += @1 cv_reward_tmp",
+                        f"scoreboard players operation @1 {currency} {'-=' if action_type == 'take_money' else '+='} @1 cv_reward_tmp",
                     ])
+                if action_type == "take_money":
+                    commands.append(f"execute if score @1 {currency} matches ..-1 run scoreboard players set @1 {currency} 0")
         target = node.get("next")
     return commands
 
@@ -122,9 +126,9 @@ def command_reward_commands(commands: list[dict], target: str | None) -> list[st
         visited.add(index)
         command = commands[index]
         command_type = command.get("type")
-        if command_type == "set_flag":
+        if command_type in {"set_flag", "mark_clear"}:
             objective = flag_objective(command["key"])
-            value = command.get("value")
+            value = 1 if command_type == "mark_clear" else command.get("value")
             if isinstance(value, bool):
                 value = 1 if value else 0
             result.extend([
@@ -135,10 +139,11 @@ def command_reward_commands(commands: list[dict], target: str | None) -> list[st
             result.append(f"give @1 {command['item']} {int(command.get('count', 1))}")
         elif command_type == "grant_loot":
             result.append(f"loot give @1 loot {command['loot_table']}")
-        elif command_type == "give_money":
+        elif command_type in {"give_money", "take_money"}:
             currency = command.get("currency_objective", "cobbleventure_money")
             if command.get("mode") == "fixed":
-                result.append(f"scoreboard players add @1 {currency} {int(command.get('amount', 0))}")
+                verb = "remove" if command_type == "take_money" else "add"
+                result.append(f"scoreboard players {verb} @1 {currency} {int(command.get('amount', 0))}")
             else:
                 multiplier = command.get("multiplier", 1)
                 if int(multiplier) != multiplier:
@@ -149,8 +154,10 @@ def command_reward_commands(commands: list[dict], target: str | None) -> list[st
                     f"scoreboard players operation @1 cv_reward_tmp = #current {level_cap}",
                     f"scoreboard players set #multiplier cv_reward_tmp {int(multiplier)}",
                     "scoreboard players operation @1 cv_reward_tmp *= #multiplier cv_reward_tmp",
-                    f"scoreboard players operation @1 {currency} += @1 cv_reward_tmp",
+                    f"scoreboard players operation @1 {currency} {'-=' if command_type == 'take_money' else '+='} @1 cv_reward_tmp",
                 ])
+            if command_type == "take_money":
+                result.append(f"execute if score @1 {currency} matches ..-1 run scoreboard players set @1 {currency} 0")
         elif command_type == "goto":
             index = labels.get(command.get("target"), len(commands)) + 1
             continue
@@ -160,7 +167,11 @@ def command_reward_commands(commands: list[dict], target: str | None) -> list[st
     return result
 
 
-def reward_commands(document: dict, start_battle: dict | None = None) -> list[str]:
+def reward_commands(
+    document: dict,
+    start_battle: dict | None = None,
+    result_key: str = "player_win",
+) -> list[str]:
     if document.get("schema_version") == 4:
         event = next(
             (event for event in document.get("events", []) if start_battle in event.get("commands", [])),
@@ -168,10 +179,12 @@ def reward_commands(document: dict, start_battle: dict | None = None) -> list[st
         )
         return command_reward_commands(
             event.get("commands", []) if event else [],
-            (start_battle or {}).get("results", {}).get("player_win"),
+            (start_battle or {}).get("results", {}).get(result_key),
         )
     if document.get("schema_version") == 3:
-        return graph_reward_commands(document, start_battle or {})
+        return graph_reward_commands(document, start_battle or {}, result_key)
+    if result_key == "player_loss":
+        return []
     rewards = document.get("rewards", {})
     commands: list[str] = []
     money = rewards.get("money", {})
@@ -224,11 +237,31 @@ def battle_command(document: dict, start_battle: dict | None = None) -> str:
         command += " rules " + json.dumps(
             {"maxItemUses": rules["max_item_uses"]}, separators=(",", ":")
         ).replace('"', "")
-    win_commands = reward_commands(document, start_battle)
-    if win_commands:
-        quoted_commands = ",".join(quote(value) for value in win_commands)
-        command += " onwin {1:[" + quoted_commands + "]}"
+    result_commands = {
+        1: reward_commands(document, start_battle, "player_win"),
+        2: reward_commands(document, start_battle, "player_loss"),
+    }
+    callbacks = [
+        f"{side}:[{','.join(quote(value) for value in commands)}]"
+        for side, commands in result_commands.items()
+        if commands
+    ]
+    if callbacks:
+        command += " onwin {" + ",".join(callbacks) + "}"
     return command
+
+
+def command_action(command: str) -> str:
+    """Create a visible, permission-complete EasyNPC command action.
+
+    EasyNPC otherwise falls back to its action defaults and suppresses command
+    failures, which makes a rejected or malformed third-party command appear as
+    a button that simply does nothing.
+    """
+    return (
+        "{Cmd:" + quote(command)
+        + ',Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}'
+    )
 
 
 def easy_npc_action(operation: dict, document: dict) -> str:
@@ -238,15 +271,17 @@ def easy_npc_action(operation: dict, document: dict) -> str:
     if operation_type == "close_dialogue":
         return '{Type:"CLOSE_DIALOG"}'
     if operation_type == "start_battle":
-        return "{Cmd:" + quote(battle_command(document, operation)) + ',Type:"COMMAND"}'
-    if operation_type == "set_flag":
-        value = operation.get("value")
+        return command_action(battle_command(document, operation))
+    if operation_type in {"set_flag", "mark_clear"}:
+        value = 1 if operation_type == "mark_clear" else operation.get("value")
         if isinstance(value, bool):
             value = 1 if value else 0
         command = f"set:{flag_objective(operation['key'])}:{value}"
         return "{Cmd:" + quote(command) + ',Type:"SCOREBOARD"}'
     if operation_type == "give_item":
-        return "{Cmd:" + quote(f"/give @initiator {operation['item']} {operation.get('count', 1)}") + ',Type:"COMMAND"}'
+        return command_action(
+            f"/give @initiator {operation['item']} {operation.get('count', 1)}"
+        )
     raise ValueError(f"EasyNPC 행동으로 변환할 수 없습니다: {operation_type}")
 
 
@@ -263,7 +298,7 @@ def event_target_action(commands: list[dict], target: str, document: dict) -> st
         if command_type == "dialogue":
             return "{Cmd:" + quote(dialogue_label(command.get("id", target))) + ',Type:"OPEN_NAMED_DIALOG"}'
         if command_type == "start_battle":
-            return "{Cmd:" + quote(battle_command(document, command)) + ',Type:"COMMAND"}'
+            return command_action(battle_command(document, command))
         if command_type == "goto":
             return event_target_action(commands, command["target"], document)
         if command_type == "end":
@@ -456,12 +491,14 @@ def encounter_preset_snbt(document: dict, outfit: dict) -> str:
     if encounter_mode == "proximity":
         start_battle = next((action for action in candidate_actions if action.get("type") == "start_battle"), None)
         proximity_action = (
-            "{Cmd:" + quote(battle_command(document, start_battle)) + ',Type:"COMMAND"}'
+            command_action(battle_command(document, start_battle))
             if start_battle else '{Type:"OPEN_DEFAULT_DIALOG"}'
         )
         event_actions = (
             "ON_DISTANCE_VERY_CLOSE:[" + proximity_action + "],"
-            + 'ON_DISTANCE_CLOSE:[{Cmd:"/title @initiator actionbar {\\"text\\":\\"주변에 트레이너가 있습니다!\\",\\"color\\":\\"gold\\"}",Type:"COMMAND"}]'
+            + "ON_DISTANCE_CLOSE:["
+            + command_action('/title @initiator actionbar {"text":"주변에 트레이너가 있습니다!","color":"gold"}')
+            + "]"
         )
     else:
         event_actions = 'ON_INTERACTION:[{Type:"OPEN_DEFAULT_DIALOG"}]'
@@ -499,7 +536,88 @@ def encounter_preset_snbt(document: dict, outfit: dict) -> str:
 
 def resource_path(resource_id: str) -> Path:
     namespace, path = resource_id.split(":", 1)
-    return RESOURCE_ROOT / "data" / namespace / "easy_npc" / "preset" / f"{path}.npc.snbt"
+    return RESOURCE_ROOT / "data" / "easy_npc" / "preset" / namespace / f"{path}.npc.snbt"
+
+
+def paired_encounter_documents(documents: list[dict], battle_presets: dict[str, dict]) -> list[dict]:
+    """Expand a double-battle owner into two NPC presets that share one event script."""
+    documents = [document for document in documents if isinstance(document, dict)]
+    documents_by_id = {
+        document["id"]: document
+        for document in documents
+        if isinstance(document.get("id"), str) and isinstance(document.get("npc"), dict)
+    }
+    partner_owners: dict[str, str] = {}
+    for document in documents:
+        owner_id = document.get("id")
+        config = document.get("npc", {}).get("double_battle")
+        if not config:
+            continue
+        partner_id = config.get("partner")
+        if partner_id == owner_id:
+            raise ValueError(f"더블배틀 NPC가 자기 자신을 파트너로 지정했습니다: {owner_id}")
+        if partner_id not in documents_by_id:
+            raise ValueError(f"더블배틀 파트너 NPC를 찾을 수 없습니다: {owner_id} -> {partner_id}")
+        if not documents_by_id[partner_id].get("enabled", True):
+            raise ValueError(f"비활성 NPC를 더블배틀 파트너로 사용할 수 없습니다: {partner_id}")
+        previous_owner = partner_owners.get(partner_id)
+        if previous_owner and previous_owner != owner_id:
+            raise ValueError(f"더블배틀 파트너가 여러 그룹에 지정되었습니다: {partner_id}")
+        partner_owners[partner_id] = owner_id
+    for owner_id in partner_owners.values():
+        if owner_id in partner_owners:
+            raise ValueError(f"더블배틀 대표 NPC는 다른 그룹의 파트너가 될 수 없습니다: {owner_id}")
+
+    expanded: list[dict] = []
+    for source in documents:
+        if source.get("id") in partner_owners:
+            continue
+        if not source.get("enabled", True) or not (
+            source.get("dialogue") or source.get("interaction") or source.get("events")
+        ):
+            continue
+        owner = copy.deepcopy(source)
+        owner["_battle_presets"] = battle_presets
+        config = owner.get("npc", {}).get("double_battle")
+        if config:
+            for event in owner.get("events", []):
+                commands = event.get("commands", [])
+                for command in commands:
+                    if command.get("type") != "start_battle":
+                        continue
+                    battle = battle_presets.get(command.get("battle"))
+                    if battle and battle.get("battle", {}).get("battle_type") != "doubles":
+                        raise ValueError(
+                            f"2인 NPC 그룹은 더블 배틀 프리셋을 사용해야 합니다: "
+                            f"{owner['id']} -> {command.get('battle')}"
+                        )
+                clear_key = config.get("shared_clear_key")
+                win_labels = {
+                    command.get("results", {}).get("player_win")
+                    for command in commands if command.get("type") == "start_battle"
+                }
+                if clear_key and not any(
+                    command.get("type") == "mark_clear" and command.get("key") == clear_key
+                    for command in commands
+                ):
+                    label_index = next((
+                        index for index, command in enumerate(commands)
+                        if command.get("type") == "label" and command.get("name") in win_labels
+                    ), None)
+                    if label_index is not None:
+                        commands.insert(label_index + 1, {"type": "mark_clear", "key": clear_key})
+        expanded.append(owner)
+        if not config:
+            continue
+        partner_source = documents_by_id[config["partner"]]
+        partner = copy.deepcopy(owner)
+        partner["id"] = partner_source["id"]
+        partner["name"] = copy.deepcopy(partner_source.get("name", owner.get("name")))
+        partner["tags"] = copy.deepcopy(partner_source.get("tags", owner.get("tags", [])))
+        partner["npc"] = copy.deepcopy(partner_source["npc"])
+        partner["_battle_presets"] = battle_presets
+        expanded.append(partner)
+    return expanded
 
 
 def generate(
@@ -532,18 +650,18 @@ def generate(
         target_skin.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source_skin, target_skin)
         written.append(target_skin)
-    for source in sorted(content_root.rglob("*.json")):
-        document = json.loads(source.read_text(encoding="utf-8"))
-        if not document.get("enabled", True) or not (document.get("dialogue") or document.get("interaction") or document.get("events")):
-            continue
-        document["_battle_presets"] = battle_presets
+    source_documents = [
+        json.loads(source.read_text(encoding="utf-8"))
+        for source in sorted(content_root.rglob("*.json"))
+    ]
+    for document in paired_encounter_documents(source_documents, battle_presets):
         trainer_class = document.get("npc", {}).get("trainer_class")
         outfit = outfits_by_class.get(trainer_class)
         if outfit is None:
-            print(f"EasyNPC 조우 프리셋 생략: {document.get('id', source)} ({trainer_class} 의상 없음)")
+            print(f"EasyNPC 조우 프리셋 생략: {document.get('id', '알 수 없는 NPC')} ({trainer_class} 의상 없음)")
             continue
         slug = document["id"].rsplit("/", 1)[-1]
-        preset = RESOURCE_ROOT / "data" / "cobbleventure" / "easy_npc" / "preset" / "encounter" / f"{slug}.npc.snbt"
+        preset = RESOURCE_ROOT / "data" / "easy_npc" / "preset" / "encounter" / f"{slug}.npc.snbt"
         preset.parent.mkdir(parents=True, exist_ok=True)
         preset.write_text(encounter_preset_snbt(document, outfit), encoding="utf-8", newline="\n")
         written.append(preset)
@@ -552,7 +670,8 @@ def generate(
 
 def spawn_command(document: dict) -> str:
     slug = document["id"].rsplit("/", 1)[-1]
-    return f"/easy_npc preset import_new data cobbleventure:encounter/{slug} ~ ~ ~"
+    preset = f"easy_npc:preset/encounter/{slug}.npc.snbt"
+    return f"/easy_npc preset import_new data {preset} ~ ~ ~"
 
 
 def main() -> None:

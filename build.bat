@@ -87,6 +87,8 @@ exit /b %errorlevel%
 exit /b %errorlevel%
 
 :mod_bootstrap
+%PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%"
@@ -106,6 +108,8 @@ exit /b %errorlevel%
 
 :pack
 %PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%CUSTOM_SPAWN_BUILDER%" --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%

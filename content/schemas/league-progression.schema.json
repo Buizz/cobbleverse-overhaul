@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/league-progression.schema.json",
+  "title": "Cobbleventure league progression catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "entries"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "resource_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "localized_text": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 },
+      "required": ["ko_kr"],
+      "properties": { "ko_kr": { "type": "string", "minLength": 1 }, "en_us": { "type": "string", "minLength": 1 } }
+    },
+    "badge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "display_name", "trainer_card_visible"],
+      "properties": {
+        "item": { "$ref": "#/$defs/resource_id" },
+        "display_name": { "$ref": "#/$defs/localized_text" },
+        "trainer_card_visible": { "type": "boolean" }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "display_name", "generation", "region", "order", "level_cap", "trainer_id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resource_id" },
+        "role": { "enum": ["gym_leader", "elite_four", "champion"] },
+        "display_name": { "$ref": "#/$defs/localized_text" },
+        "generation": { "type": "integer", "minimum": 1, "maximum": 9 },
+        "region": { "$ref": "#/$defs/resource_id" },
+        "order": { "type": "integer", "minimum": 1, "maximum": 99 },
+        "level_cap": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "trainer_id": { "$ref": "#/$defs/resource_id" },
+        "badge": { "$ref": "#/$defs/badge" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "role": { "const": "gym_leader" } } },
+          "then": { "required": ["badge"] },
+          "else": { "not": { "required": ["badge"] } }
+        }
+      ]
+    }
+  }
+}

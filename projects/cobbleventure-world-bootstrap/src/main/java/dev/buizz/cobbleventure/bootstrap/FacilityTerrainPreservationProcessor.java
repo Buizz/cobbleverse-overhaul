@@ -11,11 +11,8 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.BlockIgnorePr
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 
-/** Keeps imported facility templates from replacing the generated biome floor. */
+/** Keeps imported facility terrain and air padding from replacing the generated floor. */
 public final class FacilityTerrainPreservationProcessor extends BlockIgnoreProcessor {
-    public static final FacilityTerrainPreservationProcessor INSTANCE =
-        new FacilityTerrainPreservationProcessor();
-
     private static final List<Block> TEMPLATE_TERRAIN = List.of(
         Blocks.GRASS_BLOCK, Blocks.DIRT, Blocks.COARSE_DIRT, Blocks.ROOTED_DIRT,
         Blocks.PODZOL, Blocks.MYCELIUM, Blocks.MUD, Blocks.DIRT_PATH,
@@ -28,9 +25,11 @@ public final class FacilityTerrainPreservationProcessor extends BlockIgnoreProce
         Blocks.CORNFLOWER, Blocks.LILY_OF_THE_VALLEY, Blocks.SUNFLOWER,
         Blocks.LILAC, Blocks.ROSE_BUSH, Blocks.PEONY
     );
+    private final int groundY;
 
-    private FacilityTerrainPreservationProcessor() {
+    FacilityTerrainPreservationProcessor(int groundY) {
         super(List.of());
+        this.groundY = groundY;
     }
 
     @Nullable
@@ -44,6 +43,10 @@ public final class FacilityTerrainPreservationProcessor extends BlockIgnoreProce
         StructurePlaceSettings settings
     ) {
         BlockState state = current.state();
+        if (state.is(Blocks.AIR) && current.pos().getY() <= groundY
+            && !level.getBlockState(current.pos()).isAir()) {
+            return null;
+        }
         if (TEMPLATE_TERRAIN.stream().anyMatch(state::is)) {
             return null;
         }

@@ -481,7 +481,8 @@
           ]
         },
         "anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-        "leader_trainer_id": { "type": "string" }
+        "leader_trainer_id": { "type": "string" },
+        "league_entry_id": { "type": "string" }
       },
       "allOf": [
         {

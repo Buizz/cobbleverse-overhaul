@@ -35,6 +35,13 @@ class DataModBuilderTests(unittest.TestCase):
 
         self.assertFalse(path.exists())
 
+    def test_packages_generated_rct_trainer_data(self) -> None:
+        output = REPOSITORY_ROOT / build_data_mod.OUTPUT
+        self.assertTrue((output / "data/rctmod/trainers/ai_test.json").is_file())
+        self.assertTrue(
+            (output / "data/cobbleventure/ai-profiles/ai_test.json").is_file()
+        )
+
     def test_town_layout_rerolls_until_required_facilities_fit(self) -> None:
         source = {"id": "cobbleventure:settlement/test", "structure_profile": {"generation_profile": {"seed": 17}}}
         failure = build_data_mod.TownFacilityPlacementError(source["id"], "gym_building")

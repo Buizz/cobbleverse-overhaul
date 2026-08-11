@@ -91,8 +91,10 @@ OPERATION_TYPES = {
     "close_dialogue",
     "start_battle",
     "set_flag",
+    "mark_clear",
     "give_item",
     "give_money",
+    "take_money",
     "grant_loot",
     "start_quest",
     "complete_quest",
@@ -561,6 +563,27 @@ def validate_hex_worlds(
                     _issue(issues, "error", path, f"{override_path}.{field}", f"지원하지 않는 {field} 값입니다: {value}")
             if configured_fields == 0:
                 _issue(issues, "error", path, override_path, "온도, 습도, 날씨 중 하나 이상을 덮어써야 합니다.")
+        level_overrides = world.get("level_overrides", [])
+        if not isinstance(level_overrides, list):
+            _issue(issues, "error", path, "$.level_overrides", "레벨 오버라이드 배열이 필요합니다.")
+            level_overrides = []
+        seen_level_coordinates: set[tuple[int, int]] = set()
+        for index, override in enumerate(level_overrides):
+            override_path = f"$.level_overrides[{index}]"
+            if not isinstance(override, dict):
+                _issue(issues, "error", path, override_path, "레벨 오버라이드는 객체여야 합니다.")
+                continue
+            q, r = override.get("q"), override.get("r")
+            coordinate = (q, r) if all(isinstance(value, int) and not isinstance(value, bool) for value in (q, r)) else None
+            if coordinate is None:
+                _issue(issues, "error", path, override_path, "정수 axial 좌표 q, r이 필요합니다.")
+            elif coordinate in seen_level_coordinates:
+                _issue(issues, "error", path, override_path, f"중복 레벨 오버라이드 좌표: {coordinate}")
+            else:
+                seen_level_coordinates.add(coordinate)
+            average_level = override.get("average_level")
+            if not isinstance(average_level, int) or isinstance(average_level, bool) or not 1 <= average_level <= 100:
+                _issue(issues, "error", path, f"{override_path}.average_level", "평균 레벨은 1부터 100 사이의 정수여야 합니다.")
         cave_entrances = world.get("cave_entrances", [])
         if not isinstance(cave_entrances, list):
             _issue(issues, "error", path, "$.cave_entrances", "동굴 입구 목록은 배열이어야 합니다.")
@@ -1247,6 +1270,8 @@ def _validate_operation(
         _resource_id(operation.get("key"), issues, file, f"{data_path}.key")
         if "value" not in operation or not isinstance(operation.get("value"), (str, int, float, bool)):
             _issue(issues, "error", file, f"{data_path}.value", "문자열, 숫자 또는 boolean 값이 필요합니다.")
+    elif operation_type == "mark_clear":
+        _resource_id(operation.get("key"), issues, file, f"{data_path}.key")
     elif operation_type == "has_item":
         _resource_id(operation.get("item"), issues, file, f"{data_path}.item")
         count = operation.get("count", 1)
@@ -1257,7 +1282,7 @@ def _validate_operation(
         count = operation.get("count")
         if not isinstance(count, int) or isinstance(count, bool) or count < 1:
             _issue(issues, "error", file, f"{data_path}.count", "1 이상의 정수가 필요합니다.")
-    elif operation_type == "give_money":
+    elif operation_type in {"give_money", "take_money"}:
         mode = operation.get("mode")
         if mode == "fixed":
             amount = operation.get("amount")
@@ -1846,6 +1871,9 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             leader = gym.get("leader_trainer_id")
             if leader not in {None, ""}:
                 _resource_id(leader, issues, path, "$.structure_profile.gym.leader_trainer_id")
+            league_entry = gym.get("league_entry_id")
+            if league_entry not in {None, ""}:
+                _resource_id(league_entry, issues, path, "$.structure_profile.gym.league_entry_id")
 
         facility_placements = structure_profile.get("facility_placements", [])
         if not isinstance(facility_placements, list):
@@ -2586,6 +2614,30 @@ def validate_npc_file(path: Path) -> tuple[str | None, list[Issue]]:
     if npc is not None:
         _localized_text(npc.get("display_name"), issues, path, "$.npc.display_name")
         _resource_id(npc.get("trainer_class"), issues, path, "$.npc.trainer_class")
+        double_battle = npc.get("double_battle")
+        if double_battle is not None:
+            double_battle = _require_object(double_battle, issues, path, "$.npc.double_battle")
+            if double_battle is not None:
+                partner_id = _resource_id(
+                    double_battle.get("partner"), issues, path, "$.npc.double_battle.partner"
+                )
+                _resource_id(
+                    double_battle.get("group_id"), issues, path, "$.npc.double_battle.group_id"
+                )
+                _resource_id(
+                    double_battle.get("shared_clear_key"), issues, path,
+                    "$.npc.double_battle.shared_clear_key",
+                )
+                if partner_id and ":npc/" not in partner_id:
+                    _issue(
+                        issues, "error", path, "$.npc.double_battle.partner",
+                        "파트너 NPC ID는 namespace:npc/path 형식이어야 합니다.",
+                    )
+                if partner_id and partner_id == npc_id:
+                    _issue(
+                        issues, "error", path, "$.npc.double_battle.partner",
+                        "자기 자신을 더블배틀 파트너로 지정할 수 없습니다.",
+                    )
         appearance = _require_object(npc.get("appearance"), issues, path, "$.npc.appearance")
         if appearance is not None:
             _resource_id(appearance.get("resource"), issues, path, "$.npc.appearance.resource")
@@ -2760,6 +2812,30 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     if npc is not None:
         _localized_text(npc.get("display_name"), issues, path, "$.npc.display_name")
         _resource_id(npc.get("trainer_class"), issues, path, "$.npc.trainer_class")
+        double_battle = npc.get("double_battle")
+        if double_battle is not None:
+            double_battle = _require_object(double_battle, issues, path, "$.npc.double_battle")
+            if double_battle is not None:
+                partner_id = _resource_id(
+                    double_battle.get("partner"), issues, path, "$.npc.double_battle.partner"
+                )
+                _resource_id(
+                    double_battle.get("group_id"), issues, path, "$.npc.double_battle.group_id"
+                )
+                _resource_id(
+                    double_battle.get("shared_clear_key"), issues, path,
+                    "$.npc.double_battle.shared_clear_key",
+                )
+                if partner_id and ":npc/" not in partner_id:
+                    _issue(
+                        issues, "error", path, "$.npc.double_battle.partner",
+                        "파트너 NPC ID는 namespace:npc/path 형식이어야 합니다.",
+                    )
+                if partner_id and partner_id == npc_id:
+                    _issue(
+                        issues, "error", path, "$.npc.double_battle.partner",
+                        "자기 자신을 더블배틀 파트너로 지정할 수 없습니다.",
+                    )
         appearance = _require_object(npc.get("appearance"), issues, path, "$.npc.appearance")
         if appearance is not None:
             _resource_id(appearance.get("resource"), issues, path, "$.npc.appearance.resource")
@@ -2777,7 +2853,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     event_ids: set[str] = set()
     command_types = {
         "branch", "label", "dialogue", "choices", "goto", "start_battle",
-        "set_flag", "give_money", "give_item", "grant_loot", "end",
+        "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "end",
     }
     for event_index, event_value in enumerate(events):
         event_path = f"$.events[{event_index}]"
@@ -2860,7 +2936,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
                             _issue(issues, "error", path, f"{command_path}.results.{key}", "지원하지 않는 배틀 결과입니다.")
                         elif isinstance(target, str):
                             targets.append((f"{command_path}.results.{key}", target))
-            elif command_type in {"set_flag", "give_money", "give_item", "grant_loot"}:
+            elif command_type in {"set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot"}:
                 _validate_operation(command, issues, path, command_path, npc_id, [])
         for target_path, target in targets:
             if target not in labels:
@@ -3233,6 +3309,89 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
     return content_id, issues
 
 
+def validate_league_progression_file(
+    path: Path, trainer_ids: set[str] | None = None
+) -> tuple[set[str], list[Issue]]:
+    issues: list[Issue] = []
+    entry_ids: set[str] = set()
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return entry_ids, issues
+    root = _require_object(data, issues, path, "$")
+    if root is None:
+        return entry_ids, issues
+    if root.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "지원 버전은 1입니다.")
+    entries = _require_list(root.get("entries"), issues, path, "$.entries")
+    if entries is None:
+        return entry_ids, issues
+    order_keys: set[tuple[int, str, int]] = set()
+    for index, value in enumerate(entries):
+        entry_path = f"$.entries[{index}]"
+        entry = _require_object(value, issues, path, entry_path)
+        if entry is None:
+            continue
+        entry_id = _resource_id(entry.get("id"), issues, path, f"{entry_path}.id")
+        if entry_id:
+            if entry_id in entry_ids:
+                _issue(issues, "error", path, f"{entry_path}.id", f"중복 리그 항목 ID: {entry_id}")
+            entry_ids.add(entry_id)
+        role = entry.get("role")
+        if role not in {"gym_leader", "elite_four", "champion"}:
+            _issue(issues, "error", path, f"{entry_path}.role", "관장, 사천왕, 챔피언 중 하나여야 합니다.")
+        _localized_text(entry.get("display_name"), issues, path, f"{entry_path}.display_name")
+        generation = entry.get("generation")
+        if not isinstance(generation, int) or isinstance(generation, bool) or not 1 <= generation <= 9:
+            _issue(issues, "error", path, f"{entry_path}.generation", "세대는 1~9 정수여야 합니다.")
+        region = _resource_id(entry.get("region"), issues, path, f"{entry_path}.region")
+        order = entry.get("order")
+        if not isinstance(order, int) or isinstance(order, bool) or not 1 <= order <= 99:
+            _issue(issues, "error", path, f"{entry_path}.order", "표시 순서는 1~99 정수여야 합니다.")
+        elif isinstance(generation, int) and region:
+            order_key = (generation, region, order)
+            if order_key in order_keys:
+                _issue(issues, "error", path, f"{entry_path}.order", "같은 지역에서 표시 순서가 중복됩니다.")
+            order_keys.add(order_key)
+        level_cap = entry.get("level_cap")
+        if not isinstance(level_cap, int) or isinstance(level_cap, bool) or not 1 <= level_cap <= 100:
+            _issue(issues, "error", path, f"{entry_path}.level_cap", "레벨캡은 1~100 정수여야 합니다.")
+        trainer_id = _resource_id(entry.get("trainer_id"), issues, path, f"{entry_path}.trainer_id")
+        if trainer_ids is not None and trainer_id and trainer_id not in trainer_ids:
+            _issue(issues, "error", path, f"{entry_path}.trainer_id", f"트레이너풀에 없는 NPC입니다: {trainer_id}")
+        badge = entry.get("badge")
+        if role == "gym_leader":
+            badge = _require_object(badge, issues, path, f"{entry_path}.badge")
+            if badge is not None:
+                _resource_id(badge.get("item"), issues, path, f"{entry_path}.badge.item")
+                _localized_text(badge.get("display_name"), issues, path, f"{entry_path}.badge.display_name")
+                if not isinstance(badge.get("trainer_card_visible"), bool):
+                    _issue(issues, "error", path, f"{entry_path}.badge.trainer_card_visible", "boolean이어야 합니다.")
+        elif badge is not None:
+            _issue(issues, "error", path, f"{entry_path}.badge", "배지는 체육관 관장에게만 설정할 수 있습니다.")
+    return entry_ids, issues
+
+
+def save_league_progression(root: Path, data: Any) -> list[Issue]:
+    target = root / "content" / "catalogs" / "league-progression.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as directory:
+        candidate = Path(directory) / target.name
+        candidate.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        trainer_ids = {
+            document_id
+            for item in _list_documents(root, "trainers")
+            if isinstance((document_id := item.get("id")), str)
+        }
+        _, issues = validate_league_progression_file(candidate, trainer_ids)
+    if not any(issue.level == "error" for issue in issues):
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(target)
+    return issues
+
+
 def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResult:
     root = root.resolve()
     issues = validate_dependency_lock(root / "pack" / "dependencies.lock.json", strict_pack)
@@ -3274,6 +3433,7 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
     content_dir = root / "content" / "source"
     seen_content: dict[str, Path] = {}
     content_battle_types: dict[str, str] = {}
+    content_records: list[tuple[Path, dict[str, Any]]] = []
     if not content_dir.exists():
         _issue(issues, "error", content_dir, "$", "콘텐츠 원본 디렉터리가 없습니다.")
     else:
@@ -3282,6 +3442,8 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
             issues.extend(file_issues)
             try:
                 content_data = load_json(path)
+                if isinstance(content_data, dict):
+                    content_records.append((path, content_data))
                 selected_class = content_data.get("npc", {}).get("trainer_class")
                 if isinstance(selected_class, str) and selected_class not in trainer_class_ids:
                     _issue(
@@ -3345,6 +3507,55 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
                 if isinstance(battle_type, str):
                     content_battle_types[content_id] = battle_type
 
+        double_partner_owners: dict[str, tuple[str, Path]] = {}
+        for path, content_data in content_records:
+            owner_id = content_data.get("id")
+            config = content_data.get("npc", {}).get("double_battle")
+            if not isinstance(owner_id, str) or not isinstance(config, dict):
+                continue
+            partner_id = config.get("partner")
+            if isinstance(partner_id, str) and partner_id not in seen_content:
+                _issue(
+                    issues, "error", path, "$.npc.double_battle.partner",
+                    f"존재하지 않는 더블배틀 파트너 NPC: {partner_id}",
+                )
+            previous = double_partner_owners.get(partner_id)
+            if previous and previous[0] != owner_id:
+                _issue(
+                    issues, "error", path, "$.npc.double_battle.partner",
+                    f"이미 {previous[0]} 그룹에 지정된 파트너입니다: {partner_id}",
+                )
+            elif isinstance(partner_id, str):
+                double_partner_owners[partner_id] = (owner_id, path)
+            referenced_battles = [
+                command.get("battle")
+                for event in content_data.get("events", []) if isinstance(event, dict)
+                for command in event.get("commands", [])
+                if isinstance(command, dict) and command.get("type") == "start_battle"
+            ]
+            if not referenced_battles:
+                _issue(
+                    issues, "error", path, "$.events",
+                    "2인 더블배틀 NPC에는 배틀 시작 명령이 하나 이상 필요합니다.",
+                )
+            for battle_ref in referenced_battles:
+                battle_record = battle_presets.get(battle_ref)
+                if battle_record and battle_record[1].get("battle", {}).get("battle_type") != "doubles":
+                    _issue(
+                        issues, "error", path, "$.npc.double_battle",
+                        f"2인 NPC 그룹은 더블 배틀 프리셋을 사용해야 합니다: {battle_ref}",
+                    )
+        for partner_id, (owner_id, owner_path) in double_partner_owners.items():
+            if owner_id in double_partner_owners:
+                _issue(
+                    issues, "error", owner_path, "$.npc.double_battle.partner",
+                    f"대표 NPC는 다른 더블배틀 그룹의 파트너가 될 수 없습니다: {owner_id}",
+                )
+
+    league_ids, league_issues = validate_league_progression_file(
+        root / "content" / "catalogs" / "league-progression.json", set(seen_content)
+    )
+    issues.extend(league_issues)
     settlement_dir = root / "content" / "settlements"
     seen_settlements: dict[str, Path] = {}
     settlement_records: list[tuple[Path, dict[str, Any]]] = []
@@ -3356,6 +3567,9 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
                 settlement_data = load_json(path)
                 if isinstance(settlement_data, dict):
                     settlement_records.append((path, settlement_data))
+                league_entry_id = settlement_data.get("structure_profile", {}).get("gym", {}).get("league_entry_id")
+                if isinstance(league_entry_id, str) and league_entry_id and league_entry_id not in league_ids:
+                    _issue(issues, "error", path, "$.structure_profile.gym.league_entry_id", f"존재하지 않는 리그 항목: {league_entry_id}")
                 trainer_slots = settlement_data.get("npc_placement", {}).get("trainer_slots", [])
                 for index, slot in enumerate(trainer_slots):
                     trainer_id = slot.get("trainer_id") if isinstance(slot, dict) else None
@@ -4030,6 +4244,7 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
                 "theme": "normal",
                 "anchor": "gym_building",
                 "leader_trainer_id": "",
+                "league_entry_id": "",
             },
             "facility_placements": [],
         },
@@ -4272,16 +4487,23 @@ def _rct_team_member(member: dict[str, Any]) -> dict[str, Any]:
 def export_rct_trainer(document: dict[str, Any]) -> dict[str, Any]:
     battle = document["battle"]
     ai = battle["ai"]
+    # The Cobbleventure decision engine is still a platform-independent module
+    # and is not registered as an RCT AI type in Minecraft yet. Keep its full
+    # configuration in the separate runtime profile, while exporting a valid
+    # built-in RCT controller so generated trainers can battle in game today.
+    select_margin = {
+        "easy": 0.35,
+        "standard": 0.15,
+        "hard": 0.05,
+        "cheater": 0.0,
+    }.get(ai["difficulty"], 0.15)
     ai_data: dict[str, Any] = {
-        "difficulty": ai["difficulty"],
-        "strategy": ai["strategy"],
+        "maxSelectMargin": select_margin,
         "canTera": bool(battle.get("mechanics", {}).get("terastallization")),
     }
-    if ai["difficulty"] == "cheater":
-        ai_data["cheatProbability"] = ai["options"]["cheat_probability"]
     result: dict[str, Any] = {
         "name": document.get("name", {}).get("ko_kr") or document["id"],
-        "ai": {"type": ai["controller"], "data": ai_data},
+        "ai": {"type": "rct", "data": ai_data},
         "team": [_rct_team_member(member) for member in battle.get("team", [])],
     }
     rules = battle.get("rules", {})
@@ -4959,6 +5181,12 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/league-progression":
+                try:
+                    self._json(200, load_json(root / "content" / "catalogs" / "league-progression.json"))
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/trainer-reference-entries":
                 try:
                     self._json(
@@ -5270,6 +5498,16 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
 
         def do_PUT(self) -> None:
             request = urlparse(self.path)
+            if request.path == "/api/league-progression":
+                try:
+                    payload = self._read_json()
+                    issues = save_league_progression(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
             if request.path == "/api/biome-catalog":
                 try:
                     payload = self._read_json()

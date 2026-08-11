@@ -1,0 +1,5 @@
+{
+  "$schema": "../schemas/league-progression.schema.json",
+  "schema_version": 1,
+  "entries": []
+}

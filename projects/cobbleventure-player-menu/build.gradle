@@ -65,6 +65,9 @@ processResources {
     from(rootProject.file('../../content/catalogs/pokemon-habitats.json')) {
         into 'data/cobbleventure_player_menu/map/catalogs'
     }
+    from(rootProject.file('../../content/catalogs/league-progression.json')) {
+        into 'data/cobbleventure_player_menu/league'
+    }
 }
 
 tasks.register('cleanInstalledDevelopmentJars', Delete) {

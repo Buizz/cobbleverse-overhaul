@@ -1,10 +1,13 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import com.cobblemon.mod.common.client.CobblemonClient;
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.components.toasts.Toast;
 import com.cobblemon.mod.common.client.gui.startselection.StarterSelectionScreen;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.bus.api.IEventBus;
@@ -17,6 +20,7 @@ public final class PlayerMenuClient {
     public static void register(IEventBus modBus) {
         PlayerMenuKeyMappings.register(modBus);
         NeoForge.EVENT_BUS.addListener(PlayerMenuClient::onScreenOpening);
+        NeoForge.EVENT_BUS.addListener(PlayerMenuClient::suppressCobblemonStarterPrompt);
     }
 
     public static void openVanillaInventory() {
@@ -95,5 +99,12 @@ public final class PlayerMenuClient {
         if (event.getCurrentScreen() == null) {
             event.setNewScreen(new PlayerMenuScreen());
         }
+    }
+
+    private static void suppressCobblemonStarterPrompt(ClientTickEvent.Post event) {
+        if (Minecraft.getInstance().player == null) return;
+        CobblemonClient.INSTANCE.setCheckedStarterScreen(true);
+        CobblemonClient.INSTANCE.getOverlay().getStarterToast()
+            .setNextVisibility$common(Toast.Visibility.HIDE);
     }
 }

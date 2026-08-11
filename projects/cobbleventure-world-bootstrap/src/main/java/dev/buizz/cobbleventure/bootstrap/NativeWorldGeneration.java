@@ -25,8 +25,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.QuartPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.WorldGenRegion;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.NoiseColumn;
@@ -219,7 +217,6 @@ final class NativeWorldGeneration {
             );
             int startX = chunk.getPos().getMinBlockX();
             int startZ = chunk.getPos().getMinBlockZ();
-            NativeBoundary[][] boundaries = new NativeBoundary[16][16];
             CobbleventureBootstrap.NativeTerrainColumn[][] columns =
                 new CobbleventureBootstrap.NativeTerrainColumn[16][16];
             for (int localX = 0; localX < 16; localX++) {
@@ -233,20 +230,15 @@ final class NativeWorldGeneration {
                         chunk, position, oceanFloor, worldSurface,
                         localX, localZ, x, z, column
                     );
-                    boundaries[localX][localZ] = boundaryAt(x, z);
                 }
             }
             for (int localX = 0; localX < 16; localX++) {
                 int x = startX + localX;
                 for (int localZ = 0; localZ < 16; localZ++) {
                     int z = startZ + localZ;
-                    applyVisibleBoundary(
-                        chunk, position, oceanFloor, worldSurface,
-                        localX, localZ, x, z, boundaries[localX][localZ]
-                    );
                     applyTownGroundCover(
                         chunk, position, oceanFloor, worldSurface,
-                        localX, localZ, x, z, boundaries[localX][localZ]
+                        localX, localZ, x, z
                     );
                     applyEmptyTerrainGroundCover(
                         chunk, position, oceanFloor, worldSurface,
@@ -254,9 +246,6 @@ final class NativeWorldGeneration {
                     );
                 }
             }
-            placeBoundaryTrees(
-                chunk, position, oceanFloor, worldSurface, startX, startZ
-            );
             placeEmptyTerrainFeatures(
                 chunk, position, oceanFloor, worldSurface, startX, startZ
             );
@@ -285,7 +274,7 @@ final class NativeWorldGeneration {
                 );
             }
             if (column.blocked() && isBoundaryColumn(worldX, worldZ)) {
-                int barrierStart = Math.max(groundY, column.waterTopY()) + 1;
+                int barrierStart = groundY + 1;
                 for (int y = barrierStart; y < MIN_Y + DEPTH; y++) {
                     setBlock(
                         chunk, position, oceanFloor, worldSurface,
@@ -324,87 +313,6 @@ final class NativeWorldGeneration {
             return Blocks.STONE.defaultBlockState();
         }
 
-        private NativeBoundary boundaryAt(int x, int z) {
-            CobbleventureBootstrap.TerrainSample sample =
-                CobbleventureBootstrap.terrainAt(world, x + 0.5D, z + 0.5D);
-            if (sample == null) {
-                return null;
-            }
-            CobbleventureBootstrap.BoundaryProfile profile =
-                world.boundaryProfiles().get(sample.boundaryProfile());
-            if (profile == null || profile.width() <= 0) {
-                return null;
-            }
-            int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-            for (int distance = 1; distance <= profile.width(); distance++) {
-                for (int[] direction : directions) {
-                    if (CobbleventureBootstrap.terrainAt(
-                        world,
-                        x + direction[0] * distance + 0.5D,
-                        z + direction[1] * distance + 0.5D
-                    ) == null) {
-                        return new NativeBoundary(profile, distance);
-                    }
-                }
-            }
-            return null;
-        }
-
-        private void applyVisibleBoundary(
-            ChunkAccess chunk,
-            BlockPos.MutableBlockPos position,
-            Heightmap oceanFloor,
-            Heightmap worldSurface,
-            int localX,
-            int localZ,
-            int worldX,
-            int worldZ,
-            NativeBoundary boundary
-        ) {
-            if (boundary == null) {
-                return;
-            }
-            CobbleventureBootstrap.BoundaryProfile profile = boundary.profile();
-            CobbleventureBootstrap.NativeTerrainColumn column =
-                CobbleventureBootstrap.nativeTerrainColumn(world, worldX, worldZ);
-            int groundY = column.groundY();
-            if (profile.type().equals("wall")) {
-                int height = Math.max(4, profile.height() - boundary.distance() / 2);
-                for (int y = groundY + 1; y <= groundY + height; y++) {
-                    setBlock(
-                        chunk, position, oceanFloor, worldSurface,
-                        localX, y, localZ,
-                        boundarySurface(profile, worldX, y, worldZ)
-                    );
-                }
-                return;
-            }
-            if (profile.type().equals("earthwork")) {
-                double ratio = (profile.width() - boundary.distance() + 1.0D)
-                    / profile.width();
-                int height = Math.max(1, (int) Math.round(profile.height() * ratio));
-                double roughness = signedNoise(worldX, worldZ, 0x4E41544956454C31L);
-                height = Math.max(1, height + (int) Math.round(roughness * 2.0D));
-                for (int y = groundY + 1; y <= groundY + height; y++) {
-                    BlockState state = y == groundY + height
-                        ? Blocks.GRASS_BLOCK.defaultBlockState()
-                        : boundarySurface(profile, worldX, y, worldZ);
-                    setBlock(
-                        chunk, position, oceanFloor, worldSurface,
-                        localX, y, localZ, state
-                    );
-                }
-                return;
-            }
-            if (profile.type().equals("tree_line")) {
-                setBlock(
-                    chunk, position, oceanFloor, worldSurface,
-                    localX, groundY, localZ,
-                    boundarySurface(profile, worldX, groundY, worldZ)
-                );
-            }
-        }
-
         private void applyTownGroundCover(
             ChunkAccess chunk,
             BlockPos.MutableBlockPos position,
@@ -413,12 +321,8 @@ final class NativeWorldGeneration {
             int localX,
             int localZ,
             int worldX,
-            int worldZ,
-            NativeBoundary boundary
+            int worldZ
         ) {
-            if (boundary != null) {
-                return;
-            }
             CobbleventureBootstrap.TerrainSample sample =
                 CobbleventureBootstrap.terrainAt(world, worldX + 0.5D, worldZ + 0.5D);
             if (sample == null || !sample.kind().equals("town")
@@ -447,70 +351,6 @@ final class NativeWorldGeneration {
                 chunk, position, oceanFloor, worldSurface,
                 localX, column.groundY() + 1, localZ, decoration
             );
-        }
-
-        private void placeBoundaryTrees(
-            ChunkAccess chunk,
-            BlockPos.MutableBlockPos position,
-            Heightmap oceanFloor,
-            Heightmap worldSurface,
-            int startX,
-            int startZ
-        ) {
-            for (int anchorX = startX - 3; anchorX <= startX + 18; anchorX++) {
-                for (int anchorZ = startZ - 3; anchorZ <= startZ + 18; anchorZ++) {
-                    NativeBoundary boundary = boundaryAt(anchorX, anchorZ);
-                    if (boundary == null || !boundary.profile().type().equals("tree_line")
-                        || boundary.profile().tree() == null) {
-                        continue;
-                    }
-                    CobbleventureBootstrap.TreeProfile tree = boundary.profile().tree();
-                    int spacing = Math.max(2, tree.spacing());
-                    if (Math.floorMod(anchorX, spacing) != 0
-                        || Math.floorMod(anchorZ, spacing) != 0
-                        || Math.floorMod((int) coordinateHash(
-                            anchorX, anchorZ, 0x424F554E44545245L
-                        ), 100) >= 72) {
-                        continue;
-                    }
-                    int range = Math.max(0, tree.maxHeight() - tree.minHeight());
-                    int height = tree.minHeight() + Math.floorMod(
-                        (int) coordinateHash(anchorX, anchorZ, 0x5452454548454947L),
-                        range + 1
-                    );
-                    int groundY = CobbleventureBootstrap.nativeTerrainColumn(
-                        world, anchorX, anchorZ
-                    ).groundY();
-                    BlockState log = blockState(tree.log());
-                    BlockState leaves = blockState(tree.leaves());
-                    if (leaves.hasProperty(LeavesBlock.PERSISTENT)) {
-                        leaves = leaves.setValue(LeavesBlock.PERSISTENT, true);
-                    }
-                    for (int y = 1; y <= height; y++) {
-                        writeTreeBlock(
-                            chunk, position, oceanFloor, worldSurface,
-                            startX, startZ, anchorX, groundY + y, anchorZ, log
-                        );
-                    }
-                    int canopyY = groundY + height;
-                    for (int dx = -3; dx <= 3; dx++) {
-                        for (int dz = -3; dz <= 3; dz++) {
-                            for (int dy = -2; dy <= 1; dy++) {
-                                int radius = dy == 1 ? 1 : dy == -2 ? 2 : 3;
-                                if (Math.abs(dx) + Math.abs(dz) > radius + 1
-                                    || (Math.abs(dx) == radius && Math.abs(dz) == radius)) {
-                                    continue;
-                                }
-                                writeTreeBlock(
-                                    chunk, position, oceanFloor, worldSurface,
-                                    startX, startZ,
-                                    anchorX + dx, canopyY + dy, anchorZ + dz, leaves
-                                );
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         private void applyEmptyTerrainGroundCover(
@@ -572,16 +412,13 @@ final class NativeWorldGeneration {
         ) {
             for (int anchorX = startX - 3; anchorX <= startX + 18; anchorX++) {
                 for (int anchorZ = startZ - 3; anchorZ <= startZ + 18; anchorZ++) {
-                    boolean forestCandidate = Math.floorMod(anchorX, 9) == 0
-                        && Math.floorMod(anchorZ, 9) == 0;
                     boolean snowCandidate = Math.floorMod(anchorX, 12) == 0
                         && Math.floorMod(anchorZ, 12) == 0;
                     boolean desertCandidate = Math.floorMod(anchorX, 13) == 0
                         && Math.floorMod(anchorZ, 13) == 0;
                     boolean stoneCandidate = Math.floorMod(anchorX, 11) == 0
                         && Math.floorMod(anchorZ, 11) == 0;
-                    if (!forestCandidate && !snowCandidate
-                        && !desertCandidate && !stoneCandidate) {
+                    if (!snowCandidate && !desertCandidate && !stoneCandidate) {
                         continue;
                     }
                     if (CobbleventureBootstrap.terrainAt(
@@ -592,30 +429,7 @@ final class NativeWorldGeneration {
                     String type = CobbleventureBootstrap.emptyTerrainAt(
                         world, anchorX + 0.5D, anchorZ + 0.5D
                     );
-                    if (type.equals("high_forest") && forestCandidate) {
-                        if (Math.floorMod((int) coordinateHash(
-                                anchorX, anchorZ, 0x4F55544552464F52L
-                            ), 100) < 86) {
-                            CobbleventureBootstrap.NativeTerrainColumn column =
-                                CobbleventureBootstrap.nativeTerrainColumn(
-                                    world, anchorX, anchorZ
-                                );
-                            if (column.rocky()
-                                || column.waterTopY() > column.groundY()) continue;
-                            int height = 6 + Math.floorMod(
-                                (int) coordinateHash(
-                                    anchorX, anchorZ, 0x4F55544552484549L
-                                ), 5
-                            );
-                            placeSyntheticTree(
-                                chunk, position, oceanFloor, worldSurface,
-                                startX, startZ, anchorX, anchorZ,
-                                column.groundY(), height,
-                                Blocks.DARK_OAK_LOG.defaultBlockState(),
-                                Blocks.DARK_OAK_LEAVES.defaultBlockState(), 3
-                            );
-                        }
-                    } else if (type.equals("snow_mountain") && snowCandidate) {
+                    if (type.equals("snow_mountain") && snowCandidate) {
                         if (Math.floorMod((int) coordinateHash(
                                 anchorX, anchorZ, 0x534E4F5753505255L
                             ), 100) < 62) {
@@ -781,25 +595,6 @@ final class NativeWorldGeneration {
             );
         }
 
-        private BlockState boundarySurface(
-            CobbleventureBootstrap.BoundaryProfile profile,
-            int x, int y, int z
-        ) {
-            if (profile.surfaceBlocks().isEmpty()) {
-                return Blocks.STONE.defaultBlockState();
-            }
-            int index = Math.floorMod(
-                (int) coordinateHash(x, z, 0x535552464143454CL ^ y),
-                profile.surfaceBlocks().size()
-            );
-            return blockState(profile.surfaceBlocks().get(index));
-        }
-
-        private static BlockState blockState(String id) {
-            return BuiltInRegistries.BLOCK.get(ResourceLocation.parse(id))
-                .defaultBlockState();
-        }
-
         private long coordinateHash(int x, int z, long salt) {
             long value = seed ^ salt;
             value ^= (long) x * 0x9E3779B97F4A7C15L;
@@ -905,10 +700,6 @@ final class NativeWorldGeneration {
             lines.add("Cobbleventure JSON hex map");
         }
 
-        private record NativeBoundary(
-            CobbleventureBootstrap.BoundaryProfile profile,
-            int distance
-        ) {}
     }
 
     private static final class WorldMapCache {

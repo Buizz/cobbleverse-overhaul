@@ -78,6 +78,49 @@ class ContentManagerTests(unittest.TestCase):
             ),
         )
 
+    def test_league_progression_validates_badges_and_trainer_pool_references(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "league-progression.json"
+            path.write_text(json.dumps({
+                "schema_version": 1,
+                "entries": [{
+                    "id": "cobbleventure:league/generation_1/boulder",
+                    "role": "gym_leader",
+                    "display_name": {"ko_kr": "웅"},
+                    "generation": 1,
+                    "region": "cobbleventure:region/kanto",
+                    "order": 1,
+                    "level_cap": 15,
+                    "trainer_id": "cobbleventure:trainer/brock",
+                    "badge": {
+                        "item": "cobbleversebadges:kanto_boulder_badge",
+                        "display_name": {"ko_kr": "회색배지"},
+                        "trainer_card_visible": True,
+                    },
+                }],
+            }, ensure_ascii=False), encoding="utf-8")
+
+            ids, issues = content_manager.validate_league_progression_file(
+                path, {"cobbleventure:trainer/brock"}
+            )
+
+            self.assertEqual({"cobbleventure:league/generation_1/boulder"}, ids)
+            self.assertFalse([issue for issue in issues if issue.level == "error"])
+
+    def test_league_progression_rejects_gym_without_badge(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "league-progression.json"
+            path.write_text(json.dumps({"schema_version": 1, "entries": [{
+                "id": "cobbleventure:league/generation_1/boulder", "role": "gym_leader",
+                "display_name": {"ko_kr": "웅"}, "generation": 1,
+                "region": "cobbleventure:region/kanto", "order": 1,
+                "level_cap": 15, "trainer_id": "cobbleventure:trainer/brock",
+            }]}), encoding="utf-8")
+
+            _, issues = content_manager.validate_league_progression_file(path)
+
+            self.assertTrue(any(issue.path.endswith(".badge") for issue in issues))
+
     def test_reads_visible_top_block_for_each_nbt_column(self) -> None:
         metadata = content_manager.read_minecraft_structure_metadata(
             self._structure_nbt_with_blocks()
@@ -438,6 +481,45 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('data-pokemon-map-tab="unavailable"', page)
         self.assertIn("/api/world-pokemon-map", script)
         self.assertIn("renderWorldPokemonPanel", script)
+
+    def test_world_level_overrides_are_saved_and_validated(self) -> None:
+        root = Path(__file__).parents[3]
+        with tempfile.TemporaryDirectory() as directory:
+            candidate_root = Path(directory)
+            catalog_dir = candidate_root / "content" / "catalogs"
+            catalog_dir.mkdir(parents=True)
+            shutil.copy2(root / "content" / "catalogs" / "boundary-profiles.json", catalog_dir / "boundary-profiles.json")
+            layout = {
+                "$schema": "../schemas/hex-world.schema.json",
+                "schema_version": 2,
+                "id": "cobbleventure:world/generation_2",
+                "dimension": "cobbleventure:generation_2",
+                "seed_salt": 1702,
+                "grid": {"orientation": "pointy_top", "tile_radius_blocks": 64, "map_radius_cells": 6, "origin": {"x": 0, "y": 69, "z": 0}},
+                "empty_terrain": {"default_type": "high_forest", "tiles": []},
+                "tiles": [], "environment_overrides": [],
+                "level_overrides": [{"q": 1, "r": -2, "average_level": 25}],
+                "settlements": [], "cave_entrances": [], "connections": [], "objects": [],
+            }
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
+            self.assertEqual(25, content_manager.load_world_layout(candidate_root, 2)["level_overrides"][0]["average_level"])
+            invalid = json.loads(json.dumps(layout))
+            invalid["level_overrides"].append({"q": 1, "r": -2, "average_level": 101})
+            issues = content_manager.save_world_layout(candidate_root, invalid, 2)
+            self.assertTrue(any("중복 레벨" in issue.message for issue in issues))
+            self.assertTrue(any(issue.path.endswith(".average_level") for issue in issues))
+
+    def test_world_level_brush_and_overlay_are_present_in_web_editor(self) -> None:
+        root = Path(__file__).parents[3]
+        page = (root / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('data-map-tool="level"', page)
+        self.assertIn('id="level-overlay-toggle"', page)
+        self.assertIn('id="level-brush-average"', page)
+        self.assertIn("paintLevelArea", script)
+        self.assertIn("renderLevelOverlay", script)
+        self.assertIn('!state.levelOverlayVisible && state.activeMapTool !== "level"', script)
+        self.assertNotIn('state.levelOverlayVisible = true; $("#level-overlay-toggle").checked = true', script)
 
     def test_settlements_reference_web_biome_settings(self) -> None:
         root = Path(__file__).parents[3]
@@ -1501,6 +1583,19 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="battle-form"', page)
         self.assertIn('id="event-command-list"', page)
         self.assertIn('id="event-warning-offset"', page)
+        self.assertIn('id="event-preset-builder"', page)
+        self.assertIn('id="apply-event-preset"', page)
+        self.assertIn('id="event-preset-battle"', page)
+        self.assertIn('id="event-preset-loss-money"', page)
+        self.assertIn('id="event-preset-badge"', page)
+        self.assertIn('id="event-preset-clear-key"', page)
+        self.assertIn('name="doubleBattlePartner"', page)
+        self.assertIn('name="doubleBattleClearKey"', page)
+        self.assertIn('id="copy-double-spawn-command"', page)
+        self.assertIn('<option value="gym">체육관 관장</option>', page)
+        self.assertIn('<option value="elite">사천왕</option>', page)
+        self.assertIn('<option value="champion">챔피언</option>', page)
+        self.assertIn('Enter로 줄을 나누면 한 줄마다 별도의 대화', page)
         self.assertIn('id="bag-list"', page)
         self.assertIn('id="load-trainer-reference"', page)
         self.assertIn('id="battle-reference-field"', page)
@@ -1517,6 +1612,13 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('renderBattlePreset', script)
         self.assertIn('renderEventScript', script)
         self.assertIn('renderEventCommandEditor', script)
+        self.assertIn('eventCommandSummary', script)
+        self.assertIn('applyEventScriptPreset', script)
+        self.assertIn('type: "take_money"', script)
+        self.assertIn('type: "mark_clear"', script)
+        self.assertIn('dialogueCommands', script)
+        self.assertIn('splitDialogueCommandLines', script)
+        self.assertIn('ensureDoubleBattleClearCommand', script)
         self.assertIn('trainer_reference_create', script)
         self.assertIn('data-reference-party-art', script)
         self.assertIn('hydrateTrainerReferencePartyArt', script)
@@ -1535,6 +1637,20 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertEqual("cobbleventure:npc/ai_test", content_id)
         self.assertEqual([], issues)
+
+        valid_pair = json.loads(json.dumps(source))
+        valid_pair["npc"]["double_battle"] = {
+            "partner": "cobbleventure:npc/ai_test_partner",
+            "group_id": "cobbleventure:double_battle/ai_test",
+            "shared_clear_key": "cobbleventure:clear/double_battle/ai_test",
+        }
+        _, issues = content_manager._validate_payload(valid_pair, content_manager.validate_content_file)
+        self.assertEqual([], issues)
+
+        invalid_pair = json.loads(json.dumps(valid_pair))
+        invalid_pair["npc"]["double_battle"]["partner"] = invalid_pair["id"]
+        _, issues = content_manager._validate_payload(invalid_pair, content_manager.validate_content_file)
+        self.assertTrue(any(issue.path == "$.npc.double_battle.partner" for issue in issues))
 
         invalid = json.loads(json.dumps(source))
         invalid["events"][0]["trigger"] = {
@@ -1557,6 +1673,38 @@ class ContentManagerTests(unittest.TestCase):
         _, issues = content_manager._validate_payload(invalid, content_manager.validate_content_file)
         self.assertTrue(any("multiplier" in issue.path for issue in issues))
 
+        valid_loss_reward = json.loads(json.dumps(source))
+        valid_loss_reward["events"][0]["commands"].insert(-1, {
+            "type": "take_money",
+            "mode": "fixed",
+            "amount": 250,
+            "currency_objective": "cobbleventure_money",
+        })
+        valid_loss_reward["events"][0]["commands"].insert(-1, {
+            "type": "mark_clear",
+            "key": "cobbleventure:clear/gym/test",
+        })
+        _, issues = content_manager._validate_payload(
+            valid_loss_reward, content_manager.validate_content_file
+        )
+        self.assertEqual([], issues)
+
+    def test_cobbleverse_badge_items_are_available_for_gym_presets(self) -> None:
+        root = Path(__file__).parents[3]
+        catalog = content_manager.load_json(
+            root / "trainer-data" / "catalogs" / "cobblemon-items.json"
+        )
+        badges = [
+            item for item in catalog["items"]
+            if item.get("namespace") == "cobbleversebadges"
+            and item.get("path", "").endswith("_badge")
+        ]
+        self.assertEqual(32, len(badges))
+        self.assertTrue(any(
+            item["id"] == "cobbleversebadges:kanto_boulder_badge"
+            for item in badges
+        ))
+
     def test_generate_exports_same_ai_profile_to_rct_and_runtime(self) -> None:
         root = Path(__file__).parents[3]
         with tempfile.TemporaryDirectory() as directory:
@@ -1569,9 +1717,8 @@ class ContentManagerTests(unittest.TestCase):
             runtime = content_manager.load_json(
                 output / "cobbleventure" / "ai-profiles" / "ai_test.json"
             )
-            self.assertEqual("cobbleventure", rct["ai"]["type"])
-            self.assertEqual("standard", rct["ai"]["data"]["difficulty"])
-            self.assertEqual("balanced", rct["ai"]["data"]["strategy"])
+            self.assertEqual("rct", rct["ai"]["type"])
+            self.assertEqual(0.15, rct["ai"]["data"]["maxSelectMargin"])
             self.assertEqual("standard", runtime["difficulty"])
             self.assertEqual("balanced", runtime["strategy"])
 
@@ -1588,7 +1735,8 @@ class ContentManagerTests(unittest.TestCase):
         }
         rct = content_manager.export_rct_trainer(source)
         runtime = content_manager.export_ai_runtime_profile(source)
-        self.assertEqual(0.35, rct["ai"]["data"]["cheatProbability"])
+        self.assertEqual("rct", rct["ai"]["type"])
+        self.assertEqual(0.0, rct["ai"]["data"]["maxSelectMargin"])
         self.assertEqual(0.35, runtime["options"]["cheatProbability"])
 
     def test_create_document_writes_valid_template_and_rejects_duplicate(self) -> None:

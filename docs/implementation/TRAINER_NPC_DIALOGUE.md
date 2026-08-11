@@ -66,5 +66,5 @@ python tools/content-manager/generate_easy_npc_presets.py
 게임 내 테스트 소환:
 
 ```mcfunction
-/easy_npc preset import_new data cobbleventure:encounter/ai_test ~ ~ ~
+/easy_npc preset import_new data easy_npc:preset/encounter/ai_test.npc.snbt ~ ~ ~
 ```

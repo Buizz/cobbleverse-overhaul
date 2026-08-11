@@ -13,6 +13,8 @@ record TrainerCardProgress(List<LeaguePage> pages) {
     private static final int UNDECIDED_PREVIEW_SLOTS = 8;
 
     static TrainerCardProgress current() {
+        List<LeaguePage> configuredPages = LeagueProgressionContent.pages();
+        if (!configuredPages.isEmpty()) return new TrainerCardProgress(configuredPages);
         return new TrainerCardProgress(List.of(new LeaguePage(
             Component.translatable("screen.cobbleventure_player_menu.trainer_card.region.undecided"),
             buildPreviewChallenges(),

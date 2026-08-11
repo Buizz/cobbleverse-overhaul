@@ -17,12 +17,13 @@
         <button class="nav-item is-active" data-section="dashboard"><span>01</span>대시보드</button>
         <button class="nav-item" data-section="trainers"><span>02</span>NPC</button>
         <button class="nav-item" data-section="battles"><span>03</span>배틀 프리셋</button>
-        <button class="nav-item" data-section="worlds"><span>04</span>월드맵</button>
-        <button class="nav-item" data-section="caves"><span>05</span>동굴 관리</button>
-        <button class="nav-item" data-section="settlements"><span>06</span>마을 프리셋</button>
-        <button class="nav-item" data-section="structures"><span>07</span>NBT 건물</button>
-        <button class="nav-item" data-section="biomes"><span>08</span>바이옴 관리</button>
-        <button class="nav-item" data-section="builds"><span>09</span>빌드 작업</button>
+        <button class="nav-item" data-section="league"><span>04</span>리그 관리</button>
+        <button class="nav-item" data-section="worlds"><span>05</span>월드맵</button>
+        <button class="nav-item" data-section="caves"><span>06</span>동굴 관리</button>
+        <button class="nav-item" data-section="settlements"><span>07</span>마을 프리셋</button>
+        <button class="nav-item" data-section="structures"><span>08</span>NBT 건물</button>
+        <button class="nav-item" data-section="biomes"><span>09</span>바이옴 관리</button>
+        <button class="nav-item" data-section="builds"><span>10</span>빌드 작업</button>
       </nav>
       <div class="server-state"><i id="server-dot"></i><span><strong id="server-label">연결 확인 중</strong><small>로컬 전용 · 127.0.0.1</small></span></div>
     </aside>
@@ -70,6 +71,7 @@
                 </div>
               </section>
               <fieldset class="wide"><legend>NPC 행동과 조우</legend><label><span>이동 방식</span><select name="movement" disabled><option value="stationary">고정</option><option value="wander">제한 배회</option><option value="patrol">순찰</option></select></label><label><span>상호작용 거리</span><input type="number" min="0.5" step="0.5" name="interactionRange" disabled></label><label><span>조우 방식</span><select name="encounterMode" disabled><option value="interaction">말을 걸면 시작</option><option value="proximity">범위 진입 시 자동 시작</option></select></label><label><span>자동 조우 거리</span><input type="number" min="0.5" step="0.5" name="encounterTriggerRange" disabled></label><label><span>경고 시작 거리</span><input type="number" min="0" step="0.5" name="warningRangeMin" disabled></label><label><span>경고 종료 거리</span><input type="number" min="0.5" step="0.5" name="warningRangeMax" disabled></label><label class="toggle"><input type="checkbox" name="lookAtPlayer" disabled><span>플레이어 바라보기</span></label><label class="toggle"><input type="checkbox" name="invulnerable" disabled><span>피해 면역</span></label><small class="wide">EasyNPC 7.x의 기본 거리 이벤트는 4·8·16·32칸 단위입니다. 4~6칸처럼 정확한 경고 띠는 데이터에 보존하고 전용 런타임 어댑터에서 처리합니다.</small></fieldset>
+              <fieldset class="wide double-battle-settings"><legend>2인 더블배틀 NPC</legend><label class="toggle wide"><input type="checkbox" name="doubleBattleEnabled" disabled><span>이 NPC와 파트너를 하나의 공유 조우로 사용</span></label><label data-double-battle-field><span>파트너 NPC</span><select name="doubleBattlePartner" disabled></select></label><label data-double-battle-field><span>공유 그룹 ID</span><input name="doubleBattleGroupId" disabled></label><label class="wide" data-double-battle-field><span>공유 클리어 ID</span><input name="doubleBattleClearKey" disabled></label><label class="wide" data-double-battle-field><span>파트너 EasyNPC 소환 명령어</span><div class="inline-field"><input name="doubleBattleSpawnCommand" readonly disabled><button class="button secondary" id="copy-double-spawn-command" type="button" disabled>복사</button></div></label><small class="wide" data-double-battle-field>두 NPC는 각자의 이름과 외형을 유지하지만, 누구에게 말을 걸어도 이 NPC의 대화·더블배틀·클리어 상태를 공유합니다. 연결할 배틀 프리셋은 더블 형식이어야 합니다.</small></fieldset>
               <fieldset class="wide"><legend>전투 설정</legend><label><span>배틀 포맷</span><select name="battleFormat" disabled><option value="GEN_9_SINGLES">9세대 싱글</option><option value="GEN_9_DOUBLES">9세대 더블</option></select></label><label><span>전투 방식</span><select name="battleType" disabled><option value="singles">싱글</option><option value="doubles">더블</option></select></label><label><span>난이도</span><select name="battleDifficulty" disabled><option value="novice">초보</option><option value="standard">일반</option><option value="advanced">상급</option><option value="expert">전문가 — 휴리스틱</option><option value="expert_winrate">전문가 — 승률 기반</option><option value="expert_search">전문가 — 2턴 탐색</option><option value="cheater">치터 — 행동 정보 사용</option></select></label><label><span>전략</span><select name="battleAi" disabled><option value="balanced">균형형</option><option value="aggressive">공격형</option><option value="defensive">방어형</option><option value="ace_check">에이스 견제형</option><option value="reckless_ace">에이스 돌격형</option><option value="setup">랭크업형</option><option value="hazard">장판형</option><option value="tempo">템포형</option><option value="unpredictable">변칙형</option></select></label><label><span>레벨 방식</span><select name="levelMode" disabled><option value="fixed">고정</option><option value="scale_to_player">플레이어에 맞춤</option><option value="cap_to_player">플레이어 상한</option></select></label><label class="wide ai-cheat-probability" id="ai-cheat-probability" hidden><span>행동 정보 사용 확률</span><div><input type="range" name="cheatProbability" min="0" max="100" step="1" value="50" disabled><output id="cheat-probability-output">50%</output></div><small>판정에 실패하면 전문가 — 2턴 탐색 AI로 행동합니다.</small></label></fieldset>
               <fieldset class="wide mechanic-options"><legend>특수 기믹 허용</legend><label class="toggle"><input type="checkbox" name="megaEvolution" disabled><span>메가진화</span></label><label class="toggle"><input type="checkbox" name="zMove" disabled><span>Z기술</span></label><label class="toggle"><input type="checkbox" name="dynamax" disabled><span>다이맥스</span></label><label class="toggle"><input type="checkbox" name="terastallization" disabled><span>테라스탈</span></label></fieldset>
               <fieldset class="wide"><legend>기본 대화와 승리 보상</legend><label class="wide"><span>첫 인사</span><textarea name="greetingText" rows="3" disabled></textarea></label><label><span>상금 방식</span><select name="moneyMode" disabled><option value="fixed">고정 금액</option><option value="level_cap_multiplier">현재 레벨캡 × 배율</option></select></label><label data-money-field="fixed"><span>고정 상금</span><input type="number" min="0" step="1" name="moneyAmount" disabled></label><label data-money-field="level_cap_multiplier"><span>레벨캡 배율</span><input type="number" min="1" step="1" name="moneyMultiplier" disabled></label><label><span>화폐 점수판</span><input name="currencyObjective" disabled></label><label><span>상품 방식</span><select name="itemRewardMode" disabled><option value="fixed">고정 상품</option><option value="loot_table">확률 루트 테이블</option></select></label><label data-item-reward-field="fixed"><span>고정 상품 ID</span><input name="rewardItem" disabled></label><label data-item-reward-field="fixed"><span>상품 수량</span><input type="number" min="1" step="1" name="rewardItemCount" disabled></label><label data-item-reward-field="loot_table" class="wide"><span>루트 테이블 ID</span><input name="rewardLootTable" disabled></label><label class="wide"><span>EasyNPC 테스트 소환 명령어</span><div class="inline-field"><input name="spawnCommand" readonly disabled><button class="button secondary" id="copy-spawn-command" type="button" disabled>복사</button></div></label></fieldset>
@@ -81,17 +83,27 @@
               <label id="event-warning-offset-field" hidden><span>경고 여유 거리</span><div class="inline-field"><input id="event-warning-offset" type="number" min="0" step="0.5" value="2" disabled><output>+ 블록</output></div><small>발동 거리 4, 여유 거리 +2라면 4~6 블록에서 경고합니다.</small></label>
             </div>
             <section class="event-preset-builder" id="event-preset-builder">
-              <header><div><strong>빠른 스크립트 프리셋</strong><small>대사와 보상만 입력하면 필요한 분기·라벨·플래그를 자동으로 만듭니다.</small></div><select id="event-preset-type" disabled><option value="simple">분기 없는 단순 대화</option><option value="repeat">첫 대화 후 다른 대사</option><option value="item">첫 대화에서 아이템 지급</option></select></header>
+              <header><div><strong>빠른 스크립트 프리셋</strong><small>대사와 보상만 입력하면 필요한 분기·라벨·플래그를 자동으로 만듭니다.</small></div><select id="event-preset-type" disabled><option value="simple">분기 없는 단순 대화</option><option value="repeat">첫 대화 후 다른 대사</option><option value="item">첫 대화에서 아이템 지급</option><option value="battle">일반 배틀 도전</option><option value="gym">체육관 관장</option><option value="elite">사천왕</option><option value="champion">챔피언</option></select></header>
               <div class="event-preset-fields">
-                <label class="wide"><span>첫 대사</span><textarea id="event-preset-first-text" rows="2" disabled>안녕하세요!</textarea></label>
-                <label class="wide" data-event-preset-option="repeat"><span>두 번째부터 표시할 대사</span><textarea id="event-preset-repeat-text" rows="2" disabled>다시 만났네요.</textarea></label>
+                <label class="wide"><span>첫 대사</span><textarea id="event-preset-first-text" rows="3" disabled>안녕하세요!</textarea><small>Enter로 줄을 나누면 한 줄마다 별도의 대화로 실행됩니다.</small></label>
+                <label class="wide" data-event-preset-option="repeat"><span>두 번째부터 표시할 대사</span><textarea id="event-preset-repeat-text" rows="3" disabled>다시 만났네요.</textarea><small>여러 줄을 입력하면 재방문 대사도 위에서 아래로 차례대로 실행됩니다.</small></label>
                 <label data-event-preset-option="item"><span>지급 아이템 ID</span><input id="event-preset-item" value="cobblemon:poke_ball" disabled></label>
                 <label data-event-preset-option="item"><span>수량</span><input id="event-preset-item-count" type="number" min="1" step="1" value="1" disabled></label>
                 <label class="wide" data-event-preset-option="repeat"><span>대화 완료 플래그</span><input id="event-preset-flag" disabled><small>두 번째 대화부터 다른 대사를 표시하는 상태값입니다.</small></label>
+                <label class="wide" data-event-preset-option="battle"><span>배틀 프리셋</span><select id="event-preset-battle" disabled></select></label>
+                <label data-event-preset-option="battle"><span>승리 시 획득 금액</span><input id="event-preset-win-money" type="number" min="0" step="1" value="500" disabled></label>
+                <label data-event-preset-option="battle"><span>패배 시 잃는 금액</span><input id="event-preset-loss-money" type="number" min="0" step="1" value="0" disabled></label>
+                <label class="wide" data-event-preset-option="battle"><span>화폐 점수판</span><input id="event-preset-currency" value="cobbleventure_money" disabled></label>
+                <label class="wide" data-event-preset-option="gym"><span>승리 시 지급 배지</span><select id="event-preset-badge" disabled><option value="cobbleversebadges:kanto_boulder_badge">Boulder Badge · cobbleversebadges:kanto_boulder_badge</option></select><small>CobbleverseBadges에서 확인된 실제 배지 아이템만 표시합니다.</small></label>
+                <label data-event-preset-option="battle"><span>승리 시 획득 아이템</span><input id="event-preset-win-item" placeholder="비워 두면 지급하지 않음" disabled></label>
+                <label data-event-preset-option="battle"><span>아이템 수량</span><input id="event-preset-win-item-count" type="number" min="1" step="1" value="1" disabled></label>
+                <label class="wide" data-event-preset-option="battle"><span>승리 후 대사</span><textarea id="event-preset-win-text" rows="2" disabled>좋은 승부였어!</textarea><small>Enter로 여러 개의 결과 대사를 만들 수 있습니다.</small></label>
+                <label class="wide" data-event-preset-option="battle"><span>패배 후 대사</span><textarea id="event-preset-loss-text" rows="2" disabled>다시 도전해 줘.</textarea></label>
+                <label class="wide" data-event-preset-option="progression"><span>클리어 처리 ID</span><input id="event-preset-clear-key" disabled><small>승리하면 클리어 상태를 기록합니다. 이후 지역 해금과 진행도 연동 명령을 이 항목에 확장할 수 있습니다.</small></label>
               </div>
               <footer><span>적용하면 현재 명령 목록을 프리셋 내용으로 교체합니다.</span><button class="button primary" id="apply-event-preset" type="button" disabled>프리셋으로 교체</button></footer>
             </section>
-            <div class="event-command-toolbar"><select id="event-command-type" disabled><option value="dialogue">대화 표시</option><option value="choices">선택지 표시</option><option value="branch">조건 분기</option><option value="label">라벨</option><option value="goto">라벨로 이동</option><option value="start_battle">배틀 시작</option><option value="set_flag">플래그 변경</option><option value="give_money">돈 지급</option><option value="give_item">아이템 지급</option><option value="grant_loot">루트 테이블 지급</option><option value="end">이벤트 종료</option></select><button class="button secondary" id="add-event-command" disabled>명령 추가</button></div>
+            <div class="event-command-toolbar"><select id="event-command-type" disabled><option value="dialogue">대화 표시</option><option value="choices">선택지 표시</option><option value="branch">조건 분기</option><option value="label">라벨</option><option value="goto">라벨로 이동</option><option value="start_battle">배틀 시작</option><option value="set_flag">플래그 변경</option><option value="mark_clear">클리어 처리</option><option value="give_money">돈 지급</option><option value="take_money">돈 차감</option><option value="give_item">아이템 지급</option><option value="grant_loot">루트 테이블 지급</option><option value="end">이벤트 종료</option></select><button class="button secondary" id="add-event-command" disabled>명령 추가</button></div>
             <div id="event-command-list" class="event-command-list"><div class="issues empty">NPC를 선택하면 이벤트 명령이 표시됩니다.</div></div>
             <details class="advanced"><summary>대화·진행을 포함한 전체 JSON 편집</summary><textarea class="code-editor compact" id="trainer-json" spellcheck="false" disabled></textarea><button class="button text-button" id="apply-trainer-json" disabled>JSON을 편집 폼에 반영</button></details>
             <div id="trainer-issues" class="issues empty">편집할 NPC를 선택하세요.</div>
@@ -131,6 +143,28 @@
         </div>
       </section>
 
+      <section class="page" id="league">
+        <div class="workspace-grid">
+          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">LEAGUE PROGRESSION</p><h2>관장 · 사천왕 · 챔피언</h2></div><div class="list-tools"><span class="count-pill" id="league-entry-count">0</span><button class="mini-button" id="add-league-entry" type="button">＋</button></div></div><div id="league-entry-list" class="list-body"><div class="issues empty">리그 설정을 불러오는 중입니다.</div></div></aside>
+          <div class="editor panel">
+            <div class="panel-heading"><div><p class="eyebrow">TRAINER CARD / LEVEL CAP</p><h2 id="league-editor-title">리그 항목을 선택하세요</h2></div><div class="editor-heading-actions"><div><button class="button danger" id="delete-league-entry" disabled>항목 삭제</button><button class="button primary" id="save-league" disabled>리그 설정 저장</button></div></div></div>
+            <form id="league-form" class="form-grid">
+              <label class="wide"><span>리그 항목 ID</span><input name="id" placeholder="cobbleventure:league/generation_1/leader_1" disabled></label>
+              <label><span>역할</span><select name="role" disabled><option value="gym_leader">체육관 관장</option><option value="elite_four">사천왕</option><option value="champion">챔피언</option></select></label>
+              <label><span>레벨캡</span><input name="levelCap" type="number" min="1" max="100" disabled></label>
+              <label><span>한국어 이름</span><input name="nameKo" disabled></label>
+              <label><span>영문 이름</span><input name="nameEn" disabled></label>
+              <label><span>세대</span><input name="generation" type="number" min="1" max="9" disabled></label>
+              <label><span>표시 순서</span><input name="order" type="number" min="1" max="99" disabled></label>
+              <label class="wide"><span>지역 ID</span><input name="region" placeholder="cobbleventure:region/kanto" disabled></label>
+              <fieldset class="wide"><legend>트레이너풀 연결</legend><label class="wide"><span>사용할 NPC 엔트리</span><select name="trainerId" disabled></select></label><button class="button secondary" id="edit-league-trainer" type="button" disabled>트레이너풀에서 편집</button><small class="wide">선택한 NPC의 연결된 배틀 프리셋과 엔트리가 실제 관장·리그 전투에 사용됩니다.</small></fieldset>
+              <fieldset class="wide league-badge-fields"><legend>배지 · 트레이너카드</legend><label class="wide"><span>배지 아이템</span><select name="badgeItem" disabled></select><small>CobbleverseBadges에서 확인된 배지 아이템을 사용합니다.</small></label><label><span>배지 이름 (한국어)</span><input name="badgeNameKo" disabled></label><label><span>배지 이름 (영문)</span><input name="badgeNameEn" disabled></label><label class="toggle wide"><input name="badgeVisible" type="checkbox" checked disabled><span>트레이너카드에 표시</span></label></fieldset>
+            </form>
+            <div id="league-issues" class="issues empty">항목을 추가하거나 선택하세요.</div>
+          </div>
+        </div>
+      </section>
+
       <section class="page" id="worlds">
         <div class="panel world-map-panel">
           <div class="generation-bar">
@@ -148,6 +182,7 @@
                 <button type="button" class="editor-tool" data-map-tool="biome" title="바이옴 브러시 (B)" aria-label="바이옴 브러시"><span aria-hidden="true">◉</span><small>바이옴</small></button>
                 <button type="button" class="editor-tool" data-map-tool="terrain" title="빈 지형 브러시 (T)" aria-label="빈 지형 브러시"><span aria-hidden="true">▧</span><small>지형</small></button>
                 <button type="button" class="editor-tool" data-map-tool="climate" title="기후 오버라이드 (C)" aria-label="기후 오버라이드"><span aria-hidden="true">☂</span><small>기후</small></button>
+                <button type="button" class="editor-tool" data-map-tool="level" title="평균 레벨 브러시 (L)" aria-label="평균 레벨 브러시"><span class="level-tool-icon" aria-hidden="true">Lv</span><small>레벨</small></button>
                 <button type="button" class="editor-tool" data-map-tool="route" title="길 만들기 (R)" aria-label="길 만들기"><span aria-hidden="true">⌁</span><small>길</small></button>
                 <button type="button" class="editor-tool" data-map-tool="settlement" title="마을 배치 (S)" aria-label="마을 배치"><span aria-hidden="true">⌂</span><small>마을</small></button>
                 <button type="button" class="editor-tool" data-map-tool="cave" title="동굴 입구 배치 (D)" aria-label="동굴 입구 배치"><span aria-hidden="true">◒</span><small>동굴</small></button>
@@ -180,6 +215,13 @@
                   <label><span>브러시 반경</span><input id="climate-brush-radius" type="range" min="0" max="5" value="0"><output id="climate-brush-radius-value">0</output></label>
                   <p class="tool-panel-note">선택한 값만 좌표별로 덮어씁니다. ‘기본값’ 세 항목은 오버라이드를 제거합니다.</p>
                 </section>
+                <section class="tool-option-panel" data-tool-options="level" hidden>
+                  <label><span>지역 평균 레벨</span><div class="level-brush-value"><input id="level-brush-average" type="number" min="1" max="100" value="5"><strong>Lv.</strong></div></label>
+                  <label><span>평균 레벨 빠른 조절</span><input id="level-brush-average-range" type="range" min="1" max="100" value="5"><output id="level-brush-average-value">5</output></label>
+                  <label><span>브러시 반경</span><input id="level-brush-radius" type="range" min="0" max="5" value="1"><output id="level-brush-radius-value">1</output></label>
+                  <div class="level-quick-values" aria-label="평균 레벨 빠른 선택"><button type="button" data-level-quick="5">5</button><button type="button" data-level-quick="10">10</button><button type="button" data-level-quick="20">20</button><button type="button" data-level-quick="30">30</button><button type="button" data-level-quick="40">40</button><button type="button" data-level-quick="50">50</button></div>
+                  <p class="tool-panel-note">좌표별 평균 레벨을 저장하며 실제 야생 포켓몬은 평균 ±2 범위로 출현합니다.</p>
+                </section>
                 <section class="tool-option-panel" data-tool-options="route" hidden>
                   <label><span>길 종류</span><select id="route-surface"><option value="road">도로</option><option value="natural">자연 통로</option><option value="water">수로</option></select></label>
                   <label><span>통로 폭 (블록)</span><input id="route-width" type="number" min="12" max="256" value="12"></label>
@@ -206,16 +248,17 @@
                   <p class="tool-panel-note">구조물·포털·랜드마크 등 향후 커스텀 오브젝트를 위한 독립 레이어입니다.</p>
                 </section>
                 <section class="tool-option-panel" data-tool-options="eraser" hidden>
-                  <label><span>지울 레이어</span><select id="eraser-target"><option value="route">길</option><option value="biome">바이옴</option><option value="climate">기후 오버라이드</option><option value="terrain">빈 지형</option><option value="object">오브젝트</option><option value="all">모든 비마을 레이어</option></select></label>
+                  <label><span>지울 레이어</span><select id="eraser-target"><option value="route">길</option><option value="biome">바이옴</option><option value="climate">기후 오버라이드</option><option value="level">평균 레벨</option><option value="terrain">빈 지형</option><option value="object">오브젝트</option><option value="all">모든 비마을 레이어</option></select></label>
                   <label><span>지우개 반경</span><input id="eraser-radius" type="range" min="0" max="5" value="0"><output id="eraser-radius-value">0</output></label>
                   <p class="tool-panel-note">길을 선택하면 해당 셀을 지나는 길 전체가 삭제됩니다.</p>
                 </section>
-                <footer class="map-options-footer"><span>단축키 V/B/T/C/R/S/O/E</span><span>Space + 드래그 이동</span></footer>
+                <footer class="map-options-footer"><span>단축키 V/B/T/C/L/R/S/O/E</span><span>Space + 드래그 이동</span></footer>
               </div>
             </aside>
             <div class="world-map-canvas-wrap">
               <div class="map-toolbar">
                 <div class="map-legend"><span><i class="legend-dot village"></i>마을 중심</span><span><i class="legend-ring town-area"></i>마을 사용 범위</span><span><i class="legend-dot biome"></i>기본 바이옴</span><span><i class="legend-line route"></i>실제 연결 길</span><span><i class="legend-dot empty"></i>빈 지형 · 빨간 빗금</span></div>
+                <label class="level-overlay-toggle"><input id="level-overlay-toggle" type="checkbox"><span>레벨링 오버레이</span><i></i></label>
               </div>
               <div class="world-map-viewport" id="world-map-viewport">
                 <svg id="world-hex-map" viewBox="0 0 980 660" role="img" aria-label="육각형 기반 월드 미니맵"></svg>

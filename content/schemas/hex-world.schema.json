@@ -37,6 +37,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/environment_override" }
     },
+    "level_overrides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/level_override" }
+    },
     "empty_terrain": { "$ref": "#/$defs/empty_terrain" },
     "connections": {
       "type": "array",
@@ -99,6 +103,16 @@
         "temperature": { "enum": ["cold", "cool", "temperate", "hot"] },
         "humidity": { "enum": ["dry", "normal", "humid", "aquatic"] },
         "weather": { "enum": ["clear", "rain", "thunder", "snow", "fog"] }
+      }
+    },
+    "level_override": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q", "r", "average_level"],
+      "properties": {
+        "q": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "r": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "average_level": { "type": "integer", "minimum": 1, "maximum": 100 }
       }
     },
     "empty_terrain": {

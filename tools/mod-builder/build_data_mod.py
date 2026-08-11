@@ -28,6 +28,7 @@ SETTLEMENT_CONFIG_DIR = Path("content/settlements")
 STARTER_TOWN_CONFIG = SETTLEMENT_CONFIG_DIR / "generation_1/starter_town.json"
 HEX_WORLD_CONFIG_DIR = Path("content/worlds")
 BOUNDARY_PROFILE_CONFIG = Path("content/catalogs/boundary-profiles.json")
+GENERATED_CONTENT_DIR = Path("generated")
 FACILITY_STRUCTURE_SOURCE_DIR = Path("content/structures/placeholder")
 REQUIRED_ENTRIES = {
     "META-INF/neoforge.mods.toml",
@@ -51,6 +52,29 @@ GENERATED_SETTLEMENT_DIR = Path("data/cobbleventure/settlements")
 GENERATED_HEX_WORLD_DIR = Path("data/cobbleventure/hex_worlds")
 GENERATED_BOUNDARY_PROFILE = Path("data/cobbleventure/catalogs/boundary-profiles.json")
 LEGACY_GENERATED_SETTLEMENT_DIR = Path("data/cobbleventure/cobbleventure/settlements")
+
+
+def _package_generated_trainer_content(root: Path, output: Path) -> None:
+    """Package generated RCT trainers and Cobbleventure AI profiles into the mod."""
+    generated = _inside(root, root / GENERATED_CONTENT_DIR, "생성 콘텐츠 디렉터리")
+    rct_data = generated / "rct" / "data"
+    ai_profiles = generated / "cobbleventure" / "ai-profiles"
+    if not rct_data.is_dir():
+        # Minimal test fixtures and settlement-only consumers do not own battle
+        # content. A real repository with battle presets must never build a JAR
+        # that silently omits their generated RCT resources.
+        if (root / "content" / "battles").is_dir():
+            raise ModBuildError(
+                "생성된 RCT 트레이너가 없습니다. 먼저 content-manager generate를 실행하세요."
+            )
+        return
+    shutil.copytree(rct_data, output / "data", dirs_exist_ok=True)
+    if ai_profiles.is_dir():
+        shutil.copytree(
+            ai_profiles,
+            output / "data" / "cobbleventure" / "ai-profiles",
+            dirs_exist_ok=True,
+        )
 
 
 class ModBuildError(RuntimeError):
@@ -1340,6 +1364,7 @@ def build(root: Path) -> Path:
             shutil.rmtree(generated_directory)
     _package_settlements(root, output, settlements)
     _package_hex_worlds(root, output, settlements)
+    _package_generated_trainer_content(root, output)
     if first_generated is None:
         raise ModBuildError("생성할 BCA 마을 허브가 없습니다.")
     return first_generated

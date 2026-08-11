@@ -23,10 +23,11 @@ const state = {
   pokemonMapTab: "selected", pokemonMapQuery: "",
   selectedHex: null, mapRadius: 6, mapZoom: 1, mapCenter: { x: 490, y: 330 }, mapViewInitialized: false,
   mapPan: null, suppressMapClick: false, draggedSettlement: null, routeDraft: null, worldDirty: false,
-  activeMapTool: "select", paintStroke: null, brushPreview: null, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null,
+  activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null,
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
   structureViewer: { query: "", selected: "", model: null, yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0 },
-  customTownTool: "cell"
+  customTownTool: "cell",
+  leagueProgression: { schema_version: 1, entries: [] }, selectedLeagueId: ""
 };
 const lazyDataLoaded = { trainers: false, biomes: false, structures: false };
 const lazyDataPromises = { trainers: null, biomes: null, structures: null };
@@ -175,7 +176,7 @@ function escapeHtml(value) {
 function switchPage(section) {
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === section));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "NPC 상호작용", battles: "배틀 프리셋", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", structures: "NBT 건물 3D", biomes: "바이옴 관리", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", structures: "NBT 건물 3D", biomes: "바이옴 관리", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderStructureModel);
@@ -197,15 +198,16 @@ async function loadDashboard() {
 }
 
 async function loadLists() {
-  const [trainers, battles, settlements, caves, worldLayouts, worldLayout, worldPokemonMap] = await Promise.all([
+  const [trainers, battles, settlements, caves, worldLayouts, worldLayout, worldPokemonMap, league] = await Promise.all([
     request("/api/trainers"), request("/api/battles"), request("/api/settlements"), request("/api/caves"),
     request("/api/world-layouts"), request(`/api/world-layout?generation=${state.selectedGeneration}`),
-    request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`)
+    request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`), request("/api/league-progression")
   ]);
   state.trainers = trainers.data.items || [];
   state.battles = battles.data.items || [];
   state.settlements = settlements.data.items || [];
   state.caves = caves.data.items || [];
+  if (league.ok) state.leagueProgression = league.data;
   state.worldGenerations = worldLayouts.ok ? worldLayouts.data.generations || [1] : [1];
   state.worldLayout = worldLayout.ok ? worldLayout.data : null;
   if (worldPokemonMap.ok) state.worldPokemonMap = worldPokemonMap.data;
@@ -213,6 +215,7 @@ async function loadLists() {
   renderList("battles");
   renderList("settlements");
   renderList("caves");
+  renderLeagueList();
   renderWorldLayout();
 }
 
@@ -282,7 +285,7 @@ async function loadStructureData(force = false) {
 }
 
 function loadSectionData(section, force = false) {
-  if (section === "trainers" || section === "battles") return loadTrainerData(force);
+  if (section === "trainers" || section === "battles" || section === "league") return loadTrainerData(force).then(() => { if (section === "league") renderLeagueEditor(); });
   if (section === "biomes") return loadBiomeData(force);
   if (section === "structures") return loadStructureData(force);
   if (section === "settlements") return Promise.all([loadBiomeData(force), loadStructureData(force)]);
@@ -331,15 +334,17 @@ function renderWorldLayout() {
   layout.objects ||= [];
   layout.cave_entrances ||= [];
   layout.environment_overrides ||= [];
+  layout.level_overrides ||= [];
   layout.empty_terrain ||= { default_type: "high_forest", tiles: [] };
   layout.empty_terrain.default_type ||= "high_forest";
   layout.empty_terrain.tiles ||= [];
-  const occupiedExtent = [...layout.tiles, ...layout.empty_terrain.tiles, ...layout.settlements.map((node) => node.anchor || { q: 0, r: 0 }), ...layout.objects.map((node) => node.anchor || { q: 0, r: 0 }), ...layout.cave_entrances.map((node) => node.anchor || { q: 0, r: 0 })].reduce((largest, cell) => Math.max(largest, Math.abs(cell.q || 0), Math.abs(cell.r || 0), Math.abs((cell.q || 0) + (cell.r || 0))), 0);
+  const occupiedExtent = [...layout.tiles, ...layout.empty_terrain.tiles, ...layout.level_overrides, ...layout.settlements.map((node) => node.anchor || { q: 0, r: 0 }), ...layout.objects.map((node) => node.anchor || { q: 0, r: 0 }), ...layout.cave_entrances.map((node) => node.anchor || { q: 0, r: 0 })].reduce((largest, cell) => Math.max(largest, Math.abs(cell.q || 0), Math.abs(cell.r || 0), Math.abs((cell.q || 0) + (cell.r || 0))), 0);
   state.mapRadius = Math.max(Number(layout.grid?.map_radius_cells || state.mapRadius), Math.min(14, occupiedExtent + 1));
   renderGenerationTabs();
   renderMapToolOptions();
   $("#world-map-title").textContent = `${state.selectedGeneration}세대 월드`;
   $("#tile-radius-blocks").value = layout.grid?.tile_radius_blocks || 64;
+  $("#level-overlay-toggle").checked = state.levelOverlayVisible;
   if (!state.mapViewInitialized) fitMapToContent();
   renderHexMap();
   renderTileInspector();
@@ -424,6 +429,7 @@ function emptyTerrainSymbol(type) { return ({ high_forest: "♣", ocean: "≈", 
 function settlementAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function objectAt(q, r) { return state.worldLayout?.objects?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function environmentOverrideAt(q, r) { return state.worldLayout?.environment_overrides?.find((entry) => entry.q === q && entry.r === r); }
+function levelOverrideAt(q, r) { return state.worldLayout?.level_overrides?.find((entry) => entry.q === q && entry.r === r); }
 function townFootprintCells(center, cellCount, shape = "line_q", customCells = []) {
   const count = normalizeTownCellCount(cellCount);
   if (shape === "custom") return normalizedAxialCells(customCells).map((cell) => ({ q: center.q + cell.q, r: center.r + cell.r }));
@@ -506,12 +512,13 @@ function baseBiomeAt(q, r) {
   return townArea ? (townArea.town_biome || "minecraft:plains") : null;
 }
 
-const brushMapTools = new Set(["biome", "terrain", "climate", "eraser"]);
+const brushMapTools = new Set(["biome", "terrain", "climate", "level", "eraser"]);
 function activeBrushRadius() {
   const inputId = {
     biome: "biome-brush-radius",
     terrain: "empty-terrain-brush-radius",
     climate: "climate-brush-radius",
+    level: "level-brush-radius",
     eraser: "eraser-radius"
   }[state.activeMapTool];
   return inputId ? Math.max(0, Number($(`#${inputId}`)?.value || 0)) : null;
@@ -527,6 +534,18 @@ function renderBrushPreview() {
   }).join("");
   return `<g class="brush-preview tool-${state.activeMapTool}" aria-hidden="true">${cells}</g>`;
 }
+function levelOverlayColor(level) {
+  const ratio = Math.max(0, Math.min(1, (level - 1) / 99));
+  return `hsl(${Math.round(112 - ratio * 112)} 72% 48%)`;
+}
+function renderLevelOverlay(cells) {
+  if (!state.levelOverlayVisible && state.activeMapTool !== "level") return "";
+  const visible = new Set(cells.map((cell) => hexKey(cell.q, cell.r)));
+  return `<g class="level-overlay" aria-label="평균 레벨 오버레이">${(state.worldLayout.level_overrides || []).filter((entry) => visible.has(hexKey(entry.q, entry.r))).map((entry) => {
+    const { x, y } = hexPoint(entry.q, entry.r); const color = levelOverlayColor(entry.average_level);
+    return `<g class="level-overlay-entry"><polygon style="--level-color:${color}" points="${hexPolygon(x, y, mapHexSize() - 3)}"></polygon><text x="${x}" y="${y + 4}">${entry.average_level}</text></g>`;
+  }).join("")}</g>`;
+}
 
 function renderHexMap() {
   const svg = $("#world-hex-map");
@@ -535,15 +554,17 @@ function renderHexMap() {
   const tiles = cells.map(({ q, r }) => {
     const { x, y } = hexPoint(q, r); const tile = tileAt(q, r); const town = settlementAt(q, r); const townArea = settlementFootprintAt(q, r);
     const route = townArea ? null : primaryRouteAt(q, r);
-    const selected = state.selectedHex?.q === q && state.selectedHex?.r === r; const environment = environmentOverrideAt(q, r);
+    const selected = state.selectedHex?.q === q && state.selectedHex?.r === r; const environment = environmentOverrideAt(q, r); const leveling = levelOverrideAt(q, r);
     const emptyType = emptyTerrainAt(q, r);
     const tone = townArea ? biomeTone(townArea.town_biome || "minecraft:plains") : tile ? biomeTone(tile.biome) : emptyTerrainTone(emptyType);
     const baseLabel = town ? settlementSummary(town.settlement)?.name || "마을" : townArea ? `${settlementSummary(townArea.settlement)?.name || "마을"} 사용 범위` : tile ? tile.biome : emptyTerrainLabel(emptyType);
     const climateLabel = environment ? `, 기후 ${environment.temperature || "기본"}/${environment.humidity || "기본"}/${environment.weather || "기본"}` : "";
-    const label = (route ? `${baseLabel}, 길 ${route.id}` : baseLabel) + climateLabel;
+    const levelLabel = leveling ? `, 평균 레벨 ${leveling.average_level}` : "";
+    const label = (route ? `${baseLabel}, 길 ${route.id}` : baseLabel) + climateLabel + levelLabel;
     const isEmpty = !townArea && !tile; const polygon = hexPolygon(x, y);
     return `<g class="hex-cell ${selected ? "is-selected" : ""} ${route ? "is-route-terrain" : ""} ${environment ? "has-climate-override" : ""} ${isEmpty ? `is-empty-terrain empty-type-${emptyType}` : ""} tone-${tone}" data-hex-q="${q}" data-hex-r="${r}" tabindex="0" role="button" aria-label="Q ${q}, R ${r}, ${escapeHtml(label)}"><polygon points="${polygon}"></polygon>${isEmpty ? `<path class="empty-terrain-hatch" d="M${polygon}Z"></path><text class="empty-terrain-symbol" x="${x}" y="${y + 3}">${emptyTerrainSymbol(emptyType)}</text>` : ""}${tile && !townArea ? `<circle class="biome-pin" cx="${x}" cy="${y}" r="3"></circle>` : ""}${environment ? `<path class="climate-pin" d="M${x - 7} ${y - 12}h14v5h-14z"></path>` : ""}</g>`;
   }).join("");
+  const levelOverlay = renderLevelOverlay(cells);
   const townAreas = cells.map(({ q, r }) => {
     const owner = settlementFootprintAt(q, r); if (!owner) return "";
     const { x, y } = hexPoint(q, r); const name = settlementSummary(owner.settlement)?.name || owner.settlement;
@@ -589,9 +610,9 @@ function renderHexMap() {
     return `<g class="hex-cave-entrance" data-route-cave-entrance="${escapeHtml(node.id)}" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(caveName)} ${escapeHtml(node.entrance)} 입구"><circle r="16"></circle><path d="M-10 7Q-9-9 0-11Q9-9 10 7ZM-4 7V0Q0-5 4 0V7Z"></path><text y="30">${escapeHtml(caveName)} · ${escapeHtml(node.entrance)}</text><text class="center-badge" x="13" y="-12">＋</text></g>`;
   }).join("");
   const brushPreview = renderBrushPreview();
-  svg.innerHTML = `<defs><pattern id="empty-terrain-red-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#d52828" stroke-width="2.2" opacity=".78"></line></pattern></defs><g class="hex-map-layer">${tiles}${townAreas}${routes}${draftRoute}${towns}${objects}${caveEntrances}${routeAnchors}${brushPreview}</g>`;
+  svg.innerHTML = `<defs><pattern id="empty-terrain-red-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#d52828" stroke-width="2.2" opacity=".78"></line></pattern></defs><g class="hex-map-layer">${tiles}${levelOverlay}${townAreas}${routes}${draftRoute}${towns}${objects}${caveEntrances}${routeAnchors}${brushPreview}</g>`;
   const routeCellCount = new Set((state.worldLayout.connections || []).flatMap((connection) => connectionPath(connection).map((cell) => `${cell.q},${cell.r}`))).size;
-  $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 오버라이드 ${(state.worldLayout.environment_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳 · 동굴 입구 ${(state.worldLayout.cave_entrances || []).length}곳`;
+  $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 ${(state.worldLayout.environment_overrides || []).length}칸 · 레벨 ${(state.worldLayout.level_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳 · 동굴 입구 ${(state.worldLayout.cave_entrances || []).length}곳`;
   $("#map-zoom").textContent = `${Math.round(state.mapZoom * 100)}%`;
   $$("[data-hex-q]").forEach((cell) => {
     const select = () => { if (!state.suppressMapClick) handleHexSelection(Number(cell.dataset.hexQ), Number(cell.dataset.hexR)); };
@@ -661,6 +682,7 @@ function handleHexSelection(q, r) {
   if (tool === "biome") paintBiomeArea(q, r);
   else if (tool === "terrain") paintEmptyTerrainArea(q, r);
   else if (tool === "climate") paintClimateArea(q, r);
+  else if (tool === "level") paintLevelArea(q, r);
   else if (tool === "route") handleRoutePoint(q, r);
   else if (tool === "settlement") placeSettlementWithTool(q, r);
   else if (tool === "cave") placeCaveEntranceWithTool(q, r);
@@ -717,12 +739,22 @@ function paintClimateArea(q, r) {
   }
   state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
+function paintLevelArea(q, r) {
+  const averageLevel = Math.max(1, Math.min(100, Math.round(Number($("#level-brush-average").value || 1))));
+  const radius = Number($("#level-brush-radius").value || 0);
+  for (const cell of hexArea({ q, r }, radius)) {
+    state.worldLayout.level_overrides = state.worldLayout.level_overrides.filter((entry) => entry.q !== cell.q || entry.r !== cell.r);
+    state.worldLayout.level_overrides.push({ q: cell.q, r: cell.r, average_level: averageLevel });
+  }
+  state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
+}
 function eraseMapArea(q, r) {
   const target = $("#eraser-target").value; const radius = Number($("#eraser-radius").value || 0);
   const keys = new Set(hexArea({ q, r }, radius).map((cell) => hexKey(cell.q, cell.r)));
   if (target === "route" || target === "all") state.worldLayout.connections = state.worldLayout.connections.filter((route) => !connectionPath(route).some((cell) => keys.has(hexKey(cell.q, cell.r))));
   if (target === "biome" || target === "all") state.worldLayout.tiles = state.worldLayout.tiles.filter((tile) => !keys.has(hexKey(tile.q, tile.r)));
   if (target === "climate" || target === "all") state.worldLayout.environment_overrides = state.worldLayout.environment_overrides.filter((entry) => !keys.has(hexKey(entry.q, entry.r)));
+  if (target === "level" || target === "all") state.worldLayout.level_overrides = state.worldLayout.level_overrides.filter((entry) => !keys.has(hexKey(entry.q, entry.r)));
   if (target === "terrain" || target === "all") state.worldLayout.empty_terrain.tiles = state.worldLayout.empty_terrain.tiles.filter((tile) => !keys.has(hexKey(tile.q, tile.r)));
   if (target === "object" || target === "all") state.worldLayout.objects = state.worldLayout.objects.filter((object) => !keys.has(hexKey(object.anchor.q, object.anchor.r)));
   if (target === "all") state.worldLayout.cave_entrances = state.worldLayout.cave_entrances.filter((entrance) => !keys.has(hexKey(entrance.anchor.q, entrance.anchor.r)));
@@ -782,7 +814,7 @@ function renderTileInspector() {
   const selected = state.selectedHex; const form = $("#tile-inspector-form");
   $("#tile-inspector-empty").hidden = Boolean(selected); form.hidden = !selected;
   if (!selected) { $("#selected-tile-title").textContent = "타일을 선택하세요"; $("#selected-tile-coord").textContent = "Q — · R —"; renderWorldPokemonPanel(); return; }
-  const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r); const customObject = objectAt(selected.q, selected.r); const townArea = settlementFootprintAt(selected.q, selected.r); const environment = environmentOverrideAt(selected.q, selected.r);
+  const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r); const customObject = objectAt(selected.q, selected.r); const townArea = settlementFootprintAt(selected.q, selected.r); const environment = environmentOverrideAt(selected.q, selected.r); const leveling = levelOverrideAt(selected.q, selected.r);
   const routes = routesAt(selected.q, selected.r);
   const kind = customObject ? "object" : town ? "settlement" : tile ? "biome" : "empty";
   $("#selected-tile-title").textContent = customObject ? customObject.id : town ? (settlementSummary(town.settlement)?.name || "마을 타일") : tile ? tile.biome.replace("minecraft:", "") : emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r));
@@ -802,8 +834,9 @@ function renderTileInspector() {
   $$('[data-remove-route]').forEach((button) => button.addEventListener("click", () => removeRouteConnection(button.dataset.removeRoute)));
   const routeNote = routes.length ? `<small>길 오버레이: ${routes.map((route) => escapeHtml(route.id)).join(", ")} · 기본 바이옴은 별도로 유지됩니다.</small>` : "";
   const climateNote = environment ? `<small class="climate-override-note">기후 덮어쓰기 · 온도 ${escapeHtml(environment.temperature || "기본")} · 습도 ${escapeHtml(environment.humidity || "기본")} · 날씨 ${escapeHtml(environment.weather || "기본")}</small>` : "";
+  const levelNote = leveling ? `<small class="level-override-note">레벨링 오버레이 · 지역 평균 Lv.${leveling.average_level} · 야생 스폰은 평균 ±2 적용</small>` : "";
   const townAreaNote = townArea && !town ? `<small class="town-area-warning">실제 생성: ${escapeHtml(settlementSummary(townArea.settlement)?.name || townArea.settlement)} 사용 범위 · 이 타일의 바이옴 배치는 무시됩니다.</small>` : "";
-  $("#tile-summary").innerHTML = (kind === "object" ? `<b>${escapeHtml(customObject.id)}</b><span>${escapeHtml(customObject.type)} 오브젝트</span><small>바이옴과 길 위에 독립적으로 배치되는 확장용 메타데이터입니다.</small>` : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote;
+  $("#tile-summary").innerHTML = (kind === "object" ? `<b>${escapeHtml(customObject.id)}</b><span>${escapeHtml(customObject.type)} 오브젝트</span><small>바이옴과 길 위에 독립적으로 배치되는 확장용 메타데이터입니다.</small>` : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote + levelNote;
   renderWorldPokemonPanel();
 }
 
@@ -849,6 +882,7 @@ const mapToolCopy = {
   biome: ["바이옴 브러시", "기본 바이옴 레이어를 클릭하거나 드래그해 칠합니다."],
   terrain: ["빈 지형 브러시", "접근 불가 배경 지형을 칠합니다."],
   climate: ["기후 오버라이드", "온도·습도·날씨를 좌표별로 덮어씁니다."],
+  level: ["평균 레벨 브러시", "야생 포켓몬 지역의 목표 평균 레벨을 칠합니다."],
   route: ["길 만들기", "마을 자동 연결 또는 타일 경유 경로를 만듭니다."],
   settlement: ["마을 배치", "프리셋 마을을 배치하거나 이동합니다."],
   cave: ["동굴 입구 배치", "동굴 내부 앵커와 연결되는 입구와 필수 포켓몬센터를 배치합니다."],
@@ -867,7 +901,7 @@ function renderMapToolOptions() {
   $("#cave-tool-cave").innerHTML = state.caves.filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
   if (currentCave && state.caves.some((item) => item.id === currentCave)) $("#cave-tool-cave").value = currentCave;
   refreshCaveToolEntrances();
-  const help = { select: "선택 도구 · 드래그: 지도/마을 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", route: "길 도구 · 마을/동굴 입구까지 자동 연결", settlement: "마을 도구 · 타일을 눌러 배치 또는 이동", cave: "동굴 입구 도구 · 입구와 포켓몬센터를 함께 배치", object: "오브젝트 도구 · 독립 레이어에 배치", eraser: "지우개 · 선택 레이어 제거" };
+  const help = { select: "선택 도구 · 드래그: 지도/마을 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", level: "평균 레벨 브러시 · 레벨링 오버레이에 표시", route: "길 도구 · 마을/동굴 입구까지 자동 연결", settlement: "마을 도구 · 타일을 눌러 배치 또는 이동", cave: "동굴 입구 도구 · 입구와 포켓몬센터를 함께 배치", object: "오브젝트 도구 · 독립 레이어에 배치", eraser: "지우개 · 선택 레이어 제거" };
   $("#map-interaction-help").textContent = help[tool];
   $("#world-hex-map").dataset.activeTool = tool;
   renderRouteCreator();
@@ -884,10 +918,11 @@ function applyStrokeTool(q, r) {
   if (state.activeMapTool === "biome") paintBiomeArea(q, r);
   else if (state.activeMapTool === "terrain") paintEmptyTerrainArea(q, r);
   else if (state.activeMapTool === "climate") paintClimateArea(q, r);
+  else if (state.activeMapTool === "level") paintLevelArea(q, r);
   else if (state.activeMapTool === "eraser") eraseMapArea(q, r);
 }
 function beginToolStroke(event) {
-  if (!new Set(["biome", "terrain", "climate", "eraser"]).has(state.activeMapTool) || event.button !== 0 || state.spacePanActive) return false;
+  if (!new Set(["biome", "terrain", "climate", "level", "eraser"]).has(state.activeMapTool) || event.button !== 0 || state.spacePanActive) return false;
   event.preventDefault(); const cell = nearestHexFromPointer(event);
   state.paintStroke = { pointerId: event.pointerId, lastKey: "" }; $("#world-hex-map").setPointerCapture?.(event.pointerId);
   continueToolStroke(event, cell); return true;
@@ -1157,7 +1192,7 @@ function finishSettlementDrag(event) {
 async function addGeneration() {
   const generation = Array.from({ length: 9 }, (_, index) => index + 1).find((value) => !state.worldGenerations.includes(value));
   if (!generation) { toast("9세대까지 모두 추가되어 있습니다."); return; }
-  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, dimension: `cobbleventure:generation_${generation}`, seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], environment_overrides: [], settlements: [], cave_entrances: [], connections: [], objects: [] };
+  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, dimension: `cobbleventure:generation_${generation}`, seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], environment_overrides: [], level_overrides: [], settlements: [], cave_entrances: [], connections: [], objects: [] };
   const result = await request(`/api/world-layout?generation=${generation}`, { method: "PUT", body: JSON.stringify(payload) });
   if (!result.ok) { toast(result.data.error || "세대를 추가하지 못했습니다."); return; }
   state.worldGenerations.push(generation); state.worldGenerations.sort((a, b) => a - b); state.selectedGeneration = generation; state.worldLayout = payload; state.selectedHex = null; state.worldDirty = false; state.mapViewInitialized = false; renderWorldLayout(); toast(`${generation}세대 월드를 추가했습니다.`);
@@ -1310,6 +1345,39 @@ function updateCaveFromForm() {
   state.cave.internal_biomes = internalBiomes; state.cave.entrances = entrances; $("#cave-json").value = JSON.stringify(state.cave, null, 2); return true;
 }
 
+function doubleBattleDefaults(npcId) {
+  const slug = String(npcId || "double_npc").split("/").at(-1).replace(/[^a-z0-9_./-]/g, "_");
+  return {
+    group_id: `cobbleventure:double_battle/${slug}`,
+    shared_clear_key: `cobbleventure:clear/double_battle/${slug}`,
+  };
+}
+
+function renderDoubleBattleSettings(form = $("#trainer-form")) {
+  const enabled = form.elements.doubleBattleEnabled.checked;
+  $$('[data-double-battle-field]').forEach((element) => { element.hidden = !enabled; });
+  const partnerId = form.elements.doubleBattlePartner.value;
+  const partnerSlug = partnerId.split("/").at(-1);
+  form.elements.doubleBattleSpawnCommand.value = partnerId
+    ? `/easy_npc preset import_new data easy_npc:preset/encounter/${partnerSlug}.npc.snbt ~ ~ ~`
+    : "파트너 NPC를 선택하세요.";
+  $("#copy-double-spawn-command").disabled = !enabled || !partnerId;
+}
+
+function ensureDoubleBattleClearCommand(clearKey) {
+  if (!clearKey) return;
+  for (const event of state.trainer?.events || []) {
+    const commands = event.commands || [];
+    if (commands.some((command) => command.type === "mark_clear" && command.key === clearKey)) continue;
+    const winLabels = new Set(commands
+      .filter((command) => command.type === "start_battle")
+      .map((command) => command.results?.player_win)
+      .filter(Boolean));
+    const labelIndex = commands.findIndex((command) => command.type === "label" && winLabels.has(command.name));
+    if (labelIndex >= 0) commands.splice(labelIndex + 1, 0, { type: "mark_clear", key: clearKey });
+  }
+}
+
 function renderTrainer() {
   const document = state.trainer;
   const form = $("#trainer-form");
@@ -1353,6 +1421,19 @@ function renderTrainer() {
   setFormValue(form, "warningRangeMax", encounter.warning_range?.max ?? 6);
   setFormValue(form, "lookAtPlayer", document.npc?.behavior?.look_at_player);
   setFormValue(form, "invulnerable", document.npc?.behavior?.invulnerable);
+  const doubleBattle = document.npc?.double_battle;
+  form.elements.doubleBattlePartner.innerHTML = [
+    '<option value="">파트너 NPC 선택</option>',
+    ...state.trainers
+      .filter((trainer) => trainer.id !== document.id)
+      .map((trainer) => `<option value="${escapeHtml(trainer.id)}">${escapeHtml(trainer.name || trainer.id)} · ${escapeHtml(trainer.id)}</option>`),
+  ].join("");
+  setFormValue(form, "doubleBattleEnabled", Boolean(doubleBattle));
+  setFormValue(form, "doubleBattlePartner", doubleBattle?.partner || "");
+  const doubleDefaults = doubleBattleDefaults(document.id);
+  setFormValue(form, "doubleBattleGroupId", doubleBattle?.group_id || doubleDefaults.group_id);
+  setFormValue(form, "doubleBattleClearKey", doubleBattle?.shared_clear_key || doubleDefaults.shared_clear_key);
+  renderDoubleBattleSettings(form);
   setFormValue(form, "battleFormat", battle.format);
   setFormValue(form, "battleType", battle.battle_type);
   setFormValue(form, "battleDifficulty", ai.difficulty);
@@ -1382,12 +1463,13 @@ function renderTrainer() {
   setFormValue(form, "rewardItem", fixedReward.item);
   setFormValue(form, "rewardItemCount", fixedReward.count);
   setFormValue(form, "rewardLootTable", itemReward.loot_table || "cobbleventure:trainer/rewards");
-  setFormValue(form, "spawnCommand", `/easy_npc preset import_new data cobbleventure:encounter/${document.id.split("/").at(-1)} ~ ~ ~`);
+  setFormValue(form, "spawnCommand", `/easy_npc preset import_new data easy_npc:preset/encounter/${document.id.split("/").at(-1)}.npc.snbt ~ ~ ~`);
   renderTrainerRewardFields(form);
   $("#max-item-uses").value = Number.isInteger(battle.rules?.max_item_uses)
     ? battle.rules.max_item_uses
     : "";
   [...form.elements].forEach((element) => element.disabled = false);
+  renderDoubleBattleSettings(form);
   $("#max-item-uses").disabled = false;
   const battleFieldNames = ["battleFormat", "battleType", "battleDifficulty", "battleAi", "cheatProbability", "levelMode", "megaEvolution", "zMove", "dynamax", "terastallization"];
   battleFieldNames.forEach((name) => { form.elements[name].disabled = !attachedBattle; });
@@ -1422,6 +1504,19 @@ function updateTrainerFromForm() {
     });
     delete state.trainer.npc.behavior.interaction_range;
     delete state.trainer.npc.behavior.encounter;
+    if (form.elements.doubleBattleEnabled.checked) {
+      const defaults = doubleBattleDefaults(state.trainer.id);
+      const sharedClearKey = form.elements.doubleBattleClearKey.value.trim() || defaults.shared_clear_key;
+      state.trainer.npc.double_battle = {
+        partner: form.elements.doubleBattlePartner.value,
+        group_id: form.elements.doubleBattleGroupId.value.trim() || defaults.group_id,
+        shared_clear_key: sharedClearKey,
+      };
+      ensureDoubleBattleClearCommand(sharedClearKey);
+    } else {
+      delete state.trainer.npc.double_battle;
+    }
+    renderDoubleBattleSettings(form);
     renderTrainerPreview();
     syncTrainerJson();
     return;
@@ -1536,7 +1631,7 @@ function renderTrainerRewardFields(form = $("#trainer-form")) {
 const eventCommandLabels = {
   branch: "조건 분기", label: "라벨", dialogue: "대화 표시", choices: "선택지 표시",
   goto: "라벨로 이동", start_battle: "배틀 시작", set_flag: "플래그 변경",
-  give_money: "돈 지급", give_item: "아이템 지급", grant_loot: "루트 테이블 지급", end: "이벤트 종료",
+  give_money: "돈 지급", take_money: "돈 차감", give_item: "아이템 지급", grant_loot: "루트 테이블 지급", mark_clear: "클리어 처리", end: "이벤트 종료",
 };
 const expandedEventCommands = new Set();
 
@@ -1560,7 +1655,9 @@ function eventCommandSummary(command) {
   if (command.type === "goto") return `→ ${command.target || "라벨 없음"}`;
   if (command.type === "start_battle") return `${command.battle || "배틀 없음"} · 승리→${command.results?.player_win || "-"} · 패배→${command.results?.player_loss || "-"}`;
   if (command.type === "set_flag") return `${command.key || "플래그 없음"} = ${String(command.value)}`;
+  if (command.type === "mark_clear") return command.key || "클리어 ID 없음";
   if (command.type === "give_money") return command.mode === "level_cap_multiplier" ? `레벨캡 × ${command.multiplier || 1}` : `${Number(command.amount || 0).toLocaleString()} 지급`;
+  if (command.type === "take_money") return command.mode === "level_cap_multiplier" ? `레벨캡 × ${command.multiplier || 1} 차감` : `${Number(command.amount || 0).toLocaleString()} 차감`;
   if (command.type === "give_item") return `${command.item || "아이템 없음"} × ${command.count || 1}`;
   if (command.type === "grant_loot") return command.loot_table || "루트 테이블 없음";
   if (command.type === "end") return "이벤트 실행 종료";
@@ -1574,10 +1671,51 @@ function defaultNpcDialogueFlag() {
   return `${namespace}:flag/npc/${slug}/talked`;
 }
 
+function defaultProgressionClearKey(type) {
+  const rawId = String(state.trainer?.id || "cobbleventure:npc/new_npc");
+  const [namespace = "cobbleventure", path = "npc/new_npc"] = rawId.split(":");
+  const slug = path.replace(/^npc\//, "").replace(/[^a-z0-9_/.-]+/gi, "_");
+  const group = { gym: "gym", elite: "elite", champion: "champion" }[type] || "battle";
+  return `${namespace}:clear/${group}/${slug}`;
+}
+
 function renderEventPresetFields() {
   const type = $("#event-preset-type").value;
-  $$('[data-event-preset-option="repeat"]').forEach((element) => { element.hidden = type === "simple"; });
+  const battleTypes = ["battle", "gym", "elite", "champion"];
+  const progressionTypes = ["gym", "elite", "champion"];
+  $$('[data-event-preset-option="repeat"]').forEach((element) => { element.hidden = !["repeat", "item"].includes(type); });
   $$('[data-event-preset-option="item"]').forEach((element) => { element.hidden = type !== "item"; });
+  $$('[data-event-preset-option="battle"]').forEach((element) => { element.hidden = !battleTypes.includes(type); });
+  $$('[data-event-preset-option="gym"]').forEach((element) => { element.hidden = type !== "gym"; });
+  $$('[data-event-preset-option="progression"]').forEach((element) => { element.hidden = !progressionTypes.includes(type); });
+  const battleSelect = $("#event-preset-battle");
+  const selectedBattle = battleSelect.value;
+  battleSelect.innerHTML = state.battles.map((battle) => `<option value="${escapeHtml(battle.id)}">${escapeHtml(battle.name?.ko_kr || battle.id)}</option>`).join("") || '<option value="cobbleventure:battle/example">등록된 배틀 프리셋 없음</option>';
+  if ([...battleSelect.options].some((option) => option.value === selectedBattle)) battleSelect.value = selectedBattle;
+  const badgeSelect = $("#event-preset-badge");
+  const selectedBadge = badgeSelect.value;
+  const badges = (state.editorCatalog?.items || []).filter((item) => item.id?.startsWith("cobbleversebadges:") && /_badge$/.test(item.id));
+  badgeSelect.innerHTML = badges.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.englishName || item.id)} · ${escapeHtml(item.id)}</option>`).join("") || '<option value="cobbleversebadges:kanto_boulder_badge">Boulder Badge · cobbleversebadges:kanto_boulder_badge</option>';
+  if ([...badgeSelect.options].some((option) => option.value === selectedBadge)) badgeSelect.value = selectedBadge;
+  const clearKey = $("#event-preset-clear-key");
+  if (progressionTypes.includes(type) && clearKey.dataset.presetType !== type) {
+    clearKey.dataset.presetType = type;
+    clearKey.value = defaultProgressionClearKey(type);
+  }
+}
+
+function dialogueLines(value) {
+  return String(value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
+
+function dialogueCommands(idPrefix, text, speaker = "npc") {
+  const lines = dialogueLines(text);
+  return (lines.length ? lines : ["대사를 입력하세요."]).map((line, index) => ({
+    type: "dialogue",
+    id: lines.length > 1 ? `${idPrefix}_${index + 1}` : idPrefix,
+    speaker,
+    text: { ko_kr: line },
+  }));
 }
 
 function applyEventScriptPreset() {
@@ -1588,21 +1726,53 @@ function applyEventScriptPreset() {
   const repeatText = $("#event-preset-repeat-text").value.trim() || "다시 만났네요.";
   if (type === "simple") {
     event.commands = [
-      { type: "dialogue", id: "greeting", speaker: "npc", text: { ko_kr: firstText } },
+      ...dialogueCommands("greeting", firstText),
       { type: "end" },
     ];
+  } else if (["battle", "gym", "elite", "champion"].includes(type)) {
+    const battle = $("#event-preset-battle").value;
+    const currency = $("#event-preset-currency").value.trim() || "cobbleventure_money";
+    const winMoney = Math.max(0, Number($("#event-preset-win-money").value) || 0);
+    const lossMoney = Math.max(0, Number($("#event-preset-loss-money").value) || 0);
+    const winItem = $("#event-preset-win-item").value.trim();
+    event.commands = [
+      ...dialogueCommands("battle_greeting", firstText),
+      { type: "choices", options: [
+        { id: "battle", text: { ko_kr: "승부한다" }, target: "battle_start" },
+        { id: "cancel", text: { ko_kr: "다음에" }, target: "end" },
+      ] },
+      { type: "label", name: "battle_start" },
+      { type: "start_battle", battle, results: { player_win: "battle_win", player_loss: "battle_loss", cancelled: "end" } },
+      { type: "label", name: "battle_win" },
+    ];
+    const clearKey = $("#event-preset-clear-key").value.trim();
+    if (["gym", "elite", "champion"].includes(type) && clearKey) event.commands.push({ type: "mark_clear", key: clearKey });
+    if (type === "gym") event.commands.push({ type: "give_item", item: $("#event-preset-badge").value, count: 1 });
+    if (winMoney > 0) event.commands.push({ type: "give_money", mode: "fixed", amount: winMoney, currency_objective: currency });
+    if (winItem) event.commands.push({ type: "give_item", item: winItem, count: Math.max(1, Number($("#event-preset-win-item-count").value) || 1) });
+    event.commands.push(
+      ...dialogueCommands("battle_win", $("#event-preset-win-text").value),
+      { type: "goto", target: "end" },
+      { type: "label", name: "battle_loss" },
+    );
+    if (lossMoney > 0) event.commands.push({ type: "take_money", mode: "fixed", amount: lossMoney, currency_objective: currency });
+    event.commands.push(
+      ...dialogueCommands("battle_loss", $("#event-preset-loss-text").value),
+      { type: "label", name: "end" },
+      { type: "end" },
+    );
   } else {
     const flag = $("#event-preset-flag").value.trim() || defaultNpcDialogueFlag();
     event.commands = [
       { type: "branch", conditions: [{ type: "flag_equals", key: flag, value: true }], target: "repeat_greeting" },
-      { type: "dialogue", id: "first_greeting", speaker: "npc", text: { ko_kr: firstText } },
+      ...dialogueCommands("first_greeting", firstText),
     ];
     if (type === "item") event.commands.push({ type: "give_item", item: $("#event-preset-item").value.trim() || "cobblemon:poke_ball", count: Math.max(1, Number($("#event-preset-item-count").value) || 1) });
     event.commands.push(
       { type: "set_flag", key: flag, value: true },
       { type: "goto", target: "end" },
       { type: "label", name: "repeat_greeting" },
-      { type: "dialogue", id: "repeat_greeting", speaker: "npc", text: { ko_kr: repeatText } },
+      ...dialogueCommands("repeat_greeting", repeatText),
       { type: "label", name: "end" },
       { type: "end" },
     );
@@ -1683,7 +1853,7 @@ function renderEventCommandEditor(command) {
     return `<div class="event-command-fields"><div class="event-subsection-heading"><strong>조건</strong><button type="button" class="button secondary compact-button" data-condition-add>조건 추가</button></div>${conditions.map(renderConditionEditor).join("")}${eventField("조건이 맞으면 이동할 라벨", "target", command.target || "", { wide: true })}</div>`;
   }
   if (command.type === "label") return `<div class="event-command-fields">${eventField("라벨 이름", "name", command.name || "", { wide: true, help: "분기, 선택지, 배틀 결과가 이동할 위치입니다." })}</div>`;
-  if (command.type === "dialogue") return `<div class="event-command-fields">${eventField("대화 ID", "id", command.id || "")}${eventField("화자", "speaker", command.speaker || "npc", { choices: [["npc", "NPC"], ["player", "플레이어"], ["system", "시스템"]] })}${eventField("대화 내용", "text.ko_kr", command.text?.ko_kr || "", { type: "textarea", wide: true })}</div>`;
+  if (command.type === "dialogue") return `<div class="event-command-fields">${eventField("대화 ID", "id", command.id || "")}${eventField("화자", "speaker", command.speaker || "npc", { choices: [["npc", "NPC"], ["player", "플레이어"], ["system", "시스템"]] })}${eventField("대화 내용", "text.ko_kr", command.text?.ko_kr || "", { type: "textarea", wide: true, help: "Enter로 줄을 나눈 뒤 입력창을 벗어나면 줄마다 별도의 대화 명령으로 분리됩니다." })}</div>`;
   if (command.type === "choices") {
     return `<div class="event-command-fields"><div class="event-subsection-heading"><strong>선택지</strong><button type="button" class="button secondary compact-button" data-option-add>선택지 추가</button></div>${(command.options || []).map(renderChoiceEditor).join("")}</div>`;
   }
@@ -1694,9 +1864,11 @@ function renderEventCommandEditor(command) {
     return `<div class="event-command-fields">${eventField("배틀 프리셋", "battle", command.battle || "", { choices: battles, wide: true })}${eventField("플레이어 승리 시 라벨", "results.player_win", command.results?.player_win || "")}${eventField("플레이어 패배 시 라벨", "results.player_loss", command.results?.player_loss || "")}${eventField("취소 시 라벨", "results.cancelled", command.results?.cancelled || "", { help: "취소를 사용하지 않으면 비워둘 수 있습니다." })}</div>`;
   }
   if (command.type === "set_flag") return `<div class="event-command-fields">${eventField("플래그 ID", "key", command.key || "", { wide: true })}${renderEventValueEditor(command.value ?? true)}</div>`;
-  if (command.type === "give_money") {
+  if (command.type === "mark_clear") return `<div class="event-command-fields">${eventField("클리어 처리 ID", "key", command.key || "", { wide: true, help: "현재는 클리어 상태를 1로 기록하며, 이후 진행도·지역 해금 처리로 확장할 수 있습니다." })}</div>`;
+  if (["give_money", "take_money"].includes(command.type)) {
     const mode = command.mode || "fixed";
-    return `<div class="event-command-fields">${eventField("지급 방식", "mode", mode, { choices: [["fixed", "고정 금액"], ["level_cap_multiplier", "현재 레벨캡 × 배율"]], rerender: true })}${mode === "fixed" ? eventField("지급 금액", "amount", command.amount ?? 0, { type: "number", valueType: "number", min: 0, step: 1 }) : eventField("레벨캡 배율", "multiplier", command.multiplier ?? 1, { type: "number", valueType: "number", min: .01, step: .01 })}${eventField("화폐 점수판", "currency_objective", command.currency_objective || "cobbleventure_money")}${mode === "level_cap_multiplier" ? eventField("레벨캡 점수판", "level_cap_objective", command.level_cap_objective || "cobbleventure_level_cap") : ""}</div>`;
+    const action = command.type === "take_money" ? "차감" : "지급";
+    return `<div class="event-command-fields">${eventField(`${action} 방식`, "mode", mode, { choices: [["fixed", "고정 금액"], ["level_cap_multiplier", "현재 레벨캡 × 배율"]], rerender: true })}${mode === "fixed" ? eventField(`${action} 금액`, "amount", command.amount ?? 0, { type: "number", valueType: "number", min: 0, step: 1 }) : eventField("레벨캡 배율", "multiplier", command.multiplier ?? 1, { type: "number", valueType: "number", min: .01, step: .01 })}${eventField("화폐 점수판", "currency_objective", command.currency_objective || "cobbleventure_money")}${mode === "level_cap_multiplier" ? eventField("레벨캡 점수판", "level_cap_objective", command.level_cap_objective || "cobbleventure_level_cap") : ""}</div>`;
   }
   if (command.type === "give_item") return `<div class="event-command-fields">${eventField("아이템 ID", "item", command.item || "", { wide: true })}${eventField("수량", "count", command.count ?? 1, { type: "number", valueType: "number", min: 1, step: 1 })}</div>`;
   if (command.type === "grant_loot") return `<div class="event-command-fields">${eventField("루트 테이블 ID", "loot_table", command.loot_table || "", { wide: true, help: "확률과 아이템 구성은 별도의 루트 테이블에서 관리합니다." })}</div>`;
@@ -1711,13 +1883,17 @@ function renderEventScript() {
     list.innerHTML = '<div class="issues empty">이벤트 스크립트가 없습니다.</div>';
     return;
   }
+  if (list.dataset.npcId !== state.trainer.id) {
+    expandedEventCommands.clear();
+    list.dataset.npcId = state.trainer.id;
+  }
   const trigger = event.trigger || { type: "interact", range: 4 };
   $("#event-trigger-type").value = trigger.type;
   $("#event-trigger-range").value = trigger.range ?? 4;
   $("#event-warning-offset").value = trigger.warning_offset ?? 2;
   $("#event-range-label").textContent = trigger.type === "proximity" ? "자동 발동 거리" : "대화 가능 거리";
   $("#event-warning-offset-field").hidden = trigger.type !== "proximity";
-  ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-command-type", "#add-event-command", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-flag", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
+  ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-command-type", "#add-event-command", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
   const presetFlag = $("#event-preset-flag");
   if (presetFlag.dataset.npcId !== state.trainer.id) {
     presetFlag.dataset.npcId = state.trainer.id;
@@ -1748,7 +1924,9 @@ function defaultEventCommand(type) {
     goto: { type, target: "target_label" },
     start_battle: { type, battle: state.battles[0]?.id || "cobbleventure:battle/example", results: { player_win: "win", player_loss: "loss" } },
     set_flag: { type, key: "cobbleventure:flag/example", value: true },
+    mark_clear: { type, key: "cobbleventure:clear/example" },
     give_money: { type, mode: "fixed", amount: 500, currency_objective: "cobbleventure_money" },
+    take_money: { type, mode: "fixed", amount: 500, currency_objective: "cobbleventure_money" },
     give_item: { type, item: "cobblemon:poke_ball", count: 1 },
     grant_loot: { type, loot_table: "cobbleventure:rewards/example" },
     end: { type },
@@ -1759,6 +1937,8 @@ function defaultEventCommand(type) {
 function addEventCommand() {
   const event = selectedNpcEvent(); if (!event) return;
   event.commands.push(defaultEventCommand($("#event-command-type").value));
+  expandedEventCommands.clear();
+  expandedEventCommands.add(event.commands.length - 1);
   renderEventScript(); syncTrainerJson();
 }
 
@@ -1806,8 +1986,33 @@ function handleEventCommandInput(event) {
     if (event.target.value === "fixed") { delete command.multiplier; delete command.level_cap_objective; command.amount ??= 0; }
     else { delete command.amount; command.multiplier ??= 1; command.level_cap_objective ??= "cobbleventure_level_cap"; }
   }
+  const summary = row.querySelector(".command-summary");
+  if (summary) summary.textContent = eventCommandSummary(command);
   if (event.target.dataset.commandRerender || event.target.dataset.conditionRerender) renderEventScript();
   syncTrainerJson();
+}
+
+function splitDialogueCommandLines(event) {
+  const textarea = event.target.closest('[data-command-field="text.ko_kr"]');
+  const script = selectedNpcEvent();
+  const row = textarea?.closest("[data-event-command]");
+  if (!textarea || !script || !row) return;
+  const lines = dialogueLines(textarea.value);
+  if (lines.length < 2) return;
+  const index = Number(row.dataset.eventCommand);
+  const command = script.commands[index];
+  if (command?.type !== "dialogue") return;
+  const idPrefix = String(command.id || "dialogue").replace(/_\d+$/, "");
+  const commands = lines.map((line, lineIndex) => ({
+    ...command,
+    id: `${idPrefix}_${lineIndex + 1}`,
+    text: { ...(command.text || {}), ko_kr: line },
+  }));
+  script.commands.splice(index, 1, ...commands);
+  expandedEventCommands.clear();
+  renderEventScript();
+  syncTrainerJson();
+  toast(`${lines.length}줄의 대사를 ${lines.length}개의 대화 명령으로 나눴습니다.`);
 }
 
 function handleEventCommandClick(event) {
@@ -1819,8 +2024,15 @@ function handleEventCommandClick(event) {
   const removeCondition = event.target.closest("[data-condition-remove]");
   const addOption = event.target.closest("[data-option-add]");
   const removeOption = event.target.closest("[data-option-remove]");
+  const toggle = event.target.closest("[data-command-toggle]");
   const row = event.target.closest("[data-event-command]");
-  if (remove) script.commands.splice(Number(remove.dataset.commandRemove), 1);
+  if (toggle) {
+    const index = Number(toggle.dataset.commandToggle);
+    if (expandedEventCommands.has(index)) expandedEventCommands.delete(index); else expandedEventCommands.add(index);
+    renderEventScript();
+    return;
+  }
+  if (remove) { script.commands.splice(Number(remove.dataset.commandRemove), 1); expandedEventCommands.clear(); }
   else if (addCondition && row) script.commands[Number(row.dataset.eventCommand)].conditions.push({ type: "flag_equals", key: "cobbleventure:flag/example", value: true });
   else if (removeCondition && row) {
     const conditions = script.commands[Number(row.dataset.eventCommand)].conditions;
@@ -1830,8 +2042,10 @@ function handleEventCommandClick(event) {
   else if (removeOption && row) script.commands[Number(row.dataset.eventCommand)].options.splice(Number(removeOption.dataset.optionRemove), 1);
   else if (up) {
     const index = Number(up.dataset.commandUp); [script.commands[index - 1], script.commands[index]] = [script.commands[index], script.commands[index - 1]];
+    expandedEventCommands.clear();
   } else if (down) {
     const index = Number(down.dataset.commandDown); [script.commands[index + 1], script.commands[index]] = [script.commands[index], script.commands[index + 1]];
+    expandedEventCommands.clear();
   } else return;
   renderEventScript(); syncTrainerJson();
 }
@@ -3312,10 +3526,97 @@ function renderHabitatPokemon() {
   $("#habitat-pokemon-list").innerHTML = pokemonResultHtml({ pokemon: entries });
 }
 
+function leagueRoleLabel(role) {
+  return ({ gym_leader: "체육관 관장", elite_four: "사천왕", champion: "챔피언" })[role] || role;
+}
+
+function selectedLeagueEntry() {
+  return (state.leagueProgression.entries || []).find((entry) => entry.id === state.selectedLeagueId) || null;
+}
+
+function renderLeagueList() {
+  const entries = [...(state.leagueProgression.entries || [])].sort((a, b) => (a.generation - b.generation) || String(a.region).localeCompare(String(b.region)) || (a.order - b.order));
+  $("#league-entry-count").textContent = entries.length;
+  $("#league-entry-list").innerHTML = entries.length ? entries.map((entry) => `<button class="document-button ${entry.id === state.selectedLeagueId ? "is-active" : ""}" data-league-entry="${escapeHtml(entry.id)}"><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><small>${entry.generation}세대 · ${escapeHtml(leagueRoleLabel(entry.role))} · Lv.${entry.level_cap}</small></button>`).join("") : '<div class="issues empty">등록된 관장·리그 항목이 없습니다.</div>';
+  $$('[data-league-entry]').forEach((button) => button.addEventListener("click", () => { state.selectedLeagueId = button.dataset.leagueEntry; renderLeagueList(); renderLeagueEditor(); }));
+}
+
+function trainerPoolOptions(selected = "") {
+  return '<option value="">트레이너풀에서 선택</option>' + state.trainers.map((trainer) => `<option value="${escapeHtml(trainer.id)}"${trainer.id === selected ? " selected" : ""}>${escapeHtml(trainer.name || trainer.id)} · ${escapeHtml(trainer.id)}</option>`).join("");
+}
+
+function leagueBadgeOptions(selected = "") {
+  const badges = (state.editorCatalog?.items || []).filter((item) => item.id?.startsWith("cobbleversebadges:") && /_badge$/.test(item.id));
+  const values = badges.map((item) => [item.id, item.name || item.englishName || item.id]);
+  if (selected && !values.some(([id]) => id === selected)) values.unshift([selected, selected]);
+  return '<option value="">배지 선택</option>' + values.map(([id, name]) => `<option value="${escapeHtml(id)}"${id === selected ? " selected" : ""}>${escapeHtml(name)} · ${escapeHtml(id)}</option>`).join("");
+}
+
+function renderLeagueEditor() {
+  renderLeagueList();
+  const entry = selectedLeagueEntry();
+  const form = $("#league-form");
+  if (!entry) {
+    form.reset();
+    [...form.elements].forEach((element) => { element.disabled = true; });
+    $("#delete-league-entry").disabled = true; $("#save-league").disabled = false;
+    $("#league-editor-title").textContent = "리그 항목을 선택하세요";
+    return;
+  }
+  $("#league-editor-title").textContent = entry.display_name?.ko_kr || entry.id;
+  setFormValue(form, "id", entry.id); setFormValue(form, "role", entry.role); setFormValue(form, "levelCap", entry.level_cap);
+  setFormValue(form, "nameKo", entry.display_name?.ko_kr || ""); setFormValue(form, "nameEn", entry.display_name?.en_us || "");
+  setFormValue(form, "generation", entry.generation); setFormValue(form, "order", entry.order); setFormValue(form, "region", entry.region);
+  form.elements.trainerId.innerHTML = trainerPoolOptions(entry.trainer_id); setFormValue(form, "trainerId", entry.trainer_id);
+  form.elements.badgeItem.innerHTML = leagueBadgeOptions(entry.badge?.item || ""); setFormValue(form, "badgeItem", entry.badge?.item || "");
+  setFormValue(form, "badgeNameKo", entry.badge?.display_name?.ko_kr || ""); setFormValue(form, "badgeNameEn", entry.badge?.display_name?.en_us || "");
+  setFormValue(form, "badgeVisible", entry.badge?.trainer_card_visible ?? true);
+  [...form.elements].forEach((element) => { element.disabled = false; });
+  const isGym = entry.role === "gym_leader";
+  $$("#league-form .league-badge-fields input, #league-form .league-badge-fields select").forEach((element) => { element.disabled = !isGym; });
+  $("#delete-league-entry").disabled = false; $("#save-league").disabled = false; $("#edit-league-trainer").disabled = !entry.trainer_id;
+  showIssues("#league-issues", { valid: true, issues: [] });
+}
+
+function updateLeagueEntryFromForm() {
+  const entry = selectedLeagueEntry(); if (!entry) return;
+  const form = $("#league-form"); const previousId = entry.id;
+  entry.id = form.elements.id.value.trim(); entry.role = form.elements.role.value;
+  entry.display_name = { ko_kr: form.elements.nameKo.value.trim() };
+  if (form.elements.nameEn.value.trim()) entry.display_name.en_us = form.elements.nameEn.value.trim();
+  entry.generation = Number(form.elements.generation.value); entry.region = form.elements.region.value.trim();
+  entry.order = Number(form.elements.order.value); entry.level_cap = Number(form.elements.levelCap.value); entry.trainer_id = form.elements.trainerId.value;
+  if (entry.role === "gym_leader") entry.badge = { item: form.elements.badgeItem.value, display_name: { ko_kr: form.elements.badgeNameKo.value.trim(), ...(form.elements.badgeNameEn.value.trim() ? { en_us: form.elements.badgeNameEn.value.trim() } : {}) }, trainer_card_visible: form.elements.badgeVisible.checked };
+  else delete entry.badge;
+  state.selectedLeagueId = entry.id || previousId;
+}
+
+function addLeagueEntry() {
+  updateLeagueEntryFromForm();
+  const entries = state.leagueProgression.entries ||= []; let index = entries.length + 1; let id;
+  do { id = `cobbleventure:league/generation_${state.selectedGeneration}/entry_${index++}`; } while (entries.some((entry) => entry.id === id));
+  entries.push({ id, role: "gym_leader", display_name: { ko_kr: "새 관장" }, generation: state.selectedGeneration, region: `cobbleventure:region/generation_${state.selectedGeneration}`, order: entries.length + 1, level_cap: 15, trainer_id: "", badge: { item: "cobbleversebadges:kanto_boulder_badge", display_name: { ko_kr: "새 배지" }, trainer_card_visible: true } });
+  state.selectedLeagueId = id; renderLeagueEditor();
+}
+
+async function saveLeagueProgression() {
+  updateLeagueEntryFromForm();
+  if (!$("#league-form").reportValidity() && selectedLeagueEntry()) return;
+  const result = await request("/api/league-progression", { method: "PUT", body: JSON.stringify(state.leagueProgression) });
+  showIssues("#league-issues", result.data);
+  toast(result.ok ? "리그 설정과 트레이너카드 구성을 저장했습니다." : "리그 설정을 확인해 주세요.");
+  if (result.ok) { await loadLists(); renderLeagueEditor(); }
+}
+
 function facilityTrainerOptions(selected = "") {
   return '<option value="">나중에 지정</option>' + state.trainers.map((trainer) =>
     `<option value="${escapeHtml(trainer.id)}"${trainer.id === selected ? " selected" : ""}>${escapeHtml(trainer.name || trainer.id)} · ${escapeHtml(trainer.id)}</option>`
   ).join("");
+}
+
+function gymLeagueOptions(selected = "") {
+  const leaders = (state.leagueProgression.entries || []).filter((entry) => entry.role === "gym_leader");
+  return '<option value="">나중에 지정</option>' + leaders.map((entry) => `<option value="${escapeHtml(entry.id)}"${entry.id === selected ? " selected" : ""}>${escapeHtml(entry.display_name?.ko_kr || entry.id)} · Lv.${entry.level_cap} · ${escapeHtml(entry.badge?.display_name?.ko_kr || "배지 미설정")}</option>`).join("");
 }
 
 function settlementFacilityRequirements() {
@@ -4707,8 +5008,9 @@ function renderSettlement() {
   setFormValue(form, "gymStructure", gym.structure || "");
   setFormValue(form, "gymTheme", gym.theme || "normal");
   setFormValue(form, "gymAnchor", gym.anchor || "gym_building");
-  form.elements.gymLeaderTrainer.innerHTML = facilityTrainerOptions(gym.leader_trainer_id || "");
-  setFormValue(form, "gymLeaderTrainer", gym.leader_trainer_id || "");
+  const selectedLeagueEntry = gym.league_entry_id || (state.leagueProgression.entries || []).find((entry) => entry.role === "gym_leader" && entry.trainer_id === gym.leader_trainer_id)?.id || "";
+  form.elements.gymLeaderTrainer.innerHTML = gymLeagueOptions(selectedLeagueEntry);
+  setFormValue(form, "gymLeaderTrainer", selectedLeagueEntry);
   setFormValue(form, "pokemonSpawnProfile", document.content_profile?.pokemon?.spawn_profile);
   setFormValue(form, "pokemonDensity", document.content_profile?.pokemon?.density_multiplier ?? 1);
   form.elements.pokemonBiomeSet.innerHTML = choiceOptions((state.biomeCatalog.sets || []).map((entry) => [entry.id, entry.display_name?.ko_kr || entry.id]), document.content_profile?.pokemon?.biome_set, true);
@@ -4979,13 +5281,16 @@ function updateSettlementFromForm() {
   if (!state.settlement.anchors[gymAnchor]) {
     state.settlement.anchors[gymAnchor] = { ...(state.settlement.center || { x: 0, y: 64, z: 0 }) };
   }
-  const gymLeader = form.elements.gymLeaderTrainer.value;
+  const gymLeagueEntryId = form.elements.gymLeaderTrainer.value;
+  const gymLeagueEntry = (state.leagueProgression.entries || []).find((entry) => entry.id === gymLeagueEntryId);
+  const gymLeader = gymLeagueEntry?.trainer_id || "";
   state.settlement.structure_profile.gym = {
     enabled: gymEnabled,
     structure: form.elements.gymStructure.value.trim(),
     theme: form.elements.gymTheme.value,
     anchor: gymAnchor,
-    leader_trainer_id: gymLeader
+    leader_trainer_id: gymLeader,
+    league_entry_id: gymLeagueEntryId
   };
   // Keep legacy fields synchronized while older data packs are still accepted.
   state.settlement.structure_profile.gym_theme = form.elements.gymTheme.value;
@@ -5335,6 +5640,25 @@ $("#delete-trainer").addEventListener("click", () => deleteManagedDocument("trai
 $("#validate-battle").addEventListener("click", () => validateDocument("battles"));
 $("#save-battle").addEventListener("click", () => saveDocument("battles"));
 $("#delete-battle").addEventListener("click", () => deleteManagedDocument("battles"));
+$("#add-league-entry").addEventListener("click", addLeagueEntry);
+$("#save-league").addEventListener("click", saveLeagueProgression);
+$("#delete-league-entry").addEventListener("click", () => {
+  const entry = selectedLeagueEntry(); if (!entry || !confirm(`'${entry.display_name?.ko_kr || entry.id}' 리그 항목을 삭제할까요?`)) return;
+  state.leagueProgression.entries = state.leagueProgression.entries.filter((candidate) => candidate !== entry);
+  state.selectedLeagueId = ""; renderLeagueEditor();
+});
+$("#league-form").addEventListener("input", () => {
+  updateLeagueEntryFromForm(); renderLeagueList();
+  const entry = selectedLeagueEntry(); const isGym = entry?.role === "gym_leader";
+  $$("#league-form .league-badge-fields input, #league-form .league-badge-fields select").forEach((element) => { element.disabled = !isGym; });
+  $("#edit-league-trainer").disabled = !entry?.trainer_id;
+  $("#league-editor-title").textContent = entry?.display_name?.ko_kr || entry?.id || "리그 항목을 선택하세요";
+});
+$("#edit-league-trainer").addEventListener("click", async () => {
+  updateLeagueEntryFromForm(); const entry = selectedLeagueEntry(); const trainer = state.trainers.find((candidate) => candidate.id === entry?.trainer_id);
+  if (!trainer) { toast("트레이너풀에서 NPC를 먼저 선택해 주세요."); return; }
+  switchPage("trainers"); await loadDocument("trainers", trainer.path);
+});
 $("#battle-form").addEventListener("change", (event) => {
   const form = event.currentTarget;
   if (event.target.name === "battleType") form.elements.format.value = event.target.value === "doubles" ? "GEN_9_DOUBLES" : "GEN_9_SINGLES";
@@ -5348,6 +5672,10 @@ $("#apply-battle-json").addEventListener("click", () => {
 $("#copy-spawn-command").addEventListener("click", async () => {
   await navigator.clipboard.writeText($("#trainer-form").elements.spawnCommand.value);
   toast("EasyNPC 소환 명령어를 복사했습니다.");
+});
+$("#copy-double-spawn-command").addEventListener("click", async () => {
+  await navigator.clipboard.writeText($("#trainer-form").elements.doubleBattleSpawnCommand.value);
+  toast("파트너 EasyNPC 소환 명령어를 복사했습니다.");
 });
 $("#trainer-form").addEventListener("input", (event) => {
   if (event.target.name === "trainerClass") applyTrainerClass();
@@ -5365,10 +5693,13 @@ $("#trainer-form").addEventListener("input", (event) => {
 });
 $("#add-pokemon").addEventListener("click", addPokemon);
 $("#add-event-command").addEventListener("click", addEventCommand);
+$("#event-preset-type").addEventListener("change", renderEventPresetFields);
+$("#apply-event-preset").addEventListener("click", applyEventScriptPreset);
 $("#event-trigger-type").addEventListener("change", updateEventTrigger);
 $("#event-trigger-range").addEventListener("change", updateEventTrigger);
 $("#event-warning-offset").addEventListener("change", updateEventTrigger);
 $("#event-command-list").addEventListener("input", handleEventCommandInput);
+$("#event-command-list").addEventListener("change", splitDialogueCommandLines);
 $("#event-command-list").addEventListener("click", handleEventCommandClick);
 $("#add-bag-item").addEventListener("click", addBagItem);
 $("#max-item-uses").addEventListener("input", () => { updateBattlePresetFromForm(); syncTrainerJson(); });
@@ -5397,9 +5728,17 @@ $("#cancel-route").addEventListener("click", cancelRouteConnection);
 $("#undo-route-anchor").addEventListener("click", undoRouteAnchor);
 $$('[data-map-tool]').forEach((button) => button.addEventListener("click", () => setActiveMapTool(button.dataset.mapTool)));
 $("#cave-tool-cave").addEventListener("change", refreshCaveToolEntrances);
-for (const [inputId, outputId] of [["biome-brush-radius", "biome-brush-radius-value"], ["empty-terrain-brush-radius", "empty-terrain-brush-radius-value"], ["climate-brush-radius", "climate-brush-radius-value"], ["eraser-radius", "eraser-radius-value"]]) {
+for (const [inputId, outputId] of [["biome-brush-radius", "biome-brush-radius-value"], ["empty-terrain-brush-radius", "empty-terrain-brush-radius-value"], ["climate-brush-radius", "climate-brush-radius-value"], ["level-brush-radius", "level-brush-radius-value"], ["eraser-radius", "eraser-radius-value"]]) {
   $(`#${inputId}`).addEventListener("input", (event) => { $(`#${outputId}`).textContent = event.target.value; renderHexMap(); });
 }
+function setLevelBrushValue(value) {
+  const level = Math.max(1, Math.min(100, Math.round(Number(value) || 1)));
+  $("#level-brush-average").value = level; $("#level-brush-average-range").value = level; $("#level-brush-average-value").textContent = level;
+}
+$("#level-brush-average").addEventListener("input", (event) => setLevelBrushValue(event.target.value));
+$("#level-brush-average-range").addEventListener("input", (event) => setLevelBrushValue(event.target.value));
+$$('[data-level-quick]').forEach((button) => button.addEventListener("click", () => setLevelBrushValue(button.dataset.levelQuick)));
+$("#level-overlay-toggle").addEventListener("change", (event) => { state.levelOverlayVisible = event.target.checked; renderHexMap(); });
 $("#tile-radius-blocks").addEventListener("change", () => { state.worldLayout.grid.tile_radius_blocks = Number($("#tile-radius-blocks").value || 64); markWorldDirty(); });
 $("#zoom-in").addEventListener("click", () => { state.mapZoom = Math.min(1.6, state.mapZoom + .1); renderHexMap(); });
 $("#zoom-out").addEventListener("click", () => { state.mapZoom = Math.max(.65, state.mapZoom - .1); renderHexMap(); });
@@ -5413,7 +5752,7 @@ $("#world-hex-map").addEventListener("pointercancel", (event) => { state.dragged
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" && !/INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) { state.spacePanActive = true; state.brushPreview = null; $("#world-hex-map").classList.add("is-space-panning"); renderHexMap(); event.preventDefault(); return; }
   if (/INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.ctrlKey || event.metaKey || event.altKey) return;
-  const tool = ({ v: "select", b: "biome", t: "terrain", c: "climate", r: "route", s: "settlement", d: "cave", o: "object", e: "eraser" })[event.key.toLowerCase()];
+  const tool = ({ v: "select", b: "biome", t: "terrain", c: "climate", l: "level", r: "route", s: "settlement", d: "cave", o: "object", e: "eraser" })[event.key.toLowerCase()];
   if (tool) { setActiveMapTool(tool); event.preventDefault(); }
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") { state.spacePanActive = false; $("#world-hex-map").classList.remove("is-space-panning"); } });

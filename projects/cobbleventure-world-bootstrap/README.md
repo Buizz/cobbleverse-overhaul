@@ -19,6 +19,9 @@
   전투 패배 후 보유 파티가 모두 기절했다면 전투가 완전히 종료된 뒤 해당 센터로
   강제 귀환시키고 파티를 회복한다. 아직 센터를 방문하지 않았다면 시작 지점을
   대체 귀환점으로 사용한다.
+- 월드맵의 `level_overrides`가 칠해진 육각 셀에서는 Cobblemon 자연 스폰 포켓몬의
+  레벨을 지정 평균의 ±2 범위로 조정한다. 칠하지 않은 셀, 다른 차원, 명령이나
+  트레이너가 생성한 포켓몬은 기존 레벨을 유지한다.
 - 마을 앵커의 `town_radius_cells`를 먼저 예약하고 A*로 마을 사이 통로 셀을
   만든 뒤, 각 주변 바이옴에 지정한 `tile_count`만큼 빈 셀을 배정한다. 실제 도로
   중심선은 셀 중심 직선을 그대로 쓰지 않고 저주파 노이즈로 완만하게 굽히며,
@@ -90,7 +93,7 @@
 | `data/cobbleventure/worldgen/biome/starter_plains.json` | 시작 바이옴의 색·날씨·식생·몹 |
 | `data/cobbleventure/dimension/generation_1.json` | 네이티브 생성기, 지도 시드와 지원 바이옴 목록 |
 | `data/cobbleventure/dimension_type/generation_world.json` | 세대 차원의 높이·채광·침대·시간 성격 |
-| `content/worlds/generation_1.json` | 육각 계획 격자, 5개 마을과 분기 동선, 바이옴 영향 반경·굴곡·경계와 A* 통로 폭 |
+| `content/worlds/generation_1.json` | 육각 계획 격자, 지역별 포켓몬 평균 레벨, 5개 마을과 분기 동선, 바이옴 영향 반경·굴곡·경계와 A* 통로 폭 |
 | `content/catalogs/boundary-profiles.json` | 벽·토루·수목 경계의 크기, 재료와 충돌 방식 |
 | `content/settlements/generation_1/*.json` | 마을 건물, NPC, 체육관과 콘텐츠 설정 |
 

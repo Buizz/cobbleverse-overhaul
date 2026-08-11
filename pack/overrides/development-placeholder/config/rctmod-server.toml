@@ -1,0 +1,5 @@
+[Spawning]
+# RCT trainers are placed explicitly by Cobbleventure content.
+# Keep natural trainer spawning disabled while allowing spawner blocks and commands.
+maxTrainersPerPlayer = 0
+spawnTrainerAssociation = false

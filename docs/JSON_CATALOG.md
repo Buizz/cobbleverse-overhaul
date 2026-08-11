@@ -189,10 +189,17 @@
 | 경로 | 역할 |
 |------|------|
 | `content/catalogs/trainer-classes.json` | 본가식 트레이너 직업명, 이름 패턴, 태그와 RCT·자체 기본 외형 연결 |
+| `content/catalogs/league-progression.json` | 관장·사천왕·챔피언의 트레이너풀 NPC, 레벨캡, 순서와 배지·트레이너카드 표시 설정 |
 | `content/catalogs/pokemon-habitats.json` | 도감 번호별 주·보조 서식지와 출현 성향 |
 | `content/catalogs/biome-profiles.json` | 월드 바이옴을 서식지와 출현 필터에 연결하는 프로필 |
 
 트레이너 번들의 `npc.trainer_class`는 반드시 이 카탈로그에 있는 ID를 사용한다.
+
+리그 설정의 관장 항목은 배지 아이템과 표시 이름을 필수로 가지며, 마을의
+`structure_profile.gym.league_entry_id`가 해당 관장을 선택한다. 관리 화면은 선택한
+항목의 `trainer_id`를 기존 `leader_trainer_id`와 `gym_leader` 배치 슬롯에도 동기화한다.
+플레이어 메뉴는 같은 카탈로그를 빌드 리소스로 포함해 트레이너카드의 지역별 배지와
+리그 도전 순서를 구성한다.
 각 클래스는 화면 분류용 `category`, 실제 NPC 키와 팔 형태를 나타내는 `body`,
 스킨 준비 상태를 나타내는 `default_appearance.implementation_status`도 가진다.
 스킨이 아직 없는 클래스는 공용 64×64 미구현 스킨을 사용한다.
