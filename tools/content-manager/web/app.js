@@ -61,6 +61,7 @@ const houseBaseCatalog = [
 ];
 const houseRoofCatalog = [
   { id: "gable", label: "박공지붕" },
+  { id: "gambrel", label: "갬브럴지붕" },
   { id: "shed", label: "외쪽 경사지붕" },
   { id: "flat", label: "평지붕" }
 ];

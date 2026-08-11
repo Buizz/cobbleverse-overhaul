@@ -25,7 +25,8 @@ Cobbleventure가 직접 관리하는 건축물 NBT의 원본 위치와 안전한
 - 영문 소문자, 숫자, 밑줄만 사용합니다.
 - 파일 이름과 리소스 ID의 마지막 부분을 동일하게 유지합니다.
 - 주택 원본은 `<층수>_<지붕형태>.nbt` 형식을 사용합니다.
-- 지원 지붕 형태는 `gable`(박공), `shed`(외쪽 경사), `flat`(평지붕)입니다.
+- 지원 지붕 형태는 `gable`(박공), `gambrel`(이중 경사), `shed`(외쪽 경사),
+  `flat`(평지붕)입니다.
 - 예: `one_story_gable.nbt` 한 개에서 `cobbleventure:houses/one_story_gable_red`,
   `cobbleventure:houses/one_story_gable_blue` 등의 리소스 10종이 생성됩니다.
 - 주택 원본에서는 `minecraft:white_concrete`, `minecraft:white_wool`, `minecraft:cobblestone`을

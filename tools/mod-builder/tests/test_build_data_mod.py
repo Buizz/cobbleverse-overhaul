@@ -793,11 +793,16 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertIn(b"minecraft:red_wool", red_nbt)
             self.assertIn(b"minecraft:granite", red_nbt)
 
-    def test_shed_roof_replaces_legacy_hip_roof(self) -> None:
+    def test_authored_roof_shapes_include_shed_and_gambrel(self) -> None:
         shed = gzip.decompress(
             build_data_mod.build_house_variant_nbt("one_story", "shed", "white")
         )
+        gambrel = gzip.decompress(
+            build_data_mod.build_house_variant_nbt("one_story", "gambrel", "white")
+        )
         self.assertIn(b"minecraft:white_concrete", shed)
+        self.assertIn(b"minecraft:white_concrete", gambrel)
+        self.assertNotEqual(shed, gambrel)
         self.assertIn(b"minecraft:white_wool", shed)
         with self.assertRaises(ValueError):
             build_data_mod.build_house_variant_nbt("one_story", "hip", "white")

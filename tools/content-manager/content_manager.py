@@ -1760,7 +1760,7 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             if house_palette is not None:
                 for field, allowed in (
                     ("bases", {"one_story", "two_story", "five_story"}),
-                    ("roofs", {"gable", "shed", "flat"}),
+                    ("roofs", {"gable", "gambrel", "shed", "flat"}),
                     ("roof_colors", {"red", "orange", "yellow", "green", "blue", "purple", "brown", "gray", "black", "white"}),
                 ):
                     values = house_palette.get(field)

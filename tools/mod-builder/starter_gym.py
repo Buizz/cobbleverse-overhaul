@@ -39,7 +39,7 @@ HOUSE_BASES = {
     "two_story": {"size": (16, 11, 16), "stories": 2, "wall": "minecraft:stone_bricks", "trim": "minecraft:stripped_dark_oak_log"},
     "five_story": {"size": (16, 26, 16), "stories": 5, "wall": "minecraft:smooth_quartz", "trim": "minecraft:polished_deepslate"},
 }
-HOUSE_ROOFS = {"gable", "shed", "flat"}
+HOUSE_ROOFS = {"gable", "gambrel", "shed", "flat"}
 HOUSE_ROOF_STONE_BLOCKS = {
     "red": "minecraft:granite",
     "orange": "minecraft:granite",
@@ -396,6 +396,18 @@ def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> byte
             right = depth - 1 - layer
             if left > right:
                 break
+            for x in range(width):
+                set_roof_block(x, roof_y + layer, left)
+                set_roof_block(x, roof_y + layer, right)
+    elif roof_id == "gambrel":
+        lower_slope_layers = roof_layers // 2
+        for layer in range(roof_layers):
+            if layer <= lower_slope_layers:
+                inset = layer
+            else:
+                inset = lower_slope_layers + (layer - lower_slope_layers) * 2
+            left = min(depth // 2 - 1, inset)
+            right = depth - 1 - left
             for x in range(width):
                 set_roof_block(x, roof_y + layer, left)
                 set_roof_block(x, roof_y + layer, right)

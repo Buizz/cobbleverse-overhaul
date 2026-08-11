@@ -438,7 +438,7 @@
                 },
                 "roofs": {
                   "type": "array", "minItems": 1, "uniqueItems": true,
-                  "items": { "enum": ["gable", "shed", "flat"] }
+                  "items": { "enum": ["gable", "gambrel", "shed", "flat"] }
                 },
                 "roof_colors": {
                   "type": "array", "minItems": 1, "uniqueItems": true,
