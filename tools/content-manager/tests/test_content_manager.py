@@ -156,9 +156,12 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertEqual([61, 62, 63, 63], [block[4] for block in model["blocks"]])
 
-    def test_structure_size_catalog_reads_mod_jar_resources(self) -> None:
+    def test_structure_viewer_catalog_only_includes_managed_and_required_resources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            local = root / "content/structures/houses/one_story_flat.nbt"
+            local.parent.mkdir(parents=True)
+            local.write_bytes(self._structure_nbt((16, 13, 16)))
             mods = root / "pack/overrides/development-placeholder/mods"
             mods.mkdir(parents=True)
             with zipfile.ZipFile(mods / "structures.jar", "w") as archive:
@@ -166,44 +169,47 @@ class ContentManagerTests(unittest.TestCase):
                     "data/example/structure/town/center.nbt",
                     self._structure_nbt((31, 12, 27)),
                 )
+                archive.writestr(
+                    "data/bca/structure/default/one_off/pokecenter.nbt",
+                    self._structure_nbt((32, 16, 32)),
+                )
+                archive.writestr(
+                    "data/bca/structure/default/one_off/structure_pokemart.nbt",
+                    self._structure_nbt((32, 12, 16)),
+                )
+                archive.writestr(
+                    "data/bca/structure/default/centers/center_department_store.nbt",
+                    self._structure_nbt((48, 24, 48)),
+                )
 
-            catalog = content_manager.load_structure_size_catalog(root)
+            catalog = content_manager.load_structure_viewer_catalog(root)
 
             self.assertEqual(
                 {
-                    "width": 31, "height": 12, "depth": 27,
-                    "occupied": {
-                        "min_x": 0, "min_z": 0, "max_x": 30, "max_z": 26,
-                        "width": 31, "depth": 27,
-                    },
-                    "top_view": {"palette": [], "blocks": []},
-                    "source": "structures.jar",
+                    "cobbleventure:houses/one_story_flat",
+                    *content_manager.STRUCTURE_VIEWER_REQUIRED_EXTERNAL,
                 },
-                catalog["structures"]["example:town/center"],
+                set(catalog),
             )
+            self.assertNotIn("example:town/center", catalog)
+            self.assertEqual(16, catalog["cobbleventure:houses/one_story_flat"]["width"])
+            self.assertEqual(48, catalog["bca:default/centers/center_department_store"]["width"])
 
-    def test_local_structure_overrides_installed_jar_with_same_resource_id(self) -> None:
+    def test_structure_model_reads_managed_source_nbt_directly(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            local = (
-                root / "projects/cobbleventure-world-bootstrap/src/generated/resources"
-                / "data/example/structure/town/center.nbt"
-            )
+            local = root / "content/structures/houses/one_story_flat.nbt"
             local.parent.mkdir(parents=True)
             local.write_bytes(self._structure_nbt((16, 18, 16)))
-            mods = root / "pack/overrides/development-placeholder/mods"
-            mods.mkdir(parents=True)
-            with zipfile.ZipFile(mods / "old-structures.jar", "w") as archive:
-                archive.writestr(
-                    "data/example/structure/town/center.nbt",
-                    self._structure_nbt((32, 10, 16)),
-                )
 
-            catalog = content_manager.load_structure_size_catalog(root)
+            model = content_manager.load_structure_model(
+                root, "cobbleventure:houses/one_story_flat"
+            )
 
-            self.assertEqual(16, catalog["structures"]["example:town/center"]["width"])
-            self.assertEqual(18, catalog["structures"]["example:town/center"]["height"])
-            self.assertIn("src/generated/resources", catalog["structures"]["example:town/center"]["source"])
+            self.assertIsNotNone(model)
+            self.assertEqual(16, model["width"])
+            self.assertEqual(18, model["height"])
+            self.assertEqual("content/structures/houses/one_story_flat.nbt", model["source"])
 
     def test_three_cell_town_footprint_uses_center_and_two_neighbors(self) -> None:
         self.assertEqual(
@@ -493,11 +499,26 @@ class ContentManagerTests(unittest.TestCase):
         for view in ("perspective", "xy", "xz", "zy"):
             self.assertIn(f'data-cave-view="{view}"', page)
         self.assertIn('id="cave-node-inspector"', page)
+        self.assertIn('data-cave-preview-tool="add-anchor"', page)
+        self.assertIn('data-cave-preview-tool="add-entrance"', page)
+        self.assertIn('data-cave-preview-tool="connect"', page)
+        self.assertIn('data-delete-selected-cave-anchor', page)
+        self.assertIn('data-delete-selected-cave-entrance', page)
+        self.assertIn('data-delete-selected-cave-path', page)
         self.assertIn('data-cave-selected-field="radiusX"', page)
         self.assertIn('data-cave-selected-field="radiusZ"', page)
         self.assertIn('data-cave-selected-field="height"', page)
         self.assertIn("mutateSelectedCaveNode", script)
+        self.assertIn("addCaveAnchorAt", script)
+        self.assertIn("addCaveEntranceAt", script)
+        self.assertIn("deleteSelectedCaveEntrance", script)
+        self.assertIn("chooseCavePathEndpoint", script)
+        self.assertIn("cavePreviewHitDistance", script)
         self.assertIn("waterY = layout.waterLevel", script)
+        self.assertNotIn('id="cave-layout-anchor-list"', page)
+        self.assertNotIn('id="cave-entrance-list"', page)
+        self.assertNotIn('id="cave-layout-connection-list"', page)
+        self.assertNotIn('id="cave-connection-from"', page)
         self.assertNotIn('name="lakeRadius"', page)
         self.assertNotIn('name="lakeDepth"', page)
         self.assertNotIn("lake_radius", cave["generator"])
@@ -2191,6 +2212,95 @@ class ContentManagerTests(unittest.TestCase):
             thread.join(timeout=2)
         runner.assert_called_once_with(root.resolve(), "validate")
         self.assertTrue(payload["success"])
+
+    def test_structure_builder_settings_resolve_instance_world(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            instance = root / "CurseForge Instance"
+            export = (
+                instance
+                / "saves"
+                / content_manager.STRUCTURE_BUILDER_WORLD_NAME
+                / "generated"
+                / "cobbleventure_builder"
+                / "structures"
+                / "export"
+            )
+            export.mkdir(parents=True)
+            (export / "laboratory.nbt").write_bytes(b"nbt")
+            (root / "content" / "structures").mkdir(parents=True)
+            (root / "content" / "structures" / "source.nbt").write_bytes(b"nbt")
+
+            saved = content_manager._save_structure_builder_settings(root, str(instance))
+            status = content_manager._structure_builder_status(root)
+
+            self.assertEqual(str(instance.resolve()), saved["instance_path"])
+            self.assertTrue(status["instance_exists"])
+            self.assertTrue(status["world_exists"])
+            self.assertEqual(1, status["export_count"])
+            self.assertEqual(1, status["source_count"])
+
+    def test_structure_builder_import_uses_only_saved_instance_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            instance = root / "instance"
+            world = instance / "saves" / content_manager.STRUCTURE_BUILDER_WORLD_NAME
+            export = world / "generated" / "cobbleventure_builder" / "structures" / "export"
+            export.mkdir(parents=True)
+            (export / "laboratory.nbt").write_bytes(b"nbt")
+            content_manager._save_structure_builder_settings(root, str(instance))
+            completed = mock.Mock(returncode=0, stdout="가져오기 완료", stderr="")
+
+            with mock.patch.object(content_manager.subprocess, "run", return_value=completed) as runner:
+                result = content_manager._run_structure_builder_import(root)
+
+            self.assertTrue(result["success"])
+            command = runner.call_args.args[0]
+            self.assertEqual("builder-import", command[-2])
+            self.assertEqual(str(world), command[-1])
+
+    def test_structure_builder_settings_api(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            instance = root / "instance"
+            instance.mkdir()
+            server = content_manager.ThreadingHTTPServer(
+                ("127.0.0.1", 0), content_manager.create_handler(root)
+            )
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                base_url = f"http://127.0.0.1:{server.server_port}"
+                request = urllib.request.Request(
+                    f"{base_url}/api/structure-builder/settings",
+                    data=json.dumps({"instance_path": str(instance)}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="PUT",
+                )
+                with mock.patch.object(content_manager, "_structure_builder_instance_candidates", return_value=[]):
+                    with urllib.request.urlopen(request) as response:
+                        saved = json.load(response)
+                    with urllib.request.urlopen(f"{base_url}/api/structure-builder") as response:
+                        status = json.load(response)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+            self.assertEqual(str(instance.resolve()), saved["instance_path"])
+            self.assertTrue(status["instance_exists"])
+
+    def test_structure_builder_web_controls_are_present(self) -> None:
+        web_root = Path(__file__).parents[1] / "web"
+        markup = (web_root / "index.html").read_text(encoding="utf-8")
+        script = (web_root / "app.js").read_text(encoding="utf-8")
+        self.assertIn('id="structure-builder-instance"', markup)
+        self.assertIn('id="build-structure-builder"', markup)
+        self.assertIn('id="import-structure-builder"', markup)
+        self.assertIn("/api/structure-builder/settings", script)
+        self.assertIn("/api/structure-builder/import", script)
+        self.assertIn("/api/structure-viewer", script)
+        self.assertIn('switchPage("structures")', script)
+        self.assertIn("await loadStructureModel(preferred)", script)
 
     def test_document_creation_api(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

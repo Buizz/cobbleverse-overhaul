@@ -25,13 +25,15 @@ const state = {
   mapPan: null, suppressMapClick: false, draggedSettlement: null, routeDraft: null, worldDirty: false,
   activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null,
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
-  structureViewer: { query: "", selected: "", model: null, yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0 },
-  cavePreview: { yaw: -.72, pitch: -.52, zoom: 1, view: "perspective", drag: null, selected: null, hitTargets: [], projection: null },
+  structureViewer: { query: "", selected: "", model: null, catalog: {}, yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0 },
+  cavePreview: { yaw: -.72, pitch: -.52, zoom: 1, view: "perspective", tool: "select", pathDraft: null, drag: null, selected: null, hitTargets: [], projection: null },
   customTownTool: "cell",
-  leagueProgression: { schema_version: 1, entries: [] }, selectedLeagueId: ""
+  leagueProgression: { schema_version: 1, entries: [] }, selectedLeagueId: "",
+  gameDefinitions: { schema_version: 1, items: [], variables: [] },
+  structureBuilder: null
 };
-const lazyDataLoaded = { trainers: false, biomes: false, structures: false };
-const lazyDataPromises = { trainers: null, biomes: null, structures: null };
+const lazyDataLoaded = { trainers: false, biomes: false, structures: false, structureViewer: false, definitions: false };
+const lazyDataPromises = { trainers: null, biomes: null, structures: null, structureViewer: null, definitions: null };
 const biomeChoices = {
   habitat: [["plains", "평원"], ["forest", "숲"], ["arid", "건조지"], ["mountain", "산악"], ["cave", "동굴"], ["wetland", "습지"], ["freshwater", "담수"], ["ocean", "해양"], ["snow", "설원"], ["volcanic", "화산"], ["urban", "도시"], ["special", "특수"]],
   temperature: [["any", "무관"], ["cold", "한랭"], ["cool", "서늘"], ["temperate", "온대"], ["hot", "고온"]],
@@ -181,7 +183,7 @@ function escapeHtml(value) {
 function switchPage(section) {
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === section));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", structures: "NBT 건물 3D", biomes: "바이옴 관리", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", structures: "NBT 건물 3D", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderStructureModel);
@@ -289,11 +291,33 @@ async function loadStructureData(force = false) {
   } finally { lazyDataPromises.structures = null; }
 }
 
+async function loadStructureViewerData(force = false) {
+  if (lazyDataLoaded.structureViewer && !force) return;
+  if (lazyDataPromises.structureViewer) return lazyDataPromises.structureViewer;
+  $("#nbt-structure-count").textContent = "불러오는 중";
+  $("#nbt-structure-list").innerHTML = '<div class="issues empty">관리 대상 NBT를 불러오고 있습니다.</div>';
+  lazyDataPromises.structureViewer = (async () => {
+    const result = await request("/api/structure-viewer");
+    if (!result.ok) throw new Error(result.data.error || "NBT 뷰어 목록을 불러오지 못했습니다.");
+    state.structureViewer.catalog = result.data.structures || {};
+    lazyDataLoaded.structureViewer = true;
+    renderStructureBrowser();
+  })();
+  try { await lazyDataPromises.structureViewer; }
+  catch (error) {
+    $("#nbt-structure-count").textContent = "오류";
+    $("#nbt-structure-list").innerHTML = `<div class="issues">${escapeHtml(error.message)}</div>`;
+    throw error;
+  } finally { lazyDataPromises.structureViewer = null; }
+}
+
 function loadSectionData(section, force = false) {
-  if (section === "trainers" || section === "battles" || section === "league") return loadTrainerData(force).then(() => { if (section === "league") renderLeagueEditor(); });
+  if (section === "trainers" || section === "battles" || section === "league") return Promise.all([loadTrainerData(force), loadGameDefinitions(force)]).then(() => { if (section === "league") renderLeagueEditor(); });
   if (section === "biomes") return loadBiomeData(force);
-  if (section === "structures") return loadStructureData(force);
+  if (section === "structures") return loadStructureViewerData(force);
   if (section === "settlements") return Promise.all([loadBiomeData(force), loadStructureData(force)]);
+  if (section === "definitions") return loadGameDefinitions(force);
+  if (section === "builds") return loadStructureBuilder();
   return Promise.resolve();
 }
 
@@ -1339,7 +1363,6 @@ function renderCave() {
   setFormValue(form, "generatorLayout", generator.layout); setFormValue(form, "seedSalt", generator.seed_salt); setFormValue(form, "mainRooms", generator.main_rooms); setFormValue(form, "branchCount", generator.branch_count); setFormValue(form, "loopChance", generator.loop_chance); setFormValue(form, "verticalRange", generator.vertical_range);
   setFormValue(form, "roomRadiusMin", generator.room_radius.min); setFormValue(form, "roomRadiusMax", generator.room_radius.max); setFormValue(form, "tunnelRadiusMin", generator.tunnel_radius.min); setFormValue(form, "tunnelRadiusMax", generator.tunnel_radius.max); setFormValue(form, "surfaceRoughness", generator.surface_roughness); setFormValue(form, "waterLevel", generator.water_level);
   setFormValue(form, "grandRoomScale", generator.grand_room_scale); setFormValue(form, "elevatedCrossing", Boolean(generator.elevated_crossing)); setFormValue(form, "bridgeClearance", generator.bridge_clearance);
-  setFormValue(form, "manualLayoutEnabled", Boolean(generator.manual_layout.enabled));
   setFormValue(form, "requiresFlash", Boolean(document.requires_flash)); setFormValue(form, "randomEncounters", Boolean(document.random_encounters?.enabled));
   setFormValue(form, "spawnProfile", document.random_encounters?.spawn_profile || ""); setFormValue(form, "densityMultiplier", document.random_encounters?.density_multiplier ?? 1);
   setFormValue(form, "trainersEnabled", Boolean(document.trainer_settings?.enabled)); setFormValue(form, "maxActiveTrainers", document.trainer_settings?.max_active ?? 0);
@@ -1358,66 +1381,38 @@ function updateCaveFromForm() {
   state.cave.generation = Number(form.elements.generation.value); state.cave.cave_type = form.elements.caveType.value;
   state.cave.dimension = { id: form.elements.dimensionId.value.trim(), region_id: form.elements.regionId.value.trim(), origin: { x: Number(form.elements.originX.value), y: Number(form.elements.originY.value), z: Number(form.elements.originZ.value) }, bounds: { min_x: Number(form.elements.boundsMinX.value), min_z: Number(form.elements.boundsMinZ.value), max_x: Number(form.elements.boundsMaxX.value), max_z: Number(form.elements.boundsMaxZ.value) } };
   const existingManual = state.cave.generator?.manual_layout || { anchors: [], connections: [] };
-  state.cave.generator = { layout: form.elements.generatorLayout.value, seed_salt: Number(form.elements.seedSalt.value), main_rooms: Number(form.elements.mainRooms.value), branch_count: Number(form.elements.branchCount.value), loop_chance: Number(form.elements.loopChance.value), vertical_range: Number(form.elements.verticalRange.value), room_radius: { min: Number(form.elements.roomRadiusMin.value), max: Number(form.elements.roomRadiusMax.value) }, tunnel_radius: { min: Number(form.elements.tunnelRadiusMin.value), max: Number(form.elements.tunnelRadiusMax.value) }, surface_roughness: Number(form.elements.surfaceRoughness.value), water_level: Number(form.elements.waterLevel.value), grand_room_scale: Number(form.elements.grandRoomScale.value), elevated_crossing: form.elements.elevatedCrossing.checked, bridge_clearance: Number(form.elements.bridgeClearance.value), manual_layout: { enabled: form.elements.manualLayoutEnabled.checked, anchors: existingManual.anchors || [], connections: existingManual.connections || [] } };
+  state.cave.generator = { layout: form.elements.generatorLayout.value, seed_salt: Number(form.elements.seedSalt.value), main_rooms: Number(form.elements.mainRooms.value), branch_count: Number(form.elements.branchCount.value), loop_chance: Number(form.elements.loopChance.value), vertical_range: Number(form.elements.verticalRange.value), room_radius: { min: Number(form.elements.roomRadiusMin.value), max: Number(form.elements.roomRadiusMax.value) }, tunnel_radius: { min: Number(form.elements.tunnelRadiusMin.value), max: Number(form.elements.tunnelRadiusMax.value) }, surface_roughness: Number(form.elements.surfaceRoughness.value), water_level: Number(form.elements.waterLevel.value), grand_room_scale: Number(form.elements.grandRoomScale.value), elevated_crossing: form.elements.elevatedCrossing.checked, bridge_clearance: Number(form.elements.bridgeClearance.value), manual_layout: { enabled: Boolean(existingManual.enabled), anchors: existingManual.anchors || [], connections: existingManual.connections || [] } };
   state.cave.requires_flash = form.elements.requiresFlash.checked;
   state.cave.random_encounters = { enabled: form.elements.randomEncounters.checked, spawn_profile: form.elements.spawnProfile.value.trim(), density_multiplier: Number(form.elements.densityMultiplier.value || 0) };
   state.cave.trainer_settings ||= { placements: [] }; state.cave.trainer_settings.enabled = form.elements.trainersEnabled.checked; state.cave.trainer_settings.max_active = Number(form.elements.maxActiveTrainers.value || 0); state.cave.trainer_settings.class_pool = form.elements.trainerClassPool.value.split(",").map((value) => value.trim()).filter(Boolean); state.cave.trainer_settings.placements ||= [];
   state.cave.internal_biomes = $$("#cave-biome-list [data-cave-biome-row]").map((row) => ({ id: row.querySelector('[data-field="id"]').value.trim(), biome: row.querySelector('[data-field="biome"]').value.trim(), habitat_profile: row.querySelector('[data-field="habitat_profile"]').value.trim() || undefined, weight: Number(row.querySelector('[data-field="weight"]').value) })).map((entry) => { if (!entry.habitat_profile) delete entry.habitat_profile; return entry; });
-  state.cave.entrances = $$("#cave-entrance-list [data-cave-entrance-row]").map((row) => { const entry = { id: row.querySelector('[data-field="id"]').value.trim(), display_name: row.querySelector('[data-field="display_name"]').value.trim(), destination_anchor: { x: Number(row.querySelector('[data-field="destination_x"]').value), y: Number(row.querySelector('[data-field="destination_y"]').value), z: Number(row.querySelector('[data-field="destination_z"]').value) }, fallback_anchor: { x: Number(row.querySelector('[data-field="fallback_x"]').value), y: Number(row.querySelector('[data-field="fallback_y"]').value), z: Number(row.querySelector('[data-field="fallback_z"]').value) } }; const progress = row.querySelector('[data-field="required_progress"]').value.trim(); if (progress) entry.required_progress = progress; return entry; });
   state.cave.trainer_settings.placements = $$("#cave-trainer-list [data-cave-trainer-row]").map((row) => { const entry = { id: row.querySelector('[data-field="id"]').value.trim(), trainer_id: row.querySelector('[data-field="trainer_id"]').value.trim(), position: { x: Number(row.querySelector('[data-field="x"]').value), y: Number(row.querySelector('[data-field="y"]').value), z: Number(row.querySelector('[data-field="z"]').value) } }; const progress = row.querySelector('[data-field="required_progress"]').value.trim(); if (progress) entry.required_progress = progress; return entry; });
-  state.cave.generator.manual_layout.anchors = $$("#cave-layout-anchor-list [data-cave-layout-anchor-row]").map((row) => ({ id: row.querySelector('[data-field="id"]').value.trim(), kind: row.querySelector('[data-field="kind"]').value, position: { x: Number(row.querySelector('[data-field="x"]').value), y: Number(row.querySelector('[data-field="y"]').value), z: Number(row.querySelector('[data-field="z"]').value) }, radius_x: Number(row.querySelector('[data-field="radius_x"]').value), radius_z: Number(row.querySelector('[data-field="radius_z"]').value), height: Number(row.querySelector('[data-field="height"]').value) }));
   return true;
 }
 
 function renderCaveArrayEditors() {
   const biomes = state.cave?.internal_biomes || [];
   $("#cave-biome-list").innerHTML = biomes.length ? biomes.map((entry, index) => `<article class="cave-entry-card" data-cave-biome-row data-index="${index}"><header><strong>바이옴 ${index + 1}</strong><button type="button" data-remove-cave-biome="${index}">삭제</button></header><div class="cave-entry-fields"><label><span>구역 ID</span><input data-field="id" value="${escapeHtml(entry.id || "")}" required pattern="[a-z0-9_.-]+"></label><label class="span-2"><span>실제 바이옴 ID</span><input data-field="biome" value="${escapeHtml(entry.biome || "")}" required placeholder="minecraft:dripstone_caves"></label><label><span>가중치</span><input data-field="weight" type="number" min="1" max="100" value="${Number(entry.weight ?? 1)}" required></label><label class="span-4"><span>서식지 프로필</span><input data-field="habitat_profile" value="${escapeHtml(entry.habitat_profile || "")}" placeholder="cobbleventure:habitat/cave"></label></div></article>`).join("") : '<div class="cave-entry-empty">내부 바이옴을 하나 이상 추가하세요.</div>';
-  const entrances = state.cave?.entrances || [];
-  $("#cave-entrance-list").innerHTML = entrances.length ? entrances.map((entry, index) => `<article class="cave-entry-card" data-cave-entrance-row data-index="${index}"><header><strong>${escapeHtml(entry.display_name || `입출구 ${index + 1}`)}</strong><button type="button" data-remove-cave-entrance="${index}">삭제</button></header><div class="cave-entry-fields"><label><span>입출구 ID</span><input data-field="id" value="${escapeHtml(entry.id || "")}" required pattern="[a-z0-9_.-]+"></label><label class="span-2"><span>표시 이름</span><input data-field="display_name" value="${escapeHtml(entry.display_name || "")}" required></label><label><span>필요 진행도</span><input data-field="required_progress" value="${escapeHtml(entry.required_progress || "")}" placeholder="선택 사항"></label><label><span>도착 X</span><input data-field="destination_x" type="number" value="${Number(entry.destination_anchor?.x ?? 0)}"></label><label><span>도착 Y</span><input data-field="destination_y" type="number" value="${Number(entry.destination_anchor?.y ?? 48)}"></label><label><span>도착 Z</span><input data-field="destination_z" type="number" value="${Number(entry.destination_anchor?.z ?? 0)}"></label><span></span><label><span>안전 위치 X</span><input data-field="fallback_x" type="number" value="${Number(entry.fallback_anchor?.x ?? 0)}"></label><label><span>안전 위치 Y</span><input data-field="fallback_y" type="number" value="${Number(entry.fallback_anchor?.y ?? 49)}"></label><label><span>안전 위치 Z</span><input data-field="fallback_z" type="number" value="${Number(entry.fallback_anchor?.z ?? 0)}"></label></div></article>`).join("") : '<div class="cave-entry-empty">입구 또는 출구를 하나 이상 추가하세요.</div>';
   const trainers = state.cave?.trainer_settings?.placements || [];
   $("#cave-trainer-list").innerHTML = trainers.length ? trainers.map((entry, index) => `<article class="cave-entry-card" data-cave-trainer-row data-index="${index}"><header><strong>트레이너 ${index + 1}</strong><button type="button" data-remove-cave-trainer="${index}">삭제</button></header><div class="cave-entry-fields"><label><span>배치 ID</span><input data-field="id" value="${escapeHtml(entry.id || "")}" required></label><label class="span-2"><span>트레이너 ID</span><input data-field="trainer_id" value="${escapeHtml(entry.trainer_id || "")}" required></label><label><span>필요 진행도</span><input data-field="required_progress" value="${escapeHtml(entry.required_progress || "")}" placeholder="선택 사항"></label><label><span>X</span><input data-field="x" type="number" value="${Number(entry.position?.x ?? 0)}"></label><label><span>Y</span><input data-field="y" type="number" value="${Number(entry.position?.y ?? 48)}"></label><label><span>Z</span><input data-field="z" type="number" value="${Number(entry.position?.z ?? 0)}"></label></div></article>`).join("") : '<div class="cave-entry-empty">고정 트레이너 배치가 없습니다.</div>';
 }
 
 function renderCaveManualLayoutEditors() {
-  const manual = state.cave?.generator?.manual_layout || { anchors: [], connections: [] };
-  const anchors = manual.anchors || [];
-  const kindOptions = (selected) => [["room", "일반 공동"], ["grand", "대공동"], ["junction", "통로 교차점"], ["landmark", "랜드마크 공동"]].map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
-  $("#cave-layout-anchor-list").innerHTML = anchors.length ? anchors.map((anchor, index) => `<article class="cave-entry-card" data-cave-layout-anchor-row data-index="${index}"><header><strong>앵커 ${index + 1} · ${escapeHtml(anchor.id)}</strong><button type="button" data-remove-cave-layout-anchor="${index}">삭제</button></header><div class="cave-entry-fields"><label><span>앵커 ID</span><input data-field="id" value="${escapeHtml(anchor.id)}" readonly></label><label><span>종류</span><select data-field="kind">${kindOptions(anchor.kind)}</select></label><label><span>X</span><input data-field="x" type="number" value="${Number(anchor.position?.x ?? 0)}"></label><label><span>Y</span><input data-field="y" type="number" value="${Number(anchor.position?.y ?? 48)}"></label><label><span>Z</span><input data-field="z" type="number" value="${Number(anchor.position?.z ?? 0)}"></label><label><span>X 반경</span><input data-field="radius_x" type="number" min="3" max="96" value="${Number(anchor.radius_x ?? 12)}"></label><label><span>Z 반경</span><input data-field="radius_z" type="number" min="3" max="96" value="${Number(anchor.radius_z ?? 12)}"></label><label><span>높이</span><input data-field="height" type="number" min="5" max="96" value="${Number(anchor.height ?? 12)}"></label></div></article>`).join("") : '<div class="cave-entry-empty">내부 앵커를 추가하세요. 입구는 별도의 고정 앵커로 자동 표시됩니다.</div>';
-  const nodes = [
-    ...(state.cave?.entrances || []).map((entry) => ({ id: entry.id, label: `입구 · ${entry.display_name || entry.id}` })),
-    ...anchors.map((entry) => ({ id: entry.id, label: `내부 · ${entry.id}` }))
-  ];
-  const options = nodes.map((node) => `<option value="${escapeHtml(node.id)}">${escapeHtml(node.label)}</option>`).join("");
-  const fromValue = $("#cave-connection-from").value; const toValue = $("#cave-connection-to").value;
-  $("#cave-connection-from").innerHTML = options; $("#cave-connection-to").innerHTML = options;
-  if (nodes.some((node) => node.id === fromValue)) $("#cave-connection-from").value = fromValue;
-  if (nodes.some((node) => node.id === toValue)) $("#cave-connection-to").value = toValue;
-  else if (nodes.length > 1) $("#cave-connection-to").value = nodes[1].id;
-  const kindLabels = { tunnel: "일반 통로", stairs: "계단 통로", bridge: "자연 돌다리" };
-  $("#cave-layout-connection-list").innerHTML = (manual.connections || []).length ? manual.connections.map((connection, index) => `<article class="cave-layout-connection-card" data-kind="${escapeHtml(connection.kind)}"><div><strong>${escapeHtml(connection.from)} → ${escapeHtml(connection.to)}</strong><small>${escapeHtml(kindLabels[connection.kind] || connection.kind)} · 너비 ${Number(connection.width || 5)}블록</small></div><button type="button" data-remove-cave-layout-connection="${index}">삭제</button></article>`).join("") : '<div class="cave-entry-empty">연결을 추가하면 두 앵커 사이에 통로가 생성됩니다.</div>';
+  // 공동과 통로는 3D 지도 및 오른쪽 속성 패널에서 직접 편집합니다.
 }
 
 function handleCaveEditorClick(event) {
   if (!state.cave) return;
-  const addBiome = event.target.closest("[data-add-cave-biome]"); const addEntrance = event.target.closest("[data-add-cave-entrance]"); const addTrainer = event.target.closest("[data-add-cave-trainer]");
-  const removeBiome = event.target.closest("[data-remove-cave-biome]"); const removeEntrance = event.target.closest("[data-remove-cave-entrance]"); const removeTrainer = event.target.closest("[data-remove-cave-trainer]");
-  const addLayoutAnchor = event.target.closest("[data-add-cave-layout-anchor]"); const addLayoutConnection = event.target.closest("[data-add-cave-layout-connection]");
-  const removeLayoutAnchor = event.target.closest("[data-remove-cave-layout-anchor]"); const removeLayoutConnection = event.target.closest("[data-remove-cave-layout-connection]");
-  if (!(addBiome || addEntrance || addTrainer || removeBiome || removeEntrance || removeTrainer || addLayoutAnchor || addLayoutConnection || removeLayoutAnchor || removeLayoutConnection)) return;
+  const addBiome = event.target.closest("[data-add-cave-biome]"); const addTrainer = event.target.closest("[data-add-cave-trainer]");
+  const removeBiome = event.target.closest("[data-remove-cave-biome]"); const removeTrainer = event.target.closest("[data-remove-cave-trainer]");
+  if (!(addBiome || addTrainer || removeBiome || removeTrainer)) return;
   updateCaveFromForm();
   state.cave.internal_biomes ||= [];
   state.cave.entrances ||= [];
   if (addBiome) state.cave.internal_biomes.push({ id: `biome_${state.cave.internal_biomes.length + 1}`, biome: "minecraft:dripstone_caves", habitat_profile: "cobbleventure:habitat/cave", weight: 50 });
-  if (addEntrance) state.cave.entrances.push({ id: `entrance_${state.cave.entrances.length + 1}`, display_name: `입출구 ${state.cave.entrances.length + 1}`, destination_anchor: { x: 0, y: 48, z: 0 }, fallback_anchor: { x: 4, y: 49, z: 0 } });
   if (addTrainer) { state.cave.trainer_settings ||= { enabled: true, max_active: 1, class_pool: [], placements: [] }; state.cave.trainer_settings.placements.push({ id: `trainer_${state.cave.trainer_settings.placements.length + 1}`, trainer_id: "cobbleventure:trainer/", position: { x: 0, y: 49, z: 0 } }); }
-  const manual = state.cave.generator.manual_layout;
-  if (addLayoutAnchor) { let index = manual.anchors.length + 1; const used = new Set([...state.cave.entrances.map((entry) => entry.id), ...manual.anchors.map((entry) => entry.id)]); while (used.has(`anchor_${index}`)) index++; manual.anchors.push({ id: `anchor_${index}`, kind: "room", position: { x: Number(state.cave.dimension?.origin?.x || 0), y: Number(state.cave.dimension?.origin?.y || 48), z: Number(state.cave.dimension?.origin?.z || 0) }, radius_x: 12, radius_z: 12, height: 12 }); }
-  if (addLayoutConnection) { const from = $("#cave-connection-from").value; const to = $("#cave-connection-to").value; if (!from || !to || from === to) { toast("서로 다른 시작 앵커와 도착 앵커를 선택해 주세요."); return; } let index = manual.connections.length + 1; const used = new Set(manual.connections.map((entry) => entry.id)); while (used.has(`connection_${index}`)) index++; manual.connections.push({ id: `connection_${index}`, from, to, kind: $("#cave-connection-kind").value, width: Number($("#cave-connection-width").value || 5) }); }
   if (removeBiome) state.cave.internal_biomes.splice(Number(removeBiome.dataset.removeCaveBiome), 1);
-  if (removeEntrance) { const [removed] = state.cave.entrances.splice(Number(removeEntrance.dataset.removeCaveEntrance), 1); if (removed) manual.connections = manual.connections.filter((connection) => connection.from !== removed.id && connection.to !== removed.id); }
   if (removeTrainer) state.cave.trainer_settings.placements.splice(Number(removeTrainer.dataset.removeCaveTrainer), 1);
-  if (removeLayoutAnchor) { const [removed] = manual.anchors.splice(Number(removeLayoutAnchor.dataset.removeCaveLayoutAnchor), 1); if (removed) manual.connections = manual.connections.filter((connection) => connection.from !== removed.id && connection.to !== removed.id); }
-  if (removeLayoutConnection) manual.connections.splice(Number(removeLayoutConnection.dataset.removeCaveLayoutConnection), 1);
   renderCaveArrayEditors();
   renderCaveManualLayoutEditors();
   renderCaveLayoutPreview();
@@ -1469,7 +1464,7 @@ function buildCavePreviewLayout() {
       const room = { id: anchor.id, source: "anchor", sourceIndex: index, x: Number(anchor.position?.x ?? 0), y: Number(anchor.position?.y ?? 48), z: Number(anchor.position?.z ?? 0), radiusX: Number(anchor.radius_x ?? 12), radiusZ: Number(anchor.radius_z ?? 12), height: Number(anchor.height ?? 12), kind: anchor.kind === "landmark" ? "moon" : anchor.kind === "room" || anchor.kind === "lake" ? "wild" : anchor.kind };
       nodes.set(anchor.id, room); return room;
     });
-    const paths = (manual.connections || []).map((connection) => ({ kind: connection.kind, points: [nodes.get(connection.from), nodes.get(connection.to)].filter(Boolean), width: Number(connection.width || 5) })).filter((path) => path.points.length === 2);
+    const paths = (manual.connections || []).map((connection) => ({ id: connection.id, source: "connection", kind: connection.kind, points: [nodes.get(connection.from), nodes.get(connection.to)].filter(Boolean), width: Number(connection.width || 5) })).filter((path) => path.points.length === 2);
     return { rooms, paths, entrances, waterLevel: Number(generator.water_level ?? 38), manual: true };
   }
   const roomCount = Math.max(3, Math.round(Number(generator.main_rooms ?? 7)));
@@ -1539,53 +1534,58 @@ function selectedCavePreviewNode() {
     const node = state.cave.generator?.manual_layout?.anchors?.find((entry) => entry.id === selected.id);
     return node ? { selected, node, label: node.id, position: node.position, anchor: true } : null;
   }
+  if (selected.source === "connection") {
+    const node = state.cave.generator?.manual_layout?.connections?.find((entry) => entry.id === selected.id);
+    return node ? { selected, node, label: node.id, path: true, anchor: false } : null;
+  }
   const node = state.cave.entrances?.find((entry) => entry.id === selected.id);
-  return node ? { selected, node, label: node.display_name || node.id, position: node.destination_anchor, anchor: false } : null;
-}
-
-function syncSelectedCaveNodeEditor() {
-  const selected = selectedCavePreviewNode();
-  if (!selected) return;
-  if (selected.anchor) {
-    const index = state.cave.generator.manual_layout.anchors.indexOf(selected.node);
-    const row = $(`#cave-layout-anchor-list [data-cave-layout-anchor-row][data-index="${index}"]`);
-    if (!row) return;
-    for (const field of ["x", "y", "z"]) row.querySelector(`[data-field="${field}"]`).value = selected.node.position[field];
-    row.querySelector('[data-field="radius_x"]').value = selected.node.radius_x;
-    row.querySelector('[data-field="radius_z"]').value = selected.node.radius_z;
-    row.querySelector('[data-field="height"]').value = selected.node.height;
-    return;
-  }
-  const index = state.cave.entrances.indexOf(selected.node);
-  const row = $(`#cave-entrance-list [data-cave-entrance-row][data-index="${index}"]`);
-  if (!row) return;
-  for (const field of ["x", "y", "z"]) {
-    row.querySelector(`[data-field="destination_${field}"]`).value = selected.node.destination_anchor[field];
-    row.querySelector(`[data-field="fallback_${field}"]`).value = selected.node.fallback_anchor[field];
-  }
+  return node ? { selected, node, label: node.display_name || node.id, position: node.destination_anchor, entrance: true, anchor: false } : null;
 }
 
 function mutateSelectedCaveNode(values) {
   const selected = selectedCavePreviewNode();
   if (!selected) return false;
-  if (selected.anchor) {
+  if (selected.path) {
+    for (const [field, rawValue] of Object.entries(values)) {
+      if (field === "pathKind" && ["tunnel", "stairs", "bridge"].includes(rawValue)) selected.node.kind = rawValue;
+      else if (field === "width") selected.node.width = Math.max(3, Math.min(15, Math.round(Number(rawValue))));
+    }
+  } else if (selected.anchor) {
     for (const [field, rawValue] of Object.entries(values)) {
       const value = Number(rawValue);
       if (["x", "y", "z"].includes(field)) selected.node.position[field] = Math.round(value);
       else if (field === "radiusX") selected.node.radius_x = Math.max(3, Math.min(96, value));
       else if (field === "radiusZ") selected.node.radius_z = Math.max(3, Math.min(96, value));
       else if (field === "height") selected.node.height = Math.max(5, Math.min(96, value));
+      else if (field === "kind" && ["room", "grand", "junction", "landmark"].includes(rawValue)) selected.node.kind = rawValue;
     }
   } else {
     for (const [field, rawValue] of Object.entries(values)) {
-      if (!["x", "y", "z"].includes(field)) continue;
-      const value = Math.round(Number(rawValue));
-      const delta = value - selected.node.destination_anchor[field];
-      selected.node.destination_anchor[field] = value;
-      selected.node.fallback_anchor[field] += delta;
+      if (["x", "y", "z"].includes(field)) {
+        const value = Math.round(Number(rawValue));
+        const delta = value - selected.node.destination_anchor[field];
+        selected.node.destination_anchor[field] = value;
+        selected.node.fallback_anchor[field] += delta;
+      } else if (["fallbackX", "fallbackY", "fallbackZ"].includes(field)) {
+        selected.node.fallback_anchor[field.at(-1).toLowerCase()] = Math.round(Number(rawValue));
+      } else if (field === "displayName") selected.node.display_name = String(rawValue);
+      else if (field === "requiredProgress") {
+        const progress = String(rawValue).trim();
+        if (progress) selected.node.required_progress = progress; else delete selected.node.required_progress;
+      } else if (field === "entranceId") {
+        const nextId = String(rawValue).trim();
+        const conflict = [...(state.cave.entrances || []), ...(state.cave.generator?.manual_layout?.anchors || [])].some((entry) => entry !== selected.node && entry.id === nextId);
+        if (!/^[a-z0-9_.-]+$/.test(nextId) || conflict) continue;
+        const previousId = selected.node.id;
+        selected.node.id = nextId; selected.selected.id = nextId;
+        for (const connection of state.cave.generator?.manual_layout?.connections || []) {
+          if (connection.from === previousId) connection.from = nextId;
+          if (connection.to === previousId) connection.to = nextId;
+        }
+        if (state.cavePreview.pathDraft?.id === previousId) state.cavePreview.pathDraft.id = nextId;
+      }
     }
   }
-  syncSelectedCaveNodeEditor();
   return true;
 }
 
@@ -1594,13 +1594,38 @@ function renderCaveNodeInspector() {
   if (!inspector) return;
   if (!selected) { inspector.hidden = true; state.cavePreview.selected = null; return; }
   inspector.hidden = false;
-  $("#cave-node-inspector-title").textContent = `${selected.anchor ? "앵커" : "입출구"} · ${selected.label}`;
-  for (const field of ["x", "y", "z"]) inspector.querySelector(`[data-cave-selected-field="${field}"]`).value = selected.position[field];
-  $$('[data-cave-size-field]', inspector).forEach((element) => { element.hidden = !selected.anchor; });
+  $("#cave-node-inspector-title").textContent = `${selected.path ? "통로" : selected.anchor ? "앵커" : "입출구"} · ${selected.label}`;
+  inspector.querySelectorAll('[data-cave-size-field], [data-cave-anchor-field]').forEach((element) => { element.hidden = !selected.anchor; });
+  inspector.querySelectorAll('[data-cave-entrance-field]').forEach((element) => { element.hidden = !selected.entrance; });
+  inspector.querySelectorAll('[data-cave-position-field]').forEach((element) => { element.hidden = selected.path; });
+  inspector.querySelectorAll('[data-cave-path-field]').forEach((element) => { element.hidden = !selected.path; });
+  inspector.querySelector('[data-delete-selected-cave-anchor]').hidden = !selected.anchor;
+  inspector.querySelector('[data-delete-selected-cave-entrance]').hidden = !selected.entrance;
+  inspector.querySelector('[data-delete-selected-cave-path]').hidden = !selected.path;
+  if (selected.path) {
+    inspector.querySelector('[data-cave-selected-field="pathId"]').value = selected.node.id;
+    inspector.querySelector('[data-cave-selected-field="from"]').value = selected.node.from;
+    inspector.querySelector('[data-cave-selected-field="to"]').value = selected.node.to;
+    inspector.querySelector('[data-cave-selected-field="width"]').value = selected.node.width;
+    inspector.querySelector('[data-cave-selected-field="pathKind"]').value = selected.node.kind;
+    $("#cave-node-inspector-help").textContent = "통로 선을 직접 선택했습니다. 종류와 너비를 변경하거나 삭제할 수 있습니다.";
+  } else {
+    for (const field of ["x", "y", "z"]) inspector.querySelector(`[data-cave-selected-field="${field}"]`).value = selected.position[field];
+    $("#cave-node-inspector-help").textContent = selected.entrance
+      ? "입구 위치를 드래그하면 안전 위치도 함께 이동합니다. 안전 위치는 개별 조정할 수 있습니다."
+      : "평면 보기에서는 화면에 보이는 두 축으로 이동합니다. 3D에서는 XZ 평면으로 이동합니다.";
+  }
   if (selected.anchor) {
+    inspector.querySelector('[data-cave-selected-field="id"]').value = selected.node.id;
+    inspector.querySelector('[data-cave-selected-field="kind"]').value = selected.node.kind;
     inspector.querySelector('[data-cave-selected-field="radiusX"]').value = selected.node.radius_x;
     inspector.querySelector('[data-cave-selected-field="radiusZ"]').value = selected.node.radius_z;
     inspector.querySelector('[data-cave-selected-field="height"]').value = selected.node.height;
+  } else if (selected.entrance) {
+    inspector.querySelector('[data-cave-selected-field="entranceId"]').value = selected.node.id;
+    inspector.querySelector('[data-cave-selected-field="displayName"]').value = selected.node.display_name || "";
+    inspector.querySelector('[data-cave-selected-field="requiredProgress"]').value = selected.node.required_progress || "";
+    for (const field of ["x", "y", "z"]) inspector.querySelector(`[data-cave-selected-field="fallback${field.toUpperCase()}"]`).value = selected.node.fallback_anchor[field];
   }
   $(".cave-layout-preview")?.setAttribute("data-editing-node", "true");
 }
@@ -1629,7 +1654,130 @@ function cavePreviewProjection(layout, canvas) {
     const rotatedX = x * cosYaw - z * sinYaw; const rotatedZ = x * sinYaw + z * cosYaw;
     return { x: canvas.width / 2 + rotatedX * scale, y: canvas.height * .52 - (y * cosPitch - rotatedZ * sinPitch) * scale, depth: y * sinPitch + rotatedZ * cosPitch };
   };
-  return { center, extents, scale, view, project, cosYaw, sinYaw, sinPitch };
+  return { center, extents, scale, view, project, cosYaw, sinYaw, cosPitch, sinPitch, canvasWidth: canvas.width, canvasHeight: canvas.height };
+}
+
+function cavePreviewWorldPosition(pointer) {
+  const projection = state.cavePreview.projection;
+  if (!projection) return null;
+  const { center, scale, view } = projection;
+  const defaultY = Number(state.cave.dimension?.origin?.y ?? 48);
+  if (view === "xy") return { x: center.x + (pointer.x - projection.canvasWidth / 2) / scale, y: center.y - (pointer.y - projection.canvasHeight / 2) / scale, z: center.z };
+  if (view === "xz") return { x: center.x + (pointer.x - projection.canvasWidth / 2) / scale, y: defaultY, z: center.z + (pointer.y - projection.canvasHeight / 2) / scale };
+  if (view === "zy") return { x: center.x, y: center.y - (pointer.y - projection.canvasHeight / 2) / scale, z: center.z + (pointer.x - projection.canvasWidth / 2) / scale };
+  const rotatedX = (pointer.x - projection.canvasWidth / 2) / scale;
+  const deltaY = defaultY - center.y;
+  const screenY = (pointer.y - projection.canvasHeight * .52) / scale;
+  const rotatedZ = (screenY + deltaY * projection.cosPitch) / projection.sinPitch;
+  return {
+    x: center.x + projection.cosYaw * rotatedX + projection.sinYaw * rotatedZ,
+    y: defaultY,
+    z: center.z - projection.sinYaw * rotatedX + projection.cosYaw * rotatedZ
+  };
+}
+
+function addCaveAnchorAt(pointer) {
+  const position = cavePreviewWorldPosition(pointer); if (!position || !state.cave) return;
+  const manual = state.cave.generator.manual_layout;
+  let index = manual.anchors.length + 1;
+  const used = new Set([...(state.cave.entrances || []).map((entry) => entry.id), ...manual.anchors.map((entry) => entry.id)]);
+  while (used.has(`anchor_${index}`)) index++;
+  const anchor = { id: `anchor_${index}`, kind: "room", position: { x: Math.round(position.x), y: Math.round(position.y), z: Math.round(position.z) }, radius_x: 12, radius_z: 12, height: 12 };
+  manual.anchors.push(anchor); manual.enabled = true;
+  state.cavePreview.selected = { source: "anchor", id: anchor.id };
+  setCavePreviewTool("select");
+  renderCaveManualLayoutEditors(); renderCaveLayoutPreview();
+  toast(`공동 ${anchor.id}을(를) 추가했습니다.`);
+}
+
+function addCaveEntranceAt(pointer) {
+  const position = cavePreviewWorldPosition(pointer); if (!position || !state.cave) return;
+  state.cave.entrances ||= [];
+  let index = state.cave.entrances.length + 1;
+  const used = new Set([...(state.cave.entrances || []).map((entry) => entry.id), ...(state.cave.generator?.manual_layout?.anchors || []).map((entry) => entry.id)]);
+  while (used.has(`entrance_${index}`)) index++;
+  const destination = { x: Math.round(position.x), y: Math.round(position.y), z: Math.round(position.z) };
+  const entrance = { id: `entrance_${index}`, display_name: `입출구 ${index}`, destination_anchor: destination, fallback_anchor: { x: destination.x + 4, y: destination.y + 1, z: destination.z } };
+  state.cave.entrances.push(entrance);
+  state.cavePreview.selected = { source: "entrance", id: entrance.id };
+  setCavePreviewTool("select"); renderCaveLayoutPreview();
+  toast(`${entrance.display_name}을(를) 추가했습니다.`);
+}
+
+function deleteSelectedCaveAnchor() {
+  const selected = selectedCavePreviewNode(); if (!selected?.anchor) return;
+  const manual = state.cave.generator.manual_layout;
+  manual.anchors = manual.anchors.filter((anchor) => anchor !== selected.node);
+  manual.connections = manual.connections.filter((connection) => connection.from !== selected.node.id && connection.to !== selected.node.id);
+  state.cavePreview.selected = null;
+  renderCaveManualLayoutEditors(); renderCaveLayoutPreview();
+}
+
+function deleteSelectedCaveEntrance() {
+  const selected = selectedCavePreviewNode(); if (!selected?.entrance) return;
+  state.cave.entrances = state.cave.entrances.filter((entrance) => entrance !== selected.node);
+  const manual = state.cave.generator.manual_layout;
+  manual.connections = manual.connections.filter((connection) => connection.from !== selected.node.id && connection.to !== selected.node.id);
+  state.cavePreview.selected = null;
+  renderCaveLayoutPreview();
+}
+
+function deleteSelectedCavePath() {
+  const selected = selectedCavePreviewNode(); if (!selected?.path) return;
+  const manual = state.cave.generator.manual_layout;
+  manual.connections = manual.connections.filter((connection) => connection !== selected.node);
+  state.cavePreview.selected = null;
+  renderCaveLayoutPreview();
+}
+
+function chooseCavePathEndpoint(target) {
+  if (!target || !["anchor", "entrance"].includes(target.source)) {
+    toast("공동 또는 입출구를 선택해 주세요.");
+    return;
+  }
+  if (!state.cavePreview.pathDraft) {
+    state.cavePreview.pathDraft = { source: target.source, id: target.id };
+    setCavePreviewTool("connect");
+    renderCaveLayoutPreview();
+    return;
+  }
+  if (state.cavePreview.pathDraft.id === target.id) {
+    toast("서로 다른 두 앵커를 선택해 주세요.");
+    return;
+  }
+  const manual = state.cave.generator.manual_layout;
+  const existing = manual.connections.find((connection) => (connection.from === state.cavePreview.pathDraft.id && connection.to === target.id) || (connection.from === target.id && connection.to === state.cavePreview.pathDraft.id));
+  if (existing) {
+    state.cavePreview.selected = { source: "connection", id: existing.id };
+    setCavePreviewTool("select"); renderCaveLayoutPreview();
+    toast("이미 연결된 통로를 선택했습니다.");
+    return;
+  }
+  let index = manual.connections.length + 1;
+  const used = new Set(manual.connections.map((entry) => entry.id));
+  while (used.has(`connection_${index}`)) index++;
+  const connection = { id: `connection_${index}`, from: state.cavePreview.pathDraft.id, to: target.id, kind: "tunnel", width: 5 };
+  manual.connections.push(connection); manual.enabled = true;
+  state.cavePreview.selected = { source: "connection", id: connection.id };
+  setCavePreviewTool("select");
+  renderCaveLayoutPreview();
+  toast(`${connection.from} → ${connection.to} 통로를 추가했습니다.`);
+}
+
+function setCavePreviewTool(tool) {
+  state.cavePreview.tool = ["add-anchor", "add-entrance", "connect"].includes(tool) ? tool : "select";
+  if (state.cavePreview.tool !== "connect") state.cavePreview.pathDraft = null;
+  const preview = $(".cave-layout-preview");
+  if (state.cavePreview.tool === "select") preview.removeAttribute("data-tool"); else preview.setAttribute("data-tool", state.cavePreview.tool);
+  $$('[data-cave-preview-tool]').forEach((button) => button.classList.toggle("is-active", button.dataset.cavePreviewTool === state.cavePreview.tool));
+  const hint = $("#cave-add-anchor-hint"); hint.hidden = state.cavePreview.tool === "select";
+  hint.textContent = state.cavePreview.tool === "add-anchor"
+    ? "지도에서 새 공동의 중심을 클릭하세요 · Esc 취소"
+    : state.cavePreview.tool === "add-entrance"
+      ? "지도에서 새 입구의 위치를 클릭하세요 · Esc 취소"
+      : state.cavePreview.pathDraft
+      ? `${state.cavePreview.pathDraft.id} 선택됨 · 연결할 두 번째 앵커를 선택하세요`
+      : "길의 시작 앵커 또는 입출구를 선택하세요 · Esc 취소";
 }
 
 function renderCaveLayoutPreview() {
@@ -1671,11 +1819,12 @@ function renderCaveLayoutPreview() {
   const pathSegments = [];
   for (const path of layout.paths) for (let index = 0; index < path.points.length - 1; index++) {
     const from = path.points[index]; const to = path.points[index + 1];
-    pathSegments.push({ kind: path.kind, from, to, a: project(from), b: project(to) });
+    pathSegments.push({ id: path.id, source: path.source, kind: path.kind, from, to, a: project(from), b: project(to) });
   }
   pathSegments.sort((a, b) => ((a.a.depth + a.b.depth) - (b.a.depth + b.b.depth)));
   for (const segment of pathSegments) {
-    context.strokeStyle = "rgba(5, 9, 11, .82)"; context.lineWidth = segment.kind === "bridge" ? 11 : 8; context.beginPath(); context.moveTo(segment.a.x, segment.a.y); context.lineTo(segment.b.x, segment.b.y); context.stroke();
+    const isSelectedPath = state.cavePreview.selected?.source === "connection" && state.cavePreview.selected.id === segment.id;
+    context.strokeStyle = isSelectedPath ? "#ffffff" : "rgba(5, 9, 11, .82)"; context.lineWidth = segment.kind === "bridge" ? 12 : isSelectedPath ? 10 : 8; context.beginPath(); context.moveTo(segment.a.x, segment.a.y); context.lineTo(segment.b.x, segment.b.y); context.stroke();
     context.strokeStyle = segment.kind === "bridge" ? "#f19b62" : segment.kind === "stairs" || segment.kind === "loop" ? "#9ebc83" : segment.kind === "branch" ? "#718990" : "#a5b6ba";
     context.lineWidth = segment.kind === "bridge" ? 6 : segment.kind === "main" ? 4 : 3; context.beginPath(); context.moveTo(segment.a.x, segment.a.y); context.lineTo(segment.b.x, segment.b.y); context.stroke();
     if (segment.kind !== "bridge" && (segment.from.y < waterY || segment.to.y < waterY)) {
@@ -1688,6 +1837,7 @@ function renderCaveLayoutPreview() {
       const wetA = project(wetFrom); const wetB = project(wetTo);
       context.strokeStyle = "rgba(67, 184, 232, .9)"; context.lineWidth = segment.kind === "main" ? 6 : 5; context.beginPath(); context.moveTo(wetA.x, wetA.y); context.lineTo(wetB.x, wetB.y); context.stroke();
     }
+    if (segment.source === "connection") state.cavePreview.hitTargets.push({ mode: "select-path", source: "connection", id: segment.id, x1: segment.a.x, y1: segment.a.y, x2: segment.b.x, y2: segment.b.y, radius: 9 });
   }
 
   const selected = state.cavePreview.selected;
@@ -1696,16 +1846,16 @@ function renderCaveLayoutPreview() {
     const submerged = room.y < waterY; const color = submerged ? [67, 184, 232] : room.kind === "grand" ? [196, 139, 255] : room.kind === "moon" ? [208, 188, 244] : room.kind === "wild" ? [117, 174, 118] : [132, 153, 160];
     const radiusX = Math.max(7, (view === "zy" ? room.radiusZ : room.radiusX) * scale);
     const radiusY = Math.max(5, (view === "xz" ? room.radiusZ : room.height * .72) * scale);
-    const isSelected = selected?.source === "anchor" && selected.id === room.id;
-    context.fillStyle = `rgba(${color.join(",")}, ${submerged ? .32 : .17})`; context.strokeStyle = isSelected ? "#ffffff" : `rgba(${color.join(",")}, .9)`; context.lineWidth = isSelected ? 3 : room.kind === "grand" ? 2.5 : 1.5;
+    const isSelected = selected?.source === "anchor" && selected.id === room.id; const isDraft = state.cavePreview.pathDraft?.id === room.id;
+    context.fillStyle = `rgba(${color.join(",")}, ${submerged ? .32 : .17})`; context.strokeStyle = isDraft ? "#b8e86b" : isSelected ? "#ffffff" : `rgba(${color.join(",")}, .9)`; context.lineWidth = isDraft || isSelected ? 3 : room.kind === "grand" ? 2.5 : 1.5;
     context.beginPath(); context.ellipse(projected.x, projected.y, radiusX, radiusY, 0, 0, Math.PI * 2); context.fill(); context.stroke();
     context.beginPath(); context.ellipse(projected.x, projected.y, radiusX * .66, radiusY, 0, 0, Math.PI * 2); context.strokeStyle = `rgba(${color.join(",")}, .28)`; context.stroke();
     if (room.kind === "grand" || submerged || isSelected) { context.fillStyle = "#e6f1f1"; context.font = "700 11px sans-serif"; context.textAlign = "center"; context.fillText(submerged ? `${room.id} · 수심 ${waterY - room.y}` : room.kind === "grand" ? "대공동" : room.id, projected.x, projected.y - radiusY - 8); }
     if (room.source === "anchor") state.cavePreview.hitTargets.push({ mode: "move", source: "anchor", id: room.id, x: projected.x, y: projected.y, radius: Math.max(10, Math.min(26, radiusX * .35)) });
   }
   for (const entrance of layout.entrances) {
-    const p = project(entrance); const submerged = entrance.y < waterY; const isSelected = selected?.source === "entrance" && selected.id === entrance.id;
-    context.fillStyle = submerged ? "#43b8e8" : "#ffce67"; context.strokeStyle = isSelected ? "#ffffff" : "#211b0d"; context.lineWidth = isSelected ? 3 : 2; context.beginPath(); context.arc(p.x, p.y, isSelected ? 8 : 6, 0, Math.PI * 2); context.fill(); context.stroke();
+    const p = project(entrance); const submerged = entrance.y < waterY; const isSelected = selected?.source === "entrance" && selected.id === entrance.id; const isDraft = state.cavePreview.pathDraft?.id === entrance.id;
+    context.fillStyle = submerged ? "#43b8e8" : "#ffce67"; context.strokeStyle = isDraft ? "#b8e86b" : isSelected ? "#ffffff" : "#211b0d"; context.lineWidth = isDraft || isSelected ? 3 : 2; context.beginPath(); context.arc(p.x, p.y, isSelected || isDraft ? 8 : 6, 0, Math.PI * 2); context.fill(); context.stroke();
     if (entrance.source === "entrance") state.cavePreview.hitTargets.push({ mode: "move", source: "entrance", id: entrance.id, x: p.x, y: p.y, radius: 13 });
   }
 
@@ -1737,12 +1887,34 @@ function cavePreviewPointer(event) {
   return { x: (event.clientX - bounds.left) * canvas.width / bounds.width, y: (event.clientY - bounds.top) * canvas.height / bounds.height };
 }
 
+function cavePreviewHitDistance(target, pointer) {
+  if (target.mode !== "select-path") return Math.hypot(pointer.x - target.x, pointer.y - target.y);
+  const dx = target.x2 - target.x1; const dy = target.y2 - target.y1;
+  const lengthSquared = dx * dx + dy * dy;
+  const progress = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((pointer.x - target.x1) * dx + (pointer.y - target.y1) * dy) / lengthSquared));
+  return Math.hypot(pointer.x - (target.x1 + dx * progress), pointer.y - (target.y1 + dy * progress));
+}
+
 function beginCavePreviewDrag(event) {
   const pointer = cavePreviewPointer(event);
-  const target = [...state.cavePreview.hitTargets].sort((a, b) => (a.mode === "resize" ? -1 : 1) - (b.mode === "resize" ? -1 : 1)).find((candidate) => Math.hypot(pointer.x - candidate.x, pointer.y - candidate.y) <= candidate.radius);
+  const priority = { resize: 0, move: 1, "select-path": 2 };
+  const target = [...state.cavePreview.hitTargets].sort((a, b) => priority[a.mode] - priority[b.mode]).find((candidate) => cavePreviewHitDistance(candidate, pointer) <= candidate.radius);
+  if (state.cavePreview.tool === "add-anchor") {
+    addCaveAnchorAt(pointer);
+    return;
+  }
+  if (state.cavePreview.tool === "add-entrance") {
+    addCaveEntranceAt(pointer);
+    return;
+  }
+  if (state.cavePreview.tool === "connect") {
+    chooseCavePathEndpoint(target);
+    return;
+  }
   if (target) {
     state.cavePreview.selected = { source: target.source, id: target.id };
     renderCaveLayoutPreview();
+    if (target.mode === "select-path") return;
     const node = selectedCavePreviewNode();
     state.cavePreview.drag = target.mode === "resize"
       ? { ...target, pointer }
@@ -1788,7 +1960,9 @@ function endCavePreviewDrag(event) {
 function handleCavePreviewInspectorInput(event) {
   const field = event.target.dataset.caveSelectedField;
   if (!field) return false;
-  if (mutateSelectedCaveNode({ [field]: Number(event.target.value) })) renderCaveLayoutPreview();
+  if (["id", "pathId", "from", "to"].includes(field)) return true;
+  const value = ["kind", "pathKind", "entranceId", "displayName", "requiredProgress"].includes(field) ? event.target.value : Number(event.target.value);
+  if (mutateSelectedCaveNode({ [field]: value })) renderCaveLayoutPreview();
   return true;
 }
 
@@ -2281,9 +2455,9 @@ function renderConditionEditor(condition, conditionIndex) {
   const type = condition.type || "always";
   let details = "";
   if (type === "flag_equals") {
-    details = `<label class="wide"><span>플래그 ID</span><input data-condition-field="key" value="${escapeHtml(condition.key || "")}" placeholder="cobbleventure:flag/example"></label>${renderEventValueEditor(condition.value ?? true, "value", "condition")}`;
+    details = `<label class="wide"><span>변수 ID</span><input list="declared-variable-ids" data-condition-field="key" value="${escapeHtml(condition.key || "")}" placeholder="cobbleventure:flag/example"><small>게임 데이터에서 선언한 진행 변수를 선택하거나 직접 입력할 수 있습니다.</small></label>${renderEventValueEditor(condition.value ?? true, "value", "condition")}`;
   } else if (type === "has_item") {
-    details = `<label class="wide"><span>아이템 ID</span><input data-condition-field="item" value="${escapeHtml(condition.item || "")}" placeholder="cobblemon:potion"></label><label><span>필요 수량</span><input data-condition-field="count" data-value-type="number" type="number" min="1" step="1" value="${escapeHtml(condition.count ?? 1)}"></label>`;
+    details = `<label class="wide"><span>아이템 ID</span><input list="declared-item-ids" data-condition-field="item" value="${escapeHtml(condition.item || "")}" placeholder="cobblemon:potion"><small>선언한 퀘스트 아이템 또는 실제 게임 아이템 ID를 사용할 수 있습니다.</small></label><label><span>필요 수량</span><input data-condition-field="count" data-value-type="number" type="number" min="1" step="1" value="${escapeHtml(condition.count ?? 1)}"></label>`;
   } else {
     details = '<p class="command-help wide">별도의 검사 없이 이 분기로 이동합니다.</p>';
   }
@@ -4155,7 +4329,7 @@ function shadeMinecraftTopColor(hex, factor) {
 
 function structureViewerEntries() {
   const query = state.structureViewer.query.trim().toLowerCase();
-  return Object.entries(state.structureSizes)
+  return Object.entries(state.structureViewer.catalog || {})
     .filter(([id, metadata]) => !query || `${id} ${metadata.source || ""}`.toLowerCase().includes(query))
     .sort(([left], [right]) => left.localeCompare(right));
 }
@@ -6019,19 +6193,176 @@ async function deleteSettlement() {
   }
 }
 
+async function loadGameDefinitions(force = false) {
+  if (lazyDataLoaded.definitions && !force) return;
+  if (lazyDataPromises.definitions) return lazyDataPromises.definitions;
+  lazyDataPromises.definitions = (async () => {
+    const result = await request("/api/game-definitions");
+    if (!result.ok) throw new Error(result.data.error || "게임 데이터 선언을 불러오지 못했습니다.");
+    state.gameDefinitions = result.data;
+    state.gameDefinitions.items ||= [];
+    state.gameDefinitions.variables ||= [];
+    lazyDataLoaded.definitions = true;
+    renderGameDefinitions();
+  })();
+  try { await lazyDataPromises.definitions; }
+  finally { lazyDataPromises.definitions = null; }
+}
+
+function definitionValueInput(entry) {
+  if (entry.type === "boolean") return `<select data-definition-field="default"><option value="true" ${entry.default === true ? "selected" : ""}>true</option><option value="false" ${entry.default === false ? "selected" : ""}>false</option></select>`;
+  if (entry.type === "integer") return `<input type="number" step="1" data-definition-field="default" value="${Number.isInteger(entry.default) ? entry.default : 0}">`;
+  return `<input data-definition-field="default" value="${escapeHtml(typeof entry.default === "string" ? entry.default : "")}">`;
+}
+
+function renderGameDefinitions() {
+  const definitions = state.gameDefinitions;
+  const items = definitions.items || [];
+  const variables = definitions.variables || [];
+  $("#game-item-list").innerHTML = items.length ? items.map((entry, index) => `<article class="definition-card" data-definition-kind="item" data-definition-index="${index}"><header><div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id || `아이템 ${index + 1}`)}</strong><code>${escapeHtml(entry.id || "ID 미지정")}</code></div><button type="button" data-remove-definition="item" data-index="${index}">삭제</button></header><div class="definition-fields"><label class="span-2"><span>선언 ID</span><input data-definition-field="id" value="${escapeHtml(entry.id || "")}" placeholder="cobbleventure:item/quest_letter"></label><label class="span-2"><span>기반 아이템</span><input data-definition-field="base_item" value="${escapeHtml(entry.base_item || "")}" placeholder="minecraft:paper"></label><label><span>한국어 이름</span><input data-definition-field="display_name.ko_kr" value="${escapeHtml(entry.display_name?.ko_kr || "")}"></label><label><span>영문 이름</span><input data-definition-field="display_name.en_us" value="${escapeHtml(entry.display_name?.en_us || "")}"></label><label class="span-4"><span>용도와 설명</span><textarea rows="2" data-definition-field="description.ko_kr">${escapeHtml(entry.description?.ko_kr || "")}</textarea></label></div><footer><span>NPC 조건 키</span><code>has_item · ${escapeHtml(entry.id || "—")}</code></footer></article>`).join("") : '<div class="definition-empty">선언된 추가 아이템이 없습니다. ‘＋ 아이템’을 눌러 시작하세요.</div>';
+  $("#game-variable-list").innerHTML = variables.length ? variables.map((entry, index) => `<article class="definition-card" data-definition-kind="variable" data-definition-index="${index}"><header><div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id || `변수 ${index + 1}`)}</strong><code>${escapeHtml(entry.id || "ID 미지정")}</code></div><button type="button" data-remove-definition="variable" data-index="${index}">삭제</button></header><div class="definition-fields"><label class="span-2"><span>변수 ID</span><input data-definition-field="id" value="${escapeHtml(entry.id || "")}" placeholder="cobbleventure:flag/story/met_professor"></label><label><span>저장 범위</span><select data-definition-field="scope"><option value="global" ${entry.scope === "global" ? "selected" : ""}>월드 전체</option><option value="player" ${entry.scope === "player" ? "selected" : ""}>플레이어별</option></select></label><label><span>자료형</span><select data-definition-field="type" data-definition-rerender><option value="boolean" ${entry.type === "boolean" ? "selected" : ""}>boolean</option><option value="integer" ${entry.type === "integer" ? "selected" : ""}>integer</option><option value="string" ${entry.type === "string" ? "selected" : ""}>string</option></select></label><label><span>한국어 이름</span><input data-definition-field="display_name.ko_kr" value="${escapeHtml(entry.display_name?.ko_kr || "")}"></label><label><span>기본값</span>${definitionValueInput(entry)}</label><label class="span-4"><span>용도와 설명</span><textarea rows="2" data-definition-field="description.ko_kr">${escapeHtml(entry.description?.ko_kr || "")}</textarea></label></div><footer><span>NPC 조건 키</span><code>flag_equals · ${escapeHtml(entry.id || "—")}</code></footer></article>`).join("") : '<div class="definition-empty">선언된 진행 변수가 없습니다. 전역 또는 플레이어별 변수를 추가하세요.</div>';
+  const globalCount = variables.filter((entry) => entry.scope === "global").length;
+  const playerCount = variables.filter((entry) => entry.scope === "player").length;
+  $("#definition-summary").innerHTML = `<article><span>아이템</span><strong>${items.length}</strong></article><article><span>전역 변수</span><strong>${globalCount}</strong></article><article><span>플레이어 변수</span><strong>${playerCount}</strong></article>`;
+  $("#declared-item-ids").innerHTML = items.map((entry) => `<option value="${escapeHtml(entry.id || "")}">${escapeHtml(entry.display_name?.ko_kr || "")}</option>`).join("");
+  $("#declared-variable-ids").innerHTML = variables.map((entry) => `<option value="${escapeHtml(entry.id || "")}">${escapeHtml(entry.display_name?.ko_kr || "")}</option>`).join("");
+}
+
+function nextDefinitionId(kind) {
+  const entries = kind === "item" ? state.gameDefinitions.items : state.gameDefinitions.variables;
+  const prefix = kind === "item" ? "cobbleventure:item/new_item" : "cobbleventure:flag/new_variable";
+  let id = prefix; let suffix = 2;
+  while (entries.some((entry) => entry.id === id)) id = `${prefix}_${suffix++}`;
+  return id;
+}
+
+function addGameDefinition(kind) {
+  if (kind === "item") state.gameDefinitions.items.push({ id: nextDefinitionId(kind), base_item: "minecraft:paper", display_name: { ko_kr: "새 아이템", en_us: "New Item" }, description: { ko_kr: "" } });
+  else state.gameDefinitions.variables.push({ id: nextDefinitionId(kind), scope: "player", type: "boolean", default: false, display_name: { ko_kr: "새 진행 변수" }, description: { ko_kr: "" } });
+  renderGameDefinitions();
+  const list = kind === "item" ? $("#game-item-list") : $("#game-variable-list");
+  list.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function setNestedDefinitionField(entry, path, value) {
+  const keys = path.split("."); let target = entry;
+  for (const key of keys.slice(0, -1)) target = target[key] ||= {};
+  target[keys.at(-1)] = value;
+}
+
+function handleDefinitionInput(event) {
+  const row = event.target.closest("[data-definition-kind]");
+  const field = event.target.dataset.definitionField;
+  if (!row || !field) return;
+  const entries = row.dataset.definitionKind === "item" ? state.gameDefinitions.items : state.gameDefinitions.variables;
+  const entry = entries[Number(row.dataset.definitionIndex)];
+  let value = event.target.value;
+  if (field === "default" && entry.type === "boolean") value = value === "true";
+  if (field === "default" && entry.type === "integer") value = Number(value);
+  if (field === "type") {
+    entry.type = value;
+    entry.default = value === "boolean" ? false : value === "integer" ? 0 : "";
+  } else setNestedDefinitionField(entry, field, value);
+  if (event.target.dataset.definitionRerender !== undefined || field === "scope") renderGameDefinitions();
+}
+
+function handleDefinitionClick(event) {
+  const add = event.target.closest("[data-add-definition]");
+  if (add) { addGameDefinition(add.dataset.addDefinition); return; }
+  const remove = event.target.closest("[data-remove-definition]");
+  if (!remove) return;
+  const entries = remove.dataset.removeDefinition === "item" ? state.gameDefinitions.items : state.gameDefinitions.variables;
+  entries.splice(Number(remove.dataset.index), 1); renderGameDefinitions();
+}
+
+async function saveGameDefinitions() {
+  const result = await request("/api/game-definitions", { method: "PUT", body: JSON.stringify(state.gameDefinitions) });
+  showIssues("#definition-issues", result.data);
+  if (!result.ok) { toast(result.data.error || "선언 내용을 확인해 주세요."); return; }
+  toast("게임 데이터 선언을 저장했습니다.");
+}
+
 function renderBuildCommands() {
   const descriptions = {
     validate: "모든 콘텐츠와 의존성 Lock을 빠르게 검사합니다.", test: "콘텐츠 관리와 패키징 회귀 테스트를 실행합니다.",
     "pack-smoke": "모드 없이 임포트 구조만 확인하는 ZIP을 만듭니다.", pack: "현재 설정으로 개발용 임포트 ZIP을 만듭니다.",
     "validate-pack": "실제 모드 파일과 버전이 모두 확정됐는지 검사합니다."
   };
-  $("#build-command-list").innerHTML = state.buildCommands.map((command) => `
+  $("#build-command-list").innerHTML = state.buildCommands.filter((command) => command.id !== "builder-world").map((command) => `
     <article class="build-command"><div><strong>${escapeHtml(command.id)}</strong><small>${escapeHtml(descriptions[command.id] || command.description)}</small></div><button class="button ${command.id.startsWith("pack") ? "primary" : "secondary"}" data-command="${escapeHtml(command.id)}">실행</button></article>`).join("");
   $$("[data-command]").forEach((button) => button.addEventListener("click", () => runBuild(button.dataset.command)));
 }
 
+function renderStructureBuilder() {
+  const data = state.structureBuilder;
+  if (!data) return;
+  const instanceInput = $("#structure-builder-instance");
+  if (document.activeElement !== instanceInput) instanceInput.value = data.instance_path || "";
+  $("#structure-builder-candidates").innerHTML = (data.candidates || []).map((path) => `<option value="${escapeHtml(path)}"></option>`).join("");
+  $("#structure-builder-package").textContent = data.package_exists ? "생성됨" : "없음";
+  $("#structure-builder-world").textContent = data.world_exists ? "연결됨" : "찾지 못함";
+  $("#structure-builder-exports").textContent = `${data.export_count || 0}개`;
+  $("#structure-builder-sources").textContent = `${data.source_count || 0}개`;
+  $("#structure-builder-world-path").textContent = data.world_path || "인스턴스 경로를 저장해 주세요.";
+  $("#structure-builder-status").textContent = !data.instance_path ? "경로 설정 필요" : data.world_exists ? "가져오기 준비" : "월드 실행 필요";
+  $("#import-structure-builder").disabled = !data.world_exists || Number(data.export_count || 0) === 0;
+}
+
+async function loadStructureBuilder() {
+  const result = await request("/api/structure-builder");
+  if (!result.ok) throw new Error(result.data.error || "건축 월드 설정을 불러오지 못했습니다.");
+  state.structureBuilder = result.data;
+  renderStructureBuilder();
+}
+
+async function saveStructureBuilderSettings() {
+  const instancePath = $("#structure-builder-instance").value.trim();
+  const result = await request("/api/structure-builder/settings", {
+    method: "PUT", body: JSON.stringify({ instance_path: instancePath })
+  });
+  if (!result.ok) { toast(result.data.error || "인스턴스 경로를 저장하지 못했습니다."); return; }
+  state.structureBuilder = result.data;
+  renderStructureBuilder();
+  toast("CurseForge 건축 인스턴스 경로를 저장했습니다.");
+}
+
+async function importStructureBuilder() {
+  if (!confirm("게임에서 내보낸 28개 NBT를 검사한 뒤 content/structures의 변경 파일을 교체할까요?")) return;
+  const buttons = $$("#builds button");
+  buttons.forEach((button) => button.disabled = true);
+  $("#build-state").textContent = "NBT 가져오는 중";
+  $("#build-output").textContent = "월드의 내보내기 NBT를 검사하고 있습니다…";
+  try {
+    const result = await request("/api/structure-builder/import", { method: "POST", body: "{}" });
+    $("#build-output").textContent = result.data.output || result.data.error || "결과가 없습니다.";
+    $("#build-state").textContent = result.ok ? "성공" : "실패";
+    toast(result.ok ? "게임 NBT를 저장소로 가져왔습니다." : "NBT 가져오기 결과를 확인해 주세요.");
+    if (result.ok) {
+      lazyDataLoaded.structures = false;
+      lazyDataLoaded.structureViewer = false;
+      state.structureSizes = {};
+      state.structureViewer.catalog = {};
+      state.structureViewer.query = "";
+      $("#nbt-structure-search").value = "";
+      await loadStructureViewerData(true);
+      switchPage("structures");
+      const entries = structureViewerEntries();
+      const preferred = entries.some(([id]) => id === state.structureViewer.selected)
+        ? state.structureViewer.selected : entries[0]?.[0];
+      if (preferred) await loadStructureModel(preferred);
+    }
+  } catch (error) {
+    $("#build-output").textContent = error.message;
+    $("#build-state").textContent = "연결 실패";
+  } finally {
+    await loadStructureBuilder().catch((error) => toast(error.message));
+    buttons.forEach((button) => button.disabled = false);
+    renderStructureBuilder();
+  }
+}
+
 async function runBuild(command) {
-  const buttons = $$("[data-command]");
+  const buttons = $$("#builds button");
   buttons.forEach((button) => button.disabled = true);
   $("#build-state").textContent = `${command} 실행 중`;
   $("#build-output").textContent = "작업이 끝날 때까지 잠시 기다려 주세요…";
@@ -6047,6 +6378,7 @@ async function runBuild(command) {
     toast("빌드 서버 연결을 확인해 주세요.");
   } finally {
     buttons.forEach((button) => button.disabled = false);
+    renderStructureBuilder();
   }
 }
 
@@ -6080,6 +6412,16 @@ $("#nbt-view-left").addEventListener("click", () => { state.structureViewer.yaw 
 $("#nbt-view-right").addEventListener("click", () => { state.structureViewer.yaw += Math.PI / 8; renderStructureModel(); });
 $("#nbt-view-reset").addEventListener("click", resetStructureView);
 $("#refresh-button").addEventListener("click", refreshAll);
+$("#save-structure-builder-settings").addEventListener("click", saveStructureBuilderSettings);
+$("#refresh-structure-builder").addEventListener("click", () => loadStructureBuilder().catch((error) => toast(error.message)));
+$("#build-structure-builder").addEventListener("click", async () => { await runBuild("builder-world"); await loadStructureBuilder().catch((error) => toast(error.message)); });
+$("#import-structure-builder").addEventListener("click", importStructureBuilder);
+$("#add-game-item").addEventListener("click", () => addGameDefinition("item"));
+$("#add-game-variable").addEventListener("click", () => addGameDefinition("variable"));
+$("#save-game-definitions").addEventListener("click", saveGameDefinitions);
+$("#definitions").addEventListener("input", handleDefinitionInput);
+$("#definitions").addEventListener("change", handleDefinitionInput);
+$("#definitions").addEventListener("click", handleDefinitionClick);
 $("#validate-repository").addEventListener("click", loadDashboard);
 $("#validate-trainer").addEventListener("click", () => validateDocument("trainers"));
 $("#save-trainer").addEventListener("click", () => saveDocument("trainers"));
@@ -6172,6 +6514,11 @@ $("#reset-cave-preview-view").addEventListener("click", () => { state.cavePrevie
 $("#regenerate-cave-preview").addEventListener("click", () => { const input = $("#cave-form").elements.seedSalt; input.value = String((Number(input.value) || 0) + 1); updateCaveFromForm(); renderCaveLayoutPreview(); });
 $$('[data-cave-view]').forEach((button) => button.addEventListener("click", () => { state.cavePreview.view = button.dataset.caveView; state.cavePreview.drag = null; renderCaveLayoutPreview(); }));
 $("[data-clear-cave-selection]").addEventListener("click", () => { state.cavePreview.selected = null; renderCaveLayoutPreview(); });
+$$('[data-cave-preview-tool]').forEach((button) => button.addEventListener("click", () => setCavePreviewTool(state.cavePreview.tool === button.dataset.cavePreviewTool ? "select" : button.dataset.cavePreviewTool)));
+$("[data-delete-selected-cave-anchor]").addEventListener("click", deleteSelectedCaveAnchor);
+$("[data-delete-selected-cave-entrance]").addEventListener("click", deleteSelectedCaveEntrance);
+$("[data-delete-selected-cave-path]").addEventListener("click", deleteSelectedCavePath);
+window.addEventListener("keydown", (event) => { if (event.key === "Escape" && state.cavePreview.tool !== "select") setCavePreviewTool("select"); });
 $("#delete-settlement").addEventListener("click", deleteSettlement);
 $("#save-world-layout").addEventListener("click", saveWorldLayout);
 $("#delete-world-layout").addEventListener("click", deleteWorldLayout);

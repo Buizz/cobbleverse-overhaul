@@ -1,0 +1,472 @@
+# Cobbleventure keeps human NPCs, utility golems, Cobblemon, and modded NPCs.
+# Vanilla animals and monsters are blocked through every SpawnConfig path.
+
+[minecraft]
+
+[minecraft.allay]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.armadillo]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.axolotl]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.bat]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.bee]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.blaze]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.bogged]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.breeze]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.camel]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.cat]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.cave_spider]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.chicken]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.cod]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.cow]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.creeper]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.dolphin]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.donkey]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.drowned]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.elder_guardian]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.ender_dragon]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.enderman]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.endermite]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.evoker]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.fox]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.frog]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.ghast]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.giant]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.glow_squid]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.goat]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.guardian]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.hoglin]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.horse]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.husk]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.illusioner]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.llama]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.magma_cube]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.mooshroom]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.mule]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.ocelot]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.panda]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.parrot]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.phantom]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.pig]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.piglin]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.piglin_brute]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.pillager]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.polar_bear]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.pufferfish]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.rabbit]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.ravager]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.salmon]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.sheep]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.shulker]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.silverfish]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.skeleton]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.skeleton_horse]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.slime]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.sniffer]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.spider]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.squid]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.stray]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.strider]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.tadpole]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.trader_llama]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.tropical_fish]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.turtle]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.vex]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.vindicator]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.warden]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.witch]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.wither]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.wither_skeleton]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.wolf]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.zoglin]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.zombie]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.zombie_horse]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.zombie_villager]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false
+
+[minecraft.zombified_piglin]
+allowNormalSpawning = false
+allowSpawners = false
+allowSpawnEggs = false
+allowConversions = false

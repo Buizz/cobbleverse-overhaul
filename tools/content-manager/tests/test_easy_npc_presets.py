@@ -33,11 +33,44 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
 
         self.assertIn("DialogDataSet", preset)
         self.assertIn("HAS_ITEM_IN_INVENTORY", preset)
-        self.assertIn("tbcs battle GEN_9_SINGLES @initiator vs @npc as rctmod:ai_test", preset)
+        self.assertIn("tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:ai_test", preset)
+        self.assertNotIn(" vs @npc as ", preset)
         self.assertIn('Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"', preset)
         self.assertIn("scoreboard players add @1 cobbleventure_money 500", preset)
         self.assertIn("loot give @1 loot cobbleventure:trainer/ai_test_rewards", preset)
+        self.assertIn(
+            "easy_npc dialog open @npc-uuid @initiator after_victory",
+            preset,
+        )
+        self.assertIn(
+            "cobbleventure_trainer_state complete @npc-uuid @initiator",
+            preset,
+        )
+        self.assertIn(
+            "/cobbleventure_trainer_state prepare @npc-uuid @initiator",
+            preset,
+        )
+        self.assertIn(
+            "easy_npc dialog open @npc-uuid @initiator after_defeat",
+            preset,
+        )
         self.assertIn("ON_INTERACTION", preset)
+
+    def test_new_npc_routes_from_instance_state_not_global_victory_flag(self) -> None:
+        preset = generator.encounter_preset_snbt(self.document, self.outfit)
+
+        victory_objective = generator.flag_objective(
+            "cobbleventure:flag/trainer/ai_test/defeated"
+        )
+        self.assertIn(f"scoreboard players set @1 {victory_objective} 1", preset)
+        self.assertIn(
+            'Name:"cv_npc_defeated",Operation:"EQUALS",Type:"SCOREBOARD",Value:1',
+            preset,
+        )
+        self.assertNotIn(
+            f'Name:"{victory_objective}",Operation:"EQUALS",Type:"SCOREBOARD"',
+            preset,
+        )
 
     def test_generates_loss_money_callback_for_player_defeat(self) -> None:
         commands = self.document["events"][0]["commands"]

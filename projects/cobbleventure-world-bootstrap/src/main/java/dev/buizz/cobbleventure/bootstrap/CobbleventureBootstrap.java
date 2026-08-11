@@ -4,6 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
@@ -93,7 +95,10 @@ public final class CobbleventureBootstrap {
     private static final int SHORE_SAND_HEIGHT_BLOCKS = 3;
     private static final int SHORE_SAND_WIDTH_BLOCKS = 6;
     private static final int OUTER_TERRAIN_TRANSITION_WIDTH = 32;
-    private static final int OCEAN_CLIFF_WIDTH = 20;
+    private static final int OUTER_TERRAIN_DISTANCE_SAMPLE_SPACING = 4;
+    private static final int OCEAN_ROCK_MOUND_SPACING = 18;
+    private static final int OCEAN_ROCK_BOUNDARY_BAND = 10;
+    private static final int OCEAN_ROCK_CENTER_EDGE_RANGE = 5;
     private static final int MAX_TOWN_PREPARATION_CHUNKS = 320;
     private static final int LAZY_TOWN_TRIGGER_DISTANCE = 64;
     private static final int STARTER_TOWN_CHUNKS_PER_TICK = 8;
@@ -101,8 +106,7 @@ public final class CobbleventureBootstrap {
     private static final TicketType<ChunkPos> TOWN_GENERATION_TICKET = TicketType.create(
         "cobbleventure_town_generation", Comparator.comparingLong(ChunkPos::toLong)
     );
-    private static final int OCEAN_CLIFF_MIN_Y = WATER_SURFACE_Y + 1;
-    private static final int OCEAN_CLIFF_MAX_Y = WATER_SURFACE_Y + 2;
+    private static final int OCEAN_CLIFF_MAX_Y = WATER_SURFACE_Y + 4;
     private static final int GYM_RING_ROAD_MARGIN = 6;
     private static final int GYM_RING_ROAD_WIDTH = 4;
     private static final int GYM_BUILDING_CLEARANCE = 16;
@@ -159,6 +163,10 @@ public final class CobbleventureBootstrap {
     private static volatile TownGenerationDisplay completedTownGenerationDisplay;
     private static volatile int completedTownGenerationDisplayTicks;
     private static final Map<NoiseKey, NormalNoise> TERRAIN_NOISES = new ConcurrentHashMap<>();
+    private static final Cache<TerrainColumnKey, TerrainLookup> TERRAIN_COLUMN_SAMPLES =
+        CacheBuilder.newBuilder().maximumSize(262_144L).build();
+    private static final Map<OceanMoundKey, Boolean> OCEAN_MOUND_BOUNDARY =
+        new ConcurrentHashMap<>();
     private static final Map<UUID, Vec3> safeFieldPositions = new HashMap<>();
     private static final Map<UUID, Vec3> safeWaterPositions = new HashMap<>();
     private static final Map<UUID, Integer> deepWaterTicks = new HashMap<>();
@@ -195,6 +203,7 @@ public final class CobbleventureBootstrap {
         WildSpawnLeveling.register();
         FlashCaveEffects.register();
         PokemonCenterDefeatReturn.register();
+        TrainerBattleState.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onEntityJoinLevel);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
@@ -700,29 +709,13 @@ public final class CobbleventureBootstrap {
     private static void placeCaveEntrance(
         ServerLevel level, HexGrid grid, CaveEntrancePlan entrance
     ) {
-        Point center = grid.worldCenter(entrance.anchor());
-        HexCoord direction = switch (entrance.facing()) {
-            case "east" -> new HexCoord(1, 0);
-            case "north_east" -> new HexCoord(1, -1);
-            case "north_west" -> new HexCoord(0, -1);
-            case "west" -> new HexCoord(-1, 0);
-            case "south_west" -> new HexCoord(-1, 1);
-            case "south_east" -> new HexCoord(0, 1);
-            default -> throw new IllegalStateException(
-                "Unsupported cave entrance facing: " + entrance.facing()
-            );
-        };
-        Point neighborCenter = grid.worldCenter(new HexCoord(
-            entrance.anchor().q() + direction.q(), entrance.anchor().r() + direction.r()
-        ));
-        double deltaX = neighborCenter.x() - center.x();
-        double deltaZ = neighborCenter.z() - center.z();
-        double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
-        double forwardX = deltaX / length;
-        double forwardZ = deltaZ / length;
-        double boundaryDistance = length * 0.5D - 3.0D;
-        int mouthX = center.x() + (int) Math.round(forwardX * boundaryDistance);
-        int mouthZ = center.z() + (int) Math.round(forwardZ * boundaryDistance);
+        CaveMouthGeometry mouth = caveMouthGeometry(grid, entrance);
+        Point center = mouth.tileCenter();
+        double forwardX = mouth.forwardX();
+        double forwardZ = mouth.forwardZ();
+        int mouthX = mouth.x();
+        int mouthZ = mouth.z();
+        double boundaryDistance = mouth.boundaryDistance();
         migrateLegacyCaveEntrance(level, grid, center, forwardX, forwardZ);
         BlockPos marker = new BlockPos(mouthX, grid.origin().y() + 16, mouthZ);
         if (level.getBlockState(marker).is(Blocks.LODESTONE)) {
@@ -787,6 +780,66 @@ public final class CobbleventureBootstrap {
             "Cave entrance generated: id={}, cave={}, position={}",
             entrance.id(), entrance.cave(), new BlockPos(mouthX, baseY, mouthZ)
         );
+    }
+
+    private static CaveMouthGeometry caveMouthGeometry(
+        HexGrid grid, CaveEntrancePlan entrance
+    ) {
+        Point center = grid.worldCenter(entrance.anchor());
+        HexCoord direction = switch (entrance.facing()) {
+            case "east" -> new HexCoord(1, 0);
+            case "north_east" -> new HexCoord(1, -1);
+            case "north_west" -> new HexCoord(0, -1);
+            case "west" -> new HexCoord(-1, 0);
+            case "south_west" -> new HexCoord(-1, 1);
+            case "south_east" -> new HexCoord(0, 1);
+            default -> throw new IllegalStateException(
+                "Unsupported cave entrance facing: " + entrance.facing()
+            );
+        };
+        Point neighborCenter = grid.worldCenter(new HexCoord(
+            entrance.anchor().q() + direction.q(), entrance.anchor().r() + direction.r()
+        ));
+        double deltaX = neighborCenter.x() - center.x();
+        double deltaZ = neighborCenter.z() - center.z();
+        double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
+        double forwardX = deltaX / length;
+        double forwardZ = deltaZ / length;
+        double boundaryDistance = length * 0.5D - 3.0D;
+        int mouthX = center.x() + (int) Math.round(forwardX * boundaryDistance);
+        int mouthZ = center.z() + (int) Math.round(forwardZ * boundaryDistance);
+        return new CaveMouthGeometry(
+            center, forwardX, forwardZ, boundaryDistance, mouthX, mouthZ
+        );
+    }
+
+    private record CaveMouthGeometry(
+        Point tileCenter,
+        double forwardX,
+        double forwardZ,
+        double boundaryDistance,
+        int x,
+        int z
+    ) {}
+
+    static boolean isCaveEntrancePassage(
+        HexWorldPlan world, int x, int z
+    ) {
+        for (CaveEntrancePlan entrance : world.caveEntrances()) {
+            CaveMouthGeometry mouth = caveMouthGeometry(world.grid(), entrance);
+            double offsetX = x + 0.5D - mouth.tileCenter().x();
+            double offsetZ = z + 0.5D - mouth.tileCenter().z();
+            double forward = offsetX * mouth.forwardX() + offsetZ * mouth.forwardZ();
+            double lateral = Math.abs(
+                offsetX * -mouth.forwardZ() + offsetZ * mouth.forwardX()
+            );
+            if (forward >= -6.0D
+                && forward <= mouth.boundaryDistance() + 18.0D
+                && lateral <= 5.5D) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void migrateLegacyCaveEntrance(
@@ -893,21 +946,21 @@ public final class CobbleventureBootstrap {
                 level.setBlock(new BlockPos(x, floorY + vertical, z), Blocks.AIR.defaultBlockState(), 2);
             }
         }
-        int[][] lights = {{-5, 2}, {5, 2}, {-4, 5}, {4, 5}, {0, 7}};
-        for (int[] light : lights) {
-            int x = centerX + (int) Math.round(sideX * light[0]);
-            int z = centerZ + (int) Math.round(sideZ * light[0]);
-            level.setBlock(
-                new BlockPos(x, floorY + light[1], z),
-                Blocks.SEA_LANTERN.defaultBlockState(), 2
-            );
-        }
+        // 외부 월드의 동굴 입구는 자연 지형으로 남긴다. 밝은 출구 표시는
+        // 동굴 차원 안쪽의 출구 랜드마크에서만 생성한다.
         for (int depth : new int[] {-12, -7, -3, 3, 8}) {
             int x = centerX + (int) Math.round(forwardX * depth);
             int z = centerZ + (int) Math.round(forwardZ * depth);
-            level.setBlock(
-                new BlockPos(x, floorY, z), Blocks.OCHRE_FROGLIGHT.defaultBlockState(), 2
-            );
+            BlockPos position = new BlockPos(x, floorY, z);
+            if (level.getBlockState(position).is(Blocks.OCHRE_FROGLIGHT)) {
+                level.setBlock(
+                    position,
+                    depth < -2
+                        ? Blocks.COBBLESTONE.defaultBlockState()
+                        : Blocks.COBBLED_DEEPSLATE.defaultBlockState(),
+                    2
+                );
+            }
         }
     }
 
@@ -2710,19 +2763,18 @@ public final class CobbleventureBootstrap {
             if (entrance.destination() == null) {
                 continue;
             }
+            CaveMouthGeometry mouth = caveMouthGeometry(world.grid(), entrance);
             if (player.serverLevel() == generationOne) {
-                Point center = world.grid().worldCenter(entrance.anchor());
-                int forwardX = entrance.facing().equals("east") ? 1
-                    : entrance.facing().equals("west") ? -1 : 0;
-                int forwardZ = entrance.facing().equals("south") ? 1
-                    : entrance.facing().equals("north") ? -1 : 0;
-                int triggerX = center.x() + forwardX * 26;
-                int triggerZ = center.z() + forwardZ * 26;
+                int triggerX = mouth.x();
+                int triggerZ = mouth.z();
+                int floorY = caveMouthFloorY(
+                    generationOne, triggerX, triggerZ, world.grid().origin().y()
+                );
                 double dx = player.getX() - (triggerX + 0.5D);
                 double dz = player.getZ() - (triggerZ + 0.5D);
                 if (dx * dx + dz * dz > 16.0D
-                    || player.getY() < world.grid().origin().y() - 2
-                    || player.getY() > world.grid().origin().y() + 10) {
+                    || player.getY() < floorY
+                    || player.getY() > floorY + 7) {
                     continue;
                 }
                 BlockPoint destination = entrance.destination();
@@ -2745,13 +2797,8 @@ public final class CobbleventureBootstrap {
             if (dx * dx + dz * dz > 4.0D) {
                 continue;
             }
-            Point center = world.grid().worldCenter(entrance.anchor());
-            int forwardX = entrance.facing().equals("east") ? 1
-                : entrance.facing().equals("west") ? -1 : 0;
-            int forwardZ = entrance.facing().equals("south") ? 1
-                : entrance.facing().equals("north") ? -1 : 0;
-            int returnX = center.x() + forwardX * 12;
-            int returnZ = center.z() + forwardZ * 12;
+            int returnX = mouth.x() - (int) Math.round(mouth.forwardX() * 5.0D);
+            int returnZ = mouth.z() - (int) Math.round(mouth.forwardZ() * 5.0D);
             BlockPos returnSurface = surfacePosition(generationOne, returnX, returnZ);
             player.getPersistentData().putLong(CAVE_PORTAL_COOLDOWN, gameTime + 40L);
             player.teleportTo(
@@ -3981,8 +4028,10 @@ public final class CobbleventureBootstrap {
     }
 
     private static NaturalCaveGenerator.Settings caveGenerationSettings(JsonObject cave) {
+        boolean requiresFlash = cave.has("requires_flash")
+            && cave.get("requires_flash").getAsBoolean();
         if (!cave.has("generator")) {
-            return NaturalCaveGenerator.Settings.defaults();
+            return NaturalCaveGenerator.Settings.defaults(requiresFlash);
         }
         JsonObject generator = cave.getAsJsonObject("generator");
         JsonObject roomRadius = generator.getAsJsonObject("room_radius");
@@ -4033,6 +4082,7 @@ public final class CobbleventureBootstrap {
             generator.has("grand_room_scale") ? generator.get("grand_room_scale").getAsDouble() : 1.65D,
             generator.has("elevated_crossing") && generator.get("elevated_crossing").getAsBoolean(),
             generator.has("bridge_clearance") ? generator.get("bridge_clearance").getAsInt() : 13,
+            requiresFlash,
             manualLayout,
             List.copyOf(internalBiomes)
         );
@@ -4426,7 +4476,7 @@ public final class CobbleventureBootstrap {
                 connection.routeBiome(), connection.boundaryProfile(),
                 connection.corridorWidthBlocks(), connection.edgeNoise(), connection.terrainProfile(),
                 connection.surfaceStyle(), connection.accessRequirement(), List.copyOf(path),
-                centerline
+                centerline, routeBounds(centerline)
             ));
         }
 
@@ -5329,19 +5379,43 @@ public final class CobbleventureBootstrap {
     }
 
     static TerrainSample terrainAt(HexWorldPlan world, double x, double z) {
+        int blockX = (int) Math.floor(x);
+        int blockZ = (int) Math.floor(z);
+        if (x == blockX + 0.5D && z == blockZ + 0.5D) {
+            return terrainAtBlockCenter(world, blockX, blockZ);
+        }
+        return computeTerrainAt(world, x, z);
+    }
+
+    private static TerrainSample terrainAtBlockCenter(
+        HexWorldPlan world, int blockX, int blockZ
+    ) {
+        TerrainColumnKey key = new TerrainColumnKey(
+            System.identityHashCode(world), world.seed(), blockX, blockZ
+        );
+        TerrainLookup cached = TERRAIN_COLUMN_SAMPLES.getIfPresent(key);
+        if (cached != null) {
+            return cached.sample();
+        }
+        TerrainSample sample = computeTerrainAt(world, blockX + 0.5D, blockZ + 0.5D);
+        TERRAIN_COLUMN_SAMPLES.put(key, new TerrainLookup(sample));
+        return sample;
+    }
+
+    private static TerrainSample computeTerrainAt(HexWorldPlan world, double x, double z) {
         TerrainSample protectedTown = protectedSettlementTerrain(world, x, z);
         if (protectedTown != null) {
             return protectedTown;
         }
-        TerrainSample town = strongestCellInfluence(world, x, z, "town");
-        if (town != null) {
-            return town;
+        TerrainSample cell = cellInfluence(world, x, z);
+        if (cell != null && cell.kind().equals("town")) {
+            return cell;
         }
         TerrainSample route = strongestRouteInfluence(world, x, z);
         if (route != null) {
             return route;
         }
-        return strongestCellInfluence(world, x, z, "surrounding");
+        return cell != null && cell.kind().equals("surrounding") ? cell : null;
     }
 
     private static TerrainSample protectedSettlementTerrain(
@@ -5377,12 +5451,10 @@ public final class CobbleventureBootstrap {
         );
     }
 
-    private static TerrainSample strongestCellInfluence(
-        HexWorldPlan world, double x, double z, String kind
-    ) {
+    private static TerrainSample cellInfluence(HexWorldPlan world, double x, double z) {
         WarpedPoint warped = warpedCellPoint(world, x, z);
         CellPlan plan = world.cells().get(world.grid().worldToHex(warped.x(), warped.z()));
-        if (plan == null || !plan.kind().equals(kind)) {
+        if (plan == null) {
             return null;
         }
         return new TerrainSample(
@@ -5469,7 +5541,18 @@ public final class CobbleventureBootstrap {
         TerrainSample selected = null;
         double selectedStrength = Double.NEGATIVE_INFINITY;
         for (ConnectionPath route : world.paths()) {
-            double distance = distanceToRoute(route.centerline(), x, z);
+            double edgeVariation = Math.min(0.42D, Math.abs(route.edgeNoise()) * 1.5D);
+            double maximumRadius = route.corridorWidthBlocks() / 2.0D
+                * (1.0D + edgeVariation);
+            if (!route.bounds().contains(x, z, maximumRadius)) {
+                continue;
+            }
+            double distance = distanceToRoute(
+                route.centerline(), x, z, maximumRadius
+            );
+            if (distance > maximumRadius) {
+                continue;
+            }
             double noise = layeredNoise(world.seed(), route.id() + ":edge", x, z, 80.0D);
             double radius = route.corridorWidthBlocks() / 2.0D * (
                 1.0D + Math.min(0.42D, route.edgeNoise() * 1.5D) * noise
@@ -5487,7 +5570,7 @@ public final class CobbleventureBootstrap {
     }
 
     private static double distanceToRoute(
-        List<Point> centerline, double x, double z
+        List<Point> centerline, double x, double z, double maximumRadius
     ) {
         double closest = Double.POSITIVE_INFINITY;
         if (centerline.size() == 1) {
@@ -5497,6 +5580,12 @@ public final class CobbleventureBootstrap {
         for (int index = 1; index < centerline.size(); index++) {
             Point start = centerline.get(index - 1);
             Point end = centerline.get(index);
+            if (x < Math.min(start.x(), end.x()) - maximumRadius
+                || x > Math.max(start.x(), end.x()) + maximumRadius
+                || z < Math.min(start.z(), end.z()) - maximumRadius
+                || z > Math.max(start.z(), end.z()) + maximumRadius) {
+                continue;
+            }
             double dx = end.x() - start.x();
             double dz = end.z() - start.z();
             double lengthSquared = dx * dx + dz * dz;
@@ -5508,6 +5597,23 @@ public final class CobbleventureBootstrap {
             closest = Math.min(closest, Math.hypot(x - projectedX, z - projectedZ));
         }
         return closest;
+    }
+
+    private static RouteBounds routeBounds(List<Point> centerline) {
+        int minX = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        for (Point point : centerline) {
+            minX = Math.min(minX, point.x());
+            minZ = Math.min(minZ, point.z());
+            maxX = Math.max(maxX, point.x());
+            maxZ = Math.max(maxZ, point.z());
+        }
+        if (centerline.isEmpty()) {
+            return new RouteBounds(0, 0, -1, -1);
+        }
+        return new RouteBounds(minX, minZ, maxX, maxZ);
     }
 
     private static double layeredNoise(
@@ -5745,11 +5851,10 @@ public final class CobbleventureBootstrap {
         if (!sample.kind().equals("route") || !sample.surfaceStyle().equals("road")) {
             return null;
         }
-        TerrainSample town = strongestCellInfluence(world, x, z, "town");
-        if (town != null) {
-            return town;
-        }
-        return strongestCellInfluence(world, x, z, "surrounding");
+        TerrainSample cell = cellInfluence(world, x, z);
+        return cell != null && (
+            cell.kind().equals("town") || cell.kind().equals("surrounding")
+        ) ? cell : null;
     }
 
     private static int blendLandTowardWater(
@@ -6111,6 +6216,17 @@ public final class CobbleventureBootstrap {
         HexWorldPlan world, int x, int z
     ) {
         TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
+        int boundaryRockHeight = oceanBoundaryRockHeight(world, x, z);
+        if (boundaryRockHeight > 0 && (sample == null || isAquatic(sample))) {
+            int topY = WATER_SURFACE_Y + boundaryRockHeight;
+            String biome = sample == null ? "minecraft:deep_ocean" : sample.biome();
+            return new NativeTerrainColumn(
+                topY, topY,
+                oceanBoundaryRock(world, x, topY, z),
+                oceanCliffRock(world, x, topY - 1, z),
+                biome, sample == null, true
+            );
+        }
         if (sample == null) {
             String type = emptyTerrainAt(world, x + 0.5D, z + 0.5D);
             String biome = emptyTerrainBiome(type);
@@ -6128,23 +6244,6 @@ public final class CobbleventureBootstrap {
                     world.seed(), "world:empty-ocean:floor", x, z, 42.0D
                 );
                 int floorY = 42 + (int) Math.round(floorNoise * 5.0D);
-                int playableDistance = nearestPlayable == null
-                    ? OUTER_TERRAIN_TRANSITION_WIDTH + 1
-                    : nearestPlayable.distance();
-                boolean rockyBoundary = playableDistance <= 2
-                    || isSparseOceanBoundaryRock(world, x, z, playableDistance);
-                if (rockyBoundary) {
-                    double rockHeight = layeredNoise(
-                        world.seed(), "world:native-ocean-rock-height", x, z, 8.0D
-                    );
-                    int topY = rockHeight - playableDistance * 0.025D > 0.05D
-                        ? OCEAN_CLIFF_MAX_Y : OCEAN_CLIFF_MIN_Y;
-                    return new NativeTerrainColumn(
-                        topY, topY,
-                        oceanBoundaryRock(world, x, topY, z),
-                        Blocks.BARRIER.defaultBlockState(), biome, true, true
-                    );
-                }
                 return new NativeTerrainColumn(
                     floorY, WATER_SURFACE_Y,
                     oceanFloorBlock(world, x, floorY, z),
@@ -6212,14 +6311,30 @@ public final class CobbleventureBootstrap {
             {-0.3827D, -0.9239D}, {0.0D, -1.0D}, {0.3827D, -0.9239D},
             {0.7071D, -0.7071D}, {0.9239D, -0.3827D}
         };
+        long[] previousSamples = new long[directions.length];
+        Arrays.fill(previousSamples, Long.MIN_VALUE);
         for (int distance = 1; distance <= radius; distance++) {
-            for (double[] direction : directions) {
-                double sampleX = x + direction[0] * distance + 0.5D;
-                double sampleZ = z + direction[1] * distance + 0.5D;
-                TerrainSample nearby = terrainAt(
-                    world, sampleX, sampleZ
+            for (int directionIndex = 0; directionIndex < directions.length; directionIndex++) {
+                double[] direction = directions[directionIndex];
+                int sampleBlockX = (int) Math.round(
+                    (x + direction[0] * distance)
+                        / OUTER_TERRAIN_DISTANCE_SAMPLE_SPACING
+                ) * OUTER_TERRAIN_DISTANCE_SAMPLE_SPACING;
+                int sampleBlockZ = (int) Math.round(
+                    (z + direction[1] * distance)
+                        / OUTER_TERRAIN_DISTANCE_SAMPLE_SPACING
+                ) * OUTER_TERRAIN_DISTANCE_SAMPLE_SPACING;
+                long sampleKey = ChunkPos.asLong(sampleBlockX, sampleBlockZ);
+                if (previousSamples[directionIndex] == sampleKey) {
+                    continue;
+                }
+                previousSamples[directionIndex] = sampleKey;
+                TerrainSample nearby = terrainAtBlockCenter(
+                    world, sampleBlockX, sampleBlockZ
                 );
                 if (nearby != null) {
+                    double sampleX = sampleBlockX + 0.5D;
+                    double sampleZ = sampleBlockZ + 0.5D;
                     return new PlayableEdge(
                         distance,
                         terrainGroundY(world, nearby, sampleX, sampleZ),
@@ -6231,20 +6346,97 @@ public final class CobbleventureBootstrap {
         return null;
     }
 
-    private static boolean isSparseOceanBoundaryRock(
-        HexWorldPlan world, int x, int z, int playableDistance
+    private static int oceanBoundaryRockHeight(
+        HexWorldPlan world, int x, int z
     ) {
-        if (playableDistance > OCEAN_CLIFF_WIDTH) {
-            return false;
+        int gridX = Math.floorDiv(x, OCEAN_ROCK_MOUND_SPACING);
+        int gridZ = Math.floorDiv(z, OCEAN_ROCK_MOUND_SPACING);
+        int selectedHeight = 0;
+        for (int offsetX = -1; offsetX <= 1; offsetX++) {
+            for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
+                int cellX = gridX + offsetX;
+                int cellZ = gridZ + offsetZ;
+                long hash = coordinateSeed(
+                    world.seed(), cellX, cellZ, 0x4F4345414E524F43L
+                );
+                int centerRange = OCEAN_ROCK_MOUND_SPACING - 10;
+                int centerX = cellX * OCEAN_ROCK_MOUND_SPACING + 5
+                    + Math.floorMod((int) hash, centerRange);
+                int centerZ = cellZ * OCEAN_ROCK_MOUND_SPACING + 5
+                    + Math.floorMod((int) (hash >>> 32), centerRange);
+                int radius = 3 + Math.floorMod((int) (hash >>> 48), 2);
+                if (!oceanMoundTouchesBoundary(
+                    world, cellX, cellZ, centerX, centerZ
+                )) {
+                    continue;
+                }
+                double distance = Math.hypot(x - centerX, z - centerZ);
+                if (distance > radius) {
+                    continue;
+                }
+                double profile = 1.0D - distance / (radius + 0.35D);
+                double roughness = layeredNoise(
+                    world.seed(), "world:ocean-boundary-rock:roughness", x, z, 4.5D
+                ) * 0.3D;
+                int height = 1 + (int) Math.round(
+                    Math.pow(profile, 0.72D) * 3.0D + roughness
+                );
+                selectedHeight = Math.max(selectedHeight, Math.max(
+                    1, Math.min(OCEAN_CLIFF_MAX_Y - WATER_SURFACE_Y, height)
+                ));
+            }
         }
-        double cluster = layeredNoise(
-            world.seed(), "world:ocean-boundary-rock:cluster", x, z, 18.0D
-        );
-        double breakup = layeredNoise(
-            world.seed(), "world:ocean-boundary-rock:breakup", x, z, 5.5D
-        );
-        double threshold = 0.08D + playableDistance * 0.018D;
-        return cluster > threshold && breakup > -0.04D;
+        return selectedHeight;
+    }
+
+    private static boolean oceanMoundTouchesBoundary(
+        HexWorldPlan world,
+        int cellX,
+        int cellZ,
+        int centerX,
+        int centerZ
+    ) {
+        OceanMoundKey key = new OceanMoundKey(world.seed(), cellX, cellZ);
+        return OCEAN_MOUND_BOUNDARY.computeIfAbsent(key, ignored -> {
+            boolean playableOcean = false;
+            boolean outerTerrain = false;
+            for (int offsetX = -OCEAN_ROCK_CENTER_EDGE_RANGE;
+                 offsetX <= OCEAN_ROCK_CENTER_EDGE_RANGE; offsetX++) {
+                for (int offsetZ = -OCEAN_ROCK_CENTER_EDGE_RANGE;
+                     offsetZ <= OCEAN_ROCK_CENTER_EDGE_RANGE; offsetZ++) {
+                    if (offsetX * offsetX + offsetZ * offsetZ
+                        > OCEAN_ROCK_CENTER_EDGE_RANGE * OCEAN_ROCK_CENTER_EDGE_RANGE) {
+                        continue;
+                    }
+                    TerrainSample nearby = terrainAt(
+                        world, centerX + offsetX + 0.5D,
+                        centerZ + offsetZ + 0.5D
+                    );
+                    if (nearby == null) {
+                        outerTerrain = true;
+                    } else if (isAquatic(nearby)) {
+                        playableOcean = true;
+                    }
+                    if (playableOcean && outerTerrain) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        });
+    }
+
+    private static long coordinateSeed(
+        long seed, int x, int z, long salt
+    ) {
+        long value = seed ^ salt;
+        value ^= (long) x * 0x9E3779B97F4A7C15L;
+        value ^= (long) z * 0xC2B2AE3D27D4EB4FL;
+        value ^= value >>> 30;
+        value *= 0xBF58476D1CE4E5B9L;
+        value ^= value >>> 27;
+        value *= 0x94D049BB133111EBL;
+        return value ^ value >>> 31;
     }
 
     private static void drawOuterTerrainTransition(
@@ -6320,6 +6512,12 @@ public final class CobbleventureBootstrap {
         );
         paintOceanCliffs(level, world, oceanCliffColumns);
         paintEmptyOceanRocks(level, world, emptyOceanRockColumns);
+        Set<Point> cavePassageColumns = collisionColumns.stream()
+            .filter(point -> isCaveEntrancePassage(world, point.x(), point.z()))
+            .collect(java.util.stream.Collectors.toSet());
+        staleCollisionColumns.addAll(cavePassageColumns);
+        collisionColumns.removeAll(cavePassageColumns);
+        requiredCollisionColumns.removeAll(cavePassageColumns);
         if (!collisionColumns.containsAll(requiredCollisionColumns)) {
             throw new IllegalStateException("Hidden collision shell contains an open terrain edge");
         }
@@ -6376,24 +6574,30 @@ public final class CobbleventureBootstrap {
             && Integer.getInteger(TEST_RENDER_RADIUS_PROPERTY, 0) <= 0;
     }
 
+    private static boolean isOceanBoundaryRockTerrain(
+        HexWorldPlan world, int x, int z
+    ) {
+        TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
+        return sample == null || isAquatic(sample);
+    }
+
     private static void collectEmptyOceanRockColumns(
         HexWorldPlan world, HexBounds bounds, int edgeX, int edgeZ,
         int outwardX, int outwardZ, Set<Point> columns
     ) {
         int tangentX = -outwardZ;
         int tangentZ = outwardX;
-        for (int distance = 1; distance <= 9; distance++) {
-            for (int tangent = -3; tangent <= 3; tangent++) {
+        for (int distance = -OCEAN_ROCK_BOUNDARY_BAND;
+             distance <= OCEAN_ROCK_BOUNDARY_BAND; distance++) {
+            for (int tangent = -4; tangent <= 4; tangent++) {
                 int x = edgeX + outwardX * distance + tangentX * tangent;
                 int z = edgeZ + outwardZ * distance + tangentZ * tangent;
                 Point point = new Point(x, z);
                 if (!bounds.contains(point)
-                    || terrainAt(world, x + 0.5D, z + 0.5D) != null
-                    || !emptyTerrainAt(world, x + 0.5D, z + 0.5D).equals("ocean")) {
+                    || !isOceanBoundaryRockTerrain(world, x, z)) {
                     continue;
                 }
-                if (distance <= 2
-                    || isSparseOceanBoundaryRock(world, x, z, distance)) {
+                if (oceanBoundaryRockHeight(world, x, z) > 0) {
                     columns.add(point);
                 }
             }
@@ -6403,27 +6607,18 @@ public final class CobbleventureBootstrap {
     private static void paintEmptyOceanRocks(
         ServerLevel level, HexWorldPlan world, Set<Point> columns
     ) {
+        int accentBlocks = 0;
         for (Point point : columns) {
-            double heightNoise = layeredNoise(
-                world.seed(), "world:empty-ocean:rock-height", point.x(), point.z(), 10.0D
+            int height = oceanBoundaryRockHeight(world, point.x(), point.z());
+            if (height == 0) continue;
+            accentBlocks += paintOceanCliffColumn(
+                level, world, point.x(), point.z(), WATER_SURFACE_Y + height
             );
-            int topY = WATER_SURFACE_Y + 3 + (int) Math.round((heightNoise + 1.0D) * 4.0D);
-            int baseY = WATER_SURFACE_Y - 5;
-            for (int y = baseY; y <= topY; y++) {
-                double taper = (y - baseY) / (double) Math.max(1, topY - baseY);
-                double shape = layeredNoise(
-                    world.seed(), "world:empty-ocean:rock-shape",
-                    point.x() + y * 0.17D, point.z() - y * 0.13D, 7.0D
-                );
-                if (taper < 0.72D || shape > taper - 0.9D) {
-                    level.setBlock(
-                        new BlockPos(point.x(), y, point.z()),
-                        oceanCliffRock(world, point.x(), y, point.z()), 2
-                    );
-                }
-            }
         }
-        LOGGER.info("Blocked ocean rock formations completed: columns={}", columns.size());
+        LOGGER.info(
+            "Blocked ocean rock mounds completed: columns={}, accentBlocks={}",
+            columns.size(), accentBlocks
+        );
     }
 
     private static void collectOceanCliffColumns(
@@ -6437,18 +6632,16 @@ public final class CobbleventureBootstrap {
     ) {
         int tangentX = -outwardZ;
         int tangentZ = outwardX;
-        for (int distance = 1; distance <= OCEAN_CLIFF_WIDTH; distance++) {
-            int tangentRadius = distance <= 3 ? 2 : 1;
-            for (int tangent = -tangentRadius; tangent <= tangentRadius; tangent++) {
+        for (int distance = -OCEAN_ROCK_BOUNDARY_BAND;
+             distance <= OCEAN_ROCK_BOUNDARY_BAND; distance++) {
+            for (int tangent = -4; tangent <= 4; tangent++) {
                 Point point = new Point(
                     edgeX + outwardX * distance + tangentX * tangent,
                     edgeZ + outwardZ * distance + tangentZ * tangent
                 );
                 if (bounds.contains(point)
-                    && terrainAt(world, point.x() + 0.5D, point.z() + 0.5D) == null
-                    && isSparseOceanBoundaryRock(
-                        world, point.x(), point.z(), distance
-                    )) {
+                    && isOceanBoundaryRockTerrain(world, point.x(), point.z())
+                    && oceanBoundaryRockHeight(world, point.x(), point.z()) > 0) {
                     columns.add(point);
                 }
             }
@@ -6460,22 +6653,10 @@ public final class CobbleventureBootstrap {
     ) {
         int ledgeBlocks = 0;
         for (Point point : columns) {
-            double broad = layeredNoise(
-                world.seed(), "world:ocean-cliff:broad", point.x(), point.z(), 46.0D
-            );
-            double ridge = layeredNoise(
-                world.seed(), "world:ocean-cliff:ridge",
-                point.x() * 0.72D, point.z() * 0.72D, 21.0D
-            );
-            double detail = layeredNoise(
-                world.seed(), "world:ocean-cliff:detail", point.x(), point.z(), 12.0D
-            );
-            int topY = WATER_SURFACE_Y + (
-                broad * 0.45D + ridge * 0.35D + detail * 0.20D > 0.05D ? 2 : 1
-            );
-            topY = Math.max(OCEAN_CLIFF_MIN_Y, Math.min(OCEAN_CLIFF_MAX_Y, topY));
+            int height = oceanBoundaryRockHeight(world, point.x(), point.z());
+            if (height == 0) continue;
             ledgeBlocks += paintOceanCliffColumn(
-                level, world, point.x(), point.z(), topY
+                level, world, point.x(), point.z(), WATER_SURFACE_Y + height
             );
         }
         int seagrass = decorateOceanBoundarySeagrass(level, world, columns);
@@ -6522,14 +6703,21 @@ public final class CobbleventureBootstrap {
     private static int paintOceanCliffColumn(
         ServerLevel level, HexWorldPlan world, int x, int z, int topY
     ) {
+        boolean playable = terrainAt(world, x + 0.5D, z + 0.5D) != null;
         for (int y = DEEP_FOUNDATION_MAX_Y + 1; y < WATER_SURFACE_Y; y++) {
             level.setBlock(
-                new BlockPos(x, y, z), Blocks.BARRIER.defaultBlockState(), 2
+                new BlockPos(x, y, z),
+                playable
+                    ? oceanCliffRock(world, x, y, z)
+                    : Blocks.BARRIER.defaultBlockState(),
+                2
             );
         }
         int accentBlocks = 0;
         for (int y = WATER_SURFACE_Y; y <= topY; y++) {
-            BlockState rock = oceanBoundaryRock(world, x, y, z);
+            BlockState rock = y == topY
+                ? oceanBoundaryRock(world, x, y, z)
+                : oceanCliffRock(world, x, y, z);
             level.setBlock(new BlockPos(x, y, z), rock, 2);
             if (rock.is(Blocks.ANDESITE_STAIRS) || rock.is(Blocks.COBBLESTONE_STAIRS)) {
                 accentBlocks++;
@@ -8844,12 +9032,26 @@ public final class CobbleventureBootstrap {
         String surfaceStyle,
         String accessRequirement,
         List<HexCoord> cells,
-        List<Point> centerline
+        List<Point> centerline,
+        RouteBounds bounds
     ) {}
 
     record TerrainProfile(int baseHeightOffset, int heightVariation, double noiseScaleBlocks) {}
 
     record NoiseKey(long seed, String salt) {}
+
+    record TerrainColumnKey(int worldIdentity, long seed, int x, int z) {}
+
+    record TerrainLookup(TerrainSample sample) {}
+
+    record RouteBounds(int minX, int minZ, int maxX, int maxZ) {
+        boolean contains(double x, double z, double margin) {
+            return x >= minX - margin && x <= maxX + margin
+                && z >= minZ - margin && z <= maxZ + margin;
+        }
+    }
+
+    record OceanMoundKey(long seed, int cellX, int cellZ) {}
 
     record WarpedPoint(double x, double z) {}
 

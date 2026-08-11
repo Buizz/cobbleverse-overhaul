@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 
 final class NaturalCaveGenerator {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int LAYOUT_VERSION = 6;
+    private static final int LAYOUT_VERSION = 8;
     private static final int SHELL_THICKNESS = 4;
 
     private NaturalCaveGenerator() {}
@@ -97,9 +97,13 @@ final class NaturalCaveGenerator {
         int stairs = 0;
         pathIndex = 0;
         for (CavePath path : layout.paths()) {
-            stairs += placeWalkablePath(level, path.points(), seed, pathIndex++, path.width());
+            stairs += placeWalkablePath(
+                level, path.points(), seed, pathIndex++, path.width(), settings.requiresFlash()
+            );
             if (path.kind().equals("bridge")) {
-                placeNaturalBridge(level, path.points(), seed, path.width());
+                placeNaturalBridge(
+                    level, path.points(), seed, path.width(), settings.requiresFlash()
+                );
             }
         }
         for (Room room : layout.rooms()) {
@@ -317,10 +321,12 @@ final class NaturalCaveGenerator {
     }
 
     private static int placeWalkablePath(
-        ServerLevel level, List<PathPoint> path, long seed, int pathIndex, int configuredWidth
+        ServerLevel level, List<PathPoint> path, long seed, int pathIndex,
+        int configuredWidth, boolean requiresFlash
     ) {
         int stairs = 0;
         int halfWidth = configuredWidth > 0 ? Math.max(1, configuredWidth / 2) : 2;
+        int lightSampleIndex = 0;
         PathPoint previous = null;
         for (int edge = 0; edge < path.size() - 1; edge++) {
             List<PathPoint> samples = sampleEdge(
@@ -366,11 +372,21 @@ final class NaturalCaveGenerator {
                     }
                     stairs += stairHalfWidth * 2 + 1;
                 }
-                if (index % 18 == 9) {
-                    level.setBlock(
-                        new BlockPos(x, floorY, z), Blocks.OCHRE_FROGLIGHT.defaultBlockState(), 2
-                    );
+                if (!requiresFlash && lightSampleIndex % 10 == 2) {
+                    int ceilingY = findCeiling(level, x, floorY + 3, z);
+                    if (ceilingY != Integer.MIN_VALUE) {
+                        level.setBlock(
+                            new BlockPos(x, ceilingY, z),
+                            Blocks.SHROOMLIGHT.defaultBlockState(), 2
+                        );
+                    } else {
+                        level.setBlock(
+                            new BlockPos(x, floorY, z),
+                            Blocks.OCHRE_FROGLIGHT.defaultBlockState(), 2
+                        );
+                    }
                 }
+                lightSampleIndex++;
                 previous = sample;
             }
         }
@@ -378,7 +394,8 @@ final class NaturalCaveGenerator {
     }
 
     private static void placeNaturalBridge(
-        ServerLevel level, List<PathPoint> path, long seed, int configuredWidth
+        ServerLevel level, List<PathPoint> path, long seed,
+        int configuredWidth, boolean requiresFlash
     ) {
         int sampleIndex = 0;
         int halfWidth = Math.max(2, configuredWidth / 2);
@@ -411,8 +428,13 @@ final class NaturalCaveGenerator {
                         );
                     }
                 }
-                if (sampleIndex % 17 == 8) {
-                    level.setBlock(new BlockPos(x, y, z), Blocks.OCHRE_FROGLIGHT.defaultBlockState(), 2);
+                if (!requiresFlash && sampleIndex % 10 == 5) {
+                    for (int lateral : new int[] {-halfWidth, halfWidth}) {
+                        level.setBlock(
+                            new BlockPos(x + sideX * lateral, y + 1, z + sideZ * lateral),
+                            Blocks.PEARLESCENT_FROGLIGHT.defaultBlockState(), 2
+                        );
+                    }
                 }
                 sampleIndex++;
             }
@@ -473,14 +495,42 @@ final class NaturalCaveGenerator {
                     }
                 }
             }
-            for (int lightIndex = 0; lightIndex < 3; lightIndex++) {
-                double angle = Math.PI * 2.0D * lightIndex / 3.0D + 0.35D;
-                int lightX = (int) Math.round(room.x() + Math.cos(angle) * room.radiusX() * 0.42D);
-                int lightZ = (int) Math.round(room.z() + Math.sin(angle) * room.radiusZ() * 0.42D);
-                int ceilingY = findCeiling(level, lightX, room.floorY() + 4, lightZ);
-                if (ceilingY != Integer.MIN_VALUE) {
+            if (!settings.requiresFlash()) {
+                int lightCount = Math.max(
+                    4, (int) Math.ceil((room.radiusX() + room.radiusZ()) / 10.0D)
+                );
+                for (int lightIndex = 0; lightIndex < lightCount; lightIndex++) {
+                    double angle = Math.PI * 2.0D * lightIndex / lightCount + 0.35D;
+                    int lightX = (int) Math.round(room.x() + Math.cos(angle) * room.radiusX() * 0.42D);
+                    int lightZ = (int) Math.round(room.z() + Math.sin(angle) * room.radiusZ() * 0.42D);
+                    int ceilingY = findCeiling(level, lightX, room.floorY() + 4, lightZ);
+                    if (ceilingY != Integer.MIN_VALUE) {
+                        BlockState light = room.kind().equals("moon")
+                            ? Blocks.PEARLESCENT_FROGLIGHT.defaultBlockState()
+                            : Blocks.SHROOMLIGHT.defaultBlockState();
+                        level.setBlock(
+                            new BlockPos(lightX, ceilingY, lightZ), light, 2
+                        );
+                        int localFloorY = findNaturalFloor(
+                            level, lightX, room.floorY(), lightZ
+                        );
+                        if (localFloorY != Integer.MIN_VALUE) {
+                            level.setBlock(
+                                new BlockPos(lightX, localFloorY, lightZ), light, 2
+                            );
+                        }
+                    }
+                }
+                int centerFloorY = findNaturalFloor(
+                    level, (int) Math.round(room.x()), room.floorY(),
+                    (int) Math.round(room.z())
+                );
+                if (centerFloorY != Integer.MIN_VALUE) {
                     level.setBlock(
-                        new BlockPos(lightX, ceilingY, lightZ),
+                        new BlockPos(
+                            (int) Math.round(room.x()), centerFloorY,
+                            (int) Math.round(room.z())
+                        ),
                         room.kind().equals("moon")
                             ? Blocks.PEARLESCENT_FROGLIGHT.defaultBlockState()
                             : Blocks.SHROOMLIGHT.defaultBlockState(),
@@ -549,9 +599,9 @@ final class NaturalCaveGenerator {
                     }
                     int x = centerX + sideX * lateral;
                     int z = centerZ + sideZ * lateral;
-                    BlockState frame = (vertical + Math.abs(lateral)) % 5 == 0
-                        ? Blocks.CALCITE.defaultBlockState()
-                        : Blocks.POLISHED_DEEPSLATE.defaultBlockState();
+                    BlockState frame = sidePillar
+                        ? Blocks.QUARTZ_PILLAR.defaultBlockState()
+                        : Blocks.SMOOTH_QUARTZ.defaultBlockState();
                     level.setBlock(new BlockPos(x, floorY + vertical, z), frame, 2);
                 }
             }
@@ -560,6 +610,23 @@ final class NaturalCaveGenerator {
                     int x = centerX + sideX * lateral;
                     int z = centerZ + sideZ * lateral;
                     level.setBlock(new BlockPos(x, floorY + vertical, z), Blocks.AIR.defaultBlockState(), 2);
+                }
+            }
+            int backdropX = centerX - inward.getStepX() * 2;
+            int backdropZ = centerZ - inward.getStepZ() * 2;
+            for (int lateral = -3; lateral <= 3; lateral++) {
+                for (int vertical = 1; vertical <= 5; vertical++) {
+                    int x = backdropX + sideX * lateral;
+                    int z = backdropZ + sideZ * lateral;
+                    boolean glow = (lateral == 0 && vertical >= 2 && vertical <= 4)
+                        || (Math.abs(lateral) == 2 && vertical == 3);
+                    level.setBlock(
+                        new BlockPos(x, floorY + vertical, z),
+                        glow
+                            ? Blocks.SEA_LANTERN.defaultBlockState()
+                            : Blocks.QUARTZ_BLOCK.defaultBlockState(),
+                        2
+                    );
                 }
             }
             int[][] lights = {
@@ -573,7 +640,7 @@ final class NaturalCaveGenerator {
                     Blocks.SEA_LANTERN.defaultBlockState(), 2
                 );
             }
-            BlockState stair = Blocks.POLISHED_DEEPSLATE_STAIRS.defaultBlockState()
+            BlockState stair = Blocks.QUARTZ_STAIRS.defaultBlockState()
                 .setValue(BlockStateProperties.HORIZONTAL_FACING, inward);
             for (int lateral = -2; lateral <= 2; lateral++) {
                 int x = centerX + sideX * lateral;
@@ -629,6 +696,7 @@ final class NaturalCaveGenerator {
                 int sectionMaxY = Math.min(maxY, y + 31);
                 for (int z = minZ; z <= maxZ; z += 32) {
                     int sectionMaxZ = Math.min(maxZ, z + 31);
+                    loadChunksForBiomeBox(level, x, z, sectionMaxX, sectionMaxZ);
                     try {
                         level.getServer().getCommands().getDispatcher().execute(
                             "fillbiome " + x + " " + y + " " + z + " "
@@ -645,6 +713,20 @@ final class NaturalCaveGenerator {
                         );
                     }
                 }
+            }
+        }
+    }
+
+    private static void loadChunksForBiomeBox(
+        ServerLevel level, int minX, int minZ, int maxX, int maxZ
+    ) {
+        int minChunkX = minX >> 4;
+        int minChunkZ = minZ >> 4;
+        int maxChunkX = maxX >> 4;
+        int maxChunkZ = maxZ >> 4;
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                level.getChunk(chunkX, chunkZ);
             }
         }
     }
@@ -796,13 +878,18 @@ final class NaturalCaveGenerator {
         double grandRoomScale,
         boolean elevatedCrossing,
         int bridgeClearance,
+        boolean requiresFlash,
         ManualLayout manualLayout,
         List<String> internalBiomes
     ) {
         static Settings defaults() {
+            return defaults(false);
+        }
+
+        static Settings defaults(boolean requiresFlash) {
             return new Settings(
                 0L, 7, 4, 0.35D, 28, 10.0D, 28.0D, 3.0D, 7.0D, 0.18D, 38,
-                1.65D, false, 13,
+                1.65D, false, 13, requiresFlash,
                 ManualLayout.disabled(),
                 List.of("minecraft:dripstone_caves")
             );

@@ -45,6 +45,23 @@ Cobbleventure가 직접 관리하는 건축물 NBT의 원본 위치와 안전한
 
 ## 게임 안에서 편집하기
 
+권장 방식은 메인 개발팩 대신 독립 건축 프로필을 사용하는 것이다.
+
+```bat
+build.bat builder-world
+```
+
+생성된 CurseForge ZIP을 임포트하고 `Cobbleventure Structure Builder` 월드에서
+건축한 뒤 `/cobbleventure_builder save all`로 NBT를 내보낸다. 저장소 반영은
+다음 명령을 사용한다.
+
+```bat
+build.bat builder-import "<CurseForge 인스턴스>\saves\Cobbleventure Structure Builder"
+```
+
+전체 독립 월드 절차는 [독립 건축 구조물 제작 월드](implementation/STRUCTURE_BUILDER_WORLD.md)를
+참고한다. 아래 구조물 블록 절차는 개별 파일을 수동 편집할 때 사용하는 대안이다.
+
 개발 모드팩과 편집용 평지 월드를 사용합니다. 대상 Minecraft·NeoForge·모드 버전은 실제
 개발 팩과 같아야 합니다.
 

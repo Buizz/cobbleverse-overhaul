@@ -117,7 +117,10 @@ BUILD_COMMANDS = {
     "pack-smoke": "최소 CurseForge 임포트 ZIP 생성",
     "pack": "개발용 CurseForge ZIP 생성",
     "validate-pack": "실제 모드팩 빌드 준비 상태 검사",
+    "builder-world": "독립 건축 월드 CurseForge ZIP 생성",
 }
+STRUCTURE_BUILDER_WORLD_NAME = "Cobbleventure Structure Builder"
+CONTENT_MANAGER_SETTINGS = "tools/content-manager/settings.local.json"
 STATIC_CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".html": "text/html; charset=utf-8",
@@ -3309,6 +3312,86 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
     return content_id, issues
 
 
+def validate_game_definitions_file(path: Path) -> list[Issue]:
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return issues
+    root = _require_object(data, issues, path, "$")
+    if root is None:
+        return issues
+    if root.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "지원 버전은 1입니다.")
+    seen_ids: set[str] = set()
+    items = _require_list(root.get("items"), issues, path, "$.items")
+    for index, value in enumerate(items or []):
+        entry_path = f"$.items[{index}]"
+        entry = _require_object(value, issues, path, entry_path)
+        if entry is None:
+            continue
+        item_id = _resource_id(entry.get("id"), issues, path, f"{entry_path}.id")
+        if item_id:
+            if item_id in seen_ids:
+                _issue(issues, "error", path, f"{entry_path}.id", f"중복 선언 ID: {item_id}")
+            seen_ids.add(item_id)
+        _resource_id(entry.get("base_item"), issues, path, f"{entry_path}.base_item")
+        _localized_text(entry.get("display_name"), issues, path, f"{entry_path}.display_name")
+        description = entry.get("description")
+        if description is not None and (
+            not isinstance(description, dict)
+            or any(not isinstance(value, str) or value.strip() for value in description.values())
+        ):
+            _localized_text(description, issues, path, f"{entry_path}.description")
+    variables = _require_list(root.get("variables"), issues, path, "$.variables")
+    for index, value in enumerate(variables or []):
+        entry_path = f"$.variables[{index}]"
+        entry = _require_object(value, issues, path, entry_path)
+        if entry is None:
+            continue
+        variable_id = _resource_id(entry.get("id"), issues, path, f"{entry_path}.id")
+        if variable_id:
+            if variable_id in seen_ids:
+                _issue(issues, "error", path, f"{entry_path}.id", f"중복 선언 ID: {variable_id}")
+            seen_ids.add(variable_id)
+        if entry.get("scope") not in {"global", "player"}:
+            _issue(issues, "error", path, f"{entry_path}.scope", "저장 범위는 global 또는 player여야 합니다.")
+        value_type = entry.get("type")
+        if value_type not in {"boolean", "integer", "string"}:
+            _issue(issues, "error", path, f"{entry_path}.type", "자료형은 boolean, integer, string 중 하나여야 합니다.")
+        default = entry.get("default")
+        valid_default = (
+            (value_type == "boolean" and isinstance(default, bool))
+            or (value_type == "integer" and isinstance(default, int) and not isinstance(default, bool))
+            or (value_type == "string" and isinstance(default, str))
+        )
+        if not valid_default:
+            _issue(issues, "error", path, f"{entry_path}.default", "기본값은 선택한 자료형과 일치해야 합니다.")
+        _localized_text(entry.get("display_name"), issues, path, f"{entry_path}.display_name")
+        description = entry.get("description")
+        if description is not None and (
+            not isinstance(description, dict)
+            or any(not isinstance(value, str) or value.strip() for value in description.values())
+        ):
+            _localized_text(description, issues, path, f"{entry_path}.description")
+    return issues
+
+
+def save_game_definitions(root: Path, data: Any) -> list[Issue]:
+    target = root / "content" / "catalogs" / "game-definitions.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as directory:
+        candidate = Path(directory) / target.name
+        candidate.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        issues = validate_game_definitions_file(candidate)
+    if not any(issue.level == "error" for issue in issues):
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(target)
+    return issues
+
+
 def validate_league_progression_file(
     path: Path, trainer_ids: set[str] | None = None
 ) -> tuple[set[str], list[Issue]]:
@@ -3395,6 +3478,7 @@ def save_league_progression(root: Path, data: Any) -> list[Issue]:
 def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResult:
     root = root.resolve()
     issues = validate_dependency_lock(root / "pack" / "dependencies.lock.json", strict_pack)
+    issues.extend(validate_game_definitions_file(root / "content" / "catalogs" / "game-definitions.json"))
     trainer_class_path = root / "content" / "catalogs" / "trainer-classes.json"
     issues.extend(validate_trainer_class_catalog(trainer_class_path))
     issues.extend(validate_biome_catalogs(root))
@@ -4453,6 +4537,146 @@ def _run_build(root: Path, command: str) -> dict[str, Any]:
         }
 
 
+def _content_manager_settings_path(root: Path) -> Path:
+    return root / CONTENT_MANAGER_SETTINGS
+
+
+def _load_structure_builder_settings(root: Path) -> dict[str, str]:
+    path = _content_manager_settings_path(root)
+    if not path.is_file():
+        return {"instance_path": ""}
+    document = load_json(path)
+    section = document.get("structure_builder", {}) if isinstance(document, dict) else {}
+    instance_path = section.get("instance_path", "") if isinstance(section, dict) else ""
+    if not isinstance(instance_path, str):
+        raise ValueError("건축 월드 인스턴스 경로 설정이 문자열이 아닙니다.")
+    return {"instance_path": instance_path}
+
+
+def _save_structure_builder_settings(root: Path, instance_path: str) -> dict[str, str]:
+    value = instance_path.strip()
+    if value:
+        resolved = Path(os.path.expandvars(value)).expanduser()
+        if not resolved.is_absolute():
+            raise ValueError("CurseForge 인스턴스 경로는 절대 경로여야 합니다.")
+        value = str(resolved.resolve(strict=False))
+    path = _content_manager_settings_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    document = {
+        "schema_version": 1,
+        "structure_builder": {"instance_path": value},
+    }
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps(document, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {"instance_path": value}
+
+
+def _structure_builder_world_path(instance_path: str) -> Path | None:
+    if not instance_path:
+        return None
+    return Path(instance_path) / "saves" / STRUCTURE_BUILDER_WORLD_NAME
+
+
+def _structure_builder_export_count(world_path: Path | None) -> int:
+    if world_path is None:
+        return 0
+    export_root = (
+        world_path
+        / "generated"
+        / "cobbleventure_builder"
+        / "structures"
+        / "export"
+    )
+    return sum(1 for path in export_root.rglob("*.nbt") if path.is_file()) if export_root.is_dir() else 0
+
+
+def _structure_builder_instance_candidates() -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+    search_roots = [
+        Path.home() / "curseforge" / "minecraft" / "Instances",
+        Path.home() / "Documents" / "Curse" / "Minecraft" / "Instances",
+    ]
+    app_data = os.environ.get("APPDATA")
+    if app_data:
+        search_roots.append(Path(app_data) / "CurseForge" / "Minecraft" / "Instances")
+    for search_root in search_roots:
+        if not search_root.is_dir():
+            continue
+        try:
+            children = list(search_root.iterdir())
+        except OSError:
+            continue
+        for child in children:
+            if not child.is_dir() or not (
+                child / "saves" / STRUCTURE_BUILDER_WORLD_NAME
+            ).is_dir():
+                continue
+            value = str(child.resolve())
+            key = os.path.normcase(value)
+            if key not in seen:
+                seen.add(key)
+                candidates.append(value)
+    return sorted(candidates, key=str.casefold)
+
+
+def _structure_builder_status(root: Path) -> dict[str, Any]:
+    settings = _load_structure_builder_settings(root)
+    instance_path = settings["instance_path"]
+    instance = Path(instance_path) if instance_path else None
+    world = _structure_builder_world_path(instance_path)
+    output = root / "dist" / "cobbleventure-structure-builder-0.1.0-curseforge.zip"
+    return {
+        **settings,
+        "world_path": str(world) if world is not None else "",
+        "instance_exists": bool(instance and instance.is_dir()),
+        "world_exists": bool(world and world.is_dir()),
+        "export_count": _structure_builder_export_count(world),
+        "source_count": sum(1 for path in (root / "content" / "structures").rglob("*.nbt") if path.is_file()),
+        "package_path": str(output),
+        "package_exists": output.is_file(),
+        "candidates": _structure_builder_instance_candidates(),
+    }
+
+
+def _run_structure_builder_import(root: Path) -> dict[str, Any]:
+    status = _structure_builder_status(root)
+    world_path = Path(status["world_path"]) if status["world_path"] else None
+    if world_path is None:
+        raise ValueError("먼저 CurseForge 인스턴스 경로를 저장해 주세요.")
+    if not world_path.is_dir():
+        raise ValueError(f"건축 월드를 찾을 수 없습니다: {world_path}")
+    if status["export_count"] == 0:
+        raise ValueError("내보낸 NBT가 없습니다. 게임에서 /cobbleventure_builder save all을 먼저 실행하세요.")
+    try:
+        completed = subprocess.run(
+            ["cmd.exe", "/d", "/c", str(root / "build.bat"), "builder-import", str(world_path)],
+            cwd=root,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as error:
+        output = (error.stdout or b"") if isinstance(error.stdout, bytes) else (error.stdout or "")
+        return {"success": False, "return_code": None, "output": f"2분 제한 시간을 초과했습니다.\n{output}"}
+    output = "\n".join(part.strip() for part in (completed.stdout, completed.stderr) if part.strip())
+    return {
+        "success": completed.returncode == 0,
+        "return_code": completed.returncode,
+        "output": output or "출력 없음",
+        "world_path": str(world_path),
+    }
+
+
 def _short_resource_id(value: Any) -> str | None:
     if not isinstance(value, str) or not value:
         return None
@@ -4885,6 +5109,22 @@ def read_minecraft_structure_size(data: bytes) -> tuple[int, int, int]:
 
 
 _STRUCTURE_ENTRY = re.compile(r"^data/([^/]+)/structures?/(.+)\.nbt$")
+STRUCTURE_VIEWER_REQUIRED_EXTERNAL = {
+    "bca:default/one_off/pokecenter",
+    "bca:default/one_off/structure_pokemart",
+    "bca:default/centers/center_department_store",
+}
+
+
+def managed_structure_files(root: Path) -> dict[str, Path]:
+    source_root = root / "content" / "structures"
+    if not source_root.is_dir():
+        return {}
+    return {
+        f"cobbleventure:{path.relative_to(source_root).with_suffix('').as_posix()}": path
+        for path in sorted(source_root.rglob("*.nbt"))
+        if path.is_file()
+    }
 
 
 def structure_mod_roots(root: Path) -> list[Path]:
@@ -4892,6 +5132,12 @@ def structure_mod_roots(root: Path) -> list[Path]:
     instance_override = os.environ.get("COBBLEVERSE_INSTANCE")
     if instance_override:
         roots.append(Path(instance_override) / "mods")
+    try:
+        builder_instance = _load_structure_builder_settings(root)["instance_path"]
+    except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError):
+        builder_instance = ""
+    if builder_instance:
+        roots.append(Path(builder_instance) / "mods")
     roots.append(
         Path.home() / "curseforge" / "minecraft" / "Instances"
         / "COBBLEVERSE - Pokemon Adventure [Cobblemon]" / "mods"
@@ -4950,11 +5196,70 @@ def load_structure_size_catalog(root: Path) -> dict[str, Any]:
     return {"structures": structures, "warnings": warnings}
 
 
+def load_structure_viewer_catalog(
+    root: Path, full_catalog: dict[str, Any] | None = None
+) -> dict[str, dict[str, Any]]:
+    viewer: dict[str, dict[str, Any]] = {}
+    for resource_id, path in managed_structure_files(root).items():
+        try:
+            metadata = read_minecraft_structure_metadata(path.read_bytes())
+        except (OSError, EOFError, ValueError, struct.error):
+            continue
+        viewer[resource_id] = {
+            **metadata,
+            "source": path.relative_to(root).as_posix(),
+            "managed": True,
+        }
+    if full_catalog is not None:
+        structures = full_catalog.get("structures", {}) if isinstance(full_catalog, dict) else {}
+        for resource_id in sorted(STRUCTURE_VIEWER_REQUIRED_EXTERNAL):
+            metadata = structures.get(resource_id) if isinstance(structures, dict) else None
+            if isinstance(metadata, dict):
+                viewer[resource_id] = {**metadata, "managed": False}
+        return viewer
+    missing = set(STRUCTURE_VIEWER_REQUIRED_EXTERNAL)
+    for mod_root in structure_mod_roots(root):
+        if not missing or not mod_root.is_dir():
+            continue
+        for archive_path in sorted(mod_root.glob("*.jar")):
+            if not missing:
+                break
+            try:
+                with zipfile.ZipFile(archive_path) as archive:
+                    for resource_id in sorted(missing):
+                        namespace, structure_path = resource_id.split(":", 1)
+                        for entry_name in (
+                            f"data/{namespace}/structure/{structure_path}.nbt",
+                            f"data/{namespace}/structures/{structure_path}.nbt",
+                        ):
+                            try:
+                                data = archive.read(entry_name)
+                            except KeyError:
+                                continue
+                            metadata = read_minecraft_structure_metadata(data)
+                            viewer[resource_id] = {
+                                **metadata,
+                                "source": archive_path.name,
+                                "managed": False,
+                            }
+                            missing.remove(resource_id)
+                            break
+            except (OSError, EOFError, ValueError, struct.error, zipfile.BadZipFile):
+                continue
+    return viewer
+
+
 def load_structure_model(root: Path, resource_id: str) -> dict[str, Any] | None:
     match = re.fullmatch(r"([a-z0-9_.-]+):([a-z0-9_./-]+)", resource_id)
     if not match:
         raise ValueError("올바른 구조물 리소스 ID가 아닙니다.")
     namespace, structure_path = match.groups()
+    managed_path = managed_structure_files(root).get(resource_id)
+    if managed_path is not None:
+        return {
+            **read_minecraft_structure_model(managed_path.read_bytes()),
+            "source": managed_path.relative_to(root).as_posix(),
+        }
     entry_names = [
         f"data/{namespace}/structure/{structure_path}.nbt",
         f"data/{namespace}/structures/{structure_path}.nbt",
@@ -4995,6 +5300,7 @@ def load_structure_model(root: Path, resource_id: str) -> dict[str, Any] | None:
 def structure_catalog_signature(root: Path) -> tuple[tuple[str, int, int], ...]:
     """Return a cheap fingerprint for NBT resources and archives used by preview."""
     candidates: list[Path] = []
+    candidates.extend(managed_structure_files(root).values())
     for resource_root in [
         root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
         root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
@@ -5023,6 +5329,8 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
     structure_size_catalog_lock = threading.Lock()
     structure_size_catalog: dict[str, Any] | None = None
     structure_size_catalog_signature: tuple[tuple[str, int, int], ...] | None = None
+    structure_viewer_catalog: dict[str, dict[str, Any]] | None = None
+    structure_viewer_catalog_signature: tuple[tuple[str, int, int], ...] | None = None
     structure_model_cache: dict[str, dict[str, Any]] = {}
     structure_model_cache_signature: tuple[tuple[str, int, int], ...] | None = None
     remote_image_cache: dict[str, bytes] = {}
@@ -5190,6 +5498,12 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     },
                 )
                 return
+            if request.path == "/api/structure-builder":
+                try:
+                    self._json(200, _structure_builder_status(root))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/trainer-classes":
                 try:
                     self._json(
@@ -5213,6 +5527,12 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
             if request.path == "/api/league-progression":
                 try:
                     self._json(200, load_json(root / "content" / "catalogs" / "league-progression.json"))
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/game-definitions":
+                try:
+                    self._json(200, load_json(root / "content" / "catalogs" / "game-definitions.json"))
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
@@ -5402,6 +5722,18 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 except (OSError, ValueError, zipfile.BadZipFile) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/structure-viewer":
+                nonlocal structure_viewer_catalog, structure_viewer_catalog_signature
+                try:
+                    with structure_size_catalog_lock:
+                        signature = structure_catalog_signature(root)
+                        if structure_viewer_catalog is None or signature != structure_viewer_catalog_signature:
+                            structure_viewer_catalog = load_structure_viewer_catalog(root)
+                            structure_viewer_catalog_signature = signature
+                    self._json(200, {"structures": structure_viewer_catalog})
+                except (OSError, ValueError, EOFError, struct.error, zipfile.BadZipFile) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/structure-model":
                 nonlocal structure_model_cache_signature
                 resource_id = parse_qs(request.query).get("structure", [""])[0]
@@ -5523,10 +5855,44 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     build_lock.release()
                 self._json(200 if result["success"] else 422, result)
                 return
+            if request.path == "/api/structure-builder/import":
+                if not build_lock.acquire(blocking=False):
+                    self._json(409, {"error": "다른 빌드 명령이 실행 중입니다."})
+                    return
+                try:
+                    result = _run_structure_builder_import(root)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                finally:
+                    build_lock.release()
+                self._json(200 if result["success"] else 422, result)
+                return
             self._json(404, {"error": "not_found"})
 
         def do_PUT(self) -> None:
             request = urlparse(self.path)
+            if request.path == "/api/structure-builder/settings":
+                try:
+                    payload = self._read_json()
+                    instance_path = payload.get("instance_path") if isinstance(payload, dict) else None
+                    if not isinstance(instance_path, str):
+                        raise ValueError("CurseForge 인스턴스 경로를 문자열로 입력해야 합니다.")
+                    _save_structure_builder_settings(root, instance_path)
+                    self._json(200, _structure_builder_status(root))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                return
+            if request.path == "/api/game-definitions":
+                try:
+                    payload = self._read_json()
+                    issues = save_game_definitions(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
             if request.path == "/api/league-progression":
                 try:
                     payload = self._read_json()

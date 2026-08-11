@@ -28,7 +28,7 @@
       "commands": [
         {
           "type": "branch",
-          "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/trainer/ai_test/defeated", "value": true }],
+          "conditions": [{ "type": "flag_equals", "key": "cobbleventure:runtime/npc_instance_defeated", "value": true }],
           "target": "after_victory"
         },
         {

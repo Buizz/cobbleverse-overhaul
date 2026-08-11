@@ -19,6 +19,7 @@ classes/
 
 # Minecraft development/runtime data
 run/
+run-builder-world/
 .minecraft/
 logs/
 crash-reports/
@@ -30,6 +31,7 @@ backups/
 mods/*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-world-bootstrap-*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-player-menu-*.jar
+pack/overrides/structure-builder/mods/cobbleventure-structure-builder-*.jar
 *.mrpack
 *.zip
 !pack/overrides/development-placeholder/config/paxi/datapacks/CCCC-1.7.2.zip
@@ -42,6 +44,7 @@ pack/overrides/development-placeholder/mods/cobbleventure-player-menu-*.jar
 .env.*
 *.local
 .venv/
+tools/content-manager/settings.local.json
 __pycache__/
 *.py[cod]
 

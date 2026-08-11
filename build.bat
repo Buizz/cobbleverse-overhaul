@@ -13,8 +13,11 @@ set "EASY_NPC_PRESET_BUILDER=%REPO_ROOT%tools\content-manager\generate_easy_npc_
 set "GRADLEW=%REPO_ROOT%projects\cobbleventure-battle-ai\gradlew.bat"
 set "WORLD_BOOTSTRAP_PROJECT=%REPO_ROOT%projects\cobbleventure-world-bootstrap"
 set "PLAYER_MENU_PROJECT=%REPO_ROOT%projects\cobbleventure-player-menu"
+set "STRUCTURE_BUILDER_PROJECT=%REPO_ROOT%projects\cobbleventure-structure-builder"
+set "STRUCTURE_BUILDER_TOOL=%REPO_ROOT%tools\structure-builder\structure_builder.py"
 set "SMOKE_PROFILE=pack\profiles\import-smoke.json"
 set "DEVELOPMENT_PROFILE=pack\profiles\development-placeholder.json"
+set "STRUCTURE_BUILDER_PROFILE=pack\profiles\structure-builder.json"
 
 where py >nul 2>nul
 if %errorlevel% equ 0 (
@@ -41,6 +44,8 @@ if /I "%~1"=="mod-menu" goto mod_menu
 if /I "%~1"=="pack-smoke" goto pack_smoke
 if /I "%~1"=="pack" goto pack
 if /I "%~1"=="pack-release" goto pack_release
+if /I "%~1"=="builder-world" goto builder_world
+if /I "%~1"=="builder-import" goto builder_import
 goto help_error
 
 :validate
@@ -72,6 +77,10 @@ if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%WORLD_BOOTSTRAP_PROJECT%" test
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%PLAYER_MENU_PROJECT%" test
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\structure-builder\tests" -p "test_*.py"
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" test
 exit /b %errorlevel%
 
 :generate
@@ -136,6 +145,25 @@ if errorlevel 1 (
 echo [ERROR] Release manifest export is not implemented yet.
 exit /b 1
 
+:builder_world
+%PYTHON_CMD% "%STRUCTURE_BUILDER_TOOL%" --root "%REPO_ROOT%." generate
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" build --no-configuration-cache
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" syncBuilderWorld --no-configuration-cache
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%STRUCTURE_BUILDER_PROFILE%"
+exit /b %errorlevel%
+
+:builder_import
+if "%~2"=="" (
+    echo [ERROR] Builder world path is required.
+    echo Usage: build.bat builder-import "^<CurseForge instance^>\saves\Cobbleventure Structure Builder"
+    exit /b 1
+)
+%PYTHON_CMD% "%STRUCTURE_BUILDER_TOOL%" --root "%REPO_ROOT%." import "%~2"
+exit /b %errorlevel%
+
 :help_error
 echo [ERROR] Unknown command: %~1
 
@@ -154,4 +182,6 @@ echo   mod-menu       Build the radial player menu NeoForge Java mod JAR
 echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked
+echo   builder-world  Build the standalone CurseForge structure authoring pack and world
+echo   builder-import Import exported NBT from a Structure Builder save into content/structures
 exit /b 1

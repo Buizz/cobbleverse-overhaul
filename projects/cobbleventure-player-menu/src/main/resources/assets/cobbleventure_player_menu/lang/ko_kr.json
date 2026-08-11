@@ -120,6 +120,7 @@
   "screen.cobbleventure_player_menu.starter.title": "운명의 스타팅 포켓몬",
   "screen.cobbleventure_player_menu.starter.hint": "멈춤을 눌러 함께 모험할 포켓몬을 결정하세요",
   "screen.cobbleventure_player_menu.starter.stop": "멈춤!",
+  "screen.cobbleventure_player_menu.starter.slowing": "룰렛이 천천히 멈추고 있습니다…",
   "screen.cobbleventure_player_menu.starter.waiting": "결과를 확인하는 중…",
   "screen.cobbleventure_player_menu.starter.received": "%s이(가) 새로운 동료가 되었습니다!",
   "screen.cobbleventure_player_menu.starter.failed": "스타팅 포켓몬을 지급하지 못했습니다",

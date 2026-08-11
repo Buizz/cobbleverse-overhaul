@@ -120,6 +120,7 @@
   "screen.cobbleventure_player_menu.starter.title": "Your Fated Starter Pokémon",
   "screen.cobbleventure_player_menu.starter.hint": "Press stop to decide who will join your adventure",
   "screen.cobbleventure_player_menu.starter.stop": "Stop!",
+  "screen.cobbleventure_player_menu.starter.slowing": "The roulette is slowing down…",
   "screen.cobbleventure_player_menu.starter.waiting": "Confirming the result…",
   "screen.cobbleventure_player_menu.starter.received": "%s joined your adventure!",
   "screen.cobbleventure_player_menu.starter.failed": "The starter Pokémon could not be awarded",

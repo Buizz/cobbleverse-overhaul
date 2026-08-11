@@ -19,6 +19,8 @@ CONTENT_ROOT = ROOT / "content" / "source"
 BATTLE_ROOT = ROOT / "content" / "battles"
 RESOURCE_ROOT = ROOT / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources"
 PACK_OVERRIDE = ROOT / "pack" / "overrides" / "development-placeholder"
+INSTANCE_DEFEATED_FLAG = "cobbleventure:runtime/npc_instance_defeated"
+INSTANCE_DEFEATED_OBJECTIVE = "cv_npc_defeated"
 
 
 def uuid_int_array(value: str) -> str:
@@ -37,6 +39,8 @@ def localized(value: dict | None) -> str:
 
 def flag_objective(resource_id: str) -> str:
     """Map a long content flag id to a stable Minecraft scoreboard objective."""
+    if resource_id == INSTANCE_DEFEATED_FLAG:
+        return INSTANCE_DEFEATED_OBJECTIVE
     return "cvf_" + hashlib.sha1(resource_id.encode("utf-8")).hexdigest()[:12]
 
 
@@ -221,6 +225,49 @@ def reward_commands(
     return commands
 
 
+def command_result_dialogue(commands: list[dict], target: str | None) -> str | None:
+    """Resolve the first dialogue reached by a schema-v4 battle result label."""
+    labels = {
+        command.get("name"): index
+        for index, command in enumerate(commands)
+        if command.get("type") == "label"
+    }
+    index = labels.get(target, -1) + 1
+    visited: set[int] = set()
+    while 0 <= index < len(commands) and index not in visited:
+        visited.add(index)
+        command = commands[index]
+        command_type = command.get("type")
+        if command_type == "dialogue":
+            return dialogue_label(command.get("id", target or ""))
+        if command_type == "goto":
+            index = labels.get(command.get("target"), len(commands)) + 1
+            continue
+        if command_type in {"choices", "start_battle", "end"}:
+            return None
+        index += 1
+    return None
+
+
+def result_dialogue_label(
+    document: dict,
+    start_battle: dict | None,
+    result_key: str,
+) -> str | None:
+    if document.get("schema_version") != 4 or not start_battle:
+        return None
+    event = next(
+        (event for event in document.get("events", []) if start_battle in event.get("commands", [])),
+        None,
+    )
+    if not event:
+        return None
+    return command_result_dialogue(
+        event.get("commands", []),
+        start_battle.get("results", {}).get(result_key),
+    )
+
+
 def battle_command(document: dict, start_battle: dict | None = None) -> str:
     if document.get("schema_version") in {3, 4}:
         battle_ref = (start_battle or {}).get("battle")
@@ -232,15 +279,30 @@ def battle_command(document: dict, start_battle: dict | None = None) -> str:
         battle = document["battle"]
     slug = battle["trainer_id"].rsplit("/", 1)[-1]
     rules = battle.get("rules", {})
-    command = f"/tbcs battle {battle['format']} @initiator vs @npc as rctmod:{slug}"
+    # EasyNPC expands @npc to the NPC's display name. Names containing spaces
+    # (for example "AI 맨") break the TBCS participant parser. Command actions
+    # execute as the NPC entity, so vanilla @s is the stable entity selector.
+    command = f"/tbcs battle {battle['format']} @initiator vs @s as rctmod:{slug}"
     if rules:
         command += " rules " + json.dumps(
             {"maxItemUses": rules["max_item_uses"]}, separators=(",", ":")
         ).replace('"', "")
-    result_commands = {
-        1: reward_commands(document, start_battle, "player_win"),
-        2: reward_commands(document, start_battle, "player_loss"),
-    }
+    result_commands: dict[int, list[str]] = {}
+    for side, result_key in ((1, "player_win"), (2, "player_loss")):
+        commands = reward_commands(document, start_battle, result_key)
+        if result_key == "player_win":
+            commands.append(
+                "cobbleventure_trainer_state complete @npc-uuid @initiator"
+            )
+        next_dialogue = result_dialogue_label(document, start_battle, result_key)
+        if next_dialogue:
+            # ActionUtils expands these macros before TBCS stores its callbacks.
+            # The concrete NPC UUID keeps the continuation bound to the exact
+            # spawned NPC that initiated this battle.
+            commands.append(
+                f"easy_npc dialog open @npc-uuid @initiator {next_dialogue}"
+            )
+        result_commands[side] = commands
     callbacks = [
         f"{side}:[{','.join(quote(value) for value in commands)}]"
         for side, commands in result_commands.items()
@@ -501,7 +563,13 @@ def encounter_preset_snbt(document: dict, outfit: dict) -> str:
             + "]"
         )
     else:
-        event_actions = 'ON_INTERACTION:[{Type:"OPEN_DEFAULT_DIALOG"}]'
+        event_actions = (
+            "ON_INTERACTION:["
+            + command_action(
+                "/cobbleventure_trainer_state prepare @npc-uuid @initiator"
+            )
+            + ',{Type:"OPEN_DEFAULT_DIALOG"}]'
+        )
     return f'''{{
   PresetMetadata:{{
     author:"Cobbleventure",

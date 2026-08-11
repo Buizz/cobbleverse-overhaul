@@ -1,0 +1,6 @@
+{
+  "$schema": "../schemas/game-definitions.schema.json",
+  "schema_version": 1,
+  "items": [],
+  "variables": []
+}

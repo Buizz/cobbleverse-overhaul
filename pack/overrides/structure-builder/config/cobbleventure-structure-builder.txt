@@ -1,0 +1,14 @@
+Cobbleventure Structure Builder
+
+이 프로필은 독립된 건축 NBT 편집 전용 팩입니다.
+월드 목록에서 "Cobbleventure Structure Builder"를 열어 사용합니다.
+
+명령:
+/cobbleventure_builder status
+/cobbleventure_builder tp laboratory
+/cobbleventure_builder save laboratory
+/cobbleventure_builder save all
+/cobbleventure_builder load confirm
+
+save 명령으로 생성된 NBT를 저장소로 가져오려면 저장소에서 다음 명령을 실행합니다.
+build.bat builder-import "<CurseForge 인스턴스>\saves\Cobbleventure Structure Builder"

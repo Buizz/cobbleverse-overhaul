@@ -1,0 +1,107 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.143'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = 'cobbleventure-structure-builder'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+repositories {
+    mavenCentral()
+}
+
+sourceSets.main.resources.srcDir 'src/generated/resources'
+
+def builderRunDirectory = file('run-builder-world')
+def builderWorldDirectory = file('run-builder-world/Cobbleventure Structure Builder')
+def packagedWorldDirectory = rootProject.file(
+    '../../pack/overrides/structure-builder/saves/Cobbleventure Structure Builder'
+)
+
+tasks.register('resetBuilderWorld') {
+    doLast {
+        delete builderWorldDirectory
+        builderRunDirectory.mkdirs()
+        file('run-builder-world/eula.txt').setText('eula=true\n', 'UTF-8')
+        file('run-builder-world/server.properties').setText('''\
+allow-flight=true
+difficulty=peaceful
+enable-command-block=false
+gamemode=creative
+generate-structures=false
+generator-settings={"biome":"minecraft:plains","features":false,"lakes":false,"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:stone","height":60},{"block":"minecraft:dirt","height":3},{"block":"minecraft:grass_block","height":1}],"structure_overrides":[]}
+level-name=Cobbleventure Structure Builder
+level-seed=19960227
+level-type=minecraft:flat
+max-tick-time=-1
+motd=Cobbleventure Structure Builder Generator
+online-mode=false
+simulation-distance=4
+spawn-animals=false
+spawn-monsters=false
+spawn-npcs=false
+view-distance=4
+''', 'UTF-8')
+    }
+}
+
+neoForge {
+    version = project.neo_version
+    runs {
+        builderWorldServer {
+            server()
+            gameDirectory = builderRunDirectory
+            systemProperty 'cobbleventure.builder.prepareWorld', 'true'
+            taskBefore tasks.named('resetBuilderWorld')
+        }
+    }
+    mods {
+        "${mod_id}" { sourceSet(sourceSets.main) }
+    }
+}
+
+processResources {
+    def properties = [
+        minecraft_version_range: minecraft_version_range,
+        neo_version: neo_version,
+        loader_version_range: loader_version_range,
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_license: mod_license,
+        mod_version: mod_version,
+    ]
+    inputs.properties properties
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand properties
+    }
+}
+
+tasks.register('cleanInstalledBuilderJars', Delete) {
+    delete fileTree(rootProject.file('../../pack/overrides/structure-builder/mods')) {
+        include 'cobbleventure-structure-builder-*.jar'
+    }
+}
+
+tasks.register('installBuilderJar', Copy) {
+    dependsOn jar
+    dependsOn 'cleanInstalledBuilderJars'
+    from jar
+    into rootProject.file('../../pack/overrides/structure-builder/mods')
+}
+
+tasks.register('syncBuilderWorld', Sync) {
+    dependsOn 'runBuilderWorldServer'
+    from builderWorldDirectory
+    exclude 'session.lock'
+    into packagedWorldDirectory
+}
+
+tasks.named('build') {
+    finalizedBy 'installBuilderJar'
+}

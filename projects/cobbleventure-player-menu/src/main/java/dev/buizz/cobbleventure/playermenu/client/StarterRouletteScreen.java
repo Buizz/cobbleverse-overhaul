@@ -19,18 +19,27 @@ import net.minecraft.world.item.ItemStack;
 public final class StarterRouletteScreen extends Screen {
     private static final int WIDGET_COUNT = 7;
     private static final int CENTER_WIDGET = WIDGET_COUNT / 2;
-    private static final int SLOT_SPACING = 112;
-    private static final int MODEL_SIZE = 96;
+    private static final int MIN_MODEL_SIZE = 52;
+    private static final int MAX_MODEL_SIZE = 96;
     private static final long STEP_MILLIS = 135L;
+    private static final long STOP_DURATION_MILLIS = 1_200L;
 
     private final UUID token;
     private final List<String> speciesIds;
     private final List<ModelWidget> models = new ArrayList<>();
     private int centerIndex;
     private long stepStartedAt;
+    private long stopStartedAt;
+    private double stopStartPosition;
+    private boolean stopping;
     private boolean stopped;
     private boolean waiting;
     private boolean received;
+    private int modelSize;
+    private int slotSpacing;
+    private int frameY;
+    private int nameY;
+    private int statusY;
     private Component status = Component.translatable("screen.cobbleventure_player_menu.starter.hint");
     private Button actionButton;
 
@@ -43,18 +52,29 @@ public final class StarterRouletteScreen extends Screen {
     @Override
     protected void init() {
         models.clear();
-        int modelY = height / 2 - 70;
+        modelSize = Math.clamp((height * 35) / 100, MIN_MODEL_SIZE, MAX_MODEL_SIZE);
+        slotSpacing = modelSize + 16;
+        int contentHeight = modelSize + 90;
+        int contentTop = Math.max(8, (height - contentHeight) / 2);
+        int titleY = contentTop;
+        frameY = titleY + 18;
+        int modelY = frameY + 8;
+        nameY = frameY + modelSize + 18;
+        statusY = nameY + 16;
+        int buttonY = statusY + 16;
+        float modelScale = Math.max(2.0F, 2.6F * modelSize / (float) MAX_MODEL_SIZE);
         for (int index = 0; index < WIDGET_COUNT; index++) {
             ModelWidget widget = new ModelWidget(
-                0, modelY, MODEL_SIZE, MODEL_SIZE, renderable(relativeSpecies(relativeIndex(index))),
-                2.6F, 25.0F, 0.0D, false, false
+                0, modelY, modelSize, modelSize, renderable(relativeSpecies(relativeIndex(index))),
+                modelScale, 25.0F, 0.0D, false, false
             );
             models.add(addRenderableWidget(widget));
         }
         stepStartedAt = System.currentTimeMillis();
+        int buttonWidth = Math.min(120, width - 24);
         actionButton = addRenderableWidget(Button.builder(
             Component.translatable("screen.cobbleventure_player_menu.starter.stop"), button -> pressAction()
-        ).bounds(width / 2 - 70, height / 2 + 76, 140, 24).build());
+        ).bounds(width / 2 - buttonWidth / 2, buttonY, buttonWidth, 20).build());
         positionModels(0.0D);
     }
 
@@ -62,6 +82,11 @@ public final class StarterRouletteScreen extends Screen {
     public void tick() {
         if (stopped || speciesIds.isEmpty()) return;
         long now = System.currentTimeMillis();
+        if (stopping) {
+            updatePosition(stoppingPosition(now));
+            if (now - stopStartedAt >= STOP_DURATION_MILLIS) finishStopping();
+            return;
+        }
         while (now - stepStartedAt >= STEP_MILLIS) {
             centerIndex = Math.floorMod(centerIndex + 1, speciesIds.size());
             stepStartedAt += STEP_MILLIS;
@@ -72,21 +97,27 @@ public final class StarterRouletteScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, width, height, 0xB0101720);
-        double progress = stopped ? 0.0D : Math.min(1.0D, (System.currentTimeMillis() - stepStartedAt) / (double) STEP_MILLIS);
+        double progress;
+        if (stopped) {
+            progress = 0.0D;
+        } else if (stopping) {
+            progress = updatePosition(stoppingPosition(System.currentTimeMillis()));
+        } else {
+            progress = Math.min(1.0D, (System.currentTimeMillis() - stepStartedAt) / (double) STEP_MILLIS);
+        }
         positionModels(progress);
 
-        int frameX = width / 2 - MODEL_SIZE / 2 - 8;
-        int frameY = height / 2 - 78;
-        graphics.fill(frameX, frameY, frameX + MODEL_SIZE + 16, frameY + MODEL_SIZE + 16, 0xD02A3543);
-        graphics.fill(frameX, frameY, frameX + MODEL_SIZE + 16, frameY + 3, 0xFFFFC928);
-        graphics.fill(frameX, frameY + MODEL_SIZE + 13, frameX + MODEL_SIZE + 16, frameY + MODEL_SIZE + 16, 0xFFFFC928);
-        graphics.drawCenteredString(font, title, width / 2, Math.max(18, frameY - 42), 0xFFFFFFFF);
-        graphics.drawCenteredString(font, status, width / 2, frameY + MODEL_SIZE + 23, received ? 0xFF8EF0A7 : 0xFFE8EDF2);
+        int frameX = width / 2 - modelSize / 2 - 8;
+        graphics.fill(frameX, frameY, frameX + modelSize + 16, frameY + modelSize + 16, 0xD02A3543);
+        graphics.fill(frameX, frameY, frameX + modelSize + 16, frameY + 3, 0xFFFFC928);
+        graphics.fill(frameX, frameY + modelSize + 13, frameX + modelSize + 16, frameY + modelSize + 16, 0xFFFFC928);
+        graphics.drawCenteredString(font, title, width / 2, Math.max(8, frameY - 18), 0xFFFFFFFF);
+        graphics.drawCenteredString(font, status, width / 2, statusY, received ? 0xFF8EF0A7 : 0xFFE8EDF2);
 
         super.render(graphics, mouseX, mouseY, partialTick);
         Species centered = species(sequenceAt(centerIndex));
         if (centered != null) {
-            graphics.drawCenteredString(font, centered.getTranslatedName(), width / 2, frameY + MODEL_SIZE - 2, 0xFFFFFFFF);
+            graphics.drawCenteredString(font, centered.getTranslatedName(), width / 2, nameY, 0xFFFFFFFF);
         }
     }
 
@@ -122,15 +153,46 @@ public final class StarterRouletteScreen extends Screen {
             onClose();
             return;
         }
+        if (stopping || waiting || speciesIds.isEmpty()) return;
 
-        double progress = Math.min(1.0D, (System.currentTimeMillis() - stepStartedAt) / (double) STEP_MILLIS);
-        if (progress >= 0.5D) centerIndex = Math.floorMod(centerIndex + 1, speciesIds.size());
+        long now = System.currentTimeMillis();
+        double progress = Math.min(1.0D, (now - stepStartedAt) / (double) STEP_MILLIS);
+        stopStartPosition = centerIndex + progress;
+        stopStartedAt = now;
+        stopping = true;
+        status = Component.translatable("screen.cobbleventure_player_menu.starter.slowing");
+        actionButton.active = false;
+    }
+
+    private double stoppingPosition(long now) {
+        double elapsedRatio = Math.min(1.0D, Math.max(0.0D,
+            (now - stopStartedAt) / (double) STOP_DURATION_MILLIS));
+        double slowingDistance = STOP_DURATION_MILLIS / (double) STEP_MILLIS
+            * (elapsedRatio - elapsedRatio * elapsedRatio * 0.5D);
+        return stopStartPosition + slowingDistance;
+    }
+
+    private double updatePosition(double absolutePosition) {
+        int wholeSlots = (int) Math.floor(absolutePosition);
+        int nextCenterIndex = Math.floorMod(wholeSlots, speciesIds.size());
+        if (nextCenterIndex != centerIndex) {
+            centerIndex = nextCenterIndex;
+            refreshModels();
+        }
+        return absolutePosition - wholeSlots;
+    }
+
+    private void finishStopping() {
+        int selectedIndex = Math.floorMod((int) Math.floor(
+            stoppingPosition(stopStartedAt + STOP_DURATION_MILLIS) + 0.5D
+        ), speciesIds.size());
+        centerIndex = selectedIndex;
+        stopping = false;
         stopped = true;
         waiting = true;
         refreshModels();
         positionModels(0.0D);
         status = Component.translatable("screen.cobbleventure_player_menu.starter.waiting");
-        actionButton.active = false;
         StarterRouletteNetwork.claim(token, centerIndex);
     }
 
@@ -141,10 +203,10 @@ public final class StarterRouletteScreen extends Screen {
     }
 
     private void positionModels(double progress) {
-        int centerX = width / 2 - MODEL_SIZE / 2;
+        int centerX = width / 2 - modelSize / 2;
         for (int index = 0; index < models.size(); index++) {
             int relative = relativeIndex(index);
-            models.get(index).setX((int) Math.round(centerX + (relative - progress) * SLOT_SPACING));
+            models.get(index).setX((int) Math.round(centerX + (relative - progress) * slotSpacing));
             models.get(index).active = false;
         }
     }

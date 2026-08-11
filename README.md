@@ -20,6 +20,7 @@
 - [의존 모드 관리표](docs/MOD_DEPENDENCIES.md)
 - [선택 아키텍처와 비교 기록](docs/implementation/WORLD_ARCHITECTURE_OPTIONS.md)
 - [세대 월드 8지역 및 체육관 도시 생성](docs/implementation/WORLD_GENERATION.md)
+- [독립 건축 구조물 제작 월드](docs/implementation/STRUCTURE_BUILDER_WORLD.md)
 - [도시 포맷과 세대별 특수 시설](docs/implementation/CITY_FACILITIES.md)
 - [플레이어 원형 메뉴 설계](docs/implementation/PLAYER_MENU.md)
 - [Cobbleventure Core](projects/cobbleventure-core/README.md)
@@ -252,6 +253,8 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 | `build.bat pack-smoke` | 최소 CurseForge 임포트 테스트 ZIP 생성·재검증 | `dist`에 ZIP과 SHA-256 생성 |
 | `build.bat pack` | 일반 콘텐츠 검증 후 임시 개발 팩 생성 | 임포트 가능한 개발용 ZIP과 SHA-256 생성 |
 | `build.bat pack-release` | 정식 의존성·배포 준비 상태를 엄격 검사 | 현재는 누락 항목을 출력하고 실패하는 것이 정상 |
+| `build.bat builder-world` | 독립 건축 평지 월드와 경량 CurseForge 프로필 생성 | `dist`에 건축용 ZIP과 SHA-256 생성 |
+| `build.bat builder-import "<월드 경로>"` | 게임에서 내보낸 NBT를 `content/structures`에 반영 | 28개 완전성·크기 검사 후 변경 파일만 교체 |
 
 `build.bat`을 인자 없이 실행하면 사용 가능한 명령을 표시합니다. 자세한 검사
 규칙과 종료 코드는 [Content Manager 사용법](tools/content-manager/README.md)을

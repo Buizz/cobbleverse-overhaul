@@ -51,6 +51,16 @@ build.bat pack-release
 동안 종료 코드 `1`로 실패하며 릴리스 ZIP을 만들지 않는다. 개발 팩을 릴리스
 결과로 복사하거나 이름만 바꾸는 동작은 하지 않는다.
 
+## 독립 건축 팩
+
+```bat
+build.bat builder-world
+```
+
+메인 개발팩과 별개의 CurseForge ZIP을 만든다. Minecraft 1.21.1, NeoForge,
+건축에 필요한 콘텐츠 제공 모드, WorldEdit와 자체 Structure Builder JAR만 포함하며
+미리 생성한 `Cobbleventure Structure Builder` 평지 월드를 `overrides/saves`에 넣는다.
+
 ## 생성 ZIP
 
 ```text

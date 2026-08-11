@@ -11,6 +11,7 @@
 | [모듈식 아키텍처와 의존성 경계](MODULAR_ARCHITECTURE.md) | 플랫폼 독립 코어, 게임 어댑터, 콘텐츠 팩과 선택 호환 계층 | 기준 결정 |
 | [세대 월드 아키텍처 결정 및 3안 비교 기록](WORLD_ARCHITECTURE_OPTIONS.md) | 선택된 하이브리드와 어드벤처·서바이벌 격자 대안 비교 | 3안 선택 |
 | [세대 월드 8지역 및 체육관 도시 생성](WORLD_GENERATION.md) | 3안의 지역 1~8, 제한 통로, 체육관 도시와 리그 포탈 | 기준 설계 |
+| [독립 건축 구조물 제작 월드](STRUCTURE_BUILDER_WORLD.md) | 별도 CurseForge 평지 월드, 체크무늬 부지와 NBT import/export | 1차 구현 |
 | [도시 포맷과 세대별 특수 시설](CITY_FACILITIES.md) | 도시 샘플, 백화점 선택 여부, 세대별 고유 시설과 빌런 랜드마크 | 기준 설계 |
 | [서바이벌 격자 세대 월드](SURVIVAL_GRID_WORLD.md) | 2안의 격자 셀, 비선형 도시·체육관과 자유 생존 | 후보 설계 |
 | [차원 및 지역 이동](DIMENSION_TRAVEL.md) | 전용 차원, 동굴 입장, 이동 오브젝트, 진행 잠금과 귀환 | 기술 조사 진행 |

@@ -291,6 +291,9 @@ final class NativeWorldGeneration {
         }
 
         private boolean isBoundaryColumn(int x, int z) {
+            if (CobbleventureBootstrap.isCaveEntrancePassage(world, x, z)) {
+                return false;
+            }
             if (CobbleventureBootstrap.terrainAt(world, x + 0.5D, z + 0.5D) != null) {
                 return false;
             }
@@ -308,9 +311,14 @@ final class NativeWorldGeneration {
                 return Blocks.BEDROCK.defaultBlockState();
             }
             if (column.rocky()) {
-                return y < CobbleventureBootstrap.WATER_SURFACE_Y
-                    ? Blocks.BARRIER.defaultBlockState()
-                    : CobbleventureBootstrap.oceanBoundaryRock(world, x, y, z);
+                if (y < CobbleventureBootstrap.WATER_SURFACE_Y) {
+                    return column.blocked()
+                        ? Blocks.BARRIER.defaultBlockState()
+                        : CobbleventureBootstrap.oceanCliffRock(world, x, y, z);
+                }
+                return y == column.groundY()
+                    ? CobbleventureBootstrap.oceanBoundaryRock(world, x, y, z)
+                    : CobbleventureBootstrap.oceanCliffRock(world, x, y, z);
             }
             if (y == column.groundY()) {
                 return column.surface();
@@ -426,9 +434,7 @@ final class NativeWorldGeneration {
                         && Math.floorMod(anchorZ, 12) == 0;
                     boolean desertCandidate = Math.floorMod(anchorX, 13) == 0
                         && Math.floorMod(anchorZ, 13) == 0;
-                    boolean stoneCandidate = Math.floorMod(anchorX, 11) == 0
-                        && Math.floorMod(anchorZ, 11) == 0;
-                    if (!snowCandidate && !desertCandidate && !stoneCandidate) {
+                    if (!snowCandidate && !desertCandidate) {
                         continue;
                     }
                     if (CobbleventureBootstrap.terrainAt(
@@ -484,20 +490,6 @@ final class NativeWorldGeneration {
                                 );
                             }
                         }
-                    } else if (type.equals("stone_mountain") && stoneCandidate) {
-                        if (Math.floorMod((int) coordinateHash(
-                                anchorX, anchorZ, 0x53544F4E45434C55L
-                            ), 100) < 55) {
-                            CobbleventureBootstrap.NativeTerrainColumn column =
-                                CobbleventureBootstrap.nativeTerrainColumn(
-                                    world, anchorX, anchorZ
-                                );
-                            if (column.waterTopY() > column.groundY()) continue;
-                            placeRockCluster(
-                                chunk, position, oceanFloor, worldSurface,
-                                startX, startZ, anchorX, anchorZ, column.groundY()
-                            );
-                        }
                     }
                 }
             }
@@ -547,38 +539,6 @@ final class NativeWorldGeneration {
             }
         }
 
-        private void placeRockCluster(
-            ChunkAccess chunk,
-            BlockPos.MutableBlockPos position,
-            Heightmap oceanFloor,
-            Heightmap worldSurface,
-            int startX,
-            int startZ,
-            int anchorX,
-            int anchorZ,
-            int groundY
-        ) {
-            for (int dx = -2; dx <= 2; dx++) {
-                for (int dz = -2; dz <= 2; dz++) {
-                    int distance = Math.abs(dx) + Math.abs(dz);
-                    if (distance > 3) continue;
-                    int height = Math.max(1, 4 - distance + (int) Math.round(
-                        signedNoise(anchorX + dx, anchorZ + dz, 0x524F434B48454947L)
-                    ));
-                    for (int dy = 1; dy <= height; dy++) {
-                        writeTreeBlock(
-                            chunk, position, oceanFloor, worldSurface,
-                            startX, startZ, anchorX + dx, groundY + dy,
-                            anchorZ + dz,
-                            CobbleventureBootstrap.oceanCliffRock(
-                                world, anchorX + dx, groundY + dy, anchorZ + dz
-                            )
-                        );
-                    }
-                }
-            }
-        }
-
         private static void writeTreeBlock(
             ChunkAccess chunk,
             BlockPos.MutableBlockPos position,
@@ -614,11 +574,6 @@ final class NativeWorldGeneration {
             value ^= value >>> 27;
             value *= 0x94D049BB133111EBL;
             return value ^ value >>> 31;
-        }
-
-        private double signedNoise(int x, int z, long salt) {
-            long value = coordinateHash(x, z, salt);
-            return ((value >>> 11) * 0x1.0p-53) * 2.0D - 1.0D;
         }
 
         private static void setBlock(
