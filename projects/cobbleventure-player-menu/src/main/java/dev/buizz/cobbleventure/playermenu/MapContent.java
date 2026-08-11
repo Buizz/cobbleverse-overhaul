@@ -197,7 +197,7 @@ public final class MapContent {
                 preset.get("town_radius_cells").getAsInt(),
                 preset.has("town_footprint_shape") ? preset.get("town_footprint_shape").getAsString() : "line_q",
                 List.copyOf(customFootprint),
-                preset.get("biome").getAsString(),
+                placed.get("town_biome").getAsString(),
                 gym.get("enabled").getAsBoolean(),
                 gym.get("theme").getAsString(),
                 gym.get("structure").getAsString(),

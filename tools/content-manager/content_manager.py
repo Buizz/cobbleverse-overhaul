@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import gzip
 import hashlib
 import io
@@ -2735,6 +2736,138 @@ def validate_battle_preset_file(path: Path) -> tuple[str | None, list[Issue]]:
     return battle_id, issues
 
 
+def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
+    issues: list[Issue] = []
+    try:
+        root = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return None, issues
+    if not isinstance(root, dict):
+        _issue(issues, "error", path, "$", "NPC 이벤트 문서는 객체여야 합니다.")
+        return None, issues
+    npc_id = _resource_id(root.get("id"), issues, path, "$.id")
+    if root.get("schema_version") != 4:
+        _issue(issues, "error", path, "$.schema_version", "NPC 이벤트 스크립트 버전은 4입니다.")
+    if npc_id and ":npc/" not in npc_id:
+        _issue(issues, "error", path, "$.id", "NPC ID는 namespace:npc/path 형식이어야 합니다.")
+    if "placement" in root:
+        _issue(issues, "error", path, "$.placement", "NPC 배치는 마을의 npc_placement.trainer_slots에서 관리해야 합니다.")
+    if not isinstance(root.get("enabled"), bool):
+        _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
+    _localized_text(root.get("name"), issues, path, "$.name")
+    npc = _require_object(root.get("npc"), issues, path, "$.npc")
+    if npc is not None:
+        _localized_text(npc.get("display_name"), issues, path, "$.npc.display_name")
+        _resource_id(npc.get("trainer_class"), issues, path, "$.npc.trainer_class")
+        appearance = _require_object(npc.get("appearance"), issues, path, "$.npc.appearance")
+        if appearance is not None:
+            _resource_id(appearance.get("resource"), issues, path, "$.npc.appearance.resource")
+        behavior = _require_object(npc.get("behavior"), issues, path, "$.npc.behavior")
+        if behavior is not None:
+            if "interaction_range" in behavior or "encounter" in behavior:
+                _issue(issues, "error", path, "$.npc.behavior", "상호작용과 자동 조우 거리는 이벤트 trigger에서 설정해야 합니다.")
+            if behavior.get("movement") not in {"stationary", "wander", "patrol"}:
+                _issue(issues, "error", path, "$.npc.behavior.movement", "지원하지 않는 이동 방식입니다.")
+    events = _require_list(root.get("events"), issues, path, "$.events")
+    if events is None:
+        return npc_id, issues
+    if not events:
+        _issue(issues, "error", path, "$.events", "NPC 이벤트가 하나 이상 필요합니다.")
+    event_ids: set[str] = set()
+    command_types = {
+        "branch", "label", "dialogue", "choices", "goto", "start_battle",
+        "set_flag", "give_money", "give_item", "grant_loot", "end",
+    }
+    for event_index, event_value in enumerate(events):
+        event_path = f"$.events[{event_index}]"
+        event = _require_object(event_value, issues, path, event_path)
+        if event is None:
+            continue
+        event_id = event.get("id")
+        if not isinstance(event_id, str) or not CHOICE_ID.fullmatch(event_id):
+            _issue(issues, "error", path, f"{event_path}.id", "소문자 이벤트 ID가 필요합니다.")
+        elif event_id in event_ids:
+            _issue(issues, "error", path, f"{event_path}.id", f"중복 이벤트 ID: {event_id}")
+        else:
+            event_ids.add(event_id)
+        trigger = _require_object(event.get("trigger"), issues, path, f"{event_path}.trigger")
+        if trigger is not None:
+            trigger_type = trigger.get("type")
+            if trigger_type not in {"interact", "proximity"}:
+                _issue(issues, "error", path, f"{event_path}.trigger.type", "interact 또는 proximity여야 합니다.")
+            trigger_range = trigger.get("range")
+            if not isinstance(trigger_range, (int, float)) or isinstance(trigger_range, bool) or trigger_range <= 0:
+                _issue(issues, "error", path, f"{event_path}.trigger.range", "0보다 큰 발동 거리가 필요합니다.")
+            if trigger_type == "interact" and any(key in trigger for key in ("warning_offset", "indicator")):
+                _issue(issues, "error", path, f"{event_path}.trigger", "말 걸기 이벤트에는 경고 거리 설정을 사용할 수 없습니다.")
+            if trigger_type == "proximity":
+                offset = trigger.get("warning_offset", 2)
+                if not isinstance(offset, (int, float)) or isinstance(offset, bool) or offset < 0:
+                    _issue(issues, "error", path, f"{event_path}.trigger.warning_offset", "경고 여유 거리는 0 이상의 숫자여야 합니다.")
+        commands = _require_list(event.get("commands"), issues, path, f"{event_path}.commands")
+        if commands is None:
+            continue
+        labels: set[str] = set()
+        targets: list[tuple[str, str]] = []
+        for command_index, command_value in enumerate(commands):
+            command_path = f"{event_path}.commands[{command_index}]"
+            command = _require_object(command_value, issues, path, command_path)
+            if command is None:
+                continue
+            command_type = command.get("type")
+            if command_type not in command_types:
+                _issue(issues, "error", path, f"{command_path}.type", "지원하지 않는 이벤트 명령입니다.")
+                continue
+            if command_type == "label":
+                name = command.get("name")
+                if not isinstance(name, str) or not CHOICE_ID.fullmatch(name):
+                    _issue(issues, "error", path, f"{command_path}.name", "소문자 라벨 이름이 필요합니다.")
+                elif name in labels:
+                    _issue(issues, "error", path, f"{command_path}.name", f"중복 라벨: {name}")
+                else:
+                    labels.add(name)
+            elif command_type == "branch":
+                conditions = _require_list(command.get("conditions"), issues, path, f"{command_path}.conditions")
+                if conditions is not None:
+                    for index, condition in enumerate(conditions):
+                        _validate_operation(condition, issues, path, f"{command_path}.conditions[{index}]", npc_id, [])
+                if isinstance(command.get("target"), str):
+                    targets.append((f"{command_path}.target", command["target"]))
+            elif command_type == "dialogue":
+                if command.get("speaker") not in {"npc", "player", "system"}:
+                    _issue(issues, "error", path, f"{command_path}.speaker", "npc, player, system 중 하나여야 합니다.")
+                _localized_text(command.get("text"), issues, path, f"{command_path}.text")
+            elif command_type == "choices":
+                options = _require_list(command.get("options"), issues, path, f"{command_path}.options")
+                if options is not None:
+                    for option_index, option_value in enumerate(options):
+                        option_path = f"{command_path}.options[{option_index}]"
+                        option = _require_object(option_value, issues, path, option_path)
+                        if option is not None:
+                            _localized_text(option.get("text"), issues, path, f"{option_path}.text")
+                            if isinstance(option.get("target"), str):
+                                targets.append((f"{option_path}.target", option["target"]))
+            elif command_type in {"goto"}:
+                if isinstance(command.get("target"), str):
+                    targets.append((f"{command_path}.target", command["target"]))
+            elif command_type == "start_battle":
+                _resource_id(command.get("battle"), issues, path, f"{command_path}.battle")
+                results = command.get("results", {})
+                if isinstance(results, dict):
+                    for key, target in results.items():
+                        if key not in {"player_win", "player_loss", "cancelled"}:
+                            _issue(issues, "error", path, f"{command_path}.results.{key}", "지원하지 않는 배틀 결과입니다.")
+                        elif isinstance(target, str):
+                            targets.append((f"{command_path}.results.{key}", target))
+            elif command_type in {"set_flag", "give_money", "give_item", "grant_loot"}:
+                _validate_operation(command, issues, path, command_path, npc_id, [])
+        for target_path, target in targets:
+            if target not in labels:
+                _issue(issues, "error", path, target_path, f"존재하지 않는 이벤트 라벨: {target}")
+    return npc_id, issues
+
+
 def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
     issues: list[Issue] = []
     try:
@@ -2746,6 +2879,8 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
     root = _require_object(data, issues, path, "$")
     if root is None:
         return None, issues
+    if root.get("schema_version") == 4:
+        return validate_npc_event_file(path)
     if root.get("schema_version") == 3:
         return validate_npc_file(path)
     if root.get("schema_version") != 2:
@@ -3180,19 +3315,28 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
             else:
                 seen_content[content_id] = path
                 battle_type = content_data.get("battle", {}).get("battle_type")
-                if content_data.get("schema_version") == 3:
-                    referenced_battles = {
-                        action.get("battle")
-                        for node in content_data.get("interaction", {}).get("nodes", [])
-                        if isinstance(node, dict)
-                        for source_actions in [node.get("actions", [])] + [
-                            choice.get("actions", [])
-                            for choice in node.get("choices", [])
-                            if isinstance(choice, dict)
-                        ]
-                        for action in source_actions
-                        if isinstance(action, dict) and action.get("type") == "start_battle"
-                    }
+                if content_data.get("schema_version") in {3, 4}:
+                    if content_data.get("schema_version") == 4:
+                        referenced_battles = {
+                            command.get("battle")
+                            for event in content_data.get("events", [])
+                            if isinstance(event, dict)
+                            for command in event.get("commands", [])
+                            if isinstance(command, dict) and command.get("type") == "start_battle"
+                        }
+                    else:
+                        referenced_battles = {
+                            action.get("battle")
+                            for node in content_data.get("interaction", {}).get("nodes", [])
+                            if isinstance(node, dict)
+                            for source_actions in [node.get("actions", [])] + [
+                                choice.get("actions", [])
+                                for choice in node.get("choices", [])
+                                if isinstance(choice, dict)
+                            ]
+                            for action in source_actions
+                            if isinstance(action, dict) and action.get("type") == "start_battle"
+                        }
                     for battle_ref in referenced_battles:
                         if battle_ref not in battle_presets:
                             _issue(issues, "error", path, "$.interaction", f"존재하지 않는 배틀 프리셋: {battle_ref}")
@@ -3438,8 +3582,13 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 }
             if category == "trainers":
                 summary["battle_type"] = data.get("battle", {}).get("battle_type", "")
-                if data.get("schema_version") == 3:
+                if data.get("schema_version") in {3, 4}:
                     battle_refs = [
+                        command.get("battle")
+                        for event in data.get("events", [])
+                        for command in event.get("commands", [])
+                        if isinstance(command, dict) and command.get("type") == "start_battle"
+                    ] if data.get("schema_version") == 4 else [
                         action.get("battle")
                         for node in data.get("interaction", {}).get("nodes", [])
                         if isinstance(node, dict)
@@ -3604,6 +3753,66 @@ def _delete_settlement_document(
         return target, references
     target.unlink()
     return target, []
+
+
+def _contains_document_reference(value: Any, target_id: str, keys: set[str]) -> bool:
+    if isinstance(value, dict):
+        return any(
+            (key in keys and child == target_id)
+            or _contains_document_reference(child, target_id, keys)
+            for key, child in value.items()
+        )
+    if isinstance(value, list):
+        return any(_contains_document_reference(child, target_id, keys) for child in value)
+    return False
+
+
+def _delete_document(root: Path, category: str, relative_path: str) -> tuple[Path, list[str]]:
+    if category == "settlements":
+        return _delete_settlement_document(root, relative_path)
+    target = _managed_path(root, category, relative_path)
+    if not target.is_file():
+        raise FileNotFoundError("삭제할 문서를 찾을 수 없습니다.")
+    data = load_json(target)
+    document_id = data.get("id") if isinstance(data, dict) else None
+    if not isinstance(document_id, str) or not document_id:
+        raise ValueError("삭제할 문서의 ID를 읽을 수 없습니다.")
+
+    reference_keys = {
+        "trainers": {"trainer_id", "npc_profile"},
+        "battles": {"battle"},
+        "caves": {"cave"},
+    }[category]
+    scan_directories = {
+        "trainers": [root / "content" / "battles", root / "content" / "settlements"],
+        "battles": [root / "content" / "source"],
+        "caves": [root / "content" / "worlds"],
+    }[category]
+    references: list[str] = []
+    for directory in scan_directories:
+        for path in sorted(directory.rglob("*.json")) if directory.is_dir() else []:
+            if path.resolve() == target.resolve():
+                continue
+            document = load_json(path)
+            if _contains_document_reference(document, document_id, reference_keys):
+                references.append(path.relative_to(root).as_posix())
+    if references:
+        return target, references
+    target.unlink()
+    return target, []
+
+
+def _delete_world_layout(root: Path, generation: int) -> Path:
+    if not 1 <= generation <= 9:
+        raise ValueError("세대는 1 이상 9 이하여야 합니다.")
+    target = (root / "content" / "worlds" / f"generation_{generation}.json").resolve()
+    world_directory = (root / "content" / "worlds").resolve()
+    if world_directory not in target.parents:
+        raise ValueError("허용된 월드 디렉터리 밖에는 접근할 수 없습니다.")
+    if not target.is_file():
+        raise FileNotFoundError("월드맵을 찾을 수 없습니다.")
+    target.unlink()
+    return target
 
 
 def _trainer_template(slug: str, name: str) -> dict[str, Any]:
@@ -3833,12 +4042,11 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
     }
 
 
-def _npc_template_v3(slug: str, name: str) -> dict[str, Any]:
+def _npc_event_template(slug: str, name: str) -> dict[str, Any]:
     npc_id = f"cobbleventure:npc/{slug}"
-    greeting = f"cobbleventure:interaction/{slug}/greeting"
     return {
-        "$schema": "../../schemas/npc-interaction.schema.json",
-        "schema_version": 3,
+        "$schema": "../../schemas/npc-event-script.schema.json",
+        "schema_version": 4,
         "id": npc_id,
         "enabled": True,
         "name": {"ko_kr": name},
@@ -3853,41 +4061,19 @@ def _npc_template_v3(slug: str, name: str) -> dict[str, Any]:
             },
             "behavior": {
                 "movement": "stationary", "look_at_player": True,
-                "interaction_range": 4.0,
-                "encounter": {
-                    "mode": "interaction", "trigger_range": 4.0,
-                    "warning_range": {"min": 4.0, "max": 6.0, "indicator": "trainer_nearby"},
-                },
                 "invulnerable": True, "collision": True,
             },
         },
-        "interaction": {
-            "entry_routes": [{"conditions": [], "entry": greeting}],
-            "nodes": [{
-                "id": greeting, "type": "dialogue", "speaker": "npc",
-                "text": {"ko_kr": f"안녕! 나는 {name}(이)야."}, "conditions": [],
-                "choices": [
-                    {
-                        "id": "battle", "text": {"ko_kr": "승부한다"},
-                        "conditions": [], "actions": [{
-                            "type": "start_battle", "battle": f"cobbleventure:battle/{slug}",
-                            "results": {"player_win": f"cobbleventure:interaction/{slug}/victory_reward"},
-                        }],
-                    },
-                    {
-                        "id": "close", "text": {"ko_kr": "다음에 또 보자"},
-                        "conditions": [], "actions": [{"type": "close_dialogue"}],
-                    },
-                ],
-            }, {
-                "id": f"cobbleventure:interaction/{slug}/victory_reward",
-                "type": "actions", "conditions": [],
-                "actions": [{
-                    "type": "give_money", "mode": "fixed", "amount": 500,
-                    "currency_objective": "cobbleventure_money",
-                }],
-            }],
-        },
+        "events": [{
+            "id": "on_interact",
+            "trigger": {"type": "interact", "range": 4.0},
+            "commands": [
+                {"type": "label", "name": "start"},
+                {"type": "dialogue", "id": "greeting", "speaker": "npc", "text": {"ko_kr": f"안녕! 나는 {name}(이)야."}},
+                {"type": "label", "name": "end"},
+                {"type": "end"},
+            ],
+        }],
     }
 
 
@@ -3941,9 +4127,10 @@ def _cave_template(slug: str, name: str, generation: str) -> dict[str, Any]:
 
 
 def _create_document(
-    root: Path, category: str, slug: str, name: str, generation: str = "generation_1"
+    root: Path, category: str, slug: str, name: str, generation: str = "generation_1",
+    reference_id: str = "",
 ) -> tuple[Path | None, list[Issue]]:
-    if category not in {"trainers", "settlements", "caves"}:
+    if category not in {"trainers", "battles", "settlements", "caves"}:
         return None, [Issue("error", "", "$.category", "지원하지 않는 문서 종류입니다.")]
     if not DOCUMENT_SLUG.fullmatch(slug):
         return None, [
@@ -3961,10 +4148,21 @@ def _create_document(
 
     if category == "trainers":
         relative_path = f"content/source/trainers/{slug}.json"
-        battle_path = f"content/battles/trainers/{slug}.json"
-        if (root / battle_path).exists():
-            return (root / battle_path).resolve(), [Issue("error", battle_path, "$", "같은 이름의 배틀 프리셋이 이미 존재합니다.")]
-        document = _npc_template_v3(slug, name.strip())
+        document = _npc_event_template(slug, name.strip())
+    elif category == "battles":
+        relative_path = f"content/battles/{slug}.json"
+        document = _battle_template(slug, name.strip())
+        if reference_id:
+            reference_catalog = load_json(root / "content" / "catalogs" / "trainer-reference-entries.json")
+            reference = next(
+                (entry for entry in reference_catalog.get("entries", []) if entry.get("id") == reference_id),
+                None,
+            )
+            if not isinstance(reference, dict) or not isinstance(reference.get("battle"), dict):
+                return None, [Issue("error", relative_path, "$.reference_id", "예비 엔트리를 찾을 수 없습니다.")]
+            trainer_id = document["battle"]["trainer_id"]
+            document["battle"] = copy.deepcopy(reference["battle"])
+            document["battle"]["trainer_id"] = trainer_id
     elif category == "settlements":
         relative_path = f"content/settlements/{generation}/{slug}.json"
         document = _settlement_template(slug, name.strip(), generation)
@@ -3974,10 +4172,6 @@ def _create_document(
     target = (root / relative_path).resolve()
     if target.exists():
         return target, [Issue("error", target.as_posix(), "$", "같은 이름의 파일이 이미 존재합니다.")]
-    if category == "trainers":
-        _, battle_issues = _save_document(root, "battles", battle_path, _battle_template(slug, name.strip()))
-        if any(issue.level == "error" for issue in battle_issues):
-            return target, battle_issues
     return _save_document(root, category, relative_path, document)
 
 
@@ -4143,7 +4337,7 @@ def generate_content(root: Path, output: Path | None = None) -> dict[str, Any]:
         document = load_json(source)
         if not document.get("enabled", True):
             continue
-        if document.get("schema_version") == 3:
+        if document.get("schema_version") in {3, 4}:
             continue
         slug = trainer_id.rsplit("/", 1)[-1]
         for target, payload in (
@@ -5041,11 +5235,12 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 slug = payload.get("slug")
                 name = payload.get("name")
                 generation = payload.get("generation", "generation_1")
-                if not all(isinstance(value, str) for value in (category, slug, name, generation)):
+                reference_id = payload.get("reference_id", "")
+                if not all(isinstance(value, str) for value in (category, slug, name, generation, reference_id)):
                     self._json(400, {"error": "문서 종류, 파일 ID와 이름을 문자열로 입력해야 합니다."})
                     return
                 target, issues = _create_document(
-                    root, category, slug, name, generation
+                    root, category, slug, name, generation, reference_id
                 )
                 errors = sum(issue.level == "error" for issue in issues)
                 self._json(
@@ -5132,14 +5327,31 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
 
         def do_DELETE(self) -> None:
             request = urlparse(self.path)
-            if request.path != "/api/settlements":
+            if request.path == "/api/world-layout":
+                try:
+                    generation = int(parse_qs(request.query).get("generation", ["1"])[0])
+                    target = _delete_world_layout(root, generation)
+                except FileNotFoundError as error:
+                    self._json(404, {"error": str(error)})
+                    return
+                except (OSError, ValueError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                self._json(200, {"deleted": True, "path": target.relative_to(root).as_posix()})
+                return
+            categories = {
+                "/api/trainers": "trainers",
+                "/api/battles": "battles",
+                "/api/settlements": "settlements",
+                "/api/caves": "caves",
+            }
+            category = categories.get(request.path)
+            if category is None:
                 self._json(404, {"error": "not_found"})
                 return
             relative_path = parse_qs(request.query).get("path", [""])[0]
             try:
-                target, references = _delete_settlement_document(
-                    root, relative_path
-                )
+                target, references = _delete_document(root, category, relative_path)
             except FileNotFoundError as error:
                 self._json(404, {"error": str(error)})
                 return
@@ -5152,7 +5364,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 self._json(
                     409,
                     {
-                        "error": "월드맵이나 다른 마을에서 참조 중이라 삭제할 수 없습니다.",
+                        "error": "다른 문서에서 참조 중이라 삭제할 수 없습니다.",
                         "references": references,
                     },
                 )

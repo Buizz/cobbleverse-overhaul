@@ -88,30 +88,10 @@
         "behavior": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["movement", "look_at_player", "interaction_range", "invulnerable"],
+          "required": ["movement", "look_at_player", "invulnerable"],
           "properties": {
             "movement": { "enum": ["stationary", "wander", "patrol"] },
             "look_at_player": { "type": "boolean" },
-            "interaction_range": { "type": "number", "exclusiveMinimum": 0 },
-            "encounter": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["mode"],
-              "properties": {
-                "mode": { "enum": ["interaction", "proximity"] },
-                "trigger_range": { "type": "number", "exclusiveMinimum": 0 },
-                "warning_range": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["min", "max"],
-                  "properties": {
-                    "min": { "type": "number", "minimum": 0 },
-                    "max": { "type": "number", "exclusiveMinimum": 0 },
-                    "indicator": { "enum": ["trainer_nearby"] }
-                  }
-                }
-              }
-            },
             "invulnerable": { "type": "boolean" },
             "collision": { "type": "boolean" }
           }

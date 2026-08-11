@@ -1,10 +1,10 @@
 {
-  "$schema": "../../schemas/npc-interaction.schema.json",
-  "schema_version": 3,
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
   "id": "cobbleventure:npc/ai_test",
   "enabled": true,
   "name": { "ko_kr": "AI 맨", "en_us": "AI Man" },
-  "description": { "ko_kr": "조건부 대화와 선택형 배틀을 시험하는 EasyNPC입니다." },
+  "description": { "ko_kr": "순차 이벤트 명령으로 대화와 선택형 배틀을 시험하는 EasyNPC입니다." },
   "tags": ["development", "battle_test"],
   "npc": {
     "display_name": { "ko_kr": "AI 맨", "en_us": "AI Man" },
@@ -17,159 +17,79 @@
     "behavior": {
       "movement": "stationary",
       "look_at_player": true,
-      "interaction_range": 4.0,
-      "encounter": {
-        "mode": "interaction",
-        "trigger_range": 4.0,
-        "warning_range": { "min": 4.0, "max": 6.0, "indicator": "trainer_nearby" }
-      },
       "invulnerable": true,
       "collision": true
     }
   },
-  "interaction": {
-    "entry_routes": [
-      {
-        "conditions": [
-          {
-            "type": "flag_equals",
-            "key": "cobbleventure:flag/trainer/ai_test/defeated",
-            "value": true
-          }
-        ],
-        "entry": "cobbleventure:interaction/ai_test/after_victory"
-      },
-      {
-        "conditions": [
-          { "type": "has_item", "item": "cobblemon:potion", "count": 1 }
-        ],
-        "entry": "cobbleventure:interaction/ai_test/prepared_greeting"
-      },
-      {
-        "conditions": [],
-        "entry": "cobbleventure:interaction/ai_test/greeting"
-      }
-    ],
-    "nodes": [
-      {
-        "id": "cobbleventure:interaction/ai_test/greeting",
-        "type": "dialogue",
-        "speaker": "npc",
-        "text": {
-          "ko_kr": "잠깐! 나는 배틀 연습 중인 AI 맨이야. 준비가 됐다면 나와 승부하자!",
-          "en_us": "Hello! I'm AI Man. Would you like to battle?"
+  "events": [
+    {
+      "id": "on_interact",
+      "trigger": { "type": "interact", "range": 4.0 },
+      "commands": [
+        {
+          "type": "branch",
+          "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/trainer/ai_test/defeated", "value": true }],
+          "target": "after_victory"
         },
-        "conditions": [],
-        "choices": [
-          {
-            "id": "battle",
-            "text": { "ko_kr": "승부한다", "en_us": "Battle" },
-            "conditions": [],
-            "actions": [
-              {
-                "type": "start_battle",
-                "battle": "cobbleventure:battle/ai_test",
-                "results": {
-                  "player_win": "cobbleventure:interaction/ai_test/victory_reward",
-                  "player_loss": "cobbleventure:interaction/ai_test/after_defeat"
-                }
-              }
-            ]
-          },
-          {
-            "id": "cancel",
-            "text": { "ko_kr": "다음에", "en_us": "Not now" },
-            "conditions": [],
-            "actions": [{ "type": "close_dialogue" }]
-          }
-        ]
-      },
-      {
-        "id": "cobbleventure:interaction/ai_test/prepared_greeting",
-        "type": "dialogue",
-        "speaker": "npc",
-        "text": {
-          "ko_kr": "상처약까지 챙겼구나! 준비가 철저한데? 바로 승부하자!",
-          "en_us": "You even brought a Potion! You're well prepared. Let's battle!"
+        {
+          "type": "branch",
+          "conditions": [{ "type": "has_item", "item": "cobblemon:potion", "count": 1 }],
+          "target": "prepared_greeting"
         },
-        "conditions": [],
-        "choices": [
-          {
-            "id": "prepared_battle",
-            "text": { "ko_kr": "승부한다", "en_us": "Battle" },
-            "conditions": [],
-            "actions": [
-              {
-                "type": "start_battle",
-                "battle": "cobbleventure:battle/ai_test",
-                "results": {
-                  "player_win": "cobbleventure:interaction/ai_test/victory_reward",
-                  "player_loss": "cobbleventure:interaction/ai_test/after_defeat"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "id": "cobbleventure:interaction/ai_test/victory_reward",
-        "type": "actions",
-        "conditions": [],
-        "actions": [
-          {
-            "type": "set_flag",
-            "key": "cobbleventure:flag/trainer/ai_test/defeated",
-            "value": true
-          },
-          {
-            "type": "give_money",
-            "mode": "fixed",
-            "amount": 500,
-            "currency_objective": "cobbleventure_money"
-          },
-          {
-            "type": "grant_loot",
-            "loot_table": "cobbleventure:trainer/ai_test_rewards"
-          }
-        ],
-        "next": "cobbleventure:interaction/ai_test/after_victory"
-      },
-      {
-        "id": "cobbleventure:interaction/ai_test/after_victory",
-        "type": "dialogue",
-        "speaker": "npc",
-        "text": {
-          "ko_kr": "졌지만 좋은 승부였어! 다음에도 다시 상대해 줘.",
-          "en_us": "I lost, but that was a great battle! Challenge me again sometime."
+        { "type": "label", "name": "greeting" },
+        {
+          "type": "dialogue",
+          "id": "greeting",
+          "speaker": "npc",
+          "text": { "ko_kr": "잠깐! 나는 배틀 연습 중인 AI 맨이야. 준비가 됐다면 나와 승부하자!" }
         },
-        "conditions": [],
-        "choices": [
-          {
-            "id": "close",
-            "text": { "ko_kr": "다음에 또 보자", "en_us": "See you again" },
-            "conditions": [],
-            "actions": [{ "type": "close_dialogue" }]
-          }
-        ]
-      },
-      {
-        "id": "cobbleventure:interaction/ai_test/after_defeat",
-        "type": "dialogue",
-        "speaker": "npc",
-        "text": {
-          "ko_kr": "좋은 승부였어. 준비가 되면 다시 도전해 줘!",
-          "en_us": "Good battle. Challenge me again when you're ready!"
+        {
+          "type": "choices",
+          "options": [
+            { "id": "battle", "text": { "ko_kr": "승부한다" }, "target": "battle" },
+            { "id": "cancel", "text": { "ko_kr": "다음에" }, "target": "end" }
+          ]
         },
-        "conditions": [],
-        "choices": [
-          {
-            "id": "close",
-            "text": { "ko_kr": "알겠어", "en_us": "Okay" },
-            "conditions": [],
-            "actions": [{ "type": "close_dialogue" }]
-          }
-        ]
-      }
-    ]
-  }
+        { "type": "label", "name": "prepared_greeting" },
+        {
+          "type": "dialogue",
+          "id": "prepared_greeting",
+          "speaker": "npc",
+          "text": { "ko_kr": "상처약까지 챙겼구나! 준비가 철저한데? 바로 승부하자!" }
+        },
+        {
+          "type": "choices",
+          "options": [{ "id": "battle", "text": { "ko_kr": "승부한다" }, "target": "battle" }]
+        },
+        { "type": "label", "name": "battle" },
+        {
+          "type": "start_battle",
+          "battle": "cobbleventure:battle/ai_test",
+          "results": { "player_win": "victory_reward", "player_loss": "after_defeat" }
+        },
+        { "type": "label", "name": "victory_reward" },
+        { "type": "set_flag", "key": "cobbleventure:flag/trainer/ai_test/defeated", "value": true },
+        { "type": "give_money", "mode": "fixed", "amount": 500, "currency_objective": "cobbleventure_money" },
+        { "type": "grant_loot", "loot_table": "cobbleventure:trainer/ai_test_rewards" },
+        { "type": "goto", "target": "after_victory" },
+        { "type": "label", "name": "after_victory" },
+        {
+          "type": "dialogue",
+          "id": "after_victory",
+          "speaker": "npc",
+          "text": { "ko_kr": "졌지만 좋은 승부였어! 다음에도 다시 상대해 줘." }
+        },
+        { "type": "choices", "options": [{ "id": "close", "text": { "ko_kr": "다음에 또 보자" }, "target": "end" }] },
+        { "type": "label", "name": "after_defeat" },
+        {
+          "type": "dialogue",
+          "id": "after_defeat",
+          "speaker": "npc",
+          "text": { "ko_kr": "좋은 승부였어. 준비가 되면 다시 도전해 줘!" }
+        },
+        { "type": "label", "name": "end" },
+        { "type": "end" }
+      ]
+    }
+  ]
 }

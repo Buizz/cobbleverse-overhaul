@@ -4,32 +4,46 @@
   "id": "cobbleventure:trainer/starter_town_leader",
   "enabled": true,
   "name": {
-    "ko_kr": "태산",
-    "en_us": "Tae-san"
+    "ko_kr": "웅",
+    "en_us": "Brock"
   },
   "description": {
     "ko_kr": "대화, RCT 전투, 승리 플래그와 보상을 검증하기 위한 첫 번째 기준 트레이너입니다."
   },
-  "tags": ["gym_leader", "starter_town", "main_story"],
+  "tags": [
+    "gym_leader",
+    "starter_town",
+    "main_story"
+  ],
   "npc": {
     "display_name": {
-      "ko_kr": "체육관 관장 태산",
-      "en_us": "Gym Leader Tae-san"
+      "ko_kr": "체육관 관장 웅",
+      "en_us": "Gym Leader Brock"
     },
     "trainer_class": "cobbleventure:trainer_class/gym_leader",
     "appearance": {
-      "source": "custom",
+      "source": "rct_single",
       "type": "skin",
-      "resource": "cobbleventure:npc/starter_town_leader",
+      "resource": "rctmod:trainers/single/kanto_brock",
       "portrait": "cobbleventure:gui/portrait/starter_town_leader"
     },
     "behavior": {
       "movement": "stationary",
       "look_at_player": true,
-      "interaction_range": 4.0,
+      "interaction_range": 4,
       "invulnerable": true,
-      "collision": true
-    }
+      "collision": true,
+      "encounter": {
+        "mode": "interaction",
+        "trigger_range": 4,
+        "warning_range": {
+          "min": 4,
+          "max": 6,
+          "indicator": "trainer_nearby"
+        }
+      }
+    },
+    "character": "cobbleventure:character/brock"
   },
   "battle": {
     "trainer_id": "cobbleventure:trainer/starter_town_leader",
@@ -69,7 +83,11 @@
         "ability": "sturdy",
         "held_item": null,
         "gimmick": null,
-        "moves": ["tackle", "defense_curl", "rock_throw"],
+        "moves": [
+          "tackle",
+          "defense_curl",
+          "rock_throw"
+        ],
         "ivs": {
           "hp": 20,
           "attack": 20,
@@ -78,7 +96,14 @@
           "special_defense": 20,
           "speed": 10
         },
-        "evs": {},
+        "evs": {
+          "hp": 0,
+          "attack": 0,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 0,
+          "speed": 0
+        },
         "tera_type": "rock",
         "shiny": false,
         "gigantamax_factor": false
@@ -100,7 +125,10 @@
         "choices": [
           {
             "id": "battle",
-            "text": { "ko_kr": "승부한다", "en_us": "Battle" },
+            "text": {
+              "ko_kr": "승부한다",
+              "en_us": "Battle"
+            },
             "conditions": [],
             "actions": [
               {
@@ -111,7 +139,10 @@
           },
           {
             "id": "cancel",
-            "text": { "ko_kr": "아직 준비가 안 됐다", "en_us": "Not yet" },
+            "text": {
+              "ko_kr": "아직 준비가 안 됐다",
+              "en_us": "Not yet"
+            },
             "conditions": [],
             "actions": [
               {
@@ -130,7 +161,11 @@
           "en_us": "Come back when you are ready."
         },
         "conditions": [],
-        "actions": [{ "type": "close_dialogue" }],
+        "actions": [
+          {
+            "type": "close_dialogue"
+          }
+        ],
         "choices": []
       },
       {
@@ -141,7 +176,11 @@
           "en_us": "That was an excellent battle. This badge is yours."
         },
         "conditions": [],
-        "actions": [{ "type": "close_dialogue" }],
+        "actions": [
+          {
+            "type": "close_dialogue"
+          }
+        ],
         "choices": []
       },
       {
@@ -152,7 +191,11 @@
           "en_us": "A good battle. Prepare yourself and challenge me again."
         },
         "conditions": [],
-        "actions": [{ "type": "close_dialogue" }],
+        "actions": [
+          {
+            "type": "close_dialogue"
+          }
+        ],
         "choices": []
       }
     ]
@@ -160,7 +203,9 @@
   "progression": {
     "requirements": [],
     "victory_flag": "cobbleventure:flag/trainer/starter_town_leader/defeated",
-    "rematch": { "enabled": false },
+    "rematch": {
+      "enabled": false
+    },
     "dialogue_routes": [
       {
         "when": {
@@ -171,7 +216,9 @@
         "entry": "cobbleventure:dialogue/starter_town_leader/after_victory"
       },
       {
-        "when": { "type": "always" },
+        "when": {
+          "type": "always"
+        },
         "entry": "cobbleventure:dialogue/starter_town_leader/first_meet"
       }
     ]
@@ -200,6 +247,22 @@
         {
           "type": "open_dialogue",
           "target": "cobbleventure:dialogue/starter_town_leader/after_defeat"
+        }
+      ]
+    }
+  },
+  "rewards": {
+    "money": {
+      "mode": "fixed",
+      "amount": 0,
+      "currency_objective": "cobbleventure_money"
+    },
+    "items": {
+      "mode": "fixed",
+      "entries": [
+        {
+          "item": "cobblemon:poke_ball",
+          "count": 1
         }
       ]
     }

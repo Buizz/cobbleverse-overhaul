@@ -486,12 +486,13 @@ class ContentManagerTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        source["interaction"]["entry_routes"][0]["entry"] = "cobbleventure:interaction/missing"
+        choices = next(command for command in source["events"][0]["commands"] if command["type"] == "choices")
+        choices["options"][0]["target"] = "missing_label"
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "invalid.json"
             path.write_text(json.dumps(source), encoding="utf-8")
             _, issues = content_manager.validate_content_file(path)
-        self.assertTrue(any("존재하지 않는 상호작용 노드" in issue.message for issue in issues))
+        self.assertTrue(any("존재하지 않는 이벤트 라벨" in issue.message for issue in issues))
 
     def test_invalid_ev_total_is_rejected(self) -> None:
         root = Path(__file__).parents[3]
@@ -1418,8 +1419,60 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(["content/worlds/generation_1.json"], references)
             self.assertTrue(target.exists())
 
+    def test_managed_document_delete_checks_references(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cave = root / "content/caves/generation_1/keep_me.json"
+            cave.parent.mkdir(parents=True)
+            cave.write_text(json.dumps({"id": "cobbleventure:cave/keep_me"}), encoding="utf-8")
+            world = root / "content/worlds/generation_1.json"
+            world.parent.mkdir(parents=True)
+            world.write_text(
+                json.dumps({"cave_entrances": [{"cave": "cobbleventure:cave/keep_me"}]}),
+                encoding="utf-8",
+            )
+
+            preserved, references = content_manager._delete_document(
+                root, "caves", "content/caves/generation_1/keep_me.json"
+            )
+
+            self.assertEqual(cave, preserved)
+            self.assertEqual(["content/worlds/generation_1.json"], references)
+            self.assertTrue(cave.exists())
+
+    def test_deletes_world_layout_by_generation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            world = root / "content/worlds/generation_2.json"
+            world.parent.mkdir(parents=True)
+            world.write_text("{}", encoding="utf-8")
+
+            deleted = content_manager._delete_world_layout(root, 2)
+
+            self.assertEqual(world, deleted)
+            self.assertFalse(world.exists())
+
+    def test_creates_battle_preset_from_reference_entry(self) -> None:
+        repository = Path(__file__).parents[3]
+        catalog = content_manager.load_json(repository / "content/catalogs/trainer-reference-entries.json")
+        reference = catalog["entries"][0]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_path = root / "content/catalogs/trainer-reference-entries.json"
+            catalog_path.parent.mkdir(parents=True)
+            catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
+
+            target, issues = content_manager._create_document(
+                root, "battles", "imported", "가져온 프리셋", reference_id=reference["id"]
+            )
+
+            self.assertEqual([], issues)
+            created = content_manager.load_json(target)
+            self.assertEqual(reference["battle"]["team"], created["battle"]["team"])
+            self.assertEqual("cobbleventure:trainer/imported", created["battle"]["trainer_id"])
+
     def test_new_npc_and_battle_templates_are_valid(self) -> None:
-        npc = content_manager._npc_template_v3("route_01", "길목 트레이너")
+        npc = content_manager._npc_event_template("route_01", "길목 트레이너")
         battle = content_manager._battle_template("route_01", "길목 트레이너")
         npc_id, npc_issues = content_manager._validate_payload(
             npc, content_manager.validate_content_file
@@ -1431,16 +1484,47 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("cobbleventure:battle/route_01", battle_id)
         self.assertEqual([], npc_issues)
         self.assertEqual([], battle_issues)
-        self.assertEqual(3, npc["schema_version"])
-        self.assertEqual(
-            "cobbleventure:interaction/route_01/greeting",
-            npc["interaction"]["entry_routes"][-1]["entry"],
-        )
-        self.assertEqual(
-            "cobbleventure:battle/route_01",
-            npc["interaction"]["nodes"][0]["choices"][0]["actions"][0]["battle"],
-        )
+        self.assertEqual(4, npc["schema_version"])
+        self.assertEqual("interact", npc["events"][0]["trigger"]["type"])
+        self.assertNotIn("interaction_range", npc["npc"]["behavior"])
+        self.assertNotIn("encounter", npc["npc"]["behavior"])
+        self.assertFalse(any(command["type"] == "start_battle" for command in npc["events"][0]["commands"]))
         self.assertEqual("standard", battle["battle"]["ai"]["difficulty"])
+
+    def test_web_separates_npc_and_battle_preset_pages(self) -> None:
+        root = Path(__file__).parents[3]
+        page = (root / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('data-section="trainers"><span>02</span>NPC', page)
+        self.assertIn('data-section="battles"><span>03</span>배틀 프리셋', page)
+        self.assertIn('id="battle-list"', page)
+        self.assertIn('id="battle-form"', page)
+        self.assertIn('id="event-command-list"', page)
+        self.assertIn('id="event-warning-offset"', page)
+        self.assertIn('id="bag-list"', page)
+        self.assertIn('id="load-trainer-reference"', page)
+        self.assertIn('id="battle-reference-field"', page)
+        self.assertIn('id="choose-create-reference"', page)
+        self.assertIn('id="create-reference-name"', page)
+        self.assertIn('id="delete-world-layout"', page)
+        self.assertIn('id="delete-trainer"', page)
+        self.assertIn('id="delete-battle"', page)
+        self.assertIn('id="delete-cave"', page)
+        self.assertIn('id="add-biome-profile"', page)
+        self.assertIn('id="delete-biome-profile"', page)
+        self.assertIn('id="team-list"', page)
+        self.assertIn('name="megaEvolution"', page)
+        self.assertIn('renderBattlePreset', script)
+        self.assertIn('renderEventScript', script)
+        self.assertIn('renderEventCommandEditor', script)
+        self.assertIn('trainer_reference_create', script)
+        self.assertIn('data-reference-party-art', script)
+        self.assertIn('hydrateTrainerReferencePartyArt', script)
+        self.assertIn('data-option-add', script)
+        self.assertIn('data-condition-add', script)
+        self.assertNotIn('data-command-detail', script)
+        self.assertIn('trainer-entry-choice-card', script)
+        self.assertNotIn('choice-card trainer-reference-card', script)
 
     def test_trainer_encounter_and_rewards_are_validated(self) -> None:
         source = content_manager.load_json(
@@ -1453,16 +1537,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual([], issues)
 
         invalid = json.loads(json.dumps(source))
-        invalid["npc"]["behavior"]["encounter"]["warning_range"] = {"min": 6, "max": 4}
+        invalid["events"][0]["trigger"] = {
+            "type": "interact", "range": 4, "warning_offset": 2
+        }
         _, issues = content_manager._validate_payload(invalid, content_manager.validate_content_file)
-        self.assertTrue(any("warning_range" in issue.path for issue in issues))
+        self.assertTrue(any("말 걸기 이벤트" in issue.message for issue in issues))
 
         invalid = json.loads(json.dumps(source))
-        reward_node = next(
-            node for node in invalid["interaction"]["nodes"]
-            if node["id"].endswith("/victory_reward")
+        money_index = next(
+            index for index, command in enumerate(invalid["events"][0]["commands"])
+            if command["type"] == "give_money"
         )
-        reward_node["actions"][1] = {
+        invalid["events"][0]["commands"][money_index] = {
             "type": "give_money",
             "mode": "level_cap_multiplier",
             "multiplier": 0,
@@ -1514,10 +1600,15 @@ class ContentManagerTests(unittest.TestCase):
             settlement_path, settlement_issues = content_manager._create_document(
                 root, "settlements", "forest_town", "숲 마을", "generation_1"
             )
+            battle_path, battle_issues = content_manager._create_document(
+                root, "battles", "rival_01", "라이벌 1차전"
+            )
             self.assertEqual([], trainer_issues)
             self.assertEqual([], settlement_issues)
+            self.assertEqual([], battle_issues)
             self.assertTrue(trainer_path.is_file())
-            self.assertTrue((root / "content" / "battles" / "trainers" / "route_01.json").is_file())
+            self.assertFalse((root / "content" / "battles" / "trainers" / "route_01.json").exists())
+            self.assertTrue(battle_path.is_file())
             self.assertTrue(settlement_path.is_file())
 
             _, duplicate_issues = content_manager._create_document(

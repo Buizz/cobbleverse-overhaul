@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Cobbleventure Content Studio</title>
-    <meta name="description" content="Cobbleventure 트레이너, 마을과 빌드를 관리하는 로컬 도구">
+    <meta name="description" content="Cobbleventure NPC, 배틀 프리셋, 마을과 빌드를 관리하는 로컬 도구">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
@@ -15,13 +15,14 @@
       </div>
       <nav aria-label="관리 메뉴">
         <button class="nav-item is-active" data-section="dashboard"><span>01</span>대시보드</button>
-        <button class="nav-item" data-section="trainers"><span>02</span>NPC·배틀</button>
-        <button class="nav-item" data-section="worlds"><span>03</span>월드맵</button>
-        <button class="nav-item" data-section="caves"><span>04</span>동굴 관리</button>
-        <button class="nav-item" data-section="settlements"><span>05</span>마을 프리셋</button>
-        <button class="nav-item" data-section="structures"><span>06</span>NBT 건물</button>
-        <button class="nav-item" data-section="biomes"><span>07</span>바이옴 관리</button>
-        <button class="nav-item" data-section="builds"><span>08</span>빌드 작업</button>
+        <button class="nav-item" data-section="trainers"><span>02</span>NPC</button>
+        <button class="nav-item" data-section="battles"><span>03</span>배틀 프리셋</button>
+        <button class="nav-item" data-section="worlds"><span>04</span>월드맵</button>
+        <button class="nav-item" data-section="caves"><span>05</span>동굴 관리</button>
+        <button class="nav-item" data-section="settlements"><span>06</span>마을 프리셋</button>
+        <button class="nav-item" data-section="structures"><span>07</span>NBT 건물</button>
+        <button class="nav-item" data-section="biomes"><span>08</span>바이옴 관리</button>
+        <button class="nav-item" data-section="builds"><span>09</span>빌드 작업</button>
       </nav>
       <div class="server-state"><i id="server-dot"></i><span><strong id="server-label">연결 확인 중</strong><small>로컬 전용 · 127.0.0.1</small></span></div>
     </aside>
@@ -34,11 +35,11 @@
 
       <section class="page is-active" id="dashboard">
         <div class="hero panel">
-          <div><p class="eyebrow">LOCAL AUTHORING WORKSPACE</p><h2>모험의 모든 조각을<br>한곳에서 관리합니다.</h2><p>지금은 콘텐츠 검증과 트레이너·마을 편집, 빌드 실행에 집중한 첫 버전입니다.</p></div>
+          <div><p class="eyebrow">LOCAL AUTHORING WORKSPACE</p><h2>모험의 모든 조각을<br>한곳에서 관리합니다.</h2><p>NPC 상호작용, 배틀 프리셋, 마을과 빌드를 각각 관리합니다.</p></div>
           <div class="hero-badge"><strong id="health-score">—</strong><span>DATA STATUS</span></div>
         </div>
         <div class="stats">
-          <article class="stat-card"><span>TRAINERS</span><strong id="trainer-count">—</strong><small>정규화된 트레이너 번들</small></article>
+          <article class="stat-card"><span>NPC</span><strong id="trainer-count">—</strong><small>대화와 이벤트를 가진 NPC 문서</small></article>
           <article class="stat-card"><span>SETTLEMENTS</span><strong id="settlement-count">—</strong><small>마을과 NPC 배치 설정</small></article>
           <article class="stat-card"><span>VALIDATION</span><strong id="validation-count">—</strong><small id="validation-caption">검증 대기 중</small></article>
         </div>
@@ -52,11 +53,11 @@
         <div class="workspace-grid">
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">NPC INTERACTIONS</p><h2>NPC 목록</h2></div><div class="list-tools"><span class="count-pill" id="trainer-list-count">0</span><button class="mini-button" data-create="trainers">＋</button></div></div><div id="trainer-list" class="list-body"></div></aside>
           <div class="editor panel">
-            <div class="panel-heading"><div><p class="eyebrow">NORMALIZED JSON</p><h2 id="trainer-editor-title">트레이너를 선택하세요</h2></div><span class="path-label" id="trainer-path">—</span></div>
+            <div class="panel-heading"><div><p class="eyebrow">NPC INTERACTION</p><h2 id="trainer-editor-title">NPC를 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="trainer-path">—</span><div><button class="button danger" id="delete-trainer" disabled>NPC 삭제</button><button class="button secondary" id="validate-trainer" disabled>문서 검증</button><button class="button primary" id="save-trainer" disabled>검증 후 저장</button></div></div></div>
             <form id="trainer-form" class="form-grid trainer-form">
-              <label class="wide"><span>트레이너 ID</span><input name="id" readonly disabled></label>
-              <label><span>트레이너 이름 (한국어)</span><input name="nameKo" disabled></label>
-              <label><span>트레이너 이름 (영문)</span><input name="nameEn" disabled></label>
+              <label class="wide"><span>NPC ID</span><input name="id" readonly disabled></label>
+              <label><span>NPC 이름 (한국어)</span><input name="nameKo" disabled></label>
+              <label><span>NPC 이름 (영문)</span><input name="nameEn" disabled></label>
               <label class="wide"><span>태그 — 쉼표로 구분</span><input name="tags" disabled></label>
               <section class="trainer-appearance-panel wide">
                 <div class="trainer-preview" id="trainer-preview"><div class="trainer-preview-fallback">NPC</div></div>
@@ -73,18 +74,59 @@
               <fieldset class="wide mechanic-options"><legend>특수 기믹 허용</legend><label class="toggle"><input type="checkbox" name="megaEvolution" disabled><span>메가진화</span></label><label class="toggle"><input type="checkbox" name="zMove" disabled><span>Z기술</span></label><label class="toggle"><input type="checkbox" name="dynamax" disabled><span>다이맥스</span></label><label class="toggle"><input type="checkbox" name="terastallization" disabled><span>테라스탈</span></label></fieldset>
               <fieldset class="wide"><legend>기본 대화와 승리 보상</legend><label class="wide"><span>첫 인사</span><textarea name="greetingText" rows="3" disabled></textarea></label><label><span>상금 방식</span><select name="moneyMode" disabled><option value="fixed">고정 금액</option><option value="level_cap_multiplier">현재 레벨캡 × 배율</option></select></label><label data-money-field="fixed"><span>고정 상금</span><input type="number" min="0" step="1" name="moneyAmount" disabled></label><label data-money-field="level_cap_multiplier"><span>레벨캡 배율</span><input type="number" min="1" step="1" name="moneyMultiplier" disabled></label><label><span>화폐 점수판</span><input name="currencyObjective" disabled></label><label><span>상품 방식</span><select name="itemRewardMode" disabled><option value="fixed">고정 상품</option><option value="loot_table">확률 루트 테이블</option></select></label><label data-item-reward-field="fixed"><span>고정 상품 ID</span><input name="rewardItem" disabled></label><label data-item-reward-field="fixed"><span>상품 수량</span><input type="number" min="1" step="1" name="rewardItemCount" disabled></label><label data-item-reward-field="loot_table" class="wide"><span>루트 테이블 ID</span><input name="rewardLootTable" disabled></label><label class="wide"><span>EasyNPC 테스트 소환 명령어</span><div class="inline-field"><input name="spawnCommand" readonly disabled><button class="button secondary" id="copy-spawn-command" type="button" disabled>복사</button></div></label></fieldset>
             </form>
-            <div class="subsection-heading"><div><p class="eyebrow">INTERACTION ROUTES</p><h3>조건부 시작 대화</h3></div><button class="button secondary" id="add-entry-route" disabled>시작 조건 추가</button></div>
-            <div id="entry-route-list" class="bag-list"><div class="issues empty">NPC를 선택하면 시작 경로가 표시됩니다.</div></div>
-            <div class="subsection-heading"><div><p class="eyebrow">TRAINER BAG</p><h3>전투 가방</h3></div><button class="button secondary" id="add-bag-item" disabled>아이템 추가</button></div>
+            <div class="subsection-heading"><div><p class="eyebrow">EVENT SCRIPT</p><h3>이벤트 스크립트</h3><small>알만툴 이벤트처럼 위에서 아래로 실행하며, 분기와 라벨로 흐름을 이동합니다.</small></div></div>
+            <div class="event-trigger-editor" id="event-trigger-editor">
+              <label><span>시작 트리거</span><select id="event-trigger-type" disabled><option value="interact">플레이어가 말 걸기</option><option value="proximity">범위 안으로 진입</option></select></label>
+              <label><span id="event-range-label">대화 가능 거리</span><input id="event-trigger-range" type="number" min="0.5" step="0.5" value="4" disabled></label>
+              <label id="event-warning-offset-field" hidden><span>경고 여유 거리</span><div class="inline-field"><input id="event-warning-offset" type="number" min="0" step="0.5" value="2" disabled><output>+ 블록</output></div><small>발동 거리 4, 여유 거리 +2라면 4~6 블록에서 경고합니다.</small></label>
+            </div>
+            <section class="event-preset-builder" id="event-preset-builder">
+              <header><div><strong>빠른 스크립트 프리셋</strong><small>대사와 보상만 입력하면 필요한 분기·라벨·플래그를 자동으로 만듭니다.</small></div><select id="event-preset-type" disabled><option value="simple">분기 없는 단순 대화</option><option value="repeat">첫 대화 후 다른 대사</option><option value="item">첫 대화에서 아이템 지급</option></select></header>
+              <div class="event-preset-fields">
+                <label class="wide"><span>첫 대사</span><textarea id="event-preset-first-text" rows="2" disabled>안녕하세요!</textarea></label>
+                <label class="wide" data-event-preset-option="repeat"><span>두 번째부터 표시할 대사</span><textarea id="event-preset-repeat-text" rows="2" disabled>다시 만났네요.</textarea></label>
+                <label data-event-preset-option="item"><span>지급 아이템 ID</span><input id="event-preset-item" value="cobblemon:poke_ball" disabled></label>
+                <label data-event-preset-option="item"><span>수량</span><input id="event-preset-item-count" type="number" min="1" step="1" value="1" disabled></label>
+                <label class="wide" data-event-preset-option="repeat"><span>대화 완료 플래그</span><input id="event-preset-flag" disabled><small>두 번째 대화부터 다른 대사를 표시하는 상태값입니다.</small></label>
+              </div>
+              <footer><span>적용하면 현재 명령 목록을 프리셋 내용으로 교체합니다.</span><button class="button primary" id="apply-event-preset" type="button" disabled>프리셋으로 교체</button></footer>
+            </section>
+            <div class="event-command-toolbar"><select id="event-command-type" disabled><option value="dialogue">대화 표시</option><option value="choices">선택지 표시</option><option value="branch">조건 분기</option><option value="label">라벨</option><option value="goto">라벨로 이동</option><option value="start_battle">배틀 시작</option><option value="set_flag">플래그 변경</option><option value="give_money">돈 지급</option><option value="give_item">아이템 지급</option><option value="grant_loot">루트 테이블 지급</option><option value="end">이벤트 종료</option></select><button class="button secondary" id="add-event-command" disabled>명령 추가</button></div>
+            <div id="event-command-list" class="event-command-list"><div class="issues empty">NPC를 선택하면 이벤트 명령이 표시됩니다.</div></div>
+            <details class="advanced"><summary>대화·진행을 포함한 전체 JSON 편집</summary><textarea class="code-editor compact" id="trainer-json" spellcheck="false" disabled></textarea><button class="button text-button" id="apply-trainer-json" disabled>JSON을 편집 폼에 반영</button></details>
+            <div id="trainer-issues" class="issues empty">편집할 NPC를 선택하세요.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="battles">
+        <div class="workspace-grid">
+          <aside class="document-list panel">
+            <div class="panel-heading"><div><p class="eyebrow">BATTLE PRESETS</p><h2>배틀 프리셋 목록</h2></div><div class="list-tools"><span class="count-pill" id="battle-list-count">0</span><button class="mini-button" data-create="battles">＋</button></div></div>
+            <div id="battle-list" class="list-body"></div>
+          </aside>
+          <div class="editor panel">
+            <div class="panel-heading"><div><p class="eyebrow">TEAM / AI / RULES</p><h2 id="battle-editor-title">배틀 프리셋을 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="battle-path">—</span><div><button class="button danger" id="delete-battle" disabled>프리셋 삭제</button><button class="button secondary" id="validate-battle" disabled>문서 검증</button><button class="button primary" id="save-battle" disabled>검증 후 저장</button></div></div></div>
+            <form id="battle-form" class="form-grid">
+              <label class="wide"><span>배틀 ID</span><input name="id" readonly disabled></label>
+              <label><span>프리셋 이름</span><input name="nameKo" disabled></label>
+              <label><span>RCT 트레이너 ID</span><input name="trainerId" disabled></label>
+              <label><span>배틀 포맷</span><select name="format" disabled><option value="GEN_9_SINGLES">9세대 싱글</option><option value="GEN_9_DOUBLES">9세대 더블</option></select></label>
+              <label><span>전투 방식</span><select name="battleType" disabled><option value="singles">싱글</option><option value="doubles">더블</option></select></label>
+              <label><span>AI 난이도</span><select name="difficulty" disabled><option value="novice">초보</option><option value="standard">일반</option><option value="advanced">상급</option><option value="expert">전문가</option><option value="expert_winrate">전문가 — 승률</option><option value="expert_search">전문가 — 탐색</option><option value="cheater">치터</option></select></label>
+              <label><span>AI 전략</span><select name="strategy" disabled><option value="balanced">균형형</option><option value="aggressive">공격형</option><option value="defensive">방어형</option><option value="ace_check">에이스 견제형</option><option value="reckless_ace">에이스 돌격형</option><option value="setup">랭크업형</option><option value="hazard">장판형</option><option value="tempo">템포형</option><option value="unpredictable">변칙형</option></select></label>
+              <label><span>레벨 방식</span><select name="levelMode" disabled><option value="fixed">고정</option><option value="scale_to_player">플레이어에 맞춤</option><option value="cap_to_player">플레이어 상한</option></select></label>
+              <fieldset class="wide mechanic-options"><legend>특수 기믹 허용</legend><label class="toggle"><input type="checkbox" name="megaEvolution" disabled><span>메가진화</span></label><label class="toggle"><input type="checkbox" name="zMove" disabled><span>Z기술</span></label><label class="toggle"><input type="checkbox" name="dynamax" disabled><span>다이맥스</span></label><label class="toggle"><input type="checkbox" name="terastallization" disabled><span>테라스탈</span></label></fieldset>
+            </form>
+            <div class="subsection-heading"><div><p class="eyebrow">BATTLE BAG</p><h3>전투 가방</h3></div><button class="button secondary" id="add-bag-item" disabled>아이템 추가</button></div>
             <div class="bag-settings">
               <label><span>전투당 최대 사용 횟수</span><input id="max-item-uses" type="number" min="0" step="1" placeholder="제한 없음" disabled><small>비워 두면 별도의 사용 횟수 제한을 지정하지 않습니다.</small></label>
-              <div id="bag-list" class="bag-list"><div class="issues empty">트레이너를 선택하면 가방이 표시됩니다.</div></div>
+              <div id="bag-list" class="bag-list"><div class="issues empty">배틀 프리셋을 선택하면 가방이 표시됩니다.</div></div>
             </div>
             <div class="subsection-heading"><div><p class="eyebrow">BATTLE TEAM</p><h3>포켓몬 팀</h3></div><div class="team-heading-actions"><button class="button secondary" id="load-trainer-reference" disabled>참고 엔트리 불러오기</button><button class="button secondary" id="copy-team-json" disabled>엔트리 JSON 복사</button><button class="button secondary" id="paste-team-json" disabled>엔트리 JSON 붙여넣기</button><button class="button secondary" id="add-pokemon" disabled>포켓몬 추가</button></div></div>
-            <div id="team-list" class="team-list"><div class="issues empty">트레이너를 선택하면 팀이 표시됩니다.</div></div>
-            <details class="advanced"><summary>대화·진행을 포함한 전체 JSON 편집</summary><textarea class="code-editor compact" id="trainer-json" spellcheck="false" disabled></textarea><button class="button text-button" id="apply-trainer-json" disabled>JSON을 편집 폼에 반영</button></details>
-            <div class="editor-actions"><button class="button secondary" id="validate-trainer" disabled>문서 검증</button><button class="button primary" id="save-trainer" disabled>검증 후 저장</button></div>
-            <div id="trainer-issues" class="issues empty">편집할 트레이너를 선택하세요.</div>
+            <div id="team-list" class="team-list"><div class="issues empty">배틀 프리셋을 선택하면 팀이 표시됩니다.</div></div>
+            <details class="advanced"><summary>전체 배틀 프리셋 JSON 편집</summary><textarea class="code-editor compact" id="battle-json" spellcheck="false" disabled></textarea><button class="button text-button" id="apply-battle-json" disabled>JSON을 편집 폼에 반영</button></details>
+            <div id="battle-issues" class="issues empty">편집할 배틀 프리셋을 선택하세요.</div>
           </div>
         </div>
       </section>
@@ -97,7 +139,7 @@
           </div>
           <div class="world-map-heading">
             <div><p class="eyebrow">HEX WORLD EDITOR</p><h2 id="world-map-title">1세대 월드</h2><p>빈 지도를 드래그해 자유롭게 이동하고, 타일을 눌러 바이옴이나 마을을 배치하세요.</p></div>
-            <div class="world-map-actions"><span id="world-save-state">저장된 상태</span><button class="button primary" id="save-world-layout">월드 저장</button></div>
+            <div class="world-map-actions"><span id="world-save-state">저장된 상태</span><button class="button danger" id="delete-world-layout">월드 삭제</button><button class="button primary" id="save-world-layout">월드 저장</button></div>
           </div>
           <div class="world-map-workspace">
             <aside class="world-map-tools" aria-label="월드맵 편집 도구">
@@ -221,7 +263,7 @@
         <div class="workspace-grid">
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">CAVE DEFINITIONS</p><h2>동굴 관리</h2></div><div class="list-tools"><span class="count-pill" id="cave-list-count">0</span><button class="mini-button" data-create="caves">＋</button></div></div><div id="cave-list" class="list-body"></div></aside>
           <div class="editor panel" id="selected-cave-editor">
-            <div class="panel-heading"><div><p class="eyebrow">CAVE SETTINGS</p><h2 id="cave-editor-title">동굴을 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="cave-path">—</span><div><button class="button secondary" id="validate-cave" disabled>문서 검증</button><button class="button primary" id="save-cave" disabled>동굴 저장</button></div></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">CAVE SETTINGS</p><h2 id="cave-editor-title">동굴을 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="cave-path">—</span><div><button class="button danger" id="delete-cave" disabled>동굴 삭제</button><button class="button secondary" id="validate-cave" disabled>문서 검증</button><button class="button primary" id="save-cave" disabled>동굴 저장</button></div></div></div>
             <form id="cave-form" class="form-grid">
               <label class="wide"><span>동굴 ID</span><input name="id" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label>
               <label><span>한국어 이름</span><input name="nameKo" required></label>
@@ -308,7 +350,7 @@
 
       <section class="page" id="biomes">
         <div class="panel biome-manager">
-          <div class="panel-heading"><div><p class="eyebrow">HABITAT RULE ENGINE</p><h2>바이옴 관리</h2></div><button class="button primary" id="save-biome-catalog">바이옴 저장</button></div>
+          <div class="panel-heading"><div><p class="eyebrow">HABITAT RULE ENGINE</p><h2>바이옴 관리</h2></div><div class="editor-heading-actions"><div><button class="button secondary" id="add-biome-profile">바이옴 추가</button><button class="button danger" id="delete-biome-profile">바이옴 삭제</button><button class="button primary" id="save-biome-catalog">바이옴 저장</button></div></div></div>
           <div class="biome-tabs" role="tablist"><button class="is-active" data-biome-tab="profiles">프로필</button><button data-biome-tab="sets">바이옴 세트 테스트</button><button data-biome-tab="pokemon">전체 포켓몬</button></div>
           <div class="biome-tab-panel is-active" data-biome-panel="profiles"><div class="biome-split"><div id="biome-profile-list" class="biome-list"></div><form id="biome-profile-form" class="form-grid biome-form"><label class="wide"><span>프로필</span><select name="profileId"></select></label><label><span>한국어 이름</span><input name="nameKo"></label><label><span>대표 서식지</span><select name="habitat"></select></label><label><span>세대 (0=전체)</span><input type="number" min="0" max="9" name="generation"></label><label><span>온도</span><select name="temperature"></select></label><label><span>습도</span><select name="humidity"></select></label><label><span>날씨</span><select name="weather"></select></label><label><span>시간</span><select name="time"></select></label><label class="wide"><span>허용 레어도 — 쉼표로 구분</span><input name="rarities"></label><label class="wide"><span>강제 포함 포켓몬 — ID를 쉼표로 구분</span><input name="forced"></label><label class="wide"><span>제외 포켓몬 — ID를 쉼표로 구분</span><input name="excluded"></label><label class="toggle"><input type="checkbox" name="secondary"><span>보조 서식지 포함</span></label><button type="button" class="button secondary" id="preview-biome-profile">현재 조건 테스트</button></form></div><div id="biome-profile-preview" class="pokemon-results">프로필을 선택하고 테스트하세요.</div></div>
           <div class="biome-tab-panel" data-biome-panel="sets"><div class="biome-test-toolbar"><label><span>바이옴 세트</span><select id="biome-set-select"></select></label><label class="grow"><span>모든 조건 무시 출현 포켓몬 — ID를 쉼표로 구분</span><input id="biome-set-unconditional"></label><button class="button secondary" id="test-biome-set">세트 테스트</button></div><div id="biome-set-profiles" class="biome-set-profiles"></div><div id="biome-set-preview" class="pokemon-results">세트를 선택하고 테스트하세요.</div></div>
@@ -344,6 +386,7 @@
         <label><span>파일 ID</span><input name="slug" pattern="[a-z0-9][a-z0-9_]*" placeholder="route_01_trainer" required><small>소문자, 숫자와 밑줄만 사용합니다.</small></label>
         <label><span>한국어 이름</span><input name="name" placeholder="첫 번째 트레이너" required></label>
         <label id="generation-field"><span>세대 디렉터리</span><input name="generation" value="generation_1" pattern="[a-z0-9][a-z0-9_]*" required></label>
+        <label id="battle-reference-field" hidden><span>예비 엔트리에서 가져오기</span><input type="hidden" name="referenceId"><div class="create-reference-picker"><input id="create-reference-name" value="빈 프리셋으로 시작" readonly><button class="button secondary" id="choose-create-reference" type="button">검색해서 선택</button></div><small id="create-reference-summary">엔트리를 선택하면 팀·AI·규칙·가방을 새 프리셋에 복사합니다.</small></label>
         <div class="dialog-actions"><button class="button secondary" id="create-cancel" type="button">취소</button><button class="button primary" type="submit" id="create-submit">생성</button></div>
         <div id="create-issues" class="issues empty"></div>
       </form>

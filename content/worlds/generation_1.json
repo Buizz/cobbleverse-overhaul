@@ -810,72 +810,6 @@
         "height_variation": 3,
         "noise_scale_blocks": 96
       }
-    },
-    {
-      "q": -21,
-      "r": 13,
-      "biome": "minecraft:flower_forest",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96
-      }
-    },
-    {
-      "q": -21,
-      "r": 14,
-      "biome": "minecraft:flower_forest",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96
-      }
-    },
-    {
-      "q": -20,
-      "r": 12,
-      "biome": "minecraft:flower_forest",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96
-      }
-    },
-    {
-      "q": -20,
-      "r": 13,
-      "biome": "minecraft:flower_forest",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96
-      }
-    },
-    {
-      "q": -20,
-      "r": 14,
-      "biome": "minecraft:flower_forest",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96
-      }
-    },
-    {
-      "q": -19,
-      "r": 12,
-      "biome": "minecraft:flower_forest",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96
-      }
     }
   ],
   "settlements": [
@@ -1096,24 +1030,36 @@
       "id": "cobbleventure:cave_entrance/mt_moon_west",
       "cave": "cobbleventure:cave/mt_moon",
       "entrance": "west",
-      "anchor": { "q": 2, "r": -2 },
+      "anchor": {
+        "q": 2,
+        "r": -2
+      },
       "facing": "east",
       "structure": "cobbleventure:cave_entrance/rock",
       "pokemon_center": {
         "structure": "cobbleventure:facility/pokemon_center_small",
-        "offset": { "q": 0, "r": 1 }
+        "offset": {
+          "q": 0,
+          "r": 1
+        }
       }
     },
     {
       "id": "cobbleventure:cave_entrance/mt_moon_east",
       "cave": "cobbleventure:cave/mt_moon",
       "entrance": "east",
-      "anchor": { "q": 4, "r": -2 },
+      "anchor": {
+        "q": 4,
+        "r": -2
+      },
       "facing": "west",
       "structure": "cobbleventure:cave_entrance/rock",
       "pokemon_center": {
         "structure": "cobbleventure:facility/pokemon_center_small",
-        "offset": { "q": 0, "r": 1 }
+        "offset": {
+          "q": 0,
+          "r": 1
+        }
       }
     }
   ],
@@ -1255,10 +1201,22 @@
       "from": "cobbleventure:cave_entrance/mt_moon_east",
       "to": "cobbleventure:settlement/cerulean_city",
       "cells": [
-        { "q": 4, "r": -2 },
-        { "q": 5, "r": -2 },
-        { "q": 6, "r": -2 },
-        { "q": 7, "r": -2 }
+        {
+          "q": 4,
+          "r": -2
+        },
+        {
+          "q": 5,
+          "r": -2
+        },
+        {
+          "q": 6,
+          "r": -2
+        },
+        {
+          "q": 7,
+          "r": -2
+        }
       ],
       "corridor_width_blocks": 12,
       "edge_noise": 0,

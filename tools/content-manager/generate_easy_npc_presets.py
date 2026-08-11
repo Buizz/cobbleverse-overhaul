@@ -109,7 +109,67 @@ def graph_reward_commands(document: dict, start_battle: dict) -> list[str]:
     return commands
 
 
+def command_reward_commands(commands: list[dict], target: str | None) -> list[str]:
+    labels = {
+        command.get("name"): index
+        for index, command in enumerate(commands)
+        if command.get("type") == "label"
+    }
+    index = labels.get(target, -1) + 1
+    result: list[str] = []
+    visited: set[int] = set()
+    while 0 <= index < len(commands) and index not in visited:
+        visited.add(index)
+        command = commands[index]
+        command_type = command.get("type")
+        if command_type == "set_flag":
+            objective = flag_objective(command["key"])
+            value = command.get("value")
+            if isinstance(value, bool):
+                value = 1 if value else 0
+            result.extend([
+                f"scoreboard objectives add {objective} dummy",
+                f"scoreboard players set @1 {objective} {value}",
+            ])
+        elif command_type == "give_item":
+            result.append(f"give @1 {command['item']} {int(command.get('count', 1))}")
+        elif command_type == "grant_loot":
+            result.append(f"loot give @1 loot {command['loot_table']}")
+        elif command_type == "give_money":
+            currency = command.get("currency_objective", "cobbleventure_money")
+            if command.get("mode") == "fixed":
+                result.append(f"scoreboard players add @1 {currency} {int(command.get('amount', 0))}")
+            else:
+                multiplier = command.get("multiplier", 1)
+                if int(multiplier) != multiplier:
+                    raise ValueError("EasyNPC/TBCS 어댑터의 레벨캡 상금 배율은 현재 정수만 지원합니다.")
+                level_cap = command.get("level_cap_objective", "cobbleventure_level_cap")
+                result.extend([
+                    "scoreboard objectives add cv_reward_tmp dummy",
+                    f"scoreboard players operation @1 cv_reward_tmp = #current {level_cap}",
+                    f"scoreboard players set #multiplier cv_reward_tmp {int(multiplier)}",
+                    "scoreboard players operation @1 cv_reward_tmp *= #multiplier cv_reward_tmp",
+                    f"scoreboard players operation @1 {currency} += @1 cv_reward_tmp",
+                ])
+        elif command_type == "goto":
+            index = labels.get(command.get("target"), len(commands)) + 1
+            continue
+        elif command_type in {"dialogue", "choices", "start_battle", "end"}:
+            break
+        index += 1
+    return result
+
+
 def reward_commands(document: dict, start_battle: dict | None = None) -> list[str]:
+    if document.get("schema_version") == 4:
+        event = next(
+            (event for event in document.get("events", []) if start_battle in event.get("commands", [])),
+            None,
+        )
+        return command_reward_commands(
+            event.get("commands", []) if event else [],
+            (start_battle or {}).get("results", {}).get("player_win"),
+        )
     if document.get("schema_version") == 3:
         return graph_reward_commands(document, start_battle or {})
     rewards = document.get("rewards", {})
@@ -149,7 +209,7 @@ def reward_commands(document: dict, start_battle: dict | None = None) -> list[st
 
 
 def battle_command(document: dict, start_battle: dict | None = None) -> str:
-    if document.get("schema_version") == 3:
+    if document.get("schema_version") in {3, 4}:
         battle_ref = (start_battle or {}).get("battle")
         preset = document.get("_battle_presets", {}).get(battle_ref)
         if not preset:
@@ -190,7 +250,80 @@ def easy_npc_action(operation: dict, document: dict) -> str:
     raise ValueError(f"EasyNPC 행동으로 변환할 수 없습니다: {operation_type}")
 
 
+def event_target_action(commands: list[dict], target: str, document: dict) -> str:
+    labels = {
+        command.get("name"): index
+        for index, command in enumerate(commands)
+        if command.get("type") == "label"
+    }
+    index = labels.get(target, -1) + 1
+    while 0 <= index < len(commands):
+        command = commands[index]
+        command_type = command.get("type")
+        if command_type == "dialogue":
+            return "{Cmd:" + quote(dialogue_label(command.get("id", target))) + ',Type:"OPEN_NAMED_DIALOG"}'
+        if command_type == "start_battle":
+            return "{Cmd:" + quote(battle_command(document, command)) + ',Type:"COMMAND"}'
+        if command_type == "goto":
+            return event_target_action(commands, command["target"], document)
+        if command_type == "end":
+            return '{Type:"CLOSE_DIALOG"}'
+        index += 1
+    return '{Type:"CLOSE_DIALOG"}'
+
+
+def event_script_dialogues(document: dict) -> str:
+    entries: list[str] = []
+    for event in document.get("events", []):
+        commands = event.get("commands", [])
+        labels = {
+            command.get("name"): index
+            for index, command in enumerate(commands)
+            if command.get("type") == "label"
+        }
+        routed: dict[int, tuple[int, list[dict]]] = {}
+        for index, command in enumerate(commands):
+            if command.get("type") != "branch":
+                continue
+            target_index = labels.get(command.get("target"), -1) + 1
+            while 0 <= target_index < len(commands) and commands[target_index].get("type") != "dialogue":
+                target_index += 1
+            if target_index < len(commands):
+                routed[target_index] = (100 - index, command.get("conditions", []))
+        for index, command in enumerate(commands):
+            if command.get("type") != "dialogue":
+                continue
+            dialogue_id = command.get("id", f"dialogue_{index}")
+            fields = [
+                "Label:" + quote(dialogue_label(dialogue_id)),
+                "Name:" + quote(localized(command.get("text"))[:32]),
+            ]
+            if index in routed:
+                fields.append(f"Priority:{routed[index][0]}")
+            fields.append("Texts:[{Text:" + quote(localized(command.get("text"))) + "}]")
+            conditions = [easy_npc_condition(value) for value in routed.get(index, (0, []))[1]]
+            conditions = [value for value in conditions if value]
+            if conditions:
+                fields.append("Conditions:[" + ",".join(conditions) + "]")
+            choice_command = commands[index + 1] if index + 1 < len(commands) else {}
+            buttons: list[str] = []
+            if choice_command.get("type") == "choices":
+                for option in choice_command.get("options", []):
+                    buttons.append(
+                        "{Label:" + quote(option["id"])
+                        + ",Name:" + quote(localized(option["text"]))
+                        + ",Actions:[" + event_target_action(commands, option["target"], document) + "]}"
+                    )
+            if not buttons:
+                buttons.append('{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}')
+            fields.append("Buttons:[" + ",".join(buttons) + "]")
+            entries.append("{" + ",".join(fields) + "}")
+    return '{DialogDataSet:[' + ",".join(entries) + '],Type:"CUSTOM"}'
+
+
 def easy_npc_dialogues(document: dict) -> str:
+    if document.get("schema_version") == 4:
+        return event_script_dialogues(document)
     if document.get("schema_version") == 3:
         graph = document["interaction"]
         routes = graph.get("entry_routes", [])
@@ -306,21 +439,29 @@ def encounter_preset_snbt(document: dict, outfit: dict) -> str:
     variant = "ALEX" if outfit["arm_model"] == "slim" else "STEVE"
     scale = float(adapter["root_scale"])
     custom_name = json.dumps({"text": display}, ensure_ascii=False, separators=(",", ":"))
-    encounter = document["npc"]["behavior"].get("encounter", {"mode": "interaction"})
-    if encounter.get("mode") == "proximity":
-        start_battle = next(
-            (
-                action
-                for node in document.get("interaction", {}).get("nodes", [])
-                for choice in node.get("choices", [])
-                for action in choice.get("actions", [])
-                if action.get("type") == "start_battle"
-            ),
-            None,
+    if document.get("schema_version") == 4:
+        event = document.get("events", [{}])[0]
+        encounter = event.get("trigger", {"type": "interact", "range": 4})
+        encounter_mode = encounter.get("type", "interact")
+        candidate_actions = event.get("commands", [])
+    else:
+        encounter = document["npc"]["behavior"].get("encounter", {"mode": "interaction"})
+        encounter_mode = encounter.get("mode", "interaction")
+        candidate_actions = [
+            action
+            for node in document.get("interaction", {}).get("nodes", [])
+            for choice in node.get("choices", [])
+            for action in choice.get("actions", [])
+        ]
+    if encounter_mode == "proximity":
+        start_battle = next((action for action in candidate_actions if action.get("type") == "start_battle"), None)
+        proximity_action = (
+            "{Cmd:" + quote(battle_command(document, start_battle)) + ',Type:"COMMAND"}'
+            if start_battle else '{Type:"OPEN_DEFAULT_DIALOG"}'
         )
         event_actions = (
-            "ON_DISTANCE_VERY_CLOSE:[{Cmd:" + quote(battle_command(document, start_battle)) + ',Type:"COMMAND"}],'
-            'ON_DISTANCE_CLOSE:[{Cmd:"/title @initiator actionbar {\\"text\\":\\"주변에 트레이너가 있습니다!\\",\\"color\\":\\"gold\\"}",Type:"COMMAND"}]'
+            "ON_DISTANCE_VERY_CLOSE:[" + proximity_action + "],"
+            + 'ON_DISTANCE_CLOSE:[{Cmd:"/title @initiator actionbar {\\"text\\":\\"주변에 트레이너가 있습니다!\\",\\"color\\":\\"gold\\"}",Type:"COMMAND"}]'
         )
     else:
         event_actions = 'ON_INTERACTION:[{Type:"OPEN_DEFAULT_DIALOG"}]'
@@ -393,7 +534,7 @@ def generate(
         written.append(target_skin)
     for source in sorted(content_root.rglob("*.json")):
         document = json.loads(source.read_text(encoding="utf-8"))
-        if not document.get("enabled", True) or not (document.get("dialogue") or document.get("interaction")):
+        if not document.get("enabled", True) or not (document.get("dialogue") or document.get("interaction") or document.get("events")):
             continue
         document["_battle_presets"] = battle_presets
         trainer_class = document.get("npc", {}).get("trainer_class")
@@ -428,7 +569,7 @@ def main() -> None:
         document = json.loads(source.read_text(encoding="utf-8"))
         if (
             document.get("enabled", True)
-            and (document.get("dialogue") or document.get("interaction"))
+            and (document.get("dialogue") or document.get("interaction") or document.get("events"))
             and document.get("npc", {}).get("trainer_class") in supported_classes
         ):
             print(f"{document['id']}: {spawn_command(document)}")
