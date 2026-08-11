@@ -36,8 +36,9 @@ public final class WorldMapScreen extends Screen {
     private static final int FOOTER_HEIGHT = 32;
     private static final int PANEL_GAP = 9;
     private static final int POKEMON_ICON_SIZE = 32;
-    private static final int POKEMON_ROW_HEIGHT = 34;
-    private static final int MAX_POKEMON_MODELS = 16;
+    private static final int POKEMON_ICON_GAP = 3;
+    private static final int POKEMON_CELL_SIZE = POKEMON_ICON_SIZE + POKEMON_ICON_GAP;
+    private static final int MAX_POKEMON_MODELS = 48;
 
     private final Screen parent;
     private MapContent content = MapContent.instance();
@@ -197,7 +198,10 @@ public final class WorldMapScreen extends Screen {
             MapContent.BiomeTile tile = content.tileAt(selected.q(), selected.r());
             if (tile != null) {
                 int count = content.biome(tile.biome()).pokemon().size();
-                pokemonScroll = Math.max(0, Math.min(Math.max(0, count - 1), pokemonScroll - (int) Math.signum(scrollY)));
+                int columns = pokemonColumns(layout.infoWidth() - 20);
+                int maximum = maxPokemonScroll(count, columns);
+                int direction = scrollY > 0.0D ? -1 : 1;
+                pokemonScroll = Math.max(0, Math.min(maximum, pokemonScroll + direction * columns));
                 return true;
             }
         }
@@ -339,20 +343,21 @@ public final class WorldMapScreen extends Screen {
             y += 19;
             graphics.drawString(font, "서식 포켓몬 " + biome.totalPokemon() + "종 · 휠", x, y, TEXT, false);
             y += 14;
-            int index = Math.min(pokemonScroll, Math.max(0, biome.pokemon().size() - 1));
+            int columns = pokemonColumns(lineWidth);
+            int index = Math.min(pokemonScroll, maxPokemonScroll(biome.pokemon().size(), columns));
             int modelIndex = 0;
             for (; index < biome.pokemon().size() && modelIndex < pokemonModels.size(); index++, modelIndex++) {
-                if (y + POKEMON_ICON_SIZE > layout.bottom() - 42) break;
+                int column = modelIndex % columns;
+                int row = modelIndex / columns;
+                int iconX = x + column * POKEMON_CELL_SIZE;
+                int iconY = y + row * POKEMON_CELL_SIZE;
+                if (iconY + POKEMON_ICON_SIZE > layout.bottom() - 42) break;
                 MapContent.Pokemon pokemon = biome.pokemon().get(index);
-                graphics.fill(x, y, x + lineWidth, y + POKEMON_ICON_SIZE, 0x702F3B35);
-                showPokemonModel(modelIndex, pokemon, x, y);
-                graphics.drawString(font, String.format("#%04d", pokemon.dexNumber()),
-                    x + POKEMON_ICON_SIZE + 5, y + 6, MUTED_TEXT, false);
-                graphics.drawString(font,
-                    font.plainSubstrByWidth(pokemon.name(), lineWidth - POKEMON_ICON_SIZE - 7),
-                    x + POKEMON_ICON_SIZE + 5, y + 17, TEXT, false);
-                pokemonHovers.add(new PokemonHover(x, y, x + lineWidth, y + POKEMON_ICON_SIZE, pokemon.name()));
-                y += POKEMON_ROW_HEIGHT;
+                graphics.fill(iconX, iconY, iconX + POKEMON_ICON_SIZE, iconY + POKEMON_ICON_SIZE, 0x702F3B35);
+                showPokemonModel(modelIndex, pokemon, iconX, iconY);
+                pokemonHovers.add(new PokemonHover(
+                    iconX, iconY, iconX + POKEMON_ICON_SIZE, iconY + POKEMON_ICON_SIZE, pokemon.name()
+                ));
             }
         } else {
             graphics.drawString(font, "미지정 타일", x, y, TEXT, false);
@@ -391,7 +396,10 @@ public final class WorldMapScreen extends Screen {
         pokemonModelIds.clear();
         Species fallback = PokemonSpecies.getByName("bulbasaur");
         if (fallback == null) return;
-        int capacity = Math.max(4, Math.min(MAX_POKEMON_MODELS, (layout.height() - 96) / POKEMON_ROW_HEIGHT));
+        int columns = pokemonColumns(layout.infoWidth() - 20);
+        int rows = Math.max(1, (layout.height() - 118) / POKEMON_CELL_SIZE);
+        int capacity = Math.min(MAX_POKEMON_MODELS, columns * rows);
+        capacity = Math.max(columns, capacity - capacity % columns);
         RenderablePokemon fallbackPokemon = new RenderablePokemon(fallback, java.util.Set.of(), ItemStack.EMPTY);
         for (int index = 0; index < capacity; index++) {
             ModelWidget model = new ModelWidget(
@@ -424,6 +432,15 @@ public final class WorldMapScreen extends Screen {
     private void hidePokemonModels() {
         pokemonHovers.clear();
         for (ModelWidget model : pokemonModels) model.visible = false;
+    }
+
+    private static int pokemonColumns(int width) {
+        return Math.max(2, width / POKEMON_CELL_SIZE);
+    }
+
+    private int maxPokemonScroll(int pokemonCount, int columns) {
+        int hidden = Math.max(0, pokemonCount - pokemonModels.size());
+        return (hidden + columns - 1) / columns * columns;
     }
 
     private void requestTeleport() {
