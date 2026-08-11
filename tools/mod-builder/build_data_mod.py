@@ -30,6 +30,7 @@ HEX_WORLD_CONFIG_DIR = Path("content/worlds")
 BOUNDARY_PROFILE_CONFIG = Path("content/catalogs/boundary-profiles.json")
 GENERATED_CONTENT_DIR = Path("generated")
 FACILITY_STRUCTURE_SOURCE_DIR = Path("content/structures/placeholder")
+HOUSE_STRUCTURE_SOURCE_DIR = Path("content/structures/houses")
 REQUIRED_ENTRIES = {
     "META-INF/neoforge.mods.toml",
     "pack.mcmeta",
@@ -115,6 +116,17 @@ def _inside(root: Path, path: Path, label: str) -> Path:
     except ValueError as error:
         raise ModBuildError(f"{label} 경로가 저장소 밖을 가리킵니다: {resolved}") from error
     return resolved
+
+
+def _read_authored_structure_nbt(path: Path, label: str) -> bytes:
+    authored_bytes = path.read_bytes()
+    try:
+        decompressed = gzip.decompress(authored_bytes)
+    except (EOFError, OSError) as error:
+        raise ModBuildError(f"{label}가 GZip 구조물 파일이 아닙니다: {path}") from error
+    if not decompressed or decompressed[0] != 10:
+        raise ModBuildError(f"{label}의 루트가 TAG_Compound가 아닙니다: {path}")
+    return authored_bytes
 
 
 def _settlement_data(root: Path) -> list[tuple[Path, dict[str, object]]]:
@@ -1336,14 +1348,7 @@ def build(root: Path) -> Path:
             "시설 NBT 원본",
         )
         if authored.is_file():
-            authored_bytes = authored.read_bytes()
-            try:
-                decompressed = gzip.decompress(authored_bytes)
-            except (EOFError, OSError) as error:
-                raise ModBuildError(f"시설 NBT가 GZip 구조물 파일이 아닙니다: {authored}") from error
-            if not decompressed or decompressed[0] != 10:
-                raise ModBuildError(f"시설 NBT의 루트가 TAG_Compound가 아닙니다: {authored}")
-            generated.write_bytes(authored_bytes)
+            generated.write_bytes(_read_authored_structure_nbt(authored, "시설 NBT"))
         else:
             generated.write_bytes(build_facility_placeholder_nbt(facility_id))
     for base_id in HOUSE_BASES:
@@ -1355,7 +1360,15 @@ def build(root: Path) -> Path:
                     "생성 주택 변형",
                 )
                 generated.parent.mkdir(parents=True, exist_ok=True)
-                generated.write_bytes(build_house_variant_nbt(base_id, roof_id, roof_color))
+                authored = _inside(
+                    root,
+                    root / HOUSE_STRUCTURE_SOURCE_DIR / f"{base_id}_{roof_id}_{roof_color}.nbt",
+                    "주택 NBT 원본",
+                )
+                if authored.is_file():
+                    generated.write_bytes(_read_authored_structure_nbt(authored, "주택 NBT"))
+                else:
+                    generated.write_bytes(build_house_variant_nbt(base_id, roof_id, roof_color))
     for directory in (
         GENERATED_SETTLEMENT_DIR,
         LEGACY_GENERATED_SETTLEMENT_DIR,

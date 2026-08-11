@@ -728,6 +728,26 @@ class DataModBuilderTests(unittest.TestCase):
             )
             self.assertEqual(authored_bytes, packaged.read_bytes())
 
+    def test_authored_house_nbt_replaces_generated_variant(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            authored = (
+                root / build_data_mod.HOUSE_STRUCTURE_SOURCE_DIR
+                / "one_story_flat_red.nbt"
+            )
+            authored.parent.mkdir(parents=True, exist_ok=True)
+            authored_bytes = gzip.compress(b"\x0aAUTHORED HOUSE", mtime=0)
+            authored.write_bytes(authored_bytes)
+
+            build_data_mod.build(root)
+
+            packaged = (
+                root / build_data_mod.OUTPUT
+                / "data/cobbleventure/structure/houses/one_story_flat_red.nbt"
+            )
+            self.assertEqual(authored_bytes, packaged.read_bytes())
+
     def test_explicit_civic_facilities_use_configured_hub_and_road(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

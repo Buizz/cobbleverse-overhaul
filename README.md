@@ -15,6 +15,7 @@
 - [프로젝트 기획서](docs/PROJECT_PLAN.md)
 - [구현 설계 문서 안내](docs/implementation/README.md)
 - [콘텐츠 제작 및 CurseForge 빌드 파이프라인](docs/implementation/CONTENT_BUILD_PIPELINE.md)
+- [NBT 구조물 편집 가이드](docs/NBT_STRUCTURE_EDITING.md)
 - [JSON 데이터 카탈로그](docs/JSON_CATALOG.md)
 - [의존 모드 관리표](docs/MOD_DEPENDENCIES.md)
 - [선택 아키텍처와 비교 기록](docs/implementation/WORLD_ARCHITECTURE_OPTIONS.md)
