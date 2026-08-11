@@ -36,6 +36,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -135,8 +136,9 @@ public final class CobbleventureBootstrap {
     private static final String PLAYER_STARTED = "cobbleventureGenerationOneStarted";
     private static final String PLAYER_WAITING = "cobbleventureGenerationWaiting";
     private static final String FACILITY_PORTAL_COOLDOWN = "cobbleventureFacilityPortalCooldown";
-    private static final String FIELD_MOVE_PREFIX = "cobbleventureFieldMove.";
     private static final String FIELD_MOVE_MESSAGE_COOLDOWN = "cobbleventureFieldMoveMessageCooldown";
+    private static final String DEEP_WATER_MESSAGE_COOLDOWN =
+        "cobbleventureDeepWaterMessageCooldown";
     private static volatile List<FacilityPortal> activeFacilityPortals = List.of();
     private static volatile Map<String, SettlementPlan> activeSettlements = Map.of();
     private static volatile HexWorldPlan activeHexWorld;
@@ -147,6 +149,8 @@ public final class CobbleventureBootstrap {
     private static volatile WorldInitializationJob activeInitialization;
     private static final Map<NoiseKey, NormalNoise> TERRAIN_NOISES = new ConcurrentHashMap<>();
     private static final Map<UUID, Vec3> safeFieldPositions = new HashMap<>();
+    private static final Map<UUID, Vec3> safeWaterPositions = new HashMap<>();
+    private static final Map<UUID, Integer> deepWaterTicks = new HashMap<>();
     private static final ResourceKey<Level> GENERATION_ONE =
         ResourceKey.create(
             Registries.DIMENSION,
@@ -169,6 +173,9 @@ public final class CobbleventureBootstrap {
     public CobbleventureBootstrap(IEventBus modBus) {
         NativeWorldGeneration.register(modBus);
         TrainerCosmetics.register(modBus);
+        FieldMoveRidingAccess.register();
+        FlashCaveEffects.register();
+        PokemonCenterDefeatReturn.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onEntityJoinLevel);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
@@ -852,7 +859,7 @@ public final class CobbleventureBootstrap {
             .toList();
         return new TownLayout(
             List.copyOf(roads), List.copyOf(accessRoads),
-            Map.copyOf(facilities), List.copyOf(houses), List.of()
+            Map.copyOf(facilities), List.copyOf(houses), List.of(), List.of()
         );
     }
 
@@ -1213,6 +1220,9 @@ public final class CobbleventureBootstrap {
         if (sites.isEmpty()) return;
         Point center = new Point(settlement.center().x(), settlement.center().z());
         for (FacilitySite site : sites) {
+            RoadProfile approachProfile = site.facility().id().equals("facility_department_store")
+                ? new RoadProfile(3, settlement.roadProfile().material())
+                : settlement.roadProfile();
             for (Point entrance : facilityEntrances(site)) {
                 int clearance = Math.max(2, site.facility().clearance());
                 Point road = findNearestVillageRoad(
@@ -1224,7 +1234,7 @@ public final class CobbleventureBootstrap {
                 );
                 drawFacilityApproachRoad(
                     level, site, entrance, road == null ? center : road,
-                    settlement.roadProfile()
+                    approachProfile
                 );
             }
         }
@@ -1270,7 +1280,7 @@ public final class CobbleventureBootstrap {
         int depth = Math.max(8, site.facility().footprintDepth());
         int clearance = Math.max(2, site.facility().clearance());
         if (site.facility().id().equals("facility_department_store")) {
-            int plazaZ = site.origin().z() + Math.min(18, depth - 1);
+            int plazaZ = site.origin().z() + Math.min(19, depth - 1);
             return List.of(
                 new Point(site.origin().x() + width / 2, site.origin().z() - clearance),
                 new Point(site.origin().x() - clearance, plazaZ),
@@ -2173,6 +2183,7 @@ public final class CobbleventureBootstrap {
         }
         runPendingWorldInitialization(event);
         runActiveWorldInitialization();
+        PokemonCenterDefeatReturn.onServerTick(event);
         ServerLevel level = event.getServer().getLevel(GENERATION_ONE);
         if (level == null) {
             return;
@@ -2184,7 +2195,16 @@ public final class CobbleventureBootstrap {
             if (player.serverLevel() != level) {
                 continue;
             }
+            PokemonCenterDefeatReturn.ensureFallback(
+                player, level, level.getSharedSpawnPos()
+            );
+            if (gameTime % 10L == 0L) {
+                updatePokemonCenterCheckpoint(player, level);
+            }
             if (!enforceFieldMoveAccess(player, level, gameTime)) {
+                continue;
+            }
+            if (!enforceDeepWaterAccess(player, level, gameTime)) {
                 continue;
             }
             if (player.getPersistentData().getLong(FACILITY_PORTAL_COOLDOWN) > gameTime) {
@@ -2211,6 +2231,39 @@ public final class CobbleventureBootstrap {
                     break;
                 }
             }
+        }
+    }
+
+    private static void updatePokemonCenterCheckpoint(
+        ServerPlayer player,
+        ServerLevel level
+    ) {
+        for (SettlementPlan settlement : activeSettlements.values()) {
+            TownLayout layout = settlement.compiledLayout();
+            if (layout == null) {
+                continue;
+            }
+            TownPlot center = layout.facilities().get("facility_pokemon_center");
+            if (center == null) {
+                continue;
+            }
+            int minX = settlement.center().x() + (int) Math.floor(center.x());
+            int minZ = settlement.center().z() + (int) Math.floor(center.z());
+            if (player.getX() < minX || player.getX() >= minX + center.width()
+                || player.getZ() < minZ || player.getZ() >= minZ + center.depth()) {
+                continue;
+            }
+            TownRoad entrance = townPlotAccessRoad(center);
+            PokemonCenterDefeatReturn.recordCenterVisit(
+                player,
+                level,
+                surfacePosition(
+                    level,
+                    settlement.center().x() + entrance.x2(),
+                    settlement.center().z() + entrance.z2()
+                )
+            );
+            return;
         }
     }
 
@@ -2593,7 +2646,8 @@ public final class CobbleventureBootstrap {
         }
         TerrainSample sample = terrainAt(world, player.getX(), player.getZ());
         String requirement = sample == null ? null : sample.accessRequirement();
-        if (requirement == null || hasFieldMove(player, requirement)) {
+        if (requirement == null || isSurfRequirement(requirement)
+            || hasFieldMove(player, requirement)) {
             safeFieldPositions.put(player.getUUID(), player.position());
             return true;
         }
@@ -2615,8 +2669,121 @@ public final class CobbleventureBootstrap {
         return false;
     }
 
+    private static boolean enforceDeepWaterAccess(
+        ServerPlayer player, ServerLevel level, long gameTime
+    ) {
+        UUID playerId = player.getUUID();
+        if (player.isCreative() || player.isSpectator()
+            || FieldMoveRidingAccess.isValidSurfRide(player)) {
+            deepWaterTicks.remove(playerId);
+            return true;
+        }
+        if (!isInDeepWater(player, level)) {
+            deepWaterTicks.remove(playerId);
+            if (!player.isInWater() && player.onGround()) {
+                safeWaterPositions.put(playerId, player.position());
+            }
+            return true;
+        }
+
+        Vec3 safe = safeWaterPositions.get(playerId);
+        if (safe == null) {
+            safe = findNearbyDryPosition(level, player.blockPosition(), 24);
+            if (safe != null) {
+                safeWaterPositions.put(playerId, safe);
+            }
+        }
+        if (safe != null) {
+            double deltaX = safe.x() - player.getX();
+            double deltaZ = safe.z() - player.getZ();
+            double horizontalDistance = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+            if (horizontalDistance > 0.01D) {
+                double currentStrength = 0.18D;
+                player.setDeltaMovement(
+                    deltaX / horizontalDistance * currentStrength,
+                    Math.max(player.getDeltaMovement().y(), 0.05D),
+                    deltaZ / horizontalDistance * currentStrength
+                );
+                player.hurtMarked = true;
+            }
+        } else {
+            player.setDeltaMovement(
+                0.0D, Math.max(player.getDeltaMovement().y(), 0.05D), 0.0D
+            );
+            player.hurtMarked = true;
+        }
+        player.resetFallDistance();
+
+        int blockedTicks = deepWaterTicks.merge(playerId, 1, Integer::sum);
+        if (player.getPersistentData().getLong(DEEP_WATER_MESSAGE_COOLDOWN) <= gameTime) {
+            player.getPersistentData().putLong(DEEP_WATER_MESSAGE_COOLDOWN, gameTime + 60L);
+            player.displayClientMessage(Component.literal(
+                "[Cobbleventure] 물살이 너무 거셉니다. 파도타기 포켓몬이 필요합니다."
+            ), true);
+        }
+        if (blockedTicks >= 20 && safe != null) {
+            player.teleportTo(
+                level, safe.x(), safe.y(), safe.z(), player.getYRot(), player.getXRot()
+            );
+            deepWaterTicks.remove(playerId);
+        }
+        return false;
+    }
+
+    private static boolean isInDeepWater(ServerPlayer player, ServerLevel level) {
+        if (!player.isInWater()) {
+            return false;
+        }
+        BlockPos.MutableBlockPos position = player.blockPosition().mutable();
+        if (!level.getFluidState(position).is(FluidTags.WATER)) {
+            position.set(player.getX(), player.getEyeY() - 0.1D, player.getZ());
+        }
+        if (!level.getFluidState(position).is(FluidTags.WATER)) {
+            return false;
+        }
+        while (position.getY() < level.getMaxBuildHeight() - 1
+            && level.getFluidState(position.above()).is(FluidTags.WATER)) {
+            position.move(0, 1, 0);
+        }
+        return level.getFluidState(position.below()).is(FluidTags.WATER);
+    }
+
+    private static Vec3 findNearbyDryPosition(
+        ServerLevel level, BlockPos origin, int maxRadius
+    ) {
+        for (int radius = 1; radius <= maxRadius; radius++) {
+            for (int offsetX = -radius; offsetX <= radius; offsetX++) {
+                for (int offsetZ = -radius; offsetZ <= radius; offsetZ++) {
+                    if (Math.abs(offsetX) != radius && Math.abs(offsetZ) != radius) {
+                        continue;
+                    }
+                    int x = origin.getX() + offsetX;
+                    int z = origin.getZ() + offsetZ;
+                    int groundY = level.getHeight(
+                        Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z
+                    ) - 1;
+                    BlockPos ground = new BlockPos(x, groundY, z);
+                    BlockPos feet = ground.above();
+                    if (level.getFluidState(ground).is(FluidTags.WATER)
+                        || !level.getFluidState(feet).isEmpty()
+                        || !level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+                        || !level.getBlockState(feet.above())
+                            .getCollisionShape(level, feet.above()).isEmpty()) {
+                        continue;
+                    }
+                    return new Vec3(x + 0.5D, feet.getY(), z + 0.5D);
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean isSurfRequirement(String requirement) {
+        return "surf".equals(fieldMoveName(requirement));
+    }
+
     private static boolean hasFieldMove(ServerPlayer player, String requirement) {
-        return player.getPersistentData().getBoolean(FIELD_MOVE_PREFIX + fieldMoveName(requirement));
+        return FieldMoveRidingAccess.isEnabled(player, fieldMoveName(requirement));
     }
 
     private static String fieldMoveName(String requirement) {
@@ -2654,6 +2821,17 @@ public final class CobbleventureBootstrap {
                         ))))
                 .then(Commands.literal("revoke")
                     .then(Commands.argument("move", StringArgumentType.word())
+                        .executes(context -> setFieldMove(
+                            context.getSource().getPlayerOrException(),
+                            StringArgumentType.getString(context, "move"), false
+                        ))))
+                .then(Commands.argument("move", StringArgumentType.word())
+                    .then(Commands.literal("on")
+                        .executes(context -> setFieldMove(
+                            context.getSource().getPlayerOrException(),
+                            StringArgumentType.getString(context, "move"), true
+                        )))
+                    .then(Commands.literal("off")
                         .executes(context -> setFieldMove(
                             context.getSource().getPlayerOrException(),
                             StringArgumentType.getString(context, "move"), false
@@ -2799,9 +2977,10 @@ public final class CobbleventureBootstrap {
     }
 
     private static int setFieldMove(ServerPlayer player, String move, boolean granted) {
-        player.getPersistentData().putBoolean(FIELD_MOVE_PREFIX + move, granted);
+        FieldMoveRidingAccess.setEnabled(player, move, granted);
         player.sendSystemMessage(Component.literal(
-            "[Cobbleventure] " + move + " 필드 기술을 " + (granted ? "해금했습니다." : "회수했습니다.")
+            "[Cobbleventure] " + FieldMoveRidingAccess.displayName(move)
+                + " 필드 기술을 " + (granted ? "해금했습니다." : "회수했습니다.")
         ));
         return 1;
     }
@@ -3070,6 +3249,16 @@ public final class CobbleventureBootstrap {
         for (JsonElement element : compiled.getAsJsonArray("houses")) {
             houses.add(parseCompiledTownPlot(element.getAsJsonObject()));
         }
+        List<TownDecoration> decorations = new ArrayList<>();
+        if (compiled.has("decorations")) {
+            for (JsonElement element : compiled.getAsJsonArray("decorations")) {
+                JsonObject decoration = element.getAsJsonObject();
+                decorations.add(new TownDecoration(
+                    requiredString(decoration, "type"),
+                    decoration.get("x").getAsInt(), decoration.get("z").getAsInt()
+                ));
+            }
+        }
         List<Point> externalExits = new ArrayList<>();
         if (compiled.has("external_exit_points")) {
             for (JsonElement element : compiled.getAsJsonArray("external_exit_points")) {
@@ -3078,7 +3267,8 @@ public final class CobbleventureBootstrap {
         }
         return new TownLayout(
             List.copyOf(roads), List.copyOf(accessRoads),
-            Map.copyOf(facilities), List.copyOf(houses), List.copyOf(externalExits)
+            Map.copyOf(facilities), List.copyOf(houses),
+            List.copyOf(decorations), List.copyOf(externalExits)
         );
     }
 
@@ -6150,6 +6340,9 @@ public final class CobbleventureBootstrap {
         }
         int trees = 0;
         long baseSeed = world.seed() ^ ((long) settlement.id().hashCode() << 32);
+        int[] streetDecorations = decoratePlannedTownStreets(
+            level, world, settlement, biome, baseSeed
+        );
         for (int gridX = bounds.minX(); gridX <= bounds.maxX(); gridX += spacing) {
             for (int gridZ = bounds.minZ(); gridZ <= bounds.maxZ(); gridZ += spacing) {
                 long seed = baseSeed
@@ -6186,10 +6379,114 @@ public final class CobbleventureBootstrap {
             level, world, settlement, biome, bounds, baseSeed
         );
         LOGGER.info(
-            "Town landscaping completed: settlement={}, biome={}, cells={}, trees={}, groundDecorations={}",
+            "Town landscaping completed: settlement={}, biome={}, cells={}, trees={}, groundDecorations={}, streetLamps={}, streetTrees={}",
             settlement.id(), biome, townCellCount(world, settlement.id()), trees,
-            groundDecorations
+            groundDecorations, streetDecorations[0], streetDecorations[1]
         );
+    }
+
+    private static int[] decoratePlannedTownStreets(
+        ServerLevel level,
+        HexWorldPlan world,
+        SettlementPlan settlement,
+        String biome,
+        long baseSeed
+    ) {
+        int lamps = 0;
+        int trees = 0;
+        Point center = new Point(settlement.center().x(), settlement.center().z());
+        for (TownDecoration decoration : generateTownLayout(settlement).decorations()) {
+            int x = center.x() + decoration.x();
+            int z = center.z() + decoration.z();
+            TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
+            if (sample == null || !sample.kind().equals("town")
+                || !sample.owner().equals(settlement.id())) {
+                continue;
+            }
+            int groundY = terrainGroundY(world, sample, x, z);
+            BlockPos ground = new BlockPos(x, groundY, z);
+            long seed = baseSeed ^ x * 341873128712L ^ z * 132897987541L;
+            if (decoration.type().equals("street_lamp")) {
+                if (isOpenTownLandscapeSite(level, world, sample, x, groundY, z, 0, 5)
+                    && placeTownStreetLamp(level, world, settlement, ground)) {
+                    lamps++;
+                }
+            } else if (decoration.type().equals("street_tree")
+                && isOpenTownLandscapeSite(level, world, sample, x, groundY, z, 2, 7)
+                && placeTownStreetTree(level, biome, ground, seed)) {
+                trees++;
+            }
+        }
+        return new int[] {lamps, trees};
+    }
+
+    private static boolean placeTownStreetLamp(
+        ServerLevel level, HexWorldPlan world, SettlementPlan settlement, BlockPos ground
+    ) {
+        BlockState base = townStreetLampBase(world, settlement);
+        level.setBlock(ground.above(), base, 2);
+        level.setBlock(ground.above(2), Blocks.DARK_OAK_FENCE.defaultBlockState(), 2);
+        level.setBlock(ground.above(3), Blocks.DARK_OAK_FENCE.defaultBlockState(), 2);
+        level.setBlock(ground.above(4), Blocks.LANTERN.defaultBlockState(), 2);
+        return true;
+    }
+
+    private static BlockState townStreetLampBase(
+        HexWorldPlan world, SettlementPlan settlement
+    ) {
+        HexSettlement hex = world.settlements().get(settlement.id());
+        String biome = hex == null ? "" : hex.townBiome();
+        if (biome.contains("badlands")) return Blocks.RED_SANDSTONE_WALL.defaultBlockState();
+        if (biome.contains("beach") || biome.contains("desert")) {
+            return Blocks.SANDSTONE_WALL.defaultBlockState();
+        }
+        if (biome.contains("peak") || biome.contains("mountain")) {
+            return Blocks.COBBLESTONE_WALL.defaultBlockState();
+        }
+        return Blocks.STONE_BRICK_WALL.defaultBlockState();
+    }
+
+    private static boolean placeTownStreetTree(
+        ServerLevel level, String biome, BlockPos ground, long seed
+    ) {
+        BlockState log;
+        BlockState leaves;
+        if (biome.contains("badlands")) {
+            log = Blocks.ACACIA_LOG.defaultBlockState();
+            leaves = Blocks.ACACIA_LEAVES.defaultBlockState();
+        } else if (biome.contains("peak") || biome.contains("mountain")) {
+            log = Blocks.SPRUCE_LOG.defaultBlockState();
+            leaves = Blocks.SPRUCE_LEAVES.defaultBlockState();
+        } else if (biome.contains("flower") && (seed & 1L) == 0L) {
+            log = Blocks.CHERRY_LOG.defaultBlockState();
+            leaves = Blocks.CHERRY_LEAVES.defaultBlockState();
+        } else if (biome.contains("beach")) {
+            log = Blocks.JUNGLE_LOG.defaultBlockState();
+            leaves = Blocks.JUNGLE_LEAVES.defaultBlockState();
+        } else {
+            log = Blocks.OAK_LOG.defaultBlockState();
+            leaves = Blocks.OAK_LEAVES.defaultBlockState();
+        }
+        leaves = leaves.setValue(LeavesBlock.PERSISTENT, true);
+        BlockPos trunk = ground.above();
+        for (int y = 0; y < 4; y++) {
+            level.setBlock(trunk.above(y), log, 2);
+        }
+        BlockPos crown = trunk.above(3);
+        for (int offsetX = -2; offsetX <= 2; offsetX++) {
+            for (int offsetZ = -2; offsetZ <= 2; offsetZ++) {
+                if (Math.abs(offsetX) + Math.abs(offsetZ) > 3
+                    || (offsetX == 0 && offsetZ == 0)) continue;
+                level.setBlock(crown.offset(offsetX, 0, offsetZ), leaves, 2);
+            }
+        }
+        for (int offsetX = -1; offsetX <= 1; offsetX++) {
+            for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
+                level.setBlock(crown.offset(offsetX, 1, offsetZ), leaves, 2);
+            }
+        }
+        level.setBlock(crown.above(2), leaves, 2);
+        return true;
     }
 
     private static HexBounds townLandscapeBounds(
@@ -7534,8 +7831,11 @@ public final class CobbleventureBootstrap {
         List<TownRoad> accessRoads,
         Map<String, TownPlot> facilities,
         List<TownPlot> houses,
+        List<TownDecoration> decorations,
         List<Point> externalExits
     ) {}
+
+    record TownDecoration(String type, int x, int z) {}
 
     private static final class PreviewRandom {
         private int value;

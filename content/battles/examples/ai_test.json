@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/ai_test",
+  "enabled": true,
+  "name": { "ko_kr": "AI 맨 테스트 배틀", "en_us": "AI Man Test Battle" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/ai_test",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {},
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:rattata",
+        "level": 5,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": null,
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": ["tackle", "tail_whip"],
+        "ivs": {},
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ]
+  }
+}

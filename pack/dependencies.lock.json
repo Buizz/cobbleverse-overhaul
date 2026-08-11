@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "draft",
+  "status": "locked",
   "profile": "cobbleventure-dev",
   "minecraft": {
     "version": "1.21.1",
@@ -35,6 +35,19 @@
         "file_id": 7940651
       },
       "reason": "플레이어 메뉴의 포켓네비와 지역별 포켓몬 출현 정보"
+    },
+    {
+      "id": "cloth_config",
+      "display_name": "Cloth Config API",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "15.0.140",
+      "curseforge": {
+        "project_id": 348521,
+        "file_id": 5729127
+      },
+      "reason": "Cobblemon Casino 2.0.0의 필수 설정 화면 API"
     },
     {
       "id": "kotlin_for_forge",
@@ -100,6 +113,19 @@
         "file_id": 6604564
       },
       "reason": "Cobblemon Additions 상점과 백화점의 화폐 및 상인 기능"
+    },
+    {
+      "id": "cobblemon_casino",
+      "display_name": "Cobblemon Casino",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "2.0.0",
+      "curseforge": {
+        "project_id": 1572769,
+        "file_id": 8235485
+      },
+      "reason": "슬롯머신, 블랙잭, 가챠와 카지노 칩 경제를 제공하는 기본 카지노 시설"
     },
     {
       "id": "architectury_api",
@@ -247,7 +273,7 @@
     {
       "id": "easy_npc_bundle",
       "display_name": "Easy NPC Bundle",
-      "classification": "profile-optional",
+      "classification": "required",
       "side": "both",
       "enabled": true,
       "version": "7.0.1",
@@ -260,7 +286,7 @@
     {
       "id": "easy_npc",
       "display_name": "Easy NPC Core",
-      "classification": "profile-optional",
+      "classification": "required",
       "side": "both",
       "enabled": true,
       "version": "7.0.1",
@@ -273,7 +299,7 @@
     {
       "id": "easy_npc_config_ui",
       "display_name": "Easy NPC Config UI",
-      "classification": "profile-optional",
+      "classification": "required",
       "side": "both",
       "enabled": true,
       "version": "7.0.1",
@@ -286,15 +312,15 @@
     {
       "id": "tbcs",
       "display_name": "Cobblemon Trainer Battle Commands",
-      "classification": "profile-optional",
+      "classification": "required",
       "side": "both",
-      "enabled": false,
-      "version": null,
+      "enabled": true,
+      "version": "0.14.1-beta",
       "curseforge": {
-        "project_id": null,
-        "file_id": null
+        "project_id": 1172731,
+        "file_id": 7858400
       },
-      "reason": "명령 기반 NPC와 RCT API 전투 연결 비교안"
+      "reason": "EasyNPC와 RCT API 트레이너를 명령 기반 전투로 연결"
     }
   ],
   "content_packs": [
@@ -302,7 +328,7 @@
       "id": "cobblemon_additions",
       "display_name": "Cobblemon Additions",
       "kind": "datapack",
-      "classification": "required-candidate",
+      "classification": "required",
       "side": "both",
       "selected": true,
       "version": "4.2.1",

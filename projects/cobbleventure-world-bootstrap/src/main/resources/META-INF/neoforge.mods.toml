@@ -27,3 +27,10 @@ type="required"
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
+
+[[dependencies.cobbleventure_bootstrap]]
+modId="cobblemon"
+type="required"
+versionRange="[${cobblemon_version},1.8)"
+ordering="AFTER"
+side="BOTH"

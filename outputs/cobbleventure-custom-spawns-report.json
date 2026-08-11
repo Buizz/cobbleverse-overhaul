@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "summary": {
+    "resource_files": 1025,
+    "active_spawns": 3120,
+    "excluded_spawns": 1,
+    "biome_overrides": 0,
+    "weight_overrides": 0,
+    "level_overrides": 0,
+    "renamed_duplicate_ids": 3
+  },
+  "dimensions": {
+    "cobbleventure:generation_1": 527,
+    "cobbleventure:generation_2": 398,
+    "cobbleventure:generation_3": 369,
+    "cobbleventure:generation_4": 267,
+    "cobbleventure:generation_5": 433,
+    "cobbleventure:generation_6": 245,
+    "cobbleventure:generation_7": 241,
+    "cobbleventure:generation_8": 363,
+    "cobbleventure:generation_9": 277
+  },
+  "source_status": {
+    "COBBLEVERSE 수정": 788,
+    "COBBLEVERSE 추가": 307,
+    "Cobblemon 동일": 2025
+  },
+  "source_workbook": "코블몬_바이옴_스폰_정리.xlsx",
+  "output": "pack/overrides/development-placeholder/config/paxi/datapacks/zzz-cobbleventure-spawns.zip",
+  "development_notice": "내부 개발용 생성물입니다. 원본 데이터의 배포 조건을 확인한 뒤 공개 배포하세요."
+}

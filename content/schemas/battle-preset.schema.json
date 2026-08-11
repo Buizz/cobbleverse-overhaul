@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/battle-preset.schema.json",
+  "title": "Cobbleventure battle preset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "enabled", "name", "battle"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9_.-]+:battle/[a-z0-9_./-]+$" },
+    "enabled": { "type": "boolean" },
+    "name": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
+    "battle": { "$ref": "content-bundle.schema.json#/$defs/battle" }
+  }
+}

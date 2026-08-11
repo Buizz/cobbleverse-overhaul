@@ -115,5 +115,18 @@
   "key.cobbleventure_player_menu.bag_shortcut_7": "Use Bag Shortcut 7",
   "key.cobbleventure_player_menu.bag_shortcut_8": "Use Bag Shortcut 8",
   "key.cobbleventure_player_menu.bag_shortcut_9": "Use Bag Shortcut 9",
-  "key.cobbleventure_player_menu.bag_shortcut_10": "Use Bag Shortcut 10"
+  "key.cobbleventure_player_menu.bag_shortcut_10": "Use Bag Shortcut 10",
+  "screen.cobbleventure_player_menu.starter.title": "Your Fated Starter Pokémon",
+  "screen.cobbleventure_player_menu.starter.hint": "Press stop to decide who will join your adventure",
+  "screen.cobbleventure_player_menu.starter.stop": "Stop!",
+  "screen.cobbleventure_player_menu.starter.waiting": "Confirming the result…",
+  "screen.cobbleventure_player_menu.starter.received": "%s joined your adventure!",
+  "screen.cobbleventure_player_menu.starter.failed": "The starter Pokémon could not be awarded",
+  "screen.cobbleventure_player_menu.starter.invalid_session": "This roulette expired. Run the command again",
+  "screen.cobbleventure_player_menu.starter.unavailable": "A starter was already selected or selection is currently unavailable",
+  "screen.cobbleventure_player_menu.starter.close": "Begin Adventure",
+  "screen.cobbleventure_player_menu.starter.retry": "Close",
+  "commands.cobbleventure_player_menu.starter.already_selected": "You already selected a starter Pokémon",
+  "commands.cobbleventure_player_menu.starter.locked": "You cannot select a starter Pokémon right now",
+  "commands.cobbleventure_player_menu.starter.empty": "No starter Pokémon are available for the roulette"
 }

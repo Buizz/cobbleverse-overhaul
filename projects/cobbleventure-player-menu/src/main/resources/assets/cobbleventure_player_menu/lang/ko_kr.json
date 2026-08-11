@@ -115,5 +115,18 @@
   "key.cobbleventure_player_menu.bag_shortcut_7": "가방 등록 슬롯 7 사용",
   "key.cobbleventure_player_menu.bag_shortcut_8": "가방 등록 슬롯 8 사용",
   "key.cobbleventure_player_menu.bag_shortcut_9": "가방 등록 슬롯 9 사용",
-  "key.cobbleventure_player_menu.bag_shortcut_10": "가방 등록 슬롯 10 사용"
+  "key.cobbleventure_player_menu.bag_shortcut_10": "가방 등록 슬롯 10 사용",
+  "screen.cobbleventure_player_menu.starter.title": "운명의 스타팅 포켓몬",
+  "screen.cobbleventure_player_menu.starter.hint": "멈춤을 눌러 함께 모험할 포켓몬을 결정하세요",
+  "screen.cobbleventure_player_menu.starter.stop": "멈춤!",
+  "screen.cobbleventure_player_menu.starter.waiting": "결과를 확인하는 중…",
+  "screen.cobbleventure_player_menu.starter.received": "%s이(가) 새로운 동료가 되었습니다!",
+  "screen.cobbleventure_player_menu.starter.failed": "스타팅 포켓몬을 지급하지 못했습니다",
+  "screen.cobbleventure_player_menu.starter.invalid_session": "룰렛 시간이 만료되었습니다. 명령을 다시 실행하세요",
+  "screen.cobbleventure_player_menu.starter.unavailable": "이미 스타팅 포켓몬을 선택했거나 현재 선택할 수 없습니다",
+  "screen.cobbleventure_player_menu.starter.close": "모험 시작",
+  "screen.cobbleventure_player_menu.starter.retry": "닫기",
+  "commands.cobbleventure_player_menu.starter.already_selected": "이미 스타팅 포켓몬을 선택했습니다",
+  "commands.cobbleventure_player_menu.starter.locked": "현재 스타팅 포켓몬을 선택할 수 없습니다",
+  "commands.cobbleventure_player_menu.starter.empty": "룰렛에 사용할 스타팅 포켓몬이 없습니다"
 }

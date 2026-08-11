@@ -1,0 +1,188 @@
+package dev.buizz.cobbleventure.playermenu;
+
+import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.api.storage.player.GeneralPlayerData;
+import com.cobblemon.mod.common.config.starter.StarterCategory;
+import dev.buizz.cobbleventure.playermenu.client.StarterRouletteClient;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+
+/** Server-authoritative starter roulette sessions and claims. */
+public final class StarterRouletteNetwork {
+    private static final String VERSION = "1";
+    private static final int SEQUENCE_LENGTH = 96;
+    private static final long SESSION_LIFETIME_MILLIS = 5L * 60L * 1000L;
+    private static final Map<UUID, Session> SESSIONS = new HashMap<>();
+
+    private StarterRouletteNetwork() {}
+
+    public static void register(IEventBus modBus) {
+        modBus.addListener(StarterRouletteNetwork::registerPayloads);
+        NeoForge.EVENT_BUS.addListener(StarterRouletteCommands::register);
+    }
+
+    static int open(ServerPlayer player) {
+        GeneralPlayerData data = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
+        if (data.getStarterSelected()) {
+            player.sendSystemMessage(Component.translatable("commands.cobbleventure_player_menu.starter.already_selected"));
+            return 0;
+        }
+        if (data.getStarterLocked()) {
+            player.sendSystemMessage(Component.translatable("commands.cobbleventure_player_menu.starter.locked"));
+            return 0;
+        }
+
+        List<StarterEntry> pool = starterPool(player);
+        if (pool.isEmpty()) {
+            player.sendSystemMessage(Component.translatable("commands.cobbleventure_player_menu.starter.empty"));
+            return 0;
+        }
+
+        List<StarterEntry> sequence = shuffledSequence(pool);
+        UUID token = UUID.randomUUID();
+        SESSIONS.put(player.getUUID(), new Session(token, sequence, System.currentTimeMillis() + SESSION_LIFETIME_MILLIS));
+        List<String> species = sequence.stream().map(StarterEntry::species).toList();
+        StarterRouletteOpenPayload payload = new StarterRouletteOpenPayload(token, species);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, payload);
+        return 1;
+    }
+
+    public static void claim(UUID token, int sequenceIndex) {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(new StarterRouletteClaimPayload(token, sequenceIndex));
+    }
+
+    private static List<StarterEntry> starterPool(ServerPlayer player) {
+        List<StarterEntry> result = new ArrayList<>();
+        for (StarterCategory category : Cobblemon.INSTANCE.getStarterHandler().getStarterList(player)) {
+            for (int index = 0; index < category.getPokemon().size(); index++) {
+                String species = category.getPokemon().get(index).asRenderablePokemon()
+                    .getSpecies().getResourceIdentifier().toString();
+                result.add(new StarterEntry(category.getName(), index, species));
+            }
+        }
+        return result;
+    }
+
+    private static List<StarterEntry> shuffledSequence(List<StarterEntry> pool) {
+        List<StarterEntry> result = new ArrayList<>(SEQUENCE_LENGTH);
+        List<StarterEntry> batch = new ArrayList<>(pool);
+        while (result.size() < SEQUENCE_LENGTH) {
+            Collections.shuffle(batch);
+            for (StarterEntry entry : batch) {
+                if (result.size() >= SEQUENCE_LENGTH) break;
+                if (!result.isEmpty() && result.getLast().equals(entry) && batch.size() > 1) continue;
+                result.add(entry);
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private static void registerPayloads(RegisterPayloadHandlersEvent event) {
+        PayloadRegistrar registrar = event.registrar(VERSION);
+        registrar.playToClient(StarterRouletteOpenPayload.TYPE, StarterRouletteOpenPayload.STREAM_CODEC,
+            StarterRouletteNetwork::handleOpen);
+        registrar.playToServer(StarterRouletteClaimPayload.TYPE, StarterRouletteClaimPayload.STREAM_CODEC,
+            StarterRouletteNetwork::handleClaim);
+        registrar.playToClient(StarterRouletteResultPayload.TYPE, StarterRouletteResultPayload.STREAM_CODEC,
+            StarterRouletteNetwork::handleResult);
+    }
+
+    private static void handleOpen(StarterRouletteOpenPayload payload, IPayloadContext context) {
+        StarterRouletteClient.open(payload.token(), payload.species());
+    }
+
+    private static void handleClaim(StarterRouletteClaimPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        Session session = SESSIONS.remove(player.getUUID());
+        if (session == null || !session.token().equals(payload.token()) || session.expiresAt() < System.currentTimeMillis()
+            || payload.sequenceIndex() < 0 || payload.sequenceIndex() >= session.sequence().size()) {
+            context.reply(new StarterRouletteResultPayload(false, "screen.cobbleventure_player_menu.starter.invalid_session", ""));
+            return;
+        }
+
+        GeneralPlayerData data = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
+        if (data.getStarterSelected() || data.getStarterLocked()) {
+            context.reply(new StarterRouletteResultPayload(false, "screen.cobbleventure_player_menu.starter.unavailable", ""));
+            return;
+        }
+
+        StarterEntry selected = session.sequence().get(payload.sequenceIndex());
+        Cobblemon.INSTANCE.getStarterHandler().chooseStarter(player, selected.category(), selected.categoryIndex());
+        boolean awarded = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player).getStarterSelected();
+        context.reply(new StarterRouletteResultPayload(
+            awarded,
+            awarded ? "screen.cobbleventure_player_menu.starter.received" : "screen.cobbleventure_player_menu.starter.failed",
+            selected.species()
+        ));
+    }
+
+    private static void handleResult(StarterRouletteResultPayload payload, IPayloadContext context) {
+        StarterRouletteClient.result(payload.success(), payload.translationKey(), payload.species());
+    }
+
+    private record StarterEntry(String category, int categoryIndex, String species) {}
+    private record Session(UUID token, List<StarterEntry> sequence, long expiresAt) {}
+
+    public record StarterRouletteOpenPayload(UUID token, List<String> species) implements CustomPacketPayload {
+        public static final Type<StarterRouletteOpenPayload> TYPE = new Type<>(id("starter_roulette_open"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, StarterRouletteOpenPayload> STREAM_CODEC =
+            StreamCodec.ofMember(StarterRouletteOpenPayload::write, StarterRouletteOpenPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUUID(token);
+            buffer.writeVarInt(species.size());
+            for (String value : species) buffer.writeUtf(value);
+        }
+        private static StarterRouletteOpenPayload read(RegistryFriendlyByteBuf buffer) {
+            UUID token = buffer.readUUID();
+            int size = Math.max(0, Math.min(SEQUENCE_LENGTH, buffer.readVarInt()));
+            List<String> species = new ArrayList<>(size);
+            for (int index = 0; index < size; index++) species.add(buffer.readUtf());
+            return new StarterRouletteOpenPayload(token, List.copyOf(species));
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record StarterRouletteClaimPayload(UUID token, int sequenceIndex) implements CustomPacketPayload {
+        public static final Type<StarterRouletteClaimPayload> TYPE = new Type<>(id("starter_roulette_claim"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, StarterRouletteClaimPayload> STREAM_CODEC =
+            StreamCodec.ofMember(StarterRouletteClaimPayload::write, StarterRouletteClaimPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) { buffer.writeUUID(token); buffer.writeVarInt(sequenceIndex); }
+        private static StarterRouletteClaimPayload read(RegistryFriendlyByteBuf buffer) {
+            return new StarterRouletteClaimPayload(buffer.readUUID(), buffer.readVarInt());
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record StarterRouletteResultPayload(boolean success, String translationKey, String species)
+        implements CustomPacketPayload {
+        public static final Type<StarterRouletteResultPayload> TYPE = new Type<>(id("starter_roulette_result"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, StarterRouletteResultPayload> STREAM_CODEC =
+            StreamCodec.ofMember(StarterRouletteResultPayload::write, StarterRouletteResultPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeBoolean(success); buffer.writeUtf(translationKey); buffer.writeUtf(species);
+        }
+        private static StarterRouletteResultPayload read(RegistryFriendlyByteBuf buffer) {
+            return new StarterRouletteResultPayload(buffer.readBoolean(), buffer.readUtf(), buffer.readUtf());
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    private static ResourceLocation id(String path) {
+        return ResourceLocation.fromNamespaceAndPath(CobbleventurePlayerMenu.MOD_ID, path);
+    }
+}

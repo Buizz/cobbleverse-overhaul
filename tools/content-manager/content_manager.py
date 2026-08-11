@@ -85,11 +85,14 @@ AI_DIFFICULTIES = {
 OPERATION_TYPES = {
     "always",
     "flag_equals",
+    "has_item",
     "next_dialogue",
     "close_dialogue",
     "start_battle",
     "set_flag",
     "give_item",
+    "give_money",
+    "grant_loot",
     "start_quest",
     "complete_quest",
     "teleport",
@@ -268,8 +271,22 @@ def _validate_custom_town_layout(
     return cells
 
 
-def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
+def validate_hex_worlds(
+    root: Path,
+    settlement_ids: set[str],
+    cave_documents: dict[str, dict[str, Any]] | None = None,
+) -> list[Issue]:
     issues: list[Issue] = []
+    if cave_documents is None:
+        cave_documents = {}
+        cave_dir = root / "content" / "caves"
+        for cave_path in cave_dir.rglob("*.json") if cave_dir.is_dir() else []:
+            try:
+                cave_data = load_json(cave_path)
+                if isinstance(cave_data, dict) and isinstance(cave_data.get("id"), str):
+                    cave_documents[cave_data["id"]] = cave_data
+            except (OSError, json.JSONDecodeError, DuplicateKeyError):
+                continue
 
     def validate_terrain(value: Any, file: Path, data_path: str) -> None:
         if not isinstance(value, dict):
@@ -543,6 +560,53 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                     _issue(issues, "error", path, f"{override_path}.{field}", f"지원하지 않는 {field} 값입니다: {value}")
             if configured_fields == 0:
                 _issue(issues, "error", path, override_path, "온도, 습도, 날씨 중 하나 이상을 덮어써야 합니다.")
+        cave_entrances = world.get("cave_entrances", [])
+        if not isinstance(cave_entrances, list):
+            _issue(issues, "error", path, "$.cave_entrances", "동굴 입구 목록은 배열이어야 합니다.")
+            cave_entrances = []
+        seen_cave_entrance_ids: set[str] = set()
+        seen_cave_pairs: set[tuple[str, str]] = set()
+        cave_entrance_anchors: dict[str, tuple[int, int]] = {}
+        for index, placement in enumerate(cave_entrances):
+            placement_path = f"$.cave_entrances[{index}]"
+            if not isinstance(placement, dict):
+                _issue(issues, "error", path, placement_path, "동굴 입구 배치는 객체여야 합니다.")
+                continue
+            placement_id = placement.get("id")
+            if not isinstance(placement_id, str) or not RESOURCE_ID.fullmatch(placement_id) or placement_id in seen_cave_entrance_ids:
+                _issue(issues, "error", path, f"{placement_path}.id", "유일한 동굴 입구 리소스 ID가 필요합니다.")
+            else:
+                seen_cave_entrance_ids.add(placement_id)
+            cave_id = placement.get("cave")
+            entrance_id = placement.get("entrance")
+            cave = cave_documents.get(cave_id) if isinstance(cave_id, str) else None
+            if cave is None:
+                _issue(issues, "error", path, f"{placement_path}.cave", f"존재하지 않는 동굴 ID: {cave_id}")
+            entrance_ids = {
+                item.get("id") for item in cave.get("entrances", [])
+                if isinstance(item, dict) and isinstance(item.get("id"), str)
+            } if cave else set()
+            if not isinstance(entrance_id, str) or entrance_id not in entrance_ids:
+                _issue(issues, "error", path, f"{placement_path}.entrance", f"동굴에 없는 내부 입구 ID: {entrance_id}")
+            pair = (str(cave_id), str(entrance_id))
+            if pair in seen_cave_pairs:
+                _issue(issues, "error", path, placement_path, "같은 동굴 내부 입구를 월드맵에 중복 배치할 수 없습니다.")
+            seen_cave_pairs.add(pair)
+            anchor = placement.get("anchor")
+            if not isinstance(anchor, dict) or not all(isinstance(anchor.get(key), int) and not isinstance(anchor.get(key), bool) for key in ("q", "r")):
+                _issue(issues, "error", path, f"{placement_path}.anchor", "정수 axial 좌표 q, r이 필요합니다.")
+            elif isinstance(placement_id, str):
+                cave_entrance_anchors[placement_id] = (anchor["q"], anchor["r"])
+            _resource_id(placement.get("structure"), issues, path, f"{placement_path}.structure")
+            center = placement.get("pokemon_center")
+            if not isinstance(center, dict):
+                _issue(issues, "error", path, f"{placement_path}.pokemon_center", "모든 동굴 입구에는 포켓몬센터 설정이 필요합니다.")
+            else:
+                _resource_id(center.get("structure"), issues, path, f"{placement_path}.pokemon_center.structure")
+                offset = center.get("offset")
+                if not isinstance(offset, dict) or not all(isinstance(offset.get(key), int) and not isinstance(offset.get(key), bool) for key in ("q", "r")):
+                    _issue(issues, "error", path, f"{placement_path}.pokemon_center.offset", "포켓몬센터의 정수 axial 오프셋 q, r이 필요합니다.")
+
         connections = world.get("connections")
         if not isinstance(connections, list):
             _issue(issues, "error", path, "$.connections", "연결 목록은 배열이어야 합니다.")
@@ -561,9 +625,9 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                 seen_connections.add(connection_id)
             for field in ("from", "to"):
                 target = connection.get(field)
-                if target is not None and target not in world_settlements:
-                    _issue(issues, "error", path, f"{connection_path}.{field}", f"월드 지도에 없는 마을입니다: {target}")
-                elif isinstance(target, str):
+                if target is not None and target not in world_settlements and target not in cave_entrance_anchors:
+                    _issue(issues, "error", path, f"{connection_path}.{field}", f"월드 지도에 없는 마을 또는 동굴 입구입니다: {target}")
+                elif isinstance(target, str) and target in world_settlements:
                     connection_degrees[target] = connection_degrees.get(target, 0) + 1
             boundary = connection.get("boundary_profile")
             if boundary is not None and boundary not in boundary_ids:
@@ -609,12 +673,25 @@ def validate_hex_worlds(root: Path, settlement_ids: set[str]) -> list[Issue]:
                 distance = (abs(q1 - q2) + abs(r1 - r2) + abs((-q1 - r1) - (-q2 - r2))) // 2
                 if distance != 1:
                     _issue(issues, "error", path, f"{connection_path}.cells[{cell_index}]", "길 셀은 앞 셀과 맞닿아야 합니다.")
+            for field, endpoint_index in (("from", 0), ("to", -1)):
+                target = connection.get(field)
+                entrance_anchor = cave_entrance_anchors.get(target)
+                if entrance_anchor is not None and coordinates and coordinates[endpoint_index] != entrance_anchor:
+                    _issue(issues, "error", path, f"{connection_path}.cells", f"길의 {field} 끝은 동굴 입구 {target} 좌표까지 이어져야 합니다.")
             if anchor_coordinates and any(anchor not in coordinates for anchor in anchor_coordinates):
                 _issue(issues, "error", path, f"{connection_path}.anchors", "모든 길 앵커는 계산된 경로 셀 위에 있어야 합니다.")
         for settlement_id, exit_count in custom_exit_counts.items():
             route_count = connection_degrees.get(settlement_id, 0)
             if exit_count < route_count:
                 _issue(issues, "error", path, "$.connections", f"커스텀 마을 {settlement_id}은 외부 연결 {route_count}개에 맞춰 출구를 최소 {route_count}개 지정해야 합니다.")
+        connected_targets = {
+            connection.get(field)
+            for connection in connections if isinstance(connection, dict)
+            for field in ("from", "to")
+        }
+        for entrance_id in cave_entrance_anchors:
+            if entrance_id not in connected_targets:
+                _issue(issues, "error", path, "$.connections", f"동굴 입구까지 이어지는 길이 필요합니다: {entrance_id}")
         objects = world.get("objects", [])
         if not isinstance(objects, list):
             _issue(issues, "error", path, "$.objects", "커스텀 오브젝트 목록은 배열이어야 합니다.")
@@ -725,6 +802,12 @@ def validate_biome_catalogs(root: Path) -> list[Issue]:
 def preview_biome(root: Path, request: dict[str, Any]) -> dict[str, Any]:
     catalog = load_biome_catalog(root)
     pokemon = load_pokemon_habitats(root).get("pokemon", [])
+    return _preview_biome_data(catalog, pokemon, request)
+
+
+def _preview_biome_data(
+    catalog: dict[str, Any], pokemon: list[dict[str, Any]], request: dict[str, Any]
+) -> dict[str, Any]:
     profiles = {entry["id"]: entry for entry in catalog.get("profiles", []) if isinstance(entry, dict) and isinstance(entry.get("id"), str)}
     selected: list[dict[str, Any]] = []
     unconditional = set(request.get("unconditional_spawns", []))
@@ -815,6 +898,173 @@ def load_world_layout(root: Path, generation: int = 1) -> dict[str, Any]:
     return data
 
 
+def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
+    """Resolve the saved world layout into per-cell Pokemon spawn candidates."""
+    world = load_world_layout(root, generation)
+    biome_catalog = load_biome_catalog(root)
+    pokemon = load_pokemon_habitats(root).get("pokemon", [])
+    profiles = {
+        entry["id"]: entry
+        for entry in biome_catalog.get("profiles", [])
+        if isinstance(entry, dict) and isinstance(entry.get("id"), str)
+    }
+    profiles_by_biome: dict[str, list[str]] = {}
+    for profile_id, profile in profiles.items():
+        for biome in profile.get("minecraft_biomes", []):
+            if isinstance(biome, str):
+                profiles_by_biome.setdefault(biome, []).append(profile_id)
+
+    settlement_documents: dict[str, dict[str, Any]] = {}
+    settlement_dir = root / "content" / "settlements"
+    for path in settlement_dir.rglob("*.json") if settlement_dir.is_dir() else []:
+        try:
+            document = load_json(path)
+            if isinstance(document, dict) and isinstance(document.get("id"), str):
+                settlement_documents[document["id"]] = document
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+
+    environment_by_cell = {
+        (entry.get("q"), entry.get("r")): entry
+        for entry in world.get("environment_overrides", [])
+        if isinstance(entry, dict)
+        and isinstance(entry.get("q"), int)
+        and isinstance(entry.get("r"), int)
+    }
+    preview_cache: dict[str, dict[str, Any]] = {}
+
+    def resolve(
+        biome: str, settings: dict[str, Any] | None = None,
+        unconditional: list[str] | None = None, preferred_profile: str | None = None,
+    ) -> tuple[list[str], list[dict[str, Any]]]:
+        profile_ids = (
+            [preferred_profile]
+            if preferred_profile in profiles
+            else profiles_by_biome.get(biome, [])
+        )
+        merged: dict[str, dict[str, Any]] = {}
+        effective_settings = {"generation": generation, **(settings or {})}
+        for profile_id in profile_ids:
+            cache_key = json.dumps(
+                [profile_id, effective_settings, sorted(unconditional or [])],
+                ensure_ascii=False, sort_keys=True,
+            )
+            if cache_key not in preview_cache:
+                preview_cache[cache_key] = _preview_biome_data(
+                    biome_catalog,
+                    pokemon,
+                    {
+                        "profile_id": profile_id,
+                        "settings": effective_settings,
+                        "unconditional_spawns": unconditional or [],
+                    },
+                )
+            for entry in preview_cache[cache_key]["pokemon"]:
+                merged[entry["id"]] = entry
+        return profile_ids, sorted(merged.values(), key=lambda entry: entry.get("dex_number", 99999))
+
+    locations_by_cell: dict[tuple[int, int], dict[str, Any]] = {}
+    for tile in world.get("tiles", []):
+        if not isinstance(tile, dict):
+            continue
+        q, r, biome = tile.get("q"), tile.get("r"), tile.get("biome")
+        if not isinstance(q, int) or not isinstance(r, int) or not isinstance(biome, str):
+            continue
+        environment = environment_by_cell.get((q, r), {})
+        settings = {
+            key: environment[key]
+            for key in ("temperature", "humidity", "weather", "time", "rarities", "include_secondary")
+            if key in environment
+        }
+        profile_ids, candidates = resolve(biome, settings)
+        locations_by_cell[(q, r)] = {
+            "q": q, "r": r, "kind": "biome", "biome": biome,
+            "profile_ids": profile_ids,
+            "pokemon_ids": [entry["id"] for entry in candidates],
+            "count": len(candidates), "unmapped_biome": not profile_ids,
+        }
+
+    for node in world.get("settlements", []):
+        if not isinstance(node, dict) or not isinstance(node.get("anchor"), dict):
+            continue
+        anchor = node["anchor"]
+        if not isinstance(anchor.get("q"), int) or not isinstance(anchor.get("r"), int):
+            continue
+        settlement_id = node.get("settlement", "")
+        biome = node.get("town_biome", "minecraft:plains")
+        document = settlement_documents.get(settlement_id, {})
+        zone = next(
+            (
+                entry for entry in document.get("biome_layout", {}).get("zones", [])
+                if isinstance(entry, dict) and entry.get("biome") == biome
+            ),
+            None,
+        )
+        if zone is None:
+            zones = document.get("biome_layout", {}).get("zones", [])
+            zone = zones[0] if zones and isinstance(zones[0], dict) else {}
+        settings = zone.get("spawn_settings") if isinstance(zone.get("spawn_settings"), dict) else {}
+        unconditional = document.get("content_profile", {}).get("pokemon", {}).get("unconditional_spawns", [])
+        if not isinstance(unconditional, list):
+            unconditional = []
+        profile_ids, candidates = resolve(
+            biome, settings, unconditional, zone.get("habitat_profile")
+        )
+        custom_cells = {
+            (entry["q"], entry["r"])
+            for entry in node.get("town_footprint_cells", [])
+            if isinstance(entry, dict)
+            and isinstance(entry.get("q"), int)
+            and isinstance(entry.get("r"), int)
+        }
+        footprint = _town_footprint(
+            (anchor["q"], anchor["r"]), node.get("town_radius_cells", 1),
+            node.get("town_footprint_shape", "line_q"), custom_cells,
+        )
+        for q, r in footprint:
+            locations_by_cell[(q, r)] = {
+                "q": q, "r": r, "kind": "settlement", "biome": biome,
+                "settlement": settlement_id,
+                "profile_ids": profile_ids,
+                "pokemon_ids": [entry["id"] for entry in candidates],
+                "count": len(candidates), "unmapped_biome": not profile_ids,
+            }
+
+    available_ids = {
+        pokemon_id
+        for location in locations_by_cell.values()
+        for pokemon_id in location["pokemon_ids"]
+    }
+    available = [dict(entry) for entry in pokemon if entry.get("id") in available_ids]
+    unavailable = []
+    for entry in pokemon:
+        if entry.get("id") in available_ids:
+            continue
+        result = dict(entry)
+        result["unavailable_reason"] = (
+            "other_generation"
+            if entry.get("generation") != generation
+            else "no_matching_world_location"
+        )
+        unavailable.append(result)
+    available.sort(key=lambda entry: entry.get("dex_number", 99999))
+    unavailable.sort(key=lambda entry: entry.get("dex_number", 99999))
+    locations = sorted(locations_by_cell.values(), key=lambda entry: (entry["r"], entry["q"]))
+    return {
+        "generation": generation,
+        "world_id": world.get("id", ""),
+        "summary": {
+            "locations": len(locations),
+            "available": len(available),
+            "unavailable": len(unavailable),
+            "unmapped_locations": sum(entry["unmapped_biome"] for entry in locations),
+        },
+        "locations": locations,
+        "available_pokemon": available,
+        "unavailable_pokemon": unavailable,
+    }
+
+
 def save_world_layout(root: Path, data: Any, generation: int = 1) -> list[Issue]:
     if not 1 <= generation <= 9:
         raise ValueError("세대는 1 이상 9 이하여야 합니다.")
@@ -826,6 +1076,15 @@ def save_world_layout(root: Path, data: Any, generation: int = 1) -> list[Issue]
         for item in _list_documents(root, "settlements")
         if isinstance(item.get("id"), str) and item["id"]
     }
+    cave_documents: dict[str, dict[str, Any]] = {}
+    cave_dir = root / "content" / "caves"
+    for cave_path in cave_dir.rglob("*.json") if cave_dir.is_dir() else []:
+        try:
+            cave = load_json(cave_path)
+            if isinstance(cave, dict) and isinstance(cave.get("id"), str):
+                cave_documents[cave["id"]] = cave
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            continue
     with tempfile.TemporaryDirectory(prefix="cobbleventure-world-layout-") as directory:
         candidate_root = Path(directory)
         world_dir = candidate_root / "content" / "worlds"
@@ -839,7 +1098,7 @@ def save_world_layout(root: Path, data: Any, generation: int = 1) -> list[Issue]
             root / "content" / "catalogs" / "boundary-profiles.json",
             catalog_dir / "boundary-profiles.json",
         )
-        candidate_issues = validate_hex_worlds(candidate_root, settlement_ids)
+        candidate_issues = validate_hex_worlds(candidate_root, settlement_ids, cave_documents)
     issues = [
         Issue(issue.level, target.as_posix(), issue.path, issue.message)
         for issue in candidate_issues
@@ -967,18 +1226,50 @@ def _validate_operation(
         if target:
             dialogue_targets.append((data_path, target))
     elif operation_type == "start_battle":
-        trainer = _resource_id(operation.get("trainer"), issues, file, f"{data_path}.trainer")
-        if trainer and trainer != content_id:
-            _issue(issues, "error", file, f"{data_path}.trainer", "현재 콘텐츠의 트레이너 ID와 일치해야 합니다.")
+        if "battle" in operation:
+            _resource_id(operation.get("battle"), issues, file, f"{data_path}.battle")
+            results = operation.get("results", {})
+            results = _require_object(results, issues, file, f"{data_path}.results")
+            if results is not None:
+                for result_name, target_value in results.items():
+                    if result_name not in {"player_win", "player_loss", "cancelled"}:
+                        _issue(issues, "error", file, f"{data_path}.results.{result_name}", "지원하지 않는 배틀 결과입니다.")
+                        continue
+                    target = _resource_id(target_value, issues, file, f"{data_path}.results.{result_name}")
+                    if target:
+                        dialogue_targets.append((f"{data_path}.results.{result_name}", target))
+        else:
+            trainer = _resource_id(operation.get("trainer"), issues, file, f"{data_path}.trainer")
+            if trainer and trainer != content_id:
+                _issue(issues, "error", file, f"{data_path}.trainer", "현재 콘텐츠의 트레이너 ID와 일치해야 합니다.")
     elif operation_type in {"flag_equals", "set_flag"}:
         _resource_id(operation.get("key"), issues, file, f"{data_path}.key")
         if "value" not in operation or not isinstance(operation.get("value"), (str, int, float, bool)):
             _issue(issues, "error", file, f"{data_path}.value", "문자열, 숫자 또는 boolean 값이 필요합니다.")
+    elif operation_type == "has_item":
+        _resource_id(operation.get("item"), issues, file, f"{data_path}.item")
+        count = operation.get("count", 1)
+        if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+            _issue(issues, "error", file, f"{data_path}.count", "1 이상의 정수가 필요합니다.")
     elif operation_type == "give_item":
         _resource_id(operation.get("item"), issues, file, f"{data_path}.item")
         count = operation.get("count")
         if not isinstance(count, int) or isinstance(count, bool) or count < 1:
             _issue(issues, "error", file, f"{data_path}.count", "1 이상의 정수가 필요합니다.")
+    elif operation_type == "give_money":
+        mode = operation.get("mode")
+        if mode == "fixed":
+            amount = operation.get("amount")
+            if not isinstance(amount, int) or isinstance(amount, bool) or amount < 0:
+                _issue(issues, "error", file, f"{data_path}.amount", "고정 금액은 0 이상의 정수여야 합니다.")
+        elif mode == "level_cap_multiplier":
+            multiplier = operation.get("multiplier")
+            if not isinstance(multiplier, (int, float)) or isinstance(multiplier, bool) or multiplier <= 0:
+                _issue(issues, "error", file, f"{data_path}.multiplier", "레벨캡 배율은 0보다 큰 숫자여야 합니다.")
+        else:
+            _issue(issues, "error", file, f"{data_path}.mode", "fixed 또는 level_cap_multiplier여야 합니다.")
+    elif operation_type == "grant_loot":
+        _resource_id(operation.get("loot_table"), issues, file, f"{data_path}.loot_table")
     elif operation_type in {"start_quest", "complete_quest", "teleport"}:
         _resource_id(operation.get("target"), issues, file, f"{data_path}.target")
 
@@ -2264,6 +2555,186 @@ def validate_dependency_lock(path: Path, strict_pack: bool) -> list[Issue]:
     return issues
 
 
+def validate_npc_file(path: Path) -> tuple[str | None, list[Issue]]:
+    issues: list[Issue] = []
+    try:
+        root = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return None, issues
+    if not isinstance(root, dict):
+        _issue(issues, "error", path, "$", "NPC 문서는 객체여야 합니다.")
+        return None, issues
+    if root.get("schema_version") != 3:
+        _issue(issues, "error", path, "$.schema_version", "NPC 상호작용 스키마 버전은 3입니다.")
+    if "placement" in root:
+        _issue(
+            issues,
+            "error",
+            path,
+            "$.placement",
+            "NPC 배치는 마을의 npc_placement.trainer_slots에서 관리해야 합니다.",
+        )
+    npc_id = _resource_id(root.get("id"), issues, path, "$.id")
+    if npc_id and ":npc/" not in npc_id:
+        _issue(issues, "error", path, "$.id", "NPC ID는 namespace:npc/path 형식이어야 합니다.")
+    if not isinstance(root.get("enabled"), bool):
+        _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
+    _localized_text(root.get("name"), issues, path, "$.name")
+    npc = _require_object(root.get("npc"), issues, path, "$.npc")
+    if npc is not None:
+        _localized_text(npc.get("display_name"), issues, path, "$.npc.display_name")
+        _resource_id(npc.get("trainer_class"), issues, path, "$.npc.trainer_class")
+        appearance = _require_object(npc.get("appearance"), issues, path, "$.npc.appearance")
+        if appearance is not None:
+            _resource_id(appearance.get("resource"), issues, path, "$.npc.appearance.resource")
+        behavior = _require_object(npc.get("behavior"), issues, path, "$.npc.behavior")
+        if behavior is not None:
+            encounter = _require_object(behavior.get("encounter"), issues, path, "$.npc.behavior.encounter")
+            if encounter is not None:
+                mode = encounter.get("mode")
+                if mode not in {"interaction", "proximity"}:
+                    _issue(issues, "error", path, "$.npc.behavior.encounter.mode", "interaction 또는 proximity여야 합니다.")
+                trigger_range = encounter.get("trigger_range")
+                if not isinstance(trigger_range, (int, float)) or isinstance(trigger_range, bool) or trigger_range <= 0:
+                    _issue(issues, "error", path, "$.npc.behavior.encounter.trigger_range", "0보다 큰 숫자여야 합니다.")
+                warning = _require_object(encounter.get("warning_range"), issues, path, "$.npc.behavior.encounter.warning_range")
+                if warning is not None:
+                    minimum = warning.get("min")
+                    maximum = warning.get("max")
+                    if (
+                        any(not isinstance(value, (int, float)) or isinstance(value, bool) for value in (minimum, maximum))
+                        or minimum < 0
+                        or maximum <= minimum
+                    ):
+                        _issue(issues, "error", path, "$.npc.behavior.encounter.warning_range", "0 이상의 min과 min보다 큰 max가 필요합니다.")
+                    elif mode == "proximity" and isinstance(trigger_range, (int, float)) and minimum < trigger_range:
+                        _issue(issues, "error", path, "$.npc.behavior.encounter.warning_range.min", "경고 범위는 자동 조우 발동 거리 이상이어야 합니다.")
+
+    interaction = _require_object(root.get("interaction"), issues, path, "$.interaction")
+    if interaction is None:
+        return npc_id, issues
+    nodes = _require_list(interaction.get("nodes"), issues, path, "$.interaction.nodes")
+    routes = _require_list(interaction.get("entry_routes"), issues, path, "$.interaction.entry_routes")
+    node_ids: set[str] = set()
+    targets: list[tuple[str, str]] = []
+    if nodes is not None:
+        if not nodes:
+            _issue(issues, "error", path, "$.interaction.nodes", "상호작용 노드가 하나 이상 필요합니다.")
+        for index, value in enumerate(nodes):
+            node_path = f"$.interaction.nodes[{index}]"
+            node = _require_object(value, issues, path, node_path)
+            if node is None:
+                continue
+            node_id = _resource_id(node.get("id"), issues, path, f"{node_path}.id")
+            if node_id:
+                if node_id in node_ids:
+                    _issue(issues, "error", path, f"{node_path}.id", f"중복 노드 ID: {node_id}")
+                node_ids.add(node_id)
+            node_type = node.get("type")
+            if node_type not in {"dialogue", "actions", "close"}:
+                _issue(issues, "error", path, f"{node_path}.type", "dialogue, actions, close 중 하나여야 합니다.")
+                continue
+            _validate_operation_list(node.get("conditions", []), issues, path, f"{node_path}.conditions", npc_id, targets)
+            if node_type == "dialogue":
+                if node.get("speaker") not in {"npc", "player", "system"}:
+                    _issue(issues, "error", path, f"{node_path}.speaker", "npc, player, system 중 하나여야 합니다.")
+                _localized_text(node.get("text"), issues, path, f"{node_path}.text")
+                choices = _require_list(node.get("choices"), issues, path, f"{node_path}.choices")
+                if choices is not None:
+                    for choice_index, choice_value in enumerate(choices):
+                        choice_path = f"{node_path}.choices[{choice_index}]"
+                        choice = _require_object(choice_value, issues, path, choice_path)
+                        if choice is None:
+                            continue
+                        _localized_text(choice.get("text"), issues, path, f"{choice_path}.text")
+                        _validate_operation_list(choice.get("conditions", []), issues, path, f"{choice_path}.conditions", npc_id, targets)
+                        _validate_operation_list(choice.get("actions"), issues, path, f"{choice_path}.actions", npc_id, targets)
+            elif node_type == "actions":
+                actions = _validate_operation_list(node.get("actions"), issues, path, f"{node_path}.actions", npc_id, targets)
+                if not actions:
+                    _issue(issues, "error", path, f"{node_path}.actions", "액션 노드에는 행동이 하나 이상 필요합니다.")
+            next_id = node.get("next")
+            if next_id is not None:
+                target = _resource_id(next_id, issues, path, f"{node_path}.next")
+                if target:
+                    targets.append((f"{node_path}.next", target))
+    if routes is not None:
+        if not routes:
+            _issue(issues, "error", path, "$.interaction.entry_routes", "시작 경로가 하나 이상 필요합니다.")
+        fallback_count = 0
+        for index, value in enumerate(routes):
+            route_path = f"$.interaction.entry_routes[{index}]"
+            route = _require_object(value, issues, path, route_path)
+            if route is None:
+                continue
+            conditions = _validate_operation_list(route.get("conditions"), issues, path, f"{route_path}.conditions", npc_id, targets)
+            if conditions == []:
+                fallback_count += 1
+                if index != len(routes) - 1:
+                    _issue(issues, "error", path, f"{route_path}.conditions", "무조건 시작 경로는 마지막에 있어야 합니다.")
+            entry = _resource_id(route.get("entry"), issues, path, f"{route_path}.entry")
+            if entry:
+                targets.append((f"{route_path}.entry", entry))
+        if fallback_count != 1:
+            _issue(issues, "error", path, "$.interaction.entry_routes", "조건이 없는 기본 시작 경로가 정확히 하나 필요합니다.")
+    for target_path, target in targets:
+        if target not in node_ids:
+            _issue(issues, "error", path, target_path, f"존재하지 않는 상호작용 노드: {target}")
+    return npc_id, issues
+
+
+def validate_battle_preset_file(path: Path) -> tuple[str | None, list[Issue]]:
+    issues: list[Issue] = []
+    try:
+        root = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return None, issues
+    if not isinstance(root, dict):
+        _issue(issues, "error", path, "$", "배틀 프리셋은 객체여야 합니다.")
+        return None, issues
+    if root.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "배틀 프리셋 스키마 버전은 1입니다.")
+    battle_id = _resource_id(root.get("id"), issues, path, "$.id")
+    if battle_id and ":battle/" not in battle_id:
+        _issue(issues, "error", path, "$.id", "배틀 ID는 namespace:battle/path 형식이어야 합니다.")
+    _localized_text(root.get("name"), issues, path, "$.name")
+    battle = _require_object(root.get("battle"), issues, path, "$.battle")
+    if battle is not None:
+        _resource_id(battle.get("trainer_id"), issues, path, "$.battle.trainer_id")
+        battle_format = battle.get("format")
+        battle_type = battle.get("battle_type")
+        if battle_format not in BATTLE_FORMAT_TYPES:
+            _issue(issues, "error", path, "$.battle.format", "지원하지 않는 배틀 포맷입니다.")
+        elif BATTLE_FORMAT_TYPES[battle_format] != battle_type:
+            _issue(issues, "error", path, "$.battle.battle_type", "배틀 포맷과 전투 방식이 일치해야 합니다.")
+        ai = _require_object(battle.get("ai"), issues, path, "$.battle.ai")
+        if ai is not None:
+            if ai.get("difficulty") not in AI_DIFFICULTIES:
+                _issue(issues, "error", path, "$.battle.ai.difficulty", "지원하지 않는 AI 난이도입니다.")
+            if ai.get("strategy") not in AI_STRATEGIES:
+                _issue(issues, "error", path, "$.battle.ai.strategy", "지원하지 않는 AI 전략입니다.")
+        team = _require_list(battle.get("team"), issues, path, "$.battle.team")
+        if team is not None and not 1 <= len(team) <= 6:
+            _issue(issues, "error", path, "$.battle.team", "포켓몬은 1마리 이상 6마리 이하여야 합니다.")
+        trainer_id = battle.get("trainer_id")
+        if isinstance(trainer_id, str) and RESOURCE_ID.fullmatch(trainer_id):
+            legacy = _trainer_template("validation", _localized_value(root.get("name")) or "배틀")
+            legacy["id"] = trainer_id
+            legacy["battle"] = battle
+            with tempfile.TemporaryDirectory() as directory:
+                legacy_path = Path(directory) / "battle-validation.json"
+                legacy_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
+                _, legacy_issues = validate_content_file(legacy_path)
+            issues.extend(
+                Issue(issue.level, path.as_posix(), issue.path, issue.message)
+                for issue in legacy_issues
+                if issue.path.startswith("$.battle")
+            )
+    return battle_id, issues
+
+
 def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
     issues: list[Issue] = []
     try:
@@ -2275,6 +2746,8 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
     root = _require_object(data, issues, path, "$")
     if root is None:
         return None, issues
+    if root.get("schema_version") == 3:
+        return validate_npc_file(path)
     if root.get("schema_version") != 2:
         _issue(issues, "error", path, "$.schema_version", "지원 버전은 2입니다.")
 
@@ -2328,6 +2801,33 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
             interaction_range = behavior.get("interaction_range")
             if not isinstance(interaction_range, (int, float)) or isinstance(interaction_range, bool) or interaction_range <= 0:
                 _issue(issues, "error", path, "$.npc.behavior.interaction_range", "0보다 큰 숫자여야 합니다.")
+            encounter = behavior.get("encounter")
+            if encounter is not None:
+                encounter = _require_object(encounter, issues, path, "$.npc.behavior.encounter")
+                if encounter is not None:
+                    mode = encounter.get("mode")
+                    if mode not in {"interaction", "proximity"}:
+                        _issue(issues, "error", path, "$.npc.behavior.encounter.mode", "interaction 또는 proximity여야 합니다.")
+                    trigger_range = encounter.get("trigger_range")
+                    if mode == "proximity" and (
+                        not isinstance(trigger_range, (int, float))
+                        or isinstance(trigger_range, bool)
+                        or trigger_range <= 0
+                    ):
+                        _issue(issues, "error", path, "$.npc.behavior.encounter.trigger_range", "자동 조우에는 0보다 큰 발동 거리가 필요합니다.")
+                    warning = encounter.get("warning_range")
+                    if warning is not None:
+                        warning = _require_object(warning, issues, path, "$.npc.behavior.encounter.warning_range")
+                        if warning is not None:
+                            minimum = warning.get("min")
+                            maximum = warning.get("max")
+                            if any(
+                                not isinstance(value, (int, float)) or isinstance(value, bool)
+                                for value in (minimum, maximum)
+                            ) or minimum < 0 or maximum <= minimum:
+                                _issue(issues, "error", path, "$.npc.behavior.encounter.warning_range", "0 이상의 min과 min보다 큰 max가 필요합니다.")
+                            if mode == "proximity" and isinstance(trigger_range, (int, float)) and minimum < trigger_range:
+                                _issue(issues, "error", path, "$.npc.behavior.encounter.warning_range.min", "경고 범위는 자동 조우 발동 거리 이상이어야 합니다.")
 
     battle = _require_object(root.get("battle"), issues, path, "$.battle")
     if battle is not None:
@@ -2479,6 +2979,42 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
                         if stats_key == "evs" and sum(v for v in stats.values() if isinstance(v, int) and not isinstance(v, bool)) > 510:
                             _issue(issues, "error", path, f"{pokemon_path}.evs", "EV 합계는 510 이하여야 합니다.")
 
+    rewards = root.get("rewards")
+    if rewards is not None:
+        rewards = _require_object(rewards, issues, path, "$.rewards")
+        if rewards is not None:
+            money = _require_object(rewards.get("money"), issues, path, "$.rewards.money")
+            if money is not None:
+                mode = money.get("mode")
+                if mode == "fixed":
+                    amount = money.get("amount")
+                    if not isinstance(amount, int) or isinstance(amount, bool) or amount < 0:
+                        _issue(issues, "error", path, "$.rewards.money.amount", "고정 상금은 0 이상의 정수여야 합니다.")
+                elif mode == "level_cap_multiplier":
+                    multiplier = money.get("multiplier")
+                    if not isinstance(multiplier, (int, float)) or isinstance(multiplier, bool) or multiplier <= 0:
+                        _issue(issues, "error", path, "$.rewards.money.multiplier", "레벨캡 배율은 0보다 큰 숫자여야 합니다.")
+                else:
+                    _issue(issues, "error", path, "$.rewards.money.mode", "fixed 또는 level_cap_multiplier여야 합니다.")
+            items = _require_object(rewards.get("items"), issues, path, "$.rewards.items")
+            if items is not None:
+                mode = items.get("mode")
+                if mode == "fixed":
+                    entries = _require_list(items.get("entries"), issues, path, "$.rewards.items.entries")
+                    if entries is not None:
+                        for index, value in enumerate(entries):
+                            entry_path = f"$.rewards.items.entries[{index}]"
+                            entry = _require_object(value, issues, path, entry_path)
+                            if entry is not None:
+                                _resource_id(entry.get("item"), issues, path, f"{entry_path}.item")
+                                count = entry.get("count")
+                                if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+                                    _issue(issues, "error", path, f"{entry_path}.count", "1 이상의 정수여야 합니다.")
+                elif mode == "loot_table":
+                    _resource_id(items.get("loot_table"), issues, path, "$.rewards.items.loot_table")
+                else:
+                    _issue(issues, "error", path, "$.rewards.items.mode", "fixed 또는 loot_table이어야 합니다.")
+
     dialogue_targets: list[tuple[str, str]] = []
     dialogue = _require_object(root.get("dialogue"), issues, path, "$.dialogue")
     dialogue_ids: set[str] = set()
@@ -2585,6 +3121,21 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
         root / "content" / "catalogs" / "trainer-roster.json"
     )
     issues.extend(roster_issues)
+    battle_dir = root / "content" / "battles"
+    battle_presets: dict[str, tuple[Path, dict[str, Any]]] = {}
+    if battle_dir.is_dir():
+        for path in sorted(battle_dir.rglob("*.json")):
+            battle_id, battle_issues = validate_battle_preset_file(path)
+            issues.extend(battle_issues)
+            try:
+                battle_data = load_json(path)
+            except (OSError, json.JSONDecodeError, DuplicateKeyError):
+                continue
+            if battle_id:
+                if battle_id in battle_presets:
+                    _issue(issues, "error", path, "$.id", f"중복 배틀 프리셋 ID: {battle_id}")
+                battle_presets[battle_id] = (path, battle_data)
+
     content_dir = root / "content" / "source"
     seen_content: dict[str, Path] = {}
     content_battle_types: dict[str, str] = {}
@@ -2629,6 +3180,24 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
             else:
                 seen_content[content_id] = path
                 battle_type = content_data.get("battle", {}).get("battle_type")
+                if content_data.get("schema_version") == 3:
+                    referenced_battles = {
+                        action.get("battle")
+                        for node in content_data.get("interaction", {}).get("nodes", [])
+                        if isinstance(node, dict)
+                        for source_actions in [node.get("actions", [])] + [
+                            choice.get("actions", [])
+                            for choice in node.get("choices", [])
+                            if isinstance(choice, dict)
+                        ]
+                        for action in source_actions
+                        if isinstance(action, dict) and action.get("type") == "start_battle"
+                    }
+                    for battle_ref in referenced_battles:
+                        if battle_ref not in battle_presets:
+                            _issue(issues, "error", path, "$.interaction", f"존재하지 않는 배틀 프리셋: {battle_ref}")
+                        elif battle_type is None:
+                            battle_type = battle_presets[battle_ref][1].get("battle", {}).get("battle_type")
                 if isinstance(battle_type, str):
                     content_battle_types[content_id] = battle_type
 
@@ -2703,7 +3272,21 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
                     f"아직 작성되지 않은 다음 마을 ID입니다: {target}",
                 )
 
-    issues.extend(validate_hex_worlds(root, set(seen_settlements)))
+    cave_documents: dict[str, dict[str, Any]] = {}
+    cave_dir = root / "content" / "caves"
+    for path in sorted(cave_dir.rglob("*.json")) if cave_dir.is_dir() else []:
+        cave_id, cave_issues = validate_cave_file(path)
+        issues.extend(cave_issues)
+        try:
+            cave_data = load_json(path)
+            if cave_id and isinstance(cave_data, dict):
+                if cave_id in cave_documents:
+                    _issue(issues, "error", path, "$.id", f"다른 파일과 중복된 동굴 ID: {cave_id}")
+                cave_documents[cave_id] = cave_data
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            pass
+
+    issues.extend(validate_hex_worlds(root, set(seen_settlements), cave_documents))
 
     errors = sum(issue.level == "error" for issue in issues)
     warnings = sum(issue.level == "warning" for issue in issues)
@@ -2726,10 +3309,74 @@ def _localized_value(value: Any) -> str:
     return str(value.get("ko_kr") or value.get("en_us") or next(iter(value.values()), ""))
 
 
+def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return None, issues
+    if not isinstance(data, dict):
+        _issue(issues, "error", path, "$", "동굴 문서는 객체여야 합니다.")
+        return None, issues
+    cave_id = data.get("id")
+    if not isinstance(cave_id, str) or not RESOURCE_ID.fullmatch(cave_id):
+        _issue(issues, "error", path, "$.id", "올바른 동굴 리소스 ID가 필요합니다.")
+        cave_id = None
+    if data.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "동굴 문서 지원 버전은 1입니다.")
+    generation = data.get("generation")
+    if not isinstance(generation, int) or isinstance(generation, bool) or not 1 <= generation <= 9:
+        _issue(issues, "error", path, "$.generation", "1 이상 9 이하의 세대가 필요합니다.")
+    _resource_id(data.get("cave_type"), issues, path, "$.cave_type")
+    dimension = data.get("dimension")
+    if not isinstance(dimension, dict):
+        _issue(issues, "error", path, "$.dimension", "동굴 차원 설정이 필요합니다.")
+    else:
+        _resource_id(dimension.get("id"), issues, path, "$.dimension.id")
+    if not isinstance(data.get("requires_flash"), bool):
+        _issue(issues, "error", path, "$.requires_flash", "플래시 필요 여부는 true 또는 false여야 합니다.")
+    encounters = data.get("random_encounters")
+    if not isinstance(encounters, dict) or not isinstance(encounters.get("enabled"), bool):
+        _issue(issues, "error", path, "$.random_encounters", "랜덤 인카운터 설정이 필요합니다.")
+    elif encounters.get("enabled"):
+        _resource_id(encounters.get("spawn_profile"), issues, path, "$.random_encounters.spawn_profile")
+    biomes = data.get("internal_biomes")
+    if not isinstance(biomes, list) or not biomes:
+        _issue(issues, "error", path, "$.internal_biomes", "내부 바이옴을 하나 이상 지정해야 합니다.")
+    else:
+        for index, biome in enumerate(biomes):
+            if not isinstance(biome, dict):
+                _issue(issues, "error", path, f"$.internal_biomes[{index}]", "내부 바이옴은 객체여야 합니다.")
+                continue
+            _resource_id(biome.get("biome"), issues, path, f"$.internal_biomes[{index}].biome")
+    trainer_settings = data.get("trainer_settings")
+    if not isinstance(trainer_settings, dict) or not isinstance(trainer_settings.get("enabled"), bool):
+        _issue(issues, "error", path, "$.trainer_settings", "트레이너 설정이 필요합니다.")
+    entrances = data.get("entrances")
+    if not isinstance(entrances, list) or not entrances:
+        _issue(issues, "error", path, "$.entrances", "동굴 내부 입구를 하나 이상 지정해야 합니다.")
+    else:
+        seen: set[str] = set()
+        for index, entrance in enumerate(entrances):
+            entrance_id = entrance.get("id") if isinstance(entrance, dict) else None
+            if not isinstance(entrance_id, str) or not CHOICE_ID.fullmatch(entrance_id) or entrance_id in seen:
+                _issue(issues, "error", path, f"$.entrances[{index}].id", "유일한 내부 입구 ID가 필요합니다.")
+            else:
+                seen.add(entrance_id)
+            for field in ("destination_anchor", "fallback_anchor"):
+                position = entrance.get(field) if isinstance(entrance, dict) else None
+                if not isinstance(position, dict) or not all(isinstance(position.get(key), int) and not isinstance(position.get(key), bool) for key in ("x", "y", "z")):
+                    _issue(issues, "error", path, f"$.entrances[{index}].{field}", "정수 블록 좌표 x, y, z가 필요합니다.")
+    return cave_id, issues
+
+
 def _managed_directory(root: Path, category: str) -> Path:
     directories = {
         "trainers": root / "content" / "source",
+        "battles": root / "content" / "battles",
         "settlements": root / "content" / "settlements",
+        "caves": root / "content" / "caves",
     }
     if category not in directories:
         raise ValueError("지원하지 않는 문서 종류입니다.")
@@ -2751,6 +3398,18 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
     if not base.exists():
         return []
     world_biomes: dict[str, str] = {}
+    battle_types: dict[str, str] = {}
+    if category == "trainers":
+        battle_dir = root / "content" / "battles"
+        for battle_path in sorted(battle_dir.rglob("*.json")) if battle_dir.is_dir() else []:
+            try:
+                battle_data = load_json(battle_path)
+                battle_id = battle_data.get("id") if isinstance(battle_data, dict) else None
+                battle_type = battle_data.get("battle", {}).get("battle_type") if isinstance(battle_data, dict) else None
+                if isinstance(battle_id, str) and isinstance(battle_type, str):
+                    battle_types[battle_id] = battle_type
+            except (OSError, json.JSONDecodeError, DuplicateKeyError):
+                pass
     if category == "settlements":
         world_dir = root / "content" / "worlds"
         for world_path in sorted(world_dir.glob("generation_*.json")) if world_dir.is_dir() else []:
@@ -2772,20 +3431,45 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                     "id": data.get("id", ""),
                     "name": _localized_value(
                         data.get("name")
-                        if category == "trainers"
+                        if category in {"trainers", "battles"}
                         else data.get("display_name")
                     ),
                     "enabled": data.get("enabled", False),
                 }
             if category == "trainers":
-                summary["battle_type"] = data.get("battle", {}).get("battle_type", "singles")
+                summary["battle_type"] = data.get("battle", {}).get("battle_type", "")
+                if data.get("schema_version") == 3:
+                    battle_refs = [
+                        action.get("battle")
+                        for node in data.get("interaction", {}).get("nodes", [])
+                        if isinstance(node, dict)
+                        for actions in [node.get("actions", [])] + [
+                            choice.get("actions", [])
+                            for choice in node.get("choices", [])
+                            if isinstance(choice, dict)
+                        ]
+                        for action in actions
+                        if isinstance(action, dict) and action.get("type") == "start_battle"
+                    ]
+                    summary["battle_type"] = next(
+                        (battle_types[reference] for reference in battle_refs if reference in battle_types),
+                        "",
+                    )
                 summary["npc_name"] = _localized_value(data.get("npc", {}).get("display_name"))
-            else:
+            elif category == "battles":
+                summary["battle_type"] = data.get("battle", {}).get("battle_type", "singles")
+            elif category == "settlements":
                 summary["biome"] = world_biomes.get(data.get("id"), "minecraft:plains")
                 summary["town_radius_cells"] = data.get("town_radius_cells", 1)
                 summary["town_footprint_shape"] = data.get("town_footprint_shape", "line_q")
                 summary["town_footprint_cells"] = data.get("town_footprint_cells", [])
                 summary["town_road_exits"] = data.get("town_road_exits", [])
+            else:
+                summary["generation"] = data.get("generation", 1)
+                summary["requires_flash"] = data.get("requires_flash", False)
+                summary["entrance_count"] = len(data.get("entrances", []))
+                summary["entrances"] = data.get("entrances", [])
+                summary["cave_type"] = data.get("cave_type", "")
             documents.append(summary)
         except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
             documents.append(
@@ -2841,9 +3525,12 @@ def _duplicate_document_issue(
 def _save_document(
     root: Path, category: str, relative_path: str, data: Any
 ) -> tuple[Path | None, list[Issue]]:
-    validator = (
-        validate_content_file if category == "trainers" else validate_settlement_file
-    )
+    validator = {
+        "trainers": validate_content_file,
+        "battles": validate_battle_preset_file,
+        "settlements": validate_settlement_file,
+        "caves": validate_cave_file,
+    }[category]
     try:
         target = _managed_path(root, category, relative_path)
     except ValueError as error:
@@ -2943,6 +3630,15 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
                 "movement": "stationary",
                 "look_at_player": True,
                 "interaction_range": 4.0,
+                "encounter": {
+                    "mode": "interaction",
+                    "trigger_range": 4.0,
+                    "warning_range": {
+                        "min": 4.0,
+                        "max": 6.0,
+                        "indicator": "trainer_nearby",
+                    },
+                },
                 "invulnerable": True,
                 "collision": True,
             },
@@ -3029,6 +3725,17 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
                 ]
             },
             "on_player_loss": {"actions": []},
+        },
+        "rewards": {
+            "money": {
+                "mode": "fixed",
+                "amount": 500,
+                "currency_objective": "cobbleventure_money",
+            },
+            "items": {
+                "mode": "fixed",
+                "entries": [{"item": "cobblemon:poke_ball", "count": 1}],
+            },
         },
     }
 
@@ -3126,10 +3833,117 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
     }
 
 
+def _npc_template_v3(slug: str, name: str) -> dict[str, Any]:
+    npc_id = f"cobbleventure:npc/{slug}"
+    greeting = f"cobbleventure:interaction/{slug}/greeting"
+    return {
+        "$schema": "../../schemas/npc-interaction.schema.json",
+        "schema_version": 3,
+        "id": npc_id,
+        "enabled": True,
+        "name": {"ko_kr": name},
+        "description": {"ko_kr": f"{name} NPC 상호작용 콘텐츠입니다."},
+        "tags": ["npc"],
+        "npc": {
+            "display_name": {"ko_kr": name},
+            "trainer_class": "cobbleventure:trainer_class/youngster",
+            "appearance": {
+                "source": "rct_single", "type": "skin",
+                "resource": "rctmod:trainers/single/youngster_yasu_0063",
+            },
+            "behavior": {
+                "movement": "stationary", "look_at_player": True,
+                "interaction_range": 4.0,
+                "encounter": {
+                    "mode": "interaction", "trigger_range": 4.0,
+                    "warning_range": {"min": 4.0, "max": 6.0, "indicator": "trainer_nearby"},
+                },
+                "invulnerable": True, "collision": True,
+            },
+        },
+        "interaction": {
+            "entry_routes": [{"conditions": [], "entry": greeting}],
+            "nodes": [{
+                "id": greeting, "type": "dialogue", "speaker": "npc",
+                "text": {"ko_kr": f"안녕! 나는 {name}(이)야."}, "conditions": [],
+                "choices": [
+                    {
+                        "id": "battle", "text": {"ko_kr": "승부한다"},
+                        "conditions": [], "actions": [{
+                            "type": "start_battle", "battle": f"cobbleventure:battle/{slug}",
+                            "results": {"player_win": f"cobbleventure:interaction/{slug}/victory_reward"},
+                        }],
+                    },
+                    {
+                        "id": "close", "text": {"ko_kr": "다음에 또 보자"},
+                        "conditions": [], "actions": [{"type": "close_dialogue"}],
+                    },
+                ],
+            }, {
+                "id": f"cobbleventure:interaction/{slug}/victory_reward",
+                "type": "actions", "conditions": [],
+                "actions": [{
+                    "type": "give_money", "mode": "fixed", "amount": 500,
+                    "currency_objective": "cobbleventure_money",
+                }],
+            }],
+        },
+    }
+
+
+def _battle_template(slug: str, name: str) -> dict[str, Any]:
+    legacy = _trainer_template(slug, name)
+    return {
+        "$schema": "../../schemas/battle-preset.schema.json",
+        "schema_version": 1,
+        "id": f"cobbleventure:battle/{slug}",
+        "enabled": True,
+        "name": {"ko_kr": f"{name} 배틀"},
+        "battle": legacy["battle"],
+    }
+
+
+def _cave_template(slug: str, name: str, generation: str) -> dict[str, Any]:
+    generation_number = int(generation.removeprefix("generation_"))
+    return {
+        "$schema": "../../schemas/cave.schema.json",
+        "schema_version": 1,
+        "id": f"cobbleventure:cave/{slug}",
+        "enabled": True,
+        "display_name": {"ko_kr": name},
+        "generation": generation_number,
+        "cave_type": "cobbleventure:cave_type/natural_rock",
+        "dimension": {
+            "id": "cobbleventure:dungeons",
+            "region_id": f"generation_{generation_number}/{slug}",
+            "origin": {"x": 0, "y": 48, "z": 0},
+            "bounds": {"min_x": -256, "min_z": -256, "max_x": 256, "max_z": 256},
+        },
+        "requires_flash": False,
+        "random_encounters": {
+            "enabled": True,
+            "spawn_profile": f"cobbleventure:spawn/{slug}",
+            "density_multiplier": 1.0,
+        },
+        "internal_biomes": [
+            {"id": "main", "biome": "minecraft:dripstone_caves", "weight": 100}
+        ],
+        "trainer_settings": {"enabled": False, "max_active": 0, "class_pool": [], "placements": []},
+        "entrances": [
+            {
+                "id": "main",
+                "display_name": "주 출입구",
+                "destination_anchor": {"x": 0, "y": 48, "z": 0},
+                "fallback_anchor": {"x": 0, "y": 49, "z": 0},
+            }
+        ],
+    }
+
+
 def _create_document(
     root: Path, category: str, slug: str, name: str, generation: str = "generation_1"
 ) -> tuple[Path | None, list[Issue]]:
-    if category not in {"trainers", "settlements"}:
+    if category not in {"trainers", "settlements", "caves"}:
         return None, [Issue("error", "", "$.category", "지원하지 않는 문서 종류입니다.")]
     if not DOCUMENT_SLUG.fullmatch(slug):
         return None, [
@@ -3147,13 +3961,23 @@ def _create_document(
 
     if category == "trainers":
         relative_path = f"content/source/trainers/{slug}.json"
-        document = _trainer_template(slug, name.strip())
-    else:
+        battle_path = f"content/battles/trainers/{slug}.json"
+        if (root / battle_path).exists():
+            return (root / battle_path).resolve(), [Issue("error", battle_path, "$", "같은 이름의 배틀 프리셋이 이미 존재합니다.")]
+        document = _npc_template_v3(slug, name.strip())
+    elif category == "settlements":
         relative_path = f"content/settlements/{generation}/{slug}.json"
         document = _settlement_template(slug, name.strip(), generation)
+    else:
+        relative_path = f"content/caves/{generation}/{slug}.json"
+        document = _cave_template(slug, name.strip(), generation)
     target = (root / relative_path).resolve()
     if target.exists():
         return target, [Issue("error", target.as_posix(), "$", "같은 이름의 파일이 이미 존재합니다.")]
+    if category == "trainers":
+        _, battle_issues = _save_document(root, "battles", battle_path, _battle_template(slug, name.strip()))
+        if any(issue.level == "error" for issue in battle_issues):
+            return target, battle_issues
     return _save_document(root, category, relative_path, document)
 
 
@@ -3319,6 +4143,30 @@ def generate_content(root: Path, output: Path | None = None) -> dict[str, Any]:
         document = load_json(source)
         if not document.get("enabled", True):
             continue
+        if document.get("schema_version") == 3:
+            continue
+        slug = trainer_id.rsplit("/", 1)[-1]
+        for target, payload in (
+            (rct_root / f"{slug}.json", export_rct_trainer(document)),
+            (runtime_root / f"{slug}.json", export_ai_runtime_profile(document)),
+        ):
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        trainers.append(trainer_id)
+    battle_root = root / "content" / "battles"
+    for source in sorted(battle_root.rglob("*.json")) if battle_root.is_dir() else []:
+        battle_id, issues = validate_battle_preset_file(source)
+        if battle_id is None or any(issue.level == "error" for issue in issues):
+            continue
+        preset = load_json(source)
+        if not preset.get("enabled", True):
+            continue
+        trainer_id = preset["battle"]["trainer_id"]
+        document = {
+            "id": trainer_id,
+            "name": preset.get("name", {}),
+            "battle": preset["battle"],
+        }
         slug = trainer_id.rsplit("/", 1)[-1]
         for target, payload in (
             (rct_root / f"{slug}.json", export_rct_trainer(document)),
@@ -4065,6 +4913,13 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/world-pokemon-map":
+                try:
+                    generation = int(parse_qs(request.query).get("generation", ["1"])[0])
+                    self._json(200, world_pokemon_map(root, generation))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/world-layouts":
                 self._json(200, {"generations": list_world_generations(root)})
                 return
@@ -4123,8 +4978,14 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
             if request.path == "/api/trainers":
                 self._document_response("trainers", request)
                 return
+            if request.path == "/api/battles":
+                self._document_response("battles", request)
+                return
             if request.path == "/api/settlements":
                 self._document_response("settlements", request)
+                return
+            if request.path == "/api/caves":
+                self._document_response("caves", request)
                 return
             self._json(404, {"error": "not_found"})
 
@@ -4143,14 +5004,15 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 return
             if request.path == "/api/document-validation":
                 category = parse_qs(request.query).get("category", [""])[0]
-                if category not in {"trainers", "settlements"}:
+                if category not in {"trainers", "battles", "settlements", "caves"}:
                     self._json(400, {"error": "지원하지 않는 문서 종류입니다."})
                     return
-                validator = (
-                    validate_content_file
-                    if category == "trainers"
-                    else validate_settlement_file
-                )
+                validator = {
+                    "trainers": validate_content_file,
+                    "battles": validate_battle_preset_file,
+                    "settlements": validate_settlement_file,
+                    "caves": validate_cave_file,
+                }[category]
                 _, issues = _validate_payload(payload, validator)
                 errors = sum(issue.level == "error" for issue in issues)
                 self._json(
@@ -4243,7 +5105,9 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 return
             categories = {
                 "/api/trainers": "trainers",
+                "/api/battles": "battles",
                 "/api/settlements": "settlements",
+                "/api/caves": "caves",
             }
             category = categories.get(request.path)
             if category is None:

@@ -12,7 +12,8 @@
       "minecraft_biomes": [
         "minecraft:plains",
         "minecraft:meadow",
-        "minecraft:savanna"
+        "minecraft:savanna",
+        "cobbleventure:starter_plains"
       ],
       "settings": {
         "generation": 0,
@@ -42,7 +43,12 @@
       "minecraft_biomes": [
         "minecraft:forest",
         "minecraft:birch_forest",
-        "minecraft:jungle"
+        "minecraft:jungle",
+        "minecraft:dark_forest",
+        "minecraft:flower_forest",
+        "minecraft:sparse_jungle",
+        "minecraft:old_growth_pine_taiga",
+        "cobbleventure:sealed_dark_forest"
       ],
       "settings": {
         "generation": 0,
@@ -100,7 +106,8 @@
       "habitat": "mountain",
       "minecraft_biomes": [
         "minecraft:stony_peaks",
-        "minecraft:windswept_hills"
+        "minecraft:windswept_hills",
+        "minecraft:windswept_gravelly_hills"
       ],
       "settings": {
         "generation": 0,
@@ -218,7 +225,8 @@
       "minecraft_biomes": [
         "minecraft:ocean",
         "minecraft:deep_ocean",
-        "minecraft:warm_ocean"
+        "minecraft:warm_ocean",
+        "minecraft:beach"
       ],
       "settings": {
         "generation": 0,
@@ -248,7 +256,8 @@
       "minecraft_biomes": [
         "minecraft:snowy_plains",
         "minecraft:ice_spikes",
-        "minecraft:frozen_ocean"
+        "minecraft:frozen_ocean",
+        "minecraft:snowy_slopes"
       ],
       "settings": {
         "generation": 0,

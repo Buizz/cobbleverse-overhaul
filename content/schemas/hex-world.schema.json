@@ -45,6 +45,10 @@
     "objects": {
       "type": "array",
       "items": { "$ref": "#/$defs/custom_object" }
+    },
+    "cave_entrances": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/cave_entrance" }
     }
   },
   "$defs": {
@@ -244,6 +248,28 @@
         "resource": { "$ref": "#/$defs/resource_id" },
         "rotation": { "type": "integer", "minimum": 0, "maximum": 5 },
         "properties": { "type": "object" }
+      }
+    },
+    "cave_entrance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "cave", "entrance", "anchor", "facing", "structure", "pokemon_center"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resource_id" },
+        "cave": { "$ref": "#/$defs/resource_id" },
+        "entrance": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "anchor": { "$ref": "#/$defs/axial_coordinate" },
+        "facing": { "enum": ["north_east", "east", "south_east", "south_west", "west", "north_west"] },
+        "structure": { "$ref": "#/$defs/resource_id" },
+        "pokemon_center": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["structure", "offset"],
+          "properties": {
+            "structure": { "$ref": "#/$defs/resource_id" },
+            "offset": { "$ref": "#/$defs/axial_coordinate" }
+          }
+        }
       }
     }
   }

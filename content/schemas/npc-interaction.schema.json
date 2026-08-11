@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/npc-interaction.schema.json",
+  "title": "Cobbleventure NPC interaction preset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "enabled", "name", "tags", "npc", "interaction"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 3 },
+    "id": { "type": "string", "pattern": "^[a-z0-9_.-]+:npc/[a-z0-9_./-]+$" },
+    "enabled": { "type": "boolean" },
+    "name": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
+    "description": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
+    "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "npc": { "$ref": "content-bundle.schema.json#/$defs/npc" },
+    "interaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry_routes", "nodes"],
+      "properties": {
+        "entry_routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["conditions", "entry"],
+            "properties": {
+              "conditions": { "type": "array", "items": { "$ref": "content-bundle.schema.json#/$defs/operation" } },
+              "entry": { "type": "string" }
+            }
+          }
+        },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "type"],
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "enum": ["dialogue", "actions", "close"] },
+              "speaker": { "enum": ["npc", "player", "system"] },
+              "text": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
+              "conditions": { "type": "array" },
+              "actions": { "type": "array" },
+              "choices": { "type": "array" },
+              "next": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -12,6 +12,19 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+repositories {
+    mavenCentral()
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+    }
+}
+
+dependencies {
+    compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
+}
+
 sourceSets.main.resources.srcDir 'src/generated/resources'
 
 configurations {
@@ -88,10 +101,15 @@ processResources {
         mod_name: mod_name,
         mod_license: mod_license,
         mod_version: mod_version,
+        cobblemon_version: cobblemon_version,
     ]
     inputs.properties properties
     filesMatching('META-INF/neoforge.mods.toml') {
         expand properties
+    }
+    from(rootProject.file('../../content/caves')) {
+        into 'data/cobbleventure/caves'
+        include '**/*.json'
     }
     if (integrationBcaJar != null) {
         inputs.file integrationBcaJar

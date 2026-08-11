@@ -13,6 +13,7 @@ public final class CobbleventurePlayerMenu {
         PlayerMenuItems.register(modBus);
         BagNetwork.register(modBus);
         MapNetwork.register(modBus);
+        StarterRouletteNetwork.register(modBus);
         if (FMLEnvironment.dist.isClient()) {
             PlayerMenuClient.register(modBus);
         }

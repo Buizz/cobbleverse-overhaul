@@ -6,6 +6,7 @@ set "CONTENT_MANAGER=%REPO_ROOT%tools\content-manager\content_manager.py"
 set "STOP_CONTENT_MANAGER=%REPO_ROOT%tools\content-manager\stop_existing_server.ps1"
 set "PACK_BUILDER=%REPO_ROOT%tools\pack-builder\pack_builder.py"
 set "DATA_MOD_BUILDER=%REPO_ROOT%tools\mod-builder\build_data_mod.py"
+set "CUSTOM_SPAWN_BUILDER=%REPO_ROOT%tools\cobblemon-custom-spawns\build_custom_spawns.py"
 set "TRAINER_SKIN_BUILDER=%REPO_ROOT%tools\content-manager\skin-pipeline\assemble_skin.py"
 set "YOUNGSTER_SKIN_MANIFEST=%REPO_ROOT%tools\content-manager\skin-pipeline\work\youngster\manifest.json"
 set "EASY_NPC_PRESET_BUILDER=%REPO_ROOT%tools\content-manager\generate_easy_npc_presets.py"
@@ -34,6 +35,7 @@ if /I "%~1"=="web" goto api
 if /I "%~1"=="api" goto api
 if /I "%~1"=="test" goto test
 if /I "%~1"=="generate" goto generate
+if /I "%~1"=="spawns" goto spawns
 if /I "%~1"=="mod-bootstrap" goto mod_bootstrap
 if /I "%~1"=="mod-menu" goto mod_menu
 if /I "%~1"=="pack-smoke" goto pack_smoke
@@ -65,6 +67,8 @@ if errorlevel 1 exit /b %errorlevel%
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\mod-builder\tests" -p "test_*.py"
 if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\cobblemon-custom-spawns\tests" -p "test_*.py"
+if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%WORLD_BOOTSTRAP_PROJECT%" test
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%PLAYER_MENU_PROJECT%" test
@@ -76,6 +80,10 @@ if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%"
+exit /b %errorlevel%
+
+:spawns
+%PYTHON_CMD% "%CUSTOM_SPAWN_BUILDER%" --root "%REPO_ROOT%."
 exit /b %errorlevel%
 
 :mod_bootstrap
@@ -98,6 +106,8 @@ exit /b %errorlevel%
 
 :pack
 %PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%CUSTOM_SPAWN_BUILDER%" --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
 if errorlevel 1 exit /b %errorlevel%
@@ -134,6 +144,7 @@ echo   web            Start the local content manager Web UI and API
 echo   api            Alias for web (kept for compatibility)
 echo   test           Run Python tests and compile the NeoForge modules
 echo   generate       Generate RCT trainers and in-game AI runtime profiles
+echo   spawns         Generate biome and generation filtered Cobblemon spawns
 echo   mod-bootstrap  Build the starter-town NeoForge Java mod JAR
 echo   mod-menu       Build the radial player menu NeoForge Java mod JAR
 echo   pack-smoke     Build a minimal CurseForge import test ZIP

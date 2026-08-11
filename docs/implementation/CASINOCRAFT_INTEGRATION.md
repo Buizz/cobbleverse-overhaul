@@ -1,6 +1,20 @@
-# CasinoCraft 카지노 연동
+# Cobblemon Casino 카지노 연동
 
 ## 현재 단계
+
+`Cobblemon Casino` 2.0.0을 정식 의존성으로 채택해 Lock과 개발팩에 등록했다. 기존
+`CasinoCraft`는 Minecraft 1.21.1 NeoForge 배포본이 없어 후보에서 제외한다.
+
+| 항목 | 확인 내용 |
+|------|-----------|
+| 대상 게임 | Minecraft 1.21.1 |
+| 로더 | NeoForge 21.1.200 이상 |
+| 후보 파일 | `cobblemoncasino-neoforge-2.0.0.jar` |
+| CurseForge | 프로젝트 `1572769`, 파일 `8235485` |
+| 라이선스 | MIT |
+| 필수 의존성 | Cobblemon, Cloth Config API |
+| 선택 연동 | CobbleDollars, Pokeblocks |
+| 현재 상태 | Lock·개발팩 등록 완료, 게임 내 상호작용 검증 대기 |
 
 관리 웹의 기본 시설 목록에 `casino`를 제공한다. 선택하면 다음 계약으로 마을
 레이아웃에 48×48×20 부지를 예약한다.
@@ -23,20 +37,20 @@
 ```
 
 빌드 시 `content/structures/placeholder/casino.nbt`가 있으면 이를 사용하고, 아직
-없으면 바닐라 블록으로 된 교체용 카지노 외피를 자동 생성한다. 따라서 CasinoCraft
+없으면 바닐라 블록으로 된 교체용 카지노 외피를 자동 생성한다. 따라서 Cobblemon Casino
 의존성이 없어도 데이터와 마을 배치 기능을 먼저 테스트할 수 있다.
 
-## CasinoCraft 적용 절차
+## Cobblemon Casino 적용 절차
 
-1. Minecraft 1.21.1과 NeoForge 21.1 계열에서 실제로 동작하는 CasinoCraft 파일과
-   필수 의존성을 확인한다.
-2. 확인된 버전, 배포 출처, 파일 ID와 라이선스를 `pack/dependencies.lock.json` 및
-   `docs/MOD_DEPENDENCIES.md`에 함께 기록한다.
-3. CasinoCraft 블록으로 카지노 내부를 제작해 구조물 블록으로 저장한다.
-4. 저장한 NBT를 `content/structures/placeholder/casino.nbt`에 둔다.
-5. `build.bat mod-bootstrap`과 테스트팩 빌드를 실행해 플레이스홀더가 실제 카지노
+1. Cobblemon Casino 2.0.0과 Cloth Config API가 개발팩에 함께 설치되는지 확인한다.
+2. 서바이벌 보호 차원에서 슬롯머신·블랙잭·가챠·칩 교환대의 우클릭 메뉴가 정상적으로
+   열리고, 블록 파괴·설치는 계속 차단되는지 확인한다.
+3. CobbleDollars 연동 사용 여부와 카지노 칩의 발행·교환·회수 정책을 결정한다.
+4. Cobblemon Casino 블록으로 카지노 내부를 제작해 구조물 블록으로 저장한다.
+5. 저장한 NBT를 `content/structures/placeholder/casino.nbt`에 둔다.
+6. `build.bat mod-bootstrap`과 테스트팩 빌드를 실행해 플레이스홀더가 실제 카지노
    NBT로 교체되는지 확인한다.
 
-CasinoCraft 버전이 확정되기 전에는 임의의 모드 파일이나 블록 ID를 JSON과 NBT에
-기록하지 않는다. 모드가 빠진 팩에서 해당 블록이 유실되는 문제도 이 단계에서 함께
-검증한다.
+실제 구조물 제작 전에는 Cobblemon Casino 블록 ID와 모드 ID `cobblemoncasino`을
+개발 인스턴스에서 확인한다. 모드가 빠진 팩에서 해당 블록이 유실되는 문제, 가챠
+보상의 경제 영향과 서버 권위의 당첨 판정도 함께 검증한다.

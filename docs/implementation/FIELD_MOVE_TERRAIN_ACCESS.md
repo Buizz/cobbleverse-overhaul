@@ -34,10 +34,13 @@
 현재 관리 및 퀘스트 연동 명령은 다음과 같다.
 
 ```text
-/cobbleventure_field_move grant rock_climb
-/cobbleventure_field_move grant surf
-/cobbleventure_field_move revoke <move>
+/cobbleventure_field_move rock_climb on
+/cobbleventure_field_move surf on
+/cobbleventure_field_move fly on
+/cobbleventure_field_move <move> off
 ```
+
+기존 `grant <move>`와 `revoke <move>` 형식도 호환을 위해 계속 지원한다.
 
 ## 후속 연동
 

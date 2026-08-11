@@ -288,6 +288,54 @@ class DataModBuilderTests(unittest.TestCase):
         road_endpoints = {(road["x2"], road["z2"]) for road in access_roads}
         self.assertTrue(all((entry["x"], entry["z"]) in road_endpoints for entry in entrances))
 
+        plot_x = float(department_store["x"])
+        plot_z = float(department_store["z"])
+        width = int(department_store["width"])
+        depth = int(department_store["depth"])
+        plaza_x = plot_x + width / 2
+        plaza_z = plot_z + 19
+        rear_z = plot_z + depth - 1 - 19
+        self.assertLessEqual(
+            plaza_x * plaza_x + plaza_z * plaza_z,
+            plaza_x * plaza_x + rear_z * rear_z,
+        )
+        self.assertEqual(
+            math.floor(plot_z + 0.5) + 19,
+            next(entry["z"] for entry in entrances if entry["facing"] == "west"),
+        )
+        self.assertEqual(
+            math.floor(plot_z + 0.5) + 19,
+            next(entry["z"] for entry in entrances if entry["facing"] == "east"),
+        )
+
+    def test_generated_street_decorations_avoid_buildings_and_access_roads(self) -> None:
+        generated_root = (
+            REPOSITORY_ROOT / build_data_mod.OUTPUT
+            / "data/cobbleventure/settlements/generation_1"
+        )
+        decoration_types: set[str] = set()
+        for settlement_path in generated_root.glob("*.json"):
+            layout = json.loads(settlement_path.read_text(encoding="utf-8"))["compiled_layout"]
+            plots = [*layout["facilities"].values(), *layout["houses"]]
+            for decoration in layout["decorations"]:
+                decoration_types.add(decoration["type"])
+                clearance = 3 if decoration["type"] == "street_tree" else 1
+                footprint = {
+                    "x": decoration["x"] - clearance,
+                    "z": decoration["z"] - clearance,
+                    "width": clearance * 2 + 1,
+                    "depth": clearance * 2 + 1,
+                }
+                self.assertFalse(any(
+                    build_data_mod._plots_intersect(footprint, plot, 1.0)
+                    for plot in plots
+                ), settlement_path.name)
+                self.assertFalse(any(
+                    build_data_mod._plot_intersects_road(footprint, road, 3, 0.75)
+                    for road in layout["access_roads"]
+                ), settlement_path.name)
+        self.assertEqual({"street_lamp", "street_tree"}, decoration_types)
+
     def test_builtin_facilities_use_actual_template_footprints(self) -> None:
         source = json.loads(
             (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(

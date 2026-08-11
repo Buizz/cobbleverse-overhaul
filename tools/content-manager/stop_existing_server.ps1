@@ -9,14 +9,20 @@ $resolvedManager = [System.IO.Path]::GetFullPath($ManagerPath)
 $resolvedRoot = [System.IO.Path]::GetFullPath($RepositoryRoot).TrimEnd('\')
 $managerNeedle = $resolvedManager.ToLowerInvariant()
 $rootNeedle = $resolvedRoot.ToLowerInvariant()
+$managerName = [System.IO.Path]::GetFileName($resolvedManager).ToLowerInvariant()
+$listenerPids = @(
+    Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty OwningProcess
+)
 
 $servers = Get-CimInstance Win32_Process | Where-Object {
     $command = if ($_.CommandLine) { $_.CommandLine.ToLowerInvariant() } else { "" }
     $name = $_.Name.ToLowerInvariant()
     $isPython = $name -in @("python.exe", "python3.exe", "py.exe")
+    $sameRepository = $command.Contains($managerNeedle) -and $command.Contains($rootNeedle)
+    $defaultPortServer = $_.ProcessId -in $listenerPids -and $command.Contains($managerName)
     $isPython -and
-        $command.Contains($managerNeedle) -and
-        $command.Contains($rootNeedle) -and
+        ($sameRepository -or $defaultPortServer) -and
         $command -match '(?:^|\s)api(?:\s|$)'
 }
 

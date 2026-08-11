@@ -1,3 +1,7 @@
 {
-  "item.cobbleventure_bootstrap.youngster_cap": "Youngster's Cap"
+  "item.cobbleventure_bootstrap.youngster_cap": "Youngster's Cap",
+  "message.cobbleventure_bootstrap.pokemon_center_checkpoint": "Your latest Pokémon Center checkpoint has been saved.",
+  "message.cobbleventure_bootstrap.pokemon_center_return": "Your entire party fainted, so you returned to the latest Pokémon Center.",
+  "message.cobbleventure_bootstrap.pokemon_center_fallback_return": "Your entire party fainted, so you returned to the starting point.",
+  "message.cobbleventure_bootstrap.pokemon_center_missing": "No Pokémon Center checkpoint could be found."
 }

@@ -1,3 +1,7 @@
 {
-  "item.cobbleventure_bootstrap.youngster_cap": "반바지 꼬마의 모자"
+  "item.cobbleventure_bootstrap.youngster_cap": "반바지 꼬마의 모자",
+  "message.cobbleventure_bootstrap.pokemon_center_checkpoint": "마지막으로 방문한 포켓몬센터가 저장되었습니다.",
+  "message.cobbleventure_bootstrap.pokemon_center_return": "모든 포켓몬이 쓰러져 마지막 포켓몬센터로 돌아왔습니다.",
+  "message.cobbleventure_bootstrap.pokemon_center_fallback_return": "모든 포켓몬이 쓰러져 시작 지점으로 돌아왔습니다.",
+  "message.cobbleventure_bootstrap.pokemon_center_missing": "돌아갈 포켓몬센터를 찾을 수 없습니다."
 }

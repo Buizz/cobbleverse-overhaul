@@ -13,15 +13,17 @@ const structureViewPitch = {
 };
 
 const state = {
-  trainers: [], settlements: [], trainer: null, settlement: null,
-  trainerPath: "", settlementPath: "", buildCommands: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
+  trainers: [], battles: [], settlements: [], caves: [], trainer: null, battlePreset: null, settlement: null, cave: null,
+  trainerPath: "", battlePath: "", settlementPath: "", cavePath: "", buildCommands: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
   biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
   worldLayout: null, worldGenerations: [1], selectedGeneration: 1,
+  worldPokemonMap: { locations: [], available_pokemon: [], unavailable_pokemon: [], summary: {} },
+  pokemonMapTab: "selected", pokemonMapQuery: "",
   selectedHex: null, mapRadius: 6, mapZoom: 1, mapCenter: { x: 490, y: 330 }, mapViewInitialized: false,
   mapPan: null, suppressMapClick: false, draggedSettlement: null, routeDraft: null, worldDirty: false,
-  activeMapTool: "select", paintStroke: null, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null,
+  activeMapTool: "select", paintStroke: null, brushPreview: null, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null,
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
   structureViewer: { query: "", selected: "", model: null, yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0 },
   customTownTool: "cell"
@@ -173,7 +175,7 @@ function escapeHtml(value) {
 function switchPage(section) {
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === section));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너 데이터", worlds: "세대별 월드맵", settlements: "마을 프리셋", structures: "NBT 건물 3D", biomes: "바이옴 관리", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너 데이터", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", structures: "NBT 건물 3D", biomes: "바이옴 관리", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderStructureModel);
@@ -195,16 +197,21 @@ async function loadDashboard() {
 }
 
 async function loadLists() {
-  const [trainers, settlements, worldLayouts, worldLayout] = await Promise.all([
-    request("/api/trainers"), request("/api/settlements"),
-    request("/api/world-layouts"), request(`/api/world-layout?generation=${state.selectedGeneration}`)
+  const [trainers, battles, settlements, caves, worldLayouts, worldLayout, worldPokemonMap] = await Promise.all([
+    request("/api/trainers"), request("/api/battles"), request("/api/settlements"), request("/api/caves"),
+    request("/api/world-layouts"), request(`/api/world-layout?generation=${state.selectedGeneration}`),
+    request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`)
   ]);
   state.trainers = trainers.data.items || [];
+  state.battles = battles.data.items || [];
   state.settlements = settlements.data.items || [];
+  state.caves = caves.data.items || [];
   state.worldGenerations = worldLayouts.ok ? worldLayouts.data.generations || [1] : [1];
   state.worldLayout = worldLayout.ok ? worldLayout.data : null;
+  if (worldPokemonMap.ok) state.worldPokemonMap = worldPokemonMap.data;
   renderList("trainers");
   renderList("settlements");
+  renderList("caves");
   renderWorldLayout();
 }
 
@@ -283,6 +290,8 @@ function loadSectionData(section, force = false) {
 function settlementSummary(settlementId) {
   return state.settlements.find((item) => item.id === settlementId);
 }
+function caveSummary(caveId) { return state.caves.find((item) => item.id === caveId); }
+function caveEntranceAt(q, r) { return (state.worldLayout?.cave_entrances || []).find((entry) => entry.anchor?.q === q && entry.anchor?.r === r); }
 function normalizeTownCellCount(value) { const count = Number(value); return count === 3 || count === 5 || count === 7 || count === 19 ? count : 1; }
 function settlementPresetRadius(settlementId) { return normalizeTownCellCount(settlementSummary(settlementId)?.town_radius_cells); }
 function normalizeTownFootprintShape(value) { return ["triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down", "custom"].includes(value) ? value : "line_q"; }
@@ -310,11 +319,12 @@ function renderWorldLayout() {
   layout.settlements ||= [];
   layout.connections ||= [];
   layout.objects ||= [];
+  layout.cave_entrances ||= [];
   layout.environment_overrides ||= [];
   layout.empty_terrain ||= { default_type: "high_forest", tiles: [] };
   layout.empty_terrain.default_type ||= "high_forest";
   layout.empty_terrain.tiles ||= [];
-  const occupiedExtent = [...layout.tiles, ...layout.empty_terrain.tiles, ...layout.settlements.map((node) => node.anchor || { q: 0, r: 0 }), ...layout.objects.map((node) => node.anchor || { q: 0, r: 0 })].reduce((largest, cell) => Math.max(largest, Math.abs(cell.q || 0), Math.abs(cell.r || 0), Math.abs((cell.q || 0) + (cell.r || 0))), 0);
+  const occupiedExtent = [...layout.tiles, ...layout.empty_terrain.tiles, ...layout.settlements.map((node) => node.anchor || { q: 0, r: 0 }), ...layout.objects.map((node) => node.anchor || { q: 0, r: 0 }), ...layout.cave_entrances.map((node) => node.anchor || { q: 0, r: 0 })].reduce((largest, cell) => Math.max(largest, Math.abs(cell.q || 0), Math.abs(cell.r || 0), Math.abs((cell.q || 0) + (cell.r || 0))), 0);
   state.mapRadius = Math.max(Number(layout.grid?.map_radius_cells || state.mapRadius), Math.min(14, occupiedExtent + 1));
   renderGenerationTabs();
   renderMapToolOptions();
@@ -345,10 +355,14 @@ function renderGenerationTabs() {
 async function loadWorldGeneration(generation) {
   if (generation === state.selectedGeneration) return;
   if (state.worldDirty && !confirm("저장하지 않은 지도 변경을 버리고 다른 세대로 이동할까요?")) return;
-  const result = await request(`/api/world-layout?generation=${generation}`);
+  const [result, pokemonMap] = await Promise.all([
+    request(`/api/world-layout?generation=${generation}`),
+    request(`/api/world-pokemon-map?generation=${generation}`)
+  ]);
   if (!result.ok) { toast(result.data.error || "세대 지도를 불러오지 못했습니다."); return; }
   state.selectedGeneration = generation;
   state.worldLayout = result.data;
+  if (pokemonMap.ok) state.worldPokemonMap = pokemonMap.data;
   state.selectedHex = null;
   state.worldDirty = false;
   state.mapViewInitialized = false;
@@ -482,6 +496,28 @@ function baseBiomeAt(q, r) {
   return townArea ? (townArea.town_biome || "minecraft:plains") : null;
 }
 
+const brushMapTools = new Set(["biome", "terrain", "climate", "eraser"]);
+function activeBrushRadius() {
+  const inputId = {
+    biome: "biome-brush-radius",
+    terrain: "empty-terrain-brush-radius",
+    climate: "climate-brush-radius",
+    eraser: "eraser-radius"
+  }[state.activeMapTool];
+  return inputId ? Math.max(0, Number($(`#${inputId}`)?.value || 0)) : null;
+}
+function renderBrushPreview() {
+  const radius = activeBrushRadius();
+  if (!state.brushPreview || radius === null || state.spacePanActive) return "";
+  const centerKey = hexKey(state.brushPreview.q, state.brushPreview.r);
+  const cells = hexArea(state.brushPreview, radius).map((cell) => {
+    const { x, y } = hexPoint(cell.q, cell.r);
+    const center = hexKey(cell.q, cell.r) === centerKey ? " is-center" : "";
+    return `<polygon class="brush-preview-cell${center}" points="${hexPolygon(x, y, mapHexSize() - 3)}"></polygon>`;
+  }).join("");
+  return `<g class="brush-preview tool-${state.activeMapTool}" aria-hidden="true">${cells}</g>`;
+}
+
 function renderHexMap() {
   const svg = $("#world-hex-map");
   const view = mapViewBox(); const cells = visibleHexCells();
@@ -537,9 +573,15 @@ function renderHexMap() {
     const { x, y } = hexPoint(node.anchor.q, node.anchor.r);
     return `<g class="hex-custom-object" transform="translate(${x} ${y})"><rect x="-9" y="-9" width="18" height="18" rx="3"></rect><text y="25">${escapeHtml(node.id)}</text></g>`;
   }).join("");
-  svg.innerHTML = `<defs><pattern id="empty-terrain-red-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#d52828" stroke-width="2.2" opacity=".78"></line></pattern></defs><g class="hex-map-layer">${tiles}${townAreas}${routes}${draftRoute}${towns}${objects}${routeAnchors}</g>`;
+  const caveEntrances = (state.worldLayout.cave_entrances || []).map((node) => {
+    const { x, y } = hexPoint(node.anchor.q, node.anchor.r);
+    const caveName = caveSummary(node.cave)?.name || node.cave.split("/").pop();
+    return `<g class="hex-cave-entrance" data-route-cave-entrance="${escapeHtml(node.id)}" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(caveName)} ${escapeHtml(node.entrance)} 입구"><circle r="16"></circle><path d="M-10 7Q-9-9 0-11Q9-9 10 7ZM-4 7V0Q0-5 4 0V7Z"></path><text y="30">${escapeHtml(caveName)} · ${escapeHtml(node.entrance)}</text><text class="center-badge" x="13" y="-12">＋</text></g>`;
+  }).join("");
+  const brushPreview = renderBrushPreview();
+  svg.innerHTML = `<defs><pattern id="empty-terrain-red-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#d52828" stroke-width="2.2" opacity=".78"></line></pattern></defs><g class="hex-map-layer">${tiles}${townAreas}${routes}${draftRoute}${towns}${objects}${caveEntrances}${routeAnchors}${brushPreview}</g>`;
   const routeCellCount = new Set((state.worldLayout.connections || []).flatMap((connection) => connectionPath(connection).map((cell) => `${cell.q},${cell.r}`))).size;
-  $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 오버라이드 ${(state.worldLayout.environment_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳`;
+  $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 오버라이드 ${(state.worldLayout.environment_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳 · 동굴 입구 ${(state.worldLayout.cave_entrances || []).length}곳`;
   $("#map-zoom").textContent = `${Math.round(state.mapZoom * 100)}%`;
   $$("[data-hex-q]").forEach((cell) => {
     const select = () => { if (!state.suppressMapClick) handleHexSelection(Number(cell.dataset.hexQ), Number(cell.dataset.hexR)); };
@@ -552,6 +594,13 @@ function renderHexMap() {
     event.preventDefault(); event.stopPropagation();
     const node = state.worldLayout.settlements.find((entry) => entry.settlement === marker.dataset.dragSettlement);
     if (node?.anchor) handleRoutePoint(node.anchor.q, node.anchor.r, node.settlement);
+  }));
+  $$("[data-route-cave-entrance]").forEach((marker) => marker.addEventListener("click", (event) => {
+    const entrance = (state.worldLayout.cave_entrances || []).find((entry) => entry.id === marker.dataset.routeCaveEntrance);
+    if (!entrance) return;
+    event.preventDefault(); event.stopPropagation();
+    if (state.activeMapTool === "route") handleRoutePoint(entrance.anchor.q, entrance.anchor.r, entrance.id);
+    else selectHex(entrance.anchor.q, entrance.anchor.r);
   }));
   $$("[data-select-route]").forEach((route) => {
     const select = (event) => {
@@ -591,6 +640,8 @@ async function saveWorldLayout() {
   state.worldDirty = false;
   const reloaded = await request(`/api/world-layout?generation=${state.selectedGeneration}`);
   if (reloaded.ok) state.worldLayout = reloaded.data;
+  const pokemonMap = await request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`);
+  if (pokemonMap.ok) state.worldPokemonMap = pokemonMap.data;
   renderWorldLayout();
 }
 
@@ -602,6 +653,7 @@ function handleHexSelection(q, r) {
   else if (tool === "climate") paintClimateArea(q, r);
   else if (tool === "route") handleRoutePoint(q, r);
   else if (tool === "settlement") placeSettlementWithTool(q, r);
+  else if (tool === "cave") placeCaveEntranceWithTool(q, r);
   else if (tool === "object") placeObjectWithTool(q, r);
   else if (tool === "eraser") eraseMapArea(q, r);
   else selectHex(q, r);
@@ -663,6 +715,7 @@ function eraseMapArea(q, r) {
   if (target === "climate" || target === "all") state.worldLayout.environment_overrides = state.worldLayout.environment_overrides.filter((entry) => !keys.has(hexKey(entry.q, entry.r)));
   if (target === "terrain" || target === "all") state.worldLayout.empty_terrain.tiles = state.worldLayout.empty_terrain.tiles.filter((tile) => !keys.has(hexKey(tile.q, tile.r)));
   if (target === "object" || target === "all") state.worldLayout.objects = state.worldLayout.objects.filter((object) => !keys.has(hexKey(object.anchor.q, object.anchor.r)));
+  if (target === "all") state.worldLayout.cave_entrances = state.worldLayout.cave_entrances.filter((entrance) => !keys.has(hexKey(entrance.anchor.q, entrance.anchor.r)));
   state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
 function placeSettlementWithTool(q, r) {
@@ -676,6 +729,27 @@ function placeSettlementWithTool(q, r) {
   if (!node) { node = defaultWorldSettlement(id, q, r, $("#settlement-tool-biome").value); state.worldLayout.settlements.push(node); }
   node.anchor = { q, r }; node.town_radius_cells = radius; node.town_footprint_shape = settlementPresetFootprintShape(id); node.town_footprint_cells = settlementPresetFootprintCells(id); node.town_road_exits = settlementPresetRoadExits(id);
   state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
+}
+function caveToolEntranceOptions() {
+  const caveId = $("#cave-tool-cave").value;
+  const cave = caveSummary(caveId);
+  const placed = new Set((state.worldLayout.cave_entrances || []).filter((item) => item.cave === caveId).map((item) => item.entrance));
+  return (cave?.entrances || []).map((entry) => `<option value="${escapeHtml(entry.id)}" ${placed.has(entry.id) ? "disabled" : ""}>${escapeHtml(entry.display_name || entry.id)}${placed.has(entry.id) ? " · 배치됨" : ""}</option>`).join("");
+}
+function refreshCaveToolEntrances() { $("#cave-tool-entrance").innerHTML = caveToolEntranceOptions(); }
+function placeCaveEntranceWithTool(q, r) {
+  const caveId = $("#cave-tool-cave").value; const entranceId = $("#cave-tool-entrance").value;
+  if (!caveId || !entranceId) { toast("배치할 동굴과 미배치 내부 입구를 선택해 주세요."); return; }
+  if (caveEntranceAt(q, r) || settlementAt(q, r)) { toast("이미 마을 또는 동굴 입구가 배치된 타일입니다."); return; }
+  if ((state.worldLayout.cave_entrances || []).some((entry) => entry.cave === caveId && entry.entrance === entranceId)) { toast("같은 내부 입구가 이미 배치되어 있습니다."); return; }
+  const slug = caveId.split("/").pop();
+  state.worldLayout.cave_entrances.push({
+    id: `cobbleventure:cave_entrance/${slug}_${entranceId}`, cave: caveId, entrance: entranceId,
+    anchor: { q, r }, facing: $("#cave-tool-facing").value,
+    structure: $("#cave-tool-structure").value.trim(),
+    pokemon_center: { structure: $("#cave-tool-center-structure").value.trim(), offset: { q: Number($("#cave-tool-center-q").value || 0), r: Number($("#cave-tool-center-r").value || 0) } }
+  });
+  state.selectedHex = { q, r }; markWorldDirty(); refreshCaveToolEntrances(); renderWorldLayout(); toast("동굴 입구와 필수 포켓몬센터를 배치했습니다. 길 도구로 입구까지 연결해 주세요.");
 }
 function placeObjectWithTool(q, r) {
   const id = $("#object-tool-id").value.trim(); const type = $("#object-tool-type").value.trim(); const resource = $("#object-tool-resource").value.trim();
@@ -697,7 +771,7 @@ function worldBiomeOptions(selected = "") {
 function renderTileInspector() {
   const selected = state.selectedHex; const form = $("#tile-inspector-form");
   $("#tile-inspector-empty").hidden = Boolean(selected); form.hidden = !selected;
-  if (!selected) { $("#selected-tile-title").textContent = "타일을 선택하세요"; $("#selected-tile-coord").textContent = "Q — · R —"; return; }
+  if (!selected) { $("#selected-tile-title").textContent = "타일을 선택하세요"; $("#selected-tile-coord").textContent = "Q — · R —"; renderWorldPokemonPanel(); return; }
   const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r); const customObject = objectAt(selected.q, selected.r); const townArea = settlementFootprintAt(selected.q, selected.r); const environment = environmentOverrideAt(selected.q, selected.r);
   const routes = routesAt(selected.q, selected.r);
   const kind = customObject ? "object" : town ? "settlement" : tile ? "biome" : "empty";
@@ -720,6 +794,44 @@ function renderTileInspector() {
   const climateNote = environment ? `<small class="climate-override-note">기후 덮어쓰기 · 온도 ${escapeHtml(environment.temperature || "기본")} · 습도 ${escapeHtml(environment.humidity || "기본")} · 날씨 ${escapeHtml(environment.weather || "기본")}</small>` : "";
   const townAreaNote = townArea && !town ? `<small class="town-area-warning">실제 생성: ${escapeHtml(settlementSummary(townArea.settlement)?.name || townArea.settlement)} 사용 범위 · 이 타일의 바이옴 배치는 무시됩니다.</small>` : "";
   $("#tile-summary").innerHTML = (kind === "object" ? `<b>${escapeHtml(customObject.id)}</b><span>${escapeHtml(customObject.type)} 오브젝트</span><small>바이옴과 길 위에 독립적으로 배치되는 확장용 메타데이터입니다.</small>` : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote;
+  renderWorldPokemonPanel();
+}
+
+function pokemonMapEntryName(entry) { return entry?.display_name?.ko_kr || entry?.display_name?.en_us || entry?.slug || entry?.id || "알 수 없음"; }
+function pokemonMapMatches(entry, query) {
+  if (!query) return true;
+  const text = [entry.dex_number, entry.id, entry.slug, entry.display_name?.ko_kr, entry.display_name?.en_us].filter(Boolean).join(" ").toLowerCase();
+  return text.includes(query.toLowerCase());
+}
+function pokemonMapCard(entry, unavailable = false) {
+  const reason = entry.unavailable_reason === "other_generation" ? `${entry.generation}세대 포켓몬` : "현재 월드 조건과 불일치";
+  return `<article class="pokemon-map-card"><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt=""><div><b>${escapeHtml(pokemonMapEntryName(entry))}</b><span>No.${String(entry.dex_number).padStart(4, "0")} · ${escapeHtml((entry.types || []).join(" / "))}</span><small>${unavailable ? escapeHtml(reason) : `${escapeHtml(entry.habitats?.primary || "unknown")} · ${escapeHtml(entry.preferences?.rarity || "unknown")}`}</small></div></article>`;
+}
+function renderWorldPokemonPanel() {
+  const data = state.worldPokemonMap || {}; const summary = data.summary || {};
+  $("#pokemon-map-summary").textContent = `출현 ${summary.available || 0} · 미출현 ${summary.unavailable || 0}`;
+  $("#unavailable-pokemon-count").textContent = summary.unavailable || 0;
+  $$('[data-pokemon-map-tab]').forEach((button) => { const active = button.dataset.pokemonMapTab === state.pokemonMapTab; button.classList.toggle("is-active", active); button.setAttribute("aria-selected", String(active)); });
+  const selected = state.selectedHex;
+  const location = selected ? (data.locations || []).find((entry) => entry.q === selected.q && entry.r === selected.r) : null;
+  let entries = [];
+  if (state.pokemonMapTab === "unavailable") {
+    entries = data.unavailable_pokemon || [];
+    $("#pokemon-map-location").innerHTML = `<b>${state.selectedGeneration}세대 월드 미출현</b><span>저장된 모든 출현 가능 지역의 합집합에서 제외된 포켓몬입니다.</span>`;
+  } else if (!selected) {
+    $("#pokemon-map-location").innerHTML = `<b>지역을 선택하세요</b><span>지도 타일을 누르면 해당 위치의 포켓몬을 볼 수 있습니다.</span>`;
+  } else if (!location) {
+    $("#pokemon-map-location").innerHTML = `<b>출현 불가 지역</b><span>빈 지형 또는 포켓몬 출현 정보가 없는 타일입니다.</span>`;
+  } else {
+    const pokemonById = new Map([...(data.available_pokemon || []), ...(data.unavailable_pokemon || [])].map((entry) => [entry.id, entry]));
+    entries = location.pokemon_ids.map((id) => pokemonById.get(id)).filter(Boolean);
+    const label = location.settlement || location.biome;
+    $("#pokemon-map-location").innerHTML = `<b>${escapeHtml(label)}</b><span>${location.count}종 · ${location.unmapped_biome ? "바이옴 프로필 매핑 필요" : location.profile_ids.map((id) => id.split("/").pop()).join(", ")}</span>${state.worldDirty ? "<small>저장하지 않은 지도 변경은 아직 반영되지 않았습니다.</small>" : ""}`;
+  }
+  const filtered = entries.filter((entry) => pokemonMapMatches(entry, state.pokemonMapQuery));
+  $("#pokemon-map-list").innerHTML = filtered.length
+    ? filtered.map((entry) => pokemonMapCard(entry, state.pokemonMapTab === "unavailable")).join("")
+    : `<p class="pokemon-map-empty">${entries.length ? "검색 결과가 없습니다." : "표시할 포켓몬이 없습니다."}</p>`;
 }
 
 const mapToolCopy = {
@@ -729,6 +841,7 @@ const mapToolCopy = {
   climate: ["기후 오버라이드", "온도·습도·날씨를 좌표별로 덮어씁니다."],
   route: ["길 만들기", "마을 자동 연결 또는 타일 경유 경로를 만듭니다."],
   settlement: ["마을 배치", "프리셋 마을을 배치하거나 이동합니다."],
+  cave: ["동굴 입구 배치", "동굴 내부 앵커와 연결되는 입구와 필수 포켓몬센터를 배치합니다."],
   object: ["오브젝트 배치", "확장 가능한 커스텀 오브젝트를 배치합니다."],
   eraser: ["지우개", "선택한 월드 레이어를 제거합니다."]
 };
@@ -740,7 +853,11 @@ function renderMapToolOptions() {
   $("#biome-brush-type").innerHTML = worldBiomeOptions($("#biome-brush-type").value || "minecraft:plains");
   $("#settlement-tool-biome").innerHTML = worldBiomeOptions($("#settlement-tool-biome").value || "minecraft:plains");
   $("#settlement-tool-preset").innerHTML = worldSettlementOptions($("#settlement-tool-preset").value);
-  const help = { select: "선택 도구 · 드래그: 지도/마을 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", route: "길 도구 · 마을 두 곳: 자동 연결 · 일반 타일: 직접 경로", settlement: "마을 도구 · 타일을 눌러 배치 또는 이동", object: "오브젝트 도구 · 독립 레이어에 배치", eraser: "지우개 · 선택 레이어 제거" };
+  const currentCave = $("#cave-tool-cave").value;
+  $("#cave-tool-cave").innerHTML = state.caves.filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
+  if (currentCave && state.caves.some((item) => item.id === currentCave)) $("#cave-tool-cave").value = currentCave;
+  refreshCaveToolEntrances();
+  const help = { select: "선택 도구 · 드래그: 지도/마을 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", route: "길 도구 · 마을/동굴 입구까지 자동 연결", settlement: "마을 도구 · 타일을 눌러 배치 또는 이동", cave: "동굴 입구 도구 · 입구와 포켓몬센터를 함께 배치", object: "오브젝트 도구 · 독립 레이어에 배치", eraser: "지우개 · 선택 레이어 제거" };
   $("#map-interaction-help").textContent = help[tool];
   $("#world-hex-map").dataset.activeTool = tool;
   renderRouteCreator();
@@ -749,7 +866,7 @@ function setActiveMapTool(tool) {
   if (!mapToolCopy[tool] || tool === state.activeMapTool) return;
   if (state.routeDraft && tool !== "route") state.routeDraft = null;
   if (!new Set(["select", "route"]).has(tool)) state.selectedRouteId = null;
-  state.activeMapTool = tool; state.paintStroke = null; state.draggedSettlement = null;
+  state.activeMapTool = tool; state.paintStroke = null; state.brushPreview = null; state.draggedSettlement = null;
   renderMapToolOptions(); renderHexMap();
 }
 
@@ -965,13 +1082,30 @@ function nearestHexFromPointer(event) {
   const local = point.matrixTransform(svg.getScreenCTM().inverse());
   return pixelToHex(local.x, local.y);
 }
+function updateBrushPreview(event) {
+  if (!brushMapTools.has(state.activeMapTool) || state.spacePanActive) {
+    if (state.brushPreview) { state.brushPreview = null; renderHexMap(); }
+    return;
+  }
+  const cell = nearestHexFromPointer(event);
+  if (state.brushPreview?.q === cell.q && state.brushPreview?.r === cell.r) return;
+  state.brushPreview = cell;
+  renderHexMap();
+}
+function clearBrushPreview() {
+  if (!state.brushPreview) return;
+  state.brushPreview = null;
+  renderHexMap();
+}
 function beginMapPan(event) {
+  updateBrushPreview(event);
   if (beginToolStroke(event)) return;
   if (event.button !== 0 || event.target.closest?.("[data-drag-settlement], [data-select-route], [data-route-anchor-index], [data-delete-route-inline]") || (state.activeMapTool !== "select" && !state.spacePanActive)) return;
   const svg = $("#world-hex-map");
   state.mapPan = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, centerX: state.mapCenter.x, centerY: state.mapCenter.y, lastRenderX: state.mapCenter.x, lastRenderY: state.mapCenter.y, moved: false };
 }
 function moveMapPan(event) {
+  updateBrushPreview(event);
   if (moveRouteAnchorDrag(event)) return;
   if (state.paintStroke) { continueToolStroke(event); return; }
   const pan = state.mapPan; if (!pan || pan.pointerId !== event.pointerId) return;
@@ -1013,7 +1147,7 @@ function finishSettlementDrag(event) {
 async function addGeneration() {
   const generation = Array.from({ length: 9 }, (_, index) => index + 1).find((value) => !state.worldGenerations.includes(value));
   if (!generation) { toast("9세대까지 모두 추가되어 있습니다."); return; }
-  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, dimension: `cobbleventure:generation_${generation}`, seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], environment_overrides: [], settlements: [], connections: [], objects: [] };
+  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, dimension: `cobbleventure:generation_${generation}`, seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], environment_overrides: [], settlements: [], cave_entrances: [], connections: [], objects: [] };
   const result = await request(`/api/world-layout?generation=${generation}`, { method: "PUT", body: JSON.stringify(payload) });
   if (!result.ok) { toast(result.data.error || "세대를 추가하지 못했습니다."); return; }
   state.worldGenerations.push(generation); state.worldGenerations.sort((a, b) => a - b); state.selectedGeneration = generation; state.worldLayout = payload; state.selectedHex = null; state.worldDirty = false; state.mapViewInitialized = false; renderWorldLayout(); toast(`${generation}세대 월드를 추가했습니다.`);
@@ -1021,7 +1155,7 @@ async function addGeneration() {
 
 function renderList(category) {
   const items = state[category];
-  const singular = category === "trainers" ? "trainer" : "settlement";
+  const singular = category === "trainers" ? "trainer" : category === "caves" ? "cave" : "settlement";
   $(`#${singular}-list-count`).textContent = items.length;
   const list = $(`#${singular}-list`);
   if (!items.length) { list.innerHTML = '<div class="issues empty">등록된 문서가 없습니다.</div>'; return; }
@@ -1033,22 +1167,77 @@ function renderList(category) {
 }
 
 async function loadDocument(category, path) {
-  const singular = category === "trainers" ? "trainer" : "settlement";
+  const singular = category === "trainers" ? "trainer" : category === "caves" ? "cave" : "settlement";
   const result = await request(`/api/${category}?path=${encodeURIComponent(path)}`);
   if (!result.ok) { toast(result.data.error || "문서를 불러오지 못했습니다."); return; }
   state[singular] = result.data.document;
   state[`${singular}Path`] = result.data.path;
+  if (category === "trainers") {
+    state.battlePreset = null;
+    state.battlePath = "";
+    if (result.data.document.schema_version === 3) {
+      const battleRef = result.data.document.interaction?.nodes
+        ?.flatMap((node) => [...(node.actions || []), ...(node.choices || []).flatMap((choice) => choice.actions || [])])
+        .find((action) => action.type === "start_battle")?.battle;
+      const summary = state.battles.find((entry) => entry.id === battleRef);
+      if (summary) {
+        const battleResult = await request(`/api/battles?path=${encodeURIComponent(summary.path)}`);
+        if (battleResult.ok) {
+          state.battlePreset = battleResult.data.document;
+          state.battlePath = battleResult.data.path;
+        }
+      }
+    }
+  }
   renderList(category);
-  if (category === "trainers") renderTrainer(); else renderSettlement();
+  if (category === "trainers") renderTrainer(); else if (category === "caves") renderCave(); else renderSettlement();
+}
+
+function trainerBattle() {
+  return state.battlePreset?.battle || state.trainer?.battle || null;
+}
+
+function renderCave() {
+  const document = state.cave; const form = $("#cave-form");
+  if (!document) return;
+  $("#selected-cave-editor").hidden = false; $("#cave-editor-title").textContent = document.display_name?.ko_kr || document.id; $("#cave-path").textContent = state.cavePath;
+  setFormValue(form, "id", document.id); setFormValue(form, "nameKo", document.display_name?.ko_kr); setFormValue(form, "generation", document.generation || 1);
+  setFormValue(form, "caveType", document.cave_type); setFormValue(form, "dimensionId", document.dimension?.id || "cobbleventure:dungeons");
+  setFormValue(form, "requiresFlash", Boolean(document.requires_flash)); setFormValue(form, "randomEncounters", Boolean(document.random_encounters?.enabled));
+  setFormValue(form, "spawnProfile", document.random_encounters?.spawn_profile || ""); setFormValue(form, "densityMultiplier", document.random_encounters?.density_multiplier ?? 1);
+  setFormValue(form, "trainersEnabled", Boolean(document.trainer_settings?.enabled)); setFormValue(form, "maxActiveTrainers", document.trainer_settings?.max_active ?? 0);
+  setFormValue(form, "trainerClassPool", (document.trainer_settings?.class_pool || []).join(", "));
+  setFormValue(form, "internalBiomes", JSON.stringify(document.internal_biomes || [], null, 2)); setFormValue(form, "entrances", JSON.stringify(document.entrances || [], null, 2));
+  $("#cave-json").value = JSON.stringify(document, null, 2);
+  ["#cave-json", "#apply-cave-json", "#validate-cave", "#save-cave"].forEach((selector) => $(selector).disabled = false);
+  showIssues("#cave-issues", { valid: true, issues: [] });
+}
+function updateCaveFromForm() {
+  if (!state.cave) return false; const form = $("#cave-form");
+  let internalBiomes; let entrances;
+  try { internalBiomes = JSON.parse(form.elements.internalBiomes.value); entrances = JSON.parse(form.elements.entrances.value); }
+  catch (error) { toast(`동굴 목록 JSON 문법 오류: ${error.message}`); return false; }
+  state.cave.id = form.elements.id.value.trim(); state.cave.display_name = { ...(state.cave.display_name || {}), ko_kr: form.elements.nameKo.value.trim() };
+  state.cave.generation = Number(form.elements.generation.value); state.cave.cave_type = form.elements.caveType.value;
+  state.cave.dimension ||= { region_id: `generation_${state.cave.generation}/${state.cave.id.split("/").pop()}`, origin: { x: 0, y: 48, z: 0 }, bounds: { min_x: -256, min_z: -256, max_x: 256, max_z: 256 } };
+  state.cave.dimension.id = form.elements.dimensionId.value.trim(); state.cave.requires_flash = form.elements.requiresFlash.checked;
+  state.cave.random_encounters = { enabled: form.elements.randomEncounters.checked, spawn_profile: form.elements.spawnProfile.value.trim(), density_multiplier: Number(form.elements.densityMultiplier.value || 0) };
+  state.cave.trainer_settings ||= { placements: [] }; state.cave.trainer_settings.enabled = form.elements.trainersEnabled.checked; state.cave.trainer_settings.max_active = Number(form.elements.maxActiveTrainers.value || 0); state.cave.trainer_settings.class_pool = form.elements.trainerClassPool.value.split(",").map((value) => value.trim()).filter(Boolean); state.cave.trainer_settings.placements ||= [];
+  state.cave.internal_biomes = internalBiomes; state.cave.entrances = entrances; $("#cave-json").value = JSON.stringify(state.cave, null, 2); return true;
 }
 
 function renderTrainer() {
   const document = state.trainer;
   const form = $("#trainer-form");
-  const ai = normalizeTrainerAi(document.battle);
-  document.schema_version = 2;
-  document.battle.ai = ai;
-  delete document.battle.difficulty;
+  const attachedBattle = trainerBattle();
+  const battle = attachedBattle || {
+    format: "GEN_9_SINGLES", battle_type: "singles", level_mode: "fixed",
+    ai: { controller: "cobbleventure", difficulty: "standard", strategy: "balanced", options: {} },
+    rules: {}, bag: [], mechanics: { mega_evolution: false, z_move: false, dynamax: false, terastallization: false }, team: [],
+  };
+  const ai = normalizeTrainerAi(battle);
+  battle.ai = ai;
+  delete battle.difficulty;
   $("#trainer-editor-title").textContent = document.name?.ko_kr || document.id;
   $("#trainer-path").textContent = state.trainerPath;
   setFormValue(form, "id", document.id);
@@ -1073,29 +1262,62 @@ function renderTrainer() {
   setFormValue(form, "appearanceResource", document.npc?.appearance?.resource);
   setFormValue(form, "movement", document.npc?.behavior?.movement);
   setFormValue(form, "interactionRange", document.npc?.behavior?.interaction_range);
+  const encounter = document.npc?.behavior?.encounter || { mode: "interaction", trigger_range: document.npc?.behavior?.interaction_range || 4, warning_range: { min: 4, max: 6 } };
+  setFormValue(form, "encounterMode", encounter.mode);
+  setFormValue(form, "encounterTriggerRange", encounter.trigger_range ?? document.npc?.behavior?.interaction_range ?? 4);
+  setFormValue(form, "warningRangeMin", encounter.warning_range?.min ?? 4);
+  setFormValue(form, "warningRangeMax", encounter.warning_range?.max ?? 6);
   setFormValue(form, "lookAtPlayer", document.npc?.behavior?.look_at_player);
   setFormValue(form, "invulnerable", document.npc?.behavior?.invulnerable);
-  setFormValue(form, "battleFormat", document.battle?.format);
-  setFormValue(form, "battleType", document.battle?.battle_type);
+  setFormValue(form, "battleFormat", battle.format);
+  setFormValue(form, "battleType", battle.battle_type);
   setFormValue(form, "battleDifficulty", ai.difficulty);
   setFormValue(form, "battleAi", ai.strategy);
   setFormValue(form, "cheatProbability", Math.round((ai.options?.cheat_probability ?? 0.5) * 100));
   renderCheatProbability(form);
-  setFormValue(form, "levelMode", document.battle?.level_mode);
-  setFormValue(form, "megaEvolution", document.battle?.mechanics?.mega_evolution);
-  setFormValue(form, "zMove", document.battle?.mechanics?.z_move);
-  setFormValue(form, "dynamax", document.battle?.mechanics?.dynamax);
-  setFormValue(form, "terastallization", document.battle?.mechanics?.terastallization);
-  $("#max-item-uses").value = Number.isInteger(document.battle?.rules?.max_item_uses)
-    ? document.battle.rules.max_item_uses
+  setFormValue(form, "levelMode", battle.level_mode);
+  setFormValue(form, "megaEvolution", battle.mechanics?.mega_evolution);
+  setFormValue(form, "zMove", battle.mechanics?.z_move);
+  setFormValue(form, "dynamax", battle.mechanics?.dynamax);
+  setFormValue(form, "terastallization", battle.mechanics?.terastallization);
+  const defaultEntry = document.interaction?.entry_routes?.at(-1)?.entry || document.dialogue?.entry;
+  const interactionNodes = document.interaction?.nodes || document.dialogue?.nodes || [];
+  const greeting = interactionNodes.find((node) => node.id === defaultEntry) || interactionNodes.find((node) => node.type === "dialogue");
+  setFormValue(form, "greetingText", greeting?.text?.ko_kr || "");
+  const rewardNode = interactionNodes.find((node) => node.type === "actions" && node.actions?.some((action) => action.type === "give_money" || action.type === "grant_loot" || action.type === "give_item"));
+  const money = rewardNode?.actions?.find((action) => action.type === "give_money") || document.rewards?.money || { mode: "fixed", amount: 0, currency_objective: "cobbleventure_money" };
+  setFormValue(form, "moneyMode", money.mode);
+  setFormValue(form, "moneyAmount", money.amount ?? 0);
+  setFormValue(form, "moneyMultiplier", money.multiplier ?? 1);
+  setFormValue(form, "currencyObjective", money.currency_objective || "cobbleventure_money");
+  const lootAction = rewardNode?.actions?.find((action) => action.type === "grant_loot");
+  const itemAction = rewardNode?.actions?.find((action) => action.type === "give_item");
+  const itemReward = lootAction ? { mode: "loot_table", loot_table: lootAction.loot_table } : itemAction ? { mode: "fixed", entries: [{ item: itemAction.item, count: itemAction.count }] } : document.rewards?.items || { mode: "fixed", entries: [] };
+  const fixedReward = itemReward.entries?.[0] || { item: "cobblemon:poke_ball", count: 1 };
+  setFormValue(form, "itemRewardMode", itemReward.mode);
+  setFormValue(form, "rewardItem", fixedReward.item);
+  setFormValue(form, "rewardItemCount", fixedReward.count);
+  setFormValue(form, "rewardLootTable", itemReward.loot_table || "cobbleventure:trainer/rewards");
+  setFormValue(form, "spawnCommand", `/easy_npc preset import_new data cobbleventure:encounter/${document.id.split("/").at(-1)} ~ ~ ~`);
+  renderTrainerRewardFields(form);
+  $("#max-item-uses").value = Number.isInteger(battle.rules?.max_item_uses)
+    ? battle.rules.max_item_uses
     : "";
   [...form.elements].forEach((element) => element.disabled = false);
   $("#max-item-uses").disabled = false;
+  const battleFieldNames = ["battleFormat", "battleType", "battleDifficulty", "battleAi", "cheatProbability", "levelMode", "megaEvolution", "zMove", "dynamax", "terastallization"];
+  battleFieldNames.forEach((name) => { form.elements[name].disabled = !attachedBattle; });
+  ["#max-item-uses", "#add-bag-item", "#load-trainer-reference", "#copy-team-json", "#paste-team-json", "#add-pokemon"].forEach((selector) => { $(selector).disabled = !attachedBattle; });
   renderTrainerPreview();
+  renderEntryRoutes();
   renderBag();
   renderTeam();
+  if (!attachedBattle) {
+    $("#bag-list").innerHTML = '<div class="issues empty">이 NPC에는 배틀 액션이 없습니다.</div>';
+    $("#team-list").innerHTML = '<div class="issues empty">대화 액션에 배틀 프리셋을 연결하면 팀을 편집할 수 있습니다.</div>';
+  }
   $("#trainer-json").value = JSON.stringify(document, null, 2);
-  ["#trainer-json", "#apply-trainer-json", "#add-bag-item", "#add-pokemon", "#load-trainer-reference", "#copy-team-json", "#paste-team-json", "#validate-trainer", "#save-trainer"].forEach((selector) => $(selector).disabled = false);
+  ["#trainer-json", "#apply-trainer-json", "#add-entry-route", "#add-bag-item", "#add-pokemon", "#load-trainer-reference", "#copy-team-json", "#paste-team-json", "#copy-spawn-command", "#validate-trainer", "#save-trainer"].forEach((selector) => $(selector).disabled = false);
   showIssues("#trainer-issues", { valid: true, issues: [] });
 }
 
@@ -1119,35 +1341,71 @@ function updateTrainerFromForm() {
     look_at_player: form.elements.lookAtPlayer.checked,
     invulnerable: form.elements.invulnerable.checked
   });
+  state.trainer.npc.behavior.encounter = {
+    mode: form.elements.encounterMode.value,
+    trigger_range: Number(form.elements.encounterTriggerRange.value),
+    warning_range: {
+      min: Number(form.elements.warningRangeMin.value),
+      max: Number(form.elements.warningRangeMax.value),
+      indicator: "trainer_nearby"
+    }
+  };
   const difficulty = form.elements.battleDifficulty.value;
   const aiOptions = difficulty === "cheater"
     ? { cheat_probability: Math.max(0, Math.min(1, Number(form.elements.cheatProbability.value) / 100)) }
     : {};
-  Object.assign(state.trainer.battle, {
-    format: form.elements.battleFormat.value,
-    battle_type: form.elements.battleType.value,
-    ai: {
-      controller: "cobbleventure",
-      difficulty,
-      strategy: form.elements.battleAi.value,
-      options: aiOptions,
-    },
-    level_mode: form.elements.levelMode.value
-  });
+  const battle = trainerBattle();
+  if (battle) Object.assign(battle, {
+      format: form.elements.battleFormat.value,
+      battle_type: form.elements.battleType.value,
+      ai: {
+        controller: "cobbleventure",
+        difficulty,
+        strategy: form.elements.battleAi.value,
+        options: aiOptions,
+      },
+      level_mode: form.elements.levelMode.value
+    });
   renderCheatProbability(form);
-  state.trainer.battle.rules ||= {};
-  const maxItemUses = $("#max-item-uses").value.trim();
-  if (maxItemUses === "") delete state.trainer.battle.rules.max_item_uses;
-  else state.trainer.battle.rules.max_item_uses = Math.max(0, Number.parseInt(maxItemUses, 10) || 0);
-  Object.assign(state.trainer.battle.mechanics, {
-    mega_evolution: form.elements.megaEvolution.checked,
-    z_move: form.elements.zMove.checked,
-    dynamax: form.elements.dynamax.checked,
-    terastallization: form.elements.terastallization.checked
-  });
-  for (const pokemon of state.trainer.battle.team || []) {
+  if (battle) {
+    battle.rules ||= {};
+    const maxItemUses = $("#max-item-uses").value.trim();
+    if (maxItemUses === "") delete battle.rules.max_item_uses;
+    else battle.rules.max_item_uses = Math.max(0, Number.parseInt(maxItemUses, 10) || 0);
+    battle.mechanics ||= {};
+    Object.assign(battle.mechanics, {
+      mega_evolution: form.elements.megaEvolution.checked,
+      z_move: form.elements.zMove.checked,
+      dynamax: form.elements.dynamax.checked,
+      terastallization: form.elements.terastallization.checked
+    });
+  }
+  const interactionNodes = state.trainer.interaction?.nodes || state.trainer.dialogue?.nodes || [];
+  const defaultEntry = state.trainer.interaction?.entry_routes?.at(-1)?.entry || state.trainer.dialogue?.entry;
+  const greeting = interactionNodes.find((node) => node.id === defaultEntry) || interactionNodes.find((node) => node.type === "dialogue");
+  if (greeting) greeting.text = { ...(greeting.text || {}), ko_kr: form.elements.greetingText.value };
+  const moneyMode = form.elements.moneyMode.value;
+  const currencyObjective = form.elements.currencyObjective.value.trim() || "cobbleventure_money";
+  const money = moneyMode === "level_cap_multiplier"
+    ? { mode: moneyMode, multiplier: Math.max(1, Number(form.elements.moneyMultiplier.value) || 1), currency_objective: currencyObjective, level_cap_objective: "cobbleventure_level_cap" }
+    : { mode: moneyMode, amount: Math.max(0, Number.parseInt(form.elements.moneyAmount.value, 10) || 0), currency_objective: currencyObjective };
+  const itemRewardMode = form.elements.itemRewardMode.value;
+  const items = itemRewardMode === "loot_table"
+    ? { mode: itemRewardMode, loot_table: form.elements.rewardLootTable.value.trim() }
+    : { mode: itemRewardMode, entries: [{ item: form.elements.rewardItem.value.trim(), count: Math.max(1, Number.parseInt(form.elements.rewardItemCount.value, 10) || 1) }] };
+  const rewardNode = interactionNodes.find((node) => node.type === "actions" && node.actions?.some((action) => ["give_money", "grant_loot", "give_item"].includes(action.type)));
+  if (rewardNode) {
+    rewardNode.actions = rewardNode.actions.filter((action) => !["give_money", "grant_loot", "give_item"].includes(action.type));
+    rewardNode.actions.push({ type: "give_money", ...money });
+    if (items.mode === "loot_table") rewardNode.actions.push({ type: "grant_loot", loot_table: items.loot_table });
+    else rewardNode.actions.push(...items.entries.map((entry) => ({ type: "give_item", ...entry })));
+  } else {
+    state.trainer.rewards = { money, items };
+  }
+  renderTrainerRewardFields(form);
+  for (const pokemon of battle?.team || []) {
     if (!pokemon.gimmick?.type) continue;
-    state.trainer.battle.mechanics[pokemon.gimmick.type] = true;
+    battle.mechanics[pokemon.gimmick.type] = true;
     form.elements[pokemon.gimmick.type === "mega_evolution" ? "megaEvolution" : "zMove"].checked = true;
   }
   renderTrainerPreview();
@@ -1179,18 +1437,96 @@ function renderCheatProbability(form = $("#trainer-form")) {
   $("#cheat-probability-output").textContent = `${percentage}%`;
 }
 
+function renderTrainerRewardFields(form = $("#trainer-form")) {
+  $$('[data-money-field]').forEach((element) => { element.hidden = element.dataset.moneyField !== form.elements.moneyMode.value; });
+  $$('[data-item-reward-field]').forEach((element) => { element.hidden = element.dataset.itemRewardField !== form.elements.itemRewardMode.value; });
+}
+
 function bagItemCatalogEntry(itemId) {
   return (state.editorCatalog?.bagItems || []).find((entry) => entry.id === itemId) || null;
 }
 
-function renderBag() {
-  const list = $("#bag-list");
-  if (!state.trainer?.battle) {
-    list.innerHTML = '<div class="issues empty">트레이너를 선택하면 가방이 표시됩니다.</div>';
+function renderEntryRoutes() {
+  const list = $("#entry-route-list");
+  const interaction = state.trainer?.interaction;
+  if (!interaction) {
+    list.innerHTML = '<div class="issues empty">구형 번들은 전체 JSON의 dialogue_routes에서 시작 조건을 관리합니다.</div>';
+    $("#add-entry-route").disabled = true;
     return;
   }
-  state.trainer.battle.bag ||= [];
-  const bag = state.trainer.battle.bag;
+  const dialogueNodes = interaction.nodes.filter((node) => node.type === "dialogue");
+  const options = dialogueNodes.map((node) => `<option value="${escapeHtml(node.id)}">${escapeHtml(node.text?.ko_kr || node.id)}</option>`).join("");
+  list.innerHTML = interaction.entry_routes.map((route, index) => {
+    const condition = route.conditions?.[0] || { type: "always" };
+    const isFallback = !route.conditions?.length;
+    const detailFields = condition.type === "flag_equals"
+      ? `<label><span>플래그 ID</span><input data-route-field="key" value="${escapeHtml(condition.key || "")}"></label><label><span>값</span><select data-route-field="value"><option value="true">true</option><option value="false">false</option></select></label>`
+      : condition.type === "has_item"
+        ? `<label><span>아이템 ID</span><input data-route-field="item" value="${escapeHtml(condition.item || "")}"></label><label><span>수량</span><input type="number" min="1" data-route-field="count" value="${Number(condition.count || 1)}"></label>`
+        : '<span class="route-fallback-note">위 조건이 모두 실패하면 이 대화로 시작합니다.</span>';
+    return `<article class="bag-item-row entry-route-row" data-entry-route="${index}">
+      <span class="bag-item-index">${String(index + 1).padStart(2, "0")}</span>
+      <label><span>시작 조건</span><select data-route-field="type"><option value="flag_equals">플래그 비교</option><option value="has_item">아이템 보유</option><option value="always">기본 경로</option></select></label>
+      ${detailFields}
+      <label><span>시작 대화</span><select data-route-field="entry">${options}</select></label>
+      <button type="button" class="remove-bag-item" data-remove-entry-route="${index}" ${isFallback ? "disabled" : ""}>삭제</button>
+    </article>`;
+  }).join("");
+  $$("[data-entry-route]").forEach((row) => {
+    const route = interaction.entry_routes[Number(row.dataset.entryRoute)];
+    const condition = route.conditions?.[0] || { type: "always" };
+    row.querySelector('[data-route-field="type"]').value = condition.type;
+    row.querySelector('[data-route-field="entry"]').value = route.entry;
+    if (condition.type === "flag_equals") row.querySelector('[data-route-field="value"]').value = String(condition.value ?? true);
+  });
+}
+
+function updateEntryRoute(event) {
+  const row = event.target.closest("[data-entry-route]");
+  if (!row || !state.trainer?.interaction) return;
+  const index = Number(row.dataset.entryRoute);
+  const route = state.trainer.interaction.entry_routes[index];
+  const field = event.target.dataset.routeField;
+  if (field === "entry") route.entry = event.target.value;
+  else if (field === "type") {
+    const type = event.target.value;
+    if (type === "always") {
+      route.conditions = [];
+      state.trainer.interaction.entry_routes.splice(index, 1);
+      state.trainer.interaction.entry_routes.push(route);
+    } else if (type === "flag_equals") route.conditions = [{ type, key: "cobbleventure:flag/example", value: true }];
+    else route.conditions = [{ type, item: "cobblemon:potion", count: 1 }];
+    renderEntryRoutes();
+  } else {
+    const condition = route.conditions[0];
+    if (field === "count") condition.count = Math.max(1, Number.parseInt(event.target.value, 10) || 1);
+    else if (field === "value") condition.value = event.target.value === "true";
+    else condition[field] = event.target.value.trim();
+  }
+  syncTrainerJson();
+}
+
+function addEntryRoute() {
+  const routes = state.trainer?.interaction?.entry_routes;
+  if (!routes) return;
+  const fallbackIndex = routes.findIndex((route) => !route.conditions?.length);
+  const fallback = routes[fallbackIndex];
+  routes.splice(fallbackIndex < 0 ? routes.length : fallbackIndex, 0, {
+    conditions: [{ type: "flag_equals", key: "cobbleventure:flag/example", value: true }],
+    entry: fallback?.entry || state.trainer.interaction.nodes.find((node) => node.type === "dialogue")?.id
+  });
+  renderEntryRoutes();
+  syncTrainerJson();
+}
+
+function renderBag() {
+  const list = $("#bag-list");
+  if (!trainerBattle()) {
+    list.innerHTML = '<div class="issues empty">연결된 배틀 프리셋이 없습니다.</div>';
+    return;
+  }
+  trainerBattle().bag ||= [];
+  const bag = trainerBattle().bag;
   if (!bag.length) {
     list.innerHTML = '<div class="issues empty">등록된 전투 아이템이 없습니다.</div>';
     return;
@@ -1209,27 +1545,27 @@ function renderBag() {
   }).join("");
   $$('[data-select-bag-item]').forEach((button) => button.addEventListener("click", () => openChoiceDialog("bag_item", null, Number(button.dataset.selectBagItem))));
   $$('[data-bag-quantity]').forEach((input) => input.addEventListener("input", () => {
-    const entry = state.trainer.battle.bag[Number(input.dataset.bagQuantity)];
+    const entry = trainerBattle().bag[Number(input.dataset.bagQuantity)];
     if (!entry) return;
     entry.quantity = Math.max(1, Number.parseInt(input.value, 10) || 1);
     syncTrainerJson();
   }));
   $$('[data-remove-bag-item]').forEach((button) => button.addEventListener("click", () => {
-    state.trainer.battle.bag.splice(Number(button.dataset.removeBagItem), 1);
+    trainerBattle().bag.splice(Number(button.dataset.removeBagItem), 1);
     renderBag();
     syncTrainerJson();
   }));
 }
 
 function addBagItem() {
-  if (!state.trainer?.battle) return;
-  state.trainer.battle.bag ||= [];
+  if (!trainerBattle()) return;
+  trainerBattle().bag ||= [];
   const fallback = state.editorCatalog?.bagItems?.find((entry) => entry.shortId === "potion")
     || state.editorCatalog?.bagItems?.[0];
-  state.trainer.battle.bag.push({ item: fallback?.id || "cobblemon:potion", quantity: 1 });
+  trainerBattle().bag.push({ item: fallback?.id || "cobblemon:potion", quantity: 1 });
   renderBag();
   syncTrainerJson();
-  openChoiceDialog("bag_item", null, state.trainer.battle.bag.length - 1);
+  openChoiceDialog("bag_item", null, trainerBattle().bag.length - 1);
 }
 
 function applyTrainerClass() {
@@ -1551,7 +1887,7 @@ function toId(value) {
 }
 
 function currentPokemon() {
-  return state.trainer?.battle?.team?.[state.selectedPokemonIndex] || null;
+  return trainerBattle()?.team?.[state.selectedPokemonIndex] || null;
 }
 
 function natureById(value) {
@@ -1733,7 +2069,7 @@ function pokemonTemplate() {
 }
 
 function renderTeam() {
-  const team = state.trainer?.battle?.team || [];
+  const team = trainerBattle()?.team || [];
   const list = $("#team-list");
   if (!team.length) {
     list.innerHTML = '<div class="focused-entry-editor"><button class="empty-team-prompt" type="button">＋ 첫 포켓몬 추가</button></div>';
@@ -1842,7 +2178,7 @@ function setPokemonGimmick(type, enabled) {
     pokemon.held_item = null;
     const mechanicInput = $("#trainer-form").elements[type === "mega_evolution" ? "megaEvolution" : "zMove"];
     mechanicInput.checked = true;
-    state.trainer.battle.mechanics[type] = true;
+    trainerBattle().mechanics[type] = true;
   }
   renderTeam();
   syncTrainerJson();
@@ -1859,17 +2195,17 @@ function setPokemonGimmickItem(itemId) {
 
 function addPokemon() {
   if (!state.trainer) return;
-  if (state.trainer.battle.team.length >= 6) { toast("팀은 최대 6마리까지 구성할 수 있습니다."); return; }
-  state.trainer.battle.team.push(pokemonTemplate());
-  state.selectedPokemonIndex = state.trainer.battle.team.length - 1;
+  if (trainerBattle().team.length >= 6) { toast("팀은 최대 6마리까지 구성할 수 있습니다."); return; }
+  trainerBattle().team.push(pokemonTemplate());
+  state.selectedPokemonIndex = trainerBattle().team.length - 1;
   renderTeam();
   syncTrainerJson();
 }
 
 function removePokemon(index) {
-  if (state.trainer.battle.team.length <= 1) { toast("팀에는 포켓몬이 한 마리 이상 필요합니다."); return; }
-  state.trainer.battle.team.splice(index, 1);
-  state.selectedPokemonIndex = Math.min(index, state.trainer.battle.team.length - 1);
+  if (trainerBattle().team.length <= 1) { toast("팀에는 포켓몬이 한 마리 이상 필요합니다."); return; }
+  trainerBattle().team.splice(index, 1);
+  state.selectedPokemonIndex = Math.min(index, trainerBattle().team.length - 1);
   renderTeam();
   syncTrainerJson();
 }
@@ -1881,7 +2217,7 @@ function selectPokemon(index) {
 }
 
 function moveSelectedPokemon(offset) {
-  const team = state.trainer?.battle?.team;
+  const team = trainerBattle()?.team;
   if (!team) return;
   updateFocusedPokemon();
   const targetIndex = state.selectedPokemonIndex + offset;
@@ -1893,7 +2229,7 @@ function moveSelectedPokemon(offset) {
 }
 
 function duplicatePokemon() {
-  const team = state.trainer.battle.team;
+  const team = trainerBattle().team;
   if (team.length >= 6) { toast("팀은 최대 6마리까지 구성할 수 있습니다."); return; }
   team.splice(state.selectedPokemonIndex + 1, 0, structuredClone(team[state.selectedPokemonIndex]));
   state.selectedPokemonIndex += 1;
@@ -1909,11 +2245,11 @@ function clipboardCatalogOptions() {
 }
 
 async function copyTeamJson() {
-  if (!state.trainer?.battle?.team?.length) return;
+  if (!trainerBattle()?.team?.length) return;
   updateFocusedPokemon();
   try {
     const entry = createPartyClipboardEntry(
-      state.trainer.battle.team,
+      trainerBattle().team,
       clipboardCatalogOptions(),
     );
     await writeClipboardText(JSON.stringify(entry, null, 2));
@@ -1924,18 +2260,18 @@ async function copyTeamJson() {
 }
 
 async function pasteTeamJson() {
-  if (!state.trainer?.battle) return;
+  if (!trainerBattle()) return;
   try {
     const entry = parsePartyClipboardText(
       await readClipboardText(),
       clipboardCatalogOptions(),
     );
     const team = toContentManagerParty(entry, clipboardCatalogOptions());
-    state.trainer.battle.team = team;
-    state.trainer.battle.mechanics ||= {};
+    trainerBattle().team = team;
+    trainerBattle().mechanics ||= {};
     for (const pokemon of team) {
-      if (pokemon.gimmick?.type) state.trainer.battle.mechanics[pokemon.gimmick.type] = true;
-      if (pokemon.gigantamax_factor) state.trainer.battle.mechanics.dynamax = true;
+      if (pokemon.gimmick?.type) trainerBattle().mechanics[pokemon.gimmick.type] = true;
+      if (pokemon.gigantamax_factor) trainerBattle().mechanics.dynamax = true;
     }
     state.selectedPokemonIndex = 0;
     renderTrainer();
@@ -1947,8 +2283,8 @@ async function pasteTeamJson() {
 
 function updateFocusedPokemon(event = null) {
   const editor = $(".focused-pokemon-editor");
-  if (!editor || !state.trainer?.battle?.team?.[state.selectedPokemonIndex]) return;
-  const pokemon = state.trainer.battle.team[state.selectedPokemonIndex];
+  if (!editor || !trainerBattle()?.team?.[state.selectedPokemonIndex]) return;
+  const pokemon = trainerBattle().team[state.selectedPokemonIndex];
   const value = (name) => editor.querySelector(`[name="${name}"]`).value.trim();
   const ivInputs = [...editor.querySelectorAll('[data-iv]')];
   const evInputs = [...editor.querySelectorAll('[data-ev]')];
@@ -2186,9 +2522,11 @@ function chooseDialogValue(value) {
   if (choice?.kind === "trainer_reference") {
     const reference = (state.trainerReferences.entries || []).find((entry) => entry.id === value);
     if (!reference || !state.trainer) return;
-    const trainerId = state.trainer.battle?.trainer_id || state.trainer.id;
-    state.trainer.battle = structuredClone(reference.battle);
-    state.trainer.battle.trainer_id = trainerId;
+    const trainerId = trainerBattle()?.trainer_id || state.trainer.id;
+    const importedBattle = structuredClone(reference.battle);
+    importedBattle.trainer_id = trainerId;
+    if (state.battlePreset) state.battlePreset.battle = importedBattle;
+    else state.trainer.battle = importedBattle;
     state.selectedPokemonIndex = 0;
     closeChoiceDialog();
     renderTrainer();
@@ -2196,7 +2534,7 @@ function chooseDialogValue(value) {
     return;
   }
   if (choice?.kind === "bag_item") {
-    const entry = state.trainer?.battle?.bag?.[choice.bagIndex];
+    const entry = trainerBattle()?.bag?.[choice.bagIndex];
     if (!entry || !value) return;
     entry.item = value;
     closeChoiceDialog();
@@ -2359,7 +2697,7 @@ async function applyPokemonArtwork(image, fallback, pokemon) {
 }
 
 function hydrateFocusedPokemonArt() {
-  const pokemon = state.trainer?.battle?.team?.[state.selectedPokemonIndex];
+  const pokemon = trainerBattle()?.team?.[state.selectedPokemonIndex];
   if (!pokemon) return;
   const image = $("#focused-pokemon-art");
   const fallback = $("#pokemon-art-fallback");
@@ -2367,7 +2705,7 @@ function hydrateFocusedPokemonArt() {
 }
 
 function hydratePartyArt() {
-  (state.trainer?.battle?.team || []).forEach((pokemon, index) => {
+  (trainerBattle()?.team || []).forEach((pokemon, index) => {
     const image = document.querySelector(`[data-party-art="${index}"]`);
     const fallback = document.querySelector(`[data-party-fallback="${index}"]`);
     applyPokemonArtwork(image, fallback, pokemon);
@@ -3292,7 +3630,15 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
         });
         const roadDistance = roadDistances.length ? Math.min(...roadDistances) : 0;
         const centerDistance = (centerX - hub.x) ** 2 + (centerZ - hub.z) ** 2;
-        candidates.push({ occupiedPlot, score: [intersectingRoads, roadDistance, centerDistance] });
+        const departmentStore = ["department_store", "facility_department_store"].includes(definition.id);
+        const plazaZ = occupiedZ + Math.min(19, Number(occupied.depth) - 1);
+        const rearZ = occupiedZ + Number(occupied.depth) - 1 - Math.min(19, Number(occupied.depth) - 1);
+        const plazaDistance = (centerX - hub.x) ** 2 + (plazaZ - hub.z) ** 2;
+        const rearDistance = (centerX - hub.x) ** 2 + (rearZ - hub.z) ** 2;
+        const score = departmentStore
+          ? [intersectingRoads, plazaDistance > rearDistance ? 1 : 0, plazaDistance, roadDistance]
+          : [intersectingRoads, roadDistance, centerDistance];
+        candidates.push({ occupiedPlot, score });
       }
     }
     if (!candidates.length) return false;
@@ -3342,8 +3688,13 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
     return rightArea - leftArea;
   });
   for (const facility of facilityInstances) {
-    if (!tryPlacePlot(facility, "facility", facility.instanceLabel, slots.length * 4)
-      && !tryPlaceGridFacility(facility, facility.instanceLabel)) missing.push(facility.instanceLabel);
+    const departmentStore = ["department_store", "facility_department_store"].includes(facility.id);
+    const placed = departmentStore
+      ? tryPlaceGridFacility(facility, facility.instanceLabel)
+        || tryPlacePlot(facility, "facility", facility.instanceLabel, slots.length * 4)
+      : tryPlacePlot(facility, "facility", facility.instanceLabel, slots.length * 4)
+        || tryPlaceGridFacility(facility, facility.instanceLabel);
+    if (!placed) missing.push(facility.instanceLabel);
   }
 
   const baseHouseTarget = normalizedCellCount === 19 ? Math.min(36, Math.max(12, 6 + depth * 5)) : Math.min(18, Math.max(4, 3 + depth * 3));
@@ -3366,8 +3717,8 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
   for (const plot of plots.filter((candidate) => candidate.entrance && candidate.road_connection)) {
     const entrances = plot.id === "department_store" ? [
       { facing: "north", x: plot.occupied.x + plot.occupied.width / 2, z: plot.occupied.z - 1 },
-      { facing: "west", x: plot.occupied.x - 1, z: plot.occupied.z + Math.min(18, plot.occupied.depth - 1) },
-      { facing: "east", x: plot.occupied.x + plot.occupied.width, z: plot.occupied.z + Math.min(18, plot.occupied.depth - 1) }
+      { facing: "west", x: plot.occupied.x - 1, z: plot.occupied.z + Math.min(19, plot.occupied.depth - 1) },
+      { facing: "east", x: plot.occupied.x + plot.occupied.width, z: plot.occupied.z + Math.min(19, plot.occupied.depth - 1) }
     ] : [{ facing: plot.entrance_facing, ...plot.entrance }];
     plot.entrance = entrances[0];
     plot.plazaEntrances = entrances;
@@ -3397,7 +3748,50 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       accessRoads.push({ building: plot.label, x1: roadX, z1: roadZ, x2: entrance.x, z2: entrance.z });
     }
   }
-  return { roads: roads.filter((_, index) => !blockedRoadIndices.has(index)), accessRoads, plots, missing, rejectedRoads, openConnectors: queue.length, layoutCells, hub, centerPattern: centerPattern.id };
+  const visibleRoads = roads.filter((_, index) => !blockedRoadIndices.has(index));
+  const decorations = [];
+  const tryAddDecoration = (type, x, z, clearance) => {
+    const footprint = { x: x - clearance, z: z - clearance, width: clearance * 2 + 1, depth: clearance * 2 + 1 };
+    if (!villagePlotInsideLayout(footprint, normalizedCellCount, normalizedFootprintShape, customCells)) return;
+    if (plots.some((plot) => villagePreviewRectIntersects(footprint, plot.occupied || plot, 1))) return;
+    if (accessRoads.some((road) => villagePreviewRectIntersects(footprint, villagePreviewRoadRect(road, 3), .75))) return;
+    const minimumSpacing = type === "street_tree" ? 5 : 4;
+    if (decorations.some((item) => (x - item.x) ** 2 + (z - item.z) ** 2 < minimumSpacing ** 2)) return;
+    decorations.push({ type, x, z });
+  };
+  const roadEdge = Math.ceil(roadWidth / 2);
+  visibleRoads.forEach((road, roadIndex) => {
+    const deltaX = road.x2 - road.x1;
+    const deltaZ = road.z2 - road.z1;
+    const length = Math.abs(deltaX) + Math.abs(deltaZ);
+    if (length < 20) return;
+    const directionX = deltaX === 0 ? 0 : Math.sign(deltaX);
+    const directionZ = deltaZ === 0 ? 0 : Math.sign(deltaZ);
+    const perpendicularX = -directionZ;
+    const perpendicularZ = directionX;
+    let markerIndex = 0;
+    for (let distance = 10; distance < length - 9; distance += 24, markerIndex += 1) {
+      const side = (roadIndex + markerIndex) % 2 === 0 ? 1 : -1;
+      const centerX = road.x1 + directionX * distance;
+      const centerZ = road.z1 + directionZ * distance;
+      tryAddDecoration(
+        "street_lamp",
+        centerX + perpendicularX * side * (roadEdge + 2),
+        centerZ + perpendicularZ * side * (roadEdge + 2),
+        1
+      );
+      const treeDistance = distance + 12;
+      if (treeDistance <= length - 10) {
+        tryAddDecoration(
+          "street_tree",
+          road.x1 + directionX * treeDistance - perpendicularX * side * (roadEdge + 4),
+          road.z1 + directionZ * treeDistance - perpendicularZ * side * (roadEdge + 4),
+          3
+        );
+      }
+    }
+  });
+  return { roads: visibleRoads, accessRoads, decorations, plots, missing, rejectedRoads, openConnectors: queue.length, layoutCells, hub, centerPattern: centerPattern.id };
 }
 
 const villageLayoutRerollLimit = 8;
@@ -3586,6 +3980,22 @@ function renderVillageGenerationTest() {
     const start = project(road.x1, road.z1); const end = project(road.x2, road.z2);
     context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
   }
+  for (const decoration of result.decorations || []) {
+    const position = project(decoration.x, decoration.z);
+    if (decoration.type === "street_tree") {
+      context.fillStyle = "#5a3f28";
+      context.fillRect(position.x - Math.max(1, scale * .45), position.y - Math.max(1, scale * .45), Math.max(2, scale * .9), Math.max(2, scale * .9));
+      context.fillStyle = "#4f8b45";
+      context.strokeStyle = "#2f6134";
+      context.lineWidth = 1;
+      context.beginPath(); context.arc(position.x, position.y, Math.max(3, scale * 2.5), 0, Math.PI * 2); context.fill(); context.stroke();
+    } else {
+      context.fillStyle = "#ffd85d";
+      context.strokeStyle = "#5d4a24";
+      context.lineWidth = Math.max(1, scale * .3);
+      context.beginPath(); context.arc(position.x, position.y, Math.max(2.5, scale * 1.1), 0, Math.PI * 2); context.fill(); context.stroke();
+    }
+  }
   const hub = project(0, 0);
   context.fillStyle = "#5b6770";
   context.fillRect(hub.x - 14 * scale, hub.y - 14 * scale, 28 * scale, 28 * scale);
@@ -3641,6 +4051,8 @@ function renderVillageGenerationTest() {
   const houseCount = result.plots.filter((plot) => plot.kind === "house").length;
   const resolvedNbtCount = result.plots.filter((plot) => plot.nbtResolved).length;
   const renderedTopViewCount = result.plots.filter((plot) => plot.topView?.blocks?.length).length;
+  const streetLampCount = (result.decorations || []).filter((item) => item.type === "street_lamp").length;
+  const streetTreeCount = (result.decorations || []).filter((item) => item.type === "street_tree").length;
   const rerollText = result.missing.length
     ? ` · 자동 리롤 ${result.rerollLimit}회 모두 실패`
     : result.rerollCount > 0
@@ -3648,7 +4060,7 @@ function renderVillageGenerationTest() {
       : " · 첫 시도 성공";
   const missingText = result.missing.length ? ` · 누락 시설: ${result.missing.join(", ")}` : " · 필수 시설 전부 배치";
   const centerPatternLabel = ({ tee_east: "ㅏ형", tee_west: "ㅓ형", tee_north: "ㅗ형", tee_south: "ㅜ형", linear: "일자형", terraced: "계단형" })[result.centerPattern] || result.centerPattern;
-  summary.textContent = `1칸 = 1블록 · ${villageDensityProfiles[density].label} · 확대 ${Math.round(view.zoom * 100)}% · NBT 탑뷰 ${renderedTopViewCount}/${result.plots.length} · 크기 실측 ${resolvedNbtCount}/${result.plots.length} · 마을 크기 ${radiusCells}칸 · 중앙 ${centerPatternLabel} · 허브 X ${result.hub.x} · Z ${result.hub.z} · 요청 시드 ${seed}${rerollText} · 주도로 ${result.roads.length} · 출입구 진입로 ${result.accessRoads.length} · 시설 ${facilityCount} · 기본 건물 ${houseCount} · 막힌 연결 ${result.rejectedRoads}${missingText}`;
+  summary.textContent = `1칸 = 1블록 · ${villageDensityProfiles[density].label} · 확대 ${Math.round(view.zoom * 100)}% · NBT 탑뷰 ${renderedTopViewCount}/${result.plots.length} · 크기 실측 ${resolvedNbtCount}/${result.plots.length} · 마을 크기 ${radiusCells}칸 · 중앙 ${centerPatternLabel} · 허브 X ${result.hub.x} · Z ${result.hub.z} · 요청 시드 ${seed}${rerollText} · 주도로 ${result.roads.length} · 출입구 진입로 ${result.accessRoads.length} · 가로등 ${streetLampCount} · 가로수 ${streetTreeCount} · 시설 ${facilityCount} · 기본 건물 ${houseCount} · 막힌 연결 ${result.rejectedRoads}${missingText}`;
   summary.classList.toggle("has-error", result.missing.length > 0);
   summary.classList.toggle("has-warning", !result.missing.length && result.rerollCount > 0);
   canvas.setAttribute("aria-label", `${radiusCells}개 육각 타일에 도로 조각 ${result.roads.length}개, 시설 ${facilityCount}개, 기본 건물 ${houseCount}개가 생성된 마을 테스트`);
@@ -4169,24 +4581,36 @@ function parseEditor(selector) {
 }
 
 async function validateDocument(category) {
-  const singular = category === "trainers" ? "trainer" : "settlement";
+  const singular = category === "trainers" ? "trainer" : category === "caves" ? "cave" : "settlement";
   if (category === "settlements") {
     if (!$("#settlement-form").reportValidity()) return false;
     updateSettlementFromForm();
   }
+  if (category === "caves" && (!$("#cave-form").reportValidity() || !updateCaveFromForm())) return false;
   const document = parseEditor(`#${singular}-json`);
   if (!document) return false;
   const result = await request(`/api/document-validation?category=${category}`, { method: "POST", body: JSON.stringify(document) });
+  if (result.ok && category === "trainers" && state.battlePreset) {
+    const battleResult = await request("/api/document-validation?category=battles", { method: "POST", body: JSON.stringify(state.battlePreset) });
+    if (!battleResult.ok) {
+      showIssues(`#${singular}-issues`, battleResult.data);
+      toast("연결된 배틀 프리셋에 수정이 필요한 항목이 있습니다.");
+      return false;
+    }
+  }
   showIssues(`#${singular}-issues`, result.data);
   toast(result.ok ? "문서 검증을 통과했습니다." : "수정이 필요한 항목이 있습니다.");
   return result.ok;
 }
 
 async function saveDocument(category) {
-  const singular = category === "trainers" ? "trainer" : "settlement";
+  const singular = category === "trainers" ? "trainer" : category === "caves" ? "cave" : "settlement";
   if (category === "settlements") {
     if (!$("#settlement-form").reportValidity()) { toast("입력값을 확인해 주세요."); return; }
     updateSettlementFromForm();
+  }
+  if (category === "caves") {
+    if (!$("#cave-form").reportValidity() || !updateCaveFromForm()) { toast("입력값을 확인해 주세요."); return; }
   }
   const document = parseEditor(`#${singular}-json`);
   if (!document) return;
@@ -4194,6 +4618,24 @@ async function saveDocument(category) {
   const originalLabel = saveButton.textContent;
   saveButton.disabled = true;
   saveButton.textContent = "저장 중…";
+  if (category === "trainers" && state.battlePreset) {
+    const battleValidation = await request("/api/document-validation?category=battles", { method: "POST", body: JSON.stringify(state.battlePreset) });
+    if (!battleValidation.ok) {
+      saveButton.disabled = false;
+      saveButton.textContent = originalLabel;
+      showIssues(`#${singular}-issues`, battleValidation.data);
+      toast("배틀 프리셋 검증 오류로 저장하지 않았습니다.");
+      return;
+    }
+    const battleSave = await request(`/api/battles?path=${encodeURIComponent(state.battlePath)}`, { method: "PUT", body: JSON.stringify(state.battlePreset) });
+    if (!battleSave.ok) {
+      saveButton.disabled = false;
+      saveButton.textContent = originalLabel;
+      showIssues(`#${singular}-issues`, battleSave.data);
+      toast("배틀 프리셋을 저장하지 못했습니다.");
+      return;
+    }
+  }
   const result = await request(`/api/${category}?path=${encodeURIComponent(state[`${singular}Path`])}`, { method: "PUT", body: JSON.stringify(document) });
   saveButton.textContent = originalLabel;
   showIssues(`#${singular}-issues`, result.data);
@@ -4201,15 +4643,15 @@ async function saveDocument(category) {
   state[singular] = document;
   toast("검증 후 안전하게 저장했습니다.");
   await Promise.all([loadDashboard(), loadLists()]);
-  if (category === "settlements") renderSettlement(); else renderTrainer();
+  if (category === "settlements") renderSettlement(); else if (category === "caves") renderCave(); else renderTrainer();
 }
 
 function openCreateDialog(category) {
   const form = $("#create-form");
   form.reset();
   form.elements.category.value = category;
-  form.elements.generation.value = category === "settlements" ? `generation_${state.selectedGeneration}` : "generation_1";
-  $("#create-title").textContent = category === "trainers" ? "새 트레이너" : "새 마을";
+  form.elements.generation.value = category === "trainers" ? "generation_1" : `generation_${state.selectedGeneration}`;
+  $("#create-title").textContent = category === "trainers" ? "새 트레이너" : category === "caves" ? "새 동굴" : "새 마을";
   $("#generation-field").hidden = category === "trainers";
   $("#create-issues").className = "issues empty";
   $("#create-issues").textContent = "";
@@ -4235,7 +4677,7 @@ async function createDocument(event) {
     await Promise.all([loadDashboard(), loadLists()]);
     switchPage(payload.category);
     await loadDocument(payload.category, result.data.path);
-    toast(payload.category === "trainers" ? "새 트레이너를 만들었습니다." : "새 마을을 만들었습니다.");
+    toast(payload.category === "trainers" ? "새 트레이너를 만들었습니다." : payload.category === "caves" ? "새 동굴을 만들었습니다." : "새 마을을 만들었습니다.");
   } finally {
     $("#create-submit").disabled = false;
   }
@@ -4340,6 +4782,10 @@ $("#refresh-button").addEventListener("click", refreshAll);
 $("#validate-repository").addEventListener("click", loadDashboard);
 $("#validate-trainer").addEventListener("click", () => validateDocument("trainers"));
 $("#save-trainer").addEventListener("click", () => saveDocument("trainers"));
+$("#copy-spawn-command").addEventListener("click", async () => {
+  await navigator.clipboard.writeText($("#trainer-form").elements.spawnCommand.value);
+  toast("EasyNPC 소환 명령어를 복사했습니다.");
+});
 $("#trainer-form").addEventListener("input", (event) => {
   if (event.target.name === "trainerClass") applyTrainerClass();
   else if (event.target.name === "rosterCharacter") applyRosterCharacter();
@@ -4355,6 +4801,15 @@ $("#trainer-form").addEventListener("input", (event) => {
   }
 });
 $("#add-pokemon").addEventListener("click", addPokemon);
+$("#add-entry-route").addEventListener("click", addEntryRoute);
+$("#entry-route-list").addEventListener("input", updateEntryRoute);
+$("#entry-route-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-entry-route]");
+  if (!button || !state.trainer?.interaction) return;
+  state.trainer.interaction.entry_routes.splice(Number(button.dataset.removeEntryRoute), 1);
+  renderEntryRoutes();
+  syncTrainerJson();
+});
 $("#add-bag-item").addEventListener("click", addBagItem);
 $("#max-item-uses").addEventListener("input", updateTrainerFromForm);
 $("#copy-team-json").addEventListener("click", copyTeamJson);
@@ -4363,17 +4818,24 @@ $("#load-trainer-reference").addEventListener("click", () => openChoiceDialog("t
 $("#apply-trainer-json").addEventListener("click", () => { const document = parseEditor("#trainer-json"); if (document) { state.trainer = document; renderTrainer(); toast("JSON을 편집 폼에 반영했습니다."); } });
 $("#validate-settlement").addEventListener("click", () => validateDocument("settlements"));
 $("#save-settlement").addEventListener("click", () => saveDocument("settlements"));
+$("#validate-cave").addEventListener("click", () => validateDocument("caves"));
+$("#save-cave").addEventListener("click", () => saveDocument("caves"));
+$("#cave-form").addEventListener("change", updateCaveFromForm);
+$("#apply-cave-json").addEventListener("click", () => { const document = parseEditor("#cave-json"); if (document) { state.cave = document; renderCave(); toast("JSON을 동굴 폼에 반영했습니다."); } });
 $("#delete-settlement").addEventListener("click", deleteSettlement);
 $("#save-world-layout").addEventListener("click", saveWorldLayout);
 $("#add-generation").addEventListener("click", addGeneration);
 $("#tile-inspector-form").addEventListener("change", handleTileInspectorChange);
 $("#clear-tile").addEventListener("click", clearSelectedTile);
+$$('[data-pokemon-map-tab]').forEach((button) => button.addEventListener("click", () => { state.pokemonMapTab = button.dataset.pokemonMapTab; renderWorldPokemonPanel(); }));
+$("#pokemon-map-search").addEventListener("input", (event) => { state.pokemonMapQuery = event.target.value.trim(); renderWorldPokemonPanel(); });
 $("#finish-route").addEventListener("click", finishRouteConnection);
 $("#cancel-route").addEventListener("click", cancelRouteConnection);
 $("#undo-route-anchor").addEventListener("click", undoRouteAnchor);
 $$('[data-map-tool]').forEach((button) => button.addEventListener("click", () => setActiveMapTool(button.dataset.mapTool)));
+$("#cave-tool-cave").addEventListener("change", refreshCaveToolEntrances);
 for (const [inputId, outputId] of [["biome-brush-radius", "biome-brush-radius-value"], ["empty-terrain-brush-radius", "empty-terrain-brush-radius-value"], ["climate-brush-radius", "climate-brush-radius-value"], ["eraser-radius", "eraser-radius-value"]]) {
-  $(`#${inputId}`).addEventListener("input", (event) => { $(`#${outputId}`).textContent = event.target.value; });
+  $(`#${inputId}`).addEventListener("input", (event) => { $(`#${outputId}`).textContent = event.target.value; renderHexMap(); });
 }
 $("#tile-radius-blocks").addEventListener("change", () => { state.worldLayout.grid.tile_radius_blocks = Number($("#tile-radius-blocks").value || 64); markWorldDirty(); });
 $("#zoom-in").addEventListener("click", () => { state.mapZoom = Math.min(1.6, state.mapZoom + .1); renderHexMap(); });
@@ -4381,13 +4843,14 @@ $("#zoom-out").addEventListener("click", () => { state.mapZoom = Math.max(.65, s
 $("#fit-map").addEventListener("click", () => { fitMapToContent(); renderHexMap(); });
 $("#world-hex-map").addEventListener("pointerdown", beginMapPan);
 $("#world-hex-map").addEventListener("pointermove", moveMapPan);
+$("#world-hex-map").addEventListener("pointerleave", () => { if (!state.paintStroke) clearBrushPreview(); });
 $("#world-hex-map").addEventListener("pointerup", finishSettlementDrag);
 $("#world-hex-map").addEventListener("pointerup", finishMapPan);
-$("#world-hex-map").addEventListener("pointercancel", (event) => { state.draggedSettlement = null; state.mapPan = null; state.paintStroke = null; state.routeAnchorDrag = null; $("#world-hex-map").classList.remove("is-dragging", "is-panning"); finishMapPan(event); });
+$("#world-hex-map").addEventListener("pointercancel", (event) => { state.draggedSettlement = null; state.mapPan = null; state.paintStroke = null; state.routeAnchorDrag = null; state.brushPreview = null; $("#world-hex-map").classList.remove("is-dragging", "is-panning"); finishMapPan(event); renderHexMap(); });
 window.addEventListener("keydown", (event) => {
-  if (event.code === "Space" && !/INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) { state.spacePanActive = true; $("#world-hex-map").classList.add("is-space-panning"); event.preventDefault(); return; }
+  if (event.code === "Space" && !/INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) { state.spacePanActive = true; state.brushPreview = null; $("#world-hex-map").classList.add("is-space-panning"); renderHexMap(); event.preventDefault(); return; }
   if (/INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.ctrlKey || event.metaKey || event.altKey) return;
-  const tool = ({ v: "select", b: "biome", t: "terrain", c: "climate", r: "route", s: "settlement", o: "object", e: "eraser" })[event.key.toLowerCase()];
+  const tool = ({ v: "select", b: "biome", t: "terrain", c: "climate", r: "route", s: "settlement", d: "cave", o: "object", e: "eraser" })[event.key.toLowerCase()];
   if (tool) { setActiveMapTool(tool); event.preventDefault(); }
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") { state.spacePanActive = false; $("#world-hex-map").classList.remove("is-space-panning"); } });

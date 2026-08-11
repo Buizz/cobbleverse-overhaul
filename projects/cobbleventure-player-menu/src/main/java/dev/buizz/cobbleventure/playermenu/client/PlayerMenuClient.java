@@ -4,6 +4,7 @@ import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import com.cobblemon.mod.common.client.gui.startselection.StarterSelectionScreen;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.bus.api.IEventBus;
@@ -78,6 +79,10 @@ public final class PlayerMenuClient {
 
     private static void onScreenOpening(ScreenEvent.Opening event) {
         Screen newScreen = event.getNewScreen();
+        if (newScreen instanceof StarterSelectionScreen) {
+            event.setNewScreen(event.getCurrentScreen());
+            return;
+        }
         if (!(newScreen instanceof InventoryScreen)) {
             return;
         }

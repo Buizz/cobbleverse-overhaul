@@ -1,0 +1,45 @@
+{
+  "$schema": "../../schemas/cave.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:cave/mt_moon",
+  "enabled": true,
+  "display_name": { "ko_kr": "달맞이산", "en_us": "Mt. Moon" },
+  "generation": 1,
+  "cave_type": "cobbleventure:cave_type/natural_rock",
+  "dimension": {
+    "id": "cobbleventure:dungeons",
+    "region_id": "generation_1/mt_moon",
+    "origin": { "x": 0, "y": 48, "z": 0 },
+    "bounds": { "min_x": -384, "min_z": -256, "max_x": 384, "max_z": 256 }
+  },
+  "requires_flash": false,
+  "random_encounters": {
+    "enabled": true,
+    "spawn_profile": "cobbleventure:spawn/mt_moon",
+    "density_multiplier": 1.15
+  },
+  "internal_biomes": [
+    { "id": "main_cavern", "biome": "minecraft:dripstone_caves", "habitat_profile": "cobbleventure:habitat/cave", "weight": 70 },
+    { "id": "moon_chamber", "biome": "minecraft:lush_caves", "habitat_profile": "cobbleventure:habitat/cave", "weight": 30 }
+  ],
+  "trainer_settings": {
+    "enabled": true,
+    "max_active": 8,
+    "class_pool": ["cobbleventure:trainer_class/hiker", "cobbleventure:trainer_class/rocket_grunt"],
+    "placements": []
+  },
+  "entrances": [
+    {
+      "id": "west",
+      "display_name": "회색시티 방면 입구",
+      "destination_anchor": { "x": -320, "y": 48, "z": 0 },
+      "fallback_anchor": { "x": -316, "y": 49, "z": 0 }
+    },
+    {
+      "id": "east",
+      "display_name": "블루시티 방면 입구",
+      "destination_anchor": { "x": 320, "y": 48, "z": 0 },
+      "fallback_anchor": { "x": 316, "y": 49, "z": 0 }
+    }
+  ]
+}

@@ -34,6 +34,7 @@
     "dialogue": { "$ref": "#/$defs/dialogue_graph" },
     "progression": { "$ref": "#/$defs/progression" },
     "outcomes": { "$ref": "#/$defs/outcomes" },
+    "rewards": { "$ref": "#/$defs/rewards" },
     "export_overrides": {
       "type": "object",
       "description": "기준 데이터로 표현할 수 없는 대상별 임시 설정. 일반 콘텐츠에는 사용하지 않는다.",
@@ -92,6 +93,25 @@
             "movement": { "enum": ["stationary", "wander", "patrol"] },
             "look_at_player": { "type": "boolean" },
             "interaction_range": { "type": "number", "exclusiveMinimum": 0 },
+            "encounter": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mode"],
+              "properties": {
+                "mode": { "enum": ["interaction", "proximity"] },
+                "trigger_range": { "type": "number", "exclusiveMinimum": 0 },
+                "warning_range": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["min", "max"],
+                  "properties": {
+                    "min": { "type": "number", "minimum": 0 },
+                    "max": { "type": "number", "exclusiveMinimum": 0 },
+                    "indicator": { "enum": ["trainer_nearby"] }
+                  }
+                }
+              }
+            },
             "invulnerable": { "type": "boolean" },
             "collision": { "type": "boolean" }
           }
@@ -337,11 +357,14 @@
           "enum": [
             "always",
             "flag_equals",
+            "has_item",
             "next_dialogue",
             "close_dialogue",
             "start_battle",
             "set_flag",
             "give_item",
+            "give_money",
+            "grant_loot",
             "start_quest",
             "complete_quest",
             "teleport",
@@ -350,10 +373,91 @@
         },
         "target": { "$ref": "#/$defs/resource_id" },
         "trainer": { "$ref": "#/$defs/resource_id" },
+        "battle": { "$ref": "#/$defs/resource_id" },
+        "results": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "player_win": { "$ref": "#/$defs/resource_id" },
+            "player_loss": { "$ref": "#/$defs/resource_id" },
+            "cancelled": { "$ref": "#/$defs/resource_id" }
+          }
+        },
         "key": { "$ref": "#/$defs/resource_id" },
         "value": { "type": ["string", "number", "boolean"] },
         "item": { "$ref": "#/$defs/resource_id" },
-        "count": { "type": "integer", "minimum": 1 }
+        "count": { "type": "integer", "minimum": 1 },
+        "mode": { "enum": ["fixed", "level_cap_multiplier"] },
+        "amount": { "type": "integer", "minimum": 0 },
+        "multiplier": { "type": "number", "exclusiveMinimum": 0 },
+        "currency_objective": { "type": "string" },
+        "level_cap_objective": { "type": "string" },
+        "loot_table": { "$ref": "#/$defs/resource_id" }
+      }
+    },
+    "rewards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["money", "items"],
+      "properties": {
+        "money": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mode", "amount"],
+              "properties": {
+                "mode": { "const": "fixed" },
+                "amount": { "type": "integer", "minimum": 0 },
+                "currency_objective": { "type": "string", "pattern": "^[A-Za-z0-9_.+-]+$" }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mode", "multiplier"],
+              "properties": {
+                "mode": { "const": "level_cap_multiplier" },
+                "multiplier": { "type": "number", "exclusiveMinimum": 0 },
+                "currency_objective": { "type": "string", "pattern": "^[A-Za-z0-9_.+-]+$" },
+                "level_cap_objective": { "type": "string", "pattern": "^[A-Za-z0-9_.+-]+$" }
+              }
+            }
+          ]
+        },
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mode", "entries"],
+              "properties": {
+                "mode": { "const": "fixed" },
+                "entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["item", "count"],
+                    "properties": {
+                      "item": { "$ref": "#/$defs/resource_id" },
+                      "count": { "type": "integer", "minimum": 1 }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mode", "loot_table"],
+              "properties": {
+                "mode": { "const": "loot_table" },
+                "loot_table": { "$ref": "#/$defs/resource_id" }
+              }
+            }
+          ]
+        }
       }
     },
     "progression": {

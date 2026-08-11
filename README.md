@@ -245,6 +245,7 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 | `build.bat web` | 데이터 관리용 Python Web 화면과 API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
 | `build.bat api` | `build.bat web`의 호환용 별칭 | Web 화면과 API가 동일하게 실행됨 |
 | `build.bat test` | 콘텐츠/Web/팩 회귀 테스트와 월드 부트스트랩·플레이어 메뉴 Java 컴파일 | Python `unittest`와 Gradle 테스트가 모두 통과해야 함 |
+| `build.bat spawns` | 엑셀 편집표에서 바이옴·세대 조건이 적용된 Paxi 스폰 데이터팩 생성 | 개발 팩 overrides에 생성 ZIP과 검증 보고서 생성 |
 | `build.bat mod-bootstrap` | 무지하 시작 바이옴·세대 차원·BCA 테스트 마을용 NeoForge Java 모드 빌드 | 체육관 NBT 생성 후 개발 팩 `overrides/mods`에 JAR 생성 |
 | `build.bat mod-menu` | 인벤토리 키 기반 원형 플레이어 메뉴 NeoForge 모드 빌드 | 개발 팩 `overrides/mods`에 JAR 생성 |
 | `build.bat pack-smoke` | 최소 CurseForge 임포트 테스트 ZIP 생성·재검증 | `dist`에 ZIP과 SHA-256 생성 |

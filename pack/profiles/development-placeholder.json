@@ -2,11 +2,11 @@
   "schema_version": 1,
   "profile_id": "development-placeholder",
   "name": "Cobbleventure Development Test Pack",
-  "version": "0.1.2-dev",
+  "version": "0.1.4-dev",
   "author": "Buizz",
   "purpose": "development-pack-placeholder",
   "production_ready": false,
-  "notice": "Cobblemon 1.7.3, CobbleNav 2.3.3, Mega Showdown, 실제 서버의 Complete Cobblemon Collection, ZA 메가진화 보정팩, Cobblemon Additions와 테스트용 지역 부트스트랩을 포함한 개발용 임시 팩입니다.",
+  "notice": "Cobblemon 1.7.3, CobbleNav 2.3.3, Cobblemon Casino 2.0.0, EasyNPC, TBCS, Mega Showdown, Complete Cobblemon Collection, ZA 메가진화 보정팩, Cobblemon Additions와 지역 부트스트랩을 포함한 개발팩입니다.",
   "icon": "pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",
@@ -120,8 +120,23 @@
       "projectID": 1214728,
       "fileID": 8420458,
       "required": true
+    },
+    {
+      "projectID": 348521,
+      "fileID": 5729127,
+      "required": true
+    },
+    {
+      "projectID": 1572769,
+      "fileID": 8235485,
+      "required": true
+    },
+    {
+      "projectID": 1172731,
+      "fileID": 7858400,
+      "required": true
     }
   ],
   "overrides_directory": "pack/overrides/development-placeholder",
-  "output": "dist/cobbleventure-development-0.1.2-curseforge.zip"
+  "output": "dist/cobbleventure-development-0.1.4-curseforge.zip"
 }

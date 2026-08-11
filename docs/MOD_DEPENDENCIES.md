@@ -23,11 +23,13 @@
 |----|------|------|--------|------|-----------|
 | `cobblemon` | Cobblemon | 필수 | 양쪽 | 포켓몬, 기술, 파티와 실제 배틀 | 1.7.3 / CF `687131:7553231` |
 | `cobblenav` | Cobblemon Pokenav | 필수 | 양쪽 | 포켓네비와 현재 지역 포켓몬 출현 정보 | 2.3.3 / CF `976014:7940651` |
+| `cloth_config` | Cloth Config API | 필수 | 양쪽 | Cobblemon Casino 설정 화면 API | 15.0.140 / CF `348521:5729127` |
 | `kotlin_for_forge` | Kotlin for Forge | 필수 | 양쪽 | Cobblemon NeoForge의 Kotlin 런타임 | 5.11.0 / CF `351264:7471280` |
 | `sinytra_connector` | Sinytra Connector | 필수 | 양쪽 | NeoForge에서 BCA Fabric JAR 로딩 | 2.0.0 beta 14 / CF `890127:7634148` |
 | `forgified_fabric_api` | Forgified Fabric API | 필수 | 양쪽 | Fabric API의 NeoForge 호환 구현 | 0.116.7+2.2.1 / CF `889079:7575945` |
 | `fabric_language_kotlin` | Fabric Language Kotlin | 필수 | 양쪽 | BCA의 Fabric Kotlin 진입점 실행 | 1.13.8 / CF `308769:7340876` |
 | `cobbledollars` | CobbleDollars | 필수 | 양쪽 | BCA 상점과 백화점 화폐·상인 기능 | 2.0.0 Beta-5.1 / CF `859232:6604564` |
+| `cobblemon_casino` | Cobblemon Casino | 필수 | 양쪽 | 슬롯머신, 블랙잭, 가챠와 카지노 칩 경제 | 2.0.0 / CF `1572769:8235485` |
 | `architectury_api` | Architectury API | 필수 | 양쪽 | CobbleFurnies 공용 API | 13.0.8 / CF `419699:5786327` |
 | `rctapi` | Radical Cobblemon Trainers API | 필수 | 양쪽 | 트레이너 데이터와 전투 연동 계약 | 0.15.2-beta / CF `1152792:7952419` |
 | `rctmod` | Radical Cobblemon Trainers | 필수 | 양쪽 | RCT JSON 로딩과 트레이너전 관리 | 0.18.1-beta / CF `1009534:7913180` |
@@ -39,21 +41,23 @@
 | `mega_showdown` | Cobblemon: Mega Showdown | 필수 | 양쪽 | 메가진화·Z기술·테라스탈·다이맥스·울트라버스트 | 1.9.3 / CF `1189523:8519042` |
 | `paxi_neoforge` | Paxi (NeoForge) | 필수 | 양쪽 | CCCC와 ZA 보정팩을 모든 월드에서 자동 로드 | 5.1.3 / CF `1015157:6485740` |
 | `yungs_api_neoforge` | YUNG's API (NeoForge) | 필수 | 양쪽 | Paxi 필수 공용 API | 5.1.6 / CF `1015100:6715463` |
-| `easy_npc_bundle` | Easy NPC Bundle | 선택 프로필 | 양쪽 | Core와 Config UI 의존성을 선언하는 런처용 번들 | 7.0.1 / CF `559312:8420470` |
-| `easy_npc` | Easy NPC Core | 선택 프로필 | 양쪽 | Easy NPC 호환 프로필의 NPC와 대화 | 7.0.1 / CF `1308987:8420476` |
-| `easy_npc_config_ui` | Easy NPC Config UI | 선택 프로필 | 양쪽 | Easy NPC 게임 내 설정과 네트워크 | 7.0.1 / CF `1214728:8420458` |
-| `tbcs` | Cobblemon Trainer Battle Commands | 선택 프로필 | 양쪽 | 명령 기반 NPC와 RCT API 전투 연결 | 자체 RCT Bridge와 비교 필요 |
+| `easy_npc_bundle` | Easy NPC Bundle | 필수 | 양쪽 | Core와 Config UI 의존성을 선언하는 런처용 번들 | 7.0.1 / CF `559312:8420470` |
+| `easy_npc` | Easy NPC Core | 필수 | 양쪽 | NPC 외형, 대화와 상호작용 | 7.0.1 / CF `1308987:8420476` |
+| `easy_npc_config_ui` | Easy NPC Config UI | 필수 | 양쪽 | Easy NPC 게임 내 설정과 네트워크 | 7.0.1 / CF `1214728:8420458` |
+| `tbcs` | Cobblemon Trainer Battle Commands | 필수 | 양쪽 | EasyNPC와 RCT API의 명령 기반 전투 연결 | 0.14.1-beta / CF `1172731:7858400` |
 
-CasinoCraft는 카지노 기본 시설에 사용할 후보이지만, Minecraft 1.21.1용 NeoForge
-호환 파일과 배포 조건을 아직 확정하지 않았다. 따라서 현재 Lock과 테스트팩에는
-추가하지 않고 바닐라 블록 플레이스홀더만 생성한다. 구조물 교체 계약과 도입 절차는
+`Cobblemon Casino` 2.0.0을 카지노 기본 시설의 정식 의존성으로 사용한다. Minecraft
+1.21.1·NeoForge용 파일과 필수 Cloth Config API 15.0.140을 Lock과 개발팩에 함께
+등록했다. 슬롯머신, 블랙잭, 아이템·포켓몬 가챠, 카지노 칩 경제와 장식 블록을
+제공하며 기존 필수 모드인 CobbleDollars를 선택적으로 연동한다. 보호 차원의 실제
+상호작용과 경제 설정 검증 절차는
 [`CASINOCRAFT_INTEGRATION.md`](implementation/CASINOCRAFT_INTEGRATION.md)를 따른다.
 
 ## 콘텐츠팩 의존성
 
 | ID | 콘텐츠팩 | 구분 | 선택 버전 | 배포 형식 | 패키징 상태 |
 |----|----------|------|-----------|-----------|-------------|
-| `cobblemon_additions` | Cobblemon Additions | 필수 후보 | 4.2.1 / Modrinth `W2pr9jyL:9PMzbD4o` | Fabric JAR로 포장된 데이터팩·모드 | ZIP 포함 및 NeoForge 호환 구성 완료 |
+| `cobblemon_additions` | Cobblemon Additions | 필수 | 4.2.1 / Modrinth `W2pr9jyL:9PMzbD4o` | Fabric JAR로 포장된 데이터팩·모드 | ZIP 포함 및 NeoForge 호환 구성 완료 |
 | `complete_cobblemon_collection` | Complete Cobblemon Collection: Myths and Legends Compat | 필수 로컬 콘텐츠 | CCCC 1.7.2 / SHA-1 `b37e878f7e5539bfd145ca0fe9d63bcfef0a128c` | ZIP 데이터팩·리소스팩 | 실제 NeoForge 서버 파일을 저장소 Paxi 양쪽 경로에 포함 |
 | `za_mega_staraptor_contrary_fix` | ZA Mega Staraptor Contrary Fix | 필수 로컬 보정 | SHA-1 `9d20719aea859c9f20dfffccf3c30b756a419581` | ZIP 데이터팩·리소스팩 | 저장소 Paxi 양쪽 경로에 직접 포함 |
 
@@ -153,12 +157,12 @@ RGS 페이지가 요구하는 RCT, RCT API와 CobbleFurnies를 필수 의존성�
 [`RADICAL_GYMS_INTEGRATION.md`](implementation/RADICAL_GYMS_INTEGRATION.md)를
 기준으로 한다.
 
-## 아직 결정하지 않는 항목
+## 추후 설계 항목
 
 - 자체 NPC 기본팩과 Easy NPC 호환팩의 공개 배포 범위
 - Mega Showdown 기믹을 RCT 트레이너별로 제한하는 런타임 어댑터 상세
 - 성능, 지도, 건축과 장식 모드 목록
-- Cobblemon Additions 또는 다른 마을 데이터팩 자산을 실제 콘텐츠에 사용할지 여부
 
-미확정 항목은 `0`, 빈 문자열 또는 임의 버전으로 채우지 않고 Lock 파일에서
-`null`과 `draft` 상태로 유지한다.
+위 항목은 현재 확정한 런타임 의존성을 바꾸지 않는 후속 설계 범위다. 새로운
+의존성 후보가 생기면 검증 전까지 `0`, 빈 문자열 또는 임의 버전으로 채우지 않고
+별도 후보로 관리하며, 정식 채택할 때 Lock과 개발팩 프로필을 함께 갱신한다.

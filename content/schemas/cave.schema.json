@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/cave.schema.json",
+  "title": "Cobbleventure cave definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "enabled", "display_name", "generation",
+    "cave_type", "dimension", "requires_flash", "random_encounters",
+    "internal_biomes", "trainer_settings", "entrances"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "id": { "$ref": "#/$defs/resource_id" },
+    "enabled": { "type": "boolean" },
+    "display_name": { "$ref": "#/$defs/localized_text" },
+    "generation": { "type": "integer", "minimum": 1, "maximum": 9 },
+    "cave_type": { "$ref": "#/$defs/resource_id" },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "region_id", "origin", "bounds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resource_id" },
+        "region_id": { "type": "string", "pattern": "^[a-z0-9_./-]+$" },
+        "origin": { "$ref": "#/$defs/block_position" },
+        "bounds": { "$ref": "#/$defs/bounds" }
+      }
+    },
+    "requires_flash": { "type": "boolean" },
+    "random_encounters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "spawn_profile", "density_multiplier"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "spawn_profile": { "$ref": "#/$defs/resource_id" },
+        "density_multiplier": { "type": "number", "minimum": 0, "maximum": 10 }
+      }
+    },
+    "internal_biomes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "biome", "weight"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+          "biome": { "$ref": "#/$defs/resource_id" },
+          "habitat_profile": { "$ref": "#/$defs/resource_id" },
+          "weight": { "type": "integer", "minimum": 1, "maximum": 100 }
+        }
+      }
+    },
+    "trainer_settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "max_active", "class_pool", "placements"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "max_active": { "type": "integer", "minimum": 0, "maximum": 128 },
+        "class_pool": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
+        "placements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "trainer_id", "position"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+              "trainer_id": { "$ref": "#/$defs/resource_id" },
+              "position": { "$ref": "#/$defs/block_position" },
+              "required_progress": { "$ref": "#/$defs/resource_id" }
+            }
+          }
+        }
+      }
+    },
+    "entrances": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "display_name", "destination_anchor", "fallback_anchor"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+          "display_name": { "type": "string", "minLength": 1 },
+          "destination_anchor": { "$ref": "#/$defs/block_position" },
+          "fallback_anchor": { "$ref": "#/$defs/block_position" },
+          "required_progress": { "$ref": "#/$defs/resource_id" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resource_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "localized_text": {
+      "type": "object", "minProperties": 1,
+      "properties": { "ko_kr": { "type": "string", "minLength": 1 }, "en_us": { "type": "string", "minLength": 1 } },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "block_position": {
+      "type": "object", "additionalProperties": false, "required": ["x", "y", "z"],
+      "properties": { "x": { "type": "integer" }, "y": { "type": "integer" }, "z": { "type": "integer" } }
+    },
+    "bounds": {
+      "type": "object", "additionalProperties": false, "required": ["min_x", "min_z", "max_x", "max_z"],
+      "properties": { "min_x": { "type": "integer" }, "min_z": { "type": "integer" }, "max_x": { "type": "integer" }, "max_z": { "type": "integer" } }
+    }
+  }
+}

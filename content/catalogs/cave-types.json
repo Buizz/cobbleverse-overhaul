@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "types": [
+    {
+      "id": "cobbleventure:cave_type/natural_rock",
+      "display_name": { "ko_kr": "자연 암석 동굴", "en_us": "Natural Rock Cave" },
+      "terrain_profile": "cobbleventure:cave_terrain/natural_rock",
+      "default_biome": "minecraft:dripstone_caves",
+      "entrance_structure": "cobbleventure:cave_entrance/rock"
+    },
+    {
+      "id": "cobbleventure:cave_type/dark_tunnel",
+      "display_name": { "ko_kr": "어두운 터널", "en_us": "Dark Tunnel" },
+      "terrain_profile": "cobbleventure:cave_terrain/dark_tunnel",
+      "default_biome": "minecraft:deep_dark",
+      "entrance_structure": "cobbleventure:cave_entrance/rock"
+    }
+  ]
+}

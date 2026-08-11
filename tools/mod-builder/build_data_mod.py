@@ -376,7 +376,7 @@ def _plot_entrances(plot: dict[str, object]) -> list[tuple[str, int, int]]:
     x = math.floor(float(plot["x"]) + 0.5)
     z = math.floor(float(plot["z"]) + 0.5)
     width = int(plot["width"])
-    plaza_z = z + min(18, int(plot["depth"]) - 1)
+    plaza_z = z + min(19, int(plot["depth"]) - 1)
     return [
         ("north", x + width // 2, z - 1),
         ("west", x - 1, plaza_z),
@@ -550,6 +550,7 @@ def _compile_town_layout_attempt(
     ]
     plots: list[dict[str, object]] = []
     blocked_road_indices: set[int] = set()
+    reserved_access_roads: list[dict[str, object]] = []
 
     def place_plot(
         identifier: str, width: int, plot_depth: int, attempts: int,
@@ -622,6 +623,11 @@ def _compile_town_layout_attempt(
                 for other_index, other in enumerate(roads)
             ):
                 continue
+            if any(
+                _plot_intersects_road(candidate, access, 3, 0.25)
+                for access in reserved_access_roads
+            ):
+                continue
             plots.append(candidate)
             return candidate
         return None
@@ -644,7 +650,7 @@ def _compile_town_layout_attempt(
             nearest_z = min(max(cz, z1), z2)
             return (cx - nearest_x) ** 2 + (cz - nearest_z) ** 2
 
-        candidates: list[tuple[int, float, float, float, float]] = []
+        candidates: list[tuple[tuple[float, ...], float, float]] = []
         min_x = int(min(center[0] for center in centers) - VILLAGE_TILE_RADIUS)
         max_x = int(max(center[0] for center in centers) + VILLAGE_TILE_RADIUS)
         min_z = int(min(center[1] for center in centers) - VILLAGE_TILE_RADIUS)
@@ -658,6 +664,11 @@ def _compile_town_layout_attempt(
                 if not _plot_inside_town_layout(candidate, cell_count, footprint_shape, custom_cells):
                     continue
                 if any(_plots_intersect(candidate, existing, 4.0) for existing in plots):
+                    continue
+                if any(
+                    _plot_intersects_road(candidate, access, 3, 0.25)
+                    for access in reserved_access_roads
+                ):
                     continue
                 center_x = x + width / 2.0
                 center_z = z + plot_depth / 2.0
@@ -675,10 +686,23 @@ def _compile_town_layout_attempt(
                     default=0.0,
                 )
                 center_distance = (center_x - hub_x) ** 2 + (center_z - hub_z) ** 2
-                candidates.append((intersecting_roads, road_distance, center_distance, float(x), float(z)))
+                if identifier == "facility_department_store":
+                    plaza_z = z + min(19, plot_depth - 1)
+                    rear_z = z + plot_depth - 1 - min(19, plot_depth - 1)
+                    plaza_distance = (center_x - hub_x) ** 2 + (plaza_z - hub_z) ** 2
+                    rear_distance = (center_x - hub_x) ** 2 + (rear_z - hub_z) ** 2
+                    score = (
+                        float(intersecting_roads),
+                        1.0 if plaza_distance > rear_distance else 0.0,
+                        plaza_distance,
+                        road_distance,
+                    )
+                else:
+                    score = (float(intersecting_roads), road_distance, center_distance)
+                candidates.append((score, float(x), float(z)))
         if not candidates:
             return None
-        _, _, _, x, z = min(candidates)
+        _, x, z = min(candidates)
         candidate = {
             "id": identifier, "x": x, "z": z,
             "width": width, "depth": plot_depth,
@@ -702,43 +726,8 @@ def _compile_town_layout_attempt(
         plots.append(candidate)
         return candidate
 
-    facilities: dict[str, dict[str, object]] = {}
-    facility_specs = sorted(
-        _compiled_facility_specs(data), key=lambda spec: spec[1] * spec[2], reverse=True
-    )
-    for identifier, width, plot_depth in facility_specs:
-        entrance_facing = _facility_entrance_facing(identifier)
-        plot = place_plot(
-            identifier, width, plot_depth, len(slots) * 4,
-            fixed_entrance_facing=entrance_facing,
-        )
-        if plot is None:
-            plot = place_grid_plot(identifier, width, plot_depth, entrance_facing)
-        if plot is None:
-            raise TownFacilityPlacementError(data.get("id"), identifier)
-        facilities[identifier] = plot
-    houses: list[dict[str, object]] = []
-    base_house_target = min(36, max(12, 6 + depth * 5)) if cell_count == 19 else min(18, max(4, 3 + depth * 3))
-    house_target = max(2, round(base_house_target * float(density["multiplier"])))
-    for index in range(house_target):
-        base_id = house_bases[int(random.next_double() * len(house_bases))]
-        roof_id = house_roofs[int(random.next_double() * len(house_roofs))]
-        roof_color = house_roof_colors[int(random.next_double() * len(house_roof_colors))]
-        width, _, plot_depth = HOUSE_BASES[base_id]["size"]  # type: ignore[misc]
-        plot = place_plot(
-            f"house_{index + 1}", width, plot_depth, len(slots) * 2,
-            orient_entrance_to_road=True,
-        )
-        if plot is not None:
-            plot.update({
-                "base": base_id,
-                "roof": roof_id,
-                "roof_color": roof_color,
-                "structure": f"cobbleventure:houses/{base_id}_{roof_id}_{roof_color}",
-            })
-            houses.append(plot)
-    access_roads: list[dict[str, object]] = []
-    for building in [*facilities.values(), *houses]:
+    def building_access_roads(building: dict[str, object]) -> list[dict[str, object]]:
+        result: list[dict[str, object]] = []
         entrances = _plot_entrances(building)
         building["entrance"] = {"x": entrances[0][1], "z": entrances[0][2]}
         if len(entrances) > 1:
@@ -773,15 +762,121 @@ def _compile_town_layout_attempt(
                 road_x, road_z = int(connection["x"]), int(connection["z"])
             if road_x != entrance_x and road_z != entrance_z:
                 corner = (entrance_x, road_z) if facing in {"east", "west"} else (road_x, entrance_z)
-                access_roads.append({
+                result.append({
                     "building": building["id"],
                     "x1": road_x, "z1": road_z, "x2": corner[0], "z2": corner[1],
                 })
                 road_x, road_z = corner
-            access_roads.append({
+            result.append({
                 "building": building["id"],
                 "x1": road_x, "z1": road_z, "x2": entrance_x, "z2": entrance_z,
             })
+        return result
+
+    facilities: dict[str, dict[str, object]] = {}
+    facility_specs = sorted(
+        _compiled_facility_specs(data), key=lambda spec: spec[1] * spec[2], reverse=True
+    )
+    for identifier, width, plot_depth in facility_specs:
+        entrance_facing = _facility_entrance_facing(identifier)
+        plot = None
+        if identifier == "facility_department_store":
+            plot = place_grid_plot(identifier, width, plot_depth, entrance_facing)
+        if plot is None:
+            plot = place_plot(
+                identifier, width, plot_depth, len(slots) * 4,
+                fixed_entrance_facing=entrance_facing,
+            )
+        if plot is None and identifier != "facility_department_store":
+            plot = place_grid_plot(identifier, width, plot_depth, entrance_facing)
+        if plot is None:
+            raise TownFacilityPlacementError(data.get("id"), identifier)
+        facilities[identifier] = plot
+        reserved_access_roads.extend(building_access_roads(plot))
+    houses: list[dict[str, object]] = []
+    base_house_target = min(36, max(12, 6 + depth * 5)) if cell_count == 19 else min(18, max(4, 3 + depth * 3))
+    house_target = max(2, round(base_house_target * float(density["multiplier"])))
+    for index in range(house_target):
+        base_id = house_bases[int(random.next_double() * len(house_bases))]
+        roof_id = house_roofs[int(random.next_double() * len(house_roofs))]
+        roof_color = house_roof_colors[int(random.next_double() * len(house_roof_colors))]
+        width, _, plot_depth = HOUSE_BASES[base_id]["size"]  # type: ignore[misc]
+        plot = place_plot(
+            f"house_{index + 1}", width, plot_depth, len(slots) * 2,
+            orient_entrance_to_road=True,
+        )
+        if plot is not None:
+            plot.update({
+                "base": base_id,
+                "roof": roof_id,
+                "roof_color": roof_color,
+                "structure": f"cobbleventure:houses/{base_id}_{roof_id}_{roof_color}",
+            })
+            houses.append(plot)
+    access_roads: list[dict[str, object]] = []
+    for building in [*facilities.values(), *houses]:
+        access_roads.extend(building_access_roads(building))
+    visible_roads = [
+        road for index, road in enumerate(roads)
+        if index not in blocked_road_indices
+    ]
+    decorations: list[dict[str, object]] = []
+
+    def try_add_decoration(kind: str, x: int, z: int, clearance: int) -> None:
+        footprint = {
+            "x": x - clearance, "z": z - clearance,
+            "width": clearance * 2 + 1, "depth": clearance * 2 + 1,
+        }
+        if not _plot_inside_town_layout(
+            footprint, cell_count, footprint_shape, custom_cells
+        ):
+            return
+        if any(_plots_intersect(footprint, plot, 1.0) for plot in plots):
+            return
+        if any(
+            _plot_intersects_road(footprint, road, 3, 0.75)
+            for road in access_roads
+        ):
+            return
+        minimum_spacing = 5 if kind == "street_tree" else 4
+        if any(
+            (x - int(item["x"])) ** 2 + (z - int(item["z"])) ** 2
+            < minimum_spacing ** 2
+            for item in decorations
+        ):
+            return
+        decorations.append({"type": kind, "x": x, "z": z})
+
+    road_edge = math.ceil(road_width / 2.0)
+    for road_index, road in enumerate(visible_roads):
+        delta_x = int(road["x2"]) - int(road["x1"])
+        delta_z = int(road["z2"]) - int(road["z1"])
+        length = abs(delta_x) + abs(delta_z)
+        if length < 20:
+            continue
+        direction_x = 0 if delta_x == 0 else (1 if delta_x > 0 else -1)
+        direction_z = 0 if delta_z == 0 else (1 if delta_z > 0 else -1)
+        perpendicular_x, perpendicular_z = -direction_z, direction_x
+        for marker_index, distance in enumerate(range(10, length - 9, 24)):
+            side = 1 if (road_index + marker_index) % 2 == 0 else -1
+            center_x = int(road["x1"]) + direction_x * distance
+            center_z = int(road["z1"]) + direction_z * distance
+            try_add_decoration(
+                "street_lamp",
+                center_x + perpendicular_x * side * (road_edge + 2),
+                center_z + perpendicular_z * side * (road_edge + 2),
+                1,
+            )
+            tree_distance = distance + 12
+            if tree_distance <= length - 10:
+                tree_x = int(road["x1"]) + direction_x * tree_distance
+                tree_z = int(road["z1"]) + direction_z * tree_distance
+                try_add_decoration(
+                    "street_tree",
+                    tree_x - perpendicular_x * side * (road_edge + 4),
+                    tree_z - perpendicular_z * side * (road_edge + 4),
+                    3,
+                )
     return {
         "schema_version": 1,
         "shape": "hex_tiles",
@@ -797,11 +892,9 @@ def _compile_town_layout_attempt(
         "hub": {"x": hub_x, "z": hub_z},
         "center_pattern": center_pattern,
         "building_density": density_id,
-        "roads": [
-            road for index, road in enumerate(roads)
-            if index not in blocked_road_indices
-        ],
+        "roads": visible_roads,
         "access_roads": access_roads,
+        "decorations": decorations,
         "facilities": facilities,
         "houses": houses,
     }

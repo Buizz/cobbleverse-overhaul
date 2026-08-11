@@ -222,17 +222,21 @@ class ContentManagerTests(unittest.TestCase):
         layout = content_manager.load_world_layout(root)
         self.assertEqual(11, len(layout["settlements"]))
         settlement_ids = {node["settlement"] for node in layout["settlements"]}
+        cave_entrance_ids = {node["id"] for node in layout.get("cave_entrances", [])}
+        route_target_ids = settlement_ids | cave_entrance_ids
         self.assertGreater(len(layout["connections"]), 0)
-        self.assertTrue(all(connection.get("from") in settlement_ids for connection in layout["connections"] if connection.get("from")))
-        self.assertTrue(all(connection.get("to") in settlement_ids for connection in layout["connections"] if connection.get("to")))
+        self.assertTrue(all(connection.get("from") in route_target_ids for connection in layout["connections"] if connection.get("from")))
+        self.assertTrue(all(connection.get("to") in route_target_ids for connection in layout["connections"] if connection.get("to")))
         self.assertTrue(all(connection["pathfinding"] == "explicit" for connection in layout["connections"]))
         self.assertTrue(all(len(connection["cells"]) >= 2 for connection in layout["connections"]))
         self.assertEqual("high_forest", layout["empty_terrain"]["default_type"])
         with tempfile.TemporaryDirectory() as directory:
             candidate_root = Path(directory)
             settlement_dir = candidate_root / "content" / "settlements" / "generation_1"
+            cave_dir = candidate_root / "content" / "caves" / "generation_1"
             catalog_dir = candidate_root / "content" / "catalogs"
             settlement_dir.mkdir(parents=True)
+            cave_dir.mkdir(parents=True)
             catalog_dir.mkdir(parents=True)
             for node in layout["settlements"]:
                 slug = node["settlement"].rsplit("/", 1)[-1]
@@ -240,6 +244,7 @@ class ContentManagerTests(unittest.TestCase):
                     json.dumps({"id": node["settlement"], "display_name": {"ko_kr": slug}}),
                     encoding="utf-8",
                 )
+            shutil.copy2(root / "content" / "caves" / "generation_1" / "mt_moon.json", cave_dir / "mt_moon.json")
             shutil.copy2(
                 root / "content" / "catalogs" / "boundary-profiles.json",
                 catalog_dir / "boundary-profiles.json",
@@ -405,6 +410,35 @@ class ContentManagerTests(unittest.TestCase):
         arceus = next(entry for entry in forced["pokemon"] if entry["id"] == "cobblemon:arceus")
         self.assertEqual("unconditional", arceus["match_reason"])
 
+    def test_world_pokemon_map_resolves_locations_and_all_unavailable_pokemon(self) -> None:
+        root = Path(__file__).parents[3]
+        result = content_manager.world_pokemon_map(root, 1)
+        available_ids = {entry["id"] for entry in result["available_pokemon"]}
+        unavailable_ids = {entry["id"] for entry in result["unavailable_pokemon"]}
+
+        self.assertGreater(result["summary"]["locations"], 0)
+        self.assertGreater(result["summary"]["available"], 0)
+        self.assertEqual(0, result["summary"]["unmapped_locations"])
+        self.assertEqual(1025, len(available_ids | unavailable_ids))
+        self.assertEqual(set(), available_ids & unavailable_ids)
+        self.assertIn("cobblemon:rattata", available_ids)
+        self.assertIn("cobblemon:arceus", unavailable_ids)
+        starter_cell = next(
+            entry for entry in result["locations"]
+            if entry.get("settlement") == "cobbleventure:settlement/starter_town"
+        )
+        self.assertEqual("settlement", starter_cell["kind"])
+        self.assertEqual(["cobbleventure:biome_profile/plains"], starter_cell["profile_ids"])
+
+    def test_world_pokemon_map_web_panel_is_wired_to_api(self) -> None:
+        root = Path(__file__).parents[3]
+        page = (root / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('id="pokemon-map-panel"', page)
+        self.assertIn('data-pokemon-map-tab="unavailable"', page)
+        self.assertIn("/api/world-pokemon-map", script)
+        self.assertIn("renderWorldPokemonPanel", script)
+
     def test_settlements_reference_web_biome_settings(self) -> None:
         root = Path(__file__).parents[3]
         settlement = content_manager.load_json(
@@ -421,7 +455,7 @@ class ContentManagerTests(unittest.TestCase):
         content_id, issues = content_manager.validate_content_file(
             root / "content" / "source" / "examples" / "ai_test.json"
         )
-        self.assertEqual("cobbleventure:trainer/ai_test", content_id)
+        self.assertEqual("cobbleventure:npc/ai_test", content_id)
         self.assertEqual([], issues)
 
     def test_starter_town_leader_content_is_valid(self) -> None:
@@ -452,17 +486,17 @@ class ContentManagerTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        source["dialogue"]["entry"] = "cobbleventure:dialogue/missing"
+        source["interaction"]["entry_routes"][0]["entry"] = "cobbleventure:interaction/missing"
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "invalid.json"
             path.write_text(json.dumps(source), encoding="utf-8")
             _, issues = content_manager.validate_content_file(path)
-        self.assertTrue(any("존재하지 않는 대화 ID" in issue.message for issue in issues))
+        self.assertTrue(any("존재하지 않는 상호작용 노드" in issue.message for issue in issues))
 
     def test_invalid_ev_total_is_rejected(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
-            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+            (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -474,26 +508,26 @@ class ContentManagerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "invalid.json"
             path.write_text(json.dumps(source), encoding="utf-8")
-            _, issues = content_manager.validate_content_file(path)
+            _, issues = content_manager.validate_battle_preset_file(path)
         self.assertTrue(any("EV 합계" in issue.message for issue in issues))
 
     def test_duplicate_pokemon_aspects_are_rejected(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
-            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+            (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
             )
         )
         source["battle"]["team"][0]["aspects"] = ["alolan", "alolan"]
         _, issues = content_manager._validate_payload(
-            source, content_manager.validate_content_file
+            source, content_manager.validate_battle_preset_file
         )
         self.assertTrue(any("aspects는 중복" in issue.message for issue in issues))
 
     def test_pokemon_cannot_hold_regular_and_gimmick_items_together(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
-            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+            (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -505,14 +539,14 @@ class ContentManagerTests(unittest.TestCase):
         }
         source["battle"]["mechanics"]["mega_evolution"] = True
         _, issues = content_manager._validate_payload(
-            source, content_manager.validate_content_file
+            source, content_manager.validate_battle_preset_file
         )
         self.assertTrue(any("동시에 지정" in issue.message for issue in issues))
 
     def test_pokemon_gimmick_requires_matching_battle_mechanic(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
-            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+            (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -521,14 +555,14 @@ class ContentManagerTests(unittest.TestCase):
             "item": "mega_showdown:normalium_z",
         }
         _, issues = content_manager._validate_payload(
-            source, content_manager.validate_content_file
+            source, content_manager.validate_battle_preset_file
         )
         self.assertTrue(any("같은 전투 기믹" in issue.message for issue in issues))
 
     def test_invalid_battle_bag_limits_are_rejected(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
-            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+            (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -537,7 +571,7 @@ class ContentManagerTests(unittest.TestCase):
             {"item": "cobblemon:potion", "quantity": 0}
         ]
         _, issues = content_manager._validate_payload(
-            source, content_manager.validate_content_file
+            source, content_manager.validate_battle_preset_file
         )
         self.assertTrue(any("max_item_uses" in issue.path for issue in issues))
         self.assertTrue(any("bag[0].quantity" in issue.path for issue in issues))
@@ -545,7 +579,7 @@ class ContentManagerTests(unittest.TestCase):
     def test_battle_format_difficulty_and_ai_profile_are_restricted(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
-            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+            (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -553,7 +587,7 @@ class ContentManagerTests(unittest.TestCase):
         source["battle"]["ai"]["difficulty"] = "impossible"
         source["battle"]["ai"]["strategy"] = "unknown"
         _, issues = content_manager._validate_payload(
-            source, content_manager.validate_content_file
+            source, content_manager.validate_battle_preset_file
         )
         self.assertTrue(any("전투 방식이 일치" in issue.message for issue in issues))
         self.assertTrue(any("AI 난이도" in issue.message for issue in issues))
@@ -562,38 +596,38 @@ class ContentManagerTests(unittest.TestCase):
     def test_cheater_probability_is_required_and_restricted(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
-            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+            (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
             )
         )
         source["battle"]["ai"]["difficulty"] = "cheater"
         _, issues = content_manager._validate_payload(
-            source, content_manager.validate_content_file
+            source, content_manager.validate_battle_preset_file
         )
         self.assertTrue(any("치터 확률" in issue.message for issue in issues))
 
         source["battle"]["ai"]["options"]["cheat_probability"] = 0.35
         _, issues = content_manager._validate_payload(
-            source, content_manager.validate_content_file
+            source, content_manager.validate_battle_preset_file
         )
         self.assertEqual([], issues)
 
         source["battle"]["ai"]["difficulty"] = "expert_search"
         _, issues = content_manager._validate_payload(
-            source, content_manager.validate_content_file
+            source, content_manager.validate_battle_preset_file
         )
         self.assertTrue(any("치터 난이도에서만" in issue.message for issue in issues))
 
     def test_invalid_tera_type_is_rejected(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
-            (root / "content" / "source" / "examples" / "ai_test.json").read_text(
+            (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
             )
         )
         source["battle"]["team"][0]["tera_type"] = "not_a_type"
         _, issues = content_manager._validate_payload(
-            source, content_manager.validate_content_file
+            source, content_manager.validate_battle_preset_file
         )
         self.assertTrue(any("지원하는 포켓몬 타입" in issue.message for issue in issues))
 
@@ -1384,17 +1418,58 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(["content/worlds/generation_1.json"], references)
             self.assertTrue(target.exists())
 
-    def test_new_trainer_template_is_valid(self) -> None:
-        template = content_manager._trainer_template("route_01", "길목 트레이너")
-        content_id, issues = content_manager._validate_payload(
-            template, content_manager.validate_content_file
+    def test_new_npc_and_battle_templates_are_valid(self) -> None:
+        npc = content_manager._npc_template_v3("route_01", "길목 트레이너")
+        battle = content_manager._battle_template("route_01", "길목 트레이너")
+        npc_id, npc_issues = content_manager._validate_payload(
+            npc, content_manager.validate_content_file
         )
-        self.assertEqual("cobbleventure:trainer/route_01", content_id)
+        battle_id, battle_issues = content_manager._validate_payload(
+            battle, content_manager.validate_battle_preset_file
+        )
+        self.assertEqual("cobbleventure:npc/route_01", npc_id)
+        self.assertEqual("cobbleventure:battle/route_01", battle_id)
+        self.assertEqual([], npc_issues)
+        self.assertEqual([], battle_issues)
+        self.assertEqual(3, npc["schema_version"])
+        self.assertEqual(
+            "cobbleventure:interaction/route_01/greeting",
+            npc["interaction"]["entry_routes"][-1]["entry"],
+        )
+        self.assertEqual(
+            "cobbleventure:battle/route_01",
+            npc["interaction"]["nodes"][0]["choices"][0]["actions"][0]["battle"],
+        )
+        self.assertEqual("standard", battle["battle"]["ai"]["difficulty"])
+
+    def test_trainer_encounter_and_rewards_are_validated(self) -> None:
+        source = content_manager.load_json(
+            Path(__file__).parents[3] / "content" / "source" / "examples" / "ai_test.json"
+        )
+        content_id, issues = content_manager._validate_payload(
+            source, content_manager.validate_content_file
+        )
+        self.assertEqual("cobbleventure:npc/ai_test", content_id)
         self.assertEqual([], issues)
-        self.assertNotIn("placement", template)
-        self.assertEqual(2, template["schema_version"])
-        self.assertEqual("standard", template["battle"]["ai"]["difficulty"])
-        self.assertEqual("balanced", template["battle"]["ai"]["strategy"])
+
+        invalid = json.loads(json.dumps(source))
+        invalid["npc"]["behavior"]["encounter"]["warning_range"] = {"min": 6, "max": 4}
+        _, issues = content_manager._validate_payload(invalid, content_manager.validate_content_file)
+        self.assertTrue(any("warning_range" in issue.path for issue in issues))
+
+        invalid = json.loads(json.dumps(source))
+        reward_node = next(
+            node for node in invalid["interaction"]["nodes"]
+            if node["id"].endswith("/victory_reward")
+        )
+        reward_node["actions"][1] = {
+            "type": "give_money",
+            "mode": "level_cap_multiplier",
+            "multiplier": 0,
+            "level_cap_objective": "cv_level_cap",
+        }
+        _, issues = content_manager._validate_payload(invalid, content_manager.validate_content_file)
+        self.assertTrue(any("multiplier" in issue.path for issue in issues))
 
     def test_generate_exports_same_ai_profile_to_rct_and_runtime(self) -> None:
         root = Path(__file__).parents[3]
@@ -1417,7 +1492,7 @@ class ContentManagerTests(unittest.TestCase):
     def test_cheater_probability_is_exported_for_runtime_use(self) -> None:
         root = Path(__file__).parents[3]
         source = content_manager.load_json(
-            root / "content" / "source" / "examples" / "ai_test.json"
+            root / "content" / "battles" / "examples" / "ai_test.json"
         )
         source["battle"]["ai"] = {
             "controller": "cobbleventure",
@@ -1442,6 +1517,7 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual([], trainer_issues)
             self.assertEqual([], settlement_issues)
             self.assertTrue(trainer_path.is_file())
+            self.assertTrue((root / "content" / "battles" / "trainers" / "route_01.json").is_file())
             self.assertTrue(settlement_path.is_file())
 
             _, duplicate_issues = content_manager._create_document(
