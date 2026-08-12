@@ -59,6 +59,10 @@ processResources {
         into 'data/cobbleventure_player_menu/map/settlements'
         include 'generation_*/*.json'
     }
+    from(rootProject.file('../../content/caves')) {
+        into 'data/cobbleventure_player_menu/map/caves'
+        include 'generation_*/*.json'
+    }
     from(rootProject.file('../../content/catalogs/biome-profiles.json')) {
         into 'data/cobbleventure_player_menu/map/catalogs'
     }

@@ -29,6 +29,8 @@ public final class WorldMapScreen extends Screen {
     private static final int INFO_BACKGROUND = 0xF01D2630;
     private static final int ROUTE_COLOR = 0xFFD8BA70;
     private static final int TOWN_BORDER = 0xFFF0A43B;
+    private static final int CAVE_BORDER = 0xFF9AA8B0;
+    private static final int CAVE_OPENING = 0xFF080B0E;
     private static final int SELECTED_BORDER = 0xFFF2F5EF;
     private static final int PLAYER_MARKER = 0xFFFFD166;
     private static final int TEXT = 0xFFF3F5F1;
@@ -133,6 +135,7 @@ public final class WorldMapScreen extends Screen {
             (width - titleWidth) / 2 + 42, 7, ACCENT_COLOR);
         graphics.drawCenteredString(font, title, width / 2, 11, TEXT);
         Layout layout = layout();
+        MapContent.CaveEntrance hoveredCave = caveAtMouse(layout, mouseX, mouseY);
         graphics.drawCenteredString(
             font,
             Component.translatable("screen.cobbleventure_player_menu.world_map.generation", content.generation()),
@@ -140,8 +143,8 @@ public final class WorldMapScreen extends Screen {
             11,
             TEXT
         );
-        drawMap(graphics, layout, mouseX, mouseY);
-        drawInfoPanel(graphics, layout);
+        drawMap(graphics, layout, mouseX, mouseY, hoveredCave);
+        drawInfoPanel(graphics, layout, hoveredCave);
         graphics.drawString(
             font,
             Component.translatable("screen.cobbleventure_player_menu.world_map.hint"),
@@ -244,7 +247,10 @@ public final class WorldMapScreen extends Screen {
         return false;
     }
 
-    private void drawMap(GuiGraphics graphics, Layout layout, int mouseX, int mouseY) {
+    private void drawMap(
+        GuiGraphics graphics, Layout layout, int mouseX, int mouseY,
+        MapContent.CaveEntrance hoveredCave
+    ) {
         drawRibbonPanel(graphics, layout.mapLeft(), layout.top(), layout.mapWidth(), layout.height(),
             MAP_BACKGROUND);
         graphics.fill(layout.mapLeft() + 14, layout.top() + 1,
@@ -290,6 +296,22 @@ public final class WorldMapScreen extends Screen {
             graphics.drawString(font, label, labelX, labelY, TEXT, false);
         }
 
+        for (MapContent.CaveEntrance entrance : content.caveEntrances()) {
+            ScreenPoint point = hexCenter(center, size, entrance.hex().q(), entrance.hex().r());
+            boolean hovered = entrance.equals(hoveredCave);
+            drawCaveMarker(graphics, point.x(), point.y(), Math.max(4, size / 2), hovered);
+            if (hovered) {
+                MapContent.CaveInfo cave = content.cave(entrance.caveId());
+                String label = cave == null ? entrance.name() : cave.name();
+                label = font.plainSubstrByWidth(label, Math.max(54, size * 8));
+                int labelWidth = font.width(label);
+                int labelY = point.y() - Math.max(4, size / 2) - 12;
+                graphics.fill(point.x() - labelWidth / 2 - 3, labelY - 2,
+                    point.x() + (labelWidth + 1) / 2 + 3, labelY + 10, 0xD010171E);
+                graphics.drawString(font, label, point.x() - labelWidth / 2, labelY, ACCENT_COLOR, false);
+            }
+        }
+
         ScreenPoint selectedPoint = hexCenter(center, size, selected.q(), selected.r());
         drawHexOutline(graphics, selectedPoint.x(), selectedPoint.y(), size + 1, SELECTED_BORDER);
         MapContent.Hex playerHex = currentPlayerHex();
@@ -313,7 +335,9 @@ public final class WorldMapScreen extends Screen {
         graphics.disableScissor();
     }
 
-    private void drawInfoPanel(GuiGraphics graphics, Layout layout) {
+    private void drawInfoPanel(
+        GuiGraphics graphics, Layout layout, MapContent.CaveEntrance hoveredCave
+    ) {
         hidePokemonModels();
         drawRibbonPanel(graphics, layout.infoLeft(), layout.top(), layout.infoWidth(), layout.height(),
             INFO_BACKGROUND);
@@ -325,15 +349,33 @@ public final class WorldMapScreen extends Screen {
         MapNetwork.ClientSnapshot snapshot = MapNetwork.clientSnapshot();
         MapContent.Town town = content.townAt(selected.q(), selected.r());
         MapContent.BiomeTile tile = content.tileAt(selected.q(), selected.r());
+        MapContent.CaveInfo cave = hoveredCave == null ? null : content.cave(hoveredCave.caveId());
 
-        graphics.drawString(font, "Q " + selected.q() + " · R " + selected.r(), x, y, MUTED_TEXT, false);
+        MapContent.Hex infoHex = hoveredCave == null ? selected : hoveredCave.hex();
+        graphics.drawString(font, "Q " + infoHex.q() + " · R " + infoHex.r(), x, y, MUTED_TEXT, false);
         y += 15;
         MapContent.Hex playerHex = currentPlayerHex();
         if (playerHex != null) {
             graphics.drawString(font, "현재 위치 Q " + playerHex.q() + " · R " + playerHex.r(), x, y, PLAYER_MARKER, false);
             y += 15;
         }
-        if (town != null) {
+        if (cave != null) {
+            graphics.drawString(font, cave.name(), x, y, ACCENT_COLOR, false);
+            y += 14;
+            graphics.drawString(font, hoveredCave.name(), x, y, TEXT, false);
+            y += 16;
+            graphics.drawString(font, "동굴 입구 · " + directionName(hoveredCave.facing()), x, y, MUTED_TEXT, false);
+            y += 16;
+            graphics.drawString(font, "내부 바이옴", x, y, MUTED_TEXT, false);
+            y += 11;
+            graphics.drawString(font,
+                font.plainSubstrByWidth(String.join(" · ", cave.biomes()), lineWidth),
+                x, y, TEXT, false);
+            y += 18;
+            graphics.drawString(font, "서식 포켓몬 " + cave.pokemon().size() + "종", x, y, TEXT, false);
+            y += 14;
+            renderPokemonGrid(graphics, layout, cave.pokemon(), x, y, lineWidth, 0);
+        } else if (town != null) {
             boolean visited = snapshot.visited().contains(town.id());
             graphics.drawString(font, town.name(), x, y, TEXT, false);
             y += 14;
@@ -356,22 +398,7 @@ public final class WorldMapScreen extends Screen {
             y += 19;
             graphics.drawString(font, "서식 포켓몬 " + biome.totalPokemon() + "종 · 휠", x, y, TEXT, false);
             y += 14;
-            int columns = pokemonColumns(lineWidth);
-            int index = Math.min(pokemonScroll, maxPokemonScroll(biome.pokemon().size(), columns));
-            int modelIndex = 0;
-            for (; index < biome.pokemon().size() && modelIndex < pokemonModels.size(); index++, modelIndex++) {
-                int column = modelIndex % columns;
-                int row = modelIndex / columns;
-                int iconX = x + column * POKEMON_CELL_SIZE;
-                int iconY = y + row * POKEMON_CELL_SIZE;
-                if (iconY + POKEMON_ICON_SIZE > layout.bottom() - 42) break;
-                MapContent.Pokemon pokemon = biome.pokemon().get(index);
-                graphics.fill(iconX, iconY, iconX + POKEMON_ICON_SIZE, iconY + POKEMON_ICON_SIZE, 0x702F3B35);
-                showPokemonModel(modelIndex, pokemon, iconX, iconY);
-                pokemonHovers.add(new PokemonHover(
-                    iconX, iconY, iconX + POKEMON_ICON_SIZE, iconY + POKEMON_ICON_SIZE, pokemon.name()
-                ));
-            }
+            renderPokemonGrid(graphics, layout, biome.pokemon(), x, y, lineWidth, pokemonScroll);
         } else {
             graphics.drawString(font, "미지정 타일", x, y, TEXT, false);
             y += 16;
@@ -388,6 +415,66 @@ public final class WorldMapScreen extends Screen {
             graphics.drawString(font, "관리자 디버그 이동 활성", x, layout.bottom() - 39, WARNING_TEXT, false);
         } else if (snapshot.creative()) {
             graphics.drawString(font, "크리에이티브 자유 이동 활성", x, layout.bottom() - 39, SUCCESS_TEXT, false);
+        }
+    }
+
+    private void renderPokemonGrid(
+        GuiGraphics graphics, Layout layout, List<MapContent.Pokemon> pokemon,
+        int x, int y, int width, int scroll
+    ) {
+        int columns = pokemonColumns(width);
+        int index = Math.min(scroll, maxPokemonScroll(pokemon.size(), columns));
+        int modelIndex = 0;
+        for (; index < pokemon.size() && modelIndex < pokemonModels.size(); index++, modelIndex++) {
+            int column = modelIndex % columns;
+            int row = modelIndex / columns;
+            int iconX = x + column * POKEMON_CELL_SIZE;
+            int iconY = y + row * POKEMON_CELL_SIZE;
+            if (iconY + POKEMON_ICON_SIZE > layout.bottom() - 42) break;
+            MapContent.Pokemon value = pokemon.get(index);
+            graphics.fill(iconX, iconY, iconX + POKEMON_ICON_SIZE, iconY + POKEMON_ICON_SIZE, 0x702F3B35);
+            showPokemonModel(modelIndex, value, iconX, iconY);
+            pokemonHovers.add(new PokemonHover(
+                iconX, iconY, iconX + POKEMON_ICON_SIZE, iconY + POKEMON_ICON_SIZE, value.name()
+            ));
+        }
+    }
+
+    private MapContent.CaveEntrance caveAtMouse(Layout layout, int mouseX, int mouseY) {
+        if (!layout.mapContains(mouseX, mouseY)) return null;
+        int size = hexSize(layout);
+        int radius = Math.max(7, size / 2 + 3);
+        ScreenPoint center = mapCenter(layout);
+        MapContent.CaveEntrance nearest = null;
+        int nearestDistance = Integer.MAX_VALUE;
+        for (MapContent.CaveEntrance entrance : content.caveEntrances()) {
+            ScreenPoint point = hexCenter(center, size, entrance.hex().q(), entrance.hex().r());
+            int dx = mouseX - point.x();
+            int dy = mouseY - point.y();
+            int distance = dx * dx + dy * dy;
+            if (distance <= radius * radius && distance < nearestDistance) {
+                nearest = entrance;
+                nearestDistance = distance;
+            }
+        }
+        return nearest;
+    }
+
+    private static void drawCaveMarker(
+        GuiGraphics graphics, int centerX, int centerY, int radius, boolean hovered
+    ) {
+        int border = hovered ? ACCENT_COLOR : CAVE_BORDER;
+        for (int row = 0; row <= radius; row++) {
+            int halfWidth = Math.max(1, row);
+            graphics.fill(centerX - halfWidth, centerY - radius + row,
+                centerX + halfWidth + 1, centerY - radius + row + 1, border);
+        }
+        graphics.fill(centerX - radius, centerY, centerX + radius + 1, centerY + radius, border);
+        graphics.fill(centerX - Math.max(1, radius - 2), centerY,
+            centerX + Math.max(1, radius - 2) + 1, centerY + radius, CAVE_OPENING);
+        if (hovered) {
+            graphics.fill(centerX - radius - 2, centerY + radius + 1,
+                centerX + radius + 3, centerY + radius + 2, ACCENT_COLOR);
         }
     }
 
@@ -717,6 +804,16 @@ public final class WorldMapScreen extends Screen {
             case "steel" -> "강철 타입";
             case "fairy" -> "페어리 타입";
             default -> "노말 타입";
+        };
+    }
+
+    private static String directionName(String direction) {
+        return switch (direction) {
+            case "north" -> "북쪽";
+            case "south" -> "남쪽";
+            case "east" -> "동쪽";
+            case "west" -> "서쪽";
+            default -> direction;
         };
     }
 

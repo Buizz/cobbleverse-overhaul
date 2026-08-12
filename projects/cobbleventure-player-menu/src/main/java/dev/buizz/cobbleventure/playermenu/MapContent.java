@@ -33,6 +33,8 @@ public final class MapContent {
     private final Map<Hex, BiomeTile> tiles;
     private final List<Town> towns;
     private final List<Route> routes;
+    private final List<CaveEntrance> caveEntrances;
+    private final Map<String, CaveInfo> caves;
     private final Map<String, BiomeInfo> biomes;
     private final Map<Hex, BiomeInfo> tileHabitats;
 
@@ -47,6 +49,8 @@ public final class MapContent {
         Map<Hex, BiomeTile> tiles,
         List<Town> towns,
         List<Route> routes,
+        List<CaveEntrance> caveEntrances,
+        Map<String, CaveInfo> caves,
         Map<String, BiomeInfo> biomes,
         Map<Hex, BiomeInfo> tileHabitats
     ) {
@@ -60,6 +64,8 @@ public final class MapContent {
         this.tiles = Map.copyOf(tiles);
         this.towns = List.copyOf(towns);
         this.routes = List.copyOf(routes);
+        this.caveEntrances = List.copyOf(caveEntrances);
+        this.caves = Map.copyOf(caves);
         this.biomes = Map.copyOf(biomes);
         this.tileHabitats = Map.copyOf(tileHabitats);
     }
@@ -91,6 +97,9 @@ public final class MapContent {
     public Map<Hex, BiomeTile> tiles() { return tiles; }
     public List<Town> towns() { return towns; }
     public List<Route> routes() { return routes; }
+    public List<CaveEntrance> caveEntrances() { return caveEntrances; }
+
+    public CaveInfo cave(String id) { return caves.get(id); }
 
     public Town townAt(int q, int r) {
         Hex target = new Hex(q, r);
@@ -231,14 +240,79 @@ public final class MapContent {
         }
 
         LoadedBiomes loadedBiomes = loadBiomes(generation, tiles, world);
+        LoadedCaves loadedCaves = loadCaves(generation, world, loadedBiomes.byBiome());
         return new MapContent(
             generation,
             world.get("dimension").getAsString(),
             grid.get("tile_radius_blocks").getAsInt(),
             grid.get("map_radius_cells").getAsInt(),
             origin.get("x").getAsInt(), origin.get("y").getAsInt(), origin.get("z").getAsInt(),
-            tiles, towns, routes, loadedBiomes.byBiome(), loadedBiomes.byTile()
+            tiles, towns, routes, loadedCaves.entrances(), loadedCaves.byId(),
+            loadedBiomes.byBiome(), loadedBiomes.byTile()
         );
+    }
+
+    private static LoadedCaves loadCaves(
+        int generation, JsonObject world, Map<String, BiomeInfo> biomes
+    ) {
+        if (!world.has("cave_entrances")) return new LoadedCaves(List.of(), Map.of());
+        Map<String, JsonObject> definitions = new LinkedHashMap<>();
+        for (JsonElement element : world.getAsJsonArray("cave_entrances")) {
+            JsonObject entrance = element.getAsJsonObject();
+            String caveId = entrance.get("cave").getAsString();
+            definitions.computeIfAbsent(caveId, ignored -> {
+                String slug = caveId.substring(caveId.lastIndexOf('/') + 1);
+                return resource("caves/generation_" + generation + "/" + slug + ".json");
+            });
+        }
+
+        Map<String, CaveInfo> caveInfos = new LinkedHashMap<>();
+        Map<String, Map<String, String>> entranceNames = new HashMap<>();
+        for (Map.Entry<String, JsonObject> entry : definitions.entrySet()) {
+            JsonObject cave = entry.getValue();
+            LinkedHashMap<String, Pokemon> pokemon = new LinkedHashMap<>();
+            List<String> biomeNames = new ArrayList<>();
+            if (cave.has("internal_biomes")) {
+                for (JsonElement biomeElement : cave.getAsJsonArray("internal_biomes")) {
+                    String biomeId = biomeElement.getAsJsonObject().get("biome").getAsString();
+                    BiomeInfo biome = biomes.get(biomeId);
+                    if (biome == null) continue;
+                    if (!biomeNames.contains(biome.name())) biomeNames.add(biome.name());
+                    for (Pokemon value : biome.pokemon()) pokemon.putIfAbsent(value.id(), value);
+                }
+            }
+            List<Pokemon> pokemonList = new ArrayList<>(pokemon.values());
+            pokemonList.sort(Comparator.comparingInt(Pokemon::dexNumber));
+            caveInfos.put(entry.getKey(), new CaveInfo(
+                entry.getKey(),
+                localized(cave.getAsJsonObject("display_name"), readableId(entry.getKey())),
+                List.copyOf(biomeNames), List.copyOf(pokemonList)
+            ));
+            Map<String, String> names = new HashMap<>();
+            if (cave.has("entrances")) {
+                for (JsonElement entranceElement : cave.getAsJsonArray("entrances")) {
+                    JsonObject entrance = entranceElement.getAsJsonObject();
+                    names.put(entrance.get("id").getAsString(),
+                        stringValue(entrance, "display_name", readableId(entrance.get("id").getAsString())));
+                }
+            }
+            entranceNames.put(entry.getKey(), Map.copyOf(names));
+        }
+
+        List<CaveEntrance> entrances = new ArrayList<>();
+        for (JsonElement element : world.getAsJsonArray("cave_entrances")) {
+            JsonObject value = element.getAsJsonObject();
+            String caveId = value.get("cave").getAsString();
+            String entranceId = value.get("entrance").getAsString();
+            JsonObject anchor = value.getAsJsonObject("anchor");
+            entrances.add(new CaveEntrance(
+                value.get("id").getAsString(), caveId, entranceId,
+                entranceNames.getOrDefault(caveId, Map.of()).getOrDefault(entranceId, readableId(entranceId)),
+                new Hex(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
+                stringValue(value, "facing", "")
+            ));
+        }
+        return new LoadedCaves(List.copyOf(entrances), Map.copyOf(caveInfos));
     }
 
     private static LoadedBiomes loadBiomes(int generation, Map<Hex, BiomeTile> tiles, JsonObject world) {
@@ -469,12 +543,17 @@ public final class MapContent {
     public record WorldPoint(int x, int z) {}
     public record BiomeTile(Hex hex, String biome) {}
     public record Route(String id, List<Hex> path) {}
+    public record CaveEntrance(
+        String id, String caveId, String entranceId, String name, Hex hex, String facing
+    ) {}
+    public record CaveInfo(String id, String name, List<String> biomes, List<Pokemon> pokemon) {}
     public record Pokemon(int dexNumber, String id, String name) {}
     public record BiomeInfo(
         String id, String name, String habitat, int habitatVariant, List<Pokemon> pokemon, int totalPokemon
     ) {}
     private record PokemonMatch(Pokemon pokemon, boolean explicit) {}
     private record LoadedBiomes(Map<String, BiomeInfo> byBiome, Map<Hex, BiomeInfo> byTile) {}
+    private record LoadedCaves(List<CaveEntrance> entrances, Map<String, CaveInfo> byId) {}
     public record Town(
         String id,
         String name,
