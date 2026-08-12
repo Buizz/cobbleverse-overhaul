@@ -6,7 +6,7 @@
   "author": "Buizz",
   "purpose": "development-pack-placeholder",
   "production_ready": false,
-  "notice": "Cobblemon 1.7.3, Battle Extras 1.13.45, Cobblemon EXP Bar 1.0.5, 전투 중 즉시 경험치 지급 보정, Capture XP 1.3.0, MoreCobblemonTweaks 1.3.3, Bad Mobs 21.1.1, CobbleNav 2.3.3, Cobblemon Casino 2.0.0, EasyNPC, TBCS, Mega Showdown, Complete Cobblemon Collection, ZA 메가진화 보정팩, Cobblemon Additions와 지역 부트스트랩을 포함한 개발팩입니다.",
+  "notice": "Cobblemon 1.7.3, Battle Extras 1.13.45, Cobblemon EXP Bar 1.0.5, 전투 중 즉시 경험치 지급 보정, Capture XP 1.3.0, MoreCobblemonTweaks 1.3.3, Sodium·Iris 기반 최적화 및 Complementary·Euphoria 셰이더, Bad Mobs 21.1.1, CobbleNav 2.3.3, Cobblemon Casino 2.0.0, EasyNPC, TBCS, Mega Showdown, Complete Cobblemon Collection, ZA 메가진화 보정팩, Cobblemon Additions와 지역 부트스트랩을 포함한 개발팩입니다.",
   "icon": "pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",
@@ -49,6 +49,46 @@
     {
       "projectID": 1082538,
       "fileID": 7593359,
+      "required": true
+    },
+    {
+      "projectID": 394468,
+      "fileID": 6382651,
+      "required": true
+    },
+    {
+      "projectID": 455508,
+      "fileID": 6213632,
+      "required": true
+    },
+    {
+      "projectID": 360438,
+      "fileID": 7740400,
+      "required": true
+    },
+    {
+      "projectID": 429235,
+      "fileID": 7524151,
+      "required": true
+    },
+    {
+      "projectID": 686911,
+      "fileID": 7537795,
+      "required": true
+    },
+    {
+      "projectID": 448233,
+      "fileID": 7396695,
+      "required": true
+    },
+    {
+      "projectID": 627557,
+      "fileID": 5874236,
+      "required": true
+    },
+    {
+      "projectID": 915902,
+      "fileID": 5876050,
       "required": true
     },
     {

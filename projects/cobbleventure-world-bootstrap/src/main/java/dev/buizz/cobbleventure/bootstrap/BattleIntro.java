@@ -59,18 +59,21 @@ final class BattleIntro {
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("player", EntityArgument.player())
                     .then(Commands.argument("opponent", EntityArgument.entity())
-                        .then(Commands.argument("battle_command", StringArgumentType.greedyString())
-                            .executes(context -> start(
-                                context.getSource(),
-                                EntityArgument.getPlayer(context, "player"),
-                                EntityArgument.getEntity(context, "opponent"),
-                                StringArgumentType.getString(context, "battle_command")
-                            )))))
+                        .then(Commands.argument("battle_id", StringArgumentType.string())
+                            .then(Commands.argument("battle_command", StringArgumentType.greedyString())
+                                .executes(context -> start(
+                                    context.getSource(),
+                                    EntityArgument.getPlayer(context, "player"),
+                                    EntityArgument.getEntity(context, "opponent"),
+                                    StringArgumentType.getString(context, "battle_id"),
+                                    StringArgumentType.getString(context, "battle_command")
+                                ))))))
         );
     }
 
     private static int start(
-        CommandSourceStack source, ServerPlayer player, Entity opponent, String battleCommand
+        CommandSourceStack source, ServerPlayer player, Entity opponent,
+        String battleId, String battleCommand
     ) {
         String normalized = battleCommand.startsWith("/")
             ? battleCommand.substring(1)
@@ -79,6 +82,7 @@ final class BattleIntro {
 
         long executeAt = source.getServer().overworld().getGameTime() + DURATION_TICKS;
         PENDING.put(player.getUUID(), new PendingBattle(source, normalized, executeAt));
+        MusicPlayback.prepareBattle(player, battleId);
         PacketDistributor.sendToPlayer(player, new OpenPayload(
             player.getId(),
             opponent.getId(),

@@ -13,6 +13,20 @@ import gym_interior_modules  # noqa: E402
 
 
 class InteriorSpaceTests(unittest.TestCase):
+    def test_gym_module_payload_includes_layout_and_anchor_metadata(self) -> None:
+        payload = content_manager.gym_interior_modules_payload(ROOT)
+        module = next(
+            item for item in payload["modules"]
+            if item["structure"] == "cobbleventure:interiors/gyms/base_gym_interior"
+        )
+        self.assertEqual([32, 12, 32], module["size"])
+        self.assertTrue(module["top_view"]["blocks"])
+        self.assertIn("leader", {marker["label"] for marker in module["npc_labels"]})
+        self.assertIn(
+            "interior_spawn",
+            {marker["label"] for marker in module["arrival_anchors"]},
+        )
+
     def test_existing_interiors_are_exposed_as_generic_library(self) -> None:
         payload = content_manager.interior_spaces_payload(ROOT)
         self.assertGreaterEqual(len(payload["spaces"]), 3)

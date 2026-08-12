@@ -26,11 +26,13 @@ const state = {
   mapPan: null, suppressMapClick: false, draggedSettlement: null, routeDraft: null, worldDirty: false,
   activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null,
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
+  gymLayout: { selected: null, drag: null, hitTargets: [] },
   buildingSettings: { query: "", category: "all", selected: "", model: null, structures: {}, npcs: [], yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
   cavePreview: { yaw: -.72, pitch: -.52, zoom: 1, view: "perspective", tool: "select", pathDraft: null, drag: null, selected: null, hitTargets: [], projection: null },
   customTownTool: "cell",
   leagueProgression: { schema_version: 1, entries: [] }, selectedLeagueId: "",
   gameDefinitions: { schema_version: 1, items: [], variables: [] },
+  musicCatalog: { schema_version: 1, tracks: [], defaults: {} },
   economy: { schema_version: 2, vanilla_crafting_disabled: true, standard_prices: [], shop_catalogs: [], vendor_units: [], pokemon_drop_rules: [], pokemon_drop_overrides: [], npc_recipes: [], resolved_shop_catalogs: [], resolved_vendor_units: [], resolved_standard_prices: [], resolved_pokemon_drops: [], editor_catalog: { items: [], species: [], filters: {} } },
   economyView: { catalogSearch: "", vendorSearch: "", selectedVendorId: "", selectedCatalogId: "", vendorProductGroup: "balls", vendorProductSearch: "", pokemonSearch: "", pokemonType: "", pokemonGeneration: "", pokemonLimit: 50 },
   structureBuilder: null
@@ -188,10 +190,63 @@ function escapeHtml(value) {
   })[character]);
 }
 
+function musicTrack(trackId) {
+  return (state.musicCatalog.tracks || []).find((track) => track.id === trackId) || null;
+}
+
+function musicTrackLabel(trackId) {
+  const track = musicTrack(trackId);
+  return track ? `${track.usage} · ${track.id}` : trackId || "미지정";
+}
+
+function musicOptions(selected = "", inheritContext = "") {
+  const inherited = inheritContext ? state.musicCatalog.defaults?.[inheritContext] : "";
+  const first = inheritContext
+    ? `<option value="">상속 · ${escapeHtml(musicTrackLabel(inherited))}</option>`
+    : "";
+  return first + (state.musicCatalog.tracks || []).map((track) =>
+    `<option value="${escapeHtml(track.id)}" ${track.id === selected ? "selected" : ""}>${escapeHtml(track.usage)} · ${escapeHtml(track.id)}</option>`
+  ).join("");
+}
+
+function musicOverrideAt(q, r) {
+  return (state.worldLayout?.music_overrides || []).find((entry) => entry.q === q && entry.r === r) || null;
+}
+
+function setMusicOverride(q, r, trackId) {
+  state.worldLayout.music_overrides ||= [];
+  state.worldLayout.music_overrides = state.worldLayout.music_overrides.filter((entry) => entry.q !== q || entry.r !== r);
+  if (trackId) state.worldLayout.music_overrides.push({ q, r, music_track: trackId });
+}
+
+function renderMusicSettings() {
+  const form = $("#music-defaults-form");
+  if (!form) return;
+  for (const context of ["tile", "road", "settlement", "battle", "gym"]) {
+    form.elements[context].innerHTML = musicOptions(state.musicCatalog.defaults?.[context] || "");
+    form.elements[context].value = state.musicCatalog.defaults?.[context] || "";
+  }
+  const tracks = state.musicCatalog.tracks || [];
+  $("#music-track-count").textContent = `${tracks.length}곡`;
+  $("#music-track-list").innerHTML = tracks.map((track) => `<article class="definition-card"><header><div><strong>${escapeHtml(track.usage)}</strong><code>${escapeHtml(track.id)}</code></div></header><div class="definition-fields"><label><span>사운드 이벤트</span><input readonly value="${escapeHtml(state.musicCatalog.namespace)}:${escapeHtml(track.sound_event)}"></label><label><span>분류</span><input readonly value="${escapeHtml(track.category)}"></label></div></article>`).join("");
+  showIssues("#music-issues", { valid: true, issues: [] });
+}
+
+async function saveMusicSettings() {
+  const form = $("#music-defaults-form");
+  state.musicCatalog.defaults = Object.fromEntries(
+    ["tile", "road", "settlement", "battle", "gym"].map((context) => [context, form.elements[context].value])
+  );
+  const result = await request("/api/music-catalog", { method: "PUT", body: JSON.stringify(state.musicCatalog) });
+  showIssues("#music-issues", result.data);
+  toast(result.ok ? "상황별 기본 음악을 저장했습니다." : "음악 기본값을 확인해 주세요.");
+  if (result.ok) renderMusicSettings();
+}
+
 function switchPage(section) {
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === section));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", gyms: "체육관 외관 · 내부", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", gyms: "체육관 외관 · 내부", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -213,10 +268,10 @@ async function loadDashboard() {
 }
 
 async function loadLists() {
-  const [trainers, battles, settlements, caves, worldLayouts, worldLayout, worldPokemonMap, league, gyms] = await Promise.all([
+  const [trainers, battles, settlements, caves, worldLayouts, worldLayout, worldPokemonMap, league, gyms, music] = await Promise.all([
     request("/api/trainers"), request("/api/battles"), request("/api/settlements"), request("/api/caves"),
     request("/api/world-layouts"), request(`/api/world-layout?generation=${state.selectedGeneration}`),
-    request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`), request("/api/league-progression"), request("/api/gyms")
+    request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`), request("/api/league-progression"), request("/api/gyms"), request("/api/music-catalog")
   ]);
   state.trainers = trainers.data.items || [];
   state.battles = battles.data.items || [];
@@ -224,6 +279,7 @@ async function loadLists() {
   state.caves = caves.data.items || [];
   if (league.ok) state.leagueProgression = league.data;
   if (gyms.ok) state.gymCatalog = gyms.data;
+  if (music.ok) state.musicCatalog = music.data;
   state.worldGenerations = worldLayouts.ok ? worldLayouts.data.generations || [1] : [1];
   state.worldLayout = worldLayout.ok ? worldLayout.data : null;
   if (worldPokemonMap.ok) state.worldPokemonMap = worldPokemonMap.data;
@@ -233,6 +289,7 @@ async function loadLists() {
   renderList("caves");
   renderLeagueList();
   renderGymList();
+  renderMusicSettings();
   renderWorldLayout();
 }
 
@@ -286,7 +343,10 @@ async function loadStructureData(force = false) {
   if ($("#nbt-structure-count")) $("#nbt-structure-count").textContent = "불러오는 중";
   if ($("#nbt-structure-list")) $("#nbt-structure-list").innerHTML = '<div class="issues empty">NBT 목록을 필요한 시점에 불러오고 있습니다.</div>';
   lazyDataPromises.structures = (async () => {
-    const [result, buildingSettings] = await Promise.all([request("/api/structure-sizes"), request("/api/building-settings")]);
+    const suffix = force ? "?refresh=1" : "";
+    const [result, buildingSettings] = await Promise.all([
+      request(`/api/structure-sizes${suffix}`), request(`/api/building-settings${suffix}`)
+    ]);
     if (!result.ok) throw new Error(result.data.error || "NBT 구조물 목록을 불러오지 못했습니다.");
     state.structureSizes = result.data.structures || {};
     if (buildingSettings.ok) for (const [id, metadata] of Object.entries(buildingSettings.data.structures || {})) {
@@ -304,16 +364,32 @@ async function loadStructureData(force = false) {
   } finally { lazyDataPromises.structures = null; }
 }
 
+async function loadGymStructureData(force = false) {
+  await loadStructureData(force);
+  const result = await request("/api/gym-interior-modules");
+  if (!result.ok) throw new Error(result.data.error || "체육관 내부 모듈 정보를 불러오지 못했습니다.");
+  for (const module of result.data.modules || []) {
+    if (!module?.structure) continue;
+    state.structureSizes[module.structure] = {
+      ...(state.structureSizes[module.structure] || {}),
+      ...module
+    };
+  }
+}
+
 async function loadBuildingSettingsData(force = false) {
   if (lazyDataLoaded.buildingSettings && !force) return;
   if (lazyDataPromises.buildingSettings) return lazyDataPromises.buildingSettings;
   lazyDataPromises.buildingSettings = (async () => {
-    const result = await request("/api/building-settings");
+    const result = await request(`/api/building-settings${force ? "?refresh=1" : ""}`);
     if (!result.ok) throw new Error(result.data.error || "건물 설정을 불러오지 못했습니다.");
     state.buildingSettings.structures = result.data.structures || {};
     state.buildingSettings.npcs = result.data.npcs || [];
     state.buildingSettings.dirty = false;
-    $("#building-settings-path").textContent = result.data.path || "content/catalogs/building-settings.json";
+    const generatedAt = Number(result.data.cache?.generated_at || 0);
+    const cacheLabel = generatedAt
+      ? ` · 목록 ${new Date(generatedAt * 1000).toLocaleTimeString()}` : "";
+    $("#building-settings-path").textContent = `${result.data.path || "content/catalogs/building-settings.json"}${cacheLabel}`;
     lazyDataLoaded.buildingSettings = true;
     renderBuildingList();
     const entries = buildingEntries();
@@ -329,11 +405,15 @@ async function loadBuildingSettingsData(force = false) {
 }
 
 function loadSectionData(section, force = false) {
+  if (section === "music") {
+    renderMusicSettings();
+    return Promise.resolve();
+  }
   if (section === "trainers" || section === "battles" || section === "league") return Promise.all([loadTrainerData(force), loadGameDefinitions(force)]).then(() => { if (section === "league") renderLeagueEditor(); });
   if (section === "biomes") return loadBiomeData(force);
   if (section === "worlds") return loadStructureData(force).then(() => { renderWorldObjectNbtOptions(); renderMapToolOptions(); });
   if (section === "structures") return loadBuildingSettingsData(force);
-  if (section === "gyms") return loadStructureData(force).then(renderGymEditor);
+  if (section === "gyms") return loadGymStructureData(force).then(renderGymEditor);
   if (section === "settlements") return Promise.all([loadBiomeData(force), loadStructureData(force), loadEconomy(force)]);
   if (section === "definitions") return loadGameDefinitions(force);
   if (section === "economy") return loadEconomy(force);
@@ -396,6 +476,7 @@ function renderWorldLayout() {
   layout.cave_entrances ||= [];
   layout.environment_overrides ||= [];
   layout.level_overrides ||= [];
+  layout.music_overrides ||= [];
   layout.empty_terrain ||= { default_type: "high_forest", tiles: [] };
   layout.empty_terrain.default_type ||= "high_forest";
   layout.empty_terrain.tiles ||= [];
@@ -970,6 +1051,8 @@ function renderTileInspector() {
   if (!selected) { $("#selected-tile-title").textContent = "타일을 선택하세요"; $("#selected-tile-coord").textContent = "Q — · R —"; renderWorldPokemonPanel(); return; }
   const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r); const customObject = objectAt(selected.q, selected.r); const townArea = settlementFootprintAt(selected.q, selected.r); const environment = environmentOverrideAt(selected.q, selected.r); const leveling = levelOverrideAt(selected.q, selected.r);
   const routes = routesAt(selected.q, selected.r);
+  const musicOverride = musicOverrideAt(selected.q, selected.r);
+  const musicContext = town || townArea ? "settlement" : routes.length ? "road" : "tile";
   const kind = customObject ? "object" : town ? "settlement" : tile ? "biome" : "empty";
   $("#selected-tile-title").textContent = customObject ? customObject.id : town ? (settlementSummary(town.settlement)?.name || "마을 타일") : tile ? tile.biome.replace("minecraft:", "") : emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r));
   $("#selected-tile-coord").textContent = `Q ${selected.q} · R ${selected.r}`;
@@ -978,6 +1061,11 @@ function renderTileInspector() {
   form.elements.emptyTerrainType.value = emptyTerrainAt(selected.q, selected.r);
   form.elements.settlement.innerHTML = worldSettlementOptions(town?.settlement || "");
   form.elements.townBiome.innerHTML = worldBiomeOptions(town?.town_biome || "minecraft:plains");
+  form.elements.musicTrack.innerHTML = musicOptions(musicOverride?.music_track || "", musicContext);
+  form.elements.musicTrack.value = musicOverride?.music_track || "";
+  $("#tile-music-resolution").textContent = musicOverride
+    ? `직접 지정 · ${musicTrackLabel(musicOverride.music_track)}`
+    : `상속 · ${musicTrackLabel(state.musicCatalog.defaults?.[musicContext])}`;
   form.elements.objectId.value = customObject?.id || "";
   form.elements.objectType.value = customObject?.type || "gate";
   form.elements.objectResource.value = customObject?.resource || "";
@@ -1131,7 +1219,7 @@ function renderRouteCreator() {
   $("#route-manager-list").innerHTML = routes.length ? routes.map((route) => {
     const fromName = route.from ? settlementSummary(route.from)?.name || route.from.split("/").pop() : "직접";
     const toName = route.to ? settlementSummary(route.to)?.name || route.to.split("/").pop() : "그리기";
-    return `<article class="route-manager-item"><button type="button" class="route-focus" data-focus-route="${escapeHtml(route.id)}"><b>${escapeHtml(route.id)}</b><span>${escapeHtml(fromName)} → ${escapeHtml(toName)}</span><small>${escapeHtml(route.surface_style)} · ${connectionPath(route).length}칸</small></button><button type="button" class="route-delete" data-delete-route="${escapeHtml(route.id)}" aria-label="${escapeHtml(route.id)} 삭제">×</button></article>`;
+    return `<article class="route-manager-item"><button type="button" class="route-focus" data-focus-route="${escapeHtml(route.id)}"><b>${escapeHtml(route.id)}</b><span>${escapeHtml(fromName)} → ${escapeHtml(toName)}</span><small>${escapeHtml(route.surface_style)} · ${connectionPath(route).length}칸</small></button><label><span>도로 BGM</span><select data-route-music="${escapeHtml(route.id)}">${musicOptions(route.music_track || "", "road")}</select></label><button type="button" class="route-delete" data-delete-route="${escapeHtml(route.id)}" aria-label="${escapeHtml(route.id)} 삭제">×</button></article>`;
   }).join("") : '<p class="route-list-empty">아직 배치된 길이 없습니다.</p>';
   $$('[data-delete-route]').forEach((button) => button.addEventListener("click", () => removeRouteConnection(button.dataset.deleteRoute)));
   $$('[data-focus-route]').forEach((button) => button.addEventListener("click", () => focusRoute(button.dataset.focusRoute)));
@@ -1272,6 +1360,11 @@ function clearSelectedTile() {
 }
 
 function handleTileInspectorChange(event) {
+  if (event.target.name === "musicTrack") {
+    const { q, r } = state.selectedHex;
+    setMusicOverride(q, r, event.target.value);
+    markWorldDirty(); renderTileInspector(); return;
+  }
   if (event.target.name === "kind") {
     $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== event.target.value);
     if (event.target.value === "settlement" || event.target.value === "object") return;
@@ -1379,7 +1472,7 @@ function finishSettlementDrag(event) {
 async function addGeneration() {
   const generation = Array.from({ length: 9 }, (_, index) => index + 1).find((value) => !state.worldGenerations.includes(value));
   if (!generation) { toast("9세대까지 모두 추가되어 있습니다."); return; }
-  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, dimension: `cobbleventure:generation_${generation}`, seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], environment_overrides: [], level_overrides: [], settlements: [], cave_entrances: [], connections: [], objects: [] };
+  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, dimension: `cobbleventure:generation_${generation}`, seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], environment_overrides: [], level_overrides: [], music_overrides: [], settlements: [], cave_entrances: [], connections: [], objects: [] };
   const result = await request(`/api/world-layout?generation=${generation}`, { method: "PUT", body: JSON.stringify(payload) });
   if (!result.ok) { toast(result.data.error || "세대를 추가하지 못했습니다."); return; }
   state.worldGenerations.push(generation); state.worldGenerations.sort((a, b) => a - b); state.selectedGeneration = generation; state.worldLayout = payload; state.selectedHex = null; state.worldDirty = false; state.mapViewInitialized = false; renderWorldLayout(); toast(`${generation}세대 월드를 추가했습니다.`);
@@ -1453,6 +1546,8 @@ function renderBattlePreset() {
   setFormValue(form, "id", document.id);
   setFormValue(form, "nameKo", document.name?.ko_kr || "");
   setFormValue(form, "trainerId", battle.trainer_id || "");
+  form.elements.musicTrack.innerHTML = musicOptions(battle.music_track || "", "battle");
+  setFormValue(form, "musicTrack", battle.music_track || "");
   setFormValue(form, "format", battle.format || "GEN_9_SINGLES");
   setFormValue(form, "battleType", battle.battle_type || "singles");
   setFormValue(form, "difficulty", ai.difficulty);
@@ -1478,6 +1573,8 @@ function updateBattlePresetFromForm() {
   const battle = state.battlePreset.battle;
   state.battlePreset.name = { ...(state.battlePreset.name || {}), ko_kr: form.elements.nameKo.value.trim() };
   battle.trainer_id = form.elements.trainerId.value.trim();
+  if (form.elements.musicTrack.value) battle.music_track = form.elements.musicTrack.value;
+  else delete battle.music_track;
   battle.format = form.elements.format.value;
   battle.battle_type = form.elements.battleType.value;
   battle.level_mode = form.elements.levelMode.value;
@@ -4758,10 +4855,192 @@ function renderGymList() {
   list.innerHTML = gyms.length ? gyms.map((gym) => `<button class="document-button${gym.id === state.selectedGymId ? " is-active" : ""}" data-gym-id="${escapeHtml(gym.id)}"><strong>${escapeHtml(gym.display_name?.ko_kr || gym.id)}</strong><small>${escapeHtml(gym.theme)} · ${escapeHtml(gym.exterior?.structure || "외관 없음")}</small></button>`).join("") : '<div class="issues empty">등록된 체육관이 없습니다.</div>';
 }
 
+function gymRotatedPoint(x, z, rotation) {
+  if (rotation === "clockwise_90") return [-z, x];
+  if (rotation === "clockwise_180") return [-x, -z];
+  if (rotation === "counterclockwise_90") return [z, -x];
+  return [x, z];
+}
+
+function gymModuleLayoutInfo(module, index) {
+  const metadata = state.structureSizes[module.structure] || {};
+  const width = Math.max(1, Number(metadata.width) || 16);
+  const depth = Math.max(1, Number(metadata.depth) || 16);
+  const originX = Number(module.position?.[0]) || 0;
+  const originZ = Number(module.position?.[2]) || 0;
+  const rotation = module.rotation || "none";
+  const corners = [[0, 0], [width, 0], [width, depth], [0, depth]].map(([x, z]) => {
+    const [rotatedX, rotatedZ] = gymRotatedPoint(x, z, rotation);
+    return [originX + rotatedX, originZ + rotatedZ];
+  });
+  const xs = corners.map(([x]) => x), zs = corners.map(([, z]) => z);
+  return {
+    module, index, metadata, width, depth, originX, originZ, rotation, corners,
+    minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs)
+  };
+}
+
+function gymLayoutPoint(event, canvas) {
+  const bounds = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - bounds.left) * canvas.width / Math.max(1, bounds.width),
+    y: (event.clientY - bounds.top) * canvas.height / Math.max(1, bounds.height)
+  };
+}
+
+function gymLayoutProjection(infos, canvas) {
+  if (!infos.length) return { minX: -4, minZ: -4, scale: 10, margin: 52 };
+  const minX = Math.min(...infos.map((info) => info.minX)) - 4;
+  const maxX = Math.max(...infos.map((info) => info.maxX)) + 4;
+  const minZ = Math.min(...infos.map((info) => info.minZ)) - 4;
+  const maxZ = Math.max(...infos.map((info) => info.maxZ)) + 4;
+  const margin = 52;
+  const scale = Math.max(1, Math.min(14,
+    (canvas.width - margin * 2) / Math.max(1, maxX - minX),
+    (canvas.height - margin * 2) / Math.max(1, maxZ - minZ)
+  ));
+  return { minX, minZ, scale, margin };
+}
+
+function renderGymLayout() {
+  const canvas = $("#gym-layout-canvas");
+  if (!canvas) return;
+  const context = canvas.getContext("2d");
+  const gym = selectedGym();
+  const modules = gym?.interior?.modules || [];
+  const infos = modules.map(gymModuleLayoutInfo);
+  const empty = $("#gym-layout-empty");
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#10181d";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  empty.hidden = Boolean(gym && modules.length);
+  empty.textContent = gym ? "내부 모듈을 추가하면 공간 배치가 표시됩니다." : "체육관을 선택하세요.";
+  $("#fit-gym-layout").disabled = !infos.length;
+  if (!infos.length) {
+    state.gymLayout.hitTargets = [];
+    $("#gym-layout-summary").textContent = "배치 정보 없음";
+    return;
+  }
+
+  if (state.gymLayout.selected !== null && !infos[state.gymLayout.selected]) state.gymLayout.selected = null;
+  const projection = state.gymLayout.drag?.projection || gymLayoutProjection(infos, canvas);
+  const project = ([x, z]) => ({
+    x: projection.margin + (x - projection.minX) * projection.scale,
+    y: projection.margin + (z - projection.minZ) * projection.scale
+  });
+  const visibleWidth = (canvas.width - projection.margin * 2) / projection.scale;
+  const visibleDepth = (canvas.height - projection.margin * 2) / projection.scale;
+  const gridStep = projection.scale >= 8 ? 1 : projection.scale >= 3 ? 4 : projection.scale >= 1.5 ? 8 : 16;
+  context.lineWidth = 1;
+  context.strokeStyle = "rgba(137, 164, 176, .12)";
+  context.beginPath();
+  const gridMinX = Math.floor(projection.minX / gridStep) * gridStep;
+  const gridMinZ = Math.floor(projection.minZ / gridStep) * gridStep;
+  for (let x = gridMinX; x <= projection.minX + visibleWidth; x += gridStep) {
+    const point = project([x, projection.minZ]); context.moveTo(point.x, projection.margin); context.lineTo(point.x, canvas.height - projection.margin);
+  }
+  for (let z = gridMinZ; z <= projection.minZ + visibleDepth; z += gridStep) {
+    const point = project([projection.minX, z]); context.moveTo(projection.margin, point.y); context.lineTo(canvas.width - projection.margin, point.y);
+  }
+  context.stroke();
+
+  const infoById = new Map(infos.map((info) => [info.module.id, info]));
+  const anchorPoint = (endpoint) => {
+    const [moduleId, label] = String(endpoint || "").split(":", 2);
+    const info = infoById.get(moduleId); if (!info) return null;
+    const anchors = [...(info.metadata.door_anchors || []), ...(info.metadata.arrival_anchors || []), ...(info.metadata.npc_labels || [])];
+    const anchor = anchors.find((candidate) => candidate.label === label);
+    if (!anchor) return project([(info.minX + info.maxX) / 2, (info.minZ + info.maxZ) / 2]);
+    const [localX, , localZ] = anchor.position;
+    const [rotatedX, rotatedZ] = gymRotatedPoint(localX + .5, localZ + .5, info.rotation);
+    return project([info.originX + rotatedX, info.originZ + rotatedZ]);
+  };
+  context.strokeStyle = "rgba(101, 210, 226, .78)";
+  context.lineWidth = Math.max(2, projection.scale * .18);
+  context.setLineDash([8, 7]);
+  for (const connection of gym.interior?.connections || []) {
+    const from = anchorPoint(connection.from), to = anchorPoint(connection.to);
+    if (!from || !to) continue;
+    context.beginPath(); context.moveTo(from.x, from.y); context.lineTo(to.x, to.y); context.stroke();
+  }
+  context.setLineDash([]);
+
+  const assigned = new Map();
+  if (gym.staff?.leader?.anchor) assigned.set(gym.staff.leader.anchor, { kind: "leader", label: "관장" });
+  for (const trainer of gym.staff?.trainers || []) if (trainer.anchor) assigned.set(trainer.anchor, { kind: "trainer", label: trainer.id || "트레이너" });
+  const hitTargets = [];
+  for (const info of infos) {
+    const projectedCorners = info.corners.map(project);
+    context.beginPath(); context.moveTo(projectedCorners[0].x, projectedCorners[0].y);
+    for (const point of projectedCorners.slice(1)) context.lineTo(point.x, point.y);
+    context.closePath();
+    context.fillStyle = info.index === state.gymLayout.selected ? "rgba(53, 168, 208, .22)" : "rgba(232, 240, 238, .10)";
+    context.fill();
+
+    const topView = info.metadata.top_view;
+    if (topView?.blocks?.length) {
+      for (const [x, z, , paletteIndex] of topView.blocks) {
+        const cellCorners = [[x, z], [x + 1, z], [x + 1, z + 1], [x, z + 1]].map(([localX, localZ]) => {
+          const [rotatedX, rotatedZ] = gymRotatedPoint(localX, localZ, info.rotation);
+          return project([info.originX + rotatedX, info.originZ + rotatedZ]);
+        });
+        context.beginPath(); context.moveTo(cellCorners[0].x, cellCorners[0].y);
+        for (const point of cellCorners.slice(1)) context.lineTo(point.x, point.y);
+        context.closePath();
+        context.globalAlpha = .76;
+        context.fillStyle = minecraftTopBlockColor(topView.palette?.[paletteIndex] || "minecraft:stone");
+        context.fill();
+      }
+      context.globalAlpha = 1;
+    }
+
+    context.beginPath(); context.moveTo(projectedCorners[0].x, projectedCorners[0].y);
+    for (const point of projectedCorners.slice(1)) context.lineTo(point.x, point.y);
+    context.closePath();
+    context.strokeStyle = info.index === state.gymLayout.selected ? "#69d5ee" : "rgba(221, 238, 239, .82)";
+    context.lineWidth = info.index === state.gymLayout.selected ? 4 : 2;
+    context.stroke();
+
+    const center = project([(info.minX + info.maxX) / 2, (info.minZ + info.maxZ) / 2]);
+    context.textAlign = "center"; context.textBaseline = "middle";
+    context.font = "800 18px Segoe UI, sans-serif";
+    context.lineWidth = 5; context.strokeStyle = "rgba(8, 15, 18, .9)";
+    context.strokeText(info.module.id || `room_${info.index + 1}`, center.x, center.y);
+    context.fillStyle = "#f2f8f7"; context.fillText(info.module.id || `room_${info.index + 1}`, center.x, center.y);
+
+    for (const entrance of info.metadata.arrival_anchors || []) {
+      const [localX, , localZ] = entrance.position;
+      const [rotatedX, rotatedZ] = gymRotatedPoint(localX + .5, localZ + .5, info.rotation);
+      const point = project([info.originX + rotatedX, info.originZ + rotatedZ]);
+      context.fillStyle = "#65d2e2"; context.beginPath();
+      context.moveTo(point.x, point.y - 9); context.lineTo(point.x + 9, point.y + 8); context.lineTo(point.x - 9, point.y + 8); context.closePath(); context.fill();
+    }
+    for (const marker of info.metadata.npc_labels || []) {
+      const [localX, , localZ] = marker.position;
+      const [rotatedX, rotatedZ] = gymRotatedPoint(localX + .5, localZ + .5, info.rotation);
+      const point = project([info.originX + rotatedX, info.originZ + rotatedZ]);
+      const staff = assigned.get(marker.label);
+      context.fillStyle = staff?.kind === "leader" ? "#f07b70" : "#ffd166";
+      context.strokeStyle = "#10181d"; context.lineWidth = 3;
+      context.beginPath(); context.arc(point.x, point.y, staff?.kind === "leader" ? 9 : 7, 0, Math.PI * 2); context.fill(); context.stroke();
+      context.font = "700 12px Segoe UI, sans-serif"; context.textBaseline = "bottom";
+      context.lineWidth = 4; context.strokeStyle = "rgba(8, 15, 18, .92)"; context.strokeText(staff?.label || marker.label, point.x, point.y - 10);
+      context.fillStyle = "#ffffff"; context.fillText(staff?.label || marker.label, point.x, point.y - 10);
+    }
+    const xs = projectedCorners.map((point) => point.x), ys = projectedCorners.map((point) => point.y);
+    hitTargets.push({ index: info.index, minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) });
+  }
+  state.gymLayout.hitTargets = hitTargets;
+  const selected = state.gymLayout.selected === null ? null : infos[state.gymLayout.selected];
+  $("#gym-layout-summary").textContent = selected
+    ? `${selected.module.id} · ${selected.width}×${selected.depth} · X ${selected.originX}, Y ${Number(selected.module.position?.[1]) || 0}, Z ${selected.originZ}`
+    : `${infos.length}개 방 · 방을 선택하거나 드래그해 배치`;
+}
+
 function renderGymModules() {
   const gym = selectedGym();
   const modules = gym?.interior?.modules || [];
-  $("#gym-module-list").innerHTML = gym ? (modules.length ? modules.map((module, index) => `<article class="cave-entry-card" data-gym-module="${index}"><div class="form-grid compact-grid"><label><span>모듈 ID</span><input data-gym-module-field="id" value="${escapeHtml(module.id || "")}"></label><label class="wide"><span>방 NBT</span><select data-gym-module-field="structure">${Object.keys(state.structureSizes).filter((id) => id.startsWith("cobbleventure:interiors/")).map((id) => `<option value="${escapeHtml(id)}"${id === module.structure ? " selected" : ""}>${escapeHtml(id)}</option>`).join("")}</select></label><label><span>X</span><input type="number" data-gym-module-axis="0" value="${Number(module.position?.[0] || 0)}"></label><label><span>층 높이 Y</span><input type="number" data-gym-module-axis="1" value="${Number(module.position?.[1] || 0)}"></label><label><span>Z</span><input type="number" data-gym-module-axis="2" value="${Number(module.position?.[2] || 0)}"></label><label><span>회전</span><select data-gym-module-field="rotation"><option value="none">회전 없음</option><option value="clockwise_90">90°</option><option value="clockwise_180">180°</option><option value="counterclockwise_90">-90°</option></select></label></div><button type="button" class="button danger compact-button" data-remove-gym-module="${index}">모듈 삭제</button></article>`).join("") : '<div class="issues empty">내부 모듈이 없습니다. 외관 출입문은 별도 내부 공간으로 순간이동하며, 필요한 방을 계속 추가할 수 있습니다.</div>') : '<div class="issues empty">체육관을 선택하세요.</div>';
+  $("#gym-module-list").innerHTML = gym ? (modules.length ? modules.map((module, index) => `<article class="cave-entry-card${index === state.gymLayout.selected ? " is-layout-selected" : ""}" data-gym-module="${index}"><div class="form-grid compact-grid"><label><span>모듈 ID</span><input data-gym-module-field="id" value="${escapeHtml(module.id || "")}"></label><label class="wide"><span>방 NBT</span><select data-gym-module-field="structure">${Object.keys(state.structureSizes).filter((id) => id.startsWith("cobbleventure:interiors/")).map((id) => `<option value="${escapeHtml(id)}"${id === module.structure ? " selected" : ""}>${escapeHtml(id)}</option>`).join("")}</select></label><label><span>X</span><input type="number" data-gym-module-axis="0" value="${Number(module.position?.[0] || 0)}"></label><label><span>층 높이 Y</span><input type="number" data-gym-module-axis="1" value="${Number(module.position?.[1] || 0)}"></label><label><span>Z</span><input type="number" data-gym-module-axis="2" value="${Number(module.position?.[2] || 0)}"></label><label><span>회전</span><select data-gym-module-field="rotation"><option value="none">회전 없음</option><option value="clockwise_90">90°</option><option value="clockwise_180">180°</option><option value="counterclockwise_90">-90°</option></select></label></div><button type="button" class="button danger compact-button" data-remove-gym-module="${index}">모듈 삭제</button></article>`).join("") : '<div class="issues empty">내부 모듈이 없습니다. 외관 출입문은 별도 내부 공간으로 순간이동하며, 필요한 방을 계속 추가할 수 있습니다.</div>') : '<div class="issues empty">체육관을 선택하세요.</div>';
   modules.forEach((module, index) => { const select = $(`[data-gym-module="${index}"] [data-gym-module-field="rotation"]`); if (select) select.value = module.rotation || "none"; });
 }
 
@@ -4807,14 +5086,16 @@ function renderGymEditor() {
   renderGymList();
   const gym = selectedGym();
   const form = $("#gym-form");
-  if (!gym) { form.reset(); [...form.elements].forEach((element) => { element.disabled = true; }); $("#gym-editor-title").textContent = "체육관을 선택하세요"; $("#delete-gym").disabled = true; $("#preview-gym-exterior").disabled = true; $("#add-gym-module").disabled = true; $("#add-gym-trainer").disabled = true; $("#gym-json").disabled = true; $("#apply-gym-json").disabled = true; renderGymStaff(); renderGymModules(); return; }
+  if (!gym) { form.reset(); [...form.elements].forEach((element) => { element.disabled = true; }); $("#gym-editor-title").textContent = "체육관을 선택하세요"; $("#delete-gym").disabled = true; $("#preview-gym-exterior").disabled = true; $("#add-gym-module").disabled = true; $("#add-gym-trainer").disabled = true; $("#gym-json").disabled = true; $("#apply-gym-json").disabled = true; state.gymLayout.selected = null; renderGymStaff(); renderGymModules(); renderGymLayout(); return; }
   $("#gym-editor-title").textContent = gym.display_name?.ko_kr || gym.id;
   setFormValue(form, "id", gym.id); setFormValue(form, "nameKo", gym.display_name?.ko_kr || ""); setFormValue(form, "nameEn", gym.display_name?.en_us || ""); setFormValue(form, "theme", gym.theme || "normal"); setFormValue(form, "enabled", gym.enabled !== false);
+  form.elements.musicTrack.innerHTML = musicOptions(gym.music_track || "", "gym");
+  setFormValue(form, "musicTrack", gym.music_track || "");
   form.elements.exteriorStructure.innerHTML = `<option value="${standardGymExterior}">${standardGymExterior}</option>`;
   setFormValue(form, "exteriorStructure", standardGymExterior);
   [...form.elements].forEach((element) => { element.disabled = false; }); form.elements.id.disabled = true;
   for (const selector of ["#delete-gym", "#preview-gym-exterior", "#add-gym-module", "#add-gym-trainer", "#gym-json", "#apply-gym-json"]) $(selector).disabled = false;
-  $("#gym-json").value = JSON.stringify(gym, null, 2); renderGymStaff(); renderGymModules();
+  $("#gym-json").value = JSON.stringify(gym, null, 2); renderGymStaff(); renderGymModules(); renderGymLayout();
 }
 
 function updateGymFromForm() {
@@ -4822,6 +5103,8 @@ function updateGymFromForm() {
   const form = $("#gym-form");
   gym.display_name = { ko_kr: form.elements.nameKo.value.trim(), en_us: form.elements.nameEn.value.trim() };
   gym.theme = form.elements.theme.value; gym.enabled = form.elements.enabled.checked;
+  if (form.elements.musicTrack.value) gym.music_track = form.elements.musicTrack.value;
+  else delete gym.music_track;
   gym.exterior = { structure: standardGymExterior };
   $("#gym-json").value = JSON.stringify(gym, null, 2); renderGymList();
 }
@@ -6233,6 +6516,8 @@ function renderSettlement() {
   setFormValue(form, "id", document.id); setFormValue(form, "enabled", document.enabled);
   setFormValue(form, "nameKo", document.display_name?.ko_kr); setFormValue(form, "nameEn", document.display_name?.en_us);
   setFormValue(form, "region", document.region); setFormValue(form, "dimension", document.dimension);
+  form.elements.musicTrack.innerHTML = musicOptions(document.music_track || "", "settlement");
+  setFormValue(form, "musicTrack", document.music_track || "");
   setFormValue(form, "townRadiusCells", normalizeTownCellCount(document.town_radius_cells));
   setFormValue(form, "townFootprintShape", normalizeTownFootprintShape(document.town_footprint_shape));
   setFormValue(form, "townLayoutShape", document.structure_profile?.layout_shape || "branching");
@@ -6449,6 +6734,8 @@ function updateSettlementFromForm() {
     town_radius_cells: normalizeTownCellCount(number("townRadiusCells")),
     town_footprint_shape: normalizeTownFootprintShape(form.elements.townFootprintShape.value)
   });
+  if (form.elements.musicTrack.value) state.settlement.music_track = form.elements.musicTrack.value;
+  else delete state.settlement.music_track;
   if (state.settlement.town_footprint_shape === "custom") ensureCustomTownLayout();
   else { delete state.settlement.town_footprint_cells; delete state.settlement.town_road_exits; }
   delete state.settlement.biome;
@@ -7658,7 +7945,7 @@ async function refreshAll() {
 }
 
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchPage(button.dataset.section)));
-$("#gym-list").addEventListener("click", (event) => { const button = event.target.closest("[data-gym-id]"); if (button) { state.selectedGymId = button.dataset.gymId; renderGymEditor(); } });
+$("#gym-list").addEventListener("click", (event) => { const button = event.target.closest("[data-gym-id]"); if (button) { state.selectedGymId = button.dataset.gymId; state.gymLayout.selected = null; renderGymEditor(); } });
 $("#gym-form").addEventListener("input", updateGymFromForm);
 $("#gym-staff-editor").addEventListener("input", (event) => {
   const gym = selectedGym(); if (!gym) return;
@@ -7701,10 +7988,34 @@ $("#add-gym").addEventListener("click", addGym);
 $("#delete-gym").addEventListener("click", deleteGym);
 $("#save-gyms").addEventListener("click", saveGyms);
 $("#preview-gym-exterior").addEventListener("click", async () => { const gym = selectedGym(); if (!gym) return; switchPage("structures"); await loadBuildingSettingsData(); state.buildingSettings.gymThemePreview = gym.theme; await loadBuildingModel(standardGymExterior); });
-$("#add-gym-module").addEventListener("click", () => { const gym = selectedGym(); if (!gym) return; gym.interior ||= { modules: [], connections: [] }; gym.interior.modules ||= []; const structures = Object.keys(state.structureSizes).filter((id) => id.startsWith("cobbleventure:interiors/")); gym.interior.modules.push({ id: `room_${gym.interior.modules.length + 1}`, structure: structures[0] || "cobbleventure:interiors/new_room", position: [0, 0, gym.interior.modules.length * 32], rotation: "none" }); renderGymEditor(); });
+$("#add-gym-module").addEventListener("click", () => { const gym = selectedGym(); if (!gym) return; gym.interior ||= { modules: [], connections: [] }; gym.interior.modules ||= []; const structures = Object.keys(state.structureSizes).filter((id) => id.startsWith("cobbleventure:interiors/")); gym.interior.modules.push({ id: `room_${gym.interior.modules.length + 1}`, structure: structures[0] || "cobbleventure:interiors/new_room", position: [0, 0, gym.interior.modules.length * 32], rotation: "none" }); state.gymLayout.selected = gym.interior.modules.length - 1; renderGymEditor(); });
 $("#interior-space-create-form").addEventListener("submit", createInteriorSpace);
-$("#gym-module-list").addEventListener("input", (event) => { const card = event.target.closest("[data-gym-module]"); const gym = selectedGym(); if (!card || !gym) return; const module = gym.interior.modules[Number(card.dataset.gymModule)]; if (event.target.dataset.gymModuleField) module[event.target.dataset.gymModuleField] = event.target.value; if (event.target.dataset.gymModuleAxis !== undefined) module.position[Number(event.target.dataset.gymModuleAxis)] = Number(event.target.value); $("#gym-json").value = JSON.stringify(gym, null, 2); });
-$("#gym-module-list").addEventListener("click", (event) => { const button = event.target.closest("[data-remove-gym-module]"); const gym = selectedGym(); if (!button || !gym) return; const removed = gym.interior.modules.splice(Number(button.dataset.removeGymModule), 1)[0]; gym.interior.connections = (gym.interior.connections || []).filter((connection) => !connection.from?.startsWith(`${removed.id}:`) && !connection.to?.startsWith(`${removed.id}:`)); renderGymEditor(); });
+$("#gym-module-list").addEventListener("input", (event) => { const card = event.target.closest("[data-gym-module]"); const gym = selectedGym(); if (!card || !gym) return; state.gymLayout.selected = Number(card.dataset.gymModule); const module = gym.interior.modules[Number(card.dataset.gymModule)]; if (event.target.dataset.gymModuleField) module[event.target.dataset.gymModuleField] = event.target.value; if (event.target.dataset.gymModuleAxis !== undefined) module.position[Number(event.target.dataset.gymModuleAxis)] = Number(event.target.value); $("#gym-json").value = JSON.stringify(gym, null, 2); renderGymLayout(); });
+$("#gym-module-list").addEventListener("click", (event) => { const card = event.target.closest("[data-gym-module]"); const button = event.target.closest("[data-remove-gym-module]"); const gym = selectedGym(); if (!card || !gym) return; if (!button) { state.gymLayout.selected = Number(card.dataset.gymModule); renderGymModules(); renderGymLayout(); return; } const removedIndex = Number(button.dataset.removeGymModule); const removed = gym.interior.modules.splice(removedIndex, 1)[0]; gym.interior.connections = (gym.interior.connections || []).filter((connection) => !connection.from?.startsWith(`${removed.id}:`) && !connection.to?.startsWith(`${removed.id}:`)); state.gymLayout.selected = null; renderGymEditor(); });
+$("#fit-gym-layout").addEventListener("click", () => { state.gymLayout.drag = null; renderGymLayout(); });
+$("#gym-layout-canvas").addEventListener("pointerdown", (event) => {
+  const canvas = event.currentTarget, point = gymLayoutPoint(event, canvas);
+  const target = [...state.gymLayout.hitTargets].reverse().find((item) => point.x >= item.minX && point.x <= item.maxX && point.y >= item.minY && point.y <= item.maxY);
+  if (!target) { state.gymLayout.selected = null; renderGymModules(); renderGymLayout(); return; }
+  const gym = selectedGym(), module = gym?.interior?.modules?.[target.index]; if (!module) return;
+  state.gymLayout.selected = target.index;
+  const infos = gym.interior.modules.map(gymModuleLayoutInfo);
+  state.gymLayout.drag = { index: target.index, startX: point.x, startY: point.y, originX: Number(module.position?.[0]) || 0, originZ: Number(module.position?.[2]) || 0, projection: gymLayoutProjection(infos, canvas) };
+  canvas.setPointerCapture(event.pointerId); canvas.classList.add("is-dragging"); renderGymModules(); renderGymLayout();
+});
+$("#gym-layout-canvas").addEventListener("pointermove", (event) => {
+  const drag = state.gymLayout.drag, gym = selectedGym(); if (!drag || !gym) return;
+  const point = gymLayoutPoint(event, event.currentTarget), module = gym.interior.modules[drag.index];
+  module.position[0] = drag.originX + Math.round((point.x - drag.startX) / drag.projection.scale);
+  module.position[2] = drag.originZ + Math.round((point.y - drag.startY) / drag.projection.scale);
+  $("#gym-json").value = JSON.stringify(gym, null, 2); renderGymLayout();
+});
+for (const eventName of ["pointerup", "pointercancel"]) $("#gym-layout-canvas").addEventListener(eventName, (event) => {
+  if (!state.gymLayout.drag) return;
+  state.gymLayout.drag = null; event.currentTarget.classList.remove("is-dragging");
+  if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  renderGymModules(); renderGymLayout();
+});
 $("#apply-gym-json").addEventListener("click", () => { const document = parseEditor("#gym-json"); if (!document) return; const index = state.gymCatalog.gyms.findIndex((gym) => gym.id === state.selectedGymId); if (index >= 0) { state.gymCatalog.gyms[index] = document; state.selectedGymId = document.id; renderGymEditor(); toast("JSON을 체육관 폼에 반영했습니다."); } });
 $("#building-search").addEventListener("input", (event) => { state.buildingSettings.query = event.target.value; renderBuildingList(); });
 $("#building-category").addEventListener("change", (event) => { state.buildingSettings.category = event.target.value; renderBuildingList(); });
@@ -7791,6 +8102,22 @@ $("#building-citizen-placement").addEventListener("change", (event) => {
   markBuildingSettingsDirty();
 });
 $("#save-building-settings").addEventListener("click", saveBuildingSettings);
+$("#refresh-nbt-catalog").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  button.textContent = "목록 갱신 중…";
+  try {
+    lazyDataLoaded.structures = false;
+    lazyDataLoaded.buildingSettings = false;
+    await loadBuildingSettingsData(true);
+    toast("NBT 목록 캐시를 최신 상태로 갱신했습니다.");
+  } catch (error) {
+    toast(error.message || "NBT 목록 갱신에 실패했습니다.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "NBT 목록 갱신";
+  }
+});
 $("#refresh-button").addEventListener("click", refreshAll);
 $("#save-structure-builder-settings").addEventListener("click", saveStructureBuilderSettings);
 $("#refresh-structure-builder").addEventListener("click", () => loadStructureBuilder().catch((error) => toast(error.message)));
@@ -7799,6 +8126,7 @@ $("#import-structure-builder").addEventListener("click", importStructureBuilder)
 $("#add-game-item").addEventListener("click", () => addGameDefinition("item"));
 $("#add-game-variable").addEventListener("click", () => addGameDefinition("variable"));
 $("#save-game-definitions").addEventListener("click", saveGameDefinitions);
+$("#save-music-settings").addEventListener("click", saveMusicSettings);
 $("#definitions").addEventListener("input", handleDefinitionInput);
 $("#definitions").addEventListener("change", handleDefinitionInput);
 $("#definitions").addEventListener("click", handleDefinitionClick);
@@ -7921,6 +8249,15 @@ $("#clear-tile").addEventListener("click", clearSelectedTile);
 $$('[data-pokemon-map-tab]').forEach((button) => button.addEventListener("click", () => { state.pokemonMapTab = button.dataset.pokemonMapTab; renderWorldPokemonPanel(); }));
 $("#pokemon-map-search").addEventListener("input", (event) => { state.pokemonMapQuery = event.target.value.trim(); renderWorldPokemonPanel(); });
 $("#finish-route").addEventListener("click", finishRouteConnection);
+$("#route-manager-list").addEventListener("change", (event) => {
+  const routeId = event.target.dataset.routeMusic;
+  if (!routeId) return;
+  const route = state.worldLayout?.connections?.find((entry) => entry.id === routeId);
+  if (!route) return;
+  if (event.target.value) route.music_track = event.target.value;
+  else delete route.music_track;
+  markWorldDirty(); renderTileInspector();
+});
 $("#cancel-route").addEventListener("click", cancelRouteConnection);
 $("#undo-route-anchor").addEventListener("click", undoRouteAnchor);
 $$('[data-map-tool]').forEach((button) => button.addEventListener("click", () => setActiveMapTool(button.dataset.mapTool)));

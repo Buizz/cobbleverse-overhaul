@@ -45,6 +45,7 @@ pack/overrides/structure-builder/mods/cobbleventure-structure-builder-*.jar
 *.local
 .venv/
 tools/content-manager/settings.local.json
+tools/content-manager/.cache/
 __pycache__/
 *.py[cod]
 

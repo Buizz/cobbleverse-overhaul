@@ -37,6 +37,10 @@ GYM_STRUCTURE_SOURCE_DIR = Path("content/structures/gyms")
 LEAGUE_STRUCTURE_SOURCE_DIR = Path("content/structures/league")
 GYM_CATALOG_SOURCE = Path("content/catalogs/gyms.json")
 GYM_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/gyms.json")
+MUSIC_CATALOG_SOURCE = Path("content/catalogs/music-tracks.json")
+MUSIC_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/music-tracks.json")
+BATTLE_PRESET_SOURCE_DIR = Path("content/battles")
+BATTLE_PRESET_ENTRY_DIR = Path("data/cobbleventure/battles")
 BUILDING_SETTINGS_SOURCE = Path("content/catalogs/building-settings.json")
 BUILDING_SETTINGS_ENTRY = Path("data/cobbleventure/building_settings.json")
 STRUCTURE_METADATA_ENTRY_DIR = Path("data/cobbleventure/structure_metadata")
@@ -1395,6 +1399,23 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
         target = _inside(root, output / GYM_CATALOG_ENTRY, "생성 체육관 카탈로그")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(gym_catalog.read_bytes())
+
+    music_catalog = _inside(root, root / MUSIC_CATALOG_SOURCE, "음악 카탈로그")
+    if music_catalog.is_file():
+        target = _inside(root, output / MUSIC_CATALOG_ENTRY, "생성 음악 카탈로그")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(music_catalog.read_bytes())
+
+    battle_source = _inside(root, root / BATTLE_PRESET_SOURCE_DIR, "배틀 프리셋 원본")
+    if battle_source.is_dir():
+        for source in sorted(battle_source.rglob("*.json")):
+            target = _inside(
+                root,
+                output / BATTLE_PRESET_ENTRY_DIR / source.relative_to(battle_source),
+                "생성 배틀 프리셋",
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.read_bytes())
 
 
 def build(root: Path) -> Path:

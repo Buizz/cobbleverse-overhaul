@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import zipfile
 import uuid
 from dataclasses import asdict, dataclass
@@ -3782,6 +3783,94 @@ def save_game_definitions(root: Path, data: Any) -> list[Issue]:
     return issues
 
 
+MUSIC_CONTEXTS = ("tile", "road", "settlement", "battle", "gym")
+
+
+def validate_music_catalog_file(path: Path) -> list[Issue]:
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"음악 카탈로그를 읽을 수 없습니다: {error}")
+        return issues
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "음악 카탈로그 스키마 버전은 1입니다.")
+        return issues
+    tracks = _require_list(data.get("tracks"), issues, path, "$.tracks") or []
+    track_ids: set[str] = set()
+    for index, value in enumerate(tracks):
+        entry = _require_object(value, issues, path, f"$.tracks[{index}]")
+        track_id = entry.get("id") if entry else None
+        if not isinstance(track_id, str) or not CHOICE_ID.fullmatch(track_id):
+            _issue(issues, "error", path, f"$.tracks[{index}].id", "올바른 음악 ID가 아닙니다.")
+        elif track_id in track_ids:
+            _issue(issues, "error", path, f"$.tracks[{index}].id", f"중복 음악 ID: {track_id}")
+        else:
+            track_ids.add(track_id)
+    defaults = _require_object(data.get("defaults"), issues, path, "$.defaults")
+    if defaults is not None:
+        for context in MUSIC_CONTEXTS:
+            if defaults.get(context) not in track_ids:
+                _issue(issues, "error", path, f"$.defaults.{context}", "활성 음악 목록에서 기본값을 선택해야 합니다.")
+    return issues
+
+
+def save_music_catalog(root: Path, data: Any) -> list[Issue]:
+    target = root / "content" / "catalogs" / "music-tracks.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as directory:
+        candidate = Path(directory) / target.name
+        candidate.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        issues = validate_music_catalog_file(candidate)
+    if not any(issue.level == "error" for issue in issues):
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(target)
+    return issues
+
+
+def validate_music_references(root: Path) -> list[Issue]:
+    issues: list[Issue] = []
+    catalog_path = root / "content" / "catalogs" / "music-tracks.json"
+    try:
+        catalog = load_json(catalog_path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError):
+        return issues
+    track_ids = {
+        track.get("id") for track in catalog.get("tracks", [])
+        if isinstance(track, dict) and isinstance(track.get("id"), str)
+    }
+
+    def inspect(value: Any, path: Path, json_path: str = "$") -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                child_path = f"{json_path}.{key}"
+                if key == "music_track" and child not in track_ids:
+                    _issue(
+                        issues, "error", path, child_path,
+                        f"활성 음악 목록에 없는 음악 ID입니다: {child}",
+                    )
+                inspect(child, path, child_path)
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                inspect(child, path, f"{json_path}[{index}]")
+
+    candidates = [root / "content" / "catalogs" / "gyms.json"]
+    for directory in (
+        root / "content" / "worlds",
+        root / "content" / "settlements",
+        root / "content" / "battles",
+    ):
+        if directory.is_dir():
+            candidates.extend(sorted(directory.rglob("*.json")))
+    for path in candidates:
+        try:
+            inspect(load_json(path), path)
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+    return issues
+
+
 ECONOMY_VENDOR_ROLES = {
     "pokemart_shopkeeper": "프렌들리숍 판매원",
     "shopkeeper_ds_apricorns": "규토리·씨앗 판매원",
@@ -4866,11 +4955,22 @@ def gym_interior_modules_payload(root: Path) -> dict[str, Any]:
             if isinstance(anchor, dict) and anchor.get("type") == "npc_position"
             and anchor.get("label") == "leader"
         ), None)
-        size = read_minecraft_structure_size(nbt_path.read_bytes())
+        structure_metadata = read_minecraft_structure_metadata(nbt_path.read_bytes())
         modules.append({
             "id": nbt_path.stem,
             "structure": resource,
-            "size": list(size),
+            **structure_metadata,
+            "size": [
+                structure_metadata["width"], structure_metadata["height"],
+                structure_metadata["depth"],
+            ],
+            "npc_labels": _structure_npc_labels(nbt_path),
+            "door_anchors": _structure_named_anchors(
+                nbt_path, {"door", "interior_entry", "interior_exit"}
+            ),
+            "arrival_anchors": _structure_named_anchors(
+                nbt_path, {"arrival", "interior_spawn", "exterior_spawn"}
+            ),
             "leader_anchor": leader,
             "used_by": usage.get(resource, []),
         })
@@ -4933,6 +5033,8 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
     root = root.resolve()
     issues = validate_dependency_lock(root / "pack" / "dependencies.lock.json", strict_pack)
     issues.extend(validate_game_definitions_file(root / "content" / "catalogs" / "game-definitions.json"))
+    issues.extend(validate_music_catalog_file(root / "content" / "catalogs" / "music-tracks.json"))
+    issues.extend(validate_music_references(root))
     issues.extend(validate_gym_catalog_file(root / "content" / "catalogs" / "gyms.json", root / "content" / "structures"))
     economy_source_items = {
         entry.get("item") for drop in _economy_pokemon_drops_from_cobblemon(root)
@@ -7081,22 +7183,121 @@ def structure_catalog_signature(root: Path) -> tuple[tuple[str, int, int], ...]:
     return tuple(signature)
 
 
+STRUCTURE_WEB_CACHE_VERSION = 1
+STRUCTURE_WEB_CACHE_PATH = Path("tools/content-manager/.cache/structure-web-catalog.json")
+
+
+def load_structure_web_cache(root: Path) -> dict[str, Any] | None:
+    path = root / STRUCTURE_WEB_CACHE_PATH
+    if not path.is_file():
+        return None
+    try:
+        document = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError):
+        return None
+    if (
+        not isinstance(document, dict)
+        or document.get("version") != STRUCTURE_WEB_CACHE_VERSION
+        or not isinstance(document.get("size_catalog"), dict)
+        or not isinstance(document.get("viewer_catalog"), dict)
+        or not isinstance(document.get("building_settings"), dict)
+    ):
+        return None
+    return document
+
+
+def save_structure_web_cache(root: Path, document: dict[str, Any]) -> None:
+    path = root / STRUCTURE_WEB_CACHE_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.stem}-", suffix=".json.tmp", dir=path.parent
+    )
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as output:
+            json.dump(document, output, ensure_ascii=False, separators=(",", ":"))
+            output.write("\n")
+        os.replace(temporary_name, path)
+    finally:
+        Path(temporary_name).unlink(missing_ok=True)
+
+
+def build_structure_web_cache(root: Path) -> dict[str, Any]:
+    signature = structure_catalog_signature(root)
+    size_catalog = load_structure_size_catalog(root)
+    return {
+        "version": STRUCTURE_WEB_CACHE_VERSION,
+        "generated_at": int(time.time()),
+        "signature": [list(entry) for entry in signature],
+        "size_catalog": size_catalog,
+        "viewer_catalog": load_structure_viewer_catalog(root, size_catalog),
+        "building_settings": building_settings_payload(root),
+    }
+
+
 def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
     root = root.resolve()
     web_root = (Path(__file__).parent / "web").resolve()
+    saved_structure_cache = load_structure_web_cache(root)
     build_lock = threading.Lock()
     editor_catalog_lock = threading.Lock()
     editor_catalog: dict[str, Any] | None = None
     structure_size_catalog_lock = threading.Lock()
-    structure_size_catalog: dict[str, Any] | None = None
-    structure_size_catalog_signature: tuple[tuple[str, int, int], ...] | None = None
-    structure_viewer_catalog: dict[str, dict[str, Any]] | None = None
-    structure_viewer_catalog_signature: tuple[tuple[str, int, int], ...] | None = None
+    structure_size_catalog: dict[str, Any] | None = (
+        saved_structure_cache.get("size_catalog") if saved_structure_cache else None
+    )
+    structure_viewer_catalog: dict[str, dict[str, Any]] | None = (
+        saved_structure_cache.get("viewer_catalog") if saved_structure_cache else None
+    )
+    building_settings_catalog: dict[str, Any] | None = (
+        saved_structure_cache.get("building_settings") if saved_structure_cache else None
+    )
+    structure_cache_generated_at = (
+        int(saved_structure_cache.get("generated_at", 0)) if saved_structure_cache else 0
+    )
+    structure_cache_generation = 1 if saved_structure_cache else 0
+    structure_cache_error: str | None = None
     structure_viewer_catalog_lock = threading.Lock()
+    structure_cache_refresh_lock = threading.Lock()
     structure_model_cache: dict[str, dict[str, Any]] = {}
-    structure_model_cache_signature: tuple[tuple[str, int, int], ...] | None = None
     remote_image_cache: dict[str, bytes] = {}
     remote_image_cache_lock = threading.Lock()
+
+    def refresh_structure_cache() -> None:
+        nonlocal structure_size_catalog, structure_viewer_catalog
+        nonlocal building_settings_catalog, structure_cache_generated_at
+        nonlocal structure_cache_generation, structure_cache_error
+        observed_generation = structure_cache_generation
+        with structure_cache_refresh_lock:
+            if structure_cache_generation != observed_generation:
+                return
+            try:
+                refreshed = build_structure_web_cache(root)
+                save_structure_web_cache(root, refreshed)
+            except (
+                OSError, ValueError, EOFError, struct.error,
+                zipfile.BadZipFile, json.JSONDecodeError, DuplicateKeyError,
+            ) as error:
+                structure_cache_error = str(error)
+                return
+            with structure_size_catalog_lock, structure_viewer_catalog_lock:
+                structure_size_catalog = refreshed["size_catalog"]
+                structure_viewer_catalog = refreshed["viewer_catalog"]
+                building_settings_catalog = refreshed["building_settings"]
+                structure_cache_generated_at = int(refreshed["generated_at"])
+                structure_cache_generation += 1
+                structure_cache_error = None
+                structure_model_cache.clear()
+
+    def schedule_structure_cache_refresh() -> None:
+        threading.Thread(
+            target=refresh_structure_cache,
+            name="cobbleventure-nbt-cache-refresh",
+            daemon=True,
+        ).start()
+
+    def ensure_structure_cache() -> None:
+        if structure_size_catalog is None or building_settings_catalog is None:
+            refresh_structure_cache()
 
     def load_installed_cobbleverse_rct_png(resource_group: str, resource_id: str) -> bytes | None:
         instance_override = os.environ.get("COBBLEVERSE_INSTANCE")
@@ -7300,6 +7501,12 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/music-catalog":
+                try:
+                    self._json(200, load_json(root / "content" / "catalogs" / "music-tracks.json"))
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/economy":
                 try:
                     self._json(200, load_economy_workspace(root))
@@ -7481,32 +7688,53 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/structure-sizes":
-                nonlocal structure_size_catalog, structure_size_catalog_signature
+                nonlocal structure_size_catalog
                 try:
+                    if parse_qs(request.query).get("refresh", ["0"])[0] == "1":
+                        refresh_structure_cache()
+                    ensure_structure_cache()
                     with structure_size_catalog_lock:
-                        signature = structure_catalog_signature(root)
-                        if structure_size_catalog is None or signature != structure_size_catalog_signature:
-                            structure_size_catalog = load_structure_size_catalog(root)
-                            structure_size_catalog_signature = signature
-                    self._json(200, structure_size_catalog)
+                        payload = copy.deepcopy(structure_size_catalog or {"structures": {}})
+                    payload["cache"] = {
+                        "generated_at": structure_cache_generated_at,
+                        "refreshing": structure_cache_refresh_lock.locked(),
+                        "error": structure_cache_error,
+                    }
+                    self._json(200, payload)
                 except (OSError, ValueError, zipfile.BadZipFile) as error:
                     self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/structure-viewer":
-                nonlocal structure_viewer_catalog, structure_viewer_catalog_signature
+                nonlocal structure_viewer_catalog
                 try:
+                    if parse_qs(request.query).get("refresh", ["0"])[0] == "1":
+                        refresh_structure_cache()
+                    ensure_structure_cache()
                     with structure_viewer_catalog_lock:
-                        signature = structure_catalog_signature(root)
-                        if structure_viewer_catalog is None or signature != structure_viewer_catalog_signature:
-                            structure_viewer_catalog = load_structure_viewer_catalog(root)
-                            structure_viewer_catalog_signature = signature
-                    self._json(200, {"structures": structure_viewer_catalog})
+                        payload = copy.deepcopy(structure_viewer_catalog or {})
+                    self._json(200, {
+                        "structures": payload,
+                        "cache": {
+                            "generated_at": structure_cache_generated_at,
+                            "refreshing": structure_cache_refresh_lock.locked(),
+                            "error": structure_cache_error,
+                        },
+                    })
                 except (OSError, ValueError, EOFError, struct.error, zipfile.BadZipFile) as error:
                     self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/building-settings":
                 try:
-                    self._json(200, building_settings_payload(root))
+                    if parse_qs(request.query).get("refresh", ["0"])[0] == "1":
+                        refresh_structure_cache()
+                    ensure_structure_cache()
+                    payload = copy.deepcopy(building_settings_catalog or {})
+                    payload["cache"] = {
+                        "generated_at": structure_cache_generated_at,
+                        "refreshing": structure_cache_refresh_lock.locked(),
+                        "error": structure_cache_error,
+                    }
+                    self._json(200, payload)
                 except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
@@ -7529,14 +7757,9 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/structure-model":
-                nonlocal structure_model_cache_signature
                 resource_id = parse_qs(request.query).get("structure", [""])[0]
                 try:
                     with structure_size_catalog_lock:
-                        signature = structure_catalog_signature(root)
-                        if signature != structure_model_cache_signature:
-                            structure_model_cache.clear()
-                            structure_model_cache_signature = signature
                         model = structure_model_cache.get(resource_id)
                         if model is None:
                             loaded = load_structure_model(root, resource_id)
@@ -7672,6 +7895,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     return
                 try:
                     module = create_gym_interior_module(root, payload)
+                    schedule_structure_cache_refresh()
                     self._json(201, {"created": True, "module": module})
                 except (OSError, ValueError, TypeError) as error:
                     self._json(400, {"error": str(error)})
@@ -7682,6 +7906,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     return
                 try:
                     space = create_interior_space(root, payload)
+                    schedule_structure_cache_refresh()
                     self._json(201, {"created": True, "space": space})
                 except (OSError, ValueError, TypeError) as error:
                     self._json(400, {"error": str(error)})
@@ -7697,6 +7922,8 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     return
                 finally:
                     build_lock.release()
+                if result["success"]:
+                    schedule_structure_cache_refresh()
                 self._json(200 if result["success"] else 422, result)
                 return
             self._json(404, {"error": "not_found"})
@@ -7724,6 +7951,16 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 errors = sum(issue.level == "error" for issue in issues)
                 self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
                 return
+            if request.path == "/api/music-catalog":
+                try:
+                    payload = self._read_json()
+                    issues = save_music_catalog(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
             if request.path == "/api/economy":
                 try:
                     payload = self._read_json()
@@ -7742,6 +7979,8 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     self._json(400, {"error": str(error)})
                     return
                 errors = sum(issue.level == "error" for issue in issues)
+                if errors == 0:
+                    schedule_structure_cache_refresh()
                 self._json(
                     200 if errors == 0 else 422,
                     {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]},
@@ -7877,6 +8116,8 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
         def log_message(self, format: str, *args: Any) -> None:
             print(f"[API] {self.address_string()} {format % args}")
 
+    if saved_structure_cache is not None:
+        schedule_structure_cache_refresh()
     return Handler
 
 

@@ -102,6 +102,110 @@
       "reason": "Cobblemon 도구 설명과 UI 편의 기능 개선"
     },
     {
+      "id": "sodium",
+      "display_name": "Sodium",
+      "classification": "required",
+      "side": "client",
+      "enabled": true,
+      "version": "0.6.13+mc1.21.1",
+      "curseforge": {
+        "project_id": 394468,
+        "file_id": 6382651
+      },
+      "reason": "청크와 월드 렌더링 최적화로 프레임과 마이크로 스터터 개선"
+    },
+    {
+      "id": "iris",
+      "display_name": "Iris Shaders",
+      "classification": "required",
+      "side": "client",
+      "enabled": true,
+      "version": "1.8.8+mc1.21.1",
+      "curseforge": {
+        "project_id": 455508,
+        "file_id": 6213632
+      },
+      "reason": "Sodium 기반 셰이더팩 로딩과 Complementary 셰이더 호환"
+    },
+    {
+      "id": "lithium",
+      "display_name": "Lithium",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "0.15.3+mc1.21.1",
+      "curseforge": {
+        "project_id": 360438,
+        "file_id": 7740400
+      },
+      "reason": "게임 틱과 엔티티·블록 처리 최적화로 클라이언트와 서버 부하 감소"
+    },
+    {
+      "id": "ferritecore",
+      "display_name": "FerriteCore",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "7.0.3",
+      "curseforge": {
+        "project_id": 429235,
+        "file_id": 7524151
+      },
+      "reason": "블록 상태와 데이터 컴포넌트의 메모리 사용량 최적화"
+    },
+    {
+      "id": "immediatelyfast",
+      "display_name": "ImmediatelyFast",
+      "classification": "required",
+      "side": "client",
+      "enabled": true,
+      "version": "1.6.10+1.21.1",
+      "curseforge": {
+        "project_id": 686911,
+        "file_id": 7537795
+      },
+      "reason": "GUI·텍스트·엔티티 등 즉시 모드 렌더링 성능 개선"
+    },
+    {
+      "id": "entity_culling",
+      "display_name": "Entity Culling",
+      "classification": "required",
+      "side": "client",
+      "enabled": true,
+      "version": "1.9.5+mc1.21.1",
+      "curseforge": {
+        "project_id": 448233,
+        "file_id": 7396695
+      },
+      "reason": "가려진 엔티티와 블록 엔티티 렌더링을 생략해 복잡한 마을의 프레임 개선"
+    },
+    {
+      "id": "complementary_reimagined",
+      "display_name": "Complementary Shaders - Reimagined",
+      "classification": "required",
+      "side": "client",
+      "enabled": true,
+      "version": "r5.3",
+      "curseforge": {
+        "project_id": 627557,
+        "file_id": 5874236
+      },
+      "reason": "Iris에서 사용할 기본 셰이더팩이자 Euphoria Patches의 필수 기반 셰이더"
+    },
+    {
+      "id": "euphoria_patches",
+      "display_name": "Euphoria Patches",
+      "classification": "required",
+      "side": "client",
+      "enabled": true,
+      "version": "1.4.3-r5.3",
+      "curseforge": {
+        "project_id": 915902,
+        "file_id": 5876050
+      },
+      "reason": "Complementary Reimagined r5.3에 확장 그래픽 설정을 적용하는 NeoForge 패처"
+    },
+    {
       "id": "badmobs",
       "display_name": "Bad Mobs",
       "classification": "required",

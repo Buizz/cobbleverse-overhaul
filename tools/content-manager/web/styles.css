@@ -670,6 +670,19 @@ body {
 .cave-entry-card > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
 .cave-entry-card > header strong { color: #24475c; font-size: 12px; }
 .cave-entry-card > header button { border: 0; background: transparent; color: #b23a3a; font-size: 11px; font-weight: 800; cursor: pointer; }
+.cave-entry-card.is-layout-selected { border-color: #3199b8; box-shadow: 0 0 0 2px rgba(49, 153, 184, .16); }
+.gym-layout-editor { overflow: hidden; margin-top: 24px; border: 1px solid #293a45; border-radius: 5px; background: #10181d; }
+.gym-layout-editor > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 15px; border-bottom: 1px solid #30424d; background: #17232a; }
+.gym-layout-editor > header h3, .gym-layout-editor > header p { margin: 0; }.gym-layout-editor > header h3 { color: #eef6f5; }.gym-layout-editor > header small { display: block; max-width: 680px; margin-top: 5px; color: #9bb0ba; font-size: 9px; line-height: 1.45; }
+.gym-layout-editor > header .button { min-height: 32px; padding: 6px 11px; border-color: #49616d; background: #21323a; color: #dce9e8; white-space: nowrap; }
+.gym-layout-stage { position: relative; min-height: 360px; }
+#gym-layout-canvas { display: block; width: 100%; height: auto; min-height: 360px; background: #10181d; cursor: grab; touch-action: none; }
+#gym-layout-canvas.is-dragging { cursor: grabbing; }
+.gym-layout-empty { position: absolute; inset: 50% auto auto 50%; max-width: 360px; transform: translate(-50%, -50%); color: #91a7b0; font-size: 11px; text-align: center; pointer-events: none; }
+.gym-layout-empty[hidden] { display: none; }
+.gym-layout-editor > footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 40px; padding: 9px 14px; border-top: 1px solid #263842; background: #131e24; color: #aabcc3; font-size: 9px; }
+.gym-layout-editor > footer > strong { color: #dce8e8; font: 700 10px Consolas, monospace; text-align: right; }
+.gym-layout-legend { display: flex; flex-wrap: wrap; gap: 14px; }.gym-layout-legend span::before { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border-radius: 50%; background: #dce8e8; content: ""; vertical-align: -1px; }.gym-layout-legend [data-kind="entrance"]::before { border-radius: 1px; background: #65d2e2; transform: rotate(45deg); }.gym-layout-legend [data-kind="trainer"]::before { background: #ffd166; }.gym-layout-legend [data-kind="leader"]::before { background: #f07b70; }.gym-layout-legend [data-kind="room"]::before { border-radius: 1px; background: #9fb2b9; }
 .gym-module-library-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 18px; min-height: 104px; padding: 16px 18px; }
 .gym-module-library-info { display: grid; min-width: 0; gap: 5px; }
 .gym-module-library-info strong { overflow: hidden; color: #18374c; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
@@ -707,7 +720,7 @@ body {
 .cave-preview-legend span::before { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border-radius: 50%; background: #91a1a7; content: ""; vertical-align: -1px; }.cave-preview-legend [data-kind="entrance"]::before { background: #ffce67; }.cave-preview-legend [data-kind="grand"]::before { background: #c48bff; }.cave-preview-legend [data-kind="water"]::before { background: #43b8e8; }.cave-preview-legend [data-kind="bridge"]::before { border-radius: 1px; background: #f19b62; }.cave-preview-legend [data-kind="path"]::before { border-radius: 1px; background: #8ea3aa; }
 .cave-preview-summary { padding: 9px 14px; border-top: 1px solid #263842; background: #131e24; color: #aabcc3; font: 700 10px Consolas, monospace; }
 @media (max-width: 900px) { .cave-field-grid, .cave-entry-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }.cave-entry-fields .span-4 { grid-column: 1 / -1; }.cave-layout-preview > header { align-items: flex-start; flex-direction: column; }.cave-connection-builder { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .cave-field-grid, .cave-entry-fields, .cave-connection-builder { grid-template-columns: 1fr; }.cave-entry-fields .span-2, .cave-entry-fields .span-4 { grid-column: auto; }.cave-preview-actions { width: 100%; flex-wrap: wrap; }.cave-node-inspector { position: static; width: auto; border-width: 1px 0 0; border-radius: 0; } }
+@media (max-width: 620px) { .cave-field-grid, .cave-entry-fields, .cave-connection-builder { grid-template-columns: 1fr; }.cave-entry-fields .span-2, .cave-entry-fields .span-4 { grid-column: auto; }.cave-preview-actions { width: 100%; flex-wrap: wrap; }.cave-node-inspector { position: static; width: auto; border-width: 1px 0 0; border-radius: 0; }.gym-layout-editor > header, .gym-layout-editor > footer { align-items: flex-start; flex-direction: column; }.gym-layout-editor > footer > strong { text-align: left; } }
 @media (max-width: 720px) { .gym-module-library-card { grid-template-columns: 1fr; }.gym-module-library-actions { width: 100%; }.gym-module-library-actions .mini-button { flex: 1; } }
 .brush-preview.tool-terrain .brush-preview-cell { fill: rgba(229,168,79,.24); stroke: #e5a84f; }
 .brush-preview.tool-climate .brush-preview-cell { fill: rgba(148,111,216,.24); stroke: #946fd8; }

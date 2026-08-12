@@ -1,0 +1,358 @@
+package dev.buizz.cobbleventure.bootstrap;
+
+import com.cobblemon.mod.common.battles.BattleRegistry;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import dev.buizz.cobbleventure.bootstrap.client.LoopingMusic;
+import java.io.IOException;
+import java.io.Reader;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+
+/** Resolves authored music inheritance and emits optional resource-pack sound events. */
+final class MusicPlayback {
+    private static final String NETWORK_VERSION = "1";
+    private static final long BATTLE_START_GRACE_TICKS = 20L * 10L;
+    private static final Map<UUID, String> PLAYING = new HashMap<>();
+    private static final Map<UUID, BattleMusic> BATTLE_MUSIC = new HashMap<>();
+    private static ResourceManager loadedFrom;
+    private static MusicData data;
+
+    private MusicPlayback() {}
+
+    static void register(IEventBus modBus) {
+        modBus.addListener(MusicPlayback::registerPayloads);
+        NeoForge.EVENT_BUS.addListener(MusicPlayback::registerCommands);
+    }
+
+    private static void registerPayloads(RegisterPayloadHandlersEvent event) {
+        PayloadRegistrar registrar = event.registrar(NETWORK_VERSION);
+        registrar.playToClient(PlayPayload.TYPE, PlayPayload.STREAM_CODEC, MusicPlayback::handlePlay);
+    }
+
+    private static void handlePlay(PlayPayload payload, IPayloadContext context) {
+        LoopingMusic.play(payload.soundEvent());
+    }
+
+    private static void registerCommands(RegisterCommandsEvent event) {
+        event.getDispatcher().register(
+            Commands.literal("cobbleventure_music")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.literal("battle")
+                    .then(Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                        .then(Commands.argument("battle_id", StringArgumentType.string())
+                            .executes(context -> prepareBattle(
+                                net.minecraft.commands.arguments.EntityArgument.getPlayer(context, "player"),
+                                StringArgumentType.getString(context, "battle_id")
+                            )))))
+        );
+    }
+
+    static int prepareBattle(ServerPlayer player, String battleId) {
+        MusicData music = load(player.serverLevel());
+        String track = music.resolveBattle(battleId);
+        BATTLE_MUSIC.put(player.getUUID(), new BattleMusic(
+            track,
+            player.serverLevel().getGameTime() + BATTLE_START_GRACE_TICKS
+        ));
+        play(player, music, track);
+        return 1;
+    }
+
+    static void reset(ServerPlayer player) {
+        PLAYING.remove(player.getUUID());
+        BATTLE_MUSIC.remove(player.getUUID());
+    }
+
+    static void tick(
+        ServerPlayer player,
+        CobbleventureBootstrap.HexWorldPlan world,
+        CobbleventureBootstrap.TerrainSample sample
+    ) {
+        MusicData music = load(player.serverLevel());
+        UUID playerId = player.getUUID();
+        long gameTime = player.serverLevel().getGameTime();
+        BattleMusic battleMusic = BATTLE_MUSIC.get(playerId);
+        boolean battling = BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) != null;
+        if (battling) {
+            if (battleMusic == null) {
+                battleMusic = new BattleMusic(music.defaults.get("battle"), gameTime);
+                BATTLE_MUSIC.put(playerId, battleMusic);
+            }
+            battleMusic.started = true;
+            play(player, music, battleMusic.track);
+            return;
+        }
+        if (battleMusic != null) {
+            if (!battleMusic.started && gameTime <= battleMusic.expiresAt) return;
+            BATTLE_MUSIC.remove(playerId);
+        }
+
+        CobbleventureBootstrap.HexCoord coordinate = world.grid().worldToHex(
+            player.getX(), player.getZ()
+        );
+        play(player, music, music.resolveLocation(coordinate, sample));
+    }
+
+    private static void play(ServerPlayer player, MusicData music, String track) {
+        if (track == null || track.isBlank() || track.equals(PLAYING.get(player.getUUID()))) return;
+        PLAYING.put(player.getUUID(), track);
+        String soundEvent = music.soundEvents.get(track);
+        if (soundEvent != null) {
+            PacketDistributor.sendToPlayer(
+                player,
+                new PlayPayload(ResourceLocation.fromNamespaceAndPath(music.namespace, soundEvent))
+            );
+        }
+    }
+
+    private static MusicData load(ServerLevel level) {
+        ResourceManager resources = level.getServer().getResourceManager();
+        if (data != null && loadedFrom == resources) return data;
+        loadedFrom = resources;
+        data = MusicData.read(resources);
+        PLAYING.clear();
+        BATTLE_MUSIC.clear();
+        return data;
+    }
+
+    private static JsonObject read(ResourceManager resources, String path) {
+        ResourceLocation location = ResourceLocation.fromNamespaceAndPath(
+            CobbleventureBootstrap.MOD_ID, path
+        );
+        Resource resource = resources.getResource(location).orElseThrow(
+            () -> new IllegalStateException("Missing packaged music resource: " + location)
+        );
+        try (Reader reader = resource.openAsReader()) {
+            return JsonParser.parseReader(reader).getAsJsonObject();
+        } catch (IOException | RuntimeException error) {
+            throw new IllegalStateException("Invalid packaged music resource: " + location, error);
+        }
+    }
+
+    private static String optionalString(JsonObject value, String key) {
+        return value.has(key) && value.get(key).isJsonPrimitive()
+            ? value.get(key).getAsString()
+            : null;
+    }
+
+    private record Cell(int q, int r) {}
+
+    record PlayPayload(ResourceLocation soundEvent) implements CustomPacketPayload {
+        private static final Type<PlayPayload> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(CobbleventureBootstrap.MOD_ID, "music_play")
+        );
+        private static final StreamCodec<RegistryFriendlyByteBuf, PlayPayload> STREAM_CODEC =
+            StreamCodec.ofMember(PlayPayload::write, PlayPayload::read);
+
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeResourceLocation(soundEvent);
+        }
+
+        private static PlayPayload read(RegistryFriendlyByteBuf buffer) {
+            return new PlayPayload(buffer.readResourceLocation());
+        }
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    private static final class BattleMusic {
+        private final String track;
+        private final long expiresAt;
+        private boolean started;
+
+        private BattleMusic(String track, long expiresAt) {
+            this.track = track;
+            this.expiresAt = expiresAt;
+        }
+    }
+
+    private static final class MusicData {
+        private final String namespace;
+        private final Map<String, String> defaults;
+        private final Map<String, String> soundEvents;
+        private final Map<Cell, String> tileMusic;
+        private final Map<Cell, String> coordinateOverrides;
+        private final Map<String, String> routeMusic;
+        private final Map<String, String> worldSettlementMusic;
+        private final Map<String, String> settlementMusic;
+        private final Map<String, JsonObject> battles;
+        private final Map<String, String> gymByTrainer;
+        private final Map<String, String> gymMusic;
+
+        private MusicData(
+            String namespace,
+            Map<String, String> defaults,
+            Map<String, String> soundEvents,
+            Map<Cell, String> tileMusic,
+            Map<Cell, String> coordinateOverrides,
+            Map<String, String> routeMusic,
+            Map<String, String> worldSettlementMusic,
+            Map<String, String> settlementMusic,
+            Map<String, JsonObject> battles,
+            Map<String, String> gymByTrainer,
+            Map<String, String> gymMusic
+        ) {
+            this.namespace = namespace;
+            this.defaults = defaults;
+            this.soundEvents = soundEvents;
+            this.tileMusic = tileMusic;
+            this.coordinateOverrides = coordinateOverrides;
+            this.routeMusic = routeMusic;
+            this.worldSettlementMusic = worldSettlementMusic;
+            this.settlementMusic = settlementMusic;
+            this.battles = battles;
+            this.gymByTrainer = gymByTrainer;
+            this.gymMusic = gymMusic;
+        }
+
+        private static MusicData read(ResourceManager resources) {
+            JsonObject catalog = MusicPlayback.read(resources, "catalogs/music-tracks.json");
+            String namespace = catalog.get("namespace").getAsString();
+            Map<String, String> defaults = new HashMap<>();
+            catalog.getAsJsonObject("defaults").entrySet().forEach(
+                entry -> defaults.put(entry.getKey(), entry.getValue().getAsString())
+            );
+            Map<String, String> soundEvents = new HashMap<>();
+            for (JsonElement element : catalog.getAsJsonArray("tracks")) {
+                JsonObject track = element.getAsJsonObject();
+                soundEvents.put(
+                    track.get("id").getAsString(), track.get("sound_event").getAsString()
+                );
+            }
+
+            JsonObject world = MusicPlayback.read(resources, "hex_worlds/generation_1.json");
+            Map<Cell, String> tileMusic = musicByCell(world, "tiles");
+            Map<Cell, String> coordinateOverrides = musicByCell(world, "music_overrides");
+            Map<String, String> routeMusic = musicById(world, "connections", "id");
+            Map<String, String> worldSettlementMusic = musicById(
+                world, "settlements", "settlement"
+            );
+
+            Map<String, String> settlementMusic = new HashMap<>();
+            resources.listResources("settlements", location -> location.getPath().endsWith(".json"))
+                .forEach((location, resource) -> {
+                    JsonObject settlement = readResource(location, resource);
+                    String track = optionalString(settlement, "music_track");
+                    if (track != null) settlementMusic.put(settlement.get("id").getAsString(), track);
+                });
+
+            Map<String, JsonObject> battles = new HashMap<>();
+            resources.listResources("battles", location -> location.getPath().endsWith(".json"))
+                .forEach((location, resource) -> {
+                    JsonObject battle = readResource(location, resource);
+                    battles.put(battle.get("id").getAsString(), battle);
+                });
+
+            Map<String, String> gymByTrainer = new HashMap<>();
+            Map<String, String> gymMusic = new HashMap<>();
+            JsonObject gyms = MusicPlayback.read(resources, "catalogs/gyms.json");
+            for (JsonElement element : gyms.getAsJsonArray("gyms")) {
+                JsonObject gym = element.getAsJsonObject();
+                String gymId = gym.get("id").getAsString();
+                String track = optionalString(gym, "music_track");
+                if (track != null) gymMusic.put(gymId, track);
+                JsonObject leader = gym.getAsJsonObject("staff").getAsJsonObject("leader");
+                gymByTrainer.put(leader.get("trainer_id").getAsString(), gymId);
+            }
+            return new MusicData(
+                namespace, defaults, soundEvents, tileMusic, coordinateOverrides,
+                routeMusic, worldSettlementMusic, settlementMusic, battles,
+                gymByTrainer, gymMusic
+            );
+        }
+
+        private static JsonObject readResource(ResourceLocation location, Resource resource) {
+            try (Reader reader = resource.openAsReader()) {
+                return JsonParser.parseReader(reader).getAsJsonObject();
+            } catch (IOException | RuntimeException error) {
+                throw new IllegalStateException("Invalid packaged music resource: " + location, error);
+            }
+        }
+
+        private static Map<Cell, String> musicByCell(JsonObject root, String key) {
+            Map<Cell, String> result = new HashMap<>();
+            if (!root.has(key)) return result;
+            for (JsonElement element : root.getAsJsonArray(key)) {
+                JsonObject value = element.getAsJsonObject();
+                String track = optionalString(value, "music_track");
+                if (track != null) {
+                    result.put(new Cell(value.get("q").getAsInt(), value.get("r").getAsInt()), track);
+                }
+            }
+            return result;
+        }
+
+        private static Map<String, String> musicById(JsonObject root, String key, String idKey) {
+            Map<String, String> result = new HashMap<>();
+            if (!root.has(key)) return result;
+            for (JsonElement element : root.getAsJsonArray(key)) {
+                JsonObject value = element.getAsJsonObject();
+                String track = optionalString(value, "music_track");
+                if (track != null) result.put(value.get(idKey).getAsString(), track);
+            }
+            return result;
+        }
+
+        private String resolveLocation(
+            CobbleventureBootstrap.HexCoord coordinate,
+            CobbleventureBootstrap.TerrainSample sample
+        ) {
+            Cell cell = new Cell(coordinate.q(), coordinate.r());
+            String override = coordinateOverrides.get(cell);
+            if (override != null) return override;
+            if (sample != null && "town".equals(sample.kind())) {
+                return first(
+                    worldSettlementMusic.get(sample.owner()),
+                    settlementMusic.get(sample.owner()),
+                    defaults.get("settlement")
+                );
+            }
+            if (sample != null && "route".equals(sample.kind())) {
+                return first(routeMusic.get(sample.owner()), defaults.get("road"));
+            }
+            return first(tileMusic.get(cell), defaults.get("tile"));
+        }
+
+        private String resolveBattle(String battleId) {
+            JsonObject preset = battles.get(battleId);
+            if (preset == null) return defaults.get("battle");
+            JsonObject battle = preset.getAsJsonObject("battle");
+            String direct = optionalString(battle, "music_track");
+            if (direct != null) return direct;
+            String trainer = optionalString(battle, "trainer_id");
+            String gym = trainer == null ? null : gymByTrainer.get(trainer);
+            if (gym != null) return first(gymMusic.get(gym), defaults.get("gym"));
+            return defaults.get("battle");
+        }
+
+        private static String first(String... values) {
+            for (String value : values) {
+                if (value != null && !value.isBlank()) return value;
+            }
+            return null;
+        }
+    }
+}

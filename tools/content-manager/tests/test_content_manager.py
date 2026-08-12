@@ -2135,6 +2135,56 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("fighting", mega_form["primaryType"])
         self.assertEqual("flying", mega_form["secondaryType"])
 
+    def test_performance_and_shader_stack_is_pinned_in_development_pack(self) -> None:
+        root = Path(__file__).parents[3]
+        dependency_lock = content_manager.load_json(
+            root / "pack" / "dependencies.lock.json"
+        )
+        mods = {item["id"]: item for item in dependency_lock["mods"]}
+        expected = {
+            "sodium": ((394468, 6382651), "client"),
+            "iris": ((455508, 6213632), "client"),
+            "lithium": ((360438, 7740400), "both"),
+            "ferritecore": ((429235, 7524151), "both"),
+            "immediatelyfast": ((686911, 7537795), "client"),
+            "entity_culling": ((448233, 7396695), "client"),
+            "complementary_reimagined": ((627557, 5874236), "client"),
+            "euphoria_patches": ((915902, 5876050), "client"),
+        }
+
+        for mod_id, ((project_id, file_id), side) in expected.items():
+            with self.subTest(mod_id=mod_id):
+                mod = mods[mod_id]
+                self.assertTrue(mod["enabled"])
+                self.assertEqual("required", mod["classification"])
+                self.assertEqual(side, mod["side"])
+                self.assertEqual(project_id, mod["curseforge"]["project_id"])
+                self.assertEqual(file_id, mod["curseforge"]["file_id"])
+
+        profile = content_manager.load_json(
+            root / "pack" / "profiles" / "development-placeholder.json"
+        )
+        profile_files = {
+            (entry["projectID"], entry["fileID"]) for entry in profile["files"]
+        }
+        self.assertTrue(
+            {curseforge for curseforge, _ in expected.values()}.issubset(profile_files)
+        )
+
+        iris_config = (
+            root
+            / "pack"
+            / "overrides"
+            / "development-placeholder"
+            / "config"
+            / "iris.properties"
+        ).read_text(encoding="utf-8")
+        self.assertIn("enableShaders=true", iris_config)
+        self.assertIn(
+            "shaderPack=ComplementaryReimagined_r5.3 + EuphoriaPatches_1.4.3",
+            iris_config,
+        )
+
     def test_local_api_health_and_validation(self) -> None:
         root = Path(__file__).parents[3]
         server = content_manager.ThreadingHTTPServer(
@@ -2574,6 +2624,66 @@ class ContentManagerTests(unittest.TestCase):
                 saved["buildings"]["cobbleventure:placeholder/shop"]["fixed_npcs"]["shop_clerk"],
             )
 
+    def test_structure_web_cache_is_saved_and_loaded_without_rescanning_nbt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/placeholder/shop.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((16, 8, 16)))
+
+            with mock.patch.object(content_manager, "structure_mod_roots", return_value=[]):
+                cached = content_manager.build_structure_web_cache(root)
+            content_manager.save_structure_web_cache(root, cached)
+            loaded = content_manager.load_structure_web_cache(root)
+
+            self.assertIsNotNone(loaded)
+            self.assertEqual(
+                16,
+                loaded["building_settings"]["structures"]
+                    ["cobbleventure:placeholder/shop"]["width"],
+            )
+            self.assertTrue(
+                (root / content_manager.STRUCTURE_WEB_CACHE_PATH).is_file()
+            )
+
+    def test_structure_size_api_serves_saved_cache_before_background_refresh(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            content_manager.save_structure_web_cache(root, {
+                "version": content_manager.STRUCTURE_WEB_CACHE_VERSION,
+                "generated_at": 123,
+                "signature": [],
+                "size_catalog": {
+                    "structures": {"cobbleventure:cached": {"width": 7}},
+                    "warnings": [],
+                },
+                "viewer_catalog": {},
+                "building_settings": {
+                    "schema_version": 1, "structures": {}, "npcs": [],
+                    "path": "content/catalogs/building-settings.json",
+                },
+            })
+            with mock.patch.object(threading.Thread, "start"):
+                handler = content_manager.create_handler(root)
+            server = content_manager.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with mock.patch.object(
+                    content_manager, "structure_catalog_signature",
+                    side_effect=AssertionError("cached request must not scan files"),
+                ):
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{server.server_port}/api/structure-sizes"
+                    ) as response:
+                        payload = json.load(response)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+            self.assertEqual(7, payload["structures"]["cobbleventure:cached"]["width"])
+            self.assertEqual(123, payload["cache"]["generated_at"])
+
     def test_residential_building_rejects_fixed_npc_assignment(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -2612,7 +2722,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="building-npc-assignments"', markup)
         self.assertIn('id="building-category"', markup)
         self.assertIn('id="save-building-settings"', structures)
+        self.assertIn('id="refresh-nbt-catalog"', structures)
         self.assertIn("/api/building-settings", script)
+        self.assertIn("?refresh=1", script)
         self.assertIn("/api/interior-spaces", script)
         self.assertIn("npc_labels", script)
         self.assertIn("citizen_placement_allowed", script)

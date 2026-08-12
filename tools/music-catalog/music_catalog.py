@@ -67,6 +67,16 @@ def load_catalog(path: Path) -> dict[str, Any]:
             raise MusicCatalogError(
                 f"선택된 음악은 OGG여야 합니다: {track['source_file']}"
             )
+    defaults = catalog.get("defaults")
+    if not isinstance(defaults, dict):
+        raise MusicCatalogError("상황별 기본 음악 설정이 필요합니다.")
+    track_ids = seen["id"]
+    for context in ("tile", "road", "settlement", "battle", "gym"):
+        track_id = defaults.get(context)
+        if track_id not in track_ids:
+            raise MusicCatalogError(
+                f"{context} 기본 음악이 활성 목록에 없습니다: {track_id}"
+            )
     return catalog
 
 

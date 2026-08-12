@@ -173,6 +173,8 @@ public final class CobbleventureBootstrap {
     private static final Map<NoiseKey, NormalNoise> TERRAIN_NOISES = new ConcurrentHashMap<>();
     private static final Cache<TerrainColumnKey, TerrainLookup> TERRAIN_COLUMN_SAMPLES =
         CacheBuilder.newBuilder().maximumSize(262_144L).build();
+    private static final Map<TownFootprintCenterKey, Point> TOWN_FOOTPRINT_CENTERS =
+        new ConcurrentHashMap<>();
     private static final Map<OceanMoundKey, Boolean> OCEAN_MOUND_BOUNDARY =
         new ConcurrentHashMap<>();
     private static final Map<RoadElevationKey, RoadElevationProfile> ROAD_ELEVATIONS =
@@ -218,6 +220,7 @@ public final class CobbleventureBootstrap {
         TrainerBattleState.register();
         TrainerMoneyRewards.register();
         BattleIntro.register(modBus);
+        MusicPlayback.register(modBus);
         LocationAnnouncement.register(modBus);
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
@@ -537,6 +540,7 @@ public final class CobbleventureBootstrap {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
+        MusicPlayback.reset(player);
 
         ServerLevel overworld = player.getServer().overworld();
         ServerLevel generationOne = player.getServer().getLevel(GENERATION_ONE);
@@ -2313,10 +2317,15 @@ public final class CobbleventureBootstrap {
         }
         Map<Long, Integer> guideHeights = new HashMap<>();
         for (long key : guides) {
-            guideHeights.put(key, anchors.getOrDefault(
+            Integer anchoredHeight = anchors.get(key);
+            guideHeights.put(
                 key,
-                plannedTerrainGroundY(level, blockColumnX(key), blockColumnZ(key))
-            ));
+                anchoredHeight != null
+                    ? anchoredHeight
+                    : plannedTerrainGroundY(
+                        level, blockColumnX(key), blockColumnZ(key)
+                    )
+            );
         }
         int[][] directions = {
             {1, 0}, {-1, 0}, {0, 1}, {0, -1},
@@ -2482,42 +2491,54 @@ public final class CobbleventureBootstrap {
         if (roadColumns.isEmpty()) {
             return;
         }
+        long startedAt = System.nanoTime();
         Map<Long, RoadTerrainShoulder> shoulders = new HashMap<>();
-        for (long roadKey : roadColumns) {
+        ArrayDeque<Long> pending = new ArrayDeque<>();
+        for (long roadKey : roadColumns.stream().sorted().toList()) {
             int roadX = blockColumnX(roadKey);
             int roadZ = blockColumnZ(roadKey);
             int roadY = level.getHeight(
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, roadX, roadZ
             ) - 1;
-            for (int offsetX = -CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS;
-                 offsetX <= CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS; offsetX++) {
-                for (int offsetZ = -CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS;
-                     offsetZ <= CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS; offsetZ++) {
-                    int distance = (int) Math.ceil(Math.hypot(offsetX, offsetZ));
-                    if (distance < 1 || distance > CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS) {
-                        continue;
-                    }
-                    long terrainKey = blockColumnKey(roadX + offsetX, roadZ + offsetZ);
-                    if (roadColumns.contains(terrainKey)) {
-                        continue;
-                    }
-                    RoadTerrainShoulder current = shoulders.get(terrainKey);
-                    if (current == null || distance < current.distance()
-                        || (distance == current.distance()
-                            && roadKey < current.sourceRoadKey())) {
-                        shoulders.put(
-                            terrainKey,
-                            new RoadTerrainShoulder(roadY, distance, roadKey)
-                        );
-                    }
+            shoulders.put(roadKey, new RoadTerrainShoulder(roadY, 0, roadKey));
+            pending.addLast(roadKey);
+        }
+        int[][] directions = {
+            {-1, -1}, {0, -1}, {1, -1},
+            {-1, 0},            {1, 0},
+            {-1, 1},  {0, 1},   {1, 1}
+        };
+        while (!pending.isEmpty()) {
+            long currentKey = pending.removeFirst();
+            RoadTerrainShoulder current = shoulders.get(currentKey);
+            if (current.distance() >= CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS) {
+                continue;
+            }
+            int x = blockColumnX(currentKey);
+            int z = blockColumnZ(currentKey);
+            int nextDistance = current.distance() + 1;
+            for (int[] direction : directions) {
+                long nextKey = blockColumnKey(
+                    x + direction[0], z + direction[1]
+                );
+                RoadTerrainShoulder existing = shoulders.get(nextKey);
+                if (existing != null && existing.distance() <= nextDistance) {
+                    continue;
                 }
+                shoulders.put(nextKey, new RoadTerrainShoulder(
+                    current.roadY(), nextDistance, current.sourceRoadKey()
+                ));
+                pending.addLast(nextKey);
             }
         }
 
         HexWorldPlan world = activeHexWorld;
-        Map<Long, Integer> targets = new HashMap<>();
+        Map<Long, RoadTerrainAdjustment> targets = new HashMap<>();
         for (Map.Entry<Long, RoadTerrainShoulder> entry : shoulders.entrySet()) {
             long key = entry.getKey();
+            if (entry.getValue().distance() == 0) {
+                continue;
+            }
             int x = blockColumnX(key);
             int z = blockColumnZ(key);
             TerrainSample sample = world == null
@@ -2536,25 +2557,30 @@ public final class CobbleventureBootstrap {
             int maximumY = shoulder.roadY() + shoulder.distance();
             int targetY = Math.max(minimumY, Math.min(maximumY, surfaceY));
             if (targetY != surfaceY) {
-                targets.put(key, targetY);
+                targets.put(key, new RoadTerrainAdjustment(surfaceY, targetY));
             }
         }
-        clearTreesIntersectingRoad(level, targets.keySet(), targets);
+        Map<Long, Integer> targetElevations = new HashMap<>();
+        targets.forEach((key, adjustment) ->
+            targetElevations.put(key, adjustment.targetY())
+        );
+        clearTreesIntersectingRoad(level, targets.keySet(), targetElevations);
         int reshaped = 0;
-        for (Map.Entry<Long, Integer> entry : targets.entrySet()) {
+        for (Map.Entry<Long, RoadTerrainAdjustment> entry : targets.entrySet()) {
             int x = blockColumnX(entry.getKey());
             int z = blockColumnZ(entry.getKey());
-            int sourceY = plannedTerrainGroundY(level, x, z);
-            int targetY = entry.getValue();
+            int sourceY = entry.getValue().sourceY();
+            int targetY = entry.getValue().targetY();
             TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
             if (reshapeNaturalRoadShoulder(level, sample, x, z, sourceY, targetY)) {
                 reshaped++;
             }
         }
         if (reshaped > 0) {
-            LOGGER.debug(
-                "Configured road terrain shoulders blended: roadColumns={}, reshapedColumns={}",
-                roadColumns.size(), reshaped
+            LOGGER.info(
+                "Configured road terrain shoulders blended: roadColumns={}, candidates={}, reshapedColumns={}, elapsedMs={}",
+                roadColumns.size(), shoulders.size() - roadColumns.size(), reshaped,
+                (System.nanoTime() - startedAt) / 1_000_000L
             );
         }
     }
@@ -2710,7 +2736,10 @@ public final class CobbleventureBootstrap {
         for (long key : roadColumns) {
             int x = blockColumnX(key);
             int z = blockColumnZ(key);
-            int groundY = elevations.getOrDefault(key, plannedTerrainGroundY(level, x, z));
+            Integer configuredElevation = elevations.get(key);
+            int groundY = configuredElevation != null
+                ? configuredElevation
+                : plannedTerrainGroundY(level, x, z);
             int top = Math.min(level.getMaxBuildHeight() - 1, groundY + 32);
             for (int y = groundY + 1; y <= top; y++) {
                 BlockPos seed = new BlockPos(x, y, z);
@@ -3626,6 +3655,7 @@ public final class CobbleventureBootstrap {
                 WorldGateSystem.tick(player, world.grid(), world.gates(), gameTime);
                 if (gameTime % 10L == 0L) {
                     updateLocationTitle(player, world);
+                    MusicPlayback.tick(player, world, terrainAt(world, player.getX(), player.getZ()));
                 }
             }
             if (!enforceFieldMoveAccess(player, level, gameTime)) {
@@ -6004,6 +6034,15 @@ public final class CobbleventureBootstrap {
     }
 
     private static Point townFootprintWorldCenter(HexGrid grid, HexSettlement settlement) {
+        return TOWN_FOOTPRINT_CENTERS.computeIfAbsent(
+            new TownFootprintCenterKey(grid, settlement.settlement()),
+            ignored -> computeTownFootprintWorldCenter(grid, settlement)
+        );
+    }
+
+    private static Point computeTownFootprintWorldCenter(
+        HexGrid grid, HexSettlement settlement
+    ) {
         Set<HexCoord> footprint = townFootprint(settlement);
         if (footprint.isEmpty()) {
             return grid.worldCenter(settlement.anchor());
@@ -10506,6 +10545,8 @@ public final class CobbleventureBootstrap {
 
     record TerrainColumnKey(int worldIdentity, long seed, int x, int z) {}
 
+    record TownFootprintCenterKey(HexGrid grid, String settlementId) {}
+
     record TerrainLookup(TerrainSample sample) {}
 
     record RouteBounds(int minX, int minZ, int maxX, int maxZ) {
@@ -10522,6 +10563,8 @@ public final class CobbleventureBootstrap {
     record RoadColumnPlan(int groundY, boolean slab) {}
 
     record RoadTerrainShoulder(int roadY, int distance, long sourceRoadKey) {}
+
+    record RoadTerrainAdjustment(int sourceY, int targetY) {}
 
     record RoadProjection(int segment, double factor) {}
 

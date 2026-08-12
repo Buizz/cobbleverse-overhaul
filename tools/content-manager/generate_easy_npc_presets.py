@@ -315,8 +315,10 @@ def battle_command(document: dict, start_battle: dict | None = None) -> str:
         if not preset:
             raise ValueError(f"배틀 프리셋을 찾을 수 없습니다: {battle_ref}")
         battle = preset["battle"]
+        battle_id = preset["id"]
     else:
         battle = document["battle"]
+        battle_id = document["id"]
     slug = battle["trainer_id"].rsplit("/", 1)[-1]
     rules = battle.get("rules", {})
     # EasyNPC expands @npc to the NPC's display name. Names containing spaces
@@ -353,7 +355,10 @@ def battle_command(document: dict, start_battle: dict | None = None) -> str:
     # The wrapper shows the client-side trainer cut-in and executes this exact
     # TBCS command after the animation. Keeping both selectors in the nested
     # command preserves EasyNPC's initiator/NPC macro expansion.
-    return f"/cobbleventure_battle_intro @initiator @s {command.removeprefix('/')}"
+    return (
+        f"/cobbleventure_battle_intro @initiator @s {battle_id} "
+        f"{command.removeprefix('/')}"
+    )
 
 
 def command_action(command: str) -> str:

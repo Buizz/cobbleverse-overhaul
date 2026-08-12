@@ -36,6 +36,7 @@
 | [무지하 차원의 안전 기반층](SAFE_SURFACE_FOUNDATION.md) | Y=55~64 기반암과 공허 낙하 복구 | 구현 예정 |
 | [마을별 건축 디자인과 건축 키트](SETTLEMENT_BUILDING_KITS.md) | 마을별 팔레트, 역할별 구조물과 BCA 호환 경계 | 구현 예정 |
 | [Radical Gyms & Structures 통합 기준](RADICAL_GYMS_INTEGRATION.md) | 타입색 외관, 진입형 RGS 체육관, 원본 리그 배치와 의존성 | 1차 구현 |
+| [체육관 기본 구조와 기믹 아이디어 카탈로그](GYM_GIMMICK_CATALOG.md) | 입구·기믹방·관장 경기장 기본형, 트레이너 연계 기믹과 확장 양식 | 아이디어 정리 |
 | [마을 규모와 배치 계획](SETTLEMENT_SCALE_LAYOUT.md) | 대형 시작 마을, 도로·시설·부지 배치와 검증 | 구현 예정 |
 | [트레이너 타입 분류 체계](TRAINER_TYPE_SYSTEM.md) | 클래스·전투 성향·난이도·마을 역할 분리 | 데이터 계약 예정 |
 | [마을 중심 트레이너 배치 계획](SETTLEMENT_TRAINER_PLACEMENT.md) | 마을 슬롯·구역·인구 예산 기반 NPC 배치 | 후속 구현 예정 |

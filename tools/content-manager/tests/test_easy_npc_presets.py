@@ -35,7 +35,8 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn("HAS_ITEM_IN_INVENTORY", preset)
         self.assertIn("tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:ai_test", preset)
         self.assertIn(
-            "cobbleventure_battle_intro @initiator @s tbcs battle GEN_9_SINGLES",
+            "cobbleventure_battle_intro @initiator @s "
+            "cobbleventure:battle/ai_test tbcs battle GEN_9_SINGLES",
             preset,
         )
         self.assertIn(

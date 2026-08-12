@@ -27,6 +27,14 @@
 | `cobblemon_tim_core` | Cobblemon Tim Core | 필수 | 양쪽 | Capture XP 공용 이벤트·경험치 처리 라이브러리 | 1.7.3-1.32.0 / CF `1295910:7938283` |
 | `cobblemon_capture_xp` | Cobblemon Capture XP | 필수 | 양쪽 | 야생 포켓몬 포획 시 파티 경험치 지급 | 1.7.3-1.3.0 / CF `901059:7568508` |
 | `more_cobblemon_tweaks` | MoreCobblemonTweaks | 필수 | 클라이언트 | Cobblemon 도구 설명과 UI 편의 기능 개선 | 1.3.3 / CF `1082538:7593359` |
+| `sodium` | Sodium | 필수 | 클라이언트 | 청크·월드 렌더링과 마이크로 스터터 최적화 | 0.6.13 / CF `394468:6382651` |
+| `iris` | Iris Shaders | 필수 | 클라이언트 | Sodium 기반 셰이더팩 로딩 | 1.8.8 / CF `455508:6213632` |
+| `lithium` | Lithium | 필수 | 양쪽 | 게임 틱과 엔티티·블록 처리 최적화 | 0.15.3 / CF `360438:7740400` |
+| `ferritecore` | FerriteCore | 필수 | 양쪽 | 블록 상태와 데이터 컴포넌트 메모리 최적화 | 7.0.3 / CF `429235:7524151` |
+| `immediatelyfast` | ImmediatelyFast | 필수 | 클라이언트 | GUI·텍스트·엔티티 즉시 모드 렌더링 최적화 | 1.6.10 / CF `686911:7537795` |
+| `entity_culling` | Entity Culling | 필수 | 클라이언트 | 보이지 않는 엔티티와 블록 엔티티 렌더링 생략 | 1.9.5 / CF `448233:7396695` |
+| `complementary_reimagined` | Complementary Shaders - Reimagined | 필수 | 클라이언트 | Iris용 기본 셰이더 및 Euphoria 기반팩 | r5.3 / CF `627557:5874236` |
+| `euphoria_patches` | Euphoria Patches | 필수 | 클라이언트 | Complementary r5.3 확장 그래픽 설정 패처 | 1.4.3-r5.3 / CF `915902:5876050` |
 | `badmobs` | Bad Mobs | 필수 | 양쪽 | 바닐라 동물·몬스터의 모든 소환 경로 차단 | 21.1.1 / CF `233258:7055133` |
 | `cobblenav` | Cobblemon Pokenav | 필수 | 양쪽 | 포켓네비와 현재 지역 포켓몬 출현 정보 | 2.3.3 / CF `976014:7940651` |
 | `cloth_config` | Cloth Config API | 필수 | 양쪽 | Cobblemon Casino 설정 화면 API | 15.0.140 / CF `348521:5729127` |
@@ -54,6 +62,21 @@
 Easy NPC 7.6.0 계열은 `easy_model_entities`라는 새 필수 의존성을 추가하고
 업그레이드 절차를 안내하고 있어 자동 업데이트에서 제외한다. NPC 프리셋과 TBCS
 연동을 별도 런타임 검증한 뒤 Bundle, Core, Config UI를 함께 올린다.
+
+## 성능과 셰이더 기준 구성
+
+클라이언트 렌더링은 NeoForge 네이티브 Sodium 0.6.13과 Iris 1.8.8 조합으로
+고정한다. Sodium은 월드 렌더링, ImmediatelyFast는 GUI와 즉시 모드 렌더링,
+Entity Culling은 가려진 개체 렌더링을 각각 담당한다. Lithium과 FerriteCore는
+클라이언트와 서버 양쪽에서 틱 처리와 메모리 사용량을 줄인다.
+
+셰이더는 Complementary Reimagined r5.3과 정확히 대응하는 Euphoria Patcher
+1.4.3-r5.3 NeoForge 파일을 함께 설치한다. Euphoria Patches는 단독 셰이더팩이
+아니라 Complementary를 확장하는 패처이므로 두 항목을 모두 필수로 유지한다.
+현재 개발팩은 Euphoria 패처가 생성하는
+`ComplementaryReimagined_r5.3 + EuphoriaPatches_1.4.3`을 Iris 기본 셰이더로
+선택하고 셰이더 렌더링도 활성화한다. 실제 릴리스 빌드에서는 성능 등급별 기본값을
+정한 뒤 이 개발용 강제 활성화 설정을 제거하거나 별도 프로필로 분리한다.
 
 `Cobblemon Casino` 2.0.0을 카지노 기본 시설의 정식 의존성으로 사용한다. Minecraft
 1.21.1·NeoForge용 파일과 필수 Cloth Config API 15.0.140을 Lock과 개발팩에 함께

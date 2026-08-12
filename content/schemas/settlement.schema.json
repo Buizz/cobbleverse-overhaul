@@ -29,6 +29,7 @@
     "display_name": { "$ref": "#/$defs/localized_text" },
     "region": { "$ref": "#/$defs/resource_id" },
     "dimension": { "$ref": "#/$defs/resource_id" },
+    "music_track": { "$ref": "#/$defs/music_track" },
     "town_radius_cells": { "type": "integer", "enum": [1, 3, 5, 7, 19] },
     "town_footprint_shape": { "type": "string", "enum": ["triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down", "custom"] },
     "town_footprint_cells": {
@@ -200,6 +201,10 @@
     "resource_id": {
       "type": "string",
       "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "music_track": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+$"
     },
     "shop_configuration": {
       "type": "object",

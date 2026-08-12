@@ -41,6 +41,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/level_override" }
     },
+    "music_overrides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/music_override" }
+    },
     "empty_terrain": { "$ref": "#/$defs/empty_terrain" },
     "connections": {
       "type": "array",
@@ -59,6 +63,10 @@
     "resource_id": {
       "type": "string",
       "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "music_track": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+$"
     },
     "block_position": {
       "type": "object",
@@ -89,6 +97,7 @@
         "biome": { "$ref": "#/$defs/resource_id" },
         "boundary_profile": { "$ref": "#/$defs/resource_id" },
         "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
+        "music_track": { "$ref": "#/$defs/music_track" },
         "access_requirement": { "$ref": "#/$defs/resource_id" }
       }
     },
@@ -113,6 +122,16 @@
         "q": { "type": "integer", "minimum": -1024, "maximum": 1024 },
         "r": { "type": "integer", "minimum": -1024, "maximum": 1024 },
         "average_level": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "music_override": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q", "r", "music_track"],
+      "properties": {
+        "q": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "r": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "music_track": { "$ref": "#/$defs/music_track" }
       }
     },
     "empty_terrain": {
@@ -187,6 +206,7 @@
         "habitat_profile": { "$ref": "#/$defs/resource_id" },
         "spawn_settings": { "$ref": "#/$defs/spawn_settings" },
         "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
+        "music_track": { "$ref": "#/$defs/music_track" },
         "access_requirement": { "$ref": "#/$defs/resource_id" }
       }
     },
@@ -240,6 +260,7 @@
         "boundary_profile": { "$ref": "#/$defs/resource_id" },
         "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
         "surface_style": { "enum": ["road", "natural", "water"] },
+        "music_track": { "$ref": "#/$defs/music_track" },
         "access_requirement": { "$ref": "#/$defs/resource_id" },
         "anchors": {
           "type": "array",

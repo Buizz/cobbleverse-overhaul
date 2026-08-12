@@ -28,6 +28,8 @@ class MusicCatalogTest(unittest.TestCase):
         self.assertTrue(
             all(track["source_file"].lower().endswith(".ogg") for track in self.catalog["tracks"])
         )
+        track_ids = {track["id"] for track in self.catalog["tracks"]}
+        self.assertTrue(set(self.catalog["defaults"].values()).issubset(track_ids))
 
     def test_sounds_manifest_uses_catalog_entries_only(self) -> None:
         manifest = music_catalog.build_sounds_manifest(self.catalog)

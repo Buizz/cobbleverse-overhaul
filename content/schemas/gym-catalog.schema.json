@@ -72,6 +72,7 @@
         "enabled": { "type": "boolean" },
         "display_name": { "$ref": "#/$defs/localized" },
         "theme": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "music_track": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "exterior": {
           "type": "object", "additionalProperties": false, "required": ["structure"],
           "properties": { "structure": { "const": "cobbleventure:gyms/base_gym" } }
