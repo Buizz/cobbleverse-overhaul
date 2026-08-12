@@ -208,9 +208,14 @@ public final class MapNetwork {
                         .withPermission(4)
                         .withSuppressedOutput()
                 );
-                return result == 0 ? "마을의 포켓몬센터를 찾지 못했습니다." : null;
+                if (result > 0) {
+                    player.resetFallDistance();
+                    return null;
+                }
             } catch (CommandSyntaxException error) {
-                return "포켓몬센터 이동 명령을 실행하지 못했습니다.";
+                // The world bootstrap side-mod may be absent or the settlement may
+                // not have a generated Pokemon Center yet. Fall back to the town
+                // hex instead of cancelling an otherwise valid map teleport.
             }
         }
 
