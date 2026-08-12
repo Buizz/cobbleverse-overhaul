@@ -21,6 +21,7 @@ public final class PlayerMenuScreen extends Screen {
     private static final int MENU_HEADER_HEIGHT = 22;
     private static final int MENU_PADDING = 5;
     private static final int ROW_GAP = 2;
+    private static final int PANEL_GAP = 8;
     private static final long OPEN_ANIMATION_MILLIS = 160L;
     private static final long ROW_ANIMATION_MILLIS = 120L;
     private static final long ROW_STAGGER_MILLIS = 11L;
@@ -30,20 +31,21 @@ public final class PlayerMenuScreen extends Screen {
     // Cobblemon's summary and party screens use neutral grey panels with a
     // one-pixel light edge and a dark outer border. Keep these colours local so
     // the menu remains usable even when Cobblemon itself is not installed.
-    private static final int SHADOW_COLOR = 0xB0000000;
-    private static final int PANEL_COLOR = 0xF05A5A5A;
-    private static final int PANEL_DARK_COLOR = 0xFF303030;
-    private static final int PANEL_LIGHT_COLOR = 0xFF888888;
-    private static final int ROW_COLOR = 0xF0464646;
-    private static final int ROW_HOVER_COLOR = 0xF0525252;
-    private static final int ROW_SELECTED_COLOR = 0xFFF0F0F0;
-    private static final int ROW_SELECTED_INNER_COLOR = 0xFFD2D2D2;
+    private static final int SHADOW_COLOR = 0x99000000;
+    private static final int PANEL_COLOR = 0xF01D2630;
+    private static final int PANEL_DARK_COLOR = 0xFF10171E;
+    private static final int PANEL_LIGHT_COLOR = 0xFF34444F;
+    private static final int ROW_COLOR = 0x001D2630;
+    private static final int ROW_HOVER_COLOR = 0xB0374650;
+    private static final int ROW_SELECTED_COLOR = 0xFFF0F3F5;
+    private static final int ROW_SELECTED_INNER_COLOR = 0xFFD9E0E5;
     private static final int PRIMARY_TEXT_COLOR = 0xFFF4F4F4;
     private static final int SECONDARY_TEXT_COLOR = 0xFFD0D0D0;
     private static final int MUTED_TEXT_COLOR = 0xFFA6A6A6;
     private static final int SELECTED_TEXT_COLOR = 0xFF303030;
-    private static final int CONNECTED_COLOR = 0xFF91C7A2;
+    private static final int CONNECTED_COLOR = 0xFF5EE4E4;
     private static final int PENDING_COLOR = 0xFF8D8D8D;
+    private static final int SEPARATOR_COLOR = 0x553F505B;
 
     private final List<MenuRow> rows = new ArrayList<>();
     private int selectedIndex;
@@ -52,6 +54,7 @@ public final class PlayerMenuScreen extends Screen {
     private int menuWidth;
     private int menuHeight;
     private int rowHeight;
+    private int infoX;
     private int infoWidth;
     private Component statusMessage;
     private long transitionStartedAt;
@@ -74,7 +77,7 @@ public final class PlayerMenuScreen extends Screen {
         PlayerMenuEntry[] entries = PlayerMenuEntry.values();
         selectedIndex = clamp(selectedIndex, 0, entries.length - 1);
 
-        menuWidth = clamp(width / 3, 138, 184);
+        menuWidth = clamp(width / 4, 172, 208);
         rowHeight = clamp(
             (height - MENU_MARGIN * 2 - MENU_HEADER_HEIGHT - MENU_PADDING * 2
                 - ROW_GAP * (entries.length - 1)) / entries.length,
@@ -85,7 +88,9 @@ public final class PlayerMenuScreen extends Screen {
             + rowHeight * entries.length + ROW_GAP * (entries.length - 1);
         menuX = width - menuWidth - MENU_MARGIN;
         menuY = (height - menuHeight) / 2;
-        infoWidth = clamp(menuX - MENU_MARGIN * 2, 140, 230);
+        infoWidth = clamp(width / 5, 180, 240);
+        infoX = Math.max(MENU_MARGIN, menuX - PANEL_GAP - infoWidth);
+        infoWidth = Math.max(112, menuX - PANEL_GAP - infoX);
 
         int rowX = menuX + MENU_PADDING;
         int rowY = menuY + MENU_HEADER_HEIGHT + MENU_PADDING;
@@ -195,10 +200,10 @@ public final class PlayerMenuScreen extends Screen {
     }
 
     private void renderTrainerPanel(GuiGraphics graphics) {
-        int x = MENU_MARGIN;
-        int y = MENU_MARGIN;
+        int x = infoX;
+        int y = Math.max(MENU_MARGIN, (height - 96) / 2 - 50);
         int panelHeight = 42;
-        drawCobblemonPanel(graphics, x, y, infoWidth, panelHeight);
+        drawRibbonPanel(graphics, x, y, infoWidth, panelHeight);
 
         String playerName = minecraft != null && minecraft.player != null
             ? minecraft.player.getGameProfile().getName()
@@ -228,9 +233,24 @@ public final class PlayerMenuScreen extends Screen {
 
     private void renderInfoPanel(GuiGraphics graphics) {
         int panelHeight = 96;
-        int x = MENU_MARGIN;
+        int x = infoX;
         int y = (height - panelHeight) / 2;
-        drawCobblemonPanel(graphics, x, y, infoWidth, panelHeight);
+        drawRibbonPanel(graphics, x, y, infoWidth, panelHeight);
+
+        if (!rows.isEmpty()) {
+            MenuRow selectedRow = rows.get(clamp(selectedIndex, 0, rows.size() - 1));
+            int startX = x + infoWidth;
+            int startY = y + panelHeight / 2;
+            int targetX = selectedRow.getX() - 9;
+            int targetY = selectedRow.getY() + selectedRow.getHeight() / 2;
+            if (targetX > startX) {
+                int bendX = startX + Math.max(2, (targetX - startX) / 2);
+                graphics.fill(startX, startY, bendX + 1, startY + 1, CONNECTED_COLOR);
+                graphics.fill(bendX, Math.min(startY, targetY), bendX + 1, Math.max(startY, targetY) + 1, CONNECTED_COLOR);
+                graphics.fill(bendX, targetY, targetX + 1, targetY + 1, CONNECTED_COLOR);
+                fillCircle(graphics, startX, startY, 2, CONNECTED_COLOR);
+            }
+        }
 
         PlayerMenuEntry entry = PlayerMenuEntry.values()[selectedIndex];
         renderIcon(graphics, entry.icon(), x + 17, y + 11, 1.5F);
@@ -272,22 +292,23 @@ public final class PlayerMenuScreen extends Screen {
     }
 
     private void renderMenuPanel(GuiGraphics graphics) {
-        drawCobblemonPanel(graphics, menuX, menuY, menuWidth, menuHeight);
-        graphics.drawString(font, title, menuX + 8, menuY + 7, PRIMARY_TEXT_COLOR, false);
+        drawRibbonPanel(graphics, menuX, menuY, menuWidth, menuHeight);
+        graphics.drawCenteredString(font, title, menuX + menuWidth / 2, menuY + 7, PRIMARY_TEXT_COLOR);
         graphics.fill(
-            menuX + 5,
+            menuX + 12,
             menuY + MENU_HEADER_HEIGHT - 2,
-            menuX + menuWidth - 5,
+            menuX + menuWidth - 12,
             menuY + MENU_HEADER_HEIGHT - 1,
-            PANEL_DARK_COLOR
+            PANEL_LIGHT_COLOR
         );
+        graphics.fill(menuX + 12, menuY + 2, menuX + 36, menuY + 4, CONNECTED_COLOR);
     }
 
     private void renderControls(GuiGraphics graphics) {
         int panelHeight = 35;
-        int x = MENU_MARGIN;
-        int y = height - MENU_MARGIN - panelHeight;
-        drawCobblemonPanel(graphics, x, y, infoWidth, panelHeight);
+        int x = infoX;
+        int y = Math.min(height - MENU_MARGIN - panelHeight, (height - 96) / 2 + 104);
+        drawRibbonPanel(graphics, x, y, infoWidth, panelHeight);
         graphics.drawString(
             font,
             Component.translatable(
@@ -415,18 +436,50 @@ public final class PlayerMenuScreen extends Screen {
         return alpha << 24 | red << 16 | green << 8 | blue;
     }
 
-    private static void drawCobblemonPanel(
+    private static void drawRibbonPanel(
         GuiGraphics graphics,
         int x,
         int y,
         int panelWidth,
         int panelHeight
     ) {
-        graphics.fill(x + 2, y + 2, x + panelWidth + 2, y + panelHeight + 2, SHADOW_COLOR);
-        graphics.fill(x, y, x + panelWidth, y + panelHeight, PANEL_DARK_COLOR);
-        graphics.fill(x + 1, y + 1, x + panelWidth - 1, y + panelHeight - 1, PANEL_COLOR);
-        graphics.fill(x + 2, y + 2, x + panelWidth - 2, y + 3, PANEL_LIGHT_COLOR);
-        graphics.fill(x + 2, y + 2, x + 3, y + panelHeight - 2, PANEL_LIGHT_COLOR);
+        fillRoundedRect(graphics, x + 3, y + 3, x + panelWidth + 3, y + panelHeight + 3, 7, SHADOW_COLOR);
+        fillRoundedRect(graphics, x, y, x + panelWidth, y + panelHeight, 7, PANEL_DARK_COLOR);
+        fillRoundedRect(graphics, x + 1, y + 1, x + panelWidth - 1, y + panelHeight - 1, 6, PANEL_COLOR);
+        graphics.fill(x + 8, y + 1, x + panelWidth - 8, y + 2, PANEL_LIGHT_COLOR);
+        graphics.fill(x + panelWidth - 11, y + panelHeight - 3, x + panelWidth - 3, y + panelHeight - 1, CONNECTED_COLOR);
+    }
+
+    private static void fillRoundedRect(
+        GuiGraphics graphics,
+        int left,
+        int top,
+        int right,
+        int bottom,
+        int radius,
+        int color
+    ) {
+        int width = Math.max(0, right - left);
+        int height = Math.max(0, bottom - top);
+        int effectiveRadius = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+        for (int row = 0; row < height; row++) {
+            int edgeDistance = Math.min(row, height - 1 - row);
+            int inset = 0;
+            if (edgeDistance < effectiveRadius) {
+                double vertical = effectiveRadius - edgeDistance - 0.5D;
+                inset = effectiveRadius - (int) Math.floor(Math.sqrt(
+                    Math.max(0.0D, effectiveRadius * effectiveRadius - vertical * vertical)
+                ));
+            }
+            graphics.fill(left + inset, top + row, right - inset, top + row + 1, color);
+        }
+    }
+
+    private static void fillCircle(GuiGraphics graphics, int centerX, int centerY, int radius, int color) {
+        for (int y = -radius; y <= radius; y++) {
+            int halfWidth = (int) Math.floor(Math.sqrt(radius * radius - y * y));
+            graphics.fill(centerX - halfWidth, centerY + y, centerX + halfWidth + 1, centerY + y + 1, color);
+        }
     }
 
     private final class MenuRow extends AbstractButton {
@@ -477,59 +530,47 @@ public final class PlayerMenuScreen extends Screen {
             graphics.pose().pushPose();
             graphics.pose().translate((1.0F - rowTransition) * 10.0F, 0.0F, 0.0F);
 
-            graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), PANEL_DARK_COLOR);
-            graphics.fill(
-                getX() + 1,
-                getY() + 1,
-                getX() + getWidth() - 1,
-                getY() + getHeight() - 1,
-                fillColor
-            );
+            int centerY = getY() + getHeight() / 2;
+            int visualLeft = selected ? getX() - 8 : getX();
+            int visualRight = getX() + getWidth() - 3;
             if (selected) {
-                graphics.fill(
-                    getX() + 2,
-                    getY() + 2,
-                    getX() + getWidth() - 2,
-                    getY() + 3,
-                    ROW_SELECTED_INNER_COLOR
-                );
-                graphics.fill(
-                    getX() + 2,
-                    getY() + 2,
-                    getX() + 4,
-                    getY() + getHeight() - 2,
-                    CONNECTED_COLOR
-                );
+                fillRoundedRect(graphics, visualLeft, getY(), visualRight, getY() + getHeight(),
+                    getHeight() / 2, CONNECTED_COLOR);
+                fillRoundedRect(graphics, visualLeft + 1, getY() + 1, visualRight - 1,
+                    getY() + getHeight() - 1, Math.max(1, getHeight() / 2 - 1), fillColor);
+                graphics.fill(visualRight - 8, centerY - 1, visualRight + 8, centerY + 1, CONNECTED_COLOR);
+            } else if (hoverProgress > 0.01F) {
+                fillRoundedRect(graphics, visualLeft, getY(), visualRight, getY() + getHeight(),
+                    getHeight() / 2, fillColor);
             }
+            graphics.fill(getX() + 28, getY() + getHeight() - 1,
+                getX() + getWidth() - 14, getY() + getHeight(), SEPARATOR_COLOR);
 
             float iconScale = selectionPulse(index);
-            float iconY = getY() + getHeight() / 2.0F - 8.0F * iconScale;
-            renderIcon(graphics, icon, getX() + 25, Math.round(iconY), iconScale);
-            graphics.drawString(
-                font,
-                Integer.toString(index + 1),
-                getX() + 7,
-                getY() + (getHeight() - 8) / 2,
-                selected ? 0xFF6A6A6A : MUTED_TEXT_COLOR,
-                false
-            );
+            int iconCenterX = selected ? getX() + 14 : getX() + 18;
+            int iconRadius = selected ? Math.min(11, getHeight() / 2 + 1) : Math.min(9, getHeight() / 2 - 1);
+            fillCircle(graphics, iconCenterX, centerY, iconRadius + 1,
+                selected ? CONNECTED_COLOR : PANEL_LIGHT_COLOR);
+            fillCircle(graphics, iconCenterX, centerY, iconRadius,
+                selected ? ROW_SELECTED_INNER_COLOR : PANEL_DARK_COLOR);
+            float iconY = centerY - 8.0F * iconScale;
+            renderIcon(graphics, icon, iconCenterX, Math.round(iconY), iconScale);
 
             String shortcut = PlayerMenuKeyMappings.keyName(entry).getString();
             String clippedShortcut = font.plainSubstrByWidth(shortcut, 30);
             int shortcutWidth = font.width(clippedShortcut);
             int shortcutX = getX() + getWidth() - 13 - shortcutWidth;
-            graphics.fill(shortcutX - 2, getY() + 4, shortcutX + shortcutWidth + 2,
-                getY() + getHeight() - 4, selected ? ROW_SELECTED_INNER_COLOR : PANEL_DARK_COLOR);
             graphics.drawString(font, clippedShortcut, shortcutX,
                 getY() + (getHeight() - 8) / 2,
-                selected ? SELECTED_TEXT_COLOR : CONNECTED_COLOR, false);
+                selected ? 0xFF58656D : CONNECTED_COLOR, false);
 
-            int titleWidth = Math.max(12, shortcutX - (getX() + 38) - 4);
+            int titleX = getX() + 34;
+            int titleWidth = Math.max(12, shortcutX - titleX - 4);
             String clippedTitle = font.plainSubstrByWidth(entry.title().getString(), titleWidth);
             graphics.drawString(
                 font,
                 clippedTitle,
-                getX() + 38,
+                titleX,
                 getY() + (getHeight() - 8) / 2,
                 textColor,
                 false
