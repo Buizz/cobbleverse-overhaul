@@ -69,6 +69,14 @@ public final class PlayerMenuClient {
         BagNetwork.requestDiscard(extended, slot, quantity);
     }
 
+    public static void dropBagItem(boolean extended, int slot, int quantity) {
+        BagNetwork.requestDrop(extended, slot, quantity);
+    }
+
+    public static void giveBagItemToPokemon(boolean extended, int slot, int partySlot) {
+        BagNetwork.requestGiveToPokemon(extended, slot, partySlot);
+    }
+
     public static void openPokenav() {
         BagNetwork.requestUsePokenav();
     }

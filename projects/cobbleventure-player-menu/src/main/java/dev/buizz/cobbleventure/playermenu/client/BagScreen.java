@@ -57,8 +57,10 @@ public final class BagScreen extends Screen {
     private ViewMode viewMode = ViewMode.GRID;
     private EditBox searchBox;
     private AbstractButton useButton;
+    private AbstractButton giveButton;
     private AbstractButton shortcutButton;
-    private AbstractButton discardButton;
+    private AbstractButton dropButton;
+    private AbstractButton deleteButton;
     private BagSlotRef selectedSlot;
     private Component statusMessage = Component.empty();
     private String searchValue = "";
@@ -155,17 +157,23 @@ public final class BagScreen extends Screen {
         }
 
         int detailY = detailY();
-        int actionWidth = Math.max(50, Math.min(78, (panelWidth - 156) / 3));
+        int actionWidth = Math.max(46, Math.min(64, (panelWidth - 150) / 3));
         int actionX = panelX + panelWidth - PANEL_PADDING - actionWidth * 3 - 4;
         useButton = addRenderableWidget(new RibbonButton(
             Component.translatable("screen.cobbleventure_player_menu.bag.use"),
             actionX, detailY + 8, actionWidth, 20, this::useSelectedItem));
+        giveButton = addRenderableWidget(new RibbonButton(
+            Component.translatable("screen.cobbleventure_player_menu.bag.give_to_pokemon"),
+            actionX + actionWidth + 2, detailY + 8, actionWidth, 20, this::giveToPokemon));
         shortcutButton = addRenderableWidget(new RibbonButton(
             Component.translatable("screen.cobbleventure_player_menu.bag.shortcut"),
-            actionX + actionWidth + 2, detailY + 8, actionWidth, 20, this::assignShortcut));
-        discardButton = addRenderableWidget(new RibbonButton(
-            Component.translatable("screen.cobbleventure_player_menu.bag.discard"),
-            actionX + (actionWidth + 2) * 2, detailY + 8, actionWidth, 20, this::discardSelected));
+            actionX + (actionWidth + 2) * 2, detailY + 8, actionWidth, 20, this::assignShortcut));
+        dropButton = addRenderableWidget(new RibbonButton(
+            Component.translatable("screen.cobbleventure_player_menu.bag.drop"),
+            actionX, detailY + 32, actionWidth, 20, this::dropSelected));
+        deleteButton = addRenderableWidget(new RibbonButton(
+            Component.translatable("screen.cobbleventure_player_menu.bag.delete"),
+            actionX + actionWidth + 2, detailY + 32, actionWidth, 20, this::deleteSelected));
 
         int footerY = panelY + panelHeight - 27;
         addRenderableWidget(new RibbonButton(
@@ -607,10 +615,26 @@ public final class BagScreen extends Screen {
         refreshTicks = 9;
     }
 
-    private void discardSelected() {
+    private void dropSelected() {
         if (minecraft == null || selectedSlot == null || selectedStack().isEmpty()) return;
         minecraft.setScreen(new BagDiscardScreen(
-            this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy(), selectedSlot.displayCount()
+            this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy(), selectedSlot.displayCount(),
+            BagDiscardScreen.Mode.DROP
+        ));
+    }
+
+    private void deleteSelected() {
+        if (minecraft == null || selectedSlot == null || selectedStack().isEmpty()) return;
+        minecraft.setScreen(new BagDiscardScreen(
+            this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy(), selectedSlot.displayCount(),
+            BagDiscardScreen.Mode.DELETE
+        ));
+    }
+
+    private void giveToPokemon() {
+        if (minecraft == null || selectedSlot == null || selectedStack().isEmpty()) return;
+        minecraft.setScreen(new BagPokemonSelectScreen(
+            this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy()
         ));
     }
 
@@ -620,16 +644,30 @@ public final class BagScreen extends Screen {
         ));
     }
 
-    void discardRequested(int quantity) {
-        showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.discarded", quantity));
+    void dropRequested(int quantity) {
+        showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.dropped", quantity));
+        refreshTicks = 9;
+    }
+
+    void deleteRequested(int quantity) {
+        showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.deleted", quantity));
+        refreshTicks = 9;
+    }
+
+    void pokemonGiveRequested(Component pokemonName) {
+        showStatus(Component.translatable(
+            "screen.cobbleventure_player_menu.bag.given_to_pokemon", pokemonName
+        ));
         refreshTicks = 9;
     }
 
     private void updateActionButtons() {
         boolean hasSelection = selectedSlot != null && !selectedStack().isEmpty();
         if (useButton != null) useButton.active = hasSelection;
+        if (giveButton != null) giveButton.active = hasSelection && CobblemonMenuIntegration.partySize() > 0;
         if (shortcutButton != null) shortcutButton.active = hasSelection;
-        if (discardButton != null) discardButton.active = hasSelection;
+        if (dropButton != null) dropButton.active = hasSelection;
+        if (deleteButton != null) deleteButton.active = hasSelection;
     }
 
     private void showStatus(Component message) {

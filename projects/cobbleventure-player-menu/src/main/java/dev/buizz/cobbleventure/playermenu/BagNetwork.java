@@ -1,5 +1,7 @@
 package dev.buizz.cobbleventure.playermenu;
 
+import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.NonNullList;
@@ -74,6 +76,14 @@ public final class BagNetwork {
         PacketDistributor.sendToServer(new DiscardPayload(extended, slot, quantity));
     }
 
+    public static void requestDrop(boolean extended, int slot, int quantity) {
+        PacketDistributor.sendToServer(new DropPayload(extended, slot, quantity));
+    }
+
+    public static void requestGiveToPokemon(boolean extended, int slot, int partySlot) {
+        PacketDistributor.sendToServer(new GiveToPokemonPayload(extended, slot, partySlot));
+    }
+
     public static void requestUseShortcut(int shortcutSlot) {
         PacketDistributor.sendToServer(new UseShortcutPayload(shortcutSlot));
     }
@@ -92,6 +102,9 @@ public final class BagNetwork {
         registrar.playToServer(UseShortcutPayload.TYPE, UseShortcutPayload.STREAM_CODEC, BagNetwork::handleUseShortcut);
         registrar.playToServer(UsePokenavPayload.TYPE, UsePokenavPayload.STREAM_CODEC, BagNetwork::handleUsePokenav);
         registrar.playToServer(DiscardPayload.TYPE, DiscardPayload.STREAM_CODEC, BagNetwork::handleDiscard);
+        registrar.playToServer(DropPayload.TYPE, DropPayload.STREAM_CODEC, BagNetwork::handleDrop);
+        registrar.playToServer(GiveToPokemonPayload.TYPE, GiveToPokemonPayload.STREAM_CODEC,
+            BagNetwork::handleGiveToPokemon);
     }
 
     private static void handleSnapshotRequest(SnapshotRequestPayload payload, IPayloadContext context) {
@@ -405,6 +418,73 @@ public final class BagNetwork {
         finishMutation(player, storage, payload.extended());
     }
 
+    private static void handleDrop(DropPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player) || !validSlot(payload.extended(), payload.slot())
+            || payload.quantity() <= 0) return;
+        NonNullList<ItemStack> storage = BagStorage.load(player);
+        ItemStack dropped = takeSelectedItems(player, storage, payload.extended(), payload.slot(), payload.quantity());
+        if (dropped.isEmpty()) return;
+        player.drop(dropped, false, true);
+        finishMutation(player, storage, payload.extended());
+    }
+
+    private static void handleGiveToPokemon(GiveToPokemonPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player) || !validSlot(payload.extended(), payload.slot())
+            || payload.partySlot() < 0 || payload.partySlot() >= 6) return;
+        NonNullList<ItemStack> storage = BagStorage.load(player);
+        ItemStack source = getStack(player, storage, payload.extended(), payload.slot());
+        Pokemon pokemon = Cobblemon.INSTANCE.getStorage().getParty(player).get(payload.partySlot());
+        if (source.isEmpty() || pokemon == null) return;
+
+        ItemStack offered = source.copy();
+        int before = offered.getCount();
+        ItemStack returned = pokemon.swapHeldItem(offered, true, true);
+        if (offered.getCount() != before - 1) {
+            player.displayClientMessage(Component.translatable(
+                "screen.cobbleventure_player_menu.bag.give_failed"
+            ), true);
+            return;
+        }
+
+        source.shrink(1);
+        if (source.isEmpty()) setStack(player, storage, payload.extended(), payload.slot(), ItemStack.EMPTY);
+        if (!returned.isEmpty()) {
+            ItemStack remainder = returned.copy();
+            BagStorage.add(storage, remainder);
+            if (!remainder.isEmpty()) player.drop(remainder, false, true);
+        }
+        finishMutation(player, storage, true);
+        player.displayClientMessage(Component.translatable(
+            "screen.cobbleventure_player_menu.bag.given_to_pokemon",
+            pokemon.getDisplayName(false)
+        ), true);
+    }
+
+    private static ItemStack takeSelectedItems(ServerPlayer player, NonNullList<ItemStack> storage,
+                                               boolean extended, int slot, int quantity) {
+        ItemStack source = getStack(player, storage, extended, slot);
+        if (source.isEmpty()) return ItemStack.EMPTY;
+        int requested = Math.min(quantity, extended ? Integer.MAX_VALUE : source.getCount());
+        ItemStack result = source.copyWithCount(0);
+        ItemStack prototype = source.copyWithCount(1);
+        if (!extended) {
+            int removed = Math.min(requested, source.getCount());
+            source.shrink(removed);
+            result.setCount(removed);
+            if (source.isEmpty()) setStack(player, storage, false, slot, ItemStack.EMPTY);
+            return result;
+        }
+        for (int index = 0; index < storage.size() && result.getCount() < requested; index++) {
+            ItemStack stored = storage.get(index);
+            if (!ItemStack.isSameItemSameComponents(stored, prototype)) continue;
+            int removed = Math.min(requested - result.getCount(), stored.getCount());
+            stored.shrink(removed);
+            result.grow(removed);
+            if (stored.isEmpty()) storage.set(index, ItemStack.EMPTY);
+        }
+        return result;
+    }
+
     private static void onItemPickup(ItemEntityPickupEvent.Pre event) {
         if (!(event.getPlayer() instanceof ServerPlayer player)) return;
         ItemEntity entity = event.getItemEntity();
@@ -642,6 +722,32 @@ public final class BagNetwork {
         }
         private static DiscardPayload read(RegistryFriendlyByteBuf buffer) {
             return new DiscardPayload(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt());
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record DropPayload(boolean extended, int slot, int quantity) implements CustomPacketPayload {
+        public static final Type<DropPayload> TYPE = new Type<>(id("bag_drop"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, DropPayload> STREAM_CODEC =
+            StreamCodec.ofMember(DropPayload::write, DropPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeBoolean(extended); buffer.writeVarInt(slot); buffer.writeVarInt(quantity);
+        }
+        private static DropPayload read(RegistryFriendlyByteBuf buffer) {
+            return new DropPayload(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt());
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record GiveToPokemonPayload(boolean extended, int slot, int partySlot) implements CustomPacketPayload {
+        public static final Type<GiveToPokemonPayload> TYPE = new Type<>(id("bag_give_to_pokemon"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, GiveToPokemonPayload> STREAM_CODEC =
+            StreamCodec.ofMember(GiveToPokemonPayload::write, GiveToPokemonPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeBoolean(extended); buffer.writeVarInt(slot); buffer.writeVarInt(partySlot);
+        }
+        private static GiveToPokemonPayload read(RegistryFriendlyByteBuf buffer) {
+            return new GiveToPokemonPayload(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt());
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

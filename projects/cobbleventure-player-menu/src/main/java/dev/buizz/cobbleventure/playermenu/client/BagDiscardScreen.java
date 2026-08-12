@@ -8,8 +8,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
-/** Quantity picker shown before permanently discarding a bag item. */
+/** Quantity picker shared by dropping and permanently deleting a bag item. */
 final class BagDiscardScreen extends Screen {
+    enum Mode { DROP, DELETE }
     private static final int PANEL_WIDTH = 260;
     private static final int PANEL_HEIGHT = 144;
     private static final int TEXT_COLOR = 0xFFF4F4F4;
@@ -20,18 +21,21 @@ final class BagDiscardScreen extends Screen {
     private final int sourceSlot;
     private final ItemStack stack;
     private final int maximum;
+    private final Mode mode;
     private EditBox quantityBox;
     private Button confirmButton;
     private int panelX;
     private int panelY;
 
-    BagDiscardScreen(BagScreen parent, boolean extended, int sourceSlot, ItemStack stack, int maximum) {
-        super(Component.translatable("screen.cobbleventure_player_menu.bag.discard_select.title"));
+    BagDiscardScreen(BagScreen parent, boolean extended, int sourceSlot, ItemStack stack, int maximum, Mode mode) {
+        super(Component.translatable("screen.cobbleventure_player_menu.bag."
+            + (mode == Mode.DROP ? "drop_select.title" : "delete_select.title")));
         this.parent = parent;
         this.extended = extended;
         this.sourceSlot = sourceSlot;
         this.stack = stack;
         this.maximum = Math.max(1, maximum);
+        this.mode = mode;
     }
 
     @Override
@@ -60,7 +64,8 @@ final class BagDiscardScreen extends Screen {
             maximum, panelX + 160, presetY);
 
         confirmButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.bag.discard_confirm"), ignored -> confirm()
+            Component.translatable("screen.cobbleventure_player_menu.bag."
+                + (mode == Mode.DROP ? "drop_confirm" : "delete_confirm")), ignored -> confirm()
         ).bounds(panelX + 82, panelY + 110, 82, 20).build());
         addRenderableWidget(Button.builder(
             Component.translatable("screen.cobbleventure_player_menu.bag.cancel"), ignored -> onClose()
@@ -80,8 +85,9 @@ final class BagDiscardScreen extends Screen {
             Component.translatable("screen.cobbleventure_player_menu.bag.discard_owned", maximum),
             panelX + PANEL_WIDTH / 2, panelY + 36, MUTED_COLOR);
         graphics.drawString(font,
-            Component.translatable("screen.cobbleventure_player_menu.bag.discard_warning"),
-            panelX + 10, panelY + 98, 0xFFFFB0A8, false);
+            Component.translatable("screen.cobbleventure_player_menu.bag."
+                + (mode == Mode.DROP ? "drop_warning" : "delete_warning")),
+            panelX + 10, panelY + 98, mode == Mode.DROP ? 0xFF5EE4E4 : 0xFFFFB0A8, false);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 
@@ -133,8 +139,13 @@ final class BagDiscardScreen extends Screen {
     private void confirm() {
         int quantity = validQuantity();
         if (quantity <= 0) return;
-        PlayerMenuClient.discardBagItem(extended, sourceSlot, quantity);
-        parent.discardRequested(quantity);
+        if (mode == Mode.DROP) {
+            PlayerMenuClient.dropBagItem(extended, sourceSlot, quantity);
+            parent.dropRequested(quantity);
+        } else {
+            PlayerMenuClient.discardBagItem(extended, sourceSlot, quantity);
+            parent.deleteRequested(quantity);
+        }
         if (minecraft != null) minecraft.setScreen(parent);
     }
 
