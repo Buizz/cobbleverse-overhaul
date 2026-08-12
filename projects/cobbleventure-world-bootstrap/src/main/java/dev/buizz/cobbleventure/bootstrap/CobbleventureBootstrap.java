@@ -173,6 +173,8 @@ public final class CobbleventureBootstrap {
     private static final Map<NoiseKey, NormalNoise> TERRAIN_NOISES = new ConcurrentHashMap<>();
     private static final Cache<TerrainColumnKey, TerrainLookup> TERRAIN_COLUMN_SAMPLES =
         CacheBuilder.newBuilder().maximumSize(262_144L).build();
+    private static final Cache<TerrainColumnKey, NativeTerrainColumn> NATIVE_TERRAIN_COLUMNS =
+        CacheBuilder.newBuilder().maximumSize(262_144L).build();
     private static final Map<TownFootprintCenterKey, Point> TOWN_FOOTPRINT_CENTERS =
         new ConcurrentHashMap<>();
     private static final Map<OceanMoundKey, Boolean> OCEAN_MOUND_BOUNDARY =
@@ -347,7 +349,9 @@ public final class CobbleventureBootstrap {
         activeHexWorld = runtime.hexWorld();
         activeSettlements = runtime.settlements();
         activeFacilityPortals = facilityPortals(runtime.settlements());
-        placeCaveMountainBarriers(level, runtime.hexWorld());
+        if (!nativeGenerator) {
+            placeCaveMountainBarriers(level, runtime.hexWorld());
+        }
         placeCaveEntrances(level, runtime.hexWorld());
         WorldGateSystem.placeAll(
             level, runtime.hexWorld().grid(), runtime.hexWorld().gates()
@@ -361,6 +365,7 @@ public final class CobbleventureBootstrap {
         BuildingRuntimeSystem.initialize(event.getServer());
         prepareExistingGymExteriors(level, runtime.settlements());
         prepareExistingBuildingRuntime(level, runtime.settlements());
+        refreshExistingConfiguredVendors(level, runtime.settlements());
 
         if (nativeGenerator) {
             SettlementPlan starter = runtime.settlements().get(STARTER_SETTLEMENT);
@@ -619,7 +624,9 @@ public final class CobbleventureBootstrap {
                 return false;
             }
         }
-        placeCaveMountainBarriers(level, runtime.hexWorld());
+        if (!nativeGenerator) {
+            placeCaveMountainBarriers(level, runtime.hexWorld());
+        }
         placeCaveEntrances(level, runtime.hexWorld());
         WorldGateSystem.placeAll(
             level, runtime.hexWorld().grid(), runtime.hexWorld().gates()
@@ -1040,6 +1047,38 @@ public final class CobbleventureBootstrap {
         return false;
     }
 
+    private static boolean isCaveMountainProtectedColumn(
+        HexWorldPlan world, int x, int z
+    ) {
+        if (world == null || world.caveEntrances().size() < 2) {
+            return false;
+        }
+        Map<String, List<CaveEntrancePlan>> byCave = world.caveEntrances().stream()
+            .collect(Collectors.groupingBy(CaveEntrancePlan::cave));
+        for (List<CaveEntrancePlan> entrances : byCave.values()) {
+            if (entrances.size() < 2) {
+                continue;
+            }
+            Point first = world.grid().worldCenter(entrances.getFirst().anchor());
+            Point second = world.grid().worldCenter(entrances.get(1).anchor());
+            double centerX = (first.x() + second.x()) * 0.5D;
+            double centerZ = (first.z() + second.z()) * 0.5D;
+            double radius = world.grid().radius() + 14.0D;
+            double dx = x + 0.5D - centerX;
+            double dz = z + 0.5D - centerZ;
+            if (dx * dx + dz * dz <= radius * radius) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isRockClimbTerrain(TerrainSample sample) {
+        return "cobbleventure:field_move/rock_climb".equals(
+            sample.accessRequirement()
+        );
+    }
+
     private static void migrateLegacyCaveEntrance(
         ServerLevel level, HexGrid grid, Point center,
         double forwardX, double forwardZ
@@ -1215,8 +1254,16 @@ public final class CobbleventureBootstrap {
             LOGGER.warn("Cave Pokemon Center worker placement was not completed: {}", entrance.id());
         }
         Point facilityEntrance = facilityEntrances(new FacilitySite(facility, origin)).getFirst();
+        // The cave mountain is raised after the base terrain is generated. A direct
+        // diagonal from the mouth to the facility can therefore cut straight through
+        // that mountain. Follow the authored approach back into the entrance tile
+        // first, then turn toward the facility on ordinary terrain.
         drawConfiguredRoad(
-            level, caveMouth, facilityEntrance, new RoadProfile(5, "cobblestone")
+            level, caveMouth, entranceCenter, new RoadProfile(5, "cobblestone")
+        );
+        drawConfiguredRoad(
+            level, entranceCenter, facilityEntrance,
+            new RoadProfile(5, "cobblestone")
         );
         LOGGER.info(
             "Existing Pokemon Center NBT placed for cave entrance: entrance={}, structure={}, origin={}",
@@ -1861,6 +1908,58 @@ public final class CobbleventureBootstrap {
         }
     }
 
+    private static void refreshExistingConfiguredVendors(
+        ServerLevel level, Map<String, SettlementPlan> settlements
+    ) {
+        BootstrapSavedData data = level.getServer().overworld().getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
+            DATA_FILE
+        );
+        int refreshed = 0;
+        for (SettlementPlan settlement : settlements.values()) {
+            if (!settlement.enabled() || !data.isSettlementGenerated(settlement.id())) {
+                continue;
+            }
+            for (FacilityPlacement facility : settlement.facilities()) {
+                if (!facility.id().equals("facility_pokemart")
+                    && !facility.id().equals("facility_department_store")) {
+                    continue;
+                }
+                BlockPoint origin = facility.mode().equals("instanced_entry")
+                    ? facility.instanceOrigin()
+                    : resolveDirectFacilityPosition(level, settlement, facility);
+                if (origin == null) {
+                    continue;
+                }
+                for (FacilityWorkerPlacement worker : facilityWorkers(
+                    facility.id(), settlement.vendorAssignments(), settlement.vendorUnits()
+                )) {
+                    if (!hasConfiguredVendor(level, worker.vendorUnitId())) {
+                        continue;
+                    }
+                    BlockPoint position = origin.plus(worker.offset());
+                    BlockPos blockPosition = new BlockPos(position.x(), position.y(), position.z());
+                    level.getChunkAt(blockPosition);
+                    AABB bounds = new AABB(blockPosition).inflate(2.0D);
+                    for (Entity entity : level.getEntities((Entity) null, bounds, candidate -> {
+                        ResourceLocation type = BuiltInRegistries.ENTITY_TYPE.getKey(candidate.getType());
+                        return type.equals(ResourceLocation.fromNamespaceAndPath(
+                            "cobbledollars", "cobble_merchant"
+                        ));
+                    })) {
+                        entity.discard();
+                    }
+                    if (spawnConfiguredVendor(level, worker.vendorUnitId(), position)) {
+                        refreshed++;
+                    }
+                }
+            }
+        }
+        if (refreshed > 0) {
+            LOGGER.info("Configured shop vendors refreshed from economy catalog: {}", refreshed);
+        }
+    }
+
     private static void cleanupFacilityTemplateMarkers(
         ServerLevel level, String structure, BlockPoint origin
     ) {
@@ -1991,8 +2090,8 @@ public final class CobbleventureBootstrap {
         List<String> configuredVendors = settlement == null ? null : settlement.vendorUnits();
         for (FacilityWorkerPlacement worker : facilityWorkers(facility.id(), assignments, configuredVendors)) {
             BlockPoint position = origin.plus(worker.offset());
-            if (!placeTemplate(level, worker.structure(), position)
-                && !spawnConfiguredVendor(level, worker.vendorUnitId(), position)) {
+            if (!spawnConfiguredVendor(level, worker.vendorUnitId(), position)
+                && !placeTemplate(level, worker.structure(), position)) {
                 LOGGER.error(
                     "Required facility worker placement failed: facility={}, structure={}, position={}",
                     facility.id(), worker.structure(), position
@@ -2093,24 +2192,8 @@ public final class CobbleventureBootstrap {
     private static boolean spawnConfiguredVendor(
         ServerLevel level, String vendorUnitId, BlockPoint position
     ) {
-        ResourceLocation catalogLocation = ResourceLocation.fromNamespaceAndPath(
-            "cobbleventure", "economy/catalog.json"
-        );
         try {
-            Resource resource = level.getServer().getResourceManager()
-                .getResource(catalogLocation).orElse(null);
-            if (resource == null) return false;
-            JsonObject definition = null;
-            try (Reader reader = resource.openAsReader()) {
-                JsonObject catalog = JsonParser.parseReader(reader).getAsJsonObject();
-                for (JsonElement element : catalog.getAsJsonArray("vendor_units")) {
-                    JsonObject candidate = element.getAsJsonObject();
-                    if (requiredString(candidate, "id").equals(vendorUnitId)) {
-                        definition = candidate;
-                        break;
-                    }
-                }
-            }
+            JsonObject definition = configuredVendorDefinition(level, vendorUnitId);
             if (definition == null) return false;
             CompoundTag merchant = new CompoundTag();
             String displayName = localizedString(definition, "display_name", "ko_kr")
@@ -2154,6 +2237,36 @@ public final class CobbleventureBootstrap {
             LOGGER.error("Configured merchant spawn failed: {} at {}", vendorUnitId, position, error);
             return false;
         }
+    }
+
+    private static boolean hasConfiguredVendor(ServerLevel level, String vendorUnitId) {
+        try {
+            return configuredVendorDefinition(level, vendorUnitId) != null;
+        } catch (IOException | RuntimeException error) {
+            LOGGER.error("Configured merchant lookup failed: {}", vendorUnitId, error);
+            return false;
+        }
+    }
+
+    private static JsonObject configuredVendorDefinition(
+        ServerLevel level, String vendorUnitId
+    ) throws IOException {
+        ResourceLocation catalogLocation = ResourceLocation.fromNamespaceAndPath(
+            "cobbleventure", "economy/catalog.json"
+        );
+        Resource resource = level.getServer().getResourceManager()
+            .getResource(catalogLocation).orElse(null);
+        if (resource == null) return null;
+        try (Reader reader = resource.openAsReader()) {
+            JsonObject catalog = JsonParser.parseReader(reader).getAsJsonObject();
+            for (JsonElement element : catalog.getAsJsonArray("vendor_units")) {
+                JsonObject candidate = element.getAsJsonObject();
+                if (requiredString(candidate, "id").equals(vendorUnitId)) {
+                    return candidate;
+                }
+            }
+        }
+        return null;
     }
 
     private static FacilityWorkerPlacement facilityWorker(
@@ -2407,13 +2520,22 @@ public final class CobbleventureBootstrap {
         }
         Map<Long, Integer> heights = new HashMap<>();
         for (long key : columns) {
+            int x = blockColumnX(key);
+            int z = blockColumnZ(key);
+            TerrainSample terrain = activeHexWorld == null
+                ? null : terrainAt(activeHexWorld, x + 0.5D, z + 0.5D);
+            if (terrain != null && isRockClimbTerrain(terrain)) {
+                // Rock-climb terrain must retain its authored mountain profile.
+                // Roads may mark the surface, but must not turn the mountain into
+                // wide flat terraces by borrowing a nearby guide height.
+                heights.put(key, plannedTerrainGroundY(level, x, z));
+                continue;
+            }
             Integer guideHeight = guideHeights.get(key);
             if (guideHeight != null) {
                 heights.put(key, guideHeight);
                 continue;
             }
-            int x = blockColumnX(key);
-            int z = blockColumnZ(key);
             long nearestGuide = guides.getFirst();
             int nearestDistance = Integer.MAX_VALUE;
             for (long guide : guides) {
@@ -2463,6 +2585,10 @@ public final class CobbleventureBootstrap {
         HexWorldPlan world = activeHexWorld;
         TerrainSample sample = world == null ? null : terrainAt(world, x + 0.5D, z + 0.5D);
         if (sample != null && isAquatic(sample)) return false;
+        if (world != null && isCaveMountainProtectedColumn(world, x, z)
+            && !isCaveEntrancePassage(world, x, z)) {
+            return false;
+        }
         int groundY = baseY + (slab ? 1 : 0);
         clearVegetationColumn(level, x, groundY, z, 32);
         for (int y = groundY + 1; y <= groundY + 4; y++) {
@@ -2543,7 +2669,9 @@ public final class CobbleventureBootstrap {
             int z = blockColumnZ(key);
             TerrainSample sample = world == null
                 ? null : terrainAt(world, x + 0.5D, z + 0.5D);
-            if (sample == null || isAquatic(sample)) {
+            if (sample == null || isAquatic(sample)
+                || isRockClimbTerrain(sample)
+                || isCaveMountainProtectedColumn(world, x, z)) {
                 continue;
             }
             int surfaceY = plannedTerrainGroundY(level, x, z);
@@ -2692,6 +2820,11 @@ public final class CobbleventureBootstrap {
 
     private static int plannedTerrainGroundY(ServerLevel level, int x, int z) {
         HexWorldPlan world = activeHexWorld;
+        if (world != null && NativeWorldGeneration.usesNativeGenerator(
+            level.getChunkSource().getGenerator()
+        )) {
+            return nativeTerrainColumn(world, x, z).groundY();
+        }
         TerrainSample sample = world == null ? null : terrainAt(world, x + 0.5D, z + 0.5D);
         return sample == null
             ? level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1
@@ -7598,17 +7731,32 @@ public final class CobbleventureBootstrap {
     static NativeTerrainColumn nativeTerrainColumn(
         HexWorldPlan world, int x, int z
     ) {
+        TerrainColumnKey key = new TerrainColumnKey(
+            System.identityHashCode(world), world.seed(), x, z
+        );
+        NativeTerrainColumn cached = NATIVE_TERRAIN_COLUMNS.getIfPresent(key);
+        if (cached != null) {
+            return cached;
+        }
+        NativeTerrainColumn column = computeNativeTerrainColumn(world, x, z);
+        NATIVE_TERRAIN_COLUMNS.put(key, column);
+        return column;
+    }
+
+    private static NativeTerrainColumn computeNativeTerrainColumn(
+        HexWorldPlan world, int x, int z
+    ) {
         TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
         int boundaryRockHeight = oceanBoundaryRockHeight(world, x, z);
         if (boundaryRockHeight > 0 && (sample == null || isAquatic(sample))) {
             int topY = WATER_SURFACE_Y + boundaryRockHeight;
             String biome = sample == null ? "minecraft:deep_ocean" : sample.biome();
-            return new NativeTerrainColumn(
+            return applyNativeCaveMountain(world, x, z, new NativeTerrainColumn(
                 topY, topY,
                 oceanBoundaryRock(world, x, topY, z),
                 oceanCliffRock(world, x, topY - 1, z),
-                biome, sample == null, true
-            );
+                biome, sample == null, true, sample
+            ));
         }
         if (sample == null) {
             String type = emptyTerrainAt(world, x + 0.5D, z + 0.5D);
@@ -7627,11 +7775,11 @@ public final class CobbleventureBootstrap {
                     world.seed(), "world:empty-ocean:floor", x, z, 42.0D
                 );
                 int floorY = 42 + (int) Math.round(floorNoise * 5.0D);
-                return new NativeTerrainColumn(
+                return applyNativeCaveMountain(world, x, z, new NativeTerrainColumn(
                     floorY, WATER_SURFACE_Y,
                     oceanFloorBlock(world, x, floorY, z),
-                    Blocks.STONE.defaultBlockState(), biome, true, false
-                );
+                    Blocks.STONE.defaultBlockState(), biome, true, false, null
+                ));
             }
             int topY = emptyTerrainGroundY(world, type, x, z);
             if (nearestPlayable != null && !nearestPlayable.aquatic()) {
@@ -7651,9 +7799,9 @@ public final class CobbleventureBootstrap {
             BlockState filler = type.equals("stone_mountain")
                 ? oceanCliffRock(world, x, topY - 1, z)
                 : fillerBlock(biome);
-            return new NativeTerrainColumn(
-                topY, topY, surface, filler, biome, true, false
-            );
+            return applyNativeCaveMountain(world, x, z, new NativeTerrainColumn(
+                topY, topY, surface, filler, biome, true, false, null
+            ));
         }
 
         int groundY = terrainGroundY(world, sample, x, z);
@@ -7666,15 +7814,68 @@ public final class CobbleventureBootstrap {
             : surfaceBlock(sample.biome());
         BlockState filler = sandyShore
             ? Blocks.SAND.defaultBlockState() : fillerBlock(sample.biome());
-        return new NativeTerrainColumn(
+        return applyNativeCaveMountain(world, x, z, new NativeTerrainColumn(
             groundY,
             aquatic || coastalWater ? WATER_SURFACE_Y : groundY,
             surface,
             filler,
             sample.biome(),
             false,
-            false
+            false,
+            sample
+        ));
+    }
+
+    private static NativeTerrainColumn applyNativeCaveMountain(
+        HexWorldPlan world, int x, int z, NativeTerrainColumn column
+    ) {
+        int rise = nativeCaveMountainRise(world, x, z);
+        if (rise <= 0) {
+            return column;
+        }
+        int topY = column.groundY() + rise;
+        BlockState surface = Math.floorMod(x + z, 5) == 0
+            ? Blocks.ANDESITE.defaultBlockState()
+            : Blocks.STONE.defaultBlockState();
+        return new NativeTerrainColumn(
+            topY, topY, surface, Blocks.STONE.defaultBlockState(),
+            column.biome(), column.blocked(), false, column.sample()
         );
+    }
+
+    private static int nativeCaveMountainRise(HexWorldPlan world, int x, int z) {
+        if (isCaveEntrancePassage(world, x, z)) {
+            return 0;
+        }
+        List<CaveEntrancePlan> entrances = world.caveEntrances();
+        for (int firstIndex = 0; firstIndex < entrances.size(); firstIndex++) {
+            CaveEntrancePlan firstEntrance = entrances.get(firstIndex);
+            for (int secondIndex = firstIndex + 1;
+                 secondIndex < entrances.size(); secondIndex++) {
+                CaveEntrancePlan secondEntrance = entrances.get(secondIndex);
+                if (!firstEntrance.cave().equals(secondEntrance.cave())) {
+                    continue;
+                }
+                Point first = world.grid().worldCenter(firstEntrance.anchor());
+                Point second = world.grid().worldCenter(secondEntrance.anchor());
+                int centerX = (first.x() + second.x()) / 2;
+                int centerZ = (first.z() + second.z()) / 2;
+                int radius = world.grid().radius() + 12;
+                double distance = Math.hypot(x - centerX, z - centerZ);
+                if (distance > radius) {
+                    continue;
+                }
+                double profile = Math.max(0.0D, 1.0D - distance / radius);
+                profile = profile * profile * (3.0D - 2.0D * profile);
+                double roughness = layeredNoise(
+                    world.seed(), firstEntrance.cave() + ":mountain", x, z, 22.0D
+                );
+                return Math.max(0, (int) Math.round(
+                    profile * (15.0D + roughness * 2.5D)
+                ));
+            }
+        }
+        return 0;
     }
 
     private static PlayableEdge nearestPlayableTerrain(
@@ -10654,7 +10855,8 @@ public final class CobbleventureBootstrap {
         BlockState filler,
         String biome,
         boolean blocked,
-        boolean rocky
+        boolean rocky,
+        TerrainSample sample
     ) {}
 
     record TerrainSamplePoint(Point point, TerrainSample sample) {}

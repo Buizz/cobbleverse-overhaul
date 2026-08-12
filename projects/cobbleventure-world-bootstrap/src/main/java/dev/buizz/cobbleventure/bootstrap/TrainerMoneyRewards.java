@@ -12,7 +12,6 @@ import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.logging.LogUtils;
 import fr.harmex.cobbledollars.common.utils.extensions.PlayerExtensionKt;
 import java.math.BigInteger;
@@ -24,6 +23,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -228,7 +228,7 @@ final class TrainerMoneyRewards {
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<net.minecraft.commands.CommandSourceStack, Boolean>
     preparedBonusArguments(boolean regional) {
         return Commands.argument("held_bonus", BoolArgumentType.bool())
-            .then(Commands.argument("held_item", StringArgumentType.word())
+            .then(Commands.argument("held_item", ResourceLocationArgument.id())
                 .then(Commands.argument("held_multiplier", IntegerArgumentType.integer(1))
                     .executes(context -> prepare(
                         EntityArgument.getPlayer(context, "player"),
@@ -241,7 +241,7 @@ final class TrainerMoneyRewards {
                             )
                             : IntegerArgumentType.getInteger(context, "amount"),
                         BoolArgumentType.getBool(context, "held_bonus"),
-                        StringArgumentType.getString(context, "held_item"),
+                        ResourceLocationArgument.getId(context, "held_item").toString(),
                         IntegerArgumentType.getInteger(context, "held_multiplier"),
                         regional
                             ? regionalCalculation(
@@ -272,7 +272,7 @@ final class TrainerMoneyRewards {
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<net.minecraft.commands.CommandSourceStack, Boolean>
     bonusArguments(boolean regional) {
         return Commands.argument("held_bonus", BoolArgumentType.bool())
-            .then(Commands.argument("held_item", StringArgumentType.word())
+            .then(Commands.argument("held_item", ResourceLocationArgument.id())
                 .then(Commands.argument("held_multiplier", IntegerArgumentType.integer(1))
                     .executes(context -> pay(
                         EntityArgument.getPlayer(context, "player"),
@@ -285,7 +285,7 @@ final class TrainerMoneyRewards {
                             )
                             : IntegerArgumentType.getInteger(context, "amount"),
                         BoolArgumentType.getBool(context, "held_bonus"),
-                        StringArgumentType.getString(context, "held_item"),
+                        ResourceLocationArgument.getId(context, "held_item").toString(),
                         IntegerArgumentType.getInteger(context, "held_multiplier"),
                         "직접 지급"
                     ))));

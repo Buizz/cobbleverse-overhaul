@@ -244,7 +244,7 @@ final class NativeWorldGeneration {
                     int z = startZ + localZ;
                     applyTownGroundCover(
                         chunk, position, oceanFloor, worldSurface,
-                        localX, localZ, x, z
+                        localX, localZ, x, z, columns[localX][localZ]
                     );
                     applyEmptyTerrainGroundCover(
                         chunk, position, oceanFloor, worldSurface,
@@ -331,10 +331,10 @@ final class NativeWorldGeneration {
             int localX,
             int localZ,
             int worldX,
-            int worldZ
+            int worldZ,
+            CobbleventureBootstrap.NativeTerrainColumn column
         ) {
-            CobbleventureBootstrap.TerrainSample sample =
-                CobbleventureBootstrap.terrainAt(world, worldX + 0.5D, worldZ + 0.5D);
+            CobbleventureBootstrap.TerrainSample sample = column.sample();
             if (sample == null || !sample.kind().equals("town")
                 || sample.surfaceStyle().equals("road")
                 || sample.surfaceStyle().equals("water")) {
@@ -352,8 +352,6 @@ final class NativeWorldGeneration {
             } else {
                 return;
             }
-            CobbleventureBootstrap.NativeTerrainColumn column =
-                CobbleventureBootstrap.nativeTerrainColumn(world, worldX, worldZ);
             if (column.waterTopY() > column.groundY()) {
                 return;
             }
@@ -374,9 +372,7 @@ final class NativeWorldGeneration {
             int worldZ,
             CobbleventureBootstrap.NativeTerrainColumn column
         ) {
-            if (CobbleventureBootstrap.terrainAt(
-                world, worldX + 0.5D, worldZ + 0.5D
-            ) != null || isBoundaryColumn(worldX, worldZ)) {
+            if (column.sample() != null || isBoundaryColumn(worldX, worldZ)) {
                 return;
             }
             String type = CobbleventureBootstrap.emptyTerrainAt(
