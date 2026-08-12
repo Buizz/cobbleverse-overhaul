@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import functools
 import gzip
 import hashlib
 import io
@@ -99,6 +100,7 @@ OPERATION_TYPES = {
     "start_quest",
     "complete_quest",
     "teleport",
+    "teleport_to_gate",
     "open_dialogue",
 }
 VALID_LOCK_STATUSES = {"draft", "locked"}
@@ -743,6 +745,68 @@ def validate_hex_worlds(
             resource = custom_object.get("resource")
             if resource is not None and (not isinstance(resource, str) or not RESOURCE_ID.fullmatch(resource)):
                 _issue(issues, "error", path, f"{object_path}.resource", "올바른 오브젝트 리소스 ID가 필요합니다.")
+            if object_type != "gate":
+                continue
+            if not isinstance(resource, str) or not RESOURCE_ID.fullmatch(resource):
+                _issue(issues, "error", path, f"{object_path}.resource", "관문 건물 NBT 리소스 ID가 필요합니다.")
+            rotation = custom_object.get("rotation")
+            if not isinstance(rotation, int) or isinstance(rotation, bool) or rotation not in range(4):
+                _issue(issues, "error", path, f"{object_path}.rotation", "관문 NBT 회전은 0~3이어야 합니다.")
+            properties = custom_object.get("properties")
+            if not isinstance(properties, dict):
+                _issue(issues, "error", path, f"{object_path}.properties", "관문 설정 객체가 필요합니다.")
+                continue
+            if properties.get("facing") not in {"north", "east", "south", "west"}:
+                _issue(issues, "error", path, f"{object_path}.properties.facing", "관문 방향은 north/east/south/west 중 하나여야 합니다.")
+            wall_block = properties.get("wall_block")
+            if not isinstance(wall_block, str) or not RESOURCE_ID.fullmatch(wall_block):
+                _issue(issues, "error", path, f"{object_path}.properties.wall_block", "관문 벽 블록 리소스 ID가 필요합니다.")
+            numeric_limits = {
+                "wall_thickness": (1, 15), "wall_height": (3, 32),
+                "opening_width": (3, 31), "barrier_height": (8, 128),
+            }
+            for field, (minimum, maximum) in numeric_limits.items():
+                number = properties.get(field)
+                if not isinstance(number, int) or isinstance(number, bool) or not minimum <= number <= maximum:
+                    _issue(issues, "error", path, f"{object_path}.properties.{field}", f"{minimum}~{maximum} 범위 정수가 필요합니다.")
+                elif field in {"wall_thickness", "opening_width"} and number % 2 == 0:
+                    _issue(issues, "error", path, f"{object_path}.properties.{field}", "관문 중심 정렬을 위해 홀수여야 합니다.")
+            if isinstance(properties.get("barrier_height"), int) and isinstance(properties.get("wall_height"), int) and properties["barrier_height"] <= properties["wall_height"]:
+                _issue(issues, "error", path, f"{object_path}.properties.barrier_height", "배리어 높이는 벽 높이보다 커야 합니다.")
+            if properties.get("condition_mode") not in {"all", "any"}:
+                _issue(issues, "error", path, f"{object_path}.properties.condition_mode", "조건 조합은 all 또는 any여야 합니다.")
+            npc = properties.get("npc")
+            if npc is not None and (not isinstance(npc, str) or not RESOURCE_ID.fullmatch(npc)):
+                _issue(issues, "error", path, f"{object_path}.properties.npc", "올바른 EasyNPC 프리셋 리소스 ID가 필요합니다.")
+            conditions = properties.get("conditions")
+            if not isinstance(conditions, list):
+                _issue(issues, "error", path, f"{object_path}.properties.conditions", "관문 조건 배열이 필요합니다.")
+                continue
+            for condition_index, condition in enumerate(conditions):
+                condition_path = f"{object_path}.properties.conditions[{condition_index}]"
+                if not isinstance(condition, dict):
+                    _issue(issues, "error", path, condition_path, "관문 조건은 객체여야 합니다.")
+                    continue
+                condition_type = condition.get("type")
+                if condition_type == "variable":
+                    if condition.get("source") not in {"scoreboard", "persistent_data"}:
+                        _issue(issues, "error", path, f"{condition_path}.source", "변수 출처는 scoreboard 또는 persistent_data여야 합니다.")
+                    if not isinstance(condition.get("key"), str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", condition["key"]):
+                        _issue(issues, "error", path, f"{condition_path}.key", "올바른 변수 키가 필요합니다.")
+                    if condition.get("operator") not in {"==", "!=", ">", ">=", "<", "<="}:
+                        _issue(issues, "error", path, f"{condition_path}.operator", "지원하지 않는 변수 비교 연산자입니다.")
+                    if not isinstance(condition.get("value"), (int, float)) or isinstance(condition.get("value"), bool):
+                        _issue(issues, "error", path, f"{condition_path}.value", "비교할 숫자 값이 필요합니다.")
+                elif condition_type == "item":
+                    if not isinstance(condition.get("item"), str) or not RESOURCE_ID.fullmatch(condition["item"]):
+                        _issue(issues, "error", path, f"{condition_path}.item", "올바른 아이템 리소스 ID가 필요합니다.")
+                    if not isinstance(condition.get("count"), int) or isinstance(condition.get("count"), bool) or condition["count"] < 1:
+                        _issue(issues, "error", path, f"{condition_path}.count", "아이템 수량은 1 이상 정수여야 합니다.")
+                elif condition_type == "pokemon":
+                    if not isinstance(condition.get("species"), str) or not RESOURCE_ID.fullmatch(condition["species"]):
+                        _issue(issues, "error", path, f"{condition_path}.species", "올바른 포켓몬 종 리소스 ID가 필요합니다.")
+                else:
+                    _issue(issues, "error", path, f"{condition_path}.type", "관문 조건 타입은 variable/item/pokemon 중 하나여야 합니다.")
     return issues
 
 
@@ -1301,6 +1365,14 @@ def _validate_operation(
         _resource_id(operation.get("loot_table"), issues, file, f"{data_path}.loot_table")
     elif operation_type in {"start_quest", "complete_quest", "teleport"}:
         _resource_id(operation.get("target"), issues, file, f"{data_path}.target")
+    elif operation_type == "teleport_to_gate":
+        gate = operation.get("gate")
+        if not isinstance(gate, str) or not CHOICE_ID.fullmatch(gate):
+            _issue(issues, "error", file, f"{data_path}.gate", "이동할 월드맵 관문 ID가 필요합니다.")
+        if operation.get("subject") not in {"player", "npc"}:
+            _issue(issues, "error", file, f"{data_path}.subject", "이동 대상은 player 또는 npc여야 합니다.")
+        if operation.get("side") not in {"front", "back", "center"}:
+            _issue(issues, "error", file, f"{data_path}.side", "관문 이동 위치는 front/back/center 중 하나여야 합니다.")
 
 
 def _validate_operation_list(
@@ -1336,6 +1408,35 @@ def _validate_block_position(
         if not isinstance(coordinate, int) or isinstance(coordinate, bool):
             _issue(issues, "error", file, f"{data_path}.{axis}", "정수 좌표여야 합니다.")
     return position
+
+
+def _validate_gym_condition(
+    value: Any, issues: list[Issue], file: Path, data_path: str
+) -> None:
+    condition = _require_object(value, issues, file, data_path)
+    if condition is None:
+        return
+    condition_type = condition.get("type")
+    if condition_type == "variable":
+        if condition.get("source") not in {"scoreboard", "persistent_data"}:
+            _issue(issues, "error", file, f"{data_path}.source", "변수 출처는 scoreboard 또는 persistent_data여야 합니다.")
+        key = condition.get("key")
+        if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", key):
+            _issue(issues, "error", file, f"{data_path}.key", "올바른 변수 키가 필요합니다.")
+        if condition.get("operator") not in {"==", "!=", ">", ">=", "<", "<="}:
+            _issue(issues, "error", file, f"{data_path}.operator", "지원하지 않는 변수 비교 연산자입니다.")
+        number = condition.get("value")
+        if not isinstance(number, (int, float)) or isinstance(number, bool):
+            _issue(issues, "error", file, f"{data_path}.value", "비교할 숫자 값이 필요합니다.")
+    elif condition_type == "item":
+        _resource_id(condition.get("item"), issues, file, f"{data_path}.item")
+        count = condition.get("count")
+        if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+            _issue(issues, "error", file, f"{data_path}.count", "아이템 수량은 1 이상 정수여야 합니다.")
+    elif condition_type == "pokemon":
+        _resource_id(condition.get("species"), issues, file, f"{data_path}.species")
+    else:
+        _issue(issues, "error", file, f"{data_path}.type", "체육관 문 조건 타입은 variable/item/pokemon 중 하나여야 합니다.")
 
 
 def _validate_horizontal_bounds(
@@ -1673,6 +1774,32 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 "$.structure_profile.commercial_center",
                 "none, pokemart 또는 department_store 중 하나가 필요합니다.",
             )
+        shop_configuration = structure_profile.get("shop_configuration")
+        if shop_configuration is not None:
+            shop_configuration = _require_object(
+                shop_configuration, issues, path, "$.structure_profile.shop_configuration"
+            )
+            if shop_configuration is not None:
+                _resource_id(
+                    shop_configuration.get("catalog_id"), issues, path,
+                    "$.structure_profile.shop_configuration.catalog_id",
+                )
+                vendor_units = _require_list(
+                    shop_configuration.get("vendor_units"), issues, path,
+                    "$.structure_profile.shop_configuration.vendor_units",
+                )
+                seen_vendor_units: set[str] = set()
+                for index, vendor_unit in enumerate(vendor_units or []):
+                    vendor_path = f"$.structure_profile.shop_configuration.vendor_units[{index}]"
+                    vendor_id = _resource_id(vendor_unit, issues, path, vendor_path)
+                    if vendor_id and vendor_id in seen_vendor_units:
+                        _issue(issues, "error", path, vendor_path, f"중복 판매원 단위: {vendor_id}")
+                    if vendor_id:
+                        seen_vendor_units.add(vendor_id)
+                if commercial_center == "none" and vendor_units:
+                    _issue(issues, "error", path, "$.structure_profile.shop_configuration.vendor_units", "상업 시설이 없으면 판매원을 지정할 수 없습니다.")
+                if commercial_center == "pokemart" and len(vendor_units or []) > 1:
+                    _issue(issues, "error", path, "$.structure_profile.shop_configuration.vendor_units", "프렌들리숍은 판매원 단위 하나만 지정할 수 있습니다.")
         starter_layout = structure_profile.get("starter_layout")
         starter_town = str(root.get("id", "")).endswith("/starter_town")
         if starter_town:
@@ -1877,6 +2004,55 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             league_entry = gym.get("league_entry_id")
             if league_entry not in {None, ""}:
                 _resource_id(league_entry, issues, path, "$.structure_profile.gym.league_entry_id")
+            entrance = gym.get("entrance")
+            if entrance is not None:
+                entrance = _require_object(
+                    entrance, issues, path, "$.structure_profile.gym.entrance"
+                )
+            if entrance is not None:
+                for field in ("door_offset", "outside_offset"):
+                    if field in entrance:
+                        _validate_block_position(
+                            entrance[field], issues, path,
+                            f"$.structure_profile.gym.entrance.{field}",
+                        )
+                if entrance.get("facing", "north") not in {"north", "east", "south", "west"}:
+                    _issue(issues, "error", path, "$.structure_profile.gym.entrance.facing", "방향은 north/east/south/west 중 하나여야 합니다.")
+                if entrance.get("condition_mode", "all") not in {"all", "any"}:
+                    _issue(issues, "error", path, "$.structure_profile.gym.entrance.condition_mode", "조건 조합은 all 또는 any여야 합니다.")
+                conditions = entrance.get("conditions", [])
+                if not isinstance(conditions, list):
+                    _issue(issues, "error", path, "$.structure_profile.gym.entrance.conditions", "체육관 문 조건 배열이 필요합니다.")
+                else:
+                    for index, condition in enumerate(conditions):
+                        _validate_gym_condition(
+                            condition, issues, path,
+                            f"$.structure_profile.gym.entrance.conditions[{index}]",
+                        )
+                for field in ("locked_dialogue", "enter_dialogue"):
+                    if field not in entrance:
+                        continue
+                    dialogue = entrance[field]
+                    if not isinstance(dialogue, list) or (
+                        field == "locked_dialogue" and not dialogue
+                    ) or any(not isinstance(line, str) or not line.strip() for line in dialogue):
+                        _issue(issues, "error", path, f"$.structure_profile.gym.entrance.{field}", "비어 있지 않은 대사 문자열 배열이어야 합니다.")
+            interior = gym.get("interior")
+            if interior is not None:
+                interior = _require_object(
+                    interior, issues, path, "$.structure_profile.gym.interior"
+                )
+            if interior is not None:
+                if "structure" in interior:
+                    _resource_id(interior["structure"], issues, path, "$.structure_profile.gym.interior.structure")
+                for field in ("entry_offset", "exit_door_offset", "leader_offset"):
+                    if field in interior:
+                        _validate_block_position(
+                            interior[field], issues, path,
+                            f"$.structure_profile.gym.interior.{field}",
+                        )
+                if "leader_npc" in interior:
+                    _resource_id(interior["leader_npc"], issues, path, "$.structure_profile.gym.interior.leader_npc")
 
         facility_placements = structure_profile.get("facility_placements", [])
         if not isinstance(facility_placements, list):
@@ -2617,6 +2793,8 @@ def validate_npc_file(path: Path) -> tuple[str | None, list[Issue]]:
     if npc is not None:
         _localized_text(npc.get("display_name"), issues, path, "$.npc.display_name")
         _resource_id(npc.get("trainer_class"), issues, path, "$.npc.trainer_class")
+        if npc.get("role", "default") not in {"default", "gatekeeper"}:
+            _issue(issues, "error", path, "$.npc.role", "NPC 역할은 default 또는 gatekeeper여야 합니다.")
         double_battle = npc.get("double_battle")
         if double_battle is not None:
             double_battle = _require_object(double_battle, issues, path, "$.npc.double_battle")
@@ -2856,7 +3034,8 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     event_ids: set[str] = set()
     command_types = {
         "branch", "label", "dialogue", "choices", "goto", "start_battle",
-        "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "end",
+        "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot",
+        "teleport_to_gate", "end",
     }
     for event_index, event_value in enumerate(events):
         event_path = f"$.events[{event_index}]"
@@ -2941,6 +3120,14 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
                             targets.append((f"{command_path}.results.{key}", target))
             elif command_type in {"set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot"}:
                 _validate_operation(command, issues, path, command_path, npc_id, [])
+            elif command_type == "teleport_to_gate":
+                gate = command.get("gate")
+                if not isinstance(gate, str) or not CHOICE_ID.fullmatch(gate):
+                    _issue(issues, "error", path, f"{command_path}.gate", "이동할 월드맵 관문 ID가 필요합니다.")
+                if command.get("subject") not in {"player", "npc"}:
+                    _issue(issues, "error", path, f"{command_path}.subject", "이동 대상은 player 또는 npc여야 합니다.")
+                if command.get("side") not in {"front", "back", "center"}:
+                    _issue(issues, "error", path, f"{command_path}.side", "관문 이동 위치는 front/back/center 중 하나여야 합니다.")
         for target_path, target in targets:
             if target not in labels:
                 _issue(issues, "error", path, target_path, f"존재하지 않는 이벤트 라벨: {target}")
@@ -3392,6 +3579,342 @@ def save_game_definitions(root: Path, data: Any) -> list[Issue]:
     return issues
 
 
+ECONOMY_VENDOR_ROLES = {
+    "pokemart_shopkeeper": "프렌들리숍 판매원",
+    "shopkeeper_ds_apricorns": "규토리·씨앗 판매원",
+    "shopkeeper_ds_battle_items": "배틀 아이템 판매원",
+    "shopkeeper_ds_ev-stone": "진화의 돌 판매원",
+    "shopkeeper_ds_ev-stone_2": "진화 아이템 판매원",
+    "shopkeeper_ds_food": "식품 판매원",
+    "shopkeeper_ds_general": "종합 판매원",
+    "shopkeeper_ds_held_items": "지닌물건 판매원",
+    "shopkeeper_ds_held_items_2": "전략 아이템 판매원",
+    "shopkeeper_ds_mulch": "비료 판매원",
+    "shopkeeper_ds_special_balls": "특수 볼 판매원",
+    "shopkeeper_ds_tech": "포켓몬 기기 판매원",
+    "shopkeeper_ds_vitamins": "영양제 판매원",
+    "shopkeeper_ds_xp": "경험치 아이템 판매원",
+    "shopkeeper_potions": "포션 판매원",
+    "store_worker_currency-exchange": "환전상",
+}
+
+DEFAULT_DEPARTMENT_STORE_VENDOR_IDS = [
+    "bca:shopkeeper_ds_vitamins", "bca:shopkeeper_ds_battle_items",
+    "bca:shopkeeper_ds_tech", "bca:shopkeeper_ds_general",
+    "bca:shopkeeper_ds_special_balls", "bca:shopkeeper_ds_food",
+    "bca:store_worker_currency-exchange", "bca:shopkeeper_ds_held_items_2",
+    "bca:shopkeeper_ds_ev-stone", "bca:shopkeeper_ds_ev-stone_2",
+    "bca:shopkeeper_ds_held_items", "bca:shopkeeper_ds_xp",
+    "bca:shopkeeper_ds_apricorns", "bca:shopkeeper_ds_mulch",
+]
+
+
+@functools.lru_cache(maxsize=4)
+def _economy_vendor_units_from_bca(root: Path) -> list[dict[str, Any]]:
+    mods = root / "pack" / "overrides" / "development-placeholder" / "mods"
+    jars = sorted(mods.glob("cobblemon-additions-*.jar")) if mods.exists() else []
+    if not jars:
+        return []
+    vendors: list[dict[str, Any]] = []
+    prefix = "data/bca/structure/stores/store_workers/"
+    with zipfile.ZipFile(jars[-1]) as archive:
+        for member in sorted(archive.namelist()):
+            if not member.startswith(prefix) or not member.endswith(".nbt"):
+                continue
+            stem = Path(member).stem
+            if stem == "nurse_joy":
+                continue
+            structure = _read_minecraft_structure_root(archive.read(member))
+            merchant = next((
+                entity.get("nbt", {}) for entity in structure.get("entities", [])
+                if isinstance(entity, dict)
+                and isinstance(entity.get("nbt"), dict)
+                and isinstance(entity["nbt"].get("CobbleMerchantShop"), list)
+            ), None)
+            if not merchant:
+                continue
+            categories: list[dict[str, Any]] = []
+            for category in merchant.get("CobbleMerchantShop", []):
+                if not isinstance(category, dict) or not isinstance(category.get("Offers"), list):
+                    continue
+                offers = []
+                for offer in category["Offers"]:
+                    stack = offer.get("Item", {}) if isinstance(offer, dict) else {}
+                    if not isinstance(stack, dict) or not isinstance(stack.get("id"), str):
+                        continue
+                    offers.append({
+                        "item": stack["id"],
+                        "count": int(stack.get("count", 1)),
+                        "price": str(offer.get("Price", "0")),
+                    })
+                categories.append({"name": str(category.get("Category", "기타")), "offers": offers})
+            vendors.append({
+                "id": f"bca:{stem}",
+                "facility_scope": "pokemart" if stem == "pokemart_shopkeeper" else "department_store",
+                "role": ECONOMY_VENDOR_ROLES.get(stem, stem),
+                "display_name": str(merchant.get("CustomName", stem)).strip('"'),
+                "npc_template": f"bca:{stem}",
+                "categories": categories,
+                "origin": "cobblemon_additions",
+                "source": member,
+            })
+    return vendors
+
+
+def _cobblemon_species_root(root: Path) -> Path | None:
+    candidates = [
+        root / ".tmp" / "cobblemon-1.7.3-source" / "common" / "src" / "main" / "resources" / "data" / "cobblemon" / "species",
+        root / ".tmp" / "cobblemon-1.7.3-full" / "cobblemon-1.7.3" / "common" / "src" / "main" / "resources" / "data" / "cobblemon" / "species",
+    ]
+    return next((candidate for candidate in candidates if candidate.exists()), None)
+
+
+@functools.lru_cache(maxsize=4)
+def _economy_pokemon_drops_from_cobblemon(root: Path) -> list[dict[str, Any]]:
+    species_root = _cobblemon_species_root(root)
+    if species_root is None:
+        return []
+    catalog = []
+    for path in sorted(species_root.rglob("*.json")):
+        try:
+            species = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(species, dict) or not isinstance(species.get("drops"), dict):
+            continue
+        species_id = species.get("name")
+        if not isinstance(species_id, str) or not species_id:
+            species_id = path.stem
+        if ":" not in species_id:
+            species_id = f"cobblemon:{species_id.lower()}"
+        catalog.append({
+            "species": species_id.lower(),
+            "display_name": species.get("name", path.stem),
+            "amount": species["drops"].get("amount", 0),
+            "entries": copy.deepcopy(species["drops"].get("entries", [])),
+            "origin": "cobblemon",
+            "source": path.relative_to(species_root).as_posix(),
+        })
+    return catalog
+
+
+def load_economy_workspace(root: Path) -> dict[str, Any]:
+    catalog = load_json(root / "content" / "catalogs" / "economy.json")
+    built_in_vendors = _economy_vendor_units_from_bca(root)
+    custom_vendors = catalog.get("vendor_units", []) if isinstance(catalog, dict) else []
+    vendor_by_id = {vendor["id"]: vendor for vendor in built_in_vendors}
+    for vendor in custom_vendors:
+        if isinstance(vendor, dict) and isinstance(vendor.get("id"), str):
+            vendor_by_id[vendor["id"]] = {**copy.deepcopy(vendor), "origin": "custom"}
+    built_in_catalogs = [
+        {
+            "id": "cobbleventure:shop_catalog/pokemart_default",
+            "display_name": "기본 프렌들리숍",
+            "facility_scope": "pokemart",
+            "vendor_units": ["bca:pokemart_shopkeeper"],
+            "origin": "built_in",
+        },
+        {
+            "id": "cobbleventure:shop_catalog/department_store_default",
+            "display_name": "기본 백화점",
+            "facility_scope": "department_store",
+            "vendor_units": DEFAULT_DEPARTMENT_STORE_VENDOR_IDS,
+            "origin": "built_in",
+        },
+    ]
+    catalog_by_id = {entry["id"]: entry for entry in built_in_catalogs}
+    for shop_catalog in catalog.get("shop_catalogs", []):
+        if isinstance(shop_catalog, dict) and isinstance(shop_catalog.get("id"), str):
+            catalog_by_id[shop_catalog["id"]] = {**copy.deepcopy(shop_catalog), "origin": "custom"}
+    base_drops = _economy_pokemon_drops_from_cobblemon(root)
+    drop_by_species = {entry["species"]: entry for entry in base_drops}
+    for override in catalog.get("pokemon_drop_overrides", []):
+        if isinstance(override, dict) and isinstance(override.get("species"), str):
+            existing = drop_by_species.get(override["species"], {})
+            drop_by_species[override["species"]] = {
+                **existing, **copy.deepcopy(override), "origin": "override",
+                "display_name": existing.get("display_name", override["species"].split(":")[-1]),
+            }
+    return {
+        **catalog,
+        "resolved_shop_catalogs": sorted(catalog_by_id.values(), key=lambda entry: entry.get("display_name", "")),
+        "resolved_vendor_units": sorted(vendor_by_id.values(), key=lambda entry: (entry.get("facility_scope", ""), entry.get("role", ""))),
+        "resolved_pokemon_drops": sorted(drop_by_species.values(), key=lambda entry: entry.get("species", "")),
+        "source_status": {
+            "cobblemon_additions_vendors": len(built_in_vendors),
+            "cobblemon_species_drops": len(base_drops),
+        },
+    }
+
+
+def validate_economy_catalog_file(path: Path, known_drop_items: set[str] | None = None) -> list[Issue]:
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return issues
+    root = _require_object(data, issues, path, "$")
+    if root is None:
+        return issues
+    if root.get("schema_version") != 2:
+        _issue(issues, "error", path, "$.schema_version", "지원 버전은 2입니다.")
+    if root.get("vanilla_crafting_disabled") is not True:
+        _issue(issues, "error", path, "$.vanilla_crafting_disabled", "바닐라 조합법 비활성화가 true여야 합니다.")
+
+    seen_ids: set[str] = set()
+    shop_catalogs = _require_list(root.get("shop_catalogs"), issues, path, "$.shop_catalogs")
+    for index, value in enumerate(shop_catalogs or []):
+        entry_path = f"$.shop_catalogs[{index}]"
+        shop_catalog = _require_object(value, issues, path, entry_path)
+        if shop_catalog is None:
+            continue
+        catalog_id = _resource_id(shop_catalog.get("id"), issues, path, f"{entry_path}.id")
+        if catalog_id:
+            if catalog_id in seen_ids:
+                _issue(issues, "error", path, f"{entry_path}.id", f"중복 경제 콘텐츠 ID: {catalog_id}")
+            seen_ids.add(catalog_id)
+        if not isinstance(shop_catalog.get("display_name"), str) or not shop_catalog["display_name"].strip():
+            _issue(issues, "error", path, f"{entry_path}.display_name", "상점 카탈로그 이름이 필요합니다.")
+        if shop_catalog.get("facility_scope") not in {"pokemart", "department_store", "specialty"}:
+            _issue(issues, "error", path, f"{entry_path}.facility_scope", "상점 카탈로그 사용 시설이 올바르지 않습니다.")
+        catalog_vendors = _require_list(shop_catalog.get("vendor_units"), issues, path, f"{entry_path}.vendor_units")
+        if catalog_vendors is not None and not catalog_vendors:
+            _issue(issues, "error", path, f"{entry_path}.vendor_units", "판매원 단위가 하나 이상 필요합니다.")
+        for vendor_index, vendor_id in enumerate(catalog_vendors or []):
+            _resource_id(vendor_id, issues, path, f"{entry_path}.vendor_units[{vendor_index}]")
+    vendors = _require_list(root.get("vendor_units"), issues, path, "$.vendor_units")
+    for index, value in enumerate(vendors or []):
+        entry_path = f"$.vendor_units[{index}]"
+        vendor = _require_object(value, issues, path, entry_path)
+        if vendor is None:
+            continue
+        vendor_id = _resource_id(vendor.get("id"), issues, path, f"{entry_path}.id")
+        if vendor_id:
+            if vendor_id in seen_ids:
+                _issue(issues, "error", path, f"{entry_path}.id", f"중복 경제 콘텐츠 ID: {vendor_id}")
+            seen_ids.add(vendor_id)
+        _resource_id(vendor.get("npc_template"), issues, path, f"{entry_path}.npc_template")
+        facility = vendor.get("facility_scope")
+        if facility not in {"pokemart", "department_store", "specialty"}:
+            _issue(issues, "error", path, f"{entry_path}.facility_scope", "판매원 사용 범위가 올바르지 않습니다.")
+        if not isinstance(vendor.get("role"), str) or not vendor["role"].strip():
+            _issue(issues, "error", path, f"{entry_path}.role", "기술머신 판매원 같은 판매원 역할이 필요합니다.")
+        if not isinstance(vendor.get("display_name"), str) or not vendor["display_name"].strip():
+            _issue(issues, "error", path, f"{entry_path}.display_name", "판매 NPC 표시 이름이 필요합니다.")
+        categories = _require_list(vendor.get("categories"), issues, path, f"{entry_path}.categories")
+        seen_items: set[str] = set()
+        for category_index, category_value in enumerate(categories or []):
+            category_path = f"{entry_path}.categories[{category_index}]"
+            category = _require_object(category_value, issues, path, category_path)
+            if category is None:
+                continue
+            if not isinstance(category.get("name"), str) or not category["name"].strip():
+                _issue(issues, "error", path, f"{category_path}.name", "판매 카테고리 이름이 필요합니다.")
+            offers = _require_list(category.get("offers"), issues, path, f"{category_path}.offers")
+            for offer_index, offer_value in enumerate(offers or []):
+                offer_path = f"{category_path}.offers[{offer_index}]"
+                offer = _require_object(offer_value, issues, path, offer_path)
+                if offer is None:
+                    continue
+                item_id = _resource_id(offer.get("item"), issues, path, f"{offer_path}.item")
+                if item_id and item_id in seen_items:
+                    _issue(issues, "error", path, f"{offer_path}.item", f"같은 판매원 단위의 중복 판매 아이템: {item_id}")
+                if item_id:
+                    seen_items.add(item_id)
+                count = offer.get("count")
+                if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+                    _issue(issues, "error", path, f"{offer_path}.count", "판매 수량은 1 이상 정수여야 합니다.")
+                if not isinstance(offer.get("price"), str) or not offer["price"].strip():
+                    _issue(issues, "error", path, f"{offer_path}.price", "CobbleDollars 가격 문자열이 필요합니다.")
+
+    drop_items: set[str] = set(known_drop_items or set())
+    drops = _require_list(root.get("pokemon_drop_overrides"), issues, path, "$.pokemon_drop_overrides")
+    for index, value in enumerate(drops or []):
+        entry_path = f"$.pokemon_drop_overrides[{index}]"
+        drop = _require_object(value, issues, path, entry_path)
+        if drop is None:
+            continue
+        _resource_id(drop.get("species"), issues, path, f"{entry_path}.species")
+        amount = drop.get("amount")
+        if not ((isinstance(amount, int) and not isinstance(amount, bool) and amount >= 0) or (isinstance(amount, str) and re.fullmatch(r"[0-9]+-[0-9]+", amount))):
+            _issue(issues, "error", path, f"{entry_path}.amount", "Cobblemon 드롭 amount는 0 이상 정수 또는 1-3 형식이어야 합니다.")
+        entries = _require_list(drop.get("entries"), issues, path, f"{entry_path}.entries")
+        for entry_index, entry_value in enumerate(entries or []):
+            drop_entry_path = f"{entry_path}.entries[{entry_index}]"
+            drop_entry = _require_object(entry_value, issues, path, drop_entry_path)
+            if drop_entry is None:
+                continue
+            item_id = _resource_id(drop_entry.get("item"), issues, path, f"{drop_entry_path}.item")
+            if item_id:
+                drop_items.add(item_id)
+            percentage = drop_entry.get("percentage")
+            if not isinstance(percentage, (int, float)) or isinstance(percentage, bool) or not 0 < percentage <= 100:
+                _issue(issues, "error", path, f"{drop_entry_path}.percentage", "Cobblemon percentage는 0보다 크고 100 이하여야 합니다.")
+
+    recipes = _require_list(root.get("npc_recipes"), issues, path, "$.npc_recipes")
+    for index, value in enumerate(recipes or []):
+        entry_path = f"$.npc_recipes[{index}]"
+        recipe = _require_object(value, issues, path, entry_path)
+        if recipe is None:
+            continue
+        recipe_id = _resource_id(recipe.get("id"), issues, path, f"{entry_path}.id")
+        if recipe_id:
+            if recipe_id in seen_ids:
+                _issue(issues, "error", path, f"{entry_path}.id", f"중복 경제 콘텐츠 ID: {recipe_id}")
+            seen_ids.add(recipe_id)
+        _resource_id(recipe.get("npc"), issues, path, f"{entry_path}.npc")
+        if not isinstance(recipe.get("display_name"), str) or not recipe["display_name"].strip():
+            _issue(issues, "error", path, f"{entry_path}.display_name", "제작법 표시 이름이 필요합니다.")
+        if not isinstance(recipe.get("unlock_note"), str):
+            _issue(issues, "error", path, f"{entry_path}.unlock_note", "해금 조건 설명은 문자열이어야 합니다.")
+        output = _require_object(recipe.get("output"), issues, path, f"{entry_path}.output")
+        if output is not None:
+            _resource_id(output.get("item"), issues, path, f"{entry_path}.output.item")
+            count = output.get("count")
+            if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+                _issue(issues, "error", path, f"{entry_path}.output.count", "결과 수량은 1 이상 정수여야 합니다.")
+        ingredients = _require_list(recipe.get("ingredients"), issues, path, f"{entry_path}.ingredients")
+        if ingredients is not None and not ingredients:
+            _issue(issues, "error", path, f"{entry_path}.ingredients", "포켓몬 드롭 재료가 하나 이상 필요합니다.")
+        for ingredient_index, ingredient_value in enumerate(ingredients or []):
+            ingredient_path = f"{entry_path}.ingredients[{ingredient_index}]"
+            ingredient = _require_object(ingredient_value, issues, path, ingredient_path)
+            if ingredient is None:
+                continue
+            ingredient_id = _resource_id(ingredient.get("item"), issues, path, f"{ingredient_path}.item")
+            if ingredient_id and ingredient_id not in drop_items:
+                _issue(issues, "error", path, f"{ingredient_path}.item", f"포켓몬 드롭으로 등록되지 않은 제작 재료입니다: {ingredient_id}")
+            count = ingredient.get("count")
+            if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+                _issue(issues, "error", path, f"{ingredient_path}.count", "재료 수량은 1 이상 정수여야 합니다.")
+    return issues
+
+
+def save_economy_catalog(root: Path, data: Any) -> list[Issue]:
+    target = root / "content" / "catalogs" / "economy.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as directory:
+        candidate = Path(directory) / target.name
+        persistent = copy.deepcopy(data) if isinstance(data, dict) else data
+        if isinstance(persistent, dict):
+            persistent.pop("resolved_shop_catalogs", None)
+            persistent.pop("resolved_vendor_units", None)
+            persistent.pop("resolved_pokemon_drops", None)
+            persistent.pop("source_status", None)
+        candidate.write_text(json.dumps(persistent, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        source_items = {
+            entry.get("item") for drop in _economy_pokemon_drops_from_cobblemon(root)
+            for entry in drop.get("entries", []) if isinstance(entry, dict) and isinstance(entry.get("item"), str)
+        }
+        issues = validate_economy_catalog_file(candidate, source_items)
+    if not any(issue.level == "error" for issue in issues):
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(persistent, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(target)
+    return issues
+
+
 def validate_league_progression_file(
     path: Path, trainer_ids: set[str] | None = None
 ) -> tuple[set[str], list[Issue]]:
@@ -3479,6 +4002,13 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
     root = root.resolve()
     issues = validate_dependency_lock(root / "pack" / "dependencies.lock.json", strict_pack)
     issues.extend(validate_game_definitions_file(root / "content" / "catalogs" / "game-definitions.json"))
+    economy_source_items = {
+        entry.get("item") for drop in _economy_pokemon_drops_from_cobblemon(root)
+        for entry in drop.get("entries", []) if isinstance(entry, dict) and isinstance(entry.get("item"), str)
+    }
+    issues.extend(validate_economy_catalog_file(
+        root / "content" / "catalogs" / "economy.json", economy_source_items
+    ))
     trainer_class_path = root / "content" / "catalogs" / "trainer-classes.json"
     issues.extend(validate_trainer_class_catalog(trainer_class_path))
     issues.extend(validate_biome_catalogs(root))
@@ -4382,6 +4912,7 @@ def _npc_event_template(slug: str, name: str) -> dict[str, Any]:
         "tags": ["npc"],
         "npc": {
             "display_name": {"ko_kr": name},
+            "role": "default",
             "trainer_class": "cobbleventure:trainer_class/youngster",
             "appearance": {
                 "source": "rct_single", "type": "skin",
@@ -5114,6 +5645,7 @@ STRUCTURE_VIEWER_REQUIRED_EXTERNAL = {
     "bca:default/one_off/structure_pokemart",
     "bca:default/centers/center_department_store",
 }
+BUILDING_SETTINGS_PATH = Path("content/catalogs/building-settings.json")
 
 
 def managed_structure_files(root: Path) -> dict[str, Path]:
@@ -5125,6 +5657,140 @@ def managed_structure_files(root: Path) -> dict[str, Path]:
         for path in sorted(source_root.rglob("*.nbt"))
         if path.is_file()
     }
+
+
+def _structure_npc_labels(path: Path) -> list[dict[str, Any]]:
+    metadata_path = path.with_suffix(".structure.json")
+    if not metadata_path.is_file():
+        return []
+    document = load_json(metadata_path)
+    anchors = document.get("anchors", []) if isinstance(document, dict) else []
+    labels: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for anchor in anchors if isinstance(anchors, list) else []:
+        if not isinstance(anchor, dict) or anchor.get("type") != "npc_position":
+            continue
+        label = anchor.get("label")
+        position = anchor.get("position")
+        if (
+            not isinstance(label, str)
+            or not DOCUMENT_SLUG.fullmatch(label)
+            or label in seen
+            or not isinstance(position, list)
+            or len(position) != 3
+            or any(not isinstance(value, int) or isinstance(value, bool) for value in position)
+        ):
+            continue
+        seen.add(label)
+        labels.append({"label": label, "position": position})
+    return labels
+
+
+def _default_building_settings() -> dict[str, Any]:
+    return {"schema_version": 1, "buildings": {}}
+
+
+def load_building_settings(root: Path) -> dict[str, Any]:
+    path = root / BUILDING_SETTINGS_PATH
+    document = load_json(path) if path.is_file() else _default_building_settings()
+    if not isinstance(document, dict) or document.get("schema_version") != 1:
+        raise ValueError("건물 설정 schema_version은 1이어야 합니다.")
+    buildings = document.get("buildings", {})
+    if not isinstance(buildings, dict):
+        raise ValueError("건물 설정 buildings는 객체여야 합니다.")
+    return {"schema_version": 1, "buildings": buildings}
+
+
+def building_settings_payload(root: Path) -> dict[str, Any]:
+    settings = load_building_settings(root)
+    configured = settings["buildings"]
+    structures: dict[str, dict[str, Any]] = {}
+    for resource_id, path in managed_structure_files(root).items():
+        metadata = read_minecraft_structure_metadata(path.read_bytes())
+        relative = path.relative_to(root / "content" / "structures")
+        residential = bool(relative.parts and relative.parts[0] == "houses")
+        entry = configured.get(resource_id, {})
+        if not isinstance(entry, dict):
+            entry = {}
+        structures[resource_id] = {
+            **metadata,
+            "source": path.relative_to(root).as_posix(),
+            "npc_labels": _structure_npc_labels(path),
+            "residential": residential,
+            "settings": {
+                "fixed_npcs": entry.get("fixed_npcs", {})
+                if isinstance(entry.get("fixed_npcs", {}), dict) else {},
+                "random_citizen_eligible": bool(
+                    entry.get("random_citizen_eligible", residential)
+                ),
+            },
+        }
+    return {
+        "schema_version": 1,
+        "structures": structures,
+        "npcs": _list_documents(root, "trainers"),
+        "path": BUILDING_SETTINGS_PATH.as_posix(),
+    }
+
+
+def save_building_settings(root: Path, data: Any) -> list[Issue]:
+    path = root / BUILDING_SETTINGS_PATH
+    issues: list[Issue] = []
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+        return [Issue("error", path.as_posix(), "$.schema_version", "버전 1이 필요합니다.")]
+    buildings = data.get("buildings")
+    if not isinstance(buildings, dict):
+        return [Issue("error", path.as_posix(), "$.buildings", "건물 설정 객체가 필요합니다.")]
+    structure_files = managed_structure_files(root)
+    npc_ids = {item.get("id") for item in _list_documents(root, "trainers") if item.get("id")}
+    normalized: dict[str, Any] = {}
+    for resource_id, settings in sorted(buildings.items()):
+        entry_path = f"$.buildings.{resource_id}"
+        structure = structure_files.get(resource_id)
+        if structure is None:
+            _issue(issues, "error", path, entry_path, "관리 대상 NBT 구조물이 아닙니다.")
+            continue
+        if not isinstance(settings, dict):
+            _issue(issues, "error", path, entry_path, "건물 설정은 객체여야 합니다.")
+            continue
+        relative = structure.relative_to(root / "content" / "structures")
+        residential = bool(relative.parts and relative.parts[0] == "houses")
+        fixed = settings.get("fixed_npcs", {})
+        if not isinstance(fixed, dict):
+            _issue(issues, "error", path, f"{entry_path}.fixed_npcs", "고정 NPC 배정은 객체여야 합니다.")
+            continue
+        labels = {item["label"] for item in _structure_npc_labels(structure)}
+        normalized_fixed: dict[str, str] = {}
+        for label, npc_id in sorted(fixed.items()):
+            if label not in labels:
+                _issue(issues, "error", path, f"{entry_path}.fixed_npcs.{label}", "NBT에 없는 NPC 라벨입니다.")
+            elif not isinstance(npc_id, str) or npc_id not in npc_ids:
+                _issue(issues, "error", path, f"{entry_path}.fixed_npcs.{label}", "존재하는 NPC 콘텐츠를 선택해야 합니다.")
+            else:
+                normalized_fixed[label] = npc_id
+        if residential and normalized_fixed:
+            _issue(issues, "error", path, f"{entry_path}.fixed_npcs", "시민 주택에는 고정 NPC를 배정하지 않습니다.")
+        normalized[resource_id] = {
+            "fixed_npcs": {} if residential else normalized_fixed,
+            "random_citizen_eligible": bool(
+                settings.get("random_citizen_eligible", residential)
+            ) if residential else False,
+        }
+    if any(issue.level == "error" for issue in issues):
+        return issues
+    document = {"schema_version": 1, "buildings": normalized}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.stem}-", suffix=".json.tmp", dir=path.parent
+    )
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as output:
+            json.dump(document, output, ensure_ascii=False, indent=2)
+            output.write("\n")
+        os.replace(temporary_name, path)
+    finally:
+        Path(temporary_name).unlink(missing_ok=True)
+    return issues
 
 
 def structure_mod_roots(root: Path) -> list[Path]:
@@ -5331,6 +5997,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
     structure_size_catalog_signature: tuple[tuple[str, int, int], ...] | None = None
     structure_viewer_catalog: dict[str, dict[str, Any]] | None = None
     structure_viewer_catalog_signature: tuple[tuple[str, int, int], ...] | None = None
+    structure_viewer_catalog_lock = threading.Lock()
     structure_model_cache: dict[str, dict[str, Any]] = {}
     structure_model_cache_signature: tuple[tuple[str, int, int], ...] | None = None
     remote_image_cache: dict[str, bytes] = {}
@@ -5420,6 +6087,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 "/index.html": web_root / "index.html",
                 "/app.js": web_root / "app.js",
                 "/styles.css": web_root / "styles.css",
+                "/economy.css": web_root / "economy.css",
                 "/pokemon-entry-clipboard.mjs": root
                 / "projects"
                 / "cobbleventure-battle-ai"
@@ -5533,6 +6201,12 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
             if request.path == "/api/game-definitions":
                 try:
                     self._json(200, load_json(root / "content" / "catalogs" / "game-definitions.json"))
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/economy":
+                try:
+                    self._json(200, load_economy_workspace(root))
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
@@ -5725,13 +6399,19 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
             if request.path == "/api/structure-viewer":
                 nonlocal structure_viewer_catalog, structure_viewer_catalog_signature
                 try:
-                    with structure_size_catalog_lock:
+                    with structure_viewer_catalog_lock:
                         signature = structure_catalog_signature(root)
                         if structure_viewer_catalog is None or signature != structure_viewer_catalog_signature:
                             structure_viewer_catalog = load_structure_viewer_catalog(root)
                             structure_viewer_catalog_signature = signature
                     self._json(200, {"structures": structure_viewer_catalog})
                 except (OSError, ValueError, EOFError, struct.error, zipfile.BadZipFile) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/building-settings":
+                try:
+                    self._json(200, building_settings_payload(root))
+                except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/structure-model":
@@ -5892,6 +6572,29 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     return
                 errors = sum(issue.level == "error" for issue in issues)
                 self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
+            if request.path == "/api/economy":
+                try:
+                    payload = self._read_json()
+                    issues = save_economy_catalog(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
+            if request.path == "/api/building-settings":
+                try:
+                    payload = self._read_json()
+                    issues = save_building_settings(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(
+                    200 if errors == 0 else 422,
+                    {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]},
+                )
                 return
             if request.path == "/api/league-progression":
                 try:

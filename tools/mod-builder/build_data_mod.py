@@ -32,6 +32,10 @@ BOUNDARY_PROFILE_CONFIG = Path("content/catalogs/boundary-profiles.json")
 GENERATED_CONTENT_DIR = Path("generated")
 FACILITY_STRUCTURE_SOURCE_DIR = Path("content/structures/placeholder")
 HOUSE_STRUCTURE_SOURCE_DIR = Path("content/structures/houses")
+INTERIOR_STRUCTURE_SOURCE_DIR = Path("content/structures/interiors")
+BUILDING_SETTINGS_SOURCE = Path("content/catalogs/building-settings.json")
+BUILDING_SETTINGS_ENTRY = Path("data/cobbleventure/building_settings.json")
+STRUCTURE_METADATA_ENTRY_DIR = Path("data/cobbleventure/structure_metadata")
 REQUIRED_ENTRIES = {
     "META-INF/neoforge.mods.toml",
     "pack.mcmeta",
@@ -1280,6 +1284,48 @@ def _write_village_structure_override(
     )
 
 
+def _package_building_runtime_data(root: Path, output: Path) -> None:
+    settings = _inside(root, root / BUILDING_SETTINGS_SOURCE, "건물 설정")
+    if settings.is_file():
+        target = _inside(root, output / BUILDING_SETTINGS_ENTRY, "생성 건물 설정")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(settings.read_bytes())
+
+    metadata_root = _inside(
+        root, output / STRUCTURE_METADATA_ENTRY_DIR, "생성 구조물 메타데이터"
+    )
+    for category in ("placeholder", "interiors"):
+        source_dir = _inside(
+            root, root / "content/structures" / category, "구조물 메타데이터 원본"
+        )
+        if not source_dir.is_dir():
+            continue
+        for source in sorted(source_dir.glob("*.structure.json")):
+            target = metadata_root / category / source.name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(source.read_bytes())
+
+    house_source = _inside(root, root / HOUSE_STRUCTURE_SOURCE_DIR, "주택 메타데이터 원본")
+    if house_source.is_dir():
+        for source in sorted(house_source.glob("*.structure.json")):
+            base_name = source.name.removesuffix(".structure.json")
+            for roof_color in HOUSE_ROOF_BLOCKS:
+                target = metadata_root / "houses" / f"{base_name}_{roof_color}.structure.json"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(source.read_bytes())
+
+    interior_source = _inside(root, root / INTERIOR_STRUCTURE_SOURCE_DIR, "내부 NBT 원본")
+    if interior_source.is_dir():
+        for source in sorted(interior_source.glob("*.nbt")):
+            target = _inside(
+                root,
+                output / "data/cobbleventure/structure/interiors" / source.name,
+                "생성 내부 NBT",
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(_read_authored_structure_nbt(source, "내부 NBT"))
+
+
 def build(root: Path) -> Path:
     root = root.resolve()
     source = _inside(root, root / SOURCE, "소스")
@@ -1391,6 +1437,7 @@ def build(root: Path) -> Path:
     _package_settlements(root, output, settlements)
     _package_hex_worlds(root, output, settlements)
     _package_generated_trainer_content(root, output)
+    _package_building_runtime_data(root, output)
     if first_generated is None:
         raise ModBuildError("생성할 BCA 마을 허브가 없습니다.")
     return first_generated

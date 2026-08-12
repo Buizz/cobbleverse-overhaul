@@ -30,6 +30,7 @@
 | [1세대 시작 지역 구현 체크리스트](GENERATION_ONE_IMPLEMENTATION_CHECKLIST.md) | 데이터부터 CurseForge 검증과 후속 NPC 스폰까지 단일 진행표 | 진행 관리 |
 | [바이옴 카탈로그와 지역 생성 체계](BIOME_REGION_SYSTEM.md) | 데이터 기반 바이옴 판정, 전용 BiomeSource와 좌표 단일화 | 구현 예정 |
 | [육각 계획 그래프와 연속 바이옴 지형](HEX_WORLD_LAYOUT.md) | 보이지 않는 육각 계획, 연속 지형 마스크, A* 통로와 외곽 경계 | 2차 프로토타입 구현 |
+| [월드맵 조건부 관문 오브젝트](WORLD_GATE_OBJECTS.md) | 육각 타일 관문 벽·배리어·NBT와 플레이어별 통과 조건 | 구현 |
 | [높이 지형과 필드 기술 접근 제한](FIELD_MOVE_TERRAIN_ACCESS.md) | 높이 노이즈, 희귀 고지대, 파도타기 섬 마을과 접근 해금 | 1차 구현 |
 | [마을별 바이옴 범위와 경계 벽](SETTLEMENT_BIOME_BOUNDARIES.md) | 마을 내부·주변 바이옴, 완충 지대, 벽과 관문 | 구현 예정 |
 | [무지하 차원의 안전 기반층](SAFE_SURFACE_FOUNDATION.md) | Y=55~64 기반암과 공허 낙하 복구 | 구현 예정 |

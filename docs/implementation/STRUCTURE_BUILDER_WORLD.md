@@ -31,7 +31,7 @@ content/structures/*.nbt
 않고 블록의 리소스 ID만 저장하므로, 해당 블록을 제공하는 모드는 건축 월드를 열 때
 설치되어 있어야 한다.
 
-현재 원본 28개는 모두 `minecraft` 블록만 사용하지만 앞으로 사용할 콘텐츠 블록을
+현재 관리 원본은 모두 `minecraft` 블록만 사용하지만 앞으로 사용할 콘텐츠 블록을
 보존하기 위해 다음 최소 모드 집합을 포함한다.
 
 | 모드 | 포함 이유 |
@@ -61,7 +61,7 @@ build.bat builder-world
 
 1. `content/structures`의 NBT와 크기를 검사한다.
 2. 원본 NBT를 색상 치환 없이 독립 건축 모드 리소스로 복사한다.
-3. 28개 구조물의 소스 경로, 리소스 ID, 크기와 SHA-256 카탈로그를 생성한다.
+3. 전체 관리 구조물의 소스 경로, 리소스 ID, 크기와 SHA-256 카탈로그를 생성한다.
 4. 크리에이티브·평화로움·정오 고정인 Y=64 평지 월드를 새로 만든다.
 5. 자체 모드 JAR과 월드를 `pack/overrides/structure-builder`에 모은다.
 6. CurseForge ZIP과 SHA-256을 생성하고 다시 열어 검증한다.
@@ -84,9 +84,9 @@ CurseForge에서 ZIP을 새 프로필로 임포트한 뒤 월드 목록의
 바닐라 공기로 치환되지 않는다.
 
 - 셀 크기: 80×80블록
-- 보드: 8열×7행
+- 보드: 8열, 구조물 수에 맞춰 행 자동 확장
 - 구조물 셀: `(행 + 열) % 2 == 0`
-- 구조물 수: 주택 12개 + 시설 16개
+- 구조물 수: 주택 12개 + 시설 17개(플레이어 집 포함)
 - 구조물 여백: 사방 최소 8블록
 - 방향: 원본 회전 없이 로컬 `Z=0` 정면 유지
 - 라벨: 파일 이름, 크기, 카테고리와 행·열 표시
@@ -94,6 +94,48 @@ CurseForge에서 ZIP을 새 프로필로 임포트한 뒤 월드 목록의
 건축물의 원점과 크기는 원본 NBT 계약으로 고정한다. 외형을 수정할 수 있지만 선언된
 크기 밖의 블록은 내보내기에 포함되지 않는다. 크기를 변경하려면 카탈로그와 부지 계약을
 별도로 변경해야 한다.
+
+플레이어 집은 `content/structures/placeholder/player_house.nbt`로 관리하며 건축 월드의
+`player_house` 부지에서 다른 시설과 같은 방식으로 편집한다. 저장소에 가져오면 게임
+리소스 `cobbleventure:placeholder/player_house`로 패키징된다. 웹 마을 편집기의 필수
+시설 옵션에서 `플레이어 집`을 체크하면 실제 마을 배치와 도로 연결 대상에 포함된다.
+
+### 4.1 출입구 편집 막대기
+
+월드에 접속하면 이름이 `건축 출입구 편집 막대기`인 막대기를 한 번 지급한다. WorldEdit의
+나무도끼와 충돌하지 않도록 별도 아이템 등록 대신 건축 월드 안의 모든 막대기를 편집
+도구로 사용한다.
+
+| 조작 | 동작 |
+|---|---|
+| 웅크리기 + 허공 우클릭 | entry, exit, teleport, spawn, npc, interaction, patrol, inspect 순환 |
+| 대상 우클릭 | 현재 도구 모드 적용 |
+| 웅크리기 + 대상 좌클릭 | 해당 위치의 출입구 또는 NPC 앵커 해제 |
+
+위·아래 어느 문 블록을 클릭해도 아래쪽 문 좌표로 정규화한다. 클릭할 때 플레이어가 서
+있는 쪽의 인접 칸을 안전한 도착 위치로 자동 계산하므로 별도의 spawn 앵커를 지정하지
+않는다. 따라서 entry 모드의 외부 문은 건물 밖에서, exit 모드의 내부 문은 내부 공간
+쪽에서 클릭해야 한다. teleport 모드는 같은 ID의 외부·내부 문 사이를 이동해 동선을
+시험한다.
+
+출입구는 월드 절대 좌표가 아니라 구조물 원점 기준 상대 좌표로 저장한다. NBT 자체에는
+표시용 블록이나 엔티티를 넣지 않으며 `save`가 다음 메타데이터를 함께 내보낸다.
+
+```text
+<월드>/generated/cobbleventure_builder/structure_metadata/export/**/*.structure.json
+```
+
+메타데이터에는 문 좌표, 자동 도착 좌표, 문 방향, 안전 방향과 기본 입·퇴장 대화 ID가
+들어간다. `builder-import`는 이를 원본 NBT 옆의 같은 이름 `.structure.json`으로
+동기화하고, 다음 건축 월드를 생성할 때 다시 복원한다.
+
+가변 내부는 `/cobbleventure_builder interior create <id> <폭> <깊이> <층높이> <층수>`로
+만든다. 폭·깊이 5~80, 층 높이 3~12, 1~8층과 전체 높이 80 이하를 지원한다. `save all`은
+동적 내부도 `interiors/<id>.nbt`와 메타데이터로 함께 내보낸다. `/tool npc <라벨>`로
+NPC 모드를 선택한 뒤 바닥을 클릭하면 라벨과 상대 위치만 같은 메타데이터에 저장한다.
+EasyNPC 프리셋, 방향과 생성 정책은 실제 건물 배치 설정의 책임이다.
+spawn 모드는 자동 도착점을 덮어쓰며 interaction과 patrol 모드는 오브젝트 상호작용 및
+NPC 순찰 경로의 상대 좌표를 예약한다.
 
 ## 5. 게임 명령
 
@@ -112,7 +154,7 @@ CurseForge에서 ZIP을 새 프로필로 임포트한 뒤 월드 목록의
 | `status` | 구조물 수, 부지 생성 상태와 원본 카탈로그 변경 여부 확인 |
 | `tp <이름>` | 해당 건축 부지 앞으로 이동 |
 | `save <이름>` | 부지 하나를 NBT로 캡처 |
-| `save all` | 28개 부지를 모두 NBT로 캡처 |
+| `save all` | 모든 관리 부지를 NBT로 캡처 |
 | `load confirm` | 편집 내용을 덮어쓰고 패키징된 원본 NBT를 모든 부지에 다시 배치 |
 
 `load confirm`은 파괴적 명령이다. 저장하지 않은 편집 내용을 복구할 수 없으므로 원본을
@@ -125,6 +167,7 @@ CurseForge에서 ZIP을 새 프로필로 임포트한 뒤 월드 목록의
 ```text
 <월드>/generated/cobbleventure_builder/structures/export/houses/*.nbt
 <월드>/generated/cobbleventure_builder/structures/export/placeholder/*.nbt
+<월드>/generated/cobbleventure_builder/structure_metadata/export/**/*.structure.json
 ```
 
 CurseForge 인스턴스의 월드 경로를 지정해 저장소 원본에 반영한다.
@@ -135,7 +178,7 @@ build.bat builder-import "C:\CurseForge\Minecraft\Instances\Cobbleventure Struct
 
 가져오기는 다음을 모두 검사한 뒤에만 파일을 교체한다.
 
-- 현재 원본 28개에 대응하는 내보내기 파일이 모두 존재하는가?
+- 현재 모든 원본에 대응하는 내보내기 파일이 존재하는가?
 - 모든 파일이 읽을 수 있는 Structure NBT인가?
 - 내보낸 폭·높이·깊이가 원본 계약과 같은가?
 - 누락이나 크기 불일치가 있을 때 원본을 하나도 덮어쓰지 않는가?
@@ -154,11 +197,12 @@ build.bat builder-import "C:\CurseForge\Minecraft\Instances\Cobbleventure Struct
 
 - [ ] `builder-world`가 독립 CurseForge ZIP과 평지 월드를 생성한다.
 - [ ] 팩에 외부 모드 9개와 자체 JAR 1개만 포함된다.
-- [ ] 처음 월드를 열 때 28개 구조물이 정확히 한 번 배치된다.
+- [ ] 처음 월드를 열 때 29개 구조물이 정확히 한 번 배치된다.
 - [ ] 체크무늬 셀과 라벨이 모든 구조물에 일치한다.
-- [ ] `save all` 후 내보내기 NBT 28개가 생성된다.
+- [ ] `save all` 후 내보내기 NBT 29개가 생성된다.
 - [ ] `builder-import`가 완전한 내보내기만 저장소에 반영한다.
 - [ ] 원본 크기 밖의 편집이 저장되지 않는다는 점을 건축가가 확인한다.
+- [ ] 막대기로 지정한 입·퇴장문과 자동 도착 위치가 `.structure.json`으로 왕복된다.
 - [ ] Cobblemon·Casino·CobbleFurnies 블록을 시험 배치하고 재접속 후 유지되는지 확인한다.
 
 ## 9. 웹 Content Manager에서 실행
@@ -176,9 +220,9 @@ build.bat web
 5. `게임 NBT 자동 가져오기`를 눌러 저장소 원본에 반영한다.
 
 가져오기가 성공하면 웹은 NBT 카탈로그 캐시를 즉시 갱신하고 `NBT 건물` 화면으로
-이동해 첫 구조물의 3D 모델을 자동으로 연다. NBT 뷰어에는 다음 31개만 표시한다.
+이동해 첫 구조물의 3D 모델을 자동으로 연다. NBT 뷰어에는 다음 32개만 표시한다.
 
-- `content/structures`에서 관리하는 주택·시설 NBT 28개
+- `content/structures`에서 관리하는 주택·시설 NBT 29개
 - `bca:default/one_off/pokecenter`
 - `bca:default/one_off/structure_pokemart`
 - `bca:default/centers/center_department_store`

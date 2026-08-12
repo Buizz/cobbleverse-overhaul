@@ -1,0 +1,5 @@
+{
+  "$schema": "../schemas/building-settings.schema.json",
+  "schema_version": 1,
+  "buildings": {}
+}

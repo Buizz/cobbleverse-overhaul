@@ -567,6 +567,58 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('!state.levelOverlayVisible && state.activeMapTool !== "level"', script)
         self.assertNotIn('state.levelOverlayVisible = true; $("#level-overlay-toggle").checked = true', script)
 
+    def test_world_gate_objects_are_saved_and_validated(self) -> None:
+        root = Path(__file__).parents[3]
+        with tempfile.TemporaryDirectory() as directory:
+            candidate_root = Path(directory)
+            catalog_dir = candidate_root / "content" / "catalogs"
+            catalog_dir.mkdir(parents=True)
+            shutil.copy2(root / "content" / "catalogs" / "boundary-profiles.json", catalog_dir / "boundary-profiles.json")
+            gate = {
+                "id": "route_01_gate", "type": "gate", "anchor": {"q": 1, "r": -1},
+                "resource": "cobbleventure:gate/route_01", "rotation": 1,
+                "properties": {
+                    "facing": "east", "wall_block": "minecraft:stone_bricks",
+                    "wall_thickness": 5, "wall_height": 7, "opening_width": 7,
+                    "barrier_height": 24, "condition_mode": "all",
+                    "conditions": [
+                        {"type": "variable", "source": "scoreboard", "key": "badge_count", "operator": ">=", "value": 2},
+                        {"type": "item", "item": "minecraft:paper", "count": 1},
+                        {"type": "pokemon", "species": "cobblemon:pikachu"},
+                    ],
+                    "npc": "easy_npc:preset/encounter/gatekeeper.npc.snbt",
+                    "deny_message": "배지 두 개가 필요합니다.",
+                },
+            }
+            layout = {
+                "$schema": "../schemas/hex-world.schema.json", "schema_version": 2,
+                "id": "cobbleventure:world/generation_2", "dimension": "cobbleventure:generation_2", "seed_salt": 1702,
+                "grid": {"orientation": "pointy_top", "tile_radius_blocks": 64, "map_radius_cells": 6, "origin": {"x": 0, "y": 69, "z": 0}},
+                "empty_terrain": {"default_type": "high_forest", "tiles": []},
+                "tiles": [], "environment_overrides": [], "level_overrides": [],
+                "settlements": [], "cave_entrances": [], "connections": [], "objects": [gate],
+            }
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
+            invalid = json.loads(json.dumps(layout))
+            invalid["objects"][0]["properties"]["wall_thickness"] = 4
+            invalid["objects"][0]["properties"]["conditions"][0]["operator"] = "contains"
+            issues = content_manager.save_world_layout(candidate_root, invalid, 2)
+            self.assertTrue(any("홀수" in issue.message for issue in issues))
+            self.assertTrue(any("연산자" in issue.message for issue in issues))
+
+    def test_world_gate_editor_controls_are_present(self) -> None:
+        root = Path(__file__).parents[3]
+        page = (root / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('id="object-tool-facing"', page)
+        self.assertIn('id="object-tool-conditions"', page)
+        self.assertIn('name="objectNpc"', page)
+        self.assertIn('id="edit-object-npc"', page)
+        self.assertIn('name="npcRole"', page)
+        self.assertIn("parseGateConditions", script)
+        self.assertIn("gateProperties", script)
+        self.assertIn('teleport_to_gate: "관문으로 이동"', script)
+
     def test_settlements_reference_web_biome_settings(self) -> None:
         root = Path(__file__).parents[3]
         settlement = content_manager.load_json(
@@ -1735,6 +1787,26 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertEqual([], issues)
 
+        valid_gatekeeper = json.loads(json.dumps(source))
+        valid_gatekeeper["npc"]["role"] = "gatekeeper"
+        valid_gatekeeper["events"][0]["commands"].insert(-1, {
+            "type": "teleport_to_gate",
+            "gate": "route_01_gate",
+            "subject": "player",
+            "side": "front",
+        })
+        _, issues = content_manager._validate_payload(
+            valid_gatekeeper, content_manager.validate_content_file
+        )
+        self.assertEqual([], issues)
+
+        invalid_gatekeeper = json.loads(json.dumps(valid_gatekeeper))
+        invalid_gatekeeper["events"][0]["commands"][-2]["side"] = "somewhere"
+        _, issues = content_manager._validate_payload(
+            invalid_gatekeeper, content_manager.validate_content_file
+        )
+        self.assertTrue(any(issue.path.endswith(".side") for issue in issues))
+
     def test_cobbleverse_badge_items_are_available_for_gym_presets(self) -> None:
         root = Path(__file__).parents[3]
         catalog = content_manager.load_json(
@@ -2301,6 +2373,93 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("/api/structure-viewer", script)
         self.assertIn('switchPage("structures")', script)
         self.assertIn("await loadStructureModel(preferred)", script)
+        self.assertIn('{ id: "player_house", label: "플레이어 집"', script)
+        self.assertIn("cobbleventure:placeholder/${facility.id}", script)
+        self.assertIn('name="specialBuildingPreset"', markup)
+        self.assertIn('value="cobbleventure:placeholder/player_house"', markup)
+        self.assertIn("applySpecialBuildingPreset", script)
+
+    def test_building_settings_read_npc_labels_and_save_assignments(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/placeholder/shop.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((16, 8, 16)))
+            structure.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{
+                    "type": "npc_position",
+                    "label": "shop_clerk",
+                    "position": [8, 1, 6],
+                }],
+            }), encoding="utf-8")
+            npc = root / "content/source/shop_clerk.json"
+            npc.parent.mkdir(parents=True)
+            npc.write_text(json.dumps({
+                "schema_version": 4,
+                "id": "cobbleventure:npc/shop_clerk",
+                "enabled": True,
+                "name": {"ko_kr": "상점 직원"},
+                "npc": {"display_name": {"ko_kr": "상점 직원"}},
+                "events": [],
+            }), encoding="utf-8")
+
+            payload = content_manager.building_settings_payload(root)
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {
+                    "cobbleventure:placeholder/shop": {
+                        "fixed_npcs": {"shop_clerk": "cobbleventure:npc/shop_clerk"},
+                        "random_citizen_eligible": False,
+                    },
+                },
+            })
+
+            self.assertEqual(
+                [{"label": "shop_clerk", "position": [8, 1, 6]}],
+                payload["structures"]["cobbleventure:placeholder/shop"]["npc_labels"],
+            )
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            saved = content_manager.load_building_settings(root)
+            self.assertEqual(
+                "cobbleventure:npc/shop_clerk",
+                saved["buildings"]["cobbleventure:placeholder/shop"]["fixed_npcs"]["shop_clerk"],
+            )
+
+    def test_residential_building_rejects_fixed_npc_assignment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/houses/one_story.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((16, 8, 16)))
+            structure.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{"type": "npc_position", "label": "resident", "position": [4, 1, 4]}],
+            }), encoding="utf-8")
+            npc = root / "content/source/resident.json"
+            npc.parent.mkdir(parents=True)
+            npc.write_text(json.dumps({"id": "cobbleventure:npc/resident", "enabled": True}), encoding="utf-8")
+
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {"cobbleventure:houses/one_story": {
+                    "fixed_npcs": {"resident": "cobbleventure:npc/resident"},
+                    "random_citizen_eligible": True,
+                }},
+            })
+
+            self.assertTrue(any("시민 주택에는 고정 NPC" in issue.message for issue in issues))
+
+    def test_building_settings_web_tab_is_present(self) -> None:
+        web_root = Path(__file__).parents[1] / "web"
+        markup = (web_root / "index.html").read_text(encoding="utf-8")
+        script = (web_root / "app.js").read_text(encoding="utf-8")
+        self.assertIn('data-section="building-settings"', markup)
+        self.assertIn('id="building-model-canvas"', markup)
+        self.assertIn('id="building-npc-assignments"', markup)
+        self.assertIn("/api/building-settings", script)
+        self.assertIn("npc_labels", script)
+        self.assertIn("random_citizen_eligible", script)
 
     def test_document_creation_api(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

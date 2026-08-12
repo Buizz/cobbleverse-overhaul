@@ -91,14 +91,14 @@ def graph_reward_commands(document: dict, start_battle: dict, result_key: str = 
                     f"scoreboard players set @1 {objective} {value}",
                 ])
             elif action_type == "give_item":
-                commands.append(f"give @1 {action['item']} {int(action.get('count', 1))}")
+                commands.append(f"cobbleventurebag give @1 {action['item']} {int(action.get('count', 1))}")
             elif action_type == "grant_loot":
-                commands.append(f"loot give @1 loot {action['loot_table']}")
+                commands.append(f"cobbleventurebag loot @1 {action['loot_table']}")
             elif action_type in {"give_money", "take_money"}:
                 currency = action.get("currency_objective", "cobbleventure_money")
                 if action.get("mode") == "fixed":
-                    verb = "remove" if action_type == "take_money" else "add"
-                    commands.append(f"scoreboard players {verb} @1 {currency} {int(action.get('amount', 0))}")
+                    verb = "remove" if action_type == "take_money" else "give"
+                    commands.append(f"cobbledollars {verb} @1 {int(action.get('amount', 0))}")
                 else:
                     multiplier = action.get("multiplier", 1)
                     if int(multiplier) != multiplier:
@@ -140,14 +140,14 @@ def command_reward_commands(commands: list[dict], target: str | None) -> list[st
                 f"scoreboard players set @1 {objective} {value}",
             ])
         elif command_type == "give_item":
-            result.append(f"give @1 {command['item']} {int(command.get('count', 1))}")
+            result.append(f"cobbleventurebag give @1 {command['item']} {int(command.get('count', 1))}")
         elif command_type == "grant_loot":
-            result.append(f"loot give @1 loot {command['loot_table']}")
+            result.append(f"cobbleventurebag loot @1 {command['loot_table']}")
         elif command_type in {"give_money", "take_money"}:
             currency = command.get("currency_objective", "cobbleventure_money")
             if command.get("mode") == "fixed":
-                verb = "remove" if command_type == "take_money" else "add"
-                result.append(f"scoreboard players {verb} @1 {currency} {int(command.get('amount', 0))}")
+                verb = "remove" if command_type == "take_money" else "give"
+                result.append(f"cobbledollars {verb} @1 {int(command.get('amount', 0))}")
             else:
                 multiplier = command.get("multiplier", 1)
                 if int(multiplier) != multiplier:
@@ -194,7 +194,7 @@ def reward_commands(
     money = rewards.get("money", {})
     currency = money.get("currency_objective", "cobbleventure_money")
     if money.get("mode") == "fixed" and money.get("amount", 0):
-        commands.append(f"scoreboard players add @1 {currency} {int(money['amount'])}")
+        commands.append(f"cobbledollars give @1 {int(money['amount'])}")
     elif money.get("mode") == "level_cap_multiplier":
         multiplier = money.get("multiplier", 1)
         if int(multiplier) != multiplier:
@@ -210,11 +210,11 @@ def reward_commands(
     items = rewards.get("items", {})
     if items.get("mode") == "fixed":
         commands.extend(
-            f"give @1 {entry['item']} {int(entry['count'])}"
+            f"cobbleventurebag give @1 {entry['item']} {int(entry['count'])}"
             for entry in items.get("entries", [])
         )
     elif items.get("mode") == "loot_table":
-        commands.append(f"loot give @1 loot {items['loot_table']}")
+        commands.append(f"cobbleventurebag loot @1 {items['loot_table']}")
     victory_flag = document.get("progression", {}).get("victory_flag")
     if victory_flag:
         objective = flag_objective(victory_flag)
@@ -342,7 +342,13 @@ def easy_npc_action(operation: dict, document: dict) -> str:
         return "{Cmd:" + quote(command) + ',Type:"SCOREBOARD"}'
     if operation_type == "give_item":
         return command_action(
-            f"/give @initiator {operation['item']} {operation.get('count', 1)}"
+            f"/cobbleventurebag give @initiator {operation['item']} {operation.get('count', 1)}"
+        )
+    if operation_type == "teleport_to_gate":
+        selector = "@npc-uuid" if operation.get("subject") == "npc" else "@initiator"
+        return command_action(
+            f"/cobbleventure_gate teleport {selector} {operation['gate']} "
+            f"{operation.get('side', 'front')}"
         )
     raise ValueError(f"EasyNPC 행동으로 변환할 수 없습니다: {operation_type}")
 
@@ -410,6 +416,19 @@ def event_script_dialogues(document: dict) -> str:
                         "{Label:" + quote(option["id"])
                         + ",Name:" + quote(localized(option["text"]))
                         + ",Actions:[" + event_target_action(commands, option["target"], document) + "]}"
+                    )
+            if not buttons:
+                followup_actions: list[str] = []
+                for value in commands[index + 1:]:
+                    if value.get("type") in {"dialogue", "label", "choices", "end"}:
+                        break
+                    if value.get("type") == "teleport_to_gate":
+                        followup_actions.append(easy_npc_action(value, document))
+                if followup_actions:
+                    buttons.append(
+                        '{Label:"continue",Name:"계속",Actions:['
+                        + ",".join([*followup_actions, '{Type:"CLOSE_DIALOG"}'])
+                        + "]}"
                     )
             if not buttons:
                 buttons.append('{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}')

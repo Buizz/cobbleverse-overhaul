@@ -3,5 +3,6 @@
   "message.cobbleventure_bootstrap.pokemon_center_checkpoint": "Your latest Pokémon Center checkpoint has been saved.",
   "message.cobbleventure_bootstrap.pokemon_center_return": "Your entire party fainted, so you returned to the latest Pokémon Center.",
   "message.cobbleventure_bootstrap.pokemon_center_fallback_return": "Your entire party fainted, so you returned to the starting point.",
-  "message.cobbleventure_bootstrap.pokemon_center_missing": "No Pokémon Center checkpoint could be found."
+  "message.cobbleventure_bootstrap.pokemon_center_missing": "No Pokémon Center checkpoint could be found.",
+  "message.cobbleventure_bootstrap.poke_ball_requires_battle": "Poké Balls can only be used during a Pokémon battle."
 }

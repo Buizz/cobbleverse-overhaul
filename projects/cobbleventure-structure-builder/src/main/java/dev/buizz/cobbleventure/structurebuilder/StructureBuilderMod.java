@@ -4,12 +4,18 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,6 +24,9 @@ import java.util.Optional;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.Registries;
@@ -28,21 +37,30 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -54,13 +72,19 @@ public final class StructureBuilderMod {
     public static final String MOD_ID = "cobbleventure_structure_builder";
 
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String PREPARE_PROPERTY = "cobbleventure.builder.prepareWorld";
     private static final String DATA_FILE = "cobbleventure_structure_builder";
+    private static final String TOOL_MODE_TAG = "cobbleventureBuilderToolMode";
+    private static final String NPC_LABEL_TAG = "cobbleventureBuilderNpcLabel";
     private static final ResourceLocation CATALOG = ResourceLocation.fromNamespaceAndPath(
         "cobbleventure_builder", "structure_builder/catalog.json"
     );
     private static final int ORIGIN_X = -320;
     private static final int ORIGIN_Z = -280;
+    private static final int INTERIOR_ORIGIN_X = 512;
+    private static final int INTERIOR_ORIGIN_Z = -280;
+    private static final int INTERIOR_CELL_SIZE = 96;
     private static int shutdownTicks = -1;
 
     public StructureBuilderMod() {
@@ -104,6 +128,7 @@ public final class StructureBuilderMod {
         }
         configureWorld(server);
         player.setGameMode(GameType.CREATIVE);
+        giveEditorStick(player);
         try {
             Catalog catalog = loadCatalog(server);
             BuilderData data = data(server);
@@ -129,6 +154,114 @@ public final class StructureBuilderMod {
                 "[Structure Builder] 초기화 실패: " + error.getMessage()
             ));
             LOGGER.error("Structure builder initialization failed", error);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getHand() != InteractionHand.MAIN_HAND
+            || event.getLevel().isClientSide()
+            || !(event.getEntity() instanceof ServerPlayer player)
+            || !player.getMainHandItem().is(Items.STICK)) {
+            return;
+        }
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        try {
+            Catalog catalog = loadCatalog(player.getServer());
+            BuilderData data = data(player.getServer());
+            requirePrepared(data);
+            ToolMode mode = toolMode(player);
+            if (mode == ToolMode.NPC) {
+                setNpcAnchor(player, catalog, data, event.getPos().above());
+                return;
+            }
+            if (mode == ToolMode.SPAWN || mode == ToolMode.INTERACTION
+                || mode == ToolMode.PATROL) {
+                setPointAnchor(player, catalog, data, event.getPos(), mode);
+                return;
+            }
+            if (mode == ToolMode.INSPECT) {
+                inspect(player, findContext(catalog, data, event.getPos()), data);
+                return;
+            }
+            BlockPos door = lowerDoorPosition(player.serverLevel(), event.getPos());
+            if (door == null) {
+                throw new BuilderException("이 도구 모드는 문에 사용해야 합니다.");
+            }
+            EditContext edit = findContext(catalog, data, door);
+            if (mode == ToolMode.TELEPORT) {
+                teleportThroughDoor(player, catalog, data, edit, door);
+                return;
+            }
+            String role = mode == ToolMode.EXIT ? "interior_exit" : "interior_entry";
+            Direction safeSide = playerSide(player, door);
+            BlockState doorState = player.serverLevel().getBlockState(door);
+            DoorAnchor anchor = new DoorAnchor(
+                role,
+                door.subtract(edit.origin()),
+                door.relative(safeSide).subtract(edit.origin()),
+                doorState.getValue(DoorBlock.FACING).getName(),
+                safeSide.getName()
+            );
+            data.putAnchor(edit.key(), anchor);
+            player.sendSystemMessage(Component.literal(
+                "[Structure Builder] " + edit.label() + "의 " + roleLabel(role)
+                    + "을 지정했습니다. 도착 위치=" + format(anchor.safeSpawn())
+            ));
+        } catch (BuilderException error) {
+            player.sendSystemMessage(Component.literal(
+                "[Structure Builder] " + error.getMessage()
+            ));
+        }
+    }
+
+    @SubscribeEvent
+    public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+        if (event.getHand() != InteractionHand.MAIN_HAND
+            || event.getLevel().isClientSide()
+            || !(event.getEntity() instanceof ServerPlayer player)
+            || !player.isShiftKeyDown()
+            || !player.getMainHandItem().is(Items.STICK)) {
+            return;
+        }
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        setToolMode(player, toolMode(player).next());
+    }
+
+    @SubscribeEvent
+    public static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
+        if (event.getLevel().isClientSide()
+            || !(event.getEntity() instanceof ServerPlayer player)
+            || !player.isShiftKeyDown()
+            || !player.getMainHandItem().is(Items.STICK)) {
+            return;
+        }
+        event.setCanceled(true);
+        try {
+            Catalog catalog = loadCatalog(player.getServer());
+            BuilderData data = data(player.getServer());
+            BlockPos selected = lowerDoorPosition(player.serverLevel(), event.getPos());
+            if (selected == null) {
+                selected = event.getPos().above();
+            }
+            EditContext edit = findContext(catalog, data, selected);
+            int removed = data.removeAnchorsAt(edit.key(), selected.subtract(edit.origin()));
+            removed += data.removeNpcAnchorsAt(edit.key(), selected.subtract(edit.origin()));
+            removed += data.removePointAnchorsAt(edit.key(), selected.subtract(edit.origin()));
+            removed += data.removePointAnchorsAt(
+                edit.key(), selected.below().subtract(edit.origin())
+            );
+            player.sendSystemMessage(Component.literal(
+                removed == 0
+                    ? "[Structure Builder] 이 문에는 지정된 출입구가 없습니다."
+                    : "[Structure Builder] 출입구 지정을 해제했습니다."
+            ));
+        } catch (BuilderException error) {
+            player.sendSystemMessage(Component.literal(
+                "[Structure Builder] " + error.getMessage()
+            ));
         }
     }
 
@@ -159,6 +292,53 @@ public final class StructureBuilderMod {
                             context.getSource(),
                             StringArgumentType.getString(context, "structure")
                         ))))
+                .then(Commands.literal("tool")
+                    .then(Commands.literal("mode")
+                        .then(Commands.argument("mode", StringArgumentType.word())
+                            .executes(context -> setToolModeCommand(
+                                context.getSource(),
+                                StringArgumentType.getString(context, "mode")
+                            ))))
+                    .then(Commands.literal("npc")
+                        .then(Commands.argument("label", StringArgumentType.word())
+                            .executes(context -> setNpcLabelCommand(
+                                context.getSource(),
+                                StringArgumentType.getString(context, "label")
+                            )))))
+                .then(Commands.literal("anchor")
+                    .then(Commands.literal("list")
+                        .executes(context -> listAnchors(context.getSource())))
+                    .then(Commands.literal("show")
+                        .executes(context -> showAnchors(context.getSource()))))
+                .then(Commands.literal("interior")
+                    .then(Commands.literal("list")
+                        .executes(context -> listInteriors(context.getSource())))
+                    .then(Commands.literal("tp")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                            .executes(context -> teleportToInterior(
+                                context.getSource(),
+                                StringArgumentType.getString(context, "id")
+                            ))))
+                    .then(Commands.literal("save")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                            .executes(context -> saveInterior(
+                                context.getSource(),
+                                StringArgumentType.getString(context, "id")
+                            ))))
+                    .then(Commands.literal("create")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                            .then(Commands.argument("width", IntegerArgumentType.integer(5, 80))
+                                .then(Commands.argument("depth", IntegerArgumentType.integer(5, 80))
+                                    .then(Commands.argument("floor_height", IntegerArgumentType.integer(3, 12))
+                                        .then(Commands.argument("floors", IntegerArgumentType.integer(1, 8))
+                                            .executes(context -> createInterior(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "id"),
+                                                IntegerArgumentType.getInteger(context, "width"),
+                                                IntegerArgumentType.getInteger(context, "depth"),
+                                                IntegerArgumentType.getInteger(context, "floor_height"),
+                                                IntegerArgumentType.getInteger(context, "floors")
+                                            )))))))))
         );
     }
 
@@ -169,6 +349,7 @@ public final class StructureBuilderMod {
             source.sendSuccess(
                 () -> Component.literal(
                     "[Structure Builder] 구조물=" + catalog.entries().size()
+                        + ", 새 내부=" + data.interiorCount()
                         + ", 배치=" + data.prepared
                         + ", 카탈로그="
                         + (data.catalogHash.equals(catalog.catalogHash()) ? "최신" : "변경됨")
@@ -206,6 +387,10 @@ public final class StructureBuilderMod {
             int saved = 0;
             for (PlannedEntry planned : plan(catalog, data.groundY)) {
                 export(source.getServer().overworld(), planned);
+                saved++;
+            }
+            for (InteriorPlot interior : data.interiors()) {
+                exportInterior(source.getServer().overworld(), interior);
                 saved++;
             }
             int count = saved;
@@ -267,6 +452,196 @@ public final class StructureBuilderMod {
         return 0;
     }
 
+    private static void giveEditorStick(ServerPlayer player) {
+        boolean alreadyHasStick = player.getInventory().items.stream()
+            .anyMatch(stack -> stack.is(Items.STICK));
+        if (alreadyHasStick) {
+            return;
+        }
+        ItemStack tool = new ItemStack(Items.STICK);
+        tool.set(DataComponents.CUSTOM_NAME, Component.literal(toolName(toolMode(player))));
+        player.getInventory().add(tool);
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] 편집 막대기: 웅크리기+허공 우클릭으로 모드 전환, "
+                + "대상 우클릭으로 적용, 웅크리기+좌클릭으로 해제"
+        ));
+    }
+
+    private static ToolMode toolMode(ServerPlayer player) {
+        return ToolMode.parse(player.getPersistentData().getString(TOOL_MODE_TAG));
+    }
+
+    private static void setToolMode(ServerPlayer player, ToolMode mode) {
+        player.getPersistentData().putString(TOOL_MODE_TAG, mode.id);
+        ItemStack held = player.getMainHandItem();
+        if (held.is(Items.STICK)) {
+            held.set(DataComponents.CUSTOM_NAME, Component.literal(toolName(mode)));
+        }
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] 도구 모드: " + mode.label
+        ));
+    }
+
+    private static String toolName(ToolMode mode) {
+        return "건축 편집 막대기 · " + mode.label;
+    }
+
+    private static int setToolModeCommand(CommandSourceStack source, String requested)
+        throws CommandSyntaxException {
+        ToolMode mode = ToolMode.byId(requested).orElseThrow(
+            () -> new BuilderException("알 수 없는 도구 모드: " + requested)
+        );
+        setToolMode(source.getPlayerOrException(), mode);
+        return 1;
+    }
+
+    private static int setNpcLabelCommand(CommandSourceStack source, String label)
+        throws CommandSyntaxException {
+        if (!label.matches("[a-z0-9][a-z0-9_]*")) {
+            return fail(source, new BuilderException(
+                "NPC 라벨은 영문 소문자, 숫자와 밑줄만 사용할 수 있습니다."
+            ));
+        }
+        ServerPlayer player = source.getPlayerOrException();
+        player.getPersistentData().putString(NPC_LABEL_TAG, label);
+        setToolMode(player, ToolMode.NPC);
+        source.sendSuccess(
+            () -> Component.literal("[Structure Builder] NPC 라벨=" + label), false
+        );
+        return 1;
+    }
+
+    private static void setNpcAnchor(
+        ServerPlayer player, Catalog catalog, BuilderData data, BlockPos position
+    ) {
+        String label = player.getPersistentData().getString(NPC_LABEL_TAG);
+        if (label.isBlank()) {
+            throw new BuilderException(
+                "/cobbleventure_builder tool npc <라벨>을 먼저 사용하세요."
+            );
+        }
+        EditContext edit = findContext(catalog, data, position);
+        NpcAnchor anchor = new NpcAnchor(label, position.subtract(edit.origin()));
+        data.putNpcAnchor(edit.key(), anchor);
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] " + edit.label() + "에 NPC 위치를 지정했습니다: "
+                + label + "=" + format(anchor.position())
+        ));
+    }
+
+    private static void inspect(ServerPlayer player, EditContext edit, BuilderData data) {
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] " + edit.label() + " · 크기 "
+                + edit.size().getX() + "x" + edit.size().getY() + "x" + edit.size().getZ()
+                + " · 문 " + data.anchors(edit.key()).size()
+                + " · NPC " + data.npcAnchors(edit.key()).size()
+                + " · 지점 " + data.pointAnchors(edit.key()).size()
+        ));
+    }
+
+    private static int listAnchors(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        BuilderData builderData = data(source.getServer());
+        EditContext edit = findContext(
+            loadCatalog(source.getServer()), builderData, player.blockPosition()
+        );
+        List<String> values = new ArrayList<>();
+        builderData.anchors(edit.key()).forEach(anchor -> values.add(
+            anchor.role() + "=" + format(anchor.position())
+        ));
+        builderData.npcAnchors(edit.key()).forEach(anchor -> values.add(
+            anchor.label() + "=" + format(anchor.position())
+        ));
+        builderData.pointAnchors(edit.key()).forEach(anchor -> values.add(
+            anchor.id() + "=" + format(anchor.position()) + " [" + anchor.type() + "]"
+        ));
+        source.sendSuccess(
+            () -> Component.literal(
+                "[Structure Builder] " + edit.label() + " 앵커: "
+                    + (values.isEmpty() ? "없음" : String.join(", ", values))
+            ), false
+        );
+        return values.size();
+    }
+
+    private static int showAnchors(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        BuilderData builderData = data(source.getServer());
+        EditContext edit = findContext(
+            loadCatalog(source.getServer()), builderData, player.blockPosition()
+        );
+        List<BlockPos> positions = new ArrayList<>();
+        builderData.anchors(edit.key()).forEach(anchor -> positions.add(anchor.position()));
+        builderData.npcAnchors(edit.key()).forEach(anchor -> positions.add(anchor.position()));
+        builderData.pointAnchors(edit.key()).forEach(anchor -> positions.add(anchor.position()));
+        for (BlockPos relative : positions) {
+            BlockPos position = edit.origin().offset(relative);
+            player.serverLevel().sendParticles(
+                ParticleTypes.END_ROD,
+                position.getX() + 0.5D, position.getY() + 0.5D, position.getZ() + 0.5D,
+                16, 0.2D, 0.35D, 0.2D, 0.01D
+            );
+        }
+        source.sendSuccess(
+            () -> Component.literal(
+                "[Structure Builder] 앵커 " + positions.size() + "개를 입자로 표시했습니다."
+            ), false
+        );
+        return positions.size();
+    }
+
+    private static void setPointAnchor(
+        ServerPlayer player, Catalog catalog, BuilderData data,
+        BlockPos clicked, ToolMode mode
+    ) {
+        BlockPos position = mode == ToolMode.INTERACTION ? clicked : clicked.above();
+        EditContext edit = findContext(catalog, data, position);
+        String type;
+        String id;
+        if (mode == ToolMode.SPAWN) {
+            type = edit.interior() ? "interior_spawn" : "exterior_spawn";
+            id = type;
+        } else {
+            type = mode == ToolMode.PATROL ? "patrol_point" : "interaction_point";
+            id = data.nextPointId(edit.key(), type);
+        }
+        PointAnchor anchor = new PointAnchor(
+            id, type, position.subtract(edit.origin()), player.getDirection().getName()
+        );
+        data.putPointAnchor(edit.key(), anchor);
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] " + edit.label() + "에 " + id
+                + " 지점을 지정했습니다: " + format(anchor.position())
+        ));
+    }
+
+    private static BlockPos lowerDoorPosition(ServerLevel level, BlockPos clicked) {
+        BlockState state = level.getBlockState(clicked);
+        if (!(state.getBlock() instanceof DoorBlock)) {
+            return null;
+        }
+        return state.getValue(DoorBlock.HALF) == DoubleBlockHalf.UPPER
+            ? clicked.below()
+            : clicked;
+    }
+
+    private static Direction playerSide(ServerPlayer player, BlockPos door) {
+        double offsetX = player.getX() - (door.getX() + 0.5D);
+        double offsetZ = player.getZ() - (door.getZ() + 0.5D);
+        if (Math.abs(offsetX) > Math.abs(offsetZ)) {
+            return offsetX >= 0.0D ? Direction.EAST : Direction.WEST;
+        }
+        return offsetZ >= 0.0D ? Direction.SOUTH : Direction.NORTH;
+    }
+
+    private static String roleLabel(String role) {
+        return role.equals("interior_entry") ? "외부 입장문" : "내부 퇴장문";
+    }
+
+    private static String format(BlockPos position) {
+        return position.getX() + "," + position.getY() + "," + position.getZ();
+    }
+
     private static void requirePrepared(BuilderData data) {
         if (!data.prepared) {
             throw new BuilderException("건축 부지가 아직 생성되지 않았습니다.");
@@ -282,6 +657,232 @@ public final class StructureBuilderMod {
             .orElseThrow(() -> new BuilderException(
                 "구조물을 찾을 수 없습니다: " + requested
             ));
+    }
+
+    private static PlannedEntry findContaining(Catalog catalog, int groundY, BlockPos position) {
+        return plan(catalog, groundY).stream()
+            .filter(planned -> contains(planned, position))
+            .findFirst()
+            .orElseThrow(() -> new BuilderException(
+                "문이 구조물 선택 영역 안에 있지 않습니다."
+            ));
+    }
+
+    private static EditContext findContext(
+        Catalog catalog, BuilderData data, BlockPos position
+    ) {
+        for (InteriorPlot plot : data.interiors()) {
+            if (plot.contains(position)) {
+                return plot.context();
+            }
+        }
+        PlannedEntry planned = findContaining(catalog, data.groundY, position);
+        return new EditContext(
+            planned.entry().exportId(), planned.entry().label(),
+            planned.origin(), planned.entry().size(), false
+        );
+    }
+
+    private static void teleportThroughDoor(
+        ServerPlayer player, Catalog catalog, BuilderData data,
+        EditContext current, BlockPos door
+    ) {
+        BlockPos relative = door.subtract(current.origin());
+        DoorAnchor selected = data.anchors(current.key()).stream()
+            .filter(anchor -> anchor.position().equals(relative))
+            .findFirst()
+            .orElseThrow(() -> new BuilderException(
+                "이 문은 아직 입장문 또는 퇴장문으로 지정되지 않았습니다."
+            ));
+        String linkId = current.label();
+        EditContext destination;
+        String destinationRole;
+        if (selected.role().equals("interior_entry")) {
+            destination = interiorContext(catalog, data, linkId);
+            destinationRole = "interior_exit";
+        } else {
+            destination = exteriorContext(catalog, data, linkId);
+            destinationRole = "interior_entry";
+        }
+        String spawnType = destination.interior() ? "interior_spawn" : "exterior_spawn";
+        BlockPos target = data.pointAnchors(destination.key()).stream()
+            .filter(anchor -> anchor.type().equals(spawnType))
+            .findFirst()
+            .map(anchor -> destination.origin().offset(anchor.position()))
+            .orElseGet(() -> data.anchors(destination.key()).stream()
+                .filter(anchor -> anchor.role().equals(destinationRole))
+                .findFirst()
+                .map(anchor -> destination.origin().offset(anchor.safeSpawn()))
+                .orElse(destination.origin().offset(1, 1, 1)));
+        player.teleportTo(
+            player.serverLevel(), target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D,
+            player.getYRot(), player.getXRot()
+        );
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] 미리보기 이동: " + destination.label()
+        ));
+    }
+
+    private static EditContext interiorContext(Catalog catalog, BuilderData data, String id) {
+        Optional<InteriorPlot> dynamic = data.interior(id);
+        if (dynamic.isPresent()) {
+            return dynamic.get().context();
+        }
+        return plan(catalog, data.groundY).stream()
+            .filter(planned -> planned.entry().category().equals("interiors")
+                && planned.entry().label().equals(id))
+            .findFirst()
+            .map(planned -> new EditContext(
+                planned.entry().exportId(), planned.entry().label(),
+                planned.origin(), planned.entry().size(), true
+            ))
+            .orElseThrow(() -> new BuilderException(
+                "연결된 내부 공간이 없습니다. 같은 ID로 interior create를 실행하세요: " + id
+            ));
+    }
+
+    private static EditContext exteriorContext(Catalog catalog, BuilderData data, String id) {
+        return plan(catalog, data.groundY).stream()
+            .filter(planned -> !planned.entry().category().equals("interiors")
+                && planned.entry().label().equals(id))
+            .findFirst()
+            .map(planned -> new EditContext(
+                planned.entry().exportId(), planned.entry().label(),
+                planned.origin(), planned.entry().size(), false
+            ))
+            .orElseThrow(() -> new BuilderException(
+                "같은 ID의 외부 건물이 없습니다: " + id
+            ));
+    }
+
+    private static int createInterior(
+        CommandSourceStack source, String id,
+        int width, int depth, int floorHeight, int floors
+    ) throws CommandSyntaxException {
+        if (!id.matches("[a-z0-9][a-z0-9_]*")) {
+            return fail(source, new BuilderException(
+                "내부 ID는 영문 소문자, 숫자와 밑줄만 사용할 수 있습니다."
+            ));
+        }
+        int height = floorHeight * floors;
+        if (height > 80) {
+            return fail(source, new BuilderException("내부 전체 높이는 80블록 이하여야 합니다."));
+        }
+        BuilderData data = data(source.getServer());
+        boolean catalogInterior = plan(loadCatalog(source.getServer()), data.groundY).stream()
+            .anyMatch(planned -> planned.entry().category().equals("interiors")
+                && planned.entry().label().equals(id));
+        if (data.interior(id).isPresent() || catalogInterior) {
+            return fail(source, new BuilderException("이미 존재하는 내부 공간입니다: " + id));
+        }
+        int index = data.interiorCount();
+        BlockPos origin = new BlockPos(
+            INTERIOR_ORIGIN_X + (index % 8) * INTERIOR_CELL_SIZE,
+            data.groundY + 1,
+            INTERIOR_ORIGIN_Z + (index / 8) * INTERIOR_CELL_SIZE
+        );
+        InteriorPlot plot = new InteriorPlot(id, origin, width, depth, floorHeight, floors);
+        data.addInterior(plot);
+        outlineInterior(source.getServer().overworld(), plot);
+        teleport(source.getPlayerOrException(), plot.origin().offset(1, 0, 1));
+        source.sendSuccess(
+            () -> Component.literal(
+                "[Structure Builder] 내부 공간 생성: " + id + " · "
+                    + width + "x" + height + "x" + depth + " · " + floors + "층"
+            ), true
+        );
+        return 1;
+    }
+
+    private static int listInteriors(CommandSourceStack source) {
+        BuilderData builderData = data(source.getServer());
+        List<String> values = new ArrayList<>();
+        builderData.interiors().stream()
+            .map(plot -> plot.id() + "(" + plot.floors() + "층)")
+            .forEach(values::add);
+        for (PlannedEntry planned : plan(loadCatalog(source.getServer()), builderData.groundY)) {
+            if (!planned.entry().category().equals("interiors")) {
+                continue;
+            }
+            InteriorSpec spec = planned.entry().interior();
+            values.add(spec == null
+                ? planned.entry().label()
+                : planned.entry().label() + "(" + spec.floors() + "층)");
+        }
+        String value = values.isEmpty() ? "없음" : String.join(", ", values);
+        source.sendSuccess(
+            () -> Component.literal("[Structure Builder] 내부 공간: " + value), false
+        );
+        return values.size();
+    }
+
+    private static int teleportToInterior(CommandSourceStack source, String id)
+        throws CommandSyntaxException {
+        BuilderData builderData = data(source.getServer());
+        EditContext edit = interiorContext(loadCatalog(source.getServer()), builderData, id);
+        teleport(source.getPlayerOrException(), edit.origin().offset(1, 0, 1));
+        return 1;
+    }
+
+    private static void teleport(ServerPlayer player, BlockPos position) {
+        player.teleportTo(
+            player.serverLevel(), position.getX() + 0.5D, position.getY(),
+            position.getZ() + 0.5D, player.getYRot(), player.getXRot()
+        );
+    }
+
+    private static int saveInterior(CommandSourceStack source, String id) {
+        try {
+            BuilderData builderData = data(source.getServer());
+            Optional<InteriorPlot> dynamic = builderData.interior(id);
+            if (dynamic.isPresent()) {
+                exportInterior(source.getServer().overworld(), dynamic.get());
+            } else {
+                PlannedEntry planned = plan(loadCatalog(source.getServer()), builderData.groundY)
+                    .stream()
+                    .filter(value -> value.entry().category().equals("interiors")
+                        && value.entry().label().equals(id))
+                    .findFirst()
+                    .orElseThrow(() -> new BuilderException(
+                        "내부 공간을 찾을 수 없습니다: " + id
+                    ));
+                export(source.getServer().overworld(), planned);
+            }
+            source.sendSuccess(
+                () -> Component.literal("[Structure Builder] 내부 NBT 내보내기 완료: " + id),
+                true
+            );
+            return 1;
+        } catch (BuilderException error) {
+            return fail(source, error);
+        }
+    }
+
+    private static void outlineInterior(ServerLevel level, InteriorPlot plot) {
+        BlockState border = Blocks.LIGHT_BLUE_CONCRETE.defaultBlockState();
+        for (int floor = 0; floor < plot.floors(); floor++) {
+            int y = plot.origin().getY() + floor * plot.floorHeight() - 1;
+            for (int x = -1; x <= plot.width(); x++) {
+                level.setBlock(plot.origin().offset(x, y - plot.origin().getY(), -1), border, 2);
+                level.setBlock(plot.origin().offset(x, y - plot.origin().getY(), plot.depth()), border, 2);
+            }
+            for (int z = 0; z < plot.depth(); z++) {
+                level.setBlock(plot.origin().offset(-1, y - plot.origin().getY(), z), border, 2);
+                level.setBlock(plot.origin().offset(plot.width(), y - plot.origin().getY(), z), border, 2);
+            }
+        }
+        loadChunks(level, plot.origin(), plot.size());
+    }
+
+    private static boolean contains(PlannedEntry planned, BlockPos position) {
+        BlockPos origin = planned.origin();
+        Vec3i size = planned.entry().size();
+        return position.getX() >= origin.getX()
+            && position.getX() < origin.getX() + size.getX()
+            && position.getY() >= origin.getY()
+            && position.getY() < origin.getY() + size.getY()
+            && position.getZ() >= origin.getZ()
+            && position.getZ() < origin.getZ() + size.getZ();
     }
 
     private static void configureWorld(MinecraftServer server) {
@@ -317,6 +918,7 @@ public final class StructureBuilderMod {
         for (PlannedEntry planned : plan(catalog, groundY)) {
             placeSource(level, planned);
         }
+        data.replaceCatalogAnchors(catalog);
         data.complete(catalog.catalogHash(), groundY);
         BlockPos spawn = spawnPosition(groundY);
         level.setDefaultSpawnPos(spawn, 0.0F);
@@ -358,6 +960,115 @@ public final class StructureBuilderMod {
         if (!manager.save(exportId)) {
             throw new BuilderException("NBT 파일 저장에 실패했습니다: " + exportId);
         }
+        exportAnchors(level.getServer(), planned);
+    }
+
+    private static void exportAnchors(MinecraftServer server, PlannedEntry planned) {
+        String resourcePath = planned.entry().exportId().split(":", 2)[1];
+        String relative = resourcePath.startsWith("export/")
+            ? resourcePath.substring("export/".length())
+            : resourcePath;
+        exportMetadata(
+            server, planned.entry().exportId(), relative,
+            planned.entry().source(), planned.entry().interior(),
+            !planned.entry().anchors().isEmpty()
+                || !planned.entry().npcs().isEmpty()
+                || !planned.entry().points().isEmpty()
+                || planned.entry().interior() != null
+        );
+    }
+
+    private static void exportInterior(ServerLevel level, InteriorPlot plot) {
+        String relative = "interiors/" + plot.id();
+        ResourceLocation exportId = ResourceLocation.fromNamespaceAndPath(
+            "cobbleventure_builder", "export/" + relative
+        );
+        var manager = level.getStructureManager();
+        var template = manager.getOrCreate(exportId);
+        template.fillFromWorld(level, plot.origin(), plot.size(), false, Blocks.STRUCTURE_VOID);
+        template.setAuthor("Cobbleventure Structure Builder");
+        if (!manager.save(exportId)) {
+            throw new BuilderException("내부 NBT 파일 저장에 실패했습니다: " + exportId);
+        }
+        exportMetadata(
+            level.getServer(), plot.key(), relative,
+            "content/structures/interiors/" + plot.id() + ".nbt", plot.spec(), true
+        );
+    }
+
+    private static void exportMetadata(
+        MinecraftServer server, String key, String relative,
+        String source, InteriorSpec interior, boolean forceMetadata
+    ) {
+        Path target = server.getWorldPath(LevelResource.ROOT)
+            .resolve("generated/cobbleventure_builder/structure_metadata/export")
+            .resolve(relative + ".structure.json");
+        List<DoorAnchor> anchors = data(server).anchors(key);
+        List<NpcAnchor> npcs = data(server).npcAnchors(key);
+        List<PointAnchor> points = data(server).pointAnchors(key);
+        try {
+            if (anchors.isEmpty() && npcs.isEmpty() && points.isEmpty()
+                && interior == null && !forceMetadata) {
+                Files.deleteIfExists(target);
+                return;
+            }
+            JsonObject root = new JsonObject();
+            root.addProperty("schema_version", 1);
+            root.addProperty("structure", source);
+            if (interior != null) {
+                JsonObject workspace = new JsonObject();
+                workspace.addProperty("id", interior.id());
+                workspace.addProperty("width", interior.width());
+                workspace.addProperty("depth", interior.depth());
+                workspace.addProperty("floor_height", interior.floorHeight());
+                workspace.addProperty("floors", interior.floors());
+                root.add("interior", workspace);
+            }
+            JsonArray values = new JsonArray();
+            for (DoorAnchor anchor : anchors) {
+                JsonObject value = new JsonObject();
+                value.addProperty("id", anchor.role());
+                value.addProperty("type", anchor.role());
+                value.add("position", vector(anchor.position()));
+                value.add("safe_spawn", vector(anchor.safeSpawn()));
+                value.addProperty("door_facing", anchor.doorFacing());
+                value.addProperty("safe_side", anchor.safeSide());
+                value.addProperty("dialogue", anchor.role().equals("interior_entry")
+                    ? "cobbleventure:default_enter"
+                    : "cobbleventure:default_exit");
+                values.add(value);
+            }
+            for (NpcAnchor anchor : npcs) {
+                JsonObject value = new JsonObject();
+                value.addProperty("label", anchor.label());
+                value.addProperty("type", "npc_position");
+                value.add("position", vector(anchor.position()));
+                values.add(value);
+            }
+            for (PointAnchor anchor : points) {
+                JsonObject value = new JsonObject();
+                value.addProperty("id", anchor.id());
+                value.addProperty("type", anchor.type());
+                value.add("position", vector(anchor.position()));
+                value.addProperty("facing", anchor.facing());
+                values.add(value);
+            }
+            root.add("anchors", values);
+            Files.createDirectories(target.getParent());
+            Files.writeString(
+                target, GSON.toJson(root) + System.lineSeparator(), StandardCharsets.UTF_8
+            );
+        } catch (IOException error) {
+            throw new BuilderException("출입구 메타데이터 저장에 실패했습니다: " + target, error);
+        }
+    }
+
+    private static JsonArray vector(BlockPos position) {
+        JsonArray result = new JsonArray();
+        result.add(position.getX());
+        result.add(position.getY());
+        result.add(position.getZ());
+        return result;
     }
 
     private static List<PlannedEntry> plan(Catalog catalog, int groundY) {
@@ -462,6 +1173,51 @@ public final class StructureBuilderMod {
             for (JsonElement value : values) {
                 JsonObject entry = value.getAsJsonObject();
                 JsonArray size = entry.getAsJsonArray("size");
+                List<DoorAnchor> anchors = new ArrayList<>();
+                List<NpcAnchor> npcs = new ArrayList<>();
+                List<PointAnchor> points = new ArrayList<>();
+                InteriorSpec interior = null;
+                if (entry.has("interior") && !entry.get("interior").isJsonNull()) {
+                    JsonObject valueInterior = entry.getAsJsonObject("interior");
+                    interior = new InteriorSpec(
+                        valueInterior.get("id").getAsString(),
+                        valueInterior.get("width").getAsInt(),
+                        valueInterior.get("depth").getAsInt(),
+                        valueInterior.get("floor_height").getAsInt(),
+                        valueInterior.get("floors").getAsInt()
+                    );
+                }
+                if (entry.has("anchors")) {
+                    for (JsonElement anchorElement : entry.getAsJsonArray("anchors")) {
+                        JsonObject anchor = anchorElement.getAsJsonObject();
+                        String role = anchor.get("type").getAsString();
+                        if (role.equals("npc_position") || role.equals("easy_npc_spawn")) {
+                            String label = anchor.has("label")
+                                ? anchor.get("label").getAsString()
+                                : anchor.get("id").getAsString();
+                            npcs.add(new NpcAnchor(
+                                label,
+                                parsePosition(anchor.getAsJsonArray("position"))
+                            ));
+                        } else if (role.equals("interior_entry")
+                            || role.equals("interior_exit")) {
+                            anchors.add(new DoorAnchor(
+                                role,
+                                parsePosition(anchor.getAsJsonArray("position")),
+                                parsePosition(anchor.getAsJsonArray("safe_spawn")),
+                                anchor.get("door_facing").getAsString(),
+                                anchor.get("safe_side").getAsString()
+                            ));
+                        } else {
+                            points.add(new PointAnchor(
+                                anchor.get("id").getAsString(),
+                                role,
+                                parsePosition(anchor.getAsJsonArray("position")),
+                                anchor.get("facing").getAsString()
+                            ));
+                        }
+                    }
+                }
                 Entry parsed = new Entry(
                     entry.get("source").getAsString(),
                     entry.get("structure").getAsString(),
@@ -470,7 +1226,11 @@ public final class StructureBuilderMod {
                     entry.get("category").getAsString(),
                     new Vec3i(
                         size.get(0).getAsInt(), size.get(1).getAsInt(), size.get(2).getAsInt()
-                    )
+                    ),
+                    List.copyOf(anchors),
+                    List.copyOf(npcs),
+                    List.copyOf(points),
+                    interior
                 );
                 if (ids.put(parsed.exportId(), true) != null) {
                     throw new BuilderException("중복 내보내기 ID: " + parsed.exportId());
@@ -492,6 +1252,15 @@ public final class StructureBuilderMod {
         );
     }
 
+    private static BlockPos parsePosition(JsonArray value) {
+        if (value.size() != 3) {
+            throw new BuilderException("앵커 좌표는 정수 3개여야 합니다.");
+        }
+        return new BlockPos(
+            value.get(0).getAsInt(), value.get(1).getAsInt(), value.get(2).getAsInt()
+        );
+    }
+
     private record Catalog(
         String catalogHash, int columns, int cellSize, List<Entry> entries
     ) {
@@ -502,7 +1271,9 @@ public final class StructureBuilderMod {
 
     private record Entry(
         String source, String structureId, String exportId,
-        String label, String category, Vec3i size
+        String label, String category, Vec3i size,
+        List<DoorAnchor> anchors, List<NpcAnchor> npcs,
+        List<PointAnchor> points, InteriorSpec interior
     ) {
     }
 
@@ -511,16 +1282,166 @@ public final class StructureBuilderMod {
     ) {
     }
 
+    private record DoorAnchor(
+        String role, BlockPos position, BlockPos safeSpawn,
+        String doorFacing, String safeSide
+    ) {
+    }
+
+    private record NpcAnchor(String label, BlockPos position) {
+    }
+
+    private record PointAnchor(
+        String id, String type, BlockPos position, String facing
+    ) {
+    }
+
+    private record EditContext(
+        String key, String label, BlockPos origin, Vec3i size, boolean interior
+    ) {
+    }
+
+    private record InteriorPlot(
+        String id, BlockPos origin, int width, int depth, int floorHeight, int floors
+    ) {
+        String key() {
+            return "cobbleventure_builder:export/interiors/" + id;
+        }
+
+        Vec3i size() {
+            return new Vec3i(width, floorHeight * floors, depth);
+        }
+
+        boolean contains(BlockPos position) {
+            Vec3i bounds = size();
+            return position.getX() >= origin.getX()
+                && position.getX() < origin.getX() + bounds.getX()
+                && position.getY() >= origin.getY()
+                && position.getY() < origin.getY() + bounds.getY()
+                && position.getZ() >= origin.getZ()
+                && position.getZ() < origin.getZ() + bounds.getZ();
+        }
+
+        EditContext context() {
+            return new EditContext(key(), id, origin, size(), true);
+        }
+
+        InteriorSpec spec() {
+            return new InteriorSpec(id, width, depth, floorHeight, floors);
+        }
+    }
+
+    private record InteriorSpec(
+        String id, int width, int depth, int floorHeight, int floors
+    ) {
+    }
+
+    private enum ToolMode {
+        ENTRY("entry", "외부 입장문"),
+        EXIT("exit", "내부 퇴장문"),
+        TELEPORT("teleport", "연결 이동"),
+        SPAWN("spawn", "도착 위치"),
+        NPC("npc", "NPC 위치"),
+        INTERACTION("interaction", "상호작용 지점"),
+        PATROL("patrol", "순찰 지점"),
+        INSPECT("inspect", "구조물 정보");
+
+        private final String id;
+        private final String label;
+
+        ToolMode(String id, String label) {
+            this.id = id;
+            this.label = label;
+        }
+
+        ToolMode next() {
+            ToolMode[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+
+        static ToolMode parse(String value) {
+            return byId(value).orElse(ENTRY);
+        }
+
+        static Optional<ToolMode> byId(String value) {
+            for (ToolMode mode : values()) {
+                if (mode.id.equals(value)) {
+                    return Optional.of(mode);
+                }
+            }
+            return Optional.empty();
+        }
+    }
+
     private static final class BuilderData extends SavedData {
         private boolean prepared;
         private String catalogHash = "";
         private int groundY;
+        private final Map<String, Map<String, DoorAnchor>> doorAnchors = new LinkedHashMap<>();
+        private final Map<String, Map<String, NpcAnchor>> npcAnchors = new LinkedHashMap<>();
+        private final Map<String, Map<String, PointAnchor>> pointAnchors = new LinkedHashMap<>();
+        private final Map<String, InteriorPlot> interiorPlots = new LinkedHashMap<>();
 
         static BuilderData load(CompoundTag tag, HolderLookup.Provider registries) {
             BuilderData data = new BuilderData();
             data.prepared = tag.getBoolean("prepared");
             data.catalogHash = tag.getString("catalogHash");
             data.groundY = tag.getInt("groundY");
+            CompoundTag structures = tag.getCompound("doorAnchors");
+            for (String structureId : structures.getAllKeys()) {
+                CompoundTag roles = structures.getCompound(structureId);
+                Map<String, DoorAnchor> anchors = new LinkedHashMap<>();
+                for (String role : roles.getAllKeys()) {
+                    CompoundTag value = roles.getCompound(role);
+                    anchors.put(role, new DoorAnchor(
+                        role,
+                        readPosition(value, "position"),
+                        readPosition(value, "safeSpawn"),
+                        value.getString("doorFacing"),
+                        value.getString("safeSide")
+                    ));
+                }
+                data.doorAnchors.put(structureId, anchors);
+            }
+            CompoundTag npcStructures = tag.getCompound("npcAnchors");
+            for (String structureId : npcStructures.getAllKeys()) {
+                CompoundTag ids = npcStructures.getCompound(structureId);
+                Map<String, NpcAnchor> anchors = new LinkedHashMap<>();
+                for (String label : ids.getAllKeys()) {
+                    CompoundTag value = ids.getCompound(label);
+                    anchors.put(label, new NpcAnchor(
+                        label, readPosition(value, "position")
+                    ));
+                }
+                data.npcAnchors.put(structureId, anchors);
+            }
+            CompoundTag interiors = tag.getCompound("interiorPlots");
+            for (String id : interiors.getAllKeys()) {
+                CompoundTag value = interiors.getCompound(id);
+                data.interiorPlots.put(id, new InteriorPlot(
+                    id,
+                    readPosition(value, "origin"),
+                    value.getInt("width"),
+                    value.getInt("depth"),
+                    value.getInt("floorHeight"),
+                    value.getInt("floors")
+                ));
+            }
+            CompoundTag pointStructures = tag.getCompound("pointAnchors");
+            for (String structureId : pointStructures.getAllKeys()) {
+                CompoundTag ids = pointStructures.getCompound(structureId);
+                Map<String, PointAnchor> anchors = new LinkedHashMap<>();
+                for (String id : ids.getAllKeys()) {
+                    CompoundTag value = ids.getCompound(id);
+                    anchors.put(id, new PointAnchor(
+                        id,
+                        value.getString("type"),
+                        readPosition(value, "position"),
+                        value.getString("facing")
+                    ));
+                }
+                data.pointAnchors.put(structureId, anchors);
+            }
             return data;
         }
 
@@ -531,12 +1452,212 @@ public final class StructureBuilderMod {
             setDirty();
         }
 
+        void putAnchor(String structureId, DoorAnchor anchor) {
+            doorAnchors.computeIfAbsent(structureId, ignored -> new LinkedHashMap<>())
+                .put(anchor.role(), anchor);
+            setDirty();
+        }
+
+        void replaceCatalogAnchors(Catalog catalog) {
+            for (Entry entry : catalog.entries()) {
+                doorAnchors.remove(entry.exportId());
+                npcAnchors.remove(entry.exportId());
+                pointAnchors.remove(entry.exportId());
+                for (DoorAnchor anchor : entry.anchors()) {
+                    doorAnchors.computeIfAbsent(
+                        entry.exportId(), ignored -> new LinkedHashMap<>()
+                    ).put(anchor.role(), anchor);
+                }
+                for (NpcAnchor anchor : entry.npcs()) {
+                    npcAnchors.computeIfAbsent(
+                        entry.exportId(), ignored -> new LinkedHashMap<>()
+                    ).put(anchor.label(), anchor);
+                }
+                for (PointAnchor anchor : entry.points()) {
+                    pointAnchors.computeIfAbsent(
+                        entry.exportId(), ignored -> new LinkedHashMap<>()
+                    ).put(anchor.id(), anchor);
+                }
+            }
+            setDirty();
+        }
+
+        int removeAnchorsAt(String structureId, BlockPos position) {
+            Map<String, DoorAnchor> anchors = doorAnchors.get(structureId);
+            if (anchors == null) {
+                return 0;
+            }
+            int before = anchors.size();
+            anchors.values().removeIf(anchor -> anchor.position().equals(position));
+            if (anchors.isEmpty()) {
+                doorAnchors.remove(structureId);
+            }
+            int removed = before - anchors.size();
+            if (removed > 0) {
+                setDirty();
+            }
+            return removed;
+        }
+
+        List<DoorAnchor> anchors(String structureId) {
+            Map<String, DoorAnchor> anchors = doorAnchors.get(structureId);
+            return anchors == null ? List.of() : List.copyOf(anchors.values());
+        }
+
+        void putNpcAnchor(String structureId, NpcAnchor anchor) {
+            npcAnchors.computeIfAbsent(structureId, ignored -> new LinkedHashMap<>())
+                .put(anchor.label(), anchor);
+            setDirty();
+        }
+
+        int removeNpcAnchorsAt(String structureId, BlockPos position) {
+            Map<String, NpcAnchor> anchors = npcAnchors.get(structureId);
+            if (anchors == null) {
+                return 0;
+            }
+            int before = anchors.size();
+            anchors.values().removeIf(anchor -> anchor.position().equals(position));
+            int removed = before - anchors.size();
+            if (anchors.isEmpty()) {
+                npcAnchors.remove(structureId);
+            }
+            if (removed > 0) {
+                setDirty();
+            }
+            return removed;
+        }
+
+        List<NpcAnchor> npcAnchors(String structureId) {
+            Map<String, NpcAnchor> anchors = npcAnchors.get(structureId);
+            return anchors == null ? List.of() : List.copyOf(anchors.values());
+        }
+
+        void putPointAnchor(String structureId, PointAnchor anchor) {
+            pointAnchors.computeIfAbsent(structureId, ignored -> new LinkedHashMap<>())
+                .put(anchor.id(), anchor);
+            setDirty();
+        }
+
+        String nextPointId(String structureId, String type) {
+            Map<String, PointAnchor> anchors = pointAnchors.get(structureId);
+            String prefix = type.equals("patrol_point") ? "patrol_" : "interaction_";
+            int index = 1;
+            while (anchors != null && anchors.containsKey(prefix + index)) {
+                index++;
+            }
+            return prefix + index;
+        }
+
+        int removePointAnchorsAt(String structureId, BlockPos position) {
+            Map<String, PointAnchor> anchors = pointAnchors.get(structureId);
+            if (anchors == null) {
+                return 0;
+            }
+            int before = anchors.size();
+            anchors.values().removeIf(anchor -> anchor.position().equals(position));
+            int removed = before - anchors.size();
+            if (anchors.isEmpty()) {
+                pointAnchors.remove(structureId);
+            }
+            if (removed > 0) {
+                setDirty();
+            }
+            return removed;
+        }
+
+        List<PointAnchor> pointAnchors(String structureId) {
+            Map<String, PointAnchor> anchors = pointAnchors.get(structureId);
+            return anchors == null ? List.of() : List.copyOf(anchors.values());
+        }
+
+        void addInterior(InteriorPlot plot) {
+            interiorPlots.put(plot.id(), plot);
+            setDirty();
+        }
+
+        Optional<InteriorPlot> interior(String id) {
+            return Optional.ofNullable(interiorPlots.get(id));
+        }
+
+        List<InteriorPlot> interiors() {
+            return List.copyOf(interiorPlots.values());
+        }
+
+        int interiorCount() {
+            return interiorPlots.size();
+        }
+
         @Override
         public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
             tag.putBoolean("prepared", prepared);
             tag.putString("catalogHash", catalogHash);
             tag.putInt("groundY", groundY);
+            CompoundTag structures = new CompoundTag();
+            for (Map.Entry<String, Map<String, DoorAnchor>> structure
+                : doorAnchors.entrySet()) {
+                CompoundTag roles = new CompoundTag();
+                for (DoorAnchor anchor : structure.getValue().values()) {
+                    CompoundTag value = new CompoundTag();
+                    writePosition(value, "position", anchor.position());
+                    writePosition(value, "safeSpawn", anchor.safeSpawn());
+                    value.putString("doorFacing", anchor.doorFacing());
+                    value.putString("safeSide", anchor.safeSide());
+                    roles.put(anchor.role(), value);
+                }
+                structures.put(structure.getKey(), roles);
+            }
+            tag.put("doorAnchors", structures);
+            CompoundTag npcStructures = new CompoundTag();
+            for (Map.Entry<String, Map<String, NpcAnchor>> structure
+                : npcAnchors.entrySet()) {
+                CompoundTag ids = new CompoundTag();
+                for (NpcAnchor anchor : structure.getValue().values()) {
+                    CompoundTag value = new CompoundTag();
+                    writePosition(value, "position", anchor.position());
+                    ids.put(anchor.label(), value);
+                }
+                npcStructures.put(structure.getKey(), ids);
+            }
+            tag.put("npcAnchors", npcStructures);
+            CompoundTag pointStructures = new CompoundTag();
+            for (Map.Entry<String, Map<String, PointAnchor>> structure
+                : pointAnchors.entrySet()) {
+                CompoundTag ids = new CompoundTag();
+                for (PointAnchor anchor : structure.getValue().values()) {
+                    CompoundTag value = new CompoundTag();
+                    value.putString("type", anchor.type());
+                    writePosition(value, "position", anchor.position());
+                    value.putString("facing", anchor.facing());
+                    ids.put(anchor.id(), value);
+                }
+                pointStructures.put(structure.getKey(), ids);
+            }
+            tag.put("pointAnchors", pointStructures);
+            CompoundTag interiors = new CompoundTag();
+            for (InteriorPlot plot : interiorPlots.values()) {
+                CompoundTag value = new CompoundTag();
+                writePosition(value, "origin", plot.origin());
+                value.putInt("width", plot.width());
+                value.putInt("depth", plot.depth());
+                value.putInt("floorHeight", plot.floorHeight());
+                value.putInt("floors", plot.floors());
+                interiors.put(plot.id(), value);
+            }
+            tag.put("interiorPlots", interiors);
             return tag;
+        }
+
+        private static BlockPos readPosition(CompoundTag parent, String key) {
+            CompoundTag value = parent.getCompound(key);
+            return new BlockPos(value.getInt("x"), value.getInt("y"), value.getInt("z"));
+        }
+
+        private static void writePosition(CompoundTag parent, String key, BlockPos position) {
+            CompoundTag value = new CompoundTag();
+            value.putInt("x", position.getX());
+            value.putInt("y", position.getY());
+            value.putInt("z", position.getZ());
+            parent.put(key, value);
         }
     }
 

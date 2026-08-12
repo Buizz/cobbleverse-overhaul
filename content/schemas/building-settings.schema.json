@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.local/schemas/building-settings.schema.json",
+  "title": "Cobbleventure building settings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "buildings"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "buildings": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fixed_npcs", "random_citizen_eligible"],
+        "properties": {
+          "fixed_npcs": {
+            "type": "object",
+            "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_]*$" },
+            "additionalProperties": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" }
+          },
+          "random_citizen_eligible": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

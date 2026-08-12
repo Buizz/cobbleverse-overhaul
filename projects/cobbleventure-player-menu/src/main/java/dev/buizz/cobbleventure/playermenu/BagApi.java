@@ -9,7 +9,7 @@ import net.minecraft.world.item.ItemStack;
 public final class BagApi {
     private BagApi() {}
 
-    /** Inserts into the vanilla inventory first, then the extended bag. */
+    /** Inserts directly into the extended bag without changing the inventory or hotbar. */
     public static InsertResult insert(ServerPlayer player, ItemStack offered) {
         return insert(player, offered, false);
     }
@@ -26,13 +26,37 @@ public final class BagApi {
             return new InsertResult(0, remainder);
         }
 
-        player.getInventory().add(remainder);
         NonNullList<ItemStack> storage = BagStorage.load(player);
         int extendedInserted = BagStorage.add(storage, remainder);
         if (extendedInserted > 0) BagStorage.save(player, storage);
         int inserted = requested - remainder.getCount();
         if (inserted > 0) BagNetwork.syncExternalMutation(player, storage);
         return new InsertResult(inserted, remainder.copy());
+    }
+
+    /** Inserts a complete reward batch into the extended bag as one transaction. */
+    public static BatchInsertResult insertAll(ServerPlayer player, List<ItemStack> offered) {
+        NonNullList<ItemStack> original = BagStorage.load(player);
+        NonNullList<ItemStack> working = NonNullList.withSize(BagStorage.SLOT_COUNT, ItemStack.EMPTY);
+        for (int slot = 0; slot < original.size(); slot++) {
+            working.set(slot, original.get(slot).copy());
+        }
+
+        int requested = 0;
+        int inserted = 0;
+        for (ItemStack stack : offered) {
+            if (stack.isEmpty()) continue;
+            ItemStack remainder = stack.copy();
+            requested += remainder.getCount();
+            inserted += BagStorage.add(working, remainder);
+            if (!remainder.isEmpty()) return new BatchInsertResult(0, requested, false);
+        }
+
+        if (inserted > 0) {
+            BagStorage.save(player, working);
+            BagNetwork.syncExternalMutation(player, working);
+        }
+        return new BatchInsertResult(inserted, requested, true);
     }
 
     /** Returns the total matching count across the vanilla and extended slots. */
@@ -96,9 +120,7 @@ public final class BagApi {
     }
 
     private static int availableCapacity(ServerPlayer player, ItemStack prototype) {
-        int capacity = capacityIn(player.getInventory().items, prototype);
-        capacity += capacityIn(BagStorage.load(player), prototype);
-        return capacity;
+        return capacityIn(BagStorage.load(player), prototype);
     }
 
     private static int capacityIn(List<ItemStack> slots, ItemStack prototype) {
@@ -117,4 +139,6 @@ public final class BagApi {
             return remainder.isEmpty();
         }
     }
+
+    public record BatchInsertResult(int inserted, int requested, boolean complete) {}
 }

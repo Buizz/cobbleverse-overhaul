@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
@@ -40,6 +41,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
@@ -128,7 +130,7 @@ public final class CobbleventureBootstrap {
     private static final int PREVIOUS_FOUNDATION_MAX_Y = 59;
     private static final int LEGACY_FOUNDATION_MIN_Y = 55;
     private static final int LEGACY_FOUNDATION_MAX_Y = 64;
-    private static final int MAP_VERSION = 84;
+    private static final int MAP_VERSION = 85;
     private static final int COLLISION_SHELL_RADIUS = 2;
     private static final double TOWN_RELIEF_SCALE = 0.22D;
     private static final int TOWN_EDGE_RELIEF_BLEND_BLOCKS = 40;
@@ -167,6 +169,8 @@ public final class CobbleventureBootstrap {
         CacheBuilder.newBuilder().maximumSize(262_144L).build();
     private static final Map<OceanMoundKey, Boolean> OCEAN_MOUND_BOUNDARY =
         new ConcurrentHashMap<>();
+    private static final Map<RoadElevationKey, RoadElevationProfile> ROAD_ELEVATIONS =
+        new ConcurrentHashMap<>();
     private static final Map<UUID, Vec3> safeFieldPositions = new HashMap<>();
     private static final Map<UUID, Vec3> safeWaterPositions = new HashMap<>();
     private static final Map<UUID, Integer> deepWaterTicks = new HashMap<>();
@@ -203,7 +207,10 @@ public final class CobbleventureBootstrap {
         WildSpawnLeveling.register();
         FlashCaveEffects.register();
         PokemonCenterDefeatReturn.register();
+        BattleOnlyPokeBallUse.register();
         TrainerBattleState.register();
+        GymInteriorSystem.register();
+        BuildingRuntimeSystem.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onEntityJoinLevel);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
@@ -322,11 +329,18 @@ public final class CobbleventureBootstrap {
         activeFacilityPortals = facilityPortals(runtime.settlements());
         placeCaveMountainBarriers(level, runtime.hexWorld());
         placeCaveEntrances(level, runtime.hexWorld());
+        WorldGateSystem.placeAll(
+            level, runtime.hexWorld().grid(), runtime.hexWorld().gates()
+        );
         ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
         if (dungeons == null) {
             throw new IllegalStateException("Cobbleventure dungeons dimension is missing");
         }
         placeCaveInteriors(dungeons, runtime.hexWorld());
+        GymInteriorSystem.initialize(event.getServer());
+        BuildingRuntimeSystem.initialize(event.getServer());
+        prepareExistingGymExteriors(level, runtime.settlements());
+        prepareExistingBuildingRuntime(level, runtime.settlements());
 
         if (nativeGenerator) {
             SettlementPlan starter = runtime.settlements().get(STARTER_SETTLEMENT);
@@ -586,6 +600,9 @@ public final class CobbleventureBootstrap {
         }
         placeCaveMountainBarriers(level, runtime.hexWorld());
         placeCaveEntrances(level, runtime.hexWorld());
+        WorldGateSystem.placeAll(
+            level, runtime.hexWorld().grid(), runtime.hexWorld().gates()
+        );
         BlockPos spawnPos = starter.playerSpawn().toBlockPos();
         BlockPos villagePos = townSurfacePosition(level, starter);
         level.setDefaultSpawnPos(spawnPos, 0.0F);
@@ -718,10 +735,32 @@ public final class CobbleventureBootstrap {
         double boundaryDistance = mouth.boundaryDistance();
         migrateLegacyCaveEntrance(level, grid, center, forwardX, forwardZ);
         BlockPos marker = new BlockPos(mouthX, grid.origin().y() + 16, mouthZ);
-        if (level.getBlockState(marker).is(Blocks.LODESTONE)) {
-            int existingFloorY = caveMouthFloorY(
-                level, mouthX, mouthZ, grid.origin().y()
+        int previousMouthX = center.x()
+            + (int) Math.round(forwardX * (boundaryDistance - 5.0D));
+        int previousMouthZ = center.z()
+            + (int) Math.round(forwardZ * (boundaryDistance - 5.0D));
+        BlockPos previousMarker = new BlockPos(
+            previousMouthX, grid.origin().y() + 16, previousMouthZ
+        );
+        boolean existingEntrance = level.getBlockState(marker).is(Blocks.LODESTONE);
+        boolean displacedEntrance = level.getBlockState(previousMarker).is(Blocks.LODESTONE);
+        if (existingEntrance || displacedEntrance) {
+            int existingFloorY = displacedEntrance
+                ? caveMouthFloorY(level, previousMouthX, previousMouthZ, grid.origin().y())
+                : caveMouthFloorY(level, mouthX, mouthZ, grid.origin().y());
+            if (displacedEntrance) {
+                removeDisplacedCaveMouthLandmark(
+                    level, previousMouthX, existingFloorY, previousMouthZ,
+                    forwardX, forwardZ
+                );
+            }
+            reshapeCaveMouth(
+                level, mouthX, existingFloorY, mouthZ, forwardX, forwardZ
             );
+            if (displacedEntrance) {
+                level.setBlock(previousMarker, Blocks.AIR.defaultBlockState(), 2);
+            }
+            level.setBlock(marker, Blocks.LODESTONE.defaultBlockState(), 2);
             placeCaveMouthLandmark(
                 level, mouthX, existingFloorY, mouthZ, forwardX, forwardZ
             );
@@ -748,12 +787,53 @@ public final class CobbleventureBootstrap {
                 }
             }
         }
-        for (int depth = 0; depth <= 18; depth++) {
-            for (int lateral = -13; lateral <= 13; lateral++) {
+        reshapeCaveMouth(level, mouthX, baseY, mouthZ, forwardX, forwardZ);
+        level.setBlock(marker, Blocks.LODESTONE.defaultBlockState(), 2);
+        placeCaveMouthLandmark(level, mouthX, baseY, mouthZ, forwardX, forwardZ);
+        placeCavePokemonCenter(level, grid, entrance, center, new Point(mouthX, mouthZ));
+        LOGGER.info(
+            "Cave entrance generated: id={}, cave={}, position={}",
+            entrance.id(), entrance.cave(), new BlockPos(mouthX, baseY, mouthZ)
+        );
+    }
+
+    private static void removeDisplacedCaveMouthLandmark(
+        ServerLevel level,
+        int centerX, int floorY, int centerZ,
+        double forwardX, double forwardZ
+    ) {
+        double sideX = -forwardZ;
+        double sideZ = forwardX;
+        for (int lateral = -7; lateral <= 7; lateral++) {
+            int x = centerX + (int) Math.round(sideX * lateral);
+            int z = centerZ + (int) Math.round(sideZ * lateral);
+            for (int vertical = 1; vertical <= 9; vertical++) {
+                BlockPos position = new BlockPos(x, floorY + vertical, z);
+                if (isLegacyCaveEntranceBlock(level.getBlockState(position))) {
+                    level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+                }
+            }
+        }
+    }
+
+    private static void reshapeCaveMouth(
+        ServerLevel level,
+        int mouthX, int baseY, int mouthZ,
+        double forwardX, double forwardZ
+    ) {
+        double sideX = -forwardZ;
+        double sideZ = forwardX;
+        for (int depth = -4; depth <= 22; depth++) {
+            int halfWidth = 8 + (int) Math.round((depth + 4) * 0.42D);
+            double rearBlend = (depth + 4) / 26.0D;
+            for (int lateral = -halfWidth; lateral <= halfWidth; lateral++) {
                 int x = mouthX + (int) Math.round(forwardX * depth + sideX * lateral);
                 int z = mouthZ + (int) Math.round(forwardZ * depth + sideZ * lateral);
                 int groundY = surfacePosition(level, x, z).getY();
-                int ridgeHeight = 7 + Math.max(0, 13 - Math.abs(lateral)) / 2 + depth / 3;
+                double sideBlend = 1.0D - Math.abs(lateral) / (double) (halfWidth + 1);
+                int ridgeHeight = 5
+                    + (int) Math.round(rearBlend * 9.0D)
+                    + (int) Math.round(sideBlend * 6.0D);
                 for (int y = groundY; y <= baseY + ridgeHeight; y++) {
                     BlockState rock = (y + lateral + depth) % 7 == 0
                         ? Blocks.ANDESITE.defaultBlockState()
@@ -762,7 +842,7 @@ public final class CobbleventureBootstrap {
                 }
             }
         }
-        for (int depth = -2; depth <= 10; depth++) {
+        for (int depth = -2; depth <= 9; depth++) {
             for (int lateral = -3; lateral <= 3; lateral++) {
                 int x = mouthX + (int) Math.round(forwardX * depth + sideX * lateral);
                 int z = mouthZ + (int) Math.round(forwardZ * depth + sideZ * lateral);
@@ -773,13 +853,21 @@ public final class CobbleventureBootstrap {
                 }
             }
         }
-        level.setBlock(marker, Blocks.LODESTONE.defaultBlockState(), 2);
-        placeCaveMouthLandmark(level, mouthX, baseY, mouthZ, forwardX, forwardZ);
-        placeCavePokemonCenter(level, grid, entrance, center, new Point(mouthX, mouthZ));
-        LOGGER.info(
-            "Cave entrance generated: id={}, cave={}, position={}",
-            entrance.id(), entrance.cave(), new BlockPos(mouthX, baseY, mouthZ)
-        );
+        int backdropDepth = 9;
+        for (int lateral = -3; lateral <= 3; lateral++) {
+            int x = mouthX + (int) Math.round(
+                forwardX * backdropDepth + sideX * lateral
+            );
+            int z = mouthZ + (int) Math.round(
+                forwardZ * backdropDepth + sideZ * lateral
+            );
+            for (int vertical = 1; vertical <= 6; vertical++) {
+                level.setBlock(
+                    new BlockPos(x, baseY + vertical, z),
+                    Blocks.BLACK_CONCRETE.defaultBlockState(), 2
+                );
+            }
+        }
     }
 
     private static CaveMouthGeometry caveMouthGeometry(
@@ -805,7 +893,7 @@ public final class CobbleventureBootstrap {
         double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
         double forwardX = deltaX / length;
         double forwardZ = deltaZ / length;
-        double boundaryDistance = length * 0.5D - 3.0D;
+        double boundaryDistance = length * 0.5D + 2.0D;
         int mouthX = center.x() + (int) Math.round(forwardX * boundaryDistance);
         int mouthZ = center.z() + (int) Math.round(forwardZ * boundaryDistance);
         return new CaveMouthGeometry(
@@ -1013,7 +1101,7 @@ public final class CobbleventureBootstrap {
             LOGGER.warn("Cave Pokemon Center berry decorations were not completed: {}", entrance.id());
         }
         cleanupFacilityTemplateMarkers(level, structure, origin);
-        if (!placeFacilityWorkers(level, facility, origin)) {
+        if (!placeFacilityWorkers(level, null, facility, origin)) {
             LOGGER.warn("Cave Pokemon Center worker placement was not completed: {}", entrance.id());
         }
         Point facilityEntrance = facilityEntrances(new FacilitySite(facility, origin)).getFirst();
@@ -1108,6 +1196,9 @@ public final class CobbleventureBootstrap {
                 String structure = placement.structure();
                 throw new IllegalStateException("Basic building NBT placement failed: " + structure);
             }
+            BuildingRuntimeSystem.onStructurePlaced(
+                level, placement.structure(), placement.position(), placement.rotation()
+            );
         }
         // Structure NBTs may contain air padding at their outer edge. Repaint the
         // authored road mask after placement so every doorway remains physically
@@ -1526,14 +1617,21 @@ public final class CobbleventureBootstrap {
                 );
                 return false;
             }
+            BuildingRuntimeSystem.onStructurePlaced(
+                level, facility.structure(), position, "none"
+            );
             if (facility.mode().equals("direct_template")) {
                 if (!placeFacilityJigsawDecorations(level, facility, position)) {
                     return false;
                 }
                 cleanupFacilityTemplateMarkers(level, facility.structure(), position);
-                if (!placeFacilityWorkers(level, facility, position)) {
+                if (!placeFacilityWorkers(level, settlement, facility, position)) {
                     return false;
                 }
+            }
+            if (facility.mode().equals("direct_template")
+                && facility.id().contains("gym")) {
+                GymInteriorSystem.prepareExterior(level, settlement.id(), position);
             }
             if (facility.id().startsWith("facility_")) {
                 configuredSites.add(new FacilitySite(facility, position));
@@ -1546,6 +1644,75 @@ public final class CobbleventureBootstrap {
         }
         drawFacilityRoadNetwork(level, settlement, configuredSites);
         return true;
+    }
+
+    private static void prepareExistingGymExteriors(
+        ServerLevel level, Map<String, SettlementPlan> settlements
+    ) {
+        BootstrapSavedData data = level.getServer().overworld().getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
+            DATA_FILE
+        );
+        for (SettlementPlan settlement : settlements.values()) {
+            if (!settlement.enabled() || !data.isSettlementGenerated(settlement.id())) {
+                continue;
+            }
+            for (FacilityPlacement facility : settlement.facilities()) {
+                if (!facility.mode().equals("direct_template")
+                    || !facility.id().contains("gym")) {
+                    continue;
+                }
+                BlockPoint position = resolveDirectFacilityPosition(level, settlement, facility);
+                if (position != null) {
+                    GymInteriorSystem.prepareExterior(level, settlement.id(), position);
+                }
+            }
+        }
+    }
+
+    private static void prepareExistingBuildingRuntime(
+        ServerLevel level, Map<String, SettlementPlan> settlements
+    ) {
+        BootstrapSavedData data = level.getServer().overworld().getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
+            DATA_FILE
+        );
+        for (SettlementPlan settlement : settlements.values()) {
+            if (!settlement.enabled() || !data.isSettlementGenerated(settlement.id())) {
+                continue;
+            }
+            TownLayout layout = generateTownLayout(settlement);
+            Point center = new Point(settlement.center().x(), settlement.center().z());
+            int smallVariant = 0;
+            for (TownPlot house : layout.houses()) {
+                String compiledStructure = house.structure();
+                int paletteIndex = Math.min(
+                    settlement.basicBuildings().size() - 1,
+                    smallVariant++ % Math.max(1, settlement.basicBuildings().size())
+                );
+                String structure = compiledStructure != null && !compiledStructure.isBlank()
+                    ? compiledStructure : settlement.basicBuildings().get(paletteIndex);
+                int x = center.x() + (int) Math.round(house.x());
+                int z = center.z() + (int) Math.round(house.z());
+                int groundY = plannedTerrainGroundY(level, x, z);
+                BlockPoint origin = rotatedTemplateOrigin(
+                    x, groundY, z, house.width(), house.depth(), house.rotation()
+                );
+                BuildingRuntimeSystem.onStructurePlaced(
+                    level, structure, origin, house.rotation()
+                );
+            }
+            for (FacilityPlacement facility : settlement.facilities()) {
+                BlockPoint position = facility.mode().equals("instanced_entry")
+                    ? facility.instanceOrigin()
+                    : resolveDirectFacilityPosition(level, settlement, facility);
+                if (position != null) {
+                    BuildingRuntimeSystem.onStructurePlaced(
+                        level, facility.structure(), position, "none"
+                    );
+                }
+            }
+        }
     }
 
     private static void cleanupFacilityTemplateMarkers(
@@ -1658,11 +1825,14 @@ public final class CobbleventureBootstrap {
     }
 
     private static boolean placeFacilityWorkers(
-        ServerLevel level, FacilityPlacement facility, BlockPoint origin
+        ServerLevel level, SettlementPlan settlement,
+        FacilityPlacement facility, BlockPoint origin
     ) {
-        for (FacilityWorkerPlacement worker : facilityWorkers(facility.id())) {
+        List<String> configuredVendors = settlement == null ? null : settlement.vendorUnits();
+        for (FacilityWorkerPlacement worker : facilityWorkers(facility.id(), configuredVendors)) {
             BlockPoint position = origin.plus(worker.offset());
-            if (!placeTemplate(level, worker.structure(), position)) {
+            if (!placeTemplate(level, worker.structure(), position)
+                && !spawnConfiguredVendor(level, worker.vendorUnitId(), position)) {
                 LOGGER.error(
                     "Required facility worker placement failed: facility={}, structure={}, position={}",
                     facility.id(), worker.structure(), position
@@ -1674,8 +1844,10 @@ public final class CobbleventureBootstrap {
         return true;
     }
 
-    private static List<FacilityWorkerPlacement> facilityWorkers(String facilityId) {
-        return switch (facilityId) {
+    private static List<FacilityWorkerPlacement> facilityWorkers(
+        String facilityId, List<String> configuredVendors
+    ) {
+        List<FacilityWorkerPlacement> defaults = switch (facilityId) {
             case "facility_pokemon_center" -> List.of(
                 facilityWorker("nurse_joy", 16, 5, 10)
             );
@@ -1700,13 +1872,112 @@ public final class CobbleventureBootstrap {
             );
             default -> List.of();
         };
+        if (configuredVendors == null
+            || (!facilityId.equals("facility_pokemart")
+                && !facilityId.equals("facility_department_store"))) {
+            return defaults;
+        }
+        Map<String, FacilityWorkerPlacement> canonical = new LinkedHashMap<>();
+        for (FacilityWorkerPlacement worker : defaults) {
+            canonical.put(worker.structure(), worker);
+        }
+        List<BlockPoint> slots = defaults.stream()
+            .map(FacilityWorkerPlacement::offset).toList();
+        if (slots.isEmpty()) {
+            return List.of();
+        }
+        List<FacilityWorkerPlacement> selected = new ArrayList<>();
+        for (int index = 0; index < configuredVendors.size(); index++) {
+            String structure = vendorStructure(configuredVendors.get(index));
+            FacilityWorkerPlacement known = canonical.get(structure);
+            selected.add(known != null ? known : new FacilityWorkerPlacement(
+                configuredVendors.get(index), structure,
+                slots.get(Math.min(index, slots.size() - 1))
+            ));
+        }
+        return List.copyOf(selected);
+    }
+
+    private static String vendorStructure(String vendorUnitId) {
+        ResourceLocation id = ResourceLocation.tryParse(vendorUnitId);
+        if (id != null && id.getNamespace().equals("bca") && !id.getPath().contains("/")) {
+            return "bca:stores/store_workers/" + id.getPath();
+        }
+        return vendorUnitId;
+    }
+
+    private static boolean spawnConfiguredVendor(
+        ServerLevel level, String vendorUnitId, BlockPoint position
+    ) {
+        ResourceLocation catalogLocation = ResourceLocation.fromNamespaceAndPath(
+            "cobbleventure", "economy/catalog.json"
+        );
+        try {
+            Resource resource = level.getServer().getResourceManager()
+                .getResource(catalogLocation).orElse(null);
+            if (resource == null) return false;
+            JsonObject definition = null;
+            try (Reader reader = resource.openAsReader()) {
+                JsonObject catalog = JsonParser.parseReader(reader).getAsJsonObject();
+                for (JsonElement element : catalog.getAsJsonArray("vendor_units")) {
+                    JsonObject candidate = element.getAsJsonObject();
+                    if (requiredString(candidate, "id").equals(vendorUnitId)) {
+                        definition = candidate;
+                        break;
+                    }
+                }
+            }
+            if (definition == null) return false;
+            CompoundTag merchant = new CompoundTag();
+            String displayName = requiredString(definition, "display_name")
+                .replace("\\", "\\\\").replace("\"", "\\\"");
+            merchant.putString("CustomName", "\"" + displayName + "\"");
+            merchant.putBoolean("PersistenceRequired", true);
+            ListTag shop = new ListTag();
+            for (JsonElement categoryElement : definition.getAsJsonArray("categories")) {
+                JsonObject categoryJson = categoryElement.getAsJsonObject();
+                CompoundTag category = new CompoundTag();
+                category.putString("Category", requiredString(categoryJson, "name"));
+                ListTag offers = new ListTag();
+                for (JsonElement offerElement : categoryJson.getAsJsonArray("offers")) {
+                    JsonObject offerJson = offerElement.getAsJsonObject();
+                    CompoundTag offer = new CompoundTag();
+                    CompoundTag item = new CompoundTag();
+                    item.putString("id", requiredString(offerJson, "item"));
+                    item.putInt("count", offerJson.get("count").getAsInt());
+                    offer.put("Item", item);
+                    offer.putString("Price", requiredString(offerJson, "price"));
+                    offers.add(offer);
+                }
+                category.put("Offers", offers);
+                shop.add(category);
+            }
+            merchant.put("CobbleMerchantShop", shop);
+            CompoundTag villagerData = new CompoundTag();
+            villagerData.putString("profession", "cobbledollars:cobble_merchant");
+            villagerData.putString("type", "minecraft:plains");
+            villagerData.putInt("level", 1);
+            merchant.put("VillagerData", villagerData);
+            String command = "summon cobbledollars:cobble_merchant "
+                + (position.x() + 0.5D) + " " + position.y() + " "
+                + (position.z() + 0.5D) + " " + merchant;
+            int result = level.getServer().getCommands().getDispatcher().execute(
+                command, level.getServer().createCommandSourceStack()
+                    .withLevel(level).withPermission(4).withSuppressedOutput()
+            );
+            return result != 0;
+        } catch (IOException | CommandSyntaxException | RuntimeException error) {
+            LOGGER.error("Configured merchant spawn failed: {} at {}", vendorUnitId, position, error);
+            return false;
+        }
     }
 
     private static FacilityWorkerPlacement facilityWorker(
         String resource, int x, int y, int z
     ) {
         return new FacilityWorkerPlacement(
-            "bca:stores/store_workers/" + resource, new BlockPoint(x, y, z)
+            "bca:" + resource, "bca:stores/store_workers/" + resource,
+            new BlockPoint(x, y, z)
         );
     }
 
@@ -2715,6 +2986,10 @@ public final class CobbleventureBootstrap {
             if (gameTime % 10L == 0L) {
                 updatePokemonCenterCheckpoint(player, level);
             }
+            HexWorldPlan world = activeHexWorld;
+            if (world != null) {
+                WorldGateSystem.tick(player, world.grid(), world.gates(), gameTime);
+            }
             if (!enforceFieldMoveAccess(player, level, gameTime)) {
                 continue;
             }
@@ -3428,6 +3703,36 @@ public final class CobbleventureBootstrap {
 
     private static void onRegisterCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(
+            Commands.literal("cobbleventure_gate")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.literal("teleport")
+                    .then(Commands.argument("targets", EntityArgument.entities())
+                        .then(Commands.argument("gate", StringArgumentType.word())
+                            .then(Commands.argument("side", StringArgumentType.word())
+                                .executes(context -> {
+                                    if (activeHexWorld == null) {
+                                        context.getSource().sendFailure(Component.literal(
+                                            "[Cobbleventure] 관문 데이터가 준비되지 않았습니다."
+                                        ));
+                                        return 0;
+                                    }
+                                    try {
+                                        return WorldGateSystem.teleportToGate(
+                                            context.getSource().getLevel(),
+                                            EntityArgument.getEntities(context, "targets"),
+                                            activeHexWorld.grid(), activeHexWorld.gates(),
+                                            StringArgumentType.getString(context, "gate"),
+                                            StringArgumentType.getString(context, "side")
+                                        );
+                                    } catch (IllegalArgumentException error) {
+                                        context.getSource().sendFailure(Component.literal(
+                                            "[Cobbleventure] " + error.getMessage()
+                                        ));
+                                        return 0;
+                                    }
+                                })))))
+        );
+        event.getDispatcher().register(
             Commands.literal("cobbleventure_place_structure")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("structure", StringArgumentType.greedyString())
@@ -3608,6 +3913,7 @@ public final class CobbleventureBootstrap {
             settlement.structurePoint().translate(deltaX, deltaZ),
             settlement.playerSpawn().translate(deltaX, deltaZ),
             Map.copyOf(anchors), settlement.facilities(), settlement.gates(),
+            settlement.shopCatalogId(), settlement.vendorUnits(),
             settlement.compiledLayout()
         );
     }
@@ -3772,6 +4078,18 @@ public final class CobbleventureBootstrap {
         String commercialCenter = structureProfile.has("commercial_center")
             ? structureProfile.get("commercial_center").getAsString()
             : (starterSettlement ? "none" : "pokemart");
+        String shopCatalogId = null;
+        List<String> vendorUnits = null;
+        if (structureProfile.has("shop_configuration")) {
+            JsonObject shopConfiguration = structureProfile.getAsJsonObject("shop_configuration");
+            shopCatalogId = optionalString(shopConfiguration, "catalog_id");
+            vendorUnits = new ArrayList<>();
+            if (shopConfiguration.has("vendor_units")) {
+                for (JsonElement element : shopConfiguration.getAsJsonArray("vendor_units")) {
+                    vendorUnits.add(element.getAsString());
+                }
+            }
+        }
         if (commercialCenter.equals("preset")) {
             commercialCenter = "pokemart";
         }
@@ -3850,6 +4168,7 @@ public final class CobbleventureBootstrap {
             generationSeed, generationDepth, buildingDensity, List.copyOf(basicBuildings),
             center, structurePoint, playerSpawn,
             Map.copyOf(anchorPoints), List.copyOf(facilities), List.copyOf(gates),
+            shopCatalogId, vendorUnits == null ? null : List.copyOf(vendorUnits),
             compiledLayout
         );
     }
@@ -4023,7 +4342,7 @@ public final class CobbleventureBootstrap {
         return new HexWorldPlan(
             world.grid(), world.seed(), world.cells(), world.paths(), world.settlements(),
             world.boundaryProfiles(), world.defaultEmptyTerrain(), world.emptyTerrainTiles(),
-            world.levelOverrides(), List.copyOf(entrances)
+            world.levelOverrides(), List.copyOf(entrances), world.gates()
         );
     }
 
@@ -4270,11 +4589,13 @@ public final class CobbleventureBootstrap {
                 }
             }
         }
+        List<WorldGateSystem.Gate> gates = root.has("objects")
+            ? WorldGateSystem.parse(root.getAsJsonArray("objects")) : List.of();
         HexWorldPlan plan = planHexWorld(
             grid, seed, List.copyOf(hexSettlements), List.copyOf(connections),
             List.copyOf(placedTiles), defaultEmptyTerrain,
             Map.copyOf(emptyTerrainTiles), Map.copyOf(levelOverrides), profiles,
-            List.copyOf(caveEntrances)
+            List.copyOf(caveEntrances), gates
         );
         verifySettlementBoundaryClearance(plan);
         LOGGER.info(
@@ -4414,7 +4735,8 @@ public final class CobbleventureBootstrap {
         Map<HexCoord, String> emptyTerrainTiles,
         Map<HexCoord, Integer> levelOverrides,
         Map<String, BoundaryProfile> profiles,
-        List<CaveEntrancePlan> caveEntrances
+        List<CaveEntrancePlan> caveEntrances,
+        List<WorldGateSystem.Gate> gates
     ) {
         Map<HexCoord, CellPlan> cells = new LinkedHashMap<>();
         Map<HexCoord, String> townOwners = new HashMap<>();
@@ -4500,7 +4822,7 @@ public final class CobbleventureBootstrap {
         verifyRouteCenterlines(grid, byId, paths);
         return new HexWorldPlan(
             grid, seed, Map.copyOf(cells), List.copyOf(paths), Map.copyOf(byId), profiles,
-            defaultEmptyTerrain, emptyTerrainTiles, levelOverrides, caveEntrances
+            defaultEmptyTerrain, emptyTerrainTiles, levelOverrides, caveEntrances, gates
         );
     }
 
@@ -4862,6 +5184,8 @@ public final class CobbleventureBootstrap {
                 Map.copyOf(anchors),
                 settlement.facilities(),
                 settlement.gates(),
+                settlement.shopCatalogId(),
+                settlement.vendorUnits(),
                 settlement.compiledLayout()
             ));
         }
@@ -5827,9 +6151,8 @@ public final class CobbleventureBootstrap {
     static int terrainGroundY(
         HexWorldPlan world, TerrainSample sample, double x, double z
     ) {
-        TerrainSample supportingTerrain = supportingTerrainBelowRoute(world, sample, x, z);
-        if (supportingTerrain != null) {
-            return terrainGroundY(world, supportingTerrain, x, z);
+        if (sample.kind().equals("route") && sample.surfaceStyle().equals("road")) {
+            return roadColumnPlan(world, sample.owner(), x, z).groundY();
         }
         int rawHeight = rawTerrainHeight(world, sample, x, z);
         if (isAquatic(sample)) {
@@ -5845,16 +6168,85 @@ public final class CobbleventureBootstrap {
         return blendLandTowardWater(world, x, z, rawHeight);
     }
 
-    private static TerrainSample supportingTerrainBelowRoute(
-        HexWorldPlan world, TerrainSample sample, double x, double z
+    private static RoadColumnPlan roadColumnPlan(
+        HexWorldPlan world, String routeId, double x, double z
     ) {
-        if (!sample.kind().equals("route") || !sample.surfaceStyle().equals("road")) {
-            return null;
+        ConnectionPath route = world.paths().stream()
+            .filter(candidate -> candidate.id().equals(routeId))
+            .findFirst()
+            .orElse(null);
+        if (route == null || route.centerline().isEmpty()) {
+            return new RoadColumnPlan(LEGACY_SURFACE_Y, false);
         }
-        TerrainSample cell = cellInfluence(world, x, z);
-        return cell != null && (
-            cell.kind().equals("town") || cell.kind().equals("surrounding")
-        ) ? cell : null;
+        RoadElevationProfile profile = ROAD_ELEVATIONS.computeIfAbsent(
+            new RoadElevationKey(world.seed(), routeId),
+            ignored -> buildRoadElevationProfile(world, route)
+        );
+        int baseY = profile.heightAt(x, z);
+        boolean slab = profile.hasHigherAdjacent(x, z, baseY);
+        return new RoadColumnPlan(baseY + (slab ? 1 : 0), slab);
+    }
+
+    private static RoadElevationProfile buildRoadElevationProfile(
+        HexWorldPlan world, ConnectionPath route
+    ) {
+        List<Point> points = route.centerline();
+        List<Integer> heights = new ArrayList<>(points.size());
+        for (Point point : points) {
+            TerrainSample cell = cellInfluence(
+                world, point.x() + 0.5D, point.z() + 0.5D
+            );
+            int naturalHeight = cell == null
+                ? 68 + route.terrainProfile().baseHeightOffset()
+                : terrainGroundY(
+                    world, cell, point.x() + 0.5D, point.z() + 0.5D
+                );
+            heights.add(cell != null && isAquatic(cell)
+                ? Math.max(WATER_SURFACE_Y, naturalHeight)
+                : naturalHeight);
+        }
+        for (int pass = 0; pass < 2; pass++) {
+            List<Integer> smoothed = new ArrayList<>(heights.size());
+            for (int index = 0; index < heights.size(); index++) {
+                int sum = 0;
+                int weight = 0;
+                for (int neighbor = Math.max(0, index - 2);
+                     neighbor <= Math.min(heights.size() - 1, index + 2); neighbor++) {
+                    int sampleWeight = 3 - Math.abs(index - neighbor);
+                    sum += heights.get(neighbor) * sampleWeight;
+                    weight += sampleWeight;
+                }
+                smoothed.add((int) Math.round(sum / (double) weight));
+            }
+            heights = smoothed;
+        }
+        for (int pass = 0; pass < 4; pass++) {
+            for (int index = 1; index < heights.size(); index++) {
+                int maximumStep = roadMaximumElevationStep(
+                    points.get(index - 1), points.get(index)
+                );
+                heights.set(index, Math.max(
+                    heights.get(index - 1) - maximumStep,
+                    Math.min(heights.get(index - 1) + maximumStep, heights.get(index))
+                ));
+            }
+            for (int index = heights.size() - 2; index >= 0; index--) {
+                int maximumStep = roadMaximumElevationStep(
+                    points.get(index), points.get(index + 1)
+                );
+                heights.set(index, Math.max(
+                    heights.get(index + 1) - maximumStep,
+                    Math.min(heights.get(index + 1) + maximumStep, heights.get(index))
+                ));
+            }
+        }
+        return new RoadElevationProfile(List.copyOf(points), List.copyOf(heights));
+    }
+
+    private static int roadMaximumElevationStep(Point start, Point end) {
+        return Math.max(1, (int) Math.floor(
+            Math.hypot(end.x() - start.x(), end.z() - start.z()) / 5.0D
+        ));
     }
 
     private static int blendLandTowardWater(
@@ -6158,6 +6550,9 @@ public final class CobbleventureBootstrap {
     }
 
     static boolean isAquatic(TerrainSample sample) {
+        if (sample.surfaceStyle().equals("road")) {
+            return false;
+        }
         return sample.surfaceStyle().equals("water")
             || sample.biome().contains("ocean")
             || sample.biome().contains("river");
@@ -8520,6 +8915,10 @@ public final class CobbleventureBootstrap {
             world.seed(), "world:road-material", x, z, 9.0D
         ));
         int choice = Math.floorMod((int) (pattern ^ pattern >>> 32), 20);
+        if (sample.kind().equals("route") && sample.surfaceStyle().equals("road")
+            && roadColumnPlan(world, sample.owner(), x, z).slab()) {
+            return roadSlabBlock(choice);
+        }
         // Match the palette embedded in BCA's default village path pieces so
         // the three-block regional road reads as a continuation of the town.
         return choice < 7
@@ -8531,6 +8930,18 @@ public final class CobbleventureBootstrap {
                     : choice < 18
                         ? Blocks.STONE.defaultBlockState()
                         : Blocks.MOSSY_STONE_BRICKS.defaultBlockState();
+    }
+
+    private static BlockState roadSlabBlock(int choice) {
+        return choice < 7
+            ? Blocks.STONE_BRICK_SLAB.defaultBlockState()
+            : choice < 12
+                ? Blocks.COBBLESTONE_SLAB.defaultBlockState()
+                : choice < 15
+                    ? Blocks.ANDESITE_SLAB.defaultBlockState()
+                    : choice < 18
+                        ? Blocks.STONE_SLAB.defaultBlockState()
+                        : Blocks.MOSSY_STONE_BRICK_SLAB.defaultBlockState();
     }
 
     private static BlockPos createWaitingArea(ServerLevel level) {
@@ -8797,7 +9208,7 @@ public final class CobbleventureBootstrap {
 
     record TownTemplatePlacement(String structure, BlockPoint position, String rotation) {}
 
-    record FacilityWorkerPlacement(String structure, BlockPoint offset) {}
+    record FacilityWorkerPlacement(String vendorUnitId, String structure, BlockPoint offset) {}
 
     record TownPlot(
         double x,
@@ -9053,6 +9464,73 @@ public final class CobbleventureBootstrap {
 
     record OceanMoundKey(long seed, int cellX, int cellZ) {}
 
+    record RoadElevationKey(long seed, String routeId) {}
+
+    record RoadColumnPlan(int groundY, boolean slab) {}
+
+    record RoadProjection(int segment, double factor) {}
+
+    record RoadElevationProfile(List<Point> points, List<Integer> heights) {
+        int heightAt(double x, double z) {
+            if (points.size() == 1) {
+                return heights.getFirst();
+            }
+            RoadProjection projection = projectionAt(x, z);
+            int startHeight = heights.get(projection.segment());
+            int endHeight = heights.get(projection.segment() + 1);
+            return (int) Math.round(
+                startHeight + (endHeight - startHeight) * projection.factor()
+            );
+        }
+
+        boolean hasHigherAdjacent(double x, double z, int currentHeight) {
+            if (points.size() < 2) {
+                return false;
+            }
+            RoadProjection projection = projectionAt(x, z);
+            Point start = points.get(projection.segment());
+            Point end = points.get(projection.segment() + 1);
+            double dx = end.x() - start.x();
+            double dz = end.z() - start.z();
+            double length = Math.hypot(dx, dz);
+            if (length < 0.001D) {
+                return false;
+            }
+            double stepX = dx / length;
+            double stepZ = dz / length;
+            return heightAt(x + stepX, z + stepZ) > currentHeight
+                || heightAt(x - stepX, z - stepZ) > currentHeight;
+        }
+
+        private RoadProjection projectionAt(double x, double z) {
+            int selectedSegment = 0;
+            double selectedFactor = 0.0D;
+            double selectedDistance = Double.POSITIVE_INFINITY;
+            for (int segment = 1; segment < points.size(); segment++) {
+                Point start = points.get(segment - 1);
+                Point end = points.get(segment);
+                double dx = end.x() - start.x();
+                double dz = end.z() - start.z();
+                double lengthSquared = dx * dx + dz * dz;
+                double factor = lengthSquared == 0.0D ? 0.0D : Math.max(
+                    0.0D, Math.min(1.0D,
+                        ((x - start.x()) * dx + (z - start.z()) * dz)
+                            / lengthSquared
+                    )
+                );
+                double projectedX = start.x() + dx * factor;
+                double projectedZ = start.z() + dz * factor;
+                double distance = Math.hypot(x - projectedX, z - projectedZ);
+                if (distance < selectedDistance) {
+                    selectedSegment = segment - 1;
+                    selectedFactor = factor;
+                    selectedDistance = distance;
+                }
+            }
+            return new RoadProjection(selectedSegment, selectedFactor);
+        }
+    }
+
     record WarpedPoint(double x, double z) {}
 
     record TerrainSample(
@@ -9295,7 +9773,8 @@ public final class CobbleventureBootstrap {
         String defaultEmptyTerrain,
         Map<HexCoord, String> emptyTerrainTiles,
         Map<HexCoord, Integer> levelOverrides,
-        List<CaveEntrancePlan> caveEntrances
+        List<CaveEntrancePlan> caveEntrances,
+        List<WorldGateSystem.Gate> gates
     ) {}
 
     record CaveEntrancePlan(
@@ -9393,6 +9872,8 @@ public final class CobbleventureBootstrap {
         Map<String, BlockPoint> anchors,
         List<FacilityPlacement> facilities,
         List<TownGateConfig> gates,
+        String shopCatalogId,
+        List<String> vendorUnits,
         TownLayout compiledLayout
     ) {}
 

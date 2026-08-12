@@ -36,8 +36,8 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn("tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:ai_test", preset)
         self.assertNotIn(" vs @npc as ", preset)
         self.assertIn('Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"', preset)
-        self.assertIn("scoreboard players add @1 cobbleventure_money 500", preset)
-        self.assertIn("loot give @1 loot cobbleventure:trainer/ai_test_rewards", preset)
+        self.assertIn("cobbledollars give @1 500", preset)
+        self.assertIn("cobbleventurebag loot @1 cobbleventure:trainer/ai_test_rewards", preset)
         self.assertIn(
             "easy_npc dialog open @npc-uuid @initiator after_victory",
             preset,
@@ -87,8 +87,7 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
 
         preset = generator.encounter_preset_snbt(self.document, self.outfit)
 
-        self.assertIn('2:[\\"scoreboard players remove @1 cobbleventure_money 250\\"', preset)
-        self.assertIn("matches ..-1 run scoreboard players set @1 cobbleventure_money 0", preset)
+        self.assertIn('2:[\\"cobbledollars remove @1 250\\"', preset)
 
     def test_generates_progression_clear_scoreboard_command(self) -> None:
         commands = self.document["events"][0]["commands"]

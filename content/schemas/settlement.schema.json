@@ -128,6 +128,7 @@
           "enum": ["none", "pokemart", "department_store", "preset"],
           "description": "없음·포켓몬상점·백화점 중 하나. preset은 이전 데이터 호환용"
         },
+        "shop_configuration": { "$ref": "#/$defs/shop_configuration" },
         "pokemon_center_enabled": { "type": "boolean" },
         "civic_facilities_explicit": { "type": "boolean" },
         "starter_layout": {
@@ -199,6 +200,20 @@
     "resource_id": {
       "type": "string",
       "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "shop_configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalog_id", "vendor_units"],
+      "properties": {
+        "catalog_id": { "$ref": "#/$defs/resource_id" },
+        "vendor_units": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/resource_id" },
+          "description": "NPC·역할·판매 품목을 함께 보존하는 판매원 카탈로그 단위 ID"
+        }
+      }
     },
     "localized_text": {
       "type": "object",
@@ -482,7 +497,9 @@
         },
         "anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "leader_trainer_id": { "type": "string" },
-        "league_entry_id": { "type": "string" }
+        "league_entry_id": { "type": "string" },
+        "entrance": { "$ref": "#/$defs/gym_entrance" },
+        "interior": { "$ref": "#/$defs/gym_interior" }
       },
       "allOf": [
         {
@@ -494,6 +511,80 @@
           }
         }
       ]
+    },
+    "gym_entrance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "door_offset": { "$ref": "#/$defs/block_position" },
+        "outside_offset": { "$ref": "#/$defs/block_position" },
+        "facing": { "enum": ["north", "east", "south", "west"] },
+        "condition_mode": { "enum": ["all", "any"] },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/gym_condition" }
+        },
+        "locked_dialogue": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        },
+        "enter_dialogue": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 }
+        }
+      }
+    },
+    "gym_interior": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "structure": { "$ref": "#/$defs/resource_id" },
+        "entry_offset": { "$ref": "#/$defs/block_position" },
+        "exit_door_offset": { "$ref": "#/$defs/block_position" },
+        "leader_offset": { "$ref": "#/$defs/block_position" },
+        "leader_npc": { "$ref": "#/$defs/resource_id" }
+      }
+    },
+    "gym_condition": {
+      "oneOf": [
+        { "$ref": "#/$defs/gym_variable_condition" },
+        { "$ref": "#/$defs/gym_item_condition" },
+        { "$ref": "#/$defs/gym_pokemon_condition" }
+      ]
+    },
+    "gym_variable_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "source", "key", "operator", "value"],
+      "properties": {
+        "type": { "const": "variable" },
+        "source": { "enum": ["scoreboard", "persistent_data"] },
+        "key": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+        "operator": { "enum": ["==", "!=", ">", ">=", "<", "<="] },
+        "value": { "type": "number" }
+      }
+    },
+    "gym_item_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "item", "count"],
+      "properties": {
+        "type": { "const": "item" },
+        "item": { "$ref": "#/$defs/resource_id" },
+        "count": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "negate": { "type": "boolean" }
+      }
+    },
+    "gym_pokemon_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "species"],
+      "properties": {
+        "type": { "const": "pokemon" },
+        "species": { "$ref": "#/$defs/resource_id" },
+        "negate": { "type": "boolean" }
+      }
     },
     "trainer_slot": {
       "type": "object",

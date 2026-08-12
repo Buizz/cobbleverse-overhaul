@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 
 final class NaturalCaveGenerator {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int LAYOUT_VERSION = 8;
+    private static final int LAYOUT_VERSION = 9;
     private static final int SHELL_THICKNESS = 4;
 
     private NaturalCaveGenerator() {}
@@ -591,18 +591,24 @@ final class NaturalCaveGenerator {
             int floorY = entrance.portalAnchor().y();
             for (int lateral = -6; lateral <= 6; lateral++) {
                 for (int vertical = 0; vertical <= 8; vertical++) {
-                    boolean sidePillar = Math.abs(lateral) >= 4 && vertical <= 6;
-                    boolean lintel = vertical >= 6
-                        && Math.abs(lateral) <= Math.max(3, 8 - vertical);
-                    if (!sidePillar && !lintel) {
-                        continue;
-                    }
                     int x = centerX + sideX * lateral;
                     int z = centerZ + sideZ * lateral;
-                    BlockState frame = sidePillar
-                        ? Blocks.QUARTZ_PILLAR.defaultBlockState()
-                        : Blocks.SMOOTH_QUARTZ.defaultBlockState();
-                    level.setBlock(new BlockPos(x, floorY + vertical, z), frame, 2);
+                    BlockPos position = new BlockPos(x, floorY + vertical, z);
+                    BlockState existing = level.getBlockState(position);
+                    if (!existing.is(Blocks.QUARTZ_PILLAR)
+                        && !existing.is(Blocks.SMOOTH_QUARTZ)
+                        && !existing.is(Blocks.QUARTZ_BLOCK)
+                        && !existing.is(Blocks.QUARTZ_STAIRS)
+                        && !existing.is(Blocks.SEA_LANTERN)) {
+                        continue;
+                    }
+                    level.setBlock(
+                        position,
+                        vertical == 0
+                            ? Blocks.COBBLED_DEEPSLATE.defaultBlockState()
+                            : Blocks.AIR.defaultBlockState(),
+                        2
+                    );
                 }
             }
             for (int lateral = -3; lateral <= 3; lateral++) {
@@ -614,44 +620,34 @@ final class NaturalCaveGenerator {
             }
             int backdropX = centerX - inward.getStepX() * 2;
             int backdropZ = centerZ - inward.getStepZ() * 2;
-            for (int lateral = -3; lateral <= 3; lateral++) {
-                for (int vertical = 1; vertical <= 5; vertical++) {
+            for (int lateral = -4; lateral <= 4; lateral++) {
+                for (int vertical = 0; vertical <= 6; vertical++) {
                     int x = backdropX + sideX * lateral;
                     int z = backdropZ + sideZ * lateral;
-                    boolean glow = (lateral == 0 && vertical >= 2 && vertical <= 4)
-                        || (Math.abs(lateral) == 2 && vertical == 3);
                     level.setBlock(
                         new BlockPos(x, floorY + vertical, z),
-                        glow
-                            ? Blocks.SEA_LANTERN.defaultBlockState()
-                            : Blocks.QUARTZ_BLOCK.defaultBlockState(),
-                        2
+                        Blocks.WHITE_CONCRETE.defaultBlockState(), 2
                     );
                 }
             }
-            int[][] lights = {
-                {-5, 2}, {5, 2}, {-4, 5}, {4, 5}, {0, 7}
-            };
-            for (int[] light : lights) {
-                int x = centerX + sideX * light[0];
-                int z = centerZ + sideZ * light[0];
-                level.setBlock(
-                    new BlockPos(x, floorY + light[1], z),
-                    Blocks.SEA_LANTERN.defaultBlockState(), 2
-                );
-            }
-            BlockState stair = Blocks.QUARTZ_STAIRS.defaultBlockState()
-                .setValue(BlockStateProperties.HORIZONTAL_FACING, inward);
-            for (int lateral = -2; lateral <= 2; lateral++) {
-                int x = centerX + sideX * lateral;
-                int z = centerZ + sideZ * lateral;
-                level.setBlock(new BlockPos(x, floorY, z), stair, 2);
+            for (int lateral = -5; lateral <= 5; lateral++) {
+                for (int vertical = 0; vertical <= 7; vertical++) {
+                    if (Math.abs(lateral) != 5 && vertical != 7) {
+                        continue;
+                    }
+                    int x = backdropX + sideX * lateral;
+                    int z = backdropZ + sideZ * lateral;
+                    level.setBlock(
+                        new BlockPos(x, floorY + vertical, z),
+                        Blocks.GLOWSTONE.defaultBlockState(), 2
+                    );
+                }
             }
             for (int depth : new int[] {4, 10, 16}) {
                 int x = centerX + inward.getStepX() * depth;
                 int z = centerZ + inward.getStepZ() * depth;
                 level.setBlock(
-                    new BlockPos(x, floorY, z), Blocks.OCHRE_FROGLIGHT.defaultBlockState(), 2
+                    new BlockPos(x, floorY, z), Blocks.GLOWSTONE.defaultBlockState(), 2
                 );
             }
         }

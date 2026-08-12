@@ -23,6 +23,28 @@ build.bat builder-world
 /cobbleventure_builder load confirm
 ```
 
+## 출입구 편집 막대기
+
+접속 시 지급되는 막대기로 문과 블록을 클릭한다.
+
+- 웅크리기 + 허공 우클릭: 모드 전환
+- 대상 우클릭: entry, exit, teleport, spawn, npc, interaction, patrol 또는 inspect 적용
+- 웅크리기 + 대상 좌클릭: 지정 해제
+
+플레이어가 서 있는 문 쪽의 인접 칸이 도착 위치로 자동 기록된다. WorldEdit 선택
+도구와 충돌하므로 나무도끼는 사용하지 않는다. `save`는 NBT와 출입구
+`.structure.json`을 함께 내보낸다.
+
+```mcfunction
+/cobbleventure_builder interior create <id> <폭> <깊이> <층높이> <층수>
+/cobbleventure_builder interior list
+/cobbleventure_builder interior tp <id>
+/cobbleventure_builder interior save <id>
+/cobbleventure_builder tool npc <NPC 위치 라벨>
+/cobbleventure_builder anchor list
+/cobbleventure_builder anchor show
+```
+
 ## 저장소로 가져오기
 
 ```bat

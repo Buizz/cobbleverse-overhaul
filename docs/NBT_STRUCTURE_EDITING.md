@@ -59,6 +59,260 @@ build.bat builder-world
 build.bat builder-import "<CurseForge 인스턴스>\saves\Cobbleventure Structure Builder"
 ```
 
+### 통합 건축 편집 막대기
+
+건축 월드에 처음 접속하면 `건축 편집 막대기 · 외부 입장문`을 지급한다. WorldEdit의
+나무도끼와 겹치지 않도록 이 월드에서는 모든 막대기를 통합 편집 도구로 사용한다.
+
+| 조작 | 결과 |
+|---|---|
+| 웅크리기 + 허공 우클릭 | 다음 도구 모드로 전환 |
+| 블록 또는 문 우클릭 | 현재 모드의 작업 적용 |
+| 웅크리기 + 대상 좌클릭 | 해당 위치의 문·NPC 앵커 제거 |
+
+도구 이름에 현재 모드가 표시된다. 명령으로 모드를 바로 선택할 수도 있다.
+
+```mcfunction
+/cobbleventure_builder tool mode entry
+/cobbleventure_builder tool mode exit
+/cobbleventure_builder tool mode teleport
+/cobbleventure_builder tool mode spawn
+/cobbleventure_builder tool mode npc
+/cobbleventure_builder tool mode interaction
+/cobbleventure_builder tool mode patrol
+/cobbleventure_builder tool mode inspect
+```
+
+| 모드 | 클릭 대상 | 용도 |
+|---|---|---|
+| `entry` | 외부 건물의 문 | 내부로 들어갈 현관문 지정 |
+| `exit` | 내부 공간의 문 | 외부로 나갈 현관문 지정 |
+| `teleport` | 지정된 입·퇴장문 | 연결된 반대 공간으로 미리보기 이동 |
+| `spawn` | 플레이어가 설 바닥 | 자동 도착 위치를 수동 위치로 덮어쓰기 |
+| `npc` | NPC가 설 바닥 | 라벨이 붙은 NPC 위치를 블록 위 칸에 지정 |
+| `interaction` | 문·카운터·장치 블록 | 스크립트가 사용할 상호작용 지점 지정 |
+| `patrol` | NPC가 이동할 바닥 | `patrol_1`, `patrol_2` 순서로 순찰 지점 지정 |
+| `inspect` | 구조물 내부 블록 | 크기, 출입문 수와 NPC 앵커 수 확인 |
+
+문 위·아래 중 어디를 클릭해도 아래쪽 문 좌표로 정규화된다. `entry`는 반드시 건물
+바깥쪽에 서서, `exit`는 내부 쪽에 서서 클릭한다. 플레이어가 서 있는 쪽의 인접 칸이
+외부 또는 내부 도착 위치로 자동 계산되므로 spawn 지점을 별도로 입력할 필요가 없다.
+
+### 가변 크기 내부 공간 만들기
+
+내부 공간은 외부 NBT 크기와 독립적이다. 다음 명령의 순서는 `ID, 폭, 깊이, 층 높이,
+층수`다.
+
+```mcfunction
+/cobbleventure_builder interior create player_house 32 32 5 2
+```
+
+위 예시는 `32×10×32`, 2층인 `player_house` 내부 작업실을 만들고 그곳으로 이동한다.
+
+- 폭·깊이: 5~80블록
+- 층 높이: 3~12블록
+- 층수: 1~8층
+- 전체 높이: 최대 80블록
+- 실제 저장 높이: `층 높이 × 층수`
+
+하늘색 테두리는 저장 영역 바깥에 만들어지므로 최종 NBT에는 들어가지 않는다. 각 층의
+시작 높이를 표시할 뿐 바닥을 자동으로 채우지는 않는다. 계단, 천장 두께와 층간 구조는
+표시선을 기준으로 직접 건축한다.
+
+```mcfunction
+/cobbleventure_builder interior list
+/cobbleventure_builder interior tp player_house
+/cobbleventure_builder interior save player_house
+```
+
+외부 건물의 파일명과 내부 ID가 같으면 자동으로 연결된다.
+
+```text
+외부: content/structures/placeholder/player_house.nbt
+내부: content/structures/interiors/player_house.nbt
+연결 ID: player_house
+```
+
+### 출입문 연결과 이동 시험
+
+플레이어 집을 연결하는 전체 순서는 다음과 같다.
+
+1. `/cobbleventure_builder tp player_house`로 외부 건물로 이동한다.
+2. 막대기를 `entry` 모드로 바꾸고 집 밖에서 현관문을 우클릭한다.
+3. `/cobbleventure_builder interior create player_house 32 32 5 2`를 실행한다.
+4. 내부를 건축하고 내부 현관문을 설치한다.
+5. 막대기를 `exit` 모드로 바꾸고 내부 쪽에 서서 문을 우클릭한다.
+6. `teleport` 모드로 같은 문을 클릭해 외부로 나가는지 확인한다.
+7. 외부 문에서도 클릭해 내부로 들어오는지 확인한다.
+
+도착 문이 아직 지정되지 않았다면 내부 원점 근처의 안전한 기본 위치로 이동한다.
+`teleport`는 건축 월드 미리보기 기능이다. 실제 게임에서는 이 메타데이터를 런타임이
+읽고 EasyNPC 입장 대화와 인스턴스 내부 이동을 실행한다.
+
+자동 도착 칸이 계단·가구와 겹치면 `spawn` 모드로 원하는 바닥을 클릭한다. 외부에서는
+`exterior_spawn`, 내부에서는 `interior_spawn`으로 저장되며 teleport 모드도 이 수동
+지점을 우선한다.
+
+### NPC 위치와 라벨 지정
+
+먼저 해당 위치를 식별할 라벨을 선택한다. 이 명령은 도구를 `npc` 모드로도 전환한다.
+라벨은 NPC 종류가 아니라 건물 안에서의 역할 또는 자리 이름이다.
+
+```mcfunction
+/cobbleventure_builder tool npc resident
+/cobbleventure_builder tool npc shop_clerk
+/cobbleventure_builder tool npc receptionist
+```
+
+NPC가 설 바닥을 우클릭하면 바로 위 칸에 선택한 라벨로 위치가 기록된다. 같은 라벨을
+다른 위치에 다시 찍으면 기존 위치가 새 위치로 교체된다. NPC 엔티티, 방향, EasyNPC
+프리셋, UUID와 생성 정책은 NBT 단계에서 결정하지 않으며 다음 두 정보만 기록한다.
+
+```json
+{
+  "label": "resident",
+  "type": "npc_position",
+  "position": [8, 1, 6]
+}
+```
+
+마을이나 내부를 실제로 배치하는 설정에서 `resident` 라벨에 EasyNPC 프리셋, 방향,
+대화, AI와 생성 정책을 연결한다. 따라서 동일한 내부 NBT를 사용하면서 마을·퀘스트 또는
+인스턴스에 따라 다른 NPC를 놓을 수 있다.
+
+상호작용 오브젝트와 순찰 경로도 같은 방식으로 예약할 수 있다. `interaction` 모드는
+클릭한 블록 자체를, `patrol` 모드는 클릭한 바닥 위 칸을 기록한다. 순찰 순서는 생성된
+번호를 따르며 모두 구조물 원점 기준 상대 좌표라 회전·대칭 배치에도 변환할 수 있다.
+
+현재 서 있는 구조물의 모든 앵커 좌표를 확인하거나 입자로 표시할 수 있다.
+
+```mcfunction
+/cobbleventure_builder anchor list
+/cobbleventure_builder anchor show
+```
+
+### 내부 NBT와 앵커 가져오기
+
+기존 외부와 새 내부를 모두 저장하려면 다음 명령을 사용한다.
+
+```mcfunction
+/cobbleventure_builder save all
+```
+
+새 내부 NBT는 다음 위치에 생성된다.
+
+```text
+<월드>/generated/cobbleventure_builder/structures/export/interiors/player_house.nbt
+<월드>/generated/cobbleventure_builder/structure_metadata/export/interiors/player_house.structure.json
+```
+
+`builder-import` 또는 웹의 `게임 NBT 자동 가져오기`는 기존 NBT 전체를 먼저 검증한 뒤
+새 내부를 다음 원본 위치에 추가한다.
+
+```text
+content/structures/interiors/player_house.nbt
+content/structures/interiors/player_house.structure.json
+```
+
+메타데이터에는 내부 크기·층 계약, 문 상대 좌표, 자동 도착 위치와 NPC 라벨·위치가
+들어간다. NBT와 선언 크기가 다르거나 잘못된 앵커 좌표·라벨이 있으면 어떤 원본도
+덮어쓰지 않는다. 다음 `builder-world` 생성 시 이 정보도 다시 건축 월드에 복원된다.
+
+### 웹에서 건물 NPC 배정하기
+
+`build.bat web`으로 Content Studio를 열고 `건물 설정` 탭으로 이동한다. 이 탭은 관리
+NBT 목록과 `.structure.json`의 `npc_position`을 함께 읽는다.
+
+- 왼쪽: 관리 건물 검색과 NPC 라벨 배정 현황
+- 가운데: 실제 NBT 3D 모델과 NPC 라벨 위치 마커
+- 오른쪽: 라벨별 NPC 콘텐츠 선택과 건물 종류 설정
+
+미리보기에서 노란 마커는 아직 고정 NPC가 배정되지 않은 위치, 초록 마커는 배정된
+위치다. 마커 위에 건축 월드에서 지정한 라벨이 표시된다. 건물을 회전하거나 확대해
+카운터·문·가구와 위치가 겹치지 않는지 확인한다.
+
+일반 시설의 라벨에는 `content/source`에서 관리하는 NPC 콘텐츠를 선택한다. 저장 결과는
+다음 파일에 기록된다.
+
+```text
+content/catalogs/building-settings.json
+```
+
+```json
+{
+  "schema_version": 1,
+  "buildings": {
+    "cobbleventure:placeholder/laboratory": {
+      "fixed_npcs": {
+        "receptionist": "cobbleventure:npc/laboratory_receptionist"
+      },
+      "random_citizen_eligible": false
+    }
+  }
+}
+```
+
+`content/structures/houses`의 시민 주거건물에는 고정 NPC를 배정하지 않는다. 웹에서도
+고정 선택 상자를 표시하지 않고 `마을 랜덤 시민 배치 후보로 사용`만 설정한다. 이후
+마을 설정은 다음 정보를 별도로 소유한다.
+
+```text
+마을별 랜덤 시민 NPC 풀 + NPC별 가중치/확률
+        ↓
+random_citizen_eligible=true인 시민 주택 선택
+        ↓
+주택 NBT의 npc_position 라벨 중 빈 위치에 확률 배치
+```
+
+마을별 NPC 풀과 확률 편집 UI는 후속 단계다. 건물 설정은 어느 주택이 후보인지와 내부의
+유효한 위치만 제공하며, 특정 시민·확률·마을 상태는 저장하지 않는다.
+
+### 실제 게임 월드에 적용되는 흐름
+
+`build.bat mod-bootstrap`을 실행하면 다음 항목이 월드 부트스트랩 데이터 모드에 함께
+패키징된다.
+
+```text
+content/catalogs/building-settings.json
+  → data/cobbleventure/building_settings.json
+
+content/structures/**/*.structure.json
+  → data/cobbleventure/structure_metadata/**/*.structure.json
+
+content/structures/interiors/*.nbt
+  → data/cobbleventure/structure/interiors/*.nbt
+```
+
+주택은 실제 마을에서 지붕 색상 접미사가 붙은 NBT를 사용하므로, 원본 주택
+`.structure.json`이 모든 색상 변형 리소스에 자동 복제된다. 따라서 색마다 NPC 위치를
+다시 지정할 필요가 없다.
+
+게임에서는 구조물 배치가 성공한 직후 다음 순서로 처리된다.
+
+1. 구조물 원점과 회전을 기준으로 모든 앵커의 상대 좌표를 월드 좌표로 변환한다.
+2. `건물 설정`에서 라벨에 배정한 NPC를 EasyNPC 프리셋으로 생성한다.
+3. `interior_entry`가 있으면 같은 파일명의 `cobbleventure:interiors/<이름>` NBT를 전용
+   `cobbleventure:building_interiors` 차원에 인스턴스로 한 번만 생성한다.
+4. 외부 문은 내부 `interior_spawn`으로, 내부 `interior_exit`은 외부 문의
+   `safe_spawn`으로 연결한다.
+5. 서버 재시작 시 이미 생성된 마을의 위치를 다시 계산해 문 연결을 복구한다. NPC와 내부
+   생성 기록은 월드 SavedData에 남기므로 중복 생성하지 않는다.
+
+문 블록을 우클릭하면 현재는 예약된 대화 ID를 사용하는 건물 문 런타임이 이동을 처리하고
+입장·퇴장 안내를 표시한다. EasyNPC의 실제 선택형 대화 내용은 문 앵커의 `dialogue` ID에
+대응하는 대화 데이터가 추가되는 시점에 교체할 수 있으며, 좌표나 NBT를 다시 만들 필요는
+없다.
+
+고정 NPC는 `cobbleventure:npc/<id>`를 다음 EasyNPC 프리셋으로 변환해 생성한다.
+
+```text
+easy_npc:preset/encounter/<id>.npc.snbt
+```
+
+시민 주거건물의 `random_citizen_eligible`은 런타임까지 전달되지만, 마을별 NPC 풀과 확률이
+아직 없으므로 현재는 랜덤 시민을 생성하지 않는다. 빈 설정에서 임의 NPC가 생기지 않는 것이
+의도된 동작이다.
+
 전체 독립 월드 절차는 [독립 건축 구조물 제작 월드](implementation/STRUCTURE_BUILDER_WORLD.md)를
 참고한다. 아래 구조물 블록 절차는 개별 파일을 수동 편집할 때 사용하는 대안이다.
 

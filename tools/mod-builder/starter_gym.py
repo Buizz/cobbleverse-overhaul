@@ -111,6 +111,7 @@ FACILITY_PLACEHOLDERS = {
     "basic_building_1": {"label": "1층 주택", "size": (16, 13, 16), "frame": "minecraft:bricks"},
     "basic_building_2": {"label": "2층 주택", "size": (16, 18, 16), "frame": "minecraft:stone_bricks"},
     "basic_building_3": {"label": "5층 고층주택", "size": (16, 33, 16), "frame": "minecraft:white_concrete"},
+    "player_house": {"label": "플레이어 집", "size": (16, 13, 16), "frame": "minecraft:oak_planks"},
     "laboratory": {"label": "연구소", "size": (32, 14, 32), "frame": "minecraft:light_blue_concrete"},
     "fossil_laboratory": {"label": "화석연구소", "size": (32, 14, 32), "frame": "minecraft:brown_concrete"},
     "daycare": {"label": "키우미집", "size": (32, 10, 32), "frame": "minecraft:lime_concrete"},

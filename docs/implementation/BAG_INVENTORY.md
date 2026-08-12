@@ -145,6 +145,8 @@ boolean consumed = BagApi.remove(player, requiredItem, requiredAmount);
 
 - `insert(..., true)`는 전체 수량이 들어갈 때만 변경하는 거래·퀘스트용 원자적 지급이다.
 - `insert(..., false)`는 들어갈 수 있는 만큼 지급하고 나머지를 결과로 돌려준다.
+- `insert`와 `/cobbleventurebag give`는 보상을 확장 가방에 직접 넣으며 기본 인벤토리와 핫바를 변경하지 않는다.
+- 루트 테이블 보상은 `/cobbleventurebag loot <대상> <루트 테이블>`로 생성과 지급을 한 트랜잭션에서 처리한다.
 - `count`와 `remove`는 기본 36칸과 확장 4,096칸을 하나의 소지품으로 계산한다.
 - 운영자 테스트 명령은 `/cobbleventurebag give <targets> <item> [count]`다.
 

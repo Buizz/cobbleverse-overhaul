@@ -19,13 +19,114 @@ SPEC.loader.exec_module(structure_builder)
 
 
 class StructureBuilderTests(unittest.TestCase):
+    def test_import_adds_new_variable_size_interior_with_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            world = Path(directory) / "world"
+            sample = REPOSITORY_ROOT / "content/structures/houses/one_story_flat.nbt"
+            source = root / "content/structures/placeholder/base.nbt"
+            source.parent.mkdir(parents=True)
+            shutil.copy2(sample, source)
+            module = root / "tools/content-manager/content_manager.py"
+            module.parent.mkdir(parents=True)
+            shutil.copy2(
+                REPOSITORY_ROOT / "tools/content-manager/content_manager.py", module
+            )
+            export_root = world / "generated/cobbleventure_builder/structures/export"
+            base_export = export_root / "placeholder/base.nbt"
+            interior_export = export_root / "interiors/sample_room.nbt"
+            base_export.parent.mkdir(parents=True)
+            interior_export.parent.mkdir(parents=True)
+            shutil.copy2(sample, base_export)
+            shutil.copy2(sample, interior_export)
+            metadata = (
+                world
+                / "generated/cobbleventure_builder/structure_metadata/export"
+                / "interiors/sample_room.structure.json"
+            )
+            metadata.parent.mkdir(parents=True)
+            metadata.write_text(json.dumps({
+                "schema_version": 1,
+                "structure": "content/structures/interiors/sample_room.nbt",
+                "interior": {
+                    "id": "sample_room",
+                    "width": 16,
+                    "depth": 16,
+                    "floor_height": 8,
+                    "floors": 1,
+                },
+                "anchors": [],
+            }), encoding="utf-8")
+
+            changed = structure_builder.import_exports(root, world)
+
+            self.assertEqual(2, changed)
+            self.assertEqual(
+                sample.read_bytes(),
+                (root / "content/structures/interiors/sample_room.nbt").read_bytes(),
+            )
+            self.assertTrue(
+                (root / "content/structures/interiors/sample_room.structure.json").is_file()
+            )
+
+    def test_catalog_restores_authored_door_anchor_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "content/structures/placeholder/player_house.nbt"
+            source.parent.mkdir(parents=True)
+            shutil.copy2(
+                REPOSITORY_ROOT / "content/structures/placeholder/player_house.nbt",
+                source,
+            )
+            module = root / "tools/content-manager/content_manager.py"
+            module.parent.mkdir(parents=True)
+            shutil.copy2(
+                REPOSITORY_ROOT / "tools/content-manager/content_manager.py",
+                module,
+            )
+            anchors = [{
+                "id": "interior_entry",
+                "type": "interior_entry",
+                "position": [7, 1, 0],
+                "safe_spawn": [7, 1, -1],
+                "door_facing": "south",
+                "safe_side": "north",
+                "dialogue": "cobbleventure:default_enter",
+            }, {
+                "label": "resident",
+                "type": "npc_position",
+                "position": [8, 1, 6],
+            }, {
+                "id": "interior_spawn",
+                "type": "interior_spawn",
+                "position": [8, 1, 5],
+                "facing": "north",
+            }, {
+                "id": "patrol_1",
+                "type": "patrol_point",
+                "position": [5, 1, 5],
+                "facing": "east",
+            }]
+            source.with_suffix(".structure.json").write_text(
+                json.dumps({"schema_version": 1, "anchors": anchors}),
+                encoding="utf-8",
+            )
+
+            entries = structure_builder.catalog_entries(root)
+
+            self.assertEqual(anchors, entries[0]["anchors"])
+
     def test_generate_packages_every_authored_nbt_without_recoloring(self) -> None:
         catalog_path = structure_builder.generate(REPOSITORY_ROOT)
         catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
         sources = sorted((REPOSITORY_ROOT / "content/structures").rglob("*.nbt"))
 
         self.assertEqual(len(sources), len(catalog["entries"]))
-        self.assertEqual(28, len(catalog["entries"]))
+        self.assertEqual(29, len(catalog["entries"]))
+        self.assertTrue(any(
+            entry["source"] == "content/structures/placeholder/player_house.nbt"
+            for entry in catalog["entries"]
+        ))
         for entry in catalog["entries"]:
             source = REPOSITORY_ROOT / entry["source"]
             resource_path = entry["structure"].split(":", 1)[1]

@@ -106,14 +106,16 @@ http://127.0.0.1:8765
 - CurseForge 건축 프로필 인스턴스 경로를 로컬 설정에 저장
 - 건축 팩 빌드와 `/cobbleventure_builder save all` 결과의 NBT 자동 가져오기
 - 가져오기 성공 후 NBT 뷰어 목록 갱신, 화면 이동과 첫 3D 모델 자동 로드
-- NBT 뷰어를 관리 원본 28개와 포켓몬센터·상점·백화점 3개로 제한
+- NBT 뷰어를 관리 원본 29개와 포켓몬센터·상점·백화점 3개로 제한
+- 건물 설정 탭에서 NBT의 NPC 위치 라벨을 3D 마커로 확인하고 NPC 콘텐츠 배정
+- 시민 주택은 고정 NPC 대신 마을 랜덤 시민 배치 후보 여부만 관리
 
 건축 인스턴스 경로는 Git에 포함되지 않는
 `tools/content-manager/settings.local.json`에 저장된다. 웹 화면의 `빌드 및 검사`에서
 CurseForge 프로필 폴더를 지정한다. 이후 `건축 팩 빌드`는 독립 ZIP을 생성하고,
 `게임 NBT 자동 가져오기`는 해당 프로필의
 `saves/Cobbleventure Structure Builder/generated` 아래 내보내기만 읽는다. 가져오기는
-28개 파일의 완전성과 크기를 검사하므로 실패할 때 저장소 NBT를 일부만 덮어쓰지 않는다.
+전체 관리 파일의 완전성과 크기를 검사하므로 실패할 때 저장소 NBT를 일부만 덮어쓰지 않는다.
 
 저장 전 서버 검증에 실패하면 원본 파일을 변경하지 않는다. 관리 화면은 인증을
 제공하지 않으므로 기본값인 로컬 주소를 유지하고 다른 PC가 접속할 수 있는 주소로
@@ -169,7 +171,7 @@ python tools/content-manager/content_manager.py api --root .
 - `POST /api/documents`: 유효한 기본값으로 새 트레이너 또는 마을 생성
 - `POST /api/build`: 허용 목록에 있는 빌드 명령 실행
 - `GET /api/structure-builder`: 건축 인스턴스·월드·내보내기 NBT 상태 조회
-- `GET /api/structure-viewer`: 관리 NBT 28개와 필수 BCA 시설 3개의 전용 미리보기 목록
+- `GET /api/structure-viewer`: 관리 NBT 29개와 필수 BCA 시설 3개의 전용 미리보기 목록
 - `PUT /api/structure-builder/settings`: 로컬 CurseForge 건축 인스턴스 경로 저장
 - `POST /api/structure-builder/import`: 저장된 인스턴스 월드에서 NBT 검증 후 가져오기
 

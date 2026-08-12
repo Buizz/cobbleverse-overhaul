@@ -26,14 +26,16 @@ const state = {
   activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null,
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
   structureViewer: { query: "", selected: "", model: null, catalog: {}, yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0 },
+  buildingSettings: { query: "", selected: "", model: null, structures: {}, npcs: [], yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
   cavePreview: { yaw: -.72, pitch: -.52, zoom: 1, view: "perspective", tool: "select", pathDraft: null, drag: null, selected: null, hitTargets: [], projection: null },
   customTownTool: "cell",
   leagueProgression: { schema_version: 1, entries: [] }, selectedLeagueId: "",
   gameDefinitions: { schema_version: 1, items: [], variables: [] },
+  economy: { schema_version: 2, vanilla_crafting_disabled: true, shop_catalogs: [], vendor_units: [], pokemon_drop_overrides: [], npc_recipes: [], resolved_shop_catalogs: [], resolved_vendor_units: [], resolved_pokemon_drops: [] },
   structureBuilder: null
 };
-const lazyDataLoaded = { trainers: false, biomes: false, structures: false, structureViewer: false, definitions: false };
-const lazyDataPromises = { trainers: null, biomes: null, structures: null, structureViewer: null, definitions: null };
+const lazyDataLoaded = { trainers: false, biomes: false, structures: false, structureViewer: false, buildingSettings: false, definitions: false, economy: false };
+const lazyDataPromises = { trainers: null, biomes: null, structures: null, structureViewer: null, buildingSettings: null, definitions: null, economy: null };
 const biomeChoices = {
   habitat: [["plains", "평원"], ["forest", "숲"], ["arid", "건조지"], ["mountain", "산악"], ["cave", "동굴"], ["wetland", "습지"], ["freshwater", "담수"], ["ocean", "해양"], ["snow", "설원"], ["volcanic", "화산"], ["urban", "도시"], ["special", "특수"]],
   temperature: [["any", "무관"], ["cold", "한랭"], ["cool", "서늘"], ["temperate", "온대"], ["hot", "고온"]],
@@ -42,6 +44,7 @@ const biomeChoices = {
   time: [["any", "무관"], ["day", "낮"], ["night", "밤"], ["twilight", "황혼"]]
 };
 const settlementFacilityCatalog = [
+  { id: "player_house", label: "플레이어 집", note: "플레이어의 거점 주택", width: 16, depth: 16, height: 13, color: "#9a7248" },
   { id: "laboratory", label: "연구소", note: "스타팅 포켓몬 지급", width: 32, depth: 32, height: 14, color: "#4cc9f0" },
   { id: "fossil_laboratory", label: "화석연구소", note: "화석 포켓몬 복원", width: 32, depth: 32, height: 14, color: "#c9a66b" },
   { id: "daycare", label: "키우미집", note: "건물과 야외 목장", width: 32, depth: 32, height: 10, color: "#80b918" },
@@ -183,10 +186,11 @@ function escapeHtml(value) {
 function switchPage(section) {
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === section));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", structures: "NBT 건물 3D", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", structures: "NBT 건물 3D", "building-settings": "건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderStructureModel);
+  if (section === "building-settings") requestAnimationFrame(renderBuildingModel);
   loadSectionData(section).catch((error) => toast(error.message));
 }
 
@@ -311,12 +315,38 @@ async function loadStructureViewerData(force = false) {
   } finally { lazyDataPromises.structureViewer = null; }
 }
 
+async function loadBuildingSettingsData(force = false) {
+  if (lazyDataLoaded.buildingSettings && !force) return;
+  if (lazyDataPromises.buildingSettings) return lazyDataPromises.buildingSettings;
+  lazyDataPromises.buildingSettings = (async () => {
+    const result = await request("/api/building-settings");
+    if (!result.ok) throw new Error(result.data.error || "건물 설정을 불러오지 못했습니다.");
+    state.buildingSettings.structures = result.data.structures || {};
+    state.buildingSettings.npcs = result.data.npcs || [];
+    state.buildingSettings.dirty = false;
+    $("#building-settings-path").textContent = result.data.path || "content/catalogs/building-settings.json";
+    lazyDataLoaded.buildingSettings = true;
+    renderBuildingList();
+    const entries = buildingEntries();
+    if (!state.buildingSettings.selected && entries.length) await loadBuildingModel(entries[0][0]);
+    else if (state.buildingSettings.selected) renderBuildingEditor();
+  })();
+  try { await lazyDataPromises.buildingSettings; }
+  catch (error) {
+    $("#building-count").textContent = "오류";
+    $("#building-list").innerHTML = `<div class="issues">${escapeHtml(error.message)}</div>`;
+    throw error;
+  } finally { lazyDataPromises.buildingSettings = null; }
+}
+
 function loadSectionData(section, force = false) {
   if (section === "trainers" || section === "battles" || section === "league") return Promise.all([loadTrainerData(force), loadGameDefinitions(force)]).then(() => { if (section === "league") renderLeagueEditor(); });
   if (section === "biomes") return loadBiomeData(force);
   if (section === "structures") return loadStructureViewerData(force);
-  if (section === "settlements") return Promise.all([loadBiomeData(force), loadStructureData(force)]);
+  if (section === "building-settings") return loadBuildingSettingsData(force);
+  if (section === "settlements") return Promise.all([loadBiomeData(force), loadStructureData(force), loadEconomy(force)]);
   if (section === "definitions") return loadGameDefinitions(force);
+  if (section === "economy") return loadEconomy(force);
   if (section === "builds") return loadStructureBuilder();
   return Promise.resolve();
 }
@@ -341,6 +371,18 @@ function worldSettlementOptions(selected) {
   const token = `generation_${state.selectedGeneration}/`;
   const candidates = state.settlements.filter((item) => item.path?.replaceAll("\\", "/").includes(token));
   return '<option value="">마을 선택</option>' + candidates.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === selected ? "selected" : ""}>${escapeHtml(item.name || item.id)}</option>`).join("");
+}
+function easyNpcPresetResource(npcId) {
+  const slug = String(npcId || "").split("/").at(-1);
+  return slug ? `easy_npc:preset/encounter/${slug}.npc.snbt` : "";
+}
+function worldGatekeeperOptions(selected = "") {
+  const options = state.trainers.map((trainer) => {
+    const resource = easyNpcPresetResource(trainer.id);
+    return `<option value="${escapeHtml(resource)}" ${resource === selected ? "selected" : ""}>${escapeHtml(trainer.name || trainer.id)} · ${escapeHtml(trainer.id)}</option>`;
+  });
+  if (selected && !options.some((option) => option.includes(`value="${escapeHtml(selected)}"`))) options.unshift(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} · 목록에 없음</option>`);
+  return `<option value="">NPC 없음</option>${options.join("")}`;
 }
 
 function renderWorldLayout() {
@@ -631,7 +673,9 @@ function renderHexMap() {
   }).join("");
   const objects = (state.worldLayout.objects || []).map((node) => {
     const { x, y } = hexPoint(node.anchor.q, node.anchor.r);
-    return `<g class="hex-custom-object" transform="translate(${x} ${y})"><rect x="-9" y="-9" width="18" height="18" rx="3"></rect><text y="25">${escapeHtml(node.id)}</text></g>`;
+    const horizontal = ["north", "south"].includes(node.properties?.facing || "north");
+    const wall = horizontal ? `<rect x="-${mapHexSize() - 7}" y="-4" width="${(mapHexSize() - 7) * 2}" height="8" rx="2"></rect>` : `<rect x="-4" y="-${mapHexSize() - 7}" width="8" height="${(mapHexSize() - 7) * 2}" rx="2"></rect>`;
+    return `<g class="hex-custom-object gate-object" transform="translate(${x} ${y})">${wall}<path d="M-7 7V-5L0-11L7-5V7H3V0H-3V7Z"></path><text y="25">${escapeHtml(node.id)}</text></g>`;
   }).join("");
   const caveEntrances = (state.worldLayout.cave_entrances || []).map((node) => {
     const { x, y } = hexPoint(node.anchor.q, node.anchor.r);
@@ -822,12 +866,44 @@ function placeCaveEntranceWithTool(q, r) {
   });
   state.selectedHex = { q, r }; markWorldDirty(); refreshCaveToolEntrances(); renderWorldLayout(); toast("동굴 입구와 필수 포켓몬센터를 배치했습니다. 길 도구로 입구까지 연결해 주세요.");
 }
+function parseGateConditions(source) {
+  return String(source || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line, index) => {
+    const parts = line.split("|").map((part) => part.trim()); const type = parts[0];
+    if (type === "variable" && parts.length === 5 && ["scoreboard", "persistent_data"].includes(parts[1]) && ["==", "!=", ">", ">=", "<", "<="].includes(parts[3]) && Number.isFinite(Number(parts[4]))) return { type, source: parts[1], key: parts[2], operator: parts[3], value: Number(parts[4]) };
+    if (type === "item" && parts.length === 3 && /^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(parts[1]) && Number(parts[2]) >= 1) return { type, item: parts[1], count: Math.floor(Number(parts[2])) };
+    if (type === "pokemon" && parts.length === 2 && /^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(parts[1])) return { type, species: parts[1] };
+    throw new Error(`${index + 1}번째 관문 조건 형식이 올바르지 않습니다: ${line}`);
+  });
+}
+function formatGateConditions(conditions) {
+  return (conditions || []).map((condition) => condition.type === "variable" ? `variable|${condition.source}|${condition.key}|${condition.operator}|${condition.value}` : condition.type === "item" ? `item|${condition.item}|${condition.count || 1}` : `pokemon|${condition.species}`).join("\n");
+}
+function normalizedOdd(value, minimum, maximum) {
+  let number = Math.max(minimum, Math.min(maximum, Math.round(Number(value) || minimum)));
+  if (number % 2 === 0) number = Math.min(maximum, number + 1);
+  return number;
+}
+function gateProperties(values) {
+  const wallHeight = Math.max(3, Math.min(32, Math.round(Number(values.wallHeight) || 7)));
+  const properties = {
+    facing: values.facing, wall_block: values.wallBlock.trim(),
+    wall_thickness: normalizedOdd(values.wallThickness, 1, 15),
+    wall_height: wallHeight, opening_width: normalizedOdd(values.openingWidth, 3, 31),
+    barrier_height: Math.max(wallHeight + 1, Math.min(128, Math.round(Number(values.barrierHeight) || 24))),
+    condition_mode: values.conditionMode, conditions: parseGateConditions(values.conditions),
+    deny_message: values.denyMessage.trim() || "아직 이 관문을 통과할 수 없습니다."
+  };
+  if (values.npc.trim()) properties.npc = values.npc.trim();
+  return properties;
+}
 function placeObjectWithTool(q, r) {
   const id = $("#object-tool-id").value.trim(); const type = $("#object-tool-type").value.trim(); const resource = $("#object-tool-resource").value.trim();
   if (!/^[a-z0-9_.-]+$/.test(id) || !/^[a-z0-9_.-]+$/.test(type)) { toast("오브젝트 ID와 타입을 영문 소문자 형식으로 입력해 주세요."); return; }
+  if (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
   if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
   state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
-  const object = { id, type, anchor: { q, r }, properties: {} }; if (resource) object.resource = resource;
+  let properties; try { properties = gateProperties({ facing: $("#object-tool-facing").value, wallBlock: $("#object-tool-wall-block").value, wallThickness: $("#object-tool-wall-thickness").value, wallHeight: $("#object-tool-wall-height").value, openingWidth: $("#object-tool-opening-width").value, barrierHeight: $("#object-tool-barrier-height").value, conditionMode: $("#object-tool-condition-mode").value, conditions: $("#object-tool-conditions").value, denyMessage: $("#object-tool-deny-message").value, npc: $("#object-tool-npc").value }); } catch (error) { toast(error.message); return; }
+  const object = { id, type, anchor: { q, r }, resource, rotation: Number($("#object-tool-rotation").value), properties };
   state.worldLayout.objects.push(object); state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
 function markWorldDirty() { state.worldDirty = true; updateWorldSaveState(); }
@@ -854,8 +930,19 @@ function renderTileInspector() {
   form.elements.settlement.innerHTML = worldSettlementOptions(town?.settlement || "");
   form.elements.townBiome.innerHTML = worldBiomeOptions(town?.town_biome || "minecraft:plains");
   form.elements.objectId.value = customObject?.id || "";
-  form.elements.objectType.value = customObject?.type || "landmark";
+  form.elements.objectType.value = customObject?.type || "gate";
   form.elements.objectResource.value = customObject?.resource || "";
+  form.elements.objectFacing.value = customObject?.properties?.facing || "north";
+  form.elements.objectRotation.value = customObject?.rotation || 0;
+  form.elements.objectWallBlock.value = customObject?.properties?.wall_block || "minecraft:stone_bricks";
+  form.elements.objectWallThickness.value = customObject?.properties?.wall_thickness || 5;
+  form.elements.objectWallHeight.value = customObject?.properties?.wall_height || 7;
+  form.elements.objectOpeningWidth.value = customObject?.properties?.opening_width || 7;
+  form.elements.objectBarrierHeight.value = customObject?.properties?.barrier_height || 24;
+  form.elements.objectNpc.value = customObject?.properties?.npc || "";
+  form.elements.objectConditionMode.value = customObject?.properties?.condition_mode || "all";
+  form.elements.objectConditions.value = formatGateConditions(customObject?.properties?.conditions);
+  form.elements.objectDenyMessage.value = customObject?.properties?.deny_message || "아직 이 관문을 통과할 수 없습니다.";
   $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== kind);
   const routePanel = $("#route-overlay-panel");
   routePanel.hidden = !routes.length;
@@ -865,7 +952,7 @@ function renderTileInspector() {
   const climateNote = environment ? `<small class="climate-override-note">기후 덮어쓰기 · 온도 ${escapeHtml(environment.temperature || "기본")} · 습도 ${escapeHtml(environment.humidity || "기본")} · 날씨 ${escapeHtml(environment.weather || "기본")}</small>` : "";
   const levelNote = leveling ? `<small class="level-override-note">레벨링 오버레이 · 지역 평균 Lv.${leveling.average_level} · 야생 스폰은 평균 ±2 적용</small>` : "";
   const townAreaNote = townArea && !town ? `<small class="town-area-warning">실제 생성: ${escapeHtml(settlementSummary(townArea.settlement)?.name || townArea.settlement)} 사용 범위 · 이 타일의 바이옴 배치는 무시됩니다.</small>` : "";
-  $("#tile-summary").innerHTML = (kind === "object" ? `<b>${escapeHtml(customObject.id)}</b><span>${escapeHtml(customObject.type)} 오브젝트</span><small>바이옴과 길 위에 독립적으로 배치되는 확장용 메타데이터입니다.</small>` : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote + levelNote;
+  $("#tile-summary").innerHTML = (kind === "object" ? `<b>${escapeHtml(customObject.id)}</b><span>조건부 관문 · ${escapeHtml(customObject.properties?.facing || "north")}</span><small>벽·상부 배리어·중앙 NBT 건물을 생성하며 조건을 만족한 플레이어만 통과합니다.</small>` : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote + levelNote;
   renderWorldPokemonPanel();
 }
 
@@ -926,6 +1013,8 @@ function renderMapToolOptions() {
   $("#biome-brush-type").innerHTML = worldBiomeOptions($("#biome-brush-type").value || "minecraft:plains");
   $("#settlement-tool-biome").innerHTML = worldBiomeOptions($("#settlement-tool-biome").value || "minecraft:plains");
   $("#settlement-tool-preset").innerHTML = worldSettlementOptions($("#settlement-tool-preset").value);
+  const selectedGatekeeper = $("#object-tool-npc").value;
+  $("#object-tool-npc").innerHTML = worldGatekeeperOptions(selectedGatekeeper);
   const currentCave = $("#cave-tool-cave").value;
   $("#cave-tool-cave").innerHTML = state.caves.filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
   if (currentCave && state.caves.some((item) => item.id === currentCave)) $("#cave-tool-cave").value = currentCave;
@@ -1070,8 +1159,10 @@ function applyTilePlacement() {
     const duplicate = state.worldLayout.objects.find((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r));
     if (duplicate) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
     state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
-    const object = { id, type, anchor: { q, r }, properties: {} };
-    if (form.elements.objectResource.value.trim()) object.resource = form.elements.objectResource.value.trim();
+    const resource = form.elements.objectResource.value.trim();
+    if (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
+    let properties; try { properties = gateProperties({ facing: form.elements.objectFacing.value, wallBlock: form.elements.objectWallBlock.value, wallThickness: form.elements.objectWallThickness.value, wallHeight: form.elements.objectWallHeight.value, openingWidth: form.elements.objectOpeningWidth.value, barrierHeight: form.elements.objectBarrierHeight.value, conditionMode: form.elements.objectConditionMode.value, conditions: form.elements.objectConditions.value, denyMessage: form.elements.objectDenyMessage.value, npc: form.elements.objectNpc.value }); } catch (error) { toast(error.message); return; }
+    const object = { id, type, anchor: { q, r }, resource, rotation: Number(form.elements.objectRotation.value), properties };
     state.worldLayout.objects.push(object); markWorldDirty(); renderWorldLayout(); return;
   }
   const townIndex = state.worldLayout.settlements.findIndex((node) => node.anchor?.q === q && node.anchor?.r === r);
@@ -2033,6 +2124,7 @@ function renderTrainer() {
   setFormValue(form, "rosterCharacter", document.npc?.character || "");
   setFormValue(form, "appearanceSource", document.npc?.appearance?.source);
   setFormValue(form, "appearanceResource", document.npc?.appearance?.resource);
+  setFormValue(form, "npcRole", document.npc?.role || "default");
   setFormValue(form, "movement", document.npc?.behavior?.movement);
   setFormValue(form, "interactionRange", document.npc?.behavior?.interaction_range);
   const encounter = document.npc?.behavior?.encounter || { mode: "interaction", trigger_range: document.npc?.behavior?.interaction_range || 4, warning_range: { min: 4, max: 6 } };
@@ -2123,6 +2215,7 @@ function updateTrainerFromForm() {
       look_at_player: form.elements.lookAtPlayer.checked,
       invulnerable: form.elements.invulnerable.checked,
     });
+    state.trainer.npc.role = form.elements.npcRole.value;
     delete state.trainer.npc.behavior.interaction_range;
     delete state.trainer.npc.behavior.encounter;
     if (form.elements.doubleBattleEnabled.checked) {
@@ -2148,6 +2241,7 @@ function updateTrainerFromForm() {
     look_at_player: form.elements.lookAtPlayer.checked,
     invulnerable: form.elements.invulnerable.checked
   });
+  state.trainer.npc.role = form.elements.npcRole.value;
   state.trainer.npc.behavior.encounter = {
     mode: form.elements.encounterMode.value,
     trigger_range: Number(form.elements.encounterTriggerRange.value),
@@ -2252,7 +2346,7 @@ function renderTrainerRewardFields(form = $("#trainer-form")) {
 const eventCommandLabels = {
   branch: "조건 분기", label: "라벨", dialogue: "대화 표시", choices: "선택지 표시",
   goto: "라벨로 이동", start_battle: "배틀 시작", set_flag: "플래그 변경",
-  give_money: "돈 지급", take_money: "돈 차감", give_item: "아이템 지급", grant_loot: "루트 테이블 지급", mark_clear: "클리어 처리", end: "이벤트 종료",
+  give_money: "돈 지급", take_money: "돈 차감", give_item: "아이템 지급", grant_loot: "루트 테이블 지급", mark_clear: "클리어 처리", teleport_to_gate: "관문으로 이동", end: "이벤트 종료",
 };
 const expandedEventCommands = new Set();
 
@@ -2281,6 +2375,7 @@ function eventCommandSummary(command) {
   if (command.type === "take_money") return command.mode === "level_cap_multiplier" ? `레벨캡 × ${command.multiplier || 1} 차감` : `${Number(command.amount || 0).toLocaleString()} 차감`;
   if (command.type === "give_item") return `${command.item || "아이템 없음"} × ${command.count || 1}`;
   if (command.type === "grant_loot") return command.loot_table || "루트 테이블 없음";
+  if (command.type === "teleport_to_gate") return `${command.subject === "npc" ? "NPC" : "플레이어"} → ${command.gate || "관문 없음"} · ${command.side || "front"}`;
   if (command.type === "end") return "이벤트 실행 종료";
   return command.type;
 }
@@ -2493,6 +2588,11 @@ function renderEventCommandEditor(command) {
   }
   if (command.type === "give_item") return `<div class="event-command-fields">${eventField("아이템 ID", "item", command.item || "", { wide: true })}${eventField("수량", "count", command.count ?? 1, { type: "number", valueType: "number", min: 1, step: 1 })}</div>`;
   if (command.type === "grant_loot") return `<div class="event-command-fields">${eventField("루트 테이블 ID", "loot_table", command.loot_table || "", { wide: true, help: "확률과 아이템 구성은 별도의 루트 테이블에서 관리합니다." })}</div>`;
+  if (command.type === "teleport_to_gate") {
+    const gates = (state.worldLayout?.objects || []).filter((object) => object.type === "gate").map((gate) => [gate.id, gate.id]);
+    if (command.gate && !gates.some(([id]) => id === command.gate)) gates.unshift([command.gate, `${command.gate} · 현재 월드에 없음`]);
+    return `<div class="event-command-fields">${eventField("대상 관문", "gate", command.gate || "", { choices: gates.length ? gates : [["gate_01", "등록된 관문 없음"]], wide: true, help: "관문의 위치·방향은 월드맵 오브젝트에서 관리합니다." })}${eventField("이동 대상", "subject", command.subject || "player", { choices: [["player", "대화 중인 플레이어"], ["npc", "이 NPC"]] })}${eventField("도착 위치", "side", command.side || "front", { choices: [["front", "관문 정면"], ["back", "관문 뒤편"], ["center", "관문 중앙"]] })}</div>`;
+  }
   if (command.type === "end") return '<div class="event-command-fields"><p class="command-help wide">여기에서 이벤트 실행을 종료합니다. 추가 설정은 필요하지 않습니다.</p></div>';
   return '<div class="event-command-fields"><p class="command-help wide">지원하지 않는 명령입니다.</p></div>';
 }
@@ -2503,6 +2603,9 @@ function renderEventScript() {
   if (!event) {
     list.innerHTML = '<div class="issues empty">이벤트 스크립트가 없습니다.</div>';
     return;
+  }
+  if (!$("#event-command-type").querySelector('option[value="teleport_to_gate"]')) {
+    $("#event-command-type").insertAdjacentHTML("beforeend", '<option value="teleport_to_gate">관문으로 이동</option>');
   }
   if (list.dataset.npcId !== state.trainer.id) {
     expandedEventCommands.clear();
@@ -2550,6 +2653,7 @@ function defaultEventCommand(type) {
     take_money: { type, mode: "fixed", amount: 500, currency_objective: "cobbleventure_money" },
     give_item: { type, item: "cobblemon:poke_ball", count: 1 },
     grant_loot: { type, loot_table: "cobbleventure:rewards/example" },
+    teleport_to_gate: { type, gate: (state.worldLayout?.objects || []).find((object) => object.type === "gate")?.id || "gate_01", subject: "player", side: "front" },
     end: { type },
   };
   return defaults[type];
@@ -4474,6 +4578,170 @@ function endStructureDrag(event) {
   event.currentTarget.classList.remove("is-dragging");
 }
 
+function buildingEntries() {
+  const query = state.buildingSettings.query.trim().toLowerCase();
+  return Object.entries(state.buildingSettings.structures || {})
+    .filter(([id, metadata]) => !query || `${id} ${metadata.source || ""}`.toLowerCase().includes(query))
+    .sort(([left], [right]) => left.localeCompare(right));
+}
+
+function renderBuildingList() {
+  const entries = buildingEntries();
+  $("#building-count").textContent = `${entries.length.toLocaleString()}개`;
+  $("#building-list").innerHTML = entries.length ? entries.map(([id, metadata]) => {
+    const labels = metadata.npc_labels || [];
+    const assigned = Object.keys(metadata.settings?.fixed_npcs || {}).length;
+    const badge = metadata.residential ? "시민 주택" : labels.length ? `${assigned}/${labels.length} 배정` : "라벨 없음";
+    return `<button type="button" class="nbt-structure-item${id === state.buildingSettings.selected ? " is-active" : ""}" data-building-id="${escapeHtml(id)}">
+      <span><strong>${escapeHtml(id.split(":").at(-1))}</strong><small>${escapeHtml(id)}</small></span>
+      <span class="nbt-structure-size">${escapeHtml(badge)}</span>
+    </button>`;
+  }).join("") : '<div class="issues empty">검색 조건에 맞는 건물이 없습니다.</div>';
+}
+
+async function loadBuildingModel(structureId) {
+  const view = state.buildingSettings;
+  view.selected = structureId;
+  view.model = null;
+  const requestId = ++view.requestId;
+  renderBuildingList();
+  renderBuildingEditor();
+  $("#building-model-title").textContent = structureId;
+  $("#building-model-meta").textContent = "NBT 블록과 NPC 위치를 읽는 중입니다…";
+  $("#building-model-empty").hidden = false;
+  $("#building-model-empty").textContent = "3D 미리보기를 만드는 중입니다…";
+  renderBuildingModel();
+  const result = await request(`/api/structure-model?structure=${encodeURIComponent(structureId)}`);
+  if (requestId !== view.requestId) return;
+  if (!result.ok) {
+    $("#building-model-meta").textContent = result.data.error || "NBT 모델을 불러오지 못했습니다.";
+    $("#building-model-empty").textContent = result.data.error || "NBT 모델을 불러오지 못했습니다.";
+    return;
+  }
+  view.model = result.data;
+  Object.assign(view, { yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null });
+  const metadata = view.structures[structureId] || {};
+  const labels = metadata.npc_labels || [];
+  $("#building-model-title").textContent = structureId;
+  $("#building-model-meta").textContent = `${result.data.width} × ${result.data.height} × ${result.data.depth} 블록 · NPC 위치 ${labels.length}개`;
+  $("#building-marker-count").textContent = `NPC 위치 ${labels.length}개`;
+  $("#building-model-empty").hidden = Boolean(result.data.blocks?.length);
+  renderBuildingModel();
+}
+
+function projectBuildingPoint(point, model, canvas, scale = 1) {
+  const view = state.buildingSettings;
+  const dx = point[0] - model.width / 2, dy = point[1] - model.height / 2, dz = point[2] - model.depth / 2;
+  const cosine = Math.cos(view.yaw), sine = Math.sin(view.yaw);
+  const rotatedX = dx * cosine - dz * sine, rotatedZ = dx * sine + dz * cosine;
+  const pitchCosine = Math.cos(view.pitch), pitchSine = Math.sin(view.pitch);
+  return { x: canvas.width / 2 + rotatedX * scale, y: canvas.height / 2 + (rotatedZ * pitchSine - dy * pitchCosine) * scale, depth: rotatedZ * pitchCosine + dy * pitchSine };
+}
+
+function buildingViewScale(model, canvas) {
+  const corners = [];
+  for (const x of [0, model.width]) for (const y of [0, model.height]) for (const z of [0, model.depth]) corners.push(projectBuildingPoint([x, y, z], model, canvas));
+  const spanX = Math.max(...corners.map((point) => point.x)) - Math.min(...corners.map((point) => point.x));
+  const spanY = Math.max(...corners.map((point) => point.y)) - Math.min(...corners.map((point) => point.y));
+  return Math.max(1.5, Math.min((canvas.width - 100) / Math.max(1, spanX), (canvas.height - 80) / Math.max(1, spanY))) * state.buildingSettings.zoom;
+}
+
+function renderBuildingModel() {
+  const canvas = $("#building-model-canvas"), model = state.buildingSettings.model;
+  if (!canvas) return;
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  if (!model?.blocks?.length) return;
+  const scale = buildingViewScale(model, canvas);
+  const definitions = [
+    [[0,0,0],[0,0,1],[0,1,1],[0,1,0],.72], [[1,0,1],[1,0,0],[1,1,0],[1,1,1],.86],
+    [[0,0,1],[0,0,0],[1,0,0],[1,0,1],.58], [[0,1,0],[0,1,1],[1,1,1],[1,1,0],1.08],
+    [[1,0,0],[0,0,0],[0,1,0],[1,1,0],.76], [[0,0,1],[1,0,1],[1,1,1],[0,1,1],.92]
+  ];
+  const faces = [];
+  for (const [x, y, z, paletteIndex, mask] of model.blocks) for (let index = 0; index < definitions.length; index += 1) {
+    if (!(mask & (1 << index))) continue;
+    const definition = definitions[index];
+    const points = definition.slice(0, 4).map(([dx, dy, dz]) => projectBuildingPoint([x + dx, y + dy, z + dz], model, canvas, scale));
+    faces.push({ points, depth: points.reduce((sum, point) => sum + point.depth, 0) / 4, color: shadeMinecraftTopColor(minecraftTopBlockColor(model.palette[paletteIndex]), definition[4]), blockName: model.palette[paletteIndex] });
+  }
+  faces.sort((left, right) => right.depth - left.depth);
+  context.lineJoin = "round";
+  for (const face of faces) {
+    context.beginPath(); context.moveTo(face.points[0].x, face.points[0].y);
+    for (const point of face.points.slice(1)) context.lineTo(point.x, point.y);
+    context.closePath(); context.globalAlpha = /glass|leaves|water/.test(face.blockName) ? .78 : 1;
+    context.fillStyle = face.color; context.fill();
+    if (scale >= 3) { context.strokeStyle = "rgba(18,25,23,.28)"; context.lineWidth = Math.min(1.2, scale * .09); context.stroke(); }
+  }
+  context.globalAlpha = 1;
+  const metadata = state.buildingSettings.structures[state.buildingSettings.selected] || {};
+  const fixed = metadata.settings?.fixed_npcs || {};
+  for (const marker of metadata.npc_labels || []) {
+    const [x, y, z] = marker.position;
+    const base = projectBuildingPoint([x + .5, y, z + .5], model, canvas, scale);
+    const top = projectBuildingPoint([x + .5, y + Math.min(2, Math.max(1.2, model.height / 5)), z + .5], model, canvas, scale);
+    const assigned = Boolean(fixed[marker.label]);
+    context.strokeStyle = assigned ? "#70e1a1" : "#ffca5c"; context.lineWidth = 4;
+    context.beginPath(); context.moveTo(base.x, base.y); context.lineTo(top.x, top.y); context.stroke();
+    context.fillStyle = assigned ? "#70e1a1" : "#ffca5c"; context.beginPath(); context.arc(top.x, top.y, 8, 0, Math.PI * 2); context.fill();
+    context.font = "bold 20px system-ui"; context.textAlign = "center"; context.textBaseline = "bottom";
+    context.lineWidth = 5; context.strokeStyle = "rgba(8,14,12,.88)"; context.strokeText(marker.label, top.x, top.y - 12);
+    context.fillStyle = "#ffffff"; context.fillText(marker.label, top.x, top.y - 12);
+  }
+}
+
+function renderBuildingEditor() {
+  const view = state.buildingSettings, metadata = view.structures[view.selected];
+  $("#building-editor-empty").hidden = Boolean(metadata);
+  $("#building-editor").hidden = !metadata;
+  if (!metadata) return;
+  const labels = metadata.npc_labels || [], fixed = metadata.settings?.fixed_npcs || {};
+  const banner = $("#building-type-banner");
+  const randomRow = $("#building-random-citizen-row");
+  if (metadata.residential) {
+    banner.className = "building-type-banner residential";
+    banner.innerHTML = "<strong>시민 주거건물</strong><span>고정 NPC를 배정하지 않습니다. 마을 설정의 랜덤 시민 규칙이 이 건물을 사용합니다.</span>";
+    randomRow.hidden = false;
+    $("#building-random-citizen").checked = Boolean(metadata.settings?.random_citizen_eligible);
+    $("#building-npc-assignments").innerHTML = '<div class="issues empty">이 건물의 NPC 위치는 마을 생성 시 시민을 확률 배치할 때 사용합니다.</div>';
+  } else {
+    banner.className = "building-type-banner fixed";
+    banner.innerHTML = `<strong>고정 NPC 건물</strong><span>NBT에서 발견한 ${labels.length}개 라벨에 NPC 콘텐츠를 연결합니다.</span>`;
+    randomRow.hidden = true;
+    $("#building-npc-assignments").innerHTML = labels.length ? labels.map((marker) => `
+      <label class="building-npc-row"><span><strong>${escapeHtml(marker.label)}</strong><small>상대 위치 ${marker.position.join(", ")}</small></span><select data-building-npc-label="${escapeHtml(marker.label)}"><option value="">배정하지 않음</option>${buildingNpcOptions(fixed[marker.label] || "")}</select></label>
+    `).join("") : '<div class="issues empty">이 NBT에는 npc_position 라벨이 없습니다. 건축 월드에서 먼저 위치를 지정하세요.</div>';
+  }
+  $("#building-settings-issues").className = "issues empty";
+  $("#building-settings-issues").textContent = view.dirty ? "저장되지 않은 변경 사항이 있습니다." : "저장된 설정입니다.";
+}
+
+function buildingNpcOptions(selected) {
+  return state.buildingSettings.npcs.map((npc) => `<option value="${escapeHtml(npc.id)}" ${npc.id === selected ? "selected" : ""}>${escapeHtml(npc.npc_name || npc.name || npc.id)} · ${escapeHtml(npc.id)}</option>`).join("");
+}
+
+function markBuildingSettingsDirty() {
+  state.buildingSettings.dirty = true;
+  renderBuildingList(); renderBuildingEditor(); renderBuildingModel();
+}
+
+async function saveBuildingSettings() {
+  const buildings = {};
+  for (const [id, metadata] of Object.entries(state.buildingSettings.structures)) {
+    buildings[id] = {
+      fixed_npcs: metadata.residential ? {} : { ...(metadata.settings?.fixed_npcs || {}) },
+      random_citizen_eligible: metadata.residential ? Boolean(metadata.settings?.random_citizen_eligible) : false
+    };
+  }
+  const result = await request("/api/building-settings", { method: "PUT", body: JSON.stringify({ schema_version: 1, buildings }) });
+  showIssues("#building-settings-issues", result.data);
+  if (!result.ok) return toast(result.data.error || "건물 설정을 저장하지 못했습니다.");
+  state.buildingSettings.dirty = false;
+  renderBuildingEditor();
+  toast("건물 설정을 저장했습니다.");
+}
+
 function rotateMinecraftTopBlock(x, z, width, depth, rotation) {
   if (rotation === "clockwise_90") return { x: depth - 1 - z, z: x };
   if (rotation === "clockwise_180") return { x: width - 1 - x, z: depth - 1 - z };
@@ -5562,7 +5830,7 @@ function updateFacilityFormState() {
   const buildingEnabled = form.elements.specialBuildingEnabled.checked;
   const manualPlacement = form.elements.specialDistrictPlacementMode.value === "manual";
   for (const field of form.querySelectorAll('[data-special-manual]')) field.hidden = !manualPlacement;
-  for (const name of ["specialBuildingStructure", "specialDistrictPlacementMode", "specialDistrictWidth", "specialDistrictDepth", "specialDistrictClearance"]) {
+  for (const name of ["specialBuildingPreset", "specialBuildingStructure", "specialDistrictPlacementMode", "specialDistrictWidth", "specialDistrictDepth", "specialDistrictClearance"]) {
     form.elements[name].disabled = !buildingEnabled;
   }
   for (const name of ["specialDistrictX", "specialDistrictY", "specialDistrictZ"]) {
@@ -5577,6 +5845,17 @@ function updateFacilityFormState() {
     row.classList.toggle("is-selected", enabled);
     row.querySelector(".facility-count input").disabled = !enabled;
   });
+}
+
+function applySpecialBuildingPreset(event) {
+  if (event.target?.name !== "specialBuildingPreset" || !event.target.value) return;
+  const form = $("#settlement-form");
+  form.elements.specialBuildingStructure.value = event.target.value;
+  if (event.target.value === "cobbleventure:placeholder/player_house") {
+    const metadata = state.structureSizes[event.target.value];
+    form.elements.specialDistrictWidth.value = Number(metadata?.width || 16);
+    form.elements.specialDistrictDepth.value = Number(metadata?.depth || 16);
+  }
 }
 
 function renderSettlement() {
@@ -5606,6 +5885,7 @@ function renderSettlement() {
   const savedCommercial = document.structure_profile?.commercial_center || (starterPreset ? "none" : "pokemart");
   setFormValue(form, "commercialFacility", savedCommercial === "preset" ? "pokemart" : savedCommercial);
   renderFacilityOptions();
+  renderSettlementVendorUnits();
   const specialDistrict = document.structure_profile?.special_district || {};
   const specialBuilding = specialDistrict.building || {};
   const specialAnchor = document.anchors?.[specialDistrict.anchor || "special_district"] || document.center || { x: 0, y: 64, z: 0 };
@@ -5618,6 +5898,7 @@ function renderSettlement() {
   setFormValue(form, "specialDistrictDepth", specialDistrict.footprint?.depth ?? 48);
   setFormValue(form, "specialDistrictClearance", specialDistrict.clearance ?? 6);
   setFormValue(form, "specialBuildingEnabled", specialBuilding.enabled ?? false);
+  setFormValue(form, "specialBuildingPreset", specialBuilding.structure === "cobbleventure:placeholder/player_house" ? specialBuilding.structure : "");
   setFormValue(form, "specialBuildingStructure", specialBuilding.structure || "");
   const legacyGym = document.structure_profile?.facility_placements?.find((item) => item.id === "gym_building");
   const gym = document.structure_profile?.gym || {
@@ -5816,6 +6097,11 @@ function updateSettlementFromForm() {
     ? false : form.elements.pokemonCenterEnabled.checked;
   state.settlement.structure_profile.commercial_center = starterPreset
     ? "none" : form.elements.commercialFacility.value;
+  const selectedShopCatalog = starterPreset ? null : selectedSettlementShopCatalog();
+  state.settlement.structure_profile.shop_configuration = {
+    catalog_id: selectedShopCatalog?.id || "cobbleventure:shop_catalog/none",
+    vendor_units: selectedShopCatalog?.vendor_units || []
+  };
   state.settlement.structure_profile.civic_facilities_explicit = true;
   delete state.settlement.structure_profile.village_preset;
   delete state.settlement.structure_profile.starter_layout;
@@ -6282,6 +6568,252 @@ async function saveGameDefinitions() {
   toast("게임 데이터 선언을 저장했습니다.");
 }
 
+async function loadEconomy(force = false) {
+  if (lazyDataLoaded.economy && !force) return;
+  if (lazyDataPromises.economy) return lazyDataPromises.economy;
+  lazyDataPromises.economy = (async () => {
+    const result = await request("/api/economy");
+    if (!result.ok) throw new Error(result.data.error || "경제 카탈로그를 불러오지 못했습니다.");
+    state.economy = result.data;
+    state.economy.vendor_units ||= [];
+    state.economy.shop_catalogs ||= [];
+    state.economy.resolved_shop_catalogs ||= [];
+    state.economy.pokemon_drop_overrides ||= [];
+    state.economy.resolved_vendor_units ||= [];
+    state.economy.resolved_pokemon_drops ||= [];
+    state.economy.npc_recipes ||= [];
+    state.economy.vanilla_crafting_disabled = true;
+    lazyDataLoaded.economy = true;
+    renderEconomy();
+  })();
+  try { await lazyDataPromises.economy; }
+  finally { lazyDataPromises.economy = null; }
+}
+
+function economyFacilityLabel(value) {
+  return { pokemart: "프렌들리숍", department_store: "백화점", specialty: "전문 상점" }[value] || value;
+}
+
+function economyCollection(kind) {
+  if (kind === "catalog") return state.economy.shop_catalogs;
+  if (kind === "shop") return state.economy.vendor_units;
+  if (kind === "drop") return state.economy.pokemon_drop_overrides;
+  return state.economy.npc_recipes;
+}
+
+function renderEconomyLegacy() {
+  const shops = state.economy.shops || [];
+  const drops = state.economy.pokemon_drops || [];
+  const recipes = state.economy.npc_recipes || [];
+  const townFilter = $("#economy-town-filter");
+  const selectedTown = townFilter.value;
+  const towns = [...new Set(shops.map((shop) => shop.town).filter(Boolean))].sort();
+  townFilter.innerHTML = '<option value="">전체 마을</option>' + towns.map((town) => `<option value="${escapeHtml(town)}" ${town === selectedTown ? "selected" : ""}>${escapeHtml(town)}</option>`).join("");
+  const visibleShops = selectedTown ? shops.filter((shop) => shop.town === selectedTown) : shops;
+  $("#economy-shop-list").innerHTML = visibleShops.length ? visibleShops.map((shop) => {
+    const index = shops.indexOf(shop);
+    const items = shop.items || [];
+    return `<article class="economy-card"><header><div><span class="economy-card-kicker">${escapeHtml(shop.town || "마을 미지정")} · ${escapeHtml(economyFacilityLabel(shop.facility))}${shop.floor ? ` · ${escapeHtml(shop.floor)}` : ""}</span><h4>${escapeHtml(shop.display_name || shop.npc || "판매 NPC")}<small>${items.length}개 품목</small></h4></div><div class="economy-card-actions"><button data-economy-edit="shop" data-index="${index}">편집</button><button data-economy-remove="shop" data-index="${index}">삭제</button></div></header><div class="economy-card-body">${items.length ? items.map((item) => `<div class="economy-stock-row"><code>${escapeHtml(item.item || "")}</code><b>${Number(item.price || 0).toLocaleString()} · ${escapeHtml(item.currency || "")}</b><span>${item.stock_limit == null ? "무제한" : `${item.stock_limit}개`}</span></div>`).join("") : '<div class="economy-empty">판매 아이템이 없습니다.</div>'}</div><footer><span>NPC 리소스</span><b>${escapeHtml(shop.npc || "—")}</b></footer></article>`;
+  }).join("") : '<div class="economy-empty">등록된 판매 NPC가 없습니다. 마을과 NPC별 판매 목록을 추가하세요.</div>';
+
+  $("#economy-drop-list").innerHTML = drops.length ? '<div class="economy-table-head"><span>포켓몬</span><span>드롭 아이템</span><span>확률</span><span>수량</span><span>관리</span></div>' + drops.map((drop, index) => `<div class="economy-drop-row"><span><strong>${escapeHtml(drop.pokemon || "포켓몬 미지정")}</strong><small>${escapeHtml(drop.id || "")}</small></span><span><strong>${escapeHtml(drop.item || "아이템 미지정")}</strong></span><span class="economy-chance"><b>${Math.round(Number(drop.chance || 0) * 100)}%</b><span><i style="width:${Math.max(0, Math.min(100, Number(drop.chance || 0) * 100))}%"></i></span></span><span>${drop.min_count || 1}–${drop.max_count || 1}개</span><span class="economy-row-actions"><button data-economy-edit="drop" data-index="${index}">편집</button><button data-economy-remove="drop" data-index="${index}">삭제</button></span></div>`).join("") : '<div class="economy-empty">등록된 포켓몬 드롭 규칙이 없습니다.</div>';
+
+  $("#economy-recipe-list").innerHTML = recipes.length ? recipes.map((recipe, index) => `<article class="economy-card"><header><div><span class="economy-card-kicker">${escapeHtml(recipe.town || "마을 미지정")}</span><h4>${escapeHtml(recipe.display_name || "제작 의뢰")}<small>${escapeHtml(recipe.npc || "")}</small></h4></div><div class="economy-card-actions"><button data-economy-edit="recipe" data-index="${index}">편집</button><button data-economy-remove="recipe" data-index="${index}">삭제</button></div></header><div class="economy-recipe-flow"><div class="economy-ingredients">${(recipe.ingredients || []).map((item) => `<div class="economy-ingredient"><code>${escapeHtml(item.item || "")}</code><b>×${item.count || 1}</b></div>`).join("") || '<div class="economy-empty">재료 없음</div>'}</div><div class="economy-recipe-arrow">→</div><div class="economy-output"><strong>결과물</strong><code>${escapeHtml(recipe.output?.item || "")}</code><b>×${recipe.output?.count || 1}</b></div></div><footer><span>해금 조건</span><b>${escapeHtml(recipe.unlock_note || "조건 없음")}</b></footer></article>`).join("") : '<div class="economy-empty">등록된 NPC 제작법이 없습니다.</div>';
+
+  const productCount = shops.reduce((sum, shop) => sum + (shop.items || []).length, 0);
+  $("#economy-summary").innerHTML = `<article><span>판매 NPC</span><strong>${shops.length}</strong></article><article><span>판매 품목</span><strong>${productCount}</strong></article><article><span>드롭 규칙</span><strong>${drops.length}</strong></article><article><span>NPC 제작법</span><strong>${recipes.length}</strong></article>`;
+  $("#economy-drop-item-ids").innerHTML = [...new Set(drops.map((drop) => drop.item).filter(Boolean))].map((item) => `<option value="${escapeHtml(item)}"></option>`).join("");
+}
+
+function economyEditorFieldsLegacy(kind, entry = {}) {
+  if (kind === "catalog") {
+    entry = { id: String(data.get("id")).trim(), display_name: String(data.get("display_name")).trim(), facility_scope: String(data.get("facility_scope")), vendor_units: String(data.get("vendor_units")).split("\n").map((value) => value.trim()).filter(Boolean) };
+  } else if (kind === "shop") {
+    const itemLines = (entry.items || []).map((item) => `${item.item} | ${item.price} | ${item.currency} | ${item.stock_limit ?? ""}`).join("\n");
+    return `<label class="wide"><span>상점 ID</span><input name="id" value="${escapeHtml(entry.id || "cobbleventure:shop/new_shop")}" required></label><label><span>마을 ID</span><input name="town" value="${escapeHtml(entry.town || "cobbleventure:town/")}" required></label><label><span>시설</span><select name="facility"><option value="pokemart" ${entry.facility === "pokemart" ? "selected" : ""}>프렌들리숍</option><option value="department_store" ${entry.facility === "department_store" ? "selected" : ""}>백화점</option><option value="specialty" ${entry.facility === "specialty" ? "selected" : ""}>전문 상점</option></select></label><label><span>층 (백화점 필수)</span><input name="floor" value="${escapeHtml(entry.floor || "")}" placeholder="2F"></label><label><span>NPC 리소스 ID</span><input name="npc" value="${escapeHtml(entry.npc || "cobbleventure:npc/")}" required></label><label class="wide"><span>판매 NPC 표시 이름</span><input name="display_name" value="${escapeHtml(entry.display_name || "새 판매 NPC")}" required></label><label class="wide"><span>판매 목록</span><textarea name="items" rows="7" placeholder="cobblemon:poke_ball | 200 | cobbleventure:currency/pokedollar |&#10;cobblemon:great_ball | 600 | cobbleventure:currency/pokedollar | 10">${escapeHtml(itemLines)}</textarea><small>한 줄에 아이템 ID | 가격 | 화폐 ID | 재고 제한. 재고를 비우면 무제한입니다.</small></label>`;
+  }
+  if (kind === "drop") return `<label class="wide"><span>드롭 규칙 ID</span><input name="id" value="${escapeHtml(entry.id || "cobbleventure:drop/new_drop")}" required></label><label><span>포켓몬 ID</span><input name="pokemon" value="${escapeHtml(entry.pokemon || "cobblemon:")}" required></label><label><span>드롭 아이템 ID</span><input name="item" value="${escapeHtml(entry.item || "cobbleventure:")}" required></label><label><span>드롭 확률 (%)</span><input type="number" name="chance" min="0.01" max="100" step="0.01" value="${Number(entry.chance ?? .25) * 100}" required></label><label><span>최소 수량</span><input type="number" name="min_count" min="1" step="1" value="${entry.min_count || 1}" required></label><label><span>최대 수량</span><input type="number" name="max_count" min="1" step="1" value="${entry.max_count || 1}" required></label>`;
+  const ingredientLines = (entry.ingredients || []).map((item) => `${item.item} | ${item.count}`).join("\n");
+  return `<label class="wide"><span>제작법 ID</span><input name="id" value="${escapeHtml(entry.id || "cobbleventure:recipe/new_recipe")}" required></label><label><span>마을 ID</span><input name="town" value="${escapeHtml(entry.town || "cobbleventure:town/")}" required></label><label><span>담당 NPC ID</span><input name="npc" value="${escapeHtml(entry.npc || "cobbleventure:npc/")}" required></label><label class="wide"><span>제작 의뢰 이름</span><input name="display_name" value="${escapeHtml(entry.display_name || "새 제작 의뢰")}" required></label><label><span>결과 아이템 ID</span><input name="output_item" value="${escapeHtml(entry.output?.item || "cobblemon:")}" required></label><label><span>결과 수량</span><input type="number" name="output_count" min="1" step="1" value="${entry.output?.count || 1}" required></label><label class="wide"><span>포켓몬 드롭 재료</span><textarea name="ingredients" rows="6" placeholder="cobbleventure:hard_stone_shard | 2">${escapeHtml(ingredientLines)}</textarea><small>한 줄에 아이템 ID | 수량. 포켓몬 드롭 탭에 등록된 아이템만 저장할 수 있습니다.</small></label><label class="wide"><span>해금 조건</span><input name="unlock_note" value="${escapeHtml(entry.unlock_note || "")}" placeholder="회색체육관 클리어"></label>`;
+}
+
+function openEconomyEditor(kind, index = -1) {
+  const entry = index >= 0 ? economyCollection(kind)[index] : {};
+  const labels = { catalog: "상점 카탈로그", shop: "판매원 단위", drop: "포켓몬 드롭", recipe: "NPC 제작법" };
+  $("#economy-dialog-title").textContent = `${labels[kind]} ${index >= 0 ? "편집" : "추가"}`;
+  $("#economy-form").elements.kind.value = kind;
+  $("#economy-form").elements.index.value = String(index);
+  $("#economy-dialog-fields").innerHTML = economyEditorFields(kind, entry);
+  $("#economy-dialog").showModal();
+}
+
+function parseEconomyLines(value, fields) {
+  return value.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
+    const values = line.split("|").map((part) => part.trim());
+    return Object.fromEntries(fields.map((field, index) => [field, values[index] ?? ""]));
+  });
+}
+
+function submitEconomyEditorLegacy(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const kind = String(data.get("kind"));
+  const index = Number(data.get("index"));
+  let entry;
+  if (kind === "shop") entry = { id: String(data.get("id")).trim(), town: String(data.get("town")).trim(), facility: String(data.get("facility")), floor: String(data.get("floor")).trim(), npc: String(data.get("npc")).trim(), display_name: String(data.get("display_name")).trim(), items: parseEconomyLines(String(data.get("items")), ["item", "price", "currency", "stock_limit"]).map((item) => ({ item: item.item, price: Number(item.price), currency: item.currency, stock_limit: item.stock_limit ? Number(item.stock_limit) : null })) };
+  else if (kind === "drop") entry = { id: String(data.get("id")).trim(), pokemon: String(data.get("pokemon")).trim(), item: String(data.get("item")).trim(), chance: Number(data.get("chance")) / 100, min_count: Number(data.get("min_count")), max_count: Number(data.get("max_count")) };
+  else entry = { id: String(data.get("id")).trim(), town: String(data.get("town")).trim(), npc: String(data.get("npc")).trim(), display_name: String(data.get("display_name")).trim(), output: { item: String(data.get("output_item")).trim(), count: Number(data.get("output_count")) }, ingredients: parseEconomyLines(String(data.get("ingredients")), ["item", "count"]).map((item) => ({ item: item.item, count: Number(item.count) })), unlock_note: String(data.get("unlock_note")).trim() };
+  const collection = economyCollection(kind);
+  if (index >= 0) collection[index] = entry; else collection.push(entry);
+  $("#economy-dialog").close();
+  renderEconomy();
+}
+
+function handleEconomyClickLegacy(event) {
+  const tab = event.target.closest("[data-economy-tab]");
+  if (tab) {
+    $$('[data-economy-tab]').forEach((button) => button.classList.toggle("is-active", button === tab));
+    $$('[data-economy-panel]').forEach((panel) => panel.classList.toggle("is-active", panel.dataset.economyPanel === tab.dataset.economyTab));
+    return;
+  }
+  const add = event.target.closest("[data-economy-add]");
+  if (add) { openEconomyEditor(add.dataset.economyAdd); return; }
+  const edit = event.target.closest("[data-economy-edit]");
+  if (edit) { openEconomyEditor(edit.dataset.economyEdit, Number(edit.dataset.index)); return; }
+  const remove = event.target.closest("[data-economy-remove]");
+  if (!remove) return;
+  if (!confirm("이 경제 항목을 삭제할까요? 저장 전에는 새로고침으로 되돌릴 수 있습니다.")) return;
+  economyCollection(remove.dataset.economyRemove).splice(Number(remove.dataset.index), 1);
+  renderEconomy();
+}
+
+async function saveEconomy() {
+  state.economy.vanilla_crafting_disabled = true;
+  const result = await request("/api/economy", { method: "PUT", body: JSON.stringify(state.economy) });
+  showIssues("#economy-issues", result.data);
+  if (!result.ok) { toast(result.data.error || "상점·드롭·제작 설정을 확인해 주세요."); return; }
+  await loadEconomy(true);
+  toast("경제 카탈로그를 저장했습니다.");
+}
+
+// Economy schema v2: catalog units are independent from towns. Towns only keep
+// references to complete vendor units (NPC + role + grouped offers).
+function renderSettlementVendorUnits() {
+  const form = $("#settlement-form");
+  if (!form) return;
+  let panel = $("#settlement-shop-vendors");
+  if (!panel) {
+    panel = document.createElement("section");
+    panel.id = "settlement-shop-vendors";
+    panel.className = "shop-vendor-config wide";
+    panel.innerHTML = '<header><strong>상점 카탈로그 선택</strong><small>카탈로그에 묶인 판매원·NPC·판매 품목 전체가 인게임에 배치됩니다.</small></header><div id="settlement-vendor-unit-list"></div>';
+    const gym = $("#gym-config-fields");
+    gym?.parentElement?.insertBefore(panel, gym);
+  }
+  const facility = form.elements.commercialFacility?.value || "none";
+  const configuredCatalog = state.settlement?.structure_profile?.shop_configuration?.catalog_id || "";
+  const catalogs = (state.economy.resolved_shop_catalogs || []).filter((catalog) => catalog.facility_scope === facility);
+  const vendorsById = new Map((state.economy.resolved_vendor_units || []).map((vendor) => [vendor.id, vendor]));
+  panel.hidden = facility === "none";
+  const list = $("#settlement-vendor-unit-list");
+  if (!list) return;
+  list.innerHTML = catalogs.length ? catalogs.map((catalog, index) => {
+    const vendorNames = (catalog.vendor_units || []).map((id) => vendorsById.get(id)?.role || id);
+    const checked = configuredCatalog ? configuredCatalog === catalog.id : index === 0;
+    return `<label class="vendor-unit-choice"><input type="radio" name="settlementShopCatalog" value="${escapeHtml(catalog.id)}" ${checked ? "checked" : ""}><span><strong>${escapeHtml(catalog.display_name)}</strong><small>${vendorNames.length}개 판매원 단위 · ${escapeHtml(vendorNames.join(", "))}</small><small>${escapeHtml(catalog.id)} · ${catalog.origin === "custom" ? "사용자 정의" : "기본 제공"}</small></span></label>`;
+  }).join("") : '<div class="economy-empty">이 시설에 사용할 상점 카탈로그가 없습니다. 경제 · 제작에서 추가하세요.</div>';
+}
+
+function selectedSettlementShopCatalog() {
+  const selectedId = $('input[name="settlementShopCatalog"]:checked')?.value;
+  return (state.economy.resolved_shop_catalogs || []).find((catalog) => catalog.id === selectedId) || null;
+}
+
+function renderEconomy() {
+  const vendors = state.economy.resolved_vendor_units || [];
+  const catalogs = state.economy.resolved_shop_catalogs || [];
+  const drops = state.economy.resolved_pokemon_drops || [];
+  const recipes = state.economy.npc_recipes || [];
+  const customVendorIds = new Map((state.economy.vendor_units || []).map((vendor, index) => [vendor.id, index]));
+  const customCatalogIds = new Map((state.economy.shop_catalogs || []).map((catalog, index) => [catalog.id, index]));
+  const catalogCards = catalogs.map((catalog) => {
+    const customIndex = customCatalogIds.get(catalog.id);
+    const roles = (catalog.vendor_units || []).map((id) => vendors.find((vendor) => vendor.id === id)?.role || id);
+    return `<article class="economy-card economy-catalog-card"><header><div><span class="economy-card-kicker">상점 카탈로그 · ${escapeHtml(economyFacilityLabel(catalog.facility_scope))}</span><h4>${escapeHtml(catalog.display_name)}<small>${roles.length}개 판매원 단위</small></h4></div><div class="economy-card-actions">${customIndex == null ? '<span class="economy-source-lock">기본 제공</span>' : `<button data-economy-edit="catalog" data-index="${customIndex}">편집</button><button data-economy-remove="catalog" data-index="${customIndex}">삭제</button>`}</div></header><div class="economy-card-body">${roles.map((role) => `<div class="economy-ingredient"><strong>${escapeHtml(role)}</strong></div>`).join("")}</div><footer><span>마을 설정에서 이 카탈로그를 선택</span><b>${escapeHtml(catalog.id)}</b></footer></article>`;
+  }).join("");
+  const vendorCards = vendors.length ? vendors.map((vendor) => {
+    const offers = (vendor.categories || []).flatMap((category) => category.offers || []);
+    const customIndex = customVendorIds.get(vendor.id);
+    return `<article class="economy-card"><header><div><span class="economy-card-kicker">${escapeHtml(economyFacilityLabel(vendor.facility_scope))} · ${vendor.origin === "custom" ? "사용자 정의" : "Cobblemon Additions"}</span><h4>${escapeHtml(vendor.role || "판매원")}<small>${escapeHtml(vendor.display_name || vendor.npc_template || "")}</small></h4></div><div class="economy-card-actions">${customIndex == null ? '<span class="economy-source-lock">기본 제공</span>' : `<button data-economy-edit="shop" data-index="${customIndex}">편집</button><button data-economy-remove="shop" data-index="${customIndex}">삭제</button>`}</div></header><div class="economy-card-body">${(vendor.categories || []).map((category) => `<div class="economy-vendor-category"><strong>${escapeHtml(category.name)}</strong>${(category.offers || []).map((offer) => `<div class="economy-stock-row"><code>${escapeHtml(offer.item)}</code><b>${escapeHtml(offer.price)}</b><span>×${offer.count || 1}</span></div>`).join("")}</div>`).join("") || '<div class="economy-empty">판매 품목이 없습니다.</div>'}</div><footer><span>${offers.length}개 품목 · ${(vendor.categories || []).length}개 묶음</span><b>${escapeHtml(vendor.npc_template || vendor.id)}</b></footer></article>`;
+  }).join("") : '<div class="economy-empty">Cobblemon Additions 판매원 NBT를 찾지 못했습니다.</div>';
+  $("#economy-shop-list").innerHTML = catalogCards + vendorCards;
+
+  $("#economy-drop-list").innerHTML = drops.length ? '<div class="economy-table-head"><span>포켓몬</span><span>실제 드롭</span><span>선택량</span><span>출처</span><span>관리</span></div>' + drops.map((drop) => {
+    const overrideIndex = (state.economy.pokemon_drop_overrides || []).findIndex((entry) => entry.species === drop.species);
+    const items = (drop.entries || []).map((entry) => `${entry.item} ${entry.percentage}%${entry.quantityRange ? ` (${entry.quantityRange})` : ""}`).join(", ");
+    return `<div class="economy-drop-row"><span><strong>${escapeHtml(drop.display_name || drop.species)}</strong><small>${escapeHtml(drop.species)}</small></span><span><small>${escapeHtml(items || "드롭 없음")}</small></span><span>${escapeHtml(String(drop.amount ?? 0))}</span><span>${drop.origin === "override" ? "재정의" : "Cobblemon 1.7.3"}</span><span class="economy-row-actions"><button data-economy-edit-resolved-drop="${escapeHtml(drop.species)}">${overrideIndex >= 0 ? "편집" : "재정의"}</button>${overrideIndex >= 0 ? `<button data-economy-remove="drop" data-index="${overrideIndex}">원본 복원</button>` : ""}</span></div>`;
+  }).join("") : '<div class="economy-empty">Cobblemon 종족 드롭 원본을 찾지 못했습니다.</div>';
+
+  $("#economy-recipe-list").innerHTML = recipes.length ? recipes.map((recipe, index) => `<article class="economy-card"><header><div><span class="economy-card-kicker">특수 NPC 제작 단위</span><h4>${escapeHtml(recipe.display_name || "제작 의뢰")}<small>${escapeHtml(recipe.npc || "")}</small></h4></div><div class="economy-card-actions"><button data-economy-edit="recipe" data-index="${index}">편집</button><button data-economy-remove="recipe" data-index="${index}">삭제</button></div></header><div class="economy-recipe-flow"><div class="economy-ingredients">${(recipe.ingredients || []).map((item) => `<div class="economy-ingredient"><code>${escapeHtml(item.item || "")}</code><b>×${item.count || 1}</b></div>`).join("")}</div><div class="economy-recipe-arrow">→</div><div class="economy-output"><strong>결과물</strong><code>${escapeHtml(recipe.output?.item || "")}</code><b>×${recipe.output?.count || 1}</b></div></div></article>`).join("") : '<div class="economy-empty">등록된 NPC 제작법이 없습니다.</div>';
+  const offerCount = vendors.reduce((sum, vendor) => sum + (vendor.categories || []).reduce((inner, category) => inner + (category.offers || []).length, 0), 0);
+  $("#economy-summary").innerHTML = `<article><span>판매원 단위</span><strong>${vendors.length}</strong></article><article><span>실제 판매 품목</span><strong>${offerCount}</strong></article><article><span>Cobblemon 드롭표</span><strong>${drops.length}</strong></article><article><span>NPC 제작법</span><strong>${recipes.length}</strong></article>`;
+  $("#economy-drop-item-ids").innerHTML = [...new Set(drops.flatMap((drop) => (drop.entries || []).map((entry) => entry.item)).filter(Boolean))].map((item) => `<option value="${escapeHtml(item)}"></option>`).join("");
+  if (state.settlement) renderSettlementVendorUnits();
+}
+
+function economyEditorFields(kind, entry = {}) {
+  if (kind === "catalog") {
+    return `<label class="wide"><span>상점 카탈로그 ID</span><input name="id" value="${escapeHtml(entry.id || "cobbleventure:shop_catalog/new_catalog")}" required></label><label><span>카탈로그 이름</span><input name="display_name" value="${escapeHtml(entry.display_name || "새 백화점 카탈로그")}" required></label><label><span>사용 시설</span><select name="facility_scope"><option value="pokemart" ${entry.facility_scope === "pokemart" ? "selected" : ""}>프렌들리숍</option><option value="department_store" ${entry.facility_scope !== "pokemart" && entry.facility_scope !== "specialty" ? "selected" : ""}>백화점</option><option value="specialty" ${entry.facility_scope === "specialty" ? "selected" : ""}>전문 상점</option></select></label><label class="wide"><span>묶을 판매원 단위 ID</span><textarea name="vendor_units" rows="10" placeholder="bca:shopkeeper_ds_tech&#10;bca:shopkeeper_ds_special_balls">${escapeHtml((entry.vendor_units || []).join("\n"))}</textarea><small>한 줄에 판매원 단위 ID 하나. 적힌 순서대로 빈 판매 위치에 배치됩니다.</small></label>`;
+  }
+  if (kind === "shop") {
+    const offerLines = (entry.categories || []).flatMap((category) => (category.offers || []).map((offer) => `${category.name} | ${offer.item} | ${offer.count || 1} | ${offer.price}`)).join("\n");
+    return `<label class="wide"><span>판매원 단위 ID</span><input name="id" value="${escapeHtml(entry.id || "cobbleventure:vendor/tm_clerk")}" required></label><label><span>사용 시설</span><select name="facility_scope"><option value="pokemart" ${entry.facility_scope === "pokemart" ? "selected" : ""}>프렌들리숍</option><option value="department_store" ${entry.facility_scope !== "pokemart" && entry.facility_scope !== "specialty" ? "selected" : ""}>백화점</option><option value="specialty" ${entry.facility_scope === "specialty" ? "selected" : ""}>전문 상점</option></select></label><label><span>판매원 역할</span><input name="role" value="${escapeHtml(entry.role || "기술머신 판매원")}" required></label><label><span>NPC 표시 이름</span><input name="display_name" value="${escapeHtml(entry.display_name || "기술머신 전문가")}" required></label><label><span>NBT/NPC 템플릿 ID</span><input name="npc_template" value="${escapeHtml(entry.npc_template || "cobbleventure:vendor/tm_clerk")}" required></label><label class="wide"><span>카테고리별 판매 목록</span><textarea name="offers" rows="9" placeholder="기술머신 | cobblemon:example_item | 1 | 3000">${escapeHtml(offerLines)}</textarea><small>카테고리 | 아이템 ID | 지급 수량 | CobbleDollars 가격. 이 목록과 NPC 역할은 항상 한 단위로 이동합니다.</small></label>`;
+  }
+  if (kind === "drop") {
+    const lines = (entry.entries || []).map((item) => `${item.item} | ${item.percentage} | ${item.quantityRange || ""}`).join("\n");
+    return `<label class="wide"><span>포켓몬 종족 ID</span><input name="species" value="${escapeHtml(entry.species || "cobblemon:")}" required></label><label><span>Cobblemon amount</span><input name="amount" value="${escapeHtml(String(entry.amount ?? 1))}" required><small>한 번 처치 시 선택할 총 드롭 수량(예: 3 또는 1-3)</small></label><label class="wide"><span>Cobblemon 드롭 entries</span><textarea name="entries" rows="9" placeholder="cobblemon:thunder_stone | 5 | 0-1">${escapeHtml(lines)}</textarea><small>아이템 ID | percentage(0~100) | quantityRange(선택). Cobblemon 원본 필드명을 그대로 사용합니다.</small></label>`;
+  }
+  const ingredientLines = (entry.ingredients || []).map((item) => `${item.item} | ${item.count}`).join("\n");
+  return `<label class="wide"><span>제작법 ID</span><input name="id" value="${escapeHtml(entry.id || "cobbleventure:recipe/new_recipe")}" required></label><label><span>담당 NPC 단위 ID</span><input name="npc" value="${escapeHtml(entry.npc || "cobbleventure:npc/")}" required></label><label class="wide"><span>제작 의뢰 이름</span><input name="display_name" value="${escapeHtml(entry.display_name || "새 제작 의뢰")}" required></label><label><span>결과 아이템 ID</span><input name="output_item" value="${escapeHtml(entry.output?.item || "cobblemon:")}" required></label><label><span>결과 수량</span><input type="number" name="output_count" min="1" value="${entry.output?.count || 1}" required></label><label class="wide"><span>포켓몬 드롭 재료</span><textarea name="ingredients" rows="6">${escapeHtml(ingredientLines)}</textarea><small>아이템 ID | 수량. 현재 Cobblemon 드롭표에 있는 아이템만 허용됩니다.</small></label><label class="wide"><span>해금 조건</span><input name="unlock_note" value="${escapeHtml(entry.unlock_note || "")}"></label>`;
+}
+
+function submitEconomyEditor(event) {
+  event.preventDefault();
+  const data = new FormData(event.currentTarget); const kind = String(data.get("kind")); const index = Number(data.get("index")); let entry;
+  if (kind === "catalog") {
+    entry = { id: String(data.get("id")).trim(), display_name: String(data.get("display_name")).trim(), facility_scope: String(data.get("facility_scope")), vendor_units: String(data.get("vendor_units")).split("\n").map((value) => value.trim()).filter(Boolean) };
+  } else if (kind === "shop") {
+    const categories = new Map();
+    parseEconomyLines(String(data.get("offers")), ["category", "item", "count", "price"]).forEach((offer) => { if (!categories.has(offer.category)) categories.set(offer.category, []); categories.get(offer.category).push({ item: offer.item, count: Number(offer.count || 1), price: offer.price }); });
+    entry = { id: String(data.get("id")).trim(), facility_scope: String(data.get("facility_scope")), role: String(data.get("role")).trim(), display_name: String(data.get("display_name")).trim(), npc_template: String(data.get("npc_template")).trim(), categories: [...categories].map(([name, offers]) => ({ name, offers })) };
+  } else if (kind === "drop") {
+    const rawAmount = String(data.get("amount")).trim();
+    entry = { species: String(data.get("species")).trim(), amount: /^\d+$/.test(rawAmount) ? Number(rawAmount) : rawAmount, entries: parseEconomyLines(String(data.get("entries")), ["item", "percentage", "quantityRange"]).map((item) => ({ item: item.item, percentage: Number(item.percentage), ...(item.quantityRange ? { quantityRange: item.quantityRange } : {}) })) };
+  } else entry = { id: String(data.get("id")).trim(), npc: String(data.get("npc")).trim(), display_name: String(data.get("display_name")).trim(), output: { item: String(data.get("output_item")).trim(), count: Number(data.get("output_count")) }, ingredients: parseEconomyLines(String(data.get("ingredients")), ["item", "count"]).map((item) => ({ item: item.item, count: Number(item.count) })), unlock_note: String(data.get("unlock_note")).trim() };
+  const collection = economyCollection(kind); if (index >= 0) collection[index] = entry; else collection.push(entry);
+  if (kind === "catalog") state.economy.resolved_shop_catalogs = [...(state.economy.resolved_shop_catalogs || []).filter((catalog) => catalog.id !== entry.id), { ...entry, origin: "custom" }];
+  if (kind === "shop") state.economy.resolved_vendor_units = [...(state.economy.resolved_vendor_units || []).filter((vendor) => vendor.id !== entry.id), { ...entry, origin: "custom" }];
+  if (kind === "drop") state.economy.resolved_pokemon_drops = [...(state.economy.resolved_pokemon_drops || []).filter((drop) => drop.species !== entry.species), { ...entry, display_name: entry.species.split(":").pop(), origin: "override" }].sort((a, b) => a.species.localeCompare(b.species));
+  $("#economy-dialog").close(); renderEconomy();
+}
+
+function handleEconomyClick(event) {
+  const tab = event.target.closest("[data-economy-tab]");
+  if (tab) { $$('[data-economy-tab]').forEach((button) => button.classList.toggle("is-active", button === tab)); $$('[data-economy-panel]').forEach((panel) => panel.classList.toggle("is-active", panel.dataset.economyPanel === tab.dataset.economyTab)); return; }
+  const resolvedDrop = event.target.closest("[data-economy-edit-resolved-drop]");
+  if (resolvedDrop) { const species = resolvedDrop.dataset.economyEditResolvedDrop; const entry = (state.economy.resolved_pokemon_drops || []).find((drop) => drop.species === species); const index = (state.economy.pokemon_drop_overrides || []).findIndex((drop) => drop.species === species); if (index < 0) state.economy.pokemon_drop_overrides.push({ species, amount: entry.amount, entries: structuredClone(entry.entries || []) }); openEconomyEditor("drop", index < 0 ? state.economy.pokemon_drop_overrides.length - 1 : index); return; }
+  const add = event.target.closest("[data-economy-add]"); if (add) { openEconomyEditor(add.dataset.economyAdd); return; }
+  const edit = event.target.closest("[data-economy-edit]"); if (edit) { openEconomyEditor(edit.dataset.economyEdit, Number(edit.dataset.index)); return; }
+  const remove = event.target.closest("[data-economy-remove]"); if (!remove || !confirm("이 사용자 정의 항목을 삭제할까요?")) return;
+  const collection = economyCollection(remove.dataset.economyRemove);
+  const [removed] = collection.splice(Number(remove.dataset.index), 1);
+  if (remove.dataset.economyRemove === "shop") state.economy.resolved_vendor_units = (state.economy.resolved_vendor_units || []).filter((vendor) => vendor.id !== removed?.id);
+  if (remove.dataset.economyRemove === "catalog") state.economy.resolved_shop_catalogs = (state.economy.resolved_shop_catalogs || []).filter((catalog) => catalog.id !== removed?.id);
+  if (remove.dataset.economyRemove === "drop") state.economy.resolved_pokemon_drops = (state.economy.resolved_pokemon_drops || []).filter((drop) => drop.species !== removed?.species);
+  renderEconomy();
+}
+
 function renderBuildCommands() {
   const descriptions = {
     validate: "모든 콘텐츠와 의존성 Lock을 빠르게 검사합니다.", test: "콘텐츠 관리와 패키징 회귀 테스트를 실행합니다.",
@@ -6327,7 +6859,8 @@ async function saveStructureBuilderSettings() {
 }
 
 async function importStructureBuilder() {
-  if (!confirm("게임에서 내보낸 28개 NBT를 검사한 뒤 content/structures의 변경 파일을 교체할까요?")) return;
+  const sourceCount = Number(state.structureBuilder?.source_count || 0);
+  if (!confirm(`게임에서 내보낸 ${sourceCount}개 NBT를 검사한 뒤 content/structures의 변경 파일을 교체할까요?`)) return;
   const buttons = $$("#builds button");
   buttons.forEach((button) => button.disabled = true);
   $("#build-state").textContent = "NBT 가져오는 중";
@@ -6340,8 +6873,11 @@ async function importStructureBuilder() {
     if (result.ok) {
       lazyDataLoaded.structures = false;
       lazyDataLoaded.structureViewer = false;
+      lazyDataLoaded.buildingSettings = false;
       state.structureSizes = {};
       state.structureViewer.catalog = {};
+      state.buildingSettings.structures = {};
+      state.buildingSettings.model = null;
       state.structureViewer.query = "";
       $("#nbt-structure-search").value = "";
       await loadStructureViewerData(true);
@@ -6411,6 +6947,45 @@ $("#nbt-model-canvas").addEventListener("wheel", (event) => {
 $("#nbt-view-left").addEventListener("click", () => { state.structureViewer.yaw -= Math.PI / 8; renderStructureModel(); });
 $("#nbt-view-right").addEventListener("click", () => { state.structureViewer.yaw += Math.PI / 8; renderStructureModel(); });
 $("#nbt-view-reset").addEventListener("click", resetStructureView);
+$("#building-search").addEventListener("input", (event) => { state.buildingSettings.query = event.target.value; renderBuildingList(); });
+$("#building-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-building-id]");
+  if (button) loadBuildingModel(button.dataset.buildingId);
+});
+$("#building-model-canvas").addEventListener("pointerdown", (event) => {
+  const view = state.buildingSettings;
+  view.drag = { x: event.clientX, y: event.clientY, yaw: view.yaw, pitch: view.pitch };
+  event.currentTarget.setPointerCapture(event.pointerId); event.currentTarget.classList.add("is-dragging");
+});
+$("#building-model-canvas").addEventListener("pointermove", (event) => {
+  const view = state.buildingSettings, drag = view.drag; if (!drag) return;
+  view.yaw = drag.yaw + (event.clientX - drag.x) * .012;
+  view.pitch = Math.max(structureViewPitch.minimum, Math.min(structureViewPitch.maximum, drag.pitch - (event.clientY - drag.y) * .008));
+  renderBuildingModel();
+});
+for (const eventName of ["pointerup", "pointercancel"]) $("#building-model-canvas").addEventListener(eventName, (event) => { state.buildingSettings.drag = null; event.currentTarget.classList.remove("is-dragging"); });
+$("#building-model-canvas").addEventListener("wheel", (event) => {
+  event.preventDefault(); state.buildingSettings.zoom = Math.max(.45, Math.min(4, state.buildingSettings.zoom * (event.deltaY < 0 ? 1.12 : .89))); renderBuildingModel();
+}, { passive: false });
+$("#building-view-left").addEventListener("click", () => { state.buildingSettings.yaw -= Math.PI / 8; renderBuildingModel(); });
+$("#building-view-right").addEventListener("click", () => { state.buildingSettings.yaw += Math.PI / 8; renderBuildingModel(); });
+$("#building-view-reset").addEventListener("click", () => { Object.assign(state.buildingSettings, { yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null }); renderBuildingModel(); });
+$("#building-npc-assignments").addEventListener("change", (event) => {
+  const label = event.target.dataset.buildingNpcLabel; if (!label) return;
+  const metadata = state.buildingSettings.structures[state.buildingSettings.selected];
+  if (!metadata || metadata.residential) return;
+  metadata.settings.fixed_npcs ||= {};
+  if (event.target.value) metadata.settings.fixed_npcs[label] = event.target.value;
+  else delete metadata.settings.fixed_npcs[label];
+  markBuildingSettingsDirty();
+});
+$("#building-random-citizen").addEventListener("change", (event) => {
+  const metadata = state.buildingSettings.structures[state.buildingSettings.selected];
+  if (!metadata?.residential) return;
+  metadata.settings.random_citizen_eligible = event.target.checked;
+  markBuildingSettingsDirty();
+});
+$("#save-building-settings").addEventListener("click", saveBuildingSettings);
 $("#refresh-button").addEventListener("click", refreshAll);
 $("#save-structure-builder-settings").addEventListener("click", saveStructureBuilderSettings);
 $("#refresh-structure-builder").addEventListener("click", () => loadStructureBuilder().catch((error) => toast(error.message)));
@@ -6446,6 +7021,13 @@ $("#league-form").addEventListener("input", () => {
 $("#edit-league-trainer").addEventListener("click", async () => {
   updateLeagueEntryFromForm(); const entry = selectedLeagueEntry(); const trainer = state.trainers.find((candidate) => candidate.id === entry?.trainer_id);
   if (!trainer) { toast("트레이너풀에서 NPC를 먼저 선택해 주세요."); return; }
+  switchPage("trainers"); await loadDocument("trainers", trainer.path);
+});
+$("#edit-object-npc").addEventListener("click", async () => {
+  const preset = $("#object-tool-npc").value;
+  const slug = preset.match(/\/([^/]+)\.npc\.snbt$/)?.[1];
+  const trainer = state.trainers.find((candidate) => candidate.id?.split("/").at(-1) === slug);
+  if (!trainer) { toast("먼저 기존 NPC 프리셋을 선택해 주세요."); return; }
   switchPage("trainers"); await loadDocument("trainers", trainer.path);
 });
 $("#battle-form").addEventListener("change", (event) => {
@@ -6561,7 +7143,7 @@ window.addEventListener("keydown", (event) => {
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") { state.spacePanActive = false; $("#world-hex-map").classList.remove("is-space-panning"); } });
 window.addEventListener("resize", () => { resizeWorldMapWorkspace(); renderStructureModel(); renderCaveLayoutPreview(); });
-$("#settlement-form").addEventListener("input", (event) => { keepHousePaletteGroupSelected(event); updateFacilityFormState(); updateSettlementFromForm(); });
+$("#settlement-form").addEventListener("input", (event) => { applySpecialBuildingPreset(event); keepHousePaletteGroupSelected(event); updateFacilityFormState(); updateSettlementFromForm(); });
 $("#custom-town-layout").addEventListener("click", (event) => {
   const tool = event.target.closest("[data-custom-town-tool]")?.dataset.customTownTool;
   if (tool) { state.customTownTool = tool; $$("[data-custom-town-tool]").forEach((button) => button.classList.toggle("is-active", button.dataset.customTownTool === tool)); return; }
@@ -6606,5 +7188,11 @@ $("#test-biome-set").addEventListener("click", testBiomeSet);
 $("#habitat-pokemon-search").addEventListener("input", renderHabitatPokemon);
 $("#habitat-generation-filter").addEventListener("change", renderHabitatPokemon);
 $("#habitat-filter").addEventListener("change", renderHabitatPokemon);
+$("#economy").addEventListener("click", handleEconomyClick);
+$("#save-economy").addEventListener("click", saveEconomy);
+$("#economy-form").addEventListener("submit", submitEconomyEditor);
+$("#economy-dialog-close").addEventListener("click", () => $("#economy-dialog").close());
+$("#economy-dialog-cancel").addEventListener("click", () => $("#economy-dialog").close());
+$("#settlement-form").elements.commercialFacility.addEventListener("change", renderSettlementVendorUnits);
 
 refreshAll();

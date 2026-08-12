@@ -186,6 +186,18 @@ class SkinPipelineTests(unittest.TestCase):
         self.assertIn('SkinData:{Type:"CUSTOM",UUID:[I;', preset)
         self.assertIn('ModelData:{Root:{Scale:[0.780f,0.780f,0.780f]}}', preset)
 
+    def test_gate_teleport_action_targets_player_or_npc(self) -> None:
+        player = generate_easy_npc_presets.easy_npc_action({
+            "type": "teleport_to_gate", "gate": "route_01_gate",
+            "subject": "player", "side": "front",
+        }, {})
+        npc = generate_easy_npc_presets.easy_npc_action({
+            "type": "teleport_to_gate", "gate": "route_01_gate",
+            "subject": "npc", "side": "center",
+        }, {})
+        self.assertIn("cobbleventure_gate teleport @initiator route_01_gate front", player)
+        self.assertIn("cobbleventure_gate teleport @npc-uuid route_01_gate center", npc)
+
     def test_missing_rocket_executives_build_as_valid_named_skins(self) -> None:
         root = Path(__file__).parents[3]
         for slug in ("proton", "petrel"):

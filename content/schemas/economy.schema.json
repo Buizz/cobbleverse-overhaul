@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cobbleventure:economy.schema.json",
+  "title": "Cobbleventure economy catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "vanilla_crafting_disabled", "shop_catalogs", "vendor_units", "pokemon_drop_overrides", "npc_recipes"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 2 },
+    "vanilla_crafting_disabled": { "const": true },
+    "shop_catalogs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "display_name", "facility_scope", "vendor_units"],
+        "properties": {
+          "id": { "$ref": "#/$defs/resourceId" },
+          "display_name": { "type": "string", "minLength": 1 },
+          "facility_scope": { "enum": ["pokemart", "department_store", "specialty"] },
+          "vendor_units": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/resourceId" } }
+        }
+      }
+    },
+    "vendor_units": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/vendorUnit" }
+    },
+    "pokemon_drop_overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["species", "amount", "entries"],
+        "properties": {
+          "species": { "$ref": "#/$defs/resourceId" },
+          "amount": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "string", "pattern": "^[0-9]+-[0-9]+$" }] },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["item", "percentage"],
+              "properties": {
+                "item": { "$ref": "#/$defs/resourceId" },
+                "percentage": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
+                "quantityRange": { "type": "string", "pattern": "^[0-9]+-[0-9]+$" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "npc_recipes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "npc", "display_name", "output", "ingredients", "unlock_note"],
+        "properties": {
+          "id": { "$ref": "#/$defs/resourceId" },
+          "npc": { "$ref": "#/$defs/resourceId" },
+          "display_name": { "type": "string", "minLength": 1 },
+          "output": { "$ref": "#/$defs/itemStack" },
+          "ingredients": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/itemStack" } },
+          "unlock_note": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resourceId": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "itemStack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "count"],
+      "properties": {
+        "item": { "$ref": "#/$defs/resourceId" },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "vendorOffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "count", "price"],
+      "properties": {
+        "item": { "$ref": "#/$defs/resourceId" },
+        "count": { "type": "integer", "minimum": 1 },
+        "price": { "type": "string", "minLength": 1 }
+      }
+    },
+    "vendorCategory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "offers"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "offers": { "type": "array", "items": { "$ref": "#/$defs/vendorOffer" } }
+      }
+    },
+    "vendorUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "facility_scope", "role", "display_name", "npc_template", "categories"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resourceId" },
+        "facility_scope": { "enum": ["pokemart", "department_store", "specialty"] },
+        "role": { "type": "string", "minLength": 1 },
+        "display_name": { "type": "string", "minLength": 1 },
+        "npc_template": { "$ref": "#/$defs/resourceId" },
+        "categories": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/vendorCategory" } }
+      }
+    }
+  }
+}

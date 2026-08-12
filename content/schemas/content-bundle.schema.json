@@ -72,6 +72,7 @@
       "required": ["display_name", "trainer_class", "appearance", "behavior"],
       "properties": {
         "display_name": { "$ref": "#/$defs/localized_text" },
+        "role": { "enum": ["default", "gatekeeper"] },
         "trainer_class": { "$ref": "#/$defs/resource_id" },
         "character": { "$ref": "#/$defs/resource_id" },
         "double_battle": {
@@ -360,7 +361,8 @@
             "start_quest",
             "complete_quest",
             "teleport",
-            "open_dialogue"
+            "open_dialogue",
+            "teleport_to_gate"
           ]
         },
         "target": { "$ref": "#/$defs/resource_id" },
@@ -384,7 +386,10 @@
         "multiplier": { "type": "number", "exclusiveMinimum": 0 },
         "currency_objective": { "type": "string" },
         "level_cap_objective": { "type": "string" },
-        "loot_table": { "$ref": "#/$defs/resource_id" }
+        "loot_table": { "$ref": "#/$defs/resource_id" },
+        "gate": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "subject": { "enum": ["player", "npc"] },
+        "side": { "enum": ["front", "back", "center"] }
       }
     },
     "rewards": {

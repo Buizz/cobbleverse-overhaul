@@ -75,7 +75,8 @@
         "type": {
           "enum": [
             "branch", "label", "dialogue", "choices", "goto", "start_battle",
-            "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "end"
+            "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot",
+            "teleport_to_gate", "end"
           ]
         },
         "conditions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/condition" } },
@@ -114,7 +115,10 @@
         "level_cap_objective": { "type": "string" },
         "item": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
         "count": { "type": "integer", "minimum": 1 },
-        "loot_table": { "$ref": "content-bundle.schema.json#/$defs/resource_id" }
+        "loot_table": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
+        "gate": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "subject": { "enum": ["player", "npc"] },
+        "side": { "enum": ["front", "back", "center"] }
       }
     }
   }

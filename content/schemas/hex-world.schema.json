@@ -262,6 +262,79 @@
         "resource": { "$ref": "#/$defs/resource_id" },
         "rotation": { "type": "integer", "minimum": 0, "maximum": 5 },
         "properties": { "type": "object" }
+      },
+      "allOf": [{
+        "if": { "properties": { "type": { "const": "gate" } }, "required": ["type"] },
+        "then": {
+          "required": ["resource", "rotation", "properties"],
+          "properties": {
+            "rotation": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "properties": { "$ref": "#/$defs/gate_properties" }
+          }
+        }
+      }]
+    },
+    "gate_properties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "facing", "wall_block", "wall_thickness", "wall_height",
+        "opening_width", "barrier_height", "condition_mode", "conditions"
+      ],
+      "properties": {
+        "facing": { "enum": ["north", "east", "south", "west"] },
+        "wall_block": { "$ref": "#/$defs/resource_id" },
+        "wall_thickness": { "type": "integer", "minimum": 1, "maximum": 15 },
+        "wall_height": { "type": "integer", "minimum": 3, "maximum": 32 },
+        "opening_width": { "type": "integer", "minimum": 3, "maximum": 31 },
+        "barrier_height": { "type": "integer", "minimum": 8, "maximum": 128 },
+        "condition_mode": { "enum": ["all", "any"] },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/gate_condition" }
+        },
+        "deny_message": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "npc": { "$ref": "#/$defs/resource_id" }
+      }
+    },
+    "gate_condition": {
+      "oneOf": [
+        { "$ref": "#/$defs/gate_variable_condition" },
+        { "$ref": "#/$defs/gate_item_condition" },
+        { "$ref": "#/$defs/gate_pokemon_condition" }
+      ]
+    },
+    "gate_variable_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "source", "key", "operator", "value"],
+      "properties": {
+        "type": { "const": "variable" },
+        "source": { "enum": ["scoreboard", "persistent_data"] },
+        "key": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
+        "operator": { "enum": ["==", "!=", ">", ">=", "<", "<="] },
+        "value": { "type": "number" }
+      }
+    },
+    "gate_item_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "item", "count"],
+      "properties": {
+        "type": { "const": "item" },
+        "item": { "$ref": "#/$defs/resource_id" },
+        "count": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "negate": { "type": "boolean" }
+      }
+    },
+    "gate_pokemon_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "species"],
+      "properties": {
+        "type": { "const": "pokemon" },
+        "species": { "$ref": "#/$defs/resource_id" },
+        "negate": { "type": "boolean" }
       }
     },
     "cave_entrance": {

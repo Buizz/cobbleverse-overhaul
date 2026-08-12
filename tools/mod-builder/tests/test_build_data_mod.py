@@ -722,6 +722,7 @@ class DataModBuilderTests(unittest.TestCase):
                 root / build_data_mod.OUTPUT / "data/cobbleventure/structure/placeholder"
             )
             expected = {
+                "player_house": ((16, 13, 16), "플레이어 집"),
                 "lighthouse": ((32, 48, 32), "등대"),
                 "power_plant": ((48, 24, 48), "파워플랜트"),
                 "mansion": ((48, 24, 48), "멘션"),
@@ -792,6 +793,72 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertIn(b"minecraft:red_concrete", red_nbt)
             self.assertIn(b"minecraft:red_wool", red_nbt)
             self.assertIn(b"minecraft:granite", red_nbt)
+
+    def test_packages_building_settings_metadata_and_interiors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            settings = root / build_data_mod.BUILDING_SETTINGS_SOURCE
+            settings.parent.mkdir(parents=True, exist_ok=True)
+            settings.write_text(json.dumps({
+                "schema_version": 1,
+                "buildings": {"cobbleventure:placeholder/hotel": {
+                    "fixed_npcs": {"clerk": "cobbleventure:npc/hotel_clerk"},
+                    "random_citizen_eligible": False,
+                }},
+            }), encoding="utf-8")
+            metadata = (
+                root / build_data_mod.FACILITY_STRUCTURE_SOURCE_DIR
+                / "hotel.structure.json"
+            )
+            metadata.parent.mkdir(parents=True, exist_ok=True)
+            metadata.write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{"type": "npc_position", "label": "clerk", "position": [1, 2, 3]}],
+            }), encoding="utf-8")
+            interior = root / build_data_mod.INTERIOR_STRUCTURE_SOURCE_DIR / "hotel.nbt"
+            interior.parent.mkdir(parents=True, exist_ok=True)
+            interior_bytes = gzip.compress(b"\x0aAUTHORED INTERIOR", mtime=0)
+            interior.write_bytes(interior_bytes)
+
+            build_data_mod.build(root)
+
+            output = root / build_data_mod.OUTPUT
+            self.assertEqual(
+                settings.read_bytes(), (output / build_data_mod.BUILDING_SETTINGS_ENTRY).read_bytes()
+            )
+            self.assertEqual(
+                metadata.read_bytes(),
+                (output / build_data_mod.STRUCTURE_METADATA_ENTRY_DIR
+                 / "placeholder/hotel.structure.json").read_bytes(),
+            )
+            self.assertEqual(
+                interior_bytes,
+                (output / "data/cobbleventure/structure/interiors/hotel.nbt").read_bytes(),
+            )
+
+    def test_house_metadata_is_copied_to_every_roof_color_variant(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            metadata = (
+                root / build_data_mod.HOUSE_STRUCTURE_SOURCE_DIR
+                / "one_story_flat.structure.json"
+            )
+            metadata.parent.mkdir(parents=True, exist_ok=True)
+            metadata.write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{"type": "npc_position", "label": "resident", "position": [4, 1, 4]}],
+            }), encoding="utf-8")
+
+            build_data_mod.build(root)
+
+            output = root / build_data_mod.OUTPUT / build_data_mod.STRUCTURE_METADATA_ENTRY_DIR / "houses"
+            for roof_color in build_data_mod.HOUSE_ROOF_BLOCKS:
+                self.assertEqual(
+                    metadata.read_bytes(),
+                    (output / f"one_story_flat_{roof_color}.structure.json").read_bytes(),
+                )
 
     def test_authored_roof_shapes_include_shed_and_gambrel(self) -> None:
         shed = gzip.decompress(

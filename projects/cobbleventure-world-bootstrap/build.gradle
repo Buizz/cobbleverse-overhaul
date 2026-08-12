@@ -115,6 +115,10 @@ processResources {
         into 'data/cobbleventure/caves'
         include '**/*.json'
     }
+    from(rootProject.file('../../content/catalogs/economy.json')) {
+        into 'data/cobbleventure/economy'
+        rename { 'catalog.json' }
+    }
     if (integrationBcaJar != null) {
         inputs.file integrationBcaJar
         from(zipTree(integrationBcaJar)) {

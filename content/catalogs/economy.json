@@ -1,0 +1,9 @@
+{
+  "$schema": "../schemas/economy.schema.json",
+  "schema_version": 2,
+  "vanilla_crafting_disabled": true,
+  "shop_catalogs": [],
+  "vendor_units": [],
+  "pokemon_drop_overrides": [],
+  "npc_recipes": []
+}
