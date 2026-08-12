@@ -9,6 +9,19 @@
   "npc": {
     "display_name": { "ko_kr": "AI 맨", "en_us": "AI Man" },
     "trainer_class": "cobbleventure:trainer_class/youngster",
+    "battle_rewards": {
+      "money": {
+        "enabled": true,
+        "mode": "regional_level",
+        "fallback_region_level": 20,
+        "per_level": 20,
+        "offset": 100,
+        "held_item_bonus": true,
+        "held_item": "cobblemon:amulet_coin",
+        "held_item_multiplier": 2,
+        "conditions": []
+      }
+    },
     "appearance": {
       "source": "rct_single",
       "type": "skin",
@@ -69,7 +82,6 @@
         },
         { "type": "label", "name": "victory_reward" },
         { "type": "set_flag", "key": "cobbleventure:flag/trainer/ai_test/defeated", "value": true },
-        { "type": "give_money", "mode": "fixed", "amount": 500, "currency_objective": "cobbleventure_money" },
         { "type": "grant_loot", "loot_table": "cobbleventure:trainer/ai_test_rewards" },
         { "type": "goto", "target": "after_victory" },
         { "type": "label", "name": "after_victory" },

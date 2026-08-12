@@ -220,19 +220,21 @@ content/structures/interiors/player_house.structure.json
 
 ### 웹에서 건물 NPC 배정하기
 
-`build.bat web`으로 Content Studio를 열고 `건물 설정` 탭으로 이동한다. 이 탭은 관리
-NBT 목록과 `.structure.json`의 `npc_position`을 함께 읽는다.
+`build.bat web`으로 Content Studio를 열고 `NBT 건물 설정` 탭으로 이동한다. 별도의
+건물 설정 목록을 만들지 않고, 이 화면이 관리 NBT와 `.structure.json`의
+`npc_position`을 함께 읽어 건물 자체의 전역 NPC 설정을 편집한다.
 
 - 왼쪽: 관리 건물 검색과 NPC 라벨 배정 현황
 - 가운데: 실제 NBT 3D 모델과 NPC 라벨 위치 마커
-- 오른쪽: 라벨별 NPC 콘텐츠 선택과 건물 종류 설정
+- 오른쪽: 선택한 NBT 건물의 라벨별 전역 NPC 콘텐츠 선택과 건물 종류 설정
 
 미리보기에서 노란 마커는 아직 고정 NPC가 배정되지 않은 위치, 초록 마커는 배정된
 위치다. 마커 위에 건축 월드에서 지정한 라벨이 표시된다. 건물을 회전하거나 확대해
 카운터·문·가구와 위치가 겹치지 않는지 확인한다.
 
-일반 시설의 라벨에는 `content/source`에서 관리하는 NPC 콘텐츠를 선택한다. 저장 결과는
-다음 파일에 기록된다.
+일반 시설의 라벨에는 `content/source`에서 관리하는 NPC 콘텐츠를 선택한다. 이 배정은
+마을별 설정이 아니라 해당 NBT 건물이 어디에 배치되든 적용되는 전역 설정이다. 저장
+결과는 다음 파일에 기록된다.
 
 ```text
 content/catalogs/building-settings.json
@@ -246,26 +248,30 @@ content/catalogs/building-settings.json
       "fixed_npcs": {
         "receptionist": "cobbleventure:npc/laboratory_receptionist"
       },
-      "random_citizen_eligible": false
+      "citizen_placement_allowed": false
     }
   }
 }
 ```
 
-`content/structures/houses`의 시민 주거건물에는 고정 NPC를 배정하지 않는다. 웹에서도
-고정 선택 상자를 표시하지 않고 `마을 랜덤 시민 배치 후보로 사용`만 설정한다. 이후
-마을 설정은 다음 정보를 별도로 소유한다.
+각 NBT의 `시민을 수용할 수 있는 건물`은 확률 설정이 아니라 건물의 전역 용도 플래그다.
+활성화된 건물은 고정 NPC를 배정하지 않고, NBT의 `npc_position`들을 시민이 들어갈 수
+있는 빈 자리로 제공한다. 기본 주택은 활성화되고 연구소·상점 같은 시설은 비활성화된다.
+필요하면 경로와 관계없이 NBT별로 바꿀 수 있다.
+
+실제 시민 수와 선택 규칙은 건물이 아니라 마을 설정이 소유한다.
 
 ```text
-마을별 랜덤 시민 NPC 풀 + NPC별 가중치/확률
+마을 전체 시민 수 + 시민 NPC 풀
         ↓
-random_citizen_eligible=true인 시민 주택 선택
+배치된 건물 중 citizen_placement_allowed=true인 건물 수집
         ↓
-주택 NBT의 npc_position 라벨 중 빈 위치에 확률 배치
+모든 건물의 빈 npc_position에 목표 인원만큼 분산 배치
 ```
 
-마을별 NPC 풀과 확률 편집 UI는 후속 단계다. 건물 설정은 어느 주택이 후보인지와 내부의
-유효한 위치만 제공하며, 특정 시민·확률·마을 상태는 저장하지 않는다.
+예를 들어 마을의 목표 시민 수가 8명이고 시민 수용 건물이 5채라면, 마을 생성기가 5채의
+빈 라벨을 모은 뒤 총 8명만 골고루 분산한다. 특정 집마다 시민 수나 확률을 설정하지 않는다.
+마을별 목표 인원과 NPC 풀 편집 UI는 후속 단계다.
 
 ### 실제 게임 월드에 적용되는 흐름
 
@@ -309,9 +315,9 @@ content/structures/interiors/*.nbt
 easy_npc:preset/encounter/<id>.npc.snbt
 ```
 
-시민 주거건물의 `random_citizen_eligible`은 런타임까지 전달되지만, 마을별 NPC 풀과 확률이
-아직 없으므로 현재는 랜덤 시민을 생성하지 않는다. 빈 설정에서 임의 NPC가 생기지 않는 것이
-의도된 동작이다.
+건물의 `citizen_placement_allowed`는 런타임까지 전달되지만, 마을별 목표 시민 수와 NPC
+풀이 아직 없으므로 현재는 랜덤 시민을 생성하지 않는다. 빈 마을 설정에서 임의 NPC가
+생기지 않는 것이 의도된 동작이다.
 
 전체 독립 월드 절차는 [독립 건축 구조물 제작 월드](implementation/STRUCTURE_BUILDER_WORLD.md)를
 참고한다. 아래 구조물 블록 절차는 개별 파일을 수동 편집할 때 사용하는 대안이다.

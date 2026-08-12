@@ -152,8 +152,10 @@ final class BuildingRuntimeSystem {
                 }
                 SETTINGS.put(entry.getKey(), new BuildingSettings(
                     Map.copyOf(fixed),
-                    value.has("random_citizen_eligible")
-                        && value.get("random_citizen_eligible").getAsBoolean()
+                    value.has("citizen_placement_allowed")
+                        ? value.get("citizen_placement_allowed").getAsBoolean()
+                        : value.has("random_citizen_eligible")
+                            && value.get("random_citizen_eligible").getAsBoolean()
                 ));
             }
         } catch (IOException | RuntimeException error) {
@@ -370,7 +372,7 @@ final class BuildingRuntimeSystem {
         }
     }
 
-    private record BuildingSettings(Map<String, String> fixedNpcs, boolean randomCitizenEligible) {
+    private record BuildingSettings(Map<String, String> fixedNpcs, boolean citizenPlacementAllowed) {
     }
 
     private record DoorKey(ResourceKey<Level> dimension, BlockPos position) {

@@ -92,9 +92,10 @@
         "weight": 5,
         "habitat_profile": "cobbleventure:biome_profile/plains",
         "spawn_settings": {
-          "generation": 1,
-          "temperature": "temperate",
-          "humidity": "normal",
+          "generation": 0,
+          "series": "kanto",
+          "temperature": "any",
+          "humidity": "any",
           "weather": "any",
           "time": "any",
           "rarities": [
@@ -103,7 +104,8 @@
             "uncommon",
             "rare"
           ],
-          "include_secondary": true
+          "include_secondary": true,
+          "habitat_variant": 0
         }
       }
     ],

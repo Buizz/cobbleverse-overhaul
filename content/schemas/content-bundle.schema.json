@@ -75,6 +75,14 @@
         "role": { "enum": ["default", "gatekeeper"] },
         "trainer_class": { "$ref": "#/$defs/resource_id" },
         "character": { "$ref": "#/$defs/resource_id" },
+        "battle_rewards": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["money"],
+          "properties": {
+            "money": { "$ref": "#/$defs/npc_money_reward" }
+          }
+        },
         "double_battle": {
           "type": "object",
           "additionalProperties": false,
@@ -108,6 +116,37 @@
           }
         }
       }
+    },
+    "npc_money_reward": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "mode", "held_item_bonus", "conditions"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "mode": { "enum": ["fixed", "regional_level"] },
+        "amount": { "type": "integer", "minimum": 0 },
+        "fallback_region_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "per_level": { "type": "integer", "minimum": 0 },
+        "offset": { "type": "integer" },
+        "held_item_bonus": { "type": "boolean" },
+        "held_item": { "$ref": "#/$defs/resource_id" },
+        "held_item_multiplier": { "type": "integer", "minimum": 1 },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operation" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "fixed" } } },
+          "then": { "required": ["amount"] },
+          "else": { "required": ["fallback_region_level", "per_level", "offset"] }
+        },
+        {
+          "if": { "properties": { "held_item_bonus": { "const": true } } },
+          "then": { "required": ["held_item", "held_item_multiplier"] }
+        }
+      ]
     },
     "battle": {
       "type": "object",

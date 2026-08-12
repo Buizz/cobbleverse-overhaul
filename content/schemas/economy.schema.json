@@ -4,7 +4,7 @@
   "title": "Cobbleventure economy catalog",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "vanilla_crafting_disabled", "shop_catalogs", "vendor_units", "pokemon_drop_overrides", "npc_recipes"],
+  "required": ["schema_version", "vanilla_crafting_disabled", "shop_catalogs", "vendor_units", "pokemon_drop_rules", "pokemon_drop_overrides", "npc_recipes"],
   "properties": {
     "$schema": { "type": "string" },
     "schema_version": { "const": 2 },
@@ -14,18 +14,60 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "display_name", "facility_scope", "vendor_units"],
+        "required": ["id", "display_name", "facility_scope", "assignments"],
         "properties": {
           "id": { "$ref": "#/$defs/resourceId" },
           "display_name": { "type": "string", "minLength": 1 },
           "facility_scope": { "enum": ["pokemart", "department_store", "specialty"] },
-          "vendor_units": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/resourceId" } }
+          "vendor_units": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resourceId" } },
+          "assignments": {
+            "type": "array", "minItems": 1,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["slot_id", "display_name", "vendor_unit"],
+              "properties": {
+                "slot_id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+                "display_name": { "type": "string", "minLength": 1 },
+                "vendor_unit": { "$ref": "#/$defs/resourceId" }
+              }
+            }
+          }
         }
       }
     },
     "vendor_units": {
       "type": "array",
       "items": { "$ref": "#/$defs/vendorUnit" }
+    },
+    "pokemon_drop_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "display_name", "enabled", "priority", "match", "mode", "amount", "entries"],
+        "properties": {
+          "id": { "$ref": "#/$defs/resourceId" },
+          "display_name": { "type": "string", "minLength": 1 },
+          "enabled": { "type": "boolean" },
+          "priority": { "type": "integer", "minimum": -1000, "maximum": 1000 },
+          "match": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "species": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resourceId" } },
+              "types": { "type": "array", "uniqueItems": true, "items": { "enum": ["normal", "fire", "water", "electric", "grass", "ice", "fighting", "poison", "ground", "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"] } },
+              "generations": { "type": "array", "uniqueItems": true, "items": { "type": "integer", "minimum": 1, "maximum": 9 } },
+              "labels": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+              "egg_groups": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+              "forms": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+              "size": { "enum": ["any", "tiny", "small", "medium", "large", "giant"] }
+            }
+          },
+          "mode": { "enum": ["append", "replace"] },
+          "amount": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "string", "pattern": "^[0-9]+-[0-9]+$" }] },
+          "entries": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/dropEntry" } }
+        }
+      }
     },
     "pokemon_drop_overrides": {
       "type": "array",
@@ -39,14 +81,7 @@
           "entries": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["item", "percentage"],
-              "properties": {
-                "item": { "$ref": "#/$defs/resourceId" },
-                "percentage": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
-                "quantityRange": { "type": "string", "pattern": "^[0-9]+-[0-9]+$" }
-              }
+              "$ref": "#/$defs/dropEntry"
             }
           }
         }
@@ -78,6 +113,16 @@
       "properties": {
         "item": { "$ref": "#/$defs/resourceId" },
         "count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "dropEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "percentage"],
+      "properties": {
+        "item": { "$ref": "#/$defs/resourceId" },
+        "percentage": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
+        "quantityRange": { "type": "string", "pattern": "^[0-9]+-[0-9]+$" }
       }
     },
     "vendorOffer": {

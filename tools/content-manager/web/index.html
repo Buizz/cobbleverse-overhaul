@@ -22,12 +22,11 @@
         <button class="nav-item" data-section="worlds"><span>05</span>월드맵</button>
         <button class="nav-item" data-section="caves"><span>06</span>동굴 관리</button>
         <button class="nav-item" data-section="settlements"><span>07</span>마을 프리셋</button>
-        <button class="nav-item" data-section="structures"><span>08</span>NBT 건물</button>
-        <button class="nav-item" data-section="building-settings"><span>09</span>건물 설정</button>
-        <button class="nav-item" data-section="biomes"><span>10</span>바이옴 관리</button>
-        <button class="nav-item" data-section="definitions"><span>11</span>게임 데이터</button>
-        <button class="nav-item" data-section="economy"><span>12</span>경제 · 제작</button>
-        <button class="nav-item" data-section="builds"><span>13</span>빌드 작업</button>
+        <button class="nav-item" data-section="structures"><span>08</span>NBT 건물 설정</button>
+        <button class="nav-item" data-section="biomes"><span>09</span>바이옴 관리</button>
+        <button class="nav-item" data-section="definitions"><span>10</span>게임 데이터</button>
+        <button class="nav-item" data-section="economy"><span>11</span>경제 · 제작</button>
+        <button class="nav-item" data-section="builds"><span>12</span>빌드 작업</button>
       </nav>
       <div class="server-state"><i id="server-dot"></i><span><strong id="server-label">연결 확인 중</strong><small>로컬 전용 · 127.0.0.1</small></span></div>
     </aside>
@@ -79,7 +78,8 @@
               <fieldset class="wide double-battle-settings"><legend>2인 더블배틀 NPC</legend><label class="toggle wide"><input type="checkbox" name="doubleBattleEnabled" disabled><span>이 NPC와 파트너를 하나의 공유 조우로 사용</span></label><label data-double-battle-field><span>파트너 NPC</span><select name="doubleBattlePartner" disabled></select></label><label data-double-battle-field><span>공유 그룹 ID</span><input name="doubleBattleGroupId" disabled></label><label class="wide" data-double-battle-field><span>공유 클리어 ID</span><input name="doubleBattleClearKey" disabled></label><label class="wide" data-double-battle-field><span>파트너 EasyNPC 소환 명령어</span><div class="inline-field"><input name="doubleBattleSpawnCommand" readonly disabled><button class="button secondary" id="copy-double-spawn-command" type="button" disabled>복사</button></div></label><small class="wide" data-double-battle-field>두 NPC는 각자의 이름과 외형을 유지하지만, 누구에게 말을 걸어도 이 NPC의 대화·더블배틀·클리어 상태를 공유합니다. 연결할 배틀 프리셋은 더블 형식이어야 합니다.</small></fieldset>
               <fieldset class="wide"><legend>전투 설정</legend><label><span>배틀 포맷</span><select name="battleFormat" disabled><option value="GEN_9_SINGLES">9세대 싱글</option><option value="GEN_9_DOUBLES">9세대 더블</option></select></label><label><span>전투 방식</span><select name="battleType" disabled><option value="singles">싱글</option><option value="doubles">더블</option></select></label><label><span>난이도</span><select name="battleDifficulty" disabled><option value="novice">초보</option><option value="standard">일반</option><option value="advanced">상급</option><option value="expert">전문가 — 휴리스틱</option><option value="expert_winrate">전문가 — 승률 기반</option><option value="expert_search">전문가 — 2턴 탐색</option><option value="cheater">치터 — 행동 정보 사용</option></select></label><label><span>전략</span><select name="battleAi" disabled><option value="balanced">균형형</option><option value="aggressive">공격형</option><option value="defensive">방어형</option><option value="ace_check">에이스 견제형</option><option value="reckless_ace">에이스 돌격형</option><option value="setup">랭크업형</option><option value="hazard">장판형</option><option value="tempo">템포형</option><option value="unpredictable">변칙형</option></select></label><label><span>레벨 방식</span><select name="levelMode" disabled><option value="fixed">고정</option><option value="scale_to_player">플레이어에 맞춤</option><option value="cap_to_player">플레이어 상한</option></select></label><label class="wide ai-cheat-probability" id="ai-cheat-probability" hidden><span>행동 정보 사용 확률</span><div><input type="range" name="cheatProbability" min="0" max="100" step="1" value="50" disabled><output id="cheat-probability-output">50%</output></div><small>판정에 실패하면 전문가 — 2턴 탐색 AI로 행동합니다.</small></label></fieldset>
               <fieldset class="wide mechanic-options"><legend>특수 기믹 허용</legend><label class="toggle"><input type="checkbox" name="megaEvolution" disabled><span>메가진화</span></label><label class="toggle"><input type="checkbox" name="zMove" disabled><span>Z기술</span></label><label class="toggle"><input type="checkbox" name="dynamax" disabled><span>다이맥스</span></label><label class="toggle"><input type="checkbox" name="terastallization" disabled><span>테라스탈</span></label></fieldset>
-              <fieldset class="wide"><legend>기본 대화와 승리 보상</legend><label class="wide"><span>첫 인사</span><textarea name="greetingText" rows="3" disabled></textarea></label><label><span>상금 방식</span><select name="moneyMode" disabled><option value="fixed">고정 금액</option><option value="level_cap_multiplier">현재 레벨캡 × 배율</option></select></label><label data-money-field="fixed"><span>고정 상금</span><input type="number" min="0" step="1" name="moneyAmount" disabled></label><label data-money-field="level_cap_multiplier"><span>레벨캡 배율</span><input type="number" min="1" step="1" name="moneyMultiplier" disabled></label><label><span>화폐 점수판</span><input name="currencyObjective" disabled></label><label><span>상품 방식</span><select name="itemRewardMode" disabled><option value="fixed">고정 상품</option><option value="loot_table">확률 루트 테이블</option></select></label><label data-item-reward-field="fixed"><span>고정 상품 ID</span><input name="rewardItem" disabled></label><label data-item-reward-field="fixed"><span>상품 수량</span><input type="number" min="1" step="1" name="rewardItemCount" disabled></label><label data-item-reward-field="loot_table" class="wide"><span>루트 테이블 ID</span><input name="rewardLootTable" disabled></label><label class="wide"><span>EasyNPC 테스트 소환 명령어</span><div class="inline-field"><input name="spawnCommand" readonly disabled><button class="button secondary" id="copy-spawn-command" type="button" disabled>복사</button></div></label></fieldset>
+              <fieldset class="wide npc-money-settings"><legend>NPC 승리 상금</legend><label class="toggle wide"><input type="checkbox" name="moneyEnabled" disabled><span>이 NPC의 배틀 승리 상금 지급</span></label><label><span>상금 방식</span><select name="moneyMode" disabled><option value="fixed">고정 금액</option><option value="regional_level">지역 레벨로 자동 조절</option></select></label><label data-money-field="fixed"><span>고정 상금</span><input type="number" min="0" step="1" name="moneyAmount" disabled></label><label data-money-field="regional_level"><span>지역 레벨당 금액</span><input type="number" min="0" step="1" name="moneyMultiplier" disabled></label><label data-money-field="regional_level"><span>추가·감소 보정액</span><input type="number" step="1" name="moneyOffset" disabled><small>예: 지역 평균 레벨 × 금액 + 100</small></label><label data-money-field="regional_level"><span>지역 외 기본 레벨</span><input type="number" min="1" max="100" step="1" name="moneyFallbackLevel" disabled><small>맵의 지역 레벨 데이터가 없는 위치에서만 사용합니다.</small></label><label class="wide"><span>지급 조건 플래그</span><input name="moneyConditionFlag" placeholder="비워 두면 항상 지급" disabled><small>지정하면 이 플래그가 참일 때만 상금을 지급합니다.</small></label><label class="toggle"><input type="checkbox" name="moneyHeldItemBonus" disabled><span>부적금화 등 상금 배율 적용</span></label><label><span>배율 아이템 ID</span><input name="moneyHeldItem" disabled></label><label><span>아이템 적용 배율</span><input type="number" min="1" step="1" name="moneyHeldMultiplier" disabled></label></fieldset>
+              <fieldset class="wide"><legend>기본 대화와 상품 보상</legend><label class="wide"><span>첫 인사</span><textarea name="greetingText" rows="3" disabled></textarea></label><label><span>상품 방식</span><select name="itemRewardMode" disabled><option value="fixed">고정 상품</option><option value="loot_table">확률 루트 테이블</option></select></label><label data-item-reward-field="fixed"><span>고정 상품 ID</span><input name="rewardItem" disabled></label><label data-item-reward-field="fixed"><span>상품 수량</span><input type="number" min="1" step="1" name="rewardItemCount" disabled></label><label data-item-reward-field="loot_table" class="wide"><span>루트 테이블 ID</span><input name="rewardLootTable" disabled></label><label class="wide"><span>EasyNPC 테스트 소환 명령어</span><div class="inline-field"><input name="spawnCommand" readonly disabled><button class="button secondary" id="copy-spawn-command" type="button" disabled>복사</button></div></label></fieldset>
             </form>
             <div class="subsection-heading"><div><p class="eyebrow">EVENT SCRIPT</p><h3>이벤트 스크립트</h3><small>알만툴 이벤트처럼 위에서 아래로 실행하며, 분기와 라벨로 흐름을 이동합니다.</small></div></div>
             <div class="event-trigger-editor" id="event-trigger-editor">
@@ -96,7 +96,7 @@
                 <label data-event-preset-option="item"><span>수량</span><input id="event-preset-item-count" type="number" min="1" step="1" value="1" disabled></label>
                 <label class="wide" data-event-preset-option="repeat"><span>대화 완료 플래그</span><input id="event-preset-flag" disabled><small>두 번째 대화부터 다른 대사를 표시하는 상태값입니다.</small></label>
                 <label class="wide" data-event-preset-option="battle"><span>배틀 프리셋</span><select id="event-preset-battle" disabled></select></label>
-                <label data-event-preset-option="battle"><span>승리 시 획득 금액</span><input id="event-preset-win-money" type="number" min="0" step="1" value="500" disabled></label>
+                <label data-event-preset-option="battle"><span>NPC 고정 승리 상금</span><input id="event-preset-win-money" type="number" min="0" step="1" value="500" disabled><small>프리셋 적용 시 이벤트 명령이 아니라 위의 NPC 승리 상금 설정에 저장됩니다.</small></label>
                 <label data-event-preset-option="battle"><span>패배 시 잃는 금액</span><input id="event-preset-loss-money" type="number" min="0" step="1" value="0" disabled></label>
                 <label class="wide" data-event-preset-option="battle"><span>화폐 점수판</span><input id="event-preset-currency" value="cobbleventure_money" disabled></label>
                 <label class="wide" data-event-preset-option="gym"><span>승리 시 지급 배지</span><select id="event-preset-badge" disabled><option value="cobbleversebadges:kanto_boulder_badge">Boulder Badge · cobbleversebadges:kanto_boulder_badge</option></select><small>CobbleverseBadges에서 확인된 실제 배지 아이템만 표시합니다.</small></label>
@@ -108,7 +108,7 @@
               </div>
               <footer><span>적용하면 현재 명령 목록을 프리셋 내용으로 교체합니다.</span><button class="button primary" id="apply-event-preset" type="button" disabled>프리셋으로 교체</button></footer>
             </section>
-            <div class="event-command-toolbar"><select id="event-command-type" disabled><option value="dialogue">대화 표시</option><option value="choices">선택지 표시</option><option value="branch">조건 분기</option><option value="label">라벨</option><option value="goto">라벨로 이동</option><option value="start_battle">배틀 시작</option><option value="set_flag">플래그 변경</option><option value="mark_clear">클리어 처리</option><option value="give_money">돈 지급</option><option value="take_money">돈 차감</option><option value="give_item">아이템 지급</option><option value="grant_loot">루트 테이블 지급</option><option value="end">이벤트 종료</option></select><button class="button secondary" id="add-event-command" disabled>명령 추가</button></div>
+            <div class="event-command-toolbar"><select id="event-command-type" disabled><option value="dialogue">대화 표시</option><option value="choices">선택지 표시</option><option value="branch">조건 분기</option><option value="label">라벨</option><option value="goto">라벨로 이동</option><option value="start_battle">배틀 시작</option><option value="set_flag">플래그 변경</option><option value="mark_clear">클리어 처리</option><option value="take_money">돈 차감</option><option value="give_item">아이템 지급</option><option value="grant_loot">루트 테이블 지급</option><option value="end">이벤트 종료</option></select><button class="button secondary" id="add-event-command" disabled>명령 추가</button></div>
             <div id="event-command-list" class="event-command-list"><div class="issues empty">NPC를 선택하면 이벤트 명령이 표시됩니다.</div></div>
             <details class="advanced"><summary>대화·진행을 포함한 전체 JSON 편집</summary><textarea class="code-editor compact" id="trainer-json" spellcheck="false" disabled></textarea><button class="button text-button" id="apply-trainer-json" disabled>JSON을 편집 폼에 반영</button></details>
             <div id="trainer-issues" class="issues empty">편집할 NPC를 선택하세요.</div>
@@ -248,18 +248,22 @@
                 </section>
                 <section class="tool-option-panel" data-tool-options="object" hidden>
                   <label><span>오브젝트 ID</span><input id="object-tool-id" placeholder="landmark_01"></label>
-                  <label><span>오브젝트 타입</span><select id="object-tool-type"><option value="gate">관문</option></select></label>
-                  <label><span>관문 건물 NBT</span><input id="object-tool-resource" value="cobbleventure:gate/default" placeholder="cobbleventure:gate/default"></label>
+                  <label><span>오브젝트 타입</span><select id="object-tool-type"><option value="gate">관문</option><option value="villain_base">빌런기지</option></select></label>
+                  <label><span>관문 건물</span><select id="object-tool-building-enabled"><option value="true">NBT 건물 생성</option><option value="false">건물 없음 · NPC만 사용</option></select></label>
+                  <label data-object-resource><span>오브젝트 NBT</span><input id="object-tool-resource" list="world-object-nbt-options" value="cobbleventure:gate/default" placeholder="cobbleventure:villain_base/default"></label>
+                  <datalist id="world-object-nbt-options"></datalist>
                   <div class="inline-fields"><label><span>방향</span><select id="object-tool-facing"><option value="north">북쪽 · 가로벽</option><option value="east">동쪽 · 세로벽</option><option value="south">남쪽 · 가로벽</option><option value="west">서쪽 · 세로벽</option></select></label><label><span>NBT 회전</span><select id="object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
-                  <label><span>벽 블록</span><input id="object-tool-wall-block" value="minecraft:stone_bricks"></label>
-                  <div class="inline-fields"><label><span>벽 두께</span><input id="object-tool-wall-thickness" type="number" min="1" max="15" step="2" value="5"></label><label><span>통로 폭</span><input id="object-tool-opening-width" type="number" min="3" max="31" step="2" value="7"></label></div>
-                  <div class="inline-fields"><label><span>벽 높이</span><input id="object-tool-wall-height" type="number" min="3" max="32" value="7"></label><label><span>배리어 높이</span><input id="object-tool-barrier-height" type="number" min="8" max="128" value="24"></label></div>
+                  <label><span>주변 통로 차단물</span><select id="object-tool-surrounding-type"><option value="wall">벽</option><option value="trees">나무 군락</option><option value="none">없음 · NPC만 배치</option></select></label>
+                  <label data-gate-wall><span>벽 블록</span><input id="object-tool-wall-block" value="minecraft:stone_bricks"></label>
+                  <div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input id="object-tool-tree-log" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input id="object-tool-tree-leaves" value="minecraft:oak_leaves"></label></div>
+                  <div class="inline-fields" data-gate-surrounding><label><span>차단물 두께</span><input id="object-tool-wall-thickness" type="number" min="1" max="15" step="2" value="5"></label><label><span>통로 폭</span><input id="object-tool-opening-width" type="number" min="3" max="31" step="2" value="7"></label></div>
+                  <div class="inline-fields" data-gate-surrounding><label><span>차단물 높이</span><input id="object-tool-wall-height" type="number" min="3" max="32" value="7"></label><label><span>배리어 높이</span><input id="object-tool-barrier-height" type="number" min="8" max="128" value="24"></label></div>
                   <label><span>NPC 프리셋 (선택)</span><select id="object-tool-npc"><option value="">NPC 없음</option></select><small>기존 NPC 프리셋을 참조합니다. 역할·외형·대화·액션은 NPC 화면에서 편집하세요.</small></label>
                   <button class="tool-action" id="edit-object-npc" type="button">선택한 NPC 프리셋 편집</button>
                   <label><span>조건 조합</span><select id="object-tool-condition-mode"><option value="all">모든 조건 충족</option><option value="any">조건 중 하나 충족</option></select></label>
                   <label><span>통과 조건</span><textarea id="object-tool-conditions" rows="5" placeholder="variable|scoreboard|badge_count|&gt;=|2&#10;item|minecraft:ticket|1&#10;pokemon|cobblemon:snorlax"></textarea><small>한 줄에 하나: variable|출처|키|연산자|값, item|ID|수량, pokemon|종 ID</small></label>
                   <label><span>차단 메시지</span><input id="object-tool-deny-message" value="아직 이 관문을 통과할 수 없습니다."></label>
-                  <p class="tool-panel-note">관문은 타일을 가로지르는 두꺼운 벽과 상부 배리어, 중앙 NBT 건물을 생성합니다.</p>
+                  <p class="tool-panel-note">건물과 주변 차단물을 각각 끌 수 있어 NPC만 길을 막는 관문도 만들 수 있습니다.</p>
                 </section>
                 <section class="tool-option-panel" data-tool-options="eraser" hidden>
                   <label><span>지울 레이어</span><select id="eraser-target"><option value="route">길</option><option value="biome">바이옴</option><option value="climate">기후 오버라이드</option><option value="level">평균 레벨</option><option value="terrain">빈 지형</option><option value="object">오브젝트</option><option value="all">모든 비마을 레이어</option></select></label>
@@ -288,7 +292,7 @@
                 <label data-tile-field="empty"><span>빈 지형 타입</span><select name="emptyTerrainType"><option value="high_forest">높은 숲 · 기본</option><option value="ocean">바다 · 바위 경계</option><option value="desert">사막</option><option value="stone_mountain">돌산</option><option value="snow_mountain">눈산</option></select><small>접근 불가 배경의 모습입니다. 비행 방지 베리어는 모든 타입에 유지됩니다.</small></label>
                 <label data-tile-field="settlement"><span>마을</span><select name="settlement"></select><small>이미 배치된 마을을 선택하면 이 타일로 이동합니다.</small></label>
                 <label data-tile-field="settlement"><span>마을 바이옴</span><select name="townBiome"></select><small>이 월드맵에서 마을 전체에 적용할 바이옴입니다.</small></label>
-                <section data-tile-field="object" class="custom-object-fields"><label><span>오브젝트 ID</span><input name="objectId" placeholder="gate_01"></label><label><span>타입</span><input name="objectType" value="gate" readonly></label><label><span>관문 건물 NBT</span><input name="objectResource" placeholder="cobbleventure:gate/default"></label><div class="inline-fields"><label><span>방향</span><select name="objectFacing"><option value="north">북쪽 · 가로벽</option><option value="east">동쪽 · 세로벽</option><option value="south">남쪽 · 가로벽</option><option value="west">서쪽 · 세로벽</option></select></label><label><span>NBT 회전</span><select name="objectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div><label><span>벽 블록</span><input name="objectWallBlock" value="minecraft:stone_bricks"></label><div class="inline-fields"><label><span>벽 두께</span><input name="objectWallThickness" type="number" min="1" max="15" step="2"></label><label><span>통로 폭</span><input name="objectOpeningWidth" type="number" min="3" max="31" step="2"></label></div><div class="inline-fields"><label><span>벽 높이</span><input name="objectWallHeight" type="number" min="3" max="32"></label><label><span>배리어 높이</span><input name="objectBarrierHeight" type="number" min="8" max="128"></label></div><label><span>NPC 프리셋 (선택)</span><input name="objectNpc"></label><label><span>조건 조합</span><select name="objectConditionMode"><option value="all">모든 조건 충족</option><option value="any">조건 중 하나 충족</option></select></label><label><span>통과 조건</span><textarea name="objectConditions" rows="6"></textarea><small>variable|scoreboard|키|연산자|값 / item|ID|수량 / pokemon|종 ID</small></label><label><span>차단 메시지</span><input name="objectDenyMessage"></label></section>
+                <section data-tile-field="object" class="custom-object-fields"><label><span>오브젝트 ID</span><input name="objectId" placeholder="gate_01"></label><label><span>타입</span><select name="objectType"><option value="gate">관문</option><option value="villain_base">빌런기지</option></select></label><label><span>관문 건물</span><select name="objectBuildingEnabled"><option value="true">NBT 건물 생성</option><option value="false">건물 없음 · NPC만 사용</option></select></label><label data-object-resource><span>오브젝트 NBT</span><input name="objectResource" list="world-object-nbt-options" placeholder="cobbleventure:villain_base/default"></label><div class="inline-fields"><label><span>방향</span><select name="objectFacing"><option value="north">북쪽 · 가로벽</option><option value="east">동쪽 · 세로벽</option><option value="south">남쪽 · 가로벽</option><option value="west">서쪽 · 세로벽</option></select></label><label><span>NBT 회전</span><select name="objectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div><label><span>주변 통로 차단물</span><select name="objectSurroundingType"><option value="wall">벽</option><option value="trees">나무 군락</option><option value="none">없음 · NPC만 배치</option></select></label><label data-gate-wall><span>벽 블록</span><input name="objectWallBlock" value="minecraft:stone_bricks"></label><div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input name="objectTreeLog" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input name="objectTreeLeaves" value="minecraft:oak_leaves"></label></div><div class="inline-fields" data-gate-surrounding><label><span>차단물 두께</span><input name="objectWallThickness" type="number" min="1" max="15" step="2"></label><label><span>통로 폭</span><input name="objectOpeningWidth" type="number" min="3" max="31" step="2"></label></div><div class="inline-fields" data-gate-surrounding><label><span>차단물 높이</span><input name="objectWallHeight" type="number" min="3" max="32"></label><label><span>배리어 높이</span><input name="objectBarrierHeight" type="number" min="8" max="128"></label></div><label><span>NPC 프리셋 (선택)</span><input name="objectNpc"></label><label><span>조건 조합</span><select name="objectConditionMode"><option value="all">모든 조건 충족</option><option value="any">조건 중 하나 충족</option></select></label><label><span>통과 조건</span><textarea name="objectConditions" rows="6"></textarea><small>variable|scoreboard|키|연산자|값 / item|ID|수량 / pokemon|종 ID</small></label><label><span>차단 메시지</span><input name="objectDenyMessage"></label></section>
                 <section class="route-overlay-panel" id="route-overlay-panel" hidden><div><b>길 오버레이</b><small>기본 바이옴 위에 겹쳐진 연결입니다.</small></div><div id="route-overlay-list"></div></section>
                 <div class="tile-summary" id="tile-summary"></div>
                 <button class="button secondary tile-clear" id="clear-tile" type="button">타일 비우기</button>
@@ -385,65 +389,34 @@
       </section>
 
       <section class="page" id="structures">
-        <div class="panel nbt-viewer">
-          <div class="panel-heading">
-            <div><p class="eyebrow">ACTUAL NBT BLOCK MODEL</p><h2>NBT 건물 3D 미리보기</h2><p>실제 구조물 NBT의 블록과 크기를 그대로 읽어 외형을 확인합니다.</p></div>
-            <span class="path-label" id="nbt-model-source">구조물을 선택하세요</span>
-          </div>
-          <div class="nbt-viewer-layout">
-            <aside class="nbt-structure-browser">
-              <label><span>구조물 검색</span><input id="nbt-structure-search" type="search" placeholder="포켓몬센터, gym, house…"></label>
-              <div class="nbt-structure-browser-meta"><strong id="nbt-structure-count">0개</strong><small>관리 NBT와 포켓몬센터·상점·백화점</small></div>
-              <div class="nbt-structure-list" id="nbt-structure-list"><div class="issues empty">NBT 목록을 불러오는 중입니다.</div></div>
-            </aside>
-            <section class="nbt-model-stage">
-              <header class="nbt-model-toolbar">
-                <div><h2 id="nbt-model-title">NBT 건물을 선택하세요</h2><p id="nbt-model-meta">실제 블록 단위 3D 모델이 여기에 표시됩니다.</p></div>
-                <div class="nbt-model-actions">
-                  <button class="mini-button" id="nbt-view-left" type="button" title="왼쪽으로 회전">↶</button>
-                  <button class="mini-button" id="nbt-view-reset" type="button">화면 맞춤</button>
-                  <button class="mini-button" id="nbt-view-right" type="button" title="오른쪽으로 회전">↷</button>
-                </div>
-              </header>
-              <div class="nbt-model-canvas-shell">
-                <canvas id="nbt-model-canvas" width="1200" height="720" role="img" aria-label="NBT 건물 3D 블록 미리보기"></canvas>
-                <div class="nbt-model-empty" id="nbt-model-empty">왼쪽 목록에서 확인할 NBT 건물을 선택하세요.</div>
-              </div>
-              <footer class="nbt-model-footer"><span>드래그: 회전</span><span>휠: 확대·축소</span><span id="nbt-model-blocks">표면 블록 —</span></footer>
-            </section>
-          </div>
-        </div>
-      </section>
-
-      <section class="page" id="building-settings">
         <div class="panel nbt-viewer building-settings-manager">
           <div class="panel-heading">
-            <div><p class="eyebrow">BUILDING NPC ASSIGNMENT</p><h2>건물 설정</h2><p>NBT의 NPC 위치 라벨을 읽어 실제 NPC 콘텐츠를 배정합니다.</p></div>
-            <div class="editor-heading-actions"><span class="path-label" id="building-settings-path">content/catalogs/building-settings.json</span><button class="button primary" id="save-building-settings" type="button">건물 설정 저장</button></div>
+            <div><p class="eyebrow">NBT BUILDING GLOBAL SETTINGS</p><h2>NBT 건물 설정</h2><p>NBT 건물을 선택해 실제 블록과 NPC 앵커를 확인하고, 이 건물의 전역 NPC를 배정합니다.</p></div>
+            <div class="editor-heading-actions"><span class="path-label" id="building-settings-path">content/catalogs/building-settings.json</span><button class="button primary" id="save-building-settings" type="button">NBT 건물 설정 저장</button></div>
           </div>
           <div class="nbt-viewer-layout building-settings-layout">
             <aside class="nbt-structure-browser">
-              <label><span>건물 검색</span><input id="building-search" type="search" placeholder="연구소, 상점, house…"></label>
-              <div class="nbt-structure-browser-meta"><strong id="building-count">0개</strong><small>관리 NBT 건물</small></div>
-              <div class="nbt-structure-list" id="building-list"><div class="issues empty">건물 설정을 불러오는 중입니다.</div></div>
+              <label><span>NBT 건물 검색</span><input id="building-search" type="search" placeholder="포켓몬센터, 상점, house…"></label>
+              <div class="nbt-structure-browser-meta"><strong id="building-count">0개</strong><small>관리 대상 NBT 건물</small></div>
+              <div class="nbt-structure-list" id="building-list"><div class="issues empty">NBT 건물을 불러오는 중입니다.</div></div>
             </aside>
             <section class="nbt-model-stage">
               <header class="nbt-model-toolbar">
-                <div><h2 id="building-model-title">건물을 선택하세요</h2><p id="building-model-meta">3D 모델과 NPC 위치가 여기에 표시됩니다.</p></div>
+                <div><h2 id="building-model-title">NBT 건물을 선택하세요</h2><p id="building-model-meta">3D 모델과 NPC 위치가 여기에 표시됩니다.</p></div>
                 <div class="nbt-model-actions"><button class="mini-button" id="building-view-left" type="button">↶</button><button class="mini-button" id="building-view-reset" type="button">화면 맞춤</button><button class="mini-button" id="building-view-right" type="button">↷</button></div>
               </header>
               <div class="nbt-model-canvas-shell">
-                <canvas id="building-model-canvas" width="1200" height="720" role="img" aria-label="건물과 NPC 위치 3D 미리보기"></canvas>
-                <div class="nbt-model-empty" id="building-model-empty">왼쪽 목록에서 건물을 선택하세요.</div>
+                <canvas id="building-model-canvas" width="1200" height="720" role="img" aria-label="NBT 건물과 NPC 위치 3D 미리보기"></canvas>
+                <div class="nbt-model-empty" id="building-model-empty">왼쪽 목록에서 NBT 건물을 선택하세요.</div>
               </div>
               <footer class="nbt-model-footer"><span>드래그: 회전</span><span>휠: 확대·축소</span><span id="building-marker-count">NPC 위치 —</span></footer>
             </section>
             <aside class="building-npc-editor">
-              <div id="building-editor-empty" class="issues empty">건물을 선택하면 NPC 배정 항목이 표시됩니다.</div>
+              <div id="building-editor-empty" class="issues empty">NBT 건물을 선택하면 전역 NPC 배정 항목이 표시됩니다.</div>
               <div id="building-editor" hidden>
                 <div class="building-type-banner" id="building-type-banner"></div>
                 <div id="building-npc-assignments" class="building-npc-assignments"></div>
-                <label class="toggle building-random-toggle" id="building-random-citizen-row"><input type="checkbox" id="building-random-citizen"><span>마을 랜덤 시민 배치 후보로 사용</span></label>
+                <label class="toggle building-citizen-toggle" id="building-citizen-placement-row"><input type="checkbox" id="building-citizen-placement"><span>시민을 수용할 수 있는 건물</span></label>
                 <div id="building-settings-issues" class="issues empty">변경 사항이 없습니다.</div>
               </div>
             </aside>
@@ -455,7 +428,7 @@
         <div class="panel biome-manager">
           <div class="panel-heading"><div><p class="eyebrow">HABITAT RULE ENGINE</p><h2>바이옴 관리</h2></div><div class="editor-heading-actions"><div><button class="button secondary" id="add-biome-profile">바이옴 추가</button><button class="button danger" id="delete-biome-profile">바이옴 삭제</button><button class="button primary" id="save-biome-catalog">바이옴 저장</button></div></div></div>
           <div class="biome-tabs" role="tablist"><button class="is-active" data-biome-tab="profiles">프로필</button><button data-biome-tab="sets">바이옴 세트 테스트</button><button data-biome-tab="pokemon">전체 포켓몬</button></div>
-          <div class="biome-tab-panel is-active" data-biome-panel="profiles"><div class="biome-split"><div id="biome-profile-list" class="biome-list"></div><form id="biome-profile-form" class="form-grid biome-form"><label class="wide"><span>프로필</span><select name="profileId"></select></label><label><span>한국어 이름</span><input name="nameKo"></label><label><span>대표 서식지</span><select name="habitat"></select></label><label><span>세대 (0=전체)</span><input type="number" min="0" max="9" name="generation"></label><label><span>온도</span><select name="temperature"></select></label><label><span>습도</span><select name="humidity"></select></label><label><span>날씨</span><select name="weather"></select></label><label><span>시간</span><select name="time"></select></label><label class="wide"><span>허용 레어도 — 쉼표로 구분</span><input name="rarities"></label><label class="wide"><span>강제 포함 포켓몬 — ID를 쉼표로 구분</span><input name="forced"></label><label class="wide"><span>제외 포켓몬 — ID를 쉼표로 구분</span><input name="excluded"></label><label class="toggle"><input type="checkbox" name="secondary"><span>보조 서식지 포함</span></label><button type="button" class="button secondary" id="preview-biome-profile">현재 조건 테스트</button></form></div><div id="biome-profile-preview" class="pokemon-results">프로필을 선택하고 테스트하세요.</div></div>
+          <div class="biome-tab-panel is-active" data-biome-panel="profiles"><div class="biome-split"><div id="biome-profile-list" class="biome-list"></div><form id="biome-profile-form" class="form-grid biome-form"><label class="wide"><span>프로필</span><select name="profileId"></select></label><label><span>한국어 이름</span><input name="nameKo"></label><label><span>대표 서식지</span><select name="habitat"></select></label><label><span>지역도감 시리즈</span><select name="series"><option value="">전체·세대 호환</option><option value="kanto">관동</option><option value="johto">성도</option><option value="hoenn">호연</option><option value="sinnoh">신오</option><option value="unova">하나</option><option value="kalos">칼로스</option><option value="alola">알로라</option><option value="galar">가라르</option><option value="paldea">팔데아</option></select></label><label><span>최초 등장 세대 (호환용, 0=전체)</span><input type="number" min="0" max="9" name="generation"></label><label><span>서식지 번호 (0=자동)</span><input type="number" min="0" name="habitatVariant"></label><label><span>온도</span><select name="temperature"></select></label><label><span>습도</span><select name="humidity"></select></label><label><span>날씨</span><select name="weather"></select></label><label><span>시간</span><select name="time"></select></label><label class="wide"><span>허용 레어도 — 쉼표로 구분</span><input name="rarities"></label><label class="wide"><span>강제 포함 포켓몬 — ID를 쉼표로 구분</span><input name="forced"></label><label class="wide"><span>제외 포켓몬 — ID를 쉼표로 구분</span><input name="excluded"></label><label class="toggle"><input type="checkbox" name="secondary"><span>보조 서식지 포함</span></label><button type="button" class="button secondary" id="preview-biome-profile">현재 조건 테스트</button></form></div><div id="biome-profile-preview" class="pokemon-results">프로필을 선택하고 테스트하세요.</div></div>
           <div class="biome-tab-panel" data-biome-panel="sets"><div class="biome-test-toolbar"><label><span>바이옴 세트</span><select id="biome-set-select"></select></label><label class="grow"><span>모든 조건 무시 출현 포켓몬 — ID를 쉼표로 구분</span><input id="biome-set-unconditional"></label><button class="button secondary" id="test-biome-set">세트 테스트</button></div><div id="biome-set-profiles" class="biome-set-profiles"></div><div id="biome-set-preview" class="pokemon-results">세트를 선택하고 테스트하세요.</div></div>
           <div class="biome-tab-panel" data-biome-panel="pokemon"><div class="biome-test-toolbar"><label class="grow"><span>이름·ID 검색</span><input id="habitat-pokemon-search" placeholder="피카츄 또는 pikachu"></label><label><span>세대</span><select id="habitat-generation-filter"><option value="0">전체</option></select></label><label><span>서식지</span><select id="habitat-filter"></select></label></div><div id="habitat-pokemon-count" class="result-caption"></div><div id="habitat-pokemon-list" class="pokemon-results"></div></div>
           <div id="biome-issues" class="issues empty">바이옴 카탈로그를 불러오는 중입니다.</div>
@@ -483,16 +456,23 @@
           <div class="economy-rule-banner"><span>VANILLA CRAFTING</span><strong>비활성화 고정</strong><p>NPC 제작 재료는 아래 포켓몬 드롭 목록에 등록된 아이템만 사용할 수 있습니다.</p><i>LOCKED</i></div>
           <div class="economy-summary" id="economy-summary"><article><span>판매 NPC</span><strong>0</strong></article><article><span>판매 품목</span><strong>0</strong></article><article><span>드롭 규칙</span><strong>0</strong></article><article><span>NPC 제작법</span><strong>0</strong></article></div>
           <div class="economy-tabs" role="tablist">
-            <button class="is-active" data-economy-tab="shops">판매원 카탈로그</button>
+            <button class="is-active" data-economy-tab="shops">상점 카탈로그</button>
             <button data-economy-tab="drops">포켓몬 드롭</button>
             <button data-economy-tab="recipes">NPC 제작법</button>
           </div>
           <section class="economy-panel is-active" data-economy-panel="shops">
-            <header class="economy-section-head"><div><h3>상점 카탈로그 · 판매원 단위</h3><small>상점 카탈로그는 여러 판매원 단위를 묶으며, 마을 설정에서 카탈로그 하나를 선택합니다.</small></div><div><button class="button secondary" data-economy-add="catalog">＋ 상점 카탈로그</button><button class="button secondary" data-economy-add="shop">＋ 판매원 단위</button></div></header>
+            <header class="economy-section-head"><div><h3>백화점 카탈로그</h3><small>층·코너에 배치할 상인 카탈로그를 묶습니다. 마을에서는 완성된 백화점 카탈로그를 선택합니다.</small></div><button class="button secondary" data-economy-add="catalog">＋ 백화점 카탈로그</button></header>
+            <div class="economy-toolbar"><label><span>백화점 검색</span><input id="economy-catalog-search" placeholder="이름 또는 카탈로그 ID"></label></div>
+            <div class="economy-card-grid economy-catalog-list" id="economy-catalog-list"></div>
+            <header class="economy-section-head economy-subhead"><div><h3>상인 카탈로그</h3><small>상인 한 명의 NPC·판매 분야·아이템·가격을 관리합니다.</small></div><button class="button secondary" data-economy-add="shop">＋ 상인 추가</button></header>
+            <div class="economy-toolbar"><label><span>상인·아이템 검색</span><input id="economy-vendor-search" placeholder="기술머신, 몬스터볼, 아이템 이름…"></label><label><span>시설</span><select id="economy-vendor-facility"><option value="">전체</option><option value="pokemart">프렌들리숍</option><option value="department_store">백화점</option><option value="specialty">전문 상점</option></select></label></div>
             <div class="economy-card-grid" id="economy-shop-list"></div>
           </section>
           <section class="economy-panel" data-economy-panel="drops">
-            <header class="economy-section-head"><div><h3>포켓몬 아이템 루트 테이블</h3><small>포켓몬과 아이템 조합마다 독립적인 처치 드롭 확률을 지정합니다.</small></div><button class="button secondary" data-economy-add="drop">＋ 드롭 규칙</button></header>
+            <header class="economy-section-head"><div><h3>조건 기반 포켓몬 루트 규칙</h3><small>1025종을 하나씩 편집하지 않고 타입·세대·폼·라벨·알그룹·크기로 묶어 적용합니다.</small></div><button class="button secondary" data-economy-add="rule">＋ 대량 루트 규칙</button></header>
+            <div class="economy-card-grid" id="economy-drop-rule-list"></div>
+            <header class="economy-section-head economy-subhead"><div><h3>적용 결과 미리보기</h3><small>한국어 이름으로 검색해 원본과 규칙 적용 결과를 확인하고, 꼭 필요한 종만 개별 재정의합니다.</small></div></header>
+            <div class="economy-toolbar economy-drop-filters"><label><span>포켓몬 검색</span><input id="economy-pokemon-search" placeholder="피카츄, Pikachu, cobblemon:pikachu"></label><label><span>타입</span><select id="economy-pokemon-type"><option value="">전체 타입</option></select></label><label><span>세대</span><select id="economy-pokemon-generation"><option value="">전체 세대</option></select></label><label><span>표시 수</span><select id="economy-pokemon-limit"><option>50</option><option>100</option><option>250</option></select></label></div>
             <div class="economy-table" id="economy-drop-list"></div>
           </section>
           <section class="economy-panel" data-economy-panel="recipes">
@@ -501,7 +481,7 @@
           </section>
           <div id="economy-issues" class="issues empty">경제 카탈로그를 불러오는 중입니다.</div>
         </div>
-        <datalist id="economy-drop-item-ids"></datalist>
+        <datalist id="economy-drop-item-ids"></datalist><datalist id="economy-all-item-ids"></datalist><datalist id="economy-species-ids"></datalist>
       </section>
 
       <section class="page" id="builds">

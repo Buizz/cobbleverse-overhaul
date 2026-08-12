@@ -20,13 +20,23 @@ public final class WorldHabitatIndex {
         Map<String, GeneratedHabitatZone> zoneIndex = new LinkedHashMap<>();
         Map<String, List<EncounterCandidate>> encounters = new LinkedHashMap<>();
         Map<String, List<PokemonLocation>> locations = new LinkedHashMap<>();
+        Map<String, Integer> nextVariantByProfile = new LinkedHashMap<>();
 
         for (GeneratedHabitatZone zone : generatedZones) {
             if (zoneIndex.putIfAbsent(zone.locationId(), zone) != null) {
                 throw new IllegalArgumentException("월드 서식지 위치 ID가 중복되었습니다: " + zone.locationId());
             }
-            List<EncounterCandidate> candidates = habitats.candidates(
-                zone.profileId(), zone.settings(), zone.unconditionalSpawns()
+            int selectedVariant = zone.settings() != null ? zone.settings().habitatVariant() : 0;
+            if (selectedVariant <= 0) {
+                int variantCount = habitats.habitatVariantCount(
+                    zone.profileId(), zone.settings(), zone.unconditionalSpawns()
+                );
+                int next = nextVariantByProfile.getOrDefault(zone.profileId(), 0);
+                selectedVariant = (next % variantCount) + 1;
+                nextVariantByProfile.put(zone.profileId(), next + 1);
+            }
+            List<EncounterCandidate> candidates = habitats.candidatesForVariant(
+                zone.profileId(), zone.settings(), zone.unconditionalSpawns(), selectedVariant
             );
             encounters.put(zone.locationId(), candidates);
             for (EncounterCandidate candidate : candidates) {

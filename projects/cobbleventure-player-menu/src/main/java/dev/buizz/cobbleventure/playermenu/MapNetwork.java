@@ -1,8 +1,13 @@
 package dev.buizz.cobbleventure.playermenu;
 
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -11,6 +16,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.bus.api.IEventBus;
@@ -25,6 +32,10 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public final class MapNetwork {
     private static final String VERSION = "3";
     private static final String VISITED_PREFIX = "cobbleventure_player_menu.visited.";
+    private static final int FADE_OUT_TICKS = 25;
+    private static final int FADE_IN_DELAY_TICKS = 20;
+    private static final int TRANSITION_EFFECT_TICKS = FADE_OUT_TICKS + FADE_IN_DELAY_TICKS + 20;
+    private static final Map<UUID, PendingTeleport> PENDING_TELEPORTS = new HashMap<>();
     private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(false, false, Set.of(), "", false, 0L);
 
     private MapNetwork() {}
@@ -73,6 +84,10 @@ public final class MapNetwork {
 
     private static void handleTeleport(MapTeleportPayload payload, IPayloadContext context) {
         ServerPlayer player = (ServerPlayer) context.player();
+        if (PENDING_TELEPORTS.containsKey(player.getUUID())) {
+            context.reply(new MapTeleportResultPayload(false, "이미 이동을 준비하고 있습니다."));
+            return;
+        }
         MapContent content = MapContent.forGeneration(payload.generation());
         if (content == null) {
             context.reply(new MapTeleportResultPayload(false, "존재하지 않는 세대 지도입니다."));
@@ -102,13 +117,24 @@ public final class MapNetwork {
             return;
         }
 
-        MapContent.WorldPoint point = content.worldCenter(targetQ, targetR);
-        level.getChunk(point.x() >> 4, point.z() >> 4);
-        int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, point.x(), point.z()) + 1;
-        player.teleportTo(level, point.x() + 0.5D, y, point.z() + 0.5D, player.getYRot(), player.getXRot());
-        player.resetFallDistance();
-        if (town != null) markVisited(player, town.id());
-        context.reply(new MapTeleportResultPayload(true, town == null ? "선택 타일로 이동했습니다." : town.name() + "(으)로 이동했습니다."));
+        int currentTick = player.getServer().getTickCount();
+        player.addEffect(new MobEffectInstance(
+            MobEffects.DARKNESS,
+            TRANSITION_EFFECT_TICKS,
+            0,
+            true,
+            false,
+            false
+        ));
+        PENDING_TELEPORTS.put(player.getUUID(), new PendingTeleport(
+            content,
+            dimension,
+            town,
+            targetQ,
+            targetR,
+            currentTick + FADE_OUT_TICKS
+        ));
+        context.reply(new MapTeleportResultPayload(true, "이동을 준비하고 있습니다."));
     }
 
     private static void handleTeleportResult(MapTeleportResultPayload payload, IPayloadContext context) {
@@ -119,8 +145,93 @@ public final class MapNetwork {
     }
 
     private static void onServerTick(ServerTickEvent.Post event) {
-        if (event.getServer().getTickCount() % 20 != 0) return;
-        for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) updateVisit(player);
+        int currentTick = event.getServer().getTickCount();
+        updatePendingTeleports(event, currentTick);
+        if (currentTick % 20 == 0) {
+            for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+                updateVisit(player);
+            }
+        }
+    }
+
+    private static void updatePendingTeleports(ServerTickEvent.Post event, int currentTick) {
+        Iterator<Map.Entry<UUID, PendingTeleport>> iterator =
+            PENDING_TELEPORTS.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, PendingTeleport> entry = iterator.next();
+            ServerPlayer player = event.getServer().getPlayerList().getPlayer(entry.getKey());
+            if (player == null) {
+                iterator.remove();
+                continue;
+            }
+            PendingTeleport pending = entry.getValue();
+            if (!pending.teleported && currentTick >= pending.teleportAt) {
+                String error = performTeleport(player, pending);
+                if (error != null) {
+                    iterator.remove();
+                    player.removeEffect(MobEffects.DARKNESS);
+                    PacketDistributor.sendToPlayer(
+                        player, new MapTeleportResultPayload(false, error)
+                    );
+                    continue;
+                }
+                pending.teleported = true;
+                pending.brightenAt = currentTick + FADE_IN_DELAY_TICKS;
+                if (pending.town != null) {
+                    markVisited(player, pending.town.id());
+                }
+                PacketDistributor.sendToPlayer(player, new MapTeleportResultPayload(
+                    true,
+                    pending.town == null
+                        ? "선택 타일로 이동했습니다."
+                        : pending.town.name() + "(으)로 이동했습니다."
+                ));
+            }
+            if (!pending.teleported || currentTick < pending.brightenAt) {
+                continue;
+            }
+            iterator.remove();
+            player.removeEffect(MobEffects.DARKNESS);
+        }
+    }
+
+    private static String performTeleport(ServerPlayer player, PendingTeleport pending) {
+        ServerLevel level = player.getServer().getLevel(pending.dimension);
+        if (level == null) {
+            return "지도 차원을 불러오지 못했습니다.";
+        }
+        if (pending.town != null) {
+            try {
+                int result = player.getServer().getCommands().getDispatcher().execute(
+                    "cobbleventure_center teleport " + player.getUUID() + " " + pending.town.id(),
+                    player.getServer().createCommandSourceStack()
+                        .withPermission(4)
+                        .withSuppressedOutput()
+                );
+                return result == 0 ? "마을의 포켓몬센터를 찾지 못했습니다." : null;
+            } catch (CommandSyntaxException error) {
+                return "포켓몬센터 이동 명령을 실행하지 못했습니다.";
+            }
+        }
+
+        MapContent.WorldPoint point = pending.content.worldCenter(
+            pending.targetQ, pending.targetR
+        );
+        level.getChunk(point.x() >> 4, point.z() >> 4);
+        int y = level.getHeight(
+            Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, point.x(), point.z()
+        ) + 1;
+        player.stopRiding();
+        player.teleportTo(
+            level,
+            point.x() + 0.5D,
+            y,
+            point.z() + 0.5D,
+            player.getYRot(),
+            player.getXRot()
+        );
+        player.resetFallDistance();
+        return null;
     }
 
     private static void updateVisit(ServerPlayer player) {
@@ -217,6 +328,33 @@ public final class MapNetwork {
             return new MapTeleportResultPayload(buffer.readBoolean(), buffer.readUtf());
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    private static final class PendingTeleport {
+        private final MapContent content;
+        private final ResourceKey<Level> dimension;
+        private final MapContent.Town town;
+        private final int targetQ;
+        private final int targetR;
+        private final int teleportAt;
+        private int brightenAt;
+        private boolean teleported;
+
+        private PendingTeleport(
+            MapContent content,
+            ResourceKey<Level> dimension,
+            MapContent.Town town,
+            int targetQ,
+            int targetR,
+            int teleportAt
+        ) {
+            this.content = content;
+            this.dimension = dimension;
+            this.town = town;
+            this.targetQ = targetQ;
+            this.targetR = targetR;
+            this.teleportAt = teleportAt;
+        }
     }
 
     private static ResourceLocation id(String path) {

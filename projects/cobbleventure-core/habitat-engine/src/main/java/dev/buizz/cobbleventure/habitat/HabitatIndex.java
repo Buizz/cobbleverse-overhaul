@@ -17,10 +17,12 @@ import java.util.function.Function;
 public final class HabitatIndex {
     private final Map<String, PokemonHabitat> pokemon;
     private final Map<String, BiomeProfile> profiles;
+    private final int maxPokemonPerHabitatVariant;
 
     public HabitatIndex(PokemonHabitatCatalog pokemonCatalog, BiomeProfileCatalog biomeCatalog) {
         pokemon = uniqueIndex(pokemonCatalog.pokemon(), PokemonHabitat::id, "포켓몬");
         profiles = uniqueIndex(biomeCatalog.profiles(), BiomeProfile::id, "바이옴 프로필");
+        maxPokemonPerHabitatVariant = biomeCatalog.maxPokemonPerHabitatVariant();
     }
 
     public List<EncounterCandidate> candidates(
@@ -43,7 +45,69 @@ public final class HabitatIndex {
             }
         }
 
-        return matches.values().stream()
+        List<EncounterCandidate> ordered = matches.values().stream()
+            .sorted(Comparator.comparingInt(EncounterCandidate::dexNumber))
+            .toList();
+        return selectHabitatVariant(ordered, settings.habitatVariant());
+    }
+
+    public int habitatVariantCount(
+        String profileId,
+        SpawnSettings zoneSettings,
+        Set<String> unconditionalSpawns
+    ) {
+        SpawnSettings settings = zoneSettings == null ? requireProfile(profileId).settings() : zoneSettings;
+        List<EncounterCandidate> base = candidates(
+            profileId, settings.withHabitatVariant(0), unconditionalSpawns
+        );
+        long ordinaryCount = base.stream()
+            .filter(candidate -> candidate.matchReason() != MatchReason.UNCONDITIONAL
+                && candidate.matchReason() != MatchReason.FORCED_INCLUDE)
+            .count();
+        return Math.max(1,
+            (int) ((ordinaryCount + maxPokemonPerHabitatVariant - 1) / maxPokemonPerHabitatVariant));
+    }
+
+    public List<EncounterCandidate> candidatesForVariant(
+        String profileId,
+        SpawnSettings zoneSettings,
+        Set<String> unconditionalSpawns,
+        int habitatVariant
+    ) {
+        SpawnSettings settings = zoneSettings == null ? requireProfile(profileId).settings() : zoneSettings;
+        return candidates(
+            profileId, settings.withHabitatVariant(habitatVariant), unconditionalSpawns
+        );
+    }
+
+    private List<EncounterCandidate> selectHabitatVariant(
+        List<EncounterCandidate> candidates,
+        int selectedVariant
+    ) {
+        if (selectedVariant <= 0) {
+            return candidates;
+        }
+        List<EncounterCandidate> explicit = candidates.stream()
+            .filter(candidate -> candidate.matchReason() == MatchReason.UNCONDITIONAL
+                || candidate.matchReason() == MatchReason.FORCED_INCLUDE)
+            .toList();
+        List<EncounterCandidate> ordinary = candidates.stream()
+            .filter(candidate -> candidate.matchReason() != MatchReason.UNCONDITIONAL
+                && candidate.matchReason() != MatchReason.FORCED_INCLUDE)
+            .toList();
+        if (ordinary.isEmpty()) {
+            return explicit;
+        }
+        int variantCount = Math.max(1,
+            (ordinary.size() + maxPokemonPerHabitatVariant - 1) / maxPokemonPerHabitatVariant);
+        List<EncounterCandidate> selected = new java.util.ArrayList<>(explicit);
+        for (int index = 0; index < ordinary.size(); index++) {
+            int variant = (index * variantCount / ordinary.size()) + 1;
+            if (variant == selectedVariant) {
+                selected.add(ordinary.get(index));
+            }
+        }
+        return selected.stream()
             .sorted(Comparator.comparingInt(EncounterCandidate::dexNumber))
             .toList();
     }
@@ -68,8 +132,11 @@ public final class HabitatIndex {
         if (profile.forcedIncludes().contains(entry.id())) {
             return MatchReason.FORCED_INCLUDE;
         }
+        if (entry.isLegendary() || entry.isMythical()) {
+            return null;
+        }
         if (!settings.rarities().contains(entry.preferences().rarity())
-            || (settings.generation() != 0 && settings.generation() != entry.generation())
+            || !matchesSeriesOrGeneration(settings, entry)
             || !compatible(settings.temperature(), entry.preferences().temperature())
             || !compatible(settings.humidity(), entry.preferences().humidity())
             || !compatible(settings.weather(), entry.preferences().weather())
@@ -83,6 +150,13 @@ public final class HabitatIndex {
             return MatchReason.SECONDARY_HABITAT;
         }
         return null;
+    }
+
+    private boolean matchesSeriesOrGeneration(SpawnSettings settings, PokemonHabitat entry) {
+        if (!settings.series().isBlank()) {
+            return entry.seriesAppearances().contains(settings.series());
+        }
+        return settings.generation() == 0 || settings.generation() == entry.generation();
     }
 
     private boolean compatible(String requested, String preference) {

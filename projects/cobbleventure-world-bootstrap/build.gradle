@@ -18,10 +18,16 @@ repositories {
         name = 'Modrinth'
         url = 'https://api.modrinth.com/maven'
     }
+    maven {
+        name = 'CurseMaven'
+        url = 'https://cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
 }
 
 dependencies {
     compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    compileOnly "curse.maven:cobbledollars-859232:6604564"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
 }
 

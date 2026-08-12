@@ -16,13 +16,37 @@
     "max_x": 1625,
     "max_z": -170
   },
-  "center": { "x": 1487, "y": 69, "z": -300 },
+  "center": {
+    "x": 1487,
+    "y": 69,
+    "z": -300
+  },
   "anchors": {
-    "town_square": { "x": 1487, "y": 69, "z": -300 },
-    "special_district": { "x": 1407, "y": 69, "z": -300 },
-    "gym_building": { "x": 1619, "y": 69, "z": -310 },
-    "gym_entrance": { "x": 1618, "y": 70, "z": -300 },
-    "gym_return": { "x": 1618, "y": 70, "z": -303 }
+    "town_square": {
+      "x": 1487,
+      "y": 69,
+      "z": -300
+    },
+    "special_district": {
+      "x": 1407,
+      "y": 69,
+      "z": -300
+    },
+    "gym_building": {
+      "x": 1619,
+      "y": 69,
+      "z": -310
+    },
+    "gym_entrance": {
+      "x": 1618,
+      "y": 70,
+      "z": -300
+    },
+    "gym_return": {
+      "x": 1618,
+      "y": 70,
+      "z": -303
+    }
   },
   "content_profile": {
     "pokemon": {
@@ -62,7 +86,22 @@
         "placement": "center",
         "weight": 5,
         "habitat_profile": "cobbleventure:biome_profile/arid",
-        "spawn_settings": { "generation": 1, "temperature": "hot", "humidity": "dry", "weather": "clear", "time": "any", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
+        "spawn_settings": {
+          "generation": 0,
+          "series": "kanto",
+          "temperature": "any",
+          "humidity": "any",
+          "weather": "any",
+          "time": "any",
+          "rarities": [
+            "common",
+            "medium",
+            "uncommon",
+            "rare"
+          ],
+          "include_secondary": true,
+          "habitat_variant": 0
+        }
       }
     ],
     "boundary": {
@@ -86,9 +125,15 @@
       "enabled": true,
       "anchor": "special_district",
       "placement_mode": "manual",
-      "footprint": { "width": 8, "depth": 8 },
+      "footprint": {
+        "width": 8,
+        "depth": 8
+      },
       "clearance": 6,
-      "building": { "enabled": false, "structure": "" }
+      "building": {
+        "enabled": false,
+        "structure": ""
+      }
     },
     "gym": {
       "enabled": true,
@@ -120,7 +165,10 @@
           "max_z": -278
         },
         "max_npcs": 7,
-        "tags": ["ambient", "resident"]
+        "tags": [
+          "ambient",
+          "resident"
+        ]
       }
     ]
   }

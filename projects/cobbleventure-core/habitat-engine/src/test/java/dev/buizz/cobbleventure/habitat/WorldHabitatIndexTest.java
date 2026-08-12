@@ -36,7 +36,7 @@ class WorldHabitatIndexTest {
             -390,
             96,
             new SpawnSettings(
-                1, "temperate", "humid", "any", "any",
+                1, "", 1, "temperate", "humid", "any", "any",
                 Set.of("common", "medium", "uncommon", "rare"), true
             ),
             Set.of()
@@ -89,5 +89,86 @@ class WorldHabitatIndexTest {
             "cobbleventure:biome_profile/wetland", withSecondary, Set.of()
         ).stream().anyMatch(candidate -> candidate.pokemonId().equals("cobblemon:bulbasaur")
             && candidate.matchReason() == MatchReason.SECONDARY_HABITAT));
+    }
+
+    @Test
+    void regionalPokedexSeriesTakesPriorityOverIntroductionGeneration() throws Exception {
+        HabitatCatalogLoader loader = new HabitatCatalogLoader();
+        HabitatIndex habitats = new HabitatIndex(
+            loader.loadPokemon(CONTENT.resolve("pokemon-habitats.json")),
+            loader.loadBiomes(CONTENT.resolve("biome-profiles.json"))
+        );
+        SpawnSettings johto = new SpawnSettings(
+            3, "johto", "any", "any", "any", "any",
+            Set.of("common", "medium", "uncommon", "rare", "legendary"), true
+        );
+
+        List<EncounterCandidate> candidates = habitats.candidates(
+            "cobbleventure:biome_profile/forest", johto, Set.of()
+        );
+
+        assertTrue(candidates.stream().anyMatch(candidate -> candidate.pokemonId().equals("cobblemon:bulbasaur")));
+        assertTrue(candidates.stream().anyMatch(candidate -> candidate.pokemonId().equals("cobblemon:chikorita")));
+        assertFalse(candidates.stream().anyMatch(candidate -> candidate.pokemonId().equals("cobblemon:treecko")));
+    }
+
+    @Test
+    void legendaryAndMythicalPokemonRequireExplicitSpawns() throws Exception {
+        HabitatCatalogLoader loader = new HabitatCatalogLoader();
+        HabitatIndex habitats = new HabitatIndex(
+            loader.loadPokemon(CONTENT.resolve("pokemon-habitats.json")),
+            loader.loadBiomes(CONTENT.resolve("biome-profiles.json"))
+        );
+        SpawnSettings kanto = new SpawnSettings(
+            0, "kanto", "any", "any", "any", "any",
+            Set.of("common", "medium", "uncommon", "rare", "legendary"), true
+        );
+
+        List<EncounterCandidate> ordinary = habitats.candidates(
+            "cobbleventure:biome_profile/special", kanto, Set.of()
+        );
+        List<EncounterCandidate> event = habitats.candidates(
+            "cobbleventure:biome_profile/special", kanto, Set.of("cobblemon:mew")
+        );
+
+        assertFalse(ordinary.stream().anyMatch(candidate -> candidate.pokemonId().equals("cobblemon:mewtwo")));
+        assertFalse(ordinary.stream().anyMatch(candidate -> candidate.pokemonId().equals("cobblemon:mew")));
+        assertTrue(event.stream().anyMatch(candidate -> candidate.pokemonId().equals("cobblemon:mew")
+            && candidate.matchReason() == MatchReason.UNCONDITIONAL));
+    }
+
+    @Test
+    void numberedHabitatsPartitionRegionalCandidatesIntoBalancedGroups() throws Exception {
+        HabitatCatalogLoader loader = new HabitatCatalogLoader();
+        HabitatIndex habitats = new HabitatIndex(
+            loader.loadPokemon(CONTENT.resolve("pokemon-habitats.json")),
+            loader.loadBiomes(CONTENT.resolve("biome-profiles.json"))
+        );
+        Set<String> rarities = Set.of("common", "medium", "uncommon", "rare");
+        SpawnSettings all = new SpawnSettings(
+            0, "kanto", 0, "any", "any", "any", "any", rarities, true
+        );
+        SpawnSettings forest1 = new SpawnSettings(
+            0, "kanto", 1, "any", "any", "any", "any", rarities, true
+        );
+        SpawnSettings forest2 = new SpawnSettings(
+            0, "kanto", 2, "any", "any", "any", "any", rarities, true
+        );
+
+        Set<String> allIds = habitats.candidates(
+            "cobbleventure:biome_profile/forest", all, Set.of()
+        ).stream().map(EncounterCandidate::pokemonId).collect(java.util.stream.Collectors.toSet());
+        Set<String> forest1Ids = habitats.candidates(
+            "cobbleventure:biome_profile/forest", forest1, Set.of()
+        ).stream().map(EncounterCandidate::pokemonId).collect(java.util.stream.Collectors.toSet());
+        Set<String> forest2Ids = habitats.candidates(
+            "cobbleventure:biome_profile/forest", forest2, Set.of()
+        ).stream().map(EncounterCandidate::pokemonId).collect(java.util.stream.Collectors.toSet());
+
+        assertTrue(forest1Ids.size() <= 40);
+        assertTrue(forest2Ids.size() <= 40);
+        assertTrue(forest1Ids.stream().noneMatch(forest2Ids::contains));
+        assertEquals(allIds, java.util.stream.Stream.concat(forest1Ids.stream(), forest2Ids.stream())
+            .collect(java.util.stream.Collectors.toSet()));
     }
 }

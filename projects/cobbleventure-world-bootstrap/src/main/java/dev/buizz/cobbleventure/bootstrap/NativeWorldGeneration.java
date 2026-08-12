@@ -294,13 +294,7 @@ final class NativeWorldGeneration {
             if (CobbleventureBootstrap.isCaveEntrancePassage(world, x, z)) {
                 return false;
             }
-            if (CobbleventureBootstrap.terrainAt(world, x + 0.5D, z + 0.5D) != null) {
-                return false;
-            }
-            return CobbleventureBootstrap.terrainAt(world, x - 0.5D, z + 0.5D) != null
-                || CobbleventureBootstrap.terrainAt(world, x + 1.5D, z + 0.5D) != null
-                || CobbleventureBootstrap.terrainAt(world, x + 0.5D, z - 0.5D) != null
-                || CobbleventureBootstrap.terrainAt(world, x + 0.5D, z + 1.5D) != null;
+            return CobbleventureBootstrap.isHiddenBoundaryCollisionColumn(world, x, z);
         }
 
         private BlockState stateAt(

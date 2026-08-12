@@ -804,7 +804,7 @@ class DataModBuilderTests(unittest.TestCase):
                 "schema_version": 1,
                 "buildings": {"cobbleventure:placeholder/hotel": {
                     "fixed_npcs": {"clerk": "cobbleventure:npc/hotel_clerk"},
-                    "random_citizen_eligible": False,
+                    "citizen_placement_allowed": False,
                 }},
             }), encoding="utf-8")
             metadata = (

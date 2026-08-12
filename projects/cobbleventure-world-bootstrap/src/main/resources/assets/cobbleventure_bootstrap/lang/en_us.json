@@ -4,5 +4,17 @@
   "message.cobbleventure_bootstrap.pokemon_center_return": "Your entire party fainted, so you returned to the latest Pokémon Center.",
   "message.cobbleventure_bootstrap.pokemon_center_fallback_return": "Your entire party fainted, so you returned to the starting point.",
   "message.cobbleventure_bootstrap.pokemon_center_missing": "No Pokémon Center checkpoint could be found.",
-  "message.cobbleventure_bootstrap.poke_ball_requires_battle": "Poké Balls can only be used during a Pokémon battle."
+  "message.cobbleventure_bootstrap.pokemon_center_nurse_greeting": "Nurse: You have been through a lot. Let me heal your Pokémon.",
+  "message.cobbleventure_bootstrap.pokemon_center_nurse_complete": "Nurse: Your Pokémon are fully healed. We hope to see you again!",
+  "message.cobbleventure_bootstrap.location_title.town": "You entered a town",
+  "message.cobbleventure_bootstrap.location_title.route": "You entered a route",
+  "message.cobbleventure_bootstrap.location_title.route_number": "Route %s",
+  "message.cobbleventure_bootstrap.location_title.mt_moon_west": "Mt. Moon West Path",
+  "message.cobbleventure_bootstrap.location_title.mt_moon_east": "Mt. Moon East Path",
+  "message.cobbleventure_bootstrap.poke_ball_requires_battle": "Poké Balls can only be used during a Pokémon battle.",
+  "message.cobbleventure_bootstrap.no_usable_pokemon": "%s is out of usable Pokémon!",
+  "message.cobbleventure_bootstrap.battle_forfeit": "%s forfeited the battle!",
+  "message.cobbleventure_bootstrap.battle_money_lost": "Lost $%s…",
+  "message.cobbleventure_bootstrap.battle_money_paid": "Paid $%1$s to %2$s…",
+  "message.cobbleventure_bootstrap.battle_opponent": "the opponent"
 }

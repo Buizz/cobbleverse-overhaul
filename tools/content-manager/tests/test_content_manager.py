@@ -459,11 +459,120 @@ class ContentManagerTests(unittest.TestCase):
         arceus = next(entry for entry in forced["pokemon"] if entry["id"] == "cobblemon:arceus")
         self.assertEqual("unconditional", arceus["match_reason"])
 
+    def test_biome_preview_prefers_regional_pokedex_series(self) -> None:
+        root = Path(__file__).parents[3]
+        filtered = content_manager.preview_biome(
+            root,
+            {
+                "profile_id": "cobbleventure:biome_profile/forest",
+                "settings": {"generation": 3, "series": "johto"},
+            },
+        )
+        pokemon_ids = {entry["id"] for entry in filtered["pokemon"]}
+
+        self.assertIn("cobblemon:bulbasaur", pokemon_ids)
+        self.assertIn("cobblemon:aipom", pokemon_ids)
+        self.assertFalse(any(entry["generation"] == 3 for entry in filtered["pokemon"]))
+
+    def test_biome_preview_excludes_special_species_without_explicit_spawn(self) -> None:
+        root = Path(__file__).parents[3]
+        settings = {
+            "series": "kanto",
+            "rarities": ["common", "medium", "uncommon", "rare", "legendary"],
+        }
+        ordinary = content_manager.preview_biome(
+            root,
+            {"profile_id": "cobbleventure:biome_profile/special", "settings": settings},
+        )
+        event = content_manager.preview_biome(
+            root,
+            {
+                "profile_id": "cobbleventure:biome_profile/special",
+                "settings": settings,
+                "unconditional_spawns": ["cobblemon:mew"],
+            },
+        )
+
+        ordinary_ids = {entry["id"] for entry in ordinary["pokemon"]}
+        self.assertNotIn("cobblemon:mewtwo", ordinary_ids)
+        self.assertNotIn("cobblemon:mew", ordinary_ids)
+        mew = next(entry for entry in event["pokemon"] if entry["id"] == "cobblemon:mew")
+        self.assertEqual("unconditional", mew["match_reason"])
+
+    def test_biome_preview_partitions_numbered_habitats(self) -> None:
+        root = Path(__file__).parents[3]
+        base_settings = {
+            "series": "kanto",
+            "temperature": "any",
+            "humidity": "any",
+            "weather": "any",
+            "time": "any",
+            "rarities": ["common", "medium", "uncommon", "rare"],
+            "include_secondary": True,
+        }
+        previews = [
+            content_manager.preview_biome(
+                root,
+                {
+                    "profile_id": "cobbleventure:biome_profile/forest",
+                    "settings": {**base_settings, "habitat_variant": variant},
+                },
+            )
+            for variant in (0, 1, 2)
+        ]
+        all_ids, forest1_ids, forest2_ids = (
+            {entry["id"] for entry in preview["pokemon"]} for preview in previews
+        )
+
+        self.assertLessEqual(len(forest1_ids), 40)
+        self.assertLessEqual(len(forest2_ids), 40)
+        self.assertEqual(set(), forest1_ids & forest2_ids)
+        self.assertEqual(all_ids, forest1_ids | forest2_ids)
+        self.assertEqual(2, previews[0]["habitat_variants"][0]["count"])
+
+    def test_all_numbered_habitats_are_bounded_and_lossless(self) -> None:
+        root = Path(__file__).parents[3]
+        catalog = content_manager.load_biome_catalog(root)
+        max_per_variant = catalog["max_pokemon_per_habitat_variant"]
+        for series in content_manager.POKEDEX_SERIES_IDS:
+            for profile in catalog["profiles"]:
+                base = content_manager.preview_biome(
+                    root,
+                    {
+                        "profile_id": profile["id"],
+                        "settings": {"series": series, "habitat_variant": 0},
+                    },
+                )
+                base_ids = {entry["id"] for entry in base["pokemon"]}
+                variant_count = base["habitat_variants"][0]["count"]
+                numbered_ids: set[str] = set()
+                for variant in range(1, variant_count + 1):
+                    numbered = content_manager.preview_biome(
+                        root,
+                        {
+                            "profile_id": profile["id"],
+                            "settings": {"series": series, "habitat_variant": variant},
+                        },
+                    )
+                    current_ids = {entry["id"] for entry in numbered["pokemon"]}
+                    self.assertLessEqual(len(current_ids), max_per_variant)
+                    self.assertEqual(set(), numbered_ids & current_ids)
+                    numbered_ids.update(current_ids)
+                self.assertEqual(base_ids, numbered_ids)
+
     def test_world_pokemon_map_resolves_locations_and_all_unavailable_pokemon(self) -> None:
         root = Path(__file__).parents[3]
         result = content_manager.world_pokemon_map(root, 1)
         available_ids = {entry["id"] for entry in result["available_pokemon"]}
         unavailable_ids = {entry["id"] for entry in result["unavailable_pokemon"]}
+        expected_default_ids = {
+            entry["id"]
+            for entry in content_manager.load_pokemon_habitats(root)["pokemon"]
+            if "kanto" in entry.get("series_appearances", [])
+            and not entry.get("is_legendary", False)
+            and not entry.get("is_mythical", False)
+            and entry.get("preferences", {}).get("rarity") != "legendary"
+        }
 
         self.assertGreater(result["summary"]["locations"], 0)
         self.assertGreater(result["summary"]["available"], 0)
@@ -472,6 +581,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(set(), available_ids & unavailable_ids)
         self.assertIn("cobblemon:rattata", available_ids)
         self.assertIn("cobblemon:arceus", unavailable_ids)
+        self.assertEqual(expected_default_ids, available_ids & expected_default_ids)
         starter_cell = next(
             entry for entry in result["locations"]
             if entry.get("settlement") == "cobbleventure:settlement/starter_town"
@@ -578,7 +688,9 @@ class ContentManagerTests(unittest.TestCase):
                 "id": "route_01_gate", "type": "gate", "anchor": {"q": 1, "r": -1},
                 "resource": "cobbleventure:gate/route_01", "rotation": 1,
                 "properties": {
-                    "facing": "east", "wall_block": "minecraft:stone_bricks",
+                    "facing": "east", "building_enabled": True, "surrounding_type": "trees",
+                    "wall_block": "minecraft:stone_bricks", "tree_log": "minecraft:oak_log",
+                    "tree_leaves": "minecraft:oak_leaves",
                     "wall_thickness": 5, "wall_height": 7, "opening_width": 7,
                     "barrier_height": 24, "condition_mode": "all",
                     "conditions": [
@@ -599,6 +711,38 @@ class ContentManagerTests(unittest.TestCase):
                 "settlements": [], "cave_entrances": [], "connections": [], "objects": [gate],
             }
             self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
+            npc_only = json.loads(json.dumps(gate))
+            npc_only["id"] = "npc_only_gate"
+            npc_only["anchor"] = {"q": 2, "r": -1}
+            npc_only.pop("resource")
+            npc_only["properties"]["building_enabled"] = False
+            npc_only["properties"]["surrounding_type"] = "none"
+            layout["objects"].append(npc_only)
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
+            villain_base = {
+                "id": "rocket_hideout", "type": "villain_base", "anchor": {"q": 3, "r": -1},
+                "resource": "cobbleventure:villain_base/rocket_hideout", "rotation": 2,
+            }
+            layout["objects"].append(villain_base)
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
+            missing_base_nbt = json.loads(json.dumps(layout))
+            missing_base_nbt["objects"][2].pop("resource")
+            issues = content_manager.save_world_layout(candidate_root, missing_base_nbt, 2)
+            self.assertTrue(any("빌런기지 NBT" in issue.message for issue in issues))
+            legendary_site = {
+                "id": "sea_guardian_shrine", "type": "legendary_site", "anchor": {"q": 4, "r": -1},
+                "resource": "cobbleventure:legendary_site/sea_guardian_shrine", "rotation": 1,
+            }
+            layout["objects"].append(legendary_site)
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
+            missing_legendary_nbt = json.loads(json.dumps(layout))
+            missing_legendary_nbt["objects"][3].pop("resource")
+            issues = content_manager.save_world_layout(candidate_root, missing_legendary_nbt, 2)
+            self.assertTrue(any("전설 포켓몬 장소 NBT" in issue.message for issue in issues))
+            invisible = json.loads(json.dumps(layout))
+            invisible["objects"][1]["properties"].pop("npc")
+            issues = content_manager.save_world_layout(candidate_root, invisible, 2)
+            self.assertTrue(any("NPC 프리셋" in issue.message for issue in issues))
             invalid = json.loads(json.dumps(layout))
             invalid["objects"][0]["properties"]["wall_thickness"] = 4
             invalid["objects"][0]["properties"]["conditions"][0]["operator"] = "contains"
@@ -612,11 +756,18 @@ class ContentManagerTests(unittest.TestCase):
         script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="object-tool-facing"', page)
         self.assertIn('id="object-tool-conditions"', page)
+        self.assertIn('id="object-tool-building-enabled"', page)
+        self.assertIn('id="object-tool-surrounding-type"', page)
+        self.assertIn('id="object-tool-tree-log"', page)
+        self.assertIn('<option value="villain_base">빌런기지</option>', page)
+        self.assertIn('["legendary_site", "전설 포켓몬 장소"]', script)
+        self.assertIn('id="world-object-nbt-options"', page)
         self.assertIn('name="objectNpc"', page)
         self.assertIn('id="edit-object-npc"', page)
         self.assertIn('name="npcRole"', page)
         self.assertIn("parseGateConditions", script)
         self.assertIn("gateProperties", script)
+        self.assertIn("renderWorldObjectNbtOptions", script)
         self.assertIn('teleport_to_gate: "관문으로 이동"', script)
 
     def test_settlements_reference_web_biome_settings(self) -> None:
@@ -1758,18 +1909,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("말 걸기 이벤트" in issue.message for issue in issues))
 
         invalid = json.loads(json.dumps(source))
-        money_index = next(
-            index for index, command in enumerate(invalid["events"][0]["commands"])
-            if command["type"] == "give_money"
-        )
-        invalid["events"][0]["commands"][money_index] = {
-            "type": "give_money",
-            "mode": "level_cap_multiplier",
-            "multiplier": 0,
-            "level_cap_objective": "cv_level_cap",
-        }
+        invalid["npc"]["battle_rewards"]["money"]["per_level"] = -1
         _, issues = content_manager._validate_payload(invalid, content_manager.validate_content_file)
-        self.assertTrue(any("multiplier" in issue.path for issue in issues))
+        self.assertTrue(any("per_level" in issue.path for issue in issues))
 
         valid_loss_reward = json.loads(json.dumps(source))
         valid_loss_reward["events"][0]["commands"].insert(-1, {
@@ -2410,7 +2552,7 @@ class ContentManagerTests(unittest.TestCase):
                 "buildings": {
                     "cobbleventure:placeholder/shop": {
                         "fixed_npcs": {"shop_clerk": "cobbleventure:npc/shop_clerk"},
-                        "random_citizen_eligible": False,
+                        "citizen_placement_allowed": False,
                     },
                 },
             })
@@ -2444,22 +2586,28 @@ class ContentManagerTests(unittest.TestCase):
                 "schema_version": 1,
                 "buildings": {"cobbleventure:houses/one_story": {
                     "fixed_npcs": {"resident": "cobbleventure:npc/resident"},
-                    "random_citizen_eligible": True,
+                    "citizen_placement_allowed": True,
                 }},
             })
 
-            self.assertTrue(any("시민 주택에는 고정 NPC" in issue.message for issue in issues))
+            self.assertTrue(any("시민 수용 건물에는 고정 NPC" in issue.message for issue in issues))
 
-    def test_building_settings_web_tab_is_present(self) -> None:
+    def test_building_settings_are_integrated_into_nbt_tab(self) -> None:
         web_root = Path(__file__).parents[1] / "web"
         markup = (web_root / "index.html").read_text(encoding="utf-8")
         script = (web_root / "app.js").read_text(encoding="utf-8")
-        self.assertIn('data-section="building-settings"', markup)
+        self.assertNotIn('data-section="building-settings"', markup)
+        self.assertEqual(1, markup.count('id="structures"'))
+        structures = markup.split('<section class="page" id="structures">', 1)[1].split(
+            '<section class="page" id="biomes">', 1
+        )[0]
+        self.assertIn("NBT 건물 설정", structures)
         self.assertIn('id="building-model-canvas"', markup)
         self.assertIn('id="building-npc-assignments"', markup)
+        self.assertIn('id="save-building-settings"', structures)
         self.assertIn("/api/building-settings", script)
         self.assertIn("npc_labels", script)
-        self.assertIn("random_citizen_eligible", script)
+        self.assertIn("citizen_placement_allowed", script)
 
     def test_document_creation_api(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -34,3 +34,10 @@ type="required"
 versionRange="[${cobblemon_version},1.8)"
 ordering="AFTER"
 side="BOTH"
+
+[[dependencies.cobbleventure_bootstrap]]
+modId="cobbledollars"
+type="required"
+versionRange="[2.0.0,)"
+ordering="AFTER"
+side="BOTH"

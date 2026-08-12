@@ -17,18 +17,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "temperate",
-        "humidity": "normal",
+        "temperature": "any",
+        "humidity": "any",
         "weather": "any",
         "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -52,18 +52,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "temperate",
-        "humidity": "humid",
+        "temperature": "any",
+        "humidity": "any",
         "weather": "any",
         "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -81,18 +81,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "hot",
-        "humidity": "dry",
-        "weather": "clear",
+        "temperature": "any",
+        "humidity": "any",
+        "weather": "any",
         "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -111,18 +111,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "cool",
-        "humidity": "normal",
+        "temperature": "any",
+        "humidity": "any",
         "weather": "any",
         "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -141,18 +141,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "cool",
-        "humidity": "normal",
+        "temperature": "any",
+        "humidity": "any",
         "weather": "any",
-        "time": "night",
+        "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -170,18 +170,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "temperate",
-        "humidity": "humid",
-        "weather": "rain",
+        "temperature": "any",
+        "humidity": "any",
+        "weather": "any",
         "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -199,18 +199,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "temperate",
-        "humidity": "aquatic",
-        "weather": "rain",
+        "temperature": "any",
+        "humidity": "any",
+        "weather": "any",
         "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -230,18 +230,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "temperate",
-        "humidity": "aquatic",
-        "weather": "rain",
+        "temperature": "any",
+        "humidity": "any",
+        "weather": "any",
         "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -261,18 +261,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "cold",
-        "humidity": "normal",
-        "weather": "snow",
+        "temperature": "any",
+        "humidity": "any",
+        "weather": "any",
         "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -289,18 +289,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "hot",
-        "humidity": "dry",
-        "weather": "clear",
+        "temperature": "any",
+        "humidity": "any",
+        "weather": "any",
         "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -317,18 +317,18 @@
       ],
       "settings": {
         "generation": 0,
-        "temperature": "temperate",
-        "humidity": "normal",
+        "temperature": "any",
+        "humidity": "any",
         "weather": "any",
         "time": "any",
         "rarities": [
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -351,10 +351,10 @@
           "common",
           "medium",
           "uncommon",
-          "rare",
-          "legendary"
+          "rare"
         ],
-        "include_secondary": true
+        "include_secondary": true,
+        "habitat_variant": 0
       },
       "forced_includes": [],
       "excluded_pokemon": []
@@ -383,5 +383,6 @@
       ],
       "unconditional_spawns": []
     }
-  ]
+  ],
+  "max_pokemon_per_habitat_variant": 40
 }

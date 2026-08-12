@@ -117,7 +117,9 @@ def graph_reward_commands(document: dict, start_battle: dict, result_key: str = 
     return commands
 
 
-def command_reward_commands(commands: list[dict], target: str | None) -> list[str]:
+def command_reward_commands(
+    commands: list[dict], target: str | None, skip_give_money: bool = False
+) -> list[str]:
     labels = {
         command.get("name"): index
         for index, command in enumerate(commands)
@@ -144,6 +146,9 @@ def command_reward_commands(commands: list[dict], target: str | None) -> list[st
         elif command_type == "grant_loot":
             result.append(f"cobbleventurebag loot @1 {command['loot_table']}")
         elif command_type in {"give_money", "take_money"}:
+            if command_type == "give_money" and skip_give_money:
+                index += 1
+                continue
             currency = command.get("currency_objective", "cobbleventure_money")
             if command.get("mode") == "fixed":
                 verb = "remove" if command_type == "take_money" else "give"
@@ -171,6 +176,36 @@ def command_reward_commands(commands: list[dict], target: str | None) -> list[st
     return result
 
 
+def npc_money_reward_commands(document: dict) -> list[str]:
+    money = document.get("npc", {}).get("battle_rewards", {}).get("money", {})
+    if not money.get("enabled"):
+        return []
+    held_bonus = str(bool(money.get("held_item_bonus", True))).lower()
+    held_item = money.get("held_item", "cobblemon:amulet_coin")
+    held_multiplier = int(money.get("held_item_multiplier", 2))
+    if money.get("mode") == "regional_level":
+        command = (
+            "cobbleventure_reward money @1 regional "
+            f"{int(money.get('fallback_region_level', 5))} "
+            f"{int(money.get('per_level', 20))} {int(money.get('offset', 0))} "
+            f"{held_bonus} {held_item} {held_multiplier}"
+        )
+    else:
+        command = (
+            f"cobbleventure_reward money @1 fixed {int(money.get('amount', 0))} "
+            f"{held_bonus} {held_item} {held_multiplier}"
+        )
+    for condition in money.get("conditions", []):
+        if condition.get("type") == "flag_equals":
+            value = condition.get("value", True)
+            if isinstance(value, bool):
+                value = 1 if value else 0
+            command = (
+                f"execute if score @1 {flag_objective(condition['key'])} matches {value} run {command}"
+            )
+    return [command]
+
+
 def reward_commands(
     document: dict,
     start_battle: dict | None = None,
@@ -181,10 +216,17 @@ def reward_commands(
             (event for event in document.get("events", []) if start_battle in event.get("commands", [])),
             None,
         )
-        return command_reward_commands(
+        npc_money_enabled = bool(
+            document.get("npc", {}).get("battle_rewards", {}).get("money", {}).get("enabled")
+        )
+        commands = command_reward_commands(
             event.get("commands", []) if event else [],
             (start_battle or {}).get("results", {}).get(result_key),
+            skip_give_money=npc_money_enabled and result_key == "player_win",
         )
+        if result_key == "player_win":
+            commands.extend(npc_money_reward_commands(document))
+        return commands
     if document.get("schema_version") == 3:
         return graph_reward_commands(document, start_battle or {}, result_key)
     if result_key == "player_loss":
@@ -310,7 +352,10 @@ def battle_command(document: dict, start_battle: dict | None = None) -> str:
     ]
     if callbacks:
         command += " onwin {" + ",".join(callbacks) + "}"
-    return command
+    # The wrapper shows the client-side trainer cut-in and executes this exact
+    # TBCS command after the animation. Keeping both selectors in the nested
+    # command preserves EasyNPC's initiator/NPC macro expansion.
+    return f"/cobbleventure_battle_intro @initiator @s {command.removeprefix('/')}"
 
 
 def command_action(command: str) -> str:

@@ -3,18 +3,50 @@
   "schema_version": 3,
   "id": "cobbleventure:settlement/skyreach_town",
   "enabled": true,
-  "display_name": { "ko_kr": "석영고원", "en_us": "Indigo Plateau" },
+  "display_name": {
+    "ko_kr": "석영고원",
+    "en_us": "Indigo Plateau"
+  },
   "region": "cobbleventure:generation_1/region_05",
   "dimension": "cobbleventure:generation_1",
   "town_radius_cells": 7,
-  "bounds": { "min_x": 1185, "min_z": -764, "max_x": 1345, "max_z": -604 },
-  "center": { "x": 1265, "y": 77, "z": -684 },
+  "bounds": {
+    "min_x": 1185,
+    "min_z": -764,
+    "max_x": 1345,
+    "max_z": -604
+  },
+  "center": {
+    "x": 1265,
+    "y": 77,
+    "z": -684
+  },
   "anchors": {
-    "town_square": { "x": 1265, "y": 77, "z": -684 },
-    "special_district": { "x": 1185, "y": 77, "z": -684 },
-    "gym_building": { "x": 1397, "y": 77, "z": -694 },
-    "gym_entrance": { "x": 1396, "y": 78, "z": -684 },
-    "gym_return": { "x": 1396, "y": 78, "z": -687 }
+    "town_square": {
+      "x": 1265,
+      "y": 77,
+      "z": -684
+    },
+    "special_district": {
+      "x": 1185,
+      "y": 77,
+      "z": -684
+    },
+    "gym_building": {
+      "x": 1397,
+      "y": 77,
+      "z": -694
+    },
+    "gym_entrance": {
+      "x": 1396,
+      "y": 78,
+      "z": -684
+    },
+    "gym_return": {
+      "x": 1396,
+      "y": 78,
+      "z": -687
+    }
   },
   "content_profile": {
     "pokemon": {
@@ -33,9 +65,14 @@
       ]
     },
     "level_scaling": {
-      "mode": "badge_and_region", "base_level": 30, "min_level": 26,
-      "max_level": 48, "per_badge": 2, "per_region": 3,
-      "pokemon_offset": 1, "trainer_offset": 3
+      "mode": "badge_and_region",
+      "base_level": 30,
+      "min_level": 26,
+      "max_level": 48,
+      "per_badge": 2,
+      "per_region": 3,
+      "pokemon_offset": 1,
+      "trainer_offset": 3
     }
   },
   "biome_layout": {
@@ -49,10 +86,30 @@
         "placement": "center",
         "weight": 5,
         "habitat_profile": "cobbleventure:biome_profile/mountain",
-        "spawn_settings": { "generation": 1, "temperature": "cool", "humidity": "normal", "weather": "any", "time": "any", "rarities": ["medium", "uncommon", "rare"], "include_secondary": true }
+        "spawn_settings": {
+          "generation": 0,
+          "series": "kanto",
+          "temperature": "any",
+          "humidity": "any",
+          "weather": "any",
+          "time": "any",
+          "rarities": [
+            "common",
+            "medium",
+            "uncommon",
+            "rare"
+          ],
+          "include_secondary": true,
+          "habitat_variant": 0
+        }
       }
     ],
-    "boundary": { "profile": "cobbleventure:boundary/earthwork", "width": 10, "wall_height": 8, "wall_thickness": 5 }
+    "boundary": {
+      "profile": "cobbleventure:boundary/earthwork",
+      "width": 10,
+      "wall_height": 8,
+      "wall_thickness": 5
+    }
   },
   "connections": [],
   "structure_profile": {
@@ -61,14 +118,22 @@
     "village_preset": "default_mid",
     "commercial_center": "preset",
     "house_style": "bca:default/general",
-    "required_facilities": { "village_hub": "cobbleventure:skyreach_town/village_hub" },
+    "required_facilities": {
+      "village_hub": "cobbleventure:skyreach_town/village_hub"
+    },
     "special_district": {
       "enabled": true,
       "anchor": "special_district",
       "placement_mode": "manual",
-      "footprint": { "width": 8, "depth": 8 },
+      "footprint": {
+        "width": 8,
+        "depth": 8
+      },
       "clearance": 6,
-      "building": { "enabled": false, "structure": "" }
+      "building": {
+        "enabled": false,
+        "structure": ""
+      }
     },
     "gym": {
       "enabled": false,
@@ -86,9 +151,18 @@
     "zones": [
       {
         "id": "town_square",
-        "bounds": { "min_x": 1243, "min_z": -706, "max_x": 1287, "max_z": -662 },
+        "bounds": {
+          "min_x": 1243,
+          "min_z": -706,
+          "max_x": 1287,
+          "max_z": -662
+        },
         "max_npcs": 6,
-        "tags": ["ambient", "resident", "mountain"]
+        "tags": [
+          "ambient",
+          "resident",
+          "mountain"
+        ]
       }
     ]
   }

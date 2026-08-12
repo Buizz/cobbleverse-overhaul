@@ -34,9 +34,17 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn("DialogDataSet", preset)
         self.assertIn("HAS_ITEM_IN_INVENTORY", preset)
         self.assertIn("tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:ai_test", preset)
+        self.assertIn(
+            "cobbleventure_battle_intro @initiator @s tbcs battle GEN_9_SINGLES",
+            preset,
+        )
         self.assertNotIn(" vs @npc as ", preset)
         self.assertIn('Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"', preset)
-        self.assertIn("cobbledollars give @1 500", preset)
+        self.assertIn(
+            "cobbleventure_reward money @1 regional 20 20 100 true cobblemon:amulet_coin 2",
+            preset,
+        )
+        self.assertNotIn("cobbledollars give @1 500", preset)
         self.assertIn("cobbleventurebag loot @1 cobbleventure:trainer/ai_test_rewards", preset)
         self.assertIn(
             "easy_npc dialog open @npc-uuid @initiator after_victory",
@@ -55,6 +63,23 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             preset,
         )
         self.assertIn("ON_INTERACTION", preset)
+
+    def test_npc_money_setting_overrides_legacy_event_money(self) -> None:
+        commands = self.document["events"][0]["commands"]
+        reward_label = next(
+            index
+            for index, command in enumerate(commands)
+            if command.get("type") == "label" and command.get("name") == "victory_reward"
+        )
+        commands.insert(
+            reward_label + 1,
+            {"type": "give_money", "mode": "fixed", "amount": 9999},
+        )
+
+        preset = generator.encounter_preset_snbt(self.document, self.outfit)
+
+        self.assertEqual(preset.count("cobbleventure_reward money @1 regional"), 2)
+        self.assertNotIn("cobbledollars give @1 9999", preset)
 
     def test_new_npc_routes_from_instance_state_not_global_victory_flag(self) -> None:
         preset = generator.encounter_preset_snbt(self.document, self.outfit)

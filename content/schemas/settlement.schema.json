@@ -204,7 +204,7 @@
     "shop_configuration": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["catalog_id", "vendor_units"],
+      "required": ["catalog_id", "vendor_units", "assignments"],
       "properties": {
         "catalog_id": { "$ref": "#/$defs/resource_id" },
         "vendor_units": {
@@ -212,6 +212,18 @@
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/resource_id" },
           "description": "NPC·역할·판매 품목을 함께 보존하는 판매원 카탈로그 단위 ID"
+        },
+        "assignments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["slot_id", "vendor_unit"],
+            "properties": {
+              "slot_id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+              "vendor_unit": { "$ref": "#/$defs/resource_id" }
+            }
+          }
         }
       }
     },
@@ -294,9 +306,11 @@
     "spawn_settings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["generation", "temperature", "humidity", "weather", "time", "rarities", "include_secondary"],
+      "required": ["generation", "habitat_variant", "temperature", "humidity", "weather", "time", "rarities", "include_secondary"],
       "properties": {
         "generation": { "type": "integer", "minimum": 0, "maximum": 9 },
+        "series": { "type": "string", "pattern": "^[a-z0-9_-]+$" },
+        "habitat_variant": { "type": "integer", "minimum": 0 },
         "temperature": { "enum": ["any", "cold", "cool", "temperate", "hot"] },
         "humidity": { "enum": ["any", "dry", "normal", "humid", "aquatic"] },
         "weather": { "enum": ["any", "clear", "rain", "thunder", "snow", "fog"] },

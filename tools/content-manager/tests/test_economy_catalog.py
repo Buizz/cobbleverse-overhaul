@@ -32,6 +32,7 @@ class EconomyCatalogTests(unittest.TestCase):
                 "display_name": "기술머신 백화점",
                 "facility_scope": "department_store",
                 "vendor_units": ["cobbleventure:vendor/tm_clerk"],
+                "assignments": [{"slot_id": "1f_left_a", "display_name": "1층 왼쪽 A", "vendor_unit": "cobbleventure:vendor/tm_clerk"}],
             }],
             "vendor_units": [{
                 "id": "cobbleventure:vendor/tm_clerk",
@@ -44,6 +45,7 @@ class EconomyCatalogTests(unittest.TestCase):
                     "offers": [{"item": "cobblemon:poke_ball", "count": 1, "price": "3000"}],
                 }],
             }],
+            "pokemon_drop_rules": [],
             "pokemon_drop_overrides": [{
                 "species": "cobblemon:geodude",
                 "amount": 3,
@@ -83,6 +85,47 @@ class EconomyCatalogTests(unittest.TestCase):
         self.assertIn("bca:shopkeeper_ds_special_balls", by_id)
         self.assertEqual("특수 볼 판매원", by_id["bca:shopkeeper_ds_special_balls"]["role"])
         self.assertTrue(by_id["bca:shopkeeper_ds_special_balls"]["categories"])
+
+    def test_type_rule_matches_many_species_without_individual_editing(self):
+        rule = {"match": {"types": ["electric"], "generations": [1]}}
+        pikachu = {"species": "cobblemon:pikachu", "types": ["electric"], "generation": 1}
+        charmander = {"species": "cobblemon:charmander", "types": ["fire"], "generation": 1}
+        self.assertTrue(content_manager._economy_rule_matches(rule, pikachu))
+        self.assertFalse(content_manager._economy_rule_matches(rule, charmander))
+
+    def test_editor_catalog_contains_korean_names(self):
+        species = content_manager._economy_pokemon_drops_from_cobblemon(ROOT)
+        editor = content_manager._economy_editor_catalog(ROOT, species)
+        self.assertEqual(1025, len(editor["species"]))
+        pikachu = next(entry for entry in editor["species"] if entry["species"] == "cobblemon:pikachu")
+        poke_ball = next(entry for entry in editor["items"] if entry["id"] == "cobblemon:poke_ball")
+        self.assertEqual("피카츄", pikachu["ko_kr"])
+        self.assertEqual("몬스터볼", poke_ball["ko_kr"])
+
+    def test_drop_rule_generates_cobblemon_species_override(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            species_root = root / ".tmp/cobblemon-1.7.3-source/common/src/main/resources/data/cobblemon/species"
+            pikachu = species_root / "generation1/pikachu.json"
+            pikachu.parent.mkdir(parents=True)
+            pikachu.write_text(json.dumps({
+                "name": "Pikachu", "nationalPokedexNumber": 25,
+                "primaryType": "electric", "labels": ["gen1"], "eggGroups": ["field"],
+                "height": 4, "drops": {"amount": 1, "entries": []},
+            }), encoding="utf-8")
+            content_manager._economy_pokemon_drops_from_cobblemon.cache_clear()
+            issues = content_manager._write_economy_species_overrides(root, {
+                "pokemon_drop_rules": [{
+                    "id": "cobbleventure:drop_rule/electric", "enabled": True,
+                    "priority": 0, "match": {"types": ["electric"]}, "mode": "append",
+                    "amount": 2, "entries": [{"item": "cobblemon:thunder_stone", "percentage": 10.0}],
+                }],
+                "pokemon_drop_overrides": [],
+            })
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            output = root / "projects/cobbleventure-world-bootstrap/src/generated/resources/data/cobblemon/species/generation1/pikachu.json"
+            generated = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual("cobblemon:thunder_stone", generated["drops"]["entries"][0]["item"])
 
     def test_api_returns_resolved_catalog_and_saves_only_overrides(self):
         with tempfile.TemporaryDirectory() as directory:

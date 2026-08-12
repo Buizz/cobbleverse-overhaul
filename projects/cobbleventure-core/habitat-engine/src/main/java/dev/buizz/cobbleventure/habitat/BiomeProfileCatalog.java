@@ -4,10 +4,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public record BiomeProfileCatalog(int schemaVersion, List<BiomeProfile> profiles, List<BiomeSet> sets) {
+public record BiomeProfileCatalog(
+    int schemaVersion,
+    int maxPokemonPerHabitatVariant,
+    List<BiomeProfile> profiles,
+    List<BiomeSet> sets
+) {
     public BiomeProfileCatalog {
+        maxPokemonPerHabitatVariant = maxPokemonPerHabitatVariant <= 0 ? 40 : maxPokemonPerHabitatVariant;
         profiles = profiles == null ? List.of() : List.copyOf(profiles);
         sets = sets == null ? List.of() : List.copyOf(sets);
+    }
+
+    public BiomeProfileCatalog(int schemaVersion, List<BiomeProfile> profiles, List<BiomeSet> sets) {
+        this(schemaVersion, 40, profiles, sets);
     }
 
     public record BiomeProfile(

@@ -16,14 +16,42 @@
     "max_x": 1899,
     "max_z": -28
   },
-  "center": { "x": 1819, "y": 69, "z": -108 },
+  "center": {
+    "x": 1819,
+    "y": 69,
+    "z": -108
+  },
   "anchors": {
-    "town_square": { "x": 1819, "y": 69, "z": -108 },
-    "special_district": { "x": 1739, "y": 69, "z": -108 },
-    "gym_building": { "x": 1951, "y": 69, "z": -118 },
-    "gym_entrance": { "x": 1950, "y": 70, "z": -108 },
-    "gym_return": { "x": 1950, "y": 70, "z": -111 },
-    "harbor": { "x": 1779, "y": 69, "z": -108 }
+    "town_square": {
+      "x": 1819,
+      "y": 69,
+      "z": -108
+    },
+    "special_district": {
+      "x": 1739,
+      "y": 69,
+      "z": -108
+    },
+    "gym_building": {
+      "x": 1951,
+      "y": 69,
+      "z": -118
+    },
+    "gym_entrance": {
+      "x": 1950,
+      "y": 70,
+      "z": -108
+    },
+    "gym_return": {
+      "x": 1950,
+      "y": 70,
+      "z": -111
+    },
+    "harbor": {
+      "x": 1779,
+      "y": 69,
+      "z": -108
+    }
   },
   "content_profile": {
     "pokemon": {
@@ -64,7 +92,22 @@
         "placement": "center",
         "weight": 5,
         "habitat_profile": "cobbleventure:biome_profile/coast",
-        "spawn_settings": { "generation": 1, "temperature": "warm", "humidity": "aquatic", "weather": "any", "time": "any", "rarities": ["common", "medium", "uncommon", "rare"], "include_secondary": true }
+        "spawn_settings": {
+          "generation": 0,
+          "series": "kanto",
+          "temperature": "any",
+          "humidity": "any",
+          "weather": "any",
+          "time": "any",
+          "rarities": [
+            "common",
+            "medium",
+            "uncommon",
+            "rare"
+          ],
+          "include_secondary": true,
+          "habitat_variant": 0
+        }
       }
     ],
     "boundary": {
@@ -88,9 +131,15 @@
       "enabled": true,
       "anchor": "special_district",
       "placement_mode": "manual",
-      "footprint": { "width": 8, "depth": 8 },
+      "footprint": {
+        "width": 8,
+        "depth": 8
+      },
       "clearance": 6,
-      "building": { "enabled": false, "structure": "" }
+      "building": {
+        "enabled": false,
+        "structure": ""
+      }
     },
     "gym": {
       "enabled": true,
@@ -122,7 +171,11 @@
           "max_z": -86
         },
         "max_npcs": 7,
-        "tags": ["ambient", "resident", "island"]
+        "tags": [
+          "ambient",
+          "resident",
+          "island"
+        ]
       }
     ]
   }

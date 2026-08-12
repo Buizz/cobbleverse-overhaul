@@ -4,5 +4,17 @@
   "message.cobbleventure_bootstrap.pokemon_center_return": "모든 포켓몬이 쓰러져 마지막 포켓몬센터로 돌아왔습니다.",
   "message.cobbleventure_bootstrap.pokemon_center_fallback_return": "모든 포켓몬이 쓰러져 시작 지점으로 돌아왔습니다.",
   "message.cobbleventure_bootstrap.pokemon_center_missing": "돌아갈 포켓몬센터를 찾을 수 없습니다.",
-  "message.cobbleventure_bootstrap.poke_ball_requires_battle": "포켓몬과 전투 중일 때만 몬스터볼을 사용할 수 있습니다."
+  "message.cobbleventure_bootstrap.pokemon_center_nurse_greeting": "간호순: 많이 힘드셨군요. 포켓몬들을 치료해 드릴게요.",
+  "message.cobbleventure_bootstrap.pokemon_center_nurse_complete": "간호순: 포켓몬들이 모두 건강해졌습니다. 다시 힘내세요!",
+  "message.cobbleventure_bootstrap.location_title.town": "마을에 들어왔습니다",
+  "message.cobbleventure_bootstrap.location_title.route": "도로에 진입했습니다",
+  "message.cobbleventure_bootstrap.location_title.route_number": "%s번 도로",
+  "message.cobbleventure_bootstrap.location_title.mt_moon_west": "달맞이산 서쪽 길",
+  "message.cobbleventure_bootstrap.location_title.mt_moon_east": "달맞이산 동쪽 길",
+  "message.cobbleventure_bootstrap.poke_ball_requires_battle": "포켓몬과 전투 중일 때만 몬스터볼을 사용할 수 있습니다.",
+  "message.cobbleventure_bootstrap.no_usable_pokemon": "%s는 싸울 수 있는 포켓몬이 없다!",
+  "message.cobbleventure_bootstrap.battle_forfeit": "%s는 승부를 포기했다!",
+  "message.cobbleventure_bootstrap.battle_money_lost": "%s원을 잃었다…",
+  "message.cobbleventure_bootstrap.battle_money_paid": "%1$s원을 %2$s에게 줬다…",
+  "message.cobbleventure_bootstrap.battle_opponent": "상대"
 }

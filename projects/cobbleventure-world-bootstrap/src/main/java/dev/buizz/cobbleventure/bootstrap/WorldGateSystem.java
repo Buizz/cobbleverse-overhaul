@@ -60,10 +60,14 @@ final class WorldGateSystem {
                 new CobbleventureBootstrap.HexCoord(
                     anchor.get("q").getAsInt(), anchor.get("r").getAsInt()
                 ),
-                requiredString(value, "resource"),
+                nullableString(value, "resource"),
                 value.has("rotation") ? value.get("rotation").getAsInt() : 0,
                 optionalString(properties, "facing", "north"),
+                optionalBoolean(properties, "building_enabled", true),
+                optionalString(properties, "surrounding_type", "wall"),
                 optionalString(properties, "wall_block", "minecraft:stone_bricks"),
+                optionalString(properties, "tree_log", "minecraft:oak_log"),
+                optionalString(properties, "tree_leaves", "minecraft:oak_leaves"),
                 optionalInt(properties, "wall_thickness", 5),
                 optionalInt(properties, "wall_height", 7),
                 optionalInt(properties, "opening_width", 7),
@@ -117,11 +121,33 @@ final class WorldGateSystem {
         if (level.getBlockState(marker).is(Blocks.RESPAWN_ANCHOR)) {
             return;
         }
-        BlockState wall = blockState(gate.wallBlock());
         boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
         int halfLength = Math.max(16, grid.radius() - 3);
         int halfThickness = gate.wallThickness() / 2;
         int halfOpening = gate.openingWidth() / 2;
+        if (gate.surroundingType().equals("wall")) {
+            placeWallSurroundings(level, gate, center, horizontal, halfLength, halfThickness, halfOpening);
+        } else if (gate.surroundingType().equals("trees")) {
+            placeTreeSurroundings(level, gate, center, horizontal, halfLength, halfThickness, halfOpening);
+        }
+        if (gate.buildingEnabled()) {
+            placeStructure(level, gate, center, centerY);
+        }
+        if (gate.npc() != null) {
+            spawnNpc(level, gate, center, centerY);
+        }
+        level.setBlock(marker, Blocks.RESPAWN_ANCHOR.defaultBlockState(), 2);
+        LOGGER.info(
+            "World gate generated: id={}, anchor={}, facing={}, building={}, surroundings={}",
+            gate.id(), gate.anchor(), gate.facing(), gate.buildingEnabled(), gate.surroundingType()
+        );
+    }
+
+    private static void placeWallSurroundings(
+        ServerLevel level, Gate gate, CobbleventureBootstrap.Point center,
+        boolean horizontal, int halfLength, int halfThickness, int halfOpening
+    ) {
+        BlockState wall = blockState(gate.wallBlock());
         for (int along = -halfLength; along <= halfLength; along++) {
             for (int across = -halfThickness; across <= halfThickness; across++) {
                 int x = center.x() + (horizontal ? along : across);
@@ -129,35 +155,54 @@ final class WorldGateSystem {
                 int groundY = groundY(level, x, z);
                 boolean opening = Math.abs(along) <= halfOpening;
                 for (int height = 1; height <= gate.wallHeight(); height++) {
-                    level.setBlock(
-                        new BlockPos(x, groundY + height, z),
-                        opening ? Blocks.AIR.defaultBlockState() : wall,
-                        2
-                    );
+                    level.setBlock(new BlockPos(x, groundY + height, z),
+                        opening ? Blocks.AIR.defaultBlockState() : wall, 2);
                 }
-                for (int height = gate.wallHeight() + 1;
-                     height <= gate.barrierHeight(); height++) {
-                    level.setBlock(
-                        new BlockPos(x, groundY + height, z),
-                        Blocks.BARRIER.defaultBlockState(), 2
-                    );
-                }
+                placeOverheadBarrier(level, x, z, groundY, gate.wallHeight(), gate.barrierHeight());
             }
         }
-        placeStructure(level, gate, center, centerY);
-        if (gate.npc() != null) {
-            spawnNpc(level, gate, center, centerY);
+    }
+
+    private static void placeTreeSurroundings(
+        ServerLevel level, Gate gate, CobbleventureBootstrap.Point center,
+        boolean horizontal, int halfLength, int halfThickness, int halfOpening
+    ) {
+        BlockState log = blockState(gate.treeLog());
+        BlockState leaves = blockState(gate.treeLeaves());
+        for (int along = -halfLength; along <= halfLength; along++) {
+            for (int across = -halfThickness; across <= halfThickness; across++) {
+                int x = center.x() + (horizontal ? along : across);
+                int z = center.z() + (horizontal ? across : along);
+                int groundY = groundY(level, x, z);
+                boolean opening = Math.abs(along) <= halfOpening;
+                for (int height = 1; height <= gate.wallHeight(); height++) {
+                    BlockState state = opening ? Blocks.AIR.defaultBlockState() : leaves;
+                    if (!opening && across == 0 && Math.floorMod(along, 4) == 0
+                        && height < gate.wallHeight()) {
+                        state = log;
+                    }
+                    level.setBlock(new BlockPos(x, groundY + height, z), state, 2);
+                }
+                placeOverheadBarrier(level, x, z, groundY, gate.wallHeight(), gate.barrierHeight());
+            }
         }
-        level.setBlock(marker, Blocks.RESPAWN_ANCHOR.defaultBlockState(), 2);
-        LOGGER.info(
-            "World gate generated: id={}, anchor={}, facing={}, structure={}",
-            gate.id(), gate.anchor(), gate.facing(), gate.structure()
-        );
+    }
+
+    private static void placeOverheadBarrier(
+        ServerLevel level, int x, int z, int groundY, int visibleHeight, int barrierHeight
+    ) {
+        for (int height = visibleHeight + 1; height <= barrierHeight; height++) {
+            level.setBlock(new BlockPos(x, groundY + height, z), Blocks.BARRIER.defaultBlockState(), 2);
+        }
     }
 
     private static void placeStructure(
         ServerLevel level, Gate gate, CobbleventureBootstrap.Point center, int groundY
     ) {
+        if (gate.structure() == null) {
+            LOGGER.error("Gate building is enabled but structure is missing: gate={}", gate.id());
+            return;
+        }
         ResourceLocation structureId = ResourceLocation.tryParse(gate.structure());
         var template = structureId == null
             ? java.util.Optional.<net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate>empty()
@@ -324,6 +369,10 @@ final class WorldGateSystem {
         return value.has(key) ? value.get(key).getAsInt() : fallback;
     }
 
+    private static boolean optionalBoolean(JsonObject value, String key, boolean fallback) {
+        return value.has(key) ? value.get(key).getAsBoolean() : fallback;
+    }
+
     sealed interface Condition permits VariableCondition, ItemCondition, PokemonCondition {
         boolean matches(ServerPlayer player);
     }
@@ -381,7 +430,11 @@ final class WorldGateSystem {
         String structure,
         int rotation,
         String facing,
+        boolean buildingEnabled,
+        String surroundingType,
         String wallBlock,
+        String treeLog,
+        String treeLeaves,
         int wallThickness,
         int wallHeight,
         int openingWidth,

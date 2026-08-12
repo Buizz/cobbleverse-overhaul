@@ -4,6 +4,7 @@
   "vanilla_crafting_disabled": true,
   "shop_catalogs": [],
   "vendor_units": [],
+  "pokemon_drop_rules": [],
   "pokemon_drop_overrides": [],
   "npc_recipes": []
 }
