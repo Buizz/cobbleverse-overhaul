@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import com.cobblemon.mod.common.CobblemonSounds;
+import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -122,14 +123,22 @@ public final class PlayerMenuScreen extends Screen {
             }
         }
 
+        graphics.flush();
+        RenderSystem.enableBlend();
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, transition);
         graphics.pose().pushPose();
-        graphics.pose().translate((1.0F - transition) * 16.0F, 0.0F, 0.0F);
-        renderTrainerPanel(graphics);
-        renderInfoPanel(graphics);
-        renderMenuPanel(graphics);
-        super.render(graphics, mouseX, mouseY, partialTick);
-        renderControls(graphics);
-        graphics.pose().popPose();
+        try {
+            graphics.pose().translate((1.0F - transition) * 16.0F, 0.0F, 0.0F);
+            renderTrainerPanel(graphics);
+            renderInfoPanel(graphics);
+            renderMenuPanel(graphics);
+            super.render(graphics, mouseX, mouseY, partialTick);
+            renderControls(graphics);
+        } finally {
+            graphics.pose().popPose();
+            graphics.flush();
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        }
     }
 
     @Override
@@ -398,7 +407,7 @@ public final class PlayerMenuScreen extends Screen {
     private float transitionProgress() {
         long duration = closing ? CLOSE_ANIMATION_MILLIS : OPEN_ANIMATION_MILLIS;
         float linear = clamp01((System.currentTimeMillis() - transitionStartedAt) / (float) duration);
-        return closing ? 1.0F - easeOutCubic(linear) : easeOutCubic(linear);
+        return closing ? 1.0F - easeInOutCubic(linear) : easeOutCubic(linear);
     }
 
     private float rowTransitionProgress(int index) {
@@ -425,6 +434,14 @@ public final class PlayerMenuScreen extends Screen {
     private static float easeOutCubic(float value) {
         float inverse = 1.0F - value;
         return 1.0F - inverse * inverse * inverse;
+    }
+
+    private static float easeInOutCubic(float value) {
+        if (value < 0.5F) {
+            return 4.0F * value * value * value;
+        }
+        float inverse = -2.0F * value + 2.0F;
+        return 1.0F - inverse * inverse * inverse / 2.0F;
     }
 
     private static int blendColor(int from, int to, float amount) {
