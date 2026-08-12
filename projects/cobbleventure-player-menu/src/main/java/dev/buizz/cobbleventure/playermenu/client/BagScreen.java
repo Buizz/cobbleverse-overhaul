@@ -9,7 +9,6 @@ import java.util.Locale;
 import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
@@ -27,25 +26,27 @@ import org.lwjgl.glfw.GLFW;
 
 /** 검색, 포켓 분류와 실제 인벤토리 조작을 제공하는 가방 화면. */
 public final class BagScreen extends Screen {
-    private static final int PANEL_MAX_WIDTH = 520;
-    private static final int PANEL_MAX_HEIGHT = 300;
+    private static final int PANEL_MAX_WIDTH = 640;
+    private static final int PANEL_MAX_HEIGHT = 360;
     private static final int PANEL_PADDING = 8;
     private static final int TAB_HEIGHT = 22;
     private static final int SLOT_SIZE = 20;
     private static final int LIST_ROW_HEIGHT = 21;
     private static final int DETAIL_HEIGHT = 70;
 
-    private static final int SHADOW_COLOR = 0xB0000000;
-    private static final int PANEL_COLOR = 0xF05A5A5A;
-    private static final int PANEL_DARK_COLOR = 0xFF303030;
-    private static final int PANEL_LIGHT_COLOR = 0xFF888888;
-    private static final int SLOT_COLOR = 0xE0444444;
-    private static final int SLOT_HOVER_COLOR = 0xF05A5A5A;
-    private static final int SLOT_SELECTED_COLOR = 0xFFF0F0F0;
+    private static final int SHADOW_COLOR = 0x99000000;
+    private static final int PANEL_COLOR = 0xF01D2630;
+    private static final int PANEL_DARK_COLOR = 0xFF10171E;
+    private static final int PANEL_LIGHT_COLOR = 0xFF34444F;
+    private static final int SLOT_COLOR = 0xD0222D37;
+    private static final int SLOT_HOVER_COLOR = 0xE0374650;
+    private static final int SLOT_SELECTED_COLOR = 0xFFF0F3F5;
     private static final int PRIMARY_TEXT_COLOR = 0xFFF4F4F4;
     private static final int SECONDARY_TEXT_COLOR = 0xFFD0D0D0;
     private static final int MUTED_TEXT_COLOR = 0xFFA6A6A6;
-    private static final int ACCENT_COLOR = 0xFF91C7A2;
+    private static final int SELECTED_TEXT_COLOR = 0xFF303030;
+    private static final int ACCENT_COLOR = 0xFF5EE4E4;
+    private static final int SEPARATOR_COLOR = 0x553F505B;
 
     private final Screen parent;
     private final List<CategoryButton> categoryButtons = new ArrayList<>();
@@ -55,9 +56,9 @@ public final class BagScreen extends Screen {
     private BagCategory category = BagCategory.ALL;
     private ViewMode viewMode = ViewMode.GRID;
     private EditBox searchBox;
-    private Button useButton;
-    private Button shortcutButton;
-    private Button discardButton;
+    private AbstractButton useButton;
+    private AbstractButton shortcutButton;
+    private AbstractButton discardButton;
     private BagSlotRef selectedSlot;
     private Component statusMessage = Component.empty();
     private String searchValue = "";
@@ -103,13 +104,14 @@ public final class BagScreen extends Screen {
         searchBox.setValue(searchValue);
         searchBox.setHint(Component.translatable("screen.cobbleventure_player_menu.bag.search"));
         searchBox.setMaxLength(48);
+        searchBox.setBordered(false);
         searchBox.setResponder(value -> {
             searchValue = value;
             refreshItems(true);
         });
         addRenderableWidget(searchBox);
-        addRenderableWidget(Button.builder(viewMode.toggleLabel(), ignored -> toggleView())
-            .bounds(panelX + panelWidth - PANEL_PADDING - viewWidth, panelY + 5, viewWidth, 20).build());
+        addRenderableWidget(new RibbonButton(viewMode.toggleLabel(),
+            panelX + panelWidth - PANEL_PADDING - viewWidth, panelY + 5, viewWidth, 20, this::toggleView));
 
         int tabsY = panelY + 29;
         int tabAreaWidth = panelWidth - PANEL_PADDING * 2;
@@ -155,20 +157,20 @@ public final class BagScreen extends Screen {
         int detailY = detailY();
         int actionWidth = Math.max(50, Math.min(78, (panelWidth - 156) / 3));
         int actionX = panelX + panelWidth - PANEL_PADDING - actionWidth * 3 - 4;
-        useButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.bag.use"), ignored -> useSelectedItem())
-            .bounds(actionX, detailY + 8, actionWidth, 20).build());
-        shortcutButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.bag.shortcut"), ignored -> assignShortcut())
-            .bounds(actionX + actionWidth + 2, detailY + 8, actionWidth, 20).build());
-        discardButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.bag.discard"), ignored -> discardSelected())
-            .bounds(actionX + (actionWidth + 2) * 2, detailY + 8, actionWidth, 20).build());
+        useButton = addRenderableWidget(new RibbonButton(
+            Component.translatable("screen.cobbleventure_player_menu.bag.use"),
+            actionX, detailY + 8, actionWidth, 20, this::useSelectedItem));
+        shortcutButton = addRenderableWidget(new RibbonButton(
+            Component.translatable("screen.cobbleventure_player_menu.bag.shortcut"),
+            actionX + actionWidth + 2, detailY + 8, actionWidth, 20, this::assignShortcut));
+        discardButton = addRenderableWidget(new RibbonButton(
+            Component.translatable("screen.cobbleventure_player_menu.bag.discard"),
+            actionX + (actionWidth + 2) * 2, detailY + 8, actionWidth, 20, this::discardSelected));
 
         int footerY = panelY + panelHeight - 27;
-        addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.bag.back"), ignored -> onClose())
-            .bounds(panelX + panelWidth - 74, footerY, 62, 20).build());
+        addRenderableWidget(new RibbonButton(
+            Component.translatable("screen.cobbleventure_player_menu.bag.back"),
+            panelX + panelWidth - 74, footerY, 62, 20, this::onClose));
 
         refreshItems(false);
     }
@@ -352,14 +354,27 @@ public final class BagScreen extends Screen {
     }
 
     private void renderHeader(GuiGraphics graphics) {
-        graphics.renderItem(PlayerMenuEntry.BAG.icon(), panelX + 8, panelY + 7);
-        graphics.drawString(font, title, panelX + 29, panelY + 11, PRIMARY_TEXT_COLOR, false);
+        graphics.fill(panelX + 12, panelY + 3, panelX + 52, panelY + 5, ACCENT_COLOR);
+        fillCircle(graphics, panelX + 18, panelY + 15, 11, PANEL_LIGHT_COLOR);
+        fillCircle(graphics, panelX + 18, panelY + 15, 9, PANEL_DARK_COLOR);
+        graphics.renderItem(PlayerMenuEntry.BAG.icon(), panelX + 10, panelY + 7);
+        graphics.drawString(font, title, panelX + 34, panelY + 11, PRIMARY_TEXT_COLOR, false);
         if (panelWidth >= 430) {
             graphics.drawString(font,
                 Component.translatable("screen.cobbleventure_player_menu.bag.capacity",
                     36, BagNetwork.extendedSlotCount()),
-                panelX + 70, panelY + 11, MUTED_TEXT_COLOR, false);
+                panelX + 88, panelY + 11, MUTED_TEXT_COLOR, false);
         }
+        int searchLeft = searchBox.getX() - 4;
+        int searchTop = searchBox.getY() - 2;
+        fillRoundedRect(graphics, searchLeft, searchTop,
+            searchLeft + searchBox.getWidth() + 8, searchTop + searchBox.getHeight() + 4,
+            8, PANEL_DARK_COLOR);
+        graphics.fill(searchLeft + 8, searchTop + searchBox.getHeight() + 2,
+            searchLeft + searchBox.getWidth(), searchTop + searchBox.getHeight() + 3,
+            searchBox.isFocused() ? ACCENT_COLOR : PANEL_LIGHT_COLOR);
+        graphics.fill(panelX + 12, panelY + 27, panelX + panelWidth - 12, panelY + 28,
+            PANEL_LIGHT_COLOR);
     }
 
     private void renderContentBackground(GuiGraphics graphics) {
@@ -368,8 +383,10 @@ public final class BagScreen extends Screen {
             for (int column = 0; column < contentColumns; column++) {
                 int x = contentX + column * SLOT_SIZE;
                 int y = contentY + row * SLOT_SIZE;
-                graphics.fill(x, y, x + SLOT_SIZE - 1, y + SLOT_SIZE - 1, PANEL_DARK_COLOR);
-                graphics.fill(x + 1, y + 1, x + SLOT_SIZE - 2, y + SLOT_SIZE - 2, SLOT_COLOR);
+                fillRoundedRect(graphics, x, y, x + SLOT_SIZE - 1, y + SLOT_SIZE - 1, 4,
+                    PANEL_DARK_COLOR);
+                fillRoundedRect(graphics, x + 1, y + 1, x + SLOT_SIZE - 2, y + SLOT_SIZE - 2, 3,
+                    SLOT_COLOR);
             }
         }
     }
@@ -378,24 +395,26 @@ public final class BagScreen extends Screen {
         int x = scrollbarX();
         int top = contentY;
         int bottom = contentY + contentHeight();
-        graphics.fill(x, top, x + 5, bottom, PANEL_DARK_COLOR);
+        fillRoundedRect(graphics, x, top, x + 5, bottom, 2, PANEL_DARK_COLOR);
         int maximum = maxScrollRow();
         if (maximum <= 0) {
-            graphics.fill(x + 1, top + 1, x + 4, bottom - 1, SLOT_COLOR);
+            fillRoundedRect(graphics, x + 1, top + 1, x + 4, bottom - 1, 1, SLOT_COLOR);
             return;
         }
         int thumbHeight = scrollbarThumbHeight();
         int travel = Math.max(1, bottom - top - thumbHeight);
         int thumbY = top + Math.round((float)scrollRow / maximum * travel);
-        graphics.fill(x + 1, thumbY, x + 4, thumbY + thumbHeight, ACCENT_COLOR);
+        fillRoundedRect(graphics, x + 1, thumbY, x + 4, thumbY + thumbHeight, 1, ACCENT_COLOR);
     }
 
     private void renderDetails(GuiGraphics graphics) {
         int detailY = detailY();
-        graphics.fill(panelX + PANEL_PADDING, detailY, panelX + panelWidth - PANEL_PADDING,
-            detailY + DETAIL_HEIGHT, PANEL_DARK_COLOR);
-        graphics.fill(panelX + PANEL_PADDING + 1, detailY + 1, panelX + panelWidth - PANEL_PADDING - 1,
-            detailY + DETAIL_HEIGHT - 1, 0xE04A4A4A);
+        fillRoundedRect(graphics, panelX + PANEL_PADDING, detailY,
+            panelX + panelWidth - PANEL_PADDING, detailY + DETAIL_HEIGHT, 7, PANEL_DARK_COLOR);
+        fillRoundedRect(graphics, panelX + PANEL_PADDING + 1, detailY + 1,
+            panelX + panelWidth - PANEL_PADDING - 1, detailY + DETAIL_HEIGHT - 1, 6, SLOT_COLOR);
+        graphics.fill(panelX + PANEL_PADDING + 10, detailY + 1,
+            panelX + PANEL_PADDING + 42, detailY + 3, ACCENT_COLOR);
 
         ItemStack stack = selectedStack();
         int textX = panelX + PANEL_PADDING + 34;
@@ -697,11 +716,47 @@ public final class BagScreen extends Screen {
     }
 
     private static void drawPanel(GuiGraphics graphics, int x, int y, int panelWidth, int panelHeight) {
-        graphics.fill(x + 3, y + 3, x + panelWidth + 3, y + panelHeight + 3, SHADOW_COLOR);
-        graphics.fill(x, y, x + panelWidth, y + panelHeight, PANEL_DARK_COLOR);
-        graphics.fill(x + 1, y + 1, x + panelWidth - 1, y + panelHeight - 1, PANEL_COLOR);
-        graphics.fill(x + 2, y + 2, x + panelWidth - 2, y + 3, PANEL_LIGHT_COLOR);
-        graphics.fill(x + 2, y + 2, x + 3, y + panelHeight - 2, PANEL_LIGHT_COLOR);
+        fillRoundedRect(graphics, x + 4, y + 5, x + panelWidth + 4, y + panelHeight + 5,
+            9, SHADOW_COLOR);
+        fillRoundedRect(graphics, x, y, x + panelWidth, y + panelHeight, 9, PANEL_DARK_COLOR);
+        fillRoundedRect(graphics, x + 1, y + 1, x + panelWidth - 1, y + panelHeight - 1,
+            8, PANEL_COLOR);
+        graphics.fill(x + 12, y + 1, x + panelWidth - 12, y + 2, PANEL_LIGHT_COLOR);
+        graphics.fill(x + panelWidth - 42, y + panelHeight - 3,
+            x + panelWidth - 8, y + panelHeight - 1, ACCENT_COLOR);
+    }
+
+    private static void fillRoundedRect(
+        GuiGraphics graphics,
+        int left,
+        int top,
+        int right,
+        int bottom,
+        int radius,
+        int color
+    ) {
+        int width = Math.max(0, right - left);
+        int height = Math.max(0, bottom - top);
+        int effectiveRadius = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+        for (int row = 0; row < height; row++) {
+            int edgeDistance = Math.min(row, height - 1 - row);
+            int inset = 0;
+            if (edgeDistance < effectiveRadius) {
+                double vertical = effectiveRadius - edgeDistance - 0.5D;
+                inset = effectiveRadius - (int) Math.floor(Math.sqrt(
+                    Math.max(0.0D, effectiveRadius * effectiveRadius - vertical * vertical)
+                ));
+            }
+            graphics.fill(left + inset, top + row, right - inset, top + row + 1, color);
+        }
+    }
+
+    private static void fillCircle(GuiGraphics graphics, int centerX, int centerY, int radius, int color) {
+        for (int y = -radius; y <= radius; y++) {
+            int halfWidth = (int) Math.floor(Math.sqrt(radius * radius - y * y));
+            graphics.fill(centerX - halfWidth, centerY + y,
+                centerX + halfWidth + 1, centerY + y + 1, color);
+        }
     }
 
     private enum ViewMode {
@@ -768,11 +823,19 @@ public final class BagScreen extends Screen {
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             boolean selected = category == buttonCategory;
             int fill = selected ? SLOT_SELECTED_COLOR : (isHovered() ? SLOT_HOVER_COLOR : SLOT_COLOR);
-            int text = selected ? PANEL_DARK_COLOR : PRIMARY_TEXT_COLOR;
-            graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), PANEL_DARK_COLOR);
-            graphics.fill(getX() + 1, getY() + 1, getX() + getWidth() - 1, getY() + getHeight() - 1, fill);
-            if (selected) graphics.fill(getX() + 2, getY() + getHeight() - 3,
-                getX() + getWidth() - 2, getY() + getHeight() - 1, ACCENT_COLOR);
+            int text = selected ? SELECTED_TEXT_COLOR : PRIMARY_TEXT_COLOR;
+            if (selected) {
+                fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+                    getHeight() / 2, ACCENT_COLOR);
+                fillRoundedRect(graphics, getX() + 1, getY() + 1,
+                    getX() + getWidth() - 1, getY() + getHeight() - 1,
+                    Math.max(1, getHeight() / 2 - 1), fill);
+            } else if (isHovered()) {
+                fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+                    getHeight() / 2, fill);
+            }
+            graphics.fill(getX() + 8, getY() + getHeight() - 1,
+                getX() + getWidth() - 8, getY() + getHeight(), SEPARATOR_COLOR);
             graphics.drawCenteredString(font, font.plainSubstrByWidth(getMessage().getString(), getWidth() - 6),
                 getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, text);
         }
@@ -804,10 +867,21 @@ public final class BagScreen extends Screen {
             boolean selected = selectedSlot != null && selectedSlot.samePosition(slot)
                 && !slot.stack().isEmpty();
             int fill = selected ? SLOT_SELECTED_COLOR : (isHovered() ? SLOT_HOVER_COLOR : SLOT_COLOR);
-            int text = selected ? PANEL_DARK_COLOR : PRIMARY_TEXT_COLOR;
-            graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), PANEL_DARK_COLOR);
-            graphics.fill(getX() + 1, getY() + 1, getX() + getWidth() - 1, getY() + getHeight() - 1, fill);
-            if (selected) graphics.fill(getX() + 1, getY() + 1, getX() + getWidth() - 1, getY() + 2, ACCENT_COLOR);
+            int text = selected ? SELECTED_TEXT_COLOR : PRIMARY_TEXT_COLOR;
+            if (selected) {
+                fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+                    viewMode == ViewMode.LIST ? getHeight() / 2 : 4, ACCENT_COLOR);
+                fillRoundedRect(graphics, getX() + 1, getY() + 1,
+                    getX() + getWidth() - 1, getY() + getHeight() - 1,
+                    viewMode == ViewMode.LIST ? Math.max(1, getHeight() / 2 - 1) : 3, fill);
+            } else if (isHovered()) {
+                fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+                    viewMode == ViewMode.LIST ? getHeight() / 2 : 4, fill);
+            }
+            if (viewMode == ViewMode.LIST) {
+                graphics.fill(getX() + 24, getY() + getHeight() - 1,
+                    getX() + getWidth() - 8, getY() + getHeight(), SEPARATOR_COLOR);
+            }
             if (!slot.stack().isEmpty()) {
                 graphics.renderItem(slot.stack(), getX() + 2, getY() + 2);
                 String decoration = slot.displayCount() == slot.stack().getCount()
@@ -829,6 +903,40 @@ public final class BagScreen extends Screen {
 
         @Override
         protected void updateWidgetNarration(NarrationElementOutput output) { defaultButtonNarrationText(output); }
+    }
+
+    private final class RibbonButton extends AbstractButton {
+        private final Runnable action;
+
+        private RibbonButton(Component message, int x, int y, int width, int height, Runnable action) {
+            super(x, y, width, height, message);
+            this.action = action;
+        }
+
+        @Override
+        public void onPress() {
+            if (active) action.run();
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            int border = active && isHovered() ? ACCENT_COLOR : PANEL_LIGHT_COLOR;
+            int fill = active && isHovered() ? SLOT_HOVER_COLOR : PANEL_DARK_COLOR;
+            fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+                getHeight() / 2, border);
+            fillRoundedRect(graphics, getX() + 1, getY() + 1,
+                getX() + getWidth() - 1, getY() + getHeight() - 1,
+                Math.max(1, getHeight() / 2 - 1), fill);
+            int color = active ? (isHovered() ? ACCENT_COLOR : PRIMARY_TEXT_COLOR) : MUTED_TEXT_COLOR;
+            graphics.drawCenteredString(font,
+                font.plainSubstrByWidth(getMessage().getString(), getWidth() - 10),
+                getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, color);
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
+        }
     }
 
     private record BagSlotRef(boolean extended, int slot, ItemStack stack, int displayCount) {
