@@ -1,0 +1,223 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/gym_leader/brock",
+  "enabled": true,
+  "name": {
+    "ko_kr": "관동 체육관 관장 웅",
+    "en_us": "관동 체육관 관장 Brock"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true
+    },
+    "bag": [
+      {
+        "item": "cobblemon:full_heal",
+        "quantity": 1
+      },
+      {
+        "item": "cobblemon:full_restore",
+        "quantity": 2
+      }
+    ],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": true
+    },
+    "team": [
+      {
+        "species": "cobblemon:tyranitar",
+        "level": 53,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "hasty",
+        "ability": "sandstream",
+        "held_item": "cobblemon:smooth_rock",
+        "gimmick": null,
+        "moves": [
+          "tackle"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:rampardos",
+        "level": 53,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "relaxed",
+        "ability": "moldbreaker",
+        "held_item": "cobblemon:life_orb",
+        "gimmick": null,
+        "moves": [
+          "earthquake",
+          "headsmash",
+          "zenheadbutt",
+          "supercellslam"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:lycanroc",
+        "level": 54,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "jolly",
+        "ability": "sandrush",
+        "held_item": "cobblemon:focus_sash",
+        "gimmick": null,
+        "moves": [
+          "accelerock",
+          "closecombat",
+          "crunch",
+          "playrough"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:avalugg",
+        "level": 54,
+        "form": null,
+        "aspects": [
+          "hisuian"
+        ],
+        "gender": "male",
+        "nature": "timid",
+        "ability": "strongjaw",
+        "held_item": "cobblemon:sitrus_berry",
+        "gimmick": null,
+        "moves": [
+          "crunch",
+          "icespinner",
+          "earthquake",
+          "curse"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:glimmora",
+        "level": 56,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "jolly",
+        "ability": "toxicdebris",
+        "held_item": "cobblemon:power_herb",
+        "gimmick": null,
+        "moves": [
+          "mortalspin",
+          "sludgewave",
+          "meteorbeam",
+          "flashcannon"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:rhyperior",
+        "level": 56,
+        "form": null,
+        "aspects": [],
+        "gender": "female",
+        "nature": "lax",
+        "ability": "solidrock",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "earthpower",
+          "rockwrecker",
+          "thunderpunch",
+          "icepunch"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {
+          "hp": 4,
+          "attack": 252,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 252,
+          "speed": 0
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:npc/gym_leader/brock"
+  }
+}

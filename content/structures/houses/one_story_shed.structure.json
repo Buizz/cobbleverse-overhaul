@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/houses/one_story_shed.nbt",
+  "interior_structure": "cobbleventure:interiors/one_story_shed",
+  "anchors": [
+    {
+      "id": "interior_entry",
+      "type": "interior_entry",
+      "position": [
+        9,
+        0,
+        3
+      ],
+      "safe_spawn": [
+        9,
+        0,
+        2
+      ],
+      "door_facing": "north",
+      "safe_side": "north",
+      "dialogue": "cobbleventure:default_enter"
+    },
+    {
+      "id": "interaction_1",
+      "type": "interaction_point",
+      "position": [
+        9,
+        1,
+        3
+      ],
+      "facing": "south"
+    }
+  ]
+}

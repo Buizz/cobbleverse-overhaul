@@ -1,0 +1,259 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/gym_leader/giovanni_gym",
+  "enabled": true,
+  "name": {
+    "ko_kr": "관동 체육관 관장 비주기",
+    "en_us": "관동 체육관 관장 Giovanni"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true
+    },
+    "bag": [
+      {
+        "item": "cobblemon:full_heal",
+        "quantity": 1
+      },
+      {
+        "item": "cobblemon:full_restore",
+        "quantity": 2
+      }
+    ],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": true
+    },
+    "team": [
+      {
+        "species": "cobblemon:hippowdon",
+        "level": 60,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "hardy",
+        "ability": "sandstream",
+        "held_item": "cobblemon:smooth_rock",
+        "gimmick": null,
+        "moves": [
+          "stealthrock",
+          "yawn",
+          "earthquake",
+          "whirlwind"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {
+          "hp": 244,
+          "attack": 0,
+          "defense": 108,
+          "special_attack": 156,
+          "special_defense": 0,
+          "speed": 0
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:nidoking",
+        "level": 60,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "brave",
+        "ability": "sheerforce",
+        "held_item": "cobblemon:focus_sash",
+        "gimmick": null,
+        "moves": [
+          "sludgewave",
+          "earthpower",
+          "flamethrower",
+          "icebeam"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {
+          "hp": 4,
+          "attack": 0,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 252,
+          "speed": 252
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:krookodile",
+        "level": 62,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "gentle",
+        "ability": "moxie",
+        "held_item": "cobblemon:leftovers",
+        "gimmick": null,
+        "moves": [
+          "powertrip",
+          "earthquake",
+          "stoneedge",
+          "aquatail"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {
+          "hp": 244,
+          "attack": 148,
+          "defense": 4,
+          "special_attack": 4,
+          "special_defense": 108,
+          "speed": 0
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:meowth",
+        "level": 64,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "lonely",
+        "ability": "technician",
+        "held_item": "mega_showdown:max_mushroom",
+        "gimmick": null,
+        "moves": [
+          "fakeout",
+          "trailblaze",
+          "covet",
+          "feint"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {
+          "hp": 4,
+          "attack": 252,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 252,
+          "speed": 0
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:beedrill",
+        "level": 64,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "quiet",
+        "ability": "sniper",
+        "held_item": "mega_showdown:beedrillite",
+        "gimmick": null,
+        "moves": [
+          "uturn",
+          "poisonjab",
+          "fellstinger",
+          "brickbreak"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {
+          "hp": 4,
+          "attack": 252,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 252,
+          "speed": 0
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:rhyperior",
+        "level": 64,
+        "form": null,
+        "aspects": [],
+        "gender": "female",
+        "nature": "serious",
+        "ability": "reckless",
+        "held_item": "cobblemon:assault_vest",
+        "gimmick": null,
+        "moves": [
+          "earthquake",
+          "rockblast",
+          "heavyslam",
+          "hammerarm"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {
+          "hp": 132,
+          "attack": 156,
+          "defense": 4,
+          "special_attack": 212,
+          "special_defense": 4,
+          "speed": 0
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:npc/gym_leader/giovanni_gym"
+  }
+}

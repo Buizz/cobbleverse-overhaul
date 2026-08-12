@@ -39,7 +39,7 @@ content/structures/*.nbt
 | Cobblemon, Kotlin for Forge | 포켓몬 관련 블록과 필수 런타임 |
 | Cobblemon Casino, Cloth Config | 카지노 시설 블록과 설정 의존성 |
 | CobbleFurnies, Architectury API, Athena | 가구 블록과 모델 렌더링 |
-| Radical Gyms & Structures | 체육관·리그 건축 리소스 |
+| 프로젝트에 가져온 체육관 NBT | `gyms/*.nbt` 외관을 체크무늬에서 직접 수정 |
 | WorldEdit | 대형 건축 편집, 선택과 복사·붙여넣기 |
 | Cobbleventure Structure Builder | 부지 배치, NBT 캡처와 내보내기 |
 
@@ -129,6 +129,19 @@ CurseForge에서 ZIP을 새 프로필로 임포트한 뒤 월드 목록의
 들어간다. `builder-import`는 이를 원본 NBT 옆의 같은 이름 `.structure.json`으로
 동기화하고, 다음 건축 월드를 생성할 때 다시 복원한다.
 
+외부 건물에서 사용할 내부는 같은 메타데이터에 명시한다. 지붕 색상처럼 외부 리소스
+이름에 변형 접미사가 붙어도 내부 ID는 바뀌지 않는다.
+
+```json
+{
+  "interior_structure": "cobbleventure:interiors/one_story_shed"
+}
+```
+
+메타데이터가 아직 없는 기본 주택은 데이터 모드 빌드가 정면 중앙 개구부를
+`interior_entry`로 등록하고 위 공용 내부를 연결한다. 건축 월드에서 출입구를 직접
+저장한 주택은 작성된 좌표와 명시적 내부 설정을 우선 사용한다.
+
 가변 내부는 `/cobbleventure_builder interior create <id> <폭> <깊이> <층높이> <층수>`로
 만든다. 폭·깊이 5~80, 층 높이 3~12, 1~8층과 전체 높이 80 이하를 지원한다. `save all`은
 동적 내부도 `interiors/<id>.nbt`와 메타데이터로 함께 내보낸다. `/tool npc <라벨>`로
@@ -136,6 +149,10 @@ NPC 모드를 선택한 뒤 바닥을 클릭하면 라벨과 상대 위치만 �
 EasyNPC 프리셋, 방향과 생성 정책은 실제 건물 배치 설정의 책임이다.
 spawn 모드는 자동 도착점을 덮어쓰며 interaction과 patrol 모드는 오브젝트 상호작용 및
 NPC 순찰 경로의 상대 좌표를 예약한다.
+
+체육관 내부의 관장 위치는 `/cobbleventure_builder tool leader`로 바로 NPC 모드와
+`leader` 라벨을 선택한 뒤 바닥을 클릭한다. 이 라벨은 체육관별 관장 EasyNPC의 실제
+소환 위치로 사용되며 모듈 배치 좌표와 회전도 자동 반영된다.
 
 ## 5. 게임 명령
 
@@ -234,7 +251,40 @@ build.bat web
 `tools/content-manager/settings.local.json`에 저장한다. 서버는 브라우저 요청에 임의의
 가져오기 경로를 받지 않고, 저장된 인스턴스의 고정된 월드 경로만 사용한다.
 
-## 10. 관련 문서
+## 10. 공용 내부공간과 공간 이동
+
+내부공간은 특정 주택이나 체육관에 종속되지 않는 공용 NBT로 만든다.
+
+```mcfunction
+/cobbleventure_builder interior create large_arena 48 48 12 1
+/cobbleventure_builder interior list
+/cobbleventure_builder interior tp large_arena
+/cobbleventure_builder interior save large_arena
+/cobbleventure_builder interior delete large_arena confirm
+```
+
+`delete`는 에딧 월드에서 동적으로 만든 작업 공간만 제거한다. 저장소에 이미 등록된
+NBT는 명령으로 삭제하지 않는다.
+
+문과 도착 지점에는 물리적인 위치와 이름만 기록한다.
+
+```mcfunction
+/cobbleventure_builder tool door next_room
+/cobbleventure_builder tool arrival entrance
+```
+
+첫 명령 후 실제 문을 우클릭하고, 두 번째 명령 후 플레이어가 도착할 바닥을
+우클릭한다. 실제 목적지는 웹 `NBT 건물 설정`에서
+`현재공간:next_room → 대상공간:entrance` 형태로 연결한다.
+
+외부 공간도 조회하고 이동할 수 있다.
+
+```mcfunction
+/cobbleventure_builder exterior list
+/cobbleventure_builder exterior tp base_gym
+```
+
+## 11. 관련 문서
 
 - [NBT 구조물 편집 가이드](../NBT_STRUCTURE_EDITING.md)
 - [마을 건축 리디자인 가이드](../town-redesign-guide.md)

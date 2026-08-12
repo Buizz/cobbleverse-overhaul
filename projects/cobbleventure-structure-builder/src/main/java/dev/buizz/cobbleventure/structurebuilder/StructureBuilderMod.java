@@ -77,6 +77,8 @@ public final class StructureBuilderMod {
     private static final String DATA_FILE = "cobbleventure_structure_builder";
     private static final String TOOL_MODE_TAG = "cobbleventureBuilderToolMode";
     private static final String NPC_LABEL_TAG = "cobbleventureBuilderNpcLabel";
+    private static final String DOOR_LABEL_TAG = "cobbleventureBuilderDoorLabel";
+    private static final String ARRIVAL_LABEL_TAG = "cobbleventureBuilderArrivalLabel";
     private static final ResourceLocation CATALOG = ResourceLocation.fromNamespaceAndPath(
         "cobbleventure_builder", "structure_builder/catalog.json"
     );
@@ -176,7 +178,7 @@ public final class StructureBuilderMod {
                 setNpcAnchor(player, catalog, data, event.getPos().above());
                 return;
             }
-            if (mode == ToolMode.SPAWN || mode == ToolMode.INTERACTION
+            if (mode == ToolMode.SPAWN || mode == ToolMode.ARRIVAL || mode == ToolMode.INTERACTION
                 || mode == ToolMode.PATROL) {
                 setPointAnchor(player, catalog, data, event.getPos(), mode);
                 return;
@@ -194,19 +196,29 @@ public final class StructureBuilderMod {
                 teleportThroughDoor(player, catalog, data, edit, door);
                 return;
             }
-            String role = mode == ToolMode.EXIT ? "interior_exit" : "interior_entry";
+            String role = mode == ToolMode.EXIT ? "interior_exit"
+                : mode == ToolMode.DOOR ? "door" : "interior_entry";
+            String label = role.equals("door")
+                ? player.getPersistentData().getString(DOOR_LABEL_TAG) : role;
+            if (label.isBlank()) {
+                throw new BuilderException(
+                    "/cobbleventure_builder tool door <이름>을 먼저 사용하세요."
+                );
+            }
             Direction safeSide = playerSide(player, door);
             BlockState doorState = player.serverLevel().getBlockState(door);
             DoorAnchor anchor = new DoorAnchor(
-                role,
+                label, role,
                 door.subtract(edit.origin()),
                 door.relative(safeSide).subtract(edit.origin()),
                 doorState.getValue(DoorBlock.FACING).getName(),
-                safeSide.getName()
+                safeSide.getName(),
+                false
             );
             data.putAnchor(edit.key(), anchor);
             player.sendSystemMessage(Component.literal(
                 "[Structure Builder] " + edit.label() + "의 " + roleLabel(role)
+                    + " '" + label + "'"
                     + "을 지정했습니다. 도착 위치=" + format(anchor.safeSpawn())
             ));
         } catch (BuilderException error) {
@@ -292,6 +304,15 @@ public final class StructureBuilderMod {
                             context.getSource(),
                             StringArgumentType.getString(context, "structure")
                         ))))
+                .then(Commands.literal("exterior")
+                    .then(Commands.literal("list")
+                        .executes(context -> listExteriors(context.getSource())))
+                    .then(Commands.literal("tp")
+                        .then(Commands.argument("id", StringArgumentType.greedyString())
+                            .executes(context -> teleportToPlot(
+                                context.getSource(),
+                                StringArgumentType.getString(context, "id")
+                            )))))
                 .then(Commands.literal("tool")
                     .then(Commands.literal("mode")
                         .then(Commands.argument("mode", StringArgumentType.word())
@@ -302,6 +323,22 @@ public final class StructureBuilderMod {
                     .then(Commands.literal("npc")
                         .then(Commands.argument("label", StringArgumentType.word())
                             .executes(context -> setNpcLabelCommand(
+                                context.getSource(),
+                                StringArgumentType.getString(context, "label")
+                            ))))
+                    .then(Commands.literal("leader")
+                        .executes(context -> setNpcLabelCommand(
+                            context.getSource(), "leader"
+                        )))
+                    .then(Commands.literal("door")
+                        .then(Commands.argument("label", StringArgumentType.word())
+                            .executes(context -> setDoorLabelCommand(
+                                context.getSource(),
+                                StringArgumentType.getString(context, "label")
+                            ))))
+                    .then(Commands.literal("arrival")
+                        .then(Commands.argument("label", StringArgumentType.word())
+                            .executes(context -> setArrivalLabelCommand(
                                 context.getSource(),
                                 StringArgumentType.getString(context, "label")
                             )))))
@@ -325,6 +362,13 @@ public final class StructureBuilderMod {
                                 context.getSource(),
                                 StringArgumentType.getString(context, "id")
                             ))))
+                    .then(Commands.literal("delete")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                            .then(Commands.literal("confirm")
+                                .executes(context -> deleteInterior(
+                                    context.getSource(),
+                                    StringArgumentType.getString(context, "id")
+                                )))))
                     .then(Commands.literal("create")
                         .then(Commands.argument("id", StringArgumentType.word())
                             .then(Commands.argument("width", IntegerArgumentType.integer(5, 80))
@@ -447,6 +491,21 @@ public final class StructureBuilderMod {
         }
     }
 
+    private static int listExteriors(CommandSourceStack source) {
+        BuilderData builderData = data(source.getServer());
+        List<String> values = plan(loadCatalog(source.getServer()), builderData.groundY).stream()
+            .filter(planned -> !planned.entry().category().equals("interiors"))
+            .map(planned -> planned.entry().label())
+            .toList();
+        source.sendSuccess(
+            () -> Component.literal(
+                "[Structure Builder] 외부 공간 " + values.size() + "개: "
+                    + (values.isEmpty() ? "없음" : String.join(", ", values))
+            ), false
+        );
+        return values.size();
+    }
+
     private static int fail(CommandSourceStack source, BuilderException error) {
         source.sendFailure(Component.literal("[Structure Builder] " + error.getMessage()));
         return 0;
@@ -509,6 +568,43 @@ public final class StructureBuilderMod {
             () -> Component.literal("[Structure Builder] NPC 라벨=" + label), false
         );
         return 1;
+    }
+
+    private static int setDoorLabelCommand(CommandSourceStack source, String label)
+        throws CommandSyntaxException {
+        validateAnchorLabel(label, "문");
+        ServerPlayer player = source.getPlayerOrException();
+        player.getPersistentData().putString(DOOR_LABEL_TAG, label);
+        setToolMode(player, ToolMode.DOOR);
+        source.sendSuccess(
+            () -> Component.literal(
+                "[Structure Builder] 문 이름=" + label
+                    + " · 실제 문을 우클릭하고 목적지는 웹에서 연결하세요."
+            ), false
+        );
+        return 1;
+    }
+
+    private static int setArrivalLabelCommand(CommandSourceStack source, String label)
+        throws CommandSyntaxException {
+        validateAnchorLabel(label, "도착 지점");
+        ServerPlayer player = source.getPlayerOrException();
+        player.getPersistentData().putString(ARRIVAL_LABEL_TAG, label);
+        setToolMode(player, ToolMode.ARRIVAL);
+        source.sendSuccess(
+            () -> Component.literal(
+                "[Structure Builder] 도착 지점=" + label + " · 바닥을 우클릭하세요."
+            ), false
+        );
+        return 1;
+    }
+
+    private static void validateAnchorLabel(String label, String subject) {
+        if (!label.matches("[a-z0-9][a-z0-9_]*")) {
+            throw new BuilderException(
+                subject + " 이름은 영문 소문자, 숫자와 밑줄만 사용할 수 있습니다."
+            );
+        }
     }
 
     private static void setNpcAnchor(
@@ -598,7 +694,15 @@ public final class StructureBuilderMod {
         EditContext edit = findContext(catalog, data, position);
         String type;
         String id;
-        if (mode == ToolMode.SPAWN) {
+        if (mode == ToolMode.ARRIVAL) {
+            type = "arrival";
+            id = player.getPersistentData().getString(ARRIVAL_LABEL_TAG);
+            if (id.isBlank()) {
+                throw new BuilderException(
+                    "/cobbleventure_builder tool arrival <이름>을 먼저 사용하세요."
+                );
+            }
+        } else if (mode == ToolMode.SPAWN) {
             type = edit.interior() ? "interior_spawn" : "exterior_spawn";
             id = type;
         } else {
@@ -635,6 +739,9 @@ public final class StructureBuilderMod {
     }
 
     private static String roleLabel(String role) {
+        if (role.equals("door")) {
+            return "이름 있는 문";
+        }
         return role.equals("interior_entry") ? "외부 입장문" : "내부 퇴장문";
     }
 
@@ -858,6 +965,36 @@ public final class StructureBuilderMod {
         }
     }
 
+    private static int deleteInterior(CommandSourceStack source, String id) {
+        try {
+            BuilderData builderData = data(source.getServer());
+            InteriorPlot plot = builderData.interior(id).orElseThrow(() ->
+                new BuilderException("동적으로 만든 내부 공간만 삭제할 수 있습니다: " + id)
+            );
+            clearInterior(source.getServer().overworld(), plot);
+            builderData.removeInterior(id);
+            source.sendSuccess(
+                () -> Component.literal(
+                    "[Structure Builder] 내부 공간과 작업 구역을 삭제했습니다: " + id
+                ), true
+            );
+            return 1;
+        } catch (BuilderException error) {
+            return fail(source, error);
+        }
+    }
+
+    private static void clearInterior(ServerLevel level, InteriorPlot plot) {
+        BlockPos start = plot.origin().offset(-1, -1, -1);
+        Vec3i size = plot.size();
+        BlockPos end = plot.origin().offset(
+            size.getX(), size.getY(), size.getZ()
+        );
+        for (BlockPos position : BlockPos.betweenClosed(start, end)) {
+            level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+        }
+    }
+
     private static void outlineInterior(ServerLevel level, InteriorPlot plot) {
         BlockState border = Blocks.LIGHT_BLUE_CONCRETE.defaultBlockState();
         for (int floor = 0; floor < plot.floors(); floor++) {
@@ -971,10 +1108,12 @@ public final class StructureBuilderMod {
         exportMetadata(
             server, planned.entry().exportId(), relative,
             planned.entry().source(), planned.entry().interior(),
+            planned.entry().interiorStructure(),
             !planned.entry().anchors().isEmpty()
                 || !planned.entry().npcs().isEmpty()
                 || !planned.entry().points().isEmpty()
                 || planned.entry().interior() != null
+                || planned.entry().interiorStructure() != null
         );
     }
 
@@ -992,13 +1131,15 @@ public final class StructureBuilderMod {
         }
         exportMetadata(
             level.getServer(), plot.key(), relative,
-            "content/structures/interiors/" + plot.id() + ".nbt", plot.spec(), true
+            "content/structures/interiors/" + plot.id() + ".nbt",
+            plot.spec(), null, true
         );
     }
 
     private static void exportMetadata(
         MinecraftServer server, String key, String relative,
-        String source, InteriorSpec interior, boolean forceMetadata
+        String source, InteriorSpec interior, String interiorStructure,
+        boolean forceMetadata
     ) {
         Path target = server.getWorldPath(LevelResource.ROOT)
             .resolve("generated/cobbleventure_builder/structure_metadata/export")
@@ -1015,6 +1156,9 @@ public final class StructureBuilderMod {
             JsonObject root = new JsonObject();
             root.addProperty("schema_version", 1);
             root.addProperty("structure", source);
+            if (interiorStructure != null) {
+                root.addProperty("interior_structure", interiorStructure);
+            }
             if (interior != null) {
                 JsonObject workspace = new JsonObject();
                 workspace.addProperty("id", interior.id());
@@ -1027,15 +1171,21 @@ public final class StructureBuilderMod {
             JsonArray values = new JsonArray();
             for (DoorAnchor anchor : anchors) {
                 JsonObject value = new JsonObject();
-                value.addProperty("id", anchor.role());
+                value.addProperty("id", anchor.label());
+                value.addProperty("label", anchor.label());
                 value.addProperty("type", anchor.role());
                 value.add("position", vector(anchor.position()));
                 value.add("safe_spawn", vector(anchor.safeSpawn()));
                 value.addProperty("door_facing", anchor.doorFacing());
                 value.addProperty("safe_side", anchor.safeSide());
-                value.addProperty("dialogue", anchor.role().equals("interior_entry")
-                    ? "cobbleventure:default_enter"
-                    : "cobbleventure:default_exit");
+                if (anchor.sealEntry()) {
+                    value.addProperty("seal_entry", true);
+                }
+                if (!anchor.role().equals("door")) {
+                    value.addProperty("dialogue", anchor.role().equals("interior_entry")
+                        ? "cobbleventure:default_enter"
+                        : "cobbleventure:default_exit");
+                }
                 values.add(value);
             }
             for (NpcAnchor anchor : npcs) {
@@ -1079,6 +1229,9 @@ public final class StructureBuilderMod {
                 if ((row + column) % 2 != 0) {
                     continue;
                 }
+                if (entryIndex >= catalog.entries().size()) {
+                    break;
+                }
                 Entry entry = catalog.entries().get(entryIndex++);
                 int cellX = ORIGIN_X + column * catalog.cellSize();
                 int cellZ = ORIGIN_Z + row * catalog.cellSize();
@@ -1091,6 +1244,12 @@ public final class StructureBuilderMod {
                     )
                 ));
             }
+        }
+        if (result.size() != catalog.entries().size()) {
+            throw new BuilderException(
+                "카탈로그 배치 공간이 부족합니다: 구조물 " + catalog.entries().size()
+                    + "개 중 " + result.size() + "개만 계획됨"
+            );
         }
         return List.copyOf(result);
     }
@@ -1200,13 +1359,17 @@ public final class StructureBuilderMod {
                                 parsePosition(anchor.getAsJsonArray("position"))
                             ));
                         } else if (role.equals("interior_entry")
-                            || role.equals("interior_exit")) {
+                            || role.equals("interior_exit") || role.equals("door")) {
                             anchors.add(new DoorAnchor(
+                                anchor.has("label") ? anchor.get("label").getAsString()
+                                    : anchor.has("id") ? anchor.get("id").getAsString() : role,
                                 role,
                                 parsePosition(anchor.getAsJsonArray("position")),
                                 parsePosition(anchor.getAsJsonArray("safe_spawn")),
                                 anchor.get("door_facing").getAsString(),
-                                anchor.get("safe_side").getAsString()
+                                anchor.get("safe_side").getAsString(),
+                                anchor.has("seal_entry")
+                                    && anchor.get("seal_entry").getAsBoolean()
                             ));
                         } else {
                             points.add(new PointAnchor(
@@ -1230,7 +1393,10 @@ public final class StructureBuilderMod {
                     List.copyOf(anchors),
                     List.copyOf(npcs),
                     List.copyOf(points),
-                    interior
+                    interior,
+                    entry.has("interior_structure")
+                        && !entry.get("interior_structure").isJsonNull()
+                            ? entry.get("interior_structure").getAsString() : null
                 );
                 if (ids.put(parsed.exportId(), true) != null) {
                     throw new BuilderException("중복 내보내기 ID: " + parsed.exportId());
@@ -1273,7 +1439,8 @@ public final class StructureBuilderMod {
         String source, String structureId, String exportId,
         String label, String category, Vec3i size,
         List<DoorAnchor> anchors, List<NpcAnchor> npcs,
-        List<PointAnchor> points, InteriorSpec interior
+        List<PointAnchor> points, InteriorSpec interior,
+        String interiorStructure
     ) {
     }
 
@@ -1283,8 +1450,8 @@ public final class StructureBuilderMod {
     }
 
     private record DoorAnchor(
-        String role, BlockPos position, BlockPos safeSpawn,
-        String doorFacing, String safeSide
+        String label, String role, BlockPos position, BlockPos safeSpawn,
+        String doorFacing, String safeSide, boolean sealEntry
     ) {
     }
 
@@ -1339,8 +1506,10 @@ public final class StructureBuilderMod {
     private enum ToolMode {
         ENTRY("entry", "외부 입장문"),
         EXIT("exit", "내부 퇴장문"),
+        DOOR("door", "이름 있는 문"),
         TELEPORT("teleport", "연결 이동"),
         SPAWN("spawn", "도착 위치"),
+        ARRIVAL("arrival", "이름 있는 도착 지점"),
         NPC("npc", "NPC 위치"),
         INTERACTION("interaction", "상호작용 지점"),
         PATROL("patrol", "순찰 지점"),
@@ -1395,10 +1564,12 @@ public final class StructureBuilderMod {
                     CompoundTag value = roles.getCompound(role);
                     anchors.put(role, new DoorAnchor(
                         role,
+                        value.contains("role") ? value.getString("role") : role,
                         readPosition(value, "position"),
                         readPosition(value, "safeSpawn"),
                         value.getString("doorFacing"),
-                        value.getString("safeSide")
+                        value.getString("safeSide"),
+                        value.getBoolean("sealEntry")
                     ));
                 }
                 data.doorAnchors.put(structureId, anchors);
@@ -1454,7 +1625,7 @@ public final class StructureBuilderMod {
 
         void putAnchor(String structureId, DoorAnchor anchor) {
             doorAnchors.computeIfAbsent(structureId, ignored -> new LinkedHashMap<>())
-                .put(anchor.role(), anchor);
+                .put(anchor.label(), anchor);
             setDirty();
         }
 
@@ -1466,7 +1637,7 @@ public final class StructureBuilderMod {
                 for (DoorAnchor anchor : entry.anchors()) {
                     doorAnchors.computeIfAbsent(
                         entry.exportId(), ignored -> new LinkedHashMap<>()
-                    ).put(anchor.role(), anchor);
+                    ).put(anchor.label(), anchor);
                 }
                 for (NpcAnchor anchor : entry.npcs()) {
                     npcAnchors.computeIfAbsent(
@@ -1575,6 +1746,17 @@ public final class StructureBuilderMod {
             setDirty();
         }
 
+        void removeInterior(String id) {
+            InteriorPlot removed = interiorPlots.remove(id);
+            if (removed == null) {
+                return;
+            }
+            doorAnchors.remove(removed.key());
+            npcAnchors.remove(removed.key());
+            pointAnchors.remove(removed.key());
+            setDirty();
+        }
+
         Optional<InteriorPlot> interior(String id) {
             return Optional.ofNullable(interiorPlots.get(id));
         }
@@ -1600,9 +1782,11 @@ public final class StructureBuilderMod {
                     CompoundTag value = new CompoundTag();
                     writePosition(value, "position", anchor.position());
                     writePosition(value, "safeSpawn", anchor.safeSpawn());
+                    value.putString("role", anchor.role());
                     value.putString("doorFacing", anchor.doorFacing());
                     value.putString("safeSide", anchor.safeSide());
-                    roles.put(anchor.role(), value);
+                    value.putBoolean("sealEntry", anchor.sealEntry());
+                    roles.put(anchor.label(), value);
                 }
                 structures.put(structure.getKey(), roles);
             }

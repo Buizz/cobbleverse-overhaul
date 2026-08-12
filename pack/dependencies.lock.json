@@ -42,10 +42,10 @@
       "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": "1.0.4",
+      "version": "1.0.5",
       "curseforge": {
         "project_id": 1418364,
-        "file_id": 7452441
+        "file_id": 8397752
       },
       "reason": "포켓몬 게임 스타일 경험치 바와 전투 중 경험치·레벨업 로그 표시"
     },
@@ -146,10 +146,10 @@
       "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": "5.11.0",
+      "version": "5.12.0",
       "curseforge": {
         "project_id": 351264,
-        "file_id": 7471280
+        "file_id": 8335665
       },
       "reason": "Cobblemon NeoForge의 필수 Kotlin 런타임"
     },
@@ -159,10 +159,10 @@
       "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": "2.0.0-beta.14+1.21.1",
+      "version": "2.0.0-beta.16+1.21.1",
       "curseforge": {
         "project_id": 890127,
-        "file_id": 7634148
+        "file_id": 8546239
       },
       "reason": "NeoForge에서 Cobblemon Additions Fabric JAR을 로딩하는 호환층"
     },
@@ -172,10 +172,10 @@
       "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": "0.116.7+2.2.1+1.21.1",
+      "version": "0.116.15+2.3.1+1.21.1",
       "curseforge": {
         "project_id": 889079,
-        "file_id": 7575945
+        "file_id": 8539754
       },
       "reason": "Cobblemon Additions가 요구하는 Fabric API를 NeoForge에서 제공"
     },
@@ -198,10 +198,10 @@
       "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": "2.0.0+Beta-5.1+1.21.1",
+      "version": "2.0.0+Beta-6.1+1.21.1",
       "curseforge": {
         "project_id": 859232,
-        "file_id": 6604564
+        "file_id": 8484919
       },
       "reason": "Cobblemon Additions 상점과 백화점의 화폐 및 상인 기능"
     },
@@ -224,12 +224,12 @@
       "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": "13.0.8",
+      "version": "13.0.11",
       "curseforge": {
         "project_id": 419699,
-        "file_id": 5786327
+        "file_id": 8492726
       },
-      "reason": "CobbleFurnies 1.0의 필수 공용 API"
+      "reason": "CobbleFurnies 1.2의 필수 공용 API"
     },
     {
       "id": "rctapi",
@@ -263,10 +263,10 @@
       "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": "1.0",
+      "version": "1.2",
       "curseforge": {
         "project_id": 1188698,
-        "file_id": 7302031
+        "file_id": 8340192
       },
       "reason": "Radical Gyms & Structures 체육관과 리그가 사용하는 가구 블록"
     },
@@ -282,19 +282,6 @@
         "file_id": 8061947
       },
       "reason": "CobbleFurnies 포켓볼 양탄자와 연결 텍스처 모델 렌더링"
-    },
-    {
-      "id": "radical_gyms_structures",
-      "display_name": "Radical Gyms & Structures",
-      "classification": "required",
-      "side": "both",
-      "enabled": true,
-      "version": "0.6",
-      "curseforge": {
-        "project_id": 1402174,
-        "file_id": 7330950
-      },
-      "reason": "마을에 직접 배치하는 원본 체육관과 리그 구조물"
     },
     {
       "id": "mega_showdown",
@@ -315,10 +302,10 @@
       "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": "1.1.0-beta.52+1.21.1",
+      "version": "1.1.0-beta.53+1.21.1",
       "curseforge": {
         "project_id": 938917,
-        "file_id": 7046407
+        "file_id": 7583320
       },
       "reason": "Mega Showdown 장신구 슬롯과 장착 렌더링 필수 의존성"
     },
@@ -328,10 +315,10 @@
       "classification": "required",
       "side": "both",
       "enabled": true,
-      "version": "0.12.15.1-beta.3+1.21",
+      "version": "0.12.15.5-beta.1+1.21",
       "curseforge": {
         "project_id": 532610,
-        "file_id": 6416633
+        "file_id": 6785734
       },
       "reason": "Mega Showdown과 Accessories의 GUI·설정·네트워크 필수 라이브러리"
     },

@@ -1,5 +1,21 @@
 # NBT 구조물 편집 가이드
 
+## 체육관: 마을 → 체육관 → 관장
+
+체육관은 마을 JSON에 외관과 내부를 복제하지 않는다. `체육관 관리`에서 개수 제한
+없이 체육관 정의를 만들고, 마을에서는 체육관을 선택한 다음 관장을 선택한다.
+
+- 새 체육관은 속성 타입에 맞는 `content/structures/gyms/*.nbt` 외관 템플릿과 시작
+  내부 모듈을 재사용한다. 체육관마다 완성형 NBT를 복제하지 않는다.
+- `gyms` 외관 템플릿은 건축 월드 체크무늬와 NBT 뷰어에 포함된다.
+- 외관은 내부가 보이지 않는 봉인 껍데기로 수정한다.
+- 내부는 `content/structures/interiors/gyms`의 방 NBT를 좌표·층·회전으로 조립한다.
+- 웹의 외관 미리보기 버튼은 같은 NBT를 `NBT 건물 설정` 3D 뷰어에서 연다.
+- 대형 리그 NBT는 체크 부지에 들어가지 않으므로 건축 체크무늬에서 제외된다.
+
+세부 JSON과 인게임 흐름은
+[체육관 외관·내부 모듈 통합 가이드](implementation/RADICAL_GYMS_INTEGRATION.md)를 따른다.
+
 Cobbleventure가 직접 관리하는 건축물 NBT의 원본 위치와 안전한 편집 절차를 정리합니다.
 `src/generated/resources`는 빌드할 때 다시 만들어지는 출력물이므로 직접 수정하지 않습니다.
 
@@ -191,6 +207,27 @@ NPC가 설 바닥을 우클릭하면 바로 위 칸에 선택한 라벨로 위�
 /cobbleventure_builder anchor show
 ```
 
+체육관 내부에서 관장 위치를 지정할 때는 전용 별칭을 사용할 수 있다.
+
+```mcfunction
+/cobbleventure_builder tool leader
+```
+
+명령 실행 후 관장이 설 블록의 바닥을 편집 막대기로 우클릭하면 `npc_position` 라벨
+`leader`가 기록된다. 런타임은 이 좌표와 체육관 모듈의 배치·회전을 합산해 관장을
+소환한다. 한 체육관 구성에는 `leader`가 정확히 하나 있어야 한다.
+
+범용 내부공간의 문과 도착 지점에는 이름을 지정한다.
+
+```mcfunction
+/cobbleventure_builder tool door front_exit
+/cobbleventure_builder tool arrival lobby_entrance
+```
+
+NBT에는 위치와 이름만 저장된다. 실제 이동 목적지는 웹 `NBT 건물 설정`의
+`문 이동 설정`에서 선택한다. 같은 내부 NBT를 여러 건물에서 서로 다르게 연결할 수
+있다.
+
 ### 내부 NBT와 앵커 가져오기
 
 기존 외부와 새 내부를 모두 저장하려면 다음 명령을 사용한다.
@@ -224,7 +261,8 @@ content/structures/interiors/player_house.structure.json
 건물 설정 목록을 만들지 않고, 이 화면이 관리 NBT와 `.structure.json`의
 `npc_position`을 함께 읽어 건물 자체의 전역 NPC 설정을 편집한다.
 
-- 왼쪽: 관리 건물 검색과 NPC 라벨 배정 현황
+- 왼쪽: 관리 건물 검색, 종류 필터와 NPC 라벨 배정 현황. 일반 건물·주택·체육관
+  외관 템플릿·체육관 내부 모듈·일반 내부 모듈·리그·임시 구조물로 나뉜다.
 - 가운데: 실제 NBT 3D 모델과 NPC 라벨 위치 마커
 - 오른쪽: 선택한 NBT 건물의 라벨별 전역 NPC 콘텐츠 선택과 건물 종류 설정
 
@@ -420,3 +458,11 @@ projects/cobbleventure-world-bootstrap/src/generated/resources/data/cobbleventur
 - **게임에서 구조물을 찾지 못함**: 네임스페이스가 `cobbleventure`인지, 폴더와 파일 이름이
   리소스 ID와 일치하는지 확인하고 게임을 완전히 재시작합니다.
 - **배치 위치가 어긋남**: 저장 시 구조물 블록의 상대 위치, 크기와 기존 원점을 비교합니다.
+- **건축 월드 접속 시 `Invalid player data`와 `Index ... out of bounds`**: 오래된 건축
+  모드에서 체크무늬의 마지막 빈 칸을 실제 NBT로 읽던 오류다. 최신 `builder-world` ZIP을
+  다시 가져오거나 인스턴스의 `cobbleventure-structure-builder` JAR를 최신 빌드로
+  교체한다. 기존 건축 월드를 계속 사용해도 되며 NBT 작업물을 삭제할 필요는 없다.
+- **Cobblemon `.old File ... is corrupt or missing` 경고**: 위 레이아웃 예외와 별개의
+  플레이어 데이터 복구 경고다. 실제 접속을 차단한 원인은 뒤이어 기록된 건축 모드의 배열
+  예외다. 이미 유실됐다고 기록된 Cobblemon 파티·도감 데이터가 필요하면 해당 월드의
+  별도 백업에서 복원해야 한다.

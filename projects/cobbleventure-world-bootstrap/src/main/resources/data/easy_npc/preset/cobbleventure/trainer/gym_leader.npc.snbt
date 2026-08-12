@@ -1,0 +1,26 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Trainers",
+    created:0L,
+    description:"체육관 관장 공용 EasyNPC 의상 EasyNPC 의상 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"체육관 관장 공용 EasyNPC 의상",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"체육관 관장 공용 EasyNPC 의상\"}",
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.900f,0.900f,0.900f]}},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-1367845910,1212700538,-1428130385,630695237],
+    SkinData:{Type:"CUSTOM",UUID:[I;-982458670,-1535487949,-1742125174,728348486] },
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

@@ -1,0 +1,217 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/gym_leader/blaine",
+  "enabled": true,
+  "name": {
+    "ko_kr": "관동 체육관 관장 강연",
+    "en_us": "관동 체육관 관장 Blaine"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true
+    },
+    "bag": [
+      {
+        "item": "cobblemon:full_heal",
+        "quantity": 1
+      },
+      {
+        "item": "cobblemon:full_restore",
+        "quantity": 2
+      }
+    ],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": true
+    },
+    "team": [
+      {
+        "species": "cobblemon:ninetales",
+        "level": 50,
+        "form": null,
+        "aspects": [],
+        "gender": "female",
+        "nature": "gentle",
+        "ability": "drought",
+        "held_item": "cobblemon:heat_rock",
+        "gimmick": null,
+        "moves": [
+          "solarbeam",
+          "fireblast",
+          "extrasensory",
+          "willowisp"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:rapidash",
+        "level": 50,
+        "form": null,
+        "aspects": [],
+        "gender": "female",
+        "nature": "careful",
+        "ability": "flamebody",
+        "held_item": "cobblemon:life_orb",
+        "gimmick": null,
+        "moves": [
+          "smartstrike",
+          "flareblitz",
+          "poisonjab",
+          "solarblade"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:infernape",
+        "level": 50,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "timid",
+        "ability": "ironfist",
+        "held_item": "cobblemon:punching_glove",
+        "gimmick": null,
+        "moves": [
+          "machpunch",
+          "firepunch",
+          "thunderpunch",
+          "drainpunch"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:houndoom",
+        "level": 50,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "naive",
+        "ability": "unnerve",
+        "held_item": "cobblemon:choice_scarf",
+        "gimmick": null,
+        "moves": [
+          "flamethrower",
+          "darkpulse",
+          "sludgebomb",
+          "hypervoice"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:camerupt",
+        "level": 50,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "lonely",
+        "ability": "solidrock",
+        "held_item": "mega_showdown:cameruptite",
+        "gimmick": null,
+        "moves": [
+          "earthpower",
+          "amnesia",
+          "lavaplume",
+          "flashcannon"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:magmortar",
+        "level": 50,
+        "form": null,
+        "aspects": [],
+        "gender": "female",
+        "nature": "adamant",
+        "ability": "flamebody",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "fireblast",
+          "psychic",
+          "thunderbolt",
+          "scorchingsands"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:npc/gym_leader/blaine"
+  }
+}

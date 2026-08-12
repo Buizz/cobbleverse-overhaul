@@ -501,6 +501,7 @@
       "required": ["enabled", "structure", "theme", "anchor", "leader_trainer_id"],
       "properties": {
         "enabled": { "type": "boolean" },
+        "gym_id": { "$ref": "#/$defs/resource_id" },
         "structure": { "type": "string" },
         "theme": {
           "enum": [
@@ -519,6 +520,7 @@
         {
           "if": { "properties": { "enabled": { "const": true } } },
           "then": {
+            "required": ["gym_id"],
             "properties": {
               "structure": { "$ref": "#/$defs/resource_id" }
             }

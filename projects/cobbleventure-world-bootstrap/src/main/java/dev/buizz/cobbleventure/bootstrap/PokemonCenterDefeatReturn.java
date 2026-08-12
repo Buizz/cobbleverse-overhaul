@@ -120,6 +120,17 @@ final class PokemonCenterDefeatReturn {
         BattleLossEconomy.cleanup(gameTime);
     }
 
+    static void recoverAfterTickFailure(MinecraftServer server) {
+        PENDING_RETURNS.clear();
+        ACTIVE_RECOVERIES.clear();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (isPartyWiped(player)) {
+                Cobblemon.INSTANCE.getStorage().getParty(player).heal();
+                player.removeEffect(MobEffects.DARKNESS);
+            }
+        }
+    }
+
     private static void onBattleVictory(BattleVictoryEvent event) {
         for (var loser : event.getLosers()) {
             if (!(loser instanceof PlayerBattleActor actor)) {

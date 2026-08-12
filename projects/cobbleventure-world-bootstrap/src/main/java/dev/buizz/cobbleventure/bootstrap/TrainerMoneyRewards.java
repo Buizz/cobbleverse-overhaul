@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
 import com.cobblemon.mod.common.api.battles.model.actor.BattleActor;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.battles.BattleFledEvent;
+import com.cobblemon.mod.common.api.events.battles.BattleStartedEvent;
 import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
 import com.cobblemon.mod.common.battles.ActiveBattlePokemon;
 import com.cobblemon.mod.common.battles.BattleRegistry;
@@ -35,8 +36,10 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 final class TrainerMoneyRewards {
     private static final long ACTIVE_RETENTION_TICKS = 20L * 10L;
     private static final long COMPLETED_RETENTION_TICKS = 20L * 5L;
+    private static final long PREPARED_RETENTION_TICKS = 20L * 15L;
     private static final Map<UUID, Participation> ACTIVE_PARTICIPATION = new HashMap<>();
     private static final Map<UUID, CompletedParticipation> COMPLETED_PARTICIPATION = new HashMap<>();
+    private static final Map<UUID, PreparedReward> PREPARED_REWARDS = new HashMap<>();
     private static boolean registered;
 
     private TrainerMoneyRewards() {}
@@ -48,6 +51,9 @@ final class TrainerMoneyRewards {
         NeoForge.EVENT_BUS.addListener(TrainerMoneyRewards::onServerTick);
         CobblemonEvents.BATTLE_VICTORY.subscribe(
             (Consumer<BattleVictoryEvent>) TrainerMoneyRewards::onBattleVictory
+        );
+        CobblemonEvents.BATTLE_STARTED_POST.subscribe(
+            (Consumer<BattleStartedEvent.Post>) TrainerMoneyRewards::onBattleStarted
         );
         CobblemonEvents.BATTLE_FLED.subscribe(
             (Consumer<BattleFledEvent>) TrainerMoneyRewards::onBattleFled
@@ -62,11 +68,25 @@ final class TrainerMoneyRewards {
         COMPLETED_PARTICIPATION.entrySet().removeIf(
             entry -> entry.getValue().expiresAt < gameTime
         );
+        PREPARED_REWARDS.entrySet().removeIf(
+            entry -> entry.getValue().expiresAt < gameTime
+        );
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             PokemonBattle battle = BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player);
             if (battle == null) continue;
             PlayerBattleActor actor = playerActor(battle, player);
             if (actor != null) recordActiveItems(player.getUUID(), battle.getBattleId(), actor, gameTime);
+        }
+    }
+
+    private static void onBattleStarted(BattleStartedEvent.Post event) {
+        if (!event.getBattle().isPvN()) return;
+        for (BattleActor actor : event.getBattle().getActors()) {
+            if (!(actor instanceof PlayerBattleActor playerActor)) continue;
+            PreparedReward reward = PREPARED_REWARDS.get(playerActor.getUuid());
+            if (reward != null && reward.battleId == null) {
+                reward.battleId = event.getBattle().getBattleId();
+            }
         }
     }
 
@@ -109,6 +129,14 @@ final class TrainerMoneyRewards {
         }
         for (BattleActor actor : event.getWinners()) {
             if (actor instanceof PlayerBattleActor playerActor) {
+                PreparedReward reward = PREPARED_REWARDS.remove(playerActor.getUuid());
+                if (reward != null && event.getBattle().getBattleId().equals(reward.battleId)
+                    && playerActor.getEntity() != null) {
+                    pay(
+                        playerActor.getEntity(), reward.baseAmount, reward.heldBonus,
+                        reward.heldItemId, reward.heldMultiplier
+                    );
+                }
                 seal(playerActor.getUuid(), event.getBattle().getBattleId(), gameTime);
             }
         }
@@ -116,6 +144,7 @@ final class TrainerMoneyRewards {
             if (actor instanceof PlayerBattleActor playerActor) {
                 ACTIVE_PARTICIPATION.remove(playerActor.getUuid());
                 COMPLETED_PARTICIPATION.remove(playerActor.getUuid());
+                PREPARED_REWARDS.remove(playerActor.getUuid());
             }
         }
     }
@@ -124,6 +153,7 @@ final class TrainerMoneyRewards {
         UUID playerId = event.getPlayer().getUuid();
         ACTIVE_PARTICIPATION.remove(playerId);
         COMPLETED_PARTICIPATION.remove(playerId);
+        PREPARED_REWARDS.remove(playerId);
     }
 
     private static void seal(UUID playerId, UUID battleId, long gameTime) {
@@ -155,7 +185,59 @@ final class TrainerMoneyRewards {
                     .then(Commands.argument("player", EntityArgument.player())
                         .then(fixed)
                         .then(regional)))
+                .then(Commands.literal("prepare")
+                    .then(Commands.argument("player", EntityArgument.player())
+                        .then(preparedFixed())
+                        .then(preparedRegional())))
         );
+    }
+
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.commands.CommandSourceStack>
+    preparedFixed() {
+        return Commands.literal("fixed")
+            .then(Commands.argument("amount", IntegerArgumentType.integer(0))
+                .then(preparedBonusArguments(false)));
+    }
+
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.commands.CommandSourceStack>
+    preparedRegional() {
+        return Commands.literal("regional")
+            .then(Commands.argument("fallback_level", IntegerArgumentType.integer(1, 100))
+                .then(Commands.argument("per_level", IntegerArgumentType.integer(0))
+                    .then(Commands.argument("offset", IntegerArgumentType.integer())
+                        .then(preparedBonusArguments(true)))));
+    }
+
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<net.minecraft.commands.CommandSourceStack, Boolean>
+    preparedBonusArguments(boolean regional) {
+        return Commands.argument("held_bonus", BoolArgumentType.bool())
+            .then(Commands.argument("held_item", StringArgumentType.word())
+                .then(Commands.argument("held_multiplier", IntegerArgumentType.integer(1))
+                    .executes(context -> prepare(
+                        EntityArgument.getPlayer(context, "player"),
+                        regional
+                            ? regionalAmount(
+                                EntityArgument.getPlayer(context, "player"),
+                                IntegerArgumentType.getInteger(context, "fallback_level"),
+                                IntegerArgumentType.getInteger(context, "per_level"),
+                                IntegerArgumentType.getInteger(context, "offset")
+                            )
+                            : IntegerArgumentType.getInteger(context, "amount"),
+                        BoolArgumentType.getBool(context, "held_bonus"),
+                        StringArgumentType.getString(context, "held_item"),
+                        IntegerArgumentType.getInteger(context, "held_multiplier")
+                    ))));
+    }
+
+    private static int prepare(
+        ServerPlayer player, int baseAmount, boolean heldBonus,
+        String heldItemId, int heldMultiplier
+    ) {
+        PREPARED_REWARDS.put(player.getUUID(), new PreparedReward(
+            baseAmount, heldBonus, heldItemId, heldMultiplier,
+            player.serverLevel().getGameTime() + PREPARED_RETENTION_TICKS
+        ));
+        return 1;
     }
 
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<net.minecraft.commands.CommandSourceStack, Boolean>
@@ -222,4 +304,24 @@ final class TrainerMoneyRewards {
     private record CompletedParticipation(
         UUID battleId, Set<ResourceLocation> activeHeldItems, long expiresAt
     ) {}
+
+    private static final class PreparedReward {
+        private final int baseAmount;
+        private final boolean heldBonus;
+        private final String heldItemId;
+        private final int heldMultiplier;
+        private final long expiresAt;
+        private UUID battleId;
+
+        private PreparedReward(
+            int baseAmount, boolean heldBonus, String heldItemId,
+            int heldMultiplier, long expiresAt
+        ) {
+            this.baseAmount = baseAmount;
+            this.heldBonus = heldBonus;
+            this.heldItemId = heldItemId;
+            this.heldMultiplier = heldMultiplier;
+            this.expiresAt = expiresAt;
+        }
+    }
 }

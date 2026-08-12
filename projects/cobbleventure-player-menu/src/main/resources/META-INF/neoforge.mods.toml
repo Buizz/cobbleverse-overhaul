@@ -11,6 +11,9 @@ description='''
 Replaces the inventory entry point with Cobbleventure's radial player menu.
 '''
 
+[[mixins]]
+config="cobbleventure_player_menu.mixins.json"
+
 [[dependencies.${mod_id}]]
 modId="neoforge"
 type="required"
@@ -31,3 +34,10 @@ type="required"
 versionRange="[${cobblemon_version},1.8)"
 ordering="AFTER"
 side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="cobblemonxpbar"
+type="optional"
+versionRange="[1.0.5,1.1)"
+ordering="AFTER"
+side="CLIENT"

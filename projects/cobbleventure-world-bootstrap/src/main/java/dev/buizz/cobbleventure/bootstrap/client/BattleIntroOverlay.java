@@ -66,8 +66,9 @@ public final class BattleIntroOverlay {
         int width = graphics.guiWidth();
         int height = graphics.guiHeight();
         int centerX = width / 2;
-        int bandTop = Math.max(18, height / 7);
-        int bandBottom = height - bandTop;
+        int bandHeightTarget = Math.max(116, Math.min(height * 46 / 100, 260));
+        int bandTop = (height - bandHeightTarget) / 2;
+        int bandBottom = bandTop + bandHeightTarget;
         int bandHeight = bandBottom - bandTop;
         double entrance = easeOutBack(clamp(progress / 0.32D));
         double vsEntrance = easeOutBack(clamp((progress - 0.24D) / 0.22D));
@@ -76,13 +77,16 @@ public final class BattleIntroOverlay {
         int rightOffset = (int)Math.round((width * 0.58D) * (1.0D - entrance) + width * 0.45D * exit);
 
         RenderSystem.enableBlend();
-        graphics.fill(0, 0, width, height, 0xE911141D);
-        drawSpeedLines(graphics, width, height, progress);
+        graphics.fill(0, bandTop - 5, width, bandBottom + 5, 0x7A11141D);
+        drawSpeedLines(graphics, width, bandTop, bandBottom, progress);
         drawPanels(graphics, centerX, bandTop, bandBottom, leftOffset, rightOffset);
 
         Entity own = minecraft.level == null ? null : minecraft.level.getEntity(intro.playerEntityId);
         Entity opponent = minecraft.level == null ? null : minecraft.level.getEntity(intro.opponentEntityId);
-        int portraitTop = bandTop + Math.max(4, bandHeight / 24);
+        // Portraits intentionally break out above the coloured band. Keeping
+        // the scissor at the band edge clipped heads and hats behind its top
+        // border, making the trainers look embedded in the panel.
+        int portraitTop = Math.max(0, bandTop - bandHeight / 2);
         int portraitBottom = bandBottom - Math.max(24, bandHeight / 7);
         renderPortrait(
             graphics,
@@ -135,10 +139,12 @@ public final class BattleIntroOverlay {
         double impactFlash = 1.0D - clamp(Math.abs(progress - 0.39D) / 0.055D);
         int flashAlpha = (int)Math.round(Math.max(openingFlash * 150.0D, impactFlash * 118.0D));
         if (flashAlpha > 0) {
-            graphics.fill(0, 0, width, height, flashAlpha << 24 | 0xFFFFFF);
+            graphics.fill(0, bandTop - 5, width, bandBottom + 5, flashAlpha << 24 | 0xFFFFFF);
         }
         int closeAlpha = (int)Math.round(clamp((progress - 0.90D) / 0.10D) * 255.0D);
-        if (closeAlpha > 0) graphics.fill(0, 0, width, height, closeAlpha << 24);
+        if (closeAlpha > 0) {
+            graphics.fill(0, bandTop - 5, width, bandBottom + 5, closeAlpha << 24);
+        }
         RenderSystem.disableBlend();
     }
 
@@ -158,12 +164,14 @@ public final class BattleIntroOverlay {
         graphics.fill(0, bottom, centerX * 2, bottom + 3, 0xD8FFFFFF);
     }
 
-    private static void drawSpeedLines(GuiGraphics graphics, int width, int height, double progress) {
+    private static void drawSpeedLines(
+        GuiGraphics graphics, int width, int top, int bottom, double progress
+    ) {
         int travel = (int)Math.round(progress * width * 2.2D);
         for (int index = -8; index < 18; index++) {
             int x = Math.floorMod(index * 73 + travel, width + 180) - 90;
             int alpha = 28 + Math.floorMod(index * 19, 34);
-            fillSlanted(graphics, x, x + 54, 0, height, 110, alpha << 24 | 0xDDEBFF);
+            fillSlanted(graphics, x, x + 54, top, bottom, 72, alpha << 24 | 0xDDEBFF);
         }
     }
 

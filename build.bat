@@ -10,6 +10,7 @@ set "CUSTOM_SPAWN_BUILDER=%REPO_ROOT%tools\cobblemon-custom-spawns\build_custom_
 set "TRAINER_SKIN_BUILDER=%REPO_ROOT%tools\content-manager\skin-pipeline\assemble_skin.py"
 set "YOUNGSTER_SKIN_MANIFEST=%REPO_ROOT%tools\content-manager\skin-pipeline\work\youngster\manifest.json"
 set "EASY_NPC_PRESET_BUILDER=%REPO_ROOT%tools\content-manager\generate_easy_npc_presets.py"
+set "KANTO_GYM_LEADER_BUILDER=%REPO_ROOT%tools\content-manager\generate_kanto_gym_leaders.py"
 set "GRADLEW=%REPO_ROOT%projects\cobbleventure-battle-ai\gradlew.bat"
 set "WORLD_BOOTSTRAP_PROJECT=%REPO_ROOT%projects\cobbleventure-world-bootstrap"
 set "PLAYER_MENU_PROJECT=%REPO_ROOT%projects\cobbleventure-player-menu"
@@ -84,6 +85,8 @@ call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" test
 exit /b %errorlevel%
 
 :generate
+%PYTHON_CMD% "%KANTO_GYM_LEADER_BUILDER%"
+if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
@@ -96,6 +99,8 @@ exit /b %errorlevel%
 exit /b %errorlevel%
 
 :mod_bootstrap
+%PYTHON_CMD% "%KANTO_GYM_LEADER_BUILDER%"
+if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"

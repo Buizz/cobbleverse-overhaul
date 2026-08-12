@@ -1,0 +1,29 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"체육관 관장 웅 대화·배틀 테스트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"체육관 관장 웅",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"체육관 관장 웅\"}",
+    DialogData:{DialogDataSet:[{Label:"challenge",Name:"체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",Texts:[{Text:"체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!"}],Buttons:[{Label:"battle",Name:"승부한다",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_battle_intro @initiator @s tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:brock onwin {1:[\"scoreboard objectives add cvf_b7f7da6125bf dummy\",\"scoreboard players set @1 cvf_b7f7da6125bf 1\",\"cobbleventurebag give @1 cobbleversebadges:kanto_boulder_badge 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},{Label:"cancel",Name:"다음에 도전한다",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"victory",Name:"훌륭한 승부였다. 이 배지는 네 것이다.",Texts:[{Text:"훌륭한 승부였다. 이 배지는 네 것이다."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"좋은 승부였다. 준비해서 다시 도전해라.",Texts:[{Text:"좋은 승부였다. 준비해서 다시 도전해라."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"cleared",Name:"이미 실력을 증명했군. 다음 목표를 향해 나아가라.",Priority:100,Texts:[{Text:"이미 실력을 증명했군. 다음 목표를 향해 나아가라."}],Conditions:[{Name:"cvf_b7f7da6125bf",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.900f,0.900f,0.900f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;417046376,-994944613,-1936440647,1117250656],
+    SkinData:{Type:"CUSTOM",UUID:[I;-982458670,-1535487949,-1742125174,728348486] },
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

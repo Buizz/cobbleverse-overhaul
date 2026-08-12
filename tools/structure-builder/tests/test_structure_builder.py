@@ -108,21 +108,37 @@ class StructureBuilderTests(unittest.TestCase):
                 "facing": "east",
             }]
             source.with_suffix(".structure.json").write_text(
-                json.dumps({"schema_version": 1, "anchors": anchors}),
+                json.dumps({
+                    "schema_version": 1,
+                    "interior_structure": "cobbleventure:interiors/player_house",
+                    "anchors": anchors,
+                }),
                 encoding="utf-8",
             )
 
             entries = structure_builder.catalog_entries(root)
 
             self.assertEqual(anchors, entries[0]["anchors"])
+            self.assertEqual(
+                "cobbleventure:interiors/player_house",
+                entries[0]["interior_structure"],
+            )
 
     def test_generate_packages_every_authored_nbt_without_recoloring(self) -> None:
         catalog_path = structure_builder.generate(REPOSITORY_ROOT)
         catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
-        sources = sorted((REPOSITORY_ROOT / "content/structures").rglob("*.nbt"))
+        sources = sorted(
+            source for source in (REPOSITORY_ROOT / "content/structures").rglob("*.nbt")
+            if source.relative_to(REPOSITORY_ROOT / "content/structures").parts[0] != "league"
+        )
 
         self.assertEqual(len(sources), len(catalog["entries"]))
-        self.assertEqual(29, len(catalog["entries"]))
+        self.assertEqual(1, sum(entry["category"] == "gyms" for entry in catalog["entries"]))
+        self.assertEqual(8, sum(
+            entry["source"].startswith("content/structures/interiors/gyms/")
+            for entry in catalog["entries"]
+        ))
+        self.assertFalse(any(entry["category"] == "league" for entry in catalog["entries"]))
         self.assertTrue(any(
             entry["source"] == "content/structures/placeholder/player_house.nbt"
             for entry in catalog["entries"]
@@ -148,6 +164,20 @@ class StructureBuilderTests(unittest.TestCase):
                 structure_builder.StructureBuilderError, "누락된 구조물"
             ):
                 structure_builder.import_exports(REPOSITORY_ROOT, world)
+
+    def test_named_door_and_arrival_are_valid_builder_anchors(self) -> None:
+        document = structure_builder._validate_structure_metadata({
+            "schema_version": 1,
+            "anchors": [{
+                "type": "door", "id": "next_room", "label": "next_room",
+                "position": [4, 1, 0], "safe_spawn": [4, 1, 2],
+                "door_facing": "north", "safe_side": "south",
+            }, {
+                "type": "arrival", "id": "entrance", "label": "entrance",
+                "position": [4, 1, 3], "facing": "south",
+            }],
+        }, Path("shared_room.structure.json"))
+        self.assertEqual("next_room", document["anchors"][0]["label"])
 
 
 if __name__ == "__main__":

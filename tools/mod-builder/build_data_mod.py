@@ -33,6 +33,10 @@ GENERATED_CONTENT_DIR = Path("generated")
 FACILITY_STRUCTURE_SOURCE_DIR = Path("content/structures/placeholder")
 HOUSE_STRUCTURE_SOURCE_DIR = Path("content/structures/houses")
 INTERIOR_STRUCTURE_SOURCE_DIR = Path("content/structures/interiors")
+GYM_STRUCTURE_SOURCE_DIR = Path("content/structures/gyms")
+LEAGUE_STRUCTURE_SOURCE_DIR = Path("content/structures/league")
+GYM_CATALOG_SOURCE = Path("content/catalogs/gyms.json")
+GYM_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/gyms.json")
 BUILDING_SETTINGS_SOURCE = Path("content/catalogs/building-settings.json")
 BUILDING_SETTINGS_ENTRY = Path("data/cobbleventure/building_settings.json")
 STRUCTURE_METADATA_ENTRY_DIR = Path("data/cobbleventure/structure_metadata")
@@ -1300,30 +1304,97 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
         )
         if not source_dir.is_dir():
             continue
-        for source in sorted(source_dir.glob("*.structure.json")):
-            target = metadata_root / category / source.name
+        for source in sorted(source_dir.rglob("*.structure.json")):
+            target = metadata_root / category / source.relative_to(source_dir)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(source.read_bytes())
 
     house_source = _inside(root, root / HOUSE_STRUCTURE_SOURCE_DIR, "주택 메타데이터 원본")
     if house_source.is_dir():
-        for source in sorted(house_source.glob("*.structure.json")):
-            base_name = source.name.removesuffix(".structure.json")
-            for roof_color in HOUSE_ROOF_BLOCKS:
-                target = metadata_root / "houses" / f"{base_name}_{roof_color}.structure.json"
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(source.read_bytes())
+        for base_id in HOUSE_BASES:
+            width, _, _ = HOUSE_BASES[base_id]["size"]  # type: ignore[misc]
+            for roof_id in sorted(HOUSE_ROOFS):
+                base_name = f"{base_id}_{roof_id}"
+                source = house_source / f"{base_name}.structure.json"
+                door_x = int(width) // 2
+                if source.is_file():
+                    metadata = json.loads(source.read_text(encoding="utf-8"))
+                    metadata.setdefault(
+                        "interior_structure",
+                        "cobbleventure:interiors/one_story_shed",
+                    )
+                    anchors = metadata.setdefault("anchors", [])
+                    if not any(
+                        isinstance(anchor, dict)
+                        and anchor.get("type") == "interior_entry"
+                        for anchor in anchors
+                    ):
+                        anchors.append({
+                            "id": "interior_entry",
+                            "type": "interior_entry",
+                            "position": [door_x, 1, 0],
+                            "safe_spawn": [door_x, 1, -1],
+                            "door_facing": "north",
+                            "safe_side": "north",
+                            "seal_entry": True,
+                            "dialogue": "cobbleventure:default_enter",
+                        })
+                else:
+                    metadata = {
+                        "schema_version": 1,
+                        "interior_structure": "cobbleventure:interiors/one_story_shed",
+                        "anchors": [{
+                            "id": "interior_entry",
+                            "type": "interior_entry",
+                            "position": [door_x, 1, 0],
+                            "safe_spawn": [door_x, 1, -1],
+                            "door_facing": "north",
+                            "safe_side": "north",
+                            "seal_entry": True,
+                            "dialogue": "cobbleventure:default_enter",
+                        }],
+                    }
+                payload = (
+                    json.dumps(metadata, ensure_ascii=False, indent=2) + "\n"
+                ).encode("utf-8")
+                for roof_color in HOUSE_ROOF_BLOCKS:
+                    target = metadata_root / "houses" / f"{base_name}_{roof_color}.structure.json"
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(payload)
 
     interior_source = _inside(root, root / INTERIOR_STRUCTURE_SOURCE_DIR, "내부 NBT 원본")
     if interior_source.is_dir():
-        for source in sorted(interior_source.glob("*.nbt")):
+        for source in sorted(interior_source.rglob("*.nbt")):
+            relative = source.relative_to(interior_source)
             target = _inside(
                 root,
-                output / "data/cobbleventure/structure/interiors" / source.name,
+                output / "data/cobbleventure/structure/interiors" / relative,
                 "생성 내부 NBT",
             )
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(_read_authored_structure_nbt(source, "내부 NBT"))
+
+    for category, source_relative in (
+        ("gyms", GYM_STRUCTURE_SOURCE_DIR),
+        ("league", LEAGUE_STRUCTURE_SOURCE_DIR),
+    ):
+        source_dir = _inside(root, root / source_relative, f"{category} NBT 원본")
+        if not source_dir.is_dir():
+            continue
+        for source in sorted(source_dir.glob("*.nbt")):
+            target = _inside(
+                root,
+                output / "data/cobbleventure/structure" / category / source.name,
+                f"생성 {category} NBT",
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(_read_authored_structure_nbt(source, f"{category} NBT"))
+
+    gym_catalog = _inside(root, root / GYM_CATALOG_SOURCE, "체육관 카탈로그")
+    if gym_catalog.is_file():
+        target = _inside(root, output / GYM_CATALOG_ENTRY, "생성 체육관 카탈로그")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(gym_catalog.read_bytes())
 
 
 def build(root: Path) -> Path:

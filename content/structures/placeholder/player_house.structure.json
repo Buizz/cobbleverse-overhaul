@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/placeholder/player_house.nbt",
+  "interior_structure": "cobbleventure:interiors/player_house",
+  "anchors": [
+    {
+      "id": "interior_entry",
+      "type": "interior_entry",
+      "position": [
+        8,
+        1,
+        0
+      ],
+      "safe_spawn": [
+        8,
+        1,
+        -1
+      ],
+      "door_facing": "north",
+      "safe_side": "north",
+      "seal_entry": true,
+      "dialogue": "cobbleventure:default_enter"
+    }
+  ]
+}

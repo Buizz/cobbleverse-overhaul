@@ -9,6 +9,17 @@
     "$schema": { "type": "string" },
     "schema_version": { "const": 2 },
     "vanilla_crafting_disabled": { "const": true },
+    "standard_prices": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["item", "price"],
+        "properties": {
+          "item": { "$ref": "#/$defs/resourceId" },
+          "price": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "shop_catalogs": {
       "type": "array",
       "items": {
@@ -17,7 +28,7 @@
         "required": ["id", "display_name", "facility_scope", "assignments"],
         "properties": {
           "id": { "$ref": "#/$defs/resourceId" },
-          "display_name": { "type": "string", "minLength": 1 },
+          "display_name": { "$ref": "#/$defs/localizedText" },
           "facility_scope": { "enum": ["pokemart", "department_store", "specialty"] },
           "vendor_units": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resourceId" } },
           "assignments": {
@@ -27,7 +38,7 @@
               "required": ["slot_id", "display_name", "vendor_unit"],
               "properties": {
                 "slot_id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-                "display_name": { "type": "string", "minLength": 1 },
+                "display_name": { "$ref": "#/$defs/localizedText" },
                 "vendor_unit": { "$ref": "#/$defs/resourceId" }
               }
             }
@@ -106,6 +117,19 @@
   },
   "$defs": {
     "resourceId": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "localizedText": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["ko_kr", "en_us"],
+          "properties": {
+            "ko_kr": { "type": "string", "minLength": 1 },
+            "en_us": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
     "itemStack": {
       "type": "object",
       "additionalProperties": false,
@@ -140,7 +164,7 @@
       "additionalProperties": false,
       "required": ["name", "offers"],
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
+        "name": { "$ref": "#/$defs/localizedText" },
         "offers": { "type": "array", "items": { "$ref": "#/$defs/vendorOffer" } }
       }
     },
@@ -151,8 +175,8 @@
       "properties": {
         "id": { "$ref": "#/$defs/resourceId" },
         "facility_scope": { "enum": ["pokemart", "department_store", "specialty"] },
-        "role": { "type": "string", "minLength": 1 },
-        "display_name": { "type": "string", "minLength": 1 },
+        "role": { "$ref": "#/$defs/localizedText" },
+        "display_name": { "$ref": "#/$defs/localizedText" },
         "npc_template": { "$ref": "#/$defs/resourceId" },
         "categories": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/vendorCategory" } }
       }

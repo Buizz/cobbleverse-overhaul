@@ -29,8 +29,13 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoorHingeSide;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -86,8 +91,19 @@ final class BuildingRuntimeSystem {
         }
         Rotation rotation = rotation(rotationName);
         String instanceKey = instanceKey(level, structure, origin.toBlockPos());
-        applyFixedNpcs(level, structure, metadata, origin.toBlockPos(), rotation, instanceKey);
-        prepareInterior(level, structure, metadata, origin.toBlockPos(), rotation, instanceKey);
+        BuildingSettings settings = SETTINGS.get(structure);
+        applyFixedNpcs(
+            level, metadata, origin.toBlockPos(), rotation, instanceKey,
+            settings == null ? Map.of() : settings.fixedNpcs, "exterior"
+        );
+        if (settings != null && !settings.interiors.isEmpty()) {
+            prepareConfiguredInteriors(
+                level, structure, metadata, origin.toBlockPos(), rotation,
+                instanceKey, settings
+            );
+        } else {
+            prepareInterior(level, structure, metadata, origin.toBlockPos(), rotation, instanceKey);
+        }
     }
 
     private static void loadMetadata(MinecraftServer server) {
@@ -120,11 +136,18 @@ final class BuildingRuntimeSystem {
                     : value.has("id") ? value.get("id").getAsString() : type;
                 anchors.add(new Anchor(
                     id, type, position(value, "position", null),
-                    position(value, "safe_spawn", null)
+                    position(value, "safe_spawn", null),
+                    direction(value.has("door_facing")
+                        ? value.get("door_facing").getAsString() : "north"),
+                    value.has("seal_entry") && value.get("seal_entry").getAsBoolean()
                 ));
             }
         }
-        return new StructureMetadata(List.copyOf(anchors));
+        String interiorStructure = null;
+        if (root.has("interior_structure")) {
+            interiorStructure = requiredString(root, "interior_structure");
+        }
+        return new StructureMetadata(List.copyOf(anchors), interiorStructure);
     }
 
     private static void loadSettings(MinecraftServer server) {
@@ -150,12 +173,34 @@ final class BuildingRuntimeSystem {
                         fixed.put(npc.getKey(), npc.getValue().getAsString());
                     }
                 }
+                List<InteriorSetting> interiors = new ArrayList<>();
+                if (value.has("interiors")) {
+                    for (JsonElement interiorElement : value.getAsJsonArray("interiors")) {
+                        JsonObject interior = interiorElement.getAsJsonObject();
+                        interiors.add(new InteriorSetting(
+                            requiredString(interior, "key"),
+                            requiredString(interior, "structure")
+                        ));
+                    }
+                }
+                Map<String, RouteTarget> routes = new LinkedHashMap<>();
+                if (value.has("door_routes")) {
+                    for (Map.Entry<String, JsonElement> route
+                        : value.getAsJsonObject("door_routes").entrySet()) {
+                        JsonObject target = route.getValue().getAsJsonObject();
+                        routes.put(route.getKey(), new RouteTarget(
+                            requiredString(target, "space"),
+                            requiredString(target, "arrival")
+                        ));
+                    }
+                }
                 SETTINGS.put(entry.getKey(), new BuildingSettings(
                     Map.copyOf(fixed),
                     value.has("citizen_placement_allowed")
                         ? value.get("citizen_placement_allowed").getAsBoolean()
                         : value.has("random_citizen_eligible")
-                            && value.get("random_citizen_eligible").getAsBoolean()
+                            && value.get("random_citizen_eligible").getAsBoolean(),
+                    List.copyOf(interiors), Map.copyOf(routes)
                 ));
             }
         } catch (IOException | RuntimeException error) {
@@ -164,11 +209,11 @@ final class BuildingRuntimeSystem {
     }
 
     private static void applyFixedNpcs(
-        ServerLevel level, String structure, StructureMetadata metadata,
-        BlockPos origin, Rotation rotation, String instanceKey
+        ServerLevel level, StructureMetadata metadata,
+        BlockPos origin, Rotation rotation, String instanceKey,
+        Map<String, String> fixedNpcs, String spaceKey
     ) {
-        BuildingSettings settings = SETTINGS.get(structure);
-        if (settings == null || settings.fixedNpcs.isEmpty()) {
+        if (fixedNpcs.isEmpty()) {
             return;
         }
         RuntimeData data = data(level.getServer());
@@ -176,8 +221,12 @@ final class BuildingRuntimeSystem {
             if (!anchor.type.equals("npc_position")) {
                 continue;
             }
-            String npc = settings.fixedNpcs.get(anchor.id);
-            String spawnKey = instanceKey + "|npc|" + anchor.id;
+            String scoped = spaceKey + ":" + anchor.id;
+            String npc = fixedNpcs.get(scoped);
+            if (npc == null && spaceKey.equals("exterior")) {
+                npc = fixedNpcs.get(anchor.id);
+            }
+            String spawnKey = instanceKey + "|npc|" + scoped;
             if (npc == null || data.hasSpawned(spawnKey)) {
                 continue;
             }
@@ -196,8 +245,11 @@ final class BuildingRuntimeSystem {
         if (entry == null) {
             return;
         }
-        String name = exteriorStructure.substring(exteriorStructure.lastIndexOf('/') + 1);
-        String interiorStructure = "cobbleventure:interiors/" + name;
+        String interiorStructure = exteriorMetadata.interiorStructure;
+        if (interiorStructure == null) {
+            String name = exteriorStructure.substring(exteriorStructure.lastIndexOf('/') + 1);
+            interiorStructure = "cobbleventure:interiors/" + name;
+        }
         StructureMetadata interiorMetadata = METADATA.get(interiorStructure);
         if (interiorMetadata == null) {
             LOGGER.warn("Interior metadata is missing for {}", exteriorStructure);
@@ -231,8 +283,10 @@ final class BuildingRuntimeSystem {
             data.markPrepared(preparedKey);
         }
         applyFixedNpcs(
-            interiors, interiorStructure, interiorMetadata, interiorOrigin,
-            Rotation.NONE, instanceKey + "|inside"
+            interiors, interiorMetadata, interiorOrigin,
+            Rotation.NONE, instanceKey + "|inside",
+            SETTINGS.getOrDefault(exteriorStructure, BuildingSettings.EMPTY).fixedNpcs,
+            "interior"
         );
 
         Anchor interiorSpawn = interiorMetadata.first("interior_spawn");
@@ -242,14 +296,109 @@ final class BuildingRuntimeSystem {
             return;
         }
         BlockPos entryDoor = transform(exteriorOrigin, entry.position, exteriorRotation);
+        net.minecraft.core.Direction entryFacing = exteriorRotation.rotate(entry.facing);
+        if (entry.sealOpening) {
+            sealDoorwayOpening(exterior, entryDoor, entryFacing);
+        }
+        installDoorIfMissing(exterior, entryDoor, entryFacing);
         BlockPos outside = entry.safeSpawn == null ? entryDoor : transform(
             exteriorOrigin, entry.safeSpawn, exteriorRotation
         );
         BlockPos exitDoor = interiorOrigin.offset(exit.position);
+        installDoorIfMissing(interiors, exitDoor, exit.facing);
         BlockPos inside = interiorSpawn != null ? interiorOrigin.offset(interiorSpawn.position)
             : exit.safeSpawn != null ? interiorOrigin.offset(exit.safeSpawn) : exitDoor;
         registerDoor(exterior, entryDoor, new DoorTarget(INTERIORS, inside, "입장"));
         registerDoor(interiors, exitDoor, new DoorTarget(exterior.dimension(), outside, "퇴장"));
+    }
+
+    private static void prepareConfiguredInteriors(
+        ServerLevel exterior, String exteriorStructure, StructureMetadata exteriorMetadata,
+        BlockPos exteriorOrigin, Rotation exteriorRotation, String instanceKey,
+        BuildingSettings settings
+    ) {
+        ServerLevel interiorsLevel = exterior.getServer().getLevel(INTERIORS);
+        if (interiorsLevel == null) {
+            return;
+        }
+        Map<String, SpaceInstance> spaces = new LinkedHashMap<>();
+        spaces.put("exterior", new SpaceInstance(
+            exterior, exteriorOrigin, exteriorRotation, exteriorMetadata
+        ));
+        BlockPos base = instanceOrigin(instanceKey);
+        RuntimeData runtime = data(exterior.getServer());
+        int index = 0;
+        for (InteriorSetting interior : settings.interiors) {
+            StructureMetadata metadata = METADATA.get(interior.structure);
+            if (metadata == null) {
+                LOGGER.warn("Configured interior metadata is missing: {}", interior.structure);
+                continue;
+            }
+            ResourceLocation structureId = ResourceLocation.tryParse(interior.structure);
+            var template = structureId == null ? java.util.Optional.<StructureTemplate>empty()
+                : interiorsLevel.getStructureManager().get(structureId);
+            if (template.isEmpty()) {
+                LOGGER.warn("Configured interior structure is missing: {}", interior.structure);
+                continue;
+            }
+            BlockPos origin = base.offset((index % 4) * 128, 0, (index / 4) * 128);
+            String preparedKey = instanceKey + "|space|" + interior.key;
+            if (!runtime.hasPrepared(preparedKey)) {
+                forceChunks(interiorsLevel, origin, template.orElseThrow().getSize());
+                boolean placed = template.orElseThrow().placeInWorld(
+                    interiorsLevel, origin, origin, new StructurePlaceSettings(),
+                    RandomSource.create(interiorsLevel.getSeed() ^ origin.asLong()), 2
+                );
+                if (!placed) {
+                    LOGGER.error(
+                        "Configured interior placement failed: structure={}, instance={}",
+                        interior.structure, instanceKey
+                    );
+                    index++;
+                    continue;
+                }
+                runtime.markPrepared(preparedKey);
+            }
+            spaces.put(interior.key, new SpaceInstance(
+                interiorsLevel, origin, Rotation.NONE, metadata
+            ));
+            applyFixedNpcs(
+                interiorsLevel, metadata, origin, Rotation.NONE,
+                instanceKey + "|" + interior.key, settings.fixedNpcs, interior.key
+            );
+            index++;
+        }
+
+        for (Map.Entry<String, RouteTarget> route : settings.routes.entrySet()) {
+            int separator = route.getKey().indexOf(':');
+            if (separator <= 0) {
+                continue;
+            }
+            String sourceSpaceKey = route.getKey().substring(0, separator);
+            String sourceDoorId = route.getKey().substring(separator + 1);
+            SpaceInstance sourceSpace = spaces.get(sourceSpaceKey);
+            SpaceInstance targetSpace = spaces.get(route.getValue().space);
+            if (sourceSpace == null || targetSpace == null) {
+                LOGGER.warn("Building route references an unavailable space: {}", route.getKey());
+                continue;
+            }
+            Anchor sourceDoor = sourceSpace.metadata.namedDoor(sourceDoorId);
+            Anchor arrival = targetSpace.metadata.arrival(route.getValue().arrival);
+            if (sourceDoor == null || arrival == null) {
+                LOGGER.warn("Building route references a missing door or arrival: {}", route.getKey());
+                continue;
+            }
+            BlockPos door = transform(
+                sourceSpace.origin, sourceDoor.position, sourceSpace.rotation
+            );
+            BlockPos destination = transform(
+                targetSpace.origin, arrival.position, targetSpace.rotation
+            );
+            registerDoor(
+                sourceSpace.level, door,
+                new DoorTarget(targetSpace.level.dimension(), destination, "이동")
+            );
+        }
     }
 
     private static boolean spawnNpc(ServerLevel level, String npcId, BlockPos position) {
@@ -279,6 +428,49 @@ final class BuildingRuntimeSystem {
     private static void registerDoor(ServerLevel level, BlockPos lower, DoorTarget target) {
         DOORS.put(new DoorKey(level.dimension(), lower.immutable()), target);
         DOORS.put(new DoorKey(level.dimension(), lower.above().immutable()), target);
+    }
+
+    private static void installDoorIfMissing(
+        ServerLevel level, BlockPos lower, net.minecraft.core.Direction facing
+    ) {
+        if (level.getBlockState(lower).getBlock() instanceof DoorBlock) {
+            return;
+        }
+        if (!level.getBlockState(lower).canBeReplaced()
+            || !level.getBlockState(lower.above()).canBeReplaced()) {
+            LOGGER.warn("Building entrance is blocked and cannot receive a door: {}", lower);
+            return;
+        }
+        BlockState base = Blocks.OAK_DOOR.defaultBlockState()
+            .setValue(DoorBlock.FACING, facing)
+            .setValue(DoorBlock.HINGE, DoorHingeSide.LEFT)
+            .setValue(DoorBlock.OPEN, false)
+            .setValue(DoorBlock.POWERED, false);
+        level.setBlock(
+            lower, base.setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER), 3
+        );
+        level.setBlock(
+            lower.above(), base.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER), 3
+        );
+    }
+
+    private static void sealDoorwayOpening(
+        ServerLevel level, BlockPos lower, net.minecraft.core.Direction facing
+    ) {
+        net.minecraft.core.Direction lateral = facing.getClockWise();
+        for (int side : new int[] {-1, 1}) {
+            BlockPos column = lower.relative(lateral, side);
+            for (int height = 0; height <= 2; height++) {
+                BlockPos position = column.above(height);
+                if (level.getBlockState(position).canBeReplaced()) {
+                    level.setBlock(position, Blocks.OAK_PLANKS.defaultBlockState(), 3);
+                }
+            }
+        }
+        BlockPos header = lower.above(2);
+        if (level.getBlockState(header).canBeReplaced()) {
+            level.setBlock(header, Blocks.OAK_PLANKS.defaultBlockState(), 3);
+        }
     }
 
     private static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
@@ -319,6 +511,15 @@ final class BuildingRuntimeSystem {
             case "clockwise_180" -> Rotation.CLOCKWISE_180;
             case "counterclockwise_90" -> Rotation.COUNTERCLOCKWISE_90;
             default -> Rotation.NONE;
+        };
+    }
+
+    private static net.minecraft.core.Direction direction(String value) {
+        return switch (value) {
+            case "east" -> net.minecraft.core.Direction.EAST;
+            case "south" -> net.minecraft.core.Direction.SOUTH;
+            case "west" -> net.minecraft.core.Direction.WEST;
+            default -> net.minecraft.core.Direction.NORTH;
         };
     }
 
@@ -363,16 +564,48 @@ final class BuildingRuntimeSystem {
         );
     }
 
-    private record Anchor(String id, String type, BlockPos position, BlockPos safeSpawn) {
+    private record Anchor(
+        String id, String type, BlockPos position, BlockPos safeSpawn,
+        net.minecraft.core.Direction facing, boolean sealOpening
+    ) {
     }
 
-    private record StructureMetadata(List<Anchor> anchors) {
+    private record StructureMetadata(List<Anchor> anchors, String interiorStructure) {
         Anchor first(String type) {
             return anchors.stream().filter(anchor -> anchor.type.equals(type)).findFirst().orElse(null);
         }
+
+        Anchor namedDoor(String id) {
+            return anchors.stream().filter(anchor -> anchor.id.equals(id)
+                && Set.of("door", "interior_entry", "interior_exit").contains(anchor.type))
+                .findFirst().orElse(null);
+        }
+
+        Anchor arrival(String id) {
+            return anchors.stream().filter(anchor -> anchor.id.equals(id)
+                && Set.of("arrival", "interior_spawn", "exterior_spawn").contains(anchor.type))
+                .findFirst().orElse(null);
+        }
     }
 
-    private record BuildingSettings(Map<String, String> fixedNpcs, boolean citizenPlacementAllowed) {
+    private record InteriorSetting(String key, String structure) {
+    }
+
+    private record RouteTarget(String space, String arrival) {
+    }
+
+    private record SpaceInstance(
+        ServerLevel level, BlockPos origin, Rotation rotation, StructureMetadata metadata
+    ) {
+    }
+
+    private record BuildingSettings(
+        Map<String, String> fixedNpcs, boolean citizenPlacementAllowed,
+        List<InteriorSetting> interiors, Map<String, RouteTarget> routes
+    ) {
+        private static final BuildingSettings EMPTY = new BuildingSettings(
+            Map.of(), false, List.of(), Map.of()
+        );
     }
 
     private record DoorKey(ResourceKey<Level> dimension, BlockPos position) {

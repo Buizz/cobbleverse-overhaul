@@ -2056,8 +2056,8 @@ class ContentManagerTests(unittest.TestCase):
         )
         mods = {item["id"]: item for item in dependency_lock["mods"]}
         expected_files = {
-            "accessories": (938917, 7046407),
-            "owo_lib": (532610, 6416633),
+            "accessories": (938917, 7583320),
+            "owo_lib": (532610, 6785734),
             "mega_showdown": (1189523, 8519042),
             "paxi_neoforge": (1015157, 6485740),
             "yungs_api_neoforge": (1015100, 6715463),
@@ -2222,13 +2222,15 @@ class ContentManagerTests(unittest.TestCase):
             {entry["source"] for entry in trainer_references["entries"]},
         )
         reference_by_id = {entry["id"]: entry for entry in trainer_references["entries"]}
-        self.assertEqual(20, len(trainer_roster["battle_reference_defaults"]))
-        self.assertTrue(all(
-            default["entry"] in reference_by_id
-            and reference_by_id[default["entry"]]["source"] == "another_red"
-            and reference_by_id[default["entry"]]["entry_number"] == 1
-            for default in trainer_roster["battle_reference_defaults"]
-        ))
+        self.assertEqual(22, len(trainer_roster["battle_reference_defaults"]))
+        for default in trainer_roster["battle_reference_defaults"]:
+            self.assertIn(default["entry"], reference_by_id)
+            reference = reference_by_id[default["entry"]]
+            if default["character"] == "cobbleventure:character/koga":
+                self.assertEqual("rct_default", reference["source"])
+            else:
+                self.assertEqual("another_red", reference["source"])
+                self.assertEqual(1, reference["entry_number"])
         self.assertTrue(validation["valid"])
         self.assertGreaterEqual(dashboard["trainers"], 2)
         self.assertTrue(all(item["battle_type"] in {"singles", "doubles"} for item in trainers["items"]))
@@ -2512,9 +2514,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="import-structure-builder"', markup)
         self.assertIn("/api/structure-builder/settings", script)
         self.assertIn("/api/structure-builder/import", script)
-        self.assertIn("/api/structure-viewer", script)
+        self.assertIn("/api/structure-model", script)
         self.assertIn('switchPage("structures")', script)
-        self.assertIn("await loadStructureModel(preferred)", script)
+        self.assertIn("await loadBuildingModel(standardGymExterior)", script)
         self.assertIn('{ id: "player_house", label: "플레이어 집"', script)
         self.assertIn("cobbleventure:placeholder/${facility.id}", script)
         self.assertIn('name="specialBuildingPreset"', markup)
@@ -2561,6 +2563,10 @@ class ContentManagerTests(unittest.TestCase):
                 [{"label": "shop_clerk", "position": [8, 1, 6]}],
                 payload["structures"]["cobbleventure:placeholder/shop"]["npc_labels"],
             )
+            self.assertEqual(
+                "placeholder",
+                payload["structures"]["cobbleventure:placeholder/shop"]["category"],
+            )
             self.assertFalse(any(issue.level == "error" for issue in issues))
             saved = content_manager.load_building_settings(root)
             self.assertEqual(
@@ -2604,10 +2610,51 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("NBT 건물 설정", structures)
         self.assertIn('id="building-model-canvas"', markup)
         self.assertIn('id="building-npc-assignments"', markup)
+        self.assertIn('id="building-category"', markup)
         self.assertIn('id="save-building-settings"', structures)
         self.assertIn("/api/building-settings", script)
+        self.assertIn("/api/interior-spaces", script)
         self.assertIn("npc_labels", script)
         self.assertIn("citizen_placement_allowed", script)
+        self.assertIn("gym_exterior", script)
+        self.assertIn('id="interior-space-create-form"', markup)
+        self.assertIn('id="building-interior-assignments"', markup)
+        self.assertIn('id="building-door-routes"', markup)
+        styles = (web_root / "styles.css").read_text(encoding="utf-8")
+        self.assertIn(".building-door-route", styles)
+
+    def test_new_gym_reuses_exterior_and_interior_templates(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            exterior = root / "content/structures/gyms/base_gym.nbt"
+            interior = root / "content/structures/interiors/gyms/pewter_gym_main.nbt"
+            exterior.parent.mkdir(parents=True)
+            interior.parent.mkdir(parents=True)
+            exterior.write_bytes(self._structure_nbt((25, 13, 26)))
+            interior.write_bytes(self._structure_nbt((25, 13, 26)))
+            interior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{"type": "npc_position", "label": "leader", "position": [12, 1, 20]}],
+                "interior": {"id": "pewter_gym_main", "width": 25, "depth": 26, "floor_height": 13, "floors": 1},
+            }), encoding="utf-8")
+            catalog = root / "content/catalogs/gyms.json"
+            catalog.parent.mkdir(parents=True)
+            catalog.write_text(json.dumps({
+                "schema_version": 1, "gyms": [], "leagues": [],
+            }), encoding="utf-8")
+
+            gym, issues = content_manager.create_gym(
+                root, "second_rock", "두 번째 바위 체육관",
+                "cobbleventure:gyms/base_gym",
+            )
+
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            self.assertEqual("cobbleventure:gyms/base_gym", gym["exterior"]["structure"])
+            self.assertEqual(
+                "cobbleventure:interiors/gyms/pewter_gym_main",
+                gym["interior"]["modules"][0]["structure"],
+            )
+            self.assertFalse((root / "content/structures/gyms/second_rock_gym.nbt").exists())
 
     def test_document_creation_api(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

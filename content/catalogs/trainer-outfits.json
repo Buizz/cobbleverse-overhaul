@@ -25,6 +25,24 @@
           "root_scale": 0.78
         }
       }
+    },
+    {
+      "id": "cobbleventure:trainer_outfit/gym_leader",
+      "trainer_class": "cobbleventure:trainer_class/gym_leader",
+      "display_name": { "ko_kr": "체육관 관장 공용 EasyNPC 의상", "en_us": "Gym Leader EasyNPC Outfit" },
+      "base_skin": "cobbleventure:trainer_skin/youngster_equipment",
+      "fallback_skin": "cobbleventure:trainer_skin/youngster",
+      "arm_model": "classic",
+      "equipment": {},
+      "adapters": {
+        "easy_npc": {
+          "entity_type": "easy_npc:humanoid",
+          "skin_model": "humanoid",
+          "custom_skin_uuid": "c570ded2-a47a-5033-9829-478a2b69b746",
+          "preset": "cobbleventure:trainer/gym_leader",
+          "root_scale": 0.9
+        }
+      }
     }
   ]
 }

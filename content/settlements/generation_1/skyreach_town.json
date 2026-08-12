@@ -136,13 +136,22 @@
       }
     },
     "gym": {
-      "enabled": false,
-      "structure": "rgs:viridian_gym",
-      "theme": "rock",
+      "enabled": true,
+      "gym_id": "cobbleventure:gym/viridian",
+      "structure": "cobbleventure:gyms/base_gym",
+      "theme": "ground",
       "anchor": "gym_building",
-      "leader_trainer_id": ""
+      "leader_trainer_id": "cobbleventure:npc/gym_leader/giovanni_gym",
+      "league_entry_id": "cobbleventure:league/kanto/earth"
     },
-    "facility_placements": []
+    "facility_placements": [
+      {
+        "id": "gym_building",
+        "mode": "direct_template",
+        "structure": "cobbleventure:gyms/base_gym",
+        "anchor": "gym_building"
+      }
+    ]
   },
   "npc_placement": {
     "max_ambient_npcs": 10,

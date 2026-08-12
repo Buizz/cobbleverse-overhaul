@@ -169,7 +169,8 @@
     },
     "gym": {
       "enabled": false,
-      "structure": "rgs:pewter_gym",
+      "gym_id": "cobbleventure:gym/pewter",
+      "structure": "cobbleventure:gyms/base_gym",
       "theme": "rock",
       "anchor": "gym_building",
       "leader_trainer_id": ""

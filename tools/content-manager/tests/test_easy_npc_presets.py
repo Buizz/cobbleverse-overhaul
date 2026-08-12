@@ -38,10 +38,14 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             "cobbleventure_battle_intro @initiator @s tbcs battle GEN_9_SINGLES",
             preset,
         )
+        self.assertIn(
+            'Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_reward prepare',
+            preset,
+        )
         self.assertNotIn(" vs @npc as ", preset)
         self.assertIn('Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"', preset)
         self.assertIn(
-            "cobbleventure_reward money @1 regional 20 20 100 true cobblemon:amulet_coin 2",
+            "cobbleventure_reward prepare @initiator regional 20 20 100 true cobblemon:amulet_coin 2",
             preset,
         )
         self.assertNotIn("cobbledollars give @1 500", preset)
@@ -78,8 +82,17 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
 
         preset = generator.encounter_preset_snbt(self.document, self.outfit)
 
-        self.assertEqual(preset.count("cobbleventure_reward money @1 regional"), 2)
+        self.assertEqual(preset.count("cobbleventure_reward prepare @initiator regional"), 2)
         self.assertNotIn("cobbledollars give @1 9999", preset)
+
+    def test_battle_without_item_limit_omits_optional_tbcs_rule(self) -> None:
+        battle = next(iter(self.document["_battle_presets"].values()))
+        battle["battle"]["rules"] = {"can_forfeit": True}
+
+        preset = generator.encounter_preset_snbt(self.document, self.outfit)
+
+        self.assertIn("tbcs battle GEN_9_SINGLES", preset)
+        self.assertNotIn("maxItemUses", preset)
 
     def test_new_npc_routes_from_instance_state_not_global_victory_flag(self) -> None:
         preset = generator.encounter_preset_snbt(self.document, self.outfit)

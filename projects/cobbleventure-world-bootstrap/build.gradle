@@ -27,7 +27,7 @@ repositories {
 
 dependencies {
     compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
-    compileOnly "curse.maven:cobbledollars-859232:6604564"
+    compileOnly "curse.maven:cobbledollars-859232:8484919"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
 }
 
@@ -139,11 +139,46 @@ tasks.register('cleanInstalledDevelopmentJars', Delete) {
     }
 }
 
-tasks.register('installDevelopmentJar', Copy) {
+tasks.register('installDevelopmentJar') {
     dependsOn jar
-    dependsOn 'cleanInstalledDevelopmentJars'
-    from jar
-    into rootProject.file('../../pack/overrides/development-placeholder/mods')
+    def destinationDirectoryPath = rootProject.file(
+        '../../pack/overrides/development-placeholder/mods'
+    ).absolutePath
+    inputs.file(tasks.named('jar').flatMap { it.archiveFile })
+    doLast {
+        def destinationDirectory = new File(destinationDirectoryPath)
+        def source = inputs.files.singleFile.toPath()
+        def destination = destinationDirectory.toPath().resolve(source.fileName)
+        def temporary = destinationDirectory.toPath().resolve(
+            ".${source.fileName}.tmp-${ProcessHandle.current().pid()}"
+        )
+        java.nio.file.Files.createDirectories(destinationDirectory.toPath())
+        try {
+            java.nio.file.Files.copy(
+                source,
+                temporary,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+            java.nio.file.Files.move(
+                temporary,
+                destination,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (java.nio.file.AccessDeniedException error) {
+            throw new GradleException(
+                '개발 모드 JAR가 사용 중입니다. Minecraft를 완전히 종료한 뒤 다시 빌드하세요.',
+                error
+            )
+        } finally {
+            java.nio.file.Files.deleteIfExists(temporary)
+        }
+        destinationDirectory.listFiles(
+            { file -> file.name.startsWith('cobbleventure-world-bootstrap-')
+                && file.name.endsWith('.jar')
+                && file.toPath() != destination } as FileFilter
+        )?.each { java.nio.file.Files.deleteIfExists(it.toPath()) }
+    }
 }
 
 tasks.named('build') {

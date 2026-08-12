@@ -1,0 +1,215 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/gym_leader/misty",
+  "enabled": true,
+  "name": {
+    "ko_kr": "관동 체육관 관장 이슬",
+    "en_us": "관동 체육관 관장 Misty"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true
+    },
+    "bag": [
+      {
+        "item": "cobblemon:full_heal",
+        "quantity": 1
+      },
+      {
+        "item": "cobblemon:full_restore",
+        "quantity": 2
+      }
+    ],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": true
+    },
+    "team": [
+      {
+        "species": "cobblemon:araquanid",
+        "level": 49,
+        "form": null,
+        "aspects": [],
+        "gender": "female",
+        "nature": "quiet",
+        "ability": "waterbubble",
+        "held_item": "cobblemon:damp_rock",
+        "gimmick": null,
+        "moves": [
+          "stickyweb",
+          "leechlife",
+          "lunge",
+          "raindance"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:jellicent",
+        "level": 49,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "gentle",
+        "ability": "cursedbody",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "tackle"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:wugtrio",
+        "level": 49,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "naughty",
+        "ability": "gooey",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "tackle"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:azumarill",
+        "level": 50,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "careful",
+        "ability": "hugepower",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "liquidation",
+          "playrough",
+          "icespinner",
+          "bellydrum"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:veluza",
+        "level": 50,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "quirky",
+        "ability": "sharpness",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "filletaway",
+          "aquacutter",
+          "psychocut",
+          "nightslash"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:gyarados",
+        "level": 51,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "hasty",
+        "ability": "intimidate",
+        "held_item": "mega_showdown:gyaradosite",
+        "gimmick": null,
+        "moves": [
+          "tackle"
+        ],
+        "ivs": {
+          "hp": 31,
+          "attack": 31,
+          "defense": 31,
+          "special_attack": 31,
+          "special_defense": 31,
+          "speed": 31
+        },
+        "evs": {
+          "hp": 4,
+          "attack": 252,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 252,
+          "speed": 0
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:npc/gym_leader/misty"
+  }
+}

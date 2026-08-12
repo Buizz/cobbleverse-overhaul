@@ -143,16 +143,18 @@
     },
     "gym": {
       "enabled": true,
-      "structure": "rgs:cinnabar_gym",
+      "gym_id": "cobbleventure:gym/cinnabar",
+      "structure": "cobbleventure:gyms/base_gym",
       "theme": "fire",
       "anchor": "gym_building",
-      "leader_trainer_id": ""
+      "leader_trainer_id": "cobbleventure:npc/gym_leader/blaine",
+      "league_entry_id": "cobbleventure:league/kanto/volcano"
     },
     "facility_placements": [
       {
         "id": "gym_building",
         "mode": "direct_template",
-        "structure": "rgs:cinnabar_gym",
+        "structure": "cobbleventure:gyms/base_gym",
         "anchor": "gym_building"
       }
     ]

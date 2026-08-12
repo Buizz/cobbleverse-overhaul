@@ -1,0 +1,171 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/gym_leader/lt_surge",
+  "enabled": true,
+  "name": {
+    "ko_kr": "관동 체육관 관장 마티스",
+    "en_us": "관동 체육관 관장 Lt. Surge"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true
+    },
+    "bag": [
+      {
+        "item": "cobblemon:hyper_potion",
+        "quantity": 2
+      }
+    ],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": true
+    },
+    "team": [
+      {
+        "species": "cobblemon:pincurchin",
+        "level": 17,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "careful",
+        "ability": "lightningrod",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "tackle"
+        ],
+        "ivs": {
+          "hp": 20,
+          "attack": 20,
+          "defense": 20,
+          "special_attack": 20,
+          "special_defense": 20,
+          "speed": 20
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:chinchou",
+        "level": 17,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "rash",
+        "ability": "voltabsorb",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "tackle"
+        ],
+        "ivs": {
+          "hp": 20,
+          "attack": 20,
+          "defense": 20,
+          "special_attack": 20,
+          "special_defense": 20,
+          "speed": 20
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:geodude",
+        "level": 18,
+        "form": null,
+        "aspects": [
+          "alolan"
+        ],
+        "gender": "female",
+        "nature": "careful",
+        "ability": "sturdy",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "tackle"
+        ],
+        "ivs": {
+          "hp": 20,
+          "attack": 20,
+          "defense": 20,
+          "special_attack": 20,
+          "special_defense": 20,
+          "speed": 20
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:flaaffy",
+        "level": 19,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "modest",
+        "ability": "static",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "tackle"
+        ],
+        "ivs": {
+          "hp": 20,
+          "attack": 20,
+          "defense": 20,
+          "special_attack": 20,
+          "special_defense": 20,
+          "speed": 20
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:raichu",
+        "level": 20,
+        "form": null,
+        "aspects": [],
+        "gender": "female",
+        "nature": "quiet",
+        "ability": "static",
+        "held_item": "cobblemon:air_balloon",
+        "gimmick": null,
+        "moves": [
+          "tackle"
+        ],
+        "ivs": {
+          "hp": 20,
+          "attack": 20,
+          "defense": 20,
+          "special_attack": 20,
+          "special_defense": 20,
+          "speed": 20
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:npc/gym_leader/lt_surge"
+  }
+}

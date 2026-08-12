@@ -34,7 +34,8 @@
 ```json
 "gym": {
   "enabled": true,
-  "structure": "rgs:pewter_gym",
+  "gym_id": "cobbleventure:gym/pewter",
+  "structure": "cobbleventure:gyms/base_gym",
   "theme": "rock",
   "anchor": "gym_building",
   "entrance_offset": { "x": 2, "y": 3, "z": 10 },

@@ -205,7 +205,7 @@ public final class WorldMapScreen extends Screen {
             && content.townAt(selected.q(), selected.r()) == null) {
             MapContent.BiomeTile tile = content.tileAt(selected.q(), selected.r());
             if (tile != null) {
-                int count = content.biome(tile.biome()).pokemon().size();
+                int count = content.biome(tile).pokemon().size();
                 int columns = pokemonColumns(layout.infoWidth() - 20);
                 int maximum = maxPokemonScroll(count, columns);
                 int direction = scrollY > 0.0D ? -1 : 1;
@@ -349,8 +349,8 @@ public final class WorldMapScreen extends Screen {
                 graphics.drawWordWrap(font, Component.literal("이 마을을 직접 방문하면 빠른 이동이 해금됩니다."), x, y, lineWidth, MUTED_TEXT);
             }
         } else if (tile != null) {
-            MapContent.BiomeInfo biome = content.biome(tile.biome());
-            graphics.drawString(font, biome.name(), x, y, TEXT, false);
+            MapContent.BiomeInfo biome = content.biome(tile);
+            graphics.drawString(font, biome.name() + biome.habitatVariant(), x, y, TEXT, false);
             y += 15;
             graphics.drawString(font, tile.biome(), x, y, MUTED_TEXT, false);
             y += 19;

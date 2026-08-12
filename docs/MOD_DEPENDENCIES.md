@@ -22,7 +22,7 @@
 | ID | 모드 | 구분 | 설치면 | 역할 | 현재 상태 |
 |----|------|------|--------|------|-----------|
 | `cobblemon` | Cobblemon | 필수 | 양쪽 | 포켓몬, 기술, 파티와 실제 배틀 | 1.7.3 / CF `687131:7553231` |
-| `cobblemon_exp_bar` | Cobblemon EXP Bar | 필수 | 양쪽 | 포켓몬 게임 스타일 경험치 바와 전투 중 경험치·레벨업 로그 | 1.0.4 / CF `1418364:7452441` |
+| `cobblemon_exp_bar` | Cobblemon EXP Bar | 필수 | 양쪽 | 포켓몬 게임 스타일 경험치 바와 전투 중 경험치·레벨업 로그; 자체 클라이언트 패치로 Battle Extras 속도 범위 왼쪽에 배치 | 1.0.5 / CF `1418364:8397752` |
 | `fix_cobblemon_pokemon_experience` | Fix Cobblemon Pokemon Experience | 필수 | 서버 | RCT 트레이너전에서 상대 포켓몬 KO 직후 경험치 지급 | 1.1.1 / CF `1435842:7533327` |
 | `cobblemon_tim_core` | Cobblemon Tim Core | 필수 | 양쪽 | Capture XP 공용 이벤트·경험치 처리 라이브러리 | 1.7.3-1.32.0 / CF `1295910:7938283` |
 | `cobblemon_capture_xp` | Cobblemon Capture XP | 필수 | 양쪽 | 야생 포켓몬 포획 시 파티 경험치 지급 | 1.7.3-1.3.0 / CF `901059:7568508` |
@@ -30,20 +30,19 @@
 | `badmobs` | Bad Mobs | 필수 | 양쪽 | 바닐라 동물·몬스터의 모든 소환 경로 차단 | 21.1.1 / CF `233258:7055133` |
 | `cobblenav` | Cobblemon Pokenav | 필수 | 양쪽 | 포켓네비와 현재 지역 포켓몬 출현 정보 | 2.3.3 / CF `976014:7940651` |
 | `cloth_config` | Cloth Config API | 필수 | 양쪽 | Cobblemon Casino 설정 화면 API | 15.0.140 / CF `348521:5729127` |
-| `kotlin_for_forge` | Kotlin for Forge | 필수 | 양쪽 | Cobblemon NeoForge의 Kotlin 런타임 | 5.11.0 / CF `351264:7471280` |
-| `sinytra_connector` | Sinytra Connector | 필수 | 양쪽 | NeoForge에서 BCA Fabric JAR 로딩 | 2.0.0 beta 14 / CF `890127:7634148` |
-| `forgified_fabric_api` | Forgified Fabric API | 필수 | 양쪽 | Fabric API의 NeoForge 호환 구현 | 0.116.7+2.2.1 / CF `889079:7575945` |
+| `kotlin_for_forge` | Kotlin for Forge | 필수 | 양쪽 | Cobblemon NeoForge의 Kotlin 런타임 | 5.12.0 / CF `351264:8335665` |
+| `sinytra_connector` | Sinytra Connector | 필수 | 양쪽 | NeoForge에서 BCA Fabric JAR 로딩 | 2.0.0 beta 16 / CF `890127:8546239` |
+| `forgified_fabric_api` | Forgified Fabric API | 필수 | 양쪽 | Fabric API의 NeoForge 호환 구현 | 0.116.15+2.3.1 / CF `889079:8539754` |
 | `fabric_language_kotlin` | Fabric Language Kotlin | 필수 | 양쪽 | BCA의 Fabric Kotlin 진입점 실행 | 1.13.8 / CF `308769:7340876` |
-| `cobbledollars` | CobbleDollars | 필수 | 양쪽 | BCA 상점과 백화점 화폐·상인 기능 | 2.0.0 Beta-5.1 / CF `859232:6604564` |
+| `cobbledollars` | CobbleDollars | 필수 | 양쪽 | BCA 상점과 백화점 화폐·상인 기능 | 2.0.0 Beta-6.1 / CF `859232:8484919` |
 | `cobblemon_casino` | Cobblemon Casino | 필수 | 양쪽 | 슬롯머신, 블랙잭, 가챠와 카지노 칩 경제 | 2.0.0 / CF `1572769:8235485` |
-| `architectury_api` | Architectury API | 필수 | 양쪽 | CobbleFurnies 공용 API | 13.0.8 / CF `419699:5786327` |
+| `architectury_api` | Architectury API | 필수 | 양쪽 | CobbleFurnies 공용 API | 13.0.11 / CF `419699:8492726` |
 | `rctapi` | Radical Cobblemon Trainers API | 필수 | 양쪽 | 트레이너 데이터와 전투 연동 계약 | 0.15.2-beta / CF `1152792:7952419` |
 | `rctmod` | Radical Cobblemon Trainers | 필수 | 양쪽 | RCT JSON 로딩과 트레이너전 관리 | 0.18.1-beta / CF `1009534:7913180` |
-| `cobblefurnies` | CobbleFurnies | 필수 | 양쪽 | RGS 체육관·리그의 가구 블록 | 1.0 / CF `1188698:7302031` |
+| `cobblefurnies` | CobbleFurnies | 필수 | 양쪽 | 프로젝트 체육관·리그 NBT의 가구 블록 | 1.2 / CF `1188698:8340192` |
 | `athena` | Athena | 필수 | 클라이언트 | CobbleFurnies 포켓볼 양탄자·연결 텍스처 렌더링 | 4.0.6 / CF `841890:8061947` |
-| `radical_gyms_structures` | Radical Gyms & Structures | 필수 | 양쪽 | 지상 체육관과 원본 리그 구조물 | 0.6 / CF `1402174:7330950` |
-| `accessories` | Accessories | 필수 | 양쪽 | Mega Showdown 장신구 슬롯과 렌더링 | 1.1.0-beta.52 / CF `938917:7046407` |
-| `owo_lib` | oωo (owo-lib) | 필수 | 양쪽 | Mega Showdown GUI·설정·네트워크 라이브러리 | 0.12.15.1-beta.3 / CF `532610:6416633` |
+| `accessories` | Accessories | 필수 | 양쪽 | Mega Showdown 장신구 슬롯과 렌더링 | 1.1.0-beta.53 / CF `938917:7583320` |
+| `owo_lib` | oωo (owo-lib) | 필수 | 양쪽 | Mega Showdown GUI·설정·네트워크 라이브러리 | 0.12.15.5-beta.1 / CF `532610:6785734` |
 | `mega_showdown` | Cobblemon: Mega Showdown | 필수 | 양쪽 | 메가진화·Z기술·테라스탈·다이맥스·울트라버스트 | 1.9.3 / CF `1189523:8519042` |
 | `paxi_neoforge` | Paxi (NeoForge) | 필수 | 양쪽 | CCCC와 ZA 보정팩을 모든 월드에서 자동 로드 | 5.1.3 / CF `1015157:6485740` |
 | `yungs_api_neoforge` | YUNG's API (NeoForge) | 필수 | 양쪽 | Paxi 필수 공용 API | 5.1.6 / CF `1015100:6715463` |
@@ -51,6 +50,10 @@
 | `easy_npc` | Easy NPC Core | 필수 | 양쪽 | NPC 외형, 대화와 상호작용 | 7.0.1 / CF `1308987:8420476` |
 | `easy_npc_config_ui` | Easy NPC Config UI | 필수 | 양쪽 | Easy NPC 게임 내 설정과 네트워크 | 7.0.1 / CF `1214728:8420458` |
 | `tbcs` | Cobblemon Trainer Battle Commands | 필수 | 양쪽 | EasyNPC와 RCT API의 명령 기반 전투 연결 | 0.14.1-beta / CF `1172731:7858400` |
+
+Easy NPC 7.6.0 계열은 `easy_model_entities`라는 새 필수 의존성을 추가하고
+업그레이드 절차를 안내하고 있어 자동 업데이트에서 제외한다. NPC 프리셋과 TBCS
+연동을 별도 런타임 검증한 뒤 Bundle, Core, Config UI를 함께 올린다.
 
 `Cobblemon Casino` 2.0.0을 카지노 기본 시설의 정식 의존성으로 사용한다. Minecraft
 1.21.1·NeoForge용 파일과 필수 Cloth Config API 15.0.140을 Lock과 개발팩에 함께
@@ -151,15 +154,14 @@ Modrinth 원본을 변경하지 않고 보관하며 SHA-1과 SHA-512를 Lock에�
 
 ## 체육관과 리그 구조물
 
-체육관 실내와 리그는 Radical Gyms & Structures 0.6으로 확정한다. 저장소에 원본
-JAR이나 NBT를 복사하지 않고 CurseForge manifest의 `1402174:7330950` 참조로
-설치한다. 체육관은 자체 공통 외관 안의 진입 지점에서 격리 좌표의 RGS 템플릿으로
-이동하는 방식이며, 자체 외관은 타입별로 지붕 콘크리트와 입구 카펫 색만 바꾼다.
-리그 `rgs:kanto_league`는 전용 지역에 원본 그대로 직접 배치한다.
+체육관과 리그는 RGS 0.6의 MIT 구조물 NBT를 프로젝트 편집 원본으로 가져와
+`cobbleventure:*` 리소스로 패키징한다. RGS 실행 JAR은 manifest와 lock에 포함하지
+않는다. 외관은 봉인된 껍데기로 직접 수정하고, 내부는 별도 차원의 모듈 NBT로
+확장한다. 리그는 `cobbleventure:league/kanto_league`를 사용한다.
 
-RGS 페이지가 요구하는 RCT, RCT API와 CobbleFurnies를 필수 의존성으로 함께
-고정했다. CobbleFurnies 1.0의 NeoForge 메타데이터가 요구하는 Architectury API
-13.0.8도 명시적으로 포함한다. 상세 구조물 ID와 JSON 계약은
+관장 전투에 사용하는 RCT와 RCT API, NBT 블록에 필요한 CobbleFurnies를 필수
+의존성으로 고정했다. CobbleFurnies 1.2의 NeoForge 메타데이터가 요구하는 Architectury API
+13.0.11도 명시적으로 포함한다. 상세 구조물 ID와 JSON 계약은
 [`RADICAL_GYMS_INTEGRATION.md`](implementation/RADICAL_GYMS_INTEGRATION.md)를
 기준으로 한다.
 

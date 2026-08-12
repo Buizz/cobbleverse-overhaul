@@ -69,6 +69,23 @@ class EconomyCatalogTests(unittest.TestCase):
         self.assertNotIn("town", payload["vendor_units"][0])
         self.assertEqual("기술머신 판매원", payload["vendor_units"][0]["role"])
 
+    def test_shop_names_support_korean_and_english(self):
+        payload = self.valid_catalog()
+        payload["shop_catalogs"][0]["display_name"] = {"ko_kr": "기술머신 백화점", "en_us": "TM Department Store"}
+        payload["shop_catalogs"][0]["assignments"][0]["display_name"] = {"ko_kr": "1층 왼쪽 A", "en_us": "1F Left A"}
+        vendor = payload["vendor_units"][0]
+        vendor["role"] = {"ko_kr": "기술머신 판매원", "en_us": "TM Clerk"}
+        vendor["display_name"] = {"ko_kr": "기술머신 전문가", "en_us": "TM Specialist"}
+        vendor["categories"][0]["name"] = {"ko_kr": "기술머신", "en_us": "Technical Machines"}
+        self.assertEqual([], self.validate(payload))
+
+    def test_standard_item_prices_are_validated(self):
+        payload = self.valid_catalog()
+        payload["standard_prices"] = [{"item": "cobblemon:poke_ball", "price": "200"}]
+        self.assertEqual([], self.validate(payload))
+        payload["standard_prices"].append({"item": "cobblemon:poke_ball", "price": "300"})
+        self.assertTrue(any("중복 표준 가격" in issue.message for issue in self.validate(payload)))
+
     def test_vanilla_crafting_must_stay_disabled(self):
         payload = self.valid_catalog(); payload["vanilla_crafting_disabled"] = False
         self.assertTrue(any(issue.path == "$.vanilla_crafting_disabled" for issue in self.validate(payload)))
@@ -83,7 +100,8 @@ class EconomyCatalogTests(unittest.TestCase):
         vendors = content_manager._economy_vendor_units_from_bca(ROOT)
         by_id = {vendor["id"]: vendor for vendor in vendors}
         self.assertIn("bca:shopkeeper_ds_special_balls", by_id)
-        self.assertEqual("특수 볼 판매원", by_id["bca:shopkeeper_ds_special_balls"]["role"])
+        self.assertEqual("특수 볼 판매원", by_id["bca:shopkeeper_ds_special_balls"]["role"]["ko_kr"])
+        self.assertEqual("Pokeball Specialist", by_id["bca:shopkeeper_ds_special_balls"]["role"]["en_us"])
         self.assertTrue(by_id["bca:shopkeeper_ds_special_balls"]["categories"])
 
     def test_type_rule_matches_many_species_without_individual_editing(self):

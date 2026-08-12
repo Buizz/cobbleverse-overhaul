@@ -137,16 +137,18 @@
     },
     "gym": {
       "enabled": true,
-      "structure": "rgs:pewter_gym",
+      "gym_id": "cobbleventure:gym/pewter",
+      "structure": "cobbleventure:gyms/base_gym",
       "theme": "rock",
       "anchor": "gym_building",
-      "leader_trainer_id": ""
+      "leader_trainer_id": "cobbleventure:npc/gym_leader/brock",
+      "league_entry_id": "cobbleventure:league/kanto/boulder"
     },
     "facility_placements": [
       {
         "id": "gym_building",
         "mode": "direct_template",
-        "structure": "rgs:pewter_gym",
+        "structure": "cobbleventure:gyms/base_gym",
         "anchor": "gym_building"
       }
     ]

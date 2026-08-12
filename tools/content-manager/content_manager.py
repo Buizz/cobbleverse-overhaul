@@ -5,6 +5,7 @@ import copy
 import functools
 import gzip
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -2140,6 +2141,7 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             }:
                 _issue(issues, "error", path, "$.structure_profile.gym.theme", "지원하는 체육관 타입 테마가 아닙니다.")
             if gym_enabled:
+                _resource_id(gym.get("gym_id"), issues, path, "$.structure_profile.gym.gym_id")
                 _resource_id(gym.get("structure"), issues, path, "$.structure_profile.gym.structure")
             leader = gym.get("leader_trainer_id")
             if leader not in {None, ""}:
@@ -3806,6 +3808,16 @@ ECONOMY_VENDOR_ROLES = {
     "shopkeeper_potions": "포션 판매원",
     "store_worker_currency-exchange": "환전상",
 }
+ECONOMY_CATEGORY_NAMES_KO = {
+    "Pokeballs": "몬스터볼", "Pokéballs": "몬스터볼", "Combat": "배틀 도구",
+    "Healing": "회복", "Treatments": "회복약", "Remedies": "상태 회복",
+    "Apricorns": "규토리", "Seeds": "씨앗", "Boosts": "능력 강화",
+    "Evolution Stones": "진화의 돌", "Evo Items": "진화 아이템", "Food": "식품",
+    "Held Items": "지닌물건", "Security": "전략 아이템", "Mulch": "비료",
+    "Pokédex": "포켓몬 도감", "PokeFinder": "포켓파인더", "PokéNav": "포켓내비",
+    "Vitamins": "영양제", "Experience": "경험치", "Ingredients": "재료",
+    "Potions": "포션", "Drinks": "음료", "Relic Coins": "유물 주화", "Minecraft": "마인크래프트",
+}
 
 DEFAULT_DEPARTMENT_STORE_VENDOR_IDS = [
     "bca:shopkeeper_ds_vitamins", "bca:shopkeeper_ds_battle_items",
@@ -3865,12 +3877,15 @@ def _economy_vendor_units_from_bca(root: Path) -> list[dict[str, Any]]:
                         "count": int(stack.get("count", 1)),
                         "price": str(offer.get("Price", "0")),
                     })
-                categories.append({"name": str(category.get("Category", "기타")), "offers": offers})
+                category_name = str(category.get("Category", "Other"))
+                categories.append({"name": {"ko_kr": ECONOMY_CATEGORY_NAMES_KO.get(category_name, category_name), "en_us": category_name}, "offers": offers})
+            english_name = str(merchant.get("CustomName", stem)).strip('"')
+            korean_name = ECONOMY_VENDOR_ROLES.get(stem, english_name)
             vendors.append({
                 "id": f"bca:{stem}",
                 "facility_scope": "pokemart" if stem == "pokemart_shopkeeper" else "department_store",
-                "role": ECONOMY_VENDOR_ROLES.get(stem, stem),
-                "display_name": str(merchant.get("CustomName", stem)).strip('"'),
+                "role": {"ko_kr": korean_name, "en_us": english_name},
+                "display_name": {"ko_kr": korean_name, "en_us": english_name},
                 "npc_template": f"bca:{stem}",
                 "categories": categories,
                 "origin": "cobblemon_additions",
@@ -4021,22 +4036,33 @@ def load_economy_workspace(root: Path) -> dict[str, Any]:
     for vendor in custom_vendors:
         if isinstance(vendor, dict) and isinstance(vendor.get("id"), str):
             vendor_by_id[vendor["id"]] = {**copy.deepcopy(vendor), "origin": "custom"}
+    standard_price_by_item: dict[str, dict[str, str]] = {}
+    for vendor in built_in_vendors:
+        for category in vendor.get("categories", []):
+            for offer in category.get("offers", []):
+                item_id = offer.get("item")
+                price = offer.get("price")
+                if isinstance(item_id, str) and isinstance(price, str) and price.strip():
+                    standard_price_by_item.setdefault(item_id, {"item": item_id, "price": price})
+    for standard_price in catalog.get("standard_prices", []):
+        if isinstance(standard_price, dict) and isinstance(standard_price.get("item"), str):
+            standard_price_by_item[standard_price["item"]] = copy.deepcopy(standard_price)
     built_in_catalogs = [
         {
             "id": "cobbleventure:shop_catalog/pokemart_default",
-            "display_name": "기본 프렌들리숍",
+            "display_name": {"ko_kr": "기본 프렌들리숍", "en_us": "Default Poké Mart"},
             "facility_scope": "pokemart",
             "vendor_units": ["bca:pokemart_shopkeeper"],
-            "assignments": [{"slot_id": "counter", "display_name": "카운터", "vendor_unit": "bca:pokemart_shopkeeper"}],
+            "assignments": [{"slot_id": "counter", "display_name": {"ko_kr": "카운터", "en_us": "Counter"}, "vendor_unit": "bca:pokemart_shopkeeper"}],
             "origin": "built_in",
         },
         {
             "id": "cobbleventure:shop_catalog/department_store_default",
-            "display_name": "기본 백화점",
+            "display_name": {"ko_kr": "기본 백화점", "en_us": "Default Department Store"},
             "facility_scope": "department_store",
             "vendor_units": DEFAULT_DEPARTMENT_STORE_VENDOR_IDS,
             "assignments": [
-                {"slot_id": slot_id, "display_name": display_name, "vendor_unit": vendor_id}
+                {"slot_id": slot_id, "display_name": {"ko_kr": display_name, "en_us": slot_id.replace("_", " ").upper()}, "vendor_unit": vendor_id}
                 for (slot_id, display_name), vendor_id in zip(DEFAULT_DEPARTMENT_STORE_SLOTS, DEFAULT_DEPARTMENT_STORE_VENDOR_IDS)
             ],
             "origin": "built_in",
@@ -4079,8 +4105,9 @@ def load_economy_workspace(root: Path) -> dict[str, Any]:
             }
     return {
         **catalog,
-        "resolved_shop_catalogs": sorted(catalog_by_id.values(), key=lambda entry: entry.get("display_name", "")),
-        "resolved_vendor_units": sorted(vendor_by_id.values(), key=lambda entry: (entry.get("facility_scope", ""), entry.get("role", ""))),
+        "resolved_shop_catalogs": sorted(catalog_by_id.values(), key=lambda entry: str(entry.get("display_name", ""))),
+        "resolved_vendor_units": sorted(vendor_by_id.values(), key=lambda entry: (entry.get("facility_scope", ""), str(entry.get("role", "")))),
+        "resolved_standard_prices": sorted(standard_price_by_item.values(), key=lambda entry: entry["item"]),
         "resolved_pokemon_drops": sorted(drop_by_species.values(), key=lambda entry: entry.get("species", "")),
         "editor_catalog": editor_catalog,
         "source_status": {
@@ -4192,6 +4219,28 @@ def validate_economy_catalog_file(path: Path, known_drop_items: set[str] | None 
     if root.get("vanilla_crafting_disabled") is not True:
         _issue(issues, "error", path, "$.vanilla_crafting_disabled", "바닐라 조합법 비활성화가 true여야 합니다.")
 
+    def require_localized(value: Any, field_path: str, label: str) -> None:
+        if isinstance(value, str) and value.strip():
+            return
+        if isinstance(value, dict) and all(isinstance(value.get(locale), str) and value[locale].strip() for locale in ("ko_kr", "en_us")):
+            return
+        _issue(issues, "error", path, field_path, f"{label}의 한국어와 영어 이름이 필요합니다.")
+
+    standard_prices = _require_list(root.get("standard_prices", []), issues, path, "$.standard_prices")
+    seen_standard_items: set[str] = set()
+    for index, value in enumerate(standard_prices or []):
+        entry_path = f"$.standard_prices[{index}]"
+        standard_price = _require_object(value, issues, path, entry_path)
+        if standard_price is None:
+            continue
+        item_id = _resource_id(standard_price.get("item"), issues, path, f"{entry_path}.item")
+        if item_id in seen_standard_items:
+            _issue(issues, "error", path, f"{entry_path}.item", f"중복 표준 가격 아이템: {item_id}")
+        if item_id:
+            seen_standard_items.add(item_id)
+        if not isinstance(standard_price.get("price"), str) or not standard_price["price"].strip():
+            _issue(issues, "error", path, f"{entry_path}.price", "표준 가격 문자열이 필요합니다.")
+
     seen_ids: set[str] = set()
     shop_catalogs = _require_list(root.get("shop_catalogs"), issues, path, "$.shop_catalogs")
     for index, value in enumerate(shop_catalogs or []):
@@ -4204,8 +4253,7 @@ def validate_economy_catalog_file(path: Path, known_drop_items: set[str] | None 
             if catalog_id in seen_ids:
                 _issue(issues, "error", path, f"{entry_path}.id", f"중복 경제 콘텐츠 ID: {catalog_id}")
             seen_ids.add(catalog_id)
-        if not isinstance(shop_catalog.get("display_name"), str) or not shop_catalog["display_name"].strip():
-            _issue(issues, "error", path, f"{entry_path}.display_name", "상점 카탈로그 이름이 필요합니다.")
+        require_localized(shop_catalog.get("display_name"), f"{entry_path}.display_name", "상점 카탈로그")
         if shop_catalog.get("facility_scope") not in {"pokemart", "department_store", "specialty"}:
             _issue(issues, "error", path, f"{entry_path}.facility_scope", "상점 카탈로그 사용 시설이 올바르지 않습니다.")
         catalog_vendors = _require_list(shop_catalog.get("vendor_units"), issues, path, f"{entry_path}.vendor_units")
@@ -4227,8 +4275,7 @@ def validate_economy_catalog_file(path: Path, known_drop_items: set[str] | None 
                 _issue(issues, "error", path, f"{assignment_path}.slot_id", f"중복 백화점 위치: {slot_id}")
             else:
                 seen_slots.add(slot_id)
-            if not isinstance(assignment.get("display_name"), str) or not assignment["display_name"].strip():
-                _issue(issues, "error", path, f"{assignment_path}.display_name", "백화점 위치 이름이 필요합니다.")
+            require_localized(assignment.get("display_name"), f"{assignment_path}.display_name", "백화점 위치")
             _resource_id(assignment.get("vendor_unit"), issues, path, f"{assignment_path}.vendor_unit")
     vendors = _require_list(root.get("vendor_units"), issues, path, "$.vendor_units")
     for index, value in enumerate(vendors or []):
@@ -4245,10 +4292,8 @@ def validate_economy_catalog_file(path: Path, known_drop_items: set[str] | None 
         facility = vendor.get("facility_scope")
         if facility not in {"pokemart", "department_store", "specialty"}:
             _issue(issues, "error", path, f"{entry_path}.facility_scope", "판매원 사용 범위가 올바르지 않습니다.")
-        if not isinstance(vendor.get("role"), str) or not vendor["role"].strip():
-            _issue(issues, "error", path, f"{entry_path}.role", "기술머신 판매원 같은 판매원 역할이 필요합니다.")
-        if not isinstance(vendor.get("display_name"), str) or not vendor["display_name"].strip():
-            _issue(issues, "error", path, f"{entry_path}.display_name", "판매 NPC 표시 이름이 필요합니다.")
+        require_localized(vendor.get("role"), f"{entry_path}.role", "판매원 역할")
+        require_localized(vendor.get("display_name"), f"{entry_path}.display_name", "판매 NPC")
         categories = _require_list(vendor.get("categories"), issues, path, f"{entry_path}.categories")
         seen_items: set[str] = set()
         for category_index, category_value in enumerate(categories or []):
@@ -4256,8 +4301,7 @@ def validate_economy_catalog_file(path: Path, known_drop_items: set[str] | None 
             category = _require_object(category_value, issues, path, category_path)
             if category is None:
                 continue
-            if not isinstance(category.get("name"), str) or not category["name"].strip():
-                _issue(issues, "error", path, f"{category_path}.name", "판매 카테고리 이름이 필요합니다.")
+            require_localized(category.get("name"), f"{category_path}.name", "판매 카테고리")
             offers = _require_list(category.get("offers"), issues, path, f"{category_path}.offers")
             for offer_index, offer_value in enumerate(offers or []):
                 offer_path = f"{category_path}.offers[{offer_index}]"
@@ -4385,6 +4429,7 @@ def save_economy_catalog(root: Path, data: Any) -> list[Issue]:
         if isinstance(persistent, dict):
             persistent.pop("resolved_shop_catalogs", None)
             persistent.pop("resolved_vendor_units", None)
+            persistent.pop("resolved_standard_prices", None)
             persistent.pop("resolved_pokemon_drops", None)
             persistent.pop("source_status", None)
             persistent.pop("editor_catalog", None)
@@ -4486,10 +4531,272 @@ def save_league_progression(root: Path, data: Any) -> list[Issue]:
     return issues
 
 
+def validate_gym_catalog_file(path: Path, structure_root: Path | None = None) -> list[Issue]:
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"JSON을 읽을 수 없습니다: {error}")
+        return issues
+    root = _require_object(data, issues, path, "$")
+    if root is None:
+        return issues
+    if root.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "지원 버전은 1입니다.")
+    seen_ids: set[str] = set()
+    gyms = _require_list(root.get("gyms"), issues, path, "$.gyms")
+    for index, value in enumerate(gyms or []):
+        gym_path = f"$.gyms[{index}]"
+        gym = _require_object(value, issues, path, gym_path)
+        if gym is None:
+            continue
+        gym_id = _resource_id(gym.get("id"), issues, path, f"{gym_path}.id")
+        if gym_id:
+            if gym_id in seen_ids:
+                _issue(issues, "error", path, f"{gym_path}.id", f"중복 체육관 ID: {gym_id}")
+            seen_ids.add(gym_id)
+        if not isinstance(gym.get("enabled"), bool):
+            _issue(issues, "error", path, f"{gym_path}.enabled", "참/거짓 값이어야 합니다.")
+        _localized_text(gym.get("display_name"), issues, path, f"{gym_path}.display_name")
+        theme = gym.get("theme")
+        if not isinstance(theme, str) or not CHOICE_ID.fullmatch(theme):
+            _issue(issues, "error", path, f"{gym_path}.theme", "소문자 타입 ID가 필요합니다.")
+        exterior = _require_object(gym.get("exterior"), issues, path, f"{gym_path}.exterior")
+        if exterior is not None:
+            structure = _resource_id(exterior.get("structure"), issues, path, f"{gym_path}.exterior.structure")
+            if structure and structure != "cobbleventure:gyms/base_gym":
+                _issue(
+                    issues, "error", path, f"{gym_path}.exterior.structure",
+                    "모든 체육관 외관은 공용 cobbleventure:gyms/base_gym을 사용해야 합니다.",
+                )
+            if structure_root is not None and structure and structure.startswith("cobbleventure:"):
+                relative = structure.split(":", 1)[1]
+                if not (structure_root / f"{relative}.nbt").is_file():
+                    _issue(issues, "error", path, f"{gym_path}.exterior.structure", f"NBT를 찾을 수 없습니다: {structure}")
+        interior = _require_object(gym.get("interior"), issues, path, f"{gym_path}.interior")
+        module_ids: set[str] = set()
+        leader_anchor_count = 0
+        if interior is not None:
+            modules = _require_list(interior.get("modules"), issues, path, f"{gym_path}.interior.modules")
+            if modules is not None and not modules:
+                _issue(issues, "error", path, f"{gym_path}.interior.modules", "내부 시작 모듈이 하나 이상 필요합니다.")
+            for module_index, module_value in enumerate(modules or []):
+                module_path = f"{gym_path}.interior.modules[{module_index}]"
+                module = _require_object(module_value, issues, path, module_path)
+                if module is None:
+                    continue
+                module_id = module.get("id")
+                if not isinstance(module_id, str) or not DOCUMENT_SLUG.fullmatch(module_id) or module_id in module_ids:
+                    _issue(issues, "error", path, f"{module_path}.id", "중복되지 않는 소문자 모듈 ID가 필요합니다.")
+                else:
+                    module_ids.add(module_id)
+                module_structure = _resource_id(module.get("structure"), issues, path, f"{module_path}.structure")
+                position = module.get("position")
+                if not isinstance(position, list) or len(position) != 3 or any(not isinstance(axis, int) or isinstance(axis, bool) for axis in position):
+                    _issue(issues, "error", path, f"{module_path}.position", "[x, y, z] 정수 좌표가 필요합니다.")
+                if module.get("rotation", "none") not in {"none", "clockwise_90", "clockwise_180", "counterclockwise_90"}:
+                    _issue(issues, "error", path, f"{module_path}.rotation", "지원하지 않는 회전입니다.")
+                if structure_root is not None and module_structure and module_structure.startswith("cobbleventure:"):
+                    relative = module_structure.split(":", 1)[1]
+                    module_file = structure_root / f"{relative}.nbt"
+                    if not module_file.is_file():
+                        _issue(issues, "error", path, f"{module_path}.structure", f"내부 모듈 NBT를 찾을 수 없습니다: {module_structure}")
+                    else:
+                        metadata_file = module_file.with_suffix(".structure.json")
+                        if not metadata_file.is_file():
+                            _issue(issues, "error", path, f"{module_path}.structure", "내부 모듈 메타데이터가 필요합니다.")
+                        else:
+                            try:
+                                metadata = load_json(metadata_file)
+                                anchors = metadata.get("anchors", []) if isinstance(metadata, dict) else []
+                                leader_anchor_count += sum(
+                                    isinstance(anchor, dict)
+                                    and anchor.get("type") == "npc_position"
+                                    and anchor.get("label") == "leader"
+                                    for anchor in anchors if isinstance(anchors, list)
+                                )
+                            except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                                _issue(issues, "error", path, f"{module_path}.structure", f"모듈 메타데이터를 읽을 수 없습니다: {error}")
+            connections = interior.get("connections", [])
+            if not isinstance(connections, list):
+                _issue(issues, "error", path, f"{gym_path}.interior.connections", "연결 배열이 필요합니다.")
+            for connection_index, connection in enumerate(connections if isinstance(connections, list) else []):
+                connection_path = f"{gym_path}.interior.connections[{connection_index}]"
+                if not isinstance(connection, dict):
+                    _issue(issues, "error", path, connection_path, "연결 객체가 필요합니다.")
+                    continue
+                for endpoint in ("from", "to"):
+                    value = connection.get(endpoint)
+                    module_id = value.split(":", 1)[0] if isinstance(value, str) else ""
+                    if module_id not in module_ids:
+                        _issue(issues, "error", path, f"{connection_path}.{endpoint}", "존재하는 모듈의 앵커를 지정해야 합니다.")
+            if leader_anchor_count != 1:
+                _issue(
+                    issues, "error", path, f"{gym_path}.interior.modules",
+                    "체육관 내부 모듈 전체에 npc_position 라벨 leader가 정확히 하나 필요합니다.",
+                )
+    leagues = _require_list(root.get("leagues"), issues, path, "$.leagues")
+    for index, value in enumerate(leagues or []):
+        league_path = f"$.leagues[{index}]"
+        league = _require_object(value, issues, path, league_path)
+        if league is None:
+            continue
+        league_id = _resource_id(league.get("id"), issues, path, f"{league_path}.id")
+        if league_id in seen_ids:
+            _issue(issues, "error", path, f"{league_path}.id", f"중복 시설 ID: {league_id}")
+        if league_id:
+            seen_ids.add(league_id)
+        _localized_text(league.get("display_name"), issues, path, f"{league_path}.display_name")
+        structure = _resource_id(league.get("structure"), issues, path, f"{league_path}.structure")
+        if structure_root is not None and structure and structure.startswith("cobbleventure:"):
+            relative = structure.split(":", 1)[1]
+            if not (structure_root / f"{relative}.nbt").is_file():
+                _issue(issues, "error", path, f"{league_path}.structure", f"리그 NBT를 찾을 수 없습니다: {structure}")
+    return issues
+
+
+def save_gym_catalog(root: Path, data: Any) -> list[Issue]:
+    target = root / "content" / "catalogs" / "gyms.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as directory:
+        candidate = Path(directory) / target.name
+        candidate.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        issues = validate_gym_catalog_file(candidate, root / "content" / "structures")
+    if not any(issue.level == "error" for issue in issues):
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(target)
+    return issues
+
+
+def create_gym(root: Path, slug: str, name: str, source_structure: str) -> tuple[dict[str, Any] | None, list[Issue]]:
+    if not DOCUMENT_SLUG.fullmatch(slug):
+        return None, [Issue("error", "content/catalogs/gyms.json", "$.slug", "파일 ID는 소문자, 숫자와 밑줄만 사용할 수 있습니다.")]
+    if not name.strip():
+        return None, [Issue("error", "content/catalogs/gyms.json", "$.name", "한국어 이름이 필요합니다.")]
+    source = managed_structure_files(root).get(source_structure)
+    if source is None or source.parent.name != "gyms":
+        return None, [Issue("error", "content/catalogs/gyms.json", "$.source_structure", "기존 체육관 외관 NBT를 선택해야 합니다.")]
+    gym_id = f"cobbleventure:gym/{slug}"
+    catalog = load_json(root / "content" / "catalogs" / "gyms.json")
+    gyms = catalog.get("gyms", []) if isinstance(catalog, dict) else []
+    if any(isinstance(gym, dict) and gym.get("id") == gym_id for gym in gyms):
+        return None, [Issue("error", "content/catalogs/gyms.json", "$.id", "같은 ID의 체육관이 이미 존재합니다.")]
+    structure_files = managed_structure_files(root)
+    interior_structure = f"cobbleventure:interiors/gyms/{source.stem}_main"
+    if interior_structure not in structure_files:
+        available_interiors = sorted(
+            resource_id for resource_id in structure_files
+            if resource_id.startswith("cobbleventure:interiors/gyms/")
+        )
+        if not available_interiors:
+            return None, [Issue("error", "content/catalogs/gyms.json", "$.interior", "재사용할 체육관 내부 모듈이 없습니다.")]
+        interior_structure = available_interiors[0]
+    gym = {
+        "id": gym_id,
+        "enabled": True,
+        "display_name": {"ko_kr": name.strip()},
+        "theme": "normal",
+        "exterior": {"structure": "cobbleventure:gyms/base_gym"},
+        "interior": {"modules": [{"id": "main", "structure": interior_structure, "position": [0, 0, 0], "rotation": "none"}], "connections": []},
+    }
+    catalog.setdefault("gyms", []).append(gym)
+    issues = save_gym_catalog(root, catalog)
+    if any(issue.level == "error" for issue in issues):
+        return None, issues
+    return gym, issues
+
+
+def gym_interior_modules_payload(root: Path) -> dict[str, Any]:
+    module_root = root / "content" / "structures" / "interiors" / "gyms"
+    catalog_path = root / "content" / "catalogs" / "gyms.json"
+    catalog = load_json(catalog_path) if catalog_path.is_file() else {"gyms": []}
+    usage: dict[str, list[str]] = {}
+    for gym in catalog.get("gyms", []) if isinstance(catalog, dict) else []:
+        if not isinstance(gym, dict):
+            continue
+        for module in gym.get("interior", {}).get("modules", []):
+            if isinstance(module, dict) and isinstance(module.get("structure"), str):
+                usage.setdefault(module["structure"], []).append(str(gym.get("id", "")))
+    modules = []
+    for nbt_path in sorted(module_root.glob("*.nbt")) if module_root.is_dir() else []:
+        resource = f"cobbleventure:interiors/gyms/{nbt_path.stem}"
+        metadata_path = nbt_path.with_suffix(".structure.json")
+        metadata = load_json(metadata_path) if metadata_path.is_file() else {}
+        anchors = metadata.get("anchors", []) if isinstance(metadata, dict) else []
+        leader = next((
+            anchor.get("position") for anchor in anchors
+            if isinstance(anchor, dict) and anchor.get("type") == "npc_position"
+            and anchor.get("label") == "leader"
+        ), None)
+        size = read_minecraft_structure_size(nbt_path.read_bytes())
+        modules.append({
+            "id": nbt_path.stem,
+            "structure": resource,
+            "size": list(size),
+            "leader_anchor": leader,
+            "used_by": usage.get(resource, []),
+        })
+    return {"modules": modules}
+
+
+def interior_spaces_payload(root: Path) -> dict[str, Any]:
+    module_root = root / "content" / "structures" / "interiors"
+    settings = load_building_settings(root)
+    usage: dict[str, list[str]] = {}
+    for building, entry in settings.get("buildings", {}).items():
+        if not isinstance(entry, dict):
+            continue
+        for interior in entry.get("interiors", []):
+            if isinstance(interior, dict) and isinstance(interior.get("structure"), str):
+                usage.setdefault(interior["structure"], []).append(building)
+    spaces: list[dict[str, Any]] = []
+    for nbt_path in sorted(module_root.rglob("*.nbt")) if module_root.is_dir() else []:
+        relative = nbt_path.relative_to(module_root).with_suffix("").as_posix()
+        resource = f"cobbleventure:interiors/{relative}"
+        metadata = read_minecraft_structure_metadata(nbt_path.read_bytes())
+        spaces.append({
+            "key": relative,
+            "structure": resource,
+            "size": [metadata["width"], metadata["height"], metadata["depth"]],
+            "doors": _structure_named_anchors(
+                nbt_path, {"door", "interior_entry", "interior_exit"}
+            ),
+            "arrivals": _structure_named_anchors(
+                nbt_path, {"arrival", "interior_spawn", "exterior_spawn"}
+            ),
+            "npc_labels": _structure_npc_labels(nbt_path),
+            "used_by": sorted(usage.get(resource, [])),
+        })
+    return {"spaces": spaces}
+
+
+def create_gym_interior_module(root: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    module_path = Path(__file__).with_name("gym_interior_modules.py")
+    spec = importlib.util.spec_from_file_location("cobbleventure_gym_interior_modules", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("체육관 내부 모듈 생성기를 불러올 수 없습니다.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.create_module(
+        root,
+        str(payload.get("id", "")),
+        int(payload.get("width", 32)),
+        int(payload.get("depth", 32)),
+        int(payload.get("floor_height", 12)),
+        int(payload.get("floors", 1)),
+    )
+
+
+def create_interior_space(root: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    return create_gym_interior_module(root, payload)
+
+
 def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResult:
     root = root.resolve()
     issues = validate_dependency_lock(root / "pack" / "dependencies.lock.json", strict_pack)
     issues.extend(validate_game_definitions_file(root / "content" / "catalogs" / "game-definitions.json"))
+    issues.extend(validate_gym_catalog_file(root / "content" / "catalogs" / "gyms.json", root / "content" / "structures"))
     economy_source_items = {
         entry.get("item") for drop in _economy_pokemon_drops_from_cobblemon(root)
         for entry in drop.get("entries", []) if isinstance(entry, dict) and isinstance(entry.get("item"), str)
@@ -4658,6 +4965,14 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
         root / "content" / "catalogs" / "league-progression.json", set(seen_content)
     )
     issues.extend(league_issues)
+    try:
+        gym_catalog = load_json(root / "content" / "catalogs" / "gyms.json")
+        gym_ids = {
+            gym.get("id") for gym in gym_catalog.get("gyms", [])
+            if isinstance(gym, dict) and isinstance(gym.get("id"), str)
+        }
+    except (OSError, json.JSONDecodeError, DuplicateKeyError, AttributeError):
+        gym_ids = set()
     settlement_dir = root / "content" / "settlements"
     seen_settlements: dict[str, Path] = {}
     settlement_records: list[tuple[Path, dict[str, Any]]] = []
@@ -4672,6 +4987,10 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
                 league_entry_id = settlement_data.get("structure_profile", {}).get("gym", {}).get("league_entry_id")
                 if isinstance(league_entry_id, str) and league_entry_id and league_entry_id not in league_ids:
                     _issue(issues, "error", path, "$.structure_profile.gym.league_entry_id", f"존재하지 않는 리그 항목: {league_entry_id}")
+                gym = settlement_data.get("structure_profile", {}).get("gym", {})
+                gym_id = gym.get("gym_id") if isinstance(gym, dict) else None
+                if gym.get("enabled") and gym_id not in gym_ids:
+                    _issue(issues, "error", path, "$.structure_profile.gym.gym_id", f"존재하지 않는 체육관: {gym_id}")
                 trainer_slots = settlement_data.get("npc_placement", {}).get("trainer_slots", [])
                 for index, slot in enumerate(trainer_slots):
                     trainer_id = slot.get("trainer_id") if isinstance(slot, dict) else None
@@ -6134,6 +6453,15 @@ STRUCTURE_VIEWER_REQUIRED_EXTERNAL = {
     "bca:default/centers/center_department_store",
 }
 BUILDING_SETTINGS_PATH = Path("content/catalogs/building-settings.json")
+STRUCTURE_CATEGORY_LABELS = {
+    "building": "일반 건물",
+    "residential": "주택",
+    "gym_exterior": "체육관 외관 템플릿",
+    "gym_interior": "체육관 내부 모듈",
+    "interior": "건물 내부 모듈",
+    "league": "리그",
+    "placeholder": "임시·특수 건물",
+}
 
 
 def managed_structure_files(root: Path) -> dict[str, Path]:
@@ -6145,6 +6473,23 @@ def managed_structure_files(root: Path) -> dict[str, Path]:
         for path in sorted(source_root.rglob("*.nbt"))
         if path.is_file()
     }
+
+
+def _managed_structure_category(relative: Path) -> str:
+    parts = tuple(part.lower() for part in relative.parts)
+    if parts[:2] == ("interiors", "gyms"):
+        return "gym_interior"
+    if parts[:1] == ("interiors",):
+        return "interior"
+    if parts[:1] == ("gyms",):
+        return "gym_exterior"
+    if parts[:1] == ("houses",):
+        return "residential"
+    if parts[:1] == ("league",):
+        return "league"
+    if parts[:1] == ("placeholder",):
+        return "placeholder"
+    return "building"
 
 
 def _structure_npc_labels(path: Path) -> list[dict[str, Any]]:
@@ -6174,6 +6519,33 @@ def _structure_npc_labels(path: Path) -> list[dict[str, Any]]:
     return labels
 
 
+def _structure_named_anchors(path: Path, anchor_types: set[str]) -> list[dict[str, Any]]:
+    metadata_path = path.with_suffix(".structure.json")
+    if not metadata_path.is_file():
+        return []
+    document = load_json(metadata_path)
+    anchors = document.get("anchors", []) if isinstance(document, dict) else []
+    result: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for anchor in anchors if isinstance(anchors, list) else []:
+        if not isinstance(anchor, dict) or anchor.get("type") not in anchor_types:
+            continue
+        label = anchor.get("label", anchor.get("id"))
+        position = anchor.get("position")
+        if (
+            not isinstance(label, str) or not DOCUMENT_SLUG.fullmatch(label)
+            or label in seen or not isinstance(position, list) or len(position) != 3
+            or any(not isinstance(value, int) or isinstance(value, bool) for value in position)
+        ):
+            continue
+        seen.add(label)
+        entry = {"label": label, "position": position}
+        if isinstance(anchor.get("safe_spawn"), list):
+            entry["safe_spawn"] = anchor["safe_spawn"]
+        result.append(entry)
+    return result
+
+
 def _default_building_settings() -> dict[str, Any]:
     return {"schema_version": 1, "buildings": {}}
 
@@ -6197,13 +6569,22 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
         metadata = read_minecraft_structure_metadata(path.read_bytes())
         relative = path.relative_to(root / "content" / "structures")
         residential = bool(relative.parts and relative.parts[0] == "houses")
+        category = _managed_structure_category(relative)
         entry = configured.get(resource_id, {})
         if not isinstance(entry, dict):
             entry = {}
         structures[resource_id] = {
             **metadata,
             "source": path.relative_to(root).as_posix(),
+            "category": category,
+            "category_label": STRUCTURE_CATEGORY_LABELS[category],
             "npc_labels": _structure_npc_labels(path),
+            "door_anchors": _structure_named_anchors(
+                path, {"door", "interior_entry", "interior_exit"}
+            ),
+            "arrival_anchors": _structure_named_anchors(
+                path, {"arrival", "interior_spawn", "exterior_spawn"}
+            ),
             "residential": residential,
             "settings": {
                 "fixed_npcs": entry.get("fixed_npcs", {})
@@ -6212,6 +6593,10 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
                     "citizen_placement_allowed",
                     entry.get("random_citizen_eligible", residential),
                 )),
+                "interiors": entry.get("interiors", [])
+                if isinstance(entry.get("interiors", []), list) else [],
+                "door_routes": entry.get("door_routes", {})
+                if isinstance(entry.get("door_routes", {}), dict) else {},
             },
         }
     return {
@@ -6244,11 +6629,77 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             continue
         relative = structure.relative_to(root / "content" / "structures")
         residential = bool(relative.parts and relative.parts[0] == "houses")
+        interiors = settings.get("interiors", [])
+        if not isinstance(interiors, list):
+            _issue(issues, "error", path, f"{entry_path}.interiors", "내부공간 목록은 배열이어야 합니다.")
+            continue
+        normalized_interiors: list[dict[str, str]] = []
+        interior_spaces: dict[str, Path] = {}
+        for index, value in enumerate(interiors):
+            value_path = f"{entry_path}.interiors[{index}]"
+            if not isinstance(value, dict):
+                _issue(issues, "error", path, value_path, "내부공간 연결은 객체여야 합니다.")
+                continue
+            key = value.get("key")
+            interior_resource = value.get("structure")
+            interior_file = structure_files.get(interior_resource) if isinstance(interior_resource, str) else None
+            if not isinstance(key, str) or not DOCUMENT_SLUG.fullmatch(key) or key in interior_spaces:
+                _issue(issues, "error", path, f"{value_path}.key", "중복되지 않는 소문자 공간 키가 필요합니다.")
+                continue
+            if interior_file is None or _managed_structure_category(
+                interior_file.relative_to(root / "content" / "structures")
+            ) not in {"interior", "gym_interior"}:
+                _issue(issues, "error", path, f"{value_path}.structure", "내부공간 NBT를 선택해야 합니다.")
+                continue
+            interior_spaces[key] = interior_file
+            normalized_interiors.append({"key": key, "structure": interior_resource})
+
+        space_files = {"exterior": structure, **interior_spaces}
+        door_labels = {
+            space: {item["label"] for item in _structure_named_anchors(
+                space_file, {"door", "interior_entry", "interior_exit"}
+            )}
+            for space, space_file in space_files.items()
+        }
+        arrival_labels = {
+            space: {item["label"] for item in _structure_named_anchors(
+                space_file, {"arrival", "interior_spawn", "exterior_spawn"}
+            )}
+            for space, space_file in space_files.items()
+        }
+        routes = settings.get("door_routes", {})
+        if not isinstance(routes, dict):
+            _issue(issues, "error", path, f"{entry_path}.door_routes", "문 연결 설정은 객체여야 합니다.")
+            routes = {}
+        normalized_routes: dict[str, dict[str, str]] = {}
+        for source_key, destination in sorted(routes.items()):
+            route_path = f"{entry_path}.door_routes.{source_key}"
+            if not isinstance(source_key, str) or ":" not in source_key:
+                _issue(issues, "error", path, route_path, "문 키는 공간:문이름 형식이어야 합니다.")
+                continue
+            source_space, source_door = source_key.split(":", 1)
+            if source_space not in door_labels or source_door not in door_labels[source_space]:
+                _issue(issues, "error", path, route_path, "NBT에 없는 문입니다.")
+                continue
+            if not isinstance(destination, dict):
+                _issue(issues, "error", path, route_path, "문 목적지는 객체여야 합니다.")
+                continue
+            target_space = destination.get("space")
+            target_arrival = destination.get("arrival")
+            if target_space not in arrival_labels or target_arrival not in arrival_labels[target_space]:
+                _issue(issues, "error", path, route_path, "존재하는 공간의 도착 지점을 선택해야 합니다.")
+                continue
+            normalized_routes[source_key] = {"space": target_space, "arrival": target_arrival}
         fixed = settings.get("fixed_npcs", {})
         if not isinstance(fixed, dict):
             _issue(issues, "error", path, f"{entry_path}.fixed_npcs", "고정 NPC 배정은 객체여야 합니다.")
             continue
-        labels = {item["label"] for item in _structure_npc_labels(structure)}
+        labels = {
+            f"{space}:{item['label']}"
+            for space, space_file in space_files.items()
+            for item in _structure_npc_labels(space_file)
+        }
+        labels.update(item["label"] for item in _structure_npc_labels(structure))
         normalized_fixed: dict[str, str] = {}
         for label, npc_id in sorted(fixed.items()):
             if label not in labels:
@@ -6269,6 +6720,8 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
         normalized[resource_id] = {
             "fixed_npcs": {} if citizen_placement_allowed else normalized_fixed,
             "citizen_placement_allowed": citizen_placement_allowed,
+            "interiors": normalized_interiors,
+            "door_routes": normalized_routes,
         }
     if any(issue.level == "error" for issue in issues):
         return issues
@@ -6652,6 +7105,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     {
                         "trainers": len(_list_documents(root, "trainers")),
                         "settlements": len(_list_documents(root, "settlements")),
+                        "gyms": len(load_json(root / "content" / "catalogs" / "gyms.json").get("gyms", [])),
                         "validation": result.as_json(),
                         "build_commands": [
                             {"id": command, "description": description}
@@ -6908,6 +7362,24 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/gyms":
+                try:
+                    self._json(200, load_json(root / "content" / "catalogs" / "gyms.json"))
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/gym-interior-modules":
+                try:
+                    self._json(200, gym_interior_modules_payload(root))
+                except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/interior-spaces":
+                try:
+                    self._json(200, interior_spaces_payload(root))
+                except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/structure-model":
                 nonlocal structure_model_cache_signature
                 resource_id = parse_qs(request.query).get("structure", [""])[0]
@@ -7029,6 +7501,43 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     build_lock.release()
                 self._json(200 if result["success"] else 422, result)
                 return
+            if request.path == "/api/gyms/create":
+                if not isinstance(payload, dict):
+                    self._json(400, {"error": "체육관 생성 정보가 필요합니다."})
+                    return
+                try:
+                    gym, issues = create_gym(
+                        root,
+                        str(payload.get("slug", "")),
+                        str(payload.get("name", "")),
+                        str(payload.get("source_structure", "")),
+                    )
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(201 if errors == 0 else 422, {"created": errors == 0, "gym": gym, "issues": [asdict(issue) for issue in issues]})
+                return
+            if request.path == "/api/gym-interior-modules":
+                if not isinstance(payload, dict):
+                    self._json(400, {"error": "내부 모듈 생성 정보가 필요합니다."})
+                    return
+                try:
+                    module = create_gym_interior_module(root, payload)
+                    self._json(201, {"created": True, "module": module})
+                except (OSError, ValueError, TypeError) as error:
+                    self._json(400, {"error": str(error)})
+                return
+            if request.path == "/api/interior-spaces":
+                if not isinstance(payload, dict):
+                    self._json(400, {"error": "내부공간 생성 정보가 필요합니다."})
+                    return
+                try:
+                    space = create_interior_space(root, payload)
+                    self._json(201, {"created": True, "space": space})
+                except (OSError, ValueError, TypeError) as error:
+                    self._json(400, {"error": str(error)})
+                return
             if request.path == "/api/structure-builder/import":
                 if not build_lock.acquire(blocking=False):
                     self._json(409, {"error": "다른 빌드 명령이 실행 중입니다."})
@@ -7089,6 +7598,16 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     200 if errors == 0 else 422,
                     {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]},
                 )
+                return
+            if request.path == "/api/gyms":
+                try:
+                    payload = self._read_json()
+                    issues = save_gym_catalog(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
                 return
             if request.path == "/api/league-progression":
                 try:

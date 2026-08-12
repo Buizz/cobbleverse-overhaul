@@ -37,11 +37,11 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
             raise StructureBuilderError(f"올바르지 않은 앵커입니다: {path} #{index}")
         anchor_type = anchor.get("type")
         if anchor_type not in {
-            "interior_entry", "interior_exit", "npc_position", "easy_npc_spawn",
-            "interior_spawn", "exterior_spawn", "interaction_point", "patrol_point",
+            "door", "interior_entry", "interior_exit", "npc_position", "easy_npc_spawn",
+            "arrival", "interior_spawn", "exterior_spawn", "interaction_point", "patrol_point",
         }:
             raise StructureBuilderError(f"알 수 없는 출입구 앵커입니다: {path} #{index}")
-        is_door = anchor_type in {"interior_entry", "interior_exit"}
+        is_door = anchor_type in {"door", "interior_entry", "interior_exit"}
         is_npc = anchor_type in {"npc_position", "easy_npc_spawn"}
         position_fields = ("position", "safe_spawn") if is_door else ("position",)
         for field in position_fields:
@@ -63,6 +63,12 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
                 raise StructureBuilderError(
                     f"NPC 위치 라벨이 올바르지 않습니다: {path} #{index}"
                 )
+        if anchor_type in {"door", "arrival"}:
+            label = anchor.get("label", anchor.get("id"))
+            if not isinstance(label, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_]*", label):
+                raise StructureBuilderError(
+                    f"문·도착 지점 이름이 올바르지 않습니다: {path} #{index}"
+                )
     interior = document.get("interior")
     if interior is not None:
         if not isinstance(interior, dict):
@@ -76,6 +82,14 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
             value = interior.get(field)
             if not isinstance(value, int) or not minimum <= value <= maximum:
                 raise StructureBuilderError(f"{field} 값이 올바르지 않습니다: {path}")
+    interior_structure = document.get("interior_structure")
+    if interior_structure is not None and (
+        not isinstance(interior_structure, str)
+        or not re.fullmatch(r"[a-z0-9_.-]+:[a-z0-9_./-]+", interior_structure)
+    ):
+        raise StructureBuilderError(
+            f"interior_structure 리소스 ID가 올바르지 않습니다: {path}"
+        )
     return document
 
 
@@ -97,6 +111,10 @@ def catalog_entries(root: Path) -> list[dict[str, object]]:
     entries: list[dict[str, object]] = []
     for source in sorted(source_root.rglob("*.nbt")):
         relative = source.relative_to(source_root).with_suffix("")
+        # 리그는 80x80 체크 부지보다 큰 단일 랜드마크다. 체육관 외관은
+        # 체크무늬 편집 대상에 포함하되 리그는 런타임 패키징만 수행한다.
+        if relative.parts[0] == "league":
+            continue
         resource_path = relative.as_posix()
         metadata = read_metadata(source.read_bytes())
         size = [metadata["width"], metadata["height"], metadata["depth"]]
@@ -120,6 +138,7 @@ def catalog_entries(root: Path) -> list[dict[str, object]]:
             "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
             "anchors": authored_metadata.get("anchors", []),
             "interior": authored_metadata.get("interior"),
+            "interior_structure": authored_metadata.get("interior_structure"),
         })
     if not entries:
         raise StructureBuilderError("건축 월드에 넣을 NBT 구조물이 없습니다.")

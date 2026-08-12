@@ -176,7 +176,7 @@ def command_reward_commands(
     return result
 
 
-def npc_money_reward_commands(document: dict) -> list[str]:
+def npc_money_reward_commands(document: dict, player_selector: str = "@1") -> list[str]:
     money = document.get("npc", {}).get("battle_rewards", {}).get("money", {})
     if not money.get("enabled"):
         return []
@@ -185,14 +185,14 @@ def npc_money_reward_commands(document: dict) -> list[str]:
     held_multiplier = int(money.get("held_item_multiplier", 2))
     if money.get("mode") == "regional_level":
         command = (
-            "cobbleventure_reward money @1 regional "
+            f"cobbleventure_reward prepare {player_selector} regional "
             f"{int(money.get('fallback_region_level', 5))} "
             f"{int(money.get('per_level', 20))} {int(money.get('offset', 0))} "
             f"{held_bonus} {held_item} {held_multiplier}"
         )
     else:
         command = (
-            f"cobbleventure_reward money @1 fixed {int(money.get('amount', 0))} "
+            f"cobbleventure_reward prepare {player_selector} fixed {int(money.get('amount', 0))} "
             f"{held_bonus} {held_item} {held_multiplier}"
         )
     for condition in money.get("conditions", []):
@@ -201,7 +201,7 @@ def npc_money_reward_commands(document: dict) -> list[str]:
             if isinstance(value, bool):
                 value = 1 if value else 0
             command = (
-                f"execute if score @1 {flag_objective(condition['key'])} matches {value} run {command}"
+                f"execute if score {player_selector} {flag_objective(condition['key'])} matches {value} run {command}"
             )
     return [command]
 
@@ -224,8 +224,6 @@ def reward_commands(
             (start_battle or {}).get("results", {}).get(result_key),
             skip_give_money=npc_money_enabled and result_key == "player_win",
         )
-        if result_key == "player_win":
-            commands.extend(npc_money_reward_commands(document))
         return commands
     if document.get("schema_version") == 3:
         return graph_reward_commands(document, start_battle or {}, result_key)
@@ -325,7 +323,7 @@ def battle_command(document: dict, start_battle: dict | None = None) -> str:
     # (for example "AI 맨") break the TBCS participant parser. Command actions
     # execute as the NPC entity, so vanilla @s is the stable entity selector.
     command = f"/tbcs battle {battle['format']} @initiator vs @s as rctmod:{slug}"
-    if rules:
+    if "max_item_uses" in rules:
         command += " rules " + json.dumps(
             {"maxItemUses": rules["max_item_uses"]}, separators=(",", ":")
         ).replace('"', "")
@@ -378,7 +376,15 @@ def easy_npc_action(operation: dict, document: dict) -> str:
     if operation_type == "close_dialogue":
         return '{Type:"CLOSE_DIALOG"}'
     if operation_type == "start_battle":
-        return command_action(battle_command(document, operation))
+        prepare_actions = [
+            command_action("/" + command)
+            for command in npc_money_reward_commands(document, "@initiator")
+        ]
+        return ",".join([
+            '{Type:"CLOSE_DIALOG"}',
+            *prepare_actions,
+            command_action(battle_command(document, operation)),
+        ])
     if operation_type in {"set_flag", "mark_clear"}:
         value = 1 if operation_type == "mark_clear" else operation.get("value")
         if isinstance(value, bool):
@@ -411,7 +417,15 @@ def event_target_action(commands: list[dict], target: str, document: dict) -> st
         if command_type == "dialogue":
             return "{Cmd:" + quote(dialogue_label(command.get("id", target))) + ',Type:"OPEN_NAMED_DIALOG"}'
         if command_type == "start_battle":
-            return command_action(battle_command(document, command))
+            prepare_actions = [
+                command_action("/" + value)
+                for value in npc_money_reward_commands(document, "@initiator")
+            ]
+            return ",".join([
+                '{Type:"CLOSE_DIALOG"}',
+                *prepare_actions,
+                command_action(battle_command(document, command)),
+            ])
         if command_type == "goto":
             return event_target_action(commands, command["target"], document)
         if command_type == "end":

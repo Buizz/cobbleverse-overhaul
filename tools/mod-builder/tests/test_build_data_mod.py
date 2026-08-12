@@ -855,10 +855,48 @@ class DataModBuilderTests(unittest.TestCase):
 
             output = root / build_data_mod.OUTPUT / build_data_mod.STRUCTURE_METADATA_ENTRY_DIR / "houses"
             for roof_color in build_data_mod.HOUSE_ROOF_BLOCKS:
-                self.assertEqual(
-                    metadata.read_bytes(),
-                    (output / f"one_story_flat_{roof_color}.structure.json").read_bytes(),
+                generated = json.loads(
+                    (output / f"one_story_flat_{roof_color}.structure.json").read_text(
+                        encoding="utf-8"
+                    )
                 )
+                self.assertEqual(
+                    "cobbleventure:interiors/one_story_shed",
+                    generated["interior_structure"],
+                )
+                self.assertIn(
+                    {"type": "npc_position", "label": "resident", "position": [4, 1, 4]},
+                    generated["anchors"],
+                )
+                self.assertTrue(any(
+                    anchor.get("type") == "interior_entry"
+                    for anchor in generated["anchors"]
+                ))
+
+    def test_house_without_metadata_uses_shared_instanced_interior(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            (root / build_data_mod.HOUSE_STRUCTURE_SOURCE_DIR).mkdir(
+                parents=True, exist_ok=True
+            )
+
+            build_data_mod.build(root)
+
+            metadata_path = (
+                root / build_data_mod.OUTPUT
+                / build_data_mod.STRUCTURE_METADATA_ENTRY_DIR
+                / "houses/five_story_gable_red.structure.json"
+            )
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                "cobbleventure:interiors/one_story_shed",
+                metadata["interior_structure"],
+            )
+            self.assertEqual("interior_entry", metadata["anchors"][0]["type"])
+            self.assertEqual([8, 1, 0], metadata["anchors"][0]["position"])
+            self.assertEqual([8, 1, -1], metadata["anchors"][0]["safe_spawn"])
+            self.assertTrue(metadata["anchors"][0]["seal_entry"])
 
     def test_authored_roof_shapes_include_shed_and_gambrel(self) -> None:
         shed = gzip.decompress(

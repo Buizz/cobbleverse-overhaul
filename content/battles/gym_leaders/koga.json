@@ -1,0 +1,243 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/gym_leader/koga",
+  "enabled": true,
+  "name": {
+    "ko_kr": "관동 체육관 관장 독수",
+    "en_us": "관동 체육관 관장 Koga"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true,
+      "max_item_uses": 99
+    },
+    "bag": [
+      {
+        "item": "cobblemon:full_restore",
+        "quantity": 1
+      }
+    ],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": true
+    },
+    "team": [
+      {
+        "species": "cobblemon:dustox",
+        "level": 40,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "calm",
+        "ability": "shielddust",
+        "held_item": "cobblemon:focus_sash",
+        "gimmick": null,
+        "moves": [
+          "bugbuzz",
+          "psybeam",
+          "lightscreen",
+          "venoshock"
+        ],
+        "ivs": {
+          "hp": 10,
+          "attack": 10,
+          "defense": 10,
+          "special_attack": 10,
+          "special_defense": 10,
+          "speed": 10
+        },
+        "evs": {
+          "hp": 6,
+          "special_attack": 252,
+          "speed": 252
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:crobat",
+        "level": 40,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "jolly",
+        "ability": "levitate",
+        "held_item": "cobblemon:sharp_beak",
+        "gimmick": null,
+        "moves": [
+          "aerialace",
+          "poisonfang",
+          "confuseray",
+          "uturn"
+        ],
+        "ivs": {
+          "hp": 10,
+          "attack": 10,
+          "defense": 10,
+          "special_attack": 10,
+          "special_defense": 10,
+          "speed": 10
+        },
+        "evs": {
+          "special_attack": 0,
+          "speed": 252,
+          "attack": 150
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:roserade",
+        "level": 40,
+        "form": null,
+        "aspects": [],
+        "gender": "female",
+        "nature": "modest",
+        "ability": "naturecure",
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "gigadrain",
+          "energyball",
+          "sludgebomb",
+          "growth"
+        ],
+        "ivs": {
+          "hp": 10,
+          "attack": 10,
+          "defense": 10,
+          "special_attack": 10,
+          "special_defense": 10,
+          "speed": 10
+        },
+        "evs": {
+          "special_attack": 100,
+          "speed": 252
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:weezing",
+        "level": 40,
+        "form": null,
+        "aspects": [
+          "galarian"
+        ],
+        "gender": "male",
+        "nature": "bold",
+        "ability": "levitate",
+        "held_item": "cobblemon:sitrus_berry",
+        "gimmick": null,
+        "moves": [
+          "clearsmog",
+          "strangesteam",
+          "selfdestruct",
+          "defog"
+        ],
+        "ivs": {
+          "hp": 10,
+          "attack": 10,
+          "defense": 10,
+          "special_attack": 10,
+          "special_defense": 10,
+          "speed": 10
+        },
+        "evs": {
+          "hp": 252,
+          "special_attack": 25,
+          "attack": 25,
+          "defense": 50,
+          "special_defense": 50
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:muk",
+        "level": 40,
+        "form": null,
+        "aspects": [
+          "alolan"
+        ],
+        "gender": "male",
+        "nature": "adamant",
+        "ability": "plus",
+        "held_item": "cobblemon:black_sludge",
+        "gimmick": null,
+        "moves": [
+          "poisonfang",
+          "crunch",
+          "protect",
+          "poisongas"
+        ],
+        "ivs": {
+          "hp": 10,
+          "attack": 10,
+          "defense": 10,
+          "special_attack": 10,
+          "special_defense": 10,
+          "speed": 10
+        },
+        "evs": {
+          "hp": 252,
+          "defense": 100,
+          "special_defense": 100
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:sneasler",
+        "level": 40,
+        "form": null,
+        "aspects": [],
+        "gender": "male",
+        "nature": "jolly",
+        "ability": "poisontouch",
+        "held_item": "cobblemon:black_belt",
+        "gimmick": null,
+        "moves": [
+          "fakeout",
+          "direclaw",
+          "brickbreak",
+          "honeclaws"
+        ],
+        "ivs": {
+          "hp": 20,
+          "attack": 20,
+          "defense": 20,
+          "special_attack": 20,
+          "special_defense": 20,
+          "speed": 20
+        },
+        "evs": {
+          "attack": 252,
+          "speed": 252,
+          "hp": 6
+        },
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:npc/gym_leader/koga"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "../schemas/gym-catalog.schema.json",
+  "schema_version": 1,
+  "gyms": [
+    { "id": "cobbleventure:gym/pewter", "enabled": true, "display_name": { "ko_kr": "회색 체육관", "en_us": "Pewter Gym" }, "theme": "rock", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/pewter_gym_main", "position": [0, 0, 0], "rotation": "none" }], "connections": [] } },
+    { "id": "cobbleventure:gym/cerulean", "enabled": true, "display_name": { "ko_kr": "블루 체육관", "en_us": "Cerulean Gym" }, "theme": "water", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/cerulean_gym_main", "position": [0, 0, 0], "rotation": "none" }], "connections": [] } },
+    { "id": "cobbleventure:gym/vermilion", "enabled": true, "display_name": { "ko_kr": "갈색 체육관", "en_us": "Vermilion Gym" }, "theme": "electric", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/vermilion_gym_main", "position": [0, 0, 0], "rotation": "none" }], "connections": [] } },
+    { "id": "cobbleventure:gym/celadon", "enabled": true, "display_name": { "ko_kr": "무지개 체육관", "en_us": "Celadon Gym" }, "theme": "grass", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/celadon_gym_main", "position": [0, 0, 0], "rotation": "none" }], "connections": [] } },
+    { "id": "cobbleventure:gym/fuchsia", "enabled": true, "display_name": { "ko_kr": "연분홍 체육관", "en_us": "Fuchsia Gym" }, "theme": "poison", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/fuchsia_gym_main", "position": [0, 0, 0], "rotation": "none" }], "connections": [] } },
+    { "id": "cobbleventure:gym/saffron", "enabled": true, "display_name": { "ko_kr": "노랑 체육관", "en_us": "Saffron Gym" }, "theme": "psychic", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/saffron_gym_main", "position": [0, 0, 0], "rotation": "none" }], "connections": [] } },
+    { "id": "cobbleventure:gym/cinnabar", "enabled": true, "display_name": { "ko_kr": "홍련 체육관", "en_us": "Cinnabar Gym" }, "theme": "fire", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/cinnabar_gym_main", "position": [0, 0, 0], "rotation": "none" }], "connections": [] } },
+    { "id": "cobbleventure:gym/viridian", "enabled": true, "display_name": { "ko_kr": "상록 체육관", "en_us": "Viridian Gym" }, "theme": "ground", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/viridian_gym_main", "position": [0, 0, 0], "rotation": "none" }], "connections": [] } }
+  ],
+  "leagues": [
+    { "id": "cobbleventure:league/kanto", "display_name": { "ko_kr": "포켓몬리그", "en_us": "Pokemon League" }, "structure": "cobbleventure:league/kanto_league" }
+  ]
+}

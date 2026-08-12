@@ -18,8 +18,9 @@
     "structure": "bca:village/default_mid", "gym_theme": "water", "village_preset": "default_mid", "commercial_center": "preset", "house_style": "bca:default/general",
     "required_facilities": { "village_hub": "cobbleventure:cerulean_city/village_hub" },
     "special_district": { "enabled": true, "anchor": "special_district", "placement_mode": "manual", "footprint": { "width": 8, "depth": 8 }, "clearance": 6, "building": { "enabled": false, "structure": "" } },
-    "gym": { "enabled": true, "structure": "rgs:cerulean_gym", "theme": "water", "anchor": "gym_building", "leader_trainer_id": "" },
-    "facility_placements": [{ "id": "gym_building", "mode": "direct_template", "structure": "rgs:cerulean_gym", "anchor": "gym_building" }]
+    "gym": { "enabled": true, "gym_id": "cobbleventure:gym/cerulean",
+      "structure": "cobbleventure:gyms/base_gym", "theme": "water", "anchor": "gym_building", "leader_trainer_id": "cobbleventure:npc/gym_leader/misty", "league_entry_id": "cobbleventure:league/kanto/cascade" },
+    "facility_placements": [{ "id": "gym_building", "mode": "direct_template", "structure": "cobbleventure:gyms/base_gym", "anchor": "gym_building" }]
   },
   "npc_placement": { "max_ambient_npcs": 10, "default_wander_radius": 7, "trainer_slots": [], "zones": [{ "id": "town_square", "bounds": { "min_x": -24, "min_z": -24, "max_x": 24, "max_z": 24 }, "max_npcs": 6, "tags": ["ambient", "resident"] }] }
 }

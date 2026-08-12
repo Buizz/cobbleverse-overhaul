@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.local/schemas/gym-catalog.schema.json",
+  "title": "Cobbleventure gym catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "gyms", "leagues"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "gyms": { "type": "array", "items": { "$ref": "#/$defs/gym" } },
+    "leagues": { "type": "array", "items": { "$ref": "#/$defs/league" } }
+  },
+  "$defs": {
+    "localized": {
+      "type": "object",
+      "required": ["ko_kr"],
+      "properties": { "ko_kr": { "type": "string", "minLength": 1 }, "en_us": { "type": "string" } },
+      "additionalProperties": { "type": "string" }
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "structure", "position"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "structure": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+        "position": { "type": "array", "prefixItems": [{ "type": "integer" }, { "type": "integer" }, { "type": "integer" }], "minItems": 3, "maxItems": 3 },
+        "rotation": { "enum": ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"] }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": { "from": { "type": "string" }, "to": { "type": "string" } }
+    },
+    "gym": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "enabled", "display_name", "theme", "exterior", "interior"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+        "enabled": { "type": "boolean" },
+        "display_name": { "$ref": "#/$defs/localized" },
+        "theme": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "exterior": {
+          "type": "object", "additionalProperties": false, "required": ["structure"],
+          "properties": { "structure": { "const": "cobbleventure:gyms/base_gym" } }
+        },
+        "interior": {
+          "type": "object", "additionalProperties": false, "required": ["modules"],
+          "properties": { "modules": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/module" } }, "connections": { "type": "array", "items": { "$ref": "#/$defs/connection" }, "default": [] } }
+        }
+      }
+    },
+    "league": {
+      "type": "object", "additionalProperties": false, "required": ["id", "display_name", "structure"],
+      "properties": { "id": { "type": "string" }, "display_name": { "$ref": "#/$defs/localized" }, "structure": { "type": "string" } }
+    }
+  }
+}

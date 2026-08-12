@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /** Shared, read-only map data packaged from the content editor. */
 public final class MapContent {
@@ -33,6 +34,7 @@ public final class MapContent {
     private final List<Town> towns;
     private final List<Route> routes;
     private final Map<String, BiomeInfo> biomes;
+    private final Map<Hex, BiomeInfo> tileHabitats;
 
     private MapContent(
         int generation,
@@ -45,7 +47,8 @@ public final class MapContent {
         Map<Hex, BiomeTile> tiles,
         List<Town> towns,
         List<Route> routes,
-        Map<String, BiomeInfo> biomes
+        Map<String, BiomeInfo> biomes,
+        Map<Hex, BiomeInfo> tileHabitats
     ) {
         this.generation = generation;
         this.dimension = dimension;
@@ -58,6 +61,7 @@ public final class MapContent {
         this.towns = List.copyOf(towns);
         this.routes = List.copyOf(routes);
         this.biomes = Map.copyOf(biomes);
+        this.tileHabitats = Map.copyOf(tileHabitats);
     }
 
     public static MapContent instance() {
@@ -130,7 +134,11 @@ public final class MapContent {
     }
 
     public BiomeInfo biome(String id) {
-        return biomes.getOrDefault(id, new BiomeInfo(id, readableId(id), "", List.of(), 0));
+        return biomes.getOrDefault(id, new BiomeInfo(id, readableId(id), "", 0, List.of(), 0));
+    }
+
+    public BiomeInfo biome(BiomeTile tile) {
+        return tile == null ? biome("") : tileHabitats.getOrDefault(tile.hex(), biome(tile.biome()));
     }
 
     public Hex worldToHex(double x, double z) {
@@ -222,19 +230,22 @@ public final class MapContent {
             routes.add(new Route(connection.get("id").getAsString(), List.copyOf(path)));
         }
 
+        LoadedBiomes loadedBiomes = loadBiomes(generation, tiles, world);
         return new MapContent(
             generation,
             world.get("dimension").getAsString(),
             grid.get("tile_radius_blocks").getAsInt(),
             grid.get("map_radius_cells").getAsInt(),
             origin.get("x").getAsInt(), origin.get("y").getAsInt(), origin.get("z").getAsInt(),
-            tiles, towns, routes, loadBiomes()
+            tiles, towns, routes, loadedBiomes.byBiome(), loadedBiomes.byTile()
         );
     }
 
-    private static Map<String, BiomeInfo> loadBiomes() {
+    private static LoadedBiomes loadBiomes(int generation, Map<Hex, BiomeTile> tiles, JsonObject world) {
         JsonObject profilesRoot = resource("catalogs/biome-profiles.json");
         JsonObject pokemonRoot = resource("catalogs/pokemon-habitats.json");
+        int maxPerVariant = profilesRoot.has("max_pokemon_per_habitat_variant")
+            ? profilesRoot.get("max_pokemon_per_habitat_variant").getAsInt() : 40;
         Map<String, JsonObject> profiles = new HashMap<>();
         for (JsonElement element : profilesRoot.getAsJsonArray("profiles")) {
             JsonObject profile = element.getAsJsonObject();
@@ -243,35 +254,31 @@ public final class MapContent {
             }
         }
 
+        Map<Hex, JsonObject> environmentOverrides = new HashMap<>();
+        if (world.has("environment_overrides")) {
+            for (JsonElement element : world.getAsJsonArray("environment_overrides")) {
+                JsonObject override = element.getAsJsonObject();
+                environmentOverrides.put(new Hex(
+                    override.get("q").getAsInt(), override.get("r").getAsInt()
+                ), override);
+            }
+        }
+
+        String series = seriesForGeneration(generation);
+        Map<String, List<PokemonMatch>> matchesByBiome = new HashMap<>();
         Map<String, BiomeInfo> result = new HashMap<>();
         for (Map.Entry<String, JsonObject> entry : profiles.entrySet()) {
             JsonObject profile = entry.getValue();
-            String habitat = profile.get("habitat").getAsString();
-            boolean secondary = profile.getAsJsonObject("settings").get("include_secondary").getAsBoolean();
-            List<Pokemon> matching = new ArrayList<>();
-            for (JsonElement element : pokemonRoot.getAsJsonArray("pokemon")) {
-                JsonObject pokemon = element.getAsJsonObject();
-                JsonObject habitats = pokemon.getAsJsonObject("habitats");
-                String primaryHabitat = nullableString(habitats, "primary");
-                String secondaryHabitat = nullableString(habitats, "secondary");
-                boolean matches = habitat.equals(primaryHabitat)
-                    || secondary && habitat.equals(secondaryHabitat);
-                if (matches) {
-                    matching.add(new Pokemon(
-                        pokemon.get("dex_number").getAsInt(),
-                        pokemon.get("id").getAsString(),
-                        localized(pokemon.getAsJsonObject("display_name"), readableId(pokemon.get("id").getAsString()))
-                    ));
-                }
-            }
-            matching.sort(Comparator.comparingInt(Pokemon::dexNumber));
-            int total = matching.size();
+            List<PokemonMatch> matching = matchingPokemon(profile, pokemonRoot, series, null);
+            matchesByBiome.put(entry.getKey(), matching);
+            List<Pokemon> pokemon = matching.stream().map(PokemonMatch::pokemon).toList();
             result.put(entry.getKey(), new BiomeInfo(
                 entry.getKey(),
                 localized(profile.getAsJsonObject("display_name"), readableId(entry.getKey())),
-                habitat,
-                List.copyOf(matching),
-                total
+                profile.get("habitat").getAsString(),
+                0,
+                pokemon,
+                pokemon.size()
             ));
         }
         aliasBiome(result, "minecraft:beach", "해변", "minecraft:ocean");
@@ -280,7 +287,127 @@ public final class MapContent {
         aliasBiome(result, "minecraft:old_growth_pine_taiga", "원시 소나무 타이가", "minecraft:forest");
         aliasBiome(result, "minecraft:sparse_jungle", "성긴 정글", "minecraft:jungle");
         aliasBiome(result, "minecraft:windswept_gravelly_hills", "바람 센 자갈 언덕", "minecraft:windswept_hills");
-        return result;
+
+        Map<Hex, BiomeInfo> byTile = new LinkedHashMap<>();
+        Map<String, Integer> variantCursor = new HashMap<>();
+        for (BiomeTile tile : tiles.values()) {
+            JsonObject profile = profiles.get(tile.biome());
+            BiomeInfo base = result.get(tile.biome());
+            if (profile == null || base == null) continue;
+            JsonObject override = environmentOverrides.get(tile.hex());
+            List<PokemonMatch> matching = override == null
+                ? matchesByBiome.getOrDefault(tile.biome(), List.of())
+                : matchingPokemon(profile, pokemonRoot, series, override);
+            List<PokemonMatch> ordinary = matching.stream().filter(match -> !match.explicit()).toList();
+            int variantCount = Math.max(1, (ordinary.size() + maxPerVariant - 1) / maxPerVariant);
+            int configuredVariant = intValue(override, "habitat_variant", 0);
+            String profileId = profile.get("id").getAsString();
+            int variant = configuredVariant > 0 ? configuredVariant
+                : variantCursor.merge(profileId, 1, Integer::sum);
+            variant = (variant - 1) % variantCount + 1;
+
+            List<Pokemon> selected = new ArrayList<>();
+            matching.stream().filter(PokemonMatch::explicit).map(PokemonMatch::pokemon).forEach(selected::add);
+            for (int index = 0; index < ordinary.size(); index++) {
+                if (index * variantCount / ordinary.size() + 1 == variant) {
+                    selected.add(ordinary.get(index).pokemon());
+                }
+            }
+            selected.sort(Comparator.comparingInt(Pokemon::dexNumber));
+            byTile.put(tile.hex(), new BiomeInfo(
+                base.id(), base.name(), base.habitat(), variant, List.copyOf(selected), selected.size()
+            ));
+        }
+        return new LoadedBiomes(result, byTile);
+    }
+
+    private static List<PokemonMatch> matchingPokemon(
+        JsonObject profile, JsonObject pokemonRoot, String defaultSeries, JsonObject override
+    ) {
+        JsonObject settings = profile.getAsJsonObject("settings");
+        String series = stringValue(override, "series", defaultSeries);
+        boolean includeSecondary = booleanValue(override, "include_secondary",
+            booleanValue(settings, "include_secondary", true));
+        Set<String> rarities = stringSet(override, "rarities");
+        if (rarities.isEmpty()) rarities = stringSet(settings, "rarities");
+        Set<String> forced = stringSet(profile, "forced_includes");
+        Set<String> excluded = stringSet(profile, "excluded_pokemon");
+        String habitat = profile.get("habitat").getAsString();
+        List<PokemonMatch> result = new ArrayList<>();
+        for (JsonElement element : pokemonRoot.getAsJsonArray("pokemon")) {
+            JsonObject entry = element.getAsJsonObject();
+            String id = entry.get("id").getAsString();
+            if (!booleanValue(entry, "implemented", false) || excluded.contains(id)) continue;
+            boolean explicit = forced.contains(id);
+            JsonObject preferences = entry.getAsJsonObject("preferences");
+            JsonObject habitats = entry.getAsJsonObject("habitats");
+            boolean habitatMatch = habitat.equals(nullableString(habitats, "primary"))
+                || includeSecondary && habitat.equals(nullableString(habitats, "secondary"));
+            boolean ordinary = !booleanValue(entry, "is_legendary", false)
+                && !booleanValue(entry, "is_mythical", false)
+                && seriesContains(entry, series)
+                && rarities.contains(stringValue(preferences, "rarity", ""))
+                && compatible(stringValue(override, "temperature", stringValue(settings, "temperature", "any")), stringValue(preferences, "temperature", "any"))
+                && compatible(stringValue(override, "humidity", stringValue(settings, "humidity", "any")), stringValue(preferences, "humidity", "any"))
+                && compatible(stringValue(override, "weather", stringValue(settings, "weather", "any")), stringValue(preferences, "weather", "any"))
+                && compatible(stringValue(override, "time", stringValue(settings, "time", "any")), stringValue(preferences, "time", "any"))
+                && habitatMatch;
+            if (!explicit && !ordinary) continue;
+            result.add(new PokemonMatch(new Pokemon(
+                entry.get("dex_number").getAsInt(), id,
+                localized(entry.getAsJsonObject("display_name"), readableId(id))
+            ), explicit));
+        }
+        result.sort(Comparator.comparingInt(match -> match.pokemon().dexNumber()));
+        return List.copyOf(result);
+    }
+
+    private static boolean seriesContains(JsonObject pokemon, String series) {
+        if (series == null || series.isBlank()) return true;
+        if (!pokemon.has("series_appearances")) return false;
+        for (JsonElement value : pokemon.getAsJsonArray("series_appearances")) {
+            if (series.equals(value.getAsString())) return true;
+        }
+        return false;
+    }
+
+    private static String seriesForGeneration(int generation) {
+        return switch (generation) {
+            case 1 -> "kanto";
+            case 2 -> "johto";
+            case 3 -> "hoenn";
+            case 4 -> "sinnoh";
+            case 5 -> "unova";
+            case 6 -> "kalos";
+            case 7 -> "alola";
+            case 8 -> "galar";
+            case 9 -> "paldea";
+            default -> "";
+        };
+    }
+
+    private static boolean compatible(String requested, String preference) {
+        return "any".equals(requested) || "any".equals(preference) || requested.equals(preference);
+    }
+
+    private static String stringValue(JsonObject object, String member, String fallback) {
+        return object != null && object.has(member) && !object.get(member).isJsonNull()
+            ? object.get(member).getAsString() : fallback;
+    }
+
+    private static int intValue(JsonObject object, String member, int fallback) {
+        return object != null && object.has(member) ? object.get(member).getAsInt() : fallback;
+    }
+
+    private static boolean booleanValue(JsonObject object, String member, boolean fallback) {
+        return object != null && object.has(member) ? object.get(member).getAsBoolean() : fallback;
+    }
+
+    private static Set<String> stringSet(JsonObject object, String member) {
+        if (object == null || !object.has(member) || !object.get(member).isJsonArray()) return Set.of();
+        java.util.LinkedHashSet<String> result = new java.util.LinkedHashSet<>();
+        for (JsonElement element : object.getAsJsonArray(member)) result.add(element.getAsString());
+        return Set.copyOf(result);
     }
 
     private static String nullableString(JsonObject object, String member) {
@@ -292,7 +419,9 @@ public final class MapContent {
     private static void aliasBiome(Map<String, BiomeInfo> result, String alias, String name, String source) {
         BiomeInfo info = result.get(source);
         if (info != null) {
-            result.put(alias, new BiomeInfo(alias, name, info.habitat(), info.pokemon(), info.totalPokemon()));
+            result.put(alias, new BiomeInfo(
+                alias, name, info.habitat(), info.habitatVariant(), info.pokemon(), info.totalPokemon()
+            ));
         }
     }
 
@@ -341,7 +470,11 @@ public final class MapContent {
     public record BiomeTile(Hex hex, String biome) {}
     public record Route(String id, List<Hex> path) {}
     public record Pokemon(int dexNumber, String id, String name) {}
-    public record BiomeInfo(String id, String name, String habitat, List<Pokemon> pokemon, int totalPokemon) {}
+    public record BiomeInfo(
+        String id, String name, String habitat, int habitatVariant, List<Pokemon> pokemon, int totalPokemon
+    ) {}
+    private record PokemonMatch(Pokemon pokemon, boolean explicit) {}
+    private record LoadedBiomes(Map<String, BiomeInfo> byBiome, Map<Hex, BiomeInfo> byTile) {}
     public record Town(
         String id,
         String name,

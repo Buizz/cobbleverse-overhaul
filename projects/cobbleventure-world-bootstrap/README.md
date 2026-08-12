@@ -74,10 +74,9 @@
 
 `tools/mod-builder/starter_gym.py`는 이름과 달리 호환성을 위해 남은 빌더 모듈이며,
 현재는 시설 플레이스홀더 NBT와 이전 데이터 호환 리소스를 생성한다. `facility_placements`의
-`direct_template`이 RGS 체육관을 마을 지상에 원본 그대로 배치한다. 시작 마을은
-`rgs:pewter_gym`을 사용한다.
-리그는 `direct_template` 배치 방식으로 `rgs:kanto_league`를 전용 지역 앵커에
-그대로 놓으며 팔레트나 외관을 변경하지 않는다. 상세 계약은
+`direct_template`은 `content/structures/gyms`에서 가져온 프로젝트 체육관 외관을
+마을 지상에 배치한다. 내부는 체육관 카탈로그의 모듈을 별도 차원에 조립한다.
+리그는 `cobbleventure:league/kanto_league`를 전용 지역 앵커에 배치한다. 상세 계약은
 `docs/implementation/RADICAL_GYMS_INTEGRATION.md`에 기록한다.
 
 월드 생성 레지스트리가 flat 프로토타입에서 네이티브 생성기로 변경되었으므로 반드시

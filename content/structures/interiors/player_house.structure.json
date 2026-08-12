@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/interiors/player_house.nbt",
+  "interior": {
+    "id": "player_house",
+    "width": 32,
+    "depth": 32,
+    "floor_height": 5,
+    "floors": 2
+  },
+  "anchors": [
+    {
+      "id": "interior_exit",
+      "type": "interior_exit",
+      "position": [
+        7,
+        0,
+        1
+      ],
+      "safe_spawn": [
+        7,
+        0,
+        2
+      ],
+      "door_facing": "north",
+      "safe_side": "south",
+      "dialogue": "cobbleventure:default_exit"
+    }
+  ]
+}

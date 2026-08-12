@@ -5,8 +5,12 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "FlatLevelSourceMixin",
+    "ForfeitActionResponseMixin",
     "JigsawPlacementPlacerMixin",
     "SinglePoolElementMixin"
+  ],
+  "client": [
+    "BattleGeneralActionSelectionMixin"
   ],
   "injectors": {
     "defaultRequire": 1

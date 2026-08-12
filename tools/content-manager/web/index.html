@@ -22,11 +22,12 @@
         <button class="nav-item" data-section="worlds"><span>05</span>월드맵</button>
         <button class="nav-item" data-section="caves"><span>06</span>동굴 관리</button>
         <button class="nav-item" data-section="settlements"><span>07</span>마을 프리셋</button>
-        <button class="nav-item" data-section="structures"><span>08</span>NBT 건물 설정</button>
-        <button class="nav-item" data-section="biomes"><span>09</span>바이옴 관리</button>
-        <button class="nav-item" data-section="definitions"><span>10</span>게임 데이터</button>
-        <button class="nav-item" data-section="economy"><span>11</span>경제 · 제작</button>
-        <button class="nav-item" data-section="builds"><span>12</span>빌드 작업</button>
+        <button class="nav-item" data-section="gyms"><span>08</span>체육관 관리</button>
+        <button class="nav-item" data-section="structures"><span>09</span>NBT 건물 설정</button>
+        <button class="nav-item" data-section="biomes"><span>10</span>바이옴 관리</button>
+        <button class="nav-item" data-section="definitions"><span>11</span>게임 데이터</button>
+        <button class="nav-item" data-section="economy"><span>12</span>경제 · 제작</button>
+        <button class="nav-item" data-section="builds"><span>13</span>빌드 작업</button>
       </nav>
       <div class="server-state"><i id="server-dot"></i><span><strong id="server-label">연결 확인 중</strong><small>로컬 전용 · 127.0.0.1</small></span></div>
     </aside>
@@ -372,7 +373,7 @@
               <section class="custom-town-layout wide" id="custom-town-layout" hidden><header><div><strong>커스텀 마을 점유 타일</strong><small>건물과 내부 도로는 자동 생성됩니다. 타일 배치와 외부 월드 도로가 접속할 출구만 직접 지정하세요.</small></div><div class="custom-town-tools"><button type="button" class="is-active" data-custom-town-tool="cell">타일 배치</button><button type="button" data-custom-town-tool="exit">외부 출구</button><button type="button" data-custom-town-reset>초기화</button></div></header><svg id="custom-town-layout-map" viewBox="0 0 620 420" role="img" aria-label="커스텀 마을 육각 타일 편집기"></svg><div class="custom-town-layout-summary" id="custom-town-layout-summary"></div></section>
               <fieldset class="wide town-layout-fields"><legend>마을 형태 · 도로</legend><label><span>도로망 형태</span><select name="townLayoutShape" disabled><option value="branching">분기형 · 자연스러운 기본 마을</option><option value="linear">선형 · 해안과 계곡</option><option value="radial">방사형 · 중심 광장 도시</option><option value="loop">고리형 · 공원과 호수 주변</option><option value="terraced">계단형 · 산악 마을</option></select></label><div class="town-layout-note"><strong>16×16은 부지 단위입니다.</strong><span>기존 마을 프리셋 대신 도로망과 필수 시설 NBT를 기준으로 마을을 구성합니다.</span></div><label><span>시설 연결 도로 폭</span><select name="townRoadWidth" disabled><option value="3">3블록 · 골목</option><option value="5">5블록 · 소형 도로</option><option value="7">7블록 · 일반 도로</option><option value="9">9블록 · 주도로</option></select></label><label><span>도로 노면</span><select name="townRoadMaterial" disabled><option value="cobblestone">조약돌</option><option value="stone_bricks">석재 벽돌</option><option value="gravel">자갈</option><option value="packed_mud">단단한 진흙</option><option value="sandstone">사암</option><option value="snow">설원석</option></select></label><section class="village-generation-test wide" aria-labelledby="village-generation-title"><header><div><strong id="village-generation-title">마을 생성 테스트</strong><small>여기에 표시되는 동일한 시드·도로·시설·기본 건물 NBT 배치를 인게임 생성기가 사용합니다.</small></div><button type="button" class="button secondary" id="regenerate-village-preview" disabled>다시 생성</button></header><div class="village-generation-controls"><label><span>생성 시드</span><input type="number" name="villagePreviewSeed" value="1" min="1" max="999999999" disabled></label><label><span>도로 확장 깊이</span><input type="number" name="villagePreviewDepth" value="4" min="1" max="7" disabled></label></div><canvas id="village-generation-canvas" width="900" height="520" role="img" aria-label="마인크래프트 방식의 마을 생성 테스트 결과"></canvas><div class="village-generation-summary" id="village-generation-summary">마을을 선택하면 생성 테스트가 실행됩니다.</div></section></fieldset>
               <fieldset class="wide house-palette-fields"><legend>주택 구성</legend><p class="house-palette-help wide">선택한 기본 골격·지붕 형태·지붕 색상을 조합해 주택마다 다른 구조물 NBT를 배치합니다. 각 그룹에서 하나 이상 선택해야 합니다.</p><section><strong>기본 골격</strong><div id="house-base-options" class="house-option-grid"></div></section><section><strong>지붕 형태</strong><div id="house-roof-options" class="house-option-grid"></div></section><section class="wide"><strong>지붕 색상</strong><div id="house-color-options" class="house-option-grid house-color-grid"></div></section></fieldset>
-              <fieldset class="wide facility-catalog-fields"><legend>필수 시설 옵션</legend><p class="facility-catalog-help wide">시설을 체크하면 지정한 수량만큼 반드시 생성됩니다. 임시 건물도 실제 NBT 구조물로 배치하므로 나중에 같은 리소스 ID의 NBT만 실제 건물로 교체할 수 있습니다.</p><div class="civic-facility-options wide"><label class="toggle"><input type="checkbox" name="pokemonCenterEnabled" disabled><span>포켓몬센터 배치</span></label><label><span>상업 시설</span><select name="commercialFacility" disabled><option value="none">없음</option><option value="pokemart">포켓몬상점</option><option value="department_store">백화점</option></select><small>포켓몬상점과 백화점은 둘 중 하나만 선택할 수 있습니다.</small></label><small class="wide">시작 마을은 포켓몬센터와 상업 시설이 자동으로 비활성화됩니다. 다른 마을에서는 센터와 상업 시설을 독립적으로 선택할 수 있습니다.</small></div><section class="gym-facility-panel wide" id="gym-config-fields"><header><label class="toggle"><input type="checkbox" name="gymEnabled" disabled><span>체육관 배치</span></label><small>실제 RGS NBT 크기를 사용하며, 원본 파일을 읽을 수 없을 때는 25×26 체육관 도식으로 표시합니다.</small></header><div class="gym-facility-grid"><label class="wide"><span>체육관 구조물 ID</span><input name="gymStructure" placeholder="rgs:pewter_gym" disabled></label><label><span>체육관 타입</span><select name="gymTheme" disabled><option value="normal">노말</option><option value="fire">불꽃</option><option value="water">물</option><option value="electric">전기</option><option value="grass">풀</option><option value="ice">얼음</option><option value="fighting">격투</option><option value="poison">독</option><option value="ground">땅</option><option value="flying">비행</option><option value="psychic">에스퍼</option><option value="bug">벌레</option><option value="rock">바위</option><option value="ghost">고스트</option><option value="dragon">드래곤</option><option value="dark">악</option><option value="steel">강철</option><option value="fairy">페어리</option></select></label><label><span>체육관 앵커</span><input name="gymAnchor" placeholder="gym_building" disabled></label><label class="wide"><span>체육관 관장 엔트리</span><select name="gymLeaderTrainer" disabled><option value="">나중에 지정</option></select></label></div></section><div id="facility-option-list" class="facility-option-list wide"></div></fieldset>
+              <fieldset class="wide facility-catalog-fields"><legend>필수 시설 옵션</legend><p class="facility-catalog-help wide">시설을 체크하면 지정한 수량만큼 반드시 생성됩니다. 임시 건물도 실제 NBT 구조물로 배치하므로 나중에 같은 리소스 ID의 NBT만 실제 건물로 교체할 수 있습니다.</p><div class="civic-facility-options wide"><label class="toggle"><input type="checkbox" name="pokemonCenterEnabled" disabled><span>포켓몬센터 배치</span></label><label><span>상업 시설</span><select name="commercialFacility" disabled><option value="none">없음</option><option value="pokemart">포켓몬상점</option><option value="department_store">백화점</option></select><small>포켓몬상점과 백화점은 둘 중 하나만 선택할 수 있습니다.</small></label><small class="wide">시작 마을은 포켓몬센터와 상업 시설이 자동으로 비활성화됩니다. 다른 마을에서는 센터와 상업 시설을 독립적으로 선택할 수 있습니다.</small></div><section class="gym-facility-panel wide" id="gym-config-fields"><header><label class="toggle"><input type="checkbox" name="gymEnabled" disabled><span>체육관 배치</span></label><small>마을 → 체육관 → 관장 순서로 지정합니다. 외관과 내부 구성은 체육관 관리에서 전역으로 수정합니다.</small></header><div class="gym-facility-grid"><label class="wide"><span>체육관</span><select name="gymId" disabled><option value="">체육관을 선택하세요</option></select></label><label class="wide"><span>체육관 관장</span><select name="gymLeaderTrainer" disabled><option value="">나중에 지정</option></select></label><input type="hidden" name="gymAnchor" value="gym_building"></div></section><div id="facility-option-list" class="facility-option-list wide"></div></fieldset>
               <fieldset class="wide" id="special-district-fields"><legend>특별 건물</legend><label class="toggle wide"><input type="checkbox" name="specialBuildingEnabled" disabled><span>특별 건물 배치</span></label><label class="wide"><span>특별 건물 선택</span><select name="specialBuildingPreset" disabled><option value="">직접 입력</option><option value="cobbleventure:placeholder/player_house">플레이어 집</option></select><small>플레이어 집을 선택하면 관리 NBT 리소스 ID와 16×16 기본 부지를 사용합니다.</small></label><label class="wide"><span>구조물 리소스 ID</span><input name="specialBuildingStructure" placeholder="cobbleventure:facilities/radio_tower" disabled><small>구조물 템플릿 크기를 읽어 필요한 부지를 자동으로 준비합니다.</small></label><label class="wide"><span>배치 위치</span><select name="specialDistrictPlacementMode" disabled><option value="auto">자동 · 프리셋 기본 위치</option><option value="manual">직접 지정</option></select><small>자동은 프리셋의 기본 위치를 유지하고, 직접 지정할 때만 마을 중심 기준 오프셋을 입력합니다.</small></label><details class="advanced-settings wide"><summary>고급 설정</summary><div class="form-grid compact-grid"><label data-special-manual><span>오프셋 X</span><input type="number" name="specialDistrictX" disabled></label><label data-special-manual><span>오프셋 Y</span><input type="number" name="specialDistrictY" disabled></label><label data-special-manual><span>오프셋 Z</span><input type="number" name="specialDistrictZ" disabled></label><label><span>최소 폭</span><input type="number" min="8" max="192" name="specialDistrictWidth" disabled></label><label><span>최소 깊이</span><input type="number" min="8" max="192" name="specialDistrictDepth" disabled></label><label><span>주변 여유 폭</span><input type="number" min="0" max="32" name="specialDistrictClearance" disabled></label><small class="wide">최소 폭·깊이는 템플릿보다 넓은 부지가 필요할 때만 사용합니다. 실제 구조물이 더 크면 자동으로 확장됩니다.</small></div></details></fieldset>
               <fieldset class="wide"><legend>지역 포켓몬·트레이너</legend><label><span>포켓몬 스폰 프로필</span><input name="pokemonSpawnProfile" disabled></label><label><span>스폰 밀도 배율</span><input type="number" min="0.1" max="10" step="0.1" name="pokemonDensity" disabled></label><label><span>바이옴 세트</span><select name="pokemonBiomeSet" disabled></select></label><label class="wide"><span>조건 무시 출현 포켓몬 — ID를 쉼표로 구분</span><input name="unconditionalSpawns" placeholder="cobblemon:mew, cobblemon:celebi" disabled></label><label><span>트레이너 인구 프로필</span><input name="trainerPopulationProfile" disabled></label><label><span>동시 활성 트레이너</span><input type="number" min="0" max="128" name="trainerMaxActive" disabled></label><label class="wide"><span>허용 트레이너 클래스 — 쉼표로 구분</span><input name="trainerClassPool" disabled></label></fieldset>
               <fieldset class="wide"><legend>지역 레벨 스케일링</legend><label><span>방식</span><select name="scaleMode" disabled><option value="fixed">고정</option><option value="badges">배지</option><option value="region_progress">지역 진행도</option><option value="badge_and_region">배지 + 지역 진행도</option><option value="player_average">플레이어 평균</option></select></label><label><span>기준 레벨</span><input type="number" min="1" max="100" name="scaleBase" disabled></label><label><span>최소 레벨</span><input type="number" min="1" max="100" name="scaleMin" disabled></label><label><span>최대 레벨</span><input type="number" min="1" max="100" name="scaleMax" disabled></label><label><span>배지당 증가</span><input type="number" min="0" max="20" step="0.5" name="scalePerBadge" disabled></label><label><span>지역당 증가</span><input type="number" min="0" max="30" step="0.5" name="scalePerRegion" disabled></label><label><span>야생 포켓몬 보정</span><input type="number" min="-50" max="50" name="pokemonLevelOffset" disabled></label><label><span>트레이너 보정</span><input type="number" min="-50" max="50" name="trainerLevelOffset" disabled></label></fieldset>
@@ -388,15 +389,47 @@
         </div>
       </section>
 
+      <section class="page" id="gyms">
+        <div class="workspace-grid">
+          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">GYM CATALOG</p><h2>체육관</h2></div><div class="list-tools"><span class="count-pill" id="gym-list-count">0</span><button class="mini-button" id="add-gym" type="button">＋</button></div></div><div id="gym-list" class="list-body"></div></aside>
+          <div class="editor panel">
+            <div class="panel-heading"><div><p class="eyebrow">MODULAR GYM</p><h2 id="gym-editor-title">체육관을 선택하세요</h2></div><div class="editor-heading-actions"><div><button class="button danger" id="delete-gym" disabled>체육관 삭제</button><button class="button secondary" id="preview-gym-exterior" disabled>NBT 외관 미리보기</button><button class="button primary" id="save-gyms">체육관 저장</button></div></div></div>
+            <form id="gym-form" class="form-grid">
+              <label class="wide"><span>체육관 ID</span><input name="id" disabled></label>
+              <label><span>한국어 이름</span><input name="nameKo" disabled></label><label><span>영문 이름</span><input name="nameEn" disabled></label>
+              <label><span>속성 타입</span><select name="theme" disabled><option value="normal">노말</option><option value="fire">불꽃</option><option value="water">물</option><option value="electric">전기</option><option value="grass">풀</option><option value="ice">얼음</option><option value="fighting">격투</option><option value="poison">독</option><option value="ground">땅</option><option value="flying">비행</option><option value="psychic">에스퍼</option><option value="bug">벌레</option><option value="rock">바위</option><option value="ghost">고스트</option><option value="dragon">드래곤</option><option value="dark">악</option><option value="steel">강철</option><option value="fairy">페어리</option></select></label>
+              <label class="wide"><span>공용 외관 템플릿 NBT</span><select name="exteriorStructure" disabled></select><small>모든 체육관이 base_gym 하나를 사용하며, 속성 타입에 따라 지정 색상 블록만 자동 치환됩니다.</small></label>
+              <label class="toggle"><input type="checkbox" name="enabled" disabled><span>이 체육관 사용</span></label>
+            </form>
+            <div class="subsection-heading"><div><p class="eyebrow">INTERIOR MODULES</p><h3>확장형 내부 공간</h3><small>방 NBT를 좌표로 조립합니다. 모듈 수와 층수에는 고정 제한이 없습니다.</small></div><button class="button secondary" id="add-gym-module" disabled>내부 모듈 추가</button></div>
+            <div id="gym-module-list" class="cave-entry-list"><div class="issues empty">체육관을 선택하세요.</div></div>
+            <details class="advanced"><summary>고급 JSON 편집</summary><textarea class="code-editor compact" id="gym-json" spellcheck="false" disabled></textarea><button class="button text-button" id="apply-gym-json" disabled>JSON을 폼에 반영</button></details>
+            <div id="gym-issues" class="issues empty">체육관 카탈로그를 불러오는 중입니다.</div>
+          </div>
+        </div>
+      </section>
+
       <section class="page" id="structures">
         <div class="panel nbt-viewer building-settings-manager">
           <div class="panel-heading">
             <div><p class="eyebrow">NBT BUILDING GLOBAL SETTINGS</p><h2>NBT 건물 설정</h2><p>NBT 건물을 선택해 실제 블록과 NPC 앵커를 확인하고, 이 건물의 전역 NPC를 배정합니다.</p></div>
             <div class="editor-heading-actions"><span class="path-label" id="building-settings-path">content/catalogs/building-settings.json</span><button class="button primary" id="save-building-settings" type="button">NBT 건물 설정 저장</button></div>
           </div>
+          <section class="interior-library-toolbar">
+            <div><p class="eyebrow">SHARED INTERIOR LIBRARY</p><h3>공용 내부공간 NBT 만들기</h3><small>건물 종류와 무관한 키로 빈 내부를 만든 뒤 에딧 월드에서 건축합니다.</small></div>
+            <form id="interior-space-create-form">
+              <label><span>공간 키</span><input name="id" placeholder="large_arena" required pattern="[a-z0-9][a-z0-9_]*"></label>
+              <label><span>너비</span><input name="width" type="number" min="5" max="80" value="32"></label>
+              <label><span>깊이</span><input name="depth" type="number" min="5" max="80" value="32"></label>
+              <label><span>층 높이</span><input name="floorHeight" type="number" min="3" max="12" value="12"></label>
+              <label><span>층수</span><input name="floors" type="number" min="1" max="8" value="1"></label>
+              <button class="button secondary" id="create-interior-space" type="submit">빈 내부 NBT 만들기</button>
+            </form>
+          </section>
           <div class="nbt-viewer-layout building-settings-layout">
             <aside class="nbt-structure-browser">
               <label><span>NBT 건물 검색</span><input id="building-search" type="search" placeholder="포켓몬센터, 상점, house…"></label>
+              <label><span>구조물 종류</span><select id="building-category"><option value="all">전체 구조물</option><option value="building">일반 건물</option><option value="residential">주택</option><option value="gym_exterior">체육관 외관 템플릿</option><option value="gym_interior">체육관 내부 모듈</option><option value="interior">건물 내부 모듈</option><option value="league">리그</option><option value="placeholder">임시·특수 건물</option></select></label>
               <div class="nbt-structure-browser-meta"><strong id="building-count">0개</strong><small>관리 대상 NBT 건물</small></div>
               <div class="nbt-structure-list" id="building-list"><div class="issues empty">NBT 건물을 불러오는 중입니다.</div></div>
             </aside>
@@ -415,7 +448,18 @@
               <div id="building-editor-empty" class="issues empty">NBT 건물을 선택하면 전역 NPC 배정 항목이 표시됩니다.</div>
               <div id="building-editor" hidden>
                 <div class="building-type-banner" id="building-type-banner"></div>
+                <section class="building-space-editor">
+                  <header><div><strong>사용할 내부공간</strong><small>공용 내부 NBT를 공간 키로 연결합니다.</small></div><button class="button secondary" id="add-building-interior" type="button">내부공간 추가</button></header>
+                  <div id="building-interior-assignments" class="building-interior-assignments"></div>
+                </section>
+                <section class="building-space-editor">
+                  <header><div><strong>문 이동 설정</strong><small>인게임에서 지정한 문 이름을 도착 지점과 연결합니다.</small></div></header>
+                  <div id="building-door-routes" class="building-door-routes"></div>
+                </section>
+                <section class="building-space-editor">
+                  <header><div><strong>NPC 배정</strong><small>외부와 내부의 NPC 라벨을 함께 설정합니다.</small></div></header>
                 <div id="building-npc-assignments" class="building-npc-assignments"></div>
+                </section>
                 <label class="toggle building-citizen-toggle" id="building-citizen-placement-row"><input type="checkbox" id="building-citizen-placement"><span>시민을 수용할 수 있는 건물</span></label>
                 <div id="building-settings-issues" class="issues empty">변경 사항이 없습니다.</div>
               </div>
@@ -456,17 +500,30 @@
           <div class="economy-rule-banner"><span>VANILLA CRAFTING</span><strong>비활성화 고정</strong><p>NPC 제작 재료는 아래 포켓몬 드롭 목록에 등록된 아이템만 사용할 수 있습니다.</p><i>LOCKED</i></div>
           <div class="economy-summary" id="economy-summary"><article><span>판매 NPC</span><strong>0</strong></article><article><span>판매 품목</span><strong>0</strong></article><article><span>드롭 규칙</span><strong>0</strong></article><article><span>NPC 제작법</span><strong>0</strong></article></div>
           <div class="economy-tabs" role="tablist">
-            <button class="is-active" data-economy-tab="shops">상점 카탈로그</button>
+            <button class="is-active" data-economy-tab="vendors">상인 · 판매 상품</button>
+            <button data-economy-tab="department-stores">백화점 설정</button>
             <button data-economy-tab="drops">포켓몬 드롭</button>
             <button data-economy-tab="recipes">NPC 제작법</button>
           </div>
-          <section class="economy-panel is-active" data-economy-panel="shops">
-            <header class="economy-section-head"><div><h3>백화점 카탈로그</h3><small>층·코너에 배치할 상인 카탈로그를 묶습니다. 마을에서는 완성된 백화점 카탈로그를 선택합니다.</small></div><button class="button secondary" data-economy-add="catalog">＋ 백화점 카탈로그</button></header>
-            <div class="economy-toolbar"><label><span>백화점 검색</span><input id="economy-catalog-search" placeholder="이름 또는 카탈로그 ID"></label></div>
-            <div class="economy-card-grid economy-catalog-list" id="economy-catalog-list"></div>
-            <header class="economy-section-head economy-subhead"><div><h3>상인 카탈로그</h3><small>상인 한 명의 NPC·판매 분야·아이템·가격을 관리합니다.</small></div><button class="button secondary" data-economy-add="shop">＋ 상인 추가</button></header>
-            <div class="economy-toolbar"><label><span>상인·아이템 검색</span><input id="economy-vendor-search" placeholder="기술머신, 몬스터볼, 아이템 이름…"></label><label><span>시설</span><select id="economy-vendor-facility"><option value="">전체</option><option value="pokemart">프렌들리숍</option><option value="department_store">백화점</option><option value="specialty">전문 상점</option></select></label></div>
-            <div class="economy-card-grid" id="economy-shop-list"></div>
+          <section class="economy-panel is-active" data-economy-panel="vendors">
+            <div class="economy-workspace">
+              <aside class="economy-master-pane">
+                <header><div><p class="eyebrow">MERCHANTS</p><h3>상인 목록 <span id="economy-vendor-count">0</span></h3><small>백화점과 프렌들리숍을 구분하지 않고 모든 상인을 표시합니다.</small></div><button class="economy-icon-add" data-economy-add="shop" aria-label="상인 추가">＋</button></header>
+                <label class="economy-list-search"><span>상인 검색</span><input id="economy-vendor-search" placeholder="상인 이름 또는 판매 상품"></label>
+                <div class="economy-master-list" id="economy-shop-list"></div>
+              </aside>
+              <section class="economy-detail-pane" id="economy-vendor-detail"></section>
+            </div>
+          </section>
+          <section class="economy-panel" data-economy-panel="department-stores">
+            <div class="economy-workspace economy-store-workspace">
+              <aside class="economy-master-pane">
+                <header><div><p class="eyebrow">DEPARTMENT STORES</p><h3>백화점 목록 <span id="economy-catalog-count">0</span></h3><small>설정할 백화점을 먼저 선택하세요.</small></div><button class="economy-icon-add" data-economy-add="catalog" aria-label="백화점 추가">＋</button></header>
+                <label class="economy-list-search"><span>백화점 검색</span><input id="economy-catalog-search" placeholder="백화점 이름 또는 ID"></label>
+                <div class="economy-master-list" id="economy-catalog-list"></div>
+              </aside>
+              <section class="economy-detail-pane" id="economy-catalog-detail"></section>
+            </div>
           </section>
           <section class="economy-panel" data-economy-panel="drops">
             <header class="economy-section-head"><div><h3>조건 기반 포켓몬 루트 규칙</h3><small>1025종을 하나씩 편집하지 않고 타입·세대·폼·라벨·알그룹·크기로 묶어 적용합니다.</small></div><button class="button secondary" data-economy-add="rule">＋ 대량 루트 규칙</button></header>
@@ -519,7 +576,7 @@
     <dialog id="choice-dialog" class="choice-dialog">
       <div class="choice-dialog-shell">
         <header class="choice-dialog-head">
-          <div><p class="eyebrow">BATTLE DATA PICKER</p><h2 id="choice-title">선택</h2><small id="choice-subtitle"></small></div>
+          <div><p class="eyebrow" id="choice-eyebrow">BATTLE DATA PICKER</p><h2 id="choice-title">선택</h2><small id="choice-subtitle"></small></div>
           <button type="button" id="choice-close">닫기</button>
         </header>
         <div id="choice-filters" class="choice-dialog-filters"></div>

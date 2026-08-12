@@ -14,14 +14,39 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["fixed_npcs", "citizen_placement_allowed"],
+        "required": ["fixed_npcs", "citizen_placement_allowed", "interiors", "door_routes"],
         "properties": {
           "fixed_npcs": {
             "type": "object",
-            "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_]*$" },
+            "propertyNames": { "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$" },
             "additionalProperties": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" }
           },
-          "citizen_placement_allowed": { "type": "boolean" }
+          "citizen_placement_allowed": { "type": "boolean" },
+          "interiors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "structure"],
+              "properties": {
+                "key": { "pattern": "^[a-z0-9][a-z0-9_]*$" },
+                "structure": { "pattern": "^[a-z0-9_.-]+:interiors/[a-z0-9_./-]+$" }
+              }
+            }
+          },
+          "door_routes": {
+            "type": "object",
+            "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_]*:[a-z0-9][a-z0-9_]*$" },
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["space", "arrival"],
+              "properties": {
+                "space": { "pattern": "^[a-z0-9][a-z0-9_]*$" },
+                "arrival": { "pattern": "^[a-z0-9][a-z0-9_]*$" }
+              }
+            }
+          }
         }
       }
     }
