@@ -498,7 +498,7 @@
     "gym_config": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "structure", "theme", "anchor", "leader_trainer_id"],
+      "required": ["enabled", "structure", "theme", "anchor"],
       "properties": {
         "enabled": { "type": "boolean" },
         "gym_id": { "$ref": "#/$defs/resource_id" },
@@ -511,8 +511,6 @@
           ]
         },
         "anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-        "leader_trainer_id": { "type": "string" },
-        "league_entry_id": { "type": "string" },
         "entrance": { "$ref": "#/$defs/gym_entrance" },
         "interior": { "$ref": "#/$defs/gym_interior" }
       },
@@ -557,9 +555,7 @@
       "properties": {
         "structure": { "$ref": "#/$defs/resource_id" },
         "entry_offset": { "$ref": "#/$defs/block_position" },
-        "exit_door_offset": { "$ref": "#/$defs/block_position" },
-        "leader_offset": { "$ref": "#/$defs/block_position" },
-        "leader_npc": { "$ref": "#/$defs/resource_id" }
+        "exit_door_offset": { "$ref": "#/$defs/block_position" }
       }
     },
     "gym_condition": {

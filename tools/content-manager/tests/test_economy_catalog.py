@@ -117,8 +117,15 @@ class EconomyCatalogTests(unittest.TestCase):
         self.assertEqual(1025, len(editor["species"]))
         pikachu = next(entry for entry in editor["species"] if entry["species"] == "cobblemon:pikachu")
         poke_ball = next(entry for entry in editor["items"] if entry["id"] == "cobblemon:poke_ball")
+        item_ids = {entry["id"] for entry in editor["items"]}
         self.assertEqual("피카츄", pikachu["ko_kr"])
         self.assertEqual("몬스터볼", poke_ball["ko_kr"])
+        self.assertIn("cobblemon:normal_gem", item_ids)
+        self.assertNotIn("cobblemon.normal_gem:tooltip_1", item_ids)
+        self.assertEqual("balls", poke_ball["product_group"])
+        self.assertEqual("gems", next(entry for entry in editor["items"] if entry["id"] == "cobblemon:normal_gem")["product_group"])
+        self.assertEqual("medicine", next(entry for entry in editor["items"] if entry["id"] == "cobblemon:ether")["product_group"])
+        self.assertEqual("other", next(entry for entry in editor["items"] if entry["id"] == "minecraft:netherite_pickaxe")["product_group"])
 
     def test_drop_rule_generates_cobblemon_species_override(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1121,7 +1121,7 @@ class ContentManagerTests(unittest.TestCase):
             for issue in issues if issue.level == "error"
         ))
 
-    def test_gym_can_be_disabled_without_leader_or_structure(self) -> None:
+    def test_gym_can_be_disabled_without_structure(self) -> None:
         root = Path(__file__).parents[3]
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
@@ -1129,7 +1129,7 @@ class ContentManagerTests(unittest.TestCase):
             )
         )
         source["structure_profile"]["gym"].update({
-            "enabled": False, "structure": "", "leader_trainer_id": "",
+            "enabled": False, "structure": "",
         })
         source["structure_profile"]["facility_placements"] = [
             placement
@@ -2623,11 +2623,11 @@ class ContentManagerTests(unittest.TestCase):
         styles = (web_root / "styles.css").read_text(encoding="utf-8")
         self.assertIn(".building-door-route", styles)
 
-    def test_new_gym_reuses_exterior_and_interior_templates(self) -> None:
+    def test_new_gym_reuses_shared_exterior_and_base_interior(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             exterior = root / "content/structures/gyms/base_gym.nbt"
-            interior = root / "content/structures/interiors/gyms/pewter_gym_main.nbt"
+            interior = root / "content/structures/interiors/gyms/base_gym_interior.nbt"
             exterior.parent.mkdir(parents=True)
             interior.parent.mkdir(parents=True)
             exterior.write_bytes(self._structure_nbt((25, 13, 26)))
@@ -2635,7 +2635,7 @@ class ContentManagerTests(unittest.TestCase):
             interior.with_suffix(".structure.json").write_text(json.dumps({
                 "schema_version": 1,
                 "anchors": [{"type": "npc_position", "label": "leader", "position": [12, 1, 20]}],
-                "interior": {"id": "pewter_gym_main", "width": 25, "depth": 26, "floor_height": 13, "floors": 1},
+                "interior": {"id": "base_gym_interior", "width": 25, "depth": 26, "floor_height": 13, "floors": 1},
             }), encoding="utf-8")
             catalog = root / "content/catalogs/gyms.json"
             catalog.parent.mkdir(parents=True)
@@ -2651,7 +2651,7 @@ class ContentManagerTests(unittest.TestCase):
             self.assertFalse(any(issue.level == "error" for issue in issues))
             self.assertEqual("cobbleventure:gyms/base_gym", gym["exterior"]["structure"])
             self.assertEqual(
-                "cobbleventure:interiors/gyms/pewter_gym_main",
+                "cobbleventure:interiors/gyms/base_gym_interior",
                 gym["interior"]["modules"][0]["structure"],
             )
             self.assertFalse((root / "content/structures/gyms/second_rock_gym.nbt").exists())

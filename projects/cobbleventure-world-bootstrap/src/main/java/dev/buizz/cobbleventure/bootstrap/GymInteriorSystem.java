@@ -171,7 +171,7 @@ final class GymInteriorSystem {
         JsonObject exterior = gym.getAsJsonObject("exterior");
         JsonObject interior = gym.getAsJsonObject("interior");
         List<InteriorModule> modules = new ArrayList<>();
-        BlockPoint leaderOffset = null;
+        Map<String, BlockPoint> npcOffsets = new LinkedHashMap<>();
         for (JsonElement element : interior.getAsJsonArray("modules")) {
             JsonObject module = element.getAsJsonObject();
             JsonArray position = module.getAsJsonArray("position");
@@ -181,20 +181,20 @@ final class GymInteriorSystem {
             );
             Rotation moduleRotation = rotation(optionalString(module, "rotation", "none"));
             ModuleMetadata metadata = readModuleMetadata(server, structure);
-            if (metadata.leader != null) {
-                if (leaderOffset != null) {
-                    throw new IllegalStateException(
-                        "Gym has more than one leader anchor: " + requiredString(gym, "id")
-                    );
-                }
+            for (Map.Entry<String, BlockPoint> anchor : metadata.npcAnchors.entrySet()) {
                 BlockPoint rotated = rotatePoint(
-                    metadata.leader, metadata.width, metadata.depth, moduleRotation
+                    anchor.getValue(), metadata.width, metadata.depth, moduleRotation
                 );
-                leaderOffset = new BlockPoint(
+                BlockPoint offset = new BlockPoint(
                     modulePosition.x + rotated.x,
                     modulePosition.y + rotated.y,
                     modulePosition.z + rotated.z
                 );
+                if (npcOffsets.putIfAbsent(anchor.getKey(), offset) != null) {
+                    throw new IllegalStateException(
+                        "Gym has duplicate NPC anchor: " + requiredString(gym, "id") + "/" + anchor.getKey()
+                    );
+                }
             }
             modules.add(new InteriorModule(
                 requiredString(module, "id"), structure, modulePosition, moduleRotation
@@ -203,10 +203,36 @@ final class GymInteriorSystem {
         if (modules.isEmpty()) {
             throw new IllegalStateException("Gym needs at least one interior module: " + requiredString(gym, "id"));
         }
+        List<GymStaffMember> staffMembers = new ArrayList<>();
+        JsonObject staff = gym.getAsJsonObject("staff");
+        JsonObject leader = staff.getAsJsonObject("leader");
+        addStaffMember(staffMembers, npcOffsets, nullableString(leader, "trainer_id"), optionalString(leader, "anchor", "leader"), "leader");
+        for (JsonElement element : staff.getAsJsonArray("trainers")) {
+            JsonObject trainer = element.getAsJsonObject();
+            addStaffMember(
+                staffMembers, npcOffsets, requiredString(trainer, "trainer_id"),
+                requiredString(trainer, "anchor"), requiredString(trainer, "id")
+            );
+        }
         return new GymDefinition(
             requiredString(gym, "id"), requiredString(gym, "theme"),
-            requiredString(exterior, "structure"), List.copyOf(modules), leaderOffset
+            requiredString(exterior, "structure"), List.copyOf(modules), List.copyOf(staffMembers)
         );
+    }
+
+    private static void addStaffMember(
+        List<GymStaffMember> members, Map<String, BlockPoint> npcOffsets,
+        String trainerId, String anchor, String role
+    ) {
+        if (trainerId == null) {
+            return;
+        }
+        BlockPoint offset = npcOffsets.get(anchor);
+        if (offset == null) {
+            throw new IllegalStateException("Gym staff anchor does not exist: " + anchor);
+        }
+        String slug = trainerId.substring(Math.max(trainerId.lastIndexOf('/'), trainerId.lastIndexOf(':')) + 1);
+        members.add(new GymStaffMember(role, "easy_npc:preset/encounter/" + slug + ".npc.snbt", offset));
     }
 
     private static ModuleMetadata readModuleMetadata(MinecraftServer server, String structure) {
@@ -219,27 +245,29 @@ final class GymInteriorSystem {
         );
         var resource = server.getResourceManager().getResource(metadataId);
         if (resource.isEmpty()) {
-            return new ModuleMetadata(0, 0, null);
+            return new ModuleMetadata(0, 0, Map.of());
         }
         try (Reader reader = resource.orElseThrow().openAsReader()) {
             JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
             JsonObject interior = root.getAsJsonObject("interior");
             int width = interior == null ? 0 : interior.get("width").getAsInt();
             int depth = interior == null ? 0 : interior.get("depth").getAsInt();
-            BlockPoint leader = null;
+            Map<String, BlockPoint> npcAnchors = new LinkedHashMap<>();
             for (JsonElement element : root.getAsJsonArray("anchors")) {
                 JsonObject anchor = element.getAsJsonObject();
-                if (!"npc_position".equals(optionalString(anchor, "type", ""))
-                    || !"leader".equals(optionalString(anchor, "label", ""))) {
+                if (!"npc_position".equals(optionalString(anchor, "type", ""))) {
                     continue;
                 }
+                String label = requiredString(anchor, "label");
                 JsonArray point = anchor.getAsJsonArray("position");
-                leader = new BlockPoint(
+                BlockPoint position = new BlockPoint(
                     point.get(0).getAsInt(), point.get(1).getAsInt(), point.get(2).getAsInt()
                 );
-                break;
+                if (npcAnchors.putIfAbsent(label, position) != null) {
+                    throw new IllegalStateException("Duplicate NPC anchor in gym module: " + label);
+                }
             }
-            return new ModuleMetadata(width, depth, leader);
+            return new ModuleMetadata(width, depth, Map.copyOf(npcAnchors));
         } catch (IOException | RuntimeException error) {
             throw new IllegalStateException("Invalid gym module metadata: " + metadataId, error);
         }
@@ -263,14 +291,6 @@ final class GymInteriorSystem {
                 conditions.add(parseCondition(element.getAsJsonObject()));
             }
         }
-        String leaderNpc = nullableString(interior, "leader_npc");
-        String leaderTrainerId = nullableString(gym, "leader_trainer_id");
-        if (leaderNpc == null && leaderTrainerId != null) {
-            String slug = leaderTrainerId.substring(
-                Math.max(leaderTrainerId.lastIndexOf('/'), leaderTrainerId.lastIndexOf(':')) + 1
-            );
-            leaderNpc = "easy_npc:preset/encounter/" + slug + ".npc.snbt";
-        }
         return new GymConfig(
             settlementId,
             definition.theme,
@@ -285,9 +305,7 @@ final class GymInteriorSystem {
             strings(entrance, "enter_dialogue", List.of()),
             point(interior, "entry_offset", DEFAULT_ENTRY),
             point(interior, "exit_door_offset", DEFAULT_DOOR),
-            interior != null && interior.has("leader_offset")
-                ? point(interior, "leader_offset", null) : definition.leaderOffset,
-            leaderNpc
+            definition.staff
         );
     }
 
@@ -316,7 +334,7 @@ final class GymInteriorSystem {
 
     private static void placeInterior(ServerLevel level, GymConfig gym) {
         BlockPos marker = gym.instanceOrigin.offset(0, -2, 0);
-        BlockPos leaderMarker = gym.instanceOrigin.offset(1, -2, 0);
+        BlockPos staffMarker = gym.instanceOrigin.offset(1, -2, 0);
         if (!level.getBlockState(marker).is(Blocks.RESPAWN_ANCHOR)) {
             for (InteriorModule module : gym.modules) {
                 ResourceLocation id = ResourceLocation.tryParse(module.structure);
@@ -345,15 +363,12 @@ final class GymInteriorSystem {
                 gym.settlementId, gym.modules.size(), gym.instanceOrigin
             );
         }
-        if (gym.leaderNpc != null && !level.getBlockState(leaderMarker).is(Blocks.LODESTONE)) {
-            if (gym.leaderOffset == null) {
-                throw new IllegalStateException(
-                    "Gym leader requires an npc_position anchor labelled leader: " + gym.settlementId
-                );
+        if (!gym.staff.isEmpty() && !level.getBlockState(staffMarker).is(Blocks.LODESTONE)) {
+            for (GymStaffMember staff : gym.staff) {
+                BlockPoint offset = staff.offset;
+                spawnNpc(level, gym, staff, gym.instanceOrigin.offset(offset.x, offset.y, offset.z));
             }
-            BlockPoint offset = gym.leaderOffset;
-            spawnNpc(level, gym, gym.instanceOrigin.offset(offset.x, offset.y, offset.z));
-            level.setBlock(leaderMarker, Blocks.LODESTONE.defaultBlockState(), 2);
+            level.setBlock(staffMarker, Blocks.LODESTONE.defaultBlockState(), 2);
         }
     }
 
@@ -488,8 +503,8 @@ final class GymInteriorSystem {
         }
     }
 
-    private static void spawnNpc(ServerLevel level, GymConfig gym, BlockPos position) {
-        String command = "easy_npc preset import_new data " + gym.leaderNpc + " "
+    private static void spawnNpc(ServerLevel level, GymConfig gym, GymStaffMember staff, BlockPos position) {
+        String command = "easy_npc preset import_new data " + staff.npcPreset + " "
             + position.getX() + " " + position.getY() + " " + position.getZ();
         try {
             int result = level.getServer().getCommands().getDispatcher().execute(
@@ -501,11 +516,11 @@ final class GymInteriorSystem {
                     .withSuppressedOutput()
             );
             if (result == 0) {
-                LOGGER.warn("Gym leader NPC command returned no result: {}", gym.settlementId);
+                LOGGER.warn("Gym staff NPC command returned no result: {}/{}", gym.settlementId, staff.role);
             }
         } catch (CommandSyntaxException error) {
             throw new IllegalStateException(
-                "Gym leader NPC placement failed: " + gym.settlementId, error
+                "Gym staff NPC placement failed: " + gym.settlementId + "/" + staff.role, error
             );
         }
     }
@@ -603,12 +618,14 @@ final class GymInteriorSystem {
 
     private record GymDefinition(
         String id, String theme, String exteriorStructure, List<InteriorModule> modules,
-        BlockPoint leaderOffset
+        List<GymStaffMember> staff
     ) {}
 
     private record ExteriorPalette(BlockState primary, BlockState secondary, BlockState glass) {}
 
-    private record ModuleMetadata(int width, int depth, BlockPoint leader) {}
+    private record ModuleMetadata(int width, int depth, Map<String, BlockPoint> npcAnchors) {}
+
+    private record GymStaffMember(String role, String npcPreset, BlockPoint offset) {}
 
     private record InteriorModule(String id, String structure, BlockPoint position, Rotation rotation) {}
 
@@ -626,8 +643,7 @@ final class GymInteriorSystem {
         final List<String> enterDialogue;
         final BlockPoint entryOffset;
         final BlockPoint exitDoorOffset;
-        final BlockPoint leaderOffset;
-        final String leaderNpc;
+        final List<GymStaffMember> staff;
         BlockPos instanceOrigin;
 
         GymConfig(
@@ -636,7 +652,7 @@ final class GymInteriorSystem {
             BlockPoint outsideOffset, Direction facing, String conditionMode,
             List<Condition> conditions, List<String> lockedDialogue,
             List<String> enterDialogue, BlockPoint entryOffset,
-            BlockPoint exitDoorOffset, BlockPoint leaderOffset, String leaderNpc
+            BlockPoint exitDoorOffset, List<GymStaffMember> staff
         ) {
             this.settlementId = settlementId;
             this.theme = theme;
@@ -651,8 +667,7 @@ final class GymInteriorSystem {
             this.enterDialogue = enterDialogue;
             this.entryOffset = entryOffset;
             this.exitDoorOffset = exitDoorOffset;
-            this.leaderOffset = leaderOffset;
-            this.leaderNpc = leaderNpc;
+            this.staff = staff;
         }
 
         int interiorWidth(ServerLevel level) {

@@ -1,0 +1,299 @@
+{
+  "$schema": "../schemas/music-tracks.schema.json",
+  "schema_version": 1,
+  "namespace": "cobbleventure_music",
+  "datapack_required": false,
+  "source": {
+    "label": "Pokemon Another Red PWT 250821",
+    "audio_in_repository": false,
+    "notes": "원본 음원은 저장소 밖에서 관리한다. 이 카탈로그에는 선택한 파일명과 안정적인 사운드 ID만 기록한다."
+  },
+  "tracks": [
+    {
+      "id": "kanto.bicycle",
+      "sound_event": "music.kanto.bicycle",
+      "resource": "music/kanto/bicycle",
+      "source_file": "KM_Bicycle.ogg",
+      "category": "travel",
+      "usage": "자전거 이동"
+    },
+    {
+      "id": "kanto.celadon_city",
+      "sound_event": "music.kanto.celadon_city",
+      "resource": "music/kanto/celadon_city",
+      "source_file": "KM_Celadon.ogg",
+      "category": "settlement",
+      "usage": "무지개시티"
+    },
+    {
+      "id": "kanto.cerulean_city",
+      "sound_event": "music.kanto.cerulean_city",
+      "resource": "music/kanto/cerulean_city",
+      "source_file": "KM_Cerulean.ogg",
+      "category": "settlement",
+      "usage": "블루시티"
+    },
+    {
+      "id": "kanto.cinnabar_island",
+      "sound_event": "music.kanto.cinnabar_island",
+      "resource": "music/kanto/cinnabar_island",
+      "source_file": "KM_Cinnabar.ogg",
+      "category": "settlement",
+      "usage": "홍련섬"
+    },
+    {
+      "id": "kanto.lavender_town",
+      "sound_event": "music.kanto.lavender_town",
+      "resource": "music/kanto/lavender_town",
+      "source_file": "KM_Lavender.ogg",
+      "category": "settlement",
+      "usage": "보라타운"
+    },
+    {
+      "id": "kanto.mt_moon",
+      "sound_event": "music.kanto.mt_moon",
+      "resource": "music/kanto/mt_moon",
+      "source_file": "KM_Mt.Moon.ogg",
+      "category": "dungeon",
+      "usage": "달맞이산"
+    },
+    {
+      "id": "kanto.pallet_town",
+      "sound_event": "music.kanto.pallet_town",
+      "resource": "music/kanto/pallet_town",
+      "source_file": "KM_Pallet.ogg",
+      "category": "settlement",
+      "usage": "태초마을"
+    },
+    {
+      "id": "kanto.pewter_city",
+      "sound_event": "music.kanto.pewter_city",
+      "resource": "music/kanto/pewter_city",
+      "source_file": "KM_Pewter.ogg",
+      "category": "settlement",
+      "usage": "회색시티"
+    },
+    {
+      "id": "kanto.route_01",
+      "sound_event": "music.kanto.route_01",
+      "resource": "music/kanto/route_01",
+      "source_file": "KM_Route1.ogg",
+      "category": "route",
+      "usage": "관동 1번도로 계열"
+    },
+    {
+      "id": "kanto.route_03",
+      "sound_event": "music.kanto.route_03",
+      "resource": "music/kanto/route_03",
+      "source_file": "KM_Route3.ogg",
+      "category": "route",
+      "usage": "관동 3번도로 계열"
+    },
+    {
+      "id": "kanto.route_11",
+      "sound_event": "music.kanto.route_11",
+      "resource": "music/kanto/route_11",
+      "source_file": "KM_Route11.ogg",
+      "category": "route",
+      "usage": "관동 11번도로 계열"
+    },
+    {
+      "id": "kanto.route_24",
+      "sound_event": "music.kanto.route_24",
+      "resource": "music/kanto/route_24",
+      "source_file": "KM_Route24.ogg",
+      "category": "route",
+      "usage": "관동 24번도로 계열"
+    },
+    {
+      "id": "kanto.surf",
+      "sound_event": "music.kanto.surf",
+      "resource": "music/kanto/surf",
+      "source_file": "KM_Surf.ogg",
+      "category": "travel",
+      "usage": "파도타기 이동"
+    },
+    {
+      "id": "kanto.vermilion_city",
+      "sound_event": "music.kanto.vermilion_city",
+      "resource": "music/kanto/vermilion_city",
+      "source_file": "KM_Vermillion.ogg",
+      "category": "settlement",
+      "usage": "갈색시티"
+    },
+    {
+      "id": "kanto.viridian_forest",
+      "sound_event": "music.kanto.viridian_forest",
+      "resource": "music/kanto/viridian_forest",
+      "source_file": "KM_ViridianForest.ogg",
+      "category": "dungeon",
+      "usage": "상록숲"
+    },
+    {
+      "id": "battle.wild",
+      "sound_event": "music.battle.wild",
+      "resource": "music/battle/wild",
+      "source_file": "Battle wild.ogg",
+      "category": "battle",
+      "usage": "일반 야생 포켓몬 전투"
+    },
+    {
+      "id": "battle.trainer",
+      "sound_event": "music.battle.trainer",
+      "resource": "music/battle/trainer",
+      "source_file": "Battle trainer.ogg",
+      "category": "battle",
+      "usage": "일반 트레이너 전투"
+    },
+    {
+      "id": "battle.gym_leader",
+      "sound_event": "music.battle.gym_leader",
+      "resource": "music/battle/gym_leader",
+      "source_file": "Battle Gym Leader.ogg",
+      "category": "battle",
+      "usage": "체육관 관장 전투"
+    },
+    {
+      "id": "battle.champion_green",
+      "sound_event": "music.battle.champion_green",
+      "resource": "music/battle/champion_green",
+      "source_file": "GREEN Battle.ogg",
+      "category": "battle",
+      "usage": "그린 또는 관동 챔피언 전투"
+    },
+    {
+      "id": "battle.low_hp",
+      "sound_event": "music.battle.low_hp",
+      "resource": "music/battle/low_hp",
+      "source_file": "Battle low HP.ogg",
+      "category": "battle_state",
+      "usage": "플레이어 포켓몬 HP 위험 상태"
+    },
+    {
+      "id": "battle.victory_wild",
+      "sound_event": "music.battle.victory_wild",
+      "resource": "music/battle/victory_wild",
+      "source_file": "Battle victory wild.ogg",
+      "category": "victory",
+      "usage": "야생 포켓몬 전투 승리"
+    },
+    {
+      "id": "battle.victory_trainer",
+      "sound_event": "music.battle.victory_trainer",
+      "resource": "music/battle/victory_trainer",
+      "source_file": "Battle victory trainer.ogg",
+      "category": "victory",
+      "usage": "일반 트레이너 전투 승리"
+    },
+    {
+      "id": "battle.victory_gym_leader",
+      "sound_event": "music.battle.victory_gym_leader",
+      "resource": "music/battle/victory_gym_leader",
+      "source_file": "Battle victory leader.ogg",
+      "category": "victory",
+      "usage": "체육관 관장 전투 승리"
+    },
+    {
+      "id": "event.evolution",
+      "sound_event": "music.event.evolution",
+      "resource": "music/event/evolution",
+      "source_file": "Evolution.ogg",
+      "category": "event",
+      "usage": "포켓몬 진화"
+    },
+    {
+      "id": "pwt.lobby",
+      "sound_event": "music.pwt.lobby",
+      "resource": "music/pwt/lobby",
+      "source_file": "PWT.ogg",
+      "category": "facility",
+      "usage": "PWT 시설 또는 대회 대기 구역"
+    },
+    {
+      "id": "pwt.final_round",
+      "sound_event": "music.pwt.final_round",
+      "resource": "music/pwt/final_round",
+      "source_file": "B2W2 212 PWT Final Round!.ogg",
+      "category": "battle",
+      "usage": "PWT 결승전"
+    },
+    {
+      "id": "pwt.winning",
+      "sound_event": "music.pwt.winning",
+      "resource": "music/pwt/winning",
+      "source_file": "B2W2 213 Winning in the PWT!.ogg",
+      "category": "victory",
+      "usage": "PWT 경기 승리"
+    },
+    {
+      "id": "pwt.victor",
+      "sound_event": "music.pwt.victor",
+      "resource": "music/pwt/victor",
+      "source_file": "B2W2 214 PWT Victor!.ogg",
+      "category": "victory",
+      "usage": "PWT 대회 우승"
+    }
+  ],
+  "review_candidates": [
+    {
+      "source_file": "숲을 따라서.ogg",
+      "reason": "어나더레드 고유곡 가능성; 작곡자와 사용 장면 확인 필요"
+    },
+    {
+      "source_file": "한남자의이야기.ogg",
+      "reason": "어나더레드 고유곡 가능성; 작곡자와 사용 장면 확인 필요"
+    },
+    {
+      "source_file": "Illa.ogg",
+      "reason": "고유 인물 또는 장소곡 가능성; 게임 내 용도 확인 필요"
+    },
+    {
+      "source_file": "In the Mood.ogg",
+      "reason": "출처와 게임 내 용도 확인 필요"
+    },
+    {
+      "source_file": "Lucien.ogg",
+      "reason": "고유 인물곡 가능성; 게임 내 용도 확인 필요"
+    },
+    {
+      "source_file": "MORAN.ogg",
+      "reason": "고유 인물곡 가능성; 게임 내 용도 확인 필요"
+    },
+    {
+      "source_file": "NEON.ogg",
+      "reason": "고유 인물곡 가능성; 게임 내 용도 확인 필요"
+    },
+    {
+      "source_file": "PEPPER.ogg",
+      "reason": "고유 인물곡 가능성; 게임 내 용도 확인 필요"
+    },
+    {
+      "source_file": "The Fairy's Forest.ogg",
+      "reason": "어나더레드 고유 장소곡 가능성; 출처 확인 필요"
+    },
+    {
+      "source_file": "Title.ogg",
+      "reason": "어나더레드 타이틀 편곡 또는 고유곡 여부 확인 필요"
+    },
+    {
+      "source_file": "Vintage Vibe.ogg",
+      "reason": "출처와 게임 내 용도 확인 필요"
+    },
+    {
+      "source_file": "Cedolan City.mid",
+      "reason": "고유 장소곡 가능성; 출처 확인과 OGG 변환 필요"
+    },
+    {
+      "source_file": "Lappet Town.mid",
+      "reason": "고유 장소곡 가능성; 출처 확인과 OGG 변환 필요"
+    },
+    {
+      "source_file": "Lerucean Town.mid",
+      "reason": "고유 장소곡 가능성; 출처 확인과 OGG 변환 필요"
+    },
+    {
+      "source_file": "Tiall.mid",
+      "reason": "고유 인물 또는 장소곡 가능성; 출처 확인과 OGG 변환 필요"
+    }
+  ]
+}

@@ -41,8 +41,6 @@ class GymInteriorConfigTests(unittest.TestCase):
             "structure": "rgs:pewter_gym",
             "entry_offset": {"x": 12, "y": 4, "z": 5},
             "exit_door_offset": {"x": 12, "y": 3, "z": 3},
-            "leader_offset": {"x": 12, "y": 3, "z": 21},
-            "leader_npc": "easy_npc:preset/encounter/starter_town_leader.npc.snbt",
         }
 
     def validate(self, document: dict) -> list[content_manager.Issue]:

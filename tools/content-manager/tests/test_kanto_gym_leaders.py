@@ -29,8 +29,16 @@ class KantoGymLeaderTests(unittest.TestCase):
             ["base_gym.nbt"],
             sorted(path.name for path in (ROOT / "content/structures/gyms").glob("*.nbt")),
         )
+        self.assertEqual(
+            {"cobbleventure:interiors/gyms/base_gym_interior"},
+            {module["structure"] for gym in catalog["gyms"] for module in gym["interior"]["modules"]},
+        )
+        self.assertEqual(
+            ["base_gym_interior.nbt"],
+            sorted(path.name for path in (ROOT / "content/structures/interiors/gyms").glob("*.nbt")),
+        )
 
-    def test_each_gym_is_assigned_to_one_town_and_leader(self) -> None:
+    def test_each_gym_is_assigned_to_one_town_and_staff_belongs_to_gym(self) -> None:
         assignments = []
         for path in (ROOT / "content/settlements/generation_1").glob("*.json"):
             settlement = content_manager.load_json(path)
@@ -40,8 +48,14 @@ class KantoGymLeaderTests(unittest.TestCase):
         self.assertEqual(8, len(assignments))
         self.assertEqual(8, len({gym["gym_id"] for gym in assignments}))
         self.assertEqual({"cobbleventure:gyms/base_gym"}, {gym["structure"] for gym in assignments})
-        self.assertTrue(all(gym.get("leader_trainer_id") for gym in assignments))
-        self.assertTrue(all(gym.get("league_entry_id") for gym in assignments))
+        self.assertTrue(all("leader_trainer_id" not in gym for gym in assignments))
+        self.assertTrue(all("league_entry_id" not in gym for gym in assignments))
+        catalog = content_manager.load_json(ROOT / "content/catalogs/gyms.json")
+        leaders = [gym["staff"]["leader"] for gym in catalog["gyms"]]
+        self.assertEqual(8, len({leader["trainer_id"] for leader in leaders}))
+        self.assertTrue(all(leader["league_entry_id"] for leader in leaders))
+        self.assertEqual({"leader"}, {leader["anchor"] for leader in leaders})
+        self.assertTrue(all(isinstance(gym["staff"]["trainers"], list) for gym in catalog["gyms"]))
 
     def test_leaders_use_declared_reference_entries(self) -> None:
         references = content_manager.load_json(

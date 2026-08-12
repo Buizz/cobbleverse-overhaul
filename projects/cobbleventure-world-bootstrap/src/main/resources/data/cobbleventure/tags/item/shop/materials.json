@@ -1,0 +1,14 @@
+{
+  "replace": false,
+  "values": [
+    "#cobblemon:apricorns",
+    "#cobblemon:tumblestones",
+    "#cobblemon:tier_1_poke_ball_materials",
+    "#cobblemon:tier_2_poke_ball_materials",
+    "#cobblemon:tier_3_poke_ball_materials",
+    "#cobblemon:tier_4_poke_ball_materials",
+    "#c:ores",
+    { "id": "#c:ingots", "required": false },
+    { "id": "#c:dusts", "required": false }
+  ]
+}

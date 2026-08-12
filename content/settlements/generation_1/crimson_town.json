@@ -140,9 +140,7 @@
       "gym_id": "cobbleventure:gym/pewter",
       "structure": "cobbleventure:gyms/base_gym",
       "theme": "rock",
-      "anchor": "gym_building",
-      "leader_trainer_id": "cobbleventure:npc/gym_leader/brock",
-      "league_entry_id": "cobbleventure:league/kanto/boulder"
+      "anchor": "gym_building"
     },
     "facility_placements": [
       {

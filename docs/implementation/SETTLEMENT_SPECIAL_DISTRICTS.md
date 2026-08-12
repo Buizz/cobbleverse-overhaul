@@ -37,16 +37,12 @@
   "gym_id": "cobbleventure:gym/pewter",
   "structure": "cobbleventure:gyms/base_gym",
   "theme": "rock",
-  "anchor": "gym_building",
-  "entrance_offset": { "x": 2, "y": 3, "z": 10 },
-  "leader_trainer_id": "cobbleventure:trainer/starter_town_leader"
+  "anchor": "gym_building"
 }
 ```
 
-관리 웹에서 체육관을 끄면 `gym_building` 시설 배치와 `gym_leader` 트레이너 슬롯을
-함께 제거한다. 다시 켜고 관장 엔트리를 선택하면 트레이너의 전투 방식과 NPC 프로필을
-읽어 `gym_leader` 슬롯을 다시 만들며, 대표 NPC 위치는 체육관 앵커와 입구 오프셋으로
-계산한다. 관장 엔트리는 나중에 지정할 수도 있다.
+마을 프리셋은 체육관 종류와 외부 배치만 저장한다. 관장과 기타 트레이너는 체육관
+카탈로그의 `staff`에서 관리하며, 체육관 내부 NBT의 NPC 라벨 위치에 생성된다.
 
 새로 만드는 마을은 특별 구역만 48×48 크기로 예약하고, 특별 건물과 체육관은 꺼진
 상태로 시작한다. 기존 5개 마을은 특별 구역을 예약했으며 현재 체육관 설정은 유지한다.

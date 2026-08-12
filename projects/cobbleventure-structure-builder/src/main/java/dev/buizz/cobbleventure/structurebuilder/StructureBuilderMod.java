@@ -56,8 +56,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -89,7 +91,11 @@ public final class StructureBuilderMod {
     private static final int INTERIOR_CELL_SIZE = 96;
     private static int shutdownTicks = -1;
 
-    public StructureBuilderMod() {
+    public StructureBuilderMod(IEventBus modBus) {
+        BuilderEditorNetwork.register(modBus);
+        if (FMLEnvironment.dist.isClient()) {
+            dev.buizz.cobbleventure.structurebuilder.client.BuilderEditorClient.register(modBus);
+        }
     }
 
     @SubscribeEvent
@@ -173,54 +179,9 @@ public final class StructureBuilderMod {
             Catalog catalog = loadCatalog(player.getServer());
             BuilderData data = data(player.getServer());
             requirePrepared(data);
-            ToolMode mode = toolMode(player);
-            if (mode == ToolMode.NPC) {
-                setNpcAnchor(player, catalog, data, event.getPos().above());
-                return;
-            }
-            if (mode == ToolMode.SPAWN || mode == ToolMode.ARRIVAL || mode == ToolMode.INTERACTION
-                || mode == ToolMode.PATROL) {
-                setPointAnchor(player, catalog, data, event.getPos(), mode);
-                return;
-            }
-            if (mode == ToolMode.INSPECT) {
-                inspect(player, findContext(catalog, data, event.getPos()), data);
-                return;
-            }
-            BlockPos door = lowerDoorPosition(player.serverLevel(), event.getPos());
-            if (door == null) {
-                throw new BuilderException("이 도구 모드는 문에 사용해야 합니다.");
-            }
-            EditContext edit = findContext(catalog, data, door);
-            if (mode == ToolMode.TELEPORT) {
-                teleportThroughDoor(player, catalog, data, edit, door);
-                return;
-            }
-            String role = mode == ToolMode.EXIT ? "interior_exit"
-                : mode == ToolMode.DOOR ? "door" : "interior_entry";
-            String label = role.equals("door")
-                ? player.getPersistentData().getString(DOOR_LABEL_TAG) : role;
-            if (label.isBlank()) {
-                throw new BuilderException(
-                    "/cobbleventure_builder tool door <이름>을 먼저 사용하세요."
-                );
-            }
-            Direction safeSide = playerSide(player, door);
-            BlockState doorState = player.serverLevel().getBlockState(door);
-            DoorAnchor anchor = new DoorAnchor(
-                label, role,
-                door.subtract(edit.origin()),
-                door.relative(safeSide).subtract(edit.origin()),
-                doorState.getValue(DoorBlock.FACING).getName(),
-                safeSide.getName(),
-                false
+            BuilderEditorNetwork.openAnchorEditor(
+                player, event.getPos(), lowerDoorPosition(player.serverLevel(), event.getPos()) != null
             );
-            data.putAnchor(edit.key(), anchor);
-            player.sendSystemMessage(Component.literal(
-                "[Structure Builder] " + edit.label() + "의 " + roleLabel(role)
-                    + " '" + label + "'"
-                    + "을 지정했습니다. 도착 위치=" + format(anchor.safeSpawn())
-            ));
         } catch (BuilderException error) {
             player.sendSystemMessage(Component.literal(
                 "[Structure Builder] " + error.getMessage()
@@ -510,6 +471,145 @@ public final class StructureBuilderMod {
         source.sendFailure(Component.literal("[Structure Builder] " + error.getMessage()));
         return 0;
     }
+
+    static EditorSnapshot editorSnapshot(ServerPlayer player) {
+        Catalog catalog = loadCatalog(player.getServer());
+        BuilderData builderData = data(player.getServer());
+        EditContext current;
+        try {
+            current = findContext(catalog, builderData, player.blockPosition());
+        } catch (BuilderException ignored) {
+            current = new EditContext("", "체크무늬 작업장", player.blockPosition(), new Vec3i(0, 0, 0), false);
+        }
+        List<EditorSpace> spaces = new ArrayList<>();
+        for (PlannedEntry planned : plan(catalog, builderData.groundY)) {
+            spaces.add(new EditorSpace(
+                planned.entry().exportId(), planned.entry().label(),
+                planned.entry().category().equals("interiors"), planned.origin(),
+                planned.entry().size(), false,
+                planned.entry().interior() == null ? planned.entry().size().getY()
+                    : planned.entry().interior().floorHeight(),
+                planned.entry().interior() == null ? 1 : planned.entry().interior().floors()
+            ));
+        }
+        for (InteriorPlot plot : builderData.interiors()) {
+            spaces.add(new EditorSpace(
+                plot.key(), plot.id(), true, plot.origin(), plot.size(), true,
+                plot.floorHeight(), plot.floors()
+            ));
+        }
+        List<EditorMarker> markers = new ArrayList<>();
+        if (!current.key().isBlank()) {
+            BlockPos currentOrigin = current.origin();
+            builderData.anchors(current.key()).forEach(anchor -> markers.add(
+                new EditorMarker(anchor.label(), anchor.role(), currentOrigin.offset(anchor.position()))
+            ));
+            builderData.npcAnchors(current.key()).forEach(anchor -> markers.add(
+                new EditorMarker(anchor.label(), "npc_position", currentOrigin.offset(anchor.position()))
+            ));
+            builderData.pointAnchors(current.key()).forEach(anchor -> markers.add(
+                new EditorMarker(anchor.id(), anchor.type(), currentOrigin.offset(anchor.position()))
+            ));
+        }
+        return new EditorSnapshot(
+            current.key(), current.label(), current.interior(), current.size(), List.copyOf(spaces),
+            List.copyOf(markers)
+        );
+    }
+
+    static void applyEditorAnchor(
+        ServerPlayer player, BlockPos clicked, String type, String label
+    ) {
+        validateAnchorLabel(label, "앵커");
+        Catalog catalog = loadCatalog(player.getServer());
+        BuilderData builderData = data(player.getServer());
+        BlockPos door = lowerDoorPosition(player.serverLevel(), clicked);
+        if (type.equals("delete")) {
+            BlockPos target = door == null ? clicked.above() : door;
+            EditContext edit = findContext(catalog, builderData, target);
+            BlockPos relative = target.subtract(edit.origin());
+            int removed = builderData.removeAnchorsAt(edit.key(), relative)
+                + builderData.removeNpcAnchorsAt(edit.key(), relative)
+                + builderData.removePointAnchorsAt(edit.key(), relative);
+            player.sendSystemMessage(Component.literal(
+                "[Structure Builder] 이 위치의 앵커 " + removed + "개를 삭제했습니다."
+            ));
+            BuilderEditorNetwork.sendSnapshot(player);
+            return;
+        } else if (type.equals("door")) {
+            if (door == null) throw new BuilderException("문 앵커는 실제 문 블록에 지정해야 합니다.");
+            EditContext edit = findContext(catalog, builderData, door);
+            Direction safeSide = playerSide(player, door);
+            BlockState doorState = player.serverLevel().getBlockState(door);
+            builderData.removeAnchorsAt(edit.key(), door.subtract(edit.origin()));
+            builderData.putAnchor(edit.key(), new DoorAnchor(
+                label, "door", door.subtract(edit.origin()),
+                door.relative(safeSide).subtract(edit.origin()),
+                doorState.getValue(DoorBlock.FACING).getName(), safeSide.getName(), false
+            ));
+        } else if (type.equals("npc_position")) {
+            EditContext edit = findContext(catalog, builderData, clicked.above());
+            builderData.removeNpcAnchorsAt(edit.key(), clicked.above().subtract(edit.origin()));
+            builderData.putNpcAnchor(
+                edit.key(), new NpcAnchor(label, clicked.above().subtract(edit.origin()))
+            );
+        } else if (type.equals("arrival")) {
+            EditContext edit = findContext(catalog, builderData, clicked.above());
+            builderData.removePointAnchorsAt(edit.key(), clicked.above().subtract(edit.origin()));
+            builderData.putPointAnchor(edit.key(), new PointAnchor(
+                label, "arrival", clicked.above().subtract(edit.origin()),
+                player.getDirection().getName()
+            ));
+        } else {
+            throw new BuilderException("지원하지 않는 앵커 종류입니다: " + type);
+        }
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] " + type + " '" + label + "' 저장 완료"
+        ));
+        BuilderEditorNetwork.sendSnapshot(player);
+    }
+
+    static void editorTeleport(ServerPlayer player, String key) {
+        EditorSpace selected = editorSnapshot(player).spaces().stream()
+            .filter(space -> space.key().equals(key)).findFirst()
+            .orElseThrow(() -> new BuilderException("공간을 찾을 수 없습니다: " + key));
+        teleport(player, selected.origin().offset(1, 1, 1));
+        BuilderEditorNetwork.sendSnapshot(player);
+    }
+
+    static void editorResize(
+        ServerPlayer player, int width, int depth, int floorHeight, int floors
+    ) {
+        BuilderData builderData = data(player.getServer());
+        InteriorPlot current = builderData.interiors().stream()
+            .filter(plot -> plot.contains(player.blockPosition())).findFirst()
+            .orElseThrow(() -> new BuilderException(
+                "크기 변경은 에딧 월드에서 동적으로 만든 내부공간에서만 가능합니다."
+            ));
+        if (width < 5 || width > 80 || depth < 5 || depth > 80
+            || floorHeight < 3 || floorHeight > 12 || floors < 1 || floors > 8
+            || floorHeight * floors > 80) {
+            throw new BuilderException("너비·깊이 5~80, 층 높이 3~12, 층수 1~8 범위가 필요합니다.");
+        }
+        InteriorPlot resized = new InteriorPlot(
+            current.id(), current.origin(), width, depth, floorHeight, floors
+        );
+        builderData.addInterior(resized);
+        outlineInterior(player.serverLevel(), resized);
+        BuilderEditorNetwork.sendSnapshot(player);
+    }
+
+    record EditorSnapshot(
+        String currentKey, String currentLabel, boolean interior, Vec3i size,
+        List<EditorSpace> spaces, List<EditorMarker> markers
+    ) {}
+
+    record EditorSpace(
+        String key, String label, boolean interior, BlockPos origin, Vec3i size,
+        boolean resizable, int floorHeight, int floors
+    ) {}
+
+    record EditorMarker(String label, String type, BlockPos position) {}
 
     private static void giveEditorStick(ServerPlayer player) {
         boolean alreadyHasStick = player.getInventory().items.stream()
@@ -1008,6 +1108,7 @@ public final class StructureBuilderMod {
                 level.setBlock(plot.origin().offset(plot.width(), y - plot.origin().getY(), z), border, 2);
             }
         }
+        outlineNbtFootprint(level, plot.origin(), plot.size());
         loadChunks(level, plot.origin(), plot.size());
     }
 
@@ -1083,6 +1184,7 @@ public final class StructureBuilderMod {
         if (!placed) {
             throw new BuilderException("NBT 배치에 실패했습니다: " + id);
         }
+        outlineNbtFootprint(level, planned.origin(), expected);
         placeLabel(level, planned);
     }
 
@@ -1271,6 +1373,29 @@ public final class StructureBuilderMod {
                 new BlockPos(cellX + cellSize - 1, groundY, cellZ + offset), border, 2
             );
         }
+    }
+
+    /** Draws the exact exported X/Z bounds one block outside the NBT footprint. */
+    private static void outlineNbtFootprint(ServerLevel level, BlockPos origin, Vec3i size) {
+        int minX = origin.getX() - 1;
+        int maxX = origin.getX() + size.getX();
+        int minZ = origin.getZ() - 1;
+        int maxZ = origin.getZ() + size.getZ();
+        int groundY = origin.getY() - 1;
+        for (int x = minX; x <= maxX; x++) {
+            level.setBlock(new BlockPos(x, groundY, minZ), footprintBorder(x, minZ), 2);
+            level.setBlock(new BlockPos(x, groundY, maxZ), footprintBorder(x, maxZ), 2);
+        }
+        for (int z = minZ + 1; z < maxZ; z++) {
+            level.setBlock(new BlockPos(minX, groundY, z), footprintBorder(minX, z), 2);
+            level.setBlock(new BlockPos(maxX, groundY, z), footprintBorder(maxX, z), 2);
+        }
+    }
+
+    private static BlockState footprintBorder(int x, int z) {
+        return ((x + z) & 1) == 0
+            ? Blocks.BLACK_CONCRETE.defaultBlockState()
+            : Blocks.YELLOW_CONCRETE.defaultBlockState();
     }
 
     private static void placeLabel(ServerLevel level, PlannedEntry planned) {

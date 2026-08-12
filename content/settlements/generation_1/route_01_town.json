@@ -134,8 +134,7 @@
       "enabled": false,
       "structure": "",
       "theme": "ground",
-      "anchor": "gym_building",
-      "leader_trainer_id": ""
+      "anchor": "gym_building"
     },
     "facility_placements": []
   },

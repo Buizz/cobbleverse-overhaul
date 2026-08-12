@@ -111,8 +111,8 @@
 마을의 기본 정보와 트레이너 슬롯은 Python 관리 화면에서 폼으로 편집할 수 있다.
 `structure_profile.structure`은 전체 마을 구조 ID를 가리키고,
 `required_facilities`는 생성기가 사용하는 필수 마을 허브 리소스를 연결한다.
-`gym.enabled`는 체육관 건물 배치 여부를 정하며 `leader_trainer_id`는 관리 웹에서
-선택한 트레이너 엔트리를 `gym_leader` 슬롯에 연결한다. `village_preset`은 BCA
+`gym.enabled`는 체육관 건물 배치 여부를 정하고 `gym_id`는 사용할 체육관 종류만
+가리킨다. 관장과 기타 트레이너는 `content/catalogs/gyms.json`의 `staff`에서 관리한다. `village_preset`은 BCA
 4.2.1 원본 마을 11종(`default_small`부터
 `ice_large`까지) 중에서 선택한다. 일반 계열은 포켓몬센터·상점 one-off 풀을
 사용하며 `default_large`는 원본 설정에서 백화점을 중심 조각으로 사용한다.
@@ -195,9 +195,9 @@
 
 트레이너 번들의 `npc.trainer_class`는 반드시 이 카탈로그에 있는 ID를 사용한다.
 
-리그 설정의 관장 항목은 배지 아이템과 표시 이름을 필수로 가지며, 마을의
-`structure_profile.gym.league_entry_id`가 해당 관장을 선택한다. 관리 화면은 선택한
-항목의 `trainer_id`를 기존 `leader_trainer_id`와 `gym_leader` 배치 슬롯에도 동기화한다.
+리그 설정의 관장 항목은 배지 아이템과 표시 이름을 필수로 가진다. 체육관 관리에서
+관장 엔트리를 선택하면 `gyms.json`의 `staff.leader`에 리그 항목과 트레이너 ID가 함께
+저장된다. `staff.trainers`에는 내부 NPC 라벨별 기타 트레이너를 제한 없이 추가한다.
 플레이어 메뉴는 같은 카탈로그를 빌드 리소스로 포함해 트레이너카드의 지역별 배지와
 리그 도전 순서를 구성한다.
 각 클래스는 화면 분류용 `category`, 실제 NPC 키와 팔 형태를 나타내는 `body`,

@@ -140,9 +140,7 @@
       "gym_id": "cobbleventure:gym/viridian",
       "structure": "cobbleventure:gyms/base_gym",
       "theme": "ground",
-      "anchor": "gym_building",
-      "leader_trainer_id": "cobbleventure:npc/gym_leader/giovanni_gym",
-      "league_entry_id": "cobbleventure:league/kanto/earth"
+      "anchor": "gym_building"
     },
     "facility_placements": [
       {

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.local/schemas/music-tracks.schema.json",
+  "title": "Cobbleventure music track catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "namespace",
+    "datapack_required",
+    "source",
+    "tracks",
+    "review_candidates"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+$"
+    },
+    "datapack_required": { "const": false },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "audio_in_repository", "notes"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "audio_in_repository": { "const": false },
+        "notes": { "type": "string", "minLength": 1 }
+      }
+    },
+    "tracks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/track" }
+    },
+    "review_candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/reviewCandidate" }
+    }
+  },
+  "$defs": {
+    "track": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sound_event",
+        "resource",
+        "source_file",
+        "category",
+        "usage"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "sound_event": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "resource": {
+          "type": "string",
+          "pattern": "^[a-z0-9_./-]+$"
+        },
+        "source_file": { "type": "string", "pattern": "(?i)\\.ogg$" },
+        "category": { "type": "string", "pattern": "^[a-z0-9_-]+$" },
+        "usage": { "type": "string", "minLength": 1 }
+      }
+    },
+    "reviewCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_file", "reason"],
+      "properties": {
+        "source_file": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

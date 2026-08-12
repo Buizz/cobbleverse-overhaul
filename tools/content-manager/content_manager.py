@@ -2143,12 +2143,6 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             if gym_enabled:
                 _resource_id(gym.get("gym_id"), issues, path, "$.structure_profile.gym.gym_id")
                 _resource_id(gym.get("structure"), issues, path, "$.structure_profile.gym.structure")
-            leader = gym.get("leader_trainer_id")
-            if leader not in {None, ""}:
-                _resource_id(leader, issues, path, "$.structure_profile.gym.leader_trainer_id")
-            league_entry = gym.get("league_entry_id")
-            if league_entry not in {None, ""}:
-                _resource_id(league_entry, issues, path, "$.structure_profile.gym.league_entry_id")
             entrance = gym.get("entrance")
             if entrance is not None:
                 entrance = _require_object(
@@ -2196,8 +2190,6 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                             interior[field], issues, path,
                             f"$.structure_profile.gym.interior.{field}",
                         )
-                if "leader_npc" in interior:
-                    _resource_id(interior["leader_npc"], issues, path, "$.structure_profile.gym.interior.leader_npc")
 
         facility_placements = structure_profile.get("facility_placements", [])
         if not isinstance(facility_placements, list):
@@ -4003,13 +3995,125 @@ def _economy_localizations(root: Path) -> tuple[dict[str, str], dict[str, str]]:
 
 def _economy_editor_catalog(root: Path, species: list[dict[str, Any]]) -> dict[str, Any]:
     ko, en = _economy_localizations(root)
-    items: dict[str, dict[str, str]] = {}
+    tag_definitions: dict[str, list[Any]] = {}
+
+    def add_tag_document(tag_id: str, document: Any) -> None:
+        if not isinstance(document, dict) or not isinstance(document.get("values"), list):
+            return
+        if document.get("replace") is True:
+            tag_definitions[tag_id] = list(document["values"])
+        else:
+            tag_definitions.setdefault(tag_id, []).extend(document["values"])
+
+    data_roots = [
+        root / ".tmp" / "cobblemon-1.7.3-source" / "common" / "src" / "main" / "resources" / "data",
+        root / ".tmp" / "cobblemon-1.7.3-full" / "cobblemon-1.7.3" / "common" / "src" / "main" / "resources" / "data",
+        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources" / "data",
+        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources" / "data",
+    ]
+    for data_root in data_roots:
+        if not data_root.is_dir():
+            continue
+        for tag_path in data_root.glob("*/tags/item/**/*.json"):
+            relative = tag_path.relative_to(data_root)
+            tag_id = f"{relative.parts[0]}:{Path(*relative.parts[3:]).with_suffix('').as_posix()}"
+            try:
+                add_tag_document(tag_id, json.loads(tag_path.read_text(encoding="utf-8")))
+            except (OSError, json.JSONDecodeError):
+                continue
+    mods = root / "pack" / "overrides" / "development-placeholder" / "mods"
+    for jar in sorted(mods.glob("*.jar")) if mods.is_dir() else []:
+        try:
+            with zipfile.ZipFile(jar) as archive:
+                for member in archive.namelist():
+                    match = re.fullmatch(r"data/([^/]+)/tags/item/(.+)\.json", member)
+                    if not match:
+                        continue
+                    add_tag_document(
+                        f"{match.group(1)}:{match.group(2)}",
+                        json.loads(archive.read(member).decode("utf-8")),
+                    )
+        except (OSError, zipfile.BadZipFile, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+
+    resolved_tags: dict[str, set[str]] = {}
+
+    def resolve_tag(tag_id: str, resolving: set[str] | None = None) -> set[str]:
+        if tag_id in resolved_tags:
+            return resolved_tags[tag_id]
+        resolving = set() if resolving is None else resolving
+        if tag_id in resolving:
+            return set()
+        resolving.add(tag_id)
+        namespace = tag_id.split(":", 1)[0]
+        result: set[str] = set()
+        for entry in tag_definitions.get(tag_id, []):
+            value = entry if isinstance(entry, str) else entry.get("id") if isinstance(entry, dict) else None
+            if not isinstance(value, str) or not value:
+                continue
+            if value.startswith("#"):
+                nested = value[1:]
+                result.update(resolve_tag(nested if ":" in nested else f"{namespace}:{nested}", resolving))
+            elif ":" in value:
+                result.add(value)
+        resolving.remove(tag_id)
+        resolved_tags[tag_id] = result
+        return result
+
+    item_tags: dict[str, set[str]] = {}
+    for tag_id in tag_definitions:
+        for item_id in resolve_tag(tag_id):
+            item_tags.setdefault(item_id, set()).add(tag_id)
+    shop_group_tags = {
+        "gems": "cobbleventure:shop/type_gems",
+        "machines": "cobbleventure:shop/technical_machines",
+        "balls": "cobbleventure:shop/balls",
+        "medicine": "cobbleventure:shop/medicine",
+        "battle": "cobbleventure:shop/battle_items",
+        "evolution": "cobbleventure:shop/evolution_items",
+        "held": "cobbleventure:shop/held_items",
+        "berries": "cobbleventure:shop/berries",
+        "food": "cobbleventure:shop/food",
+        "materials": "cobbleventure:shop/materials",
+    }
+    resource_item_ids: set[str] = set()
+    resource_namespaces: set[str] = set()
+    resource_roots = [
+        root / ".tmp" / "cobblemon-1.7.3-source" / "common" / "src" / "main" / "resources" / "assets",
+        root / ".tmp" / "cobblemon-1.7.3-full" / "cobblemon-1.7.3" / "common" / "src" / "main" / "resources" / "assets",
+    ]
+    for assets in resource_roots:
+        if not assets.is_dir():
+            continue
+        for namespace in assets.iterdir():
+            if not namespace.is_dir():
+                continue
+            item_roots = (namespace / "items", namespace / "models" / "item")
+            if not any(item_root.is_dir() for item_root in item_roots):
+                continue
+            resource_namespaces.add(namespace.name)
+            for item_root in item_roots:
+                if not item_root.is_dir():
+                    continue
+                for path in item_root.rglob("*.json"):
+                    resource_item_ids.add(f"{namespace.name}:{path.relative_to(item_root).with_suffix('').as_posix()}")
+    items: dict[str, dict[str, Any]] = {}
     for key in set(ko) | set(en):
-        match = re.fullmatch(r"item\.([a-z0-9_.-]+)\.([a-z0-9_./-]+)", key)
+        match = re.fullmatch(r"item\.([a-z0-9_-]+)\.([a-z0-9_/-]+)", key)
         if not match:
             continue
         item_id = f"{match.group(1)}:{match.group(2)}"
-        items[item_id] = {"id": item_id, "ko_kr": ko.get(key, en.get(key, item_id)), "en_us": en.get(key, ko.get(key, item_id))}
+        if match.group(1) in resource_namespaces and item_id not in resource_item_ids:
+            continue
+        tags = item_tags.get(item_id, set())
+        product_group = next((group for group, tag_id in shop_group_tags.items() if item_id in resolve_tag(tag_id)), "other")
+        items[item_id] = {
+            "id": item_id,
+            "ko_kr": ko.get(key, en.get(key, item_id)),
+            "en_us": en.get(key, ko.get(key, item_id)),
+            "product_group": product_group,
+            "tags": sorted(tags),
+        }
     localized_species = []
     for entry in species:
         slug = entry["species"].split(":", 1)[-1]
@@ -4575,7 +4679,7 @@ def validate_gym_catalog_file(path: Path, structure_root: Path | None = None) ->
                     _issue(issues, "error", path, f"{gym_path}.exterior.structure", f"NBT를 찾을 수 없습니다: {structure}")
         interior = _require_object(gym.get("interior"), issues, path, f"{gym_path}.interior")
         module_ids: set[str] = set()
-        leader_anchor_count = 0
+        npc_anchors: set[str] = set()
         if interior is not None:
             modules = _require_list(interior.get("modules"), issues, path, f"{gym_path}.interior.modules")
             if modules is not None and not modules:
@@ -4609,12 +4713,15 @@ def validate_gym_catalog_file(path: Path, structure_root: Path | None = None) ->
                             try:
                                 metadata = load_json(metadata_file)
                                 anchors = metadata.get("anchors", []) if isinstance(metadata, dict) else []
-                                leader_anchor_count += sum(
-                                    isinstance(anchor, dict)
-                                    and anchor.get("type") == "npc_position"
-                                    and anchor.get("label") == "leader"
-                                    for anchor in anchors if isinstance(anchors, list)
-                                )
+                                for anchor in anchors if isinstance(anchors, list) else []:
+                                    if not isinstance(anchor, dict) or anchor.get("type") != "npc_position":
+                                        continue
+                                    label = anchor.get("label")
+                                    if not isinstance(label, str) or not DOCUMENT_SLUG.fullmatch(label):
+                                        continue
+                                    if label in npc_anchors:
+                                        _issue(issues, "error", path, f"{module_path}.structure", f"중복 NPC 앵커 라벨: {label}")
+                                    npc_anchors.add(label)
                             except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                                 _issue(issues, "error", path, f"{module_path}.structure", f"모듈 메타데이터를 읽을 수 없습니다: {error}")
             connections = interior.get("connections", [])
@@ -4630,11 +4737,44 @@ def validate_gym_catalog_file(path: Path, structure_root: Path | None = None) ->
                     module_id = value.split(":", 1)[0] if isinstance(value, str) else ""
                     if module_id not in module_ids:
                         _issue(issues, "error", path, f"{connection_path}.{endpoint}", "존재하는 모듈의 앵커를 지정해야 합니다.")
-            if leader_anchor_count != 1:
-                _issue(
-                    issues, "error", path, f"{gym_path}.interior.modules",
-                    "체육관 내부 모듈 전체에 npc_position 라벨 leader가 정확히 하나 필요합니다.",
-                )
+        staff = _require_object(gym.get("staff"), issues, path, f"{gym_path}.staff")
+        if staff is not None:
+            leader = _require_object(staff.get("leader"), issues, path, f"{gym_path}.staff.leader")
+            if leader is not None:
+                for field in ("trainer_id", "league_entry_id"):
+                    value = leader.get(field)
+                    if value not in {None, ""}:
+                        _resource_id(value, issues, path, f"{gym_path}.staff.leader.{field}")
+                leader_anchor = leader.get("anchor", "leader")
+                if not isinstance(leader_anchor, str) or not DOCUMENT_SLUG.fullmatch(leader_anchor):
+                    _issue(issues, "error", path, f"{gym_path}.staff.leader.anchor", "소문자 NPC 앵커 라벨이 필요합니다.")
+                elif leader.get("trainer_id") and leader_anchor not in npc_anchors:
+                    _issue(issues, "error", path, f"{gym_path}.staff.leader.anchor", f"내부 NBT에 NPC 앵커가 없습니다: {leader_anchor}")
+            trainers = _require_list(staff.get("trainers"), issues, path, f"{gym_path}.staff.trainers")
+            trainer_ids: set[str] = set()
+            trainer_anchors: set[str] = {
+                leader.get("anchor", "leader")
+            } if isinstance(leader, dict) and leader.get("trainer_id") else set()
+            for trainer_index, trainer_value in enumerate(trainers or []):
+                trainer_path = f"{gym_path}.staff.trainers[{trainer_index}]"
+                trainer = _require_object(trainer_value, issues, path, trainer_path)
+                if trainer is None:
+                    continue
+                slot_id = trainer.get("id")
+                if not isinstance(slot_id, str) or not DOCUMENT_SLUG.fullmatch(slot_id) or slot_id in trainer_ids:
+                    _issue(issues, "error", path, f"{trainer_path}.id", "중복되지 않는 소문자 배치 ID가 필요합니다.")
+                else:
+                    trainer_ids.add(slot_id)
+                _resource_id(trainer.get("trainer_id"), issues, path, f"{trainer_path}.trainer_id")
+                anchor = trainer.get("anchor")
+                if not isinstance(anchor, str) or not DOCUMENT_SLUG.fullmatch(anchor):
+                    _issue(issues, "error", path, f"{trainer_path}.anchor", "소문자 NPC 앵커 라벨이 필요합니다.")
+                elif anchor in trainer_anchors:
+                    _issue(issues, "error", path, f"{trainer_path}.anchor", f"중복 트레이너 앵커: {anchor}")
+                else:
+                    trainer_anchors.add(anchor)
+                    if anchor not in npc_anchors:
+                        _issue(issues, "error", path, f"{trainer_path}.anchor", f"내부 NBT에 NPC 앵커가 없습니다: {anchor}")
     leagues = _require_list(root.get("leagues"), issues, path, "$.leagues")
     for index, value in enumerate(leagues or []):
         league_path = f"$.leagues[{index}]"
@@ -4682,16 +4822,12 @@ def create_gym(root: Path, slug: str, name: str, source_structure: str) -> tuple
     gyms = catalog.get("gyms", []) if isinstance(catalog, dict) else []
     if any(isinstance(gym, dict) and gym.get("id") == gym_id for gym in gyms):
         return None, [Issue("error", "content/catalogs/gyms.json", "$.id", "같은 ID의 체육관이 이미 존재합니다.")]
-    structure_files = managed_structure_files(root)
-    interior_structure = f"cobbleventure:interiors/gyms/{source.stem}_main"
-    if interior_structure not in structure_files:
-        available_interiors = sorted(
-            resource_id for resource_id in structure_files
-            if resource_id.startswith("cobbleventure:interiors/gyms/")
-        )
-        if not available_interiors:
-            return None, [Issue("error", "content/catalogs/gyms.json", "$.interior", "재사용할 체육관 내부 모듈이 없습니다.")]
-        interior_structure = available_interiors[0]
+    interior_structure = "cobbleventure:interiors/gyms/base_gym_interior"
+    if interior_structure not in managed_structure_files(root):
+        return None, [Issue(
+            "error", "content/catalogs/gyms.json", "$.interior",
+            "공용 체육관 내부 base_gym_interior를 찾을 수 없습니다.",
+        )]
     gym = {
         "id": gym_id,
         "enabled": True,
@@ -4699,6 +4835,7 @@ def create_gym(root: Path, slug: str, name: str, source_structure: str) -> tuple
         "theme": "normal",
         "exterior": {"structure": "cobbleventure:gyms/base_gym"},
         "interior": {"modules": [{"id": "main", "structure": interior_structure, "position": [0, 0, 0], "rotation": "none"}], "connections": []},
+        "staff": {"leader": {"trainer_id": "", "league_entry_id": "", "anchor": "leader"}, "trainers": []},
     }
     catalog.setdefault("gyms", []).append(gym)
     issues = save_gym_catalog(root, catalog)
@@ -4971,6 +5108,22 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
             gym.get("id") for gym in gym_catalog.get("gyms", [])
             if isinstance(gym, dict) and isinstance(gym.get("id"), str)
         }
+        for gym_index, gym in enumerate(gym_catalog.get("gyms", [])):
+            if not isinstance(gym, dict):
+                continue
+            staff = gym.get("staff", {})
+            leader = staff.get("leader", {}) if isinstance(staff, dict) else {}
+            trainer_id = leader.get("trainer_id") if isinstance(leader, dict) else None
+            league_entry_id = leader.get("league_entry_id") if isinstance(leader, dict) else None
+            if isinstance(trainer_id, str) and trainer_id and trainer_id not in seen_content:
+                _issue(issues, "error", root / "content" / "catalogs" / "gyms.json", f"$.gyms[{gym_index}].staff.leader.trainer_id", f"존재하지 않는 관장 트레이너 ID: {trainer_id}")
+            if isinstance(league_entry_id, str) and league_entry_id and league_entry_id not in league_ids:
+                _issue(issues, "error", root / "content" / "catalogs" / "gyms.json", f"$.gyms[{gym_index}].staff.leader.league_entry_id", f"존재하지 않는 리그 항목: {league_entry_id}")
+            trainers = staff.get("trainers", []) if isinstance(staff, dict) else []
+            for trainer_index, trainer in enumerate(trainers if isinstance(trainers, list) else []):
+                trainer_id = trainer.get("trainer_id") if isinstance(trainer, dict) else None
+                if isinstance(trainer_id, str) and trainer_id not in seen_content:
+                    _issue(issues, "error", root / "content" / "catalogs" / "gyms.json", f"$.gyms[{gym_index}].staff.trainers[{trainer_index}].trainer_id", f"존재하지 않는 트레이너 ID: {trainer_id}")
     except (OSError, json.JSONDecodeError, DuplicateKeyError, AttributeError):
         gym_ids = set()
     settlement_dir = root / "content" / "settlements"
@@ -4984,9 +5137,6 @@ def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResu
                 settlement_data = load_json(path)
                 if isinstance(settlement_data, dict):
                     settlement_records.append((path, settlement_data))
-                league_entry_id = settlement_data.get("structure_profile", {}).get("gym", {}).get("league_entry_id")
-                if isinstance(league_entry_id, str) and league_entry_id and league_entry_id not in league_ids:
-                    _issue(issues, "error", path, "$.structure_profile.gym.league_entry_id", f"존재하지 않는 리그 항목: {league_entry_id}")
                 gym = settlement_data.get("structure_profile", {}).get("gym", {})
                 gym_id = gym.get("gym_id") if isinstance(gym, dict) else None
                 if gym.get("enabled") and gym_id not in gym_ids:
@@ -5693,8 +5843,6 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
                 "structure": "",
                 "theme": "normal",
                 "anchor": "gym_building",
-                "leader_trainer_id": "",
-                "league_entry_id": "",
             },
             "facility_placements": [],
         },

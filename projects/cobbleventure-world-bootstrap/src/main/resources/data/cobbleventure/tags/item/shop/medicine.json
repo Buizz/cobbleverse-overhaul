@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    "#cobblemon:potions",
+    "#cobblemon:restores",
+    "#cobblemon:revives",
+    "#cobblemon:ethers",
+    "#cobblemon:remedies",
+    "#cobblemon:herbs",
+    "#cobblemon:vitamins",
+    "#cobblemon:ability_changers"
+  ]
+}

@@ -55,6 +55,8 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
@@ -73,6 +75,7 @@ import net.minecraft.world.level.levelgen.synth.NormalNoise;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
@@ -1265,6 +1268,7 @@ public final class CobbleventureBootstrap {
         Map<Long, Integer> roadElevations = buildConfiguredRoadElevations(
             level, roadColumns, Map.of()
         );
+        clearTreesIntersectingRoad(level, roadColumns, roadElevations);
         for (long key : roadColumns) {
             paintConfiguredRoadColumn(
                 level, blockColumnX(key), blockColumnZ(key), road.material(),
@@ -2256,6 +2260,7 @@ public final class CobbleventureBootstrap {
         Map<Long, Integer> elevations = buildConfiguredRoadElevations(
             level, roadColumns, anchors
         );
+        clearTreesIntersectingRoad(level, roadColumns, elevations);
         for (long key : roadColumns) {
             paintConfiguredRoadColumn(
                 level, blockColumnX(key), blockColumnZ(key), profile.material(),
@@ -2475,6 +2480,122 @@ public final class CobbleventureBootstrap {
                 level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
             }
         }
+    }
+
+    private static void clearTreesIntersectingRoad(
+        ServerLevel level, Set<Long> roadColumns, Map<Long, Integer> elevations
+    ) {
+        int removed = 0;
+        for (long key : roadColumns) {
+            int x = blockColumnX(key);
+            int z = blockColumnZ(key);
+            int groundY = elevations.getOrDefault(key, plannedTerrainGroundY(level, x, z));
+            int top = Math.min(level.getMaxBuildHeight() - 1, groundY + 32);
+            for (int y = groundY + 1; y <= top; y++) {
+                BlockPos seed = new BlockPos(x, y, z);
+                BlockState state = level.getBlockState(seed);
+                if (state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES)) {
+                    removed += clearConnectedTree(level, seed, groundY);
+                }
+            }
+        }
+        if (removed > 0) {
+            LOGGER.debug("Road vegetation cleanup removed {} connected tree blocks", removed);
+        }
+    }
+
+    private static int clearConnectedTree(
+        ServerLevel level, BlockPos seed, int roadGroundY
+    ) {
+        int minY = Math.max(level.getMinBuildHeight(), roadGroundY - 2);
+        int maxY = Math.min(level.getMaxBuildHeight() - 1, roadGroundY + 40);
+        int horizontalLimit = 12;
+        int blockLimit = 8192;
+        ArrayDeque<BlockPos> pending = new ArrayDeque<>();
+        Set<Long> visited = new HashSet<>();
+        List<BlockPos> connected = new ArrayList<>();
+        pending.add(seed);
+        while (!pending.isEmpty() && connected.size() < blockLimit) {
+            BlockPos position = pending.removeFirst();
+            if (!visited.add(position.asLong())
+                || position.getY() < minY || position.getY() > maxY
+                || Math.abs(position.getX() - seed.getX()) > horizontalLimit
+                || Math.abs(position.getZ() - seed.getZ()) > horizontalLimit) {
+                continue;
+            }
+            BlockState state = level.getBlockState(position);
+            if (!state.is(BlockTags.LOGS) && !state.is(BlockTags.LEAVES)) {
+                continue;
+            }
+            connected.add(position.immutable());
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        if (dx != 0 || dy != 0 || dz != 0) {
+                            pending.add(position.offset(dx, dy, dz));
+                        }
+                    }
+                }
+            }
+        }
+        for (BlockPos position : connected) {
+            level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+        }
+        return connected.size();
+    }
+
+    private static void cleanupTownGenerationDebris(
+        ServerLevel level, SettlementPlan settlement
+    ) {
+        Set<Long> chunks = townPreparationChunkKeys(settlement);
+        if (chunks.isEmpty()) {
+            return;
+        }
+        int minChunkX = Integer.MAX_VALUE;
+        int minChunkZ = Integer.MAX_VALUE;
+        int maxChunkX = Integer.MIN_VALUE;
+        int maxChunkZ = Integer.MIN_VALUE;
+        for (long key : chunks) {
+            int chunkX = ChunkPos.getX(key);
+            int chunkZ = ChunkPos.getZ(key);
+            minChunkX = Math.min(minChunkX, chunkX);
+            minChunkZ = Math.min(minChunkZ, chunkZ);
+            maxChunkX = Math.max(maxChunkX, chunkX);
+            maxChunkZ = Math.max(maxChunkZ, chunkZ);
+        }
+        AABB bounds = new AABB(
+            minChunkX << 4, level.getMinBuildHeight(), minChunkZ << 4,
+            (maxChunkX + 1) << 4, level.getMaxBuildHeight(), (maxChunkZ + 1) << 4
+        );
+        int removed = 0;
+        for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, bounds)) {
+            if (isNaturalGenerationDebris(item)) {
+                item.discard();
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            LOGGER.info(
+                "Town generation debris cleaned: settlement={}, itemEntities={}",
+                settlement.id(), removed
+            );
+        }
+    }
+
+    private static boolean isNaturalGenerationDebris(ItemEntity entity) {
+        if (!(entity.getItem().getItem() instanceof BlockItem blockItem)) {
+            return false;
+        }
+        BlockState state = blockItem.getBlock().defaultBlockState();
+        return state.is(BlockTags.LOGS)
+            || state.is(BlockTags.LEAVES)
+            || state.is(BlockTags.SAPLINGS)
+            || state.is(BlockTags.FLOWERS)
+            || state.is(Blocks.BAMBOO)
+            || state.is(Blocks.CACTUS)
+            || state.is(Blocks.SUGAR_CANE)
+            || state.is(Blocks.BROWN_MUSHROOM)
+            || state.is(Blocks.RED_MUSHROOM);
     }
 
     private static void prepareSpecialDistrict(
@@ -3131,6 +3252,7 @@ public final class CobbleventureBootstrap {
             var template = level.getStructureManager().get(structureId);
             if (template.isEmpty()) return false;
             StructurePlaceSettings settings = new StructurePlaceSettings()
+                .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE)
                 .addProcessor(new FacilityTerrainPreservationProcessor(
                     facilityGroundLevelY(facility, position)
                 ));
@@ -3153,22 +3275,23 @@ public final class CobbleventureBootstrap {
         ServerLevel level, String structure, BlockPoint position, boolean logFailure
     ) {
         BlockPos blockPos = position.toBlockPos();
-        try {
-            int placed = level.getServer().getCommands().getDispatcher().execute(
-                "place template " + structure + " ~ ~ ~",
-                level.getServer().createCommandSourceStack()
-                    .withLevel(level)
-                    .withPosition(Vec3.atLowerCornerOf(blockPos))
-                    .withPermission(4)
-                    .withSuppressedOutput()
-            );
-            return placed != 0;
-        } catch (CommandSyntaxException error) {
-            if (logFailure) {
-                LOGGER.error("Template command failed for {} at {}", structure, position, error);
-            }
+        ResourceLocation structureId = ResourceLocation.tryParse(structure);
+        if (structureId == null) return false;
+        var template = level.getStructureManager().get(structureId);
+        if (template.isEmpty()) {
+            if (logFailure) LOGGER.error("Template is missing: {}", structure);
             return false;
         }
+        StructurePlaceSettings settings = new StructurePlaceSettings()
+            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+        boolean placed = template.orElseThrow().placeInWorld(
+            level, blockPos, blockPos, settings,
+            RandomSource.create(level.getSeed() ^ blockPos.asLong()), 2
+        );
+        if (!placed && logFailure) {
+            LOGGER.error("Template placement failed for {} at {}", structure, position);
+        }
+        return placed;
     }
 
     private static boolean placeTemplateLoaded(
@@ -3188,7 +3311,9 @@ public final class CobbleventureBootstrap {
             default -> Rotation.NONE;
         };
         BlockPos blockPos = position.toBlockPos();
-        StructurePlaceSettings settings = new StructurePlaceSettings().setRotation(rotation);
+        StructurePlaceSettings settings = new StructurePlaceSettings()
+            .setRotation(rotation)
+            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
         return template.get().placeInWorld(
             level, blockPos, blockPos, settings,
             RandomSource.create(level.getSeed() ^ blockPos.asLong()), 2
@@ -3793,6 +3918,7 @@ public final class CobbleventureBootstrap {
                 } else {
                     decorateTownLandscape(job.level, job.runtime.hexWorld(), settlement);
                 }
+                cleanupTownGenerationDebris(job.level, settlement);
                 releasePreparedTownChunks(job);
                 job.phase = -1;
                 job.index++;
@@ -9491,6 +9617,11 @@ public final class CobbleventureBootstrap {
                     world, connection.id(), x, z
                 );
                 int groundY = column.groundY();
+                clearTreesIntersectingRoad(
+                    level,
+                    Set.of(blockColumnKey(x, z)),
+                    Map.of(blockColumnKey(x, z), groundY)
+                );
                 clearVegetationColumn(level, x, groundY, z, 32);
                 supportRoadColumn(level, x, groundY, z);
                 level.setBlock(

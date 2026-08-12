@@ -4,7 +4,151 @@
   "vanilla_crafting_disabled": true,
   "standard_prices": [],
   "shop_catalogs": [],
-  "vendor_units": [],
+  "vendor_units": [
+    {
+      "id": "bca:pokemart_shopkeeper",
+      "facility_scope": "pokemart",
+      "role": {
+        "ko_kr": "프렌들리숍 판매원",
+        "en_us": "Pokemart Clerk"
+      },
+      "display_name": {
+        "ko_kr": "프렌들리숍 판매원",
+        "en_us": "Pokemart Clerk"
+      },
+      "npc_template": "bca:pokemart_shopkeeper",
+      "categories": [
+        {
+          "name": {
+            "ko_kr": "몬스터볼",
+            "en_us": "Pokeballs"
+          },
+          "offers": [
+            {
+              "item": "cobblemon:poke_ball",
+              "count": 1,
+              "price": "200"
+            },
+            {
+              "item": "cobblemon:great_ball",
+              "count": 1,
+              "price": "600"
+            },
+            {
+              "item": "cobblemon:ultra_ball",
+              "count": 1,
+              "price": "800"
+            },
+            {
+              "item": "cobblemon:fast_ball",
+              "count": 1,
+              "price": "0"
+            }
+          ]
+        },
+        {
+          "name": {
+            "ko_kr": "배틀 도구",
+            "en_us": "Combat"
+          },
+          "offers": [
+            {
+              "item": "cobblemon:ether",
+              "count": 1,
+              "price": "1000"
+            },
+            {
+              "item": "cobblemon:max_ether",
+              "count": 1,
+              "price": "2000"
+            },
+            {
+              "item": "cobblemon:elixir",
+              "count": 1,
+              "price": "3000"
+            },
+            {
+              "item": "cobblemon:max_elixir",
+              "count": 1,
+              "price": "4000"
+            }
+          ]
+        },
+        {
+          "name": {
+            "ko_kr": "회복",
+            "en_us": "Healing"
+          },
+          "offers": [
+            {
+              "item": "cobblemon:potion",
+              "count": 1,
+              "price": "200"
+            },
+            {
+              "item": "cobblemon:super_potion",
+              "count": 1,
+              "price": "700"
+            },
+            {
+              "item": "cobblemon:hyper_potion",
+              "count": 1,
+              "price": "1500"
+            },
+            {
+              "item": "cobblemon:revive",
+              "count": 1,
+              "price": "2000"
+            },
+            {
+              "item": "cobblemon:max_potion",
+              "count": 1,
+              "price": "2500"
+            }
+          ]
+        },
+        {
+          "name": {
+            "ko_kr": "상태 회복",
+            "en_us": "Remedies"
+          },
+          "offers": [
+            {
+              "item": "cobblemon:antidote",
+              "count": 1,
+              "price": "100"
+            },
+            {
+              "item": "cobblemon:paralyze_heal",
+              "count": 1,
+              "price": "200"
+            },
+            {
+              "item": "cobblemon:awakening",
+              "count": 1,
+              "price": "200"
+            },
+            {
+              "item": "cobblemon:burn_heal",
+              "count": 1,
+              "price": "200"
+            },
+            {
+              "item": "cobblemon:ice_heal",
+              "count": 1,
+              "price": "200"
+            },
+            {
+              "item": "cobblemon:full_heal",
+              "count": 1,
+              "price": "400"
+            }
+          ]
+        }
+      ],
+      "source": "data/bca/structure/stores/store_workers/pokemart_shopkeeper.nbt"
+    }
+  ],
   "pokemon_drop_rules": [],
   "pokemon_drop_overrides": [],
   "npc_recipes": []

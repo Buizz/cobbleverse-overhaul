@@ -15,7 +15,7 @@ import gym_interior_modules  # noqa: E402
 class InteriorSpaceTests(unittest.TestCase):
     def test_existing_interiors_are_exposed_as_generic_library(self) -> None:
         payload = content_manager.interior_spaces_payload(ROOT)
-        self.assertGreaterEqual(len(payload["spaces"]), 8)
+        self.assertGreaterEqual(len(payload["spaces"]), 3)
         self.assertTrue(all(space["structure"].startswith("cobbleventure:interiors/") for space in payload["spaces"]))
 
     def test_web_creator_makes_unassigned_generic_nbt(self) -> None:

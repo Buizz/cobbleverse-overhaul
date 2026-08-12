@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    { "id": "#cobblemon:technical_machines", "required": false },
+    { "id": "#cobblemon:tms", "required": false },
+    { "id": "#c:technical_machines", "required": false }
+  ]
+}

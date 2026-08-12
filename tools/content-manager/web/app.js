@@ -286,9 +286,12 @@ async function loadStructureData(force = false) {
   if ($("#nbt-structure-count")) $("#nbt-structure-count").textContent = "불러오는 중";
   if ($("#nbt-structure-list")) $("#nbt-structure-list").innerHTML = '<div class="issues empty">NBT 목록을 필요한 시점에 불러오고 있습니다.</div>';
   lazyDataPromises.structures = (async () => {
-    const result = await request("/api/structure-sizes");
+    const [result, buildingSettings] = await Promise.all([request("/api/structure-sizes"), request("/api/building-settings")]);
     if (!result.ok) throw new Error(result.data.error || "NBT 구조물 목록을 불러오지 못했습니다.");
     state.structureSizes = result.data.structures || {};
+    if (buildingSettings.ok) for (const [id, metadata] of Object.entries(buildingSettings.data.structures || {})) {
+      state.structureSizes[id] = { ...(state.structureSizes[id] || {}), ...metadata };
+    }
     lazyDataLoaded.structures = true;
     renderStructureBrowser();
     if (state.settlement) renderVillageGenerationTest();
@@ -4762,18 +4765,56 @@ function renderGymModules() {
   modules.forEach((module, index) => { const select = $(`[data-gym-module="${index}"] [data-gym-module-field="rotation"]`); if (select) select.value = module.rotation || "none"; });
 }
 
+function renderGymStaff() {
+  const gym = selectedGym();
+  const editor = $("#gym-staff-editor");
+  if (!gym) {
+    editor.innerHTML = '<div class="issues empty">체육관을 선택하세요.</div>';
+    return;
+  }
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff.leader ||= { trainer_id: "", league_entry_id: "", anchor: "leader" };
+  gym.staff.trainers ||= [];
+  const leader = gym.staff.leader;
+  const anchorOptions = (selected = "") => {
+    const labels = [...new Set((gym.interior?.modules || []).flatMap((module) =>
+      (state.structureSizes[module.structure]?.npc_labels || []).map((marker) => marker.label)
+    ).filter(Boolean))].sort();
+    if (selected && !labels.includes(selected)) labels.unshift(selected);
+    return '<option value="">NPC 라벨 선택</option>' + labels.map((label) => `<option value="${escapeHtml(label)}"${label === selected ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  };
+  const rows = gym.staff.trainers.map((trainer, index) => `
+    <article class="cave-entry-card" data-gym-trainer="${index}">
+      <div class="form-grid compact-grid">
+        <label><span>배치 ID</span><input data-gym-trainer-field="id" value="${escapeHtml(trainer.id || "")}"></label>
+        <label class="wide"><span>트레이너</span><select data-gym-trainer-field="trainer_id">${trainerPoolOptions(trainer.trainer_id)}</select></label>
+        <label><span>내부 NPC 라벨</span><select data-gym-trainer-field="anchor">${anchorOptions(trainer.anchor)}</select></label>
+      </div>
+      <button type="button" class="button danger compact-button" data-remove-gym-trainer="${index}">트레이너 삭제</button>
+    </article>`).join("");
+  editor.innerHTML = `
+    <article class="cave-entry-card">
+      <div class="form-grid compact-grid">
+        <label class="wide"><span>체육관 관장</span><select id="gym-leader-entry">${gymLeagueOptions(leader.league_entry_id)}</select></label>
+        <label><span>관장 NPC 라벨</span><select id="gym-leader-anchor">${anchorOptions(leader.anchor || "leader")}</select></label>
+        <small class="wide">트레이너 ID: ${escapeHtml(leader.trainer_id || "아직 지정하지 않음")}</small>
+      </div>
+    </article>
+    ${rows || '<div class="issues empty">기타 트레이너가 없습니다. 내부 NBT에 NPC 라벨을 만든 뒤 필요한 만큼 추가하세요.</div>'}`;
+}
+
 function renderGymEditor() {
   renderGymList();
   const gym = selectedGym();
   const form = $("#gym-form");
-  if (!gym) { form.reset(); [...form.elements].forEach((element) => { element.disabled = true; }); $("#gym-editor-title").textContent = "체육관을 선택하세요"; $("#delete-gym").disabled = true; $("#preview-gym-exterior").disabled = true; $("#add-gym-module").disabled = true; $("#gym-json").disabled = true; $("#apply-gym-json").disabled = true; renderGymModules(); return; }
+  if (!gym) { form.reset(); [...form.elements].forEach((element) => { element.disabled = true; }); $("#gym-editor-title").textContent = "체육관을 선택하세요"; $("#delete-gym").disabled = true; $("#preview-gym-exterior").disabled = true; $("#add-gym-module").disabled = true; $("#add-gym-trainer").disabled = true; $("#gym-json").disabled = true; $("#apply-gym-json").disabled = true; renderGymStaff(); renderGymModules(); return; }
   $("#gym-editor-title").textContent = gym.display_name?.ko_kr || gym.id;
   setFormValue(form, "id", gym.id); setFormValue(form, "nameKo", gym.display_name?.ko_kr || ""); setFormValue(form, "nameEn", gym.display_name?.en_us || ""); setFormValue(form, "theme", gym.theme || "normal"); setFormValue(form, "enabled", gym.enabled !== false);
   form.elements.exteriorStructure.innerHTML = `<option value="${standardGymExterior}">${standardGymExterior}</option>`;
   setFormValue(form, "exteriorStructure", standardGymExterior);
   [...form.elements].forEach((element) => { element.disabled = false; }); form.elements.id.disabled = true;
-  for (const selector of ["#delete-gym", "#preview-gym-exterior", "#add-gym-module", "#gym-json", "#apply-gym-json"]) $(selector).disabled = false;
-  $("#gym-json").value = JSON.stringify(gym, null, 2); renderGymModules();
+  for (const selector of ["#delete-gym", "#preview-gym-exterior", "#add-gym-module", "#add-gym-trainer", "#gym-json", "#apply-gym-json"]) $(selector).disabled = false;
+  $("#gym-json").value = JSON.stringify(gym, null, 2); renderGymStaff(); renderGymModules();
 }
 
 function updateGymFromForm() {
@@ -6161,7 +6202,7 @@ function updateFacilityFormState() {
     form.elements[name].disabled = !buildingEnabled || !manualPlacement;
   }
   const gymEnabled = form.elements.gymEnabled.checked;
-  for (const name of ["gymId", "gymLeaderTrainer"]) {
+  for (const name of ["gymId"]) {
     form.elements[name].disabled = !gymEnabled;
   }
   $$("#facility-option-list [data-facility-id]").forEach((row) => {
@@ -6227,17 +6268,13 @@ function renderSettlement() {
   const legacyGym = document.structure_profile?.facility_placements?.find((item) => item.id === "gym_building");
   const gym = document.structure_profile?.gym || {
     enabled: Boolean(legacyGym), structure: legacyGym?.structure || "",
-    theme: document.structure_profile?.gym_theme || "normal", anchor: legacyGym?.anchor || "gym_building",
-    leader_trainer_id: document.npc_placement?.trainer_slots?.find((slot) => slot.id === "gym_leader")?.trainer_id || ""
+    theme: document.structure_profile?.gym_theme || "normal", anchor: legacyGym?.anchor || "gym_building"
   };
   setFormValue(form, "gymEnabled", gym.enabled ?? false);
   const selectedGymId = gym.gym_id || (state.gymCatalog.gyms || []).find((item) => item.exterior?.structure === gym.structure)?.id || "";
   form.elements.gymId.innerHTML = gymOptions(selectedGymId);
   setFormValue(form, "gymId", selectedGymId);
   setFormValue(form, "gymAnchor", gym.anchor || "gym_building");
-  const selectedLeagueEntry = gym.league_entry_id || (state.leagueProgression.entries || []).find((entry) => entry.role === "gym_leader" && entry.trainer_id === gym.leader_trainer_id)?.id || "";
-  form.elements.gymLeaderTrainer.innerHTML = gymLeagueOptions(selectedLeagueEntry);
-  setFormValue(form, "gymLeaderTrainer", selectedLeagueEntry);
   setFormValue(form, "pokemonSpawnProfile", document.content_profile?.pokemon?.spawn_profile);
   setFormValue(form, "pokemonDensity", document.content_profile?.pokemon?.density_multiplier ?? 1);
   form.elements.pokemonBiomeSet.innerHTML = choiceOptions((state.biomeCatalog.sets || []).map((entry) => [entry.id, entry.display_name?.ko_kr || entry.id]), document.content_profile?.pokemon?.biome_set, true);
@@ -6515,17 +6552,12 @@ function updateSettlementFromForm() {
   if (!state.settlement.anchors[gymAnchor]) {
     state.settlement.anchors[gymAnchor] = { ...(state.settlement.center || { x: 0, y: 64, z: 0 }) };
   }
-  const gymLeagueEntryId = form.elements.gymLeaderTrainer.value;
-  const gymLeagueEntry = (state.leagueProgression.entries || []).find((entry) => entry.id === gymLeagueEntryId);
-  const gymLeader = gymLeagueEntry?.trainer_id || "";
   state.settlement.structure_profile.gym = {
     enabled: gymEnabled,
     gym_id: gymDefinition?.id || "",
     structure: gymDefinition?.exterior?.structure || "",
     theme: gymDefinition?.theme || "normal",
-    anchor: gymAnchor,
-    leader_trainer_id: gymLeader,
-    league_entry_id: gymLeagueEntryId
+    anchor: gymAnchor
   };
   // Keep legacy fields synchronized while older data packs are still accepted.
   state.settlement.structure_profile.gym_theme = gymDefinition?.theme || "normal";
@@ -6560,18 +6592,6 @@ function updateSettlementFromForm() {
   state.settlement.npc_placement.default_wander_radius = number("wanderRadius");
   state.settlement.npc_placement.trainer_slots ||= [];
   state.settlement.npc_placement.trainer_slots = state.settlement.npc_placement.trainer_slots.filter((slot) => slot.id !== "gym_leader");
-  if (gymEnabled && gymLeader) {
-    const trainer = settlementTrainer(gymLeader);
-    const origin = state.settlement.anchors[gymAnchor];
-    const position = { x: origin.x + 2, y: origin.y + 3, z: origin.z + 10 };
-    const leaderSlot = {
-      id: "gym_leader", trainer_id: gymLeader, battle_type: trainer?.battle_type || "singles",
-      members: [trainerSlotMember("primary", gymLeader, position)], spawn_policy: "persistent",
-      tags: ["trainer", "gym_leader"]
-    };
-    syncTrainerSlotMembers(leaderSlot);
-    state.settlement.npc_placement.trainer_slots.unshift(leaderSlot);
-  }
   updateFacilityFormState();
   renderVillageGenerationTest();
   $("#settlement-json").value = JSON.stringify(state.settlement, null, 2);
@@ -6953,6 +6973,7 @@ const ECONOMY_PRODUCT_GROUPS = [
   { id: "balls", ko: "몬스터볼", en: "Poké Balls" },
   { id: "medicine", ko: "회복·상태", en: "Medicine" },
   { id: "battle", ko: "배틀 도구", en: "Battle Items" },
+  { id: "gems", ko: "타입 Gem", en: "Type Gems" },
   { id: "machines", ko: "기술머신", en: "Technical Machines" },
   { id: "evolution", ko: "진화 아이템", en: "Evolution Items" },
   { id: "held", ko: "지닌물건", en: "Held Items" },
@@ -6962,19 +6983,9 @@ const ECONOMY_PRODUCT_GROUPS = [
   { id: "other", ko: "기타", en: "Other" },
 ];
 
-function economyProductGroup(itemId) {
-  const id = String(itemId || "").toLowerCase();
-  const slug = id.split(":").pop();
-  if (/ball$/.test(slug) && !/(slime_ball|snowball|fireball)/.test(slug)) return "balls";
-  if (/(^|_)(tm|hm|tr)[-_]?\d|technical_machine|move_manual/.test(slug)) return "machines";
-  if (/berry$/.test(slug)) return "berries";
-  if (/(potion|restore|revive|antidote|heal|ether|elixir|awakening|full_cure|sacred_ash)/.test(slug)) return "medicine";
-  if (/(evolution|_stone$|link_cable|protector|electirizer|magmarizer|reaper_cloth|razor_claw|razor_fang|upgrade|dubious_disc)/.test(slug)) return "evolution";
-  if (/(x_attack|x_defense|x_speed|x_accuracy|x_sp_atk|x_sp_def|dire_hit|guard_spec|poke_doll|battle_)/.test(slug)) return "battle";
-  if (/(choice_|band$|scarf$|specs$|orb$|leftovers|lens$|vest$|helmet$|charm$|incense$|plate$|drive$|memory$|seed$|herb$)/.test(slug)) return "held";
-  if (/(food|drink|juice|soda|lemonade|candy|sandwich|curry|mochi|cookie|cake|sweet)/.test(slug)) return "food";
-  if (/(apricorn|seed|mulch|shard|ore|ingot|gem|dust|powder|fragment|material)/.test(slug)) return "materials";
-  return "other";
+function economyProductGroup(itemOrId) {
+  if (itemOrId && typeof itemOrId === "object") return itemOrId.product_group || "other";
+  return (state.economy.editor_catalog?.items || []).find((item) => item.id === itemOrId)?.product_group || "other";
 }
 
 function economyProductLibrary(vendor, itemName) {
@@ -6982,22 +6993,25 @@ function economyProductLibrary(vendor, itemName) {
   const query = String(state.economyView.vendorProductSearch || "").trim().toLocaleLowerCase("ko");
   const groupId = state.economyView.vendorProductGroup || "balls";
   const items = (state.economy.editor_catalog?.items || []).filter((item) => {
-    const group = economyProductGroup(item.id);
+    const group = economyProductGroup(item);
     const matchesGroup = groupId === "all" || (groupId === "sold" ? selected.has(item.id) : group === groupId);
     return matchesGroup;
   });
   const matchesProductQuery = (item) => !query || `${item.id} ${item.ko_kr} ${item.en_us}`.toLocaleLowerCase("ko").includes(query);
   const groupButtons = ECONOMY_PRODUCT_GROUPS.map((group) => {
-    const count = group.id === "sold" ? selected.size : (state.economy.editor_catalog?.items || []).filter((item) => group.id === "all" || economyProductGroup(item.id) === group.id).length;
-    return `<button class="${group.id === groupId ? "is-active" : ""}" data-product-group="${group.id}"><span>${escapeHtml(group.ko)}</span><small>${escapeHtml(group.en)} · ${count}</small></button>`;
+    const count = group.id === "sold" ? selected.size : (state.economy.editor_catalog?.items || []).filter((item) => group.id === "all" || economyProductGroup(item) === group.id).length;
+    return `<button type="button" class="${group.id === groupId ? "is-active" : ""}" data-product-group="${group.id}"><span>${escapeHtml(group.ko)}</span><small>${escapeHtml(group.en)} · ${count}</small></button>`;
   }).join("");
   const cards = items.map((item) => {
     const active = selected.get(item.id);
     const standard = economyStandardPrice(item.id);
-    return `<article class="economy-product-toggle ${active ? "is-active" : ""}" data-product-item="${escapeHtml(item.id)}" ${matchesProductQuery(item) ? "" : "hidden"}><button data-toggle-vendor-product="${escapeHtml(item.id)}" aria-pressed="${active ? "true" : "false"}"><i></i><span><strong>${escapeHtml(item.ko_kr || itemName(item.id))}</strong><small>${escapeHtml(item.en_us || item.id)}</small><code>${escapeHtml(item.id)}</code></span><b>${active ? "판매 중" : "판매 안 함"}</b></button><footer><span>표준가 <strong>${escapeHtml(standard || "미정")}</strong></span>${active ? `<label>수량 <input data-toggle-product-count data-item="${escapeHtml(item.id)}" type="number" min="1" value="${Number(active.offer.count || 1)}"></label><label>판매가 <input data-toggle-product-price data-item="${escapeHtml(item.id)}" type="number" min="0" value="${Number(active.offer.price || 0)}"></label><button data-toggle-set-standard="${escapeHtml(item.id)}">표준 지정</button>` : ""}</footer></article>`;
+    return `<article class="economy-product-toggle ${active ? "is-active" : ""}" data-product-item="${escapeHtml(item.id)}" ${matchesProductQuery(item) ? "" : "hidden"}><button type="button" data-toggle-vendor-product="${escapeHtml(item.id)}" aria-pressed="${active ? "true" : "false"}"><i></i><span><strong>${escapeHtml(item.ko_kr || itemName(item.id))}</strong><small>${escapeHtml(item.en_us || item.id)}</small><code>${escapeHtml(item.id)}</code></span><b>${active ? "판매 중" : "판매 안 함"}</b></button><footer><span>표준가 <strong>${escapeHtml(standard || "미정")}</strong></span>${active ? `<label>수량 <input data-toggle-product-count data-item="${escapeHtml(item.id)}" type="number" min="1" value="${Number(active.offer.count || 1)}"></label><label>판매가 <input data-toggle-product-price data-item="${escapeHtml(item.id)}" type="number" min="0" value="${Number(active.offer.price || 0)}"></label><button type="button" data-toggle-set-standard="${escapeHtml(item.id)}">표준 지정</button>` : ""}</footer></article>`;
   }).join("");
   const visibleCount = items.filter(matchesProductQuery).length;
-  return `<div class="economy-product-browser"><div class="economy-product-controls"><label><span>상품 검색</span><input id="economy-product-search" value="${escapeHtml(state.economyView.vendorProductSearch || "")}" placeholder="한글명, 영문명 또는 아이템 ID"></label><div><strong>상품 종류</strong><small>종류를 선택한 뒤 상품을 켜거나 끄세요.</small></div></div><nav class="economy-product-groups">${groupButtons}</nav><div class="economy-product-result-head"><span data-product-visible-count>${visibleCount}개 상품</span><b>${selected.size}개 판매 중</b></div><div class="economy-product-toggle-grid">${cards || '<div class="economy-empty">조건에 맞는 상품이 없습니다.</div>'}</div></div>`;
+  const emptyMessage = groupId === "machines" && !items.length
+    ? "Cobblemon 1.7.3 기본 아이템에는 기술머신이 없습니다. 기술머신을 제공하는 모드를 추가하면 이 탭에 표시됩니다."
+    : "조건에 맞는 상품이 없습니다.";
+  return `<div class="economy-product-browser"><div class="economy-product-controls"><label><span>상품 검색</span><input id="economy-product-search" value="${escapeHtml(state.economyView.vendorProductSearch || "")}" placeholder="한글명, 영문명 또는 아이템 ID"></label><div><strong>상품 종류</strong><small>종류를 선택한 뒤 상품을 켜거나 끄세요.</small></div></div><nav class="economy-product-groups">${groupButtons}</nav><div class="economy-product-result-head"><span data-product-visible-count>${visibleCount}개 상품</span><b>${selected.size}개 판매 중</b></div><div class="economy-product-toggle-grid">${cards || `<div class="economy-empty">${emptyMessage}</div>`}</div></div>`;
 }
 
 function economyCollection(kind) {
@@ -7332,6 +7346,9 @@ function handleEconomyClick(event) {
   if (productGroup) { state.economyView.vendorProductGroup = productGroup.dataset.productGroup; renderEconomy(); return; }
   const productToggle = event.target.closest("[data-toggle-vendor-product]");
   if (productToggle) {
+    event.preventDefault();
+    const pageScroll = { x: window.scrollX, y: window.scrollY };
+    const productScroll = $(".economy-product-toggle-grid")?.scrollTop || 0;
     const vendorId = state.economyView.selectedVendorId;
     const itemId = productToggle.dataset.toggleVendorProduct;
     const editable = editableEconomyEntry("shop", vendorId); if (!editable) return;
@@ -7346,7 +7363,14 @@ function handleEconomyClick(event) {
       if (!category) { category = { name: economyLocalized(group.ko, group.en), offers: [] }; editable.entry.categories ||= []; editable.entry.categories.push(category); }
       category.offers.push({ item: itemId, count: 1, price: economyStandardPrice(itemId) || "0" });
     }
-    syncResolvedEconomyEntry("shop", editable.entry); renderEconomy(); return;
+    syncResolvedEconomyEntry("shop", editable.entry); renderEconomy();
+    window.scrollTo(pageScroll.x, pageScroll.y);
+    if ($(".economy-product-toggle-grid")) $(".economy-product-toggle-grid").scrollTop = productScroll;
+    requestAnimationFrame(() => {
+      window.scrollTo(pageScroll.x, pageScroll.y);
+      if ($(".economy-product-toggle-grid")) $(".economy-product-toggle-grid").scrollTop = productScroll;
+    });
+    return;
   }
   const setToggleStandard = event.target.closest("[data-toggle-set-standard]");
   if (setToggleStandard) {
@@ -7636,6 +7660,43 @@ async function refreshAll() {
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchPage(button.dataset.section)));
 $("#gym-list").addEventListener("click", (event) => { const button = event.target.closest("[data-gym-id]"); if (button) { state.selectedGymId = button.dataset.gymId; renderGymEditor(); } });
 $("#gym-form").addEventListener("input", updateGymFromForm);
+$("#gym-staff-editor").addEventListener("input", (event) => {
+  const gym = selectedGym(); if (!gym) return;
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", anchor: "leader" }, trainers: [] };
+  if (event.target.id === "gym-leader-entry") {
+    const entry = (state.leagueProgression.entries || []).find((candidate) => candidate.id === event.target.value);
+    gym.staff.leader.league_entry_id = event.target.value;
+    gym.staff.leader.trainer_id = entry?.trainer_id || "";
+    renderGymStaff();
+  } else if (event.target.id === "gym-leader-anchor") {
+    gym.staff.leader.anchor = event.target.value.trim();
+  } else {
+    const row = event.target.closest("[data-gym-trainer]");
+    const field = event.target.dataset.gymTrainerField;
+    if (row && field) gym.staff.trainers[Number(row.dataset.gymTrainer)][field] = event.target.value.trim();
+  }
+  $("#gym-json").value = JSON.stringify(gym, null, 2);
+});
+$("#gym-staff-editor").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-gym-trainer]");
+  const gym = selectedGym(); if (!button || !gym) return;
+  gym.staff.trainers.splice(Number(button.dataset.removeGymTrainer), 1);
+  renderGymEditor();
+});
+$("#add-gym-trainer").addEventListener("click", () => {
+  const gym = selectedGym(); if (!gym) return;
+  if (!state.trainers.length) { toast("먼저 트레이너를 하나 이상 만들어 주세요."); return; }
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff.trainers ||= [];
+  const index = gym.staff.trainers.length + 1;
+  const used = new Set([gym.staff.leader?.anchor, ...gym.staff.trainers.map((trainer) => trainer.anchor)]);
+  const labels = (gym.interior?.modules || []).flatMap((module) =>
+    (state.structureSizes[module.structure]?.npc_labels || []).map((marker) => marker.label)
+  );
+  const anchor = labels.find((label) => label && !used.has(label)) || `trainer_${index}`;
+  gym.staff.trainers.push({ id: `trainer_${index}`, trainer_id: state.trainers[0].id, anchor });
+  renderGymEditor();
+});
 $("#add-gym").addEventListener("click", addGym);
 $("#delete-gym").addEventListener("click", deleteGym);
 $("#save-gyms").addEventListener("click", saveGyms);
