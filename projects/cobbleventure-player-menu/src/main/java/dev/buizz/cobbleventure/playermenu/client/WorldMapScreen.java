@@ -9,7 +9,8 @@ import dev.buizz.cobbleventure.playermenu.MapNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -18,18 +19,22 @@ import org.lwjgl.glfw.GLFW;
 
 /** Interactive hex world map backed by the same content used by world generation. */
 public final class WorldMapScreen extends Screen {
-    private static final int PAGE_BACKGROUND = 0xC8141917;
-    private static final int MAP_BACKGROUND = 0xFF121A16;
+    private static final int PAGE_BACKGROUND = 0x44000000;
+    private static final int SHADOW_COLOR = 0x99000000;
+    private static final int PANEL_COLOR = 0xF01D2630;
+    private static final int PANEL_DARK_COLOR = 0xFF10171E;
+    private static final int PANEL_LIGHT_COLOR = 0xFF34444F;
+    private static final int MAP_BACKGROUND = 0xF010171E;
     private static final int TILE_BORDER = 0xFF34483D;
-    private static final int INFO_BACKGROUND = 0xF0202824;
-    private static final int INFO_BORDER = 0xFF617569;
+    private static final int INFO_BACKGROUND = 0xF01D2630;
     private static final int ROUTE_COLOR = 0xFFD8BA70;
     private static final int TOWN_BORDER = 0xFFF0A43B;
     private static final int SELECTED_BORDER = 0xFFF2F5EF;
     private static final int PLAYER_MARKER = 0xFFFFD166;
     private static final int TEXT = 0xFFF3F5F1;
     private static final int MUTED_TEXT = 0xFFAAB8B0;
-    private static final int SUCCESS_TEXT = 0xFF91C7A2;
+    private static final int ACCENT_COLOR = 0xFF5EE4E4;
+    private static final int SUCCESS_TEXT = ACCENT_COLOR;
     private static final int WARNING_TEXT = 0xFFF0A43B;
     private static final int MARGIN = 14;
     private static final int HEADER_HEIGHT = 32;
@@ -43,12 +48,12 @@ public final class WorldMapScreen extends Screen {
     private final Screen parent;
     private MapContent content = MapContent.instance();
     private MapContent.Hex selected = new MapContent.Hex(0, 0);
-    private Button teleportButton;
-    private Button previousGenerationButton;
-    private Button nextGenerationButton;
-    private Button zoomOutButton;
-    private Button zoomInButton;
-    private Button resetViewButton;
+    private AbstractButton teleportButton;
+    private AbstractButton previousGenerationButton;
+    private AbstractButton nextGenerationButton;
+    private AbstractButton zoomOutButton;
+    private AbstractButton zoomInButton;
+    private AbstractButton resetViewButton;
     private long stateRevision = -1L;
     private int pokemonScroll;
     private int zoomLevel;
@@ -73,33 +78,32 @@ public final class WorldMapScreen extends Screen {
         }
         selected = playerHex();
         Layout layout = layout();
-        previousGenerationButton = addRenderableWidget(Button.builder(
-            Component.literal("<"), ignored -> switchGeneration(-1)
-        ).bounds(layout.mapLeft() + 4, 6, 20, 20).build());
-        nextGenerationButton = addRenderableWidget(Button.builder(
-            Component.literal(">"), ignored -> switchGeneration(1)
-        ).bounds(layout.mapLeft() + 80, 6, 20, 20).build());
-        zoomOutButton = addRenderableWidget(Button.builder(
-            Component.literal("−"), ignored -> changeZoom(-1, layout.mapCenterX(), layout.mapCenterY())
-        ).bounds(layout.mapRight() - 72, layout.top() + 6, 20, 20).build());
-        resetViewButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.world_map.reset_view"), ignored -> resetView()
-        ).bounds(layout.mapRight() - 50, layout.top() + 6, 42, 20).build());
-        zoomInButton = addRenderableWidget(Button.builder(
-            Component.literal("+"), ignored -> changeZoom(1, layout.mapCenterX(), layout.mapCenterY())
-        ).bounds(layout.mapRight() - 94, layout.top() + 6, 20, 20).build());
-        teleportButton = addRenderableWidget(Button.builder(
+        previousGenerationButton = addRenderableWidget(new RibbonButton(
+            Component.literal("<"), layout.mapLeft() + 4, 6, 20, 20,
+            () -> switchGeneration(-1)));
+        nextGenerationButton = addRenderableWidget(new RibbonButton(
+            Component.literal(">"), layout.mapLeft() + 80, 6, 20, 20,
+            () -> switchGeneration(1)));
+        zoomOutButton = addRenderableWidget(new RibbonButton(
+            Component.literal("−"), layout.mapRight() - 72, layout.top() + 6, 20, 20,
+            () -> changeZoom(-1, layout.mapCenterX(), layout.mapCenterY())));
+        resetViewButton = addRenderableWidget(new RibbonButton(
+            Component.translatable("screen.cobbleventure_player_menu.world_map.reset_view"),
+            layout.mapRight() - 50, layout.top() + 6, 42, 20, this::resetView));
+        zoomInButton = addRenderableWidget(new RibbonButton(
+            Component.literal("+"), layout.mapRight() - 94, layout.top() + 6, 20, 20,
+            () -> changeZoom(1, layout.mapCenterX(), layout.mapCenterY())));
+        teleportButton = addRenderableWidget(new RibbonButton(
             Component.translatable("screen.cobbleventure_player_menu.world_map.teleport"),
-            ignored -> requestTeleport()
-        ).bounds(layout.infoLeft() + 9, layout.bottom() - 28, layout.infoWidth() - 18, 20).build());
+            layout.infoLeft() + 9, layout.bottom() - 28, layout.infoWidth() - 18, 20,
+            this::requestTeleport));
         Component closeLabel = Component.translatable(
             parent == null
                 ? "screen.cobbleventure_player_menu.world_map.close"
                 : "screen.cobbleventure_player_menu.world_map.back"
         );
-        addRenderableWidget(Button.builder(closeLabel, ignored -> onClose())
-            .bounds(width - MARGIN - 72, height - FOOTER_HEIGHT + 5, 72, 20)
-            .build());
+        addRenderableWidget(new RibbonButton(closeLabel,
+            width - MARGIN - 72, height - FOOTER_HEIGHT + 5, 72, 20, this::onClose));
         initPokemonModels(layout);
         MapNetwork.requestSnapshot();
         updateNavigationButtons();
@@ -123,6 +127,10 @@ public final class WorldMapScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, width, height, PAGE_BACKGROUND);
+        int titleWidth = Math.max(116, font.width(title) + 34);
+        drawRibbonPanel(graphics, (width - titleWidth) / 2, 4, titleWidth, 23, PANEL_COLOR);
+        graphics.fill((width - titleWidth) / 2 + 12, 5,
+            (width - titleWidth) / 2 + 42, 7, ACCENT_COLOR);
         graphics.drawCenteredString(font, title, width / 2, 11, TEXT);
         Layout layout = layout();
         graphics.drawCenteredString(
@@ -237,9 +245,12 @@ public final class WorldMapScreen extends Screen {
     }
 
     private void drawMap(GuiGraphics graphics, Layout layout, int mouseX, int mouseY) {
-        graphics.fill(layout.mapLeft(), layout.top(), layout.mapRight(), layout.bottom(), MAP_BACKGROUND);
-        drawBorder(graphics, layout.mapLeft(), layout.top(), layout.mapRight(), layout.bottom(), INFO_BORDER);
-        graphics.enableScissor(layout.mapLeft() + 1, layout.top() + 1, layout.mapRight() - 1, layout.bottom() - 1);
+        drawRibbonPanel(graphics, layout.mapLeft(), layout.top(), layout.mapWidth(), layout.height(),
+            MAP_BACKGROUND);
+        graphics.fill(layout.mapLeft() + 14, layout.top() + 1,
+            layout.mapLeft() + 58, layout.top() + 3, ACCENT_COLOR);
+        graphics.enableScissor(layout.mapLeft() + 2, layout.top() + 2,
+            layout.mapRight() - 2, layout.bottom() - 2);
         int size = hexSize(layout);
         ScreenPoint center = mapCenter(layout);
 
@@ -304,8 +315,10 @@ public final class WorldMapScreen extends Screen {
 
     private void drawInfoPanel(GuiGraphics graphics, Layout layout) {
         hidePokemonModels();
-        graphics.fill(layout.infoLeft(), layout.top(), layout.infoRight(), layout.bottom(), INFO_BACKGROUND);
-        drawBorder(graphics, layout.infoLeft(), layout.top(), layout.infoRight(), layout.bottom(), INFO_BORDER);
+        drawRibbonPanel(graphics, layout.infoLeft(), layout.top(), layout.infoWidth(), layout.height(),
+            INFO_BACKGROUND);
+        graphics.fill(layout.infoLeft() + 12, layout.top() + 1,
+            layout.infoLeft() + 48, layout.top() + 3, ACCENT_COLOR);
         int x = layout.infoLeft() + 10;
         int y = layout.top() + 9;
         int lineWidth = layout.infoWidth() - 20;
@@ -707,11 +720,81 @@ public final class WorldMapScreen extends Screen {
         };
     }
 
-    private static void drawBorder(GuiGraphics graphics, int left, int top, int right, int bottom, int color) {
-        graphics.fill(left, top, right, top + 1, color);
-        graphics.fill(left, bottom - 1, right, bottom, color);
-        graphics.fill(left, top, left + 1, bottom, color);
-        graphics.fill(right - 1, top, right, bottom, color);
+    private static void drawRibbonPanel(
+        GuiGraphics graphics,
+        int x,
+        int y,
+        int panelWidth,
+        int panelHeight,
+        int innerColor
+    ) {
+        fillRoundedRect(graphics, x + 4, y + 5, x + panelWidth + 4, y + panelHeight + 5,
+            9, SHADOW_COLOR);
+        fillRoundedRect(graphics, x, y, x + panelWidth, y + panelHeight, 9, PANEL_DARK_COLOR);
+        fillRoundedRect(graphics, x + 1, y + 1, x + panelWidth - 1, y + panelHeight - 1,
+            8, innerColor);
+        graphics.fill(x + 12, y + 1, x + panelWidth - 12, y + 2, PANEL_LIGHT_COLOR);
+        graphics.fill(x + panelWidth - 42, y + panelHeight - 3,
+            x + panelWidth - 8, y + panelHeight - 1, ACCENT_COLOR);
+    }
+
+    private static void fillRoundedRect(
+        GuiGraphics graphics,
+        int left,
+        int top,
+        int right,
+        int bottom,
+        int radius,
+        int color
+    ) {
+        int width = Math.max(0, right - left);
+        int height = Math.max(0, bottom - top);
+        int effectiveRadius = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+        for (int row = 0; row < height; row++) {
+            int edgeDistance = Math.min(row, height - 1 - row);
+            int inset = 0;
+            if (edgeDistance < effectiveRadius) {
+                double vertical = effectiveRadius - edgeDistance - 0.5D;
+                inset = effectiveRadius - (int) Math.floor(Math.sqrt(
+                    Math.max(0.0D, effectiveRadius * effectiveRadius - vertical * vertical)
+                ));
+            }
+            graphics.fill(left + inset, top + row, right - inset, top + row + 1, color);
+        }
+    }
+
+    private final class RibbonButton extends AbstractButton {
+        private final Runnable action;
+
+        private RibbonButton(Component message, int x, int y, int width, int height, Runnable action) {
+            super(x, y, width, height, message);
+            this.action = action;
+        }
+
+        @Override
+        public void onPress() {
+            if (active) action.run();
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            int border = active && isHovered() ? ACCENT_COLOR : PANEL_LIGHT_COLOR;
+            int fill = active && isHovered() ? 0xE0374650 : PANEL_DARK_COLOR;
+            fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+                getHeight() / 2, border);
+            fillRoundedRect(graphics, getX() + 1, getY() + 1,
+                getX() + getWidth() - 1, getY() + getHeight() - 1,
+                Math.max(1, getHeight() / 2 - 1), fill);
+            int color = active ? (isHovered() ? ACCENT_COLOR : TEXT) : MUTED_TEXT;
+            graphics.drawCenteredString(font,
+                font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8),
+                getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, color);
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
+        }
     }
 
     private record ScreenPoint(int x, int y) {}
