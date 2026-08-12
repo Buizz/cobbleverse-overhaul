@@ -22,7 +22,7 @@
 | ID | 모드 | 구분 | 설치면 | 역할 | 현재 상태 |
 |----|------|------|--------|------|-----------|
 | `cobblemon` | Cobblemon | 필수 | 양쪽 | 포켓몬, 기술, 파티와 실제 배틀 | 1.7.3 / CF `687131:7553231` |
-| `cobblemon_exp_bar` | Cobblemon EXP Bar | 필수 | 양쪽 | 포켓몬 게임 스타일 경험치 바와 전투 중 경험치·레벨업 로그; 자체 클라이언트 패치로 Battle Extras 속도 범위 왼쪽에 배치 | 1.0.5 / CF `1418364:8397752` |
+| `cobblemon_exp_bar` | Cobblemon EXP Bar | 필수 | 양쪽 | 포켓몬 게임 스타일 경험치 바와 전투 중 경험치·레벨업 로그; 자체 클라이언트 패치로 이름과 체력 바 사이에 배치 | 1.0.5 / CF `1418364:8397752` |
 | `fix_cobblemon_pokemon_experience` | Fix Cobblemon Pokemon Experience | 필수 | 서버 | RCT 트레이너전에서 상대 포켓몬 KO 직후 경험치 지급 | 1.1.1 / CF `1435842:7533327` |
 | `cobblemon_tim_core` | Cobblemon Tim Core | 필수 | 양쪽 | Capture XP 공용 이벤트·경험치 처리 라이브러리 | 1.7.3-1.32.0 / CF `1295910:7938283` |
 | `cobblemon_capture_xp` | Cobblemon Capture XP | 필수 | 양쪽 | 야생 포켓몬 포획 시 파티 경험치 지급 | 1.7.3-1.3.0 / CF `901059:7568508` |

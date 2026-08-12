@@ -108,26 +108,27 @@ public final class CobbleventureBootstrap {
     private static final int OCEAN_ROCK_BOUNDARY_BAND = 10;
     private static final int OCEAN_ROCK_CENTER_EDGE_RANGE = 5;
     private static final int MAX_TOWN_PREPARATION_CHUNKS = 320;
-    private static final int LAZY_TOWN_TRIGGER_DISTANCE = 64;
+    // Regional roads stop at the outer edge of a town (currently about 134 blocks
+    // from its center). Start lazy generation well before that endpoint can enter
+    // normal view distance, so the town road connectors exist when players arrive.
+    private static final int LAZY_TOWN_TRIGGER_DISTANCE = 224;
     private static final int STARTER_TOWN_CHUNKS_PER_TICK = 8;
     private static final int BACKGROUND_TOWN_CHUNKS_PER_TICK = 1;
     private static final TicketType<ChunkPos> TOWN_GENERATION_TICKET = TicketType.create(
         "cobbleventure_town_generation", Comparator.comparingLong(ChunkPos::toLong)
     );
     private static final int OCEAN_CLIFF_MAX_Y = WATER_SURFACE_Y + 4;
-    private static final int GYM_RING_ROAD_MARGIN = 6;
-    private static final int GYM_RING_ROAD_WIDTH = 4;
-    private static final int GYM_BUILDING_CLEARANCE = 16;
     private static final int GYM_LOT_CLEARANCE = 6;
     private static final int GYM_LOT_SEARCH_RADIUS = 86;
     private static final int GYM_ROAD_SEARCH_RADIUS = 42;
+    private static final int CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS = 6;
     private static final ResourceLocation BCA_BERRY_TARGET =
         ResourceLocation.fromNamespaceAndPath("bca", "berry_plant");
     private static final int BCA_BERRY_VARIANT_LIMIT = 73;
-    // Every RGS Kanto gym uses the same 25x13x26 shell. The west-side fence gate
-    // at (2, 3, 10) is decoration; the actual public entrance is the centered
-    // north opening identified by its interior pressure plate at (12, 3, 3).
-    private static final BlockPoint RGS_GYM_ENTRANCE_OFFSET = new BlockPoint(2, 3, 10);
+    // Every RGS Kanto gym uses the same 25x13x26 shell. Rotate its centered north
+    // entrance to the south so the public doorway faces downward in the town layout.
+    private static final BlockPoint RGS_GYM_ENTRANCE_OFFSET = new BlockPoint(12, 3, 3);
+    private static final String RGS_GYM_ROTATION = "clockwise_180";
     private static final int LEGACY_VISIBLE_BOUNDARY_CLEANUP_RADIUS = 8;
     private static final int DEEP_FOUNDATION_MIN_Y = 0;
     private static final int DEEP_FOUNDATION_MAX_Y = 9;
@@ -1242,10 +1243,16 @@ public final class CobbleventureBootstrap {
         TownLayout layout = generateTownLayout(settlement);
         int plazaRadius = Math.max(5, road.width());
         Set<Long> roadColumns = new HashSet<>();
+        Set<Long> roadGuideColumns = new HashSet<>();
+        Map<Long, Integer> roadAnchors = new HashMap<>();
+        int plazaY = plannedTerrainGroundY(level, center.x(), center.z());
         for (int x = center.x() - plazaRadius; x <= center.x() + plazaRadius; x++) {
             for (int z = center.z() - plazaRadius; z <= center.z() + plazaRadius; z++) {
                 if (Math.hypot(x - center.x(), z - center.z()) <= plazaRadius + 0.5D) {
-                    roadColumns.add(blockColumnKey(x, z));
+                    long key = blockColumnKey(x, z);
+                    roadColumns.add(key);
+                    roadGuideColumns.add(key);
+                    roadAnchors.put(key, plazaY);
                 }
             }
         }
@@ -1256,6 +1263,12 @@ public final class CobbleventureBootstrap {
                 center.translate(generatedRoad.x2(), generatedRoad.z2()),
                 road.width()
             );
+            collectConfiguredRoadColumns(
+                roadGuideColumns,
+                center.translate(generatedRoad.x1(), generatedRoad.z1()),
+                center.translate(generatedRoad.x2(), generatedRoad.z2()),
+                1
+            );
         }
         for (TownRoad accessRoad : layout.accessRoads()) {
             collectConfiguredRoadColumns(
@@ -1264,9 +1277,15 @@ public final class CobbleventureBootstrap {
                 center.translate(accessRoad.x2(), accessRoad.z2()),
                 Math.min(3, road.width())
             );
+            collectConfiguredRoadColumns(
+                roadGuideColumns,
+                center.translate(accessRoad.x1(), accessRoad.z1()),
+                center.translate(accessRoad.x2(), accessRoad.z2()),
+                1
+            );
         }
         Map<Long, Integer> roadElevations = buildConfiguredRoadElevations(
-            level, roadColumns, Map.of()
+            level, roadColumns, roadGuideColumns, roadAnchors
         );
         clearTreesIntersectingRoad(level, roadColumns, roadElevations);
         for (long key : roadColumns) {
@@ -1321,6 +1340,7 @@ public final class CobbleventureBootstrap {
                 configuredRoadNeedsSlab(key, roadColumns, roadElevations), false
             );
         }
+        blendTerrainToConfiguredRoad(level, roadColumns);
         long housesFinishedAt = System.nanoTime();
         LOGGER.info(
             "Generated town layout applied: settlement={}, seed={}, depth={}, roads={}, facilities={}, houses={}, roadColumns={}, roadMs={}, houseMs={}, totalMs={}",
@@ -1515,7 +1535,7 @@ public final class CobbleventureBootstrap {
                 && !facing.equals(facilityCanonicalEntranceFacing(id))) {
                 continue;
             }
-            String rotation = id.startsWith("house_") ? switch (facing) {
+            String rotation = id.startsWith("house_") || id.contains("gym") ? switch (facing) {
                 case "east" -> "clockwise_90";
                 case "south" -> "clockwise_180";
                 case "west" -> "counterclockwise_90";
@@ -1602,7 +1622,7 @@ public final class CobbleventureBootstrap {
             case "facility_pokemon_center" -> "west";
             case "facility_pokemart" -> "east";
             case "facility_department_store" -> "north";
-            default -> facilityId.contains("gym") ? "west" : "north";
+            default -> facilityId.contains("gym") ? "south" : "north";
         };
     }
 
@@ -1718,10 +1738,12 @@ public final class CobbleventureBootstrap {
                 || facility.id().contains("gym"))) {
                 prepareSpecialDistrict(level, facility, position);
             }
+            String rotation = facility.id().contains("gym")
+                ? RGS_GYM_ROTATION : "none";
             boolean placed = position != null && (facility.mode().equals("placeholder")
                 ? placeFacilityPlaceholder(level, facility, position)
                 : facility.mode().equals("direct_template")
-                    ? placeFacilityTemplate(level, facility, position)
+                    ? placeFacilityTemplate(level, facility, position, rotation)
                     : placeTemplate(level, facility.structure(), position));
             if (!placed) {
                 LOGGER.error(
@@ -1731,7 +1753,7 @@ public final class CobbleventureBootstrap {
                 return false;
             }
             BuildingRuntimeSystem.onStructurePlaced(
-                level, facility.structure(), position, "none"
+                level, facility.structure(), position, rotation
             );
             if (facility.mode().equals("direct_template")) {
                 if (!placeFacilityJigsawDecorations(level, facility, position)) {
@@ -1744,15 +1766,19 @@ public final class CobbleventureBootstrap {
             }
             if (facility.mode().equals("direct_template")
                 && facility.id().contains("gym")) {
-                GymInteriorSystem.prepareExterior(level, settlement.id(), position);
+                GymInteriorSystem.prepareExterior(
+                    level, settlement.id(), position, rotation
+                );
             }
-            if (facility.id().startsWith("facility_")) {
+            if (facility.id().startsWith("facility_")
+                && !facility.id().contains("gym")) {
                 configuredSites.add(new FacilitySite(facility, position));
             }
             if (facility.mode().equals("direct_template")
                 && facility.id().contains("gym")) {
-                drawGymRingRoad(level, settlement, facility, position);
-                drawGymEntranceApron(level, settlement, facility, position);
+                connectGymEntranceToVillageRoad(
+                    level, settlement, facility, position, rotation
+                );
             }
         }
         drawFacilityRoadNetwork(level, settlement, configuredSites);
@@ -1777,7 +1803,9 @@ public final class CobbleventureBootstrap {
                 }
                 BlockPoint position = resolveDirectFacilityPosition(level, settlement, facility);
                 if (position != null) {
-                    GymInteriorSystem.prepareExterior(level, settlement.id(), position);
+                    GymInteriorSystem.prepareExterior(
+                        level, settlement.id(), position, RGS_GYM_ROTATION
+                    );
                 }
             }
         }
@@ -1821,7 +1849,8 @@ public final class CobbleventureBootstrap {
                     : resolveDirectFacilityPosition(level, settlement, facility);
                 if (position != null) {
                     BuildingRuntimeSystem.onStructurePlaced(
-                        level, facility.structure(), position, "none"
+                        level, facility.structure(), position,
+                        facility.id().contains("gym") ? RGS_GYM_ROTATION : "none"
                     );
                 }
             }
@@ -2250,15 +2279,17 @@ public final class CobbleventureBootstrap {
         Map<Point, Integer> anchoredElevations
     ) {
         Set<Long> roadColumns = new HashSet<>();
+        Set<Long> roadGuideColumns = new HashSet<>();
         collectConfiguredRoadColumns(
             roadColumns, start, end, profile.width()
         );
+        collectConfiguredRoadColumns(roadGuideColumns, start, end, 1);
         Map<Long, Integer> anchors = new HashMap<>();
         anchoredElevations.forEach((point, height) ->
             anchors.put(blockColumnKey(point.x(), point.z()), height)
         );
         Map<Long, Integer> elevations = buildConfiguredRoadElevations(
-            level, roadColumns, anchors
+            level, roadColumns, roadGuideColumns, anchors
         );
         clearTreesIntersectingRoad(level, roadColumns, elevations);
         for (long key : roadColumns) {
@@ -2268,33 +2299,42 @@ public final class CobbleventureBootstrap {
                 configuredRoadNeedsSlab(key, roadColumns, elevations), true
             );
         }
+        blendTerrainToConfiguredRoad(level, roadColumns);
     }
 
     private static Map<Long, Integer> buildConfiguredRoadElevations(
-        ServerLevel level, Set<Long> columns, Map<Long, Integer> anchors
+        ServerLevel level, Set<Long> columns, Set<Long> guideColumns,
+        Map<Long, Integer> anchors
     ) {
-        List<Long> ordered = columns.stream().sorted().toList();
-        Map<Long, Integer> heights = new HashMap<>();
-        for (long key : ordered) {
-            heights.put(key, anchors.getOrDefault(
+        List<Long> guides = guideColumns.stream()
+            .filter(columns::contains).sorted().toList();
+        if (guides.isEmpty()) {
+            guides = columns.stream().sorted().toList();
+        }
+        Map<Long, Integer> guideHeights = new HashMap<>();
+        for (long key : guides) {
+            guideHeights.put(key, anchors.getOrDefault(
                 key,
                 plannedTerrainGroundY(level, blockColumnX(key), blockColumnZ(key))
             ));
         }
-        int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-        for (int pass = 0; pass < 2; pass++) {
+        int[][] directions = {
+            {1, 0}, {-1, 0}, {0, 1}, {0, -1},
+            {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
+        };
+        for (int pass = 0; pass < 3; pass++) {
             Map<Long, Integer> smoothed = new HashMap<>();
-            for (long key : ordered) {
+            for (long key : guides) {
                 if (anchors.containsKey(key)) {
                     smoothed.put(key, anchors.get(key));
                     continue;
                 }
                 int x = blockColumnX(key);
                 int z = blockColumnZ(key);
-                int sum = heights.get(key) * 2;
+                int sum = guideHeights.get(key) * 2;
                 int weight = 2;
                 for (int[] direction : directions) {
-                    Integer adjacent = heights.get(blockColumnKey(
+                    Integer adjacent = guideHeights.get(blockColumnKey(
                         x + direction[0], z + direction[1]
                     ));
                     if (adjacent != null) {
@@ -2304,22 +2344,24 @@ public final class CobbleventureBootstrap {
                 }
                 smoothed.put(key, (int) Math.round(sum / (double) weight));
             }
-            heights = smoothed;
+            guideHeights = smoothed;
         }
-        for (int pass = 0; pass < 16; pass++) {
+        for (int pass = 0; pass < 64; pass++) {
             boolean changed = false;
-            for (long key : ordered) {
+            for (long key : guides) {
                 int x = blockColumnX(key);
                 int z = blockColumnZ(key);
-                for (int[] direction : new int[][] {{1, 0}, {0, 1}}) {
+                for (int[] direction : new int[][] {
+                    {1, 0}, {0, 1}, {1, 1}, {1, -1}
+                }) {
                     long adjacentKey = blockColumnKey(
                         x + direction[0], z + direction[1]
                     );
-                    Integer adjacent = heights.get(adjacentKey);
+                    Integer adjacent = guideHeights.get(adjacentKey);
                     if (adjacent == null) {
                         continue;
                     }
-                    int current = heights.get(key);
+                    int current = guideHeights.get(key);
                     if (Math.abs(current - adjacent) <= 1) {
                         continue;
                     }
@@ -2327,22 +2369,54 @@ public final class CobbleventureBootstrap {
                         continue;
                     }
                     if (anchors.containsKey(key)) {
-                        heights.put(adjacentKey, current + Integer.signum(adjacent - current));
+                        guideHeights.put(
+                            adjacentKey, current + Integer.signum(adjacent - current)
+                        );
                     } else if (anchors.containsKey(adjacentKey)) {
-                        heights.put(key, adjacent + Integer.signum(current - adjacent));
+                        guideHeights.put(
+                            key, adjacent + Integer.signum(current - adjacent)
+                        );
                     } else {
                         int lower = Math.floorDiv(current + adjacent, 2);
                         int upper = lower + 1;
-                        heights.put(key, current <= adjacent ? lower : upper);
-                        heights.put(adjacentKey, current <= adjacent ? upper : lower);
+                        guideHeights.put(key, current <= adjacent ? lower : upper);
+                        guideHeights.put(
+                            adjacentKey, current <= adjacent ? upper : lower
+                        );
                     }
                     changed = true;
                 }
             }
-            anchors.forEach(heights::put);
+            for (Map.Entry<Long, Integer> anchor : anchors.entrySet()) {
+                if (guideHeights.containsKey(anchor.getKey())) {
+                    guideHeights.put(anchor.getKey(), anchor.getValue());
+                }
+            }
             if (!changed) {
                 break;
             }
+        }
+        Map<Long, Integer> heights = new HashMap<>();
+        for (long key : columns) {
+            Integer guideHeight = guideHeights.get(key);
+            if (guideHeight != null) {
+                heights.put(key, guideHeight);
+                continue;
+            }
+            int x = blockColumnX(key);
+            int z = blockColumnZ(key);
+            long nearestGuide = guides.getFirst();
+            int nearestDistance = Integer.MAX_VALUE;
+            for (long guide : guides) {
+                int dx = x - blockColumnX(guide);
+                int dz = z - blockColumnZ(guide);
+                int distance = dx * dx + dz * dz;
+                if (distance < nearestDistance) {
+                    nearestGuide = guide;
+                    nearestDistance = distance;
+                }
+            }
+            heights.put(key, guideHeights.get(nearestGuide));
         }
         return heights;
     }
@@ -2402,6 +2476,147 @@ public final class CobbleventureBootstrap {
         return true;
     }
 
+    private static void blendTerrainToConfiguredRoad(
+        ServerLevel level, Set<Long> roadColumns
+    ) {
+        if (roadColumns.isEmpty()) {
+            return;
+        }
+        Map<Long, RoadTerrainShoulder> shoulders = new HashMap<>();
+        for (long roadKey : roadColumns) {
+            int roadX = blockColumnX(roadKey);
+            int roadZ = blockColumnZ(roadKey);
+            int roadY = level.getHeight(
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, roadX, roadZ
+            ) - 1;
+            for (int offsetX = -CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS;
+                 offsetX <= CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS; offsetX++) {
+                for (int offsetZ = -CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS;
+                     offsetZ <= CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS; offsetZ++) {
+                    int distance = (int) Math.ceil(Math.hypot(offsetX, offsetZ));
+                    if (distance < 1 || distance > CONFIGURED_ROAD_TERRAIN_BLEND_RADIUS) {
+                        continue;
+                    }
+                    long terrainKey = blockColumnKey(roadX + offsetX, roadZ + offsetZ);
+                    if (roadColumns.contains(terrainKey)) {
+                        continue;
+                    }
+                    RoadTerrainShoulder current = shoulders.get(terrainKey);
+                    if (current == null || distance < current.distance()
+                        || (distance == current.distance()
+                            && roadKey < current.sourceRoadKey())) {
+                        shoulders.put(
+                            terrainKey,
+                            new RoadTerrainShoulder(roadY, distance, roadKey)
+                        );
+                    }
+                }
+            }
+        }
+
+        HexWorldPlan world = activeHexWorld;
+        Map<Long, Integer> targets = new HashMap<>();
+        for (Map.Entry<Long, RoadTerrainShoulder> entry : shoulders.entrySet()) {
+            long key = entry.getKey();
+            int x = blockColumnX(key);
+            int z = blockColumnZ(key);
+            TerrainSample sample = world == null
+                ? null : terrainAt(world, x + 0.5D, z + 0.5D);
+            if (sample == null || isAquatic(sample)) {
+                continue;
+            }
+            int surfaceY = plannedTerrainGroundY(level, x, z);
+            if (!isNaturalRoadShoulderSurface(
+                level.getBlockState(new BlockPos(x, surfaceY, z))
+            )) {
+                continue;
+            }
+            RoadTerrainShoulder shoulder = entry.getValue();
+            int minimumY = shoulder.roadY() - shoulder.distance();
+            int maximumY = shoulder.roadY() + shoulder.distance();
+            int targetY = Math.max(minimumY, Math.min(maximumY, surfaceY));
+            if (targetY != surfaceY) {
+                targets.put(key, targetY);
+            }
+        }
+        clearTreesIntersectingRoad(level, targets.keySet(), targets);
+        int reshaped = 0;
+        for (Map.Entry<Long, Integer> entry : targets.entrySet()) {
+            int x = blockColumnX(entry.getKey());
+            int z = blockColumnZ(entry.getKey());
+            int sourceY = plannedTerrainGroundY(level, x, z);
+            int targetY = entry.getValue();
+            TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
+            if (reshapeNaturalRoadShoulder(level, sample, x, z, sourceY, targetY)) {
+                reshaped++;
+            }
+        }
+        if (reshaped > 0) {
+            LOGGER.debug(
+                "Configured road terrain shoulders blended: roadColumns={}, reshapedColumns={}",
+                roadColumns.size(), reshaped
+            );
+        }
+    }
+
+    private static boolean reshapeNaturalRoadShoulder(
+        ServerLevel level, TerrainSample sample,
+        int x, int z, int sourceY, int targetY
+    ) {
+        clearVegetationColumn(level, x, Math.min(sourceY, targetY), z, 32);
+        if (targetY < sourceY) {
+            for (int y = targetY; y <= sourceY; y++) {
+                BlockState state = level.getBlockState(new BlockPos(x, y, z));
+                if (!isNaturalRoadShoulderBody(state)) {
+                    return false;
+                }
+            }
+            for (int y = targetY + 1; y <= sourceY; y++) {
+                level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+            }
+        } else {
+            for (int y = sourceY + 1; y <= targetY; y++) {
+                BlockState state = level.getBlockState(new BlockPos(x, y, z));
+                if (!state.isAir() && !state.canBeReplaced()) {
+                    return false;
+                }
+            }
+            for (int y = sourceY + 1; y < targetY; y++) {
+                level.setBlock(
+                    new BlockPos(x, y, z), fillerBlock(sample.biome()), 2
+                );
+            }
+        }
+        level.setBlock(
+            new BlockPos(x, targetY, z), surfaceBlock(sample.biome()), 2
+        );
+        return true;
+    }
+
+    private static boolean isNaturalRoadShoulderSurface(BlockState state) {
+        return state.is(Blocks.GRASS_BLOCK)
+            || state.is(Blocks.DIRT)
+            || state.is(Blocks.COARSE_DIRT)
+            || state.is(Blocks.PODZOL)
+            || state.is(Blocks.MYCELIUM)
+            || state.is(Blocks.STONE)
+            || state.is(Blocks.DEEPSLATE)
+            || state.is(Blocks.ANDESITE)
+            || state.is(Blocks.DIORITE)
+            || state.is(Blocks.GRANITE)
+            || state.is(Blocks.TUFF)
+            || state.is(Blocks.GRAVEL)
+            || state.is(Blocks.SAND)
+            || state.is(Blocks.RED_SAND)
+            || state.is(Blocks.CLAY)
+            || state.is(Blocks.SNOW_BLOCK);
+    }
+
+    private static boolean isNaturalRoadShoulderBody(BlockState state) {
+        return isNaturalRoadShoulderSurface(state)
+            || state.is(Blocks.ROOTED_DIRT);
+    }
+
     private static boolean isNaturalRoadObstruction(BlockState state) {
         return state.is(Blocks.GRASS_BLOCK)
             || state.is(Blocks.DIRT)
@@ -2419,7 +2634,13 @@ public final class CobbleventureBootstrap {
             || state.is(Blocks.SAND)
             || state.is(Blocks.RED_SAND)
             || state.is(Blocks.CLAY)
-            || state.is(Blocks.SNOW_BLOCK);
+            || state.is(Blocks.SNOW_BLOCK)
+            || state.is(Blocks.COBBLESTONE)
+            || state.is(Blocks.STONE_BRICKS)
+            || state.is(Blocks.PACKED_MUD)
+            || state.is(Blocks.SANDSTONE)
+            || state.is(Blocks.POLISHED_DIORITE)
+            || isConfiguredRoadSlab(state);
     }
 
     private static BlockState configuredRoadBlock(String material) {
@@ -2854,7 +3075,9 @@ public final class CobbleventureBootstrap {
                 }
                 GymEntranceGeometry entranceGeometry = gymEntranceGeometry(
                     new BlockPoint(originX, assessment.groundY(), originZ),
-                    width, depth, RGS_GYM_ENTRANCE_OFFSET
+                    width, depth, rotateTemplateOffset(
+                        RGS_GYM_ENTRANCE_OFFSET, width, depth, RGS_GYM_ROTATION
+                    )
                 );
                 Point entrance = entranceGeometry.doorway();
                 Point road = findNearestVillageRoad(
@@ -3033,64 +3256,72 @@ public final class CobbleventureBootstrap {
             || state.is(Blocks.DIRT_PATH);
     }
 
-    private static void drawGymRingRoad(
+    private static void connectGymEntranceToVillageRoad(
         ServerLevel level,
         SettlementPlan settlement,
         FacilityPlacement facility,
-        BlockPoint origin
+        BlockPoint origin,
+        String rotationName
     ) {
         ResourceLocation structureId = ResourceLocation.tryParse(facility.structure());
         if (structureId == null) {
-            LOGGER.warn("Cannot create gym ring road for invalid structure ID: {}", facility.structure());
+            LOGGER.warn("Cannot connect gym entrance for invalid structure ID: {}", facility.structure());
             return;
         }
         var template = level.getStructureManager().get(structureId);
         if (template.isEmpty()) {
-            LOGGER.warn("Cannot read gym template size for ring road: {}", structureId);
+            LOGGER.warn("Cannot read gym template size for entrance road: {}", structureId);
             return;
         }
         var size = template.get().getSize();
-        int minX = origin.x() - GYM_RING_ROAD_MARGIN;
-        int minZ = origin.z() - GYM_RING_ROAD_MARGIN;
-        int maxX = origin.x() + Math.max(1, size.getX()) - 1 + GYM_RING_ROAD_MARGIN;
-        int maxZ = origin.z() + Math.max(1, size.getZ()) - 1 + GYM_RING_ROAD_MARGIN;
-        int columns = 0;
-        for (int x = minX; x <= maxX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                boolean ring = x < minX + GYM_RING_ROAD_WIDTH
-                    || x > maxX - GYM_RING_ROAD_WIDTH
-                    || z < minZ + GYM_RING_ROAD_WIDTH
-                    || z > maxZ - GYM_RING_ROAD_WIDTH;
-                if (ring && paintGymRoadColumn(level, x, z)) {
-                    columns++;
-                }
-            }
-        }
-
+        BlockPoint entranceOffset = rotateTemplateOffset(
+            RGS_GYM_ENTRANCE_OFFSET, size.getX(), size.getZ(), rotationName
+        );
         GymEntranceGeometry entranceGeometry = gymEntranceGeometry(
-            origin, size.getX(), size.getZ(), RGS_GYM_ENTRANCE_OFFSET
+            origin, size.getX(), size.getZ(), entranceOffset
         );
-        Point doorwayApron = entranceGeometry.doorway();
-        Point ringEntrance = new Point(
-            doorwayApron.x() + entranceGeometry.outwardX()
-                * (GYM_RING_ROAD_MARGIN - GYM_RING_ROAD_WIDTH + 1),
-            doorwayApron.z() + entranceGeometry.outwardZ()
-                * (GYM_RING_ROAD_MARGIN - GYM_RING_ROAD_WIDTH + 1)
+        Point doorway = entranceGeometry.doorway();
+        Point approach = new Point(
+            doorway.x() + entranceGeometry.outwardX() * 3,
+            doorway.z() + entranceGeometry.outwardZ() * 3
         );
+        int minX = origin.x() - 1;
+        int minZ = origin.z() - 1;
+        int maxX = origin.x() + size.getX();
+        int maxZ = origin.z() + size.getZ();
         Point villageRoad = findNearestVillageRoad(
-            level, ringEntrance, GYM_ROAD_SEARCH_RADIUS,
+            level, approach, GYM_ROAD_SEARCH_RADIUS,
             minX, minZ, maxX, maxZ
         );
-        if (villageRoad != null) {
-            drawSafeGymApproachRoad(level, villageRoad, ringEntrance);
+        if (villageRoad == null) {
+            LOGGER.warn(
+                "Gym entrance has no village road within search radius: settlement={}, entrance={}",
+                settlement.id(), doorway
+            );
+            return;
         }
-        drawSafeGymApproachRoad(level, ringEntrance, doorwayApron);
+        drawSafeGymApproachRoad(level, doorway, approach);
+        drawSafeGymApproachRoad(level, approach, villageRoad);
         LOGGER.info(
-            "Gym ring road completed: settlement={}, structure={}, size={}x{}, entrance={}, "
-                + "villageRoad={}, columns={}",
-            settlement.id(), structureId, size.getX(), size.getZ(), doorwayApron,
-            villageRoad, columns
+            "Gym entrance connected directly to village road: settlement={}, structure={}, "
+                + "rotation={}, entrance={}, villageRoad={}",
+            settlement.id(), structureId, rotationName, doorway, villageRoad
         );
+    }
+
+    private static BlockPoint rotateTemplateOffset(
+        BlockPoint point, int width, int depth, String rotationName
+    ) {
+        return switch (rotationName) {
+            case "clockwise_90" -> new BlockPoint(depth - 1 - point.z(), point.y(), point.x());
+            case "clockwise_180" -> new BlockPoint(
+                width - 1 - point.x(), point.y(), depth - 1 - point.z()
+            );
+            case "counterclockwise_90" -> new BlockPoint(
+                point.z(), point.y(), width - 1 - point.x()
+            );
+            default -> point;
+        };
     }
 
     private static void drawSafeGymApproachRoad(
@@ -3111,75 +3342,6 @@ public final class CobbleventureBootstrap {
                 }
             }
         }
-    }
-
-    private static void drawGymEntranceApron(
-        ServerLevel level,
-        SettlementPlan settlement,
-        FacilityPlacement facility,
-        BlockPoint origin
-    ) {
-        ResourceLocation structureId = ResourceLocation.tryParse(facility.structure());
-        if (structureId == null) {
-            return;
-        }
-        var template = level.getStructureManager().get(structureId);
-        if (template.isEmpty()) {
-            return;
-        }
-        var size = template.get().getSize();
-        GymEntranceGeometry entranceGeometry = gymEntranceGeometry(
-            origin, size.getX(), size.getZ(), RGS_GYM_ENTRANCE_OFFSET
-        );
-        Point doorway = entranceGeometry.doorway();
-        int approachLength = GYM_RING_ROAD_MARGIN - GYM_RING_ROAD_WIDTH + 1;
-        int columns = 0;
-        for (int distance = 0; distance <= approachLength; distance++) {
-            int centerX = doorway.x() + entranceGeometry.outwardX() * distance;
-            int centerZ = doorway.z() + entranceGeometry.outwardZ() * distance;
-            int perpendicularX = -entranceGeometry.outwardZ();
-            int perpendicularZ = entranceGeometry.outwardX();
-            for (int offset = -1; offset <= 1; offset++) {
-                int x = centerX + perpendicularX * offset;
-                int z = centerZ + perpendicularZ * offset;
-                if (paintGymEntranceRoadColumn(level, x, origin.y(), z)) {
-                    columns++;
-                }
-            }
-        }
-        LOGGER.info(
-            "Gym entrance connected to civic road: settlement={}, entrance=({}, {}, {}), columns={}",
-            settlement.id(), doorway.x(), origin.y(), doorway.z(), columns
-        );
-    }
-
-    private static boolean paintGymEntranceRoadColumn(
-        ServerLevel level, int x, int groundY, int z
-    ) {
-        clearVegetationColumn(level, x, groundY, z, 32);
-        for (int y = groundY + 1; y <= groundY + 4; y++) {
-            BlockState current = level.getBlockState(new BlockPos(x, y, z));
-            if (!current.isAir() && !current.canBeReplaced()) {
-                return false;
-            }
-        }
-        BlockPos roadPosition = new BlockPos(x, groundY, z);
-        if (level.getBlockState(roadPosition.below()).isAir()) {
-            level.setBlock(
-                roadPosition.below(), Blocks.COBBLESTONE.defaultBlockState(), 2
-            );
-        }
-        long pattern = (long) x * 73428767L ^ (long) z * 912931L;
-        BlockState road = Math.floorMod(pattern, 11L) == 0L
-            ? Blocks.ANDESITE.defaultBlockState()
-            : Math.floorMod(pattern, 5L) == 0L
-                ? Blocks.COBBLESTONE.defaultBlockState()
-                : Blocks.STONE_BRICKS.defaultBlockState();
-        level.setBlock(roadPosition, road, 2);
-        for (int y = groundY + 1; y <= groundY + 4; y++) {
-            level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
-        }
-        return true;
     }
 
     private static boolean paintGymRoadColumn(ServerLevel level, int x, int z) {
@@ -3243,15 +3405,29 @@ public final class CobbleventureBootstrap {
     private static boolean placeFacilityTemplate(
         ServerLevel level, FacilityPlacement facility, BlockPoint position
     ) {
+        return placeFacilityTemplate(level, facility, position, "none");
+    }
+
+    private static boolean placeFacilityTemplate(
+        ServerLevel level, FacilityPlacement facility, BlockPoint position,
+        String rotationName
+    ) {
         String structure = facility.structure();
-        BlockPos blockPos = position.toBlockPos();
+        ResourceLocation structureId = ResourceLocation.tryParse(structure);
+        if (structureId == null) return false;
+        var template = level.getStructureManager().get(structureId);
+        if (template.isEmpty()) return false;
+        var size = template.get().getSize();
+        BlockPoint placementOrigin = rotatedTemplateOrigin(
+            position.x(), position.y(), position.z(),
+            size.getX(), size.getZ(), rotationName
+        );
+        BlockPos blockPos = placementOrigin.toBlockPos();
         List<ChunkPos> forcedChunks = forceTemplateChunks(level, structure, blockPos);
         try {
-            ResourceLocation structureId = ResourceLocation.tryParse(structure);
-            if (structureId == null) return false;
-            var template = level.getStructureManager().get(structureId);
-            if (template.isEmpty()) return false;
+            Rotation rotation = structureRotation(rotationName);
             StructurePlaceSettings settings = new StructurePlaceSettings()
+                .setRotation(rotation)
                 .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE)
                 .addProcessor(new FacilityTerrainPreservationProcessor(
                     facilityGroundLevelY(facility, position)
@@ -3304,12 +3480,7 @@ public final class CobbleventureBootstrap {
         if (structureId == null) return false;
         var template = level.getStructureManager().get(structureId);
         if (template.isEmpty()) return false;
-        Rotation rotation = switch (rotationName) {
-            case "clockwise_90" -> Rotation.CLOCKWISE_90;
-            case "clockwise_180" -> Rotation.CLOCKWISE_180;
-            case "counterclockwise_90" -> Rotation.COUNTERCLOCKWISE_90;
-            default -> Rotation.NONE;
-        };
+        Rotation rotation = structureRotation(rotationName);
         BlockPos blockPos = position.toBlockPos();
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .setRotation(rotation)
@@ -3318,6 +3489,15 @@ public final class CobbleventureBootstrap {
             level, blockPos, blockPos, settings,
             RandomSource.create(level.getSeed() ^ blockPos.asLong()), 2
         );
+    }
+
+    private static Rotation structureRotation(String rotationName) {
+        return switch (rotationName) {
+            case "clockwise_90" -> Rotation.CLOCKWISE_90;
+            case "clockwise_180" -> Rotation.CLOCKWISE_180;
+            case "counterclockwise_90" -> Rotation.COUNTERCLOCKWISE_90;
+            default -> Rotation.NONE;
+        };
     }
 
     private static void preloadTemplateChunks(
@@ -3423,12 +3603,16 @@ public final class CobbleventureBootstrap {
         ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             if (dungeons != null && player.serverLevel() == dungeons) {
-                locationTitleStates.remove(player.getUUID());
+                if (locationTitleStates.remove(player.getUUID()) != null) {
+                    LocationAnnouncement.clear(player);
+                }
                 handleCavePortal(player, level, dungeons, gameTime);
                 continue;
             }
             if (player.serverLevel() != level) {
-                locationTitleStates.remove(player.getUUID());
+                if (locationTitleStates.remove(player.getUUID()) != null) {
+                    LocationAnnouncement.clear(player);
+                }
                 continue;
             }
             PokemonCenterDefeatReturn.ensureFallback(
@@ -3502,18 +3686,25 @@ public final class CobbleventureBootstrap {
         }
         state.shown = candidate;
         if (candidate.isEmpty()) {
+            LocationAnnouncement.clear(player);
             return;
         }
 
         if (sample.kind().equals("town")) {
             SettlementPlan settlement = activeSettlements.get(sample.owner());
             if (settlement != null) {
+                GymInteriorSystem.GymArrivalInfo gym =
+                    GymInteriorSystem.arrivalInfo(settlement.id(), player);
                 showLocationTitle(
                     player,
                     Component.literal(settlement.displayName()).withStyle(ChatFormatting.GOLD),
                     Component.translatable(
                         "message.cobbleventure_bootstrap.location_title.town"
                     ).withStyle(ChatFormatting.GRAY),
+                    gym == null ? Component.empty() : Component.literal(
+                        gym.displayName() + " · " + gymTypeDisplayName(gym.theme())
+                            + " 타입 · " + (gym.cleared() ? "클리어" : "미클리어")
+                    ),
                     true
                 );
             }
@@ -3525,8 +3716,33 @@ public final class CobbleventureBootstrap {
             Component.translatable(
                 "message.cobbleventure_bootstrap.location_title.route"
             ).withStyle(ChatFormatting.GRAY),
+            Component.empty(),
             false
         );
+    }
+
+    private static String gymTypeDisplayName(String type) {
+        return switch (type) {
+            case "normal" -> "노말";
+            case "fire" -> "불꽃";
+            case "water" -> "물";
+            case "electric" -> "전기";
+            case "grass" -> "풀";
+            case "ice" -> "얼음";
+            case "fighting" -> "격투";
+            case "poison" -> "독";
+            case "ground" -> "땅";
+            case "flying" -> "비행";
+            case "psychic" -> "에스퍼";
+            case "bug" -> "벌레";
+            case "rock" -> "바위";
+            case "ghost" -> "고스트";
+            case "dragon" -> "드래곤";
+            case "dark" -> "악";
+            case "steel" -> "강철";
+            case "fairy" -> "페어리";
+            default -> type;
+        };
     }
 
     private static Component routeDisplayName(String routeId) {
@@ -3552,9 +3768,10 @@ public final class CobbleventureBootstrap {
     }
 
     private static void showLocationTitle(
-        ServerPlayer player, Component title, Component subtitle, boolean town
+        ServerPlayer player, Component title, Component subtitle,
+        Component detail, boolean town
     ) {
-        LocationAnnouncement.show(player, title, subtitle, town);
+        LocationAnnouncement.show(player, title, subtitle, detail, town);
     }
 
     private static boolean handleCavePortal(
@@ -3788,7 +4005,7 @@ public final class CobbleventureBootstrap {
         );
         LOGGER.info(
             "Background town initialization scheduled: settlement={}, chunksPerTick={}",
-            next.id(), townChunkLoadBudget(next)
+            next.id(), townChunkLoadBudget(next, false)
         );
     }
 
@@ -3911,9 +4128,18 @@ public final class CobbleventureBootstrap {
                 if (NativeWorldGeneration.usesNativeGenerator(
                     job.level.getChunkSource().getGenerator()
                 )) {
+                    HexSettlement hexSettlement = job.runtime.hexWorld().settlements()
+                        .get(settlement.id());
+                    String biome = hexSettlement == null
+                        ? "" : hexSettlement.townBiome();
+                    long baseSeed = job.runtime.hexWorld().seed()
+                        ^ ((long) settlement.id().hashCode() << 32);
+                    int[] streetDecorations = decoratePlannedTownStreets(
+                        job.level, job.runtime.hexWorld(), settlement, biome, baseSeed
+                    );
                     LOGGER.info(
-                        "Town post-landscaping skipped because native chunk generation already decorates it: settlement={}",
-                        settlement.id()
+                        "Native town natural landscaping skipped; planned street decorations placed: settlement={}, streetLamps={}, streetTrees={}",
+                        settlement.id(), streetDecorations[0], streetDecorations[1]
                     );
                 } else {
                     decorateTownLandscape(job.level, job.runtime.hexWorld(), settlement);
@@ -3967,7 +4193,7 @@ public final class CobbleventureBootstrap {
     private static void loadTownChunksIncrementally(
         WorldInitializationJob job, SettlementPlan settlement
     ) {
-        int budget = townChunkLoadBudget(settlement);
+        int budget = townChunkLoadBudget(settlement, job.player != null);
         int requested = 0;
         while (job.nextTownChunk < job.townChunks.size() && requested < budget) {
             ChunkPos chunk = job.townChunks.get(job.nextTownChunk++);
@@ -3981,8 +4207,10 @@ public final class CobbleventureBootstrap {
         }
     }
 
-    private static int townChunkLoadBudget(SettlementPlan settlement) {
-        return settlement.id().equals(STARTER_SETTLEMENT)
+    private static int townChunkLoadBudget(
+        SettlementPlan settlement, boolean playerTriggered
+    ) {
+        return playerTriggered || settlement.id().equals(STARTER_SETTLEMENT)
             ? STARTER_TOWN_CHUNKS_PER_TICK
             : BACKGROUND_TOWN_CHUNKS_PER_TICK;
     }
@@ -4041,6 +4269,12 @@ public final class CobbleventureBootstrap {
                 center.translate(road.x2(), road.z2()),
                 settlement.roadProfile().width()
             );
+        }
+        for (TownDecoration decoration : layout.decorations()) {
+            chunks.add(ChunkPos.asLong(
+                (center.x() + decoration.x()) >> 4,
+                (center.z() + decoration.z()) >> 4
+            ));
         }
         for (long column : roadColumns) {
             chunks.add(ChunkPos.asLong(
@@ -6805,6 +7039,17 @@ public final class CobbleventureBootstrap {
         if (sample.kind().equals("route") && sample.surfaceStyle().equals("road")) {
             return roadColumnPlan(world, sample.owner(), x, z).groundY();
         }
+        int groundY = baseTerrainGroundY(world, sample, x, z);
+        if (isAquatic(sample)
+            || "cobbleventure:field_move/rock_climb".equals(sample.accessRequirement())) {
+            return groundY;
+        }
+        return stabilizeNarrowTerrainFeature(world, groundY, x, z);
+    }
+
+    private static int baseTerrainGroundY(
+        HexWorldPlan world, TerrainSample sample, double x, double z
+    ) {
         int rawHeight = rawTerrainHeight(world, sample, x, z);
         if (isAquatic(sample)) {
             return aquaticGroundY(world, sample, x, z, rawHeight);
@@ -6817,6 +7062,50 @@ public final class CobbleventureBootstrap {
             return rawHeight;
         }
         return blendLandTowardWater(world, x, z, rawHeight);
+    }
+
+    private static int stabilizeNarrowTerrainFeature(
+        HexWorldPlan world, int groundY, double x, double z
+    ) {
+        int[][] offsets = {
+            {-6, -6}, {0, -6}, {6, -6},
+            {-6, 0},            {6, 0},
+            {-6, 6},  {0, 6},  {6, 6},
+            {-3, -3}, {0, -3}, {3, -3},
+            {-3, 0},            {3, 0},
+            {-3, 3},  {0, 3},  {3, 3}
+        };
+        List<Integer> nearbyHeights = new ArrayList<>(offsets.length + 1);
+        nearbyHeights.add(groundY);
+        for (int[] offset : offsets) {
+            TerrainSample nearby = terrainAt(
+                world, x + offset[0], z + offset[1]
+            );
+            if (nearby == null || isAquatic(nearby)
+                || nearby.surfaceStyle().equals("road")
+                || "cobbleventure:field_move/rock_climb".equals(
+                    nearby.accessRequirement()
+                )) {
+                continue;
+            }
+            nearbyHeights.add(baseTerrainGroundY(
+                world, nearby, x + offset[0], z + offset[1]
+            ));
+        }
+        if (nearbyHeights.size() < 10) {
+            return groundY;
+        }
+        nearbyHeights.sort(Integer::compareTo);
+        int median = nearbyHeights.get(nearbyHeights.size() / 2);
+        if (Math.abs(groundY - median) < 5) {
+            return groundY;
+        }
+        int lowerQuartile = nearbyHeights.get(nearbyHeights.size() / 4);
+        int upperQuartile = nearbyHeights.get(nearbyHeights.size() * 3 / 4);
+        if (upperQuartile - lowerQuartile > 4) {
+            return groundY;
+        }
+        return median + Integer.signum(groundY - median);
     }
 
     private static RoadColumnPlan roadColumnPlan(
@@ -8420,14 +8709,17 @@ public final class CobbleventureBootstrap {
             BlockPos ground = new BlockPos(x, groundY, z);
             long seed = baseSeed ^ x * 341873128712L ^ z * 132897987541L;
             if (decoration.type().equals("street_lamp")) {
+                clearVegetationColumn(level, x, groundY, z, 8);
                 if (isOpenTownLandscapeSite(level, world, sample, x, groundY, z, 0, 5)
                     && placeTownStreetLamp(level, world, settlement, ground)) {
                     lamps++;
                 }
-            } else if (decoration.type().equals("street_tree")
-                && isOpenTownLandscapeSite(level, world, sample, x, groundY, z, 2, 7)
-                && placeTownStreetTree(level, biome, ground, seed)) {
-                trees++;
+            } else if (decoration.type().equals("street_tree")) {
+                clearVegetationAroundPlot(level, x - 2, z - 2, 5, 5, 0);
+                if (isOpenTownLandscapeSite(level, world, sample, x, groundY, z, 2, 7)
+                    && placeTownStreetTree(level, biome, ground, seed)) {
+                    trees++;
+                }
             }
         }
         return new int[] {lamps, trees};
@@ -9577,12 +9869,16 @@ public final class CobbleventureBootstrap {
         int dx = end.x() - start.x();
         int dz = end.z() - start.z();
         int steps = Math.max(Math.abs(dx), Math.abs(dz));
+        Set<Long> roadColumns = new HashSet<>();
         for (int step = 0; step <= steps; step++) {
             double factor = steps == 0 ? 0.0D : step / (double) steps;
             int x = (int) Math.round(start.x() + dx * factor);
             int z = (int) Math.round(start.z() + dz * factor);
-            drawRoadDisk(level, world, connection, new Point(x, z), radius);
+            drawRoadDisk(
+                level, world, connection, new Point(x, z), radius, roadColumns
+            );
         }
+        blendTerrainToConfiguredRoad(level, roadColumns);
     }
 
     private static void drawRoadDisk(
@@ -9591,6 +9887,19 @@ public final class CobbleventureBootstrap {
         ConnectionPath connection,
         Point center,
         double radius
+    ) {
+        Set<Long> roadColumns = new HashSet<>();
+        drawRoadDisk(level, world, connection, center, radius, roadColumns);
+        blendTerrainToConfiguredRoad(level, roadColumns);
+    }
+
+    private static void drawRoadDisk(
+        ServerLevel level,
+        HexWorldPlan world,
+        ConnectionPath connection,
+        Point center,
+        double radius,
+        Set<Long> roadColumns
     ) {
         TerrainSample roadSample = new TerrainSample(
             connection.biome(), connection.boundaryProfile(),
@@ -9629,6 +9938,7 @@ public final class CobbleventureBootstrap {
                     roadSurfaceBlock(world, roadSample, x, z),
                     2
                 );
+                roadColumns.add(blockColumnKey(x, z));
                 for (int y = groundY + 1; y <= groundY + 4; y++) {
                     level.setBlock(
                         new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2
@@ -10210,6 +10520,8 @@ public final class CobbleventureBootstrap {
     record RoadElevationKey(long seed, String routeId) {}
 
     record RoadColumnPlan(int groundY, boolean slab) {}
+
+    record RoadTerrainShoulder(int roadY, int distance, long sourceRoadKey) {}
 
     record RoadProjection(int segment, double factor) {}
 

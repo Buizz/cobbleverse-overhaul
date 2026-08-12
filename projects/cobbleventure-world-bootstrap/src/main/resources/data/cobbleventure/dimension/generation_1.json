@@ -18,12 +18,14 @@
         "minecraft:windswept_hills",
         "minecraft:windswept_gravelly_hills",
         "minecraft:stony_peaks",
+        "minecraft:snowy_plains",
         "minecraft:snowy_slopes",
         "minecraft:river",
         "minecraft:beach",
         "minecraft:deep_ocean",
         "minecraft:warm_ocean",
         "minecraft:desert",
+        "minecraft:badlands",
         "minecraft:sparse_jungle",
         "minecraft:jungle"
       ]

@@ -196,13 +196,6 @@ final class PokemonCenterDefeatReturn {
         BlockPos position = new BlockPos(
             data.getInt(CHECKPOINT_X), data.getInt(CHECKPOINT_Y), data.getInt(CHECKPOINT_Z)
         );
-        BlockPos exit = data.contains(CHECKPOINT_EXIT_X)
-            ? new BlockPos(
-                data.getInt(CHECKPOINT_EXIT_X),
-                data.getInt(CHECKPOINT_EXIT_Y),
-                data.getInt(CHECKPOINT_EXIT_Z)
-            )
-            : position;
         destination.getChunk(position);
         player.addEffect(new MobEffectInstance(
             MobEffects.DARKNESS,
@@ -219,7 +212,6 @@ final class PokemonCenterDefeatReturn {
         ACTIVE_RECOVERIES.put(player.getUUID(), new RecoverySequence(
             dimension,
             position,
-            exit,
             data.getBoolean(CHECKPOINT_IS_CENTER),
             gameTime,
             settlement
@@ -272,10 +264,6 @@ final class PokemonCenterDefeatReturn {
                 continue;
             }
             iterator.remove();
-            ServerLevel destination = server.getLevel(recovery.dimension);
-            if (destination != null && recovery.center) {
-                teleport(player, destination, recovery.exit);
-            }
             player.removeEffect(MobEffects.DARKNESS);
             player.sendSystemMessage(Component.translatable(
                 recovery.center
@@ -327,7 +315,6 @@ final class PokemonCenterDefeatReturn {
     private static final class RecoverySequence {
         private final ResourceKey<Level> dimension;
         private final BlockPos position;
-        private final BlockPos exit;
         private final boolean center;
         private final long startedAt;
         private final BattleLossEconomy.Settlement settlement;
@@ -337,14 +324,13 @@ final class PokemonCenterDefeatReturn {
         private boolean completedDialogue;
 
         private RecoverySequence(
-            ResourceKey<Level> dimension, BlockPos position, BlockPos exit,
+            ResourceKey<Level> dimension, BlockPos position,
             boolean center,
             long startedAt,
             BattleLossEconomy.Settlement settlement
         ) {
             this.dimension = dimension;
             this.position = position;
-            this.exit = exit;
             this.center = center;
             this.startedAt = startedAt;
             this.settlement = settlement;

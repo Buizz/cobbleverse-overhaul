@@ -598,6 +598,33 @@ class DataModBuilderTests(unittest.TestCase):
         )
         self.assertNotIn("settings", generator)
 
+    def test_generation_dimension_registers_every_authored_world_biome(self) -> None:
+        world_path = (
+            REPOSITORY_ROOT
+            / build_data_mod.HEX_WORLD_CONFIG_DIR
+            / "generation_1.json"
+        )
+        dimension_path = (
+            REPOSITORY_ROOT
+            / build_data_mod.SOURCE
+            / "data/cobbleventure/dimension/generation_1.json"
+        )
+        world = json.loads(world_path.read_text(encoding="utf-8"))
+        dimension = json.loads(dimension_path.read_text(encoding="utf-8"))
+        registered = set(dimension["generator"]["biome_source"]["biomes"])
+        authored = {
+            entry["biome"]
+            for entry in world.get("tiles", [])
+            if isinstance(entry, dict) and isinstance(entry.get("biome"), str)
+        }
+        authored.update(
+            entry["town_biome"]
+            for entry in world.get("settlements", [])
+            if isinstance(entry, dict) and isinstance(entry.get("town_biome"), str)
+        )
+
+        self.assertEqual(set(), authored - registered)
+
     def test_sealed_dark_forest_has_no_native_spawns(self) -> None:
         path = (
             REPOSITORY_ROOT

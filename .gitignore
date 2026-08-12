@@ -48,6 +48,9 @@ tools/content-manager/settings.local.json
 __pycache__/
 *.py[cod]
 
+# Local licensed/reference assets (never commit source audio)
+/local-assets/music/
+
 # Generated distribution and staging output
 dist/
 staging/

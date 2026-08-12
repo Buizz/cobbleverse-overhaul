@@ -16,7 +16,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Sends main-series-style town and route plaques to the entering player. */
 final class LocationAnnouncement {
-    private static final String NETWORK_VERSION = "1";
+    private static final String NETWORK_VERSION = "2";
 
     private LocationAnnouncement() {}
 
@@ -25,7 +25,21 @@ final class LocationAnnouncement {
     }
 
     static void show(ServerPlayer player, Component title, Component subtitle, boolean town) {
-        PacketDistributor.sendToPlayer(player, new OpenPayload(title, subtitle, town));
+        show(player, title, subtitle, Component.empty(), town);
+    }
+
+    static void show(
+        ServerPlayer player, Component title, Component subtitle, Component detail, boolean town
+    ) {
+        PacketDistributor.sendToPlayer(player, new OpenPayload(title, subtitle, detail, town));
+    }
+
+    static void clear(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(
+            player, new OpenPayload(
+                Component.empty(), Component.empty(), Component.empty(), false
+            )
+        );
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -34,11 +48,17 @@ final class LocationAnnouncement {
     }
 
     private static void open(OpenPayload payload, IPayloadContext context) {
-        LocationAnnouncementOverlay.show(payload.title(), payload.subtitle(), payload.town());
+        if (payload.title().getString().isEmpty()) {
+            LocationAnnouncementOverlay.clear();
+        } else {
+            LocationAnnouncementOverlay.show(
+                payload.title(), payload.subtitle(), payload.detail(), payload.town()
+            );
+        }
     }
 
     private record OpenPayload(
-        Component title, Component subtitle, boolean town
+        Component title, Component subtitle, Component detail, boolean town
     ) implements CustomPacketPayload {
         private static final Type<OpenPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(
             CobbleventureBootstrap.MOD_ID, "location_announcement"
@@ -49,6 +69,8 @@ final class LocationAnnouncement {
                 OpenPayload::title,
                 ComponentSerialization.TRUSTED_STREAM_CODEC,
                 OpenPayload::subtitle,
+                ComponentSerialization.TRUSTED_STREAM_CODEC,
+                OpenPayload::detail,
                 StreamCodec.of(
                     (buffer, value) -> buffer.writeBoolean(value),
                     RegistryFriendlyByteBuf::readBoolean

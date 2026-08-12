@@ -9,6 +9,7 @@
     "namespace",
     "datapack_required",
     "source",
+    "music_notification",
     "tracks",
     "review_candidates"
   ],
@@ -23,11 +24,25 @@
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["label", "audio_in_repository", "notes"],
+      "required": ["label", "audio_tracked_by_git", "local_directory", "notes"],
       "properties": {
         "label": { "type": "string", "minLength": 1 },
-        "audio_in_repository": { "const": false },
+        "audio_tracked_by_git": { "const": false },
+        "local_directory": {
+          "type": "string",
+          "pattern": "^local-assets/music/[a-z0-9_.-]+$"
+        },
         "notes": { "type": "string", "minLength": 1 }
+      }
+    },
+    "music_notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "album", "author"],
+      "properties": {
+        "enabled": { "const": true },
+        "album": { "type": "string", "minLength": 1 },
+        "author": { "type": "string", "minLength": 1 }
       }
     },
     "tracks": {

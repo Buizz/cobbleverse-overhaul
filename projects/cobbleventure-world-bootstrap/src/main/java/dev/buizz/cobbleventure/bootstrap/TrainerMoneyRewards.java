@@ -13,6 +13,7 @@ import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.logging.LogUtils;
 import fr.harmex.cobbledollars.common.utils.extensions.PlayerExtensionKt;
 import java.math.BigInteger;
 import java.util.HashMap;
@@ -31,9 +32,11 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import org.slf4j.Logger;
 
 /** Pays configured trainer prizes through CobbleDollars, including held-item bonuses. */
 final class TrainerMoneyRewards {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final long ACTIVE_RETENTION_TICKS = 20L * 10L;
     private static final long COMPLETED_RETENTION_TICKS = 20L * 5L;
     private static final long PREPARED_RETENTION_TICKS = 20L * 15L;
@@ -69,7 +72,7 @@ final class TrainerMoneyRewards {
             entry -> entry.getValue().expiresAt < gameTime
         );
         PREPARED_REWARDS.entrySet().removeIf(
-            entry -> entry.getValue().expiresAt < gameTime
+            entry -> entry.getValue().battleId == null && entry.getValue().expiresAt < gameTime
         );
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             PokemonBattle battle = BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player);
@@ -86,6 +89,10 @@ final class TrainerMoneyRewards {
             PreparedReward reward = PREPARED_REWARDS.get(playerActor.getUuid());
             if (reward != null && reward.battleId == null) {
                 reward.battleId = event.getBattle().getBattleId();
+                LOGGER.info(
+                    "Trainer reward bound: player={}, battle={}, base={}, calculation={}",
+                    playerActor.getUuid(), reward.battleId, reward.baseAmount, reward.calculation
+                );
             }
         }
     }
@@ -134,7 +141,17 @@ final class TrainerMoneyRewards {
                     && playerActor.getEntity() != null) {
                     pay(
                         playerActor.getEntity(), reward.baseAmount, reward.heldBonus,
-                        reward.heldItemId, reward.heldMultiplier
+                        reward.heldItemId, reward.heldMultiplier, reward.calculation
+                    );
+                } else if (reward == null) {
+                    LOGGER.warn(
+                        "Trainer victory had no prepared reward: player={}, battle={}",
+                        playerActor.getUuid(), event.getBattle().getBattleId()
+                    );
+                } else {
+                    LOGGER.warn(
+                        "Trainer reward battle mismatch: player={}, expected={}, actual={}",
+                        playerActor.getUuid(), reward.battleId, event.getBattle().getBattleId()
                     );
                 }
                 seal(playerActor.getUuid(), event.getBattle().getBattleId(), gameTime);
@@ -225,18 +242,30 @@ final class TrainerMoneyRewards {
                             : IntegerArgumentType.getInteger(context, "amount"),
                         BoolArgumentType.getBool(context, "held_bonus"),
                         StringArgumentType.getString(context, "held_item"),
-                        IntegerArgumentType.getInteger(context, "held_multiplier")
+                        IntegerArgumentType.getInteger(context, "held_multiplier"),
+                        regional
+                            ? regionalCalculation(
+                                EntityArgument.getPlayer(context, "player"),
+                                IntegerArgumentType.getInteger(context, "fallback_level"),
+                                IntegerArgumentType.getInteger(context, "per_level"),
+                                IntegerArgumentType.getInteger(context, "offset")
+                            )
+                            : "고정 상금"
                     ))));
     }
 
     private static int prepare(
         ServerPlayer player, int baseAmount, boolean heldBonus,
-        String heldItemId, int heldMultiplier
+        String heldItemId, int heldMultiplier, String calculation
     ) {
         PREPARED_REWARDS.put(player.getUUID(), new PreparedReward(
-            baseAmount, heldBonus, heldItemId, heldMultiplier,
+            baseAmount, heldBonus, heldItemId, heldMultiplier, calculation,
             player.serverLevel().getGameTime() + PREPARED_RETENTION_TICKS
         ));
+        LOGGER.info(
+            "Trainer reward prepared: player={}, base={}, calculation={}, heldBonus={}",
+            player.getGameProfile().getName(), baseAmount, calculation, heldBonus
+        );
         return 1;
     }
 
@@ -257,27 +286,50 @@ final class TrainerMoneyRewards {
                             : IntegerArgumentType.getInteger(context, "amount"),
                         BoolArgumentType.getBool(context, "held_bonus"),
                         StringArgumentType.getString(context, "held_item"),
-                        IntegerArgumentType.getInteger(context, "held_multiplier")
+                        IntegerArgumentType.getInteger(context, "held_multiplier"),
+                        "직접 지급"
                     ))));
     }
 
     private static int regionalAmount(ServerPlayer player, int fallback, int perLevel, int offset) {
-        Integer regional = CobbleventureBootstrap.averageWildSpawnLevel(
-            player.serverLevel(), player.getX(), player.getZ()
-        );
-        int level = regional == null ? fallback : Math.max(1, Math.min(100, regional));
+        int level = regionalLevel(player, fallback);
         return Math.max(0, level * perLevel + offset);
     }
 
+    private static String regionalCalculation(
+        ServerPlayer player, int fallback, int perLevel, int offset
+    ) {
+        int level = regionalLevel(player, fallback);
+        String adjustment = offset == 0 ? "" : offset > 0 ? " + " + offset : " - " + -offset;
+        return "지역 Lv." + level + " × " + perLevel + adjustment;
+    }
+
+    private static int regionalLevel(ServerPlayer player, int fallback) {
+        Integer regional = CobbleventureBootstrap.averageWildSpawnLevel(
+            player.serverLevel(), player.getX(), player.getZ()
+        );
+        return regional == null ? fallback : Math.max(1, Math.min(100, regional));
+    }
+
     private static int pay(ServerPlayer player, int baseAmount, boolean heldBonus,
-                           String heldItemId, int heldMultiplier) {
+                           String heldItemId, int heldMultiplier, String calculation) {
         long calculated = Math.max(0L, baseAmount);
-        if (heldBonus && participatedWithHeldItem(player, heldItemId)) calculated *= heldMultiplier;
+        boolean multiplierApplied = heldBonus && participatedWithHeldItem(player, heldItemId);
+        if (multiplierApplied) calculated *= heldMultiplier;
         int amount = (int)Math.min(Integer.MAX_VALUE, calculated);
         if (amount == 0) return 0;
         BigInteger balance = PlayerExtensionKt.getCobbleDollars(player).max(BigInteger.ZERO);
         PlayerExtensionKt.setCobbleDollars(player, balance.add(BigInteger.valueOf(amount)));
-        player.sendSystemMessage(Component.literal("트레이너 상금 " + amount + " 코블달러를 받았습니다."));
+        String multiplier = multiplierApplied ? " × 부적금화 " + heldMultiplier : "";
+        player.sendSystemMessage(Component.literal(
+            "[Cobbleventure 트레이너 상금] " + amount + " 코블달러 ("
+                + calculation + multiplier + ")"
+        ));
+        LOGGER.info(
+            "Trainer reward paid: player={}, amount={}, calculation={}, heldMultiplier={}",
+            player.getGameProfile().getName(), amount, calculation,
+            multiplierApplied ? heldMultiplier : 1
+        );
         return amount;
     }
 
@@ -310,17 +362,19 @@ final class TrainerMoneyRewards {
         private final boolean heldBonus;
         private final String heldItemId;
         private final int heldMultiplier;
+        private final String calculation;
         private final long expiresAt;
         private UUID battleId;
 
         private PreparedReward(
             int baseAmount, boolean heldBonus, String heldItemId,
-            int heldMultiplier, long expiresAt
+            int heldMultiplier, String calculation, long expiresAt
         ) {
             this.baseAmount = baseAmount;
             this.heldBonus = heldBonus;
             this.heldItemId = heldItemId;
             this.heldMultiplier = heldMultiplier;
+            this.calculation = calculation;
             this.expiresAt = expiresAt;
         }
     }

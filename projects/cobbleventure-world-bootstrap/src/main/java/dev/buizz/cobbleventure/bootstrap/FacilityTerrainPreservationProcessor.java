@@ -48,7 +48,11 @@ public final class FacilityTerrainPreservationProcessor extends BlockIgnoreProce
             && isGeneratedRoadSurface(existing)) {
             return null;
         }
-        if (TEMPLATE_TERRAIN.stream().anyMatch(state::is)) {
+        // Ignore only the terrain layer embedded under an imported facility.
+        // Decorative flowers, ferns, grass and moss authored above the floor are
+        // part of the building and must survive structure placement.
+        if (current.pos().getY() <= groundY
+            && TEMPLATE_TERRAIN.stream().anyMatch(state::is)) {
             return null;
         }
         return current;

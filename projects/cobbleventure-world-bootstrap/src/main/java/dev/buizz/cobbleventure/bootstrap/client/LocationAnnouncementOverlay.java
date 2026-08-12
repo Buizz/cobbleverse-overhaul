@@ -14,7 +14,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 
-/** A compact lower-left location plaque instead of a center-screen title. */
+/** A top-left entry plaque that settles into a persistent current-area label. */
 @EventBusSubscriber(modid = CobbleventureBootstrap.MOD_ID, value = Dist.CLIENT)
 public final class LocationAnnouncementOverlay {
     private static final ResourceLocation LAYER = ResourceLocation.fromNamespaceAndPath(
@@ -22,15 +22,26 @@ public final class LocationAnnouncementOverlay {
     );
     private static final int DURATION_TICKS = 90;
     private static Announcement announcement;
+    private static CurrentArea currentArea;
 
     private LocationAnnouncementOverlay() {}
 
-    public static void show(Component title, Component subtitle, boolean town) {
-        announcement = new Announcement(title, subtitle, town, System.nanoTime());
+    public static void show(
+        Component title, Component subtitle, Component detail, boolean town
+    ) {
+        announcement = new Announcement(title, subtitle, detail, town, System.nanoTime());
+        currentArea = new CurrentArea(title, town);
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null) {
-            minecraft.player.playSound(SoundEvents.UI_CARTOGRAPHY_TABLE_TAKE_RESULT, 0.45F, 1.15F);
+            minecraft.player.playSound(
+                SoundEvents.UI_CARTOGRAPHY_TABLE_TAKE_RESULT, 0.45F, 1.15F
+            );
         }
+    }
+
+    public static void clear() {
+        announcement = null;
+        currentArea = null;
     }
 
     @SubscribeEvent
@@ -39,33 +50,42 @@ public final class LocationAnnouncementOverlay {
     }
 
     private static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
-        Announcement current = announcement;
         Minecraft minecraft = Minecraft.getInstance();
-        if (current == null || minecraft.options.hideGui) return;
+        if (minecraft.options.hideGui) return;
 
-        double elapsedTicks = (System.nanoTime() - current.startedAt()) / 50_000_000.0D;
-        if (elapsedTicks >= DURATION_TICKS) {
+        Announcement current = announcement;
+        if (current != null) {
+            double elapsedTicks = (System.nanoTime() - current.startedAt()) / 50_000_000.0D;
+            if (elapsedTicks < DURATION_TICKS) {
+                renderAnnouncement(graphics, minecraft.font, current, elapsedTicks);
+                return;
+            }
             announcement = null;
-            return;
         }
+        if (currentArea != null) {
+            renderCurrentArea(graphics, minecraft.font, currentArea);
+        }
+    }
 
-        Font font = minecraft.font;
-        int maximumTextWidth = Math.max(font.width(current.title()), font.width(current.subtitle()));
+    private static void renderAnnouncement(
+        GuiGraphics graphics, Font font, Announcement current, double elapsedTicks
+    ) {
+        int maximumTextWidth = Math.max(
+            Math.max(font.width(current.title()), font.width(current.subtitle())),
+            font.width(current.detail())
+        );
         int plaqueWidth = Math.max(146, Math.min(238, maximumTextWidth + 34));
-        int plaqueHeight = 43;
+        boolean hasDetail = !current.detail().getString().isEmpty();
+        int plaqueHeight = hasDetail ? 57 : 43;
         double entrance = easeOutCubic(clamp(elapsedTicks / 10.0D));
         double exit = easeInCubic(clamp((elapsedTicks - 76.0D) / 14.0D));
-        int x = 8 + (int)Math.round((-plaqueWidth - 18) * (1.0D - entrance) - plaqueWidth * exit);
-        int y = Math.max(48, graphics.guiHeight() - plaqueHeight - 54);
-        int accent = current.town() ? 0xFFFFC84A : 0xFF77C9FF;
+        int x = 8 + (int)Math.round(
+            (-plaqueWidth - 18) * (1.0D - entrance) - plaqueWidth * exit
+        );
+        int y = 8;
 
         RenderSystem.enableBlend();
-        graphics.fill(x + 4, y + 4, x + plaqueWidth + 4, y + plaqueHeight + 4, 0x50000000);
-        graphics.fill(x, y, x + plaqueWidth, y + plaqueHeight, 0xD91A1D25);
-        graphics.fill(x, y, x + 5, y + plaqueHeight, accent);
-        graphics.fill(x + 5, y, x + plaqueWidth, y + 2, 0xA8FFFFFF);
-        graphics.fill(x + 5, y + plaqueHeight - 2, x + plaqueWidth, y + plaqueHeight, 0x70000000);
-
+        drawPlaque(graphics, x, y, plaqueWidth, plaqueHeight, accentColor(current.town()));
         String visibleTitle = font.plainSubstrByWidth(
             current.title().getString(), plaqueWidth - 22
         );
@@ -74,7 +94,47 @@ public final class LocationAnnouncementOverlay {
         );
         graphics.drawString(font, visibleTitle, x + 13, y + 9, 0xFFFFFFFF, true);
         graphics.drawString(font, visibleSubtitle, x + 13, y + 25, 0xFFB9BDC8, false);
+        if (hasDetail) {
+            String visibleDetail = font.plainSubstrByWidth(
+                current.detail().getString(), plaqueWidth - 22
+            );
+            int detailColor = current.detail().getString().endsWith("클리어")
+                && !current.detail().getString().endsWith("미클리어")
+                    ? 0xFF8DE59B : 0xFFD8D0AA;
+            graphics.drawString(font, visibleDetail, x + 13, y + 39, detailColor, false);
+        }
         RenderSystem.disableBlend();
+    }
+
+    private static void renderCurrentArea(
+        GuiGraphics graphics, Font font, CurrentArea area
+    ) {
+        int plaqueWidth = Math.max(88, Math.min(190, font.width(area.title()) + 29));
+        int plaqueHeight = 23;
+        int x = 8;
+        int y = 8;
+
+        RenderSystem.enableBlend();
+        drawPlaque(graphics, x, y, plaqueWidth, plaqueHeight, accentColor(area.town()));
+        String visibleTitle = font.plainSubstrByWidth(
+            area.title().getString(), plaqueWidth - 22
+        );
+        graphics.drawString(font, visibleTitle, x + 13, y + 7, 0xFFFFFFFF, true);
+        RenderSystem.disableBlend();
+    }
+
+    private static void drawPlaque(
+        GuiGraphics graphics, int x, int y, int width, int height, int accent
+    ) {
+        graphics.fill(x + 4, y + 4, x + width + 4, y + height + 4, 0x50000000);
+        graphics.fill(x, y, x + width, y + height, 0xD91A1D25);
+        graphics.fill(x, y, x + 5, y + height, accent);
+        graphics.fill(x + 5, y, x + width, y + 2, 0xA8FFFFFF);
+        graphics.fill(x + 5, y + height - 2, x + width, y + height, 0x70000000);
+    }
+
+    private static int accentColor(boolean town) {
+        return town ? 0xFFFFC84A : 0xFF77C9FF;
     }
 
     private static double clamp(double value) {
@@ -91,6 +151,8 @@ public final class LocationAnnouncementOverlay {
     }
 
     private record Announcement(
-        Component title, Component subtitle, boolean town, long startedAt
+        Component title, Component subtitle, Component detail, boolean town, long startedAt
     ) {}
+
+    private record CurrentArea(Component title, boolean town) {}
 }

@@ -10,7 +10,11 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -88,7 +92,8 @@ final class GymInteriorSystem {
 
     static void prepareExterior(
         ServerLevel level, String settlementId,
-        CobbleventureBootstrap.BlockPoint structureOrigin
+        CobbleventureBootstrap.BlockPoint structureOrigin,
+        String rotationName
     ) {
         GymConfig gym = GYMS.get(settlementId);
         if (gym == null || gym.instanceOrigin == null) {
@@ -97,7 +102,22 @@ final class GymInteriorSystem {
         BlockPos origin = structureOrigin.toBlockPos();
         sanitizeTemplate(level, gym.exteriorStructure, origin);
         applyExteriorPalette(level, gym.exteriorStructure, origin, gym.theme);
-        BlockPos door = origin.offset(gym.doorOffset.x, gym.doorOffset.y, gym.doorOffset.z);
+        ResourceLocation structureId = ResourceLocation.tryParse(gym.exteriorStructure);
+        var template = structureId == null ? java.util.Optional
+            .<net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate>empty()
+            : level.getStructureManager().get(structureId);
+        if (template.isEmpty()) {
+            return;
+        }
+        Vec3i size = template.orElseThrow().getSize();
+        Rotation exteriorRotation = rotation(rotationName);
+        BlockPoint doorOffset = rotatePoint(
+            gym.doorOffset, size.getX(), size.getZ(), exteriorRotation
+        );
+        BlockPoint outsideOffset = rotatePoint(
+            gym.outsideOffset, size.getX(), size.getZ(), exteriorRotation
+        );
+        BlockPos door = origin.offset(doorOffset.x, doorOffset.y, doorOffset.z);
         BlockPos destination = gym.instanceOrigin.offset(
             gym.entryOffset.x, gym.entryOffset.y, gym.entryOffset.z
         );
@@ -110,11 +130,22 @@ final class GymInteriorSystem {
             gym.exitDoorOffset.x, gym.exitDoorOffset.y, gym.exitDoorOffset.z
         );
         BlockPos outside = origin.offset(
-            gym.outsideOffset.x, gym.outsideOffset.y, gym.outsideOffset.z
+            outsideOffset.x, outsideOffset.y, outsideOffset.z
         );
         registerDoor(level.getServer().getLevel(INTERIORS), exitDoor, new DoorTarget(
             level.dimension(), outside, List.of(), "all", List.of(), List.of()
         ));
+    }
+
+    static GymArrivalInfo arrivalInfo(String settlementId, ServerPlayer player) {
+        GymConfig gym = GYMS.get(settlementId);
+        if (gym == null) {
+            return null;
+        }
+        Objective objective = player.getScoreboard().getObjective(gym.clearObjective);
+        boolean cleared = objective != null
+            && player.getScoreboard().getOrCreatePlayerScore(player, objective).get() > 0;
+        return new GymArrivalInfo(gym.displayName, gym.theme, cleared);
     }
 
     private static void loadConfigs(MinecraftServer server) {
@@ -206,6 +237,7 @@ final class GymInteriorSystem {
         List<GymStaffMember> staffMembers = new ArrayList<>();
         JsonObject staff = gym.getAsJsonObject("staff");
         JsonObject leader = staff.getAsJsonObject("leader");
+        String leaderTrainerId = nullableString(leader, "trainer_id");
         addStaffMember(staffMembers, npcOffsets, nullableString(leader, "trainer_id"), optionalString(leader, "anchor", "leader"), "leader");
         for (JsonElement element : staff.getAsJsonArray("trainers")) {
             JsonObject trainer = element.getAsJsonObject();
@@ -215,9 +247,38 @@ final class GymInteriorSystem {
             );
         }
         return new GymDefinition(
-            requiredString(gym, "id"), requiredString(gym, "theme"),
-            requiredString(exterior, "structure"), List.copyOf(modules), List.copyOf(staffMembers)
+            requiredString(gym, "id"), localizedName(gym.getAsJsonObject("display_name")),
+            requiredString(gym, "theme"), requiredString(exterior, "structure"),
+            clearVariable(leaderTrainerId), List.copyOf(modules), List.copyOf(staffMembers)
         );
+    }
+
+    private static String localizedName(JsonObject value) {
+        if (value == null) return "체육관";
+        if (value.has("ko_kr")) return value.get("ko_kr").getAsString();
+        if (value.has("en_us")) return value.get("en_us").getAsString();
+        return "체육관";
+    }
+
+    private static String clearVariable(String trainerId) {
+        if (trainerId == null || trainerId.isBlank()) {
+            return "cobbleventure:flag/gym/unknown/defeated";
+        }
+        String slug = trainerId.substring(
+            Math.max(trainerId.lastIndexOf('/'), trainerId.lastIndexOf(':')) + 1
+        );
+        return "cobbleventure:flag/gym/kanto/" + slug + "/defeated";
+    }
+
+    private static String flagObjective(String variable) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-1").digest(
+                variable.getBytes(StandardCharsets.UTF_8)
+            );
+            return "cvf_" + HexFormat.of().formatHex(digest).substring(0, 12);
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-1 is unavailable", error);
+        }
     }
 
     private static void addStaffMember(
@@ -293,7 +354,9 @@ final class GymInteriorSystem {
         }
         return new GymConfig(
             settlementId,
+            definition.displayName,
             definition.theme,
+            flagObjective(definition.clearVariable),
             definition.exteriorStructure,
             definition.modules,
             point(entrance, "door_offset", DEFAULT_DOOR),
@@ -617,9 +680,11 @@ final class GymInteriorSystem {
     }
 
     private record GymDefinition(
-        String id, String theme, String exteriorStructure, List<InteriorModule> modules,
-        List<GymStaffMember> staff
+        String id, String displayName, String theme, String exteriorStructure,
+        String clearVariable, List<InteriorModule> modules, List<GymStaffMember> staff
     ) {}
+
+    record GymArrivalInfo(String displayName, String theme, boolean cleared) {}
 
     private record ExteriorPalette(BlockState primary, BlockState secondary, BlockState glass) {}
 
@@ -631,7 +696,9 @@ final class GymInteriorSystem {
 
     private static final class GymConfig {
         final String settlementId;
+        final String displayName;
         final String theme;
+        final String clearObjective;
         final String exteriorStructure;
         final List<InteriorModule> modules;
         final BlockPoint doorOffset;
@@ -647,7 +714,8 @@ final class GymInteriorSystem {
         BlockPos instanceOrigin;
 
         GymConfig(
-            String settlementId, String theme, String exteriorStructure, List<InteriorModule> modules,
+            String settlementId, String displayName, String theme, String clearObjective,
+            String exteriorStructure, List<InteriorModule> modules,
             BlockPoint doorOffset,
             BlockPoint outsideOffset, Direction facing, String conditionMode,
             List<Condition> conditions, List<String> lockedDialogue,
@@ -655,7 +723,9 @@ final class GymInteriorSystem {
             BlockPoint exitDoorOffset, List<GymStaffMember> staff
         ) {
             this.settlementId = settlementId;
+            this.displayName = displayName;
             this.theme = theme;
+            this.clearObjective = clearObjective;
             this.exteriorStructure = exteriorStructure;
             this.modules = modules;
             this.doorOffset = doorOffset;

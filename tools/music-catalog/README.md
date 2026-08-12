@@ -1,7 +1,8 @@
 # 음악 카탈로그
 
-어나더레드 BGM 원본을 저장소에 포함하지 않고, 검토를 통과한 곡의 안정적인
-사운드 ID와 원본 파일명만 관리합니다. 코드와 리소스팩 생성 과정은 반드시
+어나더레드 BGM 원본은 Git에서 제외된 `local-assets/music/another-red-bgm`에
+보관하고, 검토를 통과한 곡의 안정적인 사운드 ID와 원본 파일명만 커밋합니다.
+코드와 리소스팩 생성 과정은 반드시
 `content/catalogs/music-tracks.json`의 `tracks`만 사용합니다.
 
 `review_candidates`는 어나더레드 고유곡일 가능성이 있거나 출처·사용 장면을
@@ -9,26 +10,34 @@
 
 ## 검증
 
-외부 BGM 폴더에 활성 목록의 28곡이 모두 있는지 확인합니다. 파일을 복사하거나
+로컬 BGM 폴더에 활성 목록의 28곡이 모두 있는지 확인합니다. 파일을 복사하거나
 변경하지 않습니다.
 
 ```powershell
 py -3 tools\music-catalog\music_catalog.py `
-  --check-source "G:\포켓몬어나더레드\Pokemon Another Red_PWT_250821_2\Pokemon Another Red_PWT_250821\Audio\BGM"
+  --check-source local-assets\music\another-red-bgm
 ```
 
-## 리소스팩 목록 생성
+## 리소스팩 생성
 
-음원이 없는 `sounds.json`만 생성합니다. 출력 경로는 생성물 디렉터리처럼 Git에서
-제외된 위치를 사용합니다.
+활성 목록의 28곡만 복사해 Paxi가 읽는 리소스팩 ZIP을 생성합니다. 원본 폴더의
+나머지 곡은 ZIP에 포함되지 않습니다.
 
 ```powershell
-py -3 tools\music-catalog\music_catalog.py `
-  --output generated\music-resourcepack\assets\cobbleventure_music\sounds.json
+build.bat music
 ```
 
-생성되는 이벤트는 `cobbleventure_music:music.kanto.pallet_town` 같은 형식입니다.
-실제 음원 조립은 별도 로컬 단계로 둡니다.
+출력 파일은
+`pack/overrides/development-placeholder/config/paxi/resourcepacks/Cobbleventure-Music.zip`
+입니다. ZIP에는 Minecraft 1.21.1 리소스팩 형식 34의 `pack.mcmeta`, `sounds.json`,
+선택한 OGG 파일과 `assets/musicnotification/musics.json`이 들어갑니다. 생성되는
+이벤트는 `cobbleventure_music:music.kanto.pallet_town` 같은 형식입니다.
+
+`build.bat pack`도 리소스팩을 먼저 생성합니다. 로컬 음원 폴더가 없거나 선택한
+파일이 누락되면 오래된 ZIP을 사용하지 않고 빌드가 실패합니다.
+
+Music Notification은 재생 엔진이 아니라 곡 제목·저자·앨범 알림과 주크박스 UI를
+제공합니다. 실제 재생은 위의 표준 사운드 이벤트를 사용합니다.
 
 ## 데이터팩 경계
 
