@@ -295,41 +295,47 @@ public final class BagScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (minecraft != null && minecraft.options.keyInventory.matches(keyCode, scanCode)) {
-            minecraft.setScreen(null);
-            return true;
-        }
         if (Screen.hasControlDown() && keyCode == GLFW.GLFW_KEY_F) {
             setFocused(searchBox);
             searchBox.setFocused(true);
             return true;
         }
-        if (!searchBox.isFocused()) {
-            if (keyCode >= GLFW.GLFW_KEY_1 && keyCode <= GLFW.GLFW_KEY_9 && selectedSlot != null) {
-                assignShortcut(keyCode - GLFW.GLFW_KEY_1);
+        if (searchBox != null && searchBox.isFocused()) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                searchBox.setFocused(false);
+                setFocused(null);
                 return true;
             }
-            if (keyCode == GLFW.GLFW_KEY_0 && selectedSlot != null) {
-                assignShortcut(9);
-                return true;
-            }
-            if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
-                scrollBy(-contentRows);
-                return true;
-            }
-            if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
-                scrollBy(contentRows);
-                return true;
-            }
-            if (keyCode == GLFW.GLFW_KEY_V) {
-                toggleView();
-                return true;
-            }
-            if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
-                && selectedSlot != null) {
-                useSelectedItem();
-                return true;
-            }
+            return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (minecraft != null && minecraft.options.keyInventory.matches(keyCode, scanCode)) {
+            minecraft.setScreen(null);
+            return true;
+        }
+        if (keyCode >= GLFW.GLFW_KEY_1 && keyCode <= GLFW.GLFW_KEY_9 && selectedSlot != null) {
+            assignShortcut(keyCode - GLFW.GLFW_KEY_1);
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_0 && selectedSlot != null) {
+            assignShortcut(9);
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
+            scrollBy(-contentRows);
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
+            scrollBy(contentRows);
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_V) {
+            toggleView();
+            return true;
+        }
+        if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
+            && selectedSlot != null) {
+            useSelectedItem();
+            return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
