@@ -876,10 +876,10 @@ public final class CobbleventureBootstrap {
             level, mouthX, plannedFloorY, mouthZ, forwardX, forwardZ
         );
         level.setBlock(marker, Blocks.LODESTONE.defaultBlockState(), 2);
-        placeCaveMouthLandmark(
+        clearCaveEntrancePassage(
             level, mouthX, plannedFloorY, mouthZ, forwardX, forwardZ
         );
-        clearCaveEntrancePassage(
+        placeCaveMouthLandmark(
             level, mouthX, plannedFloorY, mouthZ, forwardX, forwardZ
         );
         restoreCaveEntranceBarrierRoof(level, world, entrance);
@@ -908,8 +908,11 @@ public final class CobbleventureBootstrap {
             int z = center.z() + (int) Math.round(forwardZ * step);
             approachHeights.add(plannedTerrainGroundY(level, x, z));
         }
-        approachHeights.set(approachLength, baseY);
-        for (int step = approachLength - 1; step >= 0; step--) {
+        int landingStart = Math.max(0, approachLength - 6);
+        for (int step = landingStart; step <= approachLength; step++) {
+            approachHeights.set(step, baseY);
+        }
+        for (int step = landingStart - 1; step >= 0; step--) {
             int nextY = approachHeights.get(step + 1);
             int naturalY = approachHeights.get(step);
             approachHeights.set(
@@ -1353,19 +1356,10 @@ public final class CobbleventureBootstrap {
         double sideZ = forwardX;
         for (int lateral = -5; lateral <= 5; lateral++) {
             int absoluteLateral = Math.abs(lateral);
-            int outerHeight = switch (absoluteLateral) {
-                case 5 -> 4;
-                case 4 -> 6;
-                case 3 -> 7;
-                case 2 -> 9;
-                default -> 10;
-            };
+            int outerHeight = caveMouthOuterHeight(lateral);
             int openingHeight = absoluteLateral <= 3
                 ? caveMouthOpeningHeight(lateral) : -1;
             for (int vertical = 0; vertical <= outerHeight; vertical++) {
-                if (vertical > openingHeight + 1 && absoluteLateral <= 3) {
-                    continue;
-                }
                 if (absoluteLateral <= 3 && vertical <= openingHeight) {
                     continue;
                 }
@@ -1387,6 +1381,41 @@ public final class CobbleventureBootstrap {
                 level.setBlock(new BlockPos(x, floorY + vertical, z), Blocks.AIR.defaultBlockState(), 2);
             }
         }
+        // Rebuild a closed rock shell around the carved passage. The legacy
+        // cutout is much wider than the visible arch, so a roof-only repair
+        // leaves open sides and a hole behind the facade. Preserve only the
+        // central aperture and fill its roof, flanks and rear back into the
+        // mountain. Keep the outward part narrower to avoid a new rock snout.
+        for (int depth = -2; depth <= 22; depth++) {
+            int shellHalfWidth = depth < 0 ? 5 : 8;
+            for (int lateral = -shellHalfWidth;
+                 lateral <= shellHalfWidth; lateral++) {
+                int x = centerX + (int) Math.round(
+                    forwardX * depth + sideX * lateral
+                );
+                int z = centerZ + (int) Math.round(
+                    forwardZ * depth + sideZ * lateral
+                );
+                int absoluteLateral = Math.abs(lateral);
+                int openingHeight = absoluteLateral <= 3
+                    ? caveMouthOpeningHeight(lateral) : -1;
+                int outerHeight = caveMouthOuterHeight(lateral);
+                for (int vertical = 0; vertical <= outerHeight; vertical++) {
+                    if (absoluteLateral <= 3
+                        && vertical <= openingHeight) {
+                        continue;
+                    }
+                    BlockState roof = Math.floorMod(
+                        x + z + depth + vertical, 5
+                    ) == 0
+                        ? Blocks.ANDESITE.defaultBlockState()
+                        : Blocks.STONE.defaultBlockState();
+                    level.setBlock(
+                        new BlockPos(x, floorY + vertical, z), roof, 2
+                    );
+                }
+            }
+        }
         // 외부 월드의 동굴 입구는 자연 지형으로 남긴다. 밝은 출구 표시는
         // 동굴 차원 안쪽의 출구 랜드마크에서만 생성한다.
         for (int depth : new int[] {-12, -7, -3, 3, 8}) {
@@ -1403,6 +1432,19 @@ public final class CobbleventureBootstrap {
                 );
             }
         }
+    }
+
+    private static int caveMouthOuterHeight(int lateral) {
+        return switch (Math.abs(lateral)) {
+            case 8 -> 3;
+            case 7 -> 4;
+            case 6 -> 6;
+            case 5 -> 8;
+            case 4 -> 9;
+            case 3 -> 10;
+            case 2 -> 11;
+            default -> 12;
+        };
     }
 
     private static void placeCavePokemonCenter(
