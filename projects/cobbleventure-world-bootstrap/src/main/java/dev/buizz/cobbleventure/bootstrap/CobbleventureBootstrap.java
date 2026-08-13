@@ -1632,7 +1632,7 @@ public final class CobbleventureBootstrap {
                 Math.min(3, road.width())
             );
         }
-        Map<Long, Integer> roadElevations = naturalRoadElevations(level, roadColumns);
+        Map<Long, Integer> roadElevations = loadedRoadElevations(level, roadColumns);
         long elevationsFinishedAt = System.nanoTime();
         for (long key : roadColumns) {
             paintConfiguredRoadColumn(
@@ -2739,11 +2739,20 @@ public final class CobbleventureBootstrap {
         ServerLevel level, Point start, Point end, RoadProfile profile,
         boolean townSurface
     ) {
+        drawConfiguredRoad(level, start, end, profile, townSurface, false);
+    }
+
+    private static void drawConfiguredRoad(
+        ServerLevel level, Point start, Point end, RoadProfile profile,
+        boolean townSurface, boolean useLoadedTerrain
+    ) {
         Set<Long> roadColumns = new HashSet<>();
         collectConfiguredRoadColumns(
             roadColumns, start, end, profile.width()
         );
-        Map<Long, Integer> elevations = naturalRoadElevations(level, roadColumns);
+        Map<Long, Integer> elevations = useLoadedTerrain
+            ? loadedRoadElevations(level, roadColumns)
+            : naturalRoadElevations(level, roadColumns);
         clearTreesIntersectingRoad(level, roadColumns, elevations);
         for (long key : roadColumns) {
             paintConfiguredRoadColumn(
@@ -2763,6 +2772,25 @@ public final class CobbleventureBootstrap {
             heights.put(key, plannedTerrainGroundY(
                 level, blockColumnX(key), blockColumnZ(key)
             ));
+        }
+        return heights;
+    }
+
+    private static Map<Long, Integer> loadedRoadElevations(
+        ServerLevel level, Set<Long> columns
+    ) {
+        Map<Long, Integer> heights = new HashMap<>();
+        for (long key : columns) {
+            int x = blockColumnX(key);
+            int z = blockColumnZ(key);
+            int surfaceY = level.getHeight(
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z
+            ) - 1;
+            BlockState surface = level.getBlockState(new BlockPos(x, surfaceY, z));
+            if (isConfiguredRoadStair(surface) || isConfiguredRoadSlab(surface)) {
+                surfaceY--;
+            }
+            heights.put(key, surfaceY);
         }
         return heights;
     }
@@ -9921,7 +9949,7 @@ public final class CobbleventureBootstrap {
             int[] direction = townGateDirection(townCenter, approach, gateConfig);
             drawConfiguredRoad(
                 level, gateRoad, approach, settlement.roadProfile(),
-                true
+                true, true
             );
             drawTownGate(
                 level, world, connection, settlement, gateRoad, direction,
