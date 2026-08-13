@@ -49,7 +49,11 @@ function buildingCardTitle(choice) {
 }
 
 function buildingChoices() {
-  const choices = flow.graphs.map((graph) => ({
+  const choices = flow.graphs.filter((graph) => {
+    if (graph.kind === "gym") return true;
+    const category = flow.structures[graph.owner]?.category;
+    return !["interior", "gym_interior", "league", "gym_exterior", "decoration"].includes(category);
+  }).map((graph) => ({
     id: graph.id, owner: graph.owner, kind: graph.kind,
     label: graph.display_name || graph.owner, graph,
   }));
@@ -89,35 +93,26 @@ function renderLibrary() {
   ).join("") : '<div class="issues empty">사용 가능한 내부 공간이 없습니다.</div>';
 }
 
-function nodeAnchorEntries(node, type) {
+function nodeAnchorEntries(node) {
   const metadata = flow.structures[node.structure] || {};
-  let entries = type === "output" ? metadata.door_anchors || [] : metadata.arrival_anchors || [];
-  const graph = selectedGraph();
-  if (!entries.length && graph?.kind === "gym") {
-    const width = Math.max(1, Number(metadata.width) || 16);
-    const depth = Math.max(1, Number(metadata.depth) || 16);
-    if (node.kind === "exterior") entries = [{ label: type === "output" ? "entrance" : "outside", position: [Math.floor(width / 2), 1, depth - 2] }];
-    else entries = [{ label: type === "output" ? "exit" : "interior_spawn", position: [Math.floor(width / 2), 1, 2] }];
-  }
-  return entries;
+  return metadata.door_anchors || [];
 }
 
-function nodePorts(node, type) {
+function nodePorts(node) {
   const metadata = flow.structures[node.structure] || {};
-  const entries = nodeAnchorEntries(node, type);
-  const title = type === "output" ? "문" : "도착";
+  const entries = nodeAnchorEntries(node);
   if (!entries.length) return "";
   const width = Math.max(1, Number(metadata.width) || 16);
   const depth = Math.max(1, Number(metadata.depth) || 16);
   const cutoff = Number(metadata.cutaway_view?.cutoff_y || Math.ceil((Number(metadata.height) || 1) / 2));
   return entries.map((anchor) => {
-    const active = type === "output" && flow.connectionDraft?.node === node.id && flow.connectionDraft?.anchor === anchor.label;
-    const compatible = type === "input" && flow.connectionDraft;
+    const active = flow.connectionDraft?.node === node.id && flow.connectionDraft?.anchor === anchor.label;
+    const compatible = flow.connectionDraft && !active;
     const position = Array.isArray(anchor.position) ? anchor.position : [width / 2, 1, depth / 2];
     const left = Math.max(3, Math.min(97, (Number(position[0]) + .5) / width * 100));
     const top = Math.max(3, Math.min(97, (Number(position[2]) + .5) / depth * 100));
     const aboveCut = Number(position[1]) >= cutoff;
-    return `<button class="space-node-port space-map-pin ${type}${active ? " is-active" : ""}${compatible ? " is-compatible" : ""}${aboveCut ? " is-above-cut" : ""}" style="left:${left}%;top:${top}%" type="button" data-port-type="${type}" data-node-id="${escapeHtml(node.id)}" data-anchor="${escapeHtml(anchor.label)}" title="${escapeHtml(anchor.label)} · X ${position[0]} / Y ${position[1]} / Z ${position[2]}${aboveCut ? " · 절단면 위 앵커" : ""}"><i></i><span>${escapeHtml(anchor.label)}</span></button>`;
+    return `<button class="space-node-port space-map-pin door${active ? " is-active" : ""}${compatible ? " is-compatible" : ""}${aboveCut ? " is-above-cut" : ""}" style="left:${left}%;top:${top}%" type="button" data-port-type="door" data-node-id="${escapeHtml(node.id)}" data-anchor="${escapeHtml(anchor.label)}" title="실제 문 · ${escapeHtml(anchor.label)} · X ${position[0]} / Y ${position[1]} / Z ${position[2]}${aboveCut ? " · 절단면 위 앵커" : ""}"><i></i><span>${escapeHtml(anchor.label)}</span></button>`;
   }).join("");
 }
 
@@ -180,23 +175,23 @@ function renderNodes() {
     const depth = Math.max(1, Number(metadata.depth) || 16);
     const mapHeight = Math.max(145, Math.min(230, Math.round(270 * depth / width)));
     const cutoff = Number(metadata.cutaway_view?.cutoff_y || Math.ceil((Number(metadata.height) || 1) / 2));
-    const doorPins = nodePorts(node, "output"), arrivalPins = nodePorts(node, "input");
+    const doorPins = nodePorts(node);
     return `<article class="space-node${selected ? " is-selected" : ""}" data-space-node="${escapeHtml(node.id)}" style="transform:translate(${Number(node.position?.[0] || 0)}px,${Number(node.position?.[1] || 0)}px)">
       <header class="space-node-header"><span>${node.kind === "exterior" ? "오버월드" : "내부"}</span><strong>${escapeHtml(node.id)}</strong><i aria-hidden="true">⠿</i></header>
       <div class="space-node-map" style="height:${mapHeight}px">
         <canvas class="space-node-map-canvas" data-node-id="${escapeHtml(node.id)}" width="540" height="${mapHeight * 2}" aria-label="${escapeHtml(node.structure)} 높이 절반 반단면"></canvas>
-        ${arrivalPins}${doorPins}
-        ${!arrivalPins && !doorPins ? '<span class="space-node-no-pins">문·도착 앵커 없음</span>' : ""}
+        ${doorPins}
+        ${!doorPins ? '<span class="space-node-no-pins">실제 문 앵커 없음</span>' : ""}
       </div>
-      <div class="space-node-resource"><code>${escapeHtml(node.structure)}</code><small>반단면 Y 0–${Math.max(0, cutoff - 1)} · ${width}×${depth} · <b class="pin-key door"></b> 문 <b class="pin-key arrival"></b> 도착</small></div>
+      <div class="space-node-resource"><code>${escapeHtml(node.structure)}</code><small>반단면 Y 0–${Math.max(0, cutoff - 1)} · ${width}×${depth} · <b class="pin-key door"></b> 실제 문</small></div>
     </article>`;
   }).join("") || "";
   drawNodeCutaways();
   requestAnimationFrame(renderEdges);
 }
 
-function portCenter(nodeId, anchor, type) {
-  const selector = `.space-node-port[data-port-type="${type}"][data-node-id="${CSS.escape(nodeId)}"][data-anchor="${CSS.escape(anchor)}"]`;
+function portCenter(nodeId, anchor) {
+  const selector = `.space-node-port[data-port-type="door"][data-node-id="${CSS.escape(nodeId)}"][data-anchor="${CSS.escape(anchor)}"]`;
   const port = $(selector, $("#space-flow-nodes"));
   const canvas = $("#space-flow-canvas");
   if (!port) return null;
@@ -215,19 +210,18 @@ function renderEdges() {
   const svg = $("#space-flow-edges");
   svg.innerHTML = '<defs><marker id="space-flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>';
   for (const edge of graph?.connections || []) {
-    const start = portCenter(edge.from?.node, edge.from?.anchor, "output");
-    const end = portCenter(edge.to?.node, edge.to?.anchor, "input");
+    const start = portCenter(edge.from?.node, edge.from?.anchor);
+    const end = portCenter(edge.to?.node, edge.to?.anchor);
     if (!start || !end) continue;
     const bend = Math.max(80, Math.abs(end.x - start.x) * .45);
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", `M ${start.x} ${start.y} C ${start.x + bend} ${start.y}, ${end.x - bend} ${end.y}, ${end.x} ${end.y}`);
     path.setAttribute("class", `space-flow-edge${edge.id === flow.selectedEdgeId ? " is-selected" : ""}`);
-    path.setAttribute("marker-end", "url(#space-flow-arrow)");
     path.dataset.edgeId = edge.id;
     svg.append(path);
   }
   if (flow.connectionDraft?.pointer) {
-    const start = portCenter(flow.connectionDraft.node, flow.connectionDraft.anchor, "output");
+    const start = portCenter(flow.connectionDraft.node, flow.connectionDraft.anchor);
     const end = flow.connectionDraft.pointer;
     if (start && end) {
       const bend = Math.max(70, Math.abs(end.x - start.x) * .45);
@@ -254,8 +248,9 @@ function renderInspector() {
       </div>
       ${node.kind === "interior" ? '<button class="button danger space-delete" id="delete-space-node" type="button">이 공간 삭제</button>' : ""}`;
   } else if (edge) {
-    inspector.innerHTML = `<header><p class="eyebrow">DOOR ROUTE</p><h3>${escapeHtml(edge.from.node)}:${escapeHtml(edge.from.anchor)}</h3><small>${escapeHtml(edge.to.node)}:${escapeHtml(edge.to.anchor)}로 이동</small></header>
+    inspector.innerHTML = `<header><p class="eyebrow">DOOR LINK</p><h3>${escapeHtml(edge.from.node)}:${escapeHtml(edge.from.anchor)}</h3><small>↔ ${escapeHtml(edge.to.node)}:${escapeHtml(edge.to.anchor)} · 양방향 문 연결</small></header>
       <div class="space-inspector-fields">
+        <p class="space-route-note">두 문은 서로 오갈 수 있습니다. 아래 잠금 조건과 대사는 <b>${escapeHtml(edge.from.node)} → ${escapeHtml(edge.to.node)}</b> 입장 방향에만 적용되고, 반대편 퇴장은 항상 가능합니다.</p>
         <label><span>조건 조합</span><select data-edge-field="condition_mode"><option value="all"${edge.condition_mode !== "any" ? " selected" : ""}>모두 만족</option><option value="any"${edge.condition_mode === "any" ? " selected" : ""}>하나 이상 만족</option></select></label>
         <label><span>조건 JSON</span><textarea rows="7" data-edge-json="conditions" placeholder='[{"type":"variable",…}]'>${escapeHtml(JSON.stringify(edge.conditions || [], null, 2))}</textarea><small>문 잠금 조건을 배열로 입력합니다.</small></label>
         <label><span>잠겼을 때 대사</span><textarea rows="4" data-edge-lines="locked_dialogue" placeholder="문이 잠겨 있다.">${escapeHtml((edge.locked_dialogue || []).join("\n"))}</textarea></label>
@@ -263,7 +258,7 @@ function renderInspector() {
       </div><button class="button danger space-delete" id="delete-space-edge" type="button">연결선 삭제</button>`;
   } else {
     inspector.innerHTML = graph
-      ? `<header><p class="eyebrow">FLOW GUIDE</p><h3>${escapeHtml(graph.display_name || graph.owner)}</h3></header><div class="space-flow-help"><p>왼쪽 내부 공간 카드를 캔버스로 끌어 놓으세요.</p><p><b>나가는 문</b> 포트에서 <b>도착 지점</b> 포트까지 선을 직접 끌어 연결합니다.</p><p>빈 바닥 드래그는 화면 이동, 공간 머리글 드래그는 카드 이동입니다.</p><p>연결선을 누르면 잠금 조건과 대사를 설정할 수 있습니다.</p></div>`
+      ? `<header><p class="eyebrow">FLOW GUIDE</p><h3>${escapeHtml(graph.display_name || graph.owner)}</h3></header><div class="space-flow-help"><p>왼쪽 내부 공간 카드를 캔버스로 끌어 놓으세요.</p><p>외부의 <b>문 핀</b>을 내부의 <b>문 핀</b>까지 끌면 하나의 양방향 출입구가 됩니다.</p><p>핀은 NBT 안에 실제 문 블록으로 저장된 위치만 표시합니다.</p><p>연결선을 누르면 외부에서 입장할 때의 잠금 조건과 대사를 설정할 수 있습니다.</p></div>`
       : '<div class="issues empty">왼쪽에서 오버월드 건물을 선택하세요.</div>';
   }
 }
@@ -349,12 +344,22 @@ function addNode(structure, position = null) {
 function connectTo(nodeId, anchor) {
   const graph = selectedGraph();
   if (!graph || !flow.connectionDraft) return;
-  const source = { node: flow.connectionDraft.node, anchor: flow.connectionDraft.anchor };
+  let source = { node: flow.connectionDraft.node, anchor: flow.connectionDraft.anchor };
+  let target = { node: nodeId, anchor };
+  if (source.node === target.node && source.anchor === target.anchor) return;
+  if (target.node === "exterior" && source.node !== "exterior") {
+    [source, target] = [target, source];
+  }
   graph.connections ||= [];
-  graph.connections = graph.connections.filter((edge) => !(edge.from.node === source.node && edge.from.anchor === source.anchor));
+  graph.connections = graph.connections.filter((edge) => !(
+    (edge.from.node === source.node && edge.from.anchor === source.anchor)
+    || (edge.to.node === source.node && edge.to.anchor === source.anchor)
+    || (edge.from.node === target.node && edge.from.anchor === target.anchor)
+    || (edge.to.node === target.node && edge.to.anchor === target.anchor)
+  ));
   let index = graph.connections.length + 1, id = `route_${index}`;
   while (graph.connections.some((edge) => edge.id === id)) id = `route_${++index}`;
-  graph.connections.push({ id, from: source, to: { node: nodeId, anchor }, condition_mode: "all", conditions: [], locked_dialogue: [], enter_dialogue: [] });
+  graph.connections.push({ id, from: source, to: target, condition_mode: "all", conditions: [], locked_dialogue: [], enter_dialogue: [] });
   flow.connectionDraft = null;
   flow.selectedNodeId = "";
   flow.selectedEdgeId = id;
@@ -473,7 +478,7 @@ $("#space-flow-nodes").addEventListener("click", (event) => {
   const port = event.target.closest("[data-port-type]");
   if (port) {
     event.stopPropagation();
-    if (port.dataset.portType === "input" && flow.connectionDraft) {
+    if (port.dataset.portType === "door" && flow.connectionDraft) {
       connectTo(port.dataset.nodeId, port.dataset.anchor);
     }
     return;
@@ -486,7 +491,7 @@ $("#space-flow-nodes").addEventListener("click", (event) => {
 });
 
 $("#space-flow-nodes").addEventListener("pointerdown", (event) => {
-  const port = event.target.closest('.space-node-port.output[data-port-type="output"]');
+  const port = event.target.closest('.space-node-port[data-port-type="door"]');
   if (port) {
     event.preventDefault();
     event.stopPropagation();
@@ -499,9 +504,11 @@ $("#space-flow-nodes").addEventListener("pointerdown", (event) => {
     port.setPointerCapture(event.pointerId);
     $("#space-flow-viewport").classList.add("is-connecting");
     port.classList.add("is-active");
-    document.querySelectorAll(".space-node-port.input").forEach((target) => target.classList.add("is-compatible"));
+    document.querySelectorAll(".space-node-port[data-port-type=door]").forEach((target) => {
+      if (target !== port) target.classList.add("is-compatible");
+    });
     renderEdges();
-    setStatus("강조된 도착 포트까지 선을 끌어 놓으세요.");
+    setStatus("연결할 반대편 문까지 선을 끌어 놓으세요.");
     return;
   }
   const header = event.target.closest(".space-node-header");
@@ -545,7 +552,7 @@ for (const eventName of ["pointerup", "pointercancel"]) $("#space-flow-nodes").a
 
 function finishConnection(event, cancelled = false) {
   if (!flow.connectionDraft || flow.connectionDraft.pointerId !== event.pointerId) return;
-  const destination = document.elementFromPoint(event.clientX, event.clientY)?.closest('.space-node-port.input[data-port-type="input"]');
+  const destination = document.elementFromPoint(event.clientX, event.clientY)?.closest('.space-node-port[data-port-type="door"]');
   $("#space-flow-viewport").classList.remove("is-connecting");
   if (!cancelled && destination) connectTo(destination.dataset.nodeId, destination.dataset.anchor);
   else if (cancelled) {
@@ -555,7 +562,7 @@ function finishConnection(event, cancelled = false) {
     flow.connectionDraft.pointer = null;
     flow.connectionDraft.pointerId = null;
     renderNodes();
-    setStatus("연결할 도착 포트가 강조되어 있습니다. 화면을 옮긴 뒤 포트를 클릭해도 됩니다.");
+    setStatus("연결할 문이 강조되어 있습니다. 화면을 옮긴 뒤 반대편 문을 클릭해도 됩니다.");
   }
 }
 document.addEventListener("pointerup", (event) => finishConnection(event), true);

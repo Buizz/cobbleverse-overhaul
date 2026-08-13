@@ -502,7 +502,7 @@
       <section class="page" id="space-connections">
         <div class="space-flow panel">
           <div class="panel-heading space-flow-heading">
-            <div><p class="eyebrow">VISUAL SPACE ROUTING</p><h2>공간 연결 관계</h2><p>체육관과 일반 건물을 구분하지 않고, 공간을 끌어 배치한 뒤 문 포트에서 도착 포트로 연결합니다.</p></div>
+            <div><p class="eyebrow">VISUAL SPACE ROUTING</p><h2>공간 연결 관계</h2><p>내부 공간을 배치하고, NBT에 저장된 실제 문끼리 연결합니다. 연결된 문은 하나의 양방향 출입구가 됩니다.</p></div>
             <div class="editor-heading-actions"><span class="path-label" id="space-flow-path">content/catalogs/space-connections.json</span><button class="button primary" id="save-space-flow" type="button">공간 연결 저장</button></div>
           </div>
           <div class="space-flow-board">
@@ -523,7 +523,7 @@
               <div class="issues empty">노드 또는 연결선을 선택하면 설정을 편집할 수 있습니다.</div>
             </aside>
           </div>
-          <footer class="space-flow-footer"><span><i class="space-port sample output"></i> 문 포트에서 <i class="space-port sample input"></i> 도착 포트까지 선을 끌어 연결합니다. 빈 바닥을 드래그하면 화면이 이동합니다.</span><strong id="space-flow-status">공간 데이터를 불러오는 중입니다.</strong></footer>
+          <footer class="space-flow-footer"><span><i class="space-port sample output"></i> 외부 문에서 내부 문까지 선을 끌어 양방향으로 연결합니다. 빈 바닥을 드래그하면 화면이 이동합니다.</span><strong id="space-flow-status">공간 데이터를 불러오는 중입니다.</strong></footer>
         </div>
       </section>
 
@@ -588,7 +588,7 @@
                   <div id="building-interior-assignments" class="building-interior-assignments"></div>
                 </section>
                 <section class="building-space-editor legacy-space-editor">
-                  <header><div><strong>문 이동 설정</strong><small>인게임에서 지정한 문 이름을 도착 지점과 연결합니다.</small></div></header>
+                  <header><div><strong>문 이동 설정</strong><small>인게임에서 지정한 실제 문끼리 연결합니다.</small></div></header>
                   <div id="building-door-routes" class="building-door-routes"></div>
                 </section>
                 <section class="building-space-editor">

@@ -5,13 +5,20 @@
   "anchors": [
     {
       "id": "interior_entry",
-      "type": "arrival",
+      "label": "interior_entry",
+      "type": "door",
       "position": [
         9,
-        2,
+        1,
         3
       ],
-      "facing": "south"
+      "safe_spawn": [
+        9,
+        1,
+        2
+      ],
+      "door_facing": "north",
+      "safe_side": "north"
     }
   ]
 }

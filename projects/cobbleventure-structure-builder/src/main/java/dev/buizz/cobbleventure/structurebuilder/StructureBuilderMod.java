@@ -206,7 +206,10 @@ public final class StructureBuilderMod {
         }
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
-        setToolMode(player, toolMode(player).next());
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] 실제 문 우클릭=연결 문, 일반 블록 우클릭=NPC 위치, "
+                + "웅크리기+좌클릭=설정 삭제"
+        ));
     }
 
     @SubscribeEvent
@@ -706,8 +709,8 @@ public final class StructureBuilderMod {
         tool.set(DataComponents.CUSTOM_NAME, Component.literal(toolName(toolMode(player))));
         player.getInventory().add(tool);
         player.sendSystemMessage(Component.literal(
-            "[Structure Builder] 편집 막대기: 웅크리기+허공 우클릭으로 모드 전환, "
-                + "대상 우클릭으로 적용, 웅크리기+좌클릭으로 해제"
+            "[Structure Builder] 편집 막대기: 실제 문 우클릭=연결 문, "
+                + "일반 블록 우클릭=NPC 위치, 웅크리기+좌클릭=설정 삭제"
         ));
     }
 
@@ -727,7 +730,7 @@ public final class StructureBuilderMod {
     }
 
     private static String toolName(ToolMode mode) {
-        return "건축 편집 막대기 · " + mode.label;
+        return "건축 편집 막대기 · 문/NPC";
     }
 
     private static int setToolModeCommand(CommandSourceStack source, String requested)

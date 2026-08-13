@@ -855,14 +855,14 @@ public final class CobbleventureBootstrap {
         ServerLevel level, HexWorldPlan world, CaveEntrancePlan entrance
     ) {
         HexGrid grid = world.grid();
-        CaveMouthGeometry mouth = caveMouthGeometry(grid, entrance);
+        CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
         ConnectionPath approachRoad = caveEntranceRoad(world, entrance);
         Point center = mouth.tileCenter();
         double forwardX = mouth.forwardX();
         double forwardZ = mouth.forwardZ();
         int mouthX = mouth.x();
         int mouthZ = mouth.z();
-        double boundaryDistance = mouth.boundaryDistance();
+        double mouthDistance = mouth.mouthDistance();
         int plannedFloorY = plannedCaveMouthFloorY(
             level, world, mouthX, mouthZ
         );
@@ -870,7 +870,7 @@ public final class CobbleventureBootstrap {
         BlockPos marker = new BlockPos(mouthX, plannedFloorY - 2, mouthZ);
         restoreCaveApproach(
             level, world, approachRoad, center, forwardX, forwardZ,
-            boundaryDistance, plannedFloorY
+            mouthDistance, plannedFloorY
         );
         reshapeCaveMouth(
             level, mouthX, plannedFloorY, mouthZ, forwardX, forwardZ
@@ -897,11 +897,11 @@ public final class CobbleventureBootstrap {
         ServerLevel level, HexWorldPlan world, ConnectionPath approachRoad,
         Point center,
         double forwardX, double forwardZ,
-        double boundaryDistance, int baseY
+        double mouthDistance, int baseY
     ) {
         double sideX = -forwardZ;
         double sideZ = forwardX;
-        int approachLength = Math.max(18, (int) Math.ceil(boundaryDistance));
+        int approachLength = Math.max(18, (int) Math.ceil(mouthDistance));
         List<Integer> approachHeights = new ArrayList<>(approachLength + 1);
         for (int step = 0; step <= approachLength; step++) {
             int x = center.x() + (int) Math.round(forwardX * step);
@@ -931,8 +931,12 @@ public final class CobbleventureBootstrap {
                 int roadY = approachHeights.get(step);
                 clearLegacyElevatedCaveRoad(level, roadX, roadY, roadZ);
                 clearVegetationColumn(level, roadX, roadY, roadZ, 12);
+                Direction ascent = caveApproachAscentDirection(
+                    forwardX, forwardZ, approachHeights, step
+                );
+                int surfaceY = roadY + (ascent == null ? 0 : 1);
                 int clearance = step >= approachLength - 6 ? 7 : 4;
-                for (int y = roadY + 1; y <= roadY + clearance; y++) {
+                for (int y = surfaceY + 1; y <= surfaceY + clearance; y++) {
                     level.setBlock(
                         new BlockPos(roadX, y, roadZ),
                         Blocks.AIR.defaultBlockState(), 2
@@ -941,11 +945,16 @@ public final class CobbleventureBootstrap {
                 if (Math.abs(lateral) > 1) {
                     continue;
                 }
-                Direction ascent = caveApproachAscentDirection(
-                    forwardX, forwardZ, approachHeights, step
-                );
+                if (ascent != null) {
+                    level.setBlock(
+                        new BlockPos(roadX, roadY, roadZ),
+                        caveRoadSurfaceBlock(
+                            world, approachRoad, roadX, roadZ
+                        ), 2
+                    );
+                }
                 level.setBlock(
-                    new BlockPos(roadX, roadY, roadZ),
+                    new BlockPos(roadX, surfaceY, roadZ),
                     caveRoadSurfaceBlock(
                         world, approachRoad, roadX, roadZ, ascent
                     ), 2
@@ -1051,30 +1060,16 @@ public final class CobbleventureBootstrap {
                 level, mouthX, baseY, mouthZ, forwardX, forwardZ
             );
         }
-        for (int depth = -3; depth <= 12; depth++) {
-            double rearBlend = (depth + 3) / 15.0D;
-            int halfWidth = 6 + (int) Math.round(rearBlend * 3.0D);
-            for (int lateral = -halfWidth; lateral <= halfWidth; lateral++) {
-                int x = mouthX + (int) Math.round(forwardX * depth + sideX * lateral);
-                int z = mouthZ + (int) Math.round(forwardZ * depth + sideZ * lateral);
-                double sideBlend = 1.0D - Math.abs(lateral) / (double) (halfWidth + 1);
-                int ridgeHeight = 5
-                    + (int) Math.round(rearBlend * 4.0D)
-                    + (int) Math.round(sideBlend * 2.0D);
-                for (int y = baseY; y <= baseY + ridgeHeight; y++) {
-                    BlockState rock = (y + lateral + depth) % 7 == 0
-                        ? Blocks.ANDESITE.defaultBlockState()
-                        : Blocks.STONE.defaultBlockState();
-                    level.setBlock(new BlockPos(x, y, z), rock, 2);
-                }
-            }
-        }
+        // The cave mountain already supplies the surrounding rock mass. Building
+        // another fixed ridge here makes the lower side protrude while the higher
+        // side appears recessed. Carve the existing mountain and let the compact
+        // landmark below provide only the visible arch frame.
         for (int depth = -2; depth <= 9; depth++) {
             for (int lateral = -3; lateral <= 3; lateral++) {
                 int x = mouthX + (int) Math.round(forwardX * depth + sideX * lateral);
                 int z = mouthZ + (int) Math.round(forwardZ * depth + sideZ * lateral);
                 level.setBlock(new BlockPos(x, baseY, z), Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2);
-                int ceiling = Math.abs(lateral) == 3 ? 4 : 6;
+                int ceiling = caveMouthOpeningHeight(lateral);
                 for (int y = baseY + 1; y <= baseY + ceiling; y++) {
                     level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 }
@@ -1088,7 +1083,8 @@ public final class CobbleventureBootstrap {
             int z = mouthZ + (int) Math.round(
                 forwardZ * backdropDepth + sideZ * lateral
             );
-            for (int vertical = 1; vertical <= 6; vertical++) {
+            int ceiling = caveMouthOpeningHeight(lateral);
+            for (int vertical = 1; vertical <= ceiling; vertical++) {
                 level.setBlock(
                     new BlockPos(x, baseY + vertical, z),
                     Blocks.BLACK_CONCRETE.defaultBlockState(), 2
@@ -1116,12 +1112,20 @@ public final class CobbleventureBootstrap {
                     new BlockPos(x, baseY, z),
                     Blocks.COBBLED_DEEPSLATE.defaultBlockState(), 2
                 );
-                int ceiling = Math.abs(lateral) == 3 ? 4 : 6;
+                int ceiling = caveMouthOpeningHeight(lateral);
                 for (int y = baseY + 1; y <= baseY + ceiling; y++) {
                     level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                 }
             }
         }
+    }
+
+    private static int caveMouthOpeningHeight(int lateral) {
+        return switch (Math.abs(lateral)) {
+            case 3 -> 4;
+            case 2 -> 6;
+            default -> 7;
+        };
     }
 
     private static void clearOversizedCaveMouth(
@@ -1166,8 +1170,9 @@ public final class CobbleventureBootstrap {
     }
 
     private static CaveMouthGeometry caveMouthGeometry(
-        HexGrid grid, CaveEntrancePlan entrance
+        HexWorldPlan world, CaveEntrancePlan entrance
     ) {
+        HexGrid grid = world.grid();
         Point center = grid.worldCenter(entrance.anchor());
         HexCoord direction = switch (entrance.facing()) {
             case "east" -> new HexCoord(1, 0);
@@ -1188,22 +1193,47 @@ public final class CobbleventureBootstrap {
         double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
         double forwardX = deltaX / length;
         double forwardZ = deltaZ / length;
-        // Keep the visible mouth just inside the playable tile. The passage then
-        // cuts inward through the mountain; placing the mouth beyond the shared
-        // hex edge makes every regeneration appear to eat farther into the hill.
-        double boundaryDistance = Math.max(1.0D, length * 0.5D - 2.0D);
-        int mouthX = center.x() + (int) Math.round(forwardX * boundaryDistance);
-        int mouthZ = center.z() + (int) Math.round(forwardZ * boundaryDistance);
-        return new CaveMouthGeometry(
-            center, forwardX, forwardZ, boundaryDistance, mouthX, mouthZ
+        double collisionDistance = actualCaveBoundaryDistance(
+            world, center, forwardX, forwardZ, length
         );
+        double mouthDistance = Math.max(1.0D, collisionDistance - 2.0D);
+        int mouthX = center.x() + (int) Math.round(forwardX * mouthDistance);
+        int mouthZ = center.z() + (int) Math.round(forwardZ * mouthDistance);
+        return new CaveMouthGeometry(
+            center, forwardX, forwardZ,
+            collisionDistance, mouthDistance, mouthX, mouthZ
+        );
+    }
+
+    /** Finds the exact warped boundary column on which the collision shell is
+     * generated. The caller derives the visible mouth from this single source. */
+    private static double actualCaveBoundaryDistance(
+        HexWorldPlan world, Point center,
+        double forwardX, double forwardZ, double maximumDistance
+    ) {
+        boolean crossedPlayableTerrain = false;
+        int limit = Math.max(1, (int) Math.ceil(maximumDistance));
+        for (int distance = 0; distance <= limit; distance++) {
+            int x = center.x() + (int) Math.round(forwardX * distance);
+            int z = center.z() + (int) Math.round(forwardZ * distance);
+            if (terrainAt(world, x + 0.5D, z + 0.5D) != null) {
+                crossedPlayableTerrain = true;
+                continue;
+            }
+            if (crossedPlayableTerrain
+                && isHiddenBoundaryCollisionColumn(world, x, z)) {
+                return distance;
+            }
+        }
+        return Math.max(3.0D, maximumDistance * 0.5D);
     }
 
     private record CaveMouthGeometry(
         Point tileCenter,
         double forwardX,
         double forwardZ,
-        double boundaryDistance,
+        double collisionDistance,
+        double mouthDistance,
         int x,
         int z
     ) {}
@@ -1212,7 +1242,7 @@ public final class CobbleventureBootstrap {
         HexWorldPlan world, int x, int z
     ) {
         for (CaveEntrancePlan entrance : world.caveEntrances()) {
-            CaveMouthGeometry mouth = caveMouthGeometry(world.grid(), entrance);
+            CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
             double offsetX = x + 0.5D - mouth.tileCenter().x();
             double offsetZ = z + 0.5D - mouth.tileCenter().z();
             double forward = offsetX * mouth.forwardX() + offsetZ * mouth.forwardZ();
@@ -1220,7 +1250,7 @@ public final class CobbleventureBootstrap {
                 offsetX * -mouth.forwardZ() + offsetZ * mouth.forwardX()
             );
             if (forward >= -6.0D
-                && forward <= mouth.boundaryDistance() + 18.0D
+                && forward <= mouth.collisionDistance() + 18.0D
                 && lateral <= 5.5D) {
                 return true;
             }
@@ -1248,11 +1278,11 @@ public final class CobbleventureBootstrap {
         )) {
             return;
         }
-        CaveMouthGeometry mouth = caveMouthGeometry(world.grid(), entrance);
+        CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
         Point center = mouth.tileCenter();
         double sideX = -mouth.forwardZ();
         double sideZ = mouth.forwardX();
-        int maximumForward = (int) Math.ceil(mouth.boundaryDistance() + 18.0D);
+        int maximumForward = (int) Math.ceil(mouth.collisionDistance() + 18.0D);
         Set<Long> restored = new HashSet<>();
         for (int forward = -6; forward <= maximumForward; forward++) {
             for (int lateral = -6; lateral <= 6; lateral++) {
@@ -1321,12 +1351,22 @@ public final class CobbleventureBootstrap {
     ) {
         double sideX = -forwardZ;
         double sideZ = forwardX;
-        for (int lateral = -6; lateral <= 6; lateral++) {
-            for (int vertical = 0; vertical <= 8; vertical++) {
-                boolean pillar = Math.abs(lateral) >= 4 && vertical <= 6;
-                boolean crown = vertical >= 6
-                    && Math.abs(lateral) <= Math.max(3, 8 - vertical);
-                if (!pillar && !crown) {
+        for (int lateral = -5; lateral <= 5; lateral++) {
+            int absoluteLateral = Math.abs(lateral);
+            int outerHeight = switch (absoluteLateral) {
+                case 5 -> 4;
+                case 4 -> 6;
+                case 3 -> 7;
+                case 2 -> 9;
+                default -> 10;
+            };
+            int openingHeight = absoluteLateral <= 3
+                ? caveMouthOpeningHeight(lateral) : -1;
+            for (int vertical = 0; vertical <= outerHeight; vertical++) {
+                if (vertical > openingHeight + 1 && absoluteLateral <= 3) {
+                    continue;
+                }
+                if (absoluteLateral <= 3 && vertical <= openingHeight) {
                     continue;
                 }
                 int x = centerX + (int) Math.round(sideX * lateral);
@@ -1340,7 +1380,8 @@ public final class CobbleventureBootstrap {
             }
         }
         for (int lateral = -3; lateral <= 3; lateral++) {
-            for (int vertical = 1; vertical <= 5; vertical++) {
+            int ceiling = caveMouthOpeningHeight(lateral);
+            for (int vertical = 1; vertical <= ceiling; vertical++) {
                 int x = centerX + (int) Math.round(sideX * lateral);
                 int z = centerZ + (int) Math.round(sideZ * lateral);
                 level.setBlock(new BlockPos(x, floorY + vertical, z), Blocks.AIR.defaultBlockState(), 2);
@@ -4129,7 +4170,7 @@ public final class CobbleventureBootstrap {
             if (entrance.destination() == null) {
                 continue;
             }
-            CaveMouthGeometry mouth = caveMouthGeometry(world.grid(), entrance);
+            CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
             if (player.serverLevel() == generationOne) {
                 // Trigger beyond the visible mouth so approaching the cave or
                 // walking across its threshold does not teleport immediately.
@@ -9127,7 +9168,7 @@ public final class CobbleventureBootstrap {
         HexWorldPlan world, int x, int y, int z, int groundY
     ) {
         for (CaveEntrancePlan entrance : world.caveEntrances()) {
-            CaveMouthGeometry mouth = caveMouthGeometry(world.grid(), entrance);
+            CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
             double offsetX = x + 0.5D - mouth.x();
             double offsetZ = z + 0.5D - mouth.z();
             double depth = offsetX * mouth.forwardX() + offsetZ * mouth.forwardZ();
@@ -9148,7 +9189,7 @@ public final class CobbleventureBootstrap {
     private static int caveEntranceFloorY(
         HexWorldPlan world, CaveEntrancePlan entrance
     ) {
-        CaveMouthGeometry mouth = caveMouthGeometry(world.grid(), entrance);
+        CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
         NativeTerrainColumn column = nativeTerrainColumn(
             world, mouth.x(), mouth.z()
         );
@@ -9159,11 +9200,11 @@ public final class CobbleventureBootstrap {
     private static void restoreCaveEntranceBarrierRoof(
         ServerLevel level, HexWorldPlan world, CaveEntrancePlan entrance
     ) {
-        CaveMouthGeometry mouth = caveMouthGeometry(world.grid(), entrance);
+        CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
         Point center = mouth.tileCenter();
         double sideX = -mouth.forwardZ();
         double sideZ = mouth.forwardX();
-        int maximumForward = (int) Math.ceil(mouth.boundaryDistance() + 18.0D);
+        int maximumForward = (int) Math.ceil(mouth.collisionDistance() + 18.0D);
         Set<Long> visited = new HashSet<>();
         for (int forward = -6; forward <= maximumForward; forward++) {
             for (int lateral = -6; lateral <= 6; lateral++) {

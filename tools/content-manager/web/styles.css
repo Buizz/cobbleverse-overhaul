@@ -1049,7 +1049,6 @@ body { font-size: 14px; line-height: 1.45; }
 .space-node-map-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 .space-node-no-pins { position: absolute; right: 8px; bottom: 7px; padding: 3px 5px; border-radius: 3px; background: rgba(10,18,22,.8); color: #9aadb1; font-size: 8px; }
 .pin-key { width: 8px; height: 8px; margin: 0 2px 0 6px; border-radius: 50%; background: #ff9f43; box-shadow: 0 0 0 1px #a85f17; }
-.pin-key.arrival { background: #69c7bd; box-shadow: 0 0 0 1px #39756f; }
 .space-node-ports { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-height: 75px; padding: 9px 6px 11px; }
 .space-node-port-column { display: flex; flex-direction: column; gap: 4px; }
 .space-node-port-column > b { padding: 0 6px 3px; color: #71858b; font-size: 8px; text-transform: uppercase; }
@@ -1065,13 +1064,13 @@ body { font-size: 14px; line-height: 1.45; }
 @keyframes space-port-pulse { to { background: #c4eadf; } }
 .space-node-port span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .space-map-pin { position: absolute; z-index: 4; width: 18px; height: 18px; min-width: 18px; padding: 0; transform: translate(-50%,-50%); border: 2px solid #fff; border-radius: 50%; background: #ff9f43; box-shadow: 0 2px 7px rgba(0,0,0,.6), 0 0 0 2px #a85f17; overflow: visible; }
-.space-map-pin.output { margin-left: 7px; }
-.space-map-pin.input { margin-left: -7px; background: #69c7bd; box-shadow: 0 2px 7px rgba(0,0,0,.6), 0 0 0 2px #39756f; }
+.space-map-pin.door { background: #ff9f43; box-shadow: 0 2px 7px rgba(0,0,0,.6), 0 0 0 2px #a85f17; }
 .space-map-pin > i { width: 6px; height: 6px; flex: none; border: 0; background: rgba(255,255,255,.92); box-shadow: none; }
 .space-map-pin > span { position: absolute; top: 20px; left: 50%; max-width: 120px; padding: 2px 4px; transform: translateX(-50%); border-radius: 2px; background: rgba(8,15,18,.84); color: #f2faf8; font: 700 8px Consolas,monospace; overflow: visible; pointer-events: none; }
-.space-map-pin.output > span { top: auto; bottom: 20px; }
+.space-map-pin.door > span { top: auto; bottom: 20px; }
 .space-map-pin:hover, .space-map-pin.is-active { z-index: 7; background: #ffc06f; box-shadow: 0 0 0 5px rgba(255,159,67,.28), 0 3px 8px rgba(0,0,0,.65); }
-.space-map-pin.input:hover, .space-map-pin.input.is-compatible { background: #82e1d5; box-shadow: 0 0 0 5px rgba(105,199,189,.25), 0 3px 8px rgba(0,0,0,.65); }
+.space-map-pin.door.is-compatible { background: #ffc06f; box-shadow: 0 0 0 5px rgba(255,159,67,.25), 0 3px 8px rgba(0,0,0,.65); }
+.space-route-note { margin: 0; padding: 9px 10px; border-left: 3px solid #e39a45; background: #fff4e6; color: #5e4b37; font-size: 9px; line-height: 1.55; }
 .space-map-pin.is-above-cut { border-color: #ff6074; box-shadow: 0 0 0 3px rgba(255,75,96,.48); }
 .space-port-empty { padding: 7px 6px; color: #a3afb2; font-size: 8px; }
 .space-flow-empty { position: absolute; z-index: 0; top: 44%; left: 50%; transform: translate(-50%,-50%); padding: 18px 24px; border: 1px dashed #587079; color: #9eb2b7; font-size: 11px; }

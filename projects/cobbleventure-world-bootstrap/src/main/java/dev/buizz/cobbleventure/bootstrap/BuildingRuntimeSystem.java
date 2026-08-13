@@ -1,5 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -18,6 +20,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -28,6 +31,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
@@ -40,6 +44,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlac
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.Objective;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import org.slf4j.Logger;
@@ -96,7 +101,7 @@ final class BuildingRuntimeSystem {
             level, metadata, origin.toBlockPos(), rotation, instanceKey,
             settings == null ? Map.of() : settings.fixedNpcs, "exterior"
         );
-        if (settings != null && !settings.interiors.isEmpty()) {
+        if (settings != null) {
             prepareConfiguredInteriors(
                 level, structure, metadata, origin.toBlockPos(), rotation,
                 instanceKey, settings
@@ -188,9 +193,21 @@ final class BuildingRuntimeSystem {
                     for (Map.Entry<String, JsonElement> route
                         : value.getAsJsonObject("door_routes").entrySet()) {
                         JsonObject target = route.getValue().getAsJsonObject();
+                        List<Condition> conditions = new ArrayList<>();
+                        if (target.has("conditions")) {
+                            for (JsonElement condition : target.getAsJsonArray("conditions")) {
+                                conditions.add(parseCondition(condition.getAsJsonObject()));
+                            }
+                        }
                         routes.put(route.getKey(), new RouteTarget(
                             requiredString(target, "space"),
-                            requiredString(target, "arrival")
+                            target.has("door") ? requiredString(target, "door")
+                                : requiredString(target, "arrival"),
+                            target.has("condition_mode")
+                                ? target.get("condition_mode").getAsString() : "all",
+                            List.copyOf(conditions),
+                            strings(target, "locked_dialogue", List.of("문이 잠겨 있다.")),
+                            strings(target, "enter_dialogue", List.of())
                         ));
                     }
                 }
@@ -208,6 +225,42 @@ final class BuildingRuntimeSystem {
         } catch (IOException | RuntimeException error) {
             throw new IllegalStateException("Invalid building settings: " + location, error);
         }
+    }
+
+    private static Condition parseCondition(JsonObject value) {
+        return switch (requiredString(value, "type")) {
+            case "variable" -> new VariableCondition(
+                value.has("source") ? value.get("source").getAsString() : "scoreboard",
+                requiredString(value, "key"),
+                value.has("operator") ? value.get("operator").getAsString() : ">=",
+                value.get("value").getAsDouble()
+            );
+            case "item" -> new ItemCondition(
+                requiredString(value, "item"),
+                value.has("count") ? value.get("count").getAsInt() : 1,
+                value.has("negate") && value.get("negate").getAsBoolean()
+            );
+            case "pokemon" -> new PokemonCondition(
+                requiredString(value, "species"),
+                value.has("negate") && value.get("negate").getAsBoolean()
+            );
+            default -> throw new IllegalStateException(
+                "Unsupported building door condition: " + requiredString(value, "type")
+            );
+        };
+    }
+
+    private static List<String> strings(
+        JsonObject parent, String key, List<String> fallback
+    ) {
+        if (!parent.has(key)) {
+            return fallback;
+        }
+        List<String> values = new ArrayList<>();
+        for (JsonElement element : parent.getAsJsonArray(key)) {
+            values.add(element.getAsString());
+        }
+        return List.copyOf(values);
     }
 
     static int placementYOffset(String structure) {
@@ -315,8 +368,12 @@ final class BuildingRuntimeSystem {
         installDoorIfMissing(interiors, exitDoor, exit.facing);
         BlockPos inside = interiorSpawn != null ? interiorOrigin.offset(interiorSpawn.position)
             : exit.safeSpawn != null ? interiorOrigin.offset(exit.safeSpawn) : exitDoor;
-        registerDoor(exterior, entryDoor, new DoorTarget(INTERIORS, inside, "입장"));
-        registerDoor(interiors, exitDoor, new DoorTarget(exterior.dimension(), outside, "퇴장"));
+        registerDoor(exterior, entryDoor, new DoorTarget(
+            INTERIORS, inside, List.of(), "all", List.of(), List.of()
+        ));
+        registerDoor(interiors, exitDoor, new DoorTarget(
+            exterior.dimension(), outside, List.of(), "all", List.of(), List.of()
+        ));
     }
 
     private static void prepareConfiguredInteriors(
@@ -392,20 +449,41 @@ final class BuildingRuntimeSystem {
                 continue;
             }
             Anchor sourceDoor = sourceSpace.metadata.namedDoor(sourceDoorId);
-            Anchor arrival = targetSpace.metadata.arrival(route.getValue().arrival);
-            if (sourceDoor == null || arrival == null) {
-                LOGGER.warn("Building route references a missing door or arrival: {}", route.getKey());
+            Anchor targetDoor = targetSpace.metadata.namedDoor(route.getValue().door);
+            if (sourceDoor == null || targetDoor == null) {
+                LOGGER.warn("Building route references a missing door: {}", route.getKey());
                 continue;
             }
             BlockPos door = transform(
                 sourceSpace.origin, sourceDoor.position, sourceSpace.rotation
             );
+            BlockPos targetDoorPosition = transform(
+                targetSpace.origin, targetDoor.position, targetSpace.rotation
+            );
             BlockPos destination = transform(
-                targetSpace.origin, arrival.position, targetSpace.rotation
+                targetSpace.origin,
+                targetDoor.safeSpawn == null ? targetDoor.position : targetDoor.safeSpawn,
+                targetSpace.rotation
+            );
+            BlockPos reverseDestination = transform(
+                sourceSpace.origin,
+                sourceDoor.safeSpawn == null ? sourceDoor.position : sourceDoor.safeSpawn,
+                sourceSpace.rotation
             );
             registerDoor(
                 sourceSpace.level, door,
-                new DoorTarget(targetSpace.level.dimension(), destination, "이동")
+                new DoorTarget(
+                    targetSpace.level.dimension(), destination,
+                    route.getValue().conditions, route.getValue().conditionMode,
+                    route.getValue().lockedDialogue, route.getValue().enterDialogue
+                )
+            );
+            registerDoor(
+                targetSpace.level, targetDoorPosition,
+                new DoorTarget(
+                    sourceSpace.level.dimension(), reverseDestination,
+                    List.of(), "all", List.of(), List.of()
+                )
             );
         }
     }
@@ -497,17 +575,27 @@ final class BuildingRuntimeSystem {
             return;
         }
         player.getPersistentData().putLong(INTERACTION_COOLDOWN, gameTime + 10L);
+        if (!target.allows(player)) {
+            sendDialogue(player, target.lockedDialogue);
+            return;
+        }
+        sendDialogue(player, target.enterDialogue);
         ServerLevel destination = player.getServer().getLevel(target.dimension);
         if (destination == null) {
             player.sendSystemMessage(Component.literal("[건물 문] 이동할 공간을 찾을 수 없습니다."));
             return;
         }
-        player.sendSystemMessage(Component.literal("[건물 문] " + target.action + "합니다."));
         player.teleportTo(
             destination,
             target.position.getX() + 0.5D, target.position.getY(), target.position.getZ() + 0.5D,
             player.getYRot(), player.getXRot()
         );
+    }
+
+    private static void sendDialogue(ServerPlayer player, List<String> lines) {
+        for (String line : lines) {
+            player.sendSystemMessage(Component.literal("[건물 문] " + line));
+        }
     }
 
     private static BlockPos transform(BlockPos origin, BlockPos local, Rotation rotation) {
@@ -590,17 +678,15 @@ final class BuildingRuntimeSystem {
                 .findFirst().orElse(null);
         }
 
-        Anchor arrival(String id) {
-            return anchors.stream().filter(anchor -> anchor.id.equals(id)
-                && Set.of("arrival", "interior_spawn", "exterior_spawn").contains(anchor.type))
-                .findFirst().orElse(null);
-        }
     }
 
     private record InteriorSetting(String key, String structure) {
     }
 
-    private record RouteTarget(String space, String arrival) {
+    private record RouteTarget(
+        String space, String door, String conditionMode, List<Condition> conditions,
+        List<String> lockedDialogue, List<String> enterDialogue
+    ) {
     }
 
     private record SpaceInstance(
@@ -620,7 +706,70 @@ final class BuildingRuntimeSystem {
     private record DoorKey(ResourceKey<Level> dimension, BlockPos position) {
     }
 
-    private record DoorTarget(ResourceKey<Level> dimension, BlockPos position, String action) {
+    private record DoorTarget(
+        ResourceKey<Level> dimension, BlockPos position,
+        List<Condition> conditions, String conditionMode,
+        List<String> lockedDialogue, List<String> enterDialogue
+    ) {
+        boolean allows(ServerPlayer player) {
+            if (conditions.isEmpty()) {
+                return true;
+            }
+            return conditionMode.equals("any")
+                ? conditions.stream().anyMatch(condition -> condition.matches(player))
+                : conditions.stream().allMatch(condition -> condition.matches(player));
+        }
+    }
+
+    private sealed interface Condition permits VariableCondition, ItemCondition, PokemonCondition {
+        boolean matches(ServerPlayer player);
+    }
+
+    private record VariableCondition(String source, String key, String operator, double value)
+        implements Condition {
+        @Override
+        public boolean matches(ServerPlayer player) {
+            double actual;
+            if (source.equals("persistent_data")) {
+                actual = player.getPersistentData().getDouble(key);
+            } else {
+                Objective objective = player.getScoreboard().getObjective(key);
+                actual = objective == null ? 0.0D
+                    : player.getScoreboard().getOrCreatePlayerScore(player, objective).get();
+            }
+            return switch (operator) {
+                case "==" -> actual == value;
+                case "!=" -> actual != value;
+                case ">" -> actual > value;
+                case "<" -> actual < value;
+                case "<=" -> actual <= value;
+                default -> actual >= value;
+            };
+        }
+    }
+
+    private record ItemCondition(String item, int count, boolean negate) implements Condition {
+        @Override
+        public boolean matches(ServerPlayer player) {
+            ResourceLocation id = ResourceLocation.tryParse(item);
+            Item required = id == null ? null : BuiltInRegistries.ITEM.get(id);
+            boolean present = required != null && player.getInventory().countItem(required) >= count;
+            return negate != present;
+        }
+    }
+
+    private record PokemonCondition(String species, boolean negate) implements Condition {
+        @Override
+        public boolean matches(ServerPlayer player) {
+            boolean present = false;
+            for (Pokemon pokemon : Cobblemon.INSTANCE.getStorage().getParty(player)) {
+                if (pokemon.getSpecies().getResourceIdentifier().toString().equals(species)) {
+                    present = true;
+                    break;
+                }
+            }
+            return negate != present;
+        }
     }
 
     static final class RuntimeData extends SavedData {

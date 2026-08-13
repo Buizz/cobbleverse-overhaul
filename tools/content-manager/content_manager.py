@@ -7719,6 +7719,10 @@ def space_connections_payload(
     for exterior_id, entry in sorted(settings.items()):
         if exterior_id not in structures or not isinstance(entry, dict):
             continue
+        if structures[exterior_id].get("category") in {
+            "interior", "gym_interior", "league", "gym_exterior", "decoration",
+        }:
+            continue
         graph_id = f"building:{exterior_id}"
         nodes = [{
             "id": "exterior", "kind": "exterior", "structure": exterior_id,
@@ -7746,7 +7750,17 @@ def space_connections_payload(
             connections.append({
                 "id": edge_id,
                 "from": {"node": source_node, "anchor": source_anchor},
-                "to": {"node": target.get("space", ""), "anchor": target.get("arrival", "")},
+                "to": {
+                    "node": target.get("space", ""),
+                    "anchor": target.get("door", target.get("arrival", "")),
+                },
+                **{
+                    key: target[key]
+                    for key in (
+                        "condition_mode", "conditions", "locked_dialogue", "enter_dialogue",
+                    )
+                    if key in target
+                },
                 **(note if isinstance(note, dict) else {}),
             })
         graphs.append({
@@ -7821,6 +7835,19 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         gym.get("id"): gym for gym in gym_catalog.get("gyms", [])
         if isinstance(gym, dict) and isinstance(gym.get("id"), str)
     }
+    structure_paths = managed_structure_files(root)
+    structure_categories = {
+        resource_id: _managed_structure_category(path.relative_to(root / "content" / "structures"))
+        for resource_id, path in structure_paths.items()
+    }
+    door_labels_by_structure = {
+        resource_id: {
+            anchor["label"] for anchor in _structure_named_anchors(
+                structure_path, {"door", "interior_entry", "interior_exit"}
+            )
+        }
+        for resource_id, structure_path in structure_paths.items()
+    }
     layouts: dict[str, Any] = {}
     annotations: dict[str, Any] = {}
     seen_graphs: set[str] = set()
@@ -7841,10 +7868,16 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         if kind not in {"building", "gym"} or not isinstance(owner, str):
             _issue(issues, "error", path, graph_path, "건물 또는 체육관 소유자가 필요합니다.")
             continue
+        if kind == "building" and structure_categories.get(owner) in {
+            "interior", "gym_interior", "league", "gym_exterior", "decoration",
+        }:
+            _issue(issues, "error", path, f"{graph_path}.owner", "외부 건물만 연결도의 시작 공간이 될 수 있습니다.")
+            continue
         if not isinstance(nodes, list) or not isinstance(connections, list):
             _issue(issues, "error", path, graph_path, "노드와 연결선 배열이 필요합니다.")
             continue
         normalized_nodes: list[dict[str, Any]] = []
+        node_structures: dict[str, str] = {}
         node_ids: set[str] = set()
         for node_index, node in enumerate(nodes):
             node_path = f"{graph_path}.nodes[{node_index}]"
@@ -7861,6 +7894,8 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
                 continue
             node_ids.add(node_id)
             normalized_nodes.append(node)
+            if isinstance(node.get("structure"), str):
+                node_structures[node_id] = node["structure"]
         if "exterior" not in node_ids:
             _issue(issues, "error", path, f"{graph_path}.nodes", "외부 공간 노드가 필요합니다.")
         layouts[graph_id] = {"nodes": {node["id"]: node["position"] for node in normalized_nodes}}
@@ -7878,6 +7913,14 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
             if not all(isinstance(value, str) and DOCUMENT_SLUG.fullmatch(value) for value in (source.get("anchor"), target.get("anchor"))):
                 _issue(issues, "error", path, edge_path, "출발 문과 도착 지점 이름이 필요합니다.")
                 continue
+            if source.get("node") == target.get("node") and source.get("anchor") == target.get("anchor"):
+                _issue(issues, "error", path, edge_path, "같은 문을 자기 자신에게 연결할 수 없습니다.")
+                continue
+            source_doors = door_labels_by_structure.get(node_structures.get(source.get("node"), ""), set())
+            target_doors = door_labels_by_structure.get(node_structures.get(target.get("node"), ""), set())
+            if source.get("anchor") not in source_doors or target.get("anchor") not in target_doors:
+                _issue(issues, "error", path, edge_path, "연결 양쪽 모두 NBT에 저장된 실제 문 앵커여야 합니다.")
+                continue
             normalized_connections.append(edge)
             edge_id = str(edge.get("id", f"route_{edge_index + 1}"))
             edge_notes[edge_id] = {
@@ -7894,7 +7937,15 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
                 "interiors": [{"key": node["id"], "structure": node.get("structure", "")} for node in interiors],
                 "door_routes": {
                     f"{edge['from']['node']}:{edge['from']['anchor']}": {
-                        "space": edge["to"]["node"], "arrival": edge["to"]["anchor"]
+                        "space": edge["to"]["node"], "door": edge["to"]["anchor"],
+                        **{
+                            key: edge[key]
+                            for key in (
+                                "condition_mode", "conditions",
+                                "locked_dialogue", "enter_dialogue",
+                            )
+                            if key in edge
+                        },
                     } for edge in normalized_connections
                 },
             }
@@ -8110,17 +8161,11 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             )}
             for space, space_file in space_files.items()
         }
-        arrival_labels = {
-            space: {item["label"] for item in _structure_named_anchors(
-                space_file, {"arrival", "interior_spawn", "exterior_spawn"}
-            )}
-            for space, space_file in space_files.items()
-        }
         routes = settings.get("door_routes", {})
         if not isinstance(routes, dict):
             _issue(issues, "error", path, f"{entry_path}.door_routes", "문 연결 설정은 객체여야 합니다.")
             routes = {}
-        normalized_routes: dict[str, dict[str, str]] = {}
+        normalized_routes: dict[str, dict[str, Any]] = {}
         for source_key, destination in sorted(routes.items()):
             route_path = f"{entry_path}.door_routes.{source_key}"
             if not isinstance(source_key, str) or ":" not in source_key:
@@ -8134,11 +8179,33 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
                 _issue(issues, "error", path, route_path, "문 목적지는 객체여야 합니다.")
                 continue
             target_space = destination.get("space")
-            target_arrival = destination.get("arrival")
-            if target_space not in arrival_labels or target_arrival not in arrival_labels[target_space]:
-                _issue(issues, "error", path, route_path, "존재하는 공간의 도착 지점을 선택해야 합니다.")
+            target_door = destination.get("door", destination.get("arrival"))
+            if target_space not in door_labels or target_door not in door_labels[target_space]:
+                _issue(issues, "error", path, route_path, "존재하는 공간의 문을 선택해야 합니다.")
                 continue
-            normalized_routes[source_key] = {"space": target_space, "arrival": target_arrival}
+            normalized_route: dict[str, Any] = {"space": target_space, "door": target_door}
+            condition_mode = destination.get("condition_mode", "all")
+            if condition_mode not in {"all", "any"}:
+                _issue(issues, "error", path, f"{route_path}.condition_mode", "조건 조합은 all 또는 any여야 합니다.")
+                continue
+            conditions = destination.get("conditions", [])
+            if not isinstance(conditions, list):
+                _issue(issues, "error", path, f"{route_path}.conditions", "문 잠금 조건 배열이 필요합니다.")
+                continue
+            for condition_index, condition in enumerate(conditions):
+                _validate_gym_condition(
+                    condition, issues, path,
+                    f"{route_path}.conditions[{condition_index}]",
+                )
+            normalized_route["condition_mode"] = condition_mode
+            normalized_route["conditions"] = conditions
+            for dialogue_key in ("locked_dialogue", "enter_dialogue"):
+                dialogue = destination.get(dialogue_key, [])
+                if not isinstance(dialogue, list) or any(not isinstance(line, str) for line in dialogue):
+                    _issue(issues, "error", path, f"{route_path}.{dialogue_key}", "대사는 문자열 배열이어야 합니다.")
+                    continue
+                normalized_route[dialogue_key] = dialogue
+            normalized_routes[source_key] = normalized_route
         fixed = settings.get("fixed_npcs", {})
         if not isinstance(fixed, dict):
             _issue(issues, "error", path, f"{entry_path}.fixed_npcs", "고정 NPC 배정은 객체여야 합니다.")

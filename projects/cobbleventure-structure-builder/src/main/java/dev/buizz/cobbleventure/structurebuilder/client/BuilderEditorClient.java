@@ -110,7 +110,7 @@ public final class BuilderEditorClient {
         graphics.fill(x, y, x + width, y + 24, 0xD51A2028);
         graphics.fill(x, y, x + width, y + 2, 0xFF61D7FF);
         graphics.drawString(font, hint, x + 12, y + 8, 0xFFF5F7FA, false);
-        graphics.drawCenteredString(font, "막대기로 대상을 우클릭하면 문·NPC·도착 위치를 편집합니다.",
+        graphics.drawCenteredString(font, "막대기 우클릭: 실제 문은 연결 문으로, 일반 블록은 NPC 위치로 설정합니다.",
             graphics.guiWidth() / 2, y - 12, 0xFFE6EEF6);
     }
 
@@ -223,7 +223,7 @@ public final class BuilderEditorClient {
         private EditBox label;
         private String type;
         AnchorEditorScreen(BlockPos position, boolean door) {
-            super(door ? "문 앵커 편집" : "위치 앵커 편집");
+            super(door ? "연결 문 설정" : "NPC 위치 설정");
             this.position = position;
             this.door = door;
             this.type = door ? "door" : "npc_position";
@@ -232,22 +232,18 @@ public final class BuilderEditorClient {
             int x = width / 2 - 130, y = height / 2 - 66;
             label = new EditBox(font, x + 14, y + 47, 232, 20, Component.literal("이름"));
             label.setMaxLength(64);
+            label.setValue(door ? "door" : "npc");
             snapshot.markers().stream()
                 .filter(marker -> marker.position().equals(position) || marker.position().equals(position.above())
                     || marker.position().equals(position.below()))
                 .findFirst().ifPresent(marker -> {
-                    type = marker.type().equals("npc_position") ? "npc_position"
-                        : marker.type().equals("door") ? "door" : "arrival";
+                    type = marker.type().equals("door") ? "door" : "npc_position";
                     label.setValue(marker.label());
                 });
             addRenderableWidget(label);
             if (!door) {
-                addRenderableWidget(Button.builder(Component.literal("NPC 위치"), b -> type = "npc_position")
-                    .bounds(x + 14, y + 76, 72, 20).build());
-                addRenderableWidget(Button.builder(Component.literal("도착 위치"), b -> type = "arrival")
-                    .bounds(x + 91, y + 76, 72, 20).build());
                 addRenderableWidget(Button.builder(Component.literal("관장 NPC"), b -> { type = "npc_position"; label.setValue("leader"); })
-                    .bounds(x + 168, y + 76, 78, 20).build());
+                    .bounds(x + 14, y + 76, 232, 20).build());
             }
             addRenderableWidget(Button.builder(Component.literal("저장"), b -> save())
                 .bounds(x + 14, y + 106, 72, 20).build());
@@ -268,7 +264,7 @@ public final class BuilderEditorClient {
             int x = width / 2 - 130, y = height / 2 - 66;
             panel(g, x, y, 260, 142);
             g.drawString(font, title, x + 14, y + 13, 0xFFFFFFFF, false);
-            g.drawString(font, "선택: " + (door ? "문" : type.equals("npc_position") ? "NPC" : "도착")
+            g.drawString(font, "선택: " + (door ? "실제 문 → 연결 문" : "NPC 생성 위치")
                 + "  @ " + position.toShortString(), x + 14, y + 29, 0xFFB9C5D2, false);
             super.render(g, mx, my, tick);
         }

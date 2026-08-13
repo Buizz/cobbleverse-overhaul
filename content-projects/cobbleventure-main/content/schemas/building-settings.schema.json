@@ -41,10 +41,14 @@
             "additionalProperties": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["space", "arrival"],
+              "required": ["space", "door"],
               "properties": {
                 "space": { "pattern": "^[a-z0-9][a-z0-9_]*$" },
-                "arrival": { "pattern": "^[a-z0-9][a-z0-9_]*$" }
+                "door": { "pattern": "^[a-z0-9][a-z0-9_]*$" },
+                "condition_mode": { "enum": ["all", "any"] },
+                "conditions": { "type": "array", "items": { "type": "object" } },
+                "locked_dialogue": { "type": "array", "items": { "type": "string" } },
+                "enter_dialogue": { "type": "array", "items": { "type": "string" } }
               }
             }
           }

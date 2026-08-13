@@ -3235,6 +3235,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('data-port-type', script)
         self.assertIn('text/x-cobbleventure-interior', script)
         self.assertIn('finishConnection', script)
+        self.assertIn('data-port-type="door"', script)
+        self.assertNotIn('nodePorts(node, "input")', script)
         self.assertIn('flow.filters.kind', script)
         self.assertIn('flow.filters.route', script)
         self.assertIn('.space-flow-edge', styles)
@@ -3256,7 +3258,6 @@ class ContentManagerTests(unittest.TestCase):
             interior.with_suffix(".structure.json").write_text(json.dumps({
                 "schema_version": 1,
                 "anchors": [
-                    {"type": "interior_spawn", "label": "inside", "position": [6, 1, 3]},
                     {"type": "interior_exit", "label": "back", "position": [6, 1, 1]},
                 ],
                 "interior": {"id": "test_room", "width": 12, "depth": 12, "floor_height": 6, "floors": 1},
@@ -3265,21 +3266,32 @@ class ContentManagerTests(unittest.TestCase):
             catalogs.mkdir(parents=True)
             (catalogs / "building-settings.json").write_text(json.dumps({
                 "schema_version": 1,
-                "buildings": {"cobbleventure:houses/test_house": {
-                    "fixed_npcs": {}, "citizen_placement_allowed": False,
-                    "interiors": [{"key": "main", "structure": "cobbleventure:interiors/test_room"}],
-                    "door_routes": {"exterior:front": {"space": "main", "arrival": "inside"}},
-                }},
+                "buildings": {
+                    "cobbleventure:houses/test_house": {
+                        "fixed_npcs": {}, "citizen_placement_allowed": False,
+                        "interiors": [{"key": "main", "structure": "cobbleventure:interiors/test_room"}],
+                        "door_routes": {"exterior:front": {"space": "main", "door": "back"}},
+                    },
+                    "cobbleventure:interiors/test_room": {
+                        "fixed_npcs": {}, "citizen_placement_allowed": False,
+                        "interiors": [], "door_routes": {},
+                    },
+                },
             }), encoding="utf-8")
             (catalogs / "gyms.json").write_text(json.dumps({
                 "schema_version": 1, "gyms": [], "leagues": [],
             }), encoding="utf-8")
 
             payload = content_manager.space_connections_payload(root)
+            self.assertEqual(1, len(payload["graphs"]))
             graph = payload["graphs"][0]
             self.assertEqual("building", graph["kind"])
             self.assertEqual(["exterior", "main"], [node["id"] for node in graph["nodes"]])
             graph["nodes"][1]["position"] = [777, 333]
+            graph["connections"][0]["conditions"] = [{
+                "type": "variable", "source": "scoreboard", "key": "badge_count",
+                "operator": ">=", "value": 1,
+            }]
             graph["connections"][0]["locked_dialogue"] = ["문이 잠겨 있다."]
             issues = content_manager.save_space_connections(root, {
                 "schema_version": 1, "graphs": [graph],
@@ -3288,7 +3300,16 @@ class ContentManagerTests(unittest.TestCase):
             self.assertFalse(any(issue.level == "error" for issue in issues), issues)
             settings = json.loads((catalogs / "building-settings.json").read_text(encoding="utf-8"))
             self.assertEqual(
-                {"space": "main", "arrival": "inside"},
+                {
+                    "space": "main", "door": "back",
+                    "condition_mode": "all",
+                    "conditions": [{
+                        "type": "variable", "source": "scoreboard", "key": "badge_count",
+                        "operator": ">=", "value": 1,
+                    }],
+                    "locked_dialogue": ["문이 잠겨 있다."],
+                    "enter_dialogue": [],
+                },
                 settings["buildings"]["cobbleventure:houses/test_house"]["door_routes"]["exterior:front"],
             )
             visual = json.loads((catalogs / "space-connections.json").read_text(encoding="utf-8"))
