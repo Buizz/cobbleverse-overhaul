@@ -9,6 +9,7 @@ import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -59,13 +60,13 @@ public final class BattleIntro {
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("player", EntityArgument.player())
                     .then(Commands.argument("opponent", EntityArgument.entity())
-                        .then(Commands.argument("battle_id", StringArgumentType.string())
+                        .then(Commands.argument("battle_id", ResourceLocationArgument.id())
                             .then(Commands.argument("battle_command", StringArgumentType.greedyString())
                                 .executes(context -> start(
                                     context.getSource(),
                                     EntityArgument.getPlayer(context, "player"),
                                     EntityArgument.getEntity(context, "opponent"),
-                                    StringArgumentType.getString(context, "battle_id"),
+                                    ResourceLocationArgument.getId(context, "battle_id").toString(),
                                     StringArgumentType.getString(context, "battle_command")
                                 ))))))
         );

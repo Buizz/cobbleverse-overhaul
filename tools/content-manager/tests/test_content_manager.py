@@ -244,7 +244,7 @@ class ContentManagerTests(unittest.TestCase):
             ),
         )
 
-    def test_league_progression_validates_trainer_card_order_and_trainer_pool_references(self) -> None:
+    def test_league_progression_validates_embedded_gym_leader_encounter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "league-progression.json"
             path.write_text(json.dumps({
@@ -256,10 +256,13 @@ class ContentManagerTests(unittest.TestCase):
                     "generation": 1,
                     "region": "cobbleventure:region/kanto",
                     "order": 1,
-                    "trainer_card_order": 1,
-                    "trainer_card_visible": True,
                     "level_cap": 15,
-                    "trainer_id": "cobbleventure:trainer/brock",
+                    "encounter": {
+                        "battle_id": "cobbleventure:battle/gym_leader/brock",
+                        "appearance": {"source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_brock"},
+                        "dialogue": {"challenge": "도전", "victory": "승리", "defeat": "패배", "cleared": "클리어"},
+                        "rewards": {"money": 500, "badge_id": "cobbleventure:badge/kanto/boulder"},
+                    },
                 }],
             }, ensure_ascii=False), encoding="utf-8")
 
@@ -277,8 +280,13 @@ class ContentManagerTests(unittest.TestCase):
                 "id": "cobbleventure:league/generation_1/boulder", "role": "gym_leader",
                 "display_name": {"ko_kr": "웅"}, "generation": 1,
                 "region": "cobbleventure:region/kanto", "order": 1,
-                "trainer_card_order": 0,
-                "level_cap": 15, "trainer_id": "cobbleventure:trainer/brock",
+                "trainer_card_order": 0, "level_cap": 15,
+                "encounter": {
+                    "battle_id": "cobbleventure:battle/gym_leader/brock",
+                    "appearance": {"source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_brock"},
+                    "dialogue": {"challenge": "도전", "victory": "승리", "defeat": "패배", "cleared": "클리어"},
+                    "rewards": {"money": 0, "badge_id": "cobbleventure:badge/kanto/boulder"},
+                },
             }]}), encoding="utf-8")
 
             _, issues = content_manager.validate_league_progression_file(path)
@@ -3044,6 +3052,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="space-flow-nodes"', markup)
         self.assertIn('id="space-building-cards"', markup)
         self.assertIn('id="space-interior-cards"', markup)
+        self.assertIn('id="space-library-kind-filter"', markup)
+        self.assertIn('id="space-library-route-filter"', markup)
+        self.assertIn('id="reset-space-library-filters"', markup)
         self.assertNotIn('id="space-graph-select"', markup)
         self.assertNotIn('id="space-new-exterior"', markup)
         self.assertNotIn("외부 공간 추가", markup)
@@ -3051,7 +3062,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('data-port-type', script)
         self.assertIn('text/x-cobbleventure-interior', script)
         self.assertIn('finishConnection', script)
+        self.assertIn('flow.filters.kind', script)
+        self.assertIn('flow.filters.route', script)
         self.assertIn('.space-flow-edge', styles)
+        self.assertIn('.space-library-filters', styles)
         self.assertIn('.legacy-space-editor { display: none', styles)
 
         with tempfile.TemporaryDirectory() as directory:
@@ -3173,6 +3187,8 @@ class ContentManagerTests(unittest.TestCase):
                 "name_en": "Test Leader", "generation": 1,
                 "region": "cobbleventure:region/test", "order": 1, "level_cap": 20,
                 "theme": "rock", "badge_id": "cobbleventure:badge/test/stone",
+                "appearance_resource": "rctmod:trainers/single/kanto_brock",
+                "reward_money": 500, "reward_item": "cobblemon:potion", "reward_item_count": 2,
             })
             elite, elite_issues = content_manager.create_league_member(root, {
                 "role": "elite_four", "slug": "test_elite", "name": "테스트 사천왕",
@@ -3185,14 +3201,19 @@ class ContentManagerTests(unittest.TestCase):
             self.assertFalse(any(issue.level == "error" for issue in elite_issues), elite_issues)
             self.assertIsNotNone(leader["gym"])
             self.assertIsNone(elite["gym"])
-            self.assertTrue((root / leader["trainer_path"]).is_file())
+            self.assertEqual("", leader["trainer_path"])
+            self.assertFalse((root / "content/source/trainers/gym_leaders/test_leader.json").exists())
             self.assertTrue((root / elite["battle_path"]).is_file())
             league = json.loads((catalogs / "league-progression.json").read_text(encoding="utf-8"))
             self.assertEqual(["gym_leader", "elite_four"], [entry["role"] for entry in league["entries"]])
             self.assertNotIn("trainer_card_order", league["entries"][0])
+            self.assertNotIn("trainer_id", league["entries"][0])
+            self.assertEqual(500, league["entries"][0]["encounter"]["rewards"]["money"])
             gyms = json.loads((catalogs / "gyms.json").read_text(encoding="utf-8"))
             self.assertEqual(1, len(gyms["gyms"]))
             self.assertEqual(leader["league_entry"]["id"], gyms["gyms"][0]["staff"]["leader"]["league_entry_id"])
+            self.assertNotIn("trainer_id", gyms["gyms"][0]["staff"]["leader"])
+            self.assertNotIn("badge_id", gyms["gyms"][0]["staff"]["leader"])
 
     def test_document_creation_api(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

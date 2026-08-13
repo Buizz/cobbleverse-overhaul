@@ -43,6 +43,17 @@ class DataModBuilderTests(unittest.TestCase):
             (output / "data/cobbleventure/ai-profiles/ai_test.json").is_file()
         )
 
+    def test_materializes_gym_leader_runtime_references_from_league_entries(self) -> None:
+        source = json.loads((PROJECT_ROOT / "content/catalogs/gyms.json").read_text(encoding="utf-8"))
+        generated = json.loads((
+            REPOSITORY_ROOT / build_data_mod.OUTPUT / build_data_mod.GYM_CATALOG_ENTRY
+        ).read_text(encoding="utf-8"))
+
+        self.assertTrue(all("trainer_id" not in gym["staff"]["leader"] for gym in source["gyms"]))
+        self.assertTrue(all("badge_id" not in gym["staff"]["leader"] for gym in source["gyms"]))
+        self.assertTrue(all(gym["staff"]["leader"]["trainer_id"].startswith("cobbleventure:npc/gym_leader/") for gym in generated["gyms"]))
+        self.assertTrue(all(gym["staff"]["leader"]["badge_id"].startswith("cobbleventure:badge/") for gym in generated["gyms"]))
+
     def test_town_layout_rerolls_until_required_facilities_fit(self) -> None:
         source = {"id": "cobbleventure:settlement/test", "structure_profile": {"generation_profile": {"seed": 17}}}
         failure = build_data_mod.TownFacilityPlacementError(source["id"], "gym_building")

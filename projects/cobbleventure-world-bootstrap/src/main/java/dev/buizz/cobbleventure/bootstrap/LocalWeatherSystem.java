@@ -71,7 +71,10 @@ final class LocalWeatherSystem {
             configured = override.weather();
         }
         if (configured == null && sample != null) {
-            configured = load(player.serverLevel()).get(sample.biome());
+            String biome = CobbleventureBootstrap.biomeAt(
+                world, player.getX(), player.getZ(), sample
+            );
+            configured = load(player.serverLevel()).get(biome);
         }
         return configured == null || configured.equals("inherit") ? null : configured;
     }

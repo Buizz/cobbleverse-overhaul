@@ -13,9 +13,12 @@
       "region": "cobbleventure:region/kanto",
       "order": 1,
       "level_cap": 56,
-      "trainer_id": "cobbleventure:npc/gym_leader/brock",
-      "trainer_card_order": 1,
-      "trainer_card_visible": true
+      "encounter": {
+        "battle_id": "cobbleventure:battle/gym_leader/brock",
+        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_brock" },
+        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
+        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/boulder" }
+      }
     },
     {
       "id": "cobbleventure:league/kanto/cascade",
@@ -28,9 +31,12 @@
       "region": "cobbleventure:region/kanto",
       "order": 2,
       "level_cap": 51,
-      "trainer_id": "cobbleventure:npc/gym_leader/misty",
-      "trainer_card_order": 2,
-      "trainer_card_visible": true
+      "encounter": {
+        "battle_id": "cobbleventure:battle/gym_leader/misty",
+        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_misty" },
+        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
+        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/cascade" }
+      }
     },
     {
       "id": "cobbleventure:league/kanto/thunder",
@@ -43,9 +49,12 @@
       "region": "cobbleventure:region/kanto",
       "order": 3,
       "level_cap": 20,
-      "trainer_id": "cobbleventure:npc/gym_leader/lt_surge",
-      "trainer_card_order": 3,
-      "trainer_card_visible": true
+      "encounter": {
+        "battle_id": "cobbleventure:battle/gym_leader/lt_surge",
+        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_ltsurge" },
+        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
+        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/thunder" }
+      }
     },
     {
       "id": "cobbleventure:league/kanto/rainbow",
@@ -58,9 +67,12 @@
       "region": "cobbleventure:region/kanto",
       "order": 4,
       "level_cap": 28,
-      "trainer_id": "cobbleventure:npc/gym_leader/erika",
-      "trainer_card_order": 4,
-      "trainer_card_visible": true
+      "encounter": {
+        "battle_id": "cobbleventure:battle/gym_leader/erika",
+        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_erika" },
+        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
+        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/rainbow" }
+      }
     },
     {
       "id": "cobbleventure:league/kanto/soul",
@@ -73,9 +85,12 @@
       "region": "cobbleventure:region/kanto",
       "order": 5,
       "level_cap": 40,
-      "trainer_id": "cobbleventure:npc/gym_leader/koga",
-      "trainer_card_order": 5,
-      "trainer_card_visible": true
+      "encounter": {
+        "battle_id": "cobbleventure:battle/gym_leader/koga",
+        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_koga" },
+        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
+        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/soul" }
+      }
     },
     {
       "id": "cobbleventure:league/kanto/marsh",
@@ -88,9 +103,12 @@
       "region": "cobbleventure:region/kanto",
       "order": 6,
       "level_cap": 23,
-      "trainer_id": "cobbleventure:npc/gym_leader/sabrina",
-      "trainer_card_order": 6,
-      "trainer_card_visible": true
+      "encounter": {
+        "battle_id": "cobbleventure:battle/gym_leader/sabrina",
+        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_sabrina" },
+        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
+        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/marsh" }
+      }
     },
     {
       "id": "cobbleventure:league/kanto/volcano",
@@ -103,9 +121,12 @@
       "region": "cobbleventure:region/kanto",
       "order": 7,
       "level_cap": 50,
-      "trainer_id": "cobbleventure:npc/gym_leader/blaine",
-      "trainer_card_order": 7,
-      "trainer_card_visible": true
+      "encounter": {
+        "battle_id": "cobbleventure:battle/gym_leader/blaine",
+        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_blaine" },
+        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
+        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/volcano" }
+      }
     },
     {
       "id": "cobbleventure:league/kanto/earth",
@@ -118,9 +139,12 @@
       "region": "cobbleventure:region/kanto",
       "order": 8,
       "level_cap": 64,
-      "trainer_id": "cobbleventure:npc/gym_leader/giovanni_gym",
-      "trainer_card_order": 8,
-      "trainer_card_visible": true
+      "encounter": {
+        "battle_id": "cobbleventure:battle/gym_leader/giovanni_gym",
+        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_giovanni" },
+        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
+        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/earth" }
+      }
     }
   ]
 }

@@ -60,7 +60,7 @@
         "leader": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["trainer_id", "league_entry_id", "badge_id", "anchor"],
+          "required": ["league_entry_id", "anchor"],
           "properties": {
             "trainer_id": { "type": "string" },
             "league_entry_id": { "type": "string" },

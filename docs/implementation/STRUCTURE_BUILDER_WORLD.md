@@ -86,7 +86,7 @@ CurseForge에서 ZIP을 새 프로필로 임포트한 뒤 월드 목록의
 - 셀 크기: 80×80블록
 - 보드: 8열, 구조물 수에 맞춰 행 자동 확장
 - 구조물 셀: 빈칸을 건너뛰지 않고 왼쪽 위부터 연속 배치
-- 마을 장식: `bench`, `flower_bed`, `street_tree`, `street_lamp`도 독립 편집 부지로 배치
+- 마을 장식: `bench`, `flower_bed`, `fountain`, `street_tree`, `street_lamp`도 독립 편집 부지로 배치
 - 구조물 여백: 사방 최소 8블록
 - 방향: 원본 회전 없이 로컬 `Z=0` 정면 유지
 - 라벨: 파일 이름, 크기, 카테고리와 행·열 표시

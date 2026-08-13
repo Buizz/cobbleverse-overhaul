@@ -44,6 +44,7 @@ INTERIOR_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/interiors"
 GYM_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/gyms"
 LEAGUE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/league"
 GYM_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/gyms.json"
+LEAGUE_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/league-progression.json"
 GYM_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/gyms.json")
 MUSIC_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/music-tracks.json"
 MUSIC_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/music-tracks.json")
@@ -99,6 +100,37 @@ def _package_generated_trainer_content(root: Path, output: Path) -> None:
             output / "data" / "cobbleventure" / "ai-profiles",
             dirs_exist_ok=True,
         )
+
+
+def _compiled_gym_catalog(root: Path, gym_catalog: Path) -> dict[str, object]:
+    """Materialize runtime-only NPC and badge references from league authoring data."""
+    catalog = json.loads(gym_catalog.read_text(encoding="utf-8"))
+    league_path = _inside(root, root / LEAGUE_CATALOG_SOURCE, "리그 카탈로그")
+    if not league_path.is_file():
+        return catalog
+    league = json.loads(league_path.read_text(encoding="utf-8"))
+    entries = {
+        entry.get("id"): entry
+        for entry in league.get("entries", [])
+        if isinstance(entry, dict)
+    }
+    for gym in catalog.get("gyms", []):
+        if not isinstance(gym, dict):
+            continue
+        leader = gym.get("staff", {}).get("leader", {})
+        if not isinstance(leader, dict):
+            continue
+        entry = entries.get(leader.get("league_entry_id"))
+        encounter = entry.get("encounter") if isinstance(entry, dict) else None
+        if not isinstance(encounter, dict):
+            continue
+        battle_id = encounter.get("battle_id", "")
+        if isinstance(battle_id, str) and battle_id:
+            leader["trainer_id"] = f"cobbleventure:npc/gym_leader/{battle_id.rsplit('/', 1)[-1]}"
+        rewards = encounter.get("rewards", {})
+        if isinstance(rewards, dict) and rewards.get("badge_id"):
+            leader["badge_id"] = rewards["badge_id"]
+    return catalog
 
 
 class ModBuildError(RuntimeError):
@@ -1423,7 +1455,10 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
     if gym_catalog.is_file():
         target = _inside(root, output / GYM_CATALOG_ENTRY, "생성 체육관 카탈로그")
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(gym_catalog.read_bytes())
+        target.write_text(
+            json.dumps(_compiled_gym_catalog(root, gym_catalog), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     music_catalog = _inside(root, root / MUSIC_CATALOG_SOURCE, "음악 카탈로그")
     if music_catalog.is_file():

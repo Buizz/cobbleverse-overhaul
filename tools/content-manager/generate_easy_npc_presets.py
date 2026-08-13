@@ -22,10 +22,88 @@ CATALOG = PROJECT_ROOT / "content" / "catalogs" / "trainer-outfits.json"
 CONTENT_ROOT = PROJECT_ROOT / "content" / "source"
 BATTLE_ROOT = PROJECT_ROOT / "content" / "battles"
 GYM_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "gyms.json"
+LEAGUE_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "league-progression.json"
 RESOURCE_ROOT = ROOT / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources"
 PACK_OVERRIDE = ROOT / "pack" / "overrides" / "development-placeholder"
 INSTANCE_DEFEATED_FLAG = "cobbleventure:runtime/npc_instance_defeated"
 INSTANCE_DEFEATED_OBJECTIVE = "cv_npc_defeated"
+
+
+def league_entry_npc_id(entry: dict) -> str:
+    battle_id = entry["encounter"]["battle_id"]
+    return f"cobbleventure:npc/gym_leader/{battle_id.rsplit('/', 1)[-1]}"
+
+
+def league_encounter_document(entry: dict) -> dict:
+    """Compile a concise league-authoring entry into a normal NPC event document."""
+    encounter = entry["encounter"]
+    dialogue = encounter["dialogue"]
+    rewards = encounter["rewards"]
+    npc_id = league_entry_npc_id(entry)
+    slug = npc_id.rsplit("/", 1)[-1]
+    region = entry["region"].rsplit("/", 1)[-1]
+    clear_key = f"cobbleventure:flag/gym/{region}/{slug}/defeated"
+    name = entry["display_name"]
+    display_name = {"ko_kr": f"체육관 관장 {localized(name)}"}
+    if name.get("en_us"):
+        display_name["en_us"] = f"Gym Leader {name['en_us']}"
+    victory_rewards: list[dict] = [
+        {"type": "set_flag", "key": clear_key, "value": True},
+    ]
+    if int(rewards.get("money", 0)) > 0:
+        victory_rewards.append({
+            "type": "give_money", "mode": "fixed", "amount": int(rewards["money"]),
+        })
+    if rewards.get("item"):
+        victory_rewards.append({
+            "type": "give_item", "item": rewards["item"],
+            "count": int(rewards.get("item_count", 1)),
+        })
+    victory_rewards.append({"type": "grant_badge", "badge": rewards["badge_id"]})
+    return {
+        "$schema": "../../../schemas/npc-event-script.schema.json",
+        "schema_version": 4,
+        "id": npc_id,
+        "enabled": True,
+        "name": copy.deepcopy(name),
+        "description": {"ko_kr": "리그 운영 약식 설정에서 빌드 시 생성된 관장 NPC입니다."},
+        "tags": ["trainer", "gym_leader", region, slug, "generated_from_league"],
+        "npc": {
+            "display_name": display_name,
+            "trainer_class": "cobbleventure:trainer_class/gym_leader",
+            "appearance": copy.deepcopy(encounter["appearance"]),
+            "behavior": {
+                "movement": "stationary", "look_at_player": True,
+                "invulnerable": True, "collision": True,
+            },
+        },
+        "events": [{
+            "id": "on_interact",
+            "trigger": {"type": "interact", "range": 4.0},
+            "commands": [
+                {"type": "branch", "conditions": [{"type": "flag_equals", "key": clear_key, "value": True}], "target": "cleared"},
+                {"type": "label", "name": "challenge"},
+                {"type": "dialogue", "id": "challenge", "speaker": "npc", "text": {"ko_kr": dialogue["challenge"]}},
+                {"type": "choices", "options": [
+                    {"id": "battle", "text": {"ko_kr": "승부한다"}, "target": "battle"},
+                    {"id": "cancel", "text": {"ko_kr": "다음에 도전한다"}, "target": "end"},
+                ]},
+                {"type": "label", "name": "battle"},
+                {"type": "start_battle", "battle": encounter["battle_id"], "results": {"player_win": "victory", "player_loss": "defeat"}},
+                {"type": "label", "name": "victory"},
+                *victory_rewards,
+                {"type": "dialogue", "id": "victory", "speaker": "npc", "text": {"ko_kr": dialogue["victory"]}},
+                {"type": "goto", "target": "end"},
+                {"type": "label", "name": "defeat"},
+                {"type": "dialogue", "id": "defeat", "speaker": "npc", "text": {"ko_kr": dialogue["defeat"]}},
+                {"type": "goto", "target": "end"},
+                {"type": "label", "name": "cleared"},
+                {"type": "dialogue", "id": "cleared", "speaker": "npc", "text": {"ko_kr": dialogue["cleared"]}},
+                {"type": "label", "name": "end"},
+                {"type": "end"},
+            ],
+        }],
+    }
 
 
 def uuid_int_array(value: str) -> str:
@@ -822,6 +900,19 @@ def generate(
         json.loads(source.read_text(encoding="utf-8"))
         for source in sorted(content_root.rglob("*.json"))
     ]
+    league_catalog_path = content_root.parent / "catalogs" / "league-progression.json"
+    if league_catalog_path.is_file():
+        league_entries = json.loads(league_catalog_path.read_text(encoding="utf-8")).get("entries", [])
+        generated_leaders = [
+            league_encounter_document(entry)
+            for entry in league_entries
+            if isinstance(entry, dict) and entry.get("role") == "gym_leader"
+            and isinstance(entry.get("encounter"), dict)
+        ]
+        generated_ids = {document["id"] for document in generated_leaders}
+        source_documents = [
+            document for document in source_documents if document.get("id") not in generated_ids
+        ] + generated_leaders
     if GYM_CATALOG.is_file():
         gyms = json.loads(GYM_CATALOG.read_text(encoding="utf-8")).get("gyms", [])
         badge_by_trainer = {

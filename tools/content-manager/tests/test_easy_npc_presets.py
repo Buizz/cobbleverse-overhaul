@@ -70,6 +70,31 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         )
         self.assertIn("ON_INTERACTION", preset)
 
+    def test_compiles_gym_leader_rewards_from_league_authoring_entry(self) -> None:
+        league = json.loads(
+            (PROJECT_ROOT / "content/catalogs/league-progression.json").read_text(encoding="utf-8")
+        )
+        entry = next(item for item in league["entries"] if item["role"] == "gym_leader")
+        entry = json.loads(json.dumps(entry))
+        entry["encounter"]["rewards"].update({
+            "money": 1200, "item": "cobblemon:rare_candy", "item_count": 2,
+        })
+        document = generator.league_encounter_document(entry)
+        battle_id = entry["encounter"]["battle_id"]
+        battle_path = PROJECT_ROOT / "content/battles/gym_leaders" / f"{battle_id.rsplit('/', 1)[-1]}.json"
+        battle = json.loads(battle_path.read_text(encoding="utf-8"))
+        document["_battle_presets"] = {battle_id: battle}
+        catalog = json.loads(
+            (PROJECT_ROOT / "content/catalogs/trainer-outfits.json").read_text(encoding="utf-8")
+        )
+        outfit = next(item for item in catalog["outfits"] if item["trainer_class"] == "cobbleventure:trainer_class/gym_leader")
+
+        preset = generator.encounter_preset_snbt(document, outfit)
+
+        self.assertIn("cobbledollars give @1 1200", preset)
+        self.assertIn("cobbleventurebag give @1 cobblemon:rare_candy 2", preset)
+        self.assertIn(entry["encounter"]["rewards"]["badge_id"], preset)
+
     def test_npc_money_setting_overrides_legacy_event_money(self) -> None:
         commands = self.document["events"][0]["commands"]
         reward_label = next(

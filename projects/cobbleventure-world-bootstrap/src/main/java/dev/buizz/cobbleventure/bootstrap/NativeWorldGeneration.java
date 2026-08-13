@@ -150,9 +150,9 @@ final class NativeWorldGeneration {
             int z = QuartPos.toBlock(quartZ);
             TerrainSample sample =
                 CobbleventureBootstrap.terrainAt(world, x + 0.5D, z + 0.5D);
-            String id = sample == null
-                ? CobbleventureBootstrap.emptyTerrainBiome(world, x + 0.5D, z + 0.5D)
-                : sample.biome();
+            String id = CobbleventureBootstrap.biomeAt(
+                world, x + 0.5D, z + 0.5D, sample
+            );
             return byId.getOrDefault(id, fallback);
         }
     }
@@ -277,6 +277,11 @@ final class NativeWorldGeneration {
             if (column.blocked() && isBoundaryColumn(worldX, worldZ)) {
                 int barrierStart = groundY + 1;
                 for (int y = barrierStart; y < MIN_Y + DEPTH; y++) {
+                    if (CobbleventureBootstrap.isCaveBarrierOpening(
+                        world, worldX, y, worldZ, groundY
+                    )) {
+                        continue;
+                    }
                     setBlock(
                         chunk, position, oceanFloor, worldSurface,
                         localX, y, localZ, Blocks.BARRIER.defaultBlockState()
@@ -286,9 +291,6 @@ final class NativeWorldGeneration {
         }
 
         private boolean isBoundaryColumn(int x, int z) {
-            if (CobbleventureBootstrap.isCaveEntrancePassage(world, x, z)) {
-                return false;
-            }
             return CobbleventureBootstrap.isHiddenBoundaryCollisionColumn(world, x, z);
         }
 

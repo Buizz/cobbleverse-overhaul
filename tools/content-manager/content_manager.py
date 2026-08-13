@@ -5045,9 +5045,44 @@ def validate_league_progression_file(
         level_cap = entry.get("level_cap")
         if not isinstance(level_cap, int) or isinstance(level_cap, bool) or not 1 <= level_cap <= 100:
             _issue(issues, "error", path, f"{entry_path}.level_cap", "레벨캡은 1~100 정수여야 합니다.")
-        trainer_id = _resource_id(entry.get("trainer_id"), issues, path, f"{entry_path}.trainer_id")
-        if trainer_ids is not None and trainer_id and trainer_id not in trainer_ids:
-            _issue(issues, "error", path, f"{entry_path}.trainer_id", f"트레이너풀에 없는 NPC입니다: {trainer_id}")
+        trainer_id = None
+        if role == "gym_leader":
+            encounter = _require_object(entry.get("encounter"), issues, path, f"{entry_path}.encounter")
+            if encounter is not None:
+                _resource_id(encounter.get("battle_id"), issues, path, f"{entry_path}.encounter.battle_id")
+                appearance = _require_object(encounter.get("appearance"), issues, path, f"{entry_path}.encounter.appearance")
+                if appearance is not None:
+                    for field in ("source", "type"):
+                        value = appearance.get(field)
+                        if not isinstance(value, str) or not value.strip():
+                            _issue(issues, "error", path, f"{entry_path}.encounter.appearance.{field}", "비어 있지 않은 문자열이 필요합니다.")
+                    _resource_id(appearance.get("resource"), issues, path, f"{entry_path}.encounter.appearance.resource")
+                    if appearance.get("texture") is not None:
+                        _resource_id(appearance.get("texture"), issues, path, f"{entry_path}.encounter.appearance.texture")
+                    if appearance.get("arm_model") not in {None, "wide", "slim", "classic"}:
+                        _issue(issues, "error", path, f"{entry_path}.encounter.appearance.arm_model", "wide, slim, classic 중 하나여야 합니다.")
+                dialogue = _require_object(encounter.get("dialogue"), issues, path, f"{entry_path}.encounter.dialogue")
+                if dialogue is not None:
+                    for field in ("challenge", "victory", "defeat", "cleared"):
+                        value = dialogue.get(field)
+                        if not isinstance(value, str) or not value.strip():
+                            _issue(issues, "error", path, f"{entry_path}.encounter.dialogue.{field}", "대사가 필요합니다.")
+                rewards = _require_object(encounter.get("rewards"), issues, path, f"{entry_path}.encounter.rewards")
+                if rewards is not None:
+                    money = rewards.get("money")
+                    if not isinstance(money, int) or isinstance(money, bool) or money < 0:
+                        _issue(issues, "error", path, f"{entry_path}.encounter.rewards.money", "상금은 0 이상의 정수여야 합니다.")
+                    _resource_id(rewards.get("badge_id"), issues, path, f"{entry_path}.encounter.rewards.badge_id")
+                    reward_item = rewards.get("item")
+                    if reward_item is not None:
+                        _resource_id(reward_item, issues, path, f"{entry_path}.encounter.rewards.item")
+                        item_count = rewards.get("item_count", 1)
+                        if not isinstance(item_count, int) or isinstance(item_count, bool) or not 1 <= item_count <= 999:
+                            _issue(issues, "error", path, f"{entry_path}.encounter.rewards.item_count", "아이템 수량은 1~999 정수여야 합니다.")
+        else:
+            trainer_id = _resource_id(entry.get("trainer_id"), issues, path, f"{entry_path}.trainer_id")
+            if trainer_ids is not None and trainer_id and trainer_id not in trainer_ids:
+                _issue(issues, "error", path, f"{entry_path}.trainer_id", f"트레이너풀에 없는 NPC입니다: {trainer_id}")
         card_order = entry.get("trainer_card_order", order)
         if not isinstance(card_order, int) or isinstance(card_order, bool) or not 1 <= card_order <= 99:
             _issue(issues, "error", path, f"{entry_path}.trainer_card_order", "트레이너 카드 순서는 1~99 정수여야 합니다.")
@@ -5188,7 +5223,7 @@ def validate_gym_catalog_file(path: Path, structure_root: Path | None = None) ->
                 leader_anchor = leader.get("anchor", "leader")
                 if not isinstance(leader_anchor, str) or not DOCUMENT_SLUG.fullmatch(leader_anchor):
                     _issue(issues, "error", path, f"{gym_path}.staff.leader.anchor", "소문자 NPC 앵커 라벨이 필요합니다.")
-                elif leader.get("trainer_id") and leader_anchor not in npc_anchors:
+                elif (leader.get("trainer_id") or leader.get("league_entry_id")) and leader_anchor not in npc_anchors:
                     _issue(issues, "error", path, f"{gym_path}.staff.leader.anchor", f"내부 NBT에 NPC 앵커가 없습니다: {leader_anchor}")
             trainers = _require_list(staff.get("trainers"), issues, path, f"{gym_path}.staff.trainers")
             trainer_ids: set[str] = set()
@@ -5275,7 +5310,7 @@ def create_gym(root: Path, slug: str, name: str, source_structure: str) -> tuple
         "theme": "normal",
         "exterior": {"structure": "cobbleventure:gyms/base_gym"},
         "interior": {"modules": [{"id": "main", "structure": interior_structure, "position": [0, 0, 0], "rotation": "none"}], "connections": []},
-        "staff": {"leader": {"trainer_id": "", "league_entry_id": "", "badge_id": "", "anchor": "leader"}, "trainers": []},
+        "staff": {"leader": {"league_entry_id": "", "anchor": "leader"}, "trainers": []},
     }
     catalog.setdefault("gyms", []).append(gym)
     issues = save_gym_catalog(root, catalog)
@@ -5561,11 +5596,24 @@ def validate_repository(
     )
     issues.extend(league_issues)
     try:
+        league_catalog = load_json(root / "content" / "catalogs" / "league-progression.json")
         badge_catalog = load_json(root / "content" / "catalogs" / "badges.json")
         badge_ids = {
             badge.get("id") for badge in badge_catalog.get("badges", [])
             if isinstance(badge, dict) and isinstance(badge.get("id"), str)
         }
+        for entry_index, entry in enumerate(league_catalog.get("entries", [])):
+            if not isinstance(entry, dict) or entry.get("role") != "gym_leader":
+                continue
+            encounter = entry.get("encounter", {})
+            if not isinstance(encounter, dict):
+                continue
+            battle_id = encounter.get("battle_id")
+            if isinstance(battle_id, str) and battle_id not in battle_presets:
+                _issue(issues, "error", root / "content" / "catalogs" / "league-progression.json", f"$.entries[{entry_index}].encounter.battle_id", f"존재하지 않는 배틀 프리셋: {battle_id}")
+            badge_id = encounter.get("rewards", {}).get("badge_id")
+            if isinstance(badge_id, str) and badge_id not in badge_ids:
+                _issue(issues, "error", root / "content" / "catalogs" / "league-progression.json", f"$.entries[{entry_index}].encounter.rewards.badge_id", f"배지 카탈로그에 없는 배지: {badge_id}")
         gym_catalog = load_json(root / "content" / "catalogs" / "gyms.json")
         gym_ids = {
             gym.get("id") for gym in gym_catalog.get("gyms", [])
@@ -6483,10 +6531,21 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
     region = payload.get("region")
     badge_id = payload.get("badge_id", "")
     theme = payload.get("theme", "normal")
+    appearance_resource = payload.get("appearance_resource", "")
+    challenge_dialogue = payload.get("challenge_dialogue", "준비가 됐다면 승부하자!")
+    victory_dialogue = payload.get("victory_dialogue", "훌륭한 승부였다. 이 배지는 네 것이다.")
+    defeat_dialogue = payload.get("defeat_dialogue", "좋은 승부였다. 준비해서 다시 도전해라.")
+    cleared_dialogue = payload.get("cleared_dialogue", "이미 실력을 증명했군. 다음 목표로 나아가라.")
+    reward_item = payload.get("reward_item", "")
+    reward_money = payload.get("reward_money", 0)
+    reward_item_count = payload.get("reward_item_count", 1)
     generation = payload.get("generation")
     order = payload.get("order")
     level_cap = payload.get("level_cap")
-    input_values = (role, slug, name, name_en, region, badge_id, theme)
+    input_values = (
+        role, slug, name, name_en, region, badge_id, theme, appearance_resource,
+        challenge_dialogue, victory_dialogue, defeat_dialogue, cleared_dialogue, reward_item,
+    )
     if not all(isinstance(value, str) for value in input_values):
         return None, [Issue("error", "", "$", "문자열 입력값의 형식이 올바르지 않습니다.")]
     if role not in {"gym_leader", "elite_four", "champion"}:
@@ -6505,6 +6564,14 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
         return None, [Issue("error", "", "$.level_cap", "레벨캡은 1~100 정수여야 합니다.")]
     if role == "gym_leader" and not RESOURCE_ID.fullmatch(badge_id):
         return None, [Issue("error", "", "$.badge_id", "관장은 지급할 배지를 선택해야 합니다.")]
+    if role == "gym_leader" and not RESOURCE_ID.fullmatch(appearance_resource):
+        return None, [Issue("error", "", "$.appearance_resource", "관장 NPC로 생성할 외형 리소스가 필요합니다.")]
+    if role == "gym_leader" and (not isinstance(reward_money, int) or isinstance(reward_money, bool) or reward_money < 0):
+        return None, [Issue("error", "", "$.reward_money", "상금은 0 이상의 정수여야 합니다.")]
+    if reward_item and not RESOURCE_ID.fullmatch(reward_item):
+        return None, [Issue("error", "", "$.reward_item", "올바른 보상 아이템 ID가 필요합니다.")]
+    if reward_item and (not isinstance(reward_item_count, int) or isinstance(reward_item_count, bool) or not 1 <= reward_item_count <= 999):
+        return None, [Issue("error", "", "$.reward_item_count", "보상 아이템 수량은 1~999 정수여야 합니다.")]
     if not CHOICE_ID.fullmatch(theme):
         return None, [Issue("error", "", "$.theme", "올바른 체육관 타입이 필요합니다.")]
 
@@ -6515,7 +6582,9 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
     league_id = f"cobbleventure:league/{region_slug}/{slug}"
     trainer_path = f"content/source/trainers/{folder}/{slug}.json"
     battle_path = f"content/battles/{folder}/{slug}.json"
-    target_paths = [root / trainer_path, root / battle_path]
+    target_paths = [root / battle_path]
+    if role != "gym_leader":
+        target_paths.append(root / trainer_path)
     if any(path.exists() for path in target_paths):
         return None, [Issue("error", "", "$.slug", "같은 역할과 ID의 NPC 또는 배틀 파일이 이미 존재합니다.")]
 
@@ -6523,7 +6592,7 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
     if role == "gym_leader" and not any(isinstance(item, dict) and item.get("id") == badge_id for item in badges):
         return None, [Issue("error", "", "$.badge_id", "배지 카탈로그에 없는 배지입니다.")]
 
-    trainer = _league_member_event_template(
+    trainer = None if role == "gym_leader" else _league_member_event_template(
         slug, name.strip(), name_en.strip(), role, region_slug, battle_id, badge_id
     )
     battle = _battle_template(slug, name.strip())
@@ -6541,8 +6610,27 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
         "region": region,
         "order": order,
         "level_cap": level_cap,
-        "trainer_id": npc_id,
     }
+    if role == "gym_leader":
+        league_entry["encounter"] = {
+            "battle_id": battle_id,
+            "appearance": {
+                "source": "rct_single", "type": "skin", "resource": appearance_resource,
+            },
+            "dialogue": {
+                "challenge": challenge_dialogue.strip(),
+                "victory": victory_dialogue.strip(),
+                "defeat": defeat_dialogue.strip(),
+                "cleared": cleared_dialogue.strip(),
+            },
+            "rewards": {"money": reward_money, "badge_id": badge_id},
+        }
+        if reward_item:
+            league_entry["encounter"]["rewards"].update({
+                "item": reward_item, "item_count": reward_item_count,
+            })
+    else:
+        league_entry["trainer_id"] = npc_id
     if name_en.strip():
         league_entry["display_name"]["en_us"] = name_en.strip()
 
@@ -6574,8 +6662,7 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
             },
             "staff": {
                 "leader": {
-                    "trainer_id": npc_id, "league_entry_id": league_id,
-                    "badge_id": badge_id, "anchor": "leader",
+                    "league_entry_id": league_id, "anchor": "leader",
                 },
                 "trainers": [],
             },
@@ -6585,10 +6672,10 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
         gym_catalog.setdefault("gyms", []).append(gym)
 
     issues: list[Issue] = []
-    for document, validator, path in (
-        (trainer, validate_content_file, trainer_path),
-        (battle, validate_battle_preset_file, battle_path),
-    ):
+    documents_to_validate = [(battle, validate_battle_preset_file, battle_path)]
+    if trainer is not None:
+        documents_to_validate.insert(0, (trainer, validate_content_file, trainer_path))
+    for document, validator, path in documents_to_validate:
         _, document_issues = _validate_payload(document, validator)
         issues.extend(Issue(issue.level, path, issue.path, issue.message) for issue in document_issues)
     with tempfile.TemporaryDirectory() as directory:
@@ -6611,9 +6698,10 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
     catalog_backups = {league_path: league_path.read_bytes(), gym_path: gym_path.read_bytes()}
     created_paths: list[Path] = []
     try:
-        for category, path, document in (
-            ("trainers", trainer_path, trainer), ("battles", battle_path, battle),
-        ):
+        documents_to_save = [("battles", battle_path, battle)]
+        if trainer is not None:
+            documents_to_save.insert(0, ("trainers", trainer_path, trainer))
+        for category, path, document in documents_to_save:
             target, save_issues = _save_document(root, category, path, document)
             issues.extend(save_issues)
             if any(issue.level == "error" for issue in save_issues) or target is None:
@@ -6640,7 +6728,7 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
     return {
         "league_entry": league_entry,
         "gym": gym,
-        "trainer_path": trainer_path,
+        "trainer_path": trainer_path if trainer is not None else "",
         "battle_path": battle_path,
     }, issues
 

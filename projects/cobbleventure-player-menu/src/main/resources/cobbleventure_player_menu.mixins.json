@@ -4,6 +4,7 @@
   "package": "dev.buizz.cobbleventure.playermenu.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "MusicManagerMixin",
     "XPBarOverlayMixin"
   ],
   "injectors": {

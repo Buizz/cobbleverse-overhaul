@@ -24,7 +24,7 @@
     "entry": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "role", "display_name", "generation", "region", "order", "level_cap", "trainer_id"],
+      "required": ["id", "role", "display_name", "generation", "region", "order", "level_cap"],
       "properties": {
         "id": { "$ref": "#/$defs/resource_id" },
         "role": { "enum": ["gym_leader", "elite_four", "champion"] },
@@ -35,8 +35,52 @@
         "trainer_card_order": { "type": "integer", "minimum": 1, "maximum": 99 },
         "trainer_card_visible": { "type": "boolean" },
         "level_cap": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "trainer_id": { "$ref": "#/$defs/resource_id" }
-      }
+        "trainer_id": { "$ref": "#/$defs/resource_id" },
+        "encounter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["battle_id", "appearance", "dialogue", "rewards"],
+          "properties": {
+            "battle_id": { "$ref": "#/$defs/resource_id" },
+            "appearance": {
+              "type": "object", "additionalProperties": false,
+              "required": ["source", "type", "resource"],
+              "properties": {
+                "source": { "type": "string", "minLength": 1 },
+                "type": { "type": "string", "minLength": 1 },
+                "resource": { "$ref": "#/$defs/resource_id" },
+                "texture": { "$ref": "#/$defs/resource_id" },
+                "arm_model": { "enum": ["wide", "slim", "classic"] }
+              }
+            },
+            "dialogue": {
+              "type": "object", "additionalProperties": false,
+              "required": ["challenge", "victory", "defeat", "cleared"],
+              "properties": {
+                "challenge": { "type": "string", "minLength": 1 },
+                "victory": { "type": "string", "minLength": 1 },
+                "defeat": { "type": "string", "minLength": 1 },
+                "cleared": { "type": "string", "minLength": 1 }
+              }
+            },
+            "rewards": {
+              "type": "object", "additionalProperties": false,
+              "required": ["money", "badge_id"],
+              "properties": {
+                "money": { "type": "integer", "minimum": 0 },
+                "item": { "$ref": "#/$defs/resource_id" },
+                "item_count": { "type": "integer", "minimum": 1, "maximum": 999 },
+                "badge_id": { "$ref": "#/$defs/resource_id" }
+              }
+            }
+          }
+        }
+      },
+      "allOf": [{
+        "if": { "properties": { "role": { "const": "gym_leader" } } },
+        "then": { "required": ["encounter"] },
+        "else": { "required": ["trainer_id"] }
+      }]
     }
   }
 }

@@ -4985,7 +4985,7 @@ function renderTrainerCardManager() {
   if ($("#badge-library-count")) $("#badge-library-count").textContent = `${leaders.length}명`;
   if ($("#badge-library-grid")) {
     $("#badge-library-grid").innerHTML = leaders.length ? leaders.map((entry) => {
-      const gym = gymForLeagueEntry(entry.id); const badge = badgeById(gym?.staff?.leader?.badge_id); const visible = entry.trainer_card_visible !== false;
+      const gym = gymForLeagueEntry(entry.id); const badge = badgeById(entry.encounter?.rewards?.badge_id); const visible = true;
       return `<article class="badge-library-card" title="${escapeHtml(badge?.tooltip?.ko_kr || "배지가 지정되지 않은 관장입니다.")}">${badgeSprite(badge)}<div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><span>${entry.generation}세대 · ${escapeHtml(gym?.display_name?.ko_kr || gym?.id || "체육관")}</span><small>${escapeHtml(badge?.display_name?.ko_kr || "배지 미지정")} · NPC 외형 자동 사용</small><button type="button" class="badge-library-action${visible ? " is-remove" : ""}" data-card-${visible ? "remove" : "add"}="${escapeHtml(entry.id)}">${visible ? "카드에서 제거" : "카드에 추가"}</button></div></article>`;
     }).join("") : '<div class="definition-empty">해당 세대에 등록된 체육관 관장이 없습니다.</div>';
   }
@@ -4993,7 +4993,7 @@ function renderTrainerCardManager() {
     const entries = orderedTrainerCardEntries(true);
     if ($("#trainer-card-order-count")) $("#trainer-card-order-count").textContent = `${entries.length}명 · 8명마다 다음 카드 장으로 나뉩니다.`;
     $("#trainer-card-order-list").innerHTML = entries.length ? entries.map((entry, index) => {
-      const gym = gymForLeagueEntry(entry.id); const badge = badgeById(gym?.staff?.leader?.badge_id);
+      const gym = gymForLeagueEntry(entry.id); const badge = badgeById(entry.encounter?.rewards?.badge_id);
       return `<article class="trainer-card-order-row" data-card-entry="${escapeHtml(entry.id)}">${badgeSprite(badge, 1.25)}<span class="trainer-card-rank">${index + 1}</span><div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><small>${escapeHtml(badge?.display_name?.ko_kr || "배지 미지정")} · ${entry.generation}세대</small></div><div class="card-order-actions"><button type="button" data-card-move="-1" aria-label="위로">↑</button><button type="button" data-card-move="1" aria-label="아래로">↓</button><button type="button" class="card-remove-button" data-card-remove="${escapeHtml(entry.id)}">제거</button></div></article>`;
     }).join("") : '<div class="definition-empty">카드에 배치된 관장이 없습니다. 왼쪽 관장 목록에서 추가하세요.</div>';
   }
@@ -5032,6 +5032,10 @@ function trainerPoolOptions(selected = "") {
   return '<option value="">트레이너풀에서 선택</option>' + state.trainers.map((trainer) => `<option value="${escapeHtml(trainer.id)}"${trainer.id === selected ? " selected" : ""}>${escapeHtml(trainer.name || trainer.id)} · ${escapeHtml(trainer.id)}</option>`).join("");
 }
 
+function battlePresetOptions(selected = "") {
+  return '<option value="">배틀 프리셋 선택</option>' + state.battles.map((battle) => `<option value="${escapeHtml(battle.id)}"${battle.id === selected ? " selected" : ""}>${escapeHtml(battle.name || battle.id)} · ${escapeHtml(battle.id)}</option>`).join("");
+}
+
 function renderLeagueEditor() {
   renderLeagueList();
   const entry = selectedLeagueEntry();
@@ -5050,10 +5054,27 @@ function renderLeagueEditor() {
   setFormValue(form, "nameKo", entry.display_name?.ko_kr || ""); setFormValue(form, "nameEn", entry.display_name?.en_us || "");
   setFormValue(form, "generation", entry.generation); setFormValue(form, "order", entry.order); setFormValue(form, "region", entry.region);
   form.elements.trainerId.innerHTML = trainerPoolOptions(entry.trainer_id); setFormValue(form, "trainerId", entry.trainer_id);
+  const isGymLeader = entry.role === "gym_leader";
+  const encounter = entry.encounter || {};
+  const rewards = encounter.rewards || {};
+  form.elements.battleId.innerHTML = battlePresetOptions(encounter.battle_id || "");
+  setFormValue(form, "battleId", encounter.battle_id || "");
+  setFormValue(form, "appearanceResource", encounter.appearance?.resource || "");
+  setFormValue(form, "challengeDialogue", encounter.dialogue?.challenge || "");
+  setFormValue(form, "victoryDialogue", encounter.dialogue?.victory || "");
+  setFormValue(form, "defeatDialogue", encounter.dialogue?.defeat || "");
+  setFormValue(form, "clearedDialogue", encounter.dialogue?.cleared || "");
+  setFormValue(form, "rewardMoney", rewards.money ?? 0);
+  setFormValue(form, "rewardItem", rewards.item || "");
+  setFormValue(form, "rewardItemCount", rewards.item_count || 1);
+  form.elements.badgeId.innerHTML = badgeOptions(rewards.badge_id || "");
+  setFormValue(form, "badgeId", rewards.badge_id || "");
   [...form.elements].forEach((element) => { element.disabled = false; });
   $$("#league-form .league-badge-fields input, #league-form .league-badge-fields select").forEach((element) => { element.disabled = true; });
   $("#delete-league-entry").disabled = false; $("#save-league").disabled = false; $("#edit-league-trainer").disabled = !entry.trainer_id;
-  const isGymLeader = entry.role === "gym_leader";
+  $("#league-trainer-link").hidden = isGymLeader;
+  $("#league-encounter-fields").hidden = !isGymLeader;
+  $("#choose-league-reward-item").disabled = !isGymLeader;
   const linkedGym = gymForLeagueEntry(entry.id);
   $("#open-league-gym").hidden = !isGymLeader;
   $("#open-league-gym").disabled = !linkedGym;
@@ -5074,6 +5095,31 @@ function updateLeagueEntryFromForm() {
   if (form.elements.nameEn.value.trim()) entry.display_name.en_us = form.elements.nameEn.value.trim();
   entry.generation = Number(form.elements.generation.value); entry.region = form.elements.region.value.trim();
   entry.order = Number(form.elements.order.value); entry.level_cap = Number(form.elements.levelCap.value); entry.trainer_id = form.elements.trainerId.value;
+  if (entry.role === "gym_leader") {
+    delete entry.trainer_id;
+    entry.encounter = {
+      battle_id: form.elements.battleId.value,
+      appearance: {
+        source: "rct_single", type: "skin", resource: form.elements.appearanceResource.value.trim(),
+      },
+      dialogue: {
+        challenge: form.elements.challengeDialogue.value.trim(),
+        victory: form.elements.victoryDialogue.value.trim(),
+        defeat: form.elements.defeatDialogue.value.trim(),
+        cleared: form.elements.clearedDialogue.value.trim(),
+      },
+      rewards: {
+        money: Number(form.elements.rewardMoney.value || 0),
+        badge_id: form.elements.badgeId.value,
+      },
+    };
+    if (form.elements.rewardItem.value) {
+      entry.encounter.rewards.item = form.elements.rewardItem.value;
+      entry.encounter.rewards.item_count = Number(form.elements.rewardItemCount.value || 1);
+    }
+  } else {
+    delete entry.encounter;
+  }
   state.selectedLeagueId = entry.id || previousId;
 }
 
@@ -5096,7 +5142,7 @@ function updateLeagueMemberDialog() {
   form.elements.badgeId.required = gymLeader;
   const roleLabel = leagueRoleLabel(role);
   const outputs = gymLeader
-    ? "NPC + 배틀 프리셋 + 표준 승부 이벤트 + 리그 항목 + 체육관 + 배지 연결 + 카드 자동 배치"
+    ? "리그 약식 이벤트 + 배틀 프리셋 + 체육관 연결 · NPC 데이터는 빌드 시 자동 생성"
     : "NPC + 배틀 프리셋 + 표준 승부 이벤트 + 리그 항목";
   $("#league-member-summary").innerHTML = `<strong>${escapeHtml(roleLabel)}</strong><br>${outputs}`;
 }
@@ -5115,7 +5161,11 @@ async function createLeagueMember(event) {
     order: Number(form.elements.order.value),
     level_cap: Number(form.elements.levelCap.value),
     theme: form.elements.theme.value,
-    badge_id: form.elements.role.value === "gym_leader" ? form.elements.badgeId.value : ""
+    badge_id: form.elements.role.value === "gym_leader" ? form.elements.badgeId.value : "",
+    appearance_resource: form.elements.role.value === "gym_leader" ? form.elements.appearanceResource.value.trim() : "",
+    reward_money: form.elements.role.value === "gym_leader" ? Number(form.elements.rewardMoney.value || 0) : 0,
+    reward_item: form.elements.role.value === "gym_leader" ? form.elements.rewardItem.value.trim() : "",
+    reward_item_count: 1
   };
   const submit = form.querySelector('[type="submit"]');
   submit.disabled = true;
@@ -5626,14 +5676,14 @@ function renderGymStaff() {
     editor.innerHTML = '<div class="issues empty">체육관을 선택하세요.</div>';
     return;
   }
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
-  gym.staff.leader ||= { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" };
+  gym.staff ||= { leader: { league_entry_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff.leader ||= { league_entry_id: "", anchor: "leader" };
   gym.staff.trainers ||= [];
   const leader = gym.staff.leader;
-  const leaderTrainer = trainerById(leader.trainer_id);
-  const leaderAppearance = leaderTrainer?.npc?.appearance;
-  const leaderName = typeof leaderTrainer?.name === "string" ? leaderTrainer.name : leaderTrainer?.name?.ko_kr;
-  const selectedBadge = badgeById(leader.badge_id);
+  const leaderEntry = (state.leagueProgression.entries || []).find((entry) => entry.id === leader.league_entry_id);
+  const leaderAppearance = leaderEntry?.encounter?.appearance;
+  const leaderName = leaderEntry?.display_name?.ko_kr;
+  const selectedBadge = badgeById(leaderEntry?.encounter?.rewards?.badge_id);
   const anchorOptions = (selected = "") => {
     const labels = [...new Set((gym.interior?.modules || []).flatMap((module) =>
       (state.structureSizes[module.structure]?.npc_labels || []).map((marker) => marker.label)
@@ -5654,10 +5704,10 @@ function renderGymStaff() {
     <article class="cave-entry-card">
       <div class="form-grid compact-grid">
         <label class="wide"><span>체육관 관장</span><select id="gym-leader-entry">${gymLeagueOptions(leader.league_entry_id)}</select></label>
-        <label class="wide"><span>승리 시 기록할 배지</span><div class="gym-badge-picker"><select id="gym-leader-badge">${badgeOptions(leader.badge_id)}</select><output id="gym-leader-badge-preview" class="gym-badge-preview">${badgeSprite(selectedBadge, 2)}<span><strong>${escapeHtml(selectedBadge?.display_name?.ko_kr || "배지를 선택하세요")}</strong><small>${escapeHtml(selectedBadge?.tooltip?.ko_kr || "선택한 배지의 실제 카드 그래픽을 미리 봅니다.")}</small></span></output></div><small>아이템을 지급하지 않고 플레이어 진행도와 트레이너 카드에 기록합니다.</small></label>
-        <div class="wide gym-npc-appearance"><span>트레이너 카드 관장 그래픽</span><strong>${escapeHtml(leaderName || leaderTrainer?.npc?.display_name?.ko_kr || leader.trainer_id || "관장을 선택하세요")}</strong><small>${leaderAppearance?.resource ? `NPC 외형 ${escapeHtml(leaderAppearance.resource)}을 카드에서도 자동으로 사용합니다.` : "선택한 관장 NPC의 외형 정보를 카드에서 자동으로 사용합니다."}</small></div>
+        <div class="wide gym-badge-picker"><span>승리 배지</span><output class="gym-badge-preview">${badgeSprite(selectedBadge, 2)}<span><strong>${escapeHtml(selectedBadge?.display_name?.ko_kr || "리그 운영에서 배지를 지정하세요")}</strong><small>배지는 리그 관장 약식 이벤트에서 관리합니다.</small></span></output></div>
+        <div class="wide gym-npc-appearance"><span>빌드 시 생성할 관장 그래픽</span><strong>${escapeHtml(leaderName || "관장을 선택하세요")}</strong><small>${leaderAppearance?.resource ? `리그 원본 외형 ${escapeHtml(leaderAppearance.resource)}을 빌드 산출물에 사용합니다.` : "리그 운영에서 관장 외형을 지정합니다."}</small></div>
         <label><span>관장 NPC 라벨</span><select id="gym-leader-anchor">${anchorOptions(leader.anchor || "leader")}</select></label>
-        <small class="wide">트레이너 ID: ${escapeHtml(leader.trainer_id || "아직 지정하지 않음")}</small>
+        <small class="wide">NPC ID는 빌드 시 배틀 프리셋 ID를 기준으로 자동 생성됩니다.</small>
       </div>
     </article>
     ${rows || '<div class="issues empty">기타 트레이너가 없습니다. 내부 NBT에 NPC 라벨을 만든 뒤 필요한 만큼 추가하세요.</div>'}`;
@@ -8566,17 +8616,12 @@ $("#gym-list").addEventListener("click", (event) => { const button = event.targe
 $("#gym-form").addEventListener("input", updateGymFromForm);
 $("#gym-staff-editor").addEventListener("input", (event) => {
   const gym = selectedGym(); if (!gym) return;
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff ||= { leader: { league_entry_id: "", anchor: "leader" }, trainers: [] };
   if (event.target.id === "gym-leader-entry") {
-    const entry = (state.leagueProgression.entries || []).find((candidate) => candidate.id === event.target.value);
     gym.staff.leader.league_entry_id = event.target.value;
-    gym.staff.leader.trainer_id = entry?.trainer_id || "";
+    delete gym.staff.leader.trainer_id;
+    delete gym.staff.leader.badge_id;
     renderGymStaff();
-  } else if (event.target.id === "gym-leader-badge") {
-    gym.staff.leader.badge_id = event.target.value;
-    const badge = badgeById(event.target.value);
-    const preview = $("#gym-leader-badge-preview");
-    if (preview) preview.innerHTML = `${badgeSprite(badge, 2)}<span><strong>${escapeHtml(badge?.display_name?.ko_kr || "배지를 선택하세요")}</strong><small>${escapeHtml(badge?.tooltip?.ko_kr || "선택한 배지의 실제 카드 그래픽을 미리 봅니다.")}</small></span>`;
   } else if (event.target.id === "gym-leader-anchor") {
     gym.staff.leader.anchor = event.target.value.trim();
   } else {
@@ -8595,7 +8640,7 @@ $("#gym-staff-editor").addEventListener("click", (event) => {
 $("#add-gym-trainer").addEventListener("click", () => {
   const gym = selectedGym(); if (!gym) return;
   if (!state.trainers.length) { toast("먼저 트레이너를 하나 이상 만들어 주세요."); return; }
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff ||= { leader: { league_entry_id: "", anchor: "leader" }, trainers: [] };
   gym.staff.trainers ||= [];
   const index = gym.staff.trainers.length + 1;
   const used = new Set([gym.staff.leader?.anchor, ...gym.staff.trainers.map((trainer) => trainer.anchor)]);
@@ -8797,7 +8842,14 @@ $("#league-form").addEventListener("input", () => {
   $("#open-league-gym").disabled = !linkedGym;
   $("#open-league-gym").textContent = linkedGym ? "체육관 시설 편집" : "연결된 체육관 없음";
   $("#league-card-derived").hidden = !isGym;
+  $("#league-trainer-link").hidden = isGym;
+  $("#league-encounter-fields").hidden = !isGym;
 });
+$("#choose-league-reward-item").addEventListener("click", () => openItemChoice("league-reward-item", {
+  allowEmpty: true,
+  title: "관장 승리 아이템 선택",
+  subtitle: "관장에게 승리한 뒤 지급할 아이템을 선택합니다."
+}));
 $("#open-league-gym").addEventListener("click", () => {
   updateLeagueEntryFromForm();
   const gym = gymForLeagueEntry(selectedLeagueEntry()?.id);

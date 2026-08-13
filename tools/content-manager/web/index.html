@@ -177,7 +177,20 @@
               <label><span>세대</span><input name="generation" type="number" min="1" max="9" disabled></label>
               <label><span>표시 순서</span><input name="order" type="number" min="1" max="99" disabled></label>
               <label class="wide"><span>지역 ID</span><input name="region" placeholder="cobbleventure:region/kanto" disabled></label>
-              <fieldset class="wide"><legend>트레이너풀 연결</legend><label class="wide"><span>사용할 NPC 엔트리</span><select name="trainerId" disabled></select></label><button class="button secondary" id="edit-league-trainer" type="button" disabled>트레이너풀에서 편집</button><small class="wide">선택한 NPC의 연결된 배틀 프리셋과 엔트리가 실제 관장·리그 전투에 사용됩니다.</small></fieldset>
+              <fieldset class="wide" id="league-trainer-link"><legend>트레이너풀 연결</legend><label class="wide"><span>사용할 NPC 엔트리</span><select name="trainerId" disabled></select></label><button class="button secondary" id="edit-league-trainer" type="button" disabled>트레이너풀에서 편집</button><small class="wide">사천왕과 챔피언처럼 별도 이벤트가 필요한 구성원만 NPC 엔트리를 연결합니다.</small></fieldset>
+              <fieldset class="wide league-encounter-fields" id="league-encounter-fields" hidden><legend>관장 약식 이벤트</legend>
+                <label class="wide"><span>배틀 프리셋</span><select name="battleId" disabled></select></label>
+                <label class="wide"><span>NPC 외형 리소스</span><input name="appearanceResource" placeholder="rctmod:trainers/single/kanto_brock" disabled><small>빌드할 때 이 외형으로 EasyNPC 데이터를 생성합니다.</small></label>
+                <label class="wide"><span>도전 대사</span><textarea name="challengeDialogue" rows="2" disabled></textarea></label>
+                <label class="wide"><span>승리 대사</span><textarea name="victoryDialogue" rows="2" disabled></textarea></label>
+                <label class="wide"><span>패배 대사</span><textarea name="defeatDialogue" rows="2" disabled></textarea></label>
+                <label class="wide"><span>클리어 후 대사</span><textarea name="clearedDialogue" rows="2" disabled></textarea></label>
+                <label><span>승리 상금</span><input name="rewardMoney" type="number" min="0" value="0" disabled></label>
+                <label><span>아이템 수량</span><input name="rewardItemCount" type="number" min="1" max="999" value="1" disabled></label>
+                <label class="wide"><span>승리 아이템</span><div class="create-reference-picker"><input id="league-reward-item" name="rewardItem" readonly placeholder="지급하지 않음" disabled><button class="button secondary" id="choose-league-reward-item" type="button" disabled>아이템 선택</button></div></label>
+                <label class="wide"><span>승리 배지</span><select name="badgeId" disabled></select></label>
+                <small class="wide">관장 NPC 파일은 저장하지 않습니다. 이 설정에서 빌드 산출물로만 생성됩니다.</small>
+              </fieldset>
               <fieldset class="wide league-card-derived" id="league-card-derived" hidden><legend>트레이너 카드 자동 배치</legend><strong id="league-card-position">—</strong><small>체육관 관장만 리그 구성 순서대로 자동 배치됩니다. 사천왕과 챔피언은 트레이너 카드 대상이 아닙니다.</small></fieldset>
                 <fieldset class="wide league-badge-fields" hidden><legend>이전 배지 필드</legend><select name="badgeItem" disabled></select><input name="badgeNameKo" disabled><input name="badgeNameEn" disabled><input name="badgeVisible" type="checkbox" disabled></fieldset>
             </form>
@@ -477,8 +490,8 @@
           </div>
           <div class="space-flow-board">
             <aside class="space-flow-library">
-              <header><p class="eyebrow">SPACE LIBRARY</p><h3>공간 팔레트</h3><label><span>건물 검색</span><input id="space-library-search" type="search" placeholder="집, 체육관, NBT ID…"></label></header>
-              <section><div class="space-library-title"><strong>오버월드 건물</strong><small>선택하면 연결도가 바로 열립니다.</small></div><div class="space-building-cards" id="space-building-cards"><div class="issues empty">건물을 불러오는 중입니다.</div></div></section>
+              <header><p class="eyebrow">SPACE LIBRARY</p><h3>공간 팔레트</h3><label><span>공간 검색</span><input id="space-library-search" type="search" placeholder="집, 체육관, NBT ID…"></label><div class="space-library-filters"><label><span>건물 유형</span><select id="space-library-kind-filter"><option value="all">모든 유형</option><option value="building">일반 건물</option><option value="gym">체육관</option></select></label><label><span>연결 상태</span><select id="space-library-route-filter"><option value="all">모든 상태</option><option value="connected">연결 있음</option><option value="unconnected">연결 없음</option></select></label><button id="reset-space-library-filters" type="button">초기화</button></div></header>
+              <section><div class="space-library-title"><strong>오버월드 건물 <span id="space-building-result-count" aria-live="polite"></span></strong><small>선택하면 연결도가 바로 열립니다.</small></div><div class="space-building-cards" id="space-building-cards"><div class="issues empty">건물을 불러오는 중입니다.</div></div></section>
               <section><div class="space-library-title"><strong>내부 공간</strong><small>카드를 캔버스로 끌어 놓으세요.</small></div><div class="space-interior-cards" id="space-interior-cards"><div class="issues empty">내부 공간을 불러오는 중입니다.</div></div></section>
             </aside>
             <div class="space-flow-viewport" id="space-flow-viewport">
@@ -702,7 +715,7 @@
     </dialog>
     <dialog id="league-member-dialog" class="create-dialog league-member-dialog">
       <form method="dialog" id="league-member-form">
-        <div class="dialog-heading"><div><p class="eyebrow">NEW LEAGUE MEMBER</p><h2>리그 구성원 한 번에 만들기</h2><small>NPC·배틀 프리셋·표준 이벤트·리그 연결을 함께 생성합니다.</small></div><button class="dialog-close" id="league-member-close" type="button" aria-label="닫기">×</button></div>
+        <div class="dialog-heading"><div><p class="eyebrow">NEW LEAGUE MEMBER</p><h2>리그 구성원 한 번에 만들기</h2><small>관장은 약식 원본으로 저장하고 NPC 데이터는 빌드할 때 생성합니다.</small></div><button class="dialog-close" id="league-member-close" type="button" aria-label="닫기">×</button></div>
         <div class="league-member-role-options" role="radiogroup" aria-label="리그 역할">
           <label><input type="radio" name="role" value="gym_leader" checked><span><strong>체육관 관장</strong><small>체육관·배지·카드까지 연결</small></span></label>
           <label><input type="radio" name="role" value="elite_four"><span><strong>사천왕</strong><small>리그 전투 구성만 생성</small></span></label>
@@ -716,7 +729,7 @@
           <label class="wide"><span>지역 ID</span><input name="region" value="cobbleventure:region/kanto" required></label>
           <label><span>리그 순서</span><input name="order" type="number" min="1" max="99" value="1" required></label>
           <label><span>레벨캡</span><input name="levelCap" type="number" min="1" max="100" value="15" required></label>
-          <fieldset class="wide league-member-gym-fields"><legend>관장 전용 설정</legend><label><span>체육관 타입</span><select name="theme"><option value="normal">노말</option><option value="fire">불꽃</option><option value="water">물</option><option value="electric">전기</option><option value="grass">풀</option><option value="ice">얼음</option><option value="fighting">격투</option><option value="poison">독</option><option value="ground">땅</option><option value="flying">비행</option><option value="psychic">에스퍼</option><option value="bug">벌레</option><option value="rock">바위</option><option value="ghost">고스트</option><option value="dragon">드래곤</option><option value="dark">악</option><option value="steel">강철</option><option value="fairy">페어리</option></select></label><label><span>지급 배지</span><select name="badgeId" required></select></label></fieldset>
+          <fieldset class="wide league-member-gym-fields"><legend>관장 전용 설정</legend><label><span>체육관 타입</span><select name="theme"><option value="normal">노말</option><option value="fire">불꽃</option><option value="water">물</option><option value="electric">전기</option><option value="grass">풀</option><option value="ice">얼음</option><option value="fighting">격투</option><option value="poison">독</option><option value="ground">땅</option><option value="flying">비행</option><option value="psychic">에스퍼</option><option value="bug">벌레</option><option value="rock">바위</option><option value="ghost">고스트</option><option value="dragon">드래곤</option><option value="dark">악</option><option value="steel">강철</option><option value="fairy">페어리</option></select></label><label><span>지급 배지</span><select name="badgeId" required></select></label><label class="wide"><span>NPC 외형 리소스</span><input name="appearanceResource" value="rctmod:trainers/single/kanto_brock" required></label><label><span>승리 상금</span><input name="rewardMoney" type="number" min="0" value="0" required></label><label class="wide"><span>승리 아이템 ID</span><input name="rewardItem" placeholder="비워 두면 지급하지 않음"></label></fieldset>
         </div>
         <div class="league-member-summary" id="league-member-summary"></div>
         <div class="dialog-actions"><button class="button secondary" id="league-member-cancel" type="button">취소</button><button class="button primary" type="submit">구성원 생성</button></div>

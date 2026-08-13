@@ -30,10 +30,8 @@
       },
       "staff": {
         "leader": {
-          "trainer_id": "cobbleventure:npc/gym_leader/brock",
           "league_entry_id": "cobbleventure:league/kanto/boulder",
-          "anchor": "leader",
-          "badge_id": "cobbleventure:badge/kanto/boulder"
+          "anchor": "leader"
         },
         "trainers": []
       }
@@ -66,10 +64,8 @@
       },
       "staff": {
         "leader": {
-          "trainer_id": "cobbleventure:npc/gym_leader/misty",
           "league_entry_id": "cobbleventure:league/kanto/cascade",
-          "anchor": "leader",
-          "badge_id": "cobbleventure:badge/kanto/cascade"
+          "anchor": "leader"
         },
         "trainers": []
       }
@@ -102,10 +98,8 @@
       },
       "staff": {
         "leader": {
-          "trainer_id": "cobbleventure:npc/gym_leader/lt_surge",
           "league_entry_id": "cobbleventure:league/kanto/thunder",
-          "anchor": "leader",
-          "badge_id": "cobbleventure:badge/kanto/thunder"
+          "anchor": "leader"
         },
         "trainers": []
       }
@@ -138,10 +132,8 @@
       },
       "staff": {
         "leader": {
-          "trainer_id": "cobbleventure:npc/gym_leader/erika",
           "league_entry_id": "cobbleventure:league/kanto/rainbow",
-          "anchor": "leader",
-          "badge_id": "cobbleventure:badge/kanto/rainbow"
+          "anchor": "leader"
         },
         "trainers": []
       }
@@ -174,10 +166,8 @@
       },
       "staff": {
         "leader": {
-          "trainer_id": "cobbleventure:npc/gym_leader/koga",
           "league_entry_id": "cobbleventure:league/kanto/soul",
-          "anchor": "leader",
-          "badge_id": "cobbleventure:badge/kanto/soul"
+          "anchor": "leader"
         },
         "trainers": []
       }
@@ -210,10 +200,8 @@
       },
       "staff": {
         "leader": {
-          "trainer_id": "cobbleventure:npc/gym_leader/sabrina",
           "league_entry_id": "cobbleventure:league/kanto/marsh",
-          "anchor": "leader",
-          "badge_id": "cobbleventure:badge/kanto/marsh"
+          "anchor": "leader"
         },
         "trainers": []
       }
@@ -246,10 +234,8 @@
       },
       "staff": {
         "leader": {
-          "trainer_id": "cobbleventure:npc/gym_leader/blaine",
           "league_entry_id": "cobbleventure:league/kanto/volcano",
-          "anchor": "leader",
-          "badge_id": "cobbleventure:badge/kanto/volcano"
+          "anchor": "leader"
         },
         "trainers": []
       }
@@ -282,10 +268,8 @@
       },
       "staff": {
         "leader": {
-          "trainer_id": "cobbleventure:npc/gym_leader/giovanni_gym",
           "league_entry_id": "cobbleventure:league/kanto/earth",
-          "anchor": "leader",
-          "badge_id": "cobbleventure:badge/kanto/earth"
+          "anchor": "leader"
         },
         "trainers": []
       }

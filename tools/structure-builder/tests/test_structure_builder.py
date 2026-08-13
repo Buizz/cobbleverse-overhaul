@@ -145,7 +145,7 @@ class StructureBuilderTests(unittest.TestCase):
             for entry in catalog["entries"]
         ))
         self.assertEqual(
-            {"bench", "flower_bed", "street_lamp", "street_tree"},
+            {"bench", "flower_bed", "fountain", "street_lamp", "street_tree"},
             {
                 entry["label"] for entry in catalog["entries"]
                 if entry["category"] == "town_decorations"

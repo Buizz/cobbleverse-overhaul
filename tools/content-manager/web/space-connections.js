@@ -12,6 +12,7 @@ const flow = {
   drag: null,
   pan: null,
   query: "",
+  filters: { kind: "all", route: "all" },
   dirty: false,
 };
 
@@ -62,15 +63,22 @@ function buildingChoices() {
 
 function renderLibrary() {
   const query = flow.query.trim().toLowerCase();
-  const choices = buildingChoices().filter((choice) =>
-    !query || `${choice.label} ${choice.owner} ${choice.kind}`.toLowerCase().includes(query)
-  );
+  const allChoices = buildingChoices();
+  const choices = allChoices.filter((choice) => {
+    const matchesQuery = !query || `${choice.label} ${choice.owner} ${choice.kind}`.toLowerCase().includes(query);
+    const matchesKind = flow.filters.kind === "all" || choice.kind === flow.filters.kind;
+    const hasConnections = Boolean(choice.graph?.connections?.length);
+    const matchesRoute = flow.filters.route === "all"
+      || (flow.filters.route === "connected" ? hasConnections : !hasConnections);
+    return matchesQuery && matchesKind && matchesRoute;
+  });
+  $("#space-building-result-count").textContent = `${choices.length}/${allChoices.length}`;
   $("#space-building-cards").innerHTML = choices.length ? choices.map((choice) => {
     const graph = choice.graph;
     const count = graph?.nodes?.length ? graph.nodes.length - 1 : 0;
     const active = choice.id === flow.selectedGraphId;
     return `<button class="space-library-card building${active ? " is-active" : ""}" type="button" data-space-owner="${escapeHtml(choice.owner)}" data-space-kind="${choice.kind}"><i>${choice.kind === "gym" ? "GYM" : "NBT"}</i><span><strong title="${escapeHtml(choice.owner)}">${escapeHtml(buildingCardTitle(choice))}</strong><small title="${escapeHtml(choice.owner)}">${escapeHtml(choice.owner)}</small></span><b>${count}실</b></button>`;
-  }).join("") : '<div class="issues empty">검색 결과가 없습니다.</div>';
+  }).join("") : '<div class="issues empty">조건에 맞는 건물이 없습니다.</div>';
 
   const interiors = Object.entries(flow.structures).filter(([id, metadata]) =>
     ["interior", "gym_interior"].includes(metadata.category)
@@ -398,6 +406,16 @@ $("#save-space-flow").addEventListener("click", saveFlow);
 $("#fit-space-flow").addEventListener("click", fitGraph);
 $("#auto-layout-space-flow").addEventListener("click", autoLayout);
 $("#space-library-search").addEventListener("input", (event) => { flow.query = event.target.value; renderLibrary(); });
+$("#space-library-kind-filter").addEventListener("change", (event) => { flow.filters.kind = event.target.value; renderLibrary(); });
+$("#space-library-route-filter").addEventListener("change", (event) => { flow.filters.route = event.target.value; renderLibrary(); });
+$("#reset-space-library-filters").addEventListener("click", () => {
+  flow.query = "";
+  flow.filters = { kind: "all", route: "all" };
+  $("#space-library-search").value = "";
+  $("#space-library-kind-filter").value = "all";
+  $("#space-library-route-filter").value = "all";
+  renderLibrary();
+});
 
 $("#space-building-cards").addEventListener("click", (event) => {
   const card = event.target.closest("[data-space-owner]");
