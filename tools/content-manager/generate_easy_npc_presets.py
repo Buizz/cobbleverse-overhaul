@@ -34,6 +34,14 @@ def league_entry_npc_id(entry: dict) -> str:
     return f"cobbleventure:npc/gym_leader/{battle_id.rsplit('/', 1)[-1]}"
 
 
+def league_dialogue_commands(value: str | list[str], base_id: str) -> list[dict]:
+    lines = value if isinstance(value, list) else str(value).splitlines()
+    return [
+        {"type": "dialogue", "id": f"{base_id}_{index + 1}", "speaker": "npc", "text": {"ko_kr": line.strip()}}
+        for index, line in enumerate(lines) if line.strip()
+    ]
+
+
 def league_encounter_document(entry: dict) -> dict:
     """Compile a concise league-authoring entry into a normal NPC event document."""
     encounter = entry["encounter"]
@@ -76,6 +84,7 @@ def league_encounter_document(entry: dict) -> dict:
                 "movement": "stationary", "look_at_player": True,
                 "invulnerable": True, "collision": True,
             },
+            **({"character": encounter["character"]} if encounter.get("character") else {}),
         },
         "events": [{
             "id": "on_interact",
@@ -83,7 +92,7 @@ def league_encounter_document(entry: dict) -> dict:
             "commands": [
                 {"type": "branch", "conditions": [{"type": "flag_equals", "key": clear_key, "value": True}], "target": "cleared"},
                 {"type": "label", "name": "challenge"},
-                {"type": "dialogue", "id": "challenge", "speaker": "npc", "text": {"ko_kr": dialogue["challenge"]}},
+                *league_dialogue_commands(dialogue["challenge"], "challenge"),
                 {"type": "choices", "options": [
                     {"id": "battle", "text": {"ko_kr": "승부한다"}, "target": "battle"},
                     {"id": "cancel", "text": {"ko_kr": "다음에 도전한다"}, "target": "end"},
@@ -92,13 +101,13 @@ def league_encounter_document(entry: dict) -> dict:
                 {"type": "start_battle", "battle": encounter["battle_id"], "results": {"player_win": "victory", "player_loss": "defeat"}},
                 {"type": "label", "name": "victory"},
                 *victory_rewards,
-                {"type": "dialogue", "id": "victory", "speaker": "npc", "text": {"ko_kr": dialogue["victory"]}},
+                *league_dialogue_commands(dialogue["victory"], "victory"),
                 {"type": "goto", "target": "end"},
                 {"type": "label", "name": "defeat"},
-                {"type": "dialogue", "id": "defeat", "speaker": "npc", "text": {"ko_kr": dialogue["defeat"]}},
+                *league_dialogue_commands(dialogue["defeat"], "defeat"),
                 {"type": "goto", "target": "end"},
                 {"type": "label", "name": "cleared"},
-                {"type": "dialogue", "id": "cleared", "speaker": "npc", "text": {"ko_kr": dialogue["cleared"]}},
+                *league_dialogue_commands(dialogue["cleared"], "cleared"),
                 {"type": "label", "name": "end"},
                 {"type": "end"},
             ],
@@ -569,7 +578,13 @@ def event_script_dialogues(document: dict) -> str:
                 fields.append("Conditions:[" + ",".join(conditions) + "]")
             choice_command = commands[index + 1] if index + 1 < len(commands) else {}
             buttons: list[str] = []
-            if choice_command.get("type") == "choices":
+            if choice_command.get("type") == "dialogue":
+                buttons.append(
+                    '{Label:"next",Name:"다음",Actions:[{Cmd:'
+                    + quote(dialogue_label(choice_command.get("id", f"dialogue_{index + 1}")))
+                    + ',Type:"OPEN_NAMED_DIALOG"}]}'
+                )
+            elif choice_command.get("type") == "choices":
                 for option in choice_command.get("options", []):
                     buttons.append(
                         "{Label:" + quote(option["id"])

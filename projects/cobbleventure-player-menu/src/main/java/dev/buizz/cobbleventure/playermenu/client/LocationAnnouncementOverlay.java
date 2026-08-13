@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.cobblemon.mod.common.client.CobblemonClient;
 import dev.buizz.cobbleventure.playermenu.CobbleventurePlayerMenu;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -51,7 +52,7 @@ public final class LocationAnnouncementOverlay {
 
     private static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.options.hideGui) return;
+        if (minecraft.options.hideGui || CobblemonClient.INSTANCE.getBattle() != null) return;
 
         Announcement current = announcement;
         if (current != null) {

@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 
 final class NaturalCaveGenerator {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int LAYOUT_VERSION = 9;
+    private static final int LAYOUT_VERSION = 10;
     private static final int SHELL_THICKNESS = 4;
 
     private NaturalCaveGenerator() {}
@@ -618,36 +618,48 @@ final class NaturalCaveGenerator {
                     level.setBlock(new BlockPos(x, floorY + vertical, z), Blocks.AIR.defaultBlockState(), 2);
                 }
             }
-            int backdropX = centerX - inward.getStepX() * 2;
-            int backdropZ = centerZ - inward.getStepZ() * 2;
-            for (int lateral = -4; lateral <= 4; lateral++) {
-                for (int vertical = 0; vertical <= 6; vertical++) {
-                    int x = backdropX + sideX * lateral;
-                    int z = backdropZ + sideZ * lateral;
-                    level.setBlock(
-                        new BlockPos(x, floorY + vertical, z),
-                        Blocks.WHITE_CONCRETE.defaultBlockState(), 2
-                    );
-                }
-            }
-            for (int lateral = -5; lateral <= 5; lateral++) {
-                for (int vertical = 0; vertical <= 7; vertical++) {
-                    if (Math.abs(lateral) != 5 && vertical != 7) {
-                        continue;
-                    }
-                    int x = backdropX + sideX * lateral;
-                    int z = backdropZ + sideZ * lateral;
-                    level.setBlock(
-                        new BlockPos(x, floorY + vertical, z),
-                        Blocks.GLOWSTONE.defaultBlockState(), 2
-                    );
-                }
-            }
+            openEntranceToOutside(
+                level, centerX, centerZ, inward, sideX, sideZ
+            );
             for (int depth : new int[] {4, 10, 16}) {
                 int x = centerX + inward.getStepX() * depth;
                 int z = centerZ + inward.getStepZ() * depth;
                 level.setBlock(
                     new BlockPos(x, floorY, z), Blocks.GLOWSTONE.defaultBlockState(), 2
+                );
+            }
+        }
+    }
+
+    /** Cuts through the complete cave shell behind an exit and places an
+     * invisible full-height safety plane on the cave side of the opening. */
+    private static void openEntranceToOutside(
+        ServerLevel level, int centerX, int centerZ,
+        Direction inward, int sideX, int sideZ
+    ) {
+        int outwardX = -inward.getStepX();
+        int outwardZ = -inward.getStepZ();
+        int cutDepth = SHELL_THICKNESS + 8;
+        int minY = level.getMinBuildHeight();
+        int maxY = level.getMaxBuildHeight() - 1;
+        BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos();
+        for (int depth = 1; depth <= cutDepth; depth++) {
+            for (int lateral = -5; lateral <= 5; lateral++) {
+                int x = centerX + outwardX * depth + sideX * lateral;
+                int z = centerZ + outwardZ * depth + sideZ * lateral;
+                for (int y = minY; y <= maxY; y++) {
+                    level.setBlock(
+                        position.set(x, y, z), Blocks.AIR.defaultBlockState(), 2
+                    );
+                }
+            }
+        }
+        for (int lateral = -5; lateral <= 5; lateral++) {
+            int x = centerX + outwardX + sideX * lateral;
+            int z = centerZ + outwardZ + sideZ * lateral;
+            for (int y = minY; y <= maxY; y++) {
+                level.setBlock(
+                    position.set(x, y, z), Blocks.BARRIER.defaultBlockState(), 2
                 );
             }
         }

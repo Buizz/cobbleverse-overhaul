@@ -23,6 +23,16 @@ public interface AdventureWorldContext {
 
     Integer averageWildSpawnLevel(ServerLevel level, double x, double z);
 
+    /**
+     * Returns the authored habitat pool at the supplied position. A {@code null}
+     * result leaves Cobblemon's biome pool untouched; an empty set blocks it.
+     */
+    default Set<ResourceLocation> allowedWildSpecies(
+        ServerLevel level, double x, double z
+    ) {
+        return null;
+    }
+
     WildSpawnRule wildSpawnRule(ServerLevel level, double x, double z);
 
     String authoredWeatherAt(ServerPlayer player);

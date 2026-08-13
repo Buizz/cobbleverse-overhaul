@@ -6,7 +6,7 @@
   "author": "Buizz",
   "purpose": "standalone-structure-authoring-world",
   "production_ready": false,
-  "notice": "독립 평지 월드에서 Cobbleventure 건축 NBT를 편집하고 다시 내보내는 경량 제작 팩입니다.",
+  "notice": "독립 평지 월드에서 Cobbleventure 건축 NBT를 편집하고 다시 내보내는 경량 제작 팩입니다. Create 6.0.10 블록을 원형 그대로 보존합니다.",
   "icon": "pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",
@@ -54,6 +54,11 @@
     {
       "projectID": 225608,
       "fileID": 5830452,
+      "required": true
+    },
+    {
+      "projectID": 328085,
+      "fileID": 7963363,
       "required": true
     }
   ],

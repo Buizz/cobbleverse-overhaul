@@ -95,6 +95,31 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn("cobbleventurebag give @1 cobblemon:rare_candy 2", preset)
         self.assertIn(entry["encounter"]["rewards"]["badge_id"], preset)
 
+    def test_compiles_each_league_dialogue_line_as_a_sequential_dialogue(self) -> None:
+        league = json.loads(
+            (PROJECT_ROOT / "content/catalogs/league-progression.json").read_text(encoding="utf-8")
+        )
+        entry = json.loads(json.dumps(next(item for item in league["entries"] if item["role"] == "gym_leader")))
+        entry["encounter"]["dialogue"]["challenge"] = ["첫 번째 대사", "두 번째 대사"]
+
+        document = generator.league_encounter_document(entry)
+        battle_id = entry["encounter"]["battle_id"]
+        battle_path = PROJECT_ROOT / "content/battles/gym_leaders" / f"{battle_id.rsplit('/', 1)[-1]}.json"
+        document["_battle_presets"] = {
+            battle_id: json.loads(battle_path.read_text(encoding="utf-8"))
+        }
+        challenge_dialogues = [
+            command for command in document["events"][0]["commands"]
+            if command.get("type") == "dialogue" and command.get("id", "").startswith("challenge_")
+        ]
+
+        self.assertEqual([command["id"] for command in challenge_dialogues], ["challenge_1", "challenge_2"])
+        self.assertEqual([command["text"]["ko_kr"] for command in challenge_dialogues], ["첫 번째 대사", "두 번째 대사"])
+        dialogues = generator.event_script_dialogues(document)
+        self.assertIn('Label:"challenge_1"', dialogues)
+        self.assertIn('Name:"다음",Actions:[{Cmd:"challenge_2",Type:"OPEN_NAMED_DIALOG"}]', dialogues)
+        self.assertIn('Label:"challenge_2"', dialogues)
+
     def test_npc_money_setting_overrides_legacy_event_money(self) -> None:
         commands = self.document["events"][0]["commands"]
         reward_label = next(

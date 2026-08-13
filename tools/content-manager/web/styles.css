@@ -454,8 +454,27 @@ body {
 .league-workspace-bar small { color: var(--muted); }
 .league-role-heading { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 6px; color: #587081; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 .league-role-heading span { min-width: 22px; padding: 2px 6px; border-radius: 10px; background: #e7eef1; text-align: center; }
+.league-member-row { position: relative; display: grid !important; grid-template-columns: minmax(0,1fr) 34px; gap: 6px; overflow: hidden; padding: 0 !important; background: linear-gradient(90deg,color-mix(in srgb,var(--league-type) 58%,white),color-mix(in srgb,var(--league-type) 12%,white) 56%,#fff) !important; }
+.league-member-row::before { content:""; position:absolute; inset:0 auto 0 0; width:5px; background:var(--league-type); }
+.league-member-select { display:grid; min-width:0; grid-template-columns:34px minmax(0,1fr); align-items:center; gap:10px; padding:16px 4px 16px 20px; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+.league-member-select > span:last-child { display:grid; min-width:0; gap:5px; text-align:left; }
+.league-member-row small b { padding:2px 6px; border-radius:999px; background:var(--league-type); color:#fff; font-size:9px; text-shadow:0 1px 1px rgba(0,0,0,.28); }
+.league-order-actions { display:grid; align-self:stretch; grid-template-rows:1fr 1fr; border-left:1px solid rgba(45,67,79,.15); }
+.league-order-actions button { width:34px; min-height:29px; border:0; background:rgba(255,255,255,.62); color:#355267; font-size:13px; font-weight:900; cursor:pointer; }
+.league-order-actions button + button { border-top:1px solid rgba(45,67,79,.15); }
+.league-order-actions button:hover:not(:disabled) { background:#17344a; color:var(--accent); }
+.league-order-actions button:disabled { color:#aab7be; cursor:not-allowed; opacity:.55; }
+.league-member-badge { display:grid; min-height:34px; place-items:center; }
+.league-member-badge:empty { border:1px dashed color-mix(in srgb,var(--league-type) 60%,#84939b); border-radius:50%; }
+.league-appearance-panel { display:grid; grid-template-columns:minmax(360px,1.3fr) minmax(230px,.7fr); overflow:hidden; padding:0 !important; border:1px solid #c2d0d6; background:#fff; }
+.league-appearance-panel .trainer-preview { min-height:330px; }
+.league-appearance-panel .trainer-appearance-fields { padding:18px; }
+.league-dialogue-editor textarea { width:100%; min-height:104px; resize:vertical; line-height:1.7; }
+.league-badge-preview { display:flex; min-height:70px; align-items:center; gap:14px; margin-top:9px; padding:10px 14px; border:1px solid #c5d3d9; background:linear-gradient(135deg,#f8fbfc,#edf5ef); }
+.league-badge-preview > span { display:grid; gap:4px; }
+.league-badge-preview strong { color:#17354a; font-size:13px; }.league-badge-preview small { color:#657c89; }
 .form-grid fieldset[hidden],.league-member-gym-fields[hidden],#open-league-gym[hidden],#league-card-derived[hidden] { display: none !important; }
-@media (max-width: 760px) { .league-member-role-options { grid-template-columns: 1fr; }.league-member-gym-fields { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .league-member-role-options { grid-template-columns: 1fr; }.league-member-gym-fields,.league-appearance-panel { grid-template-columns: 1fr; } }
 
 @media (max-width: 1280px) { .focused-pokemon-editor { grid-template-columns: minmax(210px,.7fr) minmax(290px,1fr) minmax(270px,1fr); }.focused-moves-panel { grid-column: 2 / -1; border-top: 1px solid #d0dce0; }.focused-moves-list { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 900px) { .focused-party-tabs { display: flex; overflow-x: auto; }.focused-party-tabs button { flex: 0 0 145px; }.focused-pokemon-editor { grid-template-columns: 1fr; }.focused-pokemon-editor > section, .focused-pokemon-preview { grid-column: 1; border-right: 0; border-bottom: 1px solid #d0dce0; }.focused-moves-panel { grid-column: 1; }.focused-moves-list { grid-template-columns: 1fr; }.trainer-appearance-panel { grid-template-columns: 1fr; }.trainer-preview { border-right: 0; border-bottom: 1px solid #d0dce0; } }

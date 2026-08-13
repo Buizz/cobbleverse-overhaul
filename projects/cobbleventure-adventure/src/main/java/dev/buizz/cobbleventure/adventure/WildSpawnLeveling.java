@@ -6,8 +6,11 @@ import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.pokemon.Species;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 
 /** Applies the world-map level brush to naturally spawned wild Pokemon. */
@@ -46,6 +49,21 @@ final class WildSpawnLeveling {
         if (rule != null && addition == null && shouldCancel(pokemon, rule)) {
             event.cancel();
             return;
+        }
+        Set<ResourceLocation> habitatSpecies = CobbleventureAdventure.allowedWildSpecies(
+            level, entity.getX(), entity.getZ()
+        );
+        if (addition == null && habitatSpecies != null && !habitatSpecies.contains(
+            pokemon.getSpecies().getResourceIdentifier()
+        )) {
+            if (habitatSpecies.isEmpty() || !replacePokemon(
+                pokemon,
+                randomSpecies(entity, habitatSpecies),
+                pokemon.getLevel()
+            )) {
+                event.cancel();
+                return;
+            }
         }
         Integer averageLevel = CobbleventureAdventure.averageWildSpawnLevel(
             level, entity.getX(), entity.getZ()
@@ -99,7 +117,20 @@ final class WildSpawnLeveling {
         Pokemon pokemon, AdventureWorldContext.WildSpawnAddition addition,
         int level
     ) {
-        Species species = PokemonSpecies.getByIdentifier(addition.species());
+        return replacePokemon(pokemon, addition.species(), level);
+    }
+
+    private static ResourceLocation randomSpecies(
+        PokemonEntity entity, Set<ResourceLocation> species
+    ) {
+        List<ResourceLocation> choices = new ArrayList<>(species);
+        return choices.get(entity.getRandom().nextInt(choices.size()));
+    }
+
+    private static boolean replacePokemon(
+        Pokemon pokemon, ResourceLocation speciesId, int level
+    ) {
+        Species species = PokemonSpecies.getByIdentifier(speciesId);
         if (species == null || !species.getImplemented()) {
             return false;
         }

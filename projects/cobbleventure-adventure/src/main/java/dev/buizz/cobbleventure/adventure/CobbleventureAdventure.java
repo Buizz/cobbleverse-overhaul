@@ -1,6 +1,8 @@
 package dev.buizz.cobbleventure.adventure;
 
 import java.util.Objects;
+import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.common.Mod;
@@ -49,6 +51,12 @@ public final class CobbleventureAdventure {
 
     static Integer averageWildSpawnLevel(ServerLevel level, double x, double z) {
         return worldContext.averageWildSpawnLevel(level, x, z);
+    }
+
+    public static Set<ResourceLocation> allowedWildSpecies(
+        ServerLevel level, double x, double z
+    ) {
+        return worldContext.allowedWildSpecies(level, x, z);
     }
 
     static AdventureWorldContext.WildSpawnRule wildSpawnRule(

@@ -1,6 +1,7 @@
 {
   "earnCobbleDollarsFromNPC": false,
   "earnCobbleDollarsFromWildPokemon": false,
+  "earnCobbleDollarsFromQuickBattle": false,
   "cobbleDollarsIncomeMultiplier": 1.0,
   "playerDataSaveFrequency": 5
 }

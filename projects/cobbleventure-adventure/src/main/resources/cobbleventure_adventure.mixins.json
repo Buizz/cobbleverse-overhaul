@@ -4,6 +4,7 @@
   "package": "dev.buizz.cobbleventure.adventure.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "CobbleDollarsBattleRewardsMixin",
     "ForfeitActionResponseMixin"
   ],
   "injectors": {

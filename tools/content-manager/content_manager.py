@@ -5029,6 +5029,11 @@ def validate_league_progression_file(
         role = entry.get("role")
         if role not in {"gym_leader", "elite_four", "champion"}:
             _issue(issues, "error", path, f"{entry_path}.role", "관장, 사천왕, 챔피언 중 하나여야 합니다.")
+        primary_type = entry.get("primary_type")
+        if primary_type not in {"normal", "fire", "water", "electric", "grass", "ice", "fighting", "poison", "ground", "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"}:
+            _issue(issues, "error", path, f"{entry_path}.primary_type", "올바른 포켓몬 주 속성이 필요합니다.")
+        if entry.get("badge_id") is not None:
+            _resource_id(entry.get("badge_id"), issues, path, f"{entry_path}.badge_id")
         _localized_text(entry.get("display_name"), issues, path, f"{entry_path}.display_name")
         generation = entry.get("generation")
         if not isinstance(generation, int) or isinstance(generation, bool) or not 1 <= generation <= 9:
@@ -5065,8 +5070,9 @@ def validate_league_progression_file(
                 if dialogue is not None:
                     for field in ("challenge", "victory", "defeat", "cleared"):
                         value = dialogue.get(field)
-                        if not isinstance(value, str) or not value.strip():
-                            _issue(issues, "error", path, f"{entry_path}.encounter.dialogue.{field}", "대사가 필요합니다.")
+                        lines = [value] if isinstance(value, str) else value
+                        if not isinstance(lines, list) or not lines or any(not isinstance(line, str) or not line.strip() for line in lines):
+                            _issue(issues, "error", path, f"{entry_path}.encounter.dialogue.{field}", "비어 있지 않은 대사가 한 줄 이상 필요합니다.")
                 rewards = _require_object(encounter.get("rewards"), issues, path, f"{entry_path}.encounter.rewards")
                 if rewards is not None:
                     money = rewards.get("money")
@@ -6531,6 +6537,9 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
     region = payload.get("region")
     badge_id = payload.get("badge_id", "")
     theme = payload.get("theme", "normal")
+    primary_type = payload.get("primary_type", theme if role == "gym_leader" else "normal")
+    display_badge_id = payload.get("display_badge_id", "")
+    character = payload.get("character", "")
     appearance_resource = payload.get("appearance_resource", "")
     challenge_dialogue = payload.get("challenge_dialogue", "준비가 됐다면 승부하자!")
     victory_dialogue = payload.get("victory_dialogue", "훌륭한 승부였다. 이 배지는 네 것이다.")
@@ -6543,7 +6552,7 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
     order = payload.get("order")
     level_cap = payload.get("level_cap")
     input_values = (
-        role, slug, name, name_en, region, badge_id, theme, appearance_resource,
+        role, slug, name, name_en, region, badge_id, theme, primary_type, display_badge_id, character, appearance_resource,
         challenge_dialogue, victory_dialogue, defeat_dialogue, cleared_dialogue, reward_item,
     )
     if not all(isinstance(value, str) for value in input_values):
@@ -6574,6 +6583,10 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
         return None, [Issue("error", "", "$.reward_item_count", "보상 아이템 수량은 1~999 정수여야 합니다.")]
     if not CHOICE_ID.fullmatch(theme):
         return None, [Issue("error", "", "$.theme", "올바른 체육관 타입이 필요합니다.")]
+    if primary_type not in {"normal", "fire", "water", "electric", "grass", "ice", "fighting", "poison", "ground", "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy"}:
+        return None, [Issue("error", "", "$.primary_type", "올바른 포켓몬 주 속성이 필요합니다.")]
+    if display_badge_id and not RESOURCE_ID.fullmatch(display_badge_id):
+        return None, [Issue("error", "", "$.display_badge_id", "올바른 표시 배지 ID가 필요합니다.")]
 
     region_slug = region.rsplit("/", 1)[-1]
     folder = {"gym_leader": "gym_leaders", "elite_four": "elite_four", "champion": "champions"}[role]
@@ -6605,6 +6618,7 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
     league_entry = {
         "id": league_id,
         "role": role,
+        "primary_type": primary_type,
         "display_name": {"ko_kr": name.strip()},
         "generation": generation,
         "region": region,
@@ -6625,12 +6639,16 @@ def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str,
             },
             "rewards": {"money": reward_money, "badge_id": badge_id},
         }
+        if character:
+            league_entry["encounter"]["character"] = character
         if reward_item:
             league_entry["encounter"]["rewards"].update({
                 "item": reward_item, "item_count": reward_item_count,
             })
     else:
         league_entry["trainer_id"] = npc_id
+        if display_badge_id:
+            league_entry["badge_id"] = display_badge_id
     if name_en.strip():
         league_entry["display_name"]["en_us"] = name_en.strip()
 

@@ -252,6 +252,7 @@ class ContentManagerTests(unittest.TestCase):
                 "entries": [{
                     "id": "cobbleventure:league/generation_1/boulder",
                     "role": "gym_leader",
+                    "primary_type": "rock",
                     "display_name": {"ko_kr": "웅"},
                     "generation": 1,
                     "region": "cobbleventure:region/kanto",
@@ -260,7 +261,7 @@ class ContentManagerTests(unittest.TestCase):
                     "encounter": {
                         "battle_id": "cobbleventure:battle/gym_leader/brock",
                         "appearance": {"source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_brock"},
-                        "dialogue": {"challenge": "도전", "victory": "승리", "defeat": "패배", "cleared": "클리어"},
+                        "dialogue": {"challenge": ["첫 대사", "둘째 대사"], "victory": "승리", "defeat": "패배", "cleared": "클리어"},
                         "rewards": {"money": 500, "badge_id": "cobbleventure:badge/kanto/boulder"},
                     },
                 }],
@@ -278,6 +279,7 @@ class ContentManagerTests(unittest.TestCase):
             path = Path(directory) / "league-progression.json"
             path.write_text(json.dumps({"schema_version": 1, "entries": [{
                 "id": "cobbleventure:league/generation_1/boulder", "role": "gym_leader",
+                "primary_type": "rock",
                 "display_name": {"ko_kr": "웅"}, "generation": 1,
                 "region": "cobbleventure:region/kanto", "order": 1,
                 "trainer_card_order": 0, "level_cap": 15,
@@ -2443,6 +2445,52 @@ class ContentManagerTests(unittest.TestCase):
             "shaderPack=ComplementaryReimagined_r5.3 + EuphoriaPatches_1.4.3",
             iris_config,
         )
+        options = (
+            root
+            / "pack"
+            / "overrides"
+            / "development-placeholder"
+            / "options.txt"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "key_iris.keybind.reload:key.keyboard.unknown",
+            options,
+        )
+        self.assertNotIn(
+            "key_iris.keybind.reload:key.keyboard.r",
+            options,
+        )
+
+    def test_create_is_pinned_in_development_pack(self) -> None:
+        dependency_lock = content_manager.load_json(
+            CORE_ROOT / "pack" / "dependencies.lock.json"
+        )
+        create = next(item for item in dependency_lock["mods"] if item["id"] == "create")
+        self.assertTrue(create["enabled"])
+        self.assertEqual("required", create["classification"])
+        self.assertEqual("both", create["side"])
+        self.assertEqual("6.0.10", create["version"])
+        self.assertEqual(328085, create["curseforge"]["project_id"])
+        self.assertEqual(7963363, create["curseforge"]["file_id"])
+
+        profile = content_manager.load_json(
+            CORE_ROOT / "pack" / "profiles" / "development-placeholder.json"
+        )
+        profile_files = {
+            (entry["projectID"], entry["fileID"]) for entry in profile["files"]
+        }
+        self.assertIn((328085, 7963363), profile_files)
+        self.assertIn("Create 6.0.10", profile["notice"])
+
+        builder_profile = content_manager.load_json(
+            CORE_ROOT / "pack" / "profiles" / "structure-builder.json"
+        )
+        builder_files = {
+            (entry["projectID"], entry["fileID"])
+            for entry in builder_profile["files"]
+        }
+        self.assertIn((328085, 7963363), builder_files)
+        self.assertIn("Create 6.0.10", builder_profile["notice"])
 
     def test_local_api_health_and_validation(self) -> None:
         root = CORE_ROOT
@@ -3186,7 +3234,8 @@ class ContentManagerTests(unittest.TestCase):
                 "role": "gym_leader", "slug": "test_leader", "name": "테스트 관장",
                 "name_en": "Test Leader", "generation": 1,
                 "region": "cobbleventure:region/test", "order": 1, "level_cap": 20,
-                "theme": "rock", "badge_id": "cobbleventure:badge/test/stone",
+                "primary_type": "rock", "theme": "rock", "badge_id": "cobbleventure:badge/test/stone",
+                "character": "cobbleventure:character/brock",
                 "appearance_resource": "rctmod:trainers/single/kanto_brock",
                 "reward_money": 500, "reward_item": "cobblemon:potion", "reward_item_count": 2,
             })
@@ -3194,7 +3243,8 @@ class ContentManagerTests(unittest.TestCase):
                 "role": "elite_four", "slug": "test_elite", "name": "테스트 사천왕",
                 "name_en": "Test Elite", "generation": 1,
                 "region": "cobbleventure:region/test", "order": 2, "level_cap": 50,
-                "theme": "normal", "badge_id": "",
+                "primary_type": "ice", "theme": "normal", "badge_id": "",
+                "display_badge_id": "cobbleventure:badge/test/stone",
             })
 
             self.assertFalse(any(issue.level == "error" for issue in leader_issues), leader_issues)
@@ -3209,6 +3259,10 @@ class ContentManagerTests(unittest.TestCase):
             self.assertNotIn("trainer_card_order", league["entries"][0])
             self.assertNotIn("trainer_id", league["entries"][0])
             self.assertEqual(500, league["entries"][0]["encounter"]["rewards"]["money"])
+            self.assertEqual("rock", league["entries"][0]["primary_type"])
+            self.assertEqual("cobbleventure:character/brock", league["entries"][0]["encounter"]["character"])
+            self.assertEqual("ice", league["entries"][1]["primary_type"])
+            self.assertEqual("cobbleventure:badge/test/stone", league["entries"][1]["badge_id"])
             gyms = json.loads((catalogs / "gyms.json").read_text(encoding="utf-8"))
             self.assertEqual(1, len(gyms["gyms"]))
             self.assertEqual(leader["league_entry"]["id"], gyms["gyms"][0]["staff"]["leader"]["league_entry_id"])

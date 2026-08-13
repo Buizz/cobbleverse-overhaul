@@ -101,10 +101,10 @@ public final class StructureBuilderMod {
 
     @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent event) {
+        configureWorld(event.getServer());
         if (!Boolean.getBoolean(PREPARE_PROPERTY)) {
             return;
         }
-        configureWorld(event.getServer());
         event.getServer().saveEverything(true, true, true);
         shutdownTicks = 20;
         LOGGER.info("Blank Cobbleventure structure builder world is ready for packaging");
@@ -137,6 +137,11 @@ public final class StructureBuilderMod {
         }
         configureWorld(server);
         player.setGameMode(GameType.CREATIVE);
+        server.getPlayerList().op(player.getGameProfile());
+        server.getCommands().sendCommands(player);
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] 건축 명령 권한을 활성화했습니다. WorldEdit 명령을 사용할 수 있습니다."
+        ));
         giveEditorStick(player);
         try {
             Catalog catalog = loadCatalog(server);

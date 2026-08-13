@@ -9,7 +9,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,15 +40,14 @@ final class LeagueProgressionContent {
                 Badge badge = badgeId == null ? null : badges.get(badgeId);
                 int generation = value.get("generation").getAsInt();
                 String region = value.get("region").getAsString();
-                int order = value.has("trainer_card_order") ? value.get("trainer_card_order").getAsInt() : value.get("order").getAsInt();
                 grouped.computeIfAbsent(new PageKey(generation, region), ignored -> new ArrayList<>()).add(new Entry(
-                    order, localized(value.getAsJsonObject("display_name")), kind(role), badge,
+                    localized(value.getAsJsonObject("display_name")), kind(role), badge,
                     leader == null ? null : leader.skin(), leader != null && leader.slimModel()
                 ));
             }
             List<TrainerCardProgress.LeaguePage> pages = new ArrayList<>();
             for (Map.Entry<PageKey, List<Entry>> page : grouped.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
-                List<Entry> entries = page.getValue().stream().sorted(Comparator.comparingInt(Entry::order)).toList();
+                List<Entry> entries = page.getValue();
                 int sheetCount = Math.max(1, (entries.size() + 7) / 8);
                 for (int offset = 0; offset < entries.size(); offset += 8) {
                     List<TrainerCardProgress.Challenge> challenges = entries.subList(offset, Math.min(offset + 8, entries.size())).stream()
@@ -136,7 +134,7 @@ final class LeagueProgressionContent {
     private static String readable(String id) { String value = id.substring(Math.max(id.lastIndexOf(':'), id.lastIndexOf('/')) + 1); return value.replace('_', ' '); }
 
     private record PageKey(int generation, String region) implements Comparable<PageKey> { @Override public int compareTo(PageKey other) { int order = Integer.compare(generation, other.generation); return order != 0 ? order : region.compareTo(other.region); } }
-    private record Entry(int order, String name, TrainerCardProgress.ChallengeKind kind, Badge badge, ResourceLocation leaderSkin, boolean slimModel) {}
+    private record Entry(String name, TrainerCardProgress.ChallengeKind kind, Badge badge, ResourceLocation leaderSkin, boolean slimModel) {}
     private record LeaderCard(String badgeId, ResourceLocation skin, boolean slimModel) {}
     private record LeaderAppearance(ResourceLocation texture, boolean slimModel) {}
     private record Badge(String id, String name, String tooltip, ResourceLocation texture, int u, int v, int size, int atlasWidth, int atlasHeight) {}

@@ -336,6 +336,19 @@
       "reason": "CobbleFurnies 1.2의 필수 공용 API"
     },
     {
+      "id": "create",
+      "display_name": "Create",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "6.0.10",
+      "curseforge": {
+        "project_id": 328085,
+        "file_id": 7963363
+      },
+      "reason": "체육관 퍼즐의 벨트·선풍기·이동 장치와 월드 기계 장식 구현"
+    },
+    {
       "id": "rctapi",
       "display_name": "Radical Cobblemon Trainers API",
       "classification": "required",

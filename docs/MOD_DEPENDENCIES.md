@@ -45,6 +45,7 @@
 | `cobbledollars` | CobbleDollars | 필수 | 양쪽 | BCA 상점과 백화점 화폐·상인 기능 | 2.0.0 Beta-6.1 / CF `859232:8484919` |
 | `cobblemon_casino` | Cobblemon Casino | 필수 | 양쪽 | 슬롯머신, 블랙잭, 가챠와 카지노 칩 경제 | 2.0.0 / CF `1572769:8235485` |
 | `architectury_api` | Architectury API | 필수 | 양쪽 | CobbleFurnies 공용 API | 13.0.11 / CF `419699:8492726` |
+| `create` | Create | 필수 | 양쪽 | 체육관 벨트·선풍기·이동 장치와 기계 장식 | 6.0.10 / CF `328085:7963363` |
 | `rctapi` | Radical Cobblemon Trainers API | 필수 | 양쪽 | 트레이너 데이터와 전투 연동 계약 | 0.15.2-beta / CF `1152792:7952419` |
 | `rctmod` | Radical Cobblemon Trainers | 필수 | 양쪽 | RCT JSON 로딩과 트레이너전 관리 | 0.18.1-beta / CF `1009534:7913180` |
 | `cobblefurnies` | CobbleFurnies | 필수 | 양쪽 | 프로젝트 체육관·리그 NBT의 가구 블록 | 1.2 / CF `1188698:8340192` |
@@ -77,6 +78,9 @@ Entity Culling은 가려진 개체 렌더링을 각각 담당한다. Lithium과 
 `ComplementaryReimagined_r5.3 + EuphoriaPatches_1.4.3`을 Iris 기본 셰이더로
 선택하고 셰이더 렌더링도 활성화한다. 실제 릴리스 빌드에서는 성능 등급별 기본값을
 정한 뒤 이 개발용 강제 활성화 설정을 제거하거나 별도 프로필로 분리한다.
+Iris의 기본 `R` 셰이더 새로고침 단축키는 개발팩 `options.txt`에서
+`key.keyboard.unknown`으로 해제한다. 따라서 R키는 다른 게임 기능에서 자유롭게
+사용할 수 있으며, 필요한 사용자는 Minecraft 키 설정에서 새 키를 직접 지정한다.
 
 `Cobblemon Casino` 2.0.0을 카지노 기본 시설의 정식 의존성으로 사용한다. Minecraft
 1.21.1·NeoForge용 파일과 필수 Cloth Config API 15.0.140을 Lock과 개발팩에 함께

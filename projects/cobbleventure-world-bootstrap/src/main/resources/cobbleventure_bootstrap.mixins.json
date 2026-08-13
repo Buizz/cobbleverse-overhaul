@@ -6,7 +6,8 @@
   "mixins": [
     "FlatLevelSourceMixin",
     "JigsawPlacementPlacerMixin",
-    "SinglePoolElementMixin"
+    "SinglePoolElementMixin",
+    "CobblenavSpawnDataHelperMixin"
   ],
   "client": [
     "BattleGeneralActionSelectionMixin",

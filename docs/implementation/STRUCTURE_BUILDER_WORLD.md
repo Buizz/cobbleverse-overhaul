@@ -31,14 +31,15 @@ content/structures/*.nbt
 않고 블록의 리소스 ID만 저장하므로, 해당 블록을 제공하는 모드는 건축 월드를 열 때
 설치되어 있어야 한다.
 
-현재 관리 원본은 모두 `minecraft` 블록만 사용하지만 앞으로 사용할 콘텐츠 블록을
-보존하기 위해 다음 최소 모드 집합을 포함한다.
+메인 팩과 동일한 모드 블록을 사용한 NBT가 누락 블록으로 치환되지 않도록 다음 최소
+모드 집합을 포함한다.
 
 | 모드 | 포함 이유 |
 |---|---|
 | Cobblemon, Kotlin for Forge | 포켓몬 관련 블록과 필수 런타임 |
 | Cobblemon Casino, Cloth Config | 카지노 시설 블록과 설정 의존성 |
 | CobbleFurnies, Architectury API, Athena | 가구 블록과 모델 렌더링 |
+| Create 6.0.10 | Create 블록과 블록 엔티티가 포함된 건축 NBT를 손실 없이 편집·저장 |
 | 프로젝트에 가져온 체육관 NBT | `gyms/*.nbt` 외관을 체크무늬에서 직접 수정 |
 | WorldEdit | 대형 건축 편집, 선택과 복사·붙여넣기 |
 | Cobbleventure Structure Builder | 부지 배치, NBT 캡처와 내보내기 |
@@ -48,6 +49,11 @@ content/structures/*.nbt
 
 WorldEdit은 CurseForge 프로젝트 `225608`, Minecraft 1.21.1 NeoForge 파일
 `5830452`를 사용한다.
+
+Create는 메인 개발팩과 동일한 CurseForge 프로젝트 `328085`, 파일 `7963363`
+(`6.0.10`)을 사용한다. Create 블록이 포함된 NBT는 Create가 없는 월드에서 한 번이라도
+불러오고 다시 저장하면 블록 또는 블록 엔티티 정보가 유실될 수 있으므로 건축 월드에서도
+Create를 제거하지 않는다.
 
 ## 3. 건축 월드 생성
 
@@ -82,6 +88,10 @@ CurseForge에서 ZIP을 새 프로필로 임포트한 뒤 월드 목록의
 월드를 처음 열면 모든 콘텐츠 모드가 로드된 통합 서버에서 원본 NBT를 배치한다.
 월드 생성용 헤드리스 서버에서는 NBT를 놓지 않으므로, 향후 원본에 모드 블록이 들어가도
 바닐라 공기로 치환되지 않는다.
+
+건축 월드는 크리에이티브 모드를 강제한다. 접속한 건축가는 자동으로 OP 명령 권한을
+받고 명령 트리를 다시 동기화하므로 별도의 LAN 치트 허용 없이
+`//wand`, `//set` 같은 WorldEdit 명령과 `/cobbleventure_builder` 명령을 사용할 수 있다.
 
 - 셀 크기: 80×80블록
 - 보드: 8열, 구조물 수에 맞춰 행 자동 확장

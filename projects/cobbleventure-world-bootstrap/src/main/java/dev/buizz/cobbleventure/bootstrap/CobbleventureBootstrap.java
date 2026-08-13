@@ -93,6 +93,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -239,6 +240,13 @@ public final class CobbleventureBootstrap {
             }
 
             @Override
+            public Set<ResourceLocation> allowedWildSpecies(
+                ServerLevel level, double x, double z
+            ) {
+                return HabitatSpawnRules.allowedSpecies(level, x, z);
+            }
+
+            @Override
             public AdventureWorldContext.WildSpawnRule wildSpawnRule(
                 ServerLevel level, double x, double z
             ) {
@@ -260,6 +268,7 @@ public final class CobbleventureBootstrap {
         BuildingRuntimeSystem.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onEntityJoinLevel);
+        NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onChunkLoad);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerTick);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onRegisterCommands);
@@ -306,6 +315,28 @@ public final class CobbleventureBootstrap {
         if (entityType.getNamespace().equals("cobblemon")
             && terrainAt(activeHexWorld, event.getEntity().getX(), event.getEntity().getZ()) == null) {
             event.setCanceled(true);
+        }
+    }
+
+    private static void onChunkLoad(ChunkEvent.Load event) {
+        if (!(event.getLevel() instanceof ServerLevel level)
+            || !level.dimension().equals(GENERATION_ONE)) {
+            return;
+        }
+        List<BlockPos> beehives = event.getChunk().getBlockEntitiesPos().stream()
+            .filter(position -> {
+                BlockState state = event.getChunk().getBlockState(position);
+                return state.is(Blocks.BEE_NEST) || state.is(Blocks.BEEHIVE);
+            })
+            .toList();
+        for (BlockPos position : beehives) {
+            level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+        }
+        if (!beehives.isEmpty()) {
+            LOGGER.info(
+                "Removed beehives from generation_1 chunk: chunk={}, count={}",
+                event.getChunk().getPos(), beehives.size()
+            );
         }
     }
 
@@ -678,7 +709,6 @@ public final class CobbleventureBootstrap {
         if (nativeGenerator) {
             activeHexWorld = runtime.hexWorld();
             activeShoreDistances = null;
-            progress.update(85, "필요한 청크를 월드젠 워커에서 생성할 준비 완료");
             LOGGER.info(
                 "Skipped legacy fillbiome and post-generation terrain rendering; native chunk generation is active"
             );
@@ -937,34 +967,54 @@ public final class CobbleventureBootstrap {
         double sideX = -forwardZ;
         double sideZ = forwardX;
         int approachLength = Math.max(18, (int) Math.ceil(boundaryDistance));
+        List<Integer> approachHeights = new ArrayList<>(approachLength + 1);
+        for (int step = 0; step <= approachLength; step++) {
+            int x = center.x() + (int) Math.round(forwardX * step);
+            int z = center.z() + (int) Math.round(forwardZ * step);
+            approachHeights.add(plannedTerrainGroundY(level, x, z));
+        }
+        approachHeights.set(approachLength, baseY);
+        for (int step = approachLength - 1; step >= 0; step--) {
+            int nextY = approachHeights.get(step + 1);
+            int naturalY = approachHeights.get(step);
+            approachHeights.set(
+                step, Math.max(nextY - 1, Math.min(nextY + 1, naturalY))
+            );
+        }
         Set<Long> painted = new HashSet<>();
         for (int step = 0; step <= approachLength; step++) {
             int x = center.x() + (int) Math.round(forwardX * step);
             int z = center.z() + (int) Math.round(forwardZ * step);
-            for (int lateral = -2; lateral <= 2; lateral++) {
+            int clearanceHalfWidth = step >= approachLength - 6 ? 3 : 2;
+            for (int lateral = -clearanceHalfWidth;
+                 lateral <= clearanceHalfWidth; lateral++) {
                 int roadX = x + (int) Math.round(sideX * lateral);
                 int roadZ = z + (int) Math.round(sideZ * lateral);
                 if (!painted.add(blockColumnKey(roadX, roadZ))) {
                     continue;
                 }
-                int roadY = plannedTerrainGroundY(level, roadX, roadZ);
-                if (step >= approachLength - 2 && Math.abs(roadY - baseY) <= 2) {
-                    roadY = baseY;
-                }
+                int roadY = approachHeights.get(step);
                 clearLegacyElevatedCaveRoad(level, roadX, roadY, roadZ);
+                clearVegetationColumn(level, roadX, roadY, roadZ, 12);
+                int clearance = step >= approachLength - 6 ? 7 : 4;
+                for (int y = roadY + 1; y <= roadY + clearance; y++) {
+                    level.setBlock(
+                        new BlockPos(roadX, y, roadZ),
+                        Blocks.AIR.defaultBlockState(), 2
+                    );
+                }
                 if (Math.abs(lateral) > 1) {
                     continue;
                 }
-                clearVegetationColumn(level, roadX, roadY, roadZ, 12);
+                Direction ascent = caveApproachAscentDirection(
+                    forwardX, forwardZ, approachHeights, step
+                );
                 level.setBlock(
                     new BlockPos(roadX, roadY, roadZ),
-                    caveRoadSurfaceBlock(world, approachRoad, roadX, roadZ), 2
+                    caveRoadSurfaceBlock(
+                        world, approachRoad, roadX, roadZ, ascent
+                    ), 2
                 );
-                for (int y = roadY + 1; y <= roadY + 4; y++) {
-                    level.setBlock(
-                        new BlockPos(roadX, y, roadZ), Blocks.AIR.defaultBlockState(), 2
-                    );
-                }
             }
         }
     }
@@ -983,6 +1033,16 @@ public final class CobbleventureBootstrap {
     private static BlockState caveRoadSurfaceBlock(
         HexWorldPlan world, ConnectionPath road, int x, int z
     ) {
+        return caveRoadSurfaceBlock(world, road, x, z, null);
+    }
+
+    private static BlockState caveRoadSurfaceBlock(
+        HexWorldPlan world, ConnectionPath road, int x, int z,
+        Direction ascent
+    ) {
+        if (ascent != null) {
+            return roadStairBlock(roadSurfaceChoice(world, x, z), ascent);
+        }
         if (road == null) {
             return Blocks.COBBLESTONE.defaultBlockState();
         }
@@ -991,6 +1051,25 @@ public final class CobbleventureBootstrap {
             road.terrainProfile(), road.accessRequirement(), road.surfaceStyle()
         );
         return fullRoadSurfaceBlock(world, roadSample, x, z);
+    }
+
+    private static Direction caveApproachAscentDirection(
+        double forwardX, double forwardZ, List<Integer> heights, int step
+    ) {
+        if (step < heights.size() - 1
+            && heights.get(step + 1) > heights.get(step)) {
+            return horizontalDirection(forwardX, forwardZ);
+        }
+        if (step > 0 && heights.get(step - 1) > heights.get(step)) {
+            return horizontalDirection(-forwardX, -forwardZ);
+        }
+        return null;
+    }
+
+    private static Direction horizontalDirection(double x, double z) {
+        return Math.abs(x) >= Math.abs(z)
+            ? x >= 0.0D ? Direction.EAST : Direction.WEST
+            : z >= 0.0D ? Direction.SOUTH : Direction.NORTH;
     }
 
     private static void clearLegacyElevatedCaveRoad(
@@ -2783,16 +2862,74 @@ public final class CobbleventureBootstrap {
         for (long key : columns) {
             int x = blockColumnX(key);
             int z = blockColumnZ(key);
-            int surfaceY = level.getHeight(
-                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z
-            ) - 1;
-            BlockState surface = level.getBlockState(new BlockPos(x, surfaceY, z));
-            if (isConfiguredRoadStair(surface) || isConfiguredRoadSlab(surface)) {
-                surfaceY--;
+            heights.put(key, loadedRoadSurfaceY(level, x, z));
+        }
+        int corrected = 0;
+        int maximumCorrection = 0;
+        for (long key : columns) {
+            int x = blockColumnX(key);
+            int z = blockColumnZ(key);
+            int loadedY = heights.get(key);
+            if (!loadedRoadHeightNeedsVerification(level, x, loadedY, z, heights)) {
+                continue;
             }
-            heights.put(key, surfaceY);
+            int plannedY = plannedTerrainGroundY(level, x, z);
+            if (loadedY <= plannedY + 2) {
+                continue;
+            }
+            heights.put(key, plannedY);
+            corrected++;
+            maximumCorrection = Math.max(maximumCorrection, loadedY - plannedY);
+        }
+        if (corrected > 0) {
+            LOGGER.info(
+                "Corrected elevated road columns caused by surface obstructions: columns={}, maximumCorrection={}",
+                corrected, maximumCorrection
+            );
         }
         return heights;
+    }
+
+    private static int loadedRoadSurfaceY(ServerLevel level, int x, int z) {
+        int surfaceY = level.getHeight(
+            Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z
+        ) - 1;
+        BlockState surface = level.getBlockState(new BlockPos(x, surfaceY, z));
+        return isConfiguredRoadStair(surface) || isConfiguredRoadSlab(surface)
+            ? surfaceY - 1 : surfaceY;
+    }
+
+    private static boolean loadedRoadHeightNeedsVerification(
+        ServerLevel level, int x, int surfaceY, int z,
+        Map<Long, Integer> roadHeights
+    ) {
+        BlockState surface = level.getBlockState(new BlockPos(x, surfaceY, z));
+        if (isNaturalTownTree(surface)
+            || surface.is(Blocks.BEE_NEST) || surface.is(Blocks.BEEHIVE)) {
+            return true;
+        }
+        if (!isNaturalRoadObstruction(surface)) {
+            return true;
+        }
+        List<Integer> nearby = new ArrayList<>(8);
+        for (int offsetX = -3; offsetX <= 3; offsetX += 3) {
+            for (int offsetZ = -3; offsetZ <= 3; offsetZ += 3) {
+                if (offsetX == 0 && offsetZ == 0) {
+                    continue;
+                }
+                Integer nearbyY = roadHeights.get(blockColumnKey(
+                    x + offsetX, z + offsetZ
+                ));
+                if (nearbyY != null) {
+                    nearby.add(nearbyY);
+                }
+            }
+        }
+        if (nearby.size() < 3) {
+            return false;
+        }
+        nearby.sort(Integer::compareTo);
+        return surfaceY > nearby.get(nearby.size() / 2) + 3;
     }
 
     private static Direction configuredRoadStairDirection(
@@ -3022,6 +3159,7 @@ public final class CobbleventureBootstrap {
             || state.is(Blocks.BAMBOO) || state.is(Blocks.MUSHROOM_STEM)
             || state.is(Blocks.BROWN_MUSHROOM_BLOCK)
             || state.is(Blocks.RED_MUSHROOM_BLOCK)
+            || state.is(Blocks.BEE_NEST) || state.is(Blocks.BEEHIVE)
             || state.is(Blocks.MANGROVE_ROOTS)
             || state.is(Blocks.MUDDY_MANGROVE_ROOTS)
             || state.is(Blocks.VINE) || state.is(Blocks.COCOA);
@@ -4171,12 +4309,7 @@ public final class CobbleventureBootstrap {
                     + (int) Math.round(mouth.forwardX() * triggerDepth);
                 int triggerZ = mouth.z()
                     + (int) Math.round(mouth.forwardZ() * triggerDepth);
-                int expectedFloorY = plannedTerrainGroundY(
-                    generationOne, triggerX, triggerZ
-                );
-                int floorY = caveMouthFloorY(
-                    generationOne, triggerX, triggerZ, expectedFloorY
-                );
+                int floorY = caveEntranceFloorY(world, entrance);
                 double dx = player.getX() - (triggerX + 0.5D);
                 double dz = player.getZ() - (triggerZ + 0.5D);
                 if (dx * dx + dz * dz > 4.0D
@@ -6558,7 +6691,6 @@ public final class CobbleventureBootstrap {
         progress.update(83, "직접 배치 길 생성 중");
         drawHexRoads(level, world);
         profiler.finishPhase("route-rendering");
-        progress.update(85, "지형 생성 완료");
     }
 
     private static Set<HexCoord> worldRenderCells(HexWorldPlan world) {
@@ -7605,12 +7737,32 @@ public final class CobbleventureBootstrap {
             || !sample.owner().equals(routeId)) {
             return new RoadColumnPlan(LEGACY_SURFACE_Y, null);
         }
-        int baseY = baseTerrainGroundY(world, sample, x, z);
+        int baseY = roadUnderlyingGroundY(world, x, z);
         Direction stairDirection = regionalRoadStairDirection(
             world, routeId, x, z, baseY
         );
         return new RoadColumnPlan(
             baseY + (stairDirection == null ? 0 : 1), stairDirection
+        );
+    }
+
+    /** Keeps a regional road on the terrain it overlays instead of using the
+     * route profile as a separate, usually flat, terrain layer. */
+    private static int roadUnderlyingGroundY(
+        HexWorldPlan world, double x, double z
+    ) {
+        double sampleX = Math.floor(x) + 0.5D;
+        double sampleZ = Math.floor(z) + 0.5D;
+        TerrainSample underlying = cellInfluence(world, sampleX, sampleZ);
+        if (underlying != null) {
+            return terrainGroundY(world, underlying, x, z);
+        }
+        String type = emptyTerrainAt(world, sampleX, sampleZ);
+        if (type.equals("ocean")) {
+            return WATER_SURFACE_Y;
+        }
+        return emptyTerrainGroundY(
+            world, type, (int) Math.floor(x), (int) Math.floor(z)
         );
     }
 
@@ -7627,7 +7779,7 @@ public final class CobbleventureBootstrap {
                 || !adjacent.owner().equals(routeId)) {
                 continue;
             }
-            if (baseTerrainGroundY(world, adjacent, adjacentX, adjacentZ)
+            if (roadUnderlyingGroundY(world, adjacentX, adjacentZ)
                 == currentHeight + 1) {
                 return direction;
             }
@@ -9145,10 +9297,6 @@ public final class CobbleventureBootstrap {
     static boolean isCaveBarrierOpening(
         HexWorldPlan world, int x, int y, int z, int groundY
     ) {
-        int caveFloorY = groundY - nativeCaveMountainRise(world, x, z);
-        if (y <= caveFloorY || y > caveFloorY + 7) {
-            return false;
-        }
         for (CaveEntrancePlan entrance : world.caveEntrances()) {
             CaveMouthGeometry mouth = caveMouthGeometry(world.grid(), entrance);
             double offsetX = x + 0.5D - mouth.x();
@@ -9157,11 +9305,26 @@ public final class CobbleventureBootstrap {
             double lateral = Math.abs(
                 offsetX * -mouth.forwardZ() + offsetZ * mouth.forwardX()
             );
-            if (depth >= -3.5D && depth <= 9.5D && lateral <= 3.5D) {
+            if (depth < -3.5D || depth > 9.5D || lateral > 3.5D) {
+                continue;
+            }
+            int caveFloorY = caveEntranceFloorY(world, entrance);
+            if (y > caveFloorY && y <= caveFloorY + 7) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static int caveEntranceFloorY(
+        HexWorldPlan world, CaveEntrancePlan entrance
+    ) {
+        CaveMouthGeometry mouth = caveMouthGeometry(world.grid(), entrance);
+        NativeTerrainColumn column = nativeTerrainColumn(
+            world, mouth.x(), mouth.z()
+        );
+        return column.groundY()
+            - nativeCaveMountainRise(world, mouth.x(), mouth.z());
     }
 
     private static void restoreCaveEntranceBarrierRoof(
@@ -9186,7 +9349,10 @@ public final class CobbleventureBootstrap {
                     continue;
                 }
                 int groundY = nativeTerrainColumn(world, x, z).groundY();
-                for (int y = groundY + 1; y < level.getMaxBuildHeight(); y++) {
+                int barrierStartY = Math.min(
+                    groundY + 1, caveEntranceFloorY(world, entrance) + 1
+                );
+                for (int y = barrierStartY; y < level.getMaxBuildHeight(); y++) {
                     BlockPos position = new BlockPos(x, y, z);
                     if (isCaveBarrierOpening(world, x, y, z, groundY)) {
                         if (level.getBlockState(position).is(Blocks.BARRIER)) {
@@ -9932,9 +10098,16 @@ public final class CobbleventureBootstrap {
             if (targetSettlement == null) {
                 continue;
             }
-            Point approach = fromTown
-                ? connection.centerline().getFirst()
-                : connection.centerline().getLast();
+            Point approach = settlementRouteApproach(
+                world, connection.centerline(), townCenter, toTown
+            );
+            if (approach == null) {
+                LOGGER.warn(
+                    "Town route could not find a land approach: settlement={}, route={}",
+                    settlement.id(), connection.id()
+                );
+                continue;
+            }
             TownGateConfig gateConfig = townGateConfig(settlement, targetSettlement);
             Point gateRoad = findTownGateRoad(
                 settlement, townCenter, approach, gateConfig, usedGateRoads
@@ -9952,7 +10125,7 @@ public final class CobbleventureBootstrap {
                 true, true
             );
             drawTownGate(
-                level, world, connection, settlement, gateRoad, direction,
+                level, world, settlement, gateRoad, direction,
                 gateConfig.gateWidth(), gateConfig.pathWidth()
             );
             usedGateRoads.add(gateRoad);
@@ -10018,18 +10191,21 @@ public final class CobbleventureBootstrap {
         int perpendicularZ = direction[0];
         Point best = null;
         double bestScore = Double.POSITIVE_INFINITY;
+        Point reusable = null;
+        double reusableScore = Double.POSITIVE_INFINITY;
         TownLayout layout = generateTownLayout(settlement);
         Set<Point> endpoints = new HashSet<>();
-        if (!layout.externalExits().isEmpty()) {
-            for (Point exit : layout.externalExits()) endpoints.add(townCenter.translate(exit.x(), exit.z()));
-        } else {
-            for (TownRoad road : layout.roads()) {
-                endpoints.add(townCenter.translate(road.x1(), road.z1()));
-                endpoints.add(townCenter.translate(road.x2(), road.z2()));
-            }
+        for (Point exit : layout.externalExits()) {
+            endpoints.add(townCenter.translate(exit.x(), exit.z()));
+        }
+        // Compiled exits are preferred authoring hints, but they may not include
+        // every direction used by the world graph. Include every main-road end
+        // so a route is never abandoned just because no authored exit faces it.
+        for (TownRoad road : layout.roads()) {
+            endpoints.add(townCenter.translate(road.x1(), road.z1()));
+            endpoints.add(townCenter.translate(road.x2(), road.z2()));
         }
         for (Point endpoint : endpoints) {
-            if (usedGateRoads.contains(endpoint)) continue;
             int x = endpoint.x();
             int z = endpoint.z();
             int relativeX = x - townCenter.x();
@@ -10046,12 +10222,17 @@ public final class CobbleventureBootstrap {
             double score = -outwardProjection * 8.0D
                 + lateralError * 1.35D
                 + targetDistance * 0.04D;
+            if (score < reusableScore) {
+                reusable = new Point(x, z);
+                reusableScore = score;
+            }
+            if (usedGateRoads.contains(endpoint)) continue;
             if (score < bestScore) {
                 best = new Point(x, z);
                 bestScore = score;
             }
         }
-        return best;
+        return best != null ? best : reusable;
     }
 
     private static int[] townGateDirection(
@@ -10089,7 +10270,6 @@ public final class CobbleventureBootstrap {
     private static void drawTownGate(
         ServerLevel level,
         HexWorldPlan world,
-        ConnectionPath connection,
         SettlementPlan settlement,
         Point gate,
         int[] direction,
@@ -10115,9 +10295,13 @@ public final class CobbleventureBootstrap {
                 new BlockPos(x, groundY + 4, z), Blocks.LANTERN.defaultBlockState(), 2
             );
         }
-        drawRoadDisk(
-            level, world, connection,
-            gate, Math.max(1.48D, (pathWidth - 1) / 2.0D)
+        // The gate lies in town terrain, so the regional-road painter would fall
+        // back to the legacy fixed Y level and excavate a three-wide depression.
+        // Repaint the opening from the already loaded town surface instead.
+        drawConfiguredRoad(
+            level, gate, gate,
+            new RoadProfile(Math.max(1, pathWidth), settlement.roadProfile().material()),
+            true, true
         );
     }
 

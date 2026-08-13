@@ -4968,8 +4968,7 @@ function badgeOptions(selected = "") {
 }
 
 function orderedTrainerCardEntries(visibleOnly = false) {
-  return (state.leagueProgression.entries || []).filter((entry) => entry.role === "gym_leader" && gymForLeagueEntry(entry.id))
-    .sort((a, b) => (a.generation - b.generation) || String(a.region).localeCompare(String(b.region)) || (a.order - b.order));
+  return (state.leagueProgression.entries || []).filter((entry) => entry.role === "gym_leader" && gymForLeagueEntry(entry.id));
 }
 
 function setTrainerCardEntryVisible(entryId, visible) {
@@ -5006,9 +5005,11 @@ function moveTrainerCardEntry(entryId, delta) {
   const group = orderedTrainerCardEntries(true).filter((candidate) => candidate.generation === entry.generation && candidate.region === entry.region);
   const index = group.indexOf(entry); const target = group[index + delta];
   if (!target) return;
-  const currentOrder = entry.trainer_card_order ?? entry.order;
-  entry.trainer_card_order = target.trainer_card_order ?? target.order;
-  target.trainer_card_order = currentOrder;
+  const entries = state.leagueProgression.entries || [];
+  const sourceIndex = entries.indexOf(entry); const targetIndex = entries.indexOf(target);
+  [entries[sourceIndex], entries[targetIndex]] = [entries[targetIndex], entries[sourceIndex]];
+  delete entry.trainer_card_order;
+  delete target.trainer_card_order;
   renderTrainerCardManager();
 }
 
@@ -5016,16 +5017,78 @@ function selectedLeagueEntry() {
   return (state.leagueProgression.entries || []).find((entry) => entry.id === state.selectedLeagueId) || null;
 }
 
+const leagueTypeColors = { normal:"#929da3",fire:"#ff9d55",water:"#5090d6",electric:"#f4d23c",grass:"#63bc5a",ice:"#73cec0",fighting:"#ce416b",poison:"#aa6bc8",ground:"#d97845",flying:"#8fa9de",psychic:"#fa7179",bug:"#91c12f",rock:"#c5b78c",ghost:"#5269ad",dragon:"#0b6dc3",dark:"#5a5465",steel:"#5a8ea2",fairy:"#ec8fe6" };
+const leagueTypeLabels = { normal:"노말",fire:"불꽃",water:"물",electric:"전기",grass:"풀",ice:"얼음",fighting:"격투",poison:"독",ground:"땅",flying:"비행",psychic:"에스퍼",bug:"벌레",rock:"바위",ghost:"고스트",dragon:"드래곤",dark:"악",steel:"강철",fairy:"페어리" };
+
+function leagueEntryBadgeId(entry) {
+  return entry?.role === "gym_leader" ? entry.encounter?.rewards?.badge_id : entry?.badge_id;
+}
+
+function dialogueLinesValue(value) {
+  return (Array.isArray(value) ? value : String(value || "").split(/\r?\n/)).filter(Boolean).join("\n");
+}
+
+function dialogueLinesFromInput(value) {
+  return String(value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
+
+function renderLeagueAppearancePreview() {
+  const entry = selectedLeagueEntry();
+  const preview = $("#league-appearance-preview");
+  if (!entry || entry.role !== "gym_leader" || !preview) return;
+  const encounter = entry.encounter || {};
+  const character = rosterCharacters().find((item) => item.id === encounter.character);
+  const appearance = character ? effectiveCharacterAppearance(character) : (encounter.appearance || {});
+  const trainerClass = state.trainerClasses.find((item) => item.id === "cobbleventure:trainer_class/gym_leader");
+  const skinUrl = trainerSkinUrl(appearance);
+  const body = { ...(character?.body || trainerClass?.body || {}), ...(appearance.arm_model ? { arm_model: appearance.arm_model } : {}) };
+  preview.innerHTML = skinUrl ? `<div class="trainer-appearance-comparison"><section class="trainer-reference-card"><span>본가 디자인 기준</span>${trainerReferenceHtml(trainerClass, character)}</section><section class="trainer-minecraft-card"><span>현재 Minecraft 외형</span>${minecraftModelHtml(skinUrl, body)}</section></div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong>` : `<div class="trainer-preview-fallback">관장</div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong>`;
+}
+
+function renderLeagueBadgePreviews() {
+  const entry = selectedLeagueEntry();
+  const victoryBadge = badgeById(entry?.encounter?.rewards?.badge_id);
+  const displayBadge = badgeById(leagueEntryBadgeId(entry));
+  const badgePreview = (badge, empty) => `${badgeSprite(badge, 1.8)}<span><strong>${escapeHtml(badge?.display_name?.ko_kr || empty)}</strong><small>${escapeHtml(badge?.tooltip?.ko_kr || "선택한 배지가 목록과 카드에 표시됩니다.")}</small></span>`;
+  if ($("#league-badge-preview")) $("#league-badge-preview").innerHTML = badgePreview(victoryBadge, "승리 배지를 선택하세요");
+  if ($("#league-display-badge-preview")) $("#league-display-badge-preview").innerHTML = badgePreview(displayBadge, "표시 배지를 선택하세요");
+}
+
 function renderLeagueList() {
-  const entries = [...(state.leagueProgression.entries || [])].sort((a, b) => (a.generation - b.generation) || String(a.region).localeCompare(String(b.region)) || (a.order - b.order));
+  const entries = state.leagueProgression.entries || [];
   $("#league-entry-count").textContent = entries.length;
   const groups = [["gym_leader", "체육관 관장"], ["elite_four", "사천왕"], ["champion", "챔피언"]];
   $("#league-entry-list").innerHTML = entries.length ? groups.map(([role, label]) => {
     const members = entries.filter((entry) => entry.role === role);
     if (!members.length) return "";
-    return `<div class="league-role-heading"><strong>${label}</strong><span>${members.length}</span></div>${members.map((entry) => `<button class="document-button ${entry.id === state.selectedLeagueId ? "is-active" : ""}" data-league-entry="${escapeHtml(entry.id)}"><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><small>${entry.generation}세대 · ${escapeHtml(entry.region.split("/").at(-1))} · ${entry.order}번째 · Lv.${entry.level_cap}</small></button>`).join("")}`;
+    return `<div class="league-role-heading"><strong>${label}</strong><span>${members.length}</span></div>${members.map((entry, index) => { const type = entry.primary_type || "normal"; const badge = badgeById(leagueEntryBadgeId(entry)); return `<article class="document-button league-member-row ${entry.id === state.selectedLeagueId ? "is-active" : ""}" style="--league-type:${leagueTypeColors[type] || leagueTypeColors.normal}"><button type="button" class="league-member-select" data-league-entry="${escapeHtml(entry.id)}"><span class="league-member-badge">${badgeSprite(badge, 1.05)}</span><span><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><small><b>${escapeHtml(leagueTypeLabels[type] || type)}</b> · ${entry.generation}세대 · ${escapeHtml(entry.region.split("/").at(-1))} · ${entry.order}번째 · Lv.${entry.level_cap}</small></span></button><span class="league-order-actions"><button type="button" data-league-move="-1" data-league-id="${escapeHtml(entry.id)}" aria-label="위로 이동" title="위로 이동"${index === 0 ? " disabled" : ""}>↑</button><button type="button" data-league-move="1" data-league-id="${escapeHtml(entry.id)}" aria-label="아래로 이동" title="아래로 이동"${index === members.length - 1 ? " disabled" : ""}>↓</button></span></article>`; }).join("")}`;
   }).join("") : '<div class="issues empty">등록된 리그 구성원이 없습니다.</div>';
   $$('[data-league-entry]').forEach((button) => button.addEventListener("click", () => { state.selectedLeagueId = button.dataset.leagueEntry; renderLeagueList(); renderLeagueEditor(); }));
+  $$('[data-league-move]').forEach((button) => button.addEventListener("click", () => moveLeagueEntry(button.dataset.leagueId, Number(button.dataset.leagueMove))));
+}
+
+async function moveLeagueEntry(entryId, delta) {
+  const entries = state.leagueProgression.entries || [];
+  const entry = entries.find((candidate) => candidate.id === entryId);
+  if (!entry) return;
+  const members = entries.filter((candidate) => candidate.role === entry.role);
+  const memberIndex = members.indexOf(entry); const target = members[memberIndex + delta];
+  if (!target) return;
+  const sourceIndex = entries.indexOf(entry); const targetIndex = entries.indexOf(target);
+  [entries[sourceIndex], entries[targetIndex]] = [entries[targetIndex], entries[sourceIndex]];
+  delete entry.trainer_card_order;
+  delete target.trainer_card_order;
+  renderLeagueList();
+  const result = await request("/api/league-progression", { method: "PUT", body: JSON.stringify(state.leagueProgression) });
+  showIssues("#league-issues", result.data);
+  if (result.ok) {
+    toast(`${entry.display_name?.ko_kr || entry.id} 표시 순서를 저장했습니다.`);
+    renderTrainerCardManager();
+    return;
+  }
+  [entries[sourceIndex], entries[targetIndex]] = [entries[targetIndex], entries[sourceIndex]];
+  renderLeagueList();
+  toast("표시 순서를 저장하지 못했습니다. 리그 설정을 확인해 주세요.");
 }
 
 function trainerPoolOptions(selected = "") {
@@ -5047,10 +5110,14 @@ function renderLeagueEditor() {
     $("#league-editor-title").textContent = "리그 항목을 선택하세요";
     $("#open-league-gym").hidden = true;
     $("#league-card-derived").hidden = true;
+    $("#league-encounter-fields").hidden = true;
+    $("#league-trainer-link").hidden = true;
+    $("#league-display-badge-fields").hidden = true;
     return;
   }
   $("#league-editor-title").textContent = entry.display_name?.ko_kr || entry.id;
   setFormValue(form, "id", entry.id); setFormValue(form, "role", entry.role); setFormValue(form, "levelCap", entry.level_cap);
+  setFormValue(form, "primaryType", entry.primary_type || "normal");
   setFormValue(form, "nameKo", entry.display_name?.ko_kr || ""); setFormValue(form, "nameEn", entry.display_name?.en_us || "");
   setFormValue(form, "generation", entry.generation); setFormValue(form, "order", entry.order); setFormValue(form, "region", entry.region);
   form.elements.trainerId.innerHTML = trainerPoolOptions(entry.trainer_id); setFormValue(form, "trainerId", entry.trainer_id);
@@ -5060,20 +5127,26 @@ function renderLeagueEditor() {
   form.elements.battleId.innerHTML = battlePresetOptions(encounter.battle_id || "");
   setFormValue(form, "battleId", encounter.battle_id || "");
   setFormValue(form, "appearanceResource", encounter.appearance?.resource || "");
-  setFormValue(form, "challengeDialogue", encounter.dialogue?.challenge || "");
-  setFormValue(form, "victoryDialogue", encounter.dialogue?.victory || "");
-  setFormValue(form, "defeatDialogue", encounter.dialogue?.defeat || "");
-  setFormValue(form, "clearedDialogue", encounter.dialogue?.cleared || "");
+  setFormValue(form, "appearanceSource", encounter.appearance?.source || "rct_single");
+  form.elements.rosterCharacter.innerHTML = rosterCharacterOptions("cobbleventure:trainer_class/gym_leader");
+  setFormValue(form, "rosterCharacter", encounter.character || "");
+  setFormValue(form, "challengeDialogue", dialogueLinesValue(encounter.dialogue?.challenge));
+  setFormValue(form, "victoryDialogue", dialogueLinesValue(encounter.dialogue?.victory));
+  setFormValue(form, "defeatDialogue", dialogueLinesValue(encounter.dialogue?.defeat));
+  setFormValue(form, "clearedDialogue", dialogueLinesValue(encounter.dialogue?.cleared));
   setFormValue(form, "rewardMoney", rewards.money ?? 0);
   setFormValue(form, "rewardItem", rewards.item || "");
   setFormValue(form, "rewardItemCount", rewards.item_count || 1);
   form.elements.badgeId.innerHTML = badgeOptions(rewards.badge_id || "");
   setFormValue(form, "badgeId", rewards.badge_id || "");
+  form.elements.displayBadgeId.innerHTML = badgeOptions(leagueEntryBadgeId(entry) || "");
+  setFormValue(form, "displayBadgeId", leagueEntryBadgeId(entry) || "");
   [...form.elements].forEach((element) => { element.disabled = false; });
   $$("#league-form .league-badge-fields input, #league-form .league-badge-fields select").forEach((element) => { element.disabled = true; });
   $("#delete-league-entry").disabled = false; $("#save-league").disabled = false; $("#edit-league-trainer").disabled = !entry.trainer_id;
   $("#league-trainer-link").hidden = isGymLeader;
   $("#league-encounter-fields").hidden = !isGymLeader;
+  $("#league-display-badge-fields").hidden = isGymLeader;
   $("#choose-league-reward-item").disabled = !isGymLeader;
   const linkedGym = gymForLeagueEntry(entry.id);
   $("#open-league-gym").hidden = !isGymLeader;
@@ -5081,16 +5154,19 @@ function renderLeagueEditor() {
   $("#open-league-gym").textContent = linkedGym ? "체육관 시설 편집" : "연결된 체육관 없음";
   $("#league-card-derived").hidden = !isGymLeader;
   if (isGymLeader) {
-    const position = orderedTrainerCardEntries().findIndex((candidate) => candidate.id === entry.id);
-    $("#league-card-position").textContent = position >= 0 ? `자동 ${position + 1}번째` : "체육관 연결 후 자동 배치";
+    const pageEntries = orderedTrainerCardEntries().filter((candidate) => candidate.generation === entry.generation && candidate.region === entry.region);
+    const position = pageEntries.findIndex((candidate) => candidate.id === entry.id);
+    $("#league-card-position").textContent = position >= 0 ? `목록 ${position + 1}번째` : "체육관 연결 후 목록에 배치";
   }
+  renderLeagueAppearancePreview();
+  renderLeagueBadgePreviews();
   showIssues("#league-issues", { valid: true, issues: [] });
 }
 
 function updateLeagueEntryFromForm() {
   const entry = selectedLeagueEntry(); if (!entry) return;
   const form = $("#league-form"); const previousId = entry.id;
-  entry.id = form.elements.id.value.trim(); entry.role = form.elements.role.value;
+  entry.id = form.elements.id.value.trim(); entry.role = form.elements.role.value; entry.primary_type = form.elements.primaryType.value;
   entry.display_name = { ko_kr: form.elements.nameKo.value.trim() };
   if (form.elements.nameEn.value.trim()) entry.display_name.en_us = form.elements.nameEn.value.trim();
   entry.generation = Number(form.elements.generation.value); entry.region = form.elements.region.value.trim();
@@ -5100,25 +5176,28 @@ function updateLeagueEntryFromForm() {
     entry.encounter = {
       battle_id: form.elements.battleId.value,
       appearance: {
-        source: "rct_single", type: "skin", resource: form.elements.appearanceResource.value.trim(),
+        source: form.elements.appearanceSource.value, type: "skin", resource: form.elements.appearanceResource.value.trim(),
       },
       dialogue: {
-        challenge: form.elements.challengeDialogue.value.trim(),
-        victory: form.elements.victoryDialogue.value.trim(),
-        defeat: form.elements.defeatDialogue.value.trim(),
-        cleared: form.elements.clearedDialogue.value.trim(),
+        challenge: dialogueLinesFromInput(form.elements.challengeDialogue.value),
+        victory: dialogueLinesFromInput(form.elements.victoryDialogue.value),
+        defeat: dialogueLinesFromInput(form.elements.defeatDialogue.value),
+        cleared: dialogueLinesFromInput(form.elements.clearedDialogue.value),
       },
       rewards: {
         money: Number(form.elements.rewardMoney.value || 0),
         badge_id: form.elements.badgeId.value,
       },
     };
+    if (form.elements.rosterCharacter.value) entry.encounter.character = form.elements.rosterCharacter.value;
     if (form.elements.rewardItem.value) {
       entry.encounter.rewards.item = form.elements.rewardItem.value;
       entry.encounter.rewards.item_count = Number(form.elements.rewardItemCount.value || 1);
     }
   } else {
     delete entry.encounter;
+    if (form.elements.displayBadgeId.value) entry.badge_id = form.elements.displayBadgeId.value;
+    else delete entry.badge_id;
   }
   state.selectedLeagueId = entry.id || previousId;
 }
@@ -5129,6 +5208,8 @@ function addLeagueEntry() {
   form.elements.generation.value = state.selectedGeneration;
   form.elements.region.value = `cobbleventure:region/generation_${state.selectedGeneration}`;
   form.elements.badgeId.innerHTML = badgeOptions("");
+  form.elements.displayBadgeId.innerHTML = badgeOptions("");
+  form.elements.rosterCharacter.innerHTML = rosterCharacterOptions("cobbleventure:trainer_class/gym_leader");
   updateLeagueMemberDialog();
   showIssues("#league-member-issues", { valid: true, issues: [] });
   $("#league-member-dialog").showModal();
@@ -5139,7 +5220,10 @@ function updateLeagueMemberDialog() {
   const role = form.elements.role.value;
   const gymLeader = role === "gym_leader";
   $(".league-member-gym-fields").hidden = !gymLeader;
+  $(".league-member-display-badge-fields").hidden = gymLeader;
   form.elements.badgeId.required = gymLeader;
+  form.elements.appearanceResource.required = gymLeader;
+  if (gymLeader) form.elements.primaryType.value = form.elements.primaryType.value || "normal";
   const roleLabel = leagueRoleLabel(role);
   const outputs = gymLeader
     ? "리그 약식 이벤트 + 배틀 프리셋 + 체육관 연결 · NPC 데이터는 빌드 시 자동 생성"
@@ -5160,8 +5244,11 @@ async function createLeagueMember(event) {
     region: form.elements.region.value.trim(),
     order: Number(form.elements.order.value),
     level_cap: Number(form.elements.levelCap.value),
-    theme: form.elements.theme.value,
+    primary_type: form.elements.primaryType.value,
+    theme: form.elements.primaryType.value,
     badge_id: form.elements.role.value === "gym_leader" ? form.elements.badgeId.value : "",
+    display_badge_id: form.elements.role.value === "gym_leader" ? "" : form.elements.displayBadgeId.value,
+    character: form.elements.role.value === "gym_leader" ? form.elements.rosterCharacter.value : "",
     appearance_resource: form.elements.role.value === "gym_leader" ? form.elements.appearanceResource.value.trim() : "",
     reward_money: form.elements.role.value === "gym_leader" ? Number(form.elements.rewardMoney.value || 0) : 0,
     reward_item: form.elements.role.value === "gym_leader" ? form.elements.rewardItem.value.trim() : "",
@@ -8844,6 +8931,22 @@ $("#league-form").addEventListener("input", () => {
   $("#league-card-derived").hidden = !isGym;
   $("#league-trainer-link").hidden = isGym;
   $("#league-encounter-fields").hidden = !isGym;
+  $("#league-display-badge-fields").hidden = isGym;
+  renderLeagueAppearancePreview();
+  renderLeagueBadgePreviews();
+});
+$("#league-form").addEventListener("change", (event) => {
+  const form = event.currentTarget;
+  if (event.target.name === "rosterCharacter") {
+    const character = rosterCharacters().find((item) => item.id === form.elements.rosterCharacter.value);
+    if (character) {
+      const appearance = effectiveCharacterAppearance(character);
+      form.elements.appearanceSource.value = appearance.source || "rct_single";
+      form.elements.appearanceResource.value = appearance.resource || "";
+      updateLeagueEntryFromForm();
+      renderLeagueAppearancePreview();
+    }
+  }
 });
 $("#choose-league-reward-item").addEventListener("click", () => openItemChoice("league-reward-item", {
   allowEmpty: true,
@@ -8860,7 +8963,18 @@ $("#open-league-gym").addEventListener("click", () => {
 });
 $("#back-to-league").addEventListener("click", () => { switchPage("league"); renderLeagueEditor(); });
 $("#league-member-form").addEventListener("submit", createLeagueMember);
-$("#league-member-form").addEventListener("change", (event) => { if (event.target.name === "role") updateLeagueMemberDialog(); });
+$("#league-member-form").addEventListener("change", (event) => {
+  if (event.target.name === "role") updateLeagueMemberDialog();
+  if (event.target.name === "rosterCharacter") {
+    const form = event.currentTarget;
+    const character = rosterCharacters().find((entry) => entry.id === form.elements.rosterCharacter.value);
+    if (!character) return;
+    const appearance = effectiveCharacterAppearance(character);
+    form.elements.name.value = character.display_name?.ko_kr || form.elements.name.value;
+    form.elements.nameEn.value = character.display_name?.en_us || form.elements.nameEn.value;
+    form.elements.appearanceResource.value = appearance.resource || form.elements.appearanceResource.value;
+  }
+});
 $("#league-member-close").addEventListener("click", () => $("#league-member-dialog").close());
 $("#league-member-cancel").addEventListener("click", () => $("#league-member-dialog").close());
 $("#edit-league-trainer").addEventListener("click", async () => {
