@@ -135,7 +135,7 @@ class StructureBuilderTests(unittest.TestCase):
 
         self.assertEqual(len(sources), len(catalog["entries"]))
         self.assertEqual(1, sum(entry["category"] == "gyms" for entry in catalog["entries"]))
-        self.assertEqual(8, sum(
+        self.assertEqual(1, sum(
             entry["source"].startswith("content/structures/interiors/gyms/")
             for entry in catalog["entries"]
         ))
@@ -144,8 +144,15 @@ class StructureBuilderTests(unittest.TestCase):
             entry["source"] == "content/structures/placeholder/player_house.nbt"
             for entry in catalog["entries"]
         ))
+        self.assertEqual(
+            {"bench", "flower_bed", "street_lamp", "street_tree"},
+            {
+                entry["label"] for entry in catalog["entries"]
+                if entry["category"] == "town_decorations"
+            },
+        )
         for entry in catalog["entries"]:
-            source = REPOSITORY_ROOT / entry["source"]
+            source = PROJECT_ROOT / entry["source"]
             resource_path = entry["structure"].split(":", 1)[1]
             packaged = (
                 REPOSITORY_ROOT / structure_builder.GENERATED_RESOURCES

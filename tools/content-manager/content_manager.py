@@ -6369,6 +6369,282 @@ def _battle_template(slug: str, name: str) -> dict[str, Any]:
     }
 
 
+def _league_member_event_template(
+    slug: str,
+    name: str,
+    name_en: str,
+    role: str,
+    region_slug: str,
+    battle_id: str,
+    badge_id: str = "",
+) -> dict[str, Any]:
+    role_labels = {
+        "gym_leader": ("체육관 관장", "Gym Leader", "gym_leaders", "gym"),
+        "elite_four": ("사천왕", "Elite Four", "elite_four", "league"),
+        "champion": ("챔피언", "Champion", "champions", "league"),
+    }
+    role_ko, role_en, _, clear_scope = role_labels[role]
+    npc_id = f"cobbleventure:npc/{role}/{slug}"
+    clear_key = f"cobbleventure:flag/{clear_scope}/{region_slug}/{slug}/defeated"
+    localized_name = {"ko_kr": name}
+    display_name = {"ko_kr": f"{role_ko} {name}"}
+    description = {"ko_kr": f"{name} {role_ko}의 표준 리그 전투 이벤트입니다."}
+    if name_en:
+        localized_name["en_us"] = name_en
+        display_name["en_us"] = f"{role_en} {name_en}"
+        description["en_us"] = f"Standard league battle event for {role_en} {name_en}."
+    appearances = {
+        "gym_leader": "rctmod:trainers/single/kanto_brock",
+        "elite_four": "rctmod:trainers/single/kanto_league_lorelei",
+        "champion": "rctmod:trainers/single/kanto_champion_blue",
+    }
+    victory_commands: list[dict[str, Any]] = [
+        {"type": "label", "name": "victory"},
+        {"type": "set_flag", "key": clear_key, "value": True},
+    ]
+    if role == "gym_leader":
+        victory_commands.append({"type": "grant_badge", "badge": badge_id})
+    victory_commands.extend([
+        {
+            "type": "dialogue", "id": "victory", "speaker": "npc",
+            "text": {"ko_kr": "훌륭한 승부였다. 승리를 축하한다!"},
+        },
+        {"type": "goto", "target": "end"},
+    ])
+    return {
+        "$schema": "../../../schemas/npc-event-script.schema.json",
+        "schema_version": 4,
+        "id": npc_id,
+        "enabled": True,
+        "name": localized_name,
+        "description": description,
+        "tags": ["trainer", role, region_slug, slug],
+        "npc": {
+            "display_name": display_name,
+            "trainer_class": f"cobbleventure:trainer_class/{role}",
+            "appearance": {
+                "source": "rct_single", "type": "skin", "resource": appearances[role],
+            },
+            "behavior": {
+                "movement": "stationary", "look_at_player": True,
+                "invulnerable": True, "collision": True,
+            },
+        },
+        "events": [{
+            "id": "on_interact",
+            "trigger": {"type": "interact", "range": 4.0},
+            "commands": [
+                {
+                    "type": "branch",
+                    "conditions": [{"type": "flag_equals", "key": clear_key, "value": True}],
+                    "target": "cleared",
+                },
+                {"type": "label", "name": "challenge"},
+                {
+                    "type": "dialogue", "id": "challenge", "speaker": "npc",
+                    "text": {"ko_kr": "준비가 됐다면 승부하자!"},
+                },
+                {
+                    "type": "choices",
+                    "options": [
+                        {"id": "battle", "text": {"ko_kr": "승부한다"}, "target": "battle"},
+                        {"id": "cancel", "text": {"ko_kr": "다음에 도전한다"}, "target": "end"},
+                    ],
+                },
+                {"type": "label", "name": "battle"},
+                {
+                    "type": "start_battle", "battle": battle_id,
+                    "results": {"player_win": "victory", "player_loss": "defeat"},
+                },
+                *victory_commands,
+                {"type": "label", "name": "defeat"},
+                {
+                    "type": "dialogue", "id": "defeat", "speaker": "npc",
+                    "text": {"ko_kr": "좋은 승부였다. 준비해서 다시 도전해라."},
+                },
+                {"type": "goto", "target": "end"},
+                {"type": "label", "name": "cleared"},
+                {
+                    "type": "dialogue", "id": "cleared", "speaker": "npc",
+                    "text": {"ko_kr": "이미 실력을 증명했군. 다음 목표로 나아가라."},
+                },
+                {"type": "label", "name": "end"},
+                {"type": "end"},
+            ],
+        }],
+    }
+
+
+def create_league_member(root: Path, payload: dict[str, Any]) -> tuple[dict[str, Any] | None, list[Issue]]:
+    role = payload.get("role")
+    slug = payload.get("slug")
+    name = payload.get("name")
+    name_en = payload.get("name_en", "")
+    region = payload.get("region")
+    badge_id = payload.get("badge_id", "")
+    theme = payload.get("theme", "normal")
+    generation = payload.get("generation")
+    order = payload.get("order")
+    level_cap = payload.get("level_cap")
+    input_values = (role, slug, name, name_en, region, badge_id, theme)
+    if not all(isinstance(value, str) for value in input_values):
+        return None, [Issue("error", "", "$", "문자열 입력값의 형식이 올바르지 않습니다.")]
+    if role not in {"gym_leader", "elite_four", "champion"}:
+        return None, [Issue("error", "", "$.role", "관장, 사천왕, 챔피언 중 하나를 선택해야 합니다.")]
+    if not DOCUMENT_SLUG.fullmatch(slug):
+        return None, [Issue("error", "", "$.slug", "파일 ID는 소문자, 숫자와 밑줄만 사용할 수 있습니다.")]
+    if not name.strip():
+        return None, [Issue("error", "", "$.name", "한국어 이름이 필요합니다.")]
+    if not RESOURCE_ID.fullmatch(region):
+        return None, [Issue("error", "", "$.region", "올바른 지역 리소스 ID가 필요합니다.")]
+    if not isinstance(generation, int) or isinstance(generation, bool) or not 1 <= generation <= 9:
+        return None, [Issue("error", "", "$.generation", "세대는 1~9 정수여야 합니다.")]
+    if not isinstance(order, int) or isinstance(order, bool) or not 1 <= order <= 99:
+        return None, [Issue("error", "", "$.order", "표시 순서는 1~99 정수여야 합니다.")]
+    if not isinstance(level_cap, int) or isinstance(level_cap, bool) or not 1 <= level_cap <= 100:
+        return None, [Issue("error", "", "$.level_cap", "레벨캡은 1~100 정수여야 합니다.")]
+    if role == "gym_leader" and not RESOURCE_ID.fullmatch(badge_id):
+        return None, [Issue("error", "", "$.badge_id", "관장은 지급할 배지를 선택해야 합니다.")]
+    if not CHOICE_ID.fullmatch(theme):
+        return None, [Issue("error", "", "$.theme", "올바른 체육관 타입이 필요합니다.")]
+
+    region_slug = region.rsplit("/", 1)[-1]
+    folder = {"gym_leader": "gym_leaders", "elite_four": "elite_four", "champion": "champions"}[role]
+    npc_id = f"cobbleventure:npc/{role}/{slug}"
+    battle_id = f"cobbleventure:battle/{role}/{slug}"
+    league_id = f"cobbleventure:league/{region_slug}/{slug}"
+    trainer_path = f"content/source/trainers/{folder}/{slug}.json"
+    battle_path = f"content/battles/{folder}/{slug}.json"
+    target_paths = [root / trainer_path, root / battle_path]
+    if any(path.exists() for path in target_paths):
+        return None, [Issue("error", "", "$.slug", "같은 역할과 ID의 NPC 또는 배틀 파일이 이미 존재합니다.")]
+
+    badges = load_json(root / "content" / "catalogs" / "badges.json").get("badges", [])
+    if role == "gym_leader" and not any(isinstance(item, dict) and item.get("id") == badge_id for item in badges):
+        return None, [Issue("error", "", "$.badge_id", "배지 카탈로그에 없는 배지입니다.")]
+
+    trainer = _league_member_event_template(
+        slug, name.strip(), name_en.strip(), role, region_slug, battle_id, badge_id
+    )
+    battle = _battle_template(slug, name.strip())
+    battle["id"] = battle_id
+    battle["battle"]["trainer_id"] = npc_id
+    battle["battle"]["team"][0]["level"] = min(level_cap, 100)
+    battle["name"] = {"ko_kr": f"{name.strip()} 리그 배틀"}
+    if name_en.strip():
+        battle["name"]["en_us"] = f"{name_en.strip()} League Battle"
+    league_entry = {
+        "id": league_id,
+        "role": role,
+        "display_name": {"ko_kr": name.strip()},
+        "generation": generation,
+        "region": region,
+        "order": order,
+        "level_cap": level_cap,
+        "trainer_id": npc_id,
+    }
+    if name_en.strip():
+        league_entry["display_name"]["en_us"] = name_en.strip()
+
+    league_path = root / "content" / "catalogs" / "league-progression.json"
+    gym_path = root / "content" / "catalogs" / "gyms.json"
+    league_catalog = load_json(league_path)
+    if any(isinstance(entry, dict) and entry.get("id") == league_id for entry in league_catalog.get("entries", [])):
+        return None, [Issue("error", "", "$.slug", "같은 ID의 리그 구성원이 이미 존재합니다.")]
+    league_catalog.setdefault("entries", []).append(league_entry)
+
+    gym_catalog = load_json(gym_path)
+    gym = None
+    if role == "gym_leader":
+        gym_id = f"cobbleventure:gym/{slug}"
+        if any(isinstance(item, dict) and item.get("id") == gym_id for item in gym_catalog.get("gyms", [])):
+            return None, [Issue("error", "", "$.slug", "같은 ID의 체육관이 이미 존재합니다.")]
+        gym = {
+            "id": gym_id,
+            "enabled": True,
+            "display_name": {"ko_kr": f"{name.strip()} 체육관"},
+            "theme": theme,
+            "exterior": {"structure": "cobbleventure:gyms/base_gym"},
+            "interior": {
+                "modules": [{
+                    "id": "main", "structure": "cobbleventure:interiors/gyms/base_gym_interior",
+                    "position": [0, 0, 0], "rotation": "none",
+                }],
+                "connections": [],
+            },
+            "staff": {
+                "leader": {
+                    "trainer_id": npc_id, "league_entry_id": league_id,
+                    "badge_id": badge_id, "anchor": "leader",
+                },
+                "trainers": [],
+            },
+        }
+        if name_en.strip():
+            gym["display_name"]["en_us"] = f"{name_en.strip()} Gym"
+        gym_catalog.setdefault("gyms", []).append(gym)
+
+    issues: list[Issue] = []
+    for document, validator, path in (
+        (trainer, validate_content_file, trainer_path),
+        (battle, validate_battle_preset_file, battle_path),
+    ):
+        _, document_issues = _validate_payload(document, validator)
+        issues.extend(Issue(issue.level, path, issue.path, issue.message) for issue in document_issues)
+    with tempfile.TemporaryDirectory() as directory:
+        temporary_root = Path(directory)
+        league_candidate = temporary_root / "league-progression.json"
+        league_candidate.write_text(json.dumps(league_catalog, ensure_ascii=False, indent=2), encoding="utf-8")
+        trainer_ids = {
+            item.get("id") for item in _list_documents(root, "trainers")
+            if isinstance(item.get("id"), str)
+        } | {npc_id}
+        _, league_issues = validate_league_progression_file(league_candidate, trainer_ids)
+        issues.extend(league_issues)
+        if gym is not None:
+            gym_candidate = temporary_root / "gyms.json"
+            gym_candidate.write_text(json.dumps(gym_catalog, ensure_ascii=False, indent=2), encoding="utf-8")
+            issues.extend(validate_gym_catalog_file(gym_candidate, root / "content" / "structures"))
+    if any(issue.level == "error" for issue in issues):
+        return None, issues
+
+    catalog_backups = {league_path: league_path.read_bytes(), gym_path: gym_path.read_bytes()}
+    created_paths: list[Path] = []
+    try:
+        for category, path, document in (
+            ("trainers", trainer_path, trainer), ("battles", battle_path, battle),
+        ):
+            target, save_issues = _save_document(root, category, path, document)
+            issues.extend(save_issues)
+            if any(issue.level == "error" for issue in save_issues) or target is None:
+                raise ValueError("구성원 문서를 저장하지 못했습니다.")
+            created_paths.append(target)
+        league_save_issues = save_league_progression(root, league_catalog)
+        issues.extend(league_save_issues)
+        if any(issue.level == "error" for issue in league_save_issues):
+            raise ValueError("리그 카탈로그를 저장하지 못했습니다.")
+        if gym is not None:
+            gym_save_issues = save_gym_catalog(root, gym_catalog)
+            issues.extend(gym_save_issues)
+            if any(issue.level == "error" for issue in gym_save_issues):
+                raise ValueError("체육관 카탈로그를 저장하지 못했습니다.")
+    except (OSError, ValueError):
+        for path in created_paths:
+            if path.is_file():
+                path.unlink()
+        for path, content in catalog_backups.items():
+            path.write_bytes(content)
+        if not any(issue.level == "error" for issue in issues):
+            issues.append(Issue("error", "", "$", "통합 생성 중 오류가 발생해 변경을 되돌렸습니다."))
+        return None, issues
+    return {
+        "league_entry": league_entry,
+        "gym": gym,
+        "trainer_path": trainer_path,
+        "battle_path": battle_path,
+    }, issues
+
+
 def _cave_template(slug: str, name: str, generation: str) -> dict[str, Any]:
     generation_number = int(generation.removeprefix("generation_"))
     return {
@@ -7109,6 +7385,7 @@ STRUCTURE_CATEGORY_LABELS = {
     "interior": "건물 내부 모듈",
     "league": "리그",
     "placeholder": "임시·특수 건물",
+    "decoration": "마을 장식",
 }
 
 
@@ -7137,6 +7414,8 @@ def _managed_structure_category(relative: Path) -> str:
         return "league"
     if parts[:1] == ("placeholder",):
         return "placeholder"
+    if parts[:1] == ("town_decorations",):
+        return "decoration"
     return "building"
 
 
@@ -8651,6 +8930,25 @@ def create_handler(
                     {
                         "created": errors == 0,
                         "path": target.relative_to(root).as_posix() if target else "",
+                        "issues": [asdict(issue) for issue in issues],
+                    },
+                )
+                return
+            if request.path == "/api/league-members/create":
+                if not isinstance(payload, dict):
+                    self._json(400, {"error": "리그 구성원 생성 정보가 필요합니다."})
+                    return
+                try:
+                    created, issues = create_league_member(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(
+                    201 if errors == 0 else 422,
+                    {
+                        "created": errors == 0,
+                        "member": created,
                         "issues": [asdict(issue) for issue in issues],
                     },
                 )

@@ -27,19 +27,17 @@
         <button class="nav-item is-active" data-section="dashboard"><span>01</span>대시보드</button>
         <button class="nav-item" data-section="trainers"><span>02</span>NPC</button>
         <button class="nav-item" data-section="battles"><span>03</span>배틀 프리셋</button>
-        <button class="nav-item" data-section="league"><span>04</span>리그 관리</button>
-        <button class="nav-item" data-section="trainer-card"><span>05</span>트레이너 카드</button>
-        <button class="nav-item" data-section="worlds"><span>06</span>월드맵</button>
-        <button class="nav-item" data-section="caves"><span>07</span>동굴 관리</button>
-        <button class="nav-item" data-section="settlements"><span>08</span>마을 프리셋</button>
-        <button class="nav-item" data-section="gyms"><span>09</span>체육관 관리</button>
-        <button class="nav-item" data-section="space-connections"><span>10</span>공간 연결 관계</button>
-        <button class="nav-item" data-section="structures"><span>11</span>NBT 건물 설정</button>
-        <button class="nav-item" data-section="biomes"><span>12</span>바이옴 관리</button>
-        <button class="nav-item" data-section="definitions"><span>13</span>게임 데이터</button>
-        <button class="nav-item" data-section="economy"><span>14</span>경제 · 제작</button>
-        <button class="nav-item" data-section="music"><span>15</span>음악 설정</button>
-        <button class="nav-item" data-section="builds"><span>16</span>빌드 작업</button>
+        <button class="nav-item" data-section="league"><span>04</span>리그 운영</button>
+        <button class="nav-item" data-section="worlds"><span>05</span>월드맵</button>
+        <button class="nav-item" data-section="caves"><span>06</span>동굴 관리</button>
+        <button class="nav-item" data-section="settlements"><span>07</span>마을 프리셋</button>
+        <button class="nav-item" data-section="space-connections"><span>08</span>공간 연결 관계</button>
+        <button class="nav-item" data-section="structures"><span>09</span>NBT 건물 설정</button>
+        <button class="nav-item" data-section="biomes"><span>10</span>바이옴 관리</button>
+        <button class="nav-item" data-section="definitions"><span>11</span>게임 데이터</button>
+        <button class="nav-item" data-section="economy"><span>12</span>경제 · 제작</button>
+        <button class="nav-item" data-section="music"><span>13</span>음악 설정</button>
+        <button class="nav-item" data-section="builds"><span>14</span>빌드 작업</button>
       </nav>
       <div class="server-state"><i id="server-dot"></i><span><strong id="server-label">연결 확인 중</strong><small>로컬 전용 · 127.0.0.1</small></span></div>
     </aside>
@@ -169,7 +167,7 @@
         <div class="workspace-grid">
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">LEAGUE PROGRESSION</p><h2>관장 · 사천왕 · 챔피언</h2></div><div class="list-tools"><span class="count-pill" id="league-entry-count">0</span><button class="mini-button" id="add-league-entry" type="button">＋</button></div></div><div id="league-entry-list" class="list-body"><div class="issues empty">리그 설정을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel">
-            <div class="panel-heading"><div><p class="eyebrow">TRAINER CARD / LEVEL CAP</p><h2 id="league-editor-title">리그 항목을 선택하세요</h2></div><div class="editor-heading-actions"><div><button class="button danger" id="delete-league-entry" disabled>항목 삭제</button><button class="button primary" id="save-league" disabled>리그 설정 저장</button></div></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">LEAGUE MEMBER / LEVEL CAP</p><h2 id="league-editor-title">리그 항목을 선택하세요</h2></div><div class="editor-heading-actions"><div><button class="button secondary" id="open-league-gym" type="button" hidden>체육관 시설 편집</button><button class="button danger" id="delete-league-entry" disabled>항목 삭제</button><button class="button primary" id="save-league" disabled>리그 설정 저장</button></div></div></div>
             <form id="league-form" class="form-grid">
               <label class="wide"><span>리그 항목 ID</span><input name="id" placeholder="cobbleventure:league/generation_1/leader_1" disabled></label>
               <label><span>역할</span><select name="role" disabled><option value="gym_leader">체육관 관장</option><option value="elite_four">사천왕</option><option value="champion">챔피언</option></select></label>
@@ -180,6 +178,7 @@
               <label><span>표시 순서</span><input name="order" type="number" min="1" max="99" disabled></label>
               <label class="wide"><span>지역 ID</span><input name="region" placeholder="cobbleventure:region/kanto" disabled></label>
               <fieldset class="wide"><legend>트레이너풀 연결</legend><label class="wide"><span>사용할 NPC 엔트리</span><select name="trainerId" disabled></select></label><button class="button secondary" id="edit-league-trainer" type="button" disabled>트레이너풀에서 편집</button><small class="wide">선택한 NPC의 연결된 배틀 프리셋과 엔트리가 실제 관장·리그 전투에 사용됩니다.</small></fieldset>
+              <fieldset class="wide league-card-derived" id="league-card-derived" hidden><legend>트레이너 카드 자동 배치</legend><strong id="league-card-position">—</strong><small>체육관 관장만 리그 구성 순서대로 자동 배치됩니다. 사천왕과 챔피언은 트레이너 카드 대상이 아닙니다.</small></fieldset>
                 <fieldset class="wide league-badge-fields" hidden><legend>이전 배지 필드</legend><select name="badgeItem" disabled></select><input name="badgeNameKo" disabled><input name="badgeNameEn" disabled><input name="badgeVisible" type="checkbox" disabled></fieldset>
             </form>
             <div id="league-issues" class="issues empty">항목을 추가하거나 선택하세요.</div>
@@ -442,6 +441,7 @@
       </section>
 
       <section class="page" id="gyms">
+        <div class="league-workspace-bar panel"><div><p class="eyebrow">LEAGUE OPERATIONS</p><strong>관장 전용 체육관 시설</strong><small>리그 구성원에서 선택한 관장의 시설·스태프만 편집합니다.</small></div><button class="button secondary" id="back-to-league" type="button">리그 구성으로 돌아가기</button></div>
         <div class="workspace-grid">
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">GYM CATALOG</p><h2>체육관</h2></div><div class="list-tools"><span class="count-pill" id="gym-list-count">…</span><button class="mini-button" id="add-gym" type="button">＋</button></div></div><div id="gym-list" class="list-body"><div class="issues empty">프로젝트의 체육관 목록을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel">
@@ -517,7 +517,7 @@
           <div class="nbt-viewer-layout building-settings-layout">
             <aside class="nbt-structure-browser">
               <label><span>NBT 건물 검색</span><input id="building-search" type="search" placeholder="포켓몬센터, 상점, house…"></label>
-              <label><span>구조물 종류</span><select id="building-category"><option value="all">전체 구조물</option><option value="building">일반 건물</option><option value="residential">주택</option><option value="gym_exterior">체육관 외관 템플릿</option><option value="gym_interior">체육관 내부 모듈</option><option value="interior">건물 내부 모듈</option><option value="league">리그</option><option value="placeholder">임시·특수 건물</option></select></label>
+              <label><span>구조물 종류</span><select id="building-category"><option value="all">전체 구조물</option><option value="building">일반 건물</option><option value="residential">주택</option><option value="decoration">마을 장식</option><option value="gym_exterior">체육관 외관 템플릿</option><option value="gym_interior">체육관 내부 모듈</option><option value="interior">건물 내부 모듈</option><option value="league">리그</option><option value="placeholder">임시·특수 건물</option></select></label>
               <div class="nbt-structure-browser-meta"><strong id="building-count">0개</strong><small>관리 대상 NBT 건물</small></div>
               <div class="nbt-structure-list" id="building-list"><div class="issues empty">NBT 건물을 불러오는 중입니다.</div></div>
             </aside>
@@ -698,6 +698,29 @@
         <label id="battle-reference-field" hidden><span>예비 엔트리에서 가져오기</span><input type="hidden" name="referenceId"><div class="create-reference-picker"><input id="create-reference-name" value="빈 프리셋으로 시작" readonly><button class="button secondary" id="choose-create-reference" type="button">검색해서 선택</button></div><small id="create-reference-summary">엔트리를 선택하면 팀·AI·규칙·가방을 새 프리셋에 복사합니다.</small></label>
         <div class="dialog-actions"><button class="button secondary" id="create-cancel" type="button">취소</button><button class="button primary" type="submit" id="create-submit">생성</button></div>
         <div id="create-issues" class="issues empty"></div>
+      </form>
+    </dialog>
+    <dialog id="league-member-dialog" class="create-dialog league-member-dialog">
+      <form method="dialog" id="league-member-form">
+        <div class="dialog-heading"><div><p class="eyebrow">NEW LEAGUE MEMBER</p><h2>리그 구성원 한 번에 만들기</h2><small>NPC·배틀 프리셋·표준 이벤트·리그 연결을 함께 생성합니다.</small></div><button class="dialog-close" id="league-member-close" type="button" aria-label="닫기">×</button></div>
+        <div class="league-member-role-options" role="radiogroup" aria-label="리그 역할">
+          <label><input type="radio" name="role" value="gym_leader" checked><span><strong>체육관 관장</strong><small>체육관·배지·카드까지 연결</small></span></label>
+          <label><input type="radio" name="role" value="elite_four"><span><strong>사천왕</strong><small>리그 전투 구성만 생성</small></span></label>
+          <label><input type="radio" name="role" value="champion"><span><strong>챔피언</strong><small>최종 리그 전투만 생성</small></span></label>
+        </div>
+        <div class="form-grid compact-grid">
+          <label><span>파일 ID</span><input name="slug" pattern="[a-z0-9][a-z0-9_]*" placeholder="brock" required></label>
+          <label><span>한국어 이름</span><input name="name" placeholder="웅" required></label>
+          <label><span>영문 이름</span><input name="nameEn" placeholder="Brock"></label>
+          <label><span>세대</span><input name="generation" type="number" min="1" max="9" value="1" required></label>
+          <label class="wide"><span>지역 ID</span><input name="region" value="cobbleventure:region/kanto" required></label>
+          <label><span>리그 순서</span><input name="order" type="number" min="1" max="99" value="1" required></label>
+          <label><span>레벨캡</span><input name="levelCap" type="number" min="1" max="100" value="15" required></label>
+          <fieldset class="wide league-member-gym-fields"><legend>관장 전용 설정</legend><label><span>체육관 타입</span><select name="theme"><option value="normal">노말</option><option value="fire">불꽃</option><option value="water">물</option><option value="electric">전기</option><option value="grass">풀</option><option value="ice">얼음</option><option value="fighting">격투</option><option value="poison">독</option><option value="ground">땅</option><option value="flying">비행</option><option value="psychic">에스퍼</option><option value="bug">벌레</option><option value="rock">바위</option><option value="ghost">고스트</option><option value="dragon">드래곤</option><option value="dark">악</option><option value="steel">강철</option><option value="fairy">페어리</option></select></label><label><span>지급 배지</span><select name="badgeId" required></select></label></fieldset>
+        </div>
+        <div class="league-member-summary" id="league-member-summary"></div>
+        <div class="dialog-actions"><button class="button secondary" id="league-member-cancel" type="button">취소</button><button class="button primary" type="submit">구성원 생성</button></div>
+        <div id="league-member-issues" class="issues empty"></div>
       </form>
     </dialog>
     <dialog id="project-dialog" class="create-dialog project-dialog">

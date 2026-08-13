@@ -26,8 +26,9 @@ Cobbleventure가 직접 관리하는 건축물 NBT의 원본 위치와 안전한
 |---|---|---|---|
 | 주택 원본 | `content/structures/houses/<골격>_<지붕형태>.nbt` | 빌드 시 색상별로 생성 | `data/cobbleventure/structure/houses/<골격>_<지붕형태>_<색상>.nbt` |
 | 시설 | `content/structures/placeholder/<이름>.nbt` | `cobbleventure:placeholder/<이름>` | `data/cobbleventure/structure/placeholder/<이름>.nbt` |
+| 마을 장식 | `content/structures/town_decorations/<이름>.nbt` | `cobbleventure:town_decorations/<이름>` | `data/cobbleventure/structure/town_decorations/<이름>.nbt` |
 
-빌더는 `content/structures`의 NBT를 우선 사용합니다. 시설은 그대로 복사하고, 주택은
+빌더는 `content/structures`의 NBT를 우선 사용합니다. 시설과 마을 장식은 그대로 복사하고, 주택은
 9개의 원본에서 지붕 색상 10종을 치환해 기존 리소스 90종을 만듭니다. 등록된 원본이
 없을 때만 Python으로 기본 구조물을 생성합니다. 따라서 실제 건물을 수정할 때는 반드시
 `content/structures`의 파일을 변경하고, 생성된 출력물을 원본으로 취급하지 않습니다.

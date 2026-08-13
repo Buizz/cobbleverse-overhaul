@@ -1144,13 +1144,14 @@ public final class StructureBuilderMod {
         int rows = catalog.rows();
         for (int row = 0; row < rows; row++) {
             for (int column = 0; column < catalog.columns(); column++) {
+                int cellIndex = row * catalog.columns() + column;
                 outlineCell(
                     level,
                     ORIGIN_X + column * catalog.cellSize(),
                     ORIGIN_Z + row * catalog.cellSize(),
                     groundY,
                     catalog.cellSize(),
-                    (row + column) % 2 == 0
+                    cellIndex < catalog.entries().size()
                 );
             }
         }
@@ -1329,9 +1330,6 @@ public final class StructureBuilderMod {
         int entryIndex = 0;
         for (int row = 0; row < catalog.rows() && entryIndex < catalog.entries().size(); row++) {
             for (int column = 0; column < catalog.columns(); column++) {
-                if ((row + column) % 2 != 0) {
-                    continue;
-                }
                 if (entryIndex >= catalog.entries().size()) {
                     break;
                 }
@@ -1557,7 +1555,7 @@ public final class StructureBuilderMod {
         String catalogHash, int columns, int cellSize, List<Entry> entries
     ) {
         int rows() {
-            return (entries.size() * 2 + columns - 1) / columns;
+            return (entries.size() + columns - 1) / columns;
         }
     }
 

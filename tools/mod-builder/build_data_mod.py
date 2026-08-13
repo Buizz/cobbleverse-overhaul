@@ -39,6 +39,7 @@ BOUNDARY_PROFILE_CONFIG = CONTENT_ROOT / "catalogs/boundary-profiles.json"
 GENERATED_CONTENT_DIR = Path("generated")
 FACILITY_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/placeholder"
 HOUSE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/houses"
+TOWN_DECORATION_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/town_decorations"
 INTERIOR_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/interiors"
 GYM_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/gyms"
 LEAGUE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/league"
@@ -1505,7 +1506,16 @@ def build(root: Path) -> Path:
             "생성 마을 장식",
         )
         generated.parent.mkdir(parents=True, exist_ok=True)
-        generated.write_bytes(build_town_decoration_nbt(decoration_id))
+        authored = _inside(
+            root,
+            root / TOWN_DECORATION_STRUCTURE_SOURCE_DIR / f"{decoration_id}.nbt",
+            "마을 장식 NBT 원본",
+        )
+        generated.write_bytes(
+            _read_authored_structure_nbt(authored, "마을 장식 NBT")
+            if authored.is_file()
+            else build_town_decoration_nbt(decoration_id)
+        )
     for facility_id in FACILITY_PLACEHOLDERS:
         resource = f"cobbleventure:placeholder/{facility_id}"
         generated = _inside(

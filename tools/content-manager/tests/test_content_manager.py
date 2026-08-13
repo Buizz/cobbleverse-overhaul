@@ -3142,6 +3142,58 @@ class ContentManagerTests(unittest.TestCase):
             )
             self.assertFalse((root / "content/structures/gyms/second_rock_gym.nbt").exists())
 
+    def test_league_member_creation_builds_role_specific_resources(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            exterior = root / "content/structures/gyms/base_gym.nbt"
+            interior = root / "content/structures/interiors/gyms/base_gym_interior.nbt"
+            exterior.parent.mkdir(parents=True)
+            interior.parent.mkdir(parents=True)
+            exterior.write_bytes(self._structure_nbt((25, 13, 26)))
+            interior.write_bytes(self._structure_nbt((25, 13, 26)))
+            interior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{"type": "npc_position", "label": "leader", "position": [12, 1, 20]}],
+            }), encoding="utf-8")
+            catalogs = root / "content/catalogs"
+            catalogs.mkdir(parents=True)
+            (catalogs / "league-progression.json").write_text(json.dumps({
+                "schema_version": 1, "entries": [],
+            }), encoding="utf-8")
+            (catalogs / "gyms.json").write_text(json.dumps({
+                "schema_version": 1, "gyms": [], "leagues": [],
+            }), encoding="utf-8")
+            (catalogs / "badges.json").write_text(json.dumps({
+                "schema_version": 1,
+                "badges": [{"id": "cobbleventure:badge/test/stone"}],
+            }), encoding="utf-8")
+
+            leader, leader_issues = content_manager.create_league_member(root, {
+                "role": "gym_leader", "slug": "test_leader", "name": "테스트 관장",
+                "name_en": "Test Leader", "generation": 1,
+                "region": "cobbleventure:region/test", "order": 1, "level_cap": 20,
+                "theme": "rock", "badge_id": "cobbleventure:badge/test/stone",
+            })
+            elite, elite_issues = content_manager.create_league_member(root, {
+                "role": "elite_four", "slug": "test_elite", "name": "테스트 사천왕",
+                "name_en": "Test Elite", "generation": 1,
+                "region": "cobbleventure:region/test", "order": 2, "level_cap": 50,
+                "theme": "normal", "badge_id": "",
+            })
+
+            self.assertFalse(any(issue.level == "error" for issue in leader_issues), leader_issues)
+            self.assertFalse(any(issue.level == "error" for issue in elite_issues), elite_issues)
+            self.assertIsNotNone(leader["gym"])
+            self.assertIsNone(elite["gym"])
+            self.assertTrue((root / leader["trainer_path"]).is_file())
+            self.assertTrue((root / elite["battle_path"]).is_file())
+            league = json.loads((catalogs / "league-progression.json").read_text(encoding="utf-8"))
+            self.assertEqual(["gym_leader", "elite_four"], [entry["role"] for entry in league["entries"]])
+            self.assertNotIn("trainer_card_order", league["entries"][0])
+            gyms = json.loads((catalogs / "gyms.json").read_text(encoding="utf-8"))
+            self.assertEqual(1, len(gyms["gyms"]))
+            self.assertEqual(leader["league_entry"]["id"], gyms["gyms"][0]["staff"]["leader"]["league_entry_id"])
+
     def test_document_creation_api(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

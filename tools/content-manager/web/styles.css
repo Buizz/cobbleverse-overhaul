@@ -435,6 +435,27 @@ body {
 .focused-moves-list { display: grid; gap: 9px; }.focused-move-field { display: grid; min-height: 112px; grid-template-columns: 30px minmax(0,1fr) 48px; gap: 8px; align-items: center; padding: 9px; border: 1px solid #c7d4d9; border-left: 4px solid #55bcd2; border-radius: 3px; background: #f8fafb; }.focused-move-field.empty { min-height: 82px; border-left-color: #aebdc5; }.focused-move-field > span { color: #26869d; font: 900 11px/1 Consolas, monospace; text-align: center; }.focused-move-field label { display: grid; min-width: 0; gap: 5px; }.focused-move-field small { color: #6f8391; font-size: 8px; font-weight: 800; }.focused-move-field input { width: 100%; min-width: 0; height: 29px; border: 0; border-bottom: 1px solid #b6c5cc; background: transparent; color: #172f42; font-size: 12px; font-weight: 800; }.focused-move-meta { display: flex; min-width: 0; flex-wrap: wrap; gap: 4px; align-items: center; color: #526b7a; font-size: 9px; }.focused-move-meta > span { padding: 2px 5px; border: 1px solid #d0dce0; border-radius: 999px; background: #fff; white-space: nowrap; }.focused-move-meta .move-type-badge { padding: 3px 7px; font-size: 8px; }.focused-move-description { display: -webkit-box; overflow: hidden; color: #607686; font-size: 9px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }.focused-move-empty-hint { color: #8a9aa4; font-size: 9px; line-height: 1.4; }.focused-move-field button { min-height: 34px; border: 1px solid #93a9b5; border-radius: 3px; background: #fff; color: #315166; font-size: 9px; font-weight: 800; }.empty-team-prompt { display: block; width: 100%; min-height: 150px; border: 0; background: #f8fafb; color: #315166; font-weight: 800; }
 
 .create-dialog { border-radius: 5px; border-color: #b9c9cf; background: #fff; color: #101b2d; }.create-dialog input { border-radius: 3px; border-color: #b9c8cf; background: #fbfdfe; color: #162f43; }
+.create-dialog select { width: 100%; min-height: 40px; padding: 8px 11px; border: 1px solid #b9c8cf; border-radius: 3px; background: #fbfdfe; color: #162f43; }
+.league-member-dialog { width: min(820px,calc(100vw - 32px)); }
+.league-member-role-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-bottom: 18px; }
+.league-member-role-options label { position: relative; margin: 0; }
+.league-member-role-options input { position: absolute; top: 8px; left: 8px; width: 1px; height: 1px; opacity: 0; }
+.league-member-role-options label > span { display: grid; gap: 4px; min-height: 70px; padding: 14px; border: 1px solid #c5d2d7; border-radius: 5px; background: #f7fafb; cursor: pointer; }
+.league-member-role-options label > span strong { color: #17334a; font-size: 13px; }
+.league-member-role-options label > span small { color: #6b7c88; font-size: 10px; }
+.league-member-role-options input:checked + span { border-color: #7fbd16; box-shadow: inset 3px 0 #9bea22; background: #f5faed; }
+.league-member-gym-fields { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
+.league-member-gym-fields label { margin: 0; }
+.league-member-summary { margin-top: 14px; padding: 11px 13px; border: 1px solid #d0dce0; border-radius: 4px; background: #f5f9fa; color: #536b79; font-size: 11px; line-height: 1.55; }
+.league-card-derived { align-items: center; grid-template-columns: auto 1fr; }
+.league-card-derived strong { color: #5d910d; font-size: 18px; }
+.league-workspace-bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 14px; padding: 14px 18px; }
+.league-workspace-bar div { display: grid; gap: 3px; }
+.league-workspace-bar small { color: var(--muted); }
+.league-role-heading { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 6px; color: #587081; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.league-role-heading span { min-width: 22px; padding: 2px 6px; border-radius: 10px; background: #e7eef1; text-align: center; }
+.form-grid fieldset[hidden],.league-member-gym-fields[hidden],#open-league-gym[hidden],#league-card-derived[hidden] { display: none !important; }
+@media (max-width: 760px) { .league-member-role-options { grid-template-columns: 1fr; }.league-member-gym-fields { grid-template-columns: 1fr; } }
 
 @media (max-width: 1280px) { .focused-pokemon-editor { grid-template-columns: minmax(210px,.7fr) minmax(290px,1fr) minmax(270px,1fr); }.focused-moves-panel { grid-column: 2 / -1; border-top: 1px solid #d0dce0; }.focused-moves-list { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 900px) { .focused-party-tabs { display: flex; overflow-x: auto; }.focused-party-tabs button { flex: 0 0 145px; }.focused-pokemon-editor { grid-template-columns: 1fr; }.focused-pokemon-editor > section, .focused-pokemon-preview { grid-column: 1; border-right: 0; border-bottom: 1px solid #d0dce0; }.focused-moves-panel { grid-column: 1; }.focused-moves-list { grid-template-columns: 1fr; }.trainer-appearance-panel { grid-template-columns: 1fr; }.trainer-preview { border-right: 0; border-bottom: 1px solid #d0dce0; } }
