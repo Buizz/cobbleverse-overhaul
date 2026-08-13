@@ -368,6 +368,16 @@ resources/          텍스처·번역·사운드 등 자체 리소스
 docs/               기획·설계·결정 기록
 ```
 
+## 외부 그래픽 크레딧
+
+트레이너 카드의 뱃지 그래픽은 다음 픽셀 아트를 가공하여 사용합니다.
+
+- 1~6세대: [JcFerggy, 16x16 Pokemon Badge Sprites: Gen 1-6](https://www.deviantart.com/jcferggy/art/16x16-Pokemon-Badge-Sprites-Gen-1-6-544204402). 원본 설명에 따라 하나지방 뱃지 기반 작업은 SoaringSkies0에게도 크레딧합니다.
+- 8세대 가라르: Cobbleverse Overhaul 프로젝트 자체 제작·편집본
+- 9세대 팔데아: [ProfessorMorDBG, Paldea Badges demake large](https://www.deviantart.com/professormordbg/art/Paldea-Badges-demake-large-1142694862)
+
+제작자 허가 기록, 원본 보관 위치, 셀 좌표와 nearest-neighbour 가공 방식은 [뱃지 그래픽 출처 및 사용 기록](docs/asset-permissions/README.md)에서 관리합니다. 포켓몬 관련 명칭과 디자인의 권리는 각 권리자에게 있습니다.
+
 ## 저장소 원칙
 
 - Cobbleverse를 포함한 타 모드팩이나 모드의 JAR 파일은 저장소에 넣지 않습니다.

@@ -50,6 +50,18 @@ NeoForge 1.21.1 모드다.
 - `/cobbleventure_battle_intro`가 트레이너 배틀 시작을 잠시 지연하고 VS 인트로를 표시한다.
 - 마을·도로 진입이 두 번 연속 확인되면 지역 명판을 표시하고 현재 지역 표식을 유지한다.
 
+## 트레이너 카드 뱃지 그래픽
+
+게임에서 사용하는 전역 아틀라스는 `src/main/resources/assets/cobbleventure_player_menu/textures/gui/badges.png`다. 1~6세대는 JcFerggy의 16×16 뱃지 시트, 9세대는 ProfessorMorDBG의 팔데아 뱃지 시트를 사용하며, 상세 크레딧과 사용 기록은 [뱃지 그래픽 출처 및 사용 기록](../../docs/asset-permissions/README.md)에 보존한다.
+
+가라르 10개는 프로젝트 편집본인 `../../tools/content-manager/assets/badges/galar-custom.png`의 5열 × 2행에 관장 순서대로 배치한다. 이 파일을 수정한 뒤 다음 명령으로 아틀라스를 다시 만든다.
+
+```bat
+python tools\content-manager\build_badge_atlas.py
+```
+
+생성기는 모든 확대·축소에 nearest-neighbour를 사용하며, 각 뱃지의 제작자·원본 URL·추출 좌표는 `../../tools/content-manager/badge-image-sources.json`에 기록한다.
+
 ## 빌드
 
 저장소에서 사용하는 공용 Gradle Wrapper로 빌드한다.
