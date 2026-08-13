@@ -4,6 +4,7 @@
   "package": "dev.buizz.cobbleventure.bootstrap.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "BeehiveDecoratorMixin",
     "FlatLevelSourceMixin",
     "JigsawPlacementPlacerMixin",
     "SinglePoolElementMixin",

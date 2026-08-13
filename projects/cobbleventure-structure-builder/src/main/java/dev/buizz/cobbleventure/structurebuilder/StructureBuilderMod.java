@@ -397,6 +397,10 @@ public final class StructureBuilderMod {
             requirePrepared(data);
             int saved = 0;
             for (PlannedEntry planned : plan(catalog, data.groundY)) {
+                if (planned.entry().category().equals("interiors")
+                    && data.interior(planned.entry().label()).isPresent()) {
+                    continue;
+                }
                 export(source.getServer().overworld(), planned);
                 saved++;
             }
@@ -423,7 +427,13 @@ public final class StructureBuilderMod {
             BuilderData data = data(source.getServer());
             requirePrepared(data);
             PlannedEntry planned = find(catalog, data.groundY, requested);
-            export(source.getServer().overworld(), planned);
+            Optional<InteriorPlot> resized = planned.entry().category().equals("interiors")
+                ? data.interior(planned.entry().label()) : Optional.empty();
+            if (resized.isPresent()) {
+                exportInterior(source.getServer().overworld(), resized.get());
+            } else {
+                export(source.getServer().overworld(), planned);
+            }
             source.sendSuccess(
                 () -> Component.literal(
                     "[Structure Builder] NBT 내보내기 완료: " + planned.entry().source()
@@ -489,10 +499,14 @@ public final class StructureBuilderMod {
         }
         List<EditorSpace> spaces = new ArrayList<>();
         for (PlannedEntry planned : plan(catalog, builderData.groundY)) {
+            if (planned.entry().category().equals("interiors")
+                && builderData.interior(planned.entry().label()).isPresent()) {
+                continue;
+            }
+            boolean interior = planned.entry().category().equals("interiors");
             spaces.add(new EditorSpace(
                 planned.entry().exportId(), planned.entry().label(),
-                planned.entry().category().equals("interiors"), planned.origin(),
-                planned.entry().size(), false,
+                interior, planned.origin(), planned.entry().size(), interior,
                 planned.entry().interior() == null ? planned.entry().size().getY()
                     : planned.entry().interior().floorHeight(),
                 planned.entry().interior() == null ? 1 : planned.entry().interior().floors()
@@ -583,26 +597,91 @@ public final class StructureBuilderMod {
         BuilderEditorNetwork.sendSnapshot(player);
     }
 
+    static void editorSaveCurrent(ServerPlayer player) {
+        Catalog catalog = loadCatalog(player.getServer());
+        BuilderData builderData = data(player.getServer());
+        requirePrepared(builderData);
+        EditContext current = findContext(catalog, builderData, player.blockPosition());
+        Optional<InteriorPlot> dynamic = builderData.interiors().stream()
+            .filter(plot -> plot.key().equals(current.key())).findFirst();
+        if (dynamic.isPresent()) {
+            exportInterior(player.serverLevel(), dynamic.get());
+        } else {
+            PlannedEntry planned = plan(catalog, builderData.groundY).stream()
+                .filter(value -> value.entry().exportId().equals(current.key()))
+                .findFirst()
+                .orElseThrow(() -> new BuilderException(
+                    "현재 위치에 저장할 NBT 부지가 없습니다."
+                ));
+            export(player.serverLevel(), planned);
+        }
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] 현재 NBT 저장 완료: " + current.label()
+        ));
+        BuilderEditorNetwork.sendSnapshot(player);
+    }
+
     static void editorResize(
         ServerPlayer player, int width, int depth, int floorHeight, int floors
     ) {
+        Catalog catalog = loadCatalog(player.getServer());
         BuilderData builderData = data(player.getServer());
-        InteriorPlot current = builderData.interiors().stream()
-            .filter(plot -> plot.contains(player.blockPosition())).findFirst()
-            .orElseThrow(() -> new BuilderException(
-                "크기 변경은 에딧 월드에서 동적으로 만든 내부공간에서만 가능합니다."
-            ));
         if (width < 5 || width > 80 || depth < 5 || depth > 80
             || floorHeight < 3 || floorHeight > 12 || floors < 1 || floors > 8
             || floorHeight * floors > 80) {
             throw new BuilderException("너비·깊이 5~80, 층 높이 3~12, 층수 1~8 범위가 필요합니다.");
         }
+        EditContext context = findContext(catalog, builderData, player.blockPosition());
+        if (!context.interior()) {
+            throw new BuilderException("크기 변경은 내부 NBT에서만 가능합니다.");
+        }
+        Vec3i resizedSize = new Vec3i(width, floorHeight * floors, depth);
+        boolean anchorOutside = builderData.anchors(context.key()).stream().anyMatch(anchor ->
+                !insideSize(anchor.position(), resizedSize)
+                    || !insideSize(anchor.safeSpawn(), resizedSize))
+            || builderData.npcAnchors(context.key()).stream().anyMatch(anchor ->
+                !insideSize(anchor.position(), resizedSize))
+            || builderData.pointAnchors(context.key()).stream().anyMatch(anchor ->
+                !insideSize(anchor.position(), resizedSize));
+        if (anchorOutside) {
+            throw new BuilderException(
+                "새 크기 밖에 문·NPC·도착 앵커가 있습니다. 먼저 앵커를 옮기거나 삭제하세요."
+            );
+        }
+        InteriorPlot current = builderData.interiors().stream()
+            .filter(plot -> plot.key().equals(context.key())).findFirst()
+            .orElseGet(() -> plan(catalog, builderData.groundY).stream()
+                .filter(planned -> planned.entry().category().equals("interiors")
+                    && planned.entry().exportId().equals(context.key()))
+                .findFirst()
+                .map(planned -> {
+                    InteriorSpec spec = planned.entry().interior();
+                    int currentFloors = spec == null ? 1 : spec.floors();
+                    int currentFloorHeight = spec == null
+                        ? planned.entry().size().getY() : spec.floorHeight();
+                    return new InteriorPlot(
+                        planned.entry().label(), planned.origin(),
+                        planned.entry().size().getX(), planned.entry().size().getZ(),
+                        currentFloorHeight, currentFloors
+                    );
+                })
+                .orElseThrow(() -> new BuilderException("현재 내부 NBT를 찾을 수 없습니다.")));
         InteriorPlot resized = new InteriorPlot(
             current.id(), current.origin(), width, depth, floorHeight, floors
         );
         builderData.addInterior(resized);
         outlineInterior(player.serverLevel(), resized);
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] 내부 NBT 크기 변경: " + resized.id() + " · "
+                + resized.width() + "x" + resized.size().getY() + "x" + resized.depth()
+        ));
         BuilderEditorNetwork.sendSnapshot(player);
+    }
+
+    private static boolean insideSize(BlockPos position, Vec3i size) {
+        return position.getX() >= 0 && position.getX() < size.getX()
+            && position.getY() >= 0 && position.getY() < size.getY()
+            && position.getZ() >= 0 && position.getZ() < size.getZ();
     }
 
     record EditorSnapshot(
@@ -892,7 +971,8 @@ public final class StructureBuilderMod {
         PlannedEntry planned = findContaining(catalog, data.groundY, position);
         return new EditContext(
             planned.entry().exportId(), planned.entry().label(),
-            planned.origin(), planned.entry().size(), false
+            planned.origin(), planned.entry().size(),
+            planned.entry().category().equals("interiors")
         );
     }
 
@@ -988,7 +1068,13 @@ public final class StructureBuilderMod {
         if (data.interior(id).isPresent() || catalogInterior) {
             return fail(source, new BuilderException("이미 존재하는 내부 공간입니다: " + id));
         }
-        int index = data.interiorCount();
+        Catalog catalog = loadCatalog(source.getServer());
+        long catalogBackedOverrides = data.interiors().stream()
+            .filter(plot -> catalog.entries().stream().anyMatch(entry ->
+                entry.category().equals("interiors") && entry.label().equals(plot.id())
+            )).count();
+        int index = catalog.interiorCount()
+            + data.interiorCount() - Math.toIntExact(catalogBackedOverrides);
         BlockPos origin = new BlockPos(
             INTERIOR_ORIGIN_X + (index % 8) * INTERIOR_CELL_SIZE,
             data.groundY + 1,
@@ -1015,6 +1101,9 @@ public final class StructureBuilderMod {
             .forEach(values::add);
         for (PlannedEntry planned : plan(loadCatalog(source.getServer()), builderData.groundY)) {
             if (!planned.entry().category().equals("interiors")) {
+                continue;
+            }
+            if (builderData.interior(planned.entry().label()).isPresent()) {
                 continue;
             }
             InteriorSpec spec = planned.entry().interior();
@@ -1074,6 +1163,14 @@ public final class StructureBuilderMod {
     private static int deleteInterior(CommandSourceStack source, String id) {
         try {
             BuilderData builderData = data(source.getServer());
+            boolean catalogInterior = plan(loadCatalog(source.getServer()), builderData.groundY)
+                .stream().anyMatch(planned -> planned.entry().category().equals("interiors")
+                    && planned.entry().label().equals(id));
+            if (catalogInterior) {
+                throw new BuilderException(
+                    "불러온 내부 NBT는 삭제할 수 없습니다. 크기는 변경할 수 있습니다: " + id
+                );
+            }
             InteriorPlot plot = builderData.interior(id).orElseThrow(() ->
                 new BuilderException("동적으로 만든 내부 공간만 삭제할 수 있습니다: " + id)
             );
@@ -1105,17 +1202,19 @@ public final class StructureBuilderMod {
         BlockState border = Blocks.LIGHT_BLUE_CONCRETE.defaultBlockState();
         for (int floor = 0; floor < plot.floors(); floor++) {
             int y = plot.origin().getY() + floor * plot.floorHeight() - 1;
-            for (int x = -1; x <= plot.width(); x++) {
-                level.setBlock(plot.origin().offset(x, y - plot.origin().getY(), -1), border, 2);
-                level.setBlock(plot.origin().offset(x, y - plot.origin().getY(), plot.depth()), border, 2);
-            }
-            for (int z = 0; z < plot.depth(); z++) {
-                level.setBlock(plot.origin().offset(-1, y - plot.origin().getY(), z), border, 2);
-                level.setBlock(plot.origin().offset(plot.width(), y - plot.origin().getY(), z), border, 2);
+            int relativeY = y - plot.origin().getY();
+            for (int offset = 0; offset < 3; offset++) {
+                level.setBlock(plot.origin().offset(-1 + offset, relativeY, -1), border, 18);
+                level.setBlock(plot.origin().offset(-1, relativeY, -1 + offset), border, 18);
+                level.setBlock(plot.origin().offset(plot.width() - offset, relativeY, -1), border, 18);
+                level.setBlock(plot.origin().offset(plot.width(), relativeY, -1 + offset), border, 18);
+                level.setBlock(plot.origin().offset(-1 + offset, relativeY, plot.depth()), border, 18);
+                level.setBlock(plot.origin().offset(-1, relativeY, plot.depth() - offset), border, 18);
+                level.setBlock(plot.origin().offset(plot.width() - offset, relativeY, plot.depth()), border, 18);
+                level.setBlock(plot.origin().offset(plot.width(), relativeY, plot.depth() - offset), border, 18);
             }
         }
         outlineNbtFootprint(level, plot.origin(), plot.size());
-        loadChunks(level, plot.origin(), plot.size());
     }
 
     private static boolean contains(PlannedEntry planned, BlockPos position) {
@@ -1146,7 +1245,7 @@ public final class StructureBuilderMod {
         int groundY = level.getHeight(
             Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, 0, 0
         ) - 1;
-        int rows = catalog.rows();
+        int rows = catalog.exteriorRows();
         for (int row = 0; row < rows; row++) {
             for (int column = 0; column < catalog.columns(); column++) {
                 int cellIndex = row * catalog.columns() + column;
@@ -1156,7 +1255,21 @@ public final class StructureBuilderMod {
                     ORIGIN_Z + row * catalog.cellSize(),
                     groundY,
                     catalog.cellSize(),
-                    cellIndex < catalog.entries().size()
+                    cellIndex < catalog.exteriorCount()
+                );
+            }
+        }
+        int interiorRows = catalog.interiorRows();
+        for (int row = 0; row < interiorRows; row++) {
+            for (int column = 0; column < catalog.columns(); column++) {
+                int cellIndex = row * catalog.columns() + column;
+                outlineCell(
+                    level,
+                    INTERIOR_ORIGIN_X + column * INTERIOR_CELL_SIZE,
+                    INTERIOR_ORIGIN_Z + row * INTERIOR_CELL_SIZE,
+                    groundY,
+                    INTERIOR_CELL_SIZE,
+                    cellIndex < catalog.interiorCount()
                 );
             }
         }
@@ -1332,25 +1445,19 @@ public final class StructureBuilderMod {
 
     private static List<PlannedEntry> plan(Catalog catalog, int groundY) {
         List<PlannedEntry> result = new ArrayList<>(catalog.entries().size());
-        int entryIndex = 0;
-        for (int row = 0; row < catalog.rows() && entryIndex < catalog.entries().size(); row++) {
-            for (int column = 0; column < catalog.columns(); column++) {
-                if (entryIndex >= catalog.entries().size()) {
-                    break;
-                }
-                Entry entry = catalog.entries().get(entryIndex++);
-                int cellX = ORIGIN_X + column * catalog.cellSize();
-                int cellZ = ORIGIN_Z + row * catalog.cellSize();
-                result.add(new PlannedEntry(
-                    entry, row, column, cellX, cellZ,
-                    new BlockPos(
-                        cellX + (catalog.cellSize() - entry.size().getX()) / 2,
-                        groundY + 1,
-                        cellZ + (catalog.cellSize() - entry.size().getZ()) / 2
-                    )
-                ));
-            }
-        }
+        planCategory(
+            result,
+            catalog.entries().stream()
+                .filter(entry -> !entry.category().equals("interiors")).toList(),
+            catalog.columns(), catalog.cellSize(), ORIGIN_X, ORIGIN_Z, groundY
+        );
+        planCategory(
+            result,
+            catalog.entries().stream()
+                .filter(entry -> entry.category().equals("interiors")).toList(),
+            catalog.columns(), INTERIOR_CELL_SIZE,
+            INTERIOR_ORIGIN_X, INTERIOR_ORIGIN_Z, groundY
+        );
         if (result.size() != catalog.entries().size()) {
             throw new BuilderException(
                 "카탈로그 배치 공간이 부족합니다: 구조물 " + catalog.entries().size()
@@ -1358,6 +1465,27 @@ public final class StructureBuilderMod {
             );
         }
         return List.copyOf(result);
+    }
+
+    private static void planCategory(
+        List<PlannedEntry> result, List<Entry> entries, int columns, int cellSize,
+        int originX, int originZ, int groundY
+    ) {
+        for (int index = 0; index < entries.size(); index++) {
+            Entry entry = entries.get(index);
+            int row = index / columns;
+            int column = index % columns;
+            int cellX = originX + column * cellSize;
+            int cellZ = originZ + row * cellSize;
+            result.add(new PlannedEntry(
+                entry, row, column, cellX, cellZ,
+                new BlockPos(
+                    cellX + (cellSize - entry.size().getX()) / 2,
+                    groundY + 1,
+                    cellZ + (cellSize - entry.size().getZ()) / 2
+                )
+            ));
+        }
     }
 
     private static void outlineCell(
@@ -1404,7 +1532,8 @@ public final class StructureBuilderMod {
 
     private static void placeLabel(ServerLevel level, PlannedEntry planned) {
         BlockPos signPosition = new BlockPos(
-            planned.cellX() + 40,
+            planned.cellX() + (planned.entry().category().equals("interiors")
+                ? INTERIOR_CELL_SIZE / 2 : 40),
             planned.origin().getY(),
             planned.origin().getZ() - 3
         );
@@ -1559,8 +1688,25 @@ public final class StructureBuilderMod {
     private record Catalog(
         String catalogHash, int columns, int cellSize, List<Entry> entries
     ) {
-        int rows() {
-            return (entries.size() + columns - 1) / columns;
+        int exteriorCount() {
+            return (int) entries.stream()
+                .filter(entry -> !entry.category().equals("interiors")).count();
+        }
+
+        int interiorCount() {
+            return entries.size() - exteriorCount();
+        }
+
+        int exteriorRows() {
+            return rows(exteriorCount());
+        }
+
+        int interiorRows() {
+            return rows(interiorCount());
+        }
+
+        private int rows(int count) {
+            return (count + columns - 1) / columns;
         }
     }
 

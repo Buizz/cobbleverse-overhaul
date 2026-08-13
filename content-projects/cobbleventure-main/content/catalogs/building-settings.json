@@ -1,5 +1,239 @@
 {
-  "$schema": "../schemas/building-settings.schema.json",
   "schema_version": 1,
-  "buildings": {}
+  "buildings": {
+    "cobbleventure:gyms/base_gym": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/five_story_flat": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/five_story_gable": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/five_story_gambrel": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/five_story_shed": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/one_story_flat": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/one_story_gable": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/one_story_gambrel": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/one_story_shed": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/two_story_flat": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/two_story_gable": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/two_story_gambrel": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/two_story_shed": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:interiors/gyms/base_gym_interior": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:interiors/one_story_shed": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:interiors/player_house": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:league/kanto_league": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/basic_building_1": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/basic_building_2": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/basic_building_3": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/battle_tower": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/casino": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/daycare": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/fossil_laboratory": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/gym_site": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/hotel": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/laboratory": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/lighthouse": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/mansion": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/player_house": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/power_plant": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/radio_tower": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/tm_workshop": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:placeholder/train_station": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:town_decorations/bench": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:town_decorations/flower_bed": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:town_decorations/fountain": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:town_decorations/street_lamp": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:town_decorations/street_tree": {
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    }
+  }
 }

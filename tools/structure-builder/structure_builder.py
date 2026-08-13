@@ -219,8 +219,27 @@ def import_exports(root: Path, world: Path) -> int:
         if not exported.is_file():
             missing.append(relative.as_posix())
             continue
+        relative_without_suffix = relative.with_suffix("")
+        exported_metadata = (
+            world.resolve()
+            / "generated/cobbleventure_builder/structure_metadata/export"
+            / Path(str(relative_without_suffix) + ".structure.json")
+        )
+        exported_document: dict[str, object] | None = None
+        if exported_metadata.is_file():
+            exported_document = _validate_structure_metadata(
+                json.loads(exported_metadata.read_text(encoding="utf-8")),
+                exported_metadata,
+            )
         metadata = read_metadata(exported.read_bytes())
         expected = entry["size"]
+        workspace = exported_document.get("interior") if exported_document else None
+        if isinstance(workspace, dict):
+            expected = [
+                workspace["width"],
+                workspace["floor_height"] * workspace["floors"],
+                workspace["depth"],
+            ]
         actual = [metadata["width"], metadata["height"], metadata["depth"]]
         if actual != expected:
             raise StructureBuilderError(
@@ -228,17 +247,7 @@ def import_exports(root: Path, world: Path) -> int:
                 f"(예상 {expected}, 실제 {actual})"
             )
         pending.append((exported, project_root / str(entry["source"])))
-        relative_without_suffix = relative.with_suffix("")
-        exported_metadata = (
-            world.resolve()
-            / "generated/cobbleventure_builder/structure_metadata/export"
-            / Path(str(relative_without_suffix) + ".structure.json")
-        )
         if exported_metadata.is_file():
-            _validate_structure_metadata(
-                json.loads(exported_metadata.read_text(encoding="utf-8")),
-                exported_metadata,
-            )
             pending_metadata.append((
                 exported_metadata,
                 (project_root / str(entry["source"])).with_suffix(".structure.json"),

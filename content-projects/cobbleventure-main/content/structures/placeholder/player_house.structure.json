@@ -5,6 +5,7 @@
   "anchors": [
     {
       "id": "interior_entry",
+      "label": "interior_entry",
       "type": "interior_entry",
       "position": [
         8,

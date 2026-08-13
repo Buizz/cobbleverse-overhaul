@@ -17,9 +17,21 @@
       "encounter": {
         "character": "cobbleventure:character/brock",
         "battle_id": "cobbleventure:battle/gym_leader/brock",
-        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_brock" },
-        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
-        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/boulder" }
+        "appearance": {
+          "source": "rct_single",
+          "type": "skin",
+          "resource": "rctmod:trainers/single/kanto_brock"
+        },
+        "dialogue": {
+          "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
+          "victory": "훌륭한 승부였다. 이 배지는 네 것이다.",
+          "defeat": "좋은 승부였다. 준비해서 다시 도전해라.",
+          "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
+        },
+        "rewards": {
+          "money": 0,
+          "badge_id": "cobbleventure:badge/kanto/boulder"
+        }
       }
     },
     {
@@ -37,9 +49,21 @@
       "encounter": {
         "character": "cobbleventure:character/misty",
         "battle_id": "cobbleventure:battle/gym_leader/misty",
-        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_misty" },
-        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
-        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/cascade" }
+        "appearance": {
+          "source": "rct_single",
+          "type": "skin",
+          "resource": "rctmod:trainers/single/kanto_misty"
+        },
+        "dialogue": {
+          "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
+          "victory": "훌륭한 승부였다. 이 배지는 네 것이다.",
+          "defeat": "좋은 승부였다. 준비해서 다시 도전해라.",
+          "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
+        },
+        "rewards": {
+          "money": 0,
+          "badge_id": "cobbleventure:badge/kanto/cascade"
+        }
       }
     },
     {
@@ -57,9 +81,21 @@
       "encounter": {
         "character": "cobbleventure:character/lt_surge",
         "battle_id": "cobbleventure:battle/gym_leader/lt_surge",
-        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_ltsurge" },
-        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
-        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/thunder" }
+        "appearance": {
+          "source": "rct_single",
+          "type": "skin",
+          "resource": "rctmod:trainers/single/kanto_ltsurge"
+        },
+        "dialogue": {
+          "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
+          "victory": "훌륭한 승부였다. 이 배지는 네 것이다.",
+          "defeat": "좋은 승부였다. 준비해서 다시 도전해라.",
+          "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
+        },
+        "rewards": {
+          "money": 0,
+          "badge_id": "cobbleventure:badge/kanto/thunder"
+        }
       }
     },
     {
@@ -77,9 +113,21 @@
       "encounter": {
         "character": "cobbleventure:character/erika",
         "battle_id": "cobbleventure:battle/gym_leader/erika",
-        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_erika" },
-        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
-        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/rainbow" }
+        "appearance": {
+          "source": "rct_single",
+          "type": "skin",
+          "resource": "rctmod:trainers/single/kanto_erika"
+        },
+        "dialogue": {
+          "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
+          "victory": "훌륭한 승부였다. 이 배지는 네 것이다.",
+          "defeat": "좋은 승부였다. 준비해서 다시 도전해라.",
+          "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
+        },
+        "rewards": {
+          "money": 0,
+          "badge_id": "cobbleventure:badge/kanto/rainbow"
+        }
       }
     },
     {
@@ -97,9 +145,21 @@
       "encounter": {
         "character": "cobbleventure:character/koga",
         "battle_id": "cobbleventure:battle/gym_leader/koga",
-        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_koga" },
-        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
-        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/soul" }
+        "appearance": {
+          "source": "rct_single",
+          "type": "skin",
+          "resource": "rctmod:trainers/single/kanto_koga"
+        },
+        "dialogue": {
+          "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
+          "victory": "훌륭한 승부였다. 이 배지는 네 것이다.",
+          "defeat": "좋은 승부였다. 준비해서 다시 도전해라.",
+          "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
+        },
+        "rewards": {
+          "money": 0,
+          "badge_id": "cobbleventure:badge/kanto/soul"
+        }
       }
     },
     {
@@ -117,9 +177,21 @@
       "encounter": {
         "character": "cobbleventure:character/sabrina",
         "battle_id": "cobbleventure:battle/gym_leader/sabrina",
-        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_sabrina" },
-        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
-        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/marsh" }
+        "appearance": {
+          "source": "rct_single",
+          "type": "skin",
+          "resource": "rctmod:trainers/single/kanto_sabrina"
+        },
+        "dialogue": {
+          "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
+          "victory": "훌륭한 승부였다. 이 배지는 네 것이다.",
+          "defeat": "좋은 승부였다. 준비해서 다시 도전해라.",
+          "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
+        },
+        "rewards": {
+          "money": 0,
+          "badge_id": "cobbleventure:badge/kanto/marsh"
+        }
       }
     },
     {
@@ -137,9 +209,21 @@
       "encounter": {
         "character": "cobbleventure:character/blaine",
         "battle_id": "cobbleventure:battle/gym_leader/blaine",
-        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_blaine" },
-        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
-        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/volcano" }
+        "appearance": {
+          "source": "rct_single",
+          "type": "skin",
+          "resource": "rctmod:trainers/single/kanto_blaine"
+        },
+        "dialogue": {
+          "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
+          "victory": "훌륭한 승부였다. 이 배지는 네 것이다.",
+          "defeat": "좋은 승부였다. 준비해서 다시 도전해라.",
+          "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
+        },
+        "rewards": {
+          "money": 0,
+          "badge_id": "cobbleventure:badge/kanto/volcano"
+        }
       }
     },
     {
@@ -157,9 +241,21 @@
       "encounter": {
         "character": "cobbleventure:character/giovanni_gym",
         "battle_id": "cobbleventure:battle/gym_leader/giovanni_gym",
-        "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/kanto_giovanni" },
-        "dialogue": { "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!", "victory": "훌륭한 승부였다. 이 배지는 네 것이다.", "defeat": "좋은 승부였다. 준비해서 다시 도전해라.", "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라." },
-        "rewards": { "money": 0, "badge_id": "cobbleventure:badge/kanto/earth" }
+        "appearance": {
+          "source": "rct_single",
+          "type": "skin",
+          "resource": "rctmod:trainers/single/kanto_giovanni"
+        },
+        "dialogue": {
+          "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
+          "victory": "훌륭한 승부였다. 이 배지는 네 것이다.",
+          "defeat": "좋은 승부였다. 준비해서 다시 도전해라.",
+          "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
+        },
+        "rewards": {
+          "money": 0,
+          "badge_id": "cobbleventure:badge/kanto/earth"
+        }
       }
     }
   ]

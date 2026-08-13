@@ -42,6 +42,7 @@ level-type=minecraft:flat
 max-tick-time=-1
 motd=Cobbleventure Structure Builder Generator
 online-mode=false
+server-port=0
 simulation-distance=4
 spawn-animals=false
 spawn-monsters=false

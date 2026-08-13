@@ -244,6 +244,43 @@ class ContentManagerTests(unittest.TestCase):
             ),
         )
 
+    def test_resizes_structure_nbt_and_crops_blocks_outside_new_bounds(self) -> None:
+        resized = content_manager.resize_minecraft_structure_nbt(
+            self._structure_nbt_with_blocks(), (3, 3, 3)
+        )
+
+        self.assertEqual((3, 3, 3), content_manager.read_minecraft_structure_size(resized))
+        model = content_manager.read_minecraft_structure_model(resized)
+        self.assertEqual(3, model["total_blocks"])
+        self.assertFalse(any(block[0] == 3 for block in model["blocks"]))
+
+    def test_resize_managed_interior_updates_sidecar_floor_height(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/interiors/test_room.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((16, 8, 16)))
+            sidecar = structure.with_suffix(".structure.json")
+            sidecar.write_text(json.dumps({
+                "schema_version": 1,
+                "interior": {
+                    "id": "test_room", "width": 16, "depth": 16,
+                    "floor_height": 4, "floors": 2,
+                },
+                "anchors": [],
+            }), encoding="utf-8")
+
+            result = content_manager.resize_managed_structure(
+                root, "cobbleventure:interiors/test_room", 20, 10, 18
+            )
+
+            self.assertEqual((20, 10, 18), (
+                result["width"], result["height"], result["depth"]
+            ))
+            saved = json.loads(sidecar.read_text(encoding="utf-8"))
+            self.assertEqual(5, saved["interior"]["floor_height"])
+            self.assertEqual(2, saved["interior"]["floors"])
+
     def test_league_progression_validates_embedded_gym_leader_encounter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "league-progression.json"
@@ -294,6 +331,61 @@ class ContentManagerTests(unittest.TestCase):
             _, issues = content_manager.validate_league_progression_file(path)
 
             self.assertTrue(any(issue.path.endswith(".trainer_card_order") for issue in issues))
+
+    def test_league_progression_save_preserves_authored_entry_order(self) -> None:
+        def leader(entry_id: str, name: str, order: int) -> dict:
+            return {
+                "id": entry_id,
+                "role": "gym_leader",
+                "primary_type": "rock",
+                "display_name": {"ko_kr": name},
+                "generation": 1,
+                "region": "cobbleventure:region/kanto",
+                "order": order,
+                "level_cap": 15,
+                "encounter": {
+                    "battle_id": f"cobbleventure:battle/gym_leader/{name}",
+                    "appearance": {
+                        "source": "rct_single",
+                        "type": "skin",
+                        "resource": f"rctmod:trainers/single/{name}",
+                    },
+                    "dialogue": {
+                        "challenge": "도전",
+                        "victory": "승리",
+                        "defeat": "패배",
+                        "cleared": "클리어",
+                    },
+                    "rewards": {
+                        "money": 0,
+                        "badge_id": f"cobbleventure:badge/kanto/{name}",
+                    },
+                },
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            authored = {
+                "schema_version": 1,
+                "entries": [
+                    leader("cobbleventure:league/kanto/second", "second", 2),
+                    leader("cobbleventure:league/kanto/first", "first", 1),
+                ],
+            }
+
+            self.assertEqual([], content_manager.save_league_progression(root, authored))
+            saved = json.loads(
+                (root / "content" / "catalogs" / "league-progression.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                [
+                    "cobbleventure:league/kanto/second",
+                    "cobbleventure:league/kanto/first",
+                ],
+                [entry["id"] for entry in saved["entries"]],
+            )
 
     def test_reads_visible_top_block_for_each_nbt_column(self) -> None:
         metadata = content_manager.read_minecraft_structure_metadata(

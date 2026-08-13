@@ -164,10 +164,18 @@
       </section>
 
       <section class="page" id="league">
+        <nav class="league-config-tabs panel" aria-label="리그 운영 설정" role="tablist">
+          <button class="league-config-tab is-active" type="button" role="tab" aria-selected="true" data-league-workspace="league">
+            <span class="league-config-tab-index">01</span><span><strong>리그 구성</strong><small>관장·사천왕·챔피언과 도전 순서를 설정합니다.</small></span>
+          </button>
+          <button class="league-config-tab" type="button" role="tab" aria-selected="false" data-league-workspace="gyms">
+            <span class="league-config-tab-index">02</span><span><strong>체육관 시설</strong><small>체육관 외관·내부 공간·관장과 스태프를 설정합니다.</small></span>
+          </button>
+        </nav>
         <div class="workspace-grid">
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">LEAGUE PROGRESSION</p><h2>관장 · 사천왕 · 챔피언</h2></div><div class="list-tools"><span class="count-pill" id="league-entry-count">0</span><button class="mini-button" id="add-league-entry" type="button">＋</button></div></div><div id="league-entry-list" class="list-body"><div class="issues empty">리그 설정을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel">
-            <div class="panel-heading"><div><p class="eyebrow">LEAGUE MEMBER / LEVEL CAP</p><h2 id="league-editor-title">리그 항목을 선택하세요</h2></div><div class="editor-heading-actions"><div><button class="button secondary" id="open-league-gym" type="button" hidden>체육관 시설 편집</button><button class="button danger" id="delete-league-entry" disabled>항목 삭제</button><button class="button primary" id="save-league" disabled>리그 설정 저장</button></div></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">LEAGUE MEMBER / LEVEL CAP</p><h2 id="league-editor-title">리그 항목을 선택하세요</h2></div><div class="editor-heading-actions"><div><button class="button danger" id="delete-league-entry" disabled>항목 삭제</button><button class="button primary" id="save-league" disabled>리그 설정 저장</button></div></div></div>
             <form id="league-form" class="form-grid">
               <label class="wide"><span>리그 항목 ID</span><input name="id" placeholder="cobbleventure:league/generation_1/leader_1" disabled></label>
               <label><span>역할</span><select name="role" disabled><option value="gym_leader">체육관 관장</option><option value="elite_four">사천왕</option><option value="champion">챔피언</option></select></label>
@@ -456,11 +464,18 @@
       </section>
 
       <section class="page" id="gyms">
-        <div class="league-workspace-bar panel"><div><p class="eyebrow">LEAGUE OPERATIONS</p><strong>관장 전용 체육관 시설</strong><small>리그 구성원에서 선택한 관장의 시설·스태프만 편집합니다.</small></div><button class="button secondary" id="back-to-league" type="button">리그 구성으로 돌아가기</button></div>
+        <nav class="league-config-tabs panel" aria-label="리그 운영 설정" role="tablist">
+          <button class="league-config-tab" type="button" role="tab" aria-selected="false" data-league-workspace="league">
+            <span class="league-config-tab-index">01</span><span><strong>리그 구성</strong><small>관장·사천왕·챔피언과 도전 순서를 설정합니다.</small></span>
+          </button>
+          <button class="league-config-tab is-active" type="button" role="tab" aria-selected="true" data-league-workspace="gyms">
+            <span class="league-config-tab-index">02</span><span><strong>체육관 시설</strong><small>체육관 외관·내부 공간·관장과 스태프를 설정합니다.</small></span>
+          </button>
+        </nav>
         <div class="workspace-grid">
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">GYM CATALOG</p><h2>체육관</h2></div><div class="list-tools"><span class="count-pill" id="gym-list-count">…</span><button class="mini-button" id="add-gym" type="button">＋</button></div></div><div id="gym-list" class="list-body"><div class="issues empty">프로젝트의 체육관 목록을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel">
-            <div class="panel-heading"><div><p class="eyebrow">MODULAR GYM</p><h2 id="gym-editor-title">체육관을 선택하세요</h2></div><div class="editor-heading-actions"><div><button class="button danger" id="delete-gym" disabled>체육관 삭제</button><button class="button secondary" id="preview-gym-exterior" disabled>NBT 외관 미리보기</button><button class="button primary" id="save-gyms">체육관 저장</button></div></div></div>
+            <div class="panel-heading"><div class="gym-editor-identity"><output class="gym-editor-badge" id="gym-editor-badge" hidden></output><div><p class="eyebrow">MODULAR GYM</p><h2 id="gym-editor-title">체육관을 선택하세요</h2><small class="gym-editor-type" id="gym-editor-type" hidden></small></div></div><div class="editor-heading-actions"><div><button class="button danger" id="delete-gym" disabled>체육관 삭제</button><button class="button secondary" id="preview-gym-exterior" disabled>NBT 외관 미리보기</button><button class="button primary" id="save-gyms">체육관 저장</button></div></div></div>
             <form id="gym-form" class="form-grid">
               <label class="wide"><span>체육관 ID</span><input name="id" disabled></label>
               <label><span>한국어 이름</span><input name="nameKo" disabled></label><label><span>영문 이름</span><input name="nameEn" disabled></label>
@@ -551,6 +566,16 @@
               <div id="building-editor-empty" class="issues empty">NBT 건물을 선택하면 전역 NPC 배정 항목이 표시됩니다.</div>
               <div id="building-editor" hidden>
                 <div class="building-type-banner" id="building-type-banner"></div>
+                <section class="building-space-editor">
+                  <header><div><strong>NBT 작업 영역 크기</strong><small>실제 NBT 크기를 변경합니다. 축소하면 범위 밖 블록은 제거됩니다.</small></div></header>
+                  <div class="form-grid compact-grid">
+                    <label><span>너비 X</span><input id="building-size-width" type="number" min="1" max="64"></label>
+                    <label><span>높이 Y</span><input id="building-size-height" type="number" min="1" max="80"></label>
+                    <label><span>깊이 Z</span><input id="building-size-depth" type="number" min="1" max="64"></label>
+                    <button class="button secondary" id="resize-building-nbt" type="button">NBT 크기 적용</button>
+                  </div>
+                  <small>내부공간은 현재 층수를 유지하므로 새 높이가 층수로 나누어져야 합니다. 변경 후 건축 팩을 다시 빌드하세요.</small>
+                </section>
                 <section class="building-space-editor legacy-space-editor">
                   <header><div><strong>사용할 내부공간</strong><small>공용 내부 NBT를 공간 키로 연결합니다.</small></div><button class="button secondary" id="add-building-interior" type="button">내부공간 추가</button></header>
                   <div id="building-interior-assignments" class="building-interior-assignments"></div>

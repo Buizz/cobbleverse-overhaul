@@ -11,6 +11,7 @@
   "anchors": [
     {
       "id": "interior_exit",
+      "label": "interior_exit",
       "type": "interior_exit",
       "position": [
         12,

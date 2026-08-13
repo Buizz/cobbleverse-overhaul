@@ -103,10 +103,10 @@ public final class BuilderEditorClient {
         graphics.drawString(font, snapshot.size().getX() + " x " + snapshot.size().getY() + " x " + snapshot.size().getZ()
             + "  ·  앵커 " + snapshot.markers().size() + "개", 18, 42, 0xFF8797A8, false);
 
-        String hint = "[V] 편집 도구     [G] 공간 이동     [H] 내부 크기 변경";
+        String hint = "[V] 저장·이동·크기 도구     [G] 공간 이동     [H] 내부 크기 변경";
         int width = font.width(hint) + 24;
         int x = (graphics.guiWidth() - width) / 2;
-        int y = graphics.guiHeight() - 47;
+        int y = graphics.guiHeight() - 82;
         graphics.fill(x, y, x + width, y + 24, 0xD51A2028);
         graphics.fill(x, y, x + width, y + 2, 0xFF61D7FF);
         graphics.drawString(font, hint, x + 12, y + 8, 0xFFF5F7FA, false);
@@ -196,18 +196,21 @@ public final class BuilderEditorClient {
     private static final class ToolbarScreen extends EditorScreen {
         ToolbarScreen() { super("코블벤처 건축 도구"); }
         @Override protected void init() {
-            int x = width / 2 - 105;
+            int x = width / 2 - 138;
             int y = height / 2 - 35;
+            addRenderableWidget(Button.builder(Component.literal("현재 NBT 저장"), b -> {
+                BuilderEditorNetwork.saveCurrent(); onClose();
+            }).bounds(x, y, 88, 20).build());
             addRenderableWidget(Button.builder(Component.literal("공간 이동"), b -> minecraft.setScreen(new TravelScreen()))
-                .bounds(x, y, 100, 20).build());
+                .bounds(x + 94, y, 88, 20).build());
             addRenderableWidget(Button.builder(Component.literal("내부 크기 변경"), b -> minecraft.setScreen(new ResizeScreen()))
-                .bounds(x + 110, y, 100, 20).build());
+                .bounds(x + 188, y, 88, 20).build());
             addRenderableWidget(Button.builder(Component.literal("닫기"), b -> onClose())
-                .bounds(x + 55, y + 30, 100, 20).build());
+                .bounds(x + 88, y + 30, 100, 20).build());
         }
         @Override public void render(GuiGraphics g, int mx, int my, float tick) {
-            int x = width / 2 - 125, y = height / 2 - 73;
-            panel(g, x, y, 250, 126);
+            int x = width / 2 - 150, y = height / 2 - 73;
+            panel(g, x, y, 300, 126);
             g.drawCenteredString(font, title, width / 2, y + 13, 0xFFFFFFFF);
             g.drawCenteredString(font, "막대기 우클릭: 선택한 블록에 앵커 편집", width / 2, y + 31, 0xFFB9C5D2);
             super.render(g, mx, my, tick);
@@ -303,6 +306,7 @@ public final class BuilderEditorClient {
 
     private static final class ResizeScreen extends EditorScreen {
         private EditBox widthBox, depthBox, heightBox, floorsBox;
+        private boolean allowed;
         ResizeScreen() { super("내부 크기 변경"); }
         @Override protected void init() {
             int x = width / 2 - 130, y = height / 2 - 76;
@@ -314,8 +318,11 @@ public final class BuilderEditorClient {
             depthBox = field(x + 130, y + 49, Math.max(5, snapshot.size().getZ()));
             heightBox = field(x + 14, y + 89, floorHeight);
             floorsBox = field(x + 130, y + 89, floors);
-            addRenderableWidget(Button.builder(Component.literal("적용"), b -> apply())
-                .bounds(x + 40, y + 126, 82, 20).build());
+            allowed = current != null && current.resizable();
+            Button apply = Button.builder(Component.literal("적용"), b -> apply())
+                .bounds(x + 40, y + 126, 82, 20).build();
+            apply.active = allowed;
+            addRenderableWidget(apply);
             addRenderableWidget(Button.builder(Component.literal("취소"), b -> onClose())
                 .bounds(x + 138, y + 126, 82, 20).build());
         }
@@ -335,8 +342,7 @@ public final class BuilderEditorClient {
             int x = width / 2 - 130, y = height / 2 - 76;
             panel(g, x, y, 260, 166);
             g.drawString(font, title, x + 14, y + 13, 0xFFFFFFFF, false);
-            boolean allowed = snapshot.spaces().stream().anyMatch(s -> s.key().equals(snapshot.currentKey()) && s.resizable());
-            g.drawString(font, allowed ? snapshot.currentLabel() : "동적으로 추가한 내부에서만 변경 가능", x + 14, y + 29,
+            g.drawString(font, allowed ? snapshot.currentLabel() : "내부 NBT 작업 영역에서만 변경 가능", x + 14, y + 29,
                 allowed ? 0xFFB9C5D2 : 0xFFFF9C79, false);
             g.drawString(font, "너비", x + 14, y + 39, 0xFFB9C5D2, false);
             g.drawString(font, "깊이", x + 130, y + 39, 0xFFB9C5D2, false);

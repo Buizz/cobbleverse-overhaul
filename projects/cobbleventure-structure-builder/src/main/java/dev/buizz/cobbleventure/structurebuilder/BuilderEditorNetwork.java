@@ -34,6 +34,7 @@ public final class BuilderEditorNetwork {
         registrar.playToServer(ApplyAnchorPayload.TYPE, ApplyAnchorPayload.CODEC, BuilderEditorNetwork::handleApply);
         registrar.playToServer(TeleportPayload.TYPE, TeleportPayload.CODEC, BuilderEditorNetwork::handleTeleport);
         registrar.playToServer(ResizePayload.TYPE, ResizePayload.CODEC, BuilderEditorNetwork::handleResize);
+        registrar.playToServer(SaveCurrentPayload.TYPE, SaveCurrentPayload.CODEC, BuilderEditorNetwork::handleSaveCurrent);
     }
 
     static void openAnchorEditor(ServerPlayer player, BlockPos position, boolean door) {
@@ -54,6 +55,7 @@ public final class BuilderEditorNetwork {
     public static void resize(int width, int depth, int floorHeight, int floors) {
         PacketDistributor.sendToServer(new ResizePayload(width, depth, floorHeight, floors));
     }
+    public static void saveCurrent() { PacketDistributor.sendToServer(new SaveCurrentPayload()); }
 
     private static void handleSnapshot(SnapshotPayload payload, IPayloadContext context) {
         BuilderEditorClient.update(payload);
@@ -85,6 +87,12 @@ public final class BuilderEditorNetwork {
     private static void handleResize(ResizePayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player)) return;
         try { StructureBuilderMod.editorResize(player, payload.width(), payload.depth(), payload.floorHeight(), payload.floors()); }
+        catch (RuntimeException error) { player.sendSystemMessage(Component.literal("[Structure Builder] " + error.getMessage())); }
+    }
+
+    private static void handleSaveCurrent(SaveCurrentPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        try { StructureBuilderMod.editorSaveCurrent(player); }
         catch (RuntimeException error) { player.sendSystemMessage(Component.literal("[Structure Builder] " + error.getMessage())); }
     }
 
@@ -158,6 +166,11 @@ public final class BuilderEditorNetwork {
         static final StreamCodec<RegistryFriendlyByteBuf, ResizePayload> CODEC = StreamCodec.ofMember(ResizePayload::write, ResizePayload::read);
         void write(RegistryFriendlyByteBuf b) { b.writeVarInt(width); b.writeVarInt(depth); b.writeVarInt(floorHeight); b.writeVarInt(floors); }
         static ResizePayload read(RegistryFriendlyByteBuf b) { return new ResizePayload(b.readVarInt(), b.readVarInt(), b.readVarInt(), b.readVarInt()); }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+    public record SaveCurrentPayload() implements CustomPacketPayload {
+        static final Type<SaveCurrentPayload> TYPE = new Type<>(id("save_current"));
+        static final StreamCodec<RegistryFriendlyByteBuf, SaveCurrentPayload> CODEC = StreamCodec.unit(new SaveCurrentPayload());
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 

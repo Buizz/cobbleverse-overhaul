@@ -93,7 +93,6 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
-import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -126,6 +125,8 @@ public final class CobbleventureBootstrap {
     // from its center). Start lazy generation well before that endpoint can enter
     // normal view distance, so the town road connectors exist when players arrive.
     private static final int LAZY_TOWN_TRIGGER_DISTANCE = 224;
+    private static final int LAZY_CAVE_TRIGGER_DISTANCE = 192;
+    private static final int LAZY_CAVE_INTERIOR_TRIGGER_DISTANCE = 96;
     private static final int STARTER_TOWN_CHUNKS_PER_TICK = 8;
     private static final int BACKGROUND_TOWN_CHUNKS_PER_TICK = 1;
     private static final TicketType<ChunkPos> TOWN_GENERATION_TICKET = TicketType.create(
@@ -189,6 +190,8 @@ public final class CobbleventureBootstrap {
     private static volatile WorldInitializationJob activeInitialization;
     private static volatile TownGenerationDisplay completedTownGenerationDisplay;
     private static volatile int completedTownGenerationDisplayTicks;
+    private static final Set<String> preparedCaveEntrances = new HashSet<>();
+    private static boolean caveInteriorsPrepared;
     private static final Map<NoiseKey, NormalNoise> TERRAIN_NOISES = new ConcurrentHashMap<>();
     private static final Cache<TerrainColumnKey, NativeTerrainColumn> NATIVE_TERRAIN_COLUMNS =
         CacheBuilder.newBuilder().maximumSize(262_144L).build();
@@ -268,7 +271,6 @@ public final class CobbleventureBootstrap {
         BuildingRuntimeSystem.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onEntityJoinLevel);
-        NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onChunkLoad);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerTick);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onRegisterCommands);
@@ -318,34 +320,14 @@ public final class CobbleventureBootstrap {
         }
     }
 
-    private static void onChunkLoad(ChunkEvent.Load event) {
-        if (!(event.getLevel() instanceof ServerLevel level)
-            || !level.dimension().equals(GENERATION_ONE)) {
-            return;
-        }
-        List<BlockPos> beehives = event.getChunk().getBlockEntitiesPos().stream()
-            .filter(position -> {
-                BlockState state = event.getChunk().getBlockState(position);
-                return state.is(Blocks.BEE_NEST) || state.is(Blocks.BEEHIVE);
-            })
-            .toList();
-        for (BlockPos position : beehives) {
-            level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
-        }
-        if (!beehives.isEmpty()) {
-            LOGGER.info(
-                "Removed beehives from generation_1 chunk: chunk={}, count={}",
-                event.getChunk().getPos(), beehives.size()
-            );
-        }
-    }
-
     private static void onServerStarted(ServerStartedEvent event) {
         pendingInitializationPlayer = null;
         pendingInitializationTicks = -1;
         activeInitialization = null;
         completedTownGenerationDisplay = null;
         completedTownGenerationDisplayTicks = 0;
+        preparedCaveEntrances.clear();
+        caveInteriorsPrepared = false;
         ServerLevel level = event.getServer().getLevel(GENERATION_ONE);
         if (level == null) {
             throw new IllegalStateException("Cobbleventure generation_1 dimension is missing");
@@ -415,7 +397,6 @@ public final class CobbleventureBootstrap {
         if (!nativeGenerator) {
             placeCaveMountainBarriers(level, runtime.hexWorld());
         }
-        placeCaveEntrances(level, runtime.hexWorld());
         WorldGateSystem.placeAll(
             level, runtime.hexWorld().grid(), runtime.hexWorld().gates()
         );
@@ -423,7 +404,9 @@ public final class CobbleventureBootstrap {
         if (dungeons == null) {
             throw new IllegalStateException("Cobbleventure dungeons dimension is missing");
         }
-        placeCaveInteriors(dungeons, runtime.hexWorld());
+        LOGGER.info(
+            "Cave entrance and interior generation deferred until a player approaches"
+        );
         if (!Boolean.getBoolean(TOWN_SEQUENCE_PERFORMANCE_TEST_PROPERTY)) {
             GymInteriorSystem.initialize(event.getServer());
         }
@@ -726,7 +709,6 @@ public final class CobbleventureBootstrap {
         if (!nativeGenerator) {
             placeCaveMountainBarriers(level, runtime.hexWorld());
         }
-        placeCaveEntrances(level, runtime.hexWorld());
         WorldGateSystem.placeAll(
             level, runtime.hexWorld().grid(), runtime.hexWorld().gates()
         );
@@ -4116,9 +4098,10 @@ public final class CobbleventureBootstrap {
             return;
         }
         long gameTime = level.getGameTime();
+        ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
+        scheduleNearbyCaveInfrastructure(level, dungeons, gameTime);
         scheduleNearbyTownInitialization(level, gameTime);
         scheduleBackgroundTownInitialization(level);
-        ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             if (dungeons != null && player.serverLevel() == dungeons) {
                 LocalWeatherSystem.clear(player);
@@ -4443,6 +4426,53 @@ public final class CobbleventureBootstrap {
                     )
                 );
                 return;
+            }
+        }
+    }
+
+    private static void scheduleNearbyCaveInfrastructure(
+        ServerLevel level, ServerLevel dungeons, long gameTime
+    ) {
+        HexWorldPlan world = activeHexWorld;
+        if (world == null || gameTime % 20L != 0L || activeInitialization != null) {
+            return;
+        }
+        double entranceTriggerSquared = (double) LAZY_CAVE_TRIGGER_DISTANCE
+            * LAZY_CAVE_TRIGGER_DISTANCE;
+        double interiorTriggerSquared = (double) LAZY_CAVE_INTERIOR_TRIGGER_DISTANCE
+            * LAZY_CAVE_INTERIOR_TRIGGER_DISTANCE;
+        for (ServerPlayer player : level.players()) {
+            for (CaveEntrancePlan entrance : world.caveEntrances()) {
+                Point center = world.grid().worldCenter(entrance.anchor());
+                double dx = player.getX() - center.x();
+                double dz = player.getZ() - center.z();
+                double distanceSquared = dx * dx + dz * dz;
+                if (!preparedCaveEntrances.contains(entrance.id())
+                    && distanceSquared <= entranceTriggerSquared) {
+                    LOGGER.info(
+                        "Nearby cave entrance generation started: entrance={}, player={}, distance={}",
+                        entrance.id(), player.getGameProfile().getName(),
+                        Math.sqrt(distanceSquared)
+                    );
+                    placeCaveEntrance(level, world, entrance);
+                    preparedCaveEntrances.add(entrance.id());
+                    LOGGER.info(
+                        "Nearby cave entrance generation completed: entrance={}",
+                        entrance.id()
+                    );
+                    return;
+                }
+                if (!caveInteriorsPrepared && dungeons != null
+                    && distanceSquared <= interiorTriggerSquared) {
+                    LOGGER.info(
+                        "Nearby cave interior generation started: entrance={}, player={}",
+                        entrance.id(), player.getGameProfile().getName()
+                    );
+                    placeCaveInteriors(dungeons, world);
+                    caveInteriorsPrepared = true;
+                    LOGGER.info("Nearby cave interior generation completed");
+                    return;
+                }
             }
         }
     }

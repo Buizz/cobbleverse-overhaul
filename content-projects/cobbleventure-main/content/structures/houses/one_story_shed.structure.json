@@ -5,27 +5,10 @@
   "anchors": [
     {
       "id": "interior_entry",
-      "type": "interior_entry",
+      "type": "arrival",
       "position": [
         9,
-        0,
-        3
-      ],
-      "safe_spawn": [
-        9,
-        0,
-        2
-      ],
-      "door_facing": "north",
-      "safe_side": "north",
-      "dialogue": "cobbleventure:default_enter"
-    },
-    {
-      "id": "interaction_1",
-      "type": "interaction_point",
-      "position": [
-        9,
-        1,
+        2,
         3
       ],
       "facing": "south"

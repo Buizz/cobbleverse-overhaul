@@ -4954,6 +4954,11 @@ function gymForLeagueEntry(entryId) {
   return (state.gymCatalog.gyms || []).find((gym) => gym.staff?.leader?.league_entry_id === entryId) || null;
 }
 
+function leagueEntryForGym(gym) {
+  const entryId = gym?.staff?.leader?.league_entry_id;
+  return (state.leagueProgression.entries || []).find((entry) => entry.id === entryId) || null;
+}
+
 function badgeSprite(badge, scale = 2) {
   if (!badge) return '<span class="badge-sprite is-empty"></span>';
   const icon = badge.icon || {};
@@ -5108,7 +5113,6 @@ function renderLeagueEditor() {
     [...form.elements].forEach((element) => { element.disabled = true; });
     $("#delete-league-entry").disabled = true; $("#save-league").disabled = true;
     $("#league-editor-title").textContent = "리그 항목을 선택하세요";
-    $("#open-league-gym").hidden = true;
     $("#league-card-derived").hidden = true;
     $("#league-encounter-fields").hidden = true;
     $("#league-trainer-link").hidden = true;
@@ -5148,10 +5152,6 @@ function renderLeagueEditor() {
   $("#league-encounter-fields").hidden = !isGymLeader;
   $("#league-display-badge-fields").hidden = isGymLeader;
   $("#choose-league-reward-item").disabled = !isGymLeader;
-  const linkedGym = gymForLeagueEntry(entry.id);
-  $("#open-league-gym").hidden = !isGymLeader;
-  $("#open-league-gym").disabled = !linkedGym;
-  $("#open-league-gym").textContent = linkedGym ? "체육관 시설 편집" : "연결된 체육관 없음";
   $("#league-card-derived").hidden = !isGymLeader;
   if (isGymLeader) {
     const pageEntries = orderedTrainerCardEntries().filter((candidate) => candidate.generation === entry.generation && candidate.region === entry.region);
@@ -5564,7 +5564,12 @@ function renderGymList() {
   const list = $("#gym-list");
   if (!list) return;
   $("#gym-list-count").textContent = gyms.length;
-  list.innerHTML = gyms.length ? gyms.map((gym) => `<button class="document-button${gym.id === state.selectedGymId ? " is-active" : ""}" data-gym-id="${escapeHtml(gym.id)}"><strong>${escapeHtml(gym.display_name?.ko_kr || gym.id)}</strong><small>${escapeHtml(gym.theme)} · ${escapeHtml(gym.exterior?.structure || "외관 없음")}</small></button>`).join("") : '<div class="issues empty">등록된 체육관이 없습니다.</div>';
+  list.innerHTML = gyms.length ? gyms.map((gym) => {
+    const leaderEntry = leagueEntryForGym(gym);
+    const type = leaderEntry?.primary_type || gym.theme || "normal";
+    const badge = badgeById(leagueEntryBadgeId(leaderEntry));
+    return `<button class="document-button gym-catalog-row${gym.id === state.selectedGymId ? " is-active" : ""}" style="--gym-type:${leagueTypeColors[type] || leagueTypeColors.normal}" data-gym-id="${escapeHtml(gym.id)}"><span class="gym-catalog-badge">${badgeSprite(badge, 1.05)}</span><span class="gym-catalog-copy"><strong>${escapeHtml(gym.display_name?.ko_kr || gym.id)}</strong><small><b>${escapeHtml(leagueTypeLabels[type] || type)}</b> · ${escapeHtml(leaderEntry?.display_name?.ko_kr || "관장 미연결")}</small></span></button>`;
+  }).join("") : '<div class="issues empty">등록된 체육관이 없습니다.</div>';
 }
 
 function gymRotatedPoint(x, z, rotation) {
@@ -5804,8 +5809,17 @@ function renderGymEditor() {
   renderGymList();
   const gym = selectedGym();
   const form = $("#gym-form");
-  if (!gym) { form.reset(); [...form.elements].forEach((element) => { element.disabled = true; }); $("#gym-editor-title").textContent = "체육관을 선택하세요"; $("#delete-gym").disabled = true; $("#preview-gym-exterior").disabled = true; $("#add-gym-module").disabled = true; $("#add-gym-trainer").disabled = true; $("#gym-json").disabled = true; $("#apply-gym-json").disabled = true; state.gymLayout.selected = null; renderGymStaff(); renderGymModules(); renderGymLayout(); return; }
+  if (!gym) { form.reset(); [...form.elements].forEach((element) => { element.disabled = true; }); $("#gym-editor-title").textContent = "체육관을 선택하세요"; $("#gym-editor-badge").hidden = true; $("#gym-editor-type").hidden = true; $("#delete-gym").disabled = true; $("#preview-gym-exterior").disabled = true; $("#add-gym-module").disabled = true; $("#add-gym-trainer").disabled = true; $("#gym-json").disabled = true; $("#apply-gym-json").disabled = true; state.gymLayout.selected = null; renderGymStaff(); renderGymModules(); renderGymLayout(); return; }
+  const leaderEntry = leagueEntryForGym(gym);
+  const type = leaderEntry?.primary_type || gym.theme || "normal";
+  const badge = badgeById(leagueEntryBadgeId(leaderEntry));
   $("#gym-editor-title").textContent = gym.display_name?.ko_kr || gym.id;
+  $("#gym-editor-badge").innerHTML = badgeSprite(badge, 1.35);
+  $("#gym-editor-badge").style.setProperty("--gym-type", leagueTypeColors[type] || leagueTypeColors.normal);
+  $("#gym-editor-badge").hidden = false;
+  $("#gym-editor-type").textContent = `${leagueTypeLabels[type] || type} 타입 · ${leaderEntry?.display_name?.ko_kr || "관장 미연결"}`;
+  $("#gym-editor-type").style.setProperty("--gym-type", leagueTypeColors[type] || leagueTypeColors.normal);
+  $("#gym-editor-type").hidden = false;
   setFormValue(form, "id", gym.id); setFormValue(form, "nameKo", gym.display_name?.ko_kr || ""); setFormValue(form, "nameEn", gym.display_name?.en_us || ""); setFormValue(form, "theme", gym.theme || "normal"); setFormValue(form, "enabled", gym.enabled !== false);
   form.elements.musicTrack.innerHTML = musicOptions(gym.music_track || "", "gym");
   setFormValue(form, "musicTrack", gym.music_track || "");
@@ -5998,6 +6012,16 @@ function renderBuildingEditor() {
   const banner = $("#building-type-banner");
   const citizenRow = $("#building-citizen-placement-row");
   const citizenPlacementAllowed = Boolean(metadata.settings?.citizen_placement_allowed);
+  const league = metadata.category === "league";
+  const interior = ["interior", "gym_interior"].includes(metadata.category);
+  $("#building-size-width").value = metadata.width;
+  $("#building-size-height").value = metadata.height;
+  $("#building-size-depth").value = metadata.depth;
+  $("#building-size-width").max = league ? "512" : "64";
+  $("#building-size-depth").max = league ? "512" : "64";
+  $("#building-size-width").min = interior ? "5" : "1";
+  $("#building-size-depth").min = interior ? "5" : "1";
+  $("#building-size-height").max = league ? "512" : interior ? "80" : "240";
   citizenRow.hidden = false;
   $("#building-citizen-placement").checked = citizenPlacementAllowed;
   renderBuildingInteriorAssignments(metadata);
@@ -6086,6 +6110,39 @@ async function saveBuildingSettings() {
   state.buildingSettings.dirty = false;
   renderBuildingEditor();
   toast("건물 설정을 저장했습니다.");
+}
+
+async function resizeSelectedBuilding() {
+  const view = state.buildingSettings;
+  const id = view.selected, metadata = view.structures[id];
+  if (!id || !metadata) return;
+  if (view.dirty) return toast("먼저 NBT 건물 설정 변경 사항을 저장하세요.");
+  const width = Number($("#building-size-width").value);
+  const height = Number($("#building-size-height").value);
+  const depth = Number($("#building-size-depth").value);
+  if (![width, height, depth].every(Number.isInteger)) return toast("NBT 크기는 정수로 입력하세요.");
+  const shrinking = width < metadata.width || height < metadata.height || depth < metadata.depth;
+  const message = shrinking
+    ? `${id}를 ${width}×${height}×${depth}으로 축소할까요? 범위 밖 블록은 NBT에서 제거되며 되돌릴 수 없습니다.`
+    : `${id}의 작업 영역을 ${width}×${height}×${depth}으로 변경할까요?`;
+  if (!confirm(message)) return;
+  const button = $("#resize-building-nbt");
+  button.disabled = true; button.textContent = "크기 변경 중…";
+  try {
+    const result = await request("/api/structure-size", {
+      method: "PUT", body: JSON.stringify({ structure: id, width, height, depth })
+    });
+    if (!result.ok) return toast(result.data.error || "NBT 크기를 변경하지 못했습니다.");
+    const resized = result.data.structure || {};
+    Object.assign(metadata, resized);
+    if (state.structureSizes[id]) Object.assign(state.structureSizes[id], resized);
+    renderBuildingList();
+    renderBuildingEditor();
+    void loadBuildingModel(id);
+    toast("NBT 크기를 변경했습니다. 3D 미리보기는 백그라운드에서 갱신합니다.");
+  } finally {
+    button.disabled = false; button.textContent = "NBT 크기 적용";
+  }
 }
 
 async function createInteriorSpace(event) {
@@ -8856,6 +8913,7 @@ $("#building-citizen-placement").addEventListener("change", (event) => {
   markBuildingSettingsDirty();
 });
 $("#save-building-settings").addEventListener("click", saveBuildingSettings);
+$("#resize-building-nbt").addEventListener("click", resizeSelectedBuilding);
 $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
   const button = event.currentTarget;
   button.disabled = true;
@@ -8924,10 +8982,6 @@ $("#league-form").addEventListener("input", () => {
   $$("#league-form .league-badge-fields input, #league-form .league-badge-fields select").forEach((element) => { element.disabled = !isGym; });
   $("#edit-league-trainer").disabled = !entry?.trainer_id;
   $("#league-editor-title").textContent = entry?.display_name?.ko_kr || entry?.id || "리그 항목을 선택하세요";
-  const linkedGym = isGym ? gymForLeagueEntry(entry.id) : null;
-  $("#open-league-gym").hidden = !isGym;
-  $("#open-league-gym").disabled = !linkedGym;
-  $("#open-league-gym").textContent = linkedGym ? "체육관 시설 편집" : "연결된 체육관 없음";
   $("#league-card-derived").hidden = !isGym;
   $("#league-trainer-link").hidden = isGym;
   $("#league-encounter-fields").hidden = !isGym;
@@ -8953,15 +9007,19 @@ $("#choose-league-reward-item").addEventListener("click", () => openItemChoice("
   title: "관장 승리 아이템 선택",
   subtitle: "관장에게 승리한 뒤 지급할 아이템을 선택합니다."
 }));
-$("#open-league-gym").addEventListener("click", () => {
-  updateLeagueEntryFromForm();
-  const gym = gymForLeagueEntry(selectedLeagueEntry()?.id);
-  if (!gym) { toast("이 관장과 연결된 체육관이 없습니다."); return; }
-  state.selectedGymId = gym.id;
+$$('[data-league-workspace]').forEach((tab) => tab.addEventListener("click", () => {
+  const target = tab.dataset.leagueWorkspace;
+  if (target === "league") {
+    switchPage("league");
+    renderLeagueEditor();
+    return;
+  }
+  if ($("#league").classList.contains("is-active") && selectedLeagueEntry()) updateLeagueEntryFromForm();
+  const linkedGym = gymForLeagueEntry(selectedLeagueEntry()?.id);
+  if (linkedGym) state.selectedGymId = linkedGym.id;
   switchPage("gyms");
   renderGymEditor();
-});
-$("#back-to-league").addEventListener("click", () => { switchPage("league"); renderLeagueEditor(); });
+}));
 $("#league-member-form").addEventListener("submit", createLeagueMember);
 $("#league-member-form").addEventListener("change", (event) => {
   if (event.target.name === "role") updateLeagueMemberDialog();

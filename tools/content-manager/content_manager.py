@@ -7301,6 +7301,88 @@ def _read_minecraft_structure_root(data: bytes) -> dict[str, Any]:
     return root
 
 
+def _minecraft_structure_tag_spans(raw: bytes) -> dict[str, tuple[int, int, int]]:
+    """Return top-level NBT payload spans without re-encoding nested block entities."""
+    stream = io.BytesIO(raw)
+    root_type = stream.read(1)
+    if not root_type or root_type[0] != 10:
+        raise ValueError("마인크래프트 구조물 NBT의 루트가 Compound가 아닙니다.")
+    _read_nbt_string(stream)
+    result: dict[str, tuple[int, int, int]] = {}
+    while True:
+        tag_data = stream.read(1)
+        if not tag_data:
+            raise ValueError("NBT Compound가 손상되었습니다.")
+        tag_type = tag_data[0]
+        if tag_type == 0:
+            return result
+        name = _read_nbt_string(stream)
+        start = stream.tell()
+        _skip_nbt_payload(stream, tag_type)
+        result[name] = (tag_type, start, stream.tell())
+
+
+def resize_minecraft_structure_nbt(data: bytes, size: tuple[int, int, int]) -> bytes:
+    """Resize a structure template, cropping block records outside reduced bounds."""
+    compressed = data.startswith(b"\x1f\x8b")
+    raw = gzip.decompress(data) if compressed else data
+    root = _read_minecraft_structure_root(raw)
+    old_size = root.get("size")
+    if not isinstance(old_size, list) or len(old_size) != 3:
+        raise ValueError("구조물 size 태그 형식이 올바르지 않습니다.")
+    width, height, depth = size
+    spans = _minecraft_structure_tag_spans(raw)
+    size_span = spans.get("size")
+    if size_span is None or size_span[0] != 9:
+        raise ValueError("구조물 size 태그를 찾을 수 없습니다.")
+    _, size_start, size_end = size_span
+    size_payload = raw[size_start:size_end]
+    if len(size_payload) != 17 or size_payload[0] != 3 or struct.unpack(">i", size_payload[1:5])[0] != 3:
+        raise ValueError("구조물 size 목록 형식이 올바르지 않습니다.")
+
+    replacements: list[tuple[int, int, bytes]] = [(
+        size_start, size_end,
+        bytes([3]) + struct.pack(">i", 3) + struct.pack(">iii", width, height, depth),
+    )]
+    blocks_span = spans.get("blocks")
+    if blocks_span is not None:
+        tag_type, blocks_start, blocks_end = blocks_span
+        payload = raw[blocks_start:blocks_end]
+        if tag_type != 9 or len(payload) < 5 or payload[0] != 10:
+            raise ValueError("구조물 blocks 목록 형식이 올바르지 않습니다.")
+        count = struct.unpack(">i", payload[1:5])[0]
+        stream = io.BytesIO(payload[5:])
+        kept: list[bytes] = []
+        for _ in range(count):
+            start = stream.tell()
+            block = _read_nbt_payload(stream, 10)
+            encoded = payload[5 + start:5 + stream.tell()]
+            position = block.get("pos") if isinstance(block, dict) else None
+            if not isinstance(position, list) or len(position) != 3:
+                raise ValueError("구조물 블록 위치가 손상되었습니다.")
+            x, y, z = position
+            if 0 <= x < width and 0 <= y < height and 0 <= z < depth:
+                kept.append(encoded)
+        replacements.append((
+            blocks_start, blocks_end,
+            bytes([10]) + struct.pack(">i", len(kept)) + b"".join(kept),
+        ))
+
+    for entity in root.get("entities", []) if isinstance(root.get("entities"), list) else []:
+        if not isinstance(entity, dict):
+            continue
+        position = entity.get("pos")
+        if isinstance(position, list) and len(position) == 3:
+            x, y, z = position
+            if not (0 <= x < width and 0 <= y < height and 0 <= z < depth):
+                raise ValueError("축소 범위 밖에 엔티티가 있습니다. 게임에서 엔티티를 옮기거나 제거하세요.")
+
+    resized = bytearray(raw)
+    for start, end, replacement in sorted(replacements, reverse=True):
+        resized[start:end] = replacement
+    return gzip.compress(bytes(resized), mtime=0) if compressed else bytes(resized)
+
+
 def _minecraft_structure_parts(
     data: bytes,
 ) -> tuple[list[int], list[str], list[dict[str, Any]]]:
@@ -7899,6 +7981,75 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
         "structures": structures,
         "npcs": _list_documents(root, "trainers"),
         "path": BUILDING_SETTINGS_PATH.as_posix(),
+    }
+
+
+def resize_managed_structure(
+    root: Path, resource_id: str, width: int, height: int, depth: int,
+) -> dict[str, Any]:
+    structures = managed_structure_files(root)
+    path = structures.get(resource_id)
+    if path is None:
+        raise ValueError("관리 대상 NBT 구조물이 아닙니다.")
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in (width, height, depth)):
+        raise ValueError("너비·높이·깊이는 정수여야 합니다.")
+    relative = path.relative_to(root / "content" / "structures")
+    is_league = bool(relative.parts and relative.parts[0] == "league")
+    is_interior = bool(relative.parts and relative.parts[0] == "interiors")
+    max_width_depth = 512 if is_league else 64
+    if not 1 <= width <= max_width_depth or not 1 <= depth <= max_width_depth:
+        raise ValueError(f"너비와 깊이는 1~{max_width_depth} 범위여야 합니다.")
+    max_height = 512 if is_league else 80 if is_interior else 240
+    if not 1 <= height <= max_height:
+        raise ValueError(f"높이는 1~{max_height} 범위여야 합니다.")
+
+    sidecar = path.with_suffix(".structure.json")
+    sidecar_document: dict[str, Any] | None = None
+    if sidecar.is_file():
+        sidecar_document = load_json(sidecar)
+        for index, anchor in enumerate(sidecar_document.get("anchors", [])):
+            if not isinstance(anchor, dict):
+                continue
+            for field in ("position", "safe_spawn"):
+                position = anchor.get(field)
+                if not isinstance(position, list) or len(position) != 3:
+                    continue
+                x, y, z = position
+                if not (0 <= x < width and 0 <= y < height and 0 <= z < depth):
+                    label = anchor.get("label", anchor.get("id", index))
+                    raise ValueError(
+                        f"축소 범위 밖에 앵커가 있습니다: {label}.{field}={position}"
+                    )
+        interior = sidecar_document.get("interior")
+        if isinstance(interior, dict):
+            if width < 5 or depth < 5:
+                raise ValueError("내부공간의 너비와 깊이는 5 이상이어야 합니다.")
+            floors = interior.get("floors", 1)
+            if not isinstance(floors, int) or floors < 1 or height % floors != 0:
+                raise ValueError("내부공간 높이는 현재 층수로 정확히 나누어져야 합니다.")
+            floor_height = height // floors
+            if not 3 <= floor_height <= 12:
+                raise ValueError("층당 높이는 3~12 블록이어야 합니다. 층수 설정을 먼저 확인하세요.")
+            interior.update({
+                "width": width, "depth": depth,
+                "floor_height": floor_height, "floors": floors,
+            })
+
+    resized = resize_minecraft_structure_nbt(path.read_bytes(), (width, height, depth))
+    temporary = path.with_name(path.name + ".resize.tmp")
+    temporary.write_bytes(resized)
+    temporary.replace(path)
+    if sidecar_document is not None:
+        sidecar_temporary = sidecar.with_name(sidecar.name + ".resize.tmp")
+        sidecar_temporary.write_text(
+            json.dumps(sidecar_document, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        sidecar_temporary.replace(sidecar)
+    return {
+        "structure": resource_id,
+        "source": path.relative_to(root).as_posix(),
+        **read_minecraft_structure_metadata(resized),
     }
 
 
@@ -9195,6 +9346,49 @@ def create_handler(
                     return
                 errors = sum(issue.level == "error" for issue in issues)
                 self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
+            if request.path == "/api/structure-size":
+                try:
+                    payload = self._read_json()
+                    resource_id = payload.get("structure", "")
+                    result = resize_managed_structure(
+                        root,
+                        resource_id,
+                        payload.get("width"),
+                        payload.get("height"),
+                        payload.get("depth"),
+                    )
+                    # The edited NBT must never be served from the old 3D-model
+                    # cache.  Updating the known dimensions here lets the web UI
+                    # respond immediately; the expensive all-structure scan can
+                    # safely finish in the background.
+                    with structure_size_catalog_lock, structure_viewer_catalog_lock:
+                        structure_model_cache.pop(resource_id, None)
+                        sized = (
+                            structure_size_catalog.get("structures")
+                            if isinstance(structure_size_catalog, dict) else None
+                        )
+                        target = sized.get(resource_id) if isinstance(sized, dict) else None
+                        if isinstance(target, dict):
+                            target.update(result)
+                        target = (
+                            structure_viewer_catalog.get(resource_id)
+                            if isinstance(structure_viewer_catalog, dict) else None
+                        )
+                        if isinstance(target, dict):
+                            target.update(result)
+                        structures = (
+                            building_settings_catalog.get("structures")
+                            if isinstance(building_settings_catalog, dict) else None
+                        )
+                        target = structures.get(resource_id) if isinstance(structures, dict) else None
+                        if isinstance(target, dict):
+                            target.update(result)
+                    schedule_structure_cache_refresh()
+                except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                self._json(200, {"saved": True, "structure": result})
                 return
             if request.path == "/api/building-settings":
                 try:
