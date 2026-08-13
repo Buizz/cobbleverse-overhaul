@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap;
+package dev.buizz.cobbleventure.adventure;
 
 import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
@@ -29,7 +29,7 @@ final class BattleWeatherSystem {
         List<ServerPlayer> players = battle.getPlayers();
         if (players.isEmpty()) return;
 
-        String localWeather = CobbleventureBootstrap.authoredWeatherAt(players.get(0));
+        String localWeather = CobbleventureAdventure.authoredWeatherAt(players.get(0));
         String battleWeather = showdownWeather(localWeather);
         if (battleWeather == null) return;
 

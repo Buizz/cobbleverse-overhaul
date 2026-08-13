@@ -1,5 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import dev.buizz.cobbleventure.adventure.FieldMoveRidingAccess;
+
 import com.mojang.brigadier.CommandDispatcher;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

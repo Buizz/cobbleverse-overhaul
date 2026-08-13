@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap;
+package dev.buizz.cobbleventure.playermenu;
 
 import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.google.gson.JsonElement;
@@ -6,7 +6,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import dev.buizz.cobbleventure.bootstrap.client.LoopingMusic;
+import dev.buizz.cobbleventure.playermenu.client.LoopingMusic;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.HashMap;
@@ -24,6 +24,7 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -31,7 +32,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import org.slf4j.Logger;
 
 /** Resolves authored music inheritance and emits optional resource-pack sound events. */
-final class MusicPlayback {
+public final class MusicPlayback {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String CONTENT_NAMESPACE = "cobbleventure";
     private static final String NETWORK_VERSION = "1";
@@ -43,9 +44,19 @@ final class MusicPlayback {
 
     private MusicPlayback() {}
 
-    static void register(IEventBus modBus) {
+    public static void register(IEventBus modBus) {
         modBus.addListener(MusicPlayback::registerPayloads);
         NeoForge.EVENT_BUS.addListener(MusicPlayback::registerCommands);
+        NeoForge.EVENT_BUS.addListener(MusicPlayback::onPlayerLoggedIn);
+        NeoForge.EVENT_BUS.addListener(MusicPlayback::onPlayerLoggedOut);
+    }
+
+    private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) reset(player);
+    }
+
+    private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) reset(player);
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -82,15 +93,13 @@ final class MusicPlayback {
         return 1;
     }
 
-    static void reset(ServerPlayer player) {
+    private static void reset(ServerPlayer player) {
         PLAYING.remove(player.getUUID());
         BATTLE_MUSIC.remove(player.getUUID());
     }
 
-    static void tick(
-        ServerPlayer player,
-        CobbleventureBootstrap.HexWorldPlan world,
-        CobbleventureBootstrap.TerrainSample sample
+    public static void tick(
+        ServerPlayer player, int q, int r, String areaKind, String areaOwner
     ) {
         MusicData music = load(player.serverLevel());
         UUID playerId = player.getUUID();
@@ -111,10 +120,7 @@ final class MusicPlayback {
             BATTLE_MUSIC.remove(playerId);
         }
 
-        CobbleventureBootstrap.HexCoord coordinate = world.grid().worldToHex(
-            player.getX(), player.getZ()
-        );
-        play(player, music, music.resolveLocation(coordinate, sample));
+        play(player, music, music.resolveLocation(new Cell(q, r), areaKind, areaOwner));
     }
 
     private static void play(ServerPlayer player, MusicData music, String track) {
@@ -168,7 +174,7 @@ final class MusicPlayback {
 
     record PlayPayload(ResourceLocation soundEvent) implements CustomPacketPayload {
         private static final Type<PlayPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(CobbleventureBootstrap.MOD_ID, "music_play")
+            ResourceLocation.fromNamespaceAndPath(CobbleventurePlayerMenu.MOD_ID, "music_play")
         );
         private static final StreamCodec<RegistryFriendlyByteBuf, PlayPayload> STREAM_CODEC =
             StreamCodec.ofMember(PlayPayload::write, PlayPayload::read);
@@ -333,22 +339,18 @@ final class MusicPlayback {
             return result;
         }
 
-        private String resolveLocation(
-            CobbleventureBootstrap.HexCoord coordinate,
-            CobbleventureBootstrap.TerrainSample sample
-        ) {
-            Cell cell = new Cell(coordinate.q(), coordinate.r());
+        private String resolveLocation(Cell cell, String areaKind, String areaOwner) {
             String override = coordinateOverrides.get(cell);
             if (override != null) return override;
-            if (sample != null && "town".equals(sample.kind())) {
+            if ("town".equals(areaKind)) {
                 return first(
-                    worldSettlementMusic.get(sample.owner()),
-                    settlementMusic.get(sample.owner()),
+                    worldSettlementMusic.get(areaOwner),
+                    settlementMusic.get(areaOwner),
                     defaults.get("settlement")
                 );
             }
-            if (sample != null && "route".equals(sample.kind())) {
-                return first(routeMusic.get(sample.owner()), defaults.get("road"));
+            if ("route".equals(areaKind)) {
+                return first(routeMusic.get(areaOwner), defaults.get("road"));
             }
             return first(tileMusic.get(cell), defaults.get("tile"));
         }

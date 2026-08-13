@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap;
+package dev.buizz.cobbleventure.adventure;
 
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.battles.model.actor.ActorType;

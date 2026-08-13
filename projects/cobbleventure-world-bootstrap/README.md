@@ -1,8 +1,23 @@
 # Cobbleventure World Bootstrap
 
+이 모드는 세대 월드와 구조물 배치를 담당한다. 전투 보상, 패배 경제, 포켓몬센터
+귀환, 야생 레벨과 필드 기술 규칙은 `cobbleventure-adventure` 모드로 분리되어 있다.
+음악, 전투 인트로와 지역 안내 렌더링은 `cobbleventure-player-menu` 모드가 담당하며,
+이 모듈은 계산한 육각 좌표와 지역 판정 결과만 전달한다.
+기존 `cobbleventure_bootstrap` 모드 ID와 저장 데이터 키는 월드 호환성을 위해 유지한다.
+
 전용 세대 차원과 마을 JSON 기반 지역 지도를 생성하는 NeoForge Java 모드다.
 
 ## 현재 동작
+
+월드 플랜 기반 코드는 다음 경계로 분리되어 있다.
+
+- `WorldPlanRepository`: 패키징된 월드·마을·경계 JSON 로딩과 시드별 불변 플랜 캐시
+- `WorldPlanParser`: 월드 JSON 역직렬화와 입력값·참조 유효성 검사
+- `WorldPlanModels`: 육각 월드 계획과 지형 샘플을 표현하는 불변 데이터 모델
+- `HexGeometry`: 월드 좌표와 육각 좌표 변환 및 전체 경계 계산
+- `TerrainSampler`: 블록 중심 지형 샘플과 왜곡 좌표 캐시
+- `CobbleventureBootstrap`: 서버 생명주기와 월드 계획·생성 작업 조율
 
 - `cobbleventure:generation_1` 전용 차원을 생성한다.
 - `cobbleventure:hex_map` `BiomeSource`와 `ChunkGenerator`가 패키징된

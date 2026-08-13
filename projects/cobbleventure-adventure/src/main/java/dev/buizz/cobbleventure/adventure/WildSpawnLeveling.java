@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap;
+package dev.buizz.cobbleventure.adventure;
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.entity.SpawnEvent;
@@ -28,7 +28,7 @@ final class WildSpawnLeveling {
         if (!(entity.level() instanceof ServerLevel level)) {
             return;
         }
-        Integer averageLevel = CobbleventureBootstrap.averageWildSpawnLevel(
+        Integer averageLevel = CobbleventureAdventure.averageWildSpawnLevel(
             level, entity.getX(), entity.getZ()
         );
         if (averageLevel == null) {

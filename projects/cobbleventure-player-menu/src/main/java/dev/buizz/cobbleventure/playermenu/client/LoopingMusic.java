@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap.client;
+package dev.buizz.cobbleventure.playermenu.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;

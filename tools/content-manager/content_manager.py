@@ -769,6 +769,11 @@ def validate_hex_worlds(
                 _issue(issues, "error", path, f"{connection_path}.id", "유일한 연결 ID가 필요합니다.")
             else:
                 seen_connections.add(connection_id)
+            display_name = connection.get("display_name")
+            if display_name is not None and (
+                not isinstance(display_name, str) or not 1 <= len(display_name.strip()) <= 100
+            ):
+                _issue(issues, "error", path, f"{connection_path}.display_name", "길 이름은 1자 이상 100자 이하 문자열이어야 합니다.")
             for field in ("from", "to"):
                 target = connection.get(field)
                 if target is not None and target not in world_settlements and target not in cave_entrance_anchors:
@@ -788,6 +793,51 @@ def validate_hex_worlds(
                 validate_terrain(connection.get("terrain_profile"), path, f"{connection_path}.terrain_profile")
             if connection.get("surface_style") not in {"road", "natural", "water"}:
                 _issue(issues, "error", path, f"{connection_path}.surface_style", "road, natural, water 중 하나가 필요합니다.")
+            pokemon_spawns = connection.get("pokemon_spawns")
+            if pokemon_spawns is not None:
+                if not isinstance(pokemon_spawns, dict):
+                    _issue(issues, "error", path, f"{connection_path}.pokemon_spawns", "길 포켓몬 설정은 객체여야 합니다.")
+                else:
+                    if not isinstance(pokemon_spawns.get("inherit_biome"), bool):
+                        _issue(issues, "error", path, f"{connection_path}.pokemon_spawns.inherit_biome", "기존 바이옴 포켓몬 사용 여부가 필요합니다.")
+                    excluded = pokemon_spawns.get("excluded_species")
+                    if not isinstance(excluded, list):
+                        _issue(issues, "error", path, f"{connection_path}.pokemon_spawns.excluded_species", "제외 포켓몬 목록은 배열이어야 합니다.")
+                    else:
+                        seen_species: set[str] = set()
+                        for species_index, species in enumerate(excluded):
+                            species_path = f"{connection_path}.pokemon_spawns.excluded_species[{species_index}]"
+                            if not isinstance(species, str) or not RESOURCE_ID.fullmatch(species):
+                                _issue(issues, "error", path, species_path, "올바른 포켓몬 리소스 ID가 필요합니다.")
+                            elif species in seen_species:
+                                _issue(issues, "error", path, species_path, f"중복 제외 포켓몬: {species}")
+                            else:
+                                seen_species.add(species)
+                    additions = pokemon_spawns.get("additions")
+                    if not isinstance(additions, list):
+                        _issue(issues, "error", path, f"{connection_path}.pokemon_spawns.additions", "추가 포켓몬 목록은 배열이어야 합니다.")
+                    else:
+                        seen_additions: set[str] = set()
+                        for addition_index, addition in enumerate(additions):
+                            addition_path = f"{connection_path}.pokemon_spawns.additions[{addition_index}]"
+                            if not isinstance(addition, dict):
+                                _issue(issues, "error", path, addition_path, "추가 포켓몬 설정은 객체여야 합니다.")
+                                continue
+                            species = addition.get("species")
+                            if not isinstance(species, str) or not RESOURCE_ID.fullmatch(species):
+                                _issue(issues, "error", path, f"{addition_path}.species", "올바른 포켓몬 리소스 ID가 필요합니다.")
+                            elif species in seen_additions:
+                                _issue(issues, "error", path, f"{addition_path}.species", f"중복 추가 포켓몬: {species}")
+                            else:
+                                seen_additions.add(species)
+                            minimum = addition.get("min_level")
+                            maximum = addition.get("max_level")
+                            if not isinstance(minimum, int) or isinstance(minimum, bool) or not 1 <= minimum <= 100:
+                                _issue(issues, "error", path, f"{addition_path}.min_level", "최소 출현 레벨은 1부터 100 사이 정수여야 합니다.")
+                            if not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 100:
+                                _issue(issues, "error", path, f"{addition_path}.max_level", "최대 출현 레벨은 1부터 100 사이 정수여야 합니다.")
+                            if isinstance(minimum, int) and isinstance(maximum, int) and minimum > maximum:
+                                _issue(issues, "error", path, addition_path, "최소 출현 레벨은 최대 출현 레벨보다 클 수 없습니다.")
             validate_access(connection.get("access_requirement"), path, f"{connection_path}.access_requirement")
             validate_access_height(
                 connection.get("terrain_profile"), connection.get("access_requirement"), path, connection_path
@@ -1213,6 +1263,11 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
     world = load_world_layout(root, generation)
     biome_catalog = load_biome_catalog(root)
     pokemon = load_pokemon_habitats(root).get("pokemon", [])
+    pokemon_by_id = {
+        entry["id"]: entry
+        for entry in pokemon
+        if isinstance(entry, dict) and isinstance(entry.get("id"), str)
+    }
     profiles = {
         entry["id"]: entry
         for entry in biome_catalog.get("profiles", [])
@@ -1380,6 +1435,66 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
                 ],
                 "pokemon_ids": [entry["id"] for entry in candidates],
                 "count": len(candidates), "unmapped_biome": not profile_ids,
+            }
+
+    connections = [entry for entry in world.get("connections", []) if isinstance(entry, dict)]
+    connections.sort(key=lambda entry: 0 if entry.get("surface_style") == "water" else 1)
+    routed_cells: set[tuple[int, int]] = set()
+    for connection in connections:
+        settings = connection.get("pokemon_spawns")
+        if not isinstance(settings, dict):
+            settings = {"inherit_biome": True, "excluded_species": [], "additions": []}
+        inherit_biome = settings.get("inherit_biome", True) is not False
+        excluded = {
+            species for species in settings.get("excluded_species", [])
+            if isinstance(species, str)
+        }
+        additions = [
+            addition for addition in settings.get("additions", [])
+            if isinstance(addition, dict) and addition.get("species") in pokemon_by_id
+        ]
+        addition_levels = {
+            addition["species"]: {
+                "min_level": addition.get("min_level", 1),
+                "max_level": addition.get("max_level", 100),
+            }
+            for addition in additions
+        }
+        for cell in connection.get("cells", []):
+            if not isinstance(cell, dict) or not isinstance(cell.get("q"), int) or not isinstance(cell.get("r"), int):
+                continue
+            coordinate = (cell["q"], cell["r"])
+            if coordinate in routed_cells:
+                continue
+            base = locations_by_cell.get(coordinate, {})
+            # 마을 범위 안의 도로는 마을 서식지를 덮어쓰지 않는다. 웹 지도에서도
+            # 마을 타일 위에는 길 오버레이를 표시하지 않는 것과 같은 우선순위다.
+            if base.get("kind") == "settlement":
+                continue
+            routed_cells.add(coordinate)
+            base_ids = list(base.get("pokemon_ids", []))
+            selected_ids = [species for species in base_ids if inherit_biome and species not in excluded]
+            for species in addition_levels:
+                if species not in selected_ids:
+                    selected_ids.append(species)
+            locations_by_cell[coordinate] = {
+                **base,
+                "q": coordinate[0],
+                "r": coordinate[1],
+                "kind": "route",
+                "route": connection.get("id", ""),
+                "route_name": connection.get("display_name") or connection.get("id", ""),
+                "biome": base.get("biome", ""),
+                "profile_ids": base.get("profile_ids", []),
+                "habitat_variants": base.get("habitat_variants", {}),
+                "habitat_labels": base.get("habitat_labels", []),
+                "base_pokemon_ids": base_ids,
+                "pokemon_ids": selected_ids,
+                "custom_level_ranges": addition_levels,
+                "count": len(selected_ids),
+                # 길만 놓인 빈 셀은 의도적인 도로 구간이므로 미매핑 바이옴으로
+                # 집계하지 않는다. 기반 바이옴이 있으면 그 상태를 그대로 따른다.
+                "unmapped_biome": base.get("unmapped_biome", False),
             }
 
     available_ids = {
@@ -3955,6 +4070,9 @@ def validate_music_catalog_file(path: Path) -> list[Issue]:
 
 
 def save_music_catalog(root: Path, data: Any) -> list[Issue]:
+    data = copy.deepcopy(data)
+    if isinstance(data, dict):
+        data.pop("local_library", None)
     target = root / "content" / "catalogs" / "music-tracks.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as directory:
@@ -3966,6 +4084,85 @@ def save_music_catalog(root: Path, data: Any) -> list[Issue]:
         temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         temporary.replace(target)
     return issues
+
+
+def _music_source_directory(project_root: Path, core_root: Path, catalog: dict[str, Any]) -> Path:
+    relative = catalog.get("source", {}).get("local_directory")
+    if not isinstance(relative, str):
+        raise ValueError("음악 카탈로그의 로컬 음원 폴더가 올바르지 않습니다.")
+    source = (core_root / relative).resolve()
+    allowed = (core_root / "local-assets" / "music").resolve()
+    try:
+        source.relative_to(allowed)
+    except ValueError as error:
+        raise ValueError("로컬 음원 폴더는 local-assets/music 아래여야 합니다.") from error
+    return source
+
+
+def _automatic_music_track(source_file: str, used_ids: set[str]) -> dict[str, str]:
+    stem = Path(source_file).stem
+    slug = re.sub(r"[^a-z0-9]+", "_", stem.lower()).strip("_") or "track"
+    digest = hashlib.sha1(source_file.encode("utf-8")).hexdigest()[:8]
+    base_id = f"local.{slug}_{digest}"
+    track_id = base_id
+    suffix = 2
+    while track_id in used_ids:
+        track_id = f"{base_id}_{suffix}"
+        suffix += 1
+    used_ids.add(track_id)
+    event_path = track_id.replace(".", "/")
+    return {
+        "id": track_id,
+        "sound_event": f"music.{track_id}",
+        "resource": f"music/{event_path}",
+        "source_file": source_file,
+        "category": "local",
+        "usage": stem,
+    }
+
+
+def sync_local_music_catalog(project_root: Path, core_root: Path) -> tuple[dict[str, Any], int]:
+    catalog_path = project_root / "content" / "catalogs" / "music-tracks.json"
+    catalog = load_json(catalog_path)
+    source = _music_source_directory(project_root, core_root, catalog)
+    source.mkdir(parents=True, exist_ok=True)
+    tracks = catalog.setdefault("tracks", [])
+    registered = {
+        str(track.get("source_file", "")).replace("\\", "/").casefold()
+        for track in tracks if isinstance(track, dict)
+    }
+    used_ids = {
+        str(track.get("id")) for track in tracks
+        if isinstance(track, dict) and isinstance(track.get("id"), str)
+    }
+    additions: list[dict[str, str]] = []
+    for path in sorted(source.rglob("*"), key=lambda value: value.as_posix().casefold()):
+        if not path.is_file() or path.suffix.lower() != ".ogg":
+            continue
+        relative = path.relative_to(source).as_posix()
+        if relative.casefold() in registered:
+            continue
+        additions.append(_automatic_music_track(relative, used_ids))
+        registered.add(relative.casefold())
+    if additions:
+        tracks.extend(additions)
+        added_files = {track["source_file"].casefold() for track in additions}
+        catalog["review_candidates"] = [
+            candidate for candidate in catalog.get("review_candidates", [])
+            if not isinstance(candidate, dict)
+            or str(candidate.get("source_file", "")).casefold() not in added_files
+        ]
+        temporary = catalog_path.with_suffix(".json.tmp")
+        temporary.write_text(
+            json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        temporary.replace(catalog_path)
+    catalog["local_library"] = {
+        "directory": str(source),
+        "registered_ogg": len(tracks),
+        "added": len(additions),
+    }
+    return catalog, len(additions)
 
 
 def validate_music_references(root: Path) -> list[Issue]:
@@ -7737,8 +7934,9 @@ def create_handler(
                 return
             if request.path == "/api/music-catalog":
                 try:
-                    self._json(200, load_json(root / "content" / "catalogs" / "music-tracks.json"))
-                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    catalog, _ = sync_local_music_catalog(root, core_root)
+                    self._json(200, catalog)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/economy":

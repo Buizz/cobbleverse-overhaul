@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap;
+package dev.buizz.cobbleventure.adventure;
 
 import com.mojang.brigadier.CommandDispatcher;
 import java.util.HashSet;

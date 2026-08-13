@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap;
+package dev.buizz.cobbleventure.adventure;
 
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
@@ -28,7 +28,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /** Returns a player with a fully fainted party to their latest generated Pokémon Center. */
-final class PokemonCenterDefeatReturn {
+public final class PokemonCenterDefeatReturn {
     private static final String CHECKPOINT_DIMENSION = "cobbleventurePokemonCenterDimension";
     private static final String CHECKPOINT_X = "cobbleventurePokemonCenterX";
     private static final String CHECKPOINT_Y = "cobbleventurePokemonCenterY";
@@ -62,14 +62,16 @@ final class PokemonCenterDefeatReturn {
         );
     }
 
-    static void ensureFallback(ServerPlayer player, ServerLevel level, BlockPos position) {
+    public static void ensureFallback(
+        ServerPlayer player, ServerLevel level, BlockPos position
+    ) {
         CompoundTag data = player.getPersistentData();
         if (!data.contains(CHECKPOINT_DIMENSION)) {
             saveCheckpoint(data, level, position, position, false);
         }
     }
 
-    static void recordCenterVisit(
+    public static void recordCenterVisit(
         ServerPlayer player, ServerLevel level, BlockPos interior, BlockPos exit
     ) {
         CompoundTag data = player.getPersistentData();
@@ -90,7 +92,7 @@ final class PokemonCenterDefeatReturn {
         ));
     }
 
-    static void onServerTick(ServerTickEvent.Post event) {
+    public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         long gameTime = server.overworld().getGameTime();
         Iterator<Map.Entry<UUID, PendingReturn>> iterator = PENDING_RETURNS.entrySet().iterator();
@@ -120,7 +122,7 @@ final class PokemonCenterDefeatReturn {
         BattleLossEconomy.cleanup(gameTime);
     }
 
-    static void recoverAfterTickFailure(MinecraftServer server) {
+    public static void recoverAfterTickFailure(MinecraftServer server) {
         PENDING_RETURNS.clear();
         ACTIVE_RECOVERIES.clear();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {

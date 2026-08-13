@@ -156,5 +156,10 @@
   "screen.cobbleventure_player_menu.starter.retry": "Close",
   "commands.cobbleventure_player_menu.starter.already_selected": "You already selected a starter Pokémon",
   "commands.cobbleventure_player_menu.starter.locked": "You cannot select a starter Pokémon right now",
-  "commands.cobbleventure_player_menu.starter.empty": "No starter Pokémon are available for the roulette"
+  "commands.cobbleventure_player_menu.starter.empty": "No starter Pokémon are available for the roulette",
+  "message.cobbleventure_player_menu.location_title.town": "You entered a town",
+  "message.cobbleventure_player_menu.location_title.route": "You entered a route",
+  "message.cobbleventure_player_menu.location_title.route_number": "Route %s",
+  "message.cobbleventure_player_menu.location_title.mt_moon_west": "Mt. Moon West Path",
+  "message.cobbleventure_player_menu.location_title.mt_moon_east": "Mt. Moon East Path"
 }

@@ -1,7 +1,7 @@
-package dev.buizz.cobbleventure.bootstrap;
+package dev.buizz.cobbleventure.playermenu;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
-import dev.buizz.cobbleventure.bootstrap.client.BattleIntroOverlay;
+import dev.buizz.cobbleventure.playermenu.client.BattleIntroOverlay;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -25,14 +25,14 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Delays a trainer battle while the initiating client displays a versus cut-in. */
-final class BattleIntro {
+public final class BattleIntro {
     static final int DURATION_TICKS = 56;
     private static final String NETWORK_VERSION = "1";
     private static final Map<UUID, PendingBattle> PENDING = new HashMap<>();
 
     private BattleIntro() {}
 
-    static void register(IEventBus modBus) {
+    public static void register(IEventBus modBus) {
         modBus.addListener(BattleIntro::registerPayloads);
         NeoForge.EVENT_BUS.addListener(BattleIntro::registerCommands);
         NeoForge.EVENT_BUS.addListener(BattleIntro::onServerTick);
@@ -120,7 +120,7 @@ final class BattleIntro {
         int durationTicks
     ) implements CustomPacketPayload {
         private static final Type<OpenPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(
-            CobbleventureBootstrap.MOD_ID, "battle_intro_open"
+            CobbleventurePlayerMenu.MOD_ID, "battle_intro_open"
         ));
         private static final StreamCodec<RegistryFriendlyByteBuf, OpenPayload> STREAM_CODEC =
             StreamCodec.ofMember(OpenPayload::write, OpenPayload::read);

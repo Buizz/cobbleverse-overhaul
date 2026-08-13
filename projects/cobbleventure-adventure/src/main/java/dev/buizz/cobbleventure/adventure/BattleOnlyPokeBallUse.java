@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap;
+package dev.buizz.cobbleventure.adventure;
 
 import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.cobblemon.mod.common.item.PokeBallItem;

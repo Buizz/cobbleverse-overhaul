@@ -15,6 +15,9 @@ public final class CobbleventurePlayerMenu {
         MapNetwork.register(modBus);
         PlayerOverviewNetwork.register(modBus);
         StarterRouletteNetwork.register(modBus);
+        BattleIntro.register(modBus);
+        MusicPlayback.register(modBus);
+        LocationAnnouncement.register(modBus);
         if (FMLEnvironment.dist.isClient()) {
             PlayerMenuClient.register(modBus);
         }

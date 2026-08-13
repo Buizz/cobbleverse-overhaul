@@ -13,6 +13,7 @@ set "YOUNGSTER_SKIN_MANIFEST=%REPO_ROOT%tools\content-manager\skin-pipeline\work
 set "EASY_NPC_PRESET_BUILDER=%REPO_ROOT%tools\content-manager\generate_easy_npc_presets.py"
 set "KANTO_GYM_LEADER_BUILDER=%REPO_ROOT%tools\content-manager\generate_kanto_gym_leaders.py"
 set "GRADLEW=%REPO_ROOT%projects\cobbleventure-battle-ai\gradlew.bat"
+set "ADVENTURE_PROJECT=%REPO_ROOT%projects\cobbleventure-adventure"
 set "WORLD_BOOTSTRAP_PROJECT=%REPO_ROOT%projects\cobbleventure-world-bootstrap"
 set "PLAYER_MENU_PROJECT=%REPO_ROOT%projects\cobbleventure-player-menu"
 set "STRUCTURE_BUILDER_PROJECT=%REPO_ROOT%projects\cobbleventure-structure-builder"
@@ -43,6 +44,7 @@ if /I "%~1"=="test" goto test
 if /I "%~1"=="generate" goto generate
 if /I "%~1"=="spawns" goto spawns
 if /I "%~1"=="music" goto music
+if /I "%~1"=="mod-adventure" goto mod_adventure
 if /I "%~1"=="mod-bootstrap" goto mod_bootstrap
 if /I "%~1"=="mod-menu" goto mod_menu
 if /I "%~1"=="pack-smoke" goto pack_smoke
@@ -78,6 +80,8 @@ if errorlevel 1 exit /b %errorlevel%
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\cobblemon-custom-spawns\tests" -p "test_*.py"
 if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%ADVENTURE_PROJECT%" test
+if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%WORLD_BOOTSTRAP_PROJECT%" test
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%PLAYER_MENU_PROJECT%" test
@@ -105,6 +109,10 @@ exit /b %errorlevel%
 %PYTHON_CMD% "%MUSIC_PACK_BUILDER%" --root "%REPO_ROOT%."
 exit /b %errorlevel%
 
+:mod_adventure
+call "%GRADLEW%" -p "%ADVENTURE_PROJECT%" build
+exit /b %errorlevel%
+
 :mod_bootstrap
 %PYTHON_CMD% "%KANTO_GYM_LEADER_BUILDER%"
 if errorlevel 1 exit /b %errorlevel%
@@ -115,6 +123,8 @@ if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%DATA_MOD_BUILDER%" --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%ADVENTURE_PROJECT%" build
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%WORLD_BOOTSTRAP_PROJECT%" build
 exit /b %errorlevel%
@@ -141,6 +151,8 @@ if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%MUSIC_PACK_BUILDER%" --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%DATA_MOD_BUILDER%" --root "%REPO_ROOT%."
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%ADVENTURE_PROJECT%" build
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%WORLD_BOOTSTRAP_PROJECT%" build
 if errorlevel 1 exit /b %errorlevel%
@@ -192,6 +204,7 @@ echo   test           Run Python tests and compile the NeoForge modules
 echo   generate       Generate RCT trainers and in-game AI runtime profiles
 echo   spawns         Generate biome and generation filtered Cobblemon spawns
 echo   music          Build the selected local audio files as a Paxi resource pack
+echo   mod-adventure  Build the gameplay rules NeoForge Java mod JAR
 echo   mod-bootstrap  Build the starter-town NeoForge Java mod JAR
 echo   mod-menu       Build the radial player menu NeoForge Java mod JAR
 echo   pack-smoke     Build a minimal CurseForge import test ZIP

@@ -1,16 +1,16 @@
 # 음악 카탈로그
 
 어나더레드 BGM 원본은 Git에서 제외된 `local-assets/music/another-red-bgm`에
-보관하고, 검토를 통과한 곡의 안정적인 사운드 ID와 원본 파일명만 커밋합니다.
-코드와 리소스팩 생성 과정은 반드시
-`content/catalogs/music-tracks.json`의 `tracks`만 사용합니다.
+보관합니다. 웹 에디터가 이 폴더의 OGG를 감지해 안정적인 사운드 ID와 원본
+파일명을 `content-projects/cobbleventure-main/content/catalogs/music-tracks.json`의
+`tracks`에 자동 등록합니다. MIDI는 자동 등록하지 않습니다.
 
 `review_candidates`는 어나더레드 고유곡일 가능성이 있거나 출처·사용 장면을
 확인해야 하는 후보입니다. 이 항목은 `sounds.json`에 포함되지 않습니다.
 
 ## 검증
 
-로컬 BGM 폴더에 활성 목록의 28곡이 모두 있는지 확인합니다. 파일을 복사하거나
+로컬 BGM 폴더에 카탈로그의 음원이 모두 있는지 확인합니다. 파일을 복사하거나
 변경하지 않습니다.
 
 ```powershell
@@ -20,8 +20,9 @@ py -3 tools\music-catalog\music_catalog.py `
 
 ## 리소스팩 생성
 
-활성 목록의 28곡만 복사해 Paxi가 읽는 리소스팩 ZIP을 생성합니다. 원본 폴더의
-나머지 곡은 ZIP에 포함되지 않습니다.
+상황별 기본값과 월드·마을·도로·배틀·체육관에서 실제 참조하는 곡만 복사해 Paxi가
+읽는 리소스팩 ZIP을 생성합니다. 카탈로그에 등록돼 있어도 사용하지 않은 곡은 ZIP에
+포함되지 않습니다.
 
 ```powershell
 build.bat music

@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap;
+package dev.buizz.cobbleventure.adventure;
 
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.pokemon.RidePokemonEvent;
@@ -13,7 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 /** Gates Cobblemon's liquid and air mounts behind the matching field-move flags. */
-final class FieldMoveRidingAccess {
+public final class FieldMoveRidingAccess {
     private static final String FLAG_PREFIX = "cobbleventureFieldMove.";
     private static final String ACTIVE_PREFIX = "cobbleventureFieldMoveActive.";
     private static final String MESSAGE_COOLDOWN = "cobbleventureRideFieldMoveMessageCooldown";
@@ -31,11 +31,11 @@ final class FieldMoveRidingAccess {
         );
     }
 
-    static boolean isEnabled(ServerPlayer player, String move) {
+    public static boolean isEnabled(ServerPlayer player, String move) {
         return player.getPersistentData().getBoolean(FLAG_PREFIX + normalize(move));
     }
 
-    static void setEnabled(ServerPlayer player, String move, boolean enabled) {
+    public static void setEnabled(ServerPlayer player, String move, boolean enabled) {
         String normalized = normalize(move);
         player.getPersistentData().putBoolean(FLAG_PREFIX + normalized, enabled);
         if (!enabled && isToggleable(normalized)) {
@@ -43,14 +43,14 @@ final class FieldMoveRidingAccess {
         }
     }
 
-    static boolean isActive(ServerPlayer player, String move) {
+    public static boolean isActive(ServerPlayer player, String move) {
         String normalized = normalize(move);
         return isEnabled(player, normalized)
             && (!isToggleable(normalized)
                 || player.getPersistentData().getBoolean(ACTIVE_PREFIX + normalized));
     }
 
-    static boolean setActive(ServerPlayer player, String move, boolean active) {
+    public static boolean setActive(ServerPlayer player, String move, boolean active) {
         String normalized = normalize(move);
         if (!isEnabled(player, normalized) || !isToggleable(normalized)) {
             return false;
@@ -59,21 +59,21 @@ final class FieldMoveRidingAccess {
         return true;
     }
 
-    static boolean isToggleable(String move) {
+    public static boolean isToggleable(String move) {
         return switch (normalize(move)) {
             case "rock_climb", "flash", "strength", "rock_smash" -> true;
             default -> false;
         };
     }
 
-    static boolean isSupported(String move) {
+    public static boolean isSupported(String move) {
         return switch (normalize(move)) {
             case "surf", "fly", "flash", "defog", "rock_climb", "whirlpool", "strength", "rock_smash" -> true;
             default -> false;
         };
     }
 
-    static boolean isValidSurfRide(ServerPlayer player) {
+    public static boolean isValidSurfRide(ServerPlayer player) {
         if (!isEnabled(player, "surf")
             || !(player.getVehicle() instanceof com.cobblemon.mod.common.entity.pokemon.PokemonEntity pokemon)) {
             return false;
@@ -83,7 +83,7 @@ final class FieldMoveRidingAccess {
         return behaviours != null && behaviours.containsKey(RidingStyle.LIQUID);
     }
 
-    static String displayName(String move) {
+    public static String displayName(String move) {
         return switch (normalize(move)) {
             case "surf" -> "파도타기";
             case "fly" -> "공중날기";

@@ -5,7 +5,6 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "FlatLevelSourceMixin",
-    "ForfeitActionResponseMixin",
     "JigsawPlacementPlacerMixin",
     "SinglePoolElementMixin"
   ],

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import shutil
@@ -120,6 +121,45 @@ def check_external_audio(catalog: dict[str, Any], source_dir: Path) -> list[str]
     ]
 
 
+def collect_used_track_ids(project_root: Path, catalog: dict[str, Any]) -> set[str]:
+    used = {
+        track_id for track_id in catalog.get("defaults", {}).values()
+        if isinstance(track_id, str)
+    }
+
+    def inspect(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key == "music_track" and isinstance(child, str):
+                    used.add(child)
+                inspect(child)
+        elif isinstance(value, list):
+            for child in value:
+                inspect(child)
+
+    content_root = project_root / "content"
+    if content_root.is_dir():
+        for path in sorted(content_root.rglob("*.json")):
+            if path.name == "music-tracks.json" or "schemas" in path.parts:
+                continue
+            try:
+                inspect(json.loads(path.read_text(encoding="utf-8")))
+            except (OSError, json.JSONDecodeError) as error:
+                raise MusicCatalogError(f"사용 음악을 확인할 수 없는 JSON입니다: {path}") from error
+    return used
+
+
+def select_used_tracks(
+    catalog: dict[str, Any], project_root: Path
+) -> dict[str, Any]:
+    used = collect_used_track_ids(project_root, catalog)
+    selected = copy.deepcopy(catalog)
+    selected["tracks"] = [
+        track for track in catalog["tracks"] if track["id"] in used
+    ]
+    return selected
+
+
 def write_manifest(catalog: dict[str, Any], output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
@@ -213,6 +253,7 @@ def main() -> int:
         catalog_path = args.catalog if args.catalog.is_absolute() else root / args.catalog
         output = args.output if args.output.is_absolute() else root / args.output
         catalog = load_catalog(catalog_path)
+        selected_catalog = select_used_tracks(catalog, catalog_path.parents[2])
         if args.check_source is not None:
             missing = check_external_audio(catalog, args.check_source)
             if missing:
@@ -220,15 +261,15 @@ def main() -> int:
                     "외부 음원 폴더에 선택 파일이 없습니다: " + ", ".join(missing)
                 )
         if args.manifest_only:
-            write_manifest(catalog, output)
+            write_manifest(selected_catalog, output)
         elif args.check_source is None:
             source_dir = root / catalog["source"]["local_directory"]
-            build_resource_pack(catalog, source_dir, output)
+            build_resource_pack(selected_catalog, source_dir, output)
     except MusicCatalogError as error:
         parser.error(str(error))
 
     print(
-        f"선택 음악 {len(catalog['tracks'])}곡 / "
+        f"로컬 목록 {len(catalog['tracks'])}곡 / 빌드 사용 {len(selected_catalog['tracks'])}곡 / "
         f"검토 대기 {len(catalog['review_candidates'])}곡 / "
         "Music Notification 메타데이터 포함 / 데이터팩 필수 아님"
     )

@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap;
+package dev.buizz.cobbleventure.adventure;
 
 import com.cobblemon.mod.common.api.battles.model.PokemonBattle;
 import com.cobblemon.mod.common.api.battles.model.actor.BattleActor;
@@ -305,7 +305,7 @@ final class TrainerMoneyRewards {
     }
 
     private static int regionalLevel(ServerPlayer player, int fallback) {
-        Integer regional = CobbleventureBootstrap.averageWildSpawnLevel(
+        Integer regional = CobbleventureAdventure.averageWildSpawnLevel(
             player.serverLevel(), player.getX(), player.getZ()
         );
         return regional == null ? fallback : Math.max(1, Math.min(100, regional));

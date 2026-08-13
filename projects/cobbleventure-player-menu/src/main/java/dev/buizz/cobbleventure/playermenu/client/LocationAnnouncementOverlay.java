@@ -1,7 +1,7 @@
-package dev.buizz.cobbleventure.bootstrap.client;
+package dev.buizz.cobbleventure.playermenu.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import dev.buizz.cobbleventure.bootstrap.CobbleventureBootstrap;
+import dev.buizz.cobbleventure.playermenu.CobbleventurePlayerMenu;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -15,10 +15,10 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 
 /** A top-left entry plaque that settles into a persistent current-area label. */
-@EventBusSubscriber(modid = CobbleventureBootstrap.MOD_ID, value = Dist.CLIENT)
+@EventBusSubscriber(modid = CobbleventurePlayerMenu.MOD_ID, value = Dist.CLIENT)
 public final class LocationAnnouncementOverlay {
     private static final ResourceLocation LAYER = ResourceLocation.fromNamespaceAndPath(
-        CobbleventureBootstrap.MOD_ID, "location_announcement"
+        CobbleventurePlayerMenu.MOD_ID, "location_announcement"
     );
     private static final int DURATION_TICKS = 90;
     private static Announcement announcement;

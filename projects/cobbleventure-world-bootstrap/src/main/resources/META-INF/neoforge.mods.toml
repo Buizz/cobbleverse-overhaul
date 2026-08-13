@@ -15,6 +15,20 @@ Finds a plains biome, moves the world spawn there, and places the Cobbleventure 
 config="cobbleventure_bootstrap.mixins.json"
 
 [[dependencies.cobbleventure_bootstrap]]
+modId="cobbleventure_adventure"
+type="required"
+versionRange="[0.1.0,0.2)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.cobbleventure_bootstrap]]
+modId="cobbleventure_player_menu"
+type="required"
+versionRange="[1.5.1,1.6)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.cobbleventure_bootstrap]]
 modId="neoforge"
 type="required"
 versionRange="[${neo_version},)"

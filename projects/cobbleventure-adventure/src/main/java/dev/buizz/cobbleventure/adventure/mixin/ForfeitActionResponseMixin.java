@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.bootstrap.mixin;
+package dev.buizz.cobbleventure.adventure.mixin;
 
 import com.cobblemon.mod.common.battles.ActiveBattlePokemon;
 import com.cobblemon.mod.common.battles.ForfeitActionResponse;

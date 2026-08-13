@@ -156,5 +156,10 @@
   "screen.cobbleventure_player_menu.starter.retry": "닫기",
   "commands.cobbleventure_player_menu.starter.already_selected": "이미 스타팅 포켓몬을 선택했습니다",
   "commands.cobbleventure_player_menu.starter.locked": "현재 스타팅 포켓몬을 선택할 수 없습니다",
-  "commands.cobbleventure_player_menu.starter.empty": "룰렛에 사용할 스타팅 포켓몬이 없습니다"
+  "commands.cobbleventure_player_menu.starter.empty": "룰렛에 사용할 스타팅 포켓몬이 없습니다",
+  "message.cobbleventure_player_menu.location_title.town": "마을에 들어왔습니다",
+  "message.cobbleventure_player_menu.location_title.route": "도로에 진입했습니다",
+  "message.cobbleventure_player_menu.location_title.route_number": "%s번 도로",
+  "message.cobbleventure_player_menu.location_title.mt_moon_west": "달맞이산 서쪽 길",
+  "message.cobbleventure_player_menu.location_title.mt_moon_east": "달맞이산 동쪽 길"
 }

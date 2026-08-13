@@ -1,5 +1,10 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.EnvironmentOverride;
+import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexCoord;
+import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
+import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.TerrainSample;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -42,8 +47,8 @@ final class LocalWeatherSystem {
 
     static void tick(
         ServerPlayer player,
-        CobbleventureBootstrap.HexWorldPlan world,
-        CobbleventureBootstrap.TerrainSample sample
+        HexWorldPlan world,
+        TerrainSample sample
     ) {
         String configured = authoredWeatherAt(player, world, sample);
         send(player, configured == null
@@ -53,14 +58,14 @@ final class LocalWeatherSystem {
     /** Returns only catalog/map-authored weather, never Minecraft's global weather. */
     static String authoredWeatherAt(
         ServerPlayer player,
-        CobbleventureBootstrap.HexWorldPlan world,
-        CobbleventureBootstrap.TerrainSample sample
+        HexWorldPlan world,
+        TerrainSample sample
     ) {
         String configured = null;
-        CobbleventureBootstrap.HexCoord coordinate = world.grid().worldToHex(
+        HexCoord coordinate = world.grid().worldToHex(
             player.getX(), player.getZ()
         );
-        CobbleventureBootstrap.EnvironmentOverride override =
+        EnvironmentOverride override =
             world.environmentOverrides().get(coordinate);
         if (override != null) {
             configured = override.weather();

@@ -75,6 +75,24 @@ class MusicCatalogTest(unittest.TestCase):
                 (staging / "assets/musicnotification/musics.json").is_file()
             )
 
+    def test_build_selection_contains_defaults_and_authored_assignments_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            world = project / "content/worlds/generation_1.json"
+            world.parent.mkdir(parents=True)
+            world.write_text(
+                json.dumps({"music_overrides": [{"music_track": "pwt.lobby"}]}),
+                encoding="utf-8",
+            )
+
+            selected = music_catalog.select_used_tracks(self.catalog, project)
+            selected_ids = {track["id"] for track in selected["tracks"]}
+
+            self.assertEqual(
+                set(self.catalog["defaults"].values()) | {"pwt.lobby"}, selected_ids
+            )
+            self.assertNotIn("event.evolution", selected_ids)
+
 
 if __name__ == "__main__":
     unittest.main()

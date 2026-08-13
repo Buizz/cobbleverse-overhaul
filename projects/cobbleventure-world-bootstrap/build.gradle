@@ -26,6 +26,8 @@ repositories {
 }
 
 dependencies {
+    compileOnly "dev.buizz.cobbleventure:cobbleventure-adventure:0.1.0"
+    compileOnly "dev.buizz.cobbleventure:cobbleventure-player-menu:1.5.1"
     compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
     compileOnly "curse.maven:cobbledollars-859232:8484919"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
@@ -38,6 +40,11 @@ configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
 
+dependencies {
+    localRuntime "dev.buizz.cobbleventure:cobbleventure-adventure:0.1.0"
+    localRuntime "dev.buizz.cobbleventure:cobbleventure-player-menu:1.5.1"
+}
+
 def integrationBcaJar = null
 if (project.hasProperty('integration_mods_dir')) {
     def integrationModsDirectory = file(project.property('integration_mods_dir'))
@@ -47,6 +54,8 @@ if (project.hasProperty('integration_mods_dir')) {
     dependencies {
         localRuntime fileTree(integrationModsDirectory) {
             include '*.jar'
+            exclude 'cobbleventure-adventure-*.jar'
+            exclude 'cobbleventure-player-menu-*.jar'
             exclude 'cobbleventure-world-bootstrap-*.jar'
         }
     }

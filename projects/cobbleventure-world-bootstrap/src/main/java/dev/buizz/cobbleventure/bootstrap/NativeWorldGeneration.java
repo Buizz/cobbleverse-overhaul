@@ -1,16 +1,11 @@
 package dev.buizz.cobbleventure.bootstrap;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
+import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.TerrainSample;
+
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -109,7 +104,7 @@ final class NativeWorldGeneration {
         private final List<Holder<Biome>> biomes;
         private final Map<String, Holder<Biome>> byId;
         private final Holder<Biome> fallback;
-        private final CobbleventureBootstrap.HexWorldPlan world;
+        private final HexWorldPlan world;
         private final Map<Long, Holder<Biome>> surfaceBiomeCache = new ConcurrentHashMap<>();
 
         private HexMapBiomeSource(List<Holder<Biome>> biomes) {
@@ -127,7 +122,7 @@ final class NativeWorldGeneration {
             this.fallback = indexed.getOrDefault(
                 "cobbleventure:sealed_dark_forest", biomes.getFirst()
             );
-            this.world = WorldMapCache.load(DEFAULT_SEED);
+            this.world = WorldPlanRepository.load(DEFAULT_SEED);
         }
 
         @Override
@@ -153,7 +148,7 @@ final class NativeWorldGeneration {
         private Holder<Biome> surfaceBiomeAt(int quartX, int quartZ) {
             int x = QuartPos.toBlock(quartX);
             int z = QuartPos.toBlock(quartZ);
-            CobbleventureBootstrap.TerrainSample sample =
+            TerrainSample sample =
                 CobbleventureBootstrap.terrainAt(world, x + 0.5D, z + 0.5D);
             String id = sample == null
                 ? CobbleventureBootstrap.emptyTerrainBiome(world, x + 0.5D, z + 0.5D)
@@ -173,12 +168,12 @@ final class NativeWorldGeneration {
         );
 
         private final long seed;
-        private final CobbleventureBootstrap.HexWorldPlan world;
+        private final HexWorldPlan world;
 
         private HexMapChunkGenerator(BiomeSource biomeSource, long seed) {
             super(biomeSource, NativeWorldGeneration::surfaceGenerationSettings);
             this.seed = seed;
-            this.world = WorldMapCache.load(seed);
+            this.world = WorldPlanRepository.load(seed);
         }
 
         @Override
@@ -334,7 +329,7 @@ final class NativeWorldGeneration {
             int worldZ,
             CobbleventureBootstrap.NativeTerrainColumn column
         ) {
-            CobbleventureBootstrap.TerrainSample sample = column.sample();
+            TerrainSample sample = column.sample();
             if (sample == null || !sample.kind().equals("town")
                 || sample.surfaceStyle().equals("road")
                 || sample.surfaceStyle().equals("water")) {
@@ -657,57 +652,4 @@ final class NativeWorldGeneration {
 
     }
 
-    private static final class WorldMapCache {
-        private static final Map<Long, CobbleventureBootstrap.HexWorldPlan> WORLDS =
-            new ConcurrentHashMap<>();
-
-        private WorldMapCache() {}
-
-        static CobbleventureBootstrap.HexWorldPlan load(long seed) {
-            return WORLDS.computeIfAbsent(seed, WorldMapCache::read);
-        }
-
-        private static CobbleventureBootstrap.HexWorldPlan read(long seed) {
-            JsonObject world = readJson("hex_worlds/generation_1.json");
-            JsonObject boundaryProfiles = readJson("catalogs/boundary-profiles.json");
-            Map<String, Integer> townRadii = new LinkedHashMap<>();
-            for (JsonElement element : world.getAsJsonArray("settlements")) {
-                String settlementId = element.getAsJsonObject()
-                    .get("settlement").getAsString();
-                String slug = settlementId.substring(settlementId.lastIndexOf('/') + 1);
-                JsonObject settlement = readJson(
-                    "settlements/generation_1/" + slug + ".json"
-                );
-                townRadii.put(settlementId, settlement.get("town_radius_cells").getAsInt());
-            }
-            return CobbleventureBootstrap.parseHexWorldPlan(
-                world,
-                Map.copyOf(townRadii),
-                CobbleventureBootstrap.parseBoundaryProfiles(boundaryProfiles),
-                seed
-            );
-        }
-
-        private static JsonObject readJson(String path) {
-            String resourcePath = "/data/cobbleventure/" + path;
-            try (InputStream stream = NativeWorldGeneration.class
-                    .getResourceAsStream(resourcePath)) {
-                if (stream == null) {
-                    throw new IllegalStateException(
-                        "Missing native world generation resource: " + resourcePath
-                    );
-                }
-                try (Reader reader = new InputStreamReader(
-                    stream, StandardCharsets.UTF_8
-                )) {
-                    return JsonParser.parseReader(reader).getAsJsonObject();
-                }
-            } catch (IOException | RuntimeException error) {
-                throw new IllegalStateException(
-                    "Invalid native world generation resource: " + resourcePath,
-                    error
-                );
-            }
-        }
-    }
 }

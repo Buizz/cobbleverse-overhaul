@@ -1,5 +1,14 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import static dev.buizz.cobbleventure.bootstrap.WorldPlanModels.*;
+
+import dev.buizz.cobbleventure.adventure.AdventureWorldContext;
+import dev.buizz.cobbleventure.adventure.CobbleventureAdventure;
+import dev.buizz.cobbleventure.adventure.FieldMoveRidingAccess;
+import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
+import dev.buizz.cobbleventure.playermenu.LocationAnnouncement;
+import dev.buizz.cobbleventure.playermenu.MusicPlayback;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -179,8 +188,6 @@ public final class CobbleventureBootstrap {
     private static volatile TownGenerationDisplay completedTownGenerationDisplay;
     private static volatile int completedTownGenerationDisplayTicks;
     private static final Map<NoiseKey, NormalNoise> TERRAIN_NOISES = new ConcurrentHashMap<>();
-    private static final Cache<TerrainColumnKey, TerrainLookup> TERRAIN_COLUMN_SAMPLES =
-        CacheBuilder.newBuilder().maximumSize(262_144L).build();
     private static final Cache<TerrainColumnKey, NativeTerrainColumn> NATIVE_TERRAIN_COLUMNS =
         CacheBuilder.newBuilder().maximumSize(262_144L).build();
     private static final Map<TownFootprintCenterKey, Point> TOWN_FOOTPRINT_CENTERS =
@@ -193,7 +200,6 @@ public final class CobbleventureBootstrap {
     private static final Map<UUID, Vec3> safeWaterPositions = new HashMap<>();
     private static final Map<UUID, Integer> deepWaterTicks = new HashMap<>();
     private static final Map<UUID, Vec3> safeWhirlpoolPositions = new HashMap<>();
-    private static final Map<UUID, LocationTitleState> locationTitleStates = new HashMap<>();
     private static final ResourceKey<Level> GENERATION_ONE =
         ResourceKey.create(
             Registries.DIMENSION,
@@ -221,22 +227,25 @@ public final class CobbleventureBootstrap {
             ResourceLocation.fromNamespaceAndPath("cobbleventure", "sealed_forest_edge")
         );
     public CobbleventureBootstrap(IEventBus modBus) {
+        CobbleventureAdventure.registerWorldContext(new AdventureWorldContext() {
+            @Override
+            public Integer averageWildSpawnLevel(
+                ServerLevel level, double x, double z
+            ) {
+                return CobbleventureBootstrap.averageWildSpawnLevel(level, x, z);
+            }
+
+            @Override
+            public String authoredWeatherAt(ServerPlayer player) {
+                return CobbleventureBootstrap.authoredWeatherAt(player);
+            }
+        });
         NativeWorldGeneration.register(modBus);
         TrainerCosmetics.register(modBus);
         StrengthPuzzleBlocks.register(modBus);
         RockSmashPuzzleBlocks.register(modBus);
-        FieldMoveRidingAccess.register();
-        WildSpawnLeveling.register();
         FlashCaveEffects.register();
-        PokemonCenterDefeatReturn.register();
-        BattleOnlyPokeBallUse.register();
-        TrainerBattleState.register();
-        TrainerMoneyRewards.register();
-        BattleWeatherSystem.register();
-        BattleIntro.register(modBus);
-        MusicPlayback.register(modBus);
         LocalWeatherSystem.register(modBus);
-        LocationAnnouncement.register(modBus);
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
@@ -590,7 +599,6 @@ public final class CobbleventureBootstrap {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        MusicPlayback.reset(player);
         LocalWeatherSystem.reset(player);
 
         ServerLevel overworld = player.getServer().overworld();
@@ -3816,17 +3824,13 @@ public final class CobbleventureBootstrap {
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             if (dungeons != null && player.serverLevel() == dungeons) {
                 LocalWeatherSystem.clear(player);
-                if (locationTitleStates.remove(player.getUUID()) != null) {
-                    LocationAnnouncement.clear(player);
-                }
+                LocationAnnouncement.clear(player);
                 handleCavePortal(player, level, dungeons, gameTime);
                 continue;
             }
             if (player.serverLevel() != level) {
                 LocalWeatherSystem.clear(player);
-                if (locationTitleStates.remove(player.getUUID()) != null) {
-                    LocationAnnouncement.clear(player);
-                }
+                LocationAnnouncement.clear(player);
                 continue;
             }
             PokemonCenterDefeatReturn.ensureFallback(
@@ -3843,7 +3847,14 @@ public final class CobbleventureBootstrap {
                     TerrainSample sample = terrainAt(
                         world, player.getX(), player.getZ()
                     );
-                    MusicPlayback.tick(player, world, sample);
+                    HexCoord coordinate = world.grid().worldToHex(player.getX(), player.getZ());
+                    MusicPlayback.tick(
+                        player,
+                        coordinate.q(),
+                        coordinate.r(),
+                        sample == null ? "" : sample.kind(),
+                        sample == null ? "" : sample.owner()
+                    );
                     LocalWeatherSystem.tick(player, world, sample);
                 }
             }
@@ -3893,23 +3904,10 @@ public final class CobbleventureBootstrap {
             && (sample.kind().equals("town") || sample.kind().equals("route"))
                 ? sample.kind() + ":" + sample.owner()
                 : "";
-        LocationTitleState state = locationTitleStates.computeIfAbsent(
-            player.getUUID(), ignored -> new LocationTitleState()
-        );
-        if (!state.candidate.equals(candidate)) {
-            state.candidate = candidate;
-            state.stableSamples = 1;
-            return;
-        }
-        if (state.stableSamples < 2) {
-            state.stableSamples++;
-        }
-        if (state.stableSamples < 2 || state.shown.equals(candidate)) {
-            return;
-        }
-        state.shown = candidate;
         if (candidate.isEmpty()) {
-            LocationAnnouncement.clear(player);
+            LocationAnnouncement.update(
+                player, "", Component.empty(), Component.empty(), Component.empty(), false
+            );
             return;
         }
 
@@ -3918,11 +3916,12 @@ public final class CobbleventureBootstrap {
             if (settlement != null) {
                 GymInteriorSystem.GymArrivalInfo gym =
                     GymInteriorSystem.arrivalInfo(settlement.id(), player);
-                showLocationTitle(
+                LocationAnnouncement.update(
                     player,
+                    candidate,
                     Component.literal(settlement.displayName()).withStyle(ChatFormatting.GOLD),
                     Component.translatable(
-                        "message.cobbleventure_bootstrap.location_title.town"
+                        "message.cobbleventure_player_menu.location_title.town"
                     ).withStyle(ChatFormatting.GRAY),
                     gym == null ? Component.empty() : Component.literal(
                         gym.displayName() + " · " + gymTypeDisplayName(gym.theme())
@@ -3933,11 +3932,12 @@ public final class CobbleventureBootstrap {
             }
             return;
         }
-        showLocationTitle(
+        LocationAnnouncement.update(
             player,
+            candidate,
             routeDisplayName(sample.owner()).copy().withStyle(ChatFormatting.YELLOW),
             Component.translatable(
-                "message.cobbleventure_bootstrap.location_title.route"
+                "message.cobbleventure_player_menu.location_title.route"
             ).withStyle(ChatFormatting.GRAY),
             Component.empty(),
             false
@@ -3972,29 +3972,22 @@ public final class CobbleventureBootstrap {
         if (routeId.startsWith("route_custom_")) {
             String number = routeId.substring("route_custom_".length()).replaceFirst("^0+", "");
             return Component.translatable(
-                "message.cobbleventure_bootstrap.location_title.route_number",
+                "message.cobbleventure_player_menu.location_title.route_number",
                 number.isEmpty() ? "0" : number
             );
         }
         if (routeId.equals("route_mt_moon_west")) {
             return Component.translatable(
-                "message.cobbleventure_bootstrap.location_title.mt_moon_west"
+                "message.cobbleventure_player_menu.location_title.mt_moon_west"
             );
         }
         if (routeId.equals("route_mt_moon_east")) {
             return Component.translatable(
-                "message.cobbleventure_bootstrap.location_title.mt_moon_east"
+                "message.cobbleventure_player_menu.location_title.mt_moon_east"
             );
         }
         String readable = routeId.replaceFirst("^route_", "").replace('_', ' ');
         return Component.literal(readable);
-    }
-
-    private static void showLocationTitle(
-        ServerPlayer player, Component title, Component subtitle,
-        Component detail, boolean town
-    ) {
-        LocationAnnouncement.show(player, title, subtitle, detail, town);
     }
 
     private static boolean handleCavePortal(
@@ -5748,207 +5741,19 @@ public final class CobbleventureBootstrap {
         Map<String, BoundaryProfile> profiles,
         long seed
     ) {
-        JsonObject gridJson = root.getAsJsonObject("grid");
-        HexGrid grid = new HexGrid(
-            gridJson.get("tile_radius_blocks").getAsInt(),
-            blockPointFrom(gridJson.getAsJsonObject("origin"))
+        HexGrid grid = WorldPlanParser.grid(root);
+        List<HexSettlement> hexSettlements = WorldPlanParser.settlements(
+            root, townRadii, profiles
         );
-        boolean usesPlacedTiles = root.get("schema_version").getAsInt() >= 2;
-        List<HexSettlement> hexSettlements = new ArrayList<>();
-        for (JsonElement element : root.getAsJsonArray("settlements")) {
-            JsonObject value = element.getAsJsonObject();
-            String settlement = requiredString(value, "settlement");
-            Integer townRadius = townRadii.get(settlement);
-            if (townRadius == null) {
-                throw new IllegalStateException("Hex world references missing settlement: " + settlement);
-            }
-            JsonObject anchor = value.getAsJsonObject("anchor");
-            List<SurroundingRegion> surroundings = new ArrayList<>();
-            for (JsonElement regionElement : usesPlacedTiles
-                ? List.<JsonElement>of()
-                : value.getAsJsonArray("surroundings")) {
-                JsonObject region = regionElement.getAsJsonObject();
-                surroundings.add(new SurroundingRegion(
-                    requiredString(region, "id"),
-                    requiredString(region, "biome"),
-                    region.get("tile_count").getAsInt(),
-                    requiredString(region, "preferred_direction"),
-                    requiredString(region, "growth"),
-                    region.get("influence_radius_blocks").getAsDouble(),
-                    region.get("edge_noise").getAsDouble(),
-                    requiredString(region, "boundary_profile"),
-                    terrainProfile(region),
-                    optionalString(region, "access_requirement")
-                ));
-                requireBoundaryProfile(profiles, requiredString(region, "boundary_profile"));
-            }
-            String boundary = value.has("boundary_profile")
-                ? requiredString(value, "boundary_profile")
-                : "cobbleventure:boundary/dense_tree_line";
-            requireBoundaryProfile(profiles, boundary);
-            List<HexCoord> customFootprint = new ArrayList<>();
-            if (value.has("town_footprint_cells")) {
-                for (JsonElement cellElement : value.getAsJsonArray("town_footprint_cells")) {
-                    JsonObject cell = cellElement.getAsJsonObject();
-                    customFootprint.add(new HexCoord(cell.get("q").getAsInt(), cell.get("r").getAsInt()));
-                }
-            }
-            hexSettlements.add(new HexSettlement(
-                settlement,
-                new HexCoord(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
-                townRadius,
-                value.has("town_footprint_shape")
-                    ? requiredString(value, "town_footprint_shape") : "line_q",
-                List.copyOf(customFootprint),
-                requiredString(value, "town_biome"),
-                List.copyOf(surroundings),
-                boundary,
-                terrainProfile(value),
-                optionalString(value, "access_requirement")
-            ));
-        }
-        List<HexConnection> connections = new ArrayList<>();
-        for (JsonElement element : root.getAsJsonArray("connections")) {
-            JsonObject value = element.getAsJsonObject();
-            // Older/custom web map saves did not persist these two visual
-            // fields. Keep such maps loadable and let a later editor save
-            // normalize them instead of making the whole dimension invalid.
-            String boundary = value.has("boundary_profile")
-                ? requiredString(value, "boundary_profile")
-                : "cobbleventure:boundary/dense_tree_line";
-            requireBoundaryProfile(profiles, boundary);
-            List<HexCoord> explicitCells = new ArrayList<>();
-            if (value.has("cells")) {
-                for (JsonElement cellElement : value.getAsJsonArray("cells")) {
-                    JsonObject cell = cellElement.getAsJsonObject();
-                    explicitCells.add(new HexCoord(
-                        cell.get("q").getAsInt(), cell.get("r").getAsInt()
-                    ));
-                }
-            }
-            connections.add(new HexConnection(
-                requiredString(value, "id"),
-                optionalString(value, "from"),
-                optionalString(value, "to"),
-                value.has("route_biome")
-                    ? requiredString(value, "route_biome") : "minecraft:plains",
-                value.has("width_cells") ? value.get("width_cells").getAsInt() : 1,
-                value.has("pathfinding") ? requiredString(value, "pathfinding") : "explicit",
-                value.has("detour_cells") ? value.get("detour_cells").getAsInt() : 0,
-                value.get("corridor_width_blocks").getAsDouble(),
-                value.has("edge_noise") ? value.get("edge_noise").getAsDouble() : 0.0D,
-                boundary,
-                value.has("terrain_profile")
-                    ? terrainProfile(value) : new TerrainProfile(0, 0, 96.0D, 0),
-                requiredString(value, "surface_style"),
-                optionalString(value, "access_requirement"),
-                List.copyOf(explicitCells)
-            ));
-        }
-        List<PlacedTile> placedTiles = new ArrayList<>();
-        if (root.has("tiles")) {
-            for (JsonElement element : root.getAsJsonArray("tiles")) {
-                JsonObject value = element.getAsJsonObject();
-                String boundary = requiredString(value, "boundary_profile");
-                requireBoundaryProfile(profiles, boundary);
-                placedTiles.add(new PlacedTile(
-                    new HexCoord(value.get("q").getAsInt(), value.get("r").getAsInt()),
-                    requiredString(value, "biome"), boundary, terrainProfile(value),
-                    optionalString(value, "access_requirement")
-                ));
-            }
-        }
-        List<CaveEntrancePlan> caveEntrances = new ArrayList<>();
-        if (root.has("cave_entrances")) {
-            for (JsonElement element : root.getAsJsonArray("cave_entrances")) {
-                JsonObject value = element.getAsJsonObject();
-                JsonObject anchor = value.getAsJsonObject("anchor");
-                JsonObject pokemonCenter = value.getAsJsonObject("pokemon_center");
-                JsonObject centerOffset = pokemonCenter.getAsJsonObject("offset");
-                caveEntrances.add(new CaveEntrancePlan(
-                    requiredString(value, "id"),
-                    requiredString(value, "cave"),
-                    requiredString(value, "entrance"),
-                    new HexCoord(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
-                    requiredString(value, "facing"),
-                    requiredString(value, "structure"),
-                    requiredString(pokemonCenter, "structure"),
-                    new HexCoord(
-                        centerOffset.get("q").getAsInt(), centerOffset.get("r").getAsInt()
-                    ),
-                    null,
-                    null,
-                    NaturalCaveGenerator.Settings.defaults()
-                ));
-            }
-        }
-        String defaultEmptyTerrain = "high_forest";
-        Map<HexCoord, String> emptyTerrainTiles = new LinkedHashMap<>();
-        if (root.has("empty_terrain")) {
-            JsonObject emptyTerrain = root.getAsJsonObject("empty_terrain");
-            defaultEmptyTerrain = emptyTerrain.has("default_type")
-                ? requiredString(emptyTerrain, "default_type") : "high_forest";
-            if (emptyTerrain.has("tiles")) {
-                for (JsonElement element : emptyTerrain.getAsJsonArray("tiles")) {
-                    JsonObject value = element.getAsJsonObject();
-                    HexCoord coordinate = new HexCoord(
-                        value.get("q").getAsInt(), value.get("r").getAsInt()
-                    );
-                    String previous = emptyTerrainTiles.putIfAbsent(
-                        coordinate, requiredString(value, "type")
-                    );
-                    if (previous != null) {
-                        throw new IllegalStateException("Duplicate empty terrain tile: " + coordinate);
-                    }
-                }
-            }
-        }
-        requireEmptyTerrainType(defaultEmptyTerrain);
-        emptyTerrainTiles.values().forEach(CobbleventureBootstrap::requireEmptyTerrainType);
-        Map<HexCoord, EnvironmentOverride> environmentOverrides = new LinkedHashMap<>();
-        if (root.has("environment_overrides")) {
-            for (JsonElement element : root.getAsJsonArray("environment_overrides")) {
-                JsonObject value = element.getAsJsonObject();
-                HexCoord coordinate = new HexCoord(
-                    value.get("q").getAsInt(), value.get("r").getAsInt()
-                );
-                EnvironmentOverride override = new EnvironmentOverride(
-                    optionalString(value, "temperature"),
-                    optionalString(value, "humidity"),
-                    optionalString(value, "weather")
-                );
-                if (override.weather() != null) {
-                    requireWeather(override.weather());
-                }
-                EnvironmentOverride previous = environmentOverrides.putIfAbsent(
-                    coordinate, override
-                );
-                if (previous != null) {
-                    throw new IllegalStateException(
-                        "Duplicate environment override: " + coordinate
-                    );
-                }
-            }
-        }
-        Map<HexCoord, Integer> levelOverrides = new LinkedHashMap<>();
-        if (root.has("level_overrides")) {
-            for (JsonElement element : root.getAsJsonArray("level_overrides")) {
-                JsonObject value = element.getAsJsonObject();
-                HexCoord coordinate = new HexCoord(
-                    value.get("q").getAsInt(), value.get("r").getAsInt()
-                );
-                int averageLevel = value.get("average_level").getAsInt();
-                if (averageLevel < 1 || averageLevel > 100) {
-                    throw new IllegalStateException(
-                        "Average Pokemon level must be between 1 and 100: " + coordinate
-                    );
-                }
-                Integer previous = levelOverrides.putIfAbsent(coordinate, averageLevel);
-                if (previous != null) {
-                    throw new IllegalStateException("Duplicate Pokemon level override: " + coordinate);
-                }
-            }
-        }
+        List<HexConnection> connections = WorldPlanParser.connections(root, profiles);
+        List<PlacedTile> placedTiles = WorldPlanParser.tiles(root, profiles);
+        List<CaveEntrancePlan> caveEntrances = WorldPlanParser.caveEntrances(root);
+        WorldPlanParser.EmptyTerrain emptyTerrain = WorldPlanParser.emptyTerrain(root);
+        String defaultEmptyTerrain = emptyTerrain.defaultType();
+        Map<HexCoord, String> emptyTerrainTiles = emptyTerrain.tiles();
+        Map<HexCoord, EnvironmentOverride> environmentOverrides =
+            WorldPlanParser.environmentOverrides(root);
+        Map<HexCoord, Integer> levelOverrides = WorldPlanParser.levelOverrides(root);
         List<WorldGateSystem.Gate> gates = root.has("objects")
             ? WorldGateSystem.parse(root.getAsJsonArray("objects")) : List.of();
         HexWorldPlan plan = planHexWorld(
@@ -5973,18 +5778,6 @@ public final class CobbleventureBootstrap {
         return NativeWorldGeneration.usesNativeGenerator(
             level.getChunkSource().getGenerator()
         ) ? salt : level.getSeed() ^ salt;
-    }
-
-    private static void requireEmptyTerrainType(String type) {
-        if (!Set.of("high_forest", "ocean", "desert", "stone_mountain", "snow_mountain").contains(type)) {
-            throw new IllegalStateException("Unsupported empty terrain type: " + type);
-        }
-    }
-
-    private static void requireWeather(String weather) {
-        if (!Set.of("clear", "rain", "thunder", "snow", "fog").contains(weather)) {
-            throw new IllegalStateException("Unsupported local weather: " + weather);
-        }
     }
 
     private static void verifySettlementBoundaryClearance(HexWorldPlan world) {
@@ -6032,66 +5825,9 @@ public final class CobbleventureBootstrap {
         }
     }
 
-    private static TerrainProfile terrainProfile(JsonObject value) {
-        JsonObject terrain = value.getAsJsonObject("terrain_profile");
-        return new TerrainProfile(
-            terrain.get("base_height_offset").getAsInt(),
-            terrain.get("height_variation").getAsInt(),
-            terrain.get("noise_scale_blocks").getAsDouble(),
-            terrain.has("connection_height")
-                ? terrain.get("connection_height").getAsInt() : 0
-        );
-    }
-
     private static Map<String, BoundaryProfile> loadBoundaryProfiles(ServerLevel level) {
         JsonObject root = readJsonResource(level, "catalogs/boundary-profiles.json");
-        return parseBoundaryProfiles(root);
-    }
-
-    static Map<String, BoundaryProfile> parseBoundaryProfiles(JsonObject root) {
-        Map<String, BoundaryProfile> profiles = new LinkedHashMap<>();
-        for (JsonElement element : root.getAsJsonArray("profiles")) {
-            JsonObject value = element.getAsJsonObject();
-            String id = requiredString(value, "id");
-            List<String> surfaceBlocks = new ArrayList<>();
-            for (JsonElement block : value.getAsJsonArray("surface_blocks")) {
-                surfaceBlocks.add(block.getAsString());
-            }
-            TreeProfile tree = null;
-            if (value.has("tree")) {
-                JsonObject treeJson = value.getAsJsonObject("tree");
-                tree = new TreeProfile(
-                    requiredString(treeJson, "log"),
-                    requiredString(treeJson, "leaves"),
-                    treeJson.get("spacing").getAsInt(),
-                    treeJson.get("min_height").getAsInt(),
-                    treeJson.get("max_height").getAsInt()
-                );
-            }
-            BoundaryProfile profile = new BoundaryProfile(
-                id,
-                requiredString(value, "type"),
-                value.get("width").getAsInt(),
-                value.get("height").getAsInt(),
-                value.get("foundation_depth").getAsInt(),
-                requiredString(value, "collision"),
-                requiredString(value, "core_block"),
-                List.copyOf(surfaceBlocks),
-                tree
-            );
-            if (profiles.putIfAbsent(id, profile) != null) {
-                throw new IllegalStateException("Duplicate boundary profile: " + id);
-            }
-        }
-        return Map.copyOf(profiles);
-    }
-
-    private static void requireBoundaryProfile(
-        Map<String, BoundaryProfile> profiles, String id
-    ) {
-        if (!profiles.containsKey(id)) {
-            throw new IllegalStateException("Missing boundary profile: " + id);
-        }
+        return WorldPlanParser.boundaryProfiles(root);
     }
 
     private static HexWorldPlan planHexWorld(
@@ -7107,19 +6843,14 @@ public final class CobbleventureBootstrap {
     private static TerrainSample terrainAtBlockCenter(
         HexWorldPlan world, int blockX, int blockZ
     ) {
-        TerrainColumnKey key = new TerrainColumnKey(
-            System.identityHashCode(world), world.seed(), blockX, blockZ
-        );
-        TerrainLookup cached = TERRAIN_COLUMN_SAMPLES.getIfPresent(key);
-        if (cached != null) {
-            return cached.sample();
-        }
-        double x = blockX + 0.5D;
-        double z = blockZ + 0.5D;
-        WarpedPoint warped = warpedCellPoint(world, x, z);
-        TerrainSample sample = computeTerrainAt(world, x, z, warped);
-        TERRAIN_COLUMN_SAMPLES.put(key, new TerrainLookup(sample, warped));
-        return sample;
+        return TerrainSampler.getOrCompute(world, blockX, blockZ, () -> {
+            double x = blockX + 0.5D;
+            double z = blockZ + 0.5D;
+            WarpedPoint warped = warpedCellPoint(world, x, z);
+            return new TerrainSampler.Lookup(
+                computeTerrainAt(world, x, z, warped), warped
+            );
+        }).sample();
     }
 
     private static TerrainSample computeTerrainAt(HexWorldPlan world, double x, double z) {
@@ -8024,11 +7755,7 @@ public final class CobbleventureBootstrap {
         int blockX = (int) Math.floor(x);
         int blockZ = (int) Math.floor(z);
         if (x == blockX + 0.5D && z == blockZ + 0.5D) {
-            TerrainLookup cached = TERRAIN_COLUMN_SAMPLES.getIfPresent(
-                new TerrainColumnKey(
-                    System.identityHashCode(world), world.seed(), blockX, blockZ
-                )
-            );
+            TerrainSampler.Lookup cached = TerrainSampler.get(world, blockX, blockZ);
             if (cached != null) {
                 return cached.warped();
             }
@@ -10997,194 +10724,11 @@ public final class CobbleventureBootstrap {
         }
     }
 
-    record HexCoord(int q, int r) {
-        private static final List<HexCoord> DIRECTIONS = List.of(
-            new HexCoord(1, 0),
-            new HexCoord(1, -1),
-            new HexCoord(0, -1),
-            new HexCoord(-1, 0),
-            new HexCoord(-1, 1),
-            new HexCoord(0, 1)
-        );
-
-        HexCoord plus(HexCoord other) {
-            return new HexCoord(q + other.q, r + other.r);
-        }
-
-        HexCoord scale(int amount) {
-            return new HexCoord(q * amount, r * amount);
-        }
-
-        int distance(HexCoord other) {
-            int deltaQ = q - other.q;
-            int deltaR = r - other.r;
-            int deltaS = -q - r + other.q + other.r;
-            return (Math.abs(deltaQ) + Math.abs(deltaR) + Math.abs(deltaS)) / 2;
-        }
-
-        List<HexCoord> neighbors() {
-            return DIRECTIONS.stream().map(this::plus).toList();
-        }
-
-        @Override
-        public String toString() {
-            return q + "," + r;
-        }
-    }
-
-    record HexGrid(int radius, BlockPoint origin) {
-        Point worldCenter(HexCoord cell) {
-            int x = (int) Math.round(
-                origin.x() + radius * Math.sqrt(3.0D) * (cell.q() + cell.r() / 2.0D)
-            );
-            int z = (int) Math.round(origin.z() + radius * 1.5D * cell.r());
-            return new Point(x, z);
-        }
-
-        HexCoord worldToHex(double x, double z) {
-            double localX = x - origin.x();
-            double localZ = z - origin.z();
-            double qValue = (Math.sqrt(3.0D) / 3.0D * localX - localZ / 3.0D) / radius;
-            double rValue = (2.0D / 3.0D * localZ) / radius;
-            double sValue = -qValue - rValue;
-            int q = (int) Math.round(qValue);
-            int r = (int) Math.round(rValue);
-            int s = (int) Math.round(sValue);
-            double qDifference = Math.abs(q - qValue);
-            double rDifference = Math.abs(r - rValue);
-            double sDifference = Math.abs(s - sValue);
-            if (qDifference > rDifference && qDifference > sDifference) {
-                q = -r - s;
-            } else if (rDifference > sDifference) {
-                r = -q - s;
-            }
-            return new HexCoord(q, r);
-        }
-
-        HexBounds bounds(Set<HexCoord> cells) {
-            if (cells.isEmpty()) {
-                throw new IllegalStateException("Hex world contains no cells");
-            }
-            int minX = Integer.MAX_VALUE;
-            int minZ = Integer.MAX_VALUE;
-            int maxX = Integer.MIN_VALUE;
-            int maxZ = Integer.MIN_VALUE;
-            for (HexCoord cell : cells) {
-                Point center = worldCenter(cell);
-                minX = Math.min(minX, center.x() - radius);
-                minZ = Math.min(minZ, center.z() - radius);
-                maxX = Math.max(maxX, center.x() + radius);
-                maxZ = Math.max(maxZ, center.z() + radius);
-            }
-            return new HexBounds(minX, minZ, maxX, maxZ);
-        }
-    }
-
-    record HexBounds(int minX, int minZ, int maxX, int maxZ) {
-        boolean contains(Point point) {
-            return point.x() >= minX && point.x() <= maxX
-                && point.z() >= minZ && point.z() <= maxZ;
-        }
-    }
-
-    record SurroundingRegion(
-        String id,
-        String biome,
-        int tileCount,
-        String preferredDirection,
-        String growth,
-        double influenceRadiusBlocks,
-        double edgeNoise,
-        String boundaryProfile,
-        TerrainProfile terrainProfile,
-        String accessRequirement
-    ) {}
-
-    record HexSettlement(
-        String settlement,
-        HexCoord anchor,
-        int townRadiusCells,
-        String townFootprintShape,
-        List<HexCoord> customFootprint,
-        String townBiome,
-        List<SurroundingRegion> surroundings,
-        String boundaryProfile,
-        TerrainProfile terrainProfile,
-        String accessRequirement
-    ) {}
-
-    record PlacedTile(
-        HexCoord coordinate,
-        String biome,
-        String boundaryProfile,
-        TerrainProfile terrainProfile,
-        String accessRequirement
-    ) {}
-
-    record HexConnection(
-        String id,
-        String from,
-        String to,
-        String routeBiome,
-        int widthCells,
-        String pathfinding,
-        int detourCells,
-        double corridorWidthBlocks,
-        double edgeNoise,
-        String boundaryProfile,
-        TerrainProfile terrainProfile,
-        String surfaceStyle,
-        String accessRequirement,
-        List<HexCoord> cells
-    ) {}
-
-    record CellPlan(
-        String biome,
-        String boundaryProfile,
-        String kind,
-        String owner,
-        double influenceRadius,
-        double edgeNoise,
-        TerrainProfile terrainProfile,
-        String accessRequirement,
-        String surfaceStyle
-    ) {}
-
-    record ConnectionPath(
-        String id,
-        String from,
-        String to,
-        String biome,
-        String boundaryProfile,
-        double corridorWidthBlocks,
-        double edgeNoise,
-        TerrainProfile terrainProfile,
-        String surfaceStyle,
-        String accessRequirement,
-        List<HexCoord> cells,
-        List<Point> centerline,
-        RouteBounds bounds
-    ) {}
-
-    record TerrainProfile(
-        int baseHeightOffset, int heightVariation, double noiseScaleBlocks,
-        int connectionHeight
-    ) {}
-
     record NoiseKey(long seed, String salt) {}
 
     record TerrainColumnKey(int worldIdentity, long seed, int x, int z) {}
 
     record TownFootprintCenterKey(HexGrid grid, String settlementId) {}
-
-    record TerrainLookup(TerrainSample sample, WarpedPoint warped) {}
-
-    record RouteBounds(int minX, int minZ, int maxX, int maxZ) {
-        boolean contains(double x, double z, double margin) {
-            return x >= minX - margin && x <= maxX + margin
-                && z >= minZ - margin && z <= maxZ + margin;
-        }
-    }
 
     record OceanMoundKey(long seed, int cellX, int cellZ) {}
 
@@ -11255,24 +10799,6 @@ public final class CobbleventureBootstrap {
         }
     }
 
-    record WarpedPoint(double x, double z) {}
-
-    record TerrainSample(
-        String biome,
-        String boundaryProfile,
-        String kind,
-        String owner,
-        TerrainProfile terrainProfile,
-        String accessRequirement,
-        String surfaceStyle
-    ) {}
-
-    static final class LocationTitleState {
-        private String candidate = "";
-        private String shown = "";
-        private int stableSamples;
-    }
-
     record NativeTerrainColumn(
         int groundY,
         int waterTopY,
@@ -11283,8 +10809,6 @@ public final class CobbleventureBootstrap {
         boolean rocky,
         TerrainSample sample
     ) {}
-
-    record TerrainSamplePoint(Point point, TerrainSample sample) {}
 
     static final class ShoreDistanceField {
         private final int minX;
@@ -11473,59 +10997,6 @@ public final class CobbleventureBootstrap {
             return samples == 0 ? 0 : (int) Math.round(total / (double) samples);
         }
     }
-
-    record TreeProfile(
-        String log,
-        String leaves,
-        int spacing,
-        int minHeight,
-        int maxHeight
-    ) {}
-
-    record BoundaryProfile(
-        String id,
-        String type,
-        int width,
-        int height,
-        int foundationDepth,
-        String collision,
-        String coreBlock,
-        List<String> surfaceBlocks,
-        TreeProfile tree
-    ) {}
-
-    record HexWorldPlan(
-        HexGrid grid,
-        long seed,
-        Map<HexCoord, CellPlan> cells,
-        List<ConnectionPath> paths,
-        Map<String, HexSettlement> settlements,
-        Map<String, BoundaryProfile> boundaryProfiles,
-        String defaultEmptyTerrain,
-        Map<HexCoord, String> emptyTerrainTiles,
-        Map<HexCoord, EnvironmentOverride> environmentOverrides,
-        Map<HexCoord, Integer> levelOverrides,
-        List<CaveEntrancePlan> caveEntrances,
-        List<WorldGateSystem.Gate> gates
-    ) {}
-
-    record EnvironmentOverride(String temperature, String humidity, String weather) {}
-
-    record CaveEntrancePlan(
-        String id,
-        String cave,
-        String entrance,
-        HexCoord anchor,
-        String facing,
-        String structure,
-        String pokemonCenterStructure,
-        HexCoord pokemonCenterOffset,
-        BlockPoint destination,
-        BlockPoint portalAnchor,
-        NaturalCaveGenerator.Settings generationSettings
-    ) {}
-
-    record PathNode(HexCoord cell, int cost, int score) {}
 
     record RuntimeWorld(
         Map<String, SettlementPlan> settlements,

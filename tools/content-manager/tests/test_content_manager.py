@@ -27,6 +27,43 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_local_ogg_files_are_registered_in_music_catalog_automatically(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            core_root = Path(directory)
+            project_root = core_root / "content-projects/cobbleventure-main"
+            catalog_path = project_root / "content/catalogs/music-tracks.json"
+            catalog_path.parent.mkdir(parents=True)
+            catalog_path.write_text(json.dumps({
+                "schema_version": 1,
+                "source": {"local_directory": "local-assets/music/library"},
+                "tracks": [{
+                    "id": "existing.track", "sound_event": "music.existing.track",
+                    "resource": "music/existing/track", "source_file": "existing.ogg",
+                    "category": "local", "usage": "기존 곡",
+                }],
+                "review_candidates": [{"source_file": "새 노래.ogg", "reason": "검토"}],
+            }, ensure_ascii=False), encoding="utf-8")
+            source = core_root / "local-assets/music/library"
+            source.mkdir(parents=True)
+            (source / "existing.ogg").write_bytes(b"OggS-existing")
+            (source / "새 노래.ogg").write_bytes(b"OggS-new")
+            (source / "ignore.mid").write_bytes(b"MThd")
+
+            catalog, added = content_manager.sync_local_music_catalog(
+                project_root, core_root
+            )
+
+            self.assertEqual(1, added)
+            self.assertEqual(2, len(catalog["tracks"]))
+            added_track = next(
+                track for track in catalog["tracks"] if track["source_file"] == "새 노래.ogg"
+            )
+            self.assertRegex(added_track["id"], r"^local\.track_[0-9a-f]{8}$")
+            self.assertEqual("새 노래", added_track["usage"])
+            stored = json.loads(catalog_path.read_text(encoding="utf-8"))
+            self.assertNotIn("local_library", stored)
+            self.assertEqual([], stored["review_candidates"])
+
     @staticmethod
     def _structure_nbt(size: tuple[int, int, int]) -> bytes:
         payload = (
@@ -452,6 +489,25 @@ class ContentManagerTests(unittest.TestCase):
             issues = content_manager.save_world_layout(candidate_root, invalid_empty)
             self.assertTrue(any(issue.path.endswith(".type") for issue in issues))
             self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
+            with_route_habitat = json.loads(json.dumps(saved))
+            habitat_route = with_route_habitat["connections"][0]
+            habitat_route["display_name"] = "1번 도로"
+            habitat_route["pokemon_spawns"] = {
+                "inherit_biome": False,
+                "excluded_species": ["cobblemon:rattata"],
+                "additions": [
+                    {"species": "cobblemon:pikachu", "min_level": 3, "max_level": 7},
+                ],
+            }
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, with_route_habitat))
+            saved = content_manager.load_world_layout(candidate_root)
+            self.assertEqual("1번 도로", saved["connections"][0]["display_name"])
+            self.assertFalse(saved["connections"][0]["pokemon_spawns"]["inherit_biome"])
+            invalid_route_habitat = json.loads(json.dumps(saved))
+            invalid_route_habitat["connections"][0]["pokemon_spawns"]["additions"][0]["min_level"] = 8
+            issues = content_manager.save_world_layout(candidate_root, invalid_route_habitat)
+            self.assertTrue(any("min_level" in issue.path or "출현 레벨" in issue.message for issue in issues))
+            self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
             with_environment = json.loads(json.dumps(saved))
             with_environment["environment_overrides"] = [
                 {"q": 0, "r": 0, "temperature": "hot", "humidity": "dry", "weather": "clear"},
@@ -730,8 +786,38 @@ class ContentManagerTests(unittest.TestCase):
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="pokemon-map-panel"', page)
         self.assertIn('data-pokemon-map-tab="unavailable"', page)
+        self.assertIn('id="route-inspector-form"', page)
+        self.assertIn('id="route-pokemon-dialog"', page)
+        self.assertIn('id="route-inherit-biome"', page)
+        self.assertIn('id="route-custom-pokemon-list"', page)
         self.assertIn("/api/world-pokemon-map", script)
         self.assertIn("renderWorldPokemonPanel", script)
+        self.assertIn("toggleRouteBiomePokemon", script)
+        self.assertIn("changeRoutePokemonLevel", script)
+        self.assertIn("state.selectedRouteId = null", script)
+
+    def test_world_pokemon_map_applies_route_habitat_overrides(self) -> None:
+        root = PROJECT_ROOT
+        world = json.loads(json.dumps(content_manager.load_world_layout(root, 1)))
+        route = world["connections"][0]
+        route["display_name"] = "테스트 도로"
+        route["pokemon_spawns"] = {
+            "inherit_biome": False,
+            "excluded_species": [],
+            "additions": [
+                {"species": "cobblemon:pikachu", "min_level": 12, "max_level": 18},
+            ],
+        }
+        world["connections"] = [route]
+
+        with mock.patch.object(content_manager, "load_world_layout", return_value=world):
+            result = content_manager.world_pokemon_map(root, 1)
+
+        route_cells = [entry for entry in result["locations"] if entry.get("route") == route["id"]]
+        self.assertGreater(len(route_cells), 0)
+        self.assertTrue(all(entry["route_name"] == "테스트 도로" for entry in route_cells))
+        self.assertTrue(all(entry["pokemon_ids"] == ["cobblemon:pikachu"] for entry in route_cells))
+        self.assertTrue(all(entry["custom_level_ranges"]["cobblemon:pikachu"] == {"min_level": 12, "max_level": 18} for entry in route_cells))
 
     def test_cave_preview_supports_direct_editing_views_and_global_water_level(self) -> None:
         root = PROJECT_ROOT
@@ -2494,6 +2580,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("route-anchor", styles)
         self.assertIn("data-select-route", app_script)
         self.assertIn("hex-route-hit", styles)
+        self.assertIn('id="route-inspector-form"', page)
+        self.assertIn('id="edit-route-pokemon"', page)
+        self.assertIn('id="route-pokemon-dialog"', page)
+        self.assertIn("route-pokemon-dialog-shell", styles)
+        self.assertIn("ensureRoutePokemonSettings", app_script)
+        self.assertIn("state.selectedRouteId === route.dataset.selectRoute", app_script)
+        self.assertIn("has-selected-route", app_script)
+        self.assertIn(".has-selected-route .hex-route-group", styles)
         self.assertIn("data-delete-route-inline", app_script)
         self.assertIn("route-anchor-actions", styles)
         self.assertIn("objects", app_script)

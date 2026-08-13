@@ -8,7 +8,7 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="Buizz"
 description='''
-Replaces the inventory entry point with Cobbleventure's radial player menu.
+Owns Cobbleventure's player menu, music, battle intros, and location announcements.
 '''
 
 [[mixins]]

@@ -12,6 +12,7 @@
 
 ## 문서
 
+- [Content Studio 사용자 가이드](guide/README.md)
 - [프로젝트 기획서](docs/PROJECT_PLAN.md)
 - [구현 설계 문서 안내](docs/implementation/README.md)
 - [콘텐츠 제작 및 CurseForge 빌드 파이프라인](docs/implementation/CONTENT_BUILD_PIPELINE.md)
@@ -25,6 +26,7 @@
 - [플레이어 원형 메뉴 설계](docs/implementation/PLAYER_MENU.md)
 - [Cobbleventure Core](projects/cobbleventure-core/README.md)
 - [Cobbleventure Battle AI 프로젝트](projects/cobbleventure-battle-ai/README.md)
+- [Cobbleventure Adventure](projects/cobbleventure-adventure/README.md)
 - [Cobbleventure Player Menu](projects/cobbleventure-player-menu/README.md)
 - [트레이너 JSON 예제 데이터](trainer-data/README.md)
 
@@ -246,8 +248,9 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 | `build.bat validate-pack` | Minecraft·NeoForge·활성 모드 버전과 CurseForge ID까지 엄격 검사 | 의존성 확정 전에는 실패가 정상 |
 | `build.bat web` | 데이터 관리용 Python Web 화면과 API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
 | `build.bat api` | `build.bat web`의 호환용 별칭 | Web 화면과 API가 동일하게 실행됨 |
-| `build.bat test` | 콘텐츠/Web/팩 회귀 테스트와 월드 부트스트랩·플레이어 메뉴 Java 컴파일 | Python `unittest`와 Gradle 테스트가 모두 통과해야 함 |
+| `build.bat test` | 콘텐츠/Web/팩 회귀 테스트와 Adventure·월드·플레이어 메뉴 Java 컴파일 | Python `unittest`와 Gradle 테스트가 모두 통과해야 함 |
 | `build.bat spawns` | 엑셀 편집표에서 바이옴·세대 조건이 적용된 Paxi 스폰 데이터팩 생성 | 개발 팩 overrides에 생성 ZIP과 검증 보고서 생성 |
+| `build.bat mod-adventure` | 전투·경제·귀환·필드 기술용 NeoForge 모드 빌드 | 개발 팩 `overrides/mods`에 Adventure JAR 생성 |
 | `build.bat mod-bootstrap` | 무지하 시작 바이옴·세대 차원·BCA 테스트 마을용 NeoForge Java 모드 빌드 | 체육관 NBT 생성 후 개발 팩 `overrides/mods`에 JAR 생성 |
 | `build.bat mod-menu` | 인벤토리 키 기반 원형 플레이어 메뉴 NeoForge 모드 빌드 | 개발 팩 `overrides/mods`에 JAR 생성 |
 | `build.bat pack-smoke` | 최소 CurseForge 임포트 테스트 ZIP 생성·재검증 | `dist`에 ZIP과 SHA-256 생성 |
@@ -356,7 +359,7 @@ RCT의 버전·CurseForge project ID/file ID가 미정이므로 종료 코드
 향후 구현 단계에서는 필요에 따라 다음 영역을 추가할 예정입니다.
 
 ```text
-projects/           플랫폼 독립 코어·전투 AI와 향후 게임 어댑터
+projects/           플랫폼 독립 코어·전투 AI와 Adventure·World·UI 게임 모드
 content-projects/   폴더별 콘텐츠 프로젝트(기본값: cobbleventure-main)
 trainer-data/       외부 트레이너 JSON 원본 예제
 config-overrides/   기존 모드 설정 변경분

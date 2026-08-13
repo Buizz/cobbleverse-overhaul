@@ -1,5 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import dev.buizz.cobbleventure.adventure.FieldMoveRidingAccess;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;

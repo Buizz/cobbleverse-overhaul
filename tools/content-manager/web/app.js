@@ -25,7 +25,7 @@ const state = {
   pokemonMapTab: "selected", pokemonMapQuery: "",
   selectedHex: null, mapRadius: 6, mapZoom: 1, mapCenter: { x: 490, y: 330 }, mapViewInitialized: false,
   mapPan: null, suppressMapClick: false, draggedSettlement: null, routeDraft: null, worldDirty: false,
-  activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null,
+  activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null, routePokemonQuery: "",
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
   gymLayout: { selected: null, drag: null, hitTargets: [] },
   buildingSettings: { query: "", category: "all", selected: "", model: null, structures: {}, npcs: [], yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
@@ -151,10 +151,15 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 async function request(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) }
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) }
+    });
+  } catch (error) {
+    return { ok: false, status: 0, data: { error: `서버 요청에 실패했습니다: ${error.message}` } };
+  }
   let data;
   try { data = await response.json(); }
   catch { data = { error: `응답을 읽을 수 없습니다. (${response.status})` }; }
@@ -167,6 +172,31 @@ function toast(message) {
   element.classList.add("show");
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => element.classList.remove("show"), 2600);
+}
+
+function showProjectLoading(detail = "프로젝트 데이터 확인 중…") {
+  const overlay = $("#project-loading-overlay");
+  clearTimeout(showProjectLoading.hideTimer);
+  showProjectLoading.startedAt = performance.now();
+  overlay.classList.remove("is-hidden");
+  overlay.setAttribute("aria-busy", "true");
+  $("#project-loading-detail").textContent = detail;
+}
+
+function updateProjectLoading(detail) {
+  $("#project-loading-detail").textContent = detail;
+}
+
+function hideProjectLoading() {
+  const overlay = $("#project-loading-overlay");
+  const finish = () => {
+    overlay.setAttribute("aria-busy", "false");
+    overlay.classList.add("is-hidden");
+  };
+  const elapsed = performance.now() - (showProjectLoading.startedAt || 0);
+  clearTimeout(showProjectLoading.hideTimer);
+  if (elapsed >= 450) finish();
+  else showProjectLoading.hideTimer = setTimeout(finish, 450 - elapsed);
 }
 
 function showIssues(target, payload) {
@@ -229,8 +259,25 @@ function renderMusicSettings() {
   }
   const tracks = state.musicCatalog.tracks || [];
   $("#music-track-count").textContent = `${tracks.length}곡`;
-  $("#music-track-list").innerHTML = tracks.map((track) => `<article class="definition-card"><header><div><strong>${escapeHtml(track.usage)}</strong><code>${escapeHtml(track.id)}</code></div></header><div class="definition-fields"><label><span>사운드 이벤트</span><input readonly value="${escapeHtml(state.musicCatalog.namespace)}:${escapeHtml(track.sound_event)}"></label><label><span>분류</span><input readonly value="${escapeHtml(track.category)}"></label></div></article>`).join("");
+  const library = state.musicCatalog.local_library || {};
+  $("#music-library-path").textContent = library.directory
+    ? `${library.directory} · OGG ${library.registered_ogg || tracks.length}곡${library.added ? ` · 이번에 ${library.added}곡 자동 추가` : ""}`
+    : "로컬 music 폴더의 OGG 파일을 자동으로 등록합니다. 리소스팩에는 실제 배정된 곡만 포함됩니다.";
+  $("#music-track-list").innerHTML = tracks.map((track) => `<article class="definition-card"><header><div><strong>${escapeHtml(track.usage)}</strong><code>${escapeHtml(track.id)}</code></div></header><div class="definition-fields"><label><span>로컬 파일</span><input readonly value="${escapeHtml(track.source_file)}"></label><label><span>사운드 이벤트</span><input readonly value="${escapeHtml(state.musicCatalog.namespace)}:${escapeHtml(track.sound_event)}"></label><label><span>분류</span><input readonly value="${escapeHtml(track.category)}"></label></div></article>`).join("");
   showIssues("#music-issues", { valid: true, issues: [] });
+}
+
+async function refreshMusicLibrary() {
+  const result = await request("/api/music-catalog");
+  if (!result.ok) {
+    toast(result.data.error || "로컬 음원 폴더를 읽지 못했습니다.");
+    return;
+  }
+  state.musicCatalog = result.data;
+  renderMusicSettings();
+  toast(result.data.local_library?.added
+    ? `새 OGG ${result.data.local_library.added}곡을 자동 등록했습니다.`
+    : "로컬 음원 목록이 최신 상태입니다.");
 }
 
 async function saveMusicSettings() {
@@ -276,10 +323,12 @@ function renderActiveProject() {
 }
 
 async function loadActiveProject() {
+  updateProjectLoading("프로젝트 정보 확인 중…");
   const result = await request("/api/project");
   if (!result.ok) throw new Error(result.data.error || "현재 프로젝트를 불러오지 못했습니다.");
   state.project = result.data.project;
   renderActiveProject();
+  updateProjectLoading(`${state.project.name} 데이터 목록 확인 중…`);
 }
 
 function openProjectDialog() {
@@ -294,17 +343,20 @@ function openProjectDialog() {
 async function loadProject(event) {
   event.preventDefault();
   const path = event.currentTarget.elements.path.value.trim();
+  showProjectLoading("프로젝트 폴더 확인 중…");
   const result = await request("/api/project", {
     method: "PUT",
     body: JSON.stringify({ path })
   });
   if (!result.ok) {
+    hideProjectLoading();
     $("#project-issues").className = "issues";
     $("#project-issues").textContent = result.data.error || "프로젝트를 불러오지 못했습니다.";
     return;
   }
   state.project = result.data.project;
   renderActiveProject();
+  updateProjectLoading(`${state.project.name} 프로젝트를 여는 중…`);
   toast(`${state.project.name} 프로젝트를 불러왔습니다.`);
   window.setTimeout(() => window.location.reload(), 250);
 }
@@ -334,24 +386,56 @@ async function loadLists() {
     request("/api/world-layouts"), request(`/api/world-layout?generation=${state.selectedGeneration}`),
     request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`), request("/api/league-progression"), request("/api/gyms"), request("/api/music-catalog")
   ]);
-  state.trainers = trainers.data.items || [];
-  state.battles = battles.data.items || [];
-  state.settlements = settlements.data.items || [];
-  state.caves = caves.data.items || [];
+  const failures = [];
+  const applyDocumentList = (category, result, label) => {
+    const singular = documentSingular(category);
+    if (result.ok) {
+      state[category] = result.data.items || [];
+      renderList(category);
+      return;
+    }
+    state[category] = [];
+    const message = result.data.error || `${label} 목록을 불러오지 못했습니다.`;
+    failures.push(`${label}: ${message}`);
+    $(`#${singular}-list-count`).textContent = "오류";
+    $(`#${singular}-list`).innerHTML = `<div class="issues">${escapeHtml(message)}</div>`;
+  };
+  applyDocumentList("trainers", trainers, "NPC");
+  applyDocumentList("battles", battles, "배틀 프리셋");
+  applyDocumentList("settlements", settlements, "마을 프리셋");
+  applyDocumentList("caves", caves, "동굴");
   if (league.ok) state.leagueProgression = league.data;
+  else {
+    const message = league.data.error || "리그 설정을 불러오지 못했습니다.";
+    failures.push(`리그: ${message}`);
+    $("#league-entry-count").textContent = "오류";
+    $("#league-entry-list").innerHTML = `<div class="issues">${escapeHtml(message)}</div>`;
+  }
   if (gyms.ok) state.gymCatalog = gyms.data;
+  else {
+    const message = gyms.data.error || "체육관 목록을 불러오지 못했습니다.";
+    failures.push(`체육관: ${message}`);
+    $("#gym-list-count").textContent = "오류";
+    $("#gym-list").innerHTML = `<div class="issues">${escapeHtml(message)}</div>`;
+  }
   if (music.ok) state.musicCatalog = music.data;
+  else {
+    const message = music.data.error || "음악 카탈로그를 불러오지 못했습니다.";
+    failures.push(`음악: ${message}`);
+    $("#music-issues").className = "issues";
+    $("#music-issues").textContent = message;
+  }
   state.worldGenerations = worldLayouts.ok ? worldLayouts.data.generations || [1] : [1];
   state.worldLayout = worldLayout.ok ? worldLayout.data : null;
   if (worldPokemonMap.ok) state.worldPokemonMap = worldPokemonMap.data;
-  renderList("trainers");
-  renderList("battles");
-  renderList("settlements");
-  renderList("caves");
-  renderLeagueList();
-  renderGymList();
-  renderMusicSettings();
+  if (!worldLayouts.ok) failures.push(`월드 목록: ${worldLayouts.data.error || "불러오기 실패"}`);
+  if (!worldLayout.ok) failures.push(`월드맵: ${worldLayout.data.error || "불러오기 실패"}`);
+  if (!worldPokemonMap.ok) failures.push(`월드 포켓몬 지도: ${worldPokemonMap.data.error || "불러오기 실패"}`);
+  if (league.ok) renderLeagueList();
+  if (gyms.ok) renderGymList();
+  if (music.ok) renderMusicSettings();
   renderWorldLayout();
+  if (failures.length) throw new Error(failures.join("\n"));
 }
 
 async function loadTrainerData(force = false) {
@@ -582,6 +666,7 @@ async function loadWorldGeneration(generation) {
   state.worldLayout = result.data;
   if (pokemonMap.ok) state.worldPokemonMap = pokemonMap.data;
   state.selectedHex = null;
+  state.selectedRouteId = null;
   state.worldDirty = false;
   state.mapViewInitialized = false;
   renderWorldLayout();
@@ -752,6 +837,7 @@ function renderLevelOverlay(cells) {
 
 function renderHexMap() {
   const svg = $("#world-hex-map");
+  svg.classList.toggle("has-selected-route", Boolean(state.selectedRouteId));
   const view = mapViewBox(); const cells = visibleHexCells();
   svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.width} ${view.height}`);
   const tiles = cells.map(({ q, r }) => {
@@ -778,7 +864,7 @@ function renderHexMap() {
     if (!points) return "";
     const routeClass = connection.surface_style === "water" ? "water" : connection.access_requirement?.endsWith("/rock_climb") ? "climb" : "road";
     const selected = state.selectedRouteId === connection.id;
-    return `<g class="hex-route-group${selected ? " is-selected" : ""}" data-select-route="${escapeHtml(connection.id)}" tabindex="0" role="button" aria-label="${escapeHtml(connection.id)} 길 선택"><polyline class="hex-route ${routeClass}" points="${points}"><title>${escapeHtml(connection.id)}</title></polyline><polyline class="hex-route-hit" points="${points}"></polyline></g>`;
+    return `<g class="hex-route-group${selected ? " is-selected" : ""}" data-select-route="${escapeHtml(connection.id)}" tabindex="0" role="button" aria-label="${escapeHtml(routeDisplayName(connection))} 길 선택"><polyline class="hex-route ${routeClass}" points="${points}"><title>${escapeHtml(routeDisplayName(connection))}</title></polyline><polyline class="hex-route-hit" points="${points}"></polyline></g>`;
   }).join("");
   const draftRoute = state.routeDraft?.cells?.length ? (() => {
     const points = state.routeDraft.cells.map((cell) => { const point = hexPoint(cell.q, cell.r); return `${point.x},${point.y}`; }).join(" ");
@@ -858,6 +944,9 @@ function renderHexMap() {
       if (state.activeMapTool === "route" && state.routeDraft) {
         const cell = nearestHexFromPointer(event); handleRoutePoint(cell.q, cell.r); return;
       }
+      if (state.activeMapTool === "select" && event.type === "click" && state.selectedRouteId === route.dataset.selectRoute) {
+        const cell = nearestHexFromPointer(event); selectHex(cell.q, cell.r); return;
+      }
       focusRoute(route.dataset.selectRoute, false);
     };
     route.addEventListener("click", select);
@@ -894,7 +983,7 @@ async function saveWorldLayout() {
   renderWorldLayout();
 }
 
-function selectHex(q, r) { state.selectedHex = { q, r }; renderHexMap(); renderTileInspector(); }
+function selectHex(q, r) { state.selectedRouteId = null; state.selectedHex = { q, r }; renderHexMap(); renderTileInspector(); }
 function handleHexSelection(q, r) {
   const tool = state.activeMapTool;
   if (tool === "biome") paintBiomeArea(q, r);
@@ -1126,10 +1215,64 @@ function updateGateOptionVisibility() {
   objectFields.querySelectorAll("[data-gate-surrounding]").forEach((field) => { field.hidden = !inspectorIsGate || inspectorSurrounding === "none"; });
 }
 
+function selectedRoute() {
+  return (state.worldLayout?.connections || []).find((entry) => entry.id === state.selectedRouteId) || null;
+}
+function routeDisplayName(route) { return route?.display_name || route?.id || "길"; }
+function ensureRoutePokemonSettings(route) {
+  route.pokemon_spawns ||= { inherit_biome: true, excluded_species: [], additions: [] };
+  route.pokemon_spawns.inherit_biome = route.pokemon_spawns.inherit_biome !== false;
+  route.pokemon_spawns.excluded_species ||= [];
+  route.pokemon_spawns.additions ||= [];
+  return route.pokemon_spawns;
+}
+function worldPokemonCatalog() {
+  const entries = [...(state.worldPokemonMap?.available_pokemon || []), ...(state.worldPokemonMap?.unavailable_pokemon || [])];
+  return [...new Map(entries.map((entry) => [entry.id, entry])).values()].sort((a, b) => Number(a.dex_number || 99999) - Number(b.dex_number || 99999));
+}
+function worldPokemonById() { return new Map(worldPokemonCatalog().map((entry) => [entry.id, entry])); }
+function routeBasePokemonIds(route) {
+  const ids = new Set(); const locations = state.worldPokemonMap?.locations || [];
+  for (const cell of connectionPath(route)) {
+    const location = locations.find((entry) => entry.q === cell.q && entry.r === cell.r);
+    for (const species of location?.base_pokemon_ids || location?.pokemon_ids || []) ids.add(species);
+  }
+  return [...ids];
+}
+function routeEffectivePokemonIds(route) {
+  const settings = ensureRoutePokemonSettings(route); const excluded = new Set(settings.excluded_species);
+  const ids = settings.inherit_biome ? routeBasePokemonIds(route).filter((id) => !excluded.has(id)) : [];
+  for (const addition of settings.additions) if (addition?.species && !ids.includes(addition.species)) ids.push(addition.species);
+  return ids;
+}
+function renderRouteInspector(route) {
+  const form = $("#route-inspector-form"); const cells = connectionPath(route); const settings = ensureRoutePokemonSettings(route);
+  $("#selection-inspector-kind").textContent = "SELECTED ROUTE";
+  $("#selected-tile-title").textContent = routeDisplayName(route);
+  $("#selected-tile-coord").textContent = `${cells.length}칸`;
+  $("#route-inspector-id").textContent = route.id;
+  form.elements.displayName.value = route.display_name || "";
+  form.elements.surfaceStyle.value = route.surface_style || "road";
+  form.elements.corridorWidth.value = Number(route.corridor_width_blocks || 12);
+  form.elements.musicTrack.innerHTML = musicOptions(route.music_track || "", "road");
+  form.elements.musicTrack.value = route.music_track || "";
+  $("#route-music-resolution").textContent = route.music_track ? `직접 지정 · ${musicTrackLabel(route.music_track)}` : `상속 · ${musicTrackLabel(state.musicCatalog.defaults?.road)}`;
+  const effectiveCount = routeEffectivePokemonIds(route).length;
+  $("#route-pokemon-count").textContent = `${effectiveCount}종`;
+  $("#route-pokemon-description").textContent = settings.inherit_biome
+    ? `기존 바이옴 사용 · ${settings.excluded_species.length}종 제외 · ${settings.additions.length}종 직접 추가`
+    : `기존 바이옴 미사용 · ${settings.additions.length}종만 직접 출현`;
+  const fromName = route.from ? settlementSummary(route.from)?.name || route.from : "직접 시작";
+  const toName = route.to ? settlementSummary(route.to)?.name || route.to : "직접 종료";
+  $("#route-summary").innerHTML = `<b>${escapeHtml(routeDisplayName(route))}</b><span>${escapeHtml(fromName)} → ${escapeHtml(toName)}</span><small>${escapeHtml(route.surface_style || "road")} · ${cells.length}칸 · 폭 ${Number(route.corridor_width_blocks || 12)}블록</small>`;
+}
+
 function renderTileInspector() {
   ensureWorldObjectTypeOptions();
-  const selected = state.selectedHex; const form = $("#tile-inspector-form");
-  $("#tile-inspector-empty").hidden = Boolean(selected); form.hidden = !selected;
+  const selected = state.selectedHex; const route = selectedRoute(); const form = $("#tile-inspector-form"); const routeForm = $("#route-inspector-form");
+  $("#tile-inspector-empty").hidden = Boolean(selected || route); form.hidden = !selected; routeForm.hidden = !route;
+  if (route) { renderRouteInspector(route); renderWorldPokemonPanel(); return; }
+  $("#selection-inspector-kind").textContent = "SELECTED TILE";
   if (!selected) { $("#selected-tile-title").textContent = "타일을 선택하세요"; $("#selected-tile-coord").textContent = "Q — · R —"; renderWorldPokemonPanel(); return; }
   const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r); const customObject = objectAt(selected.q, selected.r); const townArea = settlementFootprintAt(selected.q, selected.r); const environment = environmentOverrideAt(selected.q, selected.r); const leveling = levelOverrideAt(selected.q, selected.r);
   const routes = routesAt(selected.q, selected.r);
@@ -1187,6 +1330,62 @@ function renderTileInspector() {
   renderWorldPokemonPanel();
 }
 
+function pokemonSearchText(entry) {
+  return [entry?.dex_number, entry?.id, entry?.slug, entry?.display_name?.ko_kr, entry?.display_name?.en_us].filter(Boolean).join(" ").toLowerCase();
+}
+function renderRoutePokemonDialog() {
+  const route = selectedRoute(); if (!route) return;
+  const settings = ensureRoutePokemonSettings(route); const byId = worldPokemonById(); const query = state.routePokemonQuery.toLowerCase();
+  $("#route-pokemon-dialog-title").textContent = `${routeDisplayName(route)} 포켓몬 편집`;
+  $("#route-pokemon-dialog-subtitle").textContent = `${route.id} · ${connectionPath(route).length}칸`;
+  $("#route-inherit-biome").checked = settings.inherit_biome;
+  const excluded = new Set(settings.excluded_species);
+  const baseEntries = routeBasePokemonIds(route).map((id) => byId.get(id)).filter(Boolean).filter((entry) => !query || pokemonSearchText(entry).includes(query));
+  const baseList = $("#route-biome-pokemon-list"); baseList.classList.toggle("is-disabled", !settings.inherit_biome);
+  baseList.innerHTML = baseEntries.length ? baseEntries.map((entry) => {
+    const enabled = settings.inherit_biome && !excluded.has(entry.id);
+    return `<button type="button" class="route-biome-pokemon-card${enabled ? " is-enabled" : ""}" data-route-biome-species="${escapeHtml(entry.id)}" ${settings.inherit_biome ? "" : "disabled"}><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt=""><div><b>${escapeHtml(pokemonMapEntryName(entry))}</b><small>No.${String(entry.dex_number).padStart(4, "0")} · ${escapeHtml(entry.id)}</small></div><i aria-hidden="true"></i></button>`;
+  }).join("") : `<p class="pokemon-map-empty">${query ? "검색 결과가 없습니다." : "이 길 아래에 포켓몬 바이옴 정보가 없습니다."}</p>`;
+  $("#route-custom-pokemon-count").textContent = `${settings.additions.length}종`;
+  $("#route-pokemon-options").innerHTML = worldPokemonCatalog().map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(pokemonMapEntryName(entry))} · No.${String(entry.dex_number).padStart(4, "0")}</option>`).join("");
+  $("#route-custom-pokemon-list").innerHTML = settings.additions.length ? settings.additions.map((addition, index) => {
+    const entry = byId.get(addition.species); const dex = entry?.dex_number;
+    return `<article class="route-custom-pokemon-card" data-route-addition-index="${index}">${dex ? `<img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dex}.png" alt="">` : "<span></span>"}<div><b>${escapeHtml(entry ? pokemonMapEntryName(entry) : addition.species)}</b><small>${escapeHtml(addition.species)}</small></div><label>최소 Lv.<input data-route-level="min_level" type="number" min="1" max="100" value="${Number(addition.min_level || 1)}"></label><label>최대 Lv.<input data-route-level="max_level" type="number" min="1" max="100" value="${Number(addition.max_level || 100)}"></label><button type="button" data-remove-route-pokemon="${index}" aria-label="삭제">×</button></article>`;
+  }).join("") : '<p class="pokemon-map-empty">직접 추가한 포켓몬이 없습니다.<br>위 검색창에서 포켓몬을 선택해 추가하세요.</p>';
+}
+function openRoutePokemonDialog() {
+  if (!selectedRoute()) return;
+  state.routePokemonQuery = ""; $("#route-biome-pokemon-search").value = ""; $("#route-custom-pokemon-input").value = "";
+  renderRoutePokemonDialog(); $("#route-pokemon-dialog").showModal();
+}
+function addRoutePokemon() {
+  const route = selectedRoute(); if (!route) return;
+  const raw = $("#route-custom-pokemon-input").value.trim().toLowerCase();
+  const entry = worldPokemonCatalog().find((pokemon) => pokemon.id.toLowerCase() === raw || pokemon.slug?.toLowerCase() === raw || pokemonMapEntryName(pokemon).toLowerCase() === raw);
+  if (!entry) { toast("목록에서 추가할 포켓몬을 선택해 주세요."); return; }
+  const settings = ensureRoutePokemonSettings(route);
+  if (settings.additions.some((addition) => addition.species === entry.id)) { toast("이미 직접 추가된 포켓몬입니다."); return; }
+  settings.additions.push({ species: entry.id, min_level: 1, max_level: 100 });
+  $("#route-custom-pokemon-input").value = ""; markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
+}
+function toggleRouteBiomePokemon(species) {
+  const route = selectedRoute(); if (!route) return; const settings = ensureRoutePokemonSettings(route);
+  const excluded = new Set(settings.excluded_species);
+  if (excluded.has(species)) excluded.delete(species); else excluded.add(species);
+  settings.excluded_species = [...excluded].sort(); markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
+}
+function removeRoutePokemon(index) {
+  const route = selectedRoute(); if (!route) return; ensureRoutePokemonSettings(route).additions.splice(index, 1);
+  markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
+}
+function changeRoutePokemonLevel(index, field, rawValue) {
+  const route = selectedRoute(); if (!route) return; const addition = ensureRoutePokemonSettings(route).additions[index]; if (!addition) return;
+  addition[field] = Math.max(1, Math.min(100, Math.round(Number(rawValue) || 1)));
+  if (field === "min_level" && addition.min_level > addition.max_level) addition.max_level = addition.min_level;
+  if (field === "max_level" && addition.max_level < addition.min_level) addition.min_level = addition.max_level;
+  markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
+}
+
 function pokemonMapEntryName(entry) { return entry?.display_name?.ko_kr || entry?.display_name?.en_us || entry?.slug || entry?.id || "알 수 없음"; }
 function pokemonMapMatches(entry, query) {
   if (!query) return true;
@@ -1202,12 +1401,17 @@ function renderWorldPokemonPanel() {
   $("#pokemon-map-summary").textContent = `출현 ${summary.available || 0} · 미출현 ${summary.unavailable || 0}`;
   $("#unavailable-pokemon-count").textContent = summary.unavailable || 0;
   $$('[data-pokemon-map-tab]').forEach((button) => { const active = button.dataset.pokemonMapTab === state.pokemonMapTab; button.classList.toggle("is-active", active); button.setAttribute("aria-selected", String(active)); });
-  const selected = state.selectedHex;
+  const selected = state.selectedHex; const route = selectedRoute();
   const location = selected ? (data.locations || []).find((entry) => entry.q === selected.q && entry.r === selected.r) : null;
   let entries = [];
   if (state.pokemonMapTab === "unavailable") {
     entries = data.unavailable_pokemon || [];
     $("#pokemon-map-location").innerHTML = `<b>${state.selectedGeneration}세대 월드 미출현</b><span>저장된 모든 출현 가능 지역의 합집합에서 제외된 포켓몬입니다.</span>`;
+  } else if (route) {
+    const pokemonById = worldPokemonById();
+    entries = routeEffectivePokemonIds(route).map((id) => pokemonById.get(id)).filter(Boolean);
+    const settings = ensureRoutePokemonSettings(route);
+    $("#pokemon-map-location").innerHTML = `<b>${escapeHtml(routeDisplayName(route))}</b><span>${entries.length}종 · ${settings.inherit_biome ? `바이옴 상속, ${settings.excluded_species.length}종 제외` : "바이옴 미사용"} · ${settings.additions.length}종 직접 추가</span>${state.worldDirty ? "<small>저장하지 않은 길 설정을 미리 표시하고 있습니다.</small>" : ""}`;
   } else if (!selected) {
     $("#pokemon-map-location").innerHTML = `<b>지역을 선택하세요</b><span>지도 타일을 누르면 해당 위치의 포켓몬을 볼 수 있습니다.</span>`;
   } else if (!location) {
@@ -1305,7 +1509,7 @@ function renderRouteCreator() {
   $("#route-manager-list").innerHTML = routes.length ? routes.map((route) => {
     const fromName = route.from ? settlementSummary(route.from)?.name || route.from.split("/").pop() : "직접";
     const toName = route.to ? settlementSummary(route.to)?.name || route.to.split("/").pop() : "그리기";
-    return `<article class="route-manager-item"><button type="button" class="route-focus" data-focus-route="${escapeHtml(route.id)}"><b>${escapeHtml(route.id)}</b><span>${escapeHtml(fromName)} → ${escapeHtml(toName)}</span><small>${escapeHtml(route.surface_style)} · ${connectionPath(route).length}칸</small></button><label><span>도로 BGM</span><select data-route-music="${escapeHtml(route.id)}">${musicOptions(route.music_track || "", "road")}</select></label><button type="button" class="route-delete" data-delete-route="${escapeHtml(route.id)}" aria-label="${escapeHtml(route.id)} 삭제">×</button></article>`;
+    return `<article class="route-manager-item"><button type="button" class="route-focus" data-focus-route="${escapeHtml(route.id)}"><b>${escapeHtml(routeDisplayName(route))}</b><span>${escapeHtml(fromName)} → ${escapeHtml(toName)}</span><small>${escapeHtml(route.id)} · ${escapeHtml(route.surface_style)} · ${connectionPath(route).length}칸</small></button><label><span>도로 BGM</span><select data-route-music="${escapeHtml(route.id)}">${musicOptions(route.music_track || "", "road")}</select></label><button type="button" class="route-delete" data-delete-route="${escapeHtml(route.id)}" aria-label="${escapeHtml(routeDisplayName(route))} 삭제">×</button></article>`;
   }).join("") : '<p class="route-list-empty">아직 배치된 길이 없습니다.</p>';
   $$('[data-delete-route]').forEach((button) => button.addEventListener("click", () => removeRouteConnection(button.dataset.deleteRoute)));
   $$('[data-focus-route]').forEach((button) => button.addEventListener("click", () => focusRoute(button.dataset.focusRoute)));
@@ -1368,7 +1572,7 @@ function focusRoute(routeId, center = true) {
   const cells = route ? connectionPath(route) : [];
   if (!cells.length) return;
   state.selectedRouteId = routeId;
-  state.selectedHex = { ...cells[0] };
+  state.selectedHex = null;
   if (center) {
     const points = cells.map((cell) => hexPoint(cell.q, cell.r));
     state.mapCenter = { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length };
@@ -1475,6 +1679,21 @@ function handleTileInspectorChange(event) {
   applyTilePlacement();
 }
 
+function handleRouteInspectorInput(event) {
+  const route = selectedRoute(); if (!route) return;
+  if (event.target.name === "displayName") {
+    const value = event.target.value.trim();
+    if (value) route.display_name = value; else delete route.display_name;
+    $("#selected-tile-title").textContent = routeDisplayName(route);
+  } else if (event.target.name === "surfaceStyle") route.surface_style = event.target.value;
+  else if (event.target.name === "corridorWidth") route.corridor_width_blocks = Math.max(12, Math.min(256, Number(event.target.value) || 12));
+  else if (event.target.name === "musicTrack") {
+    if (event.target.value) route.music_track = event.target.value; else delete route.music_track;
+  } else return;
+  markWorldDirty();
+  if (event.type === "change" || event.target.name !== "displayName") { renderHexMap(); renderTileInspector(); renderRouteCreator(); }
+}
+
 function beginRouteAnchorDrag(event, routeId, index, locked) {
   event.preventDefault(); event.stopPropagation();
   if (locked) { toast("마을에 연결된 시작·도착 앵커는 고정됩니다."); return; }
@@ -1488,7 +1707,7 @@ function moveRouteAnchorDrag(event) {
   if (!owner) return true;
   owner.anchors ||= connectionAnchors(owner).map((anchor) => ({ ...anchor }));
   const anchor = owner.anchors[drag.index]; if (!anchor || (anchor.q === target.q && anchor.r === target.r)) return true;
-  owner.anchors[drag.index] = target; owner.cells = routeCellsFromAnchors(owner.anchors); drag.changed = true; state.selectedHex = target; renderHexMap(); return true;
+  owner.anchors[drag.index] = target; owner.cells = routeCellsFromAnchors(owner.anchors); drag.changed = true; renderHexMap(); return true;
 }
 function finishRouteAnchorDrag(event) {
   const drag = state.routeAnchorDrag; if (!drag || drag.pointerId !== event.pointerId) return false;
@@ -8057,14 +8276,45 @@ async function runBuild(command) {
 }
 
 async function refreshAll() {
-  try {
-    await Promise.all([loadDashboard(), loadLists()]);
-    const activeSection = $(".nav-item.is-active")?.dataset.section || "dashboard";
-    await loadSectionData(activeSection, true);
-    $("#server-dot").classList.add("online"); $("#server-label").textContent = "서버 연결됨";
-  } catch (error) {
-    $("#server-dot").classList.remove("online"); $("#server-label").textContent = "연결 실패"; toast(error.message);
+  showProjectLoading(state.project ? `${state.project.name} 기본 데이터 불러오는 중…` : "프로젝트 데이터 불러오는 중…");
+  $("#server-dot").classList.remove("online");
+  $("#server-label").textContent = "프로젝트 데이터 로드 중";
+  const dashboardPromise = loadDashboard();
+  const listsPromise = loadLists();
+  const nbtPromise = Promise.all([loadStructureData(), loadBuildingSettingsData()]);
+  listsPromise.then(() => {
+    $("#server-dot").classList.add("online");
+    $("#server-label").textContent = "기본 데이터 로드됨 · NBT 준비 중";
+    updateProjectLoading("기본 목록 준비 완료 · NBT 불러오는 중…");
+  }, () => {
+    $("#server-dot").classList.add("online");
+    $("#server-label").textContent = "일부 데이터 로드 실패";
+  });
+  nbtPromise.then(() => {
+    $("#server-label").textContent = "프로젝트 데이터 로드됨 · 검증 중";
+    updateProjectLoading("NBT 준비 완료 · 화면 여는 중…");
+  }, () => {
+    $("#server-label").textContent = "일부 데이터 로드 실패";
+  });
+  Promise.allSettled([listsPromise, nbtPromise]).then(() => hideProjectLoading());
+  const [dashboardResult, listsResult, nbtResult] = await Promise.allSettled([
+    dashboardPromise, listsPromise, nbtPromise
+  ]);
+  const errors = [dashboardResult, listsResult, nbtResult]
+    .filter((result) => result.status === "rejected")
+    .map((result) => result.reason?.message || "알 수 없는 로드 오류");
+  if (dashboardResult.status === "rejected") {
+    $("#dashboard-issues").className = "issues";
+    $("#dashboard-issues").textContent = dashboardResult.reason?.message || "검증 결과를 불러오지 못했습니다.";
   }
+  if (listsResult.status === "fulfilled") {
+    const activeSection = $(".nav-item.is-active")?.dataset.section || "dashboard";
+    try { await loadSectionData(activeSection, true); }
+    catch (error) { errors.push(error.message); }
+  }
+  $("#server-dot").classList.add("online");
+  $("#server-label").textContent = errors.length ? "일부 데이터 로드 실패" : "서버 연결됨";
+  if (errors.length) toast(errors[0].split("\n")[0]);
 }
 
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchPage(button.dataset.section)));
@@ -8241,7 +8491,7 @@ $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
     button.textContent = "NBT 목록 갱신";
   }
 });
-$("#refresh-button").addEventListener("click", refreshAll);
+$("#refresh-button").addEventListener("click", () => refreshAll());
 $("#open-project").addEventListener("click", openProjectDialog);
 $("#project-form").addEventListener("submit", loadProject);
 $("#pick-project-folder").addEventListener("click", pickProjectFolder);
@@ -8255,6 +8505,7 @@ $("#add-game-item").addEventListener("click", () => addGameDefinition("item"));
 $("#add-game-variable").addEventListener("click", () => addGameDefinition("variable"));
 $("#save-game-definitions").addEventListener("click", saveGameDefinitions);
 $("#save-music-settings").addEventListener("click", saveMusicSettings);
+$("#refresh-music-library").addEventListener("click", refreshMusicLibrary);
 $("#definitions").addEventListener("input", handleDefinitionInput);
 $("#definitions").addEventListener("change", handleDefinitionInput);
 $("#definitions").addEventListener("click", handleDefinitionClick);
@@ -8374,6 +8625,38 @@ $("#tile-inspector-form").addEventListener("change", (event) => {
   if (["objectType", "objectGateMode", "objectBuildingEnabled", "objectSurroundingType"].includes(event.target.name)) updateGateOptionVisibility();
   handleTileInspectorChange(event);
 });
+$("#route-inspector-form").addEventListener("input", handleRouteInspectorInput);
+$("#route-inspector-form").elements.displayName.addEventListener("change", handleRouteInspectorInput);
+$("#edit-route-pokemon").addEventListener("click", openRoutePokemonDialog);
+$("#delete-selected-route").addEventListener("click", () => {
+  const route = selectedRoute();
+  if (route) removeRouteConnection(route.id);
+});
+$("#route-inherit-biome").addEventListener("change", (event) => {
+  const route = selectedRoute(); if (!route) return;
+  ensureRoutePokemonSettings(route).inherit_biome = event.target.checked;
+  markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
+});
+$("#route-biome-pokemon-search").addEventListener("input", (event) => {
+  state.routePokemonQuery = event.target.value.trim(); renderRoutePokemonDialog();
+});
+$("#route-biome-pokemon-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-route-biome-species]");
+  if (button) toggleRouteBiomePokemon(button.dataset.routeBiomeSpecies);
+});
+$("#add-route-pokemon").addEventListener("click", addRoutePokemon);
+$("#route-custom-pokemon-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") { event.preventDefault(); addRoutePokemon(); }
+});
+$("#route-custom-pokemon-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-route-pokemon]");
+  if (button) removeRoutePokemon(Number(button.dataset.removeRoutePokemon));
+});
+$("#route-custom-pokemon-list").addEventListener("change", (event) => {
+  const field = event.target.dataset.routeLevel;
+  const card = event.target.closest("[data-route-addition-index]");
+  if (field && card) changeRoutePokemonLevel(Number(card.dataset.routeAdditionIndex), field, event.target.value);
+});
 $("#clear-tile").addEventListener("click", clearSelectedTile);
 $$('[data-pokemon-map-tab]').forEach((button) => button.addEventListener("click", () => { state.pokemonMapTab = button.dataset.pokemonMapTab; renderWorldPokemonPanel(); }));
 $("#pokemon-map-search").addEventListener("input", (event) => { state.pokemonMapQuery = event.target.value.trim(); renderWorldPokemonPanel(); });
@@ -8483,6 +8766,7 @@ $("#economy-pokemon-generation").addEventListener("change", (event) => updateEco
 $("#economy-pokemon-limit").addEventListener("change", (event) => updateEconomyView("pokemonLimit", Number(event.target.value)));
 
 loadActiveProject().then(refreshAll).catch((error) => {
+  hideProjectLoading();
   $("#server-dot").classList.remove("online");
   $("#server-label").textContent = "연결 실패";
   toast(error.message);

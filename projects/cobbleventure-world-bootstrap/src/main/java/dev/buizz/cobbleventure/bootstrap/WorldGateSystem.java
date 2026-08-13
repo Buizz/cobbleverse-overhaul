@@ -1,5 +1,8 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexCoord;
+import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexGrid;
+
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonArray;
@@ -57,7 +60,7 @@ final class WorldGateSystem {
             }
             gates.add(new Gate(
                 requiredString(value, "id"),
-                new CobbleventureBootstrap.HexCoord(
+                new HexCoord(
                     anchor.get("q").getAsInt(), anchor.get("r").getAsInt()
                 ),
                 nullableString(value, "resource"),
@@ -104,7 +107,7 @@ final class WorldGateSystem {
     }
 
     static void placeAll(
-        ServerLevel level, CobbleventureBootstrap.HexGrid grid, List<Gate> gates
+        ServerLevel level, HexGrid grid, List<Gate> gates
     ) {
         for (Gate gate : gates) {
             place(level, grid, gate);
@@ -112,7 +115,7 @@ final class WorldGateSystem {
     }
 
     private static void place(
-        ServerLevel level, CobbleventureBootstrap.HexGrid grid, Gate gate
+        ServerLevel level, HexGrid grid, Gate gate
     ) {
         if (gate.gateMode().equals("system_only")) {
             return;
@@ -251,7 +254,7 @@ final class WorldGateSystem {
     }
 
     static void tick(
-        ServerPlayer player, CobbleventureBootstrap.HexGrid grid,
+        ServerPlayer player, HexGrid grid,
         List<Gate> gates, long gameTime
     ) {
         Vec3 previous = LAST_POSITIONS.put(player.getUUID(), player.position());
@@ -298,7 +301,7 @@ final class WorldGateSystem {
     }
 
     private static void rejectFromSystemGate(
-        ServerPlayer player, CobbleventureBootstrap.HexGrid grid,
+        ServerPlayer player, HexGrid grid,
         Gate gate, Vec3 previous, long gameTime
     ) {
         double x = previous.x;
@@ -338,7 +341,7 @@ final class WorldGateSystem {
     static int teleportToGate(
         ServerLevel level,
         Iterable<? extends Entity> targets,
-        CobbleventureBootstrap.HexGrid grid,
+        HexGrid grid,
         List<Gate> gates,
         String gateId,
         String side
@@ -471,7 +474,7 @@ final class WorldGateSystem {
 
     record Gate(
         String id,
-        CobbleventureBootstrap.HexCoord anchor,
+        HexCoord anchor,
         String structure,
         int rotation,
         String facing,

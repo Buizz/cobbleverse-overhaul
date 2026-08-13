@@ -9,6 +9,15 @@
     <link rel="stylesheet" href="/economy.css">
   </head>
   <body>
+    <div id="project-loading-overlay" class="project-loading-overlay" role="status" aria-live="polite" aria-busy="true">
+      <div class="project-loading-card">
+        <span class="project-loading-spinner" aria-hidden="true"></span>
+        <div>
+          <strong id="project-loading-title">프로젝트를 불러오는 중입니다</strong>
+          <small id="project-loading-detail">프로젝트 정보 확인 중…</small>
+        </div>
+      </div>
+    </div>
     <aside class="sidebar">
       <div class="brand">
         <span class="brand-mark">CV</span>
@@ -60,7 +69,7 @@
 
       <section class="page" id="trainers">
         <div class="workspace-grid">
-          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">NPC INTERACTIONS</p><h2>NPC 목록</h2></div><div class="list-tools"><span class="count-pill" id="trainer-list-count">0</span><button class="mini-button" data-create="trainers">＋</button></div></div><div id="trainer-list" class="list-body"></div></aside>
+          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">NPC INTERACTIONS</p><h2>NPC 목록</h2></div><div class="list-tools"><span class="count-pill" id="trainer-list-count">…</span><button class="mini-button" data-create="trainers">＋</button></div></div><div id="trainer-list" class="list-body"><div class="issues empty">프로젝트의 NPC 목록을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel">
             <div class="panel-heading"><div><p class="eyebrow">NPC INTERACTION</p><h2 id="trainer-editor-title">NPC를 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="trainer-path">—</span><div><button class="button danger" id="delete-trainer" disabled>NPC 삭제</button><button class="button secondary" id="validate-trainer" disabled>문서 검증</button><button class="button primary" id="save-trainer" disabled>검증 후 저장</button></div></div></div>
             <form id="trainer-form" class="form-grid trainer-form">
@@ -124,8 +133,8 @@
       <section class="page" id="battles">
         <div class="workspace-grid">
           <aside class="document-list panel">
-            <div class="panel-heading"><div><p class="eyebrow">BATTLE PRESETS</p><h2>배틀 프리셋 목록</h2></div><div class="list-tools"><span class="count-pill" id="battle-list-count">0</span><button class="mini-button" data-create="battles">＋</button></div></div>
-            <div id="battle-list" class="list-body"></div>
+            <div class="panel-heading"><div><p class="eyebrow">BATTLE PRESETS</p><h2>배틀 프리셋 목록</h2></div><div class="list-tools"><span class="count-pill" id="battle-list-count">…</span><button class="mini-button" data-create="battles">＋</button></div></div>
+            <div id="battle-list" class="list-body"><div class="issues empty">프로젝트의 배틀 프리셋을 불러오는 중입니다.</div></div>
           </aside>
           <div class="editor panel">
             <div class="panel-heading"><div><p class="eyebrow">TEAM / AI / RULES</p><h2 id="battle-editor-title">배틀 프리셋을 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="battle-path">—</span><div><button class="button danger" id="delete-battle" disabled>프리셋 삭제</button><button class="button secondary" id="validate-battle" disabled>문서 검증</button><button class="button primary" id="save-battle" disabled>검증 후 저장</button></div></div></div>
@@ -291,7 +300,7 @@
               <div class="map-status"><span id="map-tile-count">0개 타일</span><span id="map-interaction-help">선택 도구 · 빈 지도 드래그: 이동 · 마을 드래그: 마을 이동</span></div>
             </div>
             <aside class="tile-inspector" aria-live="polite">
-              <div class="tile-inspector-head"><div><p class="eyebrow">SELECTED TILE</p><h3 id="selected-tile-title">타일을 선택하세요</h3></div><span id="selected-tile-coord">Q — · R —</span></div>
+              <div class="tile-inspector-head"><div><p class="eyebrow" id="selection-inspector-kind">SELECTED TILE</p><h3 id="selected-tile-title">타일을 선택하세요</h3></div><span id="selected-tile-coord">Q — · R —</span></div>
               <div id="tile-inspector-empty" class="tile-inspector-empty"><b>⌁</b><p>지도에서 육각형 타일을 누르면<br>배치 정보를 편집할 수 있습니다.</p></div>
               <form id="tile-inspector-form" class="tile-inspector-form" hidden>
                 <fieldset><legend>이 타일의 기본 지형·오브젝트</legend><div class="placement-switch"><label><input type="radio" name="kind" value="empty"><span>빈 타일</span></label><label><input type="radio" name="kind" value="biome"><span>바이옴</span></label><label><input type="radio" name="kind" value="settlement"><span>마을</span></label><label><input type="radio" name="kind" value="object"><span>오브젝트</span></label></div></fieldset>
@@ -307,6 +316,15 @@
                 <section class="route-overlay-panel" id="route-overlay-panel" hidden><div><b>길 오버레이</b><small>기본 바이옴 위에 겹쳐진 연결입니다.</small></div><div id="route-overlay-list"></div></section>
                 <div class="tile-summary" id="tile-summary"></div>
                 <button class="button secondary tile-clear" id="clear-tile" type="button">타일 비우기</button>
+              </form>
+              <form id="route-inspector-form" class="tile-inspector-form route-inspector-form" hidden>
+                <div class="route-inspector-badge"><span>길 속성</span><b id="route-inspector-id">route</b></div>
+                <label><span>표시 이름</span><input name="displayName" maxlength="100" placeholder="예: 1번 도로"><small>지도와 지역 진입 표시에 사용할 이름입니다.</small></label>
+                <div class="inline-fields"><label><span>길 종류</span><select name="surfaceStyle"><option value="road">도로</option><option value="natural">자연 통로</option><option value="water">수로</option></select></label><label><span>통로 폭</span><input name="corridorWidth" type="number" min="12" max="256"></label></div>
+                <label><span>도로 BGM</span><select name="musicTrack"></select><small id="route-music-resolution">비워 두면 도로 기본값을 상속합니다.</small></label>
+                <section class="route-pokemon-summary"><div><span>서식 포켓몬</span><b id="route-pokemon-count">0종</b></div><p id="route-pokemon-description">기존 바이옴 출현 목록을 사용합니다.</p><button class="button primary" id="edit-route-pokemon" type="button">포켓몬 수정</button></section>
+                <div class="tile-summary" id="route-summary"></div>
+                <button class="button danger tile-clear" id="delete-selected-route" type="button">선택한 길 삭제</button>
               </form>
               <section class="pokemon-map-panel" id="pokemon-map-panel">
                 <div class="pokemon-map-heading">
@@ -327,13 +345,23 @@
               </div>
             </aside>
           </div>
+          <dialog id="route-pokemon-dialog" class="route-pokemon-dialog">
+            <form method="dialog" class="route-pokemon-dialog-shell">
+              <header><div><p class="eyebrow">ROUTE HABITAT</p><h2 id="route-pokemon-dialog-title">길 포켓몬 편집</h2><span id="route-pokemon-dialog-subtitle"></span></div><button value="close" class="dialog-close" aria-label="닫기">×</button></header>
+              <div class="route-pokemon-layout">
+                <section class="route-biome-pokemon"><div class="route-pokemon-section-head"><div><b>기존 바이옴 포켓몬</b><small>길이 지나는 바이옴의 출현 목록입니다.</small></div><label class="route-inherit-toggle"><input id="route-inherit-biome" type="checkbox"><span>기존 바이옴 포켓몬 사용</span></label></div><label class="route-pokemon-search"><span>목록 검색</span><input id="route-biome-pokemon-search" type="search" placeholder="이름·도감 번호"></label><div id="route-biome-pokemon-list" class="route-biome-pokemon-list"></div></section>
+                <section class="route-custom-pokemon"><div class="route-pokemon-section-head"><div><b>새 포켓몬 추가</b><small>바이옴 목록과 관계없이 이 길에서 출현합니다.</small></div><span id="route-custom-pokemon-count">0종</span></div><div class="route-pokemon-add"><label><span>포켓몬 검색</span><input id="route-custom-pokemon-input" list="route-pokemon-options" placeholder="이름 또는 cobblemon:id"></label><datalist id="route-pokemon-options"></datalist><button type="button" class="button primary" id="add-route-pokemon">추가</button></div><div id="route-custom-pokemon-list" class="route-custom-pokemon-list"></div></section>
+              </div>
+              <footer><span>변경 사항은 월드 저장 버튼을 눌러야 파일에 반영됩니다.</span><button value="close" class="button primary">완료</button></footer>
+            </form>
+          </dialog>
           <div id="world-layout-issues" class="issues empty">월드 지도를 불러오는 중입니다.</div>
         </div>
       </section>
 
       <section class="page" id="caves">
         <div class="workspace-grid">
-          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">CAVE DEFINITIONS</p><h2>동굴 관리</h2></div><div class="list-tools"><span class="count-pill" id="cave-list-count">0</span><button class="mini-button" data-create="caves">＋</button></div></div><div id="cave-list" class="list-body"></div></aside>
+          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">CAVE DEFINITIONS</p><h2>동굴 관리</h2></div><div class="list-tools"><span class="count-pill" id="cave-list-count">…</span><button class="mini-button" data-create="caves">＋</button></div></div><div id="cave-list" class="list-body"><div class="issues empty">프로젝트의 동굴 목록을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel" id="selected-cave-editor">
             <div class="panel-heading"><div><p class="eyebrow">CAVE SETTINGS</p><h2 id="cave-editor-title">동굴을 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="cave-path">—</span><div><button class="button danger" id="delete-cave" disabled>동굴 삭제</button><button class="button secondary" id="validate-cave" disabled>문서 검증</button><button class="button primary" id="save-cave" disabled>동굴 저장</button></div></div></div>
             <form id="cave-form" class="form-grid">
@@ -370,7 +398,7 @@
 
       <section class="page" id="settlements">
         <div class="workspace-grid">
-          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">SETTLEMENT PRESETS</p><h2>마을 프리셋</h2></div><div class="list-tools"><span class="count-pill" id="settlement-list-count">0</span><button class="mini-button" data-create="settlements">＋</button></div></div><div id="settlement-list" class="list-body"></div></aside>
+          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">SETTLEMENT PRESETS</p><h2>마을 프리셋</h2></div><div class="list-tools"><span class="count-pill" id="settlement-list-count">…</span><button class="mini-button" data-create="settlements">＋</button></div></div><div id="settlement-list" class="list-body"><div class="issues empty">프로젝트의 마을 프리셋을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel" id="selected-settlement-editor">
             <div class="panel-heading settlement-editor-heading"><div><p class="eyebrow">PRESET SETTINGS</p><h2 id="settlement-editor-title">마을 프리셋을 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="settlement-path">—</span><div><button class="button danger" id="delete-settlement" disabled>마을 삭제</button><button class="button secondary" id="validate-settlement" disabled>문서 검증</button><button class="button primary" id="save-settlement" disabled>마을 프리셋 저장</button></div></div></div>
             <form id="settlement-form" class="form-grid">
@@ -402,7 +430,7 @@
 
       <section class="page" id="gyms">
         <div class="workspace-grid">
-          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">GYM CATALOG</p><h2>체육관</h2></div><div class="list-tools"><span class="count-pill" id="gym-list-count">0</span><button class="mini-button" id="add-gym" type="button">＋</button></div></div><div id="gym-list" class="list-body"></div></aside>
+          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">GYM CATALOG</p><h2>체육관</h2></div><div class="list-tools"><span class="count-pill" id="gym-list-count">…</span><button class="mini-button" id="add-gym" type="button">＋</button></div></div><div id="gym-list" class="list-body"><div class="issues empty">프로젝트의 체육관 목록을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel">
             <div class="panel-heading"><div><p class="eyebrow">MODULAR GYM</p><h2 id="gym-editor-title">체육관을 선택하세요</h2></div><div class="editor-heading-actions"><div><button class="button danger" id="delete-gym" disabled>체육관 삭제</button><button class="button secondary" id="preview-gym-exterior" disabled>NBT 외관 미리보기</button><button class="button primary" id="save-gyms">체육관 저장</button></div></div></div>
             <form id="gym-form" class="form-grid">
@@ -562,7 +590,7 @@
 
       <section class="page" id="music">
         <div class="panel editor">
-          <div class="panel-heading"><div><p class="eyebrow">MUSIC RESOLUTION</p><h2>상황별 기본 음악</h2><p>개별 배정이 없을 때 재생할 곡을 지정합니다.</p></div><button class="button primary" id="save-music-settings">음악 기본값 저장</button></div>
+          <div class="panel-heading"><div><p class="eyebrow">MUSIC RESOLUTION</p><h2>상황별 기본 음악</h2><p>개별 배정이 없을 때 재생할 곡을 지정합니다.</p></div><div class="editor-heading-actions"><button class="button secondary" id="refresh-music-library">로컬 음원 다시 읽기</button><button class="button primary" id="save-music-settings">음악 기본값 저장</button></div></div>
           <form id="music-defaults-form" class="form-grid">
             <label><span>일반 타일 기본 BGM</span><select name="tile"></select></label>
             <label><span>도로 기본 BGM</span><select name="road"></select></label>
@@ -570,7 +598,7 @@
             <label><span>일반 배틀 기본 BGM</span><select name="battle"></select></label>
             <label><span>체육관 배틀 기본 BGM</span><select name="gym"></select></label>
           </form>
-          <div class="subsection-heading"><div><p class="eyebrow">ACTIVE TRACKS</p><h3>사용 가능한 음악</h3><small>검토 대기 곡은 선택지에 나타나지 않습니다.</small></div><span class="count-pill" id="music-track-count">0</span></div>
+          <div class="subsection-heading"><div><p class="eyebrow">LOCAL MUSIC LIBRARY</p><h3>사용 가능한 음악</h3><small id="music-library-path">로컬 music 폴더의 OGG 파일을 자동으로 등록합니다. 리소스팩에는 실제 배정된 곡만 포함됩니다.</small></div><span class="count-pill" id="music-track-count">0</span></div>
           <div id="music-track-list" class="definition-list"></div>
           <div id="music-issues" class="issues empty">음악 카탈로그를 불러오는 중입니다.</div>
         </div>
