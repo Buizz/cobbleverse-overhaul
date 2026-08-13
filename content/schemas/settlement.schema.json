@@ -414,7 +414,7 @@
       "properties": {
         "width": { "enum": [3, 5, 7, 9] },
         "material": {
-          "enum": ["cobblestone", "stone_bricks", "gravel", "packed_mud", "sandstone", "snow"]
+          "enum": ["cobblestone", "stone_bricks", "bricks", "grass_path", "gravel", "packed_mud", "sandstone", "snow"]
         }
       }
     },

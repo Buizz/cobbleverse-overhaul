@@ -183,7 +183,8 @@
       "properties": {
         "base_height_offset": { "type": "integer", "minimum": -48, "maximum": 32 },
         "height_variation": { "type": "integer", "minimum": 0, "maximum": 8 },
-        "noise_scale_blocks": { "type": "number", "minimum": 16, "maximum": 512 }
+        "noise_scale_blocks": { "type": "number", "minimum": 16, "maximum": 512 },
+        "connection_height": { "type": "integer", "minimum": -8, "maximum": 8, "default": 0 }
       }
     },
     "biome_region": {
@@ -333,6 +334,7 @@
       ],
       "properties": {
         "facing": { "enum": ["north", "east", "south", "west"] },
+        "gate_mode": { "enum": ["classic", "npc_only", "system_only"] },
         "building_enabled": { "type": "boolean" },
         "surrounding_type": { "enum": ["wall", "trees", "none"] },
         "wall_block": { "$ref": "#/$defs/resource_id" },
@@ -353,12 +355,20 @@
       "allOf": [{
         "if": {
           "properties": {
-            "building_enabled": { "const": false },
-            "surrounding_type": { "const": "none" }
+            "gate_mode": { "const": "npc_only" }
           },
-          "required": ["building_enabled", "surrounding_type"]
+          "required": ["gate_mode"]
         },
         "then": { "required": ["npc"] }
+      }, {
+        "if": {
+          "properties": { "gate_mode": { "const": "system_only" } },
+          "required": ["gate_mode"]
+        },
+        "then": {
+          "required": ["deny_message"],
+          "properties": { "conditions": { "minItems": 1 } }
+        }
       }]
     },
     "gate_condition": {

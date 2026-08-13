@@ -1,0 +1,7 @@
+{
+  "schema": "cobbleventure-content-project",
+  "version": 1,
+  "id": "cobbleventure-main",
+  "name": "Cobbleventure Main",
+  "contentDirectory": "content"
+}

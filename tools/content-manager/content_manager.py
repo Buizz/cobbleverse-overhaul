@@ -33,6 +33,25 @@ MOD_ID = re.compile(r"^[a-z][a-z0-9_-]*$")
 CHOICE_ID = re.compile(r"^[a-z0-9_.-]+$")
 DOCUMENT_SLUG = re.compile(r"^[a-z0-9][a-z0-9_]*$")
 LANGUAGE_ID = re.compile(r"^[a-z]{2}_[a-z]{2}$")
+PROJECT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+PROJECT_MANIFEST_NAME = "project.json"
+PROJECT_SCHEMA = "cobbleventure-content-project"
+PROJECT_VERSION = 1
+PROJECT_FOLDER_PICKER_SCRIPT = r'''
+Add-Type -AssemblyName System.Windows.Forms
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$dialog.Description = "코블벤처 프로젝트 폴더 선택"
+$dialog.ShowNewFolderButton = $false
+if ($env:COBBLEVENTURE_PROJECT_PATH -and (Test-Path -LiteralPath $env:COBBLEVENTURE_PROJECT_PATH -PathType Container)) {
+  $dialog.SelectedPath = (Resolve-Path -LiteralPath $env:COBBLEVENTURE_PROJECT_PATH).Path
+}
+$result = $dialog.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+  [Console]::Write($dialog.SelectedPath)
+}
+$dialog.Dispose()
+'''
 STAT_NAMES = {
     "hp",
     "attack",
@@ -86,6 +105,71 @@ AI_DIFFICULTIES = {
     "expert_search",
     "cheater",
 }
+
+
+@dataclass(frozen=True)
+class ContentProject:
+    root: Path
+    id: str
+    name: str
+    is_default: bool = False
+
+    def as_json(self) -> dict[str, Any]:
+        return {
+            "schema": PROJECT_SCHEMA,
+            "version": PROJECT_VERSION,
+            "id": self.id,
+            "name": self.name,
+            "path": str(self.root),
+            "content_directory": "content",
+            "is_default": self.is_default,
+        }
+
+
+def load_content_project(
+    path: Path, *, default_root: Path | None = None, require_manifest: bool = True
+) -> ContentProject:
+    root = path.expanduser().resolve()
+    if not root.is_dir():
+        raise ValueError("프로젝트 폴더를 찾을 수 없습니다.")
+    manifest_path = root / PROJECT_MANIFEST_NAME
+    if not manifest_path.is_file():
+        if require_manifest:
+            raise ValueError(f"{PROJECT_MANIFEST_NAME}이 있는 코블벤처 프로젝트 폴더를 선택해 주세요.")
+        project_id = re.sub(r"[^a-z0-9_-]+", "-", root.name.lower()).strip("-")
+        return ContentProject(
+            root=root,
+            id=project_id or "cobbleventure-main",
+            name="Cobbleventure Main",
+            is_default=default_root is not None and root == default_root.resolve(),
+        )
+    try:
+        manifest = load_json(manifest_path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        raise ValueError(f"프로젝트 명세를 읽을 수 없습니다: {error}") from error
+    if not isinstance(manifest, dict):
+        raise ValueError("project.json 최상위 값은 객체여야 합니다.")
+    if manifest.get("schema") != PROJECT_SCHEMA:
+        raise ValueError(f"project.json schema는 {PROJECT_SCHEMA}이어야 합니다.")
+    if manifest.get("version") != PROJECT_VERSION:
+        raise ValueError(f"지원하지 않는 프로젝트 버전입니다: {manifest.get('version')}")
+    project_id = manifest.get("id")
+    name = manifest.get("name")
+    content_directory = manifest.get("contentDirectory", "content")
+    if not isinstance(project_id, str) or not PROJECT_ID.fullmatch(project_id):
+        raise ValueError("프로젝트 ID는 소문자, 숫자, 밑줄과 하이픈만 사용할 수 있습니다.")
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("프로젝트 이름이 필요합니다.")
+    if content_directory != "content":
+        raise ValueError("현재 프로젝트의 contentDirectory는 content여야 합니다.")
+    if not (root / "content").is_dir():
+        raise ValueError("프로젝트 폴더 안에 content 폴더가 필요합니다.")
+    return ContentProject(
+        root=root,
+        id=project_id,
+        name=name.strip(),
+        is_default=default_root is not None and root == default_root.resolve(),
+    )
 OPERATION_TYPES = {
     "always",
     "flag_equals",
@@ -99,6 +183,7 @@ OPERATION_TYPES = {
     "give_money",
     "take_money",
     "grant_loot",
+    "grant_field_move",
     "start_quest",
     "complete_quest",
     "teleport",
@@ -310,12 +395,16 @@ def validate_hex_worlds(
         offset = value.get("base_height_offset")
         variation = value.get("height_variation")
         scale = value.get("noise_scale_blocks")
+        connection_height = value.get("connection_height", 0)
         if not isinstance(offset, int) or isinstance(offset, bool) or not -48 <= offset <= 32:
             _issue(issues, "error", file, f"{data_path}.base_height_offset", "-48 이상 32 이하의 정수가 필요합니다.")
         if not isinstance(variation, int) or isinstance(variation, bool) or not 0 <= variation <= 8:
             _issue(issues, "error", file, f"{data_path}.height_variation", "0 이상 8 이하의 정수가 필요합니다.")
         if not isinstance(scale, (int, float)) or isinstance(scale, bool) or not 16 <= scale <= 512:
             _issue(issues, "error", file, f"{data_path}.noise_scale_blocks", "16 이상 512 이하의 노이즈 크기가 필요합니다.")
+        if (not isinstance(connection_height, int) or isinstance(connection_height, bool)
+                or not -8 <= connection_height <= 8):
+            _issue(issues, "error", file, f"{data_path}.connection_height", "-8 이상 8 이하의 연결 높이 단계가 필요합니다.")
 
     def validate_access(value: Any, file: Path, data_path: str) -> None:
         if value is not None and (not isinstance(value, str) or not RESOURCE_ID.fullmatch(value)):
@@ -780,6 +869,9 @@ def validate_hex_worlds(
                 _issue(issues, "error", path, f"{object_path}.rotation", "관문 NBT 회전은 0~3이어야 합니다.")
             if properties.get("facing") not in {"north", "east", "south", "west"}:
                 _issue(issues, "error", path, f"{object_path}.properties.facing", "관문 방향은 north/east/south/west 중 하나여야 합니다.")
+            gate_mode = properties.get("gate_mode", "classic")
+            if gate_mode not in {"classic", "npc_only", "system_only"}:
+                _issue(issues, "error", path, f"{object_path}.properties.gate_mode", "관문 방식은 classic, npc_only, system_only 중 하나여야 합니다.")
             if properties.get("surrounding_type", "wall") not in {"wall", "trees", "none"}:
                 _issue(issues, "error", path, f"{object_path}.properties.surrounding_type", "주변 차단물은 wall, trees, none 중 하나여야 합니다.")
             surrounding_type = properties.get("surrounding_type", "wall")
@@ -807,12 +899,24 @@ def validate_hex_worlds(
             npc = properties.get("npc")
             if npc is not None and (not isinstance(npc, str) or not RESOURCE_ID.fullmatch(npc)):
                 _issue(issues, "error", path, f"{object_path}.properties.npc", "올바른 EasyNPC 프리셋 리소스 ID가 필요합니다.")
-            if building_enabled is False and surrounding_type == "none" and npc is None:
-                _issue(issues, "error", path, f"{object_path}.properties.npc", "건물과 주변 차단물이 없는 관문에는 NPC 프리셋이 필요합니다.")
+            if gate_mode == "npc_only" and npc is None:
+                _issue(issues, "error", path, f"{object_path}.properties.npc", "NPC 전용 관문에는 NPC 프리셋이 필요합니다.")
+            if gate_mode == "system_only":
+                if npc is not None:
+                    _issue(issues, "error", path, f"{object_path}.properties.npc", "시스템 전용 관문에는 NPC를 지정할 수 없습니다.")
+                if building_enabled is not False or surrounding_type != "none":
+                    _issue(issues, "error", path, f"{object_path}.properties", "시스템 전용 관문은 건물과 주변 지형을 생성할 수 없습니다.")
+            deny_message = properties.get("deny_message")
+            if deny_message is not None and (not isinstance(deny_message, str) or not deny_message.strip() or len(deny_message) > 256):
+                _issue(issues, "error", path, f"{object_path}.properties.deny_message", "차단 문구는 1~256자의 문자열이어야 합니다.")
+            if gate_mode == "system_only" and deny_message is None:
+                _issue(issues, "error", path, f"{object_path}.properties.deny_message", "시스템 전용 관문에는 차단 문구가 필요합니다.")
             conditions = properties.get("conditions")
             if not isinstance(conditions, list):
                 _issue(issues, "error", path, f"{object_path}.properties.conditions", "관문 조건 배열이 필요합니다.")
                 continue
+            if gate_mode == "system_only" and not conditions:
+                _issue(issues, "error", path, f"{object_path}.properties.conditions", "시스템 전용 관문에는 통과 조건이 하나 이상 필요합니다.")
             for condition_index, condition in enumerate(conditions):
                 condition_path = f"{object_path}.properties.conditions[{condition_index}]"
                 if not isinstance(condition, dict):
@@ -890,6 +994,7 @@ def validate_biome_catalogs(root: Path) -> list[Issue]:
             _issue(issues, "error", biome_path, "$.sets", "세트 배열이 필요합니다.")
             sets = []
         profile_ids: set[str] = set()
+        weather_by_biome: dict[str, str] = {}
         for index, profile in enumerate(profiles):
             profile_id = profile.get("id") if isinstance(profile, dict) else None
             if not isinstance(profile_id, str) or not RESOURCE_ID.fullmatch(profile_id):
@@ -901,6 +1006,14 @@ def validate_biome_catalogs(root: Path) -> list[Issue]:
             if isinstance(profile, dict) and profile.get("habitat") not in HABITAT_IDS:
                 _issue(issues, "error", biome_path, f"$.profiles[{index}].habitat", "지원하지 않는 대표 서식지입니다.")
             if isinstance(profile, dict):
+                profile_weather = profile.get("weather", "inherit")
+                if profile_weather not in {"inherit", "clear", "rain", "thunder", "snow", "fog"}:
+                    _issue(issues, "error", biome_path, f"$.profiles[{index}].weather", "지원하지 않는 바이옴 기본 날씨입니다.")
+                elif profile_weather != "inherit":
+                    for minecraft_biome in profile.get("minecraft_biomes", []):
+                        previous_weather = weather_by_biome.setdefault(minecraft_biome, profile_weather)
+                        if previous_weather != profile_weather:
+                            _issue(issues, "error", biome_path, f"$.profiles[{index}].weather", f"같은 마인크래프트 바이옴의 기본 날씨가 충돌합니다: {minecraft_biome}")
                 series = profile.get("settings", {}).get("series")
                 if series is not None and series not in POKEDEX_SERIES_IDS:
                     _issue(issues, "error", biome_path, f"$.profiles[{index}].settings.series", "지원하는 지역도감 시리즈 ID여야 합니다.")
@@ -1490,6 +1603,11 @@ def _validate_operation(
             _issue(issues, "error", file, f"{data_path}.mode", "fixed 또는 level_cap_multiplier여야 합니다.")
     elif operation_type == "grant_loot":
         _resource_id(operation.get("loot_table"), issues, file, f"{data_path}.loot_table")
+    elif operation_type == "grant_field_move":
+        if operation.get("move") not in {
+            "surf", "fly", "flash", "defog", "rock_climb", "waterfall", "whirlpool", "strength",
+        }:
+            _issue(issues, "error", file, f"{data_path}.move", "지원하는 비전머신 ID가 필요합니다.")
     elif operation_type in {"start_quest", "complete_quest", "teleport"}:
         _resource_id(operation.get("target"), issues, file, f"{data_path}.target")
     elif operation_type == "teleport_to_gate":
@@ -2018,7 +2136,7 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 if road_profile.get("width") not in {3, 5, 7, 9}:
                     _issue(issues, "error", path, "$.structure_profile.road_profile.width", "도로 폭은 3, 5, 7 또는 9블록이어야 합니다.")
                 if road_profile.get("material") not in {
-                    "cobblestone", "stone_bricks", "gravel",
+                    "cobblestone", "stone_bricks", "bricks", "grass_path", "gravel",
                     "packed_mud", "sandstone", "snow",
                 }:
                     _issue(issues, "error", path, "$.structure_profile.road_profile.material", "지원하는 도로 노면이 아닙니다.")
@@ -3238,7 +3356,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     event_ids: set[str] = set()
     command_types = {
         "branch", "label", "dialogue", "choices", "goto", "start_battle",
-        "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot",
+        "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_field_move",
         "teleport_to_gate", "end",
     }
     for event_index, event_value in enumerate(events):
@@ -3322,7 +3440,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
                             _issue(issues, "error", path, f"{command_path}.results.{key}", "지원하지 않는 배틀 결과입니다.")
                         elif isinstance(target, str):
                             targets.append((f"{command_path}.results.{key}", target))
-            elif command_type in {"set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot"}:
+            elif command_type in {"set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_field_move"}:
                 _validate_operation(command, issues, path, command_path, npc_id, [])
             elif command_type == "teleport_to_gate":
                 gate = command.get("gate")
@@ -5029,9 +5147,14 @@ def create_interior_space(root: Path, payload: dict[str, Any]) -> dict[str, Any]
     return create_gym_interior_module(root, payload)
 
 
-def validate_repository(root: Path, strict_pack: bool = False) -> ValidationResult:
+def validate_repository(
+    root: Path, strict_pack: bool = False, dependency_root: Path | None = None
+) -> ValidationResult:
     root = root.resolve()
-    issues = validate_dependency_lock(root / "pack" / "dependencies.lock.json", strict_pack)
+    dependency_root = (dependency_root or root).resolve()
+    issues = validate_dependency_lock(
+        dependency_root / "pack" / "dependencies.lock.json", strict_pack
+    )
     issues.extend(validate_game_definitions_file(root / "content" / "catalogs" / "game-definitions.json"))
     issues.extend(validate_music_catalog_file(root / "content" / "catalogs" / "music-tracks.json"))
     issues.extend(validate_music_references(root))
@@ -7235,7 +7358,11 @@ def build_structure_web_cache(root: Path) -> dict[str, Any]:
 
 
 def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
-    root = root.resolve()
+    core_root = root.resolve()
+    active_project = load_content_project(
+        core_root, default_root=core_root, require_manifest=False
+    )
+    root = active_project.root
     web_root = (Path(__file__).parent / "web").resolve()
     saved_structure_cache = load_structure_web_cache(root)
     build_lock = threading.Lock()
@@ -7261,23 +7388,59 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
     structure_model_cache: dict[str, dict[str, Any]] = {}
     remote_image_cache: dict[str, bytes] = {}
     remote_image_cache_lock = threading.Lock()
+    project_lock = threading.Lock()
+
+    def activate_project(project_path: Path) -> ContentProject:
+        nonlocal root, active_project, editor_catalog
+        nonlocal structure_size_catalog, structure_viewer_catalog
+        nonlocal building_settings_catalog, structure_cache_generated_at
+        nonlocal structure_cache_generation, structure_cache_error
+        project = load_content_project(
+            project_path, default_root=core_root, require_manifest=True
+        )
+        with project_lock, structure_cache_refresh_lock:
+            root = project.root
+            active_project = project
+            saved_cache = load_structure_web_cache(root)
+            with editor_catalog_lock:
+                editor_catalog = None
+            with structure_size_catalog_lock, structure_viewer_catalog_lock:
+                structure_size_catalog = (
+                    saved_cache.get("size_catalog") if saved_cache else None
+                )
+                structure_viewer_catalog = (
+                    saved_cache.get("viewer_catalog") if saved_cache else None
+                )
+                building_settings_catalog = (
+                    saved_cache.get("building_settings") if saved_cache else None
+                )
+                structure_cache_generated_at = (
+                    int(saved_cache.get("generated_at", 0)) if saved_cache else 0
+                )
+                structure_cache_generation += 1
+                structure_cache_error = None
+                structure_model_cache.clear()
+        return project
 
     def refresh_structure_cache() -> None:
         nonlocal structure_size_catalog, structure_viewer_catalog
         nonlocal building_settings_catalog, structure_cache_generated_at
         nonlocal structure_cache_generation, structure_cache_error
         observed_generation = structure_cache_generation
+        observed_root = root
         with structure_cache_refresh_lock:
-            if structure_cache_generation != observed_generation:
+            if structure_cache_generation != observed_generation or root != observed_root:
                 return
             try:
-                refreshed = build_structure_web_cache(root)
-                save_structure_web_cache(root, refreshed)
+                refreshed = build_structure_web_cache(observed_root)
+                save_structure_web_cache(observed_root, refreshed)
             except (
                 OSError, ValueError, EOFError, struct.error,
                 zipfile.BadZipFile, json.JSONDecodeError, DuplicateKeyError,
             ) as error:
                 structure_cache_error = str(error)
+                return
+            if root != observed_root:
                 return
             with structure_size_catalog_lock, structure_viewer_catalog_lock:
                 structure_size_catalog = refreshed["size_catalog"]
@@ -7384,7 +7547,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 "/app.js": web_root / "app.js",
                 "/styles.css": web_root / "styles.css",
                 "/economy.css": web_root / "economy.css",
-                "/pokemon-entry-clipboard.mjs": root
+                "/pokemon-entry-clipboard.mjs": core_root
                 / "projects"
                 / "cobbleventure-battle-ai"
                 / "web-lab"
@@ -7435,20 +7598,29 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
             if request.path == "/health":
                 self._json(200, {"status": "ok", "service": "cobbleventure-content-manager"})
                 return
+            if request.path == "/api/project":
+                self._json(
+                    200,
+                    {
+                        "project": active_project.as_json(),
+                        "core_path": str(core_root),
+                    },
+                )
+                return
             if request.path in {"/dependencies", "/api/dependencies"}:
                 try:
-                    self._json(200, load_json(root / "pack" / "dependencies.lock.json"))
+                    self._json(200, load_json(core_root / "pack" / "dependencies.lock.json"))
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
             if request.path in {"/validate", "/api/validate"}:
                 query = parse_qs(request.query)
                 strict_pack = query.get("strict_pack", ["false"])[0].lower() in {"1", "true", "yes"}
-                result = validate_repository(root, strict_pack)
+                result = validate_repository(root, strict_pack, core_root)
                 self._json(200 if result.valid else 422, result.as_json())
                 return
             if request.path == "/api/dashboard":
-                result = validate_repository(root)
+                result = validate_repository(root, dependency_root=core_root)
                 self._json(
                     200,
                     {
@@ -7459,7 +7631,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                         "build_commands": [
                             {"id": command, "description": description}
                             for command, description in BUILD_COMMANDS.items()
-                        ],
+                        ] if active_project.is_default else [],
                     },
                 )
                 return
@@ -7802,6 +7974,33 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
             except ValueError as error:
                 self._json(400, {"error": str(error)})
                 return
+            if request.path == "/api/project/pick":
+                if os.name != "nt":
+                    self._json(501, {"error": "폴더 선택창은 현재 Windows에서만 지원합니다."})
+                    return
+                initial_path = payload.get("path", "") if isinstance(payload, dict) else ""
+                try:
+                    completed = subprocess.run(
+                        [
+                            "powershell.exe", "-NoLogo", "-NoProfile",
+                            "-ExecutionPolicy", "Bypass", "-STA", "-Command",
+                            PROJECT_FOLDER_PICKER_SCRIPT,
+                        ],
+                        cwd=core_root,
+                        env={**os.environ, "COBBLEVENTURE_PROJECT_PATH": str(initial_path)},
+                        capture_output=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        timeout=120,
+                        check=False,
+                    )
+                    if completed.returncode != 0:
+                        raise ValueError(completed.stderr.strip() or "폴더 선택창을 열지 못했습니다.")
+                    selected_path = completed.stdout.strip()
+                    self._json(200, {"cancelled": not selected_path, "path": selected_path})
+                except (OSError, subprocess.TimeoutExpired, ValueError) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/document-validation":
                 category = parse_qs(request.query).get("category", [""])[0]
                 if category not in {"trainers", "battles", "settlements", "caves"}:
@@ -7859,6 +8058,9 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 )
                 return
             if request.path == "/api/build":
+                if not active_project.is_default:
+                    self._json(409, {"error": "프로젝트별 빌드 출력 분리는 아직 지원하지 않습니다. 기본 프로젝트에서 실행해 주세요."})
+                    return
                 command = payload.get("command") if isinstance(payload, dict) else None
                 if not isinstance(command, str) or command not in BUILD_COMMANDS:
                     self._json(400, {"error": "허용된 빌드 명령을 선택해야 합니다."})
@@ -7912,6 +8114,9 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     self._json(400, {"error": str(error)})
                 return
             if request.path == "/api/structure-builder/import":
+                if not active_project.is_default:
+                    self._json(409, {"error": "건축 NBT 자동 가져오기는 현재 기본 프로젝트에서만 지원합니다."})
+                    return
                 if not build_lock.acquire(blocking=False):
                     self._json(409, {"error": "다른 빌드 명령이 실행 중입니다."})
                     return
@@ -7930,6 +8135,24 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
 
         def do_PUT(self) -> None:
             request = urlparse(self.path)
+            if request.path == "/api/project":
+                try:
+                    payload = self._read_json()
+                    project_path = payload.get("path") if isinstance(payload, dict) else None
+                    if not isinstance(project_path, str) or not project_path.strip():
+                        raise ValueError("불러올 프로젝트 폴더 경로가 필요합니다.")
+                    project = activate_project(Path(project_path.strip()))
+                    self._json(
+                        200,
+                        {
+                            "loaded": True,
+                            "project": project.as_json(),
+                            "core_path": str(core_root),
+                        },
+                    )
+                except (OSError, ValueError) as error:
+                    self._json(400, {"error": str(error)})
+                return
             if request.path == "/api/structure-builder/settings":
                 try:
                     payload = self._read_json()

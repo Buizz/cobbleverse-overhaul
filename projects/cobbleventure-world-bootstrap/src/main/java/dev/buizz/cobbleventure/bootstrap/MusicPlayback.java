@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.logging.LogUtils;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.buizz.cobbleventure.bootstrap.client.LoopingMusic;
 import java.io.IOException;
@@ -27,9 +28,12 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import org.slf4j.Logger;
 
 /** Resolves authored music inheritance and emits optional resource-pack sound events. */
 final class MusicPlayback {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final String CONTENT_NAMESPACE = "cobbleventure";
     private static final String NETWORK_VERSION = "1";
     private static final long BATTLE_START_GRACE_TICKS = 20L * 10L;
     private static final Map<UUID, String> PLAYING = new HashMap<>();
@@ -129,7 +133,12 @@ final class MusicPlayback {
         ResourceManager resources = level.getServer().getResourceManager();
         if (data != null && loadedFrom == resources) return data;
         loadedFrom = resources;
-        data = MusicData.read(resources);
+        try {
+            data = MusicData.read(resources);
+        } catch (IllegalStateException error) {
+            LOGGER.error("Music configuration could not be loaded; music playback is disabled", error);
+            data = MusicData.empty();
+        }
         PLAYING.clear();
         BATTLE_MUSIC.clear();
         return data;
@@ -137,7 +146,7 @@ final class MusicPlayback {
 
     private static JsonObject read(ResourceManager resources, String path) {
         ResourceLocation location = ResourceLocation.fromNamespaceAndPath(
-            CobbleventureBootstrap.MOD_ID, path
+            CONTENT_NAMESPACE, path
         );
         Resource resource = resources.getResource(location).orElseThrow(
             () -> new IllegalStateException("Missing packaged music resource: " + location)
@@ -281,6 +290,14 @@ final class MusicPlayback {
                 namespace, defaults, soundEvents, tileMusic, coordinateOverrides,
                 routeMusic, worldSettlementMusic, settlementMusic, battles,
                 gymByTrainer, gymMusic
+            );
+        }
+
+        private static MusicData empty() {
+            return new MusicData(
+                CONTENT_NAMESPACE,
+                Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(),
+                Map.of(), Map.of(), Map.of(), Map.of()
             );
         }
 

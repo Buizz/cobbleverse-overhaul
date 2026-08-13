@@ -150,6 +150,15 @@
 `WorldHabitatIndex`로 변환한다. 상세 설계는
 [`HABITAT_DISCOVERY_AND_SPAWNING.md`](HABITAT_DISCOVERY_AND_SPAWNING.md)를 참고한다.
 
+바이옴 프로필의 최상위 `weather`는 해당 프로필에 연결된 마인크래프트 바이옴의
+지역 기본 날씨다. `inherit`, `clear`, `rain`, `thunder`, `snow`, `fog`를 지원하며,
+`settings.weather`는 별개의 포켓몬 출현 필터이므로 혼용하지 않는다. 월드맵의
+`environment_overrides[].weather`가 설정된 육각 타일에서는 바이옴 기본값보다
+우선하며, 둘 다 없거나 `inherit`이면 차원의 실제 날씨를 따른다.
+설정된 지역 날씨 중 `rain`/`thunder`는 포켓몬 배틀의 비, `snow`는 눈으로
+자동 적용된다. 이때 차원의 실제 마인크래프트 날씨는 배틀에 반영하지 않으며,
+`inherit`, `clear`, `fog`에서는 날씨 없는 상태로 배틀을 시작한다.
+
 `size_blocks`는 해당 바이옴 구역의 목표 지름이다. 실제 생성기는 마을 중심,
 `placement`, `weight`와 월드 시드를 사용해 구역을 결정적으로 배치한다.
 `toward_target` 관문은 두 마을의 중심을 잇는 방향과 외곽 벽의 교점을 우선하며,

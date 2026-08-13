@@ -63,6 +63,7 @@ final class WorldGateSystem {
                 nullableString(value, "resource"),
                 value.has("rotation") ? value.get("rotation").getAsInt() : 0,
                 optionalString(properties, "facing", "north"),
+                optionalString(properties, "gate_mode", "classic"),
                 optionalBoolean(properties, "building_enabled", true),
                 optionalString(properties, "surrounding_type", "wall"),
                 optionalString(properties, "wall_block", "minecraft:stone_bricks"),
@@ -113,6 +114,9 @@ final class WorldGateSystem {
     private static void place(
         ServerLevel level, CobbleventureBootstrap.HexGrid grid, Gate gate
     ) {
+        if (gate.gateMode().equals("system_only")) {
+            return;
+        }
         CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
         int centerY = groundY(level, center.x(), center.z());
         BlockPos marker = new BlockPos(
@@ -125,12 +129,12 @@ final class WorldGateSystem {
         int halfLength = Math.max(16, grid.radius() - 3);
         int halfThickness = gate.wallThickness() / 2;
         int halfOpening = gate.openingWidth() / 2;
-        if (gate.surroundingType().equals("wall")) {
+        if (gate.gateMode().equals("classic") && gate.surroundingType().equals("wall")) {
             placeWallSurroundings(level, gate, center, horizontal, halfLength, halfThickness, halfOpening);
-        } else if (gate.surroundingType().equals("trees")) {
+        } else if (gate.gateMode().equals("classic") && gate.surroundingType().equals("trees")) {
             placeTreeSurroundings(level, gate, center, horizontal, halfLength, halfThickness, halfOpening);
         }
-        if (gate.buildingEnabled()) {
+        if (gate.gateMode().equals("classic") && gate.buildingEnabled()) {
             placeStructure(level, gate, center, centerY);
         }
         if (gate.npc() != null) {
@@ -258,6 +262,16 @@ final class WorldGateSystem {
             if (gate.allows(player)) {
                 continue;
             }
+            if (gate.gateMode().equals("npc_only")) {
+                continue;
+            }
+            if (gate.gateMode().equals("system_only")) {
+                if (grid.worldToHex(player.getX(), player.getZ()).equals(gate.anchor())) {
+                    rejectFromSystemGate(player, grid, gate, previous, gameTime);
+                    return;
+                }
+                continue;
+            }
             CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
             boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
             double normal = horizontal ? player.getZ() - center.z() : player.getX() - center.x();
@@ -278,11 +292,42 @@ final class WorldGateSystem {
             double z = horizontal ? center.z() + safeNormal : player.getZ();
             player.teleportTo(player.serverLevel(), x, player.getY(), z, player.getYRot(), player.getXRot());
             LAST_POSITIONS.put(player.getUUID(), new Vec3(x, player.getY(), z));
-            if (player.getPersistentData().getLong(DENY_COOLDOWN) <= gameTime) {
-                player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 40L);
-                player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
-            }
+            showDenyMessage(player, gate, gameTime);
             return;
+        }
+    }
+
+    private static void rejectFromSystemGate(
+        ServerPlayer player, CobbleventureBootstrap.HexGrid grid,
+        Gate gate, Vec3 previous, long gameTime
+    ) {
+        double x = previous.x;
+        double y = previous.y;
+        double z = previous.z;
+        if (grid.worldToHex(previous.x, previous.z).equals(gate.anchor())) {
+            CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
+            double dx = player.getX() - center.x();
+            double dz = player.getZ() - center.z();
+            double length = Math.hypot(dx, dz);
+            if (length < 0.01D) {
+                dx = 0.0D;
+                dz = -1.0D;
+                length = 1.0D;
+            }
+            double distance = grid.radius() + 3.0D;
+            x = center.x() + dx / length * distance;
+            z = center.z() + dz / length * distance;
+            y = groundY(player.serverLevel(), (int) Math.floor(x), (int) Math.floor(z)) + 1.0D;
+        }
+        player.teleportTo(player.serverLevel(), x, y, z, player.getYRot(), player.getXRot());
+        LAST_POSITIONS.put(player.getUUID(), new Vec3(x, y, z));
+        showDenyMessage(player, gate, gameTime);
+    }
+
+    private static void showDenyMessage(ServerPlayer player, Gate gate, long gameTime) {
+        if (player.getPersistentData().getLong(DENY_COOLDOWN) <= gameTime) {
+            player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 40L);
+            player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
         }
     }
 
@@ -430,6 +475,7 @@ final class WorldGateSystem {
         String structure,
         int rotation,
         String facing,
+        String gateMode,
         boolean buildingEnabled,
         String surroundingType,
         String wallBlock,

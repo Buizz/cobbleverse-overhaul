@@ -1011,7 +1011,8 @@
       "terrain_profile": {
         "base_height_offset": 10,
         "height_variation": 3,
-        "noise_scale_blocks": 88
+        "noise_scale_blocks": 88,
+        "connection_height": 2
       },
       "access_requirement": "cobbleventure:field_move/rock_climb",
       "town_footprint_shape": "line_q",

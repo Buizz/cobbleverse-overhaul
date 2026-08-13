@@ -77,6 +77,10 @@ neoForge {
             // be exercised repeatedly without rebuilding the entire Kanto map.
             systemProperty 'cobbleventure.testRenderRadius', '192'
         }
+        townSequencePerformanceServer {
+            server()
+            systemProperty 'cobbleventure.townSequencePerformanceTest', 'true'
+        }
         gameTestServer { type = 'gameTestServer' }
     }
     mods {
@@ -124,6 +128,9 @@ processResources {
     from(rootProject.file('../../content/catalogs/economy.json')) {
         into 'data/cobbleventure/economy'
         rename { 'catalog.json' }
+    }
+    from(rootProject.file('../../content/catalogs/biome-profiles.json')) {
+        into 'data/cobbleventure/catalogs'
     }
     if (integrationBcaJar != null) {
         inputs.file integrationBcaJar

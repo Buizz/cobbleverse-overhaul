@@ -36,7 +36,10 @@
     <main>
       <header class="topbar">
         <div><p class="eyebrow">COBBLEVENTURE / CONTENT</p><h1 id="page-title">프로젝트 현황</h1></div>
-        <button class="button secondary" id="refresh-button">새로고침</button>
+        <div class="topbar-actions">
+          <button class="project-chip" id="open-project" type="button"><span>현재 프로젝트</span><strong id="active-project-name">불러오는 중…</strong><small id="active-project-path"></small></button>
+          <button class="button secondary" id="refresh-button">새로고침</button>
+        </div>
       </header>
 
       <section class="page is-active" id="dashboard">
@@ -110,7 +113,7 @@
               </div>
               <footer><span>적용하면 현재 명령 목록을 프리셋 내용으로 교체합니다.</span><button class="button primary" id="apply-event-preset" type="button" disabled>프리셋으로 교체</button></footer>
             </section>
-            <div class="event-command-toolbar"><select id="event-command-type" disabled><option value="dialogue">대화 표시</option><option value="choices">선택지 표시</option><option value="branch">조건 분기</option><option value="label">라벨</option><option value="goto">라벨로 이동</option><option value="start_battle">배틀 시작</option><option value="set_flag">플래그 변경</option><option value="mark_clear">클리어 처리</option><option value="take_money">돈 차감</option><option value="give_item">아이템 지급</option><option value="grant_loot">루트 테이블 지급</option><option value="end">이벤트 종료</option></select><button class="button secondary" id="add-event-command" disabled>명령 추가</button></div>
+            <div class="event-command-toolbar"><select id="event-command-type" disabled><option value="dialogue">대화 표시</option><option value="choices">선택지 표시</option><option value="branch">조건 분기</option><option value="label">라벨</option><option value="goto">라벨로 이동</option><option value="start_battle">배틀 시작</option><option value="set_flag">플래그 변경</option><option value="mark_clear">클리어 처리</option><option value="take_money">돈 차감</option><option value="give_item">아이템 지급</option><option value="grant_loot">루트 테이블 지급</option><option value="grant_field_move">비전머신 획득</option><option value="end">이벤트 종료</option></select><button class="button secondary" id="add-event-command" disabled>명령 추가</button></div>
             <div id="event-command-list" class="event-command-list"><div class="issues empty">NPC를 선택하면 이벤트 명령이 표시됩니다.</div></div>
             <details class="advanced"><summary>대화·진행을 포함한 전체 JSON 편집</summary><textarea class="code-editor compact" id="trainer-json" spellcheck="false" disabled></textarea><button class="button text-button" id="apply-trainer-json" disabled>JSON을 편집 폼에 반영</button></details>
             <div id="trainer-issues" class="issues empty">편집할 NPC를 선택하세요.</div>
@@ -252,6 +255,7 @@
                 <section class="tool-option-panel" data-tool-options="object" hidden>
                   <label><span>오브젝트 ID</span><input id="object-tool-id" placeholder="landmark_01"></label>
                   <label><span>오브젝트 타입</span><select id="object-tool-type"><option value="gate">관문</option><option value="villain_base">빌런기지</option></select></label>
+                  <label data-gate-mode><span>관문 방식</span><select id="object-tool-gate-mode"><option value="classic">실제 관문 · 건물과 지형</option><option value="npc_only">NPC 전용 관문</option><option value="system_only">시스템 차단 관문</option></select><small>시스템 차단은 타일에 진입한 조건 미충족 플레이어를 즉시 되돌립니다.</small></label>
                   <label><span>관문 건물</span><select id="object-tool-building-enabled"><option value="true">NBT 건물 생성</option><option value="false">건물 없음 · NPC만 사용</option></select></label>
                   <label data-object-resource><span>오브젝트 NBT</span><input id="object-tool-resource" list="world-object-nbt-options" value="cobbleventure:gate/default" placeholder="cobbleventure:villain_base/default"></label>
                   <datalist id="world-object-nbt-options"></datalist>
@@ -296,6 +300,8 @@
                 <label data-tile-field="empty"><span>빈 지형 타입</span><select name="emptyTerrainType"><option value="high_forest">높은 숲 · 기본</option><option value="ocean">바다 · 바위 경계</option><option value="desert">사막</option><option value="stone_mountain">돌산</option><option value="snow_mountain">눈산</option></select><small>접근 불가 배경의 모습입니다. 비행 방지 베리어는 모든 타입에 유지됩니다.</small></label>
                 <label data-tile-field="settlement"><span>마을</span><select name="settlement"></select><small>이미 배치된 마을을 선택하면 이 타일로 이동합니다.</small></label>
                 <label data-tile-field="settlement"><span>마을 바이옴</span><select name="townBiome"></select><small>이 월드맵에서 마을 전체에 적용할 바이옴입니다.</small></label>
+                <label data-terrain-connection-field><span>연결 높이 단계</span><input name="connectionHeight" type="number" min="-8" max="8" step="1"><small>같은 단계이면서 이동 조건도 같은 인접 타일끼리만 경계 높이를 이어 줍니다.</small></label>
+                <label data-tile-field="object" data-gate-mode><span>관문 방식</span><select name="objectGateMode"><option value="classic">실제 관문 · 건물과 지형</option><option value="npc_only">NPC 전용 관문</option><option value="system_only">시스템 차단 관문</option></select></label>
                 <section data-tile-field="object" class="custom-object-fields"><label><span>오브젝트 ID</span><input name="objectId" placeholder="gate_01"></label><label><span>타입</span><select name="objectType"><option value="gate">관문</option><option value="villain_base">빌런기지</option></select></label><label><span>관문 건물</span><select name="objectBuildingEnabled"><option value="true">NBT 건물 생성</option><option value="false">건물 없음 · NPC만 사용</option></select></label><label data-object-resource><span>오브젝트 NBT</span><input name="objectResource" list="world-object-nbt-options" placeholder="cobbleventure:villain_base/default"></label><div class="inline-fields"><label><span>방향</span><select name="objectFacing"><option value="north">북쪽 · 가로벽</option><option value="east">동쪽 · 세로벽</option><option value="south">남쪽 · 가로벽</option><option value="west">서쪽 · 세로벽</option></select></label><label><span>NBT 회전</span><select name="objectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div><label><span>주변 통로 차단물</span><select name="objectSurroundingType"><option value="wall">벽</option><option value="trees">나무 군락</option><option value="none">없음 · NPC만 배치</option></select></label><label data-gate-wall><span>벽 블록</span><input name="objectWallBlock" value="minecraft:stone_bricks"></label><div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input name="objectTreeLog" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input name="objectTreeLeaves" value="minecraft:oak_leaves"></label></div><div class="inline-fields" data-gate-surrounding><label><span>차단물 두께</span><input name="objectWallThickness" type="number" min="1" max="15" step="2"></label><label><span>통로 폭</span><input name="objectOpeningWidth" type="number" min="3" max="31" step="2"></label></div><div class="inline-fields" data-gate-surrounding><label><span>차단물 높이</span><input name="objectWallHeight" type="number" min="3" max="32"></label><label><span>배리어 높이</span><input name="objectBarrierHeight" type="number" min="8" max="128"></label></div><label><span>NPC 프리셋 (선택)</span><input name="objectNpc"></label><label><span>조건 조합</span><select name="objectConditionMode"><option value="all">모든 조건 충족</option><option value="any">조건 중 하나 충족</option></select></label><label><span>통과 조건</span><textarea name="objectConditions" rows="6"></textarea><small>variable|scoreboard|키|연산자|값 / item|ID|수량 / pokemon|종 ID</small></label><label><span>차단 메시지</span><input name="objectDenyMessage"></label></section>
                 <section class="route-overlay-panel" id="route-overlay-panel" hidden><div><b>길 오버레이</b><small>기본 바이옴 위에 겹쳐진 연결입니다.</small></div><div id="route-overlay-list"></div></section>
                 <div class="tile-summary" id="tile-summary"></div>
@@ -622,6 +628,15 @@
         <label id="battle-reference-field" hidden><span>예비 엔트리에서 가져오기</span><input type="hidden" name="referenceId"><div class="create-reference-picker"><input id="create-reference-name" value="빈 프리셋으로 시작" readonly><button class="button secondary" id="choose-create-reference" type="button">검색해서 선택</button></div><small id="create-reference-summary">엔트리를 선택하면 팀·AI·규칙·가방을 새 프리셋에 복사합니다.</small></label>
         <div class="dialog-actions"><button class="button secondary" id="create-cancel" type="button">취소</button><button class="button primary" type="submit" id="create-submit">생성</button></div>
         <div id="create-issues" class="issues empty"></div>
+      </form>
+    </dialog>
+    <dialog id="project-dialog" class="create-dialog project-dialog">
+      <form method="dialog" id="project-form">
+        <div class="dialog-heading"><div><p class="eyebrow">OPEN PROJECT</p><h2>코블벤처 프로젝트 불러오기</h2></div><button class="dialog-close" id="project-close" type="button" aria-label="닫기">×</button></div>
+        <p class="project-dialog-description">프로젝트 폴더 안에는 <code>project.json</code>과 <code>content</code> 폴더가 있어야 합니다.</p>
+        <label><span>프로젝트 폴더 경로</span><div class="project-path-picker"><input name="path" autocomplete="off" placeholder="D:\Cobbleventure\my-project" required><button class="button secondary" id="pick-project-folder" type="button">폴더 선택</button></div><small>폴더 자체가 프로젝트 단위이며, 불러온 뒤 해당 프로젝트의 파일을 직접 편집합니다.</small></label>
+        <div class="dialog-actions"><button class="button secondary" id="project-cancel" type="button">취소</button><button class="button primary" type="submit">프로젝트 불러오기</button></div>
+        <div id="project-issues" class="issues empty"></div>
       </form>
     </dialog>
     <dialog id="economy-dialog" class="economy-dialog">

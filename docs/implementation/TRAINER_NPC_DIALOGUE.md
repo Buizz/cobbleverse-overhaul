@@ -47,7 +47,13 @@ EasyNPC 7.x 거리 이벤트는 4·8·16·32 블록 단계이므로 생성 프�
 - `give_money`: 고정 금액 또는 현재 레벨캡 배율로 돈 지급
 - `give_item`: 고정 아이템 지급
 - `grant_loot`: 확률형 Minecraft 루트 테이블 실행
+- `grant_field_move`: 대화 중인 플레이어에게 지정한 비전머신 권한을 영구 해금
 - `end`: 이벤트 종료
+
+`grant_field_move`의 `move`에는 `surf`, `fly`, `flash`, `defog`, `rock_climb`,
+`waterfall`, `whirlpool`, `strength` 중 하나를 사용한다. 이 이벤트가 있는 NPC를
+마을의 `npc_placement.trainer_slots[].members[].npc_profile`에 배치하면 플레이어 메뉴의
+지도 마을 설명에 `NPC 정보`와 `파도타기를 주는 NPC` 형식의 안내가 자동으로 표시된다.
 
 이벤트 명령의 순서 자체가 실행 순서이므로 별도 시작 대화 라우팅 테이블은 사용하지
 않는다. 조건에 따른 첫 대화 변경은 이벤트 앞부분에 `branch` 명령을 배치해 표현한다.

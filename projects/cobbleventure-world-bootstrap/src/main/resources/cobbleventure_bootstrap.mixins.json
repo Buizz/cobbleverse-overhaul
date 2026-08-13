@@ -10,7 +10,8 @@
     "SinglePoolElementMixin"
   ],
   "client": [
-    "BattleGeneralActionSelectionMixin"
+    "BattleGeneralActionSelectionMixin",
+    "BiomePrecipitationMixin"
   ],
   "injectors": {
     "defaultRequire": 1

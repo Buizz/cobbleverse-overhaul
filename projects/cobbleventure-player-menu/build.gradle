@@ -1,6 +1,48 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
 plugins {
     id 'java-library'
     id 'net.neoforged.moddev' version '2.0.143'
+}
+
+def fieldMoveNpcMapFile = layout.buildDirectory.file('generated/field-move-map/field-move-npcs.json')
+
+tasks.register('generateFieldMoveNpcMap') {
+    def npcSources = fileTree(rootProject.file('../../content/source')) { include '**/*.json' }
+    def settlements = fileTree(rootProject.file('../../content/settlements')) { include 'generation_*/*.json' }
+    inputs.files(npcSources, settlements)
+    outputs.file(fieldMoveNpcMapFile)
+    doLast {
+        def parser = new JsonSlurper()
+        def profiles = [:]
+        npcSources.files.sort().each { file ->
+            def npc = parser.parse(file)
+            def moves = (npc.events ?: []).collectMany { event ->
+                (event.commands ?: []).findAll { it.type == 'grant_field_move' }.collect { it.move }
+            }.findAll { it }.unique()
+            if (npc.id && moves) {
+                profiles[npc.id] = [
+                    name: npc.npc?.display_name?.ko_kr ?: npc.name?.ko_kr ?: npc.id,
+                    moves: moves,
+                ]
+            }
+        }
+
+        def bySettlement = [:]
+        settlements.files.sort().each { file ->
+            def settlement = parser.parse(file)
+            def profileIds = (settlement.npc_placement?.trainer_slots ?: []).collectMany { slot ->
+                (slot.members ?: []).collect { it.npc_profile }
+            }.findAll { it }.unique()
+            def entries = profileIds.findAll { profiles.containsKey(it) }.collect { profiles[it] }
+            if (settlement.id && entries) bySettlement[settlement.id] = entries
+        }
+
+        def output = fieldMoveNpcMapFile.get().asFile
+        output.parentFile.mkdirs()
+        output.setText(JsonOutput.prettyPrint(JsonOutput.toJson([settlements: bySettlement])) + System.lineSeparator(), 'UTF-8')
+    }
 }
 
 version = mod_version
@@ -37,6 +79,7 @@ neoForge {
 }
 
 processResources {
+    dependsOn tasks.named('generateFieldMoveNpcMap')
     def properties = [
         minecraft_version_range: minecraft_version_range,
         neo_version: neo_version,
@@ -71,6 +114,9 @@ processResources {
     }
     from(rootProject.file('../../content/catalogs/league-progression.json')) {
         into 'data/cobbleventure_player_menu/league'
+    }
+    from(fieldMoveNpcMapFile) {
+        into 'data/cobbleventure_player_menu/map'
     }
 }
 

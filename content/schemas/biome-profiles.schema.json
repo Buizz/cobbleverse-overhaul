@@ -35,6 +35,7 @@
         "id": { "$ref": "#/$defs/resource_id" },
         "display_name": { "type": "object", "required": ["ko_kr"] },
         "habitat": { "enum": ["plains", "forest", "arid", "mountain", "cave", "wetland", "freshwater", "ocean", "snow", "volcanic", "urban", "special"] },
+        "weather": { "enum": ["inherit", "clear", "rain", "thunder", "snow", "fog"] },
         "minecraft_biomes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
         "settings": { "$ref": "#/$defs/settings" },
         "forced_includes": { "$ref": "#/$defs/pokemon_ids" },

@@ -134,6 +134,16 @@ nav { display: grid; gap: 7px; }
 .server-state strong { font-size: 11px; }.server-state small { margin-top: 3px; color: var(--muted); font-size: 9px; }
 main { margin-left: 238px; padding: 0 4vw 60px; }
 .topbar { display: flex; justify-content: space-between; align-items: center; min-height: 116px; border-bottom: 1px solid var(--line); }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.project-chip { display: grid; max-width: min(42vw, 420px); padding: 9px 13px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); text-align: left; cursor: pointer; }
+.project-chip:hover { border-color: var(--accent); }
+.project-chip span, .project-chip small { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.project-chip strong { overflow: hidden; margin: 2px 0; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.project-dialog-description { margin: -4px 0 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.project-dialog-description code { color: var(--accent); }
+.project-path-picker { display: flex; gap: 8px; }
+.project-path-picker input { flex: 1; min-width: 0; }
+.project-path-picker .button { flex: 0 0 auto; }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 0; font-size: clamp(26px, 3vw, 38px); letter-spacing: -.04em; }
 h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
@@ -558,6 +568,8 @@ body {
 .hex-route { stroke: #b8842c; filter: drop-shadow(0 1px 1px rgba(50,66,57,.25)); }.hex-route.water { stroke: #3f91be; }.hex-route.climb { stroke: #ad6840; }
 .hex-route.draft { stroke: #e17624; stroke-dasharray: 7 5; animation: route-draft-pulse 1s ease-in-out infinite alternate; }
 .hex-custom-object { pointer-events: none; }.hex-custom-object rect { fill: #6e55a7; stroke: #fff; stroke-width: 2; filter: drop-shadow(0 2px 2px rgba(40,25,65,.35)); }.hex-custom-object text { fill: #3c285e; font-size: 9px; font-weight: 800; text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.gate-object.system-only circle { fill: #432f66; stroke: #fff; stroke-width: 2; }.gate-object.system-only path { fill: #b9a4e3; stroke: #fff; stroke-width: 1.3; }
+.gate-object.npc-only circle, .gate-object.npc-only path { fill: #6e55a7; stroke: #fff; stroke-width: 1.7; }
 .villain-base-object path { fill: #7f2638; stroke: #fff; stroke-width: 1.8; filter: drop-shadow(0 2px 2px rgba(55,18,28,.4)); }
 .villain-base-object text { fill: #7f2638; }
 .legendary-site-object path { fill: #d9a928; stroke: #fff7cf; stroke-width: 1.8; filter: drop-shadow(0 2px 3px rgba(83,60,8,.45)); }

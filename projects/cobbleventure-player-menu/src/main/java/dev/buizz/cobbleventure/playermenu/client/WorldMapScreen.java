@@ -386,6 +386,17 @@ public final class WorldMapScreen extends Screen {
             if (town.gymEnabled()) y = drawSmallWrapped(graphics, x, y, lineWidth, town.gymStructure());
             y = drawLabelValue(graphics, x, y, lineWidth, "특별 건물", town.specialBuildingEnabled() ? "배치됨" : "없음");
             if (town.specialBuildingEnabled()) y = drawSmallWrapped(graphics, x, y, lineWidth, town.specialBuildingStructure());
+            if (!town.fieldMoveNpcs().isEmpty()) {
+                y += 4;
+                graphics.drawString(font, "NPC 정보", x, y, MUTED_TEXT, false);
+                y += 13;
+                for (MapContent.FieldMoveNpc npc : town.fieldMoveNpcs()) {
+                    y = drawSmallWrapped(
+                        graphics, x, y, lineWidth,
+                        withObjectParticle(npc.move()) + " 주는 NPC · " + npc.name()
+                    );
+                }
+            }
             if (!visited && !snapshot.administrator() && !snapshot.creative()) {
                 y += 4;
                 graphics.drawWordWrap(font, Component.literal("이 마을을 직접 방문하면 빠른 이동이 해금됩니다."), x, y, lineWidth, MUTED_TEXT);
@@ -416,6 +427,13 @@ public final class WorldMapScreen extends Screen {
         } else if (snapshot.creative()) {
             graphics.drawString(font, "크리에이티브 자유 이동 활성", x, layout.bottom() - 39, SUCCESS_TEXT, false);
         }
+    }
+
+    private static String withObjectParticle(String value) {
+        if (value == null || value.isEmpty()) return "";
+        char last = value.charAt(value.length() - 1);
+        boolean hasFinalConsonant = last >= '가' && last <= '힣' && (last - '가') % 28 != 0;
+        return value + (hasFinalConsonant ? "을" : "를");
     }
 
     private void renderPokemonGrid(

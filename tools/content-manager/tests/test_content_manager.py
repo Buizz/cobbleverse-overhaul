@@ -70,6 +70,117 @@ class ContentManagerTests(unittest.TestCase):
         )
         return gzip.compress(payload)
 
+    def test_loads_cobbleventure_project_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "content").mkdir()
+            (root / "project.json").write_text(json.dumps({
+                "schema": "cobbleventure-content-project",
+                "version": 1,
+                "id": "team-kanto",
+                "name": "코블벤처 관동 팀",
+                "contentDirectory": "content",
+            }), encoding="utf-8")
+
+            project = content_manager.load_content_project(root)
+
+            self.assertEqual("team-kanto", project.id)
+            self.assertEqual("코블벤처 관동 팀", project.name)
+            self.assertEqual(root.resolve(), project.root)
+
+    def test_npc_event_validates_field_move_reward(self) -> None:
+        document = json.loads(
+            (Path(__file__).parents[3] / "content/source/examples/ai_test.json")
+            .read_text(encoding="utf-8")
+        )
+        document["events"][0]["commands"].insert(
+            -1, {"type": "grant_field_move", "move": "surf"}
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "npc.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+
+            _, issues = content_manager.validate_npc_event_file(path)
+
+        self.assertFalse(any(issue.path.endswith(".move") for issue in issues))
+
+    def test_npc_event_rejects_unknown_field_move(self) -> None:
+        document = json.loads(
+            (Path(__file__).parents[3] / "content/source/examples/ai_test.json")
+            .read_text(encoding="utf-8")
+        )
+        document["events"][0]["commands"].insert(
+            -1, {"type": "grant_field_move", "move": "teleport"}
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "npc.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+
+            _, issues = content_manager.validate_npc_event_file(path)
+
+        self.assertTrue(any(issue.path.endswith(".move") for issue in issues))
+
+    def test_rejects_project_without_content_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "project.json").write_text(json.dumps({
+                "schema": "cobbleventure-content-project",
+                "version": 1,
+                "id": "invalid-project",
+                "name": "잘못된 프로젝트",
+                "contentDirectory": "content",
+            }), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "content 폴더"):
+                content_manager.load_content_project(root)
+
+    def test_local_api_switches_active_project_folder(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            core = workspace / "core"
+            project = workspace / "team-project"
+            (core / "content").mkdir(parents=True)
+            (project / "content" / "source" / "generation_1").mkdir(parents=True)
+            for root, project_id, name in (
+                (core, "cobbleventure-main", "Cobbleventure Main"),
+                (project, "team-kanto", "코블벤처 관동 팀"),
+            ):
+                (root / "project.json").write_text(json.dumps({
+                    "schema": "cobbleventure-content-project",
+                    "version": 1,
+                    "id": project_id,
+                    "name": name,
+                    "contentDirectory": "content",
+                }), encoding="utf-8")
+            (project / "content" / "source" / "generation_1" / "worker.json").write_text(
+                json.dumps({"id": "cobbleventure:trainer/worker", "name": {"ko_kr": "작업자"}}),
+                encoding="utf-8",
+            )
+            server = content_manager.ThreadingHTTPServer(
+                ("127.0.0.1", 0), content_manager.create_handler(core)
+            )
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                base_url = f"http://127.0.0.1:{server.server_port}"
+                switch = urllib.request.Request(
+                    f"{base_url}/api/project",
+                    data=json.dumps({"path": str(project)}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="PUT",
+                )
+                with urllib.request.urlopen(switch) as response:
+                    switched = json.load(response)
+                with urllib.request.urlopen(f"{base_url}/api/trainers") as response:
+                    trainers = json.load(response)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+            self.assertEqual("team-kanto", switched["project"]["id"])
+            self.assertEqual("cobbleventure:trainer/worker", trainers["items"][0]["id"])
+
     def test_reads_exact_minecraft_structure_size_from_nbt(self) -> None:
         self.assertEqual(
             (22, 15, 23),
@@ -439,6 +550,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(1025, len(pokemon["pokemon"]))
         self.assertEqual(12, len(biomes["profiles"]))
         self.assertEqual([], content_manager.validate_biome_catalogs(root))
+        snow = next(
+            profile for profile in biomes["profiles"]
+            if profile["id"] == "cobbleventure:biome_profile/snow"
+        )
+        self.assertEqual("snow", snow["weather"])
+        self.assertEqual("any", snow["settings"]["weather"])
 
     def test_biome_preview_filters_generation_and_unconditional_bypasses_rules(self) -> None:
         root = Path(__file__).parents[3]
@@ -688,7 +805,7 @@ class ContentManagerTests(unittest.TestCase):
                 "id": "route_01_gate", "type": "gate", "anchor": {"q": 1, "r": -1},
                 "resource": "cobbleventure:gate/route_01", "rotation": 1,
                 "properties": {
-                    "facing": "east", "building_enabled": True, "surrounding_type": "trees",
+                    "facing": "east", "gate_mode": "classic", "building_enabled": True, "surrounding_type": "trees",
                     "wall_block": "minecraft:stone_bricks", "tree_log": "minecraft:oak_log",
                     "tree_leaves": "minecraft:oak_leaves",
                     "wall_thickness": 5, "wall_height": 7, "opening_width": 7,
@@ -715,6 +832,7 @@ class ContentManagerTests(unittest.TestCase):
             npc_only["id"] = "npc_only_gate"
             npc_only["anchor"] = {"q": 2, "r": -1}
             npc_only.pop("resource")
+            npc_only["properties"]["gate_mode"] = "npc_only"
             npc_only["properties"]["building_enabled"] = False
             npc_only["properties"]["surrounding_type"] = "none"
             layout["objects"].append(npc_only)
@@ -739,6 +857,21 @@ class ContentManagerTests(unittest.TestCase):
             missing_legendary_nbt["objects"][3].pop("resource")
             issues = content_manager.save_world_layout(candidate_root, missing_legendary_nbt, 2)
             self.assertTrue(any("전설 포켓몬 장소 NBT" in issue.message for issue in issues))
+            system_only = json.loads(json.dumps(gate))
+            system_only["id"] = "story_lock"
+            system_only["anchor"] = {"q": 5, "r": -1}
+            system_only.pop("resource")
+            system_only["properties"]["gate_mode"] = "system_only"
+            system_only["properties"]["building_enabled"] = False
+            system_only["properties"]["surrounding_type"] = "none"
+            system_only["properties"].pop("npc")
+            system_only["properties"]["deny_message"] = "배지 두 개를 얻기 전에는 들어갈 수 없습니다."
+            layout["objects"].append(system_only)
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
+            invalid_system = json.loads(json.dumps(layout))
+            invalid_system["objects"][4]["properties"]["conditions"] = []
+            issues = content_manager.save_world_layout(candidate_root, invalid_system, 2)
+            self.assertTrue(any("통과 조건" in issue.message for issue in issues))
             invisible = json.loads(json.dumps(layout))
             invisible["objects"][1]["properties"].pop("npc")
             issues = content_manager.save_world_layout(candidate_root, invisible, 2)
@@ -759,6 +892,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="object-tool-building-enabled"', page)
         self.assertIn('id="object-tool-surrounding-type"', page)
         self.assertIn('id="object-tool-tree-log"', page)
+        self.assertIn('id="object-tool-gate-mode"', page)
+        self.assertIn('name="objectGateMode"', page)
         self.assertIn('<option value="villain_base">빌런기지</option>', page)
         self.assertIn('["legendary_site", "전설 포켓몬 장소"]', script)
         self.assertIn('id="world-object-nbt-options"', page)

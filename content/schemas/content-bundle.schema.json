@@ -398,6 +398,7 @@
             "give_money",
             "take_money",
             "grant_loot",
+            "grant_field_move",
             "start_quest",
             "complete_quest",
             "teleport",
@@ -427,6 +428,9 @@
         "currency_objective": { "type": "string" },
         "level_cap_objective": { "type": "string" },
         "loot_table": { "$ref": "#/$defs/resource_id" },
+        "move": {
+          "enum": ["surf", "fly", "flash", "defog", "rock_climb", "waterfall", "whirlpool", "strength"]
+        },
         "gate": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "subject": { "enum": ["player", "npc"] },
         "side": { "enum": ["front", "back", "center"] }

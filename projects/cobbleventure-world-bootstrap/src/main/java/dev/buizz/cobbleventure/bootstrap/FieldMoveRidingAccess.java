@@ -57,6 +57,7 @@ final class FieldMoveRidingAccess {
             case "rock_climb" -> "락클레임";
             case "waterfall" -> "폭포오르기";
             case "whirlpool" -> "바다회오리";
+            case "strength" -> "괴력";
             default -> move;
         };
     }

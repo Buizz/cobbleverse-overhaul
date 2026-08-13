@@ -13,6 +13,7 @@ const structureViewPitch = {
 };
 
 const state = {
+  project: null,
   trainers: [], battles: [], settlements: [], caves: [], trainer: null, battlePreset: null, settlement: null, cave: null,
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", settlementPath: "", cavePath: "", buildCommands: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
@@ -265,6 +266,66 @@ async function loadDashboard() {
   showIssues("#dashboard-issues", data.validation);
   state.buildCommands = data.build_commands;
   renderBuildCommands();
+}
+
+function renderActiveProject() {
+  const project = state.project;
+  $("#active-project-name").textContent = project?.name || "프로젝트 없음";
+  $("#active-project-path").textContent = project?.path || "";
+  $("#open-project").title = project?.path || "프로젝트 불러오기";
+}
+
+async function loadActiveProject() {
+  const result = await request("/api/project");
+  if (!result.ok) throw new Error(result.data.error || "현재 프로젝트를 불러오지 못했습니다.");
+  state.project = result.data.project;
+  renderActiveProject();
+}
+
+function openProjectDialog() {
+  const form = $("#project-form");
+  form.elements.path.value = state.project?.path || "";
+  $("#project-issues").className = "issues empty";
+  $("#project-issues").textContent = "";
+  $("#project-dialog").showModal();
+  form.elements.path.select();
+}
+
+async function loadProject(event) {
+  event.preventDefault();
+  const path = event.currentTarget.elements.path.value.trim();
+  const result = await request("/api/project", {
+    method: "PUT",
+    body: JSON.stringify({ path })
+  });
+  if (!result.ok) {
+    $("#project-issues").className = "issues";
+    $("#project-issues").textContent = result.data.error || "프로젝트를 불러오지 못했습니다.";
+    return;
+  }
+  state.project = result.data.project;
+  renderActiveProject();
+  toast(`${state.project.name} 프로젝트를 불러왔습니다.`);
+  window.setTimeout(() => window.location.reload(), 250);
+}
+
+async function pickProjectFolder() {
+  const form = $("#project-form");
+  const button = $("#pick-project-folder");
+  button.disabled = true;
+  try {
+    const result = await request("/api/project/pick", {
+      method: "POST",
+      body: JSON.stringify({ path: form.elements.path.value.trim() })
+    });
+    if (!result.ok) throw new Error(result.data.error || "폴더 선택창을 열지 못했습니다.");
+    if (!result.data.cancelled) form.elements.path.value = result.data.path;
+  } catch (error) {
+    $("#project-issues").className = "issues";
+    $("#project-issues").textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function loadLists() {
@@ -750,6 +811,13 @@ function renderHexMap() {
     if (node.type === "legendary_site") {
       return `<g class="hex-custom-object legendary-site-object" transform="translate(${x} ${y})"><path d="M0-15L4-5L14-4L6 3L9 13L0 7L-9 13L-6 3L-14-4L-4-5Z"></path><circle r="4"></circle><text y="27">${escapeHtml(node.id)}</text></g>`;
     }
+    const gateMode = node.properties?.gate_mode || "classic";
+    if (gateMode === "system_only") {
+      return `<g class="hex-custom-object gate-object system-only" transform="translate(${x} ${y})"><circle r="16"></circle><path d="M0-11L9-7V0Q9 8 0 13Q-9 8-9 0V-7Z"></path><text y="28">${escapeHtml(node.id)}</text></g>`;
+    }
+    if (gateMode === "npc_only") {
+      return `<g class="hex-custom-object gate-object npc-only" transform="translate(${x} ${y})"><circle cy="-6" r="5"></circle><path d="M-8 10Q-7 0 0 0Q7 0 8 10Z"></path><text y="27">${escapeHtml(node.id)}</text></g>`;
+    }
     const horizontal = ["north", "south"].includes(node.properties?.facing || "north");
     const wall = horizontal ? `<rect x="-${mapHexSize() - 7}" y="-4" width="${(mapHexSize() - 7) * 2}" height="8" rx="2"></rect>` : `<rect x="-4" y="-${mapHexSize() - 7}" width="8" height="${(mapHexSize() - 7) * 2}" rx="2"></rect>`;
     return `<g class="hex-custom-object gate-object" transform="translate(${x} ${y})">${wall}<path d="M-7 7V-5L0-11L7-5V7H3V0H-3V7Z"></path><text y="25">${escapeHtml(node.id)}</text></g>`;
@@ -961,22 +1029,23 @@ function normalizedOdd(value, minimum, maximum) {
   return number;
 }
 function gateProperties(values) {
-  if (!values.buildingEnabled && values.surroundingType === "none" && !values.npc.trim()) {
-    throw new Error("건물과 주변 차단물이 없는 관문에는 NPC 프리셋을 지정해 주세요.");
-  }
+  const gateMode = values.gateMode || "classic";
+  if (gateMode === "npc_only" && !values.npc.trim()) throw new Error("NPC 전용 관문에는 NPC 프리셋을 지정해 주세요.");
+  const conditions = gateMode === "npc_only" ? [] : parseGateConditions(values.conditions);
+  if (gateMode === "system_only" && !conditions.length) throw new Error("시스템 차단 관문에는 통과 조건을 하나 이상 지정해 주세요.");
   const wallHeight = Math.max(3, Math.min(32, Math.round(Number(values.wallHeight) || 7)));
   const properties = {
-    facing: values.facing, building_enabled: values.buildingEnabled,
-    surrounding_type: values.surroundingType, wall_block: values.wallBlock.trim(),
+    facing: values.facing, gate_mode: gateMode, building_enabled: gateMode === "classic",
+    surrounding_type: gateMode === "classic" ? values.surroundingType : "none", wall_block: values.wallBlock.trim(),
     tree_log: values.treeLog.trim() || "minecraft:oak_log",
     tree_leaves: values.treeLeaves.trim() || "minecraft:oak_leaves",
     wall_thickness: normalizedOdd(values.wallThickness, 1, 15),
     wall_height: wallHeight, opening_width: normalizedOdd(values.openingWidth, 3, 31),
     barrier_height: Math.max(wallHeight + 1, Math.min(128, Math.round(Number(values.barrierHeight) || 24))),
-    condition_mode: values.conditionMode, conditions: parseGateConditions(values.conditions),
-    deny_message: values.denyMessage.trim() || "아직 이 관문을 통과할 수 없습니다."
+    condition_mode: values.conditionMode, conditions,
+    deny_message: values.denyMessage.trim() || (gateMode === "system_only" ? "조건을 달성하지 않아 이 지역에 들어갈 수 없습니다." : "아직 이 관문을 통과할 수 없습니다.")
   };
-  if (values.npc.trim()) properties.npc = values.npc.trim();
+  if (gateMode !== "system_only" && values.npc.trim()) properties.npc = values.npc.trim();
   return properties;
 }
 function placeObjectWithTool(q, r) {
@@ -989,11 +1058,12 @@ function placeObjectWithTool(q, r) {
     state.worldLayout.objects.push({ id, type, anchor: { q, r }, resource, rotation: Number($("#object-tool-rotation").value) });
     state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout(); return;
   }
-  const buildingEnabled = $("#object-tool-building-enabled").value === "true";
+  const gateMode = $("#object-tool-gate-mode").value;
+  const buildingEnabled = gateMode === "classic";
   if (buildingEnabled && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
   if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
   state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
-  let properties; try { properties = gateProperties({ facing: $("#object-tool-facing").value, buildingEnabled, surroundingType: $("#object-tool-surrounding-type").value, wallBlock: $("#object-tool-wall-block").value, treeLog: $("#object-tool-tree-log").value, treeLeaves: $("#object-tool-tree-leaves").value, wallThickness: $("#object-tool-wall-thickness").value, wallHeight: $("#object-tool-wall-height").value, openingWidth: $("#object-tool-opening-width").value, barrierHeight: $("#object-tool-barrier-height").value, conditionMode: $("#object-tool-condition-mode").value, conditions: $("#object-tool-conditions").value, denyMessage: $("#object-tool-deny-message").value, npc: $("#object-tool-npc").value }); } catch (error) { toast(error.message); return; }
+  let properties; try { properties = gateProperties({ facing: $("#object-tool-facing").value, gateMode, surroundingType: $("#object-tool-surrounding-type").value, wallBlock: $("#object-tool-wall-block").value, treeLog: $("#object-tool-tree-log").value, treeLeaves: $("#object-tool-tree-leaves").value, wallThickness: $("#object-tool-wall-thickness").value, wallHeight: $("#object-tool-wall-height").value, openingWidth: $("#object-tool-opening-width").value, barrierHeight: $("#object-tool-barrier-height").value, conditionMode: $("#object-tool-condition-mode").value, conditions: $("#object-tool-conditions").value, denyMessage: $("#object-tool-deny-message").value, npc: $("#object-tool-npc").value }); } catch (error) { toast(error.message); return; }
   const object = { id, type, anchor: { q, r }, rotation: Number($("#object-tool-rotation").value), properties };
   if (buildingEnabled) object.resource = resource;
   state.worldLayout.objects.push(object); state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
@@ -1023,21 +1093,33 @@ function ensureWorldObjectTypeOptions() {
 function updateGateOptionVisibility() {
   const toolPanel = $('[data-tool-options="object"]');
   const toolIsGate = $("#object-tool-type").value === "gate";
-  const toolBuilding = $("#object-tool-building-enabled").value === "true";
+  const toolMode = $("#object-tool-gate-mode").value;
+  const toolBuilding = toolMode === "classic";
   const toolSurrounding = $("#object-tool-surrounding-type").value;
-  ["object-tool-building-enabled", "object-tool-facing", "object-tool-surrounding-type", "object-tool-wall-block", "object-tool-tree-log", "object-tool-tree-leaves", "object-tool-wall-thickness", "object-tool-opening-width", "object-tool-wall-height", "object-tool-barrier-height", "object-tool-npc", "object-tool-condition-mode", "object-tool-conditions", "object-tool-deny-message"].forEach((id) => { $(`#${id}`).closest("label").hidden = !toolIsGate; });
-  $("#edit-object-npc").hidden = !toolIsGate;
+  toolPanel.querySelector("[data-gate-mode]").hidden = !toolIsGate;
+  $("#object-tool-building-enabled").closest("label").hidden = true;
+  ["object-tool-surrounding-type", "object-tool-wall-block", "object-tool-tree-log", "object-tool-tree-leaves", "object-tool-wall-thickness", "object-tool-opening-width", "object-tool-wall-height", "object-tool-barrier-height"].forEach((id) => { $(`#${id}`).closest("label").hidden = !toolIsGate || toolMode !== "classic"; });
+  ["object-tool-facing", "object-tool-rotation"].forEach((id) => { $(`#${id}`).closest("label").hidden = !toolIsGate || toolMode === "system_only"; });
+  $("#object-tool-npc").closest("label").hidden = !toolIsGate || toolMode === "system_only";
+  ["object-tool-condition-mode", "object-tool-conditions", "object-tool-deny-message"].forEach((id) => { $(`#${id}`).closest("label").hidden = !toolIsGate || toolMode === "npc_only"; });
+  $("#edit-object-npc").hidden = !toolIsGate || toolMode === "system_only";
   toolPanel.querySelector("[data-object-resource]").hidden = toolIsGate && !toolBuilding;
   toolPanel.querySelectorAll("[data-gate-wall]").forEach((field) => { field.hidden = !toolIsGate || toolSurrounding !== "wall"; });
   toolPanel.querySelectorAll("[data-gate-trees]").forEach((field) => { field.hidden = !toolIsGate || toolSurrounding !== "trees"; });
   toolPanel.querySelectorAll("[data-gate-surrounding]").forEach((field) => { field.hidden = !toolIsGate || toolSurrounding === "none"; });
 
   const form = $("#tile-inspector-form");
-  const objectFields = form.querySelector('[data-tile-field="object"]');
+  const objectFields = form.querySelector('section[data-tile-field="object"]');
   const inspectorIsGate = form.elements.objectType.value === "gate";
-  const inspectorBuilding = form.elements.objectBuildingEnabled.value === "true";
+  const inspectorMode = form.elements.objectGateMode.value;
+  const inspectorBuilding = inspectorMode === "classic";
   const inspectorSurrounding = form.elements.objectSurroundingType.value;
-  ["objectBuildingEnabled", "objectFacing", "objectSurroundingType", "objectWallBlock", "objectTreeLog", "objectTreeLeaves", "objectWallThickness", "objectOpeningWidth", "objectWallHeight", "objectBarrierHeight", "objectNpc", "objectConditionMode", "objectConditions", "objectDenyMessage"].forEach((name) => { form.elements[name].closest("label").hidden = !inspectorIsGate; });
+  form.querySelector("[data-gate-mode]").hidden = !inspectorIsGate;
+  form.elements.objectBuildingEnabled.closest("label").hidden = true;
+  ["objectSurroundingType", "objectWallBlock", "objectTreeLog", "objectTreeLeaves", "objectWallThickness", "objectOpeningWidth", "objectWallHeight", "objectBarrierHeight"].forEach((name) => { form.elements[name].closest("label").hidden = !inspectorIsGate || inspectorMode !== "classic"; });
+  ["objectFacing", "objectRotation"].forEach((name) => { form.elements[name].closest("label").hidden = !inspectorIsGate || inspectorMode === "system_only"; });
+  form.elements.objectNpc.closest("label").hidden = !inspectorIsGate || inspectorMode === "system_only";
+  ["objectConditionMode", "objectConditions", "objectDenyMessage"].forEach((name) => { form.elements[name].closest("label").hidden = !inspectorIsGate || inspectorMode === "npc_only"; });
   objectFields.querySelector("[data-object-resource]").hidden = inspectorIsGate && !inspectorBuilding;
   objectFields.querySelectorAll("[data-gate-wall]").forEach((field) => { field.hidden = !inspectorIsGate || inspectorSurrounding !== "wall"; });
   objectFields.querySelectorAll("[data-gate-trees]").forEach((field) => { field.hidden = !inspectorIsGate || inspectorSurrounding !== "trees"; });
@@ -1061,6 +1143,8 @@ function renderTileInspector() {
   form.elements.emptyTerrainType.value = emptyTerrainAt(selected.q, selected.r);
   form.elements.settlement.innerHTML = worldSettlementOptions(town?.settlement || "");
   form.elements.townBiome.innerHTML = worldBiomeOptions(town?.town_biome || "minecraft:plains");
+  form.elements.connectionHeight.value = Number((town || tile)?.terrain_profile?.connection_height || 0);
+  form.querySelector("[data-terrain-connection-field]").hidden = kind !== "biome" && kind !== "settlement";
   form.elements.musicTrack.innerHTML = musicOptions(musicOverride?.music_track || "", musicContext);
   form.elements.musicTrack.value = musicOverride?.music_track || "";
   $("#tile-music-resolution").textContent = musicOverride
@@ -1069,6 +1153,7 @@ function renderTileInspector() {
   form.elements.objectId.value = customObject?.id || "";
   form.elements.objectType.value = customObject?.type || "gate";
   form.elements.objectResource.value = customObject?.resource || "";
+  form.elements.objectGateMode.value = customObject?.properties?.gate_mode || "classic";
   form.elements.objectBuildingEnabled.value = String(customObject?.properties?.building_enabled ?? true);
   form.elements.objectFacing.value = customObject?.properties?.facing || "north";
   form.elements.objectRotation.value = customObject?.rotation || 0;
@@ -1096,7 +1181,7 @@ function renderTileInspector() {
   const townAreaNote = townArea && !town ? `<small class="town-area-warning">실제 생성: ${escapeHtml(settlementSummary(townArea.settlement)?.name || townArea.settlement)} 사용 범위 · 이 타일의 바이옴 배치는 무시됩니다.</small>` : "";
   const objectSummary = reservedWorldObjectTypes.has(customObject?.type)
     ? `<b>${escapeHtml(customObject.id)}</b><span>${escapeHtml(reservedWorldObjectTypes.get(customObject.type))} · NBT 배치 예약</span><small>${escapeHtml(customObject.resource || "NBT 미지정")} · 전용 동작은 추후 설계</small>`
-    : customObject ? `<b>${escapeHtml(customObject.id)}</b><span>조건부 관문 · ${escapeHtml(customObject.properties?.facing || "north")}</span><small>${customObject.properties?.building_enabled === false ? "건물 없음" : "NBT 건물"} · 주변 ${escapeHtml(customObject.properties?.surrounding_type || "wall")} · 조건 충족 플레이어만 통과</small>` : "";
+    : customObject ? `<b>${escapeHtml(customObject.id)}</b><span>조건부 관문 · ${{ classic: "실제 관문", npc_only: "NPC 전용", system_only: "시스템 차단" }[customObject.properties?.gate_mode || "classic"]}</span><small>${customObject.properties?.gate_mode === "system_only" ? "타일 진입 감지 · 조건과 차단 문구 사용" : customObject.properties?.gate_mode === "npc_only" ? "NPC proximity 이벤트로 제지" : `${customObject.properties?.surrounding_type || "wall"} 차단물 · 중앙 NBT 건물`}</small>` : "";
   $("#tile-summary").innerHTML = (kind === "object" ? objectSummary : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote + levelNote;
   renderWorldPokemonPanel();
 }
@@ -1290,8 +1375,8 @@ function focusRoute(routeId, center = true) {
   renderHexMap(); renderTileInspector();
 }
 
-function defaultWorldTile(q, r, biome) { return { q, r, biome, boundary_profile: "cobbleventure:boundary/earthwork", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96 } }; }
-function defaultWorldSettlement(id, q, r, biome = "minecraft:plains") { return { settlement: id, anchor: { q, r }, town_radius_cells: settlementPresetRadius(id), town_footprint_shape: settlementPresetFootprintShape(id), town_footprint_cells: settlementPresetFootprintCells(id), town_road_exits: settlementPresetRoadExits(id), town_biome: biome, surroundings: [], boundary_profile: "cobbleventure:boundary/stone_wall", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96 } }; }
+function defaultWorldTile(q, r, biome) { return { q, r, biome, boundary_profile: "cobbleventure:boundary/earthwork", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96, connection_height: 0 } }; }
+function defaultWorldSettlement(id, q, r, biome = "minecraft:plains") { return { settlement: id, anchor: { q, r }, town_radius_cells: settlementPresetRadius(id), town_footprint_shape: settlementPresetFootprintShape(id), town_footprint_cells: settlementPresetFootprintCells(id), town_road_exits: settlementPresetRoadExits(id), town_biome: biome, surroundings: [], boundary_profile: "cobbleventure:boundary/stone_wall", terrain_profile: { base_height_offset: 0, height_variation: 3, noise_scale_blocks: 96, connection_height: 0 } }; }
 function settlementRangeConflict(node, q, r, cellCount) {
   const candidateCells = townFootprintCells({ q, r }, cellCount, node ? worldSettlementFootprintShape(node) : "line_q", node ? worldSettlementFootprintCells(node) : []);
   return state.worldLayout.settlements.find((entry) => entry !== node && entry.anchor && candidateCells.some((candidate) => townFootprintCells(entry.anchor, worldSettlementCellCount(entry), worldSettlementFootprintShape(entry), worldSettlementFootprintCells(entry)).some((occupied) => hexDistance(candidate, occupied) < 2)));
@@ -1313,13 +1398,16 @@ function applyTilePlacement() {
       state.worldLayout.objects.push({ id, type, anchor: { q, r }, resource, rotation: Number(form.elements.objectRotation.value) });
       markWorldDirty(); renderWorldLayout(); return;
     }
-    const buildingEnabled = form.elements.objectBuildingEnabled.value === "true";
+    const gateMode = form.elements.objectGateMode.value;
+    const buildingEnabled = gateMode === "classic";
     if (buildingEnabled && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
-    let properties; try { properties = gateProperties({ facing: form.elements.objectFacing.value, buildingEnabled, surroundingType: form.elements.objectSurroundingType.value, wallBlock: form.elements.objectWallBlock.value, treeLog: form.elements.objectTreeLog.value, treeLeaves: form.elements.objectTreeLeaves.value, wallThickness: form.elements.objectWallThickness.value, wallHeight: form.elements.objectWallHeight.value, openingWidth: form.elements.objectOpeningWidth.value, barrierHeight: form.elements.objectBarrierHeight.value, conditionMode: form.elements.objectConditionMode.value, conditions: form.elements.objectConditions.value, denyMessage: form.elements.objectDenyMessage.value, npc: form.elements.objectNpc.value }); } catch (error) { toast(error.message); return; }
+    let properties; try { properties = gateProperties({ facing: form.elements.objectFacing.value, gateMode, surroundingType: form.elements.objectSurroundingType.value, wallBlock: form.elements.objectWallBlock.value, treeLog: form.elements.objectTreeLog.value, treeLeaves: form.elements.objectTreeLeaves.value, wallThickness: form.elements.objectWallThickness.value, wallHeight: form.elements.objectWallHeight.value, openingWidth: form.elements.objectOpeningWidth.value, barrierHeight: form.elements.objectBarrierHeight.value, conditionMode: form.elements.objectConditionMode.value, conditions: form.elements.objectConditions.value, denyMessage: form.elements.objectDenyMessage.value, npc: form.elements.objectNpc.value }); } catch (error) { toast(error.message); return; }
     const object = { id, type, anchor: { q, r }, rotation: Number(form.elements.objectRotation.value), properties };
     if (buildingEnabled) object.resource = resource;
     state.worldLayout.objects.push(object); markWorldDirty(); renderWorldLayout(); return;
   }
+  const previousTile = tileAt(q, r);
+  const connectionHeight = Math.max(-8, Math.min(8, Math.round(Number(form.elements.connectionHeight.value) || 0)));
   const townIndex = state.worldLayout.settlements.findIndex((node) => node.anchor?.q === q && node.anchor?.r === r);
   if (townIndex >= 0 && kind !== "settlement") {
     state.worldLayout.settlements.splice(townIndex, 1);
@@ -1327,7 +1415,13 @@ function applyTilePlacement() {
   state.worldLayout.tiles = state.worldLayout.tiles.filter((tile) => tile.q !== q || tile.r !== r);
   if (kind === "empty") setEmptyTerrainTile(q, r, form.elements.emptyTerrainType.value);
   else state.worldLayout.empty_terrain.tiles = state.worldLayout.empty_terrain.tiles.filter((tile) => tile.q !== q || tile.r !== r);
-  if (kind === "biome") state.worldLayout.tiles.push(defaultWorldTile(q, r, form.elements.biome.value));
+  if (kind === "biome") {
+    const tile = previousTile ? structuredClone(previousTile) : defaultWorldTile(q, r, form.elements.biome.value);
+    tile.q = q; tile.r = r; tile.biome = form.elements.biome.value;
+    tile.terrain_profile ||= defaultWorldTile(q, r, tile.biome).terrain_profile;
+    tile.terrain_profile.connection_height = connectionHeight;
+    state.worldLayout.tiles.push(tile);
+  }
   if (kind === "settlement") {
     const id = form.elements.settlement.value;
     if (!id) { toast("배치할 마을을 선택해 주세요."); return; }
@@ -1344,6 +1438,8 @@ function applyTilePlacement() {
     node.town_footprint_cells = settlementPresetFootprintCells(id);
     node.town_road_exits = settlementPresetRoadExits(id);
     node.town_biome = form.elements.townBiome.value;
+    node.terrain_profile ||= defaultWorldSettlement(id, q, r, node.town_biome).terrain_profile;
+    node.terrain_profile.connection_height = connectionHeight;
   }
   markWorldDirty(); renderWorldLayout();
 }
@@ -2534,8 +2630,12 @@ function renderTrainerRewardFields(form = $("#trainer-form")) {
 const eventCommandLabels = {
   branch: "조건 분기", label: "라벨", dialogue: "대화 표시", choices: "선택지 표시",
   goto: "라벨로 이동", start_battle: "배틀 시작", set_flag: "플래그 변경",
-  give_money: "돈 지급", take_money: "돈 차감", give_item: "아이템 지급", grant_loot: "루트 테이블 지급", mark_clear: "클리어 처리", teleport_to_gate: "관문으로 이동", end: "이벤트 종료",
+  give_money: "돈 지급", take_money: "돈 차감", give_item: "아이템 지급", grant_loot: "루트 테이블 지급", grant_field_move: "비전머신 획득", mark_clear: "클리어 처리", teleport_to_gate: "관문으로 이동", end: "이벤트 종료",
 };
+const fieldMoveChoices = [
+  ["surf", "파도타기"], ["fly", "공중날기"], ["flash", "플래쉬"], ["defog", "안개제거"],
+  ["rock_climb", "락클레임"], ["waterfall", "폭포오르기"], ["whirlpool", "바다회오리"], ["strength", "괴력"],
+];
 const expandedEventCommands = new Set();
 
 function selectedNpcEvent() {
@@ -2563,6 +2663,7 @@ function eventCommandSummary(command) {
   if (command.type === "take_money") return command.mode === "level_cap_multiplier" ? `레벨캡 × ${command.multiplier || 1} 차감` : `${Number(command.amount || 0).toLocaleString()} 차감`;
   if (command.type === "give_item") return `${command.item || "아이템 없음"} × ${command.count || 1}`;
   if (command.type === "grant_loot") return command.loot_table || "루트 테이블 없음";
+  if (command.type === "grant_field_move") return `${fieldMoveChoices.find(([id]) => id === command.move)?.[1] || command.move || "비전머신 없음"} 획득`;
   if (command.type === "teleport_to_gate") return `${command.subject === "npc" ? "NPC" : "플레이어"} → ${command.gate || "관문 없음"} · ${command.side || "front"}`;
   if (command.type === "end") return "이벤트 실행 종료";
   return command.type;
@@ -2785,6 +2886,7 @@ function renderEventCommandEditor(command) {
   }
   if (command.type === "give_item") return `<div class="event-command-fields">${eventField("아이템 ID", "item", command.item || "", { wide: true })}${eventField("수량", "count", command.count ?? 1, { type: "number", valueType: "number", min: 1, step: 1 })}</div>`;
   if (command.type === "grant_loot") return `<div class="event-command-fields">${eventField("루트 테이블 ID", "loot_table", command.loot_table || "", { wide: true, help: "확률과 아이템 구성은 별도의 루트 테이블에서 관리합니다." })}</div>`;
+  if (command.type === "grant_field_move") return `<div class="event-command-fields">${eventField("획득할 비전머신", "move", command.move || "surf", { choices: fieldMoveChoices, wide: true, help: "대화 중인 플레이어의 비전머신 플래그를 영구 해금합니다." })}</div>`;
   if (command.type === "teleport_to_gate") {
     const gates = (state.worldLayout?.objects || []).filter((object) => object.type === "gate").map((gate) => [gate.id, gate.id]);
     if (command.gate && !gates.some(([id]) => id === command.gate)) gates.unshift([command.gate, `${command.gate} · 현재 월드에 없음`]);
@@ -2850,6 +2952,7 @@ function defaultEventCommand(type) {
     take_money: { type, mode: "fixed", amount: 500, currency_objective: "cobbleventure_money" },
     give_item: { type, item: "cobblemon:poke_ball", count: 1 },
     grant_loot: { type, loot_table: "cobbleventure:rewards/example" },
+    grant_field_move: { type, move: "surf" },
     teleport_to_gate: { type, gate: (state.worldLayout?.objects || []).find((object) => object.type === "gate")?.id || "gate_01", subject: "player", side: "front" },
     end: { type },
   };
@@ -4381,8 +4484,14 @@ function renderSelectedBiomeProfile() {
   const profile = state.biomeCatalog.profiles.find((entry) => entry.id === state.selectedBiomeProfile);
   if (!profile) return;
   const form = $("#biome-profile-form");
+  if (!form.elements.defaultWeather) {
+    const label = document.createElement("label");
+    label.innerHTML = '<span>지역 기본 날씨</span><select name="defaultWeather"><option value="inherit">월드 날씨 상속</option><option value="clear">맑음</option><option value="rain">비</option><option value="thunder">뇌우</option><option value="snow">눈</option><option value="fog">안개</option></select>';
+    form.elements.habitat.closest("label").after(label);
+    form.elements.weather.closest("label").querySelector("span").textContent = "포켓몬 출현 날씨 조건";
+  }
   setFormValue(form, "profileId", profile.id); setFormValue(form, "nameKo", profile.display_name?.ko_kr);
-  setFormValue(form, "habitat", profile.habitat); setFormValue(form, "generation", profile.settings?.generation ?? 0);
+  setFormValue(form, "habitat", profile.habitat); setFormValue(form, "defaultWeather", profile.weather || "inherit"); setFormValue(form, "generation", profile.settings?.generation ?? 0);
   setFormValue(form, "habitatVariant", profile.settings?.habitat_variant ?? 0);
   setFormValue(form, "series", profile.settings?.series || "");
   for (const key of ["temperature", "humidity", "weather", "time"]) setFormValue(form, key, profile.settings?.[key] || "any");
@@ -4397,6 +4506,7 @@ function updateBiomeProfileFromForm() {
   if (!profile) return;
   profile.display_name = { ...(profile.display_name || {}), ko_kr: form.elements.nameKo.value.trim() };
   profile.habitat = form.elements.habitat.value;
+  profile.weather = form.elements.defaultWeather.value;
   profile.settings = { generation: Number(form.elements.generation.value), habitat_variant: Number(form.elements.habitatVariant.value), temperature: form.elements.temperature.value, humidity: form.elements.humidity.value, weather: form.elements.weather.value, time: form.elements.time.value, rarities: csvValues(form.elements.rarities.value), include_secondary: form.elements.secondary.checked };
   if (form.elements.series.value) profile.settings.series = form.elements.series.value;
   profile.forced_includes = csvValues(form.elements.forced.value); profile.excluded_pokemon = csvValues(form.elements.excluded.value);
@@ -4413,6 +4523,7 @@ function addBiomeProfile() {
     id,
     display_name: { ko_kr: normalized },
     habitat: "plains",
+    weather: "inherit",
     minecraft_biomes: ["minecraft:plains"],
     settings: { generation: 0, habitat_variant: 0, temperature: "any", humidity: "any", weather: "any", time: "any", rarities: ["common", "medium", "uncommon", "rare"], include_secondary: true },
     forced_includes: [],
@@ -6276,7 +6387,7 @@ function renderVillageGenerationTest() {
       context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
     }
   }
-  const roadColors = { cobblestone: "#8d9292", stone_bricks: "#727b80", gravel: "#aaa397", packed_mud: "#846b55", sandstone: "#d4ba7d", snow: "#d9e9ed" };
+  const roadColors = { cobblestone: "#8d9292", stone_bricks: "#727b80", bricks: "#a05245", grass_path: "#8a704f", gravel: "#aaa397", packed_mud: "#846b55", sandstone: "#d4ba7d", snow: "#d9e9ed" };
   context.lineCap = "square";
   for (const road of result.roads) {
     const start = project(road.x1, road.z1); const end = project(road.x2, road.z2);
@@ -6522,6 +6633,11 @@ function renderSettlement() {
   setFormValue(form, "townFootprintShape", normalizeTownFootprintShape(document.town_footprint_shape));
   setFormValue(form, "townLayoutShape", document.structure_profile?.layout_shape || "branching");
   setFormValue(form, "townRoadWidth", document.structure_profile?.road_profile?.width ?? 7);
+  for (const [value, label] of [["bricks", "벽돌"], ["grass_path", "잔디 길"]]) {
+    if (![...form.elements.townRoadMaterial.options].some((option) => option.value === value)) {
+      form.elements.townRoadMaterial.add(new Option(label, value));
+    }
+  }
   setFormValue(form, "townRoadMaterial", document.structure_profile?.road_profile?.material || "cobblestone");
   const previewSeedHash = [...document.id].reduce((value, character) => ((value * 31) + character.charCodeAt(0)) >>> 0, 1);
   const generationProfile = document.structure_profile?.generation_profile || {};
@@ -8119,6 +8235,11 @@ $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
   }
 });
 $("#refresh-button").addEventListener("click", refreshAll);
+$("#open-project").addEventListener("click", openProjectDialog);
+$("#project-form").addEventListener("submit", loadProject);
+$("#pick-project-folder").addEventListener("click", pickProjectFolder);
+$("#project-close").addEventListener("click", () => $("#project-dialog").close());
+$("#project-cancel").addEventListener("click", () => $("#project-dialog").close());
 $("#save-structure-builder-settings").addEventListener("click", saveStructureBuilderSettings);
 $("#refresh-structure-builder").addEventListener("click", () => loadStructureBuilder().catch((error) => toast(error.message)));
 $("#build-structure-builder").addEventListener("click", async () => { await runBuild("builder-world"); await loadStructureBuilder().catch((error) => toast(error.message)); });
@@ -8164,6 +8285,7 @@ $("#edit-object-npc").addEventListener("click", async () => {
   switchPage("trainers"); await loadDocument("trainers", trainer.path);
 });
 $("#object-tool-building-enabled").addEventListener("change", updateGateOptionVisibility);
+$("#object-tool-gate-mode").addEventListener("change", updateGateOptionVisibility);
 $("#object-tool-surrounding-type").addEventListener("change", updateGateOptionVisibility);
 $("#object-tool-type").addEventListener("change", updateGateOptionVisibility);
 $("#battle-form").addEventListener("change", (event) => {
@@ -8242,7 +8364,7 @@ $("#save-world-layout").addEventListener("click", saveWorldLayout);
 $("#delete-world-layout").addEventListener("click", deleteWorldLayout);
 $("#add-generation").addEventListener("click", addGeneration);
 $("#tile-inspector-form").addEventListener("change", (event) => {
-  if (["objectType", "objectBuildingEnabled", "objectSurroundingType"].includes(event.target.name)) updateGateOptionVisibility();
+  if (["objectType", "objectGateMode", "objectBuildingEnabled", "objectSurroundingType"].includes(event.target.name)) updateGateOptionVisibility();
   handleTileInspectorChange(event);
 });
 $("#clear-tile").addEventListener("click", clearSelectedTile);
@@ -8353,4 +8475,8 @@ $("#economy-pokemon-type").addEventListener("change", (event) => updateEconomyVi
 $("#economy-pokemon-generation").addEventListener("change", (event) => updateEconomyView("pokemonGeneration", event.target.value));
 $("#economy-pokemon-limit").addEventListener("change", (event) => updateEconomyView("pokemonLimit", Number(event.target.value)));
 
-refreshAll();
+loadActiveProject().then(refreshAll).catch((error) => {
+  $("#server-dot").classList.remove("online");
+  $("#server-label").textContent = "연결 실패";
+  toast(error.message);
+});

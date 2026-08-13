@@ -253,6 +253,7 @@
         "en_us": "Snowfield"
       },
       "habitat": "snow",
+      "weather": "snow",
       "minecraft_biomes": [
         "minecraft:snowy_plains",
         "minecraft:ice_spikes",

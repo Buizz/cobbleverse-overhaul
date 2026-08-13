@@ -324,6 +324,87 @@ def build_facility_placeholder_nbt(facility_id: str) -> bytes:
     return _build_structure_nbt((width, height, depth), blocks)
 
 
+TOWN_DECORATION_SIZES = {
+    "street_lamp": (3, 6, 3),
+    "bench": (5, 3, 3),
+    "street_tree": (5, 8, 5),
+    "flower_bed": (5, 2, 5),
+    "fountain": (7, 5, 7),
+}
+
+
+def build_town_decoration_nbt(decoration_id: str) -> bytes:
+    """Build a compact town decoration whose origin is its north-west corner."""
+    try:
+        width, height, depth = TOWN_DECORATION_SIZES[decoration_id]
+    except KeyError as error:
+        raise ValueError(f"지원하지 않는 마을 장식입니다: {decoration_id}") from error
+    blocks: dict[
+        tuple[int, int, int],
+        tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None],
+    ] = {}
+
+    def set_block(
+        x: int, y: int, z: int, name: str,
+        properties: dict[str, str] | None = None,
+    ) -> None:
+        blocks[(x, y, z)] = (name, tuple(sorted((properties or {}).items())), None)
+
+    if decoration_id == "street_lamp":
+        set_block(1, 0, 1, "minecraft:stone_brick_wall")
+        for y in range(1, 5):
+            set_block(1, y, 1, "minecraft:dark_oak_fence")
+        set_block(1, 5, 1, "minecraft:lantern", {"hanging": "false", "waterlogged": "false"})
+    elif decoration_id == "bench":
+        for x in range(1, 4):
+            set_block(x, 0, 1, "minecraft:brick_slab", {"type": "bottom", "waterlogged": "false"})
+            set_block(x, 1, 2, "minecraft:dark_oak_trapdoor", {
+                "facing": "south", "half": "bottom", "open": "true", "powered": "false", "waterlogged": "false",
+            })
+        set_block(0, 0, 1, "minecraft:stone_brick_wall")
+        set_block(4, 0, 1, "minecraft:stone_brick_wall")
+    elif decoration_id == "street_tree":
+        for x in range(5):
+            for z in range(5):
+                edge = x in {0, 4} or z in {0, 4}
+                set_block(x, 0, z, "minecraft:brick_slab" if edge else "minecraft:dirt", {
+                    "type": "bottom", "waterlogged": "false",
+                } if edge else None)
+        for y in range(1, 6):
+            set_block(2, y, 2, "minecraft:oak_log", {"axis": "y"})
+        for y, radius in ((4, 1), (5, 2), (6, 2), (7, 1)):
+            for x in range(2 - radius, 3 + radius):
+                for z in range(2 - radius, 3 + radius):
+                    if (x, z) != (2, 2) or y > 5:
+                        set_block(x, y, z, "minecraft:oak_leaves", {
+                            "distance": "1", "persistent": "true", "waterlogged": "false",
+                        })
+    elif decoration_id == "flower_bed":
+        flowers = ("minecraft:poppy", "minecraft:dandelion", "minecraft:azure_bluet", "minecraft:allium")
+        for x in range(5):
+            for z in range(5):
+                edge = x in {0, 4} or z in {0, 4}
+                set_block(x, 0, z, "minecraft:brick_slab" if edge else "minecraft:dirt", {
+                    "type": "bottom", "waterlogged": "false",
+                } if edge else None)
+                if not edge and (x + z) % 2 == 0:
+                    set_block(x, 1, z, flowers[(x * 3 + z) % len(flowers)])
+    else:
+        for x in range(7):
+            for z in range(7):
+                edge = x in {0, 6} or z in {0, 6}
+                if edge:
+                    set_block(x, 0, z, "minecraft:stone_bricks")
+                elif x in {1, 5} or z in {1, 5}:
+                    set_block(x, 0, z, "minecraft:water", {"level": "0"})
+        for y in range(4):
+            set_block(3, y, 3, "minecraft:chiseled_stone_bricks")
+        set_block(3, 4, 3, "minecraft:water", {"level": "0"})
+        for x, z in ((2, 3), (4, 3), (3, 2), (3, 4)):
+            set_block(x, 1, z, "minecraft:sea_lantern")
+    return _build_structure_nbt((width, height, depth), blocks)
+
+
 def build_house_variant_nbt(base_id: str, roof_id: str, roof_color: str) -> bytes:
     """Build one deterministic house shell from a base, roof shape and roof palette."""
     if base_id not in HOUSE_BASES:
@@ -459,6 +540,8 @@ def recolor_house_roof_nbt(structure_nbt: bytes, roof_color: str) -> bytes:
 ROAD_MATERIAL_BLOCKS = {
     "cobblestone": "minecraft:cobblestone",
     "stone_bricks": "minecraft:stone_bricks",
+    "bricks": "minecraft:bricks",
+    "grass_path": "minecraft:dirt_path",
     "gravel": "minecraft:gravel",
     "packed_mud": "minecraft:packed_mud",
     "sandstone": "minecraft:sandstone",

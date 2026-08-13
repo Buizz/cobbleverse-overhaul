@@ -190,6 +190,7 @@ public final class MapContent {
         }
 
         List<Town> towns = new ArrayList<>();
+        Map<String, List<FieldMoveNpc>> fieldMoveNpcs = loadFieldMoveNpcs();
         for (JsonElement element : world.getAsJsonArray("settlements")) {
             JsonObject placed = element.getAsJsonObject();
             String id = placed.get("settlement").getAsString();
@@ -219,7 +220,8 @@ public final class MapContent {
                 gym.get("theme").getAsString(),
                 gym.get("structure").getAsString(),
                 building.get("enabled").getAsBoolean(),
-                building.get("structure").getAsString()
+                building.get("structure").getAsString(),
+                fieldMoveNpcs.getOrDefault(id, List.of())
             ));
         }
 
@@ -508,6 +510,37 @@ public final class MapContent {
         }
     }
 
+    private static Map<String, List<FieldMoveNpc>> loadFieldMoveNpcs() {
+        JsonObject settlements = resource("field-move-npcs.json").getAsJsonObject("settlements");
+        Map<String, List<FieldMoveNpc>> result = new HashMap<>();
+        for (Map.Entry<String, JsonElement> entry : settlements.entrySet()) {
+            List<FieldMoveNpc> npcs = new ArrayList<>();
+            for (JsonElement npcElement : entry.getValue().getAsJsonArray()) {
+                JsonObject npc = npcElement.getAsJsonObject();
+                String name = npc.get("name").getAsString();
+                for (JsonElement move : npc.getAsJsonArray("moves")) {
+                    npcs.add(new FieldMoveNpc(name, fieldMoveDisplayName(move.getAsString())));
+                }
+            }
+            result.put(entry.getKey(), List.copyOf(npcs));
+        }
+        return Map.copyOf(result);
+    }
+
+    private static String fieldMoveDisplayName(String move) {
+        return switch (move) {
+            case "surf" -> "파도타기";
+            case "fly" -> "공중날기";
+            case "flash" -> "플래쉬";
+            case "defog" -> "안개제거";
+            case "rock_climb" -> "락클레임";
+            case "waterfall" -> "폭포오르기";
+            case "whirlpool" -> "바다회오리";
+            case "strength" -> "괴력";
+            default -> readableId(move);
+        };
+    }
+
     private static String localized(JsonObject value, String fallback) {
         if (value == null) return fallback;
         if (value.has("ko_kr")) return value.get("ko_kr").getAsString();
@@ -548,6 +581,7 @@ public final class MapContent {
     ) {}
     public record CaveInfo(String id, String name, List<String> biomes, List<Pokemon> pokemon) {}
     public record Pokemon(int dexNumber, String id, String name) {}
+    public record FieldMoveNpc(String name, String move) {}
     public record BiomeInfo(
         String id, String name, String habitat, int habitatVariant, List<Pokemon> pokemon, int totalPokemon
     ) {}
@@ -566,11 +600,13 @@ public final class MapContent {
         String gymTheme,
         String gymStructure,
         boolean specialBuildingEnabled,
-        String specialBuildingStructure
+        String specialBuildingStructure,
+        List<FieldMoveNpc> fieldMoveNpcs
     ) {
         public Town {
             Objects.requireNonNull(id);
             Objects.requireNonNull(hex);
+            fieldMoveNpcs = List.copyOf(fieldMoveNpcs);
         }
     }
 }

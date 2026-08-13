@@ -326,7 +326,13 @@ class DataModBuilderTests(unittest.TestCase):
             plots = [*layout["facilities"].values(), *layout["houses"]]
             for decoration in layout["decorations"]:
                 decoration_types.add(decoration["type"])
-                clearance = 3 if decoration["type"] == "street_tree" else 1
+                clearance = {
+                    "street_lamp": 1,
+                    "bench": 2,
+                    "street_tree": 2,
+                    "flower_bed": 2,
+                    "fountain": 3,
+                }[decoration["type"]]
                 footprint = {
                     "x": decoration["x"] - clearance,
                     "z": decoration["z"] - clearance,
@@ -341,7 +347,20 @@ class DataModBuilderTests(unittest.TestCase):
                     build_data_mod._plot_intersects_road(footprint, road, 3, 0.75)
                     for road in layout["access_roads"]
                 ), settlement_path.name)
-        self.assertEqual({"street_lamp", "street_tree"}, decoration_types)
+        self.assertEqual(
+            {"street_lamp", "bench", "street_tree", "flower_bed", "fountain"},
+            decoration_types,
+        )
+
+    def test_generated_town_decoration_structures_exist(self) -> None:
+        structure_root = (
+            REPOSITORY_ROOT / build_data_mod.OUTPUT
+            / "data/cobbleventure/structure/town_decorations"
+        )
+        self.assertEqual(
+            {f"{name}.nbt" for name in build_data_mod.TOWN_DECORATION_SIZES},
+            {path.name for path in structure_root.glob("*.nbt")},
+        )
 
     def test_builtin_facilities_use_actual_template_footprints(self) -> None:
         source = json.loads(

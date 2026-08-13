@@ -82,6 +82,8 @@ http://127.0.0.1:8765
 
 브라우저에서 기본 주소를 열면 다음 기능을 사용할 수 있다.
 
+- `project.json`과 `content` 폴더로 구성된 코블벤처 프로젝트 불러오기
+- 웹을 처음 열 때 Git에 포함된 `Cobbleventure Main` 프로젝트 자동 로드
 - 저장소 검증 현황과 트레이너·마을 수 확인
 - 새 트레이너·마을의 유효한 기본 JSON 생성
 - 트레이너 기본 정보, NPC 행동, 전투 설정과 최대 6마리 팀 편집
@@ -121,6 +123,38 @@ CurseForge 프로필 폴더를 지정한다. 이후 `건축 팩 빌드`는 독�
 제공하지 않으므로 기본값인 로컬 주소를 유지하고 다른 PC가 접속할 수 있는 주소로
 바인딩하지 않는다.
 
+### 콘텐츠 프로젝트
+
+콘텐츠 관리자는 폴더 자체를 프로젝트로 취급한다. 저장소 루트의 `project.json`은
+Git에서 관리하는 기본 프로젝트인 `Cobbleventure Main`을 선언하며, 웹 서버를 켜면
+자동으로 불러온다. 다른 프로젝트는 상단의 현재 프로젝트 버튼에서 폴더를 선택해
+불러온다. 프로젝트를 전환하면 이후 조회와 저장은 선택한 폴더의 `content` 아래에서
+이루어진다.
+
+프로젝트 폴더의 최소 구조는 다음과 같다.
+
+```text
+my-cobbleventure-project/
+├─ project.json
+└─ content/
+```
+
+`project.json` 형식은 다음과 같다.
+
+```json
+{
+  "schema": "cobbleventure-content-project",
+  "version": 1,
+  "id": "my-project",
+  "name": "내 코블벤처 프로젝트",
+  "contentDirectory": "content"
+}
+```
+
+현재 단계에서는 기존 `content` 폴더 전체를 새 프로젝트로 복사한 뒤 필요한 파일만
+편집하는 방식을 사용한다. 프로젝트별 빌드 출력 분리와 ZIP 가져오기·내보내기는 후속
+단계에서 이 명세를 기준으로 확장한다.
+
 #### `test`
 
 `tools/content-manager/tests`와 `tools/pack-builder/tests` 아래의 Python
@@ -157,6 +191,9 @@ python tools/content-manager/content_manager.py api --root .
 - `GET /validate?strict_pack=true`: CurseForge 패키징 가능 상태까지 검증
 - `POST /validate`: `GET /validate`와 동일
 - `GET /api/dashboard`: 관리 화면 요약과 실행 가능한 빌드 명령
+- `GET /api/project`: 현재 활성 코블벤처 프로젝트 조회
+- `PUT /api/project`: `project.json`이 있는 프로젝트 폴더 불러오기
+- `POST /api/project/pick`: Windows 프로젝트 폴더 선택창 열기
 - `GET /api/trainers`, `GET /api/settlements`: 관리 문서 목록
 - `GET /api/trainer-classes`: 트레이너 클래스와 기본 외형 카탈로그
 - `GET /api/editor-catalog`: Battle Web Lab과 공유하는 포켓몬·폼·기술·특성·도구 및 트레이너 가방 아이템 카탈로그

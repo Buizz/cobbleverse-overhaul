@@ -16,8 +16,10 @@ from starter_gym import (
     HOUSE_BASES,
     HOUSE_ROOFS,
     HOUSE_ROOF_BLOCKS,
+    TOWN_DECORATION_SIZES,
     build_facility_placeholder_nbt,
     build_house_variant_nbt,
+    build_town_decoration_nbt,
     build_village_hub_nbt,
     recolor_house_roof_nbt,
 )
@@ -873,7 +875,9 @@ def _compile_town_layout_attempt(
     ]
     decorations: list[dict[str, object]] = []
 
-    def try_add_decoration(kind: str, x: int, z: int, clearance: int) -> None:
+    def try_add_decoration(
+        kind: str, x: int, z: int, clearance: int, rotation: str = "none"
+    ) -> None:
         footprint = {
             "x": x - clearance, "z": z - clearance,
             "width": clearance * 2 + 1, "depth": clearance * 2 + 1,
@@ -889,14 +893,14 @@ def _compile_town_layout_attempt(
             for road in access_roads
         ):
             return
-        minimum_spacing = 5 if kind == "street_tree" else 4
+        minimum_spacing = 8 if kind == "fountain" else 5 if kind in {"street_tree", "flower_bed"} else 4
         if any(
             (x - int(item["x"])) ** 2 + (z - int(item["z"])) ** 2
             < minimum_spacing ** 2
             for item in decorations
         ):
             return
-        decorations.append({"type": kind, "x": x, "z": z})
+        decorations.append({"type": kind, "x": x, "z": z, "rotation": rotation})
 
     road_edge = math.ceil(road_width / 2.0)
     for road_index, road in enumerate(visible_roads):
@@ -912,11 +916,15 @@ def _compile_town_layout_attempt(
             side = 1 if (road_index + marker_index) % 2 == 0 else -1
             center_x = int(road["x1"]) + direction_x * distance
             center_z = int(road["z1"]) + direction_z * distance
+            decoration_cycle = ("street_lamp", "bench", "flower_bed")
+            decoration_kind = decoration_cycle[(road_index + marker_index) % len(decoration_cycle)]
+            road_rotation = "clockwise_90" if direction_z != 0 else "none"
             try_add_decoration(
-                "street_lamp",
+                decoration_kind,
                 center_x + perpendicular_x * side * (road_edge + 2),
                 center_z + perpendicular_z * side * (road_edge + 2),
-                1,
+                2 if decoration_kind in {"bench", "flower_bed"} else 1,
+                road_rotation,
             )
             tree_distance = distance + 12
             if tree_distance <= length - 10:
@@ -926,8 +934,19 @@ def _compile_town_layout_attempt(
                     "street_tree",
                     tree_x - perpendicular_x * side * (road_edge + 4),
                     tree_z - perpendicular_z * side * (road_edge + 4),
-                    3,
+                    2,
                 )
+    fountain_offsets = (
+        (road_edge + 7, road_edge + 7),
+        (-(road_edge + 7), road_edge + 7),
+        (road_edge + 7, -(road_edge + 7)),
+        (-(road_edge + 7), -(road_edge + 7)),
+    )
+    for offset_x, offset_z in fountain_offsets:
+        before = len(decorations)
+        try_add_decoration("fountain", hub_x + offset_x, hub_z + offset_z, 3)
+        if len(decorations) > before:
+            break
     return {
         "schema_version": 1,
         "shape": "hex_tiles",
@@ -1062,7 +1081,7 @@ def _village_hub_definition(
     if road_width not in {3, 5, 7, 9}:
         raise ModBuildError(f"지원하지 않는 도로 폭입니다: {road_width}")
     if road_material not in {
-        "cobblestone", "stone_bricks", "gravel",
+        "cobblestone", "stone_bricks", "bricks", "grass_path", "gravel",
         "packed_mud", "sandstone", "snow",
     }:
         raise ModBuildError(f"지원하지 않는 도로 노면입니다: {road_material}")
@@ -1474,6 +1493,14 @@ def build(root: Path) -> Path:
         ))
         if first_generated is None:
             first_generated = generated
+    for decoration_id in TOWN_DECORATION_SIZES:
+        generated = _inside(
+            root,
+            output / "data/cobbleventure/structure/town_decorations" / f"{decoration_id}.nbt",
+            "생성 마을 장식",
+        )
+        generated.parent.mkdir(parents=True, exist_ok=True)
+        generated.write_bytes(build_town_decoration_nbt(decoration_id))
     for facility_id in FACILITY_PLACEHOLDERS:
         resource = f"cobbleventure:placeholder/{facility_id}"
         generated = _inside(

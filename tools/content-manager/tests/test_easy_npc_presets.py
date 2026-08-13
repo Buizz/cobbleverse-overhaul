@@ -141,6 +141,25 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
 
         self.assertIn(f"scoreboard players set @1 {generator.flag_objective(clear_key)} 1", preset)
 
+    def test_generates_field_move_reward_for_battle_callback(self) -> None:
+        commands = self.document["events"][0]["commands"]
+        win_label = next(
+            index for index, command in enumerate(commands)
+            if command.get("type") == "label" and command.get("name") == "victory_reward"
+        )
+        commands.insert(win_label + 1, {"type": "grant_field_move", "move": "surf"})
+
+        preset = generator.encounter_preset_snbt(self.document, self.outfit)
+
+        self.assertIn("cobbleventure_field_move grant @1 surf", preset)
+
+    def test_generates_field_move_dialogue_action_for_initiator(self) -> None:
+        action = generator.easy_npc_action(
+            {"type": "grant_field_move", "move": "fly"}, self.document
+        )
+
+        self.assertIn("/cobbleventure_field_move grant @initiator fly", action)
+
     def test_spawn_command_imports_generated_data_preset(self) -> None:
         self.assertEqual(
             "/easy_npc preset import_new data "

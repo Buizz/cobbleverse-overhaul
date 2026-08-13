@@ -145,6 +145,8 @@ def command_reward_commands(
             result.append(f"cobbleventurebag give @1 {command['item']} {int(command.get('count', 1))}")
         elif command_type == "grant_loot":
             result.append(f"cobbleventurebag loot @1 {command['loot_table']}")
+        elif command_type == "grant_field_move":
+            result.append(f"cobbleventure_field_move grant @1 {command['move']}")
         elif command_type in {"give_money", "take_money"}:
             if command_type == "give_money" and skip_give_money:
                 index += 1
@@ -400,6 +402,10 @@ def easy_npc_action(operation: dict, document: dict) -> str:
         return command_action(
             f"/cobbleventurebag give @initiator {operation['item']} {operation.get('count', 1)}"
         )
+    if operation_type == "grant_field_move":
+        return command_action(
+            f"/cobbleventure_field_move grant @initiator {operation['move']}"
+        )
     if operation_type == "teleport_to_gate":
         selector = "@npc-uuid" if operation.get("subject") == "npc" else "@initiator"
         return command_action(
@@ -486,7 +492,7 @@ def event_script_dialogues(document: dict) -> str:
                 for value in commands[index + 1:]:
                     if value.get("type") in {"dialogue", "label", "choices", "end"}:
                         break
-                    if value.get("type") == "teleport_to_gate":
+                    if value.get("type") in {"teleport_to_gate", "grant_field_move"}:
                         followup_actions.append(easy_npc_action(value, document))
                 if followup_actions:
                     buttons.append(

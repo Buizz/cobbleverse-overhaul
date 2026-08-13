@@ -75,7 +75,7 @@
         "type": {
           "enum": [
             "branch", "label", "dialogue", "choices", "goto", "start_battle",
-            "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot",
+            "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_field_move",
             "teleport_to_gate", "end"
           ]
         },
@@ -116,6 +116,9 @@
         "item": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
         "count": { "type": "integer", "minimum": 1 },
         "loot_table": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
+        "move": {
+          "enum": ["surf", "fly", "flash", "defog", "rock_climb", "waterfall", "whirlpool", "strength"]
+        },
         "gate": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "subject": { "enum": ["player", "npc"] },
         "side": { "enum": ["front", "back", "center"] }
