@@ -7002,7 +7002,7 @@ def _run_structure_builder_import(
             cwd=core_root,
             env={**os.environ, "COBBLEVENTURE_PROJECT_PATH": str(project_root)},
             capture_output=True,
-            encoding="utf-8",
+            encoding="cp949",
             errors="replace",
             timeout=120,
             check=False,
@@ -7964,6 +7964,9 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
             ),
             "residential": residential,
             "settings": {
+                "placement_y_offset": entry.get("placement_y_offset", 0)
+                if isinstance(entry.get("placement_y_offset", 0), int)
+                and not isinstance(entry.get("placement_y_offset", 0), bool) else 0,
                 "fixed_npcs": entry.get("fixed_npcs", {})
                 if isinstance(entry.get("fixed_npcs", {}), dict) else {},
                 "citizen_placement_allowed": bool(entry.get(
@@ -8158,12 +8161,22 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             "citizen_placement_allowed",
             settings.get("random_citizen_eligible", residential),
         ))
+        placement_y_offset = settings.get("placement_y_offset", 0)
+        if (isinstance(placement_y_offset, bool)
+                or not isinstance(placement_y_offset, int)
+                or not -64 <= placement_y_offset <= 64):
+            _issue(
+                issues, "error", path, f"{entry_path}.placement_y_offset",
+                "Y 배치 보정값은 -64~64 범위의 정수여야 합니다.",
+            )
+            continue
         if citizen_placement_allowed and normalized_fixed:
             _issue(
                 issues, "error", path, f"{entry_path}.fixed_npcs",
                 "시민 수용 건물에는 고정 NPC를 배정하지 않습니다.",
             )
         normalized[resource_id] = {
+            "placement_y_offset": placement_y_offset,
             "fixed_npcs": {} if citizen_placement_allowed else normalized_fixed,
             "citizen_placement_allowed": citizen_placement_allowed,
             "interiors": normalized_interiors,

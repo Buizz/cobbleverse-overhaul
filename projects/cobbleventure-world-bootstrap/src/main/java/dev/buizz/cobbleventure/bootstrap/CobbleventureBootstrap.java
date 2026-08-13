@@ -125,8 +125,6 @@ public final class CobbleventureBootstrap {
     // from its center). Start lazy generation well before that endpoint can enter
     // normal view distance, so the town road connectors exist when players arrive.
     private static final int LAZY_TOWN_TRIGGER_DISTANCE = 224;
-    private static final int LAZY_CAVE_TRIGGER_DISTANCE = 192;
-    private static final int LAZY_CAVE_INTERIOR_TRIGGER_DISTANCE = 96;
     private static final int STARTER_TOWN_CHUNKS_PER_TICK = 8;
     private static final int BACKGROUND_TOWN_CHUNKS_PER_TICK = 1;
     private static final TicketType<ChunkPos> TOWN_GENERATION_TICKET = TicketType.create(
@@ -190,8 +188,6 @@ public final class CobbleventureBootstrap {
     private static volatile WorldInitializationJob activeInitialization;
     private static volatile TownGenerationDisplay completedTownGenerationDisplay;
     private static volatile int completedTownGenerationDisplayTicks;
-    private static final Set<String> preparedCaveEntrances = new HashSet<>();
-    private static boolean caveInteriorsPrepared;
     private static final Map<NoiseKey, NormalNoise> TERRAIN_NOISES = new ConcurrentHashMap<>();
     private static final Cache<TerrainColumnKey, NativeTerrainColumn> NATIVE_TERRAIN_COLUMNS =
         CacheBuilder.newBuilder().maximumSize(262_144L).build();
@@ -326,8 +322,6 @@ public final class CobbleventureBootstrap {
         activeInitialization = null;
         completedTownGenerationDisplay = null;
         completedTownGenerationDisplayTicks = 0;
-        preparedCaveEntrances.clear();
-        caveInteriorsPrepared = false;
         ServerLevel level = event.getServer().getLevel(GENERATION_ONE);
         if (level == null) {
             throw new IllegalStateException("Cobbleventure generation_1 dimension is missing");
@@ -397,6 +391,7 @@ public final class CobbleventureBootstrap {
         if (!nativeGenerator) {
             placeCaveMountainBarriers(level, runtime.hexWorld());
         }
+        placeCaveEntrances(level, runtime.hexWorld());
         WorldGateSystem.placeAll(
             level, runtime.hexWorld().grid(), runtime.hexWorld().gates()
         );
@@ -404,9 +399,7 @@ public final class CobbleventureBootstrap {
         if (dungeons == null) {
             throw new IllegalStateException("Cobbleventure dungeons dimension is missing");
         }
-        LOGGER.info(
-            "Cave entrance and interior generation deferred until a player approaches"
-        );
+        placeCaveInteriors(dungeons, runtime.hexWorld());
         if (!Boolean.getBoolean(TOWN_SEQUENCE_PERFORMANCE_TEST_PROPERTY)) {
             GymInteriorSystem.initialize(event.getServer());
         }
@@ -709,6 +702,7 @@ public final class CobbleventureBootstrap {
         if (!nativeGenerator) {
             placeCaveMountainBarriers(level, runtime.hexWorld());
         }
+        placeCaveEntrances(level, runtime.hexWorld());
         WorldGateSystem.placeAll(
             level, runtime.hexWorld().grid(), runtime.hexWorld().gates()
         );
@@ -869,74 +863,33 @@ public final class CobbleventureBootstrap {
         int mouthX = mouth.x();
         int mouthZ = mouth.z();
         double boundaryDistance = mouth.boundaryDistance();
-        migrateLegacyCaveEntrance(level, grid, center, forwardX, forwardZ);
-        BlockPos legacyMarker = new BlockPos(mouthX, grid.origin().y() + 16, mouthZ);
-        int previousMouthX = center.x()
-            + (int) Math.round(forwardX * (boundaryDistance - 5.0D));
-        int previousMouthZ = center.z()
-            + (int) Math.round(forwardZ * (boundaryDistance - 5.0D));
-        BlockPos previousMarker = new BlockPos(
-            previousMouthX, grid.origin().y() + 16, previousMouthZ
-        );
         int plannedFloorY = plannedCaveMouthFloorY(
             level, world, mouthX, mouthZ
         );
         restoreLegacyCaveMountainCutout(level, world, entrance);
         BlockPos marker = new BlockPos(mouthX, plannedFloorY - 2, mouthZ);
-        boolean existingEntrance = level.getBlockState(marker).is(Blocks.LODESTONE)
-            || level.getBlockState(legacyMarker).is(Blocks.LODESTONE);
-        boolean displacedEntrance = level.getBlockState(previousMarker).is(Blocks.LODESTONE);
         restoreCaveApproach(
             level, world, approachRoad, center, forwardX, forwardZ,
             boundaryDistance, plannedFloorY
         );
-        if (existingEntrance || displacedEntrance) {
-            int detectedFloorY = displacedEntrance
-                ? caveMouthFloorY(level, previousMouthX, previousMouthZ, plannedFloorY)
-                : caveMouthFloorY(level, mouthX, mouthZ, plannedFloorY);
-            int existingFloorY = Math.abs(detectedFloorY - plannedFloorY) <= 4
-                ? detectedFloorY : plannedFloorY;
-            if (displacedEntrance) {
-                removeDisplacedCaveMouthLandmark(
-                    level, previousMouthX, existingFloorY, previousMouthZ,
-                    forwardX, forwardZ
-                );
-            }
-            reshapeCaveMouth(
-                level, mouthX, existingFloorY, mouthZ, forwardX, forwardZ
-            );
-            if (displacedEntrance) {
-                level.setBlock(previousMarker, Blocks.AIR.defaultBlockState(), 2);
-            }
-            if (!legacyMarker.equals(marker)) {
-                level.setBlock(legacyMarker, Blocks.AIR.defaultBlockState(), 2);
-            }
-            level.setBlock(marker, Blocks.LODESTONE.defaultBlockState(), 2);
-            placeCaveMouthLandmark(
-                level, mouthX, existingFloorY, mouthZ, forwardX, forwardZ
-            );
-            clearCaveEntrancePassage(
-                level, mouthX, existingFloorY, mouthZ, forwardX, forwardZ
-            );
-            repairExistingCavePokemonCenterAccessRoad(
-                level, world, entrance, center, approachRoad
-            );
-            restoreCaveEntranceBarrierRoof(level, world, entrance);
-            return;
-        }
-
-        int baseY = plannedFloorY;
-        reshapeCaveMouth(level, mouthX, baseY, mouthZ, forwardX, forwardZ);
+        reshapeCaveMouth(
+            level, mouthX, plannedFloorY, mouthZ, forwardX, forwardZ
+        );
         level.setBlock(marker, Blocks.LODESTONE.defaultBlockState(), 2);
-        placeCaveMouthLandmark(level, mouthX, baseY, mouthZ, forwardX, forwardZ);
-        clearCaveEntrancePassage(level, mouthX, baseY, mouthZ, forwardX, forwardZ);
+        placeCaveMouthLandmark(
+            level, mouthX, plannedFloorY, mouthZ, forwardX, forwardZ
+        );
+        clearCaveEntrancePassage(
+            level, mouthX, plannedFloorY, mouthZ, forwardX, forwardZ
+        );
         restoreCaveEntranceBarrierRoof(level, world, entrance);
         placeCavePokemonCenter(
             level, world, entrance, center, new Point(mouthX, mouthZ), approachRoad
         );
         LOGGER.info(
-            "Cave entrance generated: id={}, cave={}, position={}",
-            entrance.id(), entrance.cave(), new BlockPos(mouthX, baseY, mouthZ)
+            "Cave entrance and Pokemon Center ensured: id={}, cave={}, position={}",
+            entrance.id(), entrance.cave(),
+            new BlockPos(mouthX, plannedFloorY, mouthZ)
         );
     }
 
@@ -1082,25 +1035,6 @@ public final class CobbleventureBootstrap {
             || state.is(Blocks.STONE_BRICKS) || state.is(Blocks.STONE_BRICK_SLAB)
             || state.is(Blocks.MOSSY_STONE_BRICKS)
             || state.is(Blocks.MOSSY_STONE_BRICK_SLAB);
-    }
-
-    private static void removeDisplacedCaveMouthLandmark(
-        ServerLevel level,
-        int centerX, int floorY, int centerZ,
-        double forwardX, double forwardZ
-    ) {
-        double sideX = -forwardZ;
-        double sideZ = forwardX;
-        for (int lateral = -7; lateral <= 7; lateral++) {
-            int x = centerX + (int) Math.round(sideX * lateral);
-            int z = centerZ + (int) Math.round(sideZ * lateral);
-            for (int vertical = 1; vertical <= 9; vertical++) {
-                BlockPos position = new BlockPos(x, floorY + vertical, z);
-                if (isLegacyCaveEntranceBlock(level.getBlockState(position))) {
-                    level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
-                }
-            }
-        }
     }
 
     private static void reshapeCaveMouth(
@@ -1254,7 +1188,10 @@ public final class CobbleventureBootstrap {
         double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
         double forwardX = deltaX / length;
         double forwardZ = deltaZ / length;
-        double boundaryDistance = length * 0.5D + 2.0D;
+        // Keep the visible mouth just inside the playable tile. The passage then
+        // cuts inward through the mountain; placing the mouth beyond the shared
+        // hex edge makes every regeneration appear to eat farther into the hill.
+        double boundaryDistance = Math.max(1.0D, length * 0.5D - 2.0D);
         int mouthX = center.x() + (int) Math.round(forwardX * boundaryDistance);
         int mouthZ = center.z() + (int) Math.round(forwardZ * boundaryDistance);
         return new CaveMouthGeometry(
@@ -1375,78 +1312,6 @@ public final class CobbleventureBootstrap {
         return "cobbleventure:field_move/rock_climb".equals(
             sample.accessRequirement()
         );
-    }
-
-    private static void migrateLegacyCaveEntrance(
-        ServerLevel level, HexGrid grid, Point center,
-        double forwardX, double forwardZ
-    ) {
-        int legacyMouthX = center.x() + (int) Math.round(forwardX * 18.0D);
-        int legacyMouthZ = center.z() + (int) Math.round(forwardZ * 18.0D);
-        BlockPos legacyMarker = new BlockPos(
-            legacyMouthX, grid.origin().y() + 16, legacyMouthZ
-        );
-        if (!level.getBlockState(legacyMarker).is(Blocks.LODESTONE)) {
-            return;
-        }
-
-        double sideX = -forwardZ;
-        double sideZ = forwardX;
-        int restoredColumns = 0;
-        for (int depth = 0; depth <= 15; depth++) {
-            for (int lateral = -13; lateral <= 13; lateral++) {
-                int x = legacyMouthX
-                    + (int) Math.round(forwardX * depth + sideX * lateral);
-                int z = legacyMouthZ
-                    + (int) Math.round(forwardZ * depth + sideZ * lateral);
-                int groundY = plannedTerrainGroundY(level, x, z);
-                HexWorldPlan world = activeHexWorld;
-                TerrainSample sample = world == null
-                    ? null : terrainAt(world, x + 0.5D, z + 0.5D);
-                String biome = sample == null ? "minecraft:plains" : sample.biome();
-                BlockPos ground = new BlockPos(x, groundY, z);
-                if (isLegacyCaveEntranceBlock(level.getBlockState(ground))) {
-                    level.setBlock(ground, surfaceBlock(biome), 2);
-                }
-                for (int y = groundY + 1; y <= groundY + 24; y++) {
-                    BlockPos position = new BlockPos(x, y, z);
-                    if (isLegacyCaveEntranceBlock(level.getBlockState(position))) {
-                        level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
-                    }
-                }
-                restoredColumns++;
-            }
-        }
-        level.setBlock(legacyMarker, Blocks.AIR.defaultBlockState(), 2);
-        LOGGER.info(
-            "Legacy cave entrance moved from tile interior to boundary: center={}, oldMouth=({}, {}), restoredColumns={}",
-            center, legacyMouthX, legacyMouthZ, restoredColumns
-        );
-    }
-
-    private static boolean isLegacyCaveEntranceBlock(BlockState state) {
-        return state.is(Blocks.STONE)
-            || state.is(Blocks.ANDESITE)
-            || state.is(Blocks.TUFF)
-            || state.is(Blocks.CALCITE)
-            || state.is(Blocks.COBBLED_DEEPSLATE)
-            || state.is(Blocks.POLISHED_DEEPSLATE)
-            || state.is(Blocks.SEA_LANTERN)
-            || state.is(Blocks.OCHRE_FROGLIGHT)
-            || state.is(Blocks.LODESTONE);
-    }
-
-    private static int caveMouthFloorY(
-        ServerLevel level, int x, int z, int expectedY
-    ) {
-        for (int y = expectedY - 5; y <= expectedY + 12; y++) {
-            BlockState state = level.getBlockState(new BlockPos(x, y, z));
-            if ((state.is(Blocks.COBBLED_DEEPSLATE) || state.is(Blocks.COBBLESTONE))
-                && level.getBlockState(new BlockPos(x, y + 1, z)).isAir()) {
-                return y;
-            }
-        }
-        return expectedY;
     }
 
     private static void placeCaveMouthLandmark(
@@ -1605,45 +1470,6 @@ public final class CobbleventureBootstrap {
         }
     }
 
-    private static void repairExistingCavePokemonCenterAccessRoad(
-        ServerLevel level, HexWorldPlan world, CaveEntrancePlan entrance,
-        Point entranceCenter, ConnectionPath approachRoad
-    ) {
-        HexCoord offset = entrance.pokemonCenterOffset();
-        Point offsetCenter = world.grid().worldCenter(new HexCoord(
-            entrance.anchor().q() + offset.q(), entrance.anchor().r() + offset.r()
-        ));
-        double deltaX = offsetCenter.x() - entranceCenter.x();
-        double deltaZ = offsetCenter.z() - entranceCenter.z();
-        double length = Math.max(1.0D, Math.hypot(deltaX, deltaZ));
-        int centerX = entranceCenter.x() + (int) Math.round(deltaX / length * 28.0D);
-        int centerZ = entranceCenter.z() + (int) Math.round(deltaZ / length * 28.0D);
-        String structure = entrance.pokemonCenterStructure().equals(
-            "cobbleventure:facility/pokemon_center_small"
-        ) ? "bca:default/one_off/pokecenter" : entrance.pokemonCenterStructure();
-        ResourceLocation structureId = ResourceLocation.tryParse(structure);
-        if (structureId == null || level.getStructureManager().get(structureId).isEmpty()) {
-            return;
-        }
-        var size = level.getStructureManager().get(structureId).orElseThrow().getSize();
-        int groundY = plannedTerrainGroundY(level, centerX, centerZ);
-        BlockPoint origin = new BlockPoint(
-            centerX - size.getX() / 2, groundY - 3, centerZ - size.getZ() / 2
-        );
-        FacilityPlacement facility = new FacilityPlacement(
-            "facility_pokemon_center", "direct_template", structure,
-            "pokemon_center", "포켓몬센터", "cave_entrance", null, null,
-            null, null, null, 0.0D,
-            size.getX(), size.getZ(), size.getY(), 4
-        );
-        Point facilityEntrance = facilityEntrances(
-            new FacilitySite(facility, origin)
-        ).getFirst();
-        drawCaveAccessRoad(
-            level, world, approachRoad, entranceCenter, facilityEntrance
-        );
-    }
-
     private static boolean placeTown(ServerLevel level, SettlementPlan settlement) {
         BlockPos villagePos = surfacePosition(
             level, settlement.center().x(), settlement.center().z()
@@ -1719,7 +1545,8 @@ public final class CobbleventureBootstrap {
             int z = center.z() + (int) Math.round(house.z());
             int groundY = plannedTerrainGroundY(level, x, z);
             BlockPoint origin = rotatedTemplateOrigin(
-                x, groundY, z, house.width(), house.depth(), house.rotation()
+                x, groundY + BuildingRuntimeSystem.placementYOffset(structure), z,
+                house.width(), house.depth(), house.rotation()
             );
             housePlacements.add(new TownTemplatePlacement(
                 structure, origin, house.rotation()
@@ -2179,20 +2006,23 @@ public final class CobbleventureBootstrap {
     private static boolean placeFacilities(ServerLevel level, SettlementPlan settlement) {
         List<FacilitySite> configuredSites = new ArrayList<>();
         for (FacilityPlacement facility : settlement.facilities()) {
-            BlockPoint position;
+            BlockPoint referencePosition;
             if (facility.mode().equals("instanced_entry")) {
-                position = facility.instanceOrigin();
+                referencePosition = facility.instanceOrigin();
             } else if (facility.mode().equals("direct_template")
                 || facility.mode().equals("placeholder")) {
-                position = resolveDirectFacilityPosition(level, settlement, facility);
+                referencePosition = resolveDirectFacilityPosition(level, settlement, facility);
             } else {
                 LOGGER.error("Unknown facility placement mode: {}", facility.mode());
                 return false;
             }
-            if (position != null && (facility.id().equals("special_district_building")
+            BlockPoint position = referencePosition == null || facility.mode().equals("placeholder")
+                ? referencePosition
+                : applyBuildingPlacementYOffset(facility.structure(), referencePosition);
+            if (referencePosition != null && (facility.id().equals("special_district_building")
                 || facility.id().startsWith("facility_")
                 || facility.id().contains("gym"))) {
-                prepareSpecialDistrict(level, facility, position);
+                prepareSpecialDistrict(level, facility, referencePosition);
             }
             String rotation = facility.id().contains("gym")
                 ? RGS_GYM_ROTATION : "none";
@@ -2257,7 +2087,9 @@ public final class CobbleventureBootstrap {
                     || !facility.id().contains("gym")) {
                     continue;
                 }
-                BlockPoint position = resolveDirectFacilityPosition(level, settlement, facility);
+                BlockPoint resolved = resolveDirectFacilityPosition(level, settlement, facility);
+                BlockPoint position = resolved == null ? null
+                    : applyBuildingPlacementYOffset(facility.structure(), resolved);
                 if (position != null) {
                     GymInteriorSystem.prepareExterior(
                         level, settlement.id(), position, RGS_GYM_ROTATION
@@ -2293,16 +2125,19 @@ public final class CobbleventureBootstrap {
                 int z = center.z() + (int) Math.round(house.z());
                 int groundY = plannedTerrainGroundY(level, x, z);
                 BlockPoint origin = rotatedTemplateOrigin(
-                    x, groundY, z, house.width(), house.depth(), house.rotation()
+                    x, groundY + BuildingRuntimeSystem.placementYOffset(structure), z,
+                    house.width(), house.depth(), house.rotation()
                 );
                 BuildingRuntimeSystem.onStructurePlaced(
                     level, structure, origin, house.rotation()
                 );
             }
             for (FacilityPlacement facility : settlement.facilities()) {
-                BlockPoint position = facility.mode().equals("instanced_entry")
+                BlockPoint resolved = facility.mode().equals("instanced_entry")
                     ? facility.instanceOrigin()
                     : resolveDirectFacilityPosition(level, settlement, facility);
+                BlockPoint position = resolved == null ? null
+                    : applyBuildingPlacementYOffset(facility.structure(), resolved);
                 if (position != null) {
                     BuildingRuntimeSystem.onStructurePlaced(
                         level, facility.structure(), position,
@@ -2330,9 +2165,11 @@ public final class CobbleventureBootstrap {
                     && !facility.id().equals("facility_department_store")) {
                     continue;
                 }
-                BlockPoint origin = facility.mode().equals("instanced_entry")
+                BlockPoint resolved = facility.mode().equals("instanced_entry")
                     ? facility.instanceOrigin()
                     : resolveDirectFacilityPosition(level, settlement, facility);
+                BlockPoint origin = resolved == null ? null
+                    : applyBuildingPlacementYOffset(facility.structure(), resolved);
                 if (origin == null) {
                     continue;
                 }
@@ -3448,7 +3285,17 @@ public final class CobbleventureBootstrap {
     private static int facilityGroundLevelY(
         FacilityPlacement facility, BlockPoint origin
     ) {
-        return origin.y() + facilityGroundOffset(facility);
+        return origin.y() + facilityGroundOffset(facility)
+            - BuildingRuntimeSystem.placementYOffset(facility.structure());
+    }
+
+    private static BlockPoint applyBuildingPlacementYOffset(
+        String structure, BlockPoint origin
+    ) {
+        int offset = BuildingRuntimeSystem.placementYOffset(structure);
+        return offset == 0 ? origin : new BlockPoint(
+            origin.x(), origin.y() + offset, origin.z()
+        );
     }
 
     private static int facilityGroundOffset(FacilityPlacement facility) {
@@ -4099,7 +3946,6 @@ public final class CobbleventureBootstrap {
         }
         long gameTime = level.getGameTime();
         ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
-        scheduleNearbyCaveInfrastructure(level, dungeons, gameTime);
         scheduleNearbyTownInitialization(level, gameTime);
         scheduleBackgroundTownInitialization(level);
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
@@ -4426,53 +4272,6 @@ public final class CobbleventureBootstrap {
                     )
                 );
                 return;
-            }
-        }
-    }
-
-    private static void scheduleNearbyCaveInfrastructure(
-        ServerLevel level, ServerLevel dungeons, long gameTime
-    ) {
-        HexWorldPlan world = activeHexWorld;
-        if (world == null || gameTime % 20L != 0L || activeInitialization != null) {
-            return;
-        }
-        double entranceTriggerSquared = (double) LAZY_CAVE_TRIGGER_DISTANCE
-            * LAZY_CAVE_TRIGGER_DISTANCE;
-        double interiorTriggerSquared = (double) LAZY_CAVE_INTERIOR_TRIGGER_DISTANCE
-            * LAZY_CAVE_INTERIOR_TRIGGER_DISTANCE;
-        for (ServerPlayer player : level.players()) {
-            for (CaveEntrancePlan entrance : world.caveEntrances()) {
-                Point center = world.grid().worldCenter(entrance.anchor());
-                double dx = player.getX() - center.x();
-                double dz = player.getZ() - center.z();
-                double distanceSquared = dx * dx + dz * dz;
-                if (!preparedCaveEntrances.contains(entrance.id())
-                    && distanceSquared <= entranceTriggerSquared) {
-                    LOGGER.info(
-                        "Nearby cave entrance generation started: entrance={}, player={}, distance={}",
-                        entrance.id(), player.getGameProfile().getName(),
-                        Math.sqrt(distanceSquared)
-                    );
-                    placeCaveEntrance(level, world, entrance);
-                    preparedCaveEntrances.add(entrance.id());
-                    LOGGER.info(
-                        "Nearby cave entrance generation completed: entrance={}",
-                        entrance.id()
-                    );
-                    return;
-                }
-                if (!caveInteriorsPrepared && dungeons != null
-                    && distanceSquared <= interiorTriggerSquared) {
-                    LOGGER.info(
-                        "Nearby cave interior generation started: entrance={}, player={}",
-                        entrance.id(), player.getGameProfile().getName()
-                    );
-                    placeCaveInteriors(dungeons, world);
-                    caveInteriorsPrepared = true;
-                    LOGGER.info("Nearby cave interior generation completed");
-                    return;
-                }
             }
         }
     }
@@ -9575,7 +9374,8 @@ public final class CobbleventureBootstrap {
     ) {
         int radius = template.size() / 2;
         BlockPoint origin = rotatedTemplateOrigin(
-            ground.getX() - radius, ground.getY() + template.originOffsetY(),
+            ground.getX() - radius,
+            ground.getY() + BuildingRuntimeSystem.placementYOffset(template.structure()),
             ground.getZ() - radius,
             template.size(), template.size(), decoration.rotation()
         );
@@ -9587,19 +9387,19 @@ public final class CobbleventureBootstrap {
     private static TownDecorationTemplate townDecorationTemplate(String type) {
         return switch (type) {
             case "street_lamp" -> new TownDecorationTemplate(
-                "cobbleventure:town_decorations/street_lamp", 3, 6, 1, 0
+                "cobbleventure:town_decorations/street_lamp", 5, 8, 0
             );
             case "street_tree" -> new TownDecorationTemplate(
-                "cobbleventure:town_decorations/street_tree", 5, 8, 0, 1
+                "cobbleventure:town_decorations/street_tree", 5, 8, 1
             );
             case "bench" -> new TownDecorationTemplate(
-                "cobbleventure:town_decorations/bench", 5, 3, 1, 2
+                "cobbleventure:town_decorations/bench", 5, 8, 2
             );
             case "flower_bed" -> new TownDecorationTemplate(
-                "cobbleventure:town_decorations/flower_bed", 5, 2, 0, 3
+                "cobbleventure:town_decorations/flower_bed", 5, 5, 3
             );
             case "fountain" -> new TownDecorationTemplate(
-                "cobbleventure:town_decorations/fountain", 7, 5, 0, 4
+                "cobbleventure:town_decorations/fountain", 7, 7, 4
             );
             default -> null;
         };
@@ -11148,7 +10948,7 @@ public final class CobbleventureBootstrap {
     record TownDecoration(String type, int x, int z, String rotation) {}
 
     record TownDecorationTemplate(
-        String structure, int size, int height, int originOffsetY, int counterIndex
+        String structure, int size, int height, int counterIndex
     ) {}
 
     private static final class PreviewRandom {

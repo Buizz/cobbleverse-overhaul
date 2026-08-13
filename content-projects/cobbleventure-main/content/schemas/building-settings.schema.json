@@ -16,6 +16,7 @@
         "additionalProperties": false,
         "required": ["fixed_npcs", "citizen_placement_allowed", "interiors", "door_routes"],
         "properties": {
+          "placement_y_offset": { "type": "integer", "minimum": -64, "maximum": 64 },
           "fixed_npcs": {
             "type": "object",
             "propertyNames": { "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$" },

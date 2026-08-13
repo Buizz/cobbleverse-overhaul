@@ -401,7 +401,7 @@ public final class StructureBuilderMod {
                     && data.interior(planned.entry().label()).isPresent()) {
                     continue;
                 }
-                export(source.getServer().overworld(), planned);
+                export(source.getServer().overworld(), catalog, planned);
                 saved++;
             }
             for (InteriorPlot interior : data.interiors()) {
@@ -432,7 +432,7 @@ public final class StructureBuilderMod {
             if (resized.isPresent()) {
                 exportInterior(source.getServer().overworld(), resized.get());
             } else {
-                export(source.getServer().overworld(), planned);
+                export(source.getServer().overworld(), catalog, planned);
             }
             source.sendSuccess(
                 () -> Component.literal(
@@ -613,7 +613,7 @@ public final class StructureBuilderMod {
                 .orElseThrow(() -> new BuilderException(
                     "현재 위치에 저장할 NBT 부지가 없습니다."
                 ));
-            export(player.serverLevel(), planned);
+            export(player.serverLevel(), catalog, planned);
         }
         player.sendSystemMessage(Component.literal(
             "[Structure Builder] 현재 NBT 저장 완료: " + current.label()
@@ -956,7 +956,7 @@ public final class StructureBuilderMod {
             .filter(planned -> contains(planned, position))
             .findFirst()
             .orElseThrow(() -> new BuilderException(
-                "문이 구조물 선택 영역 안에 있지 않습니다."
+                "현재 위치가 구조물 선택 영역 안에 있지 않습니다."
             ));
     }
 
@@ -1140,7 +1140,8 @@ public final class StructureBuilderMod {
             if (dynamic.isPresent()) {
                 exportInterior(source.getServer().overworld(), dynamic.get());
             } else {
-                PlannedEntry planned = plan(loadCatalog(source.getServer()), builderData.groundY)
+                Catalog catalog = loadCatalog(source.getServer());
+                PlannedEntry planned = plan(catalog, builderData.groundY)
                     .stream()
                     .filter(value -> value.entry().category().equals("interiors")
                         && value.entry().label().equals(id))
@@ -1148,7 +1149,7 @@ public final class StructureBuilderMod {
                     .orElseThrow(() -> new BuilderException(
                         "내부 공간을 찾을 수 없습니다: " + id
                     ));
-                export(source.getServer().overworld(), planned);
+                export(source.getServer().overworld(), catalog, planned);
             }
             source.sendSuccess(
                 () -> Component.literal("[Structure Builder] 내부 NBT 내보내기 완료: " + id),
@@ -1308,18 +1309,105 @@ public final class StructureBuilderMod {
         placeLabel(level, planned);
     }
 
-    private static void export(ServerLevel level, PlannedEntry planned) {
+    private static void export(ServerLevel level, Catalog catalog, PlannedEntry planned) {
+        planned = authoredPlot(level, catalog, planned);
         ResourceLocation exportId = ResourceLocation.parse(planned.entry().exportId());
         var manager = level.getStructureManager();
         var template = manager.getOrCreate(exportId);
+        BlockPos exportOrigin = authoredFootprintOrigin(level, planned);
         template.fillFromWorld(
-            level, planned.origin(), planned.entry().size(), false, Blocks.STRUCTURE_VOID
+            level, exportOrigin, planned.entry().size(), false, Blocks.STRUCTURE_VOID
         );
         template.setAuthor("Cobbleventure Structure Builder");
         if (!manager.save(exportId)) {
             throw new BuilderException("NBT 파일 저장에 실패했습니다: " + exportId);
         }
         exportAnchors(level.getServer(), planned);
+    }
+
+    private static PlannedEntry authoredPlot(
+        ServerLevel level, Catalog catalog, PlannedEntry planned
+    ) {
+        boolean interior = planned.entry().category().equals("interiors");
+        int cellSize = interior ? INTERIOR_CELL_SIZE : catalog.cellSize();
+        int startX = interior ? INTERIOR_ORIGIN_X : ORIGIN_X;
+        int startZ = interior ? INTERIOR_ORIGIN_Z : ORIGIN_Z;
+        int currentRows = interior ? catalog.interiorRows() : catalog.exteriorRows();
+        int scanRows = Math.max(1, currentRows + 4);
+        int signXOffset = cellSize / 2;
+        int signY = planned.origin().getY();
+        for (int row = 0; row < scanRows; row++) {
+            for (int column = 0; column < catalog.columns(); column++) {
+                int cellX = startX + column * cellSize;
+                int cellZ = startZ + row * cellSize;
+                int signX = cellX + signXOffset;
+                for (int z = cellZ + 1; z < cellZ + cellSize - 1; z++) {
+                    if (!(level.getBlockEntity(new BlockPos(signX, signY, z))
+                        instanceof SignBlockEntity sign)) {
+                        continue;
+                    }
+                    String label = sign.getFrontText().getMessage(0, false).getString();
+                    String category = sign.getFrontText().getMessage(2, false).getString();
+                    if (!label.equals(planned.entry().label())
+                        || !category.equals(planned.entry().category())) {
+                        continue;
+                    }
+                    PlannedEntry authored = new PlannedEntry(
+                        planned.entry(), row, column, cellX, cellZ,
+                        new BlockPos(
+                            cellX + (cellSize - planned.entry().size().getX()) / 2,
+                            planned.origin().getY(),
+                            cellZ + (cellSize - planned.entry().size().getZ()) / 2
+                        )
+                    );
+                    return authored.withOrigin(authoredFootprintOrigin(level, authored));
+                }
+            }
+        }
+        LOGGER.warn(
+            "Could not find authored plot sign for {}; using current catalog position {}",
+            planned.entry().label(), planned.origin()
+        );
+        return planned.withOrigin(authoredFootprintOrigin(level, planned));
+    }
+
+    /**
+     * Recovers the origin drawn when this plot was loaded. A web resize changes
+     * the catalog size and therefore the calculated centered origin, while the
+     * already-authored blocks remain at their old origin. The black/yellow exact
+     * footprint border is the durable world-side source of truth in that case.
+     */
+    private static BlockPos authoredFootprintOrigin(ServerLevel level, PlannedEntry planned) {
+        int cellSize = planned.entry().category().equals("interiors")
+            ? INTERIOR_CELL_SIZE : 80;
+        int groundY = planned.origin().getY() - 1;
+        int minX = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        for (int x = planned.cellX() + 1; x < planned.cellX() + cellSize - 1; x++) {
+            for (int z = planned.cellZ() + 1; z < planned.cellZ() + cellSize - 1; z++) {
+                BlockState state = level.getBlockState(new BlockPos(x, groundY, z));
+                if (!state.is(Blocks.BLACK_CONCRETE) && !state.is(Blocks.YELLOW_CONCRETE)) {
+                    continue;
+                }
+                minX = Math.min(minX, x);
+                minZ = Math.min(minZ, z);
+                maxX = Math.max(maxX, x);
+                maxZ = Math.max(maxZ, z);
+            }
+        }
+        if (minX == Integer.MAX_VALUE || maxX - minX < 2 || maxZ - minZ < 2) {
+            return planned.origin();
+        }
+        BlockPos recovered = new BlockPos(minX + 1, planned.origin().getY(), minZ + 1);
+        if (!recovered.equals(planned.origin())) {
+            LOGGER.info(
+                "Recovered authored origin for {} after size change: planned={}, authored={}",
+                planned.entry().label(), planned.origin(), recovered
+            );
+        }
+        return recovered;
     }
 
     private static void exportAnchors(MinecraftServer server, PlannedEntry planned) {
@@ -1722,6 +1810,9 @@ public final class StructureBuilderMod {
     private record PlannedEntry(
         Entry entry, int row, int column, int cellX, int cellZ, BlockPos origin
     ) {
+        PlannedEntry withOrigin(BlockPos value) {
+            return new PlannedEntry(entry, row, column, cellX, cellZ, value);
+        }
     }
 
     private record DoorAnchor(

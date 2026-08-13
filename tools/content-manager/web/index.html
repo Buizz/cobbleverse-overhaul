@@ -567,6 +567,13 @@
               <div id="building-editor" hidden>
                 <div class="building-type-banner" id="building-type-banner"></div>
                 <section class="building-space-editor">
+                  <header><div><strong>월드 배치 높이</strong><small>NBT의 Y=0을 기준으로 실제 배치 위치를 위아래로 조정합니다.</small></div></header>
+                  <div class="form-grid compact-grid">
+                    <label><span>Y 보정값</span><input id="building-placement-y-offset" type="number" min="-64" max="64" step="1" value="0"></label>
+                  </div>
+                  <small>0은 보정 없음, 1은 한 칸 위, -1은 한 칸 아래입니다. NBT 종류별 자동 보정은 적용하지 않습니다.</small>
+                </section>
+                <section class="building-space-editor">
                   <header><div><strong>NBT 작업 영역 크기</strong><small>실제 NBT 크기를 변경합니다. 축소하면 범위 밖 블록은 제거됩니다.</small></div></header>
                   <div class="form-grid compact-grid">
                     <label><span>너비 X</span><input id="building-size-width" type="number" min="1" max="64"></label>

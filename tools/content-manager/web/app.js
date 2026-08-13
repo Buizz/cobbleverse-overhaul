@@ -6014,6 +6014,7 @@ function renderBuildingEditor() {
   const citizenPlacementAllowed = Boolean(metadata.settings?.citizen_placement_allowed);
   const league = metadata.category === "league";
   const interior = ["interior", "gym_interior"].includes(metadata.category);
+  $("#building-placement-y-offset").value = Number(metadata.settings?.placement_y_offset || 0);
   $("#building-size-width").value = metadata.width;
   $("#building-size-height").value = metadata.height;
   $("#building-size-depth").value = metadata.depth;
@@ -6097,6 +6098,7 @@ async function saveBuildingSettings() {
   const buildings = {};
   for (const [id, metadata] of Object.entries(state.buildingSettings.structures)) {
     buildings[id] = {
+      placement_y_offset: Number(metadata.settings?.placement_y_offset || 0),
       fixed_npcs: metadata.settings?.citizen_placement_allowed
         ? {} : { ...(metadata.settings?.fixed_npcs || {}) },
       citizen_placement_allowed: Boolean(metadata.settings?.citizen_placement_allowed),
@@ -8660,35 +8662,53 @@ async function importStructureBuilder() {
   buttons.forEach((button) => button.disabled = true);
   $("#build-state").textContent = "NBT 가져오는 중";
   $("#build-output").textContent = "월드의 내보내기 NBT를 검사하고 있습니다…";
+  $("#project-loading-title").textContent = "게임 NBT를 가져오는 중입니다";
+  showProjectLoading("1/3 · 월드에서 내보낸 NBT를 검사하고 있습니다…");
+  let completed = false;
+  let failedMessage = "";
   try {
     const result = await request("/api/structure-builder/import", { method: "POST", body: "{}" });
     $("#build-output").textContent = result.data.output || result.data.error || "결과가 없습니다.";
     $("#build-state").textContent = result.ok ? "성공" : "실패";
-    toast(result.ok ? "게임 NBT를 저장소로 가져왔습니다." : "NBT 가져오기 결과를 확인해 주세요.");
-    if (result.ok) {
-      lazyDataLoaded.structures = false;
-      lazyDataLoaded.buildingSettings = false;
-      state.structureSizes = {};
-      state.buildingSettings.structures = {};
-      state.buildingSettings.model = null;
-      state.buildingSettings.query = "";
-      state.buildingSettings.category = "all";
-      $("#building-search").value = "";
-      $("#building-category").value = "all";
-      await loadBuildingSettingsData(true);
-      switchPage("structures");
-      const entries = buildingEntries();
-      const preferred = entries.some(([id]) => id === state.buildingSettings.selected)
-        ? state.buildingSettings.selected : entries[0]?.[0];
-      if (preferred) await loadBuildingModel(preferred);
-    }
+    if (!result.ok) throw new Error(result.data.error || "NBT 가져오기에 실패했습니다. 하단 실행 결과를 확인하세요.");
+    updateProjectLoading("2/3 · 저장소와 게임용 구조물 리소스를 갱신했습니다…");
+    lazyDataLoaded.structures = false;
+    lazyDataLoaded.buildingSettings = false;
+    state.structureSizes = {};
+    state.buildingSettings.structures = {};
+    state.buildingSettings.model = null;
+    state.buildingSettings.query = "";
+    state.buildingSettings.category = "all";
+    $("#building-search").value = "";
+    $("#building-category").value = "all";
+    updateProjectLoading("3/3 · NBT 목록과 3D 미리보기를 다시 불러오고 있습니다…");
+    await loadBuildingSettingsData(true);
+    switchPage("structures");
+    const entries = buildingEntries();
+    const preferred = entries.some(([id]) => id === state.buildingSettings.selected)
+      ? state.buildingSettings.selected : entries[0]?.[0];
+    if (preferred) await loadBuildingModel(preferred);
+    completed = true;
   } catch (error) {
     $("#build-output").textContent = error.message;
-    $("#build-state").textContent = "연결 실패";
+    $("#build-state").textContent = "실패";
+    failedMessage = error.message || "가져오기 결과를 확인해 주세요.";
   } finally {
     await loadStructureBuilder().catch((error) => toast(error.message));
     buttons.forEach((button) => button.disabled = false);
     renderStructureBuilder();
+    $("#project-loading-title").textContent = completed
+      ? "게임 NBT 가져오기가 완료되었습니다" : "게임 NBT 가져오기에 실패했습니다";
+    updateProjectLoading(completed
+      ? "저장소·게임 리소스·NBT 미리보기가 모두 최신 상태입니다."
+      : failedMessage);
+    await new Promise((resolve) => setTimeout(resolve, completed ? 700 : 1400));
+    hideProjectLoading();
+    setTimeout(() => {
+      $("#project-loading-title").textContent = "프로젝트를 불러오는 중입니다";
+      $("#project-loading-detail").textContent = "프로젝트 정보 확인 중…";
+    }, 250);
+    toast(completed ? "게임 NBT를 완전히 가져왔습니다." : "NBT 가져오기 결과를 확인해 주세요.");
   }
 }
 
@@ -8910,6 +8930,17 @@ $("#building-citizen-placement").addEventListener("change", (event) => {
   if (!metadata) return;
   metadata.settings.citizen_placement_allowed = event.target.checked;
   if (event.target.checked) metadata.settings.fixed_npcs = {};
+  markBuildingSettingsDirty();
+});
+$("#building-placement-y-offset").addEventListener("change", (event) => {
+  const metadata = state.buildingSettings.structures[state.buildingSettings.selected];
+  if (!metadata) return;
+  const value = Number(event.target.value);
+  if (!Number.isInteger(value) || value < -64 || value > 64) {
+    event.target.value = Number(metadata.settings?.placement_y_offset || 0);
+    return toast("Y 배치 보정값은 -64~64 범위의 정수여야 합니다.");
+  }
+  metadata.settings.placement_y_offset = value;
   markBuildingSettingsDirty();
 });
 $("#save-building-settings").addEventListener("click", saveBuildingSettings);

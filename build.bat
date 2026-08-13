@@ -183,6 +183,8 @@ if "%~2"=="" (
     exit /b 1
 )
 %PYTHON_CMD% "%STRUCTURE_BUILDER_TOOL%" --root "%REPO_ROOT%." import "%~2"
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%DATA_MOD_BUILDER%" --root "%REPO_ROOT%."
 exit /b %errorlevel%
 
 :help_error
@@ -206,5 +208,5 @@ echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked
 echo   builder-world  Build the standalone CurseForge structure authoring pack and world
-echo   builder-import Import exported NBT into the active project's content/structures
+echo   builder-import Import exported NBT and refresh in-game generated resources
 exit /b 1

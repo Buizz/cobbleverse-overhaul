@@ -10,29 +10,28 @@
   },
   "anchors": [
     {
-      "id": "interior_exit",
-      "label": "interior_exit",
-      "type": "interior_exit",
+      "id": "entry",
+      "label": "entry",
+      "type": "door",
       "position": [
         12,
-        0,
+        1,
         1
       ],
       "safe_spawn": [
         12,
-        0,
+        1,
         2
       ],
       "door_facing": "north",
-      "safe_side": "south",
-      "dialogue": "cobbleventure:default_exit"
+      "safe_side": "south"
     },
     {
-      "label": "human1",
+      "label": "npc1",
       "type": "npc_position",
       "position": [
         14,
-        0,
+        1,
         8
       ]
     }

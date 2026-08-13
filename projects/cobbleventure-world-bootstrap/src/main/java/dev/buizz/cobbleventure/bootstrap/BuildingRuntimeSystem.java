@@ -195,6 +195,8 @@ final class BuildingRuntimeSystem {
                     }
                 }
                 SETTINGS.put(entry.getKey(), new BuildingSettings(
+                    value.has("placement_y_offset")
+                        ? value.get("placement_y_offset").getAsInt() : 0,
                     Map.copyOf(fixed),
                     value.has("citizen_placement_allowed")
                         ? value.get("citizen_placement_allowed").getAsBoolean()
@@ -206,6 +208,11 @@ final class BuildingRuntimeSystem {
         } catch (IOException | RuntimeException error) {
             throw new IllegalStateException("Invalid building settings: " + location, error);
         }
+    }
+
+    static int placementYOffset(String structure) {
+        BuildingSettings settings = SETTINGS.get(structure);
+        return settings == null ? 0 : settings.placementYOffset;
     }
 
     private static void applyFixedNpcs(
@@ -341,7 +348,9 @@ final class BuildingRuntimeSystem {
                 LOGGER.warn("Configured interior structure is missing: {}", interior.structure);
                 continue;
             }
-            BlockPos origin = base.offset((index % 4) * 128, 0, (index / 4) * 128);
+            BlockPos origin = base.offset(
+                (index % 4) * 128, placementYOffset(interior.structure), (index / 4) * 128
+            );
             String preparedKey = instanceKey + "|space|" + interior.key;
             if (!runtime.hasPrepared(preparedKey)) {
                 forceChunks(interiorsLevel, origin, template.orElseThrow().getSize());
@@ -600,11 +609,11 @@ final class BuildingRuntimeSystem {
     }
 
     private record BuildingSettings(
-        Map<String, String> fixedNpcs, boolean citizenPlacementAllowed,
+        int placementYOffset, Map<String, String> fixedNpcs, boolean citizenPlacementAllowed,
         List<InteriorSetting> interiors, Map<String, RouteTarget> routes
     ) {
         private static final BuildingSettings EMPTY = new BuildingSettings(
-            Map.of(), false, List.of(), Map.of()
+            0, Map.of(), false, List.of(), Map.of()
         );
     }
 

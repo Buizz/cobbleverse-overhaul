@@ -306,6 +306,26 @@
         "q": 3,
         "r": -2,
         "type": "stone_mountain"
+      },
+      {
+        "q": 3,
+        "r": -1,
+        "type": "stone_mountain"
+      },
+      {
+        "q": 2,
+        "r": -1,
+        "type": "stone_mountain"
+      },
+      {
+        "q": 3,
+        "r": -3,
+        "type": "stone_mountain"
+      },
+      {
+        "q": 4,
+        "r": -3,
+        "type": "stone_mountain"
       }
     ]
   },
@@ -2803,5 +2823,6 @@
       "r": 12,
       "average_level": 100
     }
-  ]
+  ],
+  "music_overrides": []
 }

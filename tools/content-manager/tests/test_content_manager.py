@@ -3019,6 +3019,7 @@ class ContentManagerTests(unittest.TestCase):
                 "schema_version": 1,
                 "buildings": {
                     "cobbleventure:placeholder/shop": {
+                        "placement_y_offset": -1,
                         "fixed_npcs": {"shop_clerk": "cobbleventure:npc/shop_clerk"},
                         "citizen_placement_allowed": False,
                     },
@@ -3033,12 +3034,44 @@ class ContentManagerTests(unittest.TestCase):
                 "placeholder",
                 payload["structures"]["cobbleventure:placeholder/shop"]["category"],
             )
+            self.assertEqual(
+                0,
+                payload["structures"]["cobbleventure:placeholder/shop"]
+                    ["settings"]["placement_y_offset"],
+            )
             self.assertFalse(any(issue.level == "error" for issue in issues))
             saved = content_manager.load_building_settings(root)
             self.assertEqual(
                 "cobbleventure:npc/shop_clerk",
                 saved["buildings"]["cobbleventure:placeholder/shop"]["fixed_npcs"]["shop_clerk"],
             )
+            self.assertEqual(
+                -1,
+                saved["buildings"]["cobbleventure:placeholder/shop"]["placement_y_offset"],
+            )
+
+    def test_building_settings_reject_invalid_placement_y_offset(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/town_decorations/bench.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((5, 3, 5)))
+
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {
+                    "cobbleventure:town_decorations/bench": {
+                        "placement_y_offset": 65,
+                        "fixed_npcs": {},
+                        "citizen_placement_allowed": False,
+                    },
+                },
+            })
+
+            self.assertTrue(any(
+                issue.level == "error" and issue.path.endswith("placement_y_offset")
+                for issue in issues
+            ))
 
     def test_structure_web_cache_is_saved_and_loaded_without_rescanning_nbt(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
