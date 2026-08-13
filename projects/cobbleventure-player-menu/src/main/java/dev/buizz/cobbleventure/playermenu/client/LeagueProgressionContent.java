@@ -100,15 +100,27 @@ final class LeagueProgressionContent {
         for (JsonElement element : root.getAsJsonArray("gyms")) {
             JsonObject leader = element.getAsJsonObject().getAsJsonObject("staff").getAsJsonObject("leader");
             if (leader.has("league_entry_id") && leader.has("badge_id")) {
-                ResourceLocation skin = leader.has("trainer_card_skin") && !leader.get("trainer_card_skin").getAsString().isBlank()
-                    ? ResourceLocation.parse(leader.get("trainer_card_skin").getAsString()) : null;
+                LeaderAppearance appearance = leaderAppearance(leader.get("trainer_id").getAsString());
                 result.put(leader.get("league_entry_id").getAsString(), new LeaderCard(
-                    leader.get("badge_id").getAsString(), skin,
-                    leader.has("trainer_card_model") && "slim".equals(leader.get("trainer_card_model").getAsString())
+                    leader.get("badge_id").getAsString(), appearance.texture(), appearance.slimModel()
                 ));
             }
         }
         return result;
+    }
+
+    private static LeaderAppearance leaderAppearance(String trainerId) {
+        int separator = trainerId.lastIndexOf('/');
+        if (separator < 0 || separator == trainerId.length() - 1) return new LeaderAppearance(null, false);
+        try {
+            JsonObject npc = read("npcs/" + trainerId.substring(separator + 1) + ".json");
+            JsonObject appearance = npc.getAsJsonObject("npc").getAsJsonObject("appearance");
+            ResourceLocation texture = appearance.has("texture") && !appearance.get("texture").getAsString().isBlank()
+                ? ResourceLocation.parse(appearance.get("texture").getAsString()) : null;
+            return new LeaderAppearance(texture, appearance.has("arm_model") && "slim".equals(appearance.get("arm_model").getAsString()));
+        } catch (IOException | RuntimeException error) {
+            return new LeaderAppearance(null, false);
+        }
     }
 
     private static JsonObject read(String name) throws IOException {
@@ -126,5 +138,6 @@ final class LeagueProgressionContent {
     private record PageKey(int generation, String region) implements Comparable<PageKey> { @Override public int compareTo(PageKey other) { int order = Integer.compare(generation, other.generation); return order != 0 ? order : region.compareTo(other.region); } }
     private record Entry(int order, String name, TrainerCardProgress.ChallengeKind kind, Badge badge, ResourceLocation leaderSkin, boolean slimModel) {}
     private record LeaderCard(String badgeId, ResourceLocation skin, boolean slimModel) {}
+    private record LeaderAppearance(ResourceLocation texture, boolean slimModel) {}
     private record Badge(String id, String name, String tooltip, ResourceLocation texture, int u, int v, int size, int atlasWidth, int atlasHeight) {}
 }

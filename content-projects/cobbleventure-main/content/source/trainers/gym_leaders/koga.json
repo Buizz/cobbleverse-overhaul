@@ -27,7 +27,9 @@
     "appearance": {
       "source": "rct_single",
       "type": "skin",
-      "resource": "rctmod:trainers/single/kanto_koga"
+      "resource": "rctmod:trainers/single/kanto_koga",
+      "texture": "rctmod:textures/trainers/single/leader_koga_01a2.png",
+      "arm_model": "wide"
     },
     "behavior": {
       "movement": "stationary",

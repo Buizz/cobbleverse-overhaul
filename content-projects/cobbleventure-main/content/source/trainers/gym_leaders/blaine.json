@@ -27,7 +27,9 @@
     "appearance": {
       "source": "rct_single",
       "type": "skin",
-      "resource": "rctmod:trainers/single/kanto_blaine"
+      "resource": "rctmod:trainers/single/kanto_blaine",
+      "texture": "rctmod:textures/trainers/single/leader_blaine_01a3.png",
+      "arm_model": "wide"
     },
     "behavior": {
       "movement": "stationary",

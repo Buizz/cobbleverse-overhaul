@@ -2554,6 +2554,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(
             any(entry["id"] == "cobblemon:potion" for entry in editor_catalog["bagItems"])
         )
+        self.assertTrue(
+            any(entry["id"] == "cobblemon:poke_ball" for entry in editor_catalog["rewardItems"])
+        )
         self.assertIn("Cobbleventure Content Studio", page)
         self.assertIn("바이옴 관리", page)
         self.assertIn("육각형 기반 월드 미니맵", page)
@@ -2568,6 +2571,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("바이옴 2 — 선택", page)
         self.assertIn("엔트리 JSON 복사", page)
         self.assertIn("전투 가방", page)
+        self.assertIn('data-item-picker="event-preset-win-item"', page)
+        self.assertIn('kind: "reward_item"', app_script)
+        self.assertIn('id="event-preset-clear-key-custom"', page)
+        self.assertIn('value="__custom__"', app_script)
         self.assertIn("듀얼배틀은 같은 전투에 참여할 EasyNPC 2명", page)
         self.assertIn('<select name="battleFormat"', page)
         self.assertIn('<select name="battleDifficulty"', page)

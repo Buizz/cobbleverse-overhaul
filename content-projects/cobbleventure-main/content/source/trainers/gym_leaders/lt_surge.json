@@ -27,7 +27,9 @@
     "appearance": {
       "source": "rct_single",
       "type": "skin",
-      "resource": "rctmod:trainers/single/kanto_ltsurge"
+      "resource": "rctmod:trainers/single/kanto_ltsurge",
+      "texture": "rctmod:textures/trainers/single/leader_lt_surge_01a0.png",
+      "arm_model": "wide"
     },
     "behavior": {
       "movement": "stationary",

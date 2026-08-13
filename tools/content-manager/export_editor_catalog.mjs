@@ -56,6 +56,20 @@ const bagItems = (rawItems.items ?? [])
   .filter((item, index, entries) => entries.findIndex((entry) => entry.id === item.id) === index)
   .sort((left, right) => left.name.localeCompare(right.name, "ko"));
 
+const rewardItems = (rawItems.items ?? [])
+  .map((item) => ({
+    id: item.id,
+    shortId: item.path,
+    name: item.koreanName || item.englishName || item.path.replaceAll("_", " "),
+    englishName: item.englishName || "",
+    namespace: item.namespace,
+    tags: Array.isArray(item.tags) ? item.tags : [],
+  }))
+  .filter((item) => item.id && item.namespace)
+  .filter((item, index, entries) => entries.findIndex((entry) => entry.id === item.id) === index)
+  .sort((left, right) => left.name.localeCompare(right.name, "ko"));
+
 const catalog = createEditorCatalog(localization, items, i18n);
 catalog.bagItems = bagItems;
+catalog.rewardItems = rewardItems;
 process.stdout.write(JSON.stringify(catalog));

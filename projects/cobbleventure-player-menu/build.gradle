@@ -123,6 +123,10 @@ processResources {
     from(new File(contentDir, 'catalogs/gyms.json')) {
         into 'data/cobbleventure_player_menu/league'
     }
+    from(new File(contentDir, 'source/trainers/gym_leaders')) {
+        into 'data/cobbleventure_player_menu/league/npcs'
+        include '*.json'
+    }
     from(fieldMoveNpcMapFile) {
         into 'data/cobbleventure_player_menu/map'
     }

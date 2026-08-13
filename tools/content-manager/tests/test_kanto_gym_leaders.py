@@ -56,10 +56,16 @@ class KantoGymLeaderTests(unittest.TestCase):
         self.assertEqual(8, len({leader["trainer_id"] for leader in leaders}))
         self.assertTrue(all(leader["league_entry_id"] for leader in leaders))
         self.assertTrue(all(leader["badge_id"].startswith("cobbleventure:badge/kanto/") for leader in leaders))
-        self.assertEqual(8, len({leader["trainer_card_skin"] for leader in leaders}))
-        self.assertTrue(all(leader["trainer_card_skin"].startswith("rctmod:textures/trainers/single/") for leader in leaders))
-        self.assertTrue(all(leader["trainer_card_skin"].endswith(".png") for leader in leaders))
-        self.assertTrue(all(leader["trainer_card_model"] in {"wide", "slim"} for leader in leaders))
+        self.assertTrue(all("trainer_card_skin" not in leader for leader in leaders))
+        self.assertTrue(all("trainer_card_model" not in leader for leader in leaders))
+        npc_appearances = [
+            content_manager.load_json(PROJECT_ROOT / f"content/source/trainers/gym_leaders/{leader['trainer_id'].rsplit('/', 1)[-1]}.json")["npc"]["appearance"]
+            for leader in leaders
+        ]
+        self.assertEqual(8, len({appearance["texture"] for appearance in npc_appearances}))
+        self.assertTrue(all(appearance["texture"].startswith("rctmod:textures/trainers/single/") for appearance in npc_appearances))
+        self.assertTrue(all(appearance["texture"].endswith(".png") for appearance in npc_appearances))
+        self.assertTrue(all(appearance["arm_model"] in {"wide", "slim"} for appearance in npc_appearances))
         self.assertEqual({"leader"}, {leader["anchor"] for leader in leaders})
         self.assertTrue(all(isinstance(gym["staff"]["trainers"], list) for gym in catalog["gyms"]))
 

@@ -27,7 +27,9 @@
     "appearance": {
       "source": "rct_single",
       "type": "skin",
-      "resource": "rctmod:trainers/single/kanto_sabrina"
+      "resource": "rctmod:trainers/single/kanto_sabrina",
+      "texture": "rctmod:textures/trainers/single/leader_sabrina_01a4.png",
+      "arm_model": "slim"
     },
     "behavior": {
       "movement": "stationary",

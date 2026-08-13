@@ -101,6 +101,8 @@
             "source": { "enum": ["custom", "rct_single", "rct_group"] },
             "type": { "enum": ["skin", "model"] },
             "resource": { "$ref": "#/$defs/resource_id" },
+            "texture": { "$ref": "#/$defs/resource_id" },
+            "arm_model": { "enum": ["wide", "slim"] },
             "portrait": { "$ref": "#/$defs/resource_id" }
           }
         },

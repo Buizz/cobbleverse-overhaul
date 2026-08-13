@@ -27,7 +27,9 @@
     "appearance": {
       "source": "rct_single",
       "type": "skin",
-      "resource": "rctmod:trainers/single/kanto_giovanni"
+      "resource": "rctmod:trainers/single/kanto_giovanni",
+      "texture": "rctmod:textures/trainers/single/leader_giovanni_015e.png",
+      "arm_model": "wide"
     },
     "behavior": {
       "movement": "stationary",

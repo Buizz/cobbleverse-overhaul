@@ -27,7 +27,9 @@
     "appearance": {
       "source": "rct_single",
       "type": "skin",
-      "resource": "rctmod:trainers/single/kanto_brock"
+      "resource": "rctmod:trainers/single/kanto_brock",
+      "texture": "rctmod:textures/trainers/single/leader_brock_019e.png",
+      "arm_model": "wide"
     },
     "behavior": {
       "movement": "stationary",

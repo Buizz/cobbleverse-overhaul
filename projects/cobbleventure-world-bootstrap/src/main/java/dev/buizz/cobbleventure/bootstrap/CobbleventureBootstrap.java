@@ -1393,8 +1393,8 @@ public final class CobbleventureBootstrap {
         Point center = new Point(settlement.center().x(), settlement.center().z());
         RoadProfile road = settlement.roadProfile();
         TownLayout layout = generateTownLayout(settlement);
-        int removedNaturalVegetation = clearTownChunkVegetation(level, settlement);
-        long townVegetationFinishedAt = System.nanoTime();
+        int removedNaturalTrees = clearTownChunkTrees(level, settlement);
+        long townTreeClearFinishedAt = System.nanoTime();
         int plazaRadius = Math.max(5, road.width());
         Set<Long> roadColumns = new HashSet<>();
         Set<Long> roadGuideColumns = new HashSet<>();
@@ -1507,13 +1507,13 @@ public final class CobbleventureBootstrap {
         }
         long housesFinishedAt = System.nanoTime();
         LOGGER.info(
-            "Generated town layout applied: settlement={}, seed={}, depth={}, roads={}, facilities={}, houses={}, roadColumns={}, removedNaturalVegetation={}, roadMs={}, townVegetationMs={}, roadElevationMs={}, roadPaintMs={}, houseMs={}, housePreparationMs={}, housePreloadMs={}, houseNbtMs={}, houseRuntimeMs={}, roadRestoreMs={}, totalMs={}",
+            "Generated town layout applied: settlement={}, seed={}, depth={}, roads={}, facilities={}, houses={}, roadColumns={}, removedNaturalTrees={}, roadMs={}, townTreeClearMs={}, roadElevationMs={}, roadPaintMs={}, houseMs={}, housePreparationMs={}, housePreloadMs={}, houseNbtMs={}, houseRuntimeMs={}, roadRestoreMs={}, totalMs={}",
             settlement.id(), settlement.generationSeed(), settlement.generationDepth(),
             layout.roads().size(), layout.facilities().size(), layout.houses().size(),
-            roadColumns.size(), removedNaturalVegetation,
+            roadColumns.size(), removedNaturalTrees,
             (roadsFinishedAt - startedAt) / 1_000_000L,
-            (townVegetationFinishedAt - startedAt) / 1_000_000L,
-            (elevationsFinishedAt - townVegetationFinishedAt) / 1_000_000L,
+            (townTreeClearFinishedAt - startedAt) / 1_000_000L,
+            (elevationsFinishedAt - townTreeClearFinishedAt) / 1_000_000L,
             (paintingFinishedAt - elevationsFinishedAt) / 1_000_000L,
             (housesFinishedAt - roadsFinishedAt) / 1_000_000L,
             (housePreparationFinishedAt - roadsFinishedAt) / 1_000_000L,
@@ -2836,7 +2836,7 @@ public final class CobbleventureBootstrap {
             : terrainGroundY(world, sample, x, z);
     }
 
-    private static int clearTownChunkVegetation(
+    private static int clearTownChunkTrees(
         ServerLevel level, SettlementPlan settlement
     ) {
         Set<Long> chunks = townPreparationChunkKeys(settlement);
@@ -2858,20 +2858,38 @@ public final class CobbleventureBootstrap {
                         if (state.isAir()) {
                             continue;
                         }
-                        if (!isNaturalVegetation(state)) {
-                            break;
+                        if (isNaturalTownTree(state)) {
+                            level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+                            removed++;
+                            continue;
                         }
-                        level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
-                        removed++;
+                        // Snow layers, grass and flowers can sit above or between a
+                        // tree canopy. Preserve them, but keep scanning down until
+                        // the first solid non-tree block so they do not hide a trunk.
+                        if (state.getFluidState().isEmpty() && state.canBeReplaced()) {
+                            continue;
+                        }
+                        break;
                     }
                 }
             }
         }
         LOGGER.info(
-            "Town chunk vegetation cleared: settlement={}, chunks={}, removedBlocks={}",
+            "Town chunk trees cleared: settlement={}, chunks={}, removedBlocks={}",
             settlement.id(), chunks.size(), removed
         );
         return removed;
+    }
+
+    private static boolean isNaturalTownTree(BlockState state) {
+        return state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES)
+            || state.is(BlockTags.SAPLINGS)
+            || state.is(Blocks.BAMBOO) || state.is(Blocks.MUSHROOM_STEM)
+            || state.is(Blocks.BROWN_MUSHROOM_BLOCK)
+            || state.is(Blocks.RED_MUSHROOM_BLOCK)
+            || state.is(Blocks.MANGROVE_ROOTS)
+            || state.is(Blocks.MUDDY_MANGROVE_ROOTS)
+            || state.is(Blocks.VINE) || state.is(Blocks.COCOA);
     }
 
     private static boolean isNaturalVegetation(BlockState state) {

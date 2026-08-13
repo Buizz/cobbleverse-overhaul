@@ -27,7 +27,9 @@
     "appearance": {
       "source": "rct_single",
       "type": "skin",
-      "resource": "rctmod:trainers/single/kanto_misty"
+      "resource": "rctmod:trainers/single/kanto_misty",
+      "texture": "rctmod:textures/trainers/single/leader_misty_019f.png",
+      "arm_model": "slim"
     },
     "behavior": {
       "movement": "stationary",

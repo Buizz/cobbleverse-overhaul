@@ -5275,7 +5275,7 @@ def create_gym(root: Path, slug: str, name: str, source_structure: str) -> tuple
         "theme": "normal",
         "exterior": {"structure": "cobbleventure:gyms/base_gym"},
         "interior": {"modules": [{"id": "main", "structure": interior_structure, "position": [0, 0, 0], "rotation": "none"}], "connections": []},
-        "staff": {"leader": {"trainer_id": "", "league_entry_id": "", "badge_id": "", "trainer_card_skin": "", "trainer_card_model": "wide", "anchor": "leader"}, "trainers": []},
+        "staff": {"leader": {"trainer_id": "", "league_entry_id": "", "badge_id": "", "anchor": "leader"}, "trainers": []},
     }
     catalog.setdefault("gyms", []).append(gym)
     issues = save_gym_catalog(root, catalog)

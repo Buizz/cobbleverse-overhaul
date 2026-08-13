@@ -27,7 +27,9 @@
     "appearance": {
       "source": "rct_single",
       "type": "skin",
-      "resource": "rctmod:trainers/single/kanto_erika"
+      "resource": "rctmod:trainers/single/kanto_erika",
+      "texture": "rctmod:textures/trainers/single/leader_erika_01a1.png",
+      "arm_model": "slim"
     },
     "behavior": {
       "movement": "stationary",

@@ -2922,6 +2922,44 @@ function defaultProgressionClearKey(type) {
   return `${namespace}:clear/${group}/${slug}`;
 }
 
+function clearKeyChoices() {
+  const choices = [
+    [defaultProgressionClearKey("battle"), "현재 NPC · 일반 배틀"],
+    [defaultProgressionClearKey("gym"), "현재 NPC · 체육관"],
+    [defaultProgressionClearKey("elite"), "현재 NPC · 사천왕"],
+    [defaultProgressionClearKey("champion"), "현재 NPC · 챔피언"],
+  ];
+  const sharedClearKey = state.trainer?.npc?.double_battle?.shared_clear_key;
+  if (sharedClearKey) choices.push([sharedClearKey, "현재 NPC · 더블배틀 공유"]);
+  for (const event of state.trainer?.events || []) {
+    for (const command of event.commands || []) {
+      if (command.type === "mark_clear" && command.key) choices.push([command.key, "현재 이벤트에서 사용 중"]);
+    }
+  }
+  return choices.filter(([key], index, entries) => key && entries.findIndex(([candidate]) => candidate === key) === index);
+}
+
+function clearKeyOptions(value) {
+  const choices = clearKeyChoices();
+  const selected = choices.some(([key]) => key === value) ? value : "__custom__";
+  return `${choices.map(([key, label]) => `<option value="${escapeHtml(key)}" ${selected === key ? "selected" : ""}>${escapeHtml(label)} · ${escapeHtml(key)}</option>`).join("")}<option value="__custom__" ${selected === "__custom__" ? "selected" : ""}>직접 입력…</option>`;
+}
+
+function presetClearKeyValue() {
+  const select = $("#event-preset-clear-key");
+  return select.value === "__custom__" ? $("#event-preset-clear-key-custom").value.trim() : select.value;
+}
+
+function updatePresetClearKeyMode(focusCustom = false) {
+  const select = $("#event-preset-clear-key");
+  const custom = $("#event-preset-clear-key-custom");
+  const isCustom = select.value === "__custom__";
+  if (isCustom && !custom.value) custom.value = select.dataset.currentValue || "";
+  custom.hidden = !isCustom;
+  custom.disabled = select.disabled || !isCustom;
+  if (focusCustom && isCustom) requestAnimationFrame(() => custom.focus());
+}
+
 function renderEventPresetFields() {
   const type = $("#event-preset-type").value;
   const battleTypes = ["battle", "gym", "elite", "champion"];
@@ -2941,10 +2979,16 @@ function renderEventPresetFields() {
   badgeSelect.innerHTML = badges.map((badge) => `<option value="${escapeHtml(badge.id)}">${badge.generation}세대 ${badge.order}번째 · ${escapeHtml(badge.display_name?.ko_kr || badge.id)}</option>`).join("") || '<option value="">배지 카탈로그 없음</option>';
   if ([...badgeSelect.options].some((option) => option.value === selectedBadge)) badgeSelect.value = selectedBadge;
   const clearKey = $("#event-preset-clear-key");
+  const customClearKey = $("#event-preset-clear-key-custom");
+  let selectedClearKey = presetClearKeyValue();
   if (progressionTypes.includes(type) && clearKey.dataset.presetType !== type) {
     clearKey.dataset.presetType = type;
-    clearKey.value = defaultProgressionClearKey(type);
+    selectedClearKey = defaultProgressionClearKey(type);
   }
+  clearKey.innerHTML = clearKeyOptions(selectedClearKey);
+  clearKey.dataset.currentValue = selectedClearKey;
+  customClearKey.value = clearKey.value === "__custom__" ? selectedClearKey : "";
+  updatePresetClearKeyMode();
 }
 
 function dialogueLines(value) {
@@ -2998,7 +3042,7 @@ function applyEventScriptPreset() {
       { type: "start_battle", battle, results: { player_win: "battle_win", player_loss: "battle_loss", cancelled: "end" } },
       { type: "label", name: "battle_win" },
     ];
-    const clearKey = $("#event-preset-clear-key").value.trim();
+    const clearKey = presetClearKeyValue();
     if (["gym", "elite", "champion"].includes(type) && clearKey) event.commands.push({ type: "mark_clear", key: clearKey });
     if (type === "gym") event.commands.push({ type: "grant_badge", badge: $("#event-preset-badge").value });
     if (winItem) event.commands.push({ type: "give_item", item: winItem, count: Math.max(1, Number($("#event-preset-win-item-count").value) || 1) });
@@ -3099,6 +3143,10 @@ function renderChoiceEditor(option, optionIndex) {
   return `<div class="event-subrow choice-subrow" data-option-index="${optionIndex}"><label><span>선택지 ID</span><input data-option-field="id" value="${escapeHtml(option.id || "")}"></label><label class="wide"><span>화면에 표시할 문구</span><input data-option-field="text.ko_kr" value="${escapeHtml(option.text?.ko_kr || "")}"></label><label><span>이동할 라벨</span><input data-option-field="target" value="${escapeHtml(option.target || "")}"></label><button type="button" class="remove-bag-item" data-option-remove="${optionIndex}">선택지 삭제</button></div>`;
 }
 
+function clearKeyEventField(value) {
+  return `<label class="wide"><span>클리어 처리 ID</span><div class="hybrid-select-field"><select data-clear-key-select>${clearKeyOptions(value)}</select><input data-command-field="key" value="${escapeHtml(value || "")}" placeholder="cobbleventure:clear/..." hidden disabled></div><small>기존 클리어 키를 선택하거나 ‘직접 입력’을 선택해 새 ID를 입력할 수 있습니다.</small></label>`;
+}
+
 function renderEventCommandEditor(command) {
   if (command.type === "branch") {
     const conditions = command.conditions?.length ? command.conditions : [{ type: "always" }];
@@ -3116,7 +3164,7 @@ function renderEventCommandEditor(command) {
     return `<div class="event-command-fields">${eventField("배틀 프리셋", "battle", command.battle || "", { choices: battles, wide: true })}${eventField("플레이어 승리 시 라벨", "results.player_win", command.results?.player_win || "")}${eventField("플레이어 패배 시 라벨", "results.player_loss", command.results?.player_loss || "")}${eventField("취소 시 라벨", "results.cancelled", command.results?.cancelled || "", { help: "취소를 사용하지 않으면 비워둘 수 있습니다." })}</div>`;
   }
   if (command.type === "set_flag") return `<div class="event-command-fields">${eventField("플래그 ID", "key", command.key || "", { wide: true })}${renderEventValueEditor(command.value ?? true)}</div>`;
-  if (command.type === "mark_clear") return `<div class="event-command-fields">${eventField("클리어 처리 ID", "key", command.key || "", { wide: true, help: "현재는 클리어 상태를 1로 기록하며, 이후 진행도·지역 해금 처리로 확장할 수 있습니다." })}</div>`;
+  if (command.type === "mark_clear") return `<div class="event-command-fields">${clearKeyEventField(command.key || "")}</div>`;
   if (["give_money", "take_money"].includes(command.type)) {
     const mode = command.mode || "fixed";
     const action = command.type === "take_money" ? "차감" : "지급";
@@ -3156,6 +3204,7 @@ function renderEventScript() {
   $("#event-range-label").textContent = trigger.type === "proximity" ? "자동 발동 거리" : "대화 가능 거리";
   $("#event-warning-offset-field").hidden = trigger.type !== "proximity";
   ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-command-type", "#add-event-command", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
+  $$('[data-item-picker]').forEach((button) => { button.disabled = false; });
   const presetFlag = $("#event-preset-flag");
   if (presetFlag.dataset.npcId !== state.trainer.id) {
     presetFlag.dataset.npcId = state.trainer.id;
@@ -3186,7 +3235,7 @@ function defaultEventCommand(type) {
     goto: { type, target: "target_label" },
     start_battle: { type, battle: state.battles[0]?.id || "cobbleventure:battle/example", results: { player_win: "win", player_loss: "loss" } },
     set_flag: { type, key: "cobbleventure:flag/example", value: true },
-    mark_clear: { type, key: "cobbleventure:clear/example" },
+    mark_clear: { type, key: defaultProgressionClearKey("battle") },
     give_money: { type, mode: "fixed", amount: 500, currency_objective: "cobbleventure_money" },
     take_money: { type, mode: "fixed", amount: 500, currency_objective: "cobbleventure_money" },
     give_item: { type, item: "cobblemon:poke_ball", count: 1 },
@@ -3224,6 +3273,20 @@ function handleEventCommandInput(event) {
   if (!row || !script) return;
   const command = script.commands[Number(row.dataset.eventCommand)];
   const parseValue = (element) => element.dataset.valueType === "number" ? Number(element.value) : element.dataset.valueType === "boolean" ? element.value === "true" : element.value;
+  if (event.target.dataset.clearKeySelect !== undefined) {
+    const customInput = event.target.parentElement.querySelector('[data-command-field="key"]');
+    const isCustom = event.target.value === "__custom__";
+    customInput.hidden = !isCustom;
+    customInput.disabled = !isCustom;
+    if (isCustom) requestAnimationFrame(() => customInput.focus());
+    else {
+      command.key = event.target.value;
+      const summary = row.querySelector(".command-summary");
+      if (summary) summary.textContent = eventCommandSummary(command);
+      syncTrainerJson();
+    }
+    return;
+  }
   if (event.target.dataset.commandValueType) {
     const field = event.target.dataset.commandValueType;
     setEventNestedValue(command, field, event.target.value === "boolean" ? true : event.target.value === "number" ? 0 : "");
@@ -4251,6 +4314,26 @@ function openChoiceDialog(kind, moveIndex = null, bagIndex = null) {
   renderChoiceDialog();
 }
 
+function openItemChoice(targetId, options = {}) {
+  if (!state.editorCatalog?.rewardItems) {
+    toast("아이템 카탈로그를 아직 불러오지 못했습니다.");
+    return;
+  }
+  state.choice = {
+    kind: "reward_item",
+    targetId,
+    allowEmpty: options.allowEmpty === true,
+    query: "",
+    scope: "",
+  };
+  $("#choice-eyebrow").textContent = "ITEM PICKER";
+  $("#choice-title").textContent = options.title || "아이템 선택";
+  $("#choice-subtitle").textContent = options.subtitle || "이름이나 ID로 검색한 뒤 지급할 아이템을 선택합니다.";
+  $("#choice-dialog").showModal();
+  renderChoiceDialog();
+  requestAnimationFrame(() => $("#choice-search")?.focus());
+}
+
 function choiceSearchInput() {
   return '<input id="choice-search" placeholder="이름·ID·설명 검색" value="">';
 }
@@ -4284,6 +4367,10 @@ function renderChoiceDialog() {
     const namespaces = [...new Set((state.economy.editor_catalog?.items || []).map((item) => item.id.split(":", 1)[0]))].sort();
     filters.className = "choice-dialog-filters economy-item-choice-filters";
     filters.innerHTML = `${choiceSearchInput()}<select id="choice-category"><option value="">전체 아이템 · 판매 분류 제한 없음</option>${categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("")}</select><select id="choice-scope"><option value="">모든 아이템 출처</option>${namespaces.map((namespace) => `<option value="${escapeHtml(namespace)}">${escapeHtml(namespace)}</option>`).join("")}</select>`;
+  } else if (choice.kind === "reward_item") {
+    const namespaces = [...new Set((state.editorCatalog.rewardItems || []).map((item) => item.namespace))].sort();
+    filters.className = "choice-dialog-filters reward-item-choice-filters";
+    filters.innerHTML = `${choiceSearchInput()}<select id="choice-scope"><option value="">모든 아이템 출처</option>${namespaces.map((namespace) => `<option value="${escapeHtml(namespace)}">${escapeHtml(namespace)}</option>`).join("")}</select>`;
   } else if (choice.kind === "item") {
     const ordinaryItems = (state.editorCatalog.items || []).filter((item) => !["mega", "z"].includes(item.category));
     const namespaces = [...new Set(ordinaryItems.map((item) => item.namespace))].sort();
@@ -4354,6 +4441,8 @@ function renderChoiceResults(selectedSpecies) {
         && (!choice.category || categories.includes(choice.category))
         && (!choice.scope || namespace === choice.scope);
     }).map((entry) => ({ ...entry, namespace: entry.id.split(":", 1)[0], saleCategories: [...(categoryIndex.get(entry.id) || [])] }));
+  } else if (choice.kind === "reward_item") {
+    rows = (state.editorCatalog.rewardItems || []).filter((entry) => matches(entry.id, entry.shortId, entry.name, entry.englishName, entry.tags?.join(" ")) && (!choice.scope || entry.namespace === choice.scope));
   } else if (choice.kind === "bag_item") {
     rows = (state.editorCatalog.bagItems || []).filter((entry) => matches(entry.id, entry.shortId, entry.name, entry.englishName, entry.description) && (choice.scope === "all" || entry.category === choice.scope));
   } else if (["trainer_reference", "trainer_reference_create"].includes(choice.kind)) {
@@ -4369,7 +4458,7 @@ function renderChoiceResults(selectedSpecies) {
   }
   $("#choice-count").textContent = `검색 결과 ${rows.length}개 · 전체 표시`;
   $("#choice-results").className = "choice-results";
-  const optionalCard = choice.kind === "trainer_reference_create" ? '<button type="button" class="choice-card optional-choice-card" data-choice-value=""><span class="choice-card-title"><strong>빈 프리셋으로 시작</strong><small>EMPTY PRESET</small></span><p>기존 엔트리를 복사하지 않고 빈 배틀 프리셋을 만듭니다.</p></button>' : optionalChoiceCard(choice.kind);
+  const optionalCard = choice.kind === "trainer_reference_create" ? '<button type="button" class="choice-card optional-choice-card" data-choice-value=""><span class="choice-card-title"><strong>빈 프리셋으로 시작</strong><small>EMPTY PRESET</small></span><p>기존 엔트리를 복사하지 않고 빈 배틀 프리셋을 만듭니다.</p></button>' : choice.kind === "reward_item" && choice.allowEmpty ? '<button type="button" class="choice-card optional-choice-card" data-choice-value=""><span class="choice-card-title"><strong>아이템 지급 안 함</strong><small>OPTIONAL</small></span><p>승리 보상에서 아이템 지급을 제외합니다.</p></button>' : optionalChoiceCard(choice.kind);
   const resultCards = rows.map((entry) => choiceCard(choice.kind === "trainer_reference_create" ? "trainer_reference" : choice.kind, entry, selectedSpecies)).join("");
   $("#choice-results").innerHTML = optionalCard + (resultCards || '<div class="choice-empty">조건에 맞는 항목이 없습니다.</div>');
   bindChoiceResultButtons();
@@ -4396,6 +4485,7 @@ function choiceCard(kind, entry, selectedSpecies) {
   }
   if (kind === "pokemon") return `<button type="button" class="choice-card pokemon-choice-card" data-choice-value="${escapeHtml(entry.id)}"><span class="choice-art"><img loading="lazy" decoding="async" data-choice-art="${escapeHtml(entry.id)}" alt="" hidden><b data-choice-art-fallback="${escapeHtml(entry.id)}">●</b></span><span><span class="choice-card-title"><strong>${escapeHtml(pokemonCatalogDisplayName(entry))}</strong><small>#${entry.number}</small></span><span class="choice-tags">${entry.types.map((type) => `<b class="move-type-badge type-${escapeHtml(toId(type))}">${escapeHtml(pokemonTypeNames[type] || type)}</b>`).join("")}${entry.forme ? `<b class="form">${escapeHtml(pokemonFormLabel(entry.forme))}</b>` : ""}${specialForm(entry) ? '<b class="special">특수 형태</b>' : ""}</span><small>HP ${entry.baseStats.hp} · 공 ${entry.baseStats.atk} · 방 ${entry.baseStats.def} · 특공 ${entry.baseStats.spa} · 특방 ${entry.baseStats.spd} · 스피드 ${entry.baseStats.spe}</small><p>${escapeHtml(pokemonCatalogDescription(entry))}</p></span></button>`;
   if (kind === "economy_item") return `<button type="button" class="choice-card economy-item-choice-card" data-choice-value="${escapeHtml(entry.id)}"><span class="choice-card-title"><strong>${escapeHtml(entry.ko_kr || entry.en_us || entry.id)}</strong><small>${economyStandardPrice(entry.id) ? `표준 ${escapeHtml(economyStandardPrice(entry.id))}원` : escapeHtml(entry.namespace)}</small></span><p>${escapeHtml(entry.en_us || entry.id)}</p><span class="choice-tags">${(entry.saleCategories || []).map((category) => `<b>${escapeHtml(category)}</b>`).join("") || '<b>미분류</b>'}</span><code>${escapeHtml(entry.id)}</code></button>`;
+  if (kind === "reward_item") return `<button type="button" class="choice-card reward-item-choice-card" data-choice-value="${escapeHtml(entry.id)}"><span class="choice-card-title"><strong>${escapeHtml(entry.name || entry.id)}</strong><small>${escapeHtml(entry.namespace)}</small></span>${entry.englishName && entry.englishName !== entry.name ? `<p>${escapeHtml(entry.englishName)}</p>` : ""}<code>${escapeHtml(entry.id)}</code></button>`;
   if (kind === "move") return `<button type="button" class="choice-card" data-choice-value="${escapeHtml(entry.id)}"><span class="choice-card-title"><strong>${escapeHtml(entry.name)}</strong><b class="move-type-badge type-${escapeHtml(toId(entry.type))}">${escapeHtml(pokemonTypeNames[entry.type] || entry.type)}</b></span><small>${escapeHtml(entry.category)} · 위력 ${entry.power || "—"} · 명중 ${entry.accuracy === true ? "필중" : entry.accuracy} · PP ${entry.pp}</small><p>${escapeHtml(entry.description || entry.englishName)}</p></button>`;
   const allowed = kind === "ability" && selectedSpecies?.abilities?.includes(entry.id);
   return `<button type="button" class="choice-card" data-choice-value="${escapeHtml(entry.id)}"><span class="choice-card-title"><strong>${escapeHtml(entry.name)}</strong><small>${escapeHtml(entry.namespace || entry.id)}</small></span><p>${escapeHtml(entry.description || entry.englishName || "설명 없음")}</p><span class="choice-tags">${allowed ? '<b>사용 가능</b>' : ""}${entry.category ? `<b>${escapeHtml(entry.category)}</b>` : ""}</span></button>`;
@@ -4441,6 +4531,14 @@ function hydrateTrainerReferencePartyArt() {
 
 function chooseDialogValue(value) {
   const choice = state.choice;
+  if (choice?.kind === "reward_item") {
+    const input = document.getElementById(choice.targetId);
+    if (!input || (!value && !choice.allowEmpty)) return;
+    input.value = value;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    closeChoiceDialog();
+    return;
+  }
   if (choice?.kind === "economy_item") {
     const editable = editableEconomyEntry("shop", choice.vendorId);
     const sourceCategory = editable?.entry.categories?.[choice.categoryIndex];
@@ -4847,6 +4945,10 @@ function badgeById(id) {
   return (state.badgeCatalog.badges || []).find((badge) => badge.id === id) || null;
 }
 
+function trainerById(id) {
+  return (state.trainers || []).find((trainer) => trainer.id === id) || null;
+}
+
 function gymForLeagueEntry(entryId) {
   return (state.gymCatalog.gyms || []).find((gym) => gym.staff?.leader?.league_entry_id === entryId) || null;
 }
@@ -4883,7 +4985,7 @@ function renderTrainerCardManager() {
   if ($("#badge-library-grid")) {
     $("#badge-library-grid").innerHTML = leaders.length ? leaders.map((entry) => {
       const gym = gymForLeagueEntry(entry.id); const badge = badgeById(gym?.staff?.leader?.badge_id); const visible = entry.trainer_card_visible !== false;
-      return `<article class="badge-library-card" title="${escapeHtml(badge?.tooltip?.ko_kr || "배지가 지정되지 않은 관장입니다.")}">${badgeSprite(badge)}<div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><span>${entry.generation}세대 · ${escapeHtml(gym?.display_name?.ko_kr || gym?.id || "체육관")}</span><small>${escapeHtml(badge?.display_name?.ko_kr || "배지 미지정")} · ${gym?.staff?.leader?.trainer_card_skin ? "3D 스킨 설정됨" : "3D 스킨 미지정"}</small><button type="button" class="badge-library-action${visible ? " is-remove" : ""}" data-card-${visible ? "remove" : "add"}="${escapeHtml(entry.id)}">${visible ? "카드에서 제거" : "카드에 추가"}</button></div></article>`;
+      return `<article class="badge-library-card" title="${escapeHtml(badge?.tooltip?.ko_kr || "배지가 지정되지 않은 관장입니다.")}">${badgeSprite(badge)}<div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><span>${entry.generation}세대 · ${escapeHtml(gym?.display_name?.ko_kr || gym?.id || "체육관")}</span><small>${escapeHtml(badge?.display_name?.ko_kr || "배지 미지정")} · NPC 외형 자동 사용</small><button type="button" class="badge-library-action${visible ? " is-remove" : ""}" data-card-${visible ? "remove" : "add"}="${escapeHtml(entry.id)}">${visible ? "카드에서 제거" : "카드에 추가"}</button></div></article>`;
     }).join("") : '<div class="definition-empty">해당 세대에 등록된 체육관 관장이 없습니다.</div>';
   }
   if ($("#trainer-card-order-list")) {
@@ -5457,10 +5559,14 @@ function renderGymStaff() {
     editor.innerHTML = '<div class="issues empty">체육관을 선택하세요.</div>';
     return;
   }
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", trainer_card_skin: "", trainer_card_model: "wide", anchor: "leader" }, trainers: [] };
-  gym.staff.leader ||= { trainer_id: "", league_entry_id: "", badge_id: "", trainer_card_skin: "", trainer_card_model: "wide", anchor: "leader" };
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff.leader ||= { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" };
   gym.staff.trainers ||= [];
   const leader = gym.staff.leader;
+  const leaderTrainer = trainerById(leader.trainer_id);
+  const leaderAppearance = leaderTrainer?.npc?.appearance;
+  const leaderName = typeof leaderTrainer?.name === "string" ? leaderTrainer.name : leaderTrainer?.name?.ko_kr;
+  const selectedBadge = badgeById(leader.badge_id);
   const anchorOptions = (selected = "") => {
     const labels = [...new Set((gym.interior?.modules || []).flatMap((module) =>
       (state.structureSizes[module.structure]?.npc_labels || []).map((marker) => marker.label)
@@ -5481,9 +5587,8 @@ function renderGymStaff() {
     <article class="cave-entry-card">
       <div class="form-grid compact-grid">
         <label class="wide"><span>체육관 관장</span><select id="gym-leader-entry">${gymLeagueOptions(leader.league_entry_id)}</select></label>
-        <label class="wide"><span>승리 시 기록할 배지</span><select id="gym-leader-badge">${badgeOptions(leader.badge_id)}</select><small>아이템을 지급하지 않고 플레이어 진행도와 트레이너 카드에 기록합니다.</small></label>
-        <label class="wide"><span>트레이너 카드 3D 스킨</span><input id="gym-leader-card-skin" value="${escapeHtml(leader.trainer_card_skin || "")}" placeholder="rctmod:textures/trainers/single/leader_brock_019e.png"><small>마인크래프트 플레이어 스킨 형식의 텍스처 리소스입니다.</small></label>
-        <label><span>스킨 팔 모델</span><select id="gym-leader-card-model"><option value="wide"${leader.trainer_card_model !== "slim" ? " selected" : ""}>기본형</option><option value="slim"${leader.trainer_card_model === "slim" ? " selected" : ""}>슬림형</option></select></label>
+        <label class="wide"><span>승리 시 기록할 배지</span><div class="gym-badge-picker"><select id="gym-leader-badge">${badgeOptions(leader.badge_id)}</select><output id="gym-leader-badge-preview" class="gym-badge-preview">${badgeSprite(selectedBadge, 2)}<span><strong>${escapeHtml(selectedBadge?.display_name?.ko_kr || "배지를 선택하세요")}</strong><small>${escapeHtml(selectedBadge?.tooltip?.ko_kr || "선택한 배지의 실제 카드 그래픽을 미리 봅니다.")}</small></span></output></div><small>아이템을 지급하지 않고 플레이어 진행도와 트레이너 카드에 기록합니다.</small></label>
+        <div class="wide gym-npc-appearance"><span>트레이너 카드 관장 그래픽</span><strong>${escapeHtml(leaderName || leaderTrainer?.npc?.display_name?.ko_kr || leader.trainer_id || "관장을 선택하세요")}</strong><small>${leaderAppearance?.resource ? `NPC 외형 ${escapeHtml(leaderAppearance.resource)}을 카드에서도 자동으로 사용합니다.` : "선택한 관장 NPC의 외형 정보를 카드에서 자동으로 사용합니다."}</small></div>
         <label><span>관장 NPC 라벨</span><select id="gym-leader-anchor">${anchorOptions(leader.anchor || "leader")}</select></label>
         <small class="wide">트레이너 ID: ${escapeHtml(leader.trainer_id || "아직 지정하지 않음")}</small>
       </div>
@@ -8394,7 +8499,7 @@ $("#gym-list").addEventListener("click", (event) => { const button = event.targe
 $("#gym-form").addEventListener("input", updateGymFromForm);
 $("#gym-staff-editor").addEventListener("input", (event) => {
   const gym = selectedGym(); if (!gym) return;
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", trainer_card_skin: "", trainer_card_model: "wide", anchor: "leader" }, trainers: [] };
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
   if (event.target.id === "gym-leader-entry") {
     const entry = (state.leagueProgression.entries || []).find((candidate) => candidate.id === event.target.value);
     gym.staff.leader.league_entry_id = event.target.value;
@@ -8402,10 +8507,9 @@ $("#gym-staff-editor").addEventListener("input", (event) => {
     renderGymStaff();
   } else if (event.target.id === "gym-leader-badge") {
     gym.staff.leader.badge_id = event.target.value;
-  } else if (event.target.id === "gym-leader-card-skin") {
-    gym.staff.leader.trainer_card_skin = event.target.value.trim();
-  } else if (event.target.id === "gym-leader-card-model") {
-    gym.staff.leader.trainer_card_model = event.target.value;
+    const badge = badgeById(event.target.value);
+    const preview = $("#gym-leader-badge-preview");
+    if (preview) preview.innerHTML = `${badgeSprite(badge, 2)}<span><strong>${escapeHtml(badge?.display_name?.ko_kr || "배지를 선택하세요")}</strong><small>${escapeHtml(badge?.tooltip?.ko_kr || "선택한 배지의 실제 카드 그래픽을 미리 봅니다.")}</small></span>`;
   } else if (event.target.id === "gym-leader-anchor") {
     gym.staff.leader.anchor = event.target.value.trim();
   } else {
@@ -8424,7 +8528,7 @@ $("#gym-staff-editor").addEventListener("click", (event) => {
 $("#add-gym-trainer").addEventListener("click", () => {
   const gym = selectedGym(); if (!gym) return;
   if (!state.trainers.length) { toast("먼저 트레이너를 하나 이상 만들어 주세요."); return; }
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", trainer_card_skin: "", trainer_card_model: "wide", anchor: "leader" }, trainers: [] };
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
   gym.staff.trainers ||= [];
   const index = gym.staff.trainers.length + 1;
   const used = new Set([gym.staff.leader?.anchor, ...gym.staff.trainers.map((trainer) => trainer.anchor)]);
@@ -8673,7 +8777,16 @@ $("#trainer-form").addEventListener("input", (event) => {
 $("#add-pokemon").addEventListener("click", addPokemon);
 $("#add-event-command").addEventListener("click", addEventCommand);
 $("#event-preset-type").addEventListener("change", renderEventPresetFields);
+$("#event-preset-clear-key").addEventListener("change", () => updatePresetClearKeyMode(true));
 $("#apply-event-preset").addEventListener("click", applyEventScriptPreset);
+$("#event-preset-builder").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-item-picker]");
+  if (!button || button.disabled) return;
+  openItemChoice(button.dataset.itemPicker, {
+    title: button.dataset.itemPickerTitle,
+    allowEmpty: button.dataset.itemPickerEmpty === "true",
+  });
+});
 $("#event-trigger-type").addEventListener("change", updateEventTrigger);
 $("#event-trigger-range").addEventListener("change", updateEventTrigger);
 $("#event-warning-offset").addEventListener("change", updateEventTrigger);
