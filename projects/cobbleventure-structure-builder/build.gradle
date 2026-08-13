@@ -80,6 +80,20 @@ processResources {
     filesMatching('META-INF/neoforge.mods.toml') {
         expand properties
     }
+    from('../cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure_bootstrap') {
+        into 'assets/cobbleventure_bootstrap'
+        include 'blockstates/strength_boulder.json'
+        include 'blockstates/strength_plate.json'
+        include 'blockstates/rock_smash_rock.json'
+        include 'models/block/strength_boulder.json'
+        include 'models/block/strength_plate.json'
+        include 'models/block/rock_smash_rock.json'
+        include 'models/item/strength_boulder.json'
+        include 'models/item/strength_plate.json'
+        include 'models/item/rock_smash_rock.json'
+        include 'lang/ko_kr.json'
+        include 'lang/en_us.json'
+    }
 }
 
 tasks.register('cleanInstalledBuilderJars', Delete) {

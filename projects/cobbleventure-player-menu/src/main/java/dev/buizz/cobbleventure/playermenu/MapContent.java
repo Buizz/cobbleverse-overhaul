@@ -534,9 +534,9 @@ public final class MapContent {
             case "flash" -> "플래쉬";
             case "defog" -> "안개제거";
             case "rock_climb" -> "락클레임";
-            case "waterfall" -> "폭포오르기";
             case "whirlpool" -> "바다회오리";
             case "strength" -> "괴력";
+            case "rock_smash" -> "바위깨기";
             default -> readableId(move);
         };
     }

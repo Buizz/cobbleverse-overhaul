@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
+import os
 import re
 import urllib.request
 from pathlib import Path
@@ -58,7 +59,9 @@ def main() -> None:
     parser.add_argument(
         "--catalog",
         type=Path,
-        default=Path("content/catalogs/pokemon-habitats.json"),
+        default=Path(os.environ.get(
+            "COBBLEVENTURE_PROJECT_PATH", "content-projects/cobbleventure-main"
+        )) / "content/catalogs/pokemon-habitats.json",
     )
     args = parser.parse_args()
 

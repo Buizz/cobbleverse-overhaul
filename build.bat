@@ -2,6 +2,7 @@
 setlocal
 
 set "REPO_ROOT=%~dp0"
+if not defined COBBLEVENTURE_PROJECT_PATH set "COBBLEVENTURE_PROJECT_PATH=%REPO_ROOT%content-projects\cobbleventure-main"
 set "CONTENT_MANAGER=%REPO_ROOT%tools\content-manager\content_manager.py"
 set "STOP_CONTENT_MANAGER=%REPO_ROOT%tools\content-manager\stop_existing_server.ps1"
 set "PACK_BUILDER=%REPO_ROOT%tools\pack-builder\pack_builder.py"
@@ -52,11 +53,11 @@ if /I "%~1"=="builder-import" goto builder_import
 goto help_error
 
 :validate
-%PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%."
+%PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"
 exit /b %errorlevel%
 
 :validate_pack
-%PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%." --strict-pack
+%PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%" --strict-pack
 exit /b %errorlevel%
 
 :api
@@ -65,7 +66,7 @@ if errorlevel 1 (
     echo [ERROR] Failed to stop the previous content manager server.
     exit /b %errorlevel%
 )
-%PYTHON_CMD% "%CONTENT_MANAGER%" api --root "%REPO_ROOT%."
+%PYTHON_CMD% "%CONTENT_MANAGER%" api --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"
 exit /b %errorlevel%
 
 :test
@@ -89,7 +90,7 @@ exit /b %errorlevel%
 :generate
 %PYTHON_CMD% "%KANTO_GYM_LEADER_BUILDER%"
 if errorlevel 1 exit /b %errorlevel%
-%PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%."
+%PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
 if errorlevel 1 exit /b %errorlevel%
@@ -107,7 +108,7 @@ exit /b %errorlevel%
 :mod_bootstrap
 %PYTHON_CMD% "%KANTO_GYM_LEADER_BUILDER%"
 if errorlevel 1 exit /b %errorlevel%
-%PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%."
+%PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
 if errorlevel 1 exit /b %errorlevel%
@@ -127,9 +128,9 @@ exit /b %errorlevel%
 exit /b %errorlevel%
 
 :pack
-%PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%."
+%PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"
 if errorlevel 1 exit /b %errorlevel%
-%PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%."
+%PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%CUSTOM_SPAWN_BUILDER%" --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
@@ -149,7 +150,7 @@ if errorlevel 1 exit /b %errorlevel%
 exit /b %errorlevel%
 
 :pack_release
-%PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%." --strict-pack
+%PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%" --strict-pack
 if errorlevel 1 (
     echo.
     echo [INFO] Release packaging was blocked because the dependency lock is not ready.
@@ -197,5 +198,5 @@ echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked
 echo   builder-world  Build the standalone CurseForge structure authoring pack and world
-echo   builder-import Import exported NBT from a Structure Builder save into content/structures
+echo   builder-import Import exported NBT into the active project's content/structures
 exit /b 1

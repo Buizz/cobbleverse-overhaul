@@ -92,6 +92,7 @@ public final class StructureBuilderMod {
     private static int shutdownTicks = -1;
 
     public StructureBuilderMod(IEventBus modBus) {
+        BuilderStrengthBlocks.register(modBus);
         BuilderEditorNetwork.register(modBus);
         if (FMLEnvironment.dist.isClient()) {
             dev.buizz.cobbleventure.structurebuilder.client.BuilderEditorClient.register(modBus);

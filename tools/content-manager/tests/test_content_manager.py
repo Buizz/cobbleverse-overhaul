@@ -16,6 +16,8 @@ from pathlib import Path
 from unittest import mock
 
 
+CORE_ROOT = Path(__file__).parents[3]
+PROJECT_ROOT = CORE_ROOT / "content-projects" / "cobbleventure-main"
 MODULE_PATH = Path(__file__).parents[1] / "content_manager.py"
 SPEC = importlib.util.spec_from_file_location("content_manager", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -90,7 +92,7 @@ class ContentManagerTests(unittest.TestCase):
 
     def test_npc_event_validates_field_move_reward(self) -> None:
         document = json.loads(
-            (Path(__file__).parents[3] / "content/source/examples/ai_test.json")
+            (PROJECT_ROOT / "content/source/examples/ai_test.json")
             .read_text(encoding="utf-8")
         )
         document["events"][0]["commands"].insert(
@@ -104,13 +106,13 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertFalse(any(issue.path.endswith(".move") for issue in issues))
 
-    def test_npc_event_rejects_unknown_field_move(self) -> None:
+    def test_npc_event_rejects_removed_waterfall_field_move(self) -> None:
         document = json.loads(
-            (Path(__file__).parents[3] / "content/source/examples/ai_test.json")
+            (PROJECT_ROOT / "content/source/examples/ai_test.json")
             .read_text(encoding="utf-8")
         )
         document["events"][0]["commands"].insert(
-            -1, {"type": "grant_field_move", "move": "teleport"}
+            -1, {"type": "grant_field_move", "move": "waterfall"}
         )
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "npc.json"
@@ -119,6 +121,22 @@ class ContentManagerTests(unittest.TestCase):
             _, issues = content_manager.validate_npc_event_file(path)
 
         self.assertTrue(any(issue.path.endswith(".move") for issue in issues))
+
+    def test_npc_event_accepts_rock_smash_field_move(self) -> None:
+        document = json.loads(
+            (PROJECT_ROOT / "content/source/examples/ai_test.json")
+            .read_text(encoding="utf-8")
+        )
+        document["events"][0]["commands"].insert(
+            -1, {"type": "grant_field_move", "move": "rock_smash"}
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "npc.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+
+            _, issues = content_manager.validate_npc_event_file(path)
+
+        self.assertFalse(any(issue.path.endswith(".move") for issue in issues))
 
     def test_rejects_project_without_content_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -370,15 +388,15 @@ class ContentManagerTests(unittest.TestCase):
         }
 
     def test_player_menu_accepts_null_secondary_pokemon_habitat(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         catalog = json.loads((root / "content" / "catalogs" / "pokemon-habitats.json").read_text(encoding="utf-8"))
         self.assertTrue(any(entry.get("habitats", {}).get("secondary") is None for entry in catalog["pokemon"]))
-        source = (root / "projects" / "cobbleventure-player-menu" / "src" / "main" / "java" / "dev" / "buizz" / "cobbleventure" / "playermenu" / "MapContent.java").read_text(encoding="utf-8")
+        source = (CORE_ROOT / "projects" / "cobbleventure-player-menu" / "src" / "main" / "java" / "dev" / "buizz" / "cobbleventure" / "playermenu" / "MapContent.java").read_text(encoding="utf-8")
         self.assertIn('nullableString(habitats, "secondary")', source)
         self.assertIn("value.isJsonNull()", source)
 
     def test_world_layout_graph_can_be_saved_atomically(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         layout = content_manager.load_world_layout(root)
         self.assertEqual(11, len(layout["settlements"]))
         settlement_ids = {node["settlement"] for node in layout["settlements"]}
@@ -469,7 +487,7 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual([1, 2], content_manager.list_world_generations(candidate_root))
 
     def test_generation_one_uses_kanto_location_names_and_layout(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         expected_names = {
             "starter_town": "태초마을",
             "route_01_town": "상록시티",
@@ -532,10 +550,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertGreaterEqual(len(layout["tiles"]), 40)
 
     def test_web_command_stops_only_matching_previous_content_manager(self) -> None:
-        root = Path(__file__).parents[3]
-        build_script = (root / "build.bat").read_text(encoding="utf-8")
+        root = PROJECT_ROOT
+        build_script = (CORE_ROOT / "build.bat").read_text(encoding="utf-8")
         stop_script = (
-            root / "tools" / "content-manager" / "stop_existing_server.ps1"
+            CORE_ROOT / "tools" / "content-manager" / "stop_existing_server.ps1"
         ).read_text(encoding="utf-8")
         self.assertIn("stop_existing_server.ps1", build_script)
         self.assertIn("-ManagerPath", build_script)
@@ -544,7 +562,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("Stop-Process -Id $_.ProcessId", stop_script)
 
     def test_biome_catalog_contains_all_pokemon_and_profiles(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         pokemon = content_manager.load_pokemon_habitats(root)
         biomes = content_manager.load_biome_catalog(root)
         self.assertEqual(1025, len(pokemon["pokemon"]))
@@ -558,7 +576,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("any", snow["settings"]["weather"])
 
     def test_biome_preview_filters_generation_and_unconditional_bypasses_rules(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         filtered = content_manager.preview_biome(
             root,
             {"profile_id": "cobbleventure:biome_profile/plains", "settings": {"generation": 1}},
@@ -577,7 +595,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("unconditional", arceus["match_reason"])
 
     def test_biome_preview_prefers_regional_pokedex_series(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         filtered = content_manager.preview_biome(
             root,
             {
@@ -592,7 +610,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertFalse(any(entry["generation"] == 3 for entry in filtered["pokemon"]))
 
     def test_biome_preview_excludes_special_species_without_explicit_spawn(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         settings = {
             "series": "kanto",
             "rarities": ["common", "medium", "uncommon", "rare", "legendary"],
@@ -617,7 +635,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("unconditional", mew["match_reason"])
 
     def test_biome_preview_partitions_numbered_habitats(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         base_settings = {
             "series": "kanto",
             "temperature": "any",
@@ -648,7 +666,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(2, previews[0]["habitat_variants"][0]["count"])
 
     def test_all_numbered_habitats_are_bounded_and_lossless(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         catalog = content_manager.load_biome_catalog(root)
         max_per_variant = catalog["max_pokemon_per_habitat_variant"]
         for series in content_manager.POKEDEX_SERIES_IDS:
@@ -678,7 +696,7 @@ class ContentManagerTests(unittest.TestCase):
                 self.assertEqual(base_ids, numbered_ids)
 
     def test_world_pokemon_map_resolves_locations_and_all_unavailable_pokemon(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         result = content_manager.world_pokemon_map(root, 1)
         available_ids = {entry["id"] for entry in result["available_pokemon"]}
         unavailable_ids = {entry["id"] for entry in result["unavailable_pokemon"]}
@@ -707,18 +725,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(["cobbleventure:biome_profile/plains"], starter_cell["profile_ids"])
 
     def test_world_pokemon_map_web_panel_is_wired_to_api(self) -> None:
-        root = Path(__file__).parents[3]
-        page = (root / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
-        script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        root = PROJECT_ROOT
+        page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="pokemon-map-panel"', page)
         self.assertIn('data-pokemon-map-tab="unavailable"', page)
         self.assertIn("/api/world-pokemon-map", script)
         self.assertIn("renderWorldPokemonPanel", script)
 
     def test_cave_preview_supports_direct_editing_views_and_global_water_level(self) -> None:
-        root = Path(__file__).parents[3]
-        page = (root / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
-        script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        root = PROJECT_ROOT
+        page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         cave = content_manager.load_json(
             root / "content" / "caves" / "generation_1" / "mt_moon.json"
         )
@@ -756,7 +774,7 @@ class ContentManagerTests(unittest.TestCase):
         ))
 
     def test_world_level_overrides_are_saved_and_validated(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         with tempfile.TemporaryDirectory() as directory:
             candidate_root = Path(directory)
             catalog_dir = candidate_root / "content" / "catalogs"
@@ -783,9 +801,9 @@ class ContentManagerTests(unittest.TestCase):
             self.assertTrue(any(issue.path.endswith(".average_level") for issue in issues))
 
     def test_world_level_brush_and_overlay_are_present_in_web_editor(self) -> None:
-        root = Path(__file__).parents[3]
-        page = (root / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
-        script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        root = PROJECT_ROOT
+        page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('data-map-tool="level"', page)
         self.assertIn('id="level-overlay-toggle"', page)
         self.assertIn('id="level-brush-average"', page)
@@ -795,7 +813,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('state.levelOverlayVisible = true; $("#level-overlay-toggle").checked = true', script)
 
     def test_world_gate_objects_are_saved_and_validated(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         with tempfile.TemporaryDirectory() as directory:
             candidate_root = Path(directory)
             catalog_dir = candidate_root / "content" / "catalogs"
@@ -884,9 +902,9 @@ class ContentManagerTests(unittest.TestCase):
             self.assertTrue(any("연산자" in issue.message for issue in issues))
 
     def test_world_gate_editor_controls_are_present(self) -> None:
-        root = Path(__file__).parents[3]
-        page = (root / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
-        script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        root = PROJECT_ROOT
+        page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="object-tool-facing"', page)
         self.assertIn('id="object-tool-conditions"', page)
         self.assertIn('id="object-tool-building-enabled"', page)
@@ -906,7 +924,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('teleport_to_gate: "관문으로 이동"', script)
 
     def test_settlements_reference_web_biome_settings(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         settlement = content_manager.load_json(
             root / "content" / "settlements" / "generation_1" / "starter_town.json"
         )
@@ -917,7 +935,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("spawn_settings", settlement["biome_layout"]["zones"][0])
 
     def test_example_content_is_valid(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         content_id, issues = content_manager.validate_content_file(
             root / "content" / "source" / "examples" / "ai_test.json"
         )
@@ -925,7 +943,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual([], issues)
 
     def test_starter_town_leader_content_is_valid(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         content_id, issues = content_manager.validate_content_file(
             root / "content" / "source" / "examples" / "starter_town_leader.json"
         )
@@ -933,7 +951,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual([], issues)
 
     def test_trainer_owned_placement_is_rejected(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "source" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
@@ -946,7 +964,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("마을의 npc_placement" in issue.message for issue in issues))
 
     def test_missing_dialogue_target_is_rejected(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "source" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
@@ -961,7 +979,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("존재하지 않는 이벤트 라벨" in issue.message for issue in issues))
 
     def test_invalid_ev_total_is_rejected(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
@@ -979,7 +997,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("EV 합계" in issue.message for issue in issues))
 
     def test_duplicate_pokemon_aspects_are_rejected(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
@@ -992,7 +1010,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("aspects는 중복" in issue.message for issue in issues))
 
     def test_pokemon_cannot_hold_regular_and_gimmick_items_together(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
@@ -1011,7 +1029,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("동시에 지정" in issue.message for issue in issues))
 
     def test_pokemon_gimmick_requires_matching_battle_mechanic(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
@@ -1027,7 +1045,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("같은 전투 기믹" in issue.message for issue in issues))
 
     def test_invalid_battle_bag_limits_are_rejected(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
@@ -1044,7 +1062,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("bag[0].quantity" in issue.path for issue in issues))
 
     def test_battle_format_difficulty_and_ai_profile_are_restricted(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
@@ -1061,7 +1079,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("AI 전략" in issue.message for issue in issues))
 
     def test_cheater_probability_is_required_and_restricted(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
@@ -1086,7 +1104,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("치터 난이도에서만" in issue.message for issue in issues))
 
     def test_invalid_tera_type_is_rejected(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "battles" / "examples" / "ai_test.json").read_text(
                 encoding="utf-8"
@@ -1099,7 +1117,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("지원하는 포켓몬 타입" in issue.message for issue in issues))
 
     def test_starter_town_is_valid(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         settlement_id, issues = content_manager.validate_settlement_file(
             root / "content" / "settlements" / "generation_1" / "starter_town.json"
         )
@@ -1107,7 +1125,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual([], issues)
 
     def test_route_01_town_is_valid(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         settlement_id, issues = content_manager.validate_settlement_file(
             root / "content" / "settlements" / "generation_1" / "route_01_town.json"
         )
@@ -1115,7 +1133,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual([], issues)
 
     def test_settlement_requires_valid_structure_profile(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (
                 root
@@ -1134,7 +1152,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("하나 이상의 필수 시설" in issue.message for issue in issues))
 
     def test_settlement_rejects_invalid_village_and_house_styles(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (
                 root
@@ -1158,7 +1176,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("$.structure_profile.house_style", locations)
 
     def test_settlement_accepts_new_layout_without_legacy_village_fields(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "route_01_town.json").read_text(
                 encoding="utf-8"
@@ -1180,7 +1198,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertFalse(any(issue.path in legacy_paths for issue in issues))
 
     def test_settlement_rejects_empty_or_unknown_house_palette_values(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1201,7 +1219,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn(f"{prefix}.roof_colors", locations)
 
     def test_settlement_accepts_one_two_and_five_story_house_bases(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1220,7 +1238,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual([], [issue for issue in issues if issue.level == "error"])
 
     def test_special_district_allows_reserved_empty_plot(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1237,7 +1255,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual([], [issue for issue in issues if issue.level == "error"])
 
     def test_enabled_special_building_requires_resource_id(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1257,7 +1275,7 @@ class ContentManagerTests(unittest.TestCase):
         ))
 
     def test_gym_can_be_disabled_without_structure(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1297,7 +1315,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("biome", document)
 
     def test_settlement_supports_exactly_one_biome(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1313,7 +1331,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("정확히 1개" in issue.message for issue in issues))
 
     def test_settlement_level_scaling_requires_ordered_range(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1328,7 +1346,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("min_level <= base_level <= max_level" in issue.message for issue in issues))
 
     def test_settlement_connections_belong_to_world_map(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1347,7 +1365,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("월드맵" in issue.message for issue in issues))
 
     def test_settlement_rejects_unknown_gym_theme(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (
                 root
@@ -1366,7 +1384,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("체육관 타입 테마" in issue.message for issue in issues))
 
     def test_direct_facility_requires_existing_anchor(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1386,7 +1404,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("존재하는 마을 앵커" in issue.message for issue in issues))
 
     def test_nbt_placeholder_facilities_satisfy_checked_quantity(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1418,7 +1436,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertFalse(any("지원하지 않는 시설 배치 방식" in issue.message for issue in issues))
 
     def test_starter_town_rejects_center_and_commercial_facility(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1436,7 +1454,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("$.structure_profile.commercial_center", locations)
 
     def test_settlement_rejects_invalid_road_profile(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "route_01_town.json").read_text(
                 encoding="utf-8"
@@ -1456,7 +1474,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("$.structure_profile.road_profile.material", locations)
 
     def test_checked_facility_quantity_must_match_placeholders(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1474,7 +1492,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("2개가 필요하지만 플레이스홀더는 0개" in issue.message for issue in issues))
 
     def test_instanced_facility_requires_existing_anchors(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
@@ -1499,7 +1517,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("존재하는 마을 앵커" in issue.message for issue in issues))
 
     def test_settlement_trainer_slot_requires_trainer_and_spawn_policy(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (
                 root
@@ -1520,7 +1538,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("생성 정책" in issue.message for issue in issues))
 
     def test_settlement_double_battle_requires_two_easy_npc_members(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (
                 root
@@ -1541,7 +1559,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("정확히 2명" in issue.message for issue in issues))
 
     def test_settlement_double_battle_accepts_two_easy_npc_members(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (
                 root
@@ -1566,14 +1584,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual([], issues)
 
     def test_trainer_class_catalog_is_valid(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         issues = content_manager.validate_trainer_class_catalog(
             root / "content" / "catalogs" / "trainer-classes.json"
         )
         self.assertEqual([], issues)
 
     def test_trainer_class_catalog_covers_common_classes_and_child_scale(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         catalog = content_manager.load_json(
             root / "content" / "catalogs" / "trainer-classes.json"
         )
@@ -1608,7 +1626,7 @@ class ContentManagerTests(unittest.TestCase):
             appearance = entry["default_appearance"]
             slug = appearance["resource"].rsplit("/", 1)[-1]
             manifest = content_manager.load_json(
-                root / "tools" / "content-manager" / "skin-pipeline" / "work" / slug / "manifest.json"
+                CORE_ROOT / "tools" / "content-manager" / "skin-pipeline" / "work" / slug / "manifest.json"
             )
             self.assertEqual(entry["body"]["arm_model"], manifest["model"])
             self.assertTrue(
@@ -1629,7 +1647,7 @@ class ContentManagerTests(unittest.TestCase):
             )
 
     def test_requested_custom_and_rct_appearance_options_exist_with_gender_models(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         catalog = content_manager.load_json(root / "content" / "catalogs" / "trainer-classes.json")
         classes = {entry["id"].rsplit("/", 1)[-1]: entry for entry in catalog["classes"]}
         expected_models = {
@@ -1651,7 +1669,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("double_team_male", classes)
         self.assertNotIn("double_team_female", classes)
         custom_only = {"ace_trainer_gen6_male", "ace_trainer_gen6_female", "veteran_female"}
-        skin_root = root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources" / "assets" / "cobbleventure" / "textures" / "entity" / "trainer"
+        skin_root = CORE_ROOT / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources" / "assets" / "cobbleventure" / "textures" / "entity" / "trainer"
         for slug, model in expected_models.items():
             with self.subTest(slug=slug):
                 entry = classes[slug]
@@ -1666,7 +1684,7 @@ class ContentManagerTests(unittest.TestCase):
                 rct_defaults = {"hex_maniac", "interviewers_female"}
                 self.assertEqual("rct_single" if slug in rct_defaults else "custom", entry["default_appearance"]["source"])
                 self.assertEqual(model, entry["body"]["arm_model"])
-                manifest = content_manager.load_json(root / "tools" / "content-manager" / "skin-pipeline" / "work" / slug / "manifest.json")
+                manifest = content_manager.load_json(CORE_ROOT / "tools" / "content-manager" / "skin-pipeline" / "work" / slug / "manifest.json")
                 self.assertEqual(model, manifest["model"])
                 self.assertTrue((skin_root / f"{slug}.png").is_file())
 
@@ -1689,7 +1707,7 @@ class ContentManagerTests(unittest.TestCase):
         )
 
     def test_trainer_outfit_catalog_links_equipment_and_easy_npc_scale(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         classes = content_manager.load_json(root / "content" / "catalogs" / "trainer-classes.json")
         class_ids = {entry["id"] for entry in classes["classes"]}
         issues = content_manager.validate_trainer_outfit_catalog(
@@ -1702,7 +1720,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(0.78, youngster["adapters"]["easy_npc"]["root_scale"])
 
     def test_trainer_roster_covers_generational_organizations_genders_and_named_roles(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         character_ids, issues = content_manager.validate_trainer_roster_catalog(
             root / "content" / "catalogs" / "trainer-roster.json"
         )
@@ -1788,7 +1806,7 @@ class ContentManagerTests(unittest.TestCase):
             )
 
     def test_settlement_center_must_be_inside_bounds(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = json.loads(
             (
                 root
@@ -1805,12 +1823,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("마을 경계 안" in issue.message for issue in issues))
 
     def test_managed_path_rejects_directory_escape(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         with self.assertRaises(ValueError):
             content_manager._managed_path(root, "trainers", "../outside.json")
 
     def test_settlement_save_is_validated_before_overwrite(self) -> None:
-        repository = Path(__file__).parents[3]
+        repository = PROJECT_ROOT
         source = json.loads(
             (
                 repository
@@ -1919,7 +1937,7 @@ class ContentManagerTests(unittest.TestCase):
             self.assertFalse(world.exists())
 
     def test_creates_battle_preset_from_reference_entry(self) -> None:
-        repository = Path(__file__).parents[3]
+        repository = PROJECT_ROOT
         catalog = content_manager.load_json(repository / "content/catalogs/trainer-reference-entries.json")
         reference = catalog["entries"][0]
         with tempfile.TemporaryDirectory() as directory:
@@ -1958,9 +1976,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("standard", battle["battle"]["ai"]["difficulty"])
 
     def test_web_separates_npc_and_battle_preset_pages(self) -> None:
-        root = Path(__file__).parents[3]
-        page = (root / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
-        script = (root / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        root = PROJECT_ROOT
+        page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('data-section="trainers"><span>02</span>NPC', page)
         self.assertIn('data-section="battles"><span>03</span>배틀 프리셋', page)
         self.assertIn('id="battle-list"', page)
@@ -2014,7 +2032,7 @@ class ContentManagerTests(unittest.TestCase):
 
     def test_trainer_encounter_and_rewards_are_validated(self) -> None:
         source = content_manager.load_json(
-            Path(__file__).parents[3] / "content" / "source" / "examples" / "ai_test.json"
+            PROJECT_ROOT / "content" / "source" / "examples" / "ai_test.json"
         )
         content_id, issues = content_manager._validate_payload(
             source, content_manager.validate_content_file
@@ -2085,9 +2103,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any(issue.path.endswith(".side") for issue in issues))
 
     def test_cobbleverse_badge_items_are_available_for_gym_presets(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         catalog = content_manager.load_json(
-            root / "trainer-data" / "catalogs" / "cobblemon-items.json"
+            CORE_ROOT / "trainer-data" / "catalogs" / "cobblemon-items.json"
         )
         badges = [
             item for item in catalog["items"]
@@ -2101,10 +2119,10 @@ class ContentManagerTests(unittest.TestCase):
         ))
 
     def test_generate_exports_same_ai_profile_to_rct_and_runtime(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "generated"
-            result = content_manager.generate_content(root, output)
+            result = content_manager.generate_content(root, output, CORE_ROOT)
             self.assertGreaterEqual(result["count"], 2)
             rct = content_manager.load_json(
                 output / "rct" / "data" / "rctmod" / "trainers" / "ai_test.json"
@@ -2118,7 +2136,7 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual("balanced", runtime["strategy"])
 
     def test_cheater_probability_is_exported_for_runtime_use(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         source = content_manager.load_json(
             root / "content" / "battles" / "examples" / "ai_test.json"
         )
@@ -2160,16 +2178,16 @@ class ContentManagerTests(unittest.TestCase):
             self.assertTrue(any("이미 존재" in issue.message for issue in duplicate_issues))
 
     def test_strict_pack_rejects_draft_lock(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         issues = content_manager.validate_dependency_lock(
-            root / "pack" / "dependencies.lock.json", strict_pack=True
+            CORE_ROOT / "pack" / "dependencies.lock.json", strict_pack=True
         )
         self.assertTrue(any("draft" in issue.message for issue in issues))
 
     def test_cobblemon_additions_content_pack_is_registered(self) -> None:
-        root = Path(__file__).parents[3]
+        root = PROJECT_ROOT
         dependency_lock = content_manager.load_json(
-            root / "pack" / "dependencies.lock.json"
+            CORE_ROOT / "pack" / "dependencies.lock.json"
         )
         content_pack = next(
             item
@@ -2185,9 +2203,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("9PMzbD4o", content_pack["modrinth"]["version_id"])
 
     def test_server_full_dex_and_mega_addons_are_pinned_in_development_pack(self) -> None:
-        root = Path(__file__).parents[3]
+        root = CORE_ROOT
         dependency_lock = content_manager.load_json(
-            root / "pack" / "dependencies.lock.json"
+            CORE_ROOT / "pack" / "dependencies.lock.json"
         )
         mods = {item["id"]: item for item in dependency_lock["mods"]}
         expected_files = {
@@ -2208,7 +2226,7 @@ class ContentManagerTests(unittest.TestCase):
                 self.assertEqual(file_id, mod["curseforge"]["file_id"])
 
         profile = content_manager.load_json(
-            root / "pack" / "profiles" / "development-placeholder.json"
+            CORE_ROOT / "pack" / "profiles" / "development-placeholder.json"
         )
         profile_files = {
             (entry["projectID"], entry["fileID"]) for entry in profile["files"]
@@ -2271,9 +2289,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("flying", mega_form["secondaryType"])
 
     def test_performance_and_shader_stack_is_pinned_in_development_pack(self) -> None:
-        root = Path(__file__).parents[3]
+        root = CORE_ROOT
         dependency_lock = content_manager.load_json(
-            root / "pack" / "dependencies.lock.json"
+            CORE_ROOT / "pack" / "dependencies.lock.json"
         )
         mods = {item["id"]: item for item in dependency_lock["mods"]}
         expected = {
@@ -2297,7 +2315,7 @@ class ContentManagerTests(unittest.TestCase):
                 self.assertEqual(file_id, mod["curseforge"]["file_id"])
 
         profile = content_manager.load_json(
-            root / "pack" / "profiles" / "development-placeholder.json"
+            CORE_ROOT / "pack" / "profiles" / "development-placeholder.json"
         )
         profile_files = {
             (entry["projectID"], entry["fileID"]) for entry in profile["files"]
@@ -2321,7 +2339,7 @@ class ContentManagerTests(unittest.TestCase):
         )
 
     def test_local_api_health_and_validation(self) -> None:
-        root = Path(__file__).parents[3]
+        root = CORE_ROOT
         server = content_manager.ThreadingHTTPServer(
             ("127.0.0.1", 0), content_manager.create_handler(root)
         )
@@ -2584,7 +2602,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("POKEMON_ENTRY_CLIPBOARD_SCHEMA", clipboard_module)
 
     def test_build_api_uses_allowlisted_runner(self) -> None:
-        root = Path(__file__).parents[3]
+        root = CORE_ROOT
         server = content_manager.ThreadingHTTPServer(
             ("127.0.0.1", 0), content_manager.create_handler(root)
         )
@@ -2611,7 +2629,9 @@ class ContentManagerTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=2)
-        runner.assert_called_once_with(root.resolve(), "validate")
+        runner.assert_called_once_with(
+            root.resolve(), PROJECT_ROOT.resolve(), "validate"
+        )
         self.assertTrue(payload["success"])
 
     def test_structure_builder_settings_resolve_instance_world(self) -> None:

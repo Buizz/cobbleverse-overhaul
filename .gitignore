@@ -52,6 +52,11 @@ __pycache__/
 # Local licensed/reference assets (never commit source audio)
 /local-assets/music/
 
+# Local content projects; only the Git-managed main project is shared
+/content-projects/*
+!/content-projects/cobbleventure-main/
+!/content-projects/cobbleventure-main/**
+
 # Generated distribution and staging output
 dist/
 staging/

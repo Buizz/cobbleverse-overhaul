@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = ROOT / "content-projects" / "cobbleventure-main"
 sys.path.insert(0, str(ROOT / "tools" / "content-manager"))
 
 import content_manager  # noqa: E402
@@ -15,7 +16,7 @@ import content_manager  # noqa: E402
 class GymInteriorConfigTests(unittest.TestCase):
     def setUp(self) -> None:
         self.settlement = json.loads(
-            (ROOT / "content/settlements/generation_1/starter_town.json").read_text(
+            (PROJECT_ROOT / "content/settlements/generation_1/starter_town.json").read_text(
                 encoding="utf-8"
             )
         )

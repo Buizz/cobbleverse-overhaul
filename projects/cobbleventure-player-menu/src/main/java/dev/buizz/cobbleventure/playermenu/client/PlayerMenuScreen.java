@@ -1,12 +1,15 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import com.cobblemon.mod.common.CobblemonSounds;
+import com.cobblemon.mod.common.client.gui.summary.widgets.ModelWidget;
+import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.buizz.cobbleventure.playermenu.PlayerOverviewNetwork;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
@@ -47,8 +50,13 @@ public final class PlayerMenuScreen extends Screen {
     private static final int CONNECTED_COLOR = 0xFF5EE4E4;
     private static final int PENDING_COLOR = 0xFF8D8D8D;
     private static final int SEPARATOR_COLOR = 0x553F505B;
+    private static final int OVERVIEW_HEIGHT = 110;
+    private static final int PARTY_ICON_SIZE = 24;
+    private static final int PARTY_ICON_GAP = 3;
 
     private final List<MenuRow> rows = new ArrayList<>();
+    private final List<ModelWidget> partyModels = new ArrayList<>();
+    private final List<Pokemon> partyPokemon = new ArrayList<>();
     private int selectedIndex;
     private int menuX;
     private int menuY;
@@ -58,6 +66,10 @@ public final class PlayerMenuScreen extends Screen {
     private int infoX;
     private int infoWidth;
     private Component statusMessage;
+    private Button rockClimbToggleButton;
+    private Button flashToggleButton;
+    private Button strengthToggleButton;
+    private Button rockSmashToggleButton;
     private long transitionStartedAt;
     private long selectionChangedAt;
     private boolean closing;
@@ -70,6 +82,8 @@ public final class PlayerMenuScreen extends Screen {
     protected void init() {
         super.init();
         rows.clear();
+        partyModels.clear();
+        partyPokemon.clear();
         transitionStartedAt = System.currentTimeMillis();
         selectionChangedAt = 0L;
         closing = false;
@@ -108,6 +122,38 @@ public final class PlayerMenuScreen extends Screen {
             addRenderableWidget(row);
             rows.add(row);
         }
+        PlayerOverviewNetwork.requestSnapshot();
+        initPartyModels();
+        int fieldMoveToggleWidth = Math.max(30, (infoWidth - 26) / 4);
+        rockClimbToggleButton = addRenderableWidget(Button.builder(
+            Component.translatable("screen.cobbleventure_player_menu.field_move.rock_climb_toggle", "OFF"),
+            button -> PlayerOverviewNetwork.requestToggle("rock_climb")
+        ).bounds(infoX + 8, trainerPanelY() + 89, fieldMoveToggleWidth, 17).build());
+        rockClimbToggleButton.visible = false;
+        flashToggleButton = addRenderableWidget(Button.builder(
+            Component.translatable("screen.cobbleventure_player_menu.field_move.flash_toggle", "OFF"),
+            button -> PlayerOverviewNetwork.requestToggle("flash")
+        ).bounds(
+            infoX + 10 + fieldMoveToggleWidth, trainerPanelY() + 89,
+            fieldMoveToggleWidth, 17
+        ).build());
+        flashToggleButton.visible = false;
+        strengthToggleButton = addRenderableWidget(Button.builder(
+            Component.translatable("screen.cobbleventure_player_menu.field_move.strength_toggle", "OFF"),
+            button -> PlayerOverviewNetwork.requestToggle("strength")
+        ).bounds(
+            infoX + 12 + fieldMoveToggleWidth * 2, trainerPanelY() + 89,
+            fieldMoveToggleWidth, 17
+        ).build());
+        strengthToggleButton.visible = false;
+        rockSmashToggleButton = addRenderableWidget(Button.builder(
+            Component.translatable("screen.cobbleventure_player_menu.field_move.rock_smash_toggle", "OFF"),
+            button -> PlayerOverviewNetwork.requestToggle("rock_smash")
+        ).bounds(
+            infoX + 14 + fieldMoveToggleWidth * 3, trainerPanelY() + 89,
+            fieldMoveToggleWidth, 17
+        ).build());
+        rockSmashToggleButton.visible = false;
         setFocused(rows.get(selectedIndex));
     }
 
@@ -133,6 +179,7 @@ public final class PlayerMenuScreen extends Screen {
             renderInfoPanel(graphics);
             renderMenuPanel(graphics);
             super.render(graphics, mouseX, mouseY, partialTick);
+            renderPartyTooltip(graphics, mouseX, mouseY);
             renderControls(graphics);
         } finally {
             graphics.pose().popPose();
@@ -210,9 +257,8 @@ public final class PlayerMenuScreen extends Screen {
 
     private void renderTrainerPanel(GuiGraphics graphics) {
         int x = infoX;
-        int y = Math.max(MENU_MARGIN, (height - 96) / 2 - 50);
-        int panelHeight = 42;
-        drawRibbonPanel(graphics, x, y, infoWidth, panelHeight);
+        int y = trainerPanelY();
+        drawRibbonPanel(graphics, x, y, infoWidth, OVERVIEW_HEIGHT);
 
         String playerName = minecraft != null && minecraft.player != null
             ? minecraft.player.getGameProfile().getName()
@@ -223,27 +269,64 @@ public final class PlayerMenuScreen extends Screen {
         );
         graphics.drawString(font, playerLine, x + 8, y + 7, PRIMARY_TEXT_COLOR, false);
 
-        Component summary;
         int partySize = partySize();
-        if (partySize >= 0) {
-            summary = Component.translatable("screen.cobbleventure_player_menu.header.party", partySize, 6);
-        } else {
-            long connectedCount = Arrays.stream(PlayerMenuEntry.values())
-                .filter(PlayerMenuEntry::connected)
-                .count();
-            summary = Component.translatable(
-                "screen.cobbleventure_player_menu.header.available",
-                connectedCount,
-                PlayerMenuEntry.values().length
-            );
+        Component summary = partySize >= 0
+            ? Component.translatable("screen.cobbleventure_player_menu.header.party", partySize, 6)
+            : Component.translatable("screen.cobbleventure_player_menu.header.party_unavailable");
+        graphics.drawString(font, summary, x + 8, y + 22, CONNECTED_COLOR, false);
+
+        graphics.drawString(
+            font,
+            Component.translatable("screen.cobbleventure_player_menu.header.field_moves"),
+            x + 8, y + 66, MUTED_TEXT_COLOR, false
+        );
+        List<String> moves = PlayerOverviewNetwork.clientFieldMoves();
+        boolean rockClimbOwned = moves.contains("rock_climb");
+        boolean flashOwned = moves.contains("flash");
+        boolean strengthOwned = moves.contains("strength");
+        boolean rockSmashOwned = moves.contains("rock_smash");
+        if (rockClimbToggleButton != null) {
+            rockClimbToggleButton.visible = rockClimbOwned;
+            rockClimbToggleButton.setMessage(Component.translatable(
+                "screen.cobbleventure_player_menu.field_move.rock_climb_toggle",
+                PlayerOverviewNetwork.isActive("rock_climb") ? "ON" : "OFF"
+            ));
         }
-        graphics.drawString(font, summary, x + 8, y + 24, CONNECTED_COLOR, false);
+        if (flashToggleButton != null) {
+            flashToggleButton.visible = flashOwned;
+            flashToggleButton.setMessage(Component.translatable(
+                "screen.cobbleventure_player_menu.field_move.flash_toggle",
+                PlayerOverviewNetwork.isActive("flash") ? "ON" : "OFF"
+            ));
+        }
+        if (strengthToggleButton != null) {
+            strengthToggleButton.visible = strengthOwned;
+            strengthToggleButton.setMessage(Component.translatable(
+                "screen.cobbleventure_player_menu.field_move.strength_toggle",
+                PlayerOverviewNetwork.isActive("strength") ? "ON" : "OFF"
+            ));
+        }
+        if (rockSmashToggleButton != null) {
+            rockSmashToggleButton.visible = rockSmashOwned;
+            rockSmashToggleButton.setMessage(Component.translatable(
+                "screen.cobbleventure_player_menu.field_move.rock_smash_toggle",
+                PlayerOverviewNetwork.isActive("rock_smash") ? "ON" : "OFF"
+            ));
+        }
+        Component moveSummary = moves.isEmpty()
+            ? Component.translatable("screen.cobbleventure_player_menu.header.field_moves.empty")
+            : Component.literal(String.join(" · ", moves.stream().map(PlayerMenuScreen::fieldMoveName).toList()));
+        List<FormattedCharSequence> lines = font.split(moveSummary, infoWidth - 16);
+        int maximumLines = rockClimbOwned || flashOwned || strengthOwned || rockSmashOwned ? 1 : 2;
+        for (int index = 0; index < Math.min(maximumLines, lines.size()); index++) {
+            graphics.drawString(font, lines.get(index), x + 8, y + 79 + index * 11, SECONDARY_TEXT_COLOR, false);
+        }
     }
 
     private void renderInfoPanel(GuiGraphics graphics) {
         int panelHeight = 96;
         int x = infoX;
-        int y = (height - panelHeight) / 2;
+        int y = trainerPanelY() + OVERVIEW_HEIGHT + PANEL_GAP;
         drawRibbonPanel(graphics, x, y, infoWidth, panelHeight);
 
         if (!rows.isEmpty()) {
@@ -316,7 +399,10 @@ public final class PlayerMenuScreen extends Screen {
     private void renderControls(GuiGraphics graphics) {
         int panelHeight = 35;
         int x = infoX;
-        int y = Math.min(height - MENU_MARGIN - panelHeight, (height - 96) / 2 + 104);
+        int y = Math.min(
+            height - MENU_MARGIN - panelHeight,
+            trainerPanelY() + OVERVIEW_HEIGHT + PANEL_GAP + 96 + PANEL_GAP
+        );
         drawRibbonPanel(graphics, x, y, infoWidth, panelHeight);
         graphics.drawString(
             font,
@@ -389,6 +475,42 @@ public final class PlayerMenuScreen extends Screen {
             return -1;
         }
         return CobblemonMenuIntegration.partySize();
+    }
+
+    private int trainerPanelY() {
+        return Math.max(MENU_MARGIN, menuY);
+    }
+
+    private void initPartyModels() {
+        if (!ModList.get().isLoaded("cobblemon")) return;
+        partyPokemon.addAll(CobblemonMenuIntegration.partyPokemon());
+        int totalWidth = 6 * PARTY_ICON_SIZE + 5 * PARTY_ICON_GAP;
+        int startX = infoX + Math.max(7, (infoWidth - totalWidth) / 2);
+        int modelY = trainerPanelY() + 34;
+        for (int index = 0; index < partyPokemon.size(); index++) {
+            ModelWidget model = new ModelWidget(
+                startX + index * (PARTY_ICON_SIZE + PARTY_ICON_GAP), modelY,
+                PARTY_ICON_SIZE, PARTY_ICON_SIZE, partyPokemon.get(index).asRenderablePokemon(),
+                0.65F, 25.0F, 0.0D, false, false
+            );
+            model.active = false;
+            partyModels.add(addRenderableWidget(model));
+        }
+    }
+
+    private void renderPartyTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        for (int index = 0; index < partyModels.size(); index++) {
+            ModelWidget model = partyModels.get(index);
+            if (mouseX >= model.getX() && mouseX < model.getX() + PARTY_ICON_SIZE
+                && mouseY >= model.getY() && mouseY < model.getY() + PARTY_ICON_SIZE) {
+                graphics.renderTooltip(font, partyPokemon.get(index).getDisplayName(false), mouseX, mouseY);
+                return;
+            }
+        }
+    }
+
+    private static String fieldMoveName(String move) {
+        return Component.translatable("field_move.cobbleventure_player_menu." + move).getString();
     }
 
     private static int clamp(int value, int minimum, int maximum) {

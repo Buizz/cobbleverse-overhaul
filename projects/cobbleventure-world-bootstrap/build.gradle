@@ -107,6 +107,8 @@ tasks.named('runWorldPerformanceServer') {
 }
 
 processResources {
+    def contentProjectDir = file(System.getenv('COBBLEVENTURE_PROJECT_PATH') ?: rootProject.file('../../content-projects/cobbleventure-main'))
+    def contentDir = new File(contentProjectDir, 'content')
     def properties = [
         minecraft_version_range: minecraft_version_range,
         neo_version: neo_version,
@@ -121,15 +123,15 @@ processResources {
     filesMatching('META-INF/neoforge.mods.toml') {
         expand properties
     }
-    from(rootProject.file('../../content/caves')) {
+    from(new File(contentDir, 'caves')) {
         into 'data/cobbleventure/caves'
         include '**/*.json'
     }
-    from(rootProject.file('../../content/catalogs/economy.json')) {
+    from(new File(contentDir, 'catalogs/economy.json')) {
         into 'data/cobbleventure/economy'
         rename { 'catalog.json' }
     }
-    from(rootProject.file('../../content/catalogs/biome-profiles.json')) {
+    from(new File(contentDir, 'catalogs/biome-profiles.json')) {
         into 'data/cobbleventure/catalogs'
     }
     if (integrationBcaJar != null) {

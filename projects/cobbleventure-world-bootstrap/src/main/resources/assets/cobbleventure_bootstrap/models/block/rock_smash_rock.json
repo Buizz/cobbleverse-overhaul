@@ -1,0 +1,33 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/cobblestone",
+    "rock": "minecraft:block/cobblestone"
+  },
+  "elements": [
+    {
+      "from": [2, 0, 2],
+      "to": [14, 9, 14],
+      "faces": {
+        "down": { "texture": "#rock", "cullface": "down" },
+        "up": { "texture": "#rock" },
+        "north": { "texture": "#rock" },
+        "south": { "texture": "#rock" },
+        "west": { "texture": "#rock" },
+        "east": { "texture": "#rock" }
+      }
+    },
+    {
+      "from": [4, 9, 4],
+      "to": [12, 13, 12],
+      "faces": {
+        "down": { "texture": "#rock" },
+        "up": { "texture": "#rock" },
+        "north": { "texture": "#rock" },
+        "south": { "texture": "#rock" },
+        "west": { "texture": "#rock" },
+        "east": { "texture": "#rock" }
+      }
+    }
+  ]
+}

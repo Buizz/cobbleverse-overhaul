@@ -13,6 +13,7 @@ from unittest import mock
 
 MODULE_PATH = Path(__file__).parents[1] / "build_data_mod.py"
 REPOSITORY_ROOT = MODULE_PATH.parents[2]
+PROJECT_ROOT = REPOSITORY_ROOT / "content-projects" / "cobbleventure-main"
 sys.path.insert(0, str(MODULE_PATH.parent))
 SPEC = importlib.util.spec_from_file_location("build_data_mod", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -86,7 +87,7 @@ class DataModBuilderTests(unittest.TestCase):
 
     def test_tile_coverage_roads_do_not_restore_the_missing_center_arm(self) -> None:
         source = json.loads(
-            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -364,7 +365,7 @@ class DataModBuilderTests(unittest.TestCase):
 
     def test_builtin_facilities_use_actual_template_footprints(self) -> None:
         source = json.loads(
-            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -404,7 +405,7 @@ class DataModBuilderTests(unittest.TestCase):
 
     def test_generated_houses_touch_their_assigned_road(self) -> None:
         source = json.loads(
-            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -424,7 +425,7 @@ class DataModBuilderTests(unittest.TestCase):
 
     def test_packed_density_places_at_least_as_many_houses_as_normal(self) -> None:
         source = json.loads(
-            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -439,7 +440,7 @@ class DataModBuilderTests(unittest.TestCase):
 
     def test_compile_respects_single_house_palette_selection(self) -> None:
         source = json.loads(
-            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -459,7 +460,7 @@ class DataModBuilderTests(unittest.TestCase):
 
     def test_legacy_wide_house_palette_migrates_to_one_story(self) -> None:
         source = json.loads(
-            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -477,7 +478,7 @@ class DataModBuilderTests(unittest.TestCase):
 
     def test_branching_layout_spreads_across_both_axes(self) -> None:
         source = json.loads(
-            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -513,7 +514,7 @@ class DataModBuilderTests(unittest.TestCase):
         self.assertTrue(all((abs(q) + abs(r) + abs(-q - r)) // 2 <= 2 for q, r in cells))
 
     def test_custom_layout_keeps_authored_tiles_and_connects_authored_exits(self) -> None:
-        source = json.loads((REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(encoding="utf-8"))
+        source = json.loads((PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(encoding="utf-8"))
         profile = source["structure_profile"]
         profile["pokemon_center_enabled"] = False
         profile["commercial_center"] = "none"
@@ -544,7 +545,7 @@ class DataModBuilderTests(unittest.TestCase):
 
     def test_compiled_five_cell_layout_covers_each_tile_without_clipped_buildings(self) -> None:
         source = json.loads(
-            (REPOSITORY_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
                 encoding="utf-8"
             )
         )

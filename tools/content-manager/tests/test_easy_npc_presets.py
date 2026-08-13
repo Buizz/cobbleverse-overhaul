@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parents[3]
+PROJECT_ROOT = ROOT / "content-projects" / "cobbleventure-main"
 SPEC = importlib.util.spec_from_file_location(
     "generate_easy_npc_presets",
     ROOT / "tools" / "content-manager" / "generate_easy_npc_presets.py",
@@ -17,14 +18,14 @@ SPEC.loader.exec_module(generator)
 class EasyNpcEncounterPresetTests(unittest.TestCase):
     def setUp(self) -> None:
         self.document = json.loads(
-            (ROOT / "content" / "source" / "examples" / "ai_test.json").read_text(encoding="utf-8")
+            (PROJECT_ROOT / "content" / "source" / "examples" / "ai_test.json").read_text(encoding="utf-8")
         )
         battle = json.loads(
-            (ROOT / "content" / "battles" / "examples" / "ai_test.json").read_text(encoding="utf-8")
+            (PROJECT_ROOT / "content" / "battles" / "examples" / "ai_test.json").read_text(encoding="utf-8")
         )
         self.document["_battle_presets"] = {battle["id"]: battle}
         catalog = json.loads(
-            (ROOT / "content" / "catalogs" / "trainer-outfits.json").read_text(encoding="utf-8")
+            (PROJECT_ROOT / "content" / "catalogs" / "trainer-outfits.json").read_text(encoding="utf-8")
         )
         self.outfit = catalog["outfits"][0]
 

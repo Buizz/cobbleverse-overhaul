@@ -5,6 +5,7 @@ import copy
 import gzip
 import json
 import math
+import os
 import shutil
 from pathlib import Path
 
@@ -25,25 +26,29 @@ from starter_gym import (
 )
 
 
+PROJECT_ROOT = Path(os.environ.get(
+    "COBBLEVENTURE_PROJECT_PATH", "content-projects/cobbleventure-main"
+))
+CONTENT_ROOT = PROJECT_ROOT / "content"
 SOURCE = Path("projects/cobbleventure-world-bootstrap/src/main/resources")
 OUTPUT = Path("projects/cobbleventure-world-bootstrap/src/generated/resources")
-SETTLEMENT_CONFIG_DIR = Path("content/settlements")
+SETTLEMENT_CONFIG_DIR = CONTENT_ROOT / "settlements"
 STARTER_TOWN_CONFIG = SETTLEMENT_CONFIG_DIR / "generation_1/starter_town.json"
-HEX_WORLD_CONFIG_DIR = Path("content/worlds")
-BOUNDARY_PROFILE_CONFIG = Path("content/catalogs/boundary-profiles.json")
+HEX_WORLD_CONFIG_DIR = CONTENT_ROOT / "worlds"
+BOUNDARY_PROFILE_CONFIG = CONTENT_ROOT / "catalogs/boundary-profiles.json"
 GENERATED_CONTENT_DIR = Path("generated")
-FACILITY_STRUCTURE_SOURCE_DIR = Path("content/structures/placeholder")
-HOUSE_STRUCTURE_SOURCE_DIR = Path("content/structures/houses")
-INTERIOR_STRUCTURE_SOURCE_DIR = Path("content/structures/interiors")
-GYM_STRUCTURE_SOURCE_DIR = Path("content/structures/gyms")
-LEAGUE_STRUCTURE_SOURCE_DIR = Path("content/structures/league")
-GYM_CATALOG_SOURCE = Path("content/catalogs/gyms.json")
+FACILITY_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/placeholder"
+HOUSE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/houses"
+INTERIOR_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/interiors"
+GYM_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/gyms"
+LEAGUE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/league"
+GYM_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/gyms.json"
 GYM_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/gyms.json")
-MUSIC_CATALOG_SOURCE = Path("content/catalogs/music-tracks.json")
+MUSIC_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/music-tracks.json"
 MUSIC_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/music-tracks.json")
-BATTLE_PRESET_SOURCE_DIR = Path("content/battles")
+BATTLE_PRESET_SOURCE_DIR = CONTENT_ROOT / "battles"
 BATTLE_PRESET_ENTRY_DIR = Path("data/cobbleventure/battles")
-BUILDING_SETTINGS_SOURCE = Path("content/catalogs/building-settings.json")
+BUILDING_SETTINGS_SOURCE = CONTENT_ROOT / "catalogs/building-settings.json"
 BUILDING_SETTINGS_ENTRY = Path("data/cobbleventure/building_settings.json")
 STRUCTURE_METADATA_ENTRY_DIR = Path("data/cobbleventure/structure_metadata")
 REQUIRED_ENTRIES = {
@@ -81,7 +86,7 @@ def _package_generated_trainer_content(root: Path, output: Path) -> None:
         # Minimal test fixtures and settlement-only consumers do not own battle
         # content. A real repository with battle presets must never build a JAR
         # that silently omits their generated RCT resources.
-        if (root / "content" / "battles").is_dir():
+        if (root / BATTLE_PRESET_SOURCE_DIR).is_dir():
             raise ModBuildError(
                 "생성된 RCT 트레이너가 없습니다. 먼저 content-manager generate를 실행하세요."
             )
@@ -1323,7 +1328,7 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
     )
     for category in ("placeholder", "interiors"):
         source_dir = _inside(
-            root, root / "content/structures" / category, "구조물 메타데이터 원본"
+            root, root / CONTENT_ROOT / "structures" / category, "구조물 메타데이터 원본"
         )
         if not source_dir.is_dir():
             continue

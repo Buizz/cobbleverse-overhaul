@@ -117,7 +117,7 @@
         "count": { "type": "integer", "minimum": 1 },
         "loot_table": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
         "move": {
-          "enum": ["surf", "fly", "flash", "defog", "rock_climb", "waterfall", "whirlpool", "strength"]
+          "enum": ["surf", "fly", "flash", "defog", "rock_climb", "whirlpool", "strength", "rock_smash"]
         },
         "gate": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "subject": { "enum": ["player", "npc"] },

@@ -4,6 +4,8 @@ import com.cobblemon.mod.common.client.CobblemonClient;
 import com.cobblemon.mod.common.client.keybind.keybinds.SummaryBinding;
 import com.cobblemon.mod.common.item.PokedexItem;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.LocalPlayer;
@@ -65,6 +67,15 @@ final class CobblemonMenuIntegration {
             }
         }
         return size;
+    }
+
+    static List<Pokemon> partyPokemon() {
+        List<Pokemon> result = new ArrayList<>(6);
+        for (int slot = 0; slot < 6; slot++) {
+            Pokemon pokemon = CobblemonClient.INSTANCE.getStorage().getParty().get(slot);
+            if (pokemon != null) result.add(pokemon);
+        }
+        return List.copyOf(result);
     }
 
     private static Pokemon firstPartyPokemon() {

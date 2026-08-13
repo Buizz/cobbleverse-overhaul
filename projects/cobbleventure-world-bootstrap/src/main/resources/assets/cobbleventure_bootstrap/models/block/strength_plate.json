@@ -1,0 +1,21 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/polished_deepslate",
+    "plate": "minecraft:block/polished_deepslate"
+  },
+  "elements": [
+    {
+      "from": [1, 0, 1],
+      "to": [15, 2, 15],
+      "faces": {
+        "down": { "texture": "#plate", "cullface": "down" },
+        "up": { "texture": "#plate" },
+        "north": { "texture": "#plate" },
+        "south": { "texture": "#plate" },
+        "west": { "texture": "#plate" },
+        "east": { "texture": "#plate" }
+      }
+    }
+  ]
+}

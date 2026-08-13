@@ -51,7 +51,7 @@ EasyNPC 7.x 거리 이벤트는 4·8·16·32 블록 단계이므로 생성 프�
 - `end`: 이벤트 종료
 
 `grant_field_move`의 `move`에는 `surf`, `fly`, `flash`, `defog`, `rock_climb`,
-`waterfall`, `whirlpool`, `strength` 중 하나를 사용한다. 이 이벤트가 있는 NPC를
+`whirlpool`, `strength`, `rock_smash` 중 하나를 사용한다. 이 이벤트가 있는 NPC를
 마을의 `npc_placement.trainer_slots[].members[].npc_profile`에 배치하면 플레이어 메뉴의
 지도 마을 설명에 `NPC 정보`와 `파도타기를 주는 NPC` 형식의 안내가 자동으로 표시된다.
 

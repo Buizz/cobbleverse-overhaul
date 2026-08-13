@@ -15,6 +15,7 @@ import net.minecraft.server.level.ServerPlayer;
 /** Gates Cobblemon's liquid and air mounts behind the matching field-move flags. */
 final class FieldMoveRidingAccess {
     private static final String FLAG_PREFIX = "cobbleventureFieldMove.";
+    private static final String ACTIVE_PREFIX = "cobbleventureFieldMoveActive.";
     private static final String MESSAGE_COOLDOWN = "cobbleventureRideFieldMoveMessageCooldown";
     private static boolean registered;
 
@@ -35,7 +36,41 @@ final class FieldMoveRidingAccess {
     }
 
     static void setEnabled(ServerPlayer player, String move, boolean enabled) {
-        player.getPersistentData().putBoolean(FLAG_PREFIX + normalize(move), enabled);
+        String normalized = normalize(move);
+        player.getPersistentData().putBoolean(FLAG_PREFIX + normalized, enabled);
+        if (!enabled && isToggleable(normalized)) {
+            player.getPersistentData().putBoolean(ACTIVE_PREFIX + normalized, false);
+        }
+    }
+
+    static boolean isActive(ServerPlayer player, String move) {
+        String normalized = normalize(move);
+        return isEnabled(player, normalized)
+            && (!isToggleable(normalized)
+                || player.getPersistentData().getBoolean(ACTIVE_PREFIX + normalized));
+    }
+
+    static boolean setActive(ServerPlayer player, String move, boolean active) {
+        String normalized = normalize(move);
+        if (!isEnabled(player, normalized) || !isToggleable(normalized)) {
+            return false;
+        }
+        player.getPersistentData().putBoolean(ACTIVE_PREFIX + normalized, active);
+        return true;
+    }
+
+    static boolean isToggleable(String move) {
+        return switch (normalize(move)) {
+            case "rock_climb", "flash", "strength", "rock_smash" -> true;
+            default -> false;
+        };
+    }
+
+    static boolean isSupported(String move) {
+        return switch (normalize(move)) {
+            case "surf", "fly", "flash", "defog", "rock_climb", "whirlpool", "strength", "rock_smash" -> true;
+            default -> false;
+        };
     }
 
     static boolean isValidSurfRide(ServerPlayer player) {
@@ -55,9 +90,9 @@ final class FieldMoveRidingAccess {
             case "flash" -> "플래쉬";
             case "defog" -> "안개제거";
             case "rock_climb" -> "락클레임";
-            case "waterfall" -> "폭포오르기";
             case "whirlpool" -> "바다회오리";
             case "strength" -> "괴력";
+            case "rock_smash" -> "바위깨기";
             default -> move;
         };
     }

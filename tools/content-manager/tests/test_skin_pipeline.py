@@ -42,7 +42,8 @@ class SkinPipelineTests(unittest.TestCase):
 
     def test_attributed_community_skins_are_present_and_64px(self) -> None:
         root = Path(__file__).parents[3]
-        catalog = json.loads((root / "content/catalogs/trainer-skin-sources.json").read_text(encoding="utf-8"))
+        project_root = root / "content-projects" / "cobbleventure-main"
+        catalog = json.loads((project_root / "content/catalogs/trainer-skin-sources.json").read_text(encoding="utf-8"))
         texture_root = root / "projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer"
         self.assertEqual(24, len(catalog["skins"]))
         for entry in catalog["skins"]:
@@ -178,8 +179,9 @@ class SkinPipelineTests(unittest.TestCase):
 
     def test_easy_npc_preset_uses_head_slot_custom_skin_and_root_scale(self) -> None:
         root = Path(__file__).parents[3]
+        project_root = root / "content-projects" / "cobbleventure-main"
         catalog = json.loads(
-            (root / "content" / "catalogs" / "trainer-outfits.json").read_text(encoding="utf-8")
+            (project_root / "content" / "catalogs" / "trainer-outfits.json").read_text(encoding="utf-8")
         )
         preset = generate_easy_npc_presets.preset_snbt(catalog["outfits"][0])
         self.assertIn('ArmorItems:[{},{},{},{Count:1b,id:"cobbleventure_bootstrap:youngster_cap"}]', preset)
@@ -200,6 +202,7 @@ class SkinPipelineTests(unittest.TestCase):
 
     def test_missing_rocket_executives_build_as_valid_named_skins(self) -> None:
         root = Path(__file__).parents[3]
+        project_root = root / "content-projects" / "cobbleventure-main"
         for slug in ("proton", "petrel"):
             manifest_path = PIPELINE_PATH.parent / "work" / slug / "manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -212,7 +215,7 @@ class SkinPipelineTests(unittest.TestCase):
                     self.assertEqual("RGBA", skin.mode)
                     self.assertIsNotNone(skin.getbbox())
         roster = json.loads(
-            (root / "content" / "catalogs" / "trainer-roster.json").read_text(encoding="utf-8")
+            (project_root / "content" / "catalogs" / "trainer-roster.json").read_text(encoding="utf-8")
         )
         rocket = next(
             organization

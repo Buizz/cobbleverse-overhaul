@@ -1,5 +1,8 @@
 {
   "item.cobbleventure_bootstrap.youngster_cap": "반바지 꼬마의 모자",
+  "block.cobbleventure_bootstrap.strength_boulder": "괴력 바위",
+  "block.cobbleventure_bootstrap.strength_plate": "괴력 발판",
+  "block.cobbleventure_bootstrap.rock_smash_rock": "바위깨기 바위",
   "message.cobbleventure_bootstrap.pokemon_center_checkpoint": "마지막으로 방문한 포켓몬센터가 저장되었습니다.",
   "message.cobbleventure_bootstrap.pokemon_center_return": "모든 포켓몬이 쓰러져 마지막 포켓몬센터로 돌아왔습니다.",
   "message.cobbleventure_bootstrap.pokemon_center_fallback_return": "모든 포켓몬이 쓰러져 시작 지점으로 돌아왔습니다.",

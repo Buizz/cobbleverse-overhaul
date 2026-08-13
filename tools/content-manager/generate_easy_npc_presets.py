@@ -7,6 +7,7 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import shutil
 import struct
 import uuid
@@ -14,9 +15,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CATALOG = ROOT / "content" / "catalogs" / "trainer-outfits.json"
-CONTENT_ROOT = ROOT / "content" / "source"
-BATTLE_ROOT = ROOT / "content" / "battles"
+PROJECT_ROOT = Path(os.environ.get(
+    "COBBLEVENTURE_PROJECT_PATH", ROOT / "content-projects/cobbleventure-main"
+)).resolve()
+CATALOG = PROJECT_ROOT / "content" / "catalogs" / "trainer-outfits.json"
+CONTENT_ROOT = PROJECT_ROOT / "content" / "source"
+BATTLE_ROOT = PROJECT_ROOT / "content" / "battles"
 RESOURCE_ROOT = ROOT / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources"
 PACK_OVERRIDE = ROOT / "pack" / "overrides" / "development-placeholder"
 INSTANCE_DEFEATED_FLAG = "cobbleventure:runtime/npc_instance_defeated"

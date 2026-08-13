@@ -1140,6 +1140,7 @@ function renderTileInspector() {
   $("#selected-tile-coord").textContent = `Q ${selected.q} · R ${selected.r}`;
   form.elements.kind.value = kind;
   form.elements.biome.innerHTML = worldBiomeOptions(tile?.biome || "minecraft:plains");
+  form.elements.whirlpoolBoundary.value = String(tile?.access_requirement === "cobbleventure:field_move/whirlpool");
   form.elements.emptyTerrainType.value = emptyTerrainAt(selected.q, selected.r);
   form.elements.settlement.innerHTML = worldSettlementOptions(town?.settlement || "");
   form.elements.townBiome.innerHTML = worldBiomeOptions(town?.town_biome || "minecraft:plains");
@@ -1418,6 +1419,12 @@ function applyTilePlacement() {
   if (kind === "biome") {
     const tile = previousTile ? structuredClone(previousTile) : defaultWorldTile(q, r, form.elements.biome.value);
     tile.q = q; tile.r = r; tile.biome = form.elements.biome.value;
+    if (form.elements.whirlpoolBoundary.value === "true" && !tile.biome.includes("ocean")) {
+      toast("바다회오리 경계는 해양 바이옴 타일에만 설정할 수 있습니다.");
+      return;
+    }
+    if (form.elements.whirlpoolBoundary.value === "true") tile.access_requirement = "cobbleventure:field_move/whirlpool";
+    else if (tile.access_requirement === "cobbleventure:field_move/whirlpool") delete tile.access_requirement;
     tile.terrain_profile ||= defaultWorldTile(q, r, tile.biome).terrain_profile;
     tile.terrain_profile.connection_height = connectionHeight;
     state.worldLayout.tiles.push(tile);
@@ -2634,7 +2641,7 @@ const eventCommandLabels = {
 };
 const fieldMoveChoices = [
   ["surf", "파도타기"], ["fly", "공중날기"], ["flash", "플래쉬"], ["defog", "안개제거"],
-  ["rock_climb", "락클레임"], ["waterfall", "폭포오르기"], ["whirlpool", "바다회오리"], ["strength", "괴력"],
+  ["rock_climb", "락클레임"], ["whirlpool", "바다회오리"], ["strength", "괴력"], ["rock_smash", "바위깨기"],
 ];
 const expandedEventCommands = new Set();
 

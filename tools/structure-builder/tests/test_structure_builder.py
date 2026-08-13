@@ -11,6 +11,7 @@ from pathlib import Path
 
 MODULE_PATH = Path(__file__).parents[1] / "structure_builder.py"
 REPOSITORY_ROOT = MODULE_PATH.parents[2]
+PROJECT_ROOT = REPOSITORY_ROOT / "content-projects" / "cobbleventure-main"
 SPEC = importlib.util.spec_from_file_location("structure_builder", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 structure_builder = importlib.util.module_from_spec(SPEC)
@@ -23,7 +24,7 @@ class StructureBuilderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "repository"
             world = Path(directory) / "world"
-            sample = REPOSITORY_ROOT / "content/structures/houses/one_story_flat.nbt"
+            sample = PROJECT_ROOT / "content/structures/houses/one_story_flat.nbt"
             source = root / "content/structures/placeholder/base.nbt"
             source.parent.mkdir(parents=True)
             shutil.copy2(sample, source)
@@ -75,7 +76,7 @@ class StructureBuilderTests(unittest.TestCase):
             source = root / "content/structures/placeholder/player_house.nbt"
             source.parent.mkdir(parents=True)
             shutil.copy2(
-                REPOSITORY_ROOT / "content/structures/placeholder/player_house.nbt",
+                PROJECT_ROOT / "content/structures/placeholder/player_house.nbt",
                 source,
             )
             module = root / "tools/content-manager/content_manager.py"
@@ -128,8 +129,8 @@ class StructureBuilderTests(unittest.TestCase):
         catalog_path = structure_builder.generate(REPOSITORY_ROOT)
         catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
         sources = sorted(
-            source for source in (REPOSITORY_ROOT / "content/structures").rglob("*.nbt")
-            if source.relative_to(REPOSITORY_ROOT / "content/structures").parts[0] != "league"
+            source for source in (PROJECT_ROOT / "content/structures").rglob("*.nbt")
+            if source.relative_to(PROJECT_ROOT / "content/structures").parts[0] != "league"
         )
 
         self.assertEqual(len(sources), len(catalog["entries"]))
@@ -157,7 +158,7 @@ class StructureBuilderTests(unittest.TestCase):
             world = Path(directory)
             export = world / "generated/cobbleventure_builder/structures/export/houses"
             export.mkdir(parents=True)
-            source = REPOSITORY_ROOT / "content/structures/houses/one_story_flat.nbt"
+            source = PROJECT_ROOT / "content/structures/houses/one_story_flat.nbt"
             shutil.copy2(source, export / source.name)
 
             with self.assertRaisesRegex(

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 
@@ -60,8 +61,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path.cwd())
     args = parser.parse_args()
-    configure_biome_catalog(args.root)
-    configure_settlements(args.root)
+    configured = Path(os.environ.get(
+        "COBBLEVENTURE_PROJECT_PATH", "content-projects/cobbleventure-main"
+    ))
+    project_root = configured if configured.is_absolute() else args.root / configured
+    configure_biome_catalog(project_root)
+    configure_settlements(project_root)
     print(f"max_pokemon_per_habitat_variant={MAX_POKEMON_PER_VARIANT}")
 
 

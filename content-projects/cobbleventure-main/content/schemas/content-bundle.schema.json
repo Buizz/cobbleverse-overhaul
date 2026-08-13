@@ -429,7 +429,7 @@
         "level_cap_objective": { "type": "string" },
         "loot_table": { "$ref": "#/$defs/resource_id" },
         "move": {
-          "enum": ["surf", "fly", "flash", "defog", "rock_climb", "waterfall", "whirlpool", "strength"]
+          "enum": ["surf", "fly", "flash", "defog", "rock_climb", "whirlpool", "strength", "rock_smash"]
         },
         "gate": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "subject": { "enum": ["player", "npc"] },

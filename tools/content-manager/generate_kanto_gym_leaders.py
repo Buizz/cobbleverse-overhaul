@@ -5,13 +5,17 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-REFERENCE_CATALOG = ROOT / "content/catalogs/trainer-reference-entries.json"
-BATTLE_ROOT = ROOT / "content/battles/gym_leaders"
-NPC_ROOT = ROOT / "content/source/trainers/gym_leaders"
+PROJECT_ROOT = Path(os.environ.get(
+    "COBBLEVENTURE_PROJECT_PATH", ROOT / "content-projects/cobbleventure-main"
+)).resolve()
+REFERENCE_CATALOG = PROJECT_ROOT / "content/catalogs/trainer-reference-entries.json"
+BATTLE_ROOT = PROJECT_ROOT / "content/battles/gym_leaders"
+NPC_ROOT = PROJECT_ROOT / "content/source/trainers/gym_leaders"
 
 LEADERS = (
     {

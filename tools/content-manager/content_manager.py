@@ -37,6 +37,7 @@ PROJECT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 PROJECT_MANIFEST_NAME = "project.json"
 PROJECT_SCHEMA = "cobbleventure-content-project"
 PROJECT_VERSION = 1
+DEFAULT_PROJECT_RELATIVE_PATH = Path("content-projects/cobbleventure-main")
 PROJECT_FOLDER_PICKER_SCRIPT = r'''
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
@@ -170,6 +171,26 @@ def load_content_project(
         name=name.strip(),
         is_default=default_root is not None and root == default_root.resolve(),
     )
+
+
+def resolve_content_project(
+    core_root: Path, project_path: Path | None = None
+) -> ContentProject:
+    core_root = core_root.resolve()
+    configured = project_path or (
+        Path(os.environ["COBBLEVENTURE_PROJECT_PATH"])
+        if os.environ.get("COBBLEVENTURE_PROJECT_PATH")
+        else None
+    )
+    if configured is not None:
+        candidate = configured if configured.is_absolute() else core_root / configured
+        return load_content_project(
+            candidate, default_root=core_root / DEFAULT_PROJECT_RELATIVE_PATH
+        )
+    default_project = core_root / DEFAULT_PROJECT_RELATIVE_PATH
+    if (default_project / PROJECT_MANIFEST_NAME).is_file():
+        return load_content_project(default_project, default_root=default_project)
+    return load_content_project(core_root, default_root=core_root, require_manifest=False)
 OPERATION_TYPES = {
     "always",
     "flag_equals",
@@ -1605,7 +1626,7 @@ def _validate_operation(
         _resource_id(operation.get("loot_table"), issues, file, f"{data_path}.loot_table")
     elif operation_type == "grant_field_move":
         if operation.get("move") not in {
-            "surf", "fly", "flash", "defog", "rock_climb", "waterfall", "whirlpool", "strength",
+            "surf", "fly", "flash", "defog", "rock_climb", "whirlpool", "strength", "rock_smash",
         }:
             _issue(issues, "error", file, f"{data_path}.move", "지원하는 비전머신 ID가 필요합니다.")
     elif operation_type in {"start_quest", "complete_quest", "teleport"}:
@@ -6214,13 +6235,14 @@ def _create_document(
     return _save_document(root, category, relative_path, document)
 
 
-def _run_build(root: Path, command: str) -> dict[str, Any]:
+def _run_build(core_root: Path, project_root: Path, command: str) -> dict[str, Any]:
     if command not in BUILD_COMMANDS:
         raise ValueError("허용되지 않은 빌드 명령입니다.")
     try:
         completed = subprocess.run(
-            ["cmd.exe", "/d", "/c", str(root / "build.bat"), command],
-            cwd=root,
+            ["cmd.exe", "/d", "/c", str(core_root / "build.bat"), command],
+            cwd=core_root,
+            env={**os.environ, "COBBLEVENTURE_PROJECT_PATH": str(project_root)},
             capture_output=True,
             encoding="utf-8",
             errors="replace",
@@ -6338,27 +6360,33 @@ def _structure_builder_instance_candidates() -> list[str]:
     return sorted(candidates, key=str.casefold)
 
 
-def _structure_builder_status(root: Path) -> dict[str, Any]:
-    settings = _load_structure_builder_settings(root)
+def _structure_builder_status(
+    project_root: Path, core_root: Path | None = None
+) -> dict[str, Any]:
+    core_root = (core_root or project_root).resolve()
+    settings = _load_structure_builder_settings(core_root)
     instance_path = settings["instance_path"]
     instance = Path(instance_path) if instance_path else None
     world = _structure_builder_world_path(instance_path)
-    output = root / "dist" / "cobbleventure-structure-builder-0.1.0-curseforge.zip"
+    output = core_root / "dist" / "cobbleventure-structure-builder-0.1.0-curseforge.zip"
     return {
         **settings,
         "world_path": str(world) if world is not None else "",
         "instance_exists": bool(instance and instance.is_dir()),
         "world_exists": bool(world and world.is_dir()),
         "export_count": _structure_builder_export_count(world),
-        "source_count": sum(1 for path in (root / "content" / "structures").rglob("*.nbt") if path.is_file()),
+        "source_count": sum(1 for path in (project_root / "content" / "structures").rglob("*.nbt") if path.is_file()),
         "package_path": str(output),
         "package_exists": output.is_file(),
         "candidates": _structure_builder_instance_candidates(),
     }
 
 
-def _run_structure_builder_import(root: Path) -> dict[str, Any]:
-    status = _structure_builder_status(root)
+def _run_structure_builder_import(
+    project_root: Path, core_root: Path | None = None
+) -> dict[str, Any]:
+    core_root = (core_root or project_root).resolve()
+    status = _structure_builder_status(project_root, core_root)
     world_path = Path(status["world_path"]) if status["world_path"] else None
     if world_path is None:
         raise ValueError("먼저 CurseForge 인스턴스 경로를 저장해 주세요.")
@@ -6368,8 +6396,9 @@ def _run_structure_builder_import(root: Path) -> dict[str, Any]:
         raise ValueError("내보낸 NBT가 없습니다. 게임에서 /cobbleventure_builder save all을 먼저 실행하세요.")
     try:
         completed = subprocess.run(
-            ["cmd.exe", "/d", "/c", str(root / "build.bat"), "builder-import", str(world_path)],
-            cwd=root,
+            ["cmd.exe", "/d", "/c", str(core_root / "build.bat"), "builder-import", str(world_path)],
+            cwd=core_root,
+            env={**os.environ, "COBBLEVENTURE_PROJECT_PATH": str(project_root)},
             capture_output=True,
             encoding="utf-8",
             errors="replace",
@@ -6500,11 +6529,13 @@ def export_ai_runtime_profile(document: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def generate_content(root: Path, output: Path | None = None) -> dict[str, Any]:
+def generate_content(
+    root: Path, output: Path | None = None, dependency_root: Path | None = None
+) -> dict[str, Any]:
     root = root.resolve()
     output = (output or root / "generated").resolve()
     marker = output / ".cobbleventure-generated"
-    validation = validate_repository(root)
+    validation = validate_repository(root, dependency_root=dependency_root)
     if not validation.valid:
         raise ValueError("콘텐츠 검증이 실패하여 생성할 수 없습니다.")
     if output.exists():
@@ -7131,7 +7162,10 @@ def structure_mod_roots(root: Path) -> list[Path]:
     return list(dict.fromkeys(path.resolve() for path in roots))
 
 
-def load_structure_size_catalog(root: Path) -> dict[str, Any]:
+def load_structure_size_catalog(
+    root: Path, core_root: Path | None = None
+) -> dict[str, Any]:
+    core_root = (core_root or root).resolve()
     structures: dict[str, dict[str, Any]] = {}
     warnings: list[str] = []
 
@@ -7148,8 +7182,8 @@ def load_structure_size_catalog(root: Path) -> dict[str, Any]:
         structures[resource_id] = {**metadata, "source": source}
 
     resource_roots = [
-        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
-        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
+        core_root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
+        core_root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
     ]
     for resource_root in resource_roots:
         if not resource_root.is_dir():
@@ -7160,10 +7194,10 @@ def load_structure_size_catalog(root: Path) -> dict[str, Any]:
             if match:
                 add_structure(
                     f"{match.group(1)}:{match.group(2)}", path.read_bytes(),
-                    path.relative_to(root).as_posix()
+                    path.relative_to(core_root).as_posix()
                 )
 
-    for mod_root in structure_mod_roots(root):
+    for mod_root in structure_mod_roots(core_root):
         if not mod_root.is_dir():
             continue
         for archive_path in sorted(mod_root.glob("*.jar")):
@@ -7183,8 +7217,10 @@ def load_structure_size_catalog(root: Path) -> dict[str, Any]:
 
 
 def load_structure_viewer_catalog(
-    root: Path, full_catalog: dict[str, Any] | None = None
+    root: Path, full_catalog: dict[str, Any] | None = None,
+    core_root: Path | None = None,
 ) -> dict[str, dict[str, Any]]:
+    core_root = (core_root or root).resolve()
     viewer: dict[str, dict[str, Any]] = {}
     for resource_id, path in managed_structure_files(root).items():
         try:
@@ -7204,7 +7240,7 @@ def load_structure_viewer_catalog(
                 viewer[resource_id] = {**metadata, "managed": False}
         return viewer
     missing = set(STRUCTURE_VIEWER_REQUIRED_EXTERNAL)
-    for mod_root in structure_mod_roots(root):
+    for mod_root in structure_mod_roots(core_root):
         if not missing or not mod_root.is_dir():
             continue
         for archive_path in sorted(mod_root.glob("*.jar")):
@@ -7235,7 +7271,10 @@ def load_structure_viewer_catalog(
     return viewer
 
 
-def load_structure_model(root: Path, resource_id: str) -> dict[str, Any] | None:
+def load_structure_model(
+    root: Path, resource_id: str, core_root: Path | None = None
+) -> dict[str, Any] | None:
+    core_root = (core_root or root).resolve()
     match = re.fullmatch(r"([a-z0-9_.-]+):([a-z0-9_./-]+)", resource_id)
     if not match:
         raise ValueError("올바른 구조물 리소스 ID가 아닙니다.")
@@ -7251,8 +7290,8 @@ def load_structure_model(root: Path, resource_id: str) -> dict[str, Any] | None:
         f"data/{namespace}/structures/{structure_path}.nbt",
     ]
     resource_roots = [
-        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
-        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
+        core_root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
+        core_root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
     ]
     for resource_root in resource_roots:
         for entry_name in entry_names:
@@ -7260,10 +7299,10 @@ def load_structure_model(root: Path, resource_id: str) -> dict[str, Any] | None:
             if path.is_file():
                 return {
                     **read_minecraft_structure_model(path.read_bytes()),
-                    "source": path.relative_to(root).as_posix(),
+                    "source": path.relative_to(core_root).as_posix(),
                 }
 
-    for mod_root in structure_mod_roots(root):
+    for mod_root in structure_mod_roots(core_root):
         if not mod_root.is_dir():
             continue
         for archive_path in sorted(mod_root.glob("*.jar")):
@@ -7283,17 +7322,20 @@ def load_structure_model(root: Path, resource_id: str) -> dict[str, Any] | None:
     return None
 
 
-def structure_catalog_signature(root: Path) -> tuple[tuple[str, int, int], ...]:
+def structure_catalog_signature(
+    root: Path, core_root: Path | None = None
+) -> tuple[tuple[str, int, int], ...]:
     """Return a cheap fingerprint for NBT resources and archives used by preview."""
+    core_root = (core_root or root).resolve()
     candidates: list[Path] = []
     candidates.extend(managed_structure_files(root).values())
     for resource_root in [
-        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
-        root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
+        core_root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
+        core_root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
     ]:
         if resource_root.is_dir():
             candidates.extend(resource_root.glob("data/*/structure*/**/*.nbt"))
-    for mod_root in structure_mod_roots(root):
+    for mod_root in structure_mod_roots(core_root):
         if mod_root.is_dir():
             candidates.extend(mod_root.glob("*.jar"))
     signature = []
@@ -7310,8 +7352,17 @@ STRUCTURE_WEB_CACHE_VERSION = 1
 STRUCTURE_WEB_CACHE_PATH = Path("tools/content-manager/.cache/structure-web-catalog.json")
 
 
-def load_structure_web_cache(root: Path) -> dict[str, Any] | None:
-    path = root / STRUCTURE_WEB_CACHE_PATH
+def structure_web_cache_path(root: Path, cache_root: Path | None = None) -> Path:
+    if cache_root is None:
+        return root / STRUCTURE_WEB_CACHE_PATH
+    project_key = hashlib.sha1(str(root.resolve()).encode("utf-8")).hexdigest()[:12]
+    return cache_root / STRUCTURE_WEB_CACHE_PATH.parent / f"structure-web-{project_key}.json"
+
+
+def load_structure_web_cache(
+    root: Path, cache_root: Path | None = None
+) -> dict[str, Any] | None:
+    path = structure_web_cache_path(root, cache_root)
     if not path.is_file():
         return None
     try:
@@ -7329,8 +7380,10 @@ def load_structure_web_cache(root: Path) -> dict[str, Any] | None:
     return document
 
 
-def save_structure_web_cache(root: Path, document: dict[str, Any]) -> None:
-    path = root / STRUCTURE_WEB_CACHE_PATH
+def save_structure_web_cache(
+    root: Path, document: dict[str, Any], cache_root: Path | None = None
+) -> None:
+    path = structure_web_cache_path(root, cache_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, temporary_name = tempfile.mkstemp(
         prefix=f".{path.stem}-", suffix=".json.tmp", dir=path.parent
@@ -7344,27 +7397,34 @@ def save_structure_web_cache(root: Path, document: dict[str, Any]) -> None:
         Path(temporary_name).unlink(missing_ok=True)
 
 
-def build_structure_web_cache(root: Path) -> dict[str, Any]:
-    signature = structure_catalog_signature(root)
-    size_catalog = load_structure_size_catalog(root)
+def build_structure_web_cache(
+    root: Path, core_root: Path | None = None
+) -> dict[str, Any]:
+    signature = structure_catalog_signature(root, core_root)
+    size_catalog = load_structure_size_catalog(root, core_root)
     return {
         "version": STRUCTURE_WEB_CACHE_VERSION,
         "generated_at": int(time.time()),
         "signature": [list(entry) for entry in signature],
         "size_catalog": size_catalog,
-        "viewer_catalog": load_structure_viewer_catalog(root, size_catalog),
+        "viewer_catalog": load_structure_viewer_catalog(root, size_catalog, core_root),
         "building_settings": building_settings_payload(root),
     }
 
 
-def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
+def create_handler(
+    root: Path, project_path: Path | None = None
+) -> type[BaseHTTPRequestHandler]:
     core_root = root.resolve()
-    active_project = load_content_project(
-        core_root, default_root=core_root, require_manifest=False
-    )
+    default_project_root = core_root / DEFAULT_PROJECT_RELATIVE_PATH
+    active_project = resolve_content_project(core_root, project_path)
     root = active_project.root
     web_root = (Path(__file__).parent / "web").resolve()
-    saved_structure_cache = load_structure_web_cache(root)
+
+    def project_cache_root(project_root: Path) -> Path | None:
+        return core_root if project_root.resolve() != core_root else None
+
+    saved_structure_cache = load_structure_web_cache(root, project_cache_root(root))
     build_lock = threading.Lock()
     editor_catalog_lock = threading.Lock()
     editor_catalog: dict[str, Any] | None = None
@@ -7396,12 +7456,12 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
         nonlocal building_settings_catalog, structure_cache_generated_at
         nonlocal structure_cache_generation, structure_cache_error
         project = load_content_project(
-            project_path, default_root=core_root, require_manifest=True
+            project_path, default_root=default_project_root, require_manifest=True
         )
         with project_lock, structure_cache_refresh_lock:
             root = project.root
             active_project = project
-            saved_cache = load_structure_web_cache(root)
+            saved_cache = load_structure_web_cache(root, project_cache_root(root))
             with editor_catalog_lock:
                 editor_catalog = None
             with structure_size_catalog_lock, structure_viewer_catalog_lock:
@@ -7432,8 +7492,10 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
             if structure_cache_generation != observed_generation or root != observed_root:
                 return
             try:
-                refreshed = build_structure_web_cache(observed_root)
-                save_structure_web_cache(observed_root, refreshed)
+                refreshed = build_structure_web_cache(observed_root, core_root)
+                save_structure_web_cache(
+                    observed_root, refreshed, project_cache_root(observed_root)
+                )
             except (
                 OSError, ValueError, EOFError, struct.error,
                 zipfile.BadZipFile, json.JSONDecodeError, DuplicateKeyError,
@@ -7637,7 +7699,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 return
             if request.path == "/api/structure-builder":
                 try:
-                    self._json(200, _structure_builder_status(root))
+                    self._json(200, _structure_builder_status(root, core_root))
                 except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
@@ -7706,7 +7768,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 if reference_match:
                     slug = reference_match.group(1)
                     reference_root = (
-                        root / "tools" / "content-manager" / "skin-pipeline" / "work"
+                        core_root / "tools" / "content-manager" / "skin-pipeline" / "work"
                     ).resolve()
                     reference_path = (
                         reference_root / slug / "reference" / f"{slug}.png"
@@ -7721,7 +7783,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 )
                 match = re.fullmatch(r"([a-z0-9_.-]+):trainer_skin/([a-z0-9_./-]+)", resource)
                 skin_root = (
-                    root
+                    core_root
                     / "projects"
                     / "cobbleventure-world-bootstrap"
                     / "src"
@@ -7730,7 +7792,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     / "assets"
                 ).resolve()
                 manual_retouch_root = (
-                    root
+                    core_root
                     / "tools"
                     / "content-manager"
                     / "skin-pipeline"
@@ -7807,7 +7869,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     self._json(400, {"error": "올바른 트레이너 참조 ID가 아닙니다."})
                     return
                 reference_root = (
-                    root / "tools" / "content-manager" / "skin-pipeline" / "work"
+                    core_root / "tools" / "content-manager" / "skin-pipeline" / "work"
                 ).resolve()
                 reference_path = (
                     reference_root / slug / "reference" / f"{slug}.png"
@@ -7854,7 +7916,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                 try:
                     with editor_catalog_lock:
                         if editor_catalog is None:
-                            editor_catalog = load_editor_catalog(root)
+                            editor_catalog = load_editor_catalog(core_root)
                     self._json(200, editor_catalog)
                 except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
                     self._json(500, {"error": str(error)})
@@ -7934,7 +7996,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     with structure_size_catalog_lock:
                         model = structure_model_cache.get(resource_id)
                         if model is None:
-                            loaded = load_structure_model(root, resource_id)
+                            loaded = load_structure_model(root, resource_id, core_root)
                             if loaded is not None:
                                 model = {"structure": resource_id, **loaded}
                                 structure_model_cache[resource_id] = model
@@ -8069,7 +8131,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     self._json(409, {"error": "다른 빌드 명령이 실행 중입니다."})
                     return
                 try:
-                    result = _run_build(root, command)
+                    result = _run_build(core_root, root, command)
                 finally:
                     build_lock.release()
                 self._json(200 if result["success"] else 422, result)
@@ -8121,7 +8183,7 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     self._json(409, {"error": "다른 빌드 명령이 실행 중입니다."})
                     return
                 try:
-                    result = _run_structure_builder_import(root)
+                    result = _run_structure_builder_import(root, core_root)
                 except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(400, {"error": str(error)})
                     return
@@ -8159,8 +8221,8 @@ def create_handler(root: Path) -> type[BaseHTTPRequestHandler]:
                     instance_path = payload.get("instance_path") if isinstance(payload, dict) else None
                     if not isinstance(instance_path, str):
                         raise ValueError("CurseForge 인스턴스 경로를 문자열로 입력해야 합니다.")
-                    _save_structure_builder_settings(root, instance_path)
-                    self._json(200, _structure_builder_status(root))
+                    _save_structure_builder_settings(core_root, instance_path)
+                    self._json(200, _structure_builder_status(root, core_root))
                 except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(400, {"error": str(error)})
                 return
@@ -8350,16 +8412,19 @@ def _parser() -> argparse.ArgumentParser:
 
     validate = subcommands.add_parser("validate", help="콘텐츠와 의존성 Lock 검증")
     validate.add_argument("--root", type=Path, default=Path.cwd())
+    validate.add_argument("--project", type=Path)
     validate.add_argument("--strict-pack", action="store_true")
     validate.add_argument("--json", action="store_true", dest="json_output")
 
     generate = subcommands.add_parser("generate", help="RCT와 실제 게임용 AI 프로필 생성")
     generate.add_argument("--root", type=Path, default=Path.cwd())
+    generate.add_argument("--project", type=Path)
     generate.add_argument("--output", type=Path)
     generate.add_argument("--json", action="store_true", dest="json_output")
 
     api = subcommands.add_parser("api", help="로컬 Web API 실행")
     api.add_argument("--root", type=Path, default=Path.cwd())
+    api.add_argument("--project", type=Path)
     api.add_argument("--host", default="127.0.0.1")
     api.add_argument("--port", type=int, default=8765)
     return parser
@@ -8367,8 +8432,10 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     arguments = _parser().parse_args()
+    core_root = arguments.root.resolve()
+    project = resolve_content_project(core_root, arguments.project)
     if arguments.command == "validate":
-        result = validate_repository(arguments.root, arguments.strict_pack)
+        result = validate_repository(project.root, arguments.strict_pack, core_root)
         if arguments.json_output:
             print(json.dumps(result.as_json(), ensure_ascii=False, indent=2))
         else:
@@ -8377,7 +8444,9 @@ def main() -> int:
 
     if arguments.command == "generate":
         try:
-            result = generate_content(arguments.root, arguments.output)
+            result = generate_content(
+                project.root, arguments.output or core_root / "generated", core_root
+            )
         except ValueError as error:
             print(f"[ERROR] {error}")
             return 1
@@ -8387,10 +8456,12 @@ def main() -> int:
             print(f"[OK] 트레이너 {result['count']}개 생성: {result['output']}")
         return 0
 
-    root = arguments.root.resolve()
-    server = ThreadingHTTPServer((arguments.host, arguments.port), create_handler(root))
+    server = ThreadingHTTPServer(
+        (arguments.host, arguments.port), create_handler(core_root, project.root)
+    )
     print(f"Cobbleventure Content Manager: http://{arguments.host}:{arguments.port}")
-    print(f"저장소: {root}")
+    print(f"핵심 저장소: {core_root}")
+    print(f"프로젝트: {project.root}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

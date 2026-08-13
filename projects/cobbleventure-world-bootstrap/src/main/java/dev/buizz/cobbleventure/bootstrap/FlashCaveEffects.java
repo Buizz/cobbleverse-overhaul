@@ -62,7 +62,7 @@ final class FlashCaveEffects {
     private static void applyVisionRule(ServerPlayer player) {
         boolean requiresFlash = flashRegions.stream().anyMatch(region -> region.contains(player));
         String desiredEffect = requiresFlash
-            ? FieldMoveRidingAccess.isEnabled(player, "flash") ? NIGHT_VISION : BLINDNESS
+            ? FieldMoveRidingAccess.isActive(player, "flash") ? NIGHT_VISION : BLINDNESS
             : "";
         String appliedEffect = player.getPersistentData().getString(APPLIED_EFFECT);
 

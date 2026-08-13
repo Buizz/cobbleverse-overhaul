@@ -35,6 +35,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.core.Direction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
@@ -45,6 +46,7 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerBossEvent;
@@ -162,6 +164,10 @@ public final class CobbleventureBootstrap {
     private static final String FIELD_MOVE_MESSAGE_COOLDOWN = "cobbleventureFieldMoveMessageCooldown";
     private static final String DEEP_WATER_MESSAGE_COOLDOWN =
         "cobbleventureDeepWaterMessageCooldown";
+    private static final String WHIRLPOOL_MESSAGE_COOLDOWN =
+        "cobbleventureWhirlpoolMessageCooldown";
+    private static final String WHIRLPOOL_REQUIREMENT =
+        "cobbleventure:field_move/whirlpool";
     private static volatile List<FacilityPortal> activeFacilityPortals = List.of();
     private static volatile Map<String, SettlementPlan> activeSettlements = Map.of();
     private static volatile HexWorldPlan activeHexWorld;
@@ -186,6 +192,7 @@ public final class CobbleventureBootstrap {
     private static final Map<UUID, Vec3> safeFieldPositions = new HashMap<>();
     private static final Map<UUID, Vec3> safeWaterPositions = new HashMap<>();
     private static final Map<UUID, Integer> deepWaterTicks = new HashMap<>();
+    private static final Map<UUID, Vec3> safeWhirlpoolPositions = new HashMap<>();
     private static final Map<UUID, LocationTitleState> locationTitleStates = new HashMap<>();
     private static final ResourceKey<Level> GENERATION_ONE =
         ResourceKey.create(
@@ -216,6 +223,8 @@ public final class CobbleventureBootstrap {
     public CobbleventureBootstrap(IEventBus modBus) {
         NativeWorldGeneration.register(modBus);
         TrainerCosmetics.register(modBus);
+        StrengthPuzzleBlocks.register(modBus);
+        RockSmashPuzzleBlocks.register(modBus);
         FieldMoveRidingAccess.register();
         WildSpawnLeveling.register();
         FlashCaveEffects.register();
@@ -3838,10 +3847,14 @@ public final class CobbleventureBootstrap {
                     LocalWeatherSystem.tick(player, world, sample);
                 }
             }
+            applyRockClimb(player, level);
             if (!enforceFieldMoveAccess(player, level, gameTime)) {
                 continue;
             }
             if (!enforceDeepWaterAccess(player, level, gameTime)) {
+                continue;
+            }
+            if (!enforceWhirlpoolAccess(player, level, gameTime)) {
                 continue;
             }
             if (dungeons != null && handleCavePortal(player, level, dungeons, gameTime)) {
@@ -4624,6 +4637,7 @@ public final class CobbleventureBootstrap {
         TerrainSample sample = terrainAt(world, player.getX(), player.getZ());
         String requirement = sample == null ? null : sample.accessRequirement();
         if (requirement == null || isSurfRequirement(requirement)
+            || isTraversalOnlyRequirement(requirement)
             || hasFieldMove(player, requirement)) {
             safeFieldPositions.put(player.getUUID(), player.position());
             return true;
@@ -4759,6 +4773,130 @@ public final class CobbleventureBootstrap {
         return "surf".equals(fieldMoveName(requirement));
     }
 
+    private static boolean isTraversalOnlyRequirement(String requirement) {
+        String move = fieldMoveName(requirement);
+        return "rock_climb".equals(move) || "whirlpool".equals(move);
+    }
+
+    private static void applyRockClimb(ServerPlayer player, ServerLevel level) {
+        if (!FieldMoveRidingAccess.isActive(player, "rock_climb")
+            || player.isPassenger() || player.isSpectator() || player.isInWater()
+            || !player.horizontalCollision || !touchesNaturalRockWall(player, level)) {
+            return;
+        }
+        Vec3 movement = player.getDeltaMovement();
+        double vertical = player.isShiftKeyDown() ? -0.12D : 0.20D;
+        player.setDeltaMovement(movement.x(), vertical, movement.z());
+        player.resetFallDistance();
+        player.hurtMarked = true;
+    }
+
+    private static boolean touchesNaturalRockWall(ServerPlayer player, ServerLevel level) {
+        BlockPos feet = player.blockPosition();
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            BlockPos adjacent = feet.relative(direction);
+            if (isNaturalRock(level, adjacent) || isNaturalRock(level, adjacent.above())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isNaturalRock(ServerLevel level, BlockPos position) {
+        return level.getBlockState(position).is(BlockTags.BASE_STONE_OVERWORLD);
+    }
+
+    private static boolean enforceWhirlpoolAccess(
+        ServerPlayer player, ServerLevel level, long gameTime
+    ) {
+        HexWorldPlan world = activeHexWorld;
+        if (world == null || player.isCreative() || player.isSpectator()) {
+            return true;
+        }
+        if (gameTime % 4L == 0L) {
+            renderNearbyWhirlpools(player, level, world);
+        }
+        if (!FieldMoveRidingAccess.isValidSurfRide(player)) {
+            safeWhirlpoolPositions.remove(player.getUUID());
+            return true;
+        }
+
+        TerrainSample sample = terrainAt(world, player.getX(), player.getZ());
+        boolean insideWhirlpoolSea = sample != null
+            && WHIRLPOOL_REQUIREMENT.equals(sample.accessRequirement());
+        if (!insideWhirlpoolSea) {
+            safeWhirlpoolPositions.put(player.getUUID(), player.position());
+            return true;
+        }
+        if (FieldMoveRidingAccess.isEnabled(player, "whirlpool")) {
+            return true;
+        }
+
+        Vec3 safe = safeWhirlpoolPositions.get(player.getUUID());
+        if (safe != null) {
+            Entity mover = player.getVehicle() == null ? player : player.getVehicle();
+            double deltaX = safe.x() - mover.getX();
+            double deltaZ = safe.z() - mover.getZ();
+            double distance = Math.hypot(deltaX, deltaZ);
+            if (distance > 0.01D) {
+                mover.setDeltaMovement(
+                    deltaX / distance * 0.42D,
+                    Math.max(0.08D, mover.getDeltaMovement().y()),
+                    deltaZ / distance * 0.42D
+                );
+                mover.hurtMarked = true;
+            }
+        }
+        player.resetFallDistance();
+        if (player.getPersistentData().getLong(WHIRLPOOL_MESSAGE_COOLDOWN) <= gameTime) {
+            player.getPersistentData().putLong(WHIRLPOOL_MESSAGE_COOLDOWN, gameTime + 60L);
+            player.displayClientMessage(Component.literal(
+                "[Cobbleventure] 거센 바다회오리를 통과하려면 바다회오리가 필요합니다."
+            ), true);
+        }
+        return false;
+    }
+
+    private static void renderNearbyWhirlpools(
+        ServerPlayer player, ServerLevel level, HexWorldPlan world
+    ) {
+        int centerX = player.blockPosition().getX();
+        int centerZ = player.blockPosition().getZ();
+        for (int offsetX = -18; offsetX <= 18; offsetX += 3) {
+            for (int offsetZ = -18; offsetZ <= 18; offsetZ += 3) {
+                int x = centerX + offsetX;
+                int z = centerZ + offsetZ;
+                if (Math.floorMod(x * 31 + z * 17, 4) != 0
+                    || !isWhirlpoolBoundary(world, x, z)
+                    || !level.getFluidState(new BlockPos(x, WATER_SURFACE_Y, z)).is(FluidTags.WATER)) {
+                    continue;
+                }
+                level.sendParticles(
+                    ParticleTypes.BUBBLE_COLUMN_UP,
+                    x + 0.5D, WATER_SURFACE_Y + 0.1D, z + 0.5D,
+                    5, 0.45D, 0.25D, 0.45D, 0.04D
+                );
+                level.sendParticles(
+                    ParticleTypes.SPLASH,
+                    x + 0.5D, WATER_SURFACE_Y + 0.35D, z + 0.5D,
+                    2, 0.35D, 0.1D, 0.35D, 0.02D
+                );
+            }
+        }
+    }
+
+    private static boolean isWhirlpoolBoundary(HexWorldPlan world, int x, int z) {
+        boolean center = isWhirlpoolTerrain(terrainAt(world, x + 0.5D, z + 0.5D));
+        return center != isWhirlpoolTerrain(terrainAt(world, x + 3.5D, z + 0.5D))
+            || center != isWhirlpoolTerrain(terrainAt(world, x - 2.5D, z + 0.5D))
+            || center != isWhirlpoolTerrain(terrainAt(world, x + 0.5D, z + 3.5D))
+            || center != isWhirlpoolTerrain(terrainAt(world, x + 0.5D, z - 2.5D));
+    }
+
+    private static boolean isWhirlpoolTerrain(TerrainSample sample) {
+        return sample != null && WHIRLPOOL_REQUIREMENT.equals(sample.accessRequirement());
+    }
+
     private static boolean hasFieldMove(ServerPlayer player, String requirement) {
         return FieldMoveRidingAccess.isEnabled(player, fieldMoveName(requirement));
     }
@@ -4830,8 +4968,8 @@ public final class CobbleventureBootstrap {
         );
         event.getDispatcher().register(
             Commands.literal("cobbleventure_field_move")
-                .requires(source -> source.hasPermission(2))
                 .then(Commands.literal("grant")
+                    .requires(source -> source.hasPermission(2))
                     .then(Commands.argument("move", StringArgumentType.word())
                         .executes(context -> setFieldMove(
                             context.getSource().getPlayerOrException(),
@@ -4844,6 +4982,7 @@ public final class CobbleventureBootstrap {
                                 StringArgumentType.getString(context, "move"), true
                             )))))
                 .then(Commands.literal("revoke")
+                    .requires(source -> source.hasPermission(2))
                     .then(Commands.argument("move", StringArgumentType.word())
                         .executes(context -> setFieldMove(
                             context.getSource().getPlayerOrException(),
@@ -4851,14 +4990,19 @@ public final class CobbleventureBootstrap {
                         ))))
                 .then(Commands.argument("move", StringArgumentType.word())
                     .then(Commands.literal("on")
-                        .executes(context -> setFieldMove(
+                        .executes(context -> setFieldMoveActive(
                             context.getSource().getPlayerOrException(),
                             StringArgumentType.getString(context, "move"), true
                         )))
                     .then(Commands.literal("off")
-                        .executes(context -> setFieldMove(
+                        .executes(context -> setFieldMoveActive(
                             context.getSource().getPlayerOrException(),
                             StringArgumentType.getString(context, "move"), false
+                        )))
+                    .then(Commands.literal("toggle")
+                        .executes(context -> toggleFieldMoveActive(
+                            context.getSource().getPlayerOrException(),
+                            StringArgumentType.getString(context, "move")
                         ))))
         );
     }
@@ -5039,6 +5183,12 @@ public final class CobbleventureBootstrap {
     }
 
     private static int setFieldMove(ServerPlayer player, String move, boolean granted) {
+        if (!FieldMoveRidingAccess.isSupported(move)) {
+            player.sendSystemMessage(Component.literal(
+                "[Cobbleventure] 지원하지 않는 비전머신입니다: " + move
+            ));
+            return 0;
+        }
         FieldMoveRidingAccess.setEnabled(player, move, granted);
         player.sendSystemMessage(Component.literal(
             "[Cobbleventure] " + FieldMoveRidingAccess.displayName(move)
@@ -5047,11 +5197,30 @@ public final class CobbleventureBootstrap {
         return 1;
     }
 
+    private static int setFieldMoveActive(ServerPlayer player, String move, boolean active) {
+        if (!FieldMoveRidingAccess.setActive(player, move, active)) {
+            player.sendSystemMessage(Component.literal(
+                "[Cobbleventure] 보유 중인 ON/OFF 비전머신이 아닙니다: " + move
+            ));
+            return 0;
+        }
+        player.displayClientMessage(Component.literal(
+            "[Cobbleventure] " + FieldMoveRidingAccess.displayName(move)
+                + " " + (active ? "ON" : "OFF")
+        ), true);
+        return 1;
+    }
+
+    private static int toggleFieldMoveActive(ServerPlayer player, String move) {
+        return setFieldMoveActive(
+            player, move, !FieldMoveRidingAccess.isActive(player, move)
+        );
+    }
+
     private static int setFieldMove(Iterable<ServerPlayer> players, String move, boolean granted) {
         int changed = 0;
         for (ServerPlayer player : players) {
-            setFieldMove(player, move, granted);
-            changed++;
+            changed += setFieldMove(player, move, granted);
         }
         return changed;
     }

@@ -7,10 +7,12 @@ plugins {
 }
 
 def fieldMoveNpcMapFile = layout.buildDirectory.file('generated/field-move-map/field-move-npcs.json')
+def contentProjectDir = file(System.getenv('COBBLEVENTURE_PROJECT_PATH') ?: rootProject.file('../../content-projects/cobbleventure-main'))
+def contentDir = new File(contentProjectDir, 'content')
 
 tasks.register('generateFieldMoveNpcMap') {
-    def npcSources = fileTree(rootProject.file('../../content/source')) { include '**/*.json' }
-    def settlements = fileTree(rootProject.file('../../content/settlements')) { include 'generation_*/*.json' }
+    def npcSources = fileTree(new File(contentDir, 'source')) { include '**/*.json' }
+    def settlements = fileTree(new File(contentDir, 'settlements')) { include 'generation_*/*.json' }
     inputs.files(npcSources, settlements)
     outputs.file(fieldMoveNpcMapFile)
     doLast {
@@ -94,25 +96,25 @@ processResources {
     filesMatching('META-INF/neoforge.mods.toml') {
         expand properties
     }
-    from(rootProject.file('../../content/worlds')) {
+    from(new File(contentDir, 'worlds')) {
         into 'data/cobbleventure_player_menu/map'
         include 'generation_*.json'
     }
-    from(rootProject.file('../../content/settlements')) {
+    from(new File(contentDir, 'settlements')) {
         into 'data/cobbleventure_player_menu/map/settlements'
         include 'generation_*/*.json'
     }
-    from(rootProject.file('../../content/caves')) {
+    from(new File(contentDir, 'caves')) {
         into 'data/cobbleventure_player_menu/map/caves'
         include 'generation_*/*.json'
     }
-    from(rootProject.file('../../content/catalogs/biome-profiles.json')) {
+    from(new File(contentDir, 'catalogs/biome-profiles.json')) {
         into 'data/cobbleventure_player_menu/map/catalogs'
     }
-    from(rootProject.file('../../content/catalogs/pokemon-habitats.json')) {
+    from(new File(contentDir, 'catalogs/pokemon-habitats.json')) {
         into 'data/cobbleventure_player_menu/map/catalogs'
     }
-    from(rootProject.file('../../content/catalogs/league-progression.json')) {
+    from(new File(contentDir, 'catalogs/league-progression.json')) {
         into 'data/cobbleventure_player_menu/league'
     }
     from(fieldMoveNpcMapFile) {

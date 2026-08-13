@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = ROOT / "content-projects" / "cobbleventure-main"
 MODULE_PATH = ROOT / "tools/music-catalog/music_catalog.py"
 SPEC = importlib.util.spec_from_file_location("music_catalog", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -18,7 +19,7 @@ SPEC.loader.exec_module(music_catalog)
 class MusicCatalogTest(unittest.TestCase):
     def setUp(self) -> None:
         self.catalog = music_catalog.load_catalog(
-            ROOT / "content/catalogs/music-tracks.json"
+            PROJECT_ROOT / "content/catalogs/music-tracks.json"
         )
 
     def test_catalog_uses_only_selected_ogg_tracks(self) -> None:

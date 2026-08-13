@@ -1,5 +1,8 @@
 {
   "item.cobbleventure_bootstrap.youngster_cap": "Youngster's Cap",
+  "block.cobbleventure_bootstrap.strength_boulder": "Strength Boulder",
+  "block.cobbleventure_bootstrap.strength_plate": "Strength Plate",
+  "block.cobbleventure_bootstrap.rock_smash_rock": "Rock Smash Rock",
   "message.cobbleventure_bootstrap.pokemon_center_checkpoint": "Your latest Pokémon Center checkpoint has been saved.",
   "message.cobbleventure_bootstrap.pokemon_center_return": "Your entire party fainted, so you returned to the latest Pokémon Center.",
   "message.cobbleventure_bootstrap.pokemon_center_fallback_return": "Your entire party fainted, so you returned to the starting point.",

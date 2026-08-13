@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import tempfile
 import zipfile
@@ -9,7 +10,10 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_CATALOG = Path("content/catalogs/music-tracks.json")
+DEFAULT_PROJECT = Path(os.environ.get(
+    "COBBLEVENTURE_PROJECT_PATH", "content-projects/cobbleventure-main"
+))
+DEFAULT_CATALOG = DEFAULT_PROJECT / "content/catalogs/music-tracks.json"
 DEFAULT_OUTPUT = Path(
     "pack/overrides/development-placeholder/config/paxi/resourcepacks/"
     "Cobbleventure-Music.zip"

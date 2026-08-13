@@ -24,6 +24,17 @@ class StructureBuilderError(RuntimeError):
     pass
 
 
+def content_project_root(root: Path) -> Path:
+    configured_value = os.environ.get("COBBLEVENTURE_PROJECT_PATH")
+    if configured_value:
+        configured = Path(configured_value)
+        return (configured if configured.is_absolute() else root / configured).resolve()
+    default_project = root / "content-projects/cobbleventure-main"
+    if default_project.is_dir():
+        return default_project.resolve()
+    return root.resolve()
+
+
 def _validate_structure_metadata(document: object, path: Path) -> dict[str, object]:
     if not isinstance(document, dict) or document.get("schema_version") != 1:
         raise StructureBuilderError(
@@ -104,7 +115,8 @@ def _metadata_reader(root: Path):
 
 
 def catalog_entries(root: Path) -> list[dict[str, object]]:
-    source_root = root / SOURCE_STRUCTURES
+    project_root = content_project_root(root)
+    source_root = project_root / SOURCE_STRUCTURES
     if not source_root.is_dir():
         raise StructureBuilderError(f"구조물 원본 디렉터리가 없습니다: {source_root}")
     read_metadata = _metadata_reader(root)
@@ -129,7 +141,7 @@ def catalog_entries(root: Path) -> list[dict[str, object]]:
                 f"80x80 부지에 8블록 여백을 확보할 수 없습니다: {source} ({size})"
             )
         entries.append({
-            "source": source.relative_to(root).as_posix(),
+            "source": source.relative_to(project_root).as_posix(),
             "structure": f"cobbleventure_builder:source/{resource_path}",
             "export": f"cobbleventure_builder:export/{resource_path}",
             "label": relative.name,
@@ -153,8 +165,9 @@ def generate(root: Path) -> Path:
     output.mkdir(parents=True)
 
     entries = catalog_entries(root)
+    project_root = content_project_root(root)
     for entry in entries:
-        source = root / str(entry["source"])
+        source = project_root / str(entry["source"])
         resource = str(entry["structure"]).split(":", 1)[1]
         target = output / "data/cobbleventure_builder/structure" / f"{resource}.nbt"
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -194,6 +207,7 @@ def _export_root(world: Path) -> Path:
 
 def import_exports(root: Path, world: Path) -> int:
     root = root.resolve()
+    project_root = content_project_root(root)
     export_root = _export_root(world.resolve())
     read_metadata = _metadata_reader(root)
     pending: list[tuple[Path, Path]] = []
@@ -213,7 +227,7 @@ def import_exports(root: Path, world: Path) -> int:
                 f"내보낸 구조물 크기가 원본 계약과 다릅니다: {relative} "
                 f"(예상 {expected}, 실제 {actual})"
             )
-        pending.append((exported, root / str(entry["source"])))
+        pending.append((exported, project_root / str(entry["source"])))
         relative_without_suffix = relative.with_suffix("")
         exported_metadata = (
             world.resolve()
@@ -227,7 +241,7 @@ def import_exports(root: Path, world: Path) -> int:
             )
             pending_metadata.append((
                 exported_metadata,
-                (root / str(entry["source"])).with_suffix(".structure.json"),
+                (project_root / str(entry["source"])).with_suffix(".structure.json"),
             ))
     if missing:
         raise StructureBuilderError(
@@ -239,7 +253,7 @@ def import_exports(root: Path, world: Path) -> int:
     if interior_exports.is_dir():
         for exported in sorted(interior_exports.rglob("*.nbt")):
             relative = exported.relative_to(export_root)
-            target = root / SOURCE_STRUCTURES / relative
+            target = project_root / SOURCE_STRUCTURES / relative
             if target.resolve() in known_targets:
                 continue
             exported_metadata = (

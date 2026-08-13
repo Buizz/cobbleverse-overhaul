@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "part=0": { "model": "cobbleventure_bootstrap:block/strength_boulder" },
+    "part=1": { "model": "cobbleventure_bootstrap:block/strength_boulder" },
+    "part=2": { "model": "cobbleventure_bootstrap:block/strength_boulder" },
+    "part=3": { "model": "cobbleventure_bootstrap:block/strength_boulder" },
+    "part=4": { "model": "cobbleventure_bootstrap:block/strength_boulder" },
+    "part=5": { "model": "cobbleventure_bootstrap:block/strength_boulder" },
+    "part=6": { "model": "cobbleventure_bootstrap:block/strength_boulder" },
+    "part=7": { "model": "cobbleventure_bootstrap:block/strength_boulder" }
+  }
+}

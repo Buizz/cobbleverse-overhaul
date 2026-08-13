@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import re
 import zipfile
@@ -31,7 +32,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--habitats",
         type=Path,
-        default=Path("content/catalogs/pokemon-habitats.json"),
+        default=Path(os.environ.get(
+            "COBBLEVENTURE_PROJECT_PATH", "content-projects/cobbleventure-main"
+        )) / "content/catalogs/pokemon-habitats.json",
     )
     parser.add_argument(
         "--output",

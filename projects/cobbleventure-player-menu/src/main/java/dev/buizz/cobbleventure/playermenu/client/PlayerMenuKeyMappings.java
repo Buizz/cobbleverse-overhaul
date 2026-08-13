@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
+import dev.buizz.cobbleventure.playermenu.PlayerOverviewNetwork;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -19,6 +20,9 @@ final class PlayerMenuKeyMappings {
     private static final String CATEGORY = "key.categories.cobbleventure_player_menu";
     private static final Map<PlayerMenuEntry, KeyMapping> MAPPINGS = new EnumMap<>(PlayerMenuEntry.class);
     private static final List<KeyMapping> BAG_SHORTCUT_MAPPINGS = new ArrayList<>(10);
+    private static final KeyMapping ROCK_CLIMB_TOGGLE = new KeyMapping(
+        "key.cobbleventure_player_menu.rock_climb_toggle", GLFW.GLFW_KEY_H, CATEGORY
+    );
 
     static {
         bind(PlayerMenuEntry.POKEMON, GLFW.GLFW_KEY_U);
@@ -62,11 +66,18 @@ final class PlayerMenuKeyMappings {
     private static void registerMappings(RegisterKeyMappingsEvent event) {
         for (KeyMapping mapping : MAPPINGS.values()) event.register(mapping);
         for (KeyMapping mapping : BAG_SHORTCUT_MAPPINGS) event.register(mapping);
+        event.register(ROCK_CLIMB_TOGGLE);
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.screen != null) return;
+        boolean rockClimbClicked = false;
+        while (ROCK_CLIMB_TOGGLE.consumeClick()) rockClimbClicked = true;
+        if (rockClimbClicked) {
+            PlayerOverviewNetwork.requestToggle("rock_climb");
+            return;
+        }
         PlayerMenuEntry triggered = null;
         for (PlayerMenuEntry entry : PlayerMenuEntry.values()) {
             KeyMapping mapping = MAPPINGS.get(entry);
