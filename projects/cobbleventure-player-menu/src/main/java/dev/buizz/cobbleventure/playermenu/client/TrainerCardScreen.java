@@ -1,6 +1,8 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import com.mojang.authlib.GameProfile;
+import fr.harmex.cobbledollars.common.utils.extensions.PlayerExtensionKt;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
@@ -8,7 +10,8 @@ import java.util.Map;
 import java.util.UUID;
 import dev.buizz.cobbleventure.playermenu.BadgeProgressNetwork;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -24,6 +27,7 @@ public final class TrainerCardScreen extends Screen {
     private static final int CARD_RED = 0xFFF06F5E;
     private static final int CARD_RED_DARK = 0xFF9D392F;
     private static final int CARD_RED_LIGHT = 0xFFFF9A83;
+    private static final int CARD_RED_SOFT = 0xFFFFB0A0;
     private static final int CARD_CREAM = 0xFFFFE9D5;
     private static final int CARD_CREAM_ALT = 0xFFFFDCCA;
     private static final int INK = 0xFF492F32;
@@ -43,9 +47,9 @@ public final class TrainerCardScreen extends Screen {
     private int pageIndex;
     private int animationTick;
     private boolean showingBack;
-    private Button flipButton;
-    private Button previousButton;
-    private Button nextButton;
+    private CardButton flipButton;
+    private CardButton previousButton;
+    private CardButton nextButton;
     private int cardX;
     private int cardY;
     private int cardWidth;
@@ -76,19 +80,17 @@ public final class TrainerCardScreen extends Screen {
         cardY = Math.max(8, (height - cardHeight) / 2 - 5);
 
         int buttonY = Math.min(height - 24, cardY + cardHeight + 6);
-        addRenderableWidget(Button.builder(
+        addRenderableWidget(new CardButton(
             Component.translatable("screen.cobbleventure_player_menu.trainer_card.back"),
-            ignored -> onClose()
-        ).bounds(cardX + cardWidth - 64, buttonY, 64, 20).build());
+            cardX + cardWidth - 78, buttonY, 78, 20, this::onClose));
 
-        flipButton = addRenderableWidget(Button.builder(
+        flipButton = addRenderableWidget(new CardButton(
             Component.translatable("screen.cobbleventure_player_menu.trainer_card.show_back"),
-            ignored -> flipCard()
-        ).bounds(cardX + cardWidth - 138, buttonY, 70, 20).build());
-        previousButton = addRenderableWidget(Button.builder(Component.literal("<"), ignored -> changePage(-1))
-            .bounds(cardX, buttonY, 24, 20).build());
-        nextButton = addRenderableWidget(Button.builder(Component.literal(">"), ignored -> changePage(1))
-            .bounds(cardX + 28, buttonY, 24, 20).build());
+            cardX + cardWidth - 164, buttonY, 82, 20, this::flipCard));
+        previousButton = addRenderableWidget(new CardButton(Component.literal("◀"),
+            cardX, buttonY, 28, 20, () -> changePage(-1)));
+        nextButton = addRenderableWidget(new CardButton(Component.literal("▶"),
+            cardX + 32, buttonY, 28, 20, () -> changePage(1)));
         updateButtons();
     }
 
@@ -157,17 +159,18 @@ public final class TrainerCardScreen extends Screen {
     }
 
     private void drawFrontCard(GuiGraphics graphics, int mouseX, int mouseY) {
-        int padding = 8;
-        int headerHeight = 22;
+        int padding = 10;
+        int headerHeight = 25;
         int contentTop = cardY + headerHeight;
-        int portraitWidth = Math.max(76, cardWidth / 4);
+        int portraitWidth = Math.max(84, cardWidth / 3);
         int infoRight = cardX + cardWidth - portraitWidth - padding;
 
         drawHeader(graphics, title, Component.translatable("screen.cobbleventure_player_menu.trainer_card.front"), padding, headerHeight);
-        drawIdentityRows(graphics, cardX + padding, contentTop + 5, infoRight - cardX - padding);
-        drawPortrait(graphics, infoRight + 2, contentTop + 2, cardX + cardWidth - padding, cardY + cardHeight - padding, mouseX, mouseY);
+        drawIdentityRows(graphics, cardX + padding, contentTop + 6, infoRight - cardX - padding - 3);
+        drawPortrait(graphics, infoRight + 2, contentTop + 6,
+            cardX + cardWidth - padding, cardY + cardHeight - 28, mouseX, mouseY);
         graphics.drawString(font, Component.translatable("screen.cobbleventure_player_menu.trainer_card.flip_hint"),
-            cardX + padding + 5, cardY + cardHeight - 18, 0xFFFFD8CA, false);
+            cardX + padding + 4, cardY + cardHeight - 18, 0xFFFFEEE7, true);
     }
 
     private void drawBackCard(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
@@ -180,22 +183,55 @@ public final class TrainerCardScreen extends Screen {
     }
 
     private void drawCardFrame(GuiGraphics graphics) {
-        graphics.fill(cardX + 3, cardY + 4, cardX + cardWidth + 3, cardY + cardHeight + 4, 0x90000000);
-        graphics.fill(cardX, cardY, cardX + cardWidth, cardY + cardHeight, CARD_RED_DARK);
-        graphics.fill(cardX + 2, cardY + 2, cardX + cardWidth - 2, cardY + cardHeight - 2, CARD_RED);
-        graphics.fill(cardX + 4, cardY + 3, cardX + cardWidth - 4, cardY + 5, CARD_RED_LIGHT);
+        fillRoundedRect(graphics, cardX + 4, cardY + 5,
+            cardX + cardWidth + 4, cardY + cardHeight + 5, 9, 0x90000000);
+        fillRoundedRect(graphics, cardX, cardY,
+            cardX + cardWidth, cardY + cardHeight, 9, 0xFFFFFFFF);
+        fillRoundedRect(graphics, cardX + 2, cardY + 2,
+            cardX + cardWidth - 2, cardY + cardHeight - 2, 7, CARD_RED_DARK);
+        fillRoundedRect(graphics, cardX + 4, cardY + 4,
+            cardX + cardWidth - 4, cardY + cardHeight - 4, 6, CARD_RED);
+
+        drawCardPattern(graphics);
 
         int motifX = cardX + cardWidth / 2;
         int motifY = cardY + cardHeight / 2;
-        drawRing(graphics, motifX, motifY, Math.min(cardWidth, cardHeight) / 4, 0x22FFFFFF);
-        graphics.fill(cardX + 2, motifY - 2, cardX + cardWidth - 2, motifY + 2, 0x18FFFFFF);
+        drawRing(graphics, motifX, motifY, Math.min(cardWidth, cardHeight) / 4, 0x28FFFFFF);
+        graphics.fill(cardX + 5, motifY - 2, cardX + cardWidth - 5, motifY + 2, 0x1EFFFFFF);
+    }
+
+    private void drawCardPattern(GuiGraphics graphics) {
+        int left = cardX + 5;
+        int top = cardY + 5;
+        int right = cardX + cardWidth - 5;
+        int bottom = cardY + cardHeight - 5;
+        graphics.enableScissor(left, top, right, bottom);
+        for (int x = left - cardHeight; x < right; x += 30) {
+            for (int step = 0; step < cardHeight + 30; step += 3) {
+                int px = x + step;
+                int py = bottom - step;
+                graphics.fill(px, py, px + 12, py + 2, 0x10FFFFFF);
+            }
+        }
+        for (int x = left + 18; x < right; x += 58) {
+            for (int y = top + 18; y < bottom; y += 52) {
+                drawRing(graphics, x, y, 10, 0x0EFFFFFF);
+                graphics.fill(x - 1, y - 7, x + 2, y + 8, 0x0EFFFFFF);
+                graphics.fill(x - 7, y - 1, x + 8, y + 2, 0x0EFFFFFF);
+            }
+        }
+        graphics.disableScissor();
     }
 
     private void drawHeader(GuiGraphics graphics, Component heading, Component rightText, int padding, int headerHeight) {
-        graphics.fill(cardX + 2, cardY + 2, cardX + cardWidth - 2, cardY + headerHeight, CARD_RED_DARK);
-        graphics.fill(cardX + 4, cardY + 4, cardX + cardWidth - 4, cardY + headerHeight - 2, CARD_RED);
-        graphics.drawString(font, heading, cardX + padding, cardY + 8, 0xFFFFFFFF, true);
-        graphics.drawString(font, rightText, cardX + cardWidth - padding - font.width(rightText), cardY + 8, 0xFFFFE8DC, false);
+        fillRoundedRect(graphics, cardX + 5, cardY + 5,
+            cardX + cardWidth - 5, cardY + headerHeight, 6, 0xD8A93C35);
+        graphics.fill(cardX + 11, cardY + headerHeight - 1,
+            cardX + cardWidth - 11, cardY + headerHeight, 0x70FFFFFF);
+        graphics.drawString(font, "◀ " + heading.getString() + " ▶",
+            cardX + padding, cardY + 9, 0xFFFFFFFF, true);
+        graphics.drawString(font, rightText, cardX + cardWidth - padding - font.width(rightText),
+            cardY + 9, 0xFFFFE8DC, true);
     }
 
     private void drawIdentityRows(GuiGraphics graphics, int x, int y, int rowWidth) {
@@ -212,11 +248,13 @@ public final class TrainerCardScreen extends Screen {
         String score = minecraft != null && minecraft.player != null
             ? Integer.toString(minecraft.player.getScore())
             : "0";
+        String money = currentMoney();
 
         drawInfoRow(graphics, x, y, rowWidth, "screen.cobbleventure_player_menu.trainer_card.name", playerName, false);
-        drawInfoRow(graphics, x, y + 18, rowWidth, "screen.cobbleventure_player_menu.trainer_card.id", trainerId, true);
-        drawInfoRow(graphics, x, y + 36, rowWidth, "screen.cobbleventure_player_menu.trainer_card.play_time", playTime, false);
-        drawInfoRow(graphics, x, y + 54, rowWidth, "screen.cobbleventure_player_menu.trainer_card.score", score, true);
+        drawInfoRow(graphics, x, y + 22, rowWidth, "screen.cobbleventure_player_menu.trainer_card.id", trainerId, true);
+        drawInfoRow(graphics, x, y + 44, rowWidth, "screen.cobbleventure_player_menu.trainer_card.money", money, false);
+        drawInfoRow(graphics, x, y + 66, rowWidth, "screen.cobbleventure_player_menu.trainer_card.score", score, true);
+        drawInfoRow(graphics, x, y + 88, rowWidth, "screen.cobbleventure_player_menu.trainer_card.play_time", playTime, false);
     }
 
     private void drawInfoRow(
@@ -228,11 +266,12 @@ public final class TrainerCardScreen extends Screen {
         String value,
         boolean alternate
     ) {
-        graphics.fill(x, y, x + rowWidth, y + 16, alternate ? CARD_CREAM_ALT : CARD_CREAM);
-        graphics.fill(x, y + 15, x + rowWidth, y + 16, 0x35A5483F);
-        graphics.drawString(font, Component.translatable(labelKey), x + 5, y + 4, MUTED_INK, false);
+        fillRoundedRect(graphics, x, y, x + rowWidth, y + 19, 5,
+            alternate ? CARD_CREAM_ALT : CARD_CREAM);
+        graphics.fill(x + 6, y + 17, x + rowWidth - 6, y + 18, 0x35A5483F);
+        graphics.drawString(font, Component.translatable(labelKey), x + 6, y + 5, MUTED_INK, false);
         String clipped = font.plainSubstrByWidth(value, Math.max(24, rowWidth / 2 - 8));
-        graphics.drawString(font, clipped, x + rowWidth - 5 - font.width(clipped), y + 4, INK, false);
+        graphics.drawString(font, clipped, x + rowWidth - 6 - font.width(clipped), y + 5, INK, true);
     }
 
     private void drawPortrait(
@@ -244,8 +283,11 @@ public final class TrainerCardScreen extends Screen {
         int mouseX,
         int mouseY
     ) {
-        graphics.fill(left, top, right, bottom, 0x55FFF3E5);
-        graphics.fill(left, bottom - 1, right, bottom, 0x80A5483F);
+        fillRoundedRect(graphics, left, top, right, bottom, 8, 0xFFFFFFFF);
+        fillRoundedRect(graphics, left + 2, top + 2, right - 2, bottom - 2, 6, CARD_RED_SOFT);
+        for (int y = top + 8; y < bottom; y += 12) {
+            graphics.fill(left + 5, y, right - 5, y + 1, 0x18FFFFFF);
+        }
         if (minecraft == null || minecraft.player == null || bottom - top < 36) {
             return;
         }
@@ -408,6 +450,38 @@ public final class TrainerCardScreen extends Screen {
         return String.format("%d:%02d", hours, minutes);
     }
 
+    private String currentMoney() {
+        if (minecraft == null || minecraft.player == null) return "—";
+        BigInteger money = PlayerExtensionKt.getCobbleDollars(minecraft.player);
+        return formatNumber(money) + " ₽";
+    }
+
+    private static String formatNumber(BigInteger value) {
+        String digits = value.max(BigInteger.ZERO).toString();
+        StringBuilder formatted = new StringBuilder(digits.length() + digits.length() / 3);
+        for (int index = 0; index < digits.length(); index++) {
+            if (index > 0 && (digits.length() - index) % 3 == 0) formatted.append(',');
+            formatted.append(digits.charAt(index));
+        }
+        return formatted.toString();
+    }
+
+    private static void fillRoundedRect(
+        GuiGraphics graphics, int left, int top, int right, int bottom, int radius, int color
+    ) {
+        if (right <= left || bottom <= top) return;
+        int safeRadius = Math.min(radius, Math.min((right - left) / 2, (bottom - top) / 2));
+        graphics.fill(left + safeRadius, top, right - safeRadius, bottom, color);
+        graphics.fill(left, top + safeRadius, right, bottom - safeRadius, color);
+        for (int row = 0; row < safeRadius; row++) {
+            double normalized = (safeRadius - row - 0.5D) / safeRadius;
+            int inset = (int)Math.ceil(safeRadius - Math.sqrt(Math.max(0.0D,
+                1.0D - normalized * normalized)) * safeRadius);
+            graphics.fill(left + inset, top + row, right - inset, top + row + 1, color);
+            graphics.fill(left + inset, bottom - row - 1, right - inset, bottom - row, color);
+        }
+    }
+
     private static void drawRing(GuiGraphics graphics, int centerX, int centerY, int radius, int color) {
         int radiusSquared = radius * radius;
         int innerRadius = Math.max(0, radius - 3);
@@ -434,6 +508,40 @@ public final class TrainerCardScreen extends Screen {
         @Override
         public PlayerSkin getSkin() {
             return cardSkin;
+        }
+    }
+
+    private final class CardButton extends AbstractButton {
+        private final Runnable action;
+
+        private CardButton(Component message, int x, int y, int width, int height, Runnable action) {
+            super(x, y, width, height, message);
+            this.action = action;
+        }
+
+        @Override
+        public void onPress() {
+            if (active) action.run();
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            int border = isHovered() ? 0xFFFFFFFF : 0xFFFFE2D8;
+            int fill = isHovered() ? CARD_RED_LIGHT : CARD_RED_DARK;
+            fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(), 8, 0xB0000000);
+            fillRoundedRect(graphics, getX(), getY() - 1, getX() + getWidth(), getY() + getHeight() - 1, 8, border);
+            fillRoundedRect(graphics, getX() + 2, getY() + 1,
+                getX() + getWidth() - 2, getY() + getHeight() - 3, 6, fill);
+            graphics.fill(getX() + 8, getY() + 2, getX() + getWidth() - 8, getY() + 3, 0x55FFFFFF);
+            int color = active ? 0xFFFFFFFF : 0xFFB9938D;
+            graphics.drawCenteredString(font,
+                font.plainSubstrByWidth(getMessage().getString(), getWidth() - 10),
+                getX() + getWidth() / 2, getY() + (getHeight() - font.lineHeight) / 2 - 1, color);
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
         }
     }
 }

@@ -98,6 +98,7 @@
   "screen.cobbleventure_player_menu.trainer_card.name": "Name",
   "screen.cobbleventure_player_menu.trainer_card.id": "ID No.",
   "screen.cobbleventure_player_menu.trainer_card.play_time": "Play Time",
+  "screen.cobbleventure_player_menu.trainer_card.money": "Money",
   "screen.cobbleventure_player_menu.trainer_card.score": "Score",
   "screen.cobbleventure_player_menu.trainer_card.region.undecided": "League Format TBD",
   "screen.cobbleventure_player_menu.trainer_card.league.cleared": "League Cleared",
