@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -100,7 +101,8 @@ public final class BagScreen extends Screen {
 
         int viewWidth = 64;
         int searchWidth = Math.min(150, Math.max(84, panelWidth / 3));
-        searchBox = new EditBox(font, panelX + panelWidth - PANEL_PADDING - searchWidth - viewWidth - 4,
+        searchBox = new VerticallyCenteredEditBox(font,
+            panelX + panelWidth - PANEL_PADDING - searchWidth - viewWidth - 4,
             panelY + 6, searchWidth, 18,
             Component.translatable("screen.cobbleventure_player_menu.bag.search"));
         searchBox.setValue(searchValue);
@@ -980,6 +982,27 @@ public final class BagScreen extends Screen {
         @Override
         protected void updateWidgetNarration(NarrationElementOutput output) {
             defaultButtonNarrationText(output);
+        }
+    }
+
+    /** 테두리를 숨긴 EditBox도 글자가 입력 영역의 세로 중앙에 오도록 보정한다. */
+    private static final class VerticallyCenteredEditBox extends EditBox {
+        private final Font textFont;
+
+        private VerticallyCenteredEditBox(
+            Font font, int x, int y, int width, int height, Component message
+        ) {
+            super(font, x, y, width, height, message);
+            this.textFont = font;
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            int offsetY = Math.max(0, (getHeight() - textFont.lineHeight) / 2);
+            graphics.pose().pushPose();
+            graphics.pose().translate(0.0F, offsetY, 0.0F);
+            super.renderWidget(graphics, mouseX, mouseY - offsetY, partialTick);
+            graphics.pose().popPose();
         }
     }
 
