@@ -56,6 +56,10 @@ class KantoGymLeaderTests(unittest.TestCase):
         self.assertEqual(8, len({leader["trainer_id"] for leader in leaders}))
         self.assertTrue(all(leader["league_entry_id"] for leader in leaders))
         self.assertTrue(all(leader["badge_id"].startswith("cobbleventure:badge/kanto/") for leader in leaders))
+        self.assertEqual(8, len({leader["trainer_card_skin"] for leader in leaders}))
+        self.assertTrue(all(leader["trainer_card_skin"].startswith("rctmod:textures/trainers/single/") for leader in leaders))
+        self.assertTrue(all(leader["trainer_card_skin"].endswith(".png") for leader in leaders))
+        self.assertTrue(all(leader["trainer_card_model"] in {"wide", "slim"} for leader in leaders))
         self.assertEqual({"leader"}, {leader["anchor"] for leader in leaders})
         self.assertTrue(all(isinstance(gym["staff"]["trainers"], list) for gym in catalog["gyms"]))
 

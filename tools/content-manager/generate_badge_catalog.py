@@ -187,8 +187,12 @@ def generate() -> None:
         "regions_without_gym_badges": [{"generation": 7, "region": "alola", "reason": {"ko_kr": "알로라는 체육관 배지 대신 섬 순례와 큰 시련을 사용합니다.", "en_us": "Alola uses the island challenge instead of Gym Badges."}}],
         "badges": entries,
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    ATLAS.parent.mkdir(parents=True, exist_ok=True)
-    atlas.save(ATLAS)
+    # The checked-in atlas may be rebuilt from referenced artwork by
+    # pixelate_fandom_badges.py. Keep it when regenerating catalogue metadata;
+    # the deterministic drawn atlas remains an offline fallback for a fresh tree.
+    if not ATLAS.is_file():
+        ATLAS.parent.mkdir(parents=True, exist_ok=True)
+        atlas.save(ATLAS)
 
 
 if __name__ == "__main__":

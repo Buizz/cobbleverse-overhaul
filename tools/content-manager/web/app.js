@@ -301,7 +301,7 @@ async function saveMusicSettings() {
 function switchPage(section) {
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === section));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", "trainer-card": "트레이너 카드 배지 배치", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", gyms: "체육관 관리", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", "trainer-card": "트레이너 카드 관장 배치", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", gyms: "체육관 관리", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -4864,25 +4864,35 @@ function badgeOptions(selected = "") {
   return '<option value="">배지 선택</option>' + badges.map((badge) => `<option value="${escapeHtml(badge.id)}"${badge.id === selected ? " selected" : ""}>${badge.generation}세대 ${badge.order}번째 · ${escapeHtml(badge.display_name?.ko_kr || badge.id)} · ${escapeHtml(badge.leader_name?.ko_kr || "")}</option>`).join("");
 }
 
-function orderedTrainerCardEntries() {
-  return (state.leagueProgression.entries || []).filter((entry) => entry.role === "gym_leader")
+function orderedTrainerCardEntries(visibleOnly = false) {
+  return (state.leagueProgression.entries || []).filter((entry) => entry.role === "gym_leader" && gymForLeagueEntry(entry.id) && (!visibleOnly || entry.trainer_card_visible !== false))
     .sort((a, b) => (a.generation - b.generation) || String(a.region).localeCompare(String(b.region)) || ((a.trainer_card_order ?? a.order) - (b.trainer_card_order ?? b.order)));
+}
+
+function setTrainerCardEntryVisible(entryId, visible) {
+  const entry = (state.leagueProgression.entries || []).find((candidate) => candidate.id === entryId && candidate.role === "gym_leader");
+  if (!entry) return;
+  entry.trainer_card_visible = visible;
+  renderTrainerCardManager();
 }
 
 function renderTrainerCardManager() {
   const filter = Number($("#badge-generation-filter")?.value || 0);
-  const badges = (state.badgeCatalog.badges || []).filter((badge) => !filter || badge.generation === filter);
-  if ($("#badge-library-count")) $("#badge-library-count").textContent = `${badges.length}개`;
+  const leaders = orderedTrainerCardEntries().filter((entry) => !filter || entry.generation === filter);
+  if ($("#badge-library-count")) $("#badge-library-count").textContent = `${leaders.length}명`;
   if ($("#badge-library-grid")) {
-    const noBadges = filter === 7 ? state.badgeCatalog.regions_without_gym_badges?.[0]?.reason?.ko_kr : "";
-    $("#badge-library-grid").innerHTML = badges.length ? badges.map((badge) => `<article class="badge-library-card" title="${escapeHtml(badge.tooltip?.ko_kr || "")}">${badgeSprite(badge)}<div><strong>${escapeHtml(badge.display_name?.ko_kr || badge.id)}</strong><span>${badge.generation}세대 ${badge.order}번째 관장</span><small>${escapeHtml(badge.leader_name?.ko_kr || "")} · ${escapeHtml(badge.type)}</small></div></article>`).join("") : `<div class="definition-empty">${escapeHtml(noBadges || "해당 세대의 체육관 배지가 없습니다.")}</div>`;
+    $("#badge-library-grid").innerHTML = leaders.length ? leaders.map((entry) => {
+      const gym = gymForLeagueEntry(entry.id); const badge = badgeById(gym?.staff?.leader?.badge_id); const visible = entry.trainer_card_visible !== false;
+      return `<article class="badge-library-card" title="${escapeHtml(badge?.tooltip?.ko_kr || "배지가 지정되지 않은 관장입니다.")}">${badgeSprite(badge)}<div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><span>${entry.generation}세대 · ${escapeHtml(gym?.display_name?.ko_kr || gym?.id || "체육관")}</span><small>${escapeHtml(badge?.display_name?.ko_kr || "배지 미지정")} · ${gym?.staff?.leader?.trainer_card_skin ? "3D 스킨 설정됨" : "3D 스킨 미지정"}</small><button type="button" class="badge-library-action${visible ? " is-remove" : ""}" data-card-${visible ? "remove" : "add"}="${escapeHtml(entry.id)}">${visible ? "카드에서 제거" : "카드에 추가"}</button></div></article>`;
+    }).join("") : '<div class="definition-empty">해당 세대에 등록된 체육관 관장이 없습니다.</div>';
   }
   if ($("#trainer-card-order-list")) {
-    const entries = orderedTrainerCardEntries();
+    const entries = orderedTrainerCardEntries(true);
+    if ($("#trainer-card-order-count")) $("#trainer-card-order-count").textContent = `${entries.length}명 · 8명마다 다음 카드 장으로 나뉩니다.`;
     $("#trainer-card-order-list").innerHTML = entries.length ? entries.map((entry, index) => {
       const gym = gymForLeagueEntry(entry.id); const badge = badgeById(gym?.staff?.leader?.badge_id);
-      return `<article class="trainer-card-order-row" data-card-entry="${escapeHtml(entry.id)}">${badgeSprite(badge, 1.25)}<span class="trainer-card-rank">${index + 1}</span><div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><small>${escapeHtml(badge?.display_name?.ko_kr || "배지 미지정")} · ${entry.generation}세대</small></div><label class="toggle"><input type="checkbox" data-card-visible${entry.trainer_card_visible !== false ? " checked" : ""}><span>표시</span></label><div class="card-order-actions"><button type="button" data-card-move="-1" aria-label="위로">↑</button><button type="button" data-card-move="1" aria-label="아래로">↓</button></div></article>`;
-    }).join("") : '<div class="definition-empty">등록된 관장이 없습니다.</div>';
+      return `<article class="trainer-card-order-row" data-card-entry="${escapeHtml(entry.id)}">${badgeSprite(badge, 1.25)}<span class="trainer-card-rank">${index + 1}</span><div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><small>${escapeHtml(badge?.display_name?.ko_kr || "배지 미지정")} · ${entry.generation}세대</small></div><div class="card-order-actions"><button type="button" data-card-move="-1" aria-label="위로">↑</button><button type="button" data-card-move="1" aria-label="아래로">↓</button><button type="button" class="card-remove-button" data-card-remove="${escapeHtml(entry.id)}">제거</button></div></article>`;
+    }).join("") : '<div class="definition-empty">카드에 배치된 관장이 없습니다. 왼쪽 관장 목록에서 추가하세요.</div>';
   }
   showIssues("#trainer-card-issues", { valid: true, issues: [] });
 }
@@ -4890,7 +4900,7 @@ function renderTrainerCardManager() {
 function moveTrainerCardEntry(entryId, delta) {
   const entry = (state.leagueProgression.entries || []).find((candidate) => candidate.id === entryId);
   if (!entry) return;
-  const group = orderedTrainerCardEntries().filter((candidate) => candidate.generation === entry.generation && candidate.region === entry.region);
+  const group = orderedTrainerCardEntries(true).filter((candidate) => candidate.generation === entry.generation && candidate.region === entry.region);
   const index = group.indexOf(entry); const target = group[index + delta];
   if (!target) return;
   const currentOrder = entry.trainer_card_order ?? entry.order;
@@ -5447,8 +5457,8 @@ function renderGymStaff() {
     editor.innerHTML = '<div class="issues empty">체육관을 선택하세요.</div>';
     return;
   }
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
-  gym.staff.leader ||= { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" };
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", trainer_card_skin: "", trainer_card_model: "wide", anchor: "leader" }, trainers: [] };
+  gym.staff.leader ||= { trainer_id: "", league_entry_id: "", badge_id: "", trainer_card_skin: "", trainer_card_model: "wide", anchor: "leader" };
   gym.staff.trainers ||= [];
   const leader = gym.staff.leader;
   const anchorOptions = (selected = "") => {
@@ -5472,6 +5482,8 @@ function renderGymStaff() {
       <div class="form-grid compact-grid">
         <label class="wide"><span>체육관 관장</span><select id="gym-leader-entry">${gymLeagueOptions(leader.league_entry_id)}</select></label>
         <label class="wide"><span>승리 시 기록할 배지</span><select id="gym-leader-badge">${badgeOptions(leader.badge_id)}</select><small>아이템을 지급하지 않고 플레이어 진행도와 트레이너 카드에 기록합니다.</small></label>
+        <label class="wide"><span>트레이너 카드 3D 스킨</span><input id="gym-leader-card-skin" value="${escapeHtml(leader.trainer_card_skin || "")}" placeholder="rctmod:textures/trainers/single/leader_brock_019e.png"><small>마인크래프트 플레이어 스킨 형식의 텍스처 리소스입니다.</small></label>
+        <label><span>스킨 팔 모델</span><select id="gym-leader-card-model"><option value="wide"${leader.trainer_card_model !== "slim" ? " selected" : ""}>기본형</option><option value="slim"${leader.trainer_card_model === "slim" ? " selected" : ""}>슬림형</option></select></label>
         <label><span>관장 NPC 라벨</span><select id="gym-leader-anchor">${anchorOptions(leader.anchor || "leader")}</select></label>
         <small class="wide">트레이너 ID: ${escapeHtml(leader.trainer_id || "아직 지정하지 않음")}</small>
       </div>
@@ -8382,7 +8394,7 @@ $("#gym-list").addEventListener("click", (event) => { const button = event.targe
 $("#gym-form").addEventListener("input", updateGymFromForm);
 $("#gym-staff-editor").addEventListener("input", (event) => {
   const gym = selectedGym(); if (!gym) return;
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", trainer_card_skin: "", trainer_card_model: "wide", anchor: "leader" }, trainers: [] };
   if (event.target.id === "gym-leader-entry") {
     const entry = (state.leagueProgression.entries || []).find((candidate) => candidate.id === event.target.value);
     gym.staff.leader.league_entry_id = event.target.value;
@@ -8390,6 +8402,10 @@ $("#gym-staff-editor").addEventListener("input", (event) => {
     renderGymStaff();
   } else if (event.target.id === "gym-leader-badge") {
     gym.staff.leader.badge_id = event.target.value;
+  } else if (event.target.id === "gym-leader-card-skin") {
+    gym.staff.leader.trainer_card_skin = event.target.value.trim();
+  } else if (event.target.id === "gym-leader-card-model") {
+    gym.staff.leader.trainer_card_model = event.target.value;
   } else if (event.target.id === "gym-leader-anchor") {
     gym.staff.leader.anchor = event.target.value.trim();
   } else {
@@ -8408,7 +8424,7 @@ $("#gym-staff-editor").addEventListener("click", (event) => {
 $("#add-gym-trainer").addEventListener("click", () => {
   const gym = selectedGym(); if (!gym) return;
   if (!state.trainers.length) { toast("먼저 트레이너를 하나 이상 만들어 주세요."); return; }
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", trainer_card_skin: "", trainer_card_model: "wide", anchor: "leader" }, trainers: [] };
   gym.staff.trainers ||= [];
   const index = gym.staff.trainers.length + 1;
   const used = new Set([gym.staff.leader?.anchor, ...gym.staff.trainers.map((trainer) => trainer.anchor)]);
@@ -8581,14 +8597,17 @@ $("#delete-battle").addEventListener("click", () => deleteManagedDocument("battl
 $("#add-league-entry").addEventListener("click", addLeagueEntry);
 $("#save-league").addEventListener("click", saveLeagueProgression);
 $("#badge-generation-filter").addEventListener("change", renderTrainerCardManager);
-$("#trainer-card-order-list").addEventListener("change", (event) => {
-  if (!event.target.matches("[data-card-visible]")) return;
-  const entry = (state.leagueProgression.entries || []).find((candidate) => candidate.id === event.target.closest("[data-card-entry]")?.dataset.cardEntry);
-  if (entry) entry.trainer_card_visible = event.target.checked;
+$("#badge-library-grid").addEventListener("click", (event) => {
+  const add = event.target.closest("[data-card-add]");
+  const remove = event.target.closest("[data-card-remove]");
+  if (add) setTrainerCardEntryVisible(add.dataset.cardAdd, true);
+  if (remove) setTrainerCardEntryVisible(remove.dataset.cardRemove, false);
 });
 $("#trainer-card-order-list").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-card-move]");
-  if (button) moveTrainerCardEntry(button.closest("[data-card-entry]").dataset.cardEntry, Number(button.dataset.cardMove));
+  const move = event.target.closest("[data-card-move]");
+  const remove = event.target.closest("[data-card-remove]");
+  if (move) moveTrainerCardEntry(move.closest("[data-card-entry]").dataset.cardEntry, Number(move.dataset.cardMove));
+  if (remove) setTrainerCardEntryVisible(remove.dataset.cardRemove, false);
 });
 $("#save-trainer-card-order").addEventListener("click", saveLeagueProgression);
 $("#delete-league-entry").addEventListener("click", () => {

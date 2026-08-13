@@ -1,0 +1,415 @@
+{
+  "source": "Pokémon Wiki on Fandom",
+  "article": "https://pokemon.fandom.com/ko/wiki/배지",
+  "notice": "Non-text media may have separate copyright terms. Each source page is recorded below.",
+  "badges": [
+    {
+      "badge_id": "cobbleventure:badge/kanto/boulder",
+      "source_file": "Boulder Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Boulder_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kanto/cascade",
+      "source_file": "Cascade Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Cascade_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kanto/thunder",
+      "source_file": "Thunder Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Thunder_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kanto/rainbow",
+      "source_file": "Rainbow Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Rainbow_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kanto/soul",
+      "source_file": "Soul Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Soul_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kanto/marsh",
+      "source_file": "Marsh Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Marsh_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kanto/volcano",
+      "source_file": "Volcano Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Volcano_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kanto/earth",
+      "source_file": "Earth Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Earth_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/johto/zephyr",
+      "source_file": "Zephyr Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Zephyr_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/johto/hive",
+      "source_file": "Hive Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Hive_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/johto/plain",
+      "source_file": "Plain Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Plain_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/johto/fog",
+      "source_file": "Fog Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Fog_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/johto/storm",
+      "source_file": "Storm Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Storm_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/johto/mineral",
+      "source_file": "Mineral Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Mineral_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/johto/glacier",
+      "source_file": "Glacier Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Glacier_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/johto/rising",
+      "source_file": "Rising Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Rising_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/hoenn/stone",
+      "source_file": "Stone Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Stone_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/hoenn/knuckle",
+      "source_file": "Knuckle Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Knuckle_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/hoenn/dynamo",
+      "source_file": "Dynamo Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Dynamo_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/hoenn/heat",
+      "source_file": "Heat Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Heat_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/hoenn/balance",
+      "source_file": "Balance Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Balance_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/hoenn/feather",
+      "source_file": "Feather Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Feather_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/hoenn/mind",
+      "source_file": "Mind Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Mind_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/hoenn/rain",
+      "source_file": "Rain Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Rain_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/sinnoh/coal",
+      "source_file": "Coal Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Coal_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/sinnoh/forest",
+      "source_file": "Forest Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Forest_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/sinnoh/cobble",
+      "source_file": "Cobble Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Cobble_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/sinnoh/fen",
+      "source_file": "Fen Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Fen_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/sinnoh/relic",
+      "source_file": "Relic Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Relic_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/sinnoh/mine",
+      "source_file": "Mine Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Mine_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/sinnoh/icicle",
+      "source_file": "Icicle Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Icicle_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/sinnoh/beacon",
+      "source_file": "Beacon Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Beacon_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/unova/trio",
+      "source_file": "Trio Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Trio_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/unova/basic",
+      "source_file": "Basic Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Basic_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/unova/insect",
+      "source_file": "Insect Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Insect_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/unova/bolt",
+      "source_file": "Bolt Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Bolt_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/unova/quake",
+      "source_file": "Quake Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Quake_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/unova/jet",
+      "source_file": "Jet Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Jet_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/unova/freeze",
+      "source_file": "Freeze Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Freeze_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/unova/legend",
+      "source_file": "Legend Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Legend_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/unova/toxic",
+      "source_file": "Toxic Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Toxic_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/unova/wave",
+      "source_file": "Wave Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Wave_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kalos/bug",
+      "source_file": "Bug Badge Viola.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Bug_Badge_Viola.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kalos/cliff",
+      "source_file": "Cliff Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Cliff_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kalos/rumble",
+      "source_file": "Rumble Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Rumble_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kalos/plant",
+      "source_file": "Plant Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Plant_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kalos/voltage",
+      "source_file": "Voltage Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Voltage_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kalos/fairy",
+      "source_file": "Fairy Badge XY.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Fairy_Badge_XY.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kalos/psychic",
+      "source_file": "Psychic Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Psychic_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/kalos/iceberg",
+      "source_file": "Iceberg Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Iceberg_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/galar/grass",
+      "source_file": "Grass Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Grass_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/galar/water",
+      "source_file": "Water Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Water_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/galar/fire",
+      "source_file": "Fire Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Fire_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/galar/fighting",
+      "source_file": "Fighting Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Fighting_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/galar/ghost",
+      "source_file": "Ghost Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Ghost_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/galar/fairy",
+      "source_file": "Fairy Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Fairy_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/galar/rock",
+      "source_file": "Rock Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Rock_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/galar/ice",
+      "source_file": "Ice Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Ice_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/galar/dark",
+      "source_file": "Dark Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Dark_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/galar/dragon",
+      "source_file": "Dragon Badge.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Dragon_Badge.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/paldea/bug",
+      "source_file": "Bug Badge SV.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Bug_Badge_SV.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/paldea/grass",
+      "source_file": "Grass Badge SV.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Grass_Badge_SV.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/paldea/electric",
+      "source_file": "Electric Badge SV.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Electric_Badge_SV.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/paldea/water",
+      "source_file": "Water Badge SV.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Water_Badge_SV.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/paldea/normal",
+      "source_file": "Normal Badge SV.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Normal_Badge_SV.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/paldea/ghost",
+      "source_file": "Ghost Badge SV.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Ghost_Badge_SV.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/paldea/psychic",
+      "source_file": "Psychic Badge SV.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Psychic_Badge_SV.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    },
+    {
+      "badge_id": "cobbleventure:badge/paldea/ice",
+      "source_file": "Ice Badge SV.png",
+      "source_page": "https://pokemon.fandom.com/wiki/File:Ice_Badge_SV.png",
+      "transformation": "transparent crop, nearest-neighbour fit within 28px, 24-color quantization, 32x32 transparent tile"
+    }
+  ]
+}

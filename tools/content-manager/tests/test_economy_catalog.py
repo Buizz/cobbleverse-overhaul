@@ -104,6 +104,15 @@ class EconomyCatalogTests(unittest.TestCase):
         self.assertEqual("Pokeball Specialist", by_id["bca:shopkeeper_ds_special_balls"]["role"]["en_us"])
         self.assertTrue(by_id["bca:shopkeeper_ds_special_balls"]["categories"])
 
+    def test_project_workspace_loads_shared_bca_vendor_units(self):
+        project_root = ROOT / "content-projects" / "cobbleventure-main"
+        workspace = content_manager.load_economy_workspace(project_root, ROOT)
+        by_id = {vendor["id"]: vendor for vendor in workspace["resolved_vendor_units"]}
+        self.assertGreaterEqual(len(by_id), 16)
+        self.assertIn("bca:shopkeeper_ds_special_balls", by_id)
+        self.assertIn("bca:pokemart_shopkeeper", by_id)
+        self.assertEqual("custom", by_id["bca:pokemart_shopkeeper"]["origin"])
+
     def test_type_rule_matches_many_species_without_individual_editing(self):
         rule = {"match": {"types": ["electric"], "generations": [1]}}
         pikachu = {"species": "cobblemon:pikachu", "types": ["electric"], "generation": 1}

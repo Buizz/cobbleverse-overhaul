@@ -298,6 +298,15 @@ class ContentManagerTests(unittest.TestCase):
             [[1, 1, 2, 0], [3, 2, 0, 0]],
             metadata["top_view"]["blocks"],
         )
+        self.assertEqual(2, metadata["cutaway_view"]["cutoff_y"])
+        self.assertEqual(
+            ["minecraft:oak_planks", "minecraft:stone"],
+            metadata["cutaway_view"]["palette"],
+        )
+        self.assertEqual(
+            [[1, 1, 0, 1], [3, 2, 0, 0]],
+            metadata["cutaway_view"]["blocks"],
+        )
         self.assertEqual(
             {
                 "min_x": 1, "min_z": 1, "max_x": 3, "max_z": 2,
@@ -2203,6 +2212,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(all(badge["id"].startswith("cobbleventure:badge/") for badge in badges))
         self.assertTrue(all("세대" in badge["tooltip"]["ko_kr"] and "관장" in badge["tooltip"]["ko_kr"] for badge in badges))
         self.assertTrue((CORE_ROOT / "projects/cobbleventure-player-menu/src/main/resources/assets/cobbleventure_player_menu/textures/gui/badges.png").is_file())
+        sources = content_manager.load_json(CORE_ROOT / "tools/content-manager/badge-image-sources.json")
+        self.assertEqual(68, len(sources["badges"]))
+        self.assertEqual({badge["id"] for badge in catalog["badges"]}, {badge["badge_id"] for badge in sources["badges"]})
 
     def test_generate_exports_same_ai_profile_to_rct_and_runtime(self) -> None:
         root = PROJECT_ROOT
@@ -2912,8 +2924,11 @@ class ContentManagerTests(unittest.TestCase):
                     "path": "content/catalogs/building-settings.json",
                 },
             })
-            with mock.patch.object(threading.Thread, "start"):
+            with mock.patch.object(
+                content_manager, "structure_catalog_signature", return_value=()
+            ), mock.patch.object(threading.Thread, "start") as start:
                 handler = content_manager.create_handler(root)
+            start.assert_not_called()
             server = content_manager.ThreadingHTTPServer(("127.0.0.1", 0), handler)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
@@ -2932,6 +2947,33 @@ class ContentManagerTests(unittest.TestCase):
                 thread.join(timeout=2)
             self.assertEqual(7, payload["structures"]["cobbleventure:cached"]["width"])
             self.assertEqual(123, payload["cache"]["generated_at"])
+
+    def test_structure_web_cache_refreshes_only_after_structure_signature_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            content_manager.save_structure_web_cache(root, {
+                "version": content_manager.STRUCTURE_WEB_CACHE_VERSION,
+                "generated_at": 123,
+                "signature": [],
+                "size_catalog": {"structures": {}, "warnings": []},
+                "viewer_catalog": {},
+                "building_settings": {
+                    "schema_version": 1, "structures": {}, "npcs": [],
+                    "path": "content/catalogs/building-settings.json",
+                },
+            })
+            structure = root / "content/structures/placeholder/shop.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((16, 8, 16)))
+
+            with mock.patch.object(
+                content_manager,
+                "structure_catalog_signature",
+                return_value=((structure.as_posix(), structure.stat().st_size, 1),),
+            ), mock.patch.object(threading.Thread, "start") as start:
+                content_manager.create_handler(root)
+
+            start.assert_called_once()
 
     def test_residential_building_rejects_fixed_npc_assignment(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -2993,8 +3035,15 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="space-flow-canvas"', markup)
         self.assertIn('id="space-flow-edges"', markup)
         self.assertIn('id="space-flow-nodes"', markup)
+        self.assertIn('id="space-building-cards"', markup)
+        self.assertIn('id="space-interior-cards"', markup)
+        self.assertNotIn('id="space-graph-select"', markup)
+        self.assertNotIn('id="space-new-exterior"', markup)
+        self.assertNotIn("외부 공간 추가", markup)
         self.assertIn('/api/space-connections', script)
         self.assertIn('data-port-type', script)
+        self.assertIn('text/x-cobbleventure-interior', script)
+        self.assertIn('finishConnection', script)
         self.assertIn('.space-flow-edge', styles)
         self.assertIn('.legacy-space-editor { display: none', styles)
 

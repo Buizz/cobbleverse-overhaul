@@ -65,6 +65,8 @@
             "trainer_id": { "type": "string" },
             "league_entry_id": { "type": "string" },
             "badge_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+            "trainer_card_skin": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+            "trainer_card_model": { "type": "string", "enum": ["wide", "slim"] },
             "anchor": { "type": "string", "pattern": "^[a-z0-9_]+$" }
           }
         },

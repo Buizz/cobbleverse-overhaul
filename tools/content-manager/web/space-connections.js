@@ -1,5 +1,4 @@
 const $ = (selector, root = document) => root.querySelector(selector);
-document.documentElement.dataset.spaceFlowModule = "ready";
 
 const flow = {
   loaded: false,
@@ -11,6 +10,8 @@ const flow = {
   selectedEdgeId: "",
   connectionDraft: null,
   drag: null,
+  pan: null,
+  query: "",
   dirty: false,
 };
 
@@ -41,45 +42,123 @@ function structureLabel(id) {
   return metadata.category_label ? `${metadata.category_label} · ${id}` : id;
 }
 
-function renderSelectors() {
-  const graphSelect = $("#space-graph-select");
-  graphSelect.innerHTML = flow.graphs.length
-    ? flow.graphs.map((graph) => `<option value="${escapeHtml(graph.id)}">${graph.kind === "gym" ? "체육관" : "건물"} · ${escapeHtml(graph.display_name || graph.owner)}</option>`).join("")
-    : '<option value="">연결도가 없습니다</option>';
-  graphSelect.value = flow.selectedGraphId;
-
-  const configured = new Set(flow.graphs.filter((graph) => graph.kind === "building").map((graph) => graph.owner));
-  const exteriorEntries = Object.entries(flow.structures).filter(([id, metadata]) =>
-    !configured.has(id) && !["interior", "gym_interior", "league", "gym_exterior"].includes(metadata.category)
-  );
-  $("#space-new-exterior").innerHTML = exteriorEntries.length
-    ? exteriorEntries.map(([id]) => `<option value="${escapeHtml(id)}">${escapeHtml(structureLabel(id))}</option>`).join("")
-    : '<option value="">추가할 외부 공간 없음</option>';
-  $("#add-space-graph").disabled = !exteriorEntries.length;
-
-  const interiorEntries = Object.entries(flow.structures).filter(([, metadata]) =>
-    ["interior", "gym_interior"].includes(metadata.category)
-  );
-  $("#space-new-interior").innerHTML = interiorEntries.length
-    ? interiorEntries.map(([id]) => `<option value="${escapeHtml(id)}">${escapeHtml(structureLabel(id))}</option>`).join("")
-    : '<option value="">내부 공간 NBT 없음</option>';
-  $("#add-space-node").disabled = !selectedGraph() || !interiorEntries.length;
+function buildingCardTitle(choice) {
+  if (choice.kind === "gym" || choice.label !== choice.owner) return choice.label;
+  return choice.owner.split("/").pop()?.replaceAll("_", " ") || choice.owner;
 }
 
-function nodePorts(node, type) {
+function buildingChoices() {
+  const choices = flow.graphs.map((graph) => ({
+    id: graph.id, owner: graph.owner, kind: graph.kind,
+    label: graph.display_name || graph.owner, graph,
+  }));
+  const owners = new Set(choices.map((choice) => choice.owner));
+  for (const [id, metadata] of Object.entries(flow.structures)) {
+    if (owners.has(id) || ["interior", "gym_interior", "league", "gym_exterior"].includes(metadata.category)) continue;
+    choices.push({ id: `building:${id}`, owner: id, kind: "building", label: id, graph: null });
+  }
+  return choices.sort((left, right) => `${left.kind}:${left.label}`.localeCompare(`${right.kind}:${right.label}`, "ko"));
+}
+
+function renderLibrary() {
+  const query = flow.query.trim().toLowerCase();
+  const choices = buildingChoices().filter((choice) =>
+    !query || `${choice.label} ${choice.owner} ${choice.kind}`.toLowerCase().includes(query)
+  );
+  $("#space-building-cards").innerHTML = choices.length ? choices.map((choice) => {
+    const graph = choice.graph;
+    const count = graph?.nodes?.length ? graph.nodes.length - 1 : 0;
+    const active = choice.id === flow.selectedGraphId;
+    return `<button class="space-library-card building${active ? " is-active" : ""}" type="button" data-space-owner="${escapeHtml(choice.owner)}" data-space-kind="${choice.kind}"><i>${choice.kind === "gym" ? "GYM" : "NBT"}</i><span><strong title="${escapeHtml(choice.owner)}">${escapeHtml(buildingCardTitle(choice))}</strong><small title="${escapeHtml(choice.owner)}">${escapeHtml(choice.owner)}</small></span><b>${count}실</b></button>`;
+  }).join("") : '<div class="issues empty">검색 결과가 없습니다.</div>';
+
+  const interiors = Object.entries(flow.structures).filter(([id, metadata]) =>
+    ["interior", "gym_interior"].includes(metadata.category)
+    && (!query || `${id} ${metadata.category_label || ""}`.toLowerCase().includes(query))
+  );
+  $("#space-interior-cards").innerHTML = interiors.length ? interiors.map(([id, metadata]) =>
+    `<button class="space-library-card interior" type="button" draggable="true" data-interior-structure="${escapeHtml(id)}"><i>＋</i><span><strong>${escapeHtml(id.split("/").pop())}</strong><small>${escapeHtml(metadata.category_label || id)} · ${metadata.width || "?"}×${metadata.depth || "?"}</small></span><b>끌기</b></button>`
+  ).join("") : '<div class="issues empty">사용 가능한 내부 공간이 없습니다.</div>';
+}
+
+function nodeAnchorEntries(node, type) {
   const metadata = flow.structures[node.structure] || {};
   let entries = type === "output" ? metadata.door_anchors || [] : metadata.arrival_anchors || [];
   const graph = selectedGraph();
   if (!entries.length && graph?.kind === "gym") {
-    if (node.kind === "exterior") entries = [{ label: type === "output" ? "entrance" : "outside" }];
-    else entries = [{ label: type === "output" ? "exit" : "interior_spawn" }];
+    const width = Math.max(1, Number(metadata.width) || 16);
+    const depth = Math.max(1, Number(metadata.depth) || 16);
+    if (node.kind === "exterior") entries = [{ label: type === "output" ? "entrance" : "outside", position: [Math.floor(width / 2), 1, depth - 2] }];
+    else entries = [{ label: type === "output" ? "exit" : "interior_spawn", position: [Math.floor(width / 2), 1, 2] }];
   }
+  return entries;
+}
+
+function nodePorts(node, type) {
+  const metadata = flow.structures[node.structure] || {};
+  const entries = nodeAnchorEntries(node, type);
   const title = type === "output" ? "문" : "도착";
-  if (!entries.length) return `<div class="space-port-empty">${title} 포트 없음</div>`;
+  if (!entries.length) return "";
+  const width = Math.max(1, Number(metadata.width) || 16);
+  const depth = Math.max(1, Number(metadata.depth) || 16);
+  const cutoff = Number(metadata.cutaway_view?.cutoff_y || Math.ceil((Number(metadata.height) || 1) / 2));
   return entries.map((anchor) => {
     const active = type === "output" && flow.connectionDraft?.node === node.id && flow.connectionDraft?.anchor === anchor.label;
-    return `<button class="space-node-port ${type}${active ? " is-active" : ""}" type="button" data-port-type="${type}" data-node-id="${escapeHtml(node.id)}" data-anchor="${escapeHtml(anchor.label)}"><i></i><span>${escapeHtml(anchor.label)}</span></button>`;
+    const compatible = type === "input" && flow.connectionDraft;
+    const position = Array.isArray(anchor.position) ? anchor.position : [width / 2, 1, depth / 2];
+    const left = Math.max(3, Math.min(97, (Number(position[0]) + .5) / width * 100));
+    const top = Math.max(3, Math.min(97, (Number(position[2]) + .5) / depth * 100));
+    const aboveCut = Number(position[1]) >= cutoff;
+    return `<button class="space-node-port space-map-pin ${type}${active ? " is-active" : ""}${compatible ? " is-compatible" : ""}${aboveCut ? " is-above-cut" : ""}" style="left:${left}%;top:${top}%" type="button" data-port-type="${type}" data-node-id="${escapeHtml(node.id)}" data-anchor="${escapeHtml(anchor.label)}" title="${escapeHtml(anchor.label)} · X ${position[0]} / Y ${position[1]} / Z ${position[2]}${aboveCut ? " · 절단면 위 앵커" : ""}"><i></i><span>${escapeHtml(anchor.label)}</span></button>`;
   }).join("");
+}
+
+function minecraftMapColor(blockName) {
+  const name = String(blockName || "").split(":").at(-1);
+  const colors = [
+    [/water|bubble_column/, "#3f76e4"], [/lava/, "#ff6b16"], [/grass_block|moss/, "#78a84f"],
+    [/leaves|vine/, "#56893f"], [/sandstone|sand/, "#d8c47b"], [/snow|ice/, "#dceff2"],
+    [/deepslate|blackstone/, "#45434a"], [/cobblestone|stone|andesite|tuff/, "#818486"],
+    [/brick|terracotta/, "#a75d4d"], [/quartz|calcite/, "#e7e1d4"], [/copper/, "#b76e4f"],
+    [/iron|anvil|cauldron/, "#9ca2a3"], [/gold|yellow_/, "#e6c447"], [/diamond|cyan_/, "#53b9bc"],
+    [/red_|nether_wart/, "#ad3d3d"], [/blue_|lapis/, "#4869ae"], [/purple_|amethyst/, "#9565b8"],
+    [/pink_|magenta_/, "#cf79a3"], [/orange_/, "#d8873e"], [/lime_/, "#82ad48"],
+    [/black_|coal/, "#343538"], [/gray_/, "#6f7376"], [/white_/, "#deddd7"], [/glass/, "#9fc7cc"],
+    [/wool|concrete/, "#b8ad94"], [/planks|log|wood|stem|hyphae|barrel|chest|bookshelf|crafting_table/, "#9a7248"],
+    [/dirt|mud|farmland|path/, "#806044"], [/gravel/, "#8e8984"], [/torch|lantern|glowstone|shroomlight|sea_lantern/, "#e7c66a"],
+  ];
+  return colors.find(([pattern]) => pattern.test(name))?.[1] || "#9b927f";
+}
+
+function shadeMapColor(hex, factor) {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const channel = (shift) => Math.max(0, Math.min(255, Math.round(((value >> shift) & 255) * factor)));
+  return `rgb(${channel(16)},${channel(8)},${channel(0)})`;
+}
+
+function drawNodeCutaways() {
+  for (const canvas of document.querySelectorAll(".space-node-map-canvas")) {
+    const graph = selectedGraph();
+    const node = graph?.nodes?.find((candidate) => candidate.id === canvas.dataset.nodeId);
+    const metadata = node ? flow.structures[node.structure] || {} : {};
+    const view = metadata.cutaway_view || {};
+    const width = Math.max(1, Number(metadata.width) || 16);
+    const depth = Math.max(1, Number(metadata.depth) || 16);
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#111a1e";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const cellWidth = canvas.width / width, cellHeight = canvas.height / depth;
+    context.strokeStyle = "rgba(190,216,210,.08)";
+    context.lineWidth = 1;
+    for (let x = 0; x <= width; x++) { context.beginPath(); context.moveTo(x * cellWidth, 0); context.lineTo(x * cellWidth, canvas.height); context.stroke(); }
+    for (let z = 0; z <= depth; z++) { context.beginPath(); context.moveTo(0, z * cellHeight); context.lineTo(canvas.width, z * cellHeight); context.stroke(); }
+    const cutoff = Math.max(1, Number(view.cutoff_y) || 1);
+    for (const [x, z, y, paletteIndex] of view.blocks || []) {
+      const base = minecraftMapColor(view.palette?.[paletteIndex]);
+      context.fillStyle = shadeMapColor(base, .72 + Math.min(.28, Number(y) / cutoff * .28));
+      context.fillRect(x * cellWidth, z * cellHeight, Math.ceil(cellWidth + .35), Math.ceil(cellHeight + .35));
+    }
+  }
 }
 
 function renderNodes() {
@@ -89,12 +168,22 @@ function renderNodes() {
   layer.innerHTML = graph?.nodes?.map((node) => {
     const metadata = flow.structures[node.structure] || {};
     const selected = node.id === flow.selectedNodeId;
+    const width = Math.max(1, Number(metadata.width) || 16);
+    const depth = Math.max(1, Number(metadata.depth) || 16);
+    const mapHeight = Math.max(145, Math.min(230, Math.round(270 * depth / width)));
+    const cutoff = Number(metadata.cutaway_view?.cutoff_y || Math.ceil((Number(metadata.height) || 1) / 2));
+    const doorPins = nodePorts(node, "output"), arrivalPins = nodePorts(node, "input");
     return `<article class="space-node${selected ? " is-selected" : ""}" data-space-node="${escapeHtml(node.id)}" style="transform:translate(${Number(node.position?.[0] || 0)}px,${Number(node.position?.[1] || 0)}px)">
-      <header class="space-node-header"><span>${node.kind === "exterior" ? "외부" : "내부"}</span><strong>${escapeHtml(node.id)}</strong><i aria-hidden="true">⠿</i></header>
-      <div class="space-node-resource"><code>${escapeHtml(node.structure)}</code><small>${escapeHtml(metadata.category_label || "NBT 공간")}${metadata.width ? ` · ${metadata.width}×${metadata.depth}` : ""}</small></div>
-      <div class="space-node-ports"><div class="space-node-port-column input"><b>도착 지점</b>${nodePorts(node, "input")}</div><div class="space-node-port-column output"><b>나가는 문</b>${nodePorts(node, "output")}</div></div>
+      <header class="space-node-header"><span>${node.kind === "exterior" ? "오버월드" : "내부"}</span><strong>${escapeHtml(node.id)}</strong><i aria-hidden="true">⠿</i></header>
+      <div class="space-node-map" style="height:${mapHeight}px">
+        <canvas class="space-node-map-canvas" data-node-id="${escapeHtml(node.id)}" width="540" height="${mapHeight * 2}" aria-label="${escapeHtml(node.structure)} 높이 절반 반단면"></canvas>
+        ${arrivalPins}${doorPins}
+        ${!arrivalPins && !doorPins ? '<span class="space-node-no-pins">문·도착 앵커 없음</span>' : ""}
+      </div>
+      <div class="space-node-resource"><code>${escapeHtml(node.structure)}</code><small>반단면 Y 0–${Math.max(0, cutoff - 1)} · ${width}×${depth} · <b class="pin-key door"></b> 문 <b class="pin-key arrival"></b> 도착</small></div>
     </article>`;
   }).join("") || "";
+  drawNodeCutaways();
   requestAnimationFrame(renderEdges);
 }
 
@@ -108,10 +197,15 @@ function portCenter(nodeId, anchor, type) {
   return { x: portRect.left + portRect.width / 2 - canvasRect.left, y: portRect.top + portRect.height / 2 - canvasRect.top };
 }
 
+function canvasPoint(event) {
+  const rect = $("#space-flow-canvas").getBoundingClientRect();
+  return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+}
+
 function renderEdges() {
   const graph = selectedGraph();
   const svg = $("#space-flow-edges");
-  svg.innerHTML = "";
+  svg.innerHTML = '<defs><marker id="space-flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>';
   for (const edge of graph?.connections || []) {
     const start = portCenter(edge.from?.node, edge.from?.anchor, "output");
     const end = portCenter(edge.to?.node, edge.to?.anchor, "input");
@@ -120,8 +214,20 @@ function renderEdges() {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", `M ${start.x} ${start.y} C ${start.x + bend} ${start.y}, ${end.x - bend} ${end.y}, ${end.x} ${end.y}`);
     path.setAttribute("class", `space-flow-edge${edge.id === flow.selectedEdgeId ? " is-selected" : ""}`);
+    path.setAttribute("marker-end", "url(#space-flow-arrow)");
     path.dataset.edgeId = edge.id;
     svg.append(path);
+  }
+  if (flow.connectionDraft?.pointer) {
+    const start = portCenter(flow.connectionDraft.node, flow.connectionDraft.anchor, "output");
+    const end = flow.connectionDraft.pointer;
+    if (start && end) {
+      const bend = Math.max(70, Math.abs(end.x - start.x) * .45);
+      const preview = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      preview.setAttribute("d", `M ${start.x} ${start.y} C ${start.x + bend} ${start.y}, ${end.x - bend} ${end.y}, ${end.x} ${end.y}`);
+      preview.setAttribute("class", "space-flow-edge is-preview");
+      svg.append(preview);
+    }
   }
 }
 
@@ -149,22 +255,22 @@ function renderInspector() {
       </div><button class="button danger space-delete" id="delete-space-edge" type="button">연결선 삭제</button>`;
   } else {
     inspector.innerHTML = graph
-      ? `<header><p class="eyebrow">FLOW GUIDE</p><h3>${escapeHtml(graph.display_name || graph.owner)}</h3></header><div class="space-flow-help"><p>공간 카드를 드래그해 보기 좋은 위치에 놓으세요.</p><p><b>나가는 문</b>의 포트를 누르고 목적 공간의 <b>도착 지점</b> 포트를 누르면 연결선이 만들어집니다.</p><p>연결선을 누르면 잠금 조건과 대사를 설정할 수 있습니다.</p></div>`
-      : '<div class="issues empty">연결도를 선택하거나 외부 공간을 추가하세요.</div>';
+      ? `<header><p class="eyebrow">FLOW GUIDE</p><h3>${escapeHtml(graph.display_name || graph.owner)}</h3></header><div class="space-flow-help"><p>왼쪽 내부 공간 카드를 캔버스로 끌어 놓으세요.</p><p><b>나가는 문</b> 포트에서 <b>도착 지점</b> 포트까지 선을 직접 끌어 연결합니다.</p><p>빈 바닥 드래그는 화면 이동, 공간 머리글 드래그는 카드 이동입니다.</p><p>연결선을 누르면 잠금 조건과 대사를 설정할 수 있습니다.</p></div>`
+      : '<div class="issues empty">왼쪽에서 오버월드 건물을 선택하세요.</div>';
   }
 }
 
 function renderAll() {
-  renderSelectors();
+  renderLibrary();
   renderNodes();
   renderInspector();
   const graph = selectedGraph();
   setStatus(graph ? `${graph.nodes.length}개 공간 · ${(graph.connections || []).length}개 연결${flow.dirty ? " · 저장 필요" : ""}` : "연결도가 없습니다.");
 }
 
-function markDirty() {
+function markDirty(updateLibrary = true) {
   flow.dirty = true;
-  renderSelectors();
+  if (updateLibrary) renderLibrary();
   const graph = selectedGraph();
   setStatus(`${graph?.nodes?.length || 0}개 공간 · ${graph?.connections?.length || 0}개 연결 · 저장 필요`);
 }
@@ -198,27 +304,32 @@ function uniqueNodeId(graph) {
   return id;
 }
 
-function addGraph() {
-  const structure = $("#space-new-exterior").value;
-  if (!structure) return;
-  const id = `building:${structure}`;
-  flow.graphs.push({
-    id, kind: "building", owner: structure, display_name: structure,
-    nodes: [{ id: "exterior", kind: "exterior", structure, position: [90, 170] }], connections: [],
-  });
-  flow.selectedGraphId = id;
-  flow.selectedNodeId = "exterior";
-  markDirty();
+function selectBuilding(owner, kind) {
+  let graph = flow.graphs.find((candidate) => candidate.owner === owner && candidate.kind === kind);
+  let created = false;
+  if (!graph) {
+    graph = {
+      id: `building:${owner}`, kind: "building", owner, display_name: owner,
+      nodes: [{ id: "exterior", kind: "exterior", structure: owner, position: [90, 170] }], connections: [],
+    };
+    flow.graphs.push(graph);
+    created = true;
+  }
+  flow.selectedGraphId = graph.id;
+  flow.selectedNodeId = "";
+  flow.selectedEdgeId = "";
+  flow.connectionDraft = null;
+  if (created) flow.dirty = true;
   renderAll();
+  requestAnimationFrame(fitGraph);
 }
 
-function addNode() {
+function addNode(structure, position = null) {
   const graph = selectedGraph();
-  const structure = $("#space-new-interior").value;
   if (!graph || !structure) return;
   const id = uniqueNodeId(graph);
   const count = graph.nodes.length - 1;
-  const node = { id, kind: "interior", structure, position: [470 + (count % 3) * 340, 90 + Math.floor(count / 3) * 260] };
+  const node = { id, kind: "interior", structure, position: position || [470 + (count % 3) * 340, 90 + Math.floor(count / 3) * 260] };
   if (graph.kind === "gym") Object.assign(node, { world_position: [0, 0, count * 32], rotation: "none" });
   graph.nodes.push(node);
   flow.selectedNodeId = id;
@@ -230,7 +341,7 @@ function addNode() {
 function connectTo(nodeId, anchor) {
   const graph = selectedGraph();
   if (!graph || !flow.connectionDraft) return;
-  const source = flow.connectionDraft;
+  const source = { node: flow.connectionDraft.node, anchor: flow.connectionDraft.anchor };
   graph.connections ||= [];
   graph.connections = graph.connections.filter((edge) => !(edge.from.node === source.node && edge.from.anchor === source.anchor));
   let index = graph.connections.length + 1, id = `route_${index}`;
@@ -270,28 +381,83 @@ function fitGraph() {
   viewport.scrollTo({ left: Math.max(0, Math.min(...xs) - 70), top: Math.max(0, Math.min(...ys) - 70), behavior: "smooth" });
 }
 
-$("#space-graph-select").addEventListener("change", (event) => {
-  flow.selectedGraphId = event.target.value;
-  flow.selectedNodeId = "";
-  flow.selectedEdgeId = "";
-  flow.connectionDraft = null;
+function autoLayout() {
+  const graph = selectedGraph();
+  if (!graph) return;
+  const exterior = graph.nodes.find((node) => node.id === "exterior");
+  if (exterior) exterior.position = [100, 180];
+  graph.nodes.filter((node) => node.id !== "exterior").forEach((node, index) => {
+    node.position = [500 + (index % 2) * 360, 80 + Math.floor(index / 2) * 260];
+  });
+  markDirty();
   renderAll();
-});
-$("#add-space-graph").addEventListener("click", addGraph);
-$("#add-space-node").addEventListener("click", addNode);
+  requestAnimationFrame(fitGraph);
+}
+
 $("#save-space-flow").addEventListener("click", saveFlow);
 $("#fit-space-flow").addEventListener("click", fitGraph);
+$("#auto-layout-space-flow").addEventListener("click", autoLayout);
+$("#space-library-search").addEventListener("input", (event) => { flow.query = event.target.value; renderLibrary(); });
+
+$("#space-building-cards").addEventListener("click", (event) => {
+  const card = event.target.closest("[data-space-owner]");
+  if (card) selectBuilding(card.dataset.spaceOwner, card.dataset.spaceKind);
+});
+
+$("#space-interior-cards").addEventListener("click", (event) => {
+  const card = event.target.closest("[data-interior-structure]");
+  if (card && selectedGraph()) addNode(card.dataset.interiorStructure);
+});
+$("#space-interior-cards").addEventListener("dragstart", (event) => {
+  const card = event.target.closest("[data-interior-structure]");
+  if (!card || !selectedGraph()) { event.preventDefault(); return; }
+  event.dataTransfer.effectAllowed = "copy";
+  event.dataTransfer.setData("text/x-cobbleventure-interior", card.dataset.interiorStructure);
+});
+
+$("#space-flow-viewport").addEventListener("dragover", (event) => {
+  if (!event.dataTransfer.types.includes("text/x-cobbleventure-interior")) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "copy";
+  event.currentTarget.classList.add("is-drop-target");
+});
+$("#space-flow-viewport").addEventListener("dragleave", (event) => {
+  if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.classList.remove("is-drop-target");
+});
+$("#space-flow-viewport").addEventListener("drop", (event) => {
+  event.preventDefault();
+  event.currentTarget.classList.remove("is-drop-target");
+  const structure = event.dataTransfer.getData("text/x-cobbleventure-interior");
+  if (!structure || !selectedGraph()) return;
+  const canvasRect = $("#space-flow-canvas").getBoundingClientRect();
+  addNode(structure, [Math.max(20, Math.round(event.clientX - canvasRect.left - 140)), Math.max(20, Math.round(event.clientY - canvasRect.top - 30))]);
+});
+
+$("#space-flow-viewport").addEventListener("pointerdown", (event) => {
+  if (event.target.closest(".space-node, .space-flow-controls, .space-flow-edge")) return;
+  const viewport = event.currentTarget;
+  flow.pan = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop };
+  viewport.setPointerCapture(event.pointerId);
+  viewport.classList.add("is-panning");
+});
+$("#space-flow-viewport").addEventListener("pointermove", (event) => {
+  if (!flow.pan || flow.pan.pointerId !== event.pointerId) return;
+  event.currentTarget.scrollLeft = flow.pan.left - (event.clientX - flow.pan.x);
+  event.currentTarget.scrollTop = flow.pan.top - (event.clientY - flow.pan.y);
+});
+for (const eventName of ["pointerup", "pointercancel"]) $("#space-flow-viewport").addEventListener(eventName, (event) => {
+  if (!flow.pan || flow.pan.pointerId !== event.pointerId) return;
+  flow.pan = null;
+  event.currentTarget.classList.remove("is-panning");
+});
 
 $("#space-flow-nodes").addEventListener("click", (event) => {
   const port = event.target.closest("[data-port-type]");
   if (port) {
     event.stopPropagation();
-    if (port.dataset.portType === "output") {
-      flow.connectionDraft = { node: port.dataset.nodeId, anchor: port.dataset.anchor };
-      flow.selectedNodeId = "";
-      flow.selectedEdgeId = "";
-      renderAll();
-    } else if (flow.connectionDraft) connectTo(port.dataset.nodeId, port.dataset.anchor);
+    if (port.dataset.portType === "input" && flow.connectionDraft) {
+      connectTo(port.dataset.nodeId, port.dataset.anchor);
+    }
     return;
   }
   const node = event.target.closest("[data-space-node]");
@@ -302,6 +468,24 @@ $("#space-flow-nodes").addEventListener("click", (event) => {
 });
 
 $("#space-flow-nodes").addEventListener("pointerdown", (event) => {
+  const port = event.target.closest('.space-node-port.output[data-port-type="output"]');
+  if (port) {
+    event.preventDefault();
+    event.stopPropagation();
+    flow.connectionDraft = {
+      node: port.dataset.nodeId, anchor: port.dataset.anchor,
+      pointer: canvasPoint(event), pointerId: event.pointerId,
+    };
+    flow.selectedNodeId = "";
+    flow.selectedEdgeId = "";
+    port.setPointerCapture(event.pointerId);
+    $("#space-flow-viewport").classList.add("is-connecting");
+    port.classList.add("is-active");
+    document.querySelectorAll(".space-node-port.input").forEach((target) => target.classList.add("is-compatible"));
+    renderEdges();
+    setStatus("강조된 도착 포트까지 선을 끌어 놓으세요.");
+    return;
+  }
   const header = event.target.closest(".space-node-header");
   const element = header?.closest("[data-space-node]");
   const graph = selectedGraph();
@@ -314,20 +498,50 @@ $("#space-flow-nodes").addEventListener("pointerdown", (event) => {
 });
 
 $("#space-flow-nodes").addEventListener("pointermove", (event) => {
+  if (flow.connectionDraft?.pointerId === event.pointerId) {
+    flow.connectionDraft.pointer = canvasPoint(event);
+    const viewport = $("#space-flow-viewport");
+    const rect = viewport.getBoundingClientRect();
+    if (event.clientX > rect.right - 44) viewport.scrollLeft += 32;
+    else if (event.clientX < rect.left + 44) viewport.scrollLeft = Math.max(0, viewport.scrollLeft - 32);
+    if (event.clientY > rect.bottom - 44) viewport.scrollTop += 24;
+    else if (event.clientY < rect.top + 44) viewport.scrollTop = Math.max(0, viewport.scrollTop - 24);
+    renderEdges();
+    return;
+  }
   if (!flow.drag || flow.drag.pointerId !== event.pointerId) return;
   const { node, x, y, origin } = flow.drag;
   node.position = [Math.max(20, Math.round(origin[0] + event.clientX - x)), Math.max(20, Math.round(origin[1] + event.clientY - y))];
   const element = $(`[data-space-node="${CSS.escape(node.id)}"]`, $("#space-flow-nodes"));
   if (element) element.style.transform = `translate(${node.position[0]}px,${node.position[1]}px)`;
   renderEdges();
-  markDirty();
+  markDirty(false);
 });
 
 for (const eventName of ["pointerup", "pointercancel"]) $("#space-flow-nodes").addEventListener(eventName, (event) => {
   if (!flow.drag || flow.drag.pointerId !== event.pointerId) return;
   event.target.closest("[data-space-node]")?.classList.remove("is-dragging");
   flow.drag = null;
+  renderLibrary();
 });
+
+function finishConnection(event, cancelled = false) {
+  if (!flow.connectionDraft || flow.connectionDraft.pointerId !== event.pointerId) return;
+  const destination = document.elementFromPoint(event.clientX, event.clientY)?.closest('.space-node-port.input[data-port-type="input"]');
+  $("#space-flow-viewport").classList.remove("is-connecting");
+  if (!cancelled && destination) connectTo(destination.dataset.nodeId, destination.dataset.anchor);
+  else if (cancelled) {
+    flow.connectionDraft = null;
+    renderAll();
+  } else {
+    flow.connectionDraft.pointer = null;
+    flow.connectionDraft.pointerId = null;
+    renderNodes();
+    setStatus("연결할 도착 포트가 강조되어 있습니다. 화면을 옮긴 뒤 포트를 클릭해도 됩니다.");
+  }
+}
+document.addEventListener("pointerup", (event) => finishConnection(event), true);
+document.addEventListener("pointercancel", (event) => finishConnection(event, true), true);
 
 $("#space-flow-edges").addEventListener("click", (event) => {
   const path = event.target.closest("[data-edge-id]");

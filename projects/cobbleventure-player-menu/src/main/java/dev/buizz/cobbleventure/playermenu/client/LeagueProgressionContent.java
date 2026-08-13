@@ -29,32 +29,41 @@ final class LeagueProgressionContent {
             JsonObject badgeCatalog = read("badges.json");
             JsonObject gymCatalog = read("gyms.json");
             Map<String, Badge> badges = badges(badgeCatalog);
-            Map<String, String> badgeByLeagueEntry = badgeByLeagueEntry(gymCatalog);
+            Map<String, LeaderCard> leaderByLeagueEntry = leaderByLeagueEntry(gymCatalog);
             Map<PageKey, List<Entry>> grouped = new LinkedHashMap<>();
             for (JsonElement element : progression.getAsJsonArray("entries")) {
                 JsonObject value = element.getAsJsonObject();
                 if (!optionalBoolean(value, "trainer_card_visible", true)) continue;
                 String role = value.get("role").getAsString();
-                String badgeId = "gym_leader".equals(role) ? badgeByLeagueEntry.get(value.get("id").getAsString()) : null;
+                LeaderCard leader = "gym_leader".equals(role) ? leaderByLeagueEntry.get(value.get("id").getAsString()) : null;
+                String badgeId = leader == null ? null : leader.badgeId();
                 if ("gym_leader".equals(role) && badgeId == null) continue;
                 Badge badge = badgeId == null ? null : badges.get(badgeId);
                 int generation = value.get("generation").getAsInt();
                 String region = value.get("region").getAsString();
                 int order = value.has("trainer_card_order") ? value.get("trainer_card_order").getAsInt() : value.get("order").getAsInt();
                 grouped.computeIfAbsent(new PageKey(generation, region), ignored -> new ArrayList<>()).add(new Entry(
-                    order, localized(value.getAsJsonObject("display_name")), kind(role), badge
+                    order, localized(value.getAsJsonObject("display_name")), kind(role), badge,
+                    leader == null ? null : leader.skin(), leader != null && leader.slimModel()
                 ));
             }
-            return grouped.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(page -> {
-                List<TrainerCardProgress.Challenge> challenges = page.getValue().stream()
-                    .sorted(Comparator.comparingInt(Entry::order)).map(entry -> challenge(entry)).toList();
-                return new TrainerCardProgress.LeaguePage(
-                    Component.literal(page.getKey().generation() + "세대 · " + readable(page.getKey().region())),
-                    challenges,
-                    challenges.stream().anyMatch(challenge -> challenge.kind() != TrainerCardProgress.ChallengeKind.GYM)
-                        && challenges.stream().filter(challenge -> challenge.kind() != TrainerCardProgress.ChallengeKind.GYM).allMatch(TrainerCardProgress.Challenge::completed)
-                );
-            }).toList();
+            List<TrainerCardProgress.LeaguePage> pages = new ArrayList<>();
+            for (Map.Entry<PageKey, List<Entry>> page : grouped.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
+                List<Entry> entries = page.getValue().stream().sorted(Comparator.comparingInt(Entry::order)).toList();
+                int sheetCount = Math.max(1, (entries.size() + 7) / 8);
+                for (int offset = 0; offset < entries.size(); offset += 8) {
+                    List<TrainerCardProgress.Challenge> challenges = entries.subList(offset, Math.min(offset + 8, entries.size())).stream()
+                        .map(LeagueProgressionContent::challenge).toList();
+                    String sheet = sheetCount > 1 ? " · " + (offset / 8 + 1) + "/" + sheetCount : "";
+                    pages.add(new TrainerCardProgress.LeaguePage(
+                        Component.literal(page.getKey().generation() + "세대 · " + readable(page.getKey().region()) + sheet),
+                        challenges,
+                        challenges.stream().anyMatch(challenge -> challenge.kind() != TrainerCardProgress.ChallengeKind.GYM)
+                            && challenges.stream().filter(challenge -> challenge.kind() != TrainerCardProgress.ChallengeKind.GYM).allMatch(TrainerCardProgress.Challenge::completed)
+                    ));
+                }
+            }
+            return pages;
         } catch (IOException | RuntimeException error) {
             return List.of();
         }
@@ -69,7 +78,7 @@ final class LeagueProgressionContent {
             Component.literal(badge == null ? entry.name() : badge.name()),
             badge == null ? entry.name() : badge.tooltip(),
             badge == null ? null : badge.texture(), badge == null ? 0 : badge.u(), badge == null ? 0 : badge.v(),
-            badge == null ? 32 : badge.size(), 256, 288
+            badge == null ? 32 : badge.size(), 256, 288, entry.leaderSkin(), entry.slimModel()
         );
     }
 
@@ -86,11 +95,18 @@ final class LeagueProgressionContent {
         return result;
     }
 
-    private static Map<String, String> badgeByLeagueEntry(JsonObject root) {
-        Map<String, String> result = new HashMap<>();
+    private static Map<String, LeaderCard> leaderByLeagueEntry(JsonObject root) {
+        Map<String, LeaderCard> result = new HashMap<>();
         for (JsonElement element : root.getAsJsonArray("gyms")) {
             JsonObject leader = element.getAsJsonObject().getAsJsonObject("staff").getAsJsonObject("leader");
-            if (leader.has("league_entry_id") && leader.has("badge_id")) result.put(leader.get("league_entry_id").getAsString(), leader.get("badge_id").getAsString());
+            if (leader.has("league_entry_id") && leader.has("badge_id")) {
+                ResourceLocation skin = leader.has("trainer_card_skin") && !leader.get("trainer_card_skin").getAsString().isBlank()
+                    ? ResourceLocation.parse(leader.get("trainer_card_skin").getAsString()) : null;
+                result.put(leader.get("league_entry_id").getAsString(), new LeaderCard(
+                    leader.get("badge_id").getAsString(), skin,
+                    leader.has("trainer_card_model") && "slim".equals(leader.get("trainer_card_model").getAsString())
+                ));
+            }
         }
         return result;
     }
@@ -108,6 +124,7 @@ final class LeagueProgressionContent {
     private static String readable(String id) { String value = id.substring(Math.max(id.lastIndexOf(':'), id.lastIndexOf('/')) + 1); return value.replace('_', ' '); }
 
     private record PageKey(int generation, String region) implements Comparable<PageKey> { @Override public int compareTo(PageKey other) { int order = Integer.compare(generation, other.generation); return order != 0 ? order : region.compareTo(other.region); } }
-    private record Entry(int order, String name, TrainerCardProgress.ChallengeKind kind, Badge badge) {}
+    private record Entry(int order, String name, TrainerCardProgress.ChallengeKind kind, Badge badge, ResourceLocation leaderSkin, boolean slimModel) {}
+    private record LeaderCard(String badgeId, ResourceLocation skin, boolean slimModel) {}
     private record Badge(String id, String name, String tooltip, ResourceLocation texture, int u, int v, int size, int atlasWidth, int atlasHeight) {}
 }

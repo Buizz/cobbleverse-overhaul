@@ -4271,9 +4271,12 @@ DEFAULT_DEPARTMENT_STORE_SLOTS = [
 ]
 
 
-@functools.lru_cache(maxsize=4)
-def _economy_vendor_units_from_bca(root: Path) -> list[dict[str, Any]]:
-    mods = root / "pack" / "overrides" / "development-placeholder" / "mods"
+@functools.lru_cache(maxsize=8)
+def _economy_vendor_units_from_bca(
+    root: Path, core_root: Path | None = None
+) -> list[dict[str, Any]]:
+    source_root = (core_root or root).resolve()
+    mods = source_root / "pack" / "overrides" / "development-placeholder" / "mods"
     jars = sorted(mods.glob("cobblemon-additions-*.jar")) if mods.exists() else []
     if not jars:
         return []
@@ -4572,9 +4575,11 @@ def _economy_editor_catalog(root: Path, species: list[dict[str, Any]]) -> dict[s
     }
 
 
-def load_economy_workspace(root: Path) -> dict[str, Any]:
+def load_economy_workspace(
+    root: Path, core_root: Path | None = None
+) -> dict[str, Any]:
     catalog = load_json(root / "content" / "catalogs" / "economy.json")
-    built_in_vendors = _economy_vendor_units_from_bca(root)
+    built_in_vendors = _economy_vendor_units_from_bca(root, core_root)
     custom_vendors = catalog.get("vendor_units", []) if isinstance(catalog, dict) else []
     vendor_by_id = {vendor["id"]: vendor for vendor in built_in_vendors}
     for vendor in custom_vendors:
@@ -5270,7 +5275,7 @@ def create_gym(root: Path, slug: str, name: str, source_structure: str) -> tuple
         "theme": "normal",
         "exterior": {"structure": "cobbleventure:gyms/base_gym"},
         "interior": {"modules": [{"id": "main", "structure": interior_structure, "position": [0, 0, 0], "rotation": "none"}], "connections": []},
-        "staff": {"leader": {"trainer_id": "", "league_entry_id": "", "badge_id": "", "anchor": "leader"}, "trainers": []},
+        "staff": {"leader": {"trainer_id": "", "league_entry_id": "", "badge_id": "", "trainer_card_skin": "", "trainer_card_model": "wide", "anchor": "leader"}, "trainers": []},
     }
     catalog.setdefault("gyms", []).append(gym)
     issues = save_gym_catalog(root, catalog)
@@ -6954,6 +6959,8 @@ def read_minecraft_structure_metadata(data: bytes) -> dict[str, Any]:
     }
     occupied: list[tuple[int, int, int]] = []
     top_columns: dict[tuple[int, int], tuple[int, str]] = {}
+    cutaway_columns: dict[tuple[int, int], tuple[int, str]] = {}
+    cutaway_y = max(1, (size[1] + 1) // 2)
     invisible_blocks = {
         "minecraft:air", "minecraft:cave_air", "minecraft:void_air",
         "minecraft:structure_void", "minecraft:jigsaw",
@@ -6975,6 +6982,10 @@ def read_minecraft_structure_metadata(data: bytes) -> dict[str, Any]:
                     current = top_columns.get((x, z))
                     if current is None or y > current[0]:
                         top_columns[(x, z)] = (y, block_name)
+                    if y < cutaway_y:
+                        cutaway_current = cutaway_columns.get((x, z))
+                        if cutaway_current is None or y > cutaway_current[0]:
+                            cutaway_columns[(x, z)] = (y, block_name)
                 if block_name not in ignored_blocks:
                     occupied.append((x, y, z))
     occupied_columns = {(x, z) for x, _, z in occupied}
@@ -6997,6 +7008,18 @@ def read_minecraft_structure_metadata(data: bytes) -> dict[str, Any]:
             top_columns.items(), key=lambda item: (item[0][1], item[0][0])
         )
     ]
+    cutaway_palette = sorted({
+        block_name for _, block_name in cutaway_columns.values()
+    })
+    cutaway_palette_indexes = {
+        block_name: index for index, block_name in enumerate(cutaway_palette)
+    }
+    cutaway_blocks = [
+        [x, z, y, cutaway_palette_indexes[block_name]]
+        for (x, z), (y, block_name) in sorted(
+            cutaway_columns.items(), key=lambda item: (item[0][1], item[0][0])
+        )
+    ]
     return {
         "width": size[0], "height": size[1], "depth": size[2],
         "occupied": {
@@ -7006,6 +7029,11 @@ def read_minecraft_structure_metadata(data: bytes) -> dict[str, Any]:
         "top_view": {
             "palette": top_palette,
             "blocks": top_blocks,
+        },
+        "cutaway_view": {
+            "cutoff_y": cutaway_y,
+            "palette": cutaway_palette,
+            "blocks": cutaway_blocks,
         },
     }
 
@@ -7212,7 +7240,7 @@ def space_connections_payload(
             key: metadata[key]
             for key in (
                 "category", "category_label", "width", "height", "depth",
-                "door_anchors", "arrival_anchors",
+                "door_anchors", "arrival_anchors", "cutaway_view",
             )
             if key in metadata
         }
@@ -7806,7 +7834,13 @@ def structure_catalog_signature(
     """Return a cheap fingerprint for NBT resources and archives used by preview."""
     core_root = (core_root or root).resolve()
     candidates: list[Path] = []
-    candidates.extend(managed_structure_files(root).values())
+    managed_files = list(managed_structure_files(root).values())
+    candidates.extend(managed_files)
+    candidates.extend(
+        path.with_suffix(".structure.json")
+        for path in managed_files
+        if path.with_suffix(".structure.json").is_file()
+    )
     for resource_root in [
         core_root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources",
         core_root / "projects" / "cobbleventure-world-bootstrap" / "src" / "generated" / "resources",
@@ -7826,7 +7860,7 @@ def structure_catalog_signature(
     return tuple(signature)
 
 
-STRUCTURE_WEB_CACHE_VERSION = 1
+STRUCTURE_WEB_CACHE_VERSION = 2
 STRUCTURE_WEB_CACHE_PATH = Path("tools/content-manager/.cache/structure-web-catalog.json")
 
 
@@ -8236,7 +8270,7 @@ def create_handler(
                 return
             if request.path == "/api/economy":
                 try:
-                    self._json(200, load_economy_workspace(root))
+                    self._json(200, load_economy_workspace(root, core_root))
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
@@ -8918,7 +8952,13 @@ def create_handler(
         def log_message(self, format: str, *args: Any) -> None:
             print(f"[API] {self.address_string()} {format % args}")
 
-    if saved_structure_cache is not None:
+    cached_signature = tuple(
+        tuple(entry) for entry in saved_structure_cache.get("signature", [])
+    ) if saved_structure_cache is not None else ()
+    if (
+        saved_structure_cache is not None
+        and cached_signature != structure_catalog_signature(root, core_root)
+    ):
         schedule_structure_cache_refresh()
     return Handler
 

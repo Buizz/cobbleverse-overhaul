@@ -25,7 +25,7 @@ record TrainerCardProgress(List<LeaguePage> pages) {
 
     private static List<Challenge> buildPreviewChallenges() {
         return java.util.stream.IntStream.range(0, UNDECIDED_PREVIEW_SLOTS)
-            .mapToObj(index -> new Challenge(Component.empty(), false, ChallengeKind.GYM, "", Component.empty(), "", null, 0, 0, 32, 256, 288))
+            .mapToObj(index -> new Challenge(Component.empty(), false, ChallengeKind.GYM, "", Component.empty(), "", null, 0, 0, 32, 256, 288, null, false))
             .toList();
     }
 
@@ -38,7 +38,7 @@ record TrainerCardProgress(List<LeaguePage> pages) {
     record Challenge(
         Component name, boolean completed, ChallengeKind kind, String badgeId, Component badgeName,
         String tooltip, ResourceLocation texture, int textureU, int textureV, int textureSize,
-        int atlasWidth, int atlasHeight
+        int atlasWidth, int atlasHeight, ResourceLocation leaderSkin, boolean slimModel
     ) {
     }
 
