@@ -249,8 +249,33 @@ final class GymInteriorSystem {
         return new GymDefinition(
             requiredString(gym, "id"), localizedName(gym.getAsJsonObject("display_name")),
             requiredString(gym, "theme"), requiredString(exterior, "structure"),
-            clearVariable(leaderTrainerId), List.copyOf(modules), List.copyOf(staffMembers)
+            clearVariable(leaderTrainerId), List.copyOf(modules), List.copyOf(staffMembers),
+            accessPolicy(interior)
         );
+    }
+
+    private static AccessPolicy accessPolicy(JsonObject interior) {
+        if (interior != null && interior.has("connections")) {
+            for (JsonElement element : interior.getAsJsonArray("connections")) {
+                JsonObject connection = element.getAsJsonObject();
+                if (!requiredString(connection, "from").startsWith("exterior:")) {
+                    continue;
+                }
+                List<Condition> conditions = new ArrayList<>();
+                if (connection.has("conditions")) {
+                    for (JsonElement condition : connection.getAsJsonArray("conditions")) {
+                        conditions.add(parseCondition(condition.getAsJsonObject()));
+                    }
+                }
+                return new AccessPolicy(
+                    optionalString(connection, "condition_mode", "all"),
+                    List.copyOf(conditions),
+                    strings(connection, "locked_dialogue", List.of("문이 잠겨 있다.")),
+                    strings(connection, "enter_dialogue", List.of())
+                );
+            }
+        }
+        return new AccessPolicy("all", List.of(), List.of("문이 잠겨 있다."), List.of());
     }
 
     private static String localizedName(JsonObject value) {
@@ -351,6 +376,8 @@ final class GymInteriorSystem {
             for (JsonElement element : entrance.getAsJsonArray("conditions")) {
                 conditions.add(parseCondition(element.getAsJsonObject()));
             }
+        } else {
+            conditions.addAll(definition.access.conditions);
         }
         return new GymConfig(
             settlementId,
@@ -362,10 +389,10 @@ final class GymInteriorSystem {
             point(entrance, "door_offset", DEFAULT_DOOR),
             point(entrance, "outside_offset", DEFAULT_OUTSIDE),
             direction(optionalString(entrance, "facing", "north")),
-            optionalString(entrance, "condition_mode", "all"),
+            optionalString(entrance, "condition_mode", definition.access.conditionMode),
             List.copyOf(conditions),
-            strings(entrance, "locked_dialogue", List.of("문이 잠겨 있다.")),
-            strings(entrance, "enter_dialogue", List.of()),
+            strings(entrance, "locked_dialogue", definition.access.lockedDialogue),
+            strings(entrance, "enter_dialogue", definition.access.enterDialogue),
             point(interior, "entry_offset", DEFAULT_ENTRY),
             point(interior, "exit_door_offset", DEFAULT_DOOR),
             definition.staff
@@ -681,7 +708,13 @@ final class GymInteriorSystem {
 
     private record GymDefinition(
         String id, String displayName, String theme, String exteriorStructure,
-        String clearVariable, List<InteriorModule> modules, List<GymStaffMember> staff
+        String clearVariable, List<InteriorModule> modules, List<GymStaffMember> staff,
+        AccessPolicy access
+    ) {}
+
+    private record AccessPolicy(
+        String conditionMode, List<Condition> conditions,
+        List<String> lockedDialogue, List<String> enterDialogue
     ) {}
 
     record GymArrivalInfo(String displayName, String theme, boolean cleared) {}

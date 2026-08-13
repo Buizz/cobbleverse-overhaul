@@ -2,16 +2,303 @@
   "$schema": "../schemas/gym-catalog.schema.json",
   "schema_version": 1,
   "gyms": [
-    { "id": "cobbleventure:gym/pewter", "enabled": true, "display_name": { "ko_kr": "회색 체육관", "en_us": "Pewter Gym" }, "theme": "rock", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/base_gym_interior", "position": [0, 0, 0], "rotation": "none" }], "connections": [] }, "staff": { "leader": { "trainer_id": "cobbleventure:npc/gym_leader/brock", "league_entry_id": "cobbleventure:league/kanto/boulder", "anchor": "leader" }, "trainers": [] } },
-    { "id": "cobbleventure:gym/cerulean", "enabled": true, "display_name": { "ko_kr": "블루 체육관", "en_us": "Cerulean Gym" }, "theme": "water", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/base_gym_interior", "position": [0, 0, 0], "rotation": "none" }], "connections": [] }, "staff": { "leader": { "trainer_id": "cobbleventure:npc/gym_leader/misty", "league_entry_id": "cobbleventure:league/kanto/cascade", "anchor": "leader" }, "trainers": [] } },
-    { "id": "cobbleventure:gym/vermilion", "enabled": true, "display_name": { "ko_kr": "갈색 체육관", "en_us": "Vermilion Gym" }, "theme": "electric", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/base_gym_interior", "position": [0, 0, 0], "rotation": "none" }], "connections": [] }, "staff": { "leader": { "trainer_id": "cobbleventure:npc/gym_leader/lt_surge", "league_entry_id": "cobbleventure:league/kanto/thunder", "anchor": "leader" }, "trainers": [] } },
-    { "id": "cobbleventure:gym/celadon", "enabled": true, "display_name": { "ko_kr": "무지개 체육관", "en_us": "Celadon Gym" }, "theme": "grass", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/base_gym_interior", "position": [0, 0, 0], "rotation": "none" }], "connections": [] }, "staff": { "leader": { "trainer_id": "cobbleventure:npc/gym_leader/erika", "league_entry_id": "cobbleventure:league/kanto/rainbow", "anchor": "leader" }, "trainers": [] } },
-    { "id": "cobbleventure:gym/fuchsia", "enabled": true, "display_name": { "ko_kr": "연분홍 체육관", "en_us": "Fuchsia Gym" }, "theme": "poison", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/base_gym_interior", "position": [0, 0, 0], "rotation": "none" }], "connections": [] }, "staff": { "leader": { "trainer_id": "cobbleventure:npc/gym_leader/koga", "league_entry_id": "cobbleventure:league/kanto/soul", "anchor": "leader" }, "trainers": [] } },
-    { "id": "cobbleventure:gym/saffron", "enabled": true, "display_name": { "ko_kr": "노랑 체육관", "en_us": "Saffron Gym" }, "theme": "psychic", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/base_gym_interior", "position": [0, 0, 0], "rotation": "none" }], "connections": [] }, "staff": { "leader": { "trainer_id": "cobbleventure:npc/gym_leader/sabrina", "league_entry_id": "cobbleventure:league/kanto/marsh", "anchor": "leader" }, "trainers": [] } },
-    { "id": "cobbleventure:gym/cinnabar", "enabled": true, "display_name": { "ko_kr": "홍련 체육관", "en_us": "Cinnabar Gym" }, "theme": "fire", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/base_gym_interior", "position": [0, 0, 0], "rotation": "none" }], "connections": [] }, "staff": { "leader": { "trainer_id": "cobbleventure:npc/gym_leader/blaine", "league_entry_id": "cobbleventure:league/kanto/volcano", "anchor": "leader" }, "trainers": [] } },
-    { "id": "cobbleventure:gym/viridian", "enabled": true, "display_name": { "ko_kr": "상록 체육관", "en_us": "Viridian Gym" }, "theme": "ground", "exterior": { "structure": "cobbleventure:gyms/base_gym" }, "interior": { "modules": [{ "id": "main", "structure": "cobbleventure:interiors/gyms/base_gym_interior", "position": [0, 0, 0], "rotation": "none" }], "connections": [] }, "staff": { "leader": { "trainer_id": "cobbleventure:npc/gym_leader/giovanni_gym", "league_entry_id": "cobbleventure:league/kanto/earth", "anchor": "leader" }, "trainers": [] } }
+    {
+      "id": "cobbleventure:gym/pewter",
+      "enabled": true,
+      "display_name": {
+        "ko_kr": "회색 체육관",
+        "en_us": "Pewter Gym"
+      },
+      "theme": "rock",
+      "exterior": {
+        "structure": "cobbleventure:gyms/base_gym"
+      },
+      "interior": {
+        "modules": [
+          {
+            "id": "main",
+            "structure": "cobbleventure:interiors/gyms/base_gym_interior",
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": "none"
+          }
+        ],
+        "connections": []
+      },
+      "staff": {
+        "leader": {
+          "trainer_id": "cobbleventure:npc/gym_leader/brock",
+          "league_entry_id": "cobbleventure:league/kanto/boulder",
+          "anchor": "leader",
+          "badge_id": "cobbleventure:badge/kanto/boulder"
+        },
+        "trainers": []
+      }
+    },
+    {
+      "id": "cobbleventure:gym/cerulean",
+      "enabled": true,
+      "display_name": {
+        "ko_kr": "블루 체육관",
+        "en_us": "Cerulean Gym"
+      },
+      "theme": "water",
+      "exterior": {
+        "structure": "cobbleventure:gyms/base_gym"
+      },
+      "interior": {
+        "modules": [
+          {
+            "id": "main",
+            "structure": "cobbleventure:interiors/gyms/base_gym_interior",
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": "none"
+          }
+        ],
+        "connections": []
+      },
+      "staff": {
+        "leader": {
+          "trainer_id": "cobbleventure:npc/gym_leader/misty",
+          "league_entry_id": "cobbleventure:league/kanto/cascade",
+          "anchor": "leader",
+          "badge_id": "cobbleventure:badge/kanto/cascade"
+        },
+        "trainers": []
+      }
+    },
+    {
+      "id": "cobbleventure:gym/vermilion",
+      "enabled": true,
+      "display_name": {
+        "ko_kr": "갈색 체육관",
+        "en_us": "Vermilion Gym"
+      },
+      "theme": "electric",
+      "exterior": {
+        "structure": "cobbleventure:gyms/base_gym"
+      },
+      "interior": {
+        "modules": [
+          {
+            "id": "main",
+            "structure": "cobbleventure:interiors/gyms/base_gym_interior",
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": "none"
+          }
+        ],
+        "connections": []
+      },
+      "staff": {
+        "leader": {
+          "trainer_id": "cobbleventure:npc/gym_leader/lt_surge",
+          "league_entry_id": "cobbleventure:league/kanto/thunder",
+          "anchor": "leader",
+          "badge_id": "cobbleventure:badge/kanto/thunder"
+        },
+        "trainers": []
+      }
+    },
+    {
+      "id": "cobbleventure:gym/celadon",
+      "enabled": true,
+      "display_name": {
+        "ko_kr": "무지개 체육관",
+        "en_us": "Celadon Gym"
+      },
+      "theme": "grass",
+      "exterior": {
+        "structure": "cobbleventure:gyms/base_gym"
+      },
+      "interior": {
+        "modules": [
+          {
+            "id": "main",
+            "structure": "cobbleventure:interiors/gyms/base_gym_interior",
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": "none"
+          }
+        ],
+        "connections": []
+      },
+      "staff": {
+        "leader": {
+          "trainer_id": "cobbleventure:npc/gym_leader/erika",
+          "league_entry_id": "cobbleventure:league/kanto/rainbow",
+          "anchor": "leader",
+          "badge_id": "cobbleventure:badge/kanto/rainbow"
+        },
+        "trainers": []
+      }
+    },
+    {
+      "id": "cobbleventure:gym/fuchsia",
+      "enabled": true,
+      "display_name": {
+        "ko_kr": "연분홍 체육관",
+        "en_us": "Fuchsia Gym"
+      },
+      "theme": "poison",
+      "exterior": {
+        "structure": "cobbleventure:gyms/base_gym"
+      },
+      "interior": {
+        "modules": [
+          {
+            "id": "main",
+            "structure": "cobbleventure:interiors/gyms/base_gym_interior",
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": "none"
+          }
+        ],
+        "connections": []
+      },
+      "staff": {
+        "leader": {
+          "trainer_id": "cobbleventure:npc/gym_leader/koga",
+          "league_entry_id": "cobbleventure:league/kanto/soul",
+          "anchor": "leader",
+          "badge_id": "cobbleventure:badge/kanto/soul"
+        },
+        "trainers": []
+      }
+    },
+    {
+      "id": "cobbleventure:gym/saffron",
+      "enabled": true,
+      "display_name": {
+        "ko_kr": "노랑 체육관",
+        "en_us": "Saffron Gym"
+      },
+      "theme": "psychic",
+      "exterior": {
+        "structure": "cobbleventure:gyms/base_gym"
+      },
+      "interior": {
+        "modules": [
+          {
+            "id": "main",
+            "structure": "cobbleventure:interiors/gyms/base_gym_interior",
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": "none"
+          }
+        ],
+        "connections": []
+      },
+      "staff": {
+        "leader": {
+          "trainer_id": "cobbleventure:npc/gym_leader/sabrina",
+          "league_entry_id": "cobbleventure:league/kanto/marsh",
+          "anchor": "leader",
+          "badge_id": "cobbleventure:badge/kanto/marsh"
+        },
+        "trainers": []
+      }
+    },
+    {
+      "id": "cobbleventure:gym/cinnabar",
+      "enabled": true,
+      "display_name": {
+        "ko_kr": "홍련 체육관",
+        "en_us": "Cinnabar Gym"
+      },
+      "theme": "fire",
+      "exterior": {
+        "structure": "cobbleventure:gyms/base_gym"
+      },
+      "interior": {
+        "modules": [
+          {
+            "id": "main",
+            "structure": "cobbleventure:interiors/gyms/base_gym_interior",
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": "none"
+          }
+        ],
+        "connections": []
+      },
+      "staff": {
+        "leader": {
+          "trainer_id": "cobbleventure:npc/gym_leader/blaine",
+          "league_entry_id": "cobbleventure:league/kanto/volcano",
+          "anchor": "leader",
+          "badge_id": "cobbleventure:badge/kanto/volcano"
+        },
+        "trainers": []
+      }
+    },
+    {
+      "id": "cobbleventure:gym/viridian",
+      "enabled": true,
+      "display_name": {
+        "ko_kr": "상록 체육관",
+        "en_us": "Viridian Gym"
+      },
+      "theme": "ground",
+      "exterior": {
+        "structure": "cobbleventure:gyms/base_gym"
+      },
+      "interior": {
+        "modules": [
+          {
+            "id": "main",
+            "structure": "cobbleventure:interiors/gyms/base_gym_interior",
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": "none"
+          }
+        ],
+        "connections": []
+      },
+      "staff": {
+        "leader": {
+          "trainer_id": "cobbleventure:npc/gym_leader/giovanni_gym",
+          "league_entry_id": "cobbleventure:league/kanto/earth",
+          "anchor": "leader",
+          "badge_id": "cobbleventure:badge/kanto/earth"
+        },
+        "trainers": []
+      }
+    }
   ],
   "leagues": [
-    { "id": "cobbleventure:league/kanto", "display_name": { "ko_kr": "포켓몬리그", "en_us": "Pokemon League" }, "structure": "cobbleventure:league/kanto_league" }
+    {
+      "id": "cobbleventure:league/kanto",
+      "display_name": {
+        "ko_kr": "포켓몬리그",
+        "en_us": "Pokemon League"
+      },
+      "structure": "cobbleventure:league/kanto_league"
+    }
   ]
 }

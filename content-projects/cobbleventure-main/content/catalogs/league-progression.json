@@ -5,90 +5,122 @@
     {
       "id": "cobbleventure:league/kanto/boulder",
       "role": "gym_leader",
-      "display_name": { "ko_kr": "웅", "en_us": "Brock" },
+      "display_name": {
+        "ko_kr": "웅",
+        "en_us": "Brock"
+      },
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 1,
       "level_cap": 56,
       "trainer_id": "cobbleventure:npc/gym_leader/brock",
-      "badge": { "item": "cobbleversebadges:kanto_boulder_badge", "display_name": { "ko_kr": "회색배지", "en_us": "Boulder Badge" }, "trainer_card_visible": true }
+      "trainer_card_order": 1,
+      "trainer_card_visible": true
     },
     {
       "id": "cobbleventure:league/kanto/cascade",
       "role": "gym_leader",
-      "display_name": { "ko_kr": "이슬", "en_us": "Misty" },
+      "display_name": {
+        "ko_kr": "이슬",
+        "en_us": "Misty"
+      },
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 2,
       "level_cap": 51,
       "trainer_id": "cobbleventure:npc/gym_leader/misty",
-      "badge": { "item": "cobbleversebadges:kanto_cascade_badge", "display_name": { "ko_kr": "블루배지", "en_us": "Cascade Badge" }, "trainer_card_visible": true }
+      "trainer_card_order": 2,
+      "trainer_card_visible": true
     },
     {
       "id": "cobbleventure:league/kanto/thunder",
       "role": "gym_leader",
-      "display_name": { "ko_kr": "마티스", "en_us": "Lt. Surge" },
+      "display_name": {
+        "ko_kr": "마티스",
+        "en_us": "Lt. Surge"
+      },
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 3,
       "level_cap": 20,
       "trainer_id": "cobbleventure:npc/gym_leader/lt_surge",
-      "badge": { "item": "cobbleversebadges:kanto_thunder_badge", "display_name": { "ko_kr": "오렌지배지", "en_us": "Thunder Badge" }, "trainer_card_visible": true }
+      "trainer_card_order": 3,
+      "trainer_card_visible": true
     },
     {
       "id": "cobbleventure:league/kanto/rainbow",
       "role": "gym_leader",
-      "display_name": { "ko_kr": "민화", "en_us": "Erika" },
+      "display_name": {
+        "ko_kr": "민화",
+        "en_us": "Erika"
+      },
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 4,
       "level_cap": 28,
       "trainer_id": "cobbleventure:npc/gym_leader/erika",
-      "badge": { "item": "cobbleversebadges:kanto_rainbow_badge", "display_name": { "ko_kr": "무지개배지", "en_us": "Rainbow Badge" }, "trainer_card_visible": true }
+      "trainer_card_order": 4,
+      "trainer_card_visible": true
     },
     {
       "id": "cobbleventure:league/kanto/soul",
       "role": "gym_leader",
-      "display_name": { "ko_kr": "독수", "en_us": "Koga" },
+      "display_name": {
+        "ko_kr": "독수",
+        "en_us": "Koga"
+      },
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 5,
       "level_cap": 40,
       "trainer_id": "cobbleventure:npc/gym_leader/koga",
-      "badge": { "item": "cobbleversebadges:kanto_soul_badge", "display_name": { "ko_kr": "핑크배지", "en_us": "Soul Badge" }, "trainer_card_visible": true }
+      "trainer_card_order": 5,
+      "trainer_card_visible": true
     },
     {
       "id": "cobbleventure:league/kanto/marsh",
       "role": "gym_leader",
-      "display_name": { "ko_kr": "초련", "en_us": "Sabrina" },
+      "display_name": {
+        "ko_kr": "초련",
+        "en_us": "Sabrina"
+      },
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 6,
       "level_cap": 23,
       "trainer_id": "cobbleventure:npc/gym_leader/sabrina",
-      "badge": { "item": "cobbleversebadges:kanto_marsh_badge", "display_name": { "ko_kr": "골드배지", "en_us": "Marsh Badge" }, "trainer_card_visible": true }
+      "trainer_card_order": 6,
+      "trainer_card_visible": true
     },
     {
       "id": "cobbleventure:league/kanto/volcano",
       "role": "gym_leader",
-      "display_name": { "ko_kr": "강연", "en_us": "Blaine" },
+      "display_name": {
+        "ko_kr": "강연",
+        "en_us": "Blaine"
+      },
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 7,
       "level_cap": 50,
       "trainer_id": "cobbleventure:npc/gym_leader/blaine",
-      "badge": { "item": "cobbleversebadges:kanto_volcano_badge", "display_name": { "ko_kr": "크림슨배지", "en_us": "Volcano Badge" }, "trainer_card_visible": true }
+      "trainer_card_order": 7,
+      "trainer_card_visible": true
     },
     {
       "id": "cobbleventure:league/kanto/earth",
       "role": "gym_leader",
-      "display_name": { "ko_kr": "비주기", "en_us": "Giovanni" },
+      "display_name": {
+        "ko_kr": "비주기",
+        "en_us": "Giovanni"
+      },
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 8,
       "level_cap": 64,
       "trainer_id": "cobbleventure:npc/gym_leader/giovanni_gym",
-      "badge": { "item": "cobbleversebadges:kanto_earth_badge", "display_name": { "ko_kr": "그린배지", "en_us": "Earth Badge" }, "trainer_card_visible": true }
+      "trainer_card_order": 8,
+      "trainer_card_visible": true
     }
   ]
 }

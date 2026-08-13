@@ -201,6 +201,7 @@ OPERATION_TYPES = {
     "set_flag",
     "mark_clear",
     "give_item",
+    "grant_badge",
     "give_money",
     "take_money",
     "grant_loot",
@@ -1743,6 +1744,8 @@ def _validate_operation(
         count = operation.get("count")
         if not isinstance(count, int) or isinstance(count, bool) or count < 1:
             _issue(issues, "error", file, f"{data_path}.count", "1 이상의 정수가 필요합니다.")
+    elif operation_type == "grant_badge":
+        _resource_id(operation.get("badge"), issues, file, f"{data_path}.badge")
     elif operation_type in {"give_money", "take_money"}:
         mode = operation.get("mode")
         if mode == "fixed":
@@ -3510,7 +3513,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     event_ids: set[str] = set()
     command_types = {
         "branch", "label", "dialogue", "choices", "goto", "start_battle",
-        "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_field_move",
+        "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_badge", "grant_field_move",
         "teleport_to_gate", "end",
     }
     for event_index, event_value in enumerate(events):
@@ -3594,7 +3597,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
                             _issue(issues, "error", path, f"{command_path}.results.{key}", "지원하지 않는 배틀 결과입니다.")
                         elif isinstance(target, str):
                             targets.append((f"{command_path}.results.{key}", target))
-            elif command_type in {"set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_field_move"}:
+            elif command_type in {"set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_badge", "grant_field_move"}:
                 _validate_operation(command, issues, path, command_path, npc_id, [])
             elif command_type == "teleport_to_gate":
                 gate = command.get("gate")
@@ -5040,16 +5043,11 @@ def validate_league_progression_file(
         trainer_id = _resource_id(entry.get("trainer_id"), issues, path, f"{entry_path}.trainer_id")
         if trainer_ids is not None and trainer_id and trainer_id not in trainer_ids:
             _issue(issues, "error", path, f"{entry_path}.trainer_id", f"트레이너풀에 없는 NPC입니다: {trainer_id}")
-        badge = entry.get("badge")
-        if role == "gym_leader":
-            badge = _require_object(badge, issues, path, f"{entry_path}.badge")
-            if badge is not None:
-                _resource_id(badge.get("item"), issues, path, f"{entry_path}.badge.item")
-                _localized_text(badge.get("display_name"), issues, path, f"{entry_path}.badge.display_name")
-                if not isinstance(badge.get("trainer_card_visible"), bool):
-                    _issue(issues, "error", path, f"{entry_path}.badge.trainer_card_visible", "boolean이어야 합니다.")
-        elif badge is not None:
-            _issue(issues, "error", path, f"{entry_path}.badge", "배지는 체육관 관장에게만 설정할 수 있습니다.")
+        card_order = entry.get("trainer_card_order", order)
+        if not isinstance(card_order, int) or isinstance(card_order, bool) or not 1 <= card_order <= 99:
+            _issue(issues, "error", path, f"{entry_path}.trainer_card_order", "트레이너 카드 순서는 1~99 정수여야 합니다.")
+        if not isinstance(entry.get("trainer_card_visible", True), bool):
+            _issue(issues, "error", path, f"{entry_path}.trainer_card_visible", "boolean이어야 합니다.")
     return entry_ids, issues
 
 
@@ -5178,7 +5176,7 @@ def validate_gym_catalog_file(path: Path, structure_root: Path | None = None) ->
         if staff is not None:
             leader = _require_object(staff.get("leader"), issues, path, f"{gym_path}.staff.leader")
             if leader is not None:
-                for field in ("trainer_id", "league_entry_id"):
+                for field in ("trainer_id", "league_entry_id", "badge_id"):
                     value = leader.get(field)
                     if value not in {None, ""}:
                         _resource_id(value, issues, path, f"{gym_path}.staff.leader.{field}")
@@ -5272,7 +5270,7 @@ def create_gym(root: Path, slug: str, name: str, source_structure: str) -> tuple
         "theme": "normal",
         "exterior": {"structure": "cobbleventure:gyms/base_gym"},
         "interior": {"modules": [{"id": "main", "structure": interior_structure, "position": [0, 0, 0], "rotation": "none"}], "connections": []},
-        "staff": {"leader": {"trainer_id": "", "league_entry_id": "", "anchor": "leader"}, "trainers": []},
+        "staff": {"leader": {"trainer_id": "", "league_entry_id": "", "badge_id": "", "anchor": "leader"}, "trainers": []},
     }
     catalog.setdefault("gyms", []).append(gym)
     issues = save_gym_catalog(root, catalog)
@@ -5558,6 +5556,11 @@ def validate_repository(
     )
     issues.extend(league_issues)
     try:
+        badge_catalog = load_json(root / "content" / "catalogs" / "badges.json")
+        badge_ids = {
+            badge.get("id") for badge in badge_catalog.get("badges", [])
+            if isinstance(badge, dict) and isinstance(badge.get("id"), str)
+        }
         gym_catalog = load_json(root / "content" / "catalogs" / "gyms.json")
         gym_ids = {
             gym.get("id") for gym in gym_catalog.get("gyms", [])
@@ -5570,10 +5573,13 @@ def validate_repository(
             leader = staff.get("leader", {}) if isinstance(staff, dict) else {}
             trainer_id = leader.get("trainer_id") if isinstance(leader, dict) else None
             league_entry_id = leader.get("league_entry_id") if isinstance(leader, dict) else None
+            badge_id = leader.get("badge_id") if isinstance(leader, dict) else None
             if isinstance(trainer_id, str) and trainer_id and trainer_id not in seen_content:
                 _issue(issues, "error", root / "content" / "catalogs" / "gyms.json", f"$.gyms[{gym_index}].staff.leader.trainer_id", f"존재하지 않는 관장 트레이너 ID: {trainer_id}")
             if isinstance(league_entry_id, str) and league_entry_id and league_entry_id not in league_ids:
                 _issue(issues, "error", root / "content" / "catalogs" / "gyms.json", f"$.gyms[{gym_index}].staff.leader.league_entry_id", f"존재하지 않는 리그 항목: {league_entry_id}")
+            if isinstance(badge_id, str) and badge_id and badge_id not in badge_ids:
+                _issue(issues, "error", root / "content" / "catalogs" / "gyms.json", f"$.gyms[{gym_index}].staff.leader.badge_id", f"배지 카탈로그에 없는 배지: {badge_id}")
             trainers = staff.get("trainers", []) if isinstance(staff, dict) else []
             for trainer_index, trainer in enumerate(trainers if isinstance(trainers, list) else []):
                 trainer_id = trainer.get("trainer_id") if isinstance(trainer, dict) else None
@@ -7066,6 +7072,7 @@ STRUCTURE_VIEWER_REQUIRED_EXTERNAL = {
     "bca:default/centers/center_department_store",
 }
 BUILDING_SETTINGS_PATH = Path("content/catalogs/building-settings.json")
+SPACE_CONNECTIONS_PATH = Path("content/catalogs/space-connections.json")
 STRUCTURE_CATEGORY_LABELS = {
     "building": "일반 건물",
     "residential": "주택",
@@ -7172,6 +7179,268 @@ def load_building_settings(root: Path) -> dict[str, Any]:
     if not isinstance(buildings, dict):
         raise ValueError("건물 설정 buildings는 객체여야 합니다.")
     return {"schema_version": 1, "buildings": buildings}
+
+
+def _space_graph_position(
+    layouts: dict[str, Any], graph_id: str, node_id: str, fallback: list[int]
+) -> list[int]:
+    graph = layouts.get(graph_id, {}) if isinstance(layouts, dict) else {}
+    nodes = graph.get("nodes", {}) if isinstance(graph, dict) else {}
+    value = nodes.get(node_id) if isinstance(nodes, dict) else None
+    if (
+        isinstance(value, list) and len(value) == 2
+        and all(isinstance(item, int) and not isinstance(item, bool) for item in value)
+    ):
+        return value
+    return fallback
+
+
+def space_connections_payload(
+    root: Path, structure_payload: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Build the visual graph from the two legacy runtime catalogs."""
+    saved_path = root / SPACE_CONNECTIONS_PATH
+    saved = load_json(saved_path) if saved_path.is_file() else {}
+    layouts = saved.get("layouts", {}) if isinstance(saved, dict) else {}
+    annotations = saved.get("annotations", {}) if isinstance(saved, dict) else {}
+    full_structures = (
+        structure_payload if isinstance(structure_payload, dict)
+        else building_settings_payload(root)
+    ).get("structures", {})
+    structures = {
+        resource_id: {
+            key: metadata[key]
+            for key in (
+                "category", "category_label", "width", "height", "depth",
+                "door_anchors", "arrival_anchors",
+            )
+            if key in metadata
+        }
+        for resource_id, metadata in full_structures.items()
+    }
+    settings = load_building_settings(root)["buildings"]
+    graphs: list[dict[str, Any]] = []
+
+    for exterior_id, entry in sorted(settings.items()):
+        if exterior_id not in structures or not isinstance(entry, dict):
+            continue
+        graph_id = f"building:{exterior_id}"
+        nodes = [{
+            "id": "exterior", "kind": "exterior", "structure": exterior_id,
+            "position": _space_graph_position(layouts, graph_id, "exterior", [90, 170]),
+        }]
+        for index, interior in enumerate(entry.get("interiors", [])):
+            if not isinstance(interior, dict):
+                continue
+            node_id = interior.get("key")
+            if not isinstance(node_id, str):
+                continue
+            nodes.append({
+                "id": node_id, "kind": "interior", "structure": interior.get("structure", ""),
+                "position": _space_graph_position(
+                    layouts, graph_id, node_id, [470 + (index % 3) * 340, 90 + (index // 3) * 260]
+                ),
+            })
+        connections = []
+        for index, (source, target) in enumerate(sorted(entry.get("door_routes", {}).items())):
+            if not isinstance(target, dict) or ":" not in source:
+                continue
+            source_node, source_anchor = source.split(":", 1)
+            edge_id = f"route_{index + 1}"
+            note = annotations.get(graph_id, {}).get(edge_id, {}) if isinstance(annotations, dict) else {}
+            connections.append({
+                "id": edge_id,
+                "from": {"node": source_node, "anchor": source_anchor},
+                "to": {"node": target.get("space", ""), "anchor": target.get("arrival", "")},
+                **(note if isinstance(note, dict) else {}),
+            })
+        graphs.append({
+            "id": graph_id, "kind": "building", "owner": exterior_id,
+            "display_name": exterior_id, "nodes": nodes, "connections": connections,
+        })
+
+    gyms_path = root / "content" / "catalogs" / "gyms.json"
+    gym_catalog = load_json(gyms_path) if gyms_path.is_file() else {"gyms": []}
+    for gym in gym_catalog.get("gyms", []) if isinstance(gym_catalog, dict) else []:
+        if not isinstance(gym, dict) or not isinstance(gym.get("id"), str):
+            continue
+        graph_id = f"gym:{gym['id']}"
+        exterior = gym.get("exterior", {})
+        nodes = [{
+            "id": "exterior", "kind": "exterior", "structure": exterior.get("structure", ""),
+            "position": _space_graph_position(layouts, graph_id, "exterior", [90, 170]),
+        }]
+        modules = gym.get("interior", {}).get("modules", [])
+        for index, module in enumerate(modules if isinstance(modules, list) else []):
+            if not isinstance(module, dict) or not isinstance(module.get("id"), str):
+                continue
+            nodes.append({
+                "id": module["id"], "kind": "interior", "structure": module.get("structure", ""),
+                "position": _space_graph_position(
+                    layouts, graph_id, module["id"], [470 + (index % 3) * 340, 90 + (index // 3) * 260]
+                ),
+                "world_position": module.get("position", [0, 0, index * 32]),
+                "rotation": module.get("rotation", "none"),
+            })
+        connections = []
+        for index, connection in enumerate(gym.get("interior", {}).get("connections", [])):
+            if not isinstance(connection, dict):
+                continue
+            source = str(connection.get("from", ""))
+            target = str(connection.get("to", ""))
+            source_node, _, source_anchor = source.partition(":")
+            target_node, _, target_anchor = target.partition(":")
+            edge_id = f"route_{index + 1}"
+            note = annotations.get(graph_id, {}).get(edge_id, {}) if isinstance(annotations, dict) else {}
+            connections.append({
+                "id": edge_id,
+                "from": {"node": source_node, "anchor": source_anchor},
+                "to": {"node": target_node, "anchor": target_anchor},
+                **(note if isinstance(note, dict) else {}),
+            })
+        name = gym.get("display_name", {}).get("ko_kr", gym["id"])
+        graphs.append({
+            "id": graph_id, "kind": "gym", "owner": gym["id"],
+            "display_name": name, "nodes": nodes, "connections": connections,
+        })
+    return {
+        "schema_version": 1, "graphs": graphs, "structures": structures,
+        "path": SPACE_CONNECTIONS_PATH.as_posix(),
+    }
+
+
+def save_space_connections(root: Path, data: Any) -> list[Issue]:
+    path = root / SPACE_CONNECTIONS_PATH
+    issues: list[Issue] = []
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+        return [Issue("error", path.as_posix(), "$.schema_version", "버전 1이 필요합니다.")]
+    graphs = data.get("graphs")
+    if not isinstance(graphs, list):
+        return [Issue("error", path.as_posix(), "$.graphs", "공간 연결 그래프 배열이 필요합니다.")]
+
+    building_document = load_building_settings(root)
+    building_settings = building_document["buildings"]
+    gyms_path = root / "content" / "catalogs" / "gyms.json"
+    gym_catalog = load_json(gyms_path) if gyms_path.is_file() else {"schema_version": 1, "gyms": [], "leagues": []}
+    gyms_by_id = {
+        gym.get("id"): gym for gym in gym_catalog.get("gyms", [])
+        if isinstance(gym, dict) and isinstance(gym.get("id"), str)
+    }
+    layouts: dict[str, Any] = {}
+    annotations: dict[str, Any] = {}
+    seen_graphs: set[str] = set()
+    for graph_index, graph in enumerate(graphs):
+        graph_path = f"$.graphs[{graph_index}]"
+        if not isinstance(graph, dict):
+            _issue(issues, "error", path, graph_path, "그래프는 객체여야 합니다.")
+            continue
+        graph_id = graph.get("id")
+        kind = graph.get("kind")
+        owner = graph.get("owner")
+        nodes = graph.get("nodes")
+        connections = graph.get("connections", [])
+        if not isinstance(graph_id, str) or graph_id in seen_graphs:
+            _issue(issues, "error", path, f"{graph_path}.id", "중복되지 않는 그래프 ID가 필요합니다.")
+            continue
+        seen_graphs.add(graph_id)
+        if kind not in {"building", "gym"} or not isinstance(owner, str):
+            _issue(issues, "error", path, graph_path, "건물 또는 체육관 소유자가 필요합니다.")
+            continue
+        if not isinstance(nodes, list) or not isinstance(connections, list):
+            _issue(issues, "error", path, graph_path, "노드와 연결선 배열이 필요합니다.")
+            continue
+        normalized_nodes: list[dict[str, Any]] = []
+        node_ids: set[str] = set()
+        for node_index, node in enumerate(nodes):
+            node_path = f"{graph_path}.nodes[{node_index}]"
+            if not isinstance(node, dict):
+                _issue(issues, "error", path, node_path, "공간 노드는 객체여야 합니다.")
+                continue
+            node_id = node.get("id")
+            position = node.get("position")
+            if not isinstance(node_id, str) or not DOCUMENT_SLUG.fullmatch(node_id) or node_id in node_ids:
+                _issue(issues, "error", path, f"{node_path}.id", "중복되지 않는 소문자 공간 키가 필요합니다.")
+                continue
+            if not (isinstance(position, list) and len(position) == 2 and all(isinstance(v, int) for v in position)):
+                _issue(issues, "error", path, f"{node_path}.position", "캔버스 X/Y 좌표가 필요합니다.")
+                continue
+            node_ids.add(node_id)
+            normalized_nodes.append(node)
+        if "exterior" not in node_ids:
+            _issue(issues, "error", path, f"{graph_path}.nodes", "외부 공간 노드가 필요합니다.")
+        layouts[graph_id] = {"nodes": {node["id"]: node["position"] for node in normalized_nodes}}
+        edge_notes: dict[str, Any] = {}
+        normalized_connections: list[dict[str, Any]] = []
+        for edge_index, edge in enumerate(connections):
+            edge_path = f"{graph_path}.connections[{edge_index}]"
+            if not isinstance(edge, dict) or not isinstance(edge.get("from"), dict) or not isinstance(edge.get("to"), dict):
+                _issue(issues, "error", path, edge_path, "연결선의 출발·도착 포트가 필요합니다.")
+                continue
+            source, target = edge["from"], edge["to"]
+            if source.get("node") not in node_ids or target.get("node") not in node_ids:
+                _issue(issues, "error", path, edge_path, "연결선이 존재하지 않는 공간을 가리킵니다.")
+                continue
+            if not all(isinstance(value, str) and DOCUMENT_SLUG.fullmatch(value) for value in (source.get("anchor"), target.get("anchor"))):
+                _issue(issues, "error", path, edge_path, "출발 문과 도착 지점 이름이 필요합니다.")
+                continue
+            normalized_connections.append(edge)
+            edge_id = str(edge.get("id", f"route_{edge_index + 1}"))
+            edge_notes[edge_id] = {
+                key: edge[key] for key in ("condition_mode", "conditions", "locked_dialogue", "enter_dialogue")
+                if key in edge
+            }
+        annotations[graph_id] = edge_notes
+        interiors = [node for node in normalized_nodes if node["id"] != "exterior"]
+        if kind == "building":
+            current = building_settings.get(owner, {})
+            building_settings[owner] = {
+                "fixed_npcs": current.get("fixed_npcs", {}) if isinstance(current, dict) else {},
+                "citizen_placement_allowed": bool(current.get("citizen_placement_allowed", False)) if isinstance(current, dict) else False,
+                "interiors": [{"key": node["id"], "structure": node.get("structure", "")} for node in interiors],
+                "door_routes": {
+                    f"{edge['from']['node']}:{edge['from']['anchor']}": {
+                        "space": edge["to"]["node"], "arrival": edge["to"]["anchor"]
+                    } for edge in normalized_connections
+                },
+            }
+        else:
+            gym = gyms_by_id.get(owner)
+            if gym is None:
+                _issue(issues, "error", path, f"{graph_path}.owner", "존재하지 않는 체육관입니다.")
+                continue
+            gym["interior"] = {
+                "modules": [{
+                    "id": node["id"], "structure": node.get("structure", ""),
+                    "position": node.get("world_position", [0, 0, 0]),
+                    "rotation": node.get("rotation", "none"),
+                } for node in interiors],
+                "connections": [{
+                    "from": f"{edge['from']['node']}:{edge['from']['anchor']}",
+                    "to": f"{edge['to']['node']}:{edge['to']['anchor']}",
+                    **{
+                        key: edge[key]
+                        for key in ("condition_mode", "conditions", "locked_dialogue", "enter_dialogue")
+                        if key in edge
+                    },
+                } for edge in normalized_connections],
+            }
+    if any(issue.level == "error" for issue in issues):
+        return issues
+    building_issues = save_building_settings(root, building_document)
+    gym_issues = save_gym_catalog(root, gym_catalog)
+    issues.extend(building_issues)
+    issues.extend(gym_issues)
+    if any(issue.level == "error" for issue in issues):
+        return issues
+    document = {
+        "$schema": "../schemas/space-connections.schema.json", "schema_version": 1,
+        "layouts": layouts, "annotations": annotations,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+    return issues
 
 
 def building_settings_payload(root: Path) -> dict[str, Any]:
@@ -7816,6 +8085,7 @@ def create_handler(
                 "/": web_root / "index.html",
                 "/index.html": web_root / "index.html",
                 "/app.js": web_root / "app.js",
+                "/space-connections.js": web_root / "space-connections.js",
                 "/styles.css": web_root / "styles.css",
                 "/economy.css": web_root / "economy.css",
                 "/pokemon-entry-clipboard.mjs": core_root
@@ -7937,6 +8207,19 @@ def create_handler(
                     self._json(200, load_json(root / "content" / "catalogs" / "league-progression.json"))
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/badges":
+                try:
+                    self._json(200, load_json(root / "content" / "catalogs" / "badges.json"))
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/badge-atlas":
+                try:
+                    atlas = core_root / "projects" / "cobbleventure-player-menu" / "src" / "main" / "resources" / "assets" / "cobbleventure_player_menu" / "textures" / "gui" / "badges.png"
+                    self._bytes(200, atlas.read_bytes(), "image/png")
+                except OSError as error:
+                    self._json(404, {"error": f"배지 아틀라스를 찾을 수 없습니다: {error}"})
                 return
             if request.path == "/api/game-definitions":
                 try:
@@ -8179,6 +8462,15 @@ def create_handler(
                         "error": structure_cache_error,
                     }
                     self._json(200, payload)
+                except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/space-connections":
+                try:
+                    ensure_structure_cache()
+                    self._json(200, space_connections_payload(
+                        root, copy.deepcopy(building_settings_catalog or {})
+                    ))
                 except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
@@ -8470,6 +8762,21 @@ def create_handler(
                 try:
                     payload = self._read_json()
                     issues = save_building_settings(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                if errors == 0:
+                    schedule_structure_cache_refresh()
+                self._json(
+                    200 if errors == 0 else 422,
+                    {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]},
+                )
+                return
+            if request.path == "/api/space-connections":
+                try:
+                    payload = self._read_json()
+                    issues = save_space_connections(root, payload)
                 except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(400, {"error": str(error)})
                     return

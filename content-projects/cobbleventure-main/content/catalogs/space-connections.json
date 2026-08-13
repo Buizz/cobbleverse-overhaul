@@ -1,0 +1,6 @@
+{
+  "$schema": "../schemas/space-connections.schema.json",
+  "schema_version": 1,
+  "layouts": {},
+  "annotations": {}
+}

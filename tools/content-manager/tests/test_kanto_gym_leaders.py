@@ -55,6 +55,7 @@ class KantoGymLeaderTests(unittest.TestCase):
         leaders = [gym["staff"]["leader"] for gym in catalog["gyms"]]
         self.assertEqual(8, len({leader["trainer_id"] for leader in leaders}))
         self.assertTrue(all(leader["league_entry_id"] for leader in leaders))
+        self.assertTrue(all(leader["badge_id"].startswith("cobbleventure:badge/kanto/") for leader in leaders))
         self.assertEqual({"leader"}, {leader["anchor"] for leader in leaders})
         self.assertTrue(all(isinstance(gym["staff"]["trainers"], list) for gym in catalog["gyms"]))
 

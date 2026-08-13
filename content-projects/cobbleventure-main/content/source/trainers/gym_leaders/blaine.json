@@ -111,9 +111,8 @@
           "value": true
         },
         {
-          "type": "give_item",
-          "item": "cobbleversebadges:kanto_volcano_badge",
-          "count": 1
+          "type": "grant_badge",
+          "badge": "cobbleventure:badge/kanto/volcano"
         },
         {
           "type": "dialogue",

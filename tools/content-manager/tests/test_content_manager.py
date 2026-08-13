@@ -244,7 +244,7 @@ class ContentManagerTests(unittest.TestCase):
             ),
         )
 
-    def test_league_progression_validates_badges_and_trainer_pool_references(self) -> None:
+    def test_league_progression_validates_trainer_card_order_and_trainer_pool_references(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "league-progression.json"
             path.write_text(json.dumps({
@@ -256,13 +256,10 @@ class ContentManagerTests(unittest.TestCase):
                     "generation": 1,
                     "region": "cobbleventure:region/kanto",
                     "order": 1,
+                    "trainer_card_order": 1,
+                    "trainer_card_visible": True,
                     "level_cap": 15,
                     "trainer_id": "cobbleventure:trainer/brock",
-                    "badge": {
-                        "item": "cobbleversebadges:kanto_boulder_badge",
-                        "display_name": {"ko_kr": "회색배지"},
-                        "trainer_card_visible": True,
-                    },
                 }],
             }, ensure_ascii=False), encoding="utf-8")
 
@@ -273,19 +270,20 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual({"cobbleventure:league/generation_1/boulder"}, ids)
             self.assertFalse([issue for issue in issues if issue.level == "error"])
 
-    def test_league_progression_rejects_gym_without_badge(self) -> None:
+    def test_league_progression_rejects_invalid_trainer_card_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "league-progression.json"
             path.write_text(json.dumps({"schema_version": 1, "entries": [{
                 "id": "cobbleventure:league/generation_1/boulder", "role": "gym_leader",
                 "display_name": {"ko_kr": "웅"}, "generation": 1,
                 "region": "cobbleventure:region/kanto", "order": 1,
+                "trainer_card_order": 0,
                 "level_cap": 15, "trainer_id": "cobbleventure:trainer/brock",
             }]}), encoding="utf-8")
 
             _, issues = content_manager.validate_league_progression_file(path)
 
-            self.assertTrue(any(issue.path.endswith(".badge") for issue in issues))
+            self.assertTrue(any(issue.path.endswith(".trainer_card_order") for issue in issues))
 
     def test_reads_visible_top_block_for_each_nbt_column(self) -> None:
         metadata = content_manager.read_minecraft_structure_metadata(
@@ -2197,21 +2195,14 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertTrue(any(issue.path.endswith(".side") for issue in issues))
 
-    def test_cobbleverse_badge_items_are_available_for_gym_presets(self) -> None:
-        root = PROJECT_ROOT
-        catalog = content_manager.load_json(
-            CORE_ROOT / "trainer-data" / "catalogs" / "cobblemon-items.json"
-        )
-        badges = [
-            item for item in catalog["items"]
-            if item.get("namespace") == "cobbleversebadges"
-            and item.get("path", "").endswith("_badge")
-        ]
-        self.assertEqual(32, len(badges))
-        self.assertTrue(any(
-            item["id"] == "cobbleversebadges:kanto_boulder_badge"
-            for item in badges
-        ))
+    def test_item_independent_badge_catalog_covers_all_main_series_gym_badges(self) -> None:
+        catalog = content_manager.load_json(PROJECT_ROOT / "content/catalogs/badges.json")
+        badges = catalog["badges"]
+        self.assertEqual(68, len(badges))
+        self.assertEqual({1, 2, 3, 4, 5, 6, 8, 9}, {badge["generation"] for badge in badges})
+        self.assertTrue(all(badge["id"].startswith("cobbleventure:badge/") for badge in badges))
+        self.assertTrue(all("세대" in badge["tooltip"]["ko_kr"] and "관장" in badge["tooltip"]["ko_kr"] for badge in badges))
+        self.assertTrue((CORE_ROOT / "projects/cobbleventure-player-menu/src/main/resources/assets/cobbleventure_player_menu/textures/gui/badges.png").is_file())
 
     def test_generate_exports_same_ai_profile_to_rct_and_runtime(self) -> None:
         root = PROJECT_ROOT
@@ -2992,6 +2983,75 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="building-door-routes"', markup)
         styles = (web_root / "styles.css").read_text(encoding="utf-8")
         self.assertIn(".building-door-route", styles)
+
+    def test_space_connections_use_visual_tab_and_sync_building_routes(self) -> None:
+        web_root = Path(__file__).parents[1] / "web"
+        markup = (web_root / "index.html").read_text(encoding="utf-8")
+        script = (web_root / "space-connections.js").read_text(encoding="utf-8")
+        styles = (web_root / "styles.css").read_text(encoding="utf-8")
+        self.assertIn('data-section="space-connections"', markup)
+        self.assertIn('id="space-flow-canvas"', markup)
+        self.assertIn('id="space-flow-edges"', markup)
+        self.assertIn('id="space-flow-nodes"', markup)
+        self.assertIn('/api/space-connections', script)
+        self.assertIn('data-port-type', script)
+        self.assertIn('.space-flow-edge', styles)
+        self.assertIn('.legacy-space-editor { display: none', styles)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            exterior = root / "content/structures/houses/test_house.nbt"
+            interior = root / "content/structures/interiors/test_room.nbt"
+            exterior.parent.mkdir(parents=True)
+            interior.parent.mkdir(parents=True)
+            exterior.write_bytes(self._structure_nbt((16, 8, 16)))
+            interior.write_bytes(self._structure_nbt((12, 6, 12)))
+            exterior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{"type": "interior_entry", "label": "front", "position": [7, 1, 1]}],
+            }), encoding="utf-8")
+            interior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [
+                    {"type": "interior_spawn", "label": "inside", "position": [6, 1, 3]},
+                    {"type": "interior_exit", "label": "back", "position": [6, 1, 1]},
+                ],
+                "interior": {"id": "test_room", "width": 12, "depth": 12, "floor_height": 6, "floors": 1},
+            }), encoding="utf-8")
+            catalogs = root / "content/catalogs"
+            catalogs.mkdir(parents=True)
+            (catalogs / "building-settings.json").write_text(json.dumps({
+                "schema_version": 1,
+                "buildings": {"cobbleventure:houses/test_house": {
+                    "fixed_npcs": {}, "citizen_placement_allowed": False,
+                    "interiors": [{"key": "main", "structure": "cobbleventure:interiors/test_room"}],
+                    "door_routes": {"exterior:front": {"space": "main", "arrival": "inside"}},
+                }},
+            }), encoding="utf-8")
+            (catalogs / "gyms.json").write_text(json.dumps({
+                "schema_version": 1, "gyms": [], "leagues": [],
+            }), encoding="utf-8")
+
+            payload = content_manager.space_connections_payload(root)
+            graph = payload["graphs"][0]
+            self.assertEqual("building", graph["kind"])
+            self.assertEqual(["exterior", "main"], [node["id"] for node in graph["nodes"]])
+            graph["nodes"][1]["position"] = [777, 333]
+            graph["connections"][0]["locked_dialogue"] = ["문이 잠겨 있다."]
+            issues = content_manager.save_space_connections(root, {
+                "schema_version": 1, "graphs": [graph],
+            })
+
+            self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+            settings = json.loads((catalogs / "building-settings.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                {"space": "main", "arrival": "inside"},
+                settings["buildings"]["cobbleventure:houses/test_house"]["door_routes"]["exterior:front"],
+            )
+            visual = json.loads((catalogs / "space-connections.json").read_text(encoding="utf-8"))
+            graph_id = "building:cobbleventure:houses/test_house"
+            self.assertEqual([777, 333], visual["layouts"][graph_id]["nodes"]["main"])
+            self.assertEqual(["문이 잠겨 있다."], visual["annotations"][graph_id]["route_1"]["locked_dialogue"])
 
     def test_new_gym_reuses_shared_exterior_and_base_interior(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

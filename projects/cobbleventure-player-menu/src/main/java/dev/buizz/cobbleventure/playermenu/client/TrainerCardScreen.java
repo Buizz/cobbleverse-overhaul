@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import java.util.List;
+import dev.buizz.cobbleventure.playermenu.BadgeProgressNetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -26,7 +27,9 @@ public final class TrainerCardScreen extends Screen {
     private static final int CARD_MAX_HEIGHT = 224;
 
     private final Screen parent;
-    private final TrainerCardProgress progress;
+    private TrainerCardProgress progress;
+    private final boolean liveProgress;
+    private int badgeSnapshotHash;
     private int pageIndex;
     private int cardX;
     private int cardY;
@@ -34,18 +37,24 @@ public final class TrainerCardScreen extends Screen {
     private int cardHeight;
 
     public TrainerCardScreen(Screen parent) {
-        this(parent, TrainerCardProgress.current());
+        this(parent, TrainerCardProgress.current(), true);
     }
 
     TrainerCardScreen(Screen parent, TrainerCardProgress progress) {
+        this(parent, progress, false);
+    }
+
+    private TrainerCardScreen(Screen parent, TrainerCardProgress progress, boolean liveProgress) {
         super(Component.translatable("screen.cobbleventure_player_menu.trainer_card.title"));
         this.parent = parent;
         this.progress = progress;
+        this.liveProgress = liveProgress;
     }
 
     @Override
     protected void init() {
         super.init();
+        if (liveProgress) BadgeProgressNetwork.requestSnapshot();
         cardWidth = Math.min(CARD_MAX_WIDTH, Math.max(180, width - 24));
         cardHeight = Math.min(CARD_MAX_HEIGHT, Math.max(150, height - 42));
         cardX = (width - cardWidth) / 2;
@@ -62,6 +71,18 @@ public final class TrainerCardScreen extends Screen {
                 .bounds(cardX, buttonY, 24, 20).build());
             addRenderableWidget(Button.builder(Component.literal(">"), ignored -> changePage(1))
                 .bounds(cardX + 28, buttonY, 24, 20).build());
+        }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (!liveProgress) return;
+        int currentHash = BadgeProgressNetwork.clientBadges().hashCode();
+        if (currentHash != badgeSnapshotHash) {
+            badgeSnapshotHash = currentHash;
+            progress = TrainerCardProgress.current();
+            pageIndex = Math.min(pageIndex, Math.max(0, progress.pages().size() - 1));
         }
     }
 
@@ -120,7 +141,7 @@ public final class TrainerCardScreen extends Screen {
         drawHeader(graphics, padding, headerHeight);
         drawIdentityRows(graphics, cardX + padding, contentTop + 5, infoRight - cardX - padding);
         drawPortrait(graphics, infoRight + 2, contentTop + 2, cardX + cardWidth - padding, badgeTop - 4, mouseX, mouseY);
-        drawBadgeCase(graphics, cardX + padding, badgeTop, cardWidth - padding * 2, badgeHeight - padding);
+        drawBadgeCase(graphics, cardX + padding, badgeTop, cardWidth - padding * 2, badgeHeight - padding, mouseX, mouseY);
     }
 
     private void drawCardFrame(GuiGraphics graphics) {
@@ -210,7 +231,7 @@ public final class TrainerCardScreen extends Screen {
         );
     }
 
-    private void drawBadgeCase(GuiGraphics graphics, int x, int y, int caseWidth, int caseHeight) {
+    private void drawBadgeCase(GuiGraphics graphics, int x, int y, int caseWidth, int caseHeight, int mouseX, int mouseY) {
         TrainerCardProgress.LeaguePage page = progress.pages().get(pageIndex);
         graphics.fill(x, y, x + caseWidth, y + caseHeight, CARD_CREAM);
         graphics.fill(x, y, x + caseWidth, y + 16, CARD_RED_DARK);
@@ -233,7 +254,7 @@ public final class TrainerCardScreen extends Screen {
         }
 
         int availableWidth = caseWidth - 12;
-        int slotSize = Math.max(13, Math.min(22, availableWidth / Math.max(1, challenges.size())));
+        int slotSize = Math.max(18, Math.min(38, availableWidth / Math.max(1, challenges.size())));
         int columns = Math.max(1, Math.min(challenges.size(), availableWidth / slotSize));
         int rows = (challenges.size() + columns - 1) / columns;
         int usableHeight = Math.max(15, caseHeight - 20);
@@ -246,7 +267,7 @@ public final class TrainerCardScreen extends Screen {
             int rowWidth = itemsInRow * slotSize;
             int centerX = x + (caseWidth - rowWidth) / 2 + column * slotSize + slotSize / 2;
             int centerY = y + 18 + row * rowStep + Math.min(rowStep, 16) / 2;
-            drawChallengeMark(graphics, centerX, centerY, challenges.get(index));
+            drawChallengeMark(graphics, centerX, centerY, challenges.get(index), mouseX, mouseY);
         }
     }
 
@@ -254,8 +275,22 @@ public final class TrainerCardScreen extends Screen {
         GuiGraphics graphics,
         int centerX,
         int centerY,
-        TrainerCardProgress.Challenge challenge
+        TrainerCardProgress.Challenge challenge,
+        int mouseX,
+        int mouseY
     ) {
+        if (challenge.kind() == TrainerCardProgress.ChallengeKind.GYM && challenge.texture() != null) {
+            int drawSize = Math.min(32, challenge.textureSize());
+            int left = centerX - drawSize / 2;
+            int top = centerY - drawSize / 2;
+            graphics.blit(challenge.texture(), left, top, (float) challenge.textureU(), (float) challenge.textureV(),
+                drawSize, drawSize, challenge.atlasWidth(), challenge.atlasHeight());
+            if (!challenge.completed()) graphics.fill(left, top, left + drawSize, top + drawSize, 0xA8706C69);
+            if (mouseX >= left && mouseX < left + drawSize && mouseY >= top && mouseY < top + drawSize) {
+                graphics.renderTooltip(font, Component.literal(challenge.badgeName().getString() + " · " + challenge.tooltip()), mouseX, mouseY);
+            }
+            return;
+        }
         int color = challenge.completed()
             ? (challenge.kind() == TrainerCardProgress.ChallengeKind.GYM ? BADGE_COMPLETE : LEAGUE_COMPLETE)
             : BADGE_EMPTY;

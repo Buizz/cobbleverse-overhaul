@@ -33,7 +33,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["from", "to"],
-      "properties": { "from": { "type": "string" }, "to": { "type": "string" } }
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "condition_mode": { "enum": ["all", "any"] },
+        "conditions": { "type": "array", "items": { "type": "object" } },
+        "locked_dialogue": { "type": "array", "items": { "type": "string" } },
+        "enter_dialogue": { "type": "array", "items": { "type": "string" } }
+      }
     },
     "gym_staff_member": {
       "type": "object",
@@ -53,10 +60,11 @@
         "leader": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["trainer_id", "league_entry_id", "anchor"],
+          "required": ["trainer_id", "league_entry_id", "badge_id", "anchor"],
           "properties": {
             "trainer_id": { "type": "string" },
             "league_entry_id": { "type": "string" },
+            "badge_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
             "anchor": { "type": "string", "pattern": "^[a-z0-9_]+$" }
           }
         },

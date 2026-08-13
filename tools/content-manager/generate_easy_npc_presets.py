@@ -21,6 +21,7 @@ PROJECT_ROOT = Path(os.environ.get(
 CATALOG = PROJECT_ROOT / "content" / "catalogs" / "trainer-outfits.json"
 CONTENT_ROOT = PROJECT_ROOT / "content" / "source"
 BATTLE_ROOT = PROJECT_ROOT / "content" / "battles"
+GYM_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "gyms.json"
 RESOURCE_ROOT = ROOT / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources"
 PACK_OVERRIDE = ROOT / "pack" / "overrides" / "development-placeholder"
 INSTANCE_DEFEATED_FLAG = "cobbleventure:runtime/npc_instance_defeated"
@@ -96,6 +97,8 @@ def graph_reward_commands(document: dict, start_battle: dict, result_key: str = 
                 ])
             elif action_type == "give_item":
                 commands.append(f"cobbleventurebag give @1 {action['item']} {int(action.get('count', 1))}")
+            elif action_type == "grant_badge":
+                commands.append(f"cobbleventure_badge grant @1 {action['badge']}")
             elif action_type == "grant_loot":
                 commands.append(f"cobbleventurebag loot @1 {action['loot_table']}")
             elif action_type in {"give_money", "take_money"}:
@@ -147,6 +150,8 @@ def command_reward_commands(
             ])
         elif command_type == "give_item":
             result.append(f"cobbleventurebag give @1 {command['item']} {int(command.get('count', 1))}")
+        elif command_type == "grant_badge":
+            result.append(f"cobbleventure_badge grant @1 {command['badge']}")
         elif command_type == "grant_loot":
             result.append(f"cobbleventurebag loot @1 {command['loot_table']}")
         elif command_type == "grant_field_move":
@@ -406,6 +411,8 @@ def easy_npc_action(operation: dict, document: dict) -> str:
         return command_action(
             f"/cobbleventurebag give @initiator {operation['item']} {operation.get('count', 1)}"
         )
+    if operation_type == "grant_badge":
+        return command_action(f"/cobbleventure_badge grant @initiator {operation['badge']}")
     if operation_type == "grant_field_move":
         return command_action(
             f"/cobbleventure_field_move grant @initiator {operation['move']}"
@@ -815,6 +822,22 @@ def generate(
         json.loads(source.read_text(encoding="utf-8"))
         for source in sorted(content_root.rglob("*.json"))
     ]
+    if GYM_CATALOG.is_file():
+        gyms = json.loads(GYM_CATALOG.read_text(encoding="utf-8")).get("gyms", [])
+        badge_by_trainer = {
+            leader.get("trainer_id"): leader.get("badge_id")
+            for gym in gyms if isinstance(gym, dict)
+            for leader in [gym.get("staff", {}).get("leader", {})]
+            if leader.get("trainer_id") and leader.get("badge_id")
+        }
+        for document in source_documents:
+            badge_id = badge_by_trainer.get(document.get("id"))
+            if not badge_id:
+                continue
+            for event in document.get("events", []):
+                for command in event.get("commands", []):
+                    if command.get("type") == "grant_badge":
+                        command["badge"] = badge_id
     for document in paired_encounter_documents(source_documents, battle_presets):
         trainer_class = document.get("npc", {}).get("trainer_class")
         outfit = outfits_by_class.get(trainer_class)

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.local/schemas/space-connections.schema.json",
+  "title": "Cobbleventure visual space connection layouts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "layouts", "annotations"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "layouts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nodes"],
+        "properties": {
+          "nodes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "prefixItems": [{ "type": "integer" }, { "type": "integer" }],
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        }
+      }
+    },
+    "annotations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "condition_mode": { "enum": ["all", "any"] },
+            "conditions": { "type": "array", "items": { "type": "object" } },
+            "locked_dialogue": { "type": "array", "items": { "type": "string" } },
+            "enter_dialogue": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}

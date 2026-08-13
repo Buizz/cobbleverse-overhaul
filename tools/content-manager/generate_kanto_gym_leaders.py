@@ -16,47 +16,48 @@ PROJECT_ROOT = Path(os.environ.get(
 REFERENCE_CATALOG = PROJECT_ROOT / "content/catalogs/trainer-reference-entries.json"
 BATTLE_ROOT = PROJECT_ROOT / "content/battles/gym_leaders"
 NPC_ROOT = PROJECT_ROOT / "content/source/trainers/gym_leaders"
+GYM_CATALOG = PROJECT_ROOT / "content/catalogs/gyms.json"
 
 LEADERS = (
     {
         "slug": "brock", "name_ko": "웅", "name_en": "Brock",
         "character": "brock", "reference": "another_red_brock_001",
-        "appearance": "kanto_brock", "badge": "kanto_boulder_badge",
+        "appearance": "kanto_brock", "badge": "cobbleventure:badge/kanto/boulder",
     },
     {
         "slug": "misty", "name_ko": "이슬", "name_en": "Misty",
         "character": "misty", "reference": "another_red_misty_001",
-        "appearance": "kanto_misty", "badge": "kanto_cascade_badge",
+        "appearance": "kanto_misty", "badge": "cobbleventure:badge/kanto/cascade",
     },
     {
         "slug": "lt_surge", "name_ko": "마티스", "name_en": "Lt. Surge",
         "character": "lt_surge", "reference": "another_red_surge_001",
-        "appearance": "kanto_ltsurge", "badge": "kanto_thunder_badge",
+        "appearance": "kanto_ltsurge", "badge": "cobbleventure:badge/kanto/thunder",
     },
     {
         "slug": "erika", "name_ko": "민화", "name_en": "Erika",
         "character": "erika", "reference": "another_red_erika_001",
-        "appearance": "kanto_erika", "badge": "kanto_rainbow_badge",
+        "appearance": "kanto_erika", "badge": "cobbleventure:badge/kanto/rainbow",
     },
     {
         "slug": "koga", "name_ko": "독수", "name_en": "Koga",
         "character": "koga", "reference": "rct_kanto_koga",
-        "appearance": "kanto_koga", "badge": "kanto_soul_badge",
+        "appearance": "kanto_koga", "badge": "cobbleventure:badge/kanto/soul",
     },
     {
         "slug": "sabrina", "name_ko": "초련", "name_en": "Sabrina",
         "character": "sabrina", "reference": "another_red_sabrina_001",
-        "appearance": "kanto_sabrina", "badge": "kanto_marsh_badge",
+        "appearance": "kanto_sabrina", "badge": "cobbleventure:badge/kanto/marsh",
     },
     {
         "slug": "blaine", "name_ko": "강연", "name_en": "Blaine",
         "character": "blaine", "reference": "another_red_blaine_001",
-        "appearance": "kanto_blaine", "badge": "kanto_volcano_badge",
+        "appearance": "kanto_blaine", "badge": "cobbleventure:badge/kanto/volcano",
     },
     {
         "slug": "giovanni_gym", "name_ko": "비주기", "name_en": "Giovanni",
         "character": "giovanni_gym", "reference": "another_red_giovanni_001",
-        "appearance": "kanto_giovanni", "badge": "kanto_earth_badge",
+        "appearance": "kanto_giovanni", "badge": "cobbleventure:badge/kanto/earth",
     },
 )
 
@@ -81,11 +82,10 @@ def battle_document(leader: dict[str, str], reference: dict) -> dict:
     }
 
 
-def npc_document(leader: dict[str, str]) -> dict:
+def npc_document(leader: dict[str, str], badge: str) -> dict:
     slug = leader["slug"]
     flag = f"cobbleventure:flag/gym/kanto/{slug}/defeated"
     battle = f"cobbleventure:battle/gym_leader/{slug}"
-    badge = f"cobbleversebadges:{leader['badge']}"
     return {
         "$schema": "../../../schemas/npc-event-script.schema.json",
         "schema_version": 4,
@@ -128,7 +128,7 @@ def npc_document(leader: dict[str, str]) -> dict:
                 {"type": "start_battle", "battle": battle, "results": {"player_win": "victory", "player_loss": "defeat"}},
                 {"type": "label", "name": "victory"},
                 {"type": "set_flag", "key": flag, "value": True},
-                {"type": "give_item", "item": badge, "count": 1},
+                {"type": "grant_badge", "badge": badge},
                 {"type": "dialogue", "id": "victory", "speaker": "npc", "text": {"ko_kr": "훌륭한 승부였다. 이 배지는 네 것이다.", "en_us": "An excellent battle. This Badge is yours."}},
                 {"type": "goto", "target": "end"},
                 {"type": "label", "name": "defeat"},
@@ -151,6 +151,11 @@ def write_json(path: Path, document: dict) -> None:
 def generate() -> list[Path]:
     catalog = json.loads(REFERENCE_CATALOG.read_text(encoding="utf-8"))
     references = {entry["id"]: entry for entry in catalog["entries"]}
+    gyms = json.loads(GYM_CATALOG.read_text(encoding="utf-8"))["gyms"]
+    badge_by_trainer = {
+        gym["staff"]["leader"]["trainer_id"]: gym["staff"]["leader"]["badge_id"]
+        for gym in gyms
+    }
     written: list[Path] = []
     for leader in LEADERS:
         reference = references.get(leader["reference"])
@@ -159,7 +164,8 @@ def generate() -> list[Path]:
         battle_path = BATTLE_ROOT / f"{leader['slug']}.json"
         npc_path = NPC_ROOT / f"{leader['slug']}.json"
         write_json(battle_path, battle_document(leader, reference))
-        write_json(npc_path, npc_document(leader))
+        trainer_id = f"cobbleventure:npc/gym_leader/{leader['slug']}"
+        write_json(npc_path, npc_document(leader, badge_by_trainer[trainer_id]))
         written.extend((battle_path, npc_path))
     return written
 

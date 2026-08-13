@@ -2,6 +2,7 @@ package dev.buizz.cobbleventure.playermenu.client;
 
 import java.util.List;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * 트레이너 카드가 표시할 진행 정보의 클라이언트 모델이다.
@@ -24,7 +25,7 @@ record TrainerCardProgress(List<LeaguePage> pages) {
 
     private static List<Challenge> buildPreviewChallenges() {
         return java.util.stream.IntStream.range(0, UNDECIDED_PREVIEW_SLOTS)
-            .mapToObj(index -> new Challenge(Component.empty(), false, ChallengeKind.GYM))
+            .mapToObj(index -> new Challenge(Component.empty(), false, ChallengeKind.GYM, "", Component.empty(), "", null, 0, 0, 32, 256, 288))
             .toList();
     }
 
@@ -34,7 +35,11 @@ record TrainerCardProgress(List<LeaguePage> pages) {
         }
     }
 
-    record Challenge(Component name, boolean completed, ChallengeKind kind) {
+    record Challenge(
+        Component name, boolean completed, ChallengeKind kind, String badgeId, Component badgeName,
+        String tooltip, ResourceLocation texture, int textureU, int textureV, int textureSize,
+        int atlasWidth, int atlasHeight
+    ) {
     }
 
     enum ChallengeKind {

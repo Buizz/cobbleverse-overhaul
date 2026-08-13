@@ -32,6 +32,7 @@ const state = {
   cavePreview: { yaw: -.72, pitch: -.52, zoom: 1, view: "perspective", tool: "select", pathDraft: null, drag: null, selected: null, hitTargets: [], projection: null },
   customTownTool: "cell",
   leagueProgression: { schema_version: 1, entries: [] }, selectedLeagueId: "",
+  badgeCatalog: { schema_version: 1, badges: [], regions_without_gym_badges: [] },
   gameDefinitions: { schema_version: 1, items: [], variables: [] },
   musicCatalog: { schema_version: 1, tracks: [], defaults: {} },
   economy: { schema_version: 2, vanilla_crafting_disabled: true, standard_prices: [], shop_catalogs: [], vendor_units: [], pokemon_drop_rules: [], pokemon_drop_overrides: [], npc_recipes: [], resolved_shop_catalogs: [], resolved_vendor_units: [], resolved_standard_prices: [], resolved_pokemon_drops: [], editor_catalog: { items: [], species: [], filters: {} } },
@@ -300,7 +301,7 @@ async function saveMusicSettings() {
 function switchPage(section) {
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === section));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", gyms: "체육관 외관 · 내부", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "관장 · 사천왕 · 챔피언", "trainer-card": "트레이너 카드 배지 배치", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", gyms: "체육관 관리", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -387,10 +388,10 @@ async function pickProjectFolder() {
 }
 
 async function loadLists() {
-  const [trainers, battles, settlements, caves, worldLayouts, worldLayout, worldPokemonMap, league, gyms, music] = await Promise.all([
+  const [trainers, battles, settlements, caves, worldLayouts, worldLayout, worldPokemonMap, league, gyms, badges, music] = await Promise.all([
     request("/api/trainers"), request("/api/battles"), request("/api/settlements"), request("/api/caves"),
     request("/api/world-layouts"), request(`/api/world-layout?generation=${state.selectedGeneration}`),
-    request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`), request("/api/league-progression"), request("/api/gyms"), request("/api/music-catalog")
+    request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`), request("/api/league-progression"), request("/api/gyms"), request("/api/badges"), request("/api/music-catalog")
   ]);
   const failures = [];
   const applyDocumentList = (category, result, label) => {
@@ -424,6 +425,8 @@ async function loadLists() {
     $("#gym-list-count").textContent = "오류";
     $("#gym-list").innerHTML = `<div class="issues">${escapeHtml(message)}</div>`;
   }
+  if (badges.ok) state.badgeCatalog = badges.data;
+  else failures.push(`배지: ${badges.data.error || "배지 카탈로그를 불러오지 못했습니다."}`);
   if (music.ok) state.musicCatalog = music.data;
   else {
     const message = music.data.error || "음악 카탈로그를 불러오지 못했습니다.";
@@ -439,6 +442,7 @@ async function loadLists() {
   if (!worldPokemonMap.ok) failures.push(`월드 포켓몬 지도: ${worldPokemonMap.data.error || "불러오기 실패"}`);
   if (league.ok) renderLeagueList();
   if (gyms.ok) renderGymList();
+  if (badges.ok) renderTrainerCardManager();
   if (music.ok) renderMusicSettings();
   renderWorldLayout();
   if (failures.length) throw new Error(failures.join("\n"));
@@ -560,6 +564,7 @@ function loadSectionData(section, force = false) {
     renderMusicSettings();
     return Promise.resolve();
   }
+  if (section === "trainer-card") { renderTrainerCardManager(); return Promise.resolve(); }
   if (section === "trainers" || section === "battles" || section === "league") return Promise.all([loadTrainerData(force), loadGameDefinitions(force)]).then(() => { if (section === "league") renderLeagueEditor(); });
   if (section === "biomes") return loadBiomeData(force);
   if (section === "worlds") return loadStructureData(force).then(() => { renderWorldObjectNbtOptions(); renderMapToolOptions(); });
@@ -2862,7 +2867,7 @@ function renderTrainerRewardFields(form = $("#trainer-form")) {
 const eventCommandLabels = {
   branch: "조건 분기", label: "라벨", dialogue: "대화 표시", choices: "선택지 표시",
   goto: "라벨로 이동", start_battle: "배틀 시작", set_flag: "플래그 변경",
-  give_money: "돈 지급", take_money: "돈 차감", give_item: "아이템 지급", grant_loot: "루트 테이블 지급", grant_field_move: "비전머신 획득", mark_clear: "클리어 처리", teleport_to_gate: "관문으로 이동", end: "이벤트 종료",
+  give_money: "돈 지급", take_money: "돈 차감", give_item: "아이템 지급", grant_loot: "루트 테이블 지급", grant_badge: "배지 기록", grant_field_move: "비전머신 획득", mark_clear: "클리어 처리", teleport_to_gate: "관문으로 이동", end: "이벤트 종료",
 };
 const fieldMoveChoices = [
   ["surf", "파도타기"], ["fly", "공중날기"], ["flash", "플래쉬"], ["defog", "안개제거"],
@@ -2895,6 +2900,7 @@ function eventCommandSummary(command) {
   if (command.type === "take_money") return command.mode === "level_cap_multiplier" ? `레벨캡 × ${command.multiplier || 1} 차감` : `${Number(command.amount || 0).toLocaleString()} 차감`;
   if (command.type === "give_item") return `${command.item || "아이템 없음"} × ${command.count || 1}`;
   if (command.type === "grant_loot") return command.loot_table || "루트 테이블 없음";
+  if (command.type === "grant_badge") return badgeById(command.badge)?.display_name?.ko_kr || command.badge || "배지 없음";
   if (command.type === "grant_field_move") return `${fieldMoveChoices.find(([id]) => id === command.move)?.[1] || command.move || "비전머신 없음"} 획득`;
   if (command.type === "teleport_to_gate") return `${command.subject === "npc" ? "NPC" : "플레이어"} → ${command.gate || "관문 없음"} · ${command.side || "front"}`;
   if (command.type === "end") return "이벤트 실행 종료";
@@ -2931,8 +2937,8 @@ function renderEventPresetFields() {
   if ([...battleSelect.options].some((option) => option.value === selectedBattle)) battleSelect.value = selectedBattle;
   const badgeSelect = $("#event-preset-badge");
   const selectedBadge = badgeSelect.value;
-  const badges = (state.editorCatalog?.items || []).filter((item) => item.id?.startsWith("cobbleversebadges:") && /_badge$/.test(item.id));
-  badgeSelect.innerHTML = badges.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.englishName || item.id)} · ${escapeHtml(item.id)}</option>`).join("") || '<option value="cobbleversebadges:kanto_boulder_badge">Boulder Badge · cobbleversebadges:kanto_boulder_badge</option>';
+  const badges = state.badgeCatalog.badges || [];
+  badgeSelect.innerHTML = badges.map((badge) => `<option value="${escapeHtml(badge.id)}">${badge.generation}세대 ${badge.order}번째 · ${escapeHtml(badge.display_name?.ko_kr || badge.id)}</option>`).join("") || '<option value="">배지 카탈로그 없음</option>';
   if ([...badgeSelect.options].some((option) => option.value === selectedBadge)) badgeSelect.value = selectedBadge;
   const clearKey = $("#event-preset-clear-key");
   if (progressionTypes.includes(type) && clearKey.dataset.presetType !== type) {
@@ -2994,7 +3000,7 @@ function applyEventScriptPreset() {
     ];
     const clearKey = $("#event-preset-clear-key").value.trim();
     if (["gym", "elite", "champion"].includes(type) && clearKey) event.commands.push({ type: "mark_clear", key: clearKey });
-    if (type === "gym") event.commands.push({ type: "give_item", item: $("#event-preset-badge").value, count: 1 });
+    if (type === "gym") event.commands.push({ type: "grant_badge", badge: $("#event-preset-badge").value });
     if (winItem) event.commands.push({ type: "give_item", item: winItem, count: Math.max(1, Number($("#event-preset-win-item-count").value) || 1) });
     event.commands.push(
       ...dialogueCommands("battle_win", $("#event-preset-win-text").value),
@@ -3118,6 +3124,7 @@ function renderEventCommandEditor(command) {
   }
   if (command.type === "give_item") return `<div class="event-command-fields">${eventField("아이템 ID", "item", command.item || "", { wide: true })}${eventField("수량", "count", command.count ?? 1, { type: "number", valueType: "number", min: 1, step: 1 })}</div>`;
   if (command.type === "grant_loot") return `<div class="event-command-fields">${eventField("루트 테이블 ID", "loot_table", command.loot_table || "", { wide: true, help: "확률과 아이템 구성은 별도의 루트 테이블에서 관리합니다." })}</div>`;
+  if (command.type === "grant_badge") return `<div class="event-command-fields">${eventField("기록할 배지", "badge", command.badge || "", { choices: (state.badgeCatalog.badges || []).map((badge) => [badge.id, `${badge.generation}세대 ${badge.order}번째 · ${badge.display_name?.ko_kr || badge.id}`]), wide: true, help: "아이템을 지급하지 않고 트레이너 카드 진행도에 기록합니다." })}</div>`;
   if (command.type === "grant_field_move") return `<div class="event-command-fields">${eventField("획득할 비전머신", "move", command.move || "surf", { choices: fieldMoveChoices, wide: true, help: "대화 중인 플레이어의 비전머신 플래그를 영구 해금합니다." })}</div>`;
   if (command.type === "teleport_to_gate") {
     const gates = (state.worldLayout?.objects || []).filter((object) => object.type === "gate").map((gate) => [gate.id, gate.id]);
@@ -3184,6 +3191,7 @@ function defaultEventCommand(type) {
     take_money: { type, mode: "fixed", amount: 500, currency_objective: "cobbleventure_money" },
     give_item: { type, item: "cobblemon:poke_ball", count: 1 },
     grant_loot: { type, loot_table: "cobbleventure:rewards/example" },
+    grant_badge: { type, badge: state.badgeCatalog.badges?.[0]?.id || "cobbleventure:badge/kanto/boulder" },
     grant_field_move: { type, move: "surf" },
     teleport_to_gate: { type, gate: (state.worldLayout?.objects || []).find((object) => object.type === "gate")?.id || "gate_01", subject: "player", side: "front" },
     end: { type },
@@ -4835,6 +4843,62 @@ function leagueRoleLabel(role) {
   return ({ gym_leader: "체육관 관장", elite_four: "사천왕", champion: "챔피언" })[role] || role;
 }
 
+function badgeById(id) {
+  return (state.badgeCatalog.badges || []).find((badge) => badge.id === id) || null;
+}
+
+function gymForLeagueEntry(entryId) {
+  return (state.gymCatalog.gyms || []).find((gym) => gym.staff?.leader?.league_entry_id === entryId) || null;
+}
+
+function badgeSprite(badge, scale = 2) {
+  if (!badge) return '<span class="badge-sprite is-empty"></span>';
+  const icon = badge.icon || {};
+  const atlas = state.badgeCatalog.atlas || { width: 256, height: 288, tile_size: 32 };
+  const size = Number(icon.size || atlas.tile_size || 32) * scale;
+  return `<span class="badge-sprite" style="width:${size}px;height:${size}px;background-size:${atlas.width * scale}px ${atlas.height * scale}px;background-position:-${Number(icon.u || 0) * scale}px -${Number(icon.v || 0) * scale}px" title="${escapeHtml(badge.tooltip?.ko_kr || badge.display_name?.ko_kr || badge.id)}"></span>`;
+}
+
+function badgeOptions(selected = "") {
+  const badges = state.badgeCatalog.badges || [];
+  return '<option value="">배지 선택</option>' + badges.map((badge) => `<option value="${escapeHtml(badge.id)}"${badge.id === selected ? " selected" : ""}>${badge.generation}세대 ${badge.order}번째 · ${escapeHtml(badge.display_name?.ko_kr || badge.id)} · ${escapeHtml(badge.leader_name?.ko_kr || "")}</option>`).join("");
+}
+
+function orderedTrainerCardEntries() {
+  return (state.leagueProgression.entries || []).filter((entry) => entry.role === "gym_leader")
+    .sort((a, b) => (a.generation - b.generation) || String(a.region).localeCompare(String(b.region)) || ((a.trainer_card_order ?? a.order) - (b.trainer_card_order ?? b.order)));
+}
+
+function renderTrainerCardManager() {
+  const filter = Number($("#badge-generation-filter")?.value || 0);
+  const badges = (state.badgeCatalog.badges || []).filter((badge) => !filter || badge.generation === filter);
+  if ($("#badge-library-count")) $("#badge-library-count").textContent = `${badges.length}개`;
+  if ($("#badge-library-grid")) {
+    const noBadges = filter === 7 ? state.badgeCatalog.regions_without_gym_badges?.[0]?.reason?.ko_kr : "";
+    $("#badge-library-grid").innerHTML = badges.length ? badges.map((badge) => `<article class="badge-library-card" title="${escapeHtml(badge.tooltip?.ko_kr || "")}">${badgeSprite(badge)}<div><strong>${escapeHtml(badge.display_name?.ko_kr || badge.id)}</strong><span>${badge.generation}세대 ${badge.order}번째 관장</span><small>${escapeHtml(badge.leader_name?.ko_kr || "")} · ${escapeHtml(badge.type)}</small></div></article>`).join("") : `<div class="definition-empty">${escapeHtml(noBadges || "해당 세대의 체육관 배지가 없습니다.")}</div>`;
+  }
+  if ($("#trainer-card-order-list")) {
+    const entries = orderedTrainerCardEntries();
+    $("#trainer-card-order-list").innerHTML = entries.length ? entries.map((entry, index) => {
+      const gym = gymForLeagueEntry(entry.id); const badge = badgeById(gym?.staff?.leader?.badge_id);
+      return `<article class="trainer-card-order-row" data-card-entry="${escapeHtml(entry.id)}">${badgeSprite(badge, 1.25)}<span class="trainer-card-rank">${index + 1}</span><div><strong>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</strong><small>${escapeHtml(badge?.display_name?.ko_kr || "배지 미지정")} · ${entry.generation}세대</small></div><label class="toggle"><input type="checkbox" data-card-visible${entry.trainer_card_visible !== false ? " checked" : ""}><span>표시</span></label><div class="card-order-actions"><button type="button" data-card-move="-1" aria-label="위로">↑</button><button type="button" data-card-move="1" aria-label="아래로">↓</button></div></article>`;
+    }).join("") : '<div class="definition-empty">등록된 관장이 없습니다.</div>';
+  }
+  showIssues("#trainer-card-issues", { valid: true, issues: [] });
+}
+
+function moveTrainerCardEntry(entryId, delta) {
+  const entry = (state.leagueProgression.entries || []).find((candidate) => candidate.id === entryId);
+  if (!entry) return;
+  const group = orderedTrainerCardEntries().filter((candidate) => candidate.generation === entry.generation && candidate.region === entry.region);
+  const index = group.indexOf(entry); const target = group[index + delta];
+  if (!target) return;
+  const currentOrder = entry.trainer_card_order ?? entry.order;
+  entry.trainer_card_order = target.trainer_card_order ?? target.order;
+  target.trainer_card_order = currentOrder;
+  renderTrainerCardManager();
+}
+
 function selectedLeagueEntry() {
   return (state.leagueProgression.entries || []).find((entry) => entry.id === state.selectedLeagueId) || null;
 }
@@ -4848,13 +4912,6 @@ function renderLeagueList() {
 
 function trainerPoolOptions(selected = "") {
   return '<option value="">트레이너풀에서 선택</option>' + state.trainers.map((trainer) => `<option value="${escapeHtml(trainer.id)}"${trainer.id === selected ? " selected" : ""}>${escapeHtml(trainer.name || trainer.id)} · ${escapeHtml(trainer.id)}</option>`).join("");
-}
-
-function leagueBadgeOptions(selected = "") {
-  const badges = (state.editorCatalog?.items || []).filter((item) => item.id?.startsWith("cobbleversebadges:") && /_badge$/.test(item.id));
-  const values = badges.map((item) => [item.id, item.name || item.englishName || item.id]);
-  if (selected && !values.some(([id]) => id === selected)) values.unshift([selected, selected]);
-  return '<option value="">배지 선택</option>' + values.map(([id, name]) => `<option value="${escapeHtml(id)}"${id === selected ? " selected" : ""}>${escapeHtml(name)} · ${escapeHtml(id)}</option>`).join("");
 }
 
 function renderLeagueEditor() {
@@ -4873,12 +4930,8 @@ function renderLeagueEditor() {
   setFormValue(form, "nameKo", entry.display_name?.ko_kr || ""); setFormValue(form, "nameEn", entry.display_name?.en_us || "");
   setFormValue(form, "generation", entry.generation); setFormValue(form, "order", entry.order); setFormValue(form, "region", entry.region);
   form.elements.trainerId.innerHTML = trainerPoolOptions(entry.trainer_id); setFormValue(form, "trainerId", entry.trainer_id);
-  form.elements.badgeItem.innerHTML = leagueBadgeOptions(entry.badge?.item || ""); setFormValue(form, "badgeItem", entry.badge?.item || "");
-  setFormValue(form, "badgeNameKo", entry.badge?.display_name?.ko_kr || ""); setFormValue(form, "badgeNameEn", entry.badge?.display_name?.en_us || "");
-  setFormValue(form, "badgeVisible", entry.badge?.trainer_card_visible ?? true);
   [...form.elements].forEach((element) => { element.disabled = false; });
-  const isGym = entry.role === "gym_leader";
-  $$("#league-form .league-badge-fields input, #league-form .league-badge-fields select").forEach((element) => { element.disabled = !isGym; });
+  $$("#league-form .league-badge-fields input, #league-form .league-badge-fields select").forEach((element) => { element.disabled = true; });
   $("#delete-league-entry").disabled = false; $("#save-league").disabled = false; $("#edit-league-trainer").disabled = !entry.trainer_id;
   showIssues("#league-issues", { valid: true, issues: [] });
 }
@@ -4891,8 +4944,8 @@ function updateLeagueEntryFromForm() {
   if (form.elements.nameEn.value.trim()) entry.display_name.en_us = form.elements.nameEn.value.trim();
   entry.generation = Number(form.elements.generation.value); entry.region = form.elements.region.value.trim();
   entry.order = Number(form.elements.order.value); entry.level_cap = Number(form.elements.levelCap.value); entry.trainer_id = form.elements.trainerId.value;
-  if (entry.role === "gym_leader") entry.badge = { item: form.elements.badgeItem.value, display_name: { ko_kr: form.elements.badgeNameKo.value.trim(), ...(form.elements.badgeNameEn.value.trim() ? { en_us: form.elements.badgeNameEn.value.trim() } : {}) }, trainer_card_visible: form.elements.badgeVisible.checked };
-  else delete entry.badge;
+  entry.trainer_card_order ??= entry.order;
+  entry.trainer_card_visible ??= true;
   state.selectedLeagueId = entry.id || previousId;
 }
 
@@ -4900,7 +4953,7 @@ function addLeagueEntry() {
   updateLeagueEntryFromForm();
   const entries = state.leagueProgression.entries ||= []; let index = entries.length + 1; let id;
   do { id = `cobbleventure:league/generation_${state.selectedGeneration}/entry_${index++}`; } while (entries.some((entry) => entry.id === id));
-  entries.push({ id, role: "gym_leader", display_name: { ko_kr: "새 관장" }, generation: state.selectedGeneration, region: `cobbleventure:region/generation_${state.selectedGeneration}`, order: entries.length + 1, level_cap: 15, trainer_id: "", badge: { item: "cobbleversebadges:kanto_boulder_badge", display_name: { ko_kr: "새 배지" }, trainer_card_visible: true } });
+  entries.push({ id, role: "gym_leader", display_name: { ko_kr: "새 관장" }, generation: state.selectedGeneration, region: `cobbleventure:region/generation_${state.selectedGeneration}`, order: entries.length + 1, trainer_card_order: entries.length + 1, trainer_card_visible: true, level_cap: 15, trainer_id: "" });
   state.selectedLeagueId = id; renderLeagueEditor();
 }
 
@@ -4921,7 +4974,7 @@ function facilityTrainerOptions(selected = "") {
 
 function gymLeagueOptions(selected = "") {
   const leaders = (state.leagueProgression.entries || []).filter((entry) => entry.role === "gym_leader");
-  return '<option value="">나중에 지정</option>' + leaders.map((entry) => `<option value="${escapeHtml(entry.id)}"${entry.id === selected ? " selected" : ""}>${escapeHtml(entry.display_name?.ko_kr || entry.id)} · Lv.${entry.level_cap} · ${escapeHtml(entry.badge?.display_name?.ko_kr || "배지 미설정")}</option>`).join("");
+  return '<option value="">나중에 지정</option>' + leaders.map((entry) => `<option value="${escapeHtml(entry.id)}"${entry.id === selected ? " selected" : ""}>${escapeHtml(entry.display_name?.ko_kr || entry.id)} · Lv.${entry.level_cap}</option>`).join("");
 }
 
 function settlementFacilityRequirements() {
@@ -5394,8 +5447,8 @@ function renderGymStaff() {
     editor.innerHTML = '<div class="issues empty">체육관을 선택하세요.</div>';
     return;
   }
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", anchor: "leader" }, trainers: [] };
-  gym.staff.leader ||= { trainer_id: "", league_entry_id: "", anchor: "leader" };
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff.leader ||= { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" };
   gym.staff.trainers ||= [];
   const leader = gym.staff.leader;
   const anchorOptions = (selected = "") => {
@@ -5418,6 +5471,7 @@ function renderGymStaff() {
     <article class="cave-entry-card">
       <div class="form-grid compact-grid">
         <label class="wide"><span>체육관 관장</span><select id="gym-leader-entry">${gymLeagueOptions(leader.league_entry_id)}</select></label>
+        <label class="wide"><span>승리 시 기록할 배지</span><select id="gym-leader-badge">${badgeOptions(leader.badge_id)}</select><small>아이템을 지급하지 않고 플레이어 진행도와 트레이너 카드에 기록합니다.</small></label>
         <label><span>관장 NPC 라벨</span><select id="gym-leader-anchor">${anchorOptions(leader.anchor || "leader")}</select></label>
         <small class="wide">트레이너 ID: ${escapeHtml(leader.trainer_id || "아직 지정하지 않음")}</small>
       </div>
@@ -8328,12 +8382,14 @@ $("#gym-list").addEventListener("click", (event) => { const button = event.targe
 $("#gym-form").addEventListener("input", updateGymFromForm);
 $("#gym-staff-editor").addEventListener("input", (event) => {
   const gym = selectedGym(); if (!gym) return;
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
   if (event.target.id === "gym-leader-entry") {
     const entry = (state.leagueProgression.entries || []).find((candidate) => candidate.id === event.target.value);
     gym.staff.leader.league_entry_id = event.target.value;
     gym.staff.leader.trainer_id = entry?.trainer_id || "";
     renderGymStaff();
+  } else if (event.target.id === "gym-leader-badge") {
+    gym.staff.leader.badge_id = event.target.value;
   } else if (event.target.id === "gym-leader-anchor") {
     gym.staff.leader.anchor = event.target.value.trim();
   } else {
@@ -8352,7 +8408,7 @@ $("#gym-staff-editor").addEventListener("click", (event) => {
 $("#add-gym-trainer").addEventListener("click", () => {
   const gym = selectedGym(); if (!gym) return;
   if (!state.trainers.length) { toast("먼저 트레이너를 하나 이상 만들어 주세요."); return; }
-  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", anchor: "leader" }, trainers: [] };
+  gym.staff ||= { leader: { trainer_id: "", league_entry_id: "", badge_id: "", anchor: "leader" }, trainers: [] };
   gym.staff.trainers ||= [];
   const index = gym.staff.trainers.length + 1;
   const used = new Set([gym.staff.leader?.anchor, ...gym.staff.trainers.map((trainer) => trainer.anchor)]);
@@ -8524,6 +8580,17 @@ $("#save-battle").addEventListener("click", () => saveDocument("battles"));
 $("#delete-battle").addEventListener("click", () => deleteManagedDocument("battles"));
 $("#add-league-entry").addEventListener("click", addLeagueEntry);
 $("#save-league").addEventListener("click", saveLeagueProgression);
+$("#badge-generation-filter").addEventListener("change", renderTrainerCardManager);
+$("#trainer-card-order-list").addEventListener("change", (event) => {
+  if (!event.target.matches("[data-card-visible]")) return;
+  const entry = (state.leagueProgression.entries || []).find((candidate) => candidate.id === event.target.closest("[data-card-entry]")?.dataset.cardEntry);
+  if (entry) entry.trainer_card_visible = event.target.checked;
+});
+$("#trainer-card-order-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-card-move]");
+  if (button) moveTrainerCardEntry(button.closest("[data-card-entry]").dataset.cardEntry, Number(button.dataset.cardMove));
+});
+$("#save-trainer-card-order").addEventListener("click", saveLeagueProgression);
 $("#delete-league-entry").addEventListener("click", () => {
   const entry = selectedLeagueEntry(); if (!entry || !confirm(`'${entry.display_name?.ko_kr || entry.id}' 리그 항목을 삭제할까요?`)) return;
   state.leagueProgression.entries = state.leagueProgression.entries.filter((candidate) => candidate !== entry);

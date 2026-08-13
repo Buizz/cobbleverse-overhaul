@@ -1,0 +1,1653 @@
+{
+  "$schema": "../schemas/badge-catalog.schema.json",
+  "schema_version": 1,
+  "atlas": {
+    "width": 256,
+    "height": 288,
+    "tile_size": 32
+  },
+  "regions_without_gym_badges": [
+    {
+      "generation": 7,
+      "region": "alola",
+      "reason": {
+        "ko_kr": "알로라는 체육관 배지 대신 섬 순례와 큰 시련을 사용합니다.",
+        "en_us": "Alola uses the island challenge instead of Gym Badges."
+      }
+    }
+  ],
+  "badges": [
+    {
+      "id": "cobbleventure:badge/kanto/boulder",
+      "generation": 1,
+      "region": "kanto",
+      "order": 1,
+      "display_name": {
+        "ko_kr": "회색배지",
+        "en_us": "Boulder Badge"
+      },
+      "leader_name": {
+        "ko_kr": "웅"
+      },
+      "type": "rock",
+      "tooltip": {
+        "ko_kr": "1세대 1번째 바위 타입 관장 · 관동 · 웅",
+        "en_us": "Generation 1 Gym 1 · Kanto · 웅 · rock"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 0,
+        "v": 0,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kanto/cascade",
+      "generation": 1,
+      "region": "kanto",
+      "order": 2,
+      "display_name": {
+        "ko_kr": "블루배지",
+        "en_us": "Cascade Badge"
+      },
+      "leader_name": {
+        "ko_kr": "이슬"
+      },
+      "type": "water",
+      "tooltip": {
+        "ko_kr": "1세대 2번째 물 타입 관장 · 관동 · 이슬",
+        "en_us": "Generation 1 Gym 2 · Kanto · 이슬 · water"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 32,
+        "v": 0,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kanto/thunder",
+      "generation": 1,
+      "region": "kanto",
+      "order": 3,
+      "display_name": {
+        "ko_kr": "오렌지배지",
+        "en_us": "Thunder Badge"
+      },
+      "leader_name": {
+        "ko_kr": "마티스"
+      },
+      "type": "electric",
+      "tooltip": {
+        "ko_kr": "1세대 3번째 전기 타입 관장 · 관동 · 마티스",
+        "en_us": "Generation 1 Gym 3 · Kanto · 마티스 · electric"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 64,
+        "v": 0,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kanto/rainbow",
+      "generation": 1,
+      "region": "kanto",
+      "order": 4,
+      "display_name": {
+        "ko_kr": "무지개배지",
+        "en_us": "Rainbow Badge"
+      },
+      "leader_name": {
+        "ko_kr": "민화"
+      },
+      "type": "grass",
+      "tooltip": {
+        "ko_kr": "1세대 4번째 풀 타입 관장 · 관동 · 민화",
+        "en_us": "Generation 1 Gym 4 · Kanto · 민화 · grass"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 96,
+        "v": 0,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kanto/soul",
+      "generation": 1,
+      "region": "kanto",
+      "order": 5,
+      "display_name": {
+        "ko_kr": "핑크배지",
+        "en_us": "Soul Badge"
+      },
+      "leader_name": {
+        "ko_kr": "독수"
+      },
+      "type": "poison",
+      "tooltip": {
+        "ko_kr": "1세대 5번째 독 타입 관장 · 관동 · 독수",
+        "en_us": "Generation 1 Gym 5 · Kanto · 독수 · poison"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 128,
+        "v": 0,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kanto/marsh",
+      "generation": 1,
+      "region": "kanto",
+      "order": 6,
+      "display_name": {
+        "ko_kr": "골드배지",
+        "en_us": "Marsh Badge"
+      },
+      "leader_name": {
+        "ko_kr": "초련"
+      },
+      "type": "psychic",
+      "tooltip": {
+        "ko_kr": "1세대 6번째 에스퍼 타입 관장 · 관동 · 초련",
+        "en_us": "Generation 1 Gym 6 · Kanto · 초련 · psychic"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 160,
+        "v": 0,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kanto/volcano",
+      "generation": 1,
+      "region": "kanto",
+      "order": 7,
+      "display_name": {
+        "ko_kr": "크림슨배지",
+        "en_us": "Volcano Badge"
+      },
+      "leader_name": {
+        "ko_kr": "강연"
+      },
+      "type": "fire",
+      "tooltip": {
+        "ko_kr": "1세대 7번째 불꽃 타입 관장 · 관동 · 강연",
+        "en_us": "Generation 1 Gym 7 · Kanto · 강연 · fire"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 192,
+        "v": 0,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kanto/earth",
+      "generation": 1,
+      "region": "kanto",
+      "order": 8,
+      "display_name": {
+        "ko_kr": "그린배지",
+        "en_us": "Earth Badge"
+      },
+      "leader_name": {
+        "ko_kr": "비주기"
+      },
+      "type": "ground",
+      "tooltip": {
+        "ko_kr": "1세대 8번째 땅 타입 관장 · 관동 · 비주기",
+        "en_us": "Generation 1 Gym 8 · Kanto · 비주기 · ground"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 224,
+        "v": 0,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/johto/zephyr",
+      "generation": 2,
+      "region": "johto",
+      "order": 1,
+      "display_name": {
+        "ko_kr": "윙배지",
+        "en_us": "Zephyr Badge"
+      },
+      "leader_name": {
+        "ko_kr": "비상"
+      },
+      "type": "flying",
+      "tooltip": {
+        "ko_kr": "2세대 1번째 비행 타입 관장 · 성도 · 비상",
+        "en_us": "Generation 2 Gym 1 · Johto · 비상 · flying"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 0,
+        "v": 32,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/johto/hive",
+      "generation": 2,
+      "region": "johto",
+      "order": 2,
+      "display_name": {
+        "ko_kr": "인섹트배지",
+        "en_us": "Hive Badge"
+      },
+      "leader_name": {
+        "ko_kr": "호일"
+      },
+      "type": "bug",
+      "tooltip": {
+        "ko_kr": "2세대 2번째 벌레 타입 관장 · 성도 · 호일",
+        "en_us": "Generation 2 Gym 2 · Johto · 호일 · bug"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 32,
+        "v": 32,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/johto/plain",
+      "generation": 2,
+      "region": "johto",
+      "order": 3,
+      "display_name": {
+        "ko_kr": "레귤러배지",
+        "en_us": "Plain Badge"
+      },
+      "leader_name": {
+        "ko_kr": "꼭두"
+      },
+      "type": "normal",
+      "tooltip": {
+        "ko_kr": "2세대 3번째 노말 타입 관장 · 성도 · 꼭두",
+        "en_us": "Generation 2 Gym 3 · Johto · 꼭두 · normal"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 64,
+        "v": 32,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/johto/fog",
+      "generation": 2,
+      "region": "johto",
+      "order": 4,
+      "display_name": {
+        "ko_kr": "팬텀배지",
+        "en_us": "Fog Badge"
+      },
+      "leader_name": {
+        "ko_kr": "유빈"
+      },
+      "type": "ghost",
+      "tooltip": {
+        "ko_kr": "2세대 4번째 고스트 타입 관장 · 성도 · 유빈",
+        "en_us": "Generation 2 Gym 4 · Johto · 유빈 · ghost"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 96,
+        "v": 32,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/johto/storm",
+      "generation": 2,
+      "region": "johto",
+      "order": 5,
+      "display_name": {
+        "ko_kr": "쇼크배지",
+        "en_us": "Storm Badge"
+      },
+      "leader_name": {
+        "ko_kr": "사도"
+      },
+      "type": "fighting",
+      "tooltip": {
+        "ko_kr": "2세대 5번째 격투 타입 관장 · 성도 · 사도",
+        "en_us": "Generation 2 Gym 5 · Johto · 사도 · fighting"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 128,
+        "v": 32,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/johto/mineral",
+      "generation": 2,
+      "region": "johto",
+      "order": 6,
+      "display_name": {
+        "ko_kr": "스틸배지",
+        "en_us": "Mineral Badge"
+      },
+      "leader_name": {
+        "ko_kr": "규리"
+      },
+      "type": "steel",
+      "tooltip": {
+        "ko_kr": "2세대 6번째 강철 타입 관장 · 성도 · 규리",
+        "en_us": "Generation 2 Gym 6 · Johto · 규리 · steel"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 160,
+        "v": 32,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/johto/glacier",
+      "generation": 2,
+      "region": "johto",
+      "order": 7,
+      "display_name": {
+        "ko_kr": "아이스배지",
+        "en_us": "Glacier Badge"
+      },
+      "leader_name": {
+        "ko_kr": "류옹"
+      },
+      "type": "ice",
+      "tooltip": {
+        "ko_kr": "2세대 7번째 얼음 타입 관장 · 성도 · 류옹",
+        "en_us": "Generation 2 Gym 7 · Johto · 류옹 · ice"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 192,
+        "v": 32,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/johto/rising",
+      "generation": 2,
+      "region": "johto",
+      "order": 8,
+      "display_name": {
+        "ko_kr": "라이징배지",
+        "en_us": "Rising Badge"
+      },
+      "leader_name": {
+        "ko_kr": "이향"
+      },
+      "type": "dragon",
+      "tooltip": {
+        "ko_kr": "2세대 8번째 드래곤 타입 관장 · 성도 · 이향",
+        "en_us": "Generation 2 Gym 8 · Johto · 이향 · dragon"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 224,
+        "v": 32,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/hoenn/stone",
+      "generation": 3,
+      "region": "hoenn",
+      "order": 1,
+      "display_name": {
+        "ko_kr": "스톤배지",
+        "en_us": "Stone Badge"
+      },
+      "leader_name": {
+        "ko_kr": "원규"
+      },
+      "type": "rock",
+      "tooltip": {
+        "ko_kr": "3세대 1번째 바위 타입 관장 · 호연 · 원규",
+        "en_us": "Generation 3 Gym 1 · Hoenn · 원규 · rock"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 0,
+        "v": 64,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/hoenn/knuckle",
+      "generation": 3,
+      "region": "hoenn",
+      "order": 2,
+      "display_name": {
+        "ko_kr": "너클배지",
+        "en_us": "Knuckle Badge"
+      },
+      "leader_name": {
+        "ko_kr": "철구"
+      },
+      "type": "fighting",
+      "tooltip": {
+        "ko_kr": "3세대 2번째 격투 타입 관장 · 호연 · 철구",
+        "en_us": "Generation 3 Gym 2 · Hoenn · 철구 · fighting"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 32,
+        "v": 64,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/hoenn/dynamo",
+      "generation": 3,
+      "region": "hoenn",
+      "order": 3,
+      "display_name": {
+        "ko_kr": "다이나모배지",
+        "en_us": "Dynamo Badge"
+      },
+      "leader_name": {
+        "ko_kr": "암페어"
+      },
+      "type": "electric",
+      "tooltip": {
+        "ko_kr": "3세대 3번째 전기 타입 관장 · 호연 · 암페어",
+        "en_us": "Generation 3 Gym 3 · Hoenn · 암페어 · electric"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 64,
+        "v": 64,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/hoenn/heat",
+      "generation": 3,
+      "region": "hoenn",
+      "order": 4,
+      "display_name": {
+        "ko_kr": "히트배지",
+        "en_us": "Heat Badge"
+      },
+      "leader_name": {
+        "ko_kr": "민지"
+      },
+      "type": "fire",
+      "tooltip": {
+        "ko_kr": "3세대 4번째 불꽃 타입 관장 · 호연 · 민지",
+        "en_us": "Generation 3 Gym 4 · Hoenn · 민지 · fire"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 96,
+        "v": 64,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/hoenn/balance",
+      "generation": 3,
+      "region": "hoenn",
+      "order": 5,
+      "display_name": {
+        "ko_kr": "밸런스배지",
+        "en_us": "Balance Badge"
+      },
+      "leader_name": {
+        "ko_kr": "종길"
+      },
+      "type": "normal",
+      "tooltip": {
+        "ko_kr": "3세대 5번째 노말 타입 관장 · 호연 · 종길",
+        "en_us": "Generation 3 Gym 5 · Hoenn · 종길 · normal"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 128,
+        "v": 64,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/hoenn/feather",
+      "generation": 3,
+      "region": "hoenn",
+      "order": 6,
+      "display_name": {
+        "ko_kr": "페더배지",
+        "en_us": "Feather Badge"
+      },
+      "leader_name": {
+        "ko_kr": "은송"
+      },
+      "type": "flying",
+      "tooltip": {
+        "ko_kr": "3세대 6번째 비행 타입 관장 · 호연 · 은송",
+        "en_us": "Generation 3 Gym 6 · Hoenn · 은송 · flying"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 160,
+        "v": 64,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/hoenn/mind",
+      "generation": 3,
+      "region": "hoenn",
+      "order": 7,
+      "display_name": {
+        "ko_kr": "마인드배지",
+        "en_us": "Mind Badge"
+      },
+      "leader_name": {
+        "ko_kr": "풍&란"
+      },
+      "type": "psychic",
+      "tooltip": {
+        "ko_kr": "3세대 7번째 에스퍼 타입 관장 · 호연 · 풍&란",
+        "en_us": "Generation 3 Gym 7 · Hoenn · 풍&란 · psychic"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 192,
+        "v": 64,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/hoenn/rain",
+      "generation": 3,
+      "region": "hoenn",
+      "order": 8,
+      "display_name": {
+        "ko_kr": "레인배지",
+        "en_us": "Rain Badge"
+      },
+      "leader_name": {
+        "ko_kr": "윤진"
+      },
+      "type": "water",
+      "tooltip": {
+        "ko_kr": "3세대 8번째 물 타입 관장 · 호연 · 윤진",
+        "en_us": "Generation 3 Gym 8 · Hoenn · 윤진 · water"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 224,
+        "v": 64,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/sinnoh/coal",
+      "generation": 4,
+      "region": "sinnoh",
+      "order": 1,
+      "display_name": {
+        "ko_kr": "콜배지",
+        "en_us": "Coal Badge"
+      },
+      "leader_name": {
+        "ko_kr": "강석"
+      },
+      "type": "rock",
+      "tooltip": {
+        "ko_kr": "4세대 1번째 바위 타입 관장 · 신오 · 강석",
+        "en_us": "Generation 4 Gym 1 · Sinnoh · 강석 · rock"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 0,
+        "v": 96,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/sinnoh/forest",
+      "generation": 4,
+      "region": "sinnoh",
+      "order": 2,
+      "display_name": {
+        "ko_kr": "포레스트배지",
+        "en_us": "Forest Badge"
+      },
+      "leader_name": {
+        "ko_kr": "유채"
+      },
+      "type": "grass",
+      "tooltip": {
+        "ko_kr": "4세대 2번째 풀 타입 관장 · 신오 · 유채",
+        "en_us": "Generation 4 Gym 2 · Sinnoh · 유채 · grass"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 32,
+        "v": 96,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/sinnoh/cobble",
+      "generation": 4,
+      "region": "sinnoh",
+      "order": 3,
+      "display_name": {
+        "ko_kr": "코블배지",
+        "en_us": "Cobble Badge"
+      },
+      "leader_name": {
+        "ko_kr": "자두"
+      },
+      "type": "fighting",
+      "tooltip": {
+        "ko_kr": "4세대 3번째 격투 타입 관장 · 신오 · 자두",
+        "en_us": "Generation 4 Gym 3 · Sinnoh · 자두 · fighting"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 64,
+        "v": 96,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/sinnoh/fen",
+      "generation": 4,
+      "region": "sinnoh",
+      "order": 4,
+      "display_name": {
+        "ko_kr": "펜배지",
+        "en_us": "Fen Badge"
+      },
+      "leader_name": {
+        "ko_kr": "맥실러"
+      },
+      "type": "water",
+      "tooltip": {
+        "ko_kr": "4세대 4번째 물 타입 관장 · 신오 · 맥실러",
+        "en_us": "Generation 4 Gym 4 · Sinnoh · 맥실러 · water"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 96,
+        "v": 96,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/sinnoh/relic",
+      "generation": 4,
+      "region": "sinnoh",
+      "order": 5,
+      "display_name": {
+        "ko_kr": "레릭배지",
+        "en_us": "Relic Badge"
+      },
+      "leader_name": {
+        "ko_kr": "멜리사"
+      },
+      "type": "ghost",
+      "tooltip": {
+        "ko_kr": "4세대 5번째 고스트 타입 관장 · 신오 · 멜리사",
+        "en_us": "Generation 4 Gym 5 · Sinnoh · 멜리사 · ghost"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 128,
+        "v": 96,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/sinnoh/mine",
+      "generation": 4,
+      "region": "sinnoh",
+      "order": 6,
+      "display_name": {
+        "ko_kr": "마인배지",
+        "en_us": "Mine Badge"
+      },
+      "leader_name": {
+        "ko_kr": "동관"
+      },
+      "type": "steel",
+      "tooltip": {
+        "ko_kr": "4세대 6번째 강철 타입 관장 · 신오 · 동관",
+        "en_us": "Generation 4 Gym 6 · Sinnoh · 동관 · steel"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 160,
+        "v": 96,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/sinnoh/icicle",
+      "generation": 4,
+      "region": "sinnoh",
+      "order": 7,
+      "display_name": {
+        "ko_kr": "아이시클배지",
+        "en_us": "Icicle Badge"
+      },
+      "leader_name": {
+        "ko_kr": "무청"
+      },
+      "type": "ice",
+      "tooltip": {
+        "ko_kr": "4세대 7번째 얼음 타입 관장 · 신오 · 무청",
+        "en_us": "Generation 4 Gym 7 · Sinnoh · 무청 · ice"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 192,
+        "v": 96,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/sinnoh/beacon",
+      "generation": 4,
+      "region": "sinnoh",
+      "order": 8,
+      "display_name": {
+        "ko_kr": "비컨배지",
+        "en_us": "Beacon Badge"
+      },
+      "leader_name": {
+        "ko_kr": "전진"
+      },
+      "type": "electric",
+      "tooltip": {
+        "ko_kr": "4세대 8번째 전기 타입 관장 · 신오 · 전진",
+        "en_us": "Generation 4 Gym 8 · Sinnoh · 전진 · electric"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 224,
+        "v": 96,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/unova/trio",
+      "generation": 5,
+      "region": "unova",
+      "order": 1,
+      "display_name": {
+        "ko_kr": "트라이배지",
+        "en_us": "Trio Badge"
+      },
+      "leader_name": {
+        "ko_kr": "덴트·팟·콘"
+      },
+      "type": "grass_fire_water",
+      "tooltip": {
+        "ko_kr": "5세대 1번째 풀·불꽃·물 타입 관장 · 하나 · 덴트·팟·콘",
+        "en_us": "Generation 5 Gym 1 · Unova · 덴트·팟·콘 · grass_fire_water"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 0,
+        "v": 128,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/unova/basic",
+      "generation": 5,
+      "region": "unova",
+      "order": 2,
+      "display_name": {
+        "ko_kr": "베이직배지",
+        "en_us": "Basic Badge"
+      },
+      "leader_name": {
+        "ko_kr": "알로에·체렌"
+      },
+      "type": "normal",
+      "tooltip": {
+        "ko_kr": "5세대 2번째 노말 타입 관장 · 하나 · 알로에·체렌",
+        "en_us": "Generation 5 Gym 2 · Unova · 알로에·체렌 · normal"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 32,
+        "v": 128,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/unova/insect",
+      "generation": 5,
+      "region": "unova",
+      "order": 3,
+      "display_name": {
+        "ko_kr": "비틀배지",
+        "en_us": "Insect Badge"
+      },
+      "leader_name": {
+        "ko_kr": "아티"
+      },
+      "type": "bug",
+      "tooltip": {
+        "ko_kr": "5세대 3번째 벌레 타입 관장 · 하나 · 아티",
+        "en_us": "Generation 5 Gym 3 · Unova · 아티 · bug"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 64,
+        "v": 128,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/unova/bolt",
+      "generation": 5,
+      "region": "unova",
+      "order": 4,
+      "display_name": {
+        "ko_kr": "볼트배지",
+        "en_us": "Bolt Badge"
+      },
+      "leader_name": {
+        "ko_kr": "카밀레"
+      },
+      "type": "electric",
+      "tooltip": {
+        "ko_kr": "5세대 4번째 전기 타입 관장 · 하나 · 카밀레",
+        "en_us": "Generation 5 Gym 4 · Unova · 카밀레 · electric"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 96,
+        "v": 128,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/unova/quake",
+      "generation": 5,
+      "region": "unova",
+      "order": 5,
+      "display_name": {
+        "ko_kr": "퀘이크배지",
+        "en_us": "Quake Badge"
+      },
+      "leader_name": {
+        "ko_kr": "야콘"
+      },
+      "type": "ground",
+      "tooltip": {
+        "ko_kr": "5세대 5번째 땅 타입 관장 · 하나 · 야콘",
+        "en_us": "Generation 5 Gym 5 · Unova · 야콘 · ground"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 128,
+        "v": 128,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/unova/jet",
+      "generation": 5,
+      "region": "unova",
+      "order": 6,
+      "display_name": {
+        "ko_kr": "제트배지",
+        "en_us": "Jet Badge"
+      },
+      "leader_name": {
+        "ko_kr": "풍란"
+      },
+      "type": "flying",
+      "tooltip": {
+        "ko_kr": "5세대 6번째 비행 타입 관장 · 하나 · 풍란",
+        "en_us": "Generation 5 Gym 6 · Unova · 풍란 · flying"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 160,
+        "v": 128,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/unova/freeze",
+      "generation": 5,
+      "region": "unova",
+      "order": 7,
+      "display_name": {
+        "ko_kr": "아이스배지",
+        "en_us": "Freeze Badge"
+      },
+      "leader_name": {
+        "ko_kr": "담죽"
+      },
+      "type": "ice",
+      "tooltip": {
+        "ko_kr": "5세대 7번째 얼음 타입 관장 · 하나 · 담죽",
+        "en_us": "Generation 5 Gym 7 · Unova · 담죽 · ice"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 192,
+        "v": 128,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/unova/legend",
+      "generation": 5,
+      "region": "unova",
+      "order": 8,
+      "display_name": {
+        "ko_kr": "레전드배지",
+        "en_us": "Legend Badge"
+      },
+      "leader_name": {
+        "ko_kr": "사간·아이리스"
+      },
+      "type": "dragon",
+      "tooltip": {
+        "ko_kr": "5세대 8번째 드래곤 타입 관장 · 하나 · 사간·아이리스",
+        "en_us": "Generation 5 Gym 8 · Unova · 사간·아이리스 · dragon"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 224,
+        "v": 128,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/unova/toxic",
+      "generation": 5,
+      "region": "unova",
+      "order": 9,
+      "display_name": {
+        "ko_kr": "톡식배지",
+        "en_us": "Toxic Badge"
+      },
+      "leader_name": {
+        "ko_kr": "보미카"
+      },
+      "type": "poison",
+      "tooltip": {
+        "ko_kr": "5세대 9번째 독 타입 관장 · 하나 · 보미카",
+        "en_us": "Generation 5 Gym 9 · Unova · 보미카 · poison"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 0,
+        "v": 160,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/unova/wave",
+      "generation": 5,
+      "region": "unova",
+      "order": 10,
+      "display_name": {
+        "ko_kr": "웨이브배지",
+        "en_us": "Wave Badge"
+      },
+      "leader_name": {
+        "ko_kr": "시즈"
+      },
+      "type": "water",
+      "tooltip": {
+        "ko_kr": "5세대 10번째 물 타입 관장 · 하나 · 시즈",
+        "en_us": "Generation 5 Gym 10 · Unova · 시즈 · water"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 32,
+        "v": 160,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kalos/bug",
+      "generation": 6,
+      "region": "kalos",
+      "order": 1,
+      "display_name": {
+        "ko_kr": "버그배지",
+        "en_us": "Bug Badge"
+      },
+      "leader_name": {
+        "ko_kr": "비올라"
+      },
+      "type": "bug",
+      "tooltip": {
+        "ko_kr": "6세대 1번째 벌레 타입 관장 · 칼로스 · 비올라",
+        "en_us": "Generation 6 Gym 1 · Kalos · 비올라 · bug"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 64,
+        "v": 160,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kalos/cliff",
+      "generation": 6,
+      "region": "kalos",
+      "order": 2,
+      "display_name": {
+        "ko_kr": "월배지",
+        "en_us": "Cliff Badge"
+      },
+      "leader_name": {
+        "ko_kr": "자크로"
+      },
+      "type": "rock",
+      "tooltip": {
+        "ko_kr": "6세대 2번째 바위 타입 관장 · 칼로스 · 자크로",
+        "en_us": "Generation 6 Gym 2 · Kalos · 자크로 · rock"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 96,
+        "v": 160,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kalos/rumble",
+      "generation": 6,
+      "region": "kalos",
+      "order": 3,
+      "display_name": {
+        "ko_kr": "파이트배지",
+        "en_us": "Rumble Badge"
+      },
+      "leader_name": {
+        "ko_kr": "코르니"
+      },
+      "type": "fighting",
+      "tooltip": {
+        "ko_kr": "6세대 3번째 격투 타입 관장 · 칼로스 · 코르니",
+        "en_us": "Generation 6 Gym 3 · Kalos · 코르니 · fighting"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 128,
+        "v": 160,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kalos/plant",
+      "generation": 6,
+      "region": "kalos",
+      "order": 4,
+      "display_name": {
+        "ko_kr": "플랜트배지",
+        "en_us": "Plant Badge"
+      },
+      "leader_name": {
+        "ko_kr": "후쿠지"
+      },
+      "type": "grass",
+      "tooltip": {
+        "ko_kr": "6세대 4번째 풀 타입 관장 · 칼로스 · 후쿠지",
+        "en_us": "Generation 6 Gym 4 · Kalos · 후쿠지 · grass"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 160,
+        "v": 160,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kalos/voltage",
+      "generation": 6,
+      "region": "kalos",
+      "order": 5,
+      "display_name": {
+        "ko_kr": "볼티지배지",
+        "en_us": "Voltage Badge"
+      },
+      "leader_name": {
+        "ko_kr": "시트론"
+      },
+      "type": "electric",
+      "tooltip": {
+        "ko_kr": "6세대 5번째 전기 타입 관장 · 칼로스 · 시트론",
+        "en_us": "Generation 6 Gym 5 · Kalos · 시트론 · electric"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 192,
+        "v": 160,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kalos/fairy",
+      "generation": 6,
+      "region": "kalos",
+      "order": 6,
+      "display_name": {
+        "ko_kr": "페어리배지",
+        "en_us": "Fairy Badge"
+      },
+      "leader_name": {
+        "ko_kr": "마슈"
+      },
+      "type": "fairy",
+      "tooltip": {
+        "ko_kr": "6세대 6번째 페어리 타입 관장 · 칼로스 · 마슈",
+        "en_us": "Generation 6 Gym 6 · Kalos · 마슈 · fairy"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 224,
+        "v": 160,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kalos/psychic",
+      "generation": 6,
+      "region": "kalos",
+      "order": 7,
+      "display_name": {
+        "ko_kr": "사이킥배지",
+        "en_us": "Psychic Badge"
+      },
+      "leader_name": {
+        "ko_kr": "고지카"
+      },
+      "type": "psychic",
+      "tooltip": {
+        "ko_kr": "6세대 7번째 에스퍼 타입 관장 · 칼로스 · 고지카",
+        "en_us": "Generation 6 Gym 7 · Kalos · 고지카 · psychic"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 0,
+        "v": 192,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/kalos/iceberg",
+      "generation": 6,
+      "region": "kalos",
+      "order": 8,
+      "display_name": {
+        "ko_kr": "아이스버그배지",
+        "en_us": "Iceberg Badge"
+      },
+      "leader_name": {
+        "ko_kr": "우르프"
+      },
+      "type": "ice",
+      "tooltip": {
+        "ko_kr": "6세대 8번째 얼음 타입 관장 · 칼로스 · 우르프",
+        "en_us": "Generation 6 Gym 8 · Kalos · 우르프 · ice"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 32,
+        "v": 192,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/galar/grass",
+      "generation": 8,
+      "region": "galar",
+      "order": 1,
+      "display_name": {
+        "ko_kr": "풀배지",
+        "en_us": "Grass Badge"
+      },
+      "leader_name": {
+        "ko_kr": "아킬"
+      },
+      "type": "grass",
+      "tooltip": {
+        "ko_kr": "8세대 1번째 풀 타입 관장 · 가라르 · 아킬",
+        "en_us": "Generation 8 Gym 1 · Galar · 아킬 · grass"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 64,
+        "v": 192,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/galar/water",
+      "generation": 8,
+      "region": "galar",
+      "order": 2,
+      "display_name": {
+        "ko_kr": "물배지",
+        "en_us": "Water Badge"
+      },
+      "leader_name": {
+        "ko_kr": "야청"
+      },
+      "type": "water",
+      "tooltip": {
+        "ko_kr": "8세대 2번째 물 타입 관장 · 가라르 · 야청",
+        "en_us": "Generation 8 Gym 2 · Galar · 야청 · water"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 96,
+        "v": 192,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/galar/fire",
+      "generation": 8,
+      "region": "galar",
+      "order": 3,
+      "display_name": {
+        "ko_kr": "불꽃배지",
+        "en_us": "Fire Badge"
+      },
+      "leader_name": {
+        "ko_kr": "순무"
+      },
+      "type": "fire",
+      "tooltip": {
+        "ko_kr": "8세대 3번째 불꽃 타입 관장 · 가라르 · 순무",
+        "en_us": "Generation 8 Gym 3 · Galar · 순무 · fire"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 128,
+        "v": 192,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/galar/fighting",
+      "generation": 8,
+      "region": "galar",
+      "order": 4,
+      "display_name": {
+        "ko_kr": "격투배지",
+        "en_us": "Fighting Badge"
+      },
+      "leader_name": {
+        "ko_kr": "채두"
+      },
+      "type": "fighting",
+      "tooltip": {
+        "ko_kr": "8세대 4번째 격투 타입 관장 · 가라르 · 채두",
+        "en_us": "Generation 8 Gym 4 · Galar · 채두 · fighting"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 160,
+        "v": 192,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/galar/ghost",
+      "generation": 8,
+      "region": "galar",
+      "order": 5,
+      "display_name": {
+        "ko_kr": "고스트배지",
+        "en_us": "Ghost Badge"
+      },
+      "leader_name": {
+        "ko_kr": "어니언"
+      },
+      "type": "ghost",
+      "tooltip": {
+        "ko_kr": "8세대 5번째 고스트 타입 관장 · 가라르 · 어니언",
+        "en_us": "Generation 8 Gym 5 · Galar · 어니언 · ghost"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 192,
+        "v": 192,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/galar/fairy",
+      "generation": 8,
+      "region": "galar",
+      "order": 6,
+      "display_name": {
+        "ko_kr": "페어리배지",
+        "en_us": "Fairy Badge"
+      },
+      "leader_name": {
+        "ko_kr": "포플러"
+      },
+      "type": "fairy",
+      "tooltip": {
+        "ko_kr": "8세대 6번째 페어리 타입 관장 · 가라르 · 포플러",
+        "en_us": "Generation 8 Gym 6 · Galar · 포플러 · fairy"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 224,
+        "v": 192,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/galar/rock",
+      "generation": 8,
+      "region": "galar",
+      "order": 7,
+      "display_name": {
+        "ko_kr": "바위배지",
+        "en_us": "Rock Badge"
+      },
+      "leader_name": {
+        "ko_kr": "마쿠와"
+      },
+      "type": "rock",
+      "tooltip": {
+        "ko_kr": "8세대 7번째 바위 타입 관장 · 가라르 · 마쿠와",
+        "en_us": "Generation 8 Gym 7 · Galar · 마쿠와 · rock"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 0,
+        "v": 224,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/galar/ice",
+      "generation": 8,
+      "region": "galar",
+      "order": 8,
+      "display_name": {
+        "ko_kr": "얼음배지",
+        "en_us": "Ice Badge"
+      },
+      "leader_name": {
+        "ko_kr": "멜론"
+      },
+      "type": "ice",
+      "tooltip": {
+        "ko_kr": "8세대 8번째 얼음 타입 관장 · 가라르 · 멜론",
+        "en_us": "Generation 8 Gym 8 · Galar · 멜론 · ice"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 32,
+        "v": 224,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/galar/dark",
+      "generation": 8,
+      "region": "galar",
+      "order": 9,
+      "display_name": {
+        "ko_kr": "악배지",
+        "en_us": "Dark Badge"
+      },
+      "leader_name": {
+        "ko_kr": "두송"
+      },
+      "type": "dark",
+      "tooltip": {
+        "ko_kr": "8세대 9번째 악 타입 관장 · 가라르 · 두송",
+        "en_us": "Generation 8 Gym 9 · Galar · 두송 · dark"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 64,
+        "v": 224,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/galar/dragon",
+      "generation": 8,
+      "region": "galar",
+      "order": 10,
+      "display_name": {
+        "ko_kr": "드래곤배지",
+        "en_us": "Dragon Badge"
+      },
+      "leader_name": {
+        "ko_kr": "금랑"
+      },
+      "type": "dragon",
+      "tooltip": {
+        "ko_kr": "8세대 10번째 드래곤 타입 관장 · 가라르 · 금랑",
+        "en_us": "Generation 8 Gym 10 · Galar · 금랑 · dragon"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 96,
+        "v": 224,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/paldea/bug",
+      "generation": 9,
+      "region": "paldea",
+      "order": 1,
+      "display_name": {
+        "ko_kr": "벌레배지",
+        "en_us": "Bug Badge"
+      },
+      "leader_name": {
+        "ko_kr": "단풍"
+      },
+      "type": "bug",
+      "tooltip": {
+        "ko_kr": "9세대 1번째 벌레 타입 관장 · 팔데아 · 단풍",
+        "en_us": "Generation 9 Gym 1 · Paldea · 단풍 · bug"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 128,
+        "v": 224,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/paldea/grass",
+      "generation": 9,
+      "region": "paldea",
+      "order": 2,
+      "display_name": {
+        "ko_kr": "풀배지",
+        "en_us": "Grass Badge"
+      },
+      "leader_name": {
+        "ko_kr": "콜사"
+      },
+      "type": "grass",
+      "tooltip": {
+        "ko_kr": "9세대 2번째 풀 타입 관장 · 팔데아 · 콜사",
+        "en_us": "Generation 9 Gym 2 · Paldea · 콜사 · grass"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 160,
+        "v": 224,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/paldea/electric",
+      "generation": 9,
+      "region": "paldea",
+      "order": 3,
+      "display_name": {
+        "ko_kr": "전기배지",
+        "en_us": "Electric Badge"
+      },
+      "leader_name": {
+        "ko_kr": "모야모"
+      },
+      "type": "electric",
+      "tooltip": {
+        "ko_kr": "9세대 3번째 전기 타입 관장 · 팔데아 · 모야모",
+        "en_us": "Generation 9 Gym 3 · Paldea · 모야모 · electric"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 192,
+        "v": 224,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/paldea/water",
+      "generation": 9,
+      "region": "paldea",
+      "order": 4,
+      "display_name": {
+        "ko_kr": "물배지",
+        "en_us": "Water Badge"
+      },
+      "leader_name": {
+        "ko_kr": "곤포"
+      },
+      "type": "water",
+      "tooltip": {
+        "ko_kr": "9세대 4번째 물 타입 관장 · 팔데아 · 곤포",
+        "en_us": "Generation 9 Gym 4 · Paldea · 곤포 · water"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 224,
+        "v": 224,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/paldea/normal",
+      "generation": 9,
+      "region": "paldea",
+      "order": 5,
+      "display_name": {
+        "ko_kr": "노말배지",
+        "en_us": "Normal Badge"
+      },
+      "leader_name": {
+        "ko_kr": "청목"
+      },
+      "type": "normal",
+      "tooltip": {
+        "ko_kr": "9세대 5번째 노말 타입 관장 · 팔데아 · 청목",
+        "en_us": "Generation 9 Gym 5 · Paldea · 청목 · normal"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 0,
+        "v": 256,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/paldea/ghost",
+      "generation": 9,
+      "region": "paldea",
+      "order": 6,
+      "display_name": {
+        "ko_kr": "고스트배지",
+        "en_us": "Ghost Badge"
+      },
+      "leader_name": {
+        "ko_kr": "라임"
+      },
+      "type": "ghost",
+      "tooltip": {
+        "ko_kr": "9세대 6번째 고스트 타입 관장 · 팔데아 · 라임",
+        "en_us": "Generation 9 Gym 6 · Paldea · 라임 · ghost"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 32,
+        "v": 256,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/paldea/psychic",
+      "generation": 9,
+      "region": "paldea",
+      "order": 7,
+      "display_name": {
+        "ko_kr": "에스퍼배지",
+        "en_us": "Psychic Badge"
+      },
+      "leader_name": {
+        "ko_kr": "리파"
+      },
+      "type": "psychic",
+      "tooltip": {
+        "ko_kr": "9세대 7번째 에스퍼 타입 관장 · 팔데아 · 리파",
+        "en_us": "Generation 9 Gym 7 · Paldea · 리파 · psychic"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 64,
+        "v": 256,
+        "size": 32
+      }
+    },
+    {
+      "id": "cobbleventure:badge/paldea/ice",
+      "generation": 9,
+      "region": "paldea",
+      "order": 8,
+      "display_name": {
+        "ko_kr": "얼음배지",
+        "en_us": "Ice Badge"
+      },
+      "leader_name": {
+        "ko_kr": "그루샤"
+      },
+      "type": "ice",
+      "tooltip": {
+        "ko_kr": "9세대 8번째 얼음 타입 관장 · 팔데아 · 그루샤",
+        "en_us": "Generation 9 Gym 8 · Paldea · 그루샤 · ice"
+      },
+      "icon": {
+        "texture": "cobbleventure_player_menu:textures/gui/badges.png",
+        "u": 96,
+        "v": 256,
+        "size": 32
+      }
+    }
+  ]
+}

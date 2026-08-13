@@ -117,6 +117,12 @@ processResources {
     from(new File(contentDir, 'catalogs/league-progression.json')) {
         into 'data/cobbleventure_player_menu/league'
     }
+    from(new File(contentDir, 'catalogs/badges.json')) {
+        into 'data/cobbleventure_player_menu/league'
+    }
+    from(new File(contentDir, 'catalogs/gyms.json')) {
+        into 'data/cobbleventure_player_menu/league'
+    }
     from(fieldMoveNpcMapFile) {
         into 'data/cobbleventure_player_menu/map'
     }

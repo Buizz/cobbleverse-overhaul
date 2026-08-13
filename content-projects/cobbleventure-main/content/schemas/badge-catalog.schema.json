@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cobbleventure item-independent badge catalog",
+  "type": "object",
+  "required": ["schema_version", "atlas", "badges"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "atlas": {
+      "type": "object", "required": ["width", "height", "tile_size"],
+      "properties": { "width": { "type": "integer" }, "height": { "type": "integer" }, "tile_size": { "type": "integer" } }
+    },
+    "regions_without_gym_badges": { "type": "array" },
+    "badges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "generation", "region", "order", "display_name", "leader_name", "type", "tooltip", "icon"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+          "generation": { "type": "integer", "minimum": 1, "maximum": 9 },
+          "region": { "type": "string" }, "order": { "type": "integer", "minimum": 1 },
+          "display_name": { "type": "object" }, "leader_name": { "type": "object" },
+          "type": { "type": "string" }, "tooltip": { "type": "object" }, "icon": { "type": "object" }
+        }
+      }
+    }
+  }
+}
