@@ -190,6 +190,10 @@ public final class CobbleventureBootstrap {
     private static final Map<NoiseKey, NormalNoise> TERRAIN_NOISES = new ConcurrentHashMap<>();
     private static final Cache<TerrainColumnKey, NativeTerrainColumn> NATIVE_TERRAIN_COLUMNS =
         CacheBuilder.newBuilder().maximumSize(262_144L).build();
+    // Narrow-feature stabilization samples overlapping neighbors for every column.
+    // Cache the deterministic base height so adjacent columns share those samples.
+    private static final Cache<TerrainHeightKey, Integer> BASE_TERRAIN_HEIGHTS =
+        CacheBuilder.newBuilder().maximumSize(524_288L).build();
     private static final Map<TownFootprintCenterKey, Point> TOWN_FOOTPRINT_CENTERS =
         new ConcurrentHashMap<>();
     private static final Map<OceanMoundKey, Boolean> OCEAN_MOUND_BOUNDARY =
@@ -390,7 +394,9 @@ public final class CobbleventureBootstrap {
             throw new IllegalStateException("Cobbleventure dungeons dimension is missing");
         }
         placeCaveInteriors(dungeons, runtime.hexWorld());
-        GymInteriorSystem.initialize(event.getServer());
+        if (!Boolean.getBoolean(TOWN_SEQUENCE_PERFORMANCE_TEST_PROPERTY)) {
+            GymInteriorSystem.initialize(event.getServer());
+        }
         BuildingRuntimeSystem.initialize(event.getServer());
         prepareExistingGymExteriors(level, runtime.settlements());
         prepareExistingBuildingRuntime(level, runtime.settlements());
@@ -7364,6 +7370,22 @@ public final class CobbleventureBootstrap {
     private static int baseTerrainGroundY(
         HexWorldPlan world, TerrainSample sample, double x, double z
     ) {
+        TerrainHeightKey key = new TerrainHeightKey(
+            System.identityHashCode(world), world.seed(), sample,
+            Double.doubleToLongBits(x), Double.doubleToLongBits(z)
+        );
+        Integer cached = BASE_TERRAIN_HEIGHTS.getIfPresent(key);
+        if (cached != null) {
+            return cached;
+        }
+        int groundY = computeBaseTerrainGroundY(world, sample, x, z);
+        BASE_TERRAIN_HEIGHTS.put(key, groundY);
+        return groundY;
+    }
+
+    private static int computeBaseTerrainGroundY(
+        HexWorldPlan world, TerrainSample sample, double x, double z
+    ) {
         int rawHeight = rawTerrainHeight(world, sample, x, z);
         if (isAquatic(sample)) {
             return aquaticGroundY(world, sample, x, z, rawHeight);
@@ -10790,6 +10812,14 @@ public final class CobbleventureBootstrap {
     record NoiseKey(long seed, String salt) {}
 
     record TerrainColumnKey(int worldIdentity, long seed, int x, int z) {}
+
+    record TerrainHeightKey(
+        int worldIdentity,
+        long seed,
+        TerrainSample sample,
+        long xBits,
+        long zBits
+    ) {}
 
     record TownFootprintCenterKey(HexGrid grid, String settlementId) {}
 

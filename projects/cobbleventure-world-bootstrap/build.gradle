@@ -43,6 +43,9 @@ configurations {
 dependencies {
     localRuntime "dev.buizz.cobbleventure:cobbleventure-adventure:0.1.0"
     localRuntime "dev.buizz.cobbleventure:cobbleventure-player-menu:1.5.1"
+    localRuntime "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    localRuntime "curse.maven:cobbledollars-859232:8484919"
+    localRuntime "curse.maven:kotlin-for-forge-351264:8335665"
 }
 
 def integrationBcaJar = null
