@@ -398,6 +398,17 @@ def validate_hex_worlds(
     cave_documents: dict[str, dict[str, Any]] | None = None,
 ) -> list[Issue]:
     issues: list[Issue] = []
+    known_pokemon: set[str] | None = None
+    pokemon_catalog_path = root / "content" / "catalogs" / "pokemon-habitats.json"
+    if pokemon_catalog_path.is_file():
+        try:
+            pokemon_catalog = load_json(pokemon_catalog_path)
+            known_pokemon = {
+                entry["id"] for entry in pokemon_catalog.get("pokemon", [])
+                if isinstance(entry, dict) and isinstance(entry.get("id"), str)
+            }
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            known_pokemon = None
     if cave_documents is None:
         cave_documents = {}
         cave_dir = root / "content" / "caves"
@@ -809,6 +820,8 @@ def validate_hex_worlds(
                             species_path = f"{connection_path}.pokemon_spawns.excluded_species[{species_index}]"
                             if not isinstance(species, str) or not RESOURCE_ID.fullmatch(species):
                                 _issue(issues, "error", path, species_path, "올바른 포켓몬 리소스 ID가 필요합니다.")
+                            elif known_pokemon is not None and species not in known_pokemon:
+                                _issue(issues, "error", path, species_path, f"포켓몬 카탈로그에 없는 종입니다: {species}")
                             elif species in seen_species:
                                 _issue(issues, "error", path, species_path, f"중복 제외 포켓몬: {species}")
                             else:
@@ -826,6 +839,8 @@ def validate_hex_worlds(
                             species = addition.get("species")
                             if not isinstance(species, str) or not RESOURCE_ID.fullmatch(species):
                                 _issue(issues, "error", path, f"{addition_path}.species", "올바른 포켓몬 리소스 ID가 필요합니다.")
+                            elif known_pokemon is not None and species not in known_pokemon:
+                                _issue(issues, "error", path, f"{addition_path}.species", f"포켓몬 카탈로그에 없는 종입니다: {species}")
                             elif species in seen_additions:
                                 _issue(issues, "error", path, f"{addition_path}.species", f"중복 추가 포켓몬: {species}")
                             else:
@@ -1565,6 +1580,9 @@ def save_world_layout(root: Path, data: Any, generation: int = 1) -> list[Issue]
             root / "content" / "catalogs" / "boundary-profiles.json",
             catalog_dir / "boundary-profiles.json",
         )
+        pokemon_catalog = root / "content" / "catalogs" / "pokemon-habitats.json"
+        if pokemon_catalog.is_file():
+            shutil.copy2(pokemon_catalog, catalog_dir / "pokemon-habitats.json")
         candidate_issues = validate_hex_worlds(candidate_root, settlement_ids, cave_documents)
     issues = [
         Issue(issue.level, target.as_posix(), issue.path, issue.message)
@@ -4146,12 +4164,6 @@ def sync_local_music_catalog(project_root: Path, core_root: Path) -> tuple[dict[
         registered.add(relative.casefold())
     if additions:
         tracks.extend(additions)
-        added_files = {track["source_file"].casefold() for track in additions}
-        catalog["review_candidates"] = [
-            candidate for candidate in catalog.get("review_candidates", [])
-            if not isinstance(candidate, dict)
-            or str(candidate.get("source_file", "")).casefold() not in added_files
-        ]
         temporary = catalog_path.with_suffix(".json.tmp")
         temporary.write_text(
             json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

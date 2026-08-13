@@ -236,6 +236,13 @@ public final class CobbleventureBootstrap {
             }
 
             @Override
+            public AdventureWorldContext.WildSpawnRule wildSpawnRule(
+                ServerLevel level, double x, double z
+            ) {
+                return CobbleventureBootstrap.wildSpawnRule(level, x, z);
+            }
+
+            @Override
             public String authoredWeatherAt(ServerPlayer player) {
                 return CobbleventureBootstrap.authoredWeatherAt(player);
             }
@@ -5904,7 +5911,7 @@ public final class CobbleventureBootstrap {
                 connection.routeBiome(), connection.boundaryProfile(),
                 connection.corridorWidthBlocks(), connection.edgeNoise(), connection.terrainProfile(),
                 connection.surfaceStyle(), connection.accessRequirement(), List.copyOf(path),
-                centerline, routeBounds(centerline)
+                centerline, routeBounds(centerline), connection.pokemonSpawns()
             ));
         }
 
@@ -6819,6 +6826,34 @@ public final class CobbleventureBootstrap {
         return world.levelOverrides().get(world.grid().worldToHex(x, z));
     }
 
+    static AdventureWorldContext.WildSpawnRule wildSpawnRule(
+        ServerLevel level, double x, double z
+    ) {
+        if (!level.dimension().equals(GENERATION_ONE)) {
+            return null;
+        }
+        HexWorldPlan world = activeHexWorld;
+        if (world == null) {
+            return null;
+        }
+        ConnectionPath route = strongestRouteAt(world, x, z);
+        if (route == null) {
+            return null;
+        }
+        RoutePokemonSpawns settings = route.pokemonSpawns();
+        Set<ResourceLocation> excluded = settings.excludedSpecies().stream()
+            .map(ResourceLocation::parse)
+            .collect(Collectors.toUnmodifiableSet());
+        List<AdventureWorldContext.WildSpawnAddition> additions = settings.additions().stream()
+            .map(addition -> new AdventureWorldContext.WildSpawnAddition(
+                ResourceLocation.parse(addition.species()), addition.minLevel(), addition.maxLevel()
+            ))
+            .toList();
+        return new AdventureWorldContext.WildSpawnRule(
+            settings.inheritBiome(), excluded, additions
+        );
+    }
+
     static String authoredWeatherAt(ServerPlayer player) {
         if (!player.serverLevel().dimension().equals(GENERATION_ONE)) {
             return null;
@@ -6998,7 +7033,20 @@ public final class CobbleventureBootstrap {
     private static TerrainSample strongestRouteInfluence(
         HexWorldPlan world, double x, double z
     ) {
-        TerrainSample selected = null;
+        ConnectionPath selected = strongestRouteAt(world, x, z);
+        if (selected == null) {
+            return null;
+        }
+        return new TerrainSample(
+            selected.biome(), selected.boundaryProfile(), "route", selected.id(),
+            selected.terrainProfile(), selected.accessRequirement(), selected.surfaceStyle()
+        );
+    }
+
+    private static ConnectionPath strongestRouteAt(
+        HexWorldPlan world, double x, double z
+    ) {
+        ConnectionPath selected = null;
         double selectedStrength = Double.NEGATIVE_INFINITY;
         for (ConnectionPath route : world.paths()) {
             double edgeVariation = Math.min(0.42D, Math.abs(route.edgeNoise()) * 1.5D);
@@ -7020,10 +7068,7 @@ public final class CobbleventureBootstrap {
             double strength = 1.0D - distance / radius;
             if (strength >= 0.0D && strength > selectedStrength) {
                 selectedStrength = strength;
-                selected = new TerrainSample(
-                    route.biome(), route.boundaryProfile(), "route", route.id(),
-                    route.terrainProfile(), route.accessRequirement(), route.surfaceStyle()
-                );
+                selected = route;
             }
         }
         return selected;

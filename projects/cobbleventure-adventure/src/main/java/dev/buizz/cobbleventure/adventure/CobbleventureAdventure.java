@@ -19,6 +19,13 @@ public final class CobbleventureAdventure {
             }
 
             @Override
+            public WildSpawnRule wildSpawnRule(
+                ServerLevel level, double x, double z
+            ) {
+                return null;
+            }
+
+            @Override
             public String authoredWeatherAt(ServerPlayer player) {
                 return null;
             }
@@ -42,6 +49,12 @@ public final class CobbleventureAdventure {
 
     static Integer averageWildSpawnLevel(ServerLevel level, double x, double z) {
         return worldContext.averageWildSpawnLevel(level, x, z);
+    }
+
+    static AdventureWorldContext.WildSpawnRule wildSpawnRule(
+        ServerLevel level, double x, double z
+    ) {
+        return worldContext.wildSpawnRule(level, x, z);
     }
 
     static String authoredWeatherAt(ServerPlayer player) {

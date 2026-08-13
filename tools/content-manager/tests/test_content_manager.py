@@ -62,7 +62,7 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual("새 노래", added_track["usage"])
             stored = json.loads(catalog_path.read_text(encoding="utf-8"))
             self.assertNotIn("local_library", stored)
-            self.assertEqual([], stored["review_candidates"])
+            self.assertEqual("새 노래.ogg", stored["review_candidates"][0]["source_file"])
 
     @staticmethod
     def _structure_nbt(size: tuple[int, int, int]) -> bytes:
@@ -464,6 +464,10 @@ class ContentManagerTests(unittest.TestCase):
                 root / "content" / "catalogs" / "boundary-profiles.json",
                 catalog_dir / "boundary-profiles.json",
             )
+            shutil.copy2(
+                root / "content" / "catalogs" / "pokemon-habitats.json",
+                catalog_dir / "pokemon-habitats.json",
+            )
             self.assertEqual([], content_manager.save_world_layout(candidate_root, layout))
             saved = content_manager.load_world_layout(candidate_root)
             invalid = json.loads(json.dumps(saved))
@@ -507,6 +511,11 @@ class ContentManagerTests(unittest.TestCase):
             invalid_route_habitat["connections"][0]["pokemon_spawns"]["additions"][0]["min_level"] = 8
             issues = content_manager.save_world_layout(candidate_root, invalid_route_habitat)
             self.assertTrue(any("min_level" in issue.path or "출현 레벨" in issue.message for issue in issues))
+            self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
+            invalid_route_species = json.loads(json.dumps(saved))
+            invalid_route_species["connections"][0]["pokemon_spawns"]["additions"][0]["species"] = "cobblemon:not_a_real_pokemon"
+            issues = content_manager.save_world_layout(candidate_root, invalid_route_species)
+            self.assertTrue(any("카탈로그에 없는 종" in issue.message for issue in issues))
             self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
             with_environment = json.loads(json.dumps(saved))
             with_environment["environment_overrides"] = [

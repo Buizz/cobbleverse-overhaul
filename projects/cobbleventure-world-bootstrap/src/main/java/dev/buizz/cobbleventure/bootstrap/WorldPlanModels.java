@@ -67,8 +67,20 @@ final class WorldPlanModels {
         String id, String from, String to, String routeBiome, int widthCells,
         String pathfinding, int detourCells, double corridorWidthBlocks,
         double edgeNoise, String boundaryProfile, TerrainProfile terrainProfile,
-        String surfaceStyle, String accessRequirement, List<HexCoord> cells
+        String surfaceStyle, String accessRequirement, List<HexCoord> cells,
+        RoutePokemonSpawns pokemonSpawns
     ) {}
+
+    record RoutePokemonAddition(String species, int minLevel, int maxLevel) {}
+
+    record RoutePokemonSpawns(
+        boolean inheritBiome, Set<String> excludedSpecies,
+        List<RoutePokemonAddition> additions
+    ) {
+        static RoutePokemonSpawns inherited() {
+            return new RoutePokemonSpawns(true, Set.of(), List.of());
+        }
+    }
 
     record CellPlan(
         String biome, String boundaryProfile, String kind, String owner,
@@ -80,7 +92,8 @@ final class WorldPlanModels {
         String id, String from, String to, String biome, String boundaryProfile,
         double corridorWidthBlocks, double edgeNoise, TerrainProfile terrainProfile,
         String surfaceStyle, String accessRequirement, List<HexCoord> cells,
-        List<CobbleventureBootstrap.Point> centerline, RouteBounds bounds
+        List<CobbleventureBootstrap.Point> centerline, RouteBounds bounds,
+        RoutePokemonSpawns pokemonSpawns
     ) {}
 
     record TerrainProfile(

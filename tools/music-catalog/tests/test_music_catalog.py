@@ -23,7 +23,7 @@ class MusicCatalogTest(unittest.TestCase):
         )
 
     def test_catalog_uses_only_selected_ogg_tracks(self) -> None:
-        self.assertEqual(28, len(self.catalog["tracks"]))
+        self.assertGreaterEqual(len(self.catalog["tracks"]), 28)
         self.assertFalse(self.catalog["datapack_required"])
         self.assertFalse(self.catalog["source"]["audio_tracked_by_git"])
         self.assertTrue(

@@ -227,7 +227,10 @@ function musicTrack(trackId) {
 
 function musicTrackLabel(trackId) {
   const track = musicTrack(trackId);
-  return track ? `${track.usage} · ${track.id}` : trackId || "미지정";
+  const review = track && (state.musicCatalog.review_candidates || []).some(
+    (candidate) => candidate.source_file === track.source_file
+  );
+  return track ? `${review ? "[검토 필요] " : ""}${track.usage} · ${track.id}` : trackId || "미지정";
 }
 
 function musicOptions(selected = "", inheritContext = "") {
@@ -236,7 +239,7 @@ function musicOptions(selected = "", inheritContext = "") {
     ? `<option value="">상속 · ${escapeHtml(musicTrackLabel(inherited))}</option>`
     : "";
   return first + (state.musicCatalog.tracks || []).map((track) =>
-    `<option value="${escapeHtml(track.id)}" ${track.id === selected ? "selected" : ""}>${escapeHtml(track.usage)} · ${escapeHtml(track.id)}</option>`
+    `<option value="${escapeHtml(track.id)}" ${track.id === selected ? "selected" : ""}>${escapeHtml(musicTrackLabel(track.id))}</option>`
   ).join("");
 }
 
@@ -263,7 +266,10 @@ function renderMusicSettings() {
   $("#music-library-path").textContent = library.directory
     ? `${library.directory} · OGG ${library.registered_ogg || tracks.length}곡${library.added ? ` · 이번에 ${library.added}곡 자동 추가` : ""}`
     : "로컬 music 폴더의 OGG 파일을 자동으로 등록합니다. 리소스팩에는 실제 배정된 곡만 포함됩니다.";
-  $("#music-track-list").innerHTML = tracks.map((track) => `<article class="definition-card"><header><div><strong>${escapeHtml(track.usage)}</strong><code>${escapeHtml(track.id)}</code></div></header><div class="definition-fields"><label><span>로컬 파일</span><input readonly value="${escapeHtml(track.source_file)}"></label><label><span>사운드 이벤트</span><input readonly value="${escapeHtml(state.musicCatalog.namespace)}:${escapeHtml(track.sound_event)}"></label><label><span>분류</span><input readonly value="${escapeHtml(track.category)}"></label></div></article>`).join("");
+  $("#music-track-list").innerHTML = tracks.map((track) => {
+    const review = (state.musicCatalog.review_candidates || []).find((candidate) => candidate.source_file === track.source_file);
+    return `<article class="definition-card"><header><div><strong>${escapeHtml(track.usage)}</strong><code>${escapeHtml(track.id)}</code></div>${review ? '<span class="count-pill">검토 필요</span>' : ""}</header><div class="definition-fields"><label><span>로컬 파일</span><input readonly value="${escapeHtml(track.source_file)}"></label><label><span>사운드 이벤트</span><input readonly value="${escapeHtml(state.musicCatalog.namespace)}:${escapeHtml(track.sound_event)}"></label><label><span>분류</span><input readonly value="${escapeHtml(track.category)}"></label>${review ? `<label class="wide"><span>검토 사유</span><input readonly value="${escapeHtml(review.reason)}"></label>` : ""}</div></article>`;
+  }).join("");
   showIssues("#music-issues", { valid: true, issues: [] });
 }
 

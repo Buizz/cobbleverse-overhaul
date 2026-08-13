@@ -93,10 +93,33 @@ final class WorldPlanParser {
                 value.has("terrain_profile")
                     ? terrainProfile(value) : new TerrainProfile(0, 0, 96.0D, 0),
                 required(value, "surface_style"), optional(value, "access_requirement"),
-                coordinates(value, "cells")
+                coordinates(value, "cells"), routePokemonSpawns(value)
             ));
         }
         return List.copyOf(result);
+    }
+
+    private static RoutePokemonSpawns routePokemonSpawns(JsonObject connection) {
+        if (!connection.has("pokemon_spawns")) {
+            return RoutePokemonSpawns.inherited();
+        }
+        JsonObject value = connection.getAsJsonObject("pokemon_spawns");
+        Set<String> excluded = new java.util.LinkedHashSet<>();
+        for (JsonElement element : value.getAsJsonArray("excluded_species")) {
+            excluded.add(element.getAsString());
+        }
+        List<RoutePokemonAddition> additions = new ArrayList<>();
+        for (JsonElement element : value.getAsJsonArray("additions")) {
+            JsonObject addition = element.getAsJsonObject();
+            additions.add(new RoutePokemonAddition(
+                required(addition, "species"), addition.get("min_level").getAsInt(),
+                addition.get("max_level").getAsInt()
+            ));
+        }
+        return new RoutePokemonSpawns(
+            value.get("inherit_biome").getAsBoolean(), Set.copyOf(excluded),
+            List.copyOf(additions)
+        );
     }
 
     static List<PlacedTile> tiles(

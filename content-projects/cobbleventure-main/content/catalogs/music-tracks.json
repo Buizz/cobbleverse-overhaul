@@ -245,6 +245,574 @@
       "source_file": "B2W2 214 PWT Victor!.ogg",
       "category": "victory",
       "usage": "PWT 대회 우승"
+    },
+    {
+      "id": "local.arceus_0b4a5fd8",
+      "sound_event": "music.local.arceus_0b4a5fd8",
+      "resource": "music/local/arceus_0b4a5fd8",
+      "source_file": "Arceus.ogg",
+      "category": "local",
+      "usage": "Arceus"
+    },
+    {
+      "id": "local.avery_battle_e50e93fb",
+      "sound_event": "music.local.avery_battle_e50e93fb",
+      "resource": "music/local/avery_battle_e50e93fb",
+      "source_file": "Avery Battle.ogg",
+      "category": "local",
+      "usage": "Avery Battle"
+    },
+    {
+      "id": "local.battle_victory_d9301c60",
+      "sound_event": "music.local.battle_victory_d9301c60",
+      "resource": "music/local/battle_victory_d9301c60",
+      "source_file": "Battle victory.ogg",
+      "category": "local",
+      "usage": "Battle victory"
+    },
+    {
+      "id": "local.bicycle_d917ed51",
+      "sound_event": "music.local.bicycle_d917ed51",
+      "resource": "music/local/bicycle_d917ed51",
+      "source_file": "Bicycle.ogg",
+      "category": "local",
+      "usage": "Bicycle"
+    },
+    {
+      "id": "local.bw_battle_a6a9a71b",
+      "sound_event": "music.local.bw_battle_a6a9a71b",
+      "resource": "music/local/bw_battle_a6a9a71b",
+      "source_file": "BW Battle.ogg",
+      "category": "local",
+      "usage": "BW Battle"
+    },
+    {
+      "id": "local.bw_champion_391943be",
+      "sound_event": "music.local.bw_champion_391943be",
+      "resource": "music/local/bw_champion_391943be",
+      "source_file": "BW Champion.ogg",
+      "category": "local",
+      "usage": "BW Champion"
+    },
+    {
+      "id": "local.bw2_champion_706fe322",
+      "sound_event": "music.local.bw2_champion_706fe322",
+      "resource": "music/local/bw2_champion_706fe322",
+      "source_file": "BW2 Champion.ogg",
+      "category": "local",
+      "usage": "BW2 Champion"
+    },
+    {
+      "id": "local.cynthia_battle_8371ca92",
+      "sound_event": "music.local.cynthia_battle_8371ca92",
+      "resource": "music/local/cynthia_battle_8371ca92",
+      "source_file": "Cynthia Battle.ogg",
+      "category": "local",
+      "usage": "Cynthia Battle"
+    },
+    {
+      "id": "local.cyrus_ed658a2f",
+      "sound_event": "music.local.cyrus_ed658a2f",
+      "resource": "music/local/cyrus_ed658a2f",
+      "source_file": "CYRUS.ogg",
+      "category": "local",
+      "usage": "CYRUS"
+    },
+    {
+      "id": "local.dp_battle_926aa87e",
+      "sound_event": "music.local.dp_battle_926aa87e",
+      "resource": "music/local/dp_battle_926aa87e",
+      "source_file": "DP Battle.ogg",
+      "category": "local",
+      "usage": "DP Battle"
+    },
+    {
+      "id": "local.dppt_133_distortion_world_f582677e",
+      "sound_event": "music.local.dppt_133_distortion_world_f582677e",
+      "resource": "music/local/dppt_133_distortion_world_f582677e",
+      "source_file": "DPPT 133 Distortion World.ogg",
+      "category": "local",
+      "usage": "DPPT 133 Distortion World"
+    },
+    {
+      "id": "local.frontier_7b6d2747",
+      "sound_event": "music.local.frontier_7b6d2747",
+      "resource": "music/local/frontier_7b6d2747",
+      "source_file": "FRONTIER.ogg",
+      "category": "local",
+      "usage": "FRONTIER"
+    },
+    {
+      "id": "local.gladion_battle_3c58e5d5",
+      "sound_event": "music.local.gladion_battle_3c58e5d5",
+      "resource": "music/local/gladion_battle_3c58e5d5",
+      "source_file": "Gladion Battle.ogg",
+      "category": "local",
+      "usage": "Gladion Battle"
+    },
+    {
+      "id": "local.hau_battle_375afb84",
+      "sound_event": "music.local.hau_battle_375afb84",
+      "resource": "music/local/hau_battle_375afb84",
+      "source_file": "HAU Battle.ogg",
+      "category": "local",
+      "usage": "HAU Battle"
+    },
+    {
+      "id": "local.hgss_104_new_bark_town_ea78edc6",
+      "sound_event": "music.local.hgss_104_new_bark_town_ea78edc6",
+      "resource": "music/local/hgss_104_new_bark_town_ea78edc6",
+      "source_file": "HGSS 104 New Bark Town.ogg",
+      "category": "local",
+      "usage": "HGSS 104 New Bark Town"
+    },
+    {
+      "id": "local.hgss_109_route_29_3c03bfcb",
+      "sound_event": "music.local.hgss_109_route_29_3c03bfcb",
+      "resource": "music/local/hgss_109_route_29_3c03bfcb",
+      "source_file": "HGSS 109 Route 29.ogg",
+      "category": "local",
+      "usage": "HGSS 109 Route 29"
+    },
+    {
+      "id": "local.hgss_113_cherrygrove_city_cdf39d03",
+      "sound_event": "music.local.hgss_113_cherrygrove_city_cdf39d03",
+      "resource": "music/local/hgss_113_cherrygrove_city_cdf39d03",
+      "source_file": "HGSS 113 Cherrygrove City.ogg",
+      "category": "local",
+      "usage": "HGSS 113 Cherrygrove City"
+    },
+    {
+      "id": "local.hgss_120_route_30_a381ec71",
+      "sound_event": "music.local.hgss_120_route_30_a381ec71",
+      "resource": "music/local/hgss_120_route_30_a381ec71",
+      "source_file": "HGSS 120 Route 30.ogg",
+      "category": "local",
+      "usage": "HGSS 120 Route 30"
+    },
+    {
+      "id": "local.hgss_122_violet_city_173ee282",
+      "sound_event": "music.local.hgss_122_violet_city_173ee282",
+      "resource": "music/local/hgss_122_violet_city_173ee282",
+      "source_file": "HGSS 122 Violet City.ogg",
+      "category": "local",
+      "usage": "HGSS 122 Violet City"
+    },
+    {
+      "id": "local.hgss_128_union_cave_3b91cec3",
+      "sound_event": "music.local.hgss_128_union_cave_3b91cec3",
+      "resource": "music/local/hgss_128_union_cave_3b91cec3",
+      "source_file": "HGSS 128 Union Cave.ogg",
+      "category": "local",
+      "usage": "HGSS 128 Union Cave"
+    },
+    {
+      "id": "local.hgss_130_ruins_of_alph_8c9b446e",
+      "sound_event": "music.local.hgss_130_ruins_of_alph_8c9b446e",
+      "resource": "music/local/hgss_130_ruins_of_alph_8c9b446e",
+      "source_file": "HGSS 130 Ruins Of Alph.ogg",
+      "category": "local",
+      "usage": "HGSS 130 Ruins Of Alph"
+    },
+    {
+      "id": "local.hgss_133_azalea_town_fe56c626",
+      "sound_event": "music.local.hgss_133_azalea_town_fe56c626",
+      "resource": "music/local/hgss_133_azalea_town_fe56c626",
+      "source_file": "HGSS 133 Azalea Town.ogg",
+      "category": "local",
+      "usage": "HGSS 133 Azalea Town"
+    },
+    {
+      "id": "local.hgss_136_route_34_ba14db1a",
+      "sound_event": "music.local.hgss_136_route_34_ba14db1a",
+      "resource": "music/local/hgss_136_route_34_ba14db1a",
+      "source_file": "HGSS 136 Route 34.ogg",
+      "category": "local",
+      "usage": "HGSS 136 Route 34"
+    },
+    {
+      "id": "local.hgss_141_goldenrod_city_c8261e00",
+      "sound_event": "music.local.hgss_141_goldenrod_city_c8261e00",
+      "resource": "music/local/hgss_141_goldenrod_city_c8261e00",
+      "source_file": "HGSS 141 Goldenrod City.ogg",
+      "category": "local",
+      "usage": "HGSS 141 Goldenrod City"
+    },
+    {
+      "id": "local.hgss_143_battle_gym_leader_johto_420cd8c8",
+      "sound_event": "music.local.hgss_143_battle_gym_leader_johto_420cd8c8",
+      "resource": "music/local/hgss_143_battle_gym_leader_johto_420cd8c8",
+      "source_file": "HGSS 143 Battle! (Gym Leader Johto).ogg",
+      "category": "local",
+      "usage": "HGSS 143 Battle! (Gym Leader Johto)"
+    },
+    {
+      "id": "local.hgss_158_national_park_1b1ead83",
+      "sound_event": "music.local.hgss_158_national_park_1b1ead83",
+      "resource": "music/local/hgss_158_national_park_1b1ead83",
+      "source_file": "HGSS 158 National Park.ogg",
+      "category": "local",
+      "usage": "HGSS 158 National Park"
+    },
+    {
+      "id": "local.hgss_160_ecruteak_city_1556d8c0",
+      "sound_event": "music.local.hgss_160_ecruteak_city_1556d8c0",
+      "resource": "music/local/hgss_160_ecruteak_city_1556d8c0",
+      "source_file": "HGSS 160 Ecruteak City.ogg",
+      "category": "local",
+      "usage": "HGSS 160 Ecruteak City"
+    },
+    {
+      "id": "local.hgss_162_burned_tower_2ac3421e",
+      "sound_event": "music.local.hgss_162_burned_tower_2ac3421e",
+      "resource": "music/local/hgss_162_burned_tower_2ac3421e",
+      "source_file": "HGSS 162 Burned Tower.ogg",
+      "category": "local",
+      "usage": "HGSS 162 Burned Tower"
+    },
+    {
+      "id": "local.hgss_166_route_38_b1f89584",
+      "sound_event": "music.local.hgss_166_route_38_b1f89584",
+      "resource": "music/local/hgss_166_route_38_b1f89584",
+      "source_file": "HGSS 166 Route 38.ogg",
+      "category": "local",
+      "usage": "HGSS 166 Route 38"
+    },
+    {
+      "id": "local.hgss_171_cianwood_city_a382f763",
+      "sound_event": "music.local.hgss_171_cianwood_city_a382f763",
+      "resource": "music/local/hgss_171_cianwood_city_a382f763",
+      "source_file": "HGSS 171 Cianwood City.ogg",
+      "category": "local",
+      "usage": "HGSS 171 Cianwood City"
+    },
+    {
+      "id": "local.hgss_173_route_42_be750dec",
+      "sound_event": "music.local.hgss_173_route_42_be750dec",
+      "resource": "music/local/hgss_173_route_42_be750dec",
+      "source_file": "HGSS 173 Route 42.ogg",
+      "category": "local",
+      "usage": "HGSS 173 Route 42"
+    },
+    {
+      "id": "local.hgss_175_team_rocket_hq_a7062eaa",
+      "sound_event": "music.local.hgss_175_team_rocket_hq_a7062eaa",
+      "resource": "music/local/hgss_175_team_rocket_hq_a7062eaa",
+      "source_file": "HGSS 175 Team Rocket HQ.ogg",
+      "category": "local",
+      "usage": "HGSS 175 Team Rocket HQ"
+    },
+    {
+      "id": "local.hgss_179_ice_path_789eacdc",
+      "sound_event": "music.local.hgss_179_ice_path_789eacdc",
+      "resource": "music/local/hgss_179_ice_path_789eacdc",
+      "source_file": "HGSS 179 Ice Path.ogg",
+      "category": "local",
+      "usage": "HGSS 179 Ice Path"
+    },
+    {
+      "id": "local.hgss_184_bell_tower_8a8aad6b",
+      "sound_event": "music.local.hgss_184_bell_tower_8a8aad6b",
+      "resource": "music/local/hgss_184_bell_tower_8a8aad6b",
+      "source_file": "HGSS 184 Bell Tower.ogg",
+      "category": "local",
+      "usage": "HGSS 184 Bell Tower"
+    },
+    {
+      "id": "local.hgss_201_route_26_9ba8acec",
+      "sound_event": "music.local.hgss_201_route_26_9ba8acec",
+      "resource": "music/local/hgss_201_route_26_9ba8acec",
+      "source_file": "HGSS 201 Route 26.ogg",
+      "category": "local",
+      "usage": "HGSS 201 Route 26"
+    },
+    {
+      "id": "local.hgss_283_sinto_ruins_c671c419",
+      "sound_event": "music.local.hgss_283_sinto_ruins_c671c419",
+      "resource": "music/local/hgss_283_sinto_ruins_c671c419",
+      "source_file": "HGSS 283 Sinto Ruins.ogg",
+      "category": "local",
+      "usage": "HGSS 283 Sinto Ruins"
+    },
+    {
+      "id": "local.hgss_battle_1edd671f",
+      "sound_event": "music.local.hgss_battle_1edd671f",
+      "resource": "music/local/hgss_battle_1edd671f",
+      "source_file": "HGSS Battle.ogg",
+      "category": "local",
+      "usage": "HGSS Battle"
+    },
+    {
+      "id": "local.hgss_rocket_da42bf9c",
+      "sound_event": "music.local.hgss_rocket_da42bf9c",
+      "resource": "music/local/hgss_rocket_da42bf9c",
+      "source_file": "HGSS Rocket.ogg",
+      "category": "local",
+      "usage": "HGSS Rocket"
+    },
+    {
+      "id": "local.hoen_champion_f39278fc",
+      "sound_event": "music.local.hoen_champion_f39278fc",
+      "resource": "music/local/hoen_champion_f39278fc",
+      "source_file": "HOEN Champion.ogg",
+      "category": "local",
+      "usage": "HOEN Champion"
+    },
+    {
+      "id": "local.illa_1aeb248b",
+      "sound_event": "music.local.illa_1aeb248b",
+      "resource": "music/local/illa_1aeb248b",
+      "source_file": "Illa.ogg",
+      "category": "local",
+      "usage": "Illa"
+    },
+    {
+      "id": "local.in_the_mood_625f69c9",
+      "sound_event": "music.local.in_the_mood_625f69c9",
+      "resource": "music/local/in_the_mood_625f69c9",
+      "source_file": "In the Mood.ogg",
+      "category": "local",
+      "usage": "In the Mood"
+    },
+    {
+      "id": "local.klara_battle_a556386b",
+      "sound_event": "music.local.klara_battle_a556386b",
+      "resource": "music/local/klara_battle_a556386b",
+      "source_file": "Klara Battle.ogg",
+      "category": "local",
+      "usage": "Klara Battle"
+    },
+    {
+      "id": "local.lucien_5e4a3eac",
+      "sound_event": "music.local.lucien_5e4a3eac",
+      "resource": "music/local/lucien_5e4a3eac",
+      "source_file": "Lucien.ogg",
+      "category": "local",
+      "usage": "Lucien"
+    },
+    {
+      "id": "local.moran_71f51c9d",
+      "sound_event": "music.local.moran_71f51c9d",
+      "resource": "music/local/moran_71f51c9d",
+      "source_file": "MORAN.ogg",
+      "category": "local",
+      "usage": "MORAN"
+    },
+    {
+      "id": "local.mustard_battle_cde8ab0c",
+      "sound_event": "music.local.mustard_battle_cde8ab0c",
+      "resource": "music/local/mustard_battle_cde8ab0c",
+      "source_file": "Mustard Battle.ogg",
+      "category": "local",
+      "usage": "Mustard Battle"
+    },
+    {
+      "id": "local.nemona_6994da31",
+      "sound_event": "music.local.nemona_6994da31",
+      "resource": "music/local/nemona_6994da31",
+      "source_file": "Nemona.ogg",
+      "category": "local",
+      "usage": "Nemona"
+    },
+    {
+      "id": "local.neon_cee64eba",
+      "sound_event": "music.local.neon_cee64eba",
+      "resource": "music/local/neon_cee64eba",
+      "source_file": "NEON.ogg",
+      "category": "local",
+      "usage": "NEON"
+    },
+    {
+      "id": "local.oras_battle_fc854268",
+      "sound_event": "music.local.oras_battle_fc854268",
+      "resource": "music/local/oras_battle_fc854268",
+      "source_file": "ORAS Battle.ogg",
+      "category": "local",
+      "usage": "ORAS Battle"
+    },
+    {
+      "id": "local.pepper_bcea9d6c",
+      "sound_event": "music.local.pepper_bcea9d6c",
+      "resource": "music/local/pepper_bcea9d6c",
+      "source_file": "PEPPER.ogg",
+      "category": "local",
+      "usage": "PEPPER"
+    },
+    {
+      "id": "local.sm_111_po_town_b573c250",
+      "sound_event": "music.local.sm_111_po_town_b573c250",
+      "resource": "music/local/sm_111_po_town_b573c250",
+      "source_file": "SM 111 Po Town.ogg",
+      "category": "local",
+      "usage": "SM 111 Po Town"
+    },
+    {
+      "id": "local.sm_battle_74fa031f",
+      "sound_event": "music.local.sm_battle_74fa031f",
+      "resource": "music/local/sm_battle_74fa031f",
+      "source_file": "SM Battle.ogg",
+      "category": "local",
+      "usage": "SM Battle"
+    },
+    {
+      "id": "local.sm_champion_e6170b75",
+      "sound_event": "music.local.sm_champion_e6170b75",
+      "resource": "music/local/sm_champion_e6170b75",
+      "source_file": "SM Champion.ogg",
+      "category": "local",
+      "usage": "SM Champion"
+    },
+    {
+      "id": "local.surfing_bdc30831",
+      "sound_event": "music.local.surfing_bdc30831",
+      "resource": "music/local/surfing_bdc30831",
+      "source_file": "Surfing.ogg",
+      "category": "local",
+      "usage": "Surfing"
+    },
+    {
+      "id": "local.sv_battle_71a12a7f",
+      "sound_event": "music.local.sv_battle_71a12a7f",
+      "resource": "music/local/sv_battle_71a12a7f",
+      "source_file": "SV Battle.ogg",
+      "category": "local",
+      "usage": "SV Battle"
+    },
+    {
+      "id": "local.sv_champion_54b74743",
+      "sound_event": "music.local.sv_champion_54b74743",
+      "resource": "music/local/sv_champion_54b74743",
+      "source_file": "SV Champion.ogg",
+      "category": "local",
+      "usage": "SV Champion"
+    },
+    {
+      "id": "local.swsh_battle_c8532a67",
+      "sound_event": "music.local.swsh_battle_c8532a67",
+      "resource": "music/local/swsh_battle_c8532a67",
+      "source_file": "SWSH Battle.ogg",
+      "category": "local",
+      "usage": "SWSH Battle"
+    },
+    {
+      "id": "local.swsh_champion_1163c82d",
+      "sound_event": "music.local.swsh_champion_1163c82d",
+      "resource": "music/local/swsh_champion_1163c82d",
+      "source_file": "SWSH Champion.ogg",
+      "category": "local",
+      "usage": "SWSH Champion"
+    },
+    {
+      "id": "local.swsh_darkest_day_2a5b8f61",
+      "sound_event": "music.local.swsh_darkest_day_2a5b8f61",
+      "resource": "music/local/swsh_darkest_day_2a5b8f61",
+      "source_file": "SWSH Darkest day.ogg",
+      "category": "local",
+      "usage": "SWSH Darkest day"
+    },
+    {
+      "id": "local.swsh_slumbering_weald_shrine_85fae41e",
+      "sound_event": "music.local.swsh_slumbering_weald_shrine_85fae41e",
+      "resource": "music/local/swsh_slumbering_weald_shrine_85fae41e",
+      "source_file": "SWSH Slumbering Weald Shrine.ogg",
+      "category": "local",
+      "usage": "SWSH Slumbering Weald Shrine"
+    },
+    {
+      "id": "local.swsh_victory_b849832d",
+      "sound_event": "music.local.swsh_victory_b849832d",
+      "resource": "music/local/swsh_victory_b849832d",
+      "source_file": "SWSH Victory.ogg",
+      "category": "local",
+      "usage": "SWSH Victory"
+    },
+    {
+      "id": "local.the_fairy_s_forest_23636be2",
+      "sound_event": "music.local.the_fairy_s_forest_23636be2",
+      "resource": "music/local/the_fairy_s_forest_23636be2",
+      "source_file": "The Fairy's Forest.ogg",
+      "category": "local",
+      "usage": "The Fairy's Forest"
+    },
+    {
+      "id": "local.title_b2f8ccab",
+      "sound_event": "music.local.title_b2f8ccab",
+      "resource": "music/local/title_b2f8ccab",
+      "source_file": "Title.ogg",
+      "category": "local",
+      "usage": "Title"
+    },
+    {
+      "id": "local.vintage_vibe_f6cb71b7",
+      "sound_event": "music.local.vintage_vibe_f6cb71b7",
+      "resource": "music/local/vintage_vibe_f6cb71b7",
+      "source_file": "Vintage Vibe.ogg",
+      "category": "local",
+      "usage": "Vintage Vibe"
+    },
+    {
+      "id": "local.wally_battle_c4e6306c",
+      "sound_event": "music.local.wally_battle_c4e6306c",
+      "resource": "music/local/wally_battle_c4e6306c",
+      "source_file": "WALLY Battle.ogg",
+      "category": "local",
+      "usage": "WALLY Battle"
+    },
+    {
+      "id": "local.xy_030_victory_gym_leader_40f6f0ac",
+      "sound_event": "music.local.xy_030_victory_gym_leader_40f6f0ac",
+      "resource": "music/local/xy_030_victory_gym_leader_40f6f0ac",
+      "source_file": "XY 030 Victory! (Gym Leader).ogg",
+      "category": "local",
+      "usage": "XY 030 Victory! (Gym Leader)"
+    },
+    {
+      "id": "local.xy_champion_bafdaa4e",
+      "sound_event": "music.local.xy_champion_bafdaa4e",
+      "resource": "music/local/xy_champion_bafdaa4e",
+      "source_file": "XY Champion.ogg",
+      "category": "local",
+      "usage": "XY Champion"
+    },
+    {
+      "id": "local.xy_flare_fd149c1a",
+      "sound_event": "music.local.xy_flare_fd149c1a",
+      "resource": "music/local/xy_flare_fd149c1a",
+      "source_file": "XY FLARE.ogg",
+      "category": "local",
+      "usage": "XY FLARE"
+    },
+    {
+      "id": "local.xy_gym_battle_5ebdc4f2",
+      "sound_event": "music.local.xy_gym_battle_5ebdc4f2",
+      "resource": "music/local/xy_gym_battle_5ebdc4f2",
+      "source_file": "XY Gym Battle.ogg",
+      "category": "local",
+      "usage": "XY Gym Battle"
+    },
+    {
+      "id": "local.xy_rival_81901fbc",
+      "sound_event": "music.local.xy_rival_81901fbc",
+      "resource": "music/local/xy_rival_81901fbc",
+      "source_file": "XY Rival.ogg",
+      "category": "local",
+      "usage": "XY Rival"
+    },
+    {
+      "id": "local.track_89fe5f5e",
+      "sound_event": "music.local.track_89fe5f5e",
+      "resource": "music/local/track_89fe5f5e",
+      "source_file": "숲을 따라서.ogg",
+      "category": "local",
+      "usage": "숲을 따라서"
+    },
+    {
+      "id": "local.track_748d55dd",
+      "sound_event": "music.local.track_748d55dd",
+      "resource": "music/local/track_748d55dd",
+      "source_file": "한남자의이야기.ogg",
+      "category": "local",
+      "usage": "한남자의이야기"
     }
   ],
   "review_candidates": [
