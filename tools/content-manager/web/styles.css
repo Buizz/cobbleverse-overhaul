@@ -612,7 +612,7 @@ body {
 .hex-cell polygon { fill: #18201b; stroke: #344239; stroke-width: 1.35; transition: fill .12s,stroke .12s,filter .12s; cursor: pointer; }
 .hex-cell:focus,.hex-cell:focus-visible { outline: none; }
 .hex-cell:hover polygon,.hex-cell:focus polygon { stroke: #d79a47; stroke-width: 2; filter: brightness(1.18); }.hex-cell.is-selected polygon { stroke: #ffb24d; stroke-width: 3; filter: brightness(1.13); }
-.hex-cell.tone-plains polygon { fill: #536b45; }.hex-cell.tone-forest polygon { fill: #2e5a3b; }.hex-cell.tone-water polygon { fill: #315b73; }.hex-cell.tone-arid polygon { fill: #8a6039; }.hex-cell.tone-snow polygon { fill: #779095; }.hex-cell.tone-mountain polygon { fill: #5e5c55; }.hex-cell.tone-wetland polygon { fill: #405d51; }
+.hex-cell.tone-plains polygon { fill: #536b45; }.hex-cell.tone-forest polygon { fill: #2e5a3b; }.hex-cell.tone-beach polygon { fill: #b89c58; }.hex-cell.tone-water polygon { fill: #315b73; }.hex-cell.tone-arid polygon { fill: #8a6039; }.hex-cell.tone-snow polygon { fill: #779095; }.hex-cell.tone-mountain polygon { fill: #5e5c55; }.hex-cell.tone-wetland polygon { fill: #405d51; }
 .hex-cell.is-empty-terrain polygon { stroke: #b84242; stroke-width: 1.45; stroke-dasharray: 3 2; }
 .hex-cell.is-route-terrain polygon { stroke: #d7a64d; stroke-width: 1.8; stroke-dasharray: none; }
 .biome-pin { fill: rgba(255,255,255,.55); pointer-events: none; }
@@ -646,12 +646,13 @@ body {
 .level-overlay-toggle { display: inline-flex; margin-left: auto; align-items: center; gap: 6px; color: #4d6256; font-size: 9px; font-weight: 800; cursor: pointer; white-space: nowrap; }.level-overlay-toggle input { accent-color: #82ad24; }.level-overlay-toggle i { width: 42px; height: 6px; border-radius: 4px; background: linear-gradient(90deg,#43b84f,#e6bd35,#df4c42); }
 .route-editor-bar { border-color: #cfdbd4; background: #f2f7f4; color: #50665a; }.route-editor-bar strong { color: #203229; }.route-editor-bar select { border-color: #b8c8bf; background: #fff; color: #31483b; }.route-overlay-panel { border-color: #d7c39d; background: #fffaf0; }.route-overlay-item { border-color: #e4d7bc; }
 .legend-dot { background: #d8e3dc; }.legend-dot.village { background: var(--accent); }.legend-dot.biome { background: #78a66e; }.legend-dot.empty { border-color: #a8b9af; background: transparent; }.legend-line { background: #b9852c; }
+.legend-dot.biome.beach { background: #e2cb83; }.legend-dot.biome.water { background: #78add0; }
 .legend-ring { width: 12px; height: 10px; border: 2px dashed #c97918; border-radius: 3px; background: rgba(220,132,26,.08); }
 .map-tool { border-color: #b8c8bf; background: #fff; color: #31483b; }.map-toolbar output { color: #42594c; }
 .empty-brush-controls select,.empty-brush-controls input { border-color: #b8c8bf; background: #fff; color: #31483b; }
 .world-map-viewport { background: radial-gradient(circle at center,rgba(113,145,123,.12),transparent 55%),#e8efea; }
 .hex-cell polygon { fill: #f3f7f4; stroke: #b7c7be; }
-.hex-cell.tone-plains polygon { fill: #abc58f; }.hex-cell.tone-forest polygon { fill: #76a27e; }.hex-cell.tone-water polygon { fill: #8db9d0; }.hex-cell.tone-arid polygon { fill: #d2a06d; }.hex-cell.tone-snow polygon { fill: #c6d8dc; }.hex-cell.tone-mountain polygon { fill: #aaa79f; }.hex-cell.tone-wetland polygon { fill: #91b1a2; }
+.hex-cell.tone-plains polygon { fill: #abc58f; }.hex-cell.tone-forest polygon { fill: #76a27e; }.hex-cell.tone-beach polygon { fill: #e2cb83; }.hex-cell.tone-water polygon { fill: #78add0; }.hex-cell.tone-arid polygon { fill: #d2a06d; }.hex-cell.tone-snow polygon { fill: #c6d8dc; }.hex-cell.tone-mountain polygon { fill: #aaa79f; }.hex-cell.tone-wetland polygon { fill: #91b1a2; }
 .hex-cell.is-route-terrain polygon { stroke: #b9852c; }
 .hex-town-area { pointer-events: none; }.hex-town-area polygon { fill: rgba(226,134,26,.07); stroke: #c97918; stroke-width: 1.8; stroke-dasharray: 5 4; }.hex-town-area.is-anchor polygon { fill: rgba(226,134,26,.11); stroke-width: 2.4; stroke-dasharray: none; }
 .hex-route { stroke: #b8842c; filter: drop-shadow(0 1px 1px rgba(50,66,57,.25)); }.hex-route.water { stroke: #3f91be; }.hex-route.climb { stroke: #ad6840; }

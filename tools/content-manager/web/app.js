@@ -747,7 +747,8 @@ function fitMapToContent() {
   state.mapViewInitialized = true;
 }
 function biomeTone(biome = "") {
-  if (/ocean|river|beach/.test(biome)) return "water";
+  if (/beach/.test(biome)) return "beach";
+  if (/ocean|river/.test(biome)) return "water";
   if (/snow|ice|frozen|peak/.test(biome)) return "snow";
   if (/forest|jungle|grove/.test(biome)) return "forest";
   if (/desert|badlands|savanna/.test(biome)) return "arid";
