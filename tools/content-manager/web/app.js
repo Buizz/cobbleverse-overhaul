@@ -877,8 +877,7 @@ function syncConnectionPaths() {
 }
 function routesAt(q, r) { return (state.worldLayout?.connections || []).filter((connection) => connectionPath(connection).some((cell) => cell.q === q && cell.r === r)); }
 function primaryRouteAt(q, r) {
-  const routes = routesAt(q, r);
-  return routes.find((route) => route.surface_style === "water") || routes[0] || null;
+  return routesAt(q, r).find((route) => route.surface_style !== "water") || null;
 }
 
 function baseBiomeAt(q, r) {
@@ -947,7 +946,7 @@ function renderHexMap() {
     const { x, y } = hexPoint(q, r); const name = settlementSummary(owner.settlement)?.name || owner.settlement;
     return `<g class="hex-town-area${owner.anchor.q === q && owner.anchor.r === r ? " is-anchor" : ""}"><polygon points="${hexPolygon(x, y, mapHexSize() - 4)}"></polygon><title>${escapeHtml(name)} · 마을 크기 ${worldSettlementCellCount(owner)}칸</title></g>`;
   }).join("");
-  const routes = (state.worldLayout.connections || []).map((connection) => {
+  const routes = (state.worldLayout.connections || []).filter((connection) => connection.surface_style !== "water").map((connection) => {
     const points = connectionPath(connection).map((cell) => { const point = hexPoint(cell.q, cell.r); return `${point.x},${point.y}`; }).join(" ");
     if (!points) return "";
     const routeClass = connection.surface_style === "water" ? "water" : connection.access_requirement?.endsWith("/rock_climb") ? "climb" : "road";

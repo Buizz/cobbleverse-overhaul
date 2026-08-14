@@ -130,8 +130,15 @@ public final class BuilderEditorClient {
             if (marker.type().equals("npc_position")) {
                 renderBox(pose, lines, new AABB(0.22, 0.05, 0.22, 0.78, 1.45, 0.78), 0.25F, 0.9F, 1.0F);
                 renderBox(pose, lines, new AABB(0.16, 1.45, 0.16, 0.84, 2.12, 0.84), 0.25F, 0.9F, 1.0F);
-            } else if (marker.type().equals("door")) {
+            } else if (isDoorMarker(marker)) {
                 renderBox(pose, lines, new AABB(0.02, 0.02, 0.02, 0.98, 2.0, 0.98), 1.0F, 0.72F, 0.18F);
+                if (marker.pairedPosition() != null) {
+                    BlockPos offset = marker.pairedPosition().subtract(block);
+                    renderBox(pose, lines, new AABB(
+                        offset.getX() + 0.02, 0.02, offset.getZ() + 0.02,
+                        offset.getX() + 0.98, 2.0, offset.getZ() + 0.98
+                    ), 1.0F, 0.72F, 0.18F);
+                }
             } else {
                 renderBox(pose, lines, new AABB(0.15, 0.02, 0.15, 0.85, 0.18, 0.85), 0.35F, 1.0F, 0.45F);
             }
@@ -158,16 +165,30 @@ public final class BuilderEditorClient {
         BlockPos block = marker.position();
         float height = marker.type().equals("npc_position") ? 2.35F : 2.2F;
         String text = marker.type().equals("npc_position")
-            ? "NPC · " + marker.label() : marker.type().equals("door")
-                ? "DOOR · " + marker.label() : "ARRIVAL · " + marker.label();
+            ? "NPC · " + marker.label() : isDoorMarker(marker)
+                ? (marker.pairedPosition() == null ? "DOOR · " : "DOUBLE DOOR · ")
+                    + marker.label()
+                : "ARRIVAL · " + marker.label();
+        double centerX = block.getX() + 0.5D;
+        double centerZ = block.getZ() + 0.5D;
+        if (marker.pairedPosition() != null) {
+            centerX = (block.getX() + marker.pairedPosition().getX()) / 2.0D + 0.5D;
+            centerZ = (block.getZ() + marker.pairedPosition().getZ()) / 2.0D + 0.5D;
+        }
         pose.pushPose();
-        pose.translate(block.getX() + 0.5D - camera.x, block.getY() + height - camera.y, block.getZ() + 0.5D - camera.z);
+        pose.translate(centerX - camera.x, block.getY() + height - camera.y, centerZ - camera.z);
         pose.mulPose(event.getCamera().rotation());
         pose.scale(0.025F, -0.025F, 0.025F);
         float x = -minecraftFont().width(text) / 2.0F;
         minecraftFont().drawInBatch(text, x, 0, 0xFFFFFFFF, false, pose.last().pose(), buffers,
             Font.DisplayMode.SEE_THROUGH, 0x80000000, 0x00F000F0);
         pose.popPose();
+    }
+
+    private static boolean isDoorMarker(BuilderEditorNetwork.Marker marker) {
+        return marker.type().equals("door")
+            || marker.type().equals("interior_entry")
+            || marker.type().equals("interior_exit");
     }
 
     private static Font minecraftFont() {

@@ -534,14 +534,22 @@ public final class StructureBuilderMod {
         List<EditorMarker> markers = new ArrayList<>();
         if (!current.key().isBlank()) {
             BlockPos currentOrigin = current.origin();
-            builderData.anchors(current.key()).forEach(anchor -> markers.add(
-                new EditorMarker(anchor.label(), anchor.role(), currentOrigin.offset(anchor.position()))
-            ));
+            builderData.anchors(current.key()).forEach(anchor -> {
+                BlockPos position = currentOrigin.offset(anchor.position());
+                BlockPos pairedPosition = pairedDoorPosition(player.serverLevel(), position);
+                markers.add(new EditorMarker(
+                    anchor.label(), anchor.role(), position, pairedPosition
+                ));
+            });
             builderData.npcAnchors(current.key()).forEach(anchor -> markers.add(
-                new EditorMarker(anchor.label(), "npc_position", currentOrigin.offset(anchor.position()))
+                new EditorMarker(
+                    anchor.label(), "npc_position", currentOrigin.offset(anchor.position()), null
+                )
             ));
             builderData.pointAnchors(current.key()).forEach(anchor -> markers.add(
-                new EditorMarker(anchor.id(), anchor.type(), currentOrigin.offset(anchor.position()))
+                new EditorMarker(
+                    anchor.id(), anchor.type(), currentOrigin.offset(anchor.position()), null
+                )
             ));
         }
         return new EditorSnapshot(
@@ -720,7 +728,9 @@ public final class StructureBuilderMod {
         boolean resizable, int floorHeight, int floors
     ) {}
 
-    record EditorMarker(String label, String type, BlockPos position) {}
+    record EditorMarker(
+        String label, String type, BlockPos position, BlockPos pairedPosition
+    ) {}
 
     private static void giveEditorStick(ServerPlayer player) {
         boolean alreadyHasStick = player.getInventory().items.stream()

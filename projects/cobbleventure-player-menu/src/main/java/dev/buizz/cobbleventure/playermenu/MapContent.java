@@ -228,6 +228,9 @@ public final class MapContent {
         List<Route> routes = new ArrayList<>();
         for (JsonElement element : world.getAsJsonArray("connections")) {
             JsonObject connection = element.getAsJsonObject();
+            if ("water".equals(stringValue(connection, "surface_style", "road"))) {
+                continue;
+            }
             List<Hex> path = new ArrayList<>();
             JsonArray pathJson = connection.has("cells")
                 ? connection.getAsJsonArray("cells")

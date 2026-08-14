@@ -18,7 +18,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class BuilderEditorNetwork {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
 
     private BuilderEditorNetwork() {}
 
@@ -98,7 +98,9 @@ public final class BuilderEditorNetwork {
 
     public record Space(String key, String label, boolean interior, BlockPos origin, Vec3i size,
                         boolean resizable, int floorHeight, int floors) {}
-    public record Marker(String label, String type, BlockPos position) {}
+    public record Marker(
+        String label, String type, BlockPos position, BlockPos pairedPosition
+    ) {}
 
     public record SnapshotPayload(
         String currentKey, String currentLabel, boolean interior, Vec3i size,
@@ -111,7 +113,9 @@ public final class BuilderEditorNetwork {
         static SnapshotPayload from(StructureBuilderMod.EditorSnapshot snapshot) {
             return new SnapshotPayload(snapshot.currentKey(), snapshot.currentLabel(), snapshot.interior(), snapshot.size(),
                 snapshot.spaces().stream().map(space -> new Space(space.key(), space.label(), space.interior(), space.origin(), space.size(), space.resizable(), space.floorHeight(), space.floors())).toList(),
-                snapshot.markers().stream().map(marker -> new Marker(marker.label(), marker.type(), marker.position())).toList());
+                snapshot.markers().stream().map(marker -> new Marker(
+                    marker.label(), marker.type(), marker.position(), marker.pairedPosition()
+                )).toList());
         }
         void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUtf(currentKey); buffer.writeUtf(currentLabel); buffer.writeBoolean(interior); writeVec(buffer, size);
@@ -122,14 +126,25 @@ public final class BuilderEditorNetwork {
                 buffer.writeVarInt(space.floorHeight); buffer.writeVarInt(space.floors);
             }
             buffer.writeVarInt(markers.size());
-            for (Marker marker : markers) { buffer.writeUtf(marker.label); buffer.writeUtf(marker.type); buffer.writeBlockPos(marker.position); }
+            for (Marker marker : markers) {
+                buffer.writeUtf(marker.label); buffer.writeUtf(marker.type);
+                buffer.writeBlockPos(marker.position);
+                buffer.writeBoolean(marker.pairedPosition != null);
+                if (marker.pairedPosition != null) buffer.writeBlockPos(marker.pairedPosition);
+            }
         }
         static SnapshotPayload read(RegistryFriendlyByteBuf buffer) {
             String key = buffer.readUtf(); String label = buffer.readUtf(); boolean interior = buffer.readBoolean(); Vec3i size = readVec(buffer);
             int spaceCount = Math.min(512, buffer.readVarInt()); List<Space> spaces = new ArrayList<>(spaceCount);
             for (int i = 0; i < spaceCount; i++) spaces.add(new Space(buffer.readUtf(), buffer.readUtf(), buffer.readBoolean(), buffer.readBlockPos(), readVec(buffer), buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt()));
             int markerCount = Math.min(512, buffer.readVarInt()); List<Marker> markers = new ArrayList<>(markerCount);
-            for (int i = 0; i < markerCount; i++) markers.add(new Marker(buffer.readUtf(), buffer.readUtf(), buffer.readBlockPos()));
+            for (int i = 0; i < markerCount; i++) {
+                String markerLabel = buffer.readUtf();
+                String markerType = buffer.readUtf();
+                BlockPos markerPosition = buffer.readBlockPos();
+                BlockPos pairedPosition = buffer.readBoolean() ? buffer.readBlockPos() : null;
+                markers.add(new Marker(markerLabel, markerType, markerPosition, pairedPosition));
+            }
             return new SnapshotPayload(key, label, interior, size, List.copyOf(spaces), List.copyOf(markers));
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }

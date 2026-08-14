@@ -7832,7 +7832,7 @@ public final class CobbleventureBootstrap {
         HexWorldPlan world, double x, double z
     ) {
         ConnectionPath selected = strongestRouteAt(world, x, z);
-        if (selected == null) {
+        if (selected == null || selected.surfaceStyle().equals("water")) {
             return null;
         }
         return new TerrainSample(
