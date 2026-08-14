@@ -288,28 +288,6 @@ final class NativeWorldGeneration {
                     localX, y, localZ, Blocks.WATER.defaultBlockState()
                 );
             }
-            boolean boundaryColumn = isBoundaryColumn(worldX, worldZ);
-            if (column.blocked() && boundaryColumn) {
-                int barrierStart = groundY + 1;
-                for (int y = barrierStart; y < MIN_Y + DEPTH; y++) {
-                    if (CobbleventureBootstrap.isCaveBarrierOpening(
-                        world, worldX, y, worldZ, groundY
-                    )) {
-                        continue;
-                    }
-                    setBlock(
-                        chunk, position, oceanFloor, worldSurface,
-                        localX, y, localZ, Blocks.BARRIER.defaultBlockState()
-                    );
-                }
-            }
-            if (column.sample() != null || boundaryColumn) {
-                setBlock(
-                    chunk, position, oceanFloor, worldSurface,
-                    localX, MIN_Y + DEPTH - 1, localZ,
-                    Blocks.BARRIER.defaultBlockState()
-                );
-            }
         }
 
         private boolean isBoundaryColumn(int x, int z) {

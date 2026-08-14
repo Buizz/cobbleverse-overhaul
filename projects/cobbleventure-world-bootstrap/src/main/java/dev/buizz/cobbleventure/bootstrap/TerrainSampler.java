@@ -1,7 +1,5 @@
 package dev.buizz.cobbleventure.bootstrap;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import java.util.function.Supplier;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.TerrainSample;
@@ -9,8 +7,8 @@ import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.WarpedPoint;
 
 /** Owns cached terrain lookups independently from world lifecycle orchestration. */
 final class TerrainSampler {
-    private static final Cache<Key, Lookup> LOOKUPS = CacheBuilder.newBuilder()
-        .maximumSize(262_144L).build();
+    private static final GenerationalCache<Key, Lookup> LOOKUPS =
+        new GenerationalCache<>(262_144);
 
     private TerrainSampler() {}
 
@@ -23,11 +21,7 @@ final class TerrainSampler {
         Supplier<Lookup> computer
     ) {
         Key key = key(world, x, z);
-        Lookup cached = LOOKUPS.getIfPresent(key);
-        if (cached != null) return cached;
-        Lookup computed = computer.get();
-        LOOKUPS.put(key, computed);
-        return computed;
+        return LOOKUPS.getOrCompute(key, computer);
     }
 
     private static Key key(HexWorldPlan world, int x, int z) {
@@ -38,5 +32,10 @@ final class TerrainSampler {
         TerrainSample sample, WarpedPoint warped
     ) {}
 
-    private record Key(int worldIdentity, long seed, int x, int z) {}
+    private record Key(int worldIdentity, long seed, int x, int z) {
+        @Override
+        public int hashCode() {
+            return CacheKeyHash.spatial(worldIdentity, seed, x, z);
+        }
+    }
 }

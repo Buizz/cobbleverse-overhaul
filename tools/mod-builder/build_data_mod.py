@@ -453,6 +453,8 @@ def _plot_entrance(plot: dict[str, object]) -> tuple[int, int]:
         return x - 1, z + min(10, plot_depth - 1)
     if plot["id"] == "facility_pokemart":
         return x + width, z + min(15, plot_depth - 1)
+    if "gym" in str(plot["id"]):
+        return x + width // 2, z + plot_depth
     return {
         "north": (x + width // 2, z - 1),
         "east": (x + width, z + plot_depth // 2),
@@ -467,6 +469,8 @@ def _plot_entrance(plot: dict[str, object]) -> tuple[int, int]:
 
 def _plot_entrances(plot: dict[str, object]) -> list[tuple[str, int, int]]:
     primary_x, primary_z = _plot_entrance(plot)
+    if "gym" in str(plot["id"]):
+        return [("south", primary_x, primary_z)]
     if str(plot["id"]) != "facility_department_store":
         return [(str(plot["entrance_facing"]), primary_x, primary_z)]
     x = math.floor(float(plot["x"]) + 0.5)

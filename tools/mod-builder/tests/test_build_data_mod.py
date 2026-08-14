@@ -681,7 +681,23 @@ class DataModBuilderTests(unittest.TestCase):
         settlement = json.loads(settlement_path.read_text(encoding="utf-8"))
 
         self.assertTrue(settlement["structure_profile"]["gym"]["enabled"])
-        self.assertIn("gym_building", settlement["compiled_layout"]["facilities"])
+        layout = settlement["compiled_layout"]
+        self.assertIn("gym_building", layout["facilities"])
+        gym = layout["facilities"]["gym_building"]
+        expected_entrance = {
+            "x": math.floor(float(gym["x"]) + 0.5) + int(gym["width"]) // 2,
+            "z": math.floor(float(gym["z"]) + 0.5) + int(gym["depth"]),
+        }
+        self.assertEqual(expected_entrance, gym["entrance"])
+        gym_roads = [
+            road for road in layout["access_roads"]
+            if road["building"] == "gym_building"
+        ]
+        self.assertTrue(gym_roads)
+        self.assertEqual(
+            (expected_entrance["x"], expected_entrance["z"]),
+            (gym_roads[-1]["x2"], gym_roads[-1]["z2"]),
+        )
 
     def test_does_not_register_generated_template_pools(self) -> None:
         pool_root = (
