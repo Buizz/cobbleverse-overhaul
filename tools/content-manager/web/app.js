@@ -5908,8 +5908,12 @@ function renderBuildingList() {
     if (!groups.has(category)) groups.set(category, []);
     groups.get(category).push(entry);
   }
-  const order = ["building", "residential", "decoration", "gym_exterior", "gym_interior", "interior", "league", "placeholder"];
-  $("#building-list").innerHTML = order.filter((category) => groups.has(category)).map((category) => {
+  const preferredOrder = ["building", "residential", "decoration", "natural_feature", "gym_exterior", "gym_interior", "interior", "league", "placeholder"];
+  const order = [
+    ...preferredOrder.filter((category) => groups.has(category)),
+    ...[...groups.keys()].filter((category) => !preferredOrder.includes(category)).sort(),
+  ];
+  $("#building-list").innerHTML = order.map((category) => {
     const group = groups.get(category);
     const label = group[0][1].category_label || category;
     return `<section class="nbt-structure-group"><header><strong>${escapeHtml(label)}</strong><span>${group.length}</span></header>${group.map(itemMarkup).join("")}</section>`;

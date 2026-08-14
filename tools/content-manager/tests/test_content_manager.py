@@ -80,9 +80,14 @@ class ContentManagerTests(unittest.TestCase):
         markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(
             encoding="utf-8"
         )
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(
+            encoding="utf-8"
+        )
         self.assertIn(
             '<option value="natural_feature">자연물·동굴</option>', markup
         )
+        self.assertIn('"decoration", "natural_feature", "gym_exterior"', script)
+        self.assertIn("[...groups.keys()]", script)
 
     def test_local_ogg_files_are_registered_in_music_catalog_automatically(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

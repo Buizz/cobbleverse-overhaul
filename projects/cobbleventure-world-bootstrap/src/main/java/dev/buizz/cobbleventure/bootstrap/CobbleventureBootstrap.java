@@ -95,6 +95,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.level.ChunkWatchEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -204,6 +205,7 @@ public final class CobbleventureBootstrap {
     private static final Map<UUID, Vec3> safeWaterPositions = new HashMap<>();
     private static final Map<UUID, Integer> deepWaterTicks = new HashMap<>();
     private static final Map<UUID, Vec3> safeWhirlpoolPositions = new HashMap<>();
+    private static final Map<Long, Long> scheduledTownDebrisCleanup = new HashMap<>();
     private static final ResourceKey<Level> GENERATION_ONE =
         ResourceKey.create(
             Registries.DIMENSION,
@@ -268,6 +270,7 @@ public final class CobbleventureBootstrap {
         BuildingRuntimeSystem.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onEntityJoinLevel);
+        NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onChunkWatch);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerTick);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onRegisterCommands);
@@ -317,10 +320,27 @@ public final class CobbleventureBootstrap {
         }
     }
 
+    private static void onChunkWatch(ChunkWatchEvent.Watch event) {
+        ServerPlayer player = event.getPlayer();
+        ServerLevel level = player.serverLevel();
+        if (!level.dimension().equals(GENERATION_ONE)) {
+            return;
+        }
+        long chunkKey = event.getPos().toLong();
+        BootstrapSavedData data = level.getServer().overworld().getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
+            DATA_FILE
+        );
+        if (data.isTownDebrisCleanupPending(chunkKey)) {
+            scheduledTownDebrisCleanup.putIfAbsent(chunkKey, level.getGameTime() + 2L);
+        }
+    }
+
     private static void onServerStarted(ServerStartedEvent event) {
         pendingInitializationPlayer = null;
         pendingInitializationTicks = -1;
         activeInitialization = null;
+        scheduledTownDebrisCleanup.clear();
         completedTownGenerationDisplay = null;
         completedTownGenerationDisplayTicks = 0;
         ServerLevel level = event.getServer().getLevel(GENERATION_ONE);
@@ -3331,6 +3351,44 @@ public final class CobbleventureBootstrap {
         }
     }
 
+    private static void runScheduledTownDebrisCleanup(ServerLevel level, long gameTime) {
+        if (scheduledTownDebrisCleanup.isEmpty()) {
+            return;
+        }
+        BootstrapSavedData data = level.getServer().overworld().getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
+            DATA_FILE
+        );
+        List<Long> dueChunks = scheduledTownDebrisCleanup.entrySet().stream()
+            .filter(entry -> entry.getValue() <= gameTime)
+            .map(Map.Entry::getKey)
+            .toList();
+        for (long chunkKey : dueChunks) {
+            scheduledTownDebrisCleanup.remove(chunkKey);
+            int chunkX = ChunkPos.getX(chunkKey);
+            int chunkZ = ChunkPos.getZ(chunkKey);
+            if (level.getChunkSource().getChunkNow(chunkX, chunkZ) == null) {
+                continue;
+            }
+            AABB bounds = new AABB(
+                chunkX << 4, level.getMinBuildHeight(), chunkZ << 4,
+                (chunkX + 1) << 4, level.getMaxBuildHeight(), (chunkZ + 1) << 4
+            );
+            int removed = 0;
+            for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, bounds)) {
+                item.discard();
+                removed++;
+            }
+            data.markTownDebrisCleanupComplete(chunkKey);
+            if (removed > 0) {
+                LOGGER.info(
+                    "Deferred town debris cleaned: chunk=({}, {}), itemEntities={}",
+                    chunkX, chunkZ, removed
+                );
+            }
+        }
+    }
+
     private static boolean isNaturalGenerationDebris(ItemEntity entity) {
         if (!(entity.getItem().getItem() instanceof BlockItem blockItem)) {
             return false;
@@ -4136,6 +4194,7 @@ public final class CobbleventureBootstrap {
             return;
         }
         long gameTime = level.getGameTime();
+        runScheduledTownDebrisCleanup(level, gameTime);
         ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
         scheduleNearbyTownInitialization(level, gameTime);
         scheduleBackgroundTownInitialization(level);
@@ -4161,7 +4220,10 @@ public final class CobbleventureBootstrap {
             if (world != null) {
                 WorldGateSystem.tick(player, world.grid(), world.gates(), gameTime);
                 if (gameTime % 10L == 0L) {
-                    updateLocationTitle(player, world);
+                    LocationArea area = locationAreaAt(
+                        world, player.getX(), player.getZ()
+                    );
+                    updateLocationTitle(player, area);
                     TerrainSample sample = terrainAt(
                         world, player.getX(), player.getZ()
                     );
@@ -4170,8 +4232,8 @@ public final class CobbleventureBootstrap {
                         player,
                         coordinate.q(),
                         coordinate.r(),
-                        sample == null ? "" : sample.kind(),
-                        sample == null ? "" : sample.owner()
+                        area.kind(),
+                        area.owner()
                     );
                     LocalWeatherSystem.tick(player, world, sample);
                 }
@@ -4216,12 +4278,26 @@ public final class CobbleventureBootstrap {
         }
     }
 
-    private static void updateLocationTitle(ServerPlayer player, HexWorldPlan world) {
-        TerrainSample sample = terrainAt(world, player.getX(), player.getZ());
-        String candidate = sample != null
-            && (sample.kind().equals("town") || sample.kind().equals("route"))
-                ? sample.kind() + ":" + sample.owner()
-                : "";
+    private static LocationArea locationAreaAt(HexWorldPlan world, double x, double z) {
+        HexCoord coordinate = world.grid().worldToHex(x, z);
+        CellPlan cell = world.cells().get(coordinate);
+        // A town keeps priority at route endpoints. Everywhere else, belonging
+        // to a route path makes the complete hex tile part of that route.
+        if (cell != null && "town".equals(cell.kind())) {
+            return new LocationArea("town", cell.owner());
+        }
+        for (ConnectionPath route : world.paths()) {
+            if (route.cells().contains(coordinate)) {
+                return new LocationArea("route", route.id());
+            }
+        }
+        return new LocationArea("", "");
+    }
+
+    private static void updateLocationTitle(ServerPlayer player, LocationArea area) {
+        String candidate = area.kind().isEmpty()
+            ? ""
+            : area.kind() + ":" + area.owner();
         if (candidate.isEmpty()) {
             LocationAnnouncement.update(
                 player, "", Component.empty(), Component.empty(), Component.empty(), false
@@ -4229,8 +4305,8 @@ public final class CobbleventureBootstrap {
             return;
         }
 
-        if (sample.kind().equals("town")) {
-            SettlementPlan settlement = activeSettlements.get(sample.owner());
+        if (area.kind().equals("town")) {
+            SettlementPlan settlement = activeSettlements.get(area.owner());
             if (settlement != null) {
                 GymInteriorSystem.GymArrivalInfo gym =
                     GymInteriorSystem.arrivalInfo(settlement.id(), player);
@@ -4253,7 +4329,7 @@ public final class CobbleventureBootstrap {
         LocationAnnouncement.update(
             player,
             candidate,
-            routeDisplayName(sample.owner()).copy().withStyle(ChatFormatting.YELLOW),
+            routeDisplayName(area.owner()).copy().withStyle(ChatFormatting.YELLOW),
             Component.translatable(
                 "message.cobbleventure_player_menu.location_title.route"
             ).withStyle(ChatFormatting.GRAY),
@@ -4261,6 +4337,8 @@ public final class CobbleventureBootstrap {
             false
         );
     }
+
+    private record LocationArea(String kind, String owner) {}
 
     private static String gymTypeDisplayName(String type) {
         return switch (type) {
@@ -4709,6 +4787,7 @@ public final class CobbleventureBootstrap {
                     decorateTownLandscape(job.level, job.runtime.hexWorld(), settlement);
                 }
                 cleanupTownGenerationDebris(job.level, settlement);
+                job.data.markTownDebrisCleanupPending(townPreparationChunkKeys(settlement));
                 long completedAt = System.nanoTime();
                 long landscapeElapsedNanos = completedAt - phaseStartedAt;
                 LOGGER.info(
@@ -11782,6 +11861,7 @@ public final class CobbleventureBootstrap {
         private BlockPos spawnPos = BlockPos.ZERO;
         private BlockPos villagePos = BlockPos.ZERO;
         private final Set<String> generatedSettlements = new HashSet<>();
+        private final Set<Long> pendingTownDebrisCleanup = new HashSet<>();
 
         static BootstrapSavedData create() {
             return new BootstrapSavedData();
@@ -11800,6 +11880,9 @@ public final class CobbleventureBootstrap {
             String generated = tag.getString("generatedSettlements");
             if (!generated.isBlank()) {
                 data.generatedSettlements.addAll(Arrays.asList(generated.split(",")));
+            }
+            for (long chunkKey : tag.getLongArray("pendingTownDebrisCleanup")) {
+                data.pendingTownDebrisCleanup.add(chunkKey);
             }
             return data;
         }
@@ -11826,6 +11909,22 @@ public final class CobbleventureBootstrap {
             }
         }
 
+        boolean isTownDebrisCleanupPending(long chunkKey) {
+            return pendingTownDebrisCleanup.contains(chunkKey);
+        }
+
+        void markTownDebrisCleanupPending(Set<Long> chunkKeys) {
+            if (pendingTownDebrisCleanup.addAll(chunkKeys)) {
+                setDirty();
+            }
+        }
+
+        void markTownDebrisCleanupComplete(long chunkKey) {
+            if (pendingTownDebrisCleanup.remove(chunkKey)) {
+                setDirty();
+            }
+        }
+
         void complete(BlockPos spawnPos, BlockPos villagePos, int version) {
             this.complete = true;
             this.mapVersion = version;
@@ -11845,6 +11944,10 @@ public final class CobbleventureBootstrap {
             tag.putInt("villageY", villagePos.getY());
             tag.putInt("villageZ", villagePos.getZ());
             tag.putString("generatedSettlements", String.join(",", generatedSettlements));
+            tag.putLongArray(
+                "pendingTownDebrisCleanup",
+                pendingTownDebrisCleanup.stream().mapToLong(Long::longValue).toArray()
+            );
             return tag;
         }
     }
