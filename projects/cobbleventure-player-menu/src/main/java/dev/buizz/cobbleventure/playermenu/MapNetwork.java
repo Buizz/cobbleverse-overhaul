@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -16,9 +17,12 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
@@ -222,21 +226,57 @@ public final class MapNetwork {
         MapContent.WorldPoint point = pending.content.worldCenter(
             pending.targetQ, pending.targetR
         );
-        level.getChunk(point.x() >> 4, point.z() >> 4);
-        int y = level.getHeight(
-            Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, point.x(), point.z()
-        ) + 1;
+        BlockPos target = safeTeleportPosition(level, point.x(), point.z());
+        if (target == null) {
+            return "이동할 수 있는 안전한 지면을 찾지 못했습니다.";
+        }
         player.stopRiding();
         player.teleportTo(
             level,
-            point.x() + 0.5D,
-            y,
-            point.z() + 0.5D,
+            target.getX() + 0.5D,
+            target.getY(),
+            target.getZ() + 0.5D,
             player.getYRot(),
             player.getXRot()
         );
         player.resetFallDistance();
         return null;
+    }
+
+    /** Finds standing room below the hidden barrier ceiling instead of landing on it. */
+    private static BlockPos safeTeleportPosition(ServerLevel level, int x, int z) {
+        level.getChunk(x >> 4, z >> 4);
+        int height = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        int highestFloor = Math.min(height - 1, level.getMaxBuildHeight() - 3);
+        BlockPos.MutableBlockPos floor = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos feet = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos head = new BlockPos.MutableBlockPos();
+        for (int y = highestFloor; y >= level.getMinBuildHeight(); y--) {
+            floor.set(x, y, z);
+            BlockState floorState = level.getBlockState(floor);
+            if (floorState.is(Blocks.BARRIER) || !supportsTeleport(level, floor, floorState)) {
+                continue;
+            }
+            feet.set(x, y + 1, z);
+            head.set(x, y + 2, z);
+            if (isOpen(level, feet) && isOpen(level, head)) {
+                return new BlockPos(x, y + 1, z);
+            }
+        }
+        return null;
+    }
+
+    private static boolean supportsTeleport(
+        ServerLevel level, BlockPos position, BlockState state
+    ) {
+        return !state.getCollisionShape(level, position).isEmpty()
+            || state.getFluidState().is(FluidTags.WATER);
+    }
+
+    private static boolean isOpen(ServerLevel level, BlockPos position) {
+        BlockState state = level.getBlockState(position);
+        return state.getCollisionShape(level, position).isEmpty()
+            && state.getFluidState().isEmpty();
     }
 
     private static void updateVisit(ServerPlayer player) {

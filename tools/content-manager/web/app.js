@@ -270,7 +270,7 @@ function setMusicOverride(q, r, trackId) {
 function renderMusicSettings() {
   const form = $("#music-defaults-form");
   if (!form) return;
-  for (const context of ["tile", "road", "settlement", "battle", "gym"]) {
+  for (const context of ["tile", "road", "settlement", "building", "pokemon_center", "pokemart", "battle", "gym"]) {
     form.elements[context].innerHTML = musicOptions(state.musicCatalog.defaults?.[context] || "");
     form.elements[context].value = state.musicCatalog.defaults?.[context] || "";
   }
@@ -303,7 +303,7 @@ async function refreshMusicLibrary() {
 async function saveMusicSettings() {
   const form = $("#music-defaults-form");
   state.musicCatalog.defaults = Object.fromEntries(
-    ["tile", "road", "settlement", "battle", "gym"].map((context) => [context, form.elements[context].value])
+    ["tile", "road", "settlement", "building", "pokemon_center", "pokemart", "battle", "gym"].map((context) => [context, form.elements[context].value])
   );
   const result = await request("/api/music-catalog", { method: "PUT", body: JSON.stringify(state.musicCatalog) });
   showIssues("#music-issues", result.data);
@@ -819,11 +819,52 @@ function connectionAnchors(connection) {
   const cells = connectionPath(connection);
   return cells.length > 1 ? [cells[0], cells.at(-1)] : cells;
 }
+function routeEndpointAnchor(endpointId) {
+  if (!endpointId) return null;
+  return state.worldLayout?.settlements?.find((node) => node.settlement === endpointId)?.anchor
+    || state.worldLayout?.cave_entrances?.find((node) => node.id === endpointId)?.anchor
+    || null;
+}
+function syncRouteEndpointAnchors(connection) {
+  const anchors = connectionAnchors(connection).map((anchor) => ({ q: anchor.q, r: anchor.r }));
+  const from = routeEndpointAnchor(connection?.from);
+  const to = routeEndpointAnchor(connection?.to);
+  let changed = false;
+  if (!anchors.length) {
+    if (!from || !to) return false;
+    anchors.push({ ...from }, { ...to });
+    changed = true;
+  }
+  if (from && (anchors[0].q !== from.q || anchors[0].r !== from.r)) {
+    anchors[0] = { ...from };
+    changed = true;
+  }
+  if (to) {
+    if (anchors.length === 1 && from) {
+      anchors.push({ ...to });
+      changed = true;
+    } else if (anchors.at(-1).q !== to.q || anchors.at(-1).r !== to.r) {
+      anchors[anchors.length - 1] = { ...to };
+      changed = true;
+    }
+  }
+  if (!changed) return false;
+  connection.anchors = anchors;
+  connection.cells = routeCellsFromAnchors(anchors);
+  connection.pathfinding = "explicit";
+  return true;
+}
+function syncRoutesForEndpoint(endpointId) {
+  return (state.worldLayout?.connections || []).reduce((changed, connection) => {
+    if (connection.from !== endpointId && connection.to !== endpointId) return changed;
+    return syncRouteEndpointAnchors(connection) || changed;
+  }, false);
+}
 function connectionPath(connection) {
   const cells = connection.cells || [];
   if (cells.length) return cells;
-  const from = state.worldLayout?.settlements?.find((node) => node.settlement === connection.from)?.anchor;
-  const to = state.worldLayout?.settlements?.find((node) => node.settlement === connection.to)?.anchor;
+  const from = routeEndpointAnchor(connection.from);
+  const to = routeEndpointAnchor(connection.to);
   if (!from || !to) return [];
   return straightHexPath(from, to);
 }
@@ -924,8 +965,8 @@ function renderHexMap() {
     if (!routeId) return "";
     const renderedAnchors = anchors.map((anchor, index) => {
       const { x, y } = hexPoint(anchor.q, anchor.r); const endpoint = index === 0 || index === anchors.length - 1;
-      const locked = Boolean((draft && index === 0 && draft.from) || (!draft && endpoint && (selectedRoute?.from || selectedRoute?.to)));
-      return `<g class="route-anchor${endpoint ? " endpoint" : ""}${locked ? " is-locked" : ""}" data-route-anchor-route="${escapeHtml(routeId)}" data-route-anchor-index="${index}" transform="translate(${x} ${y})" role="button" aria-label="길 앵커 ${index + 1}${locked ? " 고정" : " 이동"}"><circle r="8"></circle><circle r="3"></circle><text y="-12">${index + 1}</text></g>`;
+      const locked = Boolean((draft && index === 0 && draft.from) || (!draft && ((index === 0 && selectedRoute?.from) || (index === anchors.length - 1 && selectedRoute?.to))));
+      return `<g class="route-anchor${endpoint ? " endpoint" : ""}${locked ? " is-locked" : ""}" data-route-anchor-route="${escapeHtml(routeId)}" data-route-anchor-index="${index}" transform="translate(${x} ${y})" role="button" aria-label="길 앵커 ${index + 1}${locked ? " 연결 위치 연동" : " 이동"}"><circle r="8"></circle><circle r="3"></circle><text y="-12">${index + 1}</text></g>`;
     }).join("");
     if (draft || !selectedRoute || !anchors.length) return renderedAnchors;
     const actionAnchor = anchors[Math.floor((anchors.length - 1) / 2)]; const actionPoint = hexPoint(actionAnchor.q, actionAnchor.r);
@@ -1692,8 +1733,13 @@ function removeRouteConnection(routeId) {
 }
 function focusRoute(routeId, center = true) {
   const route = (state.worldLayout.connections || []).find((entry) => entry.id === routeId);
+  const endpointSynced = route ? syncRouteEndpointAnchors(route) : false;
   const cells = route ? connectionPath(route) : [];
   if (!cells.length) return;
+  if (endpointSynced) {
+    markWorldDirty();
+    toast("이동한 연결 위치에 맞춰 길 끝점을 자동 보정했습니다.");
+  }
   state.selectedRouteId = routeId;
   state.selectedHex = null;
   if (center) {
@@ -1819,7 +1865,13 @@ function handleRouteInspectorInput(event) {
 
 function beginRouteAnchorDrag(event, routeId, index, locked) {
   event.preventDefault(); event.stopPropagation();
-  if (locked) { toast("마을에 연결된 시작·도착 앵커는 고정됩니다."); return; }
+  if (locked) {
+    const route = state.worldLayout.connections.find((entry) => entry.id === routeId);
+    if (route && syncRouteEndpointAnchors(route)) {
+      markWorldDirty(); renderWorldLayout(); toast("이동한 연결 위치에 맞춰 길 끝점을 자동 보정했습니다.");
+    } else toast("이 끝점은 연결된 마을이나 동굴 입구의 위치를 자동으로 따라갑니다.");
+    return;
+  }
   state.routeAnchorDrag = { pointerId: event.pointerId, routeId, index, changed: false };
   $("#world-hex-map").setPointerCapture?.(event.pointerId);
 }
@@ -1909,7 +1961,12 @@ function finishSettlementDrag(event) {
   const occupied = target && settlementAt(target.q, target.r);
   const conflict = node && target ? settlementRangeConflict(node, target.q, target.r, settlementPresetRadius(node.settlement)) : null;
   if (conflict) toast(`${settlementSummary(conflict.settlement)?.name || "다른 마을"}의 사용 범위와 겹칩니다.`);
-  else if (node && target && (!occupied || occupied === node)) { node.anchor = target; state.selectedHex = target; markWorldDirty(); }
+  else if (node && target && (!occupied || occupied === node)) {
+    node.anchor = target;
+    syncRoutesForEndpoint(node.settlement);
+    state.selectedHex = target;
+    markWorldDirty();
+  }
   else if (occupied && occupied !== node) toast("이미 다른 마을이 배치된 타일입니다.");
   state.draggedSettlement = null; $("#world-hex-map").classList.remove("is-dragging"); renderWorldLayout();
 }
@@ -6177,6 +6234,8 @@ function renderBuildingEditor() {
   const citizenPlacementAllowed = Boolean(metadata.settings?.citizen_placement_allowed);
   const league = metadata.category === "league";
   const interior = ["interior", "gym_interior"].includes(metadata.category);
+  $("#building-music-track").innerHTML = musicOptions(metadata.settings?.music_track || "", "building");
+  $("#building-music-track").value = metadata.settings?.music_track || "";
   $("#building-placement-y-offset").value = Number(metadata.settings?.placement_y_offset || 0);
   $("#building-size-width").value = metadata.width;
   $("#building-size-height").value = metadata.height;
@@ -6269,6 +6328,7 @@ async function saveBuildingSettings() {
   for (const [id, metadata] of Object.entries(state.buildingSettings.structures)) {
     buildings[id] = {
       placement_y_offset: Number(metadata.settings?.placement_y_offset || 0),
+      ...(metadata.settings?.music_track ? { music_track: metadata.settings.music_track } : {}),
       no_interior_space: Boolean(metadata.settings?.no_interior_space),
       fixed_npcs: metadata.settings?.citizen_placement_allowed
         ? {} : { ...(metadata.settings?.fixed_npcs || {}) },
@@ -9304,6 +9364,13 @@ $("#building-placement-y-offset").addEventListener("change", (event) => {
     return toast("Y 배치 보정값은 -64~64 범위의 정수여야 합니다.");
   }
   metadata.settings.placement_y_offset = value;
+  markBuildingSettingsDirty();
+});
+$("#building-music-track").addEventListener("change", (event) => {
+  const metadata = state.buildingSettings.structures[state.buildingSettings.selected];
+  if (!metadata) return;
+  if (event.target.value) metadata.settings.music_track = event.target.value;
+  else delete metadata.settings.music_track;
   markBuildingSettingsDirty();
 });
 $("#save-building-settings").addEventListener("click", saveBuildingSettings);

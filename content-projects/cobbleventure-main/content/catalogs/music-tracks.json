@@ -18,6 +18,9 @@
     "tile": "kanto.route_01",
     "road": "kanto.route_03",
     "settlement": "kanto.pallet_town",
+    "building": "kanto.pallet_town",
+    "pokemon_center": "kanto.pallet_town",
+    "pokemart": "kanto.pallet_town",
     "battle": "battle.trainer",
     "gym": "battle.gym_leader"
   },

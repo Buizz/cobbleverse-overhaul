@@ -34,11 +34,6 @@
       },
       {
         "q": -5,
-        "r": 11,
-        "type": "ocean"
-      },
-      {
-        "q": -5,
         "r": 12,
         "type": "ocean"
       },
@@ -54,11 +49,6 @@
       },
       {
         "q": -4,
-        "r": 11,
-        "type": "ocean"
-      },
-      {
-        "q": -4,
         "r": 12,
         "type": "ocean"
       },
@@ -69,11 +59,6 @@
       },
       {
         "q": -3,
-        "r": 9,
-        "type": "ocean"
-      },
-      {
-        "q": -3,
         "r": 10,
         "type": "ocean"
       },
@@ -85,11 +70,6 @@
       {
         "q": -2,
         "r": 9,
-        "type": "ocean"
-      },
-      {
-        "q": -2,
-        "r": 10,
         "type": "ocean"
       },
       {
@@ -110,11 +90,6 @@
       {
         "q": -1,
         "r": 13,
-        "type": "ocean"
-      },
-      {
-        "q": 0,
-        "r": 10,
         "type": "ocean"
       },
       {
@@ -134,17 +109,7 @@
       },
       {
         "q": -7,
-        "r": 8,
-        "type": "ocean"
-      },
-      {
-        "q": -7,
         "r": 9,
-        "type": "ocean"
-      },
-      {
-        "q": -7,
-        "r": 10,
         "type": "ocean"
       },
       {
@@ -170,41 +135,6 @@
       {
         "q": -7,
         "r": 14,
-        "type": "ocean"
-      },
-      {
-        "q": -6,
-        "r": 7,
-        "type": "deep_ocean"
-      },
-      {
-        "q": -3,
-        "r": 7,
-        "type": "deep_ocean"
-      },
-      {
-        "q": -3,
-        "r": 8,
-        "type": "deep_ocean"
-      },
-      {
-        "q": -2,
-        "r": 7,
-        "type": "deep_ocean"
-      },
-      {
-        "q": -2,
-        "r": 8,
-        "type": "deep_ocean"
-      },
-      {
-        "q": -8,
-        "r": 8,
-        "type": "ocean"
-      },
-      {
-        "q": -7,
-        "r": 7,
         "type": "ocean"
       },
       {
@@ -1046,6 +976,66 @@
         "q": -2,
         "r": -4,
         "type": "red_rock_mountain"
+      },
+      {
+        "q": -6,
+        "r": 10,
+        "type": "ocean"
+      },
+      {
+        "q": -5,
+        "r": 9,
+        "type": "ocean"
+      },
+      {
+        "q": -5,
+        "r": 10,
+        "type": "ocean"
+      },
+      {
+        "q": -4,
+        "r": 9,
+        "type": "ocean"
+      },
+      {
+        "q": -4,
+        "r": 10,
+        "type": "ocean"
+      },
+      {
+        "q": -3,
+        "r": 12,
+        "type": "ocean"
+      },
+      {
+        "q": -4,
+        "r": 13,
+        "type": "ocean"
+      },
+      {
+        "q": -3,
+        "r": 13,
+        "type": "ocean"
+      },
+      {
+        "q": -2,
+        "r": 12,
+        "type": "ocean"
+      },
+      {
+        "q": -1,
+        "r": 11,
+        "type": "ocean"
+      },
+      {
+        "q": -1,
+        "r": 12,
+        "type": "ocean"
+      },
+      {
+        "q": -2,
+        "r": 13,
+        "type": "ocean"
       }
     ]
   },
@@ -1193,6 +1183,438 @@
         "noise_scale_blocks": 96,
         "connection_height": 0
       }
+    },
+    {
+      "q": 4,
+      "r": 4,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 7,
+      "r": 2,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 3,
+      "r": 2,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -6,
+      "r": 9,
+      "biome": "minecraft:beach",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -7,
+      "r": 10,
+      "biome": "minecraft:beach",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -6,
+      "r": 11,
+      "biome": "minecraft:beach",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -5,
+      "r": 11,
+      "biome": "minecraft:beach",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -4,
+      "r": 11,
+      "biome": "minecraft:beach",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 0,
+      "r": 10,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 1,
+      "r": 10,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 2,
+      "r": 10,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 3,
+      "r": 10,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 4,
+      "r": 10,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 5,
+      "r": 10,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 6,
+      "r": 9,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 6,
+      "r": 8,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 7,
+      "r": 7,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 7,
+      "r": 6,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 6,
+      "r": 6,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 5,
+      "r": 6,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 8,
+      "r": 5,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 8,
+      "r": 4,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 0,
+      "r": 4,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 0,
+      "r": 5,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 0,
+      "r": 6,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -1,
+      "r": 7,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -1,
+      "r": 8,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 6,
+      "r": 0,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -7,
+      "r": 0,
+      "biome": "minecraft:badlands",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -7,
+      "r": 1,
+      "biome": "minecraft:badlands",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -7,
+      "r": 2,
+      "biome": "minecraft:badlands",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -8,
+      "r": 3,
+      "biome": "minecraft:badlands",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -8,
+      "r": 4,
+      "biome": "minecraft:badlands",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -7,
+      "r": 4,
+      "biome": "minecraft:badlands",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -6,
+      "r": 4,
+      "biome": "minecraft:badlands",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -5,
+      "r": 4,
+      "biome": "minecraft:badlands",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
     }
   ],
   "settlements": [
@@ -1260,13 +1682,14 @@
         "r": -2
       },
       "town_radius_cells": 7,
-      "town_biome": "minecraft:river",
+      "town_biome": "minecraft:plains",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
         "height_variation": 2,
-        "noise_scale_blocks": 104
+        "noise_scale_blocks": 104,
+        "connection_height": 0
       },
       "town_footprint_shape": "line_q",
       "town_footprint_cells": [],
@@ -1355,13 +1778,14 @@
         "r": 10
       },
       "town_radius_cells": 7,
-      "town_biome": "minecraft:jungle",
+      "town_biome": "minecraft:beach",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/dense_tree_line",
       "terrain_profile": {
         "base_height_offset": 0,
         "height_variation": 3,
-        "noise_scale_blocks": 92
+        "noise_scale_blocks": 92,
+        "connection_height": 0
       },
       "town_footprint_shape": "line_q",
       "town_footprint_cells": [],
@@ -1501,7 +1925,12 @@
       "corridor_width_blocks": 12,
       "edge_noise": 0,
       "surface_style": "road",
-      "pathfinding": "explicit"
+      "pathfinding": "explicit",
+      "pokemon_spawns": {
+        "inherit_biome": true,
+        "excluded_species": [],
+        "additions": []
+      }
     },
     {
       "id": "route_custom_02",
@@ -1538,7 +1967,12 @@
       "corridor_width_blocks": 12,
       "edge_noise": 0,
       "surface_style": "road",
-      "pathfinding": "explicit"
+      "pathfinding": "explicit",
+      "pokemon_spawns": {
+        "inherit_biome": true,
+        "excluded_species": [],
+        "additions": []
+      }
     },
     {
       "id": "route_custom_03",
@@ -1579,7 +2013,12 @@
       "corridor_width_blocks": 12,
       "edge_noise": 0,
       "surface_style": "road",
-      "pathfinding": "explicit"
+      "pathfinding": "explicit",
+      "pokemon_spawns": {
+        "inherit_biome": true,
+        "excluded_species": [],
+        "additions": []
+      }
     },
     {
       "id": "route_custom_04",
@@ -1628,7 +2067,536 @@
       "corridor_width_blocks": 12,
       "edge_noise": 0,
       "surface_style": "road",
+      "pathfinding": "explicit",
+      "pokemon_spawns": {
+        "inherit_biome": true,
+        "excluded_species": [],
+        "additions": []
+      }
+    },
+    {
+      "id": "route_custom_05",
+      "from": "cobbleventure:settlement/route_01_town",
+      "to": "cobbleventure:settlement/skyreach_town",
+      "anchors": [
+        {
+          "q": -4,
+          "r": 4
+        },
+        {
+          "q": -8,
+          "r": 4
+        },
+        {
+          "q": -6,
+          "r": -2
+        }
+      ],
+      "cells": [
+        {
+          "q": -4,
+          "r": 4
+        },
+        {
+          "q": -5,
+          "r": 4
+        },
+        {
+          "q": -6,
+          "r": 4
+        },
+        {
+          "q": -7,
+          "r": 4
+        },
+        {
+          "q": -8,
+          "r": 4
+        },
+        {
+          "q": -8,
+          "r": 3
+        },
+        {
+          "q": -7,
+          "r": 2
+        },
+        {
+          "q": -7,
+          "r": 1
+        },
+        {
+          "q": -7,
+          "r": 0
+        },
+        {
+          "q": -6,
+          "r": -1
+        },
+        {
+          "q": -6,
+          "r": -2
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "pokemon_spawns": {
+        "inherit_biome": true,
+        "excluded_species": [],
+        "additions": []
+      }
+    },
+    {
+      "id": "route_custom_06",
+      "from": "cobbleventure:settlement/celadon_city",
+      "to": "cobbleventure:settlement/saffron_city",
+      "anchors": [
+        {
+          "q": 1,
+          "r": 2
+        },
+        {
+          "q": 5,
+          "r": 2
+        }
+      ],
+      "cells": [
+        {
+          "q": 1,
+          "r": 2
+        },
+        {
+          "q": 2,
+          "r": 2
+        },
+        {
+          "q": 3,
+          "r": 2
+        },
+        {
+          "q": 4,
+          "r": 2
+        },
+        {
+          "q": 5,
+          "r": 2
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
       "pathfinding": "explicit"
+    },
+    {
+      "id": "route_custom_08",
+      "from": "cobbleventure:settlement/starter_town",
+      "to": "cobbleventure:settlement/tidehaven_town",
+      "anchors": [
+        {
+          "q": -6,
+          "r": 8
+        },
+        {
+          "q": -8,
+          "r": 12
+        }
+      ],
+      "cells": [
+        {
+          "q": -6,
+          "r": 8
+        },
+        {
+          "q": -6,
+          "r": 9
+        },
+        {
+          "q": -7,
+          "r": 10
+        },
+        {
+          "q": -7,
+          "r": 11
+        },
+        {
+          "q": -8,
+          "r": 12
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "water",
+      "pathfinding": "explicit",
+      "pokemon_spawns": {
+        "inherit_biome": true,
+        "excluded_species": [],
+        "additions": []
+      }
+    },
+    {
+      "id": "route_custom_09",
+      "from": "cobbleventure:settlement/fuchsia_city",
+      "to": "cobbleventure:settlement/tidehaven_town",
+      "anchors": [
+        {
+          "q": -2,
+          "r": 10
+        },
+        {
+          "q": -8,
+          "r": 12
+        }
+      ],
+      "cells": [
+        {
+          "q": -2,
+          "r": 10
+        },
+        {
+          "q": -3,
+          "r": 10
+        },
+        {
+          "q": -4,
+          "r": 11
+        },
+        {
+          "q": -5,
+          "r": 11
+        },
+        {
+          "q": -6,
+          "r": 11
+        },
+        {
+          "q": -7,
+          "r": 12
+        },
+        {
+          "q": -8,
+          "r": 12
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "water",
+      "pathfinding": "explicit",
+      "pokemon_spawns": {
+        "inherit_biome": true,
+        "excluded_species": [],
+        "additions": []
+      }
+    },
+    {
+      "id": "route_custom_07",
+      "from": "cobbleventure:settlement/celadon_city",
+      "to": "cobbleventure:settlement/fuchsia_city",
+      "anchors": [
+        {
+          "q": 1,
+          "r": 2
+        },
+        {
+          "q": -2,
+          "r": 10
+        }
+      ],
+      "cells": [
+        {
+          "q": 1,
+          "r": 2
+        },
+        {
+          "q": 1,
+          "r": 3
+        },
+        {
+          "q": 0,
+          "r": 4
+        },
+        {
+          "q": 0,
+          "r": 5
+        },
+        {
+          "q": 0,
+          "r": 6
+        },
+        {
+          "q": -1,
+          "r": 7
+        },
+        {
+          "q": -1,
+          "r": 8
+        },
+        {
+          "q": -2,
+          "r": 9
+        },
+        {
+          "q": -2,
+          "r": 10
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit"
+    },
+    {
+      "id": "route_custom_10",
+      "from": "cobbleventure:settlement/fuchsia_city",
+      "to": "cobbleventure:settlement/lavender_town",
+      "anchors": [
+        {
+          "q": -2,
+          "r": 10
+        },
+        {
+          "q": 5,
+          "r": 10
+        },
+        {
+          "q": 9,
+          "r": 2
+        }
+      ],
+      "cells": [
+        {
+          "q": -2,
+          "r": 10
+        },
+        {
+          "q": -1,
+          "r": 10
+        },
+        {
+          "q": 0,
+          "r": 10
+        },
+        {
+          "q": 1,
+          "r": 10
+        },
+        {
+          "q": 2,
+          "r": 10
+        },
+        {
+          "q": 3,
+          "r": 10
+        },
+        {
+          "q": 4,
+          "r": 10
+        },
+        {
+          "q": 5,
+          "r": 10
+        },
+        {
+          "q": 6,
+          "r": 9
+        },
+        {
+          "q": 6,
+          "r": 8
+        },
+        {
+          "q": 7,
+          "r": 7
+        },
+        {
+          "q": 7,
+          "r": 6
+        },
+        {
+          "q": 8,
+          "r": 5
+        },
+        {
+          "q": 8,
+          "r": 4
+        },
+        {
+          "q": 9,
+          "r": 3
+        },
+        {
+          "q": 9,
+          "r": 2
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit"
+    },
+    {
+      "id": "route_custom_11",
+      "from": "cobbleventure:settlement/saffron_city",
+      "to": "cobbleventure:settlement/vermilion_city",
+      "anchors": [
+        {
+          "q": 5,
+          "r": 2
+        },
+        {
+          "q": 3,
+          "r": 6
+        }
+      ],
+      "cells": [
+        {
+          "q": 5,
+          "r": 2
+        },
+        {
+          "q": 5,
+          "r": 3
+        },
+        {
+          "q": 4,
+          "r": 4
+        },
+        {
+          "q": 4,
+          "r": 5
+        },
+        {
+          "q": 3,
+          "r": 6
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit"
+    },
+    {
+      "id": "route_custom_12",
+      "from": "cobbleventure:settlement/saffron_city",
+      "to": "cobbleventure:settlement/cerulean_city",
+      "anchors": [
+        {
+          "q": 5,
+          "r": 2
+        },
+        {
+          "q": 7,
+          "r": -2
+        }
+      ],
+      "cells": [
+        {
+          "q": 5,
+          "r": 2
+        },
+        {
+          "q": 6,
+          "r": 1
+        },
+        {
+          "q": 6,
+          "r": 0
+        },
+        {
+          "q": 7,
+          "r": -1
+        },
+        {
+          "q": 7,
+          "r": -2
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit"
+    },
+    {
+      "id": "route_custom_13",
+      "from": "cobbleventure:settlement/saffron_city",
+      "to": "cobbleventure:settlement/lavender_town",
+      "anchors": [
+        {
+          "q": 5,
+          "r": 2
+        },
+        {
+          "q": 9,
+          "r": 2
+        }
+      ],
+      "cells": [
+        {
+          "q": 5,
+          "r": 2
+        },
+        {
+          "q": 6,
+          "r": 2
+        },
+        {
+          "q": 7,
+          "r": 2
+        },
+        {
+          "q": 8,
+          "r": 2
+        },
+        {
+          "q": 9,
+          "r": 2
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit"
+    },
+    {
+      "id": "route_custom_14",
+      "anchors": [
+        {
+          "q": 3,
+          "r": 6
+        },
+        {
+          "q": 7,
+          "r": 6
+        }
+      ],
+      "cells": [
+        {
+          "q": 3,
+          "r": 6
+        },
+        {
+          "q": 4,
+          "r": 6
+        },
+        {
+          "q": 5,
+          "r": 6
+        },
+        {
+          "q": 6,
+          "r": 6
+        },
+        {
+          "q": 7,
+          "r": 6
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "from": "cobbleventure:settlement/vermilion_city"
     }
   ],
   "objects": [],

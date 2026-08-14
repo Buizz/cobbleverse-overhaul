@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.playermenu.MusicPlayback;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
@@ -224,7 +225,8 @@ final class BuildingRuntimeSystem {
                         ? value.get("citizen_placement_allowed").getAsBoolean()
                         : value.has("random_citizen_eligible")
                             && value.get("random_citizen_eligible").getAsBoolean(),
-                    List.copyOf(interiors), Map.copyOf(routes)
+                    List.copyOf(interiors), Map.copyOf(routes),
+                    value.has("music_track") ? value.get("music_track").getAsString() : null
                 ));
             }
         } catch (IOException | RuntimeException error) {
@@ -271,6 +273,11 @@ final class BuildingRuntimeSystem {
     static int placementYOffset(String structure) {
         BuildingSettings settings = SETTINGS.get(structure);
         return settings == null ? 0 : settings.placementYOffset;
+    }
+
+    static String musicTrack(String structure) {
+        BuildingSettings settings = SETTINGS.get(structure);
+        return settings == null ? null : settings.musicTrack;
     }
 
     private static void applyFixedNpcs(
@@ -374,10 +381,12 @@ final class BuildingRuntimeSystem {
         BlockPos inside = interiorSpawn != null ? interiorOrigin.offset(interiorSpawn.position)
             : exit.safeSpawn != null ? interiorOrigin.offset(exit.safeSpawn) : exitDoor;
         registerDoor(exterior, entryDoor, new DoorTarget(
-            INTERIORS, inside, List.of(), "all", List.of(), List.of()
+            INTERIORS, inside, List.of(), "all", List.of(), List.of(),
+            true, musicTrack(exteriorStructure)
         ));
         registerDoor(interiors, exitDoor, new DoorTarget(
-            exterior.dimension(), outside, List.of(), "all", List.of(), List.of()
+            exterior.dimension(), outside, List.of(), "all", List.of(), List.of(),
+            false, null
         ));
     }
 
@@ -480,14 +489,16 @@ final class BuildingRuntimeSystem {
                 new DoorTarget(
                     targetSpace.level.dimension(), destination,
                     route.getValue().conditions, route.getValue().conditionMode,
-                    route.getValue().lockedDialogue, route.getValue().enterDialogue
+                    route.getValue().lockedDialogue, route.getValue().enterDialogue,
+                    !route.getValue().space.equals("exterior"), settings.musicTrack
                 )
             );
             registerDoor(
                 targetSpace.level, targetDoorPosition,
                 new DoorTarget(
                     sourceSpace.level.dimension(), reverseDestination,
-                    List.of(), "all", List.of(), List.of()
+                    List.of(), "all", List.of(), List.of(),
+                    !sourceSpaceKey.equals("exterior"), settings.musicTrack
                 )
             );
         }
@@ -624,6 +635,8 @@ final class BuildingRuntimeSystem {
             target.position.getX() + 0.5D, target.position.getY(), target.position.getZ() + 0.5D,
             player.getYRot(), player.getXRot()
         );
+        if (target.interior) MusicPlayback.enterInterior(player, target.musicTrack);
+        else MusicPlayback.leaveInterior(player);
     }
 
     private static void sendDialogue(ServerPlayer player, List<String> lines) {
@@ -731,10 +744,11 @@ final class BuildingRuntimeSystem {
     private record BuildingSettings(
         int placementYOffset, boolean noInteriorSpace,
         Map<String, String> fixedNpcs, boolean citizenPlacementAllowed,
-        List<InteriorSetting> interiors, Map<String, RouteTarget> routes
+        List<InteriorSetting> interiors, Map<String, RouteTarget> routes,
+        String musicTrack
     ) {
         private static final BuildingSettings EMPTY = new BuildingSettings(
-            0, false, Map.of(), false, List.of(), Map.of()
+            0, false, Map.of(), false, List.of(), Map.of(), null
         );
     }
 
@@ -744,7 +758,8 @@ final class BuildingRuntimeSystem {
     private record DoorTarget(
         ResourceKey<Level> dimension, BlockPos position,
         List<Condition> conditions, String conditionMode,
-        List<String> lockedDialogue, List<String> enterDialogue
+        List<String> lockedDialogue, List<String> enterDialogue,
+        boolean interior, String musicTrack
     ) {
         boolean allows(ServerPlayer player) {
             if (conditions.isEmpty()) {

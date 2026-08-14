@@ -241,6 +241,10 @@ final class NativeWorldGeneration {
                         chunk, position, oceanFloor, worldSurface,
                         localX, localZ, x, z, columns[localX][localZ]
                     );
+                    applySurroundingGroundCover(
+                        chunk, position, oceanFloor, worldSurface,
+                        localX, localZ, x, z, columns[localX][localZ]
+                    );
                     applyEmptyTerrainGroundCover(
                         chunk, position, oceanFloor, worldSurface,
                         localX, localZ, x, z, columns[localX][localZ]
@@ -248,6 +252,9 @@ final class NativeWorldGeneration {
                 }
             }
             placeEmptyTerrainFeatures(
+                chunk, position, oceanFloor, worldSurface, startX, startZ
+            );
+            placeSurroundingTerrainFeatures(
                 chunk, position, oceanFloor, worldSurface, startX, startZ
             );
         }
@@ -431,6 +438,193 @@ final class NativeWorldGeneration {
                 );
             }
         }
+
+        private void applySurroundingGroundCover(
+            ChunkAccess chunk,
+            BlockPos.MutableBlockPos position,
+            Heightmap oceanFloor,
+            Heightmap worldSurface,
+            int localX,
+            int localZ,
+            int worldX,
+            int worldZ,
+            CobbleventureBootstrap.NativeTerrainColumn column
+        ) {
+            TerrainSample sample = column.sample();
+            if (sample == null || !sample.kind().equals("surrounding")
+                || sample.surfaceStyle().equals("road")) {
+                return;
+            }
+            int chance = Math.floorMod((int) coordinateHash(
+                worldX, worldZ, 0x5355525247524F57L
+            ), 100);
+            BlockState decoration = surroundingGroundDecoration(
+                sample.biome(), chance, column
+            );
+            if (decoration == null) {
+                return;
+            }
+            setBlock(
+                chunk, position, oceanFloor, worldSurface,
+                localX, column.groundY() + 1, localZ, decoration
+            );
+        }
+
+        private static BlockState surroundingGroundDecoration(
+            String biome, int chance,
+            CobbleventureBootstrap.NativeTerrainColumn column
+        ) {
+            if (column.waterTopY() > column.groundY()) {
+                return chance < 18 ? Blocks.SEAGRASS.defaultBlockState() : null;
+            }
+            if (biome.contains("desert") || biome.contains("badlands")) {
+                return chance < 5 ? Blocks.DEAD_BUSH.defaultBlockState() : null;
+            }
+            if (biome.contains("snow")) {
+                return chance < 8 ? Blocks.FERN.defaultBlockState() : null;
+            }
+            if (biome.contains("jungle")) {
+                if (chance < 18) return Blocks.FERN.defaultBlockState();
+                if (chance < 42) return Blocks.SHORT_GRASS.defaultBlockState();
+                return chance < 45 ? Blocks.MELON.defaultBlockState() : null;
+            }
+            if (biome.contains("flower_forest")) {
+                if (chance < 4) return Blocks.ALLIUM.defaultBlockState();
+                if (chance < 8) return Blocks.AZURE_BLUET.defaultBlockState();
+                if (chance < 12) return Blocks.POPPY.defaultBlockState();
+                if (chance < 16) return Blocks.DANDELION.defaultBlockState();
+                return chance < 45 ? Blocks.SHORT_GRASS.defaultBlockState() : null;
+            }
+            if (biome.contains("forest") || biome.contains("taiga")) {
+                if (chance < 12) return Blocks.FERN.defaultBlockState();
+                if (chance < 40) return Blocks.SHORT_GRASS.defaultBlockState();
+                return chance < 43 ? Blocks.BROWN_MUSHROOM.defaultBlockState() : null;
+            }
+            if (chance < 2) return Blocks.DANDELION.defaultBlockState();
+            if (chance < 4) return Blocks.POPPY.defaultBlockState();
+            return chance < 28 ? Blocks.SHORT_GRASS.defaultBlockState() : null;
+        }
+
+        private void placeSurroundingTerrainFeatures(
+            ChunkAccess chunk,
+            BlockPos.MutableBlockPos position,
+            Heightmap oceanFloor,
+            Heightmap worldSurface,
+            int startX,
+            int startZ
+        ) {
+            for (int anchorX = startX - 3; anchorX <= startX + 18; anchorX++) {
+                if (Math.floorMod(anchorX, 12) != 0) {
+                    continue;
+                }
+                for (int anchorZ = startZ - 3; anchorZ <= startZ + 18; anchorZ++) {
+                    if (Math.floorMod(anchorZ, 12) != 0) {
+                        continue;
+                    }
+                    TerrainSample sample = CobbleventureBootstrap.terrainAt(
+                        world, anchorX + 0.5D, anchorZ + 0.5D
+                    );
+                    if (sample == null || !sample.kind().equals("surrounding")
+                        || sample.surfaceStyle().equals("road")
+                        || sample.surfaceStyle().equals("water")) {
+                        continue;
+                    }
+                    CobbleventureBootstrap.NativeTerrainColumn column =
+                        CobbleventureBootstrap.nativeTerrainColumn(world, anchorX, anchorZ);
+                    if (column.waterTopY() > column.groundY()
+                        || !isStableSurroundingTreeSite(
+                            sample, anchorX, anchorZ, column.groundY()
+                        )) {
+                        continue;
+                    }
+                    long value = coordinateHash(
+                        anchorX, anchorZ, 0x5355525254524545L
+                    );
+                    int chance = surroundingTreeChance(sample.biome());
+                    if (Math.floorMod((int) value, 100) >= chance) {
+                        continue;
+                    }
+                    SyntheticTree tree = surroundingTree(sample.biome(), value);
+                    if (tree == null) {
+                        continue;
+                    }
+                    placeSyntheticTree(
+                        chunk, position, oceanFloor, worldSurface,
+                        startX, startZ, anchorX, anchorZ, column.groundY(),
+                        tree.height(), tree.log(), tree.leaves(), tree.canopyRadius()
+                    );
+                }
+            }
+        }
+
+        private boolean isStableSurroundingTreeSite(
+            TerrainSample sample, int x, int z, int groundY
+        ) {
+            for (int offsetX = -2; offsetX <= 2; offsetX++) {
+                for (int offsetZ = -2; offsetZ <= 2; offsetZ++) {
+                    if (offsetX * offsetX + offsetZ * offsetZ > 4) {
+                        continue;
+                    }
+                    TerrainSample neighbor = CobbleventureBootstrap.terrainAt(
+                        world, x + offsetX + 0.5D, z + offsetZ + 0.5D
+                    );
+                    if (neighbor == null || !neighbor.kind().equals("surrounding")
+                        || !neighbor.owner().equals(sample.owner())) {
+                        return false;
+                    }
+                    int neighborY = CobbleventureBootstrap.nativeTerrainColumn(
+                        world, x + offsetX, z + offsetZ
+                    ).groundY();
+                    if (Math.abs(neighborY - groundY) > 2) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        private static int surroundingTreeChance(String biome) {
+            if (biome.contains("jungle")) return 96;
+            if (biome.contains("forest") || biome.contains("taiga")) return 88;
+            if (biome.contains("snow")) return 62;
+            if (biome.contains("desert") || biome.contains("badlands")
+                || biome.contains("ocean") || biome.contains("river")
+                || biome.contains("beach")) {
+                return 0;
+            }
+            return 32;
+        }
+
+        private static SyntheticTree surroundingTree(String biome, long value) {
+            int variation = Math.floorMod((int) (value >>> 32), 3);
+            if (biome.contains("taiga") || biome.contains("snow")
+                || biome.contains("peak") || biome.contains("windswept")) {
+                return new SyntheticTree(
+                    7 + variation, Blocks.SPRUCE_LOG.defaultBlockState(),
+                    Blocks.SPRUCE_LEAVES.defaultBlockState(), 2
+                );
+            }
+            if (biome.contains("jungle")) {
+                return new SyntheticTree(
+                    8 + variation, Blocks.JUNGLE_LOG.defaultBlockState(),
+                    Blocks.JUNGLE_LEAVES.defaultBlockState(), 3
+                );
+            }
+            if (biome.contains("forest") && (value & 1L) != 0L) {
+                return new SyntheticTree(
+                    6 + variation, Blocks.BIRCH_LOG.defaultBlockState(),
+                    Blocks.BIRCH_LEAVES.defaultBlockState(), 2
+                );
+            }
+            return new SyntheticTree(
+                6 + variation, Blocks.OAK_LOG.defaultBlockState(),
+                Blocks.OAK_LEAVES.defaultBlockState(), 2
+            );
+        }
+
+        private record SyntheticTree(
+            int height, BlockState log, BlockState leaves, int canopyRadius
+        ) {}
 
         private void placeEmptyTerrainFeatures(
             ChunkAccess chunk,

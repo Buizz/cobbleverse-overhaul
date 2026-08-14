@@ -39,6 +39,7 @@ public final class MusicPlayback {
     private static final long BATTLE_START_GRACE_TICKS = 20L * 10L;
     private static final Map<UUID, String> PLAYING = new HashMap<>();
     private static final Map<UUID, BattleMusic> BATTLE_MUSIC = new HashMap<>();
+    private static final Map<UUID, String> INTERIOR_MUSIC = new HashMap<>();
     private static ResourceManager loadedFrom;
     private static MusicData data;
 
@@ -93,9 +94,37 @@ public final class MusicPlayback {
         return 1;
     }
 
+    /** Starts a building interior track, falling back to the generic interior default. */
+    public static void enterInterior(ServerPlayer player, String track) {
+        MusicData music = load(player.serverLevel());
+        String resolved = MusicData.first(track, music.defaults.get("building"));
+        if (resolved == null) return;
+        INTERIOR_MUSIC.put(player.getUUID(), resolved);
+        play(player, music, resolved);
+    }
+
+    /** Starts one of the authored facility defaults, such as pokemon_center or pokemart. */
+    public static void enterFacility(ServerPlayer player, String context) {
+        MusicData music = load(player.serverLevel());
+        String resolved = MusicData.first(
+            music.defaults.get(context), music.defaults.get("building")
+        );
+        if (resolved == null) return;
+        INTERIOR_MUSIC.put(player.getUUID(), resolved);
+        play(player, music, resolved);
+    }
+
+    /** Returns music ownership to the world-location resolver. */
+    public static void leaveInterior(ServerPlayer player) {
+        if (INTERIOR_MUSIC.remove(player.getUUID()) != null) {
+            PLAYING.remove(player.getUUID());
+        }
+    }
+
     private static void reset(ServerPlayer player) {
         PLAYING.remove(player.getUUID());
         BATTLE_MUSIC.remove(player.getUUID());
+        INTERIOR_MUSIC.remove(player.getUUID());
     }
 
     public static void tick(
@@ -118,6 +147,12 @@ public final class MusicPlayback {
         if (battleMusic != null) {
             if (!battleMusic.started && gameTime <= battleMusic.expiresAt) return;
             BATTLE_MUSIC.remove(playerId);
+        }
+
+        String interiorTrack = INTERIOR_MUSIC.get(playerId);
+        if (interiorTrack != null) {
+            play(player, music, interiorTrack);
+            return;
         }
 
         play(player, music, music.resolveLocation(new Cell(q, r), areaKind, areaOwner));
@@ -147,6 +182,7 @@ public final class MusicPlayback {
         }
         PLAYING.clear();
         BATTLE_MUSIC.clear();
+        INTERIOR_MUSIC.clear();
         return data;
     }
 

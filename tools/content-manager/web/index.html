@@ -599,6 +599,11 @@
                   </div>
                   <small>0은 보정 없음, 1은 한 칸 위, -1은 한 칸 아래입니다. NBT 종류별 자동 보정은 적용하지 않습니다.</small>
                 </section>
+                <section class="building-space-editor legacy-space-editor">
+                  <header><div><strong>건물 내부 BGM</strong><small>이 외관에서 연결되는 모든 내부 공간에 재생합니다.</small></div></header>
+                  <label><span>음악</span><select id="building-music-track"></select></label>
+                  <small>미지정하면 음악 설정의 ‘일반 건물 내부 기본 BGM’을 사용합니다.</small>
+                </section>
                 <section class="building-space-editor">
                   <header><div><strong>NBT 작업 영역 크기</strong><small>실제 NBT 크기를 변경합니다. 축소하면 범위 밖 블록은 제거됩니다.</small></div></header>
                   <div class="form-grid compact-grid">
@@ -710,6 +715,9 @@
             <label><span>일반 타일 기본 BGM</span><select name="tile"></select></label>
             <label><span>도로 기본 BGM</span><select name="road"></select></label>
             <label><span>마을 기본 BGM</span><select name="settlement"></select></label>
+            <label><span>일반 건물 내부 기본 BGM</span><select name="building"></select></label>
+            <label><span>포켓몬센터 내부 BGM</span><select name="pokemon_center"></select></label>
+            <label><span>포켓몬상점 내부 BGM</span><select name="pokemart"></select></label>
             <label><span>일반 배틀 기본 BGM</span><select name="battle"></select></label>
             <label><span>체육관 배틀 기본 BGM</span><select name="gym"></select></label>
           </form>

@@ -4062,7 +4062,10 @@ def save_game_definitions(root: Path, data: Any) -> list[Issue]:
     return issues
 
 
-MUSIC_CONTEXTS = ("tile", "road", "settlement", "battle", "gym")
+MUSIC_CONTEXTS = (
+    "tile", "road", "settlement", "building", "pokemon_center", "pokemart",
+    "battle", "gym",
+)
 
 
 def validate_music_catalog_file(path: Path) -> list[Issue]:
@@ -8092,6 +8095,8 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
                 "placement_y_offset": entry.get("placement_y_offset", 0)
                 if isinstance(entry.get("placement_y_offset", 0), int)
                 and not isinstance(entry.get("placement_y_offset", 0), bool) else 0,
+                "music_track": entry.get("music_track", "")
+                if isinstance(entry.get("music_track", ""), str) else "",
                 "no_interior_space": bool(entry.get("no_interior_space", False)),
                 "fixed_npcs": entry.get("fixed_npcs", {})
                 if isinstance(entry.get("fixed_npcs", {}), dict) else {},
@@ -8192,6 +8197,14 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
         return [Issue("error", path.as_posix(), "$.buildings", "건물 설정 객체가 필요합니다.")]
     structure_files = managed_structure_files(root)
     npc_ids = {item.get("id") for item in _list_documents(root, "trainers") if item.get("id")}
+    music_catalog_path = root / "content" / "catalogs" / "music-tracks.json"
+    music_track_ids: set[str] | None = None
+    if music_catalog_path.is_file():
+        music_catalog = load_json(music_catalog_path)
+        music_track_ids = {
+            track.get("id") for track in music_catalog.get("tracks", [])
+            if isinstance(track, dict) and isinstance(track.get("id"), str)
+        }
     normalized: dict[str, Any] = {}
     for resource_id, settings in sorted(buildings.items()):
         entry_path = f"$.buildings.{resource_id}"
@@ -8319,6 +8332,16 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
                 "Y 배치 보정값은 -64~64 범위의 정수여야 합니다.",
             )
             continue
+        music_track = settings.get("music_track")
+        if music_track is not None and (
+            not isinstance(music_track, str) or not CHOICE_ID.fullmatch(music_track)
+            or (music_track_ids is not None and music_track not in music_track_ids)
+        ):
+            _issue(
+                issues, "error", path, f"{entry_path}.music_track",
+                "활성 음악 목록에서 음악을 선택해야 합니다.",
+            )
+            continue
         if citizen_placement_allowed and normalized_fixed:
             _issue(
                 issues, "error", path, f"{entry_path}.fixed_npcs",
@@ -8331,6 +8354,7 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             )
         normalized[resource_id] = {
             "placement_y_offset": placement_y_offset,
+            **({"music_track": music_track} if music_track else {}),
             "no_interior_space": no_interior_space,
             "fixed_npcs": {} if citizen_placement_allowed else normalized_fixed,
             "citizen_placement_allowed": citizen_placement_allowed,

@@ -990,6 +990,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("addSelectedRoutePokemon", script)
         self.assertIn("state.routePokemonPicker.selected", script)
         self.assertIn("state.selectedRouteId = null", script)
+        self.assertIn("function syncRouteEndpointAnchors", script)
+        self.assertIn("syncRoutesForEndpoint(node.settlement)", script)
+        self.assertIn("이동한 연결 위치에 맞춰 길 끝점을 자동 보정했습니다.", script)
+        self.assertIn("index === 0 && selectedRoute?.from", script)
+        self.assertIn("index === anchors.length - 1 && selectedRoute?.to", script)
 
     def test_world_pokemon_map_applies_route_habitat_overrides(self) -> None:
         root = PROJECT_ROOT

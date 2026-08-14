@@ -49,11 +49,14 @@
     "defaults": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tile", "road", "settlement", "battle", "gym"],
+      "required": ["tile", "road", "settlement", "building", "pokemon_center", "pokemart", "battle", "gym"],
       "properties": {
         "tile": { "$ref": "#/$defs/trackId" },
         "road": { "$ref": "#/$defs/trackId" },
         "settlement": { "$ref": "#/$defs/trackId" },
+        "building": { "$ref": "#/$defs/trackId" },
+        "pokemon_center": { "$ref": "#/$defs/trackId" },
+        "pokemart": { "$ref": "#/$defs/trackId" },
         "battle": { "$ref": "#/$defs/trackId" },
         "gym": { "$ref": "#/$defs/trackId" }
       }
