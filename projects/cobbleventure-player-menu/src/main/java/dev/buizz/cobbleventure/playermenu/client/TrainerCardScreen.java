@@ -38,6 +38,9 @@ public final class TrainerCardScreen extends Screen {
     private static final int LEAGUE_COMPLETE = 0xFF75C6C8;
     private static final int CARD_MAX_WIDTH = 386;
     private static final int CARD_MAX_HEIGHT = 224;
+    private static final ResourceLocation CARD_BACKGROUND = ResourceLocation.fromNamespaceAndPath(
+        "cobbleventure_player_menu", "textures/gui/trainer_card_background.png"
+    );
 
     private final Screen parent;
     private TrainerCardProgress progress;
@@ -169,6 +172,8 @@ public final class TrainerCardScreen extends Screen {
         drawIdentityRows(graphics, cardX + padding, contentTop + 6, infoRight - cardX - padding - 3);
         drawPortrait(graphics, infoRight + 2, contentTop + 6,
             cardX + cardWidth - padding, cardY + cardHeight - 28, mouseX, mouseY);
+        drawLevelCapTag(graphics, infoRight + 8, cardY + cardHeight - 49,
+            cardX + cardWidth - padding - 6);
         graphics.drawString(font, Component.translatable("screen.cobbleventure_player_menu.trainer_card.flip_hint"),
             cardX + padding + 4, cardY + cardHeight - 18, 0xFFFFEEE7, true);
     }
@@ -192,35 +197,15 @@ public final class TrainerCardScreen extends Screen {
         fillRoundedRect(graphics, cardX + 4, cardY + 4,
             cardX + cardWidth - 4, cardY + cardHeight - 4, 6, CARD_RED);
 
-        drawCardPattern(graphics);
+        graphics.enableScissor(cardX + 5, cardY + 5, cardX + cardWidth - 5, cardY + cardHeight - 5);
+        graphics.blit(CARD_BACKGROUND, cardX + 4, cardY + 4,
+            0.0F, 0.0F, cardWidth - 8, cardHeight - 8, 256, 256);
+        graphics.disableScissor();
 
         int motifX = cardX + cardWidth / 2;
         int motifY = cardY + cardHeight / 2;
         drawRing(graphics, motifX, motifY, Math.min(cardWidth, cardHeight) / 4, 0x28FFFFFF);
         graphics.fill(cardX + 5, motifY - 2, cardX + cardWidth - 5, motifY + 2, 0x1EFFFFFF);
-    }
-
-    private void drawCardPattern(GuiGraphics graphics) {
-        int left = cardX + 5;
-        int top = cardY + 5;
-        int right = cardX + cardWidth - 5;
-        int bottom = cardY + cardHeight - 5;
-        graphics.enableScissor(left, top, right, bottom);
-        for (int x = left - cardHeight; x < right; x += 30) {
-            for (int step = 0; step < cardHeight + 30; step += 3) {
-                int px = x + step;
-                int py = bottom - step;
-                graphics.fill(px, py, px + 12, py + 2, 0x10FFFFFF);
-            }
-        }
-        for (int x = left + 18; x < right; x += 58) {
-            for (int y = top + 18; y < bottom; y += 52) {
-                drawRing(graphics, x, y, 10, 0x0EFFFFFF);
-                graphics.fill(x - 1, y - 7, x + 2, y + 8, 0x0EFFFFFF);
-                graphics.fill(x - 7, y - 1, x + 8, y + 2, 0x0EFFFFFF);
-            }
-        }
-        graphics.disableScissor();
     }
 
     private void drawHeader(GuiGraphics graphics, Component heading, Component rightText, int padding, int headerHeight) {
@@ -271,7 +256,7 @@ public final class TrainerCardScreen extends Screen {
         graphics.fill(x + 6, y + 17, x + rowWidth - 6, y + 18, 0x35A5483F);
         graphics.drawString(font, Component.translatable(labelKey), x + 6, y + 5, MUTED_INK, false);
         String clipped = font.plainSubstrByWidth(value, Math.max(24, rowWidth / 2 - 8));
-        graphics.drawString(font, clipped, x + rowWidth - 6 - font.width(clipped), y + 5, INK, true);
+        graphics.drawString(font, clipped, x + rowWidth - 6 - font.width(clipped), y + 5, INK, false);
     }
 
     private void drawPortrait(
@@ -306,25 +291,47 @@ public final class TrainerCardScreen extends Screen {
         );
     }
 
+    private void drawLevelCapTag(GuiGraphics graphics, int left, int top, int right) {
+        fillRoundedRect(graphics, left, top, right, top + 18, 7, 0xE8FFFFFF);
+        fillRoundedRect(graphics, left + 2, top + 2, right - 2, top + 16, 5, 0xE8C85550);
+        String label = Component.translatable(
+            "screen.cobbleventure_player_menu.trainer_card.level_cap",
+            progress.currentLevelCap()
+        ).getString();
+        graphics.drawCenteredString(font, font.plainSubstrByWidth(label, right - left - 10),
+            (left + right) / 2, top + 5, 0xFFFFFFFF);
+    }
+
     private void drawLeaderBadgeGrid(
         GuiGraphics graphics, int x, int y, int gridWidth, int gridHeight,
         List<TrainerCardProgress.Challenge> challenges, int mouseX, int mouseY, float partialTick
     ) {
         if (challenges.isEmpty()) {
-            graphics.fill(x, y, x + gridWidth, y + gridHeight, CARD_CREAM);
+            fillRoundedRect(graphics, x, y, x + gridWidth, y + gridHeight, 8, CARD_CREAM);
             graphics.drawCenteredString(font,
                 Component.translatable("screen.cobbleventure_player_menu.trainer_card.badges.empty"),
                 x + gridWidth / 2, y + gridHeight / 2 - 4, MUTED_INK);
             return;
         }
+        fillRoundedRect(graphics, x, y, x + gridWidth, y + gridHeight, 9, 0xFFFFFFFF);
+        fillRoundedRect(graphics, x + 2, y + 2, x + gridWidth - 2, y + gridHeight - 2, 7, 0xFFE2F2EC);
+        int emblemWidth = Math.min(54, Math.max(38, gridWidth / 6));
+        int emblemX = x + emblemWidth / 2 + 5;
+        int emblemY = y + gridHeight / 2;
+        drawRing(graphics, emblemX, emblemY, Math.min(18, gridHeight / 4), 0xFF6F8EA4);
+        drawRing(graphics, emblemX, emblemY, Math.min(12, gridHeight / 6), 0xFFAAC2C9);
+        graphics.fill(emblemX - 17, emblemY - 1, emblemX + 18, emblemY + 2, 0xFF6F8EA4);
+
+        int trayX = x + emblemWidth + 10;
+        int trayWidth = gridWidth - emblemWidth - 16;
         int gap = 4;
-        int slotWidth = (gridWidth - gap * 3) / 4;
-        int slotHeight = (gridHeight - gap) / 2;
+        int slotWidth = (trayWidth - gap * 3) / 4;
+        int slotHeight = (gridHeight - 10 - gap) / 2;
         for (int index = 0; index < 8; index++) {
             int column = index % 4;
             int row = index / 4;
-            int left = x + column * (slotWidth + gap);
-            int top = y + row * (slotHeight + gap);
+            int left = trayX + column * (slotWidth + gap);
+            int top = y + 5 + row * (slotHeight + gap);
             TrainerCardProgress.Challenge challenge = index < challenges.size() ? challenges.get(index) : null;
             drawLeaderBadgeSlot(graphics, left, top, slotWidth, slotHeight, challenge, index, mouseX, mouseY, partialTick);
         }
@@ -336,27 +343,27 @@ public final class TrainerCardScreen extends Screen {
     ) {
         int right = left + slotWidth;
         int bottom = top + slotHeight;
-        int background = index < 4 ? 0xFFE7F5F1 : 0xFFFFE6D1;
-        graphics.fill(left, top, right, bottom, 0xFF71443F);
-        graphics.fill(left + 1, top + 1, right - 1, bottom - 1, background);
+        int background = index < 4 ? 0xFFFFF8EF : 0xFFFFE8E0;
+        fillRoundedRect(graphics, left, top, right, bottom, 4, 0xFFFFFFFF);
+        fillRoundedRect(graphics, left + 1, top + 1, right - 1, bottom - 1, 3, background);
         if (challenge == null) {
-            graphics.fill(left + 4, top + 4, right - 4, bottom - 4, 0x18A06B62);
+            fillRoundedRect(graphics, left + 4, top + 4, right - 4, bottom - 4, 2, 0x18A06B62);
             return;
         }
 
-        int nameHeight = 13;
+        int nameHeight = 12;
         renderLeaderModel(graphics, challenge, left + 2, top + 2, right - 2, bottom - nameHeight);
         if (!challenge.completed()) {
             graphics.fill(left + 1, top + 1, right - 1, bottom - nameHeight, 0x725B6668);
         }
-        graphics.fill(left + 1, bottom - nameHeight, right - 1, bottom - 1,
-            challenge.completed() ? 0xE93C7390 : 0xD8534D4A);
+        fillRoundedRect(graphics, left + 1, bottom - nameHeight, right - 1, bottom - 1, 3,
+            challenge.completed() ? 0xEE3C7390 : 0xDD777B7D);
         String name = font.plainSubstrByWidth(challenge.name().getString(), Math.max(12, slotWidth - 8));
         graphics.drawCenteredString(font, name, left + slotWidth / 2, bottom - 10, 0xFFFFFFFF);
 
         if (challenge.completed() && challenge.texture() != null) {
-            int badgeSize = Math.min(30, Math.max(20, slotWidth / 3));
-            drawRotatingBadge(graphics, right - badgeSize / 2 - 5, bottom - nameHeight - badgeSize / 2 - 3,
+            int badgeSize = Math.min(20, Math.max(13, slotWidth / 3));
+            drawRotatingBadge(graphics, right - badgeSize / 2 - 3, top + badgeSize / 2 + 3,
                 badgeSize, challenge, index, partialTick);
         }
         if (mouseX >= left && mouseX < right && mouseY >= top && mouseY < bottom) {

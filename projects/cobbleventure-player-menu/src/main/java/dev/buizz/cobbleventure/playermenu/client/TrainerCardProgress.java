@@ -23,9 +23,23 @@ record TrainerCardProgress(List<LeaguePage> pages) {
         )));
     }
 
+    int currentLevelCap() {
+        int lastConfiguredCap = 100;
+        for (LeaguePage page : pages) {
+            for (Challenge challenge : page.challenges()) {
+                if (challenge.levelCap() > 0) lastConfiguredCap = challenge.levelCap();
+                if (challenge.kind() == ChallengeKind.GYM && !challenge.completed()
+                    && challenge.levelCap() > 0) {
+                    return challenge.levelCap();
+                }
+            }
+        }
+        return lastConfiguredCap;
+    }
+
     private static List<Challenge> buildPreviewChallenges() {
         return java.util.stream.IntStream.range(0, UNDECIDED_PREVIEW_SLOTS)
-            .mapToObj(index -> new Challenge(Component.empty(), false, ChallengeKind.GYM, "", Component.empty(), "", null, 0, 0, 32, 256, 288, null, false))
+            .mapToObj(index -> new Challenge(Component.empty(), false, ChallengeKind.GYM, "", Component.empty(), "", null, 0, 0, 32, 256, 288, null, false, 100))
             .toList();
     }
 
@@ -38,7 +52,7 @@ record TrainerCardProgress(List<LeaguePage> pages) {
     record Challenge(
         Component name, boolean completed, ChallengeKind kind, String badgeId, Component badgeName,
         String tooltip, ResourceLocation texture, int textureU, int textureV, int textureSize,
-        int atlasWidth, int atlasHeight, ResourceLocation leaderSkin, boolean slimModel
+        int atlasWidth, int atlasHeight, ResourceLocation leaderSkin, boolean slimModel, int levelCap
     ) {
     }
 

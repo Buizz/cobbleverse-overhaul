@@ -42,7 +42,8 @@ final class LeagueProgressionContent {
                 String region = value.get("region").getAsString();
                 grouped.computeIfAbsent(new PageKey(generation, region), ignored -> new ArrayList<>()).add(new Entry(
                     localized(value.getAsJsonObject("display_name")), kind(role), badge,
-                    leader == null ? null : leader.skin(), leader != null && leader.slimModel()
+                    leader == null ? null : leader.skin(), leader != null && leader.slimModel(),
+                    value.has("level_cap") ? value.get("level_cap").getAsInt() : 100
                 ));
             }
             List<TrainerCardProgress.LeaguePage> pages = new ArrayList<>();
@@ -76,7 +77,7 @@ final class LeagueProgressionContent {
             Component.literal(badge == null ? entry.name() : badge.name()),
             badge == null ? entry.name() : badge.tooltip(),
             badge == null ? null : badge.texture(), badge == null ? 0 : badge.u(), badge == null ? 0 : badge.v(),
-            badge == null ? 32 : badge.size(), 256, 288, entry.leaderSkin(), entry.slimModel()
+            badge == null ? 32 : badge.size(), 256, 288, entry.leaderSkin(), entry.slimModel(), entry.levelCap()
         );
     }
 
@@ -134,7 +135,10 @@ final class LeagueProgressionContent {
     private static String readable(String id) { String value = id.substring(Math.max(id.lastIndexOf(':'), id.lastIndexOf('/')) + 1); return value.replace('_', ' '); }
 
     private record PageKey(int generation, String region) implements Comparable<PageKey> { @Override public int compareTo(PageKey other) { int order = Integer.compare(generation, other.generation); return order != 0 ? order : region.compareTo(other.region); } }
-    private record Entry(String name, TrainerCardProgress.ChallengeKind kind, Badge badge, ResourceLocation leaderSkin, boolean slimModel) {}
+    private record Entry(
+        String name, TrainerCardProgress.ChallengeKind kind, Badge badge,
+        ResourceLocation leaderSkin, boolean slimModel, int levelCap
+    ) {}
     private record LeaderCard(String badgeId, ResourceLocation skin, boolean slimModel) {}
     private record LeaderAppearance(ResourceLocation texture, boolean slimModel) {}
     private record Badge(String id, String name, String tooltip, ResourceLocation texture, int u, int v, int size, int atlasWidth, int atlasHeight) {}
