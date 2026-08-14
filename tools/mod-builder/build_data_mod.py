@@ -508,6 +508,7 @@ def _compile_town_layout_attempt(
     road = road if isinstance(road, dict) else {}
     road_width = int(road.get("width", 7))
     shape = str(profile.get("layout_shape", "branching"))
+    road_template = str(profile.get("road_layout_template", "cross"))
     cell_count = int(data.get("town_radius_cells", 7))
     if cell_count not in (1, 3, 5, 7, 19):
         cell_count = 1
@@ -528,9 +529,69 @@ def _compile_town_layout_attempt(
     directions = ((0, -1), (1, 0), (0, 1), (-1, 0))
     center_pattern, initial = _town_layout_center_pattern(shape, seed)
     hub_x, hub_z = _town_layout_hub(cell_count, footprint_shape, custom_cells)
-    queue = [(hub_x, hub_z, direction, 0) for direction in initial]
+    queue = ([(hub_x, hub_z, direction, 0) for direction in initial]
+             if road_template == "cross" else [])
     occupied = {(hub_x // 16, hub_z // 16)}
     roads: list[dict[str, int]] = []
+
+    # 도로 템플릿은 타일 성장 형태(layout_shape)와 별개다. 원하는 축의
+    # 16블록 격자를 훑고 실제 육각 타일 내부에 들어오는 연속 구간만 쓴다.
+    # 이 방식이면 커스텀 타일이나 비정형 마을에서도 도로가 외부로 새지 않는다.
+    layout_centers = [
+        _town_layout_centered_cell_center(q, r, cell_count, footprint_shape, custom_cells)
+        for q, r in _town_layout_cells(cell_count, footprint_shape, custom_cells)
+    ]
+    scan_min_x = math.floor((min(center[0] for center in layout_centers) - VILLAGE_TILE_RADIUS) / 16) * 16
+    scan_max_x = math.ceil((max(center[0] for center in layout_centers) + VILLAGE_TILE_RADIUS) / 16) * 16
+    scan_min_z = math.floor((min(center[1] for center in layout_centers) - VILLAGE_TILE_RADIUS) / 16) * 16
+    scan_max_z = math.ceil((max(center[1] for center in layout_centers) + VILLAGE_TILE_RADIUS) / 16) * 16
+
+    def append_clipped_template_line(axis: str, fixed: int) -> None:
+        start = scan_min_x if axis == "x" else scan_min_z
+        end = scan_max_x if axis == "x" else scan_max_z
+        run: list[tuple[int, int]] = []
+
+        def flush() -> None:
+            if len(run) >= 2:
+                roads.append({
+                    "x1": run[0][0], "z1": run[0][1],
+                    "x2": run[-1][0], "z2": run[-1][1],
+                })
+            run.clear()
+
+        for coordinate in range(start, end + 1, 16):
+            x, z = (coordinate, fixed) if axis == "x" else (fixed, coordinate)
+            if _inside_town_layout(x, z, cell_count, footprint_shape, 8.0, custom_cells):
+                run.append((x, z))
+            else:
+                flush()
+        flush()
+
+    if road_template == "grid":
+        # 井자형: 평행한 세로·가로 도로 두 쌍.
+        for offset in (-32, 32):
+            append_clipped_template_line("z", hub_x + offset)
+            append_clipped_template_line("x", hub_z + offset)
+    elif road_template == "spine":
+        # 간선형: 마을의 긴 축을 주도로로 삼고 세 개의 지선을 둔다.
+        x_span = scan_max_x - scan_min_x
+        z_span = scan_max_z - scan_min_z
+        if x_span >= z_span:
+            append_clipped_template_line("x", hub_z)
+            for offset in (-32, 0, 32):
+                append_clipped_template_line("z", hub_x + offset)
+        else:
+            append_clipped_template_line("z", hub_x)
+            for offset in (-32, 0, 32):
+                append_clipped_template_line("x", hub_z + offset)
+    elif road_template == "ring":
+        # 환상형: 규모에 비례하는 사각 순환로. 육각 외곽에서는 자동 절단된다.
+        ring_x = max(32, int(((scan_max_x - scan_min_x) * 0.25) // 16) * 16)
+        ring_z = max(32, int(((scan_max_z - scan_min_z) * 0.25) // 16) * 16)
+        for offset in (-ring_z, ring_z):
+            append_clipped_template_line("x", hub_z + offset)
+        for offset in (-ring_x, ring_x):
+            append_clipped_template_line("z", hub_x + offset)
     maximum_roads = min(36, 6 + depth * 5) if cell_count == 19 else min(20, 3 + depth * 3)
     while queue and len(roads) < maximum_roads:
         start_x, start_z, direction, branch_depth = queue.pop(0)
@@ -590,6 +651,23 @@ def _compile_town_layout_attempt(
 
     def append_coverage_road(x1: int, z1: int, x2: int, z2: int) -> None:
         if x1 == x2 and z1 == z2:
+            for index, segment in enumerate(roads):
+                inside_x = min(segment["x1"], segment["x2"]) <= x1 <= max(segment["x1"], segment["x2"])
+                inside_z = min(segment["z1"], segment["z2"]) <= z1 <= max(segment["z1"], segment["z2"])
+                endpoint = (x1, z1) in {
+                    (segment["x1"], segment["z1"]), (segment["x2"], segment["z2"])
+                }
+                if inside_x and inside_z and not endpoint:
+                    old_key = (segment["x1"], segment["z1"], segment["x2"], segment["z2"])
+                    road_keys.discard(old_key)
+                    road_keys.discard((old_key[2], old_key[3], old_key[0], old_key[1]))
+                    first = {"x1": segment["x1"], "z1": segment["z1"], "x2": x1, "z2": z1}
+                    second = {"x1": x1, "z1": z1, "x2": segment["x2"], "z2": segment["z2"]}
+                    roads[index] = first
+                    roads.append(second)
+                    for item in (first, second):
+                        road_keys.add((item["x1"], item["z1"], item["x2"], item["z2"]))
+                    return
             return
         key = (x1, z1, x2, z2)
         reverse = (x2, z2, x1, z1)
@@ -614,6 +692,30 @@ def _compile_town_layout_attempt(
         target_z = int(round(center_z / 16.0) * 16)
         if (target_x, target_z) == (hub_x, hub_z):
             continue
+        if road_template != "cross":
+            template_points = [
+                (
+                    min(max(target_x, min(segment["x1"], segment["x2"])), max(segment["x1"], segment["x2"])),
+                    min(max(target_z, min(segment["z1"], segment["z2"])), max(segment["z1"], segment["z2"])),
+                )
+                for segment in roads
+            ]
+            nearest_point = min(
+                template_points,
+                key=lambda point: (target_x - point[0]) ** 2 + (target_z - point[1]) ** 2,
+            )
+            nearest_template_distance = (
+                (target_x - nearest_point[0]) ** 2
+                + (target_z - nearest_point[1]) ** 2
+            )
+            if nearest_template_distance <= 40 ** 2:
+                # 템플릿 도로가 이미 타일 내부를 통과하면 먼 끝점에서 L자로
+                # 우회하지 않고 가장 가까운 지점에서 짧은 지선만 연결한다.
+                append_coverage_road(
+                    nearest_point[0], nearest_point[1], target_x, target_z
+                )
+                coverage_sources.add((target_x, target_z))
+                continue
         source_x, source_z = min(
             coverage_sources or {(hub_x, hub_z)},
             key=lambda point: abs(point[0] - target_x) + abs(point[1] - target_z),
@@ -647,10 +749,12 @@ def _compile_town_layout_attempt(
         identifier: str, width: int, plot_depth: int, attempts: int,
         orient_entrance_to_road: bool = False,
         fixed_entrance_facing: str | None = None,
+        balance_cells: bool = False,
     ) -> dict[str, object] | None:
         # 난수로 같은 후보를 반복 추첨하지 않고 모든 도로 후보를 한 번씩
         # 순회한다. 큰 필수 시설도 유효한 부지가 하나라도 있으면 놓인다.
         start_slot = int(random.next_double() * len(slots)) if slots else 0
+        valid_candidates: list[tuple[int, dict[str, object]]] = []
         for attempt in range(min(attempts, max(1, len(slots)))):
             slot_index = (start_slot + attempt) % len(slots)
             road_index, ratio, side = slots[slot_index]
@@ -719,8 +823,38 @@ def _compile_town_layout_attempt(
                 for access in reserved_access_roads
             ):
                 continue
-            plots.append(candidate)
-            return candidate
+            if not balance_cells:
+                plots.append(candidate)
+                return candidate
+            valid_candidates.append((attempt, candidate))
+        if valid_candidates:
+            centers = [
+                _town_layout_centered_cell_center(
+                    q, r, cell_count, footprint_shape, custom_cells
+                )
+                for q, r in _town_layout_cells(cell_count, footprint_shape, custom_cells)
+            ]
+
+            def plot_cell_index(plot: dict[str, object]) -> int:
+                center_x = float(plot["x"]) + int(plot["width"]) / 2.0
+                center_z = float(plot["z"]) + int(plot["depth"]) / 2.0
+                return min(
+                    range(len(centers)),
+                    key=lambda index: (
+                        (center_x - centers[index][0]) ** 2
+                        + (center_z - centers[index][1]) ** 2
+                    ),
+                )
+
+            occupancy = [0] * len(centers)
+            for existing in plots:
+                occupancy[plot_cell_index(existing)] += 1
+            _, selected = min(
+                valid_candidates,
+                key=lambda value: (occupancy[plot_cell_index(value[1])], value[0]),
+            )
+            plots.append(selected)
+            return selected
         return None
 
     def place_grid_plot(
@@ -895,6 +1029,7 @@ def _compile_town_layout_attempt(
         plot = place_plot(
             f"house_{index + 1}", width, plot_depth, len(slots) * 2,
             orient_entrance_to_road=True,
+            balance_cells=True,
         )
         if plot is not None:
             plot.update({
@@ -971,10 +1106,30 @@ def _compile_town_layout_attempt(
                 road_facing_rotation if decoration_kind == "bench"
                 else "clockwise_90" if direction_z != 0 else "none"
             )
+            decoration_x = center_x + perpendicular_x * side * (road_edge + 2)
+            decoration_z = center_z + perpendicular_z * side * (road_edge + 2)
+            if decoration_kind == "bench":
+                def nearest_road_distance_squared(point_x: int, point_z: int) -> int:
+                    distances: list[int] = []
+                    for item in visible_roads:
+                        min_x, max_x = sorted((int(item["x1"]), int(item["x2"])))
+                        min_z, max_z = sorted((int(item["z1"]), int(item["z2"])))
+                        nearest_x = min(max(point_x, min_x), max_x)
+                        nearest_z = min(max(point_z, min_z), max_z)
+                        distances.append(
+                            (point_x - nearest_x) ** 2 + (point_z - nearest_z) ** 2
+                        )
+                    return min(distances)
+                if nearest_road_distance_squared(
+                    decoration_x + facing_x, decoration_z + facing_z
+                ) >= nearest_road_distance_squared(decoration_x, decoration_z):
+                    # 교차로에서는 다른 도로가 더 가까워져 의자가 엉뚱한
+                    # 방향을 바라볼 수 있으므로 해당 후보를 건너뛴다.
+                    continue
             try_add_decoration(
                 decoration_kind,
-                center_x + perpendicular_x * side * (road_edge + 2),
-                center_z + perpendicular_z * side * (road_edge + 2),
+                decoration_x,
+                decoration_z,
                 2 if decoration_kind in {"bench", "flower_bed"} else 1,
                 road_rotation,
             )
@@ -1012,6 +1167,7 @@ def _compile_town_layout_attempt(
         "tile_radius_blocks": int(VILLAGE_TILE_RADIUS),
         "hub": {"x": hub_x, "z": hub_z},
         "center_pattern": center_pattern,
+        "road_layout_template": road_template,
         "building_density": density_id,
         "roads": visible_roads,
         "access_roads": access_roads,
@@ -1109,6 +1265,7 @@ def _village_hub_definition(
         village_preset = profile.get("village_preset", "default")  # type: ignore[union-attr]
         commercial_center = profile.get("commercial_center", "preset")  # type: ignore[union-attr]
         layout_shape = profile.get("layout_shape", "branching")  # type: ignore[union-attr]
+        road_layout_template = profile.get("road_layout_template", "cross")  # type: ignore[union-attr]
         road_profile = profile.get("road_profile", {})  # type: ignore[union-attr]
         resource = profile["required_facilities"]["village_hub"]  # type: ignore[index]
     except (KeyError, TypeError) as error:
@@ -1125,6 +1282,8 @@ def _village_hub_definition(
         raise ModBuildError("전용 시작 마을은 commercial_center가 none이어야 합니다.")
     if layout_shape not in {"branching", "linear", "radial", "loop", "terraced"}:
         raise ModBuildError(f"지원하지 않는 마을 도로 형태입니다: {layout_shape}")
+    if road_layout_template not in {"cross", "grid", "spine", "ring"}:
+        raise ModBuildError(f"지원하지 않는 마을 도로 템플릿입니다: {road_layout_template}")
     if not isinstance(road_profile, dict):
         raise ModBuildError("마을 도로 프로필은 객체여야 합니다.")
     road_width = road_profile.get("width", 7)

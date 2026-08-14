@@ -15,6 +15,7 @@
   "biome_layout": { "arrangement": "organic_patches", "transition_width": 10, "zones": [{ "id": "cerulean_waterfront", "biome": "minecraft:river", "size_blocks": 240, "placement": "center", "weight": 5 }], "boundary": { "profile": "cobbleventure:boundary/earthwork", "width": 10, "wall_height": 8, "wall_thickness": 4 } },
   "connections": [],
   "structure_profile": {
+    "road_layout_template": "ring",
     "structure": "bca:village/default_mid", "gym_theme": "water", "village_preset": "default_mid", "commercial_center": "preset", "house_style": "bca:default/general",
     "required_facilities": { "village_hub": "cobbleventure:cerulean_city/village_hub" },
     "special_district": { "enabled": true, "anchor": "special_district", "placement_mode": "manual", "footprint": { "width": 8, "depth": 8 }, "clearance": 6, "building": { "enabled": false, "structure": "" } },

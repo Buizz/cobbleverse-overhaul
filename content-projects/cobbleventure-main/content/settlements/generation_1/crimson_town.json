@@ -113,6 +113,7 @@
   },
   "connections": [],
   "structure_profile": {
+    "road_layout_template": "cross",
     "structure": "cobbleventure:crimson_town/village",
     "gym_theme": "rock",
     "village_preset": "default_large",

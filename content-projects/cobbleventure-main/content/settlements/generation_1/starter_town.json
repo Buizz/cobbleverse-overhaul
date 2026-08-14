@@ -118,6 +118,7 @@
   },
   "connections": [],
   "structure_profile": {
+    "road_layout_template": "grid",
     "structure": "cobbleventure:starter_town/village",
     "gym_theme": "rock",
     "commercial_center": "none",

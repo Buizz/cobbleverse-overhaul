@@ -6561,7 +6561,7 @@ function villagePlotInsideLayout(plot, cellCount, shape, customCells = []) {
   return samples.every(([x, z]) => villageLayoutContains(x, z, cellCount, shape, 4, customCells));
 }
 
-function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q", customCells = [], roadExits = [], density = "normal") {
+function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q", customCells = [], roadExits = [], density = "normal", roadTemplate = "cross") {
   const random = villagePreviewRandom(seed);
   const normalizedCellCount = normalizeTownCellCount(cellCount);
   const normalizedFootprintShape = normalizeTownFootprintShape(footprintShape);
@@ -6569,9 +6569,53 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
   const directions = [{ x: 0, z: -1 }, { x: 1, z: 0 }, { x: 0, z: 1 }, { x: -1, z: 0 }];
   const centerPattern = villageCenterPattern(shape, seed);
   const hub = villageLayoutHub();
-  const queue = centerPattern.directions.map((direction) => ({ x: hub.x, z: hub.z, direction, depth: 0 }));
+  const queue = roadTemplate === "cross"
+    ? centerPattern.directions.map((direction) => ({ x: hub.x, z: hub.z, direction, depth: 0 }))
+    : [];
   const occupiedRoad = new Set([`${Math.round(hub.x / 16)},${Math.round(hub.z / 16)}`]);
   const roads = [];
+  const centers = layoutCells.map((cell) => villageLayoutCenteredCellCenter(cell, layoutCells));
+  const scanMinX = Math.floor((Math.min(...centers.map((center) => center.x)) - villagePreviewTileRadius) / 16) * 16;
+  const scanMaxX = Math.ceil((Math.max(...centers.map((center) => center.x)) + villagePreviewTileRadius) / 16) * 16;
+  const scanMinZ = Math.floor((Math.min(...centers.map((center) => center.z)) - villagePreviewTileRadius) / 16) * 16;
+  const scanMaxZ = Math.ceil((Math.max(...centers.map((center) => center.z)) + villagePreviewTileRadius) / 16) * 16;
+  const appendClippedTemplateLine = (axis, fixed) => {
+    const start = axis === "x" ? scanMinX : scanMinZ;
+    const end = axis === "x" ? scanMaxX : scanMaxZ;
+    let run = [];
+    const flush = () => {
+      if (run.length >= 2) {
+        roads.push({ x1: run[0][0], z1: run[0][1], x2: run.at(-1)[0], z2: run.at(-1)[1], depth: 0 });
+      }
+      run = [];
+    };
+    for (let coordinate = start; coordinate <= end; coordinate += 16) {
+      const x = axis === "x" ? coordinate : fixed;
+      const z = axis === "x" ? fixed : coordinate;
+      if (villageLayoutContains(x, z, normalizedCellCount, normalizedFootprintShape, 8, customCells)) run.push([x, z]);
+      else flush();
+    }
+    flush();
+  };
+  if (roadTemplate === "grid") {
+    for (const offset of [-32, 32]) {
+      appendClippedTemplateLine("z", hub.x + offset);
+      appendClippedTemplateLine("x", hub.z + offset);
+    }
+  } else if (roadTemplate === "spine") {
+    if (scanMaxX - scanMinX >= scanMaxZ - scanMinZ) {
+      appendClippedTemplateLine("x", hub.z);
+      for (const offset of [-32, 0, 32]) appendClippedTemplateLine("z", hub.x + offset);
+    } else {
+      appendClippedTemplateLine("z", hub.x);
+      for (const offset of [-32, 0, 32]) appendClippedTemplateLine("x", hub.z + offset);
+    }
+  } else if (roadTemplate === "ring") {
+    const ringX = Math.max(32, Math.floor((scanMaxX - scanMinX) * .25 / 16) * 16);
+    const ringZ = Math.max(32, Math.floor((scanMaxZ - scanMinZ) * .25 / 16) * 16);
+    for (const offset of [-ringZ, ringZ]) appendClippedTemplateLine("x", hub.z + offset);
+    for (const offset of [-ringX, ringX]) appendClippedTemplateLine("z", hub.x + offset);
+  }
   const maximumRoads = normalizedCellCount === 19 ? Math.min(36, 6 + depth * 5) : Math.min(20, 3 + depth * 3);
   let rejectedRoads = 0;
 
@@ -6606,12 +6650,34 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
     }
   }
 
+  if (!roads.length) roads.push({ x1: hub.x, z1: hub.z - 32, x2: hub.x, z2: hub.z + 32, depth: 0 });
+
   const roadKeys = new Set(roads.flatMap((road) => [
     `${road.x1},${road.z1},${road.x2},${road.z2}`,
     `${road.x2},${road.z2},${road.x1},${road.z1}`
   ]));
   const addCoverageRoad = (x1, z1, x2, z2) => {
-    if (x1 === x2 && z1 === z2) return;
+    if (x1 === x2 && z1 === z2) {
+      const roadIndex = roads.findIndex((road) => {
+        const insideX = Math.min(road.x1, road.x2) <= x1 && x1 <= Math.max(road.x1, road.x2);
+        const insideZ = Math.min(road.z1, road.z2) <= z1 && z1 <= Math.max(road.z1, road.z2);
+        const endpoint = (road.x1 === x1 && road.z1 === z1) || (road.x2 === x1 && road.z2 === z1);
+        return insideX && insideZ && !endpoint;
+      });
+      if (roadIndex >= 0) {
+        const road = roads[roadIndex];
+        roadKeys.delete(`${road.x1},${road.z1},${road.x2},${road.z2}`);
+        roadKeys.delete(`${road.x2},${road.z2},${road.x1},${road.z1}`);
+        const first = { x1: road.x1, z1: road.z1, x2: x1, z2: z1, depth: road.depth || 0 };
+        const second = { x1, z1, x2: road.x2, z2: road.z2, depth: road.depth || 0 };
+        roads.splice(roadIndex, 1, first, second);
+        for (const item of [first, second]) {
+          roadKeys.add(`${item.x1},${item.z1},${item.x2},${item.z2}`);
+          roadKeys.add(`${item.x2},${item.z2},${item.x1},${item.z1}`);
+        }
+      }
+      return;
+    }
     const key = `${x1},${z1},${x2},${z2}`;
     if (roadKeys.has(key)) return;
     roads.push({ x1, z1, x2, z2, depth: 0 });
@@ -6625,6 +6691,18 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
     const targetX = Math.round(center.x / 16) * 16;
     const targetZ = Math.round(center.z / 16) * 16;
     if (targetX === hub.x && targetZ === hub.z) continue;
+    if (roadTemplate !== "cross") {
+      const nearestTemplate = roads.map((road) => {
+        const nearestX = Math.min(Math.max(targetX, Math.min(road.x1, road.x2)), Math.max(road.x1, road.x2));
+        const nearestZ = Math.min(Math.max(targetZ, Math.min(road.z1, road.z2)), Math.max(road.z1, road.z2));
+        return { x: nearestX, z: nearestZ, distance: (targetX - nearestX) ** 2 + (targetZ - nearestZ) ** 2 };
+      }).sort((left, right) => left.distance - right.distance)[0];
+      if (nearestTemplate.distance <= 40 ** 2) {
+        addCoverageRoad(nearestTemplate.x, nearestTemplate.z, targetX, targetZ);
+        coverageSources.push([targetX, targetZ]);
+        continue;
+      }
+    }
     const candidates = coverageSources.length ? coverageSources : [[hub.x, hub.z]];
     const [sourceX, sourceZ] = candidates.reduce((best, point) =>
       Math.abs(point[0] - targetX) + Math.abs(point[1] - targetZ) < Math.abs(best[0] - targetX) + Math.abs(best[1] - targetZ) ? point : best
@@ -6653,7 +6731,7 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
   const roadRects = roads.map((road) => villagePreviewRoadRect(road, roadWidth + 3));
   const blockedRoadIndices = new Set();
 
-  function tryPlacePlot(definition, kind, label, attempts = slots.length) {
+  function tryPlacePlot(definition, kind, label, attempts = slots.length, balanceCells = false) {
     const width = Number(definition.footprint?.width || definition.width || 16);
     const depthSize = Number(definition.footprint?.depth || definition.depth || 16);
     const height = Number(definition.footprint?.height || definition.height || 1);
@@ -6662,6 +6740,7 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       width, depth: depthSize
     };
     const startSlot = Math.floor(random() * Math.max(1, slots.length));
+    const validCandidates = [];
     for (let attempt = 0; attempt < Math.min(attempts, slots.length); attempt += 1) {
       const slot = slots[(startSlot + attempt) % slots.length];
       if (!slot) break;
@@ -6707,7 +6786,30 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       if (!villagePlotInsideLayout(plot.occupied, normalizedCellCount, normalizedFootprintShape, customCells)) continue;
       if (plots.some((other) => villagePreviewRectIntersects(plot.occupied, other.occupied || other, densityProfile.plotGap))) continue;
       if (roadRects.some((roadRect, index) => index !== slot.roadIndex && !blockedRoadIndices.has(index) && villagePreviewRectIntersects(plot.occupied, roadRect, 1))) continue;
-      plots.push(plot);
+      if (!balanceCells) {
+        plots.push(plot);
+        return true;
+      }
+      validCandidates.push({ plot, attempt });
+    }
+    if (validCandidates.length) {
+      const centers = layoutCells.map((cell) => villageLayoutCenteredCellCenter(cell, layoutCells));
+      const cellIndex = (plot) => {
+        const occupied = plot.occupied || plot;
+        const centerX = occupied.x + occupied.width / 2;
+        const centerZ = occupied.z + occupied.depth / 2;
+        return centers.reduce((best, center, index) => {
+          const distance = (centerX - center.x) ** 2 + (centerZ - center.z) ** 2;
+          return distance < best.distance ? { index, distance } : best;
+        }, { index: 0, distance: Number.POSITIVE_INFINITY }).index;
+      };
+      const occupancy = Array(centers.length).fill(0);
+      plots.forEach((plot) => { occupancy[cellIndex(plot)] += 1; });
+      validCandidates.sort((left, right) => {
+        const occupancyDifference = occupancy[cellIndex(left.plot)] - occupancy[cellIndex(right.plot)];
+        return occupancyDifference || left.attempt - right.attempt;
+      });
+      plots.push(validCandidates[0].plot);
       return true;
     }
     return false;
@@ -6825,7 +6927,11 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       footprint: structureFootprint(structure, base)
     };
     const before = plots.length;
-    tryPlacePlot(houseDefinition, "house", `${base.label} · ${houseRoofCatalog.find((item) => item.id === roof)?.label || roof}`, slots.length * 2);
+    tryPlacePlot(
+      houseDefinition, "house",
+      `${base.label} · ${houseRoofCatalog.find((item) => item.id === roof)?.label || roof}`,
+      slots.length * 2, true
+    );
     if (plots.length > before) Object.assign(plots.at(-1), { base: base.id, roof, roof_color: roofColor });
   }
   const accessRoads = [];
@@ -6906,7 +7012,7 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       }
     }
   });
-  return { roads: visibleRoads, accessRoads, decorations, plots, missing, rejectedRoads, openConnectors: queue.length, layoutCells, hub, centerPattern: centerPattern.id };
+  return { roads: visibleRoads, accessRoads, decorations, plots, missing, rejectedRoads, openConnectors: queue.length, layoutCells, hub, centerPattern: centerPattern.id, roadLayoutTemplate: roadTemplate };
 }
 
 const villageLayoutRerollLimit = 8;
@@ -6916,11 +7022,11 @@ function villageLayoutRerollSeed(seed, attempt) {
   return 1 + ((Math.max(1, Number(seed)) - 1 + attempt * villageLayoutRerollStep) % 999999999);
 }
 
-function simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q", customCells = [], roadExits = [], density = "normal") {
+function simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q", customCells = [], roadExits = [], density = "normal", roadTemplate = "cross") {
   let result = null;
   for (let attempt = 0; attempt < villageLayoutRerollLimit; attempt += 1) {
     const resolvedSeed = villageLayoutRerollSeed(seed, attempt);
-    result = simulateJigsawVillage(resolvedSeed, depth, shape, roadWidth, requirements, cellCount, housePalette, footprintShape, customCells, roadExits, density);
+    result = simulateJigsawVillage(resolvedSeed, depth, shape, roadWidth, requirements, cellCount, housePalette, footprintShape, customCells, roadExits, density, roadTemplate);
     Object.assign(result, { requestedSeed: seed, resolvedSeed, rerollCount: attempt, rerollLimit: villageLayoutRerollLimit });
     if (!result.missing.length) return result;
   }
@@ -7005,12 +7111,13 @@ function renderVillageGenerationTest() {
   const seed = Math.max(1, Number(form.elements.villagePreviewSeed.value || 1));
   const depth = Math.max(1, Math.min(7, Number(form.elements.villagePreviewDepth.value || 4)));
   const shape = form.elements.townLayoutShape.value || "branching";
+  const roadTemplate = form.elements.townRoadLayoutTemplate?.value || "cross";
   const roadWidth = Number(form.elements.townRoadWidth.value || 7);
   const requirements = [...selectedCivicFacilities(), ...selectedFacilityRequirements(), ...selectedGymFacility()];
   const radiusCells = normalizeTownCellCount(form.elements.townRadiusCells.value);
   const footprintShape = normalizeTownFootprintShape(form.elements.townFootprintShape.value);
   const density = normalizeVillageDensity(form.elements.townBuildingDensity?.value);
-  const result = simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, radiusCells, selectedHousePalette(), footprintShape, customTownCells(), customTownExits(), density);
+  const result = simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, radiusCells, selectedHousePalette(), footprintShape, customTownCells(), customTownExits(), density, roadTemplate);
   const viewport = ({
     1: { width: 560, height: 320 },
     3: { width: 760, height: 430 },
@@ -7111,9 +7218,6 @@ function renderVillageGenerationTest() {
       context.beginPath(); context.arc(position.x, position.y, Math.max(2.5, scale * 1.1), 0, Math.PI * 2); context.fill(); context.stroke();
     }
   }
-  const hub = project(0, 0);
-  context.fillStyle = "#5b6770";
-  context.fillRect(hub.x - 14 * scale, hub.y - 14 * scale, 28 * scale, 28 * scale);
   const labels = [];
   for (const plot of result.plots) {
     const templatePosition = project(plot.x, plot.z);
@@ -7324,6 +7428,7 @@ function renderSettlement() {
   setFormValue(form, "townRadiusCells", normalizeTownCellCount(document.town_radius_cells));
   setFormValue(form, "townFootprintShape", normalizeTownFootprintShape(document.town_footprint_shape));
   setFormValue(form, "townLayoutShape", document.structure_profile?.layout_shape || "branching");
+  setFormValue(form, "townRoadLayoutTemplate", document.structure_profile?.road_layout_template || "cross");
   setFormValue(form, "townRoadWidth", document.structure_profile?.road_profile?.width ?? 7);
   for (const [value, label] of [["bricks", "벽돌"], ["grass_path", "잔디 길"]]) {
     if (![...form.elements.townRoadMaterial.options].some((option) => option.value === value)) {
@@ -7565,8 +7670,10 @@ function updateSettlementFromForm() {
   delete state.settlement.structure_profile.starter_layout;
   delete state.settlement.structure_profile.house_style;
   const layoutShape = form.elements.townLayoutShape.value || "branching";
+  const roadLayoutTemplate = form.elements.townRoadLayoutTemplate?.value || "cross";
   const facilityRequirements = selectedFacilityRequirements();
   state.settlement.structure_profile.layout_shape = layoutShape;
+  state.settlement.structure_profile.road_layout_template = roadLayoutTemplate;
   state.settlement.structure_profile.road_profile = {
     width: Number(form.elements.townRoadWidth.value),
     material: form.elements.townRoadMaterial.value
@@ -7601,7 +7708,8 @@ function updateSettlementFromForm() {
     state.settlement.structure_profile.generation_profile.house_palette,
     state.settlement.town_footprint_shape,
     customTownCells(), customTownExits(),
-    state.settlement.structure_profile.generation_profile.building_density
+    state.settlement.structure_profile.generation_profile.building_density,
+    roadLayoutTemplate
   );
   const generatedFacilityPlots = generatedLayout.plots.filter((plot) => plot.kind === "facility");
   configuredFacilities.forEach((facility, index) => {

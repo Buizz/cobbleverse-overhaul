@@ -151,7 +151,7 @@ public final class CobbleventureBootstrap {
     private static final int PREVIOUS_FOUNDATION_MAX_Y = 59;
     private static final int LEGACY_FOUNDATION_MIN_Y = 55;
     private static final int LEGACY_FOUNDATION_MAX_Y = 64;
-    private static final int MAP_VERSION = 90;
+    private static final int MAP_VERSION = 91;
     private static final double TOWN_RELIEF_SCALE = 0.22D;
     private static final int TOWN_EDGE_RELIEF_BLEND_BLOCKS = 40;
     private static final double TOWN_STRUCTURE_MAX_RADIUS_BLOCKS = 116.0D;
@@ -1679,16 +1679,7 @@ public final class CobbleventureBootstrap {
         TownLayout layout = generateTownLayout(settlement);
         int removedNaturalTrees = clearTownChunkTrees(level, settlement);
         long townTreeClearFinishedAt = System.nanoTime();
-        int plazaRadius = Math.max(5, road.width());
         Set<Long> roadColumns = new HashSet<>();
-        for (int x = center.x() - plazaRadius; x <= center.x() + plazaRadius; x++) {
-            for (int z = center.z() - plazaRadius; z <= center.z() + plazaRadius; z++) {
-                if (Math.hypot(x - center.x(), z - center.z()) <= plazaRadius + 0.5D) {
-                    long key = blockColumnKey(x, z);
-                    roadColumns.add(key);
-                }
-            }
-        }
         for (TownRoad generatedRoad : layout.roads()) {
             collectConfiguredRoadColumns(
                 roadColumns,
@@ -1869,12 +1860,37 @@ public final class CobbleventureBootstrap {
             default -> new int[] {0, 1, 2, 3};
         };
         ArrayDeque<TownConnector> queue = new ArrayDeque<>();
-        for (int direction : initialDirections) {
-            queue.add(new TownConnector(0, 0, direction, 0));
+        if (settlement.roadLayoutTemplate().equals("cross")) {
+            for (int direction : initialDirections) {
+                queue.add(new TownConnector(0, 0, direction, 0));
+            }
         }
         Set<String> occupiedRoad = new HashSet<>();
         occupiedRoad.add("0,0");
         List<TownRoad> roads = new ArrayList<>();
+        int templateSpan = settlement.townRadiusCells() >= 7 ? 96 : 64;
+        switch (settlement.roadLayoutTemplate()) {
+            case "grid" -> {
+                roads.add(new TownRoad(-32, -templateSpan, -32, templateSpan));
+                roads.add(new TownRoad(32, -templateSpan, 32, templateSpan));
+                roads.add(new TownRoad(-templateSpan, -32, templateSpan, -32));
+                roads.add(new TownRoad(-templateSpan, 32, templateSpan, 32));
+            }
+            case "spine" -> {
+                roads.add(new TownRoad(-templateSpan, 0, templateSpan, 0));
+                for (int offset : new int[] {-32, 0, 32}) {
+                    roads.add(new TownRoad(offset, -64, offset, 64));
+                }
+            }
+            case "ring" -> {
+                int ring = settlement.townRadiusCells() >= 7 ? 48 : 32;
+                roads.add(new TownRoad(-ring, -ring, ring, -ring));
+                roads.add(new TownRoad(ring, -ring, ring, ring));
+                roads.add(new TownRoad(ring, ring, -ring, ring));
+                roads.add(new TownRoad(-ring, ring, -ring, -ring));
+            }
+            default -> { }
+        }
         int maximumRoads = Math.min(56, 5 + settlement.generationDepth() * 8);
         while (!queue.isEmpty() && roads.size() < maximumRoads) {
             TownConnector connector = queue.removeFirst();
@@ -4913,14 +4929,6 @@ public final class CobbleventureBootstrap {
         TownLayout layout = generateTownLayout(settlement);
         Point center = new Point(settlement.center().x(), settlement.center().z());
         Set<Long> roadColumns = new HashSet<>();
-        int plazaRadius = Math.max(5, settlement.roadProfile().width());
-        for (int x = center.x() - plazaRadius; x <= center.x() + plazaRadius; x++) {
-            for (int z = center.z() - plazaRadius; z <= center.z() + plazaRadius; z++) {
-                if (Math.hypot(x - center.x(), z - center.z()) <= plazaRadius + 0.5D) {
-                    roadColumns.add(blockColumnKey(x, z));
-                }
-            }
-        }
         for (TownRoad road : layout.roads()) {
             collectConfiguredRoadColumns(
                 roadColumns,
@@ -5560,7 +5568,7 @@ public final class CobbleventureBootstrap {
             settlement.id(), settlement.displayName(), settlement.enabled(),
             settlement.townRadiusCells(),
             settlement.structure(), settlement.houseStyle(), settlement.disableCommercialOneOff(),
-            settlement.layoutShape(), settlement.roadProfile(), settlement.generationSeed(),
+            settlement.layoutShape(), settlement.roadLayoutTemplate(), settlement.roadProfile(), settlement.generationSeed(),
             settlement.generationDepth(), settlement.buildingDensity(), settlement.basicBuildings(),
             settlement.center().translate(deltaX, deltaZ),
             settlement.structurePoint().translate(deltaX, deltaZ),
@@ -5697,6 +5705,8 @@ public final class CobbleventureBootstrap {
                     && structureProfile.get("civic_facilities_explicit").getAsBoolean()));
         String layoutShape = structureProfile.has("layout_shape")
             ? requiredString(structureProfile, "layout_shape") : "branching";
+        String roadLayoutTemplate = structureProfile.has("road_layout_template")
+            ? requiredString(structureProfile, "road_layout_template") : "cross";
         JsonObject roadProfileJson = structureProfile.has("road_profile")
             ? structureProfile.getAsJsonObject("road_profile") : null;
         RoadProfile roadProfile = roadProfileJson == null
@@ -5863,7 +5873,7 @@ public final class CobbleventureBootstrap {
         return new SettlementPlan(
             id, settlementDisplayName(root, id), enabled,
             root.get("town_radius_cells").getAsInt(),
-            structure, houseStyle, disableCommercialOneOff, layoutShape, roadProfile,
+            structure, houseStyle, disableCommercialOneOff, layoutShape, roadLayoutTemplate, roadProfile,
             generationSeed, generationDepth, buildingDensity, List.copyOf(basicBuildings),
             center, structurePoint, playerSpawn,
             Map.copyOf(anchorPoints), List.copyOf(facilities), List.copyOf(gates),
@@ -6731,6 +6741,7 @@ public final class CobbleventureBootstrap {
                 settlement.houseStyle(),
                 settlement.disableCommercialOneOff(),
                 settlement.layoutShape(),
+                settlement.roadLayoutTemplate(),
                 settlement.roadProfile(),
                 settlement.generationSeed(),
                 settlement.generationDepth(),
@@ -11826,6 +11837,7 @@ public final class CobbleventureBootstrap {
         String houseStyle,
         boolean disableCommercialOneOff,
         String layoutShape,
+        String roadLayoutTemplate,
         RoadProfile roadProfile,
         int generationSeed,
         int generationDepth,

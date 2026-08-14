@@ -119,6 +119,7 @@
   },
   "connections": [],
   "structure_profile": {
+    "road_layout_template": "spine",
     "structure": "bca:village/default_mid",
     "gym_theme": "fire",
     "village_preset": "default_mid",

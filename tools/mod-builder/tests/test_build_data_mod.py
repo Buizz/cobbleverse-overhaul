@@ -103,6 +103,7 @@ class DataModBuilderTests(unittest.TestCase):
             )
         )
         source["structure_profile"]["layout_shape"] = "branching"
+        source["structure_profile"]["road_layout_template"] = "cross"
         layout = build_data_mod._compile_town_layout_attempt(source, 1)
         hub = (layout["hub"]["x"], layout["hub"]["z"])
         arms: set[str] = set()

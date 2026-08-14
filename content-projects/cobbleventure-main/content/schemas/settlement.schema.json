@@ -149,7 +149,12 @@
         },
         "layout_shape": {
           "enum": ["branching", "linear", "radial", "loop", "terraced"],
-          "description": "표준 부지를 연결하는 마을 도로망 형태"
+          "description": "십자 분기형 도로의 세부 분기 성향"
+        },
+        "road_layout_template": {
+          "enum": ["cross", "grid", "spine", "ring"],
+          "default": "cross",
+          "description": "부지 내부에 배치할 도로 골격 템플릿"
         },
         "road_profile": { "$ref": "#/$defs/road_profile" },
         "required_facilities": {
