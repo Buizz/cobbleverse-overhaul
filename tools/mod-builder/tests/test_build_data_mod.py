@@ -36,6 +36,38 @@ class DataModBuilderTests(unittest.TestCase):
 
         self.assertFalse(path.exists())
 
+    def test_settlement_data_uses_authored_load_order(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "content/settlements/generation_1"
+            source.mkdir(parents=True)
+            entries = [
+                ("alpha.json", "cobbleventure:settlement/alpha", 3),
+                ("beta.json", "cobbleventure:settlement/beta", 1),
+                ("gamma.json", "cobbleventure:settlement/gamma", 2),
+            ]
+            for filename, settlement_id, load_order in entries:
+                (source / filename).write_text(json.dumps({
+                    "schema_version": 3,
+                    "id": settlement_id,
+                    "load_order": load_order,
+                }), encoding="utf-8")
+            with mock.patch.object(build_data_mod, "SETTLEMENT_CONFIG_DIR", Path("content/settlements")):
+                settlements = build_data_mod._settlement_data(root)
+
+            self.assertEqual(
+                ["cobbleventure:settlement/beta", "cobbleventure:settlement/gamma", "cobbleventure:settlement/alpha"],
+                [data["id"] for _, data in settlements],
+            )
+
+    def test_world_bootstrap_uses_settlement_load_order(self) -> None:
+        source = (
+            REPOSITORY_ROOT
+            / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/CobbleventureBootstrap.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Comparator.comparingInt(SettlementPlan::loadOrder)", source)
+        self.assertIn("int loadOrder", source)
+
     def test_packages_generated_rct_trainer_data(self) -> None:
         output = REPOSITORY_ROOT / build_data_mod.OUTPUT
         self.assertTrue((output / "data/rctmod/trainers/ai_test.json").is_file())
@@ -807,6 +839,26 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertIn(b"PLACEHOLDER", hotel)
             self.assertIn(b"hotel", hotel)
             self.assertIn("호텔".encode("utf-8"), hotel)
+
+    def test_packages_authored_cave_entrance_structures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            source = (
+                root / build_data_mod.CAVE_ENTRANCE_STRUCTURE_SOURCE_DIR
+                / "stone_mountain.nbt"
+            )
+            source.parent.mkdir(parents=True, exist_ok=True)
+            authored = gzip.compress(b"\x0a\x00\x00\x00", mtime=0)
+            source.write_bytes(authored)
+
+            build_data_mod.build(root)
+
+            packaged = (
+                root / build_data_mod.OUTPUT
+                / "data/cobbleventure/structure/cave_entrance/stone_mountain.nbt"
+            )
+            self.assertEqual(authored, packaged.read_bytes())
 
     def test_packages_replaceable_casino_placeholder_for_casinocraft(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

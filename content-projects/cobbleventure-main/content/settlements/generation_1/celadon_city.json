@@ -1,10 +1,150 @@
 {
-  "$schema": "../../schemas/settlement.schema.json", "schema_version": 3, "id": "cobbleventure:settlement/celadon_city", "enabled": true,
-  "display_name": { "ko_kr": "무지개시티", "en_us": "Celadon City" }, "region": "cobbleventure:generation_1/celadon", "dimension": "cobbleventure:generation_1", "town_radius_cells": 7,
-  "bounds": { "min_x": -160, "min_z": -160, "max_x": 160, "max_z": 160 }, "center": { "x": 0, "y": 69, "z": 0 }, "anchors": { "town_square": { "x": 0, "y": 69, "z": 0 }, "special_district": { "x": -80, "y": 69, "z": 0 }, "gym_building": { "x": 132, "y": 69, "z": -10 } },
-  "content_profile": { "pokemon": { "spawn_profile": "cobbleventure:spawn/celadon", "density_multiplier": 1.0, "biome_set": "cobbleventure:biome_set/starter_region", "unconditional_spawns": [] }, "trainers": { "population_profile": "cobbleventure:trainer_population/celadon", "max_active": 16, "class_pool": ["cobbleventure:trainer_class/lass", "cobbleventure:trainer_class/beauty"] }, "level_scaling": { "mode": "badge_and_region", "base_level": 32, "min_level": 24, "max_level": 48, "per_badge": 2, "per_region": 3, "pokemon_offset": 0, "trainer_offset": 2 } },
-  "biome_layout": { "arrangement": "organic_patches", "transition_width": 10, "zones": [{ "id": "celadon_gardens", "biome": "minecraft:flower_forest", "size_blocks": 280, "placement": "center", "weight": 5 }], "boundary": { "profile": "cobbleventure:boundary/dense_tree_line", "width": 12, "wall_height": 8, "wall_thickness": 4 } }, "connections": [],
-  "structure_profile": { "road_layout_template": "grid", "structure": "bca:village/default_large", "gym_theme": "grass", "village_preset": "default_large", "commercial_center": "department_store", "house_style": "bca:default/general", "required_facilities": { "village_hub": "cobbleventure:celadon_city/village_hub" }, "special_district": { "enabled": true, "anchor": "special_district", "placement_mode": "manual", "footprint": { "width": 8, "depth": 8 }, "clearance": 6, "building": { "enabled": false, "structure": "" } }, "gym": { "enabled": true, "gym_id": "cobbleventure:gym/celadon",
-      "structure": "cobbleventure:gyms/base_gym", "theme": "grass", "anchor": "gym_building" }, "facility_placements": [{ "id": "gym_building", "mode": "direct_template", "structure": "cobbleventure:gyms/base_gym", "anchor": "gym_building" }] },
-  "npc_placement": { "max_ambient_npcs": 14, "default_wander_radius": 8, "trainer_slots": [], "zones": [{ "id": "town_square", "bounds": { "min_x": -24, "min_z": -24, "max_x": 24, "max_z": 24 }, "max_npcs": 8, "tags": ["ambient", "resident", "city"] }] }
+  "$schema": "../../schemas/settlement.schema.json",
+  "schema_version": 3,
+  "id": "cobbleventure:settlement/celadon_city",
+  "enabled": true,
+  "display_name": {
+    "ko_kr": "무지개시티",
+    "en_us": "Celadon City"
+  },
+  "region": "cobbleventure:generation_1/celadon",
+  "dimension": "cobbleventure:generation_1",
+  "town_radius_cells": 7,
+  "bounds": {
+    "min_x": -160,
+    "min_z": -160,
+    "max_x": 160,
+    "max_z": 160
+  },
+  "center": {
+    "x": 0,
+    "y": 69,
+    "z": 0
+  },
+  "anchors": {
+    "town_square": {
+      "x": 0,
+      "y": 69,
+      "z": 0
+    },
+    "special_district": {
+      "x": -80,
+      "y": 69,
+      "z": 0
+    },
+    "gym_building": {
+      "x": 132,
+      "y": 69,
+      "z": -10
+    }
+  },
+  "content_profile": {
+    "pokemon": {
+      "spawn_profile": "cobbleventure:spawn/celadon",
+      "density_multiplier": 1.0,
+      "biome_set": "cobbleventure:biome_set/starter_region",
+      "unconditional_spawns": []
+    },
+    "trainers": {
+      "population_profile": "cobbleventure:trainer_population/celadon",
+      "max_active": 16,
+      "class_pool": [
+        "cobbleventure:trainer_class/lass",
+        "cobbleventure:trainer_class/beauty"
+      ]
+    },
+    "level_scaling": {
+      "mode": "badge_and_region",
+      "base_level": 32,
+      "min_level": 24,
+      "max_level": 48,
+      "per_badge": 2,
+      "per_region": 3,
+      "pokemon_offset": 0,
+      "trainer_offset": 2
+    }
+  },
+  "biome_layout": {
+    "arrangement": "organic_patches",
+    "transition_width": 10,
+    "zones": [
+      {
+        "id": "celadon_gardens",
+        "biome": "minecraft:flower_forest",
+        "size_blocks": 280,
+        "placement": "center",
+        "weight": 5
+      }
+    ],
+    "boundary": {
+      "profile": "cobbleventure:boundary/dense_tree_line",
+      "width": 12,
+      "wall_height": 8,
+      "wall_thickness": 4
+    }
+  },
+  "connections": [],
+  "structure_profile": {
+    "road_layout_template": "grid",
+    "structure": "bca:village/default_large",
+    "gym_theme": "grass",
+    "village_preset": "default_large",
+    "commercial_center": "department_store",
+    "house_style": "bca:default/general",
+    "required_facilities": {
+      "village_hub": "cobbleventure:celadon_city/village_hub"
+    },
+    "special_district": {
+      "enabled": true,
+      "anchor": "special_district",
+      "placement_mode": "manual",
+      "footprint": {
+        "width": 8,
+        "depth": 8
+      },
+      "clearance": 6,
+      "building": {
+        "enabled": false,
+        "structure": ""
+      }
+    },
+    "gym": {
+      "enabled": true,
+      "gym_id": "cobbleventure:gym/celadon",
+      "structure": "cobbleventure:gyms/base_gym",
+      "theme": "grass",
+      "anchor": "gym_building"
+    },
+    "facility_placements": [
+      {
+        "id": "gym_building",
+        "mode": "direct_template",
+        "structure": "cobbleventure:gyms/base_gym",
+        "anchor": "gym_building"
+      }
+    ]
+  },
+  "npc_placement": {
+    "max_ambient_npcs": 14,
+    "default_wander_radius": 8,
+    "trainer_slots": [],
+    "zones": [
+      {
+        "id": "town_square",
+        "bounds": {
+          "min_x": -24,
+          "min_z": -24,
+          "max_x": 24,
+          "max_z": 24
+        },
+        "max_npcs": 8,
+        "tags": [
+          "ambient",
+          "resident",
+          "city"
+        ]
+      }
+    ]
+  },
+  "load_order": 6
 }

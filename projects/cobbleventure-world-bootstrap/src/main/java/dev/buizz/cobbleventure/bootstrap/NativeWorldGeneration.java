@@ -264,8 +264,15 @@ final class NativeWorldGeneration {
             CobbleventureBootstrap.NativeTerrainColumn column
         ) {
             int groundY = Math.min(MIN_Y + DEPTH - 1, column.groundY());
+            String emptyTerrainType = column.blocked() && !column.rocky()
+                ? CobbleventureBootstrap.emptyTerrainAt(
+                    world, worldX + 0.5D, worldZ + 0.5D
+                )
+                : null;
             for (int y = MIN_Y; y <= groundY; y++) {
-                BlockState state = stateAt(column, worldX, y, worldZ);
+                BlockState state = stateAt(
+                    column, emptyTerrainType, worldX, y, worldZ
+                );
                 setBlock(chunk, position, oceanFloor, worldSurface, localX, y, localZ, state);
             }
             for (int y = groundY + 1; y <= column.waterTopY(); y++) {
@@ -274,7 +281,8 @@ final class NativeWorldGeneration {
                     localX, y, localZ, Blocks.WATER.defaultBlockState()
                 );
             }
-            if (column.blocked() && isBoundaryColumn(worldX, worldZ)) {
+            boolean boundaryColumn = isBoundaryColumn(worldX, worldZ);
+            if (column.blocked() && boundaryColumn) {
                 int barrierStart = groundY + 1;
                 for (int y = barrierStart; y < MIN_Y + DEPTH; y++) {
                     if (CobbleventureBootstrap.isCaveBarrierOpening(
@@ -288,6 +296,13 @@ final class NativeWorldGeneration {
                     );
                 }
             }
+            if (column.sample() != null || boundaryColumn) {
+                setBlock(
+                    chunk, position, oceanFloor, worldSurface,
+                    localX, MIN_Y + DEPTH - 1, localZ,
+                    Blocks.BARRIER.defaultBlockState()
+                );
+            }
         }
 
         private boolean isBoundaryColumn(int x, int z) {
@@ -296,6 +311,7 @@ final class NativeWorldGeneration {
 
         private BlockState stateAt(
             CobbleventureBootstrap.NativeTerrainColumn column,
+            String emptyTerrainType,
             int x, int y, int z
         ) {
             if (y <= BEDROCK_TOP_Y) {
@@ -310,6 +326,14 @@ final class NativeWorldGeneration {
                 return y == column.groundY()
                     ? CobbleventureBootstrap.oceanBoundaryRock(world, x, y, z)
                     : CobbleventureBootstrap.oceanCliffRock(world, x, y, z);
+            }
+            if ("stone_mountain".equals(emptyTerrainType)) {
+                return CobbleventureBootstrap.oceanCliffRock(world, x, y, z);
+            }
+            if ("red_rock_mountain".equals(emptyTerrainType)) {
+                return CobbleventureBootstrap.redRockMountainBlock(
+                    world, x, y, z
+                );
             }
             if (y == column.groundY()) {
                 return column.surface();
@@ -597,10 +621,17 @@ final class NativeWorldGeneration {
             BlockState[] states = new BlockState[heightAccessor.getHeight()];
             CobbleventureBootstrap.NativeTerrainColumn column =
                 CobbleventureBootstrap.nativeTerrainColumn(world, x, z);
+            String emptyTerrainType = column.blocked() && !column.rocky()
+                ? CobbleventureBootstrap.emptyTerrainAt(
+                    world, x + 0.5D, z + 0.5D
+                )
+                : null;
             for (int index = 0; index < states.length; index++) {
                 int y = heightAccessor.getMinBuildHeight() + index;
                 if (y <= column.groundY()) {
-                    states[index] = stateAt(column, x, y, z);
+                    states[index] = stateAt(
+                        column, emptyTerrainType, x, y, z
+                    );
                 } else if (y <= column.waterTopY()) {
                     states[index] = Blocks.WATER.defaultBlockState();
                 } else {

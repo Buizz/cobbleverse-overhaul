@@ -1,10 +1,142 @@
 {
-  "$schema": "../../schemas/settlement.schema.json", "schema_version": 3, "id": "cobbleventure:settlement/lavender_town", "enabled": true,
-  "display_name": { "ko_kr": "보라타운", "en_us": "Lavender Town" }, "region": "cobbleventure:generation_1/lavender", "dimension": "cobbleventure:generation_1", "town_radius_cells": 7,
-  "bounds": { "min_x": -160, "min_z": -160, "max_x": 160, "max_z": 160 }, "center": { "x": 0, "y": 69, "z": 0 }, "anchors": { "town_square": { "x": 0, "y": 69, "z": 0 }, "special_district": { "x": -80, "y": 69, "z": 0 }, "gym_building": { "x": 132, "y": 69, "z": -10 } },
-  "content_profile": { "pokemon": { "spawn_profile": "cobbleventure:spawn/lavender", "density_multiplier": 0.9, "biome_set": "cobbleventure:biome_set/starter_region", "unconditional_spawns": [] }, "trainers": { "population_profile": "cobbleventure:trainer_population/lavender", "max_active": 10, "class_pool": ["cobbleventure:trainer_class/psychic", "cobbleventure:trainer_class/channeler"] }, "level_scaling": { "mode": "badge_and_region", "base_level": 28, "min_level": 22, "max_level": 44, "per_badge": 2, "per_region": 3, "pokemon_offset": 0, "trainer_offset": 2 } },
-  "biome_layout": { "arrangement": "organic_patches", "transition_width": 10, "zones": [{ "id": "lavender_woods", "biome": "minecraft:dark_forest", "size_blocks": 240, "placement": "center", "weight": 5 }], "boundary": { "profile": "cobbleventure:boundary/dense_tree_line", "width": 12, "wall_height": 8, "wall_thickness": 4 } }, "connections": [],
-  "structure_profile": { "road_layout_template": "ring", "structure": "bca:village/dark_mid", "gym_theme": "ghost", "village_preset": "dark_mid", "commercial_center": "preset", "house_style": "bca:dark/dark", "required_facilities": { "village_hub": "cobbleventure:lavender_town/village_hub" }, "special_district": { "enabled": true, "anchor": "special_district", "placement_mode": "manual", "footprint": { "width": 8, "depth": 8 }, "clearance": 6, "building": { "enabled": false, "structure": "" } }, "gym": { "enabled": false, "gym_id": "cobbleventure:gym/saffron",
-      "structure": "cobbleventure:gyms/base_gym", "theme": "ghost", "anchor": "gym_building" }, "facility_placements": [] },
-  "npc_placement": { "max_ambient_npcs": 8, "default_wander_radius": 6, "trainer_slots": [], "zones": [{ "id": "town_square", "bounds": { "min_x": -24, "min_z": -24, "max_x": 24, "max_z": 24 }, "max_npcs": 5, "tags": ["ambient", "resident"] }] }
+  "$schema": "../../schemas/settlement.schema.json",
+  "schema_version": 3,
+  "id": "cobbleventure:settlement/lavender_town",
+  "enabled": true,
+  "display_name": {
+    "ko_kr": "보라타운",
+    "en_us": "Lavender Town"
+  },
+  "region": "cobbleventure:generation_1/lavender",
+  "dimension": "cobbleventure:generation_1",
+  "town_radius_cells": 7,
+  "bounds": {
+    "min_x": -160,
+    "min_z": -160,
+    "max_x": 160,
+    "max_z": 160
+  },
+  "center": {
+    "x": 0,
+    "y": 69,
+    "z": 0
+  },
+  "anchors": {
+    "town_square": {
+      "x": 0,
+      "y": 69,
+      "z": 0
+    },
+    "special_district": {
+      "x": -80,
+      "y": 69,
+      "z": 0
+    },
+    "gym_building": {
+      "x": 132,
+      "y": 69,
+      "z": -10
+    }
+  },
+  "content_profile": {
+    "pokemon": {
+      "spawn_profile": "cobbleventure:spawn/lavender",
+      "density_multiplier": 0.9,
+      "biome_set": "cobbleventure:biome_set/starter_region",
+      "unconditional_spawns": []
+    },
+    "trainers": {
+      "population_profile": "cobbleventure:trainer_population/lavender",
+      "max_active": 10,
+      "class_pool": [
+        "cobbleventure:trainer_class/psychic",
+        "cobbleventure:trainer_class/channeler"
+      ]
+    },
+    "level_scaling": {
+      "mode": "badge_and_region",
+      "base_level": 28,
+      "min_level": 22,
+      "max_level": 44,
+      "per_badge": 2,
+      "per_region": 3,
+      "pokemon_offset": 0,
+      "trainer_offset": 2
+    }
+  },
+  "biome_layout": {
+    "arrangement": "organic_patches",
+    "transition_width": 10,
+    "zones": [
+      {
+        "id": "lavender_woods",
+        "biome": "minecraft:dark_forest",
+        "size_blocks": 240,
+        "placement": "center",
+        "weight": 5
+      }
+    ],
+    "boundary": {
+      "profile": "cobbleventure:boundary/dense_tree_line",
+      "width": 12,
+      "wall_height": 8,
+      "wall_thickness": 4
+    }
+  },
+  "connections": [],
+  "structure_profile": {
+    "road_layout_template": "ring",
+    "structure": "bca:village/dark_mid",
+    "gym_theme": "ghost",
+    "village_preset": "dark_mid",
+    "commercial_center": "preset",
+    "house_style": "bca:dark/dark",
+    "required_facilities": {
+      "village_hub": "cobbleventure:lavender_town/village_hub"
+    },
+    "special_district": {
+      "enabled": true,
+      "anchor": "special_district",
+      "placement_mode": "manual",
+      "footprint": {
+        "width": 8,
+        "depth": 8
+      },
+      "clearance": 6,
+      "building": {
+        "enabled": false,
+        "structure": ""
+      }
+    },
+    "gym": {
+      "enabled": false,
+      "gym_id": "cobbleventure:gym/saffron",
+      "structure": "cobbleventure:gyms/base_gym",
+      "theme": "ghost",
+      "anchor": "gym_building"
+    },
+    "facility_placements": []
+  },
+  "npc_placement": {
+    "max_ambient_npcs": 8,
+    "default_wander_radius": 6,
+    "trainer_slots": [],
+    "zones": [
+      {
+        "id": "town_square",
+        "bounds": {
+          "min_x": -24,
+          "min_z": -24,
+          "max_x": 24,
+          "max_z": 24
+        },
+        "max_npcs": 5,
+        "tags": [
+          "ambient",
+          "resident"
+        ]
+      }
+    ]
+  },
+  "load_order": 7
 }

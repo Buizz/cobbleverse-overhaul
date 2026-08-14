@@ -977,10 +977,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="route-pokemon-dialog"', page)
         self.assertIn('id="route-inherit-biome"', page)
         self.assertIn('id="route-custom-pokemon-list"', page)
+        self.assertIn('id="route-pokemon-picker-list"', page)
+        self.assertIn('id="route-pokemon-picker-generation"', page)
+        self.assertIn('id="route-pokemon-picker-type"', page)
+        self.assertIn('id="route-pokemon-picker-habitat"', page)
+        self.assertIn('id="route-pokemon-picker-availability"', page)
         self.assertIn("/api/world-pokemon-map", script)
         self.assertIn("renderWorldPokemonPanel", script)
         self.assertIn("toggleRouteBiomePokemon", script)
         self.assertIn("changeRoutePokemonLevel", script)
+        self.assertIn("filteredRoutePokemonPickerEntries", script)
+        self.assertIn("addSelectedRoutePokemon", script)
+        self.assertIn("state.routePokemonPicker.selected", script)
         self.assertIn("state.selectedRouteId = null", script)
 
     def test_world_pokemon_map_applies_route_habitat_overrides(self) -> None:
@@ -1587,6 +1595,34 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("gym_building", document["anchors"])
         self.assertNotIn("biome", document)
 
+    def test_settlement_reorder_is_persisted_and_returned_in_load_order(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(PROJECT_ROOT / "content/schemas", root / "content/schemas")
+            target = root / "content/settlements/generation_1"
+            target.mkdir(parents=True)
+            source_paths = [
+                PROJECT_ROOT / "content/settlements/generation_1/starter_town.json",
+                PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json",
+            ]
+            for source in source_paths:
+                shutil.copy2(source, target / source.name)
+            ordered_ids = [
+                "cobbleventure:settlement/route_01_town",
+                "cobbleventure:settlement/starter_town",
+            ]
+
+            issues = content_manager._reorder_settlements(root, ordered_ids)
+            summaries = content_manager._list_documents(root, "settlements")
+
+            self.assertEqual([], [issue for issue in issues if issue.level == "error"])
+            self.assertEqual(ordered_ids, [item["id"] for item in summaries])
+            self.assertEqual([1, 2], [item["load_order"] for item in summaries])
+            self.assertEqual(
+                1,
+                json.loads((target / "route_01_town.json").read_text(encoding="utf-8"))["load_order"],
+            )
+
     def test_settlement_supports_exactly_one_biome(self) -> None:
         root = PROJECT_ROOT
         source = json.loads(
@@ -1602,6 +1638,23 @@ class ContentManagerTests(unittest.TestCase):
             source, content_manager.validate_settlement_file
         )
         self.assertTrue(any("정확히 1개" in issue.message for issue in issues))
+
+    def test_settlement_allows_unselected_pokemon_biome_set(self) -> None:
+        root = PROJECT_ROOT
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["content_profile"]["pokemon"].pop("biome_set", None)
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertFalse(
+            any(issue.path == "$.content_profile.pokemon.biome_set" for issue in issues)
+        )
 
     def test_settlement_level_scaling_requires_ordered_range(self) -> None:
         root = PROJECT_ROOT
@@ -2784,6 +2837,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("form.elements.townBiome", app_script)
         self.assertNotIn("node.town_biome = settlementPresetBiome", app_script)
         self.assertIn("마을 프리셋", page)
+        self.assertIn('name="settlementBiome"', page)
+        self.assertIn("프리셋 기본 지형 바이옴", page)
+        self.assertIn("포켓몬 출현 바이옴 세트", page)
+        self.assertIn("form.elements.settlementBiome.innerHTML = worldBiomeOptions", app_script)
+        self.assertIn("state.settlement.biome_layout.zones[0].biome", app_script)
+        self.assertIn("if (biomeSet) pokemonContentProfile.biome_set = biomeSet", app_script)
+        self.assertIn("현재 값 · ${escapeHtml(selected)}", app_script)
+        self.assertIn("function issueFieldLabel", app_script)
         self.assertNotIn("마을 동선 · 입구와 출구", page)
         self.assertNotIn("바이옴 2 — 선택", page)
         self.assertIn("엔트리 JSON 복사", page)
@@ -2832,6 +2893,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("visibleHexCells", app_script)
         self.assertIn("beginMapPan", app_script)
         self.assertIn("settlementFootprintAt", app_script)
+        self.assertIn("data-settlement-move", app_script)
+        self.assertIn("moveSettlementPreset", app_script)
+        self.assertIn("/api/settlements/order", app_script)
+        self.assertIn("function syncWorldSettlementPresets()", app_script)
+        self.assertIn("settlementSummary(node?.settlement) ? settlementPresetRadius(node.settlement)", app_script)
+        self.assertIn("if (worldLayout.ok && syncWorldSettlementPresets()) state.worldDirty = true", app_script)
         self.assertIn("마을 사용 범위", page)
         self.assertIn('id="empty-terrain-brush-type"', page)
         self.assertIn('data-map-tool="biome"', page)
@@ -2853,6 +2920,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("snow_mountain", app_script)
         self.assertNotIn('name="townRadius"', page)
         self.assertIn('name="townRadiusCells"', page)
+        self.assertIn('previousShape === "custom" ? "line_q" : previousShape', app_script)
         self.assertLess(page.index('id="save-settlement"'), page.index('id="settlement-form"'))
         self.assertIn('name="specialDistrictPlacementMode"', page)
         self.assertNotIn('name="specialDistrictEnabled"', page)
@@ -3321,6 +3389,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('.space-flow-edge', styles)
         self.assertIn('.space-library-filters', styles)
         self.assertIn('.legacy-space-editor { display: none', styles)
+        self.assertIn('.building-settings-manager { container-type: inline-size;', styles)
+        self.assertIn('.building-settings-layout .nbt-model-stage { min-width: 660px;', styles)
+        self.assertIn('.building-settings-layout .nbt-model-canvas-shell { min-width: 620px;', styles)
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -1,10 +1,150 @@
 {
-  "$schema": "../../schemas/settlement.schema.json", "schema_version": 3, "id": "cobbleventure:settlement/saffron_city", "enabled": true,
-  "display_name": { "ko_kr": "노랑시티", "en_us": "Saffron City" }, "region": "cobbleventure:generation_1/saffron", "dimension": "cobbleventure:generation_1", "town_radius_cells": 7,
-  "bounds": { "min_x": -160, "min_z": -160, "max_x": 160, "max_z": 160 }, "center": { "x": 0, "y": 69, "z": 0 }, "anchors": { "town_square": { "x": 0, "y": 69, "z": 0 }, "special_district": { "x": -80, "y": 69, "z": 0 }, "gym_building": { "x": 132, "y": 69, "z": -10 } },
-  "content_profile": { "pokemon": { "spawn_profile": "cobbleventure:spawn/saffron", "density_multiplier": 0.9, "biome_set": "cobbleventure:biome_set/starter_region", "unconditional_spawns": [] }, "trainers": { "population_profile": "cobbleventure:trainer_population/saffron", "max_active": 18, "class_pool": ["cobbleventure:trainer_class/psychic", "cobbleventure:trainer_class/ace_trainer"] }, "level_scaling": { "mode": "badge_and_region", "base_level": 38, "min_level": 30, "max_level": 54, "per_badge": 2, "per_region": 3, "pokemon_offset": 0, "trainer_offset": 3 } },
-  "biome_layout": { "arrangement": "organic_patches", "transition_width": 10, "zones": [{ "id": "saffron_center", "biome": "minecraft:plains", "size_blocks": 300, "placement": "center", "weight": 5 }], "boundary": { "profile": "cobbleventure:boundary/stone_wall", "width": 10, "wall_height": 8, "wall_thickness": 4 } }, "connections": [],
-  "structure_profile": { "road_layout_template": "grid", "structure": "bca:village/default_large", "gym_theme": "psychic", "village_preset": "default_large", "commercial_center": "preset", "house_style": "bca:default/general", "required_facilities": { "village_hub": "cobbleventure:saffron_city/village_hub" }, "special_district": { "enabled": true, "anchor": "special_district", "placement_mode": "manual", "footprint": { "width": 8, "depth": 8 }, "clearance": 6, "building": { "enabled": false, "structure": "" } }, "gym": { "enabled": true, "gym_id": "cobbleventure:gym/saffron",
-      "structure": "cobbleventure:gyms/base_gym", "theme": "psychic", "anchor": "gym_building" }, "facility_placements": [{ "id": "gym_building", "mode": "direct_template", "structure": "cobbleventure:gyms/base_gym", "anchor": "gym_building" }] },
-  "npc_placement": { "max_ambient_npcs": 16, "default_wander_radius": 8, "trainer_slots": [], "zones": [{ "id": "town_square", "bounds": { "min_x": -24, "min_z": -24, "max_x": 24, "max_z": 24 }, "max_npcs": 9, "tags": ["ambient", "resident", "city"] }] }
+  "$schema": "../../schemas/settlement.schema.json",
+  "schema_version": 3,
+  "id": "cobbleventure:settlement/saffron_city",
+  "enabled": true,
+  "display_name": {
+    "ko_kr": "노랑시티",
+    "en_us": "Saffron City"
+  },
+  "region": "cobbleventure:generation_1/saffron",
+  "dimension": "cobbleventure:generation_1",
+  "town_radius_cells": 7,
+  "bounds": {
+    "min_x": -160,
+    "min_z": -160,
+    "max_x": 160,
+    "max_z": 160
+  },
+  "center": {
+    "x": 0,
+    "y": 69,
+    "z": 0
+  },
+  "anchors": {
+    "town_square": {
+      "x": 0,
+      "y": 69,
+      "z": 0
+    },
+    "special_district": {
+      "x": -80,
+      "y": 69,
+      "z": 0
+    },
+    "gym_building": {
+      "x": 132,
+      "y": 69,
+      "z": -10
+    }
+  },
+  "content_profile": {
+    "pokemon": {
+      "spawn_profile": "cobbleventure:spawn/saffron",
+      "density_multiplier": 0.9,
+      "biome_set": "cobbleventure:biome_set/starter_region",
+      "unconditional_spawns": []
+    },
+    "trainers": {
+      "population_profile": "cobbleventure:trainer_population/saffron",
+      "max_active": 18,
+      "class_pool": [
+        "cobbleventure:trainer_class/psychic",
+        "cobbleventure:trainer_class/ace_trainer"
+      ]
+    },
+    "level_scaling": {
+      "mode": "badge_and_region",
+      "base_level": 38,
+      "min_level": 30,
+      "max_level": 54,
+      "per_badge": 2,
+      "per_region": 3,
+      "pokemon_offset": 0,
+      "trainer_offset": 3
+    }
+  },
+  "biome_layout": {
+    "arrangement": "organic_patches",
+    "transition_width": 10,
+    "zones": [
+      {
+        "id": "saffron_center",
+        "biome": "minecraft:plains",
+        "size_blocks": 300,
+        "placement": "center",
+        "weight": 5
+      }
+    ],
+    "boundary": {
+      "profile": "cobbleventure:boundary/stone_wall",
+      "width": 10,
+      "wall_height": 8,
+      "wall_thickness": 4
+    }
+  },
+  "connections": [],
+  "structure_profile": {
+    "road_layout_template": "grid",
+    "structure": "bca:village/default_large",
+    "gym_theme": "psychic",
+    "village_preset": "default_large",
+    "commercial_center": "preset",
+    "house_style": "bca:default/general",
+    "required_facilities": {
+      "village_hub": "cobbleventure:saffron_city/village_hub"
+    },
+    "special_district": {
+      "enabled": true,
+      "anchor": "special_district",
+      "placement_mode": "manual",
+      "footprint": {
+        "width": 8,
+        "depth": 8
+      },
+      "clearance": 6,
+      "building": {
+        "enabled": false,
+        "structure": ""
+      }
+    },
+    "gym": {
+      "enabled": true,
+      "gym_id": "cobbleventure:gym/saffron",
+      "structure": "cobbleventure:gyms/base_gym",
+      "theme": "psychic",
+      "anchor": "gym_building"
+    },
+    "facility_placements": [
+      {
+        "id": "gym_building",
+        "mode": "direct_template",
+        "structure": "cobbleventure:gyms/base_gym",
+        "anchor": "gym_building"
+      }
+    ]
+  },
+  "npc_placement": {
+    "max_ambient_npcs": 16,
+    "default_wander_radius": 8,
+    "trainer_slots": [],
+    "zones": [
+      {
+        "id": "town_square",
+        "bounds": {
+          "min_x": -24,
+          "min_z": -24,
+          "max_x": 24,
+          "max_z": 24
+        },
+        "max_npcs": 9,
+        "tags": [
+          "ambient",
+          "resident",
+          "city"
+        ]
+      }
+    ]
+  },
+  "load_order": 5
 }

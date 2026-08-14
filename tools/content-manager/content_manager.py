@@ -5947,6 +5947,7 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 summary["battle_type"] = data.get("battle", {}).get("battle_type", "singles")
             elif category == "settlements":
                 summary["biome"] = world_biomes.get(data.get("id"), "minecraft:plains")
+                summary["load_order"] = data.get("load_order")
                 summary["town_radius_cells"] = data.get("town_radius_cells", 1)
                 summary["town_footprint_shape"] = data.get("town_footprint_shape", "line_q")
                 summary["town_footprint_cells"] = data.get("town_footprint_cells", [])
@@ -5968,7 +5969,52 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                     "error": str(error),
                 }
             )
+    if category == "settlements":
+        documents.sort(key=lambda item: (
+            item.get("load_order") if isinstance(item.get("load_order"), int) else 1_000_000,
+            item.get("path", ""),
+        ))
     return documents
+
+
+def _reorder_settlements(root: Path, ordered_ids: Any) -> list[Issue]:
+    if not isinstance(ordered_ids, list) or not all(isinstance(value, str) for value in ordered_ids):
+        raise ValueError("마을 ID 순서가 문자열 배열이어야 합니다.")
+    if len(ordered_ids) != len(set(ordered_ids)):
+        raise ValueError("마을 ID 순서에 중복이 있습니다.")
+    base = _managed_directory(root, "settlements")
+    records: dict[str, tuple[Path, dict[str, Any]]] = {}
+    for path in sorted(base.rglob("*.json")) if base.is_dir() else []:
+        data = load_json(path)
+        settlement_id = data.get("id") if isinstance(data, dict) else None
+        if not isinstance(settlement_id, str) or not settlement_id:
+            raise ValueError(f"마을 ID를 읽을 수 없습니다: {path.relative_to(root).as_posix()}")
+        records[settlement_id] = (path, data)
+    if set(ordered_ids) != set(records):
+        missing = sorted(set(records) - set(ordered_ids))
+        unknown = sorted(set(ordered_ids) - set(records))
+        details = []
+        if missing:
+            details.append(f"누락: {', '.join(missing)}")
+        if unknown:
+            details.append(f"알 수 없음: {', '.join(unknown)}")
+        raise ValueError("전체 마을 목록과 순서 요청이 일치하지 않습니다. " + " / ".join(details))
+    prepared: list[tuple[Path, dict[str, Any]]] = []
+    issues: list[Issue] = []
+    for order, settlement_id in enumerate(ordered_ids, start=1):
+        path, original = records[settlement_id]
+        data = copy.deepcopy(original)
+        data["load_order"] = order
+        _, candidate_issues = _validate_payload(data, validate_settlement_file)
+        issues.extend(Issue(issue.level, path.as_posix(), issue.path, issue.message) for issue in candidate_issues)
+        prepared.append((path, data))
+    if any(issue.level == "error" for issue in issues):
+        return issues
+    for path, data in prepared:
+        relative_path = path.relative_to(root).as_posix()
+        _, save_issues = _save_document(root, "settlements", relative_path, data)
+        issues.extend(save_issues)
+    return issues
 
 
 def _validate_payload(
@@ -6832,6 +6878,16 @@ def _create_document(
     elif category == "settlements":
         relative_path = f"content/settlements/{generation}/{slug}.json"
         document = _settlement_template(slug, name.strip(), generation)
+        existing = _list_documents(root, "settlements")
+        if existing and not all(isinstance(item.get("load_order"), int) for item in existing):
+            reorder_issues = _reorder_settlements(root, [item.get("id", "") for item in existing])
+            if any(issue.level == "error" for issue in reorder_issues):
+                return None, reorder_issues
+            existing = _list_documents(root, "settlements")
+        document["load_order"] = max(
+            (item.get("load_order", 0) for item in existing),
+            default=0,
+        ) + 1
     else:
         relative_path = f"content/caves/{generation}/{slug}.json"
         document = _cave_template(slug, name.strip(), generation)
@@ -9274,6 +9330,22 @@ def create_handler(
                     {
                         "valid": errors == 0,
                         "errors": errors,
+                        "issues": [asdict(issue) for issue in issues],
+                    },
+                )
+                return
+            if request.path == "/api/settlements/order":
+                try:
+                    ordered_ids = payload.get("ids") if isinstance(payload, dict) else None
+                    issues = _reorder_settlements(root, ordered_ids)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(
+                    200 if errors == 0 else 422,
+                    {
+                        "saved": errors == 0,
                         "issues": [asdict(issue) for issue in issues],
                     },
                 )

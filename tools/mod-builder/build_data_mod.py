@@ -40,6 +40,7 @@ GENERATED_CONTENT_DIR = Path("generated")
 FACILITY_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/placeholder"
 HOUSE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/houses"
 TOWN_DECORATION_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/town_decorations"
+CAVE_ENTRANCE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/cave_entrance"
 INTERIOR_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/interiors"
 GYM_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/gyms"
 LEAGUE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/league"
@@ -195,6 +196,10 @@ def _settlement_data(root: Path) -> list[tuple[Path, dict[str, object]]]:
         if not isinstance(data, dict) or data.get("schema_version") != 3:
             raise ModBuildError(f"마을 설정은 schema_version 3이어야 합니다: {source_path}")
         settlements.append((source_path.relative_to(source_dir), data))
+    settlements.sort(key=lambda item: (
+        item[1].get("load_order") if isinstance(item[1].get("load_order"), int) else 1_000_000,
+        item[0].as_posix(),
+    ))
     return settlements
 
 
@@ -1606,6 +1611,22 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
             )
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(_read_authored_structure_nbt(source, "내부 NBT"))
+
+    cave_entrance_source = _inside(
+        root, root / CAVE_ENTRANCE_STRUCTURE_SOURCE_DIR, "동굴 입구 NBT 원본"
+    )
+    if cave_entrance_source.is_dir():
+        for source in sorted(cave_entrance_source.rglob("*.nbt")):
+            relative = source.relative_to(cave_entrance_source)
+            target = _inside(
+                root,
+                output / "data/cobbleventure/structure/cave_entrance" / relative,
+                "생성 동굴 입구 NBT",
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(
+                _read_authored_structure_nbt(source, "동굴 입구 NBT")
+            )
 
     for category, source_relative in (
         ("gyms", GYM_STRUCTURE_SOURCE_DIR),
