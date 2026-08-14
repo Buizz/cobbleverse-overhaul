@@ -145,10 +145,18 @@ final class WorldPlanParser {
         for (JsonElement element : root.getAsJsonArray("cave_entrances")) {
             JsonObject value = element.getAsJsonObject();
             JsonObject pokemonCenter = value.getAsJsonObject("pokemon_center");
+            Map<String, String> structureVariants = new LinkedHashMap<>();
+            if (value.has("structure_variants")) {
+                for (Map.Entry<String, JsonElement> variant
+                    : value.getAsJsonObject("structure_variants").entrySet()) {
+                    structureVariants.put(variant.getKey(), variant.getValue().getAsString());
+                }
+            }
             result.add(new CaveEntrancePlan(
                 required(value, "id"), required(value, "cave"),
                 required(value, "entrance"), coordinate(value.getAsJsonObject("anchor")),
                 required(value, "facing"), required(value, "structure"),
+                Map.copyOf(structureVariants),
                 required(pokemonCenter, "structure"),
                 coordinate(pokemonCenter.getAsJsonObject("offset")), null, null,
                 NaturalCaveGenerator.Settings.defaults()
@@ -296,7 +304,10 @@ final class WorldPlanParser {
     }
 
     private static void requireEmptyTerrain(String type) {
-        if (!Set.of("high_forest", "ocean", "desert", "stone_mountain", "snow_mountain")
+        if (!Set.of(
+            "high_forest", "ocean", "deep_ocean", "desert", "stone_mountain",
+            "red_rock_mountain", "snow_mountain"
+        )
             .contains(type)) {
             throw new IllegalStateException("Unsupported empty terrain type: " + type);
         }

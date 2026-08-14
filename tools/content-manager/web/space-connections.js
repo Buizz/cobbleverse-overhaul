@@ -11,7 +11,8 @@ const flow = {
   connectionDraft: null,
   drag: null,
   pan: null,
-  query: "",
+  queries: { building: "", interior: "" },
+  paletteTab: "building",
   filters: { kind: "all", route: "all" },
   dirty: false,
 };
@@ -59,17 +60,18 @@ function buildingChoices() {
   }));
   const owners = new Set(choices.map((choice) => choice.owner));
   for (const [id, metadata] of Object.entries(flow.structures)) {
-    if (owners.has(id) || ["interior", "gym_interior", "league", "gym_exterior"].includes(metadata.category)) continue;
+    if (owners.has(id) || ["interior", "gym_interior", "league", "gym_exterior", "decoration"].includes(metadata.category)) continue;
     choices.push({ id: `building:${id}`, owner: id, kind: "building", label: id, graph: null });
   }
   return choices.sort((left, right) => `${left.kind}:${left.label}`.localeCompare(`${right.kind}:${right.label}`, "ko"));
 }
 
 function renderLibrary() {
-  const query = flow.query.trim().toLowerCase();
+  const buildingQuery = flow.queries.building.trim().toLowerCase();
+  const interiorQuery = flow.queries.interior.trim().toLowerCase();
   const allChoices = buildingChoices();
   const choices = allChoices.filter((choice) => {
-    const matchesQuery = !query || `${choice.label} ${choice.owner} ${choice.kind}`.toLowerCase().includes(query);
+    const matchesQuery = !buildingQuery || `${choice.label} ${choice.owner} ${choice.kind}`.toLowerCase().includes(buildingQuery);
     const matchesKind = flow.filters.kind === "all" || choice.kind === flow.filters.kind;
     const hasConnections = Boolean(choice.graph?.connections?.length);
     const matchesRoute = flow.filters.route === "all"
@@ -86,11 +88,36 @@ function renderLibrary() {
 
   const interiors = Object.entries(flow.structures).filter(([id, metadata]) =>
     ["interior", "gym_interior"].includes(metadata.category)
-    && (!query || `${id} ${metadata.category_label || ""}`.toLowerCase().includes(query))
+    && (!interiorQuery || `${id} ${metadata.category_label || ""}`.toLowerCase().includes(interiorQuery))
   );
+  const graph = selectedGraph();
+  $("#space-interior-target").textContent = graph
+    ? `배치 대상: ${graph.display_name || graph.owner}`
+    : "외부 건물을 먼저 선택하세요.";
   $("#space-interior-cards").innerHTML = interiors.length ? interiors.map(([id, metadata]) =>
-    `<button class="space-library-card interior" type="button" draggable="true" data-interior-structure="${escapeHtml(id)}"><i>＋</i><span><strong>${escapeHtml(id.split("/").pop())}</strong><small>${escapeHtml(metadata.category_label || id)} · ${metadata.width || "?"}×${metadata.depth || "?"}</small></span><b>끌기</b></button>`
+    `<button class="space-library-card interior" type="button" draggable="${graph ? "true" : "false"}" data-interior-structure="${escapeHtml(id)}"${graph ? "" : " disabled"}><i>＋</i><span><strong>${escapeHtml(id.split("/").pop())}</strong><small>${escapeHtml(metadata.category_label || id)} · ${metadata.width || "?"}×${metadata.depth || "?"}</small></span><b>${graph ? "끌기" : "대기"}</b></button>`
   ).join("") : '<div class="issues empty">사용 가능한 내부 공간이 없습니다.</div>';
+  renderLibraryTab();
+}
+
+function renderLibraryTab() {
+  document.querySelectorAll("[data-space-library-tab]").forEach((button) => {
+    const active = button.dataset.spaceLibraryTab === flow.paletteTab;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll("[data-space-library-pane]").forEach((pane) => {
+    const active = pane.dataset.spaceLibraryPane === flow.paletteTab;
+    pane.classList.toggle("is-active", active);
+    pane.hidden = !active;
+  });
+}
+
+function selectLibraryTab(tab) {
+  if (!["building", "interior"].includes(tab)) return;
+  flow.paletteTab = tab;
+  renderLibraryTab();
+  requestAnimationFrame(() => $(tab === "building" ? "#space-building-search" : "#space-interior-search")?.focus());
 }
 
 function nodeAnchorEntries(node) {
@@ -287,7 +314,7 @@ async function loadFlow(force = false) {
     if (!result.ok) throw new Error(result.data.error || "공간 연결 데이터를 불러오지 못했습니다.");
     flow.graphs = result.data.graphs || [];
     flow.structures = result.data.structures || {};
-    flow.selectedGraphId = flow.graphs.some((graph) => graph.id === flow.selectedGraphId) ? flow.selectedGraphId : flow.graphs[0]?.id || "";
+    flow.selectedGraphId = flow.graphs.some((graph) => graph.id === flow.selectedGraphId) ? flow.selectedGraphId : "";
     flow.selectedNodeId = "";
     flow.selectedEdgeId = "";
     flow.connectionDraft = null;
@@ -323,6 +350,7 @@ function selectBuilding(owner, kind) {
   flow.selectedEdgeId = "";
   flow.connectionDraft = null;
   if (created) flow.dirty = true;
+  flow.paletteTab = "interior";
   renderAll();
   requestAnimationFrame(fitGraph);
 }
@@ -410,13 +438,15 @@ function autoLayout() {
 $("#save-space-flow").addEventListener("click", saveFlow);
 $("#fit-space-flow").addEventListener("click", fitGraph);
 $("#auto-layout-space-flow").addEventListener("click", autoLayout);
-$("#space-library-search").addEventListener("input", (event) => { flow.query = event.target.value; renderLibrary(); });
+$("#space-building-search").addEventListener("input", (event) => { flow.queries.building = event.target.value; renderLibrary(); });
+$("#space-interior-search").addEventListener("input", (event) => { flow.queries.interior = event.target.value; renderLibrary(); });
+document.querySelectorAll("[data-space-library-tab]").forEach((button) => button.addEventListener("click", () => selectLibraryTab(button.dataset.spaceLibraryTab)));
 $("#space-library-kind-filter").addEventListener("change", (event) => { flow.filters.kind = event.target.value; renderLibrary(); });
 $("#space-library-route-filter").addEventListener("change", (event) => { flow.filters.route = event.target.value; renderLibrary(); });
 $("#reset-space-library-filters").addEventListener("click", () => {
-  flow.query = "";
+  flow.queries.building = "";
   flow.filters = { kind: "all", route: "all" };
-  $("#space-library-search").value = "";
+  $("#space-building-search").value = "";
   $("#space-library-kind-filter").value = "all";
   $("#space-library-route-filter").value = "all";
   renderLibrary();

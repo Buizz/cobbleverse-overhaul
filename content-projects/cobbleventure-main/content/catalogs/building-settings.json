@@ -206,30 +206,70 @@
       "door_routes": {}
     },
     "cobbleventure:town_decorations/bench": {
+      "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
     },
     "cobbleventure:town_decorations/flower_bed": {
+      "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
     },
     "cobbleventure:town_decorations/fountain": {
+      "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
     },
     "cobbleventure:town_decorations/street_lamp": {
+      "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
     },
     "cobbleventure:town_decorations/street_tree": {
+      "no_interior_space": true,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:cave_entrance/stone_mountain": {
+      "no_interior_space": true,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:cave_entrance/red_rock_mountain": {
+      "no_interior_space": true,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:cave_entrance/snow_mountain": {
+      "no_interior_space": true,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:cave_entrance/plains": {
+      "no_interior_space": true,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:cave_entrance/ocean": {
+      "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
       "interiors": [],

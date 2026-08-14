@@ -449,6 +449,60 @@ class DataModBuilderTests(unittest.TestCase):
         self.assertEqual("packed", packed["building_density"])
         self.assertGreaterEqual(len(packed["houses"]), len(normal["houses"]))
 
+    def test_town_layout_defaults_to_touching_building_density(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source.get("structure_profile", {}).pop("generation_profile", None)
+
+        layout = build_data_mod._compile_town_layout(source)
+
+        self.assertEqual("packed", layout["building_density"])
+        self.assertEqual(0.0, build_data_mod.BUILDING_DENSITY_PROFILES["packed"]["gap"])
+
+    def test_generated_benches_face_the_nearest_town_road(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        layout = build_data_mod._compile_town_layout(source)
+        benches = [
+            decoration for decoration in layout["decorations"]
+            if decoration["type"] == "bench"
+        ]
+        facing_by_rotation = {
+            "none": (0, -1),
+            "clockwise_90": (1, 0),
+            "clockwise_180": (0, 1),
+            "counterclockwise_90": (-1, 0),
+        }
+
+        self.assertTrue(benches)
+        for bench in benches:
+            x, z = int(bench["x"]), int(bench["z"])
+            facing_x, facing_z = facing_by_rotation[bench["rotation"]]
+
+            def road_distance_squared(point_x: int, point_z: int) -> float:
+                distances = []
+                for road in layout["roads"]:
+                    min_x, max_x = sorted((road["x1"], road["x2"]))
+                    min_z, max_z = sorted((road["z1"], road["z2"]))
+                    nearest_x = min(max(point_x, min_x), max_x)
+                    nearest_z = min(max(point_z, min_z), max_z)
+                    distances.append(
+                        (point_x - nearest_x) ** 2 + (point_z - nearest_z) ** 2
+                    )
+                return min(distances)
+
+            self.assertLess(
+                road_distance_squared(x + facing_x, z + facing_z),
+                road_distance_squared(x, z),
+                bench,
+            )
+
     def test_compile_respects_single_house_palette_selection(self) -> None:
         source = json.loads(
             (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(

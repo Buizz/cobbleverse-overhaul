@@ -86,6 +86,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.minecraft.world.level.levelgen.synth.NormalNoise;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
@@ -149,7 +150,7 @@ public final class CobbleventureBootstrap {
     private static final int PREVIOUS_FOUNDATION_MAX_Y = 59;
     private static final int LEGACY_FOUNDATION_MIN_Y = 55;
     private static final int LEGACY_FOUNDATION_MAX_Y = 64;
-    private static final int MAP_VERSION = 86;
+    private static final int MAP_VERSION = 90;
     private static final double TOWN_RELIEF_SCALE = 0.22D;
     private static final int TOWN_EDGE_RELIEF_BLEND_BLOCKS = 40;
     private static final double TOWN_STRUCTURE_MAX_RADIUS_BLOCKS = 116.0D;
@@ -872,25 +873,107 @@ public final class CobbleventureBootstrap {
             level, world, approachRoad, center, forwardX, forwardZ,
             mouthDistance, plannedFloorY
         );
-        reshapeCaveMouth(
-            level, mouthX, plannedFloorY, mouthZ, forwardX, forwardZ
-        );
         level.setBlock(marker, Blocks.LODESTONE.defaultBlockState(), 2);
-        clearCaveEntrancePassage(
-            level, mouthX, plannedFloorY, mouthZ, forwardX, forwardZ
+        String caveStructure = caveEntranceStructure(
+            world, entrance, mouthX, mouthZ, forwardX, forwardZ
         );
-        placeCaveMouthLandmark(
-            level, mouthX, plannedFloorY, mouthZ, forwardX, forwardZ
+        placeCaveEntranceTemplate(
+            level, caveStructure, mouthX, plannedFloorY, mouthZ,
+            horizontalDirection(forwardX, forwardZ)
         );
         restoreCaveEntranceBarrierRoof(level, world, entrance);
         placeCavePokemonCenter(
             level, world, entrance, center, new Point(mouthX, mouthZ), approachRoad
         );
         LOGGER.info(
-            "Cave entrance and Pokemon Center ensured: id={}, cave={}, position={}",
-            entrance.id(), entrance.cave(),
+            "Cave entrance and Pokemon Center ensured: id={}, cave={}, structure={}, position={}",
+            entrance.id(), entrance.cave(), caveStructure,
             new BlockPos(mouthX, plannedFloorY, mouthZ)
         );
+    }
+
+    private static String caveEntranceStructure(
+        HexWorldPlan world, CaveEntrancePlan entrance,
+        int mouthX, int mouthZ, double forwardX, double forwardZ
+    ) {
+        String terrainType = emptyTerrainAt(
+            world, mouthX + forwardX * 8.0D, mouthZ + forwardZ * 8.0D
+        );
+        return entrance.structureVariants().getOrDefault(
+            terrainType, entrance.structure()
+        );
+    }
+
+    /**
+     * Cave templates use an odd X/Z size. Their exact floor-center is placed on
+     * the collision boundary, and the authored +Z direction points into the
+     * inaccessible terrain. Barrier blocks inside the NBT are temporary void
+     * masks: they overwrite terrain during placement and only those transformed
+     * positions are cleared afterwards.
+     */
+    private static boolean placeCaveEntranceTemplate(
+        ServerLevel level, String structure,
+        int centerX, int floorY, int centerZ, Direction inward
+    ) {
+        ResourceLocation structureId = ResourceLocation.tryParse(structure);
+        if (structureId == null) {
+            LOGGER.error("Invalid cave entrance structure ID: {}", structure);
+            return false;
+        }
+        var optionalTemplate = level.getStructureManager().get(structureId);
+        if (optionalTemplate.isEmpty()) {
+            LOGGER.error("Cave entrance template is missing: {}", structure);
+            return false;
+        }
+        StructureTemplate template = optionalTemplate.orElseThrow();
+        var size = template.getSize();
+        if ((size.getX() & 1) == 0 || (size.getZ() & 1) == 0) {
+            LOGGER.error(
+                "Cave entrance template must have odd X/Z dimensions: structure={}, size={}x{}x{}",
+                structure, size.getX(), size.getY(), size.getZ()
+            );
+            return false;
+        }
+        String rotationName = switch (inward) {
+            case WEST -> "clockwise_90";
+            case NORTH -> "clockwise_180";
+            case EAST -> "counterclockwise_90";
+            default -> "none";
+        };
+        BlockPoint origin = rotatedTemplateOrigin(
+            centerX - size.getX() / 2, floorY,
+            centerZ - size.getZ() / 2,
+            size.getX(), size.getZ(), rotationName
+        );
+        BlockPos blockPos = origin.toBlockPos();
+        Rotation rotation = structureRotation(rotationName);
+        StructurePlaceSettings settings = new StructurePlaceSettings()
+            .setRotation(rotation)
+            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+        List<ChunkPos> forcedChunks = forceTemplateChunks(level, structure, blockPos);
+        try {
+            boolean placed = template.placeInWorld(
+                level, blockPos, blockPos, settings,
+                RandomSource.create(level.getSeed() ^ blockPos.asLong()), 2
+            );
+            if (!placed) {
+                LOGGER.error("Cave entrance template placement failed: {} at {}", structure, blockPos);
+                return false;
+            }
+            int cleared = 0;
+            for (StructureTemplate.StructureBlockInfo marker
+                : template.filterBlocks(blockPos, settings, Blocks.BARRIER)) {
+                level.setBlock(marker.pos(), Blocks.AIR.defaultBlockState(), 2);
+                cleared++;
+            }
+            LOGGER.info(
+                "Cave entrance template placed: structure={}, center=({}, {}, {}), rotation={}, voidMask={}",
+                structure, centerX, floorY, centerZ, rotationName, cleared
+            );
+            return true;
+        } finally {
+            releaseForcedChunks(level, forcedChunks);
+        }
     }
 
     private static void restoreCaveApproach(
@@ -1933,7 +2016,8 @@ public final class CobbleventureBootstrap {
             case "sparse" -> new double[] {0.22D, 0.50D, 0.78D};
             case "dense" -> new double[] {0.08D, 0.22D, 0.36D, 0.50D, 0.64D, 0.78D, 0.92D};
             case "packed" -> new double[] {0.06D, 0.17D, 0.28D, 0.39D, 0.50D, 0.61D, 0.72D, 0.83D, 0.94D};
-            default -> new double[] {0.15D, 0.32D, 0.50D, 0.68D, 0.85D};
+            case "normal" -> new double[] {0.15D, 0.32D, 0.50D, 0.68D, 0.85D};
+            default -> new double[] {0.06D, 0.17D, 0.28D, 0.39D, 0.50D, 0.61D, 0.72D, 0.83D, 0.94D};
         };
     }
 
@@ -1942,7 +2026,8 @@ public final class CobbleventureBootstrap {
             case "sparse" -> 8.0D;
             case "dense" -> 1.0D;
             case "packed" -> 0.0D;
-            default -> 4.0D;
+            case "normal" -> 4.0D;
+            default -> 0.0D;
         };
     }
 
@@ -1951,7 +2036,8 @@ public final class CobbleventureBootstrap {
             case "sparse" -> 0.7D;
             case "dense" -> 1.4D;
             case "packed" -> 1.8D;
-            default -> 1.0D;
+            case "normal" -> 1.0D;
+            default -> 1.8D;
         };
     }
 
@@ -2521,7 +2607,8 @@ public final class CobbleventureBootstrap {
             JsonObject definition = configuredVendorDefinition(level, vendorUnitId);
             if (definition == null) return false;
             CompoundTag merchant = new CompoundTag();
-            String displayName = localizedString(definition, "display_name", "ko_kr")
+            String exportLanguage = configuredExportLanguage(level);
+            String displayName = localizedString(definition, "display_name", exportLanguage)
                 .replace("\\", "\\\\").replace("\"", "\\\"");
             merchant.putString("CustomName", "\"" + displayName + "\"");
             merchant.putBoolean("PersistenceRequired", true);
@@ -2529,7 +2616,7 @@ public final class CobbleventureBootstrap {
             for (JsonElement categoryElement : definition.getAsJsonArray("categories")) {
                 JsonObject categoryJson = categoryElement.getAsJsonObject();
                 CompoundTag category = new CompoundTag();
-                category.putString("Category", localizedString(categoryJson, "name", "ko_kr"));
+                category.putString("Category", localizedString(categoryJson, "name", exportLanguage));
                 ListTag offers = new ListTag();
                 for (JsonElement offerElement : categoryJson.getAsJsonArray("offers")) {
                     JsonObject offerJson = offerElement.getAsJsonObject();
@@ -2592,6 +2679,27 @@ public final class CobbleventureBootstrap {
             }
         }
         return null;
+    }
+
+    private static String configuredExportLanguage(ServerLevel level) {
+        ResourceLocation location = ResourceLocation.fromNamespaceAndPath(
+            "cobbleventure", "economy/export-language.txt"
+        );
+        Resource resource = level.getServer().getResourceManager()
+            .getResource(location).orElse(null);
+        if (resource == null) return "ko_kr";
+        try (Reader reader = resource.openAsReader()) {
+            StringBuilder value = new StringBuilder();
+            char[] buffer = new char[32];
+            for (int read; (read = reader.read(buffer)) >= 0;) {
+                value.append(buffer, 0, read);
+            }
+            String language = value.toString().trim();
+            return language.matches("[a-z]{2}_[a-z]{2}") ? language : "ko_kr";
+        } catch (IOException error) {
+            LOGGER.warn("Export language resource could not be read; using ko_kr", error);
+            return "ko_kr";
+        }
     }
 
     private static FacilityWorkerPlacement facilityWorker(
@@ -5527,7 +5635,7 @@ public final class CobbleventureBootstrap {
             ? 4 : generationProfile.get("depth").getAsInt();
         String buildingDensity = generationProfile != null
             && generationProfile.has("building_density")
-            ? generationProfile.get("building_density").getAsString() : "normal";
+            ? generationProfile.get("building_density").getAsString() : "packed";
         List<String> basicBuildings = new ArrayList<>();
         if (generationProfile != null && generationProfile.has("basic_buildings")) {
             for (JsonElement element : generationProfile.getAsJsonArray("basic_buildings")) {
@@ -5871,7 +5979,8 @@ public final class CobbleventureBootstrap {
             }
             entrances.add(new CaveEntrancePlan(
                 entrance.id(), entrance.cave(), entrance.entrance(), entrance.anchor(),
-                entrance.facing(), entrance.structure(), entrance.pokemonCenterStructure(),
+                entrance.facing(), entrance.structure(), entrance.structureVariants(),
+                entrance.pokemonCenterStructure(),
                 entrance.pokemonCenterOffset(), destination, portalAnchor,
                 caveGenerationSettings(cave)
             ));
@@ -5893,6 +6002,7 @@ public final class CobbleventureBootstrap {
         JsonObject generator = cave.getAsJsonObject("generator");
         JsonObject roomRadius = generator.getAsJsonObject("room_radius");
         JsonObject tunnelRadius = generator.getAsJsonObject("tunnel_radius");
+        NaturalCaveGenerator.Settings defaults = NaturalCaveGenerator.Settings.defaults(requiresFlash);
         List<String> internalBiomes = new ArrayList<>();
         for (JsonElement element : cave.getAsJsonArray("internal_biomes")) {
             internalBiomes.add(requiredString(element.getAsJsonObject(), "biome"));
@@ -5908,7 +6018,8 @@ public final class CobbleventureBootstrap {
                     requiredString(anchor, "id"), requiredString(anchor, "kind"),
                     position.get("x").getAsInt(), position.get("y").getAsInt(), position.get("z").getAsInt(),
                     anchor.get("radius_x").getAsDouble(), anchor.get("radius_z").getAsDouble(),
-                    anchor.get("height").getAsDouble()
+                    anchor.get("height").getAsDouble(),
+                    anchor.has("room_type") ? anchor.get("room_type").getAsString() : ""
                 ));
             }
             List<NaturalCaveGenerator.ManualConnection> connections = new ArrayList<>();
@@ -5917,11 +6028,50 @@ public final class CobbleventureBootstrap {
                 connections.add(new NaturalCaveGenerator.ManualConnection(
                     requiredString(connection, "id"), requiredString(connection, "from"),
                     requiredString(connection, "to"), requiredString(connection, "kind"),
-                    connection.get("width").getAsInt()
+                    connection.get("width").getAsInt(),
+                    connection.has("path_type") ? connection.get("path_type").getAsString() : ""
                 ));
             }
             manualLayout = new NaturalCaveGenerator.ManualLayout(
                 manual.get("enabled").getAsBoolean(), List.copyOf(anchors), List.copyOf(connections)
+            );
+        }
+        List<NaturalCaveGenerator.RoomType> roomTypes = defaults.roomTypes();
+        if (generator.has("room_types")) {
+            roomTypes = new ArrayList<>();
+            for (JsonElement element : generator.getAsJsonArray("room_types")) {
+                JsonObject type = element.getAsJsonObject();
+                roomTypes.add(new NaturalCaveGenerator.RoomType(
+                    requiredString(type, "id"), type.get("weight").getAsInt(),
+                    requiredString(type, "decoration"),
+                    type.has("radius_scale") ? type.get("radius_scale").getAsDouble() : 1.0D,
+                    type.has("height_scale") ? type.get("height_scale").getAsDouble() : 1.0D
+                ));
+            }
+            roomTypes = List.copyOf(roomTypes);
+        }
+        List<NaturalCaveGenerator.PathType> pathTypes = defaults.pathTypes();
+        if (generator.has("path_types")) {
+            pathTypes = new ArrayList<>();
+            for (JsonElement element : generator.getAsJsonArray("path_types")) {
+                JsonObject type = element.getAsJsonObject();
+                pathTypes.add(new NaturalCaveGenerator.PathType(
+                    requiredString(type, "id"), type.get("weight").getAsInt(),
+                    type.get("width").getAsInt(), requiredString(type, "floor")
+                ));
+            }
+            pathTypes = List.copyOf(pathTypes);
+        }
+        NaturalCaveGenerator.DecorationSettings decorations = defaults.decorations();
+        if (generator.has("decorations")) {
+            JsonObject configured = generator.getAsJsonObject("decorations");
+            decorations = new NaturalCaveGenerator.DecorationSettings(
+                configured.get("cluster_density").getAsDouble(),
+                configured.get("patch_radius").getAsJsonObject().get("min").getAsInt(),
+                configured.get("patch_radius").getAsJsonObject().get("max").getAsInt(),
+                configured.get("dripstone_length").getAsJsonObject().get("min").getAsInt(),
+                configured.get("dripstone_length").getAsJsonObject().get("max").getAsInt(),
+                configured.get("route_clearance").getAsInt()
             );
         }
         return new NaturalCaveGenerator.Settings(
@@ -5941,7 +6091,10 @@ public final class CobbleventureBootstrap {
             generator.has("bridge_clearance") ? generator.get("bridge_clearance").getAsInt() : 13,
             requiresFlash,
             manualLayout,
-            List.copyOf(internalBiomes)
+            List.copyOf(internalBiomes),
+            roomTypes,
+            pathTypes,
+            decorations
         );
     }
 
@@ -6598,6 +6751,9 @@ public final class CobbleventureBootstrap {
         progress.update(76, "접근 불가 지형 경사 계산 중");
         drawOuterTerrainTransition(level, world, bounds);
         profiler.finishPhase("outer-transition");
+        progress.update(79, "월드 상단 베리어 천장 생성 중");
+        drawHiddenWorldCeiling(level, world, bounds);
+        profiler.finishPhase("hidden-world-ceiling");
         progress.update(80, "접근 불가 지역 마감 중");
         profiler.finishPhase("sealed-outer-decoration");
         progress.update(83, "직접 배치 길 생성 중");
@@ -6622,13 +6778,19 @@ public final class CobbleventureBootstrap {
 
     static String emptyTerrainBiome(String type) {
         return switch (type) {
-            case "ocean" -> "minecraft:deep_ocean";
+            case "ocean" -> "minecraft:ocean";
+            case "deep_ocean" -> "minecraft:deep_ocean";
             case "desert" -> "minecraft:desert";
             case "stone_mountain" -> "minecraft:stony_peaks";
+            case "red_rock_mountain" -> "minecraft:badlands";
             case "snow_mountain" -> "minecraft:snowy_slopes";
             case "high_forest" -> "minecraft:dark_forest";
             default -> SEALED_DARK_FOREST.location().toString();
         };
+    }
+
+    static boolean isEmptyOceanType(String type) {
+        return type.equals("ocean") || type.equals("deep_ocean");
     }
 
     static String emptyTerrainBiome(HexWorldPlan world, double x, double z) {
@@ -7479,8 +7641,8 @@ public final class CobbleventureBootstrap {
     ) {
         stats.columns++;
         String type = emptyTerrainAt(world, x + 0.5D, z + 0.5D);
-        if (type.equals("ocean")) {
-            paintEmptyOceanColumn(level, world, x, z, cleanExisting, stats);
+        if (isEmptyOceanType(type)) {
+            paintEmptyOceanColumn(level, world, type, x, z, cleanExisting, stats);
             return;
         }
         int topY = emptyTerrainGroundY(world, type, x, z);
@@ -7490,6 +7652,13 @@ public final class CobbleventureBootstrap {
     private static int emptyTerrainGroundY(
         HexWorldPlan world, String type, int x, int z
     ) {
+        int rawHeight = rawEmptyTerrainGroundY(world, type, x, z);
+        return blendEmptyTerrainBoundary(world, type, x, z, rawHeight);
+    }
+
+    private static int rawEmptyTerrainGroundY(
+        HexWorldPlan world, String type, int x, int z
+    ) {
         double broad = layeredNoise(world.seed(), "world:sealed-outer:broad", x, z, 72.0D);
         double detail = layeredNoise(world.seed(), "world:sealed-outer:detail", x, z, 24.0D);
         if (type.equals("high_forest")) {
@@ -7497,17 +7666,92 @@ public final class CobbleventureBootstrap {
                 + (int) Math.round(broad * 3.0D + detail * 2.0D);
             return Math.max(64, Math.min(76, topY));
         }
-        int baseY = type.equals("stone_mountain") || type.equals("snow_mountain") ? 100 : 94;
+        boolean loweredMountain = type.equals("stone_mountain")
+            || type.equals("snow_mountain")
+            || type.equals("red_rock_mountain");
+        int baseY = loweredMountain ? 80 : 94;
         int topY = baseY + (int) Math.round(broad * 7.0D + detail * 3.0D);
-        return Math.max(88, Math.min(112, topY));
+        return loweredMountain
+            ? Math.max(68, Math.min(92, topY))
+            : Math.max(88, Math.min(112, topY));
+    }
+
+    private static int blendEmptyTerrainBoundary(
+        HexWorldPlan world, String type, int x, int z, int ownHeight
+    ) {
+        HexCoord current = world.grid().worldToHex(x + 0.5D, z + 0.5D);
+        Point center = world.grid().worldCenter(current);
+        double bestDistance = Double.POSITIVE_INFINITY;
+        String neighborType = null;
+        HexCoord selectedNeighbor = null;
+        for (HexCoord neighbor : current.neighbors()) {
+            if (world.cells().containsKey(neighbor)) {
+                continue;
+            }
+            String candidate = world.emptyTerrainTiles().getOrDefault(
+                neighbor, world.defaultEmptyTerrain()
+            );
+            if (candidate.equals(type)) {
+                continue;
+            }
+            Point neighborCenter = world.grid().worldCenter(neighbor);
+            double axisX = neighborCenter.x() - center.x();
+            double axisZ = neighborCenter.z() - center.z();
+            double length = Math.max(1.0D, Math.hypot(axisX, axisZ));
+            double projection = ((x + 0.5D - center.x()) * axisX
+                + (z + 0.5D - center.z()) * axisZ) / length;
+            double distance = Math.max(0.0D, length * 0.5D - projection);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                neighborType = candidate;
+                selectedNeighbor = neighbor;
+            }
+        }
+        if (neighborType == null || selectedNeighbor == null) {
+            return ownHeight;
+        }
+        int neighborHeight = isEmptyOceanType(neighborType)
+            ? WATER_SURFACE_Y
+            : rawEmptyTerrainGroundY(world, neighborType, x, z);
+        int boundaryHeight = (int) Math.round(
+            (ownHeight + neighborHeight) * 0.5D
+        );
+        if (boundaryHeight == ownHeight) {
+            return ownHeight;
+        }
+        int distanceFromBoundary = Math.max(
+            0, (int) Math.floor(bestDistance)
+        );
+        return steppedHeightToward(
+            world, boundaryHeight, ownHeight, distanceFromBoundary,
+            current.q() + selectedNeighbor.q(),
+            current.r() + selectedNeighbor.r(),
+            0x454D505459535445L
+        );
+    }
+
+    private static int steppedHeightToward(
+        HexWorldPlan world, int startY, int targetY, int horizontalDistance,
+        int seedX, int seedZ, long salt
+    ) {
+        int height = startY;
+        int direction = Integer.signum(targetY - startY);
+        for (int step = 0;
+             step < horizontalDistance && height != targetY; step++) {
+            int rise = 2 + Math.floorMod((int) coordinateSeed(
+                world.seed(), seedX + step * 37, seedZ - step * 53, salt
+            ), 2);
+            int remaining = Math.abs(targetY - height);
+            height += direction * Math.min(rise, remaining);
+        }
+        return height;
     }
 
     private static void paintEmptyOceanColumn(
-        ServerLevel level, HexWorldPlan world, int x, int z,
+        ServerLevel level, HexWorldPlan world, String type, int x, int z,
         boolean cleanExisting, TerrainWriteStats stats
     ) {
-        double floorNoise = layeredNoise(world.seed(), "world:empty-ocean:floor", x, z, 42.0D);
-        int floorY = 42 + (int) Math.round(floorNoise * 5.0D);
+        int floorY = emptyOceanFloorY(world, type, x, z);
         BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos(x, 0, z);
         if (cleanExisting) {
             for (int y = DEEP_FOUNDATION_MAX_Y + 1; y <= floorY - 1; y++) {
@@ -7522,6 +7766,63 @@ public final class CobbleventureBootstrap {
         for (int y = WATER_SURFACE_Y + 1; y <= clearTop; y++) {
             setTerrainBlock(level, position.setY(y), Blocks.AIR.defaultBlockState(), stats);
         }
+    }
+
+    private static int emptyOceanFloorY(
+        HexWorldPlan world, String type, int x, int z
+    ) {
+        int ownFloor = rawEmptyOceanFloorY(world, type, x, z);
+        HexCoord current = world.grid().worldToHex(x + 0.5D, z + 0.5D);
+        Point center = world.grid().worldCenter(current);
+        double bestDistance = Double.POSITIVE_INFINITY;
+        String neighborType = null;
+        HexCoord selectedNeighbor = null;
+        for (HexCoord neighbor : current.neighbors()) {
+            String candidate = world.emptyTerrainTiles().getOrDefault(
+                neighbor, world.defaultEmptyTerrain()
+            );
+            if (!isEmptyOceanType(candidate) || candidate.equals(type)) {
+                continue;
+            }
+            Point neighborCenter = world.grid().worldCenter(neighbor);
+            double axisX = neighborCenter.x() - center.x();
+            double axisZ = neighborCenter.z() - center.z();
+            double length = Math.max(1.0D, Math.hypot(axisX, axisZ));
+            double projection = ((x + 0.5D - center.x()) * axisX
+                + (z + 0.5D - center.z()) * axisZ) / length;
+            double distance = Math.max(0.0D, length * 0.5D - projection);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                neighborType = candidate;
+                selectedNeighbor = neighbor;
+            }
+        }
+        if (neighborType == null || selectedNeighbor == null) {
+            return ownFloor;
+        }
+        int neighborFloor = rawEmptyOceanFloorY(world, neighborType, x, z);
+        int boundaryFloor = (ownFloor + neighborFloor) / 2;
+        return steppedHeightToward(
+            world, boundaryFloor, ownFloor,
+            Math.max(0, (int) Math.floor(bestDistance)),
+            current.q() + selectedNeighbor.q(),
+            current.r() + selectedNeighbor.r(), 0x444545504F434541L
+        );
+    }
+
+    private static int rawEmptyOceanFloorY(
+        HexWorldPlan world, String type, int x, int z
+    ) {
+        double floorNoise = layeredNoise(
+            world.seed(), "world:empty-ocean:floor", x, z,
+            type.equals("deep_ocean") ? 54.0D : 42.0D
+        );
+        int baseY = type.equals("deep_ocean") ? 22 : 42;
+        int variation = type.equals("deep_ocean") ? 7 : 5;
+        return Math.max(
+            DEEP_FOUNDATION_MAX_Y + 2,
+            baseY + (int) Math.round(floorNoise * variation)
+        );
     }
 
     private static BlockState oceanFloorBlock(HexWorldPlan world, int x, int y, int z) {
@@ -7670,7 +7971,7 @@ public final class CobbleventureBootstrap {
             return terrainGroundY(world, underlying, x, z);
         }
         String type = emptyTerrainAt(world, sampleX, sampleZ);
-        if (type.equals("ocean")) {
+        if (isEmptyOceanType(type)) {
             return WATER_SURFACE_Y;
         }
         return emptyTerrainGroundY(
@@ -8185,14 +8486,10 @@ public final class CobbleventureBootstrap {
             boolean oceanBoundary = nearestPlayable != null
                 && nearestPlayable.aquatic()
                 && nearestPlayable.distance() <= OUTER_TERRAIN_TRANSITION_WIDTH;
-            if (type.equals("ocean") || oceanBoundary) {
-                if (oceanBoundary) {
-                    biome = "minecraft:deep_ocean";
-                }
-                double floorNoise = layeredNoise(
-                    world.seed(), "world:empty-ocean:floor", x, z, 42.0D
-                );
-                int floorY = 42 + (int) Math.round(floorNoise * 5.0D);
+            if (isEmptyOceanType(type) || oceanBoundary) {
+                String oceanType = isEmptyOceanType(type) ? type : "ocean";
+                biome = emptyTerrainBiome(oceanType);
+                int floorY = emptyOceanFloorY(world, oceanType, x, z);
                 return applyNativeCaveMountain(world, x, z, new NativeTerrainColumn(
                     floorY, WATER_SURFACE_Y,
                     oceanFloorBlock(world, x, floorY, z),
@@ -8201,22 +8498,29 @@ public final class CobbleventureBootstrap {
             }
             int topY = emptyTerrainGroundY(world, type, x, z);
             if (nearestPlayable != null && !nearestPlayable.aquatic()) {
-                double transition = fade(Math.max(0.0D, Math.min(
-                    1.0D,
-                    (nearestPlayable.distance() - 1.0D)
-                        / Math.max(1.0D, OUTER_TERRAIN_TRANSITION_WIDTH - 1.0D)
-                )));
-                topY = (int) Math.round(
-                    nearestPlayable.groundY()
-                        + (topY - nearestPlayable.groundY()) * transition
+                HexCoord emptyCell = world.grid().worldToHex(
+                    x + 0.5D, z + 0.5D
+                );
+                topY = steppedHeightToward(
+                    world, nearestPlayable.groundY(), topY,
+                    Math.max(0, nearestPlayable.distance() - 1),
+                    emptyCell.q(), emptyCell.r(), 0x504C415941424C45L
                 );
             }
-            BlockState surface = type.equals("stone_mountain")
-                ? oceanCliffRock(world, x, topY, z)
-                : surfaceBlock(biome);
-            BlockState filler = type.equals("stone_mountain")
-                ? oceanCliffRock(world, x, topY - 1, z)
-                : fillerBlock(biome);
+            BlockState surface = switch (type) {
+                case "stone_mountain" -> oceanCliffRock(world, x, topY, z);
+                case "red_rock_mountain" -> redRockMountainBlock(
+                    world, x, topY, z
+                );
+                default -> surfaceBlock(biome);
+            };
+            BlockState filler = switch (type) {
+                case "stone_mountain" -> oceanCliffRock(world, x, topY - 1, z);
+                case "red_rock_mountain" -> redRockMountainBlock(
+                    world, x, topY - 1, z
+                );
+                default -> fillerBlock(biome);
+            };
             return applyNativeCaveMountain(world, x, z, new NativeTerrainColumn(
                 topY, topY, surface, filler, biome, true, false, null
             ));
@@ -8486,7 +8790,7 @@ public final class CobbleventureBootstrap {
                         world, x + 0.5D + outwardX * 3.0D,
                         z + 0.5D + outwardZ * 3.0D
                     );
-                    if (outerType.equals("ocean")) {
+                    if (isEmptyOceanType(outerType)) {
                         collectEmptyOceanRockColumns(
                             world, bounds, x, z, outwardX, outwardZ,
                             emptyOceanRockColumns
@@ -8565,6 +8869,51 @@ public final class CobbleventureBootstrap {
                 "Hidden collision boundary did not preserve terrain while placing its air-and-water band"
             );
         }
+    }
+
+    private static void drawHiddenWorldCeiling(
+        ServerLevel level, HexWorldPlan world, HexBounds bounds
+    ) {
+        int ceilingY = level.getMaxBuildHeight() - 1;
+        BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos();
+        BlockState barrier = Blocks.BARRIER.defaultBlockState();
+        int placed = 0;
+        int skipped = 0;
+        int minimumChunkX = bounds.minX() >> 4;
+        int maximumChunkX = bounds.maxX() >> 4;
+        int minimumChunkZ = bounds.minZ() >> 4;
+        int maximumChunkZ = bounds.maxZ() >> 4;
+        for (int chunkX = minimumChunkX; chunkX <= maximumChunkX; chunkX++) {
+            int minimumX = Math.max(bounds.minX(), chunkX << 4);
+            int maximumX = Math.min(bounds.maxX(), (chunkX << 4) + 15);
+            for (int chunkZ = minimumChunkZ; chunkZ <= maximumChunkZ; chunkZ++) {
+                int minimumZ = Math.max(bounds.minZ(), chunkZ << 4);
+                int maximumZ = Math.min(bounds.maxZ(), (chunkZ << 4) + 15);
+                var chunk = level.getChunk(chunkX, chunkZ);
+                for (int x = minimumX; x <= maximumX; x++) {
+                    for (int z = minimumZ; z <= maximumZ; z++) {
+                        boolean playable = terrainAt(
+                            world, x + 0.5D, z + 0.5D
+                        ) != null;
+                        if (!playable
+                            && !isHiddenBoundaryCollisionColumn(world, x, z)) {
+                            continue;
+                        }
+                        position.set(x, ceilingY, z);
+                        if (chunk.getBlockState(position).is(Blocks.BARRIER)) {
+                            skipped++;
+                            continue;
+                        }
+                        chunk.setBlockState(position, barrier, false);
+                        placed++;
+                    }
+                }
+            }
+        }
+        LOGGER.info(
+            "Hidden world ceiling completed: y={}, placed={}, existing={}",
+            ceilingY, placed, skipped
+        );
     }
 
     private static boolean isFullHexWorldTest() {
@@ -8681,7 +9030,9 @@ public final class CobbleventureBootstrap {
         int placed = 0;
         for (Point point : candidates) {
             if (terrainAt(world, point.x() + 0.5D, point.z() + 0.5D) != null
-                || !emptyTerrainAt(world, point.x() + 0.5D, point.z() + 0.5D).equals("ocean")
+                || !isEmptyOceanType(emptyTerrainAt(
+                    world, point.x() + 0.5D, point.z() + 0.5D
+                ))
                 || Math.floorMod((int) (world.seed() ^ point.x() * 73428767L
                     ^ point.z() * 912931L), 100) >= 24) {
                 continue;
@@ -8791,6 +9142,29 @@ public final class CobbleventureBootstrap {
             return Blocks.COBBLESTONE.defaultBlockState();
         }
         return Blocks.STONE.defaultBlockState();
+    }
+
+    static BlockState redRockMountainBlock(
+        HexWorldPlan world, int x, int y, int z
+    ) {
+        double strata = layeredNoise(
+            world.seed(), "world:red-rock-mountain:strata",
+            x * 0.48D + y * 0.17D, z * 0.48D - y * 0.14D, 15.0D
+        );
+        double detail = layeredNoise(
+            world.seed(), "world:red-rock-mountain:detail",
+            x - y * 0.23D, z + y * 0.19D, 7.0D
+        );
+        if (detail > 0.58D) {
+            return Blocks.DRIPSTONE_BLOCK.defaultBlockState();
+        }
+        if (strata > 0.5D) {
+            return Blocks.POLISHED_GRANITE.defaultBlockState();
+        }
+        if (strata < -0.55D && detail < -0.12D) {
+            return Blocks.BROWN_TERRACOTTA.defaultBlockState();
+        }
+        return Blocks.GRANITE.defaultBlockState();
     }
 
     private static void collectLegacyCollisionColumns(
@@ -8917,24 +9291,20 @@ public final class CobbleventureBootstrap {
         Map<Point, HeightAccumulator> heights = new HashMap<>();
         for (Map.Entry<Point, Integer> entry : distances.entrySet()) {
             Point point = entry.getKey();
-            double progress = fade(
-                entry.getValue() / (double) OUTER_TERRAIN_TRANSITION_WIDTH
-            );
-            double heightNoise = layeredNoise(
-                world.seed(), "world:hidden-rise-height", point.x(), point.z(), 54.0D
-            );
             int transitionStartY = edgeHeights.get(point).average();
             String outerType = emptyTerrainAt(
                 world, point.x() + 0.5D, point.z() + 0.5D
             );
-            int outerTopY = outerType.equals("high_forest")
-                ? emptyTerrainGroundY(world, outerType, point.x(), point.z())
-                : Math.max(
-                    SEALED_OUTER_MIN_Y,
-                    SEALED_OUTER_SURFACE_Y + (int) Math.round(heightNoise * 4.0D)
-                );
-            int topY = (int) Math.round(
-                transitionStartY * (1.0D - progress) + outerTopY * progress
+            int outerTopY = emptyTerrainGroundY(
+                world, outerType, point.x(), point.z()
+            );
+            HexCoord emptyCell = world.grid().worldToHex(
+                point.x() + 0.5D, point.z() + 0.5D
+            );
+            int topY = steppedHeightToward(
+                world, transitionStartY, outerTopY,
+                Math.max(0, entry.getValue() - 1),
+                emptyCell.q(), emptyCell.r(), 0x4F55544552535445L
             );
             heights.computeIfAbsent(
                 point, ignored -> new HeightAccumulator()
@@ -9113,7 +9483,8 @@ public final class CobbleventureBootstrap {
         ServerLevel level, HexWorldPlan world, String type, int x, int z, int topY,
         boolean cleanExisting, TerrainWriteStats stats
     ) {
-        int minimumY = type.equals("high_forest") ? 64 : SEALED_OUTER_MIN_Y;
+        int minimumY = type.equals("high_forest") ? 64
+            : isLoweredEmptyMountain(type) ? 68 : SEALED_OUTER_MIN_Y;
         topY = Math.max(minimumY, Math.min(112, topY));
         BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos(x, 0, z);
         for (int y = 69; y <= topY - 3; y++) {
@@ -9121,6 +9492,7 @@ public final class CobbleventureBootstrap {
                 case "desert" -> y >= topY - 7
                     ? Blocks.SANDSTONE.defaultBlockState() : Blocks.STONE.defaultBlockState();
                 case "stone_mountain", "snow_mountain" -> oceanCliffRock(world, x, y, z);
+                case "red_rock_mountain" -> redRockMountainBlock(world, x, y, z);
                 default -> Blocks.STONE.defaultBlockState();
             };
             setTerrainBlock(level, position.setY(y), filler, stats);
@@ -9128,11 +9500,17 @@ public final class CobbleventureBootstrap {
         BlockState subsurface = switch (type) {
             case "desert" -> Blocks.SANDSTONE.defaultBlockState();
             case "stone_mountain" -> oceanCliffRock(world, x, topY - 1, z);
+            case "red_rock_mountain" -> redRockMountainBlock(
+                world, x, topY - 1, z
+            );
             default -> Blocks.DIRT.defaultBlockState();
         };
         BlockState surface = switch (type) {
             case "desert" -> Blocks.SAND.defaultBlockState();
             case "stone_mountain" -> oceanCliffRock(world, x, topY, z);
+            case "red_rock_mountain" -> redRockMountainBlock(
+                world, x, topY, z
+            );
             case "snow_mountain" -> Blocks.SNOW_BLOCK.defaultBlockState();
             default -> Blocks.GRASS_BLOCK.defaultBlockState();
         };
@@ -9156,6 +9534,12 @@ public final class CobbleventureBootstrap {
         }
         level.setBlock(position, state, 2);
         stats.changed++;
+    }
+
+    private static boolean isLoweredEmptyMountain(String type) {
+        return type.equals("stone_mountain")
+            || type.equals("snow_mountain")
+            || type.equals("red_rock_mountain");
     }
 
     private static void paintOuterTransitionColumn(
@@ -9217,11 +9601,14 @@ public final class CobbleventureBootstrap {
             double lateral = Math.abs(
                 offsetX * -mouth.forwardZ() + offsetZ * mouth.forwardX()
             );
-            if (depth < -3.5D || depth > 9.5D || lateral > 3.5D) {
+            if (depth < -12.5D || depth > 13.5D || lateral > 5.5D) {
                 continue;
             }
             int caveFloorY = caveEntranceFloorY(world, entrance);
-            if (y > caveFloorY && y <= caveFloorY + 7) {
+            int openingHeight = lateral <= 2.5D ? 11
+                : lateral <= 3.5D ? 10
+                : lateral <= 4.5D ? 9 : 8;
+            if (y > caveFloorY && y <= caveFloorY + openingHeight) {
                 return true;
             }
         }

@@ -500,9 +500,9 @@ def _compile_town_layout_attempt(
     )
     seed = int(seed_override if seed_override is not None else generation.get("seed", 1))
     depth = max(1, min(6, int(generation.get("depth", 3))))
-    density_id = str(generation.get("building_density", "normal"))
+    density_id = str(generation.get("building_density", "packed"))
     density = BUILDING_DENSITY_PROFILES.get(
-        density_id, BUILDING_DENSITY_PROFILES["normal"]
+        density_id, BUILDING_DENSITY_PROFILES["packed"]
     )
     road = profile.get("road_profile")
     road = road if isinstance(road, dict) else {}
@@ -956,7 +956,21 @@ def _compile_town_layout_attempt(
             center_z = int(road["z1"]) + direction_z * distance
             decoration_cycle = ("street_lamp", "bench", "flower_bed")
             decoration_kind = decoration_cycle[(road_index + marker_index) % len(decoration_cycle)]
-            road_rotation = "clockwise_90" if direction_z != 0 else "none"
+            # The authored bench faces north. Rotate directional street
+            # furniture toward the road instead of merely aligning it with the
+            # road axis; opposite sides therefore receive opposite rotations.
+            facing_x = -perpendicular_x * side
+            facing_z = -perpendicular_z * side
+            road_facing_rotation = {
+                (0, -1): "none",
+                (1, 0): "clockwise_90",
+                (0, 1): "clockwise_180",
+                (-1, 0): "counterclockwise_90",
+            }[(facing_x, facing_z)]
+            road_rotation = (
+                road_facing_rotation if decoration_kind == "bench"
+                else "clockwise_90" if direction_z != 0 else "none"
+            )
             try_add_decoration(
                 decoration_kind,
                 center_x + perpendicular_x * side * (road_edge + 2),
@@ -974,11 +988,10 @@ def _compile_town_layout_attempt(
                     tree_z - perpendicular_z * side * (road_edge + 4),
                     2,
                 )
-    fountain_offsets = (
-        (road_edge + 7, road_edge + 7),
-        (-(road_edge + 7), road_edge + 7),
-        (road_edge + 7, -(road_edge + 7)),
-        (-(road_edge + 7), -(road_edge + 7)),
+    fountain_offsets = tuple(
+        (sign_x * distance, sign_z * distance)
+        for distance in range(road_edge + 7, road_edge + 32, 4)
+        for sign_x, sign_z in ((1, 1), (-1, 1), (1, -1), (-1, -1))
     )
     for offset_x, offset_z in fountain_offsets:
         before = len(decorations)

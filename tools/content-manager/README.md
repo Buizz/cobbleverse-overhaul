@@ -20,6 +20,16 @@ build.bat pack-release
 build.bat builder-world
 ```
 
+상점 이름·카테고리와 EasyNPC 대사처럼 클라이언트의 마인크래프트 언어 설정을
+직접 읽지 못하는 고정 텍스트는 빌드할 때 언어를 선택한다. 두 번째 인수에
+`ko_kr`(기본값) 또는 `en_us`를 전달하거나, 관리 화면의 `빌드 및 검사`에서
+내보내기 언어를 선택한다.
+
+```bat
+build.bat pack en_us
+build.bat generate ko_kr
+```
+
 ### 명령 설명
 
 | 명령 | 용도 | 성공 조건 |

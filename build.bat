@@ -22,6 +22,16 @@ set "SMOKE_PROFILE=pack\profiles\import-smoke.json"
 set "DEVELOPMENT_PROFILE=pack\profiles\development-placeholder.json"
 set "STRUCTURE_BUILDER_PROFILE=pack\profiles\structure-builder.json"
 
+set "EXPORT_LANGUAGE=%COBBLEVENTURE_EXPORT_LANGUAGE%"
+if not defined EXPORT_LANGUAGE set "EXPORT_LANGUAGE=ko_kr"
+if /I not "%~1"=="builder-import" if not "%~2"=="" set "EXPORT_LANGUAGE=%~2"
+if /I not "%EXPORT_LANGUAGE%"=="ko_kr" if /I not "%EXPORT_LANGUAGE%"=="en_us" (
+    echo [ERROR] Unsupported export language: %EXPORT_LANGUAGE%
+    echo Supported languages: ko_kr, en_us
+    exit /b 1
+)
+set "COBBLEVENTURE_EXPORT_LANGUAGE=%EXPORT_LANGUAGE%"
+
 where py >nul 2>nul
 if %errorlevel% equ 0 (
     set "PYTHON_CMD=py -3"
@@ -95,7 +105,7 @@ exit /b %errorlevel%
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
 if errorlevel 1 exit /b %errorlevel%
-%PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%"
+%PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%" --language "%EXPORT_LANGUAGE%"
 exit /b %errorlevel%
 
 :spawns
@@ -115,7 +125,7 @@ exit /b %errorlevel%
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
 if errorlevel 1 exit /b %errorlevel%
-%PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%"
+%PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%" --language "%EXPORT_LANGUAGE%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%DATA_MOD_BUILDER%" --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
@@ -141,7 +151,7 @@ if errorlevel 1 exit /b %errorlevel%
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
 if errorlevel 1 exit /b %errorlevel%
-%PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%"
+%PYTHON_CMD% "%EASY_NPC_PRESET_BUILDER%" --language "%EXPORT_LANGUAGE%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%MUSIC_PACK_BUILDER%" --root "%REPO_ROOT%."
 if errorlevel 1 exit /b %errorlevel%
@@ -191,7 +201,7 @@ exit /b %errorlevel%
 echo [ERROR] Unknown command: %~1
 
 :help
-echo Usage: build.bat ^<command^>
+echo Usage: build.bat ^<command^> [ko_kr^|en_us]
 echo.
 echo   validate       Validate dependency lock and normalized content
 echo   validate-pack  Validate that dependencies are ready for CurseForge packaging
@@ -209,4 +219,6 @@ echo   pack           Build the temporary development CurseForge ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked
 echo   builder-world  Build the standalone CurseForge structure authoring pack and world
 echo   builder-import Import exported NBT and refresh in-game generated resources
+echo.
+echo Export language defaults to ko_kr and can also be set with COBBLEVENTURE_EXPORT_LANGUAGE.
 exit /b 1

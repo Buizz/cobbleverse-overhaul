@@ -26,25 +26,42 @@
     "grand_room_scale": 1.75,
     "elevated_crossing": false,
     "bridge_clearance": 14,
+    "room_types": [
+      { "id": "rock", "weight": 40, "decoration": "rock", "radius_scale": 1.0, "height_scale": 1.0 },
+      { "id": "dripstone", "weight": 35, "decoration": "dripstone", "radius_scale": 0.95, "height_scale": 1.18 },
+      { "id": "crystal", "weight": 15, "decoration": "crystal", "radius_scale": 1.0, "height_scale": 1.05 },
+      { "id": "lush", "weight": 10, "decoration": "lush", "radius_scale": 1.1, "height_scale": 0.9 }
+    ],
+    "path_types": [
+      { "id": "natural", "weight": 70, "width": 5, "floor": "natural" },
+      { "id": "rugged", "weight": 20, "width": 5, "floor": "rugged" },
+      { "id": "worked", "weight": 10, "width": 5, "floor": "worked" }
+    ],
+    "decorations": {
+      "cluster_density": 1.1,
+      "patch_radius": { "min": 2, "max": 4 },
+      "dripstone_length": { "min": 1, "max": 4 },
+      "route_clearance": 5
+    },
     "manual_layout": {
       "enabled": true,
       "anchors": [
-        { "id": "west_gallery", "kind": "room", "position": { "x": -190, "y": 45, "z": -26 }, "radius_x": 22, "radius_z": 18, "height": 16 },
-        { "id": "grand_cavern", "kind": "grand", "position": { "x": -20, "y": 40, "z": 8 }, "radius_x": 52, "radius_z": 44, "height": 38 },
-        { "id": "flooded_gallery", "kind": "room", "position": { "x": 125, "y": 32, "z": 52 }, "radius_x": 30, "radius_z": 27, "height": 22 },
-        { "id": "bridge_west", "kind": "junction", "position": { "x": -62, "y": 56, "z": -23 }, "radius_x": 9, "radius_z": 9, "height": 10 },
-        { "id": "bridge_east", "kind": "junction", "position": { "x": 24, "y": 56, "z": 31 }, "radius_x": 9, "radius_z": 9, "height": 10 },
-        { "id": "east_gallery", "kind": "room", "position": { "x": 225, "y": 44, "z": -18 }, "radius_x": 20, "radius_z": 17, "height": 15 }
+        { "id": "west_gallery", "kind": "room", "room_type": "rock", "position": { "x": -190, "y": 45, "z": -26 }, "radius_x": 22, "radius_z": 18, "height": 16 },
+        { "id": "grand_cavern", "kind": "grand", "room_type": "dripstone", "position": { "x": -20, "y": 40, "z": 8 }, "radius_x": 52, "radius_z": 44, "height": 38 },
+        { "id": "flooded_gallery", "kind": "room", "room_type": "lush", "position": { "x": 125, "y": 32, "z": 52 }, "radius_x": 30, "radius_z": 27, "height": 22 },
+        { "id": "bridge_west", "kind": "junction", "room_type": "rock", "position": { "x": -62, "y": 56, "z": -23 }, "radius_x": 9, "radius_z": 9, "height": 10 },
+        { "id": "bridge_east", "kind": "junction", "room_type": "rock", "position": { "x": 24, "y": 56, "z": 31 }, "radius_x": 9, "radius_z": 9, "height": 10 },
+        { "id": "east_gallery", "kind": "room", "room_type": "crystal", "position": { "x": 225, "y": 44, "z": -18 }, "radius_x": 20, "radius_z": 17, "height": 15 }
       ],
       "connections": [
-        { "id": "west_entry", "from": "west", "to": "west_gallery", "kind": "tunnel", "width": 7 },
-        { "id": "west_to_grand", "from": "west_gallery", "to": "grand_cavern", "kind": "stairs", "width": 7 },
-        { "id": "grand_to_flooded", "from": "grand_cavern", "to": "flooded_gallery", "kind": "tunnel", "width": 6 },
-        { "id": "flooded_to_east", "from": "flooded_gallery", "to": "east_gallery", "kind": "stairs", "width": 6 },
-        { "id": "east_exit", "from": "east_gallery", "to": "east", "kind": "tunnel", "width": 7 },
-        { "id": "bridge_climb", "from": "west_gallery", "to": "bridge_west", "kind": "stairs", "width": 5 },
-        { "id": "grand_bridge", "from": "bridge_west", "to": "bridge_east", "kind": "bridge", "width": 5 },
-        { "id": "bridge_descent", "from": "bridge_east", "to": "flooded_gallery", "kind": "stairs", "width": 5 }
+        { "id": "west_entry", "from": "west", "to": "west_gallery", "kind": "tunnel", "path_type": "natural", "width": 7 },
+        { "id": "west_to_grand", "from": "west_gallery", "to": "grand_cavern", "kind": "stairs", "path_type": "rugged", "width": 7 },
+        { "id": "grand_to_flooded", "from": "grand_cavern", "to": "flooded_gallery", "kind": "tunnel", "path_type": "natural", "width": 6 },
+        { "id": "flooded_to_east", "from": "flooded_gallery", "to": "east_gallery", "kind": "stairs", "path_type": "worked", "width": 6 },
+        { "id": "east_exit", "from": "east_gallery", "to": "east", "kind": "tunnel", "path_type": "worked", "width": 7 },
+        { "id": "bridge_climb", "from": "west_gallery", "to": "bridge_west", "kind": "stairs", "path_type": "rugged", "width": 5 },
+        { "id": "grand_bridge", "from": "bridge_west", "to": "bridge_east", "kind": "bridge", "path_type": "worked", "width": 5 },
+        { "id": "bridge_descent", "from": "bridge_east", "to": "flooded_gallery", "kind": "stairs", "path_type": "rugged", "width": 5 }
       ]
     }
   },

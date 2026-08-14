@@ -230,6 +230,10 @@ BUILD_COMMANDS = {
     "validate-pack": "실제 모드팩 빌드 준비 상태 검사",
     "builder-world": "독립 건축 월드 CurseForge ZIP 생성",
 }
+EXPORT_LANGUAGES = {
+    "ko_kr": "한국어",
+    "en_us": "English (US)",
+}
 STRUCTURE_BUILDER_WORLD_NAME = "Cobbleventure Structure Builder"
 CONTENT_MANAGER_SETTINGS = "tools/content-manager/settings.local.json"
 STATIC_CONTENT_TYPES = {
@@ -513,7 +517,7 @@ def validate_hex_worlds(
         if map_radius is not None and (not isinstance(map_radius, int) or isinstance(map_radius, bool) or not 3 <= map_radius <= 14):
             _issue(issues, "error", path, "$.grid.map_radius_cells", "3 이상 14 이하의 정수여야 합니다.")
         empty_terrain = world.get("empty_terrain", {"default_type": "high_forest", "tiles": []})
-        empty_types = {"high_forest", "ocean", "desert", "stone_mountain", "snow_mountain"}
+        empty_types = {"high_forest", "ocean", "deep_ocean", "desert", "stone_mountain", "red_rock_mountain", "snow_mountain"}
         empty_coordinates: set[tuple[int, int]] = set()
         if not isinstance(empty_terrain, dict):
             _issue(issues, "error", path, "$.empty_terrain", "빈 지형 설정은 객체여야 합니다.")
@@ -6837,14 +6841,22 @@ def _create_document(
     return _save_document(root, category, relative_path, document)
 
 
-def _run_build(core_root: Path, project_root: Path, command: str) -> dict[str, Any]:
+def _run_build(
+    core_root: Path, project_root: Path, command: str, language: str = "ko_kr"
+) -> dict[str, Any]:
     if command not in BUILD_COMMANDS:
         raise ValueError("허용되지 않은 빌드 명령입니다.")
+    if language not in EXPORT_LANGUAGES:
+        raise ValueError("지원하지 않는 내보내기 언어입니다.")
     try:
         completed = subprocess.run(
-            ["cmd.exe", "/d", "/c", str(core_root / "build.bat"), command],
+            ["cmd.exe", "/d", "/c", str(core_root / "build.bat"), command, language],
             cwd=core_root,
-            env={**os.environ, "COBBLEVENTURE_PROJECT_PATH": str(project_root)},
+            env={
+                **os.environ,
+                "COBBLEVENTURE_PROJECT_PATH": str(project_root),
+                "COBBLEVENTURE_EXPORT_LANGUAGE": language,
+            },
             capture_output=True,
             encoding="utf-8",
             errors="replace",
@@ -6856,6 +6868,7 @@ def _run_build(core_root: Path, project_root: Path, command: str) -> dict[str, A
         )
         return {
             "command": command,
+            "language": language,
             "description": BUILD_COMMANDS[command],
             "success": completed.returncode == 0,
             "return_code": completed.returncode,
@@ -6865,6 +6878,7 @@ def _run_build(core_root: Path, project_root: Path, command: str) -> dict[str, A
         output = (error.stdout or b"") if isinstance(error.stdout, bytes) else (error.stdout or "")
         return {
             "command": command,
+            "language": language,
             "description": BUILD_COMMANDS[command],
             "success": False,
             "return_code": None,
@@ -7574,6 +7588,7 @@ STRUCTURE_CATEGORY_LABELS = {
     "league": "리그",
     "placeholder": "임시·특수 건물",
     "decoration": "마을 장식",
+    "natural_feature": "자연물·동굴",
 }
 
 
@@ -7604,6 +7619,8 @@ def _managed_structure_category(relative: Path) -> str:
         return "placeholder"
     if parts[:1] == ("town_decorations",):
         return "decoration"
+    if parts[:1] == ("cave_entrance",):
+        return "natural_feature"
     return "building"
 
 
@@ -7721,6 +7738,7 @@ def space_connections_payload(
             continue
         if structures[exterior_id].get("category") in {
             "interior", "gym_interior", "league", "gym_exterior", "decoration",
+            "natural_feature",
         }:
             continue
         graph_id = f"building:{exterior_id}"
@@ -8018,6 +8036,7 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
                 "placement_y_offset": entry.get("placement_y_offset", 0)
                 if isinstance(entry.get("placement_y_offset", 0), int)
                 and not isinstance(entry.get("placement_y_offset", 0), bool) else 0,
+                "no_interior_space": bool(entry.get("no_interior_space", False)),
                 "fixed_npcs": entry.get("fixed_npcs", {})
                 if isinstance(entry.get("fixed_npcs", {}), dict) else {},
                 "citizen_placement_allowed": bool(entry.get(
@@ -8129,6 +8148,13 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             continue
         relative = structure.relative_to(root / "content" / "structures")
         residential = bool(relative.parts and relative.parts[0] == "houses")
+        no_interior_space = settings.get("no_interior_space", False)
+        if not isinstance(no_interior_space, bool):
+            _issue(
+                issues, "error", path, f"{entry_path}.no_interior_space",
+                "내부 공간 없음 값은 true 또는 false여야 합니다.",
+            )
+            continue
         interiors = settings.get("interiors", [])
         if not isinstance(interiors, list):
             _issue(issues, "error", path, f"{entry_path}.interiors", "내부공간 목록은 배열이어야 합니다.")
@@ -8242,12 +8268,18 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
                 issues, "error", path, f"{entry_path}.fixed_npcs",
                 "시민 수용 건물에는 고정 NPC를 배정하지 않습니다.",
             )
+        if no_interior_space and (normalized_interiors or normalized_routes):
+            _issue(
+                issues, "error", path, entry_path,
+                "내부 공간 없음 구조물에는 내부공간이나 문 연결을 설정할 수 없습니다.",
+            )
         normalized[resource_id] = {
             "placement_y_offset": placement_y_offset,
+            "no_interior_space": no_interior_space,
             "fixed_npcs": {} if citizen_placement_allowed else normalized_fixed,
             "citizen_placement_allowed": citizen_placement_allowed,
-            "interiors": normalized_interiors,
-            "door_routes": normalized_routes,
+            "interiors": [] if no_interior_space else normalized_interiors,
+            "door_routes": {} if no_interior_space else normalized_routes,
         }
     if any(issue.level == "error" for issue in issues):
         return issues
@@ -8504,6 +8536,11 @@ def load_structure_web_cache(
         or not isinstance(document.get("viewer_catalog"), dict)
         or not isinstance(document.get("building_settings"), dict)
     ):
+        return None
+    current_signature = [
+        list(entry) for entry in structure_catalog_signature(root, cache_root)
+    ]
+    if document.get("signature") != current_signature:
         return None
     return document
 
@@ -8822,6 +8859,10 @@ def create_handler(
                         "build_commands": [
                             {"id": command, "description": description}
                             for command, description in BUILD_COMMANDS.items()
+                        ] if active_project.is_default else [],
+                        "export_languages": [
+                            {"id": language, "name": name}
+                            for language, name in EXPORT_LANGUAGES.items()
                         ] if active_project.is_default else [],
                     },
                 )
@@ -9295,14 +9336,18 @@ def create_handler(
                     self._json(409, {"error": "프로젝트별 빌드 출력 분리는 아직 지원하지 않습니다. 기본 프로젝트에서 실행해 주세요."})
                     return
                 command = payload.get("command") if isinstance(payload, dict) else None
+                language = payload.get("language", "ko_kr") if isinstance(payload, dict) else "ko_kr"
                 if not isinstance(command, str) or command not in BUILD_COMMANDS:
                     self._json(400, {"error": "허용된 빌드 명령을 선택해야 합니다."})
+                    return
+                if not isinstance(language, str) or language not in EXPORT_LANGUAGES:
+                    self._json(400, {"error": "지원하는 내보내기 언어를 선택해야 합니다."})
                     return
                 if not build_lock.acquire(blocking=False):
                     self._json(409, {"error": "다른 빌드 명령이 실행 중입니다."})
                     return
                 try:
-                    result = _run_build(core_root, root, command)
+                    result = _run_build(core_root, root, command, language)
                 finally:
                     build_lock.release()
                 self._json(200 if result["success"] else 422, result)

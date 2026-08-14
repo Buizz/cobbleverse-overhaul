@@ -53,6 +53,7 @@ import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -185,8 +186,11 @@ public final class StructureBuilderMod {
             Catalog catalog = loadCatalog(player.getServer());
             BuilderData data = data(player.getServer());
             requirePrepared(data);
+            BlockPos door = lowerDoorPosition(player.serverLevel(), event.getPos());
             BuilderEditorNetwork.openAnchorEditor(
-                player, event.getPos(), lowerDoorPosition(player.serverLevel(), event.getPos()) != null
+                player,
+                door == null ? event.getPos() : canonicalDoorPosition(player.serverLevel(), door),
+                door != null
             );
         } catch (BuilderException error) {
             player.sendSystemMessage(Component.literal(
@@ -227,9 +231,15 @@ public final class StructureBuilderMod {
             BlockPos selected = lowerDoorPosition(player.serverLevel(), event.getPos());
             if (selected == null) {
                 selected = event.getPos().above();
+            } else {
+                selected = canonicalDoorPosition(player.serverLevel(), selected);
             }
             EditContext edit = findContext(catalog, data, selected);
             int removed = data.removeAnchorsAt(edit.key(), selected.subtract(edit.origin()));
+            BlockPos paired = pairedDoorPosition(player.serverLevel(), selected);
+            if (paired != null) {
+                removed += data.removeAnchorsAt(edit.key(), paired.subtract(edit.origin()));
+            }
             removed += data.removeNpcAnchorsAt(edit.key(), selected.subtract(edit.origin()));
             removed += data.removePointAnchorsAt(edit.key(), selected.subtract(edit.origin()));
             removed += data.removePointAnchorsAt(
@@ -547,6 +557,9 @@ public final class StructureBuilderMod {
         Catalog catalog = loadCatalog(player.getServer());
         BuilderData builderData = data(player.getServer());
         BlockPos door = lowerDoorPosition(player.serverLevel(), clicked);
+        if (door != null) {
+            door = canonicalDoorPosition(player.serverLevel(), door);
+        }
         if (type.equals("delete")) {
             BlockPos target = door == null ? clicked.above() : door;
             EditContext edit = findContext(catalog, builderData, target);
@@ -554,6 +567,12 @@ public final class StructureBuilderMod {
             int removed = builderData.removeAnchorsAt(edit.key(), relative)
                 + builderData.removeNpcAnchorsAt(edit.key(), relative)
                 + builderData.removePointAnchorsAt(edit.key(), relative);
+            BlockPos paired = pairedDoorPosition(player.serverLevel(), target);
+            if (paired != null) {
+                removed += builderData.removeAnchorsAt(
+                    edit.key(), paired.subtract(edit.origin())
+                );
+            }
             player.sendSystemMessage(Component.literal(
                 "[Structure Builder] 이 위치의 앵커 " + removed + "개를 삭제했습니다."
             ));
@@ -565,6 +584,10 @@ public final class StructureBuilderMod {
             Direction safeSide = playerSide(player, door);
             BlockState doorState = player.serverLevel().getBlockState(door);
             builderData.removeAnchorsAt(edit.key(), door.subtract(edit.origin()));
+            BlockPos paired = pairedDoorPosition(player.serverLevel(), door);
+            if (paired != null) {
+                builderData.removeAnchorsAt(edit.key(), paired.subtract(edit.origin()));
+            }
             builderData.putAnchor(edit.key(), new DoorAnchor(
                 label, "door", door.subtract(edit.origin()),
                 door.relative(safeSide).subtract(edit.origin()),
@@ -915,6 +938,41 @@ public final class StructureBuilderMod {
         return state.getValue(DoorBlock.HALF) == DoubleBlockHalf.UPPER
             ? clicked.below()
             : clicked;
+    }
+
+    private static BlockPos pairedDoorPosition(ServerLevel level, BlockPos lower) {
+        BlockState state = level.getBlockState(lower);
+        if (!(state.getBlock() instanceof DoorBlock)) {
+            return null;
+        }
+        Direction facing = state.getValue(DoorBlock.FACING);
+        DoorHingeSide hinge = state.getValue(DoorBlock.HINGE);
+        for (Direction side : List.of(facing.getClockWise(), facing.getCounterClockWise())) {
+            BlockPos candidate = lower.relative(side);
+            BlockState other = level.getBlockState(candidate);
+            if (other.getBlock() == state.getBlock()
+                && other.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER
+                && other.getValue(DoorBlock.FACING) == facing
+                && other.getValue(DoorBlock.HINGE) != hinge) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static BlockPos canonicalDoorPosition(ServerLevel level, BlockPos lower) {
+        BlockPos paired = pairedDoorPosition(level, lower);
+        if (paired == null) {
+            return lower;
+        }
+        return comparePosition(lower, paired) <= 0 ? lower : paired;
+    }
+
+    private static int comparePosition(BlockPos left, BlockPos right) {
+        int x = Integer.compare(left.getX(), right.getX());
+        if (x != 0) return x;
+        int y = Integer.compare(left.getY(), right.getY());
+        return y != 0 ? y : Integer.compare(left.getZ(), right.getZ());
     }
 
     private static Direction playerSide(ServerPlayer player, BlockPos door) {
@@ -1314,6 +1372,7 @@ public final class StructureBuilderMod {
 
     private static void export(ServerLevel level, Catalog catalog, PlannedEntry planned) {
         planned = authoredPlot(level, catalog, planned);
+        validateDoorAnchors(level, planned.entry().exportId(), planned.origin());
         ResourceLocation exportId = ResourceLocation.parse(planned.entry().exportId());
         var manager = level.getStructureManager();
         var template = manager.getOrCreate(exportId);
@@ -1431,6 +1490,7 @@ public final class StructureBuilderMod {
     }
 
     private static void exportInterior(ServerLevel level, InteriorPlot plot) {
+        validateDoorAnchors(level, plot.key(), plot.origin());
         String relative = "interiors/" + plot.id();
         ResourceLocation exportId = ResourceLocation.fromNamespaceAndPath(
             "cobbleventure_builder", "export/" + relative
@@ -1447,6 +1507,28 @@ public final class StructureBuilderMod {
             "content/structures/interiors/" + plot.id() + ".nbt",
             plot.spec(), null, true
         );
+    }
+
+    private static void validateDoorAnchors(
+        ServerLevel level, String key, BlockPos origin
+    ) {
+        List<String> invalid = new ArrayList<>();
+        for (DoorAnchor anchor : data(level.getServer()).anchors(key)) {
+            BlockPos position = origin.offset(anchor.position());
+            BlockPos lower = lowerDoorPosition(level, position);
+            if (lower == null) {
+                invalid.add(anchor.label() + "=" + format(anchor.position()) + " (문 없음)");
+            } else if (!canonicalDoorPosition(level, lower).equals(lower)) {
+                invalid.add(anchor.label() + "=" + format(anchor.position()) + " (양문형 반대 문짝)");
+            }
+        }
+        if (!invalid.isEmpty()) {
+            throw new BuilderException(
+                "문 앵커 위치가 실제 문과 일치하지 않습니다: " + String.join(", ", invalid)
+                    + ". 월드에딧으로 문을 이동·삭제했다면 막대기로 다시 지정하거나 "
+                    + "웅크리기+좌클릭으로 기존 앵커를 삭제하세요."
+            );
+        }
     }
 
     private static void exportMetadata(

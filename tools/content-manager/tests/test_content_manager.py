@@ -27,6 +27,63 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_cave_entrance_nbt_variants_use_large_centered_barrier_masks(self) -> None:
+        variants = {
+            "stone_mountain", "red_rock_mountain", "snow_mountain", "plains", "ocean",
+        }
+        for variant in variants:
+            path = (
+                PROJECT_ROOT / "content/structures/cave_entrance"
+                / f"{variant}.nbt"
+            )
+            self.assertTrue(path.is_file(), variant)
+            size, palette, blocks = content_manager._minecraft_structure_parts(
+                path.read_bytes()
+            )
+            self.assertEqual([33, 21, 33], size)
+            barrier_state = palette.index("minecraft:barrier")
+            barrier_positions = {
+                tuple(block["pos"])
+                for block in blocks
+                if block.get("state") == barrier_state
+            }
+            self.assertIn((16, 1, 16), barrier_positions)
+            self.assertIn((16, 10, 16), barrier_positions)
+            self.assertGreater(len(barrier_positions), 1000)
+
+    def test_natural_feature_no_interior_space_setting_is_exposed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/cave_entrance/stone.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((33, 21, 33)))
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {
+                    "cobbleventure:cave_entrance/stone": {
+                        "no_interior_space": True,
+                        "fixed_npcs": {},
+                        "citizen_placement_allowed": False,
+                        "interiors": [],
+                        "door_routes": {},
+                    },
+                },
+            })
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            metadata = content_manager.building_settings_payload(root)["structures"][
+                "cobbleventure:cave_entrance/stone"
+            ]
+            self.assertEqual("natural_feature", metadata["category"])
+            self.assertTrue(metadata["settings"]["no_interior_space"])
+
+    def test_natural_feature_category_is_available_in_nbt_editor(self) -> None:
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            '<option value="natural_feature">자연물·동굴</option>', markup
+        )
+
     def test_local_ogg_files_are_registered_in_music_catalog_automatically(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             core_root = Path(directory)
@@ -595,6 +652,13 @@ class ContentManagerTests(unittest.TestCase):
             issues = content_manager.save_world_layout(candidate_root, invalid_buffer)
             self.assertTrue(any("완충 지형" in issue.message for issue in issues))
             self.assertEqual(saved, content_manager.load_world_layout(candidate_root))
+            deep_ocean = json.loads(json.dumps(saved))
+            deep_ocean["empty_terrain"]["tiles"][0]["type"] = "deep_ocean"
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, deep_ocean))
+            saved = content_manager.load_world_layout(candidate_root)
+            self.assertEqual(
+                "deep_ocean", saved["empty_terrain"]["tiles"][0]["type"]
+            )
             invalid_empty = json.loads(json.dumps(saved))
             invalid_empty["empty_terrain"]["tiles"] = [
                 {"q": 20, "r": -4, "type": "lava"},
@@ -2879,7 +2943,7 @@ class ContentManagerTests(unittest.TestCase):
         try:
             request = urllib.request.Request(
                 f"http://127.0.0.1:{server.server_port}/api/build",
-                data=json.dumps({"command": "validate"}).encode("utf-8"),
+                data=json.dumps({"command": "validate", "language": "en_us"}).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
@@ -2891,7 +2955,7 @@ class ContentManagerTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=2)
         runner.assert_called_once_with(
-            root.resolve(), PROJECT_ROOT.resolve(), "validate"
+            root.resolve(), PROJECT_ROOT.resolve(), "validate", "en_us"
         )
         self.assertTrue(payload["success"])
 
@@ -2978,6 +3042,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="structure-builder-instance"', markup)
         self.assertIn('id="build-structure-builder"', markup)
         self.assertIn('id="import-structure-builder"', markup)
+        self.assertIn('id="build-export-language"', markup)
+        self.assertIn('JSON.stringify({ command, language })', script)
         self.assertIn("/api/structure-builder/settings", script)
         self.assertIn("/api/structure-builder/import", script)
         self.assertIn("/api/structure-model", script)
@@ -3083,7 +3149,8 @@ class ContentManagerTests(unittest.TestCase):
             with mock.patch.object(content_manager, "structure_mod_roots", return_value=[]):
                 cached = content_manager.build_structure_web_cache(root)
             content_manager.save_structure_web_cache(root, cached)
-            loaded = content_manager.load_structure_web_cache(root)
+            with mock.patch.object(content_manager, "structure_mod_roots", return_value=[]):
+                loaded = content_manager.load_structure_web_cache(root)
 
             self.assertIsNotNone(loaded)
             self.assertEqual(
@@ -3136,7 +3203,7 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(7, payload["structures"]["cobbleventure:cached"]["width"])
             self.assertEqual(123, payload["cache"]["generated_at"])
 
-    def test_structure_web_cache_refreshes_only_after_structure_signature_changes(self) -> None:
+    def test_structure_web_cache_is_invalidated_after_structure_signature_changes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             content_manager.save_structure_web_cache(root, {
@@ -3159,9 +3226,10 @@ class ContentManagerTests(unittest.TestCase):
                 "structure_catalog_signature",
                 return_value=((structure.as_posix(), structure.stat().st_size, 1),),
             ), mock.patch.object(threading.Thread, "start") as start:
-                content_manager.create_handler(root)
+                loaded = content_manager.load_structure_web_cache(root)
 
-            start.assert_called_once()
+            self.assertIsNone(loaded)
+            start.assert_not_called()
 
     def test_residential_building_rejects_fixed_npc_assignment(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -3225,6 +3293,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="space-flow-nodes"', markup)
         self.assertIn('id="space-building-cards"', markup)
         self.assertIn('id="space-interior-cards"', markup)
+        self.assertIn('id="space-building-search"', markup)
+        self.assertIn('id="space-interior-search"', markup)
+        self.assertIn('data-space-library-tab="building"', markup)
+        self.assertIn('data-space-library-tab="interior"', markup)
+        self.assertNotIn('id="space-library-search"', markup)
         self.assertIn('id="space-library-kind-filter"', markup)
         self.assertIn('id="space-library-route-filter"', markup)
         self.assertIn('id="reset-space-library-filters"', markup)
@@ -3239,6 +3312,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('nodePorts(node, "input")', script)
         self.assertIn('flow.filters.kind', script)
         self.assertIn('flow.filters.route', script)
+        self.assertIn('flow.paletteTab = "interior"', script)
         self.assertIn('.space-flow-edge', styles)
         self.assertIn('.space-library-filters', styles)
         self.assertIn('.legacy-space-editor { display: none', styles)

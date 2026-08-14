@@ -37,7 +37,10 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoorHingeSide;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.phys.Vec3;
@@ -549,8 +552,36 @@ final class GymInteriorSystem {
         if (level == null) {
             return;
         }
+        registerDoorBlocks(level, lower, target);
+        BlockPos paired = pairedDoorPosition(level, lower);
+        if (paired != null) {
+            registerDoorBlocks(level, paired, target);
+        }
+    }
+
+    private static void registerDoorBlocks(ServerLevel level, BlockPos lower, DoorTarget target) {
         DOORS.put(new DoorKey(level.dimension(), lower.immutable()), target);
         DOORS.put(new DoorKey(level.dimension(), lower.above().immutable()), target);
+    }
+
+    private static BlockPos pairedDoorPosition(ServerLevel level, BlockPos lower) {
+        BlockState state = level.getBlockState(lower);
+        if (!(state.getBlock() instanceof DoorBlock)) {
+            return null;
+        }
+        Direction facing = state.getValue(DoorBlock.FACING);
+        DoorHingeSide hinge = state.getValue(DoorBlock.HINGE);
+        for (Direction side : List.of(facing.getClockWise(), facing.getCounterClockWise())) {
+            BlockPos candidate = lower.relative(side);
+            BlockState other = level.getBlockState(candidate);
+            if (other.getBlock() == state.getBlock()
+                && other.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER
+                && other.getValue(DoorBlock.FACING) == facing
+                && other.getValue(DoorBlock.HINGE) != hinge) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {

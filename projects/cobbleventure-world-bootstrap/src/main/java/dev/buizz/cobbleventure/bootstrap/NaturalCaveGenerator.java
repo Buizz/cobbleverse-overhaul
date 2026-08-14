@@ -13,13 +13,15 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.PointedDripstoneBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DripstoneThickness;
 import org.slf4j.Logger;
 
 final class NaturalCaveGenerator {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int LAYOUT_VERSION = 10;
+    private static final int LAYOUT_VERSION = 11;
     private static final int SHELL_THICKNESS = 4;
 
     private NaturalCaveGenerator() {}
@@ -98,7 +100,8 @@ final class NaturalCaveGenerator {
         pathIndex = 0;
         for (CavePath path : layout.paths()) {
             stairs += placeWalkablePath(
-                level, path.points(), seed, pathIndex++, path.width(), settings.requiresFlash()
+                level, path.points(), seed, pathIndex++, path.width(), path.pathType(),
+                settings.requiresFlash()
             );
             if (path.kind().equals("bridge")) {
                 placeNaturalBridge(
@@ -164,14 +167,23 @@ final class NaturalCaveGenerator {
                 radiusZ = Math.max(radiusZ, settings.maximumRoomRadius() * settings.grandRoomScale() * 0.82D);
                 height = Math.max(height, settings.maximumRoomRadius() * settings.grandRoomScale() * 0.78D);
             }
-            Room room = new Room(x, floorY, z, radiusX, height, radiusZ, grandRoom ? "grand" : "main");
+            RoomType roomType = index == 0 || index == roomCount - 1
+                ? roomType(settings, "rock") : pickRoomType(random, settings.roomTypes());
+            Room room = new Room(
+                x, floorY, z,
+                radiusX * roomType.radiusScale(), height * roomType.heightScale(),
+                radiusZ * roomType.radiusScale(), grandRoom ? "grand" : "main", roomType
+            );
             mainRooms.add(room);
             mainPath.add(room.pathPoint());
         }
 
         List<Room> rooms = new ArrayList<>(mainRooms);
         List<CavePath> paths = new ArrayList<>();
-        paths.add(new CavePath(List.copyOf(mainPath), "main", 0));
+        PathType mainPathType = pickPathType(random, settings.pathTypes());
+        paths.add(new CavePath(
+            List.copyOf(mainPath), "main", mainPathType.width(), mainPathType
+        ));
         for (int branchIndex = 0; branchIndex < settings.branchCount(); branchIndex++) {
             int rootIndex = 1 + (branchIndex + 1) * (roomCount - 2) / (settings.branchCount() + 1);
             Room root = mainRooms.get(Math.max(1, Math.min(roomCount - 2, rootIndex)));
@@ -182,19 +194,19 @@ final class NaturalCaveGenerator {
                 76,
                 root.floorY() + random.nextInt(-settings.verticalRange() / 2, settings.verticalRange() / 2 + 1)
             ));
-            String kind = branchIndex == 0 ? "moon" : "wild";
+            RoomType roomType = pickRoomType(random, settings.roomTypes());
             double branchRadiusX = randomBetween(random, settings.minimumRoomRadius(), settings.maximumRoomRadius());
             double branchRadiusZ = randomBetween(random, settings.minimumRoomRadius(), settings.maximumRoomRadius());
             Room branchRoom = new Room(
                 endX, endY, endZ,
-                branchRadiusX,
+                branchRadiusX * roomType.radiusScale(),
                 randomBetween(
                     random,
                     Math.max(9.0D, settings.minimumRoomRadius() * 0.7D),
                     Math.max(11.0D, settings.maximumRoomRadius() * 0.72D)
-                ),
-                branchRadiusZ,
-                kind
+                ) * roomType.heightScale(),
+                branchRadiusZ * roomType.radiusScale(),
+                "branch", roomType
             );
             rooms.add(branchRoom);
             PathPoint middle = new PathPoint(
@@ -202,13 +214,18 @@ final class NaturalCaveGenerator {
                 (root.floorY() + endY) / 2,
                 (root.z() + endZ) * 0.5D
             );
-            paths.add(new CavePath(List.of(root.pathPoint(), middle, branchRoom.pathPoint()), "branch", 0));
+            PathType branchPathType = pickPathType(random, settings.pathTypes());
+            paths.add(new CavePath(
+                List.of(root.pathPoint(), middle, branchRoom.pathPoint()),
+                "branch", branchPathType.width(), branchPathType
+            ));
         }
 
         if (roomCount >= 5 && random.nextDouble() <= settings.loopChance()) {
             Room loopFrom = mainRooms.get(Math.max(1, roomCount / 3));
             Room loopTo = mainRooms.get(Math.min(roomCount - 2, roomCount * 2 / 3));
             int loopY = Math.max(34, Math.min(74, (loopFrom.floorY() + loopTo.floorY()) / 2 + 7));
+            PathType loopPathType = pickPathType(random, settings.pathTypes());
             paths.add(new CavePath(List.of(
                 loopFrom.pathPoint(),
                 new PathPoint(
@@ -217,7 +234,7 @@ final class NaturalCaveGenerator {
                     Math.min(loopFrom.z(), loopTo.z()) - 58.0D
                 ),
                 loopTo.pathPoint()
-            ), "loop", 0));
+            ), "loop", loopPathType.width(), loopPathType));
         }
         if (settings.elevatedCrossing() && roomCount >= 5) {
             int grandIndex = roomCount / 2;
@@ -226,13 +243,14 @@ final class NaturalCaveGenerator {
             Room bridgeTo = mainRooms.get(Math.min(roomCount - 1, grandIndex + 2));
             int bridgeY = Math.min(76, grand.floorY() + Math.max(10, settings.bridgeClearance()));
             double span = Math.max(16.0D, grand.radiusZ() * 0.72D);
+            PathType bridgePathType = pathType(settings, "rugged");
             paths.add(new CavePath(List.of(
                 bridgeFrom.pathPoint(),
                 new PathPoint(grand.x() + grand.radiusX() * 0.62D, bridgeY, grand.z() - span),
                 new PathPoint(grand.x(), bridgeY, grand.z()),
                 new PathPoint(grand.x() - grand.radiusX() * 0.62D, bridgeY, grand.z() + span),
                 bridgeTo.pathPoint()
-            ), "bridge", 5));
+            ), "bridge", 5, bridgePathType));
         }
         return new CaveLayout(List.copyOf(rooms), List.copyOf(paths));
     }
@@ -248,14 +266,18 @@ final class NaturalCaveGenerator {
         for (ManualAnchor anchor : settings.manualLayout().anchors()) {
             PathPoint point = new PathPoint(anchor.x(), anchor.y(), anchor.z());
             points.put(anchor.id(), point);
+            RoomType roomType = roomType(
+                settings,
+                anchor.roomType().isBlank() ? legacyRoomType(anchor.kind()) : anchor.roomType()
+            );
             rooms.add(new Room(
                 anchor.x(), anchor.y(), anchor.z(), anchor.radiusX(), anchor.height(), anchor.radiusZ(),
                 switch (anchor.kind()) {
                     case "grand" -> "grand";
-                    case "landmark" -> "moon";
                     case "junction" -> "main";
-                    default -> "wild";
-                }
+                    default -> "branch";
+                },
+                roomType
             ));
         }
         List<CavePath> paths = new ArrayList<>();
@@ -266,7 +288,13 @@ final class NaturalCaveGenerator {
                 LOGGER.warn("Manual cave connection skipped: id={}, from={}, to={}", connection.id(), connection.from(), connection.to());
                 continue;
             }
-            paths.add(new CavePath(List.of(from, to), connection.kind(), connection.width()));
+            PathType pathType = pathType(
+                settings,
+                connection.pathType().isBlank() ? "natural" : connection.pathType()
+            );
+            paths.add(new CavePath(
+                List.of(from, to), connection.kind(), connection.width(), pathType
+            ));
         }
         return new CaveLayout(List.copyOf(rooms), List.copyOf(paths));
     }
@@ -322,7 +350,7 @@ final class NaturalCaveGenerator {
 
     private static int placeWalkablePath(
         ServerLevel level, List<PathPoint> path, long seed, int pathIndex,
-        int configuredWidth, boolean requiresFlash
+        int configuredWidth, PathType pathType, boolean requiresFlash
     ) {
         int stairs = 0;
         int halfWidth = configuredWidth > 0 ? Math.max(1, configuredWidth / 2) : 2;
@@ -344,7 +372,9 @@ final class NaturalCaveGenerator {
                         }
                         level.setBlock(
                             new BlockPos(x + offsetX, floorY, z + offsetZ),
-                            naturalFloor(seed, x + offsetX, floorY, z + offsetZ), 2
+                            pathFloor(
+                                seed, x + offsetX, floorY, z + offsetZ, pathType.floor()
+                            ), 2
                         );
                         for (int y = floorY + 1; y <= floorY + 5; y++) {
                             level.setBlock(
@@ -461,38 +491,50 @@ final class NaturalCaveGenerator {
     ) {
         Random random = new Random(seed ^ 0x5EEDBEEFL);
         for (Room room : layout.rooms()) {
-            int decorations = room.kind().equals("main") ? 3 : 7;
-            for (int index = 0; index < decorations; index++) {
+            String decoration = room.roomType().decoration();
+            double typeDensity = switch (decoration) {
+                case "dripstone" -> 1.35D;
+                case "lush" -> 1.1D;
+                case "crystal" -> 0.8D;
+                default -> 0.55D;
+            };
+            int clusters = Math.max(1, (int) Math.round(
+                (room.radiusX() + room.radiusZ()) / 12.0D
+                    * settings.decorations().clusterDensity() * typeDensity
+            ));
+            for (int index = 0; index < clusters; index++) {
                 double angle = random.nextDouble() * Math.PI * 2.0D;
-                double distance = 0.55D + random.nextDouble() * 0.25D;
+                double distance = 0.58D + random.nextDouble() * 0.24D;
                 int x = (int) Math.round(room.x() + Math.cos(angle) * room.radiusX() * distance);
                 int z = (int) Math.round(room.z() + Math.sin(angle) * room.radiusZ() * distance);
-                int floorY = findNaturalFloor(level, x, room.floorY(), z);
-                if (floorY == Integer.MIN_VALUE) {
+                if (isNearPath(
+                    x, z, layout.paths(), settings.decorations().routeClearance()
+                )) {
                     continue;
                 }
-                int height = room.kind().equals("main") ? 1 + random.nextInt(2) : 1 + random.nextInt(3);
-                BlockState decoration = room.kind().equals("moon")
-                    ? (index % 2 == 0
-                        ? Blocks.AMETHYST_BLOCK.defaultBlockState()
-                        : Blocks.CALCITE.defaultBlockState())
-                    : room.kind().equals("wild")
-                        ? Blocks.MOSS_BLOCK.defaultBlockState()
-                        : Blocks.DRIPSTONE_BLOCK.defaultBlockState();
-                for (int y = 1; y <= height; y++) {
-                    level.setBlock(new BlockPos(x, floorY + y, z), decoration, 2);
-                }
-                if (room.kind().equals("moon")) {
-                    for (int offsetX = -1; offsetX <= 1; offsetX++) {
-                        for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
-                            if (Math.abs(offsetX) + Math.abs(offsetZ) <= 1) {
-                                level.setBlock(
-                                    new BlockPos(x + offsetX, floorY, z + offsetZ),
-                                    Blocks.CALCITE.defaultBlockState(), 2
-                                );
-                            }
-                        }
-                    }
+                int radius = random.nextInt(
+                    settings.decorations().minimumPatchRadius(),
+                    settings.decorations().maximumPatchRadius() + 1
+                );
+                switch (decoration) {
+                    case "dripstone" -> placeDripstoneCluster(
+                        level, layout, room, x, z, radius, random, settings.decorations()
+                    );
+                    case "crystal" -> placeSurfacePatch(
+                        level, layout, room, x, z, radius, random,
+                        Blocks.CALCITE.defaultBlockState(), Blocks.AMETHYST_BLOCK.defaultBlockState(),
+                        true, settings.decorations().routeClearance()
+                    );
+                    case "lush" -> placeSurfacePatch(
+                        level, layout, room, x, z, radius, random,
+                        Blocks.MOSS_BLOCK.defaultBlockState(), Blocks.CLAY.defaultBlockState(),
+                        false, settings.decorations().routeClearance()
+                    );
+                    default -> placeSurfacePatch(
+                        level, layout, room, x, z, radius, random,
+                        Blocks.TUFF.defaultBlockState(), Blocks.ANDESITE.defaultBlockState(),
+                        true, settings.decorations().routeClearance()
+                    );
                 }
             }
             if (!settings.requiresFlash()) {
@@ -505,7 +547,7 @@ final class NaturalCaveGenerator {
                     int lightZ = (int) Math.round(room.z() + Math.sin(angle) * room.radiusZ() * 0.42D);
                     int ceilingY = findCeiling(level, lightX, room.floorY() + 4, lightZ);
                     if (ceilingY != Integer.MIN_VALUE) {
-                        BlockState light = room.kind().equals("moon")
+                        BlockState light = decoration.equals("crystal")
                             ? Blocks.PEARLESCENT_FROGLIGHT.defaultBlockState()
                             : Blocks.SHROOMLIGHT.defaultBlockState();
                         level.setBlock(
@@ -531,7 +573,7 @@ final class NaturalCaveGenerator {
                             (int) Math.round(room.x()), centerFloorY,
                             (int) Math.round(room.z())
                         ),
-                        room.kind().equals("moon")
+                        decoration.equals("crystal")
                             ? Blocks.PEARLESCENT_FROGLIGHT.defaultBlockState()
                             : Blocks.SHROOMLIGHT.defaultBlockState(),
                         2
@@ -539,6 +581,128 @@ final class NaturalCaveGenerator {
                 }
             }
         }
+    }
+
+    private static void placeDripstoneCluster(
+        ServerLevel level, CaveLayout layout, Room room, int centerX, int centerZ,
+        int radius, Random random, DecorationSettings settings
+    ) {
+        placeSurfacePatch(
+            level, layout, room, centerX, centerZ, radius, random,
+            Blocks.DRIPSTONE_BLOCK.defaultBlockState(), Blocks.TUFF.defaultBlockState(),
+            true, settings.routeClearance()
+        );
+        int formations = Math.max(1, radius + random.nextInt(2));
+        for (int index = 0; index < formations; index++) {
+            int x = centerX + random.nextInt(-radius, radius + 1);
+            int z = centerZ + random.nextInt(-radius, radius + 1);
+            if (isNearPath(x, z, layout.paths(), settings.routeClearance())) {
+                continue;
+            }
+            int floorY = findNaturalFloor(level, x, room.floorY(), z);
+            int ceilingY = findCeiling(level, x, room.floorY() + 3, z);
+            if (floorY == Integer.MIN_VALUE || ceilingY == Integer.MIN_VALUE
+                || ceilingY - floorY < 5) {
+                continue;
+            }
+            int maximumLength = Math.min(
+                settings.maximumDripstoneLength(), Math.max(1, (ceilingY - floorY - 2) / 2)
+            );
+            int minimumLength = Math.min(settings.minimumDripstoneLength(), maximumLength);
+            int ceilingLength = random.nextInt(minimumLength, maximumLength + 1);
+            placePointedDripstone(level, x, ceilingY - 1, z, Direction.DOWN, ceilingLength);
+            if (random.nextDouble() < 0.42D) {
+                int floorLength = random.nextInt(minimumLength, maximumLength + 1);
+                placePointedDripstone(level, x, floorY + 1, z, Direction.UP, floorLength);
+            }
+        }
+    }
+
+    private static void placeSurfacePatch(
+        ServerLevel level, CaveLayout layout, Room room, int centerX, int centerZ,
+        int radius, Random random, BlockState primary, BlockState accent,
+        boolean includeCeiling, int routeClearance
+    ) {
+        for (int offsetX = -radius; offsetX <= radius; offsetX++) {
+            for (int offsetZ = -radius; offsetZ <= radius; offsetZ++) {
+                double distance = Math.sqrt(offsetX * offsetX + offsetZ * offsetZ);
+                if (distance > radius + random.nextDouble() * 0.65D - 0.3D) {
+                    continue;
+                }
+                int x = centerX + offsetX;
+                int z = centerZ + offsetZ;
+                if (isNearPath(x, z, layout.paths(), routeClearance)) {
+                    continue;
+                }
+                BlockState patchBlock = random.nextDouble() < 0.18D ? accent : primary;
+                int floorY = findNaturalFloor(level, x, room.floorY(), z);
+                if (floorY != Integer.MIN_VALUE) {
+                    level.setBlock(new BlockPos(x, floorY, z), patchBlock, 2);
+                }
+                if (includeCeiling && random.nextDouble() < 0.68D) {
+                    int ceilingY = findCeiling(level, x, room.floorY() + 3, z);
+                    if (ceilingY != Integer.MIN_VALUE) {
+                        level.setBlock(new BlockPos(x, ceilingY, z), patchBlock, 2);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void placePointedDripstone(
+        ServerLevel level, int x, int startY, int z, Direction direction, int length
+    ) {
+        for (int index = 0; index < length; index++) {
+            int y = startY + direction.getStepY() * index;
+            BlockPos position = new BlockPos(x, y, z);
+            if (!level.getBlockState(position).isAir()) {
+                break;
+            }
+            DripstoneThickness thickness;
+            if (length == 1 || index == length - 1) {
+                thickness = DripstoneThickness.TIP;
+            } else if (index == length - 2) {
+                thickness = DripstoneThickness.FRUSTUM;
+            } else if (index == 0 && length >= 4) {
+                thickness = DripstoneThickness.BASE;
+            } else {
+                thickness = DripstoneThickness.MIDDLE;
+            }
+            level.setBlock(
+                position,
+                Blocks.POINTED_DRIPSTONE.defaultBlockState()
+                    .setValue(PointedDripstoneBlock.TIP_DIRECTION, direction)
+                    .setValue(PointedDripstoneBlock.THICKNESS, thickness),
+                2
+            );
+        }
+    }
+
+    private static boolean isNearPath(
+        int x, int z, List<CavePath> paths, double clearance
+    ) {
+        double maximumDistanceSquared = clearance * clearance;
+        for (CavePath path : paths) {
+            for (int index = 0; index < path.points().size() - 1; index++) {
+                PathPoint from = path.points().get(index);
+                PathPoint to = path.points().get(index + 1);
+                double dx = to.x() - from.x();
+                double dz = to.z() - from.z();
+                double lengthSquared = dx * dx + dz * dz;
+                double progress = lengthSquared <= 0.0001D ? 0.0D
+                    : Math.max(0.0D, Math.min(1.0D,
+                        ((x - from.x()) * dx + (z - from.z()) * dz) / lengthSquared
+                    ));
+                double nearestX = from.x() + dx * progress;
+                double nearestZ = from.z() + dz * progress;
+                double distanceX = x - nearestX;
+                double distanceZ = z - nearestZ;
+                if (distanceX * distanceX + distanceZ * distanceZ <= maximumDistanceSquared) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static int floodSubmergedCave(
@@ -674,7 +838,8 @@ final class NaturalCaveGenerator {
         for (int index = 0; index < layout.rooms().size(); index++) {
             Room room = layout.rooms().get(index);
             int biomeIndex = room.kind().equals("main") ? 0
-                : room.kind().equals("moon") || room.kind().equals("water")
+                : room.roomType().decoration().equals("crystal")
+                    || room.roomType().decoration().equals("lush")
                     ? Math.min(1, biomes.size() - 1)
                     : Math.floorMod(index, biomes.size());
             fillBiomeBox(
@@ -830,6 +995,69 @@ final class NaturalCaveGenerator {
             : Blocks.COBBLED_DEEPSLATE.defaultBlockState();
     }
 
+    private static BlockState pathFloor(long seed, int x, int y, int z, String floor) {
+        double noise = signedNoise(seed ^ 0xBADC0DEL, x >> 1, y, z >> 1);
+        return switch (floor) {
+            case "rugged" -> noise > 0.45D
+                ? Blocks.GRAVEL.defaultBlockState()
+                : noise < -0.35D
+                    ? Blocks.TUFF.defaultBlockState()
+                    : Blocks.COBBLED_DEEPSLATE.defaultBlockState();
+            case "worked" -> noise > 0.55D
+                ? Blocks.CRACKED_DEEPSLATE_BRICKS.defaultBlockState()
+                : noise < -0.45D
+                    ? Blocks.POLISHED_DEEPSLATE.defaultBlockState()
+                    : Blocks.DEEPSLATE_BRICKS.defaultBlockState();
+            default -> naturalFloor(seed, x, y, z);
+        };
+    }
+
+    private static RoomType pickRoomType(Random random, List<RoomType> types) {
+        int totalWeight = types.stream().mapToInt(RoomType::weight).sum();
+        int selected = random.nextInt(Math.max(1, totalWeight));
+        for (RoomType type : types) {
+            selected -= type.weight();
+            if (selected < 0) {
+                return type;
+            }
+        }
+        return types.getFirst();
+    }
+
+    private static PathType pickPathType(Random random, List<PathType> types) {
+        int totalWeight = types.stream().mapToInt(PathType::weight).sum();
+        int selected = random.nextInt(Math.max(1, totalWeight));
+        for (PathType type : types) {
+            selected -= type.weight();
+            if (selected < 0) {
+                return type;
+            }
+        }
+        return types.getFirst();
+    }
+
+    private static RoomType roomType(Settings settings, String id) {
+        return settings.roomTypes().stream()
+            .filter(type -> type.id().equals(id))
+            .findFirst()
+            .orElseGet(() -> settings.roomTypes().getFirst());
+    }
+
+    private static PathType pathType(Settings settings, String id) {
+        return settings.pathTypes().stream()
+            .filter(type -> type.id().equals(id))
+            .findFirst()
+            .orElseGet(() -> settings.pathTypes().getFirst());
+    }
+
+    private static String legacyRoomType(String kind) {
+        return switch (kind) {
+            case "landmark" -> "crystal";
+            case "grand" -> "dripstone";
+            default -> "rock";
+        };
+    }
+
     private static double ellipsoidDistance(
         Blob blob, int x, int y, int z, double radiusX, double radiusY, double radiusZ
     ) {
@@ -888,7 +1116,10 @@ final class NaturalCaveGenerator {
         int bridgeClearance,
         boolean requiresFlash,
         ManualLayout manualLayout,
-        List<String> internalBiomes
+        List<String> internalBiomes,
+        List<RoomType> roomTypes,
+        List<PathType> pathTypes,
+        DecorationSettings decorations
     ) {
         static Settings defaults() {
             return defaults(false);
@@ -899,7 +1130,19 @@ final class NaturalCaveGenerator {
                 0L, 7, 4, 0.35D, 28, 10.0D, 28.0D, 3.0D, 7.0D, 0.18D, 38,
                 1.65D, false, 13, requiresFlash,
                 ManualLayout.disabled(),
-                List.of("minecraft:dripstone_caves")
+                List.of("minecraft:dripstone_caves"),
+                List.of(
+                    new RoomType("rock", 45, "rock", 1.0D, 1.0D),
+                    new RoomType("dripstone", 30, "dripstone", 0.95D, 1.18D),
+                    new RoomType("crystal", 15, "crystal", 1.0D, 1.05D),
+                    new RoomType("lush", 10, "lush", 1.12D, 0.88D)
+                ),
+                List.of(
+                    new PathType("natural", 70, 5, "natural"),
+                    new PathType("rugged", 20, 3, "rugged"),
+                    new PathType("worked", 10, 5, "worked")
+                ),
+                new DecorationSettings(1.0D, 2, 4, 1, 4, 4)
             );
         }
     }
@@ -913,12 +1156,32 @@ final class NaturalCaveGenerator {
     }
 
     record ManualAnchor(
-        String id, String kind, int x, int y, int z, double radiusX, double radiusZ, double height
+        String id, String kind, int x, int y, int z, double radiusX, double radiusZ,
+        double height, String roomType
     ) {}
 
-    record ManualConnection(String id, String from, String to, String kind, int width) {}
+    record ManualConnection(
+        String id, String from, String to, String kind, int width, String pathType
+    ) {}
 
-    private record CavePath(List<PathPoint> points, String kind, int width) {}
+    record RoomType(
+        String id, int weight, String decoration, double radiusScale, double heightScale
+    ) {}
+
+    record PathType(String id, int weight, int width, String floor) {}
+
+    record DecorationSettings(
+        double clusterDensity,
+        int minimumPatchRadius,
+        int maximumPatchRadius,
+        int minimumDripstoneLength,
+        int maximumDripstoneLength,
+        int routeClearance
+    ) {}
+
+    private record CavePath(
+        List<PathPoint> points, String kind, int width, PathType pathType
+    ) {}
 
     private record Room(
         double x,
@@ -927,7 +1190,8 @@ final class NaturalCaveGenerator {
         double radiusX,
         double height,
         double radiusZ,
-        String kind
+        String kind,
+        RoomType roomType
     ) {
         PathPoint pathPoint() {
             return new PathPoint(x, floorY, z);

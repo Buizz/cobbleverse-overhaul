@@ -16,7 +16,7 @@ const state = {
   project: null,
   trainers: [], battles: [], settlements: [], caves: [], trainer: null, battlePreset: null, settlement: null, cave: null,
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
-  trainerPath: "", battlePath: "", settlementPath: "", cavePath: "", buildCommands: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
+  trainerPath: "", battlePath: "", settlementPath: "", cavePath: "", buildCommands: [], exportLanguages: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
   biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
@@ -320,6 +320,7 @@ async function loadDashboard() {
   $("#health-score").textContent = data.validation.valid ? "OK" : "CHECK";
   showIssues("#dashboard-issues", data.validation);
   state.buildCommands = data.build_commands;
+  state.exportLanguages = data.export_languages || [{ id: "ko_kr", name: "한국어" }, { id: "en_us", name: "English (US)" }];
   renderBuildCommands();
 }
 
@@ -723,9 +724,9 @@ function biomeTone(biome = "") {
 }
 function tileAt(q, r) { return state.worldLayout?.tiles?.find((tile) => tile.q === q && tile.r === r); }
 function emptyTerrainAt(q, r) { return state.worldLayout?.empty_terrain?.tiles?.find((tile) => tile.q === q && tile.r === r)?.type || state.worldLayout?.empty_terrain?.default_type || "high_forest"; }
-function emptyTerrainTone(type) { return ({ high_forest: "forest", ocean: "water", desert: "arid", stone_mountain: "mountain", snow_mountain: "snow" })[type] || "forest"; }
-function emptyTerrainLabel(type) { return ({ high_forest: "높은 숲", ocean: "바다", desert: "사막", stone_mountain: "돌산", snow_mountain: "눈산" })[type] || type; }
-function emptyTerrainSymbol(type) { return ({ high_forest: "♣", ocean: "≈", desert: "·", stone_mountain: "▲", snow_mountain: "△" })[type] || "×"; }
+function emptyTerrainTone(type) { return ({ high_forest: "forest", ocean: "water", deep_ocean: "water", desert: "arid", stone_mountain: "mountain", red_rock_mountain: "arid", snow_mountain: "snow" })[type] || "forest"; }
+function emptyTerrainLabel(type) { return ({ high_forest: "높은 숲", ocean: "바다", deep_ocean: "심해", desert: "사막", stone_mountain: "돌산", red_rock_mountain: "적갈색 돌산", snow_mountain: "눈산" })[type] || type; }
+function emptyTerrainSymbol(type) { return ({ high_forest: "♣", ocean: "≈", deep_ocean: "≋", desert: "·", stone_mountain: "▲", red_rock_mountain: "◆", snow_mountain: "△" })[type] || "×"; }
 function settlementAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function objectAt(q, r) { return state.worldLayout?.objects?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function environmentOverrideAt(q, r) { return state.worldLayout?.environment_overrides?.find((entry) => entry.q === q && entry.r === r); }
@@ -1108,6 +1109,15 @@ function placeCaveEntranceWithTool(q, r) {
     id: `cobbleventure:cave_entrance/${slug}_${entranceId}`, cave: caveId, entrance: entranceId,
     anchor: { q, r }, facing: $("#cave-tool-facing").value,
     structure: $("#cave-tool-structure").value.trim(),
+    structure_variants: {
+      high_forest: $("#cave-tool-structure-plains").value.trim(),
+      desert: $("#cave-tool-structure-red-rock").value.trim(),
+      ocean: $("#cave-tool-structure-ocean").value.trim(),
+      deep_ocean: $("#cave-tool-structure-ocean").value.trim(),
+      stone_mountain: $("#cave-tool-structure-stone").value.trim(),
+      red_rock_mountain: $("#cave-tool-structure-red-rock").value.trim(),
+      snow_mountain: $("#cave-tool-structure-snow").value.trim()
+    },
     pokemon_center: { structure: $("#cave-tool-center-structure").value.trim(), offset: { q: Number($("#cave-tool-center-q").value || 0), r: Number($("#cave-tool-center-r").value || 0) } }
   });
   state.selectedHex = { q, r }; markWorldDirty(); refreshCaveToolEntrances(); renderWorldLayout(); toast("동굴 입구와 필수 포켓몬센터를 배치했습니다. 길 도구로 입구까지 연결해 주세요.");
@@ -1173,13 +1183,16 @@ function markWorldDirty() { state.worldDirty = true; updateWorldSaveState(); }
 function updateWorldSaveState() { $("#world-save-state").textContent = state.worldDirty ? "저장하지 않은 변경" : "저장된 상태"; $("#world-save-state").classList.toggle("is-dirty", state.worldDirty); }
 
 function worldBiomeOptions(selected = "") {
-  const common = ["minecraft:plains", "minecraft:forest", "minecraft:flower_forest", "minecraft:river", "minecraft:beach", "minecraft:warm_ocean", "minecraft:desert", "minecraft:savanna", "minecraft:badlands", "minecraft:windswept_hills", "minecraft:stony_peaks", "minecraft:snowy_plains"];
+  const common = ["minecraft:plains", "minecraft:forest", "minecraft:flower_forest", "minecraft:river", "minecraft:beach", "minecraft:ocean", "minecraft:deep_ocean", "minecraft:warm_ocean", "minecraft:desert", "minecraft:savanna", "minecraft:badlands", "minecraft:windswept_hills", "minecraft:stony_peaks", "minecraft:snowy_plains"];
   const current = [...(state.worldLayout?.tiles || []).map((tile) => tile.biome), ...(state.worldLayout?.settlements || []).flatMap((node) => [node.town_biome, ...(node.surroundings || []).map((region) => region.biome)])];
   return [...new Set([...common, ...current, selected].filter(Boolean))].map((biome) => `<option value="${escapeHtml(biome)}" ${biome === selected ? "selected" : ""}>${escapeHtml(biome.replace("minecraft:", ""))}</option>`).join("");
 }
 
 function renderWorldObjectNbtOptions() {
   $("#world-object-nbt-options").innerHTML = Object.keys(state.structureSizes || {}).sort()
+    .map((resource) => `<option value="${escapeHtml(resource)}"></option>`).join("");
+  $("#cave-entrance-nbt-options").innerHTML = Object.keys(state.structureSizes || {}).sort()
+    .filter((resource) => resource.startsWith("cobbleventure:cave_entrance/"))
     .map((resource) => `<option value="${escapeHtml(resource)}"></option>`).join("");
 }
 
@@ -6011,6 +6024,7 @@ function renderBuildingEditor() {
   const fixed = metadata.settings?.fixed_npcs || {};
   const banner = $("#building-type-banner");
   const citizenRow = $("#building-citizen-placement-row");
+  const noInteriorSpace = Boolean(metadata.settings?.no_interior_space);
   const citizenPlacementAllowed = Boolean(metadata.settings?.citizen_placement_allowed);
   const league = metadata.category === "league";
   const interior = ["interior", "gym_interior"].includes(metadata.category);
@@ -6023,11 +6037,18 @@ function renderBuildingEditor() {
   $("#building-size-width").min = interior ? "5" : "1";
   $("#building-size-depth").min = interior ? "5" : "1";
   $("#building-size-height").max = league ? "512" : interior ? "80" : "240";
-  citizenRow.hidden = false;
-  $("#building-citizen-placement").checked = citizenPlacementAllowed;
+  $("#building-no-interior").checked = noInteriorSpace;
+  citizenRow.hidden = noInteriorSpace;
+  $("#building-citizen-placement").checked = !noInteriorSpace && citizenPlacementAllowed;
+  $("#building-editor").querySelectorAll(".legacy-space-editor").forEach((section) => {
+    section.hidden = noInteriorSpace;
+  });
   renderBuildingInteriorAssignments(metadata);
   renderBuildingDoorRoutes(metadata, spaces);
-  if (citizenPlacementAllowed) {
+  if (noInteriorSpace) {
+    banner.className = "building-type-banner fixed";
+    banner.innerHTML = "<strong>내부 공간 없는 NBT</strong><span>자연물·장식·동굴용 구조물입니다. 내부 차원 생성과 문 이동 설정에서 완전히 제외됩니다.</span>";
+  } else if (citizenPlacementAllowed) {
     banner.className = "building-type-banner residential";
     banner.innerHTML = "<strong>시민 수용 건물</strong><span>마을이 정한 전체 시민 수를 이 건물과 다른 수용 건물의 빈 NPC 위치에 분산합니다. 건물별 확률이나 인원은 설정하지 않습니다.</span>";
     $("#building-npc-assignments").innerHTML = '<div class="issues empty">이 NBT의 npc_position 라벨은 마을 시민을 분산 배치할 수 있는 자리로 사용됩니다.</div>';
@@ -6099,11 +6120,12 @@ async function saveBuildingSettings() {
   for (const [id, metadata] of Object.entries(state.buildingSettings.structures)) {
     buildings[id] = {
       placement_y_offset: Number(metadata.settings?.placement_y_offset || 0),
+      no_interior_space: Boolean(metadata.settings?.no_interior_space),
       fixed_npcs: metadata.settings?.citizen_placement_allowed
         ? {} : { ...(metadata.settings?.fixed_npcs || {}) },
-      citizen_placement_allowed: Boolean(metadata.settings?.citizen_placement_allowed),
-      interiors: (metadata.settings?.interiors || []).map((entry) => ({ key: entry.key, structure: entry.structure })),
-      door_routes: { ...(metadata.settings?.door_routes || {}) }
+      citizen_placement_allowed: !metadata.settings?.no_interior_space && Boolean(metadata.settings?.citizen_placement_allowed),
+      interiors: metadata.settings?.no_interior_space ? [] : (metadata.settings?.interiors || []).map((entry) => ({ key: entry.key, structure: entry.structure })),
+      door_routes: metadata.settings?.no_interior_space ? {} : { ...(metadata.settings?.door_routes || {}) }
     };
   }
   const result = await request("/api/building-settings", { method: "PUT", body: JSON.stringify({ schema_version: 1, buildings }) });
@@ -6438,7 +6460,7 @@ const villageDensityProfiles = {
 };
 
 function normalizeVillageDensity(value) {
-  return villageDensityProfiles[value] ? value : "normal";
+  return villageDensityProfiles[value] ? value : "packed";
 }
 
 function ensureVillageDensityControl(form) {
@@ -8617,6 +8639,15 @@ function renderBuildCommands() {
     "pack-smoke": "모드 없이 임포트 구조만 확인하는 ZIP을 만듭니다.", pack: "현재 설정으로 개발용 임포트 ZIP을 만듭니다.",
     "validate-pack": "실제 모드 파일과 버전이 모두 확정됐는지 검사합니다."
   };
+  const languageSelect = $("#build-export-language");
+  const selectedLanguage = languageSelect?.value || "ko_kr";
+  if (languageSelect) {
+    languageSelect.innerHTML = state.exportLanguages.map((language) =>
+      `<option value="${escapeHtml(language.id)}">${escapeHtml(language.name)} · ${escapeHtml(language.id)}</option>`
+    ).join("");
+    languageSelect.value = state.exportLanguages.some((language) => language.id === selectedLanguage)
+      ? selectedLanguage : "ko_kr";
+  }
   $("#build-command-list").innerHTML = state.buildCommands.filter((command) => command.id !== "builder-world").map((command) => `
     <article class="build-command"><div><strong>${escapeHtml(command.id)}</strong><small>${escapeHtml(descriptions[command.id] || command.description)}</small></div><button class="button ${command.id.startsWith("pack") ? "primary" : "secondary"}" data-command="${escapeHtml(command.id)}">실행</button></article>`).join("");
   $$("[data-command]").forEach((button) => button.addEventListener("click", () => runBuild(button.dataset.command)));
@@ -8713,12 +8744,13 @@ async function importStructureBuilder() {
 }
 
 async function runBuild(command) {
+  const language = $("#build-export-language")?.value || "ko_kr";
   const buttons = $$("#builds button");
   buttons.forEach((button) => button.disabled = true);
   $("#build-state").textContent = `${command} 실행 중`;
   $("#build-output").textContent = "작업이 끝날 때까지 잠시 기다려 주세요…";
   try {
-    const result = await request("/api/build", { method: "POST", body: JSON.stringify({ command }) });
+    const result = await request("/api/build", { method: "POST", body: JSON.stringify({ command, language }) });
     $("#build-output").textContent = result.data.output || result.data.error || "결과가 없습니다.";
     $("#build-state").textContent = result.ok ? "성공" : "실패";
     toast(result.ok ? `${command} 작업을 완료했습니다.` : `${command} 작업을 확인해 주세요.`);
@@ -8930,6 +8962,17 @@ $("#building-citizen-placement").addEventListener("change", (event) => {
   if (!metadata) return;
   metadata.settings.citizen_placement_allowed = event.target.checked;
   if (event.target.checked) metadata.settings.fixed_npcs = {};
+  markBuildingSettingsDirty();
+});
+$("#building-no-interior").addEventListener("change", (event) => {
+  const metadata = state.buildingSettings.structures[state.buildingSettings.selected];
+  if (!metadata) return;
+  metadata.settings.no_interior_space = event.target.checked;
+  if (event.target.checked) {
+    metadata.settings.citizen_placement_allowed = false;
+    metadata.settings.interiors = [];
+    metadata.settings.door_routes = {};
+  }
   markBuildingSettingsDirty();
 });
 $("#building-placement-y-offset").addEventListener("change", (event) => {

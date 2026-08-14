@@ -379,8 +379,9 @@ final class NativeWorldGeneration {
                 (int) coordinateHash(worldX, worldZ, 0x454D50545947524FL), 100
             );
             BlockState decoration = null;
-            if (type.equals("ocean") && !column.rocky()) {
-                if (chance < 22) decoration = Blocks.SEAGRASS.defaultBlockState();
+            if (CobbleventureBootstrap.isEmptyOceanType(type) && !column.rocky()) {
+                int seagrassChance = type.equals("deep_ocean") ? 10 : 22;
+                if (chance < seagrassChance) decoration = Blocks.SEAGRASS.defaultBlockState();
             } else if (type.equals("high_forest") && !column.rocky()) {
                 if (chance < 18) decoration = Blocks.FERN.defaultBlockState();
                 else if (chance < 36) decoration = Blocks.SHORT_GRASS.defaultBlockState();

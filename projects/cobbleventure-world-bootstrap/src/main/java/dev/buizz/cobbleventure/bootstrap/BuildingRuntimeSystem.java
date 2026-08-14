@@ -101,6 +101,9 @@ final class BuildingRuntimeSystem {
             level, metadata, origin.toBlockPos(), rotation, instanceKey,
             settings == null ? Map.of() : settings.fixedNpcs, "exterior"
         );
+        if (settings != null && settings.noInteriorSpace) {
+            return;
+        }
         if (settings != null) {
             prepareConfiguredInteriors(
                 level, structure, metadata, origin.toBlockPos(), rotation,
@@ -214,6 +217,8 @@ final class BuildingRuntimeSystem {
                 SETTINGS.put(entry.getKey(), new BuildingSettings(
                     value.has("placement_y_offset")
                         ? value.get("placement_y_offset").getAsInt() : 0,
+                    value.has("no_interior_space")
+                        && value.get("no_interior_space").getAsBoolean(),
                     Map.copyOf(fixed),
                     value.has("citizen_placement_allowed")
                         ? value.get("citizen_placement_allowed").getAsBoolean()
@@ -513,8 +518,37 @@ final class BuildingRuntimeSystem {
     }
 
     private static void registerDoor(ServerLevel level, BlockPos lower, DoorTarget target) {
+        registerDoorBlocks(level, lower, target);
+        BlockPos paired = pairedDoorPosition(level, lower);
+        if (paired != null) {
+            registerDoorBlocks(level, paired, target);
+        }
+    }
+
+    private static void registerDoorBlocks(ServerLevel level, BlockPos lower, DoorTarget target) {
         DOORS.put(new DoorKey(level.dimension(), lower.immutable()), target);
         DOORS.put(new DoorKey(level.dimension(), lower.above().immutable()), target);
+    }
+
+    private static BlockPos pairedDoorPosition(ServerLevel level, BlockPos lower) {
+        BlockState state = level.getBlockState(lower);
+        if (!(state.getBlock() instanceof DoorBlock)) {
+            return null;
+        }
+        net.minecraft.core.Direction facing = state.getValue(DoorBlock.FACING);
+        DoorHingeSide hinge = state.getValue(DoorBlock.HINGE);
+        for (net.minecraft.core.Direction side
+            : List.of(facing.getClockWise(), facing.getCounterClockWise())) {
+            BlockPos candidate = lower.relative(side);
+            BlockState other = level.getBlockState(candidate);
+            if (other.getBlock() == state.getBlock()
+                && other.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER
+                && other.getValue(DoorBlock.FACING) == facing
+                && other.getValue(DoorBlock.HINGE) != hinge) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private static void installDoorIfMissing(
@@ -695,11 +729,12 @@ final class BuildingRuntimeSystem {
     }
 
     private record BuildingSettings(
-        int placementYOffset, Map<String, String> fixedNpcs, boolean citizenPlacementAllowed,
+        int placementYOffset, boolean noInteriorSpace,
+        Map<String, String> fixedNpcs, boolean citizenPlacementAllowed,
         List<InteriorSetting> interiors, Map<String, RouteTarget> routes
     ) {
         private static final BuildingSettings EMPTY = new BuildingSettings(
-            0, Map.of(), false, List.of(), Map.of()
+            0, false, Map.of(), false, List.of(), Map.of()
         );
     }
 

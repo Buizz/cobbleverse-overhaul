@@ -27,6 +27,8 @@ RESOURCE_ROOT = ROOT / "projects" / "cobbleventure-world-bootstrap" / "src" / "m
 PACK_OVERRIDE = ROOT / "pack" / "overrides" / "development-placeholder"
 INSTANCE_DEFEATED_FLAG = "cobbleventure:runtime/npc_instance_defeated"
 INSTANCE_DEFEATED_OBJECTIVE = "cv_npc_defeated"
+SUPPORTED_LANGUAGES = {"ko_kr", "en_us"}
+EXPORT_LANGUAGE = os.environ.get("COBBLEVENTURE_EXPORT_LANGUAGE", "ko_kr")
 
 
 def league_entry_npc_id(entry: dict) -> str:
@@ -126,7 +128,12 @@ def quote(value: str) -> str:
 
 def localized(value: dict | None) -> str:
     value = value or {}
-    return value.get("ko_kr") or value.get("en_us") or next(iter(value.values()), "")
+    return (
+        value.get(EXPORT_LANGUAGE)
+        or value.get("ko_kr")
+        or value.get("en_us")
+        or next(iter(value.values()), "")
+    )
 
 
 def flag_objective(resource_id: str) -> str:
@@ -965,11 +972,19 @@ def spawn_command(document: dict) -> str:
 
 
 def main() -> None:
+    global EXPORT_LANGUAGE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path, default=CATALOG)
     parser.add_argument("--content-root", type=Path, default=CONTENT_ROOT)
     parser.add_argument("--battle-root", type=Path, default=BATTLE_ROOT)
+    parser.add_argument(
+        "--language",
+        choices=sorted(SUPPORTED_LANGUAGES),
+        default=EXPORT_LANGUAGE,
+        help="EasyNPC 고정 텍스트 내보내기 언어 (기본값: ko_kr)",
+    )
     args = parser.parse_args()
+    EXPORT_LANGUAGE = args.language
     for path in generate(args.catalog.resolve(), args.content_root.resolve(), args.battle_root.resolve()):
         print(path)
     catalog = json.loads(args.catalog.resolve().read_text(encoding="utf-8"))

@@ -232,6 +232,18 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertLessEqual(len(first), 16)
 
+    def test_localized_uses_selected_export_language_with_korean_fallback(self) -> None:
+        previous = generator.EXPORT_LANGUAGE
+        try:
+            generator.EXPORT_LANGUAGE = "en_us"
+            self.assertEqual(
+                "Pokemart Clerk",
+                generator.localized({"ko_kr": "프렌들리숍 판매원", "en_us": "Pokemart Clerk"}),
+            )
+            self.assertEqual("한국어만 있음", generator.localized({"ko_kr": "한국어만 있음"}))
+        finally:
+            generator.EXPORT_LANGUAGE = previous
+
     def test_double_battle_pair_uses_partner_appearance_and_shared_events(self) -> None:
         owner = json.loads(json.dumps(self.document))
         owner["npc"]["double_battle"] = {

@@ -147,7 +147,7 @@
       }
     },
     "empty_terrain_type": {
-      "enum": ["high_forest", "ocean", "desert", "stone_mountain", "snow_mountain"]
+      "enum": ["high_forest", "ocean", "deep_ocean", "desert", "stone_mountain", "red_rock_mountain", "snow_mountain"]
     },
     "empty_terrain_tile": {
       "type": "object",
@@ -451,6 +451,19 @@
         "anchor": { "$ref": "#/$defs/axial_coordinate" },
         "facing": { "enum": ["north_east", "east", "south_east", "south_west", "west", "north_west"] },
         "structure": { "$ref": "#/$defs/resource_id" },
+        "structure_variants": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "high_forest": { "$ref": "#/$defs/resource_id" },
+            "desert": { "$ref": "#/$defs/resource_id" },
+            "ocean": { "$ref": "#/$defs/resource_id" },
+            "deep_ocean": { "$ref": "#/$defs/resource_id" },
+            "stone_mountain": { "$ref": "#/$defs/resource_id" },
+            "red_rock_mountain": { "$ref": "#/$defs/resource_id" },
+            "snow_mountain": { "$ref": "#/$defs/resource_id" }
+          }
+        },
         "pokemon_center": {
           "type": "object",
           "additionalProperties": false,

@@ -259,7 +259,7 @@
                   <p class="tool-panel-note">누른 채 드래그해 바이옴을 칠합니다. 기존 길은 그대로 유지됩니다.</p>
                 </section>
                 <section class="tool-option-panel" data-tool-options="terrain" hidden>
-                  <label><span>빈 지형 종류</span><select id="empty-terrain-brush-type"><option value="high_forest">높은 숲</option><option value="ocean">바다</option><option value="desert">사막</option><option value="stone_mountain">돌산</option><option value="snow_mountain">눈산</option></select></label>
+                    <label><span>빈 지형 종류</span><select id="empty-terrain-brush-type"><option value="high_forest">높은 숲</option><option value="ocean">바다</option><option value="deep_ocean">심해</option><option value="desert">사막</option><option value="stone_mountain">돌산</option><option value="red_rock_mountain">적갈색 돌산</option><option value="snow_mountain">눈산</option></select></label>
                   <label><span>브러시 반경</span><input id="empty-terrain-brush-radius" type="range" min="0" max="5" value="1"><output id="empty-terrain-brush-radius-value">1</output></label>
                   <p class="tool-panel-note">접근 불가 배경 지형만 칠합니다. 마을과 길은 건드리지 않습니다.</p>
                 </section>
@@ -292,7 +292,16 @@
                   <label><span>동굴</span><select id="cave-tool-cave"></select></label>
                   <label><span>내부 입구</span><select id="cave-tool-entrance"></select><small>이미 배치된 내부 입구는 다시 배치할 수 없습니다.</small></label>
                   <label><span>입구 방향</span><select id="cave-tool-facing"><option value="east">동쪽</option><option value="west">서쪽</option><option value="north_east">북동</option><option value="south_east">남동</option><option value="south_west">남서</option><option value="north_west">북서</option></select></label>
-                  <label><span>입구 구조물</span><input id="cave-tool-structure" value="cobbleventure:cave_entrance/rock"></label>
+                  <label><span>기본 입구 구조물</span><input id="cave-tool-structure" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/stone_mountain"></label>
+                  <fieldset><legend>부착 지형별 입구 NBT</legend>
+                    <label><span>평지·숲</span><input id="cave-tool-structure-plains" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/plains"></label>
+                    <label><span>돌산</span><input id="cave-tool-structure-stone" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/stone_mountain"></label>
+                    <label><span>적갈색 돌산·사막</span><input id="cave-tool-structure-red-rock" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/red_rock_mountain"></label>
+                    <label><span>설산</span><input id="cave-tool-structure-snow" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/snow_mountain"></label>
+                    <label><span>해안·바다·심해</span><input id="cave-tool-structure-ocean" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/ocean"></label>
+                    <datalist id="cave-entrance-nbt-options"></datalist>
+                    <small>모든 기본 NBT는 33×21×33이며 바닥 중앙이 경계 베리어 위치에 맞춰집니다.</small>
+                  </fieldset>
                   <fieldset><legend>필수 포켓몬센터</legend><label><span>센터 구조물</span><input id="cave-tool-center-structure" value="bca:default/one_off/pokecenter"></label><div class="inline-fields"><label><span>오프셋 Q</span><input id="cave-tool-center-q" type="number" value="0"></label><label><span>오프셋 R</span><input id="cave-tool-center-r" type="number" value="1"></label></div></fieldset>
                   <small>입구 배치 후 길 도구로 입구 좌표까지 길을 연결해야 저장할 수 있습니다.</small>
                 </section>
@@ -342,7 +351,7 @@
                 <label><span>이 타일의 BGM</span><select name="musicTrack"></select><small id="tile-music-resolution">비워 두면 종류별 기본값을 상속합니다.</small></label>
                 <label data-tile-field="biome"><span>바이옴</span><select name="biome"></select></label>
                 <label data-tile-field="biome"><span>바다회오리 경계</span><select name="whirlpoolBoundary"><option value="false">사용 안 함</option><option value="true">이 바다 외곽에 생성</option></select><small>해양 타일에 사용하면 같은 설정의 타일 군집 외곽에만 회오리가 나타납니다.</small></label>
-                <label data-tile-field="empty"><span>빈 지형 타입</span><select name="emptyTerrainType"><option value="high_forest">높은 숲 · 기본</option><option value="ocean">바다 · 바위 경계</option><option value="desert">사막</option><option value="stone_mountain">돌산</option><option value="snow_mountain">눈산</option></select><small>접근 불가 배경의 모습입니다. 비행 방지 베리어는 모든 타입에 유지됩니다.</small></label>
+                  <label data-tile-field="empty"><span>빈 지형 타입</span><select name="emptyTerrainType"><option value="high_forest">높은 숲 · 기본</option><option value="ocean">바다 · 해저 Y 37~47</option><option value="deep_ocean">심해 · 해저 Y 15~29</option><option value="desert">사막</option><option value="stone_mountain">돌산</option><option value="red_rock_mountain">적갈색 돌산</option><option value="snow_mountain">눈산</option></select><small>접근 불가 배경의 모습입니다. 비행 방지 베리어는 모든 타입에 유지됩니다.</small></label>
                 <label data-tile-field="settlement"><span>마을</span><select name="settlement"></select><small>이미 배치된 마을을 선택하면 이 타일로 이동합니다.</small></label>
                 <label data-tile-field="settlement"><span>마을 바이옴</span><select name="townBiome"></select><small>이 월드맵에서 마을 전체에 적용할 바이옴입니다.</small></label>
                 <label data-terrain-connection-field><span>연결 높이 단계</span><input name="connectionHeight" type="number" min="-8" max="8" step="1"><small>같은 단계이면서 이동 조건도 같은 인접 타일끼리만 경계 높이를 이어 줍니다.</small></label>
@@ -507,9 +516,9 @@
           </div>
           <div class="space-flow-board">
             <aside class="space-flow-library">
-              <header><p class="eyebrow">SPACE LIBRARY</p><h3>공간 팔레트</h3><label><span>공간 검색</span><input id="space-library-search" type="search" placeholder="집, 체육관, NBT ID…"></label><div class="space-library-filters"><label><span>건물 유형</span><select id="space-library-kind-filter"><option value="all">모든 유형</option><option value="building">일반 건물</option><option value="gym">체육관</option></select></label><label><span>연결 상태</span><select id="space-library-route-filter"><option value="all">모든 상태</option><option value="connected">연결 있음</option><option value="unconnected">연결 없음</option></select></label><button id="reset-space-library-filters" type="button">초기화</button></div></header>
-              <section><div class="space-library-title"><strong>오버월드 건물 <span id="space-building-result-count" aria-live="polite"></span></strong><small>선택하면 연결도가 바로 열립니다.</small></div><div class="space-building-cards" id="space-building-cards"><div class="issues empty">건물을 불러오는 중입니다.</div></div></section>
-              <section><div class="space-library-title"><strong>내부 공간</strong><small>카드를 캔버스로 끌어 놓으세요.</small></div><div class="space-interior-cards" id="space-interior-cards"><div class="issues empty">내부 공간을 불러오는 중입니다.</div></div></section>
+              <header><p class="eyebrow">SPACE LIBRARY</p><h3>공간 팔레트</h3><div class="space-library-tabs" role="tablist" aria-label="공간 팔레트 단계"><button class="is-active" type="button" role="tab" aria-selected="true" data-space-library-tab="building"><b>1</b><span>외부 건물 선택</span></button><button type="button" role="tab" aria-selected="false" data-space-library-tab="interior"><b>2</b><span>내부 공간 배치</span></button></div></header>
+              <section class="space-library-pane is-active" data-space-library-pane="building"><div class="space-library-title"><strong>외부 건물 <span id="space-building-result-count" aria-live="polite"></span></strong><small>먼저 편집할 오버월드 건물을 선택하세요.</small></div><label class="space-library-search"><span>외부 건물 검색</span><input id="space-building-search" type="search" placeholder="집, 체육관, 외부 NBT ID…"></label><div class="space-library-filters"><label><span>건물 유형</span><select id="space-library-kind-filter"><option value="all">모든 유형</option><option value="building">일반 건물</option><option value="gym">체육관</option></select></label><label><span>연결 상태</span><select id="space-library-route-filter"><option value="all">모든 상태</option><option value="connected">연결 있음</option><option value="unconnected">연결 없음</option></select></label><button id="reset-space-library-filters" type="button">초기화</button></div><div class="space-building-cards" id="space-building-cards"><div class="issues empty">건물을 불러오는 중입니다.</div></div></section>
+              <section class="space-library-pane" data-space-library-pane="interior" hidden><div class="space-library-title"><strong>내부 공간 배치</strong><small id="space-interior-target">외부 건물을 먼저 선택하세요.</small></div><label class="space-library-search"><span>내부 공간 검색</span><input id="space-interior-search" type="search" placeholder="방 이름, 내부 NBT ID…"></label><div class="space-interior-cards" id="space-interior-cards"><div class="issues empty">내부 공간을 불러오는 중입니다.</div></div></section>
             </aside>
             <div class="space-flow-viewport" id="space-flow-viewport">
               <div class="space-flow-controls"><button class="mini-button" id="auto-layout-space-flow" type="button">자동 정렬</button><button class="mini-button" id="fit-space-flow" type="button">처음 위치</button></div>
@@ -547,7 +556,7 @@
           <div class="nbt-viewer-layout building-settings-layout">
             <aside class="nbt-structure-browser">
               <label><span>NBT 건물 검색</span><input id="building-search" type="search" placeholder="포켓몬센터, 상점, house…"></label>
-              <label><span>구조물 종류</span><select id="building-category"><option value="all">전체 구조물</option><option value="building">일반 건물</option><option value="residential">주택</option><option value="decoration">마을 장식</option><option value="gym_exterior">체육관 외관 템플릿</option><option value="gym_interior">체육관 내부 모듈</option><option value="interior">건물 내부 모듈</option><option value="league">리그</option><option value="placeholder">임시·특수 건물</option></select></label>
+              <label><span>구조물 종류</span><select id="building-category"><option value="all">전체 구조물</option><option value="building">일반 건물</option><option value="residential">주택</option><option value="decoration">마을 장식</option><option value="natural_feature">자연물·동굴</option><option value="gym_exterior">체육관 외관 템플릿</option><option value="gym_interior">체육관 내부 모듈</option><option value="interior">건물 내부 모듈</option><option value="league">리그</option><option value="placeholder">임시·특수 건물</option></select></label>
               <div class="nbt-structure-browser-meta"><strong id="building-count">0개</strong><small>관리 대상 NBT 건물</small></div>
               <div class="nbt-structure-list" id="building-list"><div class="issues empty">NBT 건물을 불러오는 중입니다.</div></div>
             </aside>
@@ -595,6 +604,7 @@
                   <header><div><strong>NPC 배정</strong><small>외부와 내부의 NPC 라벨을 함께 설정합니다.</small></div></header>
                 <div id="building-npc-assignments" class="building-npc-assignments"></div>
                 </section>
+                <label class="toggle building-citizen-toggle" id="building-no-interior-row"><input type="checkbox" id="building-no-interior"><span>내부 공간 없음 (자연물·장식·동굴)</span></label>
                 <label class="toggle building-citizen-toggle" id="building-citizen-placement-row"><input type="checkbox" id="building-citizen-placement"><span>시민을 수용할 수 있는 건물</span></label>
                 <div id="building-settings-issues" class="issues empty">변경 사항이 없습니다.</div>
               </div>
@@ -718,6 +728,10 @@
             </div>
             <small class="structure-builder-path" id="structure-builder-world-path">인스턴스 경로를 저장해 주세요.</small>
           </section>
+          <div class="build-export-options">
+            <label for="build-export-language"><span>내보내기 언어</span><select id="build-export-language"><option value="ko_kr">한국어 · ko_kr</option><option value="en_us">English (US) · en_us</option></select></label>
+            <small>상점·EasyNPC처럼 마인크래프트 언어 설정을 실시간으로 읽지 못하는 콘텐츠를 선택한 언어로 고정 내보냅니다.</small>
+          </div>
           <div class="build-grid" id="build-command-list"></div>
           <div class="terminal-heading"><span>실행 결과</span><span id="build-state">대기 중</span></div>
           <pre class="terminal" id="build-output">빌드 버튼을 누르면 결과가 여기에 표시됩니다.</pre>
