@@ -135,6 +135,9 @@ public final class CobbleventureBootstrap {
     private static final TicketType<ChunkPos> TOWN_GENERATION_TICKET = TicketType.create(
         "cobbleventure_town_generation", Comparator.comparingLong(ChunkPos::toLong)
     );
+    private static final TicketType<ChunkPos> STRUCTURE_GENERATION_TICKET = TicketType.create(
+        "cobbleventure_structure_generation", Comparator.comparingLong(ChunkPos::toLong)
+    );
     private static final int OCEAN_CLIFF_MAX_Y = WATER_SURFACE_Y + 4;
     private static final int GYM_LOT_CLEARANCE = 6;
     private static final int GYM_LOT_SEARCH_RADIUS = 86;
@@ -4293,14 +4296,12 @@ public final class CobbleventureBootstrap {
         List<ChunkPos> forcedChunks = new ArrayList<>();
         int centerChunkX = center.getX() >> 4;
         int centerChunkZ = center.getZ() >> 4;
-        if (level.setChunkForced(centerChunkX, centerChunkZ, true)) {
-            forcedChunks.add(new ChunkPos(centerChunkX, centerChunkZ));
-        }
         for (int chunkX = centerChunkX - radius; chunkX <= centerChunkX + radius; chunkX++) {
             for (int chunkZ = centerChunkZ - radius; chunkZ <= centerChunkZ + radius; chunkZ++) {
-                level.getChunk(chunkX, chunkZ);
+                forcedChunks.add(new ChunkPos(chunkX, chunkZ));
             }
         }
+        loadGenerationChunks(level, forcedChunks);
         return forcedChunks;
     }
 
@@ -4319,12 +4320,10 @@ public final class CobbleventureBootstrap {
         List<ChunkPos> forcedChunks = new ArrayList<>();
         for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
             for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                if (level.setChunkForced(chunkX, chunkZ, true)) {
-                    forcedChunks.add(new ChunkPos(chunkX, chunkZ));
-                }
-                level.getChunk(chunkX, chunkZ);
+                forcedChunks.add(new ChunkPos(chunkX, chunkZ));
             }
         }
+        loadGenerationChunks(level, forcedChunks);
         return forcedChunks;
     }
 
@@ -4343,18 +4342,35 @@ public final class CobbleventureBootstrap {
         List<ChunkPos> forcedChunks = new ArrayList<>();
         for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
             for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                if (level.setChunkForced(chunkX, chunkZ, true)) {
-                    forcedChunks.add(new ChunkPos(chunkX, chunkZ));
-                }
-                level.getChunk(chunkX, chunkZ);
+                forcedChunks.add(new ChunkPos(chunkX, chunkZ));
             }
         }
+        loadGenerationChunks(level, forcedChunks);
         return forcedChunks;
+    }
+
+    private static void loadGenerationChunks(
+        ServerLevel level, List<ChunkPos> chunks
+    ) {
+        // These chunks are resident only for the lifetime of the structure edit.
+        // setChunkForced persists them in world data and is not a work ticket.
+        for (ChunkPos chunk : chunks) {
+            level.getChunkSource().addRegionTicket(
+                STRUCTURE_GENERATION_TICKET, chunk, 0, chunk
+            );
+        }
+        for (ChunkPos chunk : chunks) {
+            if (level.getChunkSource().getChunkNow(chunk.x, chunk.z) == null) {
+                level.getChunk(chunk.x, chunk.z);
+            }
+        }
     }
 
     private static void releaseForcedChunks(ServerLevel level, List<ChunkPos> chunks) {
         for (ChunkPos chunk : chunks) {
-            level.setChunkForced(chunk.x, chunk.z, false);
+            level.getChunkSource().removeRegionTicket(
+                STRUCTURE_GENERATION_TICKET, chunk, 0, chunk
+            );
         }
     }
 
@@ -6619,7 +6635,8 @@ public final class CobbleventureBootstrap {
         if (Math.abs(distance - expectedDistance) > 2.0D) {
             throw new IllegalStateException(
                 "Route endpoint is not anchored at the town edge: "
-                    + routeId + " (" + side + ", distance=" + distance + ")"
+                    + routeId + " (" + side + ", distance=" + distance
+                    + ", expected=" + expectedDistance + ")"
             );
         }
     }
@@ -7376,15 +7393,26 @@ public final class CobbleventureBootstrap {
     }
 
     private static void verifyBoundaryWarp(HexWorldPlan world) {
-        HexBounds bounds = world.grid().bounds(world.cells().keySet());
         double totalDisplacement = 0.0D;
         double maximumDisplacement = 0.0D;
         int samples = 0;
-        for (int x = bounds.minX(); x <= bounds.maxX(); x += 16) {
-            for (int z = bounds.minZ(); z <= bounds.maxZ(); z += 16) {
-                WarpedPoint warped = warpedCellPoint(world, x + 0.5D, z + 0.5D);
+        for (HexCoord cell : world.cells().keySet()) {
+            Point center = world.grid().worldCenter(cell);
+            for (HexCoord neighbor : cell.neighbors()) {
+                if (world.cells().containsKey(neighbor)
+                    && (cell.q() > neighbor.q()
+                        || cell.q() == neighbor.q() && cell.r() > neighbor.r())) {
+                    continue;
+                }
+                Point neighborCenter = world.grid().worldCenter(neighbor);
+                double x = (center.x() + neighborCenter.x()) * 0.5D;
+                double z = (center.z() + neighborCenter.z()) * 0.5D;
+                if (settlementWarpFactor(world, x, z) < 0.95D) {
+                    continue;
+                }
+                WarpedPoint warped = warpedCellPoint(world, x, z);
                 double displacement = Math.hypot(
-                    warped.x() - (x + 0.5D), warped.z() - (z + 0.5D)
+                    warped.x() - x, warped.z() - z
                 );
                 totalDisplacement += displacement;
                 maximumDisplacement = Math.max(maximumDisplacement, displacement);
@@ -7597,7 +7625,10 @@ public final class CobbleventureBootstrap {
         CellPlan unwarpedPlan = world.cells().get(unwarpedCell);
         Point cellCenter = world.grid().worldCenter(unwarpedCell);
         double configuredEdgeNoise = unwarpedPlan == null ? 0.18D : unwarpedPlan.edgeNoise();
-        double warpGain = 0.82D + Math.min(0.72D, configuredEdgeNoise * 3.2D);
+        // Anchoring every noise octave at the cell center keeps authored roads and
+        // facilities stable, but also reduces displacement at the actual cell edge.
+        // Restore the original boundary strength without moving those fixed centers.
+        double warpGain = (0.82D + Math.min(0.72D, configuredEdgeNoise * 3.2D)) * 1.20D;
         double protection = settlementWarpFactor(world, x, z);
         double broadWarp = world.grid().radius() * 1.20D * warpGain * protection;
         double mediumWarp = world.grid().radius() * 0.74D * warpGain * protection;
@@ -10630,16 +10661,11 @@ public final class CobbleventureBootstrap {
         }
         Point centerPoint = townFootprintWorldCenter(grid, settlement);
         WarpedPoint center = new WarpedPoint(centerPoint.x(), centerPoint.z());
-        WarpedPoint directionTarget = ordered.getLast();
-        double directionX = directionTarget.x() - center.x();
-        double directionZ = directionTarget.z() - center.z();
-        double edgeRadius = townRouteEdgeRadius(
-            grid, settlement, directionX, directionZ
-        );
+        Set<HexCoord> footprint = townFootprint(settlement);
         int firstOutside = -1;
         for (int index = 0; index < ordered.size(); index++) {
             WarpedPoint point = ordered.get(index);
-            if (Math.hypot(point.x() - center.x(), point.z() - center.z()) > edgeRadius) {
+            if (!footprint.contains(grid.worldToHex(point.x(), point.z()))) {
                 firstOutside = index;
                 break;
             }
@@ -10652,6 +10678,9 @@ public final class CobbleventureBootstrap {
         if (length < 1.0D) {
             return controls;
         }
+        double edgeRadius = townRouteEdgeRadius(
+            grid, settlement, dx, dz
+        );
         WarpedPoint edge = new WarpedPoint(
             center.x() + dx / length * edgeRadius,
             center.z() + dz / length * edgeRadius

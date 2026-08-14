@@ -55,7 +55,11 @@ final class BuildingRuntimeSystem {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String DATA_FILE = "cobbleventure_building_runtime";
     private static final String INTERACTION_COOLDOWN = "cobbleventureBuildingDoorCooldown";
-    private static final int SLOT_SPACING = 512;
+    private static final int LARGE_SLOT_SPACING = 512;
+    private static final int COMPACT_SLOT_SPACING = 128;
+    private static final int COMPACT_TEMPLATE_LIMIT = 96;
+    private static final int SLOTS_PER_ROW = 32;
+    private static final int SLOT_MARGIN = 32;
     private static final int SLOT_Y = 64;
     private static final ResourceKey<Level> INTERIORS = ResourceKey.create(
         Registries.DIMENSION,
@@ -339,11 +343,16 @@ final class BuildingRuntimeSystem {
             return;
         }
 
-        BlockPos interiorOrigin = instanceOrigin(instanceKey);
         RuntimeData data = data(exterior.getServer());
+        Vec3i interiorSize = template.orElseThrow().getSize();
+        BlockPos interiorOrigin = instanceOrigin(
+            data, instanceKey,
+            interiorSize.getX() <= COMPACT_TEMPLATE_LIMIT
+                && interiorSize.getZ() <= COMPACT_TEMPLATE_LIMIT
+        );
         String preparedKey = instanceKey + "|interior";
         if (!data.hasPrepared(preparedKey)) {
-            forceChunks(interiors, interiorOrigin, template.orElseThrow().getSize());
+            forceChunks(interiors, interiorOrigin, interiorSize);
             boolean placed = template.orElseThrow().placeInWorld(
                 interiors, interiorOrigin, interiorOrigin, new StructurePlaceSettings(),
                 RandomSource.create(interiors.getSeed() ^ interiorOrigin.asLong()), 2
@@ -403,8 +412,8 @@ final class BuildingRuntimeSystem {
         spaces.put("exterior", new SpaceInstance(
             exterior, exteriorOrigin, exteriorRotation, exteriorMetadata
         ));
-        BlockPos base = instanceOrigin(instanceKey);
         RuntimeData runtime = data(exterior.getServer());
+        BlockPos base = instanceOrigin(runtime, instanceKey, false);
         int index = 0;
         for (InteriorSetting interior : settings.interiors) {
             StructureMetadata metadata = METADATA.get(interior.structure);
@@ -667,11 +676,41 @@ final class BuildingRuntimeSystem {
         };
     }
 
-    private static BlockPos instanceOrigin(String key) {
+    private static BlockPos instanceOrigin(
+        RuntimeData data, String key, boolean compact
+    ) {
+        Integer compactSlot = data.existingInstanceSlot("compact|" + key);
+        Integer largeSlot = data.existingInstanceSlot("large|" + key);
+        if (compactSlot != null) {
+            return allocatedInstanceOrigin(compactSlot, true);
+        }
+        if (largeSlot != null) {
+            return allocatedInstanceOrigin(largeSlot, false);
+        }
+        int slot = data.instanceSlot((compact ? "compact|" : "large|") + key, key);
+        if (slot >= 0) {
+            return allocatedInstanceOrigin(slot, compact);
+        }
+        return legacyInstanceOrigin(key);
+    }
+
+    private static BlockPos allocatedInstanceOrigin(int slot, boolean compact) {
+        int x = Math.floorMod(slot, SLOTS_PER_ROW);
+        int z = Math.floorDiv(slot, SLOTS_PER_ROW);
+        int spacing = compact ? COMPACT_SLOT_SPACING : LARGE_SLOT_SPACING;
+        int zDirection = compact ? 1 : -1;
+        return new BlockPos(
+            x * spacing + SLOT_MARGIN,
+            SLOT_Y,
+            (z + (compact ? 0 : 1)) * spacing * zDirection + SLOT_MARGIN
+        );
+    }
+
+    private static BlockPos legacyInstanceOrigin(String key) {
         int hash = key.hashCode();
         int x = Math.floorMod(hash, 4096) - 2048;
         int z = Math.floorMod(Integer.rotateLeft(hash, 13), 4096) - 2048;
-        return new BlockPos(x * SLOT_SPACING, SLOT_Y, z * SLOT_SPACING);
+        return new BlockPos(x * LARGE_SLOT_SPACING, SLOT_Y, z * LARGE_SLOT_SPACING);
     }
 
     private static String instanceKey(ServerLevel level, String structure, BlockPos origin) {
@@ -825,12 +864,38 @@ final class BuildingRuntimeSystem {
     static final class RuntimeData extends SavedData {
         private final Set<String> spawned = new HashSet<>();
         private final Set<String> prepared = new HashSet<>();
+        private final Map<String, Integer> instanceSlots = new LinkedHashMap<>();
+        private int nextInstanceSlot;
 
         static RuntimeData load(CompoundTag tag, HolderLookup.Provider registries) {
             RuntimeData data = new RuntimeData();
             readSet(tag.getString("spawned"), data.spawned);
             readSet(tag.getString("prepared"), data.prepared);
+            readSlots(tag.getString("instanceSlots"), data.instanceSlots);
+            data.nextInstanceSlot = data.instanceSlots.values().stream()
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(-1) + 1;
             return data;
+        }
+
+        int instanceSlot(String allocationKey, String legacyInstanceKey) {
+            Integer existing = instanceSlots.get(allocationKey);
+            if (existing != null) {
+                return existing;
+            }
+            String preparedPrefix = legacyInstanceKey + "|";
+            if (prepared.stream().anyMatch(value -> value.startsWith(preparedPrefix))) {
+                return -1;
+            }
+            int allocated = nextInstanceSlot++;
+            instanceSlots.put(allocationKey, allocated);
+            setDirty();
+            return allocated;
+        }
+
+        Integer existingInstanceSlot(String allocationKey) {
+            return instanceSlots.get(allocationKey);
         }
 
         boolean hasSpawned(String key) {
@@ -857,12 +922,42 @@ final class BuildingRuntimeSystem {
         public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
             tag.putString("spawned", String.join("\n", spawned));
             tag.putString("prepared", String.join("\n", prepared));
+            StringBuilder serializedSlots = new StringBuilder();
+            for (Map.Entry<String, Integer> entry : instanceSlots.entrySet()) {
+                if (!serializedSlots.isEmpty()) {
+                    serializedSlots.append('\n');
+                }
+                serializedSlots.append(entry.getValue()).append('\t').append(entry.getKey());
+            }
+            tag.putString("instanceSlots", serializedSlots.toString());
             return tag;
         }
 
         private static void readSet(String serialized, Set<String> target) {
             if (!serialized.isBlank()) {
                 target.addAll(List.of(serialized.split("\\n")));
+            }
+        }
+
+        private static void readSlots(
+            String serialized, Map<String, Integer> target
+        ) {
+            if (serialized.isBlank()) {
+                return;
+            }
+            for (String line : serialized.split("\\n")) {
+                int separator = line.indexOf('\t');
+                if (separator <= 0 || separator == line.length() - 1) {
+                    continue;
+                }
+                try {
+                    int slot = Integer.parseInt(line.substring(0, separator));
+                    if (slot >= 0) {
+                        target.put(line.substring(separator + 1), slot);
+                    }
+                } catch (NumberFormatException ignored) {
+                    LOGGER.warn("Ignoring invalid building interior slot: {}", line);
+                }
             }
         }
     }
