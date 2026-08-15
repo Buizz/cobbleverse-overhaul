@@ -49,18 +49,23 @@ function buildingCardTitle(choice) {
   return choice.owner.split("/").pop()?.replaceAll("_", " ") || choice.owner;
 }
 
+function supportsInteriorConnections(metadata = {}) {
+  return !metadata.no_interior_space
+    && !["interior", "gym_interior", "league", "decoration", "natural_feature"].includes(metadata.category);
+}
+
 function buildingChoices() {
   const choices = flow.graphs.filter((graph) => {
     if (graph.kind === "gym") return true;
-    const category = flow.structures[graph.owner]?.category;
-    return !["interior", "gym_interior", "league", "gym_exterior", "decoration"].includes(category);
+    const metadata = flow.structures[graph.owner] || {};
+    return supportsInteriorConnections(metadata) && metadata.category !== "gym_exterior";
   }).map((graph) => ({
     id: graph.id, owner: graph.owner, kind: graph.kind,
     label: graph.display_name || graph.owner, graph,
   }));
   const owners = new Set(choices.map((choice) => choice.owner));
   for (const [id, metadata] of Object.entries(flow.structures)) {
-    if (owners.has(id) || ["interior", "gym_interior", "league", "gym_exterior", "decoration"].includes(metadata.category)) continue;
+    if (owners.has(id) || !supportsInteriorConnections(metadata) || metadata.category === "gym_exterior") continue;
     choices.push({ id: `building:${id}`, owner: id, kind: "building", label: id, graph: null });
   }
   return choices.sort((left, right) => `${left.kind}:${left.label}`.localeCompare(`${right.kind}:${right.label}`, "ko"));
@@ -270,7 +275,7 @@ function renderInspector() {
     inspector.innerHTML = `<header><p class="eyebrow">SPACE NODE</p><h3>${escapeHtml(node.id)}</h3><small>공간 카드 설정</small></header>
       <div class="space-inspector-fields">
         <label><span>공간 키</span><input data-node-field="id" value="${escapeHtml(node.id)}" ${node.kind === "exterior" ? "disabled" : ""}></label>
-        <label><span>NBT 공간</span><select data-node-field="structure">${Object.entries(flow.structures).filter(([, metadata]) => node.kind === "exterior" ? !["interior", "gym_interior"].includes(metadata.category) : ["interior", "gym_interior"].includes(metadata.category)).map(([id]) => `<option value="${escapeHtml(id)}"${id === node.structure ? " selected" : ""}>${escapeHtml(id)}</option>`).join("")}</select></label>
+        <label><span>NBT 공간</span><select data-node-field="structure">${Object.entries(flow.structures).filter(([, metadata]) => node.kind === "exterior" ? supportsInteriorConnections(metadata) : ["interior", "gym_interior"].includes(metadata.category)).map(([id]) => `<option value="${escapeHtml(id)}"${id === node.structure ? " selected" : ""}>${escapeHtml(id)}</option>`).join("")}</select></label>
         ${graph.kind === "gym" && node.kind === "interior" ? `<div class="space-world-position"><label><span>월드 X</span><input type="number" data-world-axis="0" value="${Number(world[0] || 0)}"></label><label><span>Y</span><input type="number" data-world-axis="1" value="${Number(world[1] || 0)}"></label><label><span>Z</span><input type="number" data-world-axis="2" value="${Number(world[2] || 0)}"></label></div><label><span>회전</span><select data-node-field="rotation">${["none", "clockwise_90", "clockwise_180", "counterclockwise_90"].map((value) => `<option value="${value}"${value === node.rotation ? " selected" : ""}>${value}</option>`).join("")}</select></label>` : ""}
       </div>
       ${node.kind === "interior" ? '<button class="button danger space-delete" id="delete-space-node" type="button">이 공간 삭제</button>' : ""}`;

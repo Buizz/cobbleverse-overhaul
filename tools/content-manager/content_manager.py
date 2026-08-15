@@ -7778,8 +7778,9 @@ def space_connections_payload(
         structure_payload if isinstance(structure_payload, dict)
         else building_settings_payload(root)
     ).get("structures", {})
-    structures = {
-        resource_id: {
+    structures = {}
+    for resource_id, metadata in full_structures.items():
+        structure = {
             key: metadata[key]
             for key in (
                 "category", "category_label", "width", "height", "depth",
@@ -7787,13 +7788,19 @@ def space_connections_payload(
             )
             if key in metadata
         }
-        for resource_id, metadata in full_structures.items()
-    }
+        metadata_settings = metadata.get("settings", {})
+        structure["no_interior_space"] = bool(
+            metadata_settings.get("no_interior_space", False)
+            if isinstance(metadata_settings, dict) else False
+        )
+        structures[resource_id] = structure
     settings = load_building_settings(root)["buildings"]
     graphs: list[dict[str, Any]] = []
 
     for exterior_id, entry in sorted(settings.items()):
         if exterior_id not in structures or not isinstance(entry, dict):
+            continue
+        if entry.get("no_interior_space", False):
             continue
         if structures[exterior_id].get("category") in {
             "interior", "gym_interior", "league", "gym_exterior", "decoration",
@@ -7945,9 +7952,17 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         if kind not in {"building", "gym"} or not isinstance(owner, str):
             _issue(issues, "error", path, graph_path, "건물 또는 체육관 소유자가 필요합니다.")
             continue
-        if kind == "building" and structure_categories.get(owner) in {
-            "interior", "gym_interior", "league", "gym_exterior", "decoration",
-        }:
+        owner_settings = building_settings.get(owner, {})
+        if kind == "building" and (
+            structure_categories.get(owner) in {
+                "interior", "gym_interior", "league", "gym_exterior", "decoration",
+                "natural_feature",
+            }
+            or (
+                isinstance(owner_settings, dict)
+                and owner_settings.get("no_interior_space", False)
+            )
+        ):
             _issue(issues, "error", path, f"{graph_path}.owner", "외부 건물만 연결도의 시작 공간이 될 수 있습니다.")
             continue
         if not isinstance(nodes, list) or not isinstance(connections, list):

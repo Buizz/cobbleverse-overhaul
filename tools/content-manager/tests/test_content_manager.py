@@ -3395,6 +3395,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('flow.filters.kind', script)
         self.assertIn('flow.filters.route', script)
         self.assertIn('flow.paletteTab = "interior"', script)
+        self.assertIn('function supportsInteriorConnections', script)
+        self.assertIn('!metadata.no_interior_space', script)
+        self.assertIn('"natural_feature"', script)
         self.assertIn('.space-flow-edge', styles)
         self.assertIn('.space-library-filters', styles)
         self.assertIn('.legacy-space-editor { display: none', styles)
@@ -3406,10 +3409,16 @@ class ContentManagerTests(unittest.TestCase):
             root = Path(directory)
             exterior = root / "content/structures/houses/test_house.nbt"
             interior = root / "content/structures/interiors/test_room.nbt"
+            cave_entrance = root / "content/structures/cave_entrance/test_cave.nbt"
+            no_interior = root / "content/structures/monuments/test_statue.nbt"
             exterior.parent.mkdir(parents=True)
             interior.parent.mkdir(parents=True)
+            cave_entrance.parent.mkdir(parents=True)
+            no_interior.parent.mkdir(parents=True)
             exterior.write_bytes(self._structure_nbt((16, 8, 16)))
             interior.write_bytes(self._structure_nbt((12, 6, 12)))
+            cave_entrance.write_bytes(self._structure_nbt((16, 8, 16)))
+            no_interior.write_bytes(self._structure_nbt((16, 8, 16)))
             exterior.with_suffix(".structure.json").write_text(json.dumps({
                 "schema_version": 1,
                 "anchors": [{"type": "interior_entry", "label": "front", "position": [7, 1, 1]}],
@@ -3435,6 +3444,14 @@ class ContentManagerTests(unittest.TestCase):
                         "fixed_npcs": {}, "citizen_placement_allowed": False,
                         "interiors": [], "door_routes": {},
                     },
+                    "cobbleventure:cave_entrance/test_cave": {
+                        "no_interior_space": True, "fixed_npcs": {},
+                        "citizen_placement_allowed": False, "interiors": [], "door_routes": {},
+                    },
+                    "cobbleventure:monuments/test_statue": {
+                        "no_interior_space": True, "fixed_npcs": {},
+                        "citizen_placement_allowed": False, "interiors": [], "door_routes": {},
+                    },
                 },
             }), encoding="utf-8")
             (catalogs / "gyms.json").write_text(json.dumps({
@@ -3443,9 +3460,26 @@ class ContentManagerTests(unittest.TestCase):
 
             payload = content_manager.space_connections_payload(root)
             self.assertEqual(1, len(payload["graphs"]))
+            self.assertTrue(payload["structures"]["cobbleventure:cave_entrance/test_cave"]["no_interior_space"])
+            self.assertTrue(payload["structures"]["cobbleventure:monuments/test_statue"]["no_interior_space"])
             graph = payload["graphs"][0]
             self.assertEqual("building", graph["kind"])
             self.assertEqual(["exterior", "main"], [node["id"] for node in graph["nodes"]])
+            blocked_issues = content_manager.save_space_connections(root, {
+                "schema_version": 1,
+                "graphs": [{
+                    "id": "building:cobbleventure:monuments/test_statue",
+                    "kind": "building",
+                    "owner": "cobbleventure:monuments/test_statue",
+                    "nodes": [{
+                        "id": "exterior", "kind": "exterior",
+                        "structure": "cobbleventure:monuments/test_statue",
+                        "position": [90, 170],
+                    }],
+                    "connections": [],
+                }],
+            })
+            self.assertTrue(any(issue.level == "error" and issue.path.endswith(".owner") for issue in blocked_issues))
             graph["nodes"][1]["position"] = [777, 333]
             graph["connections"][0]["conditions"] = [{
                 "type": "variable", "source": "scoreboard", "key": "badge_count",

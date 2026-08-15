@@ -409,22 +409,28 @@ public final class StructureBuilderMod {
             BuilderData data = data(source.getServer());
             requirePrepared(data);
             int saved = 0;
+            List<String> removedDoorAnchors = new ArrayList<>();
             for (PlannedEntry planned : plan(catalog, data.groundY)) {
                 if (planned.entry().category().equals("interiors")
                     && data.interior(planned.entry().label()).isPresent()) {
                     continue;
                 }
-                export(source.getServer().overworld(), catalog, planned);
+                removedDoorAnchors.addAll(
+                    export(source.getServer().overworld(), catalog, planned)
+                );
                 saved++;
             }
             for (InteriorPlot interior : data.interiors()) {
-                exportInterior(source.getServer().overworld(), interior);
+                removedDoorAnchors.addAll(
+                    exportInterior(source.getServer().overworld(), interior)
+                );
                 saved++;
             }
             int count = saved;
             source.sendSuccess(
                 () -> Component.literal(
                     "[Structure Builder] " + count + "개 부지를 NBT로 내보냈습니다."
+                        + removedDoorAnchorNotice(removedDoorAnchors)
                 ),
                 true
             );
@@ -442,14 +448,20 @@ public final class StructureBuilderMod {
             PlannedEntry planned = find(catalog, data.groundY, requested);
             Optional<InteriorPlot> resized = planned.entry().category().equals("interiors")
                 ? data.interior(planned.entry().label()) : Optional.empty();
+            List<String> removedDoorAnchors;
             if (resized.isPresent()) {
-                exportInterior(source.getServer().overworld(), resized.get());
+                removedDoorAnchors = exportInterior(
+                    source.getServer().overworld(), resized.get()
+                );
             } else {
-                export(source.getServer().overworld(), catalog, planned);
+                removedDoorAnchors = export(
+                    source.getServer().overworld(), catalog, planned
+                );
             }
             source.sendSuccess(
                 () -> Component.literal(
                     "[Structure Builder] NBT 내보내기 완료: " + planned.entry().source()
+                        + removedDoorAnchorNotice(removedDoorAnchors)
                 ),
                 true
             );
@@ -638,8 +650,9 @@ public final class StructureBuilderMod {
         EditContext current = findContext(catalog, builderData, player.blockPosition());
         Optional<InteriorPlot> dynamic = builderData.interiors().stream()
             .filter(plot -> plot.key().equals(current.key())).findFirst();
+        List<String> removedDoorAnchors;
         if (dynamic.isPresent()) {
-            exportInterior(player.serverLevel(), dynamic.get());
+            removedDoorAnchors = exportInterior(player.serverLevel(), dynamic.get());
         } else {
             PlannedEntry planned = plan(catalog, builderData.groundY).stream()
                 .filter(value -> value.entry().exportId().equals(current.key()))
@@ -647,10 +660,11 @@ public final class StructureBuilderMod {
                 .orElseThrow(() -> new BuilderException(
                     "현재 위치에 저장할 NBT 부지가 없습니다."
                 ));
-            export(player.serverLevel(), catalog, planned);
+            removedDoorAnchors = export(player.serverLevel(), catalog, planned);
         }
         player.sendSystemMessage(Component.literal(
             "[Structure Builder] 현재 NBT 저장 완료: " + current.label()
+                + removedDoorAnchorNotice(removedDoorAnchors)
         ));
         BuilderEditorNetwork.sendSnapshot(player);
     }
@@ -1380,9 +1394,13 @@ public final class StructureBuilderMod {
         placeLabel(level, planned);
     }
 
-    private static void export(ServerLevel level, Catalog catalog, PlannedEntry planned) {
+    private static List<String> export(
+        ServerLevel level, Catalog catalog, PlannedEntry planned
+    ) {
         planned = authoredPlot(level, catalog, planned);
-        validateDoorAnchors(level, planned.entry().exportId(), planned.origin());
+        List<String> removedDoorAnchors = reconcileDoorAnchors(
+            level, planned.entry().exportId(), planned.origin()
+        );
         ResourceLocation exportId = ResourceLocation.parse(planned.entry().exportId());
         var manager = level.getStructureManager();
         var template = manager.getOrCreate(exportId);
@@ -1395,6 +1413,7 @@ public final class StructureBuilderMod {
             throw new BuilderException("NBT 파일 저장에 실패했습니다: " + exportId);
         }
         exportAnchors(level.getServer(), planned);
+        return removedDoorAnchors;
     }
 
     private static PlannedEntry authoredPlot(
@@ -1499,8 +1518,10 @@ public final class StructureBuilderMod {
         );
     }
 
-    private static void exportInterior(ServerLevel level, InteriorPlot plot) {
-        validateDoorAnchors(level, plot.key(), plot.origin());
+    private static List<String> exportInterior(ServerLevel level, InteriorPlot plot) {
+        List<String> removedDoorAnchors = reconcileDoorAnchors(
+            level, plot.key(), plot.origin()
+        );
         String relative = "interiors/" + plot.id();
         ResourceLocation exportId = ResourceLocation.fromNamespaceAndPath(
             "cobbleventure_builder", "export/" + relative
@@ -1517,28 +1538,42 @@ public final class StructureBuilderMod {
             "content/structures/interiors/" + plot.id() + ".nbt",
             plot.spec(), null, true
         );
+        return removedDoorAnchors;
     }
 
-    private static void validateDoorAnchors(
+    private static List<String> reconcileDoorAnchors(
         ServerLevel level, String key, BlockPos origin
     ) {
+        BuilderData builderData = data(level.getServer());
+        List<String> removed = new ArrayList<>();
         List<String> invalid = new ArrayList<>();
-        for (DoorAnchor anchor : data(level.getServer()).anchors(key)) {
+        for (DoorAnchor anchor : builderData.anchors(key)) {
             BlockPos position = origin.offset(anchor.position());
             BlockPos lower = lowerDoorPosition(level, position);
             if (lower == null) {
-                invalid.add(anchor.label() + "=" + format(anchor.position()) + " (문 없음)");
+                if (builderData.removeAnchor(key, anchor.label())) {
+                    removed.add(key + "/" + anchor.label());
+                }
             } else if (!canonicalDoorPosition(level, lower).equals(lower)) {
                 invalid.add(anchor.label() + "=" + format(anchor.position()) + " (양문형 반대 문짝)");
             }
         }
+        if (!removed.isEmpty()) {
+            LOGGER.warn("Removed stale door anchors before exporting {}: {}", key, removed);
+        }
         if (!invalid.isEmpty()) {
             throw new BuilderException(
                 "문 앵커 위치가 실제 문과 일치하지 않습니다: " + String.join(", ", invalid)
-                    + ". 월드에딧으로 문을 이동·삭제했다면 막대기로 다시 지정하거나 "
-                    + "웅크리기+좌클릭으로 기존 앵커를 삭제하세요."
+                    + ". 양문형 문의 대표 문짝을 막대기로 다시 지정하세요."
             );
         }
+        return List.copyOf(removed);
+    }
+
+    private static String removedDoorAnchorNotice(List<String> removed) {
+        return removed.isEmpty()
+            ? ""
+            : " 사라진 문 앵커 자동 해제: " + String.join(", ", removed);
     }
 
     private static void exportMetadata(
@@ -2088,6 +2123,18 @@ public final class StructureBuilderMod {
             doorAnchors.computeIfAbsent(structureId, ignored -> new LinkedHashMap<>())
                 .put(anchor.label(), anchor);
             setDirty();
+        }
+
+        boolean removeAnchor(String structureId, String label) {
+            Map<String, DoorAnchor> anchors = doorAnchors.get(structureId);
+            if (anchors == null || anchors.remove(label) == null) {
+                return false;
+            }
+            if (anchors.isEmpty()) {
+                doorAnchors.remove(structureId);
+            }
+            setDirty();
+            return true;
         }
 
         void replaceCatalogAnchors(Catalog catalog) {
