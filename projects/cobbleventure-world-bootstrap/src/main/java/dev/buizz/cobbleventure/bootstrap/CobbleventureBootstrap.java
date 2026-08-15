@@ -871,8 +871,8 @@ public final class CobbleventureBootstrap {
             level, world, entrance, center, new Point(mouthX, mouthZ), approachRoad
         );
         LOGGER.info(
-            "Cave entrance and Pokemon Center ensured: id={}, cave={}, structure={}, position={}",
-            entrance.id(), entrance.cave(), caveStructure,
+            "Cave entrance ensured: id={}, cave={}, pokemonCenter={}, structure={}, position={}",
+            entrance.id(), entrance.cave(), entrance.pokemonCenterEnabled(), caveStructure,
             placement.markerPosition()
         );
     }
@@ -1544,6 +1544,9 @@ public final class CobbleventureBootstrap {
         ServerLevel level, HexWorldPlan world, CaveEntrancePlan entrance,
         Point entranceCenter, Point caveMouth, ConnectionPath approachRoad
     ) {
+        if (!entrance.pokemonCenterEnabled()) {
+            return;
+        }
         HexGrid grid = world.grid();
         HexCoord offset = entrance.pokemonCenterOffset();
         Point offsetCenter = grid.worldCenter(new HexCoord(
@@ -4587,6 +4590,9 @@ public final class CobbleventureBootstrap {
             return false;
         }
         for (CaveEntrancePlan entrance : world.caveEntrances()) {
+            if (!entrance.pokemonCenterEnabled()) {
+                continue;
+            }
             if (entrance.destination() == null) {
                 continue;
             }
@@ -4697,6 +4703,9 @@ public final class CobbleventureBootstrap {
             return;
         }
         for (CaveEntrancePlan entrance : world.caveEntrances()) {
+            if (!entrance.pokemonCenterEnabled()) {
+                continue;
+            }
             Point entranceCenter = world.grid().worldCenter(entrance.anchor());
             HexCoord offset = entrance.pokemonCenterOffset();
             Point offsetCenter = world.grid().worldCenter(new HexCoord(
@@ -6403,6 +6412,7 @@ public final class CobbleventureBootstrap {
             entrances.add(new CaveEntrancePlan(
                 entrance.id(), entrance.cave(), entrance.entrance(), entrance.anchor(),
                 entrance.facing(), entrance.structure(), entrance.structureVariants(),
+                entrance.pokemonCenterEnabled(),
                 entrance.pokemonCenterStructure(),
                 entrance.pokemonCenterOffset(), destination, portalAnchor,
                 caveGenerationSettings(cave)
@@ -6540,8 +6550,13 @@ public final class CobbleventureBootstrap {
         Map<HexCoord, EnvironmentOverride> environmentOverrides =
             WorldPlanParser.environmentOverrides(root);
         Map<HexCoord, Integer> levelOverrides = WorldPlanParser.levelOverrides(root);
-        List<WorldGateSystem.Gate> gates = root.has("objects")
-            ? WorldGateSystem.parse(root.getAsJsonArray("objects")) : List.of();
+        List<WorldGateSystem.Gate> gates = new ArrayList<>();
+        if (root.has("objects")) {
+            gates.addAll(WorldGateSystem.parse(root.getAsJsonArray("objects")));
+        }
+        if (root.has("forest_entrances")) {
+            gates.addAll(WorldGateSystem.parseForestEntrances(root.getAsJsonArray("forest_entrances")));
+        }
         HexWorldPlan plan = planHexWorld(
             grid, seed, List.copyOf(hexSettlements), List.copyOf(connections),
             List.copyOf(placedTiles), defaultEmptyTerrain,

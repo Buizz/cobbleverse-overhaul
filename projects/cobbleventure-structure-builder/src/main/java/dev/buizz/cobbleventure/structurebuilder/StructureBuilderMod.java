@@ -410,7 +410,7 @@ public final class StructureBuilderMod {
             requirePrepared(data);
             int saved = 0;
             List<String> removedDoorAnchors = new ArrayList<>();
-            for (PlannedEntry planned : plan(catalog, data.groundY)) {
+            for (PlannedEntry planned : editablePlan(catalog, data)) {
                 if (planned.entry().category().equals("interiors")
                     && data.interior(planned.entry().label()).isPresent()) {
                     continue;
@@ -445,7 +445,7 @@ public final class StructureBuilderMod {
             Catalog catalog = loadCatalog(source.getServer());
             BuilderData data = data(source.getServer());
             requirePrepared(data);
-            PlannedEntry planned = find(catalog, data.groundY, requested);
+            PlannedEntry planned = find(catalog, data, requested);
             Optional<InteriorPlot> resized = planned.entry().category().equals("interiors")
                 ? data.interior(planned.entry().label()) : Optional.empty();
             List<String> removedDoorAnchors;
@@ -479,7 +479,7 @@ public final class StructureBuilderMod {
             Catalog catalog = loadCatalog(source.getServer());
             BuilderData data = data(source.getServer());
             requirePrepared(data);
-            PlannedEntry planned = find(catalog, data.groundY, requested);
+            PlannedEntry planned = find(catalog, data, requested);
             player.teleportTo(
                 source.getServer().overworld(),
                 planned.cellX() + catalog.cellSize() / 2.0D,
@@ -523,7 +523,7 @@ public final class StructureBuilderMod {
             current = new EditContext("", "체크무늬 작업장", player.blockPosition(), new Vec3i(0, 0, 0), false);
         }
         List<EditorSpace> spaces = new ArrayList<>();
-        for (PlannedEntry planned : plan(catalog, builderData.groundY)) {
+        for (PlannedEntry planned : editablePlan(catalog, builderData)) {
             if (planned.entry().category().equals("interiors")
                 && builderData.interior(planned.entry().label()).isPresent()) {
                 continue;
@@ -654,7 +654,7 @@ public final class StructureBuilderMod {
         if (dynamic.isPresent()) {
             removedDoorAnchors = exportInterior(player.serverLevel(), dynamic.get());
         } else {
-            PlannedEntry planned = plan(catalog, builderData.groundY).stream()
+            PlannedEntry planned = editablePlan(catalog, builderData).stream()
                 .filter(value -> value.entry().exportId().equals(current.key()))
                 .findFirst()
                 .orElseThrow(() -> new BuilderException(
@@ -667,6 +667,202 @@ public final class StructureBuilderMod {
                 + removedDoorAnchorNotice(removedDoorAnchors)
         ));
         BuilderEditorNetwork.sendSnapshot(player);
+    }
+
+    static void editorSelectCurrent(ServerPlayer player) {
+        Catalog catalog = loadCatalog(player.getServer());
+        BuilderData builderData = data(player.getServer());
+        requirePrepared(builderData);
+        EditContext current = findContext(catalog, builderData, player.blockPosition());
+        selectWorldEditRegion(player, current);
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] WorldEdit 영역 선택 완료: " + current.label()
+                + " · " + current.size().getX() + "x" + current.size().getY()
+                + "x" + current.size().getZ()
+        ));
+    }
+
+    static void editorMoveCurrent(ServerPlayer player, String relativeDirection, int amount) {
+        if (amount < 1 || amount > 64) {
+            throw new BuilderException("이동 칸 수는 1~64 사이여야 합니다.");
+        }
+        Catalog catalog = loadCatalog(player.getServer());
+        BuilderData builderData = data(player.getServer());
+        requirePrepared(builderData);
+        EditContext current = findContext(catalog, builderData, player.blockPosition());
+        Direction direction = editorMoveDirection(player, relativeDirection);
+        BlockPos offset = new BlockPos(
+            direction.getStepX() * amount,
+            direction.getStepY() * amount,
+            direction.getStepZ() * amount
+        );
+        selectWorldEditRegion(player, current);
+        int movedBlocks = runWorldEdit(player, "move " + amount + " " + direction.getName());
+        if (movedBlocks <= 0) {
+            throw new BuilderException("WorldEdit이 이동한 블록이 없어 영역 위치를 변경하지 않았습니다.");
+        }
+        clearContextOutline(player.serverLevel(), current);
+        builderData.moveSpace(current.key(), current.origin().offset(offset));
+        EditContext moved = new EditContext(
+            current.key(), current.label(), current.origin().offset(offset),
+            current.size(), current.interior()
+        );
+        outlineContext(player.serverLevel(), moved, builderData);
+        selectWorldEditRegion(player, moved);
+        player.teleportTo(
+            player.serverLevel(), player.getX() + offset.getX(),
+            player.getY() + offset.getY(), player.getZ() + offset.getZ(),
+            player.getYRot(), player.getXRot()
+        );
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] 현재 영역의 모든 블록을 "
+                + moveDirectionLabel(relativeDirection) + " " + amount + "칸 이동했습니다."
+        ));
+        BuilderEditorNetwork.sendSnapshot(player);
+    }
+
+    private static Direction editorMoveDirection(ServerPlayer player, String value) {
+        return switch (value) {
+            case "up" -> Direction.UP;
+            case "down" -> Direction.DOWN;
+            case "front" -> player.getDirection();
+            case "back" -> player.getDirection().getOpposite();
+            case "left" -> player.getDirection().getCounterClockWise();
+            case "right" -> player.getDirection().getClockWise();
+            default -> throw new BuilderException("지원하지 않는 이동 방향입니다: " + value);
+        };
+    }
+
+    private static String moveDirectionLabel(String value) {
+        return switch (value) {
+            case "up" -> "위로";
+            case "down" -> "아래로";
+            case "front" -> "바라보는 방향으로";
+            case "back" -> "뒤로";
+            case "left" -> "왼쪽으로";
+            case "right" -> "오른쪽으로";
+            default -> value;
+        };
+    }
+
+    private static void clearContextOutline(ServerLevel level, EditContext context) {
+        int minX = context.origin().getX() - 1;
+        int maxX = context.origin().getX() + context.size().getX();
+        int minZ = context.origin().getZ() - 1;
+        int maxZ = context.origin().getZ() + context.size().getZ();
+        int minimumY = context.origin().getY() - 1;
+        int maximumY = context.origin().getY() + context.size().getY();
+        for (int y = minimumY; y <= maximumY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                clearOutlineBlock(level, new BlockPos(x, y, minZ));
+                clearOutlineBlock(level, new BlockPos(x, y, maxZ));
+            }
+            for (int z = minZ + 1; z < maxZ; z++) {
+                clearOutlineBlock(level, new BlockPos(minX, y, z));
+                clearOutlineBlock(level, new BlockPos(maxX, y, z));
+            }
+        }
+    }
+
+    private static void clearOutlineBlock(ServerLevel level, BlockPos position) {
+        BlockState state = level.getBlockState(position);
+        if (state.is(Blocks.BLACK_CONCRETE) || state.is(Blocks.YELLOW_CONCRETE)
+            || state.is(Blocks.LIGHT_BLUE_CONCRETE)) {
+            level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+        }
+    }
+
+    private static void outlineContext(
+        ServerLevel level, EditContext context, BuilderData builderData
+    ) {
+        Optional<InteriorPlot> interior = builderData.interiors().stream()
+            .filter(plot -> plot.key().equals(context.key())).findFirst();
+        if (interior.isPresent()) {
+            outlineInterior(level, interior.orElseThrow());
+        } else {
+            outlineNbtFootprint(level, context.origin(), context.size());
+        }
+    }
+
+    private static void selectWorldEditRegion(ServerPlayer player, EditContext current) {
+        BlockPos start = current.origin();
+        BlockPos end = start.offset(
+            current.size().getX() - 1,
+            current.size().getY() - 1,
+            current.size().getZ() - 1
+        );
+        try {
+            Class<?> adapterClass = Class.forName("com.sk89q.worldedit.neoforge.NeoForgeAdapter");
+            Class<?> worldClass = Class.forName("com.sk89q.worldedit.world.World");
+            Class<?> actorClass = Class.forName("com.sk89q.worldedit.extension.platform.Actor");
+            Class<?> ownerClass = Class.forName("com.sk89q.worldedit.session.SessionOwner");
+            Class<?> vectorClass = Class.forName("com.sk89q.worldedit.math.BlockVector3");
+            Class<?> selectorClass = Class.forName(
+                "com.sk89q.worldedit.regions.selector.CuboidRegionSelector"
+            );
+            Class<?> worldEditClass = Class.forName("com.sk89q.worldedit.WorldEdit");
+
+            Object actor = adapterClass.getMethod("adaptPlayer", ServerPlayer.class)
+                .invoke(null, player);
+            Object world = adapterClass.getMethod("adapt", ServerLevel.class)
+                .invoke(null, player.serverLevel());
+            Object minimum = vectorClass.getMethod("at", int.class, int.class, int.class)
+                .invoke(null, start.getX(), start.getY(), start.getZ());
+            Object maximum = vectorClass.getMethod("at", int.class, int.class, int.class)
+                .invoke(null, end.getX(), end.getY(), end.getZ());
+            Object selector = selectorClass
+                .getConstructor(worldClass, vectorClass, vectorClass)
+                .newInstance(world, minimum, maximum);
+            Object worldEdit = worldEditClass.getMethod("getInstance").invoke(null);
+            Object sessionManager = worldEditClass.getMethod("getSessionManager").invoke(worldEdit);
+            Object session = sessionManager.getClass().getMethod("get", ownerClass)
+                .invoke(sessionManager, actor);
+            session.getClass().getMethod(
+                "setRegionSelector", worldClass,
+                Class.forName("com.sk89q.worldedit.regions.RegionSelector")
+            ).invoke(session, world, selector);
+            boolean selected = (boolean) session.getClass()
+                .getMethod("isSelectionDefined", worldClass).invoke(session, world);
+            if (!selected) {
+                throw new BuilderException("WorldEdit 편집 세션에 영역이 등록되지 않았습니다.");
+            }
+            session.getClass().getMethod("dispatchCUISelection", actorClass)
+                .invoke(session, actor);
+        } catch (BuilderException error) {
+            throw error;
+        } catch (ReflectiveOperationException | LinkageError error) {
+            Throwable cause = error.getCause() == null ? error : error.getCause();
+            throw new BuilderException(
+                "WorldEdit 선택 영역 설정 실패: " + cause.getMessage(), cause
+            );
+        }
+    }
+
+    private static int runWorldEdit(ServerPlayer player, String command) {
+        CommandDispatcher<CommandSourceStack> dispatcher = player.getServer()
+            .getCommands().getDispatcher();
+        int separator = command.indexOf(' ');
+        String commandName = separator < 0 ? command : command.substring(0, separator);
+        String arguments = separator < 0 ? "" : command.substring(separator);
+        String root = dispatcher.getRoot().getChild("/" + commandName) != null
+            ? "/" + commandName
+            : dispatcher.getRoot().getChild(commandName) != null ? commandName : null;
+        if (root == null) {
+            throw new BuilderException(
+                "WorldEdit 명령을 찾을 수 없습니다: //" + commandName
+                    + ". 에디터 월드에 WorldEdit이 설치되어 있는지 확인하세요."
+            );
+        }
+        try {
+            return dispatcher.execute(
+                root + arguments,
+                player.createCommandSourceStack().withPermission(4)
+            );
+        } catch (CommandSyntaxException error) {
+            throw new BuilderException(
+                "WorldEdit 명령 실행 실패: //" + command + " · " + error.getMessage(), error
+            );
+        }
     }
 
     static void editorResize(
@@ -698,7 +894,7 @@ public final class StructureBuilderMod {
         }
         InteriorPlot current = builderData.interiors().stream()
             .filter(plot -> plot.key().equals(context.key())).findFirst()
-            .orElseGet(() -> plan(catalog, builderData.groundY).stream()
+            .orElseGet(() -> editablePlan(catalog, builderData).stream()
                 .filter(planned -> planned.entry().category().equals("interiors")
                     && planned.entry().exportId().equals(context.key()))
                 .findFirst()
@@ -1025,8 +1221,8 @@ public final class StructureBuilderMod {
         }
     }
 
-    private static PlannedEntry find(Catalog catalog, int groundY, String requested) {
-        return plan(catalog, groundY).stream()
+    private static PlannedEntry find(Catalog catalog, BuilderData data, String requested) {
+        return editablePlan(catalog, data).stream()
             .filter(planned -> planned.entry().label().equals(requested)
                 || planned.entry().source().equals(requested)
                 || planned.entry().exportId().equals(requested))
@@ -1036,8 +1232,10 @@ public final class StructureBuilderMod {
             ));
     }
 
-    private static PlannedEntry findContaining(Catalog catalog, int groundY, BlockPos position) {
-        return plan(catalog, groundY).stream()
+    private static PlannedEntry findContaining(
+        Catalog catalog, BuilderData data, BlockPos position
+    ) {
+        return editablePlan(catalog, data).stream()
             .filter(planned -> contains(planned, position))
             .findFirst()
             .orElseThrow(() -> new BuilderException(
@@ -1053,7 +1251,7 @@ public final class StructureBuilderMod {
                 return plot.context();
             }
         }
-        PlannedEntry planned = findContaining(catalog, data.groundY, position);
+        PlannedEntry planned = findContaining(catalog, data, position);
         return new EditContext(
             planned.entry().exportId(), planned.entry().label(),
             planned.origin(), planned.entry().size(),
@@ -1106,7 +1304,7 @@ public final class StructureBuilderMod {
         if (dynamic.isPresent()) {
             return dynamic.get().context();
         }
-        return plan(catalog, data.groundY).stream()
+        return editablePlan(catalog, data).stream()
             .filter(planned -> planned.entry().category().equals("interiors")
                 && planned.entry().label().equals(id))
             .findFirst()
@@ -1120,7 +1318,7 @@ public final class StructureBuilderMod {
     }
 
     private static EditContext exteriorContext(Catalog catalog, BuilderData data, String id) {
-        return plan(catalog, data.groundY).stream()
+        return editablePlan(catalog, data).stream()
             .filter(planned -> !planned.entry().category().equals("interiors")
                 && planned.entry().label().equals(id))
             .findFirst()
@@ -1147,7 +1345,7 @@ public final class StructureBuilderMod {
             return fail(source, new BuilderException("내부 전체 높이는 80블록 이하여야 합니다."));
         }
         BuilderData data = data(source.getServer());
-        boolean catalogInterior = plan(loadCatalog(source.getServer()), data.groundY).stream()
+        boolean catalogInterior = editablePlan(loadCatalog(source.getServer()), data).stream()
             .anyMatch(planned -> planned.entry().category().equals("interiors")
                 && planned.entry().label().equals(id));
         if (data.interior(id).isPresent() || catalogInterior) {
@@ -1226,7 +1424,7 @@ public final class StructureBuilderMod {
                 exportInterior(source.getServer().overworld(), dynamic.get());
             } else {
                 Catalog catalog = loadCatalog(source.getServer());
-                PlannedEntry planned = plan(catalog, builderData.groundY)
+                PlannedEntry planned = editablePlan(catalog, builderData)
                     .stream()
                     .filter(value -> value.entry().category().equals("interiors")
                         && value.entry().label().equals(id))
@@ -1685,6 +1883,14 @@ public final class StructureBuilderMod {
         return List.copyOf(result);
     }
 
+    private static List<PlannedEntry> editablePlan(Catalog catalog, BuilderData data) {
+        return plan(catalog, data.groundY).stream()
+            .map(planned -> planned.withOrigin(data.movedOrigin(
+                planned.entry().exportId(), planned.origin()
+            )))
+            .toList();
+    }
+
     private static void planCategory(
         List<PlannedEntry> result, List<Entry> entries, int columns, int cellSize,
         int originX, int originZ, int groundY
@@ -2046,6 +2252,7 @@ public final class StructureBuilderMod {
         private final Map<String, Map<String, NpcAnchor>> npcAnchors = new LinkedHashMap<>();
         private final Map<String, Map<String, PointAnchor>> pointAnchors = new LinkedHashMap<>();
         private final Map<String, InteriorPlot> interiorPlots = new LinkedHashMap<>();
+        private final Map<String, BlockPos> movedOrigins = new LinkedHashMap<>();
 
         static BuilderData load(CompoundTag tag, HolderLookup.Provider registries) {
             BuilderData data = new BuilderData();
@@ -2093,6 +2300,10 @@ public final class StructureBuilderMod {
                     value.getInt("floorHeight"),
                     value.getInt("floors")
                 ));
+            }
+            CompoundTag origins = tag.getCompound("movedOrigins");
+            for (String key : origins.getAllKeys()) {
+                data.movedOrigins.put(key, readPosition(origins, key));
             }
             CompoundTag pointStructures = tag.getCompound("pointAnchors");
             for (String structureId : pointStructures.getAllKeys()) {
@@ -2249,6 +2460,25 @@ public final class StructureBuilderMod {
             return anchors == null ? List.of() : List.copyOf(anchors.values());
         }
 
+        void moveSpace(String key, BlockPos origin) {
+            for (Map.Entry<String, InteriorPlot> entry : interiorPlots.entrySet()) {
+                InteriorPlot plot = entry.getValue();
+                if (!plot.key().equals(key)) continue;
+                entry.setValue(new InteriorPlot(
+                    plot.id(), origin, plot.width(), plot.depth(),
+                    plot.floorHeight(), plot.floors()
+                ));
+                setDirty();
+                return;
+            }
+            movedOrigins.put(key, origin.immutable());
+            setDirty();
+        }
+
+        BlockPos movedOrigin(String key, BlockPos fallback) {
+            return movedOrigins.getOrDefault(key, fallback);
+        }
+
         void addInterior(InteriorPlot plot) {
             interiorPlots.put(plot.id(), plot);
             setDirty();
@@ -2336,6 +2566,11 @@ public final class StructureBuilderMod {
                 interiors.put(plot.id(), value);
             }
             tag.put("interiorPlots", interiors);
+            CompoundTag origins = new CompoundTag();
+            for (Map.Entry<String, BlockPos> entry : movedOrigins.entrySet()) {
+                writePosition(origins, entry.getKey(), entry.getValue());
+            }
+            tag.put("movedOrigins", origins);
             return tag;
         }
 

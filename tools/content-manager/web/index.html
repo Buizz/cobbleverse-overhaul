@@ -222,7 +222,7 @@
       </section>
 
       <section class="page" id="worlds">
-        <div class="panel world-map-panel">
+        <div class="panel world-map-panel spatial-workspace-shell">
           <div class="generation-bar">
             <div id="generation-tabs" class="generation-tabs" role="tablist" aria-label="세대별 월드"></div>
             <button class="generation-add" id="add-generation" type="button">＋ 세대 추가</button>
@@ -241,8 +241,7 @@
                 <button type="button" class="editor-tool" data-map-tool="level" title="평균 레벨 브러시 (L)" aria-label="평균 레벨 브러시"><span class="level-tool-icon" aria-hidden="true">Lv</span><small>레벨</small></button>
                 <button type="button" class="editor-tool" data-map-tool="route" title="길 만들기 (R)" aria-label="길 만들기"><span aria-hidden="true">⌁</span><small>길</small></button>
                 <button type="button" class="editor-tool" data-map-tool="settlement" title="마을 배치 (S)" aria-label="마을 배치"><span aria-hidden="true">⌂</span><small>마을</small></button>
-                <button type="button" class="editor-tool" data-map-tool="cave" title="동굴 입구 배치 (D)" aria-label="동굴 입구 배치"><span aria-hidden="true">◒</span><small>동굴</small></button>
-                <button type="button" class="editor-tool" data-map-tool="forest" title="숲 입구 배치 (F)" aria-label="숲 입구 배치"><span aria-hidden="true">♠</span><small>숲입구</small></button>
+                <button type="button" class="editor-tool" data-map-tool="entrance" title="출입구 배치 (D)" aria-label="동굴 또는 숲 출입구 배치"><span aria-hidden="true">◈</span><small>출입구</small></button>
                 <button type="button" class="editor-tool" data-map-tool="object" title="오브젝트 배치 (O)" aria-label="오브젝트 배치"><span aria-hidden="true">◆</span><small>오브젝트</small></button>
                 <button type="button" class="editor-tool" data-map-tool="eraser" title="지우개 (E)" aria-label="지우개"><span aria-hidden="true">◇</span><small>지우개</small></button>
                 <span class="tool-rail-spacer"></span>
@@ -253,16 +252,16 @@
               <div class="map-tool-options">
                 <header class="tool-options-heading"><div><span id="active-tool-name">선택 도구</span><small id="active-tool-description">타일과 배치물을 선택해 속성을 편집합니다.</small></div><output id="map-zoom">100%</output></header>
                 <section class="tool-option-panel" data-tool-options="select">
-                  <div class="tool-hint"><kbd>클릭</kbd><span>타일 선택</span><kbd>드래그</kbd><span>지도 이동 · 마을 이동</span></div>
+                  <div class="tool-hint"><kbd>클릭</kbd><span>타일·마을·길·입구·오브젝트 선택</span><kbd>드래그</kbd><span>지도 이동 또는 선택 요소 위치 변경</span></div>
                 </section>
                 <section class="tool-option-panel" data-tool-options="biome" hidden>
                   <label><span>칠할 바이옴</span><select id="biome-brush-type"></select></label>
-                  <label><span>브러시 반경</span><input id="biome-brush-radius" type="range" min="0" max="5" value="1"><output id="biome-brush-radius-value">1</output></label>
+                  <label><span>브러시 반경</span><input id="biome-brush-radius" type="range" min="0" max="5" value="0"><output id="biome-brush-radius-value">0</output></label>
                   <p class="tool-panel-note">누른 채 드래그해 바이옴을 칠합니다. 기존 길은 그대로 유지됩니다.</p>
                 </section>
                 <section class="tool-option-panel" data-tool-options="terrain" hidden>
                     <label><span>빈 지형 종류</span><select id="empty-terrain-brush-type"><option value="high_forest">숲</option><option value="dense_forest">우거진 숲 · 접근 불가</option><option value="ocean">바다</option><option value="deep_ocean">심해</option><option value="desert">사막</option><option value="stone_mountain">돌산</option><option value="red_rock_mountain">적갈색 돌산</option><option value="snow_mountain">눈산</option></select></label>
-                  <label><span>브러시 반경</span><input id="empty-terrain-brush-radius" type="range" min="0" max="5" value="1"><output id="empty-terrain-brush-radius-value">1</output></label>
+                  <label><span>브러시 반경</span><input id="empty-terrain-brush-radius" type="range" min="0" max="5" value="0"><output id="empty-terrain-brush-radius-value">0</output></label>
                   <p class="tool-panel-note">접근 불가 배경 지형만 칠합니다. 마을과 길은 건드리지 않습니다.</p>
                 </section>
                 <section class="tool-option-panel" data-tool-options="climate" hidden>
@@ -275,7 +274,7 @@
                 <section class="tool-option-panel" data-tool-options="level" hidden>
                   <label><span>지역 평균 레벨</span><div class="level-brush-value"><input id="level-brush-average" type="number" min="1" max="100" value="5"><strong>Lv.</strong></div></label>
                   <label><span>평균 레벨 빠른 조절</span><input id="level-brush-average-range" type="range" min="1" max="100" value="5"><output id="level-brush-average-value">5</output></label>
-                  <label><span>브러시 반경</span><input id="level-brush-radius" type="range" min="0" max="5" value="1"><output id="level-brush-radius-value">1</output></label>
+                  <label><span>브러시 반경</span><input id="level-brush-radius" type="range" min="0" max="5" value="0"><output id="level-brush-radius-value">0</output></label>
                   <div class="level-quick-values" aria-label="평균 레벨 빠른 선택"><button type="button" data-level-quick="5">5</button><button type="button" data-level-quick="10">10</button><button type="button" data-level-quick="20">20</button><button type="button" data-level-quick="30">30</button><button type="button" data-level-quick="40">40</button><button type="button" data-level-quick="50">50</button></div>
                   <p class="tool-panel-note">좌표별 평균 레벨을 저장하며 실제 야생 포켓몬은 평균 ±2 범위로 출현합니다.</p>
                 </section>
@@ -288,32 +287,35 @@
                 <section class="tool-option-panel" data-tool-options="settlement" hidden>
                   <label><span>배치할 마을</span><select id="settlement-tool-preset"></select></label>
                   <label><span>마을 바이옴</span><select id="settlement-tool-biome"></select><small>마을 프리셋이 아니라 이 월드맵 배치에 저장됩니다.</small></label>
-                  <p class="tool-panel-note">지도 타일을 눌러 배치합니다. 이미 배치된 마을을 선택하면 해당 위치로 이동합니다.</p>
+                  <p class="tool-panel-note">빈 지도 타일을 눌러 새 마을을 배치합니다. 기존 마을의 선택·이동은 선택 도구에서만 할 수 있습니다.</p>
                 </section>
-                <section class="tool-option-panel" data-tool-options="cave" hidden>
-                  <label><span>동굴</span><select id="cave-tool-cave"></select></label>
-                  <label><span>내부 입구</span><select id="cave-tool-entrance"></select><small>이미 배치된 내부 입구는 다시 배치할 수 없습니다.</small></label>
-                  <label><span>입구 방향</span><select id="cave-tool-facing"><option value="east">동쪽</option><option value="west">서쪽</option><option value="north_east">북동</option><option value="south_east">남동</option><option value="south_west">남서</option><option value="north_west">북서</option></select></label>
-                  <label><span>기본 입구 구조물</span><input id="cave-tool-structure" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/stone_mountain"></label>
-                  <fieldset><legend>부착 지형별 입구 NBT</legend>
-                    <label><span>평지·숲</span><input id="cave-tool-structure-plains" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/plains"></label>
-                    <label><span>돌산</span><input id="cave-tool-structure-stone" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/stone_mountain"></label>
-                    <label><span>적갈색 돌산·사막</span><input id="cave-tool-structure-red-rock" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/red_rock_mountain"></label>
-                    <label><span>설산</span><input id="cave-tool-structure-snow" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/snow_mountain"></label>
-                    <label><span>해안·바다·심해</span><input id="cave-tool-structure-ocean" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/ocean"></label>
-                    <datalist id="cave-entrance-nbt-options"></datalist>
-                    <small>모든 기본 NBT는 33×21×33이며 바닥 중앙이 경계 베리어 위치에 맞춰집니다.</small>
-                  </fieldset>
-                  <fieldset><legend>필수 포켓몬센터</legend><label><span>센터 구조물</span><input id="cave-tool-center-structure" value="bca:default/one_off/pokecenter"></label><div class="inline-fields"><label><span>오프셋 Q</span><input id="cave-tool-center-q" type="number" value="0"></label><label><span>오프셋 R</span><input id="cave-tool-center-r" type="number" value="1"></label></div></fieldset>
-                  <small>입구 배치 후 길 도구로 입구 좌표까지 길을 연결해야 저장할 수 있습니다.</small>
-                </section>
-                <section class="tool-option-panel" data-tool-options="forest" hidden>
-                  <label><span>숲</span><select id="forest-tool-forest"></select></label>
-                  <label><span>내부 입구</span><select id="forest-tool-entrance"></select><small>이미 배치된 내부 입구는 다시 배치할 수 없습니다.</small></label>
-                  <label><span>숲이 이어지는 방향</span><select id="forest-tool-facing"><option value="east">동쪽</option><option value="west">서쪽</option><option value="north_east">북동</option><option value="south_east">남동</option><option value="south_west">남서</option><option value="north_west">북서</option></select><small>선택한 방향의 관문 뒤 타일이 우거진 숲으로 자동 배치됩니다.</small></label>
-                  <label><span>숲관문 NBT</span><input id="forest-tool-structure" list="forest-entrance-nbt-options" value="cobbleventure:forest_entrance/forest_gate"></label>
-                  <datalist id="forest-entrance-nbt-options"></datalist>
-                  <p class="tool-panel-note">입구에는 ForestGate 건물이 생성되고 큰 가문비나무 군락과 배리어가 관문 주변 통로를 막습니다. 길 도구로 관문까지 연결해야 저장할 수 있습니다.</p>
+                <section class="tool-option-panel" data-tool-options="entrance" hidden>
+                  <label><span>출입구 종류</span><select id="world-entrance-kind"><option value="cave">동굴 출입구</option><option value="forest">숲 출입구</option></select></label>
+                  <label><span>포켓몬센터</span><select id="world-entrance-pokemon-center"><option value="false">사용 안 함</option><option value="true">사용</option></select><small>센터로 지정한 출입구도 길의 연결 지점으로 바로 선택할 수 있습니다.</small></label>
+                  <div data-world-entrance-panel="cave">
+                    <label><span>동굴</span><select id="cave-tool-cave"></select></label>
+                    <label><span>내부 입구</span><select id="cave-tool-entrance"></select><small>이미 배치된 내부 입구는 다시 배치할 수 없습니다.</small></label>
+                    <label><span>입구 방향</span><select id="cave-tool-facing"><option value="east">동쪽</option><option value="west">서쪽</option><option value="north_east">북동</option><option value="south_east">남동</option><option value="south_west">남서</option><option value="north_west">북서</option></select></label>
+                    <label><span>기본 입구 구조물</span><input id="cave-tool-structure" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/stone_mountain"></label>
+                    <fieldset><legend>부착 지형별 입구 NBT</legend>
+                      <label><span>평지·숲</span><input id="cave-tool-structure-plains" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/plains"></label>
+                      <label><span>돌산</span><input id="cave-tool-structure-stone" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/stone_mountain"></label>
+                      <label><span>적갈색 돌산·사막</span><input id="cave-tool-structure-red-rock" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/red_rock_mountain"></label>
+                      <label><span>설산</span><input id="cave-tool-structure-snow" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/snow_mountain"></label>
+                      <label><span>해안·바다·심해</span><input id="cave-tool-structure-ocean" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/ocean"></label>
+                      <datalist id="cave-entrance-nbt-options"></datalist>
+                      <small>모든 기본 NBT는 33×21×33이며 바닥 중앙이 경계 베리어 위치에 맞춰집니다.</small>
+                    </fieldset>
+                  </div>
+                  <div data-world-entrance-panel="forest" hidden>
+                    <label><span>숲</span><select id="forest-tool-forest"></select></label>
+                    <label><span>내부 입구</span><select id="forest-tool-entrance"></select><small>이미 배치된 내부 입구는 다시 배치할 수 없습니다.</small></label>
+                    <label><span>숲이 이어지는 방향</span><select id="forest-tool-facing"><option value="east">동쪽</option><option value="west">서쪽</option><option value="north_east">북동</option><option value="south_east">남동</option><option value="south_west">남서</option><option value="north_west">북서</option></select><small>선택한 방향의 관문 뒤 타일이 우거진 숲으로 자동 배치됩니다.</small></label>
+                    <label><span>숲관문 NBT</span><input id="forest-tool-structure" list="forest-entrance-nbt-options" value="cobbleventure:forest_entrance/forest_gate"></label>
+                    <datalist id="forest-entrance-nbt-options"></datalist>
+                    <p class="tool-panel-note">입구에는 ForestGate 건물이 생성되고 큰 가문비나무 군락과 배리어가 관문 주변 통로를 막습니다.</p>
+                  </div>
+                  <small>배치 후 길 도구에서 출입구 마커를 눌러 길을 연결하세요.</small>
                 </section>
                 <section class="tool-option-panel" data-tool-options="object" hidden>
                   <label><span>오브젝트 ID</span><input id="object-tool-id" placeholder="landmark_01"></label>
@@ -340,7 +342,7 @@
                   <label><span>지우개 반경</span><input id="eraser-radius" type="range" min="0" max="5" value="0"><output id="eraser-radius-value">0</output></label>
                   <p class="tool-panel-note">길을 선택하면 해당 셀을 지나는 길 전체가 삭제됩니다.</p>
                 </section>
-                <footer class="map-options-footer"><span>단축키 V/B/T/C/L/R/S/D/F/O/E</span><span>Space + 드래그 이동</span></footer>
+                <footer class="map-options-footer"><span>단축키 V/B/T/C/L/R/S/D/F/O/E</span><span>Space + 드래그 이동</span><span>마우스 휠 확대·축소</span></footer>
               </div>
             </aside>
             <div class="world-map-canvas-wrap">
@@ -351,7 +353,7 @@
               <div class="world-map-viewport" id="world-map-viewport">
                 <svg id="world-hex-map" viewBox="0 0 980 660" role="img" aria-label="육각형 기반 월드 미니맵"></svg>
               </div>
-              <div class="map-status"><span id="map-tile-count">0개 타일</span><span id="map-interaction-help">선택 도구 · 빈 지도 드래그: 이동 · 마을 드래그: 마을 이동</span></div>
+              <div class="map-status"><span id="map-tile-count">0개 타일</span><span id="map-interaction-help">선택 도구 · 빈 지도 드래그: 이동 · 마을/입구 드래그: 위치 이동</span></div>
             </div>
             <aside class="tile-inspector" aria-live="polite">
               <div class="tile-inspector-head"><div><p class="eyebrow" id="selection-inspector-kind">SELECTED TILE</p><h3 id="selected-tile-title">타일을 선택하세요</h3></div><span id="selected-tile-coord">Q — · R —</span></div>
@@ -371,6 +373,20 @@
                 <div class="tile-summary" id="tile-summary"></div>
                 <button class="button secondary tile-clear" id="clear-tile" type="button">타일 비우기</button>
               </form>
+              <form id="entrance-inspector-form" class="tile-inspector-form entrance-inspector-form" hidden>
+                <div class="route-inspector-badge"><span id="entrance-inspector-label">입구 속성</span><b id="entrance-inspector-id">entrance</b></div>
+                <label><span>입구 ID</span><input name="id" readonly></label>
+                <label><span id="entrance-target-label">연결 지역</span><input name="target" readonly></label>
+                <label><span>내부 입구</span><input name="internalEntrance" readonly></label>
+                <div class="inline-fields"><label><span>Q 위치</span><input name="q" type="number"></label><label><span>R 위치</span><input name="r" type="number"></label></div>
+                <label><span>입구 방향</span><select name="facing"><option value="north_east">북동</option><option value="east">동</option><option value="south_east">남동</option><option value="south_west">남서</option><option value="west">서</option><option value="north_west">북서</option></select></label>
+                <label><span>NBT 구조물</span><input name="structure" list="world-object-nbt-options"></label>
+                <label data-forest-entrance-field><span>NBT 회전</span><select name="rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>
+                <label><span>포켓몬센터</span><select name="pokemonCenterEnabled"><option value="false">사용 안 함</option><option value="true">사용</option></select><small>사용으로 지정해도 별도의 센터 NBT는 이 화면에서 설정하지 않습니다.</small></label>
+                <section data-forest-entrance-field class="custom-object-fields"><div class="inline-fields"><label><span>나무 줄기</span><input name="treeLog"></label><label><span>나뭇잎</span><input name="treeLeaves"></label></div><div class="inline-fields"><label><span>숲 두께</span><input name="wallThickness" type="number" min="1" max="15" step="2"></label><label><span>통로 폭</span><input name="openingWidth" type="number" min="3" max="31" step="2"></label></div><div class="inline-fields"><label><span>숲 높이</span><input name="wallHeight" type="number" min="3" max="32"></label><label><span>배리어 높이</span><input name="barrierHeight" type="number" min="8" max="128"></label></div></section>
+                <div class="tile-summary entrance-underlay-summary" id="entrance-underlay-summary"></div>
+                <button class="button danger tile-clear" id="delete-selected-entrance" type="button">선택한 입구 삭제</button>
+              </form>
               <form id="route-inspector-form" class="tile-inspector-form route-inspector-form" hidden>
                 <div class="route-inspector-badge"><span>길 속성</span><b id="route-inspector-id">route</b></div>
                 <label><span>표시 이름</span><input name="displayName" maxlength="100" placeholder="예: 1번 도로"><small>지도와 지역 진입 표시에 사용할 이름입니다.</small></label>
@@ -380,25 +396,32 @@
                 <div class="tile-summary" id="route-summary"></div>
                 <button class="button danger tile-clear" id="delete-selected-route" type="button">선택한 길 삭제</button>
               </form>
-              <section class="pokemon-map-panel" id="pokemon-map-panel">
-                <div class="pokemon-map-heading">
-                  <div><p class="eyebrow">POKÉMON MAP</p><h3>포켓몬 출현 지도</h3></div>
-                  <span id="pokemon-map-summary">계산 중</span>
-                </div>
-                <div class="pokemon-map-tabs" role="tablist" aria-label="포켓몬 지도 보기">
-                  <button type="button" class="is-active" data-pokemon-map-tab="selected" role="tab" aria-selected="true">선택 지역</button>
-                  <button type="button" data-pokemon-map-tab="unavailable" role="tab" aria-selected="false">미출현 전체 <b id="unavailable-pokemon-count">0</b></button>
-                </div>
-                <label class="pokemon-map-search"><span>이름·도감 번호 검색</span><input id="pokemon-map-search" type="search" placeholder="예: 피카츄, 25"></label>
-                <div class="pokemon-map-location" id="pokemon-map-location"></div>
-                <div class="pokemon-map-list" id="pokemon-map-list"><p class="pokemon-map-empty">월드 출현 정보를 불러오는 중입니다.</p></div>
-              </section>
               <div class="world-settings">
                 <p class="eyebrow">MAP SETTINGS</p>
                 <label class="wide"><span>타일 크기 (블록)</span><input id="tile-radius-blocks" type="number" min="32" max="256" value="64"><small>지도 표시는 무한하며, 이 값은 실제 월드에서 타일 하나가 차지하는 크기입니다.</small></label>
               </div>
             </aside>
           </div>
+          <section class="pokemon-map-panel generation-pokemon-overview" id="pokemon-map-panel">
+            <div class="pokemon-map-heading">
+              <div><p class="eyebrow">GENERATION POKÉMON COVERAGE</p><h3><span id="pokemon-map-generation">1세대</span> 전체 포켓몬 출현 현황</h3><p>현재 세대 월드의 모든 마을·길·바이옴 출현 목록을 합산한 결과입니다.</p></div>
+              <span id="pokemon-map-summary">계산 중</span>
+            </div>
+            <div class="pokemon-map-overview-stats" aria-label="세대 포켓몬 출현 요약">
+              <article><span>출현 포켓몬</span><strong id="available-pokemon-count">0</strong><small>현재 세대 어디에선가 만날 수 있음</small></article>
+              <article><span>미출현 포켓몬</span><strong id="unavailable-pokemon-count">0</strong><small>현재 세대 월드에서는 만날 수 없음</small></article>
+              <article><span>전체 도감 대비</span><strong id="pokemon-map-coverage">0%</strong><small>현재 월드 출현 커버리지</small></article>
+            </div>
+            <div class="pokemon-map-controls">
+              <div class="pokemon-map-tabs" role="tablist" aria-label="현재 세대 포켓몬 출현 여부">
+                <button type="button" class="is-active" data-pokemon-map-tab="available" role="tab" aria-selected="true">출현 포켓몬 <b id="available-pokemon-tab-count">0</b></button>
+                <button type="button" data-pokemon-map-tab="unavailable" role="tab" aria-selected="false">미출현 포켓몬 <b id="unavailable-pokemon-tab-count">0</b></button>
+              </div>
+              <label class="pokemon-map-search"><span>전체 목록 검색</span><input id="pokemon-map-search" type="search" placeholder="이름·도감 번호·포켓몬 ID"></label>
+            </div>
+            <div class="pokemon-map-location" id="pokemon-map-location"></div>
+            <div class="pokemon-map-list" id="pokemon-map-list"><p class="pokemon-map-empty">현재 세대 출현 정보를 불러오는 중입니다.</p></div>
+          </section>
           <dialog id="route-pokemon-dialog" class="route-pokemon-dialog">
             <form method="dialog" class="route-pokemon-dialog-shell">
               <header><div><p class="eyebrow">ROUTE HABITAT</p><h2 id="route-pokemon-dialog-title">길 포켓몬 편집</h2><span id="route-pokemon-dialog-subtitle"></span></div><button value="close" class="dialog-close" aria-label="닫기">×</button></header>
@@ -430,64 +453,89 @@
       </section>
 
       <section class="page" id="caves">
-        <div class="workspace-grid">
+        <div class="workspace-grid spatial-document-grid">
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">CAVE DEFINITIONS</p><h2>동굴 관리</h2></div><div class="list-tools"><span class="count-pill" id="cave-list-count">…</span><button class="mini-button" data-create="caves">＋</button></div></div><div id="cave-list" class="list-body"><div class="issues empty">프로젝트의 동굴 목록을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel" id="selected-cave-editor">
-            <div class="panel-heading"><div><p class="eyebrow">CAVE SETTINGS</p><h2 id="cave-editor-title">동굴을 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="cave-path">—</span><div><button class="button danger" id="delete-cave" disabled>동굴 삭제</button><button class="button secondary" id="validate-cave" disabled>문서 검증</button><button class="button primary" id="save-cave" disabled>동굴 저장</button></div></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">CAVE SETTINGS</p><h2 id="cave-editor-title">동굴을 선택하세요</h2><div class="document-size-summary"><span>빌드 영역</span><strong id="cave-dimension-size">—</strong><small>자동 · 입구·공동·통로 배치 기준</small></div></div><div class="editor-heading-actions"><span class="path-label" id="cave-path">—</span><div><button class="button danger" id="delete-cave" disabled>동굴 삭제</button><button class="button secondary" id="validate-cave" disabled>문서 검증</button><button class="button primary" id="save-cave" disabled>동굴 저장</button></div></div></div>
             <form id="cave-form" class="form-grid">
               <label class="wide"><span>동굴 ID</span><input name="id" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label>
               <label><span>한국어 이름</span><input name="nameKo" required></label>
               <label><span>영문 이름</span><input name="nameEn"></label>
-              <label><span>세대</span><input name="generation" type="number" min="1" max="9" required></label>
               <label><span>동굴 종류</span><select name="caveType"><option value="cobbleventure:cave_type/natural_rock">자연 암석 동굴</option><option value="cobbleventure:cave_type/dark_tunnel">어두운 터널</option></select></label>
               <label class="toggle"><input name="enabled" type="checkbox"><span>동굴 사용</span></label>
               <label class="toggle"><input name="requiresFlash" type="checkbox"><span>플래시 필요</span></label>
-              <fieldset class="wide cave-settings-group"><legend>동굴 차원</legend><div class="cave-field-grid">
-                <label><span>차원 ID</span><input name="dimensionId" required></label><label><span>지역 ID</span><input name="regionId" required></label>
-                <label><span>기준 X</span><input name="originX" type="number"></label><label><span>기준 Y</span><input name="originY" type="number"></label><label><span>기준 Z</span><input name="originZ" type="number"></label>
-                <label><span>최소 X</span><input name="boundsMinX" type="number"></label><label><span>최소 Z</span><input name="boundsMinZ" type="number"></label><label><span>최대 X</span><input name="boundsMaxX" type="number"></label><label><span>최대 Z</span><input name="boundsMaxZ" type="number"></label>
-              </div></fieldset>
-              <fieldset class="wide cave-settings-group"><legend>자연 동굴 생성</legend><p class="cave-section-help">방과 가지 수, 높낮이와 표면 형태를 조절합니다. 입구 사이의 필수 경로는 항상 연결됩니다.</p><div class="cave-field-grid">
-                <label><span>생성 방식</span><select name="generatorLayout"><option value="natural_network">자연 공동 네트워크</option></select></label><label><span>생성 시드 보정</span><input name="seedSalt" type="number"></label>
-                <label><span>주요 공동 수</span><input name="mainRooms" type="number" min="3" max="32"></label><label><span>가지 수</span><input name="branchCount" type="number" min="0" max="16"></label>
-                <label><span>순환로 확률</span><input name="loopChance" type="number" min="0" max="1" step="0.05"></label><label><span>수직 높이 범위</span><input name="verticalRange" type="number" min="8" max="96"></label>
-                <label><span>공동 최소 반경</span><input name="roomRadiusMin" type="number" min="2" max="64" step="0.5"></label><label><span>공동 최대 반경</span><input name="roomRadiusMax" type="number" min="2" max="96" step="0.5"></label>
-                <label><span>통로 최소 반경</span><input name="tunnelRadiusMin" type="number" min="2" max="32" step="0.5"></label><label><span>통로 최대 반경</span><input name="tunnelRadiusMax" type="number" min="2" max="48" step="0.5"></label>
-                <label><span>벽면 거칠기</span><input name="surfaceRoughness" type="number" min="0" max="1" step="0.01"><small>0에 가까울수록 벽이 매끈합니다.</small></label><label><span>수면 높이</span><input name="waterLevel" type="number" min="1" max="250"><small>이 높이보다 낮은 공동과 통로가 자연스럽게 물에 잠깁니다.</small></label>
-                <label><span>대공동 크기 배율</span><input name="grandRoomScale" type="number" min="1" max="3" step="0.05"></label><label class="toggle"><input name="elevatedCrossing" type="checkbox"><span>실험적 자동 돌다리</span></label>
-                <label><span>돌다리 높이</span><input name="bridgeClearance" type="number" min="7" max="32"></label>
-              </div><section class="cave-layout-preview" aria-labelledby="cave-layout-preview-title"><header><div><strong id="cave-layout-preview-title">3D 동굴 배치 편집기</strong><small>공동과 입구를 지도에 추가하거나 ‘길 만들기’로 두 지점을 연결하세요. 모든 요소는 지도에서 선택하고 오른쪽 속성 패널에서 수정합니다.</small></div><div class="cave-preview-actions"><button type="button" class="button secondary cave-map-tool-button" data-cave-preview-tool="add-anchor" aria-label="지도에 공동 추가">＋ 공동</button><button type="button" class="button secondary cave-map-tool-button" data-cave-preview-tool="add-entrance" aria-label="지도에 입구 추가">＋ 입구</button><button type="button" class="button secondary cave-map-tool-button" data-cave-preview-tool="connect" aria-label="지도에서 길 만들기">↗ 길</button><div class="cave-view-toolbar" role="group" aria-label="동굴 지도 시점"><button type="button" data-cave-view="perspective" class="is-active" title="입체 보기" aria-label="입체 보기">3D</button><button type="button" data-cave-view="xy" title="XY 평면 보기" aria-label="XY 평면 보기">XY</button><button type="button" data-cave-view="xz" title="XZ 평면 보기" aria-label="XZ 평면 보기">XZ</button><button type="button" data-cave-view="zy" title="ZY 평면 보기" aria-label="ZY 평면 보기">ZY</button></div><button type="button" class="button secondary" id="reset-cave-preview-view">시점 초기화</button><button type="button" class="button secondary" id="regenerate-cave-preview">다른 배치</button></div></header><div class="cave-preview-stage"><canvas id="cave-layout-canvas" width="960" height="560" role="img" aria-label="동굴 방과 통로의 3차원 배치 편집기"></canvas><div class="cave-add-anchor-hint" id="cave-add-anchor-hint" hidden></div><aside class="cave-node-inspector" id="cave-node-inspector" hidden><header><strong id="cave-node-inspector-title">속성</strong><button type="button" data-clear-cave-selection aria-label="선택 해제">×</button></header><div class="cave-node-inspector-grid"><label class="span-3" data-cave-anchor-field><span>앵커 ID</span><input data-cave-selected-field="id" readonly></label><label class="span-3" data-cave-anchor-field><span>공동 종류</span><select data-cave-selected-field="kind"><option value="room">일반 공동</option><option value="grand">대공동</option><option value="junction">통로 교차점</option><option value="landmark">랜드마크 공동</option></select></label><label class="span-3" data-cave-entrance-field><span>입출구 ID</span><input data-cave-selected-field="entranceId" pattern="[a-z0-9_.-]+"></label><label class="span-3" data-cave-entrance-field><span>표시 이름</span><input data-cave-selected-field="displayName"></label><label class="span-3" data-cave-entrance-field><span>필요 진행도</span><input data-cave-selected-field="requiredProgress" placeholder="선택 사항"></label><label data-cave-position-field><span>X</span><input type="number" data-cave-selected-field="x"></label><label data-cave-position-field><span>Y</span><input type="number" data-cave-selected-field="y"></label><label data-cave-position-field><span>Z</span><input type="number" data-cave-selected-field="z"></label><label data-cave-entrance-field><span>안전 X</span><input type="number" data-cave-selected-field="fallbackX"></label><label data-cave-entrance-field><span>안전 Y</span><input type="number" data-cave-selected-field="fallbackY"></label><label data-cave-entrance-field><span>안전 Z</span><input type="number" data-cave-selected-field="fallbackZ"></label><label data-cave-size-field><span>X 반경</span><input type="number" min="3" max="96" data-cave-selected-field="radiusX"></label><label data-cave-size-field><span>Z 반경</span><input type="number" min="3" max="96" data-cave-selected-field="radiusZ"></label><label data-cave-size-field><span>공동 높이</span><input type="number" min="5" max="96" data-cave-selected-field="height"></label><label class="span-3" data-cave-path-field><span>통로 ID</span><input data-cave-selected-field="pathId" readonly></label><label data-cave-path-field><span>시작</span><input data-cave-selected-field="from" readonly></label><label data-cave-path-field><span>도착</span><input data-cave-selected-field="to" readonly></label><label data-cave-path-field><span>너비</span><input type="number" min="3" max="15" data-cave-selected-field="width"></label><label class="span-3" data-cave-path-field><span>통로 종류</span><select data-cave-selected-field="pathKind"><option value="tunnel">일반 통로</option><option value="stairs">계단 통로</option><option value="bridge">자연 돌다리</option></select></label></div><button type="button" class="cave-node-delete" data-delete-selected-cave-anchor hidden>선택한 공동 삭제</button><button type="button" class="cave-node-delete" data-delete-selected-cave-entrance hidden>선택한 입구 삭제</button><button type="button" class="cave-node-delete" data-delete-selected-cave-path hidden>선택한 통로 삭제</button><small id="cave-node-inspector-help">평면 보기에서는 화면에 보이는 두 축으로 이동합니다. 3D에서는 XZ 평면으로 이동합니다.</small></aside></div><div class="cave-preview-legend"><span data-kind="entrance">입출구</span><span data-kind="grand">대공동</span><span data-kind="water">수면 아래</span><span data-kind="bridge">상층 돌다리</span><span data-kind="path">일반 통로</span></div><div class="cave-preview-summary" id="cave-preview-summary">동굴을 선택하면 배치를 계산합니다.</div></section></fieldset>
+              <section class="cave-layout-preview spatial-editor" aria-labelledby="cave-layout-preview-title"><header><div class="cave-editor-heading"><strong id="cave-layout-preview-title">3D 동굴 배치 편집기</strong><small>공동과 입구를 지도에 추가하거나 ‘길 만들기’로 두 지점을 연결하세요. 모든 요소는 지도에서 선택하고 오른쪽 속성 패널에서 수정합니다.</small><button type="button" class="button secondary cave-generator-open-action" id="open-cave-generator-dialog">◉ 동굴 자동 생성</button></div><div class="cave-preview-actions spatial-editor-toolbar"><button type="button" class="button secondary cave-map-tool-button" data-cave-preview-tool="add-anchor" aria-label="지도에 공동 추가">＋ 공동</button><button type="button" class="button secondary cave-map-tool-button" data-cave-preview-tool="add-entrance" aria-label="지도에 입구 추가">＋ 입구</button><button type="button" class="button secondary cave-map-tool-button" data-cave-preview-tool="connect" aria-label="지도에서 길 만들기">↗ 길</button></div></header><div class="cave-preview-stage spatial-editor-stage"><div class="cave-canvas-controls" aria-label="동굴 화면 조작" title="휠로 확대·축소하고 드래그해 시점을 회전합니다."><div class="cave-view-toolbar" role="group" aria-label="동굴 지도 시점"><button type="button" data-cave-view="perspective" class="is-active" title="입체 보기" aria-label="입체 보기">3D</button><button type="button" data-cave-view="xy" title="XY 평면 보기" aria-label="XY 평면 보기">XY</button><button type="button" data-cave-view="xz" title="XZ 평면 보기" aria-label="XZ 평면 보기">XZ</button><button type="button" data-cave-view="zy" title="ZY 평면 보기" aria-label="ZY 평면 보기">ZY</button></div><button type="button" class="button secondary" id="reset-cave-preview-view">시점 초기화</button><button type="button" class="button secondary" id="regenerate-cave-preview">다른 배치</button></div><canvas id="cave-layout-canvas" width="960" height="560" role="img" aria-label="동굴 방과 통로의 3차원 배치 편집기"></canvas><div class="cave-add-anchor-hint" id="cave-add-anchor-hint" hidden></div><aside class="cave-node-inspector spatial-editor-inspector" id="cave-node-inspector" hidden><header><strong id="cave-node-inspector-title">속성</strong><button type="button" data-clear-cave-selection aria-label="선택 해제">×</button></header><div class="cave-node-inspector-grid"><label class="span-3" data-cave-anchor-field><span>앵커 ID</span><input data-cave-selected-field="id" readonly></label><label class="span-3" data-cave-anchor-field><span>공동 종류</span><select data-cave-selected-field="kind"><option value="room">일반 공동</option><option value="grand">대공동</option><option value="junction">통로 교차점</option><option value="landmark">랜드마크 공동</option></select></label><label class="span-3" data-cave-entrance-field><span>입출구 ID</span><input data-cave-selected-field="entranceId" pattern="[a-z0-9_.-]+"></label><label class="span-3" data-cave-entrance-field><span>표시 이름</span><input data-cave-selected-field="displayName"></label><label class="span-3" data-cave-entrance-field><span>필요 진행도</span><input data-cave-selected-field="requiredProgress" placeholder="선택 사항"></label><label data-cave-position-field><span>X</span><input type="number" data-cave-selected-field="x"></label><label data-cave-position-field><span>Y</span><input type="number" data-cave-selected-field="y"></label><label data-cave-position-field><span>Z</span><input type="number" data-cave-selected-field="z"></label><label data-cave-entrance-field><span>안전 X</span><input type="number" data-cave-selected-field="fallbackX"></label><label data-cave-entrance-field><span>안전 Y</span><input type="number" data-cave-selected-field="fallbackY"></label><label data-cave-entrance-field><span>안전 Z</span><input type="number" data-cave-selected-field="fallbackZ"></label><label data-cave-size-field><span>X 반경</span><input type="number" min="3" max="96" data-cave-selected-field="radiusX"></label><label data-cave-size-field><span>Z 반경</span><input type="number" min="3" max="96" data-cave-selected-field="radiusZ"></label><label data-cave-size-field><span>공동 높이</span><input type="number" min="5" max="96" data-cave-selected-field="height"></label><label class="span-3" data-cave-path-field><span>통로 ID</span><input data-cave-selected-field="pathId" readonly></label><label data-cave-path-field><span>시작</span><input data-cave-selected-field="from" readonly></label><label data-cave-path-field><span>도착</span><input data-cave-selected-field="to" readonly></label><label data-cave-path-field><span>너비</span><input type="number" min="3" max="15" data-cave-selected-field="width"></label><label class="span-3" data-cave-path-field><span>통로 종류</span><select data-cave-selected-field="pathKind"><option value="tunnel">일반 통로</option><option value="stairs">계단 통로</option><option value="bridge">자연 돌다리</option></select></label></div><button type="button" class="cave-node-delete" data-delete-selected-cave-anchor hidden>선택한 공동 삭제</button><button type="button" class="cave-node-delete" data-delete-selected-cave-entrance hidden>선택한 입구 삭제</button><button type="button" class="cave-node-delete" data-delete-selected-cave-path hidden>선택한 통로 삭제</button><small id="cave-node-inspector-help">평면 보기에서는 화면에 보이는 두 축으로 이동합니다. 3D에서는 XZ 평면으로 이동합니다.</small></aside></div><div class="cave-preview-legend spatial-editor-legend"><span data-kind="entrance">입출구</span><span data-kind="grand">대공동</span><span data-kind="water">수면 아래</span><span data-kind="bridge">상층 돌다리</span><span data-kind="path">일반 통로</span></div><div class="cave-preview-summary spatial-editor-status" id="cave-preview-summary">동굴을 선택하면 배치를 계산합니다.</div></section>
               <fieldset class="wide cave-settings-group"><legend>랜덤 인카운터</legend><div class="cave-field-grid"><label class="toggle"><input name="randomEncounters" type="checkbox"><span>랜덤 인카운터 사용</span></label><label><span>스폰 프로필</span><input name="spawnProfile" required></label><label><span>밀도 배율</span><input name="densityMultiplier" type="number" min="0" max="10" step="0.05"></label></div></fieldset>
               <fieldset class="wide cave-settings-group"><legend>트레이너</legend><div class="cave-field-grid"><label class="toggle"><input name="trainersEnabled" type="checkbox"><span>내부 트레이너 사용</span></label><label><span>최대 활성 트레이너</span><input name="maxActiveTrainers" type="number" min="0" max="128"></label><label class="wide"><span>트레이너 클래스 풀 — 쉼표 구분</span><input name="trainerClassPool"></label></div><div class="cave-list-heading"><strong>고정 트레이너 배치</strong><button type="button" class="mini-button" data-add-cave-trainer>＋ 추가</button></div><div id="cave-trainer-list" class="cave-entry-list"></div></fieldset>
               <fieldset class="wide cave-settings-group"><legend>내부 바이옴</legend><p class="cave-section-help">실제 인게임 바이옴으로 적용되며 포켓몬 스폰 조건에 사용됩니다.</p><div class="cave-list-heading"><strong>바이옴 구역</strong><button type="button" class="mini-button" data-add-cave-biome>＋ 추가</button></div><div id="cave-biome-list" class="cave-entry-list"></div></fieldset>
             </form>
+            <dialog id="cave-generator-dialog" class="forest-maze-dialog cave-generator-dialog">
+              <form method="dialog" id="cave-generator-dialog-form" class="forest-maze-dialog-shell">
+                <header><div><p class="eyebrow">NATURAL CAVE GENERATOR</p><h2>동굴 자동 생성</h2><span>입구 사이를 연결하는 자연 공동과 통로 배치를 새로 만듭니다.</span></div><button value="cancel" class="dialog-close" aria-label="닫기">×</button></header>
+                <div class="forest-maze-dialog-fields cave-generator-dialog-fields">
+                  <label><span>생성 방식</span><select name="generatorLayout"><option value="natural_network">자연 공동 네트워크</option></select></label>
+                  <label><span>생성 시드 보정</span><input name="seedSalt" type="number"></label>
+                  <label><span>주요 공동 수</span><input name="mainRooms" type="number" min="3" max="32"></label>
+                  <label><span>가지 수</span><input name="branchCount" type="number" min="0" max="16"></label>
+                  <label><span>순환로 확률</span><input name="loopChance" type="number" min="0" max="1" step="0.05"></label>
+                  <label><span>수직 높이 범위</span><input name="verticalRange" type="number" min="8" max="96"></label>
+                  <label><span>공동 최소 반경</span><input name="roomRadiusMin" type="number" min="2" max="64" step="0.5"></label>
+                  <label><span>공동 최대 반경</span><input name="roomRadiusMax" type="number" min="2" max="96" step="0.5"></label>
+                  <label><span>통로 최소 반경</span><input name="tunnelRadiusMin" type="number" min="2" max="32" step="0.5"></label>
+                  <label><span>통로 최대 반경</span><input name="tunnelRadiusMax" type="number" min="2" max="48" step="0.5"></label>
+                  <label><span>벽면 거칠기</span><input name="surfaceRoughness" type="number" min="0" max="1" step="0.01"><small>0에 가까울수록 벽이 매끈합니다.</small></label>
+                  <label><span>수면 높이</span><input name="waterLevel" type="number" min="1" max="250"><small>이 높이보다 낮은 공동과 통로가 물에 잠깁니다.</small></label>
+                  <label><span>대공동 크기 배율</span><input name="grandRoomScale" type="number" min="1" max="3" step="0.05"></label>
+                  <label class="forest-maze-dialog-toggle"><input name="elevatedCrossing" type="checkbox"><span>실험적 자동 돌다리</span></label>
+                  <label><span>돌다리 높이</span><input name="bridgeClearance" type="number" min="7" max="32"></label>
+                </div>
+                <aside><b>자동 배치로 전환됩니다</b><span>생성하면 현재 수동 배치는 보존된 채 비활성화됩니다. 이후 지도에서 공동이나 통로를 직접 추가하면 다시 수동 배치로 전환됩니다.</span></aside>
+                <footer><button value="cancel" class="button secondary">취소</button><button type="button" class="button primary" id="generate-cave-layout">현재 설정으로 생성</button></footer>
+              </form>
+            </dialog>
             <div id="cave-issues" class="issues empty">동굴을 선택하세요.</div>
           </div>
         </div>
       </section>
 
       <section class="page" id="forests">
-        <div class="workspace-grid">
+        <div class="workspace-grid spatial-document-grid">
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">FOREST DEFINITIONS</p><h2>숲 관리</h2></div><div class="list-tools"><span class="count-pill" id="forest-list-count">…</span><button class="mini-button" data-create="forests">＋</button></div></div><div id="forest-list" class="list-body"><div class="issues empty">프로젝트의 숲 목록을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel" id="selected-forest-editor">
-            <div class="panel-heading"><div><p class="eyebrow">2D FOREST SETTINGS</p><h2 id="forest-editor-title">숲을 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="forest-path">—</span><div><button class="button danger" id="delete-forest" disabled>숲 삭제</button><button class="button secondary" id="validate-forest" disabled>문서 검증</button><button class="button primary" id="save-forest" disabled>숲 저장</button></div></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">2D FOREST SETTINGS</p><h2 id="forest-editor-title">숲을 선택하세요</h2><div class="document-size-summary"><span>빌드 영역</span><strong id="forest-dimension-size">—</strong><span>기준 높이</span><strong id="forest-origin-y">—</strong><small>자동 · 길·입출구·높이 타일 기준</small></div></div><div class="editor-heading-actions"><span class="path-label" id="forest-path">—</span><div><button class="button danger" id="delete-forest" disabled>숲 삭제</button><button class="button secondary" id="validate-forest" disabled>문서 검증</button><button class="button primary" id="save-forest" disabled>숲 저장</button></div></div></div>
             <form id="forest-form" class="form-grid">
               <label class="wide"><span>숲 ID</span><input name="id" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label>
               <label><span>한국어 이름</span><input name="nameKo" required></label><label><span>영문 이름</span><input name="nameEn"></label>
-              <label><span>세대</span><input name="generation" type="number" min="1" max="9" required></label><label class="toggle"><input name="enabled" type="checkbox"><span>숲 사용</span></label>
-              <fieldset class="wide cave-settings-group"><legend>2D 차원과 고정 환경</legend><div class="cave-field-grid">
-                <label><span>차원 ID</span><input name="dimensionId" required></label><label><span>지역 ID</span><input name="regionId" required></label><label><span>기준 Y</span><input name="originY" type="number"></label><label><span>고정 시간</span><input name="fixedTime" type="number" min="0" max="23999"><small>0 새벽 · 6000 낮 · 13000 밤</small></label>
-                <label><span>날씨</span><select name="weather"><option value="clear">맑음</option><option value="rain">비</option><option value="thunder">뇌우</option></select></label><label><span>최소 X</span><input name="boundsMinX" type="number"></label><label><span>최소 Z</span><input name="boundsMinZ" type="number"></label><label><span>최대 X</span><input name="boundsMaxX" type="number"></label><label><span>최대 Z</span><input name="boundsMaxZ" type="number"></label>
-              </div></fieldset>
-              <fieldset class="wide cave-settings-group"><legend>나무 장벽과 풀숲</legend><p class="cave-section-help">길 바깥은 나무와 베리어로 막히며, 나무 높이와 내부 풀숲 밀도를 조절합니다.</p><div class="cave-field-grid">
-                <label><span>나무 최소 높이</span><input name="treeMinHeight" type="number" min="2" max="64"></label><label><span>나무 최대 높이</span><input name="treeMaxHeight" type="number" min="2" max="64"></label><label><span>원목 블록 — 쉼표 구분</span><input name="trunkBlocks"></label><label><span>잎 블록 — 쉼표 구분</span><input name="foliageBlocks"></label><label><span>이동 방지 블록</span><input name="barrierBlock"></label><label><span>풀숲 밀도</span><input name="undergrowthDensity" type="number" min="0" max="1" step="0.01"></label><label><span>길 주변 여백</span><input name="pathClearance" type="number" min="0" max="16"></label><label class="wide"><span>풀숲 블록 — 쉼표 구분</span><input name="undergrowthBlocks"></label>
-              </div></fieldset>
-              <fieldset class="wide cave-settings-group"><legend>미로와 곡선 통로</legend><div class="cave-field-grid">
-                <label><span>생성 방식</span><select name="generatorLayout"><option value="hybrid">미로 + 수동 길</option><option value="maze">자동 미로</option><option value="manual">수동 길만</option></select></label><label><span>생성 시드 보정</span><input name="seedSalt" type="number"></label><label><span>미로 셀 크기</span><input name="cellSize" type="number" min="4" max="64"></label><label><span>미로 복잡도</span><input name="mazeComplexity" type="number" min="0" max="1" step="0.05"></label><label><span>순환로 확률</span><input name="loopChance" type="number" min="0" max="1" step="0.05"></label><label class="toggle"><input name="splineEnabled" type="checkbox"><span>스플라인 보정</span></label><label><span>곡선 장력</span><input name="splineTension" type="number" min="0" max="1" step="0.05"></label>
-              </div>
-              <section class="forest-layout-editor"><header><div><strong>타일 숲 길 편집기</strong><small>길 앵커와 입출구는 미로 셀 크기의 격자에 맞춰집니다. 점을 드래그해 옮기거나 선택한 길의 끝을 계속 클릭해 연장하세요.</small></div><div class="cave-preview-actions"><button type="button" class="button secondary" data-forest-tool="path">✎ 길 잇기</button><button type="button" class="button secondary" data-add-forest-path>＋ 새 길</button><button type="button" class="button secondary" data-forest-tool="height-up">▲ 타일 높이</button><button type="button" class="button secondary" data-forest-tool="height-down">▼ 타일 낮추기</button><button type="button" class="button secondary" data-forest-tool="height-reset">○ 높이 초기화</button><button type="button" class="button secondary" id="regenerate-forest-maze">미로 길 생성</button></div></header><div class="forest-layout-body"><canvas id="forest-layout-canvas" width="900" height="560" aria-label="타일 격자 기반 숲 길과 높이 편집기"></canvas><aside><strong>길 목록</strong><div id="forest-path-list" class="forest-item-list"></div><strong>입출구 — 지도에서 드래그</strong><div id="forest-entrance-list" class="forest-item-list"></div><strong>높이 조절 타일</strong><div id="forest-height-list" class="forest-item-list"></div></aside></div><footer><span id="forest-preview-summary">숲을 선택하면 타일 배치를 표시합니다.</span><small>황록: 실제 잔디길 · 노랑: 드래그 가능한 입출구 · 파랑/갈색: 높낮이 타일</small></footer></section>
+              <label class="toggle"><input name="enabled" type="checkbox"><span>숲 사용</span></label><label><span>고정 시간</span><input name="fixedTime" type="number" min="0" max="23999"><small>0 새벽 · 6000 낮 · 13000 밤</small></label><label><span>날씨</span><select name="weather"><option value="clear">맑음</option><option value="rain">비</option><option value="thunder">뇌우</option></select></label>
+              <fieldset class="wide cave-settings-group forest-environment-group"><legend>나무 장벽과 풀숲</legend><p class="cave-section-help">원하는 숲의 느낌만 고르면 나무 장벽과 풀숲이 한 번에 설정됩니다.</p>
+                <div class="forest-environment-presets" role="group" aria-label="나무 장벽과 풀숲 간편 설정">
+                  <button type="button" data-forest-environment-preset="sparse"><span class="forest-preset-icon">♧</span><strong>성긴 숲</strong><small>낮은 나무 · 적은 풀숲<br>길 주변을 넓고 밝게</small></button>
+                  <button type="button" data-forest-environment-preset="balanced"><span class="forest-preset-icon">♣</span><strong>보통 숲</strong><small>중간 높이 · 보통 밀도<br>일반적인 숲길</small></button>
+                  <button type="button" data-forest-environment-preset="dense"><span class="forest-preset-icon">♠</span><strong>우거진 숲</strong><small>큰 가문비나무 · 빽빽한 풀숲<br>시야가 좁은 깊은 숲</small></button>
+                </div>
+                <p class="forest-environment-status" id="forest-environment-preset-status">현재 세부 설정을 확인하는 중입니다.</p>
+                <details class="forest-environment-advanced"><summary><span>세부 설정 펼치기</span><small>높이·블록·밀도를 직접 조절</small></summary><div class="cave-field-grid">
+                  <label><span>나무 최소 높이</span><input name="treeMinHeight" type="number" min="2" max="64"></label><label><span>나무 최대 높이</span><input name="treeMaxHeight" type="number" min="2" max="64"></label><label><span>원목 블록 — 쉼표 구분</span><input name="trunkBlocks"></label><label><span>잎 블록 — 쉼표 구분</span><input name="foliageBlocks"></label><label><span>이동 방지 블록</span><input name="barrierBlock"></label><label><span>풀숲 밀도</span><input name="undergrowthDensity" type="number" min="0" max="1" step="0.01"></label><label><span>길 주변 여백</span><input name="pathClearance" type="number" min="0" max="16"></label><label class="wide"><span>풀숲 블록 — 쉼표 구분</span><input name="undergrowthBlocks"></label>
+                </div></details>
               </fieldset>
+              <section class="forest-layout-editor spatial-editor"><header><div class="forest-editor-heading"><strong>타일 숲 길 편집기</strong><small>길 앵커와 입출구는 격자에 고정되지 않습니다. 점을 자유롭게 드래그하거나 선택한 길의 끝을 계속 클릭해 연장하세요.</small><button type="button" class="button secondary forest-maze-open-action" id="open-forest-maze-dialog">⌁ 길 네트워크 생성</button></div><div class="cave-preview-actions spatial-editor-toolbar"><button type="button" class="button secondary" data-forest-tool="path">✎ 길 잇기</button><button type="button" class="button secondary" data-add-forest-path>＋ 새 길</button><button type="button" class="button secondary" data-forest-tool="height-up">▲ 타일 높이</button><button type="button" class="button secondary" data-forest-tool="height-down">▼ 타일 낮추기</button><button type="button" class="button secondary" data-forest-tool="height-reset">○ 높이 초기화</button><button type="button" class="button secondary" data-forest-tool="stairs">▤ 계단</button><label class="forest-brush-size"><span>브러시 크기</span><input id="forest-height-brush-radius" type="range" min="0" max="5" step="1" value="0"><output id="forest-height-brush-size">1×1</output><span>설정 높이</span><input id="forest-height-brush-target" type="number" min="1" max="16" step="1" value="1"><output id="forest-height-target-value">+1</output></label></div></header><div class="forest-layout-body spatial-editor-stage"><button type="button" class="forest-anchor-delete" id="forest-anchor-delete" aria-label="선택한 길 앵커 삭제" title="선택한 길 앵커 삭제" hidden>×</button><canvas id="forest-layout-canvas" width="900" height="560" aria-label="자유 배치 숲길과 타일 높이 편집기"></canvas><aside class="spatial-editor-inspector"><div id="forest-selection-empty" class="forest-selection-empty"><span>⌁</span><p>지도에서 길이나 입출구를 선택하면<br>해당 요소의 속성을 편집할 수 있습니다.</p></div><section id="forest-path-properties" class="forest-selection-properties" hidden><strong>선택한 길</strong><div id="forest-path-list" class="forest-item-list"></div></section><section id="forest-entrance-properties" class="forest-selection-properties" hidden><strong>선택한 입출구</strong><div id="forest-entrance-list" class="forest-item-list"></div></section><div id="forest-height-list" hidden></div></aside></div><footer class="spatial-editor-status"><span id="forest-preview-summary">숲을 선택하면 타일 배치를 표시합니다.</span><small>황록: 주 경로 · 주황: 지름길 · 노랑: 입출구 · 파랑/갈색: 높낮이 · 흰색: 계단</small></footer></section>
             </form>
+            <dialog id="forest-maze-dialog" class="forest-maze-dialog">
+              <form method="dialog" id="forest-maze-dialog-form" class="forest-maze-dialog-shell">
+                <header><div><p class="eyebrow">FOREST ROUTE GENERATOR</p><h2>숲길 네트워크 생성</h2><span>입구와 출구를 잇는 곡선 주 경로와 소수의 지름길을 만듭니다.</span></div><button value="cancel" class="dialog-close" aria-label="닫기">×</button></header>
+                <div class="forest-maze-dialog-fields">
+                  <label><span>생성 방식</span><select name="generatorLayout"><option value="hybrid">주 경로 + 지름길</option><option value="maze">자동 길 네트워크</option><option value="manual">수동 길만</option></select></label>
+                  <label><span>생성 시드 보정</span><input name="seedSalt" type="number"></label>
+                  <label><span>자동 경로·높이 타일 간격</span><input name="cellSize" type="number" min="4" max="64"><small id="forest-cell-size-hint">수동 길과 입출구 위치는 이 간격에 고정되지 않습니다.</small></label>
+                  <label><span>주 경로 굴곡</span><input name="mazeComplexity" type="number" min="0" max="1" step="0.01"></label>
+                  <label><span>지름길 밀도</span><input name="loopChance" type="number" min="0" max="1" step="0.01"></label>
+                  <label class="forest-maze-dialog-toggle"><input name="splineEnabled" type="checkbox"><span>스플라인 곡선 보간</span></label>
+                  <label><span>곡선 강도</span><input name="splineTension" type="number" min="0" max="1" step="0.05"></label>
+                </div>
+                <aside><b>기존 길이 교체됩니다</b><span>적용하면 현재 길 목록을 새 주 경로와 지름길로 교체합니다. 취소하면 아무것도 변경되지 않습니다.</span></aside>
+                <footer><button value="cancel" class="button secondary">취소</button><button type="button" class="button primary" id="regenerate-forest-maze">현재 설정으로 생성</button></footer>
+              </form>
+            </dialog>
             <div id="forest-issues" class="issues empty">숲을 선택하세요.</div>
           </div>
         </div>

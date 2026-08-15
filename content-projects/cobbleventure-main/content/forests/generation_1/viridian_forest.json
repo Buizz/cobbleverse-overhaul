@@ -6,7 +6,6 @@
   "display_name": {
     "ko_kr": "상록숲"
   },
-  "generation": 1,
   "dimension": {
     "id": "cobbleventure:generation_1",
     "region_id": "generation_1/viridian_forest",
@@ -16,10 +15,10 @@
       "z": 0
     },
     "bounds": {
-      "min_x": -256,
-      "min_z": -256,
-      "max_x": 256,
-      "max_z": 256
+      "min_x": -64,
+      "min_z": -208,
+      "max_x": 112,
+      "max_z": 208
     }
   },
   "environment": {
@@ -59,6 +58,7 @@
   "paths": [
     {
       "id": "main",
+      "kind": "main",
       "width": 5,
       "surface": "minecraft:grass_block",
       "points": [
@@ -67,20 +67,88 @@
           "z": 160
         },
         {
-          "x": -48,
-          "z": 96
+          "x": -6,
+          "z": 124
         },
         {
-          "x": 32,
-          "z": 16
+          "x": 3,
+          "z": 89
         },
         {
-          "x": -32,
-          "z": -64
+          "x": 56,
+          "z": 53
+        },
+        {
+          "x": 72,
+          "z": 18
+        },
+        {
+          "x": 43,
+          "z": -18
+        },
+        {
+          "x": -4,
+          "z": -53
+        },
+        {
+          "x": -25,
+          "z": -89
+        },
+        {
+          "x": -23,
+          "z": -124
         },
         {
           "x": 0,
           "z": -160
+        }
+      ],
+      "spline": {
+        "enabled": true,
+        "tension": 0.5
+      }
+    },
+    {
+      "id": "shortcut_1",
+      "kind": "shortcut",
+      "width": 4,
+      "surface": "minecraft:grass_block",
+      "points": [
+        {
+          "x": -6,
+          "z": 124
+        },
+        {
+          "x": 11,
+          "z": 36
+        },
+        {
+          "x": -4,
+          "z": -53
+        }
+      ],
+      "spline": {
+        "enabled": true,
+        "tension": 0.5
+      }
+    },
+    {
+      "id": "shortcut_2",
+      "kind": "shortcut",
+      "width": 4,
+      "surface": "minecraft:grass_block",
+      "points": [
+        {
+          "x": 72,
+          "z": 18
+        },
+        {
+          "x": 35,
+          "z": -46
+        },
+        {
+          "x": -25,
+          "z": -89
         }
       ],
       "spline": {

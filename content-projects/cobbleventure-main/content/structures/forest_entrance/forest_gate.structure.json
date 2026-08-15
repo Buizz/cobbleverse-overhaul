@@ -1,28 +1,5 @@
 {
   "schema_version": 1,
   "structure": "content/structures/forest_entrance/forest_gate.nbt",
-  "display_name": {
-    "ko_kr": "숲관문",
-    "en_us": "ForestGate"
-  },
-  "anchors": [
-    {
-      "id": "world_side",
-      "label": "월드 방향 입구",
-      "type": "door",
-      "position": [8, 1, 0],
-      "safe_spawn": [8, 1, 1],
-      "door_facing": "north",
-      "safe_side": "south"
-    },
-    {
-      "id": "forest_side",
-      "label": "숲 방향 입구",
-      "type": "door",
-      "position": [8, 1, 12],
-      "safe_spawn": [8, 1, 11],
-      "door_facing": "south",
-      "safe_side": "north"
-    }
-  ]
+  "anchors": []
 }

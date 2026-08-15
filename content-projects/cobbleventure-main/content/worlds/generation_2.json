@@ -22,6 +22,7 @@
   "environment_overrides": [],
   "settlements": [],
   "cave_entrances": [],
+  "forest_entrances": [],
   "connections": [],
   "objects": []
 }

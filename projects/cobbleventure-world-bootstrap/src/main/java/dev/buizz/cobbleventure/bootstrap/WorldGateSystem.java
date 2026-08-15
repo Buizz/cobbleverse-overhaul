@@ -87,6 +87,38 @@ final class WorldGateSystem {
         return List.copyOf(gates);
     }
 
+    /** Loads forest entrances as unconditional ForestGate structures, independently from world gates. */
+    static List<Gate> parseForestEntrances(JsonArray entrances) {
+        List<Gate> gates = new ArrayList<>();
+        for (JsonElement element : entrances) {
+            JsonObject value = element.getAsJsonObject();
+            JsonObject anchor = value.getAsJsonObject("anchor");
+            String direction = optionalString(value, "facing", "east");
+            String facing = switch (direction) {
+                case "west" -> "west";
+                case "north_east", "north_west" -> "north";
+                case "south_east", "south_west" -> "south";
+                default -> "east";
+            };
+            gates.add(new Gate(
+                requiredString(value, "id"),
+                new HexCoord(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
+                requiredString(value, "structure"),
+                optionalInt(value, "rotation", 0),
+                facing, "classic", true, "trees", "minecraft:mossy_stone_bricks",
+                optionalString(value, "tree_log", "minecraft:spruce_log"),
+                optionalString(value, "tree_leaves", "minecraft:spruce_leaves"),
+                optionalInt(value, "wall_thickness", 7),
+                optionalInt(value, "wall_height", 14),
+                optionalInt(value, "opening_width", 7),
+                optionalInt(value, "barrier_height", 32),
+                "all", List.of(), "숲 입구입니다.", null,
+                requiredString(value, "forest"), requiredString(value, "entrance")
+            ));
+        }
+        return List.copyOf(gates);
+    }
+
     private static Condition parseCondition(JsonObject value) {
         String type = requiredString(value, "type");
         return switch (type) {

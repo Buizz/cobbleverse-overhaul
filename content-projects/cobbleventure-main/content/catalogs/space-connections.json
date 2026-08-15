@@ -47,6 +47,10 @@
         "exterior": [
           90,
           170
+        ],
+        "room_1": [
+          470,
+          90
         ]
       }
     },
@@ -345,7 +349,14 @@
     "building:cobbleventure:houses/five_story_gambrel": {},
     "building:cobbleventure:houses/five_story_shed": {},
     "building:cobbleventure:houses/one_story_flat": {},
-    "building:cobbleventure:houses/one_story_gable": {},
+    "building:cobbleventure:houses/one_story_gable": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
     "building:cobbleventure:houses/one_story_gambrel": {},
     "building:cobbleventure:houses/one_story_shed": {
       "route_1": {

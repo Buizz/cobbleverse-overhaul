@@ -8,6 +8,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -771,45 +772,71 @@ def validate_hex_worlds(
             elif isinstance(placement_id, str):
                 cave_entrance_anchors[placement_id] = (anchor["q"], anchor["r"])
             _resource_id(placement.get("structure"), issues, path, f"{placement_path}.structure")
+            center_enabled = placement.get("pokemon_center_enabled")
+            if center_enabled is not None and not isinstance(center_enabled, bool):
+                _issue(issues, "error", path, f"{placement_path}.pokemon_center_enabled", "포켓몬센터 사용 여부는 true 또는 false여야 합니다.")
             center = placement.get("pokemon_center")
-            if not isinstance(center, dict):
-                _issue(issues, "error", path, f"{placement_path}.pokemon_center", "모든 동굴 입구에는 포켓몬센터 설정이 필요합니다.")
-            else:
+            if isinstance(center, dict):
                 _resource_id(center.get("structure"), issues, path, f"{placement_path}.pokemon_center.structure")
                 offset = center.get("offset")
                 if not isinstance(offset, dict) or not all(isinstance(offset.get(key), int) and not isinstance(offset.get(key), bool) for key in ("q", "r")):
                     _issue(issues, "error", path, f"{placement_path}.pokemon_center.offset", "포켓몬센터의 정수 axial 오프셋 q, r이 필요합니다.")
 
+        forest_entrances = world.get("forest_entrances", [])
+        if not isinstance(forest_entrances, list):
+            _issue(issues, "error", path, "$.forest_entrances", "숲 입구 목록은 배열이어야 합니다.")
+            forest_entrances = []
         forest_entrance_anchors: dict[str, tuple[int, int]] = {}
+        seen_forest_entrance_ids: set[str] = set()
         seen_forest_pairs: set[tuple[str, str]] = set()
-        raw_objects = world.get("objects", [])
-        if isinstance(raw_objects, list):
-            for index, custom_object in enumerate(raw_objects):
-                if not isinstance(custom_object, dict) or custom_object.get("type") != "gate":
+        for index, placement in enumerate(forest_entrances):
+                if not isinstance(placement, dict):
+                    _issue(issues, "error", path, f"$.forest_entrances[{index}]", "숲 입구 배치는 객체여야 합니다.")
                     continue
-                properties = custom_object.get("properties")
-                if not isinstance(properties, dict) or not properties.get("destination_forest"):
-                    continue
-                object_path = f"$.objects[{index}]"
-                object_id = custom_object.get("id")
-                forest_id = properties.get("destination_forest")
-                entrance_id = properties.get("destination_entrance")
+                object_path = f"$.forest_entrances[{index}]"
+                object_id = placement.get("id")
+                if not isinstance(object_id, str) or not CHOICE_ID.fullmatch(object_id) or object_id in seen_forest_entrance_ids:
+                    _issue(issues, "error", path, f"{object_path}.id", "유일한 숲 입구 ID가 필요합니다.")
+                else:
+                    seen_forest_entrance_ids.add(object_id)
+                forest_id = placement.get("forest")
+                entrance_id = placement.get("entrance")
                 forest = forest_documents.get(forest_id) if isinstance(forest_id, str) else None
                 if forest is None:
-                    _issue(issues, "error", path, f"{object_path}.properties.destination_forest", f"존재하지 않는 숲 ID: {forest_id}")
+                    _issue(issues, "error", path, f"{object_path}.forest", f"존재하지 않는 숲 ID: {forest_id}")
                 entrance_ids = {
                     item.get("id") for item in forest.get("entrances", [])
                     if isinstance(item, dict) and isinstance(item.get("id"), str)
                 } if forest else set()
                 if not isinstance(entrance_id, str) or entrance_id not in entrance_ids:
-                    _issue(issues, "error", path, f"{object_path}.properties.destination_entrance", f"숲에 없는 내부 입구 ID: {entrance_id}")
+                    _issue(issues, "error", path, f"{object_path}.entrance", f"숲에 없는 내부 입구 ID: {entrance_id}")
                 pair = (str(forest_id), str(entrance_id))
                 if pair in seen_forest_pairs:
                     _issue(issues, "error", path, object_path, "같은 숲 내부 입구를 월드맵에 중복 배치할 수 없습니다.")
                 seen_forest_pairs.add(pair)
-                anchor = custom_object.get("anchor")
+                anchor = placement.get("anchor")
                 if isinstance(object_id, str) and isinstance(anchor, dict) and all(isinstance(anchor.get(key), int) and not isinstance(anchor.get(key), bool) for key in ("q", "r")):
                     forest_entrance_anchors[object_id] = (anchor["q"], anchor["r"])
+                else:
+                    _issue(issues, "error", path, f"{object_path}.anchor", "정수 axial 좌표 q, r이 필요합니다.")
+                _resource_id(placement.get("structure"), issues, path, f"{object_path}.structure")
+                center_enabled = placement.get("pokemon_center_enabled")
+                if center_enabled is not None and not isinstance(center_enabled, bool):
+                    _issue(issues, "error", path, f"{object_path}.pokemon_center_enabled", "포켓몬센터 사용 여부는 true 또는 false여야 합니다.")
+                if placement.get("facing") not in {"north_east", "east", "south_east", "south_west", "west", "north_west"}:
+                    _issue(issues, "error", path, f"{object_path}.facing", "숲 입구 방향이 올바르지 않습니다.")
+                rotation = placement.get("rotation")
+                if not isinstance(rotation, int) or isinstance(rotation, bool) or rotation not in range(4):
+                    _issue(issues, "error", path, f"{object_path}.rotation", "ForestGate NBT 회전은 0~3이어야 합니다.")
+                for field in ("tree_log", "tree_leaves"):
+                    _resource_id(placement.get(field), issues, path, f"{object_path}.{field}")
+                numeric_limits = {"wall_thickness": (1, 15), "wall_height": (3, 32), "opening_width": (3, 31), "barrier_height": (8, 128)}
+                for field, (minimum, maximum) in numeric_limits.items():
+                    number = placement.get(field)
+                    if not isinstance(number, int) or isinstance(number, bool) or not minimum <= number <= maximum:
+                        _issue(issues, "error", path, f"{object_path}.{field}", f"{minimum}~{maximum} 범위 정수가 필요합니다.")
+                    elif field in {"wall_thickness", "opening_width"} and number % 2 == 0:
+                        _issue(issues, "error", path, f"{object_path}.{field}", "입구 중심 정렬을 위해 홀수여야 합니다.")
 
         connections = world.get("connections")
         if not isinstance(connections, list):
@@ -5851,6 +5878,115 @@ def _localized_value(value: Any) -> str:
     return str(value.get("ko_kr") or value.get("en_us") or next(iter(value.values()), ""))
 
 
+def _derived_aligned_bounds(
+    extents: list[tuple[float, float, float, float]],
+    *,
+    padding: int,
+    minimum_size: int,
+    alignment: int = 16,
+) -> dict[str, int]:
+    if not extents:
+        extents = [(0, 0, 0, 0)]
+    min_x = math.floor((min(item[0] for item in extents) - padding) / alignment) * alignment
+    min_z = math.floor((min(item[1] for item in extents) - padding) / alignment) * alignment
+    max_x = math.ceil((max(item[2] for item in extents) + padding) / alignment) * alignment
+    max_z = math.ceil((max(item[3] for item in extents) + padding) / alignment) * alignment
+
+    def ensure_minimum(minimum: int, maximum: int) -> tuple[int, int]:
+        missing = max(0, minimum_size - (maximum - minimum))
+        before = math.ceil((missing / 2) / alignment) * alignment
+        after = math.ceil((missing - before) / alignment) * alignment
+        return minimum - before, maximum + after
+
+    min_x, max_x = ensure_minimum(min_x, max_x)
+    min_z, max_z = ensure_minimum(min_z, max_z)
+    return {"min_x": min_x, "min_z": min_z, "max_x": max_x, "max_z": max_z}
+
+
+def derive_cave_build_bounds(data: dict[str, Any]) -> dict[str, int]:
+    dimension = data.get("dimension") if isinstance(data.get("dimension"), dict) else {}
+    origin = dimension.get("origin") if isinstance(dimension.get("origin"), dict) else {}
+    origin_x, origin_z = int(origin.get("x", 0)), int(origin.get("z", 0))
+    extents: list[tuple[float, float, float, float]] = [(origin_x, origin_z, origin_x, origin_z)]
+    for entrance in data.get("entrances", []) if isinstance(data.get("entrances"), list) else []:
+        if not isinstance(entrance, dict):
+            continue
+        for field in ("destination_anchor", "fallback_anchor"):
+            point = entrance.get(field)
+            if isinstance(point, dict) and isinstance(point.get("x"), (int, float)) and isinstance(point.get("z"), (int, float)):
+                x, z = float(point["x"]), float(point["z"])
+                extents.append((x - 4, z - 4, x + 4, z + 4))
+    generator = data.get("generator") if isinstance(data.get("generator"), dict) else {}
+    manual = generator.get("manual_layout") if isinstance(generator.get("manual_layout"), dict) else {}
+    for anchor in manual.get("anchors", []) if isinstance(manual.get("anchors"), list) else []:
+        if not isinstance(anchor, dict) or not isinstance(anchor.get("position"), dict):
+            continue
+        point = anchor["position"]
+        x, z = float(point.get("x", 0)), float(point.get("z", 0))
+        radius_x, radius_z = max(1, float(anchor.get("radius_x", 12))), max(1, float(anchor.get("radius_z", 12)))
+        extents.append((x - radius_x, z - radius_z, x + radius_x, z + radius_z))
+    tunnel = generator.get("tunnel_radius") if isinstance(generator.get("tunnel_radius"), dict) else {}
+    padding = max(16, math.ceil(float(tunnel.get("max", 7)) * 2))
+    minimum_size = 64 if manual.get("enabled") else max(128, int(generator.get("main_rooms", 7)) * 24)
+    return _derived_aligned_bounds(extents, padding=padding, minimum_size=minimum_size)
+
+
+def derive_forest_build_bounds(data: dict[str, Any]) -> dict[str, int]:
+    dimension = data.get("dimension") if isinstance(data.get("dimension"), dict) else {}
+    origin = dimension.get("origin") if isinstance(dimension.get("origin"), dict) else {}
+    origin_x, origin_z = int(origin.get("x", 0)), int(origin.get("z", 0))
+    extents: list[tuple[float, float, float, float]] = [(origin_x, origin_z, origin_x, origin_z)]
+    for route in data.get("paths", []) if isinstance(data.get("paths"), list) else []:
+        if not isinstance(route, dict):
+            continue
+        radius = max(1, float(route.get("width", 5)) / 2)
+        for point in route.get("points", []) if isinstance(route.get("points"), list) else []:
+            if isinstance(point, dict) and isinstance(point.get("x"), (int, float)) and isinstance(point.get("z"), (int, float)):
+                x, z = float(point["x"]), float(point["z"])
+                extents.append((x - radius, z - radius, x + radius, z + radius))
+    for entrance in data.get("entrances", []) if isinstance(data.get("entrances"), list) else []:
+        point = entrance.get("position") if isinstance(entrance, dict) else None
+        if isinstance(point, dict) and isinstance(point.get("x"), (int, float)) and isinstance(point.get("z"), (int, float)):
+            x, z = float(point["x"]), float(point["z"])
+            extents.append((x - 8, z - 8, x + 8, z + 8))
+    generator = data.get("generator") if isinstance(data.get("generator"), dict) else {}
+    cell = max(4, min(64, int(generator.get("cell_size", 16))))
+    for tile in data.get("terrain_tiles", []) if isinstance(data.get("terrain_tiles"), list) else []:
+        if isinstance(tile, dict) and isinstance(tile.get("x"), (int, float)) and isinstance(tile.get("z"), (int, float)):
+            x, z = float(tile["x"]), float(tile["z"])
+            extents.append((x - cell / 2, z - cell / 2, x + cell / 2, z + cell / 2))
+    barrier = data.get("tree_barrier") if isinstance(data.get("tree_barrier"), dict) else {}
+    padding = max(16, cell * 2, int(barrier.get("max_height", 16)))
+    return _derived_aligned_bounds(extents, padding=padding, minimum_size=max(64, cell * 4))
+
+
+def synchronize_spatial_build_bounds(data: Any, category: str) -> Any:
+    if not isinstance(data, dict) or category not in {"caves", "forests"}:
+        return data
+    dimension = data.get("dimension")
+    if not isinstance(dimension, dict):
+        dimension = {}
+        data["dimension"] = dimension
+    dimension["bounds"] = derive_cave_build_bounds(data) if category == "caves" else derive_forest_build_bounds(data)
+    return data
+
+
+def synchronize_spatial_build_files(root: Path) -> int:
+    changed = 0
+    for category in ("caves", "forests"):
+        directory = root / "content" / category
+        for path in sorted(directory.rglob("*.json")) if directory.is_dir() else []:
+            document = load_json(path)
+            previous_dimension = document.get("dimension") if isinstance(document, dict) else None
+            previous = copy.deepcopy(previous_dimension.get("bounds")) if isinstance(previous_dimension, dict) else None
+            synchronize_spatial_build_bounds(document, category)
+            if document.get("dimension", {}).get("bounds") == previous:
+                continue
+            path.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            changed += 1
+    return changed
+
+
 def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
     issues: list[Issue] = []
     try:
@@ -5867,9 +6003,6 @@ def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
         cave_id = None
     if data.get("schema_version") != 1:
         _issue(issues, "error", path, "$.schema_version", "동굴 문서 지원 버전은 1입니다.")
-    generation = data.get("generation")
-    if not isinstance(generation, int) or isinstance(generation, bool) or not 1 <= generation <= 9:
-        _issue(issues, "error", path, "$.generation", "1 이상 9 이하의 세대가 필요합니다.")
     _resource_id(data.get("cave_type"), issues, path, "$.cave_type")
     dimension = data.get("dimension")
     if not isinstance(dimension, dict):
@@ -5958,9 +6091,6 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
         forest_id = None
     if data.get("schema_version") != 1:
         _issue(issues, "error", path, "$.schema_version", "숲 문서 지원 버전은 1입니다.")
-    generation = data.get("generation")
-    if not isinstance(generation, int) or isinstance(generation, bool) or not 1 <= generation <= 9:
-        _issue(issues, "error", path, "$.generation", "1 이상 9 이하의 세대가 필요합니다.")
     dimension = data.get("dimension")
     if not isinstance(dimension, dict):
         _issue(issues, "error", path, "$.dimension", "숲 차원 설정이 필요합니다.")
@@ -6037,12 +6167,13 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
             for point_index, point in enumerate(points):
                 if not isinstance(point, dict) or not all(isinstance(point.get(axis), int) and not isinstance(point.get(axis), bool) for axis in ("x", "z")):
                     _issue(issues, "error", path, f"{route_path}.points[{point_index}]", "정수 좌표 x, z가 필요합니다.")
-                elif isinstance(cell_size, int) and any(point[axis] % cell_size for axis in ("x", "z")):
-                    _issue(issues, "error", path, f"{route_path}.points[{point_index}]", f"길 앵커는 {cell_size}블록 타일 격자에 맞아야 합니다.")
         width = route.get("width") if isinstance(route, dict) else None
         if not isinstance(width, int) or isinstance(width, bool) or not 2 <= width <= 32:
             _issue(issues, "error", path, f"{route_path}.width", "길 너비는 2 이상 32 이하의 정수여야 합니다.")
         if isinstance(route, dict):
+            route_kind = route.get("kind")
+            if route_kind is not None and route_kind not in {"main", "shortcut", "manual"}:
+                _issue(issues, "error", path, f"{route_path}.kind", "길 역할은 주 경로, 지름길 또는 수동 길이어야 합니다.")
             _resource_id(route.get("surface"), issues, path, f"{route_path}.surface")
             spline = route.get("spline")
             if not isinstance(spline, dict) or not isinstance(spline.get("enabled"), bool):
@@ -6066,6 +6197,16 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
             height_offset = tile.get("height_offset")
             if not isinstance(height_offset, int) or isinstance(height_offset, bool) or not -16 <= height_offset <= 16:
                 _issue(issues, "error", path, f"{tile_path}.height_offset", "타일 높이 보정은 -16 이상 16 이하의 정수여야 합니다.")
+            transition = tile.get("transition")
+            if transition is not None:
+                if not isinstance(transition, dict):
+                    _issue(issues, "error", path, f"{tile_path}.transition", "높이 전환은 계단 또는 경사로 설정이어야 합니다.")
+                else:
+                    if transition.get("kind") not in {"stairs", "slope"}:
+                        _issue(issues, "error", path, f"{tile_path}.transition.kind", "높이 전환 종류는 계단 또는 경사로여야 합니다.")
+                    if transition.get("direction") not in {"north", "south", "east", "west"}:
+                        _issue(issues, "error", path, f"{tile_path}.transition.direction", "높이 전환 방향은 동서남북 중 하나여야 합니다.")
+                    _resource_id(transition.get("block"), issues, path, f"{tile_path}.transition.block")
     entrances = data.get("entrances")
     if not isinstance(entrances, list) or not entrances:
         _issue(issues, "error", path, "$.entrances", "숲 입구를 하나 이상 지정해야 합니다.")
@@ -6081,8 +6222,6 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
             point = entrance.get("position") if isinstance(entrance, dict) else None
             if not isinstance(point, dict) or not all(isinstance(point.get(axis), int) and not isinstance(point.get(axis), bool) for axis in ("x", "z")):
                 _issue(issues, "error", path, f"{entrance_path}.position", "정수 좌표 x, z가 필요합니다.")
-            elif isinstance(cell_size, int) and any(point[axis] % cell_size for axis in ("x", "z")):
-                _issue(issues, "error", path, f"{entrance_path}.position", f"입출구는 {cell_size}블록 타일 격자에 맞아야 합니다.")
     return forest_id, issues
 
 
@@ -6187,13 +6326,13 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 summary["town_footprint_cells"] = data.get("town_footprint_cells", [])
                 summary["town_road_exits"] = data.get("town_road_exits", [])
             elif category == "caves":
-                summary["generation"] = data.get("generation", 1)
+                summary["generation"] = int(path.parent.name.removeprefix("generation_")) if path.parent.name.removeprefix("generation_").isdigit() else 1
                 summary["requires_flash"] = data.get("requires_flash", False)
                 summary["entrance_count"] = len(data.get("entrances", []))
                 summary["entrances"] = data.get("entrances", [])
                 summary["cave_type"] = data.get("cave_type", "")
             elif category == "forests":
-                summary["generation"] = data.get("generation", 1)
+                summary["generation"] = int(path.parent.name.removeprefix("generation_")) if path.parent.name.removeprefix("generation_").isdigit() else 1
                 summary["entrance_count"] = len(data.get("entrances", []))
                 summary["entrances"] = data.get("entrances", [])
                 summary["path_count"] = len(data.get("paths", []))
@@ -6309,6 +6448,7 @@ def _save_document(
         "caves": validate_cave_file,
         "forests": validate_forest_file,
     }[category]
+    data = synchronize_spatial_build_bounds(copy.deepcopy(data), category)
     try:
         target = _managed_path(root, category, relative_path)
     except ValueError as error:
@@ -7056,7 +7196,6 @@ def _cave_template(slug: str, name: str, generation: str) -> dict[str, Any]:
         "id": f"cobbleventure:cave/{slug}",
         "enabled": True,
         "display_name": {"ko_kr": name},
-        "generation": generation_number,
         "cave_type": "cobbleventure:cave_type/natural_rock",
         "dimension": {
             "id": "cobbleventure:dungeons",
@@ -7093,7 +7232,6 @@ def _forest_template(slug: str, name: str, generation: str) -> dict[str, Any]:
         "id": f"cobbleventure:forest/{slug}",
         "enabled": True,
         "display_name": {"ko_kr": name},
-        "generation": generation_number,
         "dimension": {
             "id": f"cobbleventure:generation_{generation_number}",
             "region_id": f"generation_{generation_number}/{slug}",
@@ -7124,6 +7262,7 @@ def _forest_template(slug: str, name: str, generation: str) -> dict[str, Any]:
         },
         "paths": [{
             "id": "main",
+            "kind": "main",
             "width": 5,
             "surface": "minecraft:grass_block",
             "points": [{"x": -160, "z": 0}, {"x": 0, "z": -48}, {"x": 160, "z": 0}],
@@ -7550,6 +7689,7 @@ def generate_content(
     root: Path, output: Path | None = None, dependency_root: Path | None = None
 ) -> dict[str, Any]:
     root = root.resolve()
+    synchronized_spatial_bounds = synchronize_spatial_build_files(root)
     output = (output or root / "generated").resolve()
     marker = output / ".cobbleventure-generated"
     validation = validate_repository(root, dependency_root=dependency_root)
@@ -7603,7 +7743,7 @@ def generate_content(
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         trainers.append(trainer_id)
-    return {"output": output.as_posix(), "trainers": trainers, "count": len(trainers)}
+    return {"output": output.as_posix(), "trainers": trainers, "count": len(trainers), "synchronized_spatial_bounds": synchronized_spatial_bounds}
 
 
 def _read_nbt_string(stream: io.BytesIO) -> str:
@@ -8475,8 +8615,16 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
     }
 
 
+class StructureResizeAnchorConflict(ValueError):
+    def __init__(self, anchors: list[dict[str, Any]]) -> None:
+        self.anchors = anchors
+        labels = ", ".join(str(anchor["label"]) for anchor in anchors)
+        super().__init__(f"축소 범위 밖 앵커가 있습니다: {labels}")
+
+
 def resize_managed_structure(
     root: Path, resource_id: str, width: int, height: int, depth: int,
+    *, preview: bool = False, remove_out_of_bounds_anchors: bool = False,
 ) -> dict[str, Any]:
     structures = managed_structure_files(root)
     path = structures.get(resource_id)
@@ -8496,21 +8644,27 @@ def resize_managed_structure(
 
     sidecar = path.with_suffix(".structure.json")
     sidecar_document: dict[str, Any] | None = None
+    anchor_conflicts: list[dict[str, Any]] = []
     if sidecar.is_file():
         sidecar_document = load_json(sidecar)
         for index, anchor in enumerate(sidecar_document.get("anchors", [])):
             if not isinstance(anchor, dict):
                 continue
+            fields: list[dict[str, Any]] = []
             for field in ("position", "safe_spawn"):
                 position = anchor.get(field)
                 if not isinstance(position, list) or len(position) != 3:
                     continue
                 x, y, z = position
                 if not (0 <= x < width and 0 <= y < height and 0 <= z < depth):
-                    label = anchor.get("label", anchor.get("id", index))
-                    raise ValueError(
-                        f"축소 범위 밖에 앵커가 있습니다: {label}.{field}={position}"
-                    )
+                    fields.append({"field": field, "position": position})
+            if fields:
+                anchor_conflicts.append({
+                    "index": index,
+                    "label": anchor.get("label", anchor.get("id", index)),
+                    "type": anchor.get("type", "anchor"),
+                    "fields": fields,
+                })
         interior = sidecar_document.get("interior")
         if isinstance(interior, dict):
             if width < 5 or depth < 5:
@@ -8526,6 +8680,20 @@ def resize_managed_structure(
                 "floor_height": floor_height, "floors": floors,
             })
 
+    if preview:
+        return {
+            "structure": resource_id, "width": width, "height": height, "depth": depth,
+            "anchor_conflicts": anchor_conflicts,
+        }
+    if anchor_conflicts and not remove_out_of_bounds_anchors:
+        raise StructureResizeAnchorConflict(anchor_conflicts)
+    if anchor_conflicts and sidecar_document is not None:
+        removed_indices = {item["index"] for item in anchor_conflicts}
+        sidecar_document["anchors"] = [
+            anchor for index, anchor in enumerate(sidecar_document.get("anchors", []))
+            if index not in removed_indices
+        ]
+
     resized = resize_minecraft_structure_nbt(path.read_bytes(), (width, height, depth))
     temporary = path.with_name(path.name + ".resize.tmp")
     temporary.write_bytes(resized)
@@ -8540,6 +8708,14 @@ def resize_managed_structure(
     return {
         "structure": resource_id,
         "source": path.relative_to(root).as_posix(),
+        "removed_anchors": anchor_conflicts,
+        "npc_labels": _structure_npc_labels(path),
+        "door_anchors": _structure_named_anchors(
+            path, {"door", "interior_entry", "interior_exit"}
+        ),
+        "arrival_anchors": _structure_named_anchors(
+            path, {"arrival", "interior_spawn", "exterior_spawn"}
+        ),
         **read_minecraft_structure_metadata(resized),
     }
 
@@ -9955,7 +10131,14 @@ def create_handler(
                         payload.get("width"),
                         payload.get("height"),
                         payload.get("depth"),
+                        preview=payload.get("preview") is True,
+                        remove_out_of_bounds_anchors=(
+                            payload.get("remove_out_of_bounds_anchors") is True
+                        ),
                     )
+                    if payload.get("preview") is True:
+                        self._json(200, {"saved": False, "preview": True, "structure": result})
+                        return
                     # The edited NBT must never be served from the old 3D-model
                     # cache.  Updating the known dimensions here lets the web UI
                     # respond immediately; the expensive all-structure scan can
@@ -9983,6 +10166,13 @@ def create_handler(
                         if isinstance(target, dict):
                             target.update(result)
                     schedule_structure_cache_refresh()
+                except StructureResizeAnchorConflict as error:
+                    self._json(409, {
+                        "error": str(error),
+                        "code": "structure_anchor_conflict",
+                        "anchors": error.anchors,
+                    })
+                    return
                 except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(400, {"error": str(error)})
                     return

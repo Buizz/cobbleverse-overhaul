@@ -43,22 +43,22 @@
       "z": -300
     },
     "facility_pokemon_center_1": {
-      "x": 1048,
+      "x": 1091,
       "y": 69,
-      "z": -364
+      "z": -372
     },
     "facility_pokemart_1": {
-      "x": 1008,
+      "x": 1043,
       "y": 69,
-      "z": -260
+      "z": -269
     }
   },
   "content_profile": {
     "pokemon": {
       "spawn_profile": "cobbleventure:spawn/greenway_region",
       "density_multiplier": 1.2,
-      "biome_set": "cobbleventure:biome_set/starter_region",
-      "unconditional_spawns": []
+      "unconditional_spawns": [],
+      "biome_set": "cobbleventure:biome_set/starter_region"
     },
     "trainers": {
       "population_profile": "cobbleventure:trainer_population/greenway_region",
@@ -3682,7 +3682,7 @@
       "material": "grass_path"
     },
     "generation_profile": {
-      "seed": 36444104,
+      "seed": 665544323,
       "depth": 4,
       "basic_buildings": [
         "cobbleventure:placeholder/basic_building_1",

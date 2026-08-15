@@ -144,7 +144,11 @@ final class WorldPlanParser {
         List<CaveEntrancePlan> result = new ArrayList<>();
         for (JsonElement element : root.getAsJsonArray("cave_entrances")) {
             JsonObject value = element.getAsJsonObject();
-            JsonObject pokemonCenter = value.getAsJsonObject("pokemon_center");
+            JsonObject pokemonCenter = value.has("pokemon_center")
+                ? value.getAsJsonObject("pokemon_center") : null;
+            boolean pokemonCenterEnabled = value.has("pokemon_center_enabled")
+                ? value.get("pokemon_center_enabled").getAsBoolean()
+                : pokemonCenter != null;
             Map<String, String> structureVariants = new LinkedHashMap<>();
             if (value.has("structure_variants")) {
                 for (Map.Entry<String, JsonElement> variant
@@ -157,8 +161,11 @@ final class WorldPlanParser {
                 required(value, "entrance"), coordinate(value.getAsJsonObject("anchor")),
                 required(value, "facing"), required(value, "structure"),
                 Map.copyOf(structureVariants),
-                required(pokemonCenter, "structure"),
-                coordinate(pokemonCenter.getAsJsonObject("offset")), null, null,
+                pokemonCenterEnabled,
+                pokemonCenter == null ? "bca:default/one_off/pokecenter"
+                    : required(pokemonCenter, "structure"),
+                pokemonCenter == null ? new HexCoord(0, 1)
+                    : coordinate(pokemonCenter.getAsJsonObject("offset")), null, null,
                 NaturalCaveGenerator.Settings.defaults()
             ));
         }

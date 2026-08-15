@@ -118,11 +118,34 @@ public final class BuilderEditorClient {
     private static void renderMarkers(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null || minecraft.level == null || snapshot.markers().isEmpty()) return;
+        if (minecraft.player == null || minecraft.level == null) return;
         PoseStack pose = event.getPoseStack();
         Vec3 camera = event.getCamera().getPosition();
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
+        snapshot.spaces().stream()
+            .filter(space -> space.key().equals(snapshot.currentKey()))
+            .findFirst().ifPresent(space -> {
+                pose.pushPose();
+                pose.translate(
+                    space.origin().getX() - camera.x,
+                    space.origin().getY() - camera.y,
+                    space.origin().getZ() - camera.z
+                );
+                renderBox(
+                    pose, lines,
+                    new AABB(
+                        -0.01D, -0.01D, -0.01D,
+                        space.size().getX() + 0.01D,
+                        space.size().getY() + 0.01D,
+                        space.size().getZ() + 0.01D
+                    ),
+                    space.interior() ? 0.38F : 0.66F,
+                    space.interior() ? 0.84F : 0.90F,
+                    space.interior() ? 1.0F : 0.36F
+                );
+                pose.popPose();
+            });
         for (BuilderEditorNetwork.Marker marker : snapshot.markers()) {
             BlockPos block = marker.position();
             if (minecraft.player.distanceToSqr(block.getX(), block.getY(), block.getZ()) > 96.0D * 96.0D) continue;
@@ -219,22 +242,86 @@ public final class BuilderEditorClient {
         ToolbarScreen() { super("코블벤처 건축 도구"); }
         @Override protected void init() {
             int x = width / 2 - 138;
-            int y = height / 2 - 35;
+            int y = height / 2 - 47;
             addRenderableWidget(Button.builder(Component.literal("현재 NBT 저장"), b -> {
                 BuilderEditorNetwork.saveCurrent(); onClose();
-            }).bounds(x, y, 88, 20).build());
+            }).bounds(x, y, 132, 20).build());
             addRenderableWidget(Button.builder(Component.literal("공간 이동"), b -> minecraft.setScreen(new TravelScreen()))
-                .bounds(x + 94, y, 88, 20).build());
+                .bounds(x + 144, y, 132, 20).build());
+            addRenderableWidget(Button.builder(Component.literal("월드에딧 영역·이동"), b -> minecraft.setScreen(new WorldEditScreen()))
+                .bounds(x, y + 28, 132, 20).build());
             addRenderableWidget(Button.builder(Component.literal("내부 크기 변경"), b -> minecraft.setScreen(new ResizeScreen()))
-                .bounds(x + 188, y, 88, 20).build());
+                .bounds(x + 144, y + 28, 132, 20).build());
             addRenderableWidget(Button.builder(Component.literal("닫기"), b -> onClose())
-                .bounds(x + 88, y + 30, 100, 20).build());
+                .bounds(x + 88, y + 58, 100, 20).build());
         }
         @Override public void render(GuiGraphics g, int mx, int my, float tick) {
-            int x = width / 2 - 150, y = height / 2 - 73;
-            panel(g, x, y, 300, 126);
+            int x = width / 2 - 150, y = height / 2 - 84;
+            panel(g, x, y, 300, 157);
             g.drawCenteredString(font, title, width / 2, y + 13, 0xFFFFFFFF);
             g.drawCenteredString(font, "막대기 우클릭: 선택한 블록에 앵커 편집", width / 2, y + 31, 0xFFB9C5D2);
+            super.render(g, mx, my, tick);
+        }
+    }
+
+    private static final class WorldEditScreen extends EditorScreen {
+        private EditBox amount;
+        private boolean allowed;
+
+        WorldEditScreen() { super("월드에딧 영역·이동"); }
+
+        @Override protected void init() {
+            int x = width / 2 - 160, y = height / 2 - 112;
+            allowed = !snapshot.currentKey().isBlank();
+            Button select = Button.builder(Component.literal("현재 영역을 WorldEdit으로 선택"), b -> {
+                BuilderEditorNetwork.selectCurrent(); onClose();
+            }).bounds(x + 14, y + 48, 292, 20).build();
+            select.active = allowed;
+            addRenderableWidget(select);
+
+            amount = new EditBox(font, x + 14, y + 91, 292, 20, Component.literal("이동 칸 수"));
+            amount.setFilter(value -> value.matches("\\d*"));
+            amount.setMaxLength(2);
+            amount.setValue("1");
+            addRenderableWidget(amount);
+
+            String[] labels = {"위", "아래", "앞", "뒤", "왼쪽", "오른쪽"};
+            String[] directions = {"up", "down", "front", "back", "left", "right"};
+            for (int index = 0; index < directions.length; index++) {
+                int column = index % 3;
+                int row = index / 3;
+                String direction = directions[index];
+                Button move = Button.builder(Component.literal(labels[index]), b -> move(direction))
+                    .bounds(x + 14 + column * 99, y + 121 + row * 27, 94, 20).build();
+                move.active = allowed;
+                addRenderableWidget(move);
+            }
+            addRenderableWidget(Button.builder(Component.literal("닫기"), b -> onClose())
+                .bounds(x + 110, y + 191, 100, 20).build());
+            setInitialFocus(amount);
+        }
+
+        private void move(String direction) {
+            try {
+                int blocks = Integer.parseInt(amount.getValue());
+                if (blocks < 1 || blocks > 64) return;
+                BuilderEditorNetwork.moveCurrent(direction, blocks);
+                onClose();
+            } catch (NumberFormatException ignored) {}
+        }
+
+        @Override public void render(GuiGraphics g, int mx, int my, float tick) {
+            int x = width / 2 - 160, y = height / 2 - 112;
+            panel(g, x, y, 320, 224);
+            g.drawString(font, title, x + 14, y + 13, 0xFFFFFFFF, false);
+            g.drawString(font,
+                allowed ? snapshot.currentLabel() + " · " + snapshot.size().getX() + "x"
+                    + snapshot.size().getY() + "x" + snapshot.size().getZ()
+                    : "먼저 작업 영역 안으로 이동하세요.",
+                x + 14, y + 29, allowed ? 0xFFB9C5D2 : 0xFFFF9C79, false
+            );
+            g.drawString(font, "이동 칸 수 (1~64)", x + 14, y + 78, 0xFFB9C5D2, false);
+            g.drawString(font, "앞·뒤·왼쪽·오른쪽은 현재 바라보는 방향 기준", x + 14, y + 174, 0xFF8797A8, false);
             super.render(g, mx, my, tick);
         }
     }

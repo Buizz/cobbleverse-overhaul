@@ -358,6 +358,43 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(5, saved["interior"]["floor_height"])
             self.assertEqual(2, saved["interior"]["floors"])
 
+    def test_resize_managed_structure_previews_and_removes_out_of_bounds_anchors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/placeholder/test_room.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((4, 4, 4)))
+            sidecar = structure.with_suffix(".structure.json")
+            sidecar.write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [
+                    {"type": "door", "label": "inside", "position": [1, 1, 1]},
+                    {"type": "npc_position", "label": "outside", "position": [3, 1, 1]},
+                ],
+            }), encoding="utf-8")
+
+            preview = content_manager.resize_managed_structure(
+                root, "cobbleventure:placeholder/test_room", 3, 3, 3, preview=True
+            )
+
+            self.assertEqual(["outside"], [item["label"] for item in preview["anchor_conflicts"]])
+            self.assertEqual((4, 4, 4), content_manager.read_minecraft_structure_size(structure.read_bytes()))
+            self.assertEqual(2, len(json.loads(sidecar.read_text(encoding="utf-8"))["anchors"]))
+            with self.assertRaises(content_manager.StructureResizeAnchorConflict):
+                content_manager.resize_managed_structure(
+                    root, "cobbleventure:placeholder/test_room", 3, 3, 3
+                )
+
+            result = content_manager.resize_managed_structure(
+                root, "cobbleventure:placeholder/test_room", 3, 3, 3,
+                remove_out_of_bounds_anchors=True,
+            )
+
+            saved = json.loads(sidecar.read_text(encoding="utf-8"))
+            self.assertEqual(["inside"], [anchor["label"] for anchor in saved["anchors"]])
+            self.assertEqual(["outside"], [item["label"] for item in result["removed_anchors"]])
+            self.assertEqual((3, 3, 3), content_manager.read_minecraft_structure_size(structure.read_bytes()))
+
     def test_league_progression_validates_embedded_gym_leader_encounter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "league-progression.json"
@@ -624,7 +661,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(11, len(layout["settlements"]))
         settlement_ids = {node["settlement"] for node in layout["settlements"]}
         cave_entrance_ids = {node["id"] for node in layout.get("cave_entrances", [])}
-        route_target_ids = settlement_ids | cave_entrance_ids
+        forest_entrance_ids = {node["id"] for node in layout.get("forest_entrances", [])}
+        route_target_ids = settlement_ids | cave_entrance_ids | forest_entrance_ids
         self.assertGreater(len(layout["connections"]), 0)
         self.assertTrue(all(connection.get("from") in route_target_ids for connection in layout["connections"] if connection.get("from")))
         self.assertTrue(all(connection.get("to") in route_target_ids for connection in layout["connections"] if connection.get("to")))
@@ -635,9 +673,11 @@ class ContentManagerTests(unittest.TestCase):
             candidate_root = Path(directory)
             settlement_dir = candidate_root / "content" / "settlements" / "generation_1"
             cave_dir = candidate_root / "content" / "caves" / "generation_1"
+            forest_dir = candidate_root / "content" / "forests" / "generation_1"
             catalog_dir = candidate_root / "content" / "catalogs"
             settlement_dir.mkdir(parents=True)
             cave_dir.mkdir(parents=True)
+            forest_dir.mkdir(parents=True)
             catalog_dir.mkdir(parents=True)
             for node in layout["settlements"]:
                 slug = node["settlement"].rsplit("/", 1)[-1]
@@ -646,6 +686,7 @@ class ContentManagerTests(unittest.TestCase):
                     encoding="utf-8",
                 )
             shutil.copy2(root / "content" / "caves" / "generation_1" / "mt_moon.json", cave_dir / "mt_moon.json")
+            shutil.copy2(root / "content" / "forests" / "generation_1" / "viridian_forest.json", forest_dir / "viridian_forest.json")
             shutil.copy2(
                 root / "content" / "catalogs" / "boundary-profiles.json",
                 catalog_dir / "boundary-profiles.json",
@@ -987,7 +1028,11 @@ class ContentManagerTests(unittest.TestCase):
         page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="pokemon-map-panel"', page)
+        self.assertIn('class="pokemon-map-panel generation-pokemon-overview"', page)
+        self.assertIn('data-pokemon-map-tab="available"', page)
         self.assertIn('data-pokemon-map-tab="unavailable"', page)
+        self.assertIn('id="pokemon-map-coverage"', page)
+        self.assertIn('현재 세대 월드의 모든 마을·길·바이옴 출현 목록을 합산한 결과입니다.', page)
         self.assertIn('id="route-inspector-form"', page)
         self.assertIn('id="route-pokemon-dialog"', page)
         self.assertIn('id="route-inherit-biome"', page)
@@ -999,6 +1044,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="route-pokemon-picker-availability"', page)
         self.assertIn("/api/world-pokemon-map", script)
         self.assertIn("renderWorldPokemonPanel", script)
+        self.assertNotIn('pokemonMapTab: "selected"', script)
+        self.assertNotIn('지역을 선택하세요</b><span>지도 타일을 누르면 해당 위치의 포켓몬을 볼 수 있습니다.', script)
         self.assertIn("toggleRouteBiomePokemon", script)
         self.assertIn("changeRoutePokemonLevel", script)
         self.assertIn("filteredRoutePokemonPickerEntries", script)
@@ -1074,6 +1121,117 @@ class ContentManagerTests(unittest.TestCase):
             for anchor in cave["generator"]["manual_layout"]["anchors"]
         ))
 
+    def test_cave_generator_settings_are_only_exposed_in_the_generator_dialog(self) -> None:
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+
+        cave_form_markup = page.split('<form id="cave-form"', 1)[1].split("</form>", 1)[0]
+        generator_dialog_markup = page.split('id="cave-generator-dialog-form"', 1)[1].split("</form>", 1)[0]
+        self.assertIn('id="open-cave-generator-dialog"', cave_form_markup)
+        self.assertNotIn('name="generatorLayout"', cave_form_markup)
+        self.assertNotIn('name="mainRooms"', cave_form_markup)
+        self.assertNotIn('name="surfaceRoughness"', cave_form_markup)
+        self.assertIn('name="generatorLayout"', generator_dialog_markup)
+        self.assertIn('name="mainRooms"', generator_dialog_markup)
+        self.assertIn('name="surfaceRoughness"', generator_dialog_markup)
+        self.assertIn('id="generate-cave-layout"', generator_dialog_markup)
+        self.assertIn("function openCaveGeneratorDialog()", script)
+        self.assertIn("function applyCaveGeneratorDialog()", script)
+        self.assertIn("manual_layout: { ...manual, enabled: false", script)
+        self.assertIn(".cave-editor-heading .cave-generator-open-action", styles)
+
+    def test_cave_and_forest_use_path_generation_and_read_only_dimension_summaries(self) -> None:
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        cave_schema = json.loads((PROJECT_ROOT / "content/schemas/cave.schema.json").read_text(encoding="utf-8"))
+        forest_schema = json.loads((PROJECT_ROOT / "content/schemas/forest.schema.json").read_text(encoding="utf-8"))
+        cave = content_manager.load_json(PROJECT_ROOT / "content/caves/generation_1/mt_moon.json")
+        forest = content_manager.load_json(PROJECT_ROOT / "content/forests/generation_1/viridian_forest.json")
+        cave_summary = next(item for item in content_manager._list_documents(PROJECT_ROOT, "caves") if item["id"] == cave["id"])
+        forest_summary = next(item for item in content_manager._list_documents(PROJECT_ROOT, "forests") if item["id"] == forest["id"])
+
+        cave_form = page.split('<form id="cave-form"', 1)[1].split("</form>", 1)[0]
+        forest_form = page.split('<form id="forest-form"', 1)[1].split("</form>", 1)[0]
+        self.assertNotIn('name="generation"', cave_form)
+        self.assertNotIn('name="generation"', forest_form)
+        self.assertNotIn("generation", cave_schema["properties"])
+        self.assertNotIn("generation", forest_schema["properties"])
+        self.assertNotIn("generation", cave)
+        self.assertNotIn("generation", forest)
+        self.assertEqual(1, cave_summary["generation"])
+        self.assertEqual(1, forest_summary["generation"])
+        self.assertIn('id="cave-dimension-size"', page)
+        self.assertIn('id="forest-dimension-size"', page)
+        self.assertNotIn('id="cave-dimension-size"', cave_form)
+        self.assertNotIn('id="forest-dimension-size"', forest_form)
+        self.assertNotIn("dimension-summary-card", page)
+        self.assertNotIn('id="cave-dimension-id"', page)
+        self.assertNotIn('id="cave-region-id"', page)
+        self.assertNotIn('id="forest-dimension-id"', page)
+        self.assertNotIn('name="boundsMinX"', cave_form)
+        self.assertNotIn('name="boundsMinX"', forest_form)
+        self.assertNotIn('id="open-cave-dimension-dialog"', cave_form)
+        self.assertNotIn('id="open-forest-dimension-dialog"', forest_form)
+        self.assertNotIn('id="cave-dimension-dialog"', page)
+        self.assertNotIn('id="forest-dimension-dialog"', page)
+        self.assertIn("function generationFromDocumentPath(path)", script)
+        self.assertIn('["trainers", "battles", "caves", "forests"].includes(category)', script)
+        self.assertNotIn("function applyCaveDimensionDialog()", script)
+        self.assertNotIn("function applyForestDimensionDialog()", script)
+        self.assertNotIn("높이는 Minecraft 월드 기준", script)
+        self.assertIn('id: "cobbleventure:dungeons", region_id: `generation_${generation}/', script)
+        self.assertIn('id: `cobbleventure:generation_${generation}`, region_id: `generation_${generation}/', script)
+        self.assertIn("자동 · 입구·공동·통로 배치 기준", page)
+        self.assertIn("자동 · 길·입출구·높이 타일 기준", page)
+        self.assertIn("function caveBuildBounds(document = state.cave)", script)
+        self.assertIn("function forestBuildBounds(document = state.forest)", script)
+        self.assertIn("syncCaveBuildBounds(); renderCaveDimensionSummary();", script)
+        self.assertIn("syncForestBuildBounds(); renderForestDimensionSummary();", script)
+
+    def test_cave_and_forest_build_bounds_are_derived_from_authored_layouts(self) -> None:
+        cave = content_manager.load_json(PROJECT_ROOT / "content/caves/generation_1/mt_moon.json")
+        forest = content_manager.load_json(PROJECT_ROOT / "content/forests/generation_1/viridian_forest.json")
+        cave_bounds = content_manager.derive_cave_build_bounds(cave)
+        forest_bounds = content_manager.derive_forest_build_bounds(forest)
+
+        for bounds in (cave_bounds, forest_bounds):
+            self.assertTrue(all(value % 16 == 0 for value in bounds.values()))
+            self.assertLess(bounds["min_x"], bounds["max_x"])
+            self.assertLess(bounds["min_z"], bounds["max_z"])
+        self.assertLessEqual(cave_bounds["min_x"], -324)
+        self.assertGreaterEqual(cave_bounds["max_x"], 324)
+        self.assertLessEqual(forest_bounds["min_z"], -168)
+        self.assertGreaterEqual(forest_bounds["max_z"], 168)
+
+        cave["dimension"]["bounds"] = {"min_x": -999, "min_z": -999, "max_x": 999, "max_z": 999}
+        forest["dimension"]["bounds"] = {"min_x": -999, "min_z": -999, "max_x": 999, "max_z": 999}
+        content_manager.synchronize_spatial_build_bounds(cave, "caves")
+        content_manager.synchronize_spatial_build_bounds(forest, "forests")
+        self.assertEqual(cave_bounds, cave["dimension"]["bounds"])
+        self.assertEqual(forest_bounds, forest["dimension"]["bounds"])
+
+    def test_build_synchronizes_spatial_bounds_before_export(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cave_path = root / "content/caves/generation_1/mt_moon.json"
+            forest_path = root / "content/forests/generation_1/viridian_forest.json"
+            cave_path.parent.mkdir(parents=True)
+            forest_path.parent.mkdir(parents=True)
+            shutil.copy2(PROJECT_ROOT / "content/caves/generation_1/mt_moon.json", cave_path)
+            shutil.copy2(PROJECT_ROOT / "content/forests/generation_1/viridian_forest.json", forest_path)
+            cave = content_manager.load_json(cave_path)
+            forest = content_manager.load_json(forest_path)
+            cave["dimension"]["bounds"] = {"min_x": -1, "min_z": -1, "max_x": 1, "max_z": 1}
+            forest["dimension"]["bounds"] = {"min_x": -1, "min_z": -1, "max_x": 1, "max_z": 1}
+            cave_path.write_text(json.dumps(cave, ensure_ascii=False), encoding="utf-8")
+            forest_path.write_text(json.dumps(forest, ensure_ascii=False), encoding="utf-8")
+
+            self.assertEqual(2, content_manager.synchronize_spatial_build_files(root))
+            self.assertEqual(content_manager.derive_cave_build_bounds(cave), content_manager.load_json(cave_path)["dimension"]["bounds"])
+            self.assertEqual(content_manager.derive_forest_build_bounds(forest), content_manager.load_json(forest_path)["dimension"]["bounds"])
+            self.assertEqual(0, content_manager.synchronize_spatial_build_files(root))
+
     def test_forest_template_models_tiled_paths_and_height_tiles(self) -> None:
         document = content_manager._forest_template("viridian", "상록숲", "generation_1")
         with tempfile.TemporaryDirectory() as directory:
@@ -1083,6 +1241,7 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertEqual("cobbleventure:forest/viridian", forest_id)
         self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+        self.assertNotIn("generation", document)
         self.assertEqual("hybrid", document["generator"]["layout"])
         self.assertTrue(document["generator"]["spline_enabled"])
         self.assertEqual(6000, document["environment"]["fixed_time"])
@@ -1092,43 +1251,193 @@ class ContentManagerTests(unittest.TestCase):
 
         document["tree_barrier"]["min_height"] = 20
         document["tree_barrier"]["max_height"] = 8
-        document["paths"][0]["points"][1] = {"x": 3, "z": 5}
-        document["terrain_tiles"] = [{"x": 3, "z": 0, "height_offset": 17}]
+        document["paths"][0]["points"][1] = {"x": 3.5, "z": 5}
+        document["paths"][0]["kind"] = "labyrinth"
+        document["terrain_tiles"] = [{"x": 3, "z": 0, "height_offset": 17, "transition": {"kind": "ladder", "direction": "up", "block": "oak_stairs"}}]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "invalid.json"
             path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
             _, issues = content_manager.validate_forest_file(path)
         self.assertTrue(any("최소 나무 높이" in issue.message for issue in issues))
-        self.assertTrue(any("길 앵커" in issue.message for issue in issues))
+        self.assertTrue(any("정수 좌표" in issue.message for issue in issues))
         self.assertTrue(any("타일 격자" in issue.message for issue in issues))
         self.assertTrue(any("-16 이상 16 이하" in issue.message for issue in issues))
+        self.assertTrue(any("길 역할" in issue.message for issue in issues))
+        self.assertTrue(any("높이 전환 종류" in issue.message for issue in issues))
+        self.assertTrue(any("높이 전환 방향" in issue.message for issue in issues))
 
     def test_forest_management_tab_exposes_direct_2d_path_authoring(self) -> None:
         page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
         schema = json.loads((PROJECT_ROOT / "content/schemas/forest.schema.json").read_text(encoding="utf-8"))
 
         self.assertIn('data-section="forests"', page)
         self.assertIn('id="forest-layout-canvas"', page)
         self.assertIn('data-add-forest-path', page)
         self.assertIn('data-forest-tool="height-up"', page)
+        self.assertIn('data-forest-tool="stairs"', page)
+        self.assertIn('id="forest-height-brush-radius"', page)
+        self.assertIn('id="forest-height-brush-size"', page)
+        self.assertIn('id="forest-height-brush-target"', page)
+        self.assertIn('id="forest-height-target-value"', page)
+        self.assertEqual(3, page.count('data-forest-environment-preset='))
+        self.assertIn('class="forest-environment-advanced"', page)
+        self.assertIn('세부 설정 펼치기', page)
         self.assertIn('id="forest-entrance-list"', page)
+        self.assertIn('id="forest-selection-empty"', page)
+        self.assertIn('id="forest-path-properties"', page)
+        self.assertIn('id="forest-entrance-properties"', page)
         self.assertIn('name="fixedTime"', page)
         self.assertIn('name="treeMinHeight"', page)
         self.assertIn('name="undergrowthDensity"', page)
+        self.assertIn('id="forest-maze-dialog"', page)
+        self.assertIn('id="forest-maze-dialog-form"', page)
+        self.assertIn('id="open-forest-maze-dialog"', page)
+        forest_heading_markup = page.split('<div class="forest-editor-heading">', 1)[1].split("</div>", 1)[0]
+        forest_toolbar_markup = page.split('<div class="forest-editor-heading">', 1)[1].split(
+            '<div class="cave-preview-actions spatial-editor-toolbar">', 1
+        )[1].split("</div></header>", 1)[0]
+        self.assertIn('id="open-forest-maze-dialog"', forest_heading_markup)
+        self.assertNotIn('id="open-forest-maze-dialog"', forest_toolbar_markup)
+        self.assertIn('.forest-editor-heading .forest-maze-open-action', styles)
+        self.assertIn('.cave-generator-open-action { position: absolute;', styles)
+        forest_form_markup = page.split('<form id="forest-form"', 1)[1].split("</form>", 1)[0]
+        self.assertNotIn('name="generatorLayout"', forest_form_markup)
+        maze_dialog_markup = page.split('id="forest-maze-dialog-form"', 1)[1].split("</form>", 1)[0]
+        self.assertIn('name="generatorLayout"', maze_dialog_markup)
         self.assertIn('name="splineTension"', page)
         self.assertIn("drawForestPath", script)
+        self.assertIn("context.bezierCurveTo", script)
+        self.assertIn("const smoothing = .08 + tension * .22", script)
+        self.assertIn("forestMinimumMazeCellSize", script)
+        self.assertIn('function openForestMazeDialog()', script)
+        self.assertIn('function applyForestMazeDialog()', script)
+        self.assertIn('id="forest-cell-size-hint"', page)
+        self.assertNotIn('mazeSettingsGrid.append(mazeButton)', script)
+        self.assertIn('forestPathContext.append(addForestPath)', script)
         self.assertIn("forestCanvasTransform().world", script)
         self.assertIn("generateForestMazePaths", script)
-        self.assertIn("snapForestPoint", script)
+        self.assertIn('spline: { enabled: splineEnabled, tension }', script)
+        self.assertIn('const startPoint = entrancePoints[0]', script)
+        self.assertIn('exitPoint = entrancePoints.at(-1)', script)
+        self.assertIn("clampForestPoint", script)
+        self.assertIn("snapForestTilePoint", script)
+        self.assertIn("function forestTileGrid()", script)
+        self.assertIn("bounds.min_x + cell / 2", script)
+        self.assertIn("x < grid.minCenterX", script)
+        self.assertNotIn("길 앵커는 {cell_size}블록 타일 격자에 맞아야 합니다.", (CORE_ROOT / "tools/content-manager/content_manager.py").read_text(encoding="utf-8"))
+        self.assertNotIn("입출구는 {cell_size}블록 타일 격자에 맞아야 합니다.", (CORE_ROOT / "tools/content-manager/content_manager.py").read_text(encoding="utf-8"))
+        self.assertIn("heightBrushRadius", script)
+        self.assertIn("heightBrushTarget", script)
+        self.assertIn('tool === "height-up" ? targetHeight', script)
+        self.assertNotIn("current + 1", script)
+        self.assertNotIn("current - 1", script)
+        self.assertIn("brushHover", script)
+        self.assertIn('context.setLineDash([5, 3])', script)
+        self.assertIn('addEventListener("pointerleave"', script)
+        self.assertIn("forestEnvironmentPresets", script)
+        self.assertIn("applyForestEnvironmentPreset", script)
+        self.assertIn("renderForestEnvironmentPreset", script)
+        self.assertIn(".forest-environment-presets", styles)
+        self.assertIn('.forest-layout-editor:not([data-active-tool^="height-"]) .forest-brush-size', styles)
+        self.assertIn('forestPreview: { selectedPath: null, selectedAnchor: null, selectedEntranceIndex: null', script)
+        self.assertIn('function removeForestPathAnchor(pathIndex, pointIndex)', script)
+        self.assertIn('id="forest-anchor-delete"', page)
+        self.assertIn('class="forest-anchor-delete"', page)
+        self.assertIn('anchorDeleteButton.style.transform', script)
+        self.assertIn('.forest-anchor-delete { z-index: 6;', styles)
+        self.assertIn('selectedAnchor = { pathIndex: target.pathIndex, pointIndex: target.pointIndex }', script)
+        self.assertIn('길에는 최소 2개의 앵커가 필요합니다.', script)
+        self.assertIn('const selectedPath = selectedPathIndex == null ? null', script)
+        self.assertNotIn('$("#forest-path-list").innerHTML = state.forest.paths.map', script)
+        self.assertIn('state.forestPreview.selectedPath = null; state.forestPreview.selectedAnchor = null; state.forestPreview.selectedEntranceIndex = null; state.forestPreview.drag = { target: { kind: "pan" }', script)
+        self.assertIn('const entranceTarget = targets.filter((item) => item.kind === "entrance")', script)
+        self.assertIn('entranceTarget?.distance <= 18 ? entranceTarget', script)
+        self.assertIn("painted?.has(key)", script)
         self.assertIn("pointermove", script)
         self.assertIn('state.forest.entrances[drag.target.entranceIndex].position = point', script)
-        self.assertIn('state.forest.paths = [...preserved, ...mazePaths]', script)
+        self.assertIn("selectedEntranceIndex", script)
+        self.assertIn('data-forest-entrance-field="x"', script)
+        self.assertIn('$("#forest-entrance-list").addEventListener("input", handleForestListInput)', script)
+        self.assertIn('state.forest.paths = mazePaths', script)
+        self.assertIn('const baseScale = Math.min(', script)
+        self.assertIn('function zoomForestPreview(nextZoom, clientX, clientY)', script)
+        self.assertIn('target: { kind: "pan" }', script)
+        self.assertIn('zoomForestPreview(state.forestPreview.zoom *', script)
+        self.assertIn('빈 공간 드래그: 화면 이동 · 휠: 확대·축소', script)
+        self.assertIn('.forest-layout-editor[data-active-tool="select"] #forest-layout-canvas', styles)
+        self.assertIn('const mainAnchorCount = 6 + Math.round(complexity * 5)', script)
+        self.assertIn('kind: "shortcut"', script)
+        self.assertIn('shortcutCount = Math.min(4', script)
+        self.assertNotIn('const visited = new Set([key(start)]), stack = [start]', script)
+        self.assertNotIn('dominantZ', script)
         self.assertNotIn('data-add-forest-wall', page)
         self.assertNotIn('generator.layout !== "manual"', script)
         self.assertIn("terrain_tiles", schema["required"])
         self.assertNotIn("one_way_walls", schema["properties"])
         self.assertEqual(16, schema["$defs"]["terrain_tile"]["properties"]["height_offset"]["maximum"])
+        self.assertEqual(["main", "shortcut", "manual"], schema["$defs"]["path"]["properties"]["kind"]["enum"])
+        self.assertIn("transition", schema["$defs"]["terrain_tile"]["properties"])
+        self.assertIn('function placeForestHeightTransition(point)', script)
+        self.assertIn('data-forest-stair-field="block"', script)
+
+    def test_world_cave_and_forest_editors_share_spatial_layout_shell(self) -> None:
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('world-map-panel spatial-workspace-shell', page)
+        self.assertEqual(2, page.count('workspace-grid spatial-document-grid'))
+        self.assertIn('cave-layout-preview spatial-editor', page)
+        self.assertIn('forest-layout-editor spatial-editor', page)
+        self.assertEqual(2, page.count('cave-preview-actions spatial-editor-toolbar'))
+        cave_editor_markup = page.split('<section class="cave-layout-preview spatial-editor"', 1)[1].split("</section>", 1)[0]
+        cave_toolbar_markup = cave_editor_markup.split('<div class="cave-preview-actions spatial-editor-toolbar">', 1)[1].split(
+            "</div></header>", 1
+        )[0]
+        cave_stage_markup = cave_editor_markup.split('<div class="cave-preview-stage spatial-editor-stage">', 1)[1]
+        self.assertNotIn('class="cave-view-toolbar"', cave_toolbar_markup)
+        self.assertNotIn('id="reset-cave-preview-view"', cave_toolbar_markup)
+        self.assertNotIn('id="regenerate-cave-preview"', cave_toolbar_markup)
+        self.assertIn('class="cave-canvas-controls"', cave_stage_markup)
+        self.assertIn('class="cave-view-toolbar"', cave_stage_markup)
+        self.assertIn('id="reset-cave-preview-view"', cave_stage_markup)
+        self.assertIn('id="regenerate-cave-preview"', cave_stage_markup)
+        self.assertNotIn('<b>VIEW CONTROL</b>', script)
+        self.assertIn('cave-node-inspector spatial-editor-inspector', page)
+        self.assertIn('forest-layout-body spatial-editor-stage', page)
+        self.assertIn('.spatial-editor-toolbar', styles)
+        self.assertIn('.spatial-editor-inspector', styles)
+        self.assertIn('.spatial-editor-status', styles)
+        self.assertIn('grid-template-columns: minmax(190px,220px) minmax(0,1fr) minmax(200px,230px)', styles)
+        self.assertIn('.spatial-tool-contexts', styles)
+        self.assertIn('function prepareUnifiedSpatialEditors()', script)
+        self.assertNotIn('caveForm.prepend(caveVisualEditor)', script)
+        self.assertNotIn('forestForm.prepend(forestVisualEditor)', script)
+        self.assertNotIn('forestForm.firstElementChild !== forestVisualEditor', script)
+        self.assertIn('forestVisualEditor.classList.add("primary-spatial-editor")', script)
+        self.assertIn('.form-grid > .primary-spatial-editor', styles)
+        self.assertIn('className = "spatial-tool-rail"', script)
+        self.assertIn('className = "spatial-tool-options"', script)
+        self.assertIn('.spatial-editor-toolbar.world-aligned-toolbar', styles)
+        self.assertIn('--spatial-tool-rail-width: 62px', styles)
+        self.assertIn('grid-template-rows: minmax(0,1fr); align-content: stretch', styles)
+        self.assertIn('.spatial-tool-rail { display: flex; min-height: 100%; align-self: stretch', styles)
+        self.assertIn('.spatial-tool-options { display: flex; width: 100%;', styles)
+        self.assertIn('height: 100%; align-self: stretch; justify-self: stretch;', styles)
+        self.assertIn('flex-direction: column; justify-content: flex-start;', styles)
+        self.assertIn('.cave-canvas-controls { position: absolute;', styles)
+        self.assertIn('data-cave-placement-group="entrance"', script)
+        self.assertIn('data-cave-placement-group="path"', script)
+        self.assertIn('function handleCavePlacementInput(event)', script)
+        self.assertIn('.cave-placement-settings', styles)
+        self.assertNotIn('state.cavePreview.selected = { source: "entrance", id: entrance.id };\n  setCavePreviewTool("select")', script)
+        self.assertIn('data-cave-preview-tool="select"', script)
+        self.assertIn('data-forest-tool="select"', script)
+        self.assertIn('id="cave-layout-canvas"', page)
+        self.assertIn('id="forest-layout-canvas"', page)
+        self.assertIn('id="world-hex-map"', page)
 
     def test_world_forest_entrance_requires_a_route_and_dense_forest_is_supported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1140,18 +1449,13 @@ class ContentManagerTests(unittest.TestCase):
             shutil.copy2(PROJECT_ROOT / "content/catalogs/boundary-profiles.json", catalog_dir / "boundary-profiles.json")
             forest = content_manager._forest_template("viridian", "상록숲", "generation_1")
             (forest_dir / "viridian.json").write_text(json.dumps(forest, ensure_ascii=False), encoding="utf-8")
-            gate = {
-                "id": "forest_entrance_viridian_main", "type": "gate", "anchor": {"q": 1, "r": 0},
-                "resource": "cobbleventure:forest_entrance/forest_gate", "rotation": 1,
-                "properties": {
-                    "facing": "east", "gate_mode": "classic", "building_enabled": True,
-                    "surrounding_type": "trees", "wall_block": "minecraft:mossy_stone_bricks",
-                    "tree_log": "minecraft:spruce_log", "tree_leaves": "minecraft:spruce_leaves",
-                    "wall_thickness": 7, "wall_height": 14, "opening_width": 7,
-                    "barrier_height": 32, "condition_mode": "all", "conditions": [],
-                    "deny_message": "숲관문을 이용하세요.",
-                    "destination_forest": forest["id"], "destination_entrance": forest["entrances"][0]["id"],
-                },
+            entrance = {
+                "id": "forest_entrance_viridian_main", "forest": forest["id"],
+                "entrance": forest["entrances"][0]["id"], "anchor": {"q": 1, "r": 0},
+                "facing": "east", "structure": "cobbleventure:forest_entrance/forest_gate", "rotation": 1,
+                "tree_log": "minecraft:spruce_log", "tree_leaves": "minecraft:spruce_leaves",
+                "wall_thickness": 7, "wall_height": 14, "opening_width": 7, "barrier_height": 32,
+                "pokemon_center_enabled": True,
             }
             layout = {
                 "$schema": "../schemas/hex-world.schema.json", "schema_version": 2,
@@ -1159,12 +1463,12 @@ class ContentManagerTests(unittest.TestCase):
                 "grid": {"orientation": "pointy_top", "tile_radius_blocks": 64, "map_radius_cells": 6, "origin": {"x": 0, "y": 69, "z": 0}},
                 "empty_terrain": {"default_type": "high_forest", "tiles": [{"q": 2, "r": 0, "type": "dense_forest"}]},
                 "tiles": [], "environment_overrides": [], "level_overrides": [], "settlements": [], "cave_entrances": [],
-                "connections": [], "objects": [gate],
+                "connections": [], "forest_entrances": [entrance], "objects": [],
             }
             issues = content_manager.save_world_layout(root, layout, 1)
             self.assertTrue(any("숲 입구까지 이어지는 길" in issue.message for issue in issues))
             layout["connections"] = [{
-                "id": "route_forest", "to": gate["id"], "anchors": [{"q": 0, "r": 0}, {"q": 1, "r": 0}],
+                "id": "route_forest", "to": entrance["id"], "anchors": [{"q": 0, "r": 0}, {"q": 1, "r": 0}],
                 "cells": [{"q": 0, "r": 0}, {"q": 1, "r": 0}], "corridor_width_blocks": 12,
                 "edge_noise": 0, "surface_style": "road", "pathfinding": "explicit",
             }]
@@ -1172,9 +1476,21 @@ class ContentManagerTests(unittest.TestCase):
 
         page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
-        self.assertIn('data-map-tool="forest"', page)
+        self.assertIn('data-map-tool="entrance"', page)
+        self.assertNotIn('data-map-tool="cave"', page)
+        self.assertNotIn('data-map-tool="forest"', page)
+        self.assertIn('id="world-entrance-kind"', page)
+        self.assertIn('id="world-entrance-pokemon-center"', page)
+        self.assertIn('name="pokemonCenterEnabled"', page)
+        self.assertNotIn('id="cave-tool-center-structure"', page)
+        self.assertNotIn('name="pokemonCenterStructure"', page)
         self.assertIn('value="cobbleventure:forest_entrance/forest_gate"', page)
         self.assertIn('setEmptyTerrainTile(dense.q, dense.r, "dense_forest")', script)
+        self.assertIn('id="entrance-inspector-form"', page)
+        self.assertIn('data-drag-entrance-kind="forest"', script)
+        self.assertIn('state.worldLayout.forest_entrances.push(entrance)', script)
+        self.assertIn('pokemon_center_enabled: $("#world-entrance-pokemon-center").value === "true"', script)
+        self.assertNotIn('type: "gate", anchor: { q, r }, resource', script)
         self.assertNotIn(">높은 숲<", page)
 
     def test_world_level_overrides_are_saved_and_validated(self) -> None:
@@ -1215,6 +1531,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("renderLevelOverlay", script)
         self.assertIn('!state.levelOverlayVisible && state.activeMapTool !== "level"', script)
         self.assertNotIn('state.levelOverlayVisible = true; $("#level-overlay-toggle").checked = true', script)
+        for brush_id in ("biome-brush-radius", "empty-terrain-brush-radius", "climate-brush-radius", "level-brush-radius", "eraser-radius"):
+            self.assertIn(f'id="{brush_id}" type="range" min="0" max="5" value="0"', page)
+        self.assertIn("function renderWorldDragPreview()", script)
+        self.assertIn("function moveWorldPlacementDrag(event)", script)
+        self.assertIn('state.activeMapTool === "select" && !state.suppressMapClick', script)
+        self.assertIn(".world-drag-preview", (CORE_ROOT / "tools" / "content-manager" / "web" / "styles.css").read_text(encoding="utf-8"))
 
     def test_world_gate_objects_are_saved_and_validated(self) -> None:
         root = PROJECT_ROOT
@@ -2746,6 +3068,7 @@ class ContentManagerTests(unittest.TestCase):
             "ferritecore": ((429235, 7524151), "both"),
             "immediatelyfast": ((686911, 7537795), "client"),
             "entity_culling": ((448233, 7396695), "client"),
+            "skin_layers_3d": ((521480, 8274824), "client"),
             "complementary_reimagined": ((627557, 5874236), "client"),
             "euphoria_patches": ((915902, 5876050), "client"),
         }
@@ -3004,6 +3327,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="edit-route-pokemon"', page)
         self.assertIn('id="route-pokemon-dialog"', page)
         self.assertIn("route-pokemon-dialog-shell", styles)
+        self.assertIn("width: min(1560px,calc(100vw - 24px))", styles)
+        self.assertIn("height: min(920px,calc(100vh - 24px))", styles)
+        self.assertIn("routePokemonCardCopy", app_script)
+        self.assertIn("repeat(2,minmax(0,1fr))", styles)
+        self.assertNotIn("repeat(auto-fill,minmax(190px,1fr))", styles)
+        self.assertIn("repeat(auto-fill,minmax(320px,1fr))", styles)
         self.assertIn("ensureRoutePokemonSettings", app_script)
         self.assertIn("state.selectedRouteId === route.dataset.selectRoute", app_script)
         self.assertIn("has-selected-route", app_script)
@@ -3015,6 +3344,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("finishSettlementDrag", app_script)
         self.assertIn("visibleHexCells", app_script)
         self.assertIn("beginMapPan", app_script)
+        self.assertIn("function zoomWorldMap", app_script)
+        self.assertIn("function handleWorldMapWheel", app_script)
+        self.assertIn('addEventListener("wheel", handleWorldMapWheel, { passive: false })', app_script)
+        self.assertIn("마우스 휠 확대·축소", page)
         self.assertIn("settlementFootprintAt", app_script)
         self.assertIn("data-settlement-move", app_script)
         self.assertIn("moveSettlementPreset", app_script)
@@ -3504,6 +3837,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("npc_labels", script)
         self.assertIn("citizen_placement_allowed", script)
         self.assertIn("gym_exterior", script)
+        self.assertIn("anchor_conflicts", script)
+        self.assertIn("remove_out_of_bounds_anchors", script)
+        self.assertIn("다음 앵커 ${anchorConflicts.length}개가 지워집니다", script)
         self.assertIn('id="interior-space-create-form"', markup)
         self.assertIn('id="building-interior-assignments"', markup)
         self.assertIn('id="building-door-routes"', markup)

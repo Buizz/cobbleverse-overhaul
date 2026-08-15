@@ -1038,11 +1038,6 @@
         "type": "ocean"
       },
       {
-        "q": -3,
-        "r": 2,
-        "type": "dense_forest"
-      },
-      {
         "q": -2,
         "r": 2,
         "type": "dense_forest"
@@ -1053,9 +1048,29 @@
         "type": "dense_forest"
       },
       {
-        "q": -2,
+        "q": -4,
+        "r": 2,
+        "type": "dense_forest"
+      },
+      {
+        "q": -3,
+        "r": 1,
+        "type": "dense_forest"
+      },
+      {
+        "q": -3,
         "r": 0,
         "type": "dense_forest"
+      },
+      {
+        "q": -1,
+        "r": 0,
+        "type": "dense_forest"
+      },
+      {
+        "q": -2,
+        "r": 11,
+        "type": "ocean"
       }
     ]
   },
@@ -1099,7 +1114,7 @@
     {
       "q": -1,
       "r": -1,
-      "biome": "minecraft:forest",
+      "biome": "minecraft:plains",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -1599,6 +1614,102 @@
         "noise_scale_blocks": 96,
         "connection_height": 0
       }
+    },
+    {
+      "q": -3,
+      "r": 2,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -2,
+      "r": -1,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -2,
+      "r": 0,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 8,
+      "r": 2,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 9,
+      "r": 3,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 4,
+      "r": 6,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -3,
+      "r": 11,
+      "biome": "minecraft:ocean",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 7,
+      "r": -1,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
     }
   ],
   "settlements": [
@@ -1665,7 +1776,7 @@
         "q": 7,
         "r": -2
       },
-      "town_radius_cells": 7,
+      "town_radius_cells": 5,
       "town_biome": "minecraft:plains",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/earthwork",
@@ -1675,7 +1786,7 @@
         "noise_scale_blocks": 104,
         "connection_height": 0
       },
-      "town_footprint_shape": "line_q",
+      "town_footprint_shape": "five_up",
       "town_footprint_cells": [],
       "town_road_exits": []
     },
@@ -1723,7 +1834,7 @@
         "q": 9,
         "r": 2
       },
-      "town_radius_cells": 7,
+      "town_radius_cells": 3,
       "town_biome": "minecraft:dark_forest",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/stone_wall",
@@ -1732,7 +1843,7 @@
         "height_variation": 3,
         "noise_scale_blocks": 88
       },
-      "town_footprint_shape": "line_q",
+      "town_footprint_shape": "triangle_up",
       "town_footprint_cells": [],
       "town_road_exits": []
     },
@@ -1742,7 +1853,7 @@
         "q": 3,
         "r": 6
       },
-      "town_radius_cells": 7,
+      "town_radius_cells": 3,
       "town_biome": "minecraft:beach",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/earthwork",
@@ -1751,7 +1862,7 @@
         "height_variation": 2,
         "noise_scale_blocks": 104
       },
-      "town_footprint_shape": "line_q",
+      "town_footprint_shape": "triangle_up",
       "town_footprint_cells": [],
       "town_road_exits": []
     },
@@ -1761,7 +1872,7 @@
         "q": -2,
         "r": 10
       },
-      "town_radius_cells": 7,
+      "town_radius_cells": 5,
       "town_biome": "minecraft:beach",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/dense_tree_line",
@@ -1771,17 +1882,17 @@
         "noise_scale_blocks": 92,
         "connection_height": 0
       },
-      "town_footprint_shape": "line_q",
+      "town_footprint_shape": "five_up",
       "town_footprint_cells": [],
       "town_road_exits": []
     },
     {
       "settlement": "cobbleventure:settlement/tidehaven_town",
       "anchor": {
-        "q": -8,
-        "r": 12
+        "q": -7,
+        "r": 11
       },
-      "town_radius_cells": 7,
+      "town_radius_cells": 1,
       "town_biome": "minecraft:beach",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/earthwork",
@@ -2048,8 +2159,8 @@
       "to": "cobbleventure:settlement/crimson_town",
       "anchors": [
         {
-          "q": -1,
-          "r": -1
+          "q": -2,
+          "r": 0
         },
         {
           "q": -1,
@@ -2057,6 +2168,10 @@
         }
       ],
       "cells": [
+        {
+          "q": -2,
+          "r": 0
+        },
         {
           "q": -1,
           "r": -1
@@ -2201,8 +2316,8 @@
           "r": 8
         },
         {
-          "q": -8,
-          "r": 12
+          "q": -7,
+          "r": 11
         }
       ],
       "cells": [
@@ -2221,10 +2336,6 @@
         {
           "q": -7,
           "r": 11
-        },
-        {
-          "q": -8,
-          "r": 12
         }
       ],
       "corridor_width_blocks": 12,
@@ -2247,8 +2358,8 @@
           "r": 10
         },
         {
-          "q": -8,
-          "r": 12
+          "q": -7,
+          "r": 11
         }
       ],
       "cells": [
@@ -2262,7 +2373,7 @@
         },
         {
           "q": -4,
-          "r": 11
+          "r": 10
         },
         {
           "q": -5,
@@ -2274,11 +2385,7 @@
         },
         {
           "q": -7,
-          "r": 12
-        },
-        {
-          "q": -8,
-          "r": 12
+          "r": 11
         }
       ],
       "corridor_width_blocks": 12,
@@ -2601,64 +2708,45 @@
       "from": "cobbleventure:settlement/vermilion_city"
     }
   ],
-  "objects": [
+  "forest_entrances": [
     {
       "id": "forest_entrance_viridian_forest_south",
-      "type": "gate",
+      "forest": "cobbleventure:forest/viridian_forest",
+      "entrance": "south",
       "anchor": {
         "q": -3,
         "r": 2
       },
-      "resource": "cobbleventure:forest_entrance/forest_gate",
+      "facing": "north_east",
+      "structure": "cobbleventure:forest_entrance/forest_gate",
       "rotation": 0,
-      "properties": {
-        "facing": "north",
-        "gate_mode": "classic",
-        "building_enabled": true,
-        "surrounding_type": "trees",
-        "wall_block": "minecraft:mossy_stone_bricks",
-        "tree_log": "minecraft:spruce_log",
-        "tree_leaves": "minecraft:spruce_leaves",
-        "wall_thickness": 7,
-        "wall_height": 14,
-        "opening_width": 7,
-        "barrier_height": 32,
-        "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "숲관문을 통해 상록숲으로 들어가세요.",
-        "destination_forest": "cobbleventure:forest/viridian_forest",
-        "destination_entrance": "south"
-      }
+      "tree_log": "minecraft:spruce_log",
+      "tree_leaves": "minecraft:spruce_leaves",
+      "wall_thickness": 7,
+      "wall_height": 14,
+      "opening_width": 7,
+      "barrier_height": 32
     },
     {
       "id": "forest_entrance_viridian_forest_north",
-      "type": "gate",
+      "forest": "cobbleventure:forest/viridian_forest",
+      "entrance": "north",
       "anchor": {
-        "q": -1,
-        "r": -1
+        "q": -2,
+        "r": 0
       },
-      "resource": "cobbleventure:forest_entrance/forest_gate",
+      "facing": "south_east",
+      "structure": "cobbleventure:forest_entrance/forest_gate",
       "rotation": 2,
-      "properties": {
-        "facing": "south",
-        "gate_mode": "classic",
-        "building_enabled": true,
-        "surrounding_type": "trees",
-        "wall_block": "minecraft:mossy_stone_bricks",
-        "tree_log": "minecraft:spruce_log",
-        "tree_leaves": "minecraft:spruce_leaves",
-        "wall_thickness": 7,
-        "wall_height": 14,
-        "opening_width": 7,
-        "barrier_height": 32,
-        "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "숲관문을 통해 상록숲으로 들어가세요.",
-        "destination_forest": "cobbleventure:forest/viridian_forest",
-        "destination_entrance": "north"
-      }
+      "tree_log": "minecraft:spruce_log",
+      "tree_leaves": "minecraft:spruce_leaves",
+      "wall_thickness": 7,
+      "wall_height": 14,
+      "opening_width": 7,
+      "barrier_height": 32
     }
   ],
+  "objects": [],
   "environment_overrides": [],
   "level_overrides": [
     {

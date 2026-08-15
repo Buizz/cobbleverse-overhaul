@@ -5,7 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version", "id", "enabled", "display_name", "generation",
+    "schema_version", "id", "enabled", "display_name",
     "cave_type", "dimension", "requires_flash", "random_encounters",
     "internal_biomes", "trainer_settings", "entrances"
   ],
@@ -15,7 +15,6 @@
     "id": { "$ref": "#/$defs/resource_id" },
     "enabled": { "type": "boolean" },
     "display_name": { "$ref": "#/$defs/localized_text" },
-    "generation": { "type": "integer", "minimum": 1, "maximum": 9 },
     "cave_type": { "$ref": "#/$defs/resource_id" },
     "dimension": {
       "type": "object",
@@ -25,7 +24,7 @@
         "id": { "$ref": "#/$defs/resource_id" },
         "region_id": { "type": "string", "pattern": "^[a-z0-9_./-]+$" },
         "origin": { "$ref": "#/$defs/block_position" },
-        "bounds": { "$ref": "#/$defs/bounds" }
+        "bounds": { "$ref": "#/$defs/bounds", "description": "입구와 공동 배치에서 빌드 시 자동 계산되는 읽기 전용 영역" }
       }
     },
     "generator": {

@@ -143,7 +143,8 @@ final class WorldPlanModels {
     record CaveEntrancePlan(
         String id, String cave, String entrance, HexCoord anchor, String facing,
         String structure, Map<String, String> structureVariants,
-        String pokemonCenterStructure, HexCoord pokemonCenterOffset,
+        boolean pokemonCenterEnabled, String pokemonCenterStructure,
+        HexCoord pokemonCenterOffset,
         CobbleventureBootstrap.BlockPoint destination,
         CobbleventureBootstrap.BlockPoint portalAnchor,
         NaturalCaveGenerator.Settings generationSettings

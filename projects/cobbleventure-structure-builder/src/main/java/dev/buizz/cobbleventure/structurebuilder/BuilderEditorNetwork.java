@@ -18,7 +18,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class BuilderEditorNetwork {
-    private static final String VERSION = "2";
+    private static final String VERSION = "3";
 
     private BuilderEditorNetwork() {}
 
@@ -35,6 +35,8 @@ public final class BuilderEditorNetwork {
         registrar.playToServer(TeleportPayload.TYPE, TeleportPayload.CODEC, BuilderEditorNetwork::handleTeleport);
         registrar.playToServer(ResizePayload.TYPE, ResizePayload.CODEC, BuilderEditorNetwork::handleResize);
         registrar.playToServer(SaveCurrentPayload.TYPE, SaveCurrentPayload.CODEC, BuilderEditorNetwork::handleSaveCurrent);
+        registrar.playToServer(SelectCurrentPayload.TYPE, SelectCurrentPayload.CODEC, BuilderEditorNetwork::handleSelectCurrent);
+        registrar.playToServer(MoveCurrentPayload.TYPE, MoveCurrentPayload.CODEC, BuilderEditorNetwork::handleMoveCurrent);
     }
 
     static void openAnchorEditor(ServerPlayer player, BlockPos position, boolean door) {
@@ -56,6 +58,10 @@ public final class BuilderEditorNetwork {
         PacketDistributor.sendToServer(new ResizePayload(width, depth, floorHeight, floors));
     }
     public static void saveCurrent() { PacketDistributor.sendToServer(new SaveCurrentPayload()); }
+    public static void selectCurrent() { PacketDistributor.sendToServer(new SelectCurrentPayload()); }
+    public static void moveCurrent(String direction, int amount) {
+        PacketDistributor.sendToServer(new MoveCurrentPayload(direction, amount));
+    }
 
     private static void handleSnapshot(SnapshotPayload payload, IPayloadContext context) {
         BuilderEditorClient.update(payload);
@@ -93,6 +99,18 @@ public final class BuilderEditorNetwork {
     private static void handleSaveCurrent(SaveCurrentPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player)) return;
         try { StructureBuilderMod.editorSaveCurrent(player); }
+        catch (RuntimeException error) { player.sendSystemMessage(Component.literal("[Structure Builder] " + error.getMessage())); }
+    }
+
+    private static void handleSelectCurrent(SelectCurrentPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        try { StructureBuilderMod.editorSelectCurrent(player); }
+        catch (RuntimeException error) { player.sendSystemMessage(Component.literal("[Structure Builder] " + error.getMessage())); }
+    }
+
+    private static void handleMoveCurrent(MoveCurrentPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        try { StructureBuilderMod.editorMoveCurrent(player, payload.direction(), payload.amount()); }
         catch (RuntimeException error) { player.sendSystemMessage(Component.literal("[Structure Builder] " + error.getMessage())); }
     }
 
@@ -186,6 +204,18 @@ public final class BuilderEditorNetwork {
     public record SaveCurrentPayload() implements CustomPacketPayload {
         static final Type<SaveCurrentPayload> TYPE = new Type<>(id("save_current"));
         static final StreamCodec<RegistryFriendlyByteBuf, SaveCurrentPayload> CODEC = StreamCodec.unit(new SaveCurrentPayload());
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+    public record SelectCurrentPayload() implements CustomPacketPayload {
+        static final Type<SelectCurrentPayload> TYPE = new Type<>(id("select_current"));
+        static final StreamCodec<RegistryFriendlyByteBuf, SelectCurrentPayload> CODEC = StreamCodec.unit(new SelectCurrentPayload());
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+    public record MoveCurrentPayload(String direction, int amount) implements CustomPacketPayload {
+        static final Type<MoveCurrentPayload> TYPE = new Type<>(id("move_current"));
+        static final StreamCodec<RegistryFriendlyByteBuf, MoveCurrentPayload> CODEC = StreamCodec.ofMember(MoveCurrentPayload::write, MoveCurrentPayload::read);
+        void write(RegistryFriendlyByteBuf b) { b.writeUtf(direction); b.writeVarInt(amount); }
+        static MoveCurrentPayload read(RegistryFriendlyByteBuf b) { return new MoveCurrentPayload(b.readUtf(), b.readVarInt()); }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 

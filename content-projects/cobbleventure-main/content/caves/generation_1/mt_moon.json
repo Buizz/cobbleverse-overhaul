@@ -4,13 +4,12 @@
   "id": "cobbleventure:cave/mt_moon",
   "enabled": true,
   "display_name": { "ko_kr": "달맞이산", "en_us": "Mt. Moon" },
-  "generation": 1,
   "cave_type": "cobbleventure:cave_type/natural_rock",
   "dimension": {
     "id": "cobbleventure:dungeons",
     "region_id": "generation_1/mt_moon",
     "origin": { "x": 0, "y": 48, "z": 0 },
-    "bounds": { "min_x": -384, "min_z": -256, "max_x": 384, "max_z": 256 }
+    "bounds": { "min_x": -352, "min_z": -64, "max_x": 352, "max_z": 96 }
   },
   "generator": {
     "layout": "natural_network",

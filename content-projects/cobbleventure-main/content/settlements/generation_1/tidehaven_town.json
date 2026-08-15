@@ -9,7 +9,7 @@
   },
   "region": "cobbleventure:generation_1/region_04",
   "dimension": "cobbleventure:generation_1",
-  "town_radius_cells": 7,
+  "town_radius_cells": 1,
   "bounds": {
     "min_x": 1739,
     "min_z": -188,
@@ -53,14 +53,14 @@
       "z": -108
     },
     "facility_pokemon_center_1": {
-      "x": 1711,
+      "x": 1821,
       "y": 69,
-      "z": -153
+      "z": -104
     },
     "facility_pokemart_1": {
-      "x": 1935,
+      "x": 1789,
       "y": 69,
-      "z": -151
+      "z": -97
     }
   },
   "content_profile": {
@@ -3689,11 +3689,11 @@
     "civic_facilities_explicit": true,
     "layout_shape": "branching",
     "road_profile": {
-      "width": 7,
-      "material": "cobblestone"
+      "width": 3,
+      "material": "packed_mud"
     },
     "generation_profile": {
-      "seed": 709961277,
+      "seed": 150699429,
       "depth": 4,
       "basic_buildings": [
         "cobbleventure:placeholder/basic_building_1",
@@ -3719,7 +3719,7 @@
           "brown"
         ]
       },
-      "building_density": "packed"
+      "building_density": "normal"
     },
     "facility_requirements": []
   },
