@@ -2745,7 +2745,7 @@
         "q": -6,
         "r": 4
       },
-      "rotation": 0,
+      "rotation": 1,
       "properties": {
         "facing": "east",
         "gate_mode": "classic",

@@ -347,10 +347,13 @@ final class WorldGateSystem {
             Direction inward = horizontalDirection(
                 destination.x() - portal.x(), destination.z() - portal.z()
             );
+            int gateY = safeForestStandY(
+                level, portal.x(), portal.z(), portal.y()
+            );
             ForestTemplatePlacement placement = forestTemplatePlacement(
                 level, gate,
                 new ForestGateGeometry(portal.x(), portal.z(), inward),
-                portal.y()
+                gateY
             );
             if (placement == null || !placement.template().placeInWorld(
                 level, placement.origin(), placement.origin(), placement.settings(),
@@ -369,8 +372,8 @@ final class WorldGateSystem {
             FOREST_EXIT_MARKERS.put(gate.id(), exit);
             level.setBlock(exit.position(), Blocks.AIR.defaultBlockState(), 2);
             LOGGER.info(
-                "Forest dimension gate placed: gate={}, entry={}, inward={}, origin={}",
-                gate.id(), exit.position(), exit.inward(), placement.origin()
+                "Forest dimension gate placed on terrain: gate={}, entry={}, groundY={}, inward={}, origin={}",
+                gate.id(), exit.position(), gateY - 1, exit.inward(), placement.origin()
             );
         }
     }

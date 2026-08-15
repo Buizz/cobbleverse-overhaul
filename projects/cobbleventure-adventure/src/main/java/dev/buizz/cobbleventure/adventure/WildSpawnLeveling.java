@@ -6,18 +6,24 @@ import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.pokemon.Species;
+import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import org.slf4j.Logger;
 
 /** Applies the world-map level brush to naturally spawned wild Pokemon. */
 final class WildSpawnLeveling {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final int LEVEL_SPREAD = 2;
     private static final int INHERITED_SPAWN_WEIGHT = 4;
+    private static final int INITIAL_DIAGNOSTIC_EVENTS = 20;
     private static boolean registered;
+    private static int spawnEvents;
+    private static int canceledEvents;
 
     private WildSpawnLeveling() {}
 
@@ -29,6 +35,7 @@ final class WildSpawnLeveling {
         CobblemonEvents.POKEMON_ENTITY_SPAWN.subscribe(
             (Consumer<SpawnEvent<PokemonEntity>>) WildSpawnLeveling::onPokemonSpawn
         );
+        LOGGER.info("[Spawn diagnosis] Natural Pokemon spawn listener registered");
     }
 
     private static void onPokemonSpawn(SpawnEvent<PokemonEntity> event) {
@@ -40,6 +47,7 @@ final class WildSpawnLeveling {
         if (!pokemon.isWild()) {
             return;
         }
+        int eventNumber = ++spawnEvents;
         AdventureWorldContext.WildSpawnRule rule = CobbleventureAdventure.wildSpawnRule(
             level, entity.getX(), entity.getZ()
         );
@@ -47,12 +55,25 @@ final class WildSpawnLeveling {
             entity, pokemon, rule
         );
         if (rule != null && addition == null && shouldCancel(pokemon, rule)) {
+            logCancellation(
+                eventNumber, entity, pokemon,
+                rule.inheritBiome() ? "excluded-by-route" : "route-biome-inheritance-disabled",
+                -1
+            );
             event.cancel();
             return;
         }
         Set<ResourceLocation> habitatSpecies = CobbleventureAdventure.allowedWildSpecies(
             level, entity.getX(), entity.getZ()
         );
+        if (shouldLog(eventNumber)) {
+            LOGGER.info(
+                "[Spawn diagnosis] Natural spawn event #{}: species={}, dimension={}, position=({}, {}, {}), routeRule={}, habitatPool={}",
+                eventNumber, pokemon.getSpecies().getResourceIdentifier(), level.dimension().location(),
+                entity.getBlockX(), entity.getBlockY(), entity.getBlockZ(), rule != null,
+                habitatSpecies == null ? "unrestricted" : habitatSpecies.size()
+            );
+        }
         if (addition == null && habitatSpecies != null && !habitatSpecies.contains(
             pokemon.getSpecies().getResourceIdentifier()
         )) {
@@ -61,8 +82,19 @@ final class WildSpawnLeveling {
                 randomSpecies(entity, habitatSpecies),
                 pokemon.getLevel()
             )) {
+                logCancellation(
+                    eventNumber, entity, pokemon,
+                    habitatSpecies.isEmpty() ? "empty-habitat-pool" : "habitat-replacement-failed",
+                    habitatSpecies.size()
+                );
                 event.cancel();
                 return;
+            }
+            if (shouldLog(eventNumber)) {
+                LOGGER.info(
+                    "[Spawn diagnosis] Natural spawn replaced from habitat pool: event=#{}, species={}, poolSize={}",
+                    eventNumber, pokemon.getSpecies().getResourceIdentifier(), habitatSpecies.size()
+                );
             }
         }
         Integer averageLevel = CobbleventureAdventure.averageWildSpawnLevel(
@@ -71,6 +103,7 @@ final class WildSpawnLeveling {
         if (addition != null) {
             int levelValue = levelFor(entity, addition.species(), rule, averageLevel, pokemon.getLevel());
             if (!replacePokemon(pokemon, addition, levelValue)) {
+                logCancellation(eventNumber, entity, pokemon, "route-addition-replacement-failed", -1);
                 event.cancel();
             }
         } else {
@@ -78,6 +111,24 @@ final class WildSpawnLeveling {
                 entity, pokemon.getSpecies().getResourceIdentifier(), rule,
                 averageLevel, pokemon.getLevel()
             ));
+        }
+    }
+
+    private static boolean shouldLog(int eventNumber) {
+        return eventNumber <= INITIAL_DIAGNOSTIC_EVENTS || eventNumber % 100 == 0;
+    }
+
+    private static void logCancellation(
+        int eventNumber, PokemonEntity entity, Pokemon pokemon, String reason, int habitatPoolSize
+    ) {
+        int cancellationNumber = ++canceledEvents;
+        if (cancellationNumber <= INITIAL_DIAGNOSTIC_EVENTS || cancellationNumber % 100 == 0) {
+            LOGGER.warn(
+                "[Spawn diagnosis] Natural spawn canceled #{} (event #{}): reason={}, species={}, dimension={}, position=({}, {}, {}), habitatPool={}",
+                cancellationNumber, eventNumber, reason, pokemon.getSpecies().getResourceIdentifier(),
+                entity.level().dimension().location(), entity.getBlockX(), entity.getBlockY(), entity.getBlockZ(),
+                habitatPoolSize < 0 ? "n/a" : habitatPoolSize
+            );
         }
     }
 

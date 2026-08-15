@@ -6544,6 +6544,13 @@ def _save_document(
         "forests": validate_forest_file,
     }[category]
     data = synchronize_spatial_build_bounds(copy.deepcopy(data), category)
+    if category == "forests" and isinstance(data, dict):
+        dimension = data.get("dimension")
+        if isinstance(dimension, dict):
+            # The forest dimension is runtime-owned and is not an editable
+            # document property. This also protects against an older browser
+            # tab writing the former generation dimension back to disk.
+            dimension["id"] = "cobbleventure:forests"
     try:
         target = _managed_path(root, category, relative_path)
     except ValueError as error:
@@ -7376,7 +7383,7 @@ def _forest_template(slug: str, name: str, generation: str) -> dict[str, Any]:
             "id": "main",
             "kind": "main",
             "width": 5,
-            "surface": "minecraft:grass_block",
+            "surface": "minecraft:dirt_path",
             "points": [{"x": -160, "z": 0}, {"x": 0, "z": -48}, {"x": 160, "z": 0}],
             "spline": {"enabled": True, "tension": 0.45},
         }],
@@ -9996,6 +10003,11 @@ def create_handler(
                     "caves": validate_cave_file,
                     "forests": validate_forest_file,
                 }[category]
+                if category == "forests" and isinstance(payload, dict):
+                    payload = copy.deepcopy(payload)
+                    dimension = payload.get("dimension")
+                    if isinstance(dimension, dict):
+                        dimension["id"] = "cobbleventure:forests"
                 _, issues = _validate_payload(payload, validator)
                 errors = sum(issue.level == "error" for issue in issues)
                 self._json(

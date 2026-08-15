@@ -10,13 +10,18 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /** Gates Cobblemon's liquid and air mounts behind the matching field-move flags. */
 public final class FieldMoveRidingAccess {
     private static final String FLAG_PREFIX = "cobbleventureFieldMove.";
     private static final String ACTIVE_PREFIX = "cobbleventureFieldMoveActive.";
     private static final String MESSAGE_COOLDOWN = "cobbleventureRideFieldMoveMessageCooldown";
+    private static final ResourceLocation FOREST_DIMENSION =
+        ResourceLocation.fromNamespaceAndPath("cobbleventure", "forests");
     private static boolean registered;
 
     private FieldMoveRidingAccess() {}
@@ -26,6 +31,7 @@ public final class FieldMoveRidingAccess {
             return;
         }
         registered = true;
+        NeoForge.EVENT_BUS.addListener(FieldMoveRidingAccess::onServerTick);
         CobblemonEvents.RIDE_EVENT_PRE.subscribe(
             (Consumer<RidePokemonEvent.Pre>) FieldMoveRidingAccess::onRideAttempt
         );
@@ -105,6 +111,16 @@ public final class FieldMoveRidingAccess {
         }
 
         ServerPlayer player = event.getPlayer();
+        if (player.level().dimension().location().equals(FOREST_DIMENSION)
+            && behaviours.containsKey(RidingStyle.AIR)) {
+            event.cancel();
+            displayRideMessage(
+                player,
+                "[Cobbleventure] 숲에서는 공중을 날 수 있는 포켓몬에 탑승할 수 없습니다."
+            );
+            return;
+        }
+
         List<String> missingMoves = new ArrayList<>(2);
         if (behaviours.containsKey(RidingStyle.LIQUID) && !isEnabled(player, "surf")) {
             missingMoves.add(displayName("surf"));
@@ -117,13 +133,38 @@ public final class FieldMoveRidingAccess {
         }
 
         event.cancel();
+        displayRideMessage(
+            player,
+            "[Cobbleventure] 이 포켓몬에 탑승하려면 "
+                + String.join(" 및 ", missingMoves) + " 플래그가 필요합니다."
+        );
+    }
+
+    private static void displayRideMessage(ServerPlayer player, String message) {
         long gameTime = player.level().getGameTime();
         if (player.getPersistentData().getLong(MESSAGE_COOLDOWN) <= gameTime) {
             player.getPersistentData().putLong(MESSAGE_COOLDOWN, gameTime + 40L);
-            player.displayClientMessage(Component.literal(
-                "[Cobbleventure] 이 포켓몬에 탑승하려면 "
-                    + String.join(" 및 ", missingMoves) + " 플래그가 필요합니다."
-            ), true);
+            player.displayClientMessage(Component.literal(message), true);
+        }
+    }
+
+    private static void onServerTick(ServerTickEvent.Post event) {
+        for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+            if (!player.level().dimension().location().equals(FOREST_DIMENSION)
+                || !(player.getVehicle()
+                    instanceof com.cobblemon.mod.common.entity.pokemon.PokemonEntity pokemon)) {
+                continue;
+            }
+            Map<RidingStyle, RidingBehaviourSettings> behaviours =
+                pokemon.getRideProp().getBehaviours();
+            if (behaviours == null || !behaviours.containsKey(RidingStyle.AIR)) {
+                continue;
+            }
+            player.stopRiding();
+            displayRideMessage(
+                player,
+                "[Cobbleventure] 숲에서는 공중을 날 수 있는 포켓몬에 탑승할 수 없습니다."
+            );
         }
     }
 

@@ -376,6 +376,9 @@ final class BuildingRuntimeSystem {
         Anchor interiorSpawn = interiorMetadata.first("interior_spawn");
         Anchor exit = interiorMetadata.first("interior_exit");
         if (exit == null) {
+            exit = interiorMetadata.first("door");
+        }
+        if (exit == null) {
             LOGGER.warn("Interior exit anchor is missing: {}", interiorStructure);
             return;
         }
@@ -621,8 +624,16 @@ final class BuildingRuntimeSystem {
         if (event.getLevel().isClientSide() || !(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        DoorTarget target = DOORS.get(new DoorKey(player.level().dimension(), event.getPos()));
+        DoorTarget target = doorTarget(player.serverLevel(), event.getPos());
         if (target == null) {
+            if (event.getLevel().getBlockState(event.getPos()).getBlock() instanceof DoorBlock) {
+                LOGGER.warn(
+                    "Unregistered building door clicked: dimension={}, position={}, state={}, nearest={}",
+                    player.level().dimension().location(), event.getPos(),
+                    event.getLevel().getBlockState(event.getPos()),
+                    nearestRegisteredDoor(player.serverLevel(), event.getPos())
+                );
+            }
             return;
         }
         event.setCanceled(true);
@@ -649,6 +660,58 @@ final class BuildingRuntimeSystem {
         );
         if (target.interior) MusicPlayback.enterInterior(player, target.musicTrack);
         else MusicPlayback.leaveInterior(player);
+    }
+
+    private static DoorTarget doorTarget(ServerLevel level, BlockPos clicked) {
+        DoorTarget direct = DOORS.get(new DoorKey(level.dimension(), clicked));
+        if (direct != null) {
+            return direct;
+        }
+        BlockState clickedState = level.getBlockState(clicked);
+        if (!(clickedState.getBlock() instanceof DoorBlock)) {
+            return null;
+        }
+        BlockPos lower = clickedState.getValue(DoorBlock.HALF) == DoubleBlockHalf.UPPER
+            ? clicked.below() : clicked;
+        DoorTarget lowerTarget = DOORS.get(new DoorKey(level.dimension(), lower));
+        if (lowerTarget != null) {
+            return lowerTarget;
+        }
+        net.minecraft.core.Direction facing = level.getBlockState(lower).getValue(DoorBlock.FACING);
+        DoorHingeSide hinge = level.getBlockState(lower).getValue(DoorBlock.HINGE);
+        for (net.minecraft.core.Direction side
+            : List.of(facing.getClockWise(), facing.getCounterClockWise())) {
+            BlockPos candidate = lower.relative(side);
+            BlockState other = level.getBlockState(candidate);
+            if (other.getBlock() != clickedState.getBlock()
+                || other.getValue(DoorBlock.HALF) != DoubleBlockHalf.LOWER
+                || other.getValue(DoorBlock.FACING) != facing
+                || other.getValue(DoorBlock.HINGE) == hinge) {
+                continue;
+            }
+            DoorTarget paired = DOORS.get(new DoorKey(level.dimension(), candidate));
+            if (paired != null) {
+                return paired;
+            }
+        }
+        return null;
+    }
+
+    private static String nearestRegisteredDoor(ServerLevel level, BlockPos clicked) {
+        DoorKey nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (DoorKey key : DOORS.keySet()) {
+            if (!key.dimension.equals(level.dimension())) {
+                continue;
+            }
+            double distance = key.position.distSqr(clicked);
+            if (distance < nearestDistance) {
+                nearest = key;
+                nearestDistance = distance;
+            }
+        }
+        return nearest == null ? "none"
+            : nearest.position + " (distanceSquared=" + nearestDistance + ")";
     }
 
     private static void sendDialogue(ServerPlayer player, List<String> lines) {

@@ -4,7 +4,7 @@
     "type": "minecraft:flat",
     "settings": {
       "biome": "minecraft:old_growth_spruce_taiga",
-      "features": false,
+      "features": true,
       "lakes": false,
       "layers": [
         { "block": "minecraft:bedrock", "height": 1 },

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import gzip
 import importlib.util
@@ -1483,13 +1484,28 @@ class ContentManagerTests(unittest.TestCase):
         bootstrap = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/CobbleventureBootstrap.java").read_text(encoding="utf-8")
         gates = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/WorldGateSystem.java").read_text(encoding="utf-8")
         generator = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/ForestDimensionGenerator.java").read_text(encoding="utf-8")
+        riding_access = (CORE_ROOT / "projects/cobbleventure-adventure/src/main/java/dev/buizz/cobbleventure/adventure/FieldMoveRidingAccess.java").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
 
         self.assertEqual("cobbleventure:forests", forest["dimension"]["id"])
         self.assertTrue(dimension.is_file())
         self.assertTrue(dimension_type.is_file())
-        self.assertEqual("cobbleventure:forest_world", json.loads(dimension.read_text(encoding="utf-8"))["type"])
-        self.assertEqual(6000, json.loads(dimension_type.read_text(encoding="utf-8"))["fixed_time"])
+        dimension_data = json.loads(dimension.read_text(encoding="utf-8"))
+        dimension_type_data = json.loads(dimension_type.read_text(encoding="utf-8"))
+        self.assertEqual("cobbleventure:forest_world", dimension_data["type"])
+        self.assertEqual("minecraft:old_growth_spruce_taiga", dimension_data["generator"]["settings"]["biome"])
+        self.assertTrue(dimension_data["generator"]["settings"]["features"])
+        flat_surface_y = sum(
+            layer["height"] for layer in dimension_data["generator"]["settings"]["layers"]
+        ) - 1
+        self.assertEqual(forest["dimension"]["origin"]["y"] - 1, flat_surface_y)
+        self.assertNotIn("fixed_time", dimension_type_data)
+        self.assertIn("maintainForestDimensionTime(event.getServer())", bootstrap)
+        self.assertIn("new ClientboundSetTimePacket(", bootstrap)
+        self.assertIn("player.serverLevel().getGameTime(), fixedTime, false", bootstrap)
+        self.assertNotIn("Forest dimension time locked:", bootstrap)
+        self.assertNotIn("FOREST_FIXED_TIME_RATE", bootstrap)
+        self.assertNotIn("server.forceTimeSynchronization()", bootstrap)
         self.assertIn("ForestDimensionGenerator.generate", bootstrap)
         self.assertIn("WorldGateSystem.placeForestDimensionGates", bootstrap)
         self.assertIn("getLevel(gate.forestDimension())", gates)
@@ -1498,11 +1514,41 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("destination.x(), destination.z(), destination.y()", gates)
         self.assertIn("FOREST_EXIT_MARKERS", gates)
         self.assertIn("crossedForestThreshold", gates)
+        self.assertIn("level, portal.x(), portal.z(), portal.y()", gates)
+        self.assertIn("Forest dimension gate placed on terrain", gates)
         self.assertNotIn("portalDx * portalDx + portalDz * portalDz", gates)
         self.assertIn("PathNetwork.parse", generator)
+        self.assertIn("addEntranceApproaches", generator)
+        self.assertIn("new Segment(entrance, approachEnd)", generator)
         self.assertIn("BlockTags.LEAVES", generator)
+        self.assertIn("Biomes.DARK_FOREST", generator)
+        self.assertIn('ResourceLocation.fromNamespaceAndPath("cobbleventure", "forests")', riding_access)
+        self.assertIn("behaviours.containsKey(RidingStyle.AIR)", riding_access)
+        self.assertIn("player.stopRiding()", riding_access)
+        self.assertIn("숲에서는 공중을 날 수 있는 포켓몬에 탑승할 수 없습니다.", riding_access)
+        self.assertIn("Blocks.PODZOL", generator)
+        self.assertIn("Blocks.COARSE_DIRT", generator)
+        self.assertIn("naturalPathSurface", generator)
+        self.assertIn("if (!configured.is(Blocks.DIRT_PATH)) return configured", generator)
+        self.assertTrue(all(path["surface"] == "minecraft:dirt_path" for path in forest["paths"]))
         self.assertNotIn("paths.sample(x + dx + 0.5D, z + dz + 0.5D).walkable()", generator)
         self.assertIn('document.dimension.id = "cobbleventure:forests"', script)
+        self.assertNotIn("minecraft:brown_mushroom", forest["undergrowth"]["blocks"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            legacy = copy.deepcopy(forest)
+            legacy["dimension"]["id"] = "cobbleventure:generation_1"
+            target, issues = content_manager._save_document(
+                root,
+                "forests",
+                "content/forests/generation_1/viridian_forest.json",
+                legacy,
+            )
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            self.assertIsNotNone(target)
+            saved = content_manager.load_json(target)
+            self.assertEqual("cobbleventure:forests", saved["dimension"]["id"])
 
     def test_world_forest_entrance_requires_a_route_and_dense_forest_is_supported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1560,6 +1606,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('structure_variants: { ...defaultWorldEntranceStructures.caveVariants }', script)
         self.assertIn('setEmptyTerrainTile(dense.q, dense.r, "dense_forest")', script)
         self.assertIn('id="entrance-inspector-form"', page)
+        self.assertIn('<input name="internalEntrance" type="hidden">', page)
+        self.assertIn('<input name="q" type="hidden">', page)
+        self.assertIn('<input name="r" type="hidden">', page)
+        self.assertNotIn('<span>Q 위치</span>', page)
+        self.assertNotIn('<span>R 위치</span>', page)
         self.assertIn('data-drag-entrance-kind="forest"', script)
         self.assertIn('class="entrance-marker-hit"', script)
         self.assertIn('if (!drag.moved) { selectWorldEntrance(drag.kind, drag.id); return; }', script)

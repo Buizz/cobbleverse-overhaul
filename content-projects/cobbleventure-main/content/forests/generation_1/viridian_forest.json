@@ -7,7 +7,7 @@
     "ko_kr": "상록숲"
   },
   "dimension": {
-    "id": "cobbleventure:generation_1",
+    "id": "cobbleventure:forests",
     "region_id": "generation_1/viridian_forest",
     "origin": {
       "x": 0,
@@ -53,8 +53,7 @@
     "blocks": [
       "minecraft:short_grass",
       "minecraft:fern",
-      "minecraft:tall_grass",
-      "minecraft:brown_mushroom"
+      "minecraft:tall_grass"
     ],
     "path_clearance": 2
   },
@@ -72,7 +71,7 @@
       "id": "main",
       "kind": "main",
       "width": 5,
-      "surface": "minecraft:grass_block",
+      "surface": "minecraft:dirt_path",
       "points": [
         {
           "x": 0,
@@ -124,7 +123,7 @@
       "id": "shortcut_1",
       "kind": "shortcut",
       "width": 4,
-      "surface": "minecraft:grass_block",
+      "surface": "minecraft:dirt_path",
       "points": [
         {
           "x": -6,
@@ -148,7 +147,7 @@
       "id": "shortcut_2",
       "kind": "shortcut",
       "width": 4,
-      "surface": "minecraft:grass_block",
+      "surface": "minecraft:dirt_path",
       "points": [
         {
           "x": 72,

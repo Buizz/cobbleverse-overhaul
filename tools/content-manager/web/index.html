@@ -365,8 +365,9 @@
                 <div class="route-inspector-badge"><span id="entrance-inspector-label">입구 속성</span><b id="entrance-inspector-id">entrance</b></div>
                 <label><span>입구 ID</span><input name="id" readonly></label>
                 <label><span id="entrance-target-label">연결 지역</span><input name="target" readonly></label>
-                <label><span>내부 입구</span><input name="internalEntrance" readonly></label>
-                <div class="inline-fields"><label><span>Q 위치</span><input name="q" type="number"></label><label><span>R 위치</span><input name="r" type="number"></label></div>
+                <input name="internalEntrance" type="hidden">
+                <input name="q" type="hidden">
+                <input name="r" type="hidden">
                 <label><span>입구 방향</span><select name="facing"><option value="north">북</option><option value="east">동</option><option value="south">남</option><option value="west">서</option></select></label>
                 <label data-forest-entrance-field><span>NBT 회전</span><select name="rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>
                 <label><span>포켓몬센터</span><select name="pokemonCenterEnabled"><option value="false">사용 안 함</option><option value="true">사용</option></select><small>사용으로 지정해도 별도의 센터 NBT는 이 화면에서 설정하지 않습니다.</small></label>
