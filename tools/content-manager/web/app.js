@@ -49,6 +49,20 @@ const reservedWorldObjectTypes = new Map([
   ["villain_base", "빌런기지"],
   ["legendary_site", "전설 포켓몬 장소"],
 ]);
+const defaultWorldEntranceStructures = {
+  cave: "cobbleventure:cave_entrance/stone_mountain",
+  caveVariants: {
+    high_forest: "cobbleventure:cave_entrance/plains",
+    dense_forest: "cobbleventure:cave_entrance/plains",
+    desert: "cobbleventure:cave_entrance/red_rock_mountain",
+    ocean: "cobbleventure:cave_entrance/ocean",
+    deep_ocean: "cobbleventure:cave_entrance/ocean",
+    stone_mountain: "cobbleventure:cave_entrance/stone_mountain",
+    red_rock_mountain: "cobbleventure:cave_entrance/red_rock_mountain",
+    snow_mountain: "cobbleventure:cave_entrance/snow_mountain"
+  },
+  forest: "cobbleventure:forest_entrance/forest_gate"
+};
 const biomeChoices = {
   habitat: [["plains", "평원"], ["forest", "숲"], ["arid", "건조지"], ["mountain", "산악"], ["cave", "동굴"], ["wetland", "습지"], ["freshwater", "담수"], ["ocean", "해양"], ["snow", "설원"], ["volcanic", "화산"], ["urban", "도시"], ["special", "특수"]],
   temperature: [["any", "무관"], ["cold", "한랭"], ["cool", "서늘"], ["temperate", "온대"], ["hot", "고온"]],
@@ -740,6 +754,11 @@ async function loadWorldGeneration(generation) {
 function hexKey(q, r) { return `${q},${r}`; }
 function mapHexSize() { return 24; }
 function hexPoint(q, r) { const size = mapHexSize(); return { x: 490 + Math.sqrt(3) * size * (q + r / 2), y: 330 + size * 1.5 * r }; }
+function entranceMapPoint(entrance, anchor = entrance.anchor) {
+  const center = hexPoint(anchor.q, anchor.r); const distance = mapHexSize() - 7;
+  const direction = ({ north: { x: 0, y: -1 }, east: { x: 1, y: 0 }, south: { x: 0, y: 1 }, west: { x: -1, y: 0 } })[entrance.facing] || { x: 1, y: 0 };
+  return { x: center.x + direction.x * distance, y: center.y + direction.y * distance };
+}
 function hexPolygon(x, y, radius = mapHexSize() - 2) { return Array.from({ length: 6 }, (_, i) => { const angle = Math.PI / 180 * (60 * i - 30); return `${x + radius * Math.cos(angle)},${y + radius * Math.sin(angle)}`; }).join(" "); }
 function pixelToHex(x, y) { const size = mapHexSize(); const r = (y - 330) / (size * 1.5); return roundHex((x - 490) / (Math.sqrt(3) * size) - r / 2, r); }
 function mapViewBox() { const width = 980 / state.mapZoom; const height = 660 / state.mapZoom; return { x: state.mapCenter.x - width / 2, y: state.mapCenter.y - height / 2, width, height }; }
@@ -871,6 +890,17 @@ function routeEndpointAnchor(endpointId) {
     || state.worldLayout?.forest_entrances?.find((node) => node.id === endpointId)?.anchor
     || null;
 }
+function routeEndpointEntrance(endpointId) {
+  if (!endpointId) return null;
+  return (state.worldLayout?.cave_entrances || []).find((node) => node.id === endpointId)
+    || (state.worldLayout?.forest_entrances || []).find((node) => node.id === endpointId)
+    || null;
+}
+function routeCellMapPoint(connection, cell, index, cells) {
+  const endpointId = index === 0 ? connection.from : index === cells.length - 1 ? connection.to : null;
+  const entrance = routeEndpointEntrance(endpointId);
+  return entrance ? entranceMapPoint(entrance) : hexPoint(cell.q, cell.r);
+}
 function syncRouteEndpointAnchors(connection) {
   const anchors = connectionAnchors(connection).map((anchor) => ({ q: anchor.q, r: anchor.r }));
   const from = routeEndpointAnchor(connection?.from);
@@ -978,7 +1008,9 @@ function renderWorldDragPreview() {
   }
   if (state.entranceDrag?.moved) {
     const drag = state.entranceDrag; if (!drag.target) return "";
-    const point = hexPoint(drag.target.q, drag.target.r); const forest = drag.kind === "forest";
+    const list = drag.kind === "cave" ? state.worldLayout.cave_entrances : state.worldLayout.forest_entrances;
+    const entrance = (list || []).find((entry) => entry.id === drag.id); if (!entrance) return "";
+    const point = entranceMapPoint(entrance, drag.target); const forest = drag.kind === "forest";
     const icon = forest ? `<path d="M-6 5V-3L0-8L6-3V5H3V0H-3V5Z"></path><path class="forest-crown" d="M-9-2L-6-9L-3-2M3-2L6-9L9-2"></path>` : `<path d="M-6 5Q-5-6 0-7Q5-6 6 5ZM-2 5V1Q0-2 2 1V5Z"></path>`;
     return `<g class="world-drag-preview entrance-preview${drag.valid ? " is-valid" : " is-invalid"}" transform="translate(${point.x} ${point.y})"><circle r="12"></circle>${icon}<text class="drag-preview-status" y="28">${drag.valid ? "여기에 놓기" : "배치 불가"}</text></g>`;
   }
@@ -1015,7 +1047,8 @@ function renderHexMap() {
     return `<g class="hex-town-area${owner.anchor.q === q && owner.anchor.r === r ? " is-anchor" : ""}"><polygon points="${hexPolygon(x, y, mapHexSize() - 4)}"></polygon><title>${escapeHtml(name)} · 마을 크기 ${worldSettlementCellCount(owner)}칸</title></g>`;
   }).join("");
   const routes = (state.worldLayout.connections || []).filter((connection) => connection.surface_style !== "water").map((connection) => {
-    const points = connectionPath(connection).map((cell) => { const point = hexPoint(cell.q, cell.r); return `${point.x},${point.y}`; }).join(" ");
+    const cells = connectionPath(connection);
+    const points = cells.map((cell, index) => { const point = routeCellMapPoint(connection, cell, index, cells); return `${point.x},${point.y}`; }).join(" ");
     if (!points) return "";
     const routeClass = connection.surface_style === "water" ? "water" : connection.access_requirement?.endsWith("/rock_climb") ? "climb" : "road";
     const selected = state.selectedRouteId === connection.id;
@@ -1032,7 +1065,10 @@ function renderHexMap() {
     const routeId = draft ? "__draft__" : selectedRoute?.id;
     if (!routeId) return "";
     const renderedAnchors = anchors.map((anchor, index) => {
-      const { x, y } = hexPoint(anchor.q, anchor.r); const endpoint = index === 0 || index === anchors.length - 1;
+      const endpoint = index === 0 || index === anchors.length - 1;
+      const endpointId = index === 0 ? (draft?.from || selectedRoute?.from) : index === anchors.length - 1 ? (draft?.to || selectedRoute?.to) : null;
+      const entrance = routeEndpointEntrance(endpointId);
+      const { x, y } = entrance ? entranceMapPoint(entrance) : hexPoint(anchor.q, anchor.r);
       const locked = Boolean((draft && index === 0 && draft.from) || (!draft && ((index === 0 && selectedRoute?.from) || (index === anchors.length - 1 && selectedRoute?.to))));
       return `<g class="route-anchor${endpoint ? " endpoint" : ""}${locked ? " is-locked" : ""}" data-route-anchor-route="${escapeHtml(routeId)}" data-route-anchor-index="${index}" transform="translate(${x} ${y})" role="button" aria-label="길 앵커 ${index + 1}${locked ? " 연결 위치 연동" : " 이동"}"><circle r="8"></circle><circle r="3"></circle><text y="-12">${index + 1}</text></g>`;
     }).join("");
@@ -1042,7 +1078,8 @@ function renderHexMap() {
   })();
   const towns = (state.worldLayout.settlements || []).map((node) => {
     const { x, y } = hexPoint(node.anchor.q, node.anchor.r); const name = settlementSummary(node.settlement)?.name || node.settlement.split("/").pop();
-    return `<g class="hex-settlement${state.routeDraft?.from === node.settlement ? " is-route-origin" : ""}${state.draggedSettlement?.id === node.settlement ? " is-drag-source" : ""}" data-drag-settlement="${escapeHtml(node.settlement)}" tabindex="0" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(name)} 선택 및 이동"><circle r="18"></circle><path d="M-7 5V-4L0-10L7-4V5H2V0H-2V5Z"></path><text y="31">${escapeHtml(name)}</text></g>`;
+    const selected = !state.selectedEntrance && state.selectedHex?.q === node.anchor.q && state.selectedHex?.r === node.anchor.r;
+    return `<g class="hex-settlement${selected ? " is-selected" : ""}${state.routeDraft?.from === node.settlement ? " is-route-origin" : ""}${state.draggedSettlement?.id === node.settlement ? " is-drag-source" : ""}" data-drag-settlement="${escapeHtml(node.settlement)}" tabindex="0" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(name)} 선택 및 이동"><circle r="18"></circle><path d="M-7 5V-4L0-10L7-4V5H2V0H-2V5Z"></path><text y="31">${escapeHtml(name)}</text></g>`;
   }).join("");
   const objects = (state.worldLayout.objects || []).map((node) => {
     const { x, y } = hexPoint(node.anchor.q, node.anchor.r);
@@ -1065,23 +1102,23 @@ function renderHexMap() {
   }).join("");
   const entranceUnderlays = [...(state.worldLayout.cave_entrances || []), ...(state.worldLayout.forest_entrances || [])]
     .filter((node, index, entries) => entries.findIndex((entry) => entry.anchor.q === node.anchor.q && entry.anchor.r === node.anchor.r) === index)
-    .map((node) => { const { x, y } = hexPoint(node.anchor.q, node.anchor.r); const outer = hexPolygon(x, y, mapHexSize() - 3).split(" ").join("L"); return `<path class="entrance-underlay-hit" data-entrance-underlay-q="${node.anchor.q}" data-entrance-underlay-r="${node.anchor.r}" tabindex="0" role="button" aria-label="Q ${node.anchor.q}, R ${node.anchor.r} 입구 아래 바이옴 선택" fill-rule="evenodd" d="M${outer}ZM${x - 12},${y}a12,12 0 1,0 24,0a12,12 0 1,0 -24,0Z"></path>`; }).join("");
+    .map((node) => { const center = hexPoint(node.anchor.q, node.anchor.r); const marker = entranceMapPoint(node); const outer = hexPolygon(center.x, center.y, mapHexSize() - 3).split(" ").join("L"); return `<path class="entrance-underlay-hit" data-entrance-underlay-q="${node.anchor.q}" data-entrance-underlay-r="${node.anchor.r}" tabindex="0" role="button" aria-label="Q ${node.anchor.q}, R ${node.anchor.r} 입구 아래 바이옴 선택" fill-rule="evenodd" d="M${outer}ZM${marker.x - 12},${marker.y}a12,12 0 1,0 24,0a12,12 0 1,0 -24,0Z"></path>`; }).join("");
   const caveEntrances = (state.worldLayout.cave_entrances || []).map((node) => {
-    const { x, y } = hexPoint(node.anchor.q, node.anchor.r);
+    const { x, y } = entranceMapPoint(node);
     const caveName = caveSummary(node.cave)?.name || node.cave.split("/").pop();
     const selected = state.selectedEntrance?.kind === "cave" && state.selectedEntrance.id === node.id;
     const centerBadge = node.pokemon_center_enabled ? `<text class="center-badge" y="-14" aria-label="포켓몬센터">P</text>` : "";
-    return `<g class="hex-cave-entrance${selected ? " is-selected" : ""}${state.entranceDrag?.kind === "cave" && state.entranceDrag.id === node.id ? " is-drag-source" : ""}" data-route-cave-entrance="${escapeHtml(node.id)}" data-drag-entrance-kind="cave" data-drag-entrance-id="${escapeHtml(node.id)}" tabindex="0" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(caveName)} ${escapeHtml(node.entrance)} 입구${node.pokemon_center_enabled ? " 포켓몬센터" : ""} 선택 및 이동"><circle r="10"></circle><path d="M-6 5Q-5-6 0-7Q5-6 6 5ZM-2 5V1Q0-2 2 1V5Z"></path>${centerBadge}<text y="24">${escapeHtml(caveName)} · ${escapeHtml(node.entrance)}</text></g>`;
+    return `<g class="hex-cave-entrance${selected ? " is-selected" : ""}${state.entranceDrag?.kind === "cave" && state.entranceDrag.id === node.id ? " is-drag-source" : ""}" data-route-cave-entrance="${escapeHtml(node.id)}" data-drag-entrance-kind="cave" data-drag-entrance-id="${escapeHtml(node.id)}" tabindex="0" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(caveName)} ${escapeHtml(node.entrance)} 입구${node.pokemon_center_enabled ? " 포켓몬센터" : ""} 선택 및 이동"><circle class="entrance-marker-hit" r="18"></circle><circle r="10"></circle><path d="M-6 5Q-5-6 0-7Q5-6 6 5ZM-2 5V1Q0-2 2 1V5Z"></path>${centerBadge}<text y="24">${escapeHtml(caveName)} · ${escapeHtml(node.entrance)}</text></g>`;
   }).join("");
   const forestEntrances = (state.worldLayout.forest_entrances || []).map((node) => {
-    const { x, y } = hexPoint(node.anchor.q, node.anchor.r); const forestName = forestSummary(node.forest)?.name || node.forest.split("/").pop();
+    const { x, y } = entranceMapPoint(node); const forestName = forestSummary(node.forest)?.name || node.forest.split("/").pop();
     const selected = state.selectedEntrance?.kind === "forest" && state.selectedEntrance.id === node.id;
     const centerBadge = node.pokemon_center_enabled ? `<text class="center-badge" y="-14" aria-label="포켓몬센터">P</text>` : "";
-    return `<g class="hex-forest-entrance${selected ? " is-selected" : ""}${state.entranceDrag?.kind === "forest" && state.entranceDrag.id === node.id ? " is-drag-source" : ""}" data-route-forest-entrance="${escapeHtml(node.id)}" data-drag-entrance-kind="forest" data-drag-entrance-id="${escapeHtml(node.id)}" tabindex="0" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(forestName)} ${escapeHtml(node.entrance)} 숲 입구${node.pokemon_center_enabled ? " 포켓몬센터" : ""} 선택 및 이동"><circle r="10"></circle><path d="M-6 5V-3L0-8L6-3V5H3V0H-3V5Z"></path><path class="forest-crown" d="M-9-2L-6-9L-3-2M3-2L6-9L9-2"></path>${centerBadge}<text y="24">${escapeHtml(forestName)} · 숲 입구</text></g>`;
+    return `<g class="hex-forest-entrance${selected ? " is-selected" : ""}${state.entranceDrag?.kind === "forest" && state.entranceDrag.id === node.id ? " is-drag-source" : ""}" data-route-forest-entrance="${escapeHtml(node.id)}" data-drag-entrance-kind="forest" data-drag-entrance-id="${escapeHtml(node.id)}" tabindex="0" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(forestName)} ${escapeHtml(node.entrance)} 숲 입구${node.pokemon_center_enabled ? " 포켓몬센터" : ""} 선택 및 이동"><circle class="entrance-marker-hit" r="18"></circle><circle r="10"></circle><path d="M-6 5V-3L0-8L6-3V5H3V0H-3V5Z"></path><path class="forest-crown" d="M-9-2L-6-9L-3-2M3-2L6-9L9-2"></path>${centerBadge}<text y="24">${escapeHtml(forestName)} · 숲 입구</text></g>`;
   }).join("");
   const brushPreview = renderBrushPreview();
   const dragPreview = renderWorldDragPreview();
-  svg.innerHTML = `<defs><pattern id="empty-terrain-red-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#d52828" stroke-width="2.2" opacity=".78"></line></pattern></defs><g class="hex-map-layer">${tiles}${levelOverlay}${townAreas}${routes}${draftRoute}${towns}${objects}${caveEntrances}${forestEntrances}${entranceUnderlays}${routeAnchors}${brushPreview}${dragPreview}</g>`;
+  svg.innerHTML = `<defs><pattern id="empty-terrain-red-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#d52828" stroke-width="2.2" opacity=".78"></line></pattern></defs><g class="hex-map-layer">${tiles}${levelOverlay}${townAreas}${routes}${draftRoute}${towns}${objects}${entranceUnderlays}${caveEntrances}${forestEntrances}${routeAnchors}${brushPreview}${dragPreview}</g>`;
   const routeCellCount = new Set((state.worldLayout.connections || []).flatMap((connection) => connectionPath(connection).map((cell) => `${cell.q},${cell.r}`))).size;
   const forestEntranceCount = (state.worldLayout.forest_entrances || []).length;
   $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 ${(state.worldLayout.environment_overrides || []).length}칸 · 레벨 ${(state.worldLayout.level_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳 · 동굴 입구 ${(state.worldLayout.cave_entrances || []).length}곳 · 숲 입구 ${forestEntranceCount}곳`;
@@ -1307,17 +1344,8 @@ function placeCaveEntranceWithTool(q, r) {
   state.worldLayout.cave_entrances.push({
     id: `cobbleventure:cave_entrance/${slug}_${entranceId}`, cave: caveId, entrance: entranceId,
     anchor: { q, r }, facing: $("#cave-tool-facing").value,
-    structure: $("#cave-tool-structure").value.trim(),
-    structure_variants: {
-      high_forest: $("#cave-tool-structure-plains").value.trim(),
-      dense_forest: $("#cave-tool-structure-plains").value.trim(),
-      desert: $("#cave-tool-structure-red-rock").value.trim(),
-      ocean: $("#cave-tool-structure-ocean").value.trim(),
-      deep_ocean: $("#cave-tool-structure-ocean").value.trim(),
-      stone_mountain: $("#cave-tool-structure-stone").value.trim(),
-      red_rock_mountain: $("#cave-tool-structure-red-rock").value.trim(),
-      snow_mountain: $("#cave-tool-structure-snow").value.trim()
-    },
+    structure: defaultWorldEntranceStructures.cave,
+    structure_variants: { ...defaultWorldEntranceStructures.caveVariants },
     pokemon_center_enabled: $("#world-entrance-pokemon-center").value === "true"
   });
   state.selectedHex = { q, r }; state.selectedEntrance = { kind: "cave", id: `cobbleventure:cave_entrance/${slug}_${entranceId}` }; markWorldDirty(); refreshCaveToolEntrances(); renderWorldLayout(); toast("동굴 출입구를 배치했습니다. 길 도구로 출입구까지 연결해 주세요.");
@@ -1329,19 +1357,18 @@ function forestToolEntranceOptions() {
   return (forest?.entrances || []).map((entry) => `<option value="${escapeHtml(entry.id)}" ${placed.has(entry.id) ? "disabled" : ""}>${escapeHtml(entry.display_name || entry.id)}${placed.has(entry.id) ? " · 배치됨" : ""}</option>`).join("");
 }
 function refreshForestToolEntrances() { $("#forest-tool-entrance").innerHTML = forestToolEntranceOptions(); }
-const forestFacingOffsets = { east: { q: 1, r: 0 }, west: { q: -1, r: 0 }, north_east: { q: 1, r: -1 }, south_east: { q: 0, r: 1 }, south_west: { q: -1, r: 1 }, north_west: { q: 0, r: -1 } };
-function forestGateRotation(direction) { return ({ north_east: 0, north_west: 0, east: 1, south_east: 2, south_west: 2, west: 3 })[direction] ?? 1; }
+const forestFacingOffsets = { north: { q: 0, r: -1 }, east: { q: 1, r: 0 }, south: { q: 0, r: 1 }, west: { q: -1, r: 0 } };
+function forestGateRotation(direction) { return ({ north: 0, east: 1, south: 2, west: 3 })[direction] ?? 0; }
 function placeForestEntranceWithTool(q, r) {
   const forestId = $("#forest-tool-forest").value; const entranceId = $("#forest-tool-entrance").value;
-  const resource = $("#forest-tool-structure").value.trim(); const direction = $("#forest-tool-facing").value;
+  const direction = $("#forest-tool-facing").value;
   if (!forestId || !entranceId) { toast("배치할 숲과 미배치 내부 입구를 선택해 주세요."); return; }
-  if (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("ForestGate NBT 리소스를 선택해 주세요."); return; }
   if (settlementAt(q, r) || caveEntranceAt(q, r) || forestEntranceAt(q, r) || (state.worldLayout.objects || []).some((node) => node.anchor?.q === q && node.anchor?.r === r)) { toast("이미 마을, 입구 또는 오브젝트가 배치된 타일입니다."); return; }
   if ((state.worldLayout.forest_entrances || []).some((entry) => entry.forest === forestId && entry.entrance === entranceId)) { toast("같은 숲 내부 입구가 이미 배치되어 있습니다."); return; }
   const slug = `${forestId.split("/").pop()}_${entranceId}`.replace(/[^a-z0-9_.-]+/g, "_");
   const entrance = { id: `forest_entrance_${slug}`, forest: forestId, entrance: entranceId, anchor: { q, r }, facing: direction,
     pokemon_center_enabled: $("#world-entrance-pokemon-center").value === "true",
-    structure: resource, rotation: forestGateRotation(direction), tree_log: "minecraft:spruce_log", tree_leaves: "minecraft:spruce_leaves",
+    structure: defaultWorldEntranceStructures.forest, rotation: forestGateRotation(direction), tree_log: "minecraft:spruce_log", tree_leaves: "minecraft:spruce_leaves",
     wall_thickness: 7, wall_height: 14, opening_width: 7, barrier_height: 32 };
   state.worldLayout.forest_entrances.push(entrance);
   const offset = forestFacingOffsets[direction] || forestFacingOffsets.east; const dense = { q: q + offset.q, r: r + offset.r };
@@ -1349,7 +1376,7 @@ function placeForestEntranceWithTool(q, r) {
     state.worldLayout.tiles = state.worldLayout.tiles.filter((tile) => tile.q !== dense.q || tile.r !== dense.r);
     setEmptyTerrainTile(dense.q, dense.r, "dense_forest");
   }
-  state.selectedHex = { q, r }; state.selectedEntrance = { kind: "forest", id: entrance.id }; markWorldDirty(); refreshForestToolEntrances(); renderWorldLayout(); toast("독립 숲 입구와 ForestGate NBT, 입구 뒤 우거진 숲을 배치했습니다. 길 도구로 입구까지 연결해 주세요.");
+  state.selectedHex = { q, r }; state.selectedEntrance = { kind: "forest", id: entrance.id }; markWorldDirty(); refreshForestToolEntrances(); renderWorldLayout(); toast("독립 숲 입구와 입구 뒤 우거진 숲을 배치했습니다. 길 도구로 입구까지 연결해 주세요.");
 }
 function parseGateConditions(source) {
   return String(source || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line, index) => {
@@ -1419,12 +1446,6 @@ function worldBiomeOptions(selected = "") {
 
 function renderWorldObjectNbtOptions() {
   $("#world-object-nbt-options").innerHTML = Object.keys(state.structureSizes || {}).sort()
-    .map((resource) => `<option value="${escapeHtml(resource)}"></option>`).join("");
-  $("#cave-entrance-nbt-options").innerHTML = Object.keys(state.structureSizes || {}).sort()
-    .filter((resource) => resource.startsWith("cobbleventure:cave_entrance/"))
-    .map((resource) => `<option value="${escapeHtml(resource)}"></option>`).join("");
-  $("#forest-entrance-nbt-options").innerHTML = Object.keys(state.structureSizes || {}).sort()
-    .filter((resource) => resource.startsWith("cobbleventure:forest_entrance/"))
     .map((resource) => `<option value="${escapeHtml(resource)}"></option>`).join("");
 }
 
@@ -1654,7 +1675,7 @@ function renderEntranceInspector(selection) {
   $("#entrance-inspector-label").textContent = kind === "cave" ? "동굴 입구 속성" : "숲 입구 속성";
   $("#entrance-inspector-id").textContent = entrance.id; $("#entrance-target-label").textContent = kind === "cave" ? "연결 동굴" : "연결 숲";
   form.elements.id.value = entrance.id; form.elements.target.value = kind === "cave" ? entrance.cave : entrance.forest; form.elements.internalEntrance.value = entrance.entrance;
-  form.elements.q.value = entrance.anchor.q; form.elements.r.value = entrance.anchor.r; form.elements.facing.value = entrance.facing; form.elements.structure.value = entrance.structure || "";
+  form.elements.q.value = entrance.anchor.q; form.elements.r.value = entrance.anchor.r; form.elements.facing.value = entrance.facing;
   form.elements.rotation.value = entrance.rotation || 0; form.elements.pokemonCenterEnabled.value = String(Boolean(entrance.pokemon_center_enabled));
   form.elements.treeLog.value = entrance.tree_log || "minecraft:spruce_log"; form.elements.treeLeaves.value = entrance.tree_leaves || "minecraft:spruce_leaves";
   form.elements.wallThickness.value = entrance.wall_thickness || 7; form.elements.wallHeight.value = entrance.wall_height || 14; form.elements.openingWidth.value = entrance.opening_width || 7; form.elements.barrierHeight.value = entrance.barrier_height || 32;
@@ -2187,8 +2208,10 @@ function handleEntranceInspectorChange(event) {
     const occupied = caveEntranceAt(target.q, target.r) || forestEntranceAt(target.q, target.r);
     if ((occupied && occupied !== entrance) || settlementAt(target.q, target.r) || objectAt(target.q, target.r)) { toast("해당 타일에는 다른 배치가 있습니다."); renderTileInspector(); return; }
     entrance.anchor = target; state.selectedHex = { ...target }; syncRoutesForEndpoint(entrance.id);
-  } else if (event.target.name === "facing") entrance.facing = event.target.value;
-  else if (event.target.name === "structure") entrance.structure = event.target.value.trim();
+  } else if (event.target.name === "facing") {
+    entrance.facing = event.target.value;
+    if (kind === "forest") entrance.rotation = forestGateRotation(entrance.facing);
+  }
   else if (event.target.name === "pokemonCenterEnabled") entrance.pokemon_center_enabled = event.target.value === "true";
   else if (kind === "forest" && event.target.name === "rotation") entrance.rotation = Number(event.target.value);
   else if (kind === "forest" && event.target.name === "treeLog") entrance.tree_log = event.target.value.trim();
@@ -2294,7 +2317,7 @@ function moveWorldPlacementDrag(event) {
 function finishEntranceDrag(event) {
   const drag = state.entranceDrag; if (!drag || drag.pointerId !== event.pointerId) return;
   state.entranceDrag = null; $("#world-hex-map").classList.remove("is-dragging");
-  if (!drag.moved) { renderHexMap(); return; }
+  if (!drag.moved) { selectWorldEntrance(drag.kind, drag.id); return; }
   const list = drag.kind === "cave" ? state.worldLayout.cave_entrances : state.worldLayout.forest_entrances;
   const entrance = (list || []).find((entry) => entry.id === drag.id); const target = drag.target;
   if (!entrance || !target || !drag.valid) {
@@ -2364,7 +2387,7 @@ function finishSettlementDrag(event) {
   const drag = state.draggedSettlement; if (!drag || drag.pointerId !== event.pointerId) return;
   const target = drag.target; const node = state.worldLayout.settlements.find((entry) => entry.settlement === drag.id);
   state.draggedSettlement = null; $("#world-hex-map").classList.remove("is-dragging");
-  if (!drag.moved) { renderHexMap(); return; }
+  if (!drag.moved) { if (node?.anchor) selectHex(node.anchor.q, node.anchor.r); else renderHexMap(); return; }
   const conflict = node && target ? settlementRangeConflict(node, target.q, target.r, settlementPresetRadius(node.settlement)) : null;
   if (conflict) toast(`${settlementSummary(conflict.settlement)?.name || "다른 마을"}의 사용 범위와 겹칩니다.`);
   else if (node && target && drag.valid) {
@@ -2799,7 +2822,7 @@ function renderForest() {
   delete document.generation;
   const generation = generationFromDocumentPath(state.forestPath);
   const dimension = document.dimension || {}; const origin = dimension.origin || {}; const bounds = dimension.bounds || {};
-  document.dimension = { id: `cobbleventure:generation_${generation}`, region_id: `generation_${generation}/${document.id?.split("/").pop() || "forest"}`, origin: { x: Number(origin.x ?? 0), y: Number(origin.y ?? 69), z: Number(origin.z ?? 0) }, bounds: { min_x: Number(bounds.min_x ?? -256), min_z: Number(bounds.min_z ?? -256), max_x: Number(bounds.max_x ?? 256), max_z: Number(bounds.max_z ?? 256) } };
+  document.dimension = { id: "cobbleventure:forests", region_id: `generation_${generation}/${document.id?.split("/").pop() || "forest"}`, origin: { x: Number(origin.x ?? 0), y: Number(origin.y ?? 69), z: Number(origin.z ?? 0) }, bounds: { min_x: Number(bounds.min_x ?? -256), min_z: Number(bounds.min_z ?? -256), max_x: Number(bounds.max_x ?? 256), max_z: Number(bounds.max_z ?? 256) } };
   const environment = { fixed_time: 6000, weather: "clear", ...(document.environment || {}) };
   const encounters = ensureEncounterSettings(document, "minecraft:old_growth_spruce_taiga", 3, 7);
   const trees = { min_height: 8, max_height: 16, trunk_blocks: ["minecraft:oak_log"], foliage_blocks: ["minecraft:oak_leaves"], barrier_block: "minecraft:barrier", ...(document.tree_barrier || {}) };
@@ -2843,7 +2866,7 @@ function updateForestFromForm() {
   Object.assign(encounters, { enabled: form.elements.randomEncounters.checked, minimum_distance: Math.round(forestNumber(form, "encounterMinDistance", 72)), maximum_distance: Math.round(forestNumber(form, "encounterMaxDistance", 128)), minimum_level: Math.round(forestNumber(form, "encounterMinLevel", 3)), maximum_level: Math.round(forestNumber(form, "encounterMaxLevel", 7)), pokemon_biome: form.elements.encounterPokemonBiome.value });
   document.tree_barrier = { min_height: forestNumber(form, "treeMinHeight", 8), max_height: forestNumber(form, "treeMaxHeight", 16), trunk_blocks: csv("trunkBlocks"), foliage_blocks: csv("foliageBlocks"), barrier_block: form.elements.barrierBlock.value.trim() };
   document.undergrowth = { density: forestNumber(form, "undergrowthDensity", .72), blocks: csv("undergrowthBlocks"), path_clearance: forestNumber(form, "pathClearance", 2) };
-  const generation = generationFromDocumentPath(state.forestPath); document.dimension.id = `cobbleventure:generation_${generation}`; document.dimension.region_id = `generation_${generation}/${document.id.split("/").pop() || "forest"}`;
+  const generation = generationFromDocumentPath(state.forestPath); document.dimension.id = "cobbleventure:forests"; document.dimension.region_id = `generation_${generation}/${document.id.split("/").pop() || "forest"}`;
   document.generator ||= { layout: "hybrid", seed_salt: 0, cell_size: 16, maze_complexity: .65, loop_chance: .18, spline_enabled: true, spline_tension: .45 };
   const minimumCellSize = forestMinimumMazeCellSize(document); const cellSize = Math.max(Math.round(Number(document.generator.cell_size) || 16), minimumCellSize);
   document.generator.cell_size = cellSize;
@@ -8861,8 +8884,12 @@ function updateSettlementFromForm() {
   for (const anchor of Object.keys(state.settlement.anchors)) {
     if (anchor.startsWith("preview_") || anchor.startsWith("facility_")) delete state.settlement.anchors[anchor];
   }
+  // Pokemon Center and commercial facilities are represented by their
+  // dedicated switches above. Persist only additional requirements here;
+  // writing civic facilities again as numbered direct placements makes the
+  // data builder and runtime place them twice.
   const configuredFacilities = facilityTemplatePlacements(
-    [...selectedCivicFacilities(), ...facilityRequirements],
+    facilityRequirements,
     layoutShape, state.settlement.center || { x: 0, y: 64, z: 0 }
   );
   const generatedLayout = simulateVillageWithRerolls(
@@ -8879,8 +8906,10 @@ function updateSettlementFromForm() {
     roadLayoutTemplate
   );
   const generatedFacilityPlots = generatedLayout.plots.filter((plot) => plot.kind === "facility");
-  configuredFacilities.forEach((facility, index) => {
-    const plot = generatedFacilityPlots[index];
+  configuredFacilities.forEach((facility) => {
+    const plot = generatedFacilityPlots.find((candidate) =>
+      candidate.id === facility.requirement.id
+    );
     if (!plot) return;
     facility.position = {
       x: Math.round(Number(state.settlement.center?.x || 0) + plot.x),

@@ -34,10 +34,24 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual([17, 13, 13], size)
         self.assertIn("minecraft:stripped_spruce_log", palette)
         self.assertIn("minecraft:spruce_stairs", palette)
-        occupied = {tuple(block["pos"]) for block in blocks}
+        air_state = palette.index("minecraft:air")
+        occupied = {
+            tuple(block["pos"]) for block in blocks
+            if block["state"] != air_state
+        }
         for z in range(13):
             for y in range(1, 6):
-                self.assertNotIn((8, y, z), occupied)
+                if (8, y, z) != (8, 1, 1):
+                    self.assertNotIn((8, y, z), occupied)
+        structure = content_manager._read_minecraft_structure_root(path.read_bytes())
+        entry_markers = [
+            block for block in structure["blocks"]
+            if block.get("nbt", {}).get("name") == "cobbleventure:forest_entry"
+        ]
+        self.assertEqual([[8, 1, 1]], [block["pos"] for block in entry_markers])
+        marker_state = structure["palette"][entry_markers[0]["state"]]
+        self.assertEqual("minecraft:jigsaw", marker_state["Name"])
+        self.assertEqual("north_up", marker_state["Properties"]["orientation"])
         metadata = json.loads(path.with_suffix(".structure.json").read_text(encoding="utf-8"))
         self.assertEqual("숲관문", metadata["display_name"]["ko_kr"])
         self.assertEqual({"world_side", "forest_side"}, {anchor["id"] for anchor in metadata["anchors"]})
@@ -1192,7 +1206,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("function applyForestDimensionDialog()", script)
         self.assertNotIn("높이는 Minecraft 월드 기준", script)
         self.assertIn('id: "cobbleventure:dungeons", region_id: `generation_${generation}/', script)
-        self.assertIn('id: `cobbleventure:generation_${generation}`, region_id: `generation_${generation}/', script)
+        self.assertIn('id: "cobbleventure:forests", region_id: `generation_${generation}/', script)
         self.assertIn("자동 · 입구·공동·통로 배치 기준", page)
         self.assertIn("자동 · 길·입출구·높이 타일 기준", page)
         self.assertIn("function caveBuildBounds(document = state.cave)", script)
@@ -1393,6 +1407,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('data-add-forest-wall', page)
         self.assertNotIn('generator.layout !== "manual"', script)
         self.assertIn("terrain_tiles", schema["required"])
+        self.assertEqual("cobbleventure:forests", schema["properties"]["dimension"]["properties"]["id"]["const"])
         self.assertNotIn("one_way_walls", schema["properties"])
         self.assertEqual(16, schema["$defs"]["terrain_tile"]["properties"]["height_offset"]["maximum"])
         self.assertEqual(["main", "shortcut", "manual"], schema["$defs"]["path"]["properties"]["kind"]["enum"])
@@ -1459,6 +1474,36 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="forest-layout-canvas"', page)
         self.assertIn('id="world-hex-map"', page)
 
+    def test_forest_uses_dedicated_runtime_dimension(self) -> None:
+        forest = content_manager.load_json(
+            PROJECT_ROOT / "content/forests/generation_1/viridian_forest.json"
+        )
+        dimension = CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/cobbleventure/dimension/forests.json"
+        dimension_type = CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/cobbleventure/dimension_type/forest_world.json"
+        bootstrap = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/CobbleventureBootstrap.java").read_text(encoding="utf-8")
+        gates = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/WorldGateSystem.java").read_text(encoding="utf-8")
+        generator = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/ForestDimensionGenerator.java").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+
+        self.assertEqual("cobbleventure:forests", forest["dimension"]["id"])
+        self.assertTrue(dimension.is_file())
+        self.assertTrue(dimension_type.is_file())
+        self.assertEqual("cobbleventure:forest_world", json.loads(dimension.read_text(encoding="utf-8"))["type"])
+        self.assertEqual(6000, json.loads(dimension_type.read_text(encoding="utf-8"))["fixed_time"])
+        self.assertIn("ForestDimensionGenerator.generate", bootstrap)
+        self.assertIn("WorldGateSystem.placeForestDimensionGates", bootstrap)
+        self.assertIn("getLevel(gate.forestDimension())", gates)
+        self.assertIn("destinationLevel, x + 0.5D", gates)
+        self.assertIn("safeForestStandY", gates)
+        self.assertIn("destination.x(), destination.z(), destination.y()", gates)
+        self.assertIn("FOREST_EXIT_MARKERS", gates)
+        self.assertIn("crossedForestThreshold", gates)
+        self.assertNotIn("portalDx * portalDx + portalDz * portalDz", gates)
+        self.assertIn("PathNetwork.parse", generator)
+        self.assertIn("BlockTags.LEAVES", generator)
+        self.assertNotIn("paths.sample(x + dx + 0.5D, z + dz + 0.5D).walkable()", generator)
+        self.assertIn('document.dimension.id = "cobbleventure:forests"', script)
+
     def test_world_forest_entrance_requires_a_route_and_dense_forest_is_supported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -1493,6 +1538,9 @@ class ContentManagerTests(unittest.TestCase):
                 "edge_noise": 0, "surface_style": "road", "pathfinding": "explicit",
             }]
             self.assertEqual([], content_manager.save_world_layout(root, layout, 1))
+            entrance["facing"] = "north_east"
+            issues = content_manager.save_world_layout(root, layout, 1)
+            self.assertTrue(any("north/east/south/west" in issue.message for issue in issues))
 
         page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -1504,12 +1552,24 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('name="pokemonCenterEnabled"', page)
         self.assertNotIn('id="cave-tool-center-structure"', page)
         self.assertNotIn('name="pokemonCenterStructure"', page)
-        self.assertIn('value="cobbleventure:forest_entrance/forest_gate"', page)
+        self.assertNotIn('id="cave-tool-structure"', page)
+        self.assertNotIn('부착 지형별 입구 NBT', page)
+        self.assertNotIn('id="forest-tool-structure"', page)
+        self.assertNotIn('name="structure"', page)
+        self.assertIn('forest: "cobbleventure:forest_entrance/forest_gate"', script)
+        self.assertIn('structure_variants: { ...defaultWorldEntranceStructures.caveVariants }', script)
         self.assertIn('setEmptyTerrainTile(dense.q, dense.r, "dense_forest")', script)
         self.assertIn('id="entrance-inspector-form"', page)
         self.assertIn('data-drag-entrance-kind="forest"', script)
+        self.assertIn('class="entrance-marker-hit"', script)
+        self.assertIn('if (!drag.moved) { selectWorldEntrance(drag.kind, drag.id); return; }', script)
+        self.assertLess(script.index('${entranceUnderlays}${caveEntrances}${forestEntrances}'), script.index('${routeAnchors}'))
         self.assertIn('state.worldLayout.forest_entrances.push(entrance)', script)
         self.assertIn('pokemon_center_enabled: $("#world-entrance-pokemon-center").value === "true"', script)
+        self.assertIn('function entranceMapPoint(entrance, anchor = entrance.anchor)', script)
+        self.assertIn('function routeCellMapPoint(connection, cell, index, cells)', script)
+        self.assertIn('const forestFacingOffsets = { north:', script)
+        self.assertNotIn('north_east: { q:', script)
         self.assertNotIn('type: "gate", anchor: { q, r }, resource', script)
         self.assertNotIn(">높은 숲<", page)
 

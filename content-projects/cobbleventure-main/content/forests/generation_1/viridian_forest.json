@@ -22,7 +22,7 @@
     }
   },
   "environment": {
-    "fixed_time": 6000,
+    "fixed_time": 12000,
     "weather": "clear"
   },
   "random_encounters": {

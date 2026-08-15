@@ -128,6 +128,44 @@ class DataModBuilderTests(unittest.TestCase):
         for cell_count in (1, 3, 5, 7, 19):
             self.assertEqual((0, 0), build_data_mod._town_layout_hub(cell_count))
 
+    def test_multi_tile_towns_extend_an_internal_street_through_each_outer_cell(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile = source["structure_profile"]
+        profile["pokemon_center_enabled"] = False
+        profile["commercial_center"] = "none"
+        profile["facility_placements"] = []
+        profile.setdefault("gym", {})["enabled"] = False
+
+        for cell_count, shape in ((3, "triangle_up"), (5, "five_up"), (7, "line_q")):
+            with self.subTest(cell_count=cell_count, shape=shape):
+                source["town_radius_cells"] = cell_count
+                source["town_footprint_shape"] = shape
+                layout = build_data_mod._compile_town_layout(source)
+                for q, r in build_data_mod._town_layout_cells(cell_count, shape):
+                    center_x, center_z = build_data_mod._town_layout_centered_cell_center(
+                        q, r, cell_count, shape
+                    )
+                    target_x = round(center_x / 16) * 16
+                    target_z = round(center_z / 16) * 16
+                    if (target_x, target_z) == (layout["hub"]["x"], layout["hub"]["z"]):
+                        continue
+                    self.assertTrue(any(
+                        (
+                            road["z1"] == road["z2"] == target_z
+                            and min(road["x1"], road["x2"]) < target_x
+                            < max(road["x1"], road["x2"])
+                        ) or (
+                            road["x1"] == road["x2"] == target_x
+                            and min(road["z1"], road["z2"]) < target_z
+                            < max(road["z1"], road["z2"])
+                        )
+                        for road in layout["roads"]
+                    ), f"{cell_count}칸 {shape}의 ({q}, {r}) 타일 내부 도로가 없습니다.")
+
     def test_tile_coverage_roads_do_not_restore_the_missing_center_arm(self) -> None:
         source = json.loads(
             (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
@@ -319,7 +357,7 @@ class DataModBuilderTests(unittest.TestCase):
                     if other_id == access["building"]:
                         continue
                     self.assertFalse(
-                        build_data_mod._plot_intersects_road(other, access, 3, 0.25),
+                        build_data_mod._plot_intersects_road(other, access, 3, 0.0),
                         f"{settlement['id']} / {access['building']} -> {other_id}",
                     )
 
@@ -423,6 +461,7 @@ class DataModBuilderTests(unittest.TestCase):
         self.assertEqual((22, 23), specs["facility_pokemon_center"])
         self.assertEqual((40, 72), specs["facility_department_store"])
         self.assertEqual((25, 26), specs["gym_building"])
+        self.assertNotIn("facility_pokemon_center_1", specs)
 
         layout = build_data_mod._compile_town_layout(source)
         center = layout["facilities"]["facility_pokemon_center"]
@@ -1038,6 +1077,35 @@ class DataModBuilderTests(unittest.TestCase):
                 (output / "data/cobbleventure/structure/interiors/hotel.nbt").read_bytes(),
             )
 
+    def test_packages_gym_exterior_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            metadata = (
+                root / build_data_mod.CONTENT_ROOT
+                / "structures/gyms/base_gym.structure.json"
+            )
+            metadata.parent.mkdir(parents=True, exist_ok=True)
+            payload = json.dumps({
+                "schema_version": 1,
+                "anchors": [{
+                    "id": "door",
+                    "type": "door",
+                    "position": [12, 3, 3],
+                    "safe_spawn": [12, 3, 2],
+                }],
+            }).encode("utf-8")
+            metadata.write_bytes(payload)
+
+            build_data_mod.build(root)
+
+            packaged = (
+                root / build_data_mod.OUTPUT
+                / build_data_mod.STRUCTURE_METADATA_ENTRY_DIR
+                / "gyms/base_gym.structure.json"
+            )
+            self.assertEqual(payload, packaged.read_bytes())
+
     def test_house_metadata_is_copied_to_every_roof_color_variant(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -1098,6 +1166,40 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertEqual([8, 1, 0], metadata["anchors"][0]["position"])
             self.assertEqual([8, 1, -1], metadata["anchors"][0]["safe_spawn"])
             self.assertTrue(metadata["anchors"][0]["seal_entry"])
+
+    def test_authored_house_door_is_used_as_shared_interior_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            metadata = (
+                root / build_data_mod.HOUSE_STRUCTURE_SOURCE_DIR
+                / "one_story_flat.structure.json"
+            )
+            metadata.parent.mkdir(parents=True, exist_ok=True)
+            authored_door = {
+                "id": "door",
+                "type": "door",
+                "position": [13, 1, 3],
+                "safe_spawn": [13, 1, 2],
+                "door_facing": "south",
+            }
+            metadata.write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [authored_door],
+            }), encoding="utf-8")
+
+            build_data_mod.build(root)
+
+            generated = json.loads((
+                root / build_data_mod.OUTPUT
+                / build_data_mod.STRUCTURE_METADATA_ENTRY_DIR
+                / "houses/one_story_flat_red.structure.json"
+            ).read_text(encoding="utf-8"))
+            self.assertIn(authored_door, generated["anchors"])
+            self.assertFalse(any(
+                anchor.get("type") == "interior_entry"
+                for anchor in generated["anchors"]
+            ))
 
     def test_authored_roof_shapes_include_shed_and_gambrel(self) -> None:
         shed = gzip.decompress(

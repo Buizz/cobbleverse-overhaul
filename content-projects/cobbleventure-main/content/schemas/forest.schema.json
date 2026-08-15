@@ -15,7 +15,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["id", "region_id", "origin", "bounds"],
       "properties": {
-        "id": { "$ref": "#/$defs/resource_id" },
+        "id": { "const": "cobbleventure:forests" },
         "region_id": { "type": "string", "pattern": "^[a-z0-9_./-]+$" },
         "origin": { "$ref": "#/$defs/block_position" },
         "bounds": { "$ref": "#/$defs/bounds", "description": "길과 입출구 및 높이 타일에서 빌드 시 자동 계산되는 읽기 전용 영역" }

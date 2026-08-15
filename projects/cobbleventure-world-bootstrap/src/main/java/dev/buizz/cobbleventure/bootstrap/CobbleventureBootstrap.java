@@ -219,6 +219,8 @@ public final class CobbleventureBootstrap {
     private static volatile HexWorldPlan activeHexWorld;
     private static volatile List<PursuitEncounterZone> activeCaveEncounters = List.of();
     private static volatile Map<String, PursuitEncounterSystem.Config> activeForestEncounters = Map.of();
+    private static volatile List<ForestRegion> activeForestRegions = List.of();
+    private static volatile Map<String, JsonObject> activeForestDocuments = Map.of();
     private static volatile ShoreDistanceField activeShoreDistances;
     private static volatile int integrationShutdownTicks = -1;
     private static volatile UUID pendingInitializationPlayer;
@@ -237,6 +239,8 @@ public final class CobbleventureBootstrap {
         new ConcurrentHashMap<>();
     private static final Map<OceanMoundKey, Boolean> OCEAN_MOUND_BOUNDARY =
         new ConcurrentHashMap<>();
+    private static final Map<CaveMouthCacheKey, CaveMouthGeometry> CAVE_MOUTHS =
+        new ConcurrentHashMap<>();
     private static final Map<UUID, Vec3> safeFieldPositions = new HashMap<>();
     private static final Map<UUID, Vec3> safeWorldBoundaryPositions = new HashMap<>();
     private static final Map<UUID, SafeWaterPosition> safeWaterPositions = new HashMap<>();
@@ -252,6 +256,11 @@ public final class CobbleventureBootstrap {
         ResourceKey.create(
             Registries.DIMENSION,
             ResourceLocation.fromNamespaceAndPath("cobbleventure", "dungeons")
+        );
+    private static final ResourceKey<Level> FORESTS =
+        ResourceKey.create(
+            Registries.DIMENSION,
+            ResourceLocation.fromNamespaceAndPath("cobbleventure", "forests")
         );
     private static final String CAVE_PORTAL_COOLDOWN = "cobbleventure_cave_portal_cooldown";
     private static final ResourceKey<net.minecraft.world.level.biome.Biome> STARTER_BIOME =
@@ -461,15 +470,20 @@ public final class CobbleventureBootstrap {
         activeFacilityPortals = facilityPortals(runtime.settlements());
         activeFacilityMusicZones = facilityMusicZones(level, runtime.settlements());
         placeCaveEntrances(level, runtime.hexWorld());
-        WorldGateSystem.placeAll(
-            level, runtime.hexWorld().grid(), runtime.hexWorld().gates()
-        );
+        WorldGateSystem.placeAll(level, runtime.hexWorld());
         ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
         if (dungeons == null) {
             throw new IllegalStateException("Cobbleventure dungeons dimension is missing");
         }
         placeCaveInteriors(dungeons, runtime.hexWorld());
-        if (!Boolean.getBoolean(TOWN_SEQUENCE_PERFORMANCE_TEST_PROPERTY)) {
+        ServerLevel forests = event.getServer().getLevel(FORESTS);
+        if (forests == null) {
+            throw new IllegalStateException("Cobbleventure forests dimension is missing");
+        }
+        ForestDimensionGenerator.generate(forests, level.getSeed(), activeForestDocuments);
+        WorldGateSystem.placeForestDimensionGates(forests, runtime.hexWorld().gates());
+        if (!Boolean.getBoolean(TOWN_SEQUENCE_PERFORMANCE_TEST_PROPERTY)
+            && !Boolean.getBoolean(HEX_WORLD_TEST_PROPERTY)) {
             GymInteriorSystem.initialize(event.getServer());
         }
         BuildingRuntimeSystem.initialize(event.getServer());
@@ -540,6 +554,7 @@ public final class CobbleventureBootstrap {
             if (!Boolean.getBoolean(PERFORMANCE_TEST_PROPERTY)) {
                 verifyTerrainRelief(runtime.hexWorld());
                 verifyBoundaryWarp(runtime.hexWorld());
+                verifyCaveEntranceApproachRelief(runtime.hexWorld());
             }
             if (nativeGenerator) {
                 generateNativeTestArea(level, runtime.hexWorld());
@@ -770,9 +785,7 @@ public final class CobbleventureBootstrap {
             }
         }
         placeCaveEntrances(level, runtime.hexWorld());
-        WorldGateSystem.placeAll(
-            level, runtime.hexWorld().grid(), runtime.hexWorld().gates()
-        );
+        WorldGateSystem.placeAll(level, runtime.hexWorld());
         BlockPos spawnPos = starter.playerSpawn().toBlockPos();
         BlockPos villagePos = townSurfacePosition(level, starter);
         level.setDefaultSpawnPos(spawnPos, 0.0F);
@@ -895,13 +908,11 @@ public final class CobbleventureBootstrap {
     private static String caveEntranceStructure(
         HexWorldPlan world, CaveEntrancePlan entrance
     ) {
-        HexCoord inward = caveFacingOffset(entrance.facing());
-        HexCoord terrainCell = new HexCoord(
-            entrance.anchor().q() + inward.q(),
-            entrance.anchor().r() + inward.r()
-        );
-        String terrainType = world.emptyTerrainTiles().getOrDefault(
-            terrainCell, world.defaultEmptyTerrain()
+        CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
+        int terrainX = mouth.x() + (int) Math.round(mouth.forwardX() * 4.0D);
+        int terrainZ = mouth.z() + (int) Math.round(mouth.forwardZ() * 4.0D);
+        String terrainType = emptyTerrainAt(
+            world, terrainX + 0.5D, terrainZ + 0.5D
         );
         return entrance.structureVariants().getOrDefault(
             terrainType, entrance.structure()
@@ -1322,37 +1333,111 @@ public final class CobbleventureBootstrap {
     private static CaveMouthGeometry caveMouthGeometry(
         HexWorldPlan world, CaveEntrancePlan entrance
     ) {
+        CaveMouthCacheKey key = new CaveMouthCacheKey(
+            System.identityHashCode(world), world.seed(), entrance.id()
+        );
+        return CAVE_MOUTHS.computeIfAbsent(
+            key, ignored -> computeCaveMouthGeometry(world, entrance)
+        );
+    }
+
+    private static CaveMouthGeometry computeCaveMouthGeometry(
+        HexWorldPlan world, CaveEntrancePlan entrance
+    ) {
         HexGrid grid = world.grid();
         Point center = grid.worldCenter(entrance.anchor());
-        HexCoord direction = caveFacingOffset(entrance.facing());
-        Point neighborCenter = grid.worldCenter(new HexCoord(
-            entrance.anchor().q() + direction.q(), entrance.anchor().r() + direction.r()
-        ));
-        double deltaX = neighborCenter.x() - center.x();
-        double deltaZ = neighborCenter.z() - center.z();
-        double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
-        double forwardX = deltaX / length;
-        double forwardZ = deltaZ / length;
+        Point direction = caveFacingVector(entrance.facing());
+        double forwardX = direction.x();
+        double forwardZ = direction.z();
+        double length = grid.radius() * 2.0D;
         double collisionDistance = actualCaveBoundaryDistance(
             world, center, forwardX, forwardZ, length
         );
         double mouthDistance = Math.max(1.0D, collisionDistance - 2.0D);
         int mouthX = center.x() + (int) Math.round(forwardX * mouthDistance);
         int mouthZ = center.z() + (int) Math.round(forwardZ * mouthDistance);
+        int approachFloorY = caveApproachFloorY(
+            world, mouthX, mouthZ, forwardX, forwardZ
+        );
+        int mountainStartDepth = caveMountainStartDepth(
+            world, mouthX, mouthZ, forwardX, forwardZ
+        );
+        int mountainTargetY = caveMountainTargetY(
+            world, mouthX, mouthZ, forwardX, forwardZ, approachFloorY
+        );
         return new CaveMouthGeometry(
             center, forwardX, forwardZ,
-            collisionDistance, mouthDistance, mouthX, mouthZ
+            collisionDistance, mouthDistance, mouthX, mouthZ,
+            approachFloorY, mountainStartDepth, mountainTargetY
         );
     }
 
-    private static HexCoord caveFacingOffset(String facing) {
+    private static int caveMountainTargetY(
+        HexWorldPlan world, int mouthX, int mouthZ,
+        double forwardX, double forwardZ, int fallback
+    ) {
+        int targetY = fallback;
+        int searchLimit = OUTER_TERRAIN_TRANSITION_WIDTH * 2;
+        for (int depth = 0; depth <= searchLimit; depth++) {
+            int sampleX = mouthX + (int) Math.round(forwardX * depth);
+            int sampleZ = mouthZ + (int) Math.round(forwardZ * depth);
+            if (terrainAtBlockCenter(world, sampleX, sampleZ) != null) {
+                continue;
+            }
+            String type = emptyTerrainAt(world, sampleX + 0.5D, sampleZ + 0.5D);
+            targetY = Math.max(
+                targetY, emptyTerrainGroundY(world, type, sampleX, sampleZ)
+            );
+        }
+        return targetY;
+    }
+
+    private static int caveMountainStartDepth(
+        HexWorldPlan world, int mouthX, int mouthZ,
+        double forwardX, double forwardZ
+    ) {
+        int searchLimit = OUTER_TERRAIN_TRANSITION_WIDTH * 2;
+        for (int depth = 0; depth <= searchLimit; depth++) {
+            int sampleX = mouthX + (int) Math.round(forwardX * depth);
+            int sampleZ = mouthZ + (int) Math.round(forwardZ * depth);
+            if (terrainAtBlockCenter(world, sampleX, sampleZ) == null) {
+                return depth;
+            }
+        }
+        return 0;
+    }
+
+    private static int caveApproachFloorY(
+        HexWorldPlan world, int mouthX, int mouthZ,
+        double forwardX, double forwardZ
+    ) {
+        // The road side is the stable reference for an entrance. Do not derive
+        // this value from nearestPlayableTerrain for every mountain column:
+        // its sparse directional sampling can select a different terrain
+        // column from one block to the next and create a sudden wall.
+        for (int distance = 0; distance <= OUTER_TERRAIN_TRANSITION_WIDTH; distance++) {
+            int sampleX = mouthX - (int) Math.round(forwardX * distance);
+            int sampleZ = mouthZ - (int) Math.round(forwardZ * distance);
+            TerrainSample sample = terrainAtBlockCenter(world, sampleX, sampleZ);
+            if (sample != null && !isAquatic(sample)) {
+                return terrainGroundY(
+                    world, sample, sampleX + 0.5D, sampleZ + 0.5D
+                );
+            }
+        }
+        return NORMAL_TERRAIN_MIN_Y;
+    }
+
+    private record CaveMouthCacheKey(
+        int worldIdentity, long seed, String entranceId
+    ) {}
+
+    private static Point caveFacingVector(String facing) {
         return switch (facing) {
-            case "east" -> new HexCoord(1, 0);
-            case "north_east" -> new HexCoord(1, -1);
-            case "north_west" -> new HexCoord(0, -1);
-            case "west" -> new HexCoord(-1, 0);
-            case "south_west" -> new HexCoord(-1, 1);
-            case "south_east" -> new HexCoord(0, 1);
+            case "north" -> new Point(0, -1);
+            case "east" -> new Point(1, 0);
+            case "south" -> new Point(0, 1);
+            case "west" -> new Point(-1, 0);
             default -> throw new IllegalStateException(
                 "Unsupported cave entrance facing: " + facing
             );
@@ -1361,7 +1446,7 @@ public final class CobbleventureBootstrap {
 
     /** Finds the exact warped boundary column on which the collision shell is
      * generated. The caller derives the visible mouth from this single source. */
-    private static double actualCaveBoundaryDistance(
+    static double actualCaveBoundaryDistance(
         HexWorldPlan world, Point center,
         double forwardX, double forwardZ, double maximumDistance
     ) {
@@ -1389,7 +1474,10 @@ public final class CobbleventureBootstrap {
         double collisionDistance,
         double mouthDistance,
         int x,
-        int z
+        int z,
+        int approachFloorY,
+        int mountainStartDepth,
+        int mountainTargetY
     ) {}
 
     private record CaveEntrancePlacement(
@@ -1417,7 +1505,7 @@ public final class CobbleventureBootstrap {
         return false;
     }
 
-    private static int plannedCaveMouthFloorY(
+    static int plannedCaveMouthFloorY(
         ServerLevel level, int x, int z
     ) {
         return plannedTerrainGroundY(level, x, z);
@@ -2294,6 +2382,10 @@ public final class CobbleventureBootstrap {
             }
             String rotation = facility.id().contains("gym")
                 ? RGS_GYM_ROTATION : "none";
+            BlockPoint placedOrigin = position == null ? null
+                : facility.mode().equals("direct_template")
+                    ? facilityPlacementOrigin(level, facility, position, rotation)
+                    : position;
             boolean placed = position != null && (facility.mode().equals("placeholder")
                 ? placeFacilityPlaceholder(level, facility, position)
                 : facility.mode().equals("direct_template")
@@ -2307,7 +2399,7 @@ public final class CobbleventureBootstrap {
                 return false;
             }
             BuildingRuntimeSystem.onStructurePlaced(
-                level, facility.structure(), position, rotation
+                level, facility.structure(), placedOrigin, rotation
             );
             if (facility.mode().equals("direct_template")) {
                 if (!placeFacilityJigsawDecorations(level, facility, position)) {
@@ -2401,9 +2493,13 @@ public final class CobbleventureBootstrap {
                 BlockPoint position = resolved == null ? null
                     : applyBuildingPlacementYOffset(facility.structure(), resolved);
                 if (position != null) {
+                    String rotation = facility.id().contains("gym")
+                        ? RGS_GYM_ROTATION : "none";
+                    BlockPoint placedOrigin = facility.mode().equals("direct_template")
+                        ? facilityPlacementOrigin(level, facility, position, rotation)
+                        : position;
                     BuildingRuntimeSystem.onStructurePlaced(
-                        level, facility.structure(), position,
-                        facility.id().contains("gym") ? RGS_GYM_ROTATION : "none"
+                        level, facility.structure(), placedOrigin, rotation
                     );
                 }
             }
@@ -4170,10 +4266,8 @@ public final class CobbleventureBootstrap {
         if (structureId == null) return false;
         var template = level.getStructureManager().get(structureId);
         if (template.isEmpty()) return false;
-        var size = template.get().getSize();
-        BlockPoint placementOrigin = rotatedTemplateOrigin(
-            position.x(), position.y(), position.z(),
-            size.getX(), size.getZ(), rotationName
+        BlockPoint placementOrigin = facilityPlacementOrigin(
+            level, facility, position, rotationName
         );
         BlockPos blockPos = placementOrigin.toBlockPos();
         List<ChunkPos> forcedChunks = forceTemplateChunks(level, structure, blockPos);
@@ -4192,6 +4286,25 @@ public final class CobbleventureBootstrap {
         } finally {
             releaseForcedChunks(level, forcedChunks);
         }
+    }
+
+    private static BlockPoint facilityPlacementOrigin(
+        ServerLevel level, FacilityPlacement facility, BlockPoint position,
+        String rotationName
+    ) {
+        if (rotationName.equals("none")) {
+            return position;
+        }
+        var template = level.getStructureManager().get(
+            ResourceLocation.parse(facility.structure())
+        ).orElseThrow(() -> new IllegalStateException(
+            "Facility template is missing: " + facility.structure()
+        ));
+        var size = template.getSize();
+        return rotatedTemplateOrigin(
+            position.x(), position.y(), position.z(),
+            size.getX(), size.getZ(), rotationName
+        );
     }
 
     private static boolean placeTemplateLoaded(
@@ -4415,6 +4528,22 @@ public final class CobbleventureBootstrap {
                 handleCavePortal(player, level, dungeons, gameTime);
                 continue;
             }
+            boolean inForestDimension = activeForestRegions.stream()
+                .anyMatch(region -> region.dimension().equals(player.serverLevel().dimension()));
+            if (inForestDimension) {
+                PursuitEncounterSystem.tick(
+                    player, pursuitEncounterAt(player.serverLevel(), player.getX(), player.getZ()), gameTime
+                );
+                LocalWeatherSystem.clear(player);
+                LocationAnnouncement.clear(player);
+                HexWorldPlan forestWorld = activeHexWorld;
+                if (forestWorld != null) {
+                    WorldGateSystem.tick(
+                        player, level, forestWorld.grid(), forestWorld.gates(), gameTime
+                    );
+                }
+                continue;
+            }
             if (player.serverLevel() != level) {
                 PursuitEncounterSystem.tick(player, null, gameTime);
                 LocalWeatherSystem.clear(player);
@@ -4436,7 +4565,7 @@ public final class CobbleventureBootstrap {
             }
             HexWorldPlan world = activeHexWorld;
             if (world != null) {
-                WorldGateSystem.tick(player, world.grid(), world.gates(), gameTime);
+                WorldGateSystem.tick(player, level, world.grid(), world.gates(), gameTime);
                 if (gameTime % 10L == 0L) {
                     String facilityMusic = facilityMusicContextAt(player);
                     if (facilityMusic == null) MusicPlayback.leaveInterior(player);
@@ -5244,8 +5373,10 @@ public final class CobbleventureBootstrap {
         boolean caveOpening = !authoredTerrain
             && isCaveBarrierOpening(world, x, y, z, 0)
             && isCaveBarrierOpening(world, x, y + 1, z, 0);
+        boolean forestRegion = activeForestRegions.stream()
+            .anyMatch(region -> region.contains(level, x + 0.5D, z + 0.5D));
         UUID playerId = player.getUUID();
-        if (authoredTerrain || caveOpening) {
+        if (authoredTerrain || caveOpening || forestRegion) {
             if (player.onGround()) {
                 safeWorldBoundaryPositions.put(playerId, player.position());
             }
@@ -6173,11 +6304,23 @@ public final class CobbleventureBootstrap {
             ));
         }
         if (structureProfile.has("facility_placements")) {
+            Set<String> configuredFacilityTypes = facilities.stream()
+                .map(FacilityPlacement::facilityType)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
             for (JsonElement element : structureProfile.getAsJsonArray("facility_placements")) {
                 JsonObject facility = element.getAsJsonObject();
                 String facilityId = requiredString(facility, "id");
+                String facilityType = optionalString(facility, "facility_type");
                 if ((hasGymConfig && facilityId.equals("gym_building"))
                     || (hasDistrictConfig && facilityId.equals("special_district_building"))) {
+                    continue;
+                }
+                if (facilityType != null && configuredFacilityTypes.contains(facilityType)) {
+                    LOGGER.warn(
+                        "Duplicate civic facility placement ignored: settlement={}, facility={}, type={}",
+                        id, facilityId, facilityType
+                    );
                     continue;
                 }
                 JsonObject footprint = facility.has("footprint")
@@ -6186,7 +6329,7 @@ public final class CobbleventureBootstrap {
                     facilityId,
                     requiredString(facility, "mode"),
                     requiredString(facility, "structure"),
-                    optionalString(facility, "facility_type"),
+                    facilityType,
                     optionalString(facility, "label"),
                     optionalString(facility, "anchor"),
                     optionalString(facility, "entry_anchor"),
@@ -6200,6 +6343,9 @@ public final class CobbleventureBootstrap {
                     footprint == null ? 0 : footprint.get("height").getAsInt(),
                     facility.has("clearance") ? facility.get("clearance").getAsInt() : 0
                 ));
+                if (facilityType != null) {
+                    configuredFacilityTypes.add(facilityType);
+                }
             }
         }
         if (gymConfig != null && gymConfig.has("enabled") && gymConfig.get("enabled").getAsBoolean()) {
@@ -6455,24 +6601,92 @@ public final class CobbleventureBootstrap {
                 bounds.get("max_x").getAsInt(), bounds.get("max_z").getAsInt()
             ));
         }
+        Map<String, JsonObject> forests = new HashMap<>();
         Map<String, PursuitEncounterSystem.Config> forestEncounters = new HashMap<>();
+        List<WorldGateSystem.Gate> gates = new ArrayList<>();
         for (WorldGateSystem.Gate gate : world.gates()) {
             String forestId = gate.destinationForest();
-            if (forestId == null || forestId.isBlank() || forestEncounters.containsKey(forestId)) continue;
+            if (forestId == null || forestId.isBlank()) {
+                gates.add(gate);
+                continue;
+            }
             String slug = forestId.substring(forestId.lastIndexOf('/') + 1);
-            JsonObject forest = readJsonResource(level, "forests/generation_1/" + slug + ".json");
-            PursuitEncounterSystem.Config config = PursuitEncounterSystem.parse(
-                forestId, forest, biomeProfiles, pokemonHabitats
+            JsonObject forest = forests.computeIfAbsent(forestId, ignored ->
+                readJsonResource(level, "forests/generation_1/" + slug + ".json")
             );
-            if (config != null) forestEncounters.put(forestId, config);
+            JsonObject origin = forest.getAsJsonObject("dimension").getAsJsonObject("origin");
+            int originX = origin.get("x").getAsInt();
+            int originY = origin.get("y").getAsInt();
+            int originZ = origin.get("z").getAsInt();
+            BlockPoint portalAnchor = null;
+            BlockPoint destination = null;
+            for (JsonElement element : forest.getAsJsonArray("entrances")) {
+                JsonObject configured = element.getAsJsonObject();
+                if (!requiredString(configured, "id").equals(gate.destinationEntrance())) {
+                    continue;
+                }
+                JsonObject position = configured.getAsJsonObject("position");
+                int portalX = originX + position.get("x").getAsInt();
+                int portalZ = originZ + position.get("z").getAsInt();
+                portalAnchor = new BlockPoint(portalX, originY, portalZ);
+                double towardCenterX = originX - portalX;
+                double towardCenterZ = originZ - portalZ;
+                double length = Math.hypot(towardCenterX, towardCenterZ);
+                int insetX = length < 0.01D ? 0
+                    : (int) Math.round(towardCenterX / length * 6.0D);
+                int insetZ = length < 0.01D ? 0
+                    : (int) Math.round(towardCenterZ / length * 6.0D);
+                destination = new BlockPoint(
+                    portalX + insetX, originY, portalZ + insetZ
+                );
+                break;
+            }
+            if (portalAnchor == null || destination == null) {
+                throw new IllegalStateException(
+                    "Forest entrance destination is missing: " + gate.id()
+                );
+            }
+            ResourceLocation forestDimensionId = ResourceLocation.parse(
+                requiredString(forest.getAsJsonObject("dimension"), "id")
+            );
+            ResourceKey<Level> forestDimension = ResourceKey.create(
+                Registries.DIMENSION, forestDimensionId
+            );
+            gates.add(gate.withForestDestination(forestDimension, destination, portalAnchor));
+            if (!forestEncounters.containsKey(forestId)) {
+                PursuitEncounterSystem.Config config = PursuitEncounterSystem.parse(
+                    forestId, forest, biomeProfiles, pokemonHabitats
+                );
+                if (config != null) forestEncounters.put(forestId, config);
+            }
         }
         activeCaveEncounters = List.copyOf(caveEncounters);
         activeForestEncounters = Map.copyOf(forestEncounters);
+        activeForestDocuments = Map.copyOf(forests);
+        activeForestRegions = forests.entrySet().stream()
+            .map(entry -> {
+                JsonObject forest = entry.getValue();
+                JsonObject dimension = forest.getAsJsonObject("dimension");
+                JsonObject origin = dimension.getAsJsonObject("origin");
+                JsonObject bounds = dimension.getAsJsonObject("bounds");
+                return new ForestRegion(
+                    entry.getKey(),
+                    ResourceKey.create(
+                        Registries.DIMENSION,
+                        ResourceLocation.parse(requiredString(dimension, "id"))
+                    ),
+                    origin.get("x").getAsInt() + bounds.get("min_x").getAsInt(),
+                    origin.get("z").getAsInt() + bounds.get("min_z").getAsInt(),
+                    origin.get("x").getAsInt() + bounds.get("max_x").getAsInt(),
+                    origin.get("z").getAsInt() + bounds.get("max_z").getAsInt()
+                );
+            })
+            .toList();
         return new HexWorldPlan(
             world.grid(), world.seed(), world.cells(), world.paths(), world.settlements(),
             world.boundaryProfiles(), world.defaultEmptyTerrain(), world.emptyTerrainTiles(),
             world.environmentOverrides(), world.levelOverrides(),
-            List.copyOf(entrances), world.gates()
+            List.copyOf(entrances), List.copyOf(gates)
         );
     }
 
@@ -6485,6 +6699,12 @@ public final class CobbleventureBootstrap {
                 .map(PursuitEncounterZone::config)
                 .findFirst().orElse(null);
         }
+        PursuitEncounterSystem.Config forestEncounter = activeForestRegions.stream()
+            .filter(region -> region.contains(level, x, z))
+            .map(region -> activeForestEncounters.get(region.forestId()))
+            .filter(Objects::nonNull)
+            .findFirst().orElse(null);
+        if (forestEncounter != null) return forestEncounter;
         HexWorldPlan world = activeHexWorld;
         if (!level.dimension().equals(GENERATION_ONE) || world == null) return null;
         HexCoord coordinate = world.grid().worldToHex(x, z);
@@ -6507,6 +6727,16 @@ public final class CobbleventureBootstrap {
     ) {
         private boolean contains(double x, double z) {
             return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
+        }
+    }
+
+    private record ForestRegion(
+        String forestId, ResourceKey<Level> dimension,
+        int minX, int minZ, int maxX, int maxZ
+    ) {
+        private boolean contains(ServerLevel level, double x, double z) {
+            return level.dimension().equals(dimension)
+                && x >= minX && x <= maxX && z >= minZ && z <= maxZ;
         }
     }
 
@@ -7614,6 +7844,44 @@ public final class CobbleventureBootstrap {
                 "XZ boundary warp is too weak: average=" + averageDisplacement
                     + ", maximum=" + maximumDisplacement
             );
+        }
+    }
+
+    private static void verifyCaveEntranceApproachRelief(HexWorldPlan world) {
+        for (CaveEntrancePlan entrance : world.caveEntrances()) {
+            CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
+            Point previousPoint = null;
+            Integer previousHeight = null;
+            int maximumRise = 0;
+            int minimumHeight = Integer.MAX_VALUE;
+            int maximumHeight = Integer.MIN_VALUE;
+            for (int depth = 0; depth <= OUTER_TERRAIN_TRANSITION_WIDTH * 2; depth++) {
+                Point point = new Point(
+                    mouth.x() + (int) Math.round(mouth.forwardX() * depth),
+                    mouth.z() + (int) Math.round(mouth.forwardZ() * depth)
+                );
+                if (point.equals(previousPoint)) {
+                    continue;
+                }
+                int height = nativeTerrainColumn(world, point.x(), point.z()).groundY();
+                if (previousHeight != null) {
+                    maximumRise = Math.max(maximumRise, height - previousHeight);
+                }
+                minimumHeight = Math.min(minimumHeight, height);
+                maximumHeight = Math.max(maximumHeight, height);
+                previousPoint = point;
+                previousHeight = height;
+            }
+            LOGGER.info(
+                "Cave approach relief verified: entrance={}, facing={}, minY={}, maxY={}, maxRise={}",
+                entrance.id(), entrance.facing(), minimumHeight, maximumHeight, maximumRise
+            );
+            if (maximumRise > 1) {
+                throw new IllegalStateException(
+                    "Cave approach rises too sharply: " + entrance.id()
+                        + " / maxRise=" + maximumRise
+                );
+            }
         }
     }
 
@@ -9038,6 +9306,7 @@ public final class CobbleventureBootstrap {
                     );
                 }
             }
+            topY = blendCaveEntranceMountainApproach(world, x, z, topY);
             BlockState surface = switch (type) {
                 case "stone_mountain" -> oceanCliffRock(world, x, topY, z);
                 case "red_rock_mountain" -> redRockMountainBlock(
@@ -9185,6 +9454,51 @@ public final class CobbleventureBootstrap {
             nearestDistance, landHeightTotal, landSamples,
             aquaticHeightTotal, aquaticSamples
         );
+    }
+
+    private static int blendCaveEntranceMountainApproach(
+        HexWorldPlan world, int x, int z, int mountainHeight
+    ) {
+        int result = mountainHeight;
+        double coreHalfWidth = Math.max(20.0D, world.grid().radius() * 0.32D);
+        double blendHalfWidth = Math.max(
+            coreHalfWidth + 12.0D, world.grid().radius() * 0.55D
+        );
+        for (CaveEntrancePlan entrance : world.caveEntrances()) {
+            CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
+            double offsetX = x + 0.5D - (mouth.x() + 0.5D);
+            double offsetZ = z + 0.5D - (mouth.z() + 0.5D);
+            double inwardDepth = offsetX * mouth.forwardX()
+                + offsetZ * mouth.forwardZ();
+            if (inwardDepth < -3.0D
+                || inwardDepth > OUTER_TERRAIN_TRANSITION_WIDTH * 2.0D) {
+                continue;
+            }
+            double lateral = Math.abs(
+                offsetX * -mouth.forwardZ() + offsetZ * mouth.forwardX()
+            );
+            if (lateral >= blendHalfWidth) {
+                continue;
+            }
+            // Normal inaccessible terrain intentionally rises 2-3 blocks per
+            // horizontal block. Directly in front of a cave that creates one
+            // tall, flat-looking face. Give the NBT-sized entrance band a
+            // one-block-per-block approach, then fade back to the normal steep
+            // mountain on both sides.
+            int gentleHeight = mouth.approachFloorY()
+                + Math.max(0, (int) Math.ceil(
+                    inwardDepth - mouth.mountainStartDepth()
+                ));
+            int targetHeight = Math.min(mouth.mountainTargetY(), gentleHeight);
+            double influence = lateral <= coreHalfWidth ? 1.0D
+                : 1.0D - (lateral - coreHalfWidth)
+                    / (blendHalfWidth - coreHalfWidth);
+            influence = fade(Math.max(0.0D, Math.min(1.0D, influence)));
+            result = (int) Math.round(
+                result + (targetHeight - result) * influence
+            );
+        }
+        return result;
     }
 
     private static Integer continuedPlayableTerrainHeight(
@@ -10223,6 +10537,9 @@ public final class CobbleventureBootstrap {
     static boolean isCaveBarrierOpening(
         HexWorldPlan world, int x, int y, int z, int groundY
     ) {
+        if (WorldGateSystem.isForestBarrierOpening(world, x, y, z)) {
+            return true;
+        }
         for (CaveEntrancePlan entrance : world.caveEntrances()) {
             CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
             double offsetX = x + 0.5D - mouth.x();

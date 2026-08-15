@@ -36,6 +36,8 @@ public final class MapContent {
     private final List<Route> routes;
     private final List<CaveEntrance> caveEntrances;
     private final Map<String, CaveInfo> caves;
+    private final List<ForestEntrance> forestEntrances;
+    private final Map<String, ForestInfo> forests;
     private final Map<String, BiomeInfo> biomes;
     private final Map<Hex, BiomeInfo> tileHabitats;
 
@@ -52,6 +54,8 @@ public final class MapContent {
         List<Route> routes,
         List<CaveEntrance> caveEntrances,
         Map<String, CaveInfo> caves,
+        List<ForestEntrance> forestEntrances,
+        Map<String, ForestInfo> forests,
         Map<String, BiomeInfo> biomes,
         Map<Hex, BiomeInfo> tileHabitats
     ) {
@@ -67,6 +71,8 @@ public final class MapContent {
         this.routes = List.copyOf(routes);
         this.caveEntrances = List.copyOf(caveEntrances);
         this.caves = Map.copyOf(caves);
+        this.forestEntrances = List.copyOf(forestEntrances);
+        this.forests = Map.copyOf(forests);
         this.biomes = Map.copyOf(biomes);
         this.tileHabitats = Map.copyOf(tileHabitats);
     }
@@ -99,8 +105,10 @@ public final class MapContent {
     public List<Town> towns() { return towns; }
     public List<Route> routes() { return routes; }
     public List<CaveEntrance> caveEntrances() { return caveEntrances; }
+    public List<ForestEntrance> forestEntrances() { return forestEntrances; }
 
     public CaveInfo cave(String id) { return caves.get(id); }
+    public ForestInfo forest(String id) { return forests.get(id); }
 
     public Town townAt(int q, int r) {
         Hex target = new Hex(q, r);
@@ -247,6 +255,7 @@ public final class MapContent {
 
         LoadedBiomes loadedBiomes = loadBiomes(generation, tiles, world);
         LoadedCaves loadedCaves = loadCaves(generation, world, loadedBiomes.byBiome());
+        LoadedForests loadedForests = loadForests(generation, world, loadedBiomes.byBiome());
         return new MapContent(
             generation,
             world.get("dimension").getAsString(),
@@ -254,6 +263,7 @@ public final class MapContent {
             grid.get("map_radius_cells").getAsInt(),
             origin.get("x").getAsInt(), origin.get("y").getAsInt(), origin.get("z").getAsInt(),
             tiles, towns, routes, loadedCaves.entrances(), loadedCaves.byId(),
+            loadedForests.entrances(), loadedForests.byId(),
             loadedBiomes.byBiome(), loadedBiomes.byTile()
         );
     }
@@ -337,6 +347,87 @@ public final class MapContent {
             ));
         }
         return new LoadedCaves(List.copyOf(entrances), Map.copyOf(caveInfos));
+    }
+
+    private static LoadedForests loadForests(
+        int generation, JsonObject world, Map<String, BiomeInfo> biomes
+    ) {
+        if (!world.has("forest_entrances")) return new LoadedForests(List.of(), Map.of());
+        Map<String, JsonObject> definitions = new LinkedHashMap<>();
+        for (JsonElement element : world.getAsJsonArray("forest_entrances")) {
+            JsonObject entrance = element.getAsJsonObject();
+            String forestId = entrance.get("forest").getAsString();
+            definitions.computeIfAbsent(forestId, ignored -> {
+                String slug = forestId.substring(forestId.lastIndexOf('/') + 1);
+                return resource("forests/generation_" + generation + "/" + slug + ".json");
+            });
+        }
+
+        Map<String, ForestInfo> forestInfos = new LinkedHashMap<>();
+        Map<String, Map<String, String>> entranceNames = new HashMap<>();
+        for (Map.Entry<String, JsonObject> entry : definitions.entrySet()) {
+            JsonObject forest = entry.getValue();
+            LinkedHashMap<String, Pokemon> pokemon = new LinkedHashMap<>();
+            List<String> biomeNames = new ArrayList<>();
+            JsonObject encounters = forest.has("random_encounters")
+                ? forest.getAsJsonObject("random_encounters") : new JsonObject();
+            String biomeId = encounters.has("pokemon_biome")
+                ? encounters.get("pokemon_biome").getAsString() : "minecraft:forest";
+            BiomeInfo biome = biomes.get(biomeId);
+            if (biome != null) {
+                biomeNames.add(biome.name());
+                Set<String> excluded = new HashSet<>();
+                if (encounters.has("excluded_species")) {
+                    for (JsonElement value : encounters.getAsJsonArray("excluded_species")) {
+                        excluded.add(value.getAsString());
+                    }
+                }
+                if (!encounters.has("inherit_biome") || encounters.get("inherit_biome").getAsBoolean()) {
+                    for (Pokemon value : biome.pokemon()) {
+                        if (!excluded.contains(value.id())) pokemon.putIfAbsent(value.id(), value);
+                    }
+                }
+                if (encounters.has("additions")) {
+                    for (JsonElement additionElement : encounters.getAsJsonArray("additions")) {
+                        String species = additionElement.getAsJsonObject().get("species").getAsString();
+                        biomes.values().stream().flatMap(value -> value.pokemon().stream())
+                            .filter(value -> value.id().equals(species)).findFirst()
+                            .ifPresent(value -> pokemon.putIfAbsent(value.id(), value));
+                    }
+                }
+            }
+            List<Pokemon> pokemonList = new ArrayList<>(pokemon.values());
+            pokemonList.sort(Comparator.comparingInt(Pokemon::dexNumber));
+            forestInfos.put(entry.getKey(), new ForestInfo(
+                entry.getKey(),
+                localized(forest.getAsJsonObject("display_name"), readableId(entry.getKey())),
+                List.copyOf(biomeNames), List.copyOf(pokemonList)
+            ));
+            Map<String, String> names = new HashMap<>();
+            if (forest.has("entrances")) {
+                for (JsonElement entranceElement : forest.getAsJsonArray("entrances")) {
+                    JsonObject entrance = entranceElement.getAsJsonObject();
+                    names.put(entrance.get("id").getAsString(),
+                        stringValue(entrance, "display_name", readableId(entrance.get("id").getAsString())));
+                }
+            }
+            entranceNames.put(entry.getKey(), Map.copyOf(names));
+        }
+
+        List<ForestEntrance> entrances = new ArrayList<>();
+        for (JsonElement element : world.getAsJsonArray("forest_entrances")) {
+            JsonObject value = element.getAsJsonObject();
+            String forestId = value.get("forest").getAsString();
+            String entranceId = value.get("entrance").getAsString();
+            JsonObject anchor = value.getAsJsonObject("anchor");
+            entrances.add(new ForestEntrance(
+                value.get("id").getAsString(), forestId, entranceId,
+                entranceNames.getOrDefault(forestId, Map.of()).getOrDefault(entranceId, readableId(entranceId)),
+                new Hex(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
+                stringValue(value, "facing", "")
+            ));
+        }
+        return new LoadedForests(List.copyOf(entrances), Map.copyOf(forestInfos));
     }
 
     private static LoadedBiomes loadBiomes(int generation, Map<Hex, BiomeTile> tiles, JsonObject world) {
@@ -602,6 +693,10 @@ public final class MapContent {
         String id, String caveId, String entranceId, String name, Hex hex, String facing
     ) {}
     public record CaveInfo(String id, String name, List<String> biomes, List<Pokemon> pokemon) {}
+    public record ForestEntrance(
+        String id, String forestId, String entranceId, String name, Hex hex, String facing
+    ) {}
+    public record ForestInfo(String id, String name, List<String> biomes, List<Pokemon> pokemon) {}
     public record Pokemon(int dexNumber, String id, String name) {}
     public record FieldMoveNpc(String name, String move) {}
     public record BiomeInfo(
@@ -610,6 +705,7 @@ public final class MapContent {
     private record PokemonMatch(Pokemon pokemon, boolean explicit) {}
     private record LoadedBiomes(Map<String, BiomeInfo> byBiome, Map<Hex, BiomeInfo> byTile) {}
     private record LoadedCaves(List<CaveEntrance> entrances, Map<String, CaveInfo> byId) {}
+    private record LoadedForests(List<ForestEntrance> entrances, Map<String, ForestInfo> byId) {}
     public record Town(
         String id,
         String name,

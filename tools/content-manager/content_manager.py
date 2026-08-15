@@ -772,6 +772,8 @@ def validate_hex_worlds(
             elif isinstance(placement_id, str):
                 cave_entrance_anchors[placement_id] = (anchor["q"], anchor["r"])
             _resource_id(placement.get("structure"), issues, path, f"{placement_path}.structure")
+            if placement.get("facing") not in {"north", "east", "south", "west"}:
+                _issue(issues, "error", path, f"{placement_path}.facing", "동굴 입구 방향은 north/east/south/west 중 하나여야 합니다.")
             center_enabled = placement.get("pokemon_center_enabled")
             if center_enabled is not None and not isinstance(center_enabled, bool):
                 _issue(issues, "error", path, f"{placement_path}.pokemon_center_enabled", "포켓몬센터 사용 여부는 true 또는 false여야 합니다.")
@@ -823,8 +825,8 @@ def validate_hex_worlds(
                 center_enabled = placement.get("pokemon_center_enabled")
                 if center_enabled is not None and not isinstance(center_enabled, bool):
                     _issue(issues, "error", path, f"{object_path}.pokemon_center_enabled", "포켓몬센터 사용 여부는 true 또는 false여야 합니다.")
-                if placement.get("facing") not in {"north_east", "east", "south_east", "south_west", "west", "north_west"}:
-                    _issue(issues, "error", path, f"{object_path}.facing", "숲 입구 방향이 올바르지 않습니다.")
+                if placement.get("facing") not in {"north", "east", "south", "west"}:
+                    _issue(issues, "error", path, f"{object_path}.facing", "숲 입구 방향은 north/east/south/west 중 하나여야 합니다.")
                 rotation = placement.get("rotation")
                 if not isinstance(rotation, int) or isinstance(rotation, bool) or rotation not in range(4):
                     _issue(issues, "error", path, f"{object_path}.rotation", "ForestGate NBT 회전은 0~3이어야 합니다.")
@@ -6169,6 +6171,8 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
         _issue(issues, "error", path, "$.dimension", "숲 차원 설정이 필요합니다.")
     else:
         _resource_id(dimension.get("id"), issues, path, "$.dimension.id")
+        if dimension.get("id") != "cobbleventure:forests":
+            _issue(issues, "error", path, "$.dimension.id", "숲은 전용 차원 cobbleventure:forests를 사용해야 합니다.")
         bounds = dimension.get("bounds")
         if not isinstance(bounds, dict) or not all(
             isinstance(bounds.get(key), int) and not isinstance(bounds.get(key), bool)
@@ -7329,7 +7333,7 @@ def _forest_template(slug: str, name: str, generation: str) -> dict[str, Any]:
         "enabled": True,
         "display_name": {"ko_kr": name},
         "dimension": {
-            "id": f"cobbleventure:generation_{generation_number}",
+            "id": "cobbleventure:forests",
             "region_id": f"generation_{generation_number}/{slug}",
             "origin": {"x": 0, "y": 69, "z": 0},
             "bounds": {"min_x": -256, "min_z": -256, "max_x": 256, "max_z": 256},

@@ -1902,7 +1902,7 @@
         "noise_scale_blocks": 96
       },
       "access_requirement": "cobbleventure:field_move/surf",
-      "town_footprint_shape": "line_q",
+      "town_footprint_shape": "triangle_down",
       "town_footprint_cells": [],
       "town_road_exits": []
     },
@@ -1948,13 +1948,7 @@
         "red_rock_mountain": "cobbleventure:cave_entrance/red_rock_mountain",
         "snow_mountain": "cobbleventure:cave_entrance/snow_mountain"
       },
-      "pokemon_center": {
-        "structure": "bca:default/one_off/pokecenter",
-        "offset": {
-          "q": 0,
-          "r": 1
-        }
-      }
+      "pokemon_center_enabled": true
     },
     {
       "id": "cobbleventure:cave_entrance/mt_moon_east",
@@ -1975,13 +1969,7 @@
         "red_rock_mountain": "cobbleventure:cave_entrance/red_rock_mountain",
         "snow_mountain": "cobbleventure:cave_entrance/snow_mountain"
       },
-      "pokemon_center": {
-        "structure": "bca:default/one_off/pokecenter",
-        "offset": {
-          "q": 0,
-          "r": 1
-        }
-      }
+      "pokemon_center_enabled": true
     }
   ],
   "connections": [
@@ -2262,7 +2250,8 @@
       "pokemon_spawns": {
         "inherit_biome": true,
         "excluded_species": [],
-        "additions": []
+        "additions": [],
+        "level_overrides": []
       }
     },
     {
@@ -2717,7 +2706,7 @@
         "q": -3,
         "r": 2
       },
-      "facing": "north_east",
+      "facing": "north",
       "structure": "cobbleventure:forest_entrance/forest_gate",
       "rotation": 0,
       "tree_log": "minecraft:spruce_log",
@@ -2725,7 +2714,8 @@
       "wall_thickness": 7,
       "wall_height": 14,
       "opening_width": 7,
-      "barrier_height": 32
+      "barrier_height": 32,
+      "pokemon_center_enabled": false
     },
     {
       "id": "forest_entrance_viridian_forest_north",
@@ -2735,7 +2725,7 @@
         "q": -2,
         "r": 0
       },
-      "facing": "south_east",
+      "facing": "south",
       "structure": "cobbleventure:forest_entrance/forest_gate",
       "rotation": 2,
       "tree_log": "minecraft:spruce_log",
@@ -2743,10 +2733,38 @@
       "wall_thickness": 7,
       "wall_height": 14,
       "opening_width": 7,
-      "barrier_height": 32
+      "barrier_height": 32,
+      "pokemon_center_enabled": false
     }
   ],
-  "objects": [],
+  "objects": [
+    {
+      "id": "test",
+      "type": "gate",
+      "anchor": {
+        "q": -6,
+        "r": 4
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "east",
+        "gate_mode": "classic",
+        "building_enabled": true,
+        "surrounding_type": "wall",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "opening_width": 7,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "아직 이 관문을 통과할 수 없습니다."
+      },
+      "resource": "cobbleventure:forest_entrance/forest_gate"
+    }
+  ],
   "environment_overrides": [],
   "level_overrides": [
     {

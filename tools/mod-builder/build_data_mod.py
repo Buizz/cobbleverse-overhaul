@@ -362,6 +362,32 @@ def _inside_town_layout(
     )
 
 
+def _road_center_inside_town_layout(
+    x: float, z: float, cell_count: int, shape: str = "line_q",
+    margin: float = 0.0, custom_cells: tuple[tuple[int, int], ...] = (),
+) -> bool:
+    if margin <= 0.0:
+        return _inside_town_layout(
+            x, z, cell_count, shape, 0.0, custom_cells
+        )
+    # Apply clearance only to the outside of the complete multi-hex footprint.
+    # Shrinking every individual hex cuts roads at shared tile boundaries and
+    # was the main reason the built layout differed from the editor preview.
+    diagonal = margin / math.sqrt(2.0)
+    offsets = (
+        (0.0, 0.0), (margin, 0.0), (-margin, 0.0),
+        (0.0, margin), (0.0, -margin),
+        (diagonal, diagonal), (diagonal, -diagonal),
+        (-diagonal, diagonal), (-diagonal, -diagonal),
+    )
+    return all(
+        _inside_town_layout(
+            x + offset_x, z + offset_z, cell_count, shape, 0.0, custom_cells
+        )
+        for offset_x, offset_z in offsets
+    )
+
+
 def _plot_inside_town_layout(
     plot: dict[str, object], cell_count: int, shape: str = "line_q",
     custom_cells: tuple[tuple[int, int], ...] = (),
@@ -423,6 +449,20 @@ def _compiled_facility_specs(data: dict[str, object]) -> list[tuple[str, int, in
         if not isinstance(facility, dict):
             continue
         facility_id = str(facility.get("id", ""))
+        facility_type = str(facility.get("facility_type", ""))
+        canonical_id = {
+            "pokemon_center": "facility_pokemon_center",
+            "pokemart": "facility_pokemart",
+            "department_store": "facility_department_store",
+        }.get(facility_type)
+        # The civic switches above are the single source of truth for these
+        # facilities. Older editor versions also persisted a numbered direct
+        # placement for the same building, which produced two buildings in the
+        # compiled layout even though the preview only contained one.
+        if canonical_id is not None and any(
+            existing[0] == canonical_id for existing in specs
+        ):
+            continue
         if not facility_id or any(existing[0] == facility_id for existing in specs):
             continue
         footprint = facility.get("footprint")
@@ -509,7 +549,7 @@ def _compile_town_layout_attempt(
         "roof_colors", HOUSE_ROOF_BLOCKS, ["red", "blue", "green", "brown"]
     )
     seed = int(seed_override if seed_override is not None else generation.get("seed", 1))
-    depth = max(1, min(6, int(generation.get("depth", 3))))
+    depth = max(1, min(7, int(generation.get("depth", 3))))
     density_id = str(generation.get("building_density", "packed"))
     density = BUILDING_DENSITY_PROFILES.get(
         density_id, BUILDING_DENSITY_PROFILES["packed"]
@@ -571,7 +611,9 @@ def _compile_town_layout_attempt(
 
         for coordinate in range(start, end + 1, 16):
             x, z = (coordinate, fixed) if axis == "x" else (fixed, coordinate)
-            if _inside_town_layout(x, z, cell_count, footprint_shape, 8.0, custom_cells):
+            if _road_center_inside_town_layout(
+                x, z, cell_count, footprint_shape, 8.0, custom_cells
+            ):
                 run.append((x, z))
             else:
                 flush()
@@ -610,32 +652,21 @@ def _compile_town_layout_attempt(
         # 레이아웃을 방지한다. 이후 분기만 시드에 따라 길이를 달리한다.
         cells = 2 if branch_depth == 0 else 2 + int(random.next_double() * 3.0)
         points: list[tuple[int, int]] = []
+        blocked = False
         for step in range(1, cells + 1):
             cell_x = start_x // 16 + vector_x * step
             cell_z = start_z // 16 + vector_z * step
             point = (cell_x * 16, cell_z * 16)
-            if not _inside_town_layout(point[0], point[1], cell_count, footprint_shape, 8.0, custom_cells):
+            if not _road_center_inside_town_layout(
+                point[0], point[1], cell_count, footprint_shape, 8.0, custom_cells
+            ):
                 break
             if (cell_x, cell_z) in occupied and step > 1:
+                blocked = True
                 break
             points.append(point)
-        if len(points) < 2:
+        if blocked or len(points) < 2:
             continue
-        if branch_depth > 0 and roads:
-            while len(points) >= 2:
-                candidate_roads = roads + [{
-                    "x1": start_x, "z1": start_z,
-                    "x2": points[-1][0], "z2": points[-1][1],
-                }]
-                xs = [coordinate for segment in candidate_roads for coordinate in (segment["x1"], segment["x2"])]
-                zs = [coordinate for segment in candidate_roads for coordinate in (segment["z1"], segment["z2"])]
-                x_span = max(xs) - min(xs)
-                z_span = max(zs) - min(zs)
-                if min(x_span, z_span) > 0 and max(x_span, z_span) / min(x_span, z_span) <= 1.75:
-                    break
-                points.pop()
-            if len(points) < 2:
-                continue
         for point_x, point_z in points:
             occupied.add((point_x // 16, point_z // 16))
         end_x, end_z = points[-1]
@@ -673,8 +704,7 @@ def _compile_town_layout_attempt(
                     road_keys.discard((old_key[2], old_key[3], old_key[0], old_key[1]))
                     first = {"x1": segment["x1"], "z1": segment["z1"], "x2": x1, "z2": z1}
                     second = {"x1": x1, "z1": z1, "x2": segment["x2"], "z2": segment["z2"]}
-                    roads[index] = first
-                    roads.append(second)
+                    roads[index:index + 1] = [first, second]
                     for item in (first, second):
                         road_keys.add((item["x1"], item["z1"], item["x2"], item["z2"]))
                     return
@@ -686,14 +716,49 @@ def _compile_town_layout_attempt(
         roads.append({"x1": x1, "z1": z1, "x2": x2, "z2": z2})
         road_keys.add(key)
 
-    coverage_sources = {
+    def append_cell_branch_road(
+        target_x: int, target_z: int, source_x: int, source_z: int,
+        preferred_axis: str | None = None,
+    ) -> None:
+        # Keep this in lockstep with the editor preview. Reaching an outer hex
+        # centre is not enough: continue across that tile so it receives the
+        # same usable internal street shown in the preview.
+        horizontal = source_z != target_z
+        axis = preferred_axis or ("x" if horizontal else "z")
+
+        def available(direction: int) -> int:
+            distance = 0
+            for step in range(1, 4):
+                x = target_x + direction * step * 16 if axis == "x" else target_x
+                z = target_z + direction * step * 16 if axis == "z" else target_z
+                if not _road_center_inside_town_layout(
+                    x, z, cell_count, footprint_shape, 8.0, custom_cells
+                ):
+                    break
+                distance = step * 16
+            return distance
+
+        negative = available(-1)
+        positive = available(1)
+        if negative + positive < 32:
+            return
+        if axis == "x":
+            append_coverage_road(
+                target_x - negative, target_z, target_x + positive, target_z
+            )
+        else:
+            append_coverage_road(
+                target_x, target_z - negative, target_x, target_z + positive
+            )
+
+    coverage_sources = [
         (coordinate_x, coordinate_z)
         for segment in roads
         for coordinate_x, coordinate_z in (
             (segment["x1"], segment["z1"]), (segment["x2"], segment["z2"])
         )
         if (coordinate_x, coordinate_z) != (hub_x, hub_z)
-    }
+    ]
     for q, r in _town_layout_cells(cell_count, footprint_shape, custom_cells):
         center_x, center_z = _town_layout_centered_cell_center(
             q, r, cell_count, footprint_shape, custom_cells
@@ -707,6 +772,7 @@ def _compile_town_layout_attempt(
                 (
                     min(max(target_x, min(segment["x1"], segment["x2"])), max(segment["x1"], segment["x2"])),
                     min(max(target_z, min(segment["z1"], segment["z2"])), max(segment["z1"], segment["z2"])),
+                    "z" if segment["z1"] == segment["z2"] else "x",
                 )
                 for segment in roads
             ]
@@ -724,7 +790,11 @@ def _compile_town_layout_attempt(
                 append_coverage_road(
                     nearest_point[0], nearest_point[1], target_x, target_z
                 )
-                coverage_sources.add((target_x, target_z))
+                append_cell_branch_road(
+                    target_x, target_z, nearest_point[0], nearest_point[1],
+                    nearest_point[2],
+                )
+                coverage_sources.append((target_x, target_z))
                 continue
         source_x, source_z = min(
             coverage_sources or {(hub_x, hub_z)},
@@ -732,7 +802,8 @@ def _compile_town_layout_attempt(
         )
         append_coverage_road(source_x, source_z, target_x, source_z)
         append_coverage_road(target_x, source_z, target_x, target_z)
-        coverage_sources.add((target_x, target_z))
+        append_cell_branch_road(target_x, target_z, source_x, source_z)
+        coverage_sources.append((target_x, target_z))
     for q, r in road_exits:
         target_x, target_z = _town_layout_exit_point(
             q, r, cell_count, footprint_shape, custom_cells
@@ -743,7 +814,7 @@ def _compile_town_layout_attempt(
         )
         append_coverage_road(source_x, source_z, target_x, source_z)
         append_coverage_road(target_x, source_z, target_x, target_z)
-        coverage_sources.add((target_x, target_z))
+        coverage_sources.append((target_x, target_z))
 
     slots = [
         (road_index, ratio, side)
@@ -753,7 +824,6 @@ def _compile_town_layout_attempt(
     ]
     plots: list[dict[str, object]] = []
     blocked_road_indices: set[int] = set()
-    reserved_access_roads: list[dict[str, object]] = []
 
     def place_plot(
         identifier: str, width: int, plot_depth: int, attempts: int,
@@ -824,13 +894,8 @@ def _compile_town_layout_attempt(
             if any(
                 other_index != road_index
                 and other_index not in blocked_road_indices
-                and _plot_intersects_road(candidate, other, road_width, 1.0)
+                and _plot_intersects_road(candidate, other, road_width + 3, 1.0)
                 for other_index, other in enumerate(roads)
-            ):
-                continue
-            if any(
-                _plot_intersects_road(candidate, access, 3, 0.25)
-                for access in reserved_access_roads
             ):
                 continue
             if not balance_cells:
@@ -900,11 +965,6 @@ def _compile_town_layout_attempt(
                     continue
                 if any(_plots_intersect(candidate, existing, 4.0) for existing in plots):
                     continue
-                if any(
-                    _plot_intersects_road(candidate, access, 3, 0.25)
-                    for access in reserved_access_roads
-                ):
-                    continue
                 center_x = x + width / 2.0
                 center_z = z + plot_depth / 2.0
                 intersecting_roads = sum(
@@ -945,9 +1005,7 @@ def _compile_town_layout_attempt(
         }
         entrance_x, entrance_z = _plot_entrance(candidate)
         road_candidates: list[tuple[float, int, int]] = []
-        for index, segment in enumerate(roads):
-            if index in blocked_road_indices:
-                continue
+        for segment in roads:
             nearest_x = min(max(entrance_x, min(segment["x1"], segment["x2"])), max(segment["x1"], segment["x2"]))
             nearest_z = min(max(entrance_z, min(segment["z1"], segment["z2"])), max(segment["z1"], segment["z2"]))
             road_candidates.append(((entrance_x - nearest_x) ** 2 + (entrance_z - nearest_z) ** 2, nearest_x, nearest_z))
@@ -1027,7 +1085,6 @@ def _compile_town_layout_attempt(
         if plot is None:
             raise TownFacilityPlacementError(data.get("id"), identifier)
         facilities[identifier] = plot
-        reserved_access_roads.extend(building_access_roads(plot))
     houses: list[dict[str, object]] = []
     base_house_target = min(36, max(12, 6 + depth * 5)) if cell_count == 19 else min(18, max(4, 3 + depth * 3))
     house_target = max(2, round(base_house_target * float(density["multiplier"])))
@@ -1541,7 +1598,7 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
     metadata_root = _inside(
         root, output / STRUCTURE_METADATA_ENTRY_DIR, "생성 구조물 메타데이터"
     )
-    for category in ("placeholder", "interiors"):
+    for category in ("placeholder", "interiors", "gyms"):
         source_dir = _inside(
             root, root / CONTENT_ROOT / "structures" / category, "구조물 메타데이터 원본"
         )
@@ -1569,7 +1626,7 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
                     anchors = metadata.setdefault("anchors", [])
                     if not any(
                         isinstance(anchor, dict)
-                        and anchor.get("type") == "interior_entry"
+                        and anchor.get("type") in {"door", "interior_entry"}
                         for anchor in anchors
                     ):
                         anchors.append({

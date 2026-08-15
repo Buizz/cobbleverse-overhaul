@@ -319,6 +319,9 @@ final class BuildingRuntimeSystem {
     ) {
         Anchor entry = exteriorMetadata.first("interior_entry");
         if (entry == null) {
+            entry = exteriorMetadata.first("door");
+        }
+        if (entry == null) {
             return;
         }
         String interiorStructure = exteriorMetadata.interiorStructure;

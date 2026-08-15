@@ -691,8 +691,11 @@ def build_forest_gate_nbt() -> bytes:
     def set_block(
         x: int, y: int, z: int, name: str,
         properties: dict[str, str] | None = None,
+        block_nbt: dict[str, object] | None = None,
     ) -> None:
-        blocks[(x, y, z)] = (name, tuple(sorted((properties or {}).items())), None)
+        blocks[(x, y, z)] = (
+            name, tuple(sorted((properties or {}).items())), block_nbt,
+        )
 
     # A broad mossy path continues uninterrupted through the lodge.
     for x in range(width):
@@ -745,5 +748,29 @@ def build_forest_gate_nbt() -> bytes:
         for x in (2, 4, width - 5, width - 3):
             set_block(x, 1, z, "minecraft:moss_block")
             set_block(x, 2, z, "minecraft:fern")
+
+    # Keep explicit air in the complete template volume so naturally generated
+    # trunks and leaves cannot remain inside the gatehouse or its passage.
+    for x in range(width):
+        for y in range(height):
+            for z in range(depth):
+                blocks.setdefault((x, y, z), ("minecraft:air", (), None))
+
+    # The authored north side is the forest side. Runtime rotates this marker
+    # together with the complete gate and uses its transformed position and
+    # facing as the forest-entry threshold. It is removed after placement.
+    set_block(
+        center, 1, 1, "minecraft:jigsaw", {"orientation": "north_up"},
+        {
+            "id": "minecraft:jigsaw",
+            "name": "cobbleventure:forest_entry",
+            "target": "minecraft:empty",
+            "pool": "minecraft:empty",
+            "final_state": "minecraft:air",
+            "joint": "rollable",
+            "selection_priority": 0,
+            "placement_priority": 0,
+        },
+    )
 
     return _build_structure_nbt((width, height, depth), blocks)

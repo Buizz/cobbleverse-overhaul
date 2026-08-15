@@ -67,8 +67,9 @@ final class PursuitEncounterSystem {
                 if (excluded.contains(species)) continue;
                 JsonObject pokemonHabitatsValue = pokemon.getAsJsonObject("habitats");
                 String primary = pokemonHabitatsValue.get("primary").getAsString();
-                String secondary = pokemonHabitatsValue.has("secondary")
-                    ? pokemonHabitatsValue.get("secondary").getAsString() : "";
+                JsonElement secondaryValue = pokemonHabitatsValue.get("secondary");
+                String secondary = secondaryValue != null && !secondaryValue.isJsonNull()
+                    ? secondaryValue.getAsString() : "";
                 if (!habitats.contains(primary) && !(includeSecondary && habitats.contains(secondary))) {
                     continue;
                 }

@@ -31,6 +31,8 @@ public final class WorldMapScreen extends Screen {
     private static final int TOWN_BORDER = 0xFFF0A43B;
     private static final int CAVE_BORDER = 0xFF9AA8B0;
     private static final int CAVE_OPENING = 0xFF080B0E;
+    private static final int FOREST_BORDER = 0xFF6FB66A;
+    private static final int FOREST_OPENING = 0xFF17331E;
     private static final int SELECTED_BORDER = 0xFFF2F5EF;
     private static final int PLAYER_MARKER = 0xFFFFD166;
     private static final int TEXT = 0xFFF3F5F1;
@@ -136,6 +138,8 @@ public final class WorldMapScreen extends Screen {
         graphics.drawCenteredString(font, title, width / 2, 11, TEXT);
         Layout layout = layout();
         MapContent.CaveEntrance hoveredCave = caveAtMouse(layout, mouseX, mouseY);
+        MapContent.ForestEntrance hoveredForest = hoveredCave == null
+            ? forestAtMouse(layout, mouseX, mouseY) : null;
         graphics.drawCenteredString(
             font,
             Component.translatable("screen.cobbleventure_player_menu.world_map.generation", content.generation()),
@@ -143,8 +147,8 @@ public final class WorldMapScreen extends Screen {
             11,
             TEXT
         );
-        drawMap(graphics, layout, mouseX, mouseY, hoveredCave);
-        drawInfoPanel(graphics, layout, hoveredCave);
+        drawMap(graphics, layout, mouseX, mouseY, hoveredCave, hoveredForest);
+        drawInfoPanel(graphics, layout, hoveredCave, hoveredForest);
         graphics.drawString(
             font,
             Component.translatable("screen.cobbleventure_player_menu.world_map.hint"),
@@ -249,7 +253,7 @@ public final class WorldMapScreen extends Screen {
 
     private void drawMap(
         GuiGraphics graphics, Layout layout, int mouseX, int mouseY,
-        MapContent.CaveEntrance hoveredCave
+        MapContent.CaveEntrance hoveredCave, MapContent.ForestEntrance hoveredForest
     ) {
         drawRibbonPanel(graphics, layout.mapLeft(), layout.top(), layout.mapWidth(), layout.height(),
             MAP_BACKGROUND);
@@ -312,6 +316,22 @@ public final class WorldMapScreen extends Screen {
             }
         }
 
+        for (MapContent.ForestEntrance entrance : content.forestEntrances()) {
+            ScreenPoint point = hexCenter(center, size, entrance.hex().q(), entrance.hex().r());
+            boolean hovered = entrance.equals(hoveredForest);
+            drawForestMarker(graphics, point.x(), point.y(), Math.max(4, size / 2), hovered);
+            if (hovered) {
+                MapContent.ForestInfo forest = content.forest(entrance.forestId());
+                String label = forest == null ? entrance.name() : forest.name();
+                label = font.plainSubstrByWidth(label, Math.max(54, size * 8));
+                int labelWidth = font.width(label);
+                int labelY = point.y() - Math.max(4, size / 2) - 12;
+                graphics.fill(point.x() - labelWidth / 2 - 3, labelY - 2,
+                    point.x() + (labelWidth + 1) / 2 + 3, labelY + 10, 0xD010171E);
+                graphics.drawString(font, label, point.x() - labelWidth / 2, labelY, ACCENT_COLOR, false);
+            }
+        }
+
         ScreenPoint selectedPoint = hexCenter(center, size, selected.q(), selected.r());
         drawHexOutline(graphics, selectedPoint.x(), selectedPoint.y(), size + 1, SELECTED_BORDER);
         MapContent.Hex playerHex = currentPlayerHex();
@@ -336,7 +356,8 @@ public final class WorldMapScreen extends Screen {
     }
 
     private void drawInfoPanel(
-        GuiGraphics graphics, Layout layout, MapContent.CaveEntrance hoveredCave
+        GuiGraphics graphics, Layout layout, MapContent.CaveEntrance hoveredCave,
+        MapContent.ForestEntrance hoveredForest
     ) {
         hidePokemonModels();
         drawRibbonPanel(graphics, layout.infoLeft(), layout.top(), layout.infoWidth(), layout.height(),
@@ -350,8 +371,11 @@ public final class WorldMapScreen extends Screen {
         MapContent.Town town = content.townAt(selected.q(), selected.r());
         MapContent.BiomeTile tile = content.tileAt(selected.q(), selected.r());
         MapContent.CaveInfo cave = hoveredCave == null ? null : content.cave(hoveredCave.caveId());
+        MapContent.ForestInfo forest = hoveredForest == null
+            ? null : content.forest(hoveredForest.forestId());
 
-        MapContent.Hex infoHex = hoveredCave == null ? selected : hoveredCave.hex();
+        MapContent.Hex infoHex = hoveredCave != null ? hoveredCave.hex()
+            : hoveredForest != null ? hoveredForest.hex() : selected;
         graphics.drawString(font, "Q " + infoHex.q() + " · R " + infoHex.r(), x, y, MUTED_TEXT, false);
         y += 15;
         MapContent.Hex playerHex = currentPlayerHex();
@@ -375,6 +399,22 @@ public final class WorldMapScreen extends Screen {
             graphics.drawString(font, "서식 포켓몬 " + cave.pokemon().size() + "종", x, y, TEXT, false);
             y += 14;
             renderPokemonGrid(graphics, layout, cave.pokemon(), x, y, lineWidth, 0);
+        } else if (forest != null) {
+            graphics.drawString(font, forest.name(), x, y, ACCENT_COLOR, false);
+            y += 14;
+            graphics.drawString(font, hoveredForest.name(), x, y, TEXT, false);
+            y += 16;
+            graphics.drawString(font, "숲 입구 · " + directionName(hoveredForest.facing()), x, y, MUTED_TEXT, false);
+            y += 16;
+            graphics.drawString(font, "내부 바이옴", x, y, MUTED_TEXT, false);
+            y += 11;
+            graphics.drawString(font,
+                font.plainSubstrByWidth(String.join(" · ", forest.biomes()), lineWidth),
+                x, y, TEXT, false);
+            y += 18;
+            graphics.drawString(font, "서식 포켓몬 " + forest.pokemon().size() + "종", x, y, TEXT, false);
+            y += 14;
+            renderPokemonGrid(graphics, layout, forest.pokemon(), x, y, lineWidth, 0);
         } else if (town != null) {
             boolean visited = snapshot.visited().contains(town.id());
             graphics.drawString(font, town.name(), x, y, TEXT, false);
@@ -478,6 +518,26 @@ public final class WorldMapScreen extends Screen {
         return nearest;
     }
 
+    private MapContent.ForestEntrance forestAtMouse(Layout layout, int mouseX, int mouseY) {
+        if (!layout.mapContains(mouseX, mouseY)) return null;
+        int size = hexSize(layout);
+        int radius = Math.max(7, size / 2 + 3);
+        ScreenPoint center = mapCenter(layout);
+        MapContent.ForestEntrance nearest = null;
+        int nearestDistance = Integer.MAX_VALUE;
+        for (MapContent.ForestEntrance entrance : content.forestEntrances()) {
+            ScreenPoint point = hexCenter(center, size, entrance.hex().q(), entrance.hex().r());
+            int dx = mouseX - point.x();
+            int dy = mouseY - point.y();
+            int distance = dx * dx + dy * dy;
+            if (distance <= radius * radius && distance < nearestDistance) {
+                nearest = entrance;
+                nearestDistance = distance;
+            }
+        }
+        return nearest;
+    }
+
     private static void drawCaveMarker(
         GuiGraphics graphics, int centerX, int centerY, int radius, boolean hovered
     ) {
@@ -490,6 +550,24 @@ public final class WorldMapScreen extends Screen {
         graphics.fill(centerX - radius, centerY, centerX + radius + 1, centerY + radius, border);
         graphics.fill(centerX - Math.max(1, radius - 2), centerY,
             centerX + Math.max(1, radius - 2) + 1, centerY + radius, CAVE_OPENING);
+        if (hovered) {
+            graphics.fill(centerX - radius - 2, centerY + radius + 1,
+                centerX + radius + 3, centerY + radius + 2, ACCENT_COLOR);
+        }
+    }
+
+    private static void drawForestMarker(
+        GuiGraphics graphics, int centerX, int centerY, int radius, boolean hovered
+    ) {
+        int border = hovered ? ACCENT_COLOR : FOREST_BORDER;
+        int trunkWidth = Math.max(1, radius / 3);
+        for (int row = 0; row <= radius; row++) {
+            int halfWidth = Math.max(1, radius - row / 2);
+            graphics.fill(centerX - halfWidth, centerY - radius + row,
+                centerX + halfWidth + 1, centerY - radius + row + 1, border);
+        }
+        graphics.fill(centerX - trunkWidth, centerY,
+            centerX + trunkWidth + 1, centerY + radius + 1, FOREST_OPENING);
         if (hovered) {
             graphics.fill(centerX - radius - 2, centerY + radius + 1,
                 centerX + radius + 3, centerY + radius + 2, ACCENT_COLOR);

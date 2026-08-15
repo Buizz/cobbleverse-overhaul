@@ -295,25 +295,13 @@
                   <div data-world-entrance-panel="cave">
                     <label><span>동굴</span><select id="cave-tool-cave"></select></label>
                     <label><span>내부 입구</span><select id="cave-tool-entrance"></select><small>이미 배치된 내부 입구는 다시 배치할 수 없습니다.</small></label>
-                    <label><span>입구 방향</span><select id="cave-tool-facing"><option value="east">동쪽</option><option value="west">서쪽</option><option value="north_east">북동</option><option value="south_east">남동</option><option value="south_west">남서</option><option value="north_west">북서</option></select></label>
-                    <label><span>기본 입구 구조물</span><input id="cave-tool-structure" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/stone_mountain"></label>
-                    <fieldset><legend>부착 지형별 입구 NBT</legend>
-                      <label><span>평지·숲</span><input id="cave-tool-structure-plains" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/plains"></label>
-                      <label><span>돌산</span><input id="cave-tool-structure-stone" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/stone_mountain"></label>
-                      <label><span>적갈색 돌산·사막</span><input id="cave-tool-structure-red-rock" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/red_rock_mountain"></label>
-                      <label><span>설산</span><input id="cave-tool-structure-snow" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/snow_mountain"></label>
-                      <label><span>해안·바다·심해</span><input id="cave-tool-structure-ocean" list="cave-entrance-nbt-options" value="cobbleventure:cave_entrance/ocean"></label>
-                      <datalist id="cave-entrance-nbt-options"></datalist>
-                      <small>모든 기본 NBT는 33×21×33이며 바닥 중앙이 경계 베리어 위치에 맞춰집니다.</small>
-                    </fieldset>
+                    <label><span>입구 방향</span><select id="cave-tool-facing"><option value="north">북쪽</option><option value="east">동쪽</option><option value="south">남쪽</option><option value="west">서쪽</option></select></label>
                   </div>
                   <div data-world-entrance-panel="forest" hidden>
                     <label><span>숲</span><select id="forest-tool-forest"></select></label>
                     <label><span>내부 입구</span><select id="forest-tool-entrance"></select><small>이미 배치된 내부 입구는 다시 배치할 수 없습니다.</small></label>
-                    <label><span>숲이 이어지는 방향</span><select id="forest-tool-facing"><option value="east">동쪽</option><option value="west">서쪽</option><option value="north_east">북동</option><option value="south_east">남동</option><option value="south_west">남서</option><option value="north_west">북서</option></select><small>선택한 방향의 관문 뒤 타일이 우거진 숲으로 자동 배치됩니다.</small></label>
-                    <label><span>숲관문 NBT</span><input id="forest-tool-structure" list="forest-entrance-nbt-options" value="cobbleventure:forest_entrance/forest_gate"></label>
-                    <datalist id="forest-entrance-nbt-options"></datalist>
-                    <p class="tool-panel-note">입구에는 ForestGate 건물이 생성되고 큰 가문비나무 군락과 배리어가 관문 주변 통로를 막습니다.</p>
+                    <label><span>숲이 이어지는 방향</span><select id="forest-tool-facing"><option value="north">북쪽</option><option value="east">동쪽</option><option value="south">남쪽</option><option value="west">서쪽</option></select><small>선택한 방향의 경계에 관문이 배치됩니다.</small></label>
+                    <p class="tool-panel-note">입구에는 표준 숲 관문이 자동 생성되고 큰 가문비나무 군락과 배리어가 관문 주변 통로를 막습니다.</p>
                   </div>
                   <small>배치 후 길 도구에서 출입구 마커를 눌러 길을 연결하세요.</small>
                 </section>
@@ -379,8 +367,7 @@
                 <label><span id="entrance-target-label">연결 지역</span><input name="target" readonly></label>
                 <label><span>내부 입구</span><input name="internalEntrance" readonly></label>
                 <div class="inline-fields"><label><span>Q 위치</span><input name="q" type="number"></label><label><span>R 위치</span><input name="r" type="number"></label></div>
-                <label><span>입구 방향</span><select name="facing"><option value="north_east">북동</option><option value="east">동</option><option value="south_east">남동</option><option value="south_west">남서</option><option value="west">서</option><option value="north_west">북서</option></select></label>
-                <label><span>NBT 구조물</span><input name="structure" list="world-object-nbt-options"></label>
+                <label><span>입구 방향</span><select name="facing"><option value="north">북</option><option value="east">동</option><option value="south">남</option><option value="west">서</option></select></label>
                 <label data-forest-entrance-field><span>NBT 회전</span><select name="rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>
                 <label><span>포켓몬센터</span><select name="pokemonCenterEnabled"><option value="false">사용 안 함</option><option value="true">사용</option></select><small>사용으로 지정해도 별도의 센터 NBT는 이 화면에서 설정하지 않습니다.</small></label>
                 <section data-forest-entrance-field class="custom-object-fields"><div class="inline-fields"><label><span>나무 줄기</span><input name="treeLog"></label><label><span>나뭇잎</span><input name="treeLeaves"></label></div><div class="inline-fields"><label><span>숲 두께</span><input name="wallThickness" type="number" min="1" max="15" step="2"></label><label><span>통로 폭</span><input name="openingWidth" type="number" min="3" max="31" step="2"></label></div><div class="inline-fields"><label><span>숲 높이</span><input name="wallHeight" type="number" min="3" max="32"></label><label><span>배리어 높이</span><input name="barrierHeight" type="number" min="8" max="128"></label></div></section>

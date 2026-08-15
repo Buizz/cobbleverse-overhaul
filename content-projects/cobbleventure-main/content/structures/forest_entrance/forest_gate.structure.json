@@ -1,5 +1,20 @@
 {
   "schema_version": 1,
   "structure": "content/structures/forest_entrance/forest_gate.nbt",
-  "anchors": []
+  "display_name": {
+    "ko_kr": "숲관문",
+    "en_us": "Forest Gate"
+  },
+  "anchors": [
+    {
+      "id": "forest_side",
+      "label": "숲쪽",
+      "position": [8, 1, 0]
+    },
+    {
+      "id": "world_side",
+      "label": "월드쪽",
+      "position": [8, 1, 12]
+    }
+  ]
 }
