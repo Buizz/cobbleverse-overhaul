@@ -48,6 +48,7 @@
         "minecraft:flower_forest",
         "minecraft:sparse_jungle",
         "minecraft:old_growth_pine_taiga",
+        "minecraft:old_growth_spruce_taiga",
         "cobbleventure:sealed_dark_forest"
       ],
       "settings": {

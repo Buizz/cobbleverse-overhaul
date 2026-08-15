@@ -143,11 +143,18 @@ processResources {
         into 'data/cobbleventure/caves'
         include '**/*.json'
     }
+    from(new File(contentDir, 'forests')) {
+        into 'data/cobbleventure/forests'
+        include '**/*.json'
+    }
     from(new File(contentDir, 'catalogs/economy.json')) {
         into 'data/cobbleventure/economy'
         rename { 'catalog.json' }
     }
     from(new File(contentDir, 'catalogs/biome-profiles.json')) {
+        into 'data/cobbleventure/catalogs'
+    }
+    from(new File(contentDir, 'catalogs/pokemon-habitats.json')) {
         into 'data/cobbleventure/catalogs'
     }
     if (integrationBcaJar != null) {

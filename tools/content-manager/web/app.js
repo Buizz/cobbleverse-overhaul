@@ -27,6 +27,8 @@ const state = {
   mapPan: null, suppressMapClick: false, draggedSettlement: null, entranceDrag: null, routeDraft: null, worldDirty: false,
   activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null, routePokemonQuery: "",
   routePokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
+  routePokemonLevelSpecies: null, encounterPokemonTarget: null, encounterPokemonQuery: "", encounterPokemonLevelSpecies: null,
+  encounterPokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
   gymLayout: { selected: null, drag: null, hitTargets: [] },
   buildingSettings: { query: "", category: "all", selected: "", model: null, structures: {}, npcs: [], yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
@@ -585,6 +587,7 @@ function loadSectionData(section, force = false) {
   if (section === "trainer-card") { renderTrainerCardManager(); return Promise.resolve(); }
   if (section === "trainers" || section === "battles" || section === "league") return Promise.all([loadTrainerData(force), loadGameDefinitions(force)]).then(() => { if (section === "league") renderLeagueEditor(); });
   if (section === "biomes") return loadBiomeData(force);
+  if (section === "caves" || section === "forests") return loadBiomeData(force);
   if (section === "worlds") return loadStructureData(force).then(() => { renderWorldObjectNbtOptions(); renderMapToolOptions(); });
   if (section === "structures") return loadBuildingSettingsData(force);
   if (section === "gyms") return loadGymStructureData(force).then(renderGymEditor);
@@ -1478,6 +1481,7 @@ function ensureRoutePokemonSettings(route) {
   route.pokemon_spawns.inherit_biome = route.pokemon_spawns.inherit_biome !== false;
   route.pokemon_spawns.excluded_species ||= [];
   route.pokemon_spawns.additions ||= [];
+  route.pokemon_spawns.level_overrides ||= [];
   return route.pokemon_spawns;
 }
 function worldPokemonCatalog() {
@@ -1485,6 +1489,126 @@ function worldPokemonCatalog() {
   return [...new Map(entries.map((entry) => [entry.id, entry])).values()].sort((a, b) => Number(a.dex_number || 99999) - Number(b.dex_number || 99999));
 }
 function worldPokemonById() { return new Map(worldPokemonCatalog().map((entry) => [entry.id, entry])); }
+function ensureEncounterSettings(document, defaultBiome = "minecraft:plains", defaultMinLevel = 1, defaultMaxLevel = 10) {
+  document.random_encounters ||= {};
+  const settings = document.random_encounters;
+  settings.enabled = settings.enabled !== false;
+  settings.minimum_distance = Math.max(1, Number(settings.minimum_distance || 72));
+  settings.maximum_distance = Math.max(settings.minimum_distance, Number(settings.maximum_distance || 128));
+  settings.minimum_level = Math.max(1, Number(settings.minimum_level || defaultMinLevel));
+  settings.maximum_level = Math.max(settings.minimum_level, Number(settings.maximum_level || defaultMaxLevel));
+  settings.pokemon_biome ||= defaultBiome;
+  settings.inherit_biome = settings.inherit_biome !== false;
+  settings.excluded_species ||= [];
+  settings.additions ||= [];
+  settings.level_overrides ||= [];
+  delete settings.spawn_profile; delete settings.density_multiplier;
+  return settings;
+}
+function encounterDocument(target = state.encounterPokemonTarget || $("#encounter-pokemon-dialog")?.dataset.target) { return target === "cave" ? state.cave : target === "forest" ? state.forest : null; }
+function encounterSettings(target = state.encounterPokemonTarget || $("#encounter-pokemon-dialog")?.dataset.target) {
+  const document = encounterDocument(target); if (!document) return null;
+  return ensureEncounterSettings(document, target === "cave" ? "minecraft:dripstone_caves" : "minecraft:old_growth_spruce_taiga", target === "cave" ? 5 : 3, target === "cave" ? 10 : 7);
+}
+function encounterBiomeOptions(select, selected) {
+  const entries = [];
+  for (const profile of state.biomeCatalog.profiles || []) for (const biome of profile.minecraft_biomes || []) entries.push([biome, profile.display_name?.ko_kr || profile.id]);
+  const unique = [...new Map(entries.map(([id, label]) => [id, label])).entries()].sort((a, b) => a[1].localeCompare(b[1], "ko"));
+  if (selected && !unique.some(([id]) => id === selected)) unique.unshift([selected, selected]);
+  select.innerHTML = unique.map(([id, label]) => `<option value="${escapeHtml(id)}">${escapeHtml(label)} · ${escapeHtml(id)}</option>`).join("");
+  select.value = selected;
+}
+function encounterBasePokemonIds(settings) {
+  if (!settings) return [];
+  const profiles = (state.biomeCatalog.profiles || []).filter((profile) => (profile.minecraft_biomes || []).includes(settings.pokemon_biome));
+  const habitats = new Set(profiles.map((profile) => profile.habitat).filter(Boolean));
+  return worldPokemonCatalog().filter((entry) => habitats.has(entry.habitats?.primary) || (profiles.some((profile) => profile.settings?.include_secondary !== false) && habitats.has(entry.habitats?.secondary))).map((entry) => entry.id);
+}
+function renderEncounterSummary(target) {
+  const settings = encounterSettings(target); if (!settings) return;
+  const count = (settings.inherit_biome ? encounterBasePokemonIds(settings).filter((id) => !settings.excluded_species.includes(id)).length : 0) + settings.additions.filter((addition) => !encounterBasePokemonIds(settings).includes(addition.species) || settings.excluded_species.includes(addition.species)).length;
+  $(`[data-encounter-pokemon-count="${target}"]`).textContent = `${count}종`;
+  $(`[data-encounter-pokemon-description="${target}"]`).textContent = `${settings.pokemon_biome} 기본 ${settings.inherit_biome ? "사용" : "미사용"} · 직접 추가 ${settings.additions.length}종 · 제외 ${settings.excluded_species.length}종`;
+}
+function renderEncounterPokemonPicker() {
+  const catalog = worldPokemonCatalog(), picker = state.encounterPokemonPicker;
+  const pickerList = $("#encounter-pokemon-picker-list"), pickerScrollTop = pickerList.scrollTop;
+  const unique = (values) => [...new Set(values.filter(Boolean).map(String))].sort((left, right) => left.localeCompare(right, "ko", { numeric: true }));
+  routePokemonFilterOptions("#encounter-pokemon-picker-generation", "모든 세대", unique(catalog.map((entry) => entry.generation)), (value) => `${value}세대`);
+  routePokemonFilterOptions("#encounter-pokemon-picker-type", "모든 타입", unique(catalog.flatMap((entry) => entry.types || [])), (value) => pokemonTypeLabels[value] || value);
+  routePokemonFilterOptions("#encounter-pokemon-picker-habitat", "모든 서식지", unique(catalog.map((entry) => entry.habitats?.primary)), (value) => pokemonHabitatLabels[value] || value);
+  routePokemonFilterOptions("#encounter-pokemon-picker-rarity", "모든 희귀도", unique(catalog.map((entry) => entry.preferences?.rarity)), (value) => pokemonRarityLabels[value] || value);
+  $("#encounter-pokemon-picker-generation").value = picker.generation;
+  $("#encounter-pokemon-picker-type").value = picker.type;
+  $("#encounter-pokemon-picker-habitat").value = picker.habitat;
+  $("#encounter-pokemon-picker-rarity").value = picker.rarity;
+  $("#encounter-pokemon-picker-special").value = picker.special;
+  $("#encounter-pokemon-picker-availability").value = picker.availability;
+  $("#encounter-pokemon-picker-search").value = picker.query;
+  const settings = encounterSettings(), added = new Set((settings?.additions || []).map((entry) => entry.species));
+  const matches = filteredEncounterPokemonPickerEntries(), visible = matches.slice(0, 180);
+  $("#encounter-pokemon-picker-result").textContent = `${matches.length.toLocaleString()}종${matches.length > visible.length ? ` · 앞 ${visible.length}종 표시` : ""}`;
+  pickerList.innerHTML = visible.length ? visible.map((entry) => {
+    const isAdded = added.has(entry.id), selected = picker.selected.has(entry.id);
+    return `<button type="button" class="route-pokemon-picker-card${selected ? " is-selected" : ""}${isAdded ? " is-added" : ""}" data-encounter-picker-species="${escapeHtml(entry.id)}" aria-pressed="${selected}" ${isAdded ? "disabled" : ""}><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt="">${routePokemonCardCopy(entry)}<em>${isAdded ? "추가됨" : selected ? "선택됨" : "선택"}</em></button>`;
+  }).join("") : '<p class="pokemon-map-empty">조건에 맞는 포켓몬이 없습니다.<br>필터를 줄이거나 초기화해 보세요.</p>';
+  pickerList.scrollTop = pickerScrollTop;
+  const selectedCount = picker.selected.size, addButton = $("#encounter-pokemon-picker-add");
+  addButton.textContent = `선택한 ${selectedCount}종 추가`; addButton.disabled = selectedCount === 0;
+}
+function pokemonLevelOverride(settings, species) { return (settings.level_overrides || []).find((entry) => entry.species === species) || null; }
+function pokemonLevelButtonMarkup(settings, species, target) {
+  const override = pokemonLevelOverride(settings, species);
+  return `<button type="button" class="route-pokemon-level-button${override ? " has-override" : ""}" data-${target}-pokemon-level="${escapeHtml(species)}" aria-label="개별 레벨 설정">${override ? `Lv.${override.min_level}–${override.max_level}` : "Lv"}</button>`;
+}
+function directPokemonCardMarkup(addition, index, attribute, settings, target) {
+  const entry = worldPokemonById().get(addition.species), dex = entry?.dex_number;
+  const copy = entry ? routePokemonCardCopy(entry) : `<div class="route-pokemon-card-copy"><b class="route-pokemon-name">${escapeHtml(addition.species)}</b></div>`;
+  return `<article class="route-biome-pokemon-card is-direct-added">${dex ? `<img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dex}.png" alt="">` : "<span></span>"}${copy}<button type="button" class="route-pokemon-card-state" ${attribute}="${index}" aria-label="${escapeHtml(entry ? pokemonMapEntryName(entry) : addition.species)} 직접 추가에서 제거">제거 ×</button>${pokemonLevelButtonMarkup(settings, addition.species, target)}</article>`;
+}
+function renderPokemonLevelEditor(target, settings, defaultRange) {
+  const species = state[`${target}PokemonLevelSpecies`], editor = $(`#${target}-pokemon-level-editor`);
+  editor.hidden = !species;
+  if (!species) return;
+  const entry = worldPokemonById().get(species), override = pokemonLevelOverride(settings, species);
+  $(`#${target}-pokemon-level-name`).textContent = `${entry ? pokemonMapEntryName(entry) : species} 개별 레벨`;
+  $(`#${target}-pokemon-level-min`).value = override?.min_level ?? defaultRange.min;
+  $(`#${target}-pokemon-level-max`).value = override?.max_level ?? defaultRange.max;
+  $(`#${target}-pokemon-level-reset`).disabled = !override;
+}
+function routeDefaultPokemonLevelRange(route) {
+  const levels = connectionPath(route).map((cell) => levelOverrideAt(cell.q, cell.r)?.average_level).filter(Number.isFinite);
+  const average = levels.length ? Math.round(levels.reduce((sum, level) => sum + level, 0) / levels.length) : 5;
+  return { min: Math.max(1, average - 2), max: Math.min(100, average + 2) };
+}
+function renderEncounterPokemonDialog() {
+  const target = state.encounterPokemonTarget, document = encounterDocument(target), settings = encounterSettings(target); if (!document || !settings) return;
+  const baseList = $("#encounter-biome-pokemon-list"), baseScrollTop = baseList.scrollTop;
+  const directList = $("#encounter-direct-pokemon-list"), directScrollTop = directList.scrollTop;
+  const byId = worldPokemonById(), query = state.encounterPokemonQuery.toLowerCase(), excluded = new Set(settings.excluded_species);
+  $("#encounter-pokemon-dialog-title").textContent = `${document.display_name?.ko_kr || document.id} 서식 포켓몬 편집`;
+  $("#encounter-pokemon-dialog-subtitle").textContent = `${settings.pokemon_biome} · 외형 설정과 독립`;
+  $("#encounter-inherit-biome").checked = settings.inherit_biome;
+  const baseEntries = encounterBasePokemonIds(settings).map((id) => byId.get(id)).filter(Boolean).filter((entry) => !query || pokemonSearchText(entry).includes(query));
+  const directEntries = settings.additions.map((addition, index) => ({ addition, index, entry: byId.get(addition.species) })).filter(({ addition, entry }) => !query || pokemonSearchText(entry || addition).includes(query));
+  baseList.innerHTML = baseEntries.length ? baseEntries.map((entry) => { const enabled = settings.inherit_biome && !excluded.has(entry.id); return `<article class="route-biome-pokemon-card${enabled ? " is-enabled" : ""}"><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt="">${routePokemonCardCopy(entry)}<button type="button" class="route-pokemon-card-state" data-encounter-biome-species="${escapeHtml(entry.id)}" aria-pressed="${enabled}" ${settings.inherit_biome ? "" : "disabled"}>${enabled ? "포함됨" : "제외됨"}</button>${pokemonLevelButtonMarkup(settings, entry.id, "encounter")}</article>`; }).join("") : '<p class="pokemon-map-empty">해당하는 바이옴 포켓몬이 없습니다.</p>';
+  directList.innerHTML = directEntries.length ? directEntries.map(({ addition, index }) => directPokemonCardMarkup(addition, index, "data-remove-encounter-pokemon", settings, "encounter")).join("") : '<p class="pokemon-map-empty">직접 추가한 포켓몬이 없습니다.</p>';
+  $("#encounter-biome-pokemon-count").textContent = `${baseEntries.length}종`; $("#encounter-direct-pokemon-count").textContent = `${directEntries.length}종`;
+  $("#encounter-custom-pokemon-count").textContent = `${settings.additions.length}종 추가됨`;
+  renderEncounterPokemonPicker();
+  renderPokemonLevelEditor("encounter", settings, { min: settings.minimum_level, max: settings.maximum_level });
+  baseList.scrollTop = baseScrollTop; directList.scrollTop = directScrollTop;
+  renderEncounterSummary(target);
+}
+function openEncounterPokemonDialog(target) { state.encounterPokemonTarget = target; state.encounterPokemonLevelSpecies = null; $("#encounter-pokemon-dialog").dataset.target = target; state.encounterPokemonQuery = ""; state.encounterPokemonPicker = { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() }; $("#encounter-biome-pokemon-search").value = ""; renderEncounterPokemonDialog(); $("#encounter-pokemon-dialog").showModal(); }
+function addSelectedEncounterPokemon() {
+  const settings = encounterSettings(); if (!settings) return;
+  const existing = new Set(settings.additions.map((addition) => addition.species));
+  const selected = worldPokemonCatalog().filter((entry) => state.encounterPokemonPicker.selected.has(entry.id) && !existing.has(entry.id));
+  if (!selected.length) return;
+  settings.additions.push(...selected.map((entry) => ({ species: entry.id, min_level: settings.minimum_level, max_level: settings.maximum_level })));
+  state.encounterPokemonPicker.selected.clear(); renderEncounterPokemonDialog(); toast(`${selected.length}종을 서식 포켓몬에 추가했습니다.`);
+}
 function routeBasePokemonIds(route) {
   const ids = new Set(); const locations = state.worldPokemonMap?.locations || [];
   for (const cell of connectionPath(route)) {
@@ -1624,8 +1748,7 @@ function routePokemonFilterOptions(selector, allLabel, values, labeler = (value)
   select.value = values.map(String).includes(String(current)) ? current : "all";
 }
 
-function routePokemonPickerMatches(entry) {
-  const picker = state.routePokemonPicker;
+function pokemonPickerMatches(entry, picker) {
   if (picker.query && !pokemonSearchText(entry).includes(picker.query.toLowerCase())) return false;
   if (picker.generation !== "all" && String(entry.generation) !== picker.generation) return false;
   if (picker.type !== "all" && !(entry.types || []).includes(picker.type)) return false;
@@ -1639,8 +1762,11 @@ function routePokemonPickerMatches(entry) {
   if (picker.availability === "unavailable" && available.has(entry.id)) return false;
   return true;
 }
+function routePokemonPickerMatches(entry) { return pokemonPickerMatches(entry, state.routePokemonPicker); }
+function encounterPokemonPickerMatches(entry) { return pokemonPickerMatches(entry, state.encounterPokemonPicker); }
 
 function filteredRoutePokemonPickerEntries() { return worldPokemonCatalog().filter(routePokemonPickerMatches); }
+function filteredEncounterPokemonPickerEntries() { return worldPokemonCatalog().filter(encounterPokemonPickerMatches); }
 
 function routePokemonCardFacts(entry) {
   const types = entry?.types || [];
@@ -1654,11 +1780,12 @@ function routePokemonCardCopy(entry) {
   const typeBadges = facts.types.length
     ? facts.types.map((type) => `<b class="move-type-badge type-${escapeHtml(toId(type))}">${escapeHtml(pokemonTypeLabels[type] || pokemonTypeNames[type] || type)}</b>`).join("")
     : '<b class="move-type-badge type-unknown">미분류</b>';
-  return `<div class="route-pokemon-card-copy"><b class="route-pokemon-name">${escapeHtml(pokemonMapEntryName(entry))}</b><small>No.${String(entry.dex_number).padStart(4, "0")}</small><span class="route-pokemon-type-badges">${typeBadges}</span><code>${escapeHtml(entry.id)}</code><span class="route-pokemon-facts"><b>${escapeHtml(entry.generation)}세대</b><b>${escapeHtml(facts.habitat)}</b><b>${escapeHtml(facts.rarity)}</b></span></div>`;
+  return `<div class="route-pokemon-card-copy"><b class="route-pokemon-name">${escapeHtml(pokemonMapEntryName(entry))}</b><small>No.${String(entry.dex_number).padStart(4, "0")}</small><span class="route-pokemon-type-badges">${typeBadges}</span></div>`;
 }
 
 function renderRoutePokemonPicker() {
   const catalog = worldPokemonCatalog(); const picker = state.routePokemonPicker;
+  const pickerList = $("#route-pokemon-picker-list"); const pickerScrollTop = pickerList.scrollTop;
   const unique = (values) => [...new Set(values.filter(Boolean).map(String))].sort((left, right) => left.localeCompare(right, "ko", { numeric: true }));
   routePokemonFilterOptions("#route-pokemon-picker-generation", "모든 세대", unique(catalog.map((entry) => entry.generation)), (value) => `${value}세대`);
   routePokemonFilterOptions("#route-pokemon-picker-type", "모든 타입", unique(catalog.flatMap((entry) => entry.types || [])), (value) => pokemonTypeLabels[value] || value);
@@ -1674,36 +1801,40 @@ function renderRoutePokemonPicker() {
   const route = selectedRoute(); const added = new Set(ensureRoutePokemonSettings(route).additions.map((entry) => entry.species));
   const matches = filteredRoutePokemonPickerEntries(); const visible = matches.slice(0, 180);
   $("#route-pokemon-picker-result").textContent = `${matches.length.toLocaleString()}종${matches.length > visible.length ? ` · 앞 ${visible.length}종 표시` : ""}`;
-  $("#route-pokemon-picker-list").innerHTML = visible.length ? visible.map((entry) => {
+  pickerList.innerHTML = visible.length ? visible.map((entry) => {
     const isAdded = added.has(entry.id); const selected = picker.selected.has(entry.id);
     return `<button type="button" class="route-pokemon-picker-card${selected ? " is-selected" : ""}${isAdded ? " is-added" : ""}" data-route-picker-species="${escapeHtml(entry.id)}" aria-pressed="${selected}" ${isAdded ? "disabled" : ""}><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt="">${routePokemonCardCopy(entry)}<em>${isAdded ? "추가됨" : selected ? "선택됨" : "선택"}</em></button>`;
   }).join("") : '<p class="pokemon-map-empty">조건에 맞는 포켓몬이 없습니다.<br>필터를 줄이거나 초기화해 보세요.</p>';
+  pickerList.scrollTop = pickerScrollTop;
   const selectedCount = picker.selected.size; const addButton = $("#route-pokemon-picker-add");
   addButton.textContent = `선택한 ${selectedCount}종 추가`; addButton.disabled = selectedCount === 0;
 }
 function renderRoutePokemonDialog() {
   const route = selectedRoute(); if (!route) return;
+  const baseList = $("#route-biome-pokemon-list"); const baseScrollTop = baseList.scrollTop;
+  const directList = $("#route-direct-pokemon-list"); const directScrollTop = directList.scrollTop;
   const settings = ensureRoutePokemonSettings(route); const byId = worldPokemonById(); const query = state.routePokemonQuery.toLowerCase();
   $("#route-pokemon-dialog-title").textContent = `${routeDisplayName(route)} 포켓몬 편집`;
   $("#route-pokemon-dialog-subtitle").textContent = `${route.id} · ${connectionPath(route).length}칸`;
   $("#route-inherit-biome").checked = settings.inherit_biome;
   const excluded = new Set(settings.excluded_species);
   const baseEntries = routeBasePokemonIds(route).map((id) => byId.get(id)).filter(Boolean).filter((entry) => !query || pokemonSearchText(entry).includes(query));
-  const baseList = $("#route-biome-pokemon-list"); baseList.classList.toggle("is-disabled", !settings.inherit_biome);
   baseList.innerHTML = baseEntries.length ? baseEntries.map((entry) => {
     const enabled = settings.inherit_biome && !excluded.has(entry.id);
-    return `<button type="button" class="route-biome-pokemon-card${enabled ? " is-enabled" : ""}" data-route-biome-species="${escapeHtml(entry.id)}" aria-pressed="${enabled}" ${settings.inherit_biome ? "" : "disabled"}><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt="">${routePokemonCardCopy(entry)}<em>${enabled ? "포함됨" : "제외됨"}</em></button>`;
+    return `<article class="route-biome-pokemon-card${enabled ? " is-enabled" : ""}"><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt="">${routePokemonCardCopy(entry)}<button type="button" class="route-pokemon-card-state" data-route-biome-species="${escapeHtml(entry.id)}" aria-pressed="${enabled}" ${settings.inherit_biome ? "" : "disabled"}>${enabled ? "포함됨" : "제외됨"}</button>${pokemonLevelButtonMarkup(settings, entry.id, "route")}</article>`;
   }).join("") : `<p class="pokemon-map-empty">${query ? "검색 결과가 없습니다." : "이 길 아래에 포켓몬 바이옴 정보가 없습니다."}</p>`;
+  const directEntries = settings.additions.map((addition, index) => ({ addition, index, entry: byId.get(addition.species) })).filter(({ addition, entry }) => !query || pokemonSearchText(entry || addition).includes(query));
+  directList.innerHTML = directEntries.length ? directEntries.map(({ addition, index }) => directPokemonCardMarkup(addition, index, "data-remove-route-pokemon", settings, "route")).join("") : '<p class="pokemon-map-empty">직접 추가한 포켓몬이 없습니다.</p>';
+  $("#route-biome-pokemon-count").textContent = `${baseEntries.length}종`; $("#route-direct-pokemon-count").textContent = `${directEntries.length}종`;
   $("#route-custom-pokemon-count").textContent = `${settings.additions.length}종 추가됨`;
   renderRoutePokemonPicker();
-  $("#route-custom-pokemon-list").innerHTML = settings.additions.length ? settings.additions.map((addition, index) => {
-    const entry = byId.get(addition.species); const dex = entry?.dex_number;
-    const copy = entry ? routePokemonCardCopy(entry) : `<div class="route-pokemon-card-copy"><b>${escapeHtml(addition.species)}</b><code>${escapeHtml(addition.species)}</code><span>도감 정보 없음</span></div>`;
-    return `<article class="route-custom-pokemon-card" data-route-addition-index="${index}">${dex ? `<img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dex}.png" alt="">` : "<span></span>"}${copy}<label>최소 Lv.<input data-route-level="min_level" type="number" min="1" max="100" value="${Number(addition.min_level || 1)}"></label><label>최대 Lv.<input data-route-level="max_level" type="number" min="1" max="100" value="${Number(addition.max_level || 100)}"></label><button type="button" data-remove-route-pokemon="${index}" aria-label="삭제">×</button></article>`;
-  }).join("") : '<p class="pokemon-map-empty">직접 추가한 포켓몬이 없습니다.<br>위 검색창에서 포켓몬을 선택해 추가하세요.</p>';
+  renderPokemonLevelEditor("route", settings, routeDefaultPokemonLevelRange(route));
+  baseList.scrollTop = baseScrollTop;
+  directList.scrollTop = directScrollTop;
 }
 function openRoutePokemonDialog() {
   if (!selectedRoute()) return;
+  state.routePokemonLevelSpecies = null;
   state.routePokemonQuery = "";
   state.routePokemonPicker = { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() };
   $("#route-biome-pokemon-search").value = "";
@@ -1725,15 +1856,28 @@ function toggleRouteBiomePokemon(species) {
   settings.excluded_species = [...excluded].sort(); markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
 }
 function removeRoutePokemon(index) {
-  const route = selectedRoute(); if (!route) return; ensureRoutePokemonSettings(route).additions.splice(index, 1);
+  const route = selectedRoute(); if (!route) return; const settings = ensureRoutePokemonSettings(route), [removed] = settings.additions.splice(index, 1);
+  if (removed) settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== removed.species);
   markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
 }
-function changeRoutePokemonLevel(index, field, rawValue) {
-  const route = selectedRoute(); if (!route) return; const addition = ensureRoutePokemonSettings(route).additions[index]; if (!addition) return;
-  addition[field] = Math.max(1, Math.min(100, Math.round(Number(rawValue) || 1)));
-  if (field === "min_level" && addition.min_level > addition.max_level) addition.max_level = addition.min_level;
-  if (field === "max_level" && addition.max_level < addition.min_level) addition.min_level = addition.max_level;
-  markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
+
+function applyPokemonLevelOverride(target) {
+  const settings = target === "route" ? ensureRoutePokemonSettings(selectedRoute()) : encounterSettings();
+  const species = state[`${target}PokemonLevelSpecies`]; if (!settings || !species) return;
+  const minimum = Math.round(Number($(`#${target}-pokemon-level-min`).value));
+  const maximum = Math.round(Number($(`#${target}-pokemon-level-max`).value));
+  if (!Number.isInteger(minimum) || !Number.isInteger(maximum) || minimum < 1 || maximum > 100 || minimum > maximum) { toast("레벨은 1~100 범위에서 최소가 최대보다 작거나 같아야 합니다."); return; }
+  settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== species);
+  settings.level_overrides.push({ species, min_level: minimum, max_level: maximum });
+  settings.level_overrides.sort((left, right) => left.species.localeCompare(right.species));
+  if (target === "route") { markWorldDirty(); renderRouteInspector(selectedRoute()); renderRoutePokemonDialog(); renderWorldPokemonPanel(); } else renderEncounterPokemonDialog();
+}
+function resetPokemonLevelOverride(target) {
+  const settings = target === "route" ? ensureRoutePokemonSettings(selectedRoute()) : encounterSettings();
+  const species = state[`${target}PokemonLevelSpecies`]; if (!settings || !species) return;
+  settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== species);
+  state[`${target}PokemonLevelSpecies`] = null;
+  if (target === "route") { markWorldDirty(); renderRouteInspector(selectedRoute()); renderRoutePokemonDialog(); renderWorldPokemonPanel(); } else renderEncounterPokemonDialog();
 }
 
 function pokemonMapEntryName(entry) { return entry?.display_name?.ko_kr || entry?.display_name?.en_us || entry?.slug || entry?.id || "알 수 없음"; }
@@ -2432,6 +2576,11 @@ function derivedAlignedBounds(extents, padding, minimumSize, alignment = 16) {
   return { min_x: minX, min_z: minZ, max_x: maxX, max_z: maxZ };
 }
 
+function leastCommonMultiple(left, right) {
+  const gcd = (a, b) => b ? gcd(b, a % b) : Math.abs(a);
+  return Math.abs(left * right) / gcd(left, right);
+}
+
 function caveBuildBounds(document = state.cave) {
   const origin = document?.dimension?.origin || {}, extents = [{ minX: Number(origin.x || 0), minZ: Number(origin.z || 0), maxX: Number(origin.x || 0), maxZ: Number(origin.z || 0) }];
   for (const entrance of document?.entrances || []) for (const field of ["destination_anchor", "fallback_anchor"]) { const point = entrance[field]; if (!point) continue; const x = Number(point.x || 0), z = Number(point.z || 0); extents.push({ minX: x - 4, minZ: z - 4, maxX: x + 4, maxZ: z + 4 }); }
@@ -2448,7 +2597,7 @@ function forestBuildBounds(document = state.forest) {
   const cell = Math.max(4, Math.min(64, Math.round(Number(document?.generator?.cell_size) || 16)));
   for (const tile of document?.terrain_tiles || []) { const x = Number(tile.x || 0), z = Number(tile.z || 0); extents.push({ minX: x - cell / 2, minZ: z - cell / 2, maxX: x + cell / 2, maxZ: z + cell / 2 }); }
   const padding = Math.max(16, cell * 2, Number(document?.tree_barrier?.max_height || 16));
-  return derivedAlignedBounds(extents, padding, Math.max(64, cell * 4));
+  return derivedAlignedBounds(extents, padding, Math.max(64, cell * 4), leastCommonMultiple(16, cell));
 }
 
 function syncCaveBuildBounds() { if (state.cave?.dimension) state.cave.dimension.bounds = caveBuildBounds(state.cave); }
@@ -2467,6 +2616,7 @@ function renderCave() {
   const generation = generationFromDocumentPath(state.cavePath);
   const generator = { layout: "natural_network", seed_salt: 0, main_rooms: 7, branch_count: 4, loop_chance: .35, vertical_range: 28, room_radius: { min: 10, max: 28 }, tunnel_radius: { min: 4, max: 7 }, surface_roughness: .18, water_level: 38, grand_room_scale: 1.65, elevated_crossing: false, bridge_clearance: 13, ...(document.generator || {}) };
   delete generator.lake_radius; delete generator.lake_depth;
+  delete generator.room_types; delete document.internal_biomes;
   generator.room_radius = { min: 10, max: 28, ...(document.generator?.room_radius || {}) }; generator.tunnel_radius = { min: 4, max: 7, ...(document.generator?.tunnel_radius || {}) };
   generator.manual_layout = { enabled: false, anchors: [], connections: [], ...(document.generator?.manual_layout || {}) };
   document.generator = generator;
@@ -2477,11 +2627,16 @@ function renderCave() {
   setFormValue(form, "id", document.id); setFormValue(form, "nameKo", document.display_name?.ko_kr);
   setFormValue(form, "nameEn", document.display_name?.en_us || ""); setFormValue(form, "enabled", document.enabled !== false);
   setFormValue(form, "caveType", document.cave_type);
-  setFormValue(form, "requiresFlash", Boolean(document.requires_flash)); setFormValue(form, "randomEncounters", Boolean(document.random_encounters?.enabled));
-  setFormValue(form, "spawnProfile", document.random_encounters?.spawn_profile || ""); setFormValue(form, "densityMultiplier", document.random_encounters?.density_multiplier ?? 1);
+  setFormValue(form, "caveStyle", document.style || "rock");
+  const encounters = ensureEncounterSettings(document, "minecraft:dripstone_caves", 5, 10);
+  setFormValue(form, "requiresFlash", Boolean(document.requires_flash)); setFormValue(form, "randomEncounters", encounters.enabled);
+  setFormValue(form, "encounterMinDistance", encounters.minimum_distance); setFormValue(form, "encounterMaxDistance", encounters.maximum_distance);
+  setFormValue(form, "encounterMinLevel", encounters.minimum_level); setFormValue(form, "encounterMaxLevel", encounters.maximum_level);
+  encounterBiomeOptions(form.elements.encounterPokemonBiome, encounters.pokemon_biome);
   setFormValue(form, "trainersEnabled", Boolean(document.trainer_settings?.enabled)); setFormValue(form, "maxActiveTrainers", document.trainer_settings?.max_active ?? 0);
   setFormValue(form, "trainerClassPool", (document.trainer_settings?.class_pool || []).join(", "));
   renderCaveDimensionSummary();
+  renderEncounterSummary("cave");
   renderCaveArrayEditors();
   renderCaveManualLayoutEditors();
   renderCaveLayoutPreview();
@@ -2494,13 +2649,15 @@ function updateCaveFromForm() {
   const nameEn = form.elements.nameEn.value.trim(); if (nameEn) state.cave.display_name.en_us = nameEn; else delete state.cave.display_name.en_us;
   state.cave.enabled = form.elements.enabled.checked;
   state.cave.cave_type = form.elements.caveType.value;
+  state.cave.style = form.elements.caveStyle.value;
   state.cave.requires_flash = form.elements.requiresFlash.checked;
-  state.cave.random_encounters = { enabled: form.elements.randomEncounters.checked, spawn_profile: form.elements.spawnProfile.value.trim(), density_multiplier: Number(form.elements.densityMultiplier.value || 0) };
+  const encounters = encounterSettings("cave");
+  Object.assign(encounters, { enabled: form.elements.randomEncounters.checked, minimum_distance: Math.round(Number(form.elements.encounterMinDistance.value || 72)), maximum_distance: Math.round(Number(form.elements.encounterMaxDistance.value || 128)), minimum_level: Math.round(Number(form.elements.encounterMinLevel.value || 5)), maximum_level: Math.round(Number(form.elements.encounterMaxLevel.value || 10)), pokemon_biome: form.elements.encounterPokemonBiome.value });
   state.cave.trainer_settings ||= { placements: [] }; state.cave.trainer_settings.enabled = form.elements.trainersEnabled.checked; state.cave.trainer_settings.max_active = Number(form.elements.maxActiveTrainers.value || 0); state.cave.trainer_settings.class_pool = form.elements.trainerClassPool.value.split(",").map((value) => value.trim()).filter(Boolean); state.cave.trainer_settings.placements ||= [];
   const generation = generationFromDocumentPath(state.cavePath); state.cave.dimension.id = "cobbleventure:dungeons"; state.cave.dimension.region_id = `generation_${generation}/${state.cave.id.split("/").pop() || "cave"}`;
-  state.cave.internal_biomes = $$("#cave-biome-list [data-cave-biome-row]").map((row) => ({ id: row.querySelector('[data-field="id"]').value.trim(), biome: row.querySelector('[data-field="biome"]').value.trim(), habitat_profile: row.querySelector('[data-field="habitat_profile"]').value.trim() || undefined, weight: Number(row.querySelector('[data-field="weight"]').value) })).map((entry) => { if (!entry.habitat_profile) delete entry.habitat_profile; return entry; });
   state.cave.trainer_settings.placements = $$("#cave-trainer-list [data-cave-trainer-row]").map((row) => { const entry = { id: row.querySelector('[data-field="id"]').value.trim(), trainer_id: row.querySelector('[data-field="trainer_id"]').value.trim(), position: { x: Number(row.querySelector('[data-field="x"]').value), y: Number(row.querySelector('[data-field="y"]').value), z: Number(row.querySelector('[data-field="z"]').value) } }; const progress = row.querySelector('[data-field="required_progress"]').value.trim(); if (progress) entry.required_progress = progress; return entry; });
   syncCaveBuildBounds(); renderCaveDimensionSummary();
+  renderEncounterSummary("cave");
   return true;
 }
 
@@ -2567,8 +2724,6 @@ function applyCaveGeneratorDialog() {
 }
 
 function renderCaveArrayEditors() {
-  const biomes = state.cave?.internal_biomes || [];
-  $("#cave-biome-list").innerHTML = biomes.length ? biomes.map((entry, index) => `<article class="cave-entry-card" data-cave-biome-row data-index="${index}"><header><strong>바이옴 ${index + 1}</strong><button type="button" data-remove-cave-biome="${index}">삭제</button></header><div class="cave-entry-fields"><label><span>구역 ID</span><input data-field="id" value="${escapeHtml(entry.id || "")}" required pattern="[a-z0-9_.-]+"></label><label class="span-2"><span>실제 바이옴 ID</span><input data-field="biome" value="${escapeHtml(entry.biome || "")}" required placeholder="minecraft:dripstone_caves"></label><label><span>가중치</span><input data-field="weight" type="number" min="1" max="100" value="${Number(entry.weight ?? 1)}" required></label><label class="span-4"><span>서식지 프로필</span><input data-field="habitat_profile" value="${escapeHtml(entry.habitat_profile || "")}" placeholder="cobbleventure:habitat/cave"></label></div></article>`).join("") : '<div class="cave-entry-empty">내부 바이옴을 하나 이상 추가하세요.</div>';
   const trainers = state.cave?.trainer_settings?.placements || [];
   $("#cave-trainer-list").innerHTML = trainers.length ? trainers.map((entry, index) => `<article class="cave-entry-card" data-cave-trainer-row data-index="${index}"><header><strong>트레이너 ${index + 1}</strong><button type="button" data-remove-cave-trainer="${index}">삭제</button></header><div class="cave-entry-fields"><label><span>배치 ID</span><input data-field="id" value="${escapeHtml(entry.id || "")}" required></label><label class="span-2"><span>트레이너 ID</span><input data-field="trainer_id" value="${escapeHtml(entry.trainer_id || "")}" required></label><label><span>필요 진행도</span><input data-field="required_progress" value="${escapeHtml(entry.required_progress || "")}" placeholder="선택 사항"></label><label><span>X</span><input data-field="x" type="number" value="${Number(entry.position?.x ?? 0)}"></label><label><span>Y</span><input data-field="y" type="number" value="${Number(entry.position?.y ?? 48)}"></label><label><span>Z</span><input data-field="z" type="number" value="${Number(entry.position?.z ?? 0)}"></label></div></article>`).join("") : '<div class="cave-entry-empty">고정 트레이너 배치가 없습니다.</div>';
 }
@@ -2579,15 +2734,18 @@ function renderCaveManualLayoutEditors() {
 
 function handleCaveEditorClick(event) {
   if (!state.cave) return;
-  const addBiome = event.target.closest("[data-add-cave-biome]"); const addTrainer = event.target.closest("[data-add-cave-trainer]");
-  const removeBiome = event.target.closest("[data-remove-cave-biome]"); const removeTrainer = event.target.closest("[data-remove-cave-trainer]");
-  if (!(addBiome || addTrainer || removeBiome || removeTrainer)) return;
+  const selectEntrance = event.target.closest("[data-select-cave-entrance]");
+  if (selectEntrance) {
+    state.cavePreview.selected = { source: "entrance", id: selectEntrance.dataset.selectCaveEntrance };
+    setCavePreviewTool("select"); renderCaveLayoutPreview();
+    return;
+  }
+  const addTrainer = event.target.closest("[data-add-cave-trainer]");
+  const removeTrainer = event.target.closest("[data-remove-cave-trainer]");
+  if (!(addTrainer || removeTrainer)) return;
   updateCaveFromForm();
-  state.cave.internal_biomes ||= [];
   state.cave.entrances ||= [];
-  if (addBiome) state.cave.internal_biomes.push({ id: `biome_${state.cave.internal_biomes.length + 1}`, biome: "minecraft:dripstone_caves", habitat_profile: "cobbleventure:habitat/cave", weight: 50 });
   if (addTrainer) { state.cave.trainer_settings ||= { enabled: true, max_active: 1, class_pool: [], placements: [] }; state.cave.trainer_settings.placements.push({ id: `trainer_${state.cave.trainer_settings.placements.length + 1}`, trainer_id: "cobbleventure:trainer/", position: { x: 0, y: 49, z: 0 } }); }
-  if (removeBiome) state.cave.internal_biomes.splice(Number(removeBiome.dataset.removeCaveBiome), 1);
   if (removeTrainer) state.cave.trainer_settings.placements.splice(Number(removeTrainer.dataset.removeCaveTrainer), 1);
   renderCaveArrayEditors();
   renderCaveManualLayoutEditors();
@@ -2643,6 +2801,7 @@ function renderForest() {
   const dimension = document.dimension || {}; const origin = dimension.origin || {}; const bounds = dimension.bounds || {};
   document.dimension = { id: `cobbleventure:generation_${generation}`, region_id: `generation_${generation}/${document.id?.split("/").pop() || "forest"}`, origin: { x: Number(origin.x ?? 0), y: Number(origin.y ?? 69), z: Number(origin.z ?? 0) }, bounds: { min_x: Number(bounds.min_x ?? -256), min_z: Number(bounds.min_z ?? -256), max_x: Number(bounds.max_x ?? 256), max_z: Number(bounds.max_z ?? 256) } };
   const environment = { fixed_time: 6000, weather: "clear", ...(document.environment || {}) };
+  const encounters = ensureEncounterSettings(document, "minecraft:old_growth_spruce_taiga", 3, 7);
   const trees = { min_height: 8, max_height: 16, trunk_blocks: ["minecraft:oak_log"], foliage_blocks: ["minecraft:oak_leaves"], barrier_block: "minecraft:barrier", ...(document.tree_barrier || {}) };
   const undergrowth = { density: .72, blocks: ["minecraft:short_grass", "minecraft:fern"], path_clearance: 2, ...(document.undergrowth || {}) };
   const generator = { layout: "hybrid", seed_salt: 0, cell_size: 16, maze_complexity: .65, loop_chance: .18, spline_enabled: true, spline_tension: .45, ...(document.generator || {}) };
@@ -2655,9 +2814,12 @@ function renderForest() {
   $("#forest-editor-title").textContent = document.display_name?.ko_kr || document.id; $("#forest-path").textContent = state.forestPath;
   setFormValue(form, "id", document.id); setFormValue(form, "nameKo", document.display_name?.ko_kr || ""); setFormValue(form, "nameEn", document.display_name?.en_us || ""); setFormValue(form, "enabled", document.enabled !== false);
   setFormValue(form, "fixedTime", environment.fixed_time); setFormValue(form, "weather", environment.weather);
+  setFormValue(form, "randomEncounters", encounters.enabled); setFormValue(form, "encounterMinDistance", encounters.minimum_distance); setFormValue(form, "encounterMaxDistance", encounters.maximum_distance);
+  setFormValue(form, "encounterMinLevel", encounters.minimum_level); setFormValue(form, "encounterMaxLevel", encounters.maximum_level); encounterBiomeOptions(form.elements.encounterPokemonBiome, encounters.pokemon_biome);
   setFormValue(form, "treeMinHeight", trees.min_height); setFormValue(form, "treeMaxHeight", trees.max_height); setFormValue(form, "trunkBlocks", trees.trunk_blocks.join(", ")); setFormValue(form, "foliageBlocks", trees.foliage_blocks.join(", ")); setFormValue(form, "barrierBlock", trees.barrier_block);
   setFormValue(form, "undergrowthDensity", undergrowth.density); setFormValue(form, "undergrowthBlocks", undergrowth.blocks.join(", ")); setFormValue(form, "pathClearance", undergrowth.path_clearance);
   renderForestEnvironmentPreset();
+  renderEncounterSummary("forest");
   generator.cell_size = Math.max(Math.max(4, Math.min(64, Math.round(Number(generator.cell_size) || 16))), forestMinimumMazeCellSize(document)); document.generator = { ...(document.generator || {}), ...generator };
   syncForestBuildBounds(); renderForestDimensionSummary();
   renderForestMazeDialogForm();
@@ -2677,6 +2839,8 @@ function updateForestFromForm() {
   document.display_name = { ko_kr: form.elements.nameKo.value.trim(), ...(form.elements.nameEn.value.trim() ? { en_us: form.elements.nameEn.value.trim() } : {}) };
   document.enabled = form.elements.enabled.checked;
   document.environment = { fixed_time: forestNumber(form, "fixedTime", 6000), weather: form.elements.weather.value };
+  const encounters = encounterSettings("forest");
+  Object.assign(encounters, { enabled: form.elements.randomEncounters.checked, minimum_distance: Math.round(forestNumber(form, "encounterMinDistance", 72)), maximum_distance: Math.round(forestNumber(form, "encounterMaxDistance", 128)), minimum_level: Math.round(forestNumber(form, "encounterMinLevel", 3)), maximum_level: Math.round(forestNumber(form, "encounterMaxLevel", 7)), pokemon_biome: form.elements.encounterPokemonBiome.value });
   document.tree_barrier = { min_height: forestNumber(form, "treeMinHeight", 8), max_height: forestNumber(form, "treeMaxHeight", 16), trunk_blocks: csv("trunkBlocks"), foliage_blocks: csv("foliageBlocks"), barrier_block: form.elements.barrierBlock.value.trim() };
   document.undergrowth = { density: forestNumber(form, "undergrowthDensity", .72), blocks: csv("undergrowthBlocks"), path_clearance: forestNumber(form, "pathClearance", 2) };
   const generation = generationFromDocumentPath(state.forestPath); document.dimension.id = `cobbleventure:generation_${generation}`; document.dimension.region_id = `generation_${generation}/${document.id.split("/").pop() || "forest"}`;
@@ -2688,6 +2852,7 @@ function updateForestFromForm() {
   document.entrances.forEach((entrance) => { entrance.position = clampForestPoint(entrance.position); });
   const terrainByPosition = new Map(); document.terrain_tiles.forEach((tile) => { const point = snapForestTilePoint(tile); terrainByPosition.set(`${point.x},${point.z}`, { ...point, height_offset: tile.height_offset, ...(tile.transition ? { transition: { ...tile.transition } } : {}) }); }); document.terrain_tiles = [...terrainByPosition.values()];
   syncForestBuildBounds(); renderForestDimensionSummary();
+  renderEncounterSummary("forest");
   return true;
 }
 
@@ -3299,6 +3464,8 @@ function renderCaveLayoutPreview() {
   context.clearRect(0, 0, canvas.width, canvas.height);
   state.cavePreview.hitTargets = [];
   if (!layout) { summary.textContent = "동굴을 선택하면 배치를 계산합니다."; return; }
+  const entranceQuickList = $("#cave-entrance-quick-list");
+  if (entranceQuickList) entranceQuickList.innerHTML = (state.cave.entrances || []).map((entrance) => `<button type="button" data-select-cave-entrance="${escapeHtml(entrance.id)}" class="${state.cavePreview.selected?.source === "entrance" && state.cavePreview.selected.id === entrance.id ? "is-active" : ""}">${escapeHtml(entrance.display_name || entrance.id)}</button>`).join("") || "<small>등록된 입구가 없습니다.</small>";
   const projection = cavePreviewProjection(layout, canvas); const { project, scale, center, view } = projection;
   state.cavePreview.projection = projection;
   $$("[data-cave-view]").forEach((button) => button.classList.toggle("is-active", button.dataset.caveView === view));
@@ -3367,8 +3534,8 @@ function renderCaveLayoutPreview() {
   }
   for (const entrance of layout.entrances) {
     const p = project(entrance); const submerged = entrance.y < waterY; const isSelected = selected?.source === "entrance" && selected.id === entrance.id; const isDraft = state.cavePreview.pathDraft?.id === entrance.id;
-    context.fillStyle = submerged ? "#43b8e8" : "#ffce67"; context.strokeStyle = isDraft ? "#b8e86b" : isSelected ? "#ffffff" : "#211b0d"; context.lineWidth = isDraft || isSelected ? 3 : 2; context.beginPath(); context.arc(p.x, p.y, isSelected || isDraft ? 8 : 6, 0, Math.PI * 2); context.fill(); context.stroke();
-    if (entrance.source === "entrance") state.cavePreview.hitTargets.push({ mode: "move", source: "entrance", id: entrance.id, x: p.x, y: p.y, radius: 13 });
+    context.fillStyle = submerged ? "#43b8e8" : "#ffce67"; context.strokeStyle = isDraft ? "#b8e86b" : isSelected ? "#ffffff" : "#211b0d"; context.lineWidth = isDraft || isSelected ? 3 : 2; context.beginPath(); context.arc(p.x, p.y, isSelected || isDraft ? 10 : 8, 0, Math.PI * 2); context.fill(); context.stroke();
+    if (entrance.id) state.cavePreview.hitTargets.push({ mode: "move", source: "entrance", id: entrance.id, x: p.x, y: p.y, radius: 22 });
   }
 
   const selectedRoom = selected?.source === "anchor" ? layout.rooms.find((room) => room.id === selected.id) : null;
@@ -3407,10 +3574,19 @@ function cavePreviewHitDistance(target, pointer) {
   return Math.hypot(pointer.x - (target.x1 + dx * progress), pointer.y - (target.y1 + dy * progress));
 }
 
+function cavePreviewTargetPriority(target) {
+  if (target.mode === "resize") return 0;
+  if (target.source === "entrance") return 1;
+  if (target.mode === "move") return 2;
+  return 3;
+}
+
 function beginCavePreviewDrag(event) {
   const pointer = cavePreviewPointer(event);
-  const priority = { resize: 0, move: 1, "select-path": 2 };
-  const target = [...state.cavePreview.hitTargets].sort((a, b) => priority[a.mode] - priority[b.mode]).find((candidate) => cavePreviewHitDistance(candidate, pointer) <= candidate.radius);
+  const target = [...state.cavePreview.hitTargets]
+    .map((candidate) => ({ candidate, distance: cavePreviewHitDistance(candidate, pointer) }))
+    .filter(({ candidate, distance }) => distance <= candidate.radius)
+    .sort((left, right) => cavePreviewTargetPriority(left.candidate) - cavePreviewTargetPriority(right.candidate) || left.distance - right.distance)[0]?.candidate;
   if (state.cavePreview.tool === "add-anchor") {
     addCaveAnchorAt(pointer);
     return;
@@ -10363,7 +10539,7 @@ function prepareUnifiedSpatialEditors() {
   }
   const caveToolbar = $(".cave-layout-preview .spatial-editor-toolbar");
   if (caveToolbar && !caveToolbar.querySelector('[data-cave-preview-tool="select"]')) {
-    caveToolbar.insertAdjacentHTML("afterbegin", `<button type="button" class="button secondary cave-map-tool-button" data-cave-preview-tool="select" aria-label="동굴 요소 선택">↖<small>선택</small></button><div class="spatial-tool-contexts"><section class="spatial-tool-context" data-tool-context="select"><span class="spatial-context-kicker">SELECT TOOL</span><strong>선택 도구</strong><p>공동·입구·통로를 선택하거나 드래그해 이동합니다.</p><div class="spatial-gesture-list"><b>클릭</b><span>요소 선택</span><b>드래그</b><span>선택 요소 이동</span></div></section><section class="spatial-tool-context" data-tool-context="add-anchor"><span class="spatial-context-kicker">PLACE TOOL</span><strong>공동 추가</strong><p>중앙 지도에서 새 공동의 중심을 지정합니다.</p><div class="spatial-gesture-list"><b>클릭</b><span>공동 배치</span><b>Esc</b><span>선택 도구 복귀</span></div></section><section class="spatial-tool-context" data-tool-context="add-entrance"><span class="spatial-context-kicker">PLACE TOOL</span><strong>입구 추가</strong><p>지도에 새 입출구를 배치합니다.</p><div class="spatial-gesture-list"><b>클릭</b><span>입구 배치</span><b>Esc</b><span>선택 도구 복귀</span></div></section><section class="spatial-tool-context" data-tool-context="connect"><span class="spatial-context-kicker">ROUTE TOOL</span><strong>길 만들기</strong><p>두 공동 또는 입출구를 차례로 선택합니다.</p><div class="spatial-gesture-list"><b>1차 클릭</b><span>시작점 선택</span><b>2차 클릭</b><span>통로 연결</span></div></section></div>`);
+    caveToolbar.insertAdjacentHTML("afterbegin", `<button type="button" class="button secondary cave-map-tool-button" data-cave-preview-tool="select" aria-label="동굴 요소 선택">↖<small>선택</small></button><div class="spatial-tool-contexts"><section class="spatial-tool-context" data-tool-context="select"><span class="spatial-context-kicker">SELECT TOOL</span><strong>선택 도구</strong><p>공동·입구·통로를 선택하거나 드래그해 이동합니다.</p><div id="cave-entrance-quick-list" class="cave-entrance-quick-list"></div><div class="spatial-gesture-list"><b>클릭</b><span>요소 선택</span><b>드래그</b><span>선택 요소 이동</span></div></section><section class="spatial-tool-context" data-tool-context="add-anchor"><span class="spatial-context-kicker">PLACE TOOL</span><strong>공동 추가</strong><p>중앙 지도에서 새 공동의 중심을 지정합니다.</p><div class="spatial-gesture-list"><b>클릭</b><span>공동 배치</span><b>Esc</b><span>선택 도구 복귀</span></div></section><section class="spatial-tool-context" data-tool-context="add-entrance"><span class="spatial-context-kicker">PLACE TOOL</span><strong>입구 추가</strong><p>지도에 새 입출구를 배치합니다.</p><div class="spatial-gesture-list"><b>클릭</b><span>입구 배치</span><b>Esc</b><span>선택 도구 복귀</span></div></section><section class="spatial-tool-context" data-tool-context="connect"><span class="spatial-context-kicker">ROUTE TOOL</span><strong>길 만들기</strong><p>두 공동 또는 입출구를 차례로 선택합니다.</p><div class="spatial-gesture-list"><b>1차 클릭</b><span>시작점 선택</span><b>2차 클릭</b><span>통로 연결</span></div></section></div>`);
   }
   const forestToolbar = $(".forest-layout-editor .spatial-editor-toolbar");
   if (forestToolbar && !forestToolbar.querySelector('[data-forest-tool="select"]')) {
@@ -10431,6 +10607,40 @@ $("#save-forest").addEventListener("click", () => saveDocument("forests"));
 $("#delete-forest").addEventListener("click", () => deleteManagedDocument("forests"));
 $("#forest-form").addEventListener("input", (event) => { if (handleForestStairSetting(event) || event.target.closest(".forest-item-list")) return; updateForestFromForm(); renderForestEnvironmentPreset(); renderForestPreview(); });
 $("#forest-form").addEventListener("change", (event) => { if (handleForestStairSetting(event) || event.target.closest(".forest-item-list")) return; updateForestFromForm(); renderForestEnvironmentPreset(); renderForestPreview(); });
+$$("[data-edit-encounter-pokemon]").forEach((button) => button.addEventListener("click", () => openEncounterPokemonDialog(button.dataset.editEncounterPokemon)));
+$("#encounter-inherit-biome").addEventListener("change", (event) => { const settings = encounterSettings(); if (!settings) return; settings.inherit_biome = event.target.checked; renderEncounterPokemonDialog(); });
+$("#encounter-biome-pokemon-search").addEventListener("input", (event) => { state.encounterPokemonQuery = event.target.value; renderEncounterPokemonDialog(); });
+$("#encounter-biome-pokemon-list").addEventListener("click", (event) => { const levelButton = event.target.closest("[data-encounter-pokemon-level]"); if (levelButton) { state.encounterPokemonLevelSpecies = levelButton.dataset.encounterPokemonLevel; renderEncounterPokemonDialog(); return; } const button = event.target.closest("[data-encounter-biome-species]"); const settings = encounterSettings(); if (!button || !settings) return; const excluded = new Set(settings.excluded_species); if (excluded.has(button.dataset.encounterBiomeSpecies)) excluded.delete(button.dataset.encounterBiomeSpecies); else excluded.add(button.dataset.encounterBiomeSpecies); settings.excluded_species = [...excluded].sort(); renderEncounterPokemonDialog(); });
+$("#encounter-pokemon-picker-search").addEventListener("input", (event) => { state.encounterPokemonPicker.query = event.target.value.trim(); renderEncounterPokemonPicker(); });
+for (const [selector, field] of [
+  ["#encounter-pokemon-picker-generation", "generation"], ["#encounter-pokemon-picker-type", "type"],
+  ["#encounter-pokemon-picker-habitat", "habitat"], ["#encounter-pokemon-picker-rarity", "rarity"],
+  ["#encounter-pokemon-picker-special", "special"], ["#encounter-pokemon-picker-availability", "availability"],
+]) $(selector).addEventListener("change", (event) => { state.encounterPokemonPicker[field] = event.target.value; renderEncounterPokemonPicker(); });
+$("#encounter-pokemon-picker-list").addEventListener("click", (event) => {
+  const card = event.target.closest("[data-encounter-picker-species]"); if (!card || card.disabled) return;
+  const species = card.dataset.encounterPickerSpecies, selected = state.encounterPokemonPicker.selected;
+  if (selected.has(species)) selected.delete(species); else selected.add(species);
+  renderEncounterPokemonPicker();
+});
+$("#encounter-pokemon-picker-select-visible").addEventListener("click", () => {
+  const settings = encounterSettings(); if (!settings) return;
+  const added = new Set(settings.additions.map((entry) => entry.species));
+  for (const entry of filteredEncounterPokemonPickerEntries().slice(0, 120)) if (!added.has(entry.id)) state.encounterPokemonPicker.selected.add(entry.id);
+  renderEncounterPokemonPicker();
+});
+$("#encounter-pokemon-picker-clear").addEventListener("click", () => { state.encounterPokemonPicker.selected.clear(); renderEncounterPokemonPicker(); });
+$("#encounter-pokemon-picker-reset").addEventListener("click", () => {
+  Object.assign(state.encounterPokemonPicker, { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all" });
+  renderEncounterPokemonPicker();
+});
+$("#encounter-pokemon-picker-add").addEventListener("click", addSelectedEncounterPokemon);
+$("#encounter-direct-pokemon-list").addEventListener("click", (event) => { const levelButton = event.target.closest("[data-encounter-pokemon-level]"); if (levelButton) { state.encounterPokemonLevelSpecies = levelButton.dataset.encounterPokemonLevel; renderEncounterPokemonDialog(); return; } const button = event.target.closest("[data-remove-encounter-pokemon]"), settings = encounterSettings(); if (!button || !settings) return; const [removed] = settings.additions.splice(Number(button.dataset.removeEncounterPokemon), 1); if (removed) settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== removed.species); renderEncounterPokemonDialog(); });
+$("#encounter-pokemon-level-apply").addEventListener("click", () => applyPokemonLevelOverride("encounter"));
+$("#encounter-pokemon-level-reset").addEventListener("click", () => resetPokemonLevelOverride("encounter"));
+$("#encounter-pokemon-level-close").addEventListener("click", () => { state.encounterPokemonLevelSpecies = null; renderEncounterPokemonDialog(); });
+$("#encounter-pokemon-dialog").addEventListener("close", () => { const target = state.encounterPokemonTarget; if (target) renderEncounterSummary(target); state.encounterPokemonTarget = null; });
+$("#close-encounter-pokemon").addEventListener("click", () => $("#encounter-pokemon-dialog").close());
 $("#forest-form").addEventListener("click", handleForestEditorClick);
 $("#forest-path-list").addEventListener("input", handleForestListInput);
 $("#forest-path-list").addEventListener("change", handleForestListInput);
@@ -10484,6 +10694,8 @@ $("#route-biome-pokemon-search").addEventListener("input", (event) => {
   state.routePokemonQuery = event.target.value.trim(); renderRoutePokemonDialog();
 });
 $("#route-biome-pokemon-list").addEventListener("click", (event) => {
+  const levelButton = event.target.closest("[data-route-pokemon-level]");
+  if (levelButton) { state.routePokemonLevelSpecies = levelButton.dataset.routePokemonLevel; renderRoutePokemonDialog(); return; }
   const button = event.target.closest("[data-route-biome-species]");
   if (button) toggleRouteBiomePokemon(button.dataset.routeBiomeSpecies);
 });
@@ -10511,15 +10723,15 @@ $("#route-pokemon-picker-reset").addEventListener("click", () => {
   renderRoutePokemonPicker();
 });
 $("#route-pokemon-picker-add").addEventListener("click", addSelectedRoutePokemon);
-$("#route-custom-pokemon-list").addEventListener("click", (event) => {
+$("#route-direct-pokemon-list").addEventListener("click", (event) => {
+  const levelButton = event.target.closest("[data-route-pokemon-level]");
+  if (levelButton) { state.routePokemonLevelSpecies = levelButton.dataset.routePokemonLevel; renderRoutePokemonDialog(); return; }
   const button = event.target.closest("[data-remove-route-pokemon]");
   if (button) removeRoutePokemon(Number(button.dataset.removeRoutePokemon));
 });
-$("#route-custom-pokemon-list").addEventListener("change", (event) => {
-  const field = event.target.dataset.routeLevel;
-  const card = event.target.closest("[data-route-addition-index]");
-  if (field && card) changeRoutePokemonLevel(Number(card.dataset.routeAdditionIndex), field, event.target.value);
-});
+$("#route-pokemon-level-apply").addEventListener("click", () => applyPokemonLevelOverride("route"));
+$("#route-pokemon-level-reset").addEventListener("click", () => resetPokemonLevelOverride("route"));
+$("#route-pokemon-level-close").addEventListener("click", () => { state.routePokemonLevelSpecies = null; renderRoutePokemonDialog(); });
 $("#clear-tile").addEventListener("click", clearSelectedTile);
 $$('[data-pokemon-map-tab]').forEach((button) => button.addEventListener("click", () => { state.pokemonMapTab = button.dataset.pokemonMapTab; renderWorldPokemonPanel(); }));
 $("#pokemon-map-search").addEventListener("input", (event) => { state.pokemonMapQuery = event.target.value.trim(); renderWorldPokemonPanel(); });

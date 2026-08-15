@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.adventure;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -8,16 +9,19 @@ import net.minecraft.resources.ResourceLocation;
 
 /** World-owned queries consumed by the platform-neutral adventure rules. */
 public interface AdventureWorldContext {
-    record WildSpawnAddition(ResourceLocation species, int minLevel, int maxLevel) {}
+    record WildSpawnAddition(ResourceLocation species) {}
+    record WildSpawnLevelRange(int minLevel, int maxLevel) {}
 
     record WildSpawnRule(
         boolean inheritBiome,
         Set<ResourceLocation> excludedSpecies,
-        List<WildSpawnAddition> additions
+        List<WildSpawnAddition> additions,
+        Map<ResourceLocation, WildSpawnLevelRange> levelOverrides
     ) {
         public WildSpawnRule {
             excludedSpecies = Set.copyOf(excludedSpecies);
             additions = List.copyOf(additions);
+            levelOverrides = Map.copyOf(levelOverrides);
         }
     }
 

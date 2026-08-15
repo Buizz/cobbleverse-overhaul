@@ -217,6 +217,8 @@ public final class CobbleventureBootstrap {
     private static volatile List<FacilityMusicZone> activeFacilityMusicZones = List.of();
     private static volatile Map<String, SettlementPlan> activeSettlements = Map.of();
     private static volatile HexWorldPlan activeHexWorld;
+    private static volatile List<PursuitEncounterZone> activeCaveEncounters = List.of();
+    private static volatile Map<String, PursuitEncounterSystem.Config> activeForestEncounters = Map.of();
     private static volatile ShoreDistanceField activeShoreDistances;
     private static volatile int integrationShutdownTicks = -1;
     private static volatile UUID pendingInitializationPlayer;
@@ -241,7 +243,7 @@ public final class CobbleventureBootstrap {
     private static final Map<UUID, Integer> deepWaterTicks = new HashMap<>();
     private static final Map<UUID, Vec3> safeWhirlpoolPositions = new HashMap<>();
     private static final Map<Long, Long> scheduledTownDebrisCleanup = new HashMap<>();
-    private static final ResourceKey<Level> GENERATION_ONE =
+    static final ResourceKey<Level> GENERATION_ONE =
         ResourceKey.create(
             Registries.DIMENSION,
             ResourceLocation.fromNamespaceAndPath("cobbleventure", "generation_1")
@@ -304,6 +306,7 @@ public final class CobbleventureBootstrap {
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
+        NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedOut);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onEntityJoinLevel);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onChunkWatch);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
@@ -316,6 +319,14 @@ public final class CobbleventureBootstrap {
             return;
         }
         if (BLOCKED_VANILLA_MOBS.contains(event.getEntity().getType())) {
+            event.setCanceled(true);
+            return;
+        }
+        ResourceLocation joinedType = BuiltInRegistries.ENTITY_TYPE.getKey(event.getEntity().getType());
+        if (joinedType.getNamespace().equals("cobblemon")
+            && !event.getEntity().getTags().contains(PursuitEncounterSystem.ENTITY_TAG)
+            && event.getLevel() instanceof ServerLevel encounterLevel
+            && pursuitEncounterAt(encounterLevel, event.getEntity().getX(), event.getEntity().getZ()) != null) {
             event.setCanceled(true);
             return;
         }
@@ -352,6 +363,10 @@ public final class CobbleventureBootstrap {
             && terrainAt(activeHexWorld, event.getEntity().getX(), event.getEntity().getZ()) == null) {
             event.setCanceled(true);
         }
+    }
+
+    private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) PursuitEncounterSystem.forget(player);
     }
 
     private static void onChunkWatch(ChunkWatchEvent.Watch event) {
@@ -4386,17 +4401,22 @@ public final class CobbleventureBootstrap {
         scheduleBackgroundTownInitialization(level);
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             if (deepWaterBlocked.contains(player.getUUID())) {
+                PursuitEncounterSystem.tick(player, null, gameTime);
                 LocalWeatherSystem.clear(player);
                 LocationAnnouncement.clear(player);
                 continue;
             }
             if (dungeons != null && player.serverLevel() == dungeons) {
+                PursuitEncounterSystem.tick(
+                    player, pursuitEncounterAt(dungeons, player.getX(), player.getZ()), gameTime
+                );
                 LocalWeatherSystem.clear(player);
                 LocationAnnouncement.clear(player);
                 handleCavePortal(player, level, dungeons, gameTime);
                 continue;
             }
             if (player.serverLevel() != level) {
+                PursuitEncounterSystem.tick(player, null, gameTime);
                 LocalWeatherSystem.clear(player);
                 LocationAnnouncement.clear(player);
                 continue;
@@ -4408,6 +4428,9 @@ public final class CobbleventureBootstrap {
                 || !enforceVerticalWorldBoundary(player, level, gameTime)) {
                 continue;
             }
+            PursuitEncounterSystem.tick(
+                player, pursuitEncounterAt(level, player.getX(), player.getZ()), gameTime
+            );
             if (gameTime % 10L == 0L) {
                 updatePokemonCenterCheckpoint(player, level);
             }
@@ -6418,12 +6441,73 @@ public final class CobbleventureBootstrap {
                 caveGenerationSettings(cave)
             ));
         }
+        JsonObject biomeProfiles = readJsonResource(level, "catalogs/biome-profiles.json");
+        JsonObject pokemonHabitats = readJsonResource(level, "catalogs/pokemon-habitats.json");
+        List<PursuitEncounterZone> caveEncounters = new ArrayList<>();
+        for (Map.Entry<String, JsonObject> entry : caves.entrySet()) {
+            PursuitEncounterSystem.Config config = PursuitEncounterSystem.parse(
+                entry.getKey(), entry.getValue(), biomeProfiles, pokemonHabitats
+            );
+            if (config == null) continue;
+            JsonObject bounds = entry.getValue().getAsJsonObject("dimension").getAsJsonObject("bounds");
+            caveEncounters.add(new PursuitEncounterZone(
+                config, bounds.get("min_x").getAsInt(), bounds.get("min_z").getAsInt(),
+                bounds.get("max_x").getAsInt(), bounds.get("max_z").getAsInt()
+            ));
+        }
+        Map<String, PursuitEncounterSystem.Config> forestEncounters = new HashMap<>();
+        for (WorldGateSystem.Gate gate : world.gates()) {
+            String forestId = gate.destinationForest();
+            if (forestId == null || forestId.isBlank() || forestEncounters.containsKey(forestId)) continue;
+            String slug = forestId.substring(forestId.lastIndexOf('/') + 1);
+            JsonObject forest = readJsonResource(level, "forests/generation_1/" + slug + ".json");
+            PursuitEncounterSystem.Config config = PursuitEncounterSystem.parse(
+                forestId, forest, biomeProfiles, pokemonHabitats
+            );
+            if (config != null) forestEncounters.put(forestId, config);
+        }
+        activeCaveEncounters = List.copyOf(caveEncounters);
+        activeForestEncounters = Map.copyOf(forestEncounters);
         return new HexWorldPlan(
             world.grid(), world.seed(), world.cells(), world.paths(), world.settlements(),
             world.boundaryProfiles(), world.defaultEmptyTerrain(), world.emptyTerrainTiles(),
             world.environmentOverrides(), world.levelOverrides(),
             List.copyOf(entrances), world.gates()
         );
+    }
+
+    private static PursuitEncounterSystem.Config pursuitEncounterAt(
+        ServerLevel level, double x, double z
+    ) {
+        if (level.dimension().equals(DUNGEONS)) {
+            return activeCaveEncounters.stream()
+                .filter(zone -> zone.contains(x, z))
+                .map(PursuitEncounterZone::config)
+                .findFirst().orElse(null);
+        }
+        HexWorldPlan world = activeHexWorld;
+        if (!level.dimension().equals(GENERATION_ONE) || world == null) return null;
+        HexCoord coordinate = world.grid().worldToHex(x, z);
+        if (!"dense_forest".equals(world.emptyTerrainTiles().get(coordinate))) return null;
+        return world.gates().stream()
+            .filter(gate -> gate.destinationForest() != null
+                && activeForestEncounters.containsKey(gate.destinationForest()))
+            .min(Comparator.comparingDouble(gate -> {
+                Point center = world.grid().worldCenter(gate.anchor());
+                double dx = center.x() - x;
+                double dz = center.z() - z;
+                return dx * dx + dz * dz;
+            }))
+            .map(gate -> activeForestEncounters.get(gate.destinationForest()))
+            .orElse(null);
+    }
+
+    private record PursuitEncounterZone(
+        PursuitEncounterSystem.Config config, int minX, int minZ, int maxX, int maxZ
+    ) {
+        private boolean contains(double x, double z) {
+            return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
+        }
     }
 
     private static NaturalCaveGenerator.Settings caveGenerationSettings(JsonObject cave) {
@@ -6436,10 +6520,13 @@ public final class CobbleventureBootstrap {
         JsonObject roomRadius = generator.getAsJsonObject("room_radius");
         JsonObject tunnelRadius = generator.getAsJsonObject("tunnel_radius");
         NaturalCaveGenerator.Settings defaults = NaturalCaveGenerator.Settings.defaults(requiresFlash);
-        List<String> internalBiomes = new ArrayList<>();
-        for (JsonElement element : cave.getAsJsonArray("internal_biomes")) {
-            internalBiomes.add(requiredString(element.getAsJsonObject(), "biome"));
-        }
+        String style = cave.has("style") ? cave.get("style").getAsString() : "rock";
+        String internalBiome = style.equals("lush")
+            ? "minecraft:lush_caves" : "minecraft:dripstone_caves";
+        String decoration = switch (style) {
+            case "dripstone", "crystal", "lush" -> style;
+            default -> "rock";
+        };
         NaturalCaveGenerator.ManualLayout manualLayout = NaturalCaveGenerator.ManualLayout.disabled();
         if (generator.has("manual_layout")) {
             JsonObject manual = generator.getAsJsonObject("manual_layout");
@@ -6469,20 +6556,9 @@ public final class CobbleventureBootstrap {
                 manual.get("enabled").getAsBoolean(), List.copyOf(anchors), List.copyOf(connections)
             );
         }
-        List<NaturalCaveGenerator.RoomType> roomTypes = defaults.roomTypes();
-        if (generator.has("room_types")) {
-            roomTypes = new ArrayList<>();
-            for (JsonElement element : generator.getAsJsonArray("room_types")) {
-                JsonObject type = element.getAsJsonObject();
-                roomTypes.add(new NaturalCaveGenerator.RoomType(
-                    requiredString(type, "id"), type.get("weight").getAsInt(),
-                    requiredString(type, "decoration"),
-                    type.has("radius_scale") ? type.get("radius_scale").getAsDouble() : 1.0D,
-                    type.has("height_scale") ? type.get("height_scale").getAsDouble() : 1.0D
-                ));
-            }
-            roomTypes = List.copyOf(roomTypes);
-        }
+        List<NaturalCaveGenerator.RoomType> roomTypes = List.of(
+            new NaturalCaveGenerator.RoomType(style, 100, decoration, 1.0D, 1.0D)
+        );
         List<NaturalCaveGenerator.PathType> pathTypes = defaults.pathTypes();
         if (generator.has("path_types")) {
             pathTypes = new ArrayList<>();
@@ -6524,7 +6600,7 @@ public final class CobbleventureBootstrap {
             generator.has("bridge_clearance") ? generator.get("bridge_clearance").getAsInt() : 13,
             requiresFlash,
             manualLayout,
-            List.copyOf(internalBiomes),
+            List.of(internalBiome),
             roomTypes,
             pathTypes,
             decorations
@@ -7634,11 +7710,18 @@ public final class CobbleventureBootstrap {
             .collect(Collectors.toUnmodifiableSet());
         List<AdventureWorldContext.WildSpawnAddition> additions = settings.additions().stream()
             .map(addition -> new AdventureWorldContext.WildSpawnAddition(
-                ResourceLocation.parse(addition.species()), addition.minLevel(), addition.maxLevel()
+                ResourceLocation.parse(addition.species())
             ))
             .toList();
+        Map<ResourceLocation, AdventureWorldContext.WildSpawnLevelRange> levelOverrides =
+            settings.levelOverrides().values().stream().collect(Collectors.toUnmodifiableMap(
+                override -> ResourceLocation.parse(override.species()),
+                override -> new AdventureWorldContext.WildSpawnLevelRange(
+                    override.minLevel(), override.maxLevel()
+                )
+            ));
         return new AdventureWorldContext.WildSpawnRule(
-            settings.inheritBiome(), excluded, additions
+            settings.inheritBiome(), excluded, additions, levelOverrides
         );
     }
 

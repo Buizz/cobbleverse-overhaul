@@ -927,6 +927,10 @@ def validate_hex_worlds(
                                 _issue(issues, "error", path, f"{addition_path}.max_level", "최대 출현 레벨은 1부터 100 사이 정수여야 합니다.")
                             if isinstance(minimum, int) and isinstance(maximum, int) and minimum > maximum:
                                 _issue(issues, "error", path, addition_path, "최소 출현 레벨은 최대 출현 레벨보다 클 수 없습니다.")
+                    _validate_pokemon_level_overrides(
+                        pokemon_spawns.get("level_overrides", []), issues, path,
+                        f"{connection_path}.pokemon_spawns.level_overrides", known_pokemon
+                    )
             validate_access(connection.get("access_requirement"), path, f"{connection_path}.access_requirement")
             validate_access_height(
                 connection.get("terrain_profile"), connection.get("access_requirement"), path, connection_path
@@ -1545,12 +1549,13 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
             addition for addition in settings.get("additions", [])
             if isinstance(addition, dict) and addition.get("species") in pokemon_by_id
         ]
-        addition_levels = {
-            addition["species"]: {
-                "min_level": addition.get("min_level", 1),
-                "max_level": addition.get("max_level", 100),
+        level_overrides = {
+            override["species"]: {
+                "min_level": override.get("min_level", 1),
+                "max_level": override.get("max_level", 100),
             }
-            for addition in additions
+            for override in settings.get("level_overrides", [])
+            if isinstance(override, dict) and override.get("species") in pokemon_by_id
         }
         for cell in connection.get("cells", []):
             if not isinstance(cell, dict) or not isinstance(cell.get("q"), int) or not isinstance(cell.get("r"), int):
@@ -1566,7 +1571,7 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
             routed_cells.add(coordinate)
             base_ids = list(base.get("pokemon_ids", []))
             selected_ids = [species for species in base_ids if inherit_biome and species not in excluded]
-            for species in addition_levels:
+            for species in (addition["species"] for addition in additions):
                 if species not in selected_ids:
                     selected_ids.append(species)
             locations_by_cell[coordinate] = {
@@ -1582,7 +1587,7 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
                 "habitat_labels": base.get("habitat_labels", []),
                 "base_pokemon_ids": base_ids,
                 "pokemon_ids": selected_ids,
-                "custom_level_ranges": addition_levels,
+                "custom_level_ranges": level_overrides,
                 "count": len(selected_ids),
                 # 길만 놓인 빈 셀은 의도적인 도로 구간이므로 미매핑 바이옴으로
                 # 집계하지 않는다. 기반 바이옴이 있으면 그 상태를 그대로 따른다.
@@ -5957,7 +5962,10 @@ def derive_forest_build_bounds(data: dict[str, Any]) -> dict[str, int]:
             extents.append((x - cell / 2, z - cell / 2, x + cell / 2, z + cell / 2))
     barrier = data.get("tree_barrier") if isinstance(data.get("tree_barrier"), dict) else {}
     padding = max(16, cell * 2, int(barrier.get("max_height", 16)))
-    return _derived_aligned_bounds(extents, padding=padding, minimum_size=max(64, cell * 4))
+    # Keep an automatically resized build area on the same tile-center lattice.
+    # The 16-block build alignment is retained while every shift is also a whole tile.
+    alignment = math.lcm(16, cell)
+    return _derived_aligned_bounds(extents, padding=padding, minimum_size=max(64, cell * 4), alignment=alignment)
 
 
 def synchronize_spatial_build_bounds(data: Any, category: str) -> Any:
@@ -5987,6 +5995,80 @@ def synchronize_spatial_build_files(root: Path) -> int:
     return changed
 
 
+def _validate_pokemon_level_overrides(
+    overrides: Any, issues: list[Issue], path: Path, base: str,
+    known_pokemon: set[str] | None = None,
+) -> None:
+    if not isinstance(overrides, list):
+        _issue(issues, "error", path, base, "포켓몬 개별 레벨 설정은 배열이어야 합니다.")
+        return
+    seen: set[str] = set()
+    for index, override in enumerate(overrides):
+        override_path = f"{base}[{index}]"
+        species = override.get("species") if isinstance(override, dict) else None
+        if not isinstance(species, str) or not RESOURCE_ID.fullmatch(species):
+            _issue(issues, "error", path, f"{override_path}.species", "올바른 포켓몬 리소스 ID가 필요합니다.")
+        elif species in seen:
+            _issue(issues, "error", path, f"{override_path}.species", f"중복 개별 레벨 포켓몬: {species}")
+        elif known_pokemon is not None and species not in known_pokemon:
+            _issue(issues, "error", path, f"{override_path}.species", f"포켓몬 카탈로그에 없는 종입니다: {species}")
+        else:
+            seen.add(species)
+        if not isinstance(override, dict):
+            continue
+        minimum, maximum = override.get("min_level"), override.get("max_level")
+        if (not isinstance(minimum, int) or isinstance(minimum, bool) or not 1 <= minimum <= 100
+                or not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 100
+                or minimum > maximum):
+            _issue(issues, "error", path, override_path, "개별 레벨 범위는 1~100이며 최소가 최대보다 클 수 없습니다.")
+
+
+def _validate_pursuit_encounters(encounters: Any, issues: list[Issue], path: Path) -> None:
+    base = "$.random_encounters"
+    if not isinstance(encounters, dict):
+        _issue(issues, "error", path, base, "추적 인카운터 설정이 필요합니다.")
+        return
+    if not isinstance(encounters.get("enabled"), bool):
+        _issue(issues, "error", path, f"{base}.enabled", "사용 여부는 true 또는 false여야 합니다.")
+    _resource_id(encounters.get("pokemon_biome"), issues, path, f"{base}.pokemon_biome")
+    for minimum_key, maximum_key, low, high, label in (
+        ("minimum_distance", "maximum_distance", 1, 10000, "이동 거리"),
+        ("minimum_level", "maximum_level", 1, 100, "레벨"),
+    ):
+        minimum = encounters.get(minimum_key)
+        maximum = encounters.get(maximum_key)
+        if not isinstance(minimum, int) or isinstance(minimum, bool) or not low <= minimum <= high:
+            _issue(issues, "error", path, f"{base}.{minimum_key}", f"최소 {label}는 {low}~{high} 정수여야 합니다.")
+        if not isinstance(maximum, int) or isinstance(maximum, bool) or not low <= maximum <= high:
+            _issue(issues, "error", path, f"{base}.{maximum_key}", f"최대 {label}는 {low}~{high} 정수여야 합니다.")
+        if isinstance(minimum, int) and isinstance(maximum, int) and minimum > maximum:
+            _issue(issues, "error", path, base, f"최소 {label}는 최대값보다 클 수 없습니다.")
+    if not isinstance(encounters.get("inherit_biome"), bool):
+        _issue(issues, "error", path, f"{base}.inherit_biome", "바이옴 포켓몬 사용 여부가 필요합니다.")
+    excluded = encounters.get("excluded_species")
+    if not isinstance(excluded, list) or any(not isinstance(value, str) or not RESOURCE_ID.fullmatch(value) for value in excluded):
+        _issue(issues, "error", path, f"{base}.excluded_species", "제외 포켓몬 ID 배열이 필요합니다.")
+    additions = encounters.get("additions")
+    if not isinstance(additions, list):
+        _issue(issues, "error", path, f"{base}.additions", "직접 추가 포켓몬 목록이 필요합니다.")
+        return
+    seen: set[str] = set()
+    for index, addition in enumerate(additions):
+        addition_path = f"{base}.additions[{index}]"
+        species = addition.get("species") if isinstance(addition, dict) else None
+        if not isinstance(species, str) or not RESOURCE_ID.fullmatch(species) or species in seen:
+            _issue(issues, "error", path, f"{addition_path}.species", "중복되지 않는 포켓몬 ID가 필요합니다.")
+        else:
+            seen.add(species)
+        if not isinstance(addition, dict):
+            continue
+        minimum = addition.get("min_level")
+        maximum = addition.get("max_level")
+        if not isinstance(minimum, int) or not 1 <= minimum <= 100 or not isinstance(maximum, int) or not 1 <= maximum <= 100 or minimum > maximum:
+            _issue(issues, "error", path, addition_path, "추가 포켓몬 레벨 범위는 1~100이며 최소가 최대보다 클 수 없습니다.")
+    _validate_pokemon_level_overrides(encounters.get("level_overrides", []), issues, path, f"{base}.level_overrides")
+
+
 def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
     issues: list[Issue] = []
     try:
@@ -6011,20 +6093,9 @@ def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
         _resource_id(dimension.get("id"), issues, path, "$.dimension.id")
     if not isinstance(data.get("requires_flash"), bool):
         _issue(issues, "error", path, "$.requires_flash", "플래시 필요 여부는 true 또는 false여야 합니다.")
-    encounters = data.get("random_encounters")
-    if not isinstance(encounters, dict) or not isinstance(encounters.get("enabled"), bool):
-        _issue(issues, "error", path, "$.random_encounters", "랜덤 인카운터 설정이 필요합니다.")
-    elif encounters.get("enabled"):
-        _resource_id(encounters.get("spawn_profile"), issues, path, "$.random_encounters.spawn_profile")
-    biomes = data.get("internal_biomes")
-    if not isinstance(biomes, list) or not biomes:
-        _issue(issues, "error", path, "$.internal_biomes", "내부 바이옴을 하나 이상 지정해야 합니다.")
-    else:
-        for index, biome in enumerate(biomes):
-            if not isinstance(biome, dict):
-                _issue(issues, "error", path, f"$.internal_biomes[{index}]", "내부 바이옴은 객체여야 합니다.")
-                continue
-            _resource_id(biome.get("biome"), issues, path, f"$.internal_biomes[{index}].biome")
+    if data.get("style") not in {"rock", "dripstone", "crystal", "lush"}:
+        _issue(issues, "error", path, "$.style", "동굴 스타일은 rock, dripstone, crystal 또는 lush여야 합니다.")
+    _validate_pursuit_encounters(data.get("random_encounters"), issues, path)
     trainer_settings = data.get("trainer_settings")
     if not isinstance(trainer_settings, dict) or not isinstance(trainer_settings.get("enabled"), bool):
         _issue(issues, "error", path, "$.trainer_settings", "트레이너 설정이 필요합니다.")
@@ -6091,6 +6162,8 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
         forest_id = None
     if data.get("schema_version") != 1:
         _issue(issues, "error", path, "$.schema_version", "숲 문서 지원 버전은 1입니다.")
+    _validate_pursuit_encounters(data.get("random_encounters"), issues, path)
+    bounds = None
     dimension = data.get("dimension")
     if not isinstance(dimension, dict):
         _issue(issues, "error", path, "$.dimension", "숲 차원 설정이 필요합니다.")
@@ -6192,8 +6265,26 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
             if coordinate in seen_tiles:
                 _issue(issues, "error", path, tile_path, "같은 위치의 높이 타일을 중복 지정할 수 없습니다.")
             seen_tiles.add(coordinate)
-            if isinstance(cell_size, int) and any(value % cell_size for value in coordinate):
-                _issue(issues, "error", path, tile_path, f"높이 타일은 {cell_size}블록 타일 격자에 맞아야 합니다.")
+            valid_bounds = isinstance(bounds, dict) and all(
+                isinstance(bounds.get(key), int) and not isinstance(bounds.get(key), bool)
+                for key in ("min_x", "min_z", "max_x", "max_z")
+            )
+            if isinstance(cell_size, int) and not isinstance(cell_size, bool) and cell_size > 0 and valid_bounds:
+                columns = max(1, math.floor((bounds["max_x"] - bounds["min_x"]) / cell_size))
+                rows = max(1, math.floor((bounds["max_z"] - bounds["min_z"]) / cell_size))
+                center_offset = math.ceil(cell_size / 2)
+                min_center_x = bounds["min_x"] + center_offset
+                min_center_z = bounds["min_z"] + center_offset
+                max_center_x = min_center_x + (columns - 1) * cell_size
+                max_center_z = min_center_z + (rows - 1) * cell_size
+                aligned_to_tile_centers = (
+                    min_center_x <= coordinate[0] <= max_center_x
+                    and min_center_z <= coordinate[1] <= max_center_z
+                    and (coordinate[0] - min_center_x) % cell_size == 0
+                    and (coordinate[1] - min_center_z) % cell_size == 0
+                )
+                if not aligned_to_tile_centers:
+                    _issue(issues, "error", path, tile_path, f"높이 타일은 빌드 영역 기준 {cell_size}블록 타일 격자의 중심에 맞아야 합니다.")
             height_offset = tile.get("height_offset")
             if not isinstance(height_offset, int) or isinstance(height_offset, bool) or not -16 <= height_offset <= 16:
                 _issue(issues, "error", path, f"{tile_path}.height_offset", "타일 높이 보정은 -16 이상 16 이하의 정수여야 합니다.")
@@ -7197,6 +7288,7 @@ def _cave_template(slug: str, name: str, generation: str) -> dict[str, Any]:
         "enabled": True,
         "display_name": {"ko_kr": name},
         "cave_type": "cobbleventure:cave_type/natural_rock",
+        "style": "rock",
         "dimension": {
             "id": "cobbleventure:dungeons",
             "region_id": f"generation_{generation_number}/{slug}",
@@ -7206,12 +7298,16 @@ def _cave_template(slug: str, name: str, generation: str) -> dict[str, Any]:
         "requires_flash": False,
         "random_encounters": {
             "enabled": True,
-            "spawn_profile": f"cobbleventure:spawn/{slug}",
-            "density_multiplier": 1.0,
+            "minimum_distance": 72,
+            "maximum_distance": 128,
+            "minimum_level": 5,
+            "maximum_level": 10,
+            "pokemon_biome": "minecraft:dripstone_caves",
+            "inherit_biome": True,
+            "excluded_species": [],
+            "additions": [],
+            "level_overrides": [],
         },
-        "internal_biomes": [
-            {"id": "main", "biome": "minecraft:dripstone_caves", "weight": 100}
-        ],
         "trainer_settings": {"enabled": False, "max_active": 0, "class_pool": [], "placements": []},
         "entrances": [
             {
@@ -7239,6 +7335,18 @@ def _forest_template(slug: str, name: str, generation: str) -> dict[str, Any]:
             "bounds": {"min_x": -256, "min_z": -256, "max_x": 256, "max_z": 256},
         },
         "environment": {"fixed_time": 6000, "weather": "clear"},
+        "random_encounters": {
+            "enabled": True,
+            "minimum_distance": 72,
+            "maximum_distance": 128,
+            "minimum_level": 3,
+            "maximum_level": 7,
+            "pokemon_biome": "minecraft:old_growth_spruce_taiga",
+            "inherit_biome": True,
+            "excluded_species": [],
+            "additions": [],
+            "level_overrides": [],
+        },
         "tree_barrier": {
             "min_height": 8,
             "max_height": 16,

@@ -1892,7 +1892,7 @@
         "q": -7,
         "r": 11
       },
-      "town_radius_cells": 1,
+      "town_radius_cells": 3,
       "town_biome": "minecraft:beach",
       "surroundings": [],
       "boundary_profile": "cobbleventure:boundary/earthwork",

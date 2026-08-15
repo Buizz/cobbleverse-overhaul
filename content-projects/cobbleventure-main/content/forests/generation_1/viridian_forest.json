@@ -25,6 +25,18 @@
     "fixed_time": 6000,
     "weather": "clear"
   },
+  "random_encounters": {
+    "enabled": true,
+    "minimum_distance": 72,
+    "maximum_distance": 128,
+    "minimum_level": 3,
+    "maximum_level": 7,
+    "pokemon_biome": "minecraft:old_growth_spruce_taiga",
+    "inherit_biome": true,
+    "excluded_species": [],
+    "additions": [],
+    "level_overrides": []
+  },
   "tree_barrier": {
     "min_height": 12,
     "max_height": 22,
@@ -157,7 +169,323 @@
       }
     }
   ],
-  "terrain_tiles": [],
+  "terrain_tiles": [
+    {
+      "x": -24,
+      "z": 72,
+      "height_offset": 2
+    },
+    {
+      "x": -8,
+      "z": 72,
+      "height_offset": 2
+    },
+    {
+      "x": 8,
+      "z": 72,
+      "height_offset": 2
+    },
+    {
+      "x": 24,
+      "z": 72,
+      "height_offset": 2
+    },
+    {
+      "x": 40,
+      "z": 72,
+      "height_offset": 2
+    },
+    {
+      "x": 56,
+      "z": 72,
+      "height_offset": 2
+    },
+    {
+      "x": 72,
+      "z": 72,
+      "height_offset": 2
+    },
+    {
+      "x": -24,
+      "z": 88,
+      "height_offset": 2
+    },
+    {
+      "x": -8,
+      "z": 88,
+      "height_offset": 2
+    },
+    {
+      "x": 8,
+      "z": 88,
+      "height_offset": 2
+    },
+    {
+      "x": 24,
+      "z": 88,
+      "height_offset": 2
+    },
+    {
+      "x": 40,
+      "z": 88,
+      "height_offset": 2
+    },
+    {
+      "x": 56,
+      "z": 88,
+      "height_offset": 2
+    },
+    {
+      "x": 72,
+      "z": 88,
+      "height_offset": 2
+    },
+    {
+      "x": -24,
+      "z": 104,
+      "height_offset": 2
+    },
+    {
+      "x": -8,
+      "z": 104,
+      "height_offset": 2
+    },
+    {
+      "x": 8,
+      "z": 104,
+      "height_offset": 2
+    },
+    {
+      "x": 24,
+      "z": 104,
+      "height_offset": 2
+    },
+    {
+      "x": 40,
+      "z": 104,
+      "height_offset": 2
+    },
+    {
+      "x": 56,
+      "z": 104,
+      "height_offset": 2
+    },
+    {
+      "x": 72,
+      "z": 104,
+      "height_offset": 2
+    },
+    {
+      "x": -24,
+      "z": 120,
+      "height_offset": 2
+    },
+    {
+      "x": -8,
+      "z": 120,
+      "height_offset": 2
+    },
+    {
+      "x": 8,
+      "z": 120,
+      "height_offset": 2
+    },
+    {
+      "x": 24,
+      "z": 120,
+      "height_offset": 2
+    },
+    {
+      "x": 40,
+      "z": 120,
+      "height_offset": 2
+    },
+    {
+      "x": 56,
+      "z": 120,
+      "height_offset": 2
+    },
+    {
+      "x": 72,
+      "z": 120,
+      "height_offset": 2
+    },
+    {
+      "x": -24,
+      "z": 136,
+      "height_offset": 2
+    },
+    {
+      "x": -8,
+      "z": 136,
+      "height_offset": 2
+    },
+    {
+      "x": 8,
+      "z": 136,
+      "height_offset": 2
+    },
+    {
+      "x": 24,
+      "z": 136,
+      "height_offset": 2
+    },
+    {
+      "x": 40,
+      "z": 136,
+      "height_offset": 2
+    },
+    {
+      "x": 56,
+      "z": 136,
+      "height_offset": 2
+    },
+    {
+      "x": 72,
+      "z": 136,
+      "height_offset": 2
+    },
+    {
+      "x": -24,
+      "z": 152,
+      "height_offset": 2
+    },
+    {
+      "x": -8,
+      "z": 152,
+      "height_offset": 2
+    },
+    {
+      "x": 8,
+      "z": 152,
+      "height_offset": 2
+    },
+    {
+      "x": 24,
+      "z": 152,
+      "height_offset": 2
+    },
+    {
+      "x": 40,
+      "z": 152,
+      "height_offset": 2
+    },
+    {
+      "x": 56,
+      "z": 152,
+      "height_offset": 2
+    },
+    {
+      "x": 72,
+      "z": 152,
+      "height_offset": 2
+    },
+    {
+      "x": -24,
+      "z": 168,
+      "height_offset": 2
+    },
+    {
+      "x": -8,
+      "z": 168,
+      "height_offset": 2
+    },
+    {
+      "x": 8,
+      "z": 168,
+      "height_offset": 2
+    },
+    {
+      "x": 24,
+      "z": 168,
+      "height_offset": 2
+    },
+    {
+      "x": 40,
+      "z": 168,
+      "height_offset": 2
+    },
+    {
+      "x": 56,
+      "z": 168,
+      "height_offset": 2
+    },
+    {
+      "x": 72,
+      "z": 168,
+      "height_offset": 2
+    },
+    {
+      "x": -24,
+      "z": 40,
+      "height_offset": 2
+    },
+    {
+      "x": -8,
+      "z": 40,
+      "height_offset": 2
+    },
+    {
+      "x": 8,
+      "z": 40,
+      "height_offset": 2
+    },
+    {
+      "x": 24,
+      "z": 40,
+      "height_offset": 2
+    },
+    {
+      "x": 40,
+      "z": 40,
+      "height_offset": 2
+    },
+    {
+      "x": 56,
+      "z": 40,
+      "height_offset": 1
+    },
+    {
+      "x": 72,
+      "z": 40,
+      "height_offset": 1
+    },
+    {
+      "x": -24,
+      "z": 56,
+      "height_offset": 2
+    },
+    {
+      "x": -8,
+      "z": 56,
+      "height_offset": 2
+    },
+    {
+      "x": 8,
+      "z": 56,
+      "height_offset": 2
+    },
+    {
+      "x": 24,
+      "z": 56,
+      "height_offset": 2
+    },
+    {
+      "x": 40,
+      "z": 56,
+      "height_offset": 2
+    },
+    {
+      "x": 56,
+      "z": 56,
+      "height_offset": 1
+    },
+    {
+      "x": 72,
+      "z": 56,
+      "height_offset": 1
+    }
+  ],
   "entrances": [
     {
       "id": "south",

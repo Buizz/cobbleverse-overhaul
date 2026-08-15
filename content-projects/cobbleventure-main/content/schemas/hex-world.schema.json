@@ -299,10 +299,24 @@
         "additions": {
           "type": "array",
           "items": { "$ref": "#/$defs/route_pokemon_addition" }
+        },
+        "level_overrides": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pokemon_level_override" }
         }
       }
     },
     "route_pokemon_addition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["species", "min_level", "max_level"],
+      "properties": {
+        "species": { "$ref": "#/$defs/resource_id" },
+        "min_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "max_level": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "pokemon_level_override": {
       "type": "object",
       "additionalProperties": false,
       "required": ["species", "min_level", "max_level"],

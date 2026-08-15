@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -277,13 +278,31 @@ public final class MapContent {
             JsonObject cave = entry.getValue();
             LinkedHashMap<String, Pokemon> pokemon = new LinkedHashMap<>();
             List<String> biomeNames = new ArrayList<>();
-            if (cave.has("internal_biomes")) {
-                for (JsonElement biomeElement : cave.getAsJsonArray("internal_biomes")) {
-                    String biomeId = biomeElement.getAsJsonObject().get("biome").getAsString();
-                    BiomeInfo biome = biomes.get(biomeId);
-                    if (biome == null) continue;
-                    if (!biomeNames.contains(biome.name())) biomeNames.add(biome.name());
-                    for (Pokemon value : biome.pokemon()) pokemon.putIfAbsent(value.id(), value);
+            JsonObject encounters = cave.has("random_encounters")
+                ? cave.getAsJsonObject("random_encounters") : new JsonObject();
+            String biomeId = encounters.has("pokemon_biome")
+                ? encounters.get("pokemon_biome").getAsString() : "minecraft:dripstone_caves";
+            BiomeInfo biome = biomes.get(biomeId);
+            if (biome != null) {
+                biomeNames.add(biome.name());
+                Set<String> excluded = new HashSet<>();
+                if (encounters.has("excluded_species")) {
+                    for (JsonElement value : encounters.getAsJsonArray("excluded_species")) {
+                        excluded.add(value.getAsString());
+                    }
+                }
+                if (!encounters.has("inherit_biome") || encounters.get("inherit_biome").getAsBoolean()) {
+                    for (Pokemon value : biome.pokemon()) {
+                        if (!excluded.contains(value.id())) pokemon.putIfAbsent(value.id(), value);
+                    }
+                }
+                if (encounters.has("additions")) {
+                    for (JsonElement additionElement : encounters.getAsJsonArray("additions")) {
+                        String species = additionElement.getAsJsonObject().get("species").getAsString();
+                        biomes.values().stream().flatMap(value -> value.pokemon().stream())
+                            .filter(value -> value.id().equals(species)).findFirst()
+                            .ifPresent(value -> pokemon.putIfAbsent(value.id(), value));
+                    }
                 }
             }
             List<Pokemon> pokemonList = new ArrayList<>(pokemon.values());

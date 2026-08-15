@@ -116,9 +116,20 @@ final class WorldPlanParser {
                 addition.get("max_level").getAsInt()
             ));
         }
+        Map<String, PokemonLevelOverride> levelOverrides = new java.util.LinkedHashMap<>();
+        if (value.has("level_overrides")) {
+            for (JsonElement element : value.getAsJsonArray("level_overrides")) {
+                JsonObject override = element.getAsJsonObject();
+                PokemonLevelOverride parsed = new PokemonLevelOverride(
+                    required(override, "species"), override.get("min_level").getAsInt(),
+                    override.get("max_level").getAsInt()
+                );
+                levelOverrides.put(parsed.species(), parsed);
+            }
+        }
         return new RoutePokemonSpawns(
             value.get("inherit_biome").getAsBoolean(), Set.copyOf(excluded),
-            List.copyOf(additions)
+            List.copyOf(additions), Map.copyOf(levelOverrides)
         );
     }
 

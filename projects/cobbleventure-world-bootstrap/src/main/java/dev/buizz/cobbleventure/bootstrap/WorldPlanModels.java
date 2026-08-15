@@ -73,12 +73,15 @@ final class WorldPlanModels {
 
     record RoutePokemonAddition(String species, int minLevel, int maxLevel) {}
 
+    record PokemonLevelOverride(String species, int minLevel, int maxLevel) {}
+
     record RoutePokemonSpawns(
         boolean inheritBiome, Set<String> excludedSpecies,
-        List<RoutePokemonAddition> additions
+        List<RoutePokemonAddition> additions,
+        Map<String, PokemonLevelOverride> levelOverrides
     ) {
         static RoutePokemonSpawns inherited() {
-            return new RoutePokemonSpawns(true, Set.of(), List.of());
+            return new RoutePokemonSpawns(true, Set.of(), List.of(), Map.of());
         }
     }
 

@@ -69,13 +69,26 @@ final class WildSpawnLeveling {
             level, entity.getX(), entity.getZ()
         );
         if (addition != null) {
-            int levelValue = randomLevel(entity, addition.minLevel(), addition.maxLevel());
+            int levelValue = levelFor(entity, addition.species(), rule, averageLevel, pokemon.getLevel());
             if (!replacePokemon(pokemon, addition, levelValue)) {
                 event.cancel();
             }
-        } else if (averageLevel != null) {
-            pokemon.setLevel(randomLevel(entity, averageLevel));
+        } else {
+            pokemon.setLevel(levelFor(
+                entity, pokemon.getSpecies().getResourceIdentifier(), rule,
+                averageLevel, pokemon.getLevel()
+            ));
         }
+    }
+
+    private static int levelFor(
+        PokemonEntity entity, ResourceLocation species,
+        AdventureWorldContext.WildSpawnRule rule, Integer averageLevel, int fallback
+    ) {
+        AdventureWorldContext.WildSpawnLevelRange override = rule == null
+            ? null : rule.levelOverrides().get(species);
+        if (override != null) return randomLevel(entity, override.minLevel(), override.maxLevel());
+        return averageLevel == null ? fallback : randomLevel(entity, averageLevel);
     }
 
     private static AdventureWorldContext.WildSpawnAddition selectAddition(

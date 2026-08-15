@@ -736,6 +736,9 @@ class ContentManagerTests(unittest.TestCase):
                 "additions": [
                     {"species": "cobblemon:pikachu", "min_level": 3, "max_level": 7},
                 ],
+                "level_overrides": [
+                    {"species": "cobblemon:pikachu", "min_level": 12, "max_level": 18},
+                ],
             }
             self.assertEqual([], content_manager.save_world_layout(candidate_root, with_route_habitat))
             saved = content_manager.load_world_layout(candidate_root)
@@ -1036,7 +1039,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="route-inspector-form"', page)
         self.assertIn('id="route-pokemon-dialog"', page)
         self.assertIn('id="route-inherit-biome"', page)
-        self.assertIn('id="route-custom-pokemon-list"', page)
+        self.assertIn('id="route-direct-pokemon-list"', page)
+        self.assertIn('id="route-pokemon-level-editor"', page)
         self.assertIn('id="route-pokemon-picker-list"', page)
         self.assertIn('id="route-pokemon-picker-generation"', page)
         self.assertIn('id="route-pokemon-picker-type"', page)
@@ -1047,7 +1051,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('pokemonMapTab: "selected"', script)
         self.assertNotIn('지역을 선택하세요</b><span>지도 타일을 누르면 해당 위치의 포켓몬을 볼 수 있습니다.', script)
         self.assertIn("toggleRouteBiomePokemon", script)
-        self.assertIn("changeRoutePokemonLevel", script)
+        self.assertIn("applyPokemonLevelOverride", script)
         self.assertIn("filteredRoutePokemonPickerEntries", script)
         self.assertIn("addSelectedRoutePokemon", script)
         self.assertIn("state.routePokemonPicker.selected", script)
@@ -1069,6 +1073,9 @@ class ContentManagerTests(unittest.TestCase):
             "additions": [
                 {"species": "cobblemon:pikachu", "min_level": 12, "max_level": 18},
             ],
+            "level_overrides": [
+                {"species": "cobblemon:pikachu", "min_level": 20, "max_level": 25},
+            ],
         }
         world["connections"] = [route]
 
@@ -1079,7 +1086,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertGreater(len(route_cells), 0)
         self.assertTrue(all(entry["route_name"] == "테스트 도로" for entry in route_cells))
         self.assertTrue(all(entry["pokemon_ids"] == ["cobblemon:pikachu"] for entry in route_cells))
-        self.assertTrue(all(entry["custom_level_ranges"]["cobblemon:pikachu"] == {"min_level": 12, "max_level": 18} for entry in route_cells))
+        self.assertTrue(all(entry["custom_level_ranges"]["cobblemon:pikachu"] == {"min_level": 20, "max_level": 25} for entry in route_cells))
 
     def test_cave_preview_supports_direct_editing_views_and_global_water_level(self) -> None:
         root = PROJECT_ROOT
@@ -1107,6 +1114,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("deleteSelectedCaveEntrance", script)
         self.assertIn("chooseCavePathEndpoint", script)
         self.assertIn("cavePreviewHitDistance", script)
+        self.assertIn('target.source === "entrance"', script)
+        self.assertIn("cavePreviewTargetPriority", script)
+        self.assertIn("cave-entrance-quick-list", script)
+        self.assertIn("data-select-cave-entrance", script)
         self.assertIn("waterY = layout.waterLevel", script)
         self.assertNotIn('id="cave-layout-anchor-list"', page)
         self.assertNotIn('id="cave-entrance-list"', page)
@@ -1248,6 +1259,13 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("minecraft:barrier", document["tree_barrier"]["barrier_block"])
         self.assertGreater(document["undergrowth"]["density"], 0)
         self.assertEqual("minecraft:grass_block", document["paths"][0]["surface"])
+
+        document["terrain_tiles"] = [{"x": 8, "z": 8, "height_offset": 1}]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "centered-tile.json"
+            path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+            _, centered_issues = content_manager.validate_forest_file(path)
+        self.assertFalse(any("타일 격자" in issue.message for issue in centered_issues), centered_issues)
 
         document["tree_barrier"]["min_height"] = 20
         document["tree_barrier"]["max_height"] = 8
@@ -1421,6 +1439,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('className = "spatial-tool-rail"', script)
         self.assertIn('className = "spatial-tool-options"', script)
         self.assertIn('.spatial-editor-toolbar.world-aligned-toolbar', styles)
+        self.assertIn('#selected-cave-editor,#selected-forest-editor { overflow: visible; }', styles)
+        self.assertIn('#selected-cave-editor > .panel-heading,#selected-forest-editor > .panel-heading { position: sticky;', styles)
         self.assertIn('--spatial-tool-rail-width: 62px', styles)
         self.assertIn('grid-template-rows: minmax(0,1fr); align-content: stretch', styles)
         self.assertIn('.spatial-tool-rail { display: flex; min-height: 100%; align-self: stretch', styles)

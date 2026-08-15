@@ -6,8 +6,8 @@
   "additionalProperties": false,
   "required": [
     "schema_version", "id", "enabled", "display_name",
-    "cave_type", "dimension", "requires_flash", "random_encounters",
-    "internal_biomes", "trainer_settings", "entrances"
+    "cave_type", "style", "dimension", "requires_flash", "random_encounters",
+    "trainer_settings", "entrances"
   ],
   "properties": {
     "$schema": { "type": "string" },
@@ -16,6 +16,7 @@
     "enabled": { "type": "boolean" },
     "display_name": { "$ref": "#/$defs/localized_text" },
     "cave_type": { "$ref": "#/$defs/resource_id" },
+    "style": { "enum": ["rock", "dripstone", "crystal", "lush"] },
     "dimension": {
       "type": "object",
       "additionalProperties": false,
@@ -65,26 +66,18 @@
     "random_encounters": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "spawn_profile", "density_multiplier"],
+      "required": ["enabled", "minimum_distance", "maximum_distance", "minimum_level", "maximum_level", "pokemon_biome", "inherit_biome", "excluded_species", "additions"],
       "properties": {
         "enabled": { "type": "boolean" },
-        "spawn_profile": { "$ref": "#/$defs/resource_id" },
-        "density_multiplier": { "type": "number", "minimum": 0, "maximum": 10 }
-      }
-    },
-    "internal_biomes": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "biome", "weight"],
-        "properties": {
-          "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-          "biome": { "$ref": "#/$defs/resource_id" },
-          "habitat_profile": { "$ref": "#/$defs/resource_id" },
-          "weight": { "type": "integer", "minimum": 1, "maximum": 100 }
-        }
+        "minimum_distance": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "maximum_distance": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "minimum_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "maximum_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "pokemon_biome": { "$ref": "#/$defs/resource_id" },
+        "inherit_biome": { "type": "boolean" },
+        "excluded_species": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
+        "additions": { "type": "array", "items": { "$ref": "#/$defs/pokemon_addition" } },
+        "level_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level_override" } }
       }
     },
     "trainer_settings": {
@@ -159,6 +152,24 @@
       "properties": {
         "min": { "type": "integer", "minimum": 1, "maximum": 16 },
         "max": { "type": "integer", "minimum": 1, "maximum": 24 }
+      }
+    },
+    "pokemon_addition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["species", "min_level", "max_level"],
+      "properties": {
+        "species": { "$ref": "#/$defs/resource_id" },
+        "min_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "max_level": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "pokemon_level_override": {
+      "type": "object", "additionalProperties": false,
+      "required": ["species", "min_level", "max_level"],
+      "properties": {
+        "species": { "$ref": "#/$defs/resource_id" },
+        "min_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "max_level": { "type": "integer", "minimum": 1, "maximum": 100 }
       }
     },
     "room_type": {
