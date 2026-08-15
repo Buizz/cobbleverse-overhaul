@@ -1,7 +1,11 @@
 import importlib.util
 import json
+import os
+import tempfile
 import unittest
+import zipfile
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).parents[3]
@@ -69,6 +73,39 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             preset,
         )
         self.assertIn("ON_INTERACTION", preset)
+
+    def test_encounter_uses_its_own_appearance_skin_and_arm_model(self) -> None:
+        first = json.loads(json.dumps(self.document))
+        second = json.loads(json.dumps(self.document))
+        second["npc"]["appearance"]["resource"] = "rctmod:trainers/single/kanto_koga"
+        second["_easy_npc_arm_model"] = "slim"
+
+        first_uuid = generator.encounter_skin_uuid(first, self.outfit)
+        second_uuid = generator.encounter_skin_uuid(second, self.outfit)
+        second_preset = generator.encounter_preset_snbt(second, self.outfit)
+
+        self.assertNotEqual(first_uuid, second_uuid)
+        self.assertNotEqual(second_uuid, self.outfit["adapters"]["easy_npc"]["custom_skin_uuid"])
+        self.assertIn(generator.uuid_int_array(second_uuid), second_preset)
+        self.assertIn('variantType:"ALEX"', second_preset)
+        self.assertIn('VariantType:"ALEX"', second_preset)
+
+    def test_reads_selected_rct_skin_from_installed_resource_pack(self) -> None:
+        png = b"\x89PNG\r\n\x1a\n" + b"test-skin"
+        with tempfile.TemporaryDirectory() as directory:
+            instance = Path(directory)
+            resource_pack = instance / "resourcepacks" / "COBBLEVERSE RCTmod RP.zip"
+            resource_pack.parent.mkdir(parents=True)
+            with zipfile.ZipFile(resource_pack, "w") as archive:
+                archive.writestr(
+                    "assets/rctmod/textures/trainers/single/kanto_koga.png", png
+                )
+            with mock.patch.dict(os.environ, {"COBBLEVERSE_INSTANCE": directory}):
+                result = generator.installed_rct_skin(
+                    "rctmod:trainers/single/kanto_koga"
+                )
+
+        self.assertEqual(png, result)
 
     def test_compiles_gym_leader_rewards_from_league_authoring_entry(self) -> None:
         league = json.loads(

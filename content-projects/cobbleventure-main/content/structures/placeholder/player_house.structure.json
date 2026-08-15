@@ -4,9 +4,9 @@
   "interior_structure": "cobbleventure:interiors/player_house",
   "anchors": [
     {
-      "id": "interior_entry",
-      "label": "interior_entry",
-      "type": "interior_entry",
+      "id": "door",
+      "label": "door",
+      "type": "door",
       "position": [
         8,
         1,
@@ -17,10 +17,8 @@
         1,
         -1
       ],
-      "door_facing": "north",
-      "safe_side": "north",
-      "seal_entry": true,
-      "dialogue": "cobbleventure:default_enter"
+      "door_facing": "south",
+      "safe_side": "north"
     }
   ]
 }

@@ -1,7 +1,9 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.cobblemon.mod.common.client.CobblemonClient;
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -13,7 +15,9 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.bus.api.IEventBus;
 
 public final class PlayerMenuClient {
+    private static final String IRIS_RELOAD_KEY = "key_iris.keybind.reload";
     private static boolean allowNextInventoryScreen;
+    private static boolean irisReloadKeyChecked;
 
     private PlayerMenuClient() {}
 
@@ -110,9 +114,31 @@ public final class PlayerMenuClient {
     }
 
     private static void suppressCobblemonStarterPrompt(ClientTickEvent.Post event) {
-        if (Minecraft.getInstance().player == null) return;
+        Minecraft minecraft = Minecraft.getInstance();
+        disableLegacyIrisReloadKey(minecraft);
+        if (minecraft.player == null) return;
         CobblemonClient.INSTANCE.setCheckedStarterScreen(true);
         CobblemonClient.INSTANCE.getOverlay().getStarterToast()
             .setNextVisibility$common(Toast.Visibility.HIDE);
+    }
+
+    /** Migrates existing pack instances whose Iris reload key predates options.txt overrides. */
+    private static void disableLegacyIrisReloadKey(Minecraft minecraft) {
+        if (irisReloadKeyChecked || minecraft.options == null) {
+            return;
+        }
+        for (KeyMapping mapping : minecraft.options.keyMappings) {
+            if (!IRIS_RELOAD_KEY.equals(mapping.getName())) {
+                continue;
+            }
+            irisReloadKeyChecked = true;
+            if (!"key.keyboard.r".equals(mapping.saveString())) {
+                return;
+            }
+            mapping.setKey(InputConstants.UNKNOWN);
+            KeyMapping.resetMapping();
+            minecraft.options.save();
+            return;
+        }
     }
 }

@@ -999,7 +999,7 @@ final class NaturalCaveGenerator {
         double noise = signedNoise(seed ^ 0xBADC0DEL, x >> 1, y, z >> 1);
         return switch (floor) {
             case "rugged" -> noise > 0.45D
-                ? Blocks.GRAVEL.defaultBlockState()
+                ? Blocks.COBBLESTONE.defaultBlockState()
                 : noise < -0.35D
                     ? Blocks.TUFF.defaultBlockState()
                     : Blocks.COBBLED_DEEPSLATE.defaultBlockState();

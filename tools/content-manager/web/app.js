@@ -14,9 +14,9 @@ const structureViewPitch = {
 
 const state = {
   project: null,
-  trainers: [], battles: [], settlements: [], caves: [], trainer: null, battlePreset: null, settlement: null, cave: null, settlementOrderSaving: false,
+  trainers: [], battles: [], settlements: [], caves: [], forests: [], trainer: null, battlePreset: null, settlement: null, cave: null, forest: null, settlementOrderSaving: false,
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
-  trainerPath: "", battlePath: "", settlementPath: "", cavePath: "", buildCommands: [], exportLanguages: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
+  trainerPath: "", battlePath: "", settlementPath: "", cavePath: "", forestPath: "", buildCommands: [], exportLanguages: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
   biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
@@ -31,6 +31,7 @@ const state = {
   gymLayout: { selected: null, drag: null, hitTargets: [] },
   buildingSettings: { query: "", category: "all", selected: "", model: null, structures: {}, npcs: [], yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
   cavePreview: { yaw: -.72, pitch: -.52, zoom: 1, view: "perspective", tool: "select", pathDraft: null, drag: null, selected: null, hitTargets: [], projection: null },
+  forestPreview: { selectedPath: 0, seedOffset: 0, tool: "path", drag: null, hitTargets: [] },
   customTownTool: "cell",
   leagueProgression: { schema_version: 1, entries: [] }, selectedLeagueId: "",
   badgeCatalog: { schema_version: 1, badges: [], regions_without_gym_badges: [] },
@@ -315,7 +316,7 @@ function switchPage(section) {
   const navigationSection = ["gyms", "trainer-card"].includes(section) ? "league" : section;
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === navigationSection));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", caves: "동굴 관리", settlements: "마을 프리셋", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", caves: "동굴 관리", forests: "숲 관리", settlements: "마을 프리셋", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -403,8 +404,8 @@ async function pickProjectFolder() {
 }
 
 async function loadLists() {
-  const [trainers, battles, settlements, caves, worldLayouts, worldLayout, worldPokemonMap, league, gyms, badges, music] = await Promise.all([
-    request("/api/trainers"), request("/api/battles"), request("/api/settlements"), request("/api/caves"),
+  const [trainers, battles, settlements, caves, forests, worldLayouts, worldLayout, worldPokemonMap, league, gyms, badges, music] = await Promise.all([
+    request("/api/trainers"), request("/api/battles"), request("/api/settlements"), request("/api/caves"), request("/api/forests"),
     request("/api/world-layouts"), request(`/api/world-layout?generation=${state.selectedGeneration}`),
     request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`), request("/api/league-progression"), request("/api/gyms"), request("/api/badges"), request("/api/music-catalog")
   ]);
@@ -426,6 +427,7 @@ async function loadLists() {
   applyDocumentList("battles", battles, "배틀 프리셋");
   applyDocumentList("settlements", settlements, "마을 프리셋");
   applyDocumentList("caves", caves, "동굴");
+  applyDocumentList("forests", forests, "숲");
   if (league.ok) state.leagueProgression = league.data;
   else {
     const message = league.data.error || "리그 설정을 불러오지 못했습니다.";
@@ -597,7 +599,9 @@ function settlementSummary(settlementId) {
   return state.settlements.find((item) => item.id === settlementId);
 }
 function caveSummary(caveId) { return state.caves.find((item) => item.id === caveId); }
+function forestSummary(forestId) { return state.forests.find((item) => item.id === forestId); }
 function caveEntranceAt(q, r) { return (state.worldLayout?.cave_entrances || []).find((entry) => entry.anchor?.q === q && entry.anchor?.r === r); }
+function forestEntranceAt(q, r) { return (state.worldLayout?.objects || []).find((entry) => entry.anchor?.q === q && entry.anchor?.r === r && entry.properties?.destination_forest); }
 function normalizeTownCellCount(value) { const count = Number(value); return count === 3 || count === 5 || count === 7 || count === 19 ? count : 1; }
 function settlementPresetRadius(settlementId) { return normalizeTownCellCount(settlementSummary(settlementId)?.town_radius_cells); }
 function normalizeTownFootprintShape(value) { return ["triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down", "custom"].includes(value) ? value : "line_q"; }
@@ -758,9 +762,9 @@ function biomeTone(biome = "") {
 }
 function tileAt(q, r) { return state.worldLayout?.tiles?.find((tile) => tile.q === q && tile.r === r); }
 function emptyTerrainAt(q, r) { return state.worldLayout?.empty_terrain?.tiles?.find((tile) => tile.q === q && tile.r === r)?.type || state.worldLayout?.empty_terrain?.default_type || "high_forest"; }
-function emptyTerrainTone(type) { return ({ high_forest: "forest", ocean: "water", deep_ocean: "water", desert: "arid", stone_mountain: "mountain", red_rock_mountain: "arid", snow_mountain: "snow" })[type] || "forest"; }
-function emptyTerrainLabel(type) { return ({ high_forest: "높은 숲", ocean: "바다", deep_ocean: "심해", desert: "사막", stone_mountain: "돌산", red_rock_mountain: "적갈색 돌산", snow_mountain: "눈산" })[type] || type; }
-function emptyTerrainSymbol(type) { return ({ high_forest: "♣", ocean: "≈", deep_ocean: "≋", desert: "·", stone_mountain: "▲", red_rock_mountain: "◆", snow_mountain: "△" })[type] || "×"; }
+function emptyTerrainTone(type) { return ({ high_forest: "forest", dense_forest: "dense-forest", ocean: "water", deep_ocean: "water", desert: "arid", stone_mountain: "mountain", red_rock_mountain: "arid", snow_mountain: "snow" })[type] || "forest"; }
+function emptyTerrainLabel(type) { return ({ high_forest: "숲", dense_forest: "우거진 숲", ocean: "바다", deep_ocean: "심해", desert: "사막", stone_mountain: "돌산", red_rock_mountain: "적갈색 돌산", snow_mountain: "눈산" })[type] || type; }
+function emptyTerrainSymbol(type) { return ({ high_forest: "♣", dense_forest: "♠", ocean: "≈", deep_ocean: "≋", desert: "·", stone_mountain: "▲", red_rock_mountain: "◆", snow_mountain: "△" })[type] || "×"; }
 function settlementAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function objectAt(q, r) { return state.worldLayout?.objects?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function environmentOverrideAt(q, r) { return state.worldLayout?.environment_overrides?.find((entry) => entry.q === q && entry.r === r); }
@@ -824,6 +828,7 @@ function routeEndpointAnchor(endpointId) {
   if (!endpointId) return null;
   return state.worldLayout?.settlements?.find((node) => node.settlement === endpointId)?.anchor
     || state.worldLayout?.cave_entrances?.find((node) => node.id === endpointId)?.anchor
+    || state.worldLayout?.objects?.find((node) => node.id === endpointId && node.properties?.destination_forest)?.anchor
     || null;
 }
 function syncRouteEndpointAnchors(connection) {
@@ -978,6 +983,10 @@ function renderHexMap() {
   }).join("");
   const objects = (state.worldLayout.objects || []).map((node) => {
     const { x, y } = hexPoint(node.anchor.q, node.anchor.r);
+    if (node.properties?.destination_forest) {
+      const forestName = forestSummary(node.properties.destination_forest)?.name || node.properties.destination_forest.split("/").pop();
+      return `<g class="hex-forest-entrance" data-route-forest-entrance="${escapeHtml(node.id)}" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(forestName)} ${escapeHtml(node.properties.destination_entrance || "")} 숲관문"><circle r="17"></circle><path d="M-11 8V-5L0-13L11-5V8H6V-1H-6V8ZM-16 8H16"></path><path class="forest-crown" d="M-18-4L-12-15L-6-4M6-4L12-15L18-4"></path><text y="31">${escapeHtml(forestName)} · 숲관문</text><text class="center-badge" x="14" y="-13">＋</text></g>`;
+    }
     if (node.type === "villain_base") {
       return `<g class="hex-custom-object villain-base-object" transform="translate(${x} ${y})"><path d="M-12 8V-8H12V8ZM-7-8V-14H7V-8ZM-6 8V1H0V8ZM3-3H8V2H3Z"></path><text y="25">${escapeHtml(node.id)}</text></g>`;
     }
@@ -1003,7 +1012,8 @@ function renderHexMap() {
   const brushPreview = renderBrushPreview();
   svg.innerHTML = `<defs><pattern id="empty-terrain-red-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#d52828" stroke-width="2.2" opacity=".78"></line></pattern></defs><g class="hex-map-layer">${tiles}${levelOverlay}${townAreas}${routes}${draftRoute}${towns}${objects}${caveEntrances}${routeAnchors}${brushPreview}</g>`;
   const routeCellCount = new Set((state.worldLayout.connections || []).flatMap((connection) => connectionPath(connection).map((cell) => `${cell.q},${cell.r}`))).size;
-  $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 ${(state.worldLayout.environment_overrides || []).length}칸 · 레벨 ${(state.worldLayout.level_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳 · 동굴 입구 ${(state.worldLayout.cave_entrances || []).length}곳`;
+  const forestEntranceCount = (state.worldLayout.objects || []).filter((node) => node.properties?.destination_forest).length;
+  $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 ${(state.worldLayout.environment_overrides || []).length}칸 · 레벨 ${(state.worldLayout.level_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳 · 동굴 입구 ${(state.worldLayout.cave_entrances || []).length}곳 · 숲 입구 ${forestEntranceCount}곳`;
   $("#map-zoom").textContent = `${Math.round(state.mapZoom * 100)}%`;
   $$("[data-hex-q]").forEach((cell) => {
     const select = () => { if (!state.suppressMapClick) handleHexSelection(Number(cell.dataset.hexQ), Number(cell.dataset.hexR)); };
@@ -1019,6 +1029,13 @@ function renderHexMap() {
   }));
   $$("[data-route-cave-entrance]").forEach((marker) => marker.addEventListener("click", (event) => {
     const entrance = (state.worldLayout.cave_entrances || []).find((entry) => entry.id === marker.dataset.routeCaveEntrance);
+    if (!entrance) return;
+    event.preventDefault(); event.stopPropagation();
+    if (state.activeMapTool === "route") handleRoutePoint(entrance.anchor.q, entrance.anchor.r, entrance.id);
+    else selectHex(entrance.anchor.q, entrance.anchor.r);
+  }));
+  $$('[data-route-forest-entrance]').forEach((marker) => marker.addEventListener("click", (event) => {
+    const entrance = (state.worldLayout.objects || []).find((entry) => entry.id === marker.dataset.routeForestEntrance && entry.properties?.destination_forest);
     if (!entrance) return;
     event.preventDefault(); event.stopPropagation();
     if (state.activeMapTool === "route") handleRoutePoint(entrance.anchor.q, entrance.anchor.r, entrance.id);
@@ -1080,6 +1097,7 @@ function handleHexSelection(q, r) {
   else if (tool === "route") handleRoutePoint(q, r);
   else if (tool === "settlement") placeSettlementWithTool(q, r);
   else if (tool === "cave") placeCaveEntranceWithTool(q, r);
+  else if (tool === "forest") placeForestEntranceWithTool(q, r);
   else if (tool === "object") placeObjectWithTool(q, r);
   else if (tool === "eraser") eraseMapArea(q, r);
   else selectHex(q, r);
@@ -1185,6 +1203,7 @@ function placeCaveEntranceWithTool(q, r) {
     structure: $("#cave-tool-structure").value.trim(),
     structure_variants: {
       high_forest: $("#cave-tool-structure-plains").value.trim(),
+      dense_forest: $("#cave-tool-structure-plains").value.trim(),
       desert: $("#cave-tool-structure-red-rock").value.trim(),
       ocean: $("#cave-tool-structure-ocean").value.trim(),
       deep_ocean: $("#cave-tool-structure-ocean").value.trim(),
@@ -1195,6 +1214,42 @@ function placeCaveEntranceWithTool(q, r) {
     pokemon_center: { structure: $("#cave-tool-center-structure").value.trim(), offset: { q: Number($("#cave-tool-center-q").value || 0), r: Number($("#cave-tool-center-r").value || 0) } }
   });
   state.selectedHex = { q, r }; markWorldDirty(); refreshCaveToolEntrances(); renderWorldLayout(); toast("동굴 입구와 필수 포켓몬센터를 배치했습니다. 길 도구로 입구까지 연결해 주세요.");
+}
+function forestToolEntranceOptions() {
+  const forestId = $("#forest-tool-forest").value;
+  const forest = forestSummary(forestId);
+  const placed = new Set((state.worldLayout?.objects || []).filter((item) => item.properties?.destination_forest === forestId).map((item) => item.properties.destination_entrance));
+  return (forest?.entrances || []).map((entry) => `<option value="${escapeHtml(entry.id)}" ${placed.has(entry.id) ? "disabled" : ""}>${escapeHtml(entry.display_name || entry.id)}${placed.has(entry.id) ? " · 배치됨" : ""}</option>`).join("");
+}
+function refreshForestToolEntrances() { $("#forest-tool-entrance").innerHTML = forestToolEntranceOptions(); }
+const forestFacingOffsets = { east: { q: 1, r: 0 }, west: { q: -1, r: 0 }, north_east: { q: 1, r: -1 }, south_east: { q: 0, r: 1 }, south_west: { q: -1, r: 1 }, north_west: { q: 0, r: -1 } };
+function forestGateFacing(direction) { return ({ east: "east", west: "west", north_east: "north", north_west: "north", south_east: "south", south_west: "south" })[direction] || "east"; }
+function forestGateRotation(direction) { return ({ north_east: 0, north_west: 0, east: 1, south_east: 2, south_west: 2, west: 3 })[direction] ?? 1; }
+function placeForestEntranceWithTool(q, r) {
+  const forestId = $("#forest-tool-forest").value; const entranceId = $("#forest-tool-entrance").value;
+  const resource = $("#forest-tool-structure").value.trim(); const direction = $("#forest-tool-facing").value;
+  if (!forestId || !entranceId) { toast("배치할 숲과 미배치 내부 입구를 선택해 주세요."); return; }
+  if (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("ForestGate NBT 리소스를 선택해 주세요."); return; }
+  if (settlementAt(q, r) || caveEntranceAt(q, r) || (state.worldLayout.objects || []).some((node) => node.anchor?.q === q && node.anchor?.r === r)) { toast("이미 마을, 동굴 입구 또는 오브젝트가 배치된 타일입니다."); return; }
+  if ((state.worldLayout.objects || []).some((entry) => entry.properties?.destination_forest === forestId && entry.properties?.destination_entrance === entranceId)) { toast("같은 숲 내부 입구가 이미 배치되어 있습니다."); return; }
+  const slug = `${forestId.split("/").pop()}_${entranceId}`.replace(/[^a-z0-9_.-]+/g, "_");
+  const object = {
+    id: `forest_entrance_${slug}`, type: "gate", anchor: { q, r }, resource, rotation: forestGateRotation(direction),
+    properties: {
+      facing: forestGateFacing(direction), gate_mode: "classic", building_enabled: true, surrounding_type: "trees",
+      wall_block: "minecraft:mossy_stone_bricks", tree_log: "minecraft:spruce_log", tree_leaves: "minecraft:spruce_leaves",
+      wall_thickness: 7, wall_height: 14, opening_width: 7, barrier_height: 32,
+      condition_mode: "all", conditions: [], deny_message: "숲관문을 통해 숲으로 들어가세요.",
+      destination_forest: forestId, destination_entrance: entranceId
+    }
+  };
+  state.worldLayout.objects.push(object);
+  const offset = forestFacingOffsets[direction] || forestFacingOffsets.east; const dense = { q: q + offset.q, r: r + offset.r };
+  if (!settlementFootprintAt(dense.q, dense.r) && !routesAt(dense.q, dense.r).length) {
+    state.worldLayout.tiles = state.worldLayout.tiles.filter((tile) => tile.q !== dense.q || tile.r !== dense.r);
+    setEmptyTerrainTile(dense.q, dense.r, "dense_forest");
+  }
+  state.selectedHex = { q, r }; markWorldDirty(); refreshForestToolEntrances(); renderWorldLayout(); toast("ForestGate와 관문 뒤 우거진 숲을 배치했습니다. 길 도구로 관문까지 연결해 주세요.");
 }
 function parseGateConditions(source) {
   return String(source || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line, index) => {
@@ -1267,6 +1322,9 @@ function renderWorldObjectNbtOptions() {
     .map((resource) => `<option value="${escapeHtml(resource)}"></option>`).join("");
   $("#cave-entrance-nbt-options").innerHTML = Object.keys(state.structureSizes || {}).sort()
     .filter((resource) => resource.startsWith("cobbleventure:cave_entrance/"))
+    .map((resource) => `<option value="${escapeHtml(resource)}"></option>`).join("");
+  $("#forest-entrance-nbt-options").innerHTML = Object.keys(state.structureSizes || {}).sort()
+    .filter((resource) => resource.startsWith("cobbleventure:forest_entrance/"))
     .map((resource) => `<option value="${escapeHtml(resource)}"></option>`).join("");
 }
 
@@ -1601,6 +1659,7 @@ const mapToolCopy = {
   route: ["길 만들기", "마을 자동 연결 또는 타일 경유 경로를 만듭니다."],
   settlement: ["마을 배치", "프리셋 마을을 배치하거나 이동합니다."],
   cave: ["동굴 입구 배치", "동굴 내부 앵커와 연결되는 입구와 필수 포켓몬센터를 배치합니다."],
+  forest: ["숲 입구 배치", "ForestGate 건물과 관문 뒤 우거진 숲을 함께 배치합니다."],
   object: ["오브젝트 배치", "확장 가능한 커스텀 오브젝트를 배치합니다."],
   eraser: ["지우개", "선택한 월드 레이어를 제거합니다."]
 };
@@ -1621,7 +1680,11 @@ function renderMapToolOptions() {
   $("#cave-tool-cave").innerHTML = state.caves.filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
   if (currentCave && state.caves.some((item) => item.id === currentCave)) $("#cave-tool-cave").value = currentCave;
   refreshCaveToolEntrances();
-  const help = { select: "선택 도구 · 드래그: 지도/마을 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", level: "평균 레벨 브러시 · 레벨링 오버레이에 표시", route: "길 도구 · 마을/동굴 입구까지 자동 연결", settlement: "마을 도구 · 타일을 눌러 배치 또는 이동", cave: "동굴 입구 도구 · 입구와 포켓몬센터를 함께 배치", object: "오브젝트 도구 · 독립 레이어에 배치", eraser: "지우개 · 선택 레이어 제거" };
+  const currentForest = $("#forest-tool-forest").value;
+  $("#forest-tool-forest").innerHTML = state.forests.filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
+  if (currentForest && state.forests.some((item) => item.id === currentForest)) $("#forest-tool-forest").value = currentForest;
+  refreshForestToolEntrances();
+  const help = { select: "선택 도구 · 드래그: 지도/마을 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", level: "평균 레벨 브러시 · 레벨링 오버레이에 표시", route: "길 도구 · 마을/동굴/숲 입구까지 자동 연결", settlement: "마을 도구 · 타일을 눌러 배치 또는 이동", cave: "동굴 입구 도구 · 입구와 포켓몬센터를 함께 배치", forest: "숲 입구 도구 · ForestGate와 우거진 숲을 함께 배치", object: "오브젝트 도구 · 독립 레이어에 배치", eraser: "지우개 · 선택 레이어 제거" };
   $("#map-interaction-help").textContent = help[tool];
   $("#world-hex-map").dataset.activeTool = tool;
   renderRouteCreator();
@@ -1981,7 +2044,7 @@ async function addGeneration() {
 }
 
 function documentSingular(category) {
-  return category === "trainers" ? "trainer" : category === "battles" ? "battle" : category === "caves" ? "cave" : "settlement";
+  return category === "trainers" ? "trainer" : category === "battles" ? "battle" : category === "caves" ? "cave" : category === "forests" ? "forest" : "settlement";
 }
 
 function renderList(category) {
@@ -2072,6 +2135,7 @@ async function loadDocument(category, path) {
   if (category === "trainers") renderTrainer();
   else if (category === "battles") renderBattlePreset();
   else if (category === "caves") renderCave();
+  else if (category === "forests") renderForest();
   else renderSettlement();
 }
 
@@ -2216,6 +2280,134 @@ function handleCaveEditorClick(event) {
   renderCaveArrayEditors();
   renderCaveManualLayoutEditors();
   renderCaveLayoutPreview();
+}
+
+function forestNumber(form, name, fallback = 0) {
+  const value = Number(form.elements[name].value);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function renderForest() {
+  const document = state.forest; const form = $("#forest-form");
+  if (!document) return;
+  const dimension = document.dimension || {}; const origin = dimension.origin || {}; const bounds = dimension.bounds || {};
+  const environment = { fixed_time: 6000, weather: "clear", ...(document.environment || {}) };
+  const trees = { min_height: 8, max_height: 16, trunk_blocks: ["minecraft:oak_log"], foliage_blocks: ["minecraft:oak_leaves"], barrier_block: "minecraft:barrier", ...(document.tree_barrier || {}) };
+  const undergrowth = { density: .72, blocks: ["minecraft:short_grass", "minecraft:fern"], path_clearance: 2, ...(document.undergrowth || {}) };
+  const generator = { layout: "hybrid", seed_salt: 0, cell_size: 16, maze_complexity: .65, loop_chance: .18, spline_enabled: true, spline_tension: .45, ...(document.generator || {}) };
+  document.paths = (document.paths || []).map((path) => ({ ...path, points: path.points || [], spline: { enabled: true, tension: generator.spline_tension, ...(path.spline || {}) } }));
+  document.terrain_tiles ||= [];
+  delete document.one_way_walls;
+  document.entrances ||= [];
+  $("#forest-editor-title").textContent = document.display_name?.ko_kr || document.id; $("#forest-path").textContent = state.forestPath;
+  setFormValue(form, "id", document.id); setFormValue(form, "nameKo", document.display_name?.ko_kr || ""); setFormValue(form, "nameEn", document.display_name?.en_us || ""); setFormValue(form, "generation", document.generation || 1); setFormValue(form, "enabled", document.enabled !== false);
+  setFormValue(form, "dimensionId", dimension.id || `cobbleventure:generation_${document.generation || 1}`); setFormValue(form, "regionId", dimension.region_id || ""); setFormValue(form, "originY", origin.y ?? 69);
+  setFormValue(form, "boundsMinX", bounds.min_x ?? -256); setFormValue(form, "boundsMinZ", bounds.min_z ?? -256); setFormValue(form, "boundsMaxX", bounds.max_x ?? 256); setFormValue(form, "boundsMaxZ", bounds.max_z ?? 256);
+  setFormValue(form, "fixedTime", environment.fixed_time); setFormValue(form, "weather", environment.weather);
+  setFormValue(form, "treeMinHeight", trees.min_height); setFormValue(form, "treeMaxHeight", trees.max_height); setFormValue(form, "trunkBlocks", trees.trunk_blocks.join(", ")); setFormValue(form, "foliageBlocks", trees.foliage_blocks.join(", ")); setFormValue(form, "barrierBlock", trees.barrier_block);
+  setFormValue(form, "undergrowthDensity", undergrowth.density); setFormValue(form, "undergrowthBlocks", undergrowth.blocks.join(", ")); setFormValue(form, "pathClearance", undergrowth.path_clearance);
+  setFormValue(form, "generatorLayout", generator.layout); setFormValue(form, "seedSalt", generator.seed_salt); setFormValue(form, "cellSize", generator.cell_size); setFormValue(form, "mazeComplexity", generator.maze_complexity); setFormValue(form, "loopChance", generator.loop_chance); setFormValue(form, "splineEnabled", generator.spline_enabled); setFormValue(form, "splineTension", generator.spline_tension);
+  [...form.elements].forEach((element) => { element.disabled = false; }); form.elements.id.disabled = true;
+  ["#delete-forest", "#validate-forest", "#save-forest"].forEach((selector) => { $(selector).disabled = false; });
+  state.forestPreview.selectedPath = Math.min(state.forestPreview.selectedPath, Math.max(0, document.paths.length - 1));
+  renderForestEditors(); renderForestPreview(); showIssues("#forest-issues", { valid: true, issues: [] });
+}
+
+function updateForestFromForm() {
+  if (!state.forest) return false; const form = $("#forest-form"); const document = state.forest;
+  const csv = (name) => form.elements[name].value.split(",").map((value) => value.trim()).filter(Boolean);
+  document.display_name = { ko_kr: form.elements.nameKo.value.trim(), ...(form.elements.nameEn.value.trim() ? { en_us: form.elements.nameEn.value.trim() } : {}) };
+  document.enabled = form.elements.enabled.checked; document.generation = forestNumber(form, "generation", 1);
+  document.dimension = { id: form.elements.dimensionId.value.trim(), region_id: form.elements.regionId.value.trim(), origin: { x: 0, y: forestNumber(form, "originY", 69), z: 0 }, bounds: { min_x: forestNumber(form, "boundsMinX", -256), min_z: forestNumber(form, "boundsMinZ", -256), max_x: forestNumber(form, "boundsMaxX", 256), max_z: forestNumber(form, "boundsMaxZ", 256) } };
+  document.environment = { fixed_time: forestNumber(form, "fixedTime", 6000), weather: form.elements.weather.value };
+  document.tree_barrier = { min_height: forestNumber(form, "treeMinHeight", 8), max_height: forestNumber(form, "treeMaxHeight", 16), trunk_blocks: csv("trunkBlocks"), foliage_blocks: csv("foliageBlocks"), barrier_block: form.elements.barrierBlock.value.trim() };
+  document.undergrowth = { density: forestNumber(form, "undergrowthDensity", .72), blocks: csv("undergrowthBlocks"), path_clearance: forestNumber(form, "pathClearance", 2) };
+  document.generator = { layout: form.elements.generatorLayout.value, seed_salt: forestNumber(form, "seedSalt", 0), cell_size: forestNumber(form, "cellSize", 16), maze_complexity: forestNumber(form, "mazeComplexity", .65), loop_chance: forestNumber(form, "loopChance", .18), spline_enabled: form.elements.splineEnabled.checked, spline_tension: forestNumber(form, "splineTension", .45) };
+  document.paths.forEach((route) => { route.points = route.points.map(snapForestPoint); });
+  document.entrances.forEach((entrance) => { entrance.position = snapForestPoint(entrance.position); });
+  const terrainByPosition = new Map(); document.terrain_tiles.forEach((tile) => { const point = snapForestPoint(tile); terrainByPosition.set(`${point.x},${point.z}`, { ...point, height_offset: tile.height_offset }); }); document.terrain_tiles = [...terrainByPosition.values()];
+  return true;
+}
+
+function renderForestEditors() {
+  if (!state.forest) return;
+  $("#forest-path-list").innerHTML = state.forest.paths.map((path, index) => `<article class="forest-item-card ${index === state.forestPreview.selectedPath ? "is-active" : ""}" data-forest-path-card="${index}"><header><strong>${escapeHtml(path.id)}</strong><button type="button" data-remove-forest-path="${index}">삭제</button></header><div class="forest-item-fields"><label><span>너비</span><input type="number" min="2" max="32" data-forest-path-field="width" value="${Number(path.width || 5)}"></label><label><span>곡선</span><select data-forest-path-field="spline"><option value="true" ${path.spline?.enabled !== false ? "selected" : ""}>사용</option><option value="false" ${path.spline?.enabled === false ? "selected" : ""}>직선</option></select></label><label class="wide"><span>바닥 블록</span><input data-forest-path-field="surface" value="${escapeHtml(path.surface || "minecraft:grass_block")}"></label><label class="wide"><span>타일 앵커</span><input readonly value="${path.points.length}개 · 끝점에서 계속 설치 가능"></label></div></article>`).join("") || '<div class="cave-entry-empty">새 길을 추가하거나 미로 길을 생성하세요.</div>';
+  $("#forest-entrance-list").innerHTML = state.forest.entrances.map((entrance, index) => `<article class="forest-item-card" data-forest-entrance-card="${index}"><header><strong>${escapeHtml(entrance.display_name || entrance.id)}</strong></header><div class="forest-item-fields"><label><span>X</span><input readonly value="${entrance.position.x}"></label><label><span>Z</span><input readonly value="${entrance.position.z}"></label><label class="wide"><span>조작</span><input readonly value="지도 노란 점을 드래그"></label></div></article>`).join("") || '<div class="cave-entry-empty">입출구가 없습니다.</div>';
+  $("#forest-height-list").innerHTML = state.forest.terrain_tiles.map((tile, index) => `<article class="forest-item-card" data-forest-height-card="${index}"><header><strong>${tile.x}, ${tile.z}</strong><button type="button" data-remove-forest-height="${index}">초기화</button></header><div class="forest-item-fields"><label class="wide"><span>타일 높이 보정</span><input type="number" min="-16" max="16" data-forest-height-field="height" value="${tile.height_offset}"></label></div></article>`).join("") || '<div class="cave-entry-empty">모든 타일이 기준 높이입니다.</div>';
+  $$('[data-forest-tool]').forEach((button) => button.classList.toggle("is-active", button.dataset.forestTool === state.forestPreview.tool));
+}
+
+function forestCellSize() { return Math.max(4, Math.min(64, Math.round(Number(state.forest?.generator?.cell_size) || 16))); }
+
+function snapForestPoint(point) {
+  const bounds = state.forest.dimension.bounds, cell = forestCellSize();
+  return {
+    x: Math.max(Math.ceil(bounds.min_x / cell) * cell, Math.min(Math.floor(bounds.max_x / cell) * cell, Math.round(point.x / cell) * cell)),
+    z: Math.max(Math.ceil(bounds.min_z / cell) * cell, Math.min(Math.floor(bounds.max_z / cell) * cell, Math.round(point.z / cell) * cell))
+  };
+}
+
+function forestCanvasTransform() {
+  const canvas = $("#forest-layout-canvas"); const bounds = state.forest.dimension.bounds; const pad = 30;
+  const width = Math.max(1, bounds.max_x - bounds.min_x); const depth = Math.max(1, bounds.max_z - bounds.min_z);
+  return { canvas, x: (value) => pad + (value - bounds.min_x) / width * (canvas.width - pad * 2), y: (value) => pad + (value - bounds.min_z) / depth * (canvas.height - pad * 2), world: (clientX, clientY) => { const rect = canvas.getBoundingClientRect(); return snapForestPoint({ x: bounds.min_x + ((clientX - rect.left) / rect.width * canvas.width - pad) / (canvas.width - pad * 2) * width, z: bounds.min_z + ((clientY - rect.top) / rect.height * canvas.height - pad) / (canvas.height - pad * 2) * depth }); } };
+}
+
+function drawForestPath(context, route, transform, selected) {
+  const points = route.points || []; if (points.length < 2) return;
+  context.save(); context.strokeStyle = selected ? "#e4ed83" : "#a8c85c"; context.lineWidth = Math.max(3, Number(route.width || 5) * 1.25); context.lineCap = "round"; context.lineJoin = "round"; context.beginPath(); context.moveTo(transform.x(points[0].x), transform.y(points[0].z));
+  if (route.spline?.enabled !== false && points.length > 2) {
+    for (let i = 1; i < points.length - 1; i++) { const current = points[i]; const next = points[i + 1]; context.quadraticCurveTo(transform.x(current.x), transform.y(current.z), (transform.x(current.x) + transform.x(next.x)) / 2, (transform.y(current.z) + transform.y(next.z)) / 2); }
+    const last = points[points.length - 1]; context.lineTo(transform.x(last.x), transform.y(last.z));
+  } else points.slice(1).forEach((point) => context.lineTo(transform.x(point.x), transform.y(point.z)));
+  context.stroke(); context.fillStyle = "#fff7a0"; points.forEach((point) => { context.beginPath(); context.arc(transform.x(point.x), transform.y(point.z), selected ? 4 : 2.5, 0, Math.PI * 2); context.fill(); }); context.restore();
+}
+
+function renderForestPreview() {
+  if (!state.forest) return; const transform = forestCanvasTransform(); const context = transform.canvas.getContext("2d"); const generator = state.forest.generator; context.clearRect(0, 0, transform.canvas.width, transform.canvas.height);
+  context.fillStyle = "#315c37"; context.fillRect(0, 0, transform.canvas.width, transform.canvas.height);
+  let random = ((Number(generator.seed_salt) || 0) + state.forestPreview.seedOffset + 1) >>> 0; const rand = () => ((random = (random * 1664525 + 1013904223) >>> 0) / 4294967296);
+  context.fillStyle = "rgba(150,196,91,.38)"; const grassCount = Math.round(250 * (state.forest.undergrowth?.density ?? .7)); for (let i = 0; i < grassCount; i++) { const x = rand() * transform.canvas.width, y = rand() * transform.canvas.height; context.fillRect(x, y, 2, 5); }
+  context.fillStyle = "rgba(20,64,27,.75)"; for (let i = 0; i < 180; i++) { const x = rand() * transform.canvas.width, y = rand() * transform.canvas.height; context.beginPath(); context.arc(x, y, 3 + rand() * 5, 0, Math.PI * 2); context.fill(); }
+  const cell = forestCellSize(); const cellWidth = Math.abs(transform.x(cell) - transform.x(0)), cellHeight = Math.abs(transform.y(cell) - transform.y(0));
+  for (const tile of state.forest.terrain_tiles) { const x = transform.x(tile.x) - cellWidth / 2, y = transform.y(tile.z) - cellHeight / 2; context.fillStyle = tile.height_offset > 0 ? `rgba(137,88,45,${Math.min(.8, .25 + tile.height_offset * .04)})` : `rgba(67,139,191,${Math.min(.8, .25 + Math.abs(tile.height_offset) * .04)})`; context.fillRect(x, y, cellWidth, cellHeight); context.fillStyle = "#fff"; context.font = "bold 10px sans-serif"; context.textAlign = "center"; context.fillText(`${tile.height_offset > 0 ? "+" : ""}${tile.height_offset}`, transform.x(tile.x), transform.y(tile.z) + 3); }
+  context.save(); context.strokeStyle = "rgba(230,245,220,.16)"; context.lineWidth = 1; const bounds = state.forest.dimension.bounds; for (let x = Math.ceil(bounds.min_x / cell) * cell; x <= bounds.max_x; x += cell) { context.beginPath(); context.moveTo(transform.x(x), transform.y(bounds.min_z)); context.lineTo(transform.x(x), transform.y(bounds.max_z)); context.stroke(); } for (let z = Math.ceil(bounds.min_z / cell) * cell; z <= bounds.max_z; z += cell) { context.beginPath(); context.moveTo(transform.x(bounds.min_x), transform.y(z)); context.lineTo(transform.x(bounds.max_x), transform.y(z)); context.stroke(); } context.restore();
+  state.forest.paths.forEach((route, index) => drawForestPath(context, route, transform, index === state.forestPreview.selectedPath));
+  state.forestPreview.hitTargets = [];
+  state.forest.paths.forEach((route, pathIndex) => route.points.forEach((point, pointIndex) => state.forestPreview.hitTargets.push({ kind: "path", pathIndex, pointIndex, x: transform.x(point.x), y: transform.y(point.z) })));
+  state.forest.entrances.forEach((entrance, entranceIndex) => { const x = transform.x(entrance.position.x), y = transform.y(entrance.position.z); context.fillStyle = "#ffd166"; context.strokeStyle = "#473400"; context.lineWidth = 2; context.beginPath(); context.arc(x, y, 8, 0, Math.PI * 2); context.fill(); context.stroke(); context.fillStyle = "#fff5c7"; context.font = "bold 10px sans-serif"; context.textAlign = "left"; context.fillText(entrance.display_name || entrance.id, x + 11, y - 8); state.forestPreview.hitTargets.push({ kind: "entrance", entranceIndex, x, y }); });
+  $("#forest-preview-summary").textContent = `격자 ${cell}블록 · 실제 길 ${state.forest.paths.length}개 · 앵커 ${state.forest.paths.reduce((sum, route) => sum + route.points.length, 0)}개 · 높이 타일 ${state.forest.terrain_tiles.length}개 · 입출구는 드래그 가능`;
+}
+
+function handleForestEditorClick(event) {
+  const tool = event.target.closest("[data-forest-tool]"); if (tool) { state.forestPreview.tool = tool.dataset.forestTool; renderForestEditors(); renderForestPreview(); return; }
+  const addPath = event.target.closest("[data-add-forest-path]"); if (addPath) { const previous = state.forest.paths[state.forestPreview.selectedPath]; const endpoint = previous?.points?.at(-1); const index = state.forest.paths.length; state.forest.paths.push({ id: `path_${index + 1}`, width: 5, surface: "minecraft:grass_block", points: endpoint ? [{ ...endpoint }] : [], spline: { enabled: true, tension: state.forest.generator.spline_tension ?? .45 } }); state.forestPreview.selectedPath = index; state.forestPreview.tool = "path"; renderForestEditors(); renderForestPreview(); return; }
+  const removePath = event.target.closest("[data-remove-forest-path]"); if (removePath) { state.forest.paths.splice(Number(removePath.dataset.removeForestPath), 1); state.forestPreview.selectedPath = Math.max(0, Math.min(state.forestPreview.selectedPath, state.forest.paths.length - 1)); renderForestEditors(); renderForestPreview(); return; }
+  const removeHeight = event.target.closest("[data-remove-forest-height]"); if (removeHeight) { state.forest.terrain_tiles.splice(Number(removeHeight.dataset.removeForestHeight), 1); renderForestEditors(); renderForestPreview(); return; }
+  const card = event.target.closest("[data-forest-path-card]"); if (card && !event.target.matches("input,select,button")) { state.forestPreview.selectedPath = Number(card.dataset.forestPathCard); renderForestEditors(); renderForestPreview(); }
+}
+
+function handleForestListInput(event) {
+  const pathCard = event.target.closest("[data-forest-path-card]"); if (pathCard) { const route = state.forest.paths[Number(pathCard.dataset.forestPathCard)]; const field = event.target.dataset.forestPathField; if (field === "width") route.width = Number(event.target.value); if (field === "surface") route.surface = event.target.value.trim(); if (field === "spline") route.spline = { enabled: event.target.value === "true", tension: route.spline?.tension ?? .45 }; renderForestPreview(); return; }
+  const heightCard = event.target.closest("[data-forest-height-card]"); if (!heightCard) return; const tile = state.forest.terrain_tiles[Number(heightCard.dataset.forestHeightCard)]; tile.height_offset = Math.max(-16, Math.min(16, Math.round(Number(event.target.value) || 0))); if (!tile.height_offset) state.forest.terrain_tiles.splice(Number(heightCard.dataset.forestHeightCard), 1); renderForestEditors(); renderForestPreview();
+}
+
+function adjustForestTileHeight(point, tool = state.forestPreview.tool) {
+  const index = state.forest.terrain_tiles.findIndex((tile) => tile.x === point.x && tile.z === point.z); const current = index >= 0 ? state.forest.terrain_tiles[index].height_offset : 0;
+  const next = tool === "height-up" ? Math.min(16, current + 1) : tool === "height-down" ? Math.max(-16, current - 1) : 0;
+  if (!next && index >= 0) state.forest.terrain_tiles.splice(index, 1); else if (index >= 0) state.forest.terrain_tiles[index].height_offset = next; else if (next) state.forest.terrain_tiles.push({ x: point.x, z: point.z, height_offset: next });
+}
+
+function generateForestMazePaths() {
+  if (!state.forest) return; updateForestFromForm(); state.forestPreview.seedOffset += 1;
+  const cell = forestCellSize(), bounds = state.forest.dimension.bounds; let random = ((Number(state.forest.generator.seed_salt) || 0) + state.forestPreview.seedOffset) >>> 0; const rand = () => ((random = (Math.imul(random, 1664525) + 1013904223) >>> 0) / 4294967296);
+  const minX = Math.ceil(bounds.min_x / cell), maxX = Math.floor(bounds.max_x / cell), minZ = Math.ceil(bounds.min_z / cell), maxZ = Math.floor(bounds.max_z / cell), capacity = (maxX - minX + 1) * (maxZ - minZ + 1), target = Math.min(capacity, Math.max(16, Math.round(28 + 140 * (state.forest.generator.maze_complexity ?? .65))));
+  const startPoint = snapForestPoint(state.forest.entrances[0]?.position || { x: 0, z: 0 }), start = { x: startPoint.x / cell, z: startPoint.z / cell }, key = (point) => `${point.x},${point.z}`; const visited = new Set([key(start)]), stack = [start], traversal = [{ x: start.x * cell, z: start.z * cell }], carvedEdges = new Set();
+  while (stack.length && visited.size < target) { const current = stack.at(-1); const neighbors = [[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dz]) => ({ x: current.x + dx, z: current.z + dz })).filter((point) => point.x >= minX && point.x <= maxX && point.z >= minZ && point.z <= maxZ && !visited.has(key(point))); if (!neighbors.length) { stack.pop(); if (stack.length) traversal.push({ x: stack.at(-1).x * cell, z: stack.at(-1).z * cell }); continue; } const next = neighbors[Math.floor(rand() * neighbors.length)]; carvedEdges.add([key(current), key(next)].sort().join("|")); visited.add(key(next)); stack.push(next); traversal.push({ x: next.x * cell, z: next.z * cell }); }
+  const preserved = state.forest.paths.filter((route) => !route.id.startsWith("maze_")); const mazePaths = [{ id: "maze_main", width: 5, surface: "minecraft:grass_block", points: traversal, spline: { enabled: false, tension: 0 } }]; let loopIndex = 0; const loopChance = Number(state.forest.generator.loop_chance) || 0;
+  for (const value of visited) { const [x,z] = value.split(",").map(Number); for (const next of [{ x: x + 1, z }, { x, z: z + 1 }]) { if (!visited.has(key(next))) continue; const edge = [value, key(next)].sort().join("|"); if (!carvedEdges.has(edge) && rand() < loopChance) mazePaths.push({ id: `maze_loop_${++loopIndex}`, width: 5, surface: "minecraft:grass_block", points: [{ x: x * cell, z: z * cell }, { x: next.x * cell, z: next.z * cell }], spline: { enabled: false, tension: 0 } }); } }
+  for (const [index, entrance] of state.forest.entrances.entries()) { const point = snapForestPoint(entrance.position); if (!visited.has(key({ x: point.x / cell, z: point.z / cell }))) { const nearest = [...visited].map((value) => value.split(",").map(Number)).sort((a,b) => Math.abs(a[0] - point.x / cell) + Math.abs(a[1] - point.z / cell) - Math.abs(b[0] - point.x / cell) - Math.abs(b[1] - point.z / cell))[0]; mazePaths.push({ id: `maze_entrance_${index + 1}`, width: 5, surface: "minecraft:grass_block", points: [point, { x: nearest[0] * cell, z: nearest[1] * cell }], spline: { enabled: false, tension: 0 } }); } }
+  state.forest.paths = [...preserved, ...mazePaths]; state.forestPreview.selectedPath = preserved.length; state.forestPreview.tool = "path"; renderForestEditors(); renderForestPreview(); toast(`실제 미로 길 ${mazePaths.length}개를 생성했습니다.`);
 }
 
 function cavePreviewRandom(seed) {
@@ -8092,8 +8284,9 @@ async function validateDocument(category) {
     updateSettlementFromForm();
   }
   if (category === "caves" && (!$("#cave-form").reportValidity() || !updateCaveFromForm())) return false;
+  if (category === "forests" && (!$("#forest-form").reportValidity() || !updateForestFromForm())) return false;
   if (category === "battles" && !updateBattlePresetFromForm()) return false;
-  const document = category === "caves" ? state.cave : parseEditor(`#${singular}-json`);
+  const document = category === "caves" ? state.cave : category === "forests" ? state.forest : parseEditor(`#${singular}-json`);
   if (!document) return false;
   const result = await request(`/api/document-validation?category=${category}`, { method: "POST", body: JSON.stringify(document) });
   if (result.ok && category === "trainers" && state.battlePreset) {
@@ -8118,8 +8311,11 @@ async function saveDocument(category) {
   if (category === "caves") {
     if (!$("#cave-form").reportValidity() || !updateCaveFromForm()) { toast("입력값을 확인해 주세요."); return; }
   }
+  if (category === "forests") {
+    if (!$("#forest-form").reportValidity() || !updateForestFromForm()) { toast("입력값을 확인해 주세요."); return; }
+  }
   if (category === "battles" && !updateBattlePresetFromForm()) return;
-  const document = category === "caves" ? state.cave : parseEditor(`#${singular}-json`);
+  const document = category === "caves" ? state.cave : category === "forests" ? state.forest : parseEditor(`#${singular}-json`);
   if (!document) return;
   const saveButton = $(`#save-${singular}`);
   const originalLabel = saveButton.textContent;
@@ -8153,6 +8349,7 @@ async function saveDocument(category) {
   await Promise.all([loadDashboard(), loadLists()]);
   if (category === "settlements") renderSettlement();
   else if (category === "caves") renderCave();
+  else if (category === "forests") renderForest();
   else if (category === "battles") renderBattlePreset();
   else renderTrainer();
 }
@@ -8162,7 +8359,7 @@ function openCreateDialog(category) {
   form.reset();
   form.elements.category.value = category;
   form.elements.generation.value = ["trainers", "battles"].includes(category) ? "generation_1" : `generation_${state.selectedGeneration}`;
-  $("#create-title").textContent = category === "trainers" ? "새 NPC" : category === "battles" ? "새 배틀 프리셋" : category === "caves" ? "새 동굴" : "새 마을";
+  $("#create-title").textContent = category === "trainers" ? "새 NPC" : category === "battles" ? "새 배틀 프리셋" : category === "caves" ? "새 동굴" : category === "forests" ? "새 숲" : "새 마을";
   $("#generation-field").hidden = ["trainers", "battles"].includes(category);
   $("#battle-reference-field").hidden = category !== "battles";
   if (category === "battles") {
@@ -8195,7 +8392,7 @@ async function createDocument(event) {
     await Promise.all([loadDashboard(), loadLists()]);
     switchPage(payload.category);
     await loadDocument(payload.category, result.data.path);
-    toast(payload.category === "trainers" ? "새 NPC를 만들었습니다." : payload.category === "battles" ? "새 배틀 프리셋을 만들었습니다." : payload.category === "caves" ? "새 동굴을 만들었습니다." : "새 마을을 만들었습니다.");
+    toast(payload.category === "trainers" ? "새 NPC를 만들었습니다." : payload.category === "battles" ? "새 배틀 프리셋을 만들었습니다." : payload.category === "caves" ? "새 동굴을 만들었습니다." : payload.category === "forests" ? "새 숲을 만들었습니다." : "새 마을을 만들었습니다.");
   } finally {
     $("#create-submit").disabled = false;
   }
@@ -8206,7 +8403,7 @@ async function deleteManagedDocument(category) {
   const document = category === "battles" ? state.battlePreset : state[singular];
   const path = category === "battles" ? state.battlePath : state[`${singular}Path`];
   if (!document || !path) return;
-  const labels = { trainers: "NPC", battles: "배틀 프리셋", caves: "동굴" };
+  const labels = { trainers: "NPC", battles: "배틀 프리셋", caves: "동굴", forests: "숲" };
   const label = labels[category];
   const name = document.name?.ko_kr || document.display_name?.ko_kr || document.id;
   if (!confirm(`'${name}' ${label} 파일을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
@@ -9046,6 +9243,7 @@ function renderStructureBuilder() {
   $("#structure-builder-world-path").textContent = data.world_path || "인스턴스 경로를 저장해 주세요.";
   $("#structure-builder-status").textContent = !data.instance_path ? "경로 설정 필요" : data.world_exists ? "가져오기 준비" : "월드 실행 필요";
   $("#import-structure-builder").disabled = !data.world_exists || Number(data.export_count || 0) === 0;
+  $("#sync-structure-builder").disabled = !data.instance_exists;
 }
 
 async function loadStructureBuilder() {
@@ -9120,6 +9318,30 @@ async function importStructureBuilder() {
       $("#project-loading-detail").textContent = "프로젝트 정보 확인 중…";
     }, 250);
     toast(completed ? "게임 NBT를 완전히 가져왔습니다." : "NBT 가져오기 결과를 확인해 주세요.");
+  }
+}
+
+async function syncStructureBuilder() {
+  if (!confirm("Minecraft 게임을 완전히 종료했나요? 기존 건축 월드는 백업한 뒤 새 월드로 교체됩니다.")) return;
+  const buttons = $$("#builds button");
+  buttons.forEach((button) => button.disabled = true);
+  $("#build-state").textContent = "건축 월드 생성 중";
+  $("#build-output").textContent = "최신 NBT로 건축 월드를 생성하고 인스턴스에 교체하고 있습니다…";
+  try {
+    const result = await request("/api/structure-builder/sync", {
+      method: "POST", body: "{}"
+    });
+    $("#build-output").textContent = result.data.output || result.data.error || "결과가 없습니다.";
+    $("#build-state").textContent = result.ok ? "성공" : "실패";
+    if (!result.ok) throw new Error(result.data.error || "건축 월드 갱신에 실패했습니다.");
+    toast("건축 월드를 교체했습니다. 이제 게임을 실행하면 됩니다.");
+  } catch (error) {
+    $("#build-state").textContent = "실패";
+    toast(error.message || "건축 월드 갱신에 실패했습니다.");
+  } finally {
+    await loadStructureBuilder().catch((error) => toast(error.message));
+    buttons.forEach((button) => button.disabled = false);
+    renderStructureBuilder();
   }
 }
 
@@ -9400,6 +9622,7 @@ $("#project-cancel").addEventListener("click", () => $("#project-dialog").close(
 $("#save-structure-builder-settings").addEventListener("click", saveStructureBuilderSettings);
 $("#refresh-structure-builder").addEventListener("click", () => loadStructureBuilder().catch((error) => toast(error.message)));
 $("#build-structure-builder").addEventListener("click", async () => { await runBuild("builder-world"); await loadStructureBuilder().catch((error) => toast(error.message)); });
+$("#sync-structure-builder").addEventListener("click", syncStructureBuilder);
 $("#import-structure-builder").addEventListener("click", importStructureBuilder);
 $("#add-game-item").addEventListener("click", () => addGameDefinition("item"));
 $("#add-game-variable").addEventListener("click", () => addGameDefinition("variable"));
@@ -9592,6 +9815,26 @@ $("[data-delete-selected-cave-anchor]").addEventListener("click", deleteSelected
 $("[data-delete-selected-cave-entrance]").addEventListener("click", deleteSelectedCaveEntrance);
 $("[data-delete-selected-cave-path]").addEventListener("click", deleteSelectedCavePath);
 window.addEventListener("keydown", (event) => { if (event.key === "Escape" && state.cavePreview.tool !== "select") setCavePreviewTool("select"); });
+$("#validate-forest").addEventListener("click", () => validateDocument("forests"));
+$("#save-forest").addEventListener("click", () => saveDocument("forests"));
+$("#delete-forest").addEventListener("click", () => deleteManagedDocument("forests"));
+$("#forest-form").addEventListener("input", (event) => { if (event.target.closest(".forest-item-list")) return; updateForestFromForm(); renderForestPreview(); });
+$("#forest-form").addEventListener("change", (event) => { if (event.target.closest(".forest-item-list")) return; updateForestFromForm(); renderForestPreview(); });
+$("#forest-form").addEventListener("click", handleForestEditorClick);
+$("#forest-path-list").addEventListener("input", handleForestListInput);
+$("#forest-path-list").addEventListener("change", handleForestListInput);
+$("#forest-height-list").addEventListener("input", handleForestListInput);
+$("#forest-height-list").addEventListener("change", handleForestListInput);
+$("#forest-layout-canvas").addEventListener("pointerdown", (event) => {
+  if (!state.forest) return; const canvas = event.currentTarget, rect = canvas.getBoundingClientRect(), x = (event.clientX - rect.left) * canvas.width / rect.width, y = (event.clientY - rect.top) * canvas.height / rect.height;
+  const target = state.forestPreview.hitTargets.map((item) => ({ ...item, distance: Math.hypot(item.x - x, item.y - y) })).sort((a,b) => a.distance - b.distance)[0];
+  if (target?.distance <= 12) { state.forestPreview.drag = { target, suppressClick: true }; if (target.kind === "path") state.forestPreview.selectedPath = target.pathIndex; canvas.setPointerCapture(event.pointerId); canvas.classList.add("is-dragging"); renderForestEditors(); return; }
+  if (state.forestPreview.tool.startsWith("height-")) { const point = forestCanvasTransform().world(event.clientX, event.clientY); adjustForestTileHeight(point); state.forestPreview.drag = { target: { kind: "height" }, last: `${point.x},${point.z}`, suppressClick: true }; canvas.setPointerCapture(event.pointerId); renderForestEditors(); renderForestPreview(); }
+});
+$("#forest-layout-canvas").addEventListener("pointermove", (event) => { const drag = state.forestPreview.drag; if (!drag || !state.forest) return; const point = forestCanvasTransform().world(event.clientX, event.clientY); if (drag.target.kind === "path") state.forest.paths[drag.target.pathIndex].points[drag.target.pointIndex] = point; else if (drag.target.kind === "entrance") state.forest.entrances[drag.target.entranceIndex].position = point; else if (drag.target.kind === "height" && drag.last !== `${point.x},${point.z}`) { adjustForestTileHeight(point); drag.last = `${point.x},${point.z}`; } renderForestPreview(); });
+for (const eventName of ["pointerup", "pointercancel"]) $("#forest-layout-canvas").addEventListener(eventName, (event) => { if (!state.forestPreview.drag) return; state.forestPreview.suppressClick = Boolean(state.forestPreview.drag.suppressClick); state.forestPreview.drag = null; event.currentTarget.classList.remove("is-dragging"); renderForestEditors(); renderForestPreview(); setTimeout(() => { state.forestPreview.suppressClick = false; }, 0); });
+$("#forest-layout-canvas").addEventListener("click", (event) => { if (state.forestPreview.suppressClick || state.forestPreview.tool !== "path") return; const route = state.forest?.paths[state.forestPreview.selectedPath]; if (!route) { toast("먼저 새 길을 추가하거나 미로 길을 생성하세요."); return; } const point = forestCanvasTransform().world(event.clientX, event.clientY); const last = route.points.at(-1); if (!last || last.x !== point.x || last.z !== point.z) route.points.push(point); renderForestEditors(); renderForestPreview(); });
+$("#regenerate-forest-maze").addEventListener("click", generateForestMazePaths);
 $("#delete-settlement").addEventListener("click", deleteSettlement);
 $("#save-world-layout").addEventListener("click", saveWorldLayout);
 $("#delete-world-layout").addEventListener("click", deleteWorldLayout);
@@ -9669,6 +9912,7 @@ $("#cancel-route").addEventListener("click", cancelRouteConnection);
 $("#undo-route-anchor").addEventListener("click", undoRouteAnchor);
 $$('[data-map-tool]').forEach((button) => button.addEventListener("click", () => setActiveMapTool(button.dataset.mapTool)));
 $("#cave-tool-cave").addEventListener("change", refreshCaveToolEntrances);
+$("#forest-tool-forest").addEventListener("change", refreshForestToolEntrances);
 for (const [inputId, outputId] of [["biome-brush-radius", "biome-brush-radius-value"], ["empty-terrain-brush-radius", "empty-terrain-brush-radius-value"], ["climate-brush-radius", "climate-brush-radius-value"], ["level-brush-radius", "level-brush-radius-value"], ["eraser-radius", "eraser-radius-value"]]) {
   $(`#${inputId}`).addEventListener("input", (event) => { $(`#${outputId}`).textContent = event.target.value; renderHexMap(); });
 }
@@ -9693,11 +9937,11 @@ $("#world-hex-map").addEventListener("pointercancel", (event) => { state.dragged
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" && !/INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) { state.spacePanActive = true; state.brushPreview = null; $("#world-hex-map").classList.add("is-space-panning"); renderHexMap(); event.preventDefault(); return; }
   if (/INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.ctrlKey || event.metaKey || event.altKey) return;
-  const tool = ({ v: "select", b: "biome", t: "terrain", c: "climate", l: "level", r: "route", s: "settlement", d: "cave", o: "object", e: "eraser" })[event.key.toLowerCase()];
+  const tool = ({ v: "select", b: "biome", t: "terrain", c: "climate", l: "level", r: "route", s: "settlement", d: "cave", f: "forest", o: "object", e: "eraser" })[event.key.toLowerCase()];
   if (tool) { setActiveMapTool(tool); event.preventDefault(); }
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") { state.spacePanActive = false; $("#world-hex-map").classList.remove("is-space-panning"); } });
-window.addEventListener("resize", () => { resizeWorldMapWorkspace(); renderStructureModel(); renderCaveLayoutPreview(); });
+window.addEventListener("resize", () => { resizeWorldMapWorkspace(); renderStructureModel(); renderCaveLayoutPreview(); renderForestPreview(); });
 $("#settlement-form").addEventListener("input", (event) => { applySpecialBuildingPreset(event); keepHousePaletteGroupSelected(event); updateFacilityFormState(); updateSettlementFromForm(); });
 $("#custom-town-layout").addEventListener("click", (event) => {
   const tool = event.target.closest("[data-custom-town-tool]")?.dataset.customTownTool;

@@ -677,3 +677,73 @@ def build_starter_gym_nbt(theme: str = "rock", village_preset: str = "default") 
     if theme not in GYM_ROOF_BLOCKS:
         raise ValueError(f"지원하지 않는 체육관 테마입니다: {theme}")
     return build_village_hub_nbt(village_preset)
+
+
+def build_forest_gate_nbt() -> bytes:
+    """Build the open, walk-through spruce lodge used as the ForestGate entrance."""
+    width, height, depth = 17, 13, 13
+    center = width // 2
+    blocks: dict[
+        tuple[int, int, int],
+        tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None],
+    ] = {}
+
+    def set_block(
+        x: int, y: int, z: int, name: str,
+        properties: dict[str, str] | None = None,
+    ) -> None:
+        blocks[(x, y, z)] = (name, tuple(sorted((properties or {}).items())), None)
+
+    # A broad mossy path continues uninterrupted through the lodge.
+    for x in range(width):
+        for z in range(depth):
+            floor = "minecraft:mossy_cobblestone" if (x + z) % 5 == 0 else "minecraft:cobblestone"
+            set_block(x, 0, z, floor)
+    for x in range(center - 2, center + 3):
+        for z in range(depth):
+            set_block(x, 0, z, "minecraft:packed_mud" if (x + z) % 3 else "minecraft:moss_block")
+
+    # Solid side rooms frame a five-block-wide open passage from north to south.
+    for x in list(range(1, center - 2)) + list(range(center + 3, width - 1)):
+        for z in range(1, depth - 1):
+            for y in range(1, 6):
+                boundary = x in {1, center - 3, center + 3, width - 2} or z in {1, depth - 2}
+                if boundary:
+                    set_block(x, y, z, "minecraft:spruce_planks")
+    for x in (1, center - 3, center + 3, width - 2):
+        for z in (1, depth - 2):
+            for y in range(1, 8):
+                set_block(x, y, z, "minecraft:stripped_spruce_log", {"axis": "y"})
+
+    # Repeated timber arches make the intended route through the building obvious.
+    for z in (1, depth // 2, depth - 2):
+        for x in (center - 3, center + 3):
+            for y in range(1, 8):
+                set_block(x, y, z, "minecraft:stripped_spruce_log", {"axis": "y"})
+        for x in range(center - 3, center + 4):
+            set_block(x, 7, z, "minecraft:stripped_spruce_log", {"axis": "x"})
+        set_block(center - 2, 6, z, "minecraft:spruce_stairs", {"facing": "west", "half": "bottom", "shape": "straight", "waterlogged": "false"})
+        set_block(center + 2, 6, z, "minecraft:spruce_stairs", {"facing": "east", "half": "bottom", "shape": "straight", "waterlogged": "false"})
+        set_block(center, 6, z, "minecraft:lantern", {"hanging": "true", "waterlogged": "false"})
+
+    # Steep spruce roof and stone footings fit the dense old-growth spruce border.
+    for layer in range(6):
+        y = 7 + layer
+        left, right = layer, width - 1 - layer
+        for z in range(depth):
+            set_block(left, y, z, "minecraft:spruce_stairs", {"facing": "east", "half": "bottom", "shape": "straight", "waterlogged": "false"})
+            set_block(right, y, z, "minecraft:spruce_stairs", {"facing": "west", "half": "bottom", "shape": "straight", "waterlogged": "false"})
+    for z in range(depth):
+        set_block(center, height - 1, z, "minecraft:spruce_slab", {"type": "top", "waterlogged": "false"})
+    for x in range(width):
+        for z in (0, depth - 1):
+            if abs(x - center) > 2:
+                set_block(x, 1, z, "minecraft:mossy_stone_bricks")
+
+    # Fern planters soften both facades without obstructing the central route.
+    for z in (0, depth - 1):
+        for x in (2, 4, width - 5, width - 3):
+            set_block(x, 1, z, "minecraft:moss_block")
+            set_block(x, 2, z, "minecraft:fern")
+
+    return _build_structure_nbt((width, height, depth), blocks)

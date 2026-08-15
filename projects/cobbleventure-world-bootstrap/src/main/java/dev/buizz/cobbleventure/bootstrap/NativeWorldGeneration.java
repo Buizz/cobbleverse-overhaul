@@ -406,7 +406,29 @@ final class NativeWorldGeneration {
             if (CobbleventureBootstrap.isEmptyOceanType(type) && !column.rocky()) {
                 int seagrassChance = type.equals("deep_ocean") ? 10 : 22;
                 if (chance < seagrassChance) decoration = Blocks.SEAGRASS.defaultBlockState();
-            } else if (type.equals("high_forest") && !column.rocky()) {
+            } else if ((type.equals("high_forest") || type.equals("dense_forest"))
+                && !column.rocky()) {
+                if (type.equals("dense_forest")) {
+                    if (chance < 30) decoration = Blocks.FERN.defaultBlockState();
+                    else if (chance < 52) decoration = Blocks.SHORT_GRASS.defaultBlockState();
+                    else if (chance < 58) decoration = Blocks.BROWN_MUSHROOM.defaultBlockState();
+                    if (chance >= 62 && chance < 90) {
+                        setBlock(
+                            chunk, position, oceanFloor, worldSurface,
+                            localX, column.groundY(), localZ,
+                            chance % 3 == 0
+                                ? Blocks.MOSS_BLOCK.defaultBlockState()
+                                : Blocks.PODZOL.defaultBlockState()
+                        );
+                    }
+                    if (decoration != null && column.waterTopY() <= column.groundY()) {
+                        setBlock(
+                            chunk, position, oceanFloor, worldSurface,
+                            localX, column.groundY() + 1, localZ, decoration
+                        );
+                    }
+                    return;
+                }
                 if (chance < 18) decoration = Blocks.FERN.defaultBlockState();
                 else if (chance < 36) decoration = Blocks.SHORT_GRASS.defaultBlockState();
                 else if (chance < 39) decoration = Blocks.BROWN_MUSHROOM.defaultBlockState();
@@ -629,11 +651,13 @@ final class NativeWorldGeneration {
         ) {
             for (int anchorX = startX - 3; anchorX <= startX + 18; anchorX++) {
                 for (int anchorZ = startZ - 3; anchorZ <= startZ + 18; anchorZ++) {
+                    boolean denseForestCandidate = Math.floorMod(anchorX, 7) == 0
+                        && Math.floorMod(anchorZ, 7) == 0;
                     boolean snowCandidate = Math.floorMod(anchorX, 12) == 0
                         && Math.floorMod(anchorZ, 12) == 0;
                     boolean desertCandidate = Math.floorMod(anchorX, 13) == 0
                         && Math.floorMod(anchorZ, 13) == 0;
-                    if (!snowCandidate && !desertCandidate) {
+                    if (!denseForestCandidate && !snowCandidate && !desertCandidate) {
                         continue;
                     }
                     if (CobbleventureBootstrap.terrainAt(
@@ -644,7 +668,29 @@ final class NativeWorldGeneration {
                     String type = CobbleventureBootstrap.emptyTerrainAt(
                         world, anchorX + 0.5D, anchorZ + 0.5D
                     );
-                    if (type.equals("snow_mountain") && snowCandidate) {
+                    if (type.equals("dense_forest") && denseForestCandidate) {
+                        if (Math.floorMod((int) coordinateHash(
+                                anchorX, anchorZ, 0x44454E5345535052L
+                            ), 100) < 92) {
+                            CobbleventureBootstrap.NativeTerrainColumn column =
+                                CobbleventureBootstrap.nativeTerrainColumn(
+                                    world, anchorX, anchorZ
+                                );
+                            if (column.waterTopY() > column.groundY()) continue;
+                            int height = 13 + Math.floorMod(
+                                (int) coordinateHash(
+                                    anchorX, anchorZ, 0x4749414E54535052L
+                                ), 8
+                            );
+                            placeSyntheticTree(
+                                chunk, position, oceanFloor, worldSurface,
+                                startX, startZ, anchorX, anchorZ,
+                                column.groundY(), height,
+                                Blocks.SPRUCE_LOG.defaultBlockState(),
+                                Blocks.SPRUCE_LEAVES.defaultBlockState(), 3
+                            );
+                        }
+                    } else if (type.equals("snow_mountain") && snowCandidate) {
                         if (Math.floorMod((int) coordinateHash(
                                 anchorX, anchorZ, 0x534E4F5753505255L
                             ), 100) < 62) {

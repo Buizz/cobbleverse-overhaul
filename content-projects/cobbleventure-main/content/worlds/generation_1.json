@@ -1036,6 +1036,26 @@
         "q": -2,
         "r": 13,
         "type": "ocean"
+      },
+      {
+        "q": -3,
+        "r": 2,
+        "type": "dense_forest"
+      },
+      {
+        "q": -2,
+        "r": 2,
+        "type": "dense_forest"
+      },
+      {
+        "q": -2,
+        "r": 1,
+        "type": "dense_forest"
+      },
+      {
+        "q": -2,
+        "r": 0,
+        "type": "dense_forest"
       }
     ]
   },
@@ -1068,42 +1088,6 @@
       "q": -4,
       "r": 5,
       "biome": "minecraft:plains",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96,
-        "connection_height": 0
-      }
-    },
-    {
-      "q": -3,
-      "r": 2,
-      "biome": "minecraft:dark_forest",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96,
-        "connection_height": 0
-      }
-    },
-    {
-      "q": -2,
-      "r": 1,
-      "biome": "minecraft:dark_forest",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96,
-        "connection_height": 0
-      }
-    },
-    {
-      "q": -2,
-      "r": 0,
-      "biome": "minecraft:dark_forest",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -2023,15 +2007,15 @@
     {
       "id": "route_custom_04",
       "from": "cobbleventure:settlement/route_01_town",
-      "to": "cobbleventure:settlement/crimson_town",
+      "to": "forest_entrance_viridian_forest_south",
       "anchors": [
         {
           "q": -4,
           "r": 4
         },
         {
-          "q": -1,
-          "r": -2
+          "q": -3,
+          "r": 2
         }
       ],
       "cells": [
@@ -2046,15 +2030,33 @@
         {
           "q": -3,
           "r": 2
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "pokemon_spawns": {
+        "inherit_biome": true,
+        "excluded_species": [],
+        "additions": []
+      }
+    },
+    {
+      "id": "route_viridian_forest_north",
+      "from": "forest_entrance_viridian_forest_north",
+      "to": "cobbleventure:settlement/crimson_town",
+      "anchors": [
+        {
+          "q": -1,
+          "r": -1
         },
         {
-          "q": -2,
-          "r": 1
-        },
-        {
-          "q": -2,
-          "r": 0
-        },
+          "q": -1,
+          "r": -2
+        }
+      ],
+      "cells": [
         {
           "q": -1,
           "r": -1
@@ -2599,7 +2601,64 @@
       "from": "cobbleventure:settlement/vermilion_city"
     }
   ],
-  "objects": [],
+  "objects": [
+    {
+      "id": "forest_entrance_viridian_forest_south",
+      "type": "gate",
+      "anchor": {
+        "q": -3,
+        "r": 2
+      },
+      "resource": "cobbleventure:forest_entrance/forest_gate",
+      "rotation": 0,
+      "properties": {
+        "facing": "north",
+        "gate_mode": "classic",
+        "building_enabled": true,
+        "surrounding_type": "trees",
+        "wall_block": "minecraft:mossy_stone_bricks",
+        "tree_log": "minecraft:spruce_log",
+        "tree_leaves": "minecraft:spruce_leaves",
+        "wall_thickness": 7,
+        "wall_height": 14,
+        "opening_width": 7,
+        "barrier_height": 32,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "숲관문을 통해 상록숲으로 들어가세요.",
+        "destination_forest": "cobbleventure:forest/viridian_forest",
+        "destination_entrance": "south"
+      }
+    },
+    {
+      "id": "forest_entrance_viridian_forest_north",
+      "type": "gate",
+      "anchor": {
+        "q": -1,
+        "r": -1
+      },
+      "resource": "cobbleventure:forest_entrance/forest_gate",
+      "rotation": 2,
+      "properties": {
+        "facing": "south",
+        "gate_mode": "classic",
+        "building_enabled": true,
+        "surrounding_type": "trees",
+        "wall_block": "minecraft:mossy_stone_bricks",
+        "tree_log": "minecraft:spruce_log",
+        "tree_leaves": "minecraft:spruce_leaves",
+        "wall_thickness": 7,
+        "wall_height": 14,
+        "opening_width": 7,
+        "barrier_height": 32,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "숲관문을 통해 상록숲으로 들어가세요.",
+        "destination_forest": "cobbleventure:forest/viridian_forest",
+        "destination_entrance": "north"
+      }
+    }
+  ],
   "environment_overrides": [],
   "level_overrides": [
     {

@@ -16,12 +16,110 @@ SOURCE_STRUCTURES = Path("content/structures")
 CATALOG_RESOURCE = Path(
     "data/cobbleventure_builder/structure_builder/catalog.json"
 )
+BUILDER_WORLD_NAME = "Cobbleventure Structure Builder"
+PACKAGED_BUILDER_ROOT = Path("pack/overrides/structure-builder")
 CELL_SIZE = 80
 COLUMNS = 8
 
 
 class StructureBuilderError(RuntimeError):
     pass
+
+
+def _available_backup_path(target: Path) -> Path:
+    base = target.with_name(f"{target.name}.before-builder-sync")
+    if not base.exists():
+        return base
+    index = 2
+    while True:
+        candidate = target.with_name(f"{base.name}-{index}")
+        if not candidate.exists():
+            return candidate
+        index += 1
+
+
+def deploy_builder_world(root: Path, instance: Path) -> dict[str, object]:
+    root = root.resolve()
+    instance = instance.expanduser().resolve()
+    if not instance.is_dir():
+        raise StructureBuilderError(f"CurseForge 인스턴스 폴더가 없습니다: {instance}")
+
+    packaged = root / PACKAGED_BUILDER_ROOT
+    source_world = packaged / "saves" / BUILDER_WORLD_NAME
+    if not source_world.is_dir():
+        raise StructureBuilderError(
+            "생성된 건축 월드가 없습니다. syncBuilderWorld를 먼저 실행해야 합니다: "
+            f"{source_world}"
+        )
+    source_jars = sorted(
+        (packaged / "mods").glob("cobbleventure-structure-builder-*.jar")
+    )
+    if len(source_jars) != 1:
+        raise StructureBuilderError(
+            f"건축 모드 JAR가 정확히 하나여야 합니다: {len(source_jars)}개"
+        )
+
+    saves = instance / "saves"
+    mods = instance / "mods"
+    saves.mkdir(parents=True, exist_ok=True)
+    mods.mkdir(parents=True, exist_ok=True)
+    target_world = saves / BUILDER_WORLD_NAME
+    temporary_world = saves / f".{BUILDER_WORLD_NAME}.builder-sync.tmp"
+    if temporary_world.exists():
+        shutil.rmtree(temporary_world)
+    shutil.copytree(
+        source_world,
+        temporary_world,
+        ignore=shutil.ignore_patterns("session.lock"),
+    )
+
+    source_jar = source_jars[0]
+    target_jar = mods / source_jar.name
+    temporary_jar = mods / f".{source_jar.name}.builder-sync.tmp"
+    temporary_jar.unlink(missing_ok=True)
+    shutil.copy2(source_jar, temporary_jar)
+
+    backup_world: Path | None = None
+    jar_backups: list[tuple[Path, Path]] = []
+    world_installed = False
+    jar_installed = False
+    try:
+        for old_jar in mods.glob("cobbleventure-structure-builder-*.jar"):
+            backup_jar = _available_backup_path(old_jar)
+            os.replace(old_jar, backup_jar)
+            jar_backups.append((old_jar, backup_jar))
+        if target_world.exists():
+            backup_world = _available_backup_path(target_world)
+            os.replace(target_world, backup_world)
+        os.replace(temporary_world, target_world)
+        world_installed = True
+        os.replace(temporary_jar, target_jar)
+        jar_installed = True
+    except OSError as error:
+        if jar_installed:
+            target_jar.unlink(missing_ok=True)
+        if world_installed and target_world.exists():
+            shutil.rmtree(target_world, ignore_errors=True)
+        if backup_world is not None and backup_world.exists():
+            os.replace(backup_world, target_world)
+        for old_jar, backup_jar in reversed(jar_backups):
+            if backup_jar.exists():
+                os.replace(backup_jar, old_jar)
+        shutil.rmtree(temporary_world, ignore_errors=True)
+        temporary_jar.unlink(missing_ok=True)
+        raise StructureBuilderError(
+            "건축 월드와 모드를 교체하지 못했습니다. Minecraft 게임을 "
+            f"완전히 종료한 뒤 다시 시도하세요: {error}"
+        ) from error
+    for _, backup_jar in jar_backups:
+        backup_jar.unlink(missing_ok=True)
+
+    return {
+        "instance": str(instance),
+        "world": str(target_world),
+        "world_backup": str(backup_world) if backup_world is not None else "",
+        "builder_jar": str(target_jar),
+    }
 
 
 def content_project_root(root: Path) -> Path:
@@ -69,13 +167,13 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
                     f"{field} 방향이 올바르지 않습니다: {path} #{index}"
                 )
         if is_npc:
-            label = anchor.get("label", anchor.get("id"))
+            label = anchor.get("id", anchor.get("label"))
             if not isinstance(label, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_]*", label):
                 raise StructureBuilderError(
                     f"NPC 위치 라벨이 올바르지 않습니다: {path} #{index}"
                 )
         if anchor_type in {"door", "arrival"}:
-            label = anchor.get("label", anchor.get("id"))
+            label = anchor.get("id", anchor.get("label"))
             if not isinstance(label, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_]*", label):
                 raise StructureBuilderError(
                     f"문·도착 지점 이름이 올바르지 않습니다: {path} #{index}"
@@ -329,14 +427,22 @@ def main() -> int:
     subcommands.add_parser("generate")
     import_parser = subcommands.add_parser("import")
     import_parser.add_argument("world", type=Path)
+    deploy_parser = subcommands.add_parser("deploy")
+    deploy_parser.add_argument("instance", type=Path)
     arguments = parser.parse_args()
     try:
         if arguments.command == "generate":
             catalog = generate(arguments.root)
             print(f"건축 월드 구조물 카탈로그 생성 완료: {catalog}")
-        else:
+        elif arguments.command == "import":
             changed = import_exports(arguments.root, arguments.world)
             print(f"건축 월드 NBT 가져오기 완료: 변경 {changed}개")
+        else:
+            deployed = deploy_builder_world(arguments.root, arguments.instance)
+            print(f"건축 월드 교체 완료: {deployed['world']}")
+            if deployed["world_backup"]:
+                print(f"기존 월드 백업: {deployed['world_backup']}")
+            print(f"건축 모드 갱신 완료: {deployed['builder_jar']}")
         return 0
     except (OSError, ValueError, StructureBuilderError) as error:
         print(f"[ERROR] {error}", file=sys.stderr)

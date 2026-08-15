@@ -10,8 +10,8 @@
   },
   "anchors": [
     {
-      "id": "entry",
-      "label": "entry",
+      "id": "door",
+      "label": "door",
       "type": "door",
       "position": [
         12,

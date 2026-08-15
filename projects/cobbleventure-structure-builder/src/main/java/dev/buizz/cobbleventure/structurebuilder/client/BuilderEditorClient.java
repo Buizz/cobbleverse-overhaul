@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.buizz.cobbleventure.structurebuilder.BuilderEditorNetwork;
 import dev.buizz.cobbleventure.structurebuilder.StructureBuilderMod;
 import java.util.List;
+import java.util.Locale;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -292,31 +293,68 @@ public final class BuilderEditorClient {
     }
 
     private static final class TravelScreen extends EditorScreen {
+        private static final int PAGE_SIZE = 7;
         private int page;
+        private String query = "";
+        private int filteredCount;
+        private EditBox search;
+
         TravelScreen() { super("공간 이동"); }
+
         @Override protected void init() {
             clearWidgets();
             int x = width / 2 - 150, y = height / 2 - 113;
-            List<BuilderEditorNetwork.Space> spaces = snapshot.spaces();
-            int from = page * 8;
-            for (int i = from; i < Math.min(from + 8, spaces.size()); i++) {
+            search = new EditBox(font, x + 12, y + 34, 276, 20, Component.literal("공간 검색"));
+            search.setMaxLength(80);
+            search.setHint(Component.literal("이름 또는 ID 검색"));
+            search.setValue(query);
+            search.setResponder(value -> {
+                query = value;
+                page = 0;
+                rebuildWidgets();
+            });
+            addRenderableWidget(search);
+
+            List<BuilderEditorNetwork.Space> spaces = filteredSpaces();
+            filteredCount = spaces.size();
+            int maximumPage = Math.max(0, (spaces.size() - 1) / PAGE_SIZE);
+            page = Math.min(page, maximumPage);
+            int from = page * PAGE_SIZE;
+            for (int i = from; i < Math.min(from + PAGE_SIZE, spaces.size()); i++) {
                 BuilderEditorNetwork.Space space = spaces.get(i);
                 String prefix = space.interior() ? "[내부] " : "[외부] ";
                 addRenderableWidget(Button.builder(Component.literal(prefix + space.label()), b -> {
                     BuilderEditorNetwork.teleport(space.key()); onClose();
-                }).bounds(x + 12, y + 35 + (i - from) * 23, 276, 20).build());
+                }).bounds(x + 12, y + 58 + (i - from) * 23, 276, 20).build());
             }
             if (page > 0) addRenderableWidget(Button.builder(Component.literal("← 이전"), b -> { page--; rebuildWidgets(); })
                 .bounds(x + 12, y + 222, 78, 20).build());
-            if (from + 8 < spaces.size()) addRenderableWidget(Button.builder(Component.literal("다음 →"), b -> { page++; rebuildWidgets(); })
+            if (from + PAGE_SIZE < spaces.size()) addRenderableWidget(Button.builder(Component.literal("다음 →"), b -> { page++; rebuildWidgets(); })
                 .bounds(x + 210, y + 222, 78, 20).build());
             addRenderableWidget(Button.builder(Component.literal("닫기"), b -> onClose())
                 .bounds(x + 110, y + 222, 80, 20).build());
+            setInitialFocus(search);
         }
+
+        private List<BuilderEditorNetwork.Space> filteredSpaces() {
+            String needle = query.trim().toLowerCase(Locale.ROOT);
+            if (needle.isEmpty()) return snapshot.spaces();
+            return snapshot.spaces().stream().filter(space ->
+                space.label().toLowerCase(Locale.ROOT).contains(needle)
+                    || space.key().toLowerCase(Locale.ROOT).contains(needle)
+            ).toList();
+        }
+
         @Override public void render(GuiGraphics g, int mx, int my, float tick) {
             int x = width / 2 - 150, y = height / 2 - 113;
             panel(g, x, y, 300, 254);
-            g.drawString(font, title + "  ·  " + snapshot.spaces().size() + "개", x + 12, y + 13, 0xFFFFFFFF, false);
+            String count = query.isBlank()
+                ? snapshot.spaces().size() + "개"
+                : filteredCount + " / " + snapshot.spaces().size() + "개";
+            g.drawString(font, title + "  ·  " + count, x + 12, y + 13, 0xFFFFFFFF, false);
+            if (filteredCount == 0) {
+                g.drawCenteredString(font, "검색 결과가 없습니다.", width / 2, y + 115, 0xFF8797A8);
+            }
             super.render(g, mx, my, tick);
         }
     }

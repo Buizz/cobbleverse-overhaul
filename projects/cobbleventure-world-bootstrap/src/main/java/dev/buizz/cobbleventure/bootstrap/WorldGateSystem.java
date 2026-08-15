@@ -79,7 +79,9 @@ final class WorldGateSystem {
                 optionalString(properties, "condition_mode", "all"),
                 List.copyOf(conditions),
                 optionalString(properties, "deny_message", "아직 이 관문을 통과할 수 없습니다."),
-                nullableString(properties, "npc")
+                nullableString(properties, "npc"),
+                nullableString(properties, "destination_forest"),
+                nullableString(properties, "destination_entrance")
             ));
         }
         return List.copyOf(gates);
@@ -491,7 +493,9 @@ final class WorldGateSystem {
         String conditionMode,
         List<Condition> conditions,
         String denyMessage,
-        String npc
+        String npc,
+        String destinationForest,
+        String destinationEntrance
     ) {
         boolean allows(ServerPlayer player) {
             if (conditions.isEmpty()) {

@@ -305,7 +305,7 @@ final class WorldPlanParser {
 
     private static void requireEmptyTerrain(String type) {
         if (!Set.of(
-            "high_forest", "ocean", "deep_ocean", "desert", "stone_mountain",
+            "high_forest", "dense_forest", "ocean", "deep_ocean", "desert", "stone_mountain",
             "red_rock_mountain", "snow_mountain"
         )
             .contains(type)) {

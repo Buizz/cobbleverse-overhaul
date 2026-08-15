@@ -64,6 +64,10 @@
       "type": "string",
       "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
     },
+    "route_endpoint_id": {
+      "type": "string",
+      "pattern": "^(?:[a-z0-9_.-]+:[a-z0-9_./-]+|[a-z0-9_.-]+)$"
+    },
     "music_track": {
       "type": "string",
       "pattern": "^[a-z0-9_.-]+$"
@@ -147,7 +151,7 @@
       }
     },
     "empty_terrain_type": {
-      "enum": ["high_forest", "ocean", "deep_ocean", "desert", "stone_mountain", "red_rock_mountain", "snow_mountain"]
+      "enum": ["high_forest", "dense_forest", "ocean", "deep_ocean", "desert", "stone_mountain", "red_rock_mountain", "snow_mountain"]
     },
     "empty_terrain_tile": {
       "type": "object",
@@ -252,8 +256,8 @@
       ],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-        "from": { "$ref": "#/$defs/resource_id" },
-        "to": { "$ref": "#/$defs/resource_id" },
+        "from": { "$ref": "#/$defs/route_endpoint_id" },
+        "to": { "$ref": "#/$defs/route_endpoint_id" },
         "route_biome": { "$ref": "#/$defs/resource_id" },
         "width_cells": { "type": "integer", "minimum": 1, "maximum": 3 },
         "pathfinding": { "enum": ["shortest", "organic", "explicit"] },
@@ -379,7 +383,9 @@
           "items": { "$ref": "#/$defs/gate_condition" }
         },
         "deny_message": { "type": "string", "minLength": 1, "maxLength": 256 },
-        "npc": { "$ref": "#/$defs/resource_id" }
+        "npc": { "$ref": "#/$defs/resource_id" },
+        "destination_forest": { "$ref": "#/$defs/resource_id" },
+        "destination_entrance": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }
       },
       "allOf": [{
         "if": {
@@ -456,6 +462,7 @@
           "additionalProperties": false,
           "properties": {
             "high_forest": { "$ref": "#/$defs/resource_id" },
+            "dense_forest": { "$ref": "#/$defs/resource_id" },
             "desert": { "$ref": "#/$defs/resource_id" },
             "ocean": { "$ref": "#/$defs/resource_id" },
             "deep_ocean": { "$ref": "#/$defs/resource_id" },

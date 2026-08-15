@@ -1,6 +1,451 @@
 {
   "$schema": "../schemas/space-connections.schema.json",
   "schema_version": 1,
-  "layouts": {},
-  "annotations": {}
+  "layouts": {
+    "building:cobbleventure:houses/five_story_flat": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:houses/five_story_gable": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:houses/five_story_gambrel": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:houses/five_story_shed": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:houses/one_story_flat": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:houses/one_story_gable": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:houses/one_story_gambrel": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:houses/one_story_shed": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "room_1": [
+          470,
+          90
+        ]
+      }
+    },
+    "building:cobbleventure:houses/two_story_flat": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:houses/two_story_gable": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:houses/two_story_gambrel": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:houses/two_story_shed": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/basic_building_1": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/basic_building_2": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/basic_building_3": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/battle_tower": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/casino": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/daycare": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/fossil_laboratory": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/gym_site": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/hotel": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/laboratory": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/lighthouse": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/mansion": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/player_house": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "room_1": [
+          470,
+          90
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/power_plant": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/radio_tower": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/tm_workshop": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/train_station": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "gym:cobbleventure:gym/pewter": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "main": [
+          470,
+          90
+        ]
+      }
+    },
+    "gym:cobbleventure:gym/cerulean": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "main": [
+          470,
+          90
+        ]
+      }
+    },
+    "gym:cobbleventure:gym/vermilion": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "main": [
+          470,
+          90
+        ]
+      }
+    },
+    "gym:cobbleventure:gym/celadon": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "main": [
+          470,
+          90
+        ]
+      }
+    },
+    "gym:cobbleventure:gym/fuchsia": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "main": [
+          470,
+          90
+        ]
+      }
+    },
+    "gym:cobbleventure:gym/saffron": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "main": [
+          470,
+          90
+        ]
+      }
+    },
+    "gym:cobbleventure:gym/cinnabar": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "main": [
+          470,
+          90
+        ]
+      }
+    },
+    "gym:cobbleventure:gym/viridian": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "main": [
+          470,
+          90
+        ]
+      }
+    }
+  },
+  "annotations": {
+    "building:cobbleventure:houses/five_story_flat": {},
+    "building:cobbleventure:houses/five_story_gable": {},
+    "building:cobbleventure:houses/five_story_gambrel": {},
+    "building:cobbleventure:houses/five_story_shed": {},
+    "building:cobbleventure:houses/one_story_flat": {},
+    "building:cobbleventure:houses/one_story_gable": {},
+    "building:cobbleventure:houses/one_story_gambrel": {},
+    "building:cobbleventure:houses/one_story_shed": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "building:cobbleventure:houses/two_story_flat": {},
+    "building:cobbleventure:houses/two_story_gable": {},
+    "building:cobbleventure:houses/two_story_gambrel": {},
+    "building:cobbleventure:houses/two_story_shed": {},
+    "building:cobbleventure:placeholder/basic_building_1": {},
+    "building:cobbleventure:placeholder/basic_building_2": {},
+    "building:cobbleventure:placeholder/basic_building_3": {},
+    "building:cobbleventure:placeholder/battle_tower": {},
+    "building:cobbleventure:placeholder/casino": {},
+    "building:cobbleventure:placeholder/daycare": {},
+    "building:cobbleventure:placeholder/fossil_laboratory": {},
+    "building:cobbleventure:placeholder/gym_site": {},
+    "building:cobbleventure:placeholder/hotel": {},
+    "building:cobbleventure:placeholder/laboratory": {},
+    "building:cobbleventure:placeholder/lighthouse": {},
+    "building:cobbleventure:placeholder/mansion": {},
+    "building:cobbleventure:placeholder/player_house": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "building:cobbleventure:placeholder/power_plant": {},
+    "building:cobbleventure:placeholder/radio_tower": {},
+    "building:cobbleventure:placeholder/tm_workshop": {},
+    "building:cobbleventure:placeholder/train_station": {},
+    "gym:cobbleventure:gym/pewter": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "gym:cobbleventure:gym/cerulean": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "gym:cobbleventure:gym/vermilion": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "gym:cobbleventure:gym/celadon": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "gym:cobbleventure:gym/fuchsia": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "gym:cobbleventure:gym/saffron": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "gym:cobbleventure:gym/cinnabar": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "gym:cobbleventure:gym/viridian": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    }
+  }
 }

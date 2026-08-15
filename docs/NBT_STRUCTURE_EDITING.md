@@ -77,6 +77,14 @@ build.bat builder-world
 건축한 뒤 `/cobbleventure_builder save all`로 NBT를 내보낸다. 저장소 반영은
 다음 명령을 사용한다.
 
+프로필을 최초 한 번 임포트한 뒤 월드만 다시 만들 때는 Minecraft 게임만 종료하고
+다음 명령을 사용한다. 기존 월드는 자동 백업되며 자체 건축 모드 외의 인스턴스 파일은
+변경하지 않는다.
+
+```bat
+build.bat builder-sync "<CurseForge 인스턴스>"
+```
+
 ```bat
 build.bat builder-import "<CurseForge 인스턴스>\saves\Cobbleventure Structure Builder"
 ```

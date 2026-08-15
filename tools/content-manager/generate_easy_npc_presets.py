@@ -8,9 +8,11 @@ import copy
 import hashlib
 import json
 import os
+import re
 import shutil
 import struct
 import uuid
+import zipfile
 from pathlib import Path
 
 
@@ -23,12 +25,82 @@ CONTENT_ROOT = PROJECT_ROOT / "content" / "source"
 BATTLE_ROOT = PROJECT_ROOT / "content" / "battles"
 GYM_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "gyms.json"
 LEAGUE_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "league-progression.json"
+TRAINER_ROSTER = PROJECT_ROOT / "content" / "catalogs" / "trainer-roster.json"
 RESOURCE_ROOT = ROOT / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources"
 PACK_OVERRIDE = ROOT / "pack" / "overrides" / "development-placeholder"
 INSTANCE_DEFEATED_FLAG = "cobbleventure:runtime/npc_instance_defeated"
 INSTANCE_DEFEATED_OBJECTIVE = "cv_npc_defeated"
 SUPPORTED_LANGUAGES = {"ko_kr", "en_us"}
 EXPORT_LANGUAGE = os.environ.get("COBBLEVENTURE_EXPORT_LANGUAGE", "ko_kr")
+
+
+def encounter_skin_uuid(document: dict, outfit: dict) -> str:
+    appearance = document.get("npc", {}).get("appearance", {})
+    resource = appearance.get("resource")
+    if isinstance(resource, str) and resource:
+        return str(uuid.uuid5(uuid.NAMESPACE_URL, resource + "/easy_npc_skin"))
+    return outfit["adapters"]["easy_npc"]["custom_skin_uuid"]
+
+
+def installed_rct_skin(resource: str) -> bytes | None:
+    match = re.fullmatch(r"rctmod:trainers/(single|group)/([a-z0-9_-]+)", resource)
+    if not match:
+        return None
+    archive_entry = (
+        f"assets/rctmod/textures/trainers/{match.group(1)}/{match.group(2)}.png"
+    )
+    instance_root = Path.home() / "curseforge" / "minecraft" / "Instances"
+    candidates: list[Path] = []
+    override = os.environ.get("COBBLEVERSE_INSTANCE")
+    if override:
+        candidates.append(Path(override) / "resourcepacks" / "COBBLEVERSE RCTmod RP.zip")
+    candidates.extend(sorted(instance_root.glob("*/resourcepacks/COBBLEVERSE RCTmod RP.zip")))
+    for archive_path in candidates:
+        try:
+            with zipfile.ZipFile(archive_path) as archive:
+                data = archive.read(archive_entry)
+        except (OSError, KeyError, zipfile.BadZipFile):
+            continue
+        if len(data) <= 2 * 1024 * 1024 and data.startswith(b"\x89PNG\r\n\x1a\n"):
+            return data
+    return None
+
+
+def local_appearance_skin(resource: str) -> bytes | None:
+    match = re.fullmatch(
+        r"([a-z0-9_.-]+):trainer_skin/([a-z0-9_./-]+)", resource
+    )
+    if not match:
+        return None
+    path = (
+        RESOURCE_ROOT / "assets" / match.group(1) / "textures" / "entity"
+        / "trainer" / f"{match.group(2)}.png"
+    )
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    return data if data.startswith(b"\x89PNG\r\n\x1a\n") else None
+
+
+def prepare_encounter_skin(document: dict, outfit: dict) -> Path | None:
+    appearance = document.get("npc", {}).get("appearance", {})
+    resource = appearance.get("resource")
+    if not isinstance(resource, str) or not resource:
+        return None
+    data = installed_rct_skin(resource) or local_appearance_skin(resource)
+    if data is None:
+        raise ValueError(
+            f"EasyNPC 외형 원본을 찾을 수 없습니다: {document.get('id')} -> {resource}"
+        )
+    adapter = outfit["adapters"]["easy_npc"]
+    target = (
+        PACK_OVERRIDE / "config" / "easy_npc" / "skin" / adapter["skin_model"]
+        / f"{encounter_skin_uuid(document, outfit)}.png"
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    return target
 
 
 def league_entry_npc_id(entry: dict) -> str:
@@ -733,7 +805,10 @@ def encounter_preset_snbt(document: dict, outfit: dict) -> str:
     adapter = outfit["adapters"]["easy_npc"]
     display = localized(document.get("npc", {}).get("display_name")) or localized(document.get("name"))
     preset_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, document["id"] + "/easy_npc_encounter"))
-    variant = "ALEX" if outfit["arm_model"] == "slim" else "STEVE"
+    arm_model = document.get("_easy_npc_arm_model") or document.get("npc", {}).get(
+        "appearance", {}
+    ).get("arm_model") or outfit["arm_model"]
+    variant = "ALEX" if arm_model == "slim" else "STEVE"
     scale = float(adapter["root_scale"])
     custom_name = json.dumps({"text": display}, ensure_ascii=False, separators=(",", ":"))
     if document.get("schema_version") == 4:
@@ -794,7 +869,7 @@ def encounter_preset_snbt(document: dict, outfit: dict) -> str:
     ObjectiveData:{{HasObjectives:1b,ObjectiveDataSet:[{{Type:"LOOK_AT_PLAYER"}},{{Type:"LOOK_AT_RESET"}}]}},
     PersistenceRequired:1b,
     PresetUUID:{uuid_int_array(preset_uuid)},
-    SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(adapter["custom_skin_uuid"])} }},
+    SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid(document, outfit))} }},
     VariantType:"{variant}",
     id:{quote(adapter["entity_type"])}
   }}
@@ -888,6 +963,17 @@ def paired_encounter_documents(documents: list[dict], battle_presets: dict[str, 
     return expanded
 
 
+def roster_characters(catalog: dict) -> dict[str, dict]:
+    characters = list(catalog.get("league_characters", []))
+    for organization in catalog.get("organizations", []):
+        characters.extend(organization.get("grunt_variants", []))
+        characters.extend(organization.get("named_characters", []))
+    return {
+        character["id"]: character for character in characters
+        if isinstance(character, dict) and isinstance(character.get("id"), str)
+    }
+
+
 def generate(
     catalog_path: Path = CATALOG,
     content_root: Path = CONTENT_ROOT,
@@ -895,6 +981,9 @@ def generate(
 ) -> list[Path]:
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
     outfits_by_class = {outfit["trainer_class"]: outfit for outfit in catalog["outfits"]}
+    characters_by_id = roster_characters(
+        json.loads(TRAINER_ROSTER.read_text(encoding="utf-8"))
+    ) if TRAINER_ROSTER.is_file() else {}
     battle_presets = {
         preset["id"]: preset
         for path in sorted(battle_root.rglob("*.json")) if battle_root.is_dir()
@@ -957,6 +1046,15 @@ def generate(
         if outfit is None:
             print(f"EasyNPC 조우 프리셋 생략: {document.get('id', '알 수 없는 NPC')} ({trainer_class} 의상 없음)")
             continue
+        character = characters_by_id.get(document.get("npc", {}).get("character"), {})
+        arm_model = character.get("body", {}).get("arm_model") or character.get(
+            "appearance", {}
+        ).get("arm_model")
+        if arm_model:
+            document["_easy_npc_arm_model"] = arm_model
+        skin_path = prepare_encounter_skin(document, outfit)
+        if skin_path is not None:
+            written.append(skin_path)
         slug = document["id"].rsplit("/", 1)[-1]
         preset = RESOURCE_ROOT / "data" / "easy_npc" / "preset" / "encounter" / f"{slug}.npc.snbt"
         preset.parent.mkdir(parents=True, exist_ok=True)

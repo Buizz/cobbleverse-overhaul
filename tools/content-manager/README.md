@@ -116,7 +116,7 @@ http://127.0.0.1:8765
 - 전체 마을 JSON 고급 편집
 - 허용된 `build.bat` 검사·테스트·패키징 명령 실행과 결과 확인
 - CurseForge 건축 프로필 인스턴스 경로를 로컬 설정에 저장
-- 건축 팩 빌드와 `/cobbleventure_builder save all` 결과의 NBT 자동 가져오기
+- 건축 팩 빌드, 기존 인스턴스의 건축 월드 갱신, `/cobbleventure_builder save all` 결과의 NBT 자동 가져오기
 - 가져오기 성공 후 NBT 뷰어 목록 갱신, 화면 이동과 첫 3D 모델 자동 로드
 - NBT 뷰어를 관리 원본 29개와 포켓몬센터·상점·백화점 3개로 제한
 - NBT 건물 설정 화면에서 NPC 위치 라벨을 3D 마커로 확인하고 전역 NPC 콘텐츠 배정
@@ -125,6 +125,9 @@ http://127.0.0.1:8765
 건축 인스턴스 경로는 Git에 포함되지 않는
 `tools/content-manager/settings.local.json`에 저장된다. 웹 화면의 `빌드 및 검사`에서
 CurseForge 프로필 폴더를 지정한다. 이후 `건축 팩 빌드`는 독립 ZIP을 생성하고,
+`건축 월드 갱신`은 Minecraft가 종료된 상태에서 기존 월드를 백업한 뒤 새 월드와
+자체 건축 모드 JAR만 해당 인스턴스에 설치한다. CurseForge 프로필을 다시 임포트하거나
+다른 모드와 설정을 교체하지 않는다.
 `게임 NBT 자동 가져오기`는 해당 프로필의
 `saves/Cobbleventure Structure Builder/generated` 아래 내보내기만 읽는다. 가져오기는
 전체 관리 파일의 완전성과 크기를 검사하므로 실패할 때 저장소 NBT를 일부만 덮어쓰지 않는다.

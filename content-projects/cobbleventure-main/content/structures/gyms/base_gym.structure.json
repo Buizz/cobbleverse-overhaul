@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/gyms/base_gym.nbt",
+  "anchors": [
+    {
+      "id": "door",
+      "label": "door",
+      "type": "door",
+      "position": [
+        12,
+        3,
+        3
+      ],
+      "safe_spawn": [
+        12,
+        3,
+        2
+      ],
+      "door_facing": "south",
+      "safe_side": "north"
+    }
+  ]
+}

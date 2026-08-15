@@ -97,7 +97,7 @@ def _list_records(payload: bytes) -> tuple[int, list[tuple[dict, bytes]]]:
 
 def add_road_anchor(
     path: Path,
-    position: tuple[int, int, int] = (16, 0, 4),
+    position: tuple[int, int, int] | None = None,
     orientation: str = "north_up",
 ) -> bool:
     source = path.read_bytes()
@@ -107,9 +107,6 @@ def add_road_anchor(
     size = root.get("size")
     if not isinstance(size, list) or len(size) != 3:
         raise ValueError(f"NBT 크기를 읽을 수 없습니다: {path}")
-    if any(coordinate < 0 or coordinate >= limit for coordinate, limit in zip(position, size)):
-        raise ValueError(f"직소 마커가 NBT 범위를 벗어납니다: {path} {position} / {size}")
-
     spans = _minecraft_structure_tag_spans(raw)
     palette_type, palette_start, palette_end = spans["palette"]
     blocks_type, blocks_start, blocks_end = spans["blocks"]
@@ -132,6 +129,19 @@ def add_road_anchor(
 
     blocks_payload = raw[blocks_start:blocks_end]
     _, block_records = _list_records(blocks_payload)
+    authored_anchors = [
+        tuple(block.get("pos", []))
+        for block, _ in block_records
+        if block.get("nbt", {}).get("name") == ANCHOR_NAME
+    ]
+    if position is None:
+        position = (
+            authored_anchors[0]
+            if len(authored_anchors) == 1
+            else (size[0] // 2, 0, min(4, size[2] - 1))
+        )
+    if any(coordinate < 0 or coordinate >= limit for coordinate, limit in zip(position, size)):
+        raise ValueError(f"직소 마커가 NBT 범위를 벗어납니다: {path} {position} / {size}")
     kept_blocks: list[bytes] = []
     existing_anchor = False
     for block, encoded in block_records:
@@ -187,7 +197,9 @@ def main() -> None:
     for path in paths:
         if args.check:
             anchors = road_anchors(path)
-            valid = anchors == [([16, 0, 4], "north_up")]
+            valid = len(anchors) == 1 and anchors[0][1] in {
+                "north_up", "east_up", "south_up", "west_up"
+            }
             print(f"{'OK' if valid else 'ERROR'} {path}: {anchors}")
             failed |= not valid
             continue

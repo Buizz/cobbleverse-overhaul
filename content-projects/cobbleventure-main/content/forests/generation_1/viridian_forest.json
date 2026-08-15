@@ -1,0 +1,111 @@
+{
+  "$schema": "../../schemas/forest.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:forest/viridian_forest",
+  "enabled": true,
+  "display_name": {
+    "ko_kr": "상록숲"
+  },
+  "generation": 1,
+  "dimension": {
+    "id": "cobbleventure:generation_1",
+    "region_id": "generation_1/viridian_forest",
+    "origin": {
+      "x": 0,
+      "y": 69,
+      "z": 0
+    },
+    "bounds": {
+      "min_x": -256,
+      "min_z": -256,
+      "max_x": 256,
+      "max_z": 256
+    }
+  },
+  "environment": {
+    "fixed_time": 6000,
+    "weather": "clear"
+  },
+  "tree_barrier": {
+    "min_height": 12,
+    "max_height": 22,
+    "trunk_blocks": [
+      "minecraft:spruce_log"
+    ],
+    "foliage_blocks": [
+      "minecraft:spruce_leaves"
+    ],
+    "barrier_block": "minecraft:barrier"
+  },
+  "undergrowth": {
+    "density": 0.82,
+    "blocks": [
+      "minecraft:short_grass",
+      "minecraft:fern",
+      "minecraft:tall_grass",
+      "minecraft:brown_mushroom"
+    ],
+    "path_clearance": 2
+  },
+  "generator": {
+    "layout": "hybrid",
+    "seed_salt": 19960101,
+    "cell_size": 16,
+    "maze_complexity": 0.72,
+    "loop_chance": 0.22,
+    "spline_enabled": true,
+    "spline_tension": 0.5
+  },
+  "paths": [
+    {
+      "id": "main",
+      "width": 5,
+      "surface": "minecraft:grass_block",
+      "points": [
+        {
+          "x": 0,
+          "z": 160
+        },
+        {
+          "x": -48,
+          "z": 96
+        },
+        {
+          "x": 32,
+          "z": 16
+        },
+        {
+          "x": -32,
+          "z": -64
+        },
+        {
+          "x": 0,
+          "z": -160
+        }
+      ],
+      "spline": {
+        "enabled": true,
+        "tension": 0.5
+      }
+    }
+  ],
+  "terrain_tiles": [],
+  "entrances": [
+    {
+      "id": "south",
+      "display_name": "상록시티 방향 입구",
+      "position": {
+        "x": 0,
+        "z": 160
+      }
+    },
+    {
+      "id": "north",
+      "display_name": "회색시티 방향 입구",
+      "position": {
+        "x": 0,
+        "z": -160
+      }
+    }
+  ]
+}

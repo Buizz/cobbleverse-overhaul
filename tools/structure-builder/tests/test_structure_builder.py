@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 MODULE_PATH = Path(__file__).parents[1] / "structure_builder.py"
@@ -28,6 +29,85 @@ CONTENT_MANAGER_SPEC.loader.exec_module(content_manager)
 
 
 class StructureBuilderTests(unittest.TestCase):
+    def test_anchor_id_allows_localized_display_label(self) -> None:
+        document = structure_builder._validate_structure_metadata({
+            "schema_version": 1,
+            "anchors": [{
+                "id": "world_side",
+                "label": "월드 방향 입구",
+                "type": "door",
+                "position": [8, 1, 0],
+                "safe_spawn": [8, 1, 1],
+                "door_facing": "north",
+                "safe_side": "south",
+            }],
+        }, Path("localized.structure.json"))
+
+        self.assertEqual("world_side", document["anchors"][0]["id"])
+
+    def test_deploy_replaces_only_builder_world_and_builder_jar(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            instance = Path(directory) / "instance"
+            packaged = root / structure_builder.PACKAGED_BUILDER_ROOT
+            source_world = packaged / "saves" / structure_builder.BUILDER_WORLD_NAME
+            source_world.mkdir(parents=True)
+            (source_world / "level.dat").write_bytes(b"new-world")
+            source_mods = packaged / "mods"
+            source_mods.mkdir(parents=True)
+            (source_mods / "cobbleventure-structure-builder-0.2.0.jar").write_bytes(b"new-jar")
+
+            old_world = instance / "saves" / structure_builder.BUILDER_WORLD_NAME
+            old_world.mkdir(parents=True)
+            (old_world / "level.dat").write_bytes(b"old-world")
+            mods = instance / "mods"
+            mods.mkdir(parents=True)
+            (mods / "cobbleventure-structure-builder-0.1.0.jar").write_bytes(b"old-jar")
+            (mods / "unrelated.jar").write_bytes(b"keep")
+
+            deployed = structure_builder.deploy_builder_world(root, instance)
+
+            self.assertEqual(b"new-world", (old_world / "level.dat").read_bytes())
+            backup = Path(str(deployed["world_backup"]))
+            self.assertEqual(b"old-world", (backup / "level.dat").read_bytes())
+            self.assertEqual(
+                b"new-jar",
+                (mods / "cobbleventure-structure-builder-0.2.0.jar").read_bytes(),
+            )
+            self.assertFalse((mods / "cobbleventure-structure-builder-0.1.0.jar").exists())
+            self.assertEqual(b"keep", (mods / "unrelated.jar").read_bytes())
+
+    def test_deploy_restores_world_and_jar_when_swap_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            instance = Path(directory) / "instance"
+            packaged = root / structure_builder.PACKAGED_BUILDER_ROOT
+            source_world = packaged / "saves" / structure_builder.BUILDER_WORLD_NAME
+            source_world.mkdir(parents=True)
+            (source_world / "level.dat").write_bytes(b"new-world")
+            source_mods = packaged / "mods"
+            source_mods.mkdir(parents=True)
+            (source_mods / "cobbleventure-structure-builder-0.2.0.jar").write_bytes(b"new-jar")
+            old_world = instance / "saves" / structure_builder.BUILDER_WORLD_NAME
+            old_world.mkdir(parents=True)
+            (old_world / "level.dat").write_bytes(b"old-world")
+            old_jar = instance / "mods" / "cobbleventure-structure-builder-0.1.0.jar"
+            old_jar.parent.mkdir(parents=True)
+            old_jar.write_bytes(b"old-jar")
+            real_replace = structure_builder.os.replace
+
+            def failing_replace(source: Path, target: Path) -> None:
+                if Path(source).name == f".{structure_builder.BUILDER_WORLD_NAME}.builder-sync.tmp":
+                    raise PermissionError("world is open")
+                real_replace(source, target)
+
+            with mock.patch.object(structure_builder.os, "replace", side_effect=failing_replace):
+                with self.assertRaises(structure_builder.StructureBuilderError):
+                    structure_builder.deploy_builder_world(root, instance)
+
+            self.assertEqual(b"old-world", (old_world / "level.dat").read_bytes())
+            self.assertEqual(b"old-jar", old_jar.read_bytes())
+
     def test_import_accepts_resized_existing_interior_contract(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "repository"

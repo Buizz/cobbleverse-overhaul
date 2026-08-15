@@ -4,8 +4,8 @@
   "interior_structure": "cobbleventure:interiors/one_story_shed",
   "anchors": [
     {
-      "id": "interior_entry",
-      "label": "interior_entry",
+      "id": "door",
+      "label": "door",
       "type": "door",
       "position": [
         9,

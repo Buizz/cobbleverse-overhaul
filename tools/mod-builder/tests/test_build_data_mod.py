@@ -876,6 +876,26 @@ class DataModBuilderTests(unittest.TestCase):
             )
             self.assertEqual(authored, packaged.read_bytes())
 
+    def test_packages_authored_forest_gate_structure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            source = (
+                root / build_data_mod.FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR
+                / "forest_gate.nbt"
+            )
+            source.parent.mkdir(parents=True, exist_ok=True)
+            authored = gzip.compress(b"\x0a\x00\x00\x00", mtime=0)
+            source.write_bytes(authored)
+
+            build_data_mod.build(root)
+
+            packaged = (
+                root / build_data_mod.OUTPUT
+                / "data/cobbleventure/structure/forest_entrance/forest_gate.nbt"
+            )
+            self.assertEqual(authored, packaged.read_bytes())
+
     def test_packages_replaceable_casino_placeholder_for_casinocraft(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

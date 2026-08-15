@@ -114,29 +114,82 @@ final class GymInteriorSystem {
         }
         Vec3i size = template.orElseThrow().getSize();
         Rotation exteriorRotation = rotation(rotationName);
-        BlockPoint doorOffset = rotatePoint(
-            gym.doorOffset, size.getX(), size.getZ(), exteriorRotation
-        );
-        BlockPoint outsideOffset = rotatePoint(
-            gym.outsideOffset, size.getX(), size.getZ(), exteriorRotation
-        );
+        ServerLevel interiors = level.getServer().getLevel(INTERIORS);
+        if (!gym.connections.isEmpty() && interiors != null) {
+            Map<String, SpaceInstance> spaces = new LinkedHashMap<>();
+            spaces.put("exterior", new SpaceInstance(
+                level, origin, exteriorRotation, gym.exteriorMetadata
+            ));
+            for (InteriorModule module : gym.modules) {
+                spaces.put(module.id, new SpaceInstance(
+                    interiors,
+                    gym.instanceOrigin.offset(module.position.x, module.position.y, module.position.z),
+                    module.rotation,
+                    module.metadata
+                ));
+            }
+            for (GymConnection connection : gym.connections) {
+                registerConnection(gym, spaces, connection);
+            }
+            return;
+        }
+
+        // Legacy settlement offsets remain as a fallback for catalogs without visual connections.
+        BlockPoint doorOffset = rotatePoint(gym.doorOffset, size.getX(), size.getZ(), exteriorRotation);
+        BlockPoint outsideOffset = rotatePoint(gym.outsideOffset, size.getX(), size.getZ(), exteriorRotation);
         BlockPos door = origin.offset(doorOffset.x, doorOffset.y, doorOffset.z);
-        BlockPos destination = gym.instanceOrigin.offset(
-            gym.entryOffset.x, gym.entryOffset.y, gym.entryOffset.z
-        );
+        BlockPos destination = gym.instanceOrigin.offset(gym.entryOffset.x, gym.entryOffset.y, gym.entryOffset.z);
         registerDoor(level, door, new DoorTarget(
             INTERIORS, destination, gym.conditions, gym.conditionMode,
             gym.lockedDialogue, gym.enterDialogue
         ));
-
         BlockPos exitDoor = gym.instanceOrigin.offset(
             gym.exitDoorOffset.x, gym.exitDoorOffset.y, gym.exitDoorOffset.z
         );
-        BlockPos outside = origin.offset(
-            outsideOffset.x, outsideOffset.y, outsideOffset.z
-        );
-        registerDoor(level.getServer().getLevel(INTERIORS), exitDoor, new DoorTarget(
+        BlockPos outside = origin.offset(outsideOffset.x, outsideOffset.y, outsideOffset.z);
+        registerDoor(interiors, exitDoor, new DoorTarget(
             level.dimension(), outside, List.of(), "all", List.of(), List.of()
+        ));
+    }
+
+    private static void registerConnection(
+        GymConfig gym, Map<String, SpaceInstance> spaces, GymConnection connection
+    ) {
+        SpaceInstance sourceSpace = spaces.get(connection.fromSpace);
+        SpaceInstance targetSpace = spaces.get(connection.toSpace);
+        if (sourceSpace == null || targetSpace == null) {
+            LOGGER.warn("Gym connection references an unavailable space: {} -> {}",
+                connection.fromSpace, connection.toSpace);
+            return;
+        }
+        DoorAnchor source = sourceSpace.metadata.doorAnchors.get(connection.fromDoor);
+        DoorAnchor target = targetSpace.metadata.doorAnchors.get(connection.toDoor);
+        if (source == null || target == null) {
+            LOGGER.warn("Gym connection references a missing door: {}:{} -> {}:{}",
+                connection.fromSpace, connection.fromDoor, connection.toSpace, connection.toDoor);
+            return;
+        }
+
+        BlockPos sourceDoor = sourceSpace.position(source.position);
+        BlockPos targetDoor = targetSpace.position(target.position);
+        BlockPos destination = targetSpace.position(target.safeSpawn);
+        BlockPos reverseDestination = sourceSpace.position(source.safeSpawn);
+        AccessPolicy gymAccess = new AccessPolicy(
+            gym.conditionMode, gym.conditions, gym.lockedDialogue, gym.enterDialogue
+        );
+        AccessPolicy open = new AccessPolicy("all", List.of(), List.of(), List.of());
+        AccessPolicy forwardAccess = connection.fromSpace.equals("exterior")
+            ? gymAccess : connection.toSpace.equals("exterior") ? open : connection.access;
+        AccessPolicy reverseAccess = connection.toSpace.equals("exterior") ? gymAccess : open;
+        registerDoor(sourceSpace.level, sourceDoor, new DoorTarget(
+            targetSpace.level.dimension(), destination,
+            forwardAccess.conditions, forwardAccess.conditionMode,
+            forwardAccess.lockedDialogue, forwardAccess.enterDialogue
+        ));
+        registerDoor(targetSpace.level, targetDoor, new DoorTarget(
+            sourceSpace.level.dimension(), reverseDestination,
+            reverseAccess.conditions, reverseAccess.conditionMode,
+            reverseAccess.lockedDialogue, reverseAccess.enterDialogue
         ));
     }
 
@@ -204,6 +257,8 @@ final class GymInteriorSystem {
     private static GymDefinition parseDefinition(MinecraftServer server, JsonObject gym) {
         JsonObject exterior = gym.getAsJsonObject("exterior");
         JsonObject interior = gym.getAsJsonObject("interior");
+        String exteriorStructure = requiredString(exterior, "structure");
+        ModuleMetadata exteriorMetadata = readModuleMetadata(server, exteriorStructure);
         List<InteriorModule> modules = new ArrayList<>();
         Map<String, BlockPoint> npcOffsets = new LinkedHashMap<>();
         for (JsonElement element : interior.getAsJsonArray("modules")) {
@@ -231,7 +286,7 @@ final class GymInteriorSystem {
                 }
             }
             modules.add(new InteriorModule(
-                requiredString(module, "id"), structure, modulePosition, moduleRotation
+                requiredString(module, "id"), structure, modulePosition, moduleRotation, metadata
             ));
         }
         if (modules.isEmpty()) {
@@ -249,12 +304,49 @@ final class GymInteriorSystem {
                 requiredString(trainer, "anchor"), requiredString(trainer, "id")
             );
         }
+        List<GymConnection> connections = parseConnections(interior);
         return new GymDefinition(
             requiredString(gym, "id"), localizedName(gym.getAsJsonObject("display_name")),
-            requiredString(gym, "theme"), requiredString(exterior, "structure"),
+            requiredString(gym, "theme"), exteriorStructure, exteriorMetadata,
             clearVariable(leaderTrainerId), List.copyOf(modules), List.copyOf(staffMembers),
-            accessPolicy(interior)
+            connections, accessPolicy(interior)
         );
+    }
+
+    private static List<GymConnection> parseConnections(JsonObject interior) {
+        List<GymConnection> connections = new ArrayList<>();
+        if (interior == null || !interior.has("connections")) {
+            return List.of();
+        }
+        for (JsonElement element : interior.getAsJsonArray("connections")) {
+            JsonObject connection = element.getAsJsonObject();
+            String[] from = endpoint(requiredString(connection, "from"));
+            String[] to = endpoint(requiredString(connection, "to"));
+            List<Condition> conditions = new ArrayList<>();
+            if (connection.has("conditions")) {
+                for (JsonElement condition : connection.getAsJsonArray("conditions")) {
+                    conditions.add(parseCondition(condition.getAsJsonObject()));
+                }
+            }
+            connections.add(new GymConnection(
+                from[0], from[1], to[0], to[1],
+                new AccessPolicy(
+                    optionalString(connection, "condition_mode", "all"),
+                    List.copyOf(conditions),
+                    strings(connection, "locked_dialogue", List.of("문이 잠겨 있다.")),
+                    strings(connection, "enter_dialogue", List.of())
+                )
+            ));
+        }
+        return List.copyOf(connections);
+    }
+
+    private static String[] endpoint(String value) {
+        int separator = value.indexOf(':');
+        if (separator <= 0 || separator == value.length() - 1) {
+            throw new IllegalStateException("Invalid gym connection endpoint: " + value);
+        }
+        return new String[] {value.substring(0, separator), value.substring(separator + 1)};
     }
 
     private static AccessPolicy accessPolicy(JsonObject interior) {
@@ -332,34 +424,52 @@ final class GymInteriorSystem {
         ResourceLocation metadataId = ResourceLocation.fromNamespaceAndPath(
             structureId.getNamespace(), "structure_metadata/" + structureId.getPath() + ".structure.json"
         );
+        var template = server.getStructureManager().get(structureId);
+        int templateWidth = template.map(value -> value.getSize().getX()).orElse(0);
+        int templateDepth = template.map(value -> value.getSize().getZ()).orElse(0);
         var resource = server.getResourceManager().getResource(metadataId);
         if (resource.isEmpty()) {
-            return new ModuleMetadata(0, 0, Map.of());
+            return new ModuleMetadata(templateWidth, templateDepth, Map.of(), Map.of());
         }
         try (Reader reader = resource.orElseThrow().openAsReader()) {
             JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
             JsonObject interior = root.getAsJsonObject("interior");
-            int width = interior == null ? 0 : interior.get("width").getAsInt();
-            int depth = interior == null ? 0 : interior.get("depth").getAsInt();
+            int width = interior == null ? templateWidth : interior.get("width").getAsInt();
+            int depth = interior == null ? templateDepth : interior.get("depth").getAsInt();
             Map<String, BlockPoint> npcAnchors = new LinkedHashMap<>();
+            Map<String, DoorAnchor> doorAnchors = new LinkedHashMap<>();
             for (JsonElement element : root.getAsJsonArray("anchors")) {
                 JsonObject anchor = element.getAsJsonObject();
-                if (!"npc_position".equals(optionalString(anchor, "type", ""))) {
-                    continue;
-                }
-                String label = requiredString(anchor, "label");
+                String type = optionalString(anchor, "type", "");
+                String label = optionalString(anchor, "id", optionalString(anchor, "label", ""));
+                if (label.isBlank()) continue;
                 JsonArray point = anchor.getAsJsonArray("position");
                 BlockPoint position = new BlockPoint(
                     point.get(0).getAsInt(), point.get(1).getAsInt(), point.get(2).getAsInt()
                 );
-                if (npcAnchors.putIfAbsent(label, position) != null) {
+                if ("npc_position".equals(type) && npcAnchors.putIfAbsent(label, position) != null) {
                     throw new IllegalStateException("Duplicate NPC anchor in gym module: " + label);
                 }
+                if ("door".equals(type)) {
+                    BlockPoint safeSpawn = anchor.has("safe_spawn")
+                        ? arrayPoint(anchor.getAsJsonArray("safe_spawn")) : position;
+                    if (doorAnchors.putIfAbsent(label, new DoorAnchor(position, safeSpawn)) != null) {
+                        throw new IllegalStateException("Duplicate door anchor in gym module: " + label);
+                    }
+                }
             }
-            return new ModuleMetadata(width, depth, Map.copyOf(npcAnchors));
+            return new ModuleMetadata(
+                width, depth, Map.copyOf(npcAnchors), Map.copyOf(doorAnchors)
+            );
         } catch (IOException | RuntimeException error) {
             throw new IllegalStateException("Invalid gym module metadata: " + metadataId, error);
         }
+    }
+
+    private static BlockPoint arrayPoint(JsonArray point) {
+        return new BlockPoint(
+            point.get(0).getAsInt(), point.get(1).getAsInt(), point.get(2).getAsInt()
+        );
     }
 
     private static BlockPoint rotatePoint(BlockPoint point, int width, int depth, Rotation rotation) {
@@ -388,6 +498,7 @@ final class GymInteriorSystem {
             definition.theme,
             flagObjective(definition.clearVariable),
             definition.exteriorStructure,
+            definition.exteriorMetadata,
             definition.modules,
             point(entrance, "door_offset", DEFAULT_DOOR),
             point(entrance, "outside_offset", DEFAULT_OUTSIDE),
@@ -398,6 +509,7 @@ final class GymInteriorSystem {
             strings(entrance, "enter_dialogue", definition.access.enterDialogue),
             point(interior, "entry_offset", DEFAULT_ENTRY),
             point(interior, "exit_door_offset", DEFAULT_DOOR),
+            definition.connections,
             definition.staff
         );
     }
@@ -739,8 +851,9 @@ final class GymInteriorSystem {
 
     private record GymDefinition(
         String id, String displayName, String theme, String exteriorStructure,
+        ModuleMetadata exteriorMetadata,
         String clearVariable, List<InteriorModule> modules, List<GymStaffMember> staff,
-        AccessPolicy access
+        List<GymConnection> connections, AccessPolicy access
     ) {}
 
     private record AccessPolicy(
@@ -752,11 +865,33 @@ final class GymInteriorSystem {
 
     private record ExteriorPalette(BlockState primary, BlockState secondary, BlockState glass) {}
 
-    private record ModuleMetadata(int width, int depth, Map<String, BlockPoint> npcAnchors) {}
+    private record DoorAnchor(BlockPoint position, BlockPoint safeSpawn) {}
+
+    private record ModuleMetadata(
+        int width, int depth, Map<String, BlockPoint> npcAnchors,
+        Map<String, DoorAnchor> doorAnchors
+    ) {}
+
+    private record SpaceInstance(
+        ServerLevel level, BlockPos origin, Rotation rotation, ModuleMetadata metadata
+    ) {
+        BlockPos position(BlockPoint local) {
+            BlockPoint transformed = rotatePoint(local, metadata.width, metadata.depth, rotation);
+            return origin.offset(transformed.x, transformed.y, transformed.z);
+        }
+    }
+
+    private record GymConnection(
+        String fromSpace, String fromDoor, String toSpace, String toDoor,
+        AccessPolicy access
+    ) {}
 
     private record GymStaffMember(String role, String npcPreset, BlockPoint offset) {}
 
-    private record InteriorModule(String id, String structure, BlockPoint position, Rotation rotation) {}
+    private record InteriorModule(
+        String id, String structure, BlockPoint position, Rotation rotation,
+        ModuleMetadata metadata
+    ) {}
 
     private static final class GymConfig {
         final String settlementId;
@@ -764,6 +899,7 @@ final class GymInteriorSystem {
         final String theme;
         final String clearObjective;
         final String exteriorStructure;
+        final ModuleMetadata exteriorMetadata;
         final List<InteriorModule> modules;
         final BlockPoint doorOffset;
         final BlockPoint outsideOffset;
@@ -774,23 +910,27 @@ final class GymInteriorSystem {
         final List<String> enterDialogue;
         final BlockPoint entryOffset;
         final BlockPoint exitDoorOffset;
+        final List<GymConnection> connections;
         final List<GymStaffMember> staff;
         BlockPos instanceOrigin;
 
         GymConfig(
             String settlementId, String displayName, String theme, String clearObjective,
-            String exteriorStructure, List<InteriorModule> modules,
+            String exteriorStructure, ModuleMetadata exteriorMetadata,
+            List<InteriorModule> modules,
             BlockPoint doorOffset,
             BlockPoint outsideOffset, Direction facing, String conditionMode,
             List<Condition> conditions, List<String> lockedDialogue,
             List<String> enterDialogue, BlockPoint entryOffset,
-            BlockPoint exitDoorOffset, List<GymStaffMember> staff
+            BlockPoint exitDoorOffset, List<GymConnection> connections,
+            List<GymStaffMember> staff
         ) {
             this.settlementId = settlementId;
             this.displayName = displayName;
             this.theme = theme;
             this.clearObjective = clearObjective;
             this.exteriorStructure = exteriorStructure;
+            this.exteriorMetadata = exteriorMetadata;
             this.modules = modules;
             this.doorOffset = doorOffset;
             this.outsideOffset = outsideOffset;
@@ -801,6 +941,7 @@ final class GymInteriorSystem {
             this.enterDialogue = enterDialogue;
             this.entryOffset = entryOffset;
             this.exitDoorOffset = exitDoorOffset;
+            this.connections = connections;
             this.staff = staff;
         }
 

@@ -41,6 +41,7 @@ FACILITY_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/placeholder"
 HOUSE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/houses"
 TOWN_DECORATION_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/town_decorations"
 CAVE_ENTRANCE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/cave_entrance"
+FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/forest_entrance"
 INTERIOR_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/interiors"
 GYM_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/gyms"
 LEAGUE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/league"
@@ -1616,21 +1617,22 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(_read_authored_structure_nbt(source, "내부 NBT"))
 
-    cave_entrance_source = _inside(
-        root, root / CAVE_ENTRANCE_STRUCTURE_SOURCE_DIR, "동굴 입구 NBT 원본"
-    )
-    if cave_entrance_source.is_dir():
-        for source in sorted(cave_entrance_source.rglob("*.nbt")):
-            relative = source.relative_to(cave_entrance_source)
+    for category, source_relative, label in (
+        ("cave_entrance", CAVE_ENTRANCE_STRUCTURE_SOURCE_DIR, "동굴 입구"),
+        ("forest_entrance", FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR, "숲 입구"),
+    ):
+        entrance_source = _inside(root, root / source_relative, f"{label} NBT 원본")
+        if not entrance_source.is_dir():
+            continue
+        for source in sorted(entrance_source.rglob("*.nbt")):
+            relative = source.relative_to(entrance_source)
             target = _inside(
                 root,
-                output / "data/cobbleventure/structure/cave_entrance" / relative,
-                "생성 동굴 입구 NBT",
+                output / "data/cobbleventure/structure" / category / relative,
+                f"생성 {label} NBT",
             )
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(
-                _read_authored_structure_nbt(source, "동굴 입구 NBT")
-            )
+            target.write_bytes(_read_authored_structure_nbt(source, f"{label} NBT"))
 
     for category, source_relative in (
         ("gyms", GYM_STRUCTURE_SOURCE_DIR),

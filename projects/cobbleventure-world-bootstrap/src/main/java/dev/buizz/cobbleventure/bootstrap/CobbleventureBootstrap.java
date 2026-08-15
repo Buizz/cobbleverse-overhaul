@@ -107,6 +107,23 @@ public final class CobbleventureBootstrap {
     public static final String MOD_ID = "cobbleventure_bootstrap";
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String DATA_FILE = "cobbleventure_world_bootstrap";
+    private static final Set<EntityType<?>> BLOCKED_VANILLA_MOBS = Set.of(
+        EntityType.AXOLOTL,
+        EntityType.BAT,
+        EntityType.BEE,
+        EntityType.COD,
+        EntityType.DOLPHIN,
+        EntityType.DROWNED,
+        EntityType.ELDER_GUARDIAN,
+        EntityType.GLOW_SQUID,
+        EntityType.GUARDIAN,
+        EntityType.PUFFERFISH,
+        EntityType.SALMON,
+        EntityType.SQUID,
+        EntityType.TADPOLE,
+        EntityType.TROPICAL_FISH,
+        EntityType.TURTLE
+    );
     private static final int BCA_REFERENCE_SURFACE_Y = 68;
     private static final int LEGACY_SURFACE_Y = 69;
     private static final int SEALED_OUTER_SURFACE_Y = 92;
@@ -196,7 +213,6 @@ public final class CobbleventureBootstrap {
     private static final String WHIRLPOOL_REQUIREMENT =
         "cobbleventure:field_move/whirlpool";
     private static final String CAVE_ROAD_ANCHOR = "cobbleventure:road_anchor";
-    private static final int CAVE_FOUNDATION_DEPTH = 10;
     private static volatile List<FacilityPortal> activeFacilityPortals = List.of();
     private static volatile List<FacilityMusicZone> activeFacilityMusicZones = List.of();
     private static volatile Map<String, SettlementPlan> activeSettlements = Map.of();
@@ -221,7 +237,7 @@ public final class CobbleventureBootstrap {
         new ConcurrentHashMap<>();
     private static final Map<UUID, Vec3> safeFieldPositions = new HashMap<>();
     private static final Map<UUID, Vec3> safeWorldBoundaryPositions = new HashMap<>();
-    private static final Map<UUID, Vec3> safeWaterPositions = new HashMap<>();
+    private static final Map<UUID, SafeWaterPosition> safeWaterPositions = new HashMap<>();
     private static final Map<UUID, Integer> deepWaterTicks = new HashMap<>();
     private static final Map<UUID, Vec3> safeWhirlpoolPositions = new HashMap<>();
     private static final Map<Long, Long> scheduledTownDebrisCleanup = new HashMap<>();
@@ -299,8 +315,7 @@ public final class CobbleventureBootstrap {
         if (event.getLevel().isClientSide()) {
             return;
         }
-        if (event.getEntity().getType() == EntityType.BAT
-            || event.getEntity().getType() == EntityType.BEE) {
+        if (BLOCKED_VANILLA_MOBS.contains(event.getEntity().getType())) {
             event.setCanceled(true);
             return;
         }
@@ -839,7 +854,6 @@ public final class CobbleventureBootstrap {
         if (placement == null) {
             return;
         }
-        placeCaveEntranceRoots(level, caveStructure, placement);
         if (!NativeWorldGeneration.usesNativeGenerator(
             level.getChunkSource().getGenerator()
         )) {
@@ -951,7 +965,7 @@ public final class CobbleventureBootstrap {
         Rotation rotation = structureRotation(rotationName);
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .setRotation(rotation)
-            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+            .addProcessor(CaveTemplateAirPreservationProcessor.INSTANCE);
         List<ChunkPos> forcedChunks = forceTemplateChunks(level, structure, blockPos);
         try {
             boolean placed = template.placeInWorld(
@@ -994,18 +1008,11 @@ public final class CobbleventureBootstrap {
             level.setBlock(
                 placedAnchor.pos(), Blocks.COBBLESTONE.defaultBlockState(), 2
             );
-            boolean quarterTurn = rotationName.equals("clockwise_90")
-                || rotationName.equals("counterclockwise_90");
-            int footprintWidth = quarterTurn ? size.getZ() : size.getX();
-            int footprintDepth = quarterTurn ? size.getX() : size.getZ();
             LOGGER.info(
                 "Cave entrance template placed: structure={}, roadAnchor={}, rotation={}, voidMask={}",
                 structure, placedAnchor.pos(), rotationName, cleared
             );
-            return new CaveEntrancePlacement(
-                placedAnchor.pos(), minX, minZ,
-                footprintWidth, footprintDepth, origin.y(), floorY
-            );
+            return new CaveEntrancePlacement(placedAnchor.pos(), floorY);
         } finally {
             releaseForcedChunks(level, forcedChunks);
         }
@@ -1016,64 +1023,6 @@ public final class CobbleventureBootstrap {
     ) {
         return marker.nbt() != null
             && CAVE_ROAD_ANCHOR.equals(marker.nbt().getString("name"));
-    }
-
-    private static void placeCaveEntranceRoots(
-        ServerLevel level, String structure, CaveEntrancePlacement placement
-    ) {
-        int filled = 0;
-        for (int x = placement.minX();
-             x < placement.minX() + placement.footprintWidth(); x++) {
-            for (int z = placement.minZ();
-                 z < placement.minZ() + placement.footprintDepth(); z++) {
-                BlockPos floor = new BlockPos(x, placement.foundationY(), z);
-                BlockState floorState = level.getBlockState(floor);
-                if (floorState.isAir() || floorState.is(Blocks.BARRIER)
-                    || floorState.is(Blocks.JIGSAW)
-                    || !floorState.getFluidState().isEmpty()) {
-                    continue;
-                }
-                int depth = CAVE_FOUNDATION_DEPTH - Math.floorMod(
-                    x * 31 + z * 17, 3
-                );
-                BlockState foundation = caveFoundationBlock(structure, x, z);
-                for (int offset = 1; offset <= depth; offset++) {
-                    BlockPos root = floor.below(offset);
-                    BlockState existing = level.getBlockState(root);
-                    if (!existing.isAir() && existing.getFluidState().isEmpty()) {
-                        break;
-                    }
-                    level.setBlock(root, foundation, 2);
-                    filled++;
-                }
-            }
-        }
-        LOGGER.info(
-            "Cave entrance roots placed: structure={}, depth={}, blocks={}",
-            structure, CAVE_FOUNDATION_DEPTH, filled
-        );
-    }
-
-    private static BlockState caveFoundationBlock(String structure, int x, int z) {
-        int variation = Math.floorMod(x * 13 + z * 29, 5);
-        if (structure.contains("red_rock_mountain")) {
-            return variation == 0 ? Blocks.GRANITE.defaultBlockState()
-                : Blocks.BROWN_TERRACOTTA.defaultBlockState();
-        }
-        if (structure.contains("snow_mountain")) {
-            return variation == 0 ? Blocks.ANDESITE.defaultBlockState()
-                : Blocks.STONE.defaultBlockState();
-        }
-        if (structure.contains("ocean")) {
-            return variation == 0 ? Blocks.TUFF.defaultBlockState()
-                : Blocks.PRISMARINE.defaultBlockState();
-        }
-        if (structure.contains("plains")) {
-            return variation == 0 ? Blocks.MOSSY_COBBLESTONE.defaultBlockState()
-                : Blocks.STONE.defaultBlockState();
-        }
-        return variation == 0 ? Blocks.TUFF.defaultBlockState()
-            : Blocks.STONE.defaultBlockState();
     }
 
     private static void restoreCaveApproach(
@@ -1430,11 +1379,6 @@ public final class CobbleventureBootstrap {
 
     private record CaveEntrancePlacement(
         BlockPos markerPosition,
-        int minX,
-        int minZ,
-        int footprintWidth,
-        int footprintDepth,
-        int foundationY,
         int floorY
     ) {}
 
@@ -4421,6 +4365,13 @@ public final class CobbleventureBootstrap {
                 LOGGER.error("Pokemon Center emergency recovery also failed", recoveryError);
             }
         }
+        Set<UUID> deepWaterBlocked = new HashSet<>();
+        for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+            ServerLevel playerLevel = player.serverLevel();
+            if (!enforceDeepWaterAccess(player, playerLevel, playerLevel.getGameTime())) {
+                deepWaterBlocked.add(player.getUUID());
+            }
+        }
         ServerLevel level = event.getServer().getLevel(GENERATION_ONE);
         if (level == null) {
             return;
@@ -4431,6 +4382,11 @@ public final class CobbleventureBootstrap {
         scheduleNearbyTownInitialization(level, gameTime);
         scheduleBackgroundTownInitialization(level);
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+            if (deepWaterBlocked.contains(player.getUUID())) {
+                LocalWeatherSystem.clear(player);
+                LocationAnnouncement.clear(player);
+                continue;
+            }
             if (dungeons != null && player.serverLevel() == dungeons) {
                 LocalWeatherSystem.clear(player);
                 LocationAnnouncement.clear(player);
@@ -4479,9 +4435,6 @@ public final class CobbleventureBootstrap {
             }
             applyRockClimb(player, level);
             if (!enforceFieldMoveAccess(player, level, gameTime)) {
-                continue;
-            }
-            if (!enforceDeepWaterAccess(player, level, gameTime)) {
                 continue;
             }
             if (!enforceWhirlpoolAccess(player, level, gameTime)) {
@@ -5382,16 +5335,22 @@ public final class CobbleventureBootstrap {
         if (!isInDeepWater(player, level)) {
             deepWaterTicks.remove(playerId);
             if (!player.isInWater() && player.onGround()) {
-                safeWaterPositions.put(playerId, player.position());
+                safeWaterPositions.put(
+                    playerId, new SafeWaterPosition(level.dimension(), player.position())
+                );
             }
             return true;
         }
 
-        Vec3 safe = safeWaterPositions.get(playerId);
+        SafeWaterPosition saved = safeWaterPositions.get(playerId);
+        Vec3 safe = saved != null && saved.dimension().equals(level.dimension())
+            ? saved.position() : null;
         if (safe == null) {
             safe = findNearbyDryPosition(level, player.blockPosition(), 24);
             if (safe != null) {
-                safeWaterPositions.put(playerId, safe);
+                safeWaterPositions.put(
+                    playerId, new SafeWaterPosition(level.dimension(), safe)
+                );
             }
         }
         if (safe != null) {
@@ -7222,6 +7181,7 @@ public final class CobbleventureBootstrap {
             case "red_rock_mountain" -> "minecraft:badlands";
             case "snow_mountain" -> "minecraft:snowy_slopes";
             case "high_forest" -> "minecraft:dark_forest";
+            case "dense_forest" -> "minecraft:old_growth_spruce_taiga";
             default -> SEALED_DARK_FOREST.location().toString();
         };
     }
@@ -7232,7 +7192,8 @@ public final class CobbleventureBootstrap {
 
     static String emptyTerrainBiome(HexWorldPlan world, double x, double z) {
         String type = emptyTerrainAt(world, x, z);
-        if (type.equals("high_forest") && isSealedForestEdge(world, x, z)) {
+        if ((type.equals("high_forest") || type.equals("dense_forest"))
+            && isSealedForestEdge(world, x, z)) {
             return SEALED_FOREST_EDGE.location().toString();
         }
         return emptyTerrainBiome(type);
@@ -8079,7 +8040,7 @@ public final class CobbleventureBootstrap {
     ) {
         double broad = layeredNoise(world.seed(), "world:sealed-outer:broad", x, z, 72.0D);
         double detail = layeredNoise(world.seed(), "world:sealed-outer:detail", x, z, 24.0D);
-        if (type.equals("high_forest")) {
+        if (type.equals("high_forest") || type.equals("dense_forest")) {
             double gentleBroad = layeredNoise(
                 world.seed(), "world:sealed-outer:high-forest:broad", x, z, 180.0D
             );
@@ -8947,14 +8908,37 @@ public final class CobbleventureBootstrap {
             }
             int topY = emptyTerrainGroundY(world, type, x, z);
             if (nearestPlayable != null && !nearestPlayable.aquatic()) {
-                HexCoord emptyCell = world.grid().worldToHex(
-                    x + 0.5D, z + 0.5D
-                );
-                topY = steppedHeightToward(
-                    world, nearestPlayable.groundY(), topY,
-                    Math.max(0, nearestPlayable.distance() - 1),
-                    emptyCell.q(), emptyCell.r(), 0x504C415941424C45L
-                );
+                if (type.equals("high_forest") || type.equals("dense_forest")) {
+                    Integer continuedHeight = continuedPlayableTerrainHeight(
+                        world, x, z
+                    );
+                    if (continuedHeight != null) {
+                        double continuationProgress = fade(Math.max(
+                            0.0D, Math.min(1.0D,
+                                (nearestPlayable.distance() - 1.0D) / 8.0D)
+                        ));
+                        double inheritedHeight = nearestPlayable.groundY()
+                            + (continuedHeight - nearestPlayable.groundY())
+                                * continuationProgress;
+                        double forestProgress = fade(Math.max(
+                            0.0D, Math.min(1.0D,
+                                (nearestPlayable.distance() - 1.0D)
+                                    / (OUTER_TERRAIN_TRANSITION_WIDTH - 1.0D))
+                        ));
+                        topY = (int) Math.round(
+                            inheritedHeight + (topY - inheritedHeight) * forestProgress
+                        );
+                    }
+                } else {
+                    HexCoord emptyCell = world.grid().worldToHex(
+                        x + 0.5D, z + 0.5D
+                    );
+                    topY = steppedHeightToward(
+                        world, nearestPlayable.groundY(), topY,
+                        Math.max(0, nearestPlayable.distance() - 1),
+                        emptyCell.q(), emptyCell.r(), 0x504C415941424C45L
+                    );
+                }
             }
             BlockState surface = switch (type) {
                 case "stone_mountain" -> oceanCliffRock(world, x, topY, z);
@@ -9103,6 +9087,39 @@ public final class CobbleventureBootstrap {
             nearestDistance, landHeightTotal, landSamples,
             aquaticHeightTotal, aquaticSamples
         );
+    }
+
+    private static Integer continuedPlayableTerrainHeight(
+        HexWorldPlan world, int x, int z
+    ) {
+        HexCoord emptyCell = world.grid().worldToHex(x + 0.5D, z + 0.5D);
+        double weightedHeight = 0.0D;
+        double totalWeight = 0.0D;
+        List<HexCoord> candidates = new ArrayList<>(emptyCell.neighbors());
+        candidates.add(emptyCell);
+        for (HexCoord neighbor : candidates) {
+            CellPlan plan = world.cells().get(neighbor);
+            if (plan == null) {
+                continue;
+            }
+            TerrainSample sample = new TerrainSample(
+                plan.biome(), plan.boundaryProfile(), plan.kind(), plan.owner(),
+                plan.terrainProfile(), plan.accessRequirement(), plan.surfaceStyle()
+            );
+            if (isAquatic(sample)) {
+                continue;
+            }
+            Point center = world.grid().worldCenter(neighbor);
+            double weight = 1.0D / Math.max(
+                1.0D, Math.hypot(x + 0.5D - center.x(), z + 0.5D - center.z())
+            );
+            weightedHeight += localRawTerrainHeight(
+                world, sample, x + 0.5D, z + 0.5D
+            ) * weight;
+            totalWeight += weight;
+        }
+        return totalWeight == 0.0D
+            ? null : (int) Math.round(weightedHeight / totalWeight);
     }
 
     private static PlayableEdge adjacentPlayableTerrain(
@@ -9998,7 +10015,7 @@ public final class CobbleventureBootstrap {
         ServerLevel level, HexWorldPlan world, String type, int x, int z, int topY,
         boolean cleanExisting, TerrainWriteStats stats
     ) {
-        int minimumY = type.equals("high_forest") ? 64
+        int minimumY = (type.equals("high_forest") || type.equals("dense_forest")) ? 64
             : isLoweredEmptyMountain(type) ? 68 : SEALED_OUTER_MIN_Y;
         topY = Math.max(minimumY, Math.min(112, topY));
         BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos(x, 0, z);
@@ -12073,6 +12090,8 @@ public final class CobbleventureBootstrap {
     record OceanMoundKey(long seed, int cellX, int cellZ) {}
 
     record RoadColumnPlan(int groundY, Direction stairDirection) {}
+
+    record SafeWaterPosition(ResourceKey<Level> dimension, Vec3 position) {}
 
     record NativeTerrainColumn(
         int groundY,

@@ -666,6 +666,7 @@ body {
 .legendary-site-object circle { fill: #fff3a8; stroke: #8a6512; stroke-width: 1.5; }
 .legendary-site-object text { fill: #7b5b0e; }
 .hex-cave-entrance { cursor: pointer; color: #f5f7fa; }.hex-cave-entrance circle { fill: #30343b; stroke: #d7a64d; stroke-width: 3; filter: drop-shadow(0 3px 4px rgba(0,0,0,.35)); }.hex-cave-entrance path { fill: #15181d; stroke: #d9dde3; stroke-width: 1.5; pointer-events: none; }.hex-cave-entrance text { fill: #3c3427; font-size: 10px; font-weight: 800; text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 3px; pointer-events: none; }.hex-cave-entrance .center-badge { fill: #fff; font-size: 14px; stroke: #258e5b; stroke-width: 4px; }.hex-cave-entrance:hover circle { stroke: #f2c14e; stroke-width: 4; }
+.hex-forest-entrance { cursor: pointer; }.hex-forest-entrance circle { fill: #315d39; stroke: #c49a56; stroke-width: 3; filter: drop-shadow(0 3px 4px rgba(0,0,0,.35)); }.hex-forest-entrance path { fill: #795b38; stroke: #e7d4a8; stroke-width: 1.5; pointer-events: none; }.hex-forest-entrance .forest-crown { fill: #1f6a38; stroke: #b7d89e; }.hex-forest-entrance text { fill: #21462b; font-size: 10px; font-weight: 800; text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 3px; pointer-events: none; }.hex-forest-entrance .center-badge { fill: #fff; font-size: 14px; stroke: #258e5b; stroke-width: 4px; }.hex-forest-entrance:hover circle { stroke: #f0c96d; stroke-width: 4; }
 .custom-object-fields { display: grid; gap: 9px; }.custom-object-fields label { display: block; }.custom-object-fields > small { color: #718178; font-size: 10px; line-height: 1.45; }
 @keyframes route-draft-pulse { to { opacity: .45; } }
 .tile-inspector { background: #f8fbf9; }
@@ -739,6 +740,7 @@ body {
 .map-legend { flex-wrap: wrap; }
 .world-map-viewport { background: radial-gradient(circle at center,rgba(73,90,80,.07),transparent 58%),#f1f3f4; }
 .hex-cell.is-empty-terrain.empty-type-high_forest polygon { fill: #66836b; }
+.hex-cell.is-empty-terrain.empty-type-dense_forest polygon { fill: #274e32; }
 .hex-cell.is-empty-terrain.empty-type-ocean polygon { fill: #70a9c4; }
 .hex-cell.is-empty-terrain.empty-type-desert polygon { fill: #d2a15f; }
 .hex-cell.is-empty-terrain.empty-type-stone_mountain polygon { fill: #918f8a; }
@@ -842,6 +844,23 @@ body {
 .cave-preview-summary { padding: 9px 14px; border-top: 1px solid #263842; background: #131e24; color: #aabcc3; font: 700 10px Consolas, monospace; }
 @media (max-width: 900px) { .cave-field-grid, .cave-entry-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }.cave-entry-fields .span-4 { grid-column: 1 / -1; }.cave-layout-preview > header { align-items: flex-start; flex-direction: column; }.cave-connection-builder { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .cave-field-grid, .cave-entry-fields, .cave-connection-builder { grid-template-columns: 1fr; }.cave-entry-fields .span-2, .cave-entry-fields .span-4 { grid-column: auto; }.cave-preview-actions { width: 100%; flex-wrap: wrap; }.cave-node-inspector { position: static; width: auto; border-width: 1px 0 0; border-radius: 0; }.gym-layout-editor > header, .gym-layout-editor > footer { align-items: flex-start; flex-direction: column; }.gym-layout-editor > footer > strong { text-align: left; } }
+
+.forest-layout-editor { overflow: hidden; margin-top: 16px; border: 1px solid #31583b; border-radius: 5px; background: #13231a; }
+.forest-layout-editor > header, .forest-layout-editor > footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px; background: #1c3323; color: #dcefd8; }
+.forest-layout-editor > header strong, .forest-layout-editor > header small { display: block; }.forest-layout-editor > header small { max-width: 620px; margin-top: 4px; color: #a9c7a5; font-size: 9px; line-height: 1.45; }
+.forest-layout-body { display: grid; grid-template-columns: minmax(0, 1fr) 260px; min-height: 480px; }
+#forest-layout-canvas { display: block; width: 100%; height: auto; background: #294f31; cursor: crosshair; touch-action: none; }
+#forest-layout-canvas.is-dragging { cursor: grabbing; }
+.forest-layout-editor [data-forest-tool].is-active { border-color: #d7ef83; background: #3d5e2d; color: #fff; box-shadow: 0 0 0 2px rgba(215,239,131,.16); }
+.forest-layout-body > aside { overflow-y: auto; max-height: 560px; padding: 12px; border-left: 1px solid #31583b; background: #15271b; color: #dcefd8; }
+.forest-layout-body > aside > strong { display: block; margin: 4px 0 8px; font-size: 10px; }
+.forest-item-list { display: grid; gap: 7px; margin-bottom: 16px; }
+.forest-item-card { padding: 9px; border: 1px solid #3b6042; border-radius: 4px; background: #213b28; color: #e7f3e3; cursor: pointer; }
+.forest-item-card.is-active { border-color: #b8e86b; box-shadow: 0 0 0 2px rgba(184,232,107,.15); }
+.forest-item-card header { display: flex; justify-content: space-between; gap: 7px; margin-bottom: 7px; }.forest-item-card header button { border: 0; background: transparent; color: #f1a8a8; cursor: pointer; }
+.forest-item-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }.forest-item-fields .wide { grid-column: 1 / -1; }.forest-item-fields label span { display: block; margin-bottom: 3px; color: #a9c7a5; font-size: 8px; }.forest-item-fields input, .forest-item-fields select { width: 100%; min-width: 0; padding: 5px; border: 1px solid #45664a; border-radius: 3px; background: #13231a; color: #fff; font-size: 9px; }
+.forest-layout-editor > footer { border-top: 1px solid #31583b; font: 700 10px Consolas, monospace; }.forest-layout-editor > footer small { color: #a9c7a5; }
+@media (max-width: 900px) { .forest-layout-body { grid-template-columns: 1fr; }.forest-layout-body > aside { border-top: 1px solid #31583b; border-left: 0; }.forest-layout-editor > header, .forest-layout-editor > footer { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 720px) { .gym-module-library-card { grid-template-columns: 1fr; }.gym-module-library-actions { width: 100%; }.gym-module-library-actions .mini-button { flex: 1; } }
 .brush-preview.tool-terrain .brush-preview-cell { fill: rgba(229,168,79,.24); stroke: #e5a84f; }
 .brush-preview.tool-climate .brush-preview-cell { fill: rgba(148,111,216,.24); stroke: #946fd8; }
@@ -1027,6 +1046,16 @@ body { font-size: 14px; line-height: 1.45; }
 
 .space-flow { display: grid; grid-template-rows: auto minmax(620px, calc(100vh - 215px)) auto; min-height: calc(100vh - 112px); overflow: hidden; }
 .space-flow-heading p:last-child { max-width: 720px; margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+.space-flow-heading-actions { display: grid; min-width: min(520px, 48vw); justify-items: end; gap: 8px; }
+.space-flow-heading-actions .path-label { width: 100%; max-width: none; overflow: visible; overflow-wrap: anywhere; color: #58707c; line-height: 1.35; text-align: right; text-overflow: clip; white-space: normal; }
+.space-flow-save-row { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
+.space-flow-save-state { display: inline-flex; min-width: 124px; min-height: 38px; align-items: center; justify-content: center; gap: 7px; padding: 7px 13px; border: 2px solid #9cadb2; border-radius: 5px; background: #edf2f2; color: #425b65; box-shadow: 0 3px 9px rgba(24, 48, 58, .12); font-size: 11px; font-weight: 900; white-space: nowrap; }
+.space-flow-save-state::before { width: 9px; height: 9px; border-radius: 50%; background: currentColor; content: ""; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent); }
+.space-flow-save-state[data-state="dirty"] { border-color: #d88925; background: #fff1d8; color: #9a5700; }
+.space-flow-save-state[data-state="saving"] { border-color: #258ca5; background: #dcf3f7; color: #126b80; }
+.space-flow-save-state[data-state="success"], .space-flow-save-state[data-state="saved"] { border-color: #31906c; background: #dff4e9; color: #176a4a; }
+.space-flow-save-state[data-state="error"] { border-color: #c84959; background: #ffe4e7; color: #a51f34; }
+@media (max-width: 900px) { .space-flow-heading-actions { width: 100%; min-width: 0; justify-items: stretch; }.space-flow-heading-actions .path-label { text-align: left; }.space-flow-save-row { justify-content: flex-end; } }
 .space-flow-board { display: grid; min-height: 0; grid-template-columns: 360px minmax(0, 1fr) 300px; background: #142128; }
 .space-flow-library { min-width: 0; overflow-y: auto; border-right: 1px solid #38505a; background: #eef3f1; }
 .space-flow-library > header { position: sticky; z-index: 2; top: 0; padding: 14px; border-bottom: 1px solid #becdc8; background: #e4ece9; }

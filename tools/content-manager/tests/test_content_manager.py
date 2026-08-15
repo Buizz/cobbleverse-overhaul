@@ -27,6 +27,21 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_forest_gate_nbt_is_a_walk_through_spruce_lodge(self) -> None:
+        path = PROJECT_ROOT / "content/structures/forest_entrance/forest_gate.nbt"
+        self.assertTrue(path.is_file())
+        size, palette, blocks = content_manager._minecraft_structure_parts(path.read_bytes())
+        self.assertEqual([17, 13, 13], size)
+        self.assertIn("minecraft:stripped_spruce_log", palette)
+        self.assertIn("minecraft:spruce_stairs", palette)
+        occupied = {tuple(block["pos"]) for block in blocks}
+        for z in range(13):
+            for y in range(1, 6):
+                self.assertNotIn((8, y, z), occupied)
+        metadata = json.loads(path.with_suffix(".structure.json").read_text(encoding="utf-8"))
+        self.assertEqual("숲관문", metadata["display_name"]["ko_kr"])
+        self.assertEqual({"world_side", "forest_side"}, {anchor["id"] for anchor in metadata["anchors"]})
+
     def test_cave_entrance_nbt_variants_use_large_centered_barrier_masks(self) -> None:
         variants = {
             "stone_mountain", "red_rock_mountain", "snow_mountain", "plains", "ocean",
@@ -40,15 +55,15 @@ class ContentManagerTests(unittest.TestCase):
             size, palette, blocks = content_manager._minecraft_structure_parts(
                 path.read_bytes()
             )
-            self.assertEqual([33, 21, 33], size)
+            self.assertEqual([33, 27, 33], size)
             barrier_state = palette.index("minecraft:barrier")
             barrier_positions = {
                 tuple(block["pos"])
                 for block in blocks
                 if block.get("state") == barrier_state
             }
-            self.assertIn((16, 1, 16), barrier_positions)
-            self.assertIn((16, 10, 16), barrier_positions)
+            self.assertIn((16, 7, 16), barrier_positions)
+            self.assertIn((16, 15, 16), barrier_positions)
             self.assertGreater(len(barrier_positions), 1000)
 
     def test_natural_feature_no_interior_space_setting_is_exposed(self) -> None:
@@ -1058,6 +1073,109 @@ class ContentManagerTests(unittest.TestCase):
             anchor["position"]["y"] < cave["generator"]["water_level"]
             for anchor in cave["generator"]["manual_layout"]["anchors"]
         ))
+
+    def test_forest_template_models_tiled_paths_and_height_tiles(self) -> None:
+        document = content_manager._forest_template("viridian", "상록숲", "generation_1")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "viridian.json"
+            path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+            forest_id, issues = content_manager.validate_forest_file(path)
+
+        self.assertEqual("cobbleventure:forest/viridian", forest_id)
+        self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+        self.assertEqual("hybrid", document["generator"]["layout"])
+        self.assertTrue(document["generator"]["spline_enabled"])
+        self.assertEqual(6000, document["environment"]["fixed_time"])
+        self.assertEqual("minecraft:barrier", document["tree_barrier"]["barrier_block"])
+        self.assertGreater(document["undergrowth"]["density"], 0)
+        self.assertEqual("minecraft:grass_block", document["paths"][0]["surface"])
+
+        document["tree_barrier"]["min_height"] = 20
+        document["tree_barrier"]["max_height"] = 8
+        document["paths"][0]["points"][1] = {"x": 3, "z": 5}
+        document["terrain_tiles"] = [{"x": 3, "z": 0, "height_offset": 17}]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "invalid.json"
+            path.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+            _, issues = content_manager.validate_forest_file(path)
+        self.assertTrue(any("최소 나무 높이" in issue.message for issue in issues))
+        self.assertTrue(any("길 앵커" in issue.message for issue in issues))
+        self.assertTrue(any("타일 격자" in issue.message for issue in issues))
+        self.assertTrue(any("-16 이상 16 이하" in issue.message for issue in issues))
+
+    def test_forest_management_tab_exposes_direct_2d_path_authoring(self) -> None:
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        schema = json.loads((PROJECT_ROOT / "content/schemas/forest.schema.json").read_text(encoding="utf-8"))
+
+        self.assertIn('data-section="forests"', page)
+        self.assertIn('id="forest-layout-canvas"', page)
+        self.assertIn('data-add-forest-path', page)
+        self.assertIn('data-forest-tool="height-up"', page)
+        self.assertIn('id="forest-entrance-list"', page)
+        self.assertIn('name="fixedTime"', page)
+        self.assertIn('name="treeMinHeight"', page)
+        self.assertIn('name="undergrowthDensity"', page)
+        self.assertIn('name="splineTension"', page)
+        self.assertIn("drawForestPath", script)
+        self.assertIn("forestCanvasTransform().world", script)
+        self.assertIn("generateForestMazePaths", script)
+        self.assertIn("snapForestPoint", script)
+        self.assertIn("pointermove", script)
+        self.assertIn('state.forest.entrances[drag.target.entranceIndex].position = point', script)
+        self.assertIn('state.forest.paths = [...preserved, ...mazePaths]', script)
+        self.assertNotIn('data-add-forest-wall', page)
+        self.assertNotIn('generator.layout !== "manual"', script)
+        self.assertIn("terrain_tiles", schema["required"])
+        self.assertNotIn("one_way_walls", schema["properties"])
+        self.assertEqual(16, schema["$defs"]["terrain_tile"]["properties"]["height_offset"]["maximum"])
+
+    def test_world_forest_entrance_requires_a_route_and_dense_forest_is_supported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_dir = root / "content" / "catalogs"
+            forest_dir = root / "content" / "forests" / "generation_1"
+            catalog_dir.mkdir(parents=True)
+            forest_dir.mkdir(parents=True)
+            shutil.copy2(PROJECT_ROOT / "content/catalogs/boundary-profiles.json", catalog_dir / "boundary-profiles.json")
+            forest = content_manager._forest_template("viridian", "상록숲", "generation_1")
+            (forest_dir / "viridian.json").write_text(json.dumps(forest, ensure_ascii=False), encoding="utf-8")
+            gate = {
+                "id": "forest_entrance_viridian_main", "type": "gate", "anchor": {"q": 1, "r": 0},
+                "resource": "cobbleventure:forest_entrance/forest_gate", "rotation": 1,
+                "properties": {
+                    "facing": "east", "gate_mode": "classic", "building_enabled": True,
+                    "surrounding_type": "trees", "wall_block": "minecraft:mossy_stone_bricks",
+                    "tree_log": "minecraft:spruce_log", "tree_leaves": "minecraft:spruce_leaves",
+                    "wall_thickness": 7, "wall_height": 14, "opening_width": 7,
+                    "barrier_height": 32, "condition_mode": "all", "conditions": [],
+                    "deny_message": "숲관문을 이용하세요.",
+                    "destination_forest": forest["id"], "destination_entrance": forest["entrances"][0]["id"],
+                },
+            }
+            layout = {
+                "$schema": "../schemas/hex-world.schema.json", "schema_version": 2,
+                "id": "cobbleventure:world/generation_1", "dimension": "cobbleventure:generation_1", "seed_salt": 1701,
+                "grid": {"orientation": "pointy_top", "tile_radius_blocks": 64, "map_radius_cells": 6, "origin": {"x": 0, "y": 69, "z": 0}},
+                "empty_terrain": {"default_type": "high_forest", "tiles": [{"q": 2, "r": 0, "type": "dense_forest"}]},
+                "tiles": [], "environment_overrides": [], "level_overrides": [], "settlements": [], "cave_entrances": [],
+                "connections": [], "objects": [gate],
+            }
+            issues = content_manager.save_world_layout(root, layout, 1)
+            self.assertTrue(any("숲 입구까지 이어지는 길" in issue.message for issue in issues))
+            layout["connections"] = [{
+                "id": "route_forest", "to": gate["id"], "anchors": [{"q": 0, "r": 0}, {"q": 1, "r": 0}],
+                "cells": [{"q": 0, "r": 0}, {"q": 1, "r": 0}], "corridor_width_blocks": 12,
+                "edge_noise": 0, "surface_style": "road", "pathfinding": "explicit",
+            }]
+            self.assertEqual([], content_manager.save_world_layout(root, layout, 1))
+
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        self.assertIn('data-map-tool="forest"', page)
+        self.assertIn('value="cobbleventure:forest_entrance/forest_gate"', page)
+        self.assertIn('setEmptyTerrainTile(dense.q, dense.r, "dense_forest")', script)
+        self.assertNotIn(">높은 숲<", page)
 
     def test_world_level_overrides_are_saved_and_validated(self) -> None:
         root = PROJECT_ROOT
@@ -3087,6 +3205,32 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual("builder-import", command[-2])
             self.assertEqual(str(world), command[-1])
 
+    def test_structure_builder_sync_uses_saved_instance_without_pack_import(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            instance = root / "instance"
+            instance.mkdir()
+            content_manager._save_structure_builder_settings(root, str(instance))
+            completed = mock.Mock(returncode=0, stdout="월드 교체 완료", stderr="")
+
+            with mock.patch.object(content_manager.subprocess, "run", return_value=completed) as runner:
+                result = content_manager._run_structure_builder_sync(root)
+
+            self.assertTrue(result["success"])
+            command = runner.call_args.args[0]
+            self.assertEqual("builder-sync", command[-2])
+            self.assertEqual(str(instance.resolve()), command[-1])
+            self.assertNotIn("builder-world", command)
+
+    def test_builder_import_batch_does_not_depend_on_late_label_or_broken_py_launcher(self) -> None:
+        script = (CORE_ROOT / "build.bat").read_text(encoding="utf-8")
+        self.assertIn('if /I "%~1"=="builder-import" (', script)
+        self.assertNotIn("goto builder_import", script)
+        self.assertNotIn("\n:builder_import\n", script)
+        self.assertIn('py -3 -c "import sys"', script)
+        self.assertIn('python -c "import sys"', script)
+        self.assertIn('if /I not "%~1"=="builder-sync"', script)
+
     def test_structure_builder_settings_api(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -3123,11 +3267,13 @@ class ContentManagerTests(unittest.TestCase):
         script = (web_root / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="structure-builder-instance"', markup)
         self.assertIn('id="build-structure-builder"', markup)
+        self.assertIn('id="sync-structure-builder"', markup)
         self.assertIn('id="import-structure-builder"', markup)
         self.assertIn('id="build-export-language"', markup)
         self.assertIn('JSON.stringify({ command, language })', script)
         self.assertIn("/api/structure-builder/settings", script)
         self.assertIn("/api/structure-builder/import", script)
+        self.assertIn("/api/structure-builder/sync", script)
         self.assertIn("/api/structure-model", script)
         self.assertIn('switchPage("structures")', script)
         self.assertIn("await loadBuildingModel(standardGymExterior)", script)
@@ -3373,6 +3519,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="space-flow-canvas"', markup)
         self.assertIn('id="space-flow-edges"', markup)
         self.assertIn('id="space-flow-nodes"', markup)
+        self.assertIn('id="space-flow-save-state"', markup)
+        self.assertIn('class="editor-heading-actions space-flow-heading-actions"', markup)
         self.assertIn('id="space-building-cards"', markup)
         self.assertIn('id="space-interior-cards"', markup)
         self.assertIn('id="space-building-search"', markup)
@@ -3394,12 +3542,15 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('nodePorts(node, "input")', script)
         self.assertIn('flow.filters.kind', script)
         self.assertIn('flow.filters.route', script)
+        self.assertIn('setSaveStatus("saving", "저장 중…")', script)
+        self.assertIn('setSaveStatus("success", "저장 완료")', script)
         self.assertIn('flow.paletteTab = "interior"', script)
         self.assertIn('function supportsInteriorConnections', script)
         self.assertIn('!metadata.no_interior_space', script)
         self.assertIn('"natural_feature"', script)
         self.assertIn('.space-flow-edge', styles)
         self.assertIn('.space-library-filters', styles)
+        self.assertIn('.space-flow-save-state[data-state="error"]', styles)
         self.assertIn('.legacy-space-editor { display: none', styles)
         self.assertIn('.building-settings-manager { container-type: inline-size;', styles)
         self.assertIn('.building-settings-layout .nbt-model-stage { min-width: 660px;', styles)
@@ -3542,6 +3693,68 @@ class ContentManagerTests(unittest.TestCase):
                 gym["interior"]["modules"][0]["structure"],
             )
             self.assertFalse((root / "content/structures/gyms/second_rock_gym.nbt").exists())
+
+    def test_gym_connections_accept_exterior_and_interior_door_anchors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structures = root / "content/structures"
+            exterior = structures / "gyms/base_gym.nbt"
+            interior = structures / "interiors/gyms/base_gym_interior.nbt"
+            exterior.parent.mkdir(parents=True)
+            interior.parent.mkdir(parents=True)
+            exterior.write_bytes(b"nbt")
+            interior.write_bytes(b"nbt")
+            exterior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{"type": "door", "label": "front", "position": [1, 1, 1]}],
+            }), encoding="utf-8")
+            interior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [
+                    {"type": "door", "label": "back", "position": [2, 1, 2]},
+                    {"type": "npc_position", "label": "leader", "position": [4, 1, 4]},
+                ],
+            }), encoding="utf-8")
+            catalog = root / "content/catalogs/gyms.json"
+            catalog.parent.mkdir(parents=True)
+            document = {
+                "schema_version": 1,
+                "gyms": [{
+                    "id": "cobbleventure:gym/test", "enabled": True,
+                    "display_name": {"ko_kr": "테스트 체육관", "en_us": "Test Gym"},
+                    "theme": "rock",
+                    "exterior": {"structure": "cobbleventure:gyms/base_gym"},
+                    "interior": {
+                        "modules": [{
+                            "id": "main",
+                            "structure": "cobbleventure:interiors/gyms/base_gym_interior",
+                            "position": [0, 0, 0], "rotation": "none",
+                        }],
+                        "connections": [{"from": "exterior:front", "to": "main:back"}],
+                    },
+                    "staff": {
+                        "leader": {
+                            "league_entry_id": "cobbleventure:league/test/leader",
+                            "anchor": "leader",
+                        },
+                        "trainers": [],
+                    },
+                }],
+                "leagues": [],
+            }
+            catalog.write_text(json.dumps(document), encoding="utf-8")
+
+            issues = content_manager.validate_gym_catalog_file(catalog, structures)
+            self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+
+            document["gyms"][0]["interior"]["connections"][0]["from"] = "exterior:missing"
+            catalog.write_text(json.dumps(document), encoding="utf-8")
+            issues = content_manager.validate_gym_catalog_file(catalog, structures)
+            self.assertTrue(any(
+                issue.path.endswith(".connections[0].from")
+                and "실제 문 앵커" in issue.message
+                for issue in issues
+            ))
 
     def test_league_member_creation_builds_role_specific_resources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

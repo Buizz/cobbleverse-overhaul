@@ -33,6 +33,13 @@ function setStatus(message, error = false) {
   target.classList.toggle("has-error", error);
 }
 
+function setSaveStatus(state, message, detail = message) {
+  const target = $("#space-flow-save-state");
+  target.dataset.state = state;
+  target.textContent = message;
+  target.title = detail;
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
   const data = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
@@ -305,6 +312,7 @@ function renderAll() {
 
 function markDirty(updateLibrary = true) {
   flow.dirty = true;
+  setSaveStatus("dirty", "저장 필요");
   if (updateLibrary) renderLibrary();
   const graph = selectedGraph();
   setStatus(`${graph?.nodes?.length || 0}개 공간 · ${graph?.connections?.length || 0}개 연결 · 저장 필요`);
@@ -325,11 +333,14 @@ async function loadFlow(force = false) {
     flow.connectionDraft = null;
     flow.loaded = true;
     flow.dirty = false;
-    $("#space-flow-path").textContent = result.data.path || "content/catalogs/space-connections.json";
+    const path = result.data.path || "content/catalogs/space-connections.json";
+    $("#space-flow-path").textContent = path;
+    $("#space-flow-path").title = path;
+    setSaveStatus("saved", "저장된 상태");
     renderAll();
   })();
   try { await flow.loading; }
-  catch (error) { setStatus(error.message, true); }
+  catch (error) { setStatus(error.message, true); setSaveStatus("error", "불러오기 실패", error.message); }
   finally { flow.loading = null; }
 }
 
@@ -403,19 +414,33 @@ function connectTo(nodeId, anchor) {
 async function saveFlow() {
   const button = $("#save-space-flow");
   button.disabled = true;
+  setSaveStatus("saving", "저장 중…");
   setStatus("공간 연결과 런타임 설정을 저장하는 중입니다.");
-  const result = await api("/api/space-connections", {
-    method: "PUT", body: JSON.stringify({ schema_version: 1, graphs: flow.graphs }),
-  });
+  let result;
+  try {
+    result = await api("/api/space-connections", {
+      method: "PUT", body: JSON.stringify({ schema_version: 1, graphs: flow.graphs }),
+    });
+  } catch (error) {
+    const message = error.message || "저장 서버에 연결하지 못했습니다.";
+    setStatus(message, true);
+    setSaveStatus("error", "저장 실패", message);
+    button.disabled = false;
+    return;
+  }
   button.disabled = false;
   if (!result.ok) {
     const issue = result.data.issues?.find((item) => item.level === "error");
-    setStatus(issue ? `${issue.path}: ${issue.message}` : result.data.error || "저장하지 못했습니다.", true);
+    const message = issue ? `${issue.path}: ${issue.message}` : result.data.error || "저장하지 못했습니다.";
+    setStatus(message, true);
+    setSaveStatus("error", "저장 실패", message);
     return;
   }
   flow.loaded = false;
   await loadFlow(true);
+  if (!flow.loaded) return;
   setStatus("공간 연결과 건물·체육관 런타임 설정을 저장했습니다.");
+  setSaveStatus("success", "저장 완료");
 }
 
 function fitGraph() {

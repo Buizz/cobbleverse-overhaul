@@ -10,22 +10,21 @@
   },
   "anchors": [
     {
-      "id": "interior_exit",
-      "label": "interior_exit",
-      "type": "interior_exit",
+      "id": "door",
+      "label": "door",
+      "type": "door",
       "position": [
-        16,
+        15,
         1,
         0
       ],
       "safe_spawn": [
-        16,
+        15,
         1,
-        2
+        1
       ],
       "door_facing": "north",
-      "safe_side": "south",
-      "dialogue": "cobbleventure:default_exit"
+      "safe_side": "south"
     },
     {
       "label": "leader",
@@ -35,16 +34,6 @@
         1,
         25
       ]
-    },
-    {
-      "id": "interior_spawn",
-      "type": "interior_spawn",
-      "position": [
-        16,
-        1,
-        3
-      ],
-      "facing": "south"
     }
   ]
 }
