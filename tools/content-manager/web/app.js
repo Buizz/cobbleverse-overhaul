@@ -8666,15 +8666,10 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
           return (centerX - nearestX) ** 2 + (centerZ - nearestZ) ** 2;
         });
         const roadDistance = roadDistances.length ? Math.min(...roadDistances) : 0;
-        const centerDistance = (centerX - hub.x) ** 2 + (centerZ - hub.z) ** 2;
         const departmentStore = ["department_store", "facility_department_store"].includes(definition.id);
-        const plazaZ = occupiedZ + Math.min(19, Number(occupied.depth) - 1);
-        const rearZ = occupiedZ + Number(occupied.depth) - 1 - Math.min(19, Number(occupied.depth) - 1);
-        const plazaDistance = (centerX - hub.x) ** 2 + (plazaZ - hub.z) ** 2;
-        const rearDistance = (centerX - hub.x) ** 2 + (rearZ - hub.z) ** 2;
         const score = departmentStore
-          ? [intersectingRoads, plazaDistance > rearDistance ? 1 : 0, plazaDistance, roadDistance]
-          : [intersectingRoads, roadDistance, centerDistance];
+          ? [intersectingRoads, roadDistance]
+          : [intersectingRoads, roadDistance, (centerX - hub.x) ** 2 + (centerZ - hub.z) ** 2];
         // Removing an entire intersecting road segment can disconnect every
         // outer-cell road behind this lot. A grid facility must therefore use
         // a genuinely road-free lot; callers can still try a roadside slot or
@@ -8730,12 +8725,8 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
     return rightArea - leftArea;
   });
   for (const facility of facilityInstances) {
-    const departmentStore = ["department_store", "facility_department_store"].includes(facility.id);
-    const placed = departmentStore
-      ? tryPlaceGridFacility(facility, facility.instanceLabel)
-        || tryPlacePlot(facility, "facility", facility.instanceLabel, slots.length * 4)
-      : tryPlacePlot(facility, "facility", facility.instanceLabel, slots.length * 4)
-        || tryPlaceGridFacility(facility, facility.instanceLabel);
+    const placed = tryPlacePlot(facility, "facility", facility.instanceLabel, slots.length * 4)
+      || tryPlaceGridFacility(facility, facility.instanceLabel);
     if (!placed) missing.push(facility.instanceLabel);
   }
 

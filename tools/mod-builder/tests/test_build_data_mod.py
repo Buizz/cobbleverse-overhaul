@@ -464,17 +464,7 @@ class DataModBuilderTests(unittest.TestCase):
         road_endpoints = {(road["x2"], road["z2"]) for road in access_roads}
         self.assertTrue(all((entry["x"], entry["z"]) in road_endpoints for entry in entrances))
 
-        plot_x = float(department_store["x"])
         plot_z = float(department_store["z"])
-        width = int(department_store["width"])
-        depth = int(department_store["depth"])
-        plaza_x = plot_x + width / 2
-        plaza_z = plot_z + 19
-        rear_z = plot_z + depth - 1 - 19
-        self.assertLessEqual(
-            plaza_x * plaza_x + plaza_z * plaza_z,
-            plaza_x * plaza_x + rear_z * rear_z,
-        )
         self.assertEqual(
             math.floor(plot_z + 0.5) + 19,
             next(entry["z"] for entry in entrances if entry["facing"] == "west"),
@@ -483,6 +473,25 @@ class DataModBuilderTests(unittest.TestCase):
             math.floor(plot_z + 0.5) + 19,
             next(entry["z"] for entry in entrances if entry["facing"] == "east"),
         )
+
+    def test_department_store_is_not_forced_into_non_ring_town_center(self) -> None:
+        source = json.loads(
+            (
+                PROJECT_ROOT
+                / "content/settlements/generation_1/celadon_city.json"
+            ).read_text(encoding="utf-8")
+        )
+        for road_template in ("cross", "grid", "spine"):
+            with self.subTest(road_template=road_template):
+                source["structure_profile"]["road_layout_template"] = road_template
+                layout = build_data_mod._compile_town_layout(source)
+                store = layout["facilities"]["facility_department_store"]
+                hub_x, hub_z = layout["hub"]["x"], layout["hub"]["z"]
+                self.assertFalse(
+                    float(store["x"]) <= hub_x < float(store["x"]) + int(store["width"])
+                    and float(store["z"]) <= hub_z < float(store["z"]) + int(store["depth"])
+                )
+                self.assertIn("road_connection", store)
 
     def test_generated_street_decorations_avoid_buildings_and_access_roads(self) -> None:
         generated_root = (

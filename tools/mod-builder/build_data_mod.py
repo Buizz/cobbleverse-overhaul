@@ -1123,19 +1123,10 @@ def _compile_town_layout_attempt(
                     ),
                     default=0.0,
                 )
-                center_distance = (center_x - hub_x) ** 2 + (center_z - hub_z) ** 2
                 if identifier == "facility_department_store":
-                    plaza_z = z + min(19, plot_depth - 1)
-                    rear_z = z + plot_depth - 1 - min(19, plot_depth - 1)
-                    plaza_distance = (center_x - hub_x) ** 2 + (plaza_z - hub_z) ** 2
-                    rear_distance = (center_x - hub_x) ** 2 + (rear_z - hub_z) ** 2
-                    score = (
-                        float(intersecting_roads),
-                        1.0 if plaza_distance > rear_distance else 0.0,
-                        plaza_distance,
-                        road_distance,
-                    )
+                    score = (float(intersecting_roads), road_distance)
                 else:
+                    center_distance = (center_x - hub_x) ** 2 + (center_z - hub_z) ** 2
                     score = (float(intersecting_roads), road_distance, center_distance)
                 candidates.append((score, float(x), float(z)))
         if not candidates:
@@ -1215,15 +1206,11 @@ def _compile_town_layout_attempt(
     )
     for identifier, width, plot_depth in facility_specs:
         entrance_facing = _facility_entrance_facing(identifier)
-        plot = None
-        if identifier == "facility_department_store":
-            plot = place_grid_plot(identifier, width, plot_depth, entrance_facing)
+        plot = place_plot(
+            identifier, width, plot_depth, len(slots) * 4,
+            fixed_entrance_facing=entrance_facing,
+        )
         if plot is None:
-            plot = place_plot(
-                identifier, width, plot_depth, len(slots) * 4,
-                fixed_entrance_facing=entrance_facing,
-            )
-        if plot is None and identifier != "facility_department_store":
             plot = place_grid_plot(identifier, width, plot_depth, entrance_facing)
         if plot is None:
             raise TownFacilityPlacementError(data.get("id"), identifier)
