@@ -22,6 +22,67 @@ sys.modules[SPEC.name] = build_data_mod
 SPEC.loader.exec_module(build_data_mod)
 
 
+class TownNpcCapacityUnitTests(unittest.TestCase):
+    def test_town_indoor_capacity_counts_reachable_slots_in_placed_houses(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            settings = project / "content/catalogs/building-settings.json"
+            settings.parent.mkdir(parents=True)
+            settings.write_text(json.dumps({
+                "schema_version": 1,
+                "buildings": {
+                    "cobbleventure:houses/one_story_shed": {
+                        "citizen_placement_allowed": True,
+                        "interiors": [{
+                            "key": "room",
+                            "structure": "cobbleventure:interiors/test_room",
+                        }],
+                        "door_routes": {
+                            "exterior:front": {"space": "room", "door": "door"},
+                        },
+                    },
+                },
+            }), encoding="utf-8")
+            sidecar = project / "content/structures/interiors/test_room.structure.json"
+            sidecar.parent.mkdir(parents=True)
+            sidecar.write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [
+                    {"type": "npc_position", "label": "resident_1", "position": [1, 1, 1]},
+                    {"type": "npc_position", "label": "resident_2", "position": [2, 1, 1]},
+                ],
+            }), encoding="utf-8")
+            data = {
+                "npc_placement": {
+                    "auto_place_npcs": True,
+                    "max_ambient_npcs": 1,
+                    "trainer_population": {
+                        "enabled": True,
+                        "max_active": 2,
+                        "placement_areas": ["indoor"],
+                    },
+                },
+            }
+            layout = {"houses": [{
+                "id": "house_1", "base": "one_story", "roof": "shed",
+                "roof_color": "red",
+            }], "facilities": {}}
+
+            capacity = build_data_mod._town_indoor_npc_capacity(
+                Path(directory), data, layout, project_root=project,
+            )
+
+            self.assertEqual(2, capacity["available"])
+            self.assertEqual(3, capacity["requested"])
+
+    def test_town_trainer_placement_respects_indoor_only_setting(self) -> None:
+        placements = build_data_mod._town_npc_placement_records(
+            [], ["test:npc/a", "test:npc/b"], ["indoor"],
+        )
+
+        self.assertEqual(["indoor", "indoor"], [item["placement_area"] for item in placements])
+
+
 class DataModBuilderTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

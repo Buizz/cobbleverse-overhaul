@@ -5645,6 +5645,7 @@ def validate_repository(
         root / "content" / "catalogs" / "trainer-outfits.json", trainer_class_ids
     ))
     issues.extend(validate_building_npc_positions(root))
+    issues.extend(validate_town_indoor_npc_capacities(root))
     roster_ids, roster_issues = validate_trainer_roster_catalog(
         root / "content" / "catalogs" / "trainer-roster.json"
     )
@@ -6820,6 +6821,10 @@ def _save_document(
         Issue(issue.level, target.as_posix(), issue.path, issue.message)
         for issue in candidate_issues
     ]
+    if category == "settlements" and isinstance(data, dict) and not any(
+        issue.level == "error" for issue in issues
+    ):
+        issues.extend(validate_town_indoor_npc_capacity_document(root, data, target))
     duplicate = _duplicate_document_issue(
         root, category, target, document_id, validator
     )
@@ -9408,6 +9413,70 @@ def validate_building_npc_positions(
     return issues
 
 
+@functools.lru_cache(maxsize=1)
+def _mod_builder_module() -> Any:
+    module_path = Path(__file__).resolve().parents[1] / "mod-builder" / "build_data_mod.py"
+    module_directory = str(module_path.parent)
+    spec = importlib.util.spec_from_file_location("cobbleventure_mod_builder_validation", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"모드 빌더를 불러올 수 없습니다: {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    inserted = module_directory not in sys.path
+    if inserted:
+        sys.path.insert(0, module_directory)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        if inserted:
+            sys.path.remove(module_directory)
+    return module
+
+
+def validate_town_indoor_npc_capacities(root: Path) -> list[Issue]:
+    """Compare each compiled town's indoor NPC demand with its real building slots."""
+    issues: list[Issue] = []
+    settlement_root = root / "content" / "settlements"
+    if not settlement_root.is_dir():
+        return issues
+    try:
+        builder = _mod_builder_module()
+    except (OSError, ImportError, RuntimeError) as error:
+        return [Issue("error", settlement_root.as_posix(), "$", f"마을 수용량 검증기를 불러올 수 없습니다: {error}")]
+    for path in sorted(settlement_root.rglob("*.json")):
+        try:
+            data = load_json(path)
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+            _issue(issues, "error", path, "$.npc_placement", f"마을 실내 NPC 수용량을 계산할 수 없습니다: {error}")
+            continue
+        if isinstance(data, dict):
+            issues.extend(validate_town_indoor_npc_capacity_document(root, data, path, builder))
+    return issues
+
+
+def validate_town_indoor_npc_capacity_document(
+    root: Path, data: dict[str, Any], path: Path, builder: Any | None = None,
+) -> list[Issue]:
+    issues: list[Issue] = []
+    try:
+        builder = builder or _mod_builder_module()
+        repository_root = Path(__file__).resolve().parents[2]
+        compiled_layout = builder._compile_town_layout(data, root=repository_root)
+        capacity = builder._town_indoor_npc_capacity(
+            repository_root, data, compiled_layout, project_root=root,
+        )
+    except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError, RuntimeError) as error:
+        _issue(issues, "error", path, "$.npc_placement", f"마을 실내 NPC 수용량을 계산할 수 없습니다: {error}")
+        return issues
+    requested = int(capacity["requested"])
+    available = int(capacity["available"])
+    if requested > available:
+        _issue(
+            issues, "error", path, "$.npc_placement",
+            f"마을 건물 내부 NPC 자리가 부족합니다: 요청 {requested}명 / 수용 {available}명.",
+        )
+    return issues
+
+
 def save_building_settings(root: Path, data: Any) -> list[Issue]:
     path = root / BUILDING_SETTINGS_PATH
     issues: list[Issue] = []
@@ -10584,6 +10653,12 @@ def create_handler(
                     if isinstance(dimension, dict):
                         dimension["id"] = "cobbleventure:forests"
                 _, issues = _validate_payload(payload, validator)
+                if category == "settlements" and isinstance(payload, dict) and not any(
+                    issue.level == "error" for issue in issues
+                ):
+                    issues.extend(validate_town_indoor_npc_capacity_document(
+                        root, payload, root / "content" / "settlements" / "candidate.json",
+                    ))
                 errors = sum(issue.level == "error" for issue in issues)
                 self._json(
                     200 if errors == 0 else 422,

@@ -258,12 +258,150 @@ def _resolved_trainer_ids(
     return list(dict.fromkeys([*direct, *automatic]))
 
 
-def _town_npc_placement_records(ambient: list[str], trainers: list[str]) -> list[dict[str, str]]:
+def _town_npc_placement_records(
+    ambient: list[str], trainers: list[str], placement_areas: list[str] | None = None,
+) -> list[dict[str, str]]:
     """Assign residents indoors and distribute trainers across outdoor/indoor slots."""
+    areas = [area for area in (placement_areas or ["indoor", "outdoor"])
+             if area in {"indoor", "outdoor"}]
+    areas = areas or ["indoor", "outdoor"]
+    ambient_area = "indoor" if "indoor" in areas else "outdoor"
+    if areas == ["indoor"]:
+        trainer_area = lambda _index: "indoor"
+    elif areas == ["outdoor"]:
+        trainer_area = lambda _index: "outdoor"
+    else:
+        trainer_area = lambda index: "outdoor" if index % 2 == 0 else "indoor"
     return [
-        *({"npc": npc_id, "classification": "ambient", "placement_area": "indoor"} for npc_id in ambient),
-        *({"npc": npc_id, "classification": "trainer", "placement_area": "outdoor" if index % 2 == 0 else "indoor"} for index, npc_id in enumerate(trainers)),
+        *({"npc": npc_id, "classification": "ambient", "placement_area": ambient_area} for npc_id in ambient),
+        *({"npc": npc_id, "classification": "trainer", "placement_area": trainer_area(index)} for index, npc_id in enumerate(trainers)),
     ]
+
+
+def _requested_town_indoor_npcs(data: dict[str, object]) -> int:
+    """Return the maximum number of automatic NPCs that need indoor slots."""
+    placement = data.get("npc_placement")
+    if not isinstance(placement, dict) or placement.get("auto_place_npcs") is not True:
+        return 0
+    ambient = max(0, int(placement.get("max_ambient_npcs", 0)))
+    population = placement.get("trainer_population")
+    if not isinstance(population, dict):
+        return ambient
+    areas = [area for area in population.get("placement_areas", ["indoor", "outdoor"])
+             if area in {"indoor", "outdoor"}]
+    areas = areas or ["indoor", "outdoor"]
+    if "indoor" not in areas:
+        return 0
+    if population.get("enabled") is not True:
+        return ambient
+    trainer_count = max(0, int(population.get("max_active", 0)))
+    if "outdoor" not in areas:
+        return ambient + trainer_count
+    return ambient + trainer_count // 2
+
+
+def _metadata_npc_slot_count(project_root: Path, structure_id: object) -> int:
+    if not isinstance(structure_id, str) or ":" not in structure_id:
+        return 0
+    namespace, resource = structure_id.split(":", 1)
+    if namespace != "cobbleventure":
+        return 0
+    sidecar = project_root / "content" / "structures" / f"{resource}.structure.json"
+    if not sidecar.is_file():
+        return 0
+    try:
+        metadata = json.loads(sidecar.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return 0
+    anchors = metadata.get("anchors", []) if isinstance(metadata, dict) else []
+    return sum(
+        1 for anchor in anchors
+        if isinstance(anchor, dict) and anchor.get("type") == "npc_position"
+    )
+
+
+def _building_indoor_npc_capacity(
+    project_root: Path, settings: dict[str, object],
+) -> int:
+    if settings.get("citizen_placement_allowed") is not True:
+        return 0
+    interiors = settings.get("interiors", [])
+    routes = settings.get("door_routes", {})
+    if not isinstance(interiors, list) or not isinstance(routes, dict):
+        return 0
+    reachable = {"exterior"}
+    edges: list[tuple[str, str]] = []
+    for source, target in routes.items():
+        if not isinstance(source, str) or ":" not in source or not isinstance(target, dict):
+            continue
+        target_space = target.get("space")
+        if isinstance(target_space, str):
+            edges.append((source.split(":", 1)[0], target_space))
+    changed = True
+    while changed:
+        changed = False
+        for left, right in edges:
+            if left in reachable and right not in reachable:
+                reachable.add(right)
+                changed = True
+            if right in reachable and left not in reachable:
+                reachable.add(left)
+                changed = True
+    return sum(
+        _metadata_npc_slot_count(project_root, interior.get("structure"))
+        for interior in interiors
+        if isinstance(interior, dict) and interior.get("key") in reachable
+    )
+
+
+def _town_indoor_npc_capacity(
+    root: Path, data: dict[str, object], compiled_layout: dict[str, object],
+    project_root: Path | None = None,
+) -> dict[str, object]:
+    """Count indoor NPC positions in buildings actually selected for this town."""
+    requested = _requested_town_indoor_npcs(data)
+    project_root = project_root or root / PROJECT_ROOT
+    settings_path = project_root / "content" / "catalogs" / "building-settings.json"
+    if not settings_path.is_file() and requested == 0:
+        return {"requested": 0, "available": 0, "buildings": []}
+    try:
+        document = json.loads(settings_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ModBuildError(f"건물 설정을 읽을 수 없습니다: {settings_path}") from error
+    buildings = document.get("buildings", {}) if isinstance(document, dict) else {}
+    if not isinstance(buildings, dict):
+        raise ModBuildError(f"건물 설정 객체가 필요합니다: {settings_path}")
+
+    placed: list[dict[str, object]] = []
+    for house in compiled_layout.get("houses", []):
+        if not isinstance(house, dict):
+            continue
+        base, roof = house.get("base"), house.get("roof")
+        building_id = f"cobbleventure:houses/{base}_{roof}"
+        setting = buildings.get(building_id)
+        capacity = _building_indoor_npc_capacity(project_root, setting) if isinstance(setting, dict) else 0
+        placed.append({"building": str(house.get("id", building_id)), "structure": building_id, "capacity": capacity})
+
+    facility_structures = {
+        str(facility.get("id")): facility.get("structure")
+        for facility in data.get("structure_profile", {}).get("facility_placements", [])
+        if isinstance(facility, dict) and isinstance(facility.get("id"), str)
+    } if isinstance(data.get("structure_profile"), dict) else {}
+    facilities = compiled_layout.get("facilities", {})
+    for facility_id in facilities if isinstance(facilities, dict) else []:
+        structure_id = facility_structures.get(str(facility_id))
+        setting = buildings.get(structure_id)
+        if not isinstance(structure_id, str) or not isinstance(setting, dict):
+            continue
+        capacity = _building_indoor_npc_capacity(project_root, setting)
+        placed.append({"building": str(facility_id), "structure": structure_id, "capacity": capacity})
+
+    available = sum(int(item["capacity"]) for item in placed)
+    return {
+        "requested": requested,
+        "available": available,
+        "buildings": placed,
+    }
 
 
 def _settlement_world_levels(root: Path) -> dict[str, int]:
@@ -307,6 +445,15 @@ def _package_settlements(
     for relative, data in settlements:
         packaged = copy.deepcopy(data)
         placement = packaged.get("npc_placement") if isinstance(packaged.get("npc_placement"), dict) else {}
+        compiled_layout = _compile_town_layout(packaged, root=root)
+        capacity = _town_indoor_npc_capacity(root, packaged, compiled_layout)
+        placement["indoor_capacity"] = capacity
+        if int(capacity["requested"]) > int(capacity["available"]):
+            raise ModBuildError(
+                "마을 실내 NPC 수용량을 초과했습니다: "
+                f"{packaged.get('id')} / 요청 {capacity['requested']}명 / "
+                f"수용 {capacity['available']}명"
+            )
         if placement.get("auto_place_npcs") is True:
             level = world_levels.get(str(packaged.get("id")), 5)
             biomes = {
@@ -318,14 +465,17 @@ def _package_settlements(
             population = placement.get("trainer_population") if isinstance(placement.get("trainer_population"), dict) else {}
             trainer_limit = int(population.get("max_active", 0))
             trainers = _resolved_trainer_ids(npc_profiles, population, level=level, biomes=biomes, target="town")[:trainer_limit] if population.get("enabled", trainer_limit > 0) else []
+            placement_areas = population.get("placement_areas")
             placement["resolved_auto_npcs"] = {
                 "level": level,
                 "biomes": sorted(biomes),
                 "ambient": ambient,
                 "trainers": trainers,
-                "placements": _town_npc_placement_records(ambient, trainers),
+                "placements": _town_npc_placement_records(
+                    ambient, trainers,
+                    placement_areas if isinstance(placement_areas, list) else None,
+                ),
             }
-        compiled_layout = _compile_town_layout(packaged, root=root)
         if int(compiled_layout.get("reroll_count", 0)) > 0:
             print(
                 "[경고] 필수 시설 배치를 위해 마을 레이아웃을 자동 리롤했습니다: "

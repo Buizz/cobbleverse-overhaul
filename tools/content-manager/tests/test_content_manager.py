@@ -4130,6 +4130,28 @@ class ContentManagerTests(unittest.TestCase):
                 for issue in issues
             ))
 
+    def test_town_validation_rejects_more_indoor_npcs_than_building_slots(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            settlement = root / "content/settlements/generation_1/test_town.json"
+            settlement.parent.mkdir(parents=True)
+            settlement.write_text(json.dumps({"schema_version": 3}), encoding="utf-8")
+            builder = mock.Mock()
+            builder.ModBuildError = RuntimeError
+            builder._compile_town_layout.return_value = {"houses": [], "facilities": {}}
+            builder._town_indoor_npc_capacity.return_value = {
+                "requested": 11, "available": 10, "buildings": [],
+            }
+
+            with mock.patch.object(content_manager, "_mod_builder_module", return_value=builder):
+                issues = content_manager.validate_town_indoor_npc_capacities(root)
+
+            self.assertTrue(any(
+                issue.level == "error"
+                and "요청 11명 / 수용 10명" in issue.message
+                for issue in issues
+            ))
+
     def test_building_settings_reject_invalid_placement_y_offset(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
