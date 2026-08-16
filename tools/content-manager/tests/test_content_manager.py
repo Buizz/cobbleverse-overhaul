@@ -2961,9 +2961,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('name="autoPlaceNpcs"', page)
         for scope in ("route", "cave", "forest", "settlement"):
             self.assertIn(f'data-trainer-population="{scope}"', page)
+            self.assertIn(f'id="{scope}-auto-npc-preview"', page)
+        self.assertEqual(4, page.count("npc-placement-panel"))
         self.assertIn("바이옴 기본 트레이너 사용", script)
         self.assertIn("직접 지정", script)
         self.assertIn("automaticNpcCandidates", script)
+        self.assertIn("function renderTrainerPopulationPreview(scope)", script)
+        for scope in ("route", "cave", "forest", "settlement"):
+            self.assertIn(f'renderTrainerPopulationPreview("{scope}")', script)
 
     def test_settlement_switch_preserves_saved_footprint_shape(self) -> None:
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")

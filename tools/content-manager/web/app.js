@@ -2770,9 +2770,9 @@ function renderSharedTrainerPopulation(scope) {
   if (!container) return;
   const { value, countKey } = trainerPopulationConfig(scope);
   value.use_biome_defaults = value.use_biome_defaults !== false;
-  value.direct_trainers ||= [];
+  value.direct_trainers = Array.isArray(value.direct_trainers) ? value.direct_trainers : [];
   const trainerRows = state.trainers.filter((entry) => (entry.classification || (entry.battle_type ? "trainer" : "ambient")) === "trainer");
-  container.innerHTML = `<div class="shared-trainer-controls"><label class="toggle"><input type="checkbox" data-trainer-population-field="enabled" ${value.enabled ? "checked" : ""}><span>트레이너 배치 사용</span></label><label class="toggle"><input type="checkbox" data-trainer-population-field="use_biome_defaults" ${value.use_biome_defaults ? "checked" : ""}><span>바이옴 기본 트레이너 사용</span></label><label><span>최대 배치 수</span><input type="number" min="0" max="128" data-trainer-population-field="${countKey}" value="${Number(value[countKey] || 0)}"></label></div><div class="shared-trainer-direct"><strong>직접 지정</strong><small>체크한 트레이너는 바이옴 기본 후보와 함께 항상 포함됩니다.</small><div>${trainerRows.length ? trainerRows.map((trainer) => `<label class="trainer-pool-choice"><input type="checkbox" data-direct-trainer="${escapeHtml(trainer.id)}" ${value.direct_trainers.includes(trainer.id) ? "checked" : ""}><span>${escapeHtml(trainer.name || trainer.id)}${trainer.expected_level ? `<small>Lv.${trainer.expected_level}</small>` : ""}</span></label>`).join("") : '<span class="trainer-pool-empty">등록된 트레이너가 없습니다.</span>'}</div></div>`;
+  container.innerHTML = `<div class="shared-trainer-controls"><label class="toggle"><input type="checkbox" data-trainer-population-field="enabled" ${value.enabled ? "checked" : ""}><span>트레이너 배치 사용</span></label><label class="toggle"><input type="checkbox" data-trainer-population-field="use_biome_defaults" ${value.use_biome_defaults ? "checked" : ""}><span>바이옴 기본 트레이너 사용</span></label><label><span>최대 배치 수</span><input type="number" min="0" max="${scope === "route" ? 32 : 128}" data-trainer-population-field="${countKey}" value="${Number(value[countKey] || 0)}"></label></div><div class="shared-trainer-direct"><strong>직접 지정</strong><small>체크한 트레이너는 바이옴 기본 후보와 함께 항상 포함됩니다.</small><div>${trainerRows.length ? trainerRows.map((trainer) => `<label class="trainer-pool-choice"><input type="checkbox" data-direct-trainer="${escapeHtml(trainer.id)}" ${value.direct_trainers.includes(trainer.id) ? "checked" : ""}><span>${escapeHtml(trainer.name || trainer.id)}${trainer.expected_level ? `<small>Lv.${trainer.expected_level}</small>` : ""}</span></label>`).join("") : '<span class="trainer-pool-empty">등록된 트레이너가 없습니다.</span>'}</div></div>`;
 }
 
 function updateSharedTrainerPopulation(scope) {
@@ -2813,22 +2813,51 @@ function resolvedTrainerCandidates(population, { level, biomes, target }) {
 }
 
 function autoNpcPreviewMarkup(candidates, limit, emptyText) {
-  const selected = candidates.slice(0, Math.max(0, limit));
+  const maximum = Math.max(0, Number(limit) || 0);
+  if (!maximum) return "<span>최대 배치 수가 0명입니다.</span>";
+  const selected = candidates.slice(0, maximum);
   if (!selected.length) return `<span>${escapeHtml(emptyText)}</span>`;
   return `<strong>자동 배치 후보 ${selected.length}명</strong><div>${selected.map((npc) => `<span class="auto-npc-chip is-${npc.classification || "ambient"}">${escapeHtml(npc.name || npc.id)}${npc.expected_level ? ` · Lv.${npc.expected_level}` : " · 레벨 무관"}</span>`).join("")}</div>`;
 }
 
-function renderRouteAutoNpcPreview() {
-  const preview = $("#route-auto-npc-preview");
-  const automatic = state.routePreset?.automatic_npc_placement || { enabled: false, count: 0 };
-  if (!automatic.enabled) { preview.textContent = "자동 배치를 켜면 후보가 표시됩니다."; return; }
-  const route = (state.worldLayout?.connections || []).find((entry) => entry.route_preset === state.routePreset?.id);
-  const path = route ? connectionPath(route) : [];
-  const biomes = [...new Set(path.map((cell) => tileAt(cell.q, cell.r)?.biome).filter(Boolean))];
-  const range = route ? routeDefaultPokemonLevelRange(route) : { min: state.routePreset?.level_scaling?.minimum_level || 3, max: state.routePreset?.level_scaling?.maximum_level || 7 };
-  const level = Math.round((range.min + range.max) / 2 + Number(state.routePreset?.level_scaling?.offset || 0));
-  const candidates = resolvedTrainerCandidates(automatic, { level, biomes, target: "route" });
-  preview.innerHTML = autoNpcPreviewMarkup(candidates, automatic.count, "조건에 맞는 트레이너가 없습니다.");
+function trainerPopulationPreviewContext(scope) {
+  if (scope === "route") {
+    const route = (state.worldLayout?.connections || []).find((entry) => entry.route_preset === state.routePreset?.id);
+    const path = route ? connectionPath(route) : [];
+    const biomes = [...new Set(path.map((cell) => tileAt(cell.q, cell.r)?.biome).filter(Boolean))];
+    const range = route ? routeDefaultPokemonLevelRange(route) : { min: state.routePreset?.level_scaling?.minimum_level || 3, max: state.routePreset?.level_scaling?.maximum_level || 7 };
+    return { level: Math.round((range.min + range.max) / 2 + Number(state.routePreset?.level_scaling?.offset || 0)), biomes, target: "route" };
+  }
+  if (scope === "cave" || scope === "forest") {
+    const settings = encounterSettings(scope);
+    return {
+      level: Math.round((Number(settings?.minimum_level || 1) + Number(settings?.maximum_level || 1)) / 2),
+      biomes: settings?.pokemon_biome ? [settings.pokemon_biome] : [], target: scope
+    };
+  }
+  const scaling = state.settlement?.content_profile?.level_scaling || {};
+  return {
+    level: Math.max(1, Math.min(100, Math.round(Number(scaling.base_level || scaling.min_level || 5) + Number(scaling.trainer_offset || 0)))),
+    biomes: (state.settlement?.biome_layout?.zones || []).map((zone) => zone.biome).filter(Boolean), target: "town"
+  };
+}
+
+function renderTrainerPopulationPreview(scope) {
+  const preview = $(`#${scope}-auto-npc-preview`);
+  if (!preview) return;
+  const population = trainerPopulationConfig(scope).value;
+  const context = trainerPopulationPreviewContext(scope);
+  const sections = [];
+  if (scope === "settlement" && state.settlement?.npc_placement?.auto_place_npcs) {
+    const ambient = automaticNpcCandidates({ classification: "ambient", ...context });
+    sections.push(`<section><b>단순 NPC · 실내</b>${autoNpcPreviewMarkup(ambient, Number(state.settlement.npc_placement.max_ambient_npcs || 0), "조건에 맞는 단순 NPC가 없습니다.")}</section>`);
+  }
+  if (population.enabled) {
+    const trainers = resolvedTrainerCandidates(population, context);
+    sections.push(`<section><b>트레이너</b>${autoNpcPreviewMarkup(trainers, Number(population.max_active ?? population.count ?? 0), "조건에 맞는 트레이너가 없습니다.")}</section>`);
+  }
+  if (!sections.length) { preview.textContent = "자동 배치를 켜면 후보가 표시됩니다."; return; }
+  preview.innerHTML = `<strong>지역 기준 Lv.${context.level}</strong><div class="auto-npc-preview-groups">${sections.join("")}</div>`;
 }
 
 function renderRouteNpcList() {
@@ -2883,7 +2912,7 @@ function renderRoutePreset() {
   $("#route-preset-pokemon-count").textContent = `${count}종`;
   $("#route-preset-pokemon-description").textContent = `${settings.inherit_biome ? `통과 바이옴 ${baseCount}종 사용` : "통과 바이옴 미사용"} · 직접 추가 ${settings.additions.length}종 · 제외 ${settings.excluded_species.length}종`;
   renderRouteNpcList();
-  renderRouteAutoNpcPreview();
+  renderTrainerPopulationPreview("route");
 }
 
 function updateRoutePresetFromForm() {
@@ -2897,7 +2926,7 @@ function updateRoutePresetFromForm() {
   preset.level_scaling = { mode: form.elements.levelMode.value, offset: Math.round(Number(form.elements.levelOffset.value) || 0) };
   if (preset.level_scaling.mode === "fixed") { preset.level_scaling.minimum_level = Math.round(Number(form.elements.minimumLevel.value)); preset.level_scaling.maximum_level = Math.round(Number(form.elements.maximumLevel.value)); }
   updateSharedTrainerPopulation("route");
-  renderRouteAutoNpcPreview();
+  renderTrainerPopulationPreview("route");
   return true;
 }
 
@@ -3070,6 +3099,7 @@ function renderCave() {
   setFormValue(form, "encounterMinLevel", encounters.minimum_level); setFormValue(form, "encounterMaxLevel", encounters.maximum_level);
   encounterBiomeOptions(form.elements.encounterPokemonBiome, encounters.pokemon_biome);
   renderSharedTrainerPopulation("cave");
+  renderTrainerPopulationPreview("cave");
   renderCaveDimensionSummary();
   renderEncounterSummary("cave");
   renderCaveArrayEditors();
@@ -3093,6 +3123,7 @@ function updateCaveFromForm() {
   state.cave.trainer_settings.placements = $$("#cave-trainer-list [data-cave-trainer-row]").map((row) => { const entry = { id: row.querySelector('[data-field="id"]').value.trim(), trainer_id: row.querySelector('[data-field="trainer_id"]').value.trim(), position: { x: Number(row.querySelector('[data-field="x"]').value), y: Number(row.querySelector('[data-field="y"]').value), z: Number(row.querySelector('[data-field="z"]').value) } }; const progress = row.querySelector('[data-field="required_progress"]').value.trim(); if (progress) entry.required_progress = progress; return entry; });
   syncCaveBuildBounds(); renderCaveDimensionSummary();
   renderEncounterSummary("cave");
+  renderTrainerPopulationPreview("cave");
   return true;
 }
 
@@ -3256,6 +3287,7 @@ function renderForest() {
   setFormValue(form, "treeMinHeight", trees.min_height); setFormValue(form, "treeMaxHeight", trees.max_height); setFormValue(form, "trunkBlocks", trees.trunk_blocks.join(", ")); setFormValue(form, "foliageBlocks", trees.foliage_blocks.join(", ")); setFormValue(form, "barrierBlock", trees.barrier_block);
   setFormValue(form, "undergrowthDensity", undergrowth.density); setFormValue(form, "undergrowthBlocks", undergrowth.blocks.join(", ")); setFormValue(form, "pathClearance", undergrowth.path_clearance);
   renderSharedTrainerPopulation("forest");
+  renderTrainerPopulationPreview("forest");
   renderForestEnvironmentPreset();
   renderEncounterSummary("forest");
   generator.cell_size = Math.max(Math.max(4, Math.min(64, Math.round(Number(generator.cell_size) || 16))), forestMinimumMazeCellSize(document)); document.generator = { ...(document.generator || {}), ...generator };
@@ -3292,6 +3324,7 @@ function updateForestFromForm() {
   const terrainByPosition = new Map(); document.terrain_tiles.forEach((tile) => { const point = snapForestTilePoint(tile); terrainByPosition.set(`${point.x},${point.z}`, { ...point, height_offset: tile.height_offset, ...(tile.transition ? { transition: { ...tile.transition } } : {}) }); }); document.terrain_tiles = [...terrainByPosition.values()];
   syncForestBuildBounds(); renderForestDimensionSummary();
   renderEncounterSummary("forest");
+  renderTrainerPopulationPreview("forest");
   return true;
 }
 
@@ -9137,17 +9170,7 @@ function applySpecialBuildingPreset(event) {
 }
 
 function renderSettlementAutoNpcPreview() {
-  const preview = $("#settlement-auto-npc-preview");
-  if (!state.settlement?.npc_placement?.auto_place_npcs) { preview.textContent = "자동 배치를 켜면 후보가 표시됩니다."; return; }
-  const scaling = state.settlement.content_profile?.level_scaling || {};
-  const level = Math.max(1, Math.min(100, Math.round(Number(scaling.base_level || scaling.min_level || 5) + Number(scaling.trainer_offset || 0))));
-  const biomes = (state.settlement.biome_layout?.zones || []).map((zone) => zone.biome).filter(Boolean);
-  const ambient = automaticNpcCandidates({ classification: "ambient", level, biomes, target: "town" });
-  const population = trainerPopulationConfig("settlement").value;
-  const trainers = resolvedTrainerCandidates(population, { level, biomes, target: "town" });
-  const ambientCount = Number(state.settlement.npc_placement.max_ambient_npcs || 0);
-  const trainerCount = Number(population.max_active || 0);
-  preview.innerHTML = `<strong>마을 기준 Lv.${level}</strong><div class="auto-npc-preview-groups"><section><b>단순 NPC · 실내 전용</b>${autoNpcPreviewMarkup(ambient, ambientCount, "조건에 맞는 단순 NPC가 없습니다.")}</section><section><b>트레이너 · 실내·실외</b>${autoNpcPreviewMarkup(trainers, trainerCount, "조건에 맞는 트레이너가 없습니다.")}</section></div>`;
+  renderTrainerPopulationPreview("settlement");
 }
 
 function renderSettlement() {
