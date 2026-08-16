@@ -2845,7 +2845,7 @@ function renderSharedTrainerPopulation(scope) {
   value.use_biome_defaults = value.use_biome_defaults !== false;
   value.direct_trainers = Array.isArray(value.direct_trainers) ? value.direct_trainers : [];
   const trainerRows = state.trainers.filter((entry) => (entry.classification || (entry.battle_type ? "trainer" : "ambient")) === "trainer");
-  container.innerHTML = `<div class="shared-trainer-controls"><label class="toggle"><input type="checkbox" data-trainer-population-field="enabled" ${value.enabled ? "checked" : ""}><span>트레이너 배치 사용</span></label><label class="toggle"><input type="checkbox" data-trainer-population-field="use_biome_defaults" ${value.use_biome_defaults ? "checked" : ""}><span>바이옴 기본 트레이너 사용</span></label><label><span>최대 배치 수</span><input type="number" min="0" max="${scope === "route" ? 32 : 128}" data-trainer-population-field="${countKey}" value="${Number(value[countKey] || 0)}"></label></div><div class="shared-trainer-direct"><strong>직접 지정</strong><small>체크한 트레이너는 바이옴 기본 후보와 함께 항상 포함됩니다.</small><div>${trainerRows.length ? trainerRows.map((trainer) => `<label class="trainer-pool-choice"><input type="checkbox" data-direct-trainer="${escapeHtml(trainer.id)}" ${value.direct_trainers.includes(trainer.id) ? "checked" : ""}><span>${escapeHtml(trainer.name || trainer.id)}${trainer.expected_level ? `<small>Lv.${trainer.expected_level}</small>` : ""}</span></label>`).join("") : '<span class="trainer-pool-empty">등록된 트레이너가 없습니다.</span>'}</div></div>`;
+  container.innerHTML = `<div class="shared-trainer-controls"><label class="toggle"><input type="checkbox" data-trainer-population-field="enabled" ${value.enabled ? "checked" : ""}><span>트레이너 배치 사용</span></label><label class="toggle"><input type="checkbox" data-trainer-population-field="use_biome_defaults" ${value.use_biome_defaults ? "checked" : ""}><span>바이옴 기본 트레이너 사용</span></label><label><span>최대 배치 수</span><input type="number" min="0" max="${scope === "route" ? 32 : 128}" data-trainer-population-field="${countKey}" value="${Number(value[countKey] || 0)}"></label></div><div class="shared-trainer-direct"><strong>직접 지정</strong><small>체크한 트레이너는 바이옴 기본 후보와 함께 항상 포함됩니다.</small><div>${trainerRows.length ? trainerRows.map((trainer) => { const levelLabel = trainer.level_mode === "map_scaling" ? `맵 ${Number(trainer.level_offset || 0) >= 0 ? "+" : ""}${Number(trainer.level_offset || 0)}` : trainer.expected_level ? `고정 Lv.${trainer.expected_level}` : "고정"; return `<label class="trainer-pool-choice"><input type="checkbox" data-direct-trainer="${escapeHtml(trainer.id)}" ${value.direct_trainers.includes(trainer.id) ? "checked" : ""}><span>${escapeHtml(trainer.name || trainer.id)}<small>${levelLabel}</small></span></label>`; }).join("") : '<span class="trainer-pool-empty">등록된 트레이너가 없습니다.</span>'}</div></div>`;
 }
 
 function updateSharedTrainerPopulation(scope) {
@@ -2890,7 +2890,7 @@ function autoNpcPreviewMarkup(candidates, limit, emptyText) {
   if (!maximum) return "<span>최대 배치 수가 0명입니다.</span>";
   const selected = candidates.slice(0, maximum);
   if (!selected.length) return `<span>${escapeHtml(emptyText)}</span>`;
-  return `<strong>자동 배치 후보 ${selected.length}명</strong><div>${selected.map((npc) => `<span class="auto-npc-chip is-${npc.classification || "ambient"}">${escapeHtml(npc.name || npc.id)}${npc.expected_level ? ` · Lv.${npc.expected_level}` : " · 레벨 무관"}</span>`).join("")}</div>`;
+  return `<strong>자동 배치 후보 ${selected.length}명</strong><div>${selected.map((npc) => { const levelLabel = npc.level_mode === "map_scaling" ? `맵 ${Number(npc.level_offset || 0) >= 0 ? "+" : ""}${Number(npc.level_offset || 0)}` : npc.expected_level ? `고정 Lv.${npc.expected_level}` : "레벨 무관"; return `<span class="auto-npc-chip is-${npc.classification || "ambient"}">${escapeHtml(npc.name || npc.id)} · ${levelLabel}</span>`; }).join("")}</div>`;
 }
 
 function trainerPopulationPreviewContext(scope) {
@@ -3045,6 +3045,8 @@ function renderBattlePreset() {
   setFormValue(form, "difficulty", ai.difficulty);
   setFormValue(form, "strategy", ai.strategy);
   setFormValue(form, "levelMode", battle.level_mode || "fixed");
+  setFormValue(form, "levelOffset", battle.level_offset ?? 0);
+  form.querySelector("[data-battle-map-level]").hidden = battle.level_mode !== "map_scaling";
   setFormValue(form, "megaEvolution", Boolean(battle.mechanics?.mega_evolution));
   setFormValue(form, "zMove", Boolean(battle.mechanics?.z_move));
   setFormValue(form, "dynamax", Boolean(battle.mechanics?.dynamax));
@@ -3070,6 +3072,12 @@ function updateBattlePresetFromForm() {
   battle.format = form.elements.format.value;
   battle.battle_type = form.elements.battleType.value;
   battle.level_mode = form.elements.levelMode.value;
+  if (battle.level_mode === "map_scaling") {
+    battle.level_offset = Math.max(-99, Math.min(99, Math.round(Number(form.elements.levelOffset.value) || 0)));
+  } else {
+    delete battle.level_offset;
+  }
+  form.querySelector("[data-battle-map-level]").hidden = battle.level_mode !== "map_scaling";
   battle.ai = {
     controller: "cobbleventure",
     difficulty: form.elements.difficulty.value,
@@ -4313,6 +4321,8 @@ function renderTrainer() {
   setFormValue(form, "cheatProbability", Math.round((ai.options?.cheat_probability ?? 0.5) * 100));
   renderCheatProbability(form);
   setFormValue(form, "levelMode", battle.level_mode);
+  setFormValue(form, "levelOffset", battle.level_offset ?? 0);
+  form.querySelector("[data-trainer-map-level]").hidden = battle.level_mode !== "map_scaling";
   setFormValue(form, "megaEvolution", battle.mechanics?.mega_evolution);
   setFormValue(form, "zMove", battle.mechanics?.z_move);
   setFormValue(form, "dynamax", battle.mechanics?.dynamax);
@@ -4350,7 +4360,7 @@ function renderTrainer() {
   form.elements.npcAutoRoute.disabled = form.elements.npcClassification.value === "ambient";
   renderDoubleBattleSettings(form);
   $("#max-item-uses").disabled = false;
-  const battleFieldNames = ["battleFormat", "battleType", "battleDifficulty", "battleAi", "cheatProbability", "levelMode", "megaEvolution", "zMove", "dynamax", "terastallization"];
+  const battleFieldNames = ["battleFormat", "battleType", "battleDifficulty", "battleAi", "cheatProbability", "levelMode", "levelOffset", "megaEvolution", "zMove", "dynamax", "terastallization"];
   battleFieldNames.forEach((name) => { form.elements[name].disabled = !attachedBattle; });
   ["#max-item-uses", "#add-bag-item", "#load-trainer-reference", "#copy-team-json", "#paste-team-json", "#add-pokemon"].forEach((selector) => { $(selector).disabled = !attachedBattle; });
   renderTrainerPreview();
@@ -4462,6 +4472,12 @@ function updateTrainerFromForm() {
       },
       level_mode: form.elements.levelMode.value
     });
+  if (battle?.level_mode === "map_scaling") {
+    battle.level_offset = Math.max(-99, Math.min(99, Math.round(Number(form.elements.levelOffset.value) || 0)));
+  } else if (battle) {
+    delete battle.level_offset;
+  }
+  form.querySelector("[data-trainer-map-level]").hidden = battle?.level_mode !== "map_scaling";
   renderCheatProbability(form);
   if (battle) {
     battle.rules ||= {};

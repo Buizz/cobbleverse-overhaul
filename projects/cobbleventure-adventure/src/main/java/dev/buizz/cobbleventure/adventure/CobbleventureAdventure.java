@@ -41,6 +41,7 @@ public final class CobbleventureAdventure {
         PokemonCenterDefeatReturn.register();
         BattleOnlyPokeBallUse.register();
         TrainerBattleState.register();
+        TrainerBattleLevelScaling.register();
         TrainerMoneyRewards.register();
         BattleWeatherSystem.register();
     }

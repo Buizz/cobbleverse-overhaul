@@ -16,7 +16,8 @@
       "strategy": "balanced",
       "options": {}
     },
-    "level_mode": "fixed",
+    "level_mode": "map_scaling",
+    "level_offset": 2,
     "rules": {
       "can_forfeit": true
     },

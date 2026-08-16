@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -104,7 +105,74 @@ class SampleNpcTests(unittest.TestCase):
             compiled = json.loads(json.dumps(trainer))
             compiled["_battle_presets"] = {battle["id"]: battle}
             preset = generator.encounter_preset_snbt(compiled, self.youngster_outfit)
-            self.assertIn(f"tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:{trainer['id'].rsplit('/', 1)[-1]}", preset)
+            trainer_slug = trainer["id"].rsplit("/", 1)[-1]
+            if battle["battle"]["level_mode"] == "map_scaling":
+                self.assertIn("cobbleventure_scaled_trainer_battle", preset)
+                self.assertIn(f"rctmod:{trainer_slug}", preset)
+            else:
+                self.assertIn(f"tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:{trainer_slug}", preset)
+
+    def test_sample_trainers_cover_fixed_and_map_scaled_levels(self) -> None:
+        modes = [battle["battle"]["level_mode"] for battle in self.battles.values()]
+        offsets = sorted(
+            battle["battle"]["level_offset"]
+            for battle in self.battles.values()
+            if battle["battle"]["level_mode"] == "map_scaling"
+        )
+
+        self.assertEqual(5, modes.count("fixed"))
+        self.assertEqual(5, modes.count("map_scaling"))
+        self.assertEqual([-2, -1, 0, 1, 2], offsets)
+
+        summaries = {
+            item["id"]: item
+            for item in content_manager._list_documents(PROJECT_ROOT, "trainers")
+        }
+        scaled_summary = summaries["cobbleventure:npc/sample_bug_catcher_doyun"]
+        self.assertEqual("map_scaling", scaled_summary["level_mode"])
+        self.assertEqual(-2, scaled_summary["level_offset"])
+
+    def test_map_scaled_battle_generates_all_runtime_level_variants(self) -> None:
+        battle = next(
+            battle
+            for battle in self.battles.values()
+            if battle["battle"]["level_mode"] == "map_scaling"
+        )
+        document = {
+            "id": battle["battle"]["trainer_id"],
+            "name": battle["name"],
+            "battle": battle["battle"],
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            generated = Path(directory)
+            rct_root = generated / "rct"
+            runtime_root = generated / "runtime"
+            content_manager._write_generated_trainer(rct_root, runtime_root, document)
+            slug = battle["battle"]["trainer_id"].rsplit("/", 1)[-1]
+            variants = sorted(rct_root.glob(f"{slug}__level_*.json"))
+            level_one = json.loads((rct_root / f"{slug}__level_1.json").read_text(encoding="utf-8"))
+            level_hundred = json.loads((rct_root / f"{slug}__level_100.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(100, len(variants))
+        self.assertTrue(all(member["level"] == 1 for member in level_one["team"]))
+        self.assertTrue(all(member["level"] == 100 for member in level_hundred["team"]))
+
+    def test_map_scaled_battle_requires_bounded_integer_offset(self) -> None:
+        battle = json.loads(json.dumps(next(iter(self.battles.values()))))
+        battle["battle"]["level_mode"] = "map_scaling"
+        battle["battle"].pop("level_offset", None)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "battle.json"
+            path.write_text(json.dumps(battle, ensure_ascii=False), encoding="utf-8")
+            _, missing_issues = content_manager.validate_battle_preset_file(path)
+            battle["battle"]["level_offset"] = 100
+            path.write_text(json.dumps(battle, ensure_ascii=False), encoding="utf-8")
+            _, range_issues = content_manager.validate_battle_preset_file(path)
+
+        self.assertTrue(any(issue.path == "$.battle.level_offset" for issue in missing_issues))
+        self.assertTrue(any(issue.path == "$.battle.level_offset" for issue in range_issues))
 
     def test_direct_trainer_checkboxes_keep_compact_form_layout(self) -> None:
         styles = (ROOT / "tools" / "content-manager" / "web" / "styles.css").read_text(encoding="utf-8")

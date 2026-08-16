@@ -218,7 +218,8 @@
             }
           ]
         },
-        "level_mode": { "enum": ["fixed", "scale_to_player", "cap_to_player"] },
+        "level_mode": { "enum": ["fixed", "map_scaling"] },
+        "level_offset": { "type": "integer", "minimum": -99, "maximum": 99 },
         "rules": {
           "type": "object",
           "properties": {
@@ -254,7 +255,16 @@
           "maxItems": 6,
           "items": { "$ref": "#/$defs/pokemon" }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "level_mode": { "const": "map_scaling" } },
+            "required": ["level_mode"]
+          },
+          "then": { "required": ["level_offset"] }
+        }
+      ]
     },
     "pokemon": {
       "type": "object",

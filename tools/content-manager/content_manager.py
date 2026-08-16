@@ -4001,8 +4001,22 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
             _issue(issues, "error", path, "$.battle.battle_type", "singles 또는 doubles여야 합니다.")
         elif battle_format in BATTLE_FORMAT_TYPES and BATTLE_FORMAT_TYPES[battle_format] != battle.get("battle_type"):
             _issue(issues, "error", path, "$.battle.format", "배틀 포맷과 전투 방식이 일치해야 합니다.")
-        if battle.get("level_mode") not in {"fixed", "scale_to_player", "cap_to_player"}:
+        if battle.get("level_mode") not in {"fixed", "map_scaling"}:
             _issue(issues, "error", path, "$.battle.level_mode", "지원하지 않는 레벨 방식입니다.")
+        if battle.get("level_mode") == "map_scaling":
+            level_offset = battle.get("level_offset")
+            if (
+                not isinstance(level_offset, int)
+                or isinstance(level_offset, bool)
+                or not -99 <= level_offset <= 99
+            ):
+                _issue(
+                    issues,
+                    "error",
+                    path,
+                    "$.battle.level_offset",
+                    "맵 레벨 보정은 -99~99 정수여야 합니다.",
+                )
         rules = _require_object(battle.get("rules"), issues, path, "$.battle.rules")
         if rules is not None and "max_item_uses" in rules:
             max_item_uses = rules.get("max_item_uses")
@@ -6678,6 +6692,7 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
         return []
     world_biomes: dict[str, str] = {}
     battle_types: dict[str, str] = {}
+    battle_levels: dict[str, tuple[str, int]] = {}
     if category == "trainers":
         battle_dir = root / "content" / "battles"
         for battle_path in sorted(battle_dir.rglob("*.json")) if battle_dir.is_dir() else []:
@@ -6687,6 +6702,12 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 battle_type = battle_data.get("battle", {}).get("battle_type") if isinstance(battle_data, dict) else None
                 if isinstance(battle_id, str) and isinstance(battle_type, str):
                     battle_types[battle_id] = battle_type
+                    level_mode = battle_data.get("battle", {}).get("level_mode", "fixed")
+                    level_offset = battle_data.get("battle", {}).get("level_offset", 0)
+                    battle_levels[battle_id] = (
+                        level_mode if isinstance(level_mode, str) else "fixed",
+                        level_offset if isinstance(level_offset, int) and not isinstance(level_offset, bool) else 0,
+                    )
             except (OSError, json.JSONDecodeError, DuplicateKeyError):
                 pass
     if category == "settlements":
@@ -6739,6 +6760,11 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                         (battle_types[reference] for reference in battle_refs if reference in battle_types),
                         "",
                     )
+                    level_settings = next(
+                        (battle_levels[reference] for reference in battle_refs if reference in battle_levels),
+                        ("fixed", 0),
+                    )
+                    summary["level_mode"], summary["level_offset"] = level_settings
                 summary["npc_name"] = _localized_value(data.get("npc", {}).get("display_name"))
                 profile = data.get("placement_profile", {})
                 inferred_trainer = bool(summary.get("battle_type"))
@@ -8134,10 +8160,10 @@ def _rct_stats(stats: Any) -> dict[str, int]:
     }
 
 
-def _rct_team_member(member: dict[str, Any]) -> dict[str, Any]:
+def _rct_team_member(member: dict[str, Any], level_override: int | None = None) -> dict[str, Any]:
     result: dict[str, Any] = {
         "species": _short_resource_id(member.get("species")),
-        "level": member.get("level"),
+        "level": level_override if level_override is not None else member.get("level"),
         "moveset": [_short_resource_id(move) for move in member.get("moves", [])],
     }
     optional_values = {
@@ -8170,7 +8196,9 @@ def _rct_team_member(member: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def export_rct_trainer(document: dict[str, Any]) -> dict[str, Any]:
+def export_rct_trainer(
+    document: dict[str, Any], level_override: int | None = None
+) -> dict[str, Any]:
     battle = document["battle"]
     ai = battle["ai"]
     # The Cobbleventure decision engine is still a platform-independent module
@@ -8190,7 +8218,10 @@ def export_rct_trainer(document: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {
         "name": document.get("name", {}).get("ko_kr") or document["id"],
         "ai": {"type": "rct", "data": ai_data},
-        "team": [_rct_team_member(member) for member in battle.get("team", [])],
+        "team": [
+            _rct_team_member(member, level_override)
+            for member in battle.get("team", [])
+        ],
     }
     rules = battle.get("rules", {})
     if rules:
@@ -8222,6 +8253,34 @@ def export_ai_runtime_profile(document: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _write_generated_trainer(
+    rct_root: Path, runtime_root: Path, document: dict[str, Any]
+) -> None:
+    trainer_id = document["battle"]["trainer_id"]
+    slug = trainer_id.rsplit("/", 1)[-1]
+    targets = (
+        (rct_root / f"{slug}.json", export_rct_trainer(document)),
+        (runtime_root / f"{slug}.json", export_ai_runtime_profile(document)),
+    )
+    for target, payload in targets:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    if document["battle"].get("level_mode") == "map_scaling":
+        for level in range(1, 101):
+            target = rct_root / f"{slug}__level_{level}.json"
+            target.write_text(
+                json.dumps(
+                    export_rct_trainer(document, level_override=level),
+                    ensure_ascii=False,
+                    indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
+
+
 def generate_content(
     root: Path, output: Path | None = None, dependency_root: Path | None = None
 ) -> dict[str, Any]:
@@ -8250,13 +8309,7 @@ def generate_content(
             continue
         if document.get("schema_version") in {3, 4}:
             continue
-        slug = trainer_id.rsplit("/", 1)[-1]
-        for target, payload in (
-            (rct_root / f"{slug}.json", export_rct_trainer(document)),
-            (runtime_root / f"{slug}.json", export_ai_runtime_profile(document)),
-        ):
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        _write_generated_trainer(rct_root, runtime_root, document)
         trainers.append(trainer_id)
     battle_root = root / "content" / "battles"
     for source in sorted(battle_root.rglob("*.json")) if battle_root.is_dir() else []:
@@ -8272,13 +8325,7 @@ def generate_content(
             "name": preset.get("name", {}),
             "battle": preset["battle"],
         }
-        slug = trainer_id.rsplit("/", 1)[-1]
-        for target, payload in (
-            (rct_root / f"{slug}.json", export_rct_trainer(document)),
-            (runtime_root / f"{slug}.json", export_ai_runtime_profile(document)),
-        ):
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        _write_generated_trainer(rct_root, runtime_root, document)
         trainers.append(trainer_id)
     return {"output": output.as_posix(), "trainers": trainers, "count": len(trainers), "synchronized_spatial_bounds": synchronized_spatial_bounds}
 

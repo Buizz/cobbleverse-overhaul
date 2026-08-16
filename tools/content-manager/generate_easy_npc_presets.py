@@ -529,6 +529,16 @@ def battle_command(document: dict, start_battle: dict | None = None) -> str:
     ]
     if callbacks:
         command += " onwin {" + ",".join(callbacks) + "}"
+    if battle.get("level_mode") == "map_scaling":
+        offset = max(-99, min(99, int(battle.get("level_offset", 0))))
+        fallback = max(
+            (int(member.get("level", 1)) for member in battle.get("team", [])),
+            default=1,
+        )
+        return (
+            f"/cobbleventure_scaled_trainer_battle @initiator @s {battle_id} "
+            f"{offset} {fallback} rctmod:{slug} {command.removeprefix('/')}"
+        )
     # The wrapper shows the client-side trainer cut-in and executes this exact
     # TBCS command after the animation. Keeping both selectors in the nested
     # command preserves EasyNPC's initiator/NPC macro expansion.
