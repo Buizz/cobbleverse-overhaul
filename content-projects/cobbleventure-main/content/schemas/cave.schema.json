@@ -16,7 +16,7 @@
     "enabled": { "type": "boolean" },
     "display_name": { "$ref": "#/$defs/localized_text" },
     "cave_type": { "$ref": "#/$defs/resource_id" },
-    "style": { "enum": ["rock", "dripstone", "crystal", "lush"] },
+    "style": { "enum": ["rock", "dripstone", "crystal", "lush", "ice", "lava"] },
     "dimension": {
       "type": "object",
       "additionalProperties": false,
@@ -90,6 +90,7 @@
         "max_active": { "type": "integer", "minimum": 0, "maximum": 128 },
         "use_biome_defaults": { "type": "boolean", "default": true },
         "direct_trainers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
+        "trigger_override": { "$ref": "#/$defs/trigger_override" },
         "class_pool": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
         "placements": {
           "type": "array",
@@ -101,7 +102,8 @@
               "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
               "trainer_id": { "$ref": "#/$defs/resource_id" },
               "position": { "$ref": "#/$defs/block_position" },
-              "required_progress": { "$ref": "#/$defs/resource_id" }
+              "required_progress": { "$ref": "#/$defs/resource_id" },
+              "trigger_override": { "$ref": "#/$defs/trigger_override" }
             }
           }
         }
@@ -126,6 +128,7 @@
   },
   "$defs": {
     "resource_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "trigger_override": { "enum": ["source", "interact", "proximity"] },
     "localized_text": {
       "type": "object", "minProperties": 1,
       "properties": { "ko_kr": { "type": "string", "minLength": 1 }, "en_us": { "type": "string", "minLength": 1 } },
@@ -183,7 +186,7 @@
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "weight": { "type": "integer", "minimum": 1, "maximum": 1000 },
-        "decoration": { "enum": ["rock", "dripstone", "crystal", "lush"] },
+        "decoration": { "enum": ["rock", "dripstone", "crystal", "lush", "ice", "lava"] },
         "radius_scale": { "type": "number", "minimum": 0.5, "maximum": 2 },
         "height_scale": { "type": "number", "minimum": 0.5, "maximum": 2 }
       }

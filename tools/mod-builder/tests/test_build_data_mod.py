@@ -1398,20 +1398,17 @@ class DataModBuilderTests(unittest.TestCase):
                         encoding="utf-8"
                     )
                 )
-                self.assertEqual(
-                    "cobbleventure:interiors/one_story_shed",
-                    generated["interior_structure"],
-                )
                 self.assertIn(
                     {"type": "npc_position", "label": "resident", "position": [4, 1, 4]},
                     generated["anchors"],
                 )
-                self.assertTrue(any(
+                self.assertFalse(any(
                     anchor.get("type") == "door"
                     for anchor in generated["anchors"]
                 ))
+                self.assertNotIn("interior_structure", generated)
 
-    def test_house_without_metadata_uses_shared_instanced_interior(self) -> None:
+    def test_house_without_metadata_does_not_invent_door_or_interior(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self._fixture(root)
@@ -1427,16 +1424,10 @@ class DataModBuilderTests(unittest.TestCase):
                 / "houses/five_story_gable_red.structure.json"
             )
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-            self.assertEqual(
-                "cobbleventure:interiors/one_story_shed",
-                metadata["interior_structure"],
-            )
-            self.assertEqual("door", metadata["anchors"][0]["type"])
-            self.assertEqual([8, 1, 0], metadata["anchors"][0]["position"])
-            self.assertEqual([8, 1, -1], metadata["anchors"][0]["safe_spawn"])
-            self.assertTrue(metadata["anchors"][0]["seal_entry"])
+            self.assertEqual([], metadata["anchors"])
+            self.assertNotIn("interior_structure", metadata)
 
-    def test_authored_house_door_is_used_for_shared_interior(self) -> None:
+    def test_authored_house_door_is_copied_without_duplication(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self._fixture(root)

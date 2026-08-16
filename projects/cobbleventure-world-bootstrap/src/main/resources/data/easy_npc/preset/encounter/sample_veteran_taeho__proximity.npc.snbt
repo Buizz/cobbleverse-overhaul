@@ -1,0 +1,29 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"베테랑 트레이너 태호 대화·배틀 테스트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"베테랑 트레이너 태호",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Cmd:"/cobbleventure_battle_intro @initiator @s cobbleventure:battle/sample_veteran_taeho tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_veteran_taeho onwin {1:[\"scoreboard objectives add cvf_14fb9c6f6232 dummy\",\"scoreboard players set @1 cvf_14fb9c6f6232 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}],ON_DISTANCE_CLOSE:[{Cmd:"/title @initiator actionbar {\"text\":\"주변에 트레이너가 있습니다!\",\"color\":\"gold\"}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"베테랑 트레이너 태호\"}",
+    DialogData:{DialogDataSet:[{Label:"greeting",Name:"경험은 좋은 스승이지. 네 실력을 직접 확인해 보겠다.",Texts:[{Text:"경험은 좋은 스승이지. 네 실력을 직접 확인해 보겠다."}],Buttons:[{Label:"battle",Name:"승부한다",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_battle_intro @initiator @s cobbleventure:battle/sample_veteran_taeho tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_veteran_taeho onwin {1:[\"scoreboard objectives add cvf_14fb9c6f6232 dummy\",\"scoreboard players set @1 cvf_14fb9c6f6232 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},{Label:"cancel",Name:"다음에",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"victory",Name:"좋은 승부였어! 다음에 다시 겨뤄 보자.",Texts:[{Text:"좋은 승부였어! 다음에 다시 겨뤄 보자."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!",Texts:[{Text:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!"}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.020f,1.020f,1.020f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-1853122091,332289256,-1910117006,2048826160],
+    SkinData:{Type:"CUSTOM",UUID:[I;-2043599629,139088278,-1441442447,-173202830] },
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

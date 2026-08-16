@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 
 final class NaturalCaveGenerator {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int LAYOUT_VERSION = 12;
+    private static final int LAYOUT_VERSION = 14;
     private static final int SHELL_THICKNESS = 4;
 
     private NaturalCaveGenerator() {}
@@ -47,6 +47,7 @@ final class NaturalCaveGenerator {
     private static void generateCave(
         ServerLevel level, String caveId, long seed, List<Entrance> entrances, Settings settings
     ) {
+        CaveStyleProfile style = caveStyleProfile(settings.style());
         int markerX = entrances.stream().mapToInt(value -> value.portalAnchor().x()).sum()
             / entrances.size();
         int markerZ = entrances.stream().mapToInt(value -> value.portalAnchor().z()).sum()
@@ -75,14 +76,17 @@ final class NaturalCaveGenerator {
                     path.get(edge), path.get(edge + 1), seed, pathIndex * 31 + edge, 2.75D
                 );
                 for (PathPoint sample : samples) {
-                    double tunnelRadius = cavePath.width() > 0
+                    double tunnelRadius = (cavePath.width() > 0
                         ? Math.max(2.0D, cavePath.width() * 0.62D)
                         : settings.minimumTunnelRadius()
                             + (settings.maximumTunnelRadius() - settings.minimumTunnelRadius())
-                                * (0.5D + signedNoise(seed, pathIndex, edge, sample.floorY()) * 0.35D);
+                                * (0.5D + signedNoise(seed, pathIndex, edge, sample.floorY()) * 0.35D))
+                        * style.tunnelScale();
                     blobs.add(new Blob(
                         sample.x(), sample.floorY() + 5.0D, sample.z(),
-                        tunnelRadius, Math.max(4.5D, tunnelRadius * 0.88D), tunnelRadius
+                        tunnelRadius,
+                        Math.max(4.5D, tunnelRadius * 0.88D * style.tunnelHeightScale()),
+                        tunnelRadius
                     ));
                 }
             }
@@ -90,10 +94,17 @@ final class NaturalCaveGenerator {
         }
 
         for (Blob blob : blobs) {
-            fillRockShell(level, blob, seed, settings.surfaceRoughness());
+            fillRockShell(
+                level, blob, seed,
+                Math.min(1.0D, settings.surfaceRoughness() * style.roughnessScale()),
+                settings.style()
+            );
         }
         for (Blob blob : blobs) {
-            carveInterior(level, blob, seed, settings.surfaceRoughness());
+            carveInterior(
+                level, blob, seed,
+                Math.min(1.0D, settings.surfaceRoughness() * style.roughnessScale())
+            );
         }
 
         int stairs = 0;
@@ -101,20 +112,23 @@ final class NaturalCaveGenerator {
         for (CavePath path : layout.paths()) {
             stairs += placeWalkablePath(
                 level, path.points(), seed, pathIndex++, path.width(), path.pathType(),
-                settings.requiresFlash()
+                settings.requiresFlash(), settings.style()
             );
             if (path.kind().equals("bridge")) {
                 placeNaturalBridge(
-                    level, path.points(), seed, path.width(), settings.requiresFlash()
+                    level, path.points(), seed, path.width(), settings.requiresFlash(),
+                    settings.style()
                 );
             }
         }
         for (Room room : layout.rooms()) {
-            prepareRoomFloor(level, room);
+            prepareRoomFloor(level, room, settings.style());
         }
         decorateRooms(level, layout, seed, settings);
         buildEntranceLandmarks(level, layout, entrances);
-        int flooded = floodSubmergedCave(level, blobs, settings.waterLevel(), settings.waterDepth());
+        int flooded = floodSubmergedCave(
+            level, blobs, settings.waterLevel(), settings.waterDepth(), settings.style()
+        );
         applyInternalBiomes(level, layout, settings);
         level.setBlock(marker, Blocks.REINFORCED_DEEPSLATE.defaultBlockState(), 2);
         LOGGER.info(
@@ -127,6 +141,7 @@ final class NaturalCaveGenerator {
         long seed, List<Entrance> entrances, Settings settings
     ) {
         Random random = new Random(seed);
+        CaveStyleProfile style = caveStyleProfile(settings.style());
         Entrance west = entrances.getFirst();
         Entrance east = entrances.getLast();
         BlockPoint start = west.portalAnchor();
@@ -140,8 +155,11 @@ final class NaturalCaveGenerator {
             double z = lerp(start.z(), end.z(), progress);
             int floorY = (int) Math.round(lerp(start.y(), end.y(), progress));
             if (index > 0 && index < roomCount - 1) {
-                z += Math.sin(index * 1.37D) * 27.0D + random.nextInt(-12, 13);
-                int verticalAmplitude = Math.max(4, settings.verticalRange() / 2);
+                z += (Math.sin(index * 1.37D) * 27.0D + random.nextInt(-12, 13))
+                    * style.wanderScale();
+                int verticalAmplitude = Math.max(
+                    4, (int) Math.round(settings.verticalRange() / 2.0D * style.verticalScale())
+                );
                 floorY += (int) Math.round(Math.sin(index * 1.71D) * verticalAmplitude * 0.72D)
                     + random.nextInt(-Math.max(2, verticalAmplitude / 4), Math.max(3, verticalAmplitude / 4 + 1));
                 if (index == Math.max(2, roomCount * 2 / 3)) {
@@ -167,6 +185,9 @@ final class NaturalCaveGenerator {
                 radiusZ = Math.max(radiusZ, settings.maximumRoomRadius() * settings.grandRoomScale() * 0.82D);
                 height = Math.max(height, settings.maximumRoomRadius() * settings.grandRoomScale() * 0.78D);
             }
+            radiusX *= style.radiusXScale();
+            radiusZ *= style.radiusZScale();
+            height *= style.heightScale();
             RoomType roomType = index == 0 || index == roomCount - 1
                 ? roomType(settings, "rock") : pickRoomType(random, settings.roomTypes());
             Room room = new Room(
@@ -188,24 +209,28 @@ final class NaturalCaveGenerator {
             int rootIndex = 1 + (branchIndex + 1) * (roomCount - 2) / (settings.branchCount() + 1);
             Room root = mainRooms.get(Math.max(1, Math.min(roomCount - 2, rootIndex)));
             int direction = branchIndex % 2 == 0 ? -1 : 1;
-            double endX = root.x() + random.nextInt(-24, 25);
-            double endZ = root.z() + direction * (58 + random.nextInt(29));
+            double endX = root.x() + random.nextInt(-24, 25) * style.wanderScale();
+            double endZ = root.z() + direction * (58 + random.nextInt(29))
+                * style.branchScale();
             int endY = Math.max(30, Math.min(
                 76,
-                root.floorY() + random.nextInt(-settings.verticalRange() / 2, settings.verticalRange() / 2 + 1)
+                root.floorY() + (int) Math.round(
+                    random.nextInt(-settings.verticalRange() / 2, settings.verticalRange() / 2 + 1)
+                        * style.verticalScale()
+                )
             ));
             RoomType roomType = pickRoomType(random, settings.roomTypes());
             double branchRadiusX = randomBetween(random, settings.minimumRoomRadius(), settings.maximumRoomRadius());
             double branchRadiusZ = randomBetween(random, settings.minimumRoomRadius(), settings.maximumRoomRadius());
             Room branchRoom = new Room(
                 endX, endY, endZ,
-                branchRadiusX * roomType.radiusScale(),
+                branchRadiusX * roomType.radiusScale() * style.radiusXScale(),
                 randomBetween(
                     random,
                     Math.max(9.0D, settings.minimumRoomRadius() * 0.7D),
                     Math.max(11.0D, settings.maximumRoomRadius() * 0.72D)
-                ) * roomType.heightScale(),
-                branchRadiusZ * roomType.radiusScale(),
+                ) * roomType.heightScale() * style.heightScale(),
+                branchRadiusZ * roomType.radiusScale() * style.radiusZScale(),
                 "branch", roomType
             );
             rooms.add(branchRoom);
@@ -231,7 +256,7 @@ final class NaturalCaveGenerator {
                 new PathPoint(
                     (loopFrom.x() + loopTo.x()) * 0.5D,
                     loopY,
-                    Math.min(loopFrom.z(), loopTo.z()) - 58.0D
+                    Math.min(loopFrom.z(), loopTo.z()) - 58.0D * style.wanderScale()
                 ),
                 loopTo.pathPoint()
             ), "loop", loopPathType.width(), loopPathType));
@@ -300,7 +325,7 @@ final class NaturalCaveGenerator {
     }
 
     private static void fillRockShell(
-        ServerLevel level, Blob blob, long seed, double roughness
+        ServerLevel level, Blob blob, long seed, double roughness, String style
     ) {
         int minX = (int) Math.floor(blob.x() - blob.radiusX() - SHELL_THICKNESS);
         int maxX = (int) Math.ceil(blob.x() + blob.radiusX() + SHELL_THICKNESS);
@@ -318,7 +343,7 @@ final class NaturalCaveGenerator {
                     if (distance > 1.04D + signedNoise(seed, x, y, z) * roughness * 0.15D) {
                         continue;
                     }
-                    level.setBlock(new BlockPos(x, y, z), caveRock(seed, x, y, z), 2);
+                    level.setBlock(new BlockPos(x, y, z), caveRock(seed, x, y, z, style), 2);
                 }
             }
         }
@@ -350,7 +375,7 @@ final class NaturalCaveGenerator {
 
     private static int placeWalkablePath(
         ServerLevel level, List<PathPoint> path, long seed, int pathIndex,
-        int configuredWidth, PathType pathType, boolean requiresFlash
+        int configuredWidth, PathType pathType, boolean requiresFlash, String style
     ) {
         int stairs = 0;
         int halfWidth = configuredWidth > 0 ? Math.max(1, configuredWidth / 2) : 2;
@@ -373,7 +398,7 @@ final class NaturalCaveGenerator {
                         level.setBlock(
                             new BlockPos(x + offsetX, floorY, z + offsetZ),
                             pathFloor(
-                                seed, x + offsetX, floorY, z + offsetZ, pathType.floor()
+                                seed, x + offsetX, floorY, z + offsetZ, pathType.floor(), style
                             ), 2
                         );
                         for (int y = floorY + 1; y <= floorY + 5; y++) {
@@ -389,7 +414,7 @@ final class NaturalCaveGenerator {
                     if (floorY < previous.floorY()) {
                         direction = direction.getOpposite();
                     }
-                    BlockState stair = Blocks.COBBLED_DEEPSLATE_STAIRS.defaultBlockState()
+                    BlockState stair = caveStair(style)
                         .setValue(BlockStateProperties.HORIZONTAL_FACING, direction);
                     int sideX = direction.getStepZ();
                     int sideZ = -direction.getStepX();
@@ -407,12 +432,12 @@ final class NaturalCaveGenerator {
                     if (ceilingY != Integer.MIN_VALUE) {
                         level.setBlock(
                             new BlockPos(x, ceilingY, z),
-                            Blocks.SHROOMLIGHT.defaultBlockState(), 2
+                            caveLight(style), 2
                         );
                     } else {
                         level.setBlock(
                             new BlockPos(x, floorY, z),
-                            Blocks.OCHRE_FROGLIGHT.defaultBlockState(), 2
+                            caveLight(style), 2
                         );
                     }
                 }
@@ -425,7 +450,7 @@ final class NaturalCaveGenerator {
 
     private static void placeNaturalBridge(
         ServerLevel level, List<PathPoint> path, long seed,
-        int configuredWidth, boolean requiresFlash
+        int configuredWidth, boolean requiresFlash, String style
     ) {
         int sampleIndex = 0;
         int halfWidth = Math.max(2, configuredWidth / 2);
@@ -442,9 +467,9 @@ final class NaturalCaveGenerator {
                 int sideX = forward.getStepZ();
                 int sideZ = -forward.getStepX();
                 for (int lateral = -halfWidth; lateral <= halfWidth; lateral++) {
-                    BlockState bridgeRock = Math.floorMod(sampleIndex + lateral, 5) == 0
-                        ? Blocks.TUFF.defaultBlockState()
-                        : Blocks.COBBLED_DEEPSLATE.defaultBlockState();
+                    BlockState bridgeRock = caveBridgeBlock(
+                        style, Math.floorMod(sampleIndex + lateral, 5) == 0
+                    );
                     level.setBlock(new BlockPos(x + sideX * lateral, y, z + sideZ * lateral), bridgeRock, 2);
                     for (int clearY = y + 1; clearY <= y + 5; clearY++) {
                         level.setBlock(new BlockPos(x + sideX * lateral, clearY, z + sideZ * lateral), Blocks.AIR.defaultBlockState(), 2);
@@ -454,7 +479,7 @@ final class NaturalCaveGenerator {
                     for (int lateral : new int[] {-halfWidth - 1, halfWidth + 1}) {
                         level.setBlock(
                             new BlockPos(x + sideX * lateral, y + 1, z + sideZ * lateral),
-                            Blocks.COBBLED_DEEPSLATE_WALL.defaultBlockState(), 2
+                            caveBridgeWall(style), 2
                         );
                     }
                 }
@@ -462,7 +487,7 @@ final class NaturalCaveGenerator {
                     for (int lateral : new int[] {-halfWidth, halfWidth}) {
                         level.setBlock(
                             new BlockPos(x + sideX * lateral, y + 1, z + sideZ * lateral),
-                            Blocks.PEARLESCENT_FROGLIGHT.defaultBlockState(), 2
+                            caveLight(style), 2
                         );
                     }
                 }
@@ -471,13 +496,13 @@ final class NaturalCaveGenerator {
         }
     }
 
-    private static void prepareRoomFloor(ServerLevel level, Room room) {
+    private static void prepareRoomFloor(ServerLevel level, Room room, String style) {
         int centerX = (int) Math.round(room.x());
         int centerZ = (int) Math.round(room.z());
         for (int x = centerX - 4; x <= centerX + 4; x++) {
             for (int z = centerZ - 4; z <= centerZ + 4; z++) {
                 level.setBlock(
-                    new BlockPos(x, room.floorY(), z), Blocks.DEEPSLATE.defaultBlockState(), 2
+                    new BlockPos(x, room.floorY(), z), caveFloor(style), 2
                 );
                 for (int y = room.floorY() + 1; y <= room.floorY() + 6; y++) {
                     level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
@@ -493,9 +518,11 @@ final class NaturalCaveGenerator {
         for (Room room : layout.rooms()) {
             String decoration = room.roomType().decoration();
             double typeDensity = switch (decoration) {
-                case "dripstone" -> 1.35D;
+                case "dripstone" -> 2.8D;
                 case "lush" -> 1.1D;
                 case "crystal" -> 0.8D;
+                case "ice" -> 0.95D;
+                case "lava" -> 1.2D;
                 default -> 0.55D;
             };
             int clusters = Math.max(1, (int) Math.round(
@@ -518,7 +545,7 @@ final class NaturalCaveGenerator {
                 );
                 switch (decoration) {
                     case "dripstone" -> placeDripstoneCluster(
-                        level, layout, room, x, z, radius, random, settings.decorations()
+                        level, layout, room, x, z, radius + 1, random, settings.decorations()
                     );
                     case "crystal" -> placeSurfacePatch(
                         level, layout, room, x, z, radius, random,
@@ -529,6 +556,16 @@ final class NaturalCaveGenerator {
                         level, layout, room, x, z, radius, random,
                         Blocks.MOSS_BLOCK.defaultBlockState(), Blocks.CLAY.defaultBlockState(),
                         false, settings.decorations().routeClearance()
+                    );
+                    case "ice" -> placeSurfacePatch(
+                        level, layout, room, x, z, radius, random,
+                        Blocks.PACKED_ICE.defaultBlockState(), Blocks.BLUE_ICE.defaultBlockState(),
+                        true, settings.decorations().routeClearance()
+                    );
+                    case "lava" -> placeSurfacePatch(
+                        level, layout, room, x, z, radius, random,
+                        Blocks.BASALT.defaultBlockState(), Blocks.MAGMA_BLOCK.defaultBlockState(),
+                        true, settings.decorations().routeClearance()
                     );
                     default -> placeSurfacePatch(
                         level, layout, room, x, z, radius, random,
@@ -547,9 +584,7 @@ final class NaturalCaveGenerator {
                     int lightZ = (int) Math.round(room.z() + Math.sin(angle) * room.radiusZ() * 0.42D);
                     int ceilingY = findCeiling(level, lightX, room.floorY() + 4, lightZ);
                     if (ceilingY != Integer.MIN_VALUE) {
-                        BlockState light = decoration.equals("crystal")
-                            ? Blocks.PEARLESCENT_FROGLIGHT.defaultBlockState()
-                            : Blocks.SHROOMLIGHT.defaultBlockState();
+                        BlockState light = caveLight(decoration);
                         level.setBlock(
                             new BlockPos(lightX, ceilingY, lightZ), light, 2
                         );
@@ -573,9 +608,7 @@ final class NaturalCaveGenerator {
                             (int) Math.round(room.x()), centerFloorY,
                             (int) Math.round(room.z())
                         ),
-                        decoration.equals("crystal")
-                            ? Blocks.PEARLESCENT_FROGLIGHT.defaultBlockState()
-                            : Blocks.SHROOMLIGHT.defaultBlockState(),
+                        caveLight(decoration),
                         2
                     );
                 }
@@ -589,10 +622,10 @@ final class NaturalCaveGenerator {
     ) {
         placeSurfacePatch(
             level, layout, room, centerX, centerZ, radius, random,
-            Blocks.DRIPSTONE_BLOCK.defaultBlockState(), Blocks.TUFF.defaultBlockState(),
+            Blocks.DRIPSTONE_BLOCK.defaultBlockState(), Blocks.GRANITE.defaultBlockState(),
             true, settings.routeClearance()
         );
-        int formations = Math.max(1, radius + random.nextInt(2));
+        int formations = Math.max(4, radius * 3 + random.nextInt(radius + 1));
         for (int index = 0; index < formations; index++) {
             int x = centerX + random.nextInt(-radius, radius + 1);
             int z = centerZ + random.nextInt(-radius, radius + 1);
@@ -706,10 +739,12 @@ final class NaturalCaveGenerator {
     }
 
     private static int floodSubmergedCave(
-        ServerLevel level, List<Blob> blobs, int waterLevel, int waterDepth
+        ServerLevel level, List<Blob> blobs, int waterLevel, int waterDepth, String style
     ) {
         int flooded = 0;
         int waterFloorY = waterLevel - Math.max(1, waterDepth);
+        BlockState liquid = style.equals("lava")
+            ? Blocks.LAVA.defaultBlockState() : Blocks.WATER.defaultBlockState();
         for (Blob blob : blobs) {
             int minX = (int) Math.floor(blob.x() - blob.radiusX());
             int maxX = (int) Math.ceil(blob.x() + blob.radiusX());
@@ -730,7 +765,7 @@ final class NaturalCaveGenerator {
                         ) <= 0.96D) {
                             BlockPos floor = new BlockPos(x, waterFloorY, z);
                             if (level.getBlockState(floor).isAir()) {
-                                level.setBlock(floor, Blocks.STONE.defaultBlockState(), 2);
+                                level.setBlock(floor, caveFloor(style), 2);
                             }
                         }
                     }
@@ -744,7 +779,7 @@ final class NaturalCaveGenerator {
                         }
                         BlockPos position = new BlockPos(x, y, z);
                         if (level.getBlockState(position).isAir()) {
-                            level.setBlock(position, Blocks.WATER.defaultBlockState(), 2);
+                            level.setBlock(position, liquid, 2);
                             flooded++;
                         }
                     }
@@ -1000,25 +1035,146 @@ final class NaturalCaveGenerator {
         return dz >= 0.0D ? Direction.SOUTH : Direction.NORTH;
     }
 
-    private static BlockState caveRock(long seed, int x, int y, int z) {
+    private static BlockState caveRock(long seed, int x, int y, int z, String style) {
         double value = signedNoise(seed ^ 0xA11CE, x >> 2, y >> 2, z >> 2);
+        if (style.equals("ice")) {
+            if (value > 0.72D) return Blocks.BLUE_ICE.defaultBlockState();
+            if (value < -0.58D) return Blocks.CALCITE.defaultBlockState();
+            return Blocks.PACKED_ICE.defaultBlockState();
+        }
+        if (style.equals("lava")) {
+            if (value > 0.72D) return Blocks.MAGMA_BLOCK.defaultBlockState();
+            if (value < -0.58D) return Blocks.BLACKSTONE.defaultBlockState();
+            return Blocks.BASALT.defaultBlockState();
+        }
+        if (style.equals("crystal")) {
+            if (value > 0.78D) return Blocks.AMETHYST_BLOCK.defaultBlockState();
+            if (value < -0.68D) return Blocks.SMOOTH_BASALT.defaultBlockState();
+            return Blocks.CALCITE.defaultBlockState();
+        }
+        if (style.equals("lush")) {
+            if (value > 0.76D) return Blocks.MOSS_BLOCK.defaultBlockState();
+            if (value < -0.7D) return Blocks.ROOTED_DIRT.defaultBlockState();
+        }
+        if (style.equals("dripstone")) {
+            if (value > 0.28D) return Blocks.DRIPSTONE_BLOCK.defaultBlockState();
+            if (value < -0.72D) return Blocks.TUFF.defaultBlockState();
+            return Blocks.GRANITE.defaultBlockState();
+        }
         if (value > 0.84D) return Blocks.TUFF.defaultBlockState();
         if (value < -0.84D) return Blocks.ANDESITE.defaultBlockState();
         return Blocks.STONE.defaultBlockState();
     }
 
-    private static BlockState naturalFloor(long seed, int x, int y, int z) {
-        return NaturalSurfaceNoise.sample2D(
-            seed ^ 0xF100D ^ (long) y * 42317861L, x, z
-        ) > 0.50D
-            ? Blocks.TUFF.defaultBlockState()
-            : Blocks.COBBLED_DEEPSLATE.defaultBlockState();
+    private static BlockState caveFloor(String style) {
+        return switch (style) {
+            case "ice" -> Blocks.PACKED_ICE.defaultBlockState();
+            case "lava" -> Blocks.BASALT.defaultBlockState();
+            case "crystal" -> Blocks.CALCITE.defaultBlockState();
+            case "lush" -> Blocks.MOSS_BLOCK.defaultBlockState();
+            case "dripstone" -> Blocks.GRANITE.defaultBlockState();
+            default -> Blocks.DEEPSLATE.defaultBlockState();
+        };
     }
 
-    private static BlockState pathFloor(long seed, int x, int y, int z, String floor) {
+    private static BlockState caveLight(String style) {
+        return switch (style) {
+            case "crystal" -> Blocks.PEARLESCENT_FROGLIGHT.defaultBlockState();
+            case "ice" -> Blocks.SEA_LANTERN.defaultBlockState();
+            case "lava" -> Blocks.GLOWSTONE.defaultBlockState();
+            default -> Blocks.SHROOMLIGHT.defaultBlockState();
+        };
+    }
+
+    private static BlockState caveStair(String style) {
+        return switch (style) {
+            case "dripstone" -> Blocks.POLISHED_GRANITE_STAIRS.defaultBlockState();
+            case "ice", "crystal" -> Blocks.QUARTZ_STAIRS.defaultBlockState();
+            case "lava" -> Blocks.POLISHED_BLACKSTONE_STAIRS.defaultBlockState();
+            case "lush" -> Blocks.MOSSY_COBBLESTONE_STAIRS.defaultBlockState();
+            default -> Blocks.COBBLED_DEEPSLATE_STAIRS.defaultBlockState();
+        };
+    }
+
+    private static BlockState caveBridgeBlock(String style, boolean accent) {
+        return switch (style) {
+            case "dripstone" -> accent
+                ? Blocks.DRIPSTONE_BLOCK.defaultBlockState() : Blocks.GRANITE.defaultBlockState();
+            case "ice" -> accent
+                ? Blocks.BLUE_ICE.defaultBlockState() : Blocks.PACKED_ICE.defaultBlockState();
+            case "crystal" -> accent
+                ? Blocks.AMETHYST_BLOCK.defaultBlockState() : Blocks.CALCITE.defaultBlockState();
+            case "lush" -> accent
+                ? Blocks.MOSS_BLOCK.defaultBlockState() : Blocks.MOSSY_COBBLESTONE.defaultBlockState();
+            case "lava" -> accent
+                ? Blocks.MAGMA_BLOCK.defaultBlockState() : Blocks.POLISHED_BLACKSTONE.defaultBlockState();
+            default -> accent
+                ? Blocks.TUFF.defaultBlockState() : Blocks.COBBLED_DEEPSLATE.defaultBlockState();
+        };
+    }
+
+    private static BlockState caveBridgeWall(String style) {
+        return switch (style) {
+            case "dripstone" -> Blocks.GRANITE_WALL.defaultBlockState();
+            case "ice", "crystal" -> Blocks.DIORITE_WALL.defaultBlockState();
+            case "lush" -> Blocks.MOSSY_COBBLESTONE_WALL.defaultBlockState();
+            case "lava" -> Blocks.POLISHED_BLACKSTONE_WALL.defaultBlockState();
+            default -> Blocks.COBBLED_DEEPSLATE_WALL.defaultBlockState();
+        };
+    }
+
+    private static CaveStyleProfile caveStyleProfile(String style) {
+        return switch (style) {
+            case "dripstone" -> new CaveStyleProfile(
+                0.82D, 0.88D, 1.35D, 0.85D, 1.25D, 0.9D, 0.9D, 1.2D, 1.25D
+            );
+            case "crystal" -> new CaveStyleProfile(
+                1.18D, 0.76D, 1.05D, 1.3D, 0.9D, 1.15D, 0.8D, 1.0D, 1.4D
+            );
+            case "lush" -> new CaveStyleProfile(
+                1.28D, 1.2D, 0.72D, 0.72D, 0.55D, 1.1D, 1.2D, 0.78D, 0.7D
+            );
+            case "ice" -> new CaveStyleProfile(
+                0.72D, 1.45D, 0.82D, 1.55D, 0.7D, 1.3D, 0.85D, 0.82D, 0.45D
+            );
+            case "lava" -> new CaveStyleProfile(
+                1.12D, 0.9D, 1.45D, 1.1D, 1.5D, 0.95D, 1.15D, 1.35D, 1.55D
+            );
+            default -> new CaveStyleProfile(
+                1.0D, 1.0D, 1.0D, 1.0D, 1.0D, 1.0D, 1.0D, 1.0D, 1.0D
+            );
+        };
+    }
+
+    private static BlockState naturalFloor(long seed, int x, int y, int z, String style) {
+        double noise = NaturalSurfaceNoise.sample2D(
+            seed ^ 0xF100D ^ (long) y * 42317861L, x, z
+        );
+        return switch (style) {
+            case "dripstone" -> noise > 0.25D
+                ? Blocks.GRANITE.defaultBlockState() : Blocks.DRIPSTONE_BLOCK.defaultBlockState();
+            case "ice" -> noise > 0.45D
+                ? Blocks.BLUE_ICE.defaultBlockState() : Blocks.PACKED_ICE.defaultBlockState();
+            case "crystal" -> noise > 0.5D
+                ? Blocks.AMETHYST_BLOCK.defaultBlockState() : Blocks.CALCITE.defaultBlockState();
+            case "lush" -> noise > 0.35D
+                ? Blocks.MOSS_BLOCK.defaultBlockState() : Blocks.MOSSY_COBBLESTONE.defaultBlockState();
+            case "lava" -> noise > 0.5D
+                ? Blocks.MAGMA_BLOCK.defaultBlockState() : Blocks.BLACKSTONE.defaultBlockState();
+            default -> noise > 0.50D
+                ? Blocks.TUFF.defaultBlockState() : Blocks.COBBLED_DEEPSLATE.defaultBlockState();
+        };
+    }
+
+    private static BlockState pathFloor(
+        long seed, int x, int y, int z, String floor, String style
+    ) {
         double noise = NaturalSurfaceNoise.sample2D(
             seed ^ 0xBADC0DEL ^ (long) y * 42317861L, x, z
         );
+        if (!style.equals("rock")) {
+            return naturalFloor(seed, x, y, z, style);
+        }
         return switch (floor) {
             case "rugged" -> noise > 0.45D
                 ? Blocks.COBBLESTONE.defaultBlockState()
@@ -1030,7 +1186,7 @@ final class NaturalCaveGenerator {
                 : noise < -0.45D
                     ? Blocks.POLISHED_DEEPSLATE.defaultBlockState()
                     : Blocks.DEEPSLATE_BRICKS.defaultBlockState();
-            default -> naturalFloor(seed, x, y, z);
+            default -> naturalFloor(seed, x, y, z, style);
         };
     }
 
@@ -1123,6 +1279,7 @@ final class NaturalCaveGenerator {
 
     record Settings(
         long seedSalt,
+        String style,
         int mainRooms,
         int branchCount,
         double loopChance,
@@ -1150,7 +1307,7 @@ final class NaturalCaveGenerator {
 
         static Settings defaults(boolean requiresFlash) {
             return new Settings(
-                0L, 7, 4, 0.35D, 28, 10.0D, 28.0D, 3.0D, 7.0D, 0.18D, 38, 8,
+                0L, "rock", 7, 4, 0.35D, 28, 10.0D, 28.0D, 3.0D, 7.0D, 0.18D, 38, 8,
                 1.65D, false, 13, requiresFlash,
                 ManualLayout.disabled(),
                 List.of("minecraft:dripstone_caves"),
@@ -1171,6 +1328,12 @@ final class NaturalCaveGenerator {
     }
 
     private record CaveLayout(List<Room> rooms, List<CavePath> paths) {}
+
+    private record CaveStyleProfile(
+        double radiusXScale, double radiusZScale, double heightScale,
+        double wanderScale, double verticalScale, double branchScale,
+        double tunnelScale, double tunnelHeightScale, double roughnessScale
+    ) {}
 
     record ManualLayout(boolean enabled, List<ManualAnchor> anchors, List<ManualConnection> connections) {
         static ManualLayout disabled() {

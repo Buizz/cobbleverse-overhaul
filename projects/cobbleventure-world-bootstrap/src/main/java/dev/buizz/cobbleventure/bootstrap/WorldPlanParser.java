@@ -77,12 +77,14 @@ final class WorldPlanParser {
         List<HexConnection> result = new ArrayList<>();
         for (JsonElement element : root.getAsJsonArray("connections")) {
             JsonObject value = element.getAsJsonObject();
+            String id = required(value, "id");
             String boundary = value.has("boundary_profile")
                 ? required(value, "boundary_profile")
                 : "cobbleventure:boundary/dense_tree_line";
             requireBoundary(profiles, boundary);
             result.add(new HexConnection(
-                required(value, "id"), optional(value, "from"), optional(value, "to"),
+                id, value.has("display_name") ? required(value, "display_name") : id,
+                optional(value, "from"), optional(value, "to"),
                 value.has("route_biome") ? required(value, "route_biome") : "minecraft:plains",
                 value.has("width_cells") ? value.get("width_cells").getAsInt() : 1,
                 value.has("pathfinding") ? required(value, "pathfinding") : "explicit",
@@ -93,7 +95,8 @@ final class WorldPlanParser {
                 value.has("terrain_profile")
                     ? terrainProfile(value) : new TerrainProfile(0, 0, 96.0D, 0),
                 required(value, "surface_style"), optional(value, "access_requirement"),
-                coordinates(value, "cells"), routePokemonSpawns(value), routeNpcPlacements(value)
+                coordinates(value, "cells"), routePokemonSpawns(value), routeNpcPlacements(value),
+                regionalTrainerPopulation(value, "automatic_npc_placement", "count")
             ));
         }
         return List.copyOf(result);
@@ -108,10 +111,30 @@ final class WorldPlanParser {
                 required(value, "id"), required(value, "npc"),
                 value.get("progress_percent").getAsInt(), required(value, "side"),
                 value.get("offset_blocks").getAsDouble(), required(value, "facing"),
-                value.get("spawn_chance").getAsDouble(), required(value, "respawn_policy")
+                value.get("spawn_chance").getAsDouble(), required(value, "respawn_policy"),
+                value.has("trigger_override") ? required(value, "trigger_override") : "proximity"
             ));
         }
         return List.copyOf(placements);
+    }
+
+    private static RegionalTrainerPopulation regionalTrainerPopulation(
+        JsonObject parent, String field, String countField
+    ) {
+        if (!parent.has(field)) return RegionalTrainerPopulation.disabled();
+        JsonObject value = parent.getAsJsonObject(field);
+        List<String> candidates = new ArrayList<>();
+        if (parent.has("automatic_npc_candidates")) {
+            for (JsonElement element : parent.getAsJsonArray("automatic_npc_candidates")) {
+                candidates.add(element.getAsString());
+            }
+        }
+        return new RegionalTrainerPopulation(
+            value.has("enabled") && value.get("enabled").getAsBoolean(),
+            value.has(countField) ? value.get(countField).getAsInt() : 0,
+            value.has("trigger_override") ? value.get("trigger_override").getAsString() : "proximity",
+            List.copyOf(candidates)
+        );
     }
 
     private static RoutePokemonSpawns routePokemonSpawns(JsonObject connection) {

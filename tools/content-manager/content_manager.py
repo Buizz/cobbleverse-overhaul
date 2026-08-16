@@ -6585,6 +6585,7 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
     world_biomes: dict[str, str] = {}
     battle_types: dict[str, str] = {}
     battle_levels: dict[str, tuple[str, int]] = {}
+    battle_teams: dict[str, list[dict[str, Any]]] = {}
     if category == "trainers":
         battle_dir = root / "content" / "battles"
         for battle_path in sorted(battle_dir.rglob("*.json")) if battle_dir.is_dir() else []:
@@ -6594,6 +6595,16 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 battle_type = battle_data.get("battle", {}).get("battle_type") if isinstance(battle_data, dict) else None
                 if isinstance(battle_id, str) and isinstance(battle_type, str):
                     battle_types[battle_id] = battle_type
+                    team = battle_data.get("battle", {}).get("team", [])
+                    battle_teams[battle_id] = [
+                        {
+                            key: member[key]
+                            for key in ("species", "level", "form", "shiny")
+                            if key in member
+                        }
+                        for member in team[:6]
+                        if isinstance(member, dict) and isinstance(member.get("species"), str)
+                    ] if isinstance(team, list) else []
                     level_mode = battle_data.get("battle", {}).get("level_mode", "fixed")
                     level_offset = battle_data.get("battle", {}).get("level_offset", 0)
                     battle_levels[battle_id] = (
@@ -6652,11 +6663,27 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                         (battle_types[reference] for reference in battle_refs if reference in battle_types),
                         "",
                     )
+                    summary["team"] = next(
+                        (battle_teams[reference] for reference in battle_refs if reference in battle_teams),
+                        [],
+                    )
                     level_settings = next(
                         (battle_levels[reference] for reference in battle_refs if reference in battle_levels),
                         ("fixed", 0),
                     )
                     summary["level_mode"], summary["level_offset"] = level_settings
+                else:
+                    team = data.get("battle", {}).get("team", [])
+                    summary["team"] = [
+                        {
+                            key: member[key]
+                            for key in ("species", "level", "form", "shiny")
+                            if key in member
+                        }
+                        for member in team[:6]
+                        if isinstance(member, dict) and isinstance(member.get("species"), str)
+                    ] if isinstance(team, list) else []
+                summary["team_size"] = len(summary.get("team", []))
                 summary["npc_name"] = _localized_value(data.get("npc", {}).get("display_name"))
                 profile = data.get("placement_profile", {})
                 inferred_trainer = bool(summary.get("battle_type"))

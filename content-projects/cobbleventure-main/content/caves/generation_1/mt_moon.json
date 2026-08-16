@@ -243,6 +243,12 @@
   "trainer_settings": {
     "enabled": true,
     "max_active": 8,
+    "use_biome_defaults": true,
+    "direct_trainers": [
+      "cobbleventure:npc/sample_hiker_seok",
+      "cobbleventure:npc/sample_veteran_taeho"
+    ],
+    "trigger_override": "proximity",
     "class_pool": [
       "cobbleventure:trainer_class/hiker",
       "cobbleventure:trainer_class/rocket_grunt"

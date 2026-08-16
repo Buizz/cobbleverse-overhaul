@@ -3,7 +3,9 @@
   "schema_version": 2,
   "id": "cobbleventure:world/generation_1",
   "dimension": "cobbleventure:generation_1",
-  "pokemon_generations": [1],
+  "pokemon_generations": [
+    1
+  ],
   "seed_salt": 19960227,
   "grid": {
     "orientation": "pointy_top",
@@ -524,11 +526,6 @@
         "type": "ocean"
       },
       {
-        "q": 3,
-        "r": 12,
-        "type": "ocean"
-      },
-      {
         "q": -1,
         "r": 15,
         "type": "ocean"
@@ -1072,6 +1069,276 @@
         "q": -2,
         "r": 11,
         "type": "ocean"
+      },
+      {
+        "q": 2,
+        "r": 6,
+        "type": "ocean"
+      },
+      {
+        "q": 2,
+        "r": 7,
+        "type": "ocean"
+      },
+      {
+        "q": 3,
+        "r": 7,
+        "type": "ocean"
+      },
+      {
+        "q": 1,
+        "r": 7,
+        "type": "ocean"
+      },
+      {
+        "q": 1,
+        "r": 6,
+        "type": "ocean"
+      },
+      {
+        "q": -3,
+        "r": 7,
+        "type": "ocean"
+      },
+      {
+        "q": -4,
+        "r": 8,
+        "type": "ocean"
+      },
+      {
+        "q": -3,
+        "r": 6,
+        "type": "ocean"
+      },
+      {
+        "q": -1,
+        "r": 6,
+        "type": "ocean"
+      },
+      {
+        "q": -1,
+        "r": 7,
+        "type": "ocean"
+      },
+      {
+        "q": 0,
+        "r": 7,
+        "type": "ocean"
+      },
+      {
+        "q": 0,
+        "r": 6,
+        "type": "ocean"
+      },
+      {
+        "q": 0,
+        "r": 5,
+        "type": "ocean"
+      },
+      {
+        "q": 1,
+        "r": 5,
+        "type": "ocean"
+      },
+      {
+        "q": 2,
+        "r": 11,
+        "type": "ocean"
+      },
+      {
+        "q": 3,
+        "r": 11,
+        "type": "ocean"
+      },
+      {
+        "q": 4,
+        "r": 11,
+        "type": "ocean"
+      },
+      {
+        "q": 3,
+        "r": 12,
+        "type": "ocean"
+      },
+      {
+        "q": 4,
+        "r": 12,
+        "type": "ocean"
+      },
+      {
+        "q": 5,
+        "r": 12,
+        "type": "ocean"
+      },
+      {
+        "q": 5,
+        "r": 11,
+        "type": "ocean"
+      },
+      {
+        "q": 6,
+        "r": 11,
+        "type": "ocean"
+      },
+      {
+        "q": 6,
+        "r": 10,
+        "type": "ocean"
+      },
+      {
+        "q": 7,
+        "r": 9,
+        "type": "ocean"
+      },
+      {
+        "q": 7,
+        "r": 8,
+        "type": "ocean"
+      },
+      {
+        "q": 8,
+        "r": 8,
+        "type": "ocean"
+      },
+      {
+        "q": 8,
+        "r": 7,
+        "type": "ocean"
+      },
+      {
+        "q": 9,
+        "r": 6,
+        "type": "ocean"
+      },
+      {
+        "q": 8,
+        "r": 6,
+        "type": "ocean"
+      },
+      {
+        "q": 9,
+        "r": 5,
+        "type": "ocean"
+      },
+      {
+        "q": 9,
+        "r": 4,
+        "type": "ocean"
+      },
+      {
+        "q": 10,
+        "r": 4,
+        "type": "ocean"
+      },
+      {
+        "q": 10,
+        "r": 3,
+        "type": "ocean"
+      },
+      {
+        "q": 11,
+        "r": 3,
+        "type": "ocean"
+      },
+      {
+        "q": 11,
+        "r": 4,
+        "type": "ocean"
+      },
+      {
+        "q": 10,
+        "r": 5,
+        "type": "ocean"
+      },
+      {
+        "q": 10,
+        "r": 6,
+        "type": "ocean"
+      },
+      {
+        "q": 9,
+        "r": 7,
+        "type": "ocean"
+      },
+      {
+        "q": 7,
+        "r": 10,
+        "type": "ocean"
+      },
+      {
+        "q": 7,
+        "r": 11,
+        "type": "ocean"
+      },
+      {
+        "q": 9,
+        "r": 8,
+        "type": "ocean"
+      },
+      {
+        "q": 8,
+        "r": 9,
+        "type": "ocean"
+      },
+      {
+        "q": 8,
+        "r": 10,
+        "type": "ocean"
+      },
+      {
+        "q": 6,
+        "r": 12,
+        "type": "ocean"
+      },
+      {
+        "q": 5,
+        "r": 13,
+        "type": "ocean"
+      },
+      {
+        "q": 5,
+        "r": 14,
+        "type": "ocean"
+      },
+      {
+        "q": 7,
+        "r": 12,
+        "type": "ocean"
+      },
+      {
+        "q": 6,
+        "r": 13,
+        "type": "ocean"
+      },
+      {
+        "q": 6,
+        "r": 14,
+        "type": "ocean"
+      },
+      {
+        "q": 5,
+        "r": 15,
+        "type": "ocean"
+      },
+      {
+        "q": 1,
+        "r": 8,
+        "type": "ocean"
+      },
+      {
+        "q": 2,
+        "r": 8,
+        "type": "ocean"
+      },
+      {
+        "q": -2,
+        "r": 8,
+        "type": "ocean"
+      },
+      {
+        "q": -2,
+        "r": 5,
+        "type": "ocean"
       }
     ]
   },
@@ -1355,7 +1622,7 @@
     {
       "q": 6,
       "r": 9,
-      "biome": "minecraft:plains",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -1367,7 +1634,7 @@
     {
       "q": 6,
       "r": 8,
-      "biome": "minecraft:plains",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -1379,7 +1646,7 @@
     {
       "q": 7,
       "r": 7,
-      "biome": "minecraft:plains",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -1391,7 +1658,7 @@
     {
       "q": 7,
       "r": 6,
-      "biome": "minecraft:plains",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -1427,7 +1694,7 @@
     {
       "q": 8,
       "r": 5,
-      "biome": "minecraft:plains",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -1439,67 +1706,7 @@
     {
       "q": 8,
       "r": 4,
-      "biome": "minecraft:plains",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96,
-        "connection_height": 0
-      }
-    },
-    {
-      "q": 0,
-      "r": 4,
-      "biome": "minecraft:plains",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96,
-        "connection_height": 0
-      }
-    },
-    {
-      "q": 0,
-      "r": 5,
-      "biome": "minecraft:plains",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96,
-        "connection_height": 0
-      }
-    },
-    {
-      "q": 0,
-      "r": 6,
-      "biome": "minecraft:plains",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96,
-        "connection_height": 0
-      }
-    },
-    {
-      "q": -1,
-      "r": 7,
-      "biome": "minecraft:plains",
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 0,
-        "height_variation": 3,
-        "noise_scale_blocks": 96,
-        "connection_height": 0
-      }
-    },
-    {
-      "q": -1,
-      "r": 8,
-      "biome": "minecraft:plains",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -1667,7 +1874,7 @@
     {
       "q": 9,
       "r": 3,
-      "biome": "minecraft:plains",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -1703,6 +1910,126 @@
     {
       "q": 7,
       "r": -1,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -1,
+      "r": 4,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -2,
+      "r": 6,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -2,
+      "r": 7,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -3,
+      "r": 8,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -3,
+      "r": 9,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -1,
+      "r": 5,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 9,
+      "r": -2,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 10,
+      "r": -2,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 11,
+      "r": -2,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 10,
+      "r": 0,
       "biome": "minecraft:plains",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
@@ -2015,7 +2342,8 @@
         "inherit_biome": true,
         "excluded_species": [],
         "additions": []
-      }
+      },
+      "display_name": "블루시티 - 달맞이산 길"
     },
     {
       "id": "route_custom_02",
@@ -2058,7 +2386,8 @@
         "inherit_biome": true,
         "excluded_species": [],
         "additions": []
-      }
+      },
+      "display_name": "달맞이산 - 회색시티 길"
     },
     {
       "id": "route_custom_03",
@@ -2105,7 +2434,8 @@
         "inherit_biome": true,
         "excluded_species": [],
         "additions": []
-      }
+      },
+      "display_name": "태초마을 - 상록시티 길"
     },
     {
       "id": "route_custom_04",
@@ -2144,7 +2474,8 @@
         "inherit_biome": true,
         "excluded_species": [],
         "additions": []
-      }
+      },
+      "display_name": "상록시티 - 상록숲 길"
     },
     {
       "id": "route_viridian_forest_north",
@@ -2183,7 +2514,8 @@
         "inherit_biome": true,
         "excluded_species": [],
         "additions": []
-      }
+      },
+      "display_name": "상록숲 - 회색시티 길"
     },
     {
       "id": "route_custom_05",
@@ -2259,7 +2591,8 @@
         "excluded_species": [],
         "additions": [],
         "level_overrides": []
-      }
+      },
+      "display_name": "상록시티 - 석영고원 길"
     },
     {
       "id": "route_custom_06",
@@ -2301,7 +2634,8 @@
       "corridor_width_blocks": 12,
       "edge_noise": 0,
       "surface_style": "road",
-      "pathfinding": "explicit"
+      "pathfinding": "explicit",
+      "display_name": "무지개시티 - 노랑시티 길"
     },
     {
       "id": "route_custom_08",
@@ -2344,7 +2678,8 @@
         "inherit_biome": true,
         "excluded_species": [],
         "additions": []
-      }
+      },
+      "display_name": "태초마을 - 홍련마을 수로"
     },
     {
       "id": "route_custom_09",
@@ -2395,155 +2730,8 @@
         "inherit_biome": true,
         "excluded_species": [],
         "additions": []
-      }
-    },
-    {
-      "id": "route_custom_07",
-      "route_preset": "cobbleventure:route/route_custom_07",
-      "from": "cobbleventure:settlement/celadon_city",
-      "to": "cobbleventure:settlement/fuchsia_city",
-      "anchors": [
-        {
-          "q": 1,
-          "r": 2
-        },
-        {
-          "q": -2,
-          "r": 10
-        }
-      ],
-      "cells": [
-        {
-          "q": 1,
-          "r": 2
-        },
-        {
-          "q": 1,
-          "r": 3
-        },
-        {
-          "q": 0,
-          "r": 4
-        },
-        {
-          "q": 0,
-          "r": 5
-        },
-        {
-          "q": 0,
-          "r": 6
-        },
-        {
-          "q": -1,
-          "r": 7
-        },
-        {
-          "q": -1,
-          "r": 8
-        },
-        {
-          "q": -2,
-          "r": 9
-        },
-        {
-          "q": -2,
-          "r": 10
-        }
-      ],
-      "corridor_width_blocks": 12,
-      "edge_noise": 0,
-      "surface_style": "road",
-      "pathfinding": "explicit"
-    },
-    {
-      "id": "route_custom_10",
-      "route_preset": "cobbleventure:route/route_custom_10",
-      "from": "cobbleventure:settlement/fuchsia_city",
-      "to": "cobbleventure:settlement/lavender_town",
-      "anchors": [
-        {
-          "q": -2,
-          "r": 10
-        },
-        {
-          "q": 5,
-          "r": 10
-        },
-        {
-          "q": 9,
-          "r": 2
-        }
-      ],
-      "cells": [
-        {
-          "q": -2,
-          "r": 10
-        },
-        {
-          "q": -1,
-          "r": 10
-        },
-        {
-          "q": 0,
-          "r": 10
-        },
-        {
-          "q": 1,
-          "r": 10
-        },
-        {
-          "q": 2,
-          "r": 10
-        },
-        {
-          "q": 3,
-          "r": 10
-        },
-        {
-          "q": 4,
-          "r": 10
-        },
-        {
-          "q": 5,
-          "r": 10
-        },
-        {
-          "q": 6,
-          "r": 9
-        },
-        {
-          "q": 6,
-          "r": 8
-        },
-        {
-          "q": 7,
-          "r": 7
-        },
-        {
-          "q": 7,
-          "r": 6
-        },
-        {
-          "q": 8,
-          "r": 5
-        },
-        {
-          "q": 8,
-          "r": 4
-        },
-        {
-          "q": 9,
-          "r": 3
-        },
-        {
-          "q": 9,
-          "r": 2
-        }
-      ],
-      "corridor_width_blocks": 12,
-      "edge_noise": 0,
-      "surface_style": "road",
-      "pathfinding": "explicit"
+      },
+      "display_name": "연분홍시티 - 홍련마을 수로"
     },
     {
       "id": "route_custom_11",
@@ -2585,7 +2773,8 @@
       "corridor_width_blocks": 12,
       "edge_noise": 0,
       "surface_style": "road",
-      "pathfinding": "explicit"
+      "pathfinding": "explicit",
+      "display_name": "노랑시티 - 갈색시티 길"
     },
     {
       "id": "route_custom_12",
@@ -2627,7 +2816,8 @@
       "corridor_width_blocks": 12,
       "edge_noise": 0,
       "surface_style": "road",
-      "pathfinding": "explicit"
+      "pathfinding": "explicit",
+      "display_name": "노랑시티 - 블루시티 길"
     },
     {
       "id": "route_custom_13",
@@ -2669,7 +2859,8 @@
       "corridor_width_blocks": 12,
       "edge_noise": 0,
       "surface_style": "road",
-      "pathfinding": "explicit"
+      "pathfinding": "explicit",
+      "display_name": "노랑시티 - 보라타운 길"
     },
     {
       "id": "route_custom_14",
@@ -2710,7 +2901,267 @@
       "edge_noise": 0,
       "surface_style": "road",
       "pathfinding": "explicit",
-      "from": "cobbleventure:settlement/vermilion_city"
+      "from": "cobbleventure:settlement/vermilion_city",
+      "display_name": "갈색시티 - 보라타운 길"
+    },
+    {
+      "id": "route_custom_07",
+      "route_preset": "cobbleventure:route/route_custom_07",
+      "from": "cobbleventure:settlement/celadon_city",
+      "to": "cobbleventure:settlement/fuchsia_city",
+      "anchors": [
+        {
+          "q": 1,
+          "r": 2
+        },
+        {
+          "q": -1,
+          "r": 4
+        },
+        {
+          "q": -3,
+          "r": 9
+        },
+        {
+          "q": -2,
+          "r": 10
+        }
+      ],
+      "cells": [
+        {
+          "q": 1,
+          "r": 2
+        },
+        {
+          "q": 0,
+          "r": 3
+        },
+        {
+          "q": -1,
+          "r": 4
+        },
+        {
+          "q": -1,
+          "r": 5
+        },
+        {
+          "q": -2,
+          "r": 6
+        },
+        {
+          "q": -2,
+          "r": 7
+        },
+        {
+          "q": -3,
+          "r": 8
+        },
+        {
+          "q": -3,
+          "r": 9
+        },
+        {
+          "q": -2,
+          "r": 9
+        },
+        {
+          "q": -2,
+          "r": 10
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "display_name": "무지개시티 - 연분홍시티 길"
+    },
+    {
+      "id": "route_custom_10",
+      "route_preset": "cobbleventure:route/route_custom_10",
+      "anchors": [
+        {
+          "q": -2,
+          "r": 10
+        },
+        {
+          "q": 5,
+          "r": 10
+        }
+      ],
+      "cells": [
+        {
+          "q": -2,
+          "r": 10
+        },
+        {
+          "q": -1,
+          "r": 10
+        },
+        {
+          "q": 0,
+          "r": 10
+        },
+        {
+          "q": 1,
+          "r": 10
+        },
+        {
+          "q": 2,
+          "r": 10
+        },
+        {
+          "q": 3,
+          "r": 10
+        },
+        {
+          "q": 4,
+          "r": 10
+        },
+        {
+          "q": 5,
+          "r": 10
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "from": "cobbleventure:settlement/fuchsia_city",
+      "display_name": "연분홍시티 - 보라타운 길"
+    },
+    {
+      "id": "route_custom_15",
+      "route_preset": "cobbleventure:route/route_custom_15",
+      "anchors": [
+        {
+          "q": 9,
+          "r": 2
+        },
+        {
+          "q": 5,
+          "r": 10
+        }
+      ],
+      "cells": [
+        {
+          "q": 9,
+          "r": 2
+        },
+        {
+          "q": 9,
+          "r": 3
+        },
+        {
+          "q": 8,
+          "r": 4
+        },
+        {
+          "q": 8,
+          "r": 5
+        },
+        {
+          "q": 7,
+          "r": 6
+        },
+        {
+          "q": 7,
+          "r": 7
+        },
+        {
+          "q": 6,
+          "r": 8
+        },
+        {
+          "q": 6,
+          "r": 9
+        },
+        {
+          "q": 5,
+          "r": 10
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "from": "cobbleventure:settlement/lavender_town",
+      "display_name": "보라타운 - 연분홍시티 통나무다리"
+    },
+    {
+      "id": "route_custom_16",
+      "route_preset": "cobbleventure:route/route_custom_16",
+      "anchors": [
+        {
+          "q": 7,
+          "r": -2
+        },
+        {
+          "q": 11,
+          "r": -2
+        }
+      ],
+      "cells": [
+        {
+          "q": 7,
+          "r": -2
+        },
+        {
+          "q": 8,
+          "r": -2
+        },
+        {
+          "q": 9,
+          "r": -2
+        },
+        {
+          "q": 10,
+          "r": -2
+        },
+        {
+          "q": 11,
+          "r": -2
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "from": "cobbleventure:settlement/cerulean_city",
+      "display_name": "블루시티 동쪽 길"
+    },
+    {
+      "id": "route_custom_17",
+      "route_preset": "cobbleventure:route/route_custom_17",
+      "anchors": [
+        {
+          "q": 9,
+          "r": 2
+        },
+        {
+          "q": 10,
+          "r": 0
+        }
+      ],
+      "cells": [
+        {
+          "q": 9,
+          "r": 2
+        },
+        {
+          "q": 10,
+          "r": 1
+        },
+        {
+          "q": 10,
+          "r": 0
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "from": "cobbleventure:settlement/lavender_town",
+      "display_name": "보라타운 북쪽 길"
     }
   ],
   "forest_entrances": [

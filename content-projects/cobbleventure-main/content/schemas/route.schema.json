@@ -76,12 +76,14 @@
         "enabled": { "type": "boolean" },
         "count": { "type": "integer", "minimum": 0, "maximum": 32 },
         "use_biome_defaults": { "type": "boolean", "default": true },
-        "direct_trainers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } }
+        "direct_trainers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
+        "trigger_override": { "$ref": "#/$defs/trigger_override" }
       }
     }
   },
   "$defs": {
     "resource_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "trigger_override": { "enum": ["source", "interact", "proximity"] },
     "localized_text": {
       "type": "object",
       "minProperties": 1,
@@ -120,7 +122,8 @@
         "offset_blocks": { "type": "number", "minimum": 0, "maximum": 32 },
         "facing": { "enum": ["along", "against"] },
         "spawn_chance": { "type": "number", "minimum": 0, "maximum": 1 },
-        "respawn_policy": { "enum": ["always", "once_per_player"] }
+        "respawn_policy": { "enum": ["always", "once_per_player"] },
+        "trigger_override": { "$ref": "#/$defs/trigger_override" }
       }
     }
   }

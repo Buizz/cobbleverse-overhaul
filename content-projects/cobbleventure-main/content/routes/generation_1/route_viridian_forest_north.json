@@ -1,1 +1,37 @@
-{"$schema":"../../schemas/route.schema.json","schema_version":1,"id":"cobbleventure:route/route_viridian_forest_north","display_name":{"ko_kr":"상록숲 북쪽 - 회색시티 길","en_us":"Viridian Forest North - Pewter City"},"auto_name":true,"enabled":true,"route_type":"road","corridor":{"width_blocks":12,"edge_noise":0},"level_scaling":{"mode":"world","offset":0},"pokemon_spawns":{"inherit_biome":true,"excluded_species":[],"additions":[],"level_overrides":[]},"npc_placements":[]}
+{
+  "$schema": "../../schemas/route.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:route/route_viridian_forest_north",
+  "display_name": {
+    "ko_kr": "상록숲 - 회색시티 길",
+    "en_us": "상록숲 - 회색시티 길"
+  },
+  "auto_name": true,
+  "enabled": true,
+  "route_type": "road",
+  "corridor": {
+    "width_blocks": 12,
+    "edge_noise": 0
+  },
+  "level_scaling": {
+    "mode": "world",
+    "offset": 0
+  },
+  "pokemon_spawns": {
+    "inherit_biome": true,
+    "excluded_species": [],
+    "additions": [],
+    "level_overrides": []
+  },
+  "npc_placements": [],
+  "automatic_npc_placement": {
+    "enabled": true,
+    "count": 2,
+    "use_biome_defaults": true,
+    "direct_trainers": [
+      "cobbleventure:npc/sample_bug_catcher_doyun",
+      "cobbleventure:npc/sample_bird_keeper_ara"
+    ],
+    "trigger_override": "proximity"
+  }
+}

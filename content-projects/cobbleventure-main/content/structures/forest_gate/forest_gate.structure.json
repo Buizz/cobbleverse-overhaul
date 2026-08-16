@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "structure": "content/structures/forest_entrance/forest_gate.nbt",
+  "structure": "content/structures/forest_gate/forest_gate.nbt",
   "anchors": [
     {
       "label": "npc2",

@@ -36,6 +36,18 @@
     "additions": [],
     "level_overrides": []
   },
+  "trainer_settings": {
+    "enabled": true,
+    "max_active": 4,
+    "use_biome_defaults": true,
+    "direct_trainers": [
+      "cobbleventure:npc/sample_bug_catcher_doyun",
+      "cobbleventure:npc/sample_lass_yuna",
+      "cobbleventure:npc/sample_camper_jun",
+      "cobbleventure:npc/sample_bird_keeper_ara"
+    ],
+    "trigger_override": "proximity"
+  },
   "tree_barrier": {
     "min_height": 12,
     "max_height": 22,

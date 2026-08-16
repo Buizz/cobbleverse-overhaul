@@ -5,7 +5,7 @@
     "id": "player_house",
     "width": 32,
     "depth": 32,
-    "floor_height": 5,
+    "floor_height": 10,
     "floors": 2
   },
   "anchors": [

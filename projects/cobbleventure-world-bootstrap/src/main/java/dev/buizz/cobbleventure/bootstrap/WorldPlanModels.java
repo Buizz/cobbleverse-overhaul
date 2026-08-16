@@ -64,17 +64,27 @@ final class WorldPlanModels {
     ) {}
 
     record HexConnection(
-        String id, String from, String to, String routeBiome, int widthCells,
+        String id, String displayName, String from, String to, String routeBiome, int widthCells,
         String pathfinding, int detourCells, double corridorWidthBlocks,
         double edgeNoise, String boundaryProfile, TerrainProfile terrainProfile,
         String surfaceStyle, String accessRequirement, List<HexCoord> cells,
-        RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements
+        RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements,
+        RegionalTrainerPopulation trainerPopulation
     ) {}
 
     record RouteNpcPlacement(
         String id, String npc, int progressPercent, String side,
-        double offsetBlocks, String facing, double spawnChance, String respawnPolicy
+        double offsetBlocks, String facing, double spawnChance, String respawnPolicy,
+        String triggerOverride
     ) {}
+
+    record RegionalTrainerPopulation(
+        boolean enabled, int count, String triggerOverride, List<String> candidates
+    ) {
+        static RegionalTrainerPopulation disabled() {
+            return new RegionalTrainerPopulation(false, 0, "proximity", List.of());
+        }
+    }
 
     record RoutePokemonAddition(
         String species, int minLevel, int maxLevel, boolean spawnAsEvolved
@@ -99,11 +109,12 @@ final class WorldPlanModels {
     ) {}
 
     record ConnectionPath(
-        String id, String from, String to, String biome, String boundaryProfile,
+        String id, String displayName, String from, String to, String biome, String boundaryProfile,
         double corridorWidthBlocks, double edgeNoise, TerrainProfile terrainProfile,
         String surfaceStyle, String accessRequirement, List<HexCoord> cells,
         List<CobbleventureBootstrap.Point> centerline, RouteBounds bounds,
-        RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements
+        RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements,
+        RegionalTrainerPopulation trainerPopulation
     ) {}
 
     record TerrainProfile(

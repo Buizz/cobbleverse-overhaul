@@ -1,0 +1,29 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"낚시꾼 민수 대화·배틀 테스트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"낚시꾼 민수",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Cmd:"/cobbleventure_battle_intro @initiator @s cobbleventure:battle/sample_fisherman_minsu tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_fisherman_minsu onwin {1:[\"scoreboard objectives add cvf_546f429d3095 dummy\",\"scoreboard players set @1 cvf_546f429d3095 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}],ON_DISTANCE_CLOSE:[{Cmd:"/title @initiator actionbar {\"text\":\"주변에 트레이너가 있습니다!\",\"color\":\"gold\"}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"낚시꾼 민수\"}",
+    DialogData:{DialogDataSet:[{Label:"greeting",Name:"기다림도 실력이지. 낚시로 단련한 집중력을 보여 주마!",Texts:[{Text:"기다림도 실력이지. 낚시로 단련한 집중력을 보여 주마!"}],Buttons:[{Label:"battle",Name:"승부한다",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_battle_intro @initiator @s cobbleventure:battle/sample_fisherman_minsu tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_fisherman_minsu onwin {1:[\"scoreboard objectives add cvf_546f429d3095 dummy\",\"scoreboard players set @1 cvf_546f429d3095 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},{Label:"cancel",Name:"다음에",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"victory",Name:"좋은 승부였어! 다음에 다시 겨뤄 보자.",Texts:[{Text:"좋은 승부였어! 다음에 다시 겨뤄 보자."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!",Texts:[{Text:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!"}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-175109268,797859457,-2076157752,-2002336919],
+    SkinData:{Type:"CUSTOM",UUID:[I;-1507812695,-532524325,-1968234870,-685783817] },
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

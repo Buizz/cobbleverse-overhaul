@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "structure": "content/structures/houses/one_story_shed.nbt",
-  "interior_structure": "cobbleventure:interiors/one_story_shed",
   "anchors": [
     {
       "id": "door",

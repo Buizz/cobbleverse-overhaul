@@ -1205,6 +1205,20 @@ class ContentManagerTests(unittest.TestCase):
             for anchor in cave["generator"]["manual_layout"]["anchors"]
         ))
 
+    def test_cave_styles_control_materials_and_decorations(self) -> None:
+        source = (
+            CORE_ROOT
+            / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/NaturalCaveGenerator.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('case "dripstone" -> Blocks.GRANITE.defaultBlockState()', source)
+        self.assertIn('if (value > 0.28D) return Blocks.DRIPSTONE_BLOCK.defaultBlockState();', source)
+        self.assertIn('case "dripstone" -> 2.8D;', source)
+        self.assertIn('radius * 3 + random.nextInt(radius + 1)', source)
+        self.assertIn('case "ice" -> accent', source)
+        self.assertIn('Blocks.BLUE_ICE.defaultBlockState() : Blocks.PACKED_ICE.defaultBlockState()', source)
+        self.assertNotIn('private static void illuminateIceRoom', source)
+
     def test_cave_generator_settings_are_only_exposed_in_the_generator_dialog(self) -> None:
         page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -1505,6 +1519,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('<b>VIEW CONTROL</b>', script)
         self.assertIn('cave-node-inspector spatial-editor-inspector', page)
         self.assertIn('forest-layout-body spatial-editor-stage', page)
+
         self.assertIn('.spatial-editor-toolbar', styles)
         self.assertIn('.spatial-editor-inspector', styles)
         self.assertIn('.spatial-editor-status', styles)
@@ -1519,8 +1534,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('className = "spatial-tool-rail"', script)
         self.assertIn('className = "spatial-tool-options"', script)
         self.assertIn('.spatial-editor-toolbar.world-aligned-toolbar', styles)
-        self.assertIn('#selected-cave-editor,#selected-forest-editor { overflow: visible; }', styles)
-        self.assertIn('#selected-cave-editor > .panel-heading,#selected-forest-editor > .panel-heading { position: sticky;', styles)
+        self.assertIn('#selected-cave-editor,#selected-forest-editor,#selected-routePreset-editor,#selected-settlement-editor { overflow: visible; }', styles)
+        self.assertIn('#selected-cave-editor > .panel-heading,#selected-forest-editor > .panel-heading,#selected-routePreset-editor > .panel-heading,#selected-settlement-editor > .panel-heading { position: sticky;', styles)
         self.assertIn('--spatial-tool-rail-width: 62px', styles)
         self.assertIn('grid-template-rows: minmax(0,1fr); align-content: stretch', styles)
         self.assertIn('.spatial-tool-rail { display: flex; min-height: 100%; align-self: stretch', styles)
@@ -1538,6 +1553,20 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="cave-layout-canvas"', page)
         self.assertIn('id="forest-layout-canvas"', page)
         self.assertIn('id="world-hex-map"', page)
+
+    def test_location_management_editors_keep_action_headers_sticky(self) -> None:
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+
+        for editor_id in (
+            "selected-routePreset-editor",
+            "selected-settlement-editor",
+            "selected-cave-editor",
+            "selected-forest-editor",
+        ):
+            self.assertIn(f'id="{editor_id}"', page)
+            self.assertIn(f"#{editor_id}", styles)
+        self.assertIn("position: sticky; z-index: 30; top: 0", styles)
 
     def test_forest_uses_dedicated_runtime_dimension(self) -> None:
         forest = content_manager.load_json(
@@ -1582,6 +1611,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("level, portal.x(), portal.z(), portal.y()", gates)
         self.assertIn("Forest dimension gate placed on terrain", gates)
         self.assertIn("layWorldForestEntranceRoad(", gates)
+        self.assertIn("forestGateApproachFloorY(level, world, gate, geometry)", gates)
+        self.assertIn("provisional.footprint().contains(centerX, centerZ)", gates)
+        self.assertIn("heights.sort(Integer::compareTo)", gates)
+        self.assertIn("layGateApproachRoads(", gates)
+        self.assertIn("structureFootprint.containsInterior(x, z, 2)", gates)
+        self.assertIn("if (footprint.contains(x, z))", gates)
+        self.assertIn("minX, groundY, minZ", gates)
+        self.assertNotIn("minX, groundY + 1, minZ", gates)
+        self.assertLess(
+            gates.index("placement.template().placeInWorld("),
+            gates.index("layWorldForestEntranceRoad(", gates.index("private static boolean placeForestStructure")),
+        )
         self.assertIn("entry.inward().getOpposite()", gates)
         self.assertIn("world.grid().worldCenter(gate.anchor())", gates)
         self.assertIn("depth <= length", gates)
@@ -1593,6 +1634,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("addEntranceApproaches", generator)
         self.assertIn("new Segment(entrance, approachEnd)", generator)
         self.assertIn("if (!level.getBlockState(position).isAir())", generator)
+
         self.assertNotIn("!path.walkable() || !level.getBlockState(position).is(BlockTags.LEAVES)", generator)
         self.assertIn("persistentLeaves", generator)
         self.assertIn("placeOuterBarrier(", generator)
@@ -1632,6 +1674,18 @@ class ContentManagerTests(unittest.TestCase):
             self.assertIsNotNone(target)
             saved = content_manager.load_json(target)
             self.assertEqual("cobbleventure:forests", saved["dimension"]["id"])
+
+    def test_gym_height_uses_the_door_side_end_of_its_access_road(self) -> None:
+        bootstrap = (
+            CORE_ROOT
+            / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/CobbleventureBootstrap.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("TownRoad entranceRoad = accessRoads.isEmpty()", bootstrap)
+        self.assertIn("entranceRoad.x2()", bootstrap)
+        self.assertIn("entranceRoad.z2()", bootstrap)
+        self.assertIn('? loadedRoadSurfaceY(level, roadX, roadZ)', bootstrap)
+        self.assertNotIn('return facility.id().contains("gym") ? 1 : 0;', bootstrap)
 
     def test_world_forest_entrance_requires_a_route_and_dense_forest_is_supported(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -2997,6 +3051,17 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("직접 지정", script)
         self.assertIn("automaticNpcCandidates", script)
         self.assertIn("function renderTrainerPopulationPreview(scope)", script)
+        self.assertIn("function trainerPartyStrip(trainerOrId)", script)
+        self.assertIn("Array.from({ length: 6 }", script)
+        self.assertIn("trainerPartyStrip(trainer)", script)
+        self.assertIn("trainerPartyStrip(slot.trainer_id)", script)
+        styles = (CORE_ROOT / "tools" / "content-manager" / "web" / "styles.css").read_text(encoding="utf-8")
+        self.assertIn("grid-template-columns:repeat(6,24px)", styles)
+        trainer_summaries = content_manager._list_documents(PROJECT_ROOT, "trainers")
+        battle_trainer = next(entry for entry in trainer_summaries if entry.get("battle_type"))
+        self.assertEqual(battle_trainer["team_size"], len(battle_trainer["team"]))
+        self.assertLessEqual(battle_trainer["team_size"], 6)
+        self.assertTrue(all(member.get("species") for member in battle_trainer["team"]))
         for scope in ("route", "cave", "forest", "settlement"):
             self.assertIn(f'renderTrainerPopulationPreview("{scope}")', script)
 
@@ -4400,10 +4465,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("remove_out_of_bounds_anchors", script)
         self.assertIn("다음 앵커 ${anchorConflicts.length}개가 지워집니다", script)
         self.assertIn('id="interior-space-create-form"', markup)
+        self.assertIn('id="interior-creation-status"', markup)
+        self.assertIn('role="status" aria-live="polite"', markup)
         self.assertIn('id="building-interior-assignments"', markup)
         self.assertIn('id="building-door-routes"', markup)
+        self.assertIn('button.textContent = "NBT 생성 중…"', script)
+        self.assertIn('button.textContent = "NBT 목록 갱신 중…"', script)
+        self.assertIn('setStatus("complete", "내부 NBT 생성 완료"', script)
+        self.assertIn("await lazyDataPromises.buildingSettings;\n    if (!force) return;", script)
         styles = (web_root / "styles.css").read_text(encoding="utf-8")
         self.assertIn(".building-door-route", styles)
+        self.assertIn(".interior-creation-status", styles)
+        self.assertIn("@keyframes interior-creation-spin", styles)
 
     def test_space_connections_use_visual_tab_and_sync_building_routes(self) -> None:
         web_root = Path(__file__).parents[1] / "web"

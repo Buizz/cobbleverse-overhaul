@@ -29,6 +29,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -234,6 +235,7 @@ public final class CobbleventureBootstrap {
     private static volatile Map<String, PursuitEncounterSystem.Config> activeForestEncounters = Map.of();
     private static volatile List<ForestRegion> activeForestRegions = List.of();
     private static volatile Map<String, JsonObject> activeForestDocuments = Map.of();
+    private static volatile Map<String, JsonObject> activeCaveDocuments = Map.of();
     private static volatile ShoreDistanceField activeShoreDistances;
     private static volatile int integrationShutdownTicks = -1;
     private static volatile UUID pendingInitializationPlayer;
@@ -439,6 +441,7 @@ public final class CobbleventureBootstrap {
         if (data.isTownDebrisCleanupPending(chunkKey)) {
             scheduledTownDebrisCleanup.putIfAbsent(chunkKey, level.getGameTime() + 2L);
         }
+        repairLogBridgeChunk(level, event.getPos());
     }
 
     private static void onServerStarted(ServerStartedEvent event) {
@@ -452,6 +455,11 @@ public final class CobbleventureBootstrap {
         if (level == null) {
             throw new IllegalStateException("Cobbleventure generation_1 dimension is missing");
         }
+        BootstrapSavedData data = event.getServer().overworld().getDataStorage()
+            .computeIfAbsent(
+                new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
+                DATA_FILE
+            );
 
         boolean nativeGenerator = NativeWorldGeneration.usesNativeGenerator(
             level.getChunkSource().getGenerator()
@@ -515,6 +523,7 @@ public final class CobbleventureBootstrap {
         activeSettlements = runtime.settlements();
         activeFacilityPortals = facilityPortals(runtime.settlements());
         activeFacilityMusicZones = facilityMusicZones(level, runtime.settlements());
+        spawnRouteNpcs(level, runtime.hexWorld());
         placeCaveEntrances(level, runtime.hexWorld());
         WorldGateSystem.placeAll(level, runtime.hexWorld());
         ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
@@ -522,11 +531,13 @@ public final class CobbleventureBootstrap {
             throw new IllegalStateException("Cobbleventure dungeons dimension is missing");
         }
         placeCaveInteriors(dungeons, runtime.hexWorld());
+        spawnCaveNpcs(dungeons, activeCaveDocuments);
         ServerLevel forests = event.getServer().getLevel(FORESTS);
         if (forests == null) {
             throw new IllegalStateException("Cobbleventure forests dimension is missing");
         }
         ForestDimensionGenerator.generate(forests, level.getSeed(), activeForestDocuments);
+        spawnForestNpcs(forests, activeForestDocuments);
         WorldGateSystem.placeForestDimensionGates(forests, runtime.hexWorld().gates());
         if (!Boolean.getBoolean(TOWN_SEQUENCE_PERFORMANCE_TEST_PROPERTY)
             && !Boolean.getBoolean(HEX_WORLD_TEST_PROPERTY)) {
@@ -553,11 +564,6 @@ public final class CobbleventureBootstrap {
                 .orElseThrow(() -> new IllegalStateException(
                     "A second enabled settlement is required for town sequence measurement"
                 ));
-            BootstrapSavedData data = event.getServer().overworld().getDataStorage()
-                .computeIfAbsent(
-                    new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
-                    DATA_FILE
-                );
             activeInitialization = new WorldInitializationJob(
                 level, null, data, BlockPos.ZERO, runtime,
                 starter.playerSpawn().toBlockPos(), BlockPos.ZERO,
@@ -744,7 +750,73 @@ public final class CobbleventureBootstrap {
             }
             verified++;
         }
-        LOGGER.info("Native JSON world verification succeeded: samples={}", verified);
+        int bridgeSamples = 0;
+        int bridgeSupports = 0;
+        for (ConnectionPath route : world.paths()) {
+            if (!route.surfaceStyle().equals("log_bridge")) continue;
+            boolean deckVerified = false;
+            boolean supportVerified = false;
+            for (Point point : route.centerline()) {
+                for (int offsetX = -3; offsetX <= 3; offsetX++) {
+                    for (int offsetZ = -3; offsetZ <= 3; offsetZ++) {
+                        int x = point.x() + offsetX;
+                        int z = point.z() + offsetZ;
+                        LogBridgeDeckPlan deck = logBridgeDeckAt(world, x, z);
+                        if (deck == null) continue;
+                        NativeTerrainColumn terrain = nativeTerrainColumn(world, x, z);
+                        if (terrain.groundY() > WATER_SURFACE_Y - 20) {
+                            throw new IllegalStateException(
+                                "Native log bridge raised the seabed: route=" + route.id()
+                                    + ", position=" + new Point(x, z)
+                                    + ", floorY=" + terrain.groundY()
+                            );
+                        }
+                        BlockState actualDeck = level.getBlockState(
+                            new BlockPos(x, deck.y(), z)
+                        );
+                        if (!actualDeck.is(deck.state().getBlock())) {
+                            throw new IllegalStateException(
+                                "Native log bridge deck is missing: route=" + route.id()
+                                    + ", position=" + new Point(x, z)
+                                    + ", expected=" + deck.state()
+                                    + ", actual=" + actualDeck
+                            );
+                        }
+                        if (!deckVerified) {
+                            bridgeSamples++;
+                            deckVerified = true;
+                        }
+                        if (deck.support() && !supportVerified) {
+                            BlockState actualSupport = level.getBlockState(
+                                new BlockPos(x, terrain.groundY() + 1, z)
+                            );
+                            if (!actualSupport.is(Blocks.STRIPPED_SPRUCE_LOG)) {
+                                throw new IllegalStateException(
+                                    "Native log bridge support is missing: route=" + route.id()
+                                        + ", position=" + new Point(x, z)
+                                        + ", actual=" + actualSupport
+                                );
+                            }
+                            bridgeSupports++;
+                            supportVerified = true;
+                        }
+                    }
+                }
+                if (deckVerified && supportVerified) break;
+            }
+        }
+        if (world.paths().stream().anyMatch(route ->
+            route.surfaceStyle().equals("log_bridge"))
+            && (bridgeSamples == 0 || bridgeSupports == 0)) {
+            throw new IllegalStateException(
+                "Native log bridge routes have no verifiable deck and support"
+            );
+        }
+        LOGGER.info(
+            "Native JSON world verification succeeded: samples={}, logBridgeSamples={}, "
+                + "logBridgeSupports={}",
+            verified, bridgeSamples, bridgeSupports
+        );
     }
 
     private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
@@ -878,6 +950,7 @@ public final class CobbleventureBootstrap {
 
         activeFacilityPortals = facilityPortals(settlements);
         activeFacilityMusicZones = facilityMusicZones(level, settlements);
+        spawnRouteNpcs(level, runtime.hexWorld());
 
         data.complete(spawnPos, villagePos, MAP_VERSION);
         progress.update(100, "시작 지역 생성 완료");
@@ -3783,12 +3856,19 @@ public final class CobbleventureBootstrap {
         SettlementPlan settlement,
         FacilityPlacement facility
     ) {
-        TownPlot generated = generateTownLayout(settlement).facilities().get(facility.id());
+        TownLayout layout = generateTownLayout(settlement);
+        TownPlot generated = layout.facilities().get(facility.id());
         if (generated != null) {
             int x = settlement.center().x() + (int) Math.round(generated.x());
             int z = settlement.center().z() + (int) Math.round(generated.z());
-            int roadX = settlement.center().x() + generated.roadConnectionX();
-            int roadZ = settlement.center().z() + generated.roadConnectionZ();
+            List<TownRoad> accessRoads = layout.buildingAccessRoads()
+                .getOrDefault(facility.id(), List.of());
+            TownRoad entranceRoad = accessRoads.isEmpty()
+                ? null : accessRoads.getLast();
+            int roadX = settlement.center().x() + (entranceRoad == null
+                ? generated.roadConnectionX() : entranceRoad.x2());
+            int roadZ = settlement.center().z() + (entranceRoad == null
+                ? generated.roadConnectionZ() : entranceRoad.z2());
             int groundY = facility.id().contains("gym")
                 ? loadedRoadSurfaceY(level, roadX, roadZ)
                 : plannedTerrainGroundY(level, x, z);
@@ -4786,6 +4866,15 @@ public final class CobbleventureBootstrap {
     }
 
     private static Component routeDisplayName(String routeId) {
+        HexWorldPlan world = activeHexWorld;
+        if (world != null) {
+            for (ConnectionPath route : world.paths()) {
+                if (route.id().equals(routeId) && route.displayName() != null
+                    && !route.displayName().isBlank()) {
+                    return Component.literal(route.displayName());
+                }
+            }
+        }
         if (routeId.startsWith("route_custom_")) {
             String number = routeId.substring("route_custom_".length()).replaceFirst("^0+", "");
             return Component.translatable(
@@ -5425,6 +5514,7 @@ public final class CobbleventureBootstrap {
             return;
         }
         job.data.complete(job.spawnPos, job.villagePos, MAP_VERSION);
+        spawnRouteNpcs(job.level, job.runtime.hexWorld());
         job.progress.update(100, "시작 지역 생성 완료");
         moveWaitingPlayersToStart(job.level, job.spawnPos);
         removeWaitingArea(job.level, job.waitingArea);
@@ -6740,6 +6830,7 @@ public final class CobbleventureBootstrap {
             }
         }
         activeCaveEncounters = List.copyOf(caveEncounters);
+        activeCaveDocuments = Map.copyOf(caves);
         activeForestEncounters = Map.copyOf(forestEncounters);
         activeForestDocuments = Map.copyOf(forests);
         activeForestRegions = forests.entrySet().stream()
@@ -6833,6 +6924,192 @@ public final class CobbleventureBootstrap {
         }
     }
 
+    private static void spawnCaveNpcs(
+        ServerLevel level, Map<String, JsonObject> caves
+    ) {
+        for (Map.Entry<String, JsonObject> entry : caves.entrySet()) {
+            JsonObject cave = entry.getValue();
+            if (!cave.has("trainer_settings")) continue;
+            JsonObject settings = cave.getAsJsonObject("trainer_settings");
+            if (!settings.has("enabled") || !settings.get("enabled").getAsBoolean()) continue;
+            int maximum = Math.max(0, settings.get("max_active").getAsInt());
+            int placed = 0;
+            if (settings.has("placements")) {
+                for (JsonElement element : settings.getAsJsonArray("placements")) {
+                    if (placed >= maximum) break;
+                    JsonObject placement = element.getAsJsonObject();
+                    JsonObject position = placement.getAsJsonObject("position");
+                    String trigger = placement.has("trigger_override")
+                        ? placement.get("trigger_override").getAsString()
+                        : regionalTrigger(settings);
+                    if (spawnRegionalNpc(
+                        level, requiredString(placement, "trainer_id"),
+                        new BlockPos(
+                            position.get("x").getAsInt(), position.get("y").getAsInt(),
+                            position.get("z").getAsInt()
+                        ), 0.0F, trigger
+                    )) placed++;
+                }
+            }
+            List<String> candidates = regionalTrainerCandidates(level, cave, settings);
+            List<BlockPos> positions = caveTrainerPositions(cave);
+            for (int index = 0; placed < maximum && index < candidates.size()
+                && index < positions.size(); index++) {
+                if (spawnRegionalNpc(
+                    level, candidates.get(index), positions.get(index),
+                    index % 2 == 0 ? 90.0F : -90.0F, regionalTrigger(settings)
+                )) placed++;
+            }
+            if (placed > 0) LOGGER.info("Cave NPC placement completed: cave={}, spawned={}", entry.getKey(), placed);
+        }
+    }
+
+    private static List<BlockPos> caveTrainerPositions(JsonObject cave) {
+        List<BlockPos> result = new ArrayList<>();
+        if (cave.has("generator")) {
+            JsonObject generator = cave.getAsJsonObject("generator");
+            if (generator.has("manual_layout")) {
+                JsonObject layout = generator.getAsJsonObject("manual_layout");
+                if (layout.has("anchors")) {
+                    for (JsonElement element : layout.getAsJsonArray("anchors")) {
+                        JsonObject position = element.getAsJsonObject().getAsJsonObject("position");
+                        for (int offset : new int[] {3, -3}) {
+                            result.add(new BlockPos(
+                                position.get("x").getAsInt() + offset,
+                                position.get("y").getAsInt() + 1,
+                                position.get("z").getAsInt()
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        if (result.isEmpty() && cave.has("entrances")) {
+            for (JsonElement element : cave.getAsJsonArray("entrances")) {
+                JsonObject anchor = element.getAsJsonObject().getAsJsonObject("destination_anchor");
+                result.add(new BlockPos(
+                    anchor.get("x").getAsInt(), anchor.get("y").getAsInt(),
+                    anchor.get("z").getAsInt()
+                ));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private static void spawnForestNpcs(
+        ServerLevel level, Map<String, JsonObject> forests
+    ) {
+        for (Map.Entry<String, JsonObject> entry : forests.entrySet()) {
+            JsonObject forest = entry.getValue();
+            if (!forest.has("trainer_settings")) continue;
+            JsonObject settings = forest.getAsJsonObject("trainer_settings");
+            if (!settings.has("enabled") || !settings.get("enabled").getAsBoolean()) continue;
+            List<String> candidates = regionalTrainerCandidates(level, forest, settings);
+            int maximum = Math.min(
+                Math.max(0, settings.get("max_active").getAsInt()), candidates.size()
+            );
+            if (maximum == 0) continue;
+            JsonObject origin = forest.getAsJsonObject("dimension").getAsJsonObject("origin");
+            int originX = origin.get("x").getAsInt();
+            int originZ = origin.get("z").getAsInt();
+            Map<String, JsonObject> uniquePoints = new LinkedHashMap<>();
+            for (JsonElement pathElement : forest.getAsJsonArray("paths")) {
+                for (JsonElement pointElement : pathElement.getAsJsonObject().getAsJsonArray("points")) {
+                    JsonObject point = pointElement.getAsJsonObject();
+                    uniquePoints.putIfAbsent(
+                        point.get("x").getAsInt() + "," + point.get("z").getAsInt(), point
+                    );
+                }
+            }
+            List<JsonObject> points = List.copyOf(uniquePoints.values());
+            int spawned = 0;
+            for (int index = 0; spawned < maximum && index < points.size(); index++) {
+                int pointIndex = Math.min(
+                    points.size() - 1,
+                    Math.round((index + 1) * (points.size() - 1.0F) / (maximum + 1))
+                );
+                JsonObject point = points.get(pointIndex);
+                int x = originX + point.get("x").getAsInt() + (index % 2 == 0 ? 2 : -2);
+                int z = originZ + point.get("z").getAsInt();
+                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                if (spawnRegionalNpc(
+                    level, candidates.get(spawned), new BlockPos(x, y, z),
+                    index % 2 == 0 ? 90.0F : -90.0F, regionalTrigger(settings)
+                )) spawned++;
+            }
+            if (spawned > 0) LOGGER.info("Forest NPC placement completed: forest={}, spawned={}", entry.getKey(), spawned);
+        }
+    }
+
+    private static String regionalTrigger(JsonObject settings) {
+        return settings.has("trigger_override")
+            ? settings.get("trigger_override").getAsString() : "proximity";
+    }
+
+    private static List<String> regionalTrainerCandidates(
+        ServerLevel level, JsonObject region, JsonObject settings
+    ) {
+        LinkedHashSet<String> result = new LinkedHashSet<>();
+        if (settings.has("direct_trainers")) {
+            for (JsonElement element : settings.getAsJsonArray("direct_trainers")) {
+                result.add(element.getAsString());
+            }
+        }
+        if (settings.has("use_biome_defaults")
+            && !settings.get("use_biome_defaults").getAsBoolean()) {
+            return List.copyOf(result);
+        }
+        JsonObject catalog = readJsonResource(level, "catalogs/npc-placement-profiles.json");
+        List<JsonObject> profiles = new ArrayList<>();
+        for (JsonElement element : catalog.getAsJsonArray("profiles")) {
+            JsonObject profile = element.getAsJsonObject();
+            if (!"trainer".equals(requiredString(profile, "classification"))) continue;
+            if (profile.has("automatic_route_placement")
+                && profile.get("automatic_route_placement").getAsBoolean()) {
+                profiles.add(profile);
+            }
+        }
+        int levelTarget = 5;
+        String biome = "";
+        if (region.has("random_encounters")) {
+            JsonObject encounters = region.getAsJsonObject("random_encounters");
+            levelTarget = Math.round((
+                encounters.get("minimum_level").getAsInt()
+                    + encounters.get("maximum_level").getAsInt()
+            ) / 2.0F);
+            biome = encounters.has("pokemon_biome")
+                ? encounters.get("pokemon_biome").getAsString() : "";
+        }
+        final int expectedLevel = levelTarget;
+        final String expectedBiome = biome;
+        profiles.sort(Comparator
+            .comparingInt((JsonObject profile) -> regionalTrainerScore(
+                profile, expectedLevel, expectedBiome
+            ))
+            .thenComparing(profile -> requiredString(profile, "npc")));
+        for (JsonObject profile : profiles) result.add(requiredString(profile, "npc"));
+        return List.copyOf(result);
+    }
+
+    private static int regionalTrainerScore(
+        JsonObject profile, int expectedLevel, String expectedBiome
+    ) {
+        int biomeScore = 20;
+        if (profile.has("preferred_biomes")) {
+            JsonArray preferred = profile.getAsJsonArray("preferred_biomes");
+            biomeScore = preferred.size() == 0 ? 20 : 100;
+            for (JsonElement element : preferred) {
+                if (element.getAsString().equals(expectedBiome)) {
+                    biomeScore = 0;
+                    break;
+                }
+            }
+        }
+        int levelScore = profile.has("expected_level")
+            ? Math.abs(profile.get("expected_level").getAsInt() - expectedLevel) : 15;
+        return biomeScore + levelScore;
+    }
+
     private static NaturalCaveGenerator.Settings caveGenerationSettings(JsonObject cave) {
         boolean requiresFlash = cave.has("requires_flash")
             && cave.get("requires_flash").getAsBoolean();
@@ -6844,10 +7121,14 @@ public final class CobbleventureBootstrap {
         JsonObject tunnelRadius = generator.getAsJsonObject("tunnel_radius");
         NaturalCaveGenerator.Settings defaults = NaturalCaveGenerator.Settings.defaults(requiresFlash);
         String style = cave.has("style") ? cave.get("style").getAsString() : "rock";
-        String internalBiome = style.equals("lush")
-            ? "minecraft:lush_caves" : "minecraft:dripstone_caves";
+        String internalBiome = switch (style) {
+            case "lush" -> "minecraft:lush_caves";
+            case "ice" -> "minecraft:deep_frozen_ocean";
+            case "lava" -> "minecraft:basalt_deltas";
+            default -> "minecraft:dripstone_caves";
+        };
         String decoration = switch (style) {
-            case "dripstone", "crystal", "lush" -> style;
+            case "dripstone", "crystal", "lush", "ice", "lava" -> style;
             default -> "rock";
         };
         NaturalCaveGenerator.ManualLayout manualLayout = NaturalCaveGenerator.ManualLayout.disabled();
@@ -6908,6 +7189,7 @@ public final class CobbleventureBootstrap {
         }
         return new NaturalCaveGenerator.Settings(
             generator.get("seed_salt").getAsLong(),
+            style,
             generator.get("main_rooms").getAsInt(),
             generator.get("branch_count").getAsInt(),
             generator.get("loop_chance").getAsDouble(),
@@ -7066,12 +7348,12 @@ public final class CobbleventureBootstrap {
                 grid, seed, byId, connection, path
             );
             paths.add(new ConnectionPath(
-                connection.id(), connection.from(), connection.to(),
+                connection.id(), connection.displayName(), connection.from(), connection.to(),
                 connection.routeBiome(), connection.boundaryProfile(),
                 connection.corridorWidthBlocks(), connection.edgeNoise(), connection.terrainProfile(),
                 connection.surfaceStyle(), connection.accessRequirement(), List.copyOf(path),
                 centerline, routeBounds(centerline), connection.pokemonSpawns(),
-                connection.npcPlacements()
+                connection.npcPlacements(), connection.trainerPopulation()
             ));
         }
 
@@ -8296,6 +8578,57 @@ public final class CobbleventureBootstrap {
         return closest;
     }
 
+    static LogBridgeDeckPlan logBridgeDeckAt(
+        HexWorldPlan world, int x, int z
+    ) {
+        ConnectionPath route = strongestRouteAt(world, x + 0.5D, z + 0.5D);
+        if (route == null || !route.surfaceStyle().equals("log_bridge")) {
+            return null;
+        }
+        double closest = Double.POSITIVE_INFINITY;
+        double tangentX = 1.0D;
+        double tangentZ = 0.0D;
+        double progress = 0.0D;
+        double traversed = 0.0D;
+        for (int index = 1; index < route.centerline().size(); index++) {
+            Point start = route.centerline().get(index - 1);
+            Point end = route.centerline().get(index);
+            double dx = end.x() - start.x();
+            double dz = end.z() - start.z();
+            double lengthSquared = dx * dx + dz * dz;
+            double segmentLength = Math.sqrt(lengthSquared);
+            double factor = lengthSquared == 0.0D ? 0.0D
+                : ((x + 0.5D - start.x()) * dx
+                    + (z + 0.5D - start.z()) * dz) / lengthSquared;
+            factor = Math.max(0.0D, Math.min(1.0D, factor));
+            double projectedX = start.x() + factor * dx;
+            double projectedZ = start.z() + factor * dz;
+            double distance = Math.hypot(
+                x + 0.5D - projectedX, z + 0.5D - projectedZ
+            );
+            if (distance < closest) {
+                closest = distance;
+                tangentX = dx;
+                tangentZ = dz;
+                progress = traversed + factor * segmentLength;
+            }
+            traversed += segmentLength;
+        }
+        if (closest > 2.5D) {
+            return null;
+        }
+        Direction.Axis axis = Math.abs(tangentX) >= Math.abs(tangentZ)
+            ? Direction.Axis.X : Direction.Axis.Z;
+        BlockState deck = closest >= 1.5D
+            ? Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState().setValue(
+                BlockStateProperties.AXIS, axis
+            )
+            : Blocks.SPRUCE_PLANKS.defaultBlockState();
+        boolean support = closest >= 1.5D
+            && Math.floorMod((int) Math.round(progress), 6) == 0;
+        return new LogBridgeDeckPlan(WATER_SURFACE_Y + 1, deck, support);
+    }
+
     private static RouteBounds routeBounds(List<Point> centerline) {
         int minX = Integer.MAX_VALUE;
         int minZ = Integer.MAX_VALUE;
@@ -9221,6 +9554,9 @@ public final class CobbleventureBootstrap {
     private static int aquaticGroundY(
         HexWorldPlan world, TerrainSample sample, double x, double z, int deepFloor
     ) {
+        if (sample.surfaceStyle().equals("log_bridge")) {
+            return Math.min(deepFloor, WATER_SURFACE_Y - minimumWaterDepth(sample));
+        }
         boolean ocean = sample.biome().contains("ocean");
         int transitionWidth = ocean ? 48 : 20;
         int distanceToShore = Math.min(
@@ -9249,7 +9585,8 @@ public final class CobbleventureBootstrap {
     }
 
     private static int minimumWaterDepth(TerrainSample sample) {
-        return sample.biome().contains("ocean") ? 20 : 6;
+        return sample.surfaceStyle().equals("log_bridge")
+            || sample.biome().contains("ocean") ? 20 : 6;
     }
 
     static BlockState fillerBlock(String biome) {
@@ -9400,12 +9737,15 @@ public final class CobbleventureBootstrap {
         boolean coastalWater = isCoastalWater(world, sample, x, z, groundY);
         boolean sandyShore = isSandyShore(world, sample, x, z, groundY);
         String biome = biomeAt(world, x + 0.5D, z + 0.5D, sample);
-        BlockState surface = sample.surfaceStyle().equals("road") && !aquatic
+        BlockState surface = sample.surfaceStyle().equals("log_bridge")
+            ? Blocks.GRAVEL.defaultBlockState()
+            : sample.surfaceStyle().equals("road") && !aquatic
             ? roadSurfaceBlock(world, sample, x, z)
             : sandyShore ? Blocks.SAND.defaultBlockState()
             : surfaceBlock(biome);
-        BlockState filler = sandyShore
-            ? Blocks.SAND.defaultBlockState() : fillerBlock(biome);
+        BlockState filler = sample.surfaceStyle().equals("log_bridge")
+            ? Blocks.STONE.defaultBlockState()
+            : sandyShore ? Blocks.SAND.defaultBlockState() : fillerBlock(biome);
         return new NativeTerrainColumn(
             groundY,
             aquatic || coastalWater ? WATER_SURFACE_Y : groundY,
@@ -11137,7 +11477,25 @@ public final class CobbleventureBootstrap {
                 double facingX = placement.facing().equals("against") ? -point.tangentX() : point.tangentX();
                 double facingZ = placement.facing().equals("against") ? -point.tangentZ() : point.tangentZ();
                 float yaw = (float) Math.toDegrees(Math.atan2(-facingX, facingZ));
-                if (spawnRouteNpc(level, placement.npc(), new BlockPos(x, y, z), yaw)) spawned++;
+                if (spawnRegionalNpc(
+                    level, placement.npc(), new BlockPos(x, y, z), yaw,
+                    placement.triggerOverride()
+                )) spawned++;
+            }
+            RegionalTrainerPopulation population = route.trainerPopulation();
+            int count = Math.min(population.count(), population.candidates().size());
+            for (int index = 0; population.enabled() && index < count; index++) {
+                int progress = Math.round((index + 1) * 100.0F / (count + 1));
+                RouteNpcPoint point = routeNpcPoint(route.centerline(), progress);
+                double side = index % 2 == 0 ? 1.0D : -1.0D;
+                int x = (int) Math.round(point.x() + point.normalX() * 3.0D * side);
+                int z = (int) Math.round(point.z() + point.normalZ() * 3.0D * side);
+                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                float yaw = (float) Math.toDegrees(Math.atan2(-point.tangentX(), point.tangentZ()));
+                if (spawnRegionalNpc(
+                    level, population.candidates().get(index), new BlockPos(x, y, z), yaw,
+                    population.triggerOverride()
+                )) spawned++;
             }
         }
         if (spawned > 0) LOGGER.info("Route NPC placement completed: spawned={}", spawned);
@@ -11169,12 +11527,22 @@ public final class CobbleventureBootstrap {
         return new RouteNpcPoint(last.x(), last.z(), 0.0D, 1.0D, 1.0D, 0.0D);
     }
 
-    private static boolean spawnRouteNpc(
-        ServerLevel level, String npcId, BlockPos position, float yaw
+    static boolean spawnRegionalNpc(
+        ServerLevel level, String npcId, BlockPos position, float yaw, String triggerOverride
     ) {
+        AABB nearby = new AABB(position).inflate(1.75D, 2.5D, 1.75D);
+        boolean occupied = level.getEntitiesOfClass(Entity.class, nearby).stream().anyMatch(entity ->
+            BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).getNamespace().equals("easy_npc")
+        );
+        if (occupied) return false;
         String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
+        String suffix = switch (triggerOverride) {
+            case "interact" -> "__interact";
+            case "proximity" -> "__proximity";
+            default -> "";
+        };
         String command = "easy_npc preset import_new data easy_npc:preset/encounter/"
-            + slug + ".npc.snbt " + position.getX() + " " + position.getY() + " " + position.getZ();
+            + slug + suffix + ".npc.snbt " + position.getX() + " " + position.getY() + " " + position.getZ();
         try {
             int result = level.getServer().getCommands().getDispatcher().execute(
                 command,
@@ -11185,10 +11553,10 @@ public final class CobbleventureBootstrap {
                     .withPermission(4)
                     .withSuppressedOutput()
             );
-            if (result == 0) LOGGER.warn("Route NPC command returned no result: npc={}, position={}", npcId, position);
+            if (result == 0) LOGGER.warn("Regional NPC command returned no result: npc={}, position={}", npcId, position);
             return result != 0;
         } catch (CommandSyntaxException error) {
-            LOGGER.error("Route NPC placement failed: npc={}, position={}", npcId, position, error);
+            LOGGER.error("Regional NPC placement failed: npc={}, position={}", npcId, position, error);
             return false;
         }
     }
@@ -11210,7 +11578,7 @@ public final class CobbleventureBootstrap {
                 continue;
             }
             if (connection.surfaceStyle().equals("log_bridge")) {
-                drawLogBridge(level, connection, centerline);
+                drawLogBridge(level, world, connection, centerline);
                 continue;
             }
             if (!connection.surfaceStyle().equals("road")) {
@@ -11231,7 +11599,8 @@ public final class CobbleventureBootstrap {
     }
 
     private static void drawLogBridge(
-        ServerLevel level, ConnectionPath connection, List<Point> centerline
+        ServerLevel level, HexWorldPlan world,
+        ConnectionPath connection, List<Point> centerline
     ) {
         for (int index = 1; index < centerline.size(); index++) {
             Point start = centerline.get(index - 1);
@@ -11257,8 +11626,20 @@ public final class CobbleventureBootstrap {
                             BlockStateProperties.AXIS, routeAxis
                         )
                         : Blocks.SPRUCE_PLANKS.defaultBlockState();
-                    level.setBlock(new BlockPos(x, WATER_SURFACE_Y, z), deck, 2);
-                    for (int y = WATER_SURFACE_Y + 1; y <= WATER_SURFACE_Y + 4; y++) {
+                    int deckY = WATER_SURFACE_Y + 1;
+                    LogBridgeDeckPlan plan = logBridgeDeckAt(world, x, z);
+                    if (plan != null && plan.support()) {
+                        TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
+                        int floorY = terrainGroundY(world, sample, x, z);
+                        for (int y = floorY + 1; y < deckY; y++) {
+                            level.setBlock(
+                                new BlockPos(x, y, z),
+                                Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState(), 2
+                            );
+                        }
+                    }
+                    level.setBlock(new BlockPos(x, deckY, z), deck, 2);
+                    for (int y = deckY + 1; y <= deckY + 4; y++) {
                         level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                     }
                 }
@@ -11268,6 +11649,72 @@ public final class CobbleventureBootstrap {
             "Log bridge completed: route={}, material=spruce_planks/stripped_spruce_log",
             connection.id()
         );
+    }
+
+    private static void repairLogBridgeChunk(ServerLevel level, ChunkPos chunk) {
+        HexWorldPlan world = activeHexWorld;
+        if (world == null || world.paths().stream().noneMatch(route ->
+            route.surfaceStyle().equals("log_bridge")
+                && route.bounds().contains(
+                    chunk.getMiddleBlockX(), chunk.getMiddleBlockZ(),
+                    route.corridorWidthBlocks()
+                ))) {
+            return;
+        }
+        int repaired = 0;
+        for (int x = chunk.getMinBlockX(); x <= chunk.getMaxBlockX(); x++) {
+            for (int z = chunk.getMinBlockZ(); z <= chunk.getMaxBlockZ(); z++) {
+                TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
+                if (sample == null || !sample.kind().equals("route")
+                    || !sample.surfaceStyle().equals("log_bridge")) {
+                    continue;
+                }
+                NativeTerrainColumn terrain = nativeTerrainColumn(world, x, z);
+                BlockPos floorPosition = new BlockPos(x, terrain.groundY(), z);
+                if (!level.getBlockState(floorPosition).is(Blocks.GRAVEL)) {
+                    level.setBlock(floorPosition, Blocks.GRAVEL.defaultBlockState(), 2);
+                    repaired++;
+                }
+                for (int y = terrain.groundY() + 1; y <= WATER_SURFACE_Y; y++) {
+                    BlockPos waterPosition = new BlockPos(x, y, z);
+                    if (!level.getBlockState(waterPosition).is(Blocks.WATER)) {
+                        level.setBlock(waterPosition, Blocks.WATER.defaultBlockState(), 2);
+                        repaired++;
+                    }
+                }
+                LogBridgeDeckPlan deck = logBridgeDeckAt(world, x, z);
+                if (deck == null) continue;
+                BlockPos oldDeckPosition = new BlockPos(x, WATER_SURFACE_Y, z);
+                BlockState oldDeck = level.getBlockState(oldDeckPosition);
+                if (oldDeck.is(Blocks.SPRUCE_PLANKS)
+                    || oldDeck.is(Blocks.STRIPPED_SPRUCE_LOG)) {
+                    level.setBlock(oldDeckPosition, Blocks.WATER.defaultBlockState(), 2);
+                    repaired++;
+                }
+                if (deck.support()) {
+                    for (int y = terrain.groundY() + 1; y < deck.y(); y++) {
+                        BlockPos supportPosition = new BlockPos(x, y, z);
+                        if (!level.getBlockState(supportPosition).is(
+                            Blocks.STRIPPED_SPRUCE_LOG
+                        )) {
+                            level.setBlock(
+                                supportPosition,
+                                Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState(), 2
+                            );
+                            repaired++;
+                        }
+                    }
+                }
+                BlockPos deckPosition = new BlockPos(x, deck.y(), z);
+                if (!level.getBlockState(deckPosition).equals(deck.state())) {
+                    level.setBlock(deckPosition, deck.state(), 2);
+                    repaired++;
+                }
+            }
+        }
+        if (repaired > 0) {
+            LOGGER.info("Repaired log bridge chunk: chunk={}, blocks={}", chunk, repaired);
+        }
     }
 
     private record RouteNpcPoint(
@@ -12690,6 +13137,8 @@ public final class CobbleventureBootstrap {
         boolean rocky,
         TerrainSample sample
     ) {}
+
+    record LogBridgeDeckPlan(int y, BlockState state, boolean support) {}
 
     static final class ShoreDistanceField {
         private final int minX;

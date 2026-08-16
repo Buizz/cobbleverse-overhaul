@@ -228,7 +228,11 @@ def _rank_npc_profiles(
     profiles: list[dict[str, object]], *, classification: str, level: int,
     biomes: set[str], target: str,
 ) -> list[str]:
-    enabled_key = "automatic_route_placement" if target == "route" else "automatic_town_placement"
+    enabled_key = (
+        "automatic_town_placement"
+        if target == "town"
+        else "automatic_route_placement"
+    )
     ranked: list[tuple[int, str]] = []
     for profile in profiles:
         if profile.get("classification") != classification or profile.get(enabled_key) is not True:
@@ -2074,47 +2078,15 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
     house_source = _inside(root, root / HOUSE_STRUCTURE_SOURCE_DIR, "주택 메타데이터 원본")
     if house_source.is_dir():
         for base_id in HOUSE_BASES:
-            width, _, _ = HOUSE_BASES[base_id]["size"]  # type: ignore[misc]
             for roof_id in sorted(HOUSE_ROOFS):
                 base_name = f"{base_id}_{roof_id}"
                 source = house_source / f"{base_name}.structure.json"
-                door_x = int(width) // 2
                 if source.is_file():
                     metadata = json.loads(source.read_text(encoding="utf-8"))
-                    metadata.setdefault(
-                        "interior_structure",
-                        "cobbleventure:interiors/one_story_shed",
-                    )
-                    anchors = metadata.setdefault("anchors", [])
-                    if not any(
-                        isinstance(anchor, dict)
-                        and anchor.get("type") == "door"
-                        for anchor in anchors
-                    ):
-                        anchors.append({
-                            "id": "door",
-                            "type": "door",
-                            "position": [door_x, 1, 0],
-                            "safe_spawn": [door_x, 1, -1],
-                            "door_facing": "north",
-                            "safe_side": "north",
-                            "seal_entry": True,
-                            "dialogue": "cobbleventure:default_enter",
-                        })
                 else:
                     metadata = {
                         "schema_version": 1,
-                        "interior_structure": "cobbleventure:interiors/one_story_shed",
-                        "anchors": [{
-                            "id": "door",
-                            "type": "door",
-                            "position": [door_x, 1, 0],
-                            "safe_spawn": [door_x, 1, -1],
-                            "door_facing": "north",
-                            "safe_side": "north",
-                            "seal_entry": True,
-                            "dialogue": "cobbleventure:default_enter",
-                        }],
+                        "anchors": [],
                     }
                 payload = (
                     json.dumps(metadata, ensure_ascii=False, indent=2) + "\n"

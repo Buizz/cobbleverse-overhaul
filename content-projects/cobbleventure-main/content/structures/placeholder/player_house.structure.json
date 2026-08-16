@@ -8,14 +8,14 @@
       "label": "door",
       "type": "door",
       "position": [
-        8,
+        14,
         1,
-        0
+        3
       ],
       "safe_spawn": [
-        8,
+        14,
         1,
-        -1
+        2
       ],
       "door_facing": "south",
       "safe_side": "north"

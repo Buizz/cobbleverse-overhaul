@@ -1,0 +1,29 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"몬스터볼을 나눠주는 연구원 대화·배틀 테스트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"몬스터볼을 나눠주는 연구원",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}],ON_DISTANCE_CLOSE:[{Cmd:"/title @initiator actionbar {\"text\":\"주변에 트레이너가 있습니다!\",\"color\":\"gold\"}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"몬스터볼을 나눠주는 연구원\"}",
+    DialogData:{DialogDataSet:[{Label:"greeting",Name:"새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가.",Texts:[{Text:"새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventurebag give @initiator cobblemon:poke_ball 5",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_fb2bd55cfd00:1",Type:"SCOREBOARD"},{Type:"CLOSE_DIALOG"}]}]},{Label:"already_received",Name:"몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!",Priority:100,Texts:[{Text:"몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!"}],Conditions:[{Name:"cvf_fb2bd55cfd00",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.800f,0.800f,0.800f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-302661862,1748063817,-1590286563,-1640437882],
+    SkinData:{Type:"CUSTOM",UUID:[I;1143281601,1172461966,-1543807145,1949558341] },
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

@@ -851,10 +851,16 @@ def preset_snbt(outfit: dict) -> str:
 '''
 
 
-def encounter_preset_snbt(document: dict, outfit: dict) -> str:
+def encounter_preset_snbt(
+    document: dict, outfit: dict, trigger_override: str | None = None
+) -> str:
     adapter = outfit["adapters"]["easy_npc"]
     display = localized(document.get("npc", {}).get("display_name")) or localized(document.get("name"))
-    preset_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, document["id"] + "/easy_npc_encounter"))
+    preset_variant = f"/{trigger_override}" if trigger_override else ""
+    preset_uuid = str(uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        document["id"] + "/easy_npc_encounter" + preset_variant,
+    ))
     arm_model = document.get("_easy_npc_arm_model") or document.get("npc", {}).get(
         "appearance", {}
     ).get("arm_model") or outfit["arm_model"]
@@ -875,6 +881,7 @@ def encounter_preset_snbt(document: dict, outfit: dict) -> str:
             for choice in node.get("choices", [])
             for action in choice.get("actions", [])
         ]
+    encounter_mode = trigger_override or encounter_mode
     if encounter_mode == "proximity":
         start_battle = next((action for action in candidate_actions if action.get("type") == "start_battle"), None)
         proximity_action = (
@@ -1112,6 +1119,16 @@ def generate(
         preset.parent.mkdir(parents=True, exist_ok=True)
         preset.write_text(encounter_preset_snbt(document, outfit), encoding="utf-8", newline="\n")
         written.append(preset)
+        for trigger_override in ("interact", "proximity"):
+            override_preset = preset.with_name(
+                f"{slug}__{trigger_override}.npc.snbt"
+            )
+            override_preset.write_text(
+                encounter_preset_snbt(document, outfit, trigger_override),
+                encoding="utf-8",
+                newline="\n",
+            )
+            written.append(override_preset)
     return written
 
 

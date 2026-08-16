@@ -1,1 +1,27 @@
-{"$schema":"../../schemas/route.schema.json","schema_version":1,"id":"cobbleventure:route/route_custom_05","display_name":{"ko_kr":"상록시티 - 석영고원 길","en_us":"Viridian City - Indigo Plateau"},"auto_name":true,"enabled":true,"route_type":"road","corridor":{"width_blocks":12,"edge_noise":0},"level_scaling":{"mode":"world","offset":0},"pokemon_spawns":{"inherit_biome":true,"excluded_species":[],"additions":[],"level_overrides":[]},"npc_placements":[]}
+{
+  "$schema": "../../schemas/route.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:route/route_custom_05",
+  "display_name": {
+    "ko_kr": "상록시티 - 석영고원 길",
+    "en_us": "상록시티 - 석영고원 길"
+  },
+  "auto_name": true,
+  "enabled": true,
+  "route_type": "road",
+  "corridor": {
+    "width_blocks": 12,
+    "edge_noise": 0
+  },
+  "level_scaling": {
+    "mode": "world",
+    "offset": 0
+  },
+  "pokemon_spawns": {
+    "inherit_biome": true,
+    "excluded_species": [],
+    "additions": [],
+    "level_overrides": []
+  },
+  "npc_placements": []
+}

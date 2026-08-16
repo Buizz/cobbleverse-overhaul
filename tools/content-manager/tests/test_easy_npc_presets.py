@@ -74,6 +74,20 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         )
         self.assertIn("ON_INTERACTION", preset)
 
+    def test_trigger_override_generates_independent_interaction_and_proximity_presets(self) -> None:
+        interaction = generator.encounter_preset_snbt(
+            self.document, self.outfit, "interact"
+        )
+        proximity = generator.encounter_preset_snbt(
+            self.document, self.outfit, "proximity"
+        )
+
+        self.assertIn("ON_INTERACTION", interaction)
+        self.assertNotIn("ON_DISTANCE_VERY_CLOSE", interaction)
+        self.assertIn("ON_DISTANCE_VERY_CLOSE", proximity)
+        self.assertIn("ON_DISTANCE_CLOSE", proximity)
+        self.assertNotEqual(interaction, proximity)
+
     def test_encounter_uses_its_own_appearance_skin_and_arm_model(self) -> None:
         first = json.loads(json.dumps(self.document))
         second = json.loads(json.dumps(self.document))

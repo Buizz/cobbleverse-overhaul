@@ -51,7 +51,8 @@
         "enabled": { "type": "boolean" },
         "max_active": { "type": "integer", "minimum": 0, "maximum": 128 },
         "use_biome_defaults": { "type": "boolean" },
-        "direct_trainers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } }
+        "direct_trainers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
+        "trigger_override": { "$ref": "#/$defs/trigger_override" }
       }
     },
     "tree_barrier": {
@@ -93,6 +94,7 @@
   },
   "$defs": {
     "resource_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "trigger_override": { "enum": ["source", "interact", "proximity"] },
     "localized_text": { "type": "object", "minProperties": 1, "properties": { "ko_kr": { "type": "string", "minLength": 1 }, "en_us": { "type": "string", "minLength": 1 } }, "additionalProperties": { "type": "string", "minLength": 1 } },
     "block_position": { "type": "object", "additionalProperties": false, "required": ["x", "y", "z"], "properties": { "x": { "type": "integer" }, "y": { "type": "integer" }, "z": { "type": "integer" } } },
     "point": { "type": "object", "additionalProperties": false, "required": ["x", "z"], "properties": { "x": { "type": "integer" }, "z": { "type": "integer" } } },

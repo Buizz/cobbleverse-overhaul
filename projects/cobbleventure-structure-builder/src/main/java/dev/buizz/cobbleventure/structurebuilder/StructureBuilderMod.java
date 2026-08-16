@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
@@ -185,7 +186,7 @@ public final class StructureBuilderMod {
         try {
             Catalog catalog = loadCatalog(player.getServer());
             BuilderData data = data(player.getServer());
-            requirePrepared(data);
+            requireCurrentCatalog(data, catalog);
             BlockPos door = lowerDoorPosition(player.serverLevel(), event.getPos());
             BuilderEditorNetwork.openAnchorEditor(
                 player,
@@ -390,10 +391,15 @@ public final class StructureBuilderMod {
         try {
             Catalog catalog = loadCatalog(source.getServer());
             BuilderData data = data(source.getServer());
+            int promotedInteriors = promoteImportedInteriors(
+                source.getServer().overworld(), catalog, data
+            );
             prepareLayout(source.getServer().overworld(), catalog, data);
             source.sendSuccess(
                 () -> Component.literal(
                     "[Structure Builder] 원본 NBT로 모든 부지를 다시 불러왔습니다."
+                        + (promotedInteriors == 0 ? ""
+                            : " 새 내부공간 " + promotedInteriors + "개를 정식 부지로 전환했습니다.")
                 ),
                 true
             );
@@ -403,11 +409,28 @@ public final class StructureBuilderMod {
         }
     }
 
+    private static int promoteImportedInteriors(
+        ServerLevel level, Catalog catalog, BuilderData data
+    ) {
+        Set<String> catalogInteriors = catalog.entries().stream()
+            .filter(entry -> entry.category().equals("interiors"))
+            .map(Entry::label)
+            .collect(java.util.stream.Collectors.toSet());
+        List<InteriorPlot> promoted = data.interiors().stream()
+            .filter(plot -> catalogInteriors.contains(plot.id()))
+            .toList();
+        for (InteriorPlot plot : promoted) {
+            clearInterior(level, plot);
+            data.removeInterior(plot.id());
+        }
+        return promoted.size();
+    }
+
     private static int saveAll(CommandSourceStack source) {
         try {
             Catalog catalog = loadCatalog(source.getServer());
             BuilderData data = data(source.getServer());
-            requirePrepared(data);
+            requireCurrentCatalog(data, catalog);
             int saved = 0;
             List<String> removedDoorAnchors = new ArrayList<>();
             for (PlannedEntry planned : editablePlan(catalog, data)) {
@@ -444,7 +467,7 @@ public final class StructureBuilderMod {
         try {
             Catalog catalog = loadCatalog(source.getServer());
             BuilderData data = data(source.getServer());
-            requirePrepared(data);
+            requireCurrentCatalog(data, catalog);
             PlannedEntry planned = find(catalog, data, requested);
             Optional<InteriorPlot> resized = planned.entry().category().equals("interiors")
                 ? data.interior(planned.entry().label()) : Optional.empty();
@@ -1218,6 +1241,16 @@ public final class StructureBuilderMod {
         }
     }
 
+    private static void requireCurrentCatalog(BuilderData data, Catalog catalog) {
+        requirePrepared(data);
+        if (!data.catalogHash.equals(catalog.catalogHash())) {
+            throw new BuilderException(
+                "NBT 목록이 변경되어 현재 부지 좌표와 일치하지 않습니다. "
+                    + "저장하지 말고 /cobbleventure_builder load confirm으로 먼저 갱신하세요."
+            );
+        }
+    }
+
     private static PlannedEntry find(Catalog catalog, BuilderData data, String requested) {
         return editablePlan(catalog, data).stream()
             .filter(planned -> planned.entry().label().equals(requested)
@@ -1413,11 +1446,12 @@ public final class StructureBuilderMod {
     private static int saveInterior(CommandSourceStack source, String id) {
         try {
             BuilderData builderData = data(source.getServer());
+            Catalog catalog = loadCatalog(source.getServer());
+            requireCurrentCatalog(builderData, catalog);
             Optional<InteriorPlot> dynamic = builderData.interior(id);
             if (dynamic.isPresent()) {
                 exportInterior(source.getServer().overworld(), dynamic.get());
             } else {
-                Catalog catalog = loadCatalog(source.getServer());
                 PlannedEntry planned = editablePlan(catalog, builderData)
                     .stream()
                     .filter(value -> value.entry().category().equals("interiors")

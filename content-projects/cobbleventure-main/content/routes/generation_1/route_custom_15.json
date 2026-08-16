@@ -1,0 +1,33 @@
+{
+  "$schema": "../../schemas/route.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:route/route_custom_15",
+  "display_name": {
+    "ko_kr": "보라타운 - 연분홍시티 통나무다리",
+    "en_us": "보라타운 - 연분홍시티 통나무다리"
+  },
+  "auto_name": true,
+  "enabled": true,
+  "route_type": "log_bridge",
+  "corridor": {
+    "width_blocks": 12,
+    "edge_noise": 0
+  },
+  "level_scaling": {
+    "mode": "world",
+    "offset": 0
+  },
+  "pokemon_spawns": {
+    "inherit_biome": true,
+    "excluded_species": [],
+    "additions": [],
+    "level_overrides": []
+  },
+  "npc_placements": [],
+  "automatic_npc_placement": {
+    "enabled": false,
+    "count": 0,
+    "use_biome_defaults": true,
+    "direct_trainers": []
+  }
+}
