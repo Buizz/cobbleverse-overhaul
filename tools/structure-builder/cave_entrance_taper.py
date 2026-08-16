@@ -31,7 +31,7 @@ DEFAULT_CAVE_ROOT = (
     / "structures"
     / "cave_entrance"
 )
-BURIAL_DEPTH = 5
+ROAD_ANCHOR_HEIGHT_OFFSET = 0
 def _plain_block(state: int, position: tuple[int, int, int]) -> bytes:
     return (
         _int_tag("state", state)
@@ -200,7 +200,7 @@ def taper_cave(path: Path) -> bool:
                     state = original_state
             replacements[position] = _plain_block(state, position)
 
-    anchor = (center_x, floor_y + BURIAL_DEPTH, start_z)
+    anchor = (center_x, floor_y + ROAD_ANCHOR_HEIGHT_OFFSET, start_z)
     replacements[anchor] = _road_anchor_block(jigsaw_state, anchor)
 
     ordered = [replacements[position] for position in sorted(replacements)]
@@ -229,11 +229,11 @@ def validate_taper(path: Path) -> list[str]:
     for z in range(start_z, end_z + 1):
         radius = _opening_radius(z, start_z, end_z)
         expected = {(x, y, z) for x, y in _opening(radius, center_x, floor_y)}
-        expected.discard((center_x, floor_y + BURIAL_DEPTH, start_z))
+        expected.discard((center_x, floor_y + ROAD_ANCHOR_HEIGHT_OFFSET, start_z))
         actual = {position for position in barriers if position[2] == z}
         if actual != expected:
             issues.append(f"z={z} 내부 단면이 다릅니다.")
-    if (center_x, floor_y + BURIAL_DEPTH, start_z) not in {
+    if (center_x, floor_y + ROAD_ANCHOR_HEIGHT_OFFSET, start_z) not in {
         tuple(block["pos"])
         for block in root.get("blocks", [])
         if palette[block["state"]].get("Name") == "minecraft:jigsaw"

@@ -403,6 +403,7 @@ def validate_hex_worlds(
     settlement_ids: set[str],
     cave_documents: dict[str, dict[str, Any]] | None = None,
     forest_documents: dict[str, dict[str, Any]] | None = None,
+    route_ids: set[str] | None = None,
 ) -> list[Issue]:
     issues: list[Issue] = []
     known_pokemon: set[str] | None = None
@@ -434,6 +435,17 @@ def validate_hex_worlds(
                 forest_data = load_json(forest_path)
                 if isinstance(forest_data, dict) and isinstance(forest_data.get("id"), str):
                     forest_documents[forest_data["id"]] = forest_data
+            except (OSError, json.JSONDecodeError, DuplicateKeyError):
+                continue
+    if route_ids is None:
+        route_ids = set()
+        route_dir = root / "content" / "routes"
+        for route_path in route_dir.rglob("*.json") if route_dir.is_dir() else []:
+            try:
+                route_data = load_json(route_path)
+                route_id = route_data.get("id") if isinstance(route_data, dict) else None
+                if isinstance(route_id, str):
+                    route_ids.add(route_id)
             except (OSError, json.JSONDecodeError, DuplicateKeyError):
                 continue
 
@@ -861,6 +873,9 @@ def validate_hex_worlds(
                 not isinstance(display_name, str) or not 1 <= len(display_name.strip()) <= 100
             ):
                 _issue(issues, "error", path, f"{connection_path}.display_name", "길 이름은 1자 이상 100자 이하 문자열이어야 합니다.")
+            route_preset = connection.get("route_preset")
+            if route_preset is not None and route_preset not in route_ids:
+                _issue(issues, "error", path, f"{connection_path}.route_preset", f"존재하지 않는 길 프리셋: {route_preset}")
             for field in ("from", "to"):
                 target = connection.get(field)
                 if target is not None and target not in world_settlements and target not in cave_entrance_anchors and target not in forest_entrance_anchors:
@@ -5258,7 +5273,7 @@ def validate_gym_catalog_file(path: Path, structure_root: Path | None = None) ->
                 else:
                     connection_anchors_by_space["exterior"] = {
                         anchor["label"] for anchor in _structure_named_anchors(
-                            exterior_file, {"door", "interior_entry", "interior_exit"}
+                            exterior_file, {"door"}
                         )
                     }
         interior = _require_object(gym.get("interior"), issues, path, f"{gym_path}.interior")
@@ -5304,7 +5319,7 @@ def validate_gym_catalog_file(path: Path, structure_root: Path | None = None) ->
                                     label = anchor.get("label")
                                     if not isinstance(label, str) or not DOCUMENT_SLUG.fullmatch(label):
                                         continue
-                                    if anchor.get("type") in {"door", "interior_entry", "interior_exit"}:
+                                    if anchor.get("type") == "door":
                                         door_anchors.add(label)
                                         continue
                                     if anchor.get("type") != "npc_position":
@@ -5475,7 +5490,7 @@ def gym_interior_modules_payload(root: Path) -> dict[str, Any]:
             ],
             "npc_labels": _structure_npc_labels(nbt_path),
             "door_anchors": _structure_named_anchors(
-                nbt_path, {"door", "interior_entry", "interior_exit"}
+                nbt_path, {"door"}
             ),
             "arrival_anchors": _structure_named_anchors(
                 nbt_path, {"arrival", "interior_spawn", "exterior_spawn"}
@@ -5506,7 +5521,7 @@ def interior_spaces_payload(root: Path) -> dict[str, Any]:
             "structure": resource,
             "size": [metadata["width"], metadata["height"], metadata["depth"]],
             "doors": _structure_named_anchors(
-                nbt_path, {"door", "interior_entry", "interior_exit"}
+                nbt_path, {"door"}
             ),
             "arrivals": _structure_named_anchors(
                 nbt_path, {"arrival", "interior_spawn", "exterior_spawn"}
@@ -5852,7 +5867,28 @@ def validate_repository(
         except (OSError, json.JSONDecodeError, DuplicateKeyError):
             pass
 
-    issues.extend(validate_hex_worlds(root, set(seen_settlements), cave_documents))
+    route_ids: set[str] = set()
+    route_dir = root / "content" / "routes"
+    for path in sorted(route_dir.rglob("*.json")) if route_dir.is_dir() else []:
+        route_id, route_issues = validate_route_file(path)
+        issues.extend(route_issues)
+        if route_id in route_ids:
+            _issue(issues, "error", path, "$.id", f"다른 파일과 중복된 길 프리셋 ID: {route_id}")
+        elif route_id:
+            route_ids.add(route_id)
+        try:
+            route_data = load_json(path)
+            for index, placement in enumerate(route_data.get("npc_placements", [])):
+                npc_id = placement.get("npc") if isinstance(placement, dict) else None
+                if isinstance(npc_id, str) and npc_id not in seen_content:
+                    _issue(
+                        issues, "error", path, f"$.npc_placements[{index}].npc",
+                        f"존재하지 않는 NPC 프리셋: {npc_id}",
+                    )
+        except (OSError, json.JSONDecodeError, DuplicateKeyError, AttributeError):
+            pass
+
+    issues.extend(validate_hex_worlds(root, set(seen_settlements), cave_documents, route_ids=route_ids))
 
     forest_dir = root / "content" / "forests"
     seen_forests: set[str] = set()
@@ -6034,7 +6070,7 @@ def _validate_pursuit_encounters(encounters: Any, issues: list[Issue], path: Pat
         _issue(issues, "error", path, f"{base}.enabled", "사용 여부는 true 또는 false여야 합니다.")
     _resource_id(encounters.get("pokemon_biome"), issues, path, f"{base}.pokemon_biome")
     for minimum_key, maximum_key, low, high, label in (
-        ("minimum_distance", "maximum_distance", 1, 10000, "이동 거리"),
+        ("minimum_distance", "maximum_distance", 1, 10000, "주변 스폰 거리"),
         ("minimum_level", "maximum_level", 1, 100, "레벨"),
     ):
         minimum = encounters.get(minimum_key)
@@ -6180,9 +6216,6 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
         ):
             _issue(issues, "error", path, "$.dimension.bounds", "정수 경계 min_x, min_z, max_x, max_z가 필요합니다.")
     environment = data.get("environment")
-    fixed_time = environment.get("fixed_time") if isinstance(environment, dict) else None
-    if not isinstance(fixed_time, int) or isinstance(fixed_time, bool) or not 0 <= fixed_time <= 23999:
-        _issue(issues, "error", path, "$.environment.fixed_time", "고정 시간은 0 이상 23999 이하의 정수여야 합니다.")
     if not isinstance(environment, dict) or environment.get("weather") not in {"clear", "rain", "thunder"}:
         _issue(issues, "error", path, "$.environment.weather", "날씨는 clear, rain 또는 thunder여야 합니다.")
     barrier = data.get("tree_barrier")
@@ -6320,10 +6353,114 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
     return forest_id, issues
 
 
+def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"길 프리셋 JSON을 읽을 수 없습니다: {error}")
+        return None, issues
+    if not isinstance(data, dict):
+        _issue(issues, "error", path, "$", "길 프리셋은 객체여야 합니다.")
+        return None, issues
+    route_id = data.get("id")
+    if not isinstance(route_id, str) or not RESOURCE_ID.fullmatch(route_id):
+        _issue(issues, "error", path, "$.id", "올바른 길 프리셋 리소스 ID가 필요합니다.")
+        route_id = None
+    if data.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "길 프리셋 schema_version은 1이어야 합니다.")
+    display_name = data.get("display_name")
+    if not isinstance(display_name, dict) or not any(
+        isinstance(value, str) and value.strip() for value in display_name.values()
+    ):
+        _issue(issues, "error", path, "$.display_name", "길 프리셋 이름을 하나 이상 입력해야 합니다.")
+    if not isinstance(data.get("enabled"), bool):
+        _issue(issues, "error", path, "$.enabled", "사용 여부는 true 또는 false여야 합니다.")
+    if data.get("route_type") not in {"road", "trail", "water"}:
+        _issue(issues, "error", path, "$.route_type", "길 종류는 road, trail, water 중 하나여야 합니다.")
+
+    corridor = data.get("corridor")
+    if not isinstance(corridor, dict):
+        _issue(issues, "error", path, "$.corridor", "통로 외형 설정이 필요합니다.")
+    else:
+        width = corridor.get("width_blocks")
+        if not isinstance(width, (int, float)) or isinstance(width, bool) or not 12 <= width <= 256:
+            _issue(issues, "error", path, "$.corridor.width_blocks", "통로 폭은 12 이상 256 이하 숫자여야 합니다.")
+        noise = corridor.get("edge_noise")
+        if not isinstance(noise, (int, float)) or isinstance(noise, bool) or not 0 <= noise <= 0.35:
+            _issue(issues, "error", path, "$.corridor.edge_noise", "통로 굴곡은 0 이상 0.35 이하 숫자여야 합니다.")
+        if corridor.get("boundary_profile") is not None:
+            _resource_id(corridor.get("boundary_profile"), issues, path, "$.corridor.boundary_profile")
+
+    scaling = data.get("level_scaling")
+    if not isinstance(scaling, dict):
+        _issue(issues, "error", path, "$.level_scaling", "레벨 조절 설정이 필요합니다.")
+    else:
+        mode = scaling.get("mode")
+        if mode not in {"world", "fixed", "offset"}:
+            _issue(issues, "error", path, "$.level_scaling.mode", "레벨 방식은 world, fixed, offset 중 하나여야 합니다.")
+        offset = scaling.get("offset")
+        if not isinstance(offset, int) or isinstance(offset, bool) or not -100 <= offset <= 100:
+            _issue(issues, "error", path, "$.level_scaling.offset", "레벨 보정은 -100 이상 100 이하 정수여야 합니다.")
+        minimum = scaling.get("minimum_level")
+        maximum = scaling.get("maximum_level")
+        if mode == "fixed":
+            if not isinstance(minimum, int) or isinstance(minimum, bool) or not 1 <= minimum <= 100:
+                _issue(issues, "error", path, "$.level_scaling.minimum_level", "고정 최소 레벨은 1~100 정수여야 합니다.")
+            if not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 100:
+                _issue(issues, "error", path, "$.level_scaling.maximum_level", "고정 최대 레벨은 1~100 정수여야 합니다.")
+            if isinstance(minimum, int) and isinstance(maximum, int) and minimum > maximum:
+                _issue(issues, "error", path, "$.level_scaling", "최소 레벨은 최대 레벨보다 클 수 없습니다.")
+
+    pokemon = data.get("pokemon_spawns")
+    if not isinstance(pokemon, dict):
+        _issue(issues, "error", path, "$.pokemon_spawns", "포켓몬 출현 설정이 필요합니다.")
+    else:
+        if not isinstance(pokemon.get("inherit_biome"), bool):
+            _issue(issues, "error", path, "$.pokemon_spawns.inherit_biome", "바이옴 포켓몬 상속 여부가 필요합니다.")
+        for field in ("excluded_species", "additions", "level_overrides"):
+            if not isinstance(pokemon.get(field), list):
+                _issue(issues, "error", path, f"$.pokemon_spawns.{field}", "배열이어야 합니다.")
+
+    placements = data.get("npc_placements")
+    if not isinstance(placements, list):
+        _issue(issues, "error", path, "$.npc_placements", "NPC 배치 목록은 배열이어야 합니다.")
+    else:
+        seen_ids: set[str] = set()
+        for index, placement in enumerate(placements):
+            base = f"$.npc_placements[{index}]"
+            if not isinstance(placement, dict):
+                _issue(issues, "error", path, base, "NPC 배치는 객체여야 합니다.")
+                continue
+            placement_id = placement.get("id")
+            if not isinstance(placement_id, str) or not CHOICE_ID.fullmatch(placement_id) or placement_id in seen_ids:
+                _issue(issues, "error", path, f"{base}.id", "유일한 NPC 배치 ID가 필요합니다.")
+            else:
+                seen_ids.add(placement_id)
+            _resource_id(placement.get("npc"), issues, path, f"{base}.npc")
+            progress = placement.get("progress_percent")
+            if not isinstance(progress, int) or isinstance(progress, bool) or not 0 <= progress <= 100:
+                _issue(issues, "error", path, f"{base}.progress_percent", "길 진행률은 0~100 정수여야 합니다.")
+            if placement.get("side") not in {"center", "left", "right"}:
+                _issue(issues, "error", path, f"{base}.side", "NPC 위치는 center, left, right 중 하나여야 합니다.")
+            offset = placement.get("offset_blocks")
+            if not isinstance(offset, (int, float)) or isinstance(offset, bool) or not 0 <= offset <= 32:
+                _issue(issues, "error", path, f"{base}.offset_blocks", "길 옆 거리는 0~32 숫자여야 합니다.")
+            if placement.get("facing") not in {"along", "against"}:
+                _issue(issues, "error", path, f"{base}.facing", "바라보는 방향은 along 또는 against여야 합니다.")
+            chance = placement.get("spawn_chance")
+            if not isinstance(chance, (int, float)) or isinstance(chance, bool) or not 0 <= chance <= 1:
+                _issue(issues, "error", path, f"{base}.spawn_chance", "등장 확률은 0~1 숫자여야 합니다.")
+            if placement.get("respawn_policy") not in {"always", "once_per_player"}:
+                _issue(issues, "error", path, f"{base}.respawn_policy", "등장 정책은 always 또는 once_per_player여야 합니다.")
+    return route_id, issues
+
+
 def _managed_directory(root: Path, category: str) -> Path:
     directories = {
         "trainers": root / "content" / "source",
         "battles": root / "content" / "battles",
+        "routes": root / "content" / "routes",
         "settlements": root / "content" / "settlements",
         "caves": root / "content" / "caves",
         "forests": root / "content" / "forests",
@@ -6431,11 +6568,9 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 summary["entrance_count"] = len(data.get("entrances", []))
                 summary["entrances"] = data.get("entrances", [])
                 summary["path_count"] = len(data.get("paths", []))
-                summary["fixed_time"] = data.get("environment", {}).get("fixed_time", 6000)
             else:
                 summary["generation"] = data.get("generation", 1)
                 summary["path_count"] = len(data.get("paths", []))
-                summary["fixed_time"] = data.get("environment", {}).get("fixed_time", 6000)
             documents.append(summary)
         except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
             documents.append(
@@ -6539,6 +6674,7 @@ def _save_document(
     validator = {
         "trainers": validate_content_file,
         "battles": validate_battle_preset_file,
+        "routes": validate_route_file,
         "settlements": validate_settlement_file,
         "caves": validate_cave_file,
         "forests": validate_forest_file,
@@ -6652,12 +6788,14 @@ def _delete_document(root: Path, category: str, relative_path: str) -> tuple[Pat
     reference_keys = {
         "trainers": {"trainer_id", "npc_profile"},
         "battles": {"battle"},
+        "routes": {"route_preset"},
         "caves": {"cave"},
         "forests": {"forest"},
     }[category]
     scan_directories = {
-        "trainers": [root / "content" / "battles", root / "content" / "settlements"],
+        "trainers": [root / "content" / "battles", root / "content" / "routes", root / "content" / "settlements"],
         "battles": [root / "content" / "source"],
+        "routes": [root / "content" / "worlds"],
         "caves": [root / "content" / "worlds"],
         "forests": [root / "content" / "worlds"],
     }[category]
@@ -7309,8 +7447,8 @@ def _cave_template(slug: str, name: str, generation: str) -> dict[str, Any]:
         "requires_flash": False,
         "random_encounters": {
             "enabled": True,
-            "minimum_distance": 72,
-            "maximum_distance": 128,
+            "minimum_distance": 16,
+            "maximum_distance": 24,
             "minimum_level": 5,
             "maximum_level": 10,
             "pokemon_biome": "minecraft:dripstone_caves",
@@ -7345,11 +7483,11 @@ def _forest_template(slug: str, name: str, generation: str) -> dict[str, Any]:
             "origin": {"x": 0, "y": 69, "z": 0},
             "bounds": {"min_x": -256, "min_z": -256, "max_x": 256, "max_z": 256},
         },
-        "environment": {"fixed_time": 6000, "weather": "clear"},
+        "environment": {"weather": "clear"},
         "random_encounters": {
             "enabled": True,
-            "minimum_distance": 72,
-            "maximum_distance": 128,
+            "minimum_distance": 16,
+            "maximum_distance": 24,
             "minimum_level": 3,
             "maximum_level": 7,
             "pokemon_biome": "minecraft:old_growth_spruce_taiga",
@@ -7395,11 +7533,31 @@ def _forest_template(slug: str, name: str, generation: str) -> dict[str, Any]:
     }
 
 
+def _route_template(slug: str, name: str) -> dict[str, Any]:
+    return {
+        "$schema": "../../schemas/route.schema.json",
+        "schema_version": 1,
+        "id": f"cobbleventure:route/{slug}",
+        "display_name": {"ko_kr": name, "en_us": name},
+        "enabled": True,
+        "route_type": "road",
+        "corridor": {"width_blocks": 12, "edge_noise": 0},
+        "level_scaling": {"mode": "world", "offset": 0},
+        "pokemon_spawns": {
+            "inherit_biome": True,
+            "excluded_species": [],
+            "additions": [],
+            "level_overrides": [],
+        },
+        "npc_placements": [],
+    }
+
+
 def _create_document(
     root: Path, category: str, slug: str, name: str, generation: str = "generation_1",
     reference_id: str = "",
 ) -> tuple[Path | None, list[Issue]]:
-    if category not in {"trainers", "battles", "settlements", "caves", "forests"}:
+    if category not in {"trainers", "battles", "routes", "settlements", "caves", "forests"}:
         return None, [Issue("error", "", "$.category", "지원하지 않는 문서 종류입니다.")]
     if not DOCUMENT_SLUG.fullmatch(slug):
         return None, [
@@ -7432,6 +7590,9 @@ def _create_document(
             trainer_id = document["battle"]["trainer_id"]
             document["battle"] = copy.deepcopy(reference["battle"])
             document["battle"]["trainer_id"] = trainer_id
+    elif category == "routes":
+        relative_path = f"content/routes/{generation}/{slug}.json"
+        document = _route_template(slug, name.strip())
     elif category == "settlements":
         relative_path = f"content/settlements/{generation}/{slug}.json"
         document = _settlement_template(slug, name.strip(), generation)
@@ -8528,7 +8689,7 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
     door_labels_by_structure = {
         resource_id: {
             anchor["label"] for anchor in _structure_named_anchors(
-                structure_path, {"door", "interior_entry", "interior_exit"}
+                structure_path, {"door"}
             )
         }
         for resource_id, structure_path in structure_paths.items()
@@ -8701,7 +8862,7 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
             "category_label": STRUCTURE_CATEGORY_LABELS[category],
             "npc_labels": _structure_npc_labels(path),
             "door_anchors": _structure_named_anchors(
-                path, {"door", "interior_entry", "interior_exit"}
+                path, {"door"}
             ),
             "arrival_anchors": _structure_named_anchors(
                 path, {"arrival", "interior_spawn", "exterior_spawn"}
@@ -8830,7 +8991,7 @@ def resize_managed_structure(
         "removed_anchors": anchor_conflicts,
         "npc_labels": _structure_npc_labels(path),
         "door_anchors": _structure_named_anchors(
-            path, {"door", "interior_entry", "interior_exit"}
+            path, {"door"}
         ),
         "arrival_anchors": _structure_named_anchors(
             path, {"arrival", "interior_spawn", "exterior_spawn"}
@@ -8904,7 +9065,7 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
         space_files = {"exterior": structure, **interior_spaces}
         door_labels = {
             space: {item["label"] for item in _structure_named_anchors(
-                space_file, {"door", "interior_entry", "interior_exit"}
+                space_file, {"door"}
             )}
             for space, space_file in space_files.items()
         }
@@ -9940,6 +10101,9 @@ def create_handler(
             if request.path == "/api/battles":
                 self._document_response("battles", request)
                 return
+            if request.path == "/api/routes":
+                self._document_response("routes", request)
+                return
             if request.path == "/api/settlements":
                 self._document_response("settlements", request)
                 return
@@ -9993,12 +10157,13 @@ def create_handler(
                 return
             if request.path == "/api/document-validation":
                 category = parse_qs(request.query).get("category", [""])[0]
-                if category not in {"trainers", "battles", "settlements", "caves", "forests"}:
+                if category not in {"trainers", "battles", "routes", "settlements", "caves", "forests"}:
                     self._json(400, {"error": "지원하지 않는 문서 종류입니다."})
                     return
                 validator = {
                     "trainers": validate_content_file,
                     "battles": validate_battle_preset_file,
+                    "routes": validate_route_file,
                     "settlements": validate_settlement_file,
                     "caves": validate_cave_file,
                     "forests": validate_forest_file,
@@ -10383,6 +10548,7 @@ def create_handler(
             categories = {
                 "/api/trainers": "trainers",
                 "/api/battles": "battles",
+                "/api/routes": "routes",
                 "/api/settlements": "settlements",
                 "/api/caves": "caves",
                 "/api/forests": "forests",
@@ -10425,6 +10591,7 @@ def create_handler(
             categories = {
                 "/api/trainers": "trainers",
                 "/api/battles": "battles",
+                "/api/routes": "routes",
                 "/api/settlements": "settlements",
                 "/api/caves": "caves",
                 "/api/forests": "forests",

@@ -14,7 +14,6 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -26,7 +25,7 @@ import org.slf4j.Logger;
 final class ForestDimensionGenerator {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final int UPDATE_FLAGS = 2;
-    private static final int LAYOUT_VERSION = 6;
+    private static final int LAYOUT_VERSION = 8;
     private static final int MARKER_Y = 210;
 
     private ForestDimensionGenerator() {}
@@ -93,7 +92,7 @@ final class ForestDimensionGenerator {
                 PathSample path = paths.sample(worldX + 0.5D, worldZ + 0.5D);
                 for (int y = surfaceY + 1; y <= clearTop; y++) {
                     BlockPos position = cursor.set(worldX, y, worldZ);
-                    if (!path.walkable() || !level.getBlockState(position).is(BlockTags.LEAVES)) {
+                    if (!level.getBlockState(position).isAir()) {
                         level.setBlock(position, Blocks.AIR.defaultBlockState(), UPDATE_FLAGS);
                     }
                 }
@@ -270,17 +269,14 @@ final class ForestDimensionGenerator {
         long seed, int x, int z, BlockState configured
     ) {
         if (!configured.is(Blocks.DIRT_PATH)) return configured;
-        // Two-by-two noise cells form soft patches instead of a checkerboard.
-        int patchX = Math.floorDiv(x, 2);
-        int patchZ = Math.floorDiv(z, 2);
-        int roll = Math.floorMod(
-            (int) (mix(seed ^ 0x6A09E667F3BCC909L, patchX, patchZ) >>> 20), 100
+        double noise = NaturalSurfaceNoise.sample2D(
+            seed ^ 0x6A09E667F3BCC909L, x, z
         );
-        if (roll < 58) return configured;
-        if (roll < 76) return Blocks.COARSE_DIRT.defaultBlockState();
-        if (roll < 89) return Blocks.GRASS_BLOCK.defaultBlockState();
-        if (roll < 97) return Blocks.PODZOL.defaultBlockState();
-        return Blocks.DIRT.defaultBlockState();
+        if (noise > 0.64D) return Blocks.PODZOL.defaultBlockState();
+        if (noise > 0.34D) return Blocks.COARSE_DIRT.defaultBlockState();
+        if (noise < -0.66D) return Blocks.DIRT.defaultBlockState();
+        if (noise < -0.36D) return Blocks.GRASS_BLOCK.defaultBlockState();
+        return configured;
     }
 
     private record TerrainTiles(

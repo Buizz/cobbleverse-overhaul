@@ -279,6 +279,24 @@ final class BuildingRuntimeSystem {
         return settings == null ? 0 : settings.placementYOffset;
     }
 
+    static BlockPos exteriorDoorApproachOffset(
+        String structure, String rotationName
+    ) {
+        StructureMetadata metadata = METADATA.get(structure);
+        if (metadata == null) {
+            return null;
+        }
+        Anchor door = metadata.first("door");
+        if (door == null || door.position == null) {
+            return null;
+        }
+        BlockPos approach = door.safeSpawn == null
+            ? door.position : door.safeSpawn;
+        return StructureTemplate.transform(
+            approach, Mirror.NONE, rotation(rotationName), BlockPos.ZERO
+        );
+    }
+
     static String musicTrack(String structure) {
         BuildingSettings settings = SETTINGS.get(structure);
         return settings == null ? null : settings.musicTrack;
@@ -317,10 +335,7 @@ final class BuildingRuntimeSystem {
         ServerLevel exterior, String exteriorStructure, StructureMetadata exteriorMetadata,
         BlockPos exteriorOrigin, Rotation exteriorRotation, String instanceKey
     ) {
-        Anchor entry = exteriorMetadata.first("interior_entry");
-        if (entry == null) {
-            entry = exteriorMetadata.first("door");
-        }
+        Anchor entry = exteriorMetadata.first("door");
         if (entry == null) {
             return;
         }
@@ -374,10 +389,7 @@ final class BuildingRuntimeSystem {
         );
 
         Anchor interiorSpawn = interiorMetadata.first("interior_spawn");
-        Anchor exit = interiorMetadata.first("interior_exit");
-        if (exit == null) {
-            exit = interiorMetadata.first("door");
-        }
+        Anchor exit = interiorMetadata.first("door");
         if (exit == null) {
             LOGGER.warn("Interior exit anchor is missing: {}", interiorStructure);
             return;
@@ -826,7 +838,7 @@ final class BuildingRuntimeSystem {
 
         Anchor namedDoor(String id) {
             return anchors.stream().filter(anchor -> anchor.id.equals(id)
-                && Set.of("door", "interior_entry", "interior_exit").contains(anchor.type))
+                && anchor.type.equals("door"))
                 .findFirst().orElse(null);
         }
 

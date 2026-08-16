@@ -324,6 +324,10 @@ final class WorldGateSystem {
         }
         FOREST_ENTRY_MARKERS.put(gate.id(), entry);
         level.setBlock(entry.position(), Blocks.AIR.defaultBlockState(), 2);
+        CobbleventureBootstrap.Point roadEndpoint = world.grid().worldCenter(gate.anchor());
+        layWorldForestEntranceRoad(
+            level, world, entry, roadEndpoint
+        );
         LOGGER.info(
             "Forest gate NBT placed on boundary: gate={}, entry={}, inward={}, origin={}",
             gate.id(), entry.position(), entry.inward(), placement.origin()
@@ -375,6 +379,33 @@ final class WorldGateSystem {
                 "Forest dimension gate placed on terrain: gate={}, entry={}, groundY={}, inward={}, origin={}",
                 gate.id(), exit.position(), gateY - 1, exit.inward(), placement.origin()
             );
+        }
+    }
+
+    private static void layWorldForestEntranceRoad(
+        ServerLevel level, HexWorldPlan world, ForestEntryMarker entry,
+        CobbleventureBootstrap.Point roadEndpoint
+    ) {
+        double deltaX = roadEndpoint.x() - entry.position().getX();
+        double deltaZ = roadEndpoint.z() - entry.position().getZ();
+        int length = Math.max(1, (int) Math.ceil(Math.hypot(deltaX, deltaZ)));
+        Direction towardPath = entry.inward().getOpposite();
+        Direction sideways = towardPath.getClockWise();
+        for (int depth = 0; depth <= length; depth++) {
+            double progress = depth / (double) length;
+            int centerX = entry.position().getX() + (int) Math.round(deltaX * progress);
+            int centerZ = entry.position().getZ() + (int) Math.round(deltaZ * progress);
+            for (int lateral = -1; lateral <= 1; lateral++) {
+                int x = centerX + sideways.getStepX() * lateral;
+                int z = centerZ + sideways.getStepZ() * lateral;
+                int groundY = CobbleventureBootstrap.prepareWorldRoadColumn(
+                    level, world, x, z
+                );
+                level.setBlock(
+                    new BlockPos(x, groundY, z),
+                    CobbleventureBootstrap.worldRoadSurfaceBlock(world, x, z), 2
+                );
+            }
         }
     }
 

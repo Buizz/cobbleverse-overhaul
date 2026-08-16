@@ -15,7 +15,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.bus.api.IEventBus;
 
 public final class PlayerMenuClient {
-    private static final String IRIS_RELOAD_KEY = "key_iris.keybind.reload";
+    private static final String IRIS_RELOAD_KEY = "iris.keybind.reload";
     private static boolean allowNextInventoryScreen;
     private static boolean irisReloadKeyChecked;
 

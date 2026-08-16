@@ -23,9 +23,8 @@
     },
     "environment": {
       "type": "object", "additionalProperties": false,
-      "required": ["fixed_time", "weather"],
+      "required": ["weather"],
       "properties": {
-        "fixed_time": { "type": "integer", "minimum": 0, "maximum": 23999 },
         "weather": { "enum": ["clear", "rain", "thunder"] }
       }
     },

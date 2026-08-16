@@ -146,11 +146,11 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
             raise StructureBuilderError(f"올바르지 않은 앵커입니다: {path} #{index}")
         anchor_type = anchor.get("type")
         if anchor_type not in {
-            "door", "interior_entry", "interior_exit", "npc_position", "easy_npc_spawn",
+            "door", "npc_position", "easy_npc_spawn",
             "arrival", "interior_spawn", "exterior_spawn", "interaction_point", "patrol_point",
         }:
             raise StructureBuilderError(f"알 수 없는 출입구 앵커입니다: {path} #{index}")
-        is_door = anchor_type in {"door", "interior_entry", "interior_exit"}
+        is_door = anchor_type == "door"
         is_npc = anchor_type in {"npc_position", "easy_npc_spawn"}
         position_fields = ("position", "safe_spawn") if is_door else ("position",)
         for field in position_fields:

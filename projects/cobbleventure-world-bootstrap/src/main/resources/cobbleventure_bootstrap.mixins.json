@@ -12,6 +12,7 @@
   ],
   "client": [
     "BattleGeneralActionSelectionMixin",
+    "PartySendBindingMixin",
     "BiomePrecipitationMixin"
   ],
   "injectors": {

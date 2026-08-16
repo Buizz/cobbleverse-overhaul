@@ -22,13 +22,12 @@
     }
   },
   "environment": {
-    "fixed_time": 12000,
     "weather": "clear"
   },
   "random_encounters": {
     "enabled": true,
-    "minimum_distance": 72,
-    "maximum_distance": 128,
+    "minimum_distance": 16,
+    "maximum_distance": 24,
     "minimum_level": 3,
     "maximum_level": 7,
     "pokemon_biome": "minecraft:old_growth_spruce_taiga",

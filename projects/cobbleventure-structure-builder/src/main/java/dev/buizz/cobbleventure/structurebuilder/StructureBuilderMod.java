@@ -1205,10 +1205,7 @@ public final class StructureBuilderMod {
     }
 
     private static String roleLabel(String role) {
-        if (role.equals("door")) {
-            return "이름 있는 문";
-        }
-        return role.equals("interior_entry") ? "외부 입장문" : "내부 퇴장문";
+        return "이름 있는 문";
     }
 
     private static String format(BlockPos position) {
@@ -1272,13 +1269,10 @@ public final class StructureBuilderMod {
             ));
         String linkId = current.label();
         EditContext destination;
-        String destinationRole;
-        if (selected.role().equals("interior_entry")) {
-            destination = interiorContext(catalog, data, linkId);
-            destinationRole = "interior_exit";
-        } else {
+        if (current.interior()) {
             destination = exteriorContext(catalog, data, linkId);
-            destinationRole = "interior_entry";
+        } else {
+            destination = interiorContext(catalog, data, linkId);
         }
         String spawnType = destination.interior() ? "interior_spawn" : "exterior_spawn";
         BlockPos target = data.pointAnchors(destination.key()).stream()
@@ -1286,7 +1280,7 @@ public final class StructureBuilderMod {
             .findFirst()
             .map(anchor -> destination.origin().offset(anchor.position()))
             .orElseGet(() -> data.anchors(destination.key()).stream()
-                .filter(anchor -> anchor.role().equals(destinationRole))
+                .filter(anchor -> anchor.role().equals("door"))
                 .findFirst()
                 .map(anchor -> destination.origin().offset(anchor.safeSpawn()))
                 .orElse(destination.origin().offset(1, 1, 1)));
@@ -1516,8 +1510,6 @@ public final class StructureBuilderMod {
         server.setDefaultGameType(GameType.CREATIVE);
         server.setDifficulty(Difficulty.PEACEFUL, true);
         ServerLevel level = server.overworld();
-        level.setDayTime(6000L);
-        level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
         level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
         level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, server);
         level.getGameRules().getRule(GameRules.RULE_MOBGRIEFING).set(false, server);
@@ -1819,11 +1811,6 @@ public final class StructureBuilderMod {
                 if (anchor.sealEntry()) {
                     value.addProperty("seal_entry", true);
                 }
-                if (!anchor.role().equals("door")) {
-                    value.addProperty("dialogue", anchor.role().equals("interior_entry")
-                        ? "cobbleventure:default_enter"
-                        : "cobbleventure:default_exit");
-                }
                 values.add(value);
             }
             for (NpcAnchor anchor : npcs) {
@@ -2040,8 +2027,7 @@ public final class StructureBuilderMod {
                                 label,
                                 parsePosition(anchor.getAsJsonArray("position"))
                             ));
-                        } else if (role.equals("interior_entry")
-                            || role.equals("interior_exit") || role.equals("door")) {
+                        } else if (role.equals("door")) {
                             anchors.add(new DoorAnchor(
                                 anchor.has("label") ? anchor.get("label").getAsString()
                                     : anchor.has("id") ? anchor.get("id").getAsString() : role,

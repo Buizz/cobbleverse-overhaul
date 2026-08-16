@@ -13,25 +13,33 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.FloatTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
 
-/** Distance-driven, avoidable wild encounters shared by authored caves and forests. */
+/** Sparse ambient wild encounters shared by authored caves and forests. */
 final class PursuitEncounterSystem {
     private static final Logger LOGGER = LogUtils.getLogger();
     static final String ENTITY_TAG = "cobbleventure_pursuit_encounter";
+    private static final int MAX_AMBIENT_POKEMON = 2;
+    private static final int SPAWN_INTERVAL_TICKS = 20 * 4;
+    private static final int ALERT_ANIMATION_TICKS = 18;
     private static final int WARNING_TICKS = 15;
     private static final int PURSUIT_TICKS = 20 * 12;
-    private static final int COOLDOWN_TICKS = 40;
-    private static final double ESCAPE_DISTANCE_SQUARED = 32.0D * 32.0D;
+    private static final int AGGRO_COOLDOWN_TICKS = 40;
+    private static final double DETECTION_DISTANCE_SQUARED = 12.0D * 12.0D;
+    private static final double DESPAWN_DISTANCE_SQUARED = 48.0D * 48.0D;
     private static final Map<UUID, State> STATES = new HashMap<>();
 
     private PursuitEncounterSystem() {}
@@ -107,7 +115,7 @@ final class PursuitEncounterSystem {
             settings.get("maximum_distance").getAsInt(), List.copyOf(choices.values())
         );
         LOGGER.info(
-            "[Spawn diagnosis] Pursuit encounter loaded: area={}, biome={}, habitats={}, species={}, distance={}-{}",
+            "[Spawn diagnosis] Ambient encounter loaded: area={}, biome={}, habitats={}, species={}, spawnRadius={}-{}",
             id, biome, habitats, config.species().size(),
             config.minimumDistance(), config.maximumDistance()
         );
@@ -131,52 +139,29 @@ final class PursuitEncounterSystem {
         if (inactiveReason != null) {
             logStatusChange(player, state, inactiveReason);
             reset(player.serverLevel(), state, config == null ? null : config.id());
-            state.lastPosition = player.position();
             return;
         }
         if (!config.id().equals(state.areaId)) {
             reset(player.serverLevel(), state, config.id());
             logStatusChange(player, state, "active:" + config.id());
             LOGGER.info(
-                "[Spawn diagnosis] Pursuit encounter activated: player={}, area={}, species={}, gameMode={}, position=({}, {}, {})",
+                "[Spawn diagnosis] Ambient encounter activated: player={}, area={}, species={}, gameMode={}, position=({}, {}, {})",
                 player.getGameProfile().getName(), config.id(), config.species().size(),
                 player.gameMode.getGameModeForPlayer(), player.getBlockX(), player.getBlockY(), player.getBlockZ()
             );
         }
-        if (state.lastPosition == null) state.lastPosition = player.position();
+        removeUnavailableEncounters(player.serverLevel(), player, state);
+        tickAlert(player.serverLevel(), state, gameTime);
         if (state.pursuer != null) {
             tickPursuer(player, state, gameTime);
-            state.lastPosition = player.position();
             return;
         }
-        if (state.cooldown > 0) state.cooldown--;
-        Vec3 current = player.position();
-        double dx = current.x - state.lastPosition.x;
-        double dz = current.z - state.lastPosition.z;
-        double movement = Math.sqrt(dx * dx + dz * dz);
-        if (state.cooldown == 0 && movement <= 4.0D && !player.isPassenger()
-            && !player.isSwimming() && !player.isFallFlying()) {
-            state.distance += movement;
+        acquireVisiblePursuer(player, state, gameTime);
+        if (state.pursuer == null && state.encounters.size() < MAX_AMBIENT_POKEMON
+            && gameTime >= state.nextSpawnTick) {
+            spawn(player, config, state);
+            state.nextSpawnTick = gameTime + SPAWN_INTERVAL_TICKS;
         }
-        state.lastPosition = current;
-        if (state.targetDistance <= 0.0D) {
-            state.targetDistance = randomDistance(player.getRandom(), config);
-            state.loggedDistanceBucket = -1;
-            LOGGER.info(
-                "[Spawn diagnosis] Pursuit target selected: player={}, area={}, targetDistance={}",
-                player.getGameProfile().getName(), config.id(), (int)Math.round(state.targetDistance)
-            );
-        }
-        int distanceBucket = (int)Math.floor(state.distance / 32.0D);
-        if (distanceBucket > state.loggedDistanceBucket) {
-            state.loggedDistanceBucket = distanceBucket;
-            LOGGER.info(
-                "[Spawn diagnosis] Pursuit progress: player={}, area={}, distance={}/{}, cooldown={}",
-                player.getGameProfile().getName(), config.id(),
-                (int)Math.floor(state.distance), (int)Math.round(state.targetDistance), state.cooldown
-            );
-        }
-        if (state.distance >= state.targetDistance) spawn(player, config, state, gameTime);
     }
 
     private static String inactiveReason(ServerPlayer player, Config config) {
@@ -204,15 +189,9 @@ final class PursuitEncounterSystem {
         );
     }
 
-    private static double randomDistance(RandomSource random, Config config) {
-        return config.minimumDistance() + random.nextInt(
-            Math.max(1, config.maximumDistance() - config.minimumDistance() + 1)
-        );
-    }
-
-    private static void spawn(ServerPlayer player, Config config, State state, long gameTime) {
+    private static void spawn(ServerPlayer player, Config config, State state) {
         SpeciesChoice choice = choose(player.getRandom(), config.species());
-        BlockPos position = findSpawnPosition(player);
+        BlockPos position = findSpawnPosition(player, config);
         if (choice == null || position == null) {
             LOGGER.warn(
                 "[Spawn diagnosis] Pursuit spawn position unavailable: player={}, area={}, choice={}, position=({}, {}, {})",
@@ -220,7 +199,6 @@ final class PursuitEncounterSystem {
                 choice == null ? "none" : choice.species(),
                 player.getBlockX(), player.getBlockY(), player.getBlockZ()
             );
-            state.distance = Math.max(0.0D, state.distance - 12.0D);
             return;
         }
         int level = choice.minLevel() + player.getRandom().nextInt(
@@ -229,8 +207,6 @@ final class PursuitEncounterSystem {
         PokemonEntity entity = PokemonProperties.Companion
             .parse(choice.species() + " level=" + level).createEntity(player.serverLevel());
         entity.moveTo(position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D, player.getYRot(), 0.0F);
-        entity.setCustomName(Component.literal("!").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
-        entity.setCustomNameVisible(true);
         entity.setCountsTowardsSpawnCap(false);
         entity.addTag(ENTITY_TAG);
         if (!player.serverLevel().addFreshEntity(entity)) {
@@ -240,13 +216,11 @@ final class PursuitEncounterSystem {
             );
             return;
         }
-        state.pursuer = entity.getUUID();
-        state.spawnTick = gameTime;
-        state.distance = 0.0D;
-        state.targetDistance = 0.0D;
+        state.encounters.add(entity.getUUID());
         LOGGER.info(
-            "[Spawn diagnosis] Pursuit Pokemon spawned: player={}, area={}, species={}, level={}, position={}",
-            player.getGameProfile().getName(), config.id(), choice.species(), level, position
+            "[Spawn diagnosis] Ambient Pokemon spawned: player={}, area={}, species={}, level={}, position={}, active={}",
+            player.getGameProfile().getName(), config.id(), choice.species(), level,
+            position, state.encounters.size()
         );
     }
 
@@ -261,12 +235,13 @@ final class PursuitEncounterSystem {
         return choices.getLast();
     }
 
-    private static BlockPos findSpawnPosition(ServerPlayer player) {
+    private static BlockPos findSpawnPosition(ServerPlayer player, Config config) {
         ServerLevel level = player.serverLevel();
         RandomSource random = player.getRandom();
         for (int attempt = 0; attempt < 20; attempt++) {
             double angle = random.nextDouble() * Math.PI * 2.0D;
-            double radius = 9.0D + random.nextDouble() * 5.0D;
+            double radius = config.minimumDistance() + random.nextDouble()
+                * Math.max(1, config.maximumDistance() - config.minimumDistance());
             int x = (int)Math.floor(player.getX() + Math.cos(angle) * radius);
             int z = (int)Math.floor(player.getZ() + Math.sin(angle) * radius);
             if (level.dimension().equals(CobbleventureBootstrap.GENERATION_ONE)) {
@@ -287,37 +262,177 @@ final class PursuitEncounterSystem {
         return null;
     }
 
+    private static void removeUnavailableEncounters(
+        ServerLevel level, ServerPlayer player, State state
+    ) {
+        var iterator = state.encounters.iterator();
+        while (iterator.hasNext()) {
+            UUID id = iterator.next();
+            if (!(level.getEntity(id) instanceof PokemonEntity entity) || !entity.isAlive()) {
+                iterator.remove();
+                if (id.equals(state.pursuer)) state.pursuer = null;
+                continue;
+            }
+            if (!entity.isBattling() && entity.distanceToSqr(player) > DESPAWN_DISTANCE_SQUARED) {
+                entity.discard();
+                iterator.remove();
+                if (id.equals(state.pursuer)) state.pursuer = null;
+            }
+        }
+    }
+
+    private static void acquireVisiblePursuer(ServerPlayer player, State state, long gameTime) {
+        if (gameTime < state.nextAggroTick) return;
+        PokemonEntity closest = null;
+        double closestDistance = DETECTION_DISTANCE_SQUARED;
+        for (UUID id : state.encounters) {
+            if (!(player.serverLevel().getEntity(id) instanceof PokemonEntity entity)) continue;
+            double distance = entity.distanceToSqr(player);
+            if (distance <= closestDistance && entity.getSensing().hasLineOfSight(player)) {
+                closest = entity;
+                closestDistance = distance;
+            }
+        }
+        if (closest == null) return;
+        state.pursuer = closest.getUUID();
+        state.pursuitStartTick = gameTime;
+        state.battleStartTick = -1L;
+        spawnAlert(player.serverLevel(), closest, state, gameTime);
+    }
+
+    private static void spawnAlert(
+        ServerLevel level, PokemonEntity pokemon, State state, long gameTime
+    ) {
+        discardAlert(level, state);
+        Display.TextDisplay alert = EntityType.TEXT_DISPLAY.create(level);
+        if (alert == null) return;
+        configureAlertDisplay(alert, 0.45F, 0);
+        alert.setPos(
+            pokemon.getX(), pokemon.getY() + pokemon.getBbHeight() + 0.25D, pokemon.getZ()
+        );
+        if (!level.addFreshEntity(alert)) return;
+        state.alert = alert.getUUID();
+        state.alertStartTick = gameTime;
+        level.playSound(
+            null, pokemon.blockPosition(), SoundEvents.NOTE_BLOCK_PLING.value(),
+            SoundSource.HOSTILE, 0.9F, 1.35F
+        );
+    }
+
+    private static void tickAlert(ServerLevel level, State state, long gameTime) {
+        if (state.alert == null) return;
+        if (!(level.getEntity(state.alert) instanceof Display.TextDisplay alert)
+            || !(level.getEntity(state.pursuer) instanceof PokemonEntity pokemon)) {
+            discardAlert(level, state);
+            return;
+        }
+        long age = gameTime - state.alertStartTick;
+        if (age >= ALERT_ANIMATION_TICKS) {
+            discardAlert(level, state);
+            return;
+        }
+        if (age == 1L) configureAlertDisplay(alert, 1.0F, 6);
+        double progress = Math.min(1.0D, age / 10.0D);
+        double eased = 1.0D - Math.pow(1.0D - progress, 3.0D);
+        alert.setPos(
+            pokemon.getX(),
+            pokemon.getY() + pokemon.getBbHeight() + 0.25D + eased * 0.7D,
+            pokemon.getZ()
+        );
+    }
+
+    private static void configureAlertDisplay(
+        Display.TextDisplay alert, float scale, int interpolationTicks
+    ) {
+        CompoundTag data = alert.saveWithoutId(new CompoundTag());
+        data.putString("text", "{\"text\":\"!\",\"color\":\"#ff2020\",\"bold\":true}");
+        data.putString("billboard", "center");
+        data.putInt("background", 0);
+        data.putBoolean("shadow", true);
+        data.putBoolean("see_through", true);
+        data.putFloat("view_range", 1.0F);
+        data.putInt("interpolation_duration", interpolationTicks);
+        data.putInt("start_interpolation", 0);
+        CompoundTag transformation = new CompoundTag();
+        transformation.put("translation", floatList(0.0F, 0.0F, 0.0F));
+        transformation.put("scale", floatList(scale, scale, scale));
+        transformation.put("left_rotation", floatList(0.0F, 0.0F, 0.0F, 1.0F));
+        transformation.put("right_rotation", floatList(0.0F, 0.0F, 0.0F, 1.0F));
+        data.put("transformation", transformation);
+        alert.load(data);
+    }
+
+    private static ListTag floatList(float... values) {
+        ListTag result = new ListTag();
+        for (float value : values) result.add(FloatTag.valueOf(value));
+        return result;
+    }
+
+    private static void discardAlert(ServerLevel level, State state) {
+        if (state.alert != null && level.getEntity(state.alert) instanceof Display.TextDisplay alert) {
+            alert.discard();
+        }
+        state.alert = null;
+    }
+
     private static void tickPursuer(ServerPlayer player, State state, long gameTime) {
         if (!(player.serverLevel().getEntity(state.pursuer) instanceof PokemonEntity entity)
             || !entity.isAlive()) {
             state.pursuer = null;
-            state.cooldown = COOLDOWN_TICKS;
+            state.nextAggroTick = gameTime + AGGRO_COOLDOWN_TICKS;
             return;
         }
-        long age = gameTime - state.spawnTick;
-        if (age > PURSUIT_TICKS || entity.distanceToSqr(player) > ESCAPE_DISTANCE_SQUARED) {
+        long age = gameTime - state.pursuitStartTick;
+        if (age > PURSUIT_TICKS || entity.distanceToSqr(player) > DESPAWN_DISTANCE_SQUARED) {
             LOGGER.info(
                 "[Spawn diagnosis] Pursuit escaped: player={}, species={}, ageTicks={}, distance={}",
                 player.getGameProfile().getName(), entity.getPokemon().getSpecies().getResourceIdentifier(),
                 age, String.format(java.util.Locale.ROOT, "%.1f", Math.sqrt(entity.distanceToSqr(player)))
             );
-            entity.discard();
+            entity.getNavigation().stop();
+            discardAlert(player.serverLevel(), state);
             state.pursuer = null;
-            state.cooldown = COOLDOWN_TICKS;
+            state.nextAggroTick = gameTime + AGGRO_COOLDOWN_TICKS;
             return;
         }
         if (age < WARNING_TICKS) return;
         entity.getLookControl().setLookAt(player, 30.0F, 30.0F);
         entity.getNavigation().moveTo(player, 1.35D);
-        if (entity.distanceToSqr(player) <= 2.5D * 2.5D && entity.canBattle(player)
-            && entity.forceBattle(player)) {
+        if (entity.distanceToSqr(player) <= 2.5D * 2.5D && entity.canBattle(player)) {
+            entity.getNavigation().stop();
+            if (state.battleStartTick < 0L) {
+                state.battleStartTick = gameTime + 1L;
+                return;
+            }
+            if (gameTime < state.battleStartTick) return;
+            boolean started;
+            try {
+                started = entity.forceBattle(player);
+            } catch (RuntimeException error) {
+                LOGGER.error(
+                    "[Spawn diagnosis] Ambient battle start failed safely: player={}, species={}",
+                    player.getGameProfile().getName(),
+                    entity.getPokemon().getSpecies().getResourceIdentifier(), error
+                );
+                entity.discard();
+                state.encounters.remove(entity.getUUID());
+                state.pursuer = null;
+                discardAlert(player.serverLevel(), state);
+                state.nextAggroTick = gameTime + AGGRO_COOLDOWN_TICKS;
+                return;
+            }
+            if (!started) {
+                state.battleStartTick = gameTime + 20L;
+                return;
+            }
             LOGGER.info(
                 "[Spawn diagnosis] Pursuit battle started: player={}, species={}",
                 player.getGameProfile().getName(), entity.getPokemon().getSpecies().getResourceIdentifier()
             );
-            entity.setCustomNameVisible(false);
+            state.encounters.remove(entity.getUUID());
             state.pursuer = null;
-            state.cooldown = COOLDOWN_TICKS;
+            discardAlert(player.serverLevel(), state);
+            state.nextAggroTick = gameTime + AGGRO_COOLDOWN_TICKS;
         }
     }
 
@@ -327,27 +442,32 @@ final class PursuitEncounterSystem {
     }
 
     private static void reset(ServerLevel level, State state, String areaId) {
-        if (state.pursuer != null && level.getEntity(state.pursuer) instanceof PokemonEntity entity
-            && !entity.isBattling()) entity.discard();
+        discardAlert(level, state);
+        for (UUID id : state.encounters) {
+            if (level.getEntity(id) instanceof PokemonEntity entity && !entity.isBattling()) {
+                entity.discard();
+            }
+        }
         state.areaId = areaId;
-        state.distance = 0.0D;
-        state.targetDistance = 0.0D;
+        state.encounters.clear();
         state.pursuer = null;
-        state.cooldown = COOLDOWN_TICKS;
-        state.loggedDistanceBucket = -1;
+        state.nextSpawnTick = 0L;
+        state.nextAggroTick = 0L;
+        state.battleStartTick = -1L;
     }
 
     record Config(String id, int minimumDistance, int maximumDistance, List<SpeciesChoice> species) {}
     record SpeciesChoice(String species, int minLevel, int maxLevel, int weight) {}
     private static final class State {
         private String areaId;
-        private Vec3 lastPosition;
-        private double distance;
-        private double targetDistance;
+        private final Set<UUID> encounters = new HashSet<>();
         private UUID pursuer;
-        private long spawnTick;
-        private int cooldown;
-        private int loggedDistanceBucket = -1;
+        private UUID alert;
+        private long pursuitStartTick;
+        private long alertStartTick;
+        private long battleStartTick = -1L;
+        private long nextSpawnTick;
+        private long nextAggroTick;
         private String diagnosticStatus = "";
     }
 }

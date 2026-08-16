@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.dev/schemas/route.schema.json",
+  "title": "Cobbleventure Route Preset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "display_name", "enabled", "route_type",
+    "corridor", "level_scaling", "pokemon_spawns", "npc_placements"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "id": { "$ref": "#/$defs/resource_id" },
+    "display_name": { "$ref": "#/$defs/localized_text" },
+    "enabled": { "type": "boolean" },
+    "route_type": { "enum": ["road", "trail", "water"] },
+    "corridor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width_blocks", "edge_noise"],
+      "properties": {
+        "width_blocks": { "type": "number", "minimum": 12, "maximum": 256 },
+        "edge_noise": { "type": "number", "minimum": 0, "maximum": 0.35 },
+        "boundary_profile": { "$ref": "#/$defs/resource_id" },
+        "terrain_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["base_height_offset", "height_variation", "noise_scale_blocks"],
+          "properties": {
+            "base_height_offset": { "type": "integer", "minimum": -48, "maximum": 32 },
+            "height_variation": { "type": "integer", "minimum": 0, "maximum": 8 },
+            "noise_scale_blocks": { "type": "number", "minimum": 16, "maximum": 512 },
+            "connection_height": { "type": "integer", "minimum": -8, "maximum": 8 }
+          }
+        }
+      }
+    },
+    "music_track": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+    "level_scaling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "offset"],
+      "properties": {
+        "mode": { "enum": ["world", "fixed", "offset"] },
+        "minimum_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "maximum_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "offset": { "type": "integer", "minimum": -100, "maximum": 100 }
+      },
+      "allOf": [{
+        "if": { "properties": { "mode": { "const": "fixed" } }, "required": ["mode"] },
+        "then": { "required": ["minimum_level", "maximum_level"] }
+      }]
+    },
+    "pokemon_spawns": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inherit_biome", "excluded_species", "additions", "level_overrides"],
+      "properties": {
+        "inherit_biome": { "type": "boolean" },
+        "excluded_species": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
+        "additions": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level" } },
+        "level_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level" } }
+      }
+    },
+    "npc_placements": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/npc_placement" }
+    }
+  },
+  "$defs": {
+    "resource_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "localized_text": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 100 }
+    },
+    "pokemon_level": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["species", "min_level", "max_level"],
+      "properties": {
+        "species": { "$ref": "#/$defs/resource_id" },
+        "min_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "max_level": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "npc_placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "npc", "progress_percent", "side", "offset_blocks", "facing", "spawn_chance", "respawn_policy"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "npc": { "$ref": "#/$defs/resource_id" },
+        "progress_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "side": { "enum": ["center", "left", "right"] },
+        "offset_blocks": { "type": "number", "minimum": 0, "maximum": 32 },
+        "facing": { "enum": ["along", "against"] },
+        "spawn_chance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "respawn_policy": { "enum": ["always", "once_per_player"] }
+      }
+    }
+  }
+}

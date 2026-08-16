@@ -1,6 +1,8 @@
 package dev.buizz.cobbleventure.playermenu;
 
 import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.api.events.CobblemonEvents;
+import com.cobblemon.mod.common.api.events.starter.StarterChosenEvent;
 import com.cobblemon.mod.common.api.storage.player.GeneralPlayerData;
 import com.cobblemon.mod.common.config.starter.StarterCategory;
 import dev.buizz.cobbleventure.playermenu.client.StarterRouletteClient;
@@ -10,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
@@ -25,6 +28,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 /** Server-authoritative starter roulette sessions and claims. */
 public final class StarterRouletteNetwork {
     private static final String VERSION = "1";
+    private static final int STARTER_LEVEL = 5;
     private static final int SEQUENCE_LENGTH = 96;
     private static final long SESSION_LIFETIME_MILLIS = 5L * 60L * 1000L;
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
@@ -34,6 +38,9 @@ public final class StarterRouletteNetwork {
     public static void register(IEventBus modBus) {
         modBus.addListener(StarterRouletteNetwork::registerPayloads);
         NeoForge.EVENT_BUS.addListener(StarterRouletteCommands::register);
+        CobblemonEvents.STARTER_CHOSEN.subscribe(
+            (Consumer<StarterChosenEvent>) event -> event.getPokemon().setLevel(STARTER_LEVEL)
+        );
     }
 
     static int open(ServerPlayer player) {

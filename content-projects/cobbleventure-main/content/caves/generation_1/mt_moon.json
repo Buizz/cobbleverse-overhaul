@@ -3,14 +3,26 @@
   "schema_version": 1,
   "id": "cobbleventure:cave/mt_moon",
   "enabled": true,
-  "display_name": { "ko_kr": "달맞이산", "en_us": "Mt. Moon" },
+  "display_name": {
+    "ko_kr": "달맞이산",
+    "en_us": "Mt. Moon"
+  },
   "cave_type": "cobbleventure:cave_type/natural_rock",
-  "style": "rock",
+  "style": "dripstone",
   "dimension": {
     "id": "cobbleventure:dungeons",
     "region_id": "generation_1/mt_moon",
-    "origin": { "x": 0, "y": 48, "z": 0 },
-    "bounds": { "min_x": -352, "min_z": -64, "max_x": 352, "max_z": 96 }
+    "origin": {
+      "x": 0,
+      "y": 48,
+      "z": 0
+    },
+    "bounds": {
+      "min_x": -352,
+      "min_z": -64,
+      "max_x": 352,
+      "max_z": 96
+    }
   },
   "generator": {
     "layout": "natural_network",
@@ -19,51 +31,206 @@
     "branch_count": 4,
     "loop_chance": 0.35,
     "vertical_range": 28,
-    "room_radius": { "min": 10, "max": 28 },
-    "tunnel_radius": { "min": 4, "max": 7 },
+    "room_radius": {
+      "min": 10,
+      "max": 28
+    },
+    "tunnel_radius": {
+      "min": 4,
+      "max": 7
+    },
     "surface_roughness": 0.18,
     "water_level": 38,
     "grand_room_scale": 1.75,
     "elevated_crossing": false,
     "bridge_clearance": 14,
     "path_types": [
-      { "id": "natural", "weight": 70, "width": 5, "floor": "natural" },
-      { "id": "rugged", "weight": 20, "width": 5, "floor": "rugged" },
-      { "id": "worked", "weight": 10, "width": 5, "floor": "worked" }
+      {
+        "id": "natural",
+        "weight": 70,
+        "width": 5,
+        "floor": "natural"
+      },
+      {
+        "id": "rugged",
+        "weight": 20,
+        "width": 5,
+        "floor": "rugged"
+      },
+      {
+        "id": "worked",
+        "weight": 10,
+        "width": 5,
+        "floor": "worked"
+      }
     ],
     "decorations": {
       "cluster_density": 1.1,
-      "patch_radius": { "min": 2, "max": 4 },
-      "dripstone_length": { "min": 1, "max": 4 },
+      "patch_radius": {
+        "min": 2,
+        "max": 4
+      },
+      "dripstone_length": {
+        "min": 1,
+        "max": 4
+      },
       "route_clearance": 5
     },
     "manual_layout": {
       "enabled": true,
       "anchors": [
-        { "id": "west_gallery", "kind": "room", "room_type": "rock", "position": { "x": -190, "y": 45, "z": -26 }, "radius_x": 22, "radius_z": 18, "height": 16 },
-        { "id": "grand_cavern", "kind": "grand", "room_type": "dripstone", "position": { "x": -20, "y": 40, "z": 8 }, "radius_x": 52, "radius_z": 44, "height": 38 },
-        { "id": "flooded_gallery", "kind": "room", "room_type": "lush", "position": { "x": 125, "y": 32, "z": 52 }, "radius_x": 30, "radius_z": 27, "height": 22 },
-        { "id": "bridge_west", "kind": "junction", "room_type": "rock", "position": { "x": -62, "y": 56, "z": -23 }, "radius_x": 9, "radius_z": 9, "height": 10 },
-        { "id": "bridge_east", "kind": "junction", "room_type": "rock", "position": { "x": 24, "y": 56, "z": 31 }, "radius_x": 9, "radius_z": 9, "height": 10 },
-        { "id": "east_gallery", "kind": "room", "room_type": "crystal", "position": { "x": 225, "y": 44, "z": -18 }, "radius_x": 20, "radius_z": 17, "height": 15 }
+        {
+          "id": "west_gallery",
+          "kind": "room",
+          "room_type": "rock",
+          "position": {
+            "x": -190,
+            "y": 45,
+            "z": -26
+          },
+          "radius_x": 22,
+          "radius_z": 18,
+          "height": 16
+        },
+        {
+          "id": "grand_cavern",
+          "kind": "grand",
+          "room_type": "dripstone",
+          "position": {
+            "x": -20,
+            "y": 40,
+            "z": 8
+          },
+          "radius_x": 52,
+          "radius_z": 44,
+          "height": 38
+        },
+        {
+          "id": "flooded_gallery",
+          "kind": "room",
+          "room_type": "lush",
+          "position": {
+            "x": 125,
+            "y": 32,
+            "z": 52
+          },
+          "radius_x": 30,
+          "radius_z": 27,
+          "height": 22
+        },
+        {
+          "id": "bridge_west",
+          "kind": "junction",
+          "room_type": "rock",
+          "position": {
+            "x": -62,
+            "y": 56,
+            "z": -23
+          },
+          "radius_x": 9,
+          "radius_z": 9,
+          "height": 10
+        },
+        {
+          "id": "bridge_east",
+          "kind": "junction",
+          "room_type": "rock",
+          "position": {
+            "x": 24,
+            "y": 56,
+            "z": 31
+          },
+          "radius_x": 9,
+          "radius_z": 9,
+          "height": 10
+        },
+        {
+          "id": "east_gallery",
+          "kind": "room",
+          "room_type": "crystal",
+          "position": {
+            "x": 225,
+            "y": 44,
+            "z": -18
+          },
+          "radius_x": 20,
+          "radius_z": 17,
+          "height": 15
+        }
       ],
       "connections": [
-        { "id": "west_entry", "from": "west", "to": "west_gallery", "kind": "tunnel", "path_type": "natural", "width": 7 },
-        { "id": "west_to_grand", "from": "west_gallery", "to": "grand_cavern", "kind": "stairs", "path_type": "rugged", "width": 7 },
-        { "id": "grand_to_flooded", "from": "grand_cavern", "to": "flooded_gallery", "kind": "tunnel", "path_type": "natural", "width": 6 },
-        { "id": "flooded_to_east", "from": "flooded_gallery", "to": "east_gallery", "kind": "stairs", "path_type": "worked", "width": 6 },
-        { "id": "east_exit", "from": "east_gallery", "to": "east", "kind": "tunnel", "path_type": "worked", "width": 7 },
-        { "id": "bridge_climb", "from": "west_gallery", "to": "bridge_west", "kind": "stairs", "path_type": "rugged", "width": 5 },
-        { "id": "grand_bridge", "from": "bridge_west", "to": "bridge_east", "kind": "bridge", "path_type": "worked", "width": 5 },
-        { "id": "bridge_descent", "from": "bridge_east", "to": "flooded_gallery", "kind": "stairs", "path_type": "rugged", "width": 5 }
+        {
+          "id": "west_entry",
+          "from": "west",
+          "to": "west_gallery",
+          "kind": "tunnel",
+          "path_type": "natural",
+          "width": 7
+        },
+        {
+          "id": "west_to_grand",
+          "from": "west_gallery",
+          "to": "grand_cavern",
+          "kind": "stairs",
+          "path_type": "rugged",
+          "width": 7
+        },
+        {
+          "id": "grand_to_flooded",
+          "from": "grand_cavern",
+          "to": "flooded_gallery",
+          "kind": "tunnel",
+          "path_type": "natural",
+          "width": 6
+        },
+        {
+          "id": "flooded_to_east",
+          "from": "flooded_gallery",
+          "to": "east_gallery",
+          "kind": "stairs",
+          "path_type": "worked",
+          "width": 6
+        },
+        {
+          "id": "east_exit",
+          "from": "east_gallery",
+          "to": "east",
+          "kind": "tunnel",
+          "path_type": "worked",
+          "width": 7
+        },
+        {
+          "id": "bridge_climb",
+          "from": "west_gallery",
+          "to": "bridge_west",
+          "kind": "stairs",
+          "path_type": "rugged",
+          "width": 5
+        },
+        {
+          "id": "grand_bridge",
+          "from": "bridge_west",
+          "to": "bridge_east",
+          "kind": "bridge",
+          "path_type": "worked",
+          "width": 5
+        },
+        {
+          "id": "bridge_descent",
+          "from": "bridge_east",
+          "to": "flooded_gallery",
+          "kind": "stairs",
+          "path_type": "rugged",
+          "width": 5
+        }
       ]
     }
   },
   "requires_flash": false,
   "random_encounters": {
     "enabled": true,
-    "minimum_distance": 72,
-    "maximum_distance": 128,
+    "minimum_distance": 16,
+    "maximum_distance": 24,
     "minimum_level": 8,
     "maximum_level": 14,
     "pokemon_biome": "minecraft:dripstone_caves",
@@ -75,21 +242,40 @@
   "trainer_settings": {
     "enabled": true,
     "max_active": 8,
-    "class_pool": ["cobbleventure:trainer_class/hiker", "cobbleventure:trainer_class/rocket_grunt"],
+    "class_pool": [
+      "cobbleventure:trainer_class/hiker",
+      "cobbleventure:trainer_class/rocket_grunt"
+    ],
     "placements": []
   },
   "entrances": [
     {
       "id": "west",
       "display_name": "회색시티 방면 입구",
-      "destination_anchor": { "x": -320, "y": 48, "z": 0 },
-      "fallback_anchor": { "x": -316, "y": 49, "z": 0 }
+      "destination_anchor": {
+        "x": -320,
+        "y": 48,
+        "z": 0
+      },
+      "fallback_anchor": {
+        "x": -316,
+        "y": 49,
+        "z": 0
+      }
     },
     {
       "id": "east",
       "display_name": "블루시티 방면 입구",
-      "destination_anchor": { "x": 320, "y": 48, "z": 0 },
-      "fallback_anchor": { "x": 316, "y": 49, "z": 0 }
+      "destination_anchor": {
+        "x": 320,
+        "y": 48,
+        "z": 0
+      },
+      "fallback_anchor": {
+        "x": 316,
+        "y": 49,
+        "z": 0
+      }
     }
   ]
 }

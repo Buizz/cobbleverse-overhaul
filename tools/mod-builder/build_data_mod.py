@@ -35,6 +35,7 @@ OUTPUT = Path("projects/cobbleventure-world-bootstrap/src/generated/resources")
 SETTLEMENT_CONFIG_DIR = CONTENT_ROOT / "settlements"
 STARTER_TOWN_CONFIG = SETTLEMENT_CONFIG_DIR / "generation_1/starter_town.json"
 HEX_WORLD_CONFIG_DIR = CONTENT_ROOT / "worlds"
+ROUTE_PRESET_CONFIG_DIR = CONTENT_ROOT / "routes"
 BOUNDARY_PROFILE_CONFIG = CONTENT_ROOT / "catalogs/boundary-profiles.json"
 GENERATED_CONTENT_DIR = Path("generated")
 FACILITY_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/placeholder"
@@ -77,6 +78,7 @@ GENERATED_SETTLEMENT_ENTRY = Path(
 )
 GENERATED_SETTLEMENT_DIR = Path("data/cobbleventure/settlements")
 GENERATED_HEX_WORLD_DIR = Path("data/cobbleventure/hex_worlds")
+GENERATED_ROUTE_PRESET_DIR = Path("data/cobbleventure/routes")
 GENERATED_BOUNDARY_PROFILE = Path("data/cobbleventure/catalogs/boundary-profiles.json")
 LEGACY_GENERATED_SETTLEMENT_DIR = Path("data/cobbleventure/cobbleventure/settlements")
 
@@ -211,7 +213,7 @@ def _package_settlements(
 ) -> None:
     for relative, data in settlements:
         packaged = copy.deepcopy(data)
-        compiled_layout = _compile_town_layout(packaged)
+        compiled_layout = _compile_town_layout(packaged, root=root)
         if int(compiled_layout.get("reroll_count", 0)) > 0:
             print(
                 "[경고] 필수 시설 배치를 위해 마을 레이아웃을 자동 리롤했습니다: "
@@ -484,7 +486,58 @@ def _facility_entrance_facing(identifier: str) -> str:
     return "north"
 
 
-def _plot_entrance(plot: dict[str, object]) -> tuple[int, int]:
+def _rotated_structure_point(
+    x: int, z: int, width: int, depth: int, rotation: str
+) -> tuple[int, int]:
+    if rotation == "clockwise_90":
+        return depth - 1 - z, x
+    if rotation == "clockwise_180":
+        return width - 1 - x, depth - 1 - z
+    if rotation == "counterclockwise_90":
+        return z, width - 1 - x
+    return x, z
+
+
+def _house_door_approach(
+    plot: dict[str, object], root: Path | None = None
+) -> tuple[int, int] | None:
+    base = plot.get("base")
+    roof = plot.get("roof")
+    if not isinstance(base, str) or not isinstance(roof, str):
+        return None
+    width = int(plot["width"])
+    depth = int(plot["depth"])
+    approach = [width // 2, 1, -1]
+    metadata_path = (root or Path()) / HOUSE_STRUCTURE_SOURCE_DIR / f"{base}_{roof}.structure.json"
+    if metadata_path.is_file():
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        anchors = metadata.get("anchors")
+        if isinstance(anchors, list):
+            door = next((
+                anchor for anchor in anchors
+                if isinstance(anchor, dict) and anchor.get("type") == "door"
+            ), None)
+            if isinstance(door, dict):
+                configured = door.get("safe_spawn", door.get("position"))
+                if isinstance(configured, list) and len(configured) == 3:
+                    approach = configured
+    local_x, local_z = _rotated_structure_point(
+        int(approach[0]), int(approach[2]), width, depth,
+        str(plot.get("rotation", "none")),
+    )
+    return (
+        math.floor(float(plot["x"]) + 0.5) + local_x,
+        math.floor(float(plot["z"]) + 0.5) + local_z,
+    )
+
+
+def _plot_entrance(
+    plot: dict[str, object], root: Path | None = None
+) -> tuple[int, int]:
+    if str(plot["id"]).startswith("house_"):
+        door_approach = _house_door_approach(plot, root)
+        if door_approach is not None:
+            return door_approach
     x = math.floor(float(plot["x"]) + 0.5)
     z = math.floor(float(plot["z"]) + 0.5)
     width = int(plot["width"])
@@ -508,8 +561,10 @@ def _plot_entrance(plot: dict[str, object]) -> tuple[int, int]:
     }[facing]
 
 
-def _plot_entrances(plot: dict[str, object]) -> list[tuple[str, int, int]]:
-    primary_x, primary_z = _plot_entrance(plot)
+def _plot_entrances(
+    plot: dict[str, object], root: Path | None = None
+) -> list[tuple[str, int, int]]:
+    primary_x, primary_z = _plot_entrance(plot, root)
     if "gym" in str(plot["id"]):
         return [("south", primary_x, primary_z)]
     if str(plot["id"]) != "facility_department_store":
@@ -526,7 +581,8 @@ def _plot_entrances(plot: dict[str, object]) -> list[tuple[str, int, int]]:
 
 
 def _compile_town_layout_attempt(
-    data: dict[str, object], seed_override: int | None = None
+    data: dict[str, object], seed_override: int | None = None,
+    root: Path | None = None,
 ) -> dict[str, object]:
     profile = data.get("structure_profile")
     if not isinstance(profile, dict):
@@ -1003,7 +1059,7 @@ def _compile_town_layout_attempt(
             "width": width, "depth": plot_depth,
             "entrance_facing": entrance_facing, "rotation": "none",
         }
-        entrance_x, entrance_z = _plot_entrance(candidate)
+        entrance_x, entrance_z = _plot_entrance(candidate, root)
         road_candidates: list[tuple[float, int, int]] = []
         for segment in roads:
             nearest_x = min(max(entrance_x, min(segment["x1"], segment["x2"])), max(segment["x1"], segment["x2"]))
@@ -1021,7 +1077,7 @@ def _compile_town_layout_attempt(
 
     def building_access_roads(building: dict[str, object]) -> list[dict[str, object]]:
         result: list[dict[str, object]] = []
-        entrances = _plot_entrances(building)
+        entrances = _plot_entrances(building, root)
         building["entrance"] = {"x": entrances[0][1], "z": entrances[0][2]}
         if len(entrances) > 1:
             building["plaza_entrances"] = [
@@ -1248,7 +1304,9 @@ def _town_layout_reroll_seed(seed: int, attempt: int) -> int:
     return 1 + ((max(1, seed) - 1 + attempt * TOWN_LAYOUT_REROLL_STEP) % 999_999_999)
 
 
-def _compile_town_layout(data: dict[str, object]) -> dict[str, object]:
+def _compile_town_layout(
+    data: dict[str, object], root: Path | None = None
+) -> dict[str, object]:
     profile = data.get("structure_profile")
     generation = profile.get("generation_profile") if isinstance(profile, dict) else None
     requested_seed = int(generation.get("seed", 1)) if isinstance(generation, dict) else 1
@@ -1256,7 +1314,7 @@ def _compile_town_layout(data: dict[str, object]) -> dict[str, object]:
     for attempt in range(TOWN_LAYOUT_REROLL_LIMIT):
         resolved_seed = _town_layout_reroll_seed(requested_seed, attempt)
         try:
-            layout = _compile_town_layout_attempt(data, resolved_seed)
+            layout = _compile_town_layout_attempt(data, resolved_seed, root)
         except TownFacilityPlacementError as error:
             last_error = error
             continue
@@ -1276,6 +1334,27 @@ def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, 
     source_dir = _inside(root, root / HEX_WORLD_CONFIG_DIR, "육각 월드 설정 디렉터리")
     if not source_dir.is_dir():
         raise ModBuildError(f"육각 월드 설정 디렉터리가 없습니다: {source_dir}")
+    route_presets: dict[str, dict[str, object]] = {}
+    route_source = _inside(root, root / ROUTE_PRESET_CONFIG_DIR, "길 프리셋 디렉터리")
+    for route_path in sorted(route_source.rglob("*.json")) if route_source.is_dir() else []:
+        try:
+            route = json.loads(route_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ModBuildError(f"길 프리셋을 읽을 수 없습니다: {route_path}") from error
+        route_id = route.get("id") if isinstance(route, dict) else None
+        if not isinstance(route_id, str) or ":" not in route_id:
+            raise ModBuildError(f"길 프리셋 ID가 올바르지 않습니다: {route_path}")
+        if route_id in route_presets:
+            raise ModBuildError(f"중복 길 프리셋 ID입니다: {route_id}")
+        route_presets[route_id] = route
+        route_target = _inside(
+            root,
+            output / GENERATED_ROUTE_PRESET_DIR / route_path.relative_to(route_source),
+            "생성 길 프리셋",
+        )
+        route_target.parent.mkdir(parents=True, exist_ok=True)
+        route_target.write_text(json.dumps(route, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
     for source_path in sorted(source_dir.rglob("*.json")):
         try:
             data = json.loads(source_path.read_text(encoding="utf-8"))
@@ -1297,6 +1376,36 @@ def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, 
                 node["town_road_exits"] = copy.deepcopy(preset.get("town_road_exits", []))
             else:
                 node.pop("town_footprint_cells", None); node.pop("town_road_exits", None)
+        resolved_connections = []
+        for connection in data.get("connections", []):
+            if not isinstance(connection, dict):
+                resolved_connections.append(connection)
+                continue
+            preset_id = connection.get("route_preset")
+            if preset_id is None:
+                resolved_connections.append(connection)
+                continue
+            preset = route_presets.get(str(preset_id))
+            if not isinstance(preset, dict):
+                raise ModBuildError(f"월드맵이 존재하지 않는 길 프리셋을 참조합니다: {preset_id}")
+            corridor = preset.get("corridor") if isinstance(preset.get("corridor"), dict) else {}
+            route_type = str(preset.get("route_type", "road"))
+            resolved = {
+                "surface_style": "natural" if route_type == "trail" else route_type,
+                "corridor_width_blocks": corridor.get("width_blocks", 12),
+                "edge_noise": corridor.get("edge_noise", 0),
+                "pokemon_spawns": copy.deepcopy(preset.get("pokemon_spawns", {})),
+                "level_scaling": copy.deepcopy(preset.get("level_scaling", {"mode": "world", "offset": 0})),
+                "npc_placements": copy.deepcopy(preset.get("npc_placements", [])),
+            }
+            for source_key, target_key in (("boundary_profile", "boundary_profile"), ("terrain_profile", "terrain_profile")):
+                if corridor.get(source_key) is not None:
+                    resolved[target_key] = copy.deepcopy(corridor[source_key])
+            if preset.get("music_track") is not None:
+                resolved["music_track"] = preset["music_track"]
+            resolved.update(copy.deepcopy(connection))
+            resolved_connections.append(resolved)
+        data["connections"] = resolved_connections
         relative = source_path.relative_to(source_dir)
         target = _inside(root, output / GENERATED_HEX_WORLD_DIR / relative, "생성 육각 월드 설정")
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -1626,12 +1735,12 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
                     anchors = metadata.setdefault("anchors", [])
                     if not any(
                         isinstance(anchor, dict)
-                        and anchor.get("type") in {"door", "interior_entry"}
+                        and anchor.get("type") == "door"
                         for anchor in anchors
                     ):
                         anchors.append({
-                            "id": "interior_entry",
-                            "type": "interior_entry",
+                            "id": "door",
+                            "type": "door",
                             "position": [door_x, 1, 0],
                             "safe_spawn": [door_x, 1, -1],
                             "door_facing": "north",
@@ -1644,8 +1753,8 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
                         "schema_version": 1,
                         "interior_structure": "cobbleventure:interiors/one_story_shed",
                         "anchors": [{
-                            "id": "interior_entry",
-                            "type": "interior_entry",
+                            "id": "door",
+                            "type": "door",
                             "position": [door_x, 1, 0],
                             "safe_spawn": [door_x, 1, -1],
                             "door_facing": "north",

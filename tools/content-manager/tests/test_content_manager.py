@@ -1270,7 +1270,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("generation", document)
         self.assertEqual("hybrid", document["generator"]["layout"])
         self.assertTrue(document["generator"]["spline_enabled"])
-        self.assertEqual(6000, document["environment"]["fixed_time"])
+        self.assertEqual({"weather": "clear"}, document["environment"])
         self.assertEqual("minecraft:barrier", document["tree_barrier"]["barrier_block"])
         self.assertGreater(document["undergrowth"]["density"], 0)
         self.assertEqual("minecraft:grass_block", document["paths"][0]["surface"])
@@ -1321,7 +1321,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="forest-selection-empty"', page)
         self.assertIn('id="forest-path-properties"', page)
         self.assertIn('id="forest-entrance-properties"', page)
-        self.assertIn('name="fixedTime"', page)
+        self.assertNotIn('name="fixedTime"', page)
         self.assertIn('name="treeMinHeight"', page)
         self.assertIn('name="undergrowthDensity"', page)
         self.assertIn('id="forest-maze-dialog"', page)
@@ -1484,6 +1484,8 @@ class ContentManagerTests(unittest.TestCase):
         bootstrap = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/CobbleventureBootstrap.java").read_text(encoding="utf-8")
         gates = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/WorldGateSystem.java").read_text(encoding="utf-8")
         generator = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/ForestDimensionGenerator.java").read_text(encoding="utf-8")
+        cave_generator = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/NaturalCaveGenerator.java").read_text(encoding="utf-8")
+        surface_noise = (CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/NaturalSurfaceNoise.java").read_text(encoding="utf-8")
         riding_access = (CORE_ROOT / "projects/cobbleventure-adventure/src/main/java/dev/buizz/cobbleventure/adventure/FieldMoveRidingAccess.java").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
 
@@ -1499,10 +1501,9 @@ class ContentManagerTests(unittest.TestCase):
             layer["height"] for layer in dimension_data["generator"]["settings"]["layers"]
         ) - 1
         self.assertEqual(forest["dimension"]["origin"]["y"] - 1, flat_surface_y)
-        self.assertNotIn("fixed_time", dimension_type_data)
-        self.assertIn("maintainForestDimensionTime(event.getServer())", bootstrap)
-        self.assertIn("new ClientboundSetTimePacket(", bootstrap)
-        self.assertIn("player.serverLevel().getGameTime(), fixedTime, false", bootstrap)
+        self.assertEqual(13000, dimension_type_data["fixed_time"])
+        self.assertNotIn("maintainForestDimensionTime", bootstrap)
+        self.assertNotIn("ClientboundSetTimePacket", bootstrap)
         self.assertNotIn("Forest dimension time locked:", bootstrap)
         self.assertNotIn("FOREST_FIXED_TIME_RATE", bootstrap)
         self.assertNotIn("server.forceTimeSynchronization()", bootstrap)
@@ -1516,11 +1517,20 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("crossedForestThreshold", gates)
         self.assertIn("level, portal.x(), portal.z(), portal.y()", gates)
         self.assertIn("Forest dimension gate placed on terrain", gates)
+        self.assertIn("layWorldForestEntranceRoad(", gates)
+        self.assertIn("entry.inward().getOpposite()", gates)
+        self.assertIn("world.grid().worldCenter(gate.anchor())", gates)
+        self.assertIn("depth <= length", gates)
+        self.assertIn("CobbleventureBootstrap.prepareWorldRoadColumn(", gates)
+        self.assertIn("CobbleventureBootstrap.worldRoadSurfaceBlock(world, x, z)", gates)
+        self.assertNotIn("exit.inward(), gateY", gates)
         self.assertNotIn("portalDx * portalDx + portalDz * portalDz", gates)
         self.assertIn("PathNetwork.parse", generator)
         self.assertIn("addEntranceApproaches", generator)
         self.assertIn("new Segment(entrance, approachEnd)", generator)
-        self.assertIn("BlockTags.LEAVES", generator)
+        self.assertIn("if (!level.getBlockState(position).isAir())", generator)
+        self.assertNotIn("!path.walkable() || !level.getBlockState(position).is(BlockTags.LEAVES)", generator)
+        self.assertIn("persistentLeaves", generator)
         self.assertIn("Biomes.DARK_FOREST", generator)
         self.assertIn('ResourceLocation.fromNamespaceAndPath("cobbleventure", "forests")', riding_access)
         self.assertIn("behaviours.containsKey(RidingStyle.AIR)", riding_access)
@@ -1530,6 +1540,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("Blocks.COARSE_DIRT", generator)
         self.assertIn("naturalPathSurface", generator)
         self.assertIn("if (!configured.is(Blocks.DIRT_PATH)) return configured", generator)
+        self.assertIn("NaturalSurfaceNoise.sample2D", generator)
+        self.assertIn("NaturalSurfaceNoise.sample2D", cave_generator)
+        self.assertNotIn("x >> 1, y, z >> 1", cave_generator)
+        self.assertNotIn("Math.floorDiv(x, 2)", generator)
+        self.assertIn("valueNoise(seed, x, z, 7)", surface_noise)
+        self.assertIn("valueNoise(seed ^ 0x9E3779B97F4A7C15L, x, z, 3)", surface_noise)
         self.assertTrue(all(path["surface"] == "minecraft:dirt_path" for path in forest["paths"]))
         self.assertNotIn("paths.sample(x + dx + 0.5D, z + dz + 0.5D).walkable()", generator)
         self.assertIn('document.dimension.id = "cobbleventure:forests"', script)
@@ -4039,12 +4055,18 @@ class ContentManagerTests(unittest.TestCase):
             no_interior.write_bytes(self._structure_nbt((16, 8, 16)))
             exterior.with_suffix(".structure.json").write_text(json.dumps({
                 "schema_version": 1,
-                "anchors": [{"type": "interior_entry", "label": "front", "position": [7, 1, 1]}],
+                "anchors": [{
+                    "type": "door", "label": "front", "position": [7, 1, 1],
+                    "safe_spawn": [7, 1, 0], "door_facing": "north", "safe_side": "north",
+                }],
             }), encoding="utf-8")
             interior.with_suffix(".structure.json").write_text(json.dumps({
                 "schema_version": 1,
                 "anchors": [
-                    {"type": "interior_exit", "label": "back", "position": [6, 1, 1]},
+                    {
+                        "type": "door", "label": "back", "position": [6, 1, 1],
+                        "safe_spawn": [6, 1, 2], "door_facing": "north", "safe_side": "south",
+                    },
                 ],
                 "interior": {"id": "test_room", "width": 12, "depth": 12, "floor_height": 6, "floors": 1},
             }), encoding="utf-8")

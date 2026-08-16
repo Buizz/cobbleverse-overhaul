@@ -1514,8 +1514,8 @@ function ensureEncounterSettings(document, defaultBiome = "minecraft:plains", de
   document.random_encounters ||= {};
   const settings = document.random_encounters;
   settings.enabled = settings.enabled !== false;
-  settings.minimum_distance = Math.max(1, Number(settings.minimum_distance || 72));
-  settings.maximum_distance = Math.max(settings.minimum_distance, Number(settings.maximum_distance || 128));
+  settings.minimum_distance = Math.max(1, Number(settings.minimum_distance || 16));
+  settings.maximum_distance = Math.max(settings.minimum_distance, Number(settings.maximum_distance || 24));
   settings.minimum_level = Math.max(1, Number(settings.minimum_level || defaultMinLevel));
   settings.maximum_level = Math.max(settings.minimum_level, Number(settings.maximum_level || defaultMaxLevel));
   settings.pokemon_biome ||= defaultBiome;
@@ -2675,7 +2675,7 @@ function updateCaveFromForm() {
   state.cave.style = form.elements.caveStyle.value;
   state.cave.requires_flash = form.elements.requiresFlash.checked;
   const encounters = encounterSettings("cave");
-  Object.assign(encounters, { enabled: form.elements.randomEncounters.checked, minimum_distance: Math.round(Number(form.elements.encounterMinDistance.value || 72)), maximum_distance: Math.round(Number(form.elements.encounterMaxDistance.value || 128)), minimum_level: Math.round(Number(form.elements.encounterMinLevel.value || 5)), maximum_level: Math.round(Number(form.elements.encounterMaxLevel.value || 10)), pokemon_biome: form.elements.encounterPokemonBiome.value });
+  Object.assign(encounters, { enabled: form.elements.randomEncounters.checked, minimum_distance: Math.round(Number(form.elements.encounterMinDistance.value || 16)), maximum_distance: Math.round(Number(form.elements.encounterMaxDistance.value || 24)), minimum_level: Math.round(Number(form.elements.encounterMinLevel.value || 5)), maximum_level: Math.round(Number(form.elements.encounterMaxLevel.value || 10)), pokemon_biome: form.elements.encounterPokemonBiome.value });
   state.cave.trainer_settings ||= { placements: [] }; state.cave.trainer_settings.enabled = form.elements.trainersEnabled.checked; state.cave.trainer_settings.max_active = Number(form.elements.maxActiveTrainers.value || 0); state.cave.trainer_settings.class_pool = form.elements.trainerClassPool.value.split(",").map((value) => value.trim()).filter(Boolean); state.cave.trainer_settings.placements ||= [];
   const generation = generationFromDocumentPath(state.cavePath); state.cave.dimension.id = "cobbleventure:dungeons"; state.cave.dimension.region_id = `generation_${generation}/${state.cave.id.split("/").pop() || "cave"}`;
   state.cave.trainer_settings.placements = $$("#cave-trainer-list [data-cave-trainer-row]").map((row) => { const entry = { id: row.querySelector('[data-field="id"]').value.trim(), trainer_id: row.querySelector('[data-field="trainer_id"]').value.trim(), position: { x: Number(row.querySelector('[data-field="x"]').value), y: Number(row.querySelector('[data-field="y"]').value), z: Number(row.querySelector('[data-field="z"]').value) } }; const progress = row.querySelector('[data-field="required_progress"]').value.trim(); if (progress) entry.required_progress = progress; return entry; });
@@ -2823,7 +2823,7 @@ function renderForest() {
   const generation = generationFromDocumentPath(state.forestPath);
   const dimension = document.dimension || {}; const origin = dimension.origin || {}; const bounds = dimension.bounds || {};
   document.dimension = { id: "cobbleventure:forests", region_id: `generation_${generation}/${document.id?.split("/").pop() || "forest"}`, origin: { x: Number(origin.x ?? 0), y: Number(origin.y ?? 69), z: Number(origin.z ?? 0) }, bounds: { min_x: Number(bounds.min_x ?? -256), min_z: Number(bounds.min_z ?? -256), max_x: Number(bounds.max_x ?? 256), max_z: Number(bounds.max_z ?? 256) } };
-  const environment = { fixed_time: 6000, weather: "clear", ...(document.environment || {}) };
+  const environment = { weather: "clear", ...(document.environment || {}) };
   const encounters = ensureEncounterSettings(document, "minecraft:old_growth_spruce_taiga", 3, 7);
   const trees = { min_height: 8, max_height: 16, trunk_blocks: ["minecraft:oak_log"], foliage_blocks: ["minecraft:oak_leaves"], barrier_block: "minecraft:barrier", ...(document.tree_barrier || {}) };
   const undergrowth = { density: .72, blocks: ["minecraft:short_grass", "minecraft:fern"], path_clearance: 2, ...(document.undergrowth || {}) };
@@ -2836,7 +2836,7 @@ function renderForest() {
   document.entrances ||= [];
   $("#forest-editor-title").textContent = document.display_name?.ko_kr || document.id; $("#forest-path").textContent = state.forestPath;
   setFormValue(form, "id", document.id); setFormValue(form, "nameKo", document.display_name?.ko_kr || ""); setFormValue(form, "nameEn", document.display_name?.en_us || ""); setFormValue(form, "enabled", document.enabled !== false);
-  setFormValue(form, "fixedTime", environment.fixed_time); setFormValue(form, "weather", environment.weather);
+  setFormValue(form, "weather", environment.weather);
   setFormValue(form, "randomEncounters", encounters.enabled); setFormValue(form, "encounterMinDistance", encounters.minimum_distance); setFormValue(form, "encounterMaxDistance", encounters.maximum_distance);
   setFormValue(form, "encounterMinLevel", encounters.minimum_level); setFormValue(form, "encounterMaxLevel", encounters.maximum_level); encounterBiomeOptions(form.elements.encounterPokemonBiome, encounters.pokemon_biome);
   setFormValue(form, "treeMinHeight", trees.min_height); setFormValue(form, "treeMaxHeight", trees.max_height); setFormValue(form, "trunkBlocks", trees.trunk_blocks.join(", ")); setFormValue(form, "foliageBlocks", trees.foliage_blocks.join(", ")); setFormValue(form, "barrierBlock", trees.barrier_block);
@@ -2861,9 +2861,9 @@ function updateForestFromForm() {
   const csv = (name) => form.elements[name].value.split(",").map((value) => value.trim()).filter(Boolean);
   document.display_name = { ko_kr: form.elements.nameKo.value.trim(), ...(form.elements.nameEn.value.trim() ? { en_us: form.elements.nameEn.value.trim() } : {}) };
   document.enabled = form.elements.enabled.checked;
-  document.environment = { fixed_time: forestNumber(form, "fixedTime", 6000), weather: form.elements.weather.value };
+  document.environment = { weather: form.elements.weather.value };
   const encounters = encounterSettings("forest");
-  Object.assign(encounters, { enabled: form.elements.randomEncounters.checked, minimum_distance: Math.round(forestNumber(form, "encounterMinDistance", 72)), maximum_distance: Math.round(forestNumber(form, "encounterMaxDistance", 128)), minimum_level: Math.round(forestNumber(form, "encounterMinLevel", 3)), maximum_level: Math.round(forestNumber(form, "encounterMaxLevel", 7)), pokemon_biome: form.elements.encounterPokemonBiome.value });
+  Object.assign(encounters, { enabled: form.elements.randomEncounters.checked, minimum_distance: Math.round(forestNumber(form, "encounterMinDistance", 16)), maximum_distance: Math.round(forestNumber(form, "encounterMaxDistance", 24)), minimum_level: Math.round(forestNumber(form, "encounterMinLevel", 3)), maximum_level: Math.round(forestNumber(form, "encounterMaxLevel", 7)), pokemon_biome: form.elements.encounterPokemonBiome.value });
   document.tree_barrier = { min_height: forestNumber(form, "treeMinHeight", 8), max_height: forestNumber(form, "treeMaxHeight", 16), trunk_blocks: csv("trunkBlocks"), foliage_blocks: csv("foliageBlocks"), barrier_block: form.elements.barrierBlock.value.trim() };
   document.undergrowth = { density: forestNumber(form, "undergrowthDensity", .72), blocks: csv("undergrowthBlocks"), path_clearance: forestNumber(form, "pathClearance", 2) };
   const generation = generationFromDocumentPath(state.forestPath); document.dimension.id = "cobbleventure:forests"; document.dimension.region_id = `generation_${generation}/${document.id.split("/").pop() || "forest"}`;
@@ -6466,12 +6466,14 @@ function selectedFacilityRequirements() {
 
 function structureFootprint(structure, fallback = {}) {
   const nbt = structure ? state.structureSizes[structure] : null;
+  const door = Array.isArray(nbt?.door_anchors) ? nbt.door_anchors[0] : null;
   return {
     width: Number(nbt?.width || fallback.width || fallback.footprint?.width || 16),
     depth: Number(nbt?.depth || fallback.depth || fallback.footprint?.depth || 16),
     height: Number(nbt?.height || fallback.height || fallback.footprint?.height || 1),
     occupied: nbt?.occupied || null,
     topView: nbt?.top_view || null,
+    doorApproach: door?.safe_spawn || door?.position || null,
     nbtResolved: Boolean(nbt),
     source: nbt?.source || ""
   };
@@ -7951,7 +7953,19 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
         plot.entrance_facing = facing;
         plot.rotation = kind === "house" ? ({ north: "none", east: "clockwise_90", south: "clockwise_180", west: "counterclockwise_90" })[facing] : "none";
         plot.road_connection = { x: Math.round(alongX), z: Math.round(alongZ) };
-        plot.entrance = facilityEntrancePoint(definition.id, plot.occupied, facing);
+        const doorApproach = definition.footprint?.doorApproach;
+        if (kind === "house" && Array.isArray(doorApproach) && doorApproach.length === 3) {
+          const rotatedDoor = rotateMinecraftTopBlock(
+            Number(doorApproach[0]), Number(doorApproach[2]), width, depthSize,
+            plot.rotation
+          );
+          plot.entrance = {
+            x: plot.x + rotatedDoor.x,
+            z: plot.z + rotatedDoor.z
+          };
+        } else {
+          plot.entrance = facilityEntrancePoint(definition.id, plot.occupied, facing);
+        }
       }
       if (!villagePlotInsideLayout(plot.occupied, normalizedCellCount, normalizedFootprintShape, customCells)) continue;
       if (plots.some((other) => villagePreviewRectIntersects(plot.occupied, other.occupied || other, densityProfile.plotGap))) continue;
@@ -8138,10 +8152,10 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       let roadX = connection.x, roadZ = connection.z;
       if (roadX !== entrance.x && roadZ !== entrance.z) {
         const corner = ["east", "west"].includes(entrance.facing) ? { x: entrance.x, z: roadZ } : { x: roadX, z: entrance.z };
-        accessRoads.push({ building: plot.label, x1: roadX, z1: roadZ, x2: corner.x, z2: corner.z });
+        accessRoads.push({ building: plot.id, x1: roadX, z1: roadZ, x2: corner.x, z2: corner.z });
         roadX = corner.x; roadZ = corner.z;
       }
-      accessRoads.push({ building: plot.label, x1: roadX, z1: roadZ, x2: entrance.x, z2: entrance.z });
+      accessRoads.push({ building: plot.id, x1: roadX, z1: roadZ, x2: entrance.x, z2: entrance.z });
     }
   }
   const visibleRoads = roads.filter((_, index) => !blockedRoadIndices.has(index));

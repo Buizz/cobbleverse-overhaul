@@ -30,13 +30,16 @@ class CaveEntranceTaperTests(unittest.TestCase):
             with self.subTest(path=path.name):
                 self.assertEqual([], cave_entrance_taper.validate_taper(path))
 
-    def test_anchor_is_five_blocks_above_the_authored_floor(self) -> None:
+    def test_anchor_matches_the_configured_height_offset(self) -> None:
         for path in sorted(cave_entrance_taper.DEFAULT_CAVE_ROOT.glob("*.nbt")):
             with self.subTest(path=path.name):
                 root = cave_entrance_taper._read_minecraft_structure_root(path.read_bytes())
                 anchor = cave_entrance_taper._authored_anchor(root)
                 floor_y = cave_entrance_taper._tunnel_floor(root, anchor[2])
-                self.assertEqual(floor_y + 5, anchor[1])
+                self.assertEqual(
+                    floor_y + cave_entrance_taper.ROAD_ANCHOR_HEIGHT_OFFSET,
+                    anchor[1],
+                )
 
     @staticmethod
     def _bounds(points: set[tuple[int, int]]) -> tuple[int, int, int, int]:

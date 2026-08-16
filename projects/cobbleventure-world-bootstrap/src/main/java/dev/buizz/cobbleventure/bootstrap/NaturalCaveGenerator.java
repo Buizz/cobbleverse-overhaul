@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 
 final class NaturalCaveGenerator {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int LAYOUT_VERSION = 11;
+    private static final int LAYOUT_VERSION = 12;
     private static final int SHELL_THICKNESS = 4;
 
     private NaturalCaveGenerator() {}
@@ -990,13 +990,17 @@ final class NaturalCaveGenerator {
     }
 
     private static BlockState naturalFloor(long seed, int x, int y, int z) {
-        return signedNoise(seed ^ 0xF100D, x >> 2, y, z >> 2) > 0.62D
+        return NaturalSurfaceNoise.sample2D(
+            seed ^ 0xF100D ^ (long) y * 42317861L, x, z
+        ) > 0.50D
             ? Blocks.TUFF.defaultBlockState()
             : Blocks.COBBLED_DEEPSLATE.defaultBlockState();
     }
 
     private static BlockState pathFloor(long seed, int x, int y, int z, String floor) {
-        double noise = signedNoise(seed ^ 0xBADC0DEL, x >> 1, y, z >> 1);
+        double noise = NaturalSurfaceNoise.sample2D(
+            seed ^ 0xBADC0DEL ^ (long) y * 42317861L, x, z
+        );
         return switch (floor) {
             case "rugged" -> noise > 0.45D
                 ? Blocks.COBBLESTONE.defaultBlockState()

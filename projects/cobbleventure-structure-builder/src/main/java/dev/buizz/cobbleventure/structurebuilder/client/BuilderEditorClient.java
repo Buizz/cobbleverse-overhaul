@@ -210,9 +210,7 @@ public final class BuilderEditorClient {
     }
 
     private static boolean isDoorMarker(BuilderEditorNetwork.Marker marker) {
-        return marker.type().equals("door")
-            || marker.type().equals("interior_entry")
-            || marker.type().equals("interior_exit");
+        return marker.type().equals("door");
     }
 
     private static Font minecraftFont() {

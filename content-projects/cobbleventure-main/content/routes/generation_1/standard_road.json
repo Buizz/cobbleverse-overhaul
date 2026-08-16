@@ -1,0 +1,26 @@
+{
+  "$schema": "../../schemas/route.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:route/standard_road",
+  "display_name": {
+    "ko_kr": "일반 도로",
+    "en_us": "Standard Road"
+  },
+  "enabled": true,
+  "route_type": "road",
+  "corridor": {
+    "width_blocks": 12,
+    "edge_noise": 0
+  },
+  "level_scaling": {
+    "mode": "world",
+    "offset": 0
+  },
+  "pokemon_spawns": {
+    "inherit_biome": true,
+    "excluded_species": [],
+    "additions": [],
+    "level_overrides": []
+  },
+  "npc_placements": []
+}

@@ -260,6 +260,8 @@
       ],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "route_preset": { "$ref": "#/$defs/resource_id" },
         "from": { "$ref": "#/$defs/route_endpoint_id" },
         "to": { "$ref": "#/$defs/route_endpoint_id" },
         "route_biome": { "$ref": "#/$defs/resource_id" },

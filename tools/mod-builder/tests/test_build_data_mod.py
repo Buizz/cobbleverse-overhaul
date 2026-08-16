@@ -252,7 +252,7 @@ class DataModBuilderTests(unittest.TestCase):
         house_access_roads = [
             road for road in access_roads if road["building"] in house_ids
         ]
-        self.assertEqual(len(houses), len(house_access_roads))
+        self.assertGreaterEqual(len(house_access_roads), len(houses))
         for house in houses:
             self.assertIn(house["base"], build_data_mod.HOUSE_BASES)
             self.assertIn(house["roof"], build_data_mod.HOUSE_ROOFS)
@@ -270,28 +270,64 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertIn("entrance", house)
             self.assertIn("road_connection", house)
 
-        houses_by_id = {house["id"]: house for house in houses}
-        for access in house_access_roads:
-            house = houses_by_id[access["building"]]
+        access_by_house = {
+            house["id"]: [
+                road for road in house_access_roads
+                if road["building"] == house["id"]
+            ]
+            for house in houses
+        }
+        for house in houses:
+            accesses = access_by_house[house["id"]]
+            self.assertIn(len(accesses), {1, 2})
             self.assertEqual(
-                (access["x1"], access["z1"]),
+                (accesses[0]["x1"], accesses[0]["z1"]),
                 (house["road_connection"]["x"], house["road_connection"]["z"]),
             )
             self.assertEqual(
-                (access["x2"], access["z2"]),
+                (accesses[-1]["x2"], accesses[-1]["z2"]),
                 (house["entrance"]["x"], house["entrance"]["z"]),
             )
-            self.assertTrue(access["x1"] == access["x2"] or access["z1"] == access["z2"])
-            for other in houses:
-                if other["id"] == house["id"]:
-                    continue
-                self.assertFalse(
-                    build_data_mod._plot_intersects_road(other, access, 3, 0.25),
-                    f"{access['building']} 진입로가 {other['id']} 건물을 가로지릅니다.",
-                )
+            for index, access in enumerate(accesses):
+                self.assertTrue(access["x1"] == access["x2"] or access["z1"] == access["z2"])
+                if index > 0:
+                    self.assertEqual(
+                        (accesses[index - 1]["x2"], accesses[index - 1]["z2"]),
+                        (access["x1"], access["z1"]),
+                    )
+                for other in houses:
+                    if other["id"] == house["id"]:
+                        continue
+                    self.assertFalse(
+                        build_data_mod._plot_intersects_road(other, access, 3, 0.25),
+                        f"{access['building']} 진입로가 {other['id']} 건물을 가로지릅니다.",
+                    )
 
         self.assertEqual({"one_story", "two_story", "five_story"}, set(build_data_mod.HOUSE_BASES))
         self.assertTrue(all(house["width"] == 16 and house["depth"] == 16 for house in houses))
+
+    def test_house_access_uses_rotated_door_safe_spawn(self) -> None:
+        expected = {
+            "none": (114, 202),
+            "clockwise_90": (113, 214),
+            "clockwise_180": (101, 213),
+            "counterclockwise_90": (102, 201),
+        }
+        for rotation, entrance in expected.items():
+            plot = {
+                "id": "house_test",
+                "x": 100.0,
+                "z": 200.0,
+                "width": 16,
+                "depth": 16,
+                "base": "one_story",
+                "roof": "gable",
+                "rotation": rotation,
+            }
+            self.assertEqual(
+                entrance,
+                build_data_mod._plot_entrance(plot, REPOSITORY_ROOT),
+            )
 
     def test_house_bases_are_one_two_and_five_story_sixteen_block_plots(self) -> None:
         self.assertEqual(
@@ -1138,7 +1174,7 @@ class DataModBuilderTests(unittest.TestCase):
                     generated["anchors"],
                 )
                 self.assertTrue(any(
-                    anchor.get("type") == "interior_entry"
+                    anchor.get("type") == "door"
                     for anchor in generated["anchors"]
                 ))
 
@@ -1162,12 +1198,12 @@ class DataModBuilderTests(unittest.TestCase):
                 "cobbleventure:interiors/one_story_shed",
                 metadata["interior_structure"],
             )
-            self.assertEqual("interior_entry", metadata["anchors"][0]["type"])
+            self.assertEqual("door", metadata["anchors"][0]["type"])
             self.assertEqual([8, 1, 0], metadata["anchors"][0]["position"])
             self.assertEqual([8, 1, -1], metadata["anchors"][0]["safe_spawn"])
             self.assertTrue(metadata["anchors"][0]["seal_entry"])
 
-    def test_authored_house_door_is_used_as_shared_interior_entry(self) -> None:
+    def test_authored_house_door_is_used_for_shared_interior(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self._fixture(root)
@@ -1196,8 +1232,8 @@ class DataModBuilderTests(unittest.TestCase):
                 / "houses/one_story_flat_red.structure.json"
             ).read_text(encoding="utf-8"))
             self.assertIn(authored_door, generated["anchors"])
-            self.assertFalse(any(
-                anchor.get("type") == "interior_entry"
+            self.assertEqual(1, sum(
+                anchor.get("type") == "door"
                 for anchor in generated["anchors"]
             ))
 

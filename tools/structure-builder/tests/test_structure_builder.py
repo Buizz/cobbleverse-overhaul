@@ -173,6 +173,10 @@ class StructureBuilderTests(unittest.TestCase):
             interior_export.parent.mkdir(parents=True)
             shutil.copy2(sample, base_export)
             shutil.copy2(sample, interior_export)
+            sample_size = content_manager.read_minecraft_structure_size(
+                sample.read_bytes()
+            )
+            self.assertEqual((24, 24, 16), sample_size)
             metadata = (
                 world
                 / "generated/cobbleventure_builder/structure_metadata/export"
@@ -184,10 +188,10 @@ class StructureBuilderTests(unittest.TestCase):
                 "structure": "content/structures/interiors/sample_room.nbt",
                 "interior": {
                     "id": "sample_room",
-                    "width": 16,
-                    "depth": 16,
+                    "width": sample_size[0],
+                    "depth": sample_size[2],
                     "floor_height": 8,
-                    "floors": 1,
+                    "floors": 3,
                 },
                 "anchors": [],
             }), encoding="utf-8")
@@ -219,13 +223,12 @@ class StructureBuilderTests(unittest.TestCase):
                 module,
             )
             anchors = [{
-                "id": "interior_entry",
-                "type": "interior_entry",
+                "id": "door",
+                "type": "door",
                 "position": [7, 1, 0],
                 "safe_spawn": [7, 1, -1],
                 "door_facing": "south",
                 "safe_side": "north",
-                "dialogue": "cobbleventure:default_enter",
             }, {
                 "label": "resident",
                 "type": "npc_position",

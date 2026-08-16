@@ -9,12 +9,24 @@
     {
       "id": "forest_side",
       "label": "숲쪽",
-      "position": [8, 1, 0]
+      "type": "arrival",
+      "position": [
+        8,
+        1,
+        0
+      ],
+      "facing": "south"
     },
     {
       "id": "world_side",
       "label": "월드쪽",
-      "position": [8, 1, 12]
+      "type": "arrival",
+      "position": [
+        8,
+        1,
+        12
+      ],
+      "facing": "north"
     }
   ]
 }
