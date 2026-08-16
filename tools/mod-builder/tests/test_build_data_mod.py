@@ -59,6 +59,11 @@ class TownNpcCapacityUnitTests(unittest.TestCase):
 
             self.assertEqual(4, capacity["requested"])
             self.assertEqual(7, capacity["available"])
+            assigned = build_data_mod._assign_town_npc_buildings(resolved, capacity)
+            self.assertEqual(
+                ["house_1", "house_2", "house_3", "house_4"],
+                [item["building"] for item in assigned["placements"]],
+            )
 
     def test_town_indoor_capacity_counts_reachable_slots_in_placed_houses(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

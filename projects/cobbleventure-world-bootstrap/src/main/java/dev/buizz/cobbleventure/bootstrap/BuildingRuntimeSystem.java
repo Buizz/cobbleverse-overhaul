@@ -531,7 +531,7 @@ final class BuildingRuntimeSystem {
         }
     }
 
-    private static boolean spawnNpc(ServerLevel level, String npcId, BlockPos position) {
+    static boolean spawnNpc(ServerLevel level, String npcId, BlockPos position) {
         String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
         String preset = "easy_npc:preset/encounter/" + slug + ".npc.snbt";
         String command = "easy_npc preset import_new data " + preset + " "

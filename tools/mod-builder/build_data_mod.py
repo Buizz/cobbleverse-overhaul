@@ -413,6 +413,31 @@ def _town_indoor_npc_capacity(
     }
 
 
+def _assign_town_npc_buildings(
+    resolved_auto_npcs: dict[str, object], capacity: dict[str, object],
+) -> dict[str, object]:
+    """Attach deterministic building and slot targets to indoor NPC placements."""
+    available_slots: list[tuple[str, int]] = []
+    for building in capacity.get("buildings", []):
+        if not isinstance(building, dict) or not isinstance(building.get("building"), str):
+            continue
+        for slot in range(max(0, int(building.get("capacity", 0)))):
+            available_slots.append((building["building"], slot))
+    assigned: list[dict[str, object]] = []
+    indoor_index = 0
+    for placement in resolved_auto_npcs.get("placements", []):
+        if not isinstance(placement, dict):
+            continue
+        item = copy.deepcopy(placement)
+        if item.get("placement_area") == "indoor":
+            if indoor_index >= len(available_slots):
+                raise ModBuildError("검증된 마을 실내 NPC 자리를 배정할 수 없습니다.")
+            item["building"], item["slot"] = available_slots[indoor_index]
+            indoor_index += 1
+        assigned.append(item)
+    return {**copy.deepcopy(resolved_auto_npcs), "placements": assigned}
+
+
 def _settlement_world_levels(root: Path) -> dict[str, int]:
     """Resolve each town's representative level from its world-map anchor."""
     levels_by_settlement: dict[str, int] = {}
@@ -508,6 +533,9 @@ def _package_settlements(
                 f"{packaged.get('id')} / 요청 {capacity['requested']}명 / "
                 f"수용 {capacity['available']}명"
             )
+        resolved_auto_npcs = _assign_town_npc_buildings(
+            resolved_auto_npcs, capacity,
+        )
         if placement.get("auto_place_npcs") is True:
             placement["resolved_auto_npcs"] = resolved_auto_npcs
         if int(compiled_layout.get("reroll_count", 0)) > 0:

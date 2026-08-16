@@ -535,6 +535,7 @@ public final class CobbleventureBootstrap {
         BuildingRuntimeSystem.initialize(event.getServer());
         prepareExistingGymExteriors(level, runtime.settlements());
         prepareExistingBuildingRuntime(level, runtime.settlements());
+        prepareExistingTownNpcs(level, runtime.settlements());
         refreshExistingConfiguredVendors(level, runtime.settlements());
 
         if (Boolean.getBoolean(TOWN_SEQUENCE_PERFORMANCE_TEST_PROPERTY)) {
@@ -2514,6 +2515,162 @@ public final class CobbleventureBootstrap {
                 }
             }
         }
+    }
+
+    private static void prepareExistingTownNpcs(
+        ServerLevel level, Map<String, SettlementPlan> settlements
+    ) {
+        BootstrapSavedData data = level.getServer().overworld().getDataStorage().computeIfAbsent(
+            new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
+            DATA_FILE
+        );
+        for (SettlementPlan settlement : settlements.values()) {
+            if (settlement.enabled() && data.isSettlementGenerated(settlement.id())) {
+                placeAutomaticTownNpcs(level, settlement, data);
+            }
+        }
+    }
+
+    private static void placeAutomaticTownNpcs(
+        ServerLevel level, SettlementPlan settlement, BootstrapSavedData data
+    ) {
+        if (settlement.automaticNpcPlacements().isEmpty()) {
+            return;
+        }
+        TownLayout layout = generateTownLayout(settlement);
+        Map<String, TownPlot> houses = layout.houses().stream().collect(Collectors.toMap(
+            TownPlot::id, house -> house, (left, right) -> left, LinkedHashMap::new
+        ));
+        int spawned = 0;
+        for (int index = 0; index < settlement.automaticNpcPlacements().size(); index++) {
+            TownNpcPlacement placement = settlement.automaticNpcPlacements().get(index);
+            String spawnKey = settlement.id() + "|" + settlement.center().x() + ","
+                + settlement.center().z() + "|" + index + "|" + placement.npc();
+            if (data.hasSpawnedTownNpc(spawnKey)) {
+                continue;
+            }
+            BlockPos position;
+            if (placement.placementArea().equals("indoor")) {
+                TownPlot house = placement.building() == null
+                    ? null : houses.get(placement.building());
+                position = house == null ? null
+                    : indoorTownNpcPosition(level, settlement, house, placement.slot());
+            } else {
+                position = outdoorTownNpcPosition(level, settlement, layout, index);
+            }
+            if (position == null) {
+                LOGGER.warn(
+                    "Automatic town NPC has no safe placement: settlement={}, npc={}, area={}, building={}",
+                    settlement.id(), placement.npc(), placement.placementArea(), placement.building()
+                );
+                continue;
+            }
+            if (BuildingRuntimeSystem.spawnNpc(level, placement.npc(), position)) {
+                data.markTownNpcSpawned(spawnKey);
+                spawned++;
+            }
+        }
+        if (spawned > 0) {
+            LOGGER.info(
+                "Automatic town NPCs placed: settlement={}, spawned={}, configured={}",
+                settlement.id(), spawned, settlement.automaticNpcPlacements().size()
+            );
+        }
+    }
+
+    private static BlockPos indoorTownNpcPosition(
+        ServerLevel level, SettlementPlan settlement, TownPlot house, int slot
+    ) {
+        int minX = settlement.center().x() + (int) Math.floor(house.x()) + 1;
+        int minZ = settlement.center().z() + (int) Math.floor(house.z()) + 1;
+        int maxX = minX + Math.max(1, house.width() - 3);
+        int maxZ = minZ + Math.max(1, house.depth() - 3);
+        int centerX = (minX + maxX) / 2;
+        int centerZ = (minZ + maxZ) / 2;
+        List<Point> columns = new ArrayList<>();
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                columns.add(new Point(x, z));
+            }
+        }
+        columns.sort(Comparator
+            .comparingInt((Point point) -> Math.abs(point.x() - centerX)
+                + Math.abs(point.z() - centerZ))
+            .thenComparingInt(Point::x).thenComparingInt(Point::z));
+        int skipped = Math.max(0, slot) * 4;
+        for (Point column : columns) {
+            int top = level.getHeight(
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, column.x(), column.z()
+            ) - 1;
+            for (int floorY = top - 2; floorY >= top - 16; floorY--) {
+                BlockPos floor = new BlockPos(column.x(), floorY, column.z());
+                BlockPos feet = floor.above();
+                if (!supportsTeleport(level, floor, level.getBlockState(floor))
+                    || !isOpenForTeleport(level, feet)
+                    || !isOpenForTeleport(level, feet.above())) {
+                    continue;
+                }
+                boolean covered = false;
+                for (int roofY = floorY + 3; roofY <= top; roofY++) {
+                    BlockPos roof = new BlockPos(column.x(), roofY, column.z());
+                    if (!level.getBlockState(roof).getCollisionShape(level, roof).isEmpty()) {
+                        covered = true;
+                        break;
+                    }
+                }
+                if (covered && skipped-- <= 0) {
+                    return feet;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static BlockPos outdoorTownNpcPosition(
+        ServerLevel level, SettlementPlan settlement, TownLayout layout, int npcIndex
+    ) {
+        if (layout.roads().isEmpty()) {
+            return safeTeleportPosition(level, settlement.center().x(), settlement.center().z());
+        }
+        int attempts = Math.max(12, layout.roads().size() * 4);
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            TownRoad road = layout.roads().get(Math.floorMod(npcIndex + attempt, layout.roads().size()));
+            double ratio = 0.25D + 0.25D * Math.floorMod(npcIndex + attempt, 3);
+            int x = settlement.center().x() + (int) Math.round(
+                road.x1() + (road.x2() - road.x1()) * ratio
+            );
+            int z = settlement.center().z() + (int) Math.round(
+                road.z1() + (road.z2() - road.z1()) * ratio
+            );
+            int side = ((npcIndex + attempt) & 1) == 0 ? 1 : -1;
+            int offset = settlement.roadProfile().width() / 2 + 2
+                + attempt / Math.max(1, layout.roads().size());
+            if (road.x1() == road.x2()) {
+                x += side * offset;
+            } else {
+                z += side * offset;
+            }
+            if (insideAnyTownPlot(settlement, layout, x, z)) {
+                continue;
+            }
+            BlockPos position = safeTeleportPosition(level, x, z);
+            if (position != null) {
+                return position;
+            }
+        }
+        return null;
+    }
+
+    private static boolean insideAnyTownPlot(
+        SettlementPlan settlement, TownLayout layout, int x, int z
+    ) {
+        int localX = x - settlement.center().x();
+        int localZ = z - settlement.center().z();
+        return Stream.concat(layout.houses().stream(), layout.facilities().values().stream())
+            .anyMatch(plot -> localX >= Math.floor(plot.x()) - 1
+                && localX <= Math.ceil(plot.x() + plot.width()) + 1
+                && localZ >= Math.floor(plot.z()) - 1
+                && localZ <= Math.ceil(plot.z() + plot.depth()) + 1);
     }
 
     private static void refreshExistingConfiguredVendors(
@@ -5044,6 +5201,7 @@ public final class CobbleventureBootstrap {
                     decorateTownLandscape(job.level, job.runtime.hexWorld(), settlement);
                 }
                 cleanupTownGenerationDebris(job.level, settlement);
+                placeAutomaticTownNpcs(job.level, settlement, job.data);
                 job.data.markTownDebrisCleanupPending(townPreparationChunkKeys(settlement));
                 long completedAt = System.nanoTime();
                 long landscapeElapsedNanos = completedAt - phaseStartedAt;
@@ -5839,6 +5997,12 @@ public final class CobbleventureBootstrap {
                 ));
                 return 0;
             }
+            BootstrapSavedData data = level.getServer().overworld().getDataStorage()
+                .computeIfAbsent(
+                    new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
+                    DATA_FILE
+                );
+            placeAutomaticTownNpcs(level, translated, data);
         } catch (RuntimeException error) {
             LOGGER.error("Configured town command failed: {}", settlementId, error);
             source.sendFailure(Component.literal(
@@ -5876,7 +6040,7 @@ public final class CobbleventureBootstrap {
             Map.copyOf(anchors), settlement.facilities(), settlement.gates(),
             settlement.shopCatalogId(), settlement.vendorUnits(),
             settlement.vendorAssignments(),
-            settlement.compiledLayout()
+            settlement.compiledLayout(), settlement.automaticNpcPlacements()
         );
     }
 
@@ -6250,6 +6414,7 @@ public final class CobbleventureBootstrap {
             }
         }
         TownLayout compiledLayout = parseCompiledTownLayout(root);
+        List<TownNpcPlacement> automaticNpcPlacements = parseTownNpcPlacements(root);
         return new SettlementPlan(
             id, settlementDisplayName(root, id), enabled,
             loadOrder,
@@ -6260,8 +6425,34 @@ public final class CobbleventureBootstrap {
             Map.copyOf(anchorPoints), List.copyOf(facilities), List.copyOf(gates),
             shopCatalogId, vendorUnits == null ? null : List.copyOf(vendorUnits),
             vendorAssignments == null ? null : List.copyOf(vendorAssignments),
-            compiledLayout
+            compiledLayout, automaticNpcPlacements
         );
+    }
+
+    private static List<TownNpcPlacement> parseTownNpcPlacements(JsonObject root) {
+        if (!root.has("npc_placement")) {
+            return List.of();
+        }
+        JsonObject placement = root.getAsJsonObject("npc_placement");
+        if (!placement.has("resolved_auto_npcs")) {
+            return List.of();
+        }
+        JsonObject resolved = placement.getAsJsonObject("resolved_auto_npcs");
+        if (!resolved.has("placements")) {
+            return List.of();
+        }
+        List<TownNpcPlacement> placements = new ArrayList<>();
+        for (JsonElement element : resolved.getAsJsonArray("placements")) {
+            JsonObject value = element.getAsJsonObject();
+            placements.add(new TownNpcPlacement(
+                requiredString(value, "npc"),
+                requiredString(value, "classification"),
+                requiredString(value, "placement_area"),
+                value.has("building") ? requiredString(value, "building") : null,
+                value.has("slot") ? value.get("slot").getAsInt() : 0
+            ));
+        }
+        return List.copyOf(placements);
     }
 
     private static TownLayout parseCompiledTownLayout(JsonObject root) {
@@ -7274,7 +7465,8 @@ public final class CobbleventureBootstrap {
                 settlement.shopCatalogId(),
                 settlement.vendorUnits(),
                 settlement.vendorAssignments(),
-                settlement.compiledLayout()
+                settlement.compiledLayout(),
+                settlement.automaticNpcPlacements()
             ));
         }
         Map<String, SettlementPlan> ordered = new LinkedHashMap<>();
@@ -12397,6 +12589,11 @@ public final class CobbleventureBootstrap {
 
     record TownDecoration(String type, int x, int z, String rotation) {}
 
+    record TownNpcPlacement(
+        String npc, String classification, String placementArea,
+        String building, int slot
+    ) {}
+
     record TownDecorationTemplate(
         String structure, int size, int height, int counterIndex
     ) {}
@@ -12764,7 +12961,8 @@ public final class CobbleventureBootstrap {
         String shopCatalogId,
         List<String> vendorUnits,
         List<ShopVendorAssignment> vendorAssignments,
-        TownLayout compiledLayout
+        TownLayout compiledLayout,
+        List<TownNpcPlacement> automaticNpcPlacements
     ) {}
 
     record ShopVendorAssignment(String slotId, String vendorUnit) {}
@@ -12785,6 +12983,7 @@ public final class CobbleventureBootstrap {
         private BlockPos spawnPos = BlockPos.ZERO;
         private BlockPos villagePos = BlockPos.ZERO;
         private final Set<String> generatedSettlements = new HashSet<>();
+        private final Set<String> spawnedTownNpcs = new HashSet<>();
         private final Set<Long> pendingTownDebrisCleanup = new HashSet<>();
 
         static BootstrapSavedData create() {
@@ -12804,6 +13003,10 @@ public final class CobbleventureBootstrap {
             String generated = tag.getString("generatedSettlements");
             if (!generated.isBlank()) {
                 data.generatedSettlements.addAll(Arrays.asList(generated.split(",")));
+            }
+            String spawnedNpcs = tag.getString("spawnedTownNpcs");
+            if (!spawnedNpcs.isBlank()) {
+                data.spawnedTownNpcs.addAll(Arrays.asList(spawnedNpcs.split(",")));
             }
             for (long chunkKey : tag.getLongArray("pendingTownDebrisCleanup")) {
                 data.pendingTownDebrisCleanup.add(chunkKey);
@@ -12829,6 +13032,16 @@ public final class CobbleventureBootstrap {
 
         void markSettlementGenerated(String settlementId) {
             if (generatedSettlements.add(settlementId)) {
+                setDirty();
+            }
+        }
+
+        boolean hasSpawnedTownNpc(String spawnKey) {
+            return spawnedTownNpcs.contains(spawnKey);
+        }
+
+        void markTownNpcSpawned(String spawnKey) {
+            if (spawnedTownNpcs.add(spawnKey)) {
                 setDirty();
             }
         }
@@ -12868,6 +13081,7 @@ public final class CobbleventureBootstrap {
             tag.putInt("villageY", villagePos.getY());
             tag.putInt("villageZ", villagePos.getZ());
             tag.putString("generatedSettlements", String.join(",", generatedSettlements));
+            tag.putString("spawnedTownNpcs", String.join(",", spawnedTownNpcs));
             tag.putLongArray(
                 "pendingTownDebrisCleanup",
                 pendingTownDebrisCleanup.stream().mapToLong(Long::longValue).toArray()
