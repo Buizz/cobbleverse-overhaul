@@ -28,34 +28,36 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
-    def test_forest_gate_nbt_is_a_walk_through_spruce_lodge(self) -> None:
-        path = PROJECT_ROOT / "content/structures/forest_entrance/forest_gate.nbt"
+    def test_forest_gate_uses_only_its_jigsaw_as_the_runtime_marker(self) -> None:
+        path = PROJECT_ROOT / "content/structures/gate/forest_gate.nbt"
         self.assertTrue(path.is_file())
-        size, palette, blocks = content_manager._minecraft_structure_parts(path.read_bytes())
-        self.assertEqual([17, 13, 13], size)
-        self.assertIn("minecraft:stripped_spruce_log", palette)
-        self.assertIn("minecraft:spruce_stairs", palette)
-        air_state = palette.index("minecraft:air")
-        occupied = {
-            tuple(block["pos"]) for block in blocks
-            if block["state"] != air_state
-        }
-        for z in range(13):
-            for y in range(1, 6):
-                if (8, y, z) != (8, 1, 1):
-                    self.assertNotIn((8, y, z), occupied)
         structure = content_manager._read_minecraft_structure_root(path.read_bytes())
         entry_markers = [
             block for block in structure["blocks"]
             if block.get("nbt", {}).get("name") == "cobbleventure:forest_entry"
         ]
-        self.assertEqual([[8, 1, 1]], [block["pos"] for block in entry_markers])
+        self.assertEqual(1, len(entry_markers))
         marker_state = structure["palette"][entry_markers[0]["state"]]
         self.assertEqual("minecraft:jigsaw", marker_state["Name"])
-        self.assertEqual("north_up", marker_state["Properties"]["orientation"])
+        self.assertIn(
+            marker_state["Properties"]["orientation"],
+            {"north_up", "east_up", "south_up", "west_up"},
+        )
         metadata = json.loads(path.with_suffix(".structure.json").read_text(encoding="utf-8"))
         self.assertEqual("숲관문", metadata["display_name"]["ko_kr"])
-        self.assertEqual({"world_side", "forest_side"}, {anchor["id"] for anchor in metadata["anchors"]})
+        self.assertEqual([], metadata["anchors"])
+
+    def test_gate_resources_use_short_resource_directory(self) -> None:
+        structures = content_manager.managed_structure_files(PROJECT_ROOT)
+        self.assertIn("cobbleventure:gate/forest_gate", structures)
+        self.assertIn("cobbleventure:gate/default_gate", structures)
+        self.assertNotIn("cobbleventure:forest_entrance/forest_gate", structures)
+        self.assertNotIn("cobbleventure:forest_entrance/default_gate", structures)
+        payload = content_manager.building_settings_payload(PROJECT_ROOT)
+        self.assertEqual(
+            "natural_feature",
+            payload["structures"]["cobbleventure:gate/default_gate"]["category"],
+        )
 
     def test_cave_entrance_nbt_variants_use_large_centered_barrier_masks(self) -> None:
         variants = {
@@ -1103,7 +1105,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(all(entry["pokemon_ids"] == ["cobblemon:pikachu"] for entry in route_cells))
         self.assertTrue(all(entry["custom_level_ranges"]["cobblemon:pikachu"] == {"min_level": 20, "max_level": 25} for entry in route_cells))
 
-    def test_cave_preview_supports_direct_editing_views_and_global_water_level(self) -> None:
+    def test_cave_preview_supports_direct_editing_views_and_global_water_volume(self) -> None:
         root = PROJECT_ROOT
         page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
@@ -1134,6 +1136,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("cave-entrance-quick-list", script)
         self.assertIn("data-select-cave-entrance", script)
         self.assertIn("waterY = layout.waterLevel", script)
+        self.assertIn('name="waterDepth"', page)
+        self.assertIn("waterBottomY = waterY - waterDepth", script)
+        self.assertEqual(cave["generator"]["water_depth"], 8)
         self.assertNotIn('id="cave-layout-anchor-list"', page)
         self.assertNotIn('id="cave-entrance-list"', page)
         self.assertNotIn('id="cave-layout-connection-list"', page)
@@ -1579,7 +1584,7 @@ class ContentManagerTests(unittest.TestCase):
             entrance = {
                 "id": "forest_entrance_viridian_main", "forest": forest["id"],
                 "entrance": forest["entrances"][0]["id"], "anchor": {"q": 1, "r": 0},
-                "facing": "east", "structure": "cobbleventure:forest_entrance/forest_gate", "rotation": 1,
+                "facing": "east", "structure": "cobbleventure:gate/forest_gate", "rotation": 1,
                 "tree_log": "minecraft:spruce_log", "tree_leaves": "minecraft:spruce_leaves",
                 "wall_thickness": 7, "wall_height": 14, "opening_width": 7, "barrier_height": 32,
                 "pokemon_center_enabled": True,
@@ -1618,7 +1623,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('부착 지형별 입구 NBT', page)
         self.assertNotIn('id="forest-tool-structure"', page)
         self.assertNotIn('name="structure"', page)
-        self.assertIn('forest: "cobbleventure:forest_entrance/forest_gate"', script)
+        self.assertIn('forest: "cobbleventure:gate/forest_gate"', script)
         self.assertIn('structure_variants: { ...defaultWorldEntranceStructures.caveVariants }', script)
         self.assertIn('setEmptyTerrainTile(dense.q, dense.r, "dense_forest")', script)
         self.assertIn('id="entrance-inspector-form"', page)
@@ -1639,6 +1644,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('north_east: { q:', script)
         self.assertNotIn('type: "gate", anchor: { q, r }, resource', script)
         self.assertNotIn(">높은 숲<", page)
+
+    def test_cave_and_forest_encounter_summaries_show_effective_pokemon_icons(self) -> None:
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('data-encounter-pokemon-icons="cave"', page)
+        self.assertIn('data-encounter-pokemon-icons="forest"', page)
+        self.assertIn("function encounterEffectivePokemonIds(settings)", script)
+        self.assertIn("if (!settings?.enabled) return [];", script)
+        self.assertIn("encounterPokemonIconMarkup(settings, id, byId)", script)
+        self.assertIn("encounter-pokemon-icon-list", styles)
 
     def test_world_level_overrides_are_saved_and_validated(self) -> None:
         root = PROJECT_ROOT
@@ -3091,6 +3108,114 @@ class ContentManagerTests(unittest.TestCase):
             )
             self.assertTrue(any("이미 존재" in issue.message for issue in duplicate_issues))
 
+    def test_route_preset_template_and_world_reference_are_validated(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            route_path, route_issues = content_manager._create_document(
+                root, "routes", "route_01", "1번 도로", "generation_1"
+            )
+            self.assertEqual([], route_issues)
+            self.assertTrue(route_path.is_file())
+            route_id, validation_issues = content_manager.validate_route_file(route_path)
+            self.assertEqual("cobbleventure:route/route_01", route_id)
+            self.assertFalse(any(issue.level == "error" for issue in validation_issues))
+
+            route = content_manager.load_json(route_path)
+            route["route_type"] = "log_bridge"
+            route_path.write_text(json.dumps(route), encoding="utf-8")
+            _, bridge_issues = content_manager.validate_route_file(route_path)
+            self.assertFalse(any(issue.level == "error" for issue in bridge_issues))
+
+            route_ids = {route_id}
+            world = {
+                "$schema": "../schemas/hex-world.schema.json",
+                "schema_version": 2,
+                "id": "cobbleventure:world/generation_1",
+                "dimension": "cobbleventure:generation_1",
+                "seed_salt": 1,
+                "grid": {"orientation": "pointy_top", "tile_radius_blocks": 64, "origin": {"x": 0, "y": 69, "z": 0}},
+                "settlements": [], "connections": [{
+                    "id": "route_custom_01", "route_preset": "cobbleventure:route/missing",
+                    "cells": [{"q": 0, "r": 0}], "corridor_width_blocks": 12,
+                    "edge_noise": 0, "surface_style": "road"
+                }]
+            }
+            world_dir = root / "content/worlds"; world_dir.mkdir(parents=True)
+            (world_dir / "generation_1.json").write_text(json.dumps(world), encoding="utf-8")
+            issues = content_manager.validate_hex_worlds(root, set(), route_ids=route_ids)
+            self.assertTrue(any("존재하지 않는 길 프리셋" in issue.message for issue in issues))
+
+    def test_route_preset_editor_is_exposed_in_web_ui(self) -> None:
+        html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        self.assertIn('data-section="routes"', html)
+        self.assertIn('<span>06</span>마을 관리', html)
+        self.assertIn('<span>07</span>길 관리', html)
+        self.assertNotIn('<span>06</span>마을 프리셋', html)
+        self.assertNotIn('<span>07</span>길 프리셋', html)
+        self.assertIn('routes: "길 관리"', script)
+        self.assertIn('settlements: "마을 관리"', script)
+        self.assertIn('id="route-preset-form"', html)
+        self.assertIn('name="routePreset"', html)
+        self.assertIn('id="open-selected-management"', html)
+        self.assertIn('id="route-copy-source"', html)
+        self.assertIn('id="edit-route-preset-pokemon"', html)
+        self.assertIn('name="autoName"', html)
+        self.assertIn('<option value="log_bridge">통나무다리</option>', html)
+        self.assertNotIn('data-create="routes"', html)
+        self.assertNotIn('id="delete-routePreset"', html)
+        self.assertNotIn("이전 방식 · 길에 직접 저장", script)
+        self.assertIn('request("/api/routes")', script)
+        self.assertIn('request("/api/routes/clone"', script)
+        self.assertIn("generatedRouteNames", script)
+        self.assertIn("resolveRouteEndpointPlace", script)
+        self.assertIn("persistAutomaticRouteNames", script)
+        self.assertIn('type === "log_bridge" ? "통나무다리"', script)
+        self.assertIn("progress_percent", script)
+        self.assertIn('setWorldManagementTarget("routes"', script)
+        self.assertIn('setWorldManagementTarget(selectedSettlement ? "settlements"', script)
+
+    def test_world_route_clone_copies_full_route_configuration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path, issues = content_manager._create_document(
+                root, "routes", "source_route", "원본 길", "generation_1"
+            )
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            source = content_manager.load_json(source_path)
+            source["pokemon_spawns"]["additions"] = [{"species": "cobblemon:pikachu", "min_level": 5, "max_level": 8}]
+            source["npc_placements"] = [{"id": "trainer", "npc": "cobbleventure:npc/test", "progress_percent": 50, "side": "right", "offset_blocks": 3, "facing": "against", "spawn_chance": 1, "respawn_policy": "always"}]
+            _, issues = content_manager._save_document(root, "routes", source_path.relative_to(root).as_posix(), source)
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+
+            target_path, target, issues = content_manager._clone_route_document(
+                root, source["id"], "route_custom_01", "새 길", "generation_1"
+            )
+
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            self.assertTrue(target_path.is_file())
+            self.assertEqual("cobbleventure:route/route_custom_01", target["id"])
+            self.assertEqual("새 길", target["display_name"]["ko_kr"])
+            self.assertTrue(target["auto_name"])
+            self.assertEqual(source["pokemon_spawns"], target["pokemon_spawns"])
+            self.assertEqual(source["npc_placements"], target["npc_placements"])
+
+    def test_every_authored_world_connection_has_its_own_route_preset(self) -> None:
+        world = content_manager.load_json(PROJECT_ROOT / "content/worlds/generation_1.json")
+        routes = {
+            content_manager.load_json(path)["id"]
+            for path in (PROJECT_ROOT / "content/routes/generation_1").glob("*.json")
+        }
+        references = [connection.get("route_preset") for connection in world["connections"]]
+        self.assertTrue(all(reference in routes for reference in references))
+        self.assertEqual(len(references), len(set(references)))
+        self.assertEqual(routes, set(references))
+
+    def test_world_authoring_navigation_groups_spatial_presets(self) -> None:
+        html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        positions = [html.index(f'data-section="{section}"') for section in ("worlds", "settlements", "routes", "caves", "forests")]
+        self.assertEqual(sorted(positions), positions)
+
     def test_strict_pack_rejects_draft_lock(self) -> None:
         root = PROJECT_ROOT
         issues = content_manager.validate_dependency_lock(
@@ -3429,9 +3554,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("마을 바이옴", page)
         self.assertIn("form.elements.townBiome", app_script)
         self.assertNotIn("node.town_biome = settlementPresetBiome", app_script)
-        self.assertIn("마을 프리셋", page)
+        self.assertIn("마을 관리", page)
         self.assertIn('name="settlementBiome"', page)
-        self.assertIn("프리셋 기본 지형 바이옴", page)
+        self.assertIn("마을 기본 지형 바이옴", page)
         self.assertIn("포켓몬 출현 바이옴 세트", page)
         self.assertIn("form.elements.settlementBiome.innerHTML = worldBiomeOptions", app_script)
         self.assertIn("state.settlement.biome_layout.zones[0].biome", app_script)
@@ -3847,6 +3972,89 @@ class ContentManagerTests(unittest.TestCase):
                 for issue in issues
             ))
 
+    def test_copy_managed_exterior_structure_copies_type_metadata_and_settings(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "content/structures/placeholder/shop.nbt"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(self._structure_nbt((16, 8, 12)))
+            source.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "structure": "content/structures/placeholder/shop.nbt",
+                "anchors": [{
+                    "id": "door", "label": "door", "type": "door",
+                    "position": [8, 1, 0], "safe_spawn": [8, 1, 1],
+                }],
+            }), encoding="utf-8")
+            settings = root / "content/catalogs/building-settings.json"
+            settings.parent.mkdir(parents=True)
+            settings.write_text(json.dumps({
+                "schema_version": 1,
+                "buildings": {"cobbleventure:placeholder/shop": {
+                    "placement_y_offset": -1,
+                    "no_interior_space": False,
+                    "fixed_npcs": {},
+                    "citizen_placement_allowed": False,
+                    "interiors": [],
+                    "door_routes": {},
+                }},
+            }), encoding="utf-8")
+
+            result = content_manager.copy_managed_exterior_structure(
+                root, "cobbleventure:placeholder/shop", "gate", "special_shop"
+            )
+
+            target = root / "content/structures/gate/special_shop.nbt"
+            self.assertEqual(source.read_bytes(), target.read_bytes())
+            self.assertEqual("placeholder", result["category"])
+            self.assertEqual("cobbleventure:gate/special_shop", result["structure"])
+            sidecar = json.loads(target.with_suffix(".structure.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                "content/structures/gate/special_shop.nbt",
+                sidecar["structure"],
+            )
+            saved = content_manager.load_building_settings(root)["buildings"]
+            copied = saved["cobbleventure:gate/special_shop"]
+            self.assertEqual(-1, copied["placement_y_offset"])
+            self.assertEqual("placeholder", copied["structure_category"])
+            payload = content_manager.building_settings_payload(root)
+            self.assertEqual(
+                "placeholder",
+                payload["structures"]["cobbleventure:gate/special_shop"]["category"],
+            )
+            self.assertFalse(content_manager.save_building_settings(
+                root, content_manager.load_building_settings(root)
+            ))
+            self.assertEqual(
+                "placeholder",
+                content_manager.load_building_settings(root)["buildings"]
+                    ["cobbleventure:gate/special_shop"]["structure_category"],
+            )
+
+    def test_copy_managed_exterior_structure_rejects_interior_source(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "content/structures/interiors/room.nbt"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(self._structure_nbt((8, 8, 8)))
+
+            with self.assertRaisesRegex(ValueError, "내부 NBT"):
+                content_manager.copy_managed_exterior_structure(
+                    root, "cobbleventure:interiors/room", "rooms", "room_copy"
+                )
+
+    def test_copy_managed_exterior_structure_rejects_invalid_target_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "content/structures/placeholder/shop.nbt"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(self._structure_nbt((8, 8, 8)))
+
+            with self.assertRaisesRegex(ValueError, "리소스 경로"):
+                content_manager.copy_managed_exterior_structure(
+                    root, "cobbleventure:placeholder/shop", "../gate", "shop_copy"
+                )
+
     def test_structure_web_cache_is_saved_and_loaded_without_rescanning_nbt(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -3981,6 +4189,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("/api/building-settings", script)
         self.assertIn("?refresh=1", script)
         self.assertIn("/api/interior-spaces", script)
+        self.assertIn("/api/exterior-structures/copy", script)
+        self.assertIn('id="copy-exterior-nbt"', structures)
+        self.assertIn('id="copy-exterior-structure-dialog"', markup)
+        self.assertIn('name="targetDirectory"', markup)
+        self.assertIn("specialBuildingPresetOptions", script)
         self.assertIn("npc_labels", script)
         self.assertIn("citizen_placement_allowed", script)
         self.assertIn("gym_exterior", script)

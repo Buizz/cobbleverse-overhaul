@@ -41,8 +41,9 @@
       "interiors": [],
       "door_routes": {}
     },
-    "cobbleventure:forest_entrance/forest_gate": {
+    "cobbleventure:gate/forest_gate": {
       "placement_y_offset": 0,
+      "structure_category": "natural_feature",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -398,6 +399,15 @@
     "cobbleventure:town_decorations/street_tree": {
       "placement_y_offset": 0,
       "no_interior_space": true,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:gate/default_gate": {
+      "placement_y_offset": 0,
+      "structure_category": "natural_feature",
+      "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
       "interiors": [],

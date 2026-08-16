@@ -13,8 +13,9 @@
     "schema_version": { "const": 1 },
     "id": { "$ref": "#/$defs/resource_id" },
     "display_name": { "$ref": "#/$defs/localized_text" },
+    "auto_name": { "type": "boolean", "default": true },
     "enabled": { "type": "boolean" },
-    "route_type": { "enum": ["road", "trail", "water"] },
+    "route_type": { "enum": ["road", "trail", "water", "log_bridge"] },
     "corridor": {
       "type": "object",
       "additionalProperties": false,

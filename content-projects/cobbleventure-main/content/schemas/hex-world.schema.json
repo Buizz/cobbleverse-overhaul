@@ -272,7 +272,7 @@
         "edge_noise": { "type": "number", "minimum": 0, "maximum": 0.35 },
         "boundary_profile": { "$ref": "#/$defs/resource_id" },
         "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
-        "surface_style": { "enum": ["road", "natural", "water"] },
+        "surface_style": { "enum": ["road", "natural", "water", "log_bridge"] },
         "music_track": { "$ref": "#/$defs/music_track" },
         "access_requirement": { "$ref": "#/$defs/resource_id" },
         "anchors": {

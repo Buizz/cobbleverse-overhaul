@@ -14,9 +14,9 @@ const structureViewPitch = {
 
 const state = {
   project: null,
-  trainers: [], battles: [], settlements: [], caves: [], forests: [], trainer: null, battlePreset: null, settlement: null, cave: null, forest: null, settlementOrderSaving: false,
+  trainers: [], battles: [], routes: [], settlements: [], caves: [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, forest: null, settlementOrderSaving: false,
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
-  trainerPath: "", battlePath: "", settlementPath: "", cavePath: "", forestPath: "", buildCommands: [], exportLanguages: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
+  trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", forestPath: "", buildCommands: [], exportLanguages: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
   biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
@@ -27,7 +27,7 @@ const state = {
   mapPan: null, suppressMapClick: false, draggedSettlement: null, entranceDrag: null, routeDraft: null, worldDirty: false,
   activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null, routePokemonQuery: "",
   routePokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
-  routePokemonLevelSpecies: null, encounterPokemonTarget: null, encounterPokemonQuery: "", encounterPokemonLevelSpecies: null,
+  routePokemonTarget: "world", routePokemonLevelSpecies: null, routeFinalizing: false, encounterPokemonTarget: null, encounterPokemonQuery: "", encounterPokemonLevelSpecies: null,
   encounterPokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
   gymLayout: { selected: null, drag: null, hitTargets: [] },
@@ -61,7 +61,7 @@ const defaultWorldEntranceStructures = {
     red_rock_mountain: "cobbleventure:cave_entrance/red_rock_mountain",
     snow_mountain: "cobbleventure:cave_entrance/snow_mountain"
   },
-  forest: "cobbleventure:forest_entrance/forest_gate"
+  forest: "cobbleventure:gate/forest_gate"
 };
 const biomeChoices = {
   habitat: [["plains", "평원"], ["forest", "숲"], ["arid", "건조지"], ["mountain", "산악"], ["cave", "동굴"], ["wetland", "습지"], ["freshwater", "담수"], ["ocean", "해양"], ["snow", "설원"], ["volcanic", "화산"], ["urban", "도시"], ["special", "특수"]],
@@ -332,7 +332,7 @@ function switchPage(section) {
   const navigationSection = ["gyms", "trainer-card"].includes(section) ? "league" : section;
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === navigationSection));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", caves: "동굴 관리", forests: "숲 관리", settlements: "마을 프리셋", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", caves: "동굴 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -420,8 +420,8 @@ async function pickProjectFolder() {
 }
 
 async function loadLists() {
-  const [trainers, battles, settlements, caves, forests, worldLayouts, worldLayout, worldPokemonMap, league, gyms, badges, music] = await Promise.all([
-    request("/api/trainers"), request("/api/battles"), request("/api/settlements"), request("/api/caves"), request("/api/forests"),
+  const [trainers, battles, routes, settlements, caves, forests, worldLayouts, worldLayout, worldPokemonMap, league, gyms, badges, music] = await Promise.all([
+    request("/api/trainers"), request("/api/battles"), request("/api/routes"), request("/api/settlements"), request("/api/caves"), request("/api/forests"),
     request("/api/world-layouts"), request(`/api/world-layout?generation=${state.selectedGeneration}`),
     request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`), request("/api/league-progression"), request("/api/gyms"), request("/api/badges"), request("/api/music-catalog")
   ]);
@@ -441,7 +441,8 @@ async function loadLists() {
   };
   applyDocumentList("trainers", trainers, "NPC");
   applyDocumentList("battles", battles, "배틀 프리셋");
-  applyDocumentList("settlements", settlements, "마을 프리셋");
+  applyDocumentList("routes", routes, "길");
+  applyDocumentList("settlements", settlements, "마을");
   applyDocumentList("caves", caves, "동굴");
   applyDocumentList("forests", forests, "숲");
   if (league.ok) state.leagueProgression = league.data;
@@ -615,8 +616,24 @@ function loadSectionData(section, force = false) {
 function settlementSummary(settlementId) {
   return state.settlements.find((item) => item.id === settlementId);
 }
+function routeSummary(routeId) { return state.routes.find((item) => item.id === routeId); }
 function caveSummary(caveId) { return state.caves.find((item) => item.id === caveId); }
 function forestSummary(forestId) { return state.forests.find((item) => item.id === forestId); }
+function setWorldManagementTarget(category = "", id = "") {
+  const button = $("#open-selected-management");
+  const summaries = state[category];
+  const target = Array.isArray(summaries) ? summaries.find((item) => item.id === id) : null;
+  button.hidden = !target?.path;
+  button.dataset.category = target?.path ? category : "";
+  button.dataset.path = target?.path || "";
+}
+async function openSelectedManagement() {
+  const button = $("#open-selected-management");
+  const { category, path } = button.dataset;
+  if (!category || !path) return;
+  switchPage(category);
+  await loadDocument(category, path);
+}
 function caveEntranceAt(q, r) { return (state.worldLayout?.cave_entrances || []).find((entry) => entry.anchor?.q === q && entry.anchor?.r === r); }
 function forestEntranceAt(q, r) { return (state.worldLayout?.forest_entrances || []).find((entry) => entry.anchor?.q === q && entry.anchor?.r === r); }
 function selectedEntrance() {
@@ -1050,7 +1067,7 @@ function renderHexMap() {
     const cells = connectionPath(connection);
     const points = cells.map((cell, index) => { const point = routeCellMapPoint(connection, cell, index, cells); return `${point.x},${point.y}`; }).join(" ");
     if (!points) return "";
-    const routeClass = connection.surface_style === "water" ? "water" : connection.access_requirement?.endsWith("/rock_climb") ? "climb" : "road";
+    const routeClass = connection.surface_style === "water" ? "water" : connection.surface_style === "log_bridge" ? "bridge" : connection.access_requirement?.endsWith("/rock_climb") ? "climb" : "road";
     const selected = state.selectedRouteId === connection.id;
     return `<g class="hex-route-group${selected ? " is-selected" : ""}" data-select-route="${escapeHtml(connection.id)}" tabindex="0" role="button" aria-label="${escapeHtml(routeDisplayName(connection))} 길 선택"><polyline class="hex-route ${routeClass}" points="${points}"><title>${escapeHtml(routeDisplayName(connection))}</title></polyline><polyline class="hex-route-hit" points="${points}"></polyline></g>`;
   }).join("");
@@ -1199,8 +1216,9 @@ function renderHexMap() {
   });
 }
 
-async function saveWorldLayout() {
-  if (!state.worldLayout) return;
+async function saveWorldLayout(options = {}) {
+  if (!state.worldLayout) return false;
+  const quiet = options?.quiet === true;
   for (const node of state.worldLayout.settlements || []) {
     node.town_radius_cells = settlementPresetRadius(node.settlement);
     node.town_footprint_shape = settlementPresetFootprintShape(node.settlement);
@@ -1208,18 +1226,21 @@ async function saveWorldLayout() {
     node.town_road_exits = settlementPresetRoadExits(node.settlement);
   }
   syncConnectionPaths();
+  syncAutomaticRouteNames();
   state.worldLayout.schema_version = 2;
   state.worldLayout.grid.tile_radius_blocks = Number($("#tile-radius-blocks").value || 64);
   const result = await request(`/api/world-layout?generation=${state.selectedGeneration}`, { method: "PUT", body: JSON.stringify(state.worldLayout) });
   showIssues("#world-layout-issues", result.data);
-  if (!result.ok) { toast(result.data.error || "월드 검증 오류로 저장하지 않았습니다."); return; }
-  toast(`${state.selectedGeneration}세대 육각 월드를 저장했습니다.`);
+  if (!result.ok) { toast(result.data.error || "월드 검증 오류로 저장하지 않았습니다."); return false; }
+  await persistAutomaticRouteNames();
+  if (!quiet) toast(`${state.selectedGeneration}세대 육각 월드를 저장했습니다.`);
   state.worldDirty = false;
   const reloaded = await request(`/api/world-layout?generation=${state.selectedGeneration}`);
   if (reloaded.ok) state.worldLayout = reloaded.data;
   const pokemonMap = await request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`);
   if (pokemonMap.ok) state.worldPokemonMap = pokemonMap.data;
   renderWorldLayout();
+  return true;
 }
 
 function selectHex(q, r) { state.selectedRouteId = null; state.selectedEntrance = null; state.selectedHex = { q, r }; renderHexMap(); renderTileInspector(); }
@@ -1306,7 +1327,6 @@ function paintLevelArea(q, r) {
 function eraseMapArea(q, r) {
   const target = $("#eraser-target").value; const radius = Number($("#eraser-radius").value || 0);
   const keys = new Set(hexArea({ q, r }, radius).map((cell) => hexKey(cell.q, cell.r)));
-  if (target === "route" || target === "all") state.worldLayout.connections = state.worldLayout.connections.filter((route) => !connectionPath(route).some((cell) => keys.has(hexKey(cell.q, cell.r))));
   if (target === "biome" || target === "all") state.worldLayout.tiles = state.worldLayout.tiles.filter((tile) => !keys.has(hexKey(tile.q, tile.r)));
   if (target === "climate" || target === "all") state.worldLayout.environment_overrides = state.worldLayout.environment_overrides.filter((entry) => !keys.has(hexKey(entry.q, entry.r)));
   if (target === "level" || target === "all") state.worldLayout.level_overrides = state.worldLayout.level_overrides.filter((entry) => !keys.has(hexKey(entry.q, entry.r)));
@@ -1496,7 +1516,88 @@ function updateGateOptionVisibility() {
 function selectedRoute() {
   return (state.worldLayout?.connections || []).find((entry) => entry.id === state.selectedRouteId) || null;
 }
-function routeDisplayName(route) { return route?.display_name || route?.id || "길"; }
+function routeDisplayName(route) {
+  if (route && routeSummary(route.route_preset)?.auto_name !== false) return generatedRouteNames(route).ko_kr;
+  return route?.display_name || route?.id || "길";
+}
+function routeSurfaceLabel(surface) {
+  return ({ road: "도로", natural: "자연 통로", water: "수로", log_bridge: "통나무다리" })[surface] || surface || "도로";
+}
+function routePlaceFromId(endpointId) {
+  if (!endpointId) return null;
+  const settlement = settlementSummary(endpointId);
+  if (settlement) return { id: endpointId, name: settlement.name || endpointId, kind: "settlement" };
+  const caveEntrance = (state.worldLayout?.cave_entrances || []).find((entry) => entry.id === endpointId);
+  if (caveEntrance) return { id: caveEntrance.cave, name: caveSummary(caveEntrance.cave)?.name || caveEntrance.cave, kind: "cave" };
+  const forestEntrance = (state.worldLayout?.forest_entrances || []).find((entry) => entry.id === endpointId);
+  if (forestEntrance) return { id: forestEntrance.forest, name: forestSummary(forestEntrance.forest)?.name || forestEntrance.forest, kind: "forest" };
+  return null;
+}
+function routePlaceAtCell(cell) {
+  if (!cell) return null;
+  const settlement = settlementFootprintAt(cell.q, cell.r);
+  if (settlement) return routePlaceFromId(settlement.settlement);
+  const caveEntrance = caveEntranceAt(cell.q, cell.r);
+  if (caveEntrance) return { id: caveEntrance.cave, name: caveSummary(caveEntrance.cave)?.name || caveEntrance.cave, kind: "cave" };
+  const forestEntrance = forestEntranceAt(cell.q, cell.r);
+  if (forestEntrance) return { id: forestEntrance.forest, name: forestSummary(forestEntrance.forest)?.name || forestEntrance.forest, kind: "forest" };
+  return null;
+}
+function resolveRouteEndpointPlace(route, side, visited = new Set()) {
+  if (!route || visited.has(route.id)) return null;
+  const nextVisited = new Set(visited); nextVisited.add(route.id);
+  const cells = connectionPath(route); const endpoint = side === "start" ? cells[0] : cells.at(-1);
+  const direct = routePlaceFromId(side === "start" ? route.from : route.to) || routePlaceAtCell(endpoint);
+  if (direct) return direct;
+  if (!endpoint) return null;
+  const connectedRoutes = (state.worldLayout?.connections || []).filter((candidate) => candidate.id !== route.id && connectionPath(candidate).some((cell) => cell.q === endpoint.q && cell.r === endpoint.r));
+  for (const connected of connectedRoutes) {
+    const start = resolveRouteEndpointPlace(connected, "start", nextVisited);
+    if (start) return start;
+    const end = resolveRouteEndpointPlace(connected, "end", nextVisited);
+    if (end) return end;
+  }
+  return null;
+}
+function routeDirectionName(from, to) {
+  if (!from || !to) return "외곽";
+  const start = hexPoint(from.q, from.r); const end = hexPoint(to.q, to.r);
+  const dx = end.x - start.x; const dy = end.y - start.y;
+  return Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? "동" : "서") : (dy >= 0 ? "남" : "북");
+}
+function generatedRouteNames(route) {
+  const cells = connectionPath(route); const startPlace = resolveRouteEndpointPlace(route, "start"); const endPlace = resolveRouteEndpointPlace(route, "end");
+  const preset = routeSummary(route.route_preset); const type = preset?.route_type || (route.surface_style === "natural" ? "trail" : route.surface_style) || "road";
+  const suffix = type === "water" ? "수로" : type === "log_bridge" ? "통나무다리" : type === "trail" ? "통로" : "길";
+  let ko;
+  if (startPlace && endPlace && startPlace.id !== endPlace.id) ko = `${startPlace.name} - ${endPlace.name} ${suffix}`;
+  else if (startPlace && endPlace) ko = `${startPlace.name} 순환 ${suffix}`;
+  else if (startPlace || endPlace) {
+    const place = startPlace || endPlace; const namedCell = startPlace ? cells[0] : cells.at(-1); const openCell = startPlace ? cells.at(-1) : cells[0];
+    ko = `${place.name} ${routeDirectionName(namedCell, openCell)}쪽 ${suffix}`;
+  } else ko = `임시 ${suffix} ${String(route.id || "route").replace(/^route_/, "")}`;
+  return { ko_kr: ko, en_us: ko };
+}
+function syncAutomaticRouteNames() {
+  for (const route of state.worldLayout?.connections || []) {
+    const preset = routeSummary(route.route_preset);
+    if (preset?.auto_name === false) continue;
+    const names = generatedRouteNames(route);
+    route.display_name = names.ko_kr;
+    if (preset) preset.name = names.ko_kr;
+  }
+}
+async function persistAutomaticRouteNames() {
+  const jobs = (state.worldLayout?.connections || []).map(async (route) => {
+    const summary = routeSummary(route.route_preset); if (!summary?.path || summary.auto_name === false) return;
+    const loaded = await request(`/api/routes?path=${encodeURIComponent(summary.path)}`); if (!loaded.ok || loaded.data.document?.auto_name === false) return;
+    const document = loaded.data.document; const names = generatedRouteNames(route);
+    document.auto_name = true; document.display_name = names;
+    const saved = await request(`/api/routes?path=${encodeURIComponent(summary.path)}`, { method: "PUT", body: JSON.stringify(document) });
+    if (saved.ok) summary.name = names.ko_kr;
+  });
+  await Promise.all(jobs);
+}
 function ensureRoutePokemonSettings(route) {
   route.pokemon_spawns ||= { inherit_biome: true, excluded_species: [], additions: [] };
   route.pokemon_spawns.inherit_biome = route.pokemon_spawns.inherit_biome !== false;
@@ -1545,11 +1646,30 @@ function encounterBasePokemonIds(settings) {
   const habitats = new Set(profiles.map((profile) => profile.habitat).filter(Boolean));
   return worldPokemonCatalog().filter((entry) => habitats.has(entry.habitats?.primary) || (profiles.some((profile) => profile.settings?.include_secondary !== false) && habitats.has(entry.habitats?.secondary))).map((entry) => entry.id);
 }
+function encounterEffectivePokemonIds(settings) {
+  if (!settings?.enabled) return [];
+  const excluded = new Set(settings.excluded_species || []);
+  const ids = settings.inherit_biome ? encounterBasePokemonIds(settings).filter((id) => !excluded.has(id)) : [];
+  for (const addition of settings.additions || []) if (addition?.species && !ids.includes(addition.species)) ids.push(addition.species);
+  return ids;
+}
+function encounterPokemonIconMarkup(settings, species, byId) {
+  const entry = byId.get(species); const override = pokemonLevelOverride(settings, species);
+  const minimum = override?.min_level ?? settings.minimum_level; const maximum = override?.max_level ?? settings.maximum_level;
+  const levelLabel = minimum === maximum ? `Lv.${minimum}` : `Lv.${minimum}–${maximum}`;
+  const name = entry ? pokemonMapEntryName(entry) : species; const dex = Number(entry?.dex_number);
+  return `<span class="encounter-pokemon-icon" title="${escapeHtml(`${name} · ${levelLabel}`)}" aria-label="${escapeHtml(`${name}, ${levelLabel}`)}">${Number.isFinite(dex) ? `<img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dex}.png" alt="">` : `<i>?</i>`}<small>${escapeHtml(levelLabel.replace("Lv.", ""))}</small></span>`;
+}
 function renderEncounterSummary(target) {
   const settings = encounterSettings(target); if (!settings) return;
-  const count = (settings.inherit_biome ? encounterBasePokemonIds(settings).filter((id) => !settings.excluded_species.includes(id)).length : 0) + settings.additions.filter((addition) => !encounterBasePokemonIds(settings).includes(addition.species) || settings.excluded_species.includes(addition.species)).length;
-  $(`[data-encounter-pokemon-count="${target}"]`).textContent = `${count}종`;
-  $(`[data-encounter-pokemon-description="${target}"]`).textContent = `${settings.pokemon_biome} 기본 ${settings.inherit_biome ? "사용" : "미사용"} · 직접 추가 ${settings.additions.length}종 · 제외 ${settings.excluded_species.length}종`;
+  const species = encounterEffectivePokemonIds(settings); const byId = worldPokemonById(); const iconList = $(`[data-encounter-pokemon-icons="${target}"]`);
+  $(`[data-encounter-pokemon-count="${target}"]`).textContent = `${species.length}종`;
+  $(`[data-encounter-pokemon-description="${target}"]`).textContent = settings.enabled
+    ? `${settings.pokemon_biome} 기본 ${settings.inherit_biome ? "사용" : "미사용"} · 직접 추가 ${settings.additions.length}종 · 제외 ${settings.excluded_species.length}종`
+    : "주변 인카운터를 사용하지 않아 실제 출현 포켓몬이 없습니다.";
+  iconList.innerHTML = species.length
+    ? species.map((id) => encounterPokemonIconMarkup(settings, id, byId)).join("")
+    : `<span class="encounter-pokemon-icon-empty">${settings.enabled ? "현재 조건에서 출현하는 포켓몬이 없습니다." : "인카운터 사용 안 함"}</span>`;
 }
 function renderEncounterPokemonPicker() {
   const catalog = worldPokemonCatalog(), picker = state.encounterPokemonPicker;
@@ -1631,6 +1751,7 @@ function addSelectedEncounterPokemon() {
   state.encounterPokemonPicker.selected.clear(); renderEncounterPokemonDialog(); toast(`${selected.length}종을 서식 포켓몬에 추가했습니다.`);
 }
 function routeBasePokemonIds(route) {
+  if (!route) return [];
   const ids = new Set(); const locations = state.worldPokemonMap?.locations || [];
   for (const cell of connectionPath(route)) {
     const location = locations.find((entry) => entry.q === cell.q && entry.r === cell.r);
@@ -1638,21 +1759,42 @@ function routeBasePokemonIds(route) {
   }
   return [...ids];
 }
+function routePokemonDocument() { return state.routePokemonTarget === "preset" ? state.routePreset : selectedRoute(); }
+function routePokemonContextRoute() {
+  if (state.routePokemonTarget !== "preset") return selectedRoute();
+  return (state.worldLayout?.connections || []).find((route) => route.route_preset === state.routePreset?.id) || null;
+}
+function routePokemonSettings() { const document = routePokemonDocument(); return document ? ensureRoutePokemonSettings(document) : null; }
+function refreshRoutePokemonEditing() {
+  if (state.routePokemonTarget === "preset") renderRoutePreset();
+  else { const route = selectedRoute(); if (route) { markWorldDirty(); renderRouteInspector(route); renderWorldPokemonPanel(); } }
+  renderRoutePokemonDialog();
+}
 function routeEffectivePokemonIds(route) {
-  const settings = ensureRoutePokemonSettings(route); const excluded = new Set(settings.excluded_species);
+  const settings = ensureRoutePokemonSettings(routeSummary(route?.route_preset) || route); const excluded = new Set(settings.excluded_species);
   const ids = settings.inherit_biome ? routeBasePokemonIds(route).filter((id) => !excluded.has(id)) : [];
   for (const addition of settings.additions) if (addition?.species && !ids.includes(addition.species)) ids.push(addition.species);
   return ids;
 }
 function renderRouteInspector(route) {
-  const form = $("#route-inspector-form"); const cells = connectionPath(route); const settings = ensureRoutePokemonSettings(route);
+  const form = $("#route-inspector-form"); const cells = connectionPath(route);
+  const preset = routeSummary(route.route_preset);
+  const settings = ensureRoutePokemonSettings(preset || route);
+  setWorldManagementTarget("routes", route.route_preset);
   $("#selection-inspector-kind").textContent = "SELECTED ROUTE";
   $("#selected-tile-title").textContent = routeDisplayName(route);
   $("#selected-tile-coord").textContent = `${cells.length}칸`;
   $("#route-inspector-id").textContent = route.id;
+  form.elements.routePreset.innerHTML = preset
+    ? `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.name || preset.id)} · NPC ${Number(preset.npc_count || 0)}명</option>`
+    : '<option value="">전용 길 설정이 없습니다</option>';
+  form.elements.routePreset.value = route.route_preset || "";
+  form.elements.routePreset.disabled = true;
   form.elements.displayName.value = route.display_name || "";
-  form.elements.surfaceStyle.value = route.surface_style || "road";
-  form.elements.corridorWidth.value = Number(route.corridor_width_blocks || 12);
+  form.elements.displayName.disabled = preset?.auto_name !== false;
+  form.elements.surfaceStyle.value = preset?.route_type === "trail" ? "natural" : preset?.route_type || route.surface_style || "road";
+  form.elements.corridorWidth.value = Number(preset?.corridor_width_blocks || route.corridor_width_blocks || 12);
+  form.elements.surfaceStyle.disabled = Boolean(preset); form.elements.corridorWidth.disabled = Boolean(preset); form.elements.musicTrack.disabled = Boolean(preset);
   form.elements.musicTrack.innerHTML = musicOptions(route.music_track || "", "road");
   form.elements.musicTrack.value = route.music_track || "";
   $("#route-music-resolution").textContent = route.music_track ? `직접 지정 · ${musicTrackLabel(route.music_track)}` : `상속 · ${musicTrackLabel(state.musicCatalog.defaults?.road)}`;
@@ -1661,13 +1803,16 @@ function renderRouteInspector(route) {
   $("#route-pokemon-description").textContent = settings.inherit_biome
     ? `기존 바이옴 사용 · ${settings.excluded_species.length}종 제외 · ${settings.additions.length}종 직접 추가`
     : `기존 바이옴 미사용 · ${settings.additions.length}종만 직접 출현`;
+  $("#edit-route-pokemon").disabled = Boolean(preset);
+  if (preset) $("#route-pokemon-description").textContent = `${preset.name || preset.id} 길 설정에서 관리 · NPC ${Number(preset.npc_count || 0)}명`;
   const fromName = route.from ? settlementSummary(route.from)?.name || route.from : "직접 시작";
   const toName = route.to ? settlementSummary(route.to)?.name || route.to : "직접 종료";
-  $("#route-summary").innerHTML = `<b>${escapeHtml(routeDisplayName(route))}</b><span>${escapeHtml(fromName)} → ${escapeHtml(toName)}</span><small>${escapeHtml(route.surface_style || "road")} · ${cells.length}칸 · 폭 ${Number(route.corridor_width_blocks || 12)}블록</small>`;
+  $("#route-summary").innerHTML = `<b>${escapeHtml(routeDisplayName(route))}</b><span>${escapeHtml(fromName)} → ${escapeHtml(toName)}</span><small>${preset ? `${escapeHtml(preset.name || preset.id)} 길 설정 · ` : "길 설정 미지정 · "}${escapeHtml(routeSurfaceLabel(form.elements.surfaceStyle.value))} · ${cells.length}칸 · 폭 ${Number(form.elements.corridorWidth.value)}블록</small>`;
 }
 
 function renderEntranceInspector(selection) {
   const { kind, entrance } = selection; const form = $("#entrance-inspector-form"); const tile = tileAt(entrance.anchor.q, entrance.anchor.r);
+  setWorldManagementTarget(kind === "cave" ? "caves" : "forests", kind === "cave" ? entrance.cave : entrance.forest);
   const underlying = tile ? tile.biome : emptyTerrainLabel(emptyTerrainAt(entrance.anchor.q, entrance.anchor.r));
   $("#selection-inspector-kind").textContent = kind === "cave" ? "CAVE ENTRANCE" : "FOREST ENTRANCE";
   $("#selected-tile-title").textContent = kind === "cave" ? `${caveSummary(entrance.cave)?.name || entrance.cave} 입구` : `${forestSummary(entrance.forest)?.name || entrance.forest} 입구`;
@@ -1690,12 +1835,14 @@ function renderTileInspector() {
   if (route) { renderRouteInspector(route); renderWorldPokemonPanel(); return; }
   if (entrance) { renderEntranceInspector(entrance); renderWorldPokemonPanel(); return; }
   $("#selection-inspector-kind").textContent = "SELECTED TILE";
-  if (!selected) { $("#selected-tile-title").textContent = "타일을 선택하세요"; $("#selected-tile-coord").textContent = "Q — · R —"; renderWorldPokemonPanel(); return; }
+  if (!selected) { setWorldManagementTarget(); $("#selected-tile-title").textContent = "타일을 선택하세요"; $("#selected-tile-coord").textContent = "Q — · R —"; renderWorldPokemonPanel(); return; }
   const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r); const customObject = objectAt(selected.q, selected.r); const townArea = settlementFootprintAt(selected.q, selected.r); const environment = environmentOverrideAt(selected.q, selected.r); const leveling = levelOverrideAt(selected.q, selected.r);
   const routes = routesAt(selected.q, selected.r);
   const musicOverride = musicOverrideAt(selected.q, selected.r);
   const musicContext = town || townArea ? "settlement" : routes.length ? "road" : "tile";
   const kind = customObject ? "object" : town ? "settlement" : tile ? "biome" : "empty";
+  const selectedSettlement = town?.settlement || townArea?.settlement;
+  setWorldManagementTarget(selectedSettlement ? "settlements" : "", selectedSettlement || "");
   $("#selected-tile-title").textContent = customObject ? customObject.id : town ? (settlementSummary(town.settlement)?.name || "마을 타일") : tile ? tile.biome.replace("minecraft:", "") : emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r));
   $("#selected-tile-coord").textContent = `Q ${selected.q} · R ${selected.r}`;
   form.elements.kind.value = kind;
@@ -1819,7 +1966,7 @@ function renderRoutePokemonPicker() {
   $("#route-pokemon-picker-special").value = picker.special;
   $("#route-pokemon-picker-availability").value = picker.availability;
   $("#route-pokemon-picker-search").value = picker.query;
-  const route = selectedRoute(); const added = new Set(ensureRoutePokemonSettings(route).additions.map((entry) => entry.species));
+  const added = new Set((routePokemonSettings()?.additions || []).map((entry) => entry.species));
   const matches = filteredRoutePokemonPickerEntries(); const visible = matches.slice(0, 180);
   $("#route-pokemon-picker-result").textContent = `${matches.length.toLocaleString()}종${matches.length > visible.length ? ` · 앞 ${visible.length}종 표시` : ""}`;
   pickerList.innerHTML = visible.length ? visible.map((entry) => {
@@ -1831,12 +1978,14 @@ function renderRoutePokemonPicker() {
   addButton.textContent = `선택한 ${selectedCount}종 추가`; addButton.disabled = selectedCount === 0;
 }
 function renderRoutePokemonDialog() {
-  const route = selectedRoute(); if (!route) return;
+  const document = routePokemonDocument(); const route = routePokemonContextRoute(); if (!document) return;
   const baseList = $("#route-biome-pokemon-list"); const baseScrollTop = baseList.scrollTop;
   const directList = $("#route-direct-pokemon-list"); const directScrollTop = directList.scrollTop;
-  const settings = ensureRoutePokemonSettings(route); const byId = worldPokemonById(); const query = state.routePokemonQuery.toLowerCase();
-  $("#route-pokemon-dialog-title").textContent = `${routeDisplayName(route)} 포켓몬 편집`;
-  $("#route-pokemon-dialog-subtitle").textContent = `${route.id} · ${connectionPath(route).length}칸`;
+  const settings = ensureRoutePokemonSettings(document); const byId = worldPokemonById(); const query = state.routePokemonQuery.toLowerCase();
+  const title = state.routePokemonTarget === "preset" ? document.display_name?.ko_kr || document.id : routeDisplayName(route);
+  $("#route-pokemon-dialog-title").textContent = `${title} 서식지 편집`;
+  $("#route-pokemon-dialog-subtitle").textContent = `${document.id} · ${route ? `${connectionPath(route).length}칸` : "월드맵 배치 없음"}`;
+  $("#route-pokemon-save-hint").textContent = state.routePokemonTarget === "preset" ? "변경 사항은 길 설정 저장 버튼을 눌러야 파일에 반영됩니다." : "변경 사항은 월드 저장 버튼을 눌러야 파일에 반영됩니다.";
   $("#route-inherit-biome").checked = settings.inherit_biome;
   const excluded = new Set(settings.excluded_species);
   const baseEntries = routeBasePokemonIds(route).map((id) => byId.get(id)).filter(Boolean).filter((entry) => !query || pokemonSearchText(entry).includes(query));
@@ -1849,41 +1998,42 @@ function renderRoutePokemonDialog() {
   $("#route-biome-pokemon-count").textContent = `${baseEntries.length}종`; $("#route-direct-pokemon-count").textContent = `${directEntries.length}종`;
   $("#route-custom-pokemon-count").textContent = `${settings.additions.length}종 추가됨`;
   renderRoutePokemonPicker();
-  renderPokemonLevelEditor("route", settings, routeDefaultPokemonLevelRange(route));
+  renderPokemonLevelEditor("route", settings, route ? routeDefaultPokemonLevelRange(route) : { min: 1, max: 100 });
   baseList.scrollTop = baseScrollTop;
   directList.scrollTop = directScrollTop;
 }
-function openRoutePokemonDialog() {
-  if (!selectedRoute()) return;
+function openRoutePokemonDialog(target = "world") {
+  state.routePokemonTarget = target;
+  if (!routePokemonDocument()) return;
   state.routePokemonLevelSpecies = null;
   state.routePokemonQuery = "";
   state.routePokemonPicker = { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() };
   $("#route-biome-pokemon-search").value = "";
   renderRoutePokemonDialog(); $("#route-pokemon-dialog").showModal();
 }
+function openRoutePresetPokemonDialog() { openRoutePokemonDialog("preset"); }
 function addSelectedRoutePokemon() {
-  const route = selectedRoute(); if (!route) return;
-  const settings = ensureRoutePokemonSettings(route); const existing = new Set(settings.additions.map((addition) => addition.species));
+  const settings = routePokemonSettings(); if (!settings) return; const existing = new Set(settings.additions.map((addition) => addition.species));
   const selected = worldPokemonCatalog().filter((entry) => state.routePokemonPicker.selected.has(entry.id) && !existing.has(entry.id));
   if (!selected.length) return;
   settings.additions.push(...selected.map((entry) => ({ species: entry.id, min_level: 1, max_level: 100 })));
-  state.routePokemonPicker.selected.clear(); markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
+  state.routePokemonPicker.selected.clear(); refreshRoutePokemonEditing();
   toast(`${selected.length}종을 길 포켓몬에 추가했습니다.`);
 }
 function toggleRouteBiomePokemon(species) {
-  const route = selectedRoute(); if (!route) return; const settings = ensureRoutePokemonSettings(route);
+  const settings = routePokemonSettings(); if (!settings) return;
   const excluded = new Set(settings.excluded_species);
   if (excluded.has(species)) excluded.delete(species); else excluded.add(species);
-  settings.excluded_species = [...excluded].sort(); markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
+  settings.excluded_species = [...excluded].sort(); refreshRoutePokemonEditing();
 }
 function removeRoutePokemon(index) {
-  const route = selectedRoute(); if (!route) return; const settings = ensureRoutePokemonSettings(route), [removed] = settings.additions.splice(index, 1);
+  const settings = routePokemonSettings(); if (!settings) return; const [removed] = settings.additions.splice(index, 1);
   if (removed) settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== removed.species);
-  markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
+  refreshRoutePokemonEditing();
 }
 
 function applyPokemonLevelOverride(target) {
-  const settings = target === "route" ? ensureRoutePokemonSettings(selectedRoute()) : encounterSettings();
+  const settings = target === "route" ? routePokemonSettings() : encounterSettings();
   const species = state[`${target}PokemonLevelSpecies`]; if (!settings || !species) return;
   const minimum = Math.round(Number($(`#${target}-pokemon-level-min`).value));
   const maximum = Math.round(Number($(`#${target}-pokemon-level-max`).value));
@@ -1891,14 +2041,14 @@ function applyPokemonLevelOverride(target) {
   settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== species);
   settings.level_overrides.push({ species, min_level: minimum, max_level: maximum });
   settings.level_overrides.sort((left, right) => left.species.localeCompare(right.species));
-  if (target === "route") { markWorldDirty(); renderRouteInspector(selectedRoute()); renderRoutePokemonDialog(); renderWorldPokemonPanel(); } else renderEncounterPokemonDialog();
+  if (target === "route") refreshRoutePokemonEditing(); else renderEncounterPokemonDialog();
 }
 function resetPokemonLevelOverride(target) {
-  const settings = target === "route" ? ensureRoutePokemonSettings(selectedRoute()) : encounterSettings();
+  const settings = target === "route" ? routePokemonSettings() : encounterSettings();
   const species = state[`${target}PokemonLevelSpecies`]; if (!settings || !species) return;
   settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== species);
   state[`${target}PokemonLevelSpecies`] = null;
-  if (target === "route") { markWorldDirty(); renderRouteInspector(selectedRoute()); renderRoutePokemonDialog(); renderWorldPokemonPanel(); } else renderEncounterPokemonDialog();
+  if (target === "route") refreshRoutePokemonEditing(); else renderEncounterPokemonDialog();
 }
 
 function pokemonMapEntryName(entry) { return entry?.display_name?.ko_kr || entry?.display_name?.en_us || entry?.slug || entry?.id || "알 수 없음"; }
@@ -1947,7 +2097,7 @@ const mapToolCopy = {
   climate: ["기후 오버라이드", "온도·습도·날씨를 좌표별로 덮어씁니다."],
   level: ["평균 레벨 브러시", "야생 포켓몬 지역의 목표 평균 레벨을 칠합니다."],
   route: ["길 만들기", "마을 자동 연결 또는 타일 경유 경로를 만듭니다."],
-  settlement: ["마을 배치", "빈 타일에 프리셋 마을을 새로 배치합니다."],
+  settlement: ["마을 배치", "빈 타일에 관리 중인 마을을 새로 배치합니다."],
   entrance: ["출입구 배치", "동굴·숲 출입구 종류와 포켓몬센터 여부를 정해 배치합니다."],
   object: ["오브젝트 배치", "확장 가능한 커스텀 오브젝트를 배치합니다."],
   eraser: ["지우개", "선택한 월드 레이어를 제거합니다."]
@@ -2015,8 +2165,10 @@ function renderRouteCreator() {
   $("#finish-route").hidden = !active;
   $("#cancel-route").hidden = !active;
   $("#undo-route-anchor").hidden = !active || state.routeDraft.anchors.length < 2;
-  $("#route-surface").disabled = active;
-  $("#route-width").disabled = active;
+  const copySelect = $("#route-copy-source"); const selectedCopy = state.routeDraft?.source_route_preset || copySelect.value;
+  copySelect.innerHTML = state.routes.length ? state.routes.map((route) => `<option value="${escapeHtml(route.id)}">${escapeHtml(route.name || route.id)}</option>`).join("") : '<option value="">복사할 길이 없습니다</option>';
+  copySelect.value = state.routes.some((route) => route.id === selectedCopy) ? selectedCopy : state.routes[0]?.id || "";
+  copySelect.disabled = active || !state.routes.length;
   const origin = state.routeDraft?.from ? settlementSummary(state.routeDraft.from)?.name || state.routeDraft.from : null;
   $("#route-tool-status").textContent = active ? (origin ? `${origin}에서 연결 중 · 앵커 ${state.routeDraft.anchors.length}개` : `직접 그리는 중 · 앵커 ${state.routeDraft.anchors.length}개`) : "첫 앵커를 배치하세요";
   $("#route-editor-help").textContent = active ? `${state.routeDraft.cells.length}칸 경로 · ${origin ? "지형을 누르면 앵커 추가, 다른 마을을 누르면 현재 앵커를 거쳐 완료" : "지형을 누를 때마다 앵커 추가"}` : "마을이나 지형을 누를 때마다 앵커가 생깁니다. 앵커 사이의 길은 자동으로 이어집니다.";
@@ -2025,7 +2177,7 @@ function renderRouteCreator() {
   $("#route-manager-list").innerHTML = routes.length ? routes.map((route) => {
     const fromName = route.from ? settlementSummary(route.from)?.name || route.from.split("/").pop() : "직접";
     const toName = route.to ? settlementSummary(route.to)?.name || route.to.split("/").pop() : "그리기";
-    return `<article class="route-manager-item"><button type="button" class="route-focus" data-focus-route="${escapeHtml(route.id)}"><b>${escapeHtml(routeDisplayName(route))}</b><span>${escapeHtml(fromName)} → ${escapeHtml(toName)}</span><small>${escapeHtml(route.id)} · ${escapeHtml(route.surface_style)} · ${connectionPath(route).length}칸</small></button><label><span>도로 BGM</span><select data-route-music="${escapeHtml(route.id)}">${musicOptions(route.music_track || "", "road")}</select></label><button type="button" class="route-delete" data-delete-route="${escapeHtml(route.id)}" aria-label="${escapeHtml(routeDisplayName(route))} 삭제">×</button></article>`;
+    return `<article class="route-manager-item"><button type="button" class="route-focus" data-focus-route="${escapeHtml(route.id)}"><b>${escapeHtml(routeDisplayName(route))}</b><span>${escapeHtml(fromName)} → ${escapeHtml(toName)}</span><small>${escapeHtml(route.id)} · ${escapeHtml(routeSurfaceLabel(route.surface_style))} · ${connectionPath(route).length}칸</small></button><label><span>도로 BGM</span><select data-route-music="${escapeHtml(route.id)}">${musicOptions(route.music_track || "", "road")}</select></label><button type="button" class="route-delete" data-delete-route="${escapeHtml(route.id)}" aria-label="${escapeHtml(routeDisplayName(route))} 삭제">×</button></article>`;
   }).join("") : '<p class="route-list-empty">아직 배치된 길이 없습니다.</p>';
   $$('[data-delete-route]').forEach((button) => button.addEventListener("click", () => removeRouteConnection(button.dataset.deleteRoute)));
   $$('[data-focus-route]').forEach((button) => button.addEventListener("click", () => focusRoute(button.dataset.focusRoute)));
@@ -2033,18 +2185,55 @@ function renderRouteCreator() {
 
 function nextRouteId() {
   const used = new Set((state.worldLayout?.connections || []).map((connection) => connection.id));
+  for (const route of state.routes) used.add(route.id?.split("/").pop());
   let index = 1;
   while (used.has(`route_custom_${String(index).padStart(2, "0")}`)) index++;
   return `route_custom_${String(index).padStart(2, "0")}`;
 }
 
 function routeDraftDefaults() {
-  return { id: nextRouteId(), surface_style: $("#route-surface").value, corridor_width_blocks: Number($("#route-width").value || 12), edge_noise: 0, anchors: [], cells: [] };
+  const preset = routeSummary($("#route-copy-source").value) || state.routes[0];
+  if (!preset) return null;
+  const id = nextRouteId();
+  const surface = preset.route_type === "trail" ? "natural" : preset.route_type || "road";
+  return { id, source_route_preset: preset.id, route_preset: `cobbleventure:route/${id}`, surface_style: surface, corridor_width_blocks: Number(preset.corridor_width_blocks || 12), edge_noise: 0, anchors: [], cells: [] };
 }
-function handleRoutePoint(q, r, settlementId = settlementAt(q, r)?.settlement) {
+async function cloneRoutePresetForDraft(draft, connection) {
+  const source = routeSummary(draft.source_route_preset);
+  const generatedName = generatedRouteNames(connection).ko_kr;
+  const result = await request("/api/routes/clone", { method: "POST", body: JSON.stringify({ source_id: draft.source_route_preset, slug: draft.id, name: generatedName, generation: `generation_${state.selectedGeneration}` }) });
+  if (!result.ok || !result.data.document) { showIssues("#world-layout-issues", result.data); toast(result.data.error || "기존 길을 복사하지 못했습니다."); return false; }
+  const document = result.data.document;
+  state.routes.push({ path: result.data.path, id: document.id, name: document.display_name?.ko_kr || document.id, auto_name: document.auto_name !== false, enabled: document.enabled !== false, route_type: document.route_type || "road", corridor_width_blocks: Number(document.corridor?.width_blocks || 12), npc_count: document.npc_placements?.length || 0, pokemon_spawns: structuredClone(document.pokemon_spawns || {}) });
+  state.routes.sort((left, right) => left.name.localeCompare(right.name, "ko", { numeric: true }));
+  return true;
+}
+async function finalizeRouteDraft(connection, successMessage) {
+  if (state.routeFinalizing) return false;
+  state.routeFinalizing = true;
+  try {
+    const draft = state.routeDraft;
+    if (!await cloneRoutePresetForDraft(draft, connection)) return false;
+    connection.display_name = generatedRouteNames(connection).ko_kr;
+    state.worldLayout.connections.push(connection);
+    state.routeDraft = null; markWorldDirty(); renderWorldLayout();
+    if (!await saveWorldLayout({ quiet: true })) {
+      state.worldLayout.connections = state.worldLayout.connections.filter((route) => route.id !== connection.id);
+      const preset = routeSummary(connection.route_preset);
+      if (preset?.path) await request(`/api/routes?path=${encodeURIComponent(preset.path)}`, { method: "DELETE" });
+      state.routes = state.routes.filter((route) => route.id !== connection.route_preset);
+      state.routeDraft = draft; renderWorldLayout(); return false;
+    }
+    toast(successMessage); return true;
+  } finally { state.routeFinalizing = false; }
+}
+async function handleRoutePoint(q, r, settlementId = settlementAt(q, r)?.settlement) {
+  if (state.routeFinalizing) return;
   if (!state.routeDraft) {
+    const defaults = routeDraftDefaults();
+    if (!defaults) { toast("먼저 길 관리에서 길 설정을 하나 이상 만들어 주세요."); return; }
     state.selectedRouteId = null;
-    state.routeDraft = { ...routeDraftDefaults(), ...(settlementId ? { from: settlementId } : {}), anchors: [{ q, r }], cells: [{ q, r }] };
+    state.routeDraft = { ...defaults, ...(settlementId ? { from: settlementId } : {}), anchors: [{ q, r }], cells: [{ q, r }] };
     state.selectedHex = { q, r }; renderWorldLayout(); return;
   }
   const draft = state.routeDraft;
@@ -2052,8 +2241,9 @@ function handleRoutePoint(q, r, settlementId = settlementAt(q, r)?.settlement) {
     if (state.worldLayout.connections.some((route) => (route.from === draft.from && route.to === settlementId) || (route.from === settlementId && route.to === draft.from))) { toast("두 마을 사이에 이미 연결 길이 있습니다."); return; }
     const destination = state.worldLayout.settlements.find((node) => node.settlement === settlementId)?.anchor;
     const anchors = [...draft.anchors, { ...(destination || { q, r }) }]; const cells = routeCellsFromAnchors(anchors);
-    state.worldLayout.connections.push({ id: draft.id, from: draft.from, to: settlementId, anchors, cells, corridor_width_blocks: draft.corridor_width_blocks, edge_noise: draft.edge_noise, surface_style: draft.surface_style, pathfinding: "explicit" });
-    state.routeDraft = null; state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout(); toast("두 마을을 자동 경로로 연결했습니다."); return;
+    const connection = { id: draft.id, route_preset: draft.route_preset, from: draft.from, to: settlementId, anchors, cells, corridor_width_blocks: draft.corridor_width_blocks, edge_noise: draft.edge_noise, surface_style: draft.surface_style, pathfinding: "explicit" };
+    if (await finalizeRouteDraft(connection, "기존 길을 복사해 두 마을을 연결했습니다.")) state.selectedHex = { q, r };
+    return;
   }
   if (draft.from && settlementId === draft.from && draft.anchors.length === 1) { toast("연결할 다른 마을이나 지형 앵커를 선택해 주세요."); return; }
   appendRouteDraft(q, r);
@@ -2068,20 +2258,35 @@ function undoRouteAnchor() {
   const draft = state.routeDraft; if (!draft || draft.anchors.length < 2) return;
   draft.anchors.pop(); draft.cells = routeCellsFromAnchors(draft.anchors); state.selectedHex = { ...draft.anchors.at(-1) }; renderWorldLayout();
 }
-function finishRouteConnection() {
+async function finishRouteConnection() {
+  if (state.routeFinalizing) return;
   const draft = state.routeDraft;
   if (!draft || draft.anchors.length < 2) { toast("앵커를 두 곳 이상 배치해 주세요."); return; }
-  state.worldLayout.connections.push({ id: draft.id, anchors: draft.anchors, cells: draft.cells, corridor_width_blocks: draft.corridor_width_blocks, edge_noise: draft.edge_noise, surface_style: draft.surface_style, pathfinding: "explicit", ...(draft.from ? { from: draft.from } : {}) });
-  state.routeDraft = null; markWorldDirty(); renderWorldLayout(); toast("바이옴과 독립된 길을 추가했습니다.");
+  const connection = { id: draft.id, route_preset: draft.route_preset, anchors: draft.anchors, cells: draft.cells, corridor_width_blocks: draft.corridor_width_blocks, edge_noise: draft.edge_noise, surface_style: draft.surface_style, pathfinding: "explicit", ...(draft.from ? { from: draft.from } : {}) };
+  await finalizeRouteDraft(connection, "기존 길을 복사해 새 길을 추가했습니다.");
 }
 function cancelRouteConnection() {
   state.routeDraft = null; renderWorldLayout();
 }
 
-function removeRouteConnection(routeId) {
-  state.worldLayout.connections = (state.worldLayout.connections || []).filter((connection) => connection.id !== routeId);
+async function removeRouteConnection(routeId) {
+  const index = (state.worldLayout.connections || []).findIndex((connection) => connection.id === routeId);
+  const route = state.worldLayout.connections[index]; if (!route) return;
+  if (!confirm(`'${routeDisplayName(route)}' 길과 전용 설정을 함께 삭제할까요?`)) return;
+  const preset = routeSummary(route.route_preset);
+  state.worldLayout.connections.splice(index, 1);
   if (state.selectedRouteId === routeId) state.selectedRouteId = null;
-  markWorldDirty(); renderWorldLayout(); toast(`${routeId} 길을 삭제했습니다.`);
+  markWorldDirty(); renderWorldLayout();
+  if (!await saveWorldLayout({ quiet: true })) { state.worldLayout.connections.splice(index, 0, route); markWorldDirty(); renderWorldLayout(); return; }
+  if (preset?.path) {
+    const result = await request(`/api/routes?path=${encodeURIComponent(preset.path)}`, { method: "DELETE" });
+    if (!result.ok) {
+      state.worldLayout.connections.splice(index, 0, route); markWorldDirty(); await saveWorldLayout({ quiet: true });
+      toast(result.data.error || "길 설정 파일을 삭제하지 못해 길 삭제를 되돌렸습니다."); return;
+    }
+    state.routes = state.routes.filter((entry) => entry.id !== preset.id);
+  }
+  renderList("routes"); renderRouteCreator(); toast(`${routeId} 길과 전용 설정을 삭제했습니다.`);
 }
 function focusRoute(routeId, center = true) {
   const route = (state.worldLayout.connections || []).find((entry) => entry.id === routeId);
@@ -2224,15 +2429,19 @@ function handleEntranceInspectorChange(event) {
 
 function deleteSelectedEntrance() {
   const selection = selectedEntrance(); if (!selection) return; const { kind, entrance } = selection;
+  const linkedRoutes = (state.worldLayout.connections || []).filter((route) => route.from === entrance.id || route.to === entrance.id);
+  if (linkedRoutes.length) { toast(`먼저 연결된 길 ${linkedRoutes.length}개를 삭제해 주세요.`); return; }
   if (kind === "cave") state.worldLayout.cave_entrances = state.worldLayout.cave_entrances.filter((entry) => entry !== entrance);
   else state.worldLayout.forest_entrances = state.worldLayout.forest_entrances.filter((entry) => entry !== entrance);
-  state.worldLayout.connections = (state.worldLayout.connections || []).filter((route) => route.from !== entrance.id && route.to !== entrance.id);
   state.selectedEntrance = null; markWorldDirty(); renderWorldLayout();
 }
 
 function handleRouteInspectorInput(event) {
   const route = selectedRoute(); if (!route) return;
-  if (event.target.name === "displayName") {
+  if (event.target.name === "routePreset") {
+    if (!event.target.value) return;
+    route.route_preset = event.target.value;
+  } else if (event.target.name === "displayName") {
     const value = event.target.value.trim();
     if (value) route.display_name = value; else delete route.display_name;
     $("#selected-tile-title").textContent = routeDisplayName(route);
@@ -2411,7 +2620,7 @@ async function addGeneration() {
 }
 
 function documentSingular(category) {
-  return category === "trainers" ? "trainer" : category === "battles" ? "battle" : category === "caves" ? "cave" : category === "forests" ? "forest" : "settlement";
+  return category === "trainers" ? "trainer" : category === "battles" ? "battle" : category === "routes" ? "routePreset" : category === "caves" ? "cave" : category === "forests" ? "forest" : "settlement";
 }
 
 function renderList(category) {
@@ -2502,9 +2711,100 @@ async function loadDocument(category, path) {
   renderList(category);
   if (category === "trainers") renderTrainer();
   else if (category === "battles") renderBattlePreset();
+  else if (category === "routes") renderRoutePreset();
   else if (category === "caves") renderCave();
   else if (category === "forests") renderForest();
   else renderSettlement();
+}
+
+function routeNpcOptions(selected = "") {
+  const options = ['<option value="">NPC를 선택하세요</option>'];
+  for (const npc of state.trainers) options.push(`<option value="${escapeHtml(npc.id)}"${npc.id === selected ? " selected" : ""}>${escapeHtml(npc.name || npc.npc_name || npc.id)} · ${escapeHtml(npc.id)}</option>`);
+  return options.join("");
+}
+
+function renderRouteNpcList() {
+  const list = $("#route-npc-list");
+  const placements = state.routePreset?.npc_placements || [];
+  list.innerHTML = placements.length ? placements.map((placement, index) => `
+    <article class="route-npc-row" data-route-npc="${index}">
+      <label><span>배치 ID</span><input data-route-npc-field="id" value="${escapeHtml(placement.id || `npc_${index + 1}`)}"></label>
+      <label class="route-npc-main"><span>NPC 프리셋</span><select data-route-npc-field="npc">${routeNpcOptions(placement.npc)}</select></label>
+      <label><span>길 진행률</span><div class="route-progress-input"><input data-route-npc-field="progress_percent" type="number" min="0" max="100" value="${Number(placement.progress_percent ?? 50)}"><b>%</b></div></label>
+      <label><span>배치 방향</span><select data-route-npc-field="side"><option value="center">길 중앙</option><option value="left">진행 방향 왼쪽</option><option value="right">진행 방향 오른쪽</option></select></label>
+      <label><span>길에서 거리</span><input data-route-npc-field="offset_blocks" type="number" min="0" max="32" step="0.5" value="${Number(placement.offset_blocks || 0)}"></label>
+      <label><span>바라보는 방향</span><select data-route-npc-field="facing"><option value="along">길 진행 방향</option><option value="against">길 반대 방향</option></select></label>
+      <label><span>등장 확률</span><input data-route-npc-field="spawn_chance" type="number" min="0" max="1" step="0.05" value="${Number(placement.spawn_chance ?? 1)}"></label>
+      <label><span>등장 정책</span><select data-route-npc-field="respawn_policy"><option value="always">항상 배치</option><option value="once_per_player">플레이어당 1회</option></select></label>
+      <button type="button" class="route-npc-remove" data-remove-route-npc="${index}" aria-label="NPC 배치 삭제">삭제</button>
+    </article>`).join("") : '<p class="route-npc-empty">아직 배치한 NPC가 없습니다. NPC 추가를 눌러 길 위에 배치하세요.</p>';
+  list.querySelectorAll("[data-route-npc]").forEach((row) => {
+    const placement = placements[Number(row.dataset.routeNpc)];
+    row.querySelector('[data-route-npc-field="side"]').value = placement.side || "center";
+    row.querySelector('[data-route-npc-field="facing"]').value = placement.facing || "along";
+    row.querySelector('[data-route-npc-field="respawn_policy"]').value = placement.respawn_policy || "always";
+  });
+}
+
+function renderRoutePreset() {
+  const preset = state.routePreset; const form = $("#route-preset-form");
+  if (!preset) return;
+  preset.display_name ||= {}; preset.corridor ||= { width_blocks: 12, edge_noise: 0 };
+  preset.level_scaling ||= { mode: "world", offset: 0 }; preset.npc_placements ||= [];
+  preset.pokemon_spawns ||= { inherit_biome: true, excluded_species: [], additions: [], level_overrides: [] };
+  preset.auto_name = preset.auto_name !== false;
+  const route = (state.worldLayout?.connections || []).find((entry) => entry.route_preset === preset.id);
+  if (preset.auto_name && route) preset.display_name = generatedRouteNames(route);
+  form.elements.id.value = preset.id || ""; form.elements.nameKo.value = preset.display_name.ko_kr || ""; form.elements.nameEn.value = preset.display_name.en_us || "";
+  form.elements.autoName.checked = preset.auto_name;
+  form.elements.enabled.checked = preset.enabled !== false; form.elements.routeType.value = preset.route_type || "road";
+  form.elements.widthBlocks.value = Number(preset.corridor.width_blocks || 12); form.elements.edgeNoise.value = Number(preset.corridor.edge_noise || 0);
+  form.elements.musicTrack.innerHTML = musicOptions(preset.music_track || "", "road"); form.elements.musicTrack.value = preset.music_track || "";
+  form.elements.levelMode.value = preset.level_scaling.mode || "world"; form.elements.levelOffset.value = Number(preset.level_scaling.offset || 0);
+  form.elements.minimumLevel.value = Number(preset.level_scaling.minimum_level || 1); form.elements.maximumLevel.value = Number(preset.level_scaling.maximum_level || 100);
+  form.querySelectorAll("input, select, button").forEach((element) => { element.disabled = false; }); form.elements.id.disabled = true;
+  form.elements.nameKo.disabled = preset.auto_name; form.elements.nameEn.disabled = preset.auto_name;
+  $("#routePreset-editor-title").textContent = preset.display_name.ko_kr || preset.id; $("#routePreset-path").textContent = state.routePresetPath;
+  $("#validate-routePreset").disabled = false; $("#save-routePreset").disabled = false; $("#edit-route-preset-pokemon").disabled = false;
+  $$('[data-route-fixed-level]').forEach((field) => { field.hidden = preset.level_scaling.mode !== "fixed"; });
+  const settings = ensureRoutePokemonSettings(preset);
+  const baseCount = settings.inherit_biome && route ? routeBasePokemonIds(route).filter((id) => !settings.excluded_species.includes(id)).length : 0;
+  const count = new Set([...(settings.inherit_biome && route ? routeBasePokemonIds(route).filter((id) => !settings.excluded_species.includes(id)) : []), ...settings.additions.map((entry) => entry.species)]).size;
+  $("#route-preset-pokemon-count").textContent = `${count}종`;
+  $("#route-preset-pokemon-description").textContent = `${settings.inherit_biome ? `통과 바이옴 ${baseCount}종 사용` : "통과 바이옴 미사용"} · 직접 추가 ${settings.additions.length}종 · 제외 ${settings.excluded_species.length}종`;
+  renderRouteNpcList();
+}
+
+function updateRoutePresetFromForm() {
+  const preset = state.routePreset; const form = $("#route-preset-form"); if (!preset) return false;
+  preset.auto_name = form.elements.autoName.checked;
+  const route = (state.worldLayout?.connections || []).find((entry) => entry.route_preset === preset.id);
+  preset.display_name = preset.auto_name && route ? generatedRouteNames(route) : { ko_kr: form.elements.nameKo.value.trim(), en_us: form.elements.nameEn.value.trim() };
+  preset.enabled = form.elements.enabled.checked; preset.route_type = form.elements.routeType.value;
+  preset.corridor = { ...preset.corridor, width_blocks: Number(form.elements.widthBlocks.value), edge_noise: Number(form.elements.edgeNoise.value) };
+  if (form.elements.musicTrack.value) preset.music_track = form.elements.musicTrack.value; else delete preset.music_track;
+  preset.level_scaling = { mode: form.elements.levelMode.value, offset: Math.round(Number(form.elements.levelOffset.value) || 0) };
+  if (preset.level_scaling.mode === "fixed") { preset.level_scaling.minimum_level = Math.round(Number(form.elements.minimumLevel.value)); preset.level_scaling.maximum_level = Math.round(Number(form.elements.maximumLevel.value)); }
+  return true;
+}
+
+function addRouteNpcPlacement() {
+  if (!state.routePreset) return;
+  const index = state.routePreset.npc_placements.length + 1;
+  state.routePreset.npc_placements.push({ id: `npc_${index}`, npc: state.trainers[0]?.id || "", progress_percent: 50, side: "right", offset_blocks: 3, facing: "against", spawn_chance: 1, respawn_policy: "always" });
+  renderRouteNpcList();
+}
+
+function handleRouteNpcEditor(event) {
+  const row = event.target.closest("[data-route-npc]"); const field = event.target.dataset.routeNpcField;
+  if (!row || !field || !state.routePreset) return;
+  const placement = state.routePreset.npc_placements[Number(row.dataset.routeNpc)];
+  placement[field] = ["progress_percent"].includes(field) ? Math.round(Number(event.target.value)) : ["offset_blocks", "spawn_chance"].includes(field) ? Number(event.target.value) : event.target.value.trim();
+}
+
+function removeRouteNpcPlacement(index) {
+  if (!state.routePreset) return;
+  state.routePreset.npc_placements.splice(index, 1); renderRouteNpcList();
 }
 
 function trainerBattle() {
@@ -2637,7 +2937,7 @@ function renderCave() {
   if (!document) return;
   delete document.generation;
   const generation = generationFromDocumentPath(state.cavePath);
-  const generator = { layout: "natural_network", seed_salt: 0, main_rooms: 7, branch_count: 4, loop_chance: .35, vertical_range: 28, room_radius: { min: 10, max: 28 }, tunnel_radius: { min: 4, max: 7 }, surface_roughness: .18, water_level: 38, grand_room_scale: 1.65, elevated_crossing: false, bridge_clearance: 13, ...(document.generator || {}) };
+  const generator = { layout: "natural_network", seed_salt: 0, main_rooms: 7, branch_count: 4, loop_chance: .35, vertical_range: 28, room_radius: { min: 10, max: 28 }, tunnel_radius: { min: 4, max: 7 }, surface_roughness: .18, water_level: 38, water_depth: 8, grand_room_scale: 1.65, elevated_crossing: false, bridge_clearance: 13, ...(document.generator || {}) };
   delete generator.lake_radius; delete generator.lake_depth;
   delete generator.room_types; delete document.internal_biomes;
   generator.room_radius = { min: 10, max: 28, ...(document.generator?.room_radius || {}) }; generator.tunnel_radius = { min: 4, max: 7, ...(document.generator?.tunnel_radius || {}) };
@@ -2700,6 +3000,7 @@ function renderCaveGeneratorDialogForm() {
   setFormValue(form, "tunnelRadiusMax", generator.tunnel_radius?.max ?? 7);
   setFormValue(form, "surfaceRoughness", generator.surface_roughness ?? .18);
   setFormValue(form, "waterLevel", generator.water_level ?? 38);
+  setFormValue(form, "waterDepth", generator.water_depth ?? 8);
   setFormValue(form, "grandRoomScale", generator.grand_room_scale ?? 1.65);
   setFormValue(form, "elevatedCrossing", Boolean(generator.elevated_crossing));
   setFormValue(form, "bridgeClearance", generator.bridge_clearance ?? 13);
@@ -2734,6 +3035,7 @@ function applyCaveGeneratorDialog() {
     tunnel_radius: { min: tunnelMinimum, max: tunnelMaximum },
     surface_roughness: Math.max(0, Math.min(1, forestNumber(form, "surfaceRoughness", .18))),
     water_level: Math.max(1, Math.min(250, Math.round(forestNumber(form, "waterLevel", 38)))),
+    water_depth: Math.max(1, Math.min(96, Math.round(forestNumber(form, "waterDepth", 8)))),
     grand_room_scale: Math.max(1, Math.min(3, forestNumber(form, "grandRoomScale", 1.65))),
     elevated_crossing: form.elements.elevatedCrossing.checked,
     bridge_clearance: Math.max(7, Math.min(32, Math.round(forestNumber(form, "bridgeClearance", 13)))),
@@ -3146,7 +3448,7 @@ function buildCavePreviewLayout() {
       nodes.set(anchor.id, room); return room;
     });
     const paths = (manual.connections || []).map((connection) => ({ id: connection.id, source: "connection", kind: connection.kind, points: [nodes.get(connection.from), nodes.get(connection.to)].filter(Boolean), width: Number(connection.width || 5) })).filter((path) => path.points.length === 2);
-    return { rooms, paths, entrances, waterLevel: Number(generator.water_level ?? 38), manual: true };
+    return { rooms, paths, entrances, waterLevel: Number(generator.water_level ?? 38), waterDepth: Number(generator.water_depth ?? 8), manual: true };
   }
   const roomCount = Math.max(3, Math.round(Number(generator.main_rooms ?? 7)));
   const branchCount = Math.max(0, Math.round(Number(generator.branch_count ?? 4)));
@@ -3206,7 +3508,7 @@ function buildCavePreviewLayout() {
     const bridgeY = grand.y + Math.max(10, Number(generator.bridge_clearance ?? 13)); const span = Math.max(16, grand.radiusZ * .72);
     paths.push({ kind: "bridge", points: [point(from), { x: grand.x + grand.radiusX * .62, y: bridgeY, z: grand.z - span }, { x: grand.x, y: bridgeY, z: grand.z }, { x: grand.x - grand.radiusX * .62, y: bridgeY, z: grand.z + span }, point(to)] });
   }
-  return { rooms, paths, entrances, waterLevel: Number(generator.water_level ?? 38), manual: false };
+  return { rooms, paths, entrances, waterLevel: Number(generator.water_level ?? 38), waterDepth: Number(generator.water_depth ?? 8), manual: false };
 }
 
 function selectedCavePreviewNode() {
@@ -3504,6 +3806,8 @@ function renderCaveLayoutPreview() {
   }
 
   const bounds = state.cave.dimension?.bounds || {}; const waterY = layout.waterLevel;
+  const waterDepth = Math.max(1, layout.waterDepth); const waterBottomY = waterY - waterDepth;
+  const isSubmergedAt = (y) => y <= waterY && y > waterBottomY;
   const waterCorners = [
     { x: Number(bounds.min_x ?? -256), y: waterY, z: Number(bounds.min_z ?? -256) }, { x: Number(bounds.max_x ?? 256), y: waterY, z: Number(bounds.min_z ?? -256) },
     { x: Number(bounds.max_x ?? 256), y: waterY, z: Number(bounds.max_z ?? 256) }, { x: Number(bounds.min_x ?? -256), y: waterY, z: Number(bounds.max_z ?? 256) }
@@ -3512,7 +3816,10 @@ function renderCaveLayoutPreview() {
     const left = view === "xy" ? project({ x: Number(bounds.min_x ?? -256), y: waterY, z: center.z }) : project({ x: center.x, y: waterY, z: Number(bounds.min_z ?? -256) });
     const right = view === "xy" ? project({ x: Number(bounds.max_x ?? 256), y: waterY, z: center.z }) : project({ x: center.x, y: waterY, z: Number(bounds.max_z ?? 256) });
     context.strokeStyle = "rgba(67, 184, 232, .72)"; context.lineWidth = 2; context.setLineDash([8, 6]); context.beginPath(); context.moveTo(left.x, left.y); context.lineTo(right.x, right.y); context.stroke(); context.setLineDash([]);
-    context.fillStyle = "#75d4f5"; context.font = "700 10px sans-serif"; context.textAlign = "left"; context.fillText(`수면 Y ${waterY}`, Math.max(8, left.x + 8), left.y - 7);
+    const bottomLeft = view === "xy" ? project({ x: Number(bounds.min_x ?? -256), y: waterBottomY, z: center.z }) : project({ x: center.x, y: waterBottomY, z: Number(bounds.min_z ?? -256) });
+    const bottomRight = view === "xy" ? project({ x: Number(bounds.max_x ?? 256), y: waterBottomY, z: center.z }) : project({ x: center.x, y: waterBottomY, z: Number(bounds.max_z ?? 256) });
+    context.strokeStyle = "rgba(67, 184, 232, .35)"; context.lineWidth = 1; context.setLineDash([3, 5]); context.beginPath(); context.moveTo(bottomLeft.x, bottomLeft.y); context.lineTo(bottomRight.x, bottomRight.y); context.stroke(); context.setLineDash([]);
+    context.fillStyle = "#75d4f5"; context.font = "700 10px sans-serif"; context.textAlign = "left"; context.fillText(`수면 Y ${waterY} · 수심 ${waterDepth}`, Math.max(8, left.x + 8), left.y - 7);
   } else {
     context.fillStyle = view === "xz" ? "rgba(38, 146, 190, .08)" : "rgba(38, 146, 190, .13)"; context.strokeStyle = "rgba(67, 184, 232, .35)"; context.lineWidth = 1;
     context.beginPath(); waterCorners.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y)); context.closePath(); context.fill(); context.stroke();
@@ -3529,15 +3836,17 @@ function renderCaveLayoutPreview() {
     context.strokeStyle = isSelectedPath ? "#ffffff" : "rgba(5, 9, 11, .82)"; context.lineWidth = segment.kind === "bridge" ? 12 : isSelectedPath ? 10 : 8; context.beginPath(); context.moveTo(segment.a.x, segment.a.y); context.lineTo(segment.b.x, segment.b.y); context.stroke();
     context.strokeStyle = segment.kind === "bridge" ? "#f19b62" : segment.kind === "stairs" || segment.kind === "loop" ? "#9ebc83" : segment.kind === "branch" ? "#718990" : "#a5b6ba";
     context.lineWidth = segment.kind === "bridge" ? 6 : segment.kind === "main" ? 4 : 3; context.beginPath(); context.moveTo(segment.a.x, segment.a.y); context.lineTo(segment.b.x, segment.b.y); context.stroke();
-    if (segment.kind !== "bridge" && (segment.from.y < waterY || segment.to.y < waterY)) {
-      let wetFrom = segment.from; let wetTo = segment.to;
-      if ((segment.from.y < waterY) !== (segment.to.y < waterY)) {
-        const factor = (waterY - segment.from.y) / (segment.to.y - segment.from.y);
-        const crossing = { x: segment.from.x + (segment.to.x - segment.from.x) * factor, y: waterY, z: segment.from.z + (segment.to.z - segment.from.z) * factor };
-        if (segment.from.y < waterY) wetTo = crossing; else wetFrom = crossing;
-      }
+    if (segment.kind !== "bridge") {
+      const deltaY = segment.to.y - segment.from.y;
+      const limits = Math.abs(deltaY) < .0001
+        ? (isSubmergedAt(segment.from.y) ? [0, 1] : null)
+        : [Math.max(0, Math.min((waterY - segment.from.y) / deltaY, (waterBottomY - segment.from.y) / deltaY)), Math.min(1, Math.max((waterY - segment.from.y) / deltaY, (waterBottomY - segment.from.y) / deltaY))];
+      if (limits && limits[1] > limits[0]) {
+        const interpolate = (factor) => ({ x: segment.from.x + (segment.to.x - segment.from.x) * factor, y: segment.from.y + deltaY * factor, z: segment.from.z + (segment.to.z - segment.from.z) * factor });
+        const wetFrom = interpolate(limits[0]); const wetTo = interpolate(limits[1]);
       const wetA = project(wetFrom); const wetB = project(wetTo);
       context.strokeStyle = "rgba(67, 184, 232, .9)"; context.lineWidth = segment.kind === "main" ? 6 : 5; context.beginPath(); context.moveTo(wetA.x, wetA.y); context.lineTo(wetB.x, wetB.y); context.stroke();
+      }
     }
     if (segment.source === "connection") state.cavePreview.hitTargets.push({ mode: "select-path", source: "connection", id: segment.id, x1: segment.a.x, y1: segment.a.y, x2: segment.b.x, y2: segment.b.y, radius: 9 });
   }
@@ -3545,7 +3854,7 @@ function renderCaveLayoutPreview() {
   const selected = state.cavePreview.selected;
   const rooms = layout.rooms.map((room) => ({ room, projected: project(room) })).sort((a, b) => a.projected.depth - b.projected.depth);
   for (const { room, projected } of rooms) {
-    const submerged = room.y < waterY; const color = submerged ? [67, 184, 232] : room.kind === "grand" ? [196, 139, 255] : room.kind === "moon" ? [208, 188, 244] : room.kind === "wild" ? [117, 174, 118] : [132, 153, 160];
+    const submerged = isSubmergedAt(room.y); const color = submerged ? [67, 184, 232] : room.kind === "grand" ? [196, 139, 255] : room.kind === "moon" ? [208, 188, 244] : room.kind === "wild" ? [117, 174, 118] : [132, 153, 160];
     const radiusX = Math.max(7, (view === "zy" ? room.radiusZ : room.radiusX) * scale);
     const radiusY = Math.max(5, (view === "xz" ? room.radiusZ : room.height * .72) * scale);
     const isSelected = selected?.source === "anchor" && selected.id === room.id; const isDraft = state.cavePreview.pathDraft?.id === room.id;
@@ -3556,7 +3865,7 @@ function renderCaveLayoutPreview() {
     if (room.source === "anchor") state.cavePreview.hitTargets.push({ mode: "move", source: "anchor", id: room.id, x: projected.x, y: projected.y, radius: Math.max(10, Math.min(26, radiusX * .35)) });
   }
   for (const entrance of layout.entrances) {
-    const p = project(entrance); const submerged = entrance.y < waterY; const isSelected = selected?.source === "entrance" && selected.id === entrance.id; const isDraft = state.cavePreview.pathDraft?.id === entrance.id;
+    const p = project(entrance); const submerged = isSubmergedAt(entrance.y); const isSelected = selected?.source === "entrance" && selected.id === entrance.id; const isDraft = state.cavePreview.pathDraft?.id === entrance.id;
     context.fillStyle = submerged ? "#43b8e8" : "#ffce67"; context.strokeStyle = isDraft ? "#b8e86b" : isSelected ? "#ffffff" : "#211b0d"; context.lineWidth = isDraft || isSelected ? 3 : 2; context.beginPath(); context.arc(p.x, p.y, isSelected || isDraft ? 10 : 8, 0, Math.PI * 2); context.fill(); context.stroke();
     if (entrance.id) state.cavePreview.hitTargets.push({ mode: "move", source: "entrance", id: entrance.id, x: p.x, y: p.y, radius: 22 });
   }
@@ -3580,8 +3889,8 @@ function renderCaveLayoutPreview() {
   }
   renderCaveNodeInspector();
   if (!selectedCavePreviewNode()) $(".cave-layout-preview")?.removeAttribute("data-editing-node");
-  const submergedRooms = layout.rooms.filter((room) => room.y < waterY).length;
-  summary.textContent = `${layout.manual ? "수동 배치" : "자동 배치"} · 입구 ${state.cave.entrances?.length || 0}개 · 공동 ${layout.rooms.length}개 · 연결 ${layout.paths.length}개 · 수면 Y ${waterY} · 침수 공동 ${submergedRooms}개 · 돌다리 ${layout.paths.filter((path) => path.kind === "bridge").length}개`;
+  const submergedRooms = layout.rooms.filter((room) => isSubmergedAt(room.y)).length;
+  summary.textContent = `${layout.manual ? "수동 배치" : "자동 배치"} · 입구 ${state.cave.entrances?.length || 0}개 · 공동 ${layout.rooms.length}개 · 연결 ${layout.paths.length}개 · 수면 Y ${waterY} · 최대 수심 ${waterDepth} · 침수 공동 ${submergedRooms}개 · 돌다리 ${layout.paths.filter((path) => path.kind === "bridge").length}개`;
 }
 
 function cavePreviewPointer(event) {
@@ -7000,6 +7309,25 @@ function buildingEntries() {
     .sort(([left], [right]) => left.localeCompare(right));
 }
 
+function exteriorBuildingEntries() {
+  return Object.entries(state.buildingSettings.structures || {})
+    .filter(([, metadata]) => !["interior", "gym_interior"].includes(metadata.category))
+    .sort(([left], [right]) => left.localeCompare(right));
+}
+
+function specialBuildingPresetOptions(selected = "") {
+  const catalog = { ...(state.structureSizes || {}), ...(state.buildingSettings.structures || {}) };
+  const entries = Object.entries(catalog)
+    .filter(([, metadata]) => metadata.category === "placeholder")
+    .sort(([left], [right]) => left.localeCompare(right));
+  const known = new Set(entries.map(([id]) => id));
+  return [
+    '<option value="">직접 입력</option>',
+    ...entries.map(([id]) => `<option value="${escapeHtml(id)}"${id === selected ? " selected" : ""}>${escapeHtml(id.split("/").at(-1))} · ${escapeHtml(id)}</option>`),
+    ...(selected && !known.has(selected) ? [`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} · 현재 값</option>`] : []),
+  ].join("");
+}
+
 function renderBuildingList() {
   const entries = buildingEntries();
   $("#building-count").textContent = `${entries.length.toLocaleString()}개`;
@@ -7241,6 +7569,7 @@ async function saveBuildingSettings() {
   for (const [id, metadata] of Object.entries(state.buildingSettings.structures)) {
     buildings[id] = {
       placement_y_offset: Number(metadata.settings?.placement_y_offset || 0),
+      structure_category: metadata.settings?.structure_category || metadata.category,
       ...(metadata.settings?.music_track ? { music_track: metadata.settings.music_track } : {}),
       no_interior_space: Boolean(metadata.settings?.no_interior_space),
       fixed_npcs: metadata.settings?.citizen_placement_allowed
@@ -7320,6 +7649,71 @@ async function createInteriorSpace(event) {
   await loadBuildingModel(result.data.space.structure);
   form.elements.id.value = "";
   toast("공용 내부공간 NBT를 만들었습니다. 건축 팩을 다시 빌드하면 에딧 월드에서 편집할 수 있습니다.");
+}
+
+function updateExteriorCopyPreview() {
+  const form = $("#copy-exterior-structure-form");
+  const sourceId = form.elements.sourceStructure.value;
+  const metadata = state.buildingSettings.structures[sourceId];
+  const directory = form.elements.targetDirectory.value.trim();
+  const slug = form.elements.targetSlug.value.trim();
+  $("#copy-exterior-category").textContent = metadata?.category_label || metadata?.category || "—";
+  $("#copy-exterior-resource").textContent = `cobbleventure:${directory || "…"}/${slug || "…"}`;
+}
+
+function openExteriorStructureCopyDialog() {
+  const entries = exteriorBuildingEntries();
+  if (!entries.length) return toast("복사할 외부 NBT가 없습니다.");
+  const form = $("#copy-exterior-structure-form");
+  form.elements.sourceStructure.innerHTML = entries.map(([id, metadata]) =>
+    `<option value="${escapeHtml(id)}">${escapeHtml(metadata.category_label || metadata.category)} · ${escapeHtml(id)}</option>`
+  ).join("");
+  const selected = state.buildingSettings.selected;
+  if (entries.some(([id]) => id === selected)) form.elements.sourceStructure.value = selected;
+  const sourcePath = form.elements.sourceStructure.value.split(":", 2)[1] || "";
+  form.elements.targetDirectory.value = sourcePath.includes("/")
+    ? sourcePath.slice(0, sourcePath.lastIndexOf("/")) : "building";
+  form.elements.targetSlug.value = "";
+  $("#copy-exterior-issues").className = "issues empty";
+  $("#copy-exterior-issues").textContent = "원본의 구조물 종류와 설정을 그대로 복사합니다.";
+  updateExteriorCopyPreview();
+  $("#copy-exterior-structure-dialog").showModal();
+  form.elements.targetSlug.focus();
+}
+
+async function copyExteriorStructure(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  const submit = form.querySelector('[type="submit"]');
+  submit.disabled = true;
+  submit.textContent = "복사 중…";
+  try {
+    const result = await request("/api/exterior-structures/copy", {
+      method: "POST",
+      body: JSON.stringify({
+        source_structure: form.elements.sourceStructure.value,
+        target_directory: form.elements.targetDirectory.value.trim(),
+        target_slug: form.elements.targetSlug.value.trim(),
+      }),
+    });
+    if (!result.ok) {
+      $("#copy-exterior-issues").className = "issues";
+      $("#copy-exterior-issues").textContent = result.data.error || "외부 NBT를 복사하지 못했습니다.";
+      return;
+    }
+    const structureId = result.data.structure.structure;
+    lazyDataLoaded.buildingSettings = false;
+    await loadBuildingSettingsData();
+    state.structureSizes[structureId] = { ...(state.buildingSettings.structures[structureId] || {}) };
+    $("#copy-exterior-structure-dialog").close();
+    await loadBuildingModel(structureId);
+    if (state.settlement) renderSettlement();
+    toast(`${structureId}을 복사하고 런타임 리소스 등록 대상으로 추가했습니다.`);
+  } finally {
+    submit.disabled = false;
+    submit.textContent = "복사하고 등록";
+  }
 }
 
 function rotateMinecraftTopBlock(x, z, width, depth, rotation) {
@@ -8598,11 +8992,9 @@ function applySpecialBuildingPreset(event) {
   if (event.target?.name !== "specialBuildingPreset" || !event.target.value) return;
   const form = $("#settlement-form");
   form.elements.specialBuildingStructure.value = event.target.value;
-  if (event.target.value === "cobbleventure:placeholder/player_house") {
-    const metadata = state.structureSizes[event.target.value];
-    form.elements.specialDistrictWidth.value = Number(metadata?.width || 16);
-    form.elements.specialDistrictDepth.value = Number(metadata?.depth || 16);
-  }
+  const metadata = state.structureSizes[event.target.value] || state.buildingSettings.structures[event.target.value];
+  form.elements.specialDistrictWidth.value = Number(metadata?.width || 16);
+  form.elements.specialDistrictDepth.value = Number(metadata?.depth || 16);
 }
 
 function renderSettlement() {
@@ -8656,7 +9048,8 @@ function renderSettlement() {
   setFormValue(form, "specialDistrictDepth", specialDistrict.footprint?.depth ?? 48);
   setFormValue(form, "specialDistrictClearance", specialDistrict.clearance ?? 6);
   setFormValue(form, "specialBuildingEnabled", specialBuilding.enabled ?? false);
-  setFormValue(form, "specialBuildingPreset", specialBuilding.structure === "cobbleventure:placeholder/player_house" ? specialBuilding.structure : "");
+  form.elements.specialBuildingPreset.innerHTML = specialBuildingPresetOptions(specialBuilding.structure || "");
+  setFormValue(form, "specialBuildingPreset", specialBuilding.structure || "");
   setFormValue(form, "specialBuildingStructure", specialBuilding.structure || "");
   const legacyGym = document.structure_profile?.facility_placements?.find((item) => item.id === "gym_building");
   const gym = document.structure_profile?.gym || {
@@ -9037,8 +9430,9 @@ async function validateDocument(category) {
   }
   if (category === "caves" && (!$("#cave-form").reportValidity() || !updateCaveFromForm())) return false;
   if (category === "forests" && (!$("#forest-form").reportValidity() || !updateForestFromForm())) return false;
+  if (category === "routes" && (!$("#route-preset-form").reportValidity() || !updateRoutePresetFromForm())) return false;
   if (category === "battles" && !updateBattlePresetFromForm()) return false;
-  const document = category === "caves" ? state.cave : category === "forests" ? state.forest : parseEditor(`#${singular}-json`);
+  const document = category === "caves" ? state.cave : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
   if (!document) return false;
   const result = await request(`/api/document-validation?category=${category}`, { method: "POST", body: JSON.stringify(document) });
   if (result.ok && category === "trainers" && state.battlePreset) {
@@ -9066,8 +9460,9 @@ async function saveDocument(category) {
   if (category === "forests") {
     if (!$("#forest-form").reportValidity() || !updateForestFromForm()) { toast("입력값을 확인해 주세요."); return; }
   }
+  if (category === "routes" && (!$("#route-preset-form").reportValidity() || !updateRoutePresetFromForm())) { toast("입력값을 확인해 주세요."); return; }
   if (category === "battles" && !updateBattlePresetFromForm()) return;
-  const document = category === "caves" ? state.cave : category === "forests" ? state.forest : parseEditor(`#${singular}-json`);
+  const document = category === "caves" ? state.cave : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
   if (!document) return;
   const saveButton = $(`#save-${singular}`);
   const originalLabel = saveButton.textContent;
@@ -9102,6 +9497,7 @@ async function saveDocument(category) {
   if (category === "settlements") renderSettlement();
   else if (category === "caves") renderCave();
   else if (category === "forests") renderForest();
+  else if (category === "routes") { renderRoutePreset(); renderWorldLayout(); }
   else if (category === "battles") renderBattlePreset();
   else renderTrainer();
 }
@@ -9111,7 +9507,7 @@ function openCreateDialog(category) {
   form.reset();
   form.elements.category.value = category;
   form.elements.generation.value = ["trainers", "battles"].includes(category) ? "generation_1" : `generation_${state.selectedGeneration}`;
-  $("#create-title").textContent = category === "trainers" ? "새 NPC" : category === "battles" ? "새 배틀 프리셋" : category === "caves" ? "새 동굴" : category === "forests" ? "새 숲" : "새 마을";
+  $("#create-title").textContent = category === "trainers" ? "새 NPC" : category === "battles" ? "새 배틀 프리셋" : category === "routes" ? "새 길" : category === "caves" ? "새 동굴" : category === "forests" ? "새 숲" : "새 마을";
   $("#generation-field").hidden = ["trainers", "battles", "caves", "forests"].includes(category);
   $("#battle-reference-field").hidden = category !== "battles";
   if (category === "battles") {
@@ -9144,7 +9540,7 @@ async function createDocument(event) {
     await Promise.all([loadDashboard(), loadLists()]);
     switchPage(payload.category);
     await loadDocument(payload.category, result.data.path);
-    toast(payload.category === "trainers" ? "새 NPC를 만들었습니다." : payload.category === "battles" ? "새 배틀 프리셋을 만들었습니다." : payload.category === "caves" ? "새 동굴을 만들었습니다." : payload.category === "forests" ? "새 숲을 만들었습니다." : "새 마을을 만들었습니다.");
+    toast(payload.category === "trainers" ? "새 NPC를 만들었습니다." : payload.category === "battles" ? "새 배틀 프리셋을 만들었습니다." : payload.category === "routes" ? "새 길을 만들었습니다." : payload.category === "caves" ? "새 동굴을 만들었습니다." : payload.category === "forests" ? "새 숲을 만들었습니다." : "새 마을을 만들었습니다.");
   } finally {
     $("#create-submit").disabled = false;
   }
@@ -9155,7 +9551,7 @@ async function deleteManagedDocument(category) {
   const document = category === "battles" ? state.battlePreset : state[singular];
   const path = category === "battles" ? state.battlePath : state[`${singular}Path`];
   if (!document || !path) return;
-  const labels = { trainers: "NPC", battles: "배틀 프리셋", caves: "동굴", forests: "숲" };
+  const labels = { trainers: "NPC", battles: "배틀 프리셋", routes: "길", caves: "동굴", forests: "숲" };
   const label = labels[category];
   const name = document.name?.ko_kr || document.display_name?.ko_kr || document.id;
   if (!confirm(`'${name}' ${label} 파일을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
@@ -9215,7 +9611,7 @@ async function deleteWorldLayout() {
 async function deleteSettlement() {
   if (!state.settlement || !state.settlementPath) return;
   const name = state.settlement.display_name?.ko_kr || state.settlement.id;
-  if (!confirm(`'${name}' 마을 프리셋 파일을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
+  if (!confirm(`'${name}' 마을 파일을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
   const button = $("#delete-settlement");
   const originalLabel = button.textContent;
   const deletedIndex = Math.max(0, state.settlements.findIndex((item) => item.path === state.settlementPath));
@@ -9225,7 +9621,7 @@ async function deleteSettlement() {
     const result = await request(`/api/settlements?path=${encodeURIComponent(state.settlementPath)}`, { method: "DELETE" });
     if (!result.ok) {
       const references = result.data.references?.length ? `\n참조: ${result.data.references.join(", ")}` : "";
-      toast(`${result.data.error || "마을 프리셋을 삭제하지 못했습니다."}${references}`);
+      toast(`${result.data.error || "마을을 삭제하지 못했습니다."}${references}`);
       return;
     }
     state.settlement = null;
@@ -9234,13 +9630,13 @@ async function deleteSettlement() {
     const next = state.settlements[Math.min(deletedIndex, state.settlements.length - 1)];
     if (next) await loadDocument("settlements", next.path);
     else {
-      $("#settlement-editor-title").textContent = "마을 프리셋을 선택하세요";
+      $("#settlement-editor-title").textContent = "마을을 선택하세요";
       $("#settlement-path").textContent = "—";
       $("#settlement-form").reset();
       $$("#selected-settlement-editor input, #selected-settlement-editor select, #selected-settlement-editor textarea, #selected-settlement-editor button").forEach((element) => { element.disabled = true; });
       renderList("settlements");
     }
-    toast(`'${name}' 마을 프리셋을 삭제했습니다.`);
+    toast(`'${name}' 마을을 삭제했습니다.`);
   } finally {
     button.textContent = originalLabel;
     if (state.settlement) button.disabled = false;
@@ -10348,6 +10744,12 @@ $("#building-music-track").addEventListener("change", (event) => {
   markBuildingSettingsDirty();
 });
 $("#save-building-settings").addEventListener("click", saveBuildingSettings);
+$("#copy-exterior-nbt").addEventListener("click", openExteriorStructureCopyDialog);
+$("#copy-exterior-structure-form").addEventListener("submit", copyExteriorStructure);
+$("#copy-exterior-structure-form").addEventListener("input", updateExteriorCopyPreview);
+$("#copy-exterior-structure-form").addEventListener("change", updateExteriorCopyPreview);
+$("#copy-exterior-structure-close").addEventListener("click", () => $("#copy-exterior-structure-dialog").close());
+$("#copy-exterior-structure-cancel").addEventListener("click", () => $("#copy-exterior-structure-dialog").close());
 $("#resize-building-nbt").addEventListener("click", resizeSelectedBuilding);
 $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
   const button = event.currentTarget;
@@ -10391,6 +10793,20 @@ $("#delete-trainer").addEventListener("click", () => deleteManagedDocument("trai
 $("#validate-battle").addEventListener("click", () => validateDocument("battles"));
 $("#save-battle").addEventListener("click", () => saveDocument("battles"));
 $("#delete-battle").addEventListener("click", () => deleteManagedDocument("battles"));
+$("#validate-routePreset").addEventListener("click", () => validateDocument("routes"));
+$("#save-routePreset").addEventListener("click", () => saveDocument("routes"));
+$("#route-preset-form").addEventListener("input", (event) => {
+  if (event.target.closest("#route-npc-list")) handleRouteNpcEditor(event);
+  else { updateRoutePresetFromForm(); if (event.target.name === "levelMode") renderRoutePreset(); }
+});
+$("#route-preset-form").addEventListener("change", (event) => {
+  if (event.target.closest("#route-npc-list")) handleRouteNpcEditor(event);
+  else { updateRoutePresetFromForm(); renderRoutePreset(); }
+});
+$("#edit-route-preset-pokemon").addEventListener("click", openRoutePresetPokemonDialog);
+document.body.append($("#route-pokemon-dialog"));
+$("#add-route-npc").addEventListener("click", addRouteNpcPlacement);
+$("#route-npc-list").addEventListener("click", (event) => { const button = event.target.closest("[data-remove-route-npc]"); if (button) removeRouteNpcPlacement(Number(button.dataset.removeRouteNpc)); });
 $("#add-league-entry").addEventListener("click", addLeagueEntry);
 $("#save-league").addEventListener("click", saveLeagueProgression);
 $("#badge-generation-filter").addEventListener("change", renderTrainerCardManager);
@@ -10723,15 +11139,15 @@ $("#entrance-inspector-form").addEventListener("change", handleEntranceInspector
 $("#delete-selected-entrance").addEventListener("click", deleteSelectedEntrance);
 $("#route-inspector-form").addEventListener("input", handleRouteInspectorInput);
 $("#route-inspector-form").elements.displayName.addEventListener("change", handleRouteInspectorInput);
-$("#edit-route-pokemon").addEventListener("click", openRoutePokemonDialog);
+$("#edit-route-pokemon").addEventListener("click", () => openRoutePokemonDialog("world"));
 $("#delete-selected-route").addEventListener("click", () => {
   const route = selectedRoute();
   if (route) removeRouteConnection(route.id);
 });
 $("#route-inherit-biome").addEventListener("change", (event) => {
-  const route = selectedRoute(); if (!route) return;
-  ensureRoutePokemonSettings(route).inherit_biome = event.target.checked;
-  markWorldDirty(); renderRouteInspector(route); renderRoutePokemonDialog(); renderWorldPokemonPanel();
+  const settings = routePokemonSettings(); if (!settings) return;
+  settings.inherit_biome = event.target.checked;
+  refreshRoutePokemonEditing();
 });
 $("#route-biome-pokemon-search").addEventListener("input", (event) => {
   state.routePokemonQuery = event.target.value.trim(); renderRoutePokemonDialog();
@@ -10755,8 +11171,8 @@ $("#route-pokemon-picker-list").addEventListener("click", (event) => {
   renderRoutePokemonPicker();
 });
 $("#route-pokemon-picker-select-visible").addEventListener("click", () => {
-  const route = selectedRoute(); if (!route) return;
-  const added = new Set(ensureRoutePokemonSettings(route).additions.map((entry) => entry.species));
+  const settings = routePokemonSettings(); if (!settings) return;
+  const added = new Set(settings.additions.map((entry) => entry.species));
   for (const entry of filteredRoutePokemonPickerEntries().slice(0, 120)) if (!added.has(entry.id)) state.routePokemonPicker.selected.add(entry.id);
   renderRoutePokemonPicker();
 });
@@ -10776,6 +11192,7 @@ $("#route-pokemon-level-apply").addEventListener("click", () => applyPokemonLeve
 $("#route-pokemon-level-reset").addEventListener("click", () => resetPokemonLevelOverride("route"));
 $("#route-pokemon-level-close").addEventListener("click", () => { state.routePokemonLevelSpecies = null; renderRoutePokemonDialog(); });
 $("#clear-tile").addEventListener("click", clearSelectedTile);
+$("#open-selected-management").addEventListener("click", () => openSelectedManagement().catch((error) => toast(error.message)));
 $$('[data-pokemon-map-tab]').forEach((button) => button.addEventListener("click", () => { state.pokemonMapTab = button.dataset.pokemonMapTab; renderWorldPokemonPanel(); }));
 $("#pokemon-map-search").addEventListener("input", (event) => { state.pokemonMapQuery = event.target.value.trim(); renderWorldPokemonPanel(); });
 $("#finish-route").addEventListener("click", finishRouteConnection);

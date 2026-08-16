@@ -36,6 +36,19 @@ class DataModBuilderTests(unittest.TestCase):
 
         self.assertFalse(path.exists())
 
+    def test_route_presets_are_packaged_and_merged_into_world_connections(self) -> None:
+        output = REPOSITORY_ROOT / build_data_mod.OUTPUT
+        preset_path = output / "data/cobbleventure/routes/generation_1/route_custom_03.json"
+        world_path = output / "data/cobbleventure/hex_worlds/generation_1.json"
+        self.assertTrue(preset_path.is_file())
+        world = json.loads(world_path.read_text(encoding="utf-8"))
+        route = next(connection for connection in world["connections"] if connection["id"] == "route_custom_03")
+        self.assertEqual("cobbleventure:route/route_custom_03", route["route_preset"])
+        self.assertEqual("road", route["surface_style"])
+        self.assertEqual(12, route["corridor_width_blocks"])
+        self.assertEqual({"mode": "world", "offset": 0}, route["level_scaling"])
+        self.assertEqual([], route["npc_placements"])
+
     def test_settlement_data_uses_authored_load_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -967,7 +980,7 @@ class DataModBuilderTests(unittest.TestCase):
 
             packaged = (
                 root / build_data_mod.OUTPUT
-                / "data/cobbleventure/structure/forest_entrance/forest_gate.nbt"
+                / "data/cobbleventure/structure/gate/forest_gate.nbt"
             )
             self.assertEqual(authored, packaged.read_bytes())
 
@@ -1029,6 +1042,37 @@ class DataModBuilderTests(unittest.TestCase):
                 / "data/cobbleventure/structure/placeholder/hotel.nbt"
             )
             self.assertEqual(authored_bytes, packaged.read_bytes())
+
+    def test_packages_copied_external_nbt_and_metadata_as_runtime_resources(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._fixture(root)
+            source = (
+                root / build_data_mod.FACILITY_STRUCTURE_SOURCE_DIR
+                / "custom_station.nbt"
+            )
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source_bytes = build_data_mod.build_facility_placeholder_nbt("train_station")
+            source.write_bytes(source_bytes)
+            metadata = source.with_suffix(".structure.json")
+            metadata.write_text(json.dumps({
+                "schema_version": 1,
+                "structure": "content/structures/placeholder/custom_station.nbt",
+                "anchors": [],
+            }), encoding="utf-8")
+
+            build_data_mod.build(root)
+
+            output = root / build_data_mod.OUTPUT
+            self.assertEqual(
+                source_bytes,
+                (output / "data/cobbleventure/structure/placeholder/custom_station.nbt").read_bytes(),
+            )
+            self.assertEqual(
+                metadata.read_bytes(),
+                (output / build_data_mod.STRUCTURE_METADATA_ENTRY_DIR
+                 / "placeholder/custom_station.structure.json").read_bytes(),
+            )
 
     def test_authored_house_nbt_generates_roof_color_variants(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

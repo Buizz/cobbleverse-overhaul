@@ -42,7 +42,7 @@ FACILITY_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/placeholder"
 HOUSE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/houses"
 TOWN_DECORATION_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/town_decorations"
 CAVE_ENTRANCE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/cave_entrance"
-FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/forest_entrance"
+FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/gate"
 INTERIOR_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/interiors"
 GYM_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/gyms"
 LEAGUE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/league"
@@ -1404,6 +1404,24 @@ def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, 
             if preset.get("music_track") is not None:
                 resolved["music_track"] = preset["music_track"]
             resolved.update(copy.deepcopy(connection))
+            # Once a connection selects a preset, reusable route properties are
+            # owned by that preset. Legacy inline fields remain readable in the
+            # authoring document but must not shadow later preset edits.
+            resolved["surface_style"] = "natural" if route_type == "trail" else route_type
+            resolved["corridor_width_blocks"] = corridor.get("width_blocks", 12)
+            resolved["edge_noise"] = corridor.get("edge_noise", 0)
+            resolved["pokemon_spawns"] = copy.deepcopy(preset.get("pokemon_spawns", {}))
+            resolved["level_scaling"] = copy.deepcopy(preset.get("level_scaling", {"mode": "world", "offset": 0}))
+            resolved["npc_placements"] = copy.deepcopy(preset.get("npc_placements", []))
+            for source_key, target_key in (("boundary_profile", "boundary_profile"), ("terrain_profile", "terrain_profile")):
+                if corridor.get(source_key) is not None:
+                    resolved[target_key] = copy.deepcopy(corridor[source_key])
+                else:
+                    resolved.pop(target_key, None)
+            if preset.get("music_track") is not None:
+                resolved["music_track"] = preset["music_track"]
+            else:
+                resolved.pop("music_track", None)
             resolved_connections.append(resolved)
         data["connections"] = resolved_connections
         relative = source_path.relative_to(source_dir)
@@ -1704,17 +1722,28 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(settings.read_bytes())
 
+    # Every authored structure is also a runtime resource with the same ID the
+    # web editor exposes. Fixed placeholder loops may generate missing
+    # defaults, but a copied/custom NBT must never remain editor-only.
+    managed_root = _inside(
+        root, root / CONTENT_ROOT / "structures", "관리 구조물 원본"
+    )
+    if managed_root.is_dir():
+        for source in sorted(managed_root.rglob("*.nbt")):
+            relative = source.relative_to(managed_root)
+            target = _inside(
+                root, output / "data/cobbleventure/structure" / relative,
+                "생성 관리 NBT",
+            )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(_read_authored_structure_nbt(source, "관리 NBT"))
+
     metadata_root = _inside(
         root, output / STRUCTURE_METADATA_ENTRY_DIR, "생성 구조물 메타데이터"
     )
-    for category in ("placeholder", "interiors", "gyms"):
-        source_dir = _inside(
-            root, root / CONTENT_ROOT / "structures" / category, "구조물 메타데이터 원본"
-        )
-        if not source_dir.is_dir():
-            continue
-        for source in sorted(source_dir.rglob("*.structure.json")):
-            target = metadata_root / category / source.relative_to(source_dir)
+    if managed_root.is_dir():
+        for source in sorted(managed_root.rglob("*.structure.json")):
+            target = metadata_root / source.relative_to(managed_root)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(source.read_bytes())
 
@@ -1785,7 +1814,7 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
 
     for category, source_relative, label in (
         ("cave_entrance", CAVE_ENTRANCE_STRUCTURE_SOURCE_DIR, "동굴 입구"),
-        ("forest_entrance", FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR, "숲 입구"),
+        ("gate", FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR, "숲 입구"),
     ):
         entrance_source = _inside(root, root / source_relative, f"{label} NBT 원본")
         if not entrance_source.is_dir():

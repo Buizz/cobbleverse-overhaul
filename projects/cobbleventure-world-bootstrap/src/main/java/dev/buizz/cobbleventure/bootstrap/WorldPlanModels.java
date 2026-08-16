@@ -68,7 +68,12 @@ final class WorldPlanModels {
         String pathfinding, int detourCells, double corridorWidthBlocks,
         double edgeNoise, String boundaryProfile, TerrainProfile terrainProfile,
         String surfaceStyle, String accessRequirement, List<HexCoord> cells,
-        RoutePokemonSpawns pokemonSpawns
+        RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements
+    ) {}
+
+    record RouteNpcPlacement(
+        String id, String npc, int progressPercent, String side,
+        double offsetBlocks, String facing, double spawnChance, String respawnPolicy
     ) {}
 
     record RoutePokemonAddition(String species, int minLevel, int maxLevel) {}
@@ -96,7 +101,7 @@ final class WorldPlanModels {
         double corridorWidthBlocks, double edgeNoise, TerrainProfile terrainProfile,
         String surfaceStyle, String accessRequirement, List<HexCoord> cells,
         List<CobbleventureBootstrap.Point> centerline, RouteBounds bounds,
-        RoutePokemonSpawns pokemonSpawns
+        RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements
     ) {}
 
     record TerrainProfile(

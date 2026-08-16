@@ -92,6 +92,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlac
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -6712,6 +6713,7 @@ public final class CobbleventureBootstrap {
             tunnelRadius.get("max").getAsDouble(),
             generator.get("surface_roughness").getAsDouble(),
             generator.get("water_level").getAsInt(),
+            generator.has("water_depth") ? generator.get("water_depth").getAsInt() : 8,
             generator.has("grand_room_scale") ? generator.get("grand_room_scale").getAsDouble() : 1.65D,
             generator.has("elevated_crossing") && generator.get("elevated_crossing").getAsBoolean(),
             generator.has("bridge_clearance") ? generator.get("bridge_clearance").getAsInt() : 13,
@@ -6863,7 +6865,8 @@ public final class CobbleventureBootstrap {
                 connection.routeBiome(), connection.boundaryProfile(),
                 connection.corridorWidthBlocks(), connection.edgeNoise(), connection.terrainProfile(),
                 connection.surfaceStyle(), connection.accessRequirement(), List.copyOf(path),
-                centerline, routeBounds(centerline), connection.pokemonSpawns()
+                centerline, routeBounds(centerline), connection.pokemonSpawns(),
+                connection.npcPlacements()
             ));
         }
 
@@ -7362,6 +7365,7 @@ public final class CobbleventureBootstrap {
         profiler.finishPhase("sealed-outer-decoration");
         progress.update(83, "직접 배치 길 생성 중");
         drawHexRoads(level, world);
+        spawnRouteNpcs(level, world);
         profiler.finishPhase("route-rendering");
     }
 
@@ -9033,6 +9037,7 @@ public final class CobbleventureBootstrap {
             return false;
         }
         return sample.surfaceStyle().equals("water")
+            || sample.surfaceStyle().equals("log_bridge")
             || sample.biome().contains("ocean")
             || sample.biome().contains("river");
     }
@@ -10908,6 +10913,80 @@ public final class CobbleventureBootstrap {
         return BuiltInRegistries.BLOCK.get(ResourceLocation.parse(id)).defaultBlockState();
     }
 
+    private static void spawnRouteNpcs(ServerLevel level, HexWorldPlan world) {
+        int spawned = 0;
+        for (ConnectionPath route : world.paths()) {
+            if (route.centerline().size() < 2) continue;
+            for (RouteNpcPlacement placement : route.npcPlacements()) {
+                double roll = Math.floorMod(
+                    Objects.hash(world.seed(), route.id(), placement.id()), 100_000
+                ) / 100_000.0D;
+                if (roll >= placement.spawnChance()) continue;
+                RouteNpcPoint point = routeNpcPoint(route.centerline(), placement.progressPercent());
+                double side = placement.side().equals("left") ? -1.0D
+                    : placement.side().equals("right") ? 1.0D : 0.0D;
+                int x = (int) Math.round(point.x() + point.normalX() * placement.offsetBlocks() * side);
+                int z = (int) Math.round(point.z() + point.normalZ() * placement.offsetBlocks() * side);
+                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                double facingX = placement.facing().equals("against") ? -point.tangentX() : point.tangentX();
+                double facingZ = placement.facing().equals("against") ? -point.tangentZ() : point.tangentZ();
+                float yaw = (float) Math.toDegrees(Math.atan2(-facingX, facingZ));
+                if (spawnRouteNpc(level, placement.npc(), new BlockPos(x, y, z), yaw)) spawned++;
+            }
+        }
+        if (spawned > 0) LOGGER.info("Route NPC placement completed: spawned={}", spawned);
+    }
+
+    private static RouteNpcPoint routeNpcPoint(List<Point> centerline, int progressPercent) {
+        double total = 0.0D;
+        for (int index = 1; index < centerline.size(); index++) {
+            Point a = centerline.get(index - 1), b = centerline.get(index);
+            total += Math.hypot(b.x() - a.x(), b.z() - a.z());
+        }
+        double remaining = total * Math.max(0, Math.min(100, progressPercent)) / 100.0D;
+        for (int index = 1; index < centerline.size(); index++) {
+            Point a = centerline.get(index - 1), b = centerline.get(index);
+            double dx = b.x() - a.x(), dz = b.z() - a.z();
+            double length = Math.hypot(dx, dz);
+            if (remaining <= length || index == centerline.size() - 1) {
+                double ratio = length <= 0.0001D ? 0.0D : Math.min(1.0D, remaining / length);
+                double tangentX = length <= 0.0001D ? 0.0D : dx / length;
+                double tangentZ = length <= 0.0001D ? 1.0D : dz / length;
+                return new RouteNpcPoint(
+                    a.x() + dx * ratio, a.z() + dz * ratio,
+                    tangentX, tangentZ, tangentZ, -tangentX
+                );
+            }
+            remaining -= length;
+        }
+        Point last = centerline.getLast();
+        return new RouteNpcPoint(last.x(), last.z(), 0.0D, 1.0D, 1.0D, 0.0D);
+    }
+
+    private static boolean spawnRouteNpc(
+        ServerLevel level, String npcId, BlockPos position, float yaw
+    ) {
+        String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
+        String command = "easy_npc preset import_new data easy_npc:preset/encounter/"
+            + slug + ".npc.snbt " + position.getX() + " " + position.getY() + " " + position.getZ();
+        try {
+            int result = level.getServer().getCommands().getDispatcher().execute(
+                command,
+                level.getServer().createCommandSourceStack()
+                    .withLevel(level)
+                    .withPosition(Vec3.atLowerCornerOf(position))
+                    .withRotation(new Vec2(0.0F, yaw))
+                    .withPermission(4)
+                    .withSuppressedOutput()
+            );
+            if (result == 0) LOGGER.warn("Route NPC command returned no result: npc={}, position={}", npcId, position);
+            return result != 0;
+        } catch (CommandSyntaxException error) {
+            LOGGER.error("Route NPC placement failed: npc={}, position={}", npcId, position, error);
+            return false;
+        }
+    }
+
     private static void drawHexRoads(ServerLevel level, HexWorldPlan world) {
         for (ConnectionPath connection : world.paths()) {
             List<Point> centerline = connection.centerline();
@@ -10922,6 +11001,10 @@ public final class CobbleventureBootstrap {
                     "Shore access roads completed: route={}, fromLanding={}, toLanding={}",
                     connection.id(), firstLanding, secondLanding
                 );
+                continue;
+            }
+            if (connection.surfaceStyle().equals("log_bridge")) {
+                drawLogBridge(level, connection, centerline);
                 continue;
             }
             if (!connection.surfaceStyle().equals("road")) {
@@ -10940,6 +11023,51 @@ public final class CobbleventureBootstrap {
             }
         }
     }
+
+    private static void drawLogBridge(
+        ServerLevel level, ConnectionPath connection, List<Point> centerline
+    ) {
+        for (int index = 1; index < centerline.size(); index++) {
+            Point start = centerline.get(index - 1);
+            Point end = centerline.get(index);
+            int dx = end.x() - start.x();
+            int dz = end.z() - start.z();
+            int steps = Math.max(Math.abs(dx), Math.abs(dz));
+            if (steps == 0) continue;
+            double length = Math.max(1.0D, Math.hypot(dx, dz));
+            double normalX = -dz / length;
+            double normalZ = dx / length;
+            Direction.Axis routeAxis = Math.abs(dx) >= Math.abs(dz)
+                ? Direction.Axis.X : Direction.Axis.Z;
+            for (int step = 0; step <= steps; step++) {
+                double factor = step / (double) steps;
+                int centerX = (int) Math.round(start.x() + dx * factor);
+                int centerZ = (int) Math.round(start.z() + dz * factor);
+                for (int side = -2; side <= 2; side++) {
+                    int x = (int) Math.round(centerX + normalX * side);
+                    int z = (int) Math.round(centerZ + normalZ * side);
+                    BlockState deck = Math.abs(side) == 2
+                        ? Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState().setValue(
+                            BlockStateProperties.AXIS, routeAxis
+                        )
+                        : Blocks.SPRUCE_PLANKS.defaultBlockState();
+                    level.setBlock(new BlockPos(x, WATER_SURFACE_Y, z), deck, 2);
+                    for (int y = WATER_SURFACE_Y + 1; y <= WATER_SURFACE_Y + 4; y++) {
+                        level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
+                    }
+                }
+            }
+        }
+        LOGGER.info(
+            "Log bridge completed: route={}, material=spruce_planks/stripped_spruce_log",
+            connection.id()
+        );
+    }
+
+    private record RouteNpcPoint(
+        double x, double z, double tangentX, double tangentZ,
+        double normalX, double normalZ
+    ) {}
 
     private static boolean insideConnectionTownCore(
         HexWorldPlan world, ConnectionPath connection, Point point

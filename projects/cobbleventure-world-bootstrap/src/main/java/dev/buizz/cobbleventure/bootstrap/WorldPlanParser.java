@@ -93,10 +93,25 @@ final class WorldPlanParser {
                 value.has("terrain_profile")
                     ? terrainProfile(value) : new TerrainProfile(0, 0, 96.0D, 0),
                 required(value, "surface_style"), optional(value, "access_requirement"),
-                coordinates(value, "cells"), routePokemonSpawns(value)
+                coordinates(value, "cells"), routePokemonSpawns(value), routeNpcPlacements(value)
             ));
         }
         return List.copyOf(result);
+    }
+
+    private static List<RouteNpcPlacement> routeNpcPlacements(JsonObject connection) {
+        if (!connection.has("npc_placements")) return List.of();
+        List<RouteNpcPlacement> placements = new ArrayList<>();
+        for (JsonElement element : connection.getAsJsonArray("npc_placements")) {
+            JsonObject value = element.getAsJsonObject();
+            placements.add(new RouteNpcPlacement(
+                required(value, "id"), required(value, "npc"),
+                value.get("progress_percent").getAsInt(), required(value, "side"),
+                value.get("offset_blocks").getAsDouble(), required(value, "facing"),
+                value.get("spawn_chance").getAsDouble(), required(value, "respawn_policy")
+            ));
+        }
+        return List.copyOf(placements);
     }
 
     private static RoutePokemonSpawns routePokemonSpawns(JsonObject connection) {

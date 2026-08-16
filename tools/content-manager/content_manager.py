@@ -874,7 +874,7 @@ def validate_hex_worlds(
             ):
                 _issue(issues, "error", path, f"{connection_path}.display_name", "길 이름은 1자 이상 100자 이하 문자열이어야 합니다.")
             route_preset = connection.get("route_preset")
-            if route_preset is not None and route_preset not in route_ids:
+            if route_preset is not None and route_ids and route_preset not in route_ids:
                 _issue(issues, "error", path, f"{connection_path}.route_preset", f"존재하지 않는 길 프리셋: {route_preset}")
             for field in ("from", "to"):
                 target = connection.get(field)
@@ -893,8 +893,8 @@ def validate_hex_worlds(
                 _issue(issues, "error", path, f"{connection_path}.edge_noise", "0 이상 0.35 이하의 통로 경계 굴곡값이 필요합니다.")
             if connection.get("terrain_profile") is not None:
                 validate_terrain(connection.get("terrain_profile"), path, f"{connection_path}.terrain_profile")
-            if connection.get("surface_style") not in {"road", "natural", "water"}:
-                _issue(issues, "error", path, f"{connection_path}.surface_style", "road, natural, water 중 하나가 필요합니다.")
+            if connection.get("surface_style") not in {"road", "natural", "water", "log_bridge"}:
+                _issue(issues, "error", path, f"{connection_path}.surface_style", "road, natural, water, log_bridge 중 하나가 필요합니다.")
             pokemon_spawns = connection.get("pokemon_spawns")
             if pokemon_spawns is not None:
                 if not isinstance(pokemon_spawns, dict):
@@ -1675,6 +1675,10 @@ def save_world_layout(root: Path, data: Any, generation: int = 1) -> list[Issue]
                 forest_documents[forest["id"]] = forest
         except (OSError, json.JSONDecodeError, DuplicateKeyError):
             continue
+    route_ids = {
+        item["id"] for item in _list_documents(root, "routes")
+        if isinstance(item.get("id"), str) and item["id"]
+    }
     with tempfile.TemporaryDirectory(prefix="cobbleventure-world-layout-") as directory:
         candidate_root = Path(directory)
         world_dir = candidate_root / "content" / "worlds"
@@ -1691,7 +1695,7 @@ def save_world_layout(root: Path, data: Any, generation: int = 1) -> list[Issue]
         pokemon_catalog = root / "content" / "catalogs" / "pokemon-habitats.json"
         if pokemon_catalog.is_file():
             shutil.copy2(pokemon_catalog, catalog_dir / "pokemon-habitats.json")
-        candidate_issues = validate_hex_worlds(candidate_root, settlement_ids, cave_documents, forest_documents)
+        candidate_issues = validate_hex_worlds(candidate_root, settlement_ids, cave_documents, forest_documents, route_ids)
     issues = [
         Issue(issue.level, target.as_posix(), issue.path, issue.message)
         for issue in candidate_issues
@@ -6376,8 +6380,8 @@ def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
         _issue(issues, "error", path, "$.display_name", "길 프리셋 이름을 하나 이상 입력해야 합니다.")
     if not isinstance(data.get("enabled"), bool):
         _issue(issues, "error", path, "$.enabled", "사용 여부는 true 또는 false여야 합니다.")
-    if data.get("route_type") not in {"road", "trail", "water"}:
-        _issue(issues, "error", path, "$.route_type", "길 종류는 road, trail, water 중 하나여야 합니다.")
+    if data.get("route_type") not in {"road", "trail", "water", "log_bridge"}:
+        _issue(issues, "error", path, "$.route_type", "길 종류는 road, trail, water, log_bridge 중 하나여야 합니다.")
 
     corridor = data.get("corridor")
     if not isinstance(corridor, dict):
@@ -6421,6 +6425,28 @@ def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
         for field in ("excluded_species", "additions", "level_overrides"):
             if not isinstance(pokemon.get(field), list):
                 _issue(issues, "error", path, f"$.pokemon_spawns.{field}", "배열이어야 합니다.")
+        excluded = pokemon.get("excluded_species", [])
+        if isinstance(excluded, list):
+            for index, species in enumerate(excluded):
+                _resource_id(species, issues, path, f"$.pokemon_spawns.excluded_species[{index}]")
+        for field in ("additions", "level_overrides"):
+            entries = pokemon.get(field, [])
+            if not isinstance(entries, list):
+                continue
+            for index, entry in enumerate(entries):
+                base = f"$.pokemon_spawns.{field}[{index}]"
+                if not isinstance(entry, dict):
+                    _issue(issues, "error", path, base, "포켓몬과 레벨 범위 설정이 필요합니다.")
+                    continue
+                _resource_id(entry.get("species"), issues, path, f"{base}.species")
+                minimum = entry.get("min_level")
+                maximum = entry.get("max_level")
+                if not isinstance(minimum, int) or isinstance(minimum, bool) or not 1 <= minimum <= 100:
+                    _issue(issues, "error", path, f"{base}.min_level", "최소 레벨은 1~100 정수여야 합니다.")
+                if not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 100:
+                    _issue(issues, "error", path, f"{base}.max_level", "최대 레벨은 1~100 정수여야 합니다.")
+                if isinstance(minimum, int) and isinstance(maximum, int) and minimum > maximum:
+                    _issue(issues, "error", path, base, "최소 레벨은 최대 레벨보다 클 수 없습니다.")
 
     placements = data.get("npc_placements")
     if not isinstance(placements, list):
@@ -6550,6 +6576,12 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 summary["npc_name"] = _localized_value(data.get("npc", {}).get("display_name"))
             elif category == "battles":
                 summary["battle_type"] = data.get("battle", {}).get("battle_type", "singles")
+            elif category == "routes":
+                summary["route_type"] = data.get("route_type", "road")
+                summary["auto_name"] = data.get("auto_name", True)
+                summary["corridor_width_blocks"] = data.get("corridor", {}).get("width_blocks", 12)
+                summary["npc_count"] = len(data.get("npc_placements", []))
+                summary["pokemon_spawns"] = data.get("pokemon_spawns", {})
             elif category == "settlements":
                 summary["biome"] = world_biomes.get(data.get("id"), "minecraft:plains")
                 summary["load_order"] = data.get("load_order")
@@ -7539,6 +7571,7 @@ def _route_template(slug: str, name: str) -> dict[str, Any]:
         "schema_version": 1,
         "id": f"cobbleventure:route/{slug}",
         "display_name": {"ko_kr": name, "en_us": name},
+        "auto_name": True,
         "enabled": True,
         "route_type": "road",
         "corridor": {"width_blocks": 12, "edge_noise": 0},
@@ -7551,6 +7584,31 @@ def _route_template(slug: str, name: str) -> dict[str, Any]:
         },
         "npc_placements": [],
     }
+
+
+def _clone_route_document(
+    root: Path, source_id: str, slug: str, name: str, generation: str
+) -> tuple[Path | None, dict[str, Any] | None, list[Issue]]:
+    if not DOCUMENT_SLUG.fullmatch(slug):
+        return None, None, [Issue("error", "", "$.slug", "파일 ID는 소문자, 숫자와 밑줄만 사용할 수 있습니다.")]
+    if not DOCUMENT_SLUG.fullmatch(generation):
+        return None, None, [Issue("error", "", "$.generation", "올바른 세대 ID가 아닙니다.")]
+    source = next((item for item in _list_documents(root, "routes") if item.get("id") == source_id), None)
+    if not source:
+        return None, None, [Issue("error", "", "$.source_id", "복사할 기존 길을 찾을 수 없습니다.")]
+    source_path = _managed_path(root, "routes", source["path"])
+    document = copy.deepcopy(load_json(source_path))
+    document["id"] = f"cobbleventure:route/{slug}"
+    document["auto_name"] = True
+    display_name = document.setdefault("display_name", {})
+    display_name["ko_kr"] = name.strip() or f"{_localized_value(display_name)} 복사본"
+    display_name["en_us"] = display_name.get("en_us") or display_name["ko_kr"]
+    relative_path = f"content/routes/{generation}/{slug}.json"
+    target = (root / relative_path).resolve()
+    if target.exists():
+        return target, None, [Issue("error", target.as_posix(), "$", "같은 이름의 길이 이미 존재합니다.")]
+    saved, issues = _save_document(root, "routes", relative_path, document)
+    return saved, document if saved and not any(issue.level == "error" for issue in issues) else None, issues
 
 
 def _create_document(
@@ -8411,6 +8469,9 @@ STRUCTURE_CATEGORY_LABELS = {
     "decoration": "마을 장식",
     "natural_feature": "자연물·동굴",
 }
+STRUCTURE_DIRECTORY = re.compile(
+    r"[a-z0-9][a-z0-9_.-]*(?:/[a-z0-9][a-z0-9_.-]*)*"
+)
 
 
 def managed_structure_files(root: Path) -> dict[str, Path]:
@@ -8440,9 +8501,17 @@ def _managed_structure_category(relative: Path) -> str:
         return "placeholder"
     if parts[:1] == ("town_decorations",):
         return "decoration"
-    if parts[:1] in {("cave_entrance",), ("forest_entrance",)}:
+    if parts[:1] in {("cave_entrance",), ("forest_entrance",), ("gate",)}:
         return "natural_feature"
     return "building"
+
+
+def _configured_structure_category(relative: Path, settings: Any) -> str:
+    if isinstance(settings, dict):
+        category = settings.get("structure_category")
+        if category in STRUCTURE_CATEGORY_LABELS:
+            return category
+    return _managed_structure_category(relative)
 
 
 def _structure_npc_labels(path: Path) -> list[dict[str, Any]]:
@@ -8683,7 +8752,10 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
     }
     structure_paths = managed_structure_files(root)
     structure_categories = {
-        resource_id: _managed_structure_category(path.relative_to(root / "content" / "structures"))
+        resource_id: _configured_structure_category(
+            path.relative_to(root / "content" / "structures"),
+            building_settings.get(resource_id, {}),
+        )
         for resource_id, path in structure_paths.items()
     }
     door_labels_by_structure = {
@@ -8786,6 +8858,7 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         if kind == "building":
             current = building_settings.get(owner, {})
             building_settings[owner] = {
+                "structure_category": structure_categories.get(owner, "building"),
                 "fixed_npcs": current.get("fixed_npcs", {}) if isinstance(current, dict) else {},
                 "citizen_placement_allowed": bool(current.get("citizen_placement_allowed", False)) if isinstance(current, dict) else False,
                 "interiors": [{"key": node["id"], "structure": node.get("structure", "")} for node in interiors],
@@ -8851,10 +8924,10 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
         metadata = read_minecraft_structure_metadata(path.read_bytes())
         relative = path.relative_to(root / "content" / "structures")
         residential = bool(relative.parts and relative.parts[0] == "houses")
-        category = _managed_structure_category(relative)
         entry = configured.get(resource_id, {})
         if not isinstance(entry, dict):
             entry = {}
+        category = _configured_structure_category(relative, entry)
         structures[resource_id] = {
             **metadata,
             "source": path.relative_to(root).as_posix(),
@@ -8872,6 +8945,7 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
                 "placement_y_offset": entry.get("placement_y_offset", 0)
                 if isinstance(entry.get("placement_y_offset", 0), int)
                 and not isinstance(entry.get("placement_y_offset", 0), bool) else 0,
+                "structure_category": category,
                 "music_track": entry.get("music_track", "")
                 if isinstance(entry.get("music_track", ""), str) else "",
                 "no_interior_space": bool(entry.get("no_interior_space", False)),
@@ -8892,6 +8966,98 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
         "structures": structures,
         "npcs": _list_documents(root, "trainers"),
         "path": BUILDING_SETTINGS_PATH.as_posix(),
+    }
+
+
+def copy_managed_exterior_structure(
+    root: Path, source_resource_id: str, target_directory: str, target_slug: str,
+) -> dict[str, Any]:
+    """Clone a managed exterior NBT and its authored/runtime metadata."""
+    structures = managed_structure_files(root)
+    source = structures.get(source_resource_id)
+    if source is None:
+        raise ValueError("복사할 관리 NBT 구조물을 찾을 수 없습니다.")
+    source_root = root / "content" / "structures"
+    source_relative = source.relative_to(source_root)
+    settings_path = root / BUILDING_SETTINGS_PATH
+    settings_document = load_building_settings(root)
+    source_settings = settings_document["buildings"].get(source_resource_id, {})
+    category = _configured_structure_category(source_relative, source_settings)
+    if category in {"interior", "gym_interior"}:
+        raise ValueError("내부 NBT는 외부 NBT 복사 기능으로 추가할 수 없습니다.")
+    if not isinstance(target_slug, str) or not DOCUMENT_SLUG.fullmatch(target_slug):
+        raise ValueError("새 NBT ID는 영문 소문자·숫자·밑줄만 사용할 수 있습니다.")
+    if (
+        not isinstance(target_directory, str)
+        or not STRUCTURE_DIRECTORY.fullmatch(target_directory)
+    ):
+        raise ValueError(
+            "리소스 경로는 영문 소문자·숫자·밑줄과 슬래시만 사용할 수 있습니다."
+        )
+
+    target = source_root / target_directory / f"{target_slug}.nbt"
+    target_relative = target.relative_to(source_root)
+    target_resource_id = f"cobbleventure:{target_relative.with_suffix('').as_posix()}"
+    target_sidecar = target.with_suffix(".structure.json")
+    if target.is_file() or target_sidecar.is_file() or target_resource_id in structures:
+        raise ValueError(f"이미 존재하는 NBT ID입니다: {target_resource_id}")
+
+    source_metadata = read_minecraft_structure_metadata(source.read_bytes())
+    source_sidecar = source.with_suffix(".structure.json")
+    sidecar_document: dict[str, Any] | None = None
+    if source_sidecar.is_file():
+        loaded = load_json(source_sidecar)
+        if not isinstance(loaded, dict):
+            raise ValueError("원본 NBT 메타데이터가 객체가 아닙니다.")
+        sidecar_document = copy.deepcopy(loaded)
+        if "structure" in sidecar_document:
+            sidecar_document["structure"] = target.relative_to(root).as_posix()
+
+    target_settings = (
+        copy.deepcopy(source_settings) if isinstance(source_settings, dict) else {}
+    )
+    target_settings["structure_category"] = category
+    settings_document["buildings"][target_resource_id] = target_settings
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    nbt_temporary = target.with_name(target.name + ".copy.tmp")
+    sidecar_temporary = target_sidecar.with_name(target_sidecar.name + ".copy.tmp")
+    settings_temporary = settings_path.with_name(settings_path.name + ".copy.tmp")
+    created: list[Path] = []
+    try:
+        nbt_temporary.write_bytes(source.read_bytes())
+        if sidecar_document is not None:
+            sidecar_temporary.write_text(
+                json.dumps(sidecar_document, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        settings_temporary.write_text(
+            json.dumps(settings_document, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        nbt_temporary.replace(target)
+        created.append(target)
+        if sidecar_document is not None:
+            sidecar_temporary.replace(target_sidecar)
+            created.append(target_sidecar)
+        settings_temporary.replace(settings_path)
+    except Exception:
+        for path in (nbt_temporary, sidecar_temporary, settings_temporary):
+            path.unlink(missing_ok=True)
+        for path in reversed(created):
+            path.unlink(missing_ok=True)
+        raise
+
+    return {
+        "structure": target_resource_id,
+        "source_structure": source_resource_id,
+        "source": target.relative_to(root).as_posix(),
+        "category": category,
+        "category_label": STRUCTURE_CATEGORY_LABELS[category],
+        "sidecar_copied": sidecar_document is not None,
+        "settings_copied": isinstance(source_settings, dict) and bool(source_settings),
+        **source_metadata,
     }
 
 
@@ -9167,6 +9333,7 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             )
         normalized[resource_id] = {
             "placement_y_offset": placement_y_offset,
+            "structure_category": _configured_structure_category(relative, settings),
             **({"music_track": music_track} if music_track else {}),
             "no_interior_space": no_interior_space,
             "fixed_npcs": {} if citizen_placement_allowed else normalized_fixed,
@@ -10234,6 +10401,30 @@ def create_handler(
                     },
                 )
                 return
+            if request.path == "/api/routes/clone":
+                if not isinstance(payload, dict):
+                    self._json(400, {"error": "복사할 길 정보가 필요합니다."})
+                    return
+                source_id = payload.get("source_id", "")
+                slug = payload.get("slug", "")
+                name = payload.get("name", "")
+                generation = payload.get("generation", "generation_1")
+                if not all(isinstance(value, str) for value in (source_id, slug, name, generation)):
+                    self._json(400, {"error": "길 복사 정보는 문자열이어야 합니다."})
+                    return
+                try:
+                    target, document, issues = _clone_route_document(root, source_id, slug, name, generation)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(201 if errors == 0 else 422, {
+                    "created": errors == 0,
+                    "path": target.relative_to(root).as_posix() if target else "",
+                    "document": document,
+                    "issues": [asdict(issue) for issue in issues],
+                })
+                return
             if request.path == "/api/league-members/create":
                 if not isinstance(payload, dict):
                     self._json(400, {"error": "리그 구성원 생성 정보가 필요합니다."})
@@ -10311,6 +10502,26 @@ def create_handler(
                     schedule_structure_cache_refresh()
                     self._json(201, {"created": True, "space": space})
                 except (OSError, ValueError, TypeError) as error:
+                    self._json(400, {"error": str(error)})
+                return
+            if request.path == "/api/exterior-structures/copy":
+                if not isinstance(payload, dict):
+                    self._json(400, {"error": "외부 NBT 복사 정보가 필요합니다."})
+                    return
+                try:
+                    result = copy_managed_exterior_structure(
+                        root,
+                        str(payload.get("source_structure", "")),
+                        str(payload.get("target_directory", "")),
+                        str(payload.get("target_slug", "")),
+                    )
+                    refresh_structure_cache()
+                    structure_model_cache.pop(result["structure"], None)
+                    self._json(201, {"created": True, "structure": result})
+                except (
+                    OSError, ValueError, EOFError, struct.error,
+                    json.JSONDecodeError, DuplicateKeyError,
+                ) as error:
                     self._json(400, {"error": str(error)})
                 return
             if request.path == "/api/structure-builder/import":

@@ -114,7 +114,7 @@ final class NaturalCaveGenerator {
         }
         decorateRooms(level, layout, seed, settings);
         buildEntranceLandmarks(level, layout, entrances);
-        int flooded = floodSubmergedCave(level, blobs, settings.waterLevel());
+        int flooded = floodSubmergedCave(level, blobs, settings.waterLevel(), settings.waterDepth());
         applyInternalBiomes(level, layout, settings);
         level.setBlock(marker, Blocks.REINFORCED_DEEPSLATE.defaultBlockState(), 2);
         LOGGER.info(
@@ -706,17 +706,35 @@ final class NaturalCaveGenerator {
     }
 
     private static int floodSubmergedCave(
-        ServerLevel level, List<Blob> blobs, int waterLevel
+        ServerLevel level, List<Blob> blobs, int waterLevel, int waterDepth
     ) {
         int flooded = 0;
+        int waterFloorY = waterLevel - Math.max(1, waterDepth);
         for (Blob blob : blobs) {
             int minX = (int) Math.floor(blob.x() - blob.radiusX());
             int maxX = (int) Math.ceil(blob.x() + blob.radiusX());
-            int minY = (int) Math.floor(blob.y() - blob.radiusY());
+            int minY = Math.max(
+                waterLevel - Math.max(1, waterDepth) + 1,
+                (int) Math.floor(blob.y() - blob.radiusY())
+            );
             int maxY = Math.min(waterLevel, (int) Math.ceil(blob.y() + blob.radiusY()));
             int minZ = (int) Math.floor(blob.z() - blob.radiusZ());
             int maxZ = (int) Math.ceil(blob.z() + blob.radiusZ());
             for (int x = minX; x <= maxX; x++) {
+                if (waterFloorY >= (int) Math.floor(blob.y() - blob.radiusY())
+                    && waterFloorY <= (int) Math.ceil(blob.y() + blob.radiusY())) {
+                    for (int z = minZ; z <= maxZ; z++) {
+                        if (ellipsoidDistance(
+                            blob, x, waterFloorY, z,
+                            blob.radiusX(), blob.radiusY(), blob.radiusZ()
+                        ) <= 0.96D) {
+                            BlockPos floor = new BlockPos(x, waterFloorY, z);
+                            if (level.getBlockState(floor).isAir()) {
+                                level.setBlock(floor, Blocks.STONE.defaultBlockState(), 2);
+                            }
+                        }
+                    }
+                }
                 for (int y = minY; y <= maxY; y++) {
                     for (int z = minZ; z <= maxZ; z++) {
                         if (ellipsoidDistance(
@@ -1115,6 +1133,7 @@ final class NaturalCaveGenerator {
         double maximumTunnelRadius,
         double surfaceRoughness,
         int waterLevel,
+        int waterDepth,
         double grandRoomScale,
         boolean elevatedCrossing,
         int bridgeClearance,
@@ -1131,7 +1150,7 @@ final class NaturalCaveGenerator {
 
         static Settings defaults(boolean requiresFlash) {
             return new Settings(
-                0L, 7, 4, 0.35D, 28, 10.0D, 28.0D, 3.0D, 7.0D, 0.18D, 38,
+                0L, 7, 4, 0.35D, 28, 10.0D, 28.0D, 3.0D, 7.0D, 0.18D, 38, 8,
                 1.65D, false, 13, requiresFlash,
                 ManualLayout.disabled(),
                 List.of("minecraft:dripstone_caves"),

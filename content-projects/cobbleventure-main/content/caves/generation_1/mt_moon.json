@@ -41,6 +41,7 @@
     },
     "surface_roughness": 0.18,
     "water_level": 38,
+    "water_depth": 8,
     "grand_room_scale": 1.75,
     "elevated_crossing": false,
     "bridge_clearance": 14,

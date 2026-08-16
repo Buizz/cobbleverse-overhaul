@@ -1975,6 +1975,7 @@
   "connections": [
     {
       "id": "route_custom_01",
+      "route_preset": "cobbleventure:route/route_custom_01",
       "from": "cobbleventure:settlement/cerulean_city",
       "to": "cobbleventure:cave_entrance/mt_moon_east",
       "anchors": [
@@ -2017,6 +2018,7 @@
     },
     {
       "id": "route_custom_02",
+      "route_preset": "cobbleventure:route/route_custom_02",
       "from": "cobbleventure:cave_entrance/mt_moon_west",
       "to": "cobbleventure:settlement/crimson_town",
       "anchors": [
@@ -2059,6 +2061,7 @@
     },
     {
       "id": "route_custom_03",
+      "route_preset": "cobbleventure:route/route_custom_03",
       "from": "cobbleventure:settlement/starter_town",
       "to": "cobbleventure:settlement/route_01_town",
       "anchors": [
@@ -2105,6 +2108,7 @@
     },
     {
       "id": "route_custom_04",
+      "route_preset": "cobbleventure:route/route_custom_04",
       "from": "cobbleventure:settlement/route_01_town",
       "to": "forest_entrance_viridian_forest_south",
       "anchors": [
@@ -2143,6 +2147,7 @@
     },
     {
       "id": "route_viridian_forest_north",
+      "route_preset": "cobbleventure:route/route_viridian_forest_north",
       "from": "forest_entrance_viridian_forest_north",
       "to": "cobbleventure:settlement/crimson_town",
       "anchors": [
@@ -2181,6 +2186,7 @@
     },
     {
       "id": "route_custom_05",
+      "route_preset": "cobbleventure:route/route_custom_05",
       "from": "cobbleventure:settlement/route_01_town",
       "to": "cobbleventure:settlement/skyreach_town",
       "anchors": [
@@ -2256,6 +2262,7 @@
     },
     {
       "id": "route_custom_06",
+      "route_preset": "cobbleventure:route/route_custom_06",
       "from": "cobbleventure:settlement/celadon_city",
       "to": "cobbleventure:settlement/saffron_city",
       "anchors": [
@@ -2297,6 +2304,7 @@
     },
     {
       "id": "route_custom_08",
+      "route_preset": "cobbleventure:route/route_custom_08",
       "from": "cobbleventure:settlement/starter_town",
       "to": "cobbleventure:settlement/tidehaven_town",
       "anchors": [
@@ -2339,6 +2347,7 @@
     },
     {
       "id": "route_custom_09",
+      "route_preset": "cobbleventure:route/route_custom_09",
       "from": "cobbleventure:settlement/fuchsia_city",
       "to": "cobbleventure:settlement/tidehaven_town",
       "anchors": [
@@ -2389,6 +2398,7 @@
     },
     {
       "id": "route_custom_07",
+      "route_preset": "cobbleventure:route/route_custom_07",
       "from": "cobbleventure:settlement/celadon_city",
       "to": "cobbleventure:settlement/fuchsia_city",
       "anchors": [
@@ -2446,6 +2456,7 @@
     },
     {
       "id": "route_custom_10",
+      "route_preset": "cobbleventure:route/route_custom_10",
       "from": "cobbleventure:settlement/fuchsia_city",
       "to": "cobbleventure:settlement/lavender_town",
       "anchors": [
@@ -2535,6 +2546,7 @@
     },
     {
       "id": "route_custom_11",
+      "route_preset": "cobbleventure:route/route_custom_11",
       "from": "cobbleventure:settlement/saffron_city",
       "to": "cobbleventure:settlement/vermilion_city",
       "anchors": [
@@ -2576,6 +2588,7 @@
     },
     {
       "id": "route_custom_12",
+      "route_preset": "cobbleventure:route/route_custom_12",
       "from": "cobbleventure:settlement/saffron_city",
       "to": "cobbleventure:settlement/cerulean_city",
       "anchors": [
@@ -2617,6 +2630,7 @@
     },
     {
       "id": "route_custom_13",
+      "route_preset": "cobbleventure:route/route_custom_13",
       "from": "cobbleventure:settlement/saffron_city",
       "to": "cobbleventure:settlement/lavender_town",
       "anchors": [
@@ -2658,6 +2672,7 @@
     },
     {
       "id": "route_custom_14",
+      "route_preset": "cobbleventure:route/route_custom_14",
       "anchors": [
         {
           "q": 3,
@@ -2707,7 +2722,7 @@
         "r": 2
       },
       "facing": "north",
-      "structure": "cobbleventure:forest_entrance/forest_gate",
+      "structure": "cobbleventure:gate/forest_gate",
       "rotation": 0,
       "tree_log": "minecraft:spruce_log",
       "tree_leaves": "minecraft:spruce_leaves",
@@ -2726,7 +2741,7 @@
         "r": 0
       },
       "facing": "south",
-      "structure": "cobbleventure:forest_entrance/forest_gate",
+      "structure": "cobbleventure:gate/forest_gate",
       "rotation": 2,
       "tree_log": "minecraft:spruce_log",
       "tree_leaves": "minecraft:spruce_leaves",
@@ -2762,7 +2777,7 @@
         "conditions": [],
         "deny_message": "아직 이 관문을 통과할 수 없습니다."
       },
-      "resource": "cobbleventure:forest_entrance/forest_gate"
+      "resource": "cobbleventure:gate/forest_gate"
     }
   ],
   "environment_overrides": [],

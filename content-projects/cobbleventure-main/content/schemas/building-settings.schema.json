@@ -17,6 +17,9 @@
         "required": ["fixed_npcs", "citizen_placement_allowed", "interiors", "door_routes"],
         "properties": {
           "placement_y_offset": { "type": "integer", "minimum": -64, "maximum": 64 },
+          "structure_category": {
+            "enum": ["building", "residential", "gym_exterior", "gym_interior", "interior", "league", "placeholder", "decoration", "natural_feature"]
+          },
           "music_track": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
           "no_interior_space": { "type": "boolean" },
           "fixed_npcs": {

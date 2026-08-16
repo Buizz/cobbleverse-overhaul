@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/gate/forest_gate.nbt",
+  "display_name": {
+    "ko_kr": "숲관문",
+    "en_us": "Forest Gate"
+  },
+  "anchors": []
+}

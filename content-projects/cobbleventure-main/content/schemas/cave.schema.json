@@ -34,7 +34,7 @@
       "required": [
         "layout", "seed_salt", "main_rooms", "branch_count", "loop_chance",
         "vertical_range", "room_radius", "tunnel_radius", "surface_roughness",
-        "water_level"
+        "water_level", "water_depth"
       ],
       "properties": {
         "layout": { "const": "natural_network" },
@@ -47,6 +47,7 @@
         "tunnel_radius": { "$ref": "#/$defs/radius_range" },
         "surface_roughness": { "type": "number", "minimum": 0, "maximum": 1 },
         "water_level": { "type": "integer", "minimum": 1, "maximum": 250 },
+        "water_depth": { "type": "integer", "minimum": 1, "maximum": 96 },
         "grand_room_scale": { "type": "number", "minimum": 1, "maximum": 3 },
         "elevated_crossing": { "type": "boolean" },
         "bridge_clearance": { "type": "integer", "minimum": 7, "maximum": 32 },
