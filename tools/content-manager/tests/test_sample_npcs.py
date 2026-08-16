@@ -132,7 +132,7 @@ class SampleNpcTests(unittest.TestCase):
         self.assertEqual("map_scaling", scaled_summary["level_mode"])
         self.assertEqual(-2, scaled_summary["level_offset"])
 
-    def test_map_scaled_battle_generates_all_runtime_level_variants(self) -> None:
+    def test_map_scaled_battle_generates_one_runtime_trainer(self) -> None:
         battle = next(
             battle
             for battle in self.battles.values()
@@ -151,12 +151,13 @@ class SampleNpcTests(unittest.TestCase):
             content_manager._write_generated_trainer(rct_root, runtime_root, document)
             slug = battle["battle"]["trainer_id"].rsplit("/", 1)[-1]
             variants = sorted(rct_root.glob(f"{slug}__level_*.json"))
-            level_one = json.loads((rct_root / f"{slug}__level_1.json").read_text(encoding="utf-8"))
-            level_hundred = json.loads((rct_root / f"{slug}__level_100.json").read_text(encoding="utf-8"))
+            trainer = json.loads((rct_root / f"{slug}.json").read_text(encoding="utf-8"))
 
-        self.assertEqual(100, len(variants))
-        self.assertTrue(all(member["level"] == 1 for member in level_one["team"]))
-        self.assertTrue(all(member["level"] == 100 for member in level_hundred["team"]))
+        self.assertEqual([], variants)
+        self.assertEqual(
+            [member["level"] for member in battle["battle"]["team"]],
+            [member["level"] for member in trainer["team"]],
+        )
 
     def test_map_scaled_battle_requires_bounded_integer_offset(self) -> None:
         battle = json.loads(json.dumps(next(iter(self.battles.values()))))

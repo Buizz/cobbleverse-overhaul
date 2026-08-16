@@ -41,3 +41,17 @@ type="required"
 versionRange="[2.0.0,)"
 ordering="AFTER"
 side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="rctapi"
+type="required"
+versionRange="[0.15.0-beta,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="tbcs"
+type="required"
+versionRange="[0.14.1-beta,)"
+ordering="AFTER"
+side="BOTH"

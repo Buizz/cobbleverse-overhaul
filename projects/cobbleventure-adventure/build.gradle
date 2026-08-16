@@ -28,6 +28,7 @@ repositories {
 dependencies {
     compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
     compileOnly "curse.maven:cobbledollars-859232:8484919"
+    compileOnly "curse.maven:radical-cobblemon-trainers-api-1152792:7952419"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
 }
 

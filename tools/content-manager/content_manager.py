@@ -8160,10 +8160,10 @@ def _rct_stats(stats: Any) -> dict[str, int]:
     }
 
 
-def _rct_team_member(member: dict[str, Any], level_override: int | None = None) -> dict[str, Any]:
+def _rct_team_member(member: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {
         "species": _short_resource_id(member.get("species")),
-        "level": level_override if level_override is not None else member.get("level"),
+        "level": member.get("level"),
         "moveset": [_short_resource_id(move) for move in member.get("moves", [])],
     }
     optional_values = {
@@ -8196,9 +8196,7 @@ def _rct_team_member(member: dict[str, Any], level_override: int | None = None) 
     return result
 
 
-def export_rct_trainer(
-    document: dict[str, Any], level_override: int | None = None
-) -> dict[str, Any]:
+def export_rct_trainer(document: dict[str, Any]) -> dict[str, Any]:
     battle = document["battle"]
     ai = battle["ai"]
     # The Cobbleventure decision engine is still a platform-independent module
@@ -8219,7 +8217,7 @@ def export_rct_trainer(
         "name": document.get("name", {}).get("ko_kr") or document["id"],
         "ai": {"type": "rct", "data": ai_data},
         "team": [
-            _rct_team_member(member, level_override)
+            _rct_team_member(member)
             for member in battle.get("team", [])
         ],
     }
@@ -8268,17 +8266,6 @@ def _write_generated_trainer(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-    if document["battle"].get("level_mode") == "map_scaling":
-        for level in range(1, 101):
-            target = rct_root / f"{slug}__level_{level}.json"
-            target.write_text(
-                json.dumps(
-                    export_rct_trainer(document, level_override=level),
-                    ensure_ascii=False,
-                    indent=2,
-                ) + "\n",
-                encoding="utf-8",
-            )
 
 
 def generate_content(
