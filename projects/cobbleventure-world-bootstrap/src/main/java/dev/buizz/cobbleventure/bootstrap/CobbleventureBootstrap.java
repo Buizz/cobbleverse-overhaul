@@ -2541,14 +2541,12 @@ public final class CobbleventureBootstrap {
         Map<String, TownPlot> houses = layout.houses().stream().collect(Collectors.toMap(
             TownPlot::id, house -> house, (left, right) -> left, LinkedHashMap::new
         ));
+        Set<BlockPos> reservedPositions = new HashSet<>();
         int spawned = 0;
         for (int index = 0; index < settlement.automaticNpcPlacements().size(); index++) {
             TownNpcPlacement placement = settlement.automaticNpcPlacements().get(index);
             String spawnKey = settlement.id() + "|" + settlement.center().x() + ","
                 + settlement.center().z() + "|" + index + "|" + placement.npc();
-            if (data.hasSpawnedTownNpc(spawnKey)) {
-                continue;
-            }
             BlockPos position;
             if (placement.placementArea().equals("indoor")) {
                 TownPlot house = placement.building() == null
@@ -2556,13 +2554,19 @@ public final class CobbleventureBootstrap {
                 position = house == null ? null
                     : indoorTownNpcPosition(level, settlement, house, placement.slot());
             } else {
-                position = outdoorTownNpcPosition(level, settlement, layout, index);
+                position = outdoorTownNpcPosition(
+                    level, settlement, layout, index, reservedPositions
+                );
             }
             if (position == null) {
                 LOGGER.warn(
                     "Automatic town NPC has no safe placement: settlement={}, npc={}, area={}, building={}",
                     settlement.id(), placement.npc(), placement.placementArea(), placement.building()
                 );
+                continue;
+            }
+            reservedPositions.add(position);
+            if (data.hasSpawnedTownNpc(spawnKey)) {
                 continue;
             }
             if (BuildingRuntimeSystem.spawnNpc(level, placement.npc(), position)) {
@@ -2627,7 +2631,8 @@ public final class CobbleventureBootstrap {
     }
 
     private static BlockPos outdoorTownNpcPosition(
-        ServerLevel level, SettlementPlan settlement, TownLayout layout, int npcIndex
+        ServerLevel level, SettlementPlan settlement, TownLayout layout, int npcIndex,
+        Set<BlockPos> reservedPositions
     ) {
         if (layout.roads().isEmpty()) {
             return safeTeleportPosition(level, settlement.center().x(), settlement.center().z());
@@ -2654,7 +2659,11 @@ public final class CobbleventureBootstrap {
                 continue;
             }
             BlockPos position = safeTeleportPosition(level, x, z);
-            if (position != null) {
+            if (position != null && reservedPositions.stream().noneMatch(reserved -> {
+                int deltaX = reserved.getX() - position.getX();
+                int deltaZ = reserved.getZ() - position.getZ();
+                return deltaX * deltaX + deltaZ * deltaZ < 9;
+            })) {
                 return position;
             }
         }
