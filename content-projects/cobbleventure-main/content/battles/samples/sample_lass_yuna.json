@@ -1,0 +1,53 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/sample_lass_yuna",
+  "enabled": true,
+  "name": {
+    "ko_kr": "짧은치마 유나 배틀"
+  },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/sample_lass_yuna",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true
+    },
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:pidgey",
+        "level": 6,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": null,
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "tackle",
+          "gust"
+        ],
+        "ivs": {},
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ]
+  }
+}

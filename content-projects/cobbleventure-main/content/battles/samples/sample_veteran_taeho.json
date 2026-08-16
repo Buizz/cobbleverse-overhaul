@@ -1,0 +1,55 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/sample_veteran_taeho",
+  "enabled": true,
+  "name": {
+    "ko_kr": "베테랑 트레이너 태호 배틀"
+  },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/sample_veteran_taeho",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true
+    },
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:growlithe",
+        "level": 18,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": null,
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "ember",
+          "leer",
+          "howl",
+          "bite"
+        ],
+        "ivs": {},
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ]
+  }
+}

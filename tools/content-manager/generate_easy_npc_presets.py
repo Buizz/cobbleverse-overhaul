@@ -675,7 +675,13 @@ def event_script_dialogues(document: dict) -> str:
                 for value in commands[index + 1:]:
                     if value.get("type") in {"dialogue", "label", "choices", "end"}:
                         break
-                    if value.get("type") in {"teleport_to_gate", "grant_field_move"}:
+                    if value.get("type") in {
+                        "give_item",
+                        "set_flag",
+                        "mark_clear",
+                        "teleport_to_gate",
+                        "grant_field_move",
+                    }:
                         followup_actions.append(easy_npc_action(value, document))
                 if followup_actions:
                     buttons.append(

@@ -1,0 +1,106 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/sample_oran_berry_giver",
+  "enabled": true,
+  "name": {
+    "ko_kr": "오랭열매를 나눠주는 농부"
+  },
+  "description": {
+    "ko_kr": "오랭열매을(를) 플레이어당 한 번 지급하는 테스트용 NPC입니다."
+  },
+  "tags": [
+    "sample",
+    "ambient",
+    "item_giver"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [
+      "minecraft:plains"
+    ],
+    "automatic_town_placement": true,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "오랭열매를 나눠주는 농부"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/youngster",
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/camper_drew_0095"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "events": [
+    {
+      "id": "on_interact",
+      "trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "commands": [
+        {
+          "type": "branch",
+          "conditions": [
+            {
+              "type": "flag_equals",
+              "key": "cobbleventure:flag/sample/sample_oran_berry_giver/claimed",
+              "value": true
+            }
+          ],
+          "target": "already_received"
+        },
+        {
+          "type": "label",
+          "name": "greeting"
+        },
+        {
+          "type": "dialogue",
+          "id": "greeting",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "오늘 수확한 오랭열매야. 모험에 보탬이 될 거야."
+          }
+        },
+        {
+          "type": "give_item",
+          "item": "cobblemon:oran_berry",
+          "count": 4
+        },
+        {
+          "type": "set_flag",
+          "key": "cobbleventure:flag/sample/sample_oran_berry_giver/claimed",
+          "value": true
+        },
+      {
+        "type": "label",
+        "name": "already_received"
+        },
+        {
+          "type": "dialogue",
+          "id": "already_received",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "열매는 이미 나눠 줬어. 다음 수확 때 다시 보자!"
+          }
+        },
+        {
+          "type": "label",
+          "name": "end"
+        },
+        {
+          "type": "end"
+        }
+      ]
+    }
+  ]
+}

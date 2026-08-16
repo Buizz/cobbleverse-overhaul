@@ -1,0 +1,106 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/sample_potion_giver",
+  "enabled": true,
+  "name": {
+    "ko_kr": "상처약을 나눠주는 여행자"
+  },
+  "description": {
+    "ko_kr": "상처약을(를) 플레이어당 한 번 지급하는 테스트용 NPC입니다."
+  },
+  "tags": [
+    "sample",
+    "ambient",
+    "item_giver"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [
+      "minecraft:plains"
+    ],
+    "automatic_town_placement": true,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "상처약을 나눠주는 여행자"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/youngster",
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/lass_ann_007e"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "events": [
+    {
+      "id": "on_interact",
+      "trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "commands": [
+        {
+          "type": "branch",
+          "conditions": [
+            {
+              "type": "flag_equals",
+              "key": "cobbleventure:flag/sample/sample_potion_giver/claimed",
+              "value": true
+            }
+          ],
+          "target": "already_received"
+        },
+        {
+          "type": "label",
+          "name": "greeting"
+        },
+        {
+          "type": "dialogue",
+          "id": "greeting",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "여행 준비 중이구나! 상처약을 조금 나눠 줄게."
+          }
+        },
+        {
+          "type": "give_item",
+          "item": "cobblemon:potion",
+          "count": 3
+        },
+        {
+          "type": "set_flag",
+          "key": "cobbleventure:flag/sample/sample_potion_giver/claimed",
+          "value": true
+        },
+      {
+        "type": "label",
+        "name": "already_received"
+        },
+        {
+          "type": "dialogue",
+          "id": "already_received",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "상처약은 잘 챙겨 두었지? 다치면 바로 사용해."
+          }
+        },
+        {
+          "type": "label",
+          "name": "end"
+        },
+        {
+          "type": "end"
+        }
+      ]
+    }
+  ]
+}

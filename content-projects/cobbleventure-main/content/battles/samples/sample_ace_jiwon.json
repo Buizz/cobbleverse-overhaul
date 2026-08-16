@@ -1,0 +1,55 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/sample_ace_jiwon",
+  "enabled": true,
+  "name": {
+    "ko_kr": "엘리트 트레이너 지원 배틀"
+  },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/sample_ace_jiwon",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true
+    },
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:pikachu",
+        "level": 16,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": null,
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "thunder_shock",
+          "growl",
+          "tail_whip",
+          "quick_attack"
+        ],
+        "ivs": {},
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ]
+  }
+}

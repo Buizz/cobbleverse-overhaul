@@ -1,0 +1,106 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/sample_pokeball_giver",
+  "enabled": true,
+  "name": {
+    "ko_kr": "몬스터볼을 나눠주는 연구원"
+  },
+  "description": {
+    "ko_kr": "몬스터볼을(를) 플레이어당 한 번 지급하는 테스트용 NPC입니다."
+  },
+  "tags": [
+    "sample",
+    "ambient",
+    "item_giver"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [
+      "minecraft:plains"
+    ],
+    "automatic_town_placement": true,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "몬스터볼을 나눠주는 연구원"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/youngster",
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/school_kid_brunore_001e"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "events": [
+    {
+      "id": "on_interact",
+      "trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "commands": [
+        {
+          "type": "branch",
+          "conditions": [
+            {
+              "type": "flag_equals",
+              "key": "cobbleventure:flag/sample/sample_pokeball_giver/claimed",
+              "value": true
+            }
+          ],
+          "target": "already_received"
+        },
+        {
+          "type": "label",
+          "name": "greeting"
+        },
+        {
+          "type": "dialogue",
+          "id": "greeting",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가."
+          }
+        },
+        {
+          "type": "give_item",
+          "item": "cobblemon:poke_ball",
+          "count": 5
+        },
+        {
+          "type": "set_flag",
+          "key": "cobbleventure:flag/sample/sample_pokeball_giver/claimed",
+          "value": true
+        },
+      {
+        "type": "label",
+        "name": "already_received"
+        },
+        {
+          "type": "dialogue",
+          "id": "already_received",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!"
+          }
+        },
+        {
+          "type": "label",
+          "name": "end"
+        },
+        {
+          "type": "end"
+        }
+      ]
+    }
+  ]
+}

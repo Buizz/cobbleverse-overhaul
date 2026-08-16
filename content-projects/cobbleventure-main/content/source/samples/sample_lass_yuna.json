@@ -1,0 +1,140 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/sample_lass_yuna",
+  "enabled": true,
+  "name": {
+    "ko_kr": "짧은치마 유나"
+  },
+  "description": {
+    "ko_kr": "레벨 6의 단일 포켓몬으로 반복 대전할 수 있는 테스트용 기본 트레이너입니다."
+  },
+  "tags": [
+    "sample",
+    "trainer",
+    "basic_battle"
+  ],
+  "placement_profile": {
+    "classification": "trainer",
+    "expected_level": 6,
+    "preferred_biomes": [
+      "minecraft:plains",
+      "minecraft:forest"
+    ],
+    "automatic_town_placement": true,
+    "automatic_route_placement": true
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "짧은치마 유나"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/youngster",
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/lass_ann_007e"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "events": [
+    {
+      "id": "on_interact",
+      "trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "commands": [
+        {
+          "type": "label",
+          "name": "greeting"
+        },
+        {
+          "type": "dialogue",
+          "id": "greeting",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "포켓몬과 함께 걷는 건 정말 즐거워! 승부도 해 볼래?"
+          }
+        },
+        {
+          "type": "choices",
+          "options": [
+            {
+              "id": "battle",
+              "text": {
+                "ko_kr": "승부한다"
+              },
+              "target": "battle"
+            },
+            {
+              "id": "cancel",
+              "text": {
+                "ko_kr": "다음에"
+              },
+              "target": "end"
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "name": "battle"
+        },
+        {
+          "type": "start_battle",
+          "battle": "cobbleventure:battle/sample_lass_yuna",
+          "results": {
+            "player_win": "victory",
+            "player_loss": "defeat",
+            "cancelled": "end"
+          }
+        },
+        {
+          "type": "label",
+          "name": "victory"
+        },
+        {
+          "type": "set_flag",
+          "key": "cobbleventure:flag/trainer/sample_lass_yuna/defeated",
+          "value": true
+        },
+        {
+          "type": "dialogue",
+          "id": "victory",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "좋은 승부였어! 다음에 다시 겨뤄 보자."
+          }
+        },
+        {
+          "type": "goto",
+          "target": "end"
+        },
+        {
+          "type": "label",
+          "name": "defeat"
+        },
+        {
+          "type": "dialogue",
+          "id": "defeat",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "멋진 승부였어. 준비가 되면 언제든 다시 도전해!"
+          }
+        },
+        {
+          "type": "label",
+          "name": "end"
+        },
+        {
+          "type": "end"
+        }
+      ]
+    }
+  ]
+}

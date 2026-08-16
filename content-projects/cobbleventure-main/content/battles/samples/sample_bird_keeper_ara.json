@@ -1,0 +1,54 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/sample_bird_keeper_ara",
+  "enabled": true,
+  "name": {
+    "ko_kr": "새 조련사 아라 배틀"
+  },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/sample_bird_keeper_ara",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true
+    },
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:spearow",
+        "level": 14,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": null,
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "peck",
+          "growl",
+          "fury_attack"
+        ],
+        "ivs": {},
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ]
+  }
+}
