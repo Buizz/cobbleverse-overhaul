@@ -9405,10 +9405,10 @@ def validate_building_npc_positions(
                     "NPC 위치가 있지만 외부 출입문에서 이 내부 공간으로 들어가는 경로가 없습니다.",
                 )
         capacity = sum(len(interior_slots.get(space, [])) for space in reachable if space != "exterior")
-        if capacity == 0:
+        if capacity == 0 and interiors:
             _issue(
                 issues, "warning", settings_path, f"{entry_path}.citizen_placement_allowed",
-                "자동 시민을 받을 건물에는 외부에서 접근 가능한 내부 npc_position이 하나 이상 필요합니다.",
+                "내부공간을 직접 연결한 건물에는 외부에서 접근 가능한 npc_position이 하나 이상 필요합니다.",
             )
     return issues
 

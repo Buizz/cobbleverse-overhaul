@@ -4059,7 +4059,7 @@ class ContentManagerTests(unittest.TestCase):
                 saved["buildings"]["cobbleventure:placeholder/shop"]["placement_y_offset"],
             )
 
-    def test_citizen_building_warns_without_reachable_indoor_npc_position(self) -> None:
+    def test_citizen_building_without_explicit_interior_uses_basic_capacity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             structure = root / "content/structures/houses/test_house.nbt"
@@ -4075,11 +4075,7 @@ class ContentManagerTests(unittest.TestCase):
                 },
             })
 
-            self.assertTrue(any(
-                issue.level == "warning"
-                and "내부 npc_position" in issue.message
-                for issue in issues
-            ))
+            self.assertFalse(any(issue.level == "warning" for issue in issues))
 
     def test_citizen_building_validates_indoor_npc_clearance_and_access(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

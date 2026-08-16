@@ -23,6 +23,43 @@ SPEC.loader.exec_module(build_data_mod)
 
 
 class TownNpcCapacityUnitTests(unittest.TestCase):
+    def test_seven_citizen_houses_accept_four_resolved_simple_npcs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            settings = project / "content/catalogs/building-settings.json"
+            settings.parent.mkdir(parents=True)
+            settings.write_text(json.dumps({
+                "schema_version": 1,
+                "buildings": {
+                    "cobbleventure:houses/one_story_gambrel": {
+                        "citizen_placement_allowed": True,
+                        "interiors": [],
+                        "door_routes": {},
+                    },
+                },
+            }), encoding="utf-8")
+            layout = {
+                "houses": [
+                    {"id": f"house_{index}", "base": "one_story", "roof": "gambrel"}
+                    for index in range(1, 8)
+                ],
+                "facilities": {},
+            }
+            resolved = {
+                "placements": [
+                    {"classification": "ambient", "placement_area": "indoor"}
+                    for _ in range(4)
+                ],
+            }
+
+            capacity = build_data_mod._town_indoor_npc_capacity(
+                Path(directory), {}, layout, project_root=project,
+                resolved_auto_npcs=resolved,
+            )
+
+            self.assertEqual(4, capacity["requested"])
+            self.assertEqual(7, capacity["available"])
+
     def test_town_indoor_capacity_counts_reachable_slots_in_placed_houses(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -70,6 +107,11 @@ class TownNpcCapacityUnitTests(unittest.TestCase):
 
             capacity = build_data_mod._town_indoor_npc_capacity(
                 Path(directory), data, layout, project_root=project,
+                resolved_auto_npcs={"placements": [
+                    {"placement_area": "indoor"},
+                    {"placement_area": "indoor"},
+                    {"placement_area": "indoor"},
+                ]},
             )
 
             self.assertEqual(2, capacity["available"])
@@ -133,6 +175,24 @@ class DataModBuilderTests(unittest.TestCase):
             {"indoor", "outdoor"},
             {entry["placement_area"] for entry in placements if entry["classification"] == "trainer"},
         )
+
+    def test_outdoor_only_trainer_setting_keeps_simple_npcs_inside(self) -> None:
+        placements = build_data_mod._town_npc_placement_records(
+            ["test:npc/resident"], ["test:npc/trainer"], ["outdoor"],
+        )
+        self.assertEqual("indoor", placements[0]["placement_area"])
+        self.assertEqual("outdoor", placements[1]["placement_area"])
+        self.assertEqual(10, build_data_mod._requested_town_indoor_npcs({
+            "npc_placement": {
+                "auto_place_npcs": True,
+                "max_ambient_npcs": 10,
+                "trainer_population": {
+                    "enabled": True,
+                    "max_active": 14,
+                    "placement_areas": ["outdoor"],
+                },
+            },
+        }))
 
     def test_settlement_auto_npc_level_comes_from_world_map(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
