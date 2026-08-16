@@ -106,6 +106,13 @@ class SampleNpcTests(unittest.TestCase):
             preset = generator.encounter_preset_snbt(compiled, self.youngster_outfit)
             self.assertIn(f"tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:{trainer['id'].rsplit('/', 1)[-1]}", preset)
 
+    def test_direct_trainer_checkboxes_keep_compact_form_layout(self) -> None:
+        styles = (ROOT / "tools" / "content-manager" / "web" / "styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('.form-grid .trainer-pool-choice > input[type="checkbox"]', styles)
+        self.assertIn("min-width: 17px", styles)
+        self.assertIn("flex: 1 1 auto", styles)
+
 
 if __name__ == "__main__":
     unittest.main()
