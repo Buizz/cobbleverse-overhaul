@@ -39,7 +39,10 @@ final class PursuitEncounterSystem {
     private static final int ALERT_ANIMATION_TICKS = 18;
     private static final int WARNING_TICKS = 15;
     private static final int PURSUIT_TICKS = 20 * 12;
+    private static final int PURSUIT_ACCELERATION_TICKS = 20 * 2;
     private static final int AGGRO_COOLDOWN_TICKS = 40;
+    private static final double INITIAL_PURSUIT_SPEED = 0.60D;
+    private static final double MAXIMUM_PURSUIT_SPEED = 0.90D;
     private static final double DETECTION_DISTANCE_SQUARED = 12.0D * 12.0D;
     private static final double DESPAWN_DISTANCE_SQUARED = 48.0D * 48.0D;
     private static final Map<UUID, State> STATES = new HashMap<>();
@@ -439,7 +442,7 @@ final class PursuitEncounterSystem {
         }
         if (age < WARNING_TICKS) return;
         entity.getLookControl().setLookAt(player, 30.0F, 30.0F);
-        entity.getNavigation().moveTo(player, 1.35D);
+        entity.getNavigation().moveTo(player, pursuitSpeed(age));
         if (entity.distanceToSqr(player) <= 2.5D * 2.5D && entity.canBattle(player)) {
             entity.getNavigation().stop();
             if (state.battleStartTick < 0L) {
@@ -476,6 +479,15 @@ final class PursuitEncounterSystem {
             discardAlert(player.serverLevel(), state);
             state.nextAggroTick = gameTime + AGGRO_COOLDOWN_TICKS;
         }
+    }
+
+    private static double pursuitSpeed(long pursuitAge) {
+        double progress = Math.min(
+            1.0D,
+            Math.max(0L, pursuitAge - WARNING_TICKS) / (double) PURSUIT_ACCELERATION_TICKS
+        );
+        return INITIAL_PURSUIT_SPEED
+            + (MAXIMUM_PURSUIT_SPEED - INITIAL_PURSUIT_SPEED) * progress;
     }
 
     static void forget(ServerPlayer player) {

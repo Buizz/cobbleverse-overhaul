@@ -3621,10 +3621,15 @@ public final class CobbleventureBootstrap {
         if (generated != null) {
             int x = settlement.center().x() + (int) Math.round(generated.x());
             int z = settlement.center().z() + (int) Math.round(generated.z());
-            int groundY = plannedTerrainGroundY(level, x, z);
+            int roadX = settlement.center().x() + generated.roadConnectionX();
+            int roadZ = settlement.center().z() + generated.roadConnectionZ();
+            int groundY = facility.id().contains("gym")
+                ? loadedRoadSurfaceY(level, roadX, roadZ)
+                : plannedTerrainGroundY(level, x, z);
             LOGGER.info(
-                "Generated town facility lot selected: settlement={}, facility={}, origin=({}, {}, {})",
-                settlement.id(), facility.id(), x, groundY, z
+                "Generated town facility lot selected: settlement={}, facility={}, "
+                    + "origin=({}, {}, {}), roadConnection=({}, {})",
+                settlement.id(), facility.id(), x, groundY, z, roadX, roadZ
             );
             return facilityTemplateOrigin(facility, x, groundY, z);
         }

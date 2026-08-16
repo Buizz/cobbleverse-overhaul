@@ -178,11 +178,15 @@ final class WorldGateSystem {
         int halfThickness = gate.wallThickness() / 2;
         int halfOpening = gate.openingWidth() / 2;
         int centerY = groundY(level, center.x(), center.z());
+        Map<Long, Integer> wallGroundHeights = new HashMap<>();
         if (forestGate) {
             cacheForestEntryMarker(level, world, gate);
         }
         if (gate.gateMode().equals("classic") && gate.surroundingType().equals("wall")) {
-            placeWallSurroundings(level, gate, center, horizontal, halfLength, halfThickness, halfOpening);
+            placeWallSurroundings(
+                level, gate, center, horizontal,
+                halfLength, halfThickness, halfOpening, wallGroundHeights
+            );
         } else if (gate.gateMode().equals("classic") && gate.surroundingType().equals("trees")) {
             placeTreeSurroundings(level, gate, center, horizontal, halfLength, halfThickness, halfOpening);
         }
@@ -199,6 +203,13 @@ final class WorldGateSystem {
             );
             return;
         }
+        if (!forestGate && gate.gateMode().equals("classic")
+            && gate.surroundingType().equals("wall")) {
+            repairWallSurroundingGaps(
+                level, gate, center, horizontal,
+                halfLength, halfThickness, halfOpening, wallGroundHeights
+            );
+        }
         if (gate.npc() != null) {
             spawnNpc(level, gate, center, centerY);
         }
@@ -211,7 +222,8 @@ final class WorldGateSystem {
 
     private static void placeWallSurroundings(
         ServerLevel level, Gate gate, CobbleventureBootstrap.Point center,
-        boolean horizontal, int halfLength, int halfThickness, int halfOpening
+        boolean horizontal, int halfLength, int halfThickness, int halfOpening,
+        Map<Long, Integer> groundHeights
     ) {
         BlockState wall = blockState(gate.wallBlock());
         for (int along = -halfLength; along <= halfLength; along++) {
@@ -219,6 +231,7 @@ final class WorldGateSystem {
                 int x = center.x() + (horizontal ? along : across);
                 int z = center.z() + (horizontal ? across : along);
                 int groundY = groundY(level, x, z);
+                groundHeights.put(new BlockPos(x, 0, z).asLong(), groundY);
                 boolean opening = Math.abs(along) <= halfOpening;
                 for (int height = 1; height <= gate.wallHeight(); height++) {
                     level.setBlock(new BlockPos(x, groundY + height, z),
@@ -250,6 +263,44 @@ final class WorldGateSystem {
                     level.setBlock(new BlockPos(x, groundY + height, z), state, 2);
                 }
                 placeOverheadBarrier(level, x, z, groundY, gate.wallHeight(), gate.barrierHeight());
+            }
+        }
+    }
+
+    /**
+     * Restores only air holes that a gate template's padded air volume cut into
+     * the already generated wall. Existing NBT blocks are left untouched so the
+     * gatehouse can still join and decorate the wall itself.
+     */
+    private static void repairWallSurroundingGaps(
+        ServerLevel level, Gate gate, CobbleventureBootstrap.Point center,
+        boolean horizontal, int halfLength, int halfThickness, int halfOpening,
+        Map<Long, Integer> groundHeights
+    ) {
+        BlockState wall = blockState(gate.wallBlock());
+        for (int along = -halfLength; along <= halfLength; along++) {
+            if (Math.abs(along) <= halfOpening) {
+                continue;
+            }
+            for (int across = -halfThickness; across <= halfThickness; across++) {
+                int x = center.x() + (horizontal ? along : across);
+                int z = center.z() + (horizontal ? across : along);
+                int groundY = groundHeights.getOrDefault(
+                    new BlockPos(x, 0, z).asLong(), groundY(level, x, z)
+                );
+                for (int height = 1; height <= gate.wallHeight(); height++) {
+                    BlockPos position = new BlockPos(x, groundY + height, z);
+                    if (level.getBlockState(position).isAir()) {
+                        level.setBlock(position, wall, 2);
+                    }
+                }
+                for (int height = gate.wallHeight() + 1;
+                    height <= gate.barrierHeight(); height++) {
+                    BlockPos position = new BlockPos(x, groundY + height, z);
+                    if (level.getBlockState(position).isAir()) {
+                        level.setBlock(position, Blocks.BARRIER.defaultBlockState(), 2);
+                    }
+                }
             }
         }
     }
@@ -307,7 +358,7 @@ final class WorldGateSystem {
             level, geometry.x(), geometry.z()
         );
         ForestTemplatePlacement placement = forestTemplatePlacement(
-            level, gate, geometry, groundY + 1
+            level, gate, geometry, groundY
         );
         if (placement == null) {
             return false;
@@ -361,7 +412,7 @@ final class WorldGateSystem {
             ForestTemplatePlacement placement = forestTemplatePlacement(
                 level, gate,
                 new ForestGateGeometry(portal.x(), portal.z(), inward),
-                gateY
+                gateY - 1
             );
             if (placement == null || !placement.template().placeInWorld(
                 level, placement.origin(), placement.origin(), placement.settings(),
@@ -418,8 +469,11 @@ final class WorldGateSystem {
     ) {
         FOREST_ENTRY_MARKERS.remove(gate.id());
         ForestGateGeometry geometry = forestGateGeometry(world, gate);
+        int floorY = CobbleventureBootstrap.plannedCaveMouthFloorY(
+            level, geometry.x(), geometry.z()
+        );
         ForestTemplatePlacement placement = forestTemplatePlacement(
-            level, gate, geometry, 0
+            level, gate, geometry, floorY
         );
         ForestEntryMarker entry = placement == null
             ? null : placedForestEntryMarker(gate, placement);
@@ -429,7 +483,7 @@ final class WorldGateSystem {
     }
 
     private static ForestTemplatePlacement forestTemplatePlacement(
-        ServerLevel level, Gate gate, ForestGateGeometry geometry, int targetY
+        ServerLevel level, Gate gate, ForestGateGeometry geometry, int floorY
     ) {
         ResourceLocation structureId = ResourceLocation.tryParse(gate.structure());
         var optionalTemplate = structureId == null
@@ -471,7 +525,7 @@ final class WorldGateSystem {
         int minX = geometry.x() - rotatedAnchor.getX();
         int minZ = geometry.z() - rotatedAnchor.getZ();
         BlockPos origin = rotatedTemplateOrigin(
-            minX, targetY - rotatedAnchor.getY(), minZ,
+            minX, floorY, minZ,
             size.getX(), size.getZ(), rotation
         );
         StructurePlaceSettings settings = new StructurePlaceSettings()
@@ -482,7 +536,9 @@ final class WorldGateSystem {
             : template.getSize(rotation).getZ()) + 1;
         return new ForestTemplatePlacement(
             template, settings, origin,
-            new BlockPos(geometry.x(), targetY, geometry.z()),
+            new BlockPos(
+                geometry.x(), floorY + rotatedAnchor.getY(), geometry.z()
+            ),
             geometry.inward(), outsideOffset
         );
     }

@@ -1411,6 +1411,17 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
         except (OSError, json.JSONDecodeError, DuplicateKeyError):
             continue
 
+    area_documents: list[tuple[str, dict[str, Any]]] = []
+    for kind, directory_name in (("cave", "caves"), ("forest", "forests")):
+        area_dir = root / "content" / directory_name / f"generation_{generation}"
+        for path in sorted(area_dir.rglob("*.json")) if area_dir.is_dir() else []:
+            try:
+                document = load_json(path)
+                if isinstance(document, dict) and isinstance(document.get("id"), str):
+                    area_documents.append((kind, document))
+            except (OSError, json.JSONDecodeError, DuplicateKeyError):
+                continue
+
     environment_by_cell = {
         (entry.get("q"), entry.get("r")): entry
         for entry in world.get("environment_overrides", [])
@@ -1619,9 +1630,68 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
                 "unmapped_biome": base.get("unmapped_biome", False),
             }
 
+    area_locations: list[dict[str, Any]] = []
+    for kind, document in area_documents:
+        settings = document.get("random_encounters")
+        if document.get("enabled", True) is False or not isinstance(settings, dict) or settings.get("enabled", True) is False:
+            continue
+        biome = settings.get("pokemon_biome")
+        if not isinstance(biome, str):
+            continue
+        profile_ids = profiles_by_biome.get(biome, [])
+        base_ids: list[str] = []
+        if settings.get("inherit_biome", True) is not False:
+            for profile_id in profile_ids:
+                preview = _preview_biome_data(
+                    biome_catalog,
+                    pokemon,
+                    {
+                        "profile_id": profile_id,
+                        "settings": {"generations": allowed_generations, "habitat_variant": 0},
+                        "unconditional_spawns": [],
+                    },
+                )
+                for entry in preview.get("pokemon", []):
+                    pokemon_id = entry.get("id")
+                    if isinstance(pokemon_id, str) and pokemon_id not in base_ids:
+                        base_ids.append(pokemon_id)
+        excluded = {
+            value for value in settings.get("excluded_species", [])
+            if isinstance(value, str)
+        }
+        selected_ids = [pokemon_id for pokemon_id in base_ids if pokemon_id not in excluded]
+        for addition in settings.get("additions", []):
+            species = addition.get("species") if isinstance(addition, dict) else None
+            if isinstance(species, str) and species in pokemon_by_id and species not in selected_ids:
+                selected_ids.append(species)
+        custom_level_ranges = {
+            override["species"]: {
+                "min_level": override.get("min_level", settings.get("minimum_level", 1)),
+                "max_level": override.get("max_level", settings.get("maximum_level", 100)),
+            }
+            for override in settings.get("level_overrides", [])
+            if isinstance(override, dict) and override.get("species") in pokemon_by_id
+        }
+        display_name = document.get("display_name", {})
+        area_locations.append({
+            "kind": kind,
+            "id": document["id"],
+            "name": (
+                display_name.get("ko_kr") or display_name.get("en_us") or document["id"]
+                if isinstance(display_name, dict) else document["id"]
+            ),
+            "biome": biome,
+            "profile_ids": profile_ids,
+            "pokemon_ids": selected_ids,
+            "minimum_level": settings.get("minimum_level", 1),
+            "maximum_level": settings.get("maximum_level", 100),
+            "custom_level_ranges": custom_level_ranges,
+            "count": len(selected_ids),
+        })
+
     available_ids = {
         pokemon_id
-        for location in locations_by_cell.values()
+        for location in [*locations_by_cell.values(), *area_locations]
         for pokemon_id in location["pokemon_ids"]
     }
     available = [dict(entry) for entry in pokemon if entry.get("id") in available_ids]
@@ -1643,11 +1713,13 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
         "pokemon_generations": allowed_generations,
         "summary": {
             "locations": len(locations),
+            "areas": len(area_locations),
             "available": len(available),
             "unavailable": len(unavailable),
             "unmapped_locations": sum(entry["unmapped_biome"] for entry in locations),
         },
         "locations": locations,
+        "area_locations": area_locations,
         "available_pokemon": available,
         "unavailable_pokemon": unavailable,
     }

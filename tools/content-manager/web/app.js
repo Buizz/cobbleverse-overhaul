@@ -22,7 +22,7 @@ const state = {
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
   biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
   worldLayout: null, worldGenerations: [1], selectedGeneration: 1,
-  worldPokemonMap: { locations: [], available_pokemon: [], unavailable_pokemon: [], summary: {} },
+  worldPokemonMap: { locations: [], area_locations: [], available_pokemon: [], unavailable_pokemon: [], summary: {} },
   pokemonMapTab: "available", pokemonMapQuery: "",
   selectedHex: null, selectedEntrance: null, mapRadius: 6, mapZoom: 1, mapCenter: { x: 490, y: 330 }, mapViewInitialized: false,
   mapPan: null, suppressMapClick: false, draggedSettlement: null, entranceDrag: null, routeDraft: null, worldDirty: false,
@@ -2060,9 +2060,82 @@ function pokemonMapMatches(entry, query) {
   const text = [entry.dex_number, entry.id, entry.slug, entry.display_name?.ko_kr, entry.display_name?.en_us].filter(Boolean).join(" ").toLowerCase();
   return text.includes(query.toLowerCase());
 }
+function pokemonMapBiomeName(biome) {
+  const labels = (state.biomeCatalog?.profiles || [])
+    .filter((profile) => (profile.minecraft_biomes || []).includes(biome))
+    .map((profile) => profile.display_name?.ko_kr || profile.id);
+  return [...new Set(labels)].join(" · ") || biome || "바이옴 미지정";
+}
+function pokemonSpawnLocationGroups(species) {
+  const groups = new Map();
+  const addCell = (location) => {
+    if (!(location.pokemon_ids || []).includes(species)) return;
+    const kind = location.kind || "biome";
+    const identity = kind === "settlement" ? location.settlement : kind === "route" ? location.route : location.biome;
+    const key = `${kind}:${identity || "unknown"}`;
+    if (!groups.has(key)) {
+      const name = kind === "settlement"
+        ? settlementSummary(location.settlement)?.name || location.settlement
+        : kind === "route" ? (() => {
+          const route = (state.worldLayout?.connections || []).find((entry) => entry.id === location.route);
+          return route ? routeDisplayName(route) : location.route_name || location.route;
+        })()
+          : pokemonMapBiomeName(location.biome);
+      groups.set(key, { kind, name, id: identity || "", biome: location.biome || "", cells: [], levelRanges: [] });
+    }
+    const group = groups.get(key);
+    group.cells.push({ q: location.q, r: location.r });
+    const range = location.custom_level_ranges?.[species];
+    if (range) group.levelRanges.push(range);
+  };
+  for (const location of state.worldPokemonMap?.locations || []) addCell(location);
+  for (const location of state.worldPokemonMap?.area_locations || []) {
+    if (!(location.pokemon_ids || []).includes(species)) continue;
+    const range = location.custom_level_ranges?.[species] || { min_level: location.minimum_level, max_level: location.maximum_level };
+    groups.set(`${location.kind}:${location.id}`, {
+      kind: location.kind, name: location.name || location.id, id: location.id,
+      biome: location.biome || "", cells: [], levelRanges: [range]
+    });
+  }
+  const order = { cave: 0, forest: 1, settlement: 2, route: 3, biome: 4 };
+  return [...groups.values()].sort((left, right) => (order[left.kind] ?? 9) - (order[right.kind] ?? 9) || String(left.name).localeCompare(String(right.name), "ko"));
+}
+function pokemonLocationLevelLabel(ranges) {
+  const valid = (ranges || []).filter((range) => Number.isFinite(Number(range?.min_level)) && Number.isFinite(Number(range?.max_level)));
+  if (!valid.length) return "";
+  const minimum = Math.min(...valid.map((range) => Number(range.min_level)));
+  const maximum = Math.max(...valid.map((range) => Number(range.max_level)));
+  return minimum === maximum ? `Lv.${minimum}` : `Lv.${minimum}–${maximum}`;
+}
+function pokemonLocationGroupMarkup(group) {
+  const kindLabels = { cave: "동굴", forest: "숲", settlement: "마을", route: "길", biome: "바이옴" };
+  const coordinates = group.cells.slice(0, 5).map((cell) => `Q ${cell.q} · R ${cell.r}`).join(" / ");
+  const overflow = group.cells.length > 5 ? ` 외 ${group.cells.length - 5}칸` : "";
+  const level = pokemonLocationLevelLabel(group.levelRanges);
+  const details = [group.biome ? pokemonMapBiomeName(group.biome) : "", group.cells.length ? `지도 ${group.cells.length}칸` : "", level].filter(Boolean);
+  return `<article class="pokemon-location-item is-${group.kind}"><span>${kindLabels[group.kind] || "지역"}</span><div><strong>${escapeHtml(group.name || group.id)}</strong><small>${escapeHtml(details.join(" · "))}</small>${coordinates ? `<code>${escapeHtml(coordinates + overflow)}</code>` : `<code>${escapeHtml(group.id)}</code>`}</div></article>`;
+}
+function openPokemonLocationDialog(species) {
+  const entry = worldPokemonById().get(species); if (!entry) return;
+  const locations = pokemonSpawnLocationGroups(species);
+  const name = pokemonMapEntryName(entry);
+  $("#pokemon-location-title").textContent = `${name} 출현 위치`;
+  $("#pokemon-location-subtitle").textContent = `No.${String(entry.dex_number).padStart(4, "0")} · ${(entry.types || []).join(" / ")}`;
+  $("#pokemon-location-name").textContent = name;
+  $("#pokemon-location-id").textContent = entry.id;
+  $("#pokemon-location-summary").textContent = locations.length ? `${locations.length}개 출현처 유형에서 만날 수 있습니다.` : "현재 저장된 설정에서는 출현하지 않습니다.";
+  $("#pokemon-location-sprite").src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png`;
+  $("#pokemon-location-sprite").alt = name;
+  $("#pokemon-location-list").innerHTML = locations.length
+    ? locations.map(pokemonLocationGroupMarkup).join("")
+    : '<p class="pokemon-location-empty">현재 월드·마을·길·동굴·숲 설정에서 이 포켓몬이 출현하는 곳이 없습니다.</p>';
+  $("#pokemon-location-dialog").showModal();
+}
 function pokemonMapCard(entry, unavailable = false) {
   const reason = entry.unavailable_reason === "other_generation" ? `${entry.generation}세대 포켓몬` : "현재 월드 조건과 불일치";
-  return `<article class="pokemon-map-card${unavailable ? " is-unavailable" : " is-available"}"><span class="pokemon-availability-badge">${unavailable ? "미출현" : "출현"}</span><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt=""><div><b>${escapeHtml(pokemonMapEntryName(entry))}</b><span>No.${String(entry.dex_number).padStart(4, "0")} · ${escapeHtml((entry.types || []).join(" / "))}</span><code>${escapeHtml(entry.id)}</code><small>${unavailable ? escapeHtml(reason) : `${escapeHtml(entry.habitats?.primary || "unknown")} · ${escapeHtml(entry.preferences?.rarity || "unknown")}`}</small></div></article>`;
+  const locationCount = unavailable ? 0 : pokemonSpawnLocationGroups(entry.id).length;
+  const name = pokemonMapEntryName(entry);
+  return `<button type="button" class="pokemon-map-card${unavailable ? " is-unavailable" : " is-available"}" data-pokemon-location-species="${escapeHtml(entry.id)}" aria-label="${escapeHtml(`${name} 출현 위치 보기`)}"><span class="pokemon-availability-badge">${unavailable ? "미출현" : "출현"}</span><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt=""><div><b>${escapeHtml(name)}</b><span>No.${String(entry.dex_number).padStart(4, "0")} · ${escapeHtml((entry.types || []).join(" / "))}</span><code>${escapeHtml(entry.id)}</code><small>${unavailable ? escapeHtml(reason) : `${escapeHtml(entry.habitats?.primary || "unknown")} · ${escapeHtml(entry.preferences?.rarity || "unknown")} · 출현처 ${locationCount}곳`}</small></div></button>`;
 }
 function renderWorldPokemonPanel() {
   const data = state.worldPokemonMap || {}; const summary = data.summary || {};
@@ -11392,6 +11465,10 @@ $("#world-pokemon-generation-toggles").addEventListener("click", (event) => {
   markWorldDirty(); renderWorldPokemonPanel();
 });
 $("#pokemon-map-search").addEventListener("input", (event) => { state.pokemonMapQuery = event.target.value.trim(); renderWorldPokemonPanel(); });
+$("#pokemon-map-list").addEventListener("click", (event) => {
+  const card = event.target.closest("[data-pokemon-location-species]");
+  if (card) openPokemonLocationDialog(card.dataset.pokemonLocationSpecies);
+});
 $("#finish-route").addEventListener("click", finishRouteConnection);
 $("#route-manager-list").addEventListener("change", (event) => {
   const routeId = event.target.dataset.routeMusic;

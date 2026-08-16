@@ -1071,7 +1071,6 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertEqual("settlement", starter_cell["kind"])
         self.assertEqual(["cobbleventure:biome_profile/plains"], starter_cell["profile_ids"])
-
     def test_world_pokemon_map_web_panel_is_wired_to_api(self) -> None:
         root = PROJECT_ROOT
         page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
@@ -1107,6 +1106,26 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("이동한 연결 위치에 맞춰 길 끝점을 자동 보정했습니다.", script)
         self.assertIn("index === 0 && selectedRoute?.from", script)
         self.assertIn("index === anchors.length - 1 && selectedRoute?.to", script)
+
+    def test_world_pokemon_map_includes_cave_and_forest_spawn_locations(self) -> None:
+        result = content_manager.world_pokemon_map(PROJECT_ROOT, 1)
+        available_ids = {entry["id"] for entry in result["available_pokemon"]}
+        self.assertEqual({"cave", "forest"}, {entry["kind"] for entry in result["area_locations"]})
+        self.assertTrue(all(entry["pokemon_ids"] for entry in result["area_locations"]))
+        self.assertTrue(all(
+            pokemon_id in available_ids
+            for entry in result["area_locations"]
+            for pokemon_id in entry["pokemon_ids"]
+        ))
+
+    def test_world_pokemon_cards_open_spawn_location_dialog(self) -> None:
+        page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('id="pokemon-location-dialog"', page)
+        self.assertIn('id="pokemon-location-list"', page)
+        self.assertIn("function pokemonSpawnLocationGroups(species)", script)
+        self.assertIn("function openPokemonLocationDialog(species)", script)
+        self.assertIn('data-pokemon-location-species=', script)
 
     def test_world_pokemon_map_applies_route_habitat_overrides(self) -> None:
         root = PROJECT_ROOT
@@ -1460,6 +1479,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('cave-layout-preview spatial-editor', page)
         self.assertIn('forest-layout-editor spatial-editor', page)
         self.assertEqual(2, page.count('cave-preview-actions spatial-editor-toolbar'))
+        cave_form_markup = page.split('<form id="cave-form"', 1)[1].split("</form>", 1)[0]
+        forest_form_markup = page.split('<form id="forest-form"', 1)[1].split("</form>", 1)[0]
+        self.assertLess(cave_form_markup.index('name="nameKo"'), cave_form_markup.index('cave-layout-preview spatial-editor'))
+        self.assertLess(cave_form_markup.index('cave-layout-preview spatial-editor'), cave_form_markup.index('주변 포켓몬 인카운터'))
+        self.assertLess(forest_form_markup.index('name="nameKo"'), forest_form_markup.index('forest-layout-editor spatial-editor'))
+        self.assertLess(forest_form_markup.index('forest-layout-editor spatial-editor'), forest_form_markup.index('주변 포켓몬 인카운터'))
         cave_editor_markup = page.split('<section class="cave-layout-preview spatial-editor"', 1)[1].split("</section>", 1)[0]
         cave_toolbar_markup = cave_editor_markup.split('<div class="cave-preview-actions spatial-editor-toolbar">', 1)[1].split(
             "</div></header>", 1
@@ -1688,6 +1713,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("if (!settings?.enabled) return [];", script)
         self.assertIn("encounterPokemonIconMarkup(settings, id, byId)", script)
         self.assertIn("encounter-pokemon-icon-list", styles)
+        self.assertIn("grid-template-columns: repeat(auto-fill,54px)", styles)
+        self.assertIn("width: 48px; height: 48px", styles)
 
     def test_world_level_overrides_are_saved_and_validated(self) -> None:
         root = PROJECT_ROOT
