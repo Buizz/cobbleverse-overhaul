@@ -4059,6 +4059,77 @@ class ContentManagerTests(unittest.TestCase):
                 saved["buildings"]["cobbleventure:placeholder/shop"]["placement_y_offset"],
             )
 
+    def test_citizen_building_warns_without_reachable_indoor_npc_position(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/houses/test_house.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((8, 5, 8)))
+
+            issues = content_manager.validate_building_npc_positions(root, {
+                "cobbleventure:houses/test_house": {
+                    "no_interior_space": False,
+                    "citizen_placement_allowed": True,
+                    "interiors": [],
+                    "door_routes": {},
+                },
+            })
+
+            self.assertTrue(any(
+                issue.level == "warning"
+                and "내부 npc_position" in issue.message
+                for issue in issues
+            ))
+
+    def test_citizen_building_validates_indoor_npc_clearance_and_access(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structures = root / "content/structures"
+            exterior = structures / "houses/test_house.nbt"
+            interior = structures / "interiors/test_room.nbt"
+            exterior.parent.mkdir(parents=True)
+            interior.parent.mkdir(parents=True)
+            exterior.write_bytes(self._structure_nbt((8, 5, 8)))
+            interior.write_bytes(self._structure_nbt_with_blocks())
+            exterior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{
+                    "type": "door", "label": "front", "position": [1, 1, 1],
+                }],
+            }), encoding="utf-8")
+            interior_sidecar = interior.with_suffix(".structure.json")
+            interior_sidecar.write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [
+                    {"type": "door", "label": "back", "position": [0, 1, 0]},
+                    {"type": "npc_position", "label": "resident", "position": [3, 1, 2]},
+                ],
+            }), encoding="utf-8")
+            settings = {
+                "cobbleventure:houses/test_house": {
+                    "no_interior_space": False,
+                    "citizen_placement_allowed": True,
+                    "interiors": [{
+                        "key": "room", "structure": "cobbleventure:interiors/test_room",
+                    }],
+                    "door_routes": {
+                        "exterior:front": {"space": "room", "door": "back"},
+                    },
+                },
+            }
+
+            issues = content_manager.validate_building_npc_positions(root, settings)
+            self.assertEqual([], issues)
+
+            sidecar = json.loads(interior_sidecar.read_text(encoding="utf-8"))
+            sidecar["anchors"][1]["position"] = [1, 1, 1]
+            interior_sidecar.write_text(json.dumps(sidecar), encoding="utf-8")
+            issues = content_manager.validate_building_npc_positions(root, settings)
+            self.assertTrue(any(
+                issue.level == "error" and "2블록의 빈 공간" in issue.message
+                for issue in issues
+            ))
+
     def test_building_settings_reject_invalid_placement_y_offset(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

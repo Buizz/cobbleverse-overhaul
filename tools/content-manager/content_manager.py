@@ -5644,6 +5644,7 @@ def validate_repository(
     issues.extend(validate_trainer_outfit_catalog(
         root / "content" / "catalogs" / "trainer-outfits.json", trainer_class_ids
     ))
+    issues.extend(validate_building_npc_positions(root))
     roster_ids, roster_issues = validate_trainer_roster_catalog(
         root / "content" / "catalogs" / "trainer-roster.json"
     )
@@ -9274,6 +9275,139 @@ def resize_managed_structure(
     }
 
 
+def validate_building_npc_positions(
+    root: Path, buildings: dict[str, Any] | None = None,
+) -> list[Issue]:
+    """Validate reachable indoor spawn positions for citizen-enabled buildings."""
+    settings_path = root / BUILDING_SETTINGS_PATH
+    issues: list[Issue] = []
+    if buildings is None:
+        try:
+            buildings = load_building_settings(root)["buildings"]
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+            return [Issue("error", settings_path.as_posix(), "$", f"건물 설정을 읽을 수 없습니다: {error}")]
+    if not isinstance(buildings, dict):
+        return [Issue("error", settings_path.as_posix(), "$.buildings", "건물 설정 객체가 필요합니다.")]
+
+    structure_files = managed_structure_files(root)
+    free_blocks = {"minecraft:air", "minecraft:cave_air", "minecraft:void_air"}
+    slot_cache: dict[Path, list[str]] = {}
+
+    def valid_slots(structure: Path) -> list[str]:
+        if structure in slot_cache:
+            return slot_cache[structure]
+        sidecar = structure.with_suffix(".structure.json")
+        if not sidecar.is_file():
+            slot_cache[structure] = []
+            return []
+        try:
+            metadata = load_json(sidecar)
+            size, palette, blocks = _minecraft_structure_parts(structure.read_bytes())
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+            _issue(issues, "error", sidecar, "$", f"NPC 위치 검사를 위한 구조물을 읽을 수 없습니다: {error}")
+            slot_cache[structure] = []
+            return []
+        block_names = {
+            tuple(block["pos"]): palette[block["state"]]
+            for block in blocks
+            if isinstance(block, dict)
+            and isinstance(block.get("pos"), list) and len(block["pos"]) == 3
+            and isinstance(block.get("state"), int) and 0 <= block["state"] < len(palette)
+        }
+        result: list[str] = []
+        anchors = metadata.get("anchors", []) if isinstance(metadata, dict) else []
+        for index, anchor in enumerate(anchors if isinstance(anchors, list) else []):
+            if not isinstance(anchor, dict) or anchor.get("type") != "npc_position":
+                continue
+            anchor_path = f"$.anchors[{index}]"
+            label = anchor.get("label", anchor.get("id"))
+            position = anchor.get("position")
+            if not isinstance(label, str) or not DOCUMENT_SLUG.fullmatch(label):
+                _issue(issues, "error", sidecar, f"{anchor_path}.label", "NPC 위치에 올바른 소문자 라벨이 필요합니다.")
+                continue
+            if not (
+                isinstance(position, list) and len(position) == 3
+                and all(isinstance(value, int) and not isinstance(value, bool) for value in position)
+            ):
+                _issue(issues, "error", sidecar, f"{anchor_path}.position", "NPC 위치는 정수 좌표 3개여야 합니다.")
+                continue
+            x, y, z = position
+            if not (0 <= x < size[0] and 1 <= y < size[1] - 1 and 0 <= z < size[2]):
+                _issue(issues, "error", sidecar, f"{anchor_path}.position", "NPC 위치와 머리 공간이 구조물 범위 안에 있어야 합니다.")
+                continue
+            feet = block_names.get((x, y, z), "minecraft:air")
+            head = block_names.get((x, y + 1, z), "minecraft:air")
+            floor = block_names.get((x, y - 1, z), "minecraft:air")
+            if feet not in free_blocks or head not in free_blocks:
+                _issue(issues, "error", sidecar, f"{anchor_path}.position", "NPC 발과 머리 위치에 2블록의 빈 공간이 필요합니다.")
+                continue
+            if floor in free_blocks or floor == "minecraft:structure_void":
+                _issue(issues, "error", sidecar, f"{anchor_path}.position", "NPC 위치 바로 아래에 바닥 블록이 필요합니다.")
+                continue
+            result.append(label)
+        slot_cache[structure] = result
+        return result
+
+    for resource_id, settings in sorted(buildings.items()):
+        if not isinstance(settings, dict) or settings.get("citizen_placement_allowed") is not True:
+            continue
+        entry_path = f"$.buildings.{resource_id}"
+        if settings.get("no_interior_space") is True:
+            _issue(
+                issues, "error", settings_path, f"{entry_path}.citizen_placement_allowed",
+                "내부 공간이 없는 건물은 자동 시민을 받을 수 없습니다.",
+            )
+            continue
+        interiors = settings.get("interiors", [])
+        if not isinstance(interiors, list):
+            continue
+        interior_slots: dict[str, list[str]] = {}
+        for index, interior in enumerate(interiors):
+            if not isinstance(interior, dict):
+                continue
+            key = interior.get("key")
+            structure_id = interior.get("structure")
+            structure = structure_files.get(structure_id) if isinstance(structure_id, str) else None
+            if isinstance(key, str) and structure is not None:
+                interior_slots[key] = valid_slots(structure)
+
+        edges: list[tuple[str, str]] = []
+        routes = settings.get("door_routes", {})
+        for source, target in routes.items() if isinstance(routes, dict) else []:
+            if not isinstance(source, str) or ":" not in source or not isinstance(target, dict):
+                continue
+            source_space = source.split(":", 1)[0]
+            target_space = target.get("space")
+            if isinstance(target_space, str):
+                edges.append((source_space, target_space))
+        reachable = {"exterior"}
+        changed = True
+        while changed:
+            changed = False
+            for left, right in edges:
+                if left in reachable and right not in reachable:
+                    reachable.add(right)
+                    changed = True
+                if right in reachable and left not in reachable:
+                    reachable.add(left)
+                    changed = True
+
+        for index, interior in enumerate(interiors):
+            key = interior.get("key") if isinstance(interior, dict) else None
+            if isinstance(key, str) and interior_slots.get(key) and key not in reachable:
+                _issue(
+                    issues, "warning", settings_path, f"{entry_path}.interiors[{index}]",
+                    "NPC 위치가 있지만 외부 출입문에서 이 내부 공간으로 들어가는 경로가 없습니다.",
+                )
+        capacity = sum(len(interior_slots.get(space, [])) for space in reachable if space != "exterior")
+        if capacity == 0:
+            _issue(
+                issues, "warning", settings_path, f"{entry_path}.citizen_placement_allowed",
+                "자동 시민을 받을 건물에는 외부에서 접근 가능한 내부 npc_position이 하나 이상 필요합니다.",
+            )
+    return issues
+
+
 def save_building_settings(root: Path, data: Any) -> list[Issue]:
     path = root / BUILDING_SETTINGS_PATH
     issues: list[Issue] = []
@@ -9449,6 +9583,7 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             "interiors": [] if no_interior_space else normalized_interiors,
             "door_routes": {} if no_interior_space else normalized_routes,
         }
+    issues.extend(validate_building_npc_positions(root, normalized))
     if any(issue.level == "error" for issue in issues):
         return issues
     document = {"schema_version": 1, "buildings": normalized}
